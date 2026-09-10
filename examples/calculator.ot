@@ -1,0 +1,39 @@
+create window into app
+title of app is "Calculator"
+
+create text into firstLabel
+text of firstLabel is "First number:"
+
+create text box into firstBox
+text of firstBox is "0"
+
+create text into secondLabel
+text of secondLabel is "Second number:"
+
+create text box into secondBox
+text of secondBox is "0"
+
+create text into resultLabel
+text of resultLabel is "Result:"
+
+create button into addButton
+text of addButton is "Add"
+
+put firstLabel in app
+put firstBox in app
+put secondLabel in app
+put secondBox in app
+put resultLabel in app
+put addButton in app
+
+when addButton is clicked
+    try
+        first is text of firstBox
+        second is text of secondBox
+        first and second make sum
+        text of resultLabel is sum
+    otherwise
+        text of resultLabel is "Please enter two numbers"
+.
+
+show app
