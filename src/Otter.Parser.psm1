@@ -279,8 +279,8 @@ function Read-OtterObjectBlock {
 function Read-OtterInlineObjectProperties {
     $properties = [System.Collections.Generic.List[Node]]::new()
     while ($true) {
-        $property = Read-OtterVariableName 'I expected a property name after "has" or a comma.'
-        # Inline has is a comma-delimited configuration list.  `is` is
+        $property = Read-OtterVariableName 'I expected a property name after "has", "with", or a comma.'
+        # Inline has and with are comma-delimited configuration lists.  `is` is
         # optional independently for each property, so compact, explicit,
         # and mixed styles all produce the same assignment nodes.
         if (Test-OtterTokenKind ([TokenKind]::Is)) { [void](Read-OtterToken) }
@@ -329,7 +329,7 @@ function Read-OtterTypeFields {
 
 function Read-OtterObjectTypeName {
     $words = [System.Collections.Generic.List[string]]::new()
-    while (-not (Test-OtterTokenKind ([TokenKind]::Newline))) {
+    while (-not (Test-OtterTokenKind ([TokenKind]::Newline)) -and -not (Test-OtterTokenKind ([TokenKind]::With))) {
         $token = Read-OtterToken
         $words.Add($token.Text)
     }
@@ -1148,11 +1148,10 @@ function Read-OtterStatement {
                 if (Test-OtterTokenKind ([TokenKind]::A)) {
                     [void](Read-OtterToken)
                     $typeName = Read-OtterObjectTypeName
-                    # A declared custom type is instantiated without a body:
-                    # "jeff is a Person". A thing (or a not-yet-declared UI
-                    # type such as "text box") is an object literal and has
-                    # indented property assignments.
-                    if ($typeName -eq 'thing' -or -not $script:KnownTypes.ContainsKey($typeName)) {
+                    if (Test-OtterTokenKind ([TokenKind]::With)) {
+                        [void](Read-OtterToken)
+                        $properties = Read-OtterInlineObjectProperties
+                    } elseif ($typeName -eq 'thing' -or -not $script:KnownTypes.ContainsKey($typeName)) {
                         $properties = if ($typeName -eq 'thing') { Read-OtterObjectBlock } else { Read-OtterBlock }
                     } else {
                         [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the object definition to end here.')

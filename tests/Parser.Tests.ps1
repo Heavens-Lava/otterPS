@@ -518,5 +518,122 @@ if ($serverAst.Statements[5] -isnot [StartServerStmt] -or $serverAst.Statements[
 if ($serverAst.Statements[6] -isnot [ListenServerStmt] -or $serverAst.Statements[6].Port.Value -ne 8080) {
     throw 'Expected ListenServerStmt.'
 }
+# ===============================================================
+# Core 'with' syntax tests (name is a Type with ...)
+# ===============================================================
+
+# 1. Core untyped object ('thing') in compact form
+$withThingAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source 'person is a thing with name "Jeff", age 29')
+if ($withThingAst.Statements[0] -isnot [ObjectDefStmt] -or $withThingAst.Statements[0].TypeName -ne 'thing' -or $withThingAst.Statements[0].Name -ne 'person') {
+    throw 'Expected ObjectDefStmt with type thing and name person.'
+}
+if ($withThingAst.Statements[0].Properties.Count -ne 2) {
+    throw 'Expected 2 properties in with thing.'
+}
+if ($withThingAst.Statements[0].Properties[0].Target.Name -ne 'name' -or $withThingAst.Statements[0].Properties[0].Value.Value -ne 'Jeff') {
+    throw 'Expected name property assignment.'
+}
+if ($withThingAst.Statements[0].Properties[1].Target.Name -ne 'age' -or $withThingAst.Statements[0].Properties[1].Value.Value -ne 29) {
+    throw 'Expected age property assignment.'
+}
+
+# 2. Explicit 'is' form produces identical AST
+$withExplicitIsAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source 'person is a thing with name is "Jeff", age is 29')
+if ($withExplicitIsAst.Statements[0].Properties[0].Target.Name -ne $withThingAst.Statements[0].Properties[0].Target.Name -or
+    $withExplicitIsAst.Statements[0].Properties[0].Value.Value -ne $withThingAst.Statements[0].Properties[0].Value.Value -or
+    $withExplicitIsAst.Statements[0].Properties[1].Target.Name -ne $withThingAst.Statements[0].Properties[1].Target.Name -or
+    $withExplicitIsAst.Statements[0].Properties[1].Value.Value -ne $withThingAst.Statements[0].Properties[1].Value.Value) {
+    throw 'Explicit is form must produce identical AST to compact form.'
+}
+
+# 3. Equivalence between multi-line block and inline with
+$multilineThingAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source @'
+person is a thing
+    name is "Jeff"
+    age is 29
+.
+'@)
+if ($multilineThingAst.Statements[0].Properties.Count -ne $withThingAst.Statements[0].Properties.Count -or
+    $multilineThingAst.Statements[0].Properties[0].Target.Name -ne $withThingAst.Statements[0].Properties[0].Target.Name -or
+    $multilineThingAst.Statements[0].Properties[0].Value.Value -ne $withThingAst.Statements[0].Properties[0].Value.Value) {
+    throw 'Multi-line block and inline with must produce equivalent AST.'
+}
+
+# 4. Custom type with inline with
+$customTypeWithAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source @'
+a Point has
+    x
+    y
+.
+coord is a Point with x 10, y 20
+'@)
+if ($customTypeWithAst.Statements[1] -isnot [ObjectDefStmt] -or $customTypeWithAst.Statements[1].TypeName -ne 'Point' -or $customTypeWithAst.Statements[1].Properties.Count -ne 2) {
+    throw 'Custom type with inline with must produce ObjectDefStmt with properties.'
+}
+
+# 5. Web resource kinds with single and multiple words
+$webKindsAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source @'
+saveBtn is a button with text "Save", width 120
+brandName is a text with text "Jeffrey Macy", size 16, weight 700
+nameInput is a text box with text "hello", width 200
+heroRow is a row with spacing 48, width "100%"
+'@)
+if ($webKindsAst.Statements[0].TypeName -ne 'button' -or $webKindsAst.Statements[0].Properties.Count -ne 2) {
+    throw 'Expected button with 2 properties.'
+}
+if ($webKindsAst.Statements[1].TypeName -ne 'text' -or $webKindsAst.Statements[1].Properties.Count -ne 3) {
+    throw 'Expected text with 3 properties.'
+}
+if ($webKindsAst.Statements[2].TypeName -ne 'text box' -or $webKindsAst.Statements[2].Properties.Count -ne 2) {
+    throw 'Expected text box with 2 properties.'
+}
+if ($webKindsAst.Statements[3].TypeName -ne 'row' -or $webKindsAst.Statements[3].Properties.Count -ne 2) {
+    throw 'Expected row with 2 properties.'
+}
+
+# 6. Interaction with existing replace...with and join...with
+$replaceJoinAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source @'
+replace "cat" with "dog" in sentence
+join items with ", " into result
+item is a thing with name "gadget"
+'@)
+if ($replaceJoinAst.Statements[0] -isnot [ReplaceStmt] -or $replaceJoinAst.Statements[0].Replacement.Value -ne 'dog') {
+    throw 'replace ... with ... must remain intact.'
+}
+if ($replaceJoinAst.Statements[1] -isnot [JoinStmt] -or $replaceJoinAst.Statements[1].Separator.Value -ne ', ') {
+    throw 'join ... with ... must remain intact.'
+}
+if ($replaceJoinAst.Statements[2] -isnot [ObjectDefStmt] -or $replaceJoinAst.Statements[2].Properties[0].Target.Name -ne 'name') {
+    throw 'object with following replace/join must parse correctly.'
+}
+
+# 7. Malformed cases error checking
+# 7a. Missing property after with
+$caughtMissingProp = $false
+try {
+    [void](ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source "item is a thing with`n"))
+} catch {
+    $caughtMissingProp = $true
+}
+if (-not $caughtMissingProp) { throw 'Expected error for missing property after with.' }
+
+# 7b. Trailing comma
+$caughtTrailingComma = $false
+try {
+    [void](ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source "item is a thing with name `"Jeff`",`n"))
+} catch {
+    $caughtTrailingComma = $true
+}
+if (-not $caughtTrailingComma) { throw 'Expected error for trailing comma after property.' }
+
+# 7c. Missing comma between properties
+$caughtMissingComma = $false
+try {
+    [void](ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source "item is a thing with name `"Jeff`" age 29`n"))
+} catch {
+    $caughtMissingComma = $true
+}
+if (-not $caughtMissingComma) { throw 'Expected error for missing comma between properties.' }
 
 Write-Output 'Parser tests passed.'
+
