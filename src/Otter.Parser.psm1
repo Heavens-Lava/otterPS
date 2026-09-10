@@ -262,6 +262,23 @@ function Read-OtterObjectBlock {
     return $body
 }
 
+function Read-OtterInlineObjectProperties {
+    $properties = [System.Collections.Generic.List[Node]]::new()
+    while ($true) {
+        $property = Read-OtterVariableName 'I expected a property name after "has" or a comma.'
+        [void](Assert-OtterTokenKind ([TokenKind]::Is) 'I expected "is" after the property name.')
+        $value = Read-OtterMathExpression
+        $properties.Add([AssignStmt]::new($property.Text, $value, $property.Line))
+        if ((Get-OtterCurrentToken).Text -ne ',') { break }
+        [void](Read-OtterToken)
+        if ((Get-OtterCurrentToken).Kind -eq [TokenKind]::Newline) {
+            throw (New-OtterParserError 'I expected a property after the comma.' (Get-OtterCurrentToken) 'Add another property assignment after the comma.')
+        }
+    }
+    [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the inline properties to end here.')
+    return $properties.ToArray()
+}
+
 function Read-OtterListItems {
     [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the list definition to end here.')
     [void](Assert-OtterTokenKind ([TokenKind]::Indent) 'I expected indented list items.')
@@ -892,7 +909,7 @@ function Read-OtterStatement {
             # branch below.
             if (Test-OtterTokenKind ([TokenKind]::Has)) {
                 [void](Read-OtterToken)
-                $properties = Read-OtterObjectBlock
+                $properties = if (Test-OtterTokenKind ([TokenKind]::Newline)) { Read-OtterObjectBlock } else { Read-OtterInlineObjectProperties }
                 foreach ($property in $properties) {
                     if ($property -isnot [AssignStmt]) {
                         throw (New-OtterParserError 'Only property assignments belong inside an object.' $name 'Write properties such as "name is \"Jeff\"".')
