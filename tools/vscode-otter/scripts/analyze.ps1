@@ -9,6 +9,7 @@ try {
     $variables = [System.Collections.Generic.List[string]]::new()
     $functions = [System.Collections.Generic.List[string]]::new()
     $symbols = [System.Collections.Generic.List[object]]::new()
+    $references = [System.Collections.Generic.List[object]]::new()
     $objectProperties = @{}
     $scopes = [System.Collections.Generic.List[object]]::new()
     $scopeCounter = 0
@@ -25,12 +26,29 @@ try {
             if ($line -gt 0 -and $line -le $sourceLines.Count) { $found = $sourceLines[$line - 1].IndexOf($name); if ($found -ge 0) { $column = $found } }
             $symbols.Add([pscustomobject]@{ Name = $name; Kind = $kind; Line = $line; Column = $column; ScopeId = $scope.Id })
             $scope.Symbols.Add($name)
+            $references.Add([pscustomobject]@{ Name = $name; Line = $line; Column = $column; ScopeId = $scope.Id; IsDeclaration = $true })
         }
+    }
+    function Resolve-SymbolScope([string]$name, [object]$scope) {
+        $current = $scope
+        while ($null -ne $current) {
+            if ($symbols | Where-Object { $_.Name -eq $name -and $_.ScopeId -eq $current.Id }) { return $current.Id }
+            $current = $scopes | Where-Object { $_.Id -eq $current.Parent } | Select-Object -First 1
+        }
+        return -1
     }
     function Visit([object]$node, [object]$scope) {
         if ($null -eq $node) { return }
         if ($node.Line -gt $scope.EndLine) { $scope.EndLine = $node.Line }
         switch ($node.GetType().Name) {
+            'VariableExpr' {
+                $symbolScope = Resolve-SymbolScope $node.Name $scope
+                if ($symbolScope -ge 0) { $lineText = if ($node.Line -le $sourceLines.Count) { $sourceLines[$node.Line - 1] } else { '' }; $column = $lineText.IndexOf($node.Name); if ($column -lt 0) { $column = 0 }; $references.Add([pscustomobject]@{ Name = $node.Name; Line = $node.Line; Column = $column; ScopeId = $symbolScope; IsDeclaration = $false }) }
+            }
+            'CallExpr' {
+                $symbolScope = Resolve-SymbolScope $node.Name $scope
+                if ($symbolScope -ge 0) { $lineText = if ($node.Line -le $sourceLines.Count) { $sourceLines[$node.Line - 1] } else { '' }; $column = $lineText.IndexOf($node.Name); if ($column -lt 0) { $column = 0 }; $references.Add([pscustomobject]@{ Name = $node.Name; Line = $node.Line; Column = $column; ScopeId = $symbolScope; IsDeclaration = $false }) }
+            }
             'AssignStmt' { if ($node.Target.GetType().Name -eq 'VariableExpr') { $variables.Add($node.Target.Name); Add-Symbol $node.Target.Name 'variable' $node.Line $scope }; Visit $node.Value $scope }
             'ListDefStmt' { $variables.Add($node.Name); Add-Symbol $node.Name 'variable' $node.Line $scope; foreach ($item in $node.Items) { Visit $item $scope } }
             'AskStmt' { $variables.Add($node.Name); Add-Symbol $node.Name 'variable' $node.Line $scope; Visit $node.Prompt $scope }
@@ -67,13 +85,13 @@ try {
         }
         foreach ($property in $node.PSObject.Properties) {
             if ($property.Name -in @('Target','Value','Items','Prompt','Body','Properties','Call')) { continue }
-            if ($property.Value -is [System.Array]) { foreach ($child in $property.Value) { if ($null -ne $child -and $child.GetType().Name -like '*Node*') { Visit $child $scope } } }
-            elseif ($null -ne $property.Value -and $property.Value.GetType().Name -like '*Node*') { Visit $property.Value $scope }
+            if ($property.Value -is [System.Array]) { foreach ($child in $property.Value) { if ($null -ne $child -and $null -ne $child.PSObject.Properties['Line']) { Visit $child $scope } } }
+            elseif ($null -ne $property.Value -and $null -ne $property.Value.PSObject.Properties['Line']) { Visit $property.Value $scope }
         }
     }
     foreach ($statement in $ast.Statements) { Visit $statement $rootScope }
     $rootScope.EndLine = [Math]::Max($rootScope.EndLine, $sourceLines.Count)
-    [pscustomobject]@{ Ok = $true; Variables = @($variables | Select-Object -Unique); Functions = @($functions | Select-Object -Unique); Symbols = @($symbols); Scopes = @($scopes); ObjectProperties = $objectProperties } | ConvertTo-Json -Compress -Depth 8
+    [pscustomobject]@{ Ok = $true; Variables = @($variables | Select-Object -Unique); Functions = @($functions | Select-Object -Unique); Symbols = @($symbols); References = @($references); Scopes = @($scopes); ObjectProperties = $objectProperties } | ConvertTo-Json -Compress -Depth 8
 }
 catch {
     $error = $_.Exception

@@ -110,6 +110,18 @@ function activate(context) {
       return new vscode.Location(document.uri, new vscode.Position(Math.max(0, Number(symbol.Line) - 1), Number(symbol.Column) || 0));
     }
   }));
+  context.subscriptions.push(vscode.languages.registerReferenceProvider({ language: 'otter', scheme: 'file' }, {
+    provideReferences(document, position, context) {
+      const range = document.getWordRangeAtPosition(position);
+      if (!range) return [];
+      const word = document.getText(range);
+      const result = analyze(document);
+      const symbol = visibleSymbols(result, position.line).find((entry) => entry.Name === word);
+      if (!symbol) return [];
+      const references = (result.References || []).filter((reference) => reference.Name === word && Number(reference.ScopeId) === Number(symbol.ScopeId) && (context.includeDeclaration || !reference.IsDeclaration));
+      return references.map((reference) => new vscode.Location(document.uri, new vscode.Position(Math.max(0, Number(reference.Line) - 1), Number(reference.Column) || 0)));
+    }
+  }));
 }
 
 function deactivate() {}
