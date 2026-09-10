@@ -160,6 +160,15 @@ enum NodeKind {
     FunctionDef
     CallStatement
     Return
+
+    # runtime library (milestone 7) - rules.md sections 30-31
+    ReadFile
+    WriteFile
+    CopyFile
+    MoveFile
+    DeleteFile
+    FileExists      # an EXPRESSION: if file "x" exists
+    RunProgram      # run "notepad.exe" / run command "git status"
 }
 
 enum MathOp { Add; Subtract; Multiply; Divide }
@@ -458,6 +467,87 @@ class ReturnStmt : Node {
     [Node]$Value
     ReturnStmt([Node]$value, [int]$line) : base([NodeKind]::Return, $line) {
         $this.Value = $value
+    }
+}
+
+
+# ===============================================================
+# RUNTIME LIBRARY (milestone 7)
+# ===============================================================
+#
+# These reach outside the program - the file system and other processes.
+# They are statements like any other; all the platform work lives in
+# src/Otter.Library.psm1 so the grammar stays small (rules.md section 27).
+
+# read "notes.txt" into notes
+class ReadFileStmt : Node {
+    [Node]$Path
+    [string]$Target
+    ReadFileStmt([Node]$path, [string]$target, [int]$line) : base([NodeKind]::ReadFile, $line) {
+        $this.Path = $path
+        $this.Target = $target
+    }
+}
+
+# write "Hello!" to "hello.txt"      (replaces the file's contents)
+class WriteFileStmt : Node {
+    [Node]$Content
+    [Node]$Path
+    WriteFileStmt([Node]$content, [Node]$path, [int]$line) : base([NodeKind]::WriteFile, $line) {
+        $this.Content = $content
+        $this.Path = $path
+    }
+}
+
+# copy "hello.txt" to "backup/hello.txt"
+class CopyFileStmt : Node {
+    [Node]$Source
+    [Node]$Destination
+    CopyFileStmt([Node]$source, [Node]$destination, [int]$line) : base([NodeKind]::CopyFile, $line) {
+        $this.Source = $source
+        $this.Destination = $destination
+    }
+}
+
+# move "hello.txt" to "Documents"
+class MoveFileStmt : Node {
+    [Node]$Source
+    [Node]$Destination
+    MoveFileStmt([Node]$source, [Node]$destination, [int]$line) : base([NodeKind]::MoveFile, $line) {
+        $this.Source = $source
+        $this.Destination = $destination
+    }
+}
+
+# delete file "hello.txt"
+class DeleteFileStmt : Node {
+    [Node]$Path
+    DeleteFileStmt([Node]$path, [int]$line) : base([NodeKind]::DeleteFile, $line) {
+        $this.Path = $path
+    }
+}
+
+# if file "hello.txt" exists       - an EXPRESSION, used inside a condition
+class FileExistsExpr : Node {
+    [Node]$Path
+    FileExistsExpr([Node]$path, [int]$line) : base([NodeKind]::FileExists, $line) {
+        $this.Path = $path
+    }
+}
+
+# run "notepad.exe"                       IsCommand = $false
+# run command "git status"                IsCommand = $true
+# run command "git status" into result    IsCommand = $true, ResultTarget set
+#
+# ResultTarget is $null when the program's output is not captured.
+class RunStmt : Node {
+    [Node]$Target
+    [bool]$IsCommand
+    [string]$ResultTarget
+    RunStmt([Node]$target, [bool]$isCommand, [string]$resultTarget, [int]$line) : base([NodeKind]::RunProgram, $line) {
+        $this.Target = $target
+        $this.IsCommand = $isCommand
+        $this.ResultTarget = $resultTarget
     }
 }
 

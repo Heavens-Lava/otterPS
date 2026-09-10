@@ -1,0 +1,18 @@
+# files.ot - Otter reaching outside the program
+#
+# NOTE: needs the parser support for milestone 7 before this runs.
+
+write "Otter was here." to "otter-note.txt"
+
+if file "otter-note.txt" exists
+    say "The file exists."
+
+read "otter-note.txt" into notes
+
+say notes
+
+copy "otter-note.txt" to "backup/otter-note.txt"
+
+delete file "otter-note.txt"
+
+say "Cleaned up."

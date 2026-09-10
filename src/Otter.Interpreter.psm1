@@ -1,5 +1,6 @@
 using module ..\Otter.Contract.psm1
 using module .\Otter.Runtime.psm1
+using module .\Otter.Library.psm1
 
 # Otter.Interpreter.psm1
 #
@@ -277,6 +278,66 @@ function Invoke-OtterStatement {
             throw [OtterReturnSignal]::new($value)
         }
 
+        # --- runtime library (milestone 7) ----------------------
+        #
+        # Each of these is one readable Otter line on the outside and a pile
+        # of platform detail on the inside, all of which lives in
+        # src/Otter.Library.psm1 rather than here.
+
+        # read "notes.txt" into notes
+        'ReadFile' {
+            $path = Get-OtterText -Expression $Statement.Path -Environment $Environment
+            $Environment.Set($Statement.Target, (Read-OtterFile -Path $path -Line $Statement.Line))
+            return
+        }
+
+        # write "Hello!" to "hello.txt"
+        'WriteFile' {
+            $content = Get-OtterText -Expression $Statement.Content -Environment $Environment
+            $path = Get-OtterText -Expression $Statement.Path -Environment $Environment
+            Write-OtterFile -Path $path -Content $content -Line $Statement.Line
+            return
+        }
+
+        # copy "hello.txt" to "backup/hello.txt"
+        'CopyFile' {
+            $source = Get-OtterText -Expression $Statement.Source -Environment $Environment
+            $destination = Get-OtterText -Expression $Statement.Destination -Environment $Environment
+            Copy-OtterFile -Source $source -Destination $destination -Line $Statement.Line
+            return
+        }
+
+        # move "hello.txt" to "Documents"
+        'MoveFile' {
+            $source = Get-OtterText -Expression $Statement.Source -Environment $Environment
+            $destination = Get-OtterText -Expression $Statement.Destination -Environment $Environment
+            Move-OtterFile -Source $source -Destination $destination -Line $Statement.Line
+            return
+        }
+
+        # delete file "hello.txt"
+        'DeleteFile' {
+            $path = Get-OtterText -Expression $Statement.Path -Environment $Environment
+            Remove-OtterFile -Path $path -Line $Statement.Line
+            return
+        }
+
+        # run "notepad.exe"  /  run command "git status" into result
+        'RunProgram' {
+            $target = Get-OtterText -Expression $Statement.Target -Environment $Environment
+
+            if (-not $Statement.IsCommand) {
+                Start-OtterProgram -Target $target -Line $Statement.Line
+                return
+            }
+
+            $output = Invoke-OtterCommand -CommandLine $target -Line $Statement.Line
+            if ($Statement.ResultTarget) {
+                $Environment.Set($Statement.ResultTarget, $output)
+            }
+            return
+        }
+
         default {
             throw (New-OtterRuntimeError `
                 -Message "I do not know how to run a $($Statement.Kind) statement yet." `
@@ -480,6 +541,12 @@ function Get-OtterValue {
                 -Line $Expression.Line)
         }
 
+        # if file "hello.txt" exists
+        'FileExists' {
+            $path = Get-OtterText -Expression $Expression.Path -Environment $Environment
+            return (Test-OtterFileExists -Path $path -Line $Expression.Line)
+        }
+
         default {
             throw (New-OtterRuntimeError `
                 -Message "I do not know how to work out a $($Expression.Kind) value yet." `
@@ -565,6 +632,17 @@ function Invoke-OtterCall {
 # HELPERS
 # ===============================================================
 
+# File names and commands are text. Evaluating them through Format-OtterValue
+# means a path can be built from variables and still arrive as a plain string:
+#
+#     name is "notes"
+#     read name into contents      <- would read the file named "notes"
+function Get-OtterText {
+    param([Node]$Expression, [OtterEnvironment]$Environment)
+    $value = Get-OtterValue -Expression $Expression -Environment $Environment
+    return (Format-OtterValue -Value $value)
+}
+
 # Type names as a beginner would say them, for error messages.
 function Get-OtterTypeName {
     param([object]$Value)
@@ -586,4 +664,4 @@ function New-OtterEnvironment {
 Export-ModuleMember -Function `
     Invoke-OtterProgram, Invoke-OtterStatements, Invoke-OtterStatement, `
     Get-OtterValue, Invoke-OtterCall, New-OtterEnvironment, Get-OtterTypeName, `
-    Set-OtterOutputWriter, Write-OtterLine
+    Set-OtterOutputWriter, Write-OtterLine, Get-OtterText
