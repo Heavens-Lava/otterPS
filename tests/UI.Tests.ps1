@@ -60,6 +60,99 @@ function Invoke-WithOtterWriter {
 Write-Host ''
 Write-Host 'External UI resources (D44)' -ForegroundColor Cyan
 
+Test-Otter 'row and column are real provider-backed layout resources' {
+    $env = New-OtterEnvironment
+    Invoke-OtterStatements -Environment $env -Statements @(
+        [CreateUiResourceStmt]::new('row', 'toolbar', 1),
+        [CreateUiResourceStmt]::new('column', 'sidebar', 2)
+    )
+    $row = $env.Get('toolbar'); $column = $env.Get('sidebar')
+    Assert-True (Test-OtterUiResource $row) 'row must be a UI resource'
+    Assert-True (Test-OtterUiResource $column) 'column must be a UI resource'
+    Assert-AreEqual -Expected 'StackPanel' -Actual $row.Native.GetType().Name
+    Assert-AreEqual -Expected 'Horizontal' -Actual $row.Native.Orientation.ToString()
+    Assert-AreEqual -Expected 'Vertical' -Actual $column.Native.Orientation.ToString()
+}
+
+Test-Otter 'rows and columns accept ordered and nested children' {
+    $env = New-OtterEnvironment
+    Invoke-OtterStatements -Environment $env -Statements @(
+        [CreateUiResourceStmt]::new('window', 'app', 1),
+        [CreateUiResourceStmt]::new('row', 'toolbar', 2),
+        [CreateUiResourceStmt]::new('column', 'panel', 3),
+        [CreateUiResourceStmt]::new('text', 'first', 4),
+        [CreateUiResourceStmt]::new('button', 'second', 5),
+        [PutInStmt]::new([VariableExpr]::new('first', 6), [VariableExpr]::new('toolbar', 6), 6),
+        [PutInStmt]::new([VariableExpr]::new('second', 7), [VariableExpr]::new('toolbar', 7), 7),
+        [PutInStmt]::new([VariableExpr]::new('toolbar', 8), [VariableExpr]::new('panel', 8), 8),
+        [PutInStmt]::new([VariableExpr]::new('panel', 9), [VariableExpr]::new('app', 9), 9)
+    )
+    $row = $env.Get('toolbar'); $panel = $env.Get('panel'); $app = $env.Get('app')
+    Assert-AreEqual -Expected 2 -Actual $row.Native.Children.Count
+    Assert-True ([object]::ReferenceEquals($row.Native.Children[0], $env.Get('first').Native)) 'row order must be preserved'
+    Assert-True ([object]::ReferenceEquals($row.Native.Children[1], $env.Get('second').Native)) 'row order must be preserved'
+    Assert-True ([object]::ReferenceEquals($panel.Native.Children[0], $row.Native)) 'row must nest in column'
+    Assert-True ([object]::ReferenceEquals($app.Native.Content.Children[0], $panel.Native)) 'column must nest in window'
+}
+
+Test-Otter 'a column can nest in a row and empty layout resources are valid' {
+    $env = New-OtterEnvironment
+    Invoke-OtterStatements -Environment $env -Statements @(
+        [CreateUiResourceStmt]::new('row', 'row', 1),
+        [CreateUiResourceStmt]::new('column', 'column', 2),
+        [PutInStmt]::new([VariableExpr]::new('column', 3), [VariableExpr]::new('row', 3), 3)
+    )
+    Assert-AreEqual -Expected 1 -Actual $env.Get('row').Native.Children.Count
+    Assert-AreEqual -Expected 0 -Actual $env.Get('column').Native.Children.Count
+}
+
+Test-Otter 'row and column spacing works before and after children' {
+    $env = New-OtterEnvironment
+    Invoke-OtterStatements -Environment $env -Statements @(
+        [CreateUiResourceStmt]::new('row', 'row', 1),
+        [ObjectDefStmt]::new('row', 'thing', @([AssignStmt]::new('spacing', (Lit 10), 2)), 2),
+        [CreateUiResourceStmt]::new('text', 'one', 3),
+        [PutInStmt]::new([VariableExpr]::new('one', 4), [VariableExpr]::new('row', 4), 4),
+        [ObjectDefStmt]::new('row', 'thing', @([AssignStmt]::new('spacing', (Lit 20), 5)), 5),
+        [CreateUiResourceStmt]::new('text', 'two', 6),
+        [PutInStmt]::new([VariableExpr]::new('two', 7), [VariableExpr]::new('row', 7), 7)
+    )
+    $row = $env.Get('row')
+    Assert-AreEqual -Expected 20 -Actual (Get-OtterUiProperty -Resource $row -Property 'spacing' -Line 8)
+    Assert-AreEqual -Expected 20 -Actual $row.Native.Children[0].Margin.Right
+    Assert-AreEqual -Expected 20 -Actual $row.Native.Children[1].Margin.Right
+}
+
+Test-Otter 'layout resources support width and height' {
+    $env = New-OtterEnvironment
+    Invoke-OtterStatements -Environment $env -Statements @(
+        [CreateUiResourceStmt]::new('column', 'panel', 1),
+        [ObjectDefStmt]::new('panel', 'thing', @(
+            [AssignStmt]::new('width', (Lit 300), 2),
+            [AssignStmt]::new('height', (Lit 200), 2)
+        ), 2)
+    )
+    Assert-AreEqual -Expected 300 -Actual $env.Get('panel').Native.Width
+    Assert-AreEqual -Expected 200 -Actual $env.Get('panel').Native.Height
+}
+
+Test-Otter 'layout resources reject duplicate parenting and show' {
+    Assert-OtterFails -Containing 'one place at a time' -Body {
+        Invoke-TestProgram @(
+            [CreateUiResourceStmt]::new('window', 'app', 1),
+            [CreateUiResourceStmt]::new('row', 'row', 2),
+            [PutInStmt]::new([VariableExpr]::new('row', 3), [VariableExpr]::new('app', 3), 3),
+            [PutInStmt]::new([VariableExpr]::new('row', 4), [VariableExpr]::new('app', 4), 4)
+        )
+    }
+    Assert-OtterFails -Containing 'only show a window' -Body {
+        Invoke-TestProgram @([CreateUiResourceStmt]::new('row', 'row', 1), [ShowStmt]::new([VariableExpr]::new('row', 2), 2))
+    }
+    Assert-OtterFails -Containing 'only show a window' -Body {
+        Invoke-TestProgram @([CreateUiResourceStmt]::new('column', 'column', 1), [ShowStmt]::new([VariableExpr]::new('column', 2), 2))
+    }
+}
+
 
 # =================================================================
 # lifecycle - the central claim, verified directly

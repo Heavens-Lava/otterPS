@@ -69,6 +69,12 @@ function Test-OtterUiResource {
 # ===============================================================
 
 $script:OtterWpfLoaded = $false
+$script:OtterUiSpacing = @{}
+
+function Get-OtterUiSpacingKey {
+    param([OtterUiResource]$Resource)
+    return [System.Runtime.CompilerServices.RuntimeHelpers]::GetHashCode($Resource.Native).ToString()
+}
 
 function Initialize-OtterWpfProvider {
     if ($script:OtterWpfLoaded) { return }
@@ -93,6 +99,8 @@ $script:OtterWpfKinds = @{
     'button'   = { [System.Windows.Controls.Button]::new() }
     'text'     = { [System.Windows.Controls.TextBlock]::new() }
     'text box' = { [System.Windows.Controls.TextBox]::new() }
+    'row'      = { $panel = [System.Windows.Controls.StackPanel]::new(); $panel.Orientation = [System.Windows.Controls.Orientation]::Horizontal; $panel }
+    'column'   = { $panel = [System.Windows.Controls.StackPanel]::new(); $panel.Orientation = [System.Windows.Controls.Orientation]::Vertical; $panel }
 }
 
 # create <kind> into <name>
@@ -182,6 +190,18 @@ $script:OtterUiProperties = @{
         'height'     = @{ Native = 'Height'; Type = 'number' }
         'background' = @{ Native = 'Background'; Type = 'color' }
         'foreground' = @{ Native = 'Foreground'; Type = 'color' }
+        'spacing'    = @{ Type = 'spacing' }
+    }
+    'row' = @{
+        'width'      = @{ Native = 'Width'; Type = 'number' }
+        'height'     = @{ Native = 'Height'; Type = 'number' }
+        'background' = @{ Native = 'Background'; Type = 'color' }
+        'spacing'    = @{ Type = 'spacing' }
+    }
+    'column' = @{
+        'width'      = @{ Native = 'Width'; Type = 'number' }
+        'height'     = @{ Native = 'Height'; Type = 'number' }
+        'background' = @{ Native = 'Background'; Type = 'color' }
         'spacing'    = @{ Type = 'spacing' }
     }
 }
@@ -416,23 +436,27 @@ function Add-OtterUiEventHandler {
 # also needs to read/create it - factored out so there is exactly one
 # place that ever creates it.
 function Get-OtterUiContainerPanel {
-    param([OtterUiResource]$Window)
+    param([OtterUiResource]$Container)
 
-    if ($null -eq $Window.Native.Content) {
-        $Window.Native.Content = [System.Windows.Controls.StackPanel]::new()
+    if ($Container.Kind -eq 'window') {
+        if ($null -eq $Container.Native.Content) {
+            $Container.Native.Content = [System.Windows.Controls.StackPanel]::new()
+        }
+        return $Container.Native.Content
     }
-    return $Window.Native.Content
+
+    return $Container.Native
 }
 
 function Add-OtterUiChild {
     param([OtterUiResource]$Container, [OtterUiResource]$Item, [int]$Line)
 
-    if ($Container.Kind -ne 'window') {
+    if ($Container.Kind -notin @('window', 'row', 'column')) {
         throw [OtterError]::new(
-            "I can only put things in a window right now, not a $($Container.Kind).", $Line, 'runtime')
+            "I can only put things in a window, row, or column, not a $($Container.Kind).", $Line, 'runtime')
     }
 
-    $panel = Get-OtterUiContainerPanel -Window $Container
+    $panel = Get-OtterUiContainerPanel -Container $Container
 
     try {
         [void]$panel.Children.Add($Item.Native)
@@ -449,8 +473,14 @@ function Add-OtterUiChild {
     # explicitly here. The spacing value itself lives on the panel's own
     # Tag - entirely inside this file, so tracking it needed no
     # OtterUiResource contract change at all.
-    if ($panel.Tag -is [double]) {
-        $Item.Native.Margin = [System.Windows.Thickness]::new(0, 0, 0, $panel.Tag)
+    $spacingKey = Get-OtterUiSpacingKey -Resource $Container
+    if ($script:OtterUiSpacing.ContainsKey($spacingKey)) {
+        $spacing = [double]$script:OtterUiSpacing[$spacingKey]
+        if ($panel.Orientation -eq [System.Windows.Controls.Orientation]::Horizontal) {
+            $Item.Native.Margin = [System.Windows.Thickness]::new(0, 0, $spacing, 0)
+        } else {
+            $Item.Native.Margin = [System.Windows.Thickness]::new(0, 0, 0, $spacing)
+        }
     }
 }
 
@@ -470,10 +500,14 @@ function Set-OtterUiSpacing {
 
     $number = Assert-OtterUiNumber -Value $Value -Property 'spacing' -Kind $Window.Kind -Line $Line
 
-    $panel = Get-OtterUiContainerPanel -Window $Window
-    $panel.Tag = $number
+    $panel = Get-OtterUiContainerPanel -Container $Window
+    $script:OtterUiSpacing[(Get-OtterUiSpacingKey -Resource $Window)] = $number
     foreach ($child in $panel.Children) {
-        $child.Margin = [System.Windows.Thickness]::new(0, 0, 0, $number)
+        if ($panel.Orientation -eq [System.Windows.Controls.Orientation]::Horizontal) {
+            $child.Margin = [System.Windows.Thickness]::new(0, 0, $number, 0)
+        } else {
+            $child.Margin = [System.Windows.Thickness]::new(0, 0, 0, $number)
+        }
     }
 }
 
@@ -483,9 +517,9 @@ function Get-OtterUiSpacing {
     # No put has happened yet, so there is no panel and nothing has ever
     # been set - gone (D22), not 0, matching the unset-text-property
     # precedent rather than inventing a UI-specific default.
-    $panel = $Window.Native.Content
-    if ($null -eq $panel -or -not ($panel.Tag -is [double])) { return $null }
-    return $panel.Tag
+    $spacingKey = Get-OtterUiSpacingKey -Resource $Window
+    if (-not $script:OtterUiSpacing.ContainsKey($spacingKey)) { return $null }
+    return $script:OtterUiSpacing[$spacingKey]
 }
 
 # show app

@@ -10,10 +10,15 @@ folderBox has width 500
 create button into loadButton
 loadButton has text "Load Files", width 120, background "#2563EB", foreground "white"
 
+create row into toolbar
+toolbar has spacing 10
+
+put folderBox, loadButton in toolbar
+
 create text into resultText
 resultText has text "Enter a folder path.", foreground "white"
 
-put heading, folderBox, loadButton, resultText in app
+put heading, toolbar, resultText in app
 
 when loadButton is clicked
     try
