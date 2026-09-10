@@ -40,4 +40,33 @@ $startsTokens = ConvertTo-OtterTokens -Source 'if name starts with "J"'
 if ($startsTokens[2].Kind -ne [TokenKind]::StartsWith) { throw 'Starts with must be one token.' }
 $endsTokens = ConvertTo-OtterTokens -Source 'if name ends with "Macy"'
 if ($endsTokens[2].Kind -ne [TokenKind]::EndsWith) { throw 'Ends with must be one token.' }
+
+# D49 HTTP tests
+$postTokens = ConvertTo-OtterTokens -Source 'post user to "https://example.com" into response'
+if ((@($postTokens | ForEach-Object Kind) -join ',') -ne 'Post,Identifier,To,String,Into,Identifier,Newline,EndOfFile') {
+    throw 'Post at statement head must emit TokenKind::Post.'
+}
+$postIdentTokens = ConvertTo-OtterTokens -Source 'say post'
+if ($postIdentTokens[1].Kind -ne [TokenKind]::Identifier) {
+    throw 'Post outside statement head must remain an ordinary identifier.'
+}
+$getJsonTokens = ConvertTo-OtterTokens -Source 'get json from "https://example.com" into data'
+if ((@($getJsonTokens | ForEach-Object Kind) -join ',') -ne 'Get,Json,From,String,Into,Identifier,Newline,EndOfFile') {
+    throw 'Json after get must emit TokenKind::Json.'
+}
+
+# D51 Web Server tests
+$routeTokens = ConvertTo-OtterTokens -Source 'when api receives GET at "/users"'
+if ((@($routeTokens | ForEach-Object Kind) -join ',') -ne 'When,Identifier,Receives,Identifier,At,String,Newline,EndOfFile') {
+    throw 'Expected when/receives/at route tokens.'
+}
+$respondTokens = ConvertTo-OtterTokens -Source 'respond with "hello" as json and status 200'
+if ((@($respondTokens | ForEach-Object Kind) -join ',') -ne 'Respond,With,String,As,Json,And,Identifier,Number,Newline,EndOfFile') {
+    throw 'Expected respond with tokens.'
+}
+$startTokens = ConvertTo-OtterTokens -Source 'start api'
+if ($startTokens[0].Kind -ne [TokenKind]::Start) { throw 'Start at statement head must emit TokenKind::Start.' }
+$listenTokens = ConvertTo-OtterTokens -Source 'listen on port 8080'
+if ($listenTokens[0].Kind -ne [TokenKind]::Listen) { throw 'Listen at statement head must emit TokenKind::Listen.' }
+
 Write-Output 'Lexer tests passed.'

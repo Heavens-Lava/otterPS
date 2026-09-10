@@ -398,4 +398,125 @@ try {
     throw 'An empty if block must remain invalid.'
 }
 catch [OtterError] { }
+
+# D49 HTTP requests & web data tests
+$httpSource = @"
+get "https://api.example.com/status" into statusText
+get json from "https://api.example.com/users" into users
+get "https://api.example.com/items" as json into items
+post user to "https://api.example.com/users"
+post user to "https://api.example.com/users" into createdUser
+post user as json to "https://api.example.com/users" into createdJson
+put user to "https://api.example.com/users/5" into updatedUser
+delete from "https://api.example.com/users/5" into deleteResult
+put helloButton in app
+get "Jeff" from scores into score
+delete file "notes.txt"
+"@
+$httpAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $httpSource)
+if ($httpAst.Statements[0] -isnot [HttpGetStmt] -or $httpAst.Statements[0].AsJson -ne $false -or $httpAst.Statements[0].Target -ne 'statusText') {
+    throw 'get <url> into <target> must parse as HttpGetStmt with AsJson false.'
+}
+if ($httpAst.Statements[1] -isnot [HttpGetStmt] -or $httpAst.Statements[1].AsJson -ne $true -or $httpAst.Statements[1].Target -ne 'users') {
+    throw 'get json from <url> into <target> must parse as HttpGetStmt with AsJson true.'
+}
+if ($httpAst.Statements[2] -isnot [HttpGetStmt] -or $httpAst.Statements[2].AsJson -ne $true -or $httpAst.Statements[2].Target -ne 'items') {
+    throw 'get <url> as json into <target> must parse as HttpGetStmt with AsJson true.'
+}
+if ($httpAst.Statements[3] -isnot [HttpPostStmt] -or (-not [string]::IsNullOrEmpty($httpAst.Statements[3].Target))) {
+    throw 'post <data> to <url> must parse as HttpPostStmt with empty target.'
+}
+if ($httpAst.Statements[4] -isnot [HttpPostStmt] -or $httpAst.Statements[4].Target -ne 'createdUser') {
+    throw 'post <data> to <url> into <target> must parse as HttpPostStmt.'
+}
+if ($httpAst.Statements[5] -isnot [HttpPostStmt] -or $httpAst.Statements[5].AsJson -ne $true) {
+    throw 'post <data> as json to <url> into <target> must parse as HttpPostStmt with AsJson true.'
+}
+if ($httpAst.Statements[6] -isnot [HttpPutStmt] -or $httpAst.Statements[6].Target -ne 'updatedUser') {
+    throw 'put <data> to <url> into <target> must parse as HttpPutStmt.'
+}
+if ($httpAst.Statements[7] -isnot [HttpDeleteStmt] -or $httpAst.Statements[7].Target -ne 'deleteResult') {
+    throw 'delete from <url> into <target> must parse as HttpDeleteStmt.'
+}
+if ($httpAst.Statements[8] -isnot [PutInStmt]) {
+    throw 'put <resource> in <container> must remain PutInStmt.'
+}
+if ($httpAst.Statements[9] -isnot [GetKeyStmt]) {
+    throw 'get <key> from <thing> into <result> must remain GetKeyStmt.'
+}
+if ($httpAst.Statements[10] -isnot [DeleteFileStmt]) {
+    throw 'delete file <path> must remain DeleteFileStmt.'
+}
+
+# HTTP soft continuation test
+$contHttpSource = "get `"https://api.example.com/status`"`n    into statusText`n"
+$contHttpAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $contHttpSource)
+if ($contHttpAst.Statements[0] -isnot [HttpGetStmt] -or $contHttpAst.Statements[0].Target -ne 'statusText') {
+    throw 'get with multiline continuation into must parse correctly.'
+}
+
+# D51 Web Server & API route tests
+$webServerSource = @'
+api is a web server
+    port is 5000
+    host is "localhost"
+.
+
+when api receives GET at "/users"
+    respond with users as json
+.
+
+when api receives POST at "/users" into req
+    respond with user as json and status 201
+.
+
+when server receives a request at "/hello"
+    respond with "Hello from Otter!"
+.
+
+when api receives GET at "/health"
+    respond with status 200
+.
+
+start api
+listen on port 8080
+'@
+
+$serverAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $webServerSource)
+
+# 1. Object definition
+if ($serverAst.Statements[0] -isnot [ObjectDefStmt] -or $serverAst.Statements[0].TypeName -ne 'web server') {
+    throw 'Expected web server object definition.'
+}
+# 2. GET route
+if ($serverAst.Statements[1] -isnot [WebRouteStmt] -or $serverAst.Statements[1].Method -ne 'GET' -or $serverAst.Statements[1].Path.Value -ne '/users') {
+    throw 'Expected GET WebRouteStmt.'
+}
+if ($serverAst.Statements[1].Body[0] -isnot [RespondStmt] -or $serverAst.Statements[1].Body[0].AsJson -ne $true) {
+    throw 'Expected RespondStmt with AsJson in GET route.'
+}
+# 3. POST route with into req
+if ($serverAst.Statements[2] -isnot [WebRouteStmt] -or $serverAst.Statements[2].Method -ne 'POST' -or $serverAst.Statements[2].RequestTarget -ne 'req') {
+    throw 'Expected POST WebRouteStmt with RequestTarget.'
+}
+if ($serverAst.Statements[2].Body[0] -isnot [RespondStmt] -or $serverAst.Statements[2].Body[0].Status.Value -ne 201) {
+    throw 'Expected RespondStmt with status 201.'
+}
+# 4. "a request" open route
+if ($serverAst.Statements[3] -isnot [WebRouteStmt] -or $serverAst.Statements[3].Method -ne 'ALL' -or $serverAst.Statements[3].Path.Value -ne '/hello') {
+    throw 'Expected ALL WebRouteStmt from "a request".'
+}
+# 5. Status-only response
+if ($serverAst.Statements[4].Body[0] -isnot [RespondStmt] -or $null -ne $serverAst.Statements[4].Body[0].Value -or $serverAst.Statements[4].Body[0].Status.Value -ne 200) {
+    throw 'Expected status-only RespondStmt.'
+}
+# 6. Start server
+if ($serverAst.Statements[5] -isnot [StartServerStmt] -or $serverAst.Statements[5].Server.Name -ne 'api') {
+    throw 'Expected StartServerStmt.'
+}
+# 7. Listen server
+if ($serverAst.Statements[6] -isnot [ListenServerStmt] -or $serverAst.Statements[6].Port.Value -ne 8080) {
+    throw 'Expected ListenServerStmt.'
+}
+
 Write-Output 'Parser tests passed.'

@@ -468,6 +468,37 @@ function Read-OtterStatement {
             }
             $targetToken = Read-OtterVariableName 'I expected a resource name after "when".'
             $target = [VariableExpr]::new($targetToken.Text, $targetToken.Line)
+
+            # D51: Web API route definition: when <server> receives <method> at <path> [into <request>]
+            if (Test-OtterTokenKind ([TokenKind]::Receives)) {
+                [void](Read-OtterToken)
+                $method = 'GET'
+                $cur = Get-OtterCurrentToken
+                if ($cur.Kind -eq [TokenKind]::A) {
+                    [void](Read-OtterToken)
+                    $reqTok = Read-OtterToken
+                    if ($reqTok.Text -ne 'request') {
+                        throw (New-OtterParserError 'I expected "request" after "a".' $reqTok 'Write `when server receives a request at "/path"`.')
+                    }
+                    $method = 'ALL'
+                } elseif ($cur.Kind -ne [TokenKind]::At -and $cur.Text -ne 'at') {
+                    $methodToken = Read-OtterToken
+                    $method = $methodToken.Text.ToUpperInvariant()
+                }
+
+                if (-not (Test-OtterTokenKind ([TokenKind]::At)) -and (Get-OtterCurrentToken).Text -ne 'at') {
+                    throw (New-OtterParserError 'I expected "at" and a route path.' (Get-OtterCurrentToken) 'Write `at "/path"` after the method.')
+                }
+                [void](Read-OtterToken)
+                $path = Read-OtterValue
+                $requestTarget = $null
+                if (Test-OtterTokenKind ([TokenKind]::Into)) {
+                    [void](Read-OtterToken)
+                    $requestTarget = (Read-OtterVariableName 'I expected a variable name after "into".').Text
+                }
+                return [WebRouteStmt]::new($target, $method, $path, $requestTarget, (Read-OtterBlock), $start.Line)
+            }
+
             [void](Assert-OtterTokenKind ([TokenKind]::Is) 'I expected "is" before the event name.')
             $eventToken = Get-OtterCurrentToken
             if ($eventToken.Kind -in @([TokenKind]::Newline, [TokenKind]::EndOfFile)) {
@@ -476,12 +507,123 @@ function Read-OtterStatement {
             [void](Read-OtterToken)
             return [WhenStmt]::new($target, $eventToken.Text, (Read-OtterBlock), $start.Line)
         }
+        ([TokenKind]::Respond) {
+            [void](Read-OtterToken)
+            [void](Assert-OtterTokenKind ([TokenKind]::With) 'I expected "with" after "respond".')
+            $value = $null
+            $status = $null
+            $asJson = $false
+
+            $cur = Get-OtterCurrentToken
+            if ($cur.Text -eq 'status') {
+                [void](Read-OtterToken)
+                $status = Read-OtterMathExpression
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the respond statement to end here.')
+                return [RespondStmt]::new($null, $status, $false, $start.Line)
+            }
+
+            $value = Read-OtterMathExpression
+
+            if (Test-OtterTokenKind ([TokenKind]::As)) {
+                [void](Read-OtterToken)
+                [void](Assert-OtterTokenKind ([TokenKind]::Json) 'I expected "json" after "as".')
+                $asJson = $true
+            }
+
+            if (Test-OtterTokenKind ([TokenKind]::And) -or Test-OtterTokenKind ([TokenKind]::With)) {
+                $statusNext = if (($script:Position + 1) -lt $script:Tokens.Count) { $script:Tokens[$script:Position + 1] } else { $null }
+                if ($null -ne $statusNext -and $statusNext.Text -eq 'status') {
+                    [void](Read-OtterToken)
+                    [void](Read-OtterToken)
+                    $status = Read-OtterMathExpression
+                }
+            }
+
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the respond statement to end here.')
+            return [RespondStmt]::new($value, $status, $asJson, $start.Line)
+        }
+        ([TokenKind]::Start) {
+            [void](Read-OtterToken)
+            Read-OtterOptionalTheBeforeName
+            $targetToken = Read-OtterVariableName 'I expected a server name after "start".'
+            $target = [VariableExpr]::new($targetToken.Text, $targetToken.Line)
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the start statement to end here.')
+            return [StartServerStmt]::new($target, $start.Line)
+        }
+        ([TokenKind]::Listen) {
+            [void](Read-OtterToken)
+            if ((Get-OtterCurrentToken).Text -eq 'on') {
+                [void](Read-OtterToken)
+            }
+            if ((Get-OtterCurrentToken).Text -eq 'port') {
+                [void](Read-OtterToken)
+                $port = Read-OtterMathExpression
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the listen statement to end here.')
+                return [ListenServerStmt]::new($port, $start.Line)
+            }
+            $targetToken = Read-OtterVariableName 'I expected "on port <number>" or a server name after "listen".'
+            $target = [VariableExpr]::new($targetToken.Text, $targetToken.Line)
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the listen statement to end here.')
+            return [StartServerStmt]::new($target, $start.Line)
+        }
+        ([TokenKind]::Post) {
+            [void](Read-OtterToken)
+            $data = Read-OtterValue
+            $asJson = $false
+            if (Test-OtterTokenKind ([TokenKind]::As)) {
+                [void](Read-OtterToken)
+                [void](Assert-OtterTokenKind ([TokenKind]::Json) 'I expected "json" after "as".')
+                $asJson = $true
+            }
+            [void](Assert-OtterTokenKind ([TokenKind]::To) 'I expected "to" and a URL after post data.')
+            $url = Read-OtterValue
+            $target = $null
+            $continued = Test-OtterSoftContinuation
+            if (Test-OtterTokenKind ([TokenKind]::Into)) {
+                [void](Read-OtterToken)
+                $targetToken = Read-OtterVariableName 'I expected a result name after "into".'
+                $target = $targetToken.Text
+            }
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the post statement to end here.')
+            if ($continued) { [void](Assert-OtterTokenKind ([TokenKind]::Dedent) 'I expected the continued post clause to end.') }
+            return [HttpPostStmt]::new($data, $url, $target, $asJson, $start.Line)
+        }
         ([TokenKind]::Put) {
             [void](Read-OtterToken)
             $items = [System.Collections.Generic.List[Node]]::new()
             Read-OtterOptionalTheBeforeName
-            $itemToken = Read-OtterVariableName 'I expected a resource name after "put".'
-            $items.Add([VariableExpr]::new($itemToken.Text, $itemToken.Line))
+            $firstItem = Read-OtterValue
+            if (Test-OtterTokenKind ([TokenKind]::As)) {
+                [void](Read-OtterToken)
+                [void](Assert-OtterTokenKind ([TokenKind]::Json) 'I expected "json" after "as".')
+                [void](Assert-OtterTokenKind ([TokenKind]::To) 'I expected "to" and a URL after put data.')
+                $url = Read-OtterValue
+                $target = $null
+                $continued = Test-OtterSoftContinuation
+                if (Test-OtterTokenKind ([TokenKind]::Into)) {
+                    [void](Read-OtterToken)
+                    $targetToken = Read-OtterVariableName 'I expected a result name after "into".'
+                    $target = $targetToken.Text
+                }
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the put statement to end here.')
+                if ($continued) { [void](Assert-OtterTokenKind ([TokenKind]::Dedent) 'I expected the continued put clause to end.') }
+                return [HttpPutStmt]::new($firstItem, $url, $target, $true, $start.Line)
+            }
+            if (Test-OtterTokenKind ([TokenKind]::To)) {
+                [void](Read-OtterToken)
+                $url = Read-OtterValue
+                $target = $null
+                $continued = Test-OtterSoftContinuation
+                if (Test-OtterTokenKind ([TokenKind]::Into)) {
+                    [void](Read-OtterToken)
+                    $targetToken = Read-OtterVariableName 'I expected a result name after "into".'
+                    $target = $targetToken.Text
+                }
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the put statement to end here.')
+                if ($continued) { [void](Assert-OtterTokenKind ([TokenKind]::Dedent) 'I expected the continued put clause to end.') }
+                return [HttpPutStmt]::new($firstItem, $url, $target, $false, $start.Line)
+            }
+            $items.Add($firstItem)
             while ((Get-OtterCurrentToken).Text -eq ',') {
                 [void](Read-OtterToken)
                 $next = Get-OtterCurrentToken
@@ -489,8 +631,7 @@ function Read-OtterStatement {
                     throw (New-OtterParserError 'I expected a resource name after the comma.' $next 'Write another resource name after each comma.')
                 }
                 Read-OtterOptionalTheBeforeName
-                $itemToken = Read-OtterVariableName 'I expected a resource name after the comma.'
-                $items.Add([VariableExpr]::new($itemToken.Text, $itemToken.Line))
+                $items.Add((Read-OtterValue))
             }
             [void](Assert-OtterTokenKind ([TokenKind]::In) 'I expected "in" before the container.')
             Read-OtterOptionalTheBeforeName
@@ -569,14 +710,41 @@ function Read-OtterStatement {
                 if ($kind.Kind -eq [TokenKind]::Files) { return [GetFilesStmt]::new($folder, $includeSubfolders, $target.Text, $start.Line) }
                 return [GetFoldersStmt]::new($folder, $includeSubfolders, $target.Text, $start.Line)
             }
-            # D41 dynamic key access: get <key> from <thing> into <name>.
-            $key = Read-OtterValue
-            [void](Assert-OtterTokenKind ([TokenKind]::From) 'I expected "from" and a target thing.')
-            $target = Read-OtterValue
-            [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a result name.')
+            if ($kind.Kind -eq [TokenKind]::Json) {
+                [void](Read-OtterToken)
+                [void](Assert-OtterTokenKind ([TokenKind]::From) 'I expected "from" and a URL after "get json".')
+                $url = Read-OtterValue
+                $continued = Test-OtterSoftContinuation
+                [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a result name.')
+                $target = Read-OtterVariableName 'I expected a result name after "into".'
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the get statement to end here.')
+                if ($continued) { [void](Assert-OtterTokenKind ([TokenKind]::Dedent) 'I expected the continued get clause to end.') }
+                return [HttpGetStmt]::new($url, $target.Text, $true, $start.Line)
+            }
+            # D41 dynamic key access OR HTTP GET
+            $first = Read-OtterValue
+            if (Test-OtterTokenKind ([TokenKind]::From)) {
+                [void](Read-OtterToken)
+                $target = Read-OtterValue
+                $continued = Test-OtterSoftContinuation
+                [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a result name.')
+                $result = Read-OtterVariableName 'I expected a result name after "into".'
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the get statement to end here.')
+                if ($continued) { [void](Assert-OtterTokenKind ([TokenKind]::Dedent) 'I expected the continued get clause to end.') }
+                return [GetKeyStmt]::new($first, $target, $result.Text, $start.Line)
+            }
+            $asJson = $false
+            if (Test-OtterTokenKind ([TokenKind]::As)) {
+                [void](Read-OtterToken)
+                [void](Assert-OtterTokenKind ([TokenKind]::Json) 'I expected "json" after "as".')
+                $asJson = $true
+            }
+            $continued = Test-OtterSoftContinuation
+            [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "from" or "into" after the value.')
             $result = Read-OtterVariableName 'I expected a result name after "into".'
             [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the get statement to end here.')
-            return [GetKeyStmt]::new($key, $target, $result.Text, $start.Line)
+            if ($continued) { [void](Assert-OtterTokenKind ([TokenKind]::Dedent) 'I expected the continued get clause to end.') }
+            return [HttpGetStmt]::new($first, $result.Text, $asJson, $start.Line)
         }
         ([TokenKind]::Set) {
             [void](Read-OtterToken)
@@ -823,6 +991,20 @@ function Read-OtterStatement {
                 $path = Read-OtterValue
                 [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the delete statement to end here.')
                 return [DeleteFolderStmt]::new($path, $start.Line)
+            }
+            if (Test-OtterTokenKind ([TokenKind]::From)) {
+                [void](Read-OtterToken)
+                $url = Read-OtterValue
+                $target = $null
+                $continued = Test-OtterSoftContinuation
+                if (Test-OtterTokenKind ([TokenKind]::Into)) {
+                    [void](Read-OtterToken)
+                    $targetToken = Read-OtterVariableName 'I expected a result name after "into".'
+                    $target = $targetToken.Text
+                }
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the delete statement to end here.')
+                if ($continued) { [void](Assert-OtterTokenKind ([TokenKind]::Dedent) 'I expected the continued delete clause to end.') }
+                return [HttpDeleteStmt]::new($url, $target, $start.Line)
             }
             [void](Assert-OtterTokenKind ([TokenKind]::File) 'I expected "file" after delete.')
             $path = Read-OtterValue

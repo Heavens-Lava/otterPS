@@ -164,6 +164,16 @@ enum TokenKind {
     Put             # put helloButton in app          (D47)
     Show            # show app                        (D47)
 
+    # --- networking & http (D49) --------------------------------
+    Post            # post data to "https://..." into result
+
+    # --- web servers & api routes (D51) -------------------------
+    Respond         # respond with "..." as json and status 200
+    Receives        # when api receives GET at "/users"
+    At              # ...at "/path"
+    Start           # start api
+    Listen          # listen on port 8080
+
     # --- structure ----------------------------------------------
     Indent          # one level deeper (D7)
     Dedent          # one level shallower
@@ -301,6 +311,18 @@ enum NodeKind {
 
     # dates and time, as an expression (D42)
     DateDifferenceValue  # days between startDate and endDate       (a VALUE, usable anywhere an expression is)
+
+    # networking & http (D49)
+    HttpGet
+    HttpPost
+    HttpPut
+    HttpDelete
+
+    # web servers & api routes (D51)
+    WebRoute
+    Respond
+    StartServer
+    ListenServer
 }
 
 enum MathOp { Add; Subtract; Multiply; Divide }
@@ -1340,6 +1362,118 @@ class FormatDateStmt : Node {
         $this.Subject = $subject
         $this.Format = $format
         $this.Target = $target
+    }
+}
+
+
+# ===============================================================
+# NETWORKING & HTTP (D49)
+# ===============================================================
+
+# get "https://..." into result
+# get json from "https://..." into result
+class HttpGetStmt : Node {
+    [Node]$Url
+    [string]$Target
+    [bool]$AsJson
+    HttpGetStmt([Node]$url, [string]$target, [bool]$asJson, [int]$line) : base([NodeKind]::HttpGet, $line) {
+        $this.Url = $url
+        $this.Target = $target
+        $this.AsJson = $asJson
+    }
+}
+
+# post data to "https://..." [into result]
+class HttpPostStmt : Node {
+    [Node]$Data
+    [Node]$Url
+    [string]$Target
+    [bool]$AsJson
+    HttpPostStmt([Node]$data, [Node]$url, [string]$target, [bool]$asJson, [int]$line) : base([NodeKind]::HttpPost, $line) {
+        $this.Data = $data
+        $this.Url = $url
+        $this.Target = $target
+        $this.AsJson = $asJson
+    }
+}
+
+# put data to "https://..." [into result]
+class HttpPutStmt : Node {
+    [Node]$Data
+    [Node]$Url
+    [string]$Target
+    [bool]$AsJson
+    HttpPutStmt([Node]$data, [Node]$url, [string]$target, [bool]$asJson, [int]$line) : base([NodeKind]::HttpPut, $line) {
+        $this.Data = $data
+        $this.Url = $url
+        $this.Target = $target
+        $this.AsJson = $asJson
+    }
+}
+
+# delete from "https://..." [into result]
+class HttpDeleteStmt : Node {
+    [Node]$Url
+    [string]$Target
+    HttpDeleteStmt([Node]$url, [string]$target, [int]$line) : base([NodeKind]::HttpDelete, $line) {
+        $this.Url = $url
+        $this.Target = $target
+    }
+}
+
+# ===============================================================
+# WEB SERVERS & API ROUTES (D51)
+# ===============================================================
+
+# when api receives GET at "/users" [into req]
+class WebRouteStmt : Node {
+    [Node]$Server          # variable or expression for the server
+    [string]$Method        # "GET", "POST", "PUT", "DELETE", "ALL", etc.
+    [Node]$Path            # route path expression (e.g. [LiteralExpr] "/users")
+    [string]$RequestTarget # optional request variable name (e.g. "request" in "into request")
+    [Node[]]$Body          # route handler statements
+
+    WebRouteStmt([Node]$server, [string]$method, [Node]$path, [string]$requestTarget, [Node[]]$body, [int]$line)
+        : base([NodeKind]::WebRoute, $line) {
+        $this.Server = $server
+        $this.Method = $method
+        $this.Path = $path
+        $this.RequestTarget = $requestTarget
+        $this.Body = $body
+    }
+}
+
+# respond with <value> [as json] [(and|with) status <code>]
+class RespondStmt : Node {
+    [Node]$Value     # response body expression (e.g. string or object), can be $null
+    [Node]$Status    # HTTP status code expression (e.g. 200, 201, 404), can be $null
+    [bool]$AsJson    # true if "as json" was specified
+
+    RespondStmt([Node]$value, [Node]$status, [bool]$asJson, [int]$line)
+        : base([NodeKind]::Respond, $line) {
+        $this.Value = $value
+        $this.Status = $status
+        $this.AsJson = $asJson
+    }
+}
+
+# start api
+class StartServerStmt : Node {
+    [Node]$Server
+
+    StartServerStmt([Node]$server, [int]$line)
+        : base([NodeKind]::StartServer, $line) {
+        $this.Server = $server
+    }
+}
+
+# listen on port 8080
+class ListenServerStmt : Node {
+    [Node]$Port
+
+    ListenServerStmt([Node]$port, [int]$line)
+        : base([NodeKind]::ListenServer, $line) {
+        $this.Port = $port
     }
 }
 
