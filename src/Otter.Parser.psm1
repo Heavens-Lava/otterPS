@@ -439,13 +439,25 @@ function Read-OtterStatement {
         }
         ([TokenKind]::Put) {
             [void](Read-OtterToken)
+            $items = [System.Collections.Generic.List[Node]]::new()
             $itemToken = Read-OtterVariableName 'I expected a resource name after "put".'
-            $item = [VariableExpr]::new($itemToken.Text, $itemToken.Line)
+            $items.Add([VariableExpr]::new($itemToken.Text, $itemToken.Line))
+            while ((Get-OtterCurrentToken).Text -eq ',') {
+                [void](Read-OtterToken)
+                $next = Get-OtterCurrentToken
+                if ($next.Text -eq ',' -or $next.Kind -eq [TokenKind]::In -or $next.Kind -eq [TokenKind]::Newline) {
+                    throw (New-OtterParserError 'I expected a resource name after the comma.' $next 'Write another resource name after each comma.')
+                }
+                $itemToken = Read-OtterVariableName 'I expected a resource name after the comma.'
+                $items.Add([VariableExpr]::new($itemToken.Text, $itemToken.Line))
+            }
             [void](Assert-OtterTokenKind ([TokenKind]::In) 'I expected "in" before the container.')
             $containerToken = Read-OtterVariableName 'I expected a resource name after "in".'
             $container = [VariableExpr]::new($containerToken.Text, $containerToken.Line)
             [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the put statement to end here.')
-            return [PutInStmt]::new($item, $container, $start.Line)
+            $desugared = [System.Collections.Generic.List[Node]]::new()
+            foreach ($item in $items) { $desugared.Add([PutInStmt]::new($item, $container, $start.Line)) }
+            return $desugared.ToArray()
         }
         ([TokenKind]::Show) {
             [void](Read-OtterToken)
@@ -970,7 +982,9 @@ function Read-OtterStatements {
     $statements = [System.Collections.Generic.List[Node]]::new()
     Skip-OtterNewlines
     while (-not (Test-OtterTokenKind ([TokenKind]::Dedent)) -and -not (Test-OtterTokenKind ([TokenKind]::EndOfFile)) -and -not (Test-OtterTokenKind ([TokenKind]::BlockEnd))) {
-        $statements.Add((Read-OtterStatement))
+        $parsed = Read-OtterStatement
+        if ($parsed -is [System.Array]) { foreach ($statement in $parsed) { $statements.Add($statement) } }
+        else { $statements.Add($parsed) }
         Skip-OtterNewlines
     }
     return $statements.ToArray()

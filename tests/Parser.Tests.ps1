@@ -312,6 +312,13 @@ show app
 '@)
 if ($d47Ast.Statements[0] -isnot [PutInStmt] -or $d47Ast.Statements[0].Item.Name -ne 'helloButton' -or $d47Ast.Statements[0].Container.Name -ne 'app') { throw 'D47 put must preserve item and container.' }
 if ($d47Ast.Statements[1] -isnot [ShowStmt] -or $d47Ast.Statements[1].Target.Name -ne 'app') { throw 'D47 show must preserve its target.' }
+$multiPutAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source "put firstLabel, firstBox, addButton in app`n")
+if ($multiPutAst.Statements.Count -ne 3 -or $multiPutAst.Statements[0] -isnot [PutInStmt] -or $multiPutAst.Statements[0].Item.Name -ne 'firstLabel' -or $multiPutAst.Statements[1].Item.Name -ne 'firstBox' -or $multiPutAst.Statements[2].Item.Name -ne 'addButton') { throw 'Multi-put must desugar in left-to-right order.' }
+foreach ($invalidPut in @('put a, in app', 'put , a in app', 'put a b in app')) {
+    $rejected = $false
+    try { ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source ($invalidPut + "`n")) | Out-Null } catch [OtterError] { $rejected = $true }
+    if (-not $rejected) { throw "Malformed multi-put should be rejected: $invalidPut" }
+}
 $theAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source @'
 say width of button
 say the width of button

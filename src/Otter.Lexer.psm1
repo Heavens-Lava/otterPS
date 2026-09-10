@@ -197,6 +197,16 @@ function ConvertTo-OtterLineTokens {
             )
         }
 
+        # Commas are contextual punctuation for the multi-item `put` form.
+        # Keep the frozen contract unchanged by carrying it as an identifier
+        # whose text is `,`; only that parser production consumes it.
+        if ($character -eq ',') {
+            $tokens.Add((New-OtterToken ([TokenKind]::Identifier) ',' ',' $LineNumber $column))
+            $index++
+            $isStatementHead = $false
+            continue
+        }
+
         throw [OtterError]::new("I don't understand '$character'.", $LineNumber, 'lexer', $column, $Text, 'Use Otter words such as say or if.')
     }
 
