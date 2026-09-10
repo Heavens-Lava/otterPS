@@ -1726,3 +1726,52 @@ territory D16 already scoped out of the current milestone (*"0.3 is objects
 and properties only... every UI, web and database feature in Part 2 is
 built on top of them, so they come first"*). Nothing here changes that
 scoping; recorded as aligned, not as new work.
+
+---
+
+## D42. `days between` becomes a first-class expression - frozen
+
+```otter
+waiting is days between date and deadline
+elapsed is seconds between started and finished
+
+say days between start and finish
+
+if days between start and finish is greater than 30
+    say "More than 30 days."
+.
+```
+
+**A refinement of D32, prompted by the dogfooding milestone finding real
+programs want this value usable everywhere an expression is, not only as
+the whole right-hand side of a `make` statement.** D32 was not wrong; the
+language grew a more consistent expression model since it was written, and
+this brings `days between` into it — the same spirit as D34/D36/D40, which
+each added a better spelling for something that already worked.
+
+**`DateDifferenceExpr(Unit, Start, End)` is a new, separate node — it does
+not repurpose `DateDifferenceStmt`.** The legacy statement form keeps
+working exactly as it always has, unchanged:
+
+```otter
+days between date and deadline make waiting
+```
+
+is compatibility syntax now, not the preferred form, but it is not going
+anywhere. Same coexistence pattern as everywhere else in this project.
+
+**The invariant, stated explicitly because it is the whole point:**
+`waiting is days between date and deadline` means the *exact same
+calculation* as `days between date and deadline make waiting` — signed,
+`end - start`, whole units truncated toward zero (D32.7), same validation,
+same errors. Both forms share `Assert-OtterDateOperands` (factored out of
+the statement case, not duplicated) and the existing
+`Measure-OtterDateDifference` (untouched). A test runs both forms against
+identical fixture dates in the same program and asserts identical output.
+
+`Unit` reuses D32's existing `TimeUnit` enum — no new enum. No destination
+field on the expression node; a value has nothing to assign into.
+
+**Contract:** `5305e02`. **Runtime:** `10ef2a1`, 9 new tests (218 total, 12
+files, all green). Lexer and parser untouched — Codex's lane, unblocked by
+this pair of commits.
