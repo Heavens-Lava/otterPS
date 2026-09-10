@@ -296,6 +296,16 @@ if ($createAst.Statements[0] -isnot [CreateFolderStmt]) { throw 'create folder m
 if ($createAst.Statements[1] -isnot [CreateUiResourceStmt] -or $createAst.Statements[1].TypeName -ne 'button' -or $createAst.Statements[1].Target -ne 'helloButton') { throw 'create button must produce a UI resource statement.' }
 if ($createAst.Statements[2].TypeName -ne 'text box' -or $createAst.Statements[2].Target -ne 'nameBox') { throw 'create text box must preserve its two-word type name.' }
 if ($createAst.Statements[3].TypeName -ne 'window' -or $createAst.Statements[4].TypeName -ne 'sprocket') { throw 'create must pass unknown resource kinds through to runtime.' }
+$whenAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source @'
+when helloButton is clicked
+    say "Hello"
+.
+when nameBox is changed
+    say "Changed"
+.
+'@)
+if ($whenAst.Statements[0] -isnot [WhenStmt] -or $whenAst.Statements[0].Target.Name -ne 'helloButton' -or $whenAst.Statements[0].EventName -ne 'clicked') { throw 'D46 clicked handler must preserve target and event.' }
+if ($whenAst.Statements[1] -isnot [WhenStmt] -or $whenAst.Statements[1].EventName -ne 'changed' -or $whenAst.Statements[1].Body.Count -ne 1) { throw 'D46 changed handler must parse its body.' }
 try {
     ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source "if true`n") | Out-Null
     throw 'An empty if block must remain invalid.'

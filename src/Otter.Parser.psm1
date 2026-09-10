@@ -404,6 +404,18 @@ function Read-OtterStatement {
             if (Test-OtterTokenKind ([TokenKind]::Otherwise)) { [void](Read-OtterToken); $elseBody = Read-OtterBlock }
             return [IfStmt]::new($branches.ToArray(), $elseBody, $start.Line)
         }
+        ([TokenKind]::When) {
+            [void](Read-OtterToken)
+            $targetToken = Read-OtterVariableName 'I expected a resource name after "when".'
+            $target = [VariableExpr]::new($targetToken.Text, $targetToken.Line)
+            [void](Assert-OtterTokenKind ([TokenKind]::Is) 'I expected "is" before the event name.')
+            $eventToken = Get-OtterCurrentToken
+            if ($eventToken.Kind -in @([TokenKind]::Newline, [TokenKind]::EndOfFile)) {
+                throw (New-OtterParserError 'I expected an event name after "is".' $eventToken 'Write an event such as "clicked" or "changed".')
+            }
+            [void](Read-OtterToken)
+            return [WhenStmt]::new($target, $eventToken.Text, (Read-OtterBlock), $start.Line)
+        }
         ([TokenKind]::While) {
             [void](Read-OtterToken)
             return [WhileStmt]::new((Read-OtterCondition), (Read-OtterBlock), $start.Line)
