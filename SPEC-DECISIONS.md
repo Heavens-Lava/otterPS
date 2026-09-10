@@ -25,7 +25,7 @@ at once (front end, back end, web) — this ledger is the single source
 of truth for "what's the next number," so nobody has to guess or
 collide with work in flight.
 
-NEXT DECISION NUMBER: D53
+NEXT DECISION NUMBER: D54
 
 CLAIMED:
 - D49 — HTTP requests and web data — Gemini
@@ -34,6 +34,7 @@ CLAIMED:
 - D52 — recent grammar/UI batch documentation (`has` for existing
   resources, comma `put`, compact/optional-`is` inline `has`,
   contextual `the`, row/column layout) — Claude
+- D53 — scroll container — Claude (landed: `a550cbc`, `f29213f`)
 
 ---
 
@@ -3194,4 +3195,148 @@ changes — every grammar addition here (`has` runtime dispatch, inline
 `OtterWpfKinds`/`OtterUiProperties` table entries in `Otter.UI.psm1`.
 Full suite: 13 test files at the time of this batch (a 14th, the web
 compiler's own suite, landed separately under D50), all green.
+
+---
+
+## D53. Scroll container - frozen and implemented
+
+```otter
+create scroll into fileArea
+height of fileArea is 350
+
+create column into fileList
+put fileList in fileArea
+put fileArea in app
+```
+
+Driven directly by the File Browser dogfooding example: once the
+dynamically-created file-label list exceeded the window's height, the
+remaining files ran off-screen with no way to reach them. This entry
+closes that gap with the smallest model that solves the actual problem,
+not a general-purpose layout system.
+
+### The load-bearing rule, verified before anything else
+
+**A scroll region only becomes scrollable once it has an explicit
+bound.** Verified directly, and this shaped the entire design: a
+`ScrollViewer` with no explicit `Height`, placed inside Otter's existing
+`StackPanel`-based window root (D47), does not scroll at all — it grows
+to fit all of its content (`ScrollableHeight` stayed `0` with 798px of
+real content inside a 300px window). Setting an explicit height fixes
+it completely — re-verified with the same setup and `Height = 200`:
+`ScrollableHeight` became `598`, and `ScrollToVerticalOffset` genuinely
+moved the viewport (confirmed by reading `VerticalOffset` back after the
+call). Otter does **not** invent an implicit default height to make
+scrolling "just work" — that would be magic, and it would vary
+unpredictably by provider (the web equivalent, a bounded `<div>` with
+`overflow-y: auto`, has the exact same requirement for the exact same
+underlying reason: unbounded content never triggers a scrollbar in CSS
+either).
+
+### `scroll` is a dedicated resource, not a container property
+
+Verified `StackPanel` has no scroll capability of its own — no
+scrollbar, no clipping, no `ScrollableHeight` concept; the properties it
+does expose (`CanHorizontallyScroll`, `CanVerticallyScroll`,
+`ScrollOwner`) exist only so a `ScrollViewer` can *coordinate* with a
+scroll-aware panel, not to make the panel scroll unassisted. Scrolling
+in WPF is always a distinct wrapping control. A `scrolling "vertical"`
+property on `row`/`column` would have to secretly wrap the panel in a
+`ScrollViewer` behind the scenes to mean anything — more hidden
+machinery for the identical result a dedicated kind gives directly.
+
+### Vertical-first, for free from the provider's own defaults
+
+`ScrollViewer`'s real defaults are `VerticalScrollBarVisibility =
+Visible`, `HorizontalScrollBarVisibility = Disabled` — vertical-only is
+already the out-of-the-box behavior, not something built here.
+Overridden to `Auto` (not raw `Visible`) so a scroll region with
+non-overflowing content shows no scrollbar at all — verified directly
+(`ScrollableHeight` is simply `0` in that case, no error, no special
+state) — matching the same "nicer default than raw WPF" instinct
+already behind D48's `HorizontalAlignment = Left` override on `button`/
+`text`/`text box`. Horizontal scrolling is out of scope for D53
+entirely; enabling it later is a one-line property addition with no
+structural change, exactly like D48's own properties were added
+incrementally to the same table.
+
+### Exactly one child, and two silent-failure modes closed explicitly
+
+`ScrollViewer` is a `ContentControl` (`ScrollViewer -> ContentControl ->
+Control -> ...`, verified via the type's own inheritance chain) — the
+same family as `Window`, not a panel. Two real gaps were found and
+closed, both because `.Content` does **not** protect itself the way
+`Panel.Children.Add` already does for `window`/`row`/`column`:
+
+- **Setting `.Content` a second time on the same `scroll` does not
+  throw** — verified directly, it silently replaces the first child
+  with no error at all. Checked explicitly before touching the native
+  object: *"A scroll can only hold one thing. Put a column or row in it
+  first if you need more than one."*
+- **Setting `.Content` to an element that is already parented somewhere
+  else entirely does not throw either** — verified directly, it
+  silently *steals* the element away from its real parent. `row`/
+  `column`/`window` get this protection for free from
+  `Panel.Children.Add`'s own exception; `scroll` needed an explicit
+  check (`Item.Native.Parent -ne $null`, confirmed to reliably detect
+  both a panel-attached and a ContentControl-attached element) before
+  ever assigning `.Content`, raising the exact same *"can only be in
+  one place at a time"* error `row`/`column`/`window` already give.
+
+### Composability - no special-casing needed in either direction
+
+`put scrollArea in someRow` (a scroll being placed *into* a row/column/
+window) needed **zero** new code — the existing multi-child
+`Add-OtterUiChild` path doesn't care what kind of resource it receives.
+Nesting a `scroll` inside another `scroll` needed no special-casing
+either (`ContentControl.Content` accepts anything, including another
+`ScrollViewer`) — both verified directly with tests, not assumed from
+the type shapes.
+
+### Properties: `width`, `height`, `background` - no `spacing`
+
+Same D45/D48 table mechanism, one more kind entry. `spacing` is
+deliberately absent — verified `spacing` only ever means "distribute
+multiple children apart" (`window`/`row`/`column`, all of which hold
+their put-in children in an implicit multi-child panel); `scroll` holds
+exactly one child directly, so the concept doesn't apply, and the
+existing unsupported-property error (*"A scroll has no property called
+`"spacing"`."*) covers it with no new logic.
+
+### What's built
+
+**Contract:** none — same pattern as D48 and D52, a provider table
+addition, not a grammar change. **Runtime:** `src/Otter.UI.psm1` gained
+the `'scroll'` entry in `$script:OtterWpfKinds` (`ScrollViewer`,
+`HorizontalAlignment = Left`, `VerticalScrollBarVisibility = Auto`,
+`HorizontalScrollBarVisibility = Disabled`) and in
+`$script:OtterUiProperties` (`width`/`height`/`background`, no
+`spacing`); `Add-OtterUiScrollChild` (the single-child path, with both
+silent-failure checks above) and a small branch in `Add-OtterUiChild`
+routing `Container.Kind -eq 'scroll'` to it before the existing
+multi-child panel path. `src/Otter.Interpreter.psm1` — **unchanged**,
+same as D48: everything routes through the `PutIn`/property machinery
+already wired in from D45/D47.
+
+14 new tests in `tests/UI.Tests.ps1`: creation, single-child attachment,
+second-put rejection (and that the original child survives the rejected
+attempt), the acceptance test the investigation itself demanded — real
+overflowing content with a real bound produces a genuine positive
+`ScrollableHeight` *and* `ScrollToVerticalOffset` actually moves
+`VerticalOffset`, not just "a `ScrollViewer` object exists" — the
+non-overflow case, `width`/`height`/`background`, unsupported
+`spacing`, nesting into `window`/`row`/`column`, nesting a `scroll`
+inside a `scroll`, and the one-parent rule enforced through `scroll`'s
+own path. Full suite: 15 files, all green.
+
+`examples/file-browser.ot` updated to wrap `resultsColumn` in a
+`fileArea` scroll (`height` 350) before putting it in `app` — verified
+end-to-end through the real lexer/parser/interpreter (28 real files,
+28 labels, exact match) and visually confirmed with two renders: one at
+the top of the list showing a real scrollbar with a thumb, and one
+after `ScrollToBottom()` showing files (`variables.ot`, `ui-input.ot`,
+...) that were completely unreachable before this entry.
+
+**No Codex handoff.** Nothing here touches the lexer, parser, or
+contract.
 
