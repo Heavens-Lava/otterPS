@@ -85,6 +85,15 @@ function Test-OtterSoftContinuation {
 
 function Read-OtterValue {
     $token = Get-OtterCurrentToken
+    # Optional readability word for property grammar only. `the` is consumed
+    # when it introduces a real `<property> of ...` sequence; elsewhere it is
+    # left untouched so this is not a global filler-word rule.
+    if ($token.Text -eq 'the' -and ($script:Position + 2) -lt $script:Tokens.Count -and
+        $script:Tokens[$script:Position + 1].Kind -in $script:OtterIdentifierKinds -and
+        $script:Tokens[$script:Position + 2].Kind -eq [TokenKind]::Of) {
+        [void](Read-OtterToken)
+        $token = Get-OtterCurrentToken
+    }
     # D42: a time unit followed by `between` is a date-difference value.
     # This is deliberately checked before ordinary value parsing so the
     # expression form can appear on the right side of `is`, in `say`, or in a
@@ -382,6 +391,18 @@ function Read-OtterStatement {
     if (((Test-OtterIdentifierToken $start) -or ($start.Kind -eq [TokenKind]::ForEach -and $start.Text -eq 'each')) -and
         $nextKind -in @([TokenKind]::Is, [TokenKind]::Are, [TokenKind]::Of)) {
         $statementKind = [TokenKind]::Identifier
+    }
+
+    # `the property of target is value` is the assignment counterpart of the
+    # optional readability form handled by Read-OtterValue.
+    if ($start.Text -eq 'the' -and ($script:Position + 2) -lt $script:Tokens.Count -and
+        $script:Tokens[$script:Position + 1].Kind -in $script:OtterIdentifierKinds -and
+        $script:Tokens[$script:Position + 2].Kind -eq [TokenKind]::Of) {
+        $target = Read-OtterValue
+        [void](Assert-OtterTokenKind ([TokenKind]::Is) 'I expected "is" after the property target.')
+        $value = Read-OtterMathExpression
+        [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the property assignment to end here.')
+        return [AssignStmt]::new($target, $value, $start.Line)
     }
 
     switch ($statementKind) {

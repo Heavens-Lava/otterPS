@@ -312,6 +312,21 @@ show app
 '@)
 if ($d47Ast.Statements[0] -isnot [PutInStmt] -or $d47Ast.Statements[0].Item.Name -ne 'helloButton' -or $d47Ast.Statements[0].Container.Name -ne 'app') { throw 'D47 put must preserve item and container.' }
 if ($d47Ast.Statements[1] -isnot [ShowStmt] -or $d47Ast.Statements[1].Target.Name -ne 'app') { throw 'D47 show must preserve its target.' }
+$theAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source @'
+say width of button
+say the width of button
+width of button is 120
+the width of button is 120
+say the city of address of user
+say "The Otter"
+'@)
+if ($theAst.Statements[0].Parts[0].GetType().Name -ne $theAst.Statements[1].Parts[0].GetType().Name -or $theAst.Statements[0].Parts[0].Property -ne $theAst.Statements[1].Parts[0].Property) { throw 'Optional the must preserve property-access AST shape.' }
+if ($theAst.Statements[2].Target.GetType().Name -ne 'PropertyAccessExpr' -or $theAst.Statements[3].Target.GetType().Name -ne 'PropertyAccessExpr') { throw 'Optional the must preserve property-assignment AST shape.' }
+if ($theAst.Statements[4].Parts[0].Property -ne 'city' -or $theAst.Statements[4].Parts[0].Target.Property -ne 'address') { throw 'Optional the must preserve nested property access.' }
+if ($theAst.Statements[5].Parts[0].Value -ne 'The Otter') { throw 'the inside a string must remain unchanged.' }
+$theRejected = $false
+try { ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source "say the of`n") | Out-Null } catch [OtterError] { $theRejected = $true }
+if (-not $theRejected) { throw 'the must not be accepted as arbitrary filler.' }
 foreach ($invalid in @('put in app', 'put helloButton app', 'show')) {
     $rejected = $false
     try { ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source ($invalid + "`n")) | Out-Null }
