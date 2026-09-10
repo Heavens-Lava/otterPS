@@ -48,7 +48,7 @@ function activate(context) {
   context.subscriptions.push(vscode.workspace.onDidOpenTextDocument(refresh), vscode.workspace.onDidSaveTextDocument(refresh), vscode.workspace.onDidChangeTextDocument((event) => refresh(event.document)));
   for (const document of vscode.workspace.textDocuments) refresh(document);
   const provider = {
-    provideCompletionItems(document) {
+    provideCompletionItems(document, position) {
       const items = keywords.map((word) => {
         const item = new vscode.CompletionItem(word, vscode.CompletionItemKind.Keyword);
         item.detail = 'Otter keyword';
@@ -63,6 +63,11 @@ function activate(context) {
       const result = analyze(document);
       for (const name of (result.Variables || [])) { const item = new vscode.CompletionItem(name, vscode.CompletionItemKind.Variable); item.detail = 'Otter variable'; items.push(item); }
       for (const name of (result.Functions || [])) { const item = new vscode.CompletionItem(name, vscode.CompletionItemKind.Function); item.detail = 'Otter function'; items.push(item); }
+      const currentLine = document.lineAt(position.line).text.slice(0, position.character);
+      const propertyMatch = currentLine.match(/\bof\s+([A-Za-z_][A-Za-z0-9_]*)?$/);
+      if (propertyMatch && propertyMatch[1] && result.ObjectProperties?.[propertyMatch[1]]) {
+        for (const property of result.ObjectProperties[propertyMatch[1]]) { const item = new vscode.CompletionItem(property, vscode.CompletionItemKind.Field); item.detail = `Property of ${propertyMatch[1]}`; items.push(item); }
+      }
       return items;
     }
   };
@@ -78,6 +83,17 @@ function activate(context) {
       if ((result.Functions || []).includes(word)) return new vscode.Hover(`Otter function **${word}**`);
       if ((result.Variables || []).includes(word)) return new vscode.Hover(`Otter variable **${word}**`);
       return undefined;
+    }
+  }));
+  context.subscriptions.push(vscode.languages.registerDefinitionProvider({ language: 'otter', scheme: 'file' }, {
+    provideDefinition(document, position) {
+      const range = document.getWordRangeAtPosition(position);
+      if (!range) return undefined;
+      const word = document.getText(range);
+      const result = analyze(document);
+      const symbol = (result.Symbols || []).find((entry) => entry.Name === word);
+      if (!symbol) return undefined;
+      return new vscode.Location(document.uri, new vscode.Position(Math.max(0, Number(symbol.Line) - 1), Number(symbol.Column) || 0));
     }
   }));
 }
