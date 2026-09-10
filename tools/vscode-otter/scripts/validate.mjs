@@ -23,6 +23,7 @@ const checks = [
   [grammar.scopeName === 'source.otter' && grammar.repository?.comments, 'TextMate grammar structure'],
   [/\bput\b/.test(String(grammar.repository?.['statement-heads']?.patterns?.[0]?.match || '')) && /\bwhen\b/.test(String(grammar.repository?.['statement-heads']?.patterns?.[0]?.match || '')) && /\bshow\b/.test(String(grammar.repository?.['statement-heads']?.patterns?.[0]?.match || '')), 'structural UI statement keywords'],
   [!String(grammar.repository?.domain?.patterns?.[0]?.match || '').includes('clicked'), 'contextual event words remain unreserved'],
+  [grammar.repository?.['resource-kinds']?.patterns?.[0]?.captures?.['1']?.name === 'storage.type.resource.otter', 'contextual resource-kind highlighting'],
   [language.comments?.lineComment === '#', 'line comment configuration'],
   [language.indentationRules?.increaseIndentPattern && language.indentationRules?.decreaseIndentPattern, 'indentation configuration'],
   [pkg.main === 'src/extension.js', 'completion provider entry point']

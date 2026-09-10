@@ -8,6 +8,7 @@
     { "include": "#block-end" },
     { "include": "#function-declaration" },
     { "include": "#multiword-keywords" },
+    { "include": "#resource-kinds" },
     { "include": "#statement-heads" },
     { "include": "#literals" },
     { "include": "#structural" },
@@ -35,6 +36,14 @@
         "1": { "name": "keyword.control.declaration.function.otter" },
         "2": { "name": "entity.name.function.otter" }
       }
+    },
+    "resource-kinds": {
+      "patterns": [{
+        "match": "\\bcreate\\s+(?:the\\s+)?((?:text\\s+box)|window|button|text|row|column)(?=\\s+into\\b)",
+        "captures": {
+          "1": { "name": "storage.type.resource.otter" }
+        }
+      }]
     },
     "multiword-keywords": {
       "patterns": [
