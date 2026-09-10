@@ -100,4 +100,16 @@ if ($portalContent -notmatch 'class="otter-card"' -or
 }
 Write-Output '  pass  portal.ot exports rich components (cards, 3D canvas, dropdown, checkbox, slider, badge, link)'
 
+# Test 5: Export jeffreymacy.ot (high-end responsive showcase recreating www.jeffreymacy.com)
+$jmHtmlPath = Export-OtterWebApplication -SourcePath (Join-Path $PSScriptRoot '..\examples\jeffreymacy.ot')
+if (-not (Test-Path $jmHtmlPath)) { throw 'Expected jeffreymacy.html to exist.' }
+$jmContent = Get-Content -LiteralPath $jmHtmlPath -Raw
+if ($jmContent -notmatch 'Jeffrey Macy' -or
+    $jmContent -notmatch 'You take care of your customers.' -or
+    $jmContent -notmatch 'id="mockupCard"' -or
+    $jmContent -notmatch 'id="pricingCard"') {
+    throw 'Expected brand, headline, mockup, and pricing card in compiled jeffreymacy.html.'
+}
+Write-Output '  pass  jeffreymacy.ot exports responsive showcase recreating www.jeffreymacy.com'
+
 Write-Output 'Web compiler tests passed.'

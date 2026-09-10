@@ -338,8 +338,20 @@ function ConvertTo-OtterWeb {
             $h = $props['height']
             $styles.Add("height: $(if ($h -is [int] -or $h -is [double]) { "${h}px" } else { $h });")
         }
+        if ($props.Contains('maxwidth')) {
+            $mw = $props['maxwidth']
+            $styles.Add("max-width: $(if ($mw -is [int] -or $mw -is [double]) { "${mw}px" } else { $mw });")
+        }
+        if ($props.Contains('minwidth')) {
+            $mw = $props['minwidth']
+            $styles.Add("min-width: $(if ($mw -is [int] -or $mw -is [double]) { "${mw}px" } else { $mw });")
+        }
+        if ($props.Contains('minheight')) {
+            $mh = $props['minheight']
+            $styles.Add("min-height: $(if ($mh -is [int] -or $mh -is [double]) { "${mh}px" } else { $mh });")
+        }
         if ($props.Contains('background')) {
-            $styles.Add("background-color: $($props['background']);")
+            $styles.Add("background: $($props['background']);")
         }
         if ($props.Contains('foreground')) {
             $styles.Add("color: $($props['foreground']);")
@@ -366,8 +378,61 @@ function ConvertTo-OtterWeb {
             $fs = if ($props.Contains('fontsize')) { $props['fontsize'] } else { $props['size'] }
             $styles.Add("font-size: $(if ($fs -is [int] -or $fs -is [double]) { "${fs}px" } else { $fs });")
         }
+        if ($props.Contains('weight') -or $props.Contains('fontweight')) {
+            $fw = if ($props.Contains('fontweight')) { $props['fontweight'] } else { $props['weight'] }
+            $styles.Add("font-weight: $fw;")
+        }
+        if ($props.Contains('fontstyle')) {
+            $styles.Add("font-style: $($props['fontstyle']);")
+        } elseif ($props.Contains('style') -and ($props['style'] -eq 'italic' -or $props['style'] -eq 'normal')) {
+            $styles.Add("font-style: $($props['style']);")
+        }
+        if ($props.Contains('family') -or $props.Contains('fontfamily')) {
+            $ff = if ($props.Contains('fontfamily')) { $props['fontfamily'] } else { $props['family'] }
+            $styles.Add("font-family: $ff;")
+        }
+        if ($props.Contains('lineheight')) {
+            $styles.Add("line-height: $($props['lineheight']);")
+        }
+        if ($props.Contains('letterspacing')) {
+            $styles.Add("letter-spacing: $($props['letterspacing']);")
+        }
         if ($props.Contains('align')) {
             $styles.Add("text-align: $($props['align']);")
+        }
+        if ($props.Contains('flex')) {
+            $styles.Add("flex: $($props['flex']);")
+        }
+        if ($props.Contains('grow')) {
+            $styles.Add("flex-grow: $($props['grow']);")
+        }
+        if ($props.Contains('cursor')) {
+            $styles.Add("cursor: $($props['cursor']);")
+        }
+        if ($props.Contains('position')) {
+            $styles.Add("position: $($props['position']);")
+        }
+        if ($props.Contains('bottom')) {
+            $b = $props['bottom']
+            $styles.Add("bottom: $(if ($b -is [int] -or $b -is [double]) { "${b}px" } else { $b });")
+        }
+        if ($props.Contains('top')) {
+            $t = $props['top']
+            $styles.Add("top: $(if ($t -is [int] -or $t -is [double]) { "${t}px" } else { $t });")
+        }
+        if ($props.Contains('left')) {
+            $l = $props['left']
+            $styles.Add("left: $(if ($l -is [int] -or $l -is [double]) { "${l}px" } else { $l });")
+        }
+        if ($props.Contains('right')) {
+            $rg = $props['right']
+            $styles.Add("right: $(if ($rg -is [int] -or $rg -is [double]) { "${rg}px" } else { $rg });")
+        }
+        if ($props.Contains('zindex')) {
+            $styles.Add("z-index: $($props['zindex']);")
+        }
+        if ($props.Contains('customstyle')) {
+            $styles.Add("$($props['customstyle']);")
         }
         $styleAttr = if ($styles.Count -gt 0) { " style=`"$($styles -join ' ')`"" } else { "" }
 
@@ -390,10 +455,12 @@ function ConvertTo-OtterWeb {
             }
             'page' {
                 $spacing = if ($props.Contains('spacing')) { $props['spacing'] } else { 12 }
+                $showHeader = (-not ($props.Contains('hideheader') -and $props['hideheader']))
+                $headerHtml = if ($showHeader -and $appTitle) { "<header class=`"otter-page-header`"><h1 class=`"otter-title`">$appTitle</h1></header>" } else { "" }
                 return @"
     <main id="$resName" class="otter-page"$styleAttr style="display: flex; flex-direction: column; gap: ${spacing}px; padding: 24px; $($styles -join ' ')">
-      <header class="otter-page-header"><h1 class="otter-title">$appTitle</h1></header>
-      <div class="otter-page-content" style="display: flex; flex-direction: column; gap: ${spacing}px;">$childHtml</div>
+      $headerHtml
+      <div class="otter-page-content" style="display: flex; flex-direction: column; gap: ${spacing}px; width: 100%;">$childHtml</div>
     </main>
 "@
             }
@@ -477,14 +544,19 @@ $optHtml
             }
             'row' {
                 $spacing = if ($props.Contains('spacing')) { $props['spacing'] } else { 8 }
+                $align = if ($props.Contains('alignitems')) { $props['alignitems'] } elseif ($props.Contains('items')) { $props['items'] } else { 'center' }
+                $justify = if ($props.Contains('justify')) { $props['justify'] } else { 'flex-start' }
+                $wrap = if ($props.Contains('wrap') -and ($props['wrap'] -eq $true -or $props['wrap'] -eq 'true' -or $props['wrap'] -eq 'wrap')) { 'flex-wrap: wrap;' } else { '' }
                 return @"
-      <div id="$resName" class="otter-row"$styleAttr style="display: flex; flex-direction: row; align-items: center; gap: ${spacing}px; $($styles -join ' ')">$childHtml</div>
+      <div id="$resName" class="otter-row"$styleAttr style="display: flex; flex-direction: row; align-items: $align; justify-content: $justify; gap: ${spacing}px; $wrap $($styles -join ' ')">$childHtml</div>
 "@
             }
             'column' {
                 $spacing = if ($props.Contains('spacing')) { $props['spacing'] } else { 8 }
+                $align = if ($props.Contains('alignitems')) { $props['alignitems'] } elseif ($props.Contains('items')) { $props['items'] } else { 'stretch' }
+                $justify = if ($props.Contains('justify')) { $props['justify'] } else { 'flex-start' }
                 return @"
-      <div id="$resName" class="otter-column"$styleAttr style="display: flex; flex-direction: column; gap: ${spacing}px; $($styles -join ' ')">$childHtml</div>
+      <div id="$resName" class="otter-column"$styleAttr style="display: flex; flex-direction: column; align-items: $align; justify-content: $justify; gap: ${spacing}px; $($styles -join ' ')">$childHtml</div>
 "@
             }
             default {
@@ -540,6 +612,9 @@ $bodyJoined
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>$appTitle</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,600;1,700&family=Playfair+Display:ital,wght@1,500;1,600;1,700&family=Newsreader:ital,opsz,wght@1,6..72,500;1,6..72,600;1,6..72,700&display=swap" rel="stylesheet">
   <style>
     :root {
       --otter-bg: #0f172a;
@@ -553,20 +628,30 @@ $bodyJoined
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
       background-color: var(--otter-bg);
       color: var(--otter-text);
       min-height: 100vh;
       display: flex;
+      flex-direction: column;
       align-items: center;
-      justify-content: center;
-      padding: 16px;
+      justify-content: flex-start;
+      margin: 0;
+      padding: 0;
     }
-    .otter-window, .otter-page {
+    .otter-window {
       background-color: var(--otter-card-bg);
       border: 1px solid var(--otter-border);
       width: 100%;
       max-width: 520px;
+      margin: 24px auto;
+    }
+    .otter-page {
+      background-color: var(--otter-card-bg);
+      border: none;
+      width: 100%;
+      min-height: 100vh;
+      box-sizing: border-box;
     }
     .otter-title {
       font-size: 1.35rem;
@@ -872,7 +957,7 @@ function Export-OtterWebApplication {
     )
 
     $resolvedSource = Resolve-Path -LiteralPath $SourcePath
-    $sourceText = Get-Content -LiteralPath $resolvedSource -Raw
+    $sourceText = Get-Content -LiteralPath $resolvedSource -Raw -Encoding UTF8
 
     Import-Module (Join-Path $PSScriptRoot 'Otter.Lexer.psm1') -Force
     Import-Module (Join-Path $PSScriptRoot 'Otter.Parser.psm1') -Force
