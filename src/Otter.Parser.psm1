@@ -72,6 +72,17 @@ function Assert-OtterTokenKind {
 }
 function Skip-OtterNewlines { while (Test-OtterTokenKind ([TokenKind]::Newline)) { [void](Read-OtterToken) } }
 
+# D38A: allow a discovery clause to continue on an indented following line.
+# This is intentionally opt-in; callers must consume the matching Dedent
+# after reading the continued clause.
+function Test-OtterSoftContinuation {
+    if (-not (Test-OtterTokenKind ([TokenKind]::Newline))) { return $false }
+    if (($script:Position + 1) -ge $script:Tokens.Count -or $script:Tokens[$script:Position + 1].Kind -ne [TokenKind]::Indent) { return $false }
+    [void](Read-OtterToken)
+    [void](Read-OtterToken)
+    return $true
+}
+
 function Read-OtterValue {
     $token = Get-OtterCurrentToken
     # D42: a time unit followed by `between` is a date-difference value.
@@ -429,9 +440,11 @@ function Read-OtterStatement {
                     [void](Assert-OtterTokenKind ([TokenKind]::Subfolders) 'I expected "subfolders" after "and".')
                     $includeSubfolders = $true
                 }
+                $continued = Test-OtterSoftContinuation
                 [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a result name.')
                 $target = Read-OtterVariableName 'I expected a result name after "into".'
                 [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the discovery statement to end here.')
+                if ($continued) { [void](Assert-OtterTokenKind ([TokenKind]::Dedent) 'I expected the continued discovery clause to end.') }
                 if ($kind.Kind -eq [TokenKind]::Files) { return [GetFilesStmt]::new($folder, $includeSubfolders, $target.Text, $start.Line) }
                 return [GetFoldersStmt]::new($folder, $includeSubfolders, $target.Text, $start.Line)
             }

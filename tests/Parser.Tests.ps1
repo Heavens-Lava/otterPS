@@ -259,6 +259,18 @@ if ($dynamicAst.Statements[2] -isnot [SetKeyStmt] -or $dynamicAst.Statements[2].
 if ($dynamicAst.Statements[3] -isnot [GetKeyStmt] -or $dynamicAst.Statements[3].Key -isnot [PropertyAccessExpr]) { throw 'Dynamic get keys must accept full expressions.' }
 if ($dynamicAst.Statements[5].Body[0] -isnot [SetKeyStmt] -or $dynamicAst.Statements[5].Body[0].Target.Name -ne 'file') { throw 'Dynamic set in a file loop must retain the file target for runtime guarding.' }
 
+$continuationSource = @'
+get files in "Pictures" and subfolders
+    into pictures
+get folders in "Documents"
+    into folders
+'@
+$continuationAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $continuationSource)
+if ($continuationAst.Statements[0] -isnot [GetFilesStmt] -or -not $continuationAst.Statements[0].IncludeSubfolders -or $continuationAst.Statements[0].Target -ne 'pictures') { throw 'D38A continued get files must preserve discovery fields.' }
+if ($continuationAst.Statements[1] -isnot [GetFoldersStmt] -or $continuationAst.Statements[1].IncludeSubfolders -or $continuationAst.Statements[1].Target -ne 'folders') { throw 'D38A continued get folders must preserve discovery fields.' }
+$singleLineDiscovery = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source ('get files in "Pictures" and subfolders into pictures' + "`n"))
+if ($singleLineDiscovery.Statements[0] -isnot [GetFilesStmt] -or -not $singleLineDiscovery.Statements[0].IncludeSubfolders) { throw 'Single-line discovery must remain valid.' }
+
 $emptyObjects = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source @'
 emptyOne has
 emptyTwo is a thing
