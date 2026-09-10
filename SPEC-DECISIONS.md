@@ -1983,3 +1983,77 @@ not implementation detail:**
 Investigation only. Report findings before any implementation, per Jeff's
 explicit instruction — this entry exists to carry that report, not to
 close the question.
+
+---
+
+# UI (new design track)
+
+D16 explicitly deferred all of this — *"0.3 is objects and properties
+only... every UI, web and database feature in Part 2 is built on top of
+them, so they come first."* Objects (D40) and dynamic access (D41) are now
+solid, so per D16's own logic this is the natural next track to open, not
+a departure from it.
+
+---
+
+## D43. External UI resource creation - the boundary, frozen. Everything else, deferred.
+
+```otter
+create button into helloButton
+
+text of helloButton is "Say Hello"
+```
+
+**UI controls are external/domain resources, created with `create`, never
+constructed with `has`.** This is not a new rule invented for UI — it is
+D39's existing rule (*"`create` means bringing an external or domain
+resource into existence through a provider or runtime action... never an
+ordinary in-memory object"*) applied to a case it already covers. A WinUI
+button needs a real provider and real native resources behind it, exactly
+the distinction D39 already draws; a `has`-built `thing` is purely
+in-memory. `has` remains reserved for ordinary data objects and does not
+become a second UI syntax.
+
+**The binding is `into`, not a quoted string doubling as an identifier.**
+The original UI sketch used `create button "helloButton" with / ... / .`,
+then referred to the bare identifier `helloButton` afterward — the two
+spellings were meant to be the same thing, but nothing in that grammar
+actually bound one to the other; it relied on the programmer keeping a
+string literal and a variable name in sync by convention. Rejected for
+being unlike the rest of the language: **a string literal never implicitly
+creates or names an Otter variable anywhere else**, and `into` already
+means exactly *"put the result here"* everywhere it's used
+(`get files ... into files`, `read json ... into settings`, `random number
+... into n`). Using it here is the same rule, not a new one.
+
+**Identity and display content are kept separate, on purpose.** The first
+sketch also passed a quoted label at creation (`create button "Say Hello"
+into helloButton`), but `"Say Hello"` is presentation, not identity —
+conflating the two in one statement was rejected. Setting a control's
+visible text is ordinary property assignment, already fully built (D19):
+
+```otter
+text of helloButton is "Say Hello"
+```
+
+No new grammar needed for that part at all.
+
+### Explicitly out of scope for D43
+
+Frozen here is **only** the boundary and the binding mechanism. Deferred,
+each to its own future decision:
+
+- control properties and what each control type supports
+- an initialization block (`create button into helloButton with\n    text is "..."\n.`) — plausible later, once property sets exist to populate, but not frozen now
+- layout
+- events / `when` (`when` still has zero grammar — D33 already pre-reserved it for exactly this, but the event model itself is undecided)
+- the provider architecture (WinUI, and later web/cross-platform) that actually backs a created resource
+- which specific control types exist beyond illustrative examples (`window`, `text`, `button` are examples in this entry, not a frozen list)
+
+Because provider architecture is explicitly out of scope, this entry does
+not commit to what a created UI resource concretely *is* at runtime yet —
+that is downstream of deciding how a provider backs it, not upstream of
+this boundary decision. Implementation (contract, grammar, runtime) is
+deliberately not started as part of this entry; it follows once enough of
+the deferred list is settled to build something real, the same sequencing
+D16 already used for objects before UI was allowed to start.
