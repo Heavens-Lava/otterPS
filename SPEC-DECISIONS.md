@@ -2057,3 +2057,143 @@ this boundary decision. Implementation (contract, grammar, runtime) is
 deliberately not started as part of this entry; it follows once enough of
 the deferred list is settled to build something real, the same sequencing
 D16 already used for objects before UI was allowed to start.
+
+---
+
+## D44. UI provider architecture and resource lifecycle - frozen and implemented
+
+```otter
+create button into helloButton
+```
+
+### The provider question was settled with evidence, not preference
+
+The obvious first instinct was WinUI 3 — it's the current, supported
+Windows UI framework. **Checked directly before deciding anything:** on
+this machine, `Add-Type -AssemblyName PresentationFramework` (WPF) loads
+and instantiates a `Window` and a `Button` immediately, no install, no
+packaging. Searching for the Windows App SDK runtime that WinUI 3 needs —
+`WindowsAppRuntime` packages — found **zero matches**. WinUI 3 is not a
+"just works from a script" technology the way WPF is; it needs its runtime
+deployed, which for an end user means *they'd* need to install something
+too. That directly contradicts this project's own stated identity —
+*"there is nothing to install and nothing to download"* — on the very
+machine this project has been built and tested on the whole time.
+
+**Decision: WPF is the first provider.** Not because it looks better —
+it doesn't — but because it lets the resource model be proven today, with
+zero new constraints on how Otter ships. The abstraction layer this
+project cares about doesn't depend on which toolkit is first:
+
+```
+Otter code
+   ↓
+UI resource abstraction   (OtterUiResource)
+   ↓
+provider                  ("wpf" - the only one implemented)
+   ↓
+WPF
+```
+
+WinUI, web, and cross-platform providers can be added later — for anyone
+willing to accept their install requirements — without touching Otter's
+language surface, because nothing at the language level knows WPF exists.
+
+### The lifecycle question, answered with the same evidence
+
+**`create <kind> into <name>` creates the real, live, provider-backed
+object immediately — never a description materialized later.** Verified,
+not assumed: created a `Button` standalone with no parent, then set it as
+a `Window`'s `Content`, then confirmed via `[object]::ReferenceEquals`
+that the exact same instance was still there. WPF's own object model
+already works exactly the way this project wanted the lifecycle to work —
+create now, attach later (D47), never recreate.
+
+### The wrapper, and why the boundary is structural, not a rule to remember
+
+```
+helloButton
+    ↓
+OtterUiResource
+    Kind:     "button"
+    Provider: "wpf"
+    Native:   the real System.Windows.Controls.Button
+```
+
+Never a raw WPF object sitting in an Otter variable. That is what makes
+*"provider: web, native: HTMLElement"* a future possibility without
+changing what `helloButton` means at the language level — a promise this
+entry can make with confidence because of *where* the WPF-specific code
+lives: **`src/Otter.UI.psm1` is the only file in this entire project
+permitted to mention `System.Windows.*`.** No other module needs to, and
+none do — checked, this isn't an unenforced convention. `Get-OtterTypeName`
+and error messages say `"a button"`, never `Button` or the assembly it
+came from; a test asserts the output never contains the string
+`"System.Windows"`.
+
+**One deliberate exception to how the project usually checks types, and
+why:** `Format-OtterValue` and `Test-OtterTruthy` live in
+`Otter.Runtime.psm1` — the foundation every other module, including
+`Otter.UI.psm1`, builds on top of. Having Runtime `using module` UI back
+would invert that layering. Both functions check
+`$Value.GetType().Name -eq 'OtterUiResource'` instead of the usual
+`-is [OtterUiResource]` — a plain runtime name comparison needs no import
+at all, so the dependency direction stays honest. `Get-OtterTypeName`
+lives in the interpreter, which already imports both `Otter.Runtime.psm1`
+and `Otter.UI.psm1`, so it uses the normal `-is` check.
+
+### Scope: the small proving set, matching D44's own job
+
+Four control kinds, one line each in a lookup table, each mapping
+directly to a real WPF type: `window`, `button`, `text` (a display label —
+WPF `TextBlock`), `text box` (WPF `TextBox`). An unsupported kind is a
+clear Otter error naming what's actually known, not a raw exception.
+
+**Control-kind words are read as raw text, not reserved keywords** — the
+same pattern `Read-OtterObjectTypeName` already uses for `is a <type>`.
+D44 does not take a single word away from ordinary Otter programs; `text`,
+`button`, `window` all stay legal as ordinary identifiers everywhere else.
+
+**Property access is explicitly, honestly unbuilt — not silently
+unbuilt.** `text of helloButton` (read or write) raises *"...is not built
+yet"*, a distinct message from the ordinary *"I can only read properties
+of a thing"* a non-object gets — the first says *this is coming*, the
+second would have incorrectly implied *this can never work*.
+
+**Dynamic `get`/`set` (D41) exclude UI resources automatically, with zero
+new code.** `Assert-OtterDynamicKeyTarget` checks `Test-OtterObject`
+specifically, and `OtterUiResource` was never made to inherit from
+`OtterObject` — so D41 rule 9 (*"files, folders, and other domain/resource
+objects cannot be dynamically mutated"*) already covers UI resources for
+free, the same way it already covered files and folders. Confirmed with a
+test, not assumed from the class hierarchy alone.
+
+### Out of scope, staying exactly where Jeff put it
+
+- **D45** — property translation. Which Otter property name maps to which
+  native property, per control kind (a button's `text` is WPF `.Content`;
+  a window's is `.Title`; a text box's is `.Text` — genuinely different
+  per kind, which is exactly why this is its own decision, not folded into
+  D44's resource model).
+- **D46** — events / `when`. Still zero grammar (D33 pre-reserved the word
+  for exactly this).
+- **D47** — layout / attachment (`add helloButton to mainWindow` or
+  whatever gets frozen). The WPF evidence above already shows the object
+  model supports this without recreating anything; the syntax itself is
+  undecided.
+
+### What's built, what's still Codex's
+
+**Contract:** `15dda45`. **Runtime:** committed alongside this entry — new
+`src/Otter.UI.psm1`, `OtterUiResource`, the WPF provider, wiring into
+`Get-OtterValue`/`Set-OtterTarget`/`Format-OtterValue`/`Test-OtterTruthy`/
+`Get-OtterTypeName`. 12 new tests, 13 files, 230 total, all green.
+
+**Grammar not yet built.** `create` today only recognizes
+`create folder "path"` — a single hardcoded check for the literal word
+`Folder` right after `Create`. `create <kind> into <name>` needs a new
+branch: if the token after `Create` is `Folder`, existing behavior,
+unchanged; otherwise, read raw words (same pattern as
+`Read-OtterObjectTypeName`) until `Into`, then a target identifier. No
+lexer change — `into` and `create` are both already tokens. Codex's lane,
+once handed off.
