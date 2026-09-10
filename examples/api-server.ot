@@ -1,0 +1,25 @@
+# Otter Web API Server Example (D51)
+# Readable HTTP services with routes and JSON responses
+
+api is a web server
+    port is 8080
+    host is "localhost"
+.
+
+when api receives GET at "/health"
+    respond with "OK"
+.
+
+when api receives GET at "/api/greeting"
+    respond with "Hello from Otter Web Server!"
+.
+
+when api receives GET at "/api/users"
+    respond with "Ada Lovelace" as json
+.
+
+when api receives POST at "/api/users" into req
+    respond with "User created" as json and status 201
+.
+
+start api
