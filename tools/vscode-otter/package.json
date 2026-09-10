@@ -1,0 +1,29 @@
+{
+  "name": "otter-language-support",
+  "displayName": "Otter Language Support",
+  "description": "Editing support for the Otter programming language.",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "main": "src/extension.js",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Programming Languages"],
+  "activationEvents": ["onLanguage:otter"],
+  "contributes": {
+    "languages": [{
+      "id": "otter",
+      "aliases": ["Otter", "otter"],
+      "extensions": [".ot"],
+      "configuration": "./language-configuration.json"
+    }],
+    "grammars": [{
+      "language": "otter",
+      "scopeName": "source.otter",
+      "path": "./syntaxes/otter.tmLanguage.json"
+    }]
+  },
+  "scripts": {
+    "test": "node scripts/validate.mjs",
+    "check": "node --check src/extension.js && node scripts/validate.mjs"
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "name": "Otter",
+  "scopeName": "source.otter",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#strings" },
+    { "include": "#numbers" },
+    { "include": "#block-end" },
+    { "include": "#function-declaration" },
+    { "include": "#multiword-keywords" },
+    { "include": "#statement-heads" },
+    { "include": "#literals" },
+    { "include": "#structural" },
+    { "include": "#domain" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [{ "name": "comment.line.number-sign.otter", "match": "#.*$" }]
+    },
+    "strings": {
+      "name": "string.quoted.double.otter",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [{ "name": "constant.character.escape.otter", "match": "\\\\(?:[nrt\\\"\\\\]|.)" }]
+    },
+    "numbers": {
+      "patterns": [{ "name": "constant.numeric.otter", "match": "(?<![\\p{L}_])[-+]?(?:\\d+\\.\\d+|\\d+)(?![\\p{L}_])" }]
+    },
+    "block-end": {
+      "patterns": [{ "name": "punctuation.terminator.block.otter", "match": "^\\s*\\.\\s*$" }]
+    },
+    "function-declaration": {
+      "match": "^\\s*(to)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+      "captures": {
+        "1": { "name": "keyword.control.declaration.function.otter" },
+        "2": { "name": "entity.name.function.otter" }
+      }
+    },
+    "multiword-keywords": {
+      "patterns": [
+        { "name": "keyword.control.loop.otter", "match": "\\bfor\\s+each\\b" },
+        { "name": "keyword.operator.comparison.otter", "match": "\\bis\\s+(?:at\\s+least|at\\s+most|greater\\s+than|less\\s+than|not)\\b" },
+        { "name": "keyword.operator.arithmetic.otter", "match": "\\bdivided\\s+by\\b" },
+        { "name": "keyword.operator.match.otter", "match": "\\b(?:starts|ends)\\s+with\\b" }
+      ]
+    },
+    "statement-heads": {
+      "patterns": [{
+        "name": "keyword.control.statement.otter",
+        "match": "^\\s*(?:say|ask|if|otherwise|while|repeat|count|return|stop|try|get|set|create|copy|move|delete|add|remove|increase|decrease|each|read|write|sort|reverse|replace|split|join|find|run|log|warn|error|random|json|convert|format|today|now|between)\\b"
+      }]
+    },
+    "literals": {
+      "patterns": [
+        { "name": "constant.language.boolean.otter", "match": "\\b(?:true|false)\\b" },
+        { "name": "constant.language.gone.otter", "match": "\\bgone\\b" }
+      ]
+    },
+    "structural": {
+      "patterns": [{ "name": "keyword.operator.word.otter", "match": "\\b(?:is|are|and|or|not|to|from|of|in|into|with|where|as|by|make|makes)\\b" }]
+    },
+    "domain": {
+      "patterns": [{ "name": "storage.type.domain.otter", "match": "\\b(?:file|files|folder|folders|subfolders|thing|has|today|now|year|years|month|months|day|days|hour|hours|minute|minutes|second|seconds)\\b" }]
+    }
+  }
+}

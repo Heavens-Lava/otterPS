@@ -1,0 +1,12 @@
+{
+  "comments": { "lineComment": "#" },
+  "brackets": [],
+  "autoClosingPairs": [{ "open": "\"", "close": "\"" }],
+  "surroundingPairs": [{ "open": "\"", "close": "\"" }],
+  "wordPattern": "(-?\\d*\\.?\\d+)|([\\p{L}_][\\p{L}\\p{N}_]*)",
+  "indentationRules": {
+    "increaseIndentPattern": "^\\s*(?:(?:if|otherwise(?:\\s+if)?|while|repeat|count|for\\s+each|each|to|try|person\\s+has)\\b.*|.*\\bis\\s+a\\s+(?:thing|[A-Z][\\p{L}\\p{N}_ ]*)\\s*$)",
+    "decreaseIndentPattern": "^\\s*\\.\\s*$"
+  },
+  "folding": { "offSide": true }
+}
