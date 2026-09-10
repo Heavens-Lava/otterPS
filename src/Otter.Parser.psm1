@@ -297,6 +297,22 @@ function Read-OtterObjectTypeName {
     return $words -join ' '
 }
 
+function Read-OtterUiResourceTypeName {
+    $words = [System.Collections.Generic.List[string]]::new()
+    while (-not (Test-OtterTokenKind ([TokenKind]::Into))) {
+        $token = Get-OtterCurrentToken
+        if ($token.Kind -in @([TokenKind]::Newline, [TokenKind]::EndOfFile)) {
+            throw (New-OtterParserError 'I expected "into" after the resource type.' $token 'Write a resource type followed by "into" and a variable name.')
+        }
+        $words.Add((Read-OtterToken).Text)
+    }
+    if ($words.Count -eq 0) {
+        $token = Get-OtterCurrentToken
+        throw (New-OtterParserError 'I expected a resource type after "create".' $token 'Write a resource type, such as "button" or "text box".')
+    }
+    return $words -join ' '
+}
+
 function Test-OtterTokenBeforeNewline {
     param([TokenKind]$Kind)
     for ($index = $script:Position; $index -lt $script:Tokens.Count; $index++) {
@@ -469,10 +485,17 @@ function Read-OtterStatement {
         }
         ([TokenKind]::Create) {
             [void](Read-OtterToken)
-            [void](Assert-OtterTokenKind ([TokenKind]::Folder) 'I expected "folder" after create.')
-            $path = Read-OtterValue
+            if (Test-OtterTokenKind ([TokenKind]::Folder)) {
+                [void](Read-OtterToken)
+                $path = Read-OtterValue
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the create statement to end here.')
+                return [CreateFolderStmt]::new($path, $start.Line)
+            }
+            $typeName = Read-OtterUiResourceTypeName
+            [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a resource variable name.')
+            $target = Read-OtterVariableName 'I expected a variable name after "into".'
             [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the create statement to end here.')
-            return [CreateFolderStmt]::new($path, $start.Line)
+            return [CreateUiResourceStmt]::new($typeName, $target.Text, $start.Line)
         }
         ([TokenKind]::Try) {
             [void](Read-OtterToken)

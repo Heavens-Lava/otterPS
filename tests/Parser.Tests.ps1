@@ -285,6 +285,17 @@ config is a thing
 '@)
 if ($terminatedEmptyObjects.Statements[0] -isnot [ObjectDefStmt] -or $terminatedEmptyObjects.Statements[0].Properties.Count -ne 0) { throw 'Empty has with a period must produce zero properties.' }
 if ($terminatedEmptyObjects.Statements[1] -isnot [ObjectDefStmt] -or $terminatedEmptyObjects.Statements[1].Properties.Count -ne 0) { throw 'Empty is-a-thing with a period must produce zero properties.' }
+$createAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source @'
+create folder "Backup"
+create button into helloButton
+create text box into nameBox
+create window into app
+create sprocket into x
+'@)
+if ($createAst.Statements[0] -isnot [CreateFolderStmt]) { throw 'create folder must retain its existing parser branch.' }
+if ($createAst.Statements[1] -isnot [CreateUiResourceStmt] -or $createAst.Statements[1].TypeName -ne 'button' -or $createAst.Statements[1].Target -ne 'helloButton') { throw 'create button must produce a UI resource statement.' }
+if ($createAst.Statements[2].TypeName -ne 'text box' -or $createAst.Statements[2].Target -ne 'nameBox') { throw 'create text box must preserve its two-word type name.' }
+if ($createAst.Statements[3].TypeName -ne 'window' -or $createAst.Statements[4].TypeName -ne 'sprocket') { throw 'create must pass unknown resource kinds through to runtime.' }
 try {
     ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source "if true`n") | Out-Null
     throw 'An empty if block must remain invalid.'
