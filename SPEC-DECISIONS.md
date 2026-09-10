@@ -2350,3 +2350,141 @@ existing `property of target` parsing already produces the right AST for
 a UI-resource target exactly as it does for a `thing` target; nothing
 about parsing changes based on what the target turns out to be at
 runtime.
+
+---
+
+## D46. UI event registration - frozen and implemented (registration only)
+
+```otter
+when helloButton is clicked
+    say "Hello"
+.
+```
+
+### Scope: registration, not execution
+
+Unlike D45, `when` had **zero** existing AST support before this entry —
+`When` was only a reserved lexer token (`Otter.Contract.psm1`, "reserved,
+UI milestone"), with no `NodeKind` entry and no parser handling at all
+(confirmed by reading `src/Otter.Parser.psm1` directly). So D46 needed a
+real contract addition and a real parser addition, the opposite of D45.
+
+More importantly: no Otter program today runs a message loop. WPF's real
+input events (an actual click) require an active `Dispatcher` pumping
+messages; a script that creates a window and finishes just exits without
+ever giving WPF a chance to deliver anything. So D46 is explicitly scoped
+to **registration only** — wiring a handler to a native event correctly —
+and leaves *whether/when that handler is ever actually invoked in a
+running program* to D47 (a message loop / `show`). This was Jeff's
+explicit call after the trade-off was raised, not an assumption.
+
+### No grammar reuse this time - a real contract addition
+
+```powershell
+class WhenStmt : Node {
+    [Node]$Target        # the UI resource identifier
+    [string]$EventName   # "clicked", "changed", "closed" - a raw word
+    [Node[]]$Body
+    WhenStmt([Node]$target, [string]$eventName, [Node[]]$body, [int]$line)
+        : base([NodeKind]::When, $line) { ... }
+}
+```
+
+`EventName` is read as a raw word, exactly like D44's `TypeName` and
+D45's property names — `clicked`/`changed`/`closed` are **not** reserved
+keywords, preserving Otter's contextual-keyword philosophy. The block
+body reuses the parser's existing `Read-OtterBlock` helper, the same one
+`if`/`while`/`repeat` already share, so the parser addition is small.
+
+### Event metadata belongs in the provider, same shape as D45's properties
+
+```powershell
+$script:OtterUiEvents = @{
+    'button'   = @{ 'clicked' = 'Click' }
+    'text box' = @{ 'changed' = 'TextChanged' }
+    'window'   = @{ 'closed'  = 'Closed' }
+}
+```
+
+"What does `clicked` mean for a button" is provider-specific knowledge,
+same reasoning as D44's create-kind table and D45's property table —
+Otter only ever sees the left-hand word; the CLR event name never
+surfaces.
+
+Subscription is **one generic function** for every kind/event, not one
+code path per event, verified directly against real WPF: `Button.Click`
+is `RoutedEventHandler`, `TextBox.TextChanged` is
+`TextChangedEventHandler`, `Window.Closed` is a plain `EventHandler` —
+three different delegate types — yet reflection subscribes correctly to
+all three with the same code:
+
+```powershell
+$eventInfo = $Resource.Native.GetType().GetEvent($clrName)
+$typedHandler = $Handler -as $eventInfo.EventHandlerType
+$eventInfo.AddEventHandler($Resource.Native, $typedHandler)
+```
+
+Tested by actually firing each native event for real (not simulated):
+`Button.RaiseEvent` with a `ClickEvent` routed-event args, setting
+`TextBox.Text` directly (fires real `TextChanged`), and calling
+`Window.Close()` (fires real `Closed`) — each confirmed to run the
+registered Otter handler body and produce the expected `say` output.
+
+### Frozen scoping rule: no implicit new scope
+
+A `when` handler's body closes over the environment active where `when`
+is registered and introduces **no** implicit child scope — the same
+model `if`/`while`/`repeat` bodies already use (`Invoke-OtterStatements`
+called with the *same* `$Environment`, verified by reading
+`Otter.Interpreter.psm1:320-341`), not a function call's fresh scope.
+Assigning a variable inside a handler body is visible in that same
+environment afterward — tested directly by firing a click and reading
+back the assigned variable through the environment the program used.
+
+### No event payload
+
+`Body` has no way to name "the event" or read anything about it in D46.
+`when nameBox is changed as event` is explicitly not built. All three
+proving-set handlers run with zero arguments.
+
+### Unsupported events, same two-message pattern as D45
+
+- A kind with no event table entry at all: *"A `<kind>` has no events
+  Otter knows about yet."*
+- A known kind with an unrecognized event name: *"A `<kind>` has no
+  event called `"<event>"`."*, with a suggestion listing the kind's
+  actual events — always the Otter-facing kind name, never a WPF type.
+
+### Listening on a non-UI-resource target
+
+`Get-OtterTypeName` already names every runtime value distinctly (`"some
+text"`, `"a button"`, `"gone"`, ...) — reused directly for the target
+check: *"I can only listen for an event on a UI resource, but this is
+some text."* No new naming logic needed.
+
+### What's still out of scope
+
+- **D47** — a message loop / `show`, without which no handler registered
+  under D46 can ever fire from real user interaction.
+- Multiple handlers on the same event, removing/replacing a handler,
+  and any event carrying data (all deferred, per Jeff's explicit call —
+  can come later if dogfooding proves they're needed).
+- More event kinds beyond the three-event proving set (`clicked`,
+  `changed`, `closed`) — same one-line-per-event extension pattern as
+  D44/D45's tables.
+
+### What's built
+
+**Contract:** `NodeKind::When`, `WhenStmt`. **Runtime:**
+`src/Otter.UI.psm1` gained `$script:OtterUiEvents`,
+`Get-OtterUiEventMapping`, `Add-OtterUiEventHandler`;
+`src/Otter.Interpreter.psm1` gained the `'When'` statement case. 7 new
+tests in `tests/UI.Tests.ps1` (three real native-event-fire tests, one
+scoping test, one unsupported-event test, one non-resource-target test),
+full suite: 13 files, all green.
+
+**Parser handoff to Codex, grammar only.** `When Target(Identifier) Is
+EventWord` then the standard `Read-OtterBlock`-parsed body. No lexer
+change — `when` and `is` are both already tokens, and event-name words
+are read raw, the same way `Read-OtterObjectTypeName` already reads
+control-kind words for D44.
