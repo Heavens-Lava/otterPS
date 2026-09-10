@@ -122,6 +122,22 @@ function activate(context) {
       return references.map((reference) => new vscode.Location(document.uri, new vscode.Position(Math.max(0, Number(reference.Line) - 1), Number(reference.Column) || 0)));
     }
   }));
+  context.subscriptions.push(vscode.languages.registerRenameProvider({ language: 'otter', scheme: 'file' }, {
+    provideRenameEdits(document, position, newName) {
+      const range = document.getWordRangeAtPosition(position);
+      if (!range || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(newName)) return undefined;
+      const word = document.getText(range);
+      const result = analyze(document);
+      const symbol = visibleSymbols(result, position.line).find((entry) => entry.Name === word);
+      if (!symbol) return undefined;
+      const edits = new vscode.WorkspaceEdit();
+      for (const reference of (result.References || []).filter((entry) => entry.Name === word && Number(entry.ScopeId) === Number(symbol.ScopeId))) {
+        const start = new vscode.Position(Math.max(0, Number(reference.Line) - 1), Number(reference.Column) || 0);
+        edits.replace(document.uri, new vscode.Range(start, start.translate(0, word.length)), newName);
+      }
+      return edits;
+    }
+  }));
 }
 
 function deactivate() {}

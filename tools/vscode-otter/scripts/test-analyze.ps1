@@ -18,4 +18,13 @@ if (($result.Symbols | Where-Object { $_.Name -eq 'name' }).Count -ne 2) { throw
 if ($result.ObjectProperties.person[0] -ne 'age') { throw 'Analyzer should retain has-object properties.' }
 if (@($result.References | Where-Object { $_.Name -eq 'name' -and -not $_.IsDeclaration }).Count -lt 1) { throw 'Analyzer should emit references for variable uses.' }
 if (@($result.Scopes | Where-Object { $_.Symbols -contains 'file' }).Count -ne 1) { throw 'Analyzer should emit a loop-local scope.' }
+$forward = @'
+greet "Jeff"
+
+to greet name
+    say name
+.
+'@ | powershell.exe -NoProfile -ExecutionPolicy Bypass -File $analyzer -Root $repo | ConvertFrom-Json
+if (-not $forward.Ok -or @($forward.Symbols | Where-Object { $_.Name -eq 'greet' }).Count -ne 1) { throw 'Forward function calls should resolve to their later declaration.' }
+if (@($forward.References | Where-Object { $_.Name -eq 'greet' }).Count -ne 2) { throw 'Forward function references should include declaration and call.' }
 Write-Output 'Semantic analyzer tests passed.'
