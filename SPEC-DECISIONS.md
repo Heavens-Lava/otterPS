@@ -2197,3 +2197,156 @@ unchanged; otherwise, read raw words (same pattern as
 `Read-OtterObjectTypeName`) until `Into`, then a target identifier. No
 lexer change — `into` and `create` are both already tokens. Codex's lane,
 once handed off.
+
+---
+
+## D45. UI property access and assignment - frozen and implemented
+
+```otter
+create window into app
+title of app is "My App"
+width of app is 500
+
+create button into helloButton
+text of helloButton is "Say Hello"
+say text of helloButton
+```
+
+### No grammar change - D19 already covers this exactly
+
+`text of helloButton` and `text of helloButton is "Say Hello"` are
+ordinary `property of target` / `property of target is value` expressions
+— the same `PropertyAccessExpr` / `AssignStmt` shapes D19 already parses
+for `has`-built things. Verified by reading the parser: nothing there
+special-cases the target's *kind*, only its syntactic position. So D45
+needed **zero** contract and **zero** parser changes. The only new work is
+in `Get-OtterValue`'s and `Set-OtterTarget`'s `PropertyAccess` cases in
+`Otter.Interpreter.psm1`, which previously threw an explicit "not built
+yet" error for `OtterUiResource` targets (from D44) and now route to
+`Otter.UI.psm1` instead:
+
+```powershell
+if (Test-OtterUiResource $target) {
+    Write-Output -NoEnumerate (
+        Get-OtterUiProperty -Resource $target -Property $Expression.Property -Line $Expression.Line)
+    return
+}
+```
+
+Nothing about `has`-built `thing` property access changed; the
+`OtterObject` branch is untouched, and D41's dynamic `get`/`set` continue
+to exclude UI resources automatically (checked against `Test-OtterObject`,
+which `OtterUiResource` was never made to satisfy).
+
+### Property metadata belongs in the provider abstraction, not the interpreter
+
+"What does `text` mean for a button" is provider-specific knowledge — a
+button's `text` is WPF `.Content`; a text box's or `text`'s is `.Text`; a
+window has no `text` at all, only `title`/`width`/`height`. The same
+reasoning that put D44's create-kind lookup table in `Otter.UI.psm1` puts
+this one there too, as a second table next to it:
+
+```powershell
+$script:OtterUiProperties = @{
+    'button'   = @{ 'text' = @{ Native = 'Content'; Type = 'text' } }
+    'text box' = @{ 'text' = @{ Native = 'Text';    Type = 'text' } }
+    'text'     = @{ 'text' = @{ Native = 'Text';    Type = 'text' } }
+    'window'   = @{
+        'title'  = @{ Native = 'Title';  Type = 'text' }
+        'width'  = @{ Native = 'Width';  Type = 'number' }
+        'height' = @{ Native = 'Height'; Type = 'number' }
+    }
+}
+```
+
+Verified directly against the real WPF types, not assumed from naming
+convention: `TextBox` has no `Content` property at all; `Button` has no
+settable `Text` property the way a `TextBox`/`TextBlock` does. Getting
+the mapping backwards would have been a silent wrong write, not an error
+— exactly the kind of mistake a table checked against the real object
+forecloses. Every property in this table is both readable and writable on
+its real WPF type, verified rather than assumed, so this pass has no
+read/write asymmetry to design around; the table shape (one entry, not
+two) already leaves room for a future read-only property without
+changing how `Get-`/`Set-OtterUiProperty` are called.
+
+### Type validation happens before the native object is ever touched
+
+Each property carries a `Type`, which is a **validation/coercion
+strategy**, not a WPF concept:
+
+- **`'text'`** — any Otter value is accepted and passed through
+  `Format-OtterValue`, the exact conversion `say` already applies. `text
+  of helloButton is 5` sets it to `"5"`; it does not error, consistent
+  with how `say 5` already prints `5` rather than complaining about type.
+- **`'number'`** — the Otter value must already be numeric. Checked with
+  `Test-OtterNumeric`/`ConvertTo-OtterNumber` and converted **before**
+  the native WPF object is touched at all.
+
+That ordering matters because of a real, verified leak: assigning
+`"not a number"` directly to `Window.Width` throws WPF's own
+`SetValueInvocationException`, whose message names `"System.Double"`
+directly — exactly what D44 principle 5 ("Otter semantics must not
+expose WPF-specific class names or APIs") forbids. Validating first means
+that exception can never actually fire through the Otter-facing path; a
+type mismatch always surfaces as `"I expected a number for the width of
+this window but got \"not a number\"."` instead. Tested directly,
+including asserting the raw exception text (`System.`, `SetValueInvocation`)
+never appears in what reaches the user.
+
+`Assert-OtterUiNumber` is deliberately self-contained rather than reusing
+the interpreter's own `Assert-OtterNumber`: `Otter.Interpreter.psm1`
+already imports `Otter.UI.psm1`, so importing the other direction would
+invert D44's module layering. `Test-OtterNumeric`/`ConvertTo-OtterNumber`
+(from `Otter.Runtime.psm1`, the foundation layer both modules already
+depend on) are reused instead — the correct-direction dependency.
+
+### Unsupported properties, two distinct messages
+
+- A kind Otter has never heard of (should not currently be reachable,
+  since every D44 kind has an entry): *"A `<kind>` has no properties
+  Otter knows about yet."*
+- A known kind with an unrecognized property name: *"A `<kind>` has no
+  property called `"<property>"`."*, with a suggestion listing the
+  kind's actual properties — always naming the Otter-facing kind
+  (`"a window"`, `"a text box"`) exactly as D44 already required for
+  creation errors, never `TextBox` or `System.Windows.Controls`. Setting
+  an unsupported property fails via this same lookup *before* touching
+  the native object, verified by asserting the native value is unchanged
+  after the failed write.
+
+### Reading an unset text property is `gone`, not `""`
+
+A freshly created button has never had `.Content` set — WPF itself
+reports that as `$null`. D22 already distinguishes *no value exists*
+from *an empty value exists*, so `Get-OtterUiProperty` maps a `$null`
+text-typed read straight to `gone` rather than inventing a UI-specific
+"empty" concept. Numeric properties (`width`, `height`) don't need this:
+WPF gives every `Window` a real default `Width`/`Height` the moment it's
+constructed, so there's no unset-number case to handle here.
+
+### What's still out of scope
+
+Unchanged from D44's own list: **D46** (events/`when`), **D47**
+(layout/attachment), more control kinds beyond the D44 proving set, and
+any property *initialization block* syntax on `create` itself (`create
+button into x with text "Say Hello"` or similar — not proposed, not
+needed yet; D45 only covers property access on an already-created
+resource).
+
+### What's built
+
+**Contract:** none needed — see above. **Runtime:** `src/Otter.UI.psm1`
+gained the property table and `Get-OtterUiPropertyMapping` /
+`Assert-OtterUiNumber` / `Get-OtterUiProperty` / `Set-OtterUiProperty`;
+`src/Otter.Interpreter.psm1`'s `PropertyAccess` cases in `Get-OtterValue`
+and `Set-OtterTarget` now route `OtterUiResource` targets there instead
+of throwing "not built yet". 11 new tests added to `tests/UI.Tests.ps1`
+(3 replacing now-obsolete D44-era stub-error tests, 8 new), full suite:
+13 files, all green.
+
+**No Codex handoff needed.** D45 required no grammar work — D19's
+existing `property of target` parsing already produces the right AST for
+a UI-resource target exactly as it does for a `thing` target; nothing
+about parsing changes based on what the target turns out to be at
+runtime.
