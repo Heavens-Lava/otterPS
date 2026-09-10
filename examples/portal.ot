@@ -123,6 +123,15 @@ when submitButton is clicked
     .
 .
 
+when speedSlider is changed
+    val is text of speedSlider
+    speed of cube3d is val
+.
+
+when agreeCheckbox is changed
+    text of statusMessage is "Turbo mode updated."
+.
+
 put topRow, cubeCard, controlsCard in app
 put controlsRow, sliderRow, notesArea, footerRow, statusMessage in controlsCard
 

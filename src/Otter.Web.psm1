@@ -741,7 +741,10 @@ $elementsHtml
     }
     function otterSetProperty(id, prop, val) {
       const el = otterGetElement(id);
-      if (el) el[prop] = val;
+      if (el) {
+        el[prop] = val;
+        if (el.dataset) el.dataset[prop] = val;
+      }
     }
     function otterGetProperty(id, prop) {
       const el = otterGetElement(id);
@@ -776,8 +779,25 @@ $elementsHtml
         ];
         function render3D() {
           ctx.clearRect(0, 0, canvas.width, canvas.height);
-          angleX += 0.015;
-          angleY += 0.02;
+
+          // Dynamic speed calculation from slider or canvas property
+          let spd = 1.0;
+          const liveSlider = document.getElementById('speedSlider') || document.querySelector('input[type="range"]');
+          if (canvas.speed !== undefined && canvas.speed !== null && canvas.speed !== '') {
+            spd = Number(canvas.speed) / 25;
+          } else if (canvas.dataset.speed) {
+            spd = Number(canvas.dataset.speed) / 25;
+          } else if (liveSlider) {
+            spd = Number(liveSlider.value) / 25;
+          }
+          const turbo = document.getElementById('agreeCheckbox');
+          if (turbo && turbo.checked) {
+            spd *= 2.0;
+          }
+          if (isNaN(spd) || spd < 0) spd = 0;
+
+          angleX += 0.015 * spd;
+          angleY += 0.02 * spd;
           const cx = canvas.width / 2;
           const cy = canvas.height / 2;
           const scale = Math.min(cx, cy) * 0.55;
@@ -792,9 +812,19 @@ $elementsHtml
             const p = distance / (distance + z2);
             return [cx + x1 * scale * p, cy + y2 * scale * p];
           });
-          ctx.strokeStyle = '#38bdf8';
+          const themeSel = document.getElementById('themeDropdown');
+          let strokeCol = canvas.color || canvas.dataset.color || '#38bdf8';
+          let glowCol = canvas.glow || canvas.dataset.glow || '#0284c7';
+          if (themeSel) {
+            if (themeSel.value === 'Electric Indigo') {
+              strokeCol = '#c084fc'; glowCol = '#a855f7';
+            } else if (themeSel.value === 'Cyberpunk Emerald') {
+              strokeCol = '#34d399'; glowCol = '#059669';
+            }
+          }
+          ctx.strokeStyle = strokeCol;
           ctx.lineWidth = 2.5;
-          ctx.shadowColor = '#0284c7';
+          ctx.shadowColor = glowCol;
           ctx.shadowBlur = 8;
           edges.forEach(([i, j]) => {
             ctx.beginPath();
@@ -805,6 +835,18 @@ $elementsHtml
           requestAnimationFrame(render3D);
         }
         render3D();
+
+        const liveSlider = document.getElementById('speedSlider') || document.querySelector('input[type="range"]');
+        if (liveSlider) {
+          const updateSpeedLabel = () => {
+            const lbl = document.getElementById('speedLabel');
+            if (lbl) {
+              lbl.textContent = 'Animation Speed: ' + liveSlider.value + '%';
+            }
+          };
+          liveSlider.addEventListener('input', updateSpeedLabel);
+          updateSpeedLabel();
+        }
       }
     });
 
