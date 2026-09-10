@@ -2,6 +2,21 @@ using module ..\Otter.Contract.psm1
 
 # Milestone 1 parser: say, assignment, and an if block with comparison.
 
+# D32: which token kinds name a length of time.
+$script:OtterTimeUnits = @{
+    ([TokenKind]::Year) = [TimeUnit]::Year
+    ([TokenKind]::Month) = [TimeUnit]::Month
+    ([TokenKind]::Day) = [TimeUnit]::Day
+    ([TokenKind]::Hour) = [TimeUnit]::Hour
+    ([TokenKind]::Minute) = [TimeUnit]::Minute
+    ([TokenKind]::Second) = [TimeUnit]::Second
+}
+
+function Test-OtterTimeUnit {
+    param([TokenKind]$Kind)
+    return $script:OtterTimeUnits.ContainsKey($Kind)
+}
+
 function Initialize-OtterParser {
     param([Token[]]$Tokens)
     $script:Tokens = $Tokens
@@ -65,6 +80,8 @@ function Read-OtterValue {
         ([TokenKind]::True) { [void](Read-OtterToken); return [LiteralExpr]::new($true, $token.Line) }
         ([TokenKind]::False) { [void](Read-OtterToken); return [LiteralExpr]::new($false, $token.Line) }
         ([TokenKind]::Gone) { [void](Read-OtterToken); return [LiteralExpr]::new($null, $token.Line) }
+        ([TokenKind]::Today) { [void](Read-OtterToken); return [ClockExpr]::new([ClockKind]::Today, $token.Line) }
+        ([TokenKind]::Now) { [void](Read-OtterToken); return [ClockExpr]::new([ClockKind]::Now, $token.Line) }
         default { throw (New-OtterParserError 'I expected a value here.' $token 'Add a text value, number, true, false, or variable name.') }
     }
 }
@@ -237,8 +254,35 @@ function Read-OtterCallResultTarget {
     return (Assert-OtterTokenKind ([TokenKind]::Identifier) 'I expected a result variable after "make".').Text
 }
 
+# Shared by log / warn / error. Parts are read exactly like say (D8), so a
+# diagnostic can mix text and values: log "Listening on" port
+function Read-OtterDiagnostic {
+    param([DiagnosticLevel]$Level, [Token]$Start)
+    $parts = [System.Collections.Generic.List[Node]]::new()
+    while (-not (Test-OtterTokenKind ([TokenKind]::Newline))) { $parts.Add((Read-OtterValue)) }
+    [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the diagnostic to end here.')
+    return [DiagnosticStmt]::new($Level, $parts.ToArray(), $Start.Line)
+}
+
 function Read-OtterStatement {
     $start = Get-OtterCurrentToken
+
+    # days between startDate and endDate make days               (D32)
+    #
+    # Checked before the switch because the statement begins with a unit
+    # token rather than a verb.
+    if ((Test-OtterTimeUnit $start.Kind) -and $script:Tokens[$script:Position + 1].Kind -eq [TokenKind]::Between) {
+        $unitToken = Read-OtterToken
+        [void](Read-OtterToken)
+        $from = Read-OtterValue
+        [void](Assert-OtterTokenKind ([TokenKind]::And) 'I expected "and" and the second date.')
+        $to = Read-OtterValue
+        [void](Assert-OtterTokenKind ([TokenKind]::Make) 'I expected "make" and a result name.')
+        $differenceTarget = Read-OtterVariableName 'I expected a result name after "make".'
+        [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the difference statement to end here.')
+        return [DateDifferenceStmt]::new($script:OtterTimeUnits[$unitToken.Kind], $from, $to, $differenceTarget.Text, $start.Line)
+    }
+
     switch ($start.Kind) {
         ([TokenKind]::Say) {
             [void](Read-OtterToken)
@@ -390,8 +434,102 @@ function Read-OtterStatement {
             [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the find statement to end here.')
             return [FindStmt]::new($item.Text, $collection, $condition, $target.Text, $start.Line)
         }
+        # format date as "MM/dd/yyyy" into text                     (D32)
+        ([TokenKind]::Format) {
+            [void](Read-OtterToken)
+            $subject = Read-OtterValue
+            [void](Assert-OtterTokenKind ([TokenKind]::As) 'I expected "as" and a date format.')
+            $pattern = Read-OtterValue
+            [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a variable name.')
+            $target = Read-OtterVariableName 'I expected a variable name after "into".'
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the format statement to end here.')
+            return [FormatDateStmt]::new($subject, $pattern, $target.Text, $start.Line)
+        }
+        # log "Server started."   warn "..."   error "..."         (D31)
+        #
+        # These are NOT aliases for say. The runtime sends them to a separate
+        # writer, so a host can route what a program tells its operator away
+        # from what it tells its user.
+        ([TokenKind]::Log) {
+            [void](Read-OtterToken)
+            return (Read-OtterDiagnostic ([DiagnosticLevel]::Note) $start)
+        }
+        ([TokenKind]::Warn) {
+            [void](Read-OtterToken)
+            return (Read-OtterDiagnostic ([DiagnosticLevel]::Warning) $start)
+        }
+        ([TokenKind]::Problem) {
+            [void](Read-OtterToken)
+            return (Read-OtterDiagnostic ([DiagnosticLevel]::Problem) $start)
+        }
+        # random number from 1 to 10 into number                    (D30)
+        # random item from games into game
+        #
+        # "number" and "item" stay ORDINARY IDENTIFIERS in the lexer, matched
+        # by text here. Reserving "item" as a keyword would break the very
+        # common "for each item in items".
+        ([TokenKind]::Random) {
+            [void](Read-OtterToken)
+            $what = Get-OtterCurrentToken
+
+            if ($what.Kind -eq [TokenKind]::Identifier -and $what.Text -eq 'number') {
+                [void](Read-OtterToken)
+                [void](Assert-OtterTokenKind ([TokenKind]::From) 'I expected "from" and the lowest number.')
+                $from = Read-OtterMathExpression
+                [void](Assert-OtterTokenKind ([TokenKind]::To) 'I expected "to" and the highest number.')
+                $to = Read-OtterMathExpression
+                [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a variable name.')
+                $target = Read-OtterVariableName 'I expected a variable name after "into".'
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the random statement to end here.')
+                return [RandomNumberStmt]::new($from, $to, $target.Text, $start.Line)
+            }
+
+            if (($what.Kind -eq [TokenKind]::Item) -or ($what.Kind -eq [TokenKind]::Identifier -and $what.Text -eq 'item')) {
+                [void](Read-OtterToken)
+                [void](Assert-OtterTokenKind ([TokenKind]::From) 'I expected "from" and a list.')
+                $collection = Read-OtterValue
+                [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a variable name.')
+                $target = Read-OtterVariableName 'I expected a variable name after "into".'
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the random statement to end here.')
+                return [RandomItemStmt]::new($collection, $target.Text, $start.Line)
+            }
+
+            throw (New-OtterParserError 'I expected "number" or "item" after "random".' $what 'Write "random number from 1 to 10 into n" or "random item from games into g".')
+        }
+        # convert user to json into text                            (D29)
+        # convert text from json into user
+        ([TokenKind]::Convert) {
+            [void](Read-OtterToken)
+            $subject = Read-OtterValue
+
+            if (Test-OtterTokenKind ([TokenKind]::To)) {
+                [void](Read-OtterToken)
+                [void](Assert-OtterTokenKind ([TokenKind]::Json) 'I expected "json" after "to".')
+                [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a variable name.')
+                $target = Read-OtterVariableName 'I expected a variable name after "into".'
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the convert statement to end here.')
+                return [ConvertToJsonStmt]::new($subject, $target.Text, $start.Line)
+            }
+
+            [void](Assert-OtterTokenKind ([TokenKind]::From) 'I expected "to json" or "from json" here.')
+            [void](Assert-OtterTokenKind ([TokenKind]::Json) 'I expected "json" after "from".')
+            [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a variable name.')
+            $target = Read-OtterVariableName 'I expected a variable name after "into".'
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the convert statement to end here.')
+            return [ConvertFromJsonStmt]::new($subject, $target.Text, $start.Line)
+        }
         ([TokenKind]::Read) {
             [void](Read-OtterToken)
+            # read json from "settings.json" into settings          (D29)
+            if (Test-OtterTokenKind ([TokenKind]::Json)) {
+                [void](Read-OtterToken)
+                [void](Assert-OtterTokenKind ([TokenKind]::From) 'I expected "from" and a file path.')
+                $jsonPath = Read-OtterValue
+                [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a variable name.')
+                $jsonTarget = Read-OtterVariableName 'I expected a variable name after "into".'
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the read statement to end here.')
+                return [ReadJsonStmt]::new($jsonPath, $jsonTarget.Text, $start.Line)
+            }
             $path = Read-OtterValue
             [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a variable name.')
             $target = Assert-OtterTokenKind ([TokenKind]::Identifier) 'I expected a variable name after "into".'
@@ -494,6 +632,19 @@ function Read-OtterStatement {
             [void](Read-OtterToken)
             if (Test-OtterTokenBeforeNewline ([TokenKind]::To)) {
                 $amount = Read-OtterMathExpression
+                # add 7 days to date                              (D32)
+                #
+                # The unit word is what separates this from D12's
+                # "add 5 to score", and it is right here in the token
+                # stream - the parser never needs to know what the target
+                # holds.
+                if (Test-OtterTimeUnit (Get-OtterCurrentToken).Kind) {
+                    $unitToken = Read-OtterToken
+                    [void](Assert-OtterTokenKind ([TokenKind]::To) 'I expected "to" and a date name.')
+                    $dateName = Read-OtterVariableName 'I expected a date name after "to".'
+                    [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the add statement to end here.')
+                    return [DateAdjustStmt]::new($amount, $script:OtterTimeUnits[$unitToken.Kind], $dateName.Text, $false, $start.Line)
+                }
                 [void](Assert-OtterTokenKind ([TokenKind]::To) 'I expected "to" and a variable name.')
                 $name = Assert-OtterTokenKind ([TokenKind]::Identifier) 'I expected a variable name after "to".'
                 [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the add statement to end here.')
@@ -507,6 +658,14 @@ function Read-OtterStatement {
         ([TokenKind]::Remove) {
             [void](Read-OtterToken)
             $amount = Read-OtterMathExpression
+            # remove 1 month from date                            (D32)
+            if (Test-OtterTimeUnit (Get-OtterCurrentToken).Kind) {
+                $unitToken = Read-OtterToken
+                [void](Assert-OtterTokenKind ([TokenKind]::From) 'I expected "from" and a date name.')
+                $dateName = Read-OtterVariableName 'I expected a date name after "from".'
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the remove statement to end here.')
+                return [DateAdjustStmt]::new($amount, $script:OtterTimeUnits[$unitToken.Kind], $dateName.Text, $true, $start.Line)
+            }
             [void](Assert-OtterTokenKind ([TokenKind]::From) 'I expected "from" and a variable name.')
             $name = Assert-OtterTokenKind ([TokenKind]::Identifier) 'I expected a variable name after "from".'
             [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the remove statement to end here.')

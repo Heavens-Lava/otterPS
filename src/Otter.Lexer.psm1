@@ -49,6 +49,16 @@ $script:OtterKeywords = @{
     'join' = [TokenKind]::Join
     'find' = [TokenKind]::Find
     'where' = [TokenKind]::Where
+    'json' = [TokenKind]::Json
+    'random' = [TokenKind]::Random
+    'today' = [TokenKind]::Today
+    'now' = [TokenKind]::Now
+    'between' = [TokenKind]::Between
+    'format' = [TokenKind]::Format
+    'log' = [TokenKind]::Log
+    'warn' = [TokenKind]::Warn
+    'error' = [TokenKind]::Problem
+    'convert' = [TokenKind]::Convert
     # Reserved for later language versions. Lexing them now prevents a future
     # keyword from silently changing an existing program's meaning.
     'a' = [TokenKind]::A
@@ -67,6 +77,16 @@ $script:OtterKeywords = @{
     'open' = [TokenKind]::Open
     'true' = [TokenKind]::True
     'false' = [TokenKind]::False
+}
+
+# D32: singular and plural spell the same unit, the way make/makes collapse.
+$script:OtterTimeUnitWords = @{
+    'year' = [TokenKind]::Year; 'years' = [TokenKind]::Year
+    'month' = [TokenKind]::Month; 'months' = [TokenKind]::Month
+    'day' = [TokenKind]::Day; 'days' = [TokenKind]::Day
+    'hour' = [TokenKind]::Hour; 'hours' = [TokenKind]::Hour
+    'minute' = [TokenKind]::Minute; 'minutes' = [TokenKind]::Minute
+    'second' = [TokenKind]::Second; 'seconds' = [TokenKind]::Second
 }
 
 function New-OtterToken {
@@ -219,6 +239,23 @@ function ConvertTo-OtterLineTokens {
             $tokens[$tokenIndex + 1].Kind -eq [TokenKind]::With) {
             if ($token.Text -eq 'starts') { $combined.Add((New-OtterToken ([TokenKind]::StartsWith) 'starts with' $null $token.Line $token.Column)); $tokenIndex++; continue }
             if ($token.Text -eq 'ends') { $combined.Add((New-OtterToken ([TokenKind]::EndsWith) 'ends with' $null $token.Line $token.Column)); $tokenIndex++; continue }
+        }
+        # A time unit, but ONLY where a unit can appear (D32):
+        #
+        #   add 7 days to date          after a number
+        #   days between a and b        before "between"
+        #
+        # Anywhere else these stay identifiers, so "year of book" keeps
+        # meaning the year property of a thing.
+        if ($token.Kind -eq [TokenKind]::Identifier -and $script:OtterTimeUnitWords.ContainsKey($token.Text)) {
+            $previous = if ($combined.Count -gt 0) { $combined[$combined.Count - 1] } else { $null }
+            $next = if (($tokenIndex + 1) -lt $tokens.Count) { $tokens[$tokenIndex + 1] } else { $null }
+            $afterNumber = ($null -ne $previous -and $previous.Kind -eq [TokenKind]::Number)
+            $beforeBetween = ($null -ne $next -and $next.Kind -eq [TokenKind]::Between)
+            if ($afterNumber -or $beforeBetween) {
+                $combined.Add((New-OtterToken $script:OtterTimeUnitWords[$token.Text] $token.Text $null $token.Line $token.Column))
+                continue
+            }
         }
         if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -eq 'divided' -and
             ($tokenIndex + 1) -lt $tokens.Count -and $tokens[$tokenIndex + 1].Text -eq 'by') {
