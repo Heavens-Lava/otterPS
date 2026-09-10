@@ -112,6 +112,43 @@ function Assert-OtterNumber {
     throw (New-OtterRuntimeError -Message "I expected a number for $What but got $shown." -Line $Line)
 }
 
+# D41: dynamic get/set are restricted to TypeName 'thing'. The probe that
+# motivated this found the reason directly - WriteProperty does not
+# distinguish thing from file from folder, so without this guard
+# `set "size" to 999999 in file` would silently corrupt a file object's
+# own bookkeeping. has (D40) and JSON (D29) are both always 'thing',
+# so this costs the intended use of the feature nothing.
+function Assert-OtterDynamicKeyTarget {
+    param([object]$Value, [int]$Line, [string]$Verb)
+
+    if (-not (Test-OtterObject $Value)) {
+        throw (New-OtterRuntimeError `
+            -Message "I can only $Verb a thing, but this is $(Get-OtterTypeName $Value)." `
+            -Line $Line)
+    }
+    if ($Value.TypeName -ne 'thing') {
+        throw (New-OtterRuntimeError `
+            -Message "I can only $Verb properties dynamically on a thing, but this is a $($Value.TypeName)." `
+            -Line $Line)
+    }
+    return $Value
+}
+
+# D41: string-only keys for 0.1, on purpose - accepting any value would
+# mean quietly inventing coercion rules for numbers, dates, booleans, and
+# gone, which is exactly the kind of decision this project makes on
+# purpose rather than by accident.
+function Assert-OtterStringKey {
+    param([object]$Value, [int]$Line)
+
+    if ($Value -is [string]) { return $Value }
+
+    throw (New-OtterRuntimeError `
+        -Message "I need text for a dynamic key, but this is $(Get-OtterTypeName $Value)." `
+        -Line $Line `
+        -Suggestion 'get "Jeff" from scores into score')
+}
+
 
 # ===============================================================
 # ENTRY POINT
@@ -204,6 +241,37 @@ function Invoke-OtterStatement {
         # .
         'TypeDef' {
             $Environment.Set($Statement.TypeName, [OtterType]::new($Statement.TypeName, $Statement.FieldNames))
+            return
+        }
+
+        # get "Jeff" from scores into score      (D41 - missing key is gone, not an error)
+        'GetKey' {
+            $target = Get-OtterValue -Expression $Statement.Target -Environment $Environment
+            $key = Assert-OtterDynamicKeyTarget -Value $target -Line $Statement.Line -Verb 'read from'
+
+            $rawKey = Get-OtterValue -Expression $Statement.Key -Environment $Environment
+            $keyText = Assert-OtterStringKey -Value $rawKey -Line $Statement.Line
+
+            # ReadProperty already returns $null for a key that was never
+            # set - that IS gone (D22). No HasProperty guard here on
+            # purpose: that guard is what makes "name of person" an error
+            # on a missing property, and this statement is deliberately not
+            # that one.
+            $Environment.Set($Statement.ResultTarget, $key.ReadProperty($keyText))
+            return
+        }
+
+        # set "Jeff" to 100 in scores      (D41 - creates or replaces)
+        'SetKey' {
+            $target = Get-OtterValue -Expression $Statement.Target -Environment $Environment
+            $key = Assert-OtterDynamicKeyTarget -Value $target -Line $Statement.Line -Verb 'write to'
+
+            $rawKey = Get-OtterValue -Expression $Statement.Key -Environment $Environment
+            $keyText = Assert-OtterStringKey -Value $rawKey -Line $Statement.Line
+
+            $value = Get-OtterValue -Expression $Statement.Value -Environment $Environment
+            # WriteProperty already creates-or-replaces - nothing extra needed.
+            $key.WriteProperty($keyText, $value)
             return
         }
 
