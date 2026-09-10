@@ -85,11 +85,15 @@ enum TokenKind {
 
     # --- discovery (D20, D21) -----------------------------------
     Get             # get files in "Pictures" into files
+                    # ALSO: get "Jeff" from scores into score (D41)
     Files
     Folders
     Folder          # create folder "Backup"
     Subfolders      # ...in "Pictures" and subfolders
     Create
+
+    # --- dynamic thing access (D41) ------------------------------
+    Set             # set "Jeff" to 100 in scores
 
     # --- errors (D23) -------------------------------------------
     Try             # try / otherwise
@@ -231,8 +235,12 @@ enum NodeKind {
 
     # runtime library (milestone 7) - rules.md sections 30-31
     # objects (0.3) - rules.md sections 27-28, rules2.md section 2
-    ObjectDef       # person is a thing / nameBox is a text box
+    ObjectDef       # person is a thing / nameBox is a text box / person has
     TypeDef         # a Person has
+
+    # dynamic thing access (D41)
+    GetKey          # get "Jeff" from scores into score
+    SetKey          # set "Jeff" to 100 in scores
 
     ReadFile
     WriteFile
@@ -679,6 +687,56 @@ class TypeDefStmt : Node {
     TypeDefStmt([string]$typeName, [string[]]$fieldNames, [int]$line) : base([NodeKind]::TypeDef, $line) {
         $this.TypeName = $typeName
         $this.FieldNames = $fieldNames
+    }
+}
+
+
+# ===============================================================
+# DYNAMIC THING ACCESS (D41)
+# ===============================================================
+#
+#     get "Jeff" from scores into score      - missing key -> gone, no error
+#     set "Jeff" to 100 in scores             - creates or replaces
+#
+# Deliberately separate AST shapes from PropertyAccessExpr / AssignStmt,
+# even though both reuse the exact same OtterObject underneath and need
+# zero changes to that class (D41 investigation, verified empirically:
+# ReadProperty/WriteProperty already take a plain string key with no
+# concept of "static" vs "dynamic"). The two are kept apart because their
+# FAILURE semantics are genuinely different intents, not implementation
+# detail: `name of person` on a missing property is a mistake worth
+# stopping on; `get "key" from thing into x` on a missing key is an
+# ordinary, expected "not there" answer (gone). Folding both into one node
+# with a runtime branch would hide that difference; two small honest nodes
+# keep it visible in the AST itself.
+#
+# Key and Target are both full expressions - Key is NOT restricted to a
+# string literal, e.g. `get name of user from scores into x` is legal
+# syntax. Whether the key value it evaluates to must be text is a runtime
+# rule (D41: string-only for 0.1), not a parse-time restriction.
+#
+# Restricted at runtime to TypeName == 'thing' - files, folders, and any
+# other domain/resource OtterObject refuse dynamic access (D41).
+
+class GetKeyStmt : Node {
+    [Node]$Key
+    [Node]$Target
+    [string]$ResultTarget
+    GetKeyStmt([Node]$key, [Node]$target, [string]$resultTarget, [int]$line) : base([NodeKind]::GetKey, $line) {
+        $this.Key = $key
+        $this.Target = $target
+        $this.ResultTarget = $resultTarget
+    }
+}
+
+class SetKeyStmt : Node {
+    [Node]$Key
+    [Node]$Value
+    [Node]$Target
+    SetKeyStmt([Node]$key, [Node]$value, [Node]$target, [int]$line) : base([NodeKind]::SetKey, $line) {
+        $this.Key = $key
+        $this.Value = $value
+        $this.Target = $target
     }
 }
 
