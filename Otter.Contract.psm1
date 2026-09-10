@@ -242,6 +242,9 @@ enum NodeKind {
     GetKey          # get "Jeff" from scores into score
     SetKey          # set "Jeff" to 100 in scores
 
+    # external UI resource creation (D44)
+    CreateUiResource  # create button into helloButton
+
     ReadFile
     WriteFile
     CopyFile
@@ -739,6 +742,35 @@ class SetKeyStmt : Node {
     SetKeyStmt([Node]$key, [Node]$value, [Node]$target, [int]$line) : base([NodeKind]::SetKey, $line) {
         $this.Key = $key
         $this.Value = $value
+        $this.Target = $target
+    }
+}
+
+
+# ===============================================================
+# EXTERNAL UI RESOURCES (D44)
+# ===============================================================
+#
+#     create button into helloButton
+#
+# D43 already settled that this is NOT an ObjectDefStmt/has-shaped thing -
+# a UI control is an external/domain resource, same family as files and
+# folders, not in-memory data. D44 settles what it produces and how its
+# identity works; this is that one statement.
+#
+# TypeName is READ AS RAW TEXT, exactly like Read-OtterObjectTypeName
+# already does for "a Person" / "is a text box" - so control-kind words
+# ("button", "window", "text box") are NOT reserved keywords. Nothing
+# about D44 takes a word away from ordinary Otter programs.
+#
+# No property-block here on purpose - D43 explicitly deferred an
+# initialization block, and property translation per control kind is D45's
+# job, not this node's.
+class CreateUiResourceStmt : Node {
+    [string]$TypeName
+    [string]$Target
+    CreateUiResourceStmt([string]$typeName, [string]$target, [int]$line) : base([NodeKind]::CreateUiResource, $line) {
+        $this.TypeName = $typeName
         $this.Target = $target
     }
 }
