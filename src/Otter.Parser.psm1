@@ -416,6 +416,23 @@ function Read-OtterStatement {
             [void](Read-OtterToken)
             return [WhenStmt]::new($target, $eventToken.Text, (Read-OtterBlock), $start.Line)
         }
+        ([TokenKind]::Put) {
+            [void](Read-OtterToken)
+            $itemToken = Read-OtterVariableName 'I expected a resource name after "put".'
+            $item = [VariableExpr]::new($itemToken.Text, $itemToken.Line)
+            [void](Assert-OtterTokenKind ([TokenKind]::In) 'I expected "in" before the container.')
+            $containerToken = Read-OtterVariableName 'I expected a resource name after "in".'
+            $container = [VariableExpr]::new($containerToken.Text, $containerToken.Line)
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the put statement to end here.')
+            return [PutInStmt]::new($item, $container, $start.Line)
+        }
+        ([TokenKind]::Show) {
+            [void](Read-OtterToken)
+            $targetToken = Read-OtterVariableName 'I expected a resource name after "show".'
+            $target = [VariableExpr]::new($targetToken.Text, $targetToken.Line)
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the show statement to end here.')
+            return [ShowStmt]::new($target, $start.Line)
+        }
         ([TokenKind]::While) {
             [void](Read-OtterToken)
             return [WhileStmt]::new((Read-OtterCondition), (Read-OtterBlock), $start.Line)

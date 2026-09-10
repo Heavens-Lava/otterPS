@@ -306,6 +306,12 @@ when nameBox is changed
 '@)
 if ($whenAst.Statements[0] -isnot [WhenStmt] -or $whenAst.Statements[0].Target.Name -ne 'helloButton' -or $whenAst.Statements[0].EventName -ne 'clicked') { throw 'D46 clicked handler must preserve target and event.' }
 if ($whenAst.Statements[1] -isnot [WhenStmt] -or $whenAst.Statements[1].EventName -ne 'changed' -or $whenAst.Statements[1].Body.Count -ne 1) { throw 'D46 changed handler must parse its body.' }
+$d47Ast = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source @'
+put helloButton in app
+show app
+'@)
+if ($d47Ast.Statements[0] -isnot [PutInStmt] -or $d47Ast.Statements[0].Item.Name -ne 'helloButton' -or $d47Ast.Statements[0].Container.Name -ne 'app') { throw 'D47 put must preserve item and container.' }
+if ($d47Ast.Statements[1] -isnot [ShowStmt] -or $d47Ast.Statements[1].Target.Name -ne 'app') { throw 'D47 show must preserve its target.' }
 try {
     ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source "if true`n") | Out-Null
     throw 'An empty if block must remain invalid.'
