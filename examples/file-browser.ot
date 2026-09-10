@@ -1,25 +1,32 @@
+#create the window and set its properties
 create window into app
 app has title "Otter File Utility", width 700, height 500, background "#111827", spacing 12
-
+#header within the browser
 create text into heading
 heading has text "Folder Browser", foreground "white"
-
+#create text box
 create text box into folderBox
 folderBox has width 500
-
+#create button to load files to the right of the text box
 create button into loadButton
 loadButton has text "Load Files", width 120, background "#2563EB", foreground "white"
 
+
+
+
+
+
+#row to hold the text box and button
 create row into toolbar
 toolbar has spacing 10
-
+#place the text box and button into the row
 put folderBox, loadButton in toolbar
-
+#display area for the results
 create text into resultText
 resultText has text "Enter a folder path.", foreground "white"
-
+#place the header, toolbar, and result text into the app
 put heading, toolbar, resultText in app
-
+#button click event to load files from the folder specified in the text box
 when loadButton is clicked
     try
         folder is text of folderBox
