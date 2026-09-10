@@ -121,6 +121,22 @@ enum TokenKind {
     Warn
     Problem         # the "error" keyword - Error would shadow OtterError
 
+    # --- dates and time (D32) -----------------------------------
+    Today           # date is today
+    Now             # started is now
+    Between         # days between startDate and endDate make days
+    Format          # format date as "MM/dd/yyyy" into text
+
+    # Time units. ONE token each: the lexer accepts both the singular and
+    # the plural spelling ("1 day", "7 days") and emits the same token, the
+    # same way make/makes collapse to Make in D3.
+    Year
+    Month
+    Day
+    Hour
+    Minute
+    Second
+
     # --- reserved for 0.3 / 0.4 (lexed now, not yet parsed) ------
     A               # jeff is A Person
     Thing           # person is a THING
@@ -254,6 +270,12 @@ enum NodeKind {
     RandomNumber
     RandomItem
     Diagnostic      # log / warn / error
+
+    # dates and time (D32)
+    Clock           # today / now
+    DateAdjust      # add 7 days to date / remove 1 month from date
+    DateDifference  # days between startDate and endDate make days
+    FormatDate      # format date as "MM/dd/yyyy" into text
 }
 
 enum MathOp { Add; Subtract; Multiply; Divide }
@@ -275,6 +297,16 @@ enum OfOperation { Length; Uppercase; Lowercase; First; Last }
 
 # if name starts with "J"   /   if name ends with "Macy"
 enum TextMatch { StartsWith; EndsWith }
+
+# D32: "today" gives a date with no time of day; "now" gives a date AND a
+# time. They are different enough that asking for "hour of" a plain date is a
+# mistake worth reporting rather than answering with a silent zero.
+enum ClockKind { Today; Now }
+
+# D32: the unit in "add 7 days to date". Carried in the AST as an enum, so
+# the parser never needs to know what kind of value the target holds - it
+# reads the unit word and the shape is decided.
+enum TimeUnit { Year; Month; Day; Hour; Minute; Second }
 
 # D31: log / warn / error are DIAGNOSTIC output, separate from "say".
 # "say" is what the program tells its user; these are what it tells its
@@ -1010,6 +1042,102 @@ class DiagnosticStmt : Node {
     DiagnosticStmt([DiagnosticLevel]$level, [Node[]]$parts, [int]$line) : base([NodeKind]::Diagnostic, $line) {
         $this.Level = $level
         $this.Parts = $parts
+    }
+}
+
+
+# ===============================================================
+# DATES AND TIME (D32)
+# ===============================================================
+#
+#     date is today
+#     started is now
+#
+#     year of date          month of date        day of date
+#     hour of started       minute of started    second of started
+#
+#     add 7 days to date
+#     remove 1 month from date
+#     add 30 minutes to started
+#
+#     format date as "MM/dd/yyyy" into text
+#     days between startDate and endDate make days
+#
+# A date is a FIRST-CLASS VALUE, never text. See D32 for why that matters and
+# for the one thing this deliberately does NOT add: a node for reading
+# "year of date".
+#
+# Reading a date part is an ORDINARY PropertyAccessExpr. It is not an
+# OfOperationExpr and it needs no node of its own, because "year" cannot be
+# reserved as an operation word without breaking this:
+#
+#     book is a thing
+#         year is 1984
+#     .
+#     say year of book
+#
+# The interpreter answers year/month/day/hour/minute/second on a date value
+# and looks up a stored property on anything else.
+
+# today   /   now
+class ClockExpr : Node {
+    [ClockKind]$Kind
+    ClockExpr([ClockKind]$kind, [int]$line) : base([NodeKind]::Clock, $line) {
+        $this.Kind = $kind
+    }
+}
+
+# add 7 days to date        IsRemoval = $false
+# remove 1 month from date  IsRemoval = $true
+#
+# Structurally distinct from AddToStmt (D12) on purpose. The unit word is
+# what separates them, and it is present in the token stream, so the parser
+# decides the shape without ever knowing what the target holds:
+#
+#     add 5 to score            -> AddToStmt        (no unit)
+#     add 5 days to startDate   -> DateAdjustStmt   (unit: Day)
+class DateAdjustStmt : Node {
+    [Node]$Amount
+    [TimeUnit]$Unit
+    [string]$Target
+    [bool]$IsRemoval
+    DateAdjustStmt([Node]$amount, [TimeUnit]$unit, [string]$target, [bool]$isRemoval, [int]$line) : base([NodeKind]::DateAdjust, $line) {
+        $this.Amount = $amount
+        $this.Unit = $unit
+        $this.Target = $target
+        $this.IsRemoval = $isRemoval
+    }
+}
+
+# days between startDate and endDate make days
+#
+# Unit is carried so "hours between" and "minutes between" need no new node
+# when they arrive - only a lexer word.
+class DateDifferenceStmt : Node {
+    [TimeUnit]$Unit
+    [Node]$Start
+    [Node]$End
+    [string]$Target
+    DateDifferenceStmt([TimeUnit]$unit, [Node]$start, [Node]$end, [string]$target, [int]$line) : base([NodeKind]::DateDifference, $line) {
+        $this.Unit = $unit
+        $this.Start = $start
+        $this.End = $end
+        $this.Target = $target
+    }
+}
+
+# format date as "MM/dd/yyyy" into text
+#
+# Produces text and leaves the date exactly as it was, the same way
+# "uppercase of name" leaves name alone (rules3 section 22).
+class FormatDateStmt : Node {
+    [Node]$Subject
+    [Node]$Format
+    [string]$Target
+    FormatDateStmt([Node]$subject, [Node]$format, [string]$target, [int]$line) : base([NodeKind]::FormatDate, $line) {
+        $this.Subject = $subject
+        $this.Format = $format
+        $this.Target = $target
     }
 }
 

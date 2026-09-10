@@ -982,3 +982,163 @@ built.
 arguments, environment values and secrets, testing syntax, `measure folder`,
 `delete folder ... and everything in it`, `sort files by name`, plural
 `get ... where`, methods on custom types, and concurrency.
+
+---
+
+## D32. Dates and time
+
+Dates are **first-class values, never text.** Text cannot be added to, cannot
+be compared, and has to be re-parsed on every use; a language that stores
+dates as strings makes every date operation a parsing problem.
+
+```otter
+date is today
+started is now
+
+year of date        month of date       day of date
+hour of started     minute of started   second of started
+
+add 7 days to date
+remove 1 month from date
+add 30 minutes to started
+
+format date as "MM/dd/yyyy" into text
+days between startDate and endDate make days
+```
+
+---
+
+### D32.1 `today` and `now` are different kinds of value
+
+| | Produces | Supports |
+|---|---|---|
+| `today` | a **date** — no time of day | year, month, day arithmetic and parts |
+| `now` | a **date and time** | all six units |
+
+`hour of date` where `date` came from `today` is an **error**, not a silent
+zero. Midnight and "no time at all" are different, and answering `0` would
+hide a mistake.
+
+Both use **local runtime time**. No timezone syntax in this milestone.
+
+---
+
+### D32.2 Reading a date part is ordinary property access — deliberately
+
+`year of date` builds a **`PropertyAccessExpr`**. It is *not* an
+`OfOperationExpr`, and it gets no node of its own.
+
+This is the load-bearing decision in D32, and it is forced. D24 says operation
+words are a fixed closed set the parser recognises statically. If `year`,
+`month`, `day`, `hour`, `minute` and `second` joined that set, this would
+break:
+
+```otter
+book is a thing
+    year is 1984
+.
+
+say year of book        # a perfectly ordinary user property
+```
+
+`year of book` and `year of date` are indistinguishable at parse time and must
+stay that way. So the **interpreter** resolves them: on a date value it
+answers the date part, on an object it looks up the stored property, and on
+anything else it reports the usual "no property called ..." error.
+
+Consequence worth stating: a `thing` may carry its own `year` property and it
+shadows nothing, because dates and things are different kinds of value.
+
+Parts return **numbers**. `month of date` is `1`–`12`, never a month name —
+no month-name syntax in this milestone.
+
+---
+
+### D32.3 Temporal mutation is structurally distinct from D12
+
+```otter
+add 5 to score              -> AddToStmt        (no unit)
+add 5 days to startDate     -> DateAdjustStmt   (unit: Day)
+```
+
+The **unit word is present in the token stream**, so the parser decides the
+shape from what it reads and never needs to know what the target holds. That
+is the whole reason `TimeUnit` is carried in the AST rather than resolved at
+runtime.
+
+- Both spellings are legal: `1 day` and `7 days` produce the same `Day` unit,
+  the same way `make` / `makes` collapse in D3.
+- `add` and `remove` share one node with an `IsRemoval` flag.
+- Adjusting **replaces** the value rather than mutating it in place, so two
+  variables holding the same date never change together.
+- Applying a time unit to a date-only value — `add 1 hour to date` — is an
+  error, matching D32.1.
+
+Month and year arithmetic clamps to the end of the month, so 31 January plus
+one month is 28 or 29 February rather than overflowing into March. That is
+what .NET does, and it is the reading a person expects.
+
+---
+
+### D32.4 Formatting produces text and changes nothing
+
+```otter
+format date as "MM/dd/yyyy" into text
+```
+
+The date is untouched, exactly like `uppercase of name` (rules3 section 22).
+Format strings follow the ordinary .NET conventions the runtime already uses.
+
+---
+
+### D32.5 Printing a date — decided here, not specified anywhere
+
+Neither `rules3.md` nor the milestone brief says what `say date` should
+print, and it has to print *something*:
+
+| Value | `say` prints |
+|---|---|
+| `today` | `2026-09-09` |
+| `now` | `2026-09-09 14:30:05` |
+
+ISO-style, because it is unambiguous, sorts correctly as text, and does not
+silently pick a regional convention. Anyone who wants a different shape has
+`format date as ...`.
+
+---
+
+### D32.6 Dates compare with the operators that already exist
+
+No new syntax. `is`, `is not`, `is at least`, `is greater than` and the rest
+already exist, so they work between two dates:
+
+```otter
+if endDate is greater than startDate
+    say "The end is after the start."
+.
+```
+
+A date compared against a number or text is an error rather than a
+coincidence. This was not in the brief; it is the natural reading of syntax
+Otter already has, and leaving it unimplemented would make `days between`
+usable while `is greater than` silently failed.
+
+---
+
+### D32.7 UNRESOLVED — the sign of `days between`
+
+```otter
+days between startDate and endDate make days
+```
+
+If `endDate` is **before** `startDate`, is the answer negative or absolute?
+
+- **Signed** (`end - start`) composes better and preserves direction.
+- **Absolute** reads closer to what the English word "between" suggests.
+
+**Implemented as signed**, matching the argument order, because throwing away
+direction cannot be undone by the caller while taking the absolute value of a
+signed answer is trivial. Flagged rather than settled — this is Jeff's call.
+
+Whole units only, truncated toward zero: `days between` two date-times 36
+hours apart is `1`, not `1.5`.
