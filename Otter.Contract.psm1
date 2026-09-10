@@ -161,6 +161,8 @@ enum TokenKind {
     # --- properties (rules2.md section 2 - see D15) --------------
     Of              # name OF person       (replaces person.name)
     When            # when button is clicked   (reserved, UI milestone)
+    Put             # put helloButton in app          (D47)
+    Show            # show app                        (D47)
 
     # --- structure ----------------------------------------------
     Indent          # one level deeper (D7)
