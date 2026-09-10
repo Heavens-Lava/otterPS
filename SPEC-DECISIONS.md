@@ -1696,13 +1696,104 @@ guessed:
    the current implementation) the same way a list's order is defined
    (D13)?
 
+### Investigated: does Otter need a separate dictionary value at all?
+
+At Jeff's direction, before any dictionary syntax is defined. **Every claim
+below was run against the real `OtterObject`, `has`, and D29's JSON reader
+— none of it is reasoned about abstractly.**
+
+**Confirmed: a write through one access style is visible through the
+other, live, on the exact same object.**
+
+```
+wrote via WriteProperty('nickname', 'Jeffrey') directly
+read back via ORDINARY 'nickname of person' (PropertyAccessExpr) -> Jeffrey
+```
+
+This is the central claim of the unified model, and it holds with zero new
+runtime code — because there was never a second value to keep in sync.
+`has` (D40), `name of person`, and a hypothetical dynamic `get`/`set` would
+all be reading and writing one `Properties` hashtable.
+
+**Confirmed: a missing key already returns `gone`, for free, with no new
+code.** `ReadProperty('nickname')` on a key that was never set returns
+`$null` today — which is already Otter's `gone` (D22), already prints
+`gone`, already fails `Test-OtterTruthy`. The **error** on a missing key
+that `name of person` raises today comes entirely from a `HasProperty`
+check `Get-OtterValue`'s `PropertyAccess` case adds *on top of*
+`ReadProperty` — not from `ReadProperty` itself. This answers open question
+1 outright: a dynamic `get` simply skips that guard and calls `ReadProperty`
+directly; `name of person` keeps the guard. Same object, same underlying
+method, two statement forms choosing whether to enforce "this must already
+exist."
+
+**Confirmed: a JSON-sourced object and a `has`-sourced object are already
+identical.** Both are `TypeName: 'thing'`. There was never a second type
+for JSON to have to choose between — D29 already resolves the question this
+whole investigation was triggered by, by construction, today.
+
+**Confirmed, and this is the real risk: nothing in `OtterObject` stops a
+dynamic write from corrupting a `file` or `folder` object.**
+
+```
+file object TypeName: file
+after an unguarded WriteProperty('size', 999999): size of file = 999999
+```
+
+That's not hypothetical — the probe actually did it. `WriteProperty` takes
+the same plain string on every `OtterObject` regardless of `TypeName`.
+**Recommendation for open question 3: scope dynamic-key operations to
+`TypeName: 'thing'` only**, with a clear error otherwise
+(*"I can only set properties dynamically on a thing, but this is a
+file."*). Both of the values this whole feature is for — `has` and JSON —
+are already always `'thing'`, so this costs the feature nothing while
+closing the corruption path entirely.
+
+**A new gap, found in this pass, not on the original five-item list:
+Otter cannot construct an empty object today.**
+
+```otter
+scores has
+.
+```
+
+fails — `Read-OtterBlock` (shared by `has`, `is a thing`, `if`, `while`,
+`try`, and more) unconditionally requires an `Indent` token; zero
+properties means no indent, so there's nothing to enter. The classic
+"start with nothing, build it up with dynamic keys" pattern —
+`scores has` (empty) then repeated `set "Jeff" to 100 in scores` — is not
+reachable at all right now, independent of whether dynamic-key operations
+get built. This has to be solved alongside D41, not assumed away; the fix
+is narrow (an empty-body exception for object construction specifically,
+not a change to the shared block reader `if`/`while`/`try` also depend on).
+
+### The shape a unified model would take, if approved
+
+Recorded so the option is concrete, not because it's frozen:
+
+- **One new statement pair**, not a new runtime type: dynamic `get <key>
+  from <target> into <name>` and `set <key> to <value> in <target>`, both
+  taking the key and target as full expressions. Reuses `OtterObject`
+  exactly as-is — the class in `Otter.Runtime.psm1` needs zero changes.
+- **Deliberately two different AST shapes for static and dynamic access**,
+  even though they'd hit the same runtime type — not unified into one node.
+  The reason is the missing-key behavior above: an error-on-miss and a
+  gone-on-miss are different enough intents that folding them into one node
+  with a runtime branch would be worse than two small, honest nodes.
+- `get` currently requires `Files`/`Folders` immediately after the leading
+  token; loosening that to fall through to a general dynamic-key expression
+  is a small, contained parser change — checked, not just assumed easy.
+- `set` is currently unreserved — free to take as a new keyword.
+
 ### Status
 
-**Design-blocked. No implementation, no contract change, nothing inferred
-or guessed in its place.** D29's JSON behavior is confirmed unchanged and
-must stay that way regardless of how this resolves — checked in this pass,
-not just asserted. This is a design investigation, not a decision with a
-target date; it moves when Jeff wants to spend a session on it, not before.
+**Still design-blocked. No implementation, no contract change.** This
+section is the investigation Jeff asked for, not a decision — it found
+evidence, not authorization. Freezing this (including the `'thing'`-only
+scoping call and the empty-object gap) is Jeff's call to make explicitly,
+the same as every other decision in this file. D29's JSON behavior is
+confirmed unchanged and must stay that way regardless of how this
+resolves.
 
 The previously-rejected alternative is still correctly rejected, unified
 representation or not:
