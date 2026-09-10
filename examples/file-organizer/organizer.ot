@@ -1,0 +1,35 @@
+# File Organizer — Otter Dogfooding Milestone #1, program 1 of 3
+#
+# Exercises: files, folders, discovery, lists, loops, conditions, input.
+#
+# This is Jeff's original draft, with one change: the multi-line
+#
+#     if extension of file is ".jpg" or
+#        extension of file is ".png"
+#
+# does not parse today. Otter has no statement-continuation grammar yet
+# (D38, deliberately deferred — see SPEC-DECISIONS.md). Rewritten to fit
+# on one line, which is already valid Otter; nothing else about the
+# program changed.
+
+say "Otter File Organizer"
+
+ask "What folder should I organize?" and call it folder
+
+get files in folder into files
+
+pictures are empty
+
+each file in files
+    if extension of file is ".jpg" or extension of file is ".png"
+        add file to pictures
+    .
+.
+
+create folder "Organized Pictures"
+
+each picture in pictures
+    copy picture to "Organized Pictures"
+.
+
+say "Organized" length of pictures "pictures."
