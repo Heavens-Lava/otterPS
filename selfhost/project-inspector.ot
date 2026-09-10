@@ -1,0 +1,27 @@
+# Otter Project Inspector
+#
+# First self-hosted tooling milestone: discover every .ot file in a project
+# and report its name. It deliberately uses only current Otter features.
+
+say "Otter Project Inspector"
+ask "What folder should I inspect?" and call it folder
+
+try
+    get files in folder and subfolders into files
+
+    otterFiles are empty
+
+    each file in files
+        if extension of file is ".ot"
+            add file to otterFiles
+        .
+    .
+
+    say "Otter files found:" length of otterFiles
+
+    each file in otterFiles
+        say name of file
+    .
+otherwise
+    error "The project could not be inspected."
+.
