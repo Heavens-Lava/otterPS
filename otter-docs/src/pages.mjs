@@ -1,5 +1,5 @@
 const escape = (text) => text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
-const keywords = /\b(say|ask|call|it|and|or|not|if|otherwise|while|repeat|times|count|for|each|in|to|from|return|is|at|least|most|greater|less|than|starts|ends|with|contains|are|empty|gone|true|false|make|makes|add|remove|minus|divided|by|thing|has|try|read|write|copy|move|delete|create|file|folder|files|folders|subfolders|exists|get|into|of|run|command|length|uppercase|lowercase|first|last|sort|reverse|replace|split|join|find|where)\b/g;
+const keywords = /\b(say|ask|call|it|and|or|not|if|otherwise|while|repeat|times|count|for|each|in|to|from|return|is|at|least|most|greater|less|than|starts|ends|with|contains|are|empty|gone|true|false|make|makes|add|remove|minus|divided|by|thing|has|try|read|write|copy|move|delete|create|file|folder|files|folders|subfolders|exists|get|into|of|run|command|length|uppercase|lowercase|first|last|sort|reverse|replace|split|join|find|where|as|json|convert|random|number|item|today|now|year|years|month|months|day|days|hour|hours|minute|minutes|second|seconds|format|between|log|warn|error)\b/g;
 const code = (source) => `<pre class="otter-code" data-otter="1"><code>${source.split(/("(?:\\.|[^"\\])*")/).map((part, index) => index % 2 ? `<span class="tok-string">${escape(part)}</span>` : escape(part).replace(keywords, '<span class="tok-keyword">$1</span>')).join('')}</code></pre>`;
 
 // Terminal commands and REPL transcripts are NOT Otter source. They are
@@ -15,7 +15,7 @@ export const sections = [
     ['variables', 'Variables and Values'], ['input-output', 'Input and Output'], ['conditions', 'Conditions'], ['loops', 'Loops'], ['lists', 'Lists'], ['functions', 'Functions'], ['objects', 'Objects'], ['files-folders', 'Files and Folders'], ['error-handling', 'Error Handling']
   ]],
   ['Language Reference', [
-    ['values', 'Values and Types'], ['gone', 'gone'], ['operators', 'Operators'], ['property-access', 'Property Access'], ['strings', 'Strings'], ['collections', 'Collections'], ['files', 'Files'], ['folders', 'Folders'], ['try', 'try / otherwise'], ['json', 'JSON'], ['random', 'Random'], ['scope', 'Scope'], ['diagnostics', 'Diagnostics']
+    ['values', 'Values and Types'], ['gone', 'gone'], ['operators', 'Operators'], ['property-access', 'Property Access'], ['strings', 'Strings'], ['collections', 'Collections'], ['files', 'Files'], ['folders', 'Folders'], ['try', 'try / otherwise'], ['json', 'JSON'], ['random', 'Random'], ['dates', 'Dates and Time'], ['scope', 'Scope'], ['diagnostics', 'Diagnostic Output']
   ]],
   ['Examples', [
     ['example-hello', 'Hello World'], ['example-input', 'User Input'], ['example-conditions', 'Conditions'], ['example-counting', 'Counting'], ['example-lists', 'Lists'], ['example-discovery', 'File Discovery'], ['example-organizer', 'File Organizer'], ['example-finding', 'Finding Files'], ['example-errors', 'Error Handling']
@@ -65,8 +65,76 @@ export const pages = [
   page('try', 'try / otherwise', 'Language Reference', `<p><code>otherwise</code> runs when the <code>try</code> body fails. A return remains normal control flow.</p>${code('try\n    read "settings.json" into settings\notherwise\n    say "Using defaults."\n.')}`),
   page('json', 'JSON', 'Language Reference', `<p>Read JSON straight from a file:</p>${code('read json from "settings.json" into settings\nsay theme of settings')}<p>There is <strong>no JSON navigation syntax</strong>. Once it is read, JSON is ordinary Otter data: an object is a thing, a list is a list, and JSON <code>null</code> is <code>gone</code>. Everything you already know about properties works on it.</p>${code('say city of address of user\n\nfor each tag in tags of user\n    say tag\n.\n\nif boss of user is gone\n    say "No boss on record."\n.')}<p>Text can be converted in both directions:</p>${code('convert user to json into text\nconvert text from json into again')}`),
   page('random', 'Random', 'Language Reference', `<p>Pick a number, with both ends of the range included:</p>${code('random number from 1 to 6 into roll\nsay "You rolled" roll')}<p>Or pick from a list:</p>${code('random item from games into pick\nsay "Tonight we play" pick')}<p>Picking from an empty list gives <code>gone</code> rather than failing, so the empty case can be handled the same way as anywhere else.</p>${code('random item from shelf into nothing\n\nif nothing is gone\n    say "The shelf is empty."\n.')}`),
+
+  page('dates', 'Dates and Time', 'Language Reference', `
+    <p>A date is a real Otter value, not text. <code>today</code> gives the current date; <code>now</code> gives the current date and time.</p>
+    ${code('date is today\nstarted is now')}
+
+    <h2>A date and a date-time are different</h2>
+    <p><code>today</code> has no time of day at all &mdash; it is not midnight, it simply does not carry a time. <code>now</code> carries both a date and a time. This is a meaningful distinction, not a technicality: a date with "no time" and a date at "00:00:00" are not the same idea, so Otter does not pretend one is the other.</p>
+    <p>Because of that, asking a plain date for its hour, minute, or second is invalid rather than answering with a silent zero:</p>
+    ${code('date is today\nsay hour of date')}
+    <p>That fails when it runs, with an error explaining that this date has no time of day. Reach for <code>now</code> when you need a time as well as a date.</p>
+
+    <h2>Reading the parts of a date</h2>
+    <p>Date parts are read the same way any other property is read &mdash; with <code>of</code>, not with a period. Year, month, and day work on both a date and a date-time:</p>
+    ${code('say year of date\nsay month of date\nsay day of date')}
+    <p><code>month of date</code> is always a number from 1 to 12, never a month name.</p>
+    <p>Hour, minute, and second work on a date-time such as <code>started</code>:</p>
+    ${code('say hour of started\nsay minute of started\nsay second of started')}
+
+    <h2>Adjusting a date</h2>
+    <p>Move a date forward with <code>add</code>, or backward with <code>remove</code>. Both the singular and plural spelling of a unit are accepted, so <code>1 day</code> and <code>7 days</code> both work:</p>
+    ${code('add 7 days to date\nremove 1 month from date')}
+    <p>The same words work on a date-time, down to the second:</p>
+    ${code('add 1 hour to started\nadd 30 minutes to started')}
+
+    <h2>Formatting</h2>
+    <p><code>format ... as ... into ...</code> produces text. It does not change the date it was given:</p>
+    ${code('format date as "MM/dd/yyyy" into text\nsay text\nsay date')}
+    <p>The second <code>say</code> still prints the original date, untouched.</p>
+
+    <h2>The difference between two dates</h2>
+    <p><code>days between</code> gives a whole number of days between two dates:</p>
+    ${code('days between startDate and endDate make days\nsay days')}
+    <p>The result is signed, computed as <code>end minus start</code>:</p>
+    <ul>
+      <li>positive &mdash; <code>endDate</code> is later than <code>startDate</code></li>
+      <li>zero &mdash; the two are the same, at the precision asked for</li>
+      <li>negative &mdash; <code>endDate</code> is earlier than <code>startDate</code></li>
+    </ul>
+
+    <h2>Comparing dates</h2>
+    <p>Dates compare with the same words as any other value &mdash; there is no separate date-comparison syntax:</p>
+    ${code('if endDate is greater than startDate\n    say "The end date is later."\n.\n\nif date is not started\n    say "These are different moments."\n.')}
+
+    <h2>How a date prints</h2>
+    <p><code>say</code> prints a date-only value like this:</p>
+    ${code('say today')}
+    ${note('Example output: <code>2026-09-09</code>')}
+    <p>and a date-time value like this:</p>
+    ${code('say now')}
+    ${note('Example output: <code>2026-09-09 14:30:05</code>')}
+
+    <h2>Not part of this version</h2>
+    <p>There is no timezone syntax &mdash; a date is always in local time. There is no month-name syntax; <code>month of date</code> is always a number.</p>`,
+    'today, now, and reading, adjusting, formatting, and comparing date values.'),
   page('scope', 'Scope', 'Language Reference', `<p>Function parameters and local work do not overwrite names outside the function.</p>${code('name is "Outside"\nto greet name\n    say "Hello" name\ngreet "Jeff"\nsay name')}`),
-  page('diagnostics', 'Diagnostics', 'Language Reference', `<p>Otter syntax and runtime errors identify the relevant line and suggest a correction when one is clear.</p>`),
+  page('diagnostics', 'Diagnostic Output', 'Language Reference', `
+    <p><code>log</code>, <code>warn</code>, and <code>error</code> send a message to Otter's diagnostic output rather than to the program's normal output.</p>
+    ${code('log "Server started."\nwarn "Connection is slow."\nerror "Could not connect."')}
+    ${note('This page is about the <code>log</code> / <code>warn</code> / <code>error</code> statements. It is not about the messages Otter itself prints when a program has a syntax or runtime error &mdash; every reference page shows what those look like for the statement it covers.')}
+    <h2>Diagnostics are not <code>say</code></h2>
+    <p><code>say</code> is what a program tells the person using it. <code>log</code>, <code>warn</code>, and <code>error</code> are what it tells whoever is running or operating it &mdash; a developer watching a console, a log file, a monitoring tool. Otter keeps the two separate on purpose:</p>
+    ${code('say "Welcome!"\nlog "Startup complete."')}
+    <p>A host running Otter can send <code>say</code> output to a user interface while sending diagnostics somewhere else entirely, such as a log file or a monitoring service, without the program needing to know or care. They travel on separate channels.</p>
+    <h2>Three levels</h2>
+    <p>All three take the same kind of message as <code>say</code> &mdash; one or more values, joined with a space:</p>
+    ${code('port is 8080\nlog "Listening on port" port')}
+    <p><code>log</code> records something that happened normally. <code>warn</code> flags something that is not wrong yet but is worth attention. <code>error</code> reports something that failed.</p>
+    <h2>A realistic example</h2>
+    ${code('port is 8080\n\nsay "Otter web server"\n\nlog "Starting up."\nlog "Listening on port" port\nwarn "No configuration file found, using defaults."\nerror "Could not reach the database."\n\nsay "Ready."')}
+    <p>Only the <code>say</code> lines are part of what the program is telling its user. The <code>log</code>, <code>warn</code>, and <code>error</code> lines went to the diagnostic channel.</p>`, 'log, warn, and error: diagnostic output kept separate from what a program says to its user.'),
 
   page('example-hello', 'Hello World', 'Examples', `${code('say "Hello world!"')}`),
   page('example-input', 'User Input', 'Examples', `${code('ask "What is your name?" and call it name\nsay "Hello" name')}`),
