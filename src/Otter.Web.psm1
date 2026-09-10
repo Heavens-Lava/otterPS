@@ -250,7 +250,13 @@ function ConvertTo-OtterWeb {
                 continue
             }
             $kind = $stmt.TypeName.ToLowerInvariant()
-            if ($kind -in @('window', 'page', 'button', 'text box', 'text', 'row', 'column', 'image', 'list')) {
+            $knownKinds = @(
+                'window', 'page', 'button', 'text box', 'text', 'row', 'column',
+                'image', 'list', 'link', 'card', 'checkbox', 'check box',
+                'dropdown', 'drop down', 'select', 'slider', 'range',
+                'text area', 'textarea', 'badge', 'tag', 'canvas', 'table'
+            )
+            if ($kind -in $knownKinds) {
                 $res = @{
                     Kind = $kind
                     Name = $stmt.Name
@@ -338,6 +344,31 @@ function ConvertTo-OtterWeb {
         if ($props.Contains('foreground')) {
             $styles.Add("color: $($props['foreground']);")
         }
+        if ($props.Contains('radius')) {
+            $rad = $props['radius']
+            $styles.Add("border-radius: $(if ($rad -is [int] -or $rad -is [double]) { "${rad}px" } else { $rad });")
+        }
+        if ($props.Contains('border')) {
+            $styles.Add("border: $($props['border']);")
+        }
+        if ($props.Contains('shadow')) {
+            $styles.Add("box-shadow: $($props['shadow']);")
+        }
+        if ($props.Contains('padding')) {
+            $pad = $props['padding']
+            $styles.Add("padding: $(if ($pad -is [int] -or $pad -is [double]) { "${pad}px" } else { $pad });")
+        }
+        if ($props.Contains('margin')) {
+            $mar = $props['margin']
+            $styles.Add("margin: $(if ($mar -is [int] -or $mar -is [double]) { "${mar}px" } else { $mar });")
+        }
+        if ($props.Contains('size') -or $props.Contains('fontsize')) {
+            $fs = if ($props.Contains('fontsize')) { $props['fontsize'] } else { $props['size'] }
+            $styles.Add("font-size: $(if ($fs -is [int] -or $fs -is [double]) { "${fs}px" } else { $fs });")
+        }
+        if ($props.Contains('align')) {
+            $styles.Add("text-align: $($props['align']);")
+        }
         $styleAttr = if ($styles.Count -gt 0) { " style=`"$($styles -join ' ')`"" } else { "" }
 
         $childHtml = ""
@@ -366,6 +397,16 @@ function ConvertTo-OtterWeb {
     </main>
 "@
             }
+            'card' {
+                $spacing = if ($props.Contains('spacing')) { $props['spacing'] } else { 12 }
+                $cardTitle = if ($props.Contains('title')) { "<h3 class=`"otter-card-title`">$($props['title'])</h3>" } else { "" }
+                return @"
+      <div id="$resName" class="otter-card"$styleAttr style="display: flex; flex-direction: column; gap: ${spacing}px; $($styles -join ' ')">
+        $cardTitle
+        $childHtml
+      </div>
+"@
+            }
             'button' {
                 $text = if ($props.Contains('text')) { $props['text'] } else { "Button" }
                 return "      <button id=`"$resName`" class=`"otter-button`"$styleAttr>$text</button>"
@@ -378,6 +419,61 @@ function ConvertTo-OtterWeb {
             'text' {
                 $val = if ($props.Contains('text')) { $props['text'] } elseif ($props.Contains('value')) { $props['value'] } else { "" }
                 return "      <div id=`"$resName`" class=`"otter-text`"$styleAttr>$val</div>"
+            }
+            'image' {
+                $src = if ($props.Contains('source')) { $props['source'] } elseif ($props.Contains('src')) { $props['src'] } else { "" }
+                $alt = if ($props.Contains('alt')) { $props['alt'] } else { $resName }
+                return "      <img id=`"$resName`" class=`"otter-image`" src=`"$src`" alt=`"$alt`"$styleAttr />"
+            }
+            'link' {
+                $href = if ($props.Contains('url')) { $props['url'] } elseif ($props.Contains('href')) { $props['href'] } else { "#" }
+                $text = if ($props.Contains('text')) { $props['text'] } else { $href }
+                return "      <a id=`"$resName`" class=`"otter-link`" href=`"$href`"$styleAttr target=`"_blank`" rel=`"noopener noreferrer`">$text</a>"
+            }
+            { $_ -in @('checkbox', 'check box') } {
+                $text = if ($props.Contains('text')) { $props['text'] } else { "" }
+                $checked = if ($props.Contains('checked') -and $props['checked']) { " checked" } else { "" }
+                return "      <label class=`"otter-checkbox-label`"$styleAttr><input type=`"checkbox`" id=`"$resName`" class=`"otter-checkbox`"$checked /> <span>$text</span></label>"
+            }
+            { $_ -in @('dropdown', 'drop down', 'select') } {
+                $opts = @()
+                if ($props.Contains('options')) {
+                    $rawOpts = $props['options']
+                    if ($rawOpts -is [System.Collections.IEnumerable] -and $rawOpts -isnot [string]) {
+                        $opts = @($rawOpts)
+                    } else {
+                        $opts = ([string]$rawOpts -split ',') | ForEach-Object { $_.Trim() }
+                    }
+                }
+                $optHtml = ($opts | ForEach-Object { "        <option value=`"$_`">$_</option>" }) -join "`n"
+                return @"
+      <select id="$resName" class="otter-select"$styleAttr>
+$optHtml
+      </select>
+"@
+            }
+            { $_ -in @('slider', 'range') } {
+                $min = if ($props.Contains('min')) { $props['min'] } else { 0 }
+                $max = if ($props.Contains('max')) { $props['max'] } else { 100 }
+                $val = if ($props.Contains('value')) { $props['value'] } else { 50 }
+                return "      <input type=`"range`" id=`"$resName`" class=`"otter-slider`" min=`"$min`" max=`"$max`" value=`"$val`"$styleAttr />"
+            }
+            { $_ -in @('text area', 'textarea') } {
+                $val = if ($props.Contains('text')) { $props['text'] } elseif ($props.Contains('value')) { $props['value'] } else { "" }
+                $ph = if ($props.Contains('placeholder')) { " placeholder=`"$($props['placeholder'])`"" } else { "" }
+                $rows = if ($props.Contains('rows')) { $props['rows'] } else { 3 }
+                return "      <textarea id=`"$resName`" class=`"otter-text-area`" rows=`"$rows`"$ph$styleAttr>$val</textarea>"
+            }
+            { $_ -in @('badge', 'tag') } {
+                $text = if ($props.Contains('text')) { $props['text'] } else { "" }
+                return "      <span id=`"$resName`" class=`"otter-badge`"$styleAttr>$text</span>"
+            }
+            'canvas' {
+                $w = if ($props.Contains('width')) { $props['width'] } else { 400 }
+                $h = if ($props.Contains('height')) { $props['height'] } else { 300 }
+                $anim = if ($props.Contains('animation')) { $props['animation'] } else { "" }
+                $mode = if ($props.Contains('mode')) { $props['mode'] } else { "2d" }
+                return "      <canvas id=`"$resName`" class=`"otter-canvas`" width=`"$w`" height=`"$h`" data-animation=`"$anim`" data-mode=`"$mode`"$styleAttr></canvas>"
             }
             'row' {
                 $spacing = if ($props.Contains('spacing')) { $props['spacing'] } else { 8 }
@@ -513,6 +609,91 @@ $bodyJoined
       font-size: 0.95rem;
       min-height: 1.2em;
     }
+    .otter-card {
+      background-color: var(--otter-card-bg);
+      border: 1px solid var(--otter-border);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+    }
+    .otter-card-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--otter-text);
+      letter-spacing: -0.01em;
+    }
+    .otter-image {
+      max-width: 100%;
+      height: auto;
+      border-radius: 8px;
+      display: block;
+    }
+    .otter-link {
+      color: #60a5fa;
+      text-decoration: none;
+      font-weight: 500;
+      transition: color 0.15s ease;
+    }
+    .otter-link:hover { text-decoration: underline; color: #93c5fd; }
+    .otter-checkbox-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.95rem;
+      cursor: pointer;
+      user-select: none;
+    }
+    .otter-checkbox {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--otter-primary);
+      cursor: pointer;
+    }
+    .otter-select {
+      background-color: var(--otter-input-bg);
+      color: var(--otter-text);
+      border: 1px solid var(--otter-border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.95rem;
+      outline: none;
+      cursor: pointer;
+      width: 100%;
+    }
+    .otter-slider {
+      width: 100%;
+      accent-color: var(--otter-primary);
+      cursor: pointer;
+    }
+    .otter-text-area {
+      background-color: var(--otter-input-bg);
+      color: var(--otter-text);
+      border: 1px solid var(--otter-border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.95rem;
+      outline: none;
+      width: 100%;
+      resize: vertical;
+      font-family: inherit;
+    }
+    .otter-badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      background: rgba(37,99,235,0.2);
+      color: #93c5fd;
+      border: 1px solid rgba(37,99,235,0.3);
+    }
+    .otter-canvas {
+      background: #020617;
+      border: 1px solid var(--otter-border);
+      border-radius: 8px;
+      max-width: 100%;
+      display: block;
+    }
     #otter-live-output {
       margin-top: 16px;
       padding: 8px 12px;
@@ -537,12 +718,14 @@ $elementsHtml
     function otterGetText(id) {
       const el = otterGetElement(id);
       if (!el) return '';
+      if (el.type === 'checkbox') return el.checked;
       if ('value' in el) return el.value;
       return el.textContent || '';
     }
     function otterSetText(id, val) {
       const el = otterGetElement(id);
       if (!el) return;
+      if (el.type === 'checkbox') { el.checked = Boolean(val); return; }
       if ('value' in el) { el.value = val; }
       else { el.textContent = val; }
     }
@@ -572,6 +755,58 @@ $elementsHtml
         out.textContent = args.join(' ');
       }
     }
+
+    // Automatic 3D Canvas and Animation Runner
+    document.querySelectorAll('canvas.otter-canvas').forEach((canvas) => {
+      const mode = canvas.getAttribute('data-mode') || '2d';
+      const anim = canvas.getAttribute('data-animation') || '';
+      if (mode === '3d' || anim === 'spin' || anim === '3d') {
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        let angleX = 0;
+        let angleY = 0;
+        const vertices = [
+          [-1, -1, -1], [1, -1, -1], [1, 1, -1], [-1, 1, -1],
+          [-1, -1, 1], [1, -1, 1], [1, 1, 1], [-1, 1, 1]
+        ];
+        const edges = [
+          [0,1],[1,2],[2,3],[3,0],
+          [4,5],[5,6],[6,7],[7,4],
+          [0,4],[1,5],[2,6],[3,7]
+        ];
+        function render3D() {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          angleX += 0.015;
+          angleY += 0.02;
+          const cx = canvas.width / 2;
+          const cy = canvas.height / 2;
+          const scale = Math.min(cx, cy) * 0.55;
+          const projected = vertices.map(([x, y, z]) => {
+            let cosY = Math.cos(angleY), sinY = Math.sin(angleY);
+            let x1 = x * cosY - z * sinY;
+            let z1 = x * sinY + z * cosY;
+            let cosX = Math.cos(angleX), sinX = Math.sin(angleX);
+            let y2 = y * cosX - z1 * sinX;
+            let z2 = y * sinX + z1 * cosX;
+            const distance = 3.2;
+            const p = distance / (distance + z2);
+            return [cx + x1 * scale * p, cy + y2 * scale * p];
+          });
+          ctx.strokeStyle = '#38bdf8';
+          ctx.lineWidth = 2.5;
+          ctx.shadowColor = '#0284c7';
+          ctx.shadowBlur = 8;
+          edges.forEach(([i, j]) => {
+            ctx.beginPath();
+            ctx.moveTo(projected[i][0], projected[i][1]);
+            ctx.lineTo(projected[j][0], projected[j][1]);
+            ctx.stroke();
+          });
+          requestAnimationFrame(render3D);
+        }
+        render3D();
+      }
+    });
 
     // Top-level application initialization
     (async function() {

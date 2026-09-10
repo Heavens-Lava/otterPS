@@ -1,0 +1,129 @@
+# portal.ot - Rich Otter Web Application Showcase
+# Demonstrates cards, 3D animated canvas, images, links, checkboxes, dropdowns, and sliders
+
+app is a page
+    title is "Otter Universe Portal"
+    width is 680
+    background is "#090d16"
+    spacing is 18
+.
+
+topRow is a row
+    spacing is 16
+.
+
+badge is a badge
+    text is "NEW: Otter Web 3D"
+    background is "#1e1b4b"
+    foreground is "#a5b4fc"
+.
+
+tagline is a text
+    value is "Build modern web interfaces with pure Otter code."
+    foreground is "#94a3b8"
+.
+
+put badge, tagline in topRow
+
+# 3D Animation Showcase Card
+cubeCard is a card
+    title is "Interactive 3D Graphics"
+    background is "#0f172a"
+    spacing is 12
+    radius is 12
+    border is "1px solid #1e293b"
+.
+
+cube3d is a canvas
+    width is 620
+    height is 220
+    mode is "3d"
+    animation is "spin"
+.
+
+put cube3d in cubeCard
+
+# Form & Interactive Controls Card
+controlsCard is a card
+    title is "Rich Form Controls"
+    background is "#0f172a"
+    spacing is 14
+    radius is 12
+    border is "1px solid #1e293b"
+.
+
+controlsRow is a row
+    spacing is 12
+.
+
+themeDropdown is a dropdown
+    options is "Dark Nebula, Electric Indigo, Cyberpunk Emerald"
+    width is 220
+.
+
+agreeCheckbox is a checkbox
+    text is "Enable 60 FPS Turbo Mode"
+    checked is true
+.
+
+put themeDropdown, agreeCheckbox in controlsRow
+
+sliderRow is a row
+    spacing is 12
+.
+
+speedLabel is a text
+    value is "Animation Speed:"
+    foreground is "#cbd5e1"
+.
+
+speedSlider is a slider
+    min is 1
+    max is 100
+    value is 60
+    width is 280
+.
+
+put speedLabel, speedSlider in sliderRow
+
+notesArea is a text area
+    placeholder is "Write your thoughts or notes in Otter..."
+    rows is 3
+.
+
+footerRow is a row
+    spacing is 16
+.
+
+submitButton is a button
+    text is "Launch Experience"
+    background is "#2563eb"
+    foreground is "white"
+    width is 180
+.
+
+siteLink is a link
+    text is "Read the Otter Language Rules ->"
+    url is "https://github.com"
+.
+
+put submitButton, siteLink in footerRow
+
+statusMessage is a text
+    value is "Ready to explore."
+    foreground is "#38bdf8"
+.
+
+when submitButton is clicked
+    notes is text of notesArea
+    if notes is empty
+        text of statusMessage is "Launched with default settings! Welcome to Otter 3D Web."
+    otherwise
+        text of statusMessage is notes
+    .
+.
+
+put topRow, cubeCard, controlsCard in app
+put controlsRow, sliderRow, notesArea, footerRow, statusMessage in controlsCard
+
+show app

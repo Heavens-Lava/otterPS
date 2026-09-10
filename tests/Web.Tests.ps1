@@ -85,4 +85,19 @@ if ($calcContent -notmatch 'Number\(number1\)') {
 }
 Write-Output '  pass  calculator.ot exports to standalone HTML with full math and try/catch'
 
+# Test 4: Export portal.ot with rich components (cards, 3d canvas, dropdown, checkbox, slider, badge, link)
+$portalHtmlPath = Export-OtterWebApplication -SourcePath (Join-Path $PSScriptRoot '..\examples\portal.ot')
+if (-not (Test-Path $portalHtmlPath)) { throw 'Expected portal.html to exist.' }
+$portalContent = Get-Content -LiteralPath $portalHtmlPath -Raw
+if ($portalContent -notmatch 'class="otter-card"' -or
+    $portalContent -notmatch 'class="otter-canvas"' -or
+    $portalContent -notmatch 'class="otter-checkbox"' -or
+    $portalContent -notmatch 'class="otter-select"' -or
+    $portalContent -notmatch 'class="otter-slider"' -or
+    $portalContent -notmatch 'class="otter-badge"' -or
+    $portalContent -notmatch 'class="otter-link"') {
+    throw 'Expected rich components in compiled portal.html.'
+}
+Write-Output '  pass  portal.ot exports rich components (cards, 3D canvas, dropdown, checkbox, slider, badge, link)'
+
 Write-Output 'Web compiler tests passed.'
