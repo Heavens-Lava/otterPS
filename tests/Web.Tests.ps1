@@ -133,4 +133,28 @@ if ($dimHtml -notmatch 'id="pillBtn"[^>]*style="[^"]*border-radius:\s*9999px;') 
 }
 Write-Output '  pass  width full, height full, and round compile to native CSS dimensions and shapes'
 
+# Test 7: spread, align middle/top/bottom, align left/center/right compilation
+$alignSource = @"
+app is a page
+    title is "Align App"
+.
+nav is a row with spread, align middle, width full
+sidebar is a column with align left
+contentCol is a column with spread, align center
+put nav, sidebar, contentCol in app
+show app
+"@
+$alignAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $alignSource)
+$alignHtml = ConvertTo-OtterWeb -Program $alignAst
+if ($alignHtml -notmatch 'id="nav"[^>]*align-items:\s*center;[^"]*justify-content:\s*space-between;') {
+    throw 'Expected row with spread, align middle to produce align-items: center; justify-content: space-between;'
+}
+if ($alignHtml -notmatch 'id="sidebar"[^>]*align-items:\s*flex-start;') {
+    throw 'Expected column with align left to produce align-items: flex-start;'
+}
+if ($alignHtml -notmatch 'id="contentCol"[^>]*align-items:\s*center;[^"]*justify-content:\s*space-between;') {
+    throw 'Expected column with spread, align center to produce align-items: center; justify-content: space-between;'
+}
+Write-Output '  pass  spread, align middle/top, and align left/center compile to native flexbox styles'
+
 Write-Output 'Web compiler tests passed.'

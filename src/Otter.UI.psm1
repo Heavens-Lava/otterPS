@@ -71,10 +71,20 @@ function Test-OtterUiResource {
 $script:OtterWpfLoaded = $false
 $script:OtterUiSpacing = @{}
 $script:OtterUiDimensionFull = @{}
+$script:OtterUiLayout = @{}
 
 function Get-OtterUiSpacingKey {
     param([OtterUiResource]$Resource)
     return [System.Runtime.CompilerServices.RuntimeHelpers]::GetHashCode($Resource.Native).ToString()
+}
+
+function Get-OtterUiLayoutEntry {
+    param([OtterUiResource]$Resource)
+    $key = Get-OtterUiSpacingKey -Resource $Resource
+    if (-not $script:OtterUiLayout.ContainsKey($key)) {
+        $script:OtterUiLayout[$key] = @{ align_h = $null; align_v = $null; spread = $false }
+    }
+    return $script:OtterUiLayout[$key]
 }
 
 function Initialize-OtterWpfProvider {
@@ -192,6 +202,8 @@ $script:OtterUiProperties = @{
         'height'     = @{ Native = 'Height'; Type = 'number' }
         'background' = @{ Native = 'Background'; Type = 'color' }
         'foreground' = @{ Native = 'Foreground'; Type = 'color' }
+        'align_h'    = @{ Type = 'align_h' }
+        'align'      = @{ Type = 'align' }
     }
     'text box' = @{
         'text'       = @{ Native = 'Text'; Type = 'text' }
@@ -199,6 +211,8 @@ $script:OtterUiProperties = @{
         'height'     = @{ Native = 'Height'; Type = 'number' }
         'background' = @{ Native = 'Background'; Type = 'color' }
         'foreground' = @{ Native = 'Foreground'; Type = 'color' }
+        'align_h'    = @{ Type = 'align_h' }
+        'align'      = @{ Type = 'align' }
     }
     'text' = @{
         'text'       = @{ Native = 'Text'; Type = 'text' }
@@ -206,6 +220,8 @@ $script:OtterUiProperties = @{
         'height'     = @{ Native = 'Height'; Type = 'number' }
         'background' = @{ Native = 'Background'; Type = 'color' }
         'foreground' = @{ Native = 'Foreground'; Type = 'color' }
+        'align_h'    = @{ Type = 'align_h' }
+        'align'      = @{ Type = 'align' }
     }
     'window' = @{
         'title'      = @{ Native = 'Title'; Type = 'text' }
@@ -220,12 +236,20 @@ $script:OtterUiProperties = @{
         'height'     = @{ Native = 'Height'; Type = 'number' }
         'background' = @{ Native = 'Background'; Type = 'color' }
         'spacing'    = @{ Type = 'spacing' }
+        'align_v'    = @{ Type = 'align_v' }
+        'align_h'    = @{ Type = 'align_h' }
+        'align'      = @{ Type = 'align' }
+        'spread'     = @{ Type = 'spread' }
     }
     'column' = @{
         'width'      = @{ Native = 'Width'; Type = 'number' }
         'height'     = @{ Native = 'Height'; Type = 'number' }
         'background' = @{ Native = 'Background'; Type = 'color' }
         'spacing'    = @{ Type = 'spacing' }
+        'align_v'    = @{ Type = 'align_v' }
+        'align_h'    = @{ Type = 'align_h' }
+        'align'      = @{ Type = 'align' }
+        'spread'     = @{ Type = 'spread' }
     }
     # D53: no spacing - scroll owns exactly one child (a ContentControl,
     # like window itself before D47's implicit panel), so "distribute
@@ -332,6 +356,13 @@ function Get-OtterUiProperty {
         return (Get-OtterUiSpacing -Window $Resource)
     }
 
+    if ($mapping.Type -in @('align_v', 'align_h', 'spread')) {
+        $layoutKey = Get-OtterUiSpacingKey -Resource $Resource
+        if (-not $script:OtterUiLayout.ContainsKey($layoutKey)) { return $null }
+        $prop = $mapping.Type
+        return $script:OtterUiLayout[$layoutKey].$prop
+    }
+
     $fullKey = (Get-OtterUiSpacingKey $Resource) + "_$Property"
     if ($script:OtterUiDimensionFull.ContainsKey($fullKey)) {
         return 'full'
@@ -366,6 +397,110 @@ function Set-OtterUiProperty {
     if ($mapping.Type -eq 'spacing') {
         Set-OtterUiSpacing -Window $Resource -Value $Value -Line $Line
         return
+    }
+
+    if ($mapping.Type -in @('align_v', 'align_h', 'align', 'spread')) {
+        $layout = Get-OtterUiLayoutEntry -Resource $Resource
+        $panel = Get-OtterUiContainerPanel -Container $Resource
+
+        if ($mapping.Type -eq 'align_v') {
+            $val = ([string]$Value).ToLowerInvariant()
+            if ($layout.spread -and $Resource.Kind -eq 'column') {
+                throw [OtterError]::new("Vertical alignment 'align $val' conflicts with 'spread' on a column.", $Line, 'runtime')
+            }
+            $layout.align_v = $val
+            if ($Resource.Kind -eq 'row') {
+                $va = switch ($val) {
+                    'top'    { [System.Windows.VerticalAlignment]::Top }
+                    'middle' { [System.Windows.VerticalAlignment]::Center }
+                    'bottom' { [System.Windows.VerticalAlignment]::Bottom }
+                    default  { [System.Windows.VerticalAlignment]::Center }
+                }
+                foreach ($c in $panel.Children) { $c.VerticalAlignment = $va }
+            } elseif ($Resource.Kind -eq 'column') {
+                $va = switch ($val) {
+                    'top'    { [System.Windows.VerticalAlignment]::Top }
+                    'middle' { [System.Windows.VerticalAlignment]::Center }
+                    'bottom' { [System.Windows.VerticalAlignment]::Bottom }
+                    default  { [System.Windows.VerticalAlignment]::Top }
+                }
+                $Resource.Native.VerticalAlignment = $va
+            }
+            return
+        }
+
+        if ($mapping.Type -eq 'align_h' -or $mapping.Type -eq 'align') {
+            $val = ([string]$Value).ToLowerInvariant()
+            if ($Resource.Kind -eq 'row' -and $layout.spread) {
+                throw [OtterError]::new("Horizontal alignment 'align $val' conflicts with 'spread' on a row.", $Line, 'runtime')
+            }
+            $layout.align_h = $val
+            if ($Resource.Kind -eq 'row') {
+                $ha = switch ($val) {
+                    'left'   { [System.Windows.HorizontalAlignment]::Left }
+                    'center' { [System.Windows.HorizontalAlignment]::Center }
+                    'right'  { [System.Windows.HorizontalAlignment]::Right }
+                    default  { [System.Windows.HorizontalAlignment]::Left }
+                }
+                $Resource.Native.HorizontalAlignment = $ha
+            } elseif ($Resource.Kind -eq 'column') {
+                $ha = switch ($val) {
+                    'left'   { [System.Windows.HorizontalAlignment]::Left }
+                    'center' { [System.Windows.HorizontalAlignment]::Center }
+                    'right'  { [System.Windows.HorizontalAlignment]::Right }
+                    default  { [System.Windows.HorizontalAlignment]::Stretch }
+                }
+                foreach ($c in $panel.Children) { $c.HorizontalAlignment = $ha }
+            } else {
+                # Text or button alignment
+                if ($Resource.Native -is [System.Windows.Controls.Button]) {
+                    $ha = switch ($val) {
+                        'left'   { [System.Windows.HorizontalAlignment]::Left }
+                        'center' { [System.Windows.HorizontalAlignment]::Center }
+                        'right'  { [System.Windows.HorizontalAlignment]::Right }
+                        default  { [System.Windows.HorizontalAlignment]::Center }
+                    }
+                    $Resource.Native.HorizontalContentAlignment = $ha
+                } elseif ($Resource.Native -is [System.Windows.Controls.TextBlock]) {
+                    $ta = switch ($val) {
+                        'left'   { [System.Windows.TextAlignment]::Left }
+                        'center' { [System.Windows.TextAlignment]::Center }
+                        'right'  { [System.Windows.TextAlignment]::Right }
+                        default  { [System.Windows.TextAlignment]::Left }
+                    }
+                    $Resource.Native.TextAlignment = $ta
+                } elseif ($Resource.Native -is [System.Windows.Controls.TextBox]) {
+                    $ta = switch ($val) {
+                        'left'   { [System.Windows.TextAlignment]::Left }
+                        'center' { [System.Windows.TextAlignment]::Center }
+                        'right'  { [System.Windows.TextAlignment]::Right }
+                        default  { [System.Windows.TextAlignment]::Left }
+                    }
+                    $Resource.Native.TextAlignment = $ta
+                }
+            }
+            return
+        }
+
+        if ($mapping.Type -eq 'spread') {
+            if ($Resource.Kind -notin @('row', 'column')) {
+                throw [OtterError]::new("'spread' is only supported on layout containers (row, column).", $Line, 'runtime')
+            }
+            if ($Resource.Kind -eq 'row' -and $layout.align_h) {
+                throw [OtterError]::new("'spread' distributes space horizontally along a row and conflicts with horizontal alignment 'align $($layout.align_h)'.", $Line, 'runtime')
+            }
+            if ($Resource.Kind -eq 'column' -and $layout.align_v) {
+                throw [OtterError]::new("'spread' distributes space vertically along a column and conflicts with vertical alignment 'align $($layout.align_v)'.", $Line, 'runtime')
+            }
+            $layout.spread = $true
+            if ($Resource.Kind -eq 'row') {
+                $Resource.Native.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Stretch
+            } else {
+                $Resource.Native.VerticalAlignment = [System.Windows.VerticalAlignment]::Stretch
+            }
+            Update-OtterUiSpread -Resource $Resource
+            return
+        }
     }
 
     if ($mapping.Type -eq 'number') {
@@ -575,6 +710,100 @@ function Add-OtterUiChild {
             $Item.Native.Margin = [System.Windows.Thickness]::new(0, 0, $spacing, 0)
         } else {
             $Item.Native.Margin = [System.Windows.Thickness]::new(0, 0, 0, $spacing)
+        }
+    }
+
+    $layoutKey = Get-OtterUiSpacingKey -Resource $Container
+    if ($script:OtterUiLayout.ContainsKey($layoutKey)) {
+        $layout = $script:OtterUiLayout[$layoutKey]
+        if ($panel.Orientation -eq [System.Windows.Controls.Orientation]::Horizontal) {
+            if ($layout.align_v) {
+                switch ($layout.align_v) {
+                    'top'    { $Item.Native.VerticalAlignment = [System.Windows.VerticalAlignment]::Top }
+                    'middle' { $Item.Native.VerticalAlignment = [System.Windows.VerticalAlignment]::Center }
+                    'bottom' { $Item.Native.VerticalAlignment = [System.Windows.VerticalAlignment]::Bottom }
+                }
+            }
+        } else {
+            if ($layout.align_h) {
+                switch ($layout.align_h) {
+                    'left'   { $Item.Native.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Left }
+                    'center' { $Item.Native.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Center }
+                    'right'  { $Item.Native.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Right }
+                }
+            }
+        }
+        if ($layout.spread) {
+            Update-OtterUiSpread -Resource $Container
+        }
+    }
+}
+
+function Update-OtterUiSpread {
+    param([OtterUiResource]$Resource)
+
+    $key = Get-OtterUiSpacingKey -Resource $Resource
+    if (-not $script:OtterUiLayout.ContainsKey($key) -or -not $script:OtterUiLayout[$key].spread) { return }
+
+    $panel = Get-OtterUiContainerPanel -Container $Resource
+    $count = $panel.Children.Count
+    if ($count -le 1) { return }
+
+    if ($panel.Orientation -eq [System.Windows.Controls.Orientation]::Horizontal) {
+        $avail = if (-not [double]::IsNaN($panel.Width) -and $panel.Width -gt 0) {
+            $panel.Width
+        } elseif ($panel.ActualWidth -gt 0) {
+            $panel.ActualWidth
+        } else {
+            0
+        }
+        $totalChildWidth = 0
+        foreach ($c in $panel.Children) {
+            if (-not [double]::IsNaN($c.Width) -and $c.Width -gt 0) {
+                $totalChildWidth += $c.Width
+            } elseif ($c.DesiredSize.Width -gt 0) {
+                $totalChildWidth += $c.DesiredSize.Width
+            } else {
+                $c.Measure([System.Windows.Size]::new([double]::PositiveInfinity, [double]::PositiveInfinity))
+                $totalChildWidth += $c.DesiredSize.Width
+            }
+        }
+        if ($avail -gt $totalChildWidth) {
+            $gap = ($avail - $totalChildWidth) / ($count - 1)
+            for ($i = 0; $i -lt $count - 1; $i++) {
+                $c = $panel.Children[$i]
+                $c.Margin = [System.Windows.Thickness]::new($c.Margin.Left, $c.Margin.Top, $gap, $c.Margin.Bottom)
+            }
+            $last = $panel.Children[$count - 1]
+            $last.Margin = [System.Windows.Thickness]::new($last.Margin.Left, $last.Margin.Top, 0, $last.Margin.Bottom)
+        }
+    } else {
+        $avail = if (-not [double]::IsNaN($panel.Height) -and $panel.Height -gt 0) {
+            $panel.Height
+        } elseif ($panel.ActualHeight -gt 0) {
+            $panel.ActualHeight
+        } else {
+            0
+        }
+        $totalChildHeight = 0
+        foreach ($c in $panel.Children) {
+            if (-not [double]::IsNaN($c.Height) -and $c.Height -gt 0) {
+                $totalChildHeight += $c.Height
+            } elseif ($c.DesiredSize.Height -gt 0) {
+                $totalChildHeight += $c.DesiredSize.Height
+            } else {
+                $c.Measure([System.Windows.Size]::new([double]::PositiveInfinity, [double]::PositiveInfinity))
+                $totalChildHeight += $c.DesiredSize.Height
+            }
+        }
+        if ($avail -gt $totalChildHeight) {
+            $gap = ($avail - $totalChildHeight) / ($count - 1)
+            for ($i = 0; $i -lt $count - 1; $i++) {
+                $c = $panel.Children[$i]
+                $c.Margin = [System.Windows.Thickness]::new($c.Margin.Left, $c.Margin.Top, $c.Margin.Right, $gap)
+            }
+            $last = $panel.Children[$count - 1]
+            $last.Margin = [System.Windows.Thickness]::new($last.Margin.Left, $last.Margin.Top, $last.Margin.Right, 0)
         }
     }
 }

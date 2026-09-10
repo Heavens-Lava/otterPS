@@ -414,6 +414,8 @@ function ConvertTo-OtterWeb {
         }
         if ($props.Contains('align')) {
             $styles.Add("text-align: $($props['align']);")
+        } elseif ($kind -notin @('row', 'column') -and $props.Contains('align_h')) {
+            $styles.Add("text-align: $($props['align_h']);")
         }
         if ($props.Contains('flex')) {
             $styles.Add("flex: $($props['flex']); min-width: 0;")
@@ -564,10 +566,45 @@ $optHtml
             }
             'row' {
                 $spacing = if ($props.Contains('spacing')) { $props['spacing'] } else { 8 }
-                $align = if ($props.Contains('alignitems')) { $props['alignitems'] } elseif ($props.Contains('items')) { $props['items'] } else { 'center' }
-                $justify = if ($props.Contains('justify')) { $props['justify'] } else { 'flex-start' }
                 $wrap = if ($props.Contains('wrap') -and ($props['wrap'] -eq $true -or $props['wrap'] -eq 'true' -or $props['wrap'] -eq 'wrap')) { 'wrap' } else { 'nowrap' }
                 
+                # Check for runtime/compile conflicts
+                if ($props.Contains('spread') -and ($props['spread'] -eq $true -or $props['spread'] -eq 'true') -and $props.Contains('align_h')) {
+                    throw [OtterError]::new("Horizontal alignment 'align $($props['align_h'])' conflicts with 'spread' on a row.", 0, 'runtime')
+                }
+
+                # Horizontal placement (main axis)
+                $justify = if ($props.Contains('spread') -and ($props['spread'] -eq $true -or $props['spread'] -eq 'true')) {
+                    'space-between'
+                } elseif ($props.Contains('align_h')) {
+                    switch ($props['align_h']) {
+                        'left'   { 'flex-start' }
+                        'center' { 'center' }
+                        'right'  { 'flex-end' }
+                        default  { 'flex-start' }
+                    }
+                } elseif ($props.Contains('justify')) {
+                    $props['justify']
+                } else {
+                    'flex-start'
+                }
+
+                # Vertical placement (cross axis)
+                $align = if ($props.Contains('align_v')) {
+                    switch ($props['align_v']) {
+                        'top'    { 'flex-start' }
+                        'middle' { 'center' }
+                        'bottom' { 'flex-end' }
+                        default  { 'center' }
+                    }
+                } elseif ($props.Contains('alignitems')) {
+                    $props['alignitems']
+                } elseif ($props.Contains('items')) {
+                    $props['items']
+                } else {
+                    'center'
+                }
+
                 $styles.Add("display: flex; flex-direction: row;")
                 $styles.Add("gap: ${spacing}px;")
                 $styles.Add("align-items: $align;")
@@ -580,9 +617,44 @@ $optHtml
             }
             'column' {
                 $spacing = if ($props.Contains('spacing')) { $props['spacing'] } else { 8 }
-                $align = if ($props.Contains('alignitems')) { $props['alignitems'] } elseif ($props.Contains('items')) { $props['items'] } else { 'stretch' }
-                $justify = if ($props.Contains('justify')) { $props['justify'] } else { 'flex-start' }
-                
+
+                # Check for runtime/compile conflicts
+                if ($props.Contains('spread') -and ($props['spread'] -eq $true -or $props['spread'] -eq 'true') -and $props.Contains('align_v')) {
+                    throw [OtterError]::new("Vertical alignment 'align $($props['align_v'])' conflicts with 'spread' on a column.", 0, 'runtime')
+                }
+
+                # Vertical placement (main axis)
+                $justify = if ($props.Contains('spread') -and ($props['spread'] -eq $true -or $props['spread'] -eq 'true')) {
+                    'space-between'
+                } elseif ($props.Contains('align_v')) {
+                    switch ($props['align_v']) {
+                        'top'    { 'flex-start' }
+                        'middle' { 'center' }
+                        'bottom' { 'flex-end' }
+                        default  { 'flex-start' }
+                    }
+                } elseif ($props.Contains('justify')) {
+                    $props['justify']
+                } else {
+                    'flex-start'
+                }
+
+                # Horizontal placement (cross axis)
+                $align = if ($props.Contains('align_h')) {
+                    switch ($props['align_h']) {
+                        'left'   { 'flex-start' }
+                        'center' { 'center' }
+                        'right'  { 'flex-end' }
+                        default  { 'stretch' }
+                    }
+                } elseif ($props.Contains('alignitems')) {
+                    $props['alignitems']
+                } elseif ($props.Contains('items')) {
+                    $props['items']
+                } else {
+                    'stretch'
+                }
+
                 $styles.Add("display: flex; flex-direction: column;")
                 $styles.Add("gap: ${spacing}px;")
                 $styles.Add("align-items: $align;")

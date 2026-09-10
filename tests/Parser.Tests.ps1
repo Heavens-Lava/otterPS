@@ -820,6 +820,83 @@ if ($numWidthAst.Statements[0].Properties[0].Value.Value -ne 400 -or $numWidthAs
     throw 'Numeric width and height must remain ordinary numbers.'
 }
 
+# 6. Batch 2: align <direction> parses to align_v / align_h with literal direction
+$alignAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source "nav is a row with spread, align middle`n")
+$navProps = $alignAst.Statements[0].Properties
+if ($navProps[0].Target.Name -ne 'spread' -or $navProps[0].Value.Value -ne $true) {
+    throw 'Expected spread flag to parse as boolean true.'
+}
+if ($navProps[1].Target.Name -ne 'align_v' -or $navProps[1].Value.Value -ne 'middle') {
+    throw 'Expected align middle to parse as align_v with literal middle.'
+}
+
+# 7. Multiline align top and align center
+$multiAlignAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source @"
+panel is a column
+    align top
+    align center
+.
+"@)
+$panelProps = $multiAlignAst.Statements[0].Properties
+if ($panelProps[0].Target.Name -ne 'align_v' -or $panelProps[0].Value.Value -ne 'top') {
+    throw 'Expected align top to parse as align_v with literal top.'
+}
+if ($panelProps[1].Target.Name -ne 'align_h' -or $panelProps[1].Value.Value -ne 'center') {
+    throw 'Expected align center to parse as align_h with literal center.'
+}
+
+# 8. Conflict detection: conflicting alignments in same dimension
+$conflictSameDim = $false
+try {
+    ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source "row is a row with align left, align right`n")
+} catch {
+    $conflictSameDim = $true
+}
+if (-not $conflictSameDim) {
+    throw 'Expected conflicting horizontal alignments (align left, align right) to fail parser.'
+}
+
+# 9. Conflict detection: spread + horizontal alignment on a row
+$conflictRowSpread = $false
+try {
+    ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source "navbar is a row with spread, align center`n")
+} catch {
+    $conflictRowSpread = $true
+}
+if (-not $conflictRowSpread) {
+    throw 'Expected spread + align center on a row to fail parser.'
+}
+
+# 10. Conflict detection: spread + vertical alignment on a column
+$conflictColSpread = $false
+try {
+    ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source @"
+col is a column
+    spread
+    align middle
+.
+"@)
+} catch {
+    $conflictColSpread = $true
+}
+if (-not $conflictColSpread) {
+    throw 'Expected spread + align middle on a column to fail parser.'
+}
+
+# 11. Ordinary variables named top, bottom, left, right behave normally
+$dirVarsAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source @"
+top is 100
+left is 50
+say top
+say left
+"@)
+if ($dirVarsAst.Statements[0].Target.Name -ne 'top' -or $dirVarsAst.Statements[0].Value.Value -ne 100) {
+    throw 'Variable top must remain ordinary assignment.'
+}
+if ($dirVarsAst.Statements[1].Target.Name -ne 'left' -or $dirVarsAst.Statements[1].Value.Value -ne 50) {
+    throw 'Variable left must remain ordinary assignment.'
+}
+
 Write-Output 'Parser tests passed.'
 
 

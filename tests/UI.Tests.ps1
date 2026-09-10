@@ -1054,4 +1054,58 @@ Test-Otter 'width full and height full stretch a WPF control to fill available c
     Assert-Lines -Expected @('full') -Actual $readWidth
 }
 
+Test-Otter 'row with spread distributes children across available container width' {
+    $res = Invoke-TestProgramWithEnv @(
+        [CreateUiResourceStmt]::new('row', 'spreadRow', 1),
+        [AssignStmt]::new([PropertyAccessExpr]::new('width', [VariableExpr]::new('spreadRow', 2), 2), (Lit 500), 2),
+        [AssignStmt]::new([PropertyAccessExpr]::new('spread', [VariableExpr]::new('spreadRow', 3), 3), (Lit $true), 3),
+        [CreateUiResourceStmt]::new('button', 'b1', 4),
+        [AssignStmt]::new([PropertyAccessExpr]::new('width', [VariableExpr]::new('b1', 5), 5), (Lit 100), 5),
+        [CreateUiResourceStmt]::new('button', 'b2', 6),
+        [AssignStmt]::new([PropertyAccessExpr]::new('width', [VariableExpr]::new('b2', 7), 7), (Lit 100), 7),
+        [PutInStmt]::new([VariableExpr]::new('b1', 8), [VariableExpr]::new('spreadRow', 8), 8),
+        [PutInStmt]::new([VariableExpr]::new('b2', 9), [VariableExpr]::new('spreadRow', 9), 9)
+    )
+    $row = $res.Env.Get('spreadRow').Native
+    $b1 = $res.Env.Get('b1').Native
+    $b2 = $res.Env.Get('b2').Native
+
+    # Measure and arrange the row to verify layout geometry
+    $row.Measure([System.Windows.Size]::new(500, 100))
+    $row.Arrange([System.Windows.Rect]::new(0, 0, 500, 100))
+
+    $pos1 = $b1.TransformToAncestor($row).Transform([System.Windows.Point]::new(0,0))
+    $pos2 = $b2.TransformToAncestor($row).Transform([System.Windows.Point]::new(0,0))
+
+    Assert-AreEqual -Expected 0 -Actual $pos1.X
+    Assert-AreEqual -Expected 400 -Actual $pos2.X
+}
+
+Test-Otter 'row and column apply physical vertical and horizontal child alignments' {
+    $res = Invoke-TestProgramWithEnv @(
+        [CreateUiResourceStmt]::new('row', 'navRow', 1),
+        [AssignStmt]::new([PropertyAccessExpr]::new('align_v', [VariableExpr]::new('navRow', 2), 2), (Lit 'middle'), 2),
+        [CreateUiResourceStmt]::new('button', 'btn', 3),
+        [PutInStmt]::new([VariableExpr]::new('btn', 4), [VariableExpr]::new('navRow', 4), 4),
+        [CreateUiResourceStmt]::new('column', 'sideCol', 5),
+        [AssignStmt]::new([PropertyAccessExpr]::new('align_h', [VariableExpr]::new('sideCol', 6), 6), (Lit 'right'), 6),
+        [CreateUiResourceStmt]::new('text', 'txt', 7),
+        [PutInStmt]::new([VariableExpr]::new('txt', 8), [VariableExpr]::new('sideCol', 8), 8)
+    )
+    $btn = $res.Env.Get('btn').Native
+    $txt = $res.Env.Get('txt').Native
+    Assert-AreEqual -Expected 'Center' -Actual $btn.VerticalAlignment.ToString()
+    Assert-AreEqual -Expected 'Right' -Actual $txt.HorizontalAlignment.ToString()
+}
+
+Test-Otter 'conflict rejection on spread and flow alignment at runtime' {
+    Assert-OtterFails -Containing 'conflicts with' -Body {
+        Invoke-TestProgram @(
+            [CreateUiResourceStmt]::new('row', 'r', 1),
+            [AssignStmt]::new([PropertyAccessExpr]::new('spread', [VariableExpr]::new('r', 2), 2), (Lit $true), 2),
+            [AssignStmt]::new([PropertyAccessExpr]::new('align_h', [VariableExpr]::new('r', 3), 3), (Lit 'center'), 3)
+        )
+    }
+}
+
 Complete-OtterTests
