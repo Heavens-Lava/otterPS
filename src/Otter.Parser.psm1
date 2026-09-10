@@ -209,6 +209,19 @@ function Read-OtterBlock {
     return $body
 }
 
+# D41 narrows empty-block acceptance to object construction only. All control
+# flow and function blocks continue through Read-OtterBlock and still require
+# an actual indented body.
+function Read-OtterObjectBlock {
+    [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the object statement to end here.')
+    if (-not (Test-OtterTokenKind ([TokenKind]::Indent))) { return @() }
+    [void](Read-OtterToken)
+    $body = Read-OtterStatements
+    [void](Assert-OtterTokenKind ([TokenKind]::Dedent) 'I expected the object block to end.')
+    if (Test-OtterTokenKind ([TokenKind]::BlockEnd)) { [void](Read-OtterToken); Skip-OtterNewlines }
+    return $body
+}
+
 function Read-OtterListItems {
     [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the list definition to end here.')
     [void](Assert-OtterTokenKind ([TokenKind]::Indent) 'I expected indented list items.')
@@ -386,23 +399,40 @@ function Read-OtterStatement {
         ([TokenKind]::Get) {
             [void](Read-OtterToken)
             $kind = Get-OtterCurrentToken
-            if ($kind.Kind -ne [TokenKind]::Files -and $kind.Kind -ne [TokenKind]::Folders) {
-                throw (New-OtterParserError 'I expected "files" or "folders" after "get".' $kind 'Write "get files in ..." or "get folders in ...".')
-            }
-            [void](Read-OtterToken)
-            [void](Assert-OtterTokenKind ([TokenKind]::In) 'I expected "in" and a folder path.')
-            $folder = Read-OtterValue
-            $includeSubfolders = $false
-            if (Test-OtterTokenKind ([TokenKind]::And)) {
+            if ($kind.Kind -eq [TokenKind]::Files -or $kind.Kind -eq [TokenKind]::Folders) {
                 [void](Read-OtterToken)
-                [void](Assert-OtterTokenKind ([TokenKind]::Subfolders) 'I expected "subfolders" after "and".')
-                $includeSubfolders = $true
+                [void](Assert-OtterTokenKind ([TokenKind]::In) 'I expected "in" and a folder path.')
+                $folder = Read-OtterValue
+                $includeSubfolders = $false
+                if (Test-OtterTokenKind ([TokenKind]::And)) {
+                    [void](Read-OtterToken)
+                    [void](Assert-OtterTokenKind ([TokenKind]::Subfolders) 'I expected "subfolders" after "and".')
+                    $includeSubfolders = $true
+                }
+                [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a result name.')
+                $target = Read-OtterVariableName 'I expected a result name after "into".'
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the discovery statement to end here.')
+                if ($kind.Kind -eq [TokenKind]::Files) { return [GetFilesStmt]::new($folder, $includeSubfolders, $target.Text, $start.Line) }
+                return [GetFoldersStmt]::new($folder, $includeSubfolders, $target.Text, $start.Line)
             }
+            # D41 dynamic key access: get <key> from <thing> into <name>.
+            $key = Read-OtterValue
+            [void](Assert-OtterTokenKind ([TokenKind]::From) 'I expected "from" and a target thing.')
+            $target = Read-OtterValue
             [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a result name.')
-            $target = Read-OtterVariableName 'I expected a result name after "into".'
-            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the discovery statement to end here.')
-            if ($kind.Kind -eq [TokenKind]::Files) { return [GetFilesStmt]::new($folder, $includeSubfolders, $target.Text, $start.Line) }
-            return [GetFoldersStmt]::new($folder, $includeSubfolders, $target.Text, $start.Line)
+            $result = Read-OtterVariableName 'I expected a result name after "into".'
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the get statement to end here.')
+            return [GetKeyStmt]::new($key, $target, $result.Text, $start.Line)
+        }
+        ([TokenKind]::Set) {
+            [void](Read-OtterToken)
+            $key = Read-OtterValue
+            [void](Assert-OtterTokenKind ([TokenKind]::To) 'I expected "to" and a value.')
+            $value = Read-OtterValue
+            [void](Assert-OtterTokenKind ([TokenKind]::In) 'I expected "in" and a target thing.')
+            $target = Read-OtterValue
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the set statement to end here.')
+            return [SetKeyStmt]::new($key, $value, $target, $start.Line)
         }
         ([TokenKind]::Create) {
             [void](Read-OtterToken)
@@ -744,7 +774,7 @@ function Read-OtterStatement {
             # branch below.
             if (Test-OtterTokenKind ([TokenKind]::Has)) {
                 [void](Read-OtterToken)
-                $properties = Read-OtterBlock
+                $properties = Read-OtterObjectBlock
                 foreach ($property in $properties) {
                     if ($property -isnot [AssignStmt]) {
                         throw (New-OtterParserError 'Only property assignments belong inside an object.' $name 'Write properties such as "name is \"Jeff\"".')
@@ -772,7 +802,7 @@ function Read-OtterStatement {
                     # type such as "text box") is an object literal and has
                     # indented property assignments.
                     if ($typeName -eq 'thing' -or -not $script:KnownTypes.ContainsKey($typeName)) {
-                        $properties = Read-OtterBlock
+                        $properties = if ($typeName -eq 'thing') { Read-OtterObjectBlock } else { Read-OtterBlock }
                     } else {
                         [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the object definition to end here.')
                         $properties = @()

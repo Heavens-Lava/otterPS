@@ -42,6 +42,7 @@ $script:OtterKeywords = @{
     'has' = [TokenKind]::Has
     'file' = [TokenKind]::File
     'into' = [TokenKind]::Into
+    'set' = [TokenKind]::Set
     'command' = [TokenKind]::Command
     'open' = [TokenKind]::Open
     'true' = [TokenKind]::True

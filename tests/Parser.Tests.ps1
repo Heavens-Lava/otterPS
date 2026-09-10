@@ -239,4 +239,35 @@ a Person has
 if ($hasAst.Statements[0] -isnot [ObjectDefStmt] -or $hasAst.Statements[0].TypeName -ne 'thing') { throw 'is a thing must remain valid.' }
 if ($hasAst.Statements[1] -isnot [ObjectDefStmt] -or $hasAst.Statements[1].TypeName -ne 'thing' -or $hasAst.Statements[1].Properties.Count -ne 2) { throw 'person has must construct an untyped object.' }
 if ($hasAst.Statements[2] -isnot [TypeDefStmt] -or $hasAst.Statements[2].FieldNames.Count -ne 2) { throw 'a Person has must remain a type definition.' }
+
+$dynamicSource = @'
+person has
+    name is "Jeff"
+.
+get "nickname" from person into nickname
+set "nickname" to "Jeffrey" in person
+get name of person from person into copied
+get files in "." into files
+for each file in files
+    set "size" to 0 in file
+.
+'@
+$dynamicAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $dynamicSource)
+if ($dynamicAst.Statements[0] -isnot [ObjectDefStmt] -or $dynamicAst.Statements[0].Properties.Count -ne 1) { throw 'D41 object setup must remain an object definition.' }
+if ($dynamicAst.Statements[1] -isnot [GetKeyStmt] -or $dynamicAst.Statements[1].ResultTarget -ne 'nickname') { throw 'Dynamic get must capture its result target.' }
+if ($dynamicAst.Statements[2] -isnot [SetKeyStmt] -or $dynamicAst.Statements[2].Target.Name -ne 'person') { throw 'Dynamic set must retain its target expression.' }
+if ($dynamicAst.Statements[3] -isnot [GetKeyStmt] -or $dynamicAst.Statements[3].Key -isnot [PropertyAccessExpr]) { throw 'Dynamic get keys must accept full expressions.' }
+if ($dynamicAst.Statements[5].Body[0] -isnot [SetKeyStmt] -or $dynamicAst.Statements[5].Body[0].Target.Name -ne 'file') { throw 'Dynamic set in a file loop must retain the file target for runtime guarding.' }
+
+$emptyObjects = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source @'
+emptyOne has
+emptyTwo is a thing
+say "still a program"
+'@)
+if ($emptyObjects.Statements[0].Properties.Count -ne 0 -or $emptyObjects.Statements[1].Properties.Count -ne 0) { throw 'Empty has and is-a-thing objects must have zero properties.' }
+try {
+    ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source "if true`n") | Out-Null
+    throw 'An empty if block must remain invalid.'
+}
+catch [OtterError] { }
 Write-Output 'Parser tests passed.'
