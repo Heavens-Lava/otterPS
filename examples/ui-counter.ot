@@ -1,0 +1,25 @@
+# ui-counter.ot - a tiny stateful native app
+#
+# This example intentionally uses only the D44-D47 surface: resources,
+# supported text properties, one click event, containment, and show.
+
+clicks is 0
+
+create window into app
+title of app is "Otter Counter"
+
+create text box into display
+text of display is "0"
+
+create button into addButton
+text of addButton is "Add one"
+
+put display in app
+put addButton in app
+
+when addButton is clicked
+    increase clicks
+    text of display is clicks
+.
+
+show app

@@ -1,0 +1,23 @@
+# ui-input.ot - copy text through a native button event
+
+create window into app
+title of app is "Otter Input"
+
+create text box into input
+text of input is "Type here"
+
+create text box into output
+text of output is "Your text appears here"
+
+create button into copyButton
+text of copyButton is "Copy text"
+
+put input in app
+put output in app
+put copyButton in app
+
+when copyButton is clicked
+    text of output is text of input
+.
+
+show app
