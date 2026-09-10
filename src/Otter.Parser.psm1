@@ -738,6 +738,20 @@ function Read-OtterStatement {
         }
         ([TokenKind]::Identifier) {
             $name = Read-OtterToken
+            # D40: `person has` is the canonical untyped object literal. It
+            # deliberately shares the existing ObjectDefStmt shape with
+            # `person is a thing`; custom type declarations remain on the A
+            # branch below.
+            if (Test-OtterTokenKind ([TokenKind]::Has)) {
+                [void](Read-OtterToken)
+                $properties = Read-OtterBlock
+                foreach ($property in $properties) {
+                    if ($property -isnot [AssignStmt]) {
+                        throw (New-OtterParserError 'Only property assignments belong inside an object.' $name 'Write properties such as "name is \"Jeff\"".')
+                    }
+                }
+                return [ObjectDefStmt]::new($name.Text, 'thing', $properties, $name.Line)
+            }
             if (Test-OtterTokenKind ([TokenKind]::Of)) {
                 # Re-read the whole property-first target, then use the same
                 # AssignStmt node as a normal variable assignment.

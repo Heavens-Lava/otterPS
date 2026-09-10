@@ -222,4 +222,21 @@ if ($rules4Ast.Statements[6] -isnot [RemoveFromStmt] -or $rules4Ast.Statements[6
 if ($rules4Ast.Statements[7] -isnot [ForEachStmt] -or $rules4Ast.Statements[7].VariableName -ne 'product') { throw 'Bare each must produce ForEachStmt.' }
 if ($rules4Ast.Statements[8] -isnot [ForEachStmt]) { throw 'For each must remain valid.' }
 if ($rules4Ast.Statements[9].Body[0] -isnot [ReturnStmt] -or $null -ne $rules4Ast.Statements[9].Body[0].Value) { throw 'Stop must produce a valueless ReturnStmt.' }
+
+$hasAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source @'
+legacy is a thing
+    name is "Jeff"
+.
+person has
+    name is "Jeff"
+    age is 29
+.
+a Person has
+    name
+    age
+.
+'@)
+if ($hasAst.Statements[0] -isnot [ObjectDefStmt] -or $hasAst.Statements[0].TypeName -ne 'thing') { throw 'is a thing must remain valid.' }
+if ($hasAst.Statements[1] -isnot [ObjectDefStmt] -or $hasAst.Statements[1].TypeName -ne 'thing' -or $hasAst.Statements[1].Properties.Count -ne 2) { throw 'person has must construct an untyped object.' }
+if ($hasAst.Statements[2] -isnot [TypeDefStmt] -or $hasAst.Statements[2].FieldNames.Count -ne 2) { throw 'a Person has must remain a type definition.' }
 Write-Output 'Parser tests passed.'
