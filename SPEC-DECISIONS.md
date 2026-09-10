@@ -3153,22 +3153,36 @@ Spacing's own behavior (works before or after `put`, future children
 inherit the current value) is unchanged and still covered by the
 original D48 tests plus new ones for the row/column case.
 
-### An open question, surfaced but not resolved here
+### Resolved: desktop deliberately does NOT accept `X is a <kind>` as UI construction
 
-While tracing this batch, a separate cross-target inconsistency turned
-up that this entry does **not** resolve: Gemini's D50 web compiler
-recognizes `nameBox is a text box` (`ObjectDefStmt` whose `TypeName`
-matches a UI-kind whitelist) as a UI resource declaration, alongside
-`create text box into nameBox`. Verified directly that the **desktop**
-interpreter does not — `nameBox is a text box` on `otter run` produces
-an ordinary `OtterObject` with `TypeName = "text box"` (`Test-
-OtterUiResource` is false), not a real control; `put`/`show` on it would
-fail with a genuine Otter error rather than silently doing the wrong
-thing, which is at least safe, but the same source file's meaning still
-diverges by target. Whether desktop should also accept `X is a <kind>`
-as an alternate spelling of `create <kind> into X` (unifying the two
-authoring styles) is a real decision, not something to infer from this
-investigation — left for Jeff to decide, and out of scope for D52.
+While tracing this batch, a cross-target inconsistency turned up:
+Gemini's D50 web compiler recognizes `nameBox is a text box`
+(`ObjectDefStmt` whose `TypeName` matches a UI-kind whitelist) as a UI
+resource declaration, alongside `create text box into nameBox`.
+Verified directly that the **desktop** interpreter does not — `nameBox
+is a text box` on `otter run` produces an ordinary `OtterObject` with
+`TypeName = "text box"` (`Test-OtterUiResource` is false), not a real
+control; `put`/`show` on it fails with a genuine Otter error rather
+than silently doing the wrong thing, which is at least safe, but the
+same source file's meaning still diverges by target.
+
+**Settled: this divergence is intentional and stays.** D43 already
+froze the relevant boundary explicitly — *"`has` remains reserved for
+ordinary data objects and does not become a second UI syntax."*
+`X is a <kind>` with an indented property block is the same
+construction-idiom family as `has` (the parser already treats them as
+twins — both produce `ObjectDefStmt` via the identical inline-or-block
+property-reading path); extending it to also mean "construct a real UI
+resource" would directly contradict D43's already-frozen principle, not
+merely add a convenience. `create <kind> into X` remains the one
+desktop UI-construction syntax. This is also not purely a matter of
+syntax preference: the web compiler's UI-kind whitelist (`page`,
+`image`, `list`, ...) is broader than desktop's actual `OtterWpfKinds`
+(`window`, `button`, `text`, `text box`, `row`, `column`) — `page` in
+particular has no desktop equivalent at all — so full unification would
+need its own separate design pass (does `page` map to `window`? do
+`image`/`list` get built for desktop first?) rather than a one-line
+interpreter change smuggled into this entry.
 
 ### What's built
 
