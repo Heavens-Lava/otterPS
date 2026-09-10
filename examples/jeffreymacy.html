@@ -102,6 +102,8 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
+      white-space: nowrap;
+      user-select: none;
     }
     .otter-button:hover { background-color: var(--otter-primary-hover); }
     .otter-button:active { transform: scale(0.98); }
@@ -141,6 +143,7 @@
       text-decoration: none;
       font-weight: 500;
       transition: color 0.15s ease;
+      white-space: nowrap;
     }
     .otter-link:hover { text-decoration: underline; color: #93c5fd; }
     .otter-checkbox-label {
@@ -186,11 +189,14 @@
       font-family: inherit;
     }
     .otter-badge {
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       padding: 4px 10px;
       border-radius: 9999px;
       font-size: 0.75rem;
       font-weight: 600;
+      white-space: nowrap;
       background: rgba(37,99,235,0.2);
       color: #93c5fd;
       border: 1px solid rgba(37,99,235,0.3);
@@ -219,27 +225,27 @@
       
       <div class="otter-page-content" style="display: flex; flex-direction: column; gap: 24px; width: 100%; min-width: 0;">
       <div id="navbar" class="otter-row" style="width: 100%; padding: 8px 0; display: flex; flex-direction: row; gap: 16px; align-items: center; justify-content: space-between; flex-wrap: nowrap;">
-      <div id="brandGroup" class="otter-row" style="display: flex; flex-direction: row; gap: 12px; align-items: center; justify-content: flex-start; flex-wrap: nowrap; width: 100%;">
+      <div id="brandGroup" class="otter-row" style="display: flex; flex-direction: row; gap: 12px; align-items: center; justify-content: flex-start; flex-wrap: nowrap;">
       <span id="avatarBadge" class="otter-badge" style="background: #16382c; color: #e8d2b5; border-radius: 9999px; padding: 10px; font-size: 15px; font-weight: 700;">JM</span>
       <div id="brandInfoCol" class="otter-column" style="display: flex; flex-direction: column; gap: 2px; align-items: stretch; justify-content: flex-start;">
       <div id="brandName" class="otter-text" style="color: #111827; font-size: 16px; font-weight: 700;">Jeffrey Macy</div>
       <div id="brandTagline" class="otter-text" style="color: #6b7280; font-size: 12px;">Technology partner for growing businesses</div>
 </div>
 </div>
-      <div id="navLinksRow" class="otter-row" style="display: flex; flex-direction: row; gap: 22px; align-items: center; justify-content: flex-start; flex-wrap: nowrap; width: 100%;">
+      <div id="navLinksRow" class="otter-row" style="display: flex; flex-direction: row; gap: 22px; align-items: center; justify-content: flex-start; flex-wrap: nowrap;">
       <a id="navHome" class="otter-link" href="#" style="color: #111827; font-size: 14px; font-weight: 600;" target="_blank" rel="noopener noreferrer">Home</a>
       <a id="navResources" class="otter-link" href="#" style="color: #4b5563; font-size: 14px;" target="_blank" rel="noopener noreferrer">Resources</a>
       <a id="navServices" class="otter-link" href="#" style="color: #4b5563; font-size: 14px;" target="_blank" rel="noopener noreferrer">Services</a>
       <a id="navProjects" class="otter-link" href="#" style="color: #4b5563; font-size: 14px;" target="_blank" rel="noopener noreferrer">Projects</a>
       <a id="navAbout" class="otter-link" href="#" style="color: #4b5563; font-size: 14px;" target="_blank" rel="noopener noreferrer">About</a>
       <span id="themePill" class="otter-badge" style="background: #f3f4f6; color: #4b5563; border-radius: 9999px; border: 1px solid #e5e7eb; padding: 6px; font-size: 12px;">☀️ ↻</span>
-      <button id="navPlanBtn" class="otter-button" style="background: #184537; color: white; border-radius: 9999px; padding: 10px; font-size: 14px; font-weight: 600;">Plan My Website →</button>
+      <button id="navPlanBtn" class="otter-button" style="background: #184537; color: white; border-radius: 9999px; padding: 9px 18px; font-size: 14px; font-weight: 600;">Plan My Website →</button>
       <a id="navLogin" class="otter-link" href="#" style="color: #4b5563; font-size: 14px; font-weight: 500;" target="_blank" rel="noopener noreferrer">Log in</a>
 </div>
 </div>
       <div id="heroRow" class="otter-row" style="width: 100%; margin: 20px 0 0 0; display: flex; flex-direction: row; gap: 52px; align-items: flex-start; justify-content: space-between; flex-wrap: nowrap;">
       <div id="leftCol" class="otter-column" style="flex: 1.05; min-width: 0; display: flex; flex-direction: column; gap: 20px; align-items: stretch; justify-content: flex-start;">
-      <div id="eyebrowRow" class="otter-row" style="display: flex; flex-direction: row; gap: 8px; align-items: center; justify-content: flex-start; flex-wrap: nowrap; width: 100%;">
+      <div id="eyebrowRow" class="otter-row" style="display: flex; flex-direction: row; gap: 8px; align-items: center; justify-content: flex-start; flex-wrap: nowrap;">
       <div id="eyebrowDash" class="otter-text" style="color: #ea580c; font-size: 16px; font-weight: 800;">―</div>
       <div id="eyebrowText" class="otter-text" style="color: #1e4d3e; font-size: 11px; font-weight: 700; letter-spacing: 0.08em;">WEBSITES FOR PEOPLE WHO CARE ABOUT THEIR CUSTOMERS</div>
 </div>
@@ -249,9 +255,9 @@
 </div>
       <div id="subHead" class="otter-text" style="color: #1f2937; font-size: 18px; font-weight: 700;">More than a website—build a digital home for your business.</div>
       <div id="subDesc" class="otter-text" style="color: #4b5563; font-size: 15px; line-height: 1.65;">Help customers find you, understand your services, see your pricing, book appointments, make payments, access files and videos, and stay connected with your business.</div>
-      <div id="ctaRow" class="otter-row" style="display: flex; flex-direction: row; gap: 16px; align-items: center; justify-content: flex-start; flex-wrap: nowrap; width: 100%;">
-      <button id="heroCtaBtn" class="otter-button" style="background: #184537; color: white; border-radius: 9999px; padding: 14px; font-size: 15px; font-weight: 600;">Plan My Website →</button>
-      <button id="heroEstimateBtn" class="otter-button" style="background: #ffffff; color: #111827; border-radius: 9999px; border: 1px solid #d1d5db; padding: 14px; font-size: 15px; font-weight: 600;">Get a Free Cost Estimate ⚡</button>
+      <div id="ctaRow" class="otter-row" style="display: flex; flex-direction: row; gap: 16px; align-items: center; justify-content: flex-start; flex-wrap: nowrap;">
+      <button id="heroCtaBtn" class="otter-button" style="background: #184537; color: white; border-radius: 9999px; padding: 13px 22px; font-size: 15px; font-weight: 600;">Plan My Website →</button>
+      <button id="heroEstimateBtn" class="otter-button" style="background: #ffffff; color: #111827; border-radius: 9999px; border: 1px solid #d1d5db; padding: 13px 22px; font-size: 15px; font-weight: 600;">Get a Free Cost Estimate ⚡</button>
 </div>
       <div id="pricingCard" class="otter-card" style="width: 100%; background: #ffffff; border-radius: 14px; border: 1px solid #e5e7eb; box-shadow: 0 4px 20px rgba(0,0,0,0.03); padding: 22px; gap: 14px;">
         
@@ -276,7 +282,7 @@
 </div>
 
       </div>
-      <div id="subLinksRow" class="otter-row" style="display: flex; flex-direction: row; gap: 14px; align-items: center; justify-content: flex-start; flex-wrap: nowrap; width: 100%;">
+      <div id="subLinksRow" class="otter-row" style="display: flex; flex-direction: row; gap: 14px; align-items: center; justify-content: flex-start; flex-wrap: nowrap;">
       <a id="subLearnLink" class="otter-link" href="#" style="color: #184537; font-size: 13px; font-weight: 600;" target="_blank" rel="noopener noreferrer">I Just Want to Learn More →</a>
       <div id="bulletPoint" class="otter-text" style="color: #d1d5db;">•</div>
       <a id="subDemosLink" class="otter-link" href="#" style="color: #184537; font-size: 13px; font-weight: 600;" target="_blank" rel="noopener noreferrer">Explore Demos & Work →</a>
@@ -328,7 +334,7 @@
       </div>
 </div>
 </div>
-      <div id="floatingDock" class="otter-row" style="position: fixed; bottom: 24px; right: 28px; z-index: 999; display: flex; flex-direction: row; gap: 12px; align-items: center; justify-content: flex-start; flex-wrap: nowrap; width: 100%;">
+      <div id="floatingDock" class="otter-row" style="position: fixed; bottom: 24px; right: 28px; z-index: 999; display: flex; flex-direction: row; gap: 12px; align-items: center; justify-content: flex-start; flex-wrap: nowrap;">
       <button id="chatWidgetBtn" class="otter-button" style="background: #163b2c; color: white; border-radius: 9999px; box-shadow: 0 10px 25px rgba(22,59,44,0.3); padding: 12px; font-size: 14px; font-weight: 600;">💬 Ask how Jeffrey can help</button>
       <button id="accessibilityBtn" class="otter-button" style="background: #163b2c; color: white; border-radius: 9999px; box-shadow: 0 10px 25px rgba(22,59,44,0.3); padding: 12px; font-size: 14px;">🌐</button>
 </div>

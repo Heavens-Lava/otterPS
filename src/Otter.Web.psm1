@@ -568,9 +568,6 @@ $optHtml
                 $styles.Add("align-items: $align;")
                 $styles.Add("justify-content: $justify;")
                 $styles.Add("flex-wrap: $wrap;")
-                if (-not $props.Contains('width')) {
-                    $styles.Add("width: 100%;")
-                }
                 $styleAttr = if ($styles.Count -gt 0) { " style=`"$($styles -join ' ')`"" } else { "" }
                 return @"
       <div id="$resName" class="otter-row"$styleAttr>$childHtml</div>
@@ -741,6 +738,8 @@ $bodyJoined
       display: inline-flex;
       align-items: center;
       justify-content: center;
+      white-space: nowrap;
+      user-select: none;
     }
     .otter-button:hover { background-color: var(--otter-primary-hover); }
     .otter-button:active { transform: scale(0.98); }
@@ -780,6 +779,7 @@ $bodyJoined
       text-decoration: none;
       font-weight: 500;
       transition: color 0.15s ease;
+      white-space: nowrap;
     }
     .otter-link:hover { text-decoration: underline; color: #93c5fd; }
     .otter-checkbox-label {
@@ -825,11 +825,14 @@ $bodyJoined
       font-family: inherit;
     }
     .otter-badge {
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       padding: 4px 10px;
       border-radius: 9999px;
       font-size: 0.75rem;
       font-weight: 600;
+      white-space: nowrap;
       background: rgba(37,99,235,0.2);
       color: #93c5fd;
       border: 1px solid rgba(37,99,235,0.3);

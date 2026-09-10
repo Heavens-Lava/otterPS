@@ -25,7 +25,7 @@ navServices is a link with text "Services", url "#", foreground "#4b5563", size 
 navProjects is a link with text "Projects", url "#", foreground "#4b5563", size 14
 navAbout is a link with text "About", url "#", foreground "#4b5563", size 14
 themePill is a badge with text "☀️ ↻", background "#f3f4f6", foreground "#4b5563", radius 9999, border "1px solid #e5e7eb", padding 6, size 12
-navPlanBtn is a button with text "Plan My Website →", background "#184537", foreground "white", radius 9999, weight 600, padding 10, size 14
+navPlanBtn is a button with text "Plan My Website →", background "#184537", foreground "white", radius 9999, weight 600, padding "9px 18px", size 14
 navLogin is a link with text "Log in", url "#", foreground "#4b5563", weight 500, size 14
 
 put navHome, navResources, navServices, navProjects, navAbout, themePill, navPlanBtn, navLogin in navLinksRow
@@ -54,8 +54,8 @@ subHead is a text with value "More than a website—build a digital home for you
 subDesc is a text with value "Help customers find you, understand your services, see your pricing, book appointments, make payments, access files and videos, and stay connected with your business.", size 15, foreground "#4b5563", lineheight "1.65"
 
 ctaRow is a row with spacing 16, alignitems "center"
-heroCtaBtn is a button with text "Plan My Website →", background "#184537", foreground "white", radius 9999, weight 600, padding 14, size 15
-heroEstimateBtn is a button with text "Get a Free Cost Estimate ⚡", background "#ffffff", foreground "#111827", radius 9999, border "1px solid #d1d5db", weight 600, padding 14, size 15
+heroCtaBtn is a button with text "Plan My Website →", background "#184537", foreground "white", radius 9999, weight 600, padding "13px 22px", size 15
+heroEstimateBtn is a button with text "Get a Free Cost Estimate ⚡", background "#ffffff", foreground "#111827", radius 9999, border "1px solid #d1d5db", weight 600, padding "13px 22px", size 15
 put heroCtaBtn, heroEstimateBtn in ctaRow
 
 # Pricing Comparison Card
