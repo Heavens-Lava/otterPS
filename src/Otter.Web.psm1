@@ -342,11 +342,13 @@ function ConvertTo-OtterWeb {
         $styles = [System.Collections.Generic.List[string]]::new()
         if ($props.Contains('width')) {
             $w = $props['width']
-            $styles.Add("width: $(if ($w -is [int] -or $w -is [double]) { "${w}px" } else { $w });")
+            $wCss = if ($w -eq 'full') { "100%" } elseif ($w -is [int] -or $w -is [double]) { "${w}px" } else { $w }
+            $styles.Add("width: $wCss;")
         }
         if ($props.Contains('height')) {
             $h = $props['height']
-            $styles.Add("height: $(if ($h -is [int] -or $h -is [double]) { "${h}px" } else { $h });")
+            $hCss = if ($h -eq 'full') { "100%" } elseif ($h -is [int] -or $h -is [double]) { "${h}px" } else { $h }
+            $styles.Add("height: $hCss;")
         }
         if ($props.Contains('maxwidth')) {
             $mw = $props['maxwidth']
@@ -366,9 +368,12 @@ function ConvertTo-OtterWeb {
         if ($props.Contains('foreground')) {
             $styles.Add("color: $($props['foreground']);")
         }
-        if ($props.Contains('radius')) {
+        if ($props.Contains('round') -and ($props['round'] -eq $true -or $props['round'] -eq 'true')) {
+            $styles.Add("border-radius: 9999px;")
+        } elseif ($props.Contains('radius')) {
             $rad = $props['radius']
-            $styles.Add("border-radius: $(if ($rad -is [int] -or $rad -is [double]) { "${rad}px" } else { $rad });")
+            $radCss = if ($rad -eq 'round') { "9999px" } elseif ($rad -is [int] -or $rad -is [double]) { "${rad}px" } else { $rad }
+            $styles.Add("border-radius: $radCss;")
         }
         if ($props.Contains('border')) {
             $styles.Add("border: $($props['border']);")
@@ -1024,8 +1029,12 @@ function Export-OtterWebApplication {
     $resolvedSource = Resolve-Path -LiteralPath $SourcePath
     $sourceText = Get-Content -LiteralPath $resolvedSource -Raw -Encoding UTF8
 
-    Import-Module (Join-Path $PSScriptRoot 'Otter.Lexer.psm1') -Force
-    Import-Module (Join-Path $PSScriptRoot 'Otter.Parser.psm1') -Force
+    if (-not (Get-Command ConvertTo-OtterTokens -ErrorAction SilentlyContinue)) {
+        Import-Module (Join-Path $PSScriptRoot 'Otter.Lexer.psm1') -Global
+    }
+    if (-not (Get-Command ConvertTo-OtterAst -ErrorAction SilentlyContinue)) {
+        Import-Module (Join-Path $PSScriptRoot 'Otter.Parser.psm1') -Global
+    }
 
     $tokens = ConvertTo-OtterTokens -Source $sourceText
     $ast = ConvertTo-OtterAst -Tokens $tokens

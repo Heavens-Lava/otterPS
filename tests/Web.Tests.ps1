@@ -1,7 +1,7 @@
 using module ..\Otter.Contract.psm1
-Import-Module (Join-Path $PSScriptRoot '..\src\Otter.Lexer.psm1') -Force
-Import-Module (Join-Path $PSScriptRoot '..\src\Otter.Parser.psm1') -Force
-Import-Module (Join-Path $PSScriptRoot '..\src\Otter.Web.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot '..\src\Otter.Lexer.psm1') -Global -Force
+Import-Module (Join-Path $PSScriptRoot '..\src\Otter.Parser.psm1') -Global -Force
+Import-Module (Join-Path $PSScriptRoot '..\src\Otter.Web.psm1') -Global -Force
 
 Write-Output 'Otter Web Compiler (D50)'
 
@@ -111,5 +111,26 @@ if ($jmContent -notmatch 'Jeffrey Macy' -or
     throw 'Expected brand, headline, mockup, and pricing card in compiled jeffreymacy.html.'
 }
 Write-Output '  pass  jeffreymacy.ot exports responsive showcase recreating www.jeffreymacy.com'
+
+# Test 6: width full, height full, and round rendering
+$dimSource = @"
+app is a page
+    title is "Dimension App"
+.
+fullRow is a row with width full, height full
+pillBtn is a button with text "Pill", round
+put pillBtn in fullRow
+put fullRow in app
+show app
+"@
+$dimAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $dimSource)
+$dimHtml = ConvertTo-OtterWeb -Program $dimAst
+if ($dimHtml -notmatch 'id="fullRow"[^>]*style="[^"]*width:\s*100%;[^"]*height:\s*100%;') {
+    throw 'Expected width: 100% and height: 100% on fullRow.'
+}
+if ($dimHtml -notmatch 'id="pillBtn"[^>]*style="[^"]*border-radius:\s*9999px;') {
+    throw 'Expected border-radius: 9999px on round pillBtn.'
+}
+Write-Output '  pass  width full, height full, and round compile to native CSS dimensions and shapes'
 
 Write-Output 'Web compiler tests passed.'

@@ -291,15 +291,27 @@ function Read-OtterObjectBlockProperties {
         $property = Read-OtterVariableName 'I expected a property name.'
 
         # 'is' is optional: both "property value" and "property is value" are valid
+        $hadIs = $false
         if (Test-OtterTokenKind ([TokenKind]::Is)) {
             [void](Read-OtterToken)
+            $hadIs = $true
         }
 
-        if ((Get-OtterCurrentToken).Kind -in @([TokenKind]::Newline, [TokenKind]::EndOfFile, [TokenKind]::Dedent, [TokenKind]::BlockEnd)) {
-            throw (New-OtterParserError "I expected a value for property '$($property.Text)'." (Get-OtterCurrentToken) "Provide a value after the property name, such as '$($property.Text) 10' or '$($property.Text) is 10'.")
+        if ($property.Text -in @('width', 'height') -and 
+            (Get-OtterCurrentToken).Kind -eq [TokenKind]::Identifier -and 
+            (Get-OtterCurrentToken).Text -eq 'full') {
+            $fullTok = Read-OtterToken
+            $value = [LiteralExpr]::new('full', $fullTok.Line)
+        } elseif (-not $hadIs -and $property.Text -in @('round', 'spread') -and 
+                  (Get-OtterCurrentToken).Kind -in @([TokenKind]::Newline, [TokenKind]::EndOfFile, [TokenKind]::Dedent, [TokenKind]::BlockEnd)) {
+            # Bare property name acts as a boolean flag (e.g. `round`, `spread`)
+            $value = [LiteralExpr]::new($true, $property.Line)
+        } else {
+            if ((Get-OtterCurrentToken).Kind -in @([TokenKind]::Newline, [TokenKind]::EndOfFile, [TokenKind]::Dedent, [TokenKind]::BlockEnd)) {
+                throw (New-OtterParserError "I expected a value for property '$($property.Text)'." (Get-OtterCurrentToken) "Provide a value after the property name, such as '$($property.Text) 10' or '$($property.Text) is 10'.")
+            }
+            $value = Read-OtterMathExpression
         }
-
-        $value = Read-OtterMathExpression
         $properties.Add([AssignStmt]::new($property.Text, $value, $property.Line))
 
         [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the property assignment to end here.')
@@ -323,8 +335,24 @@ function Read-OtterInlineObjectProperties {
         # Inline has and with are comma-delimited configuration lists.  `is` is
         # optional independently for each property, so compact, explicit,
         # and mixed styles all produce the same assignment nodes.
-        if (Test-OtterTokenKind ([TokenKind]::Is)) { [void](Read-OtterToken) }
-        $value = Read-OtterMathExpression
+        $hadIs = $false
+        if (Test-OtterTokenKind ([TokenKind]::Is)) {
+            [void](Read-OtterToken)
+            $hadIs = $true
+        }
+
+        if ($property.Text -in @('width', 'height') -and 
+            (Get-OtterCurrentToken).Kind -eq [TokenKind]::Identifier -and 
+            (Get-OtterCurrentToken).Text -eq 'full') {
+            $fullTok = Read-OtterToken
+            $value = [LiteralExpr]::new('full', $fullTok.Line)
+        } elseif (-not $hadIs -and $property.Text -in @('round', 'spread') -and 
+                  ((Get-OtterCurrentToken).Text -eq ',' -or (Get-OtterCurrentToken).Kind -in @([TokenKind]::Newline, [TokenKind]::EndOfFile))) {
+            # Bare property name acts as a boolean flag (e.g. `round`, `spread`)
+            $value = [LiteralExpr]::new($true, $property.Line)
+        } else {
+            $value = Read-OtterMathExpression
+        }
         $properties.Add([AssignStmt]::new($property.Text, $value, $property.Line))
         if ((Get-OtterCurrentToken).Text -ne ',') { break }
         [void](Read-OtterToken)

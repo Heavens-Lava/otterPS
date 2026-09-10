@@ -1032,4 +1032,26 @@ Test-Otter 'has refuses to replace an existing non-UI value' {
     }
 }
 
+Test-Otter 'width full and height full stretch a WPF control to fill available container space' {
+    $res = Invoke-TestProgramWithEnv @(
+        [CreateUiResourceStmt]::new('button', 'fullBtn', 1),
+        [AssignStmt]::new([PropertyAccessExpr]::new('width', [VariableExpr]::new('fullBtn', 2), 2), [LiteralExpr]::new('full', 2), 2),
+        [AssignStmt]::new([PropertyAccessExpr]::new('height', [VariableExpr]::new('fullBtn', 3), 3), [LiteralExpr]::new('full', 3), 3)
+    )
+    $btn = $res.Env.Get('fullBtn')
+    Assert-True (Test-OtterUiResource $btn) 'fullBtn must be a UI resource.'
+    Assert-AreEqual -Expected 'Stretch' -Actual $btn.Native.HorizontalAlignment.ToString()
+    Assert-AreEqual -Expected 'Stretch' -Actual $btn.Native.VerticalAlignment.ToString()
+    Assert-True ([double]::IsNaN($btn.Native.Width)) 'Explicit Width must be NaN to allow stretching.'
+    Assert-True ([double]::IsNaN($btn.Native.Height)) 'Explicit Height must be NaN to allow stretching.'
+
+    # Verify reading the property round-trips 'full'
+    $readWidth = Invoke-TestProgram @(
+        [CreateUiResourceStmt]::new('button', 'btn', 1),
+        [AssignStmt]::new([PropertyAccessExpr]::new('width', [VariableExpr]::new('btn', 2), 2), [LiteralExpr]::new('full', 2), 2),
+        [SayStmt]::new(@([PropertyAccessExpr]::new('width', [VariableExpr]::new('btn', 3), 3)), 3)
+    )
+    Assert-Lines -Expected @('full') -Actual $readWidth
+}
+
 Complete-OtterTests

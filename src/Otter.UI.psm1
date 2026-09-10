@@ -70,6 +70,7 @@ function Test-OtterUiResource {
 
 $script:OtterWpfLoaded = $false
 $script:OtterUiSpacing = @{}
+$script:OtterUiDimensionFull = @{}
 
 function Get-OtterUiSpacingKey {
     param([OtterUiResource]$Resource)
@@ -331,6 +332,11 @@ function Get-OtterUiProperty {
         return (Get-OtterUiSpacing -Window $Resource)
     }
 
+    $fullKey = (Get-OtterUiSpacingKey $Resource) + "_$Property"
+    if ($script:OtterUiDimensionFull.ContainsKey($fullKey)) {
+        return 'full'
+    }
+
     $raw = $Resource.Native.($mapping.Native)
 
     # A color always round-trips as a hex string ("#FF3366FF"), never the
@@ -363,7 +369,33 @@ function Set-OtterUiProperty {
     }
 
     if ($mapping.Type -eq 'number') {
+        $fullKey = (Get-OtterUiSpacingKey $Resource) + "_$Property"
+        if ($Property -in @('width', 'height') -and $Value -eq 'full') {
+            $script:OtterUiDimensionFull[$fullKey] = $true
+            if ($Property -eq 'width') {
+                if ($Resource.Kind -eq 'window') {
+                    $Resource.Native.Width = [System.Windows.SystemParameters]::WorkArea.Width
+                } else {
+                    $Resource.Native.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Stretch
+                    $Resource.Native.Width = [double]::NaN
+                }
+            } else {
+                if ($Resource.Kind -eq 'window') {
+                    $Resource.Native.Height = [System.Windows.SystemParameters]::WorkArea.Height
+                } else {
+                    $Resource.Native.VerticalAlignment = [System.Windows.VerticalAlignment]::Stretch
+                    $Resource.Native.Height = [double]::NaN
+                }
+            }
+            return
+        }
         $number = Assert-OtterUiNumber -Value $Value -Property $Property -Kind $Resource.Kind -Line $Line
+        $script:OtterUiDimensionFull.Remove($fullKey)
+        if ($Property -eq 'width' -and $Resource.Kind -ne 'window') {
+            $Resource.Native.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Left
+        } elseif ($Property -eq 'height' -and $Resource.Kind -ne 'window') {
+            $Resource.Native.VerticalAlignment = [System.Windows.VerticalAlignment]::Top
+        }
         $Resource.Native.($mapping.Native) = $number
         return
     }

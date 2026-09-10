@@ -770,6 +770,56 @@ if ($topLevelWithIsAst.Statements[0] -isnot [AssignStmt]) {
     throw 'Top-level assignment requires is.'
 }
 
+# ===============================================================
+# Flag properties (round, spread) and width full
+# ===============================================================
+
+# 1. Bare flag property in multiline block
+$flagBlockAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source @'
+btn is a button
+    text "Submit"
+    round
+    padding 10
+.
+'@)
+if ($flagBlockAst.Statements[0].Properties[1].Target.Name -ne 'round' -or $flagBlockAst.Statements[0].Properties[1].Value.Value -ne $true) {
+    throw 'Expected bare flag property in block to evaluate to literal true.'
+}
+
+# 2. Bare flag property inline with `with`
+$flagInlineAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source "pill is a badge with round, padding 6`n")
+if ($flagInlineAst.Statements[0].Properties[0].Target.Name -ne 'round' -or $flagInlineAst.Statements[0].Properties[0].Value.Value -ne $true) {
+    throw 'Expected bare flag property inline to evaluate to literal true.'
+}
+
+# 3. width full and height full parse as contextual LiteralExpr('full')
+$widthFullAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source "bar is a row with width full, height full`n")
+if ($widthFullAst.Statements[0].Properties[0].Target.Name -ne 'width' -or 
+    $widthFullAst.Statements[0].Properties[0].Value -isnot [LiteralExpr] -or 
+    $widthFullAst.Statements[0].Properties[0].Value.Value -ne 'full') {
+    throw 'Expected width full to parse as property width with literal full.'
+}
+if ($widthFullAst.Statements[0].Properties[1].Target.Name -ne 'height' -or 
+    $widthFullAst.Statements[0].Properties[1].Value -isnot [LiteralExpr] -or 
+    $widthFullAst.Statements[0].Properties[1].Value.Value -ne 'full') {
+    throw 'Expected height full to parse as property height with literal full.'
+}
+
+# 4. Ordinary variable named full behaves normally outside dimension position
+$varFullAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source "full is 500`nsay full`n")
+if ($varFullAst.Statements[0] -isnot [AssignStmt] -or $varFullAst.Statements[0].Target.Name -ne 'full' -or $varFullAst.Statements[0].Value.Value -ne 500) {
+    throw 'Variable full must remain ordinary assignment.'
+}
+if ($varFullAst.Statements[1] -isnot [SayStmt] -or $varFullAst.Statements[1].Parts[0] -isnot [VariableExpr] -or $varFullAst.Statements[1].Parts[0].Name -ne 'full') {
+    throw 'Saying full must remain ordinary variable reference.'
+}
+
+# 5. Numeric width and height remain unchanged
+$numWidthAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source "bar is a row with width 400, height 300`n")
+if ($numWidthAst.Statements[0].Properties[0].Value.Value -ne 400 -or $numWidthAst.Statements[0].Properties[1].Value.Value -ne 300) {
+    throw 'Numeric width and height must remain ordinary numbers.'
+}
+
 Write-Output 'Parser tests passed.'
 
 
