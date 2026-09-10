@@ -678,3 +678,147 @@ program carries on.
   if `try` caught the return signal, returning from inside one would silently
   run the `otherwise` body and lose the value. There is a test for this.
 - A `try` with no `otherwise` swallows the failure and continues.
+
+---
+
+## D24. `X of Y` is two different things
+
+Both read the same aloud, and they must not share an AST node:
+
+| Written | Meaning | Node |
+|---|---|---|
+| `name of file` | a genuine **property** of an object | `PropertyAccessExpr` |
+| `extension of file` | a genuine **property** | `PropertyAccessExpr` |
+| `length of games` | an **operation** applied to a value | `OfOperationExpr` |
+| `uppercase of name` | an **operation** | `OfOperationExpr` |
+| `first of games` | an **operation** | `OfOperationExpr` |
+
+Pretending a list literally carries a `length` property would make the runtime
+object model strange purely to keep the grammar tidy. They share surface
+syntax and nothing else.
+
+**The parser decides from the word before `of`.** The operation words are a
+fixed, known set — `length`, `uppercase`, `lowercase`, `first`, `last`. Any
+other word before `of` is a property.
+
+Consequence worth knowing: a thing with no `length` property still fails as a
+property lookup. `length` is not magic on objects; it is only an operation on
+text and lists.
+
+---
+
+## D25. The first string and collection operations
+
+```otter
+length of name        length of games
+uppercase of name     lowercase of name
+first of games        last of games
+
+sort games            reverse games
+
+if name contains "Jeff"
+if name starts with "J"
+if name ends with "Macy"
+
+replace "Jeff" with "Jeffrey" in name
+split sentence by " " into words
+join words with ", " into text
+```
+
+Rules that are easy to get wrong:
+
+- **`sort` and `reverse` change the list in place**, like `add 5 to score`
+  does. They are statements, not expressions.
+- **`sort` orders numbers as numbers.** Sorted as text, `10` would come
+  before `9`.
+- **`replace` is plain text, never a pattern.** A `.` means a full stop. A
+  language whose strings are quietly regular expressions is a language that
+  surprises beginners.
+- **`contains` works on text *and* lists** — `if name contains "Jeff"` and
+  `if games contains "Zelda"` both read naturally, so both work.
+- **`first` / `last` of an empty list is `gone`**, not an error. That is
+  precisely what D22 is for.
+- Text comparisons are **case-sensitive**, consistent with D10.
+
+---
+
+## D26. `find` gives one thing. `get` gives many.
+
+Singular and plural carry the meaning:
+
+```otter
+find file in files where extension of file is ".pdf" into result
+```
+
+returns **the first match, or `gone`** — which ties collections straight back
+to D22:
+
+```otter
+if result is gone
+    say "No PDF found."
+.
+```
+
+The plural form returns a collection:
+
+```otter
+get files from files where extension of file is ".pdf" into pdfs
+```
+
+> **Not yet implemented** — the plural filter is designed but not built.
+> `get files in "X" into y` (D20) is a different statement and does exist.
+
+The item name in a `find` is bound **for the condition only**, exactly like a
+`for each` variable. After the statement it is gone — there is a test pinning
+this, because a leaking loop variable is a classic source of confusion.
+
+---
+
+## D23a. `otherwise` handles failure, not control flow
+
+An addition to D23, stated explicitly because it is the kind of rule that
+gets broken by accident:
+
+> `otherwise` handles **runtime failure** from the `try` body. Normal
+> control-flow transfers are **not** failures.
+
+```otter
+to find user
+    try
+        return user
+    otherwise
+        say "Failed."
+    .
+.
+```
+
+must return normally and never enter `otherwise`. The same will apply to
+`break`, `continue`, and any later stop-style transfer: each must pass
+through a `try` untouched.
+
+---
+
+## Deferred, deliberately
+
+These are designed but not built, and the reason each is waiting matters.
+
+**`delete folder "Backup" and everything in it`** — the explicit destructive
+form. Reads better than a `recursive` flag and makes the danger visible in the
+source. `delete folder` itself stays non-recursive forever.
+
+**`measure folder "Pictures" into size`** — folder size, where the verb
+signals that work is happening. Better than a `size of folder` property that
+looks free but walks a directory tree.
+
+**Methods on custom types** — left undecided rather than forced. `greet jeff`
+is indistinguishable from a one-argument function call, and `ask jeff to
+greet` overloads `ask`, which already means user input. Candidates worth
+weighing later: `have jeff greet`, `tell jeff to greet`, `use greet on jeff`.
+`tell jeff to greet` reads best so far. This is its own design milestone.
+
+**`do at the same time`** — its own milestone. The syntax is easy; the
+semantics are not. It needs decisions about variable isolation, shared
+objects, failure handling, return values, ordering, and cancellation before
+any of it is worth parsing. PowerShell 5.1 adds a constraint: background jobs
+cannot share the interpreter's live objects at all, so this is real
+engineering rather than a parser addition.

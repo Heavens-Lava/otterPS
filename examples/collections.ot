@@ -1,0 +1,40 @@
+# collections.ot - working with text and lists
+#
+# NOTE: needs the parser support for D24-D26 before this runs.
+
+name is "Jeff Macy"
+
+say length of name
+say uppercase of name
+
+if name starts with "J"
+    say "Starts with J."
+.
+
+replace "Jeff" with "Jeffrey" in name
+say name
+
+split name by " " into parts
+join parts with ", " into text
+say text
+
+games are
+    "Zelda"
+    "Mario"
+    "Pokemon"
+.
+
+sort games
+say games
+
+say first of games
+say last of games
+say length of games
+
+find game in games where game starts with "M" into result
+
+if result is gone
+    say "No game found."
+otherwise
+    say "Found" result
+.

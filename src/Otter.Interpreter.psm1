@@ -422,6 +422,108 @@ function Invoke-OtterStatement {
             return
         }
 
+        # --- collections and strings (D25) ----------------------
+
+        # sort games   /   reverse games   - change the list in place
+        'Sort' {
+            $list = Get-OtterMutableList -Name $Statement.Target -Environment $Environment -Line $Statement.Line -Verb 'sort'
+            $items = $list.ToArray()
+            $comparison = [System.Comparison[object]] {
+                param($left, $right)
+                if ((Test-OtterNumeric $left) -and (Test-OtterNumeric $right)) {
+                    $l = [double](ConvertTo-OtterNumber $left)
+                    $r = [double](ConvertTo-OtterNumber $right)
+                    return $l.CompareTo($r)
+                }
+                return [string]::CompareOrdinal(
+                    (Format-OtterValue -Value $left),
+                    (Format-OtterValue -Value $right))
+            }
+            [System.Array]::Sort($items, $comparison)
+            $list.Clear()
+            foreach ($item in $items) { $list.Add($item) }
+            return
+        }
+
+        'Reverse' {
+            $list = Get-OtterMutableList -Name $Statement.Target -Environment $Environment -Line $Statement.Line -Verb 'reverse'
+            $list.Reverse()
+            return
+        }
+
+        # replace "Jeff" with "Jeffrey" in name
+        'Replace' {
+            if (-not $Environment.Has($Statement.Target)) {
+                throw (New-OtterRuntimeError -Message "Otter could not find the variable ""$($Statement.Target)""." -Line $Statement.Line)
+            }
+            $subject = Format-OtterValue -Value $Environment.Get($Statement.Target)
+            $find = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.Find -Environment $Environment)
+            $replacement = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.Replacement -Environment $Environment)
+
+            if ($find.Length -eq 0) {
+                throw (New-OtterRuntimeError -Message 'I cannot replace empty text.' -Line $Statement.Line)
+            }
+            # Plain text replace - no regular expressions, so "." in the text
+            # the programmer typed means a full stop and nothing else.
+            $Environment.Set($Statement.Target, $subject.Replace($find, $replacement))
+            return
+        }
+
+        # split sentence by " " into words
+        'Split' {
+            $subject = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.Subject -Environment $Environment)
+            $separator = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.Separator -Environment $Environment)
+
+            if ($separator.Length -eq 0) {
+                throw (New-OtterRuntimeError -Message 'I need something to split by.' -Line $Statement.Line)
+            }
+            $pieces = $subject.Split([string[]]@($separator), [System.StringSplitOptions]::None)
+            $Environment.Set($Statement.Target, (New-OtterList -Items $pieces))
+            return
+        }
+
+        # join words with ", " into text
+        'Join' {
+            $value = Get-OtterValue -Expression $Statement.Subject -Environment $Environment
+            if (-not (Test-OtterList $value)) {
+                throw (New-OtterRuntimeError `
+                    -Message "I can only join a list, but this is $(Get-OtterTypeName $value)." `
+                    -Line $Statement.Line)
+            }
+            $separator = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.Separator -Environment $Environment)
+            $rendered = foreach ($item in $value) { Format-OtterValue -Value $item }
+            $Environment.Set($Statement.Target, (($rendered) -join $separator))
+            return
+        }
+
+        # find file in files where extension of file is ".pdf" into result
+        #
+        # D26: singular "find" gives the FIRST match, or gone. That is what
+        # makes "if result is gone" the natural way to ask if anything matched.
+        'Find' {
+            $collection = Get-OtterValue -Expression $Statement.Collection -Environment $Environment
+            if (-not (Test-OtterList $collection)) {
+                throw (New-OtterRuntimeError `
+                    -Message "I can only search a list, but this is $(Get-OtterTypeName $collection)." `
+                    -Line $Statement.Line)
+            }
+
+            $found = $null
+            foreach ($item in $collection.ToArray()) {
+                # The item name is bound for the condition only, exactly like
+                # a for-each variable.
+                $scope = [OtterEnvironment]::new($Environment)
+                $scope.SetLocal($Statement.ItemName, $item)
+                if (Test-OtterTruthy -Value (Get-OtterValue -Expression $Statement.Condition -Environment $scope)) {
+                    $found = $item
+                    break
+                }
+            }
+
+            $Environment.Set($Statement.Target, $found)
+            return
+        }
+
         default {
             throw (New-OtterRuntimeError `
                 -Message "I do not know how to run a $($Statement.Kind) statement yet." `
@@ -602,9 +704,16 @@ function Get-OtterValue {
             $collection = Get-OtterValue -Expression $Expression.Collection -Environment $Environment
             $item = Get-OtterValue -Expression $Expression.Item -Environment $Environment
 
+            # "contains" reads the same way for text as for a list:
+            #     if name contains "Jeff"
+            #     if games contains "Zelda"
+            if ($collection -is [string]) {
+                return $collection.Contains((Format-OtterValue -Value $item))
+            }
+
             if (-not (Test-OtterList $collection)) {
                 throw (New-OtterRuntimeError `
-                    -Message "Only a list can contain something, but this is $(Get-OtterTypeName $collection)." `
+                    -Message "Only text or a list can contain something, but this is $(Get-OtterTypeName $collection)." `
                     -Line $Expression.Line)
             }
             foreach ($entry in $collection) {
@@ -647,6 +756,62 @@ function Get-OtterValue {
         'FileExists' {
             $path = Get-OtterPathArgument -Expression $Expression.Path -Environment $Environment
             return (Test-OtterFileExists -Path $path -Line $Expression.Line)
+        }
+
+        # length of name / length of games / uppercase of name /
+        # first of games / last of games                        (D24)
+        'OfOperation' {
+            $subject = Get-OtterValue -Expression $Expression.Subject -Environment $Environment
+
+            switch ($Expression.Operation.ToString()) {
+
+                'Length' {
+                    if (Test-OtterList $subject) { return [double]$subject.Count }
+                    if ($subject -is [string]) { return [double]$subject.Length }
+                    throw (New-OtterRuntimeError `
+                        -Message "I can only measure the length of text or a list, but this is $(Get-OtterTypeName $subject)." `
+                        -Line $Expression.Line)
+                }
+
+                'Uppercase' { return (Format-OtterValue -Value $subject).ToUpperInvariant() }
+                'Lowercase' { return (Format-OtterValue -Value $subject).ToLowerInvariant() }
+
+                # first/last of an empty list is gone, not an error. D22 is
+                # exactly what makes "if first of games is gone" askable.
+                'First' {
+                    if (-not (Test-OtterList $subject)) {
+                        throw (New-OtterRuntimeError `
+                            -Message "Only a list has a first item, but this is $(Get-OtterTypeName $subject)." `
+                            -Line $Expression.Line)
+                    }
+                    if ($subject.Count -eq 0) { return $null }
+                    Write-Output -NoEnumerate $subject[0]
+                    return
+                }
+
+                'Last' {
+                    if (-not (Test-OtterList $subject)) {
+                        throw (New-OtterRuntimeError `
+                            -Message "Only a list has a last item, but this is $(Get-OtterTypeName $subject)." `
+                            -Line $Expression.Line)
+                    }
+                    if ($subject.Count -eq 0) { return $null }
+                    Write-Output -NoEnumerate $subject[$subject.Count - 1]
+                    return
+                }
+            }
+            return $null
+        }
+
+        # if name starts with "J"   /   if name ends with "Macy"
+        'TextMatch' {
+            $subject = Format-OtterValue -Value (Get-OtterValue -Expression $Expression.Subject -Environment $Environment)
+            $value = Format-OtterValue -Value (Get-OtterValue -Expression $Expression.Value -Environment $Environment)
+
+            if ($Expression.Match.ToString() -eq 'StartsWith') {
+                return $subject.StartsWith($value, [System.StringComparison]::Ordinal)
+            }
+            return $subject.EndsWith($value, [System.StringComparison]::Ordinal)
         }
 
         default {
@@ -806,6 +971,27 @@ function New-OtterObjectValue {
     }
 
     return $object
+}
+
+# sort and reverse change a list where it stands, so they need the real list
+# object out of the environment rather than a copy of it.
+function Get-OtterMutableList {
+    param([string]$Name, [OtterEnvironment]$Environment, [int]$Line, [string]$Verb)
+
+    if (-not $Environment.Has($Name)) {
+        throw (New-OtterRuntimeError -Message "Otter could not find the variable ""$Name""." -Line $Line)
+    }
+
+    $value = $Environment.Get($Name)
+    if (-not (Test-OtterList $value)) {
+        throw (New-OtterRuntimeError `
+            -Message "I can only $Verb a list, but ""$Name"" holds $(Get-OtterTypeName $value)." `
+            -Line $Line)
+    }
+
+    # -NoEnumerate again: returning a List from a PowerShell function unrolls
+    # it, so the caller would get the first ITEM instead of the list itself.
+    Write-Output -NoEnumerate $value
 }
 
 # File operations accept a path the programmer typed OR a file object with a

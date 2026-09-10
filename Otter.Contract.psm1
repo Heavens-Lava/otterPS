@@ -94,6 +94,24 @@ enum TokenKind {
     # --- errors (D23) -------------------------------------------
     Try             # try / otherwise
 
+    # --- strings and collections (D24, D25, D26) ----------------
+    Length          # length of name / length of games
+    Uppercase
+    Lowercase
+    First           # first of games
+    Last
+    Sort            # sort games
+    Reverse
+    StartsWith      # one token from the two words "starts with"
+    EndsWith        # one token from the two words "ends with"
+    Replace         # replace "Jeff" with "Jeffrey" in name
+    With
+    Split           # split sentence by " " into words
+    By
+    Join            # join words with ", " into text
+    Find            # find file in files where ... into result
+    Where
+
     # --- reserved for 0.3 / 0.4 (lexed now, not yet parsed) ------
     A               # jeff is A Person
     Thing           # person is a THING
@@ -209,6 +227,16 @@ enum NodeKind {
 
     # errors (D23)
     Try             # try / otherwise
+
+    # strings and collections (D24, D25, D26)
+    OfOperation     # length/uppercase/lowercase/first/last OF something
+    TextMatch       # starts with / ends with
+    Sort
+    Reverse
+    Replace
+    Split
+    Join
+    Find
 }
 
 enum MathOp { Add; Subtract; Multiply; Divide }
@@ -217,6 +245,19 @@ enum CompareOp { Equal; NotEqual; AtLeast; AtMost; GreaterThan; LessThan }
 
 # D11: boolean operators. Precedence, loosest last: not -> and -> or.
 enum LogicalOp { And; Or }
+
+# D24: "X of Y" covers TWO different things, and they must not share a node.
+#
+#   name of file       a genuine PROPERTY of an object   -> PropertyAccessExpr
+#   length of games    an OPERATION applied to a value   -> OfOperationExpr
+#
+# Pretending every list literally carries a "length" property would make the
+# runtime object model strange to keep the grammar tidy. They share surface
+# syntax and nothing else.
+enum OfOperation { Length; Uppercase; Lowercase; First; Last }
+
+# if name starts with "J"   /   if name ends with "Macy"
+enum TextMatch { StartsWith; EndsWith }
 
 
 # --- base -------------------------------------------------------
@@ -765,6 +806,105 @@ class TryStmt : Node {
     TryStmt([Node[]]$body, [Node[]]$otherwiseBody, [int]$line) : base([NodeKind]::Try, $line) {
         $this.Body = $body
         $this.OtherwiseBody = $otherwiseBody
+    }
+}
+
+
+# ===============================================================
+# STRINGS AND COLLECTIONS (D24, D25, D26)
+# ===============================================================
+
+# length of name    length of games    uppercase of name
+# first of games    last of games
+#
+# D24: an OPERATION, not a property. The parser decides which node to build
+# from the WORD before "of" - the operation words are a fixed, known set.
+class OfOperationExpr : Node {
+    [OfOperation]$Operation
+    [Node]$Subject
+    OfOperationExpr([OfOperation]$operation, [Node]$subject, [int]$line) : base([NodeKind]::OfOperation, $line) {
+        $this.Operation = $operation
+        $this.Subject = $subject
+    }
+}
+
+# if name starts with "J"   /   if name ends with "Macy"
+class TextMatchExpr : Node {
+    [Node]$Subject
+    [TextMatch]$Match
+    [Node]$Value
+    TextMatchExpr([Node]$subject, [TextMatch]$match, [Node]$value, [int]$line) : base([NodeKind]::TextMatch, $line) {
+        $this.Subject = $subject
+        $this.Match = $match
+        $this.Value = $value
+    }
+}
+
+# sort games      - changes the list in place, like "add 5 to score" does
+class SortStmt : Node {
+    [string]$Target
+    SortStmt([string]$target, [int]$line) : base([NodeKind]::Sort, $line) { $this.Target = $target }
+}
+
+# reverse games
+class ReverseStmt : Node {
+    [string]$Target
+    ReverseStmt([string]$target, [int]$line) : base([NodeKind]::Reverse, $line) { $this.Target = $target }
+}
+
+# replace "Jeff" with "Jeffrey" in name
+class ReplaceStmt : Node {
+    [Node]$Find
+    [Node]$Replacement
+    [string]$Target
+    ReplaceStmt([Node]$find, [Node]$replacement, [string]$target, [int]$line) : base([NodeKind]::Replace, $line) {
+        $this.Find = $find
+        $this.Replacement = $replacement
+        $this.Target = $target
+    }
+}
+
+# split sentence by " " into words
+class SplitStmt : Node {
+    [Node]$Subject
+    [Node]$Separator
+    [string]$Target
+    SplitStmt([Node]$subject, [Node]$separator, [string]$target, [int]$line) : base([NodeKind]::Split, $line) {
+        $this.Subject = $subject
+        $this.Separator = $separator
+        $this.Target = $target
+    }
+}
+
+# join words with ", " into text
+class JoinStmt : Node {
+    [Node]$Subject
+    [Node]$Separator
+    [string]$Target
+    JoinStmt([Node]$subject, [Node]$separator, [string]$target, [int]$line) : base([NodeKind]::Join, $line) {
+        $this.Subject = $subject
+        $this.Separator = $separator
+        $this.Target = $target
+    }
+}
+
+# find file in files where extension of file is ".pdf" into result
+#
+# D26: SINGULAR "find" returns the FIRST match, or gone when nothing matches.
+# That is what ties collections to D22 - "if result is gone" is the natural
+# way to ask whether anything was found.
+#
+# ItemName is bound for the Condition only, exactly like a for-each variable.
+class FindStmt : Node {
+    [string]$ItemName
+    [Node]$Collection
+    [Node]$Condition
+    [string]$Target
+    FindStmt([string]$itemName, [Node]$collection, [Node]$condition, [string]$target, [int]$line) : base([NodeKind]::Find, $line) {
+        $this.ItemName = $itemName
+        $this.Collection = $collection
+        $this.Condition = $condition
+        $this.Target = $target
     }
 }
 
