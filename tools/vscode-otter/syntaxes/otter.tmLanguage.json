@@ -47,7 +47,7 @@
     "statement-heads": {
       "patterns": [{
         "name": "keyword.control.statement.otter",
-        "match": "^\\s*(?:say|ask|if|otherwise|while|repeat|count|return|stop|try|get|set|create|copy|move|delete|add|remove|increase|decrease|each|read|write|sort|reverse|replace|split|join|find|run|log|warn|error|random|json|convert|format|today|now|between)\\b"
+        "match": "^\\s*(?:say|ask|if|otherwise|while|repeat|count|return|stop|try|get|set|create|copy|move|delete|add|remove|increase|decrease|each|read|write|sort|reverse|replace|split|join|find|run|log|warn|error|random|json|convert|format|today|now|between|put|when|show)\\b"
       }]
     },
     "literals": {

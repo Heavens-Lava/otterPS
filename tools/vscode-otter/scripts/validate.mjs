@@ -21,6 +21,8 @@ const checks = [
   [pkg.contributes.languages?.some((entry) => entry.id === 'otter' && entry.extensions?.includes('.ot')), 'Otter language registration'],
   [pkg.contributes.grammars?.some((entry) => entry.scopeName === 'source.otter'), 'TextMate grammar registration'],
   [grammar.scopeName === 'source.otter' && grammar.repository?.comments, 'TextMate grammar structure'],
+  [/\bput\b/.test(String(grammar.repository?.['statement-heads']?.patterns?.[0]?.match || '')) && /\bwhen\b/.test(String(grammar.repository?.['statement-heads']?.patterns?.[0]?.match || '')) && /\bshow\b/.test(String(grammar.repository?.['statement-heads']?.patterns?.[0]?.match || '')), 'structural UI statement keywords'],
+  [!String(grammar.repository?.domain?.patterns?.[0]?.match || '').includes('clicked'), 'contextual event words remain unreserved'],
   [language.comments?.lineComment === '#', 'line comment configuration'],
   [language.indentationRules?.increaseIndentPattern && language.indentationRules?.decreaseIndentPattern, 'indentation configuration'],
   [pkg.main === 'src/extension.js', 'completion provider entry point']
