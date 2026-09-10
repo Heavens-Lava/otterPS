@@ -1,0 +1,57 @@
+say "Otter Sales Report"
+
+sales are
+    120
+    340
+    75
+    500
+    210
+.
+
+total is 0
+each amount in sales
+    increase total by amount
+.
+
+saleCount is length of sales
+average is total divided by saleCount
+
+say "Number of sales:" saleCount
+say "Total:" total
+say "Average:" average
+
+highest is first of sales
+each amount in sales
+    if amount is greater than highest
+        highest is amount
+    .
+.
+say "Highest sale:" highest
+
+to describe amount
+    if amount is at least 300
+        return "high"
+    .
+    return "normal"
+.
+
+each amount in sales
+    describe amount make label
+    say amount "is a" label "sale"
+.
+
+if average is at least 200
+    say "Strong average performance."
+otherwise
+    say "Average performance below target."
+.
+
+reportDate is today
+format reportDate as "MM/dd/yyyy" into printedDate
+say "Report generated on" printedDate
+
+log "Report generated with" saleCount "entries."
+
+if saleCount is 0
+    warn "No sales data available."
+.

@@ -1,0 +1,34 @@
+say "Otter Settings Tool"
+
+settingsFile is "settings2.json"
+
+try
+    read json from settingsFile into settings
+otherwise
+    settings has
+    say "Starting with no saved settings."
+.
+
+to show settingName
+    get settingName from settings into value
+    if value is gone
+        say settingName "is not set."
+    otherwise
+        say settingName "is" value
+    .
+.
+
+show "theme"
+show "volume"
+
+set "theme" to "dark" in settings
+set "fontSize" to 16 in settings
+
+say "After changes:"
+show "theme"
+show "fontSize"
+
+convert settings to json into text
+write text to settingsFile
+
+say "Settings saved."
