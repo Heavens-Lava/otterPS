@@ -12,29 +12,36 @@ realistic program: it loads settings from a file that may not exist yet,
 falls back to an empty `thing`, reads and writes values by a name chosen at
 runtime rather than a fixed property, and saves the result back to disk.
 
-## Status: works end to end, one real bug found
+## Status: works end to end. One bug found, and now fixed.
 
-**SEMANTIC BUG — an empty `has` object cannot be closed with an explicit
-`.`.**
+**SEMANTIC BUG, FIXED — commit `4d132e0`.** An empty `has` object could not
+be closed with an explicit `.`:
 
 ```otter
 settings has
 .
 ```
 
-fails: *"There is no open block for this period to close."* Isolated the
-exact cause: `Read-OtterObjectBlock` (added for D41 rule 8, commit
-`18df9b7`) correctly returns zero properties when no `Indent` follows
-`has`, but it never consumes a `BlockEnd` that immediately follows — so a
-`.` written out of habit (every other block in the language accepts one,
-D4/D18) is left with nothing open to close.
+used to fail: *"There is no open block for this period to close."* Isolated
+the exact cause: `Read-OtterObjectBlock` (added for D41 rule 8, commit
+`18df9b7`) correctly returned zero properties when no `Indent` followed
+`has`, but never consumed a `BlockEnd` that immediately followed — so a `.`
+written out of habit (every other block in the language accepts one,
+D4/D18) was left with nothing open to close.
 
-**Not a blocker** — confirmed the workaround: `settings has` with nothing
-at all after it (no period) parses and runs correctly. The program in this
-folder uses that form. This is a small bug inside the already-approved D41
-work, not a new design question — it doesn't need a new D-number, just a
-fix to `Read-OtterObjectBlock` so it also consumes an immediately-following
-`BlockEnd`.
+Fixed by consuming an optional `BlockEnd` on that same empty-body path.
+Re-verified directly after the fix landed, not just re-read: `settings
+has` / `.`, `person is a thing` / `.`, the no-period form, and a dynamic
+`set`/`get` round trip on the now-correctly-parsed empty object all run
+correctly. Confirmed the fix did **not** widen anything it shouldn't have —
+`if`, `to` (function bodies), and `while` with an empty body followed by
+`.` are all still correctly rejected, exactly as before.
+
+The program in this folder never actually hit this bug — its `settings
+has` is followed immediately by another statement at the same indent
+(`say "Starting with no saved settings."`), which was always a valid,
+different way to end an empty object. Left unchanged; it was never
+blocked.
 
 ## Verified, not assumed
 
@@ -57,5 +64,5 @@ fix to `Read-OtterObjectBlock` so it also consumes an immediately-following
 
 | Finding | Class |
 |---|---|
-| Empty `has` object cannot be closed with `.` | SEMANTIC BUG — fix needed in `Read-OtterObjectBlock`, no new D-number |
+| Empty `has` object could not be closed with `.` | SEMANTIC BUG — **fixed**, `4d132e0` |
 | Everything else | works as written |
