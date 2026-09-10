@@ -30,9 +30,18 @@ using module .\src\Otter.Interpreter.psm1
 # classes the same types in every module here.
 
 param(
-    # The .ot script to run. With no path at all, we start the REPL.
+    # The command ("web", "serve", "browse") or the .ot script to run. With no path at all, we start the REPL.
     [Parameter(Position = 0)]
     [string]$Path,
+
+    # Target script file when a command like "web" or "serve" is used: otter web app.ot
+    [Parameter(Position = 1)]
+    [string]$Target,
+
+    # Web options
+    [switch]$Open,
+    [switch]$NoOpen,
+    [int]$Port = 0,
 
     # Developer views. These are for people working on Otter itself;
     # ordinary Otter output stays clean.
@@ -274,6 +283,39 @@ function Start-OtterRepl {
 # ===============================================================
 # MAIN
 # ===============================================================
+
+if ($Path -in @('web', 'browse', 'serve')) {
+    $scriptFile = $Target
+    if (-not $scriptFile) {
+        Write-Host "Usage: otter $Path <script.ot>"
+        exit 1
+    }
+    if ($Path -eq 'web' -or $Path -eq 'browse') {
+        Import-Module (Join-Path $PSScriptRoot 'src\Otter.Web.psm1') -Force
+        $htmlPath = Export-OtterWebApplication -SourcePath $scriptFile
+        Write-Host "Otter Web application compiled to: $htmlPath"
+        if (-not $NoOpen) {
+            Start-Process $htmlPath
+            Write-Host "Opened in your default browser."
+        }
+        exit 0
+    }
+    if ($Path -eq 'serve') {
+        Import-Module (Join-Path $PSScriptRoot 'src\Otter.Server.psm1') -Force
+        $tokens = ConvertTo-OtterTokens -Source (Get-Content -LiteralPath $scriptFile -Raw)
+        $ast = ConvertTo-OtterAst -Tokens $tokens
+        $session = Start-OtterServer -Program $ast -Port $Port
+        Write-Host "Otter Web Server running on port $($session.Port). Press Ctrl+C to stop."
+        try {
+            while ($session.IsRunning) {
+                $session.HandleNextRequest()
+            }
+        } finally {
+            Stop-OtterServer -Session $session
+        }
+        exit 0
+    }
+}
 
 if ($Path) {
     Invoke-OtterFile -ScriptPath $Path
