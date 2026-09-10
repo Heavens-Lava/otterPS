@@ -8,8 +8,15 @@ rewriting the editor integration.
 ## Local installation
 
 1. Open this folder in VS Code: `tools/vscode-otter`.
-2. Press `F5` to launch an Extension Development Host.
-3. Open an `.ot` file in the new window.
+2. Press `F5` and choose **Run Otter Extension** if VS Code asks for a
+   configuration. The included `.vscode/launch.json` launches an Extension
+   Development Host automatically.
+3. In the new window, open an `.ot` file (for example,
+   `examples/dates.ot` from the repository).
+
+If the file is not colored, check the language indicator in the status bar and
+select **Otter**. The extension must be opened as the development workspace,
+not just installed as a folder in the first window.
 
 For a local user install, package the folder as a VSIX with `@vscode/vsce`
 when that tool is available, then use **Extensions: Install from VSIX...**.
