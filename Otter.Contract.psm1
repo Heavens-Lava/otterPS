@@ -97,11 +97,18 @@ enum TokenKind {
     Open            # open "notes.txt"
 
     # --- structure ----------------------------------------------
+    # --- properties (rules2.md section 2 - see D15) --------------
+    Of              # name OF person       (replaces person.name)
+    When            # when button is clicked   (reserved, UI milestone)
+
+    # --- structure ----------------------------------------------
     Indent          # one level deeper (D7)
     Dedent          # one level shallower
     Newline         # end of a statement
     BlockEnd        # a period alone on a line (D4)
-    Dot             # member access: person.name (D4, used in 0.3)
+    Dot             # D15: NO LONGER member access. Only ever part of a
+                    # number (3.14). Kept so the lexer can report a clear
+                    # error if someone writes person.name out of habit.
     EndOfFile       # end of source
 }
 
@@ -142,7 +149,7 @@ enum NodeKind {
     Logical         # and / or        (D11)
     Not             # not             (D11)
     Contains        # games contains "Zelda"  (D13)
-    MemberAccess    # person.name     (reserved, 0.3)
+    MemberAccess    # name of person  (D15)
 
     # statements
     Say
@@ -162,6 +169,11 @@ enum NodeKind {
     Return
 
     # runtime library (milestone 7) - rules.md sections 30-31
+    # objects (0.3) - rules.md sections 27-28, rules2.md section 2
+    ObjectDef       # person is a thing / nameBox is a text box
+    MemberAssign    # text of message is "Hello"
+    TypeDef         # a Person has
+
     ReadFile
     WriteFile
     CopyFile
@@ -467,6 +479,62 @@ class ReturnStmt : Node {
     [Node]$Value
     ReturnStmt([Node]$value, [int]$line) : base([NodeKind]::Return, $line) {
         $this.Value = $value
+    }
+}
+
+
+# ===============================================================
+# OBJECTS (0.3)
+# ===============================================================
+#
+# D15: properties are read as "name of person", never "person.name".
+# The period is reserved for closing a block (rules2.md section 3).
+#
+# MemberAccessExpr keeps the shape it always had - Target plus MemberName -
+# so only the SYNTAX that builds it changed, not the contract:
+#
+#     name of person   ->   MemberAccessExpr(Target: person, MemberName: name)
+
+# person is a thing        nameBox is a text box
+#     name is "Jeff"           placeholder is "Enter your name"
+#     age is 29            .
+# .
+#
+# Properties are ordinary AssignStmt nodes, so "name is \"Jeff\"" inside an
+# object body parses exactly as it does anywhere else.
+class ObjectDefStmt : Node {
+    [string]$Name
+    [string]$TypeName        # "thing", "text box", "button", "Person"
+    [Node[]]$Properties      # AssignStmt nodes
+    ObjectDefStmt([string]$name, [string]$typeName, [Node[]]$properties, [int]$line) : base([NodeKind]::ObjectDef, $line) {
+        $this.Name = $name
+        $this.TypeName = $typeName
+        $this.Properties = $properties
+    }
+}
+
+# text of message is "Hello"      /      age of person is 30
+class MemberAssignStmt : Node {
+    [Node]$Target            # the object being changed
+    [string]$MemberName
+    [Node]$Value
+    MemberAssignStmt([Node]$target, [string]$memberName, [Node]$value, [int]$line) : base([NodeKind]::MemberAssign, $line) {
+        $this.Target = $target
+        $this.MemberName = $memberName
+        $this.Value = $value
+    }
+}
+
+# a Person has
+#     name
+#     age
+# .
+class TypeDefStmt : Node {
+    [string]$TypeName
+    [string[]]$FieldNames
+    TypeDefStmt([string]$typeName, [string[]]$fieldNames, [int]$line) : base([NodeKind]::TypeDef, $line) {
+        $this.TypeName = $typeName
+        $this.FieldNames = $fieldNames
     }
 }
 

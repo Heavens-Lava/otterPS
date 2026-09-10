@@ -298,3 +298,110 @@ Rules:
 - **A raw PowerShell exception must never reach a normal user.** The entry
   point catches everything; only `-DebugAst`-style developer mode shows stack
   traces.
+
+---
+
+# Part 2 decisions (rules2.md)
+
+`rules2.md` is a design target for a much larger Otter: UI, web servers,
+HTTP, databases. Most of it is future work. These decisions cover only what
+is needed to start, plus the one place Part 2 **contradicts** Part 1.
+
+---
+
+## D15. Properties use `of`. The period is NOT member access.
+
+**This is a breaking change to the core language.** The two documents
+disagree outright:
+
+| | |
+|---|---|
+| `rules.md` section 27 | `say person.name` |
+| `rules2.md` section 2 | "Do not write `person.name`. Write: `name of person`" |
+
+**Decision: `rules2.md` wins.** It is newer and states the rule as a
+prohibition, and the reasoning in section 3 is sound — a period cannot be both
+"close this block" and "reach into this object" without the grammar becoming
+ambiguous on exactly the lines where blocks end.
+
+Consequences:
+
+- `name of person`, `text of nameBox`, `city of address of user` — nesting
+  reads right to left, innermost last.
+- Assignment: `text of message is "Hello"` -> `MemberAssignStmt`.
+- **D4 rule 2 is void.** A `.` between identifiers is no longer member
+  access. The lexer should keep recognising it *only* to raise a helpful
+  error:
+
+  ```text
+  Otter Syntax Error
+
+  Line 4:
+      say person.name
+
+  Otter reads properties with "of", not with a period.
+
+  Try:
+      say name of person
+  ```
+
+- `MemberAccessExpr` keeps its existing shape (`Target` + `MemberName`), so
+  only the syntax that builds it changed, not the contract.
+- **`rules.md` section 27 needs updating** to match. That is Jeff's file.
+
+---
+
+## D16. What 0.3 covers, and what it does not
+
+`rules2.md` describes UI controls, layout, events, web servers, HTTP, CRUD
+and databases. All of it depends on objects and properties existing first —
+`text of nameBox` is just property access, and a button is just an object.
+
+**Decision: 0.3 is objects and properties only.**
+
+| In 0.3 | Deferred |
+|---|---|
+| `person is a thing` with an indented body | UI controls and layout (section 5-9) |
+| `name of person` reading | `when` events (section 8) |
+| `text of message is "Hello"` assigning | web servers, ports, HTTP (10-13) |
+| `a Person has` custom types | CRUD and databases (14-19) |
+| nested `city of address of user` | filler words (D17) |
+
+Build the foundation before the building. A `when` event or a database row is
+not reachable until an object is.
+
+---
+
+## D17. Filler words are deferred, not rejected
+
+`rules2.md` section 4 allows optional words — `the`, `a`, `an`, `value` — in
+positions the grammar permits, with the rule that removing one must never
+change meaning.
+
+**Decision: not in 0.3.** They are genuinely optional by definition, so
+nothing is blocked by leaving them out, and every one of them adds a place
+the parser can go wrong. `a` in particular is already load-bearing
+(`is a thing`, `is a Person`), so treating it as skippable filler while it is
+also a keyword is exactly the kind of ambiguity that bites later.
+
+Revisit once objects are solid, and add them one at a time with a test each.
+
+---
+
+## D18. One period closes one block
+
+`rules2.md` section 3 is more specific than D4 was:
+
+```otter
+when loginButton is clicked
+    if text of usernameBox is empty
+        say "Enter your username."
+    otherwise
+        say "Welcome"
+    .          <- closes the if
+.              <- closes the when
+```
+
+**Decision: each `.` closes exactly one block**, the innermost open one. It
+never closes two at once, and it stays optional — a dedent closes a block just
+as well.
