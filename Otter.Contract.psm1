@@ -80,6 +80,20 @@ enum TokenKind {
     Empty           # games are empty (D13)
     Contains        # if games contains "Zelda" (D13)
 
+    # --- missing values (D22) -----------------------------------
+    Gone            # user is gone   /   if user is not gone
+
+    # --- discovery (D20, D21) -----------------------------------
+    Get             # get files in "Pictures" into files
+    Files
+    Folders
+    Folder          # create folder "Backup"
+    Subfolders      # ...in "Pictures" and subfolders
+    Create
+
+    # --- errors (D23) -------------------------------------------
+    Try             # try / otherwise
+
     # --- reserved for 0.3 / 0.4 (lexed now, not yet parsed) ------
     A               # jeff is A Person
     Thing           # person is a THING
@@ -184,6 +198,17 @@ enum NodeKind {
     DeleteFile
     FileExists      # an EXPRESSION: if file "x" exists
     RunProgram      # run "notepad.exe" / run command "git status"
+
+    # discovery (D20, D21)
+    GetFiles        # get files in "Pictures" into files
+    GetFolders      # get folders in "Documents" into folders
+    CreateFolder
+    DeleteFolder
+    CopyFolder
+    MoveFolder
+
+    # errors (D23)
+    Try             # try / otherwise
 }
 
 enum MathOp { Add; Subtract; Multiply; Divide }
@@ -211,7 +236,11 @@ class Node {
 
 # --- expressions ------------------------------------------------
 
-# A fixed value: 29, "Hello", true
+# A fixed value: 29, "Hello", true, or gone.
+#
+# D22: "gone" is the absence of a value, and it is carried as $null in
+# LiteralExpr.Value - it needs no node of its own. That is what makes
+# "if user is gone" an ordinary comparison rather than special syntax.
 class LiteralExpr : Node {
     [object]$Value
     LiteralExpr([object]$value, [int]$line) : base([NodeKind]::Literal, $line) {
@@ -636,6 +665,106 @@ class RunStmt : Node {
         $this.Target = $target
         $this.IsCommand = $isCommand
         $this.ResultTarget = $resultTarget
+    }
+}
+
+
+# ===============================================================
+# DISCOVERY (D20, D21)
+# ===============================================================
+#
+#     get files in "Pictures" into files
+#     get files in "Pictures" and subfolders into files
+#     get folders in "Documents" into folders
+#
+# Both produce a list of objects - file objects and folder objects - so the
+# result drops straight into "for each file in files".
+#
+# D21: discovery is NON-RECURSIVE by default. "and subfolders" is the only
+# way to walk downward, because silently reading an entire drive because
+# someone typed a folder name is exactly the surprise the language should
+# not have.
+
+class GetFilesStmt : Node {
+    [Node]$Folder
+    [bool]$IncludeSubfolders
+    [string]$Target
+    GetFilesStmt([Node]$folder, [bool]$includeSubfolders, [string]$target, [int]$line) : base([NodeKind]::GetFiles, $line) {
+        $this.Folder = $folder
+        $this.IncludeSubfolders = $includeSubfolders
+        $this.Target = $target
+    }
+}
+
+class GetFoldersStmt : Node {
+    [Node]$Folder
+    [bool]$IncludeSubfolders
+    [string]$Target
+    GetFoldersStmt([Node]$folder, [bool]$includeSubfolders, [string]$target, [int]$line) : base([NodeKind]::GetFolders, $line) {
+        $this.Folder = $folder
+        $this.IncludeSubfolders = $includeSubfolders
+        $this.Target = $target
+    }
+}
+
+# create folder "Backup"
+class CreateFolderStmt : Node {
+    [Node]$Path
+    CreateFolderStmt([Node]$path, [int]$line) : base([NodeKind]::CreateFolder, $line) {
+        $this.Path = $path
+    }
+}
+
+# delete folder "Backup"
+class DeleteFolderStmt : Node {
+    [Node]$Path
+    DeleteFolderStmt([Node]$path, [int]$line) : base([NodeKind]::DeleteFolder, $line) {
+        $this.Path = $path
+    }
+}
+
+# copy folder "Work" to "Backup"
+class CopyFolderStmt : Node {
+    [Node]$Source
+    [Node]$Destination
+    CopyFolderStmt([Node]$source, [Node]$destination, [int]$line) : base([NodeKind]::CopyFolder, $line) {
+        $this.Source = $source
+        $this.Destination = $destination
+    }
+}
+
+# move folder "Work" to "Archive"
+class MoveFolderStmt : Node {
+    [Node]$Source
+    [Node]$Destination
+    MoveFolderStmt([Node]$source, [Node]$destination, [int]$line) : base([NodeKind]::MoveFolder, $line) {
+        $this.Source = $source
+        $this.Destination = $destination
+    }
+}
+
+
+# ===============================================================
+# ERROR HANDLING (D23)
+# ===============================================================
+#
+#     try
+#         read "settings.json" into settings
+#     otherwise
+#         say "Could not load settings."
+#     .
+#
+# The beginner form: if anything in the body fails, run the otherwise body
+# instead. No error variable, no error types - those come later if needed.
+#
+# A "return" inside a try body is NOT an error and must escape cleanly.
+
+class TryStmt : Node {
+    [Node[]]$Body
+    [Node[]]$OtherwiseBody
+    TryStmt([Node[]]$body, [Node[]]$otherwiseBody, [int]$line) : base([NodeKind]::Try, $line) {
+        $this.Body = $body
+        $this.OtherwiseBody = $otherwiseBody
     }
 }
 

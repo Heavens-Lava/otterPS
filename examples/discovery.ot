@@ -1,0 +1,28 @@
+# discovery.ot - finding files, and handling what is not there
+#
+# NOTE: needs the parser support for D20-D23 before this runs.
+
+get files in "Pictures" and subfolders into files
+
+for each file in files
+    if extension of file is ".jpg"
+        say name of file "is" size of file "bytes"
+    .
+.
+
+# gone is the absence of a value - not false, not 0, not "".
+user is gone
+
+if user is gone
+    say "User not found."
+otherwise
+    say "Hello" name of user
+.
+
+# try carries on when something outside the program fails.
+try
+    read "settings.json" into settings
+    say settings
+otherwise
+    say "Could not load settings."
+.

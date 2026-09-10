@@ -268,6 +268,179 @@ function Test-OtterFileExists {
 
 
 # ===============================================================
+# FOLDERS AND DISCOVERY (D20, D21)
+# ===============================================================
+#
+#     get files in "Pictures" into files
+#     get files in "Pictures" and subfolders into files
+#     get folders in "Documents" into folders
+#
+# D21: NON-RECURSIVE by default. "and subfolders" is the only way down.
+# Reading an entire drive because someone named a folder is exactly the kind
+# of surprise the language should not have.
+
+function New-OtterFolderObject {
+    param([string]$Path, [int]$Line = 0)
+
+    $full = Resolve-OtterPath -Path $Path -Line $Line
+    $folder = [OtterObject]::new('folder')
+
+    $folder.WriteProperty('name', [System.IO.Path]::GetFileName($full.TrimEnd('')))
+    $folder.WriteProperty('path', $full)
+
+    if (Test-Path -LiteralPath $full -PathType Container) {
+        $item = Get-Item -LiteralPath $full
+        $folder.WriteProperty('created', $item.CreationTime.ToString('yyyy-MM-dd HH:mm:ss'))
+        $folder.WriteProperty('modified', $item.LastWriteTime.ToString('yyyy-MM-dd HH:mm:ss'))
+    }
+    else {
+        $folder.WriteProperty('created', $null)
+        $folder.WriteProperty('modified', $null)
+    }
+
+    # Deliberately NO size property. Measuring a folder means walking
+    # everything inside it, which is far too expensive to do just because
+    # someone asked for the folder.
+
+    return $folder
+}
+
+function Assert-OtterFolderExists {
+    param([string]$Path, [int]$Line)
+
+    $full = Resolve-OtterPath -Path $Path -Line $Line
+    if (-not (Test-Path -LiteralPath $full -PathType Container)) {
+        throw [OtterError]::new("I could not find a folder called `"$Path`".", $Line, 'runtime')
+    }
+    return $full
+}
+
+# get files in "Pictures" [and subfolders] into files
+function Get-OtterFilesIn {
+    param([string]$Path, [bool]$IncludeSubfolders, [int]$Line)
+
+    $full = Assert-OtterFolderExists -Path $Path -Line $Line
+
+    $found = if ($IncludeSubfolders) {
+        Get-ChildItem -LiteralPath $full -File -Recurse -ErrorAction SilentlyContinue
+    }
+    else {
+        Get-ChildItem -LiteralPath $full -File -ErrorAction SilentlyContinue
+    }
+
+    $list = [System.Collections.Generic.List[object]]::new()
+    foreach ($item in $found) {
+        $list.Add((New-OtterFileObject -Path $item.FullName -Line $Line))
+    }
+    Write-Output -NoEnumerate $list
+}
+
+# get folders in "Documents" [and subfolders] into folders
+function Get-OtterFoldersIn {
+    param([string]$Path, [bool]$IncludeSubfolders, [int]$Line)
+
+    $full = Assert-OtterFolderExists -Path $Path -Line $Line
+
+    $found = if ($IncludeSubfolders) {
+        Get-ChildItem -LiteralPath $full -Directory -Recurse -ErrorAction SilentlyContinue
+    }
+    else {
+        Get-ChildItem -LiteralPath $full -Directory -ErrorAction SilentlyContinue
+    }
+
+    $list = [System.Collections.Generic.List[object]]::new()
+    foreach ($item in $found) {
+        $list.Add((New-OtterFolderObject -Path $item.FullName -Line $Line))
+    }
+    Write-Output -NoEnumerate $list
+}
+
+# create folder "Backup"
+function New-OtterFolder {
+    param([string]$Path, [int]$Line)
+
+    $full = Resolve-OtterPath -Path $Path -Line $Line
+    if (Test-Path -LiteralPath $full -PathType Container) { return }
+
+    try {
+        [void](New-Item -ItemType Directory -Path $full -Force -ErrorAction Stop)
+    }
+    catch {
+        throw [OtterError]::new("I could not make the folder `"$Path`". $($_.Exception.Message)", $Line, 'runtime')
+    }
+}
+
+# delete folder "Backup"
+#
+# Otter will not erase a folder that still has things in it. Jeff's own
+# Part 3 note says Otter must not silently do dangerous things, and
+# "delete folder" quietly removing a tree is the clearest example of that.
+# Emptying a folder needs syntax that says so, which is not decided yet.
+function Remove-OtterFolder {
+    param([string]$Path, [int]$Line)
+
+    $full = Resolve-OtterPath -Path $Path -Line $Line
+
+    if (Test-Path -LiteralPath $full -PathType Leaf) {
+        throw [OtterError]::new("`"$Path`" is a file, not a folder.", $Line, 'runtime', 0, $null, "delete file `"$Path`"")
+    }
+    if (-not (Test-Path -LiteralPath $full -PathType Container)) {
+        throw [OtterError]::new("I could not find a folder called `"$Path`" to delete.", $Line, 'runtime')
+    }
+
+    $contents = @(Get-ChildItem -LiteralPath $full -Force -ErrorAction SilentlyContinue)
+    if ($contents.Count -gt 0) {
+        throw [OtterError]::new(
+            "The folder `"$Path`" still has $($contents.Count) things in it. Otter only deletes empty folders.",
+            $Line, 'runtime')
+    }
+
+    try {
+        Remove-Item -LiteralPath $full -Force -ErrorAction Stop
+    }
+    catch {
+        throw [OtterError]::new("I could not delete the folder `"$Path`". $($_.Exception.Message)", $Line, 'runtime')
+    }
+}
+
+function Copy-OtterFolder {
+    param([string]$Source, [string]$Destination, [int]$Line)
+
+    $from = Assert-OtterFolderExists -Path $Source -Line $Line
+    $to = Resolve-OtterPath -Path $Destination -Line $Line
+
+    if (Test-Path -LiteralPath $to -PathType Container) {
+        $to = [System.IO.Path]::Combine($to, [System.IO.Path]::GetFileName($from.TrimEnd('')))
+    }
+
+    try {
+        Copy-Item -LiteralPath $from -Destination $to -Recurse -Force -ErrorAction Stop
+    }
+    catch {
+        throw [OtterError]::new("I could not copy the folder `"$Source`". $($_.Exception.Message)", $Line, 'runtime')
+    }
+}
+
+function Move-OtterFolder {
+    param([string]$Source, [string]$Destination, [int]$Line)
+
+    $from = Assert-OtterFolderExists -Path $Source -Line $Line
+    $to = Resolve-OtterPath -Path $Destination -Line $Line
+
+    if (Test-Path -LiteralPath $to -PathType Container) {
+        $to = [System.IO.Path]::Combine($to, [System.IO.Path]::GetFileName($from.TrimEnd('')))
+    }
+
+    try {
+        Move-Item -LiteralPath $from -Destination $to -Force -ErrorAction Stop
+    }
+    catch {
+        throw [OtterError]::new("I could not move the folder `"$Source`". $($_.Exception.Message)", $Line, 'runtime')
+    }
+}
+
+
+# ===============================================================
 # PROGRAMS AND COMMANDS  (rules.md section 31)
 # ===============================================================
 #
@@ -396,4 +569,6 @@ Export-ModuleMember -Function `
     Resolve-OtterPath, Read-OtterFile, Write-OtterFile, Copy-OtterFile, `
     Move-OtterFile, Remove-OtterFile, Test-OtterFileExists, `
     Split-OtterCommandLine, Start-OtterProgram, Invoke-OtterCommand, `
-    New-OtterFileObject, Resolve-OtterFileArgument
+    New-OtterFileObject, Resolve-OtterFileArgument, New-OtterFolderObject, `
+    Get-OtterFilesIn, Get-OtterFoldersIn, New-OtterFolder, Remove-OtterFolder, `
+    Copy-OtterFolder, Move-OtterFolder

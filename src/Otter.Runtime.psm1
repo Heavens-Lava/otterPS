@@ -227,7 +227,9 @@ function Test-OtterObject {
 function Format-OtterValue {
     param([object]$Value)
 
-    if ($null -eq $Value) { return 'nothing' }
+    # D22: the absence of a value is "gone". It is NOT false, 0, "", or an
+    # empty list - those are five different states, and Otter says so.
+    if ($null -eq $Value) { return 'gone' }
 
     if ($Value -is [bool]) {
         if ($Value) { return 'true' } else { return 'false' }

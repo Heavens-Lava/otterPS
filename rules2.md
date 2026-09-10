@@ -135,15 +135,32 @@ Possible filler words include:
 the
 a
 an
-of
-to
-from
-with
 then
 called
 value
 
 They must only be optional where the grammar explicitly permits them.
+
+The following words are STRUCTURAL GRAMMAR, not filler. They carry
+meaning and must never be discarded:
+
+of
+to
+from
+with
+where
+into
+in
+as
+at
+on
+
+In particular, `of` establishes property ownership:
+
+name of person
+
+Removing `of` would destroy the expression. A preprocessing pass that
+strips filler words must never touch a structural word.
 
 For example, these may be equivalent:
 

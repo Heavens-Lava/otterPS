@@ -165,14 +165,14 @@ Test-Otter 'a Person has name and age, then jeff is a Person' {
 }
 
 Test-Otter 'a custom type declares its properties up front' {
-    # name of jeff reads as nothing rather than failing, because the type
+    # name of jeff reads as gone rather than failing, because the type
     # said the property exists.
     $out = Invoke-TestProgram @(
         [TypeDefStmt]::new('Person', @('name', 'age'), 1),
         [ObjectDefStmt]::new('jeff', 'Person', @(), 4),
         [SayStmt]::new(@((PropOf 'name' (Var 'jeff'))), 5)
     )
-    Assert-Lines -Expected @('nothing') -Actual $out
+    Assert-Lines -Expected @('gone') -Actual $out
 }
 
 

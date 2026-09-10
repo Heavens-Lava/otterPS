@@ -542,43 +542,139 @@ change now.
 
 ---
 
-## D20. File objects — the back end is ready, the grammar is not
-
-The revised `rules.md` gives a file properties:
-
-```otter
-say name of file
-say extension of file
-say size of file
-
-for each file in files
-    if extension of file is ".jpg"
-        move file to "Pictures"
-    .
-.
-```
-
-**Decided, and implemented:**
-
-- A file is an `OtterObject` with type name `file` and the properties
-  `name`, `extension`, `size` (bytes, a number), and `path` (the full path).
-- Every file operation accepts **either** a path the programmer typed **or**
-  a file object — because `move "hello.txt" to ...` passes text while
-  `move file to ...` passes an object.
-- Otter writes UTF-8 **without** a byte-order mark, so `size of file` matches
-  the text that was written and other tools do not show a stray `ï»¿`.
-
-**Open — needs Jeff:** nothing in `rules.md` says how you obtain `files` in
-the first place. The example loops over it, but no syntax produces it. Some
-possibilities, none chosen:
+## D20. File and folder discovery
 
 ```otter
 get files in "Pictures" into files
-files in "Pictures" become files
-list files in "Pictures" into files
+get folders in "Documents" into folders
 ```
 
-This also raises a second undecided question: is there a **folder** object,
-and does `for each file in files` recurse into subfolders? Until both are
-settled, the file-object support is reachable only from the runtime, not from
-Otter source.
+The result is a **list of file objects** (or folder objects), so it drops
+straight into `for each file in files`.
+
+`get` and `into` are reused from the CRUD vocabulary already established in
+`rules2.md` section 14 (`get user from database where id is 5 into user`) —
+no new verb.
+
+**File object properties:**
+
+| Property | Value |
+|---|---|
+| `name of file` | `photo.jpg` |
+| `extension of file` | `.jpg` |
+| `size of file` | bytes, a number |
+| `path of file` | the full path |
+
+**Folder object properties:** `name`, `path`, `created`, `modified`.
+
+**A folder deliberately has no `size`.** Measuring one means walking
+everything inside it, which is far too expensive to do just because someone
+asked for the folder. If folder size is wanted later it should be requested
+explicitly, not carried by every folder object.
+
+Every file and folder operation accepts **either** a path the programmer
+typed **or** an object:
+
+```otter
+move "photo.jpg" to "Pictures"     # text
+move file to "Pictures"            # an object
+```
+
+Otter writes UTF-8 **without** a byte-order mark, so `size of file` matches
+the text that was written.
+
+---
+
+## D21. Folder traversal is never recursive by default
+
+```otter
+get files in "Pictures" into files                    # only Pictures
+get files in "Pictures" and subfolders into files     # and everything under it
+```
+
+**Decision: discovery does not recurse unless `and subfolders` says so.**
+
+Silently reading an entire drive because someone named a folder is exactly
+the surprise the language should not have — and it is slow in a way the
+programmer never asked for.
+
+### Folder operations
+
+```otter
+create folder "Backup"
+delete folder "Backup"
+copy folder "Work" to "Backup"
+move folder "Work" to "Archive"
+```
+
+**`delete folder` refuses a folder that still has things in it.** Jeff's
+Part 3 note says Otter must not silently do dangerous things, and a
+`delete folder` that quietly erased a tree is the clearest example. The error
+says how many things are in the way.
+
+> **Open:** there is no syntax yet for "delete this folder and everything in
+> it". That needs to be deliberate wording, not a flag. Until it exists,
+> emptying a folder is done file by file.
+
+---
+
+## D22. `gone` is the absence of a value
+
+```otter
+user is gone
+
+if user is gone
+    say "User was not found."
+.
+
+if user is not gone
+    say name of user
+.
+```
+
+**`gone` is canonical.** Not `nothing`, `null`, `nil`, or `None` — and there
+is exactly **one** word for it. `gone` reads better aloud than `nothing`
+(`if user is gone`) and is shorter.
+
+**`gone` means "no value exists here" and nothing else.** These are five
+different states and Otter must never confuse any two of them:
+
+```otter
+user is gone          # no value
+name is ""            # text, empty
+score is 0            # a number
+games are empty       # a list, empty
+loggedIn is false     # a boolean
+```
+
+- `gone` is **not true enough** for an `if`.
+- Setting a variable to `gone` deliberately clears it.
+- **An undefined variable is still an error, not `gone`** (D9). Never
+  mentioned and deliberately emptied are different things.
+
+`gone` needs no AST node — it is a `LiteralExpr` carrying `$null`, which is
+what makes `if user is gone` an ordinary comparison rather than special
+syntax.
+
+---
+
+## D23. `try` / `otherwise` is the beginner error model
+
+```otter
+try
+    read "settings.json" into settings
+otherwise
+    say "Could not load settings."
+.
+```
+
+If anything in the body fails, the `otherwise` body runs instead and the
+program carries on.
+
+- No error variable and no error types in this version. `catch ... as error`
+  and `throw` are noted in Part 3 as future work; `try` / `otherwise` is
+  enough to stop a missing file from killing a program.
+- **`return` passes straight through a `try`.** Control flow is not failure —
+  if `try` caught the return signal, returning from inside one would silently
+  run the `otherwise` body and lose the value. There is a test for this.
+- A `try` with no `otherwise` swallows the failure and continues.

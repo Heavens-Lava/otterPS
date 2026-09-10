@@ -356,6 +356,72 @@ function Invoke-OtterStatement {
             return
         }
 
+        # --- discovery and folders (D20, D21) -------------------
+
+        # get files in "Pictures" [and subfolders] into files
+        'GetFiles' {
+            $folder = Get-OtterPathArgument -Expression $Statement.Folder -Environment $Environment
+            $files = Get-OtterFilesIn -Path $folder -IncludeSubfolders $Statement.IncludeSubfolders -Line $Statement.Line
+            $Environment.Set($Statement.Target, $files)
+            return
+        }
+
+        # get folders in "Documents" [and subfolders] into folders
+        'GetFolders' {
+            $folder = Get-OtterPathArgument -Expression $Statement.Folder -Environment $Environment
+            $folders = Get-OtterFoldersIn -Path $folder -IncludeSubfolders $Statement.IncludeSubfolders -Line $Statement.Line
+            $Environment.Set($Statement.Target, $folders)
+            return
+        }
+
+        'CreateFolder' {
+            New-OtterFolder -Path (Get-OtterPathArgument -Expression $Statement.Path -Environment $Environment) -Line $Statement.Line
+            return
+        }
+
+        'DeleteFolder' {
+            Remove-OtterFolder -Path (Get-OtterPathArgument -Expression $Statement.Path -Environment $Environment) -Line $Statement.Line
+            return
+        }
+
+        'CopyFolder' {
+            $source = Get-OtterPathArgument -Expression $Statement.Source -Environment $Environment
+            $destination = Get-OtterPathArgument -Expression $Statement.Destination -Environment $Environment
+            Copy-OtterFolder -Source $source -Destination $destination -Line $Statement.Line
+            return
+        }
+
+        'MoveFolder' {
+            $source = Get-OtterPathArgument -Expression $Statement.Source -Environment $Environment
+            $destination = Get-OtterPathArgument -Expression $Statement.Destination -Environment $Environment
+            Move-OtterFolder -Source $source -Destination $destination -Line $Statement.Line
+            return
+        }
+
+        # --- try / otherwise (D23) ------------------------------
+        #
+        #     try
+        #         read "settings.json" into settings
+        #     otherwise
+        #         say "Could not load settings."
+        #     .
+        'Try' {
+            try {
+                Invoke-OtterStatements -Statements $Statement.Body -Environment $Environment
+            }
+            catch {
+                # "return" is control flow wearing an exception, not a failure.
+                # It must pass straight through a try, or returning from inside
+                # one would silently run the otherwise body instead.
+                if ($_.Exception -is [OtterReturnSignal]) { throw }
+
+                if ($null -ne $Statement.OtherwiseBody) {
+                    Invoke-OtterStatements -Statements $Statement.OtherwiseBody -Environment $Environment
+                }
+            }
+            return
+        }
+
         default {
             throw (New-OtterRuntimeError `
                 -Message "I do not know how to run a $($Statement.Kind) statement yet." `
@@ -768,7 +834,7 @@ function Get-OtterText {
 function Get-OtterTypeName {
     param([object]$Value)
 
-    if ($null -eq $Value) { return 'nothing' }
+    if ($null -eq $Value) { return 'gone' }
     if ($Value -is [bool]) { return 'a true or false value' }
     if ($Value -is [OtterFunction]) { return 'something Otter can do' }
     if (Test-OtterObject $Value) { return "a $($Value.TypeName)" }
