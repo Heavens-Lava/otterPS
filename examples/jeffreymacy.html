@@ -9,20 +9,20 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,600;1,700&family=Playfair+Display:ital,wght@1,500;1,600;1,700&family=Newsreader:ital,opsz,wght@1,6..72,500;1,6..72,600;1,6..72,700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --otter-bg: #0f172a;
-      --otter-card-bg: #1e293b;
-      --otter-text: #f8fafc;
-      --otter-text-muted: #94a3b8;
-      --otter-primary: #2563eb;
-      --otter-primary-hover: #1d4ed8;
-      --otter-input-bg: #334155;
-      --otter-border: #475569;
+      --otter-bg: radial-gradient(ellipse at 85% 20%, rgba(205, 238, 218, 0.65) 0%, rgba(230, 246, 236, 0.35) 45%, rgba(251, 251, 249, 0) 70%), #fbfbf9;
+      --otter-card-bg: #ffffff;
+      --otter-text: #111827;
+      --otter-text-muted: #6b7280;
+      --otter-primary: #184537;
+      --otter-primary-hover: #12352a;
+      --otter-input-bg: #ffffff;
+      --otter-border: #e5e7eb;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-      background-color: var(--otter-bg);
-      color: var(--otter-text);
+      background: radial-gradient(ellipse at 85% 20%, rgba(205, 238, 218, 0.65) 0%, rgba(230, 246, 236, 0.35) 45%, rgba(251, 251, 249, 0) 70%), #fbfbf9;
+      color: #111827;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
@@ -30,18 +30,21 @@
       justify-content: flex-start;
       margin: 0;
       padding: 0;
+      overflow-x: hidden;
     }
     .otter-window {
-      background-color: var(--otter-card-bg);
+      background-color: #ffffff;
       border: 1px solid var(--otter-border);
       width: 100%;
       max-width: 520px;
       margin: 24px auto;
     }
     .otter-page {
-      background-color: var(--otter-card-bg);
+      background: transparent;
       border: none;
       width: 100%;
+      max-width: 1320px;
+      margin: 0 auto;
       min-height: 100vh;
       box-sizing: border-box;
     }
@@ -184,18 +187,18 @@
   </style>
 </head>
 <body>
-    <main id="app" class="otter-page" style="width: 100%; max-width: 1280px; background: radial-gradient(circle at 82% 18%, rgba(214, 239, 224, 0.55) 0%, rgba(251, 251, 249, 0.95) 60%), #fbfbf9; color: #111827; padding: 28px;" style="display: flex; flex-direction: column; gap: 24px; padding: 24px; width: 100%; max-width: 1280px; background: radial-gradient(circle at 82% 18%, rgba(214, 239, 224, 0.55) 0%, rgba(251, 251, 249, 0.95) 60%), #fbfbf9; color: #111827; padding: 28px;">
+    <main id="app" class="otter-page" style="width: 100%; max-width: 1320px; background: radial-gradient(ellipse at 85% 20%, rgba(205, 238, 218, 0.65) 0%, rgba(230, 246, 236, 0.35) 45%, rgba(251, 251, 249, 0) 70%), #fbfbf9; color: #111827; padding: 28px;" style="display: flex; flex-direction: column; gap: 24px; padding: 24px; width: 100%; max-width: 1320px; background: radial-gradient(ellipse at 85% 20%, rgba(205, 238, 218, 0.65) 0%, rgba(230, 246, 236, 0.35) 45%, rgba(251, 251, 249, 0) 70%), #fbfbf9; color: #111827; padding: 28px;">
       
       <div class="otter-page-content" style="display: flex; flex-direction: column; gap: 24px; width: 100%;">
-      <div id="navbar" class="otter-row" style="padding: 6px;" style="display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 16px;  padding: 6px;">
-      <div id="brandGroup" class="otter-row" style="display: flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: 12px;  ">
+      <div id="navbar" class="otter-row" style="width: 100%; padding: 8px 0;" style="display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: nowrap;  width: 100%; padding: 8px 0;">
+      <div id="brandGroup" class="otter-row" style="display: flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: 12px; flex-wrap: nowrap; width: 100%; box-sizing: border-box; ">
       <span id="avatarBadge" class="otter-badge" style="background: #16382c; color: #e8d2b5; border-radius: 9999px; padding: 10px; font-size: 15px; font-weight: 700;">JM</span>
-      <div id="brandInfoCol" class="otter-column" style="display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 2px; ">
-      <div id="brandName" class="otter-text" style="color: #111827; font-size: 17px; font-weight: 700;">Jeffrey Macy</div>
+      <div id="brandInfoCol" class="otter-column" style="display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 2px; box-sizing: border-box; ">
+      <div id="brandName" class="otter-text" style="color: #111827; font-size: 16px; font-weight: 700;">Jeffrey Macy</div>
       <div id="brandTagline" class="otter-text" style="color: #6b7280; font-size: 12px;">Technology partner for growing businesses</div>
 </div>
 </div>
-      <div id="navLinksRow" class="otter-row" style="display: flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: 22px;  ">
+      <div id="navLinksRow" class="otter-row" style="display: flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: 22px; flex-wrap: nowrap; width: 100%; box-sizing: border-box; ">
       <a id="navHome" class="otter-link" href="#" style="color: #111827; font-size: 14px; font-weight: 600;" target="_blank" rel="noopener noreferrer">Home</a>
       <a id="navResources" class="otter-link" href="#" style="color: #4b5563; font-size: 14px;" target="_blank" rel="noopener noreferrer">Resources</a>
       <a id="navServices" class="otter-link" href="#" style="color: #4b5563; font-size: 14px;" target="_blank" rel="noopener noreferrer">Services</a>
@@ -206,81 +209,98 @@
       <a id="navLogin" class="otter-link" href="#" style="color: #4b5563; font-size: 14px; font-weight: 500;" target="_blank" rel="noopener noreferrer">Log in</a>
 </div>
 </div>
-      <div id="heroRow" class="otter-row" style="margin: 16px;" style="display: flex; flex-direction: row; align-items: flex-start; justify-content: space-between; gap: 48px;  margin: 16px;">
-      <div id="leftCol" class="otter-column" style="flex: 1.15;" style="display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 20px; flex: 1.15;">
-      <div id="eyebrowRow" class="otter-row" style="display: flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: 8px;  ">
+      <div id="heroRow" class="otter-row" style="width: 100%; margin: 20px 0 0 0;" style="display: flex; flex-direction: row; align-items: flex-start; justify-content: space-between; gap: 52px; flex-wrap: nowrap;  width: 100%; margin: 20px 0 0 0;">
+      <div id="leftCol" class="otter-column" style="flex: 1.05; min-width: 0;" style="display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 20px; box-sizing: border-box; flex: 1.05; min-width: 0;">
+      <div id="eyebrowRow" class="otter-row" style="display: flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: 8px; flex-wrap: nowrap; width: 100%; box-sizing: border-box; ">
       <div id="eyebrowDash" class="otter-text" style="color: #ea580c; font-size: 16px; font-weight: 800;">―</div>
       <div id="eyebrowText" class="otter-text" style="color: #1e4d3e; font-size: 11px; font-weight: 700; letter-spacing: 0.08em;">WEBSITES FOR PEOPLE WHO CARE ABOUT THEIR CUSTOMERS</div>
 </div>
-      <div id="headlineCol" class="otter-column" style="display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 2px; ">
+      <div id="headlineCol" class="otter-column" style="display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 4px; box-sizing: border-box; ">
       <div id="headLine1" class="otter-text" style="color: #0f172a; font-size: 44px; font-weight: 800; line-height: 1.15; letter-spacing: -0.025em;">You take care of your customers.</div>
       <div id="headLine2" class="otter-text" style="color: #184537; font-size: 48px; font-weight: 600; font-style: italic; font-family: 'Newsreader', 'Playfair Display', Georgia, serif; line-height: 1.15;">I'll take care of your website.</div>
 </div>
       <div id="subHead" class="otter-text" style="color: #1f2937; font-size: 18px; font-weight: 700;">More than a website—build a digital home for your business.</div>
       <div id="subDesc" class="otter-text" style="color: #4b5563; font-size: 15px; line-height: 1.65;">Help customers find you, understand your services, see your pricing, book appointments, make payments, access files and videos, and stay connected with your business.</div>
-      <div id="ctaRow" class="otter-row" style="display: flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: 16px;  ">
+      <div id="ctaRow" class="otter-row" style="display: flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: 16px; flex-wrap: nowrap; width: 100%; box-sizing: border-box; ">
       <button id="heroCtaBtn" class="otter-button" style="background: #184537; color: white; border-radius: 9999px; padding: 14px; font-size: 15px; font-weight: 600;">Plan My Website →</button>
       <button id="heroEstimateBtn" class="otter-button" style="background: #ffffff; color: #111827; border-radius: 9999px; border: 1px solid #d1d5db; padding: 14px; font-size: 15px; font-weight: 600;">Get a Free Cost Estimate ⚡</button>
 </div>
-      <div id="pricingCard" class="otter-card" style="background: #ffffff; border-radius: 16px; border: 1px solid #e5e7eb; box-shadow: 0 4px 20px rgba(0,0,0,0.03); padding: 20px;" style="display: flex; flex-direction: column; gap: 16px; background: #ffffff; border-radius: 16px; border: 1px solid #e5e7eb; box-shadow: 0 4px 20px rgba(0,0,0,0.03); padding: 20px;">
+      <div id="pricingCard" class="otter-card" style="width: 100%; background: #ffffff; border-radius: 14px; border: 1px solid #e5e7eb; box-shadow: 0 4px 20px rgba(0,0,0,0.03); padding: 22px;" style="display: flex; flex-direction: column; gap: 14px; width: 100%; background: #ffffff; border-radius: 14px; border: 1px solid #e5e7eb; box-shadow: 0 4px 20px rgba(0,0,0,0.03); padding: 22px;">
         
         
-      <div id="pricingHeaderRow" class="otter-row" style="display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 8px;  ">
+      <div id="pricingHeaderRow" class="otter-row" style="width: 100%;" style="display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: nowrap;  width: 100%;">
       <div id="pricingCardTitle" class="otter-text" style="color: #111827; font-size: 14px; font-weight: 700;">Simple, upfront starting prices</div>
       <a id="compareLink" class="otter-link" href="#" style="color: #184537; font-size: 13px; font-weight: 600;" target="_blank" rel="noopener noreferrer">Compare packages</a>
 </div>
-      <div id="pricingTiersRow" class="otter-row" style="display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 16px;  ">
-      <div id="tier1Col" class="otter-column" style="flex: 1;" style="display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 4px; flex: 1;">
+      <div id="pricingTiersRow" class="otter-row" style="width: 100%;" style="display: flex; flex-direction: row; align-items: flex-start; justify-content: space-between; gap: 0px; flex-wrap: nowrap;  width: 100%;">
+      <div id="tier1Col" class="otter-column" style="flex: 1; min-width: 0;" style="display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 4px; box-sizing: border-box; flex: 1; min-width: 0;">
       <div id="t1Name" class="otter-text" style="color: #6b7280; font-size: 12px;">Starter</div>
-      <div id="t1Price" class="otter-text" style="color: #111827; font-size: 22px; font-weight: 800;">$750</div>
+      <div id="t1Price" class="otter-text" style="color: #111827; font-size: 24px; font-weight: 800;">$750</div>
 </div>
-      <div id="tier2Col" class="otter-column" style="border-radius: 8px; border: 1px solid #f1f5f9; padding: 8px; flex: 1;" style="display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 4px; border-radius: 8px; border: 1px solid #f1f5f9; padding: 8px; flex: 1;">
+      <div id="tier2Col" class="otter-column" style="flex: 1; min-width: 0; border-left: 1px solid #e5e7eb; padding-left: 20px;;" style="display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 4px; box-sizing: border-box; flex: 1; min-width: 0; border-left: 1px solid #e5e7eb; padding-left: 20px;;">
       <div id="t2Name" class="otter-text" style="color: #6b7280; font-size: 12px;">Business</div>
-      <div id="t2Price" class="otter-text" style="color: #111827; font-size: 22px; font-weight: 800;">From $1,500</div>
+      <div id="t2Price" class="otter-text" style="color: #111827; font-size: 24px; font-weight: 800;">From $1,500</div>
 </div>
-      <div id="tier3Col" class="otter-column" style="border-radius: 8px; border: 1px solid #f1f5f9; padding: 8px; flex: 1;" style="display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 4px; border-radius: 8px; border: 1px solid #f1f5f9; padding: 8px; flex: 1;">
+      <div id="tier3Col" class="otter-column" style="flex: 1; min-width: 0; border-left: 1px solid #e5e7eb; padding-left: 20px;;" style="display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 4px; box-sizing: border-box; flex: 1; min-width: 0; border-left: 1px solid #e5e7eb; padding-left: 20px;;">
       <div id="t3Name" class="otter-text" style="color: #6b7280; font-size: 12px;">Business Platform</div>
-      <div id="t3Price" class="otter-text" style="color: #111827; font-size: 22px; font-weight: 800;">From $2,500+</div>
+      <div id="t3Price" class="otter-text" style="color: #111827; font-size: 24px; font-weight: 800;">From $2,500+</div>
 </div>
 </div>
 
       </div>
-      <div id="subLinksRow" class="otter-row" style="display: flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: 14px;  ">
+      <div id="subLinksRow" class="otter-row" style="display: flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: 14px; flex-wrap: nowrap; width: 100%; box-sizing: border-box; ">
       <a id="subLearnLink" class="otter-link" href="#" style="color: #184537; font-size: 13px; font-weight: 600;" target="_blank" rel="noopener noreferrer">I Just Want to Learn More →</a>
       <div id="bulletPoint" class="otter-text" style="color: #d1d5db;">•</div>
       <a id="subDemosLink" class="otter-link" href="#" style="color: #184537; font-size: 13px; font-weight: 600;" target="_blank" rel="noopener noreferrer">Explore Demos & Work →</a>
 </div>
       <div id="guaranteeNote" class="otter-text" style="color: #6b7280; font-size: 12px;">✓ Transparent pricing, zero sales pressure. Calculate your scope in 60 seconds.</div>
 </div>
-      <div id="rightCol" class="otter-column" style="flex: 0.95;" style="display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 16px; flex: 0.95;">
-      <div id="mockupCard" class="otter-card" style="width: 100%; background: #ffffff; border-radius: 20px; border: 1px solid #e6ebe4; box-shadow: 0 25px 50px -12px rgba(24,69,55,0.12), 0 8px 24px rgba(0,0,0,0.04); padding: 24px;" style="display: flex; flex-direction: column; gap: 14px; width: 100%; background: #ffffff; border-radius: 20px; border: 1px solid #e6ebe4; box-shadow: 0 25px 50px -12px rgba(24,69,55,0.12), 0 8px 24px rgba(0,0,0,0.04); padding: 24px;">
+      <div id="rightCol" class="otter-column" style="flex: 1; min-width: 0;" style="display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 16px; box-sizing: border-box; flex: 1; min-width: 0;">
+      <div id="mockupOuterFrame" class="otter-card" style="width: 100%; background: rgba(255, 255, 255, 0.45); border-radius: 28px; border: 1px solid rgba(255, 255, 255, 0.85); box-shadow: 0 30px 60px -15px rgba(24, 69, 55, 0.08), 0 10px 25px rgba(0,0,0,0.03); padding: 28px;" style="display: flex; flex-direction: column; gap: 12px; width: 100%; background: rgba(255, 255, 255, 0.45); border-radius: 28px; border: 1px solid rgba(255, 255, 255, 0.85); box-shadow: 0 30px 60px -15px rgba(24, 69, 55, 0.08), 0 10px 25px rgba(0,0,0,0.03); padding: 28px;">
         
         
-      <div id="mockupTopRow" class="otter-row" style="display: flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: 8px;  ">
-      <span id="dot1" class="otter-badge" style="background: #ef4444; border-radius: 9999px; padding: 4px; font-size: 8px;"> </span>
-      <span id="dot2" class="otter-badge" style="background: #f59e0b; border-radius: 9999px; padding: 4px; font-size: 8px;"> </span>
-      <span id="dot3" class="otter-badge" style="background: #10b981; border-radius: 9999px; padding: 4px; font-size: 8px;"> </span>
+      <div id="mockupCard" class="otter-card" style="width: 100%; background: #ffffff; border-radius: 16px; border: 1px solid #eef0ea; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.04); padding: 24px;" style="display: flex; flex-direction: column; gap: 14px; width: 100%; background: #ffffff; border-radius: 16px; border: 1px solid #eef0ea; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.04); padding: 24px;">
+        
+        
+      <div id="mockupTopRow" class="otter-row" style="width: 100%;" style="display: flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: 8px; flex-wrap: nowrap;  width: 100%;">
+      <span id="dot1" class="otter-badge" style="background: #ef4444; border-radius: 9999px; padding: 4px; font-size: 7px;"> </span>
+      <span id="dot2" class="otter-badge" style="background: #f59e0b; border-radius: 9999px; padding: 4px; font-size: 7px;"> </span>
+      <span id="dot3" class="otter-badge" style="background: #10b981; border-radius: 9999px; padding: 4px; font-size: 7px;"> </span>
       <div id="mockUrl" class="otter-text" style="color: #9ca3af; font-size: 11px;">estimator.jeffreymacy.com</div>
 </div>
-      <div id="stepIndicator" class="otter-text" style="color: #ea580c; font-size: 11px; font-weight: 700; letter-spacing: 0.05em;">1. YOUR CURRENT STEP  |  STEP 1 OF 3</div>
-      <div id="stepProgressRow" class="otter-row" style="width: 100%;" style="display: flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: 0px;  width: 100%;">
-      <span id="progressBarActive" class="otter-badge" style="width: 100px; height: 4px; background: #ea580c; border-radius: 2px; padding: 0px;"> </span>
-      <span id="progressBarRemaining" class="otter-badge" style="height: 4px; background: #e5e7eb; border-radius: 2px; padding: 0px; flex: 1;"> </span>
+      <div id="stepSubheadRow" class="otter-row" style="width: 100%;" style="display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: nowrap;  width: 100%;">
+      <div id="stepBackText" class="otter-text" style="color: #ea580c; font-size: 11px; font-weight: 700; letter-spacing: 0.04em;">< SIMPLE FIRST STEP</div>
+      <div id="stepNumberText" class="otter-text" style="color: #9ca3af; font-size: 11px; font-weight: 600;">STEP 2 OF 3</div>
 </div>
-      <div id="stepTitle" class="otter-text" style="color: #111827; font-size: 22px; font-weight: 800;">Where are you today?</div>
-      <button id="opt1Btn" class="otter-button" style="background: #f8fafc; color: #1e293b; border-radius: 8px; border: 1px solid #cbd5e1; padding: 10px; font-size: 13px; font-weight: 600;">I don't have a website yet (Starter)</button>
-      <button id="opt2Btn" class="otter-button" style="background: #f8fafc; color: #1e293b; border-radius: 8px; border: 1px solid #cbd5e1; padding: 10px; font-size: 13px; font-weight: 600;">I want to rebuild my existing site (Business)</button>
-      <button id="opt3Btn" class="otter-button" style="background: #f8fafc; color: #1e293b; border-radius: 8px; border: 1px solid #cbd5e1; padding: 10px; font-size: 13px; font-weight: 600;">I need custom software or client portal (Platform)</button>
-      <div id="timelinePrompt" class="otter-text" style="color: #4b5563; font-size: 13px; font-weight: 600;">Target delivery timeline (weeks):</div>
-      <input type="range" id="timelineSlider" class="otter-slider" min="2" max="12" value="4" style="width: 100%;" />
-      <textarea id="scopeNotes" class="otter-text-area" rows="2" placeholder="What are the most important goals or features for your website?"></textarea>
-      <button id="calculateScopeBtn" class="otter-button" style="background: #184537; color: white; border-radius: 10px; padding: 12px; font-size: 14px; font-weight: 600;">Calculate Scope & Price</button>
-      <div id="estimateResult" class="otter-text" style="background: #f0fdf4; color: #166534; border-radius: 8px; border: 1px solid #bbf7d0; padding: 12px; font-size: 13px; font-weight: 600;">Estimated Scope: Starter Site ($750) • Turnaround: ~3-4 weeks</div>
+      <span id="progressBarLine" class="otter-badge" style="width: 100%; height: 3px; background: #ea580c; border-radius: 2px; padding: 0px;"> </span>
+      <div id="categoryLabel" class="otter-text" style="color: #ea580c; font-size: 11px; font-weight: 700; letter-spacing: 0.06em;">YOUR BUSINESS</div>
+      <div id="stepTitle" class="otter-text" style="color: #111827; font-size: 24px; font-weight: 800;">Tell me whatever you know.</div>
+      <div id="stepSubtitle" class="otter-text" style="color: #6b7280; font-size: 13px;">Even if it's options. A sentence is enough, and 'I'm not sure' is a great answer.</div>
+      <div id="bizNameLabel" class="otter-text" style="color: #374151; font-size: 12px; font-weight: 600;">What is your business called? (Optional)</div>
+      <input type="text" id="bizNameBox" class="otter-text-box" value="" placeholder="e.g. Apex Consulting, Oak & Iron Furniture" />
+      <div id="bizDescLabel" class="otter-text" style="color: #374151; font-size: 12px; font-weight: 600;">What does your business do? (Optional)</div>
+      <input type="text" id="bizDescBox" class="otter-text-box" value="" placeholder="e.g. Residential architecture and landscape design" />
+      <div id="splitFieldsRow" class="otter-row" style="width: 100%;" style="display: flex; flex-direction: row; align-items: flex-start; justify-content: flex-start; gap: 12px; flex-wrap: nowrap;  width: 100%;">
+      <div id="fieldACol" class="otter-column" style="flex: 1; min-width: 0;" style="display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 4px; box-sizing: border-box; flex: 1; min-width: 0;">
+      <div id="fieldALabel" class="otter-text" style="color: #374151; font-size: 12px; font-weight: 600;">Already have a website? (Optional)</div>
+      <input type="text" id="siteUrlBox" class="otter-text-box" value="" placeholder="https://your-site.com" />
+</div>
+      <div id="fieldBCol" class="otter-column" style="flex: 1; min-width: 0;" style="display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 4px; box-sizing: border-box; flex: 1; min-width: 0;">
+      <div id="fieldBLabel" class="otter-text" style="color: #374151; font-size: 12px; font-weight: 600;">Anything you'd like to include? (Optional)</div>
+      <input type="text" id="siteWantsBox" class="otter-text-box" value="" placeholder="Links to sites you like, 'I'm not sure'" />
+</div>
+</div>
+      <div id="bottomActionRow" class="otter-row" style="width: 100%;" style="display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: nowrap;  width: 100%;">
+      <button id="continueBtn" class="otter-button" style="background: #184537; color: white; border-radius: 9999px; padding: 12px; font-size: 14px; font-weight: 600;">Continue to Step 3 →</button>
+      <div id="stepStatusText" class="otter-text" style="color: #166534; font-size: 12px; font-weight: 600;">Step 2 of 3 • Free instant estimate ready</div>
+</div>
+
+      </div>
 
       </div>
 </div>
 </div>
-      <div id="floatingDock" class="otter-row" style="position: fixed; bottom: 24px; right: 28px; z-index: 999;" style="display: flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: 12px;  position: fixed; bottom: 24px; right: 28px; z-index: 999;">
+      <div id="floatingDock" class="otter-row" style="position: fixed; bottom: 24px; right: 28px; z-index: 999;" style="display: flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: 12px; flex-wrap: nowrap; width: 100%; box-sizing: border-box; position: fixed; bottom: 24px; right: 28px; z-index: 999;">
       <button id="chatWidgetBtn" class="otter-button" style="background: #163b2c; color: white; border-radius: 9999px; box-shadow: 0 10px 25px rgba(22,59,44,0.3); padding: 12px; font-size: 14px; font-weight: 600;">💬 Ask how Jeffrey can help</button>
       <button id="accessibilityBtn" class="otter-button" style="background: #163b2c; color: white; border-radius: 9999px; box-shadow: 0 10px 25px rgba(22,59,44,0.3); padding: 12px; font-size: 14px;">🌐</button>
 </div>
@@ -433,64 +453,40 @@
 
 
     // Register event listeners
-    const el_opt1Btn = document.getElementById('opt1Btn');
-    if (el_opt1Btn) {
-      el_opt1Btn.addEventListener('click', async (event) => {
-      otterSetText('estimateResult', "Selected: Starter Site ($750) • Upfront fixed pricing • Turnaround: ~2-3 weeks");
-      });
-    }
-    const el_opt2Btn = document.getElementById('opt2Btn');
-    if (el_opt2Btn) {
-      el_opt2Btn.addEventListener('click', async (event) => {
-      otterSetText('estimateResult', "Selected: Business Modernization (From $1,500) • Fast React design & SEO • 3-4 weeks");
-      });
-    }
-    const el_opt3Btn = document.getElementById('opt3Btn');
-    if (el_opt3Btn) {
-      el_opt3Btn.addEventListener('click', async (event) => {
-      otterSetText('estimateResult', "Selected: Custom Platform (From $2,500+) • Client portals, payments & automation • 6-8 weeks");
-      });
-    }
-    const el_calculateScopeBtn = document.getElementById('calculateScopeBtn');
-    if (el_calculateScopeBtn) {
-      el_calculateScopeBtn.addEventListener('click', async (event) => {
-      let notes = otterGetText('scopeNotes'); window.notes = notes;
-      if ((notes === "")) {
-        otterSetText('estimateResult', "Scope Calculated: Recommended Business Package ($1,500) with full setup & launch support.");
+    const el_continueBtn = document.getElementById('continueBtn');
+    if (el_continueBtn) {
+      el_continueBtn.addEventListener('click', async (event) => {
+      let bizName = otterGetText('bizNameBox'); window.bizName = bizName;
+      if ((bizName === "")) {
+        otterSetText('stepStatusText', "Saved! Step 3: Generating custom fixed-price proposal...");
       }
       else {
-        otterSetText('estimateResult', notes);
+        otterSetText('stepStatusText', "Saved! Generating custom proposal...");
       }
-      });
-    }
-    const el_timelineSlider = document.getElementById('timelineSlider');
-    if (el_timelineSlider) {
-      el_timelineSlider.addEventListener('input', async (event) => {
-      otterSetText('estimateResult', "Timeline updated. Project scheduling & delivery window optimized!");
       });
     }
     const el_heroCtaBtn = document.getElementById('heroCtaBtn');
     if (el_heroCtaBtn) {
       el_heroCtaBtn.addEventListener('click', async (event) => {
-      otterSetText('estimateResult', "Step 1 of 3: Select your starting point above to calculate your exact project scope!");
+      otterSetText('stepStatusText', "Let's plan your website! Step 2 is active on the right.");
       });
     }
     const el_heroEstimateBtn = document.getElementById('heroEstimateBtn');
     if (el_heroEstimateBtn) {
       el_heroEstimateBtn.addEventListener('click', async (event) => {
-      otterSetText('estimateResult', "Free Cost Estimate: Starter ($750) | Business ($1,500) | Platform ($2,500+)");
+      otterSetText('stepStatusText', "Estimated Scope: Business Site ($1,500) • 3-4 week turnaround");
       });
     }
     const el_chatWidgetBtn = document.getElementById('chatWidgetBtn');
     if (el_chatWidgetBtn) {
       el_chatWidgetBtn.addEventListener('click', async (event) => {
-      otterSetText('estimateResult', "Jeffrey Macy: 'Hi! Let me know what you need and I will personally help you plan your website.'");
+      otterSetText('stepStatusText', "Jeffrey Macy: 'Hi! Let me know what you need and I'll personally scope your project.'");
       });
     }
     const el_accessibilityBtn = document.getElementById('accessibilityBtn');
     if (el_accessibilityBtn) {
       el_accessibilityBtn.addEventListener('click', async (event) => {
-      otterSetText('estimateResult', "Display mode adjusted for optimal contrast and readability.");
+      otterSetText('stepStatusText', "Display contrast and spacing optimized.");
       });
     }
     })();

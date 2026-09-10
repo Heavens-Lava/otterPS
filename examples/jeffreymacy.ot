@@ -1,12 +1,12 @@
-# jeffreymacy.ot - Faithful recreation of www.jeffreymacy.com
+# jeffreymacy.ot - Pixel-perfect recreation of www.jeffreymacy.com
 # Built with pure Otter code using our modern Web Application Compiler (D50)
 
 app is a page
     title is "Small Business Websites & Custom Web Apps | Jeffrey Macy"
     hideheader is true
     width is "100%"
-    maxwidth is 1280
-    background is "radial-gradient(circle at 82% 18%, rgba(214, 239, 224, 0.55) 0%, rgba(251, 251, 249, 0.95) 60%), #fbfbf9"
+    maxwidth is 1320
+    background is "radial-gradient(ellipse at 85% 20%, rgba(205, 238, 218, 0.65) 0%, rgba(230, 246, 236, 0.35) 45%, rgba(251, 251, 249, 0) 70%), #fbfbf9"
     foreground is "#111827"
     spacing is 24
     padding is 28
@@ -20,7 +20,8 @@ navbar is a row
     justify is "space-between"
     alignitems is "center"
     spacing is 16
-    padding is 6
+    padding is "8px 0"
+    width is "100%"
 .
 
 brandGroup is a row
@@ -45,7 +46,7 @@ brandInfoCol is a column
 brandName is a text
     value is "Jeffrey Macy"
     weight is 700
-    size is 17
+    size is 16
     foreground is "#111827"
 .
 
@@ -131,19 +132,20 @@ put navHome, navResources, navServices, navProjects, navAbout, themePill, navPla
 put brandGroup, navLinksRow in navbar
 
 # ==========================================
-# 2. HERO SECTION
+# 2. HERO SECTION (SPLIT TWO-COLUMN LAYOUT)
 # ==========================================
 
 heroRow is a row
     justify is "space-between"
     alignitems is "flex-start"
-    spacing is 48
-    margin is 16
+    spacing is 52
+    margin is "20px 0 0 0"
+    width is "100%"
 .
 
-# --- Left Column: Hero Content & Pricing ---
+# --- Left Column: Editorial Headline & Upfront Pricing ---
 leftCol is a column
-    flex is 1.15
+    flex is 1.05
     spacing is 20
 .
 
@@ -170,7 +172,7 @@ eyebrowText is a text
 put eyebrowDash, eyebrowText in eyebrowRow
 
 headlineCol is a column
-    spacing is 2
+    spacing is 4
 .
 
 headLine1 is a text
@@ -239,16 +241,18 @@ put heroCtaBtn, heroEstimateBtn in ctaRow
 # Pricing Comparison Card
 pricingCard is a card
     background is "#ffffff"
-    radius is 16
+    radius is 14
     border is "1px solid #e5e7eb"
     shadow is "0 4px 20px rgba(0,0,0,0.03)"
-    padding is 20
-    spacing is 16
+    padding is 22
+    spacing is 14
+    width is "100%"
 .
 
 pricingHeaderRow is a row
     justify is "space-between"
     alignitems is "center"
+    width is "100%"
 .
 
 pricingCardTitle is a text
@@ -270,8 +274,9 @@ put pricingCardTitle, compareLink in pricingHeaderRow
 
 pricingTiersRow is a row
     justify is "space-between"
-    alignitems is "center"
-    spacing is 16
+    alignitems is "flex-start"
+    spacing is 0
+    width is "100%"
 .
 
 tier1Col is a column
@@ -287,7 +292,7 @@ t1Name is a text
 
 t1Price is a text
     value is "$750"
-    size is 22
+    size is 24
     weight is 800
     foreground is "#111827"
 .
@@ -297,9 +302,7 @@ put t1Name, t1Price in tier1Col
 tier2Col is a column
     spacing is 4
     flex is 1
-    border is "1px solid #f1f5f9"
-    padding is 8
-    radius is 8
+    customstyle is "border-left: 1px solid #e5e7eb; padding-left: 20px;"
 .
 
 t2Name is a text
@@ -310,7 +313,7 @@ t2Name is a text
 
 t2Price is a text
     value is "From $1,500"
-    size is 22
+    size is 24
     weight is 800
     foreground is "#111827"
 .
@@ -320,9 +323,7 @@ put t2Name, t2Price in tier2Col
 tier3Col is a column
     spacing is 4
     flex is 1
-    border is "1px solid #f1f5f9"
-    padding is 8
-    radius is 8
+    customstyle is "border-left: 1px solid #e5e7eb; padding-left: 20px;"
 .
 
 t3Name is a text
@@ -333,7 +334,7 @@ t3Name is a text
 
 t3Price is a text
     value is "From $2,500+"
-    size is 22
+    size is 24
     weight is 800
     foreground is "#111827"
 .
@@ -379,17 +380,26 @@ guaranteeNote is a text
 
 put eyebrowRow, headlineCol, subHead, subDesc, ctaRow, pricingCard, subLinksRow, guaranteeNote in leftCol
 
-# --- Right Column: Interactive Scope Estimator Mockup ---
+# --- Right Column: Interactive Browser Scope Estimator ---
 rightCol is a column
-    flex is 0.95
+    flex is 1
     spacing is 16
+.
+
+mockupOuterFrame is a card
+    background is "rgba(255, 255, 255, 0.45)"
+    border is "1px solid rgba(255, 255, 255, 0.85)"
+    radius is 28
+    padding is 28
+    shadow is "0 30px 60px -15px rgba(24, 69, 55, 0.08), 0 10px 25px rgba(0,0,0,0.03)"
+    width is "100%"
 .
 
 mockupCard is a card
     background is "#ffffff"
-    radius is 20
-    border is "1px solid #e6ebe4"
-    shadow is "0 25px 50px -12px rgba(24,69,55,0.12), 0 8px 24px rgba(0,0,0,0.04)"
+    radius is 16
+    border is "1px solid #eef0ea"
+    shadow is "0 10px 25px rgba(0, 0, 0, 0.04)"
     padding is 24
     spacing is 14
     width is "100%"
@@ -398,6 +408,7 @@ mockupCard is a card
 mockupTopRow is a row
     spacing is 8
     alignitems is "center"
+    width is "100%"
 .
 
 dot1 is a badge
@@ -405,7 +416,7 @@ dot1 is a badge
     background is "#ef4444"
     radius is 9999
     padding is 4
-    size is 8
+    size is 7
 .
 
 dot2 is a badge
@@ -413,7 +424,7 @@ dot2 is a badge
     background is "#f59e0b"
     radius is 9999
     padding is 4
-    size is 8
+    size is 7
 .
 
 dot3 is a badge
@@ -421,7 +432,7 @@ dot3 is a badge
     background is "#10b981"
     radius is 9999
     padding is 4
-    size is 8
+    size is 7
 .
 
 mockUrl is a text
@@ -432,123 +443,156 @@ mockUrl is a text
 
 put dot1, dot2, dot3, mockUrl in mockupTopRow
 
-stepIndicator is a text
-    value is "1. YOUR CURRENT STEP  |  STEP 1 OF 3"
-    size is 11
-    weight is 700
-    foreground is "#ea580c"
-    letterspacing is "0.05em"
-.
-
-stepProgressRow is a row
-    spacing is 0
+stepSubheadRow is a row
+    justify is "space-between"
     alignitems is "center"
     width is "100%"
 .
 
-progressBarActive is a badge
+stepBackText is a text
+    value is "< SIMPLE FIRST STEP"
+    size is 11
+    weight is 700
+    foreground is "#ea580c"
+    letterspacing is "0.04em"
+.
+
+stepNumberText is a text
+    value is "STEP 2 OF 3"
+    size is 11
+    weight is 600
+    foreground is "#9ca3af"
+.
+
+put stepBackText, stepNumberText in stepSubheadRow
+
+progressBarLine is a badge
     text is " "
     background is "#ea580c"
-    height is 4
-    width is 100
+    height is 3
     radius is 2
     padding is 0
+    width is "100%"
 .
 
-progressBarRemaining is a badge
-    text is " "
-    background is "#e5e7eb"
-    height is 4
-    flex is 1
-    radius is 2
-    padding is 0
+categoryLabel is a text
+    value is "YOUR BUSINESS"
+    size is 11
+    weight is 700
+    letterspacing is "0.06em"
+    foreground is "#ea580c"
 .
-
-put progressBarActive, progressBarRemaining in stepProgressRow
 
 stepTitle is a text
-    value is "Where are you today?"
-    size is 22
+    value is "Tell me whatever you know."
+    size is 24
     weight is 800
     foreground is "#111827"
 .
 
-# Quick selectable option cards
-opt1Btn is a button
-    text is "I don't have a website yet (Starter)"
-    background is "#f8fafc"
-    border is "1px solid #cbd5e1"
-    foreground is "#1e293b"
-    radius is 8
-    padding is 10
+stepSubtitle is a text
+    value is "Even if it's options. A sentence is enough, and 'I'm not sure' is a great answer."
     size is 13
-    weight is 600
+    foreground is "#6b7280"
 .
 
-opt2Btn is a button
-    text is "I want to rebuild my existing site (Business)"
-    background is "#f8fafc"
-    border is "1px solid #cbd5e1"
-    foreground is "#1e293b"
-    radius is 8
-    padding is 10
-    size is 13
+# Question 1
+bizNameLabel is a text
+    value is "What is your business called? (Optional)"
+    size is 12
     weight is 600
+    foreground is "#374151"
 .
 
-opt3Btn is a button
-    text is "I need custom software or client portal (Platform)"
-    background is "#f8fafc"
-    border is "1px solid #cbd5e1"
-    foreground is "#1e293b"
-    radius is 8
-    padding is 10
-    size is 13
-    weight is 600
+bizNameBox is a text box
+    placeholder is "e.g. Apex Consulting, Oak & Iron Furniture"
 .
 
-timelinePrompt is a text
-    value is "Target delivery timeline (weeks):"
-    size is 13
-    foreground is "#4b5563"
+# Question 2
+bizDescLabel is a text
+    value is "What does your business do? (Optional)"
+    size is 12
     weight is 600
+    foreground is "#374151"
 .
 
-timelineSlider is a slider
-    min is 2
-    max is 12
-    value is 4
+bizDescBox is a text box
+    placeholder is "e.g. Residential architecture and landscape design"
+.
+
+# Questions 3 & 4 (Side by side)
+splitFieldsRow is a row
+    spacing is 12
+    alignitems is "flex-start"
     width is "100%"
 .
 
-scopeNotes is a text area
-    placeholder is "What are the most important goals or features for your website?"
-    rows is 2
+fieldACol is a column
+    spacing is 4
+    flex is 1
 .
 
-calculateScopeBtn is a button
-    text is "Calculate Scope & Price"
+fieldALabel is a text
+    value is "Already have a website? (Optional)"
+    size is 12
+    weight is 600
+    foreground is "#374151"
+.
+
+siteUrlBox is a text box
+    placeholder is "https://your-site.com"
+.
+
+put fieldALabel, siteUrlBox in fieldACol
+
+fieldBCol is a column
+    spacing is 4
+    flex is 1
+.
+
+fieldBLabel is a text
+    value is "Anything you'd like to include? (Optional)"
+    size is 12
+    weight is 600
+    foreground is "#374151"
+.
+
+siteWantsBox is a text box
+    placeholder is "Links to sites you like, 'I'm not sure'"
+.
+
+put fieldBLabel, siteWantsBox in fieldBCol
+put fieldACol, fieldBCol in splitFieldsRow
+
+bottomActionRow is a row
+    justify is "space-between"
+    alignitems is "center"
+    spacing is 12
+    width is "100%"
+.
+
+continueBtn is a button
+    text is "Continue to Step 3 →"
     background is "#184537"
     foreground is "white"
-    radius is 10
+    radius is 9999
     weight is 600
     padding is 12
     size is 14
 .
 
-estimateResult is a text
-    value is "Estimated Scope: Starter Site ($750) • Turnaround: ~3-4 weeks"
-    background is "#f0fdf4"
-    border is "1px solid #bbf7d0"
+stepStatusText is a text
+    value is "Step 2 of 3 • Free instant estimate ready"
+    size is 12
     foreground is "#166534"
-    padding is 12
-    radius is 8
     weight is 600
-    size is 13
 .
 
-put mockupTopRow, stepIndicator, stepProgressRow, stepTitle, opt1Btn, opt2Btn, opt3Btn, timelinePrompt, timelineSlider, scopeNotes, calculateScopeBtn, estimateResult in mockupCard
-put mockupCard in rightCol
+put continueBtn, stepStatusText in bottomActionRow
+
+put mockupTopRow, stepSubheadRow, progressBarLine, categoryLabel, stepTitle, stepSubtitle, bizNameLabel, bizNameBox, bizDescLabel, bizDescBox, splitFieldsRow, bottomActionRow in mockupCard
+put mockupCard in mockupOuterFrame
+put mockupOuterFrame in rightCol
 
 put leftCol, rightCol in heroRow
 
@@ -592,45 +636,29 @@ put chatWidgetBtn, accessibilityBtn in floatingDock
 # 4. INTERACTIVE REACTIVITY & EVENT HANDLERS
 # ==========================================
 
-when opt1Btn is clicked
-    text of estimateResult is "Selected: Starter Site ($750) • Upfront fixed pricing • Turnaround: ~2-3 weeks"
-.
-
-when opt2Btn is clicked
-    text of estimateResult is "Selected: Business Modernization (From $1,500) • Fast React design & SEO • 3-4 weeks"
-.
-
-when opt3Btn is clicked
-    text of estimateResult is "Selected: Custom Platform (From $2,500+) • Client portals, payments & automation • 6-8 weeks"
-.
-
-when calculateScopeBtn is clicked
-    notes is text of scopeNotes
-    if notes is empty
-        text of estimateResult is "Scope Calculated: Recommended Business Package ($1,500) with full setup & launch support."
+when continueBtn is clicked
+    bizName is text of bizNameBox
+    if bizName is empty
+        text of stepStatusText is "Saved! Step 3: Generating custom fixed-price proposal..."
     otherwise
-        text of estimateResult is notes
+        text of stepStatusText is "Saved! Generating custom proposal..."
     .
 .
 
-when timelineSlider is changed
-    text of estimateResult is "Timeline updated. Project scheduling & delivery window optimized!"
-.
-
 when heroCtaBtn is clicked
-    text of estimateResult is "Step 1 of 3: Select your starting point above to calculate your exact project scope!"
+    text of stepStatusText is "Let's plan your website! Step 2 is active on the right."
 .
 
 when heroEstimateBtn is clicked
-    text of estimateResult is "Free Cost Estimate: Starter ($750) | Business ($1,500) | Platform ($2,500+)"
+    text of stepStatusText is "Estimated Scope: Business Site ($1,500) • 3-4 week turnaround"
 .
 
 when chatWidgetBtn is clicked
-    text of estimateResult is "Jeffrey Macy: 'Hi! Let me know what you need and I will personally help you plan your website.'"
+    text of stepStatusText is "Jeffrey Macy: 'Hi! Let me know what you need and I'll personally scope your project.'"
 .
 
 when accessibilityBtn is clicked
-    text of estimateResult is "Display mode adjusted for optimal contrast and readability."
+    text of stepStatusText is "Display contrast and spacing optimized."
 .
 
 # Assemble and render page

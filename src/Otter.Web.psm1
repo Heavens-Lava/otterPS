@@ -318,8 +318,18 @@ function ConvertTo-OtterWeb {
     }
 
     $appTitle = $Title
-    if ($rootName -and $resources[$rootName].Properties.Contains('title')) {
-        $appTitle = [string]$resources[$rootName].Properties['title']
+    $rootBg = "#0f172a"
+    $rootFg = "#f8fafc"
+    if ($rootName) {
+        if ($resources[$rootName].Properties.Contains('title')) {
+            $appTitle = [string]$resources[$rootName].Properties['title']
+        }
+        if ($resources[$rootName].Properties.Contains('background')) {
+            $rootBg = [string]$resources[$rootName].Properties['background']
+        }
+        if ($resources[$rootName].Properties.Contains('foreground')) {
+            $rootFg = [string]$resources[$rootName].Properties['foreground']
+        }
     }
 
     # HTML rendering helper
@@ -401,7 +411,7 @@ function ConvertTo-OtterWeb {
             $styles.Add("text-align: $($props['align']);")
         }
         if ($props.Contains('flex')) {
-            $styles.Add("flex: $($props['flex']);")
+            $styles.Add("flex: $($props['flex']); min-width: 0;")
         }
         if ($props.Contains('grow')) {
             $styles.Add("flex-grow: $($props['grow']);")
@@ -546,9 +556,10 @@ $optHtml
                 $spacing = if ($props.Contains('spacing')) { $props['spacing'] } else { 8 }
                 $align = if ($props.Contains('alignitems')) { $props['alignitems'] } elseif ($props.Contains('items')) { $props['items'] } else { 'center' }
                 $justify = if ($props.Contains('justify')) { $props['justify'] } else { 'flex-start' }
-                $wrap = if ($props.Contains('wrap') -and ($props['wrap'] -eq $true -or $props['wrap'] -eq 'true' -or $props['wrap'] -eq 'wrap')) { 'flex-wrap: wrap;' } else { '' }
+                $wrap = if ($props.Contains('wrap') -and ($props['wrap'] -eq $true -or $props['wrap'] -eq 'true' -or $props['wrap'] -eq 'wrap')) { 'flex-wrap: wrap;' } else { 'flex-wrap: nowrap;' }
+                $w = if ($props.Contains('width')) { "" } else { "width: 100%; box-sizing: border-box;" }
                 return @"
-      <div id="$resName" class="otter-row"$styleAttr style="display: flex; flex-direction: row; align-items: $align; justify-content: $justify; gap: ${spacing}px; $wrap $($styles -join ' ')">$childHtml</div>
+      <div id="$resName" class="otter-row"$styleAttr style="display: flex; flex-direction: row; align-items: $align; justify-content: $justify; gap: ${spacing}px; $wrap $w $($styles -join ' ')">$childHtml</div>
 "@
             }
             'column' {
@@ -556,7 +567,7 @@ $optHtml
                 $align = if ($props.Contains('alignitems')) { $props['alignitems'] } elseif ($props.Contains('items')) { $props['items'] } else { 'stretch' }
                 $justify = if ($props.Contains('justify')) { $props['justify'] } else { 'flex-start' }
                 return @"
-      <div id="$resName" class="otter-column"$styleAttr style="display: flex; flex-direction: column; align-items: $align; justify-content: $justify; gap: ${spacing}px; $($styles -join ' ')">$childHtml</div>
+      <div id="$resName" class="otter-column"$styleAttr style="display: flex; flex-direction: column; align-items: $align; justify-content: $justify; gap: ${spacing}px; box-sizing: border-box; $($styles -join ' ')">$childHtml</div>
 "@
             }
             default {
@@ -617,20 +628,20 @@ $bodyJoined
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,600;1,700&family=Playfair+Display:ital,wght@1,500;1,600;1,700&family=Newsreader:ital,opsz,wght@1,6..72,500;1,6..72,600;1,6..72,700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --otter-bg: #0f172a;
-      --otter-card-bg: #1e293b;
-      --otter-text: #f8fafc;
-      --otter-text-muted: #94a3b8;
-      --otter-primary: #2563eb;
-      --otter-primary-hover: #1d4ed8;
-      --otter-input-bg: #334155;
-      --otter-border: #475569;
+      --otter-bg: $rootBg;
+      --otter-card-bg: #ffffff;
+      --otter-text: $rootFg;
+      --otter-text-muted: #6b7280;
+      --otter-primary: #184537;
+      --otter-primary-hover: #12352a;
+      --otter-input-bg: #ffffff;
+      --otter-border: #e5e7eb;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-      background-color: var(--otter-bg);
-      color: var(--otter-text);
+      background: $rootBg;
+      color: $rootFg;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
@@ -638,18 +649,21 @@ $bodyJoined
       justify-content: flex-start;
       margin: 0;
       padding: 0;
+      overflow-x: hidden;
     }
     .otter-window {
-      background-color: var(--otter-card-bg);
+      background-color: #ffffff;
       border: 1px solid var(--otter-border);
       width: 100%;
       max-width: 520px;
       margin: 24px auto;
     }
     .otter-page {
-      background-color: var(--otter-card-bg);
+      background: transparent;
       border: none;
       width: 100%;
+      max-width: 1320px;
+      margin: 0 auto;
       min-height: 100vh;
       box-sizing: border-box;
     }
