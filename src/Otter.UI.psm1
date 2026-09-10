@@ -238,6 +238,66 @@ function Set-OtterUiProperty {
 }
 
 
+# ===============================================================
+# EVENTS (D46) - registration only
+# ===============================================================
+#
+#     when helloButton is clicked
+#         say "Hello"
+#     .
+#
+# Same shape as the property table above, for the same reason: "what does
+# 'clicked' mean for a button" is provider-specific knowledge. Otter only
+# ever sees the left-hand word; the CLR event name is a WPF-provider
+# implementation detail.
+#
+# Subscription is ONE generic function for every kind/event, not one path
+# per event - verified directly that .NET reflection subscribes correctly
+# even though Click/TextChanged/Closed are three different delegate types
+# (RoutedEventHandler, TextChangedEventHandler, plain EventHandler): the
+# event's own EventHandlerType is read via reflection and the handler
+# script block is cast to it, so no per-event-type code is needed here or
+# for any future event this table gains.
+$script:OtterUiEvents = @{
+    'button'   = @{ 'clicked' = 'Click' }
+    'text box' = @{ 'changed' = 'TextChanged' }
+    'window'   = @{ 'closed'  = 'Closed' }
+}
+
+function Get-OtterUiEventMapping {
+    param([string]$Kind, [string]$EventName, [int]$Line)
+
+    if (-not $script:OtterUiEvents.ContainsKey($Kind)) {
+        throw [OtterError]::new(
+            "A $Kind has no events Otter knows about yet.", $Line, 'runtime')
+    }
+
+    $forKind = $script:OtterUiEvents[$Kind]
+    if (-not $forKind.ContainsKey($EventName)) {
+        $known = ($forKind.Keys | Sort-Object) -join ', '
+        throw [OtterError]::new(
+            "A $Kind has no event called `"$EventName`".",
+            $Line, 'runtime', 0, $null, "A $Kind has: $known")
+    }
+
+    return $forKind[$EventName]
+}
+
+# Registers $Handler (a scriptblock taking no arguments - D46 carries no
+# event payload) to run whenever the native event fires. The handler is
+# responsible for its own environment closure; this function only wires
+# the native subscription, exactly like Get-/Set-OtterUiProperty only
+# translate the property name, not the value semantics.
+function Add-OtterUiEventHandler {
+    param([OtterUiResource]$Resource, [string]$EventName, [scriptblock]$Handler, [int]$Line)
+
+    $clrName = Get-OtterUiEventMapping -Kind $Resource.Kind -EventName $EventName -Line $Line
+    $eventInfo = $Resource.Native.GetType().GetEvent($clrName)
+    $typedHandler = $Handler -as $eventInfo.EventHandlerType
+    $eventInfo.AddEventHandler($Resource.Native, $typedHandler)
+}
+
+
 Export-ModuleMember -Function `
     Test-OtterUiResource, New-OtterUiResourceValue, Initialize-OtterWpfProvider, `
-    Get-OtterUiProperty, Set-OtterUiProperty
+    Get-OtterUiProperty, Set-OtterUiProperty, Add-OtterUiEventHandler

@@ -256,6 +256,32 @@ function Invoke-OtterStatement {
             return
         }
 
+        # when helloButton is clicked                            (D46)
+        #     say "Hello"
+        # .
+        #
+        # Registration only. The handler closes over $Environment as it
+        # exists right here - the same environment If/While bodies already
+        # run in, not a function call's fresh child scope (frozen as part
+        # of D46). Whether/when this handler is ever actually invoked in a
+        # running program depends on a message loop, which is D47's job,
+        # not this statement's - registering a handler here does not by
+        # itself make anything happen.
+        'When' {
+            $target = Get-OtterValue -Expression $Statement.Target -Environment $Environment
+            if (-not (Test-OtterUiResource $target)) {
+                $shown = Get-OtterTypeName -Value $target
+                throw (New-OtterRuntimeError `
+                    -Message "I can only listen for an event on a UI resource, but this is $shown." `
+                    -Line $Statement.Line)
+            }
+
+            $body = $Statement.Body
+            $handler = { Invoke-OtterStatements -Statements $body -Environment $Environment }.GetNewClosure()
+            Add-OtterUiEventHandler -Resource $target -EventName $Statement.EventName -Handler $handler -Line $Statement.Line
+            return
+        }
+
         # get "Jeff" from scores into score      (D41 - missing key is gone, not an error)
         'GetKey' {
             $target = Get-OtterValue -Expression $Statement.Target -Environment $Environment

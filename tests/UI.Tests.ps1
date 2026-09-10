@@ -28,6 +28,35 @@ function Invoke-TestProgram {
     return , $collected.ToArray()
 }
 
+# Same as Invoke-TestProgram, but also hands back the environment, the
+# collected-output list, and the writer itself - a D46 test registers a
+# handler while the program runs, then fires the underlying native event
+# AFTERWARD (outside the program), so the writer needs to be re-armed
+# around that later call too, or the handler's `say` would go nowhere.
+function Invoke-TestProgramWithEnv {
+    param([Node[]]$Statements)
+    $env = New-OtterEnvironment
+    $collected = [System.Collections.Generic.List[string]]::new()
+    $writer = { param($t) $collected.Add($t) }.GetNewClosure()
+    Set-OtterOutputWriter -Writer $writer
+    try {
+        Invoke-OtterProgram -Program ([ProgramNode]::new($Statements)) -Environment $env
+    }
+    finally {
+        Set-OtterOutputWriter -Writer $null
+    }
+    return @{ Env = $env; Output = $collected; Writer = $writer }
+}
+
+# Runs $Body (typically firing a native WPF event) with the writer armed,
+# so any `say` inside a D46 handler that fires during $Body is captured.
+function Invoke-WithOtterWriter {
+    param([scriptblock]$Writer, [scriptblock]$Body)
+    Set-OtterOutputWriter -Writer $Writer
+    try { & $Body }
+    finally { Set-OtterOutputWriter -Writer $null }
+}
+
 Write-Host ''
 Write-Host 'External UI resources (D44)' -ForegroundColor Cyan
 
@@ -246,6 +275,88 @@ Test-Otter 'setting an unsupported property fails before touching the native obj
         Set-OtterUiProperty -Resource $resource -Property 'color' -Value 'red' -Line 1
     }
     Assert-AreEqual -Expected $before -Actual $resource.Native.Content
+}
+
+
+# =================================================================
+# D46 - event registration. Real native events, fired for real, not
+# simulated - the handler runs because the actual WPF event fired, the
+# same way it would in a running app once D47 adds a message loop.
+# =================================================================
+
+Test-Otter 'when helloButton is clicked runs the handler body when Click actually fires' {
+    $result = Invoke-TestProgramWithEnv @(
+        [CreateUiResourceStmt]::new('button', 'helloButton', 1),
+        [WhenStmt]::new([VariableExpr]::new('helloButton', 2), 'clicked', @([SayStmt]::new(@((Lit 'Hello')), 3)), 2)
+    )
+    Assert-Lines -Expected @() -Actual $result.Output.ToArray()
+
+    $resource = $result.Env.Get('helloButton')
+    Invoke-WithOtterWriter -Writer $result.Writer -Body {
+        $resource.Native.RaiseEvent(
+            [System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Button]::ClickEvent))
+    }
+    Assert-Lines -Expected @('Hello') -Actual $result.Output.ToArray()
+}
+
+Test-Otter 'when nameBox is changed runs when the real TextChanged event fires' {
+    $result = Invoke-TestProgramWithEnv @(
+        [CreateUiResourceStmt]::new('text box', 'nameBox', 1),
+        [WhenStmt]::new([VariableExpr]::new('nameBox', 2), 'changed', @([SayStmt]::new(@((Lit 'typed')), 3)), 2)
+    )
+    $resource = $result.Env.Get('nameBox')
+    Invoke-WithOtterWriter -Writer $result.Writer -Body {
+        $resource.Native.Text = 'Jeff'
+    }
+    Assert-Lines -Expected @('typed') -Actual $result.Output.ToArray()
+}
+
+Test-Otter 'when app is closed runs when the real Closed event fires' {
+    $result = Invoke-TestProgramWithEnv @(
+        [CreateUiResourceStmt]::new('window', 'app', 1),
+        [WhenStmt]::new([VariableExpr]::new('app', 2), 'closed', @([SayStmt]::new(@((Lit 'bye')), 3)), 2)
+    )
+    $resource = $result.Env.Get('app')
+    Invoke-WithOtterWriter -Writer $result.Writer -Body {
+        $resource.Native.Close()
+    }
+    Assert-Lines -Expected @('bye') -Actual $result.Output.ToArray()
+}
+
+Test-Otter 'the handler closes over the environment at registration, with no new scope' {
+    # Confirms D46's frozen scoping rule directly: a variable assigned
+    # inside the handler body is visible afterward in the SAME
+    # environment, exactly like an If/While body already behaves - not
+    # trapped in a function-call-style child scope.
+    $result = Invoke-TestProgramWithEnv @(
+        [CreateUiResourceStmt]::new('button', 'helloButton', 1),
+        [WhenStmt]::new([VariableExpr]::new('helloButton', 2), 'clicked',
+            @([AssignStmt]::new('clickCount', (Lit 1.0), 3)), 2)
+    )
+    $resource = $result.Env.Get('helloButton')
+    Invoke-WithOtterWriter -Writer $result.Writer -Body {
+        $resource.Native.RaiseEvent(
+            [System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Button]::ClickEvent))
+    }
+    Assert-AreEqual -Expected 1 -Actual $result.Env.Get('clickCount')
+}
+
+Test-Otter 'an unsupported event names the kind and lists what it actually has' {
+    Assert-OtterFails -Containing 'a button has no event called "dragged"' -Body {
+        Invoke-TestProgram @(
+            [CreateUiResourceStmt]::new('button', 'helloButton', 1),
+            [WhenStmt]::new([VariableExpr]::new('helloButton', 2), 'dragged', @(), 2)
+        )
+    }
+}
+
+Test-Otter 'listening on something that is not a UI resource explains itself, never a WPF name' {
+    Assert-OtterFails -Containing 'this is some text' -Body {
+        Invoke-TestProgram @(
+            [AssignStmt]::new('notAResource', (Lit 'just text'), 1),
+            [WhenStmt]::new([VariableExpr]::new('notAResource', 2), 'clicked', @(), 2)
+        )
+    }
 }
 
 
