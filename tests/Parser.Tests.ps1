@@ -633,7 +633,143 @@ try {
 } catch {
     $caughtMissingComma = $true
 }
-if (-not $caughtMissingComma) { throw 'Expected error for missing comma between properties.' }
+# ===============================================================
+# Multi-line object block tests with optional 'is'
+# ===============================================================
+
+# 1. Compact multi-line property lines (no 'is')
+$compactBlockAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source @'
+card is a card
+    width 400
+    padding 20
+.
+'@)
+if ($compactBlockAst.Statements[0] -isnot [ObjectDefStmt] -or $compactBlockAst.Statements[0].Properties.Count -ne 2) {
+    throw 'Expected ObjectDefStmt with 2 properties in compact block.'
+}
+if ($compactBlockAst.Statements[0].Properties[0].Target.Name -ne 'width' -or $compactBlockAst.Statements[0].Properties[0].Value.Value -ne 400) {
+    throw 'Expected width 400 in compact block.'
+}
+if ($compactBlockAst.Statements[0].Properties[1].Target.Name -ne 'padding' -or $compactBlockAst.Statements[0].Properties[1].Value.Value -ne 20) {
+    throw 'Expected padding 20 in compact block.'
+}
+
+# 2. Explicit 'is' in multi-line block
+$explicitBlockAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source @'
+card is a card
+    width is 400
+    padding is 20
+.
+'@)
+if ($explicitBlockAst.Statements[0].Properties[0].Target.Name -ne $compactBlockAst.Statements[0].Properties[0].Target.Name -or
+    $explicitBlockAst.Statements[0].Properties[0].Value.Value -ne $compactBlockAst.Statements[0].Properties[0].Value.Value -or
+    $explicitBlockAst.Statements[0].Properties[1].Target.Name -ne $compactBlockAst.Statements[0].Properties[1].Target.Name -or
+    $explicitBlockAst.Statements[0].Properties[1].Value.Value -ne $compactBlockAst.Statements[0].Properties[1].Value.Value) {
+    throw 'Explicit is and compact multi-line blocks must produce identical AssignStmt nodes.'
+}
+
+# 3. Mixed form in same block
+$mixedBlockAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source @'
+navbar is a row
+    justify "space-between"
+    alignitems is "center"
+    spacing 16
+    width is "100%"
+.
+'@)
+if ($mixedBlockAst.Statements[0].Properties.Count -ne 4 -or
+    $mixedBlockAst.Statements[0].Properties[0].Target.Name -ne 'justify' -or
+    $mixedBlockAst.Statements[0].Properties[1].Target.Name -ne 'alignitems' -or
+    $mixedBlockAst.Statements[0].Properties[2].Target.Name -ne 'spacing' -or
+    $mixedBlockAst.Statements[0].Properties[3].Target.Name -ne 'width') {
+    throw 'Mixed compact and explicit is in multi-line block must parse all properties.'
+}
+
+# 4. Expressions, arithmetic, strings, booleans inside multi-line blocks
+$exprBlockAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source @'
+cart is a thing
+    total price plus tax
+    label "Special Offer"
+    active true
+.
+'@)
+if ($exprBlockAst.Statements[0].Properties[0].Value -isnot [MathExpr] -or $exprBlockAst.Statements[0].Properties[0].Value.Op -ne [MathOp]::Add) {
+    throw 'Arithmetic expressions must parse inside compact multi-line blocks.'
+}
+if ($exprBlockAst.Statements[0].Properties[1].Value.Value -ne 'Special Offer') {
+    throw 'Strings must parse inside compact multi-line blocks.'
+}
+if ($exprBlockAst.Statements[0].Properties[2].Value.Value -ne $true) {
+    throw 'Booleans must parse inside compact multi-line blocks.'
+}
+
+# 5. Malformed missing value inside multi-line block
+$caughtMissingVal = $false
+try {
+    [void](ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source @'
+card is a card
+    width
+.
+'@))
+} catch {
+    $caughtMissingVal = $true
+}
+if (-not $caughtMissingVal) { throw 'Expected error for property missing value in multi-line block.' }
+
+# 6. Disallowed statements inside object block
+# 6a. Disallowed say
+$caughtSayInBlock = $false
+try {
+    [void](ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source @'
+card is a card
+    say "invalid"
+.
+'@))
+} catch {
+    $caughtSayInBlock = $true
+}
+if (-not $caughtSayInBlock) { throw 'Expected error for say inside object block.' }
+
+# 6b. Disallowed if
+$caughtIfInBlock = $false
+try {
+    [void](ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source @'
+card is a card
+    if active
+        width 100
+    .
+.
+'@))
+} catch {
+    $caughtIfInBlock = $true
+}
+if (-not $caughtIfInBlock) { throw 'Expected error for if inside object block.' }
+
+# 6c. Disallowed while loop
+$caughtWhileInBlock = $false
+try {
+    [void](ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source @'
+card is a card
+    while true
+        width 100
+    .
+.
+'@))
+} catch {
+    $caughtWhileInBlock = $true
+}
+if (-not $caughtWhileInBlock) { throw 'Expected error for while inside object block.' }
+
+# 7. Top-level assignment STILL requires 'is'
+$topLevelNoIsAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source "foo `"bar`"`n")
+if ($topLevelNoIsAst.Statements[0] -isnot [CallStmt]) {
+    throw 'Top-level statements without is must remain function calls, never assignments.'
+}
+$topLevelWithIsAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source "foo is `"bar`"`n")
+if ($topLevelWithIsAst.Statements[0] -isnot [AssignStmt]) {
+    throw 'Top-level assignment requires is.'
+}
 
 Write-Output 'Parser tests passed.'
+
 

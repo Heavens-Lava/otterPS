@@ -261,19 +261,59 @@ function Read-OtterOptionalTheBeforeName {
 # D41 narrows empty-block acceptance to object construction only. All control
 # flow and function blocks continue through Read-OtterBlock and still require
 # an actual indented body.
-function Read-OtterObjectBlock {
+function Read-OtterObjectBlockProperties {
+    param([bool]$AllowEmpty = $true)
+
     [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the object statement to end here.')
     if (-not (Test-OtterTokenKind ([TokenKind]::Indent))) {
-        # Empty objects may still use the ordinary block terminator. Consume
-        # it here so it cannot be left orphaned for the outer statement list.
-        if (Test-OtterTokenKind ([TokenKind]::BlockEnd)) { [void](Read-OtterToken); Skip-OtterNewlines }
-        return @()
+        if ($AllowEmpty) {
+            # Empty objects may still use the ordinary block terminator. Consume
+            # it here so it cannot be left orphaned for the outer statement list.
+            if (Test-OtterTokenKind ([TokenKind]::BlockEnd)) { [void](Read-OtterToken); Skip-OtterNewlines }
+            return @()
+        }
+        $token = Get-OtterCurrentToken
+        throw (New-OtterParserError 'I expected an indented block of properties.' $token 'Indent the properties under the object statement.')
     }
     [void](Read-OtterToken)
-    $body = Read-OtterStatements
+    $properties = [System.Collections.Generic.List[Node]]::new()
+    Skip-OtterNewlines
+
+    while (-not (Test-OtterTokenKind ([TokenKind]::Dedent)) -and 
+           -not (Test-OtterTokenKind ([TokenKind]::EndOfFile)) -and 
+           -not (Test-OtterTokenKind ([TokenKind]::BlockEnd))) {
+
+        $cur = Get-OtterCurrentToken
+        if ($cur.Kind -in @([TokenKind]::Say, [TokenKind]::If, [TokenKind]::While, [TokenKind]::Repeat, [TokenKind]::To, [TokenKind]::Return, [TokenKind]::Ask)) {
+            throw (New-OtterParserError 'Only property assignments belong inside an object.' $cur 'Remove control flow or actions from this object block.')
+        }
+
+        $property = Read-OtterVariableName 'I expected a property name.'
+
+        # 'is' is optional: both "property value" and "property is value" are valid
+        if (Test-OtterTokenKind ([TokenKind]::Is)) {
+            [void](Read-OtterToken)
+        }
+
+        if ((Get-OtterCurrentToken).Kind -in @([TokenKind]::Newline, [TokenKind]::EndOfFile, [TokenKind]::Dedent, [TokenKind]::BlockEnd)) {
+            throw (New-OtterParserError "I expected a value for property '$($property.Text)'." (Get-OtterCurrentToken) "Provide a value after the property name, such as '$($property.Text) 10' or '$($property.Text) is 10'.")
+        }
+
+        $value = Read-OtterMathExpression
+        $properties.Add([AssignStmt]::new($property.Text, $value, $property.Line))
+
+        [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the property assignment to end here.')
+        Skip-OtterNewlines
+    }
+
     [void](Assert-OtterTokenKind ([TokenKind]::Dedent) 'I expected the object block to end.')
     if (Test-OtterTokenKind ([TokenKind]::BlockEnd)) { [void](Read-OtterToken); Skip-OtterNewlines }
-    return $body
+    return $properties.ToArray()
+}
+
+function Read-OtterObjectBlock {
+    param([bool]$AllowEmpty = $true)
+    return (Read-OtterObjectBlockProperties -AllowEmpty $AllowEmpty)
 }
 
 function Read-OtterInlineObjectProperties {
@@ -1125,12 +1165,7 @@ function Read-OtterStatement {
             # branch below.
             if (Test-OtterTokenKind ([TokenKind]::Has)) {
                 [void](Read-OtterToken)
-                $properties = if (Test-OtterTokenKind ([TokenKind]::Newline)) { Read-OtterObjectBlock } else { Read-OtterInlineObjectProperties }
-                foreach ($property in $properties) {
-                    if ($property -isnot [AssignStmt]) {
-                        throw (New-OtterParserError 'Only property assignments belong inside an object.' $name 'Write properties such as "name is \"Jeff\"".')
-                    }
-                }
+                $properties = if (Test-OtterTokenKind ([TokenKind]::Newline)) { Read-OtterObjectBlockProperties -AllowEmpty $true } else { Read-OtterInlineObjectProperties }
                 return [ObjectDefStmt]::new($name.Text, 'thing', $properties, $name.Line)
             }
             if (Test-OtterTokenKind ([TokenKind]::Of)) {
@@ -1152,15 +1187,10 @@ function Read-OtterStatement {
                         [void](Read-OtterToken)
                         $properties = Read-OtterInlineObjectProperties
                     } elseif ($typeName -eq 'thing' -or -not $script:KnownTypes.ContainsKey($typeName)) {
-                        $properties = if ($typeName -eq 'thing') { Read-OtterObjectBlock } else { Read-OtterBlock }
+                        $properties = Read-OtterObjectBlockProperties -AllowEmpty ($typeName -eq 'thing')
                     } else {
                         [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the object definition to end here.')
                         $properties = @()
-                    }
-                    foreach ($property in $properties) {
-                        if ($property -isnot [AssignStmt]) {
-                            throw (New-OtterParserError 'Only property assignments belong inside a thing.' $name 'Write properties such as "name is \"Jeff\"".')
-                        }
                     }
                     return [ObjectDefStmt]::new($name.Text, $typeName, $properties, $name.Line)
                 }
