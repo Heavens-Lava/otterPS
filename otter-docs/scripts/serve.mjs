@@ -6,6 +6,13 @@ const root = fileURLToPath(new URL('../dist/', import.meta.url));
 const types = { '.css': 'text/css', '.js': 'text/javascript', '.json': 'application/json', '.html': 'text/html' };
 createServer(async (request, response) => {
   const pathname = decodeURIComponent(new URL(request.url, 'http://localhost').pathname);
+  // Each documentation page is emitted as <slug>/index.html. Redirect the
+  // slashless spelling so copied clean URLs work as expected too.
+  if (pathname !== '/' && !pathname.endsWith('/') && !extname(pathname)) {
+    response.writeHead(308, { location: `${pathname}/` });
+    response.end();
+    return;
+  }
   const local = normalize(join(root, pathname === '/' ? 'index.html' : `${pathname.replace(/^\//, '')}${pathname.endsWith('/') ? 'index.html' : ''}`));
   if (!local.startsWith(normalize(root))) { response.writeHead(403); response.end('Forbidden'); return; }
   try { const content = await readFile(local); response.writeHead(200, { 'content-type': `${types[extname(local)] || 'application/octet-stream'}; charset=utf-8` }); response.end(content); }

@@ -4,8 +4,9 @@
   "version": "0.1.0",
   "description": "Official documentation site infrastructure for Otter.",
   "scripts": {
-    "build": "node scripts/check-examples.mjs && node scripts/build.mjs",
+    "build": "node scripts/check-examples.mjs && node scripts/build.mjs && node scripts/check-site.mjs",
     "check": "node scripts/check-examples.mjs",
+    "check:site": "node scripts/check-site.mjs",
     "serve": "node scripts/serve.mjs",
     "dev": "node scripts/build.mjs && node scripts/serve.mjs"
   }
