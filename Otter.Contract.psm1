@@ -249,6 +249,11 @@ enum NodeKind {
     # handler body actually runs depends on a message loop (D47), not this.
     When              # when helloButton is clicked
 
+    # UI layout/show (D47) - the smallest possible container and message
+    # loop, not a general layout system.
+    PutIn             # put helloButton in app
+    Show              # show app
+
     ReadFile
     WriteFile
     CopyFile
@@ -806,6 +811,38 @@ class WhenStmt : Node {
         $this.Target = $target
         $this.EventName = $eventName
         $this.Body = $body
+    }
+}
+
+
+# put helloButton in app
+#
+# D47. Attaches an EXISTING resource - never recreates or copies it. Item
+# keeps its identity exactly like D44 already guarantees; `put` only
+# changes what it's attached to. Windows hold their put-in children in an
+# Otter-invisible, provider-managed default vertical container - not a
+# general layout system, and not a value Otter code ever sees or names.
+# A resource can have only one parent; a second `put` of the same item
+# anywhere is a runtime error, not a silent move.
+class PutInStmt : Node {
+    [Node]$Item
+    [Node]$Container
+    PutInStmt([Node]$item, [Node]$container, [int]$line) : base([NodeKind]::PutIn, $line) {
+        $this.Item = $item
+        $this.Container = $container
+    }
+}
+
+# show app
+#
+# D47, modal only: blocks until the window closes, then returns. Showing
+# an empty window (nothing ever put in it) is valid. A window that has
+# already been closed cannot be shown again - a clean Otter error, not
+# the raw .NET exception WPF itself throws for this.
+class ShowStmt : Node {
+    [Node]$Target
+    ShowStmt([Node]$target, [int]$line) : base([NodeKind]::Show, $line) {
+        $this.Target = $target
     }
 }
 
