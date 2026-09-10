@@ -1600,40 +1600,13 @@ Grammar-only, Codex's lane, bundled into the same handoff as D34-D37.
 
 ---
 
-## D41. The unified-representation question - OPEN, design-blocked, no implementation
+## D41. Dynamic thing access - frozen
 
-**Reframed at Jeff's direction.** The first draft of this entry led with
-dictionary syntax (`scores are a dictionary`, `set X to Y in Z`) and put the
-JSON collision fourth on a list of open questions. Jeff's correction:
-put the question that decides everything else **first**, before any
-surface syntax is discussed at all.
-
-### The question
-
-> When Otter reads a JSON object, is that value semantically an
-> object/thing, a dictionary, or one unified map-like value that supports
-> both fixed-property and dynamic-key access?
-
-This isn't rhetorical — it was checked against the actual runtime, not
-just reasoned about abstractly. **`OtterObject` already has no concept of
-"a static property" versus "a dynamic key."**
-
-```powershell
-[void] WriteProperty([string]$name, [object]$value) { ... }
-[object] ReadProperty([string]$name) { ... }
-```
-
-Both methods take a plain string. `name of person` and a hypothetical
-`set "name" to "Jeff" in person` would call the exact same method with the
-exact same argument type — the *parser* is the only thing that currently
-treats these as different ideas, by choosing which AST node to build.
-The runtime type was already a string-keyed ordered map before this
-question was ever asked.
-
-That is real evidence for Jeff's preferred direction: **investigate a
-unified representation before introducing a second runtime type.** `has`
-(D40) would be the friendly construction syntax for a map-shaped value;
-dynamic-key operations would read and write the *same* value:
+**Otter does not get a separate dictionary runtime type.** Dynamic key
+access is a capability of `thing`, not a second collection kind. This
+follows directly from the investigation above: `has` (D40), JSON (D29),
+and dynamic access all already resolve to the same `OtterObject`, verified
+against the real code, not assumed.
 
 ```otter
 person has
@@ -1641,174 +1614,97 @@ person has
     age is 29
 .
 
-set "nickname" to "Jeff" in person
+read json from "person.json" into person
+
+set "nickname" to "Jeffrey" in person
+
 get "nickname" from person into nickname
+say nickname
 ```
 
-This would also resolve the JSON collision by construction rather than by
-picking a side: `read json from "..." into settings` stays exactly what it
-is today (an `OtterObject`, D29 untouched), and dynamic-key operations
-simply become a second way to reach the same value — never a question of
-which of two types the JSON reader should choose, because there aren't two
-types.
+`scores are a dictionary` is not introduced. It is not needed.
 
-### What a unified representation would still need to answer
+### The nine frozen rules
 
-Not "is this a good idea" — it looks like the right direction. What isn't
-answered yet, checked against the current implementation rather than
-guessed:
+1. **No separate dictionary runtime type.**
+2. **`has` and JSON objects both stay `OtterObject(TypeName: 'thing')`** —
+   already true today, unchanged by this decision (verified in the
+   investigation above).
+3. **Dynamic `get`/`set` operate only on `thing`.** Enforced at runtime:
+   `Assert-OtterDynamicKeyTarget` checks `TypeName -eq 'thing'` before
+   either statement touches the object.
+4. **`get` on a missing key returns `gone`**, not an error — `ReadProperty`
+   already returns `$null` for an unset key; the statement simply doesn't
+   add the `HasProperty` guard `name of person` uses.
+5. **Ordinary `property of thing` keeps its existing missing-property
+   error.** Unchanged, and tested directly: the same missing key that
+   `get` reports as `gone` still raises *"no property called ..."* through
+   `of`.
+6. **`set` creates or replaces a dynamic key.** Free — this is exactly what
+   `WriteProperty` has always done; no new logic needed for it.
+7. **Dynamic access gets separate AST nodes from `PropertyAccessExpr`** —
+   `GetKeyStmt` and `SetKeyStmt` (D41's contract, frozen separately), kept
+   apart from property access on purpose because rule 4 and rule 5 are
+   different intents, not the same behavior wearing two syntaxes.
+8. **Empty `has` objects become legal.** Parser-side, not yet built (see
+   below) — without it, the central "start empty, build it with dynamic
+   keys" pattern this feature exists for isn't reachable.
+9. **Files, folders, and other domain/resource objects cannot be
+   dynamically mutated.** Enforced by the same `TypeName -eq 'thing'`
+   check as rule 3. This is the rule the investigation's probe exists to
+   justify — it actually corrupted a file object's `size` property with an
+   unguarded write before this guard was written.
 
-1. **Missing-key behavior would DIFFER from today's property access, on
-   the same object type.** `name of person` where `person` has no `name`
-   is a **runtime error** today — a deliberate one, D19's whole design.
-   `get "nickname" from person into x` where `person` has no `"nickname"`
-   should almost certainly produce **`gone`** (D22), matching `first of` on
-   an empty list (D25) and `find` with no match (D26) — a lookup that can
-   reasonably miss should miss quietly; a named property that should exist
-   and doesn't is a mistake worth stopping on. Two different failure modes
-   on the *same runtime type*, chosen by *which syntax* reached it. That
-   needs to be stated as a rule, not left to be inferred per-case.
-2. **Writing through a dynamic key changes what static access sees, and
-   that has to be an intended consequence, not a surprise.**
-   `set "extra" to 123 in person` after `person has / name is "Jeff" / .`
-   would add a real property — `person` would then have it for `of`-access,
-   for `for each` over its properties (once that exists), and for
-   `convert person to json`. That symmetry is most of the appeal Jeff
-   described; it also means nothing is private or shape-locked once this
-   exists, which is worth deciding on purpose.
-3. **Should dynamic-key operations reach every `OtterObject`, or only
-   `thing`-typed ones?** `WriteProperty` doesn't distinguish `thing` from
-   `file` from `folder` — checked above, it's the same method on every
-   `OtterObject` regardless of `TypeName`. Without a guard, nothing stops
-   `set "size" to 999999 in file`, silently corrupting a file object's own
-   bookkeeping. A unified representation makes this an explicit design
-   question rather than an accident: either dynamic-key access is scoped to
-   `thing`-typed values only, or it is genuinely universal and that is a
-   stated decision, not a gap nobody noticed.
-4. **Iteration.** `each name and score in scores` — or whatever the
-   unified equivalent is (`each name and value in person`?) — is still
-   unanswered and still explicitly Under Review, unified representation or
-   not. A map-like value with no iteration story is a real gap, not a
-   nice-to-have.
-5. **What prints, and in what order.** `say person` today prints
-   `"a thing"` (D19) — does a `person` carrying dynamic keys print
-   differently, and does key order follow insertion (matching `Order` in
-   the current implementation) the same way a list's order is defined
-   (D13)?
+### Left open inside D41, on purpose: key type
 
-### Investigated: does Otter need a separate dictionary value at all?
+**String-only for 0.1.** `get`/`set` require the key's *runtime value* to
+be text — `Assert-OtterStringKey` rejects a number, a date, a boolean, or
+`gone` used as a key, rather than silently stringifying it. The **key
+expression itself is unrestricted** — `get name of user from scores into
+x` is legal syntax, because `Key` is a full expression in the contract, not
+a string literal. Only what it evaluates to at runtime is constrained.
+Explicitly deferred, not decided against: whether other primitives become
+legal keys later, and what they'd coerce to, is left for whenever a real
+program asks for it.
 
-At Jeff's direction, before any dictionary syntax is defined. **Every claim
-below was run against the real `OtterObject`, `has`, and D29's JSON reader
-— none of it is reasoned about abstractly.**
+### Runtime: complete
 
-**Confirmed: a write through one access style is visible through the
-other, live, on the exact same object.**
+`GetKeyStmt`/`SetKeyStmt` reuse `OtterObject.ReadProperty`/`WriteProperty`
+exactly as they exist today — **zero changes to that class**, confirmed by
+the investigation before any code was written. 13 new tests cover all nine
+rules directly against hand-built AST (rule 8's empty-object grammar is
+parser-side and is not testable here yet). 209 tests, 12 files, all green.
 
-```
-wrote via WriteProperty('nickname', 'Jeffrey') directly
-read back via ORDINARY 'nickname of person' (PropertyAccessExpr) -> Jeffrey
-```
+### Grammar: not yet built - the two precise pieces Codex needs
 
-This is the central claim of the unified model, and it holds with zero new
-runtime code — because there was never a second value to keep in sync.
-`has` (D40), `name of person`, and a hypothetical dynamic `get`/`set` would
-all be reading and writing one `Properties` hashtable.
-
-**Confirmed: a missing key already returns `gone`, for free, with no new
-code.** `ReadProperty('nickname')` on a key that was never set returns
-`$null` today — which is already Otter's `gone` (D22), already prints
-`gone`, already fails `Test-OtterTruthy`. The **error** on a missing key
-that `name of person` raises today comes entirely from a `HasProperty`
-check `Get-OtterValue`'s `PropertyAccess` case adds *on top of*
-`ReadProperty` — not from `ReadProperty` itself. This answers open question
-1 outright: a dynamic `get` simply skips that guard and calls `ReadProperty`
-directly; `name of person` keeps the guard. Same object, same underlying
-method, two statement forms choosing whether to enforce "this must already
-exist."
-
-**Confirmed: a JSON-sourced object and a `has`-sourced object are already
-identical.** Both are `TypeName: 'thing'`. There was never a second type
-for JSON to have to choose between — D29 already resolves the question this
-whole investigation was triggered by, by construction, today.
-
-**Confirmed, and this is the real risk: nothing in `OtterObject` stops a
-dynamic write from corrupting a `file` or `folder` object.**
-
-```
-file object TypeName: file
-after an unguarded WriteProperty('size', 999999): size of file = 999999
-```
-
-That's not hypothetical — the probe actually did it. `WriteProperty` takes
-the same plain string on every `OtterObject` regardless of `TypeName`.
-**Recommendation for open question 3: scope dynamic-key operations to
-`TypeName: 'thing'` only**, with a clear error otherwise
-(*"I can only set properties dynamically on a thing, but this is a
-file."*). Both of the values this whole feature is for — `has` and JSON —
-are already always `'thing'`, so this costs the feature nothing while
-closing the corruption path entirely.
-
-**A new gap, found in this pass, not on the original five-item list:
-Otter cannot construct an empty object today.**
+**New statement grammar**, reusing the frozen contract exactly:
 
 ```otter
-scores has
-.
+get <key-expr> from <target-expr> into <name>
+set <key-expr> to <value-expr> in <target-expr>
 ```
 
-fails — `Read-OtterBlock` (shared by `has`, `is a thing`, `if`, `while`,
-`try`, and more) unconditionally requires an `Indent` token; zero
-properties means no indent, so there's nothing to enter. The classic
-"start with nothing, build it up with dynamic keys" pattern —
-`scores has` (empty) then repeated `set "Jeff" to 100 in scores` — is not
-reachable at all right now, independent of whether dynamic-key operations
-get built. This has to be solved alongside D41, not assumed away; the fix
-is narrow (an empty-body exception for object construction specifically,
-not a change to the shared block reader `if`/`while`/`try` also depend on).
+`Get` already exists and currently requires `Files`/`Folders` immediately
+after it (`get files in ...` / `get folders in ...`); this needs a third
+branch — anything else after `Get` falls through to reading a general
+expression as the dynamic key. `Set` is a new, previously-unreserved
+keyword.
 
-### The shape a unified model would take, if approved
-
-Recorded so the option is concrete, not because it's frozen:
-
-- **One new statement pair**, not a new runtime type: dynamic `get <key>
-  from <target> into <name>` and `set <key> to <value> in <target>`, both
-  taking the key and target as full expressions. Reuses `OtterObject`
-  exactly as-is — the class in `Otter.Runtime.psm1` needs zero changes.
-- **Deliberately two different AST shapes for static and dynamic access**,
-  even though they'd hit the same runtime type — not unified into one node.
-  The reason is the missing-key behavior above: an error-on-miss and a
-  gone-on-miss are different enough intents that folding them into one node
-  with a runtime branch would be worse than two small, honest nodes.
-- `get` currently requires `Files`/`Folders` immediately after the leading
-  token; loosening that to fall through to a general dynamic-key expression
-  is a small, contained parser change — checked, not just assumed easy.
-- `set` is currently unreserved — free to take as a new keyword.
-
-### Status
-
-**Still design-blocked. No implementation, no contract change.** This
-section is the investigation Jeff asked for, not a decision — it found
-evidence, not authorization. Freezing this (including the `'thing'`-only
-scoping call and the empty-object gap) is Jeff's call to make explicitly,
-the same as every other decision in this file. D29's JSON behavior is
-confirmed unchanged and must stay that way regardless of how this
-resolves.
-
-The previously-rejected alternative is still correctly rejected, unified
-representation or not:
-
-```otter
-scores has
-    Jeff is 100
-    Alex is 85
-.
-```
-
-Turning a dynamic, data-driven key into a static property name breaks the
-moment a key is `"Jeff Macy"`, `"player-123"`, or anything that isn't a
-legal Otter identifier — true whether the underlying value ends up unified
-with objects or not.
+**Rule 8's empty-object fix is narrow, and where it must NOT be narrow to
+is exactly as important as where it must be.** Checked directly in the
+parser before writing this: `has` and the untyped `is a thing` are the
+*only two* call sites of `Read-OtterBlock` that should ever accept zero
+properties. Every other call site — `if`, `while`, `repeat`, `count`,
+`for each`, `try`, `to` (function bodies) — shares that same function and
+must keep requiring real content; an empty `if` body is still a mistake
+worth stopping on. **Do not touch `Read-OtterBlock` itself.** Add a new,
+narrower helper used only by the two object-construction sites (currently
+lines 747 and 775 of `src/Otter.Parser.psm1`) that behaves exactly like
+`Read-OtterBlock` when an `Indent` follows, and returns an empty array
+when the statement instead ends at `Newline` with no `Indent` — making
+`person has` (with nothing under it) and `person is a thing` (same) both
+legal, with zero effect on every other statement that still shares
+`Read-OtterBlock`.
 
 ---
 
