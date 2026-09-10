@@ -1600,52 +1600,112 @@ Grammar-only, Codex's lane, bundled into the same handoff as D34-D37.
 
 ---
 
-## D41. Dictionaries - OPEN, a design pass, not a decision
+## D41. The unified-representation question - OPEN, design-blocked, no implementation
 
-```otter
-scores are a dictionary
+**Reframed at Jeff's direction.** The first draft of this entry led with
+dictionary syntax (`scores are a dictionary`, `set X to Y in Z`) and put the
+JSON collision fourth on a list of open questions. Jeff's correction:
+put the question that decides everything else **first**, before any
+surface syntax is discussed at all.
 
-set "Jeff" to 100 in scores
-get "Jeff" from scores into score
+### The question
 
-set "Jeff" to 110 in scores
-remove "Alex" from scores
+> When Otter reads a JSON object, is that value semantically an
+> object/thing, a dictionary, or one unified map-like value that supports
+> both fixed-property and dynamic-key access?
+
+This isn't rhetorical — it was checked against the actual runtime, not
+just reasoned about abstractly. **`OtterObject` already has no concept of
+"a static property" versus "a dynamic key."**
+
+```powershell
+[void] WriteProperty([string]$name, [object]$value) { ... }
+[object] ReadProperty([string]$name) { ... }
 ```
 
-**Not frozen. Not building any of this yet — Jeff's own framing on this one
-was explicit: check it against several things first, and it hasn't been
-checked yet.** Recorded here so the shape isn't lost, not as a green light.
+Both methods take a plain string. `name of person` and a hypothetical
+`set "name" to "Jeff" in person` would call the exact same method with the
+exact same argument type — the *parser* is the only thing that currently
+treats these as different ideas, by choosing which AST node to build.
+The runtime type was already a string-keyed ordered map before this
+question was ever asked.
 
-What has to be answered before this is buildable, in the same spirit as
-D38's open questions:
+That is real evidence for Jeff's preferred direction: **investigate a
+unified representation before introducing a second runtime type.** `has`
+(D40) would be the friendly construction syntax for a map-shaped value;
+dynamic-key operations would read and write the *same* value:
 
-1. **Missing keys and `gone` (D22).** `get "missing" from scores into x`
-   — does `x` become `gone`, matching how `first of` an empty list and
-   `find ... where` already behave (D25, D26)? Almost certainly yes, but
-   it needs to be said, not inferred.
-2. **JSON's existing representation collides with this.** D29 already
-   turns a JSON object into an `OtterObject` (a `thing`) — the exact type
-   `has` (D40) also builds. If dictionaries become a *different* runtime
-   type, `read json from "..." into settings` needs a rule for when the
-   result is a `thing` (fixed, known keys) versus a dictionary (open,
-   data-driven keys) — JSON itself doesn't distinguish the two cases, so
-   Otter would have to pick one uniformly or guess, and guessing is the
-   kind of thing this project has consistently avoided.
-3. **Iteration is explicitly not part of this proposal yet.**
-   `each name and score in scores` is flagged Under Review in the
-   originating discussion, not frozen alongside `set`/`get`/`remove`. A
-   dictionary with no iteration story is a real gap for a first version,
-   not a nice-to-have.
-4. **Nested dictionaries and objects-as-values** — does `set "x" to person
-   in scores` (storing an object as a dictionary value) work the same way
-   list-of-objects already does (D13's `players are / player1 / player2 /
-   .`)? Likely yes, but unverified.
-5. **What a dictionary prints as** (D8's territory) and **whether it's
-   ordered** — a list has defined order (D13); does a dictionary, or is
-   key order explicitly unspecified?
+```otter
+person has
+    name is "Jeff"
+    age is 29
+.
 
-**One thing already decided, not part of D41's open list:** the rejected
-alternative —
+set "nickname" to "Jeff" in person
+get "nickname" from person into nickname
+```
+
+This would also resolve the JSON collision by construction rather than by
+picking a side: `read json from "..." into settings` stays exactly what it
+is today (an `OtterObject`, D29 untouched), and dynamic-key operations
+simply become a second way to reach the same value — never a question of
+which of two types the JSON reader should choose, because there aren't two
+types.
+
+### What a unified representation would still need to answer
+
+Not "is this a good idea" — it looks like the right direction. What isn't
+answered yet, checked against the current implementation rather than
+guessed:
+
+1. **Missing-key behavior would DIFFER from today's property access, on
+   the same object type.** `name of person` where `person` has no `name`
+   is a **runtime error** today — a deliberate one, D19's whole design.
+   `get "nickname" from person into x` where `person` has no `"nickname"`
+   should almost certainly produce **`gone`** (D22), matching `first of` on
+   an empty list (D25) and `find` with no match (D26) — a lookup that can
+   reasonably miss should miss quietly; a named property that should exist
+   and doesn't is a mistake worth stopping on. Two different failure modes
+   on the *same runtime type*, chosen by *which syntax* reached it. That
+   needs to be stated as a rule, not left to be inferred per-case.
+2. **Writing through a dynamic key changes what static access sees, and
+   that has to be an intended consequence, not a surprise.**
+   `set "extra" to 123 in person` after `person has / name is "Jeff" / .`
+   would add a real property — `person` would then have it for `of`-access,
+   for `for each` over its properties (once that exists), and for
+   `convert person to json`. That symmetry is most of the appeal Jeff
+   described; it also means nothing is private or shape-locked once this
+   exists, which is worth deciding on purpose.
+3. **Should dynamic-key operations reach every `OtterObject`, or only
+   `thing`-typed ones?** `WriteProperty` doesn't distinguish `thing` from
+   `file` from `folder` — checked above, it's the same method on every
+   `OtterObject` regardless of `TypeName`. Without a guard, nothing stops
+   `set "size" to 999999 in file`, silently corrupting a file object's own
+   bookkeeping. A unified representation makes this an explicit design
+   question rather than an accident: either dynamic-key access is scoped to
+   `thing`-typed values only, or it is genuinely universal and that is a
+   stated decision, not a gap nobody noticed.
+4. **Iteration.** `each name and score in scores` — or whatever the
+   unified equivalent is (`each name and value in person`?) — is still
+   unanswered and still explicitly Under Review, unified representation or
+   not. A map-like value with no iteration story is a real gap, not a
+   nice-to-have.
+5. **What prints, and in what order.** `say person` today prints
+   `"a thing"` (D19) — does a `person` carrying dynamic keys print
+   differently, and does key order follow insertion (matching `Order` in
+   the current implementation) the same way a list's order is defined
+   (D13)?
+
+### Status
+
+**Design-blocked. No implementation, no contract change, nothing inferred
+or guessed in its place.** D29's JSON behavior is confirmed unchanged and
+must stay that way regardless of how this resolves — checked in this pass,
+not just asserted. This is a design investigation, not a decision with a
+target date; it moves when Jeff wants to spend a session on it, not before.
+
+The previously-rejected alternative is still correctly rejected, unified
+representation or not:
 
 ```otter
 scores has
@@ -1654,11 +1714,10 @@ scores has
 .
 ```
 
-— is correctly rejected in the originating discussion and not reconsidered
-here. It turns dynamic, data-driven keys into static property names, which
-breaks the moment a key is `"Jeff Macy"`, `"player-123"`, or anything that
-isn't a legal Otter identifier. Objects and dictionaries stay two different
-things; `has` (D40) is not a backdoor dictionary syntax.
+Turning a dynamic, data-driven key into a static property name breaks the
+moment a key is `"Jeff Macy"`, `"player-123"`, or anything that isn't a
+legal Otter identifier — true whether the underlying value ends up unified
+with objects or not.
 
 ---
 
