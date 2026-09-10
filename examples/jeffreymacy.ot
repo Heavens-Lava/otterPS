@@ -1,132 +1,32 @@
 # jeffreymacy.ot - Pixel-perfect recreation of www.jeffreymacy.com
 # Built with pure Otter code using our modern Web Application Compiler (D50)
 
-app is a page
-    title is "Small Business Websites & Custom Web Apps | Jeffrey Macy"
-    hideheader is true
-    width is "100%"
-    maxwidth is 1320
-    background is "radial-gradient(ellipse at 85% 20%, rgba(205, 238, 218, 0.65) 0%, rgba(230, 246, 236, 0.35) 45%, rgba(251, 251, 249, 0) 70%), #fbfbf9"
-    foreground is "#111827"
-    spacing is 24
-    padding is 28
-.
+app is a page with title "Small Business Websites & Custom Web Apps | Jeffrey Macy", hideheader true, width "100%", maxwidth 1320, background "radial-gradient(ellipse at 85% 20%, rgba(205, 238, 218, 0.65) 0%, rgba(230, 246, 236, 0.35) 45%, rgba(251, 251, 249, 0) 70%), #fbfbf9", foreground "#111827", spacing 24, padding 28
 
 # ==========================================
 # 1. TOP NAVIGATION BAR
 # ==========================================
 
-navbar is a row
-    justify is "space-between"
-    alignitems is "center"
-    spacing is 16
-    padding is "8px 0"
-    width is "100%"
-.
+navbar is a row with justify "space-between", alignitems "center", spacing 16, padding "8px 0", width "100%"
 
-brandGroup is a row
-    spacing is 12
-    alignitems is "center"
-.
-
-avatarBadge is a badge
-    text is "JM"
-    background is "#16382c"
-    foreground is "#e8d2b5"
-    radius is 9999
-    weight is 700
-    size is 15
-    padding is 10
-.
-
-brandInfoCol is a column
-    spacing is 2
-.
-
-brandName is a text
-    value is "Jeffrey Macy"
-    weight is 700
-    size is 16
-    foreground is "#111827"
-.
-
-brandTagline is a text
-    value is "Technology partner for growing businesses"
-    size is 12
-    foreground is "#6b7280"
-.
+brandGroup is a row with spacing 12, alignitems "center"
+avatarBadge is a badge with text "JM", background "#16382c", foreground "#e8d2b5", radius 9999, weight 700, size 15, padding 10
+brandInfoCol is a column with spacing 2
+brandName is a text with value "Jeffrey Macy", weight 700, size 16, foreground "#111827"
+brandTagline is a text with value "Technology partner for growing businesses", size 12, foreground "#6b7280"
 
 put brandName, brandTagline in brandInfoCol
 put avatarBadge, brandInfoCol in brandGroup
 
-navLinksRow is a row
-    spacing is 22
-    alignitems is "center"
-.
-
-navHome is a link
-    text is "Home"
-    url is "#"
-    foreground is "#111827"
-    weight is 600
-    size is 14
-.
-
-navResources is a link
-    text is "Resources"
-    url is "#"
-    foreground is "#4b5563"
-    size is 14
-.
-
-navServices is a link
-    text is "Services"
-    url is "#"
-    foreground is "#4b5563"
-    size is 14
-.
-
-navProjects is a link
-    text is "Projects"
-    url is "#"
-    foreground is "#4b5563"
-    size is 14
-.
-
-navAbout is a link
-    text is "About"
-    url is "#"
-    foreground is "#4b5563"
-    size is 14
-.
-
-themePill is a badge
-    text is "☀️ ↻"
-    background is "#f3f4f6"
-    foreground is "#4b5563"
-    radius is 9999
-    border is "1px solid #e5e7eb"
-    padding is 6
-    size is 12
-.
-
-navPlanBtn is a button
-    text is "Plan My Website →"
-    background is "#184537"
-    foreground is "white"
-    radius is 9999
-    weight is 600
-    padding is 10
-    size is 14
-.
-
-navLogin is a link
-    text is "Log in"
-    url is "#"
-    foreground is "#4b5563"
-    weight is 500
-    size is 14
-.
+navLinksRow is a row with spacing 22, alignitems "center"
+navHome is a link with text "Home", url "#", foreground "#111827", weight 600, size 14
+navResources is a link with text "Resources", url "#", foreground "#4b5563", size 14
+navServices is a link with text "Services", url "#", foreground "#4b5563", size 14
+navProjects is a link with text "Projects", url "#", foreground "#4b5563", size 14
+navAbout is a link with text "About", url "#", foreground "#4b5563", size 14
+themePill is a badge with text "☀️ ↻", background "#f3f4f6", foreground "#4b5563", radius 9999, border "1px solid #e5e7eb", padding 6, size 12
+navPlanBtn is a button with text "Plan My Website →", background "#184537", foreground "white", radius 9999, weight 600, padding 10, size 14
+navLogin is a link with text "Log in", url "#", foreground "#4b5563", weight 500, size 14
 
 put navHome, navResources, navServices, navProjects, navAbout, themePill, navPlanBtn, navLogin in navLinksRow
 put brandGroup, navLinksRow in navbar
@@ -135,459 +35,116 @@ put brandGroup, navLinksRow in navbar
 # 2. HERO SECTION (SPLIT TWO-COLUMN LAYOUT)
 # ==========================================
 
-heroRow is a row
-    justify is "space-between"
-    alignitems is "flex-start"
-    spacing is 52
-    margin is "20px 0 0 0"
-    width is "100%"
-.
+heroRow is a row with justify "space-between", alignitems "flex-start", spacing 52, margin "20px 0 0 0", width "100%"
 
 # --- Left Column: Editorial Headline & Upfront Pricing ---
-leftCol is a column
-    flex is 1.05
-    spacing is 20
-.
+leftCol is a column with flex 1.05, spacing 20
 
-eyebrowRow is a row
-    spacing is 8
-    alignitems is "center"
-.
-
-eyebrowDash is a text
-    value is "―"
-    foreground is "#ea580c"
-    weight is 800
-    size is 16
-.
-
-eyebrowText is a text
-    value is "WEBSITES FOR PEOPLE WHO CARE ABOUT THEIR CUSTOMERS"
-    size is 11
-    weight is 700
-    letterspacing is "0.08em"
-    foreground is "#1e4d3e"
-.
-
+eyebrowRow is a row with spacing 8, alignitems "center"
+eyebrowDash is a text with value "―", foreground "#ea580c", weight 800, size 16
+eyebrowText is a text with value "WEBSITES FOR PEOPLE WHO CARE ABOUT THEIR CUSTOMERS", size 11, weight 700, letterspacing "0.08em", foreground "#1e4d3e"
 put eyebrowDash, eyebrowText in eyebrowRow
 
-headlineCol is a column
-    spacing is 4
-.
-
-headLine1 is a text
-    value is "You take care of your customers."
-    size is 44
-    weight is 800
-    foreground is "#0f172a"
-    letterspacing is "-0.025em"
-    lineheight is "1.15"
-.
-
-headLine2 is a text
-    value is "I'll take care of your website."
-    size is 48
-    weight is 600
-    fontstyle is "italic"
-    family is "'Newsreader', 'Playfair Display', Georgia, serif"
-    foreground is "#184537"
-    lineheight is "1.15"
-.
-
+headlineCol is a column with spacing 4
+headLine1 is a text with value "You take care of your customers.", size 44, weight 800, foreground "#0f172a", letterspacing "-0.025em", lineheight "1.15"
+headLine2 is a text with value "I'll take care of your website.", size 48, weight 600, fontstyle "italic", family "'Newsreader', 'Playfair Display', Georgia, serif", foreground "#184537", lineheight "1.15"
 put headLine1, headLine2 in headlineCol
 
-subHead is a text
-    value is "More than a website—build a digital home for your business."
-    size is 18
-    weight is 700
-    foreground is "#1f2937"
-.
+subHead is a text with value "More than a website—build a digital home for your business.", size 18, weight 700, foreground "#1f2937"
+subDesc is a text with value "Help customers find you, understand your services, see your pricing, book appointments, make payments, access files and videos, and stay connected with your business.", size 15, foreground "#4b5563", lineheight "1.65"
 
-subDesc is a text
-    value is "Help customers find you, understand your services, see your pricing, book appointments, make payments, access files and videos, and stay connected with your business."
-    size is 15
-    foreground is "#4b5563"
-    lineheight is "1.65"
-.
-
-ctaRow is a row
-    spacing is 16
-    alignitems is "center"
-.
-
-heroCtaBtn is a button
-    text is "Plan My Website →"
-    background is "#184537"
-    foreground is "white"
-    radius is 9999
-    weight is 600
-    padding is 14
-    size is 15
-.
-
-heroEstimateBtn is a button
-    text is "Get a Free Cost Estimate ⚡"
-    background is "#ffffff"
-    foreground is "#111827"
-    radius is 9999
-    border is "1px solid #d1d5db"
-    weight is 600
-    padding is 14
-    size is 15
-.
-
+ctaRow is a row with spacing 16, alignitems "center"
+heroCtaBtn is a button with text "Plan My Website →", background "#184537", foreground "white", radius 9999, weight 600, padding 14, size 15
+heroEstimateBtn is a button with text "Get a Free Cost Estimate ⚡", background "#ffffff", foreground "#111827", radius 9999, border "1px solid #d1d5db", weight 600, padding 14, size 15
 put heroCtaBtn, heroEstimateBtn in ctaRow
 
 # Pricing Comparison Card
-pricingCard is a card
-    background is "#ffffff"
-    radius is 14
-    border is "1px solid #e5e7eb"
-    shadow is "0 4px 20px rgba(0,0,0,0.03)"
-    padding is 22
-    spacing is 14
-    width is "100%"
-.
+pricingCard is a card with background "#ffffff", radius 14, border "1px solid #e5e7eb", shadow "0 4px 20px rgba(0,0,0,0.03)", padding 22, spacing 14, width "100%"
 
-pricingHeaderRow is a row
-    justify is "space-between"
-    alignitems is "center"
-    width is "100%"
-.
-
-pricingCardTitle is a text
-    value is "Simple, upfront starting prices"
-    size is 14
-    weight is 700
-    foreground is "#111827"
-.
-
-compareLink is a link
-    text is "Compare packages"
-    url is "#"
-    size is 13
-    foreground is "#184537"
-    weight is 600
-.
-
+pricingHeaderRow is a row with justify "space-between", alignitems "center", width "100%"
+pricingCardTitle is a text with value "Simple, upfront starting prices", size 14, weight 700, foreground "#111827"
+compareLink is a link with text "Compare packages", url "#", size 13, foreground "#184537", weight 600
 put pricingCardTitle, compareLink in pricingHeaderRow
 
-pricingTiersRow is a row
-    justify is "space-between"
-    alignitems is "flex-start"
-    spacing is 0
-    width is "100%"
-.
+pricingTiersRow is a row with justify "space-between", alignitems "flex-start", spacing 0, width "100%"
 
-tier1Col is a column
-    spacing is 4
-    flex is 1
-.
-
-t1Name is a text
-    value is "Starter"
-    size is 12
-    foreground is "#6b7280"
-.
-
-t1Price is a text
-    value is "$750"
-    size is 24
-    weight is 800
-    foreground is "#111827"
-.
-
+tier1Col is a column with spacing 4, flex 1
+t1Name is a text with value "Starter", size 12, foreground "#6b7280"
+t1Price is a text with value "$750", size 24, weight 800, foreground "#111827"
 put t1Name, t1Price in tier1Col
 
-tier2Col is a column
-    spacing is 4
-    flex is 1
-    customstyle is "border-left: 1px solid #e5e7eb; padding-left: 20px;"
-.
-
-t2Name is a text
-    value is "Business"
-    size is 12
-    foreground is "#6b7280"
-.
-
-t2Price is a text
-    value is "From $1,500"
-    size is 24
-    weight is 800
-    foreground is "#111827"
-.
-
+tier2Col is a column with spacing 4, flex 1, customstyle "border-left: 1px solid #e5e7eb; padding-left: 20px;"
+t2Name is a text with value "Business", size 12, foreground "#6b7280"
+t2Price is a text with value "From $1,500", size 24, weight 800, foreground "#111827"
 put t2Name, t2Price in tier2Col
 
-tier3Col is a column
-    spacing is 4
-    flex is 1
-    customstyle is "border-left: 1px solid #e5e7eb; padding-left: 20px;"
-.
-
-t3Name is a text
-    value is "Business Platform"
-    size is 12
-    foreground is "#6b7280"
-.
-
-t3Price is a text
-    value is "From $2,500+"
-    size is 24
-    weight is 800
-    foreground is "#111827"
-.
-
+tier3Col is a column with spacing 4, flex 1, customstyle "border-left: 1px solid #e5e7eb; padding-left: 20px;"
+t3Name is a text with value "Business Platform", size 12, foreground "#6b7280"
+t3Price is a text with value "From $2,500+", size 24, weight 800, foreground "#111827"
 put t3Name, t3Price in tier3Col
 
 put tier1Col, tier2Col, tier3Col in pricingTiersRow
 put pricingHeaderRow, pricingTiersRow in pricingCard
 
-subLinksRow is a row
-    spacing is 14
-    alignitems is "center"
-.
-
-subLearnLink is a link
-    text is "I Just Want to Learn More →"
-    url is "#"
-    size is 13
-    foreground is "#184537"
-    weight is 600
-.
-
-bulletPoint is a text
-    value is "•"
-    foreground is "#d1d5db"
-.
-
-subDemosLink is a link
-    text is "Explore Demos & Work →"
-    url is "#"
-    size is 13
-    foreground is "#184537"
-    weight is 600
-.
-
+subLinksRow is a row with spacing 14, alignitems "center"
+subLearnLink is a link with text "I Just Want to Learn More →", url "#", size 13, foreground "#184537", weight 600
+bulletPoint is a text with value "•", foreground "#d1d5db"
+subDemosLink is a link with text "Explore Demos & Work →", url "#", size 13, foreground "#184537", weight 600
 put subLearnLink, bulletPoint, subDemosLink in subLinksRow
 
-guaranteeNote is a text
-    value is "✓ Transparent pricing, zero sales pressure. Calculate your scope in 60 seconds."
-    size is 12
-    foreground is "#6b7280"
-.
+guaranteeNote is a text with value "✓ Transparent pricing, zero sales pressure. Calculate your scope in 60 seconds.", size 12, foreground "#6b7280"
 
 put eyebrowRow, headlineCol, subHead, subDesc, ctaRow, pricingCard, subLinksRow, guaranteeNote in leftCol
 
 # --- Right Column: Interactive Browser Scope Estimator ---
-rightCol is a column
-    flex is 1
-    spacing is 16
-.
+rightCol is a column with flex 1, spacing 16
 
-mockupOuterFrame is a card
-    background is "rgba(255, 255, 255, 0.45)"
-    border is "1px solid rgba(255, 255, 255, 0.85)"
-    radius is 28
-    padding is 28
-    shadow is "0 30px 60px -15px rgba(24, 69, 55, 0.08), 0 10px 25px rgba(0,0,0,0.03)"
-    width is "100%"
-.
+mockupOuterFrame is a card with background "rgba(255, 255, 255, 0.45)", border "1px solid rgba(255, 255, 255, 0.85)", radius 28, padding 28, shadow "0 30px 60px -15px rgba(24, 69, 55, 0.08), 0 10px 25px rgba(0,0,0,0.03)", width "100%"
+mockupCard is a card with background "#ffffff", radius 16, border "1px solid #eef0ea", shadow "0 10px 25px rgba(0, 0, 0, 0.04)", padding 24, spacing 14, width "100%"
 
-mockupCard is a card
-    background is "#ffffff"
-    radius is 16
-    border is "1px solid #eef0ea"
-    shadow is "0 10px 25px rgba(0, 0, 0, 0.04)"
-    padding is 24
-    spacing is 14
-    width is "100%"
-.
-
-mockupTopRow is a row
-    spacing is 8
-    alignitems is "center"
-    width is "100%"
-.
-
-dot1 is a badge
-    text is " "
-    background is "#ef4444"
-    radius is 9999
-    padding is 4
-    size is 7
-.
-
-dot2 is a badge
-    text is " "
-    background is "#f59e0b"
-    radius is 9999
-    padding is 4
-    size is 7
-.
-
-dot3 is a badge
-    text is " "
-    background is "#10b981"
-    radius is 9999
-    padding is 4
-    size is 7
-.
-
-mockUrl is a text
-    value is "estimator.jeffreymacy.com"
-    size is 11
-    foreground is "#9ca3af"
-.
-
+mockupTopRow is a row with spacing 8, alignitems "center", width "100%"
+dot1 is a badge with text " ", background "#ef4444", radius 9999, padding 4, size 7
+dot2 is a badge with text " ", background "#f59e0b", radius 9999, padding 4, size 7
+dot3 is a badge with text " ", background "#10b981", radius 9999, padding 4, size 7
+mockUrl is a text with value "estimator.jeffreymacy.com", size 11, foreground "#9ca3af"
 put dot1, dot2, dot3, mockUrl in mockupTopRow
 
-stepSubheadRow is a row
-    justify is "space-between"
-    alignitems is "center"
-    width is "100%"
-.
-
-stepBackText is a text
-    value is "< SIMPLE FIRST STEP"
-    size is 11
-    weight is 700
-    foreground is "#ea580c"
-    letterspacing is "0.04em"
-.
-
-stepNumberText is a text
-    value is "STEP 2 OF 3"
-    size is 11
-    weight is 600
-    foreground is "#9ca3af"
-.
-
+stepSubheadRow is a row with justify "space-between", alignitems "center", width "100%"
+stepBackText is a text with value "< SIMPLE FIRST STEP", size 11, weight 700, foreground "#ea580c", letterspacing "0.04em"
+stepNumberText is a text with value "STEP 2 OF 3", size 11, weight 600, foreground "#9ca3af"
 put stepBackText, stepNumberText in stepSubheadRow
 
-progressBarLine is a badge
-    text is " "
-    background is "#ea580c"
-    height is 3
-    radius is 2
-    padding is 0
-    width is "100%"
-.
-
-categoryLabel is a text
-    value is "YOUR BUSINESS"
-    size is 11
-    weight is 700
-    letterspacing is "0.06em"
-    foreground is "#ea580c"
-.
-
-stepTitle is a text
-    value is "Tell me whatever you know."
-    size is 24
-    weight is 800
-    foreground is "#111827"
-.
-
-stepSubtitle is a text
-    value is "Even if it's options. A sentence is enough, and 'I'm not sure' is a great answer."
-    size is 13
-    foreground is "#6b7280"
-.
+progressBarLine is a badge with text " ", background "#ea580c", height 3, radius 2, padding 0, width "100%"
+categoryLabel is a text with value "YOUR BUSINESS", size 11, weight 700, letterspacing "0.06em", foreground "#ea580c"
+stepTitle is a text with value "Tell me whatever you know.", size 24, weight 800, foreground "#111827"
+stepSubtitle is a text with value "Even if it's options. A sentence is enough, and 'I'm not sure' is a great answer.", size 13, foreground "#6b7280"
 
 # Question 1
-bizNameLabel is a text
-    value is "What is your business called? (Optional)"
-    size is 12
-    weight is 600
-    foreground is "#374151"
-.
-
-bizNameBox is a text box
-    placeholder is "e.g. Apex Consulting, Oak & Iron Furniture"
-.
+bizNameLabel is a text with value "What is your business called? (Optional)", size 12, weight 600, foreground "#374151"
+bizNameBox is a text box with placeholder "e.g. Apex Consulting, Oak & Iron Furniture"
 
 # Question 2
-bizDescLabel is a text
-    value is "What does your business do? (Optional)"
-    size is 12
-    weight is 600
-    foreground is "#374151"
-.
-
-bizDescBox is a text box
-    placeholder is "e.g. Residential architecture and landscape design"
-.
+bizDescLabel is a text with value "What does your business do? (Optional)", size 12, weight 600, foreground "#374151"
+bizDescBox is a text box with placeholder "e.g. Residential architecture and landscape design"
 
 # Questions 3 & 4 (Side by side)
-splitFieldsRow is a row
-    spacing is 12
-    alignitems is "flex-start"
-    width is "100%"
-.
+splitFieldsRow is a row with spacing 12, alignitems "flex-start", width "100%"
 
-fieldACol is a column
-    spacing is 4
-    flex is 1
-.
-
-fieldALabel is a text
-    value is "Already have a website? (Optional)"
-    size is 12
-    weight is 600
-    foreground is "#374151"
-.
-
-siteUrlBox is a text box
-    placeholder is "https://your-site.com"
-.
-
+fieldACol is a column with spacing 4, flex 1
+fieldALabel is a text with value "Already have a website? (Optional)", size 12, weight 600, foreground "#374151"
+siteUrlBox is a text box with placeholder "https://your-site.com"
 put fieldALabel, siteUrlBox in fieldACol
 
-fieldBCol is a column
-    spacing is 4
-    flex is 1
-.
-
-fieldBLabel is a text
-    value is "Anything you'd like to include? (Optional)"
-    size is 12
-    weight is 600
-    foreground is "#374151"
-.
-
-siteWantsBox is a text box
-    placeholder is "Links to sites you like, 'I'm not sure'"
-.
-
+fieldBCol is a column with spacing 4, flex 1
+fieldBLabel is a text with value "Anything you'd like to include? (Optional)", size 12, weight 600, foreground "#374151"
+siteWantsBox is a text box with placeholder "Links to sites you like, 'I'm not sure'"
 put fieldBLabel, siteWantsBox in fieldBCol
+
 put fieldACol, fieldBCol in splitFieldsRow
 
-bottomActionRow is a row
-    justify is "space-between"
-    alignitems is "center"
-    spacing is 12
-    width is "100%"
-.
-
-continueBtn is a button
-    text is "Continue to Step 3 →"
-    background is "#184537"
-    foreground is "white"
-    radius is 9999
-    weight is 600
-    padding is 12
-    size is 14
-.
-
-stepStatusText is a text
-    value is "Step 2 of 3 • Free instant estimate ready"
-    size is 12
-    foreground is "#166534"
-    weight is 600
-.
-
+bottomActionRow is a row with justify "space-between", alignitems "center", spacing 12, width "100%"
+continueBtn is a button with text "Continue to Step 3 →", background "#184537", foreground "white", radius 9999, weight 600, padding 12, size 14
+stepStatusText is a text with value "Step 2 of 3 • Free instant estimate ready", size 12, foreground "#166534", weight 600
 put continueBtn, stepStatusText in bottomActionRow
 
 put mockupTopRow, stepSubheadRow, progressBarLine, categoryLabel, stepTitle, stepSubtitle, bizNameLabel, bizNameBox, bizDescLabel, bizDescBox, splitFieldsRow, bottomActionRow in mockupCard
@@ -600,36 +157,9 @@ put leftCol, rightCol in heroRow
 # 3. FLOATING WIDGETS
 # ==========================================
 
-floatingDock is a row
-    position is "fixed"
-    bottom is 24
-    right is 28
-    zindex is 999
-    spacing is 12
-    alignitems is "center"
-.
-
-chatWidgetBtn is a button
-    text is "💬 Ask how Jeffrey can help"
-    background is "#163b2c"
-    foreground is "white"
-    radius is 9999
-    weight is 600
-    padding is 12
-    size is 14
-    shadow is "0 10px 25px rgba(22,59,44,0.3)"
-.
-
-accessibilityBtn is a button
-    text is "🌐"
-    background is "#163b2c"
-    foreground is "white"
-    radius is 9999
-    padding is 12
-    size is 14
-    shadow is "0 10px 25px rgba(22,59,44,0.3)"
-.
-
+floatingDock is a row with position "fixed", bottom 24, right 28, zindex 999, spacing 12, alignitems "center"
+chatWidgetBtn is a button with text "💬 Ask how Jeffrey can help", background "#163b2c", foreground "white", radius 9999, weight 600, padding 12, size 14, shadow "0 10px 25px rgba(22,59,44,0.3)"
+accessibilityBtn is a button with text "🌐", background "#163b2c", foreground "white", radius 9999, padding 12, size 14, shadow "0 10px 25px rgba(22,59,44,0.3)"
 put chatWidgetBtn, accessibilityBtn in floatingDock
 
 # ==========================================
