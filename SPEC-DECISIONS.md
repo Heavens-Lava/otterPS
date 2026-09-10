@@ -2488,3 +2488,126 @@ EventWord` then the standard `Read-OtterBlock`-parsed body. No lexer
 change — `when` and `is` are both already tokens, and event-name words
 are read raw, the same way `Read-OtterObjectTypeName` already reads
 control-kind words for D44.
+
+---
+
+## D47. UI layout and show - frozen and implemented
+
+```otter
+create window into app
+title of app is "Hello Otter"
+
+create button into helloButton
+text of helloButton is "Say Hello"
+
+when helloButton is clicked
+    say "Hello!"
+.
+
+put helloButton in app
+show app
+```
+
+This is the milestone: a real window appears, stays alive, accepts a real
+click, runs the D46 handler, and closes cleanly. Verified end-to-end, not
+assumed — `tests/UI.Tests.ps1` has a test that runs exactly this shape
+through `Invoke-OtterStatement`, fires a synthetic click via
+`RaiseEvent` partway through a blocking `ShowDialog`, and confirms the
+handler's `say` output arrives before the call returns.
+
+### `show` is `Window.ShowDialog()` - modal, verified to actually work from a script
+
+Windows PowerShell 5.1 runs **STA by default**, both interactively and
+via `-File`/`-Command` (checked directly with
+`[Thread]::CurrentThread.GetApartmentState()`) — no `-sta` launch flag
+needed anywhere in `otter.ps1` or the test runner. `ShowDialog()` blocks
+the calling thread, pumps real WPF messages while blocked, and returns
+once the window closes — confirmed by literally clicking a button
+(`RaiseEvent`) from a `DispatcherTimer.Tick` while `ShowDialog` was
+blocked, and watching the D46 handler run and `Close()` unblock it.
+No `System.Windows.Application` object is needed for this.
+
+Modal only, on purpose: a second `show` of a different window would
+block behind the first. Independent, simultaneously-visible top-level
+windows are explicitly out of scope for this milestone.
+
+### `put` needs an Otter-invisible implicit container - a window can only hold one direct child
+
+`Window.Content` accepts exactly one `UIElement` (verified). `put`
+therefore lazily creates a `StackPanel` (default vertical stacking) the
+first time anything is put into a window, and adds subsequent items to
+that same panel — `Children.Add` always appends, so **order is
+preserved** automatically (verified with two buttons, checking
+`panel.Children[0]`/`[1]` by reference). Nothing outside
+`Add-OtterUiChild` in `Otter.UI.psm1` ever creates, names, or reads this
+panel; Otter code has no way to see or refer to it, matching D44
+principle 5 exactly the way the property and event tables already do.
+
+`put` **attaches the existing resource — it never recreates or copies
+it.** Verified with `[object]::ReferenceEquals` between the button's
+`.Native` and what actually lands in `panel.Children[0]`, the same
+identity check D44 already used for resource lifecycle.
+
+### A resource can have only one parent - verified as a real WPF constraint, translated cleanly
+
+Adding the same `UIElement` to a second container throws WPF's own
+`InvalidOperationException` ("Specified element is already the logical
+child of another element..."), wrapped by PowerShell as a
+`MethodInvocationException` — verified directly, including that the
+*same* exception type covers both "into a different window" and "into
+the same window twice," so no further type-based disambiguation is
+needed. `Add-OtterUiChild` catches it and raises a clean Otter error
+instead: *"A `<kind>` can only be in one place at a time, and this one
+is already somewhere else."* — never `InvalidOperationException`, never
+"logical child."
+
+### Two more failure modes, verified and translated the same way
+
+- **Showing an already-closed window** — real WPF throws
+  `InvalidOperationException` ("Cannot set Visibility or call Show,
+  ShowDialog... after a Window has closed"); translated to *"This window
+  has already been closed, so it can't be shown again."* Verified by
+  actually closing a window, then calling `ShowDialog` on it again.
+- **Showing or putting-into something that isn't a window** — checked
+  before touching WPF at all (a `Button` has no `ShowDialog` method;
+  calling it would be a raw MissingMethod-style failure, not a language
+  error), and worded with the resource's real kind: *"I can only show a
+  window right now, not a `<kind>`."* / *"I can only put things in a
+  window right now, not a `<kind>`."*
+
+An **empty window (nothing ever put into it) shows and closes without
+error** — verified directly; WPF raises nothing for this case, so no
+special-casing was needed in `Show-OtterUiResource` at all.
+
+### Both statements validate "is this even a UI resource" generically first
+
+Same pattern as D46's `When` case: `Get-OtterValue` on the target/item/
+container, then `Test-OtterUiResource`, then `Get-OtterTypeName` for the
+error if not — reused directly rather than inventing new naming logic.
+Kind-specific checks ("must be a window," "already parented") live one
+layer deeper, in `Otter.UI.psm1`, exactly where D44/D45/D46 already put
+provider-specific knowledge.
+
+### What's still explicitly out of scope
+
+Per Jeff's freeze: grids, horizontal layout, explicit coordinates,
+multiple simultaneously-shown top-level windows, non-modal windows,
+reparenting or removing an already-put item, and re-showing a closed
+window. All are natural, larger follow-on decisions once dogfooding a
+real app surfaces which of them actually matter first.
+
+### What's built
+
+**Contract:** `NodeKind::PutIn`, `NodeKind::Show`, `PutInStmt(Item,
+Container)`, `ShowStmt(Target)`. **Runtime:** `src/Otter.UI.psm1` gained
+`Add-OtterUiChild` and `Show-OtterUiResource`; `src/Otter.Interpreter.psm1`
+gained the `'PutIn'` and `'Show'` statement cases. 12 new tests in
+`tests/UI.Tests.ps1`, including the full click-through-a-real-window
+end-to-end test, identity/order verification, both parent-conflict
+shapes, both wrong-kind shapes, both not-a-resource shapes, the
+empty-window case, and the closed-window-can't-reshow case. Full suite:
+13 files, all green.
+
+**Parser handoff to Codex needed**, same as D46: `Put Item(Expression)
+In Container(Expression)` and `Show Target(Expression)` are new
+statement shapes, not grammar D19 or any prior decision already covers.
