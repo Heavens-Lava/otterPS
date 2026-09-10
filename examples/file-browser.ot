@@ -1,17 +1,17 @@
 create window into app
-app has title is "Otter File Utility", width is 700, height is 500, background is "#111827", spacing is 12
+app has title "Otter File Utility", width 700, height 500, background "#111827", spacing 12
 
 create text into heading
-heading has text is "Folder Browser", foreground is "white"
+heading has text "Folder Browser", foreground "white"
 
 create text box into folderBox
-folderBox has width is 500
+folderBox has width 500
 
 create button into loadButton
-loadButton has text is "Load Files", width is 120, background is "#2563EB", foreground is "white"
+loadButton has text "Load Files", width 120, background "#2563EB", foreground "white"
 
 create text into resultText
-resultText has text is "Enter a folder path.", foreground is "white"
+resultText has text "Enter a folder path.", foreground "white"
 
 put heading, folderBox, loadButton, resultText in app
 
