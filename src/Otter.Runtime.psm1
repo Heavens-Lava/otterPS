@@ -184,6 +184,13 @@ function Format-OtterValue {
         return ($parts -join ', ')
     }
 
+    # Printing a function is almost always a mistake - a forgotten argument,
+    # or a call that never happened. Say something a beginner can act on
+    # rather than leaking the PowerShell class name.
+    if ($Value -is [OtterFunction]) {
+        return "<$($Value.Name), something Otter can do>"
+    }
+
     return [string]$Value
 }
 
