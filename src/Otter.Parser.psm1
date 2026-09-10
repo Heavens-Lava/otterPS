@@ -244,6 +244,17 @@ function Read-OtterBlock {
     return $body
 }
 
+# Contextual article support for resource-oriented statements only.  A lone
+# `the` remains a valid identifier; consume it as an article only when a real
+# name follows it in the same grammatical slot.
+function Read-OtterOptionalTheBeforeName {
+    if ((Get-OtterCurrentToken).Text -eq 'the' -and
+        ($script:Position + 1) -lt $script:Tokens.Count -and
+        (Test-OtterIdentifierToken $script:Tokens[$script:Position + 1])) {
+        [void](Read-OtterToken)
+    }
+}
+
 # D41 narrows empty-block acceptance to object construction only. All control
 # flow and function blocks continue through Read-OtterBlock and still require
 # an actual indented body.
@@ -460,6 +471,7 @@ function Read-OtterStatement {
         ([TokenKind]::Put) {
             [void](Read-OtterToken)
             $items = [System.Collections.Generic.List[Node]]::new()
+            Read-OtterOptionalTheBeforeName
             $itemToken = Read-OtterVariableName 'I expected a resource name after "put".'
             $items.Add([VariableExpr]::new($itemToken.Text, $itemToken.Line))
             while ((Get-OtterCurrentToken).Text -eq ',') {
@@ -468,10 +480,12 @@ function Read-OtterStatement {
                 if ($next.Text -eq ',' -or $next.Kind -eq [TokenKind]::In -or $next.Kind -eq [TokenKind]::Newline) {
                     throw (New-OtterParserError 'I expected a resource name after the comma.' $next 'Write another resource name after each comma.')
                 }
+                Read-OtterOptionalTheBeforeName
                 $itemToken = Read-OtterVariableName 'I expected a resource name after the comma.'
                 $items.Add([VariableExpr]::new($itemToken.Text, $itemToken.Line))
             }
             [void](Assert-OtterTokenKind ([TokenKind]::In) 'I expected "in" before the container.')
+            Read-OtterOptionalTheBeforeName
             $containerToken = Read-OtterVariableName 'I expected a resource name after "in".'
             $container = [VariableExpr]::new($containerToken.Text, $containerToken.Line)
             [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the put statement to end here.')
@@ -481,6 +495,7 @@ function Read-OtterStatement {
         }
         ([TokenKind]::Show) {
             [void](Read-OtterToken)
+            Read-OtterOptionalTheBeforeName
             $targetToken = Read-OtterVariableName 'I expected a resource name after "show".'
             $target = [VariableExpr]::new($targetToken.Text, $targetToken.Line)
             [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the show statement to end here.')
@@ -573,8 +588,16 @@ function Read-OtterStatement {
                 [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the create statement to end here.')
                 return [CreateFolderStmt]::new($path, $start.Line)
             }
+            # `the` is an article here only when another kind word follows;
+            # `create the into x` keeps `the` as the raw resource kind.
+            if ((Get-OtterCurrentToken).Text -eq 'the' -and
+                ($script:Position + 1) -lt $script:Tokens.Count -and
+                (Test-OtterIdentifierToken $script:Tokens[$script:Position + 1])) {
+                [void](Read-OtterToken)
+            }
             $typeName = Read-OtterUiResourceTypeName
             [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a resource variable name.')
+            Read-OtterOptionalTheBeforeName
             $target = Read-OtterVariableName 'I expected a variable name after "into".'
             [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the create statement to end here.')
             return [CreateUiResourceStmt]::new($typeName, $target.Text, $start.Line)

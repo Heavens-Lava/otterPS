@@ -348,6 +348,18 @@ if ($theAst.Statements[5].Parts[0].Value -ne 'The Otter') { throw 'the inside a 
 $theRejected = $false
 try { ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source "say the of`n") | Out-Null } catch [OtterError] { $theRejected = $true }
 if (-not $theRejected) { throw 'the must not be accepted as arbitrary filler.' }
+$articleAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source @'
+create window into app
+create the window into the app
+put the window in the app
+show the app
+the is "named the"
+'@)
+if ($articleAst.Statements[0].TypeName -ne $articleAst.Statements[1].TypeName -or $articleAst.Statements[0].Target -ne $articleAst.Statements[1].Target) { throw 'create with the must preserve the canonical AST shape.' }
+if ($articleAst.Statements[2].Item.Name -ne 'window' -or $articleAst.Statements[2].Container.Name -ne 'app' -or $articleAst.Statements[3].Target.Name -ne 'app') { throw 'put/show with the must preserve resource names.' }
+if ($articleAst.Statements[4].Target.Name -ne 'the') { throw 'the must remain usable as an ordinary identifier.' }
+$rawTheCreate = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source "create the into x`n")
+if ($rawTheCreate.Statements[0].TypeName -ne 'the') { throw 'create the into x must preserve the resource kind named the.' }
 foreach ($invalid in @('put in app', 'put helloButton app', 'show')) {
     $rejected = $false
     try { ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source ($invalid + "`n")) | Out-Null }
