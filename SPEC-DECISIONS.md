@@ -1142,3 +1142,116 @@ signed answer is trivial. Flagged rather than settled — this is Jeff's call.
 
 Whole units only, truncated toward zero: `days between` two date-times 36
 hours apart is `1`, not `1.5`.
+
+---
+
+## D33. Keyword reservation — contextual by proof, not by default
+
+**Approved.** Full reasoning and the empirical evidence behind this decision
+live in `KEYWORD-AUDIT.md` (95 reserved words tested in 6 grammatical
+positions, plus a per-word parser-site count). This entry records what was
+decided, for implementation to build against.
+
+### The finding
+
+Of ~100 reserved token kinds, 55 are referenced at exactly **one** site in
+the parser — meaning they gate one statement and nothing else, yet they are
+unusable as a variable, function, parameter, property, or `for each` name
+**everywhere**, because the lexer's keyword table has no notion of
+position. Otter was on track to accumulate hundreds of unnecessarily
+forbidden ordinary words as the vocabulary grows (D29–D32 alone added 16
+new reservations, most of them single-site).
+
+### The rule, going forward (applies to D33 and every future keyword)
+
+> A new keyword is reserved everywhere by default. It may be narrowed to a
+> single grammatical position only after the position is proven — by direct
+> testing, the same way this audit tested it — to be the word's only real
+> use, and only by one of three named mechanisms:
+>
+> 1. **Adjacency to a trigger token** (D24, D32) — keyword only when a
+>    specific token immediately precedes or follows.
+> 2. **Statement-head position** (new in D33) — keyword only when the token
+>    is the first one on its logical line.
+> 3. **Always legal alongside `Identifier`** (already used for `file`/
+>    `files`/`folder`/`folders`) — no contextual check; the grammar simply
+>    never collides on this word.
+>
+> A word is **never** made contextual by relying on spelling or
+> capitalization convention. If a word appears in more than one grammatical
+> position, or in the same position a value or identifier would occupy, it
+> stays reserved everywhere — no ad hoc exceptions.
+
+### Words freed by this decision — mechanism 2 (statement-head)
+
+```
+copy  move  delete  create  read  write  sort  reverse  replace  split
+join  find  get  try  run  log  warn  error  random  json  convert
+format  today  now  between  otherwise
+```
+
+Each becomes an ordinary identifier everywhere **except** as the first
+token of a statement, where it keeps its existing meaning. Verified safe
+per-word in `KEYWORD-AUDIT.md` category 2.
+
+### Words freed by this decision — mechanism 1, D24-style adjacency
+
+```
+exists    keyword only when preceded by a value (condition position)
+contains  keyword only when preceded by a value (condition position)
+empty     keyword only when preceded by Are
+has       keyword only reachable after the a-driven type-def parse (already
+          grammatically unreachable elsewhere — no new check needed)
+call, it  keyword only inside the fixed "and call it <name>" phrase
+```
+
+### Words freed by this decision — mechanism 3, dead keyword-table entry
+
+```
+thing
+```
+
+Confirmed, not inferred: `Read-OtterObjectTypeName` reads every token by
+`.Text` and never inspects `.Kind` — it already has to, so that future
+two-word type names (`text box`) read correctly. The
+`'thing' = [TokenKind]::Thing` line can be deleted from the lexer's keyword
+table with **zero parser change**.
+
+### Words that stay reserved everywhere — no change
+
+The full category-1 and category-4 lists from `KEYWORD-AUDIT.md`:
+
+```
+gone  true  false  a  and  is  to  of  in  into  from  with  where  as
+make  makes  not  or
+```
+
+`gone`/`true`/`false` sit in ordinary value position with no adjacent token
+to disambiguate. `a` carries two separate grammatical roles and a real
+collision case (`letter is a` — copy a variable vs. begin a type literal)
+that only a capitalization guess could resolve, which D33's rule explicitly
+forbids relying on. The rest are the D17 structural set.
+
+**D17 amendment:** `by` (`split X by Y`) is the same part of speech as
+`with`/`from`/`into` and was missing from D17's table only because just one
+statement used it so far. Added to the structural, always-reserved list
+now, before a second use makes the gap look like an accident.
+
+### Reserved by design, not by grammar
+
+`if`, `while`, `repeat`, `count`, `return`, `ask`, `say` are grammatically
+eligible for mechanism 2 — each sits at one or two statement-head sites,
+same shape as `copy` or `format`. **They stay reserved anyway.** Otter's
+own pitch is readability for a beginner, and these are the words used in
+every one of the language's own examples. A program that runs with `if is
+5` sitting in it is technically unambiguous and quietly hostile to exactly
+the reader the language is for. This is a pedagogical boundary, decided
+here explicitly rather than falling out of the grammar audit by accident.
+
+### `open` and `when`
+
+Left untouched — these are not accidental reservations. The lexer already
+states the reason: they are pre-reserved for a future `open "notes.txt"`
+statement (`rules.md` section 31) and future `when` events (`rules2.md`),
+neither of which exists yet. Reserving a word before its grammar exists is
+sound; D33 does not disturb it.
