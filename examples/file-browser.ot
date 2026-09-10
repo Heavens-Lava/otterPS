@@ -29,8 +29,14 @@ statusText has text "Enter a folder path.", foreground "white"
 create column into resultsColumn
 resultsColumn has spacing 4
 
-#place the header, toolbar, status line, and results column into the app
-put heading, toolbar, statusText, resultsColumn in app
+#scroll area so the file list stays reachable no matter how many files load (D53)
+create scroll into fileArea
+fileArea has height 350
+
+put resultsColumn in fileArea
+
+#place the header, toolbar, status line, and scrollable results area into the app
+put heading, toolbar, statusText, fileArea in app
 
 #button click event to load files from the folder specified in the text box
 when loadButton is clicked
