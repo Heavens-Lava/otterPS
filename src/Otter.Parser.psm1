@@ -7,6 +7,7 @@ function Initialize-OtterParser {
     $script:Tokens = $Tokens
     $script:Position = 0
     $script:KnownFunctions = @{}
+    $script:KnownTypes = @{}
 }
 
 function Get-OtterCurrentToken { return $script:Tokens[$script:Position] }
@@ -41,7 +42,16 @@ function Read-OtterValue {
         ([TokenKind]::Number) { [void](Read-OtterToken); return [LiteralExpr]::new($token.Value, $token.Line) }
         ([TokenKind]::True) { [void](Read-OtterToken); return [LiteralExpr]::new($true, $token.Line) }
         ([TokenKind]::False) { [void](Read-OtterToken); return [LiteralExpr]::new($false, $token.Line) }
-        ([TokenKind]::Identifier) { [void](Read-OtterToken); return [VariableExpr]::new($token.Text, $token.Line) }
+        ([TokenKind]::Identifier) {
+            [void](Read-OtterToken)
+            if (Test-OtterTokenKind ([TokenKind]::Of)) {
+                [void](Read-OtterToken)
+                # "city of address of user" reads right-to-left: the target
+                # is itself a complete property expression.
+                return [PropertyAccessExpr]::new($token.Text, (Read-OtterValue), $token.Line)
+            }
+            return [VariableExpr]::new($token.Text, $token.Line)
+        }
         default { throw (New-OtterParserError 'I expected a value here.' $token 'Add a text value, number, true, false, or variable name.') }
     }
 }
@@ -130,6 +140,35 @@ function Read-OtterListItems {
     [void](Read-OtterToken)
     if (Test-OtterTokenKind ([TokenKind]::BlockEnd)) { [void](Read-OtterToken); Skip-OtterNewlines }
     return $items.ToArray()
+}
+
+function Read-OtterTypeFields {
+    [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the type definition to end here.')
+    [void](Assert-OtterTokenKind ([TokenKind]::Indent) 'I expected indented property names for this type.')
+    $fields = [System.Collections.Generic.List[string]]::new()
+    Skip-OtterNewlines
+    while (-not (Test-OtterTokenKind ([TokenKind]::Dedent))) {
+        $field = Assert-OtterTokenKind ([TokenKind]::Identifier) 'I expected a property name.'
+        $fields.Add($field.Text)
+        [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the property name to end here.')
+        Skip-OtterNewlines
+    }
+    [void](Read-OtterToken)
+    if (Test-OtterTokenKind ([TokenKind]::BlockEnd)) { [void](Read-OtterToken); Skip-OtterNewlines }
+    return $fields.ToArray()
+}
+
+function Read-OtterObjectTypeName {
+    $words = [System.Collections.Generic.List[string]]::new()
+    while (-not (Test-OtterTokenKind ([TokenKind]::Newline))) {
+        $token = Read-OtterToken
+        $words.Add($token.Text)
+    }
+    if ($words.Count -eq 0) {
+        $token = Get-OtterCurrentToken
+        throw (New-OtterParserError 'I expected a type name after "is a".' $token 'Write a type, such as "thing" or "Person".')
+    }
+    return $words -join ' '
 }
 
 function Test-OtterTokenBeforeNewline {
@@ -225,6 +264,13 @@ function Read-OtterStatement {
             [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the question to end here.')
             return [AskStmt]::new($prompt, $name.Text, $start.Line)
         }
+        ([TokenKind]::A) {
+            [void](Read-OtterToken)
+            $typeName = Assert-OtterTokenKind ([TokenKind]::Identifier) 'I expected a type name after "a".'
+            [void](Assert-OtterTokenKind ([TokenKind]::Has) 'I expected "has" after the type name.')
+            $script:KnownTypes[$typeName.Text] = $true
+            return [TypeDefStmt]::new($typeName.Text, (Read-OtterTypeFields), $start.Line)
+        }
         ([TokenKind]::To) {
             [void](Read-OtterToken)
             $name = Read-OtterFunctionName
@@ -268,8 +314,38 @@ function Read-OtterStatement {
         }
         ([TokenKind]::Identifier) {
             $name = Read-OtterToken
+            if (Test-OtterTokenKind ([TokenKind]::Of)) {
+                # Re-read the whole property-first target, then use the same
+                # AssignStmt node as a normal variable assignment.
+                $script:Position--
+                $target = Read-OtterValue
+                [void](Assert-OtterTokenKind ([TokenKind]::Is) 'I expected "is" after the property target.')
+                $value = Read-OtterMathExpression
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the property assignment to end here.')
+                return [AssignStmt]::new($target, $value, $name.Line)
+            }
             if (Test-OtterTokenKind ([TokenKind]::Is)) {
                 [void](Read-OtterToken)
+                if (Test-OtterTokenKind ([TokenKind]::A)) {
+                    [void](Read-OtterToken)
+                    $typeName = Read-OtterObjectTypeName
+                    # A declared custom type is instantiated without a body:
+                    # "jeff is a Person". A thing (or a not-yet-declared UI
+                    # type such as "text box") is an object literal and has
+                    # indented property assignments.
+                    if ($typeName -eq 'thing' -or -not $script:KnownTypes.ContainsKey($typeName)) {
+                        $properties = Read-OtterBlock
+                    } else {
+                        [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the object definition to end here.')
+                        $properties = @()
+                    }
+                    foreach ($property in $properties) {
+                        if ($property -isnot [AssignStmt]) {
+                            throw (New-OtterParserError 'Only property assignments belong inside a thing.' $name 'Write properties such as "name is \"Jeff\"".')
+                        }
+                    }
+                    return [ObjectDefStmt]::new($name.Text, $typeName, $properties, $name.Line)
+                }
                 $value = Read-OtterMathExpression
                 [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the assignment to end here.')
                 return [AssignStmt]::new($name.Text, $value, $name.Line)

@@ -17,4 +17,13 @@ $reservedTokens = ConvertTo-OtterTokens -Source 'read "notes.txt" into notes'
 if ((@($reservedTokens | ForEach-Object Kind) -join ',') -ne 'Read,String,Into,Identifier,Newline,EndOfFile') {
     throw 'Deferred language keywords must remain reserved.'
 }
+try {
+    ConvertTo-OtterTokens -Source 'say person.name' | Out-Null
+    throw 'Expected property access with a period to fail.'
+}
+catch [OtterError] {
+    if ($_.Exception.Message -notlike '*does not use periods*' -or $_.Exception.Suggestion -notlike '*name of person*') {
+        throw 'Period property errors should explain the property-first syntax.'
+    }
+}
 Write-Output 'Lexer tests passed.'

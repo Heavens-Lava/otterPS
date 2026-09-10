@@ -30,6 +30,8 @@ $script:OtterKeywords = @{
     'are' = [TokenKind]::Are
     'empty' = [TokenKind]::Empty
     'contains' = [TokenKind]::Contains
+    'of' = [TokenKind]::Of
+    'when' = [TokenKind]::When
     # Reserved for later language versions. Lexing them now prevents a future
     # keyword from silently changing an existing program's meaning.
     'a' = [TokenKind]::A
@@ -149,12 +151,11 @@ function ConvertTo-OtterLineTokens {
             continue
         }
 
-        if ($character -eq '.' -and $index -gt 0 -and ($index + 1) -lt $Text.Length -and
-            ([char]::IsLetterOrDigit($Text[$index - 1]) -or $Text[$index - 1] -eq '_') -and
-            ([char]::IsLetterOrDigit($Text[$index + 1]) -or $Text[$index + 1] -eq '_')) {
-            $tokens.Add((New-OtterToken ([TokenKind]::Dot) '.' $null $LineNumber $column))
-            $index++
-            continue
+        if ($character -eq '.') {
+            throw [OtterError]::new(
+                'Otter does not use periods to access properties.', $LineNumber, 'lexer', $column, $Text,
+                'Use "name of person" instead of "person.name".'
+            )
         }
 
         throw [OtterError]::new("I don't understand '$character'.", $LineNumber, 'lexer', $column, $Text, 'Use Otter words such as say or if.')
