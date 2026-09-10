@@ -1,30 +1,45 @@
 create window into app
-title of app is "Calculator"
+title of app is "Otter Calculator"
+width of app is 420
+height of app is 320
+background of app is "#111827"
+spacing of app is 12
 
 create text into firstLabel
-text of firstLabel is "First number:"
+text of firstLabel is "First number"
+foreground of firstLabel is "white"
 
 create text box into firstBox
-text of firstBox is "0"
+width of firstBox is 260
+background of firstBox is "white"
+foreground of firstBox is "black"
 
 create text into secondLabel
-text of secondLabel is "Second number:"
+text of secondLabel is "Second number"
+foreground of secondLabel is "white"
 
 create text box into secondBox
-text of secondBox is "0"
-
-create text into resultLabel
-text of resultLabel is "Result:"
+width of secondBox is 260
+background of secondBox is "white"
+foreground of secondBox is "black"
 
 create button into addButton
 text of addButton is "Add"
+width of addButton is 120
+height of addButton is 40
+background of addButton is "#2563EB"
+foreground of addButton is "white"
+
+create text into resultLabel
+text of resultLabel is "Result"
+foreground of resultLabel is "white"
 
 put firstLabel in app
 put firstBox in app
 put secondLabel in app
 put secondBox in app
-put resultLabel in app
 put addButton in app
+put resultLabel in app
 
 when addButton is clicked
     try
