@@ -1080,10 +1080,19 @@ class DiagnosticStmt : Node {
 # and looks up a stored property on anything else.
 
 # today   /   now
+#
+# The property is called Clock, NOT Kind. Every Node already has a Kind - its
+# NodeKind - and PowerShell 5.1 cannot shadow a base property with a
+# different type. Declaring [ClockKind]$Kind here made the class impossible
+# to construct: the base constructor set Kind to NodeKind::Clock and the
+# derived assignment then tried to read that back as a ClockKind.
+#
+# Rule for anything added to this file later: no Node subclass may declare a
+# property named Kind.
 class ClockExpr : Node {
-    [ClockKind]$Kind
-    ClockExpr([ClockKind]$kind, [int]$line) : base([NodeKind]::Clock, $line) {
-        $this.Kind = $kind
+    [ClockKind]$Clock
+    ClockExpr([ClockKind]$clock, [int]$line) : base([NodeKind]::Clock, $line) {
+        $this.Clock = $clock
     }
 }
 
