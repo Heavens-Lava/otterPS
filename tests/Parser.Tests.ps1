@@ -114,6 +114,25 @@ if ($objectAst.Statements[5] -isnot [ObjectDefStmt] -or $objectAst.Statements[5]
 $nested = $objectAst.Statements[6].Parts[0]
 if ($nested.Property -ne 'city' -or $nested.Target.Property -ne 'address' -or $nested.Target.Target.Name -ne 'user') { throw 'Property access must nest right-to-left.' }
 
+$fileSource = @'
+write "Hello" to "note.txt"
+read "note.txt" into notes
+copy "note.txt" to "backup/note.txt"
+move "note.txt" to "archive/note.txt"
+delete file "archive/note.txt"
+if file "archive/note.txt" exists
+    say "Still there"
+run "notepad.exe"
+run command "git status" into status
+'@
+$fileAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $fileSource)
+if ($fileAst.Statements[0] -isnot [WriteFileStmt]) { throw 'Expected write file statement.' }
+if ($fileAst.Statements[1] -isnot [ReadFileStmt] -or $fileAst.Statements[1].Target -ne 'notes') { throw 'Expected read file statement.' }
+if ($fileAst.Statements[2] -isnot [CopyFileStmt] -or $fileAst.Statements[3] -isnot [MoveFileStmt]) { throw 'Expected copy and move statements.' }
+if ($fileAst.Statements[4] -isnot [DeleteFileStmt]) { throw 'Expected delete file statement.' }
+if ($fileAst.Statements[5].Branches[0].Condition -isnot [FileExistsExpr]) { throw 'Expected file exists condition.' }
+if (-not $fileAst.Statements[6].IsCommand -and $fileAst.Statements[7].IsCommand -and $fileAst.Statements[7].ResultTarget -eq 'status') { } else { throw 'Expected run forms to preserve command and capture flags.' }
+
 try {
     ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source 'double 5 make result') | Out-Null
     throw 'Expected an undefined call to fail.'

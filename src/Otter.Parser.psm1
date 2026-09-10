@@ -80,6 +80,12 @@ function Read-OtterConditionPrimary {
         $token = Read-OtterToken
         return [NotExpr]::new((Read-OtterConditionPrimary), $token.Line)
     }
+    if (Test-OtterTokenKind ([TokenKind]::File)) {
+        $fileToken = Read-OtterToken
+        $path = Read-OtterValue
+        [void](Assert-OtterTokenKind ([TokenKind]::Exists) 'I expected "exists" after the file path.')
+        return [FileExistsExpr]::new($path, $fileToken.Line)
+    }
     $left = Read-OtterValue
     if (Test-OtterTokenKind ([TokenKind]::Contains)) {
         $operator = Read-OtterToken
@@ -263,6 +269,58 @@ function Read-OtterStatement {
             $name = Assert-OtterTokenKind ([TokenKind]::Identifier) 'I expected a variable name after "call it".'
             [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the question to end here.')
             return [AskStmt]::new($prompt, $name.Text, $start.Line)
+        }
+        ([TokenKind]::Read) {
+            [void](Read-OtterToken)
+            $path = Read-OtterValue
+            [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a variable name.')
+            $target = Assert-OtterTokenKind ([TokenKind]::Identifier) 'I expected a variable name after "into".'
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the read statement to end here.')
+            return [ReadFileStmt]::new($path, $target.Text, $start.Line)
+        }
+        ([TokenKind]::Write) {
+            [void](Read-OtterToken)
+            $content = Read-OtterValue
+            [void](Assert-OtterTokenKind ([TokenKind]::To) 'I expected "to" and a file path.')
+            $path = Read-OtterValue
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the write statement to end here.')
+            return [WriteFileStmt]::new($content, $path, $start.Line)
+        }
+        ([TokenKind]::Copy) {
+            [void](Read-OtterToken)
+            $source = Read-OtterValue
+            [void](Assert-OtterTokenKind ([TokenKind]::To) 'I expected "to" and a destination path.')
+            $destination = Read-OtterValue
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the copy statement to end here.')
+            return [CopyFileStmt]::new($source, $destination, $start.Line)
+        }
+        ([TokenKind]::Move) {
+            [void](Read-OtterToken)
+            $source = Read-OtterValue
+            [void](Assert-OtterTokenKind ([TokenKind]::To) 'I expected "to" and a destination path.')
+            $destination = Read-OtterValue
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the move statement to end here.')
+            return [MoveFileStmt]::new($source, $destination, $start.Line)
+        }
+        ([TokenKind]::Delete) {
+            [void](Read-OtterToken)
+            [void](Assert-OtterTokenKind ([TokenKind]::File) 'I expected "file" after delete.')
+            $path = Read-OtterValue
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the delete statement to end here.')
+            return [DeleteFileStmt]::new($path, $start.Line)
+        }
+        ([TokenKind]::Run) {
+            [void](Read-OtterToken)
+            $isCommand = $false
+            if (Test-OtterTokenKind ([TokenKind]::Command)) { [void](Read-OtterToken); $isCommand = $true }
+            $target = Read-OtterValue
+            $resultTarget = $null
+            if (Test-OtterTokenKind ([TokenKind]::Into)) {
+                [void](Read-OtterToken)
+                $resultTarget = (Assert-OtterTokenKind ([TokenKind]::Identifier) 'I expected a variable name after "into".').Text
+            }
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the run statement to end here.')
+            return [RunStmt]::new($target, $isCommand, $resultTarget, $start.Line)
         }
         ([TokenKind]::A) {
             [void](Read-OtterToken)
