@@ -330,6 +330,109 @@ Test-Otter 'measuring between something that is not a date explains itself' {
 
 
 # =================================================================
+# days between AS AN EXPRESSION (D42)
+#
+# Same calculation as the statement form above - D42 does not change what
+# "days between" computes, only where it is legal to write it. Every test
+# here has a matching statement-form test above with the identical fixture
+# dates, so the two forms are provable equal, not just both "correct."
+# =================================================================
+
+function DaysBetween {
+    param([Node]$Start, [Node]$End, [int]$Line = 1)
+    [DateDifferenceExpr]::new([TimeUnit]::Day, $Start, $End, $Line)
+}
+
+Test-Otter 'days between as a value, assigned with is (the canonical D42 form)' {
+    $out = Invoke-TestProgram @(
+        [AssignStmt]::new('startDate', (Lit (FixedDate '2026-09-01 00:00:00')), 1),
+        [AssignStmt]::new('endDate', (Lit (FixedDate '2026-09-09 00:00:00')), 2),
+        [AssignStmt]::new('waiting', (DaysBetween (Var 'startDate') (Var 'endDate') 3), 3),
+        [SayStmt]::new(@((Var 'waiting')), 4)
+    )
+    # Identical fixture to "days between two dates" above - same 8.
+    Assert-Lines -Expected @('8') -Actual $out
+}
+
+Test-Otter 'days between usable directly in say, with no destination at all' {
+    $out = Invoke-TestProgram @(
+        [AssignStmt]::new('a', (Lit (FixedDate '2026-09-01 00:00:00')), 1),
+        [AssignStmt]::new('b', (Lit (FixedDate '2026-09-09 00:00:00')), 2),
+        [SayStmt]::new(@((Lit 'Waiting:'), (DaysBetween (Var 'a') (Var 'b') 3)), 3)
+    )
+    Assert-Lines -Expected @('Waiting: 8') -Actual $out
+}
+
+Test-Otter 'days between usable directly inside a condition' {
+    $out = Invoke-TestProgram @(
+        [AssignStmt]::new('a', (Lit (FixedDate '2026-09-01 00:00:00')), 1),
+        [AssignStmt]::new('b', (Lit (FixedDate '2026-09-09 00:00:00')), 2),
+        [IfStmt]::new(
+            @([IfBranch]::new(
+                [ComparisonExpr]::new((DaysBetween (Var 'a') (Var 'b') 3), [CompareOp]::GreaterThan, (Lit 5.0), 3),
+                @([SayStmt]::new(@((Lit 'More than 5 days.')), 4)))),
+            $null, 3)
+    )
+    Assert-Lines -Expected @('More than 5 days.') -Actual $out
+}
+
+Test-Otter 'days between as an expression is signed, matching the statement form' {
+    $out = Invoke-TestProgram @(
+        [AssignStmt]::new('startDate', (Lit (FixedDate '2026-09-09 00:00:00')), 1),
+        [AssignStmt]::new('endDate', (Lit (FixedDate '2026-09-01 00:00:00')), 2),
+        [SayStmt]::new(@((DaysBetween (Var 'startDate') (Var 'endDate') 3)), 3)
+    )
+    # Identical fixture to "days between is signed when the dates are the
+    # other way round" above - same -8.
+    Assert-Lines -Expected @('-8') -Actual $out
+}
+
+Test-Otter 'days between as an expression truncates toward zero, matching the statement form' {
+    $out = Invoke-TestProgram @(
+        [AssignStmt]::new('a', (Lit (FixedDate '2026-09-01 00:00:00' $true)), 1),
+        [AssignStmt]::new('b', (Lit (FixedDate '2026-09-02 12:00:00' $true)), 2),
+        [SayStmt]::new(@((DaysBetween (Var 'a') (Var 'b') 3)), 3)
+    )
+    Assert-Lines -Expected @('1') -Actual $out
+}
+
+Test-Otter 'other units work as an expression too, not just days' {
+    $out = Invoke-TestProgram @(
+        [AssignStmt]::new('a', (Lit (FixedDate '2026-01-31 00:00:00')), 1),
+        [AssignStmt]::new('b', (Lit (FixedDate '2026-02-28 00:00:00')), 2),
+        [AssignStmt]::new('months', [DateDifferenceExpr]::new([TimeUnit]::Month, (Var 'a'), (Var 'b'), 3), 3),
+        [SayStmt]::new(@((Var 'months')), 4)
+    )
+    # Identical fixture to "months between uses the calendar" above - same 0.
+    Assert-Lines -Expected @('0') -Actual $out
+}
+
+Test-Otter 'the expression form gives the same OtterError as the statement form' {
+    Assert-OtterFails -Containing 'between two dates' -Body {
+        Invoke-TestProgram @(
+            [AssignStmt]::new('a', (Lit 'not a date'), 1),
+            [AssignStmt]::new('b', (Clock 'Today'), 2),
+            [SayStmt]::new(@((DaysBetween (Var 'a') (Var 'b') 3)), 3)
+        )
+    }
+}
+
+Test-Otter 'the legacy statement form still works, unchanged, alongside the expression' {
+    # Both forms in the same program, same fixture - proving D42 did not
+    # touch DateDifferenceStmt's behavior.
+    $out = Invoke-TestProgram @(
+        [AssignStmt]::new('a', (Lit (FixedDate '2026-09-01 00:00:00')), 1),
+        [AssignStmt]::new('b', (Lit (FixedDate '2026-09-09 00:00:00')), 2),
+        [DateDifferenceStmt]::new([TimeUnit]::Day, (Var 'a'), (Var 'b'), 'viaStatement', 3),
+        [AssignStmt]::new('viaExpression', (DaysBetween (Var 'a') (Var 'b') 4), 4),
+        [SayStmt]::new(@((Var 'viaStatement')), 5),
+        [SayStmt]::new(@((Var 'viaExpression')), 6)
+    )
+    Assert-Lines -Expected @('8', '8') -Actual $out
+}
+
+
+# =================================================================
 # D32.6 - comparison
 # =================================================================
 

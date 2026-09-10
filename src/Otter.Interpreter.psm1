@@ -762,17 +762,11 @@ function Invoke-OtterStatement {
         }
 
         # days between startDate and endDate make days
+        # days between startDate and endDate make days      (D32, legacy - D42 left this untouched)
         'DateDifference' {
             $start = Get-OtterValue -Expression $Statement.Start -Environment $Environment
             $end = Get-OtterValue -Expression $Statement.End -Environment $Environment
-
-            foreach ($side in @(@('first', $start), @('second', $end))) {
-                if (-not (Test-OtterDate $side[1])) {
-                    throw (New-OtterRuntimeError `
-                        -Message "I can only measure time between two dates, but the $($side[0]) one is $(Get-OtterTypeName $side[1])." `
-                        -Line $Statement.Line)
-                }
-            }
+            Assert-OtterDateOperands -Start $start -End $end -Line $Statement.Line
 
             # D32.7: SIGNED, end minus start, matching the argument order.
             # Whole units, truncated toward zero.
@@ -1122,6 +1116,23 @@ function Get-OtterValue {
             return (New-OtterNow)
         }
 
+        # days between startDate and endDate                            (D42)
+        #
+        # A genuine value, so it evaluates the same way Get-OtterValue
+        # evaluates everything else - usable in "is", in "say", inside a
+        # condition, as a function argument. Same calculation as the
+        # legacy statement form (D32.7: signed, end minus start, whole
+        # units truncated toward zero) - Assert-OtterDateOperands and
+        # Measure-OtterDateDifference are the SAME functions the
+        # 'DateDifference' statement case above calls, not a second copy.
+        'DateDifferenceValue' {
+            $start = Get-OtterValue -Expression $Expression.Start -Environment $Environment
+            $end = Get-OtterValue -Expression $Expression.End -Environment $Environment
+            Assert-OtterDateOperands -Start $start -End $end -Line $Expression.Line
+
+            return (Measure-OtterDateDifference -Start $start -End $end -Unit $Expression.Unit.ToString())
+        }
+
         default {
             throw (New-OtterRuntimeError `
                 -Message "I do not know how to work out a $($Expression.Kind) value yet." `
@@ -1366,6 +1377,21 @@ function Get-OtterDatePart {
         -Message "A date has no part called ""$Part""." `
         -Line $Line `
         -Suggestion "year of ...")
+}
+
+# D42: shared by DateDifferenceStmt (legacy) and DateDifferenceExpr, so the
+# validation is written once and both forms report it identically. Factored
+# out of the statement case, not duplicated into the new expression case.
+function Assert-OtterDateOperands {
+    param([object]$Start, [object]$End, [int]$Line)
+
+    foreach ($side in @(@('first', $Start), @('second', $End))) {
+        if (-not (Test-OtterDate $side[1])) {
+            throw (New-OtterRuntimeError `
+                -Message "I can only measure time between two dates, but the $($side[0]) one is $(Get-OtterTypeName $side[1])." `
+                -Line $Line)
+        }
+    }
 }
 
 # Whole units, truncated toward zero, signed end-minus-start (D32.7).
