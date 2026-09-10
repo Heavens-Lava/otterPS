@@ -25,7 +25,7 @@ at once (front end, back end, web) — this ledger is the single source
 of truth for "what's the next number," so nobody has to guess or
 collide with work in flight.
 
-NEXT DECISION NUMBER: D54
+NEXT DECISION NUMBER: D55
 
 CLAIMED:
 - D49 — HTTP requests and web data — Gemini
@@ -35,6 +35,8 @@ CLAIMED:
   resources, comma `put`, compact/optional-`is` inline `has`,
   contextual `the`, row/column layout) — Claude
 - D53 — scroll container — Claude (landed: `a550cbc`, `f29213f`)
+- D54 — physical alignment and `spread` (Batch 2) — Claude (semantics
+  frozen; grammar handoff to Codex pending, WPF implementation pending)
 
 ---
 
@@ -3339,4 +3341,152 @@ after `ScrollToBottom()` showing files (`variables.ot`, `ui-input.ot`,
 
 **No Codex handoff.** Nothing here touches the lexer, parser, or
 contract.
+
+---
+
+## D54. Physical alignment and `spread` (Batch 2) - semantics frozen, implementation pending
+
+```otter
+navbar is a row
+    width full
+    align "right"
+    align "middle"
+.
+
+toolbar is a row
+    width full
+    spread
+    align "middle"
+.
+```
+
+Batch 2 of the provider-neutral UI vocabulary track that started with
+`width full` / `height full` / `round` (Batch 1, `b136aa3`, Gemini).
+This entry freezes the semantics only. Grammar work is handed to Codex;
+WPF implementation is Claude's, after the grammar lands — the same
+sequencing D46/D47 already used (investigate and freeze first, build
+once the front end has something to build against).
+
+### The starting principle, and why it fits WPF better than CSS
+
+**Alignment describes physical position, not a flex/CSS axis.** `align
+top` always means physically top — row or column, no exception.
+Verified this isn't fighting WPF's grain: `HorizontalAlignment` and
+`VerticalAlignment` are already independent, physical, orthogonal
+properties on every `FrameworkElement` (`Left/Center/Right/Stretch` and
+`Top/Center/Bottom/Stretch` respectively, confirmed directly from the
+enums themselves) — nothing like CSS Flexbox's `align-items`/
+`justify-content`, which swap meaning depending on `flex-direction`.
+Otter's vocabulary is closer to native XAML semantics than to CSS here,
+not a simplification of CSS.
+
+### `middle` vs `center` - a real clarification, not a copy
+
+`center` always means horizontal; `middle` always means vertical.
+Verified WPF's own enums use `Center` for *both* axes (two separate
+enums that happen to share a name) — so this split fixes a real
+ambiguity in WPF's own vocabulary, not something borrowed from it.
+Frozen mnemonic: *center is left-right, middle is up-down.*
+
+### The axis-slot model - the architectural core of this entry
+
+Every `row`/`column` has exactly two axes: **main** (the direction
+children flow) and **cross** (perpendicular). Each axis has exactly one
+"slot," and alignment words are physical, so which word lands in which
+slot depends on the container:
+
+| Container | Main-axis slot (child-group position) | Cross-axis slot (each child's position) |
+|---|---|---|
+| `row` | `left` / `center` / `right` / `spread` | `top` / `middle` / `bottom` |
+| `column` | `top` / `middle` / `bottom` / `spread` | `left` / `center` / `right` |
+
+- **Cross-axis alignment is a per-child property.** Verified this is
+  nearly free: a horizontal `StackPanel`'s children default to
+  `VerticalAlignment = Stretch` (confirmed directly) — `align top/
+  middle/bottom` on a `row` just steers that already-orthogonal
+  property away from its default, the same move D48 already made for
+  `HorizontalAlignment` on ordinary controls.
+- **Main-axis alignment is child-*group* positioning, not a per-child
+  property**, and only has a visible effect once the container has more
+  room than its content needs (an explicit size, or `width full`/
+  `height full` filling a larger parent) — otherwise there is no slack
+  to position within, matching D53's "content that doesn't overflow"
+  precedent for edge-case honesty.
+- **Conflict rule: at most one filled slot per axis.** `row has spread;
+  align "left"` conflicts (`spread` and `left` are both main-axis).
+  `row has align "left"; align "right"` conflicts (both main-axis).
+  `row has align "top"; align "bottom"` conflicts (both cross-axis).
+  `row has spread; align "middle"` is valid (`spread` fills main,
+  `middle` fills cross — different slots). `row has align "top"; align
+  "right"` is valid and means "top-right" (cross + main, different
+  slots) — this is the general form of the "two alignments compose into
+  a corner" case, not a special rule about which two words happen to be
+  compatible. Implementation-wise this is a resolve-and-validate step
+  (`Resolve physical axis → cross axis: child alignment` / `→ main
+  axis: container child-group positioning`), not a per-property
+  WPF-alignment translation — keeping this distinction explicit in the
+  semantic layer is what lets `spread` and main-axis `align` share one
+  mechanism later, rather than being separate special cases.
+
+### `spread` means `space-between`, specifically
+
+`spread` distributes children across the main axis using all available
+leftover space — frozen as `space-between` (children pack to each end,
+gaps fill the space between them), not `space-around` or `space-evenly`
+— the most intuitive physical reading of "spread apart." If Otter ever
+needs the other two, they get their own names that describe what they
+actually do rather than overloading `spread`.
+
+**Real implementation cost, verified, not assumed:** `StackPanel` has
+no main-axis distribution capability at all (checked its complete
+property list — nothing resembling `space-between`). A `Grid` with
+star-sized columns/rows is the natural WPF vehicle instead (confirmed
+one constructs cleanly with `GridUnitType.Star` columns) — meaning a
+`spread`-marked row/column needs a different underlying panel than the
+plain `StackPanel` every other row/column uses today, not a property
+flip. This is real work for the implementation phase, not a semantic
+concern, and is exactly the kind of thing this investigation exists to
+surface before Codex encodes grammar around an assumption that turns
+out to be more expensive than it looks.
+
+### Grammar: two different answers for `align` and `spread`, checked against the actual parser
+
+- **`align "middle"` needs zero grammar change.** Direction words are
+  plain strings — the existing compact-`has` grammar already parses
+  `property "string"` (`background "blue"` already works). `align`
+  becomes a new property with `Type = 'direction'` in the existing
+  D45/D48 table, validated against a closed set the same way colors
+  are. **Unquoted `align middle` is explicitly deferred** — traced
+  through the actual parser and confirmed it is a real, dangerous
+  ambiguity as written: `middle` with no quotes parses as a reference
+  to an *undefined variable* named `middle`, which is not a parse
+  error, only a runtime one ("middle is not defined") the first time
+  the line executes. Supporting it safely needs a small, scoped Codex
+  change (recognizing this closed word set in property-value position)
+  — deliberately out of scope for D54's freeze.
+- **Bare `spread` (no value at all) needs one small, deliberately
+  general grammar addition, not an alignment-specific one.** A bare
+  property name in a `has` block, with nothing before the next comma or
+  newline, means `is true` — e.g. `spread` desugars to `spread is
+  true`, and the same shorthand applies to any future boolean property
+  (`disabled`, `rounded`, `shadow`, ...), not just this one. The
+  semantic layer still rejects a bare property whose type isn't
+  boolean, so this doesn't weaken existing type checking anywhere.
+
+### Codex handoff
+
+Grammar-only, matching the D46/D47 pattern: general bare-boolean-property
+shorthand in `has` blocks (`property` alone → `property is true`,
+rejected downstream if that property isn't boolean-typed). Quoted
+`align "direction"` needs nothing new from the parser at all.
+
+### What's built
+
+Nothing yet. This entry freezes semantics only, per Jeff's explicit
+instruction not to implement during the investigation. WPF
+implementation (the axis-slot resolver, `Grid`-based `spread` for rows/
+columns, cross-axis per-child alignment, conflict validation) is
+Claude's, once Codex's bare-boolean-shorthand grammar lands — tested
+against real WPF layout behavior the same way D53 was, not assumed from
+this entry's reasoning alone.
 
