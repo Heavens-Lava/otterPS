@@ -282,8 +282,11 @@ enum NodeKind {
     # dates and time (D32)
     Clock           # today / now
     DateAdjust      # add 7 days to date / remove 1 month from date
-    DateDifference  # days between startDate and endDate make days
+    DateDifference  # days between startDate and endDate make days  (D32, legacy form - D42 kept this untouched)
     FormatDate      # format date as "MM/dd/yyyy" into text
+
+    # dates and time, as an expression (D42)
+    DateDifferenceValue  # days between startDate and endDate       (a VALUE, usable anywhere an expression is)
 }
 
 enum MathOp { Add; Subtract; Multiply; Divide }
@@ -1190,6 +1193,33 @@ class DateDifferenceStmt : Node {
         $this.Start = $start
         $this.End = $end
         $this.Target = $target
+    }
+}
+
+# days between startDate and endDate                              (D42)
+#
+# The expression form of DateDifferenceStmt above - a genuine VALUE, so it
+# is legal anywhere Otter accepts an expression, not only as the whole
+# right-hand side of a "make" statement:
+#
+#     waiting is days between date and deadline
+#     say days between start and finish
+#     if days between start and finish is greater than 30
+#
+# Deliberately a SEPARATE node from DateDifferenceStmt, not a replacement
+# for it. D42 does not repurpose the statement form - "days between X and Y
+# make Z" (D32) keeps working exactly as it always has, as legacy
+# compatibility syntax; this is additive, the same coexistence pattern used
+# everywhere in this project (D3, D34-D36, D40). No destination variable
+# here - a plain value has nothing to assign into.
+class DateDifferenceExpr : Node {
+    [TimeUnit]$Unit
+    [Node]$Start
+    [Node]$End
+    DateDifferenceExpr([TimeUnit]$unit, [Node]$start, [Node]$end, [int]$line) : base([NodeKind]::DateDifferenceValue, $line) {
+        $this.Unit = $unit
+        $this.Start = $start
+        $this.End = $end
     }
 }
 
