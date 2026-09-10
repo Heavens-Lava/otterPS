@@ -282,6 +282,42 @@ function Invoke-OtterStatement {
             return
         }
 
+        # put helloButton in app                                  (D47)
+        'PutIn' {
+            $item = Get-OtterValue -Expression $Statement.Item -Environment $Environment
+            if (-not (Test-OtterUiResource $item)) {
+                $shown = Get-OtterTypeName -Value $item
+                throw (New-OtterRuntimeError `
+                    -Message "I can only put a UI resource somewhere, but this is $shown." `
+                    -Line $Statement.Line)
+            }
+
+            $container = Get-OtterValue -Expression $Statement.Container -Environment $Environment
+            if (-not (Test-OtterUiResource $container)) {
+                $shown = Get-OtterTypeName -Value $container
+                throw (New-OtterRuntimeError `
+                    -Message "I can only put something in a UI resource, but this is $shown." `
+                    -Line $Statement.Line)
+            }
+
+            Add-OtterUiChild -Container $container -Item $item -Line $Statement.Line
+            return
+        }
+
+        # show app                                                (D47)
+        'Show' {
+            $target = Get-OtterValue -Expression $Statement.Target -Environment $Environment
+            if (-not (Test-OtterUiResource $target)) {
+                $shown = Get-OtterTypeName -Value $target
+                throw (New-OtterRuntimeError `
+                    -Message "I can only show a UI resource, but this is $shown." `
+                    -Line $Statement.Line)
+            }
+
+            Show-OtterUiResource -Resource $target -Line $Statement.Line
+            return
+        }
+
         # get "Jeff" from scores into score      (D41 - missing key is gone, not an error)
         'GetKey' {
             $target = Get-OtterValue -Expression $Statement.Target -Environment $Environment

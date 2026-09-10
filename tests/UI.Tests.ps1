@@ -361,6 +361,174 @@ Test-Otter 'listening on something that is not a UI resource explains itself, ne
 
 
 # =================================================================
+# D47 - put/show. The smallest end-to-end app: a real window appears,
+# stays alive, accepts a real click, and closes cleanly.
+# =================================================================
+
+Test-Otter 'D47 end-to-end: create, put, show - a real click runs the handler, then the window closes cleanly' {
+    $env = New-OtterEnvironment
+    $collected = [System.Collections.Generic.List[string]]::new()
+    $writer = { param($t) $collected.Add($t) }.GetNewClosure()
+    Set-OtterOutputWriter -Writer $writer
+    try {
+        Invoke-OtterStatements -Environment $env -Statements @(
+            [CreateUiResourceStmt]::new('window', 'app', 1),
+            [CreateUiResourceStmt]::new('button', 'helloButton', 2),
+            [AssignStmt]::new([PropertyAccessExpr]::new('text', [VariableExpr]::new('helloButton', 3), 3), (Lit 'Say Hello'), 3),
+            [WhenStmt]::new([VariableExpr]::new('helloButton', 4), 'clicked', @([SayStmt]::new(@((Lit 'Hello!')), 5)), 4),
+            [PutInStmt]::new([VariableExpr]::new('helloButton', 6), [VariableExpr]::new('app', 6), 6)
+        )
+
+        $appResource = $env.Get('app')
+        $buttonResource = $env.Get('helloButton')
+
+        # Stands in for a real user click, exactly as D46's own tests do -
+        # then closes the window the way a person closing it via the
+        # title bar would, so `show` (ShowDialog, blocking) returns and
+        # this test cannot hang.
+        $fired = $false
+        $timer = [System.Windows.Threading.DispatcherTimer]::new()
+        $timer.Interval = [TimeSpan]::FromMilliseconds(200)
+        $timer.add_Tick({
+            if (-not $fired) {
+                $fired = $true
+                $buttonResource.Native.RaiseEvent(
+                    [System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Button]::ClickEvent))
+            }
+            $timer.Stop()
+            $appResource.Native.Close()
+        })
+        $timer.Start()
+
+        Invoke-OtterStatement -Statement ([ShowStmt]::new([VariableExpr]::new('app', 7), 7)) -Environment $env
+    }
+    finally {
+        Set-OtterOutputWriter -Writer $null
+    }
+    Assert-Lines -Expected @('Hello!') -Actual $collected.ToArray()
+}
+
+Test-Otter 'put attaches the existing resource - identity is unchanged, never recreated or copied' {
+    $env = New-OtterEnvironment
+    Invoke-OtterStatements -Environment $env -Statements @(
+        [CreateUiResourceStmt]::new('window', 'app', 1),
+        [CreateUiResourceStmt]::new('button', 'helloButton', 2),
+        [PutInStmt]::new([VariableExpr]::new('helloButton', 3), [VariableExpr]::new('app', 3), 3)
+    )
+    $button = $env.Get('helloButton')
+    $panel = $env.Get('app').Native.Content
+    Assert-True ([object]::ReferenceEquals($panel.Children[0], $button.Native)) 'put must attach the same native object, not a copy'
+}
+
+Test-Otter 'repeated puts preserve order in the invisible default container' {
+    $env = New-OtterEnvironment
+    Invoke-OtterStatements -Environment $env -Statements @(
+        [CreateUiResourceStmt]::new('window', 'app', 1),
+        [CreateUiResourceStmt]::new('button', 'first', 2),
+        [CreateUiResourceStmt]::new('button', 'second', 3),
+        [PutInStmt]::new([VariableExpr]::new('first', 4), [VariableExpr]::new('app', 4), 4),
+        [PutInStmt]::new([VariableExpr]::new('second', 5), [VariableExpr]::new('app', 5), 5)
+    )
+    $panel = $env.Get('app').Native.Content
+    Assert-True ([object]::ReferenceEquals($panel.Children[0], $env.Get('first').Native)) 'first put must come first'
+    Assert-True ([object]::ReferenceEquals($panel.Children[1], $env.Get('second').Native)) 'second put must come second'
+}
+
+Test-Otter 'a resource can have only one parent - putting it into a second window is a clean Otter error' {
+    Assert-OtterFails -Containing 'already somewhere else' -Body {
+        Invoke-TestProgram @(
+            [CreateUiResourceStmt]::new('window', 'app', 1),
+            [CreateUiResourceStmt]::new('window', 'other', 2),
+            [CreateUiResourceStmt]::new('button', 'helloButton', 3),
+            [PutInStmt]::new([VariableExpr]::new('helloButton', 4), [VariableExpr]::new('app', 4), 4),
+            [PutInStmt]::new([VariableExpr]::new('helloButton', 5), [VariableExpr]::new('other', 5), 5)
+        )
+    }
+}
+
+Test-Otter 'putting the same resource twice into the same window is also a clean Otter error, not a raw .NET one' {
+    Assert-OtterFails -Containing 'already somewhere else' -Body {
+        Invoke-TestProgram @(
+            [CreateUiResourceStmt]::new('window', 'app', 1),
+            [CreateUiResourceStmt]::new('button', 'helloButton', 2),
+            [PutInStmt]::new([VariableExpr]::new('helloButton', 3), [VariableExpr]::new('app', 3), 3),
+            [PutInStmt]::new([VariableExpr]::new('helloButton', 4), [VariableExpr]::new('app', 4), 4)
+        )
+    }
+}
+
+Test-Otter 'putting into a non-window names the actual kind, never Panel or Grid' {
+    Assert-OtterFails -Containing 'not a button' -Body {
+        Invoke-TestProgram @(
+            [CreateUiResourceStmt]::new('button', 'a', 1),
+            [CreateUiResourceStmt]::new('button', 'b', 2),
+            [PutInStmt]::new([VariableExpr]::new('b', 3), [VariableExpr]::new('a', 3), 3)
+        )
+    }
+}
+
+Test-Otter 'putting a non-UI-resource, or into one, explains itself in Otter terms' {
+    Assert-OtterFails -Containing 'this is some text' -Body {
+        Invoke-TestProgram @(
+            [CreateUiResourceStmt]::new('window', 'app', 1),
+            [AssignStmt]::new('notAResource', (Lit 'just text'), 2),
+            [PutInStmt]::new([VariableExpr]::new('notAResource', 3), [VariableExpr]::new('app', 3), 3)
+        )
+    }
+}
+
+Test-Otter 'showing a non-window names the actual kind' {
+    Assert-OtterFails -Containing 'not a button' -Body {
+        Invoke-TestProgram @(
+            [CreateUiResourceStmt]::new('button', 'helloButton', 1),
+            [ShowStmt]::new([VariableExpr]::new('helloButton', 2), 2)
+        )
+    }
+}
+
+Test-Otter 'showing a value that is not a UI resource at all explains itself' {
+    Assert-OtterFails -Containing 'this is some text' -Body {
+        Invoke-TestProgram @(
+            [AssignStmt]::new('notAResource', (Lit 'just text'), 1),
+            [ShowStmt]::new([VariableExpr]::new('notAResource', 2), 2)
+        )
+    }
+}
+
+Test-Otter 'an empty window (nothing ever put in it) shows and closes cleanly' {
+    $env = New-OtterEnvironment
+    Invoke-OtterStatements -Environment $env -Statements @(
+        [CreateUiResourceStmt]::new('window', 'app', 1)
+    )
+    $appResource = $env.Get('app')
+    $timer = [System.Windows.Threading.DispatcherTimer]::new()
+    $timer.Interval = [TimeSpan]::FromMilliseconds(150)
+    $timer.add_Tick({ $timer.Stop(); $appResource.Native.Close() })
+    $timer.Start()
+    Invoke-OtterStatement -Statement ([ShowStmt]::new([VariableExpr]::new('app', 2), 2)) -Environment $env
+    # reaching this line at all is the assertion - ShowDialog returned
+    Assert-True $true 'an empty window must show and close without error'
+}
+
+Test-Otter 'a closed window cannot be shown again - a clean Otter error, not the raw .NET one' {
+    $env = New-OtterEnvironment
+    Invoke-OtterStatements -Environment $env -Statements @(
+        [CreateUiResourceStmt]::new('window', 'app', 1)
+    )
+    $appResource = $env.Get('app')
+    $timer = [System.Windows.Threading.DispatcherTimer]::new()
+    $timer.Interval = [TimeSpan]::FromMilliseconds(150)
+    $timer.add_Tick({ $timer.Stop(); $appResource.Native.Close() })
+    $timer.Start()
+    Invoke-OtterStatement -Statement ([ShowStmt]::new([VariableExpr]::new('app', 2), 2)) -Environment $env
+
+    Assert-OtterFails -Containing "can't be shown again" -Body {
+        Invoke-OtterStatement -Statement ([ShowStmt]::new([VariableExpr]::new('app', 3), 3)) -Environment $env
+    }
+}
+
+
+# =================================================================
 # D40/D43: has still means data, create still means an external resource
 # =================================================================
 

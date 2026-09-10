@@ -298,6 +298,76 @@ function Add-OtterUiEventHandler {
 }
 
 
+# ===============================================================
+# LAYOUT AND SHOW (D47) - the smallest possible container and message
+# loop, not a general layout system.
+# ===============================================================
+#
+#     put helloButton in app
+#     show app
+#
+# A window's put-in children live in an Otter-invisible, provider-managed
+# StackPanel (default vertical stacking) - created lazily on the first
+# put. Nothing outside this function ever creates, names, or reads that
+# panel; Otter code never sees it, the same way it never sees Window's
+# other backing fields. `put` attaches the EXISTING resource - it never
+# recreates or copies it (D44 identity guarantee still holds). Repeated
+# puts preserve order because Children.Add always appends.
+#
+# A resource can have only one parent. WPF itself already enforces this
+# (verified: a second Children.Add of the same element throws
+# InvalidOperationException, wrapped by PowerShell as a
+# MethodInvocationException) - caught and translated here so no .NET
+# exception text ever reaches an Otter user.
+function Add-OtterUiChild {
+    param([OtterUiResource]$Container, [OtterUiResource]$Item, [int]$Line)
+
+    if ($Container.Kind -ne 'window') {
+        throw [OtterError]::new(
+            "I can only put things in a window right now, not a $($Container.Kind).", $Line, 'runtime')
+    }
+
+    if ($null -eq $Container.Native.Content) {
+        $Container.Native.Content = [System.Windows.Controls.StackPanel]::new()
+    }
+    $panel = $Container.Native.Content
+
+    try {
+        [void]$panel.Children.Add($Item.Native)
+    }
+    catch {
+        throw [OtterError]::new(
+            "A $($Item.Kind) can only be in one place at a time, and this one is already somewhere else.",
+            $Line, 'runtime')
+    }
+}
+
+# show app
+#
+# Modal only for D47: blocks until the window closes, then returns.
+# Showing an empty window (nothing ever put in it) is valid - verified
+# directly, WPF raises no error for that. A window that has already been
+# closed cannot be shown again - verified WPF itself throws
+# InvalidOperationException for this too; translated the same way.
+function Show-OtterUiResource {
+    param([OtterUiResource]$Resource, [int]$Line)
+
+    if ($Resource.Kind -ne 'window') {
+        throw [OtterError]::new(
+            "I can only show a window right now, not a $($Resource.Kind).", $Line, 'runtime')
+    }
+
+    try {
+        [void]$Resource.Native.ShowDialog()
+    }
+    catch {
+        throw [OtterError]::new(
+            "This window has already been closed, so it can't be shown again.", $Line, 'runtime')
+    }
+}
+
+
 Export-ModuleMember -Function `
     Test-OtterUiResource, New-OtterUiResourceValue, Initialize-OtterWpfProvider, `
-    Get-OtterUiProperty, Set-OtterUiProperty, Add-OtterUiEventHandler
+    Get-OtterUiProperty, Set-OtterUiProperty, Add-OtterUiEventHandler, `
+    Add-OtterUiChild, Show-OtterUiResource
