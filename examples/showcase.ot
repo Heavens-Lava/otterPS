@@ -1,0 +1,50 @@
+# showcase.ot - Interactive Otter Web Application
+# Compile to web with: Export-OtterWebApplication -SourcePath .\examples\showcase.ot
+
+app is a page
+    title is "Otter Web Showcase"
+    width is 560
+    background is "#0f172a"
+    spacing is 14
+.
+
+headerText is a text
+    value is "Welcome to Otter Web!"
+    foreground is "#38bdf8"
+.
+
+subtitleText is a text
+    value is "Write clean, human-readable code that compiles straight to HTML5."
+    foreground is "#94a3b8"
+.
+
+inputBox is a text box
+    placeholder is "Type something here..."
+    background is "#1e293b"
+    foreground is "white"
+    width is 340
+.
+
+actionButton is a button
+    text is "Click Me!"
+    background is "#6366f1"
+    foreground is "white"
+    width is 120
+.
+
+outputMessage is a text
+    value is "Waiting for input..."
+    foreground is "#a7f3d0"
+.
+
+when actionButton is clicked
+    entered is text of inputBox
+    if entered is empty
+        text of outputMessage is "You clicked the button with empty input!"
+    otherwise
+        text of outputMessage is entered
+    .
+.
+
+put headerText, subtitleText, inputBox, actionButton, outputMessage in app
+show app

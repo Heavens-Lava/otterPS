@@ -18,6 +18,8 @@ function ConvertTo-OtterJsExpression {
             return "`"$escaped`""
         }
         ([NodeKind]::Variable) {
+            if ($Expr.Name -eq 'empty') { return '""' }
+            if ($Expr.Name -eq 'gone') { return 'null' }
             return $Expr.Name
         }
         ([NodeKind]::PropertyAccess) {
@@ -529,6 +531,8 @@ $elementsHtml
 
   <script>
     // Otter Runtime helpers for the browser
+    const empty = "";
+    const gone = null;
     function otterGetElement(id) { return document.getElementById(id); }
     function otterGetText(id) {
       const el = otterGetElement(id);
