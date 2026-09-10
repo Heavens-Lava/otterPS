@@ -116,6 +116,18 @@ before a single line of the parser exists.
 - Write readable PowerShell: full cmdlet names, no `%` / `?` / `gci` aliases in
   source. Ordinary loops beat forced pipelines inside an interpreter.
 - Tokenize once, parse once, execute the AST. Never re-parse per statement.
+- **In a WPF test/verification harness, never rely on a plain reassigned
+  local variable to persist state across separate `DispatcherTimer.Tick`
+  invocations of the same `.GetNewClosure()`'d scriptblock — it does not
+  reliably persist.** Confirmed reproducible twice during D53's work: a
+  `$fired = $true` (or `$step++`) inside the tick handler read back as
+  its original value on the *next* tick, causing a handler meant to fire
+  once to silently re-run every interval instead (in one case creating
+  17x the expected UI elements before a failsafe caught it). The fix:
+  use a mutable reference type — a `[hashtable]` field, a `.NET` list —
+  captured by the closure, and mutate a field on it rather than
+  reassigning the variable itself. This applies to test harnesses only;
+  it has nothing to do with Otter's own interpreter or runtime.
 
 ## Before you hand off
 
