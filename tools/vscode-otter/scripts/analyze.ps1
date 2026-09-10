@@ -72,6 +72,7 @@ try {
         }
     }
     foreach ($statement in $ast.Statements) { Visit $statement $rootScope }
+    $rootScope.EndLine = [Math]::Max($rootScope.EndLine, $sourceLines.Count)
     [pscustomobject]@{ Ok = $true; Variables = @($variables | Select-Object -Unique); Functions = @($functions | Select-Object -Unique); Symbols = @($symbols); Scopes = @($scopes); ObjectProperties = $objectProperties } | ConvertTo-Json -Compress -Depth 8
 }
 catch {
