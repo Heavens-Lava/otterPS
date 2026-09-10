@@ -637,6 +637,89 @@ function Invoke-OtterStatement {
             return
         }
 
+        # --- dates and time (D32) -------------------------------
+
+        # add 7 days to date   /   remove 1 month from date
+        'DateAdjust' {
+            $name = $Statement.Target
+            if (-not $Environment.Has($name)) {
+                throw (New-OtterRuntimeError -Message "Otter could not find the variable ""$name""." -Line $Statement.Line)
+            }
+
+            $current = $Environment.Get($name)
+            if (-not (Test-OtterDate $current)) {
+                throw (New-OtterRuntimeError `
+                    -Message "I can only add time to a date, but ""$name"" holds $(Get-OtterTypeName $current)." `
+                    -Line $Statement.Line)
+            }
+
+            $amountRaw = Get-OtterValue -Expression $Statement.Amount -Environment $Environment
+            $amount = Assert-OtterNumber -Value $amountRaw -Line $Statement.Line -What 'the amount of time'
+            $whole = [int][Math]::Truncate($amount)
+            if ($Statement.IsRemoval) { $whole = -$whole }
+
+            $unit = $Statement.Unit.ToString()
+            Assert-OtterUnitAllowed -Value $current -Unit $unit -Line $Statement.Line
+
+            # Adjusting REPLACES the value rather than mutating in place, so
+            # two variables holding the same date never move together.
+            $moved = switch ($unit) {
+                'Year' { $current.Value.AddYears($whole) }
+                'Month' { $current.Value.AddMonths($whole) }
+                'Day' { $current.Value.AddDays($whole) }
+                'Hour' { $current.Value.AddHours($whole) }
+                'Minute' { $current.Value.AddMinutes($whole) }
+                'Second' { $current.Value.AddSeconds($whole) }
+            }
+            $Environment.Set($name, [OtterDate]::new($moved, $current.HasTime))
+            return
+        }
+
+        # days between startDate and endDate make days
+        'DateDifference' {
+            $start = Get-OtterValue -Expression $Statement.Start -Environment $Environment
+            $end = Get-OtterValue -Expression $Statement.End -Environment $Environment
+
+            foreach ($side in @(@('first', $start), @('second', $end))) {
+                if (-not (Test-OtterDate $side[1])) {
+                    throw (New-OtterRuntimeError `
+                        -Message "I can only measure time between two dates, but the $($side[0]) one is $(Get-OtterTypeName $side[1])." `
+                        -Line $Statement.Line)
+                }
+            }
+
+            # D32.7: SIGNED, end minus start, matching the argument order.
+            # Whole units, truncated toward zero.
+            $Environment.Set($Statement.Target,
+                (Measure-OtterDateDifference -Start $start -End $end -Unit $Statement.Unit.ToString()))
+            return
+        }
+
+        # format date as "MM/dd/yyyy" into text
+        'FormatDate' {
+            $subject = Get-OtterValue -Expression $Statement.Subject -Environment $Environment
+            if (-not (Test-OtterDate $subject)) {
+                throw (New-OtterRuntimeError `
+                    -Message "I can only format a date, but this is $(Get-OtterTypeName $subject)." `
+                    -Line $Statement.Line)
+            }
+
+            $pattern = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.Format -Environment $Environment)
+            try {
+                $text = $subject.Value.ToString($pattern, [System.Globalization.CultureInfo]::InvariantCulture)
+            }
+            catch {
+                throw (New-OtterRuntimeError `
+                    -Message "I do not understand the date format $pattern." `
+                    -Line $Statement.Line `
+                    -Suggestion 'format date as "MM/dd/yyyy" into text')
+            }
+
+            # D32.4: the date itself is untouched.
+            $Environment.Set($Statement.Target, $text)
+            return
+        }
+
         default {
             throw (New-OtterRuntimeError `
                 -Message "I do not know how to run a $($Statement.Kind) statement yet." `
@@ -776,6 +859,18 @@ function Get-OtterValue {
                 'NotEqual' { return (-not (Test-OtterEqual -Left $left -Right $right)) }
             }
 
+            # D32.6: two dates order by their instant, using the comparison
+            # words Otter already has. No new syntax.
+            if ((Test-OtterDate $left) -and (Test-OtterDate $right)) {
+                $comparison = $left.Value.CompareTo($right.Value)
+                switch ($Expression.Op.ToString()) {
+                    'AtLeast' { return ($comparison -ge 0) }
+                    'AtMost' { return ($comparison -le 0) }
+                    'GreaterThan' { return ($comparison -gt 0) }
+                    'LessThan' { return ($comparison -lt 0) }
+                }
+            }
+
             # The four ordering comparisons need real numbers on both sides.
             $l = Assert-OtterNumber -Value $left -Line $Expression.Line -What 'the left side of this comparison'
             $r = Assert-OtterNumber -Value $right -Line $Expression.Line -What 'the right side of this comparison'
@@ -841,9 +936,17 @@ function Get-OtterValue {
             return
         }
 
-        # name of person   /   city of address of user
+        # name of person   /   city of address of user   /   year of date
         'PropertyAccess' {
             $target = Get-OtterValue -Expression $Expression.Target -Environment $Environment
+
+            # D32.2: a date answers its own parts. This is why date parts are
+            # NOT operation words - "year of book" on a thing has to keep
+            # meaning the stored property, and the two are indistinguishable
+            # until the value is in hand.
+            if (Test-OtterDate $target) {
+                return (Get-OtterDatePart -Date $target -Part $Expression.Property -Line $Expression.Line)
+            }
 
             if (-not (Test-OtterObject $target)) {
                 throw (New-OtterRuntimeError `
@@ -925,6 +1028,12 @@ function Get-OtterValue {
                 return $subject.StartsWith($value, [System.StringComparison]::Ordinal)
             }
             return $subject.EndsWith($value, [System.StringComparison]::Ordinal)
+        }
+
+        # today   /   now                                      (D32)
+        'Clock' {
+            if ($Expression.Clock.ToString() -eq 'Today') { return (New-OtterToday) }
+            return (New-OtterNow)
         }
 
         default {
@@ -1129,6 +1238,76 @@ function Get-OtterText {
     return (Format-OtterValue -Value $value)
 }
 
+# D32.1: hour/minute/second belong to a date AND time. Asking a plain date
+# for its hour is a mistake, not a zero.
+$script:DateOnlyUnits = @('Year', 'Month', 'Day')
+
+function Assert-OtterUnitAllowed {
+    param([object]$Value, [string]$Unit, [int]$Line)
+
+    if ($Value.HasTime) { return }
+    if ($script:DateOnlyUnits -contains $Unit) { return }
+
+    throw (New-OtterRuntimeError `
+        -Message "This is a date with no time of day, so it has no $($Unit.ToLowerInvariant())." `
+        -Line $Line `
+        -Suggestion 'started is now')
+}
+
+# year of date / month of date / hour of started ...
+function Get-OtterDatePart {
+    param([object]$Date, [string]$Part, [int]$Line)
+
+    switch ($Part) {
+        'year' { return [double]$Date.Value.Year }
+        'month' { return [double]$Date.Value.Month }   # 1-12, never a name
+        'day' { return [double]$Date.Value.Day }
+        'hour' {
+            Assert-OtterUnitAllowed -Value $Date -Unit 'Hour' -Line $Line
+            return [double]$Date.Value.Hour
+        }
+        'minute' {
+            Assert-OtterUnitAllowed -Value $Date -Unit 'Minute' -Line $Line
+            return [double]$Date.Value.Minute
+        }
+        'second' {
+            Assert-OtterUnitAllowed -Value $Date -Unit 'Second' -Line $Line
+            return [double]$Date.Value.Second
+        }
+    }
+
+    throw (New-OtterRuntimeError `
+        -Message "A date has no part called ""$Part""." `
+        -Line $Line `
+        -Suggestion "year of ...")
+}
+
+# Whole units, truncated toward zero, signed end-minus-start (D32.7).
+function Measure-OtterDateDifference {
+    param([object]$Start, [object]$End, [string]$Unit)
+
+    $from = $Start.Value
+    $to = $End.Value
+
+    if ($Unit -eq 'Year' -or $Unit -eq 'Month') {
+        # Calendar months, not averaged days: Jan 31 to Feb 28 is one month.
+        $months = (($to.Year - $from.Year) * 12) + ($to.Month - $from.Month)
+        if ($months -gt 0 -and $to.Day -lt $from.Day) { $months-- }
+        if ($months -lt 0 -and $to.Day -gt $from.Day) { $months++ }
+        if ($Unit -eq 'Month') { return [double]$months }
+        return [double][Math]::Truncate($months / 12)
+    }
+
+    $span = $to - $from
+    switch ($Unit) {
+        'Day' { return [double][Math]::Truncate($span.TotalDays) }
+        'Hour' { return [double][Math]::Truncate($span.TotalHours) }
+        'Minute' { return [double][Math]::Truncate($span.TotalMinutes) }
+        'Second' { return [double][Math]::Truncate($span.TotalSeconds) }
+    }
+    return 0.0
+}
+
 # Type names as a beginner would say them, for error messages.
 function Get-OtterTypeName {
     param([object]$Value)
@@ -1136,6 +1315,10 @@ function Get-OtterTypeName {
     if ($null -eq $Value) { return 'gone' }
     if ($Value -is [bool]) { return 'a true or false value' }
     if ($Value -is [OtterFunction]) { return 'something Otter can do' }
+    if (Test-OtterDate $Value) {
+        if ($Value.HasTime) { return 'a date and time' }
+        return 'a date'
+    }
     if (Test-OtterObject $Value) { return "a $($Value.TypeName)" }
     if ($Value -is [OtterType]) { return "the type $($Value.Name)" }
     if (Test-OtterList $Value) { return 'a list' }

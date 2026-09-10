@@ -92,6 +92,53 @@ class OtterEnvironment {
 
 
 # ===============================================================
+# DATES (D32)
+# ===============================================================
+#
+#     date is today       -> a date, no time of day
+#     started is now      -> a date AND a time
+#
+# A date is a real value, not text. Text would have to be re-parsed on every
+# comparison and every piece of arithmetic, and "add 7 days" to a string is
+# not a thing that can be made to work.
+#
+# HasTime is what separates the two. "hour of" a plain date is a mistake
+# worth reporting rather than answering with a silent zero - midnight and
+# "no time at all" are different.
+
+class OtterDate {
+    [datetime]$Value
+    [bool]$HasTime
+
+    OtterDate([datetime]$value, [bool]$hasTime) {
+        $this.HasTime = $hasTime
+        # A date with no time is pinned to midnight so two dates made the
+        # same day are equal regardless of when they were made.
+        if ($hasTime) { $this.Value = $value }
+        else { $this.Value = $value.Date }
+    }
+
+    [string] ToString() {
+        if ($this.HasTime) { return $this.Value.ToString('yyyy-MM-dd HH:mm:ss') }
+        return $this.Value.ToString('yyyy-MM-dd')
+    }
+}
+
+function Test-OtterDate {
+    param([object]$Value)
+    return $Value -is [OtterDate]
+}
+
+function New-OtterToday {
+    return [OtterDate]::new([datetime]::Now, $false)
+}
+
+function New-OtterNow {
+    return [OtterDate]::new([datetime]::Now, $true)
+}
+
+
+# ===============================================================
 # FUNCTIONS - what "to greet name" creates
 # ===============================================================
 
@@ -249,6 +296,11 @@ function Format-OtterValue {
         return $number.ToString('0.##########', $culture)
     }
 
+    # D32.5: ISO-style, because it is unambiguous, sorts correctly as text,
+    # and does not silently pick a regional convention. Anyone wanting a
+    # different shape has "format date as ...".
+    if (Test-OtterDate $Value) { return $Value.ToString() }
+
     if (Test-OtterList $Value) {
         $parts = foreach ($item in $Value) { Format-OtterValue -Value $item }
         return ($parts -join ', ')
@@ -296,6 +348,9 @@ function Test-OtterTruthy {
     # An object exists, so it is true - even one with no properties set.
     if (Test-OtterObject $Value) { return $true }
 
+    # A date exists, so it is true. There is no "zero date".
+    if (Test-OtterDate $Value) { return $true }
+
     if ($Value -is [string]) { return $Value.Length -gt 0 }
 
     return $true
@@ -309,6 +364,8 @@ function Test-OtterNumeric {
     param([object]$Value)
 
     if ($Value -is [bool]) { return $false }
+    # A date is not a number, however tempting its ticks are.
+    if ($Value -is [OtterDate]) { return $false }
     if ($Value -is [double] -or $Value -is [int] -or $Value -is [long] -or $Value -is [decimal]) { return $true }
 
     if ($Value -is [string]) {
@@ -358,6 +415,15 @@ function Test-OtterEqual {
 
     if ($Left -is [bool] -or $Right -is [bool]) {
         if ($Left -is [bool] -and $Right -is [bool]) { return $Left -eq $Right }
+        return $false
+    }
+
+    # Two dates compare by their instant. A date and a non-date are never
+    # equal - not even a date and text that looks like one.
+    if ((Test-OtterDate $Left) -or (Test-OtterDate $Right)) {
+        if ((Test-OtterDate $Left) -and (Test-OtterDate $Right)) {
+            return $Left.Value -eq $Right.Value
+        }
         return $false
     }
 
@@ -412,5 +478,6 @@ function ConvertFrom-OtterInput {
 
 
 Export-ModuleMember -Function `
-    New-OtterList, Test-OtterList, Test-OtterObject, Format-OtterValue, Test-OtterTruthy, `
+    New-OtterList, Test-OtterList, Test-OtterObject, Test-OtterDate, `
+    New-OtterToday, New-OtterNow, Format-OtterValue, Test-OtterTruthy, `
     Test-OtterNumeric, ConvertTo-OtterNumber, Test-OtterEqual, ConvertFrom-OtterInput
