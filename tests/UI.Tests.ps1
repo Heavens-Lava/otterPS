@@ -244,6 +244,27 @@ Test-Otter 'the numeric-type error never leaks System.Double or any .NET name' {
     }
 }
 
+Test-Otter 'a negative size is a clean Otter error, not a raw .NET one (D45 maintenance fix)' {
+    # Found during D48 investigation: WPF itself throws
+    # ArgumentException("'-10' is not a valid value for property 'Width'")
+    # for a negative Width - previously unguarded here. Zero remains valid.
+    Assert-OtterFails -Containing "The width of a window can't be negative" -Body {
+        Invoke-TestProgram @(
+            [CreateUiResourceStmt]::new('window', 'app', 1),
+            [AssignStmt]::new([PropertyAccessExpr]::new('width', [VariableExpr]::new('app', 2), 2), (Lit -10.0), 2)
+        )
+    }
+}
+
+Test-Otter 'a zero size is still valid' {
+    $env = New-OtterEnvironment
+    Invoke-OtterProgram -Environment $env -Program ([ProgramNode]::new(@(
+        [CreateUiResourceStmt]::new('window', 'app', 1),
+        [AssignStmt]::new([PropertyAccessExpr]::new('width', [VariableExpr]::new('app', 2), 2), (Lit 0.0), 2)
+    )))
+    Assert-AreEqual -Expected 0 -Actual $env.Get('app').Native.Width
+}
+
 Test-Otter 'reading an unset text property is gone, not an error, not empty text' {
     # D22: no value exists here yet is a different state from "" - a
     # freshly created button has never had its text set at all.
@@ -275,6 +296,145 @@ Test-Otter 'setting an unsupported property fails before touching the native obj
         Set-OtterUiProperty -Resource $resource -Property 'color' -Value 'red' -Line 1
     }
     Assert-AreEqual -Expected $before -Actual $resource.Native.Content
+}
+
+
+# =================================================================
+# D48 - width/height on every kind, background/foreground colors,
+# window spacing. All routed through the existing D45 property system -
+# zero grammar/AST changes.
+# =================================================================
+
+Test-Otter 'width and height now work on button, text box, and text - not just window' {
+    foreach ($kind in @('button', 'text box', 'text')) {
+        $env = New-OtterEnvironment
+        Invoke-OtterProgram -Environment $env -Program ([ProgramNode]::new(@(
+            [CreateUiResourceStmt]::new($kind, 'control', 1),
+            [AssignStmt]::new([PropertyAccessExpr]::new('width', [VariableExpr]::new('control', 2), 2), (Lit 140.0), 2),
+            [AssignStmt]::new([PropertyAccessExpr]::new('height', [VariableExpr]::new('control', 3), 3), (Lit 42.0), 3)
+        )))
+        $native = $env.Get('control').Native
+        Assert-AreEqual -Expected 140 -Actual $native.Width
+        Assert-AreEqual -Expected 42 -Actual $native.Height
+    }
+}
+
+Test-Otter 'background and foreground work on all four kinds via named colors' {
+    foreach ($kind in @('window', 'button', 'text box', 'text')) {
+        $out = Invoke-TestProgram @(
+            [CreateUiResourceStmt]::new($kind, 'control', 1),
+            [AssignStmt]::new([PropertyAccessExpr]::new('background', [VariableExpr]::new('control', 2), 2), (Lit 'blue'), 2),
+            [AssignStmt]::new([PropertyAccessExpr]::new('foreground', [VariableExpr]::new('control', 3), 3), (Lit 'white'), 3),
+            [SayStmt]::new(@([PropertyAccessExpr]::new('background', [VariableExpr]::new('control', 4), 4)), 4),
+            [SayStmt]::new(@([PropertyAccessExpr]::new('foreground', [VariableExpr]::new('control', 5), 5)), 5)
+        )
+        Assert-Lines -Expected @('#FF0000FF', '#FFFFFFFF') -Actual $out
+    }
+}
+
+Test-Otter 'hex colors work identically to named colors, through the same one conversion path' {
+    $out = Invoke-TestProgram @(
+        [CreateUiResourceStmt]::new('button', 'saveButton', 1),
+        [AssignStmt]::new([PropertyAccessExpr]::new('background', [VariableExpr]::new('saveButton', 2), 2), (Lit '#2563EB'), 2),
+        [SayStmt]::new(@([PropertyAccessExpr]::new('background', [VariableExpr]::new('saveButton', 3), 3)), 3)
+    )
+    Assert-Lines -Expected @('#FF2563EB') -Actual $out
+}
+
+Test-Otter 'an invalid color gives an Otter diagnostic, never the raw .NET FormatException' {
+    Assert-OtterFails -Containing 'I don''t understand the color "notacolor"' -Body {
+        Invoke-TestProgram @(
+            [CreateUiResourceStmt]::new('button', 'helloButton', 1),
+            [AssignStmt]::new([PropertyAccessExpr]::new('background', [VariableExpr]::new('helloButton', 2), 2), (Lit 'notacolor'), 2)
+        )
+    }
+}
+
+Test-Otter 'a color never set reads as gone, not an error, not a WPF brush' {
+    $out = Invoke-TestProgram @(
+        [CreateUiResourceStmt]::new('window', 'app', 1),
+        [SayStmt]::new(@([PropertyAccessExpr]::new('background', [VariableExpr]::new('app', 2), 2)), 2)
+    )
+    Assert-Lines -Expected @('gone') -Actual $out
+}
+
+Test-Otter 'spacing set BEFORE put still applies to controls put in afterward' {
+    $env = New-OtterEnvironment
+    Invoke-OtterStatements -Environment $env -Statements @(
+        [CreateUiResourceStmt]::new('window', 'app', 1),
+        [CreateUiResourceStmt]::new('button', 'first', 2),
+        [CreateUiResourceStmt]::new('button', 'second', 3),
+        [AssignStmt]::new([PropertyAccessExpr]::new('spacing', [VariableExpr]::new('app', 4), 4), (Lit 12.0), 4),
+        [PutInStmt]::new([VariableExpr]::new('first', 5), [VariableExpr]::new('app', 5), 5),
+        [PutInStmt]::new([VariableExpr]::new('second', 6), [VariableExpr]::new('app', 6), 6)
+    )
+    $panel = $env.Get('app').Native.Content
+    Assert-AreEqual -Expected ([System.Windows.Thickness]::new(0, 0, 0, 12)) -Actual $panel.Children[0].Margin
+    Assert-AreEqual -Expected ([System.Windows.Thickness]::new(0, 0, 0, 12)) -Actual $panel.Children[1].Margin
+}
+
+Test-Otter 'spacing set AFTER put re-margins the controls already there' {
+    $env = New-OtterEnvironment
+    Invoke-OtterStatements -Environment $env -Statements @(
+        [CreateUiResourceStmt]::new('window', 'app', 1),
+        [CreateUiResourceStmt]::new('button', 'first', 2),
+        [PutInStmt]::new([VariableExpr]::new('first', 3), [VariableExpr]::new('app', 3), 3),
+        [AssignStmt]::new([PropertyAccessExpr]::new('spacing', [VariableExpr]::new('app', 4), 4), (Lit 12.0), 4)
+    )
+    $panel = $env.Get('app').Native.Content
+    Assert-AreEqual -Expected ([System.Windows.Thickness]::new(0, 0, 0, 12)) -Actual $panel.Children[0].Margin
+}
+
+Test-Otter 'a control put in AFTER spacing is changed again still inherits the latest value' {
+    $env = New-OtterEnvironment
+    Invoke-OtterStatements -Environment $env -Statements @(
+        [CreateUiResourceStmt]::new('window', 'app', 1),
+        [CreateUiResourceStmt]::new('button', 'first', 2),
+        [CreateUiResourceStmt]::new('button', 'second', 3),
+        [PutInStmt]::new([VariableExpr]::new('first', 4), [VariableExpr]::new('app', 4), 4),
+        [AssignStmt]::new([PropertyAccessExpr]::new('spacing', [VariableExpr]::new('app', 5), 5), (Lit 20.0), 5),
+        [PutInStmt]::new([VariableExpr]::new('second', 6), [VariableExpr]::new('app', 6), 6)
+    )
+    $panel = $env.Get('app').Native.Content
+    Assert-AreEqual -Expected ([System.Windows.Thickness]::new(0, 0, 0, 20)) -Actual $panel.Children[0].Margin
+    Assert-AreEqual -Expected ([System.Windows.Thickness]::new(0, 0, 0, 20)) -Actual $panel.Children[1].Margin
+}
+
+Test-Otter 'spacing never set reads as gone' {
+    $out = Invoke-TestProgram @(
+        [CreateUiResourceStmt]::new('window', 'app', 1),
+        [SayStmt]::new(@([PropertyAccessExpr]::new('spacing', [VariableExpr]::new('app', 2), 2)), 2)
+    )
+    Assert-Lines -Expected @('gone') -Actual $out
+}
+
+Test-Otter 'spacing round-trips once set, even with no controls put in yet' {
+    $out = Invoke-TestProgram @(
+        [CreateUiResourceStmt]::new('window', 'app', 1),
+        [AssignStmt]::new([PropertyAccessExpr]::new('spacing', [VariableExpr]::new('app', 2), 2), (Lit 8.0), 2),
+        [SayStmt]::new(@([PropertyAccessExpr]::new('spacing', [VariableExpr]::new('app', 3), 3)), 3)
+    )
+    Assert-Lines -Expected @('8') -Actual $out
+}
+
+Test-Otter 'negative spacing is rejected the same way negative sizes are' {
+    Assert-OtterFails -Containing "The spacing of a window can't be negative" -Body {
+        Invoke-TestProgram @(
+            [CreateUiResourceStmt]::new('window', 'app', 1),
+            [AssignStmt]::new([PropertyAccessExpr]::new('spacing', [VariableExpr]::new('app', 2), 2), (Lit -5.0), 2)
+        )
+    }
+}
+
+Test-Otter 'spacing is window-only - not a property on button, text box, or text' {
+    foreach ($kind in @('button', 'text box', 'text')) {
+        Assert-OtterFails -Containing 'no property called "spacing"' -Body {
+            Invoke-TestProgram @(
+                [CreateUiResourceStmt]::new($kind, 'control', 1),
+                [AssignStmt]::new([PropertyAccessExpr]::new('spacing', [VariableExpr]::new('control', 2), 2), (Lit 10.0), 2)
+            )
+        }
+    }
 }
 
 

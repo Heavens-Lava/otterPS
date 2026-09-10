@@ -147,20 +147,42 @@ function New-OtterUiResourceValue {
 #              SetValueInvocationException naming "System.Double" directly
 #              in its message - exactly what D44 principle 5 forbids
 #              reaching a Otter user).
+# D48: width/height/background/foreground apply uniformly to all four
+# kinds - verified via reflection that Window, Button, TextBox, and even
+# TextBlock (which isn't a Control) each define real Width/Height
+# (System.Double) and Background/Foreground (System.Windows.Media.Brush)
+# properties of their own. `spacing` is window-only and synthetic - see
+# Get-/Set-OtterUiSpacing below; it has no Native entry because it never
+# reads or writes a single native property directly.
 $script:OtterUiProperties = @{
     'button' = @{
-        'text' = @{ Native = 'Content'; Type = 'text' }
+        'text'       = @{ Native = 'Content'; Type = 'text' }
+        'width'      = @{ Native = 'Width'; Type = 'number' }
+        'height'     = @{ Native = 'Height'; Type = 'number' }
+        'background' = @{ Native = 'Background'; Type = 'color' }
+        'foreground' = @{ Native = 'Foreground'; Type = 'color' }
     }
     'text box' = @{
-        'text' = @{ Native = 'Text'; Type = 'text' }
+        'text'       = @{ Native = 'Text'; Type = 'text' }
+        'width'      = @{ Native = 'Width'; Type = 'number' }
+        'height'     = @{ Native = 'Height'; Type = 'number' }
+        'background' = @{ Native = 'Background'; Type = 'color' }
+        'foreground' = @{ Native = 'Foreground'; Type = 'color' }
     }
     'text' = @{
-        'text' = @{ Native = 'Text'; Type = 'text' }
+        'text'       = @{ Native = 'Text'; Type = 'text' }
+        'width'      = @{ Native = 'Width'; Type = 'number' }
+        'height'     = @{ Native = 'Height'; Type = 'number' }
+        'background' = @{ Native = 'Background'; Type = 'color' }
+        'foreground' = @{ Native = 'Foreground'; Type = 'color' }
     }
     'window' = @{
-        'title'  = @{ Native = 'Title'; Type = 'text' }
-        'width'  = @{ Native = 'Width'; Type = 'number' }
-        'height' = @{ Native = 'Height'; Type = 'number' }
+        'title'      = @{ Native = 'Title'; Type = 'text' }
+        'width'      = @{ Native = 'Width'; Type = 'number' }
+        'height'     = @{ Native = 'Height'; Type = 'number' }
+        'background' = @{ Native = 'Background'; Type = 'color' }
+        'foreground' = @{ Native = 'Foreground'; Type = 'color' }
+        'spacing'    = @{ Type = 'spacing' }
     }
 }
 
@@ -194,23 +216,82 @@ function Get-OtterUiPropertyMapping {
 # back would invert the layering D44 already established. Test-OtterNumeric
 # and ConvertTo-OtterNumber (Otter.Runtime.psm1, the foundation layer) are
 # reused directly instead.
+#
+# D45 maintenance fix (found during D48 investigation): every numeric UI
+# property so far (width, height, and now spacing) is a size, and WPF
+# itself throws a raw ArgumentException naming "Width" directly for a
+# negative value - verified, and previously unguarded here. Rejected
+# BEFORE the native object is ever touched, same discipline as the
+# not-a-number case below. Zero remains valid.
 function Assert-OtterUiNumber {
     param([object]$Value, [string]$Property, [string]$Kind, [int]$Line)
 
-    if (Test-OtterNumeric $Value) { return (ConvertTo-OtterNumber $Value) }
+    if (-not (Test-OtterNumeric $Value)) {
+        $shown = Format-OtterValue -Value $Value
+        if ($Value -is [string]) { $shown = '"' + $Value + '"' }
+        throw [OtterError]::new(
+            "I expected a number for the $Property of this $Kind but got $shown.",
+            $Line, 'runtime')
+    }
 
-    $shown = Format-OtterValue -Value $Value
-    if ($Value -is [string]) { $shown = '"' + $Value + '"' }
-    throw [OtterError]::new(
-        "I expected a number for the $Property of this $Kind but got $shown.",
-        $Line, 'runtime')
+    $number = ConvertTo-OtterNumber $Value
+    if ($number -lt 0) {
+        throw [OtterError]::new(
+            "The $Property of a $Kind can't be negative, but I got $number.",
+            $Line, 'runtime')
+    }
+
+    return $number
+}
+
+# D48: named colors ("blue") and hex colors ("#3366FF") go through the
+# exact same BrushConverter API - verified directly, no named-vs-hex
+# branching needed anywhere. An invalid string throws a real
+# System.FormatException - caught here so "notacolor" never reaches an
+# Otter user as .NET exception text. Cached lazily (not at module load
+# time) so this file never assumes PresentationCore is already loaded;
+# by the time any property write can happen, Initialize-OtterWpfProvider
+# already ran as part of creating the resource itself.
+$script:OtterUiBrushConverter = $null
+
+function Assert-OtterUiColor {
+    param([object]$Value, [string]$Property, [string]$Kind, [int]$Line)
+
+    if ($null -eq $script:OtterUiBrushConverter) {
+        $script:OtterUiBrushConverter = [System.Windows.Media.BrushConverter]::new()
+    }
+
+    $text = Format-OtterValue -Value $Value
+    try {
+        return $script:OtterUiBrushConverter.ConvertFromString($text)
+    }
+    catch {
+        throw [OtterError]::new(
+            "I don't understand the color `"$text`".", $Line, 'runtime')
+    }
 }
 
 function Get-OtterUiProperty {
     param([OtterUiResource]$Resource, [string]$Property, [int]$Line)
 
     $mapping = Get-OtterUiPropertyMapping -Kind $Resource.Kind -Property $Property -Line $Line
+
+    # spacing has no single Native property to read - see Get-OtterUiSpacing.
+    if ($mapping.Type -eq 'spacing') {
+        return (Get-OtterUiSpacing -Window $Resource)
+    }
+
     $raw = $Resource.Native.($mapping.Native)
+
+    # A color always round-trips as a hex string ("#FF3366FF"), never the
+    # raw WPF Brush object - verified every color this provider ever sets
+    # IS a SolidColorBrush, so .Color.ToString() is always safe here. A
+    # brush Otter never set (some other theme-provided brush type) reads
+    # as gone rather than guessing at a text form for it.
+    if ($mapping.Type -eq 'color') {
+        if ($raw -is [System.Windows.Media.SolidColorBrush]) { return $raw.Color.ToString() }
+        return $null
+    }
 
     # Both directions already produce/consume exactly the .NET types Otter
     # itself uses - a WPF string IS an Otter string, a WPF double IS an
@@ -226,9 +307,20 @@ function Set-OtterUiProperty {
 
     $mapping = Get-OtterUiPropertyMapping -Kind $Resource.Kind -Property $Property -Line $Line
 
+    if ($mapping.Type -eq 'spacing') {
+        Set-OtterUiSpacing -Window $Resource -Value $Value -Line $Line
+        return
+    }
+
     if ($mapping.Type -eq 'number') {
         $number = Assert-OtterUiNumber -Value $Value -Property $Property -Kind $Resource.Kind -Line $Line
         $Resource.Native.($mapping.Native) = $number
+        return
+    }
+
+    if ($mapping.Type -eq 'color') {
+        $brush = Assert-OtterUiColor -Value $Value -Property $Property -Kind $Resource.Kind -Line $Line
+        $Resource.Native.($mapping.Native) = $brush
         return
     }
 
@@ -319,6 +411,19 @@ function Add-OtterUiEventHandler {
 # InvalidOperationException, wrapped by PowerShell as a
 # MethodInvocationException) - caught and translated here so no .NET
 # exception text ever reaches an Otter user.
+#
+# The lazily-created panel is shared with Set-OtterUiSpacing below, which
+# also needs to read/create it - factored out so there is exactly one
+# place that ever creates it.
+function Get-OtterUiContainerPanel {
+    param([OtterUiResource]$Window)
+
+    if ($null -eq $Window.Native.Content) {
+        $Window.Native.Content = [System.Windows.Controls.StackPanel]::new()
+    }
+    return $Window.Native.Content
+}
+
 function Add-OtterUiChild {
     param([OtterUiResource]$Container, [OtterUiResource]$Item, [int]$Line)
 
@@ -327,10 +432,7 @@ function Add-OtterUiChild {
             "I can only put things in a window right now, not a $($Container.Kind).", $Line, 'runtime')
     }
 
-    if ($null -eq $Container.Native.Content) {
-        $Container.Native.Content = [System.Windows.Controls.StackPanel]::new()
-    }
-    $panel = $Container.Native.Content
+    $panel = Get-OtterUiContainerPanel -Window $Container
 
     try {
         [void]$panel.Children.Add($Item.Native)
@@ -340,6 +442,50 @@ function Add-OtterUiChild {
             "A $($Item.Kind) can only be in one place at a time, and this one is already somewhere else.",
             $Line, 'runtime')
     }
+
+    # D48: a child put in AFTER spacing was already set inherits it
+    # automatically - verified this does NOT happen for free (a newly
+    # added child's Margin stays 0,0,0,0 otherwise), so it's applied
+    # explicitly here. The spacing value itself lives on the panel's own
+    # Tag - entirely inside this file, so tracking it needed no
+    # OtterUiResource contract change at all.
+    if ($panel.Tag -is [double]) {
+        $Item.Native.Margin = [System.Windows.Thickness]::new(0, 0, 0, $panel.Tag)
+    }
+}
+
+# spacing of app is 12                                            (D48)
+#
+# StackPanel has no built-in spacing concept - Margin on each child is
+# WPF's only real mechanism, verified directly. Every child gets the same
+# bottom margin, including the last one - simpler and more robust than
+# tracking which child is currently last just to skip its margin.
+#
+# Works regardless of put order: sets Tag on the panel for any FUTURE
+# child (read by Add-OtterUiChild above) and re-margins every EXISTING
+# child right here, so `spacing` set before or after any number of `put`s
+# produces the same result either way - verified both orders directly.
+function Set-OtterUiSpacing {
+    param([OtterUiResource]$Window, [object]$Value, [int]$Line)
+
+    $number = Assert-OtterUiNumber -Value $Value -Property 'spacing' -Kind $Window.Kind -Line $Line
+
+    $panel = Get-OtterUiContainerPanel -Window $Window
+    $panel.Tag = $number
+    foreach ($child in $panel.Children) {
+        $child.Margin = [System.Windows.Thickness]::new(0, 0, 0, $number)
+    }
+}
+
+function Get-OtterUiSpacing {
+    param([OtterUiResource]$Window)
+
+    # No put has happened yet, so there is no panel and nothing has ever
+    # been set - gone (D22), not 0, matching the unset-text-property
+    # precedent rather than inventing a UI-specific default.
+    $panel = $Window.Native.Content
+    if ($null -eq $panel -or -not ($panel.Tag -is [double])) { return $null }
+    return $panel.Tag
 }
 
 # show app
