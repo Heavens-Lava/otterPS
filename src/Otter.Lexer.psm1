@@ -16,6 +16,7 @@ $script:OtterKeywords = @{
     'or' = [TokenKind]::Or
     'not' = [TokenKind]::Not
     'and' = [TokenKind]::And
+    'plus' = [TokenKind]::And
     'minus' = [TokenKind]::Minus
     'times' = [TokenKind]::Times
     'make' = [TokenKind]::Make
@@ -65,6 +66,8 @@ $script:OtterStatementHeadKeywords = @{
     'convert' = [TokenKind]::Convert; 'format' = [TokenKind]::Format
     'today' = [TokenKind]::Today; 'now' = [TokenKind]::Now
     'between' = [TokenKind]::Between; 'otherwise' = [TokenKind]::Otherwise
+    'increase' = [TokenKind]::Add; 'decrease' = [TokenKind]::Remove
+    'each' = [TokenKind]::ForEach; 'stop' = [TokenKind]::Return
 }
 
 # D32: singular and plural spell the same unit, the way make/makes collapse.

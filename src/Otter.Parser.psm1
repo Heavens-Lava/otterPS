@@ -31,7 +31,7 @@ $script:OtterIdentifierKinds = @(
     [TokenKind]::Log, [TokenKind]::Warn, [TokenKind]::Problem,
     [TokenKind]::Random, [TokenKind]::Json, [TokenKind]::Convert,
     [TokenKind]::Format, [TokenKind]::Today, [TokenKind]::Now,
-    [TokenKind]::Between, [TokenKind]::Otherwise
+    [TokenKind]::Between, [TokenKind]::Otherwise, [TokenKind]::ForEach
 )
 
 function Test-OtterIdentifierToken {
@@ -319,7 +319,8 @@ function Read-OtterStatement {
     # The statement forms themselves remain the switch cases below.
     $statementKind = $start.Kind
     $nextKind = if (($script:Position + 1) -lt $script:Tokens.Count) { $script:Tokens[$script:Position + 1].Kind } else { [TokenKind]::EndOfFile }
-    if ((Test-OtterIdentifierToken $start) -and $nextKind -in @([TokenKind]::Is, [TokenKind]::Are, [TokenKind]::Of)) {
+    if (((Test-OtterIdentifierToken $start) -or ($start.Kind -eq [TokenKind]::ForEach -and $start.Text -eq 'each')) -and
+        $nextKind -in @([TokenKind]::Is, [TokenKind]::Are, [TokenKind]::Of)) {
         $statementKind = [TokenKind]::Identifier
     }
 
@@ -664,12 +665,26 @@ function Read-OtterStatement {
         }
         ([TokenKind]::Return) {
             [void](Read-OtterToken)
+            if ($start.Text -eq 'stop') {
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected stop to end here.')
+                return [ReturnStmt]::new($null, $start.Line)
+            }
             $value = Read-OtterMathExpression
             [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the return statement to end here.')
             return [ReturnStmt]::new($value, $start.Line)
         }
         ([TokenKind]::Add) {
             [void](Read-OtterToken)
+            if ($start.Text -eq 'increase') {
+                $target = Read-OtterVariableName 'I expected a variable name after "increase".'
+                $amount = [LiteralExpr]::new(1.0, $start.Line)
+                if (Test-OtterTokenKind ([TokenKind]::By)) {
+                    [void](Read-OtterToken)
+                    $amount = Read-OtterMathExpression
+                }
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the increase statement to end here.')
+                return [AddToStmt]::new($amount, $target.Text, $start.Line)
+            }
             if (Test-OtterTokenBeforeNewline ([TokenKind]::To)) {
                 $amount = Read-OtterMathExpression
                 # add 7 days to date                              (D32)
@@ -697,6 +712,16 @@ function Read-OtterStatement {
         }
         ([TokenKind]::Remove) {
             [void](Read-OtterToken)
+            if ($start.Text -eq 'decrease') {
+                $target = Read-OtterVariableName 'I expected a variable name after "decrease".'
+                $amount = [LiteralExpr]::new(1.0, $start.Line)
+                if (Test-OtterTokenKind ([TokenKind]::By)) {
+                    [void](Read-OtterToken)
+                    $amount = Read-OtterMathExpression
+                }
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the decrease statement to end here.')
+                return [RemoveFromStmt]::new($amount, $target.Text, $start.Line)
+            }
             $amount = Read-OtterMathExpression
             # remove 1 month from date                            (D32)
             if (Test-OtterTimeUnit (Get-OtterCurrentToken).Kind) {

@@ -193,4 +193,33 @@ try {
 catch [OtterError] {
     if (-not $_.Exception.SourceLine -or -not $_.Exception.Suggestion) { throw 'Parser errors must include source text and a suggestion.' }
 }
+
+$rules4Source = @'
+price is 10
+tax is 2
+total is price plus tax
+increase score by 5
+increase score
+decrease lives
+decrease health by damage
+each product in products
+    say name of product
+.
+for each product in products
+    say product
+.
+to stopEarly
+    stop
+'@
+$rules4Tokens = ConvertTo-OtterTokens -Source $rules4Source
+if ($rules4Tokens[11].Kind -ne [TokenKind]::And) { throw 'Plus must lex directly to And.' }
+$rules4Ast = ConvertTo-OtterAst -Tokens $rules4Tokens
+if ($rules4Ast.Statements[2].Value -isnot [MathExpr] -or $rules4Ast.Statements[2].Value.Op -ne [MathOp]::Add) { throw 'Plus must produce ordinary addition.' }
+if ($rules4Ast.Statements[3] -isnot [AddToStmt] -or $rules4Ast.Statements[3].Target -ne 'score' -or $rules4Ast.Statements[3].Amount.Value -ne 5) { throw 'Increase by must produce AddToStmt with its amount.' }
+if ($rules4Ast.Statements[4] -isnot [AddToStmt] -or $rules4Ast.Statements[4].Amount.Value -ne 1) { throw 'Bare increase must synthesize one.' }
+if ($rules4Ast.Statements[5] -isnot [RemoveFromStmt] -or $rules4Ast.Statements[5].Amount.Value -ne 1) { throw 'Bare decrease must synthesize one.' }
+if ($rules4Ast.Statements[6] -isnot [RemoveFromStmt] -or $rules4Ast.Statements[6].Amount -isnot [VariableExpr] -or $rules4Ast.Statements[6].Amount.Name -ne 'damage') { throw 'Decrease by must retain its expression.' }
+if ($rules4Ast.Statements[7] -isnot [ForEachStmt] -or $rules4Ast.Statements[7].VariableName -ne 'product') { throw 'Bare each must produce ForEachStmt.' }
+if ($rules4Ast.Statements[8] -isnot [ForEachStmt]) { throw 'For each must remain valid.' }
+if ($rules4Ast.Statements[9].Body[0] -isnot [ReturnStmt] -or $null -ne $rules4Ast.Statements[9].Body[0].Value) { throw 'Stop must produce a valueless ReturnStmt.' }
 Write-Output 'Parser tests passed.'
