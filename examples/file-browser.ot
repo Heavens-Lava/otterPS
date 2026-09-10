@@ -1,0 +1,40 @@
+create window into app
+title of app is "Otter File Utility"
+width of app is 700
+height of app is 500
+background of app is "#111827"
+spacing of app is 12
+
+create text into heading
+text of heading is "Folder Browser"
+foreground of heading is "white"
+
+create text box into folderBox
+width of folderBox is 500
+
+create button into loadButton
+text of loadButton is "Load Files"
+width of loadButton is 120
+background of loadButton is "#2563EB"
+foreground of loadButton is "white"
+
+create text into resultText
+text of resultText is "Enter a folder path."
+foreground of resultText is "white"
+
+put heading in app
+put folderBox in app
+put loadButton in app
+put resultText in app
+
+when loadButton is clicked
+    try
+        folder is text of folderBox
+        get files in folder into files
+        total is length of files
+        text of resultText is total
+    otherwise
+        text of resultText is "Could not load that folder."
+.
+
+show app
