@@ -114,7 +114,7 @@ function Read-OtterConditionPrimary {
         $operator = Read-OtterToken
         return [ContainsExpr]::new($left, (Read-OtterValue), $operator.Line)
     }
-    if (Test-OtterTokenKind ([TokenKind]::StartsWith) -or (Test-OtterTokenKind ([TokenKind]::EndsWith))) {
+    if ((Test-OtterTokenKind ([TokenKind]::StartsWith)) -or (Test-OtterTokenKind ([TokenKind]::EndsWith))) {
         $operator = Read-OtterToken
         $match = if ($operator.Kind -eq [TokenKind]::StartsWith) { [TextMatch]::StartsWith } else { [TextMatch]::EndsWith }
         return [TextMatchExpr]::new($left, $match, (Read-OtterValue), $operator.Line)
