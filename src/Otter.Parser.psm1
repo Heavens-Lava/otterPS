@@ -84,13 +84,16 @@ function Test-OtterSoftContinuation {
 }
 
 function Read-OtterValue {
+    param([switch]$PropertyTarget)
     $token = Get-OtterCurrentToken
     # Optional readability word for property grammar only. `the` is consumed
     # when it introduces a real `<property> of ...` sequence; elsewhere it is
     # left untouched so this is not a global filler-word rule.
-    if ($token.Text -eq 'the' -and ($script:Position + 2) -lt $script:Tokens.Count -and
+    if (($PropertyTarget -and $token.Text -eq 'the' -and ($script:Position + 1) -lt $script:Tokens.Count -and
+        (Test-OtterIdentifierToken $script:Tokens[$script:Position + 1])) -or
+        ($token.Text -eq 'the' -and ($script:Position + 2) -lt $script:Tokens.Count -and
         $script:Tokens[$script:Position + 1].Kind -in $script:OtterIdentifierKinds -and
-        $script:Tokens[$script:Position + 2].Kind -eq [TokenKind]::Of) {
+        $script:Tokens[$script:Position + 2].Kind -eq [TokenKind]::Of)) {
         [void](Read-OtterToken)
         $token = Get-OtterCurrentToken
     }
@@ -119,7 +122,7 @@ function Read-OtterValue {
             ([TokenKind]::First) { [OfOperation]::First }
             ([TokenKind]::Last) { [OfOperation]::Last }
         }
-        return [OfOperationExpr]::new($operation, (Read-OtterValue), $token.Line)
+        return [OfOperationExpr]::new($operation, (Read-OtterValue -PropertyTarget), $token.Line)
     }
     # These words are commands in statement position, but ordinary names in
     # expression position: `for each file in files`, `name of file`.
@@ -136,7 +139,7 @@ function Read-OtterValue {
         [void](Read-OtterToken)
         if (Test-OtterTokenKind ([TokenKind]::Of)) {
             [void](Read-OtterToken)
-            return [PropertyAccessExpr]::new($token.Text, (Read-OtterValue), $token.Line)
+            return [PropertyAccessExpr]::new($token.Text, (Read-OtterValue -PropertyTarget), $token.Line)
         }
         return [VariableExpr]::new($token.Text, $token.Line)
     }

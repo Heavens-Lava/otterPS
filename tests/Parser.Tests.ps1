@@ -348,6 +348,27 @@ if ($theAst.Statements[5].Parts[0].Value -ne 'The Otter') { throw 'the inside a 
 $theRejected = $false
 try { ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source "say the of`n") | Out-Null } catch [OtterError] { $theRejected = $true }
 if (-not $theRejected) { throw 'the must not be accepted as arbitrary filler.' }
+$propertyTheAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source @'
+say text of nameBox
+say the text of nameBox
+say text of the nameBox
+say the text of the nameBox
+say the city of the address of the user
+name is the text of the nameBox
+if the text of the nameBox is "Jeff"
+    say "the property matched"
+.
+say "the"
+the is "named the"
+'@)
+$propertyParts = $propertyTheAst.Statements[0..3] | ForEach-Object { $_.Parts[0] }
+foreach ($part in $propertyParts) {
+    if ($part.GetType().Name -ne 'PropertyAccessExpr' -or $part.Property -ne 'text' -or $part.Target.Name -ne 'nameBox') { throw 'All direct optional-the property forms must produce the same AST.' }
+}
+$nestedThe = $propertyTheAst.Statements[4].Parts[0]
+if ($nestedThe.Property -ne 'city' -or $nestedThe.Target.Property -ne 'address' -or $nestedThe.Target.Target.Name -ne 'user') { throw 'Optional the must compose through nested property access.' }
+if ($propertyTheAst.Statements[5].Value.GetType().Name -ne 'PropertyAccessExpr' -or $propertyTheAst.Statements[6].Branches[0].Condition.Left.GetType().Name -ne 'PropertyAccessExpr') { throw 'Optional-the property targets must work in assignments and conditions.' }
+if ($propertyTheAst.Statements[7].Parts[0].Value -ne 'the' -or $propertyTheAst.Statements[8].Target.Name -ne 'the') { throw 'the inside strings and identifier positions must remain unchanged.' }
 $articleAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source @'
 create window into app
 create the window into the app
