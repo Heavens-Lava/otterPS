@@ -381,6 +381,12 @@ if ($articleAst.Statements[2].Item.Name -ne 'window' -or $articleAst.Statements[
 if ($articleAst.Statements[4].Target.Name -ne 'the') { throw 'the must remain usable as an ordinary identifier.' }
 $rawTheCreate = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source "create the into x`n")
 if ($rawTheCreate.Statements[0].TypeName -ne 'the') { throw 'create the into x must preserve the resource kind named the.' }
+$whenTheRejected = $false
+$whenTheSource = "when the helloButton is clicked`n    say `"Hi`"`n.`n"
+try { ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $whenTheSource) | Out-Null } catch [OtterError] {
+    $whenTheRejected = $_.Exception.Message -like '*Event targets do not use*'
+}
+if (-not $whenTheRejected) { throw 'when the <resource> should explain that the is not supported there.' }
 foreach ($invalid in @('put in app', 'put helloButton app', 'show')) {
     $rejected = $false
     try { ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source ($invalid + "`n")) | Out-Null }

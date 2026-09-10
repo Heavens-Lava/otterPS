@@ -461,6 +461,11 @@ function Read-OtterStatement {
         }
         ([TokenKind]::When) {
             [void](Read-OtterToken)
+            if ((Get-OtterCurrentToken).Text -eq 'the' -and
+                ($script:Position + 1) -lt $script:Tokens.Count -and
+                (Test-OtterIdentifierToken $script:Tokens[$script:Position + 1])) {
+                throw (New-OtterParserError 'Event targets do not use "the" here.' (Get-OtterCurrentToken) 'Write `when helloButton is clicked` without "the" before the resource name.')
+            }
             $targetToken = Read-OtterVariableName 'I expected a resource name after "when".'
             $target = [VariableExpr]::new($targetToken.Text, $targetToken.Line)
             [void](Assert-OtterTokenKind ([TokenKind]::Is) 'I expected "is" before the event name.')
