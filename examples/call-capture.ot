@@ -1,0 +1,12 @@
+to double number
+    number times 2 make answer
+    return answer
+
+double 5 make result
+say result
+
+to five
+    return 5
+
+five make anotherResult
+say anotherResult

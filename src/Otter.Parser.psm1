@@ -6,15 +6,30 @@ function Initialize-OtterParser {
     param([Token[]]$Tokens)
     $script:Tokens = $Tokens
     $script:Position = 0
+    $script:KnownFunctions = @{}
 }
 
 function Get-OtterCurrentToken { return $script:Tokens[$script:Position] }
 function Test-OtterTokenKind { param([TokenKind]$Kind) return (Get-OtterCurrentToken).Kind -eq $Kind }
 function Read-OtterToken { $token = Get-OtterCurrentToken; $script:Position++; return $token }
+function Get-OtterSourceLine {
+    param([int]$Line)
+    $parts = [System.Collections.Generic.List[string]]::new()
+    foreach ($token in $script:Tokens) {
+        if ($token.Line -ne $Line) { continue }
+        if ($token.Kind -in @([TokenKind]::Indent, [TokenKind]::Dedent, [TokenKind]::Newline, [TokenKind]::EndOfFile)) { continue }
+        $parts.Add($token.Text)
+    }
+    return $parts -join ' '
+}
+function New-OtterParserError {
+    param([string]$Message, [Token]$Token, [string]$Suggestion = $null)
+    return [OtterError]::new($Message, $Token.Line, 'parser', $Token.Column, (Get-OtterSourceLine $Token.Line), $Suggestion)
+}
 function Assert-OtterTokenKind {
     param([TokenKind]$Kind, [string]$Message)
     $token = Get-OtterCurrentToken
-    if ($token.Kind -ne $Kind) { throw [OtterError]::new("$Message I found '$($token.Text)' instead.", $token.Line, 'parser') }
+    if ($token.Kind -ne $Kind) { throw (New-OtterParserError "$Message I found '$($token.Text)' instead." $token 'Check the expected word and try again.') }
     return Read-OtterToken
 }
 function Skip-OtterNewlines { while (Test-OtterTokenKind ([TokenKind]::Newline)) { [void](Read-OtterToken) } }
@@ -27,7 +42,7 @@ function Read-OtterValue {
         ([TokenKind]::True) { [void](Read-OtterToken); return [LiteralExpr]::new($true, $token.Line) }
         ([TokenKind]::False) { [void](Read-OtterToken); return [LiteralExpr]::new($false, $token.Line) }
         ([TokenKind]::Identifier) { [void](Read-OtterToken); return [VariableExpr]::new($token.Text, $token.Line) }
-        default { throw [OtterError]::new('I expected a value here.', $token.Line, 'parser') }
+        default { throw (New-OtterParserError 'I expected a value here.' $token 'Add a text value, number, true, false, or variable name.') }
     }
 }
 
@@ -138,9 +153,15 @@ function Read-OtterCallArguments {
 function Read-OtterFunctionName {
     $token = Get-OtterCurrentToken
     if ($token.Kind -ne [TokenKind]::Identifier -and $token.Kind -ne [TokenKind]::Add) {
-        throw [OtterError]::new('I expected a function name.', $token.Line, 'parser')
+        throw (New-OtterParserError 'I expected a function name.' $token 'Write a name after "to", such as "to greet name".')
     }
     return Read-OtterToken
+}
+
+function Read-OtterCallResultTarget {
+    if (-not (Test-OtterTokenKind ([TokenKind]::Make))) { return $null }
+    [void](Read-OtterToken)
+    return (Assert-OtterTokenKind ([TokenKind]::Identifier) 'I expected a result variable after "make".').Text
 }
 
 function Read-OtterStatement {
@@ -212,6 +233,9 @@ function Read-OtterStatement {
                 if (Test-OtterTokenKind ([TokenKind]::And)) { [void](Read-OtterToken); continue }
                 $parameters.Add((Assert-OtterTokenKind ([TokenKind]::Identifier) 'I expected a parameter name.').Text)
             }
+            # Definitions are visible from their own body onward, which also
+            # allows a function to call itself recursively.
+            $script:KnownFunctions[$name.Text] = $true
             return [FunctionDefStmt]::new($name.Text, $parameters.ToArray(), (Read-OtterBlock), $start.Line)
         }
         ([TokenKind]::Return) {
@@ -230,8 +254,7 @@ function Read-OtterStatement {
                 return [AddToStmt]::new($amount, $name.Text, $start.Line)
             }
             $call = [CallExpr]::new($start.Text, (Read-OtterCallArguments), $start.Line)
-            $target = $null
-            if (Test-OtterTokenKind ([TokenKind]::Make)) { [void](Read-OtterToken); $target = (Assert-OtterTokenKind ([TokenKind]::Identifier) 'I expected a result variable after "make".').Text }
+            $target = Read-OtterCallResultTarget
             [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the function call to end here.')
             return [CallStmt]::new($call, $target, $start.Line)
         }
@@ -260,6 +283,15 @@ function Read-OtterStatement {
                 }
                 return [ListDefStmt]::new($name.Text, (Read-OtterListItems), $name.Line)
             }
+            # The grammar is intentionally resolved from declared function
+            # names: "double 5 make result" and "five make result" are
+            # calls, while "number1 and number2 make total" is arithmetic.
+            if ($script:KnownFunctions.ContainsKey($name.Text)) {
+                $call = [CallExpr]::new($name.Text, (Read-OtterCallArguments), $name.Line)
+                $target = Read-OtterCallResultTarget
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the function call to end here.')
+                return [CallStmt]::new($call, $target, $name.Line)
+            }
             # A make statement owns arithmetic; otherwise this is a function call.
             if (Test-OtterTokenBeforeNewline ([TokenKind]::Make)) {
                 $script:Position--
@@ -280,7 +312,7 @@ function Read-OtterStatement {
             [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the math statement to end here.')
             return [MathIntoStmt]::new($expression, $target.Text, $start.Line)
         }
-        default { throw [OtterError]::new("I don't understand '$($start.Text)'.", $start.Line, 'parser') }
+        default { throw (New-OtterParserError "I don't understand '$($start.Text)'." $start 'Start a statement with a word such as say, if, or a variable name.') }
     }
 }
 
@@ -302,7 +334,7 @@ function ConvertTo-OtterAst {
     $statements = Read-OtterStatements
     if (Test-OtterTokenKind ([TokenKind]::BlockEnd)) {
         $token = Read-OtterToken
-        throw [OtterError]::new('There is no open block for this period to close.', $token.Line, 'parser')
+        throw (New-OtterParserError 'There is no open block for this period to close.' $token 'Remove this period or place it after an indented block.')
     }
     [void](Assert-OtterTokenKind ([TokenKind]::EndOfFile) 'I expected the program to end here.')
     return [ProgramNode]::new($statements)

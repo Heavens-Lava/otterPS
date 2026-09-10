@@ -74,4 +74,27 @@ if ($functionAst.Statements[0] -isnot [FunctionDefStmt]) { throw 'Expected funct
 if ($functionAst.Statements[1].Call.Name -ne 'greet') { throw 'Expected greet call.' }
 if ($functionAst.Statements[2].Body[1] -isnot [ReturnStmt]) { throw 'Expected return statement.' }
 if ($functionAst.Statements[3].Call.Name -ne 'add' -or $functionAst.Statements[3].ResultTarget -ne 'total') { throw 'Expected add function call with result.' }
+
+$captureSource = @'
+to double number
+    number times 2 make answer
+    return answer
+double 5 make result
+say result
+
+to five
+    return 5
+five make anotherResult
+'@
+$captureAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $captureSource)
+if ($captureAst.Statements[1] -isnot [CallStmt] -or $captureAst.Statements[1].ResultTarget -ne 'result') { throw 'Expected an argument call to capture its result.' }
+if ($captureAst.Statements[4] -isnot [CallStmt] -or $captureAst.Statements[4].Call.Arguments.Count -ne 0) { throw 'Expected a zero-argument call, not a variable expression.' }
+
+try {
+    ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source 'double 5 make result') | Out-Null
+    throw 'Expected an undefined call to fail.'
+}
+catch [OtterError] {
+    if (-not $_.Exception.SourceLine -or -not $_.Exception.Suggestion) { throw 'Parser errors must include source text and a suggestion.' }
+}
 Write-Output 'Parser tests passed.'
