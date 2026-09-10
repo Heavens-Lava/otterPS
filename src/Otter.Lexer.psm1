@@ -5,10 +5,7 @@ using module ..\Otter.Contract.psm1
 $script:OtterKeywords = @{
     'say' = [TokenKind]::Say
     'ask' = [TokenKind]::Ask
-    'call' = [TokenKind]::Call
-    'it' = [TokenKind]::It
     'if' = [TokenKind]::If
-    'otherwise' = [TokenKind]::Otherwise
     'while' = [TokenKind]::While
     'repeat' = [TokenKind]::Repeat
     'count' = [TokenKind]::Count
@@ -28,55 +25,46 @@ $script:OtterKeywords = @{
     'to' = [TokenKind]::To
     'from' = [TokenKind]::From
     'are' = [TokenKind]::Are
-    'empty' = [TokenKind]::Empty
-    'contains' = [TokenKind]::Contains
     'of' = [TokenKind]::Of
     'when' = [TokenKind]::When
     'gone' = [TokenKind]::Gone
-    'get' = [TokenKind]::Get
     'files' = [TokenKind]::Files
     'folders' = [TokenKind]::Folders
     'folder' = [TokenKind]::Folder
     'subfolders' = [TokenKind]::Subfolders
-    'create' = [TokenKind]::Create
-    'try' = [TokenKind]::Try
-    'sort' = [TokenKind]::Sort
-    'reverse' = [TokenKind]::Reverse
-    'replace' = [TokenKind]::Replace
     'with' = [TokenKind]::With
-    'split' = [TokenKind]::Split
     'by' = [TokenKind]::By
-    'join' = [TokenKind]::Join
-    'find' = [TokenKind]::Find
     'where' = [TokenKind]::Where
-    'json' = [TokenKind]::Json
-    'random' = [TokenKind]::Random
-    'today' = [TokenKind]::Today
-    'now' = [TokenKind]::Now
-    'between' = [TokenKind]::Between
-    'format' = [TokenKind]::Format
-    'log' = [TokenKind]::Log
-    'warn' = [TokenKind]::Warn
-    'error' = [TokenKind]::Problem
-    'convert' = [TokenKind]::Convert
     # Reserved for later language versions. Lexing them now prevents a future
     # keyword from silently changing an existing program's meaning.
     'a' = [TokenKind]::A
-    'thing' = [TokenKind]::Thing
     'has' = [TokenKind]::Has
-    'read' = [TokenKind]::Read
-    'write' = [TokenKind]::Write
-    'copy' = [TokenKind]::Copy
-    'move' = [TokenKind]::Move
-    'delete' = [TokenKind]::Delete
     'file' = [TokenKind]::File
-    'exists' = [TokenKind]::Exists
     'into' = [TokenKind]::Into
-    'run' = [TokenKind]::Run
     'command' = [TokenKind]::Command
     'open' = [TokenKind]::Open
     'true' = [TokenKind]::True
     'false' = [TokenKind]::False
+}
+
+# D33 mechanism 2: these words introduce their existing statement forms only
+# when they are the first non-indent token on a logical line. Everywhere else
+# they begin as ordinary identifiers and may be made structural by a more
+# specific contextual rule below.
+$script:OtterStatementHeadKeywords = @{
+    'copy' = [TokenKind]::Copy; 'move' = [TokenKind]::Move
+    'delete' = [TokenKind]::Delete; 'create' = [TokenKind]::Create
+    'read' = [TokenKind]::Read; 'write' = [TokenKind]::Write
+    'sort' = [TokenKind]::Sort; 'reverse' = [TokenKind]::Reverse
+    'replace' = [TokenKind]::Replace; 'split' = [TokenKind]::Split
+    'join' = [TokenKind]::Join; 'find' = [TokenKind]::Find
+    'get' = [TokenKind]::Get; 'try' = [TokenKind]::Try
+    'run' = [TokenKind]::Run; 'log' = [TokenKind]::Log
+    'warn' = [TokenKind]::Warn; 'error' = [TokenKind]::Problem
+    'random' = [TokenKind]::Random; 'json' = [TokenKind]::Json
+    'convert' = [TokenKind]::Convert; 'format' = [TokenKind]::Format
+    'today' = [TokenKind]::Today; 'now' = [TokenKind]::Now
+    'between' = [TokenKind]::Between; 'otherwise' = [TokenKind]::Otherwise
 }
 
 # D32: singular and plural spell the same unit, the way make/makes collapse.
@@ -126,6 +114,7 @@ function ConvertTo-OtterLineTokens {
 
     $tokens = [System.Collections.Generic.List[Token]]::new()
     $index = 0
+    $isStatementHead = $true
     while ($index -lt $Text.Length) {
         $character = $Text[$index]
         $column = $ColumnOffset + $index + 1
@@ -178,13 +167,20 @@ function ConvertTo-OtterLineTokens {
             $start = $index
             while ($index -lt $Text.Length -and ([char]::IsLetterOrDigit($Text[$index]) -or $Text[$index] -eq '_')) { $index++ }
             $word = $Text.Substring($start, $index - $start)
-            $kind = if ($script:OtterKeywords.ContainsKey($word)) { $script:OtterKeywords[$word] } else { [TokenKind]::Identifier }
+            $kind = if ($isStatementHead -and $script:OtterStatementHeadKeywords.ContainsKey($word)) {
+                $script:OtterStatementHeadKeywords[$word]
+            } elseif ($script:OtterKeywords.ContainsKey($word)) {
+                $script:OtterKeywords[$word]
+            } else {
+                [TokenKind]::Identifier
+            }
             $value = switch ($kind) {
                 ([TokenKind]::True) { $true }
                 ([TokenKind]::False) { $false }
                 default { $word }
             }
             $tokens.Add((New-OtterToken $kind $word $value $LineNumber $column))
+            $isStatementHead = $false
             continue
         }
 
@@ -202,6 +198,7 @@ function ConvertTo-OtterLineTokens {
     $combined = [System.Collections.Generic.List[Token]]::new()
     for ($tokenIndex = 0; $tokenIndex -lt $tokens.Count; $tokenIndex++) {
         $token = $tokens[$tokenIndex]
+        $previous = if ($combined.Count -gt 0) { $combined[$combined.Count - 1] } else { $null }
         if ($token.Kind -eq [TokenKind]::Is -and ($tokenIndex + 2) -lt $tokens.Count -and
             $tokens[$tokenIndex + 1].Text -eq 'at' -and $tokens[$tokenIndex + 2].Text -eq 'least') {
             $combined.Add((New-OtterToken ([TokenKind]::IsAtLeast) 'is at least' $null $token.Line $token.Column))
@@ -219,6 +216,42 @@ function ConvertTo-OtterLineTokens {
             ($tokenIndex + 1) -lt $tokens.Count -and $tokens[$tokenIndex + 1].Text -eq 'each') {
             $combined.Add((New-OtterToken ([TokenKind]::ForEach) 'for each' $null $token.Line $token.Column))
             $tokenIndex++
+            continue
+        }
+        # D33 mechanism 1: these words are structural only in their fixed
+        # neighbouring phrase. Outside it they remain ordinary identifiers.
+        if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -eq 'empty' -and
+            $null -ne $previous -and $previous.Kind -eq [TokenKind]::Are) {
+            $combined.Add((New-OtterToken ([TokenKind]::Empty) 'empty' $null $token.Line $token.Column))
+            continue
+        }
+        if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -eq 'contains' -and
+            $null -ne $previous -and $previous.Kind -in @([TokenKind]::Identifier, [TokenKind]::File, [TokenKind]::Files, [TokenKind]::Folder, [TokenKind]::Folders, [TokenKind]::String, [TokenKind]::Number, [TokenKind]::True, [TokenKind]::False, [TokenKind]::Gone)) {
+            $combined.Add((New-OtterToken ([TokenKind]::Contains) 'contains' $null $token.Line $token.Column))
+            continue
+        }
+        if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -eq 'exists' -and
+            $null -ne $previous -and $previous.Kind -in @([TokenKind]::Identifier, [TokenKind]::File, [TokenKind]::Files, [TokenKind]::Folder, [TokenKind]::Folders, [TokenKind]::String, [TokenKind]::Number, [TokenKind]::True, [TokenKind]::False, [TokenKind]::Gone)) {
+            $combined.Add((New-OtterToken ([TokenKind]::Exists) 'exists' $null $token.Line $token.Column))
+            continue
+        }
+        if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -eq 'call' -and
+            $null -ne $previous -and $previous.Kind -eq [TokenKind]::And -and
+            ($tokenIndex + 1) -lt $tokens.Count -and $tokens[$tokenIndex + 1].Text -eq 'it') {
+            $combined.Add((New-OtterToken ([TokenKind]::Call) 'call' $null $token.Line $token.Column))
+            continue
+        }
+        if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -eq 'it' -and
+            $null -ne $previous -and $previous.Kind -eq [TokenKind]::Call -and
+            $combined.Count -ge 2 -and $combined[$combined.Count - 2].Kind -eq [TokenKind]::And) {
+            $combined.Add((New-OtterToken ([TokenKind]::It) 'it' $null $token.Line $token.Column))
+            continue
+        }
+        # D29 is likewise more specific than D33: json is structural in the
+        # read/convert productions, but remains free as a name elsewhere.
+        if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -eq 'json' -and
+            $null -ne $previous -and $previous.Kind -in @([TokenKind]::Read, [TokenKind]::To, [TokenKind]::From)) {
+            $combined.Add((New-OtterToken ([TokenKind]::Json) 'json' $null $token.Line $token.Column))
             continue
         }
         # Derived operations are contextual. `first is "Jeff"` keeps first
@@ -251,11 +284,18 @@ function ConvertTo-OtterLineTokens {
             $previous = if ($combined.Count -gt 0) { $combined[$combined.Count - 1] } else { $null }
             $next = if (($tokenIndex + 1) -lt $tokens.Count) { $tokens[$tokenIndex + 1] } else { $null }
             $afterNumber = ($null -ne $previous -and $previous.Kind -eq [TokenKind]::Number)
-            $beforeBetween = ($null -ne $next -and $next.Kind -eq [TokenKind]::Between)
+            $beforeBetween = ($null -ne $next -and $next.Text -eq 'between')
             if ($afterNumber -or $beforeBetween) {
                 $combined.Add((New-OtterToken $script:OtterTimeUnitWords[$token.Text] $token.Text $null $token.Line $token.Column))
                 continue
             }
+        }
+        # D32 is more specific than D33: `days between ...` remains the
+        # date-difference production even though `between` is otherwise free.
+        if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -eq 'between' -and
+            $null -ne $previous -and $script:OtterTimeUnitWords.ContainsValue($previous.Kind)) {
+            $combined.Add((New-OtterToken ([TokenKind]::Between) 'between' $null $token.Line $token.Column))
+            continue
         }
         if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -eq 'divided' -and
             ($tokenIndex + 1) -lt $tokens.Count -and $tokens[$tokenIndex + 1].Text -eq 'by') {

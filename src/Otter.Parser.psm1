@@ -17,6 +17,28 @@ function Test-OtterTimeUnit {
     return $script:OtterTimeUnits.ContainsKey($Kind)
 }
 
+# D33 words are ordinary names away from the one statement form that they
+# introduce. `has` is the older always-tokenized exception: it is safe in all
+# identifier slots because only `a <Type> has` consumes its special token.
+$script:OtterIdentifierKinds = @(
+    [TokenKind]::Identifier, [TokenKind]::File, [TokenKind]::Files,
+    [TokenKind]::Folder, [TokenKind]::Folders, [TokenKind]::Has,
+    [TokenKind]::Copy, [TokenKind]::Move, [TokenKind]::Delete,
+    [TokenKind]::Create, [TokenKind]::Read, [TokenKind]::Write,
+    [TokenKind]::Sort, [TokenKind]::Reverse, [TokenKind]::Replace,
+    [TokenKind]::Split, [TokenKind]::Join, [TokenKind]::Find,
+    [TokenKind]::Get, [TokenKind]::Try, [TokenKind]::Run,
+    [TokenKind]::Log, [TokenKind]::Warn, [TokenKind]::Problem,
+    [TokenKind]::Random, [TokenKind]::Json, [TokenKind]::Convert,
+    [TokenKind]::Format, [TokenKind]::Today, [TokenKind]::Now,
+    [TokenKind]::Between, [TokenKind]::Otherwise
+)
+
+function Test-OtterIdentifierToken {
+    param([Token]$Token)
+    return $Token.Kind -in $script:OtterIdentifierKinds
+}
+
 function Initialize-OtterParser {
     param([Token[]]$Tokens)
     $script:Tokens = $Tokens
@@ -66,7 +88,16 @@ function Read-OtterValue {
     }
     # These words are commands in statement position, but ordinary names in
     # expression position: `for each file in files`, `name of file`.
-    if ($token.Kind -in @([TokenKind]::Identifier, [TokenKind]::File, [TokenKind]::Files, [TokenKind]::Folder, [TokenKind]::Folders)) {
+    # D32 wins over D33 in expression position. Keeping these source words
+    # as identifiers elsewhere still lets them name variables, parameters,
+    # properties, and loop variables where that is unambiguous.
+    if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -eq 'today') {
+        [void](Read-OtterToken); return [ClockExpr]::new([ClockKind]::Today, $token.Line)
+    }
+    if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -eq 'now') {
+        [void](Read-OtterToken); return [ClockExpr]::new([ClockKind]::Now, $token.Line)
+    }
+    if (Test-OtterIdentifierToken $token) {
         [void](Read-OtterToken)
         if (Test-OtterTokenKind ([TokenKind]::Of)) {
             [void](Read-OtterToken)
@@ -89,7 +120,7 @@ function Read-OtterValue {
 function Read-OtterVariableName {
     param([string]$Message)
     $token = Get-OtterCurrentToken
-    if ($token.Kind -notin @([TokenKind]::Identifier, [TokenKind]::File, [TokenKind]::Files, [TokenKind]::Folder, [TokenKind]::Folders)) {
+    if (-not (Test-OtterIdentifierToken $token)) {
         throw (New-OtterParserError $Message $token 'Use a name to hold this value.')
     }
     [void](Read-OtterToken)
@@ -199,7 +230,7 @@ function Read-OtterTypeFields {
     $fields = [System.Collections.Generic.List[string]]::new()
     Skip-OtterNewlines
     while (-not (Test-OtterTokenKind ([TokenKind]::Dedent))) {
-        $field = Assert-OtterTokenKind ([TokenKind]::Identifier) 'I expected a property name.'
+        $field = Read-OtterVariableName 'I expected a property name.'
         $fields.Add($field.Text)
         [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the property name to end here.')
         Skip-OtterNewlines
@@ -242,7 +273,7 @@ function Read-OtterCallArguments {
 
 function Read-OtterFunctionName {
     $token = Get-OtterCurrentToken
-    if ($token.Kind -ne [TokenKind]::Identifier -and $token.Kind -ne [TokenKind]::Add) {
+    if ((-not (Test-OtterIdentifierToken $token)) -and $token.Kind -ne [TokenKind]::Add) {
         throw (New-OtterParserError 'I expected a function name.' $token 'Write a name after "to", such as "to greet name".')
     }
     return Read-OtterToken
@@ -251,7 +282,7 @@ function Read-OtterFunctionName {
 function Read-OtterCallResultTarget {
     if (-not (Test-OtterTokenKind ([TokenKind]::Make))) { return $null }
     [void](Read-OtterToken)
-    return (Assert-OtterTokenKind ([TokenKind]::Identifier) 'I expected a result variable after "make".').Text
+    return (Read-OtterVariableName 'I expected a result variable after "make".').Text
 }
 
 # Shared by log / warn / error. Parts are read exactly like say (D8), so a
@@ -283,7 +314,16 @@ function Read-OtterStatement {
         return [DateDifferenceStmt]::new($script:OtterTimeUnits[$unitToken.Kind], $from, $to, $differenceTarget.Text, $start.Line)
     }
 
-    switch ($start.Kind) {
+    # A D33 statement-head word still names a variable when the rest of this
+    # line makes assignment, list definition, or property assignment explicit.
+    # The statement forms themselves remain the switch cases below.
+    $statementKind = $start.Kind
+    $nextKind = if (($script:Position + 1) -lt $script:Tokens.Count) { $script:Tokens[$script:Position + 1].Kind } else { [TokenKind]::EndOfFile }
+    if ((Test-OtterIdentifierToken $start) -and $nextKind -in @([TokenKind]::Is, [TokenKind]::Are, [TokenKind]::Of)) {
+        $statementKind = [TokenKind]::Identifier
+    }
+
+    switch ($statementKind) {
         ([TokenKind]::Say) {
             [void](Read-OtterToken)
             $parts = [System.Collections.Generic.List[Node]]::new()
@@ -322,7 +362,7 @@ function Read-OtterStatement {
             [void](Assert-OtterTokenKind ([TokenKind]::To) 'I expected "to" after the starting number.')
             $to = Read-OtterMathExpression
             [void](Assert-OtterTokenKind ([TokenKind]::As) 'I expected "as" before the counter name.')
-            $name = Assert-OtterTokenKind ([TokenKind]::Identifier) 'I expected a counter name.'
+            $name = Read-OtterVariableName 'I expected a counter name.'
             return [CountStmt]::new($name.Text, $from, $to, (Read-OtterBlock), $start.Line)
         }
         ([TokenKind]::ForEach) {
@@ -338,7 +378,7 @@ function Read-OtterStatement {
             [void](Assert-OtterTokenKind ([TokenKind]::And) 'I expected "and call it" after the question.')
             [void](Assert-OtterTokenKind ([TokenKind]::Call) 'I expected "call" after "and".')
             [void](Assert-OtterTokenKind ([TokenKind]::It) 'I expected "it" after "call".')
-            $name = Assert-OtterTokenKind ([TokenKind]::Identifier) 'I expected a variable name after "call it".'
+            $name = Read-OtterVariableName 'I expected a variable name after "call it".'
             [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the question to end here.')
             return [AskStmt]::new($prompt, $name.Text, $start.Line)
         }
@@ -532,7 +572,7 @@ function Read-OtterStatement {
             }
             $path = Read-OtterValue
             [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a variable name.')
-            $target = Assert-OtterTokenKind ([TokenKind]::Identifier) 'I expected a variable name after "into".'
+            $target = Read-OtterVariableName 'I expected a variable name after "into".'
             [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the read statement to end here.')
             return [ReadFileStmt]::new($path, $target.Text, $start.Line)
         }
@@ -597,14 +637,14 @@ function Read-OtterStatement {
             $resultTarget = $null
             if (Test-OtterTokenKind ([TokenKind]::Into)) {
                 [void](Read-OtterToken)
-                $resultTarget = (Assert-OtterTokenKind ([TokenKind]::Identifier) 'I expected a variable name after "into".').Text
+                $resultTarget = (Read-OtterVariableName 'I expected a variable name after "into".').Text
             }
             [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the run statement to end here.')
             return [RunStmt]::new($target, $isCommand, $resultTarget, $start.Line)
         }
         ([TokenKind]::A) {
             [void](Read-OtterToken)
-            $typeName = Assert-OtterTokenKind ([TokenKind]::Identifier) 'I expected a type name after "a".'
+            $typeName = Read-OtterVariableName 'I expected a type name after "a".'
             [void](Assert-OtterTokenKind ([TokenKind]::Has) 'I expected "has" after the type name.')
             $script:KnownTypes[$typeName.Text] = $true
             return [TypeDefStmt]::new($typeName.Text, (Read-OtterTypeFields), $start.Line)
@@ -615,7 +655,7 @@ function Read-OtterStatement {
             $parameters = [System.Collections.Generic.List[string]]::new()
             while (-not (Test-OtterTokenKind ([TokenKind]::Newline))) {
                 if (Test-OtterTokenKind ([TokenKind]::And)) { [void](Read-OtterToken); continue }
-                $parameters.Add((Assert-OtterTokenKind ([TokenKind]::Identifier) 'I expected a parameter name.').Text)
+                $parameters.Add((Read-OtterVariableName 'I expected a parameter name.').Text)
             }
             # Definitions are visible from their own body onward, which also
             # allows a function to call itself recursively.
@@ -646,7 +686,7 @@ function Read-OtterStatement {
                     return [DateAdjustStmt]::new($amount, $script:OtterTimeUnits[$unitToken.Kind], $dateName.Text, $false, $start.Line)
                 }
                 [void](Assert-OtterTokenKind ([TokenKind]::To) 'I expected "to" and a variable name.')
-                $name = Assert-OtterTokenKind ([TokenKind]::Identifier) 'I expected a variable name after "to".'
+                $name = Read-OtterVariableName 'I expected a variable name after "to".'
                 [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the add statement to end here.')
                 return [AddToStmt]::new($amount, $name.Text, $start.Line)
             }
@@ -667,7 +707,7 @@ function Read-OtterStatement {
                 return [DateAdjustStmt]::new($amount, $script:OtterTimeUnits[$unitToken.Kind], $dateName.Text, $true, $start.Line)
             }
             [void](Assert-OtterTokenKind ([TokenKind]::From) 'I expected "from" and a variable name.')
-            $name = Assert-OtterTokenKind ([TokenKind]::Identifier) 'I expected a variable name after "from".'
+            $name = Read-OtterVariableName 'I expected a variable name after "from".'
             [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the remove statement to end here.')
             return [RemoveFromStmt]::new($amount, $name.Text, $start.Line)
         }
@@ -732,7 +772,7 @@ function Read-OtterStatement {
                 $script:Position--
                 $expression = Read-OtterMathExpression
                 [void](Assert-OtterTokenKind ([TokenKind]::Make) 'I expected "make" and a result variable.')
-                $target = Assert-OtterTokenKind ([TokenKind]::Identifier) 'I expected a variable name after "make".'
+                $target = Read-OtterVariableName 'I expected a variable name after "make".'
                 [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the math statement to end here.')
                 return [MathIntoStmt]::new($expression, $target.Text, $start.Line)
             }
@@ -743,7 +783,7 @@ function Read-OtterStatement {
         ([TokenKind]::Number) {
             $expression = Read-OtterMathExpression
             [void](Assert-OtterTokenKind ([TokenKind]::Make) 'I expected "make" and a result variable.')
-            $target = Assert-OtterTokenKind ([TokenKind]::Identifier) 'I expected a variable name after "make".'
+            $target = Read-OtterVariableName 'I expected a variable name after "make".'
             [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the math statement to end here.')
             return [MathIntoStmt]::new($expression, $target.Text, $start.Line)
         }
