@@ -1,6 +1,10 @@
 const escape = (text) => text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
-const keywords = /\b(say|ask|and|or|not|if|otherwise|while|repeat|count|for|each|in|to|return|is|at|least|greater|less|than|are|empty|gone|try|read|write|copy|move|delete|file|folder|get|files|folders|into|of|length|uppercase|lowercase|first|last|sort|reverse|split|join|find|where)\b/g;
-const code = (source) => `<pre class="otter-code"><code>${source.split(/("(?:\\.|[^"\\])*")/).map((part, index) => index % 2 ? `<span class="tok-string">${escape(part)}</span>` : escape(part).replace(keywords, '<span class="tok-keyword">$1</span>')).join('')}</code></pre>`;
+const keywords = /\b(say|ask|call|it|and|or|not|if|otherwise|while|repeat|times|count|for|each|in|to|from|return|is|at|least|most|greater|less|than|starts|ends|with|contains|are|empty|gone|true|false|make|makes|add|remove|minus|divided|by|thing|has|try|read|write|copy|move|delete|create|file|folder|files|folders|subfolders|exists|get|into|of|run|command|length|uppercase|lowercase|first|last|sort|reverse|replace|split|join|find|where)\b/g;
+const code = (source) => `<pre class="otter-code" data-otter="1"><code>${source.split(/("(?:\\.|[^"\\])*")/).map((part, index) => index % 2 ? `<span class="tok-string">${escape(part)}</span>` : escape(part).replace(keywords, '<span class="tok-keyword">$1</span>')).join('')}</code></pre>`;
+
+// Terminal commands and REPL transcripts are NOT Otter source. They are
+// marked differently so scripts/check-examples.mjs skips them.
+const shell = (source) => `<pre class="shell-code"><code>${escape(source)}</code></pre>`;
 const note = (text) => `<aside class="note"><strong>Note</strong><p>${text}</p></aside>`;
 
 export const sections = [
@@ -29,12 +33,16 @@ export const pages = [
     ${code('say "Hello, Otter!"')}
     <p>Start with a short program, then grow into files, folders, objects, and collections without changing how the language reads.</p>`, 'A gentle introduction to Otter.'),
   page('installation', 'Installation', 'Getting Started', `
-    <p>Otter currently runs through the project launcher on Windows PowerShell 5.1.</p>
-    ${code('.\\otter.cmd examples\\hello.ot')}
-    ${note('A packaged installer and editor integration are not documented yet. This page will be updated when an official distribution is available.')}`),
+    <p>Otter runs on Windows PowerShell 5.1. There is nothing to install and nothing to download &mdash; run a program straight from the project folder:</p>
+    ${shell('.\\otter.cmd examples\\hello.ot')}
+    <p>To use <code>otter</code> from any folder, the way <code>python</code> works, add the project folder to your PATH once:</p>
+    ${shell("$userPath = [Environment]::GetEnvironmentVariable('Path','User')\n[Environment]::SetEnvironmentVariable('Path', $userPath + ';C:\\path\\to\\otterPS', 'User')")}
+    <p>Open a <strong>new</strong> terminal afterwards. A program keeps the environment it started with, so an already-open window will not see the change.</p>
+    ${shell('otter hello.ot')}
+    ${note('A packaged installer and editor integration are not available yet. This page will be updated when an official distribution exists.')}`),
   page('hello', 'Hello, Otter!', 'Getting Started', `<p>Create <code>hello.ot</code>:</p>${code('say "Hello, Otter!"')}<p>Run it with the Otter launcher.</p>`),
-  page('running-files', 'Running .ot Files', 'Getting Started', `<p>Pass an Otter source file to the launcher.</p>${code('.\\otter.cmd hello.ot')}<p>Otter reports syntax and runtime errors with the line that needs attention.</p>`),
-  page('repl', 'REPL', 'Getting Started', `<p>Run <code>.\\otter.cmd</code> without a file to start the interactive prompt. Type <code>exit</code> to leave it.</p>${code('otter> say "Hello"\nHello')}`),
+  page('running-files', 'Running .ot Files', 'Getting Started', `<p>Pass an Otter source file to the launcher.</p>${shell('otter hello.ot')}<p>Otter reports syntax and runtime errors with the line that needs attention.</p><p>To check that a file is well formed without running it, add <code>-ParseOnly</code>. Nothing is printed, no file is written, and no program is launched.</p>${shell('otter hello.ot -ParseOnly')}`),
+  page('repl', 'REPL', 'Getting Started', `<p>Run <code>otter</code> without a file to start the interactive prompt. Variables set on one line are still there on the next. Type <code>exit</code> to leave it.</p>${shell('otter> name is "Jeff"\notter> say "Hello" name\nHello Jeff\notter> exit')}`),
 
   page('variables', 'Variables and Values', 'Learn Otter', `<p>Give a value a name with <code>is</code>.</p>${code('name is "Jeff"\nage is 29\nloggedIn is true\nsay name')}`),
   page('input-output', 'Input and Output', 'Learn Otter', `<p><code>say</code> prints values separated by one space. <code>ask</code> reads a value into a name.</p>${code('ask "What is your name?" and call it name\nsay "Hello" name')}`),
@@ -49,14 +57,14 @@ export const pages = [
   page('values', 'Values and Types', 'Language Reference', `<p>Otter values include text, numbers, booleans, lists, objects, and <code>gone</code>.</p>${code('title is "Otter"\nscore is 10\nready is true\ngames are empty')}`),
   page('gone', 'gone', 'Language Reference', `<p><code>gone</code> is Otter’s single absence value. It is different from an empty string, zero, false, and an empty list.</p>${code('user is gone\n\nif user is gone\n    say "No user found."')}`),
   page('operators', 'Operators', 'Language Reference', `<p>Arithmetic reads naturally: <code>and</code>, <code>minus</code>, <code>times</code>, and <code>divided by</code>.</p>${code('5 and 5 make total\n10 minus 5 make difference')}`),
-  page('property-access', 'Property Access', 'Language Reference', `<p>Properties are written property-first: <code>name of person</code>. A period is not property access.</p>${code('say name of person\ncity of address of user')}${note('Write <code>name of person</code>, never <code>person.name</code>.')}`),
+  page('property-access', 'Property Access', 'Language Reference', `<p>Properties are written property-first: <code>name of person</code>. A period is not property access.</p>${code('say name of person')}<p>Property access nests, reading right to left. This is the <code>city</code> of the <code>address</code> of the <code>user</code>:</p>${code('say city of address of user')}<p>A property can also be assigned:</p>${code('age of person is 30')}${note('Write <code>name of person</code>, never <code>person.name</code>. Otter reserves the period for closing a block.')}`),
   page('strings', 'Strings', 'Language Reference', `<p>Derived text operations return new values. They do not alter the original text.</p>${code('say length of name\nsay uppercase of name\nif name starts with "J"\n    say "Starts with J"\n\nreplace "Jeff" with "Jeffrey" in name')}`),
   page('collections', 'Collections', 'Language Reference', `<p>Lists support inspection, matching, ordering, splitting, joining, and finding one item.</p>${code('sort games\nreverse games\nsplit "red,green" by "," into colors\njoin colors with " | " into text\nfind game in games where game is "Mario" into result')}`),
   page('files', 'Files', 'Language Reference', `<p>Read, write, copy, move, and delete files with explicit statements.</p>${code('copy "notes.txt" to "backup/notes.txt"\ndelete file "notes.txt"\nif file "notes.txt" exists\n    say "Found it"')}`),
   page('folders', 'Folders', 'Language Reference', `<p>Discover folders with <code>get folders</code>. Discovery is not recursive unless <code>and subfolders</code> is written.</p>${code('get files in "Pictures" and subfolders into files\ncreate folder "Backup"\ndelete folder "Backup"')}`),
   page('try', 'try / otherwise', 'Language Reference', `<p><code>otherwise</code> runs when the <code>try</code> body fails. A return remains normal control flow.</p>${code('try\n    read "settings.json" into settings\notherwise\n    say "Using defaults."\n.')}`),
-  page('json', 'JSON', 'Language Reference', `<p>JSON support is available for reading and converting values. See the project examples and runtime release notes for the current supported forms.</p>${note('This reference page is intentionally brief until the user-facing JSON wording is finalized.')}`),
-  page('random', 'Random', 'Language Reference', `<p>Random number and item operations are available in the current runtime.</p>${note('The final public syntax wording is awaiting a dedicated language-reference pass.')}`),
+  page('json', 'JSON', 'Language Reference', `<p>JSON is planned but <strong>not yet available in the language</strong>. When it arrives, JSON will become ordinary Otter values &mdash; an object becomes a thing, a list becomes a list, and <code>null</code> becomes <code>gone</code> &mdash; so there will be no separate JSON syntax to learn.</p>${note('Not implemented yet. This page documents the intended shape only, and the examples on it will not run. It will be rewritten with working code once JSON is available.')}`),
+  page('random', 'Random', 'Language Reference', `<p>Random values are planned but <strong>not yet available in the language</strong>.</p>${note('Not implemented yet. This page will be written once random values can be used in an Otter program.')}`),
   page('scope', 'Scope', 'Language Reference', `<p>Function parameters and local work do not overwrite names outside the function.</p>${code('name is "Outside"\nto greet name\n    say "Hello" name\ngreet "Jeff"\nsay name')}`),
   page('diagnostics', 'Diagnostics', 'Language Reference', `<p>Otter syntax and runtime errors identify the relevant line and suggest a correction when one is clear.</p>`),
 

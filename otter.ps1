@@ -39,6 +39,12 @@ param(
     [switch]$DebugTokens,
     [switch]$DebugAst,
 
+    # Check that a program is well formed WITHOUT running it. Nothing is
+    # printed, no file is touched, no program is launched. Used by the
+    # documentation build to prove every published example still parses,
+    # and useful to any editor that wants to check a file as it is typed.
+    [switch]$ParseOnly,
+
     # Show the underlying PowerShell error instead of a friendly Otter one.
     [switch]$DebugErrors
 )
@@ -114,6 +120,11 @@ function Invoke-OtterSource {
     }
 
     $program = ConvertTo-OtterAst -Tokens $tokens
+
+    if ($ParseOnly) {
+        # Reaching here means the lexer and parser both accepted the source.
+        return
+    }
 
     if ($DebugAst) {
         Write-Host '--- ast ---' -ForegroundColor DarkCyan
@@ -266,6 +277,7 @@ function Start-OtterRepl {
 
 if ($Path) {
     Invoke-OtterFile -ScriptPath $Path
+    if ($ParseOnly) { Write-Host "ok: $Path" }
 }
 else {
     Start-OtterRepl
