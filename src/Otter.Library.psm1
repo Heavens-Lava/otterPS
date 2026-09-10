@@ -97,11 +97,19 @@ function New-OtterFileObject {
     $file.WriteProperty('extension', [System.IO.Path]::GetExtension($full))
     $file.WriteProperty('path', $full)
 
+    # rules3 section 8: name, path, extension, size, created, modified.
     $size = 0.0
+    $created = $null
+    $modified = $null
     if (Test-Path -LiteralPath $full -PathType Leaf) {
-        $size = [double](Get-Item -LiteralPath $full).Length
+        $item = Get-Item -LiteralPath $full
+        $size = [double]$item.Length
+        $created = $item.CreationTime.ToString('yyyy-MM-dd HH:mm:ss')
+        $modified = $item.LastWriteTime.ToString('yyyy-MM-dd HH:mm:ss')
     }
     $file.WriteProperty('size', $size)
+    $file.WriteProperty('created', $created)
+    $file.WriteProperty('modified', $modified)
 
     return $file
 }
@@ -441,6 +449,123 @@ function Move-OtterFolder {
 
 
 # ===============================================================
+# JSON (D29)
+# ===============================================================
+#
+# rules3 section 36: once JSON becomes an Otter value it is an ORDINARY
+# object, read the ordinary way:
+#
+#     read json from "settings.json" into settings
+#     say name of user
+#     say city of address of user
+#
+# There is deliberately no separate JSON-navigation syntax. A JSON object
+# becomes an OtterObject, a JSON array becomes an Otter list, and everything
+# below works from there.
+
+function ConvertFrom-OtterJsonValue {
+    param([object]$Value, [int]$Line)
+
+    if ($null -eq $Value) { return $null }
+
+    # ConvertFrom-Json hands back PSCustomObject for objects.
+    if ($Value -is [System.Management.Automation.PSCustomObject]) {
+        $object = [OtterObject]::new('thing')
+        foreach ($property in $Value.PSObject.Properties) {
+            $object.WriteProperty($property.Name, (ConvertFrom-OtterJsonValue -Value $property.Value -Line $Line))
+        }
+        return $object
+    }
+
+    if ($Value -is [System.Collections.IEnumerable] -and $Value -isnot [string]) {
+        $list = [System.Collections.Generic.List[object]]::new()
+        foreach ($item in $Value) {
+            $list.Add((ConvertFrom-OtterJsonValue -Value $item -Line $Line))
+        }
+        Write-Output -NoEnumerate $list
+        return
+    }
+
+    if ($Value -is [bool]) { return $Value }
+    if ($Value -is [int] -or $Value -is [long] -or $Value -is [double] -or $Value -is [decimal]) {
+        return [double]$Value
+    }
+
+    return [string]$Value
+}
+
+function ConvertFrom-OtterJsonText {
+    param([string]$Text, [int]$Line)
+
+    if ([string]::IsNullOrWhiteSpace($Text)) {
+        throw [OtterError]::new('There is no JSON here to read.', $Line, 'runtime')
+    }
+
+    try {
+        $parsed = ConvertFrom-Json -InputObject $Text -ErrorAction Stop
+    }
+    catch {
+        throw [OtterError]::new(
+            'This is not valid JSON, so Otter could not read it.',
+            $Line, 'runtime')
+    }
+
+    Write-Output -NoEnumerate (ConvertFrom-OtterJsonValue -Value $parsed -Line $Line)
+}
+
+# Otter value -> something ConvertTo-Json understands.
+function ConvertTo-OtterJsonShape {
+    param([object]$Value, [int]$Line)
+
+    if ($null -eq $Value) { return $null }
+
+    if ($Value -is [OtterObject]) {
+        $map = [ordered]@{}
+        foreach ($name in $Value.PropertyNames()) {
+            $map[$name] = ConvertTo-OtterJsonShape -Value $Value.ReadProperty($name) -Line $Line
+        }
+        return $map
+    }
+
+    if ($Value -is [System.Collections.Generic.List[object]]) {
+        $items = @()
+        foreach ($item in $Value) {
+            $items += , (ConvertTo-OtterJsonShape -Value $item -Line $Line)
+        }
+        return , $items
+    }
+
+    if ($Value -is [OtterFunction] -or $Value -is [OtterType]) {
+        throw [OtterError]::new(
+            'Otter cannot turn something it can do into JSON.',
+            $Line, 'runtime')
+    }
+
+    return $Value
+}
+
+function ConvertTo-OtterJsonText {
+    param([object]$Value, [int]$Line)
+
+    $shape = ConvertTo-OtterJsonShape -Value $Value -Line $Line
+    try {
+        return (ConvertTo-Json -InputObject $shape -Depth 32)
+    }
+    catch {
+        throw [OtterError]::new("Otter could not turn this into JSON. $($_.Exception.Message)", $Line, 'runtime')
+    }
+}
+
+# read json from "settings.json" into settings
+function Read-OtterJsonFile {
+    param([string]$Path, [int]$Line)
+
+    $text = Read-OtterFile -Path $Path -Line $Line
+    Write-Output -NoEnumerate (ConvertFrom-OtterJsonText -Text $text -Line $Line)
+}
+
+
+# ===============================================================
 # PROGRAMS AND COMMANDS  (rules.md section 31)
 # ===============================================================
 #
@@ -571,4 +696,5 @@ Export-ModuleMember -Function `
     Split-OtterCommandLine, Start-OtterProgram, Invoke-OtterCommand, `
     New-OtterFileObject, Resolve-OtterFileArgument, New-OtterFolderObject, `
     Get-OtterFilesIn, Get-OtterFoldersIn, New-OtterFolder, Remove-OtterFolder, `
-    Copy-OtterFolder, Move-OtterFolder
+    Copy-OtterFolder, Move-OtterFolder, `
+    ConvertFrom-OtterJsonText, ConvertTo-OtterJsonText, Read-OtterJsonFile

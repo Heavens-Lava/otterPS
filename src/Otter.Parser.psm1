@@ -37,6 +37,18 @@ function Skip-OtterNewlines { while (Test-OtterTokenKind ([TokenKind]::Newline))
 
 function Read-OtterValue {
     $token = Get-OtterCurrentToken
+    if ($token.Kind -in @([TokenKind]::Length, [TokenKind]::Uppercase, [TokenKind]::Lowercase, [TokenKind]::First, [TokenKind]::Last)) {
+        [void](Read-OtterToken)
+        [void](Assert-OtterTokenKind ([TokenKind]::Of) 'I expected "of" after this operation.')
+        $operation = switch ($token.Kind) {
+            ([TokenKind]::Length) { [OfOperation]::Length }
+            ([TokenKind]::Uppercase) { [OfOperation]::Uppercase }
+            ([TokenKind]::Lowercase) { [OfOperation]::Lowercase }
+            ([TokenKind]::First) { [OfOperation]::First }
+            ([TokenKind]::Last) { [OfOperation]::Last }
+        }
+        return [OfOperationExpr]::new($operation, (Read-OtterValue), $token.Line)
+    }
     # These words are commands in statement position, but ordinary names in
     # expression position: `for each file in files`, `name of file`.
     if ($token.Kind -in @([TokenKind]::Identifier, [TokenKind]::File, [TokenKind]::Files, [TokenKind]::Folder, [TokenKind]::Folders)) {
@@ -101,6 +113,11 @@ function Read-OtterConditionPrimary {
     if (Test-OtterTokenKind ([TokenKind]::Contains)) {
         $operator = Read-OtterToken
         return [ContainsExpr]::new($left, (Read-OtterValue), $operator.Line)
+    }
+    if (Test-OtterTokenKind ([TokenKind]::StartsWith) -or (Test-OtterTokenKind ([TokenKind]::EndsWith))) {
+        $operator = Read-OtterToken
+        $match = if ($operator.Kind -eq [TokenKind]::StartsWith) { [TextMatch]::StartsWith } else { [TextMatch]::EndsWith }
+        return [TextMatchExpr]::new($left, $match, (Read-OtterValue), $operator.Line)
     }
     $operator = Get-OtterCurrentToken
     $comparison = switch ($operator.Kind) {
@@ -318,6 +335,60 @@ function Read-OtterStatement {
                 $otherwiseBody = Read-OtterBlock
             }
             return [TryStmt]::new($body, $otherwiseBody, $start.Line)
+        }
+        ([TokenKind]::Sort) {
+            [void](Read-OtterToken)
+            $target = Read-OtterVariableName 'I expected a collection name after "sort".'
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the sort statement to end here.')
+            return [SortStmt]::new($target.Text, $start.Line)
+        }
+        ([TokenKind]::Reverse) {
+            [void](Read-OtterToken)
+            $target = Read-OtterVariableName 'I expected a collection name after "reverse".'
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the reverse statement to end here.')
+            return [ReverseStmt]::new($target.Text, $start.Line)
+        }
+        ([TokenKind]::Replace) {
+            [void](Read-OtterToken)
+            $find = Read-OtterValue
+            [void](Assert-OtterTokenKind ([TokenKind]::With) 'I expected "with" and replacement text.')
+            $replacement = Read-OtterValue
+            [void](Assert-OtterTokenKind ([TokenKind]::In) 'I expected "in" and the text variable to change.')
+            $target = Read-OtterVariableName 'I expected a text variable after "in".'
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the replace statement to end here.')
+            return [ReplaceStmt]::new($find, $replacement, $target.Text, $start.Line)
+        }
+        ([TokenKind]::Split) {
+            [void](Read-OtterToken)
+            $subject = Read-OtterValue
+            [void](Assert-OtterTokenKind ([TokenKind]::By) 'I expected "by" and a separator.')
+            $separator = Read-OtterValue
+            [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a list name.')
+            $target = Read-OtterVariableName 'I expected a list name after "into".'
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the split statement to end here.')
+            return [SplitStmt]::new($subject, $separator, $target.Text, $start.Line)
+        }
+        ([TokenKind]::Join) {
+            [void](Read-OtterToken)
+            $subject = Read-OtterValue
+            [void](Assert-OtterTokenKind ([TokenKind]::With) 'I expected "with" and a separator.')
+            $separator = Read-OtterValue
+            [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a text name.')
+            $target = Read-OtterVariableName 'I expected a text name after "into".'
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the join statement to end here.')
+            return [JoinStmt]::new($subject, $separator, $target.Text, $start.Line)
+        }
+        ([TokenKind]::Find) {
+            [void](Read-OtterToken)
+            $item = Read-OtterVariableName 'I expected an item name after "find".'
+            [void](Assert-OtterTokenKind ([TokenKind]::In) 'I expected "in" and a collection.')
+            $collection = Read-OtterValue
+            [void](Assert-OtterTokenKind ([TokenKind]::Where) 'I expected "where" and a condition.')
+            $condition = Read-OtterCondition
+            [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a result name.')
+            $target = Read-OtterVariableName 'I expected a result name after "into".'
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the find statement to end here.')
+            return [FindStmt]::new($item.Text, $collection, $condition, $target.Text, $start.Line)
         }
         ([TokenKind]::Read) {
             [void](Read-OtterToken)

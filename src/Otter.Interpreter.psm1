@@ -52,6 +52,33 @@ function Write-OtterLine {
     Write-Host $Text
 }
 
+# D31: log / warn / error are DIAGNOSTIC output and go somewhere separate
+# from "say". "say" is what a program tells its user; these are what it tells
+# whoever is running it. Keeping them apart is what lets a runtime send
+# diagnostics to a file, a service, or nowhere at all.
+$script:DiagnosticWriter = $null
+
+function Set-OtterDiagnosticWriter {
+    param([scriptblock]$Writer)
+    $script:DiagnosticWriter = $Writer
+}
+
+function Write-OtterDiagnostic {
+    param([string]$Level, [string]$Text)
+
+    if ($null -ne $script:DiagnosticWriter) {
+        & $script:DiagnosticWriter $Level $Text
+        return
+    }
+
+    $colour = switch ($Level) {
+        'warn' { 'Yellow' }
+        'error' { 'Red' }
+        default { 'DarkGray' }
+    }
+    Write-Host "$($Level): $Text" -ForegroundColor $colour
+}
+
 
 # ===============================================================
 # ERRORS
@@ -465,7 +492,14 @@ function Invoke-OtterStatement {
             }
             # Plain text replace - no regular expressions, so "." in the text
             # the programmer typed means a full stop and nothing else.
-            $Environment.Set($Statement.Target, $subject.Replace($find, $replacement))
+            $result = $subject.Replace($find, $replacement)
+
+            # D27: with a destination, the source is left exactly as it was.
+            if ($Statement.ResultTarget) {
+                $Environment.Set($Statement.ResultTarget, $result)
+                return
+            }
+            $Environment.Set($Statement.Target, $result)
             return
         }
 
@@ -521,6 +555,85 @@ function Invoke-OtterStatement {
             }
 
             $Environment.Set($Statement.Target, $found)
+            return
+        }
+
+        # --- json (D29) -----------------------------------------
+
+        # read json from "settings.json" into settings
+        'ReadJson' {
+            $path = Get-OtterPathArgument -Expression $Statement.Path -Environment $Environment
+            $value = Read-OtterJsonFile -Path $path -Line $Statement.Line
+            $Environment.Set($Statement.Target, $value)
+            return
+        }
+
+        # convert user to json into text
+        'ConvertToJson' {
+            $subject = Get-OtterValue -Expression $Statement.Subject -Environment $Environment
+            $Environment.Set($Statement.Target, (ConvertTo-OtterJsonText -Value $subject -Line $Statement.Line))
+            return
+        }
+
+        # convert text from json into user
+        'ConvertFromJson' {
+            $text = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.Subject -Environment $Environment)
+            $value = ConvertFrom-OtterJsonText -Text $text -Line $Statement.Line
+            $Environment.Set($Statement.Target, $value)
+            return
+        }
+
+        # --- random (D30) ---------------------------------------
+
+        # random number from 1 to 10 into number    - both ends included
+        'RandomNumber' {
+            $fromRaw = Get-OtterValue -Expression $Statement.From -Environment $Environment
+            $toRaw = Get-OtterValue -Expression $Statement.To -Environment $Environment
+            $from = Assert-OtterNumber -Value $fromRaw -Line $Statement.Line -What 'the lowest number'
+            $to = Assert-OtterNumber -Value $toRaw -Line $Statement.Line -What 'the highest number'
+
+            if ($from -gt $to) {
+                $swap = $from; $from = $to; $to = $swap
+            }
+            # Get-Random -Maximum is exclusive, so add one to include the top.
+            $picked = Get-Random -Minimum ([int][Math]::Floor($from)) -Maximum (([int][Math]::Floor($to)) + 1)
+            $Environment.Set($Statement.Target, [double]$picked)
+            return
+        }
+
+        # random item from games into game     - gone when the list is empty
+        'RandomItem' {
+            $collection = Get-OtterValue -Expression $Statement.Collection -Environment $Environment
+            if (-not (Test-OtterList $collection)) {
+                throw (New-OtterRuntimeError `
+                    -Message "I can only pick from a list, but this is $(Get-OtterTypeName $collection)." `
+                    -Line $Statement.Line)
+            }
+
+            if ($collection.Count -eq 0) {
+                $Environment.Set($Statement.Target, $null)
+                return
+            }
+
+            $index = Get-Random -Minimum 0 -Maximum $collection.Count
+            $Environment.Set($Statement.Target, $collection[$index])
+            return
+        }
+
+        # --- diagnostics (D31) ----------------------------------
+
+        # log "Server started."  /  warn "..."  /  error "..."
+        'Diagnostic' {
+            $rendered = @()
+            foreach ($part in $Statement.Parts) {
+                $rendered += (Format-OtterValue -Value (Get-OtterValue -Expression $part -Environment $Environment))
+            }
+            $label = switch ($Statement.Level.ToString()) {
+                'Warning' { 'warn' }
+                'Problem' { 'error' }
+                default { 'log' }
+            }
+            Write-OtterDiagnostic -Level $label -Text ($rendered -join ' ')
             return
         }
 
@@ -1039,4 +1152,4 @@ function New-OtterEnvironment {
 Export-ModuleMember -Function `
     Invoke-OtterProgram, Invoke-OtterStatements, Invoke-OtterStatement, `
     Get-OtterValue, Invoke-OtterCall, New-OtterEnvironment, Get-OtterTypeName, `
-    Set-OtterOutputWriter, Write-OtterLine, Get-OtterText, Get-OtterPathArgument, Set-OtterTarget
+    Set-OtterOutputWriter, Set-OtterDiagnosticWriter, Write-OtterLine, Get-OtterText, Get-OtterPathArgument, Set-OtterTarget

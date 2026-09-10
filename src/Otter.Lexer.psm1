@@ -40,6 +40,15 @@ $script:OtterKeywords = @{
     'subfolders' = [TokenKind]::Subfolders
     'create' = [TokenKind]::Create
     'try' = [TokenKind]::Try
+    'sort' = [TokenKind]::Sort
+    'reverse' = [TokenKind]::Reverse
+    'replace' = [TokenKind]::Replace
+    'with' = [TokenKind]::With
+    'split' = [TokenKind]::Split
+    'by' = [TokenKind]::By
+    'join' = [TokenKind]::Join
+    'find' = [TokenKind]::Find
+    'where' = [TokenKind]::Where
     # Reserved for later language versions. Lexing them now prevents a future
     # keyword from silently changing an existing program's meaning.
     'a' = [TokenKind]::A
@@ -191,6 +200,25 @@ function ConvertTo-OtterLineTokens {
             $combined.Add((New-OtterToken ([TokenKind]::ForEach) 'for each' $null $token.Line $token.Column))
             $tokenIndex++
             continue
+        }
+        # Derived operations are contextual. `first is "Jeff"` keeps first
+        # as an identifier; only `first of games` becomes an operation token.
+        if ($token.Kind -eq [TokenKind]::Identifier -and ($tokenIndex + 1) -lt $tokens.Count -and
+            $tokens[$tokenIndex + 1].Kind -eq [TokenKind]::Of) {
+            $operationKind = switch ($token.Text) {
+                'length' { [TokenKind]::Length }
+                'uppercase' { [TokenKind]::Uppercase }
+                'lowercase' { [TokenKind]::Lowercase }
+                'first' { [TokenKind]::First }
+                'last' { [TokenKind]::Last }
+                default { $null }
+            }
+            if ($null -ne $operationKind) { $combined.Add((New-OtterToken $operationKind $token.Text $null $token.Line $token.Column)); continue }
+        }
+        if ($token.Kind -eq [TokenKind]::Identifier -and ($tokenIndex + 1) -lt $tokens.Count -and
+            $tokens[$tokenIndex + 1].Kind -eq [TokenKind]::With) {
+            if ($token.Text -eq 'starts') { $combined.Add((New-OtterToken ([TokenKind]::StartsWith) 'starts with' $null $token.Line $token.Column)); $tokenIndex++; continue }
+            if ($token.Text -eq 'ends') { $combined.Add((New-OtterToken ([TokenKind]::EndsWith) 'ends with' $null $token.Line $token.Column)); $tokenIndex++; continue }
         }
         if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -eq 'divided' -and
             ($tokenIndex + 1) -lt $tokens.Count -and $tokens[$tokenIndex + 1].Text -eq 'by') {

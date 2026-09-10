@@ -822,3 +822,163 @@ objects, failure handling, return values, ordering, and cancellation before
 any of it is worth parsing. PowerShell 5.1 adds a constraint: background jobs
 cannot share the interpreter's live objects at all, so this is real
 engineering rather than a parser addition.
+
+---
+
+# Part 3 reconciliation (rules3.md)
+
+`rules3.md` matched the implementation on almost everything — `gone`,
+discovery, `and subfolders`, folder safety, `try`/`otherwise`, control flow
+not being failure, `length of`, `first`/`last` returning `gone`, singular
+`find` vs plural `get`, and the operation-vs-property split were all already
+built as written. Two things did not match, and both were corrected.
+
+---
+
+## D27. `replace` mutates only when asked
+
+**Conflict.** `rules3.md` section 26 says the original must not be mutated
+unless the syntax explicitly requests it. The implementation mutated
+unconditionally.
+
+**Resolved — both forms are real, and the destination is what decides:**
+
+```otter
+replace "Jeff" with "Jeffrey" in name                  # changes name
+replace "Jeff" with "Jeffrey" in name into fullName    # name is untouched
+```
+
+Naming a destination with `into` is the request for the non-mutating
+behaviour. Without one, `in name` names the thing being changed — otherwise
+the bare form would do nothing at all, which cannot be what it means.
+
+This matches `uppercase of name` in section 22, which returns a new value and
+leaves the original alone: nothing changes a variable unless the statement
+says which variable it is changing.
+
+---
+
+## D28. Scope (rules3 sections 37-39) — already correct, now frozen
+
+Verified against the implementation rather than assumed:
+
+- **Functions can read outer variables.** `to greet / say name` sees a global
+  `name`.
+- **Function locals disappear when the function ends** (section 38). A
+  variable created inside a function is not reachable afterwards.
+- **Function parameters shadow, never overwrite** — already pinned by a test
+  since 0.2.
+- **Control-flow blocks do NOT create a scope** (section 39):
+
+  ```otter
+  if ready
+      message is "Starting"
+  .
+
+  say message        # works
+  ```
+
+  This holds identically for `if`, `while`, `for each`, `count` and `try`.
+
+  The one exception is deliberate: the item name in `find ... where ...` is
+  bound for the condition only, like a `for each` variable, and does not
+  survive the statement.
+
+**Frozen now**, per section 39's request, before closures or concurrency
+arrive and make it expensive to change.
+
+---
+
+## D29. JSON becomes ordinary Otter values
+
+```otter
+read json from "settings.json" into settings
+convert text from json into user
+convert user to json into text
+```
+
+**There is no JSON-navigation syntax** (section 36). Once JSON is read it is
+an ordinary Otter value:
+
+| JSON | Otter |
+|---|---|
+| object | a thing, read with `name of user` |
+| array | a list, walked with `for each` |
+| number | a number |
+| `true` / `false` | a boolean |
+| `null` | **`gone`** |
+| string | text |
+
+So `city of address of user` works on JSON exactly as it works on anything
+else, and `if user is gone` catches a JSON `null`.
+
+Invalid JSON is a readable Otter error, never a raw PowerShell one.
+
+---
+
+## D30. Random values
+
+```otter
+random number from 1 to 10 into number
+random item from games into game
+```
+
+- **Both ends of the range are included**, consistent with `count from 1 to 5`
+  (D5). PowerShell's `Get-Random -Maximum` is exclusive, so the
+  implementation adds one — a test draws 60 times from a range of 3 and
+  asserts all three values appear.
+- Reversed bounds are accepted and swapped rather than erroring.
+- **`random item` from an empty list is `gone`**, matching `first of` and
+  `last of` (D25).
+
+---
+
+## D31. `log` / `warn` / `error` are diagnostics, not output
+
+```otter
+say "Hello"                    # what the program tells its USER
+log "Server started."          # what it tells whoever is RUNNING it
+warn "Connection is slow."
+error "Could not connect."
+```
+
+**Decision: diagnostics go through a separate writer from `say`.** They are
+not just `say` with a prefix. Keeping the two apart is what lets a runtime
+send diagnostics to a file, a service, or nowhere, without touching what the
+program says to its user. There is a test asserting `say` output and
+diagnostic output never mix.
+
+Parts are joined with one space, exactly like `say` (D8).
+
+> The keyword is `error`, but the token is named `Problem` in the contract —
+> `Error` would read confusingly next to `OtterError`, which is a different
+> thing entirely.
+
+---
+
+## Still open after rules3.md
+
+**Dates (sections 42-46) — needs a decision before implementation.**
+`rules3.md` gives the syntax but not the value:
+
+```otter
+date is today
+add 7 days to date
+days between startDate and endDate make days
+format date as "MM/dd/yyyy" into text
+```
+
+What *is* a date value in Otter? If it is text, `add 7 days to date` has to
+re-parse it every time and `format` is meaningless. If it is an object, what
+are its properties — `year of date`, `month of date`? And `add 7 days to
+date` collides with `add 5 to score` (D12): same verb, same shape, different
+meaning, decided by the word `days`.
+
+Dates are the one Part 3 area where the syntax is settled and the semantics
+are not. Recommend a short decision on the value model before any of it is
+built.
+
+**Also unbuilt, and fine to leave:** modules (`use`), packages, command-line
+arguments, environment values and secrets, testing syntax, `measure folder`,
+`delete folder ... and everything in it`, `sort files by name`, plural
+`get ... where`, methods on custom types, and concurrency.

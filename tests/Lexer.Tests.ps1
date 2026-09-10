@@ -32,4 +32,12 @@ if ((@($part3Tokens | ForEach-Object Kind) -join ',') -ne 'Get,Files,In,String,A
 }
 $goneTokens = ConvertTo-OtterTokens -Source 'user is gone'
 if ($goneTokens[2].Kind -ne [TokenKind]::Gone) { throw 'Gone must be a literal token.' }
+$operationTokens = ConvertTo-OtterTokens -Source 'length of files'
+if ((@($operationTokens | ForEach-Object Kind) -join ',') -ne 'Length,Of,Files,Newline,EndOfFile') { throw 'Length must become an operation only before of.' }
+$identifierTokens = ConvertTo-OtterTokens -Source 'first is "Jeff"'
+if ($identifierTokens[0].Kind -ne [TokenKind]::Identifier) { throw 'First must remain an ordinary identifier outside an operation.' }
+$startsTokens = ConvertTo-OtterTokens -Source 'if name starts with "J"'
+if ($startsTokens[2].Kind -ne [TokenKind]::StartsWith) { throw 'Starts with must be one token.' }
+$endsTokens = ConvertTo-OtterTokens -Source 'if name ends with "Macy"'
+if ($endsTokens[2].Kind -ne [TokenKind]::EndsWith) { throw 'Ends with must be one token.' }
 Write-Output 'Lexer tests passed.'

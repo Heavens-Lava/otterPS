@@ -157,6 +157,35 @@ if ($null -ne $part3Ast.Statements[6].Value.Value) { throw 'Gone must be a null 
 if ($part3Ast.Statements[7].Branches[0].Condition.Op -ne [CompareOp]::NotEqual) { throw 'Expected "is not gone" comparison.' }
 if ($part3Ast.Statements[8] -isnot [TryStmt] -or $part3Ast.Statements[8].OtherwiseBody.Count -ne 1) { throw 'Expected try/otherwise statement.' }
 
+$collectionSource = @'
+name is "Jeff Macy"
+first is "Jeff"
+say length of name
+say uppercase of name
+say lowercase of name
+if name contains "Jeff"
+    say "Found"
+if name starts with "J"
+    say "Starts"
+if name ends with "Macy"
+    say "Ends"
+sort games
+reverse games
+replace "Jeff" with "Jeffrey" in name
+split name by " " into words
+join words with ", " into text
+find game in games where game is "Mario" into result
+'@
+$collectionAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $collectionSource)
+if ($collectionAst.Statements[1].Target.Name -ne 'first') { throw 'First must remain an ordinary assignment target.' }
+if ($collectionAst.Statements[2].Parts[0] -isnot [OfOperationExpr] -or $collectionAst.Statements[2].Parts[0].Operation -ne [OfOperation]::Length) { throw 'Expected length operation expression.' }
+if ($collectionAst.Statements[3].Parts[0].Operation -ne [OfOperation]::Uppercase -or $collectionAst.Statements[4].Parts[0].Operation -ne [OfOperation]::Lowercase) { throw 'Expected case operation expressions.' }
+if ($collectionAst.Statements[5].Branches[0].Condition -isnot [ContainsExpr]) { throw 'Contains should keep its existing AST node.' }
+if ($collectionAst.Statements[6].Branches[0].Condition -isnot [TextMatchExpr] -or $collectionAst.Statements[7].Branches[0].Condition.Match -ne [TextMatch]::EndsWith) { throw 'Expected text match expressions.' }
+if ($collectionAst.Statements[8] -isnot [SortStmt] -or $collectionAst.Statements[9] -isnot [ReverseStmt]) { throw 'Expected collection mutation statements.' }
+if ($collectionAst.Statements[10] -isnot [ReplaceStmt] -or $collectionAst.Statements[11] -isnot [SplitStmt] -or $collectionAst.Statements[12] -isnot [JoinStmt]) { throw 'Expected string transform statements.' }
+if ($collectionAst.Statements[13] -isnot [FindStmt] -or $collectionAst.Statements[13].ItemName -ne 'game' -or $collectionAst.Statements[13].Target -ne 'result') { throw 'Find must retain its item name and target.' }
+
 try {
     ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source 'double 5 make result') | Out-Null
     throw 'Expected an undefined call to fail.'

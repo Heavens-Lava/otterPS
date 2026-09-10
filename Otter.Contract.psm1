@@ -112,6 +112,15 @@ enum TokenKind {
     Find            # find file in files where ... into result
     Where
 
+    # --- json, random, logging (D29, D30, D31) ------------------
+    Json            # read json from "settings.json" into settings
+    Convert         # convert user to json into text
+    Random          # random number from 1 to 10 into number
+    Item            # random item from games into game
+    Log             # log "Server started."
+    Warn
+    Problem         # the "error" keyword - Error would shadow OtterError
+
     # --- reserved for 0.3 / 0.4 (lexed now, not yet parsed) ------
     A               # jeff is A Person
     Thing           # person is a THING
@@ -237,6 +246,14 @@ enum NodeKind {
     Split
     Join
     Find
+
+    # json, random, logging (D29, D30, D31)
+    ReadJson
+    ConvertToJson
+    ConvertFromJson
+    RandomNumber
+    RandomItem
+    Diagnostic      # log / warn / error
 }
 
 enum MathOp { Add; Subtract; Multiply; Divide }
@@ -258,6 +275,11 @@ enum OfOperation { Length; Uppercase; Lowercase; First; Last }
 
 # if name starts with "J"   /   if name ends with "Macy"
 enum TextMatch { StartsWith; EndsWith }
+
+# D31: log / warn / error are DIAGNOSTIC output, separate from "say".
+# "say" is what the program tells its user; these are what it tells its
+# operator, and a runtime may send them somewhere else entirely.
+enum DiagnosticLevel { Note; Warning; Problem }
 
 
 # --- base -------------------------------------------------------
@@ -852,15 +874,31 @@ class ReverseStmt : Node {
     ReverseStmt([string]$target, [int]$line) : base([NodeKind]::Reverse, $line) { $this.Target = $target }
 }
 
-# replace "Jeff" with "Jeffrey" in name
+# replace "Jeff" with "Jeffrey" in name                    - changes name
+# replace "Jeff" with "Jeffrey" in name into fullName      - leaves name alone
+#
+# D27: rules3 section 26 says the original must not be mutated unless the
+# syntax asks for it. Naming a destination with "into" is what asks for the
+# other behaviour: with "into" the source is untouched and the result lands
+# in ResultTarget; without it, "in name" names the thing being changed.
 class ReplaceStmt : Node {
     [Node]$Find
     [Node]$Replacement
     [string]$Target
+    [string]$ResultTarget      # $null when the source is being changed in place
+
     ReplaceStmt([Node]$find, [Node]$replacement, [string]$target, [int]$line) : base([NodeKind]::Replace, $line) {
         $this.Find = $find
         $this.Replacement = $replacement
         $this.Target = $target
+        $this.ResultTarget = $null
+    }
+
+    ReplaceStmt([Node]$find, [Node]$replacement, [string]$target, [string]$resultTarget, [int]$line) : base([NodeKind]::Replace, $line) {
+        $this.Find = $find
+        $this.Replacement = $replacement
+        $this.Target = $target
+        $this.ResultTarget = $resultTarget
     }
 }
 
@@ -905,6 +943,73 @@ class FindStmt : Node {
         $this.Collection = $collection
         $this.Condition = $condition
         $this.Target = $target
+    }
+}
+
+
+# ===============================================================
+# JSON, RANDOM, DIAGNOSTICS (D29, D30, D31)
+# ===============================================================
+
+# read json from "settings.json" into settings
+class ReadJsonStmt : Node {
+    [Node]$Path
+    [string]$Target
+    ReadJsonStmt([Node]$path, [string]$target, [int]$line) : base([NodeKind]::ReadJson, $line) {
+        $this.Path = $path
+        $this.Target = $target
+    }
+}
+
+# convert user to json into text
+class ConvertToJsonStmt : Node {
+    [Node]$Subject
+    [string]$Target
+    ConvertToJsonStmt([Node]$subject, [string]$target, [int]$line) : base([NodeKind]::ConvertToJson, $line) {
+        $this.Subject = $subject
+        $this.Target = $target
+    }
+}
+
+# convert text from json into user
+class ConvertFromJsonStmt : Node {
+    [Node]$Subject
+    [string]$Target
+    ConvertFromJsonStmt([Node]$subject, [string]$target, [int]$line) : base([NodeKind]::ConvertFromJson, $line) {
+        $this.Subject = $subject
+        $this.Target = $target
+    }
+}
+
+# random number from 1 to 10 into number
+class RandomNumberStmt : Node {
+    [Node]$From
+    [Node]$To
+    [string]$Target
+    RandomNumberStmt([Node]$from, [Node]$to, [string]$target, [int]$line) : base([NodeKind]::RandomNumber, $line) {
+        $this.From = $from
+        $this.To = $to
+        $this.Target = $target
+    }
+}
+
+# random item from games into game     - gone when the list is empty
+class RandomItemStmt : Node {
+    [Node]$Collection
+    [string]$Target
+    RandomItemStmt([Node]$collection, [string]$target, [int]$line) : base([NodeKind]::RandomItem, $line) {
+        $this.Collection = $collection
+        $this.Target = $target
+    }
+}
+
+# log "Server started."   /   warn "..."   /   error "..."
+class DiagnosticStmt : Node {
+    [DiagnosticLevel]$Level
+    [Node[]]$Parts
+    DiagnosticStmt([DiagnosticLevel]$level, [Node[]]$parts, [int]$line) : base([NodeKind]::Diagnostic, $line) {
+        $this.Level = $level
+        $this.Parts = $parts
     }
 }
 
