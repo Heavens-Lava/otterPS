@@ -1360,52 +1360,97 @@ other mechanism-2 word.
 
 ---
 
-## D37. `stop` - OPEN, not decided. rules4 itself says so.
+## D37. `stop` - decided
 
 ```otter
-to double number
-    if number is 0
+to greet name
+    if name is empty
         stop
     .
-    answer is number times 2
-    return answer
+
+    say "Hello" name
 .
 ```
 
-rules4 section 14 states the semantics it wants - *"stop executing the
-current callable/process immediately without producing a return value"* -
-and then states, in the same section, that **the exact scope must be
-specified before implementation so it never ambiguously means "stop the
-entire application."** That is not a decision to build against; it is a
-decision to make.
+**`stop` terminates the nearest return-capable execution context and
+produces no value.** Deliberately framed as "nearest return-capable
+context," not "the current function" - so the same semantics extend later
+to event handlers, routes, callbacks, and jobs without a redesign, the
+moment `when` (or any of those) exists.
 
-**Verified: `stop` is entirely unreserved today** - it parsed as an ordinary
-identifier and failed only because nothing named `stop` existed
-(`Otter could not find anything called "stop"`).
+`stop` is not `break`. Inside a loop, it does **not** exit the loop - it
+exits the function the loop is running in:
 
-**The natural minimal-diff implementation**, offered here as a *proposal*,
-not a decision: `stop` is sugar for `return` with no value.
-`ReturnStmt.Value` is already nullable and the interpreter's
-`OtterReturnSignal` already unwinds cleanly through nested blocks and
-through `try` (D23a). If `stop` means exactly what D23a's `return` already
-means, this needs zero new AST node and zero new interpreter logic - one
-new statement-head keyword parsed straight into `ReturnStmt(Value: $null)`.
+```otter
+each file in files
+    if name of file is "stop.txt"
+        stop
+    .
+.
+```
 
-**What is actually open**, and needs Jeff's answer before this is buildable:
+reaching `stop` here ends the whole function, not just the `each`. This is
+the sharpest way the word could be misread, so it is stated in the
+implementation-facing docs, not left to be inferred. Loop-scoped `break`
+is explicitly deferred - only added later if real programs prove they need
+it, per D23a's own precedent of not building control-flow transfers before
+they are needed.
 
-1. Does `stop` mean anything **inside a loop** - i.e., does it also serve
-   as Otter's `break`, or is it function/event-scope only, with loop-level
-   `break`/`continue` left for later (as D23a's own wording anticipates)?
-2. Rules4 uses `stop` inside a `when ... is clicked` event handler example -
-   Otter has no `when` grammar yet (`when` is still a pre-reserved
-   placeholder per D33). Does `stop`'s spec wait for `when`, or is it
-   needed now for functions alone?
-3. If `stop` is really just `return` with no value, should it simply **be**
-   an alternate spelling of bare `return` (mirroring D34/D36's "same node,
-   new spelling" pattern), or does rules4 intend a real semantic difference
-   between "stop" and "return nothing" that I'm not seeing?
+Semantically, `stop`:
 
-Not building any of this until those are answered.
+- terminates the current return-capable execution context
+- produces no value
+- propagates through `try`/`otherwise` using the existing return-control
+  mechanism (D23a) - `stop` inside a `try` body does not trigger
+  `otherwise`, exactly as `return` does not
+
+### The four cases, each verified rather than assumed
+
+| Case | Outcome | Evidence |
+|---|---|---|
+| Inside a function | Exits the function | Existing test, unchanged: *"a function returns a value"* |
+| Inside `try`, inside a function | Propagates out, exits the function; `otherwise` does not run | Existing test, unchanged: *"return escapes straight through a try"* (D23a) |
+| **At the top level** | **A clean `OtterError`, naming the line - not a whole-program exit, not a crash** | New: *"return with no value at the top level is a clean error, not a crash"* |
+| Inside a loop, inside a function | Exits the function, **not just the loop** | Existing test, unchanged: *"return escapes from inside a loop"* |
+
+The top-level case needed real work; the other three were already correct
+and already tested, because `stop` reuses the exact mechanism `return`
+already uses (D23a) rather than introducing a new one.
+
+**A real gap this surfaced, fixed in the interpreter, not the grammar:** a
+null-valued `ReturnStmt` thrown outside of any function call was not caught
+anywhere. It would have unwound past `Invoke-OtterProgram` uncaught and
+been reported as *"Otter hit a problem inside itself"* — flatly wrong,
+since nothing broke; the program just tried to stop something that was
+never running. `Invoke-OtterProgram` now catches an escaping
+`OtterReturnSignal` at that one boundary and raises:
+
+```
+Otter: stop only works inside something Otter can call, like a
+function. There is nothing here to stop. (line N)
+```
+
+This is deliberately general, not `stop`-specific: **any** `OtterReturnSignal`
+reaching the top of the program gets this treatment, including a
+hypothetical value-carrying top-level `return` — both are tested.
+
+**Implementation is smaller than first proposed, and doesn't touch
+`return`'s existing grammar at all.** Checked before building: `return`
+today has no bare form — the parser unconditionally requires a value after
+it, so `ReturnStmt(Value: $null)` was not reachable from any Otter source
+until now. Rather than change `return`'s grammar (which reads
+`return <value>` on purpose per `rules.md`), `stop` gets its own
+statement-head parser case that constructs `ReturnStmt(Value: $null)`
+directly. Zero contract change, zero interaction with `return`'s existing
+shape.
+
+**Split across the two lanes**, per Jeff's stated preference to keep D37
+out of the D34-D36 batch unless trivial and isolated: the parser piece
+(one new keyword, one switch case) *is* trivial and isolated, so it ships
+in the same Codex handoff as D34-D36. The top-level fix and its tests are
+interpreter-side and are already done, in this repository's own lane —
+`OtterReturnSignal` gained a `Line` field to carry the source line for that
+error message.
 
 ---
 
@@ -1450,9 +1495,9 @@ contract-freeze process (`AGENTS.md`, `CLAUDE.md`) exists to prevent.
 
 ---
 
-## D39. A tension inside rules4 itself, flagged rather than resolved
+## D39. `create` is for external resources, not object construction - resolved
 
-Section 11 gives this example for `create`:
+Section 11 originally gave this example for `create`:
 
 ```otter
 create user with
@@ -1461,22 +1506,29 @@ create user with
 .
 ```
 
-This is structurally identical to what `is a thing` already does (D19) -
-an indented block of `name is <value>` properties - under a **third**
-spelling (`create X with`, alongside `X is a thing` and section 19's own
-explicitly-under-review `X has`).
+structurally identical to what `is a thing` already does (D19) — an
+indented block of `name is <value>` properties — under a **third**
+spelling, alongside `X is a thing` and section 19's own
+explicitly-under-review `X has`. Section 19, two sections later, argues the
+opposite instinct directly: *"Otter should ultimately prefer one canonical
+property-access model... Do not add both permanently merely as
+synonyms."* — a principle that applies to object-creation syntax exactly
+as much as to the possessive-vs-`of` question it was written about.
 
-Section 19, two sections later, states the opposite instinct directly:
-*"Otter should ultimately prefer one canonical property-access model...
-Do not add both permanently merely as synonyms."* That principle applies
-just as directly to *object-creation* syntax as it does to the
-possessive-vs-`of` question it was written about.
+**Resolved by Jeff: `create` means bringing an external or domain resource
+into existence through a provider or runtime action — a file, a folder, a
+database row — never an ordinary in-memory object.** `registration is a
+thing` stays the only way to build one. A future `create user in database`
+is fine, because that genuinely reaches outside the program the same way
+`create folder` already does; a bare `create user with` would not have.
 
-Not resolving this - flagging it for Jeff, since it's rules4 disagreeing
-with itself, not an implementation question. `create file "notes.txt"`
-(the other new form in section 11) has no such tension and is a clean,
-small addition once wanted: a version of `WriteFileStmt` with no content,
-or a dedicated "create an empty file" runtime op.
+`rules4.md` section 11 has been edited directly to remove the
+`create user with` example and state this rule, since this was Jeff's own
+correction to his own document, not a scope call for me to make. The other
+new form in that section, `create file "notes.txt"`, had no such tension
+and is unaffected — a clean, small addition once wanted: a version of
+`WriteFileStmt` with no content, or a dedicated "create an empty file"
+runtime op.
 
 ---
 
