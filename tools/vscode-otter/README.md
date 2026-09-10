@@ -36,8 +36,12 @@ npm run check
 - contextual multi-word forms such as `for each`, `starts with`, and `divided by`
 - block-ending periods and indentation/folding hints
 - completion for common keywords plus `if`, `each`, `thing has`, `to`, and `try` snippets
+- semantic completions for variables and functions discovered by the real Otter parser
+- parser-backed diagnostics for syntax errors, plus basic hover text for known variables and functions
 
-The grammar intentionally provides presentation-level highlighting only. It
-does not attempt to duplicate parser decisions such as runtime name lookup or
-all contextual keyword rules. Semantic diagnostics, symbol completion, and
-AST-aware navigation belong in the future Otter Language Server.
+The semantic bridge currently invokes the PowerShell lexer/parser directly and
+expects the Otter repository (with `Otter.Contract.psm1`) to be available in
+the workspace or in the extension's development checkout. It is intentionally
+small and synchronous; a future Otter Language Server should replace this
+bridge and provide richer AST-aware navigation to both VS Code and Otter
+Studio.

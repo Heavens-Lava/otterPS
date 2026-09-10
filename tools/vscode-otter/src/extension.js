@@ -1,4 +1,7 @@
 const vscode = require('vscode');
+const fs = require('node:fs');
+const path = require('node:path');
+const { spawnSync } = require('node:child_process');
 
 const keywords = [
   'say', 'ask', 'if', 'otherwise', 'while', 'repeat', 'each', 'for each',
@@ -15,8 +18,37 @@ const snippets = [
 ];
 
 function activate(context) {
+  const diagnostics = vscode.languages.createDiagnosticCollection('otter');
+  context.subscriptions.push(diagnostics);
+  function languageRoot() {
+    const candidates = [];
+    for (const folder of vscode.workspace.workspaceFolders || []) candidates.push(folder.uri.fsPath);
+    candidates.push(path.resolve(context.extensionPath, '..', '..'));
+    return candidates.find((candidate) => fs.existsSync(path.join(candidate, 'Otter.Contract.psm1'))) || null;
+  }
+  function analyze(document) {
+    const root = languageRoot();
+    if (!root) return { Ok: false, Message: 'Otter language source was not found. Set up the Otter repository or configure the extension root.', Line: 1, Column: 0 };
+    const script = path.join(context.extensionPath, 'scripts', 'analyze.ps1');
+    const result = spawnSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script, '-Root', root], { input: document.getText(), encoding: 'utf8', windowsHide: true });
+    try { return JSON.parse(result.stdout.trim()); }
+    catch { return { Ok: false, Message: result.stderr.trim() || 'Otter analysis failed.', Line: 1, Column: 0 }; }
+  }
+  function updateDiagnostics(document) {
+    if (document.languageId !== 'otter') return;
+    const result = analyze(document);
+    if (result.Ok) { diagnostics.delete(document.uri); return; }
+    const line = Math.max(0, (Number(result.Line) || 1) - 1);
+    const column = Math.max(0, Number(result.Column) || 0);
+    const range = new vscode.Range(line, column, line, Math.max(column + 1, document.lineAt(line).text.length));
+    const message = result.Suggestion ? `${result.Message}\n${result.Suggestion}` : result.Message;
+    diagnostics.set(document.uri, [new vscode.Diagnostic(range, message, vscode.DiagnosticSeverity.Error)]);
+  }
+  const refresh = (document) => updateDiagnostics(document);
+  context.subscriptions.push(vscode.workspace.onDidOpenTextDocument(refresh), vscode.workspace.onDidSaveTextDocument(refresh), vscode.workspace.onDidChangeTextDocument((event) => refresh(event.document)));
+  for (const document of vscode.workspace.textDocuments) refresh(document);
   const provider = {
-    provideCompletionItems() {
+    provideCompletionItems(document) {
       const items = keywords.map((word) => {
         const item = new vscode.CompletionItem(word, vscode.CompletionItemKind.Keyword);
         item.detail = 'Otter keyword';
@@ -28,12 +60,26 @@ function activate(context) {
         item.insertText = new vscode.SnippetString(body);
         items.push(item);
       }
+      const result = analyze(document);
+      for (const name of (result.Variables || [])) { const item = new vscode.CompletionItem(name, vscode.CompletionItemKind.Variable); item.detail = 'Otter variable'; items.push(item); }
+      for (const name of (result.Functions || [])) { const item = new vscode.CompletionItem(name, vscode.CompletionItemKind.Function); item.detail = 'Otter function'; items.push(item); }
       return items;
     }
   };
   context.subscriptions.push(
     vscode.languages.registerCompletionItemProvider({ language: 'otter', scheme: 'file' }, provider)
   );
+  context.subscriptions.push(vscode.languages.registerHoverProvider({ language: 'otter', scheme: 'file' }, {
+    provideHover(document, position) {
+      const range = document.getWordRangeAtPosition(position);
+      if (!range) return undefined;
+      const word = document.getText(range);
+      const result = analyze(document);
+      if ((result.Functions || []).includes(word)) return new vscode.Hover(`Otter function **${word}**`);
+      if ((result.Variables || []).includes(word)) return new vscode.Hover(`Otter variable **${word}**`);
+      return undefined;
+    }
+  }));
 }
 
 function deactivate() {}
