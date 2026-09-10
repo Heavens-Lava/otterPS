@@ -312,6 +312,12 @@ show app
 '@)
 if ($d47Ast.Statements[0] -isnot [PutInStmt] -or $d47Ast.Statements[0].Item.Name -ne 'helloButton' -or $d47Ast.Statements[0].Container.Name -ne 'app') { throw 'D47 put must preserve item and container.' }
 if ($d47Ast.Statements[1] -isnot [ShowStmt] -or $d47Ast.Statements[1].Target.Name -ne 'app') { throw 'D47 show must preserve its target.' }
+foreach ($invalid in @('put in app', 'put helloButton app', 'show')) {
+    $rejected = $false
+    try { ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source ($invalid + "`n")) | Out-Null }
+    catch [OtterError] { $rejected = $true }
+    if (-not $rejected) { throw "Malformed D47 statement should be rejected: $invalid" }
+}
 try {
     ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source "if true`n") | Out-Null
     throw 'An empty if block must remain invalid.'
