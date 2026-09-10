@@ -104,6 +104,25 @@ $script:OtterWpfKinds = @{
     'text box' = { $control = [System.Windows.Controls.TextBox]::new(); $control.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Left; $control }
     'row'      = { $panel = [System.Windows.Controls.StackPanel]::new(); $panel.Orientation = [System.Windows.Controls.Orientation]::Horizontal; $panel }
     'column'   = { $panel = [System.Windows.Controls.StackPanel]::new(); $panel.Orientation = [System.Windows.Controls.Orientation]::Vertical; $panel }
+    # D53: vertical-scroll-first, matching ScrollViewer's own real
+    # defaults - Vertical=Visible, Horizontal=Disabled already, out of
+    # the box. Overridden to Auto (not WPF's raw Visible) so an empty or
+    # non-overflowing scroll shows no scrollbar at all, the same
+    # "nicer default than raw WPF" instinct already behind the
+    # HorizontalAlignment override above. A scroll with no explicit
+    # height set will NOT scroll - verified directly: inside Otter's
+    # StackPanel-based window root, an unbounded ScrollViewer just grows
+    # to fit all its content (ScrollableHeight stayed 0). This is not
+    # something Otter works around with an implicit default height -
+    # that would be magic that varies unpredictably by provider. A
+    # scroll region only becomes scrollable once it has a bound.
+    'scroll'   = {
+        $control = [System.Windows.Controls.ScrollViewer]::new()
+        $control.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Left
+        $control.VerticalScrollBarVisibility = [System.Windows.Controls.ScrollBarVisibility]::Auto
+        $control.HorizontalScrollBarVisibility = [System.Windows.Controls.ScrollBarVisibility]::Disabled
+        $control
+    }
 }
 
 # create <kind> into <name>
@@ -206,6 +225,14 @@ $script:OtterUiProperties = @{
         'height'     = @{ Native = 'Height'; Type = 'number' }
         'background' = @{ Native = 'Background'; Type = 'color' }
         'spacing'    = @{ Type = 'spacing' }
+    }
+    # D53: no spacing - scroll owns exactly one child (a ContentControl,
+    # like window itself before D47's implicit panel), so "distribute
+    # multiple children apart" is meaningless here.
+    'scroll' = @{
+        'width'      = @{ Native = 'Width'; Type = 'number' }
+        'height'     = @{ Native = 'Height'; Type = 'number' }
+        'background' = @{ Native = 'Background'; Type = 'color' }
     }
 }
 
@@ -451,12 +478,45 @@ function Get-OtterUiContainerPanel {
     return $Container.Native
 }
 
+# put fileList in fileArea                                        (D53)
+#
+# scroll is a ContentControl (like Window), not a panel - exactly one
+# child, set via .Content, never via a Children collection. Verified
+# directly that .Content does NOT protect itself the way Children.Add
+# does for window/row/column - it neither throws on a second set on the
+# SAME container (silently replaces) nor on attaching an element that is
+# ALREADY parented somewhere else entirely (silently steals it away from
+# its real parent). Both are checked explicitly here, before touching
+# the native object, so neither silent failure mode can happen through
+# Otter's put - the one-parent rule window/row/column get for free from
+# WPF, scroll has to enforce itself.
+function Add-OtterUiScrollChild {
+    param([OtterUiResource]$Container, [OtterUiResource]$Item, [int]$Line)
+
+    if ($null -ne $Container.Native.Content) {
+        throw [OtterError]::new(
+            'A scroll can only hold one thing. Put a column or row in it first if you need more than one.',
+            $Line, 'runtime')
+    }
+    if ($null -ne $Item.Native.Parent) {
+        throw [OtterError]::new(
+            "A $($Item.Kind) can only be in one place at a time, and this one is already somewhere else.",
+            $Line, 'runtime')
+    }
+    $Container.Native.Content = $Item.Native
+}
+
 function Add-OtterUiChild {
     param([OtterUiResource]$Container, [OtterUiResource]$Item, [int]$Line)
 
+    if ($Container.Kind -eq 'scroll') {
+        Add-OtterUiScrollChild -Container $Container -Item $Item -Line $Line
+        return
+    }
+
     if ($Container.Kind -notin @('window', 'row', 'column')) {
         throw [OtterError]::new(
-            "I can only put things in a window, row, or column, not a $($Container.Kind).", $Line, 'runtime')
+            "I can only put things in a window, row, column, or scroll, not a $($Container.Kind).", $Line, 'runtime')
     }
 
     $panel = Get-OtterUiContainerPanel -Container $Container

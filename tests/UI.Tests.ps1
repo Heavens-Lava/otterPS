@@ -544,6 +544,197 @@ Test-Otter 'spacing is window-only - not a property on button, text box, or text
 
 
 # =================================================================
+# D53 - scroll container. A dedicated, single-child resource - a scroll
+# region only becomes scrollable once it has an explicit bound, verified
+# directly before writing any of this (an unbounded ScrollViewer inside
+# Otter's StackPanel-based window root just grows to fit all its
+# content; it does not clip or scroll on its own).
+# =================================================================
+
+Test-Otter 'scroll is a real provider-backed resource kind' {
+    $env = New-OtterEnvironment
+    Invoke-OtterStatements -Environment $env -Statements @(
+        [CreateUiResourceStmt]::new('scroll', 'fileArea', 1)
+    )
+    $resource = $env.Get('fileArea')
+    Assert-True (Test-OtterUiResource $resource) 'expected an OtterUiResource'
+    Assert-AreEqual -Expected 'ScrollViewer' -Actual $resource.Native.GetType().Name
+}
+
+Test-Otter 'put attaches the one child directly - no implicit panel, unlike window' {
+    $env = New-OtterEnvironment
+    Invoke-OtterStatements -Environment $env -Statements @(
+        [CreateUiResourceStmt]::new('scroll', 'fileArea', 1),
+        [CreateUiResourceStmt]::new('column', 'fileList', 2),
+        [PutInStmt]::new([VariableExpr]::new('fileList', 3), [VariableExpr]::new('fileArea', 3), 3)
+    )
+    $scroll = $env.Get('fileArea')
+    Assert-True ([object]::ReferenceEquals($scroll.Native.Content, $env.Get('fileList').Native)) 'Content must be the exact same native object, attached directly'
+}
+
+Test-Otter 'a second put into an already-filled scroll is a clean Otter error, not a silent replace' {
+    Assert-OtterFails -Containing 'A scroll can only hold one thing' -Body {
+        Invoke-TestProgram @(
+            [CreateUiResourceStmt]::new('scroll', 'fileArea', 1),
+            [CreateUiResourceStmt]::new('text', 'first', 2),
+            [CreateUiResourceStmt]::new('text', 'second', 3),
+            [PutInStmt]::new([VariableExpr]::new('first', 4), [VariableExpr]::new('fileArea', 4), 4),
+            [PutInStmt]::new([VariableExpr]::new('second', 5), [VariableExpr]::new('fileArea', 5), 5)
+        )
+    }
+}
+
+Test-Otter 'the first child is unaffected after a rejected second put' {
+    # Confirms the check happens BEFORE touching .Content a second time -
+    # verified separately that WPF's own ContentControl.Content setter
+    # does not throw on a second set, it silently replaces - so this
+    # guards against a regression that would go back to that behavior.
+    $env = New-OtterEnvironment
+    Invoke-OtterStatements -Environment $env -Statements @(
+        [CreateUiResourceStmt]::new('scroll', 'fileArea', 1),
+        [CreateUiResourceStmt]::new('text', 'first', 2),
+        [CreateUiResourceStmt]::new('text', 'second', 3),
+        [PutInStmt]::new([VariableExpr]::new('first', 4), [VariableExpr]::new('fileArea', 4), 4)
+    )
+    $scroll = $env.Get('fileArea')
+    try {
+        Add-OtterUiChild -Container $scroll -Item $env.Get('second') -Line 5
+    } catch { }
+    Assert-True ([object]::ReferenceEquals($scroll.Native.Content, $env.Get('first').Native)) 'the original child must still be attached'
+}
+
+Test-Otter 'a scroll with enough content and an explicit height actually scrolls - not just visually present' {
+    # This is the acceptance test the investigation itself demanded: not
+    # "a ScrollViewer object exists," but that with real overflowing
+    # content and a real bound, the provider reports genuine scrollable
+    # range and the viewport can actually move - the exact thing that
+    # was FALSE before an explicit height was set, verified by hand
+    # during the design pass.
+    $env = New-OtterEnvironment
+    Invoke-OtterStatements -Environment $env -Statements @(
+        [CreateUiResourceStmt]::new('window', 'app', 1),
+        [CreateUiResourceStmt]::new('scroll', 'fileArea', 2),
+        [AssignStmt]::new([PropertyAccessExpr]::new('height', [VariableExpr]::new('fileArea', 3), 3), (Lit 150.0), 3),
+        [CreateUiResourceStmt]::new('column', 'fileList', 4),
+        [PutInStmt]::new([VariableExpr]::new('fileList', 5), [VariableExpr]::new('fileArea', 5), 5),
+        [PutInStmt]::new([VariableExpr]::new('fileArea', 6), [VariableExpr]::new('app', 6), 6)
+    )
+    $fileList = $env.Get('fileList')
+    for ($i = 0; $i -lt 40; $i++) {
+        $t = [System.Windows.Controls.TextBlock]::new()
+        $t.Text = "item $i"
+        $fileList.Native.Children.Add($t) | Out-Null
+    }
+    $scroll = $env.Get('fileArea')
+    $app = $env.Get('app')
+
+    $results = [hashtable]::Synchronized(@{ ScrollableHeight = $null; Offset = $null })
+    $timer = [System.Windows.Threading.DispatcherTimer]::new()
+    $timer.Interval = [TimeSpan]::FromMilliseconds(150)
+    $timer.add_Tick({
+        $timer.Stop()
+        $app.Native.UpdateLayout()
+        $results.ScrollableHeight = $scroll.Native.ScrollableHeight
+        $scroll.Native.ScrollToVerticalOffset(50)
+        $scroll.Native.UpdateLayout()
+        $results.Offset = $scroll.Native.VerticalOffset
+        $app.Native.Close()
+    }.GetNewClosure())
+    $timer.Start()
+    $app.Native.ShowDialog() | Out-Null
+
+    Assert-True ($results.ScrollableHeight -gt 0) 'overflowing content with a bound must produce a positive scrollable range'
+    Assert-AreEqual -Expected 50 -Actual $results.Offset
+}
+
+Test-Otter 'content that does not overflow produces no scrollable range - not an error, not a fake one' {
+    $env = New-OtterEnvironment
+    Invoke-OtterStatements -Environment $env -Statements @(
+        [CreateUiResourceStmt]::new('window', 'app', 1),
+        [CreateUiResourceStmt]::new('scroll', 'fileArea', 2),
+        [AssignStmt]::new([PropertyAccessExpr]::new('height', [VariableExpr]::new('fileArea', 3), 3), (Lit 300.0), 3),
+        [CreateUiResourceStmt]::new('text', 'label', 4),
+        [PutInStmt]::new([VariableExpr]::new('label', 5), [VariableExpr]::new('fileArea', 5), 5),
+        [PutInStmt]::new([VariableExpr]::new('fileArea', 6), [VariableExpr]::new('app', 6), 6)
+    )
+    $scroll = $env.Get('fileArea')
+    $app = $env.Get('app')
+    $timer = [System.Windows.Threading.DispatcherTimer]::new()
+    $timer.Interval = [TimeSpan]::FromMilliseconds(150)
+    $timer.add_Tick({ $timer.Stop(); $app.Native.Close() }.GetNewClosure())
+    $timer.Start()
+    $app.Native.ShowDialog() | Out-Null
+
+    Assert-AreEqual -Expected 0 -Actual $scroll.Native.ScrollableHeight
+}
+
+Test-Otter 'width, height, and background all work on scroll' {
+    $out = Invoke-TestProgram @(
+        [CreateUiResourceStmt]::new('scroll', 'fileArea', 1),
+        [AssignStmt]::new([PropertyAccessExpr]::new('width', [VariableExpr]::new('fileArea', 2), 2), (Lit 400.0), 2),
+        [AssignStmt]::new([PropertyAccessExpr]::new('height', [VariableExpr]::new('fileArea', 3), 3), (Lit 300.0), 3),
+        [AssignStmt]::new([PropertyAccessExpr]::new('background', [VariableExpr]::new('fileArea', 4), 4), (Lit 'white'), 4),
+        [SayStmt]::new(@([PropertyAccessExpr]::new('width', [VariableExpr]::new('fileArea', 5), 5)), 5),
+        [SayStmt]::new(@([PropertyAccessExpr]::new('height', [VariableExpr]::new('fileArea', 6), 6)), 6),
+        [SayStmt]::new(@([PropertyAccessExpr]::new('background', [VariableExpr]::new('fileArea', 7), 7)), 7)
+    )
+    Assert-Lines -Expected @('400', '300', '#FFFFFFFF') -Actual $out
+}
+
+Test-Otter 'spacing is not supported on scroll' {
+    Assert-OtterFails -Containing 'no property called "spacing"' -Body {
+        Invoke-TestProgram @(
+            [CreateUiResourceStmt]::new('scroll', 'fileArea', 1),
+            [AssignStmt]::new([PropertyAccessExpr]::new('spacing', [VariableExpr]::new('fileArea', 2), 2), (Lit 10.0), 2)
+        )
+    }
+}
+
+Test-Otter 'a scroll can be put into a window, row, or column like any other resource' {
+    foreach ($containerKind in @('window', 'row', 'column')) {
+        $env = New-OtterEnvironment
+        Invoke-OtterStatements -Environment $env -Statements @(
+            [CreateUiResourceStmt]::new($containerKind, 'container', 1),
+            [CreateUiResourceStmt]::new('scroll', 'fileArea', 2),
+            [PutInStmt]::new([VariableExpr]::new('fileArea', 3), [VariableExpr]::new('container', 3), 3)
+        )
+        $container = $env.Get('container')
+        # window (like row/column) wraps put-in children in its own
+        # implicit panel (D47) - scroll is just another item that panel
+        # holds; only when SCROLL is itself the container does D53's new
+        # direct-Content behavior apply, covered by the tests above.
+        if ($containerKind -eq 'window') {
+            Assert-True ([object]::ReferenceEquals($container.Native.Content.Children[0], $env.Get('fileArea').Native)) "scroll must attach into $containerKind"
+        } else {
+            Assert-True ([object]::ReferenceEquals($container.Native.Children[0], $env.Get('fileArea').Native)) "scroll must attach into $containerKind"
+        }
+    }
+}
+
+Test-Otter 'a scroll can nest inside another scroll with no special-casing' {
+    $env = New-OtterEnvironment
+    Invoke-OtterStatements -Environment $env -Statements @(
+        [CreateUiResourceStmt]::new('scroll', 'outer', 1),
+        [CreateUiResourceStmt]::new('scroll', 'inner', 2),
+        [PutInStmt]::new([VariableExpr]::new('inner', 3), [VariableExpr]::new('outer', 3), 3)
+    )
+    Assert-True ([object]::ReferenceEquals($env.Get('outer').Native.Content, $env.Get('inner').Native)) 'nested scroll must attach directly'
+}
+
+Test-Otter 'putting something into a scroll follows the same one-parent rule as everything else' {
+    Assert-OtterFails -Containing 'already somewhere else' -Body {
+        Invoke-TestProgram @(
+            [CreateUiResourceStmt]::new('scroll', 'areaOne', 1),
+            [CreateUiResourceStmt]::new('scroll', 'areaTwo', 2),
+            [CreateUiResourceStmt]::new('text', 'label', 3),
+            [PutInStmt]::new([VariableExpr]::new('label', 4), [VariableExpr]::new('areaOne', 4), 4),
+            [PutInStmt]::new([VariableExpr]::new('label', 5), [VariableExpr]::new('areaTwo', 5), 5)
+        )
+    }
+}
+
+
+# =================================================================
 # D46 - event registration. Real native events, fired for real, not
 # simulated - the handler runs because the actual WPF event fired, the
 # same way it would in a running app once D47 adds a message loop.
