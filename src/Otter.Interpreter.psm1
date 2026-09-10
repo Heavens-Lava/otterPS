@@ -1,6 +1,7 @@
 using module ..\Otter.Contract.psm1
 using module .\Otter.Runtime.psm1
 using module .\Otter.Library.psm1
+using module .\Otter.UI.psm1
 
 # Otter.Interpreter.psm1
 #
@@ -241,6 +242,17 @@ function Invoke-OtterStatement {
         # .
         'TypeDef' {
             $Environment.Set($Statement.TypeName, [OtterType]::new($Statement.TypeName, $Statement.FieldNames))
+            return
+        }
+
+        # create button into helloButton                              (D44)
+        #
+        # The real, provider-backed resource is created RIGHT NOW - this is
+        # the lifecycle decision D44 froze. Nothing here is a description
+        # waiting to be materialized later.
+        'CreateUiResource' {
+            $resource = New-OtterUiResourceValue -Kind $Statement.TypeName -Line $Statement.Line
+            $Environment.Set($Statement.Target, $resource)
             return
         }
 
@@ -1028,6 +1040,16 @@ function Get-OtterValue {
                 return (Get-OtterDatePart -Date $target -Part $Expression.Property -Line $Expression.Line)
             }
 
+            # D44 explicitly does not include property translation (D45's
+            # job) - a distinct, honest "not yet" rather than falling
+            # through to the generic "not a thing" message, which would
+            # incorrectly imply this is impossible rather than unbuilt.
+            if (Test-OtterUiResource $target) {
+                throw (New-OtterRuntimeError `
+                    -Message "Reading properties of a $($target.Kind) is not built yet." `
+                    -Line $Expression.Line)
+            }
+
             if (-not (Test-OtterObject $target)) {
                 throw (New-OtterRuntimeError `
                     -Message "I can only read properties of a thing, but this is $(Get-OtterTypeName $target)." `
@@ -1239,6 +1261,14 @@ function Set-OtterTarget {
         'PropertyAccess' {
             $owner = Get-OtterValue -Expression $Target.Target -Environment $Environment
 
+            # D44: distinct, honest "not yet" - see the matching case in
+            # Get-OtterValue's PropertyAccess above.
+            if (Test-OtterUiResource $owner) {
+                throw (New-OtterRuntimeError `
+                    -Message "Setting properties on a $($owner.Kind) is not built yet." `
+                    -Line $Target.Line)
+            }
+
             if (-not (Test-OtterObject $owner)) {
                 throw (New-OtterRuntimeError `
                     -Message "I can only set properties on a thing, but this is $(Get-OtterTypeName $owner)." `
@@ -1427,6 +1457,7 @@ function Get-OtterTypeName {
     if ($null -eq $Value) { return 'gone' }
     if ($Value -is [bool]) { return 'a true or false value' }
     if ($Value -is [OtterFunction]) { return 'something Otter can do' }
+    if (Test-OtterUiResource $Value) { return "a $($Value.Kind)" }
     if (Test-OtterDate $Value) {
         if ($Value.HasTime) { return 'a date and time' }
         return 'a date'

@@ -280,6 +280,15 @@ function Format-OtterValue {
     # empty list - those are five different states, and Otter says so.
     if ($null -eq $Value) { return 'gone' }
 
+    # D44: an OtterUiResource, checked by TYPE NAME rather than [OtterUiResource].
+    # This module is the foundation everything else builds on - Otter.UI.psm1
+    # imports THIS file, not the other way around, so Otter.Runtime.psm1 must
+    # never `using module` it back. A plain .GetType().Name comparison needs
+    # no import at all and keeps that layering honest. Prints "a button", the
+    # same shape OtterObject already uses for "a thing" - never the underlying
+    # WPF type name (D44 principle 5: no provider-specific names in Otter output).
+    if ($Value.GetType().Name -eq 'OtterUiResource') { return "a $($Value.Kind)" }
+
     if ($Value -is [bool]) {
         if ($Value) { return 'true' } else { return 'false' }
     }
@@ -349,6 +358,10 @@ function Test-OtterTruthy {
 
     # An object exists, so it is true - even one with no properties set.
     if (Test-OtterObject $Value) { return $true }
+
+    # D44: a UI resource exists (it was created for real, immediately - see
+    # Otter.UI.psm1), so it is true, same reasoning as an object above.
+    if ($Value.GetType().Name -eq 'OtterUiResource') { return $true }
 
     # A date exists, so it is true. There is no "zero date".
     if (Test-OtterDate $Value) { return $true }
