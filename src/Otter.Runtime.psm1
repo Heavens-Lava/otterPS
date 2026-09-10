@@ -231,8 +231,10 @@ class OtterType {
 
 class OtterReturnSignal : System.Exception {
     [object]$Value
-    OtterReturnSignal([object]$value) : base('return') {
+    [int]$Line
+    OtterReturnSignal([object]$value, [int]$line) : base('return') {
         $this.Value = $value
+        $this.Line = $line
     }
 }
 

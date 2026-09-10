@@ -127,7 +127,25 @@ function Invoke-OtterProgram {
     $script:SourceLines = $SourceLines
     $script:GlobalEnvironment = $Environment
 
-    Invoke-OtterStatements -Statements $Program.Statements -Environment $Environment
+    try {
+        Invoke-OtterStatements -Statements $Program.Statements -Environment $Environment
+    }
+    catch {
+        # D37: "stop" (and a hypothetical top-level "return") both throw an
+        # OtterReturnSignal. Invoke-OtterCall is the only thing that ever
+        # catches that signal, and it only exists while a function call is
+        # running - so one reaching all the way up here means it was used
+        # outside anything callable. Without this catch it would unwind past
+        # this function entirely and get reported as "a bug in Otter",
+        # which is wrong: nothing broke, the program just used "stop" where
+        # there was nothing to stop.
+        if ($_.Exception -is [OtterReturnSignal]) {
+            throw (New-OtterRuntimeError `
+                -Message 'stop only works inside something Otter can call, like a function. There is nothing here to stop.' `
+                -Line $_.Exception.Line)
+        }
+        throw
+    }
 }
 
 function Invoke-OtterStatements {
@@ -320,7 +338,7 @@ function Invoke-OtterStatement {
             if ($null -ne $Statement.Value) {
                 $value = Get-OtterValue -Expression $Statement.Value -Environment $Environment
             }
-            throw [OtterReturnSignal]::new($value)
+            throw [OtterReturnSignal]::new($value, $Statement.Line)
         }
 
         # --- runtime library (milestone 7) ----------------------

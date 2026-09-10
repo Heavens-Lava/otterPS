@@ -456,6 +456,28 @@ Test-Otter 'return escapes from inside a loop' {
     Assert-Lines -Expected @('1') -Actual $out
 }
 
+Test-Otter 'return with no value at the top level is a clean error, not a crash (D37)' {
+    # "stop" builds exactly this shape: ReturnStmt with a null Value. Used
+    # outside anything callable - matching D37's "process" scope case -
+    # this must NOT unwind uncaught and be reported as "a bug in Otter".
+    # It is not a bug: the program just tried to stop something that was
+    # never running.
+    Assert-OtterFails -Containing 'nothing here to stop' -Body {
+        Invoke-TestProgram @(
+            (SaySt @((Lit 'before'))),
+            ([ReturnStmt]::new($null, 2))
+        )
+    }
+}
+
+Test-Otter 'a value-carrying return at the top level is the same clean error' {
+    # The fix is general, not stop-specific: ANY OtterReturnSignal reaching
+    # the top of the program - not just a bare one - gets the same message.
+    Assert-OtterFails -Containing 'nothing here to stop' -Body {
+        Invoke-TestProgram @( ([ReturnStmt]::new((Lit 5.0), 1)) )
+    }
+}
+
 Test-Otter 'calling with the wrong number of values says how many it wanted' {
     Assert-OtterFails -Containing 'needs 1 value but was given 2' -Body {
         Invoke-TestProgram @(
