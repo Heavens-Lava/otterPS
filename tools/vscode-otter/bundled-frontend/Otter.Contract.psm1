@@ -161,6 +161,18 @@ enum TokenKind {
     # --- properties (rules2.md section 2 - see D15) --------------
     Of              # name OF person       (replaces person.name)
     When            # when button is clicked   (reserved, UI milestone)
+    Put             # put helloButton in app          (D47)
+    Show            # show app                        (D47)
+
+    # --- networking & http (D49) --------------------------------
+    Post            # post data to "https://..." into result
+
+    # --- web servers & api routes (D51) -------------------------
+    Respond         # respond with "..." as json and status 200
+    Receives        # when api receives GET at "/users"
+    At              # ...at "/path"
+    Start           # start api
+    Listen          # listen on port 8080
 
     # --- structure ----------------------------------------------
     Indent          # one level deeper (D7)
@@ -245,6 +257,15 @@ enum NodeKind {
     # external UI resource creation (D44)
     CreateUiResource  # create button into helloButton
 
+    # UI event registration (D46) - registration only; whether/when a
+    # handler body actually runs depends on a message loop (D47), not this.
+    When              # when helloButton is clicked
+
+    # UI layout/show (D47) - the smallest possible container and message
+    # loop, not a general layout system.
+    PutIn             # put helloButton in app
+    Show              # show app
+
     ReadFile
     WriteFile
     CopyFile
@@ -290,6 +311,18 @@ enum NodeKind {
 
     # dates and time, as an expression (D42)
     DateDifferenceValue  # days between startDate and endDate       (a VALUE, usable anywhere an expression is)
+
+    # networking & http (D49)
+    HttpGet
+    HttpPost
+    HttpPut
+    HttpDelete
+
+    # web servers & api routes (D51)
+    WebRoute
+    Respond
+    StartServer
+    ListenServer
 }
 
 enum MathOp { Add; Subtract; Multiply; Divide }
@@ -771,6 +804,68 @@ class CreateUiResourceStmt : Node {
     [string]$Target
     CreateUiResourceStmt([string]$typeName, [string]$target, [int]$line) : base([NodeKind]::CreateUiResource, $line) {
         $this.TypeName = $typeName
+        $this.Target = $target
+    }
+}
+
+
+# when helloButton is clicked
+#     say "Hello"
+# .
+#
+# D46, registration only. EventName is READ AS A RAW WORD, exactly like
+# CreateUiResourceStmt's TypeName above - "clicked"/"changed"/"closed" are
+# NOT reserved keywords, preserving Otter's contextual-keyword philosophy.
+#
+# Frozen explicitly as part of D46 (not left to interpreter convention):
+#   - the handler Body closes over the environment active where `when`
+#     is registered, and introduces NO implicit new scope - the same
+#     environment If/While/Repeat bodies already run in, not a function
+#     call's fresh child scope.
+#   - no Otter-visible event payload yet - Body has no way to name "the
+#     event" or read anything about it. `when nameBox is changed as
+#     event` is explicitly not part of D46.
+#   - whether/when Body ever actually executes in a running program is
+#     D47's job (a message loop), not this node's.
+class WhenStmt : Node {
+    [Node]$Target        # the UI resource identifier
+    [string]$EventName   # "clicked", "changed", "closed" - a raw word
+    [Node[]]$Body
+    WhenStmt([Node]$target, [string]$eventName, [Node[]]$body, [int]$line) : base([NodeKind]::When, $line) {
+        $this.Target = $target
+        $this.EventName = $eventName
+        $this.Body = $body
+    }
+}
+
+
+# put helloButton in app
+#
+# D47. Attaches an EXISTING resource - never recreates or copies it. Item
+# keeps its identity exactly like D44 already guarantees; `put` only
+# changes what it's attached to. Windows hold their put-in children in an
+# Otter-invisible, provider-managed default vertical container - not a
+# general layout system, and not a value Otter code ever sees or names.
+# A resource can have only one parent; a second `put` of the same item
+# anywhere is a runtime error, not a silent move.
+class PutInStmt : Node {
+    [Node]$Item
+    [Node]$Container
+    PutInStmt([Node]$item, [Node]$container, [int]$line) : base([NodeKind]::PutIn, $line) {
+        $this.Item = $item
+        $this.Container = $container
+    }
+}
+
+# show app
+#
+# D47, modal only: blocks until the window closes, then returns. Showing
+# an empty window (nothing ever put in it) is valid. A window that has
+# already been closed cannot be shown again - a clean Otter error, not
+# the raw .NET exception WPF itself throws for this.
+class ShowStmt : Node {
+    [Node]$Target
+    ShowStmt([Node]$target, [int]$line) : base([NodeKind]::Show, $line) {
         $this.Target = $target
     }
 }
@@ -1267,6 +1362,118 @@ class FormatDateStmt : Node {
         $this.Subject = $subject
         $this.Format = $format
         $this.Target = $target
+    }
+}
+
+
+# ===============================================================
+# NETWORKING & HTTP (D49)
+# ===============================================================
+
+# get "https://..." into result
+# get json from "https://..." into result
+class HttpGetStmt : Node {
+    [Node]$Url
+    [string]$Target
+    [bool]$AsJson
+    HttpGetStmt([Node]$url, [string]$target, [bool]$asJson, [int]$line) : base([NodeKind]::HttpGet, $line) {
+        $this.Url = $url
+        $this.Target = $target
+        $this.AsJson = $asJson
+    }
+}
+
+# post data to "https://..." [into result]
+class HttpPostStmt : Node {
+    [Node]$Data
+    [Node]$Url
+    [string]$Target
+    [bool]$AsJson
+    HttpPostStmt([Node]$data, [Node]$url, [string]$target, [bool]$asJson, [int]$line) : base([NodeKind]::HttpPost, $line) {
+        $this.Data = $data
+        $this.Url = $url
+        $this.Target = $target
+        $this.AsJson = $asJson
+    }
+}
+
+# put data to "https://..." [into result]
+class HttpPutStmt : Node {
+    [Node]$Data
+    [Node]$Url
+    [string]$Target
+    [bool]$AsJson
+    HttpPutStmt([Node]$data, [Node]$url, [string]$target, [bool]$asJson, [int]$line) : base([NodeKind]::HttpPut, $line) {
+        $this.Data = $data
+        $this.Url = $url
+        $this.Target = $target
+        $this.AsJson = $asJson
+    }
+}
+
+# delete from "https://..." [into result]
+class HttpDeleteStmt : Node {
+    [Node]$Url
+    [string]$Target
+    HttpDeleteStmt([Node]$url, [string]$target, [int]$line) : base([NodeKind]::HttpDelete, $line) {
+        $this.Url = $url
+        $this.Target = $target
+    }
+}
+
+# ===============================================================
+# WEB SERVERS & API ROUTES (D51)
+# ===============================================================
+
+# when api receives GET at "/users" [into req]
+class WebRouteStmt : Node {
+    [Node]$Server          # variable or expression for the server
+    [string]$Method        # "GET", "POST", "PUT", "DELETE", "ALL", etc.
+    [Node]$Path            # route path expression (e.g. [LiteralExpr] "/users")
+    [string]$RequestTarget # optional request variable name (e.g. "request" in "into request")
+    [Node[]]$Body          # route handler statements
+
+    WebRouteStmt([Node]$server, [string]$method, [Node]$path, [string]$requestTarget, [Node[]]$body, [int]$line)
+        : base([NodeKind]::WebRoute, $line) {
+        $this.Server = $server
+        $this.Method = $method
+        $this.Path = $path
+        $this.RequestTarget = $requestTarget
+        $this.Body = $body
+    }
+}
+
+# respond with <value> [as json] [(and|with) status <code>]
+class RespondStmt : Node {
+    [Node]$Value     # response body expression (e.g. string or object), can be $null
+    [Node]$Status    # HTTP status code expression (e.g. 200, 201, 404), can be $null
+    [bool]$AsJson    # true if "as json" was specified
+
+    RespondStmt([Node]$value, [Node]$status, [bool]$asJson, [int]$line)
+        : base([NodeKind]::Respond, $line) {
+        $this.Value = $value
+        $this.Status = $status
+        $this.AsJson = $asJson
+    }
+}
+
+# start api
+class StartServerStmt : Node {
+    [Node]$Server
+
+    StartServerStmt([Node]$server, [int]$line)
+        : base([NodeKind]::StartServer, $line) {
+        $this.Server = $server
+    }
+}
+
+# listen on port 8080
+class ListenServerStmt : Node {
+    [Node]$Port
+
+    ListenServerStmt([Node]$port, [int]$line)
+        : base([NodeKind]::ListenServer, $line) {
+        $this.Port = $port
     }
 }
 

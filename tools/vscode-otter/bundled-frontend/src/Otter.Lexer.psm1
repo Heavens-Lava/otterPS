@@ -28,6 +28,8 @@ $script:OtterKeywords = @{
     'are' = [TokenKind]::Are
     'of' = [TokenKind]::Of
     'when' = [TokenKind]::When
+    'put' = [TokenKind]::Put
+    'show' = [TokenKind]::Show
     'gone' = [TokenKind]::Gone
     'files' = [TokenKind]::Files
     'folders' = [TokenKind]::Folders
@@ -47,6 +49,7 @@ $script:OtterKeywords = @{
     'open' = [TokenKind]::Open
     'true' = [TokenKind]::True
     'false' = [TokenKind]::False
+    'at' = [TokenKind]::At
 }
 
 # D33 mechanism 2: these words introduce their existing statement forms only
@@ -69,6 +72,9 @@ $script:OtterStatementHeadKeywords = @{
     'between' = [TokenKind]::Between; 'otherwise' = [TokenKind]::Otherwise
     'increase' = [TokenKind]::Add; 'decrease' = [TokenKind]::Remove
     'each' = [TokenKind]::ForEach; 'stop' = [TokenKind]::Return
+    'post' = [TokenKind]::Post
+    'respond' = [TokenKind]::Respond; 'start' = [TokenKind]::Start
+    'listen' = [TokenKind]::Listen
 }
 
 # D32: singular and plural spell the same unit, the way make/makes collapse.
@@ -195,6 +201,16 @@ function ConvertTo-OtterLineTokens {
             )
         }
 
+        # Commas are contextual punctuation for the multi-item `put` form.
+        # Keep the frozen contract unchanged by carrying it as an identifier
+        # whose text is `,`; only that parser production consumes it.
+        if ($character -eq ',') {
+            $tokens.Add((New-OtterToken ([TokenKind]::Identifier) ',' ',' $LineNumber $column))
+            $index++
+            $isStatementHead = $false
+            continue
+        }
+
         throw [OtterError]::new("I don't understand '$character'.", $LineNumber, 'lexer', $column, $Text, 'Use Otter words such as say or if.')
     }
 
@@ -254,8 +270,13 @@ function ConvertTo-OtterLineTokens {
         # D29 is likewise more specific than D33: json is structural in the
         # read/convert productions, but remains free as a name elsewhere.
         if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -eq 'json' -and
-            $null -ne $previous -and $previous.Kind -in @([TokenKind]::Read, [TokenKind]::To, [TokenKind]::From)) {
+            $null -ne $previous -and $previous.Kind -in @([TokenKind]::Read, [TokenKind]::To, [TokenKind]::From, [TokenKind]::Get, [TokenKind]::As)) {
             $combined.Add((New-OtterToken ([TokenKind]::Json) 'json' $null $token.Line $token.Column))
+            continue
+        }
+        # D51: receives is structural in server route definitions
+        if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -eq 'receives') {
+            $combined.Add((New-OtterToken ([TokenKind]::Receives) 'receives' $null $token.Line $token.Column))
             continue
         }
         # Derived operations are contextual. `first is "Jeff"` keeps first
