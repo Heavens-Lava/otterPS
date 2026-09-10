@@ -46,6 +46,16 @@ function activate(context) {
     const message = result.Suggestion ? `${result.Message}\n${result.Suggestion}` : result.Message;
     diagnostics.set(document.uri, [new vscode.Diagnostic(range, message, vscode.DiagnosticSeverity.Error)]);
   }
+  function visibleSymbols(result, line) {
+    const scopes = result.Scopes || [];
+    const active = scopes.filter((scope) => Number(scope.StartLine) <= line + 1 && Number(scope.EndLine) >= line + 1)
+      .sort((a, b) => Number(b.StartLine) - Number(a.StartLine));
+    const ids = new Set(active.map((scope) => Number(scope.Id)));
+    const ordered = (result.Symbols || []).filter((symbol) => ids.has(Number(symbol.ScopeId)))
+      .sort((a, b) => Number(b.ScopeId) - Number(a.ScopeId));
+    const seen = new Set();
+    return ordered.filter((symbol) => !seen.has(symbol.Name) && seen.add(symbol.Name));
+  }
   const refresh = (document) => updateDiagnostics(document);
   context.subscriptions.push(vscode.workspace.onDidOpenTextDocument(refresh), vscode.workspace.onDidSaveTextDocument(refresh), vscode.workspace.onDidChangeTextDocument((event) => refresh(event.document)));
   for (const document of vscode.workspace.textDocuments) refresh(document);
@@ -63,8 +73,10 @@ function activate(context) {
         items.push(item);
       }
       const result = analyze(document);
-      for (const name of (result.Variables || [])) { const item = new vscode.CompletionItem(name, vscode.CompletionItemKind.Variable); item.detail = 'Otter variable'; items.push(item); }
-      for (const name of (result.Functions || [])) { const item = new vscode.CompletionItem(name, vscode.CompletionItemKind.Function); item.detail = 'Otter function'; items.push(item); }
+      for (const symbol of visibleSymbols(result, position.line)) {
+        const kind = symbol.Kind === 'function' ? vscode.CompletionItemKind.Function : vscode.CompletionItemKind.Variable;
+        const item = new vscode.CompletionItem(symbol.Name, kind); item.detail = `Otter ${symbol.Kind}`; items.push(item);
+      }
       const currentLine = document.lineAt(position.line).text.slice(0, position.character);
       const propertyMatch = currentLine.match(/\bof\s+([A-Za-z_][A-Za-z0-9_]*)?$/);
       if (propertyMatch && propertyMatch[1] && result.ObjectProperties?.[propertyMatch[1]]) {
@@ -82,8 +94,8 @@ function activate(context) {
       if (!range) return undefined;
       const word = document.getText(range);
       const result = analyze(document);
-      if ((result.Functions || []).includes(word)) return new vscode.Hover(`Otter function **${word}**`);
-      if ((result.Variables || []).includes(word)) return new vscode.Hover(`Otter variable **${word}**`);
+      const symbol = visibleSymbols(result, position.line).find((entry) => entry.Name === word);
+      if (symbol) return new vscode.Hover(`Otter ${symbol.Kind} **${word}**`);
       return undefined;
     }
   }));
@@ -93,7 +105,7 @@ function activate(context) {
       if (!range) return undefined;
       const word = document.getText(range);
       const result = analyze(document);
-      const symbol = (result.Symbols || []).find((entry) => entry.Name === word);
+      const symbol = visibleSymbols(result, position.line).find((entry) => entry.Name === word);
       if (!symbol) return undefined;
       return new vscode.Location(document.uri, new vscode.Position(Math.max(0, Number(symbol.Line) - 1), Number(symbol.Column) || 0));
     }

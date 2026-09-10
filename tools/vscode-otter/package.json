@@ -25,7 +25,7 @@
   "scripts": {
     "bundle": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/sync-frontend.ps1",
     "vscode:prepublish": "npm run bundle",
-    "test": "node scripts/validate.mjs",
+    "test": "node scripts/validate.mjs && powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/test-analyze.ps1",
     "check": "node --check src/extension.js && node scripts/validate.mjs"
   }
 }
