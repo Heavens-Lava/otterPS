@@ -1,0 +1,16 @@
+create window into app
+title of app is "Hello Otter"
+
+create text box into nameBox
+
+create button into helloButton
+text of helloButton is "Say Hello"
+
+put nameBox in app
+put helloButton in app
+
+when helloButton is clicked
+    say text of nameBox
+.
+
+show app
