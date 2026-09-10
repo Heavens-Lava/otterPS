@@ -168,6 +168,65 @@ Test-Otter 'running a program that does not exist names it' {
 
 # =================================================================
 
+# =================================================================
+# file objects  -  rules.md: "File properties also use of"
+# =================================================================
+
+Test-Otter 'a file object carries name, extension, size and path' {
+    [void](Invoke-TestProgram @( [WriteFileStmt]::new((Lit 'twelve chars'), (Lit 'photo.jpg'), 1) ))
+    $file = New-OtterFileObject -Path 'photo.jpg'
+
+    Assert-AreEqual -Expected 'file' -Actual $file.TypeName
+    Assert-AreEqual -Expected 'photo.jpg' -Actual $file.ReadProperty('name')
+    Assert-AreEqual -Expected '.jpg' -Actual $file.ReadProperty('extension')
+    Assert-AreEqual -Expected '12' -Actual (Format-OtterValue -Value $file.ReadProperty('size'))
+}
+
+Test-Otter 'extension of file reads through ordinary property access' {
+    # if extension of file is ".jpg"   - the rules.md example
+    [void](Invoke-TestProgram @( [WriteFileStmt]::new((Lit 'x'), (Lit 'holiday.jpg'), 1) ))
+    $file = New-OtterFileObject -Path 'holiday.jpg'
+
+    $out = Invoke-TestProgram @(
+        [AssignStmt]::new('file', (Lit $file), 1),
+        [SayStmt]::new(@([PropertyAccessExpr]::new('extension', (Var 'file'), 2)), 2)
+    )
+    Assert-Lines -Expected @('.jpg') -Actual $out
+}
+
+Test-Otter 'file operations accept a file object as well as a path' {
+    [void](Invoke-TestProgram @( [WriteFileStmt]::new((Lit 'by object'), (Lit 'byobject.txt'), 1) ))
+    $file = New-OtterFileObject -Path 'byobject.txt'
+
+    # read file into contents   - where "file" is an object, not text
+    $out = Invoke-TestProgram @(
+        [AssignStmt]::new('file', (Lit $file), 1),
+        [ReadFileStmt]::new((Var 'file'), 'contents', 2),
+        [SayStmt]::new(@((Var 'contents')), 3)
+    )
+    Assert-Lines -Expected @('by object') -Actual $out
+}
+
+Test-Otter 'move file to a folder works with a file object' {
+    [void](New-Item -ItemType Directory -Path (Join-Path $sandbox 'Pictures') -Force)
+    [void](Invoke-TestProgram @( [WriteFileStmt]::new((Lit 'img'), (Lit 'snap.jpg'), 1) ))
+    $file = New-OtterFileObject -Path 'snap.jpg'
+
+    [void](Invoke-TestProgram @(
+        [AssignStmt]::new('file', (Lit $file), 1),
+        [MoveFileStmt]::new((Var 'file'), (Lit 'Pictures'), 2)
+    ))
+    Assert-True (Test-Path (Join-Path $sandbox 'Pictures\snap.jpg')) 'expected the file inside Pictures'
+}
+
+Test-Otter 'an object with no path is not a file' {
+    Assert-OtterFails -Containing 'has no path' -Body {
+        $notAFile = [OtterObject]::new('thing')
+        Resolve-OtterFileArgument -Value $notAFile -Line 1
+    }
+}
+
+
 Set-Location $originalLocation
 Remove-Item -LiteralPath $sandbox -Recurse -Force -ErrorAction SilentlyContinue
 

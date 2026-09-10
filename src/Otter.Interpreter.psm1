@@ -304,7 +304,7 @@ function Invoke-OtterStatement {
 
         # read "notes.txt" into notes
         'ReadFile' {
-            $path = Get-OtterText -Expression $Statement.Path -Environment $Environment
+            $path = Get-OtterPathArgument -Expression $Statement.Path -Environment $Environment
             $Environment.Set($Statement.Target, (Read-OtterFile -Path $path -Line $Statement.Line))
             return
         }
@@ -312,30 +312,30 @@ function Invoke-OtterStatement {
         # write "Hello!" to "hello.txt"
         'WriteFile' {
             $content = Get-OtterText -Expression $Statement.Content -Environment $Environment
-            $path = Get-OtterText -Expression $Statement.Path -Environment $Environment
+            $path = Get-OtterPathArgument -Expression $Statement.Path -Environment $Environment
             Write-OtterFile -Path $path -Content $content -Line $Statement.Line
             return
         }
 
         # copy "hello.txt" to "backup/hello.txt"
         'CopyFile' {
-            $source = Get-OtterText -Expression $Statement.Source -Environment $Environment
-            $destination = Get-OtterText -Expression $Statement.Destination -Environment $Environment
+            $source = Get-OtterPathArgument -Expression $Statement.Source -Environment $Environment
+            $destination = Get-OtterPathArgument -Expression $Statement.Destination -Environment $Environment
             Copy-OtterFile -Source $source -Destination $destination -Line $Statement.Line
             return
         }
 
         # move "hello.txt" to "Documents"
         'MoveFile' {
-            $source = Get-OtterText -Expression $Statement.Source -Environment $Environment
-            $destination = Get-OtterText -Expression $Statement.Destination -Environment $Environment
+            $source = Get-OtterPathArgument -Expression $Statement.Source -Environment $Environment
+            $destination = Get-OtterPathArgument -Expression $Statement.Destination -Environment $Environment
             Move-OtterFile -Source $source -Destination $destination -Line $Statement.Line
             return
         }
 
         # delete file "hello.txt"
         'DeleteFile' {
-            $path = Get-OtterText -Expression $Statement.Path -Environment $Environment
+            $path = Get-OtterPathArgument -Expression $Statement.Path -Environment $Environment
             Remove-OtterFile -Path $path -Line $Statement.Line
             return
         }
@@ -579,7 +579,7 @@ function Get-OtterValue {
 
         # if file "hello.txt" exists
         'FileExists' {
-            $path = Get-OtterText -Expression $Expression.Path -Environment $Environment
+            $path = Get-OtterPathArgument -Expression $Expression.Path -Environment $Environment
             return (Test-OtterFileExists -Path $path -Line $Expression.Line)
         }
 
@@ -742,6 +742,17 @@ function New-OtterObjectValue {
     return $object
 }
 
+# File operations accept a path the programmer typed OR a file object with a
+# path property, because rules.md passes both:
+#
+#     move "hello.txt" to "Documents"     <- text
+#     move file to "Pictures"             <- a file object
+function Get-OtterPathArgument {
+    param([Node]$Expression, [OtterEnvironment]$Environment)
+    $value = Get-OtterValue -Expression $Expression -Environment $Environment
+    return (Resolve-OtterFileArgument -Value $value -Line $Expression.Line)
+}
+
 # File names and commands are text. Evaluating them through Format-OtterValue
 # means a path can be built from variables and still arrive as a plain string:
 #
@@ -776,4 +787,4 @@ function New-OtterEnvironment {
 Export-ModuleMember -Function `
     Invoke-OtterProgram, Invoke-OtterStatements, Invoke-OtterStatement, `
     Get-OtterValue, Invoke-OtterCall, New-OtterEnvironment, Get-OtterTypeName, `
-    Set-OtterOutputWriter, Write-OtterLine, Get-OtterText, Set-OtterTarget
+    Set-OtterOutputWriter, Write-OtterLine, Get-OtterText, Get-OtterPathArgument, Set-OtterTarget

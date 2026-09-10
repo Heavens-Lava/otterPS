@@ -1,4 +1,5 @@
 using module ..\Otter.Contract.psm1
+using module .\Otter.Runtime.psm1
 
 # Otter.Library.psm1
 #
@@ -62,6 +63,66 @@ function Initialize-OtterParentFolder {
 
 
 # ===============================================================
+# FILE OBJECTS
+# ===============================================================
+#
+# rules.md gives a file properties, read the ordinary way:
+#
+#     say name of file
+#     say extension of file
+#     say size of file
+#
+#     for each file in files
+#         if extension of file is ".jpg"
+#             move file to "Pictures"
+#         .
+#     .
+#
+# So a file is an OtterObject, not a path string. Every file operation below
+# therefore accepts EITHER - a plain path the programmer typed, or a file
+# object they got from somewhere - because "move file to ..." passes the
+# object while `move "hello.txt" to ...` passes text.
+#
+# OPEN QUESTION (see D20): nothing in rules.md yet says how you obtain
+# `files` in the first place. The back end is ready for it; the grammar is
+# not decided.
+
+function New-OtterFileObject {
+    param([string]$Path, [int]$Line = 0)
+
+    $full = Resolve-OtterPath -Path $Path -Line $Line
+    $file = [OtterObject]::new('file')
+
+    $file.WriteProperty('name', [System.IO.Path]::GetFileName($full))
+    $file.WriteProperty('extension', [System.IO.Path]::GetExtension($full))
+    $file.WriteProperty('path', $full)
+
+    $size = 0.0
+    if (Test-Path -LiteralPath $full -PathType Leaf) {
+        $size = [double](Get-Item -LiteralPath $full).Length
+    }
+    $file.WriteProperty('size', $size)
+
+    return $file
+}
+
+# Turns whatever the programmer passed - text or a file object - into a path.
+function Resolve-OtterFileArgument {
+    param([object]$Value, [int]$Line)
+
+    if ($Value -is [OtterObject]) {
+        if ($Value.HasProperty('path')) { return [string]$Value.ReadProperty('path') }
+        if ($Value.HasProperty('name')) { return [string]$Value.ReadProperty('name') }
+        throw [OtterError]::new(
+            "I need a file here, but this $($Value.TypeName) has no path.",
+            $Line, 'runtime')
+    }
+
+    return (Format-OtterValue -Value $Value)
+}
+
+
+# ===============================================================
 # FILES  (rules.md section 30)
 # ===============================================================
 
@@ -100,8 +161,13 @@ function Write-OtterFile {
     }
 
     try {
-        # -NoNewline: Otter writes exactly the text it was given.
-        Set-Content -LiteralPath $full -Value $Content -Encoding UTF8 -NoNewline -ErrorAction Stop
+        # WriteAllText, not Set-Content -Encoding UTF8: on PowerShell 5.1 that
+        # switch always prepends a byte-order mark, which other tools show as
+        # a stray "i>>?" at the start of the file and which makes "size of
+        # file" three bytes larger than the text the programmer wrote.
+        # UTF8Encoding($false) means "UTF-8, no BOM".
+        $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+        [System.IO.File]::WriteAllText($full, $Content, $utf8NoBom)
     }
     catch {
         throw [OtterError]::new("I could not write to `"$Path`". $($_.Exception.Message)", $Line, 'runtime')
@@ -329,4 +395,5 @@ function Invoke-OtterCommand {
 Export-ModuleMember -Function `
     Resolve-OtterPath, Read-OtterFile, Write-OtterFile, Copy-OtterFile, `
     Move-OtterFile, Remove-OtterFile, Test-OtterFileExists, `
-    Split-OtterCommandLine, Start-OtterProgram, Invoke-OtterCommand
+    Split-OtterCommandLine, Start-OtterProgram, Invoke-OtterCommand, `
+    New-OtterFileObject, Resolve-OtterFileArgument

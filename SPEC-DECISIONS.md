@@ -403,8 +403,9 @@ not reachable until an object is.
 
 ## D17. Filler words vs structural words
 
-`rules2.md` section 4 lists `of` among possible filler words. **That is now
-wrong**, and the distinction matters enough to state explicitly.
+`rules.md` (revised) now states this directly, and `rules2.md` section 4 is
+the stale copy - it still lists `of` among possible filler words. **That is
+wrong**, and the distinction matters enough to keep stated here.
 
 Words such as `the`, `a`, `an`, and `value` **may** be optional filler in
 explicitly permitted grammar positions. Structural words such as `of`, `to`,
@@ -417,13 +418,18 @@ because they carry grammatical meaning.
 | `a` | potentially filler |
 | `an` | potentially filler |
 | `value` | potentially filler |
+| `called` | potentially filler |
+| `then` | potentially filler |
 | `of` | **structural** |
 | `to` | **structural** in many forms |
 | `from` | **structural** |
 | `with` | **structural** |
 | `where` | **structural** |
 | `into` | **structural** |
+| `in` | **structural** |
 | `as` | **structural** |
+| `at` | **structural** |
+| `on` | **structural** |
 
 `name of person` cannot discard `of` — it is what establishes property
 ownership. Removing it changes `name of person` into two unrelated words.
@@ -533,3 +539,46 @@ Try:
 Carrying both forms would permanently complicate the lexer and undermine the
 clean "a period closes a block" rule. Otter is young enough to make this
 change now.
+
+---
+
+## D20. File objects — the back end is ready, the grammar is not
+
+The revised `rules.md` gives a file properties:
+
+```otter
+say name of file
+say extension of file
+say size of file
+
+for each file in files
+    if extension of file is ".jpg"
+        move file to "Pictures"
+    .
+.
+```
+
+**Decided, and implemented:**
+
+- A file is an `OtterObject` with type name `file` and the properties
+  `name`, `extension`, `size` (bytes, a number), and `path` (the full path).
+- Every file operation accepts **either** a path the programmer typed **or**
+  a file object — because `move "hello.txt" to ...` passes text while
+  `move file to ...` passes an object.
+- Otter writes UTF-8 **without** a byte-order mark, so `size of file` matches
+  the text that was written and other tools do not show a stray `ï»¿`.
+
+**Open — needs Jeff:** nothing in `rules.md` says how you obtain `files` in
+the first place. The example loops over it, but no syntax produces it. Some
+possibilities, none chosen:
+
+```otter
+get files in "Pictures" into files
+files in "Pictures" become files
+list files in "Pictures" into files
+```
+
+This also raises a second undecided question: is there a **folder** object,
+and does `for each file in files` recurse into subfolders? Until both are
+settled, the file-object support is reachable only from the runtime, not from
+Otter source.
