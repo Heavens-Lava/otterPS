@@ -265,6 +265,14 @@ emptyTwo is a thing
 say "still a program"
 '@)
 if ($emptyObjects.Statements[0].Properties.Count -ne 0 -or $emptyObjects.Statements[1].Properties.Count -ne 0) { throw 'Empty has and is-a-thing objects must have zero properties.' }
+$terminatedEmptyObjects = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source @'
+settings has
+.
+config is a thing
+.
+'@)
+if ($terminatedEmptyObjects.Statements[0] -isnot [ObjectDefStmt] -or $terminatedEmptyObjects.Statements[0].Properties.Count -ne 0) { throw 'Empty has with a period must produce zero properties.' }
+if ($terminatedEmptyObjects.Statements[1] -isnot [ObjectDefStmt] -or $terminatedEmptyObjects.Statements[1].Properties.Count -ne 0) { throw 'Empty is-a-thing with a period must produce zero properties.' }
 try {
     ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source "if true`n") | Out-Null
     throw 'An empty if block must remain invalid.'

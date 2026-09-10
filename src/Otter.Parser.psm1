@@ -229,7 +229,12 @@ function Read-OtterBlock {
 # an actual indented body.
 function Read-OtterObjectBlock {
     [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the object statement to end here.')
-    if (-not (Test-OtterTokenKind ([TokenKind]::Indent))) { return @() }
+    if (-not (Test-OtterTokenKind ([TokenKind]::Indent))) {
+        # Empty objects may still use the ordinary block terminator. Consume
+        # it here so it cannot be left orphaned for the outer statement list.
+        if (Test-OtterTokenKind ([TokenKind]::BlockEnd)) { [void](Read-OtterToken); Skip-OtterNewlines }
+        return @()
+    }
     [void](Read-OtterToken)
     $body = Read-OtterStatements
     [void](Assert-OtterTokenKind ([TokenKind]::Dedent) 'I expected the object block to end.')
