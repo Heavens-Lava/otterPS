@@ -1,0 +1,4 @@
+# hello.ot - the first Otter program
+say "Hello world!"
+say "Otter works!"
+say "We made a language!"
