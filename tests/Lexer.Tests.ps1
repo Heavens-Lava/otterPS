@@ -26,4 +26,10 @@ catch [OtterError] {
         throw 'Period property errors should explain the property-first syntax.'
     }
 }
+$part3Tokens = ConvertTo-OtterTokens -Source 'get files in "Pictures" and subfolders into files'
+if ((@($part3Tokens | ForEach-Object Kind) -join ',') -ne 'Get,Files,In,String,And,Subfolders,Into,Files,Newline,EndOfFile') {
+    throw 'Expected discovery keywords to have their dedicated tokens.'
+}
+$goneTokens = ConvertTo-OtterTokens -Source 'user is gone'
+if ($goneTokens[2].Kind -ne [TokenKind]::Gone) { throw 'Gone must be a literal token.' }
 Write-Output 'Lexer tests passed.'

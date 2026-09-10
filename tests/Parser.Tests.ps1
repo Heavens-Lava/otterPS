@@ -133,6 +133,30 @@ if ($fileAst.Statements[4] -isnot [DeleteFileStmt]) { throw 'Expected delete fil
 if ($fileAst.Statements[5].Branches[0].Condition -isnot [FileExistsExpr]) { throw 'Expected file exists condition.' }
 if (-not $fileAst.Statements[6].IsCommand -and $fileAst.Statements[7].IsCommand -and $fileAst.Statements[7].ResultTarget -eq 'status') { } else { throw 'Expected run forms to preserve command and capture flags.' }
 
+$part3Source = @'
+get files in "Pictures" and subfolders into files
+get folders in "Documents" into folders
+create folder "Backup"
+copy folder "Work" to "Backup"
+move folder "Work" to "Archive"
+delete folder "Backup"
+user is gone
+if user is not gone
+    say name of user
+try
+    read "settings.json" into settings
+otherwise
+    say "Could not load settings."
+.
+'@
+$part3Ast = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $part3Source)
+if ($part3Ast.Statements[0] -isnot [GetFilesStmt] -or -not $part3Ast.Statements[0].IncludeSubfolders) { throw 'Expected recursive file discovery.' }
+if ($part3Ast.Statements[1] -isnot [GetFoldersStmt] -or $part3Ast.Statements[1].IncludeSubfolders) { throw 'Expected non-recursive folder discovery.' }
+if ($part3Ast.Statements[2] -isnot [CreateFolderStmt] -or $part3Ast.Statements[3] -isnot [CopyFolderStmt] -or $part3Ast.Statements[4] -isnot [MoveFolderStmt] -or $part3Ast.Statements[5] -isnot [DeleteFolderStmt]) { throw 'Expected folder operation statements.' }
+if ($null -ne $part3Ast.Statements[6].Value.Value) { throw 'Gone must be a null literal.' }
+if ($part3Ast.Statements[7].Branches[0].Condition.Op -ne [CompareOp]::NotEqual) { throw 'Expected "is not gone" comparison.' }
+if ($part3Ast.Statements[8] -isnot [TryStmt] -or $part3Ast.Statements[8].OtherwiseBody.Count -ne 1) { throw 'Expected try/otherwise statement.' }
+
 try {
     ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source 'double 5 make result') | Out-Null
     throw 'Expected an undefined call to fail.'

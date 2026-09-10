@@ -37,23 +37,34 @@ function Skip-OtterNewlines { while (Test-OtterTokenKind ([TokenKind]::Newline))
 
 function Read-OtterValue {
     $token = Get-OtterCurrentToken
+    # These words are commands in statement position, but ordinary names in
+    # expression position: `for each file in files`, `name of file`.
+    if ($token.Kind -in @([TokenKind]::Identifier, [TokenKind]::File, [TokenKind]::Files, [TokenKind]::Folder, [TokenKind]::Folders)) {
+        [void](Read-OtterToken)
+        if (Test-OtterTokenKind ([TokenKind]::Of)) {
+            [void](Read-OtterToken)
+            return [PropertyAccessExpr]::new($token.Text, (Read-OtterValue), $token.Line)
+        }
+        return [VariableExpr]::new($token.Text, $token.Line)
+    }
     switch ($token.Kind) {
         ([TokenKind]::String) { [void](Read-OtterToken); return [LiteralExpr]::new($token.Value, $token.Line) }
         ([TokenKind]::Number) { [void](Read-OtterToken); return [LiteralExpr]::new($token.Value, $token.Line) }
         ([TokenKind]::True) { [void](Read-OtterToken); return [LiteralExpr]::new($true, $token.Line) }
         ([TokenKind]::False) { [void](Read-OtterToken); return [LiteralExpr]::new($false, $token.Line) }
-        ([TokenKind]::Identifier) {
-            [void](Read-OtterToken)
-            if (Test-OtterTokenKind ([TokenKind]::Of)) {
-                [void](Read-OtterToken)
-                # "city of address of user" reads right-to-left: the target
-                # is itself a complete property expression.
-                return [PropertyAccessExpr]::new($token.Text, (Read-OtterValue), $token.Line)
-            }
-            return [VariableExpr]::new($token.Text, $token.Line)
-        }
+        ([TokenKind]::Gone) { [void](Read-OtterToken); return [LiteralExpr]::new($null, $token.Line) }
         default { throw (New-OtterParserError 'I expected a value here.' $token 'Add a text value, number, true, false, or variable name.') }
     }
+}
+
+function Read-OtterVariableName {
+    param([string]$Message)
+    $token = Get-OtterCurrentToken
+    if ($token.Kind -notin @([TokenKind]::Identifier, [TokenKind]::File, [TokenKind]::Files, [TokenKind]::Folder, [TokenKind]::Folders)) {
+        throw (New-OtterParserError $Message $token 'Use a name to hold this value.')
+    }
+    [void](Read-OtterToken)
+    return $token
 }
 
 function Read-OtterMathExpression {
@@ -255,7 +266,7 @@ function Read-OtterStatement {
         }
         ([TokenKind]::ForEach) {
             [void](Read-OtterToken)
-            $name = Assert-OtterTokenKind ([TokenKind]::Identifier) 'I expected a loop variable after "for each".'
+            $name = Read-OtterVariableName 'I expected a loop variable after "for each".'
             [void](Assert-OtterTokenKind ([TokenKind]::In) 'I expected "in" after the loop variable.')
             $collection = Read-OtterValue
             return [ForEachStmt]::new($name.Text, $collection, (Read-OtterBlock), $start.Line)
@@ -269,6 +280,44 @@ function Read-OtterStatement {
             $name = Assert-OtterTokenKind ([TokenKind]::Identifier) 'I expected a variable name after "call it".'
             [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the question to end here.')
             return [AskStmt]::new($prompt, $name.Text, $start.Line)
+        }
+        ([TokenKind]::Get) {
+            [void](Read-OtterToken)
+            $kind = Get-OtterCurrentToken
+            if ($kind.Kind -ne [TokenKind]::Files -and $kind.Kind -ne [TokenKind]::Folders) {
+                throw (New-OtterParserError 'I expected "files" or "folders" after "get".' $kind 'Write "get files in ..." or "get folders in ...".')
+            }
+            [void](Read-OtterToken)
+            [void](Assert-OtterTokenKind ([TokenKind]::In) 'I expected "in" and a folder path.')
+            $folder = Read-OtterValue
+            $includeSubfolders = $false
+            if (Test-OtterTokenKind ([TokenKind]::And)) {
+                [void](Read-OtterToken)
+                [void](Assert-OtterTokenKind ([TokenKind]::Subfolders) 'I expected "subfolders" after "and".')
+                $includeSubfolders = $true
+            }
+            [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a result name.')
+            $target = Read-OtterVariableName 'I expected a result name after "into".'
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the discovery statement to end here.')
+            if ($kind.Kind -eq [TokenKind]::Files) { return [GetFilesStmt]::new($folder, $includeSubfolders, $target.Text, $start.Line) }
+            return [GetFoldersStmt]::new($folder, $includeSubfolders, $target.Text, $start.Line)
+        }
+        ([TokenKind]::Create) {
+            [void](Read-OtterToken)
+            [void](Assert-OtterTokenKind ([TokenKind]::Folder) 'I expected "folder" after create.')
+            $path = Read-OtterValue
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the create statement to end here.')
+            return [CreateFolderStmt]::new($path, $start.Line)
+        }
+        ([TokenKind]::Try) {
+            [void](Read-OtterToken)
+            $body = Read-OtterBlock
+            $otherwiseBody = $null
+            if (Test-OtterTokenKind ([TokenKind]::Otherwise)) {
+                [void](Read-OtterToken)
+                $otherwiseBody = Read-OtterBlock
+            }
+            return [TryStmt]::new($body, $otherwiseBody, $start.Line)
         }
         ([TokenKind]::Read) {
             [void](Read-OtterToken)
@@ -288,6 +337,14 @@ function Read-OtterStatement {
         }
         ([TokenKind]::Copy) {
             [void](Read-OtterToken)
+            if (Test-OtterTokenKind ([TokenKind]::Folder)) {
+                [void](Read-OtterToken)
+                $source = Read-OtterValue
+                [void](Assert-OtterTokenKind ([TokenKind]::To) 'I expected "to" and a destination folder.')
+                $destination = Read-OtterValue
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the copy statement to end here.')
+                return [CopyFolderStmt]::new($source, $destination, $start.Line)
+            }
             $source = Read-OtterValue
             [void](Assert-OtterTokenKind ([TokenKind]::To) 'I expected "to" and a destination path.')
             $destination = Read-OtterValue
@@ -296,6 +353,14 @@ function Read-OtterStatement {
         }
         ([TokenKind]::Move) {
             [void](Read-OtterToken)
+            if (Test-OtterTokenKind ([TokenKind]::Folder)) {
+                [void](Read-OtterToken)
+                $source = Read-OtterValue
+                [void](Assert-OtterTokenKind ([TokenKind]::To) 'I expected "to" and a destination folder.')
+                $destination = Read-OtterValue
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the move statement to end here.')
+                return [MoveFolderStmt]::new($source, $destination, $start.Line)
+            }
             $source = Read-OtterValue
             [void](Assert-OtterTokenKind ([TokenKind]::To) 'I expected "to" and a destination path.')
             $destination = Read-OtterValue
@@ -304,6 +369,12 @@ function Read-OtterStatement {
         }
         ([TokenKind]::Delete) {
             [void](Read-OtterToken)
+            if (Test-OtterTokenKind ([TokenKind]::Folder)) {
+                [void](Read-OtterToken)
+                $path = Read-OtterValue
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the delete statement to end here.')
+                return [DeleteFolderStmt]::new($path, $start.Line)
+            }
             [void](Assert-OtterTokenKind ([TokenKind]::File) 'I expected "file" after delete.')
             $path = Read-OtterValue
             [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the delete statement to end here.')

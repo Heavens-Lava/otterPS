@@ -32,6 +32,14 @@ $script:OtterKeywords = @{
     'contains' = [TokenKind]::Contains
     'of' = [TokenKind]::Of
     'when' = [TokenKind]::When
+    'gone' = [TokenKind]::Gone
+    'get' = [TokenKind]::Get
+    'files' = [TokenKind]::Files
+    'folders' = [TokenKind]::Folders
+    'folder' = [TokenKind]::Folder
+    'subfolders' = [TokenKind]::Subfolders
+    'create' = [TokenKind]::Create
+    'try' = [TokenKind]::Try
     # Reserved for later language versions. Lexing them now prevents a future
     # keyword from silently changing an existing program's meaning.
     'a' = [TokenKind]::A
