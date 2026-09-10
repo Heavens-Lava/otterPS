@@ -455,30 +455,35 @@ function ConvertTo-OtterWeb {
         switch ($kind) {
             'window' {
                 $spacing = if ($props.Contains('spacing')) { $props['spacing'] } else { 12 }
-                $winStyle = "display: flex; flex-direction: column; gap: ${spacing}px; max-width: 100%; border-radius: 12px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.4); padding: 24px;"
+                if (-not $props.Contains('gap')) { $styles.Add("gap: ${spacing}px;") }
+                $styleAttr = if ($styles.Count -gt 0) { " style=`"$($styles -join ' ')`"" } else { "" }
                 return @"
-    <div id="$resName" class="otter-window"$styleAttr style="$winStyle $($styles -join ' ')">
+    <div id="$resName" class="otter-window"$styleAttr>
       <header class="otter-window-header"><h1 class="otter-title">$appTitle</h1></header>
-      <div class="otter-window-content" style="display: flex; flex-direction: column; gap: ${spacing}px;">$childHtml</div>
+      <div class="otter-window-content" style="display: flex; flex-direction: column; gap: ${spacing}px; min-width: 0;">$childHtml</div>
     </div>
 "@
             }
             'page' {
                 $spacing = if ($props.Contains('spacing')) { $props['spacing'] } else { 12 }
+                if (-not $props.Contains('gap')) { $styles.Add("gap: ${spacing}px;") }
+                $styleAttr = if ($styles.Count -gt 0) { " style=`"$($styles -join ' ')`"" } else { "" }
                 $showHeader = (-not ($props.Contains('hideheader') -and $props['hideheader']))
                 $headerHtml = if ($showHeader -and $appTitle) { "<header class=`"otter-page-header`"><h1 class=`"otter-title`">$appTitle</h1></header>" } else { "" }
                 return @"
-    <main id="$resName" class="otter-page"$styleAttr style="display: flex; flex-direction: column; gap: ${spacing}px; padding: 24px; $($styles -join ' ')">
+    <main id="$resName" class="otter-page"$styleAttr>
       $headerHtml
-      <div class="otter-page-content" style="display: flex; flex-direction: column; gap: ${spacing}px; width: 100%;">$childHtml</div>
+      <div class="otter-page-content" style="display: flex; flex-direction: column; gap: ${spacing}px; width: 100%; min-width: 0;">$childHtml</div>
     </main>
 "@
             }
             'card' {
                 $spacing = if ($props.Contains('spacing')) { $props['spacing'] } else { 12 }
+                if (-not $props.Contains('gap')) { $styles.Add("gap: ${spacing}px;") }
+                $styleAttr = if ($styles.Count -gt 0) { " style=`"$($styles -join ' ')`"" } else { "" }
                 $cardTitle = if ($props.Contains('title')) { "<h3 class=`"otter-card-title`">$($props['title'])</h3>" } else { "" }
                 return @"
-      <div id="$resName" class="otter-card"$styleAttr style="display: flex; flex-direction: column; gap: ${spacing}px; $($styles -join ' ')">
+      <div id="$resName" class="otter-card"$styleAttr>
         $cardTitle
         $childHtml
       </div>
@@ -556,18 +561,33 @@ $optHtml
                 $spacing = if ($props.Contains('spacing')) { $props['spacing'] } else { 8 }
                 $align = if ($props.Contains('alignitems')) { $props['alignitems'] } elseif ($props.Contains('items')) { $props['items'] } else { 'center' }
                 $justify = if ($props.Contains('justify')) { $props['justify'] } else { 'flex-start' }
-                $wrap = if ($props.Contains('wrap') -and ($props['wrap'] -eq $true -or $props['wrap'] -eq 'true' -or $props['wrap'] -eq 'wrap')) { 'flex-wrap: wrap;' } else { 'flex-wrap: nowrap;' }
-                $w = if ($props.Contains('width')) { "" } else { "width: 100%; box-sizing: border-box;" }
+                $wrap = if ($props.Contains('wrap') -and ($props['wrap'] -eq $true -or $props['wrap'] -eq 'true' -or $props['wrap'] -eq 'wrap')) { 'wrap' } else { 'nowrap' }
+                
+                $styles.Add("display: flex; flex-direction: row;")
+                $styles.Add("gap: ${spacing}px;")
+                $styles.Add("align-items: $align;")
+                $styles.Add("justify-content: $justify;")
+                $styles.Add("flex-wrap: $wrap;")
+                if (-not $props.Contains('width')) {
+                    $styles.Add("width: 100%;")
+                }
+                $styleAttr = if ($styles.Count -gt 0) { " style=`"$($styles -join ' ')`"" } else { "" }
                 return @"
-      <div id="$resName" class="otter-row"$styleAttr style="display: flex; flex-direction: row; align-items: $align; justify-content: $justify; gap: ${spacing}px; $wrap $w $($styles -join ' ')">$childHtml</div>
+      <div id="$resName" class="otter-row"$styleAttr>$childHtml</div>
 "@
             }
             'column' {
                 $spacing = if ($props.Contains('spacing')) { $props['spacing'] } else { 8 }
                 $align = if ($props.Contains('alignitems')) { $props['alignitems'] } elseif ($props.Contains('items')) { $props['items'] } else { 'stretch' }
                 $justify = if ($props.Contains('justify')) { $props['justify'] } else { 'flex-start' }
+                
+                $styles.Add("display: flex; flex-direction: column;")
+                $styles.Add("gap: ${spacing}px;")
+                $styles.Add("align-items: $align;")
+                $styles.Add("justify-content: $justify;")
+                $styleAttr = if ($styles.Count -gt 0) { " style=`"$($styles -join ' ')`"" } else { "" }
                 return @"
-      <div id="$resName" class="otter-column"$styleAttr style="display: flex; flex-direction: column; align-items: $align; justify-content: $justify; gap: ${spacing}px; box-sizing: border-box; $($styles -join ' ')">$childHtml</div>
+      <div id="$resName" class="otter-column"$styleAttr>$childHtml</div>
 "@
             }
             default {
@@ -637,7 +657,8 @@ $bodyJoined
       --otter-input-bg: #ffffff;
       --otter-border: #e5e7eb;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    *, *::before, *::after { box-sizing: border-box; }
+    * { margin: 0; padding: 0; }
     body {
       font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
       background: $rootBg;
@@ -651,12 +672,32 @@ $bodyJoined
       padding: 0;
       overflow-x: hidden;
     }
+    .otter-row {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: flex-start;
+      box-sizing: border-box;
+      min-width: 0;
+    }
+    .otter-column {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      justify-content: flex-start;
+      box-sizing: border-box;
+      min-width: 0;
+    }
     .otter-window {
       background-color: #ffffff;
       border: 1px solid var(--otter-border);
       width: 100%;
       max-width: 520px;
       margin: 24px auto;
+      display: flex;
+      flex-direction: column;
+      box-sizing: border-box;
+      min-width: 0;
     }
     .otter-page {
       background: transparent;
@@ -665,7 +706,21 @@ $bodyJoined
       max-width: 1320px;
       margin: 0 auto;
       min-height: 100vh;
+      display: flex;
+      flex-direction: column;
       box-sizing: border-box;
+      min-width: 0;
+    }
+    .otter-card {
+      background-color: var(--otter-card-bg);
+      border: 1px solid var(--otter-border);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+      display: flex;
+      flex-direction: column;
+      box-sizing: border-box;
+      min-width: 0;
     }
     .otter-title {
       font-size: 1.35rem;
@@ -707,13 +762,6 @@ $bodyJoined
     .otter-text {
       font-size: 0.95rem;
       min-height: 1.2em;
-    }
-    .otter-card {
-      background-color: var(--otter-card-bg);
-      border: 1px solid var(--otter-border);
-      border-radius: 12px;
-      padding: 20px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.25);
     }
     .otter-card-title {
       font-size: 1.15rem;

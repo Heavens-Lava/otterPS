@@ -18,7 +18,8 @@
       --otter-input-bg: #ffffff;
       --otter-border: #e5e7eb;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    *, *::before, *::after { box-sizing: border-box; }
+    * { margin: 0; padding: 0; }
     body {
       font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
       background: radial-gradient(ellipse at 85% 20%, rgba(205, 238, 218, 0.65) 0%, rgba(230, 246, 236, 0.35) 45%, rgba(251, 251, 249, 0) 70%), #fbfbf9;
@@ -32,12 +33,32 @@
       padding: 0;
       overflow-x: hidden;
     }
+    .otter-row {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: flex-start;
+      box-sizing: border-box;
+      min-width: 0;
+    }
+    .otter-column {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      justify-content: flex-start;
+      box-sizing: border-box;
+      min-width: 0;
+    }
     .otter-window {
       background-color: #ffffff;
       border: 1px solid var(--otter-border);
       width: 100%;
       max-width: 520px;
       margin: 24px auto;
+      display: flex;
+      flex-direction: column;
+      box-sizing: border-box;
+      min-width: 0;
     }
     .otter-page {
       background: transparent;
@@ -46,7 +67,21 @@
       max-width: 1320px;
       margin: 0 auto;
       min-height: 100vh;
+      display: flex;
+      flex-direction: column;
       box-sizing: border-box;
+      min-width: 0;
+    }
+    .otter-card {
+      background-color: var(--otter-card-bg);
+      border: 1px solid var(--otter-border);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+      display: flex;
+      flex-direction: column;
+      box-sizing: border-box;
+      min-width: 0;
     }
     .otter-title {
       font-size: 1.35rem;
@@ -88,13 +123,6 @@
     .otter-text {
       font-size: 0.95rem;
       min-height: 1.2em;
-    }
-    .otter-card {
-      background-color: var(--otter-card-bg);
-      border: 1px solid var(--otter-border);
-      border-radius: 12px;
-      padding: 20px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.25);
     }
     .otter-card-title {
       font-size: 1.15rem;
@@ -187,18 +215,18 @@
   </style>
 </head>
 <body>
-    <main id="app" class="otter-page" style="width: 100%; max-width: 1320px; background: radial-gradient(ellipse at 85% 20%, rgba(205, 238, 218, 0.65) 0%, rgba(230, 246, 236, 0.35) 45%, rgba(251, 251, 249, 0) 70%), #fbfbf9; color: #111827; padding: 28px;" style="display: flex; flex-direction: column; gap: 24px; padding: 24px; width: 100%; max-width: 1320px; background: radial-gradient(ellipse at 85% 20%, rgba(205, 238, 218, 0.65) 0%, rgba(230, 246, 236, 0.35) 45%, rgba(251, 251, 249, 0) 70%), #fbfbf9; color: #111827; padding: 28px;">
+    <main id="app" class="otter-page" style="width: 100%; max-width: 1320px; background: radial-gradient(ellipse at 85% 20%, rgba(205, 238, 218, 0.65) 0%, rgba(230, 246, 236, 0.35) 45%, rgba(251, 251, 249, 0) 70%), #fbfbf9; color: #111827; padding: 28px; gap: 24px;">
       
-      <div class="otter-page-content" style="display: flex; flex-direction: column; gap: 24px; width: 100%;">
-      <div id="navbar" class="otter-row" style="width: 100%; padding: 8px 0;" style="display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: nowrap;  width: 100%; padding: 8px 0;">
-      <div id="brandGroup" class="otter-row" style="display: flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: 12px; flex-wrap: nowrap; width: 100%; box-sizing: border-box; ">
+      <div class="otter-page-content" style="display: flex; flex-direction: column; gap: 24px; width: 100%; min-width: 0;">
+      <div id="navbar" class="otter-row" style="width: 100%; padding: 8px 0; display: flex; flex-direction: row; gap: 16px; align-items: center; justify-content: space-between; flex-wrap: nowrap;">
+      <div id="brandGroup" class="otter-row" style="display: flex; flex-direction: row; gap: 12px; align-items: center; justify-content: flex-start; flex-wrap: nowrap; width: 100%;">
       <span id="avatarBadge" class="otter-badge" style="background: #16382c; color: #e8d2b5; border-radius: 9999px; padding: 10px; font-size: 15px; font-weight: 700;">JM</span>
-      <div id="brandInfoCol" class="otter-column" style="display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 2px; box-sizing: border-box; ">
+      <div id="brandInfoCol" class="otter-column" style="display: flex; flex-direction: column; gap: 2px; align-items: stretch; justify-content: flex-start;">
       <div id="brandName" class="otter-text" style="color: #111827; font-size: 16px; font-weight: 700;">Jeffrey Macy</div>
       <div id="brandTagline" class="otter-text" style="color: #6b7280; font-size: 12px;">Technology partner for growing businesses</div>
 </div>
 </div>
-      <div id="navLinksRow" class="otter-row" style="display: flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: 22px; flex-wrap: nowrap; width: 100%; box-sizing: border-box; ">
+      <div id="navLinksRow" class="otter-row" style="display: flex; flex-direction: row; gap: 22px; align-items: center; justify-content: flex-start; flex-wrap: nowrap; width: 100%;">
       <a id="navHome" class="otter-link" href="#" style="color: #111827; font-size: 14px; font-weight: 600;" target="_blank" rel="noopener noreferrer">Home</a>
       <a id="navResources" class="otter-link" href="#" style="color: #4b5563; font-size: 14px;" target="_blank" rel="noopener noreferrer">Resources</a>
       <a id="navServices" class="otter-link" href="#" style="color: #4b5563; font-size: 14px;" target="_blank" rel="noopener noreferrer">Services</a>
@@ -209,66 +237,66 @@
       <a id="navLogin" class="otter-link" href="#" style="color: #4b5563; font-size: 14px; font-weight: 500;" target="_blank" rel="noopener noreferrer">Log in</a>
 </div>
 </div>
-      <div id="heroRow" class="otter-row" style="width: 100%; margin: 20px 0 0 0;" style="display: flex; flex-direction: row; align-items: flex-start; justify-content: space-between; gap: 52px; flex-wrap: nowrap;  width: 100%; margin: 20px 0 0 0;">
-      <div id="leftCol" class="otter-column" style="flex: 1.05; min-width: 0;" style="display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 20px; box-sizing: border-box; flex: 1.05; min-width: 0;">
-      <div id="eyebrowRow" class="otter-row" style="display: flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: 8px; flex-wrap: nowrap; width: 100%; box-sizing: border-box; ">
+      <div id="heroRow" class="otter-row" style="width: 100%; margin: 20px 0 0 0; display: flex; flex-direction: row; gap: 52px; align-items: flex-start; justify-content: space-between; flex-wrap: nowrap;">
+      <div id="leftCol" class="otter-column" style="flex: 1.05; min-width: 0; display: flex; flex-direction: column; gap: 20px; align-items: stretch; justify-content: flex-start;">
+      <div id="eyebrowRow" class="otter-row" style="display: flex; flex-direction: row; gap: 8px; align-items: center; justify-content: flex-start; flex-wrap: nowrap; width: 100%;">
       <div id="eyebrowDash" class="otter-text" style="color: #ea580c; font-size: 16px; font-weight: 800;">―</div>
       <div id="eyebrowText" class="otter-text" style="color: #1e4d3e; font-size: 11px; font-weight: 700; letter-spacing: 0.08em;">WEBSITES FOR PEOPLE WHO CARE ABOUT THEIR CUSTOMERS</div>
 </div>
-      <div id="headlineCol" class="otter-column" style="display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 4px; box-sizing: border-box; ">
+      <div id="headlineCol" class="otter-column" style="display: flex; flex-direction: column; gap: 4px; align-items: stretch; justify-content: flex-start;">
       <div id="headLine1" class="otter-text" style="color: #0f172a; font-size: 44px; font-weight: 800; line-height: 1.15; letter-spacing: -0.025em;">You take care of your customers.</div>
       <div id="headLine2" class="otter-text" style="color: #184537; font-size: 48px; font-weight: 600; font-style: italic; font-family: 'Newsreader', 'Playfair Display', Georgia, serif; line-height: 1.15;">I'll take care of your website.</div>
 </div>
       <div id="subHead" class="otter-text" style="color: #1f2937; font-size: 18px; font-weight: 700;">More than a website—build a digital home for your business.</div>
       <div id="subDesc" class="otter-text" style="color: #4b5563; font-size: 15px; line-height: 1.65;">Help customers find you, understand your services, see your pricing, book appointments, make payments, access files and videos, and stay connected with your business.</div>
-      <div id="ctaRow" class="otter-row" style="display: flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: 16px; flex-wrap: nowrap; width: 100%; box-sizing: border-box; ">
+      <div id="ctaRow" class="otter-row" style="display: flex; flex-direction: row; gap: 16px; align-items: center; justify-content: flex-start; flex-wrap: nowrap; width: 100%;">
       <button id="heroCtaBtn" class="otter-button" style="background: #184537; color: white; border-radius: 9999px; padding: 14px; font-size: 15px; font-weight: 600;">Plan My Website →</button>
       <button id="heroEstimateBtn" class="otter-button" style="background: #ffffff; color: #111827; border-radius: 9999px; border: 1px solid #d1d5db; padding: 14px; font-size: 15px; font-weight: 600;">Get a Free Cost Estimate ⚡</button>
 </div>
-      <div id="pricingCard" class="otter-card" style="width: 100%; background: #ffffff; border-radius: 14px; border: 1px solid #e5e7eb; box-shadow: 0 4px 20px rgba(0,0,0,0.03); padding: 22px;" style="display: flex; flex-direction: column; gap: 14px; width: 100%; background: #ffffff; border-radius: 14px; border: 1px solid #e5e7eb; box-shadow: 0 4px 20px rgba(0,0,0,0.03); padding: 22px;">
+      <div id="pricingCard" class="otter-card" style="width: 100%; background: #ffffff; border-radius: 14px; border: 1px solid #e5e7eb; box-shadow: 0 4px 20px rgba(0,0,0,0.03); padding: 22px; gap: 14px;">
         
         
-      <div id="pricingHeaderRow" class="otter-row" style="width: 100%;" style="display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: nowrap;  width: 100%;">
+      <div id="pricingHeaderRow" class="otter-row" style="width: 100%; display: flex; flex-direction: row; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: nowrap;">
       <div id="pricingCardTitle" class="otter-text" style="color: #111827; font-size: 14px; font-weight: 700;">Simple, upfront starting prices</div>
       <a id="compareLink" class="otter-link" href="#" style="color: #184537; font-size: 13px; font-weight: 600;" target="_blank" rel="noopener noreferrer">Compare packages</a>
 </div>
-      <div id="pricingTiersRow" class="otter-row" style="width: 100%;" style="display: flex; flex-direction: row; align-items: flex-start; justify-content: space-between; gap: 0px; flex-wrap: nowrap;  width: 100%;">
-      <div id="tier1Col" class="otter-column" style="flex: 1; min-width: 0;" style="display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 4px; box-sizing: border-box; flex: 1; min-width: 0;">
+      <div id="pricingTiersRow" class="otter-row" style="width: 100%; display: flex; flex-direction: row; gap: 0px; align-items: flex-start; justify-content: space-between; flex-wrap: nowrap;">
+      <div id="tier1Col" class="otter-column" style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; align-items: stretch; justify-content: flex-start;">
       <div id="t1Name" class="otter-text" style="color: #6b7280; font-size: 12px;">Starter</div>
       <div id="t1Price" class="otter-text" style="color: #111827; font-size: 24px; font-weight: 800;">$750</div>
 </div>
-      <div id="tier2Col" class="otter-column" style="flex: 1; min-width: 0; border-left: 1px solid #e5e7eb; padding-left: 20px;;" style="display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 4px; box-sizing: border-box; flex: 1; min-width: 0; border-left: 1px solid #e5e7eb; padding-left: 20px;;">
+      <div id="tier2Col" class="otter-column" style="flex: 1; min-width: 0; border-left: 1px solid #e5e7eb; padding-left: 20px;; display: flex; flex-direction: column; gap: 4px; align-items: stretch; justify-content: flex-start;">
       <div id="t2Name" class="otter-text" style="color: #6b7280; font-size: 12px;">Business</div>
       <div id="t2Price" class="otter-text" style="color: #111827; font-size: 24px; font-weight: 800;">From $1,500</div>
 </div>
-      <div id="tier3Col" class="otter-column" style="flex: 1; min-width: 0; border-left: 1px solid #e5e7eb; padding-left: 20px;;" style="display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 4px; box-sizing: border-box; flex: 1; min-width: 0; border-left: 1px solid #e5e7eb; padding-left: 20px;;">
+      <div id="tier3Col" class="otter-column" style="flex: 1; min-width: 0; border-left: 1px solid #e5e7eb; padding-left: 20px;; display: flex; flex-direction: column; gap: 4px; align-items: stretch; justify-content: flex-start;">
       <div id="t3Name" class="otter-text" style="color: #6b7280; font-size: 12px;">Business Platform</div>
       <div id="t3Price" class="otter-text" style="color: #111827; font-size: 24px; font-weight: 800;">From $2,500+</div>
 </div>
 </div>
 
       </div>
-      <div id="subLinksRow" class="otter-row" style="display: flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: 14px; flex-wrap: nowrap; width: 100%; box-sizing: border-box; ">
+      <div id="subLinksRow" class="otter-row" style="display: flex; flex-direction: row; gap: 14px; align-items: center; justify-content: flex-start; flex-wrap: nowrap; width: 100%;">
       <a id="subLearnLink" class="otter-link" href="#" style="color: #184537; font-size: 13px; font-weight: 600;" target="_blank" rel="noopener noreferrer">I Just Want to Learn More →</a>
       <div id="bulletPoint" class="otter-text" style="color: #d1d5db;">•</div>
       <a id="subDemosLink" class="otter-link" href="#" style="color: #184537; font-size: 13px; font-weight: 600;" target="_blank" rel="noopener noreferrer">Explore Demos & Work →</a>
 </div>
       <div id="guaranteeNote" class="otter-text" style="color: #6b7280; font-size: 12px;">✓ Transparent pricing, zero sales pressure. Calculate your scope in 60 seconds.</div>
 </div>
-      <div id="rightCol" class="otter-column" style="flex: 1; min-width: 0;" style="display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 16px; box-sizing: border-box; flex: 1; min-width: 0;">
-      <div id="mockupOuterFrame" class="otter-card" style="width: 100%; background: rgba(255, 255, 255, 0.45); border-radius: 28px; border: 1px solid rgba(255, 255, 255, 0.85); box-shadow: 0 30px 60px -15px rgba(24, 69, 55, 0.08), 0 10px 25px rgba(0,0,0,0.03); padding: 28px;" style="display: flex; flex-direction: column; gap: 12px; width: 100%; background: rgba(255, 255, 255, 0.45); border-radius: 28px; border: 1px solid rgba(255, 255, 255, 0.85); box-shadow: 0 30px 60px -15px rgba(24, 69, 55, 0.08), 0 10px 25px rgba(0,0,0,0.03); padding: 28px;">
+      <div id="rightCol" class="otter-column" style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 16px; align-items: stretch; justify-content: flex-start;">
+      <div id="mockupOuterFrame" class="otter-card" style="width: 100%; background: rgba(255, 255, 255, 0.45); border-radius: 28px; border: 1px solid rgba(255, 255, 255, 0.85); box-shadow: 0 30px 60px -15px rgba(24, 69, 55, 0.08), 0 10px 25px rgba(0,0,0,0.03); padding: 28px; gap: 12px;">
         
         
-      <div id="mockupCard" class="otter-card" style="width: 100%; background: #ffffff; border-radius: 16px; border: 1px solid #eef0ea; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.04); padding: 24px;" style="display: flex; flex-direction: column; gap: 14px; width: 100%; background: #ffffff; border-radius: 16px; border: 1px solid #eef0ea; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.04); padding: 24px;">
+      <div id="mockupCard" class="otter-card" style="width: 100%; background: #ffffff; border-radius: 16px; border: 1px solid #eef0ea; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.04); padding: 24px; gap: 14px;">
         
         
-      <div id="mockupTopRow" class="otter-row" style="width: 100%;" style="display: flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: 8px; flex-wrap: nowrap;  width: 100%;">
+      <div id="mockupTopRow" class="otter-row" style="width: 100%; display: flex; flex-direction: row; gap: 8px; align-items: center; justify-content: flex-start; flex-wrap: nowrap;">
       <span id="dot1" class="otter-badge" style="background: #ef4444; border-radius: 9999px; padding: 4px; font-size: 7px;"> </span>
       <span id="dot2" class="otter-badge" style="background: #f59e0b; border-radius: 9999px; padding: 4px; font-size: 7px;"> </span>
       <span id="dot3" class="otter-badge" style="background: #10b981; border-radius: 9999px; padding: 4px; font-size: 7px;"> </span>
       <div id="mockUrl" class="otter-text" style="color: #9ca3af; font-size: 11px;">estimator.jeffreymacy.com</div>
 </div>
-      <div id="stepSubheadRow" class="otter-row" style="width: 100%;" style="display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: nowrap;  width: 100%;">
+      <div id="stepSubheadRow" class="otter-row" style="width: 100%; display: flex; flex-direction: row; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: nowrap;">
       <div id="stepBackText" class="otter-text" style="color: #ea580c; font-size: 11px; font-weight: 700; letter-spacing: 0.04em;">< SIMPLE FIRST STEP</div>
       <div id="stepNumberText" class="otter-text" style="color: #9ca3af; font-size: 11px; font-weight: 600;">STEP 2 OF 3</div>
 </div>
@@ -280,17 +308,17 @@
       <input type="text" id="bizNameBox" class="otter-text-box" value="" placeholder="e.g. Apex Consulting, Oak & Iron Furniture" />
       <div id="bizDescLabel" class="otter-text" style="color: #374151; font-size: 12px; font-weight: 600;">What does your business do? (Optional)</div>
       <input type="text" id="bizDescBox" class="otter-text-box" value="" placeholder="e.g. Residential architecture and landscape design" />
-      <div id="splitFieldsRow" class="otter-row" style="width: 100%;" style="display: flex; flex-direction: row; align-items: flex-start; justify-content: flex-start; gap: 12px; flex-wrap: nowrap;  width: 100%;">
-      <div id="fieldACol" class="otter-column" style="flex: 1; min-width: 0;" style="display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 4px; box-sizing: border-box; flex: 1; min-width: 0;">
+      <div id="splitFieldsRow" class="otter-row" style="width: 100%; display: flex; flex-direction: row; gap: 12px; align-items: flex-start; justify-content: flex-start; flex-wrap: nowrap;">
+      <div id="fieldACol" class="otter-column" style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; align-items: stretch; justify-content: flex-start;">
       <div id="fieldALabel" class="otter-text" style="color: #374151; font-size: 12px; font-weight: 600;">Already have a website? (Optional)</div>
       <input type="text" id="siteUrlBox" class="otter-text-box" value="" placeholder="https://your-site.com" />
 </div>
-      <div id="fieldBCol" class="otter-column" style="flex: 1; min-width: 0;" style="display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 4px; box-sizing: border-box; flex: 1; min-width: 0;">
+      <div id="fieldBCol" class="otter-column" style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; align-items: stretch; justify-content: flex-start;">
       <div id="fieldBLabel" class="otter-text" style="color: #374151; font-size: 12px; font-weight: 600;">Anything you'd like to include? (Optional)</div>
       <input type="text" id="siteWantsBox" class="otter-text-box" value="" placeholder="Links to sites you like, 'I'm not sure'" />
 </div>
 </div>
-      <div id="bottomActionRow" class="otter-row" style="width: 100%;" style="display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: nowrap;  width: 100%;">
+      <div id="bottomActionRow" class="otter-row" style="width: 100%; display: flex; flex-direction: row; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: nowrap;">
       <button id="continueBtn" class="otter-button" style="background: #184537; color: white; border-radius: 9999px; padding: 12px; font-size: 14px; font-weight: 600;">Continue to Step 3 →</button>
       <div id="stepStatusText" class="otter-text" style="color: #166534; font-size: 12px; font-weight: 600;">Step 2 of 3 • Free instant estimate ready</div>
 </div>
@@ -300,7 +328,7 @@
       </div>
 </div>
 </div>
-      <div id="floatingDock" class="otter-row" style="position: fixed; bottom: 24px; right: 28px; z-index: 999;" style="display: flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: 12px; flex-wrap: nowrap; width: 100%; box-sizing: border-box; position: fixed; bottom: 24px; right: 28px; z-index: 999;">
+      <div id="floatingDock" class="otter-row" style="position: fixed; bottom: 24px; right: 28px; z-index: 999; display: flex; flex-direction: row; gap: 12px; align-items: center; justify-content: flex-start; flex-wrap: nowrap; width: 100%;">
       <button id="chatWidgetBtn" class="otter-button" style="background: #163b2c; color: white; border-radius: 9999px; box-shadow: 0 10px 25px rgba(22,59,44,0.3); padding: 12px; font-size: 14px; font-weight: 600;">💬 Ask how Jeffrey can help</button>
       <button id="accessibilityBtn" class="otter-button" style="background: #163b2c; color: white; border-radius: 9999px; box-shadow: 0 10px 25px rgba(22,59,44,0.3); padding: 12px; font-size: 14px;">🌐</button>
 </div>
