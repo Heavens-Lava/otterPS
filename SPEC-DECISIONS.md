@@ -1706,6 +1706,26 @@ when the statement instead ends at `Newline` with no `Indent` — making
 legal, with zero effect on every other statement that still shares
 `Read-OtterBlock`.
 
+### The empty-object terminator bug — found, fixed, closed
+
+Found during the dogfooding milestone: `Read-OtterObjectBlock` (above)
+returned zero properties correctly when no `Indent` followed `has`, but
+never consumed a `BlockEnd` that immediately followed, leaving an explicit
+`.` a user would naturally write — matching D4/D18, every other block in
+the language — orphaned with nothing to close.
+
+**Status: CLOSED.**
+
+| | |
+|---|---|
+| Found | `examples/json-settings/README.md`, during dogfooding |
+| Fixed | `4d132e0` — `Read-OtterObjectBlock` now consumes an optional trailing `BlockEnd` on the empty-body path too |
+| Verified | `5139e12` — `settings has` / `.` and `person is a thing` / `.` both run; the no-period form is unchanged; a dynamic `set`/`get` round trip on the resulting object works; empty `if`/`to`/`while` bodies followed by `.` are still correctly rejected, confirming the fix stayed inside `Read-OtterObjectBlock` and never touched the shared `Read-OtterBlock` |
+| Suite | 218 tests, 12 files, green |
+
+No new D-number — a bug fix inside already-approved D41 work, not a design
+question.
+
 ---
 
 ## Confirmed, not new: lists are unchanged
