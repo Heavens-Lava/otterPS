@@ -318,6 +318,9 @@ if ($inlineHasAst.Statements[0] -isnot [ObjectDefStmt] -or $inlineHasAst.Stateme
 $compactHasSource = 'panel has width windowWidth minus 40, height 300, text "Ready"' + "`n"
 $compactHasAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $compactHasSource)
 if ($compactHasAst.Statements[0] -isnot [ObjectDefStmt] -or $compactHasAst.Statements[0].Properties.Count -ne 3 -or $compactHasAst.Statements[0].Properties[0].Target.Name -ne 'width' -or $compactHasAst.Statements[0].Properties[2].Target.Name -ne 'text') { throw 'Inline has without is must parse ordered properties and expressions.' }
+$mixedHasSource = 'panel has width is windowWidth minus 40, height 300, text is "Ready"' + "`n"
+$mixedHasAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $mixedHasSource)
+if ($mixedHasAst.Statements[0].Properties.Count -ne 3) { throw 'Inline has should allow independently optional is markers.' }
 foreach ($invalidHas in @('addButton has text is "Add",', 'addButton has , width 120', 'addButton has text', 'addButton has text "Add" width 120')) {
     $rejected = $false
     try { ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source ($invalidHas + "`n")) | Out-Null } catch [OtterError] { $rejected = $true }
