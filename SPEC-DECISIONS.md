@@ -1532,6 +1532,146 @@ runtime op.
 
 ---
 
+## D40. `has` becomes canonical object construction. `is a thing` stays, legacy
+
+```otter
+person has
+    name is "Jeff"
+    age is 29
+    city is "Phoenix"
+.
+```
+
+reads better aloud than `person is a thing`, and gives Otter's core verbs
+clean, separate jobs: `is` assigns a value, `has` builds an object,
+`create` reaches outside the program (D39). **Approved. `is a thing` is not
+removed** — the same coexistence pattern as every decision this session
+(D3, D34, D35, D36): a new preferred spelling, the old one still valid,
+documented as legacy rather than deleted.
+
+Nesting and property access are unaffected — both already work exactly
+this way, and `has` changes nothing about them:
+
+```otter
+person has
+    name is "Jeff"
+
+    address has
+        city is "Phoenix"
+        state is "Arizona"
+    .
+.
+
+say name of person
+say city of address of person
+```
+
+### The word `has` is already reserved for something else — checked, not assumed
+
+`a Person has / name / age / .` already exists (`TypeDefStmt`) — declaring
+a custom type's field **names**, with no values, one bare identifier per
+line. This is a different grammar than `person has / name is "Jeff" / .`,
+which needs value-bearing property lines.
+
+**Verified before deciding, not assumed: the two do not collide.** They
+are reached from genuinely different parser call sites. `a Person has`
+is only reachable after the statement already began with the leading
+token `A` (the parser has consumed `a <TypeName>` before it ever checks
+for `Has`). A new `person has` production sits in the ordinary
+statement-leading-`Identifier` branch instead — a different call site
+entirely, checking for `Has` immediately after reading a plain name. They
+also read their blocks with different helpers: `a Person has` calls
+`Read-OtterTypeFields` (bare names only); `person has` should call the
+same `Read-OtterBlock` + `AssignStmt`-validation path `is a thing` already
+uses. Two call sites, two readers, one shared word — not a grammatical
+ambiguity, a considered reuse: "a Person **has** a name and an age" (the
+shape) and "person **has** the name Jeff" (an instance) is exactly how the
+word already works in English.
+
+**Decision: `person has` produces the same node `is a thing` already
+does** — `ObjectDefStmt(Name: 'person', TypeName: 'thing', Properties)` —
+with `TypeName` defaulted to `'thing'` exactly as `is a thing` defaults it
+today. **Zero contract change, zero interpreter change.** This only
+replaces the *untyped* object-literal spelling. Instantiating a declared
+custom type still uses `is a <TypeName>` (`jeff is a Person`) — untouched,
+not in scope here.
+
+Grammar-only, Codex's lane, bundled into the same handoff as D34-D37.
+
+---
+
+## D41. Dictionaries - OPEN, a design pass, not a decision
+
+```otter
+scores are a dictionary
+
+set "Jeff" to 100 in scores
+get "Jeff" from scores into score
+
+set "Jeff" to 110 in scores
+remove "Alex" from scores
+```
+
+**Not frozen. Not building any of this yet — Jeff's own framing on this one
+was explicit: check it against several things first, and it hasn't been
+checked yet.** Recorded here so the shape isn't lost, not as a green light.
+
+What has to be answered before this is buildable, in the same spirit as
+D38's open questions:
+
+1. **Missing keys and `gone` (D22).** `get "missing" from scores into x`
+   — does `x` become `gone`, matching how `first of` an empty list and
+   `find ... where` already behave (D25, D26)? Almost certainly yes, but
+   it needs to be said, not inferred.
+2. **JSON's existing representation collides with this.** D29 already
+   turns a JSON object into an `OtterObject` (a `thing`) — the exact type
+   `has` (D40) also builds. If dictionaries become a *different* runtime
+   type, `read json from "..." into settings` needs a rule for when the
+   result is a `thing` (fixed, known keys) versus a dictionary (open,
+   data-driven keys) — JSON itself doesn't distinguish the two cases, so
+   Otter would have to pick one uniformly or guess, and guessing is the
+   kind of thing this project has consistently avoided.
+3. **Iteration is explicitly not part of this proposal yet.**
+   `each name and score in scores` is flagged Under Review in the
+   originating discussion, not frozen alongside `set`/`get`/`remove`. A
+   dictionary with no iteration story is a real gap for a first version,
+   not a nice-to-have.
+4. **Nested dictionaries and objects-as-values** — does `set "x" to person
+   in scores` (storing an object as a dictionary value) work the same way
+   list-of-objects already does (D13's `players are / player1 / player2 /
+   .`)? Likely yes, but unverified.
+5. **What a dictionary prints as** (D8's territory) and **whether it's
+   ordered** — a list has defined order (D13); does a dictionary, or is
+   key order explicitly unspecified?
+
+**One thing already decided, not part of D41's open list:** the rejected
+alternative —
+
+```otter
+scores has
+    Jeff is 100
+    Alex is 85
+.
+```
+
+— is correctly rejected in the originating discussion and not reconsidered
+here. It turns dynamic, data-driven keys into static property names, which
+breaks the moment a key is `"Jeff Macy"`, `"player-123"`, or anything that
+isn't a legal Otter identifier. Objects and dictionaries stay two different
+things; `has` (D40) is not a backdoor dictionary syntax.
+
+---
+
+## Confirmed, not new: lists are unchanged
+
+`games are / "Zelda" / "Mario" / .` (D13) needed no revisiting and got
+none — explicitly reaffirmed as already good rather than replaced with
+something closer to a traditional array. No action, recorded for
+completeness alongside D40/D41 since all three arrived in the same design
+conversation.
+
+---
+
 ## Deferred, matches existing scope decisions - no action
 
 Sections 20-26 (Otter Web: buttons/text/`when` events, `otter new`/
