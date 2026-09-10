@@ -1,8 +1,8 @@
 create window into app
-app has title "Otter Calculator", width 420, height 320, background "#111827", spacing 12
+app has title is "Otter Calculator", width 420, height 320, background "#111827", spacing 12
 
 create text into firstLabel
-firstLabel has text "First number", foreground "white"
+firstLabel has text "First number", foreground  "white"
 
 create text box into firstBox
 firstBox has width 260, background "white", foreground "black"
@@ -23,9 +23,9 @@ put firstLabel, firstBox, secondLabel, secondBox, addButton, resultLabel in app
 
 when addButton is clicked
     try
-        first is text of firstBox
-        second is text of secondBox
-        total is first plus second
+        number1 is text of firstBox
+        number2 is text of secondBox
+        total is number1 plus number2
         text of resultLabel is total
     otherwise
         text of resultLabel is "Please enter two numbers"

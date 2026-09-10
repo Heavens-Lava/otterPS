@@ -1,0 +1,165 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Otter Calculator</title>
+  <style>
+    :root {
+      --otter-bg: #0f172a;
+      --otter-card-bg: #1e293b;
+      --otter-text: #f8fafc;
+      --otter-text-muted: #94a3b8;
+      --otter-primary: #2563eb;
+      --otter-primary-hover: #1d4ed8;
+      --otter-input-bg: #334155;
+      --otter-border: #475569;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background-color: var(--otter-bg);
+      color: var(--otter-text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .otter-window, .otter-page {
+      background-color: var(--otter-card-bg);
+      border: 1px solid var(--otter-border);
+      width: 100%;
+      max-width: 520px;
+    }
+    .otter-title {
+      font-size: 1.35rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+      letter-spacing: -0.02em;
+    }
+    .otter-button {
+      background-color: var(--otter-primary);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 18px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.15s ease, transform 0.08s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .otter-button:hover { background-color: var(--otter-primary-hover); }
+    .otter-button:active { transform: scale(0.98); }
+    .otter-text-box {
+      background-color: var(--otter-input-bg);
+      color: var(--otter-text);
+      border: 1px solid var(--otter-border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.15s ease;
+      width: 100%;
+    }
+    .otter-text-box:focus {
+      border-color: var(--otter-primary);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25);
+    }
+    .otter-text {
+      font-size: 0.95rem;
+      min-height: 1.2em;
+    }
+    #otter-live-output {
+      margin-top: 16px;
+      padding: 8px 12px;
+      background: rgba(0,0,0,0.3);
+      border-radius: 6px;
+      font-family: monospace;
+      font-size: 0.85rem;
+      color: #38bdf8;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+    <div id="app" class="otter-window" style="width: 420px; height: 320px; background-color: #111827;" style="display: flex; flex-direction: column; gap: 12px; max-width: 100%; border-radius: 12px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.4); padding: 24px; width: 420px; height: 320px; background-color: #111827;">
+      <header class="otter-window-header"><h1 class="otter-title">Otter Calculator</h1></header>
+      <div class="otter-window-content" style="display: flex; flex-direction: column; gap: 12px;">
+      <div id="firstLabel" class="otter-text" style="color: white;">First number</div>
+      <input type="text" id="firstBox" class="otter-text-box" value="" style="width: 260px; background-color: white; color: black;" />
+      <div id="secondLabel" class="otter-text" style="color: white;">Second number</div>
+      <input type="text" id="secondBox" class="otter-text-box" value="" style="width: 260px; background-color: white; color: black;" />
+      <button id="addButton" class="otter-button" style="width: 120px; height: 40px; background-color: #2563EB; color: white;">Add</button>
+      <div id="resultLabel" class="otter-text" style="color: white;">Result</div>
+</div>
+    </div>
+  <div id="otter-live-output"></div>
+
+  <script>
+    // Otter Runtime helpers for the browser
+    function otterGetElement(id) { return document.getElementById(id); }
+    function otterGetText(id) {
+      const el = otterGetElement(id);
+      if (!el) return '';
+      if ('value' in el) return el.value;
+      return el.textContent || '';
+    }
+    function otterSetText(id, val) {
+      const el = otterGetElement(id);
+      if (!el) return;
+      if ('value' in el) { el.value = val; }
+      else { el.textContent = val; }
+    }
+    function otterGetTitle(id) { return document.title; }
+    function otterSetTitle(id, val) { document.title = val; }
+    function otterSetStyle(id, prop, val) {
+      const el = otterGetElement(id);
+      if (el) el.style[prop] = val;
+    }
+    function otterGetStyle(id, prop) {
+      const el = otterGetElement(id);
+      return el ? el.style[prop] : '';
+    }
+    function otterSetProperty(id, prop, val) {
+      const el = otterGetElement(id);
+      if (el) el[prop] = val;
+    }
+    function otterGetProperty(id, prop) {
+      const el = otterGetElement(id);
+      return el ? el[prop] : '';
+    }
+    function otterSay(...args) {
+      console.log(...args);
+      const out = document.getElementById('otter-live-output');
+      if (out) {
+        out.style.display = 'block';
+        out.textContent = args.join(' ');
+      }
+    }
+
+    // Top-level application initialization
+    (async function() {
+
+
+    // Register event listeners
+    const el_addButton = document.getElementById('addButton');
+    if (el_addButton) {
+      el_addButton.addEventListener('click', async (event) => {
+      try {
+        let number1 = otterGetText('firstBox'); window.number1 = number1;
+        let number2 = otterGetText('secondBox'); window.number2 = number2;
+        let total = (Number(number1) + Number(number2)); window.total = total;
+        otterSetText('resultLabel', total);
+      } catch (_err) {
+        otterSetText('resultLabel', "Please enter two numbers");
+      }
+      });
+    }
+    })();
+  </script>
+</body>
+</html>
