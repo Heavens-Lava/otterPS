@@ -137,10 +137,28 @@ function Invoke-OtterStatement {
             return
         }
 
-        # name is "Jeff"
+        # name is "Jeff"              target is a VariableExpr
+        # age of person is 30         target is a PropertyAccessExpr
         'Assign' {
             $value = Get-OtterValue -Expression $Statement.Value -Environment $Environment
-            $Environment.Set($Statement.Name, $value)
+            Set-OtterTarget -Target $Statement.Target -Value $value -Environment $Environment
+            return
+        }
+
+        # person is a thing
+        #     name is "Jeff"
+        # .
+        'ObjectDef' {
+            $object = New-OtterObjectValue -Statement $Statement -Environment $Environment
+            $Environment.Set($Statement.Name, $object)
+            return
+        }
+
+        # a Person has
+        #     name
+        # .
+        'TypeDef' {
+            $Environment.Set($Statement.TypeName, [OtterType]::new($Statement.TypeName, $Statement.FieldNames))
             return
         }
 
@@ -535,10 +553,28 @@ function Get-OtterValue {
             return
         }
 
-        'MemberAccess' {
-            throw (New-OtterRuntimeError `
-                -Message 'Objects are not part of this version of Otter yet.' `
-                -Line $Expression.Line)
+        # name of person   /   city of address of user
+        'PropertyAccess' {
+            $target = Get-OtterValue -Expression $Expression.Target -Environment $Environment
+
+            if (-not (Test-OtterObject $target)) {
+                throw (New-OtterRuntimeError `
+                    -Message "I can only read properties of a thing, but this is $(Get-OtterTypeName $target)." `
+                    -Line $Expression.Line)
+            }
+
+            if (-not $target.HasProperty($Expression.Property)) {
+                $known = $target.PropertyNames()
+                $suggestion = $null
+                if ($known.Count -gt 0) { $suggestion = "$($known[0]) of ..." }
+                throw (New-OtterRuntimeError `
+                    -Message "This $($target.TypeName) has no property called `"$($Expression.Property)`"." `
+                    -Line $Expression.Line `
+                    -Suggestion $suggestion)
+            }
+
+            Write-Output -NoEnumerate ($target.ReadProperty($Expression.Property))
+            return
         }
 
         # if file "hello.txt" exists
@@ -632,6 +668,80 @@ function Invoke-OtterCall {
 # HELPERS
 # ===============================================================
 
+# ===============================================================
+# ASSIGNMENT TARGETS
+# ===============================================================
+#
+# D19: anything assignable is an expression node, so adding list indexing
+# later means adding a case here, not a second kind of statement.
+
+function Set-OtterTarget {
+    param([Node]$Target, [object]$Value, [OtterEnvironment]$Environment)
+
+    switch ($Target.Kind.ToString()) {
+
+        'Variable' {
+            $Environment.Set($Target.Name, $Value)
+            return
+        }
+
+        # age of person is 30
+        'PropertyAccess' {
+            $owner = Get-OtterValue -Expression $Target.Target -Environment $Environment
+
+            if (-not (Test-OtterObject $owner)) {
+                throw (New-OtterRuntimeError `
+                    -Message "I can only set properties on a thing, but this is $(Get-OtterTypeName $owner)." `
+                    -Line $Target.Line)
+            }
+
+            $owner.WriteProperty($Target.Property, $Value)
+            return
+        }
+
+        default {
+            throw (New-OtterRuntimeError `
+                -Message 'This is not something Otter can give a value to.' `
+                -Line $Target.Line)
+        }
+    }
+}
+
+# Builds the object for "person is a thing" and its indented property lines.
+#
+# A named custom type - "jeff is a Person" - starts with that type's fields
+# already present but empty, so "name of jeff" reads as nothing rather than
+# failing.
+function New-OtterObjectValue {
+    param([Node]$Statement, [OtterEnvironment]$Environment)
+
+    $object = [OtterObject]::new($Statement.TypeName)
+
+    if ($Statement.TypeName -ne 'thing' -and $Environment.Has($Statement.TypeName)) {
+        $declared = $Environment.Get($Statement.TypeName)
+        if ($declared -is [OtterType]) {
+            foreach ($field in $declared.FieldNames) { $object.WriteProperty($field, $null) }
+        }
+    }
+
+    foreach ($property in $Statement.Properties) {
+        if ($property.Kind -ne [NodeKind]::Assign) {
+            throw (New-OtterRuntimeError `
+                -Message 'Only properties belong inside a thing.' `
+                -Line $property.Line)
+        }
+        if ($property.Target.Kind -ne [NodeKind]::Variable) {
+            throw (New-OtterRuntimeError `
+                -Message 'A property name inside a thing must be a plain name.' `
+                -Line $property.Line)
+        }
+        $value = Get-OtterValue -Expression $property.Value -Environment $Environment
+        $object.WriteProperty($property.Target.Name, $value)
+    }
+
+    return $object
+}
+
 # File names and commands are text. Evaluating them through Format-OtterValue
 # means a path can be built from variables and still arrive as a plain string:
 #
@@ -650,6 +760,8 @@ function Get-OtterTypeName {
     if ($null -eq $Value) { return 'nothing' }
     if ($Value -is [bool]) { return 'a true or false value' }
     if ($Value -is [OtterFunction]) { return 'something Otter can do' }
+    if (Test-OtterObject $Value) { return "a $($Value.TypeName)" }
+    if ($Value -is [OtterType]) { return "the type $($Value.Name)" }
     if (Test-OtterList $Value) { return 'a list' }
     if ($Value -is [double] -or $Value -is [int] -or $Value -is [long]) { return 'a number' }
     if ($Value -is [string]) { return 'some text' }
@@ -664,4 +776,4 @@ function New-OtterEnvironment {
 Export-ModuleMember -Function `
     Invoke-OtterProgram, Invoke-OtterStatements, Invoke-OtterStatement, `
     Get-OtterValue, Invoke-OtterCall, New-OtterEnvironment, Get-OtterTypeName, `
-    Set-OtterOutputWriter, Write-OtterLine, Get-OtterText
+    Set-OtterOutputWriter, Write-OtterLine, Get-OtterText, Set-OtterTarget

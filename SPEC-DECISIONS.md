@@ -97,15 +97,44 @@ in docs and examples. `makes` exists for compatibility with `rules.md`.
 
 ---
 
-## D4. The period does three different jobs
+## D4. Period semantics
 
-1. A line whose trimmed text is exactly `.` -> `BlockEnd` token
-2. `.` directly between identifier characters, no spaces -> member access
-   (`person.name`) — lexed now, executed in 0.3
-3. `.` between two digits -> part of a number (`3.14`)
-4. `.` inside a string literal -> ordinary text (`"years old."`)
+**REVISED — this replaces the earlier three-jobs version entirely.**
 
-A `.` anywhere else is an error.
+`.` has exactly **one** syntactic meaning outside quoted strings: it
+terminates the current explicit block.
+
+`.` is **not** member/property access.
+
+Property access uses:
+
+```text
+property of object
+```
+
+Examples:
+
+```otter
+name of person
+text of nameBox
+extension of file
+```
+
+Nested property access is right-recursive:
+
+```otter
+city of address of user
+```
+
+The lexer emits `BlockEnd` for `.`. **There is no Dot / member-access token.**
+
+Two places a period is still just a character, not a token:
+
+- inside a quoted string — `say "Hello."`
+- inside a number — `3.14` never leaves the number lexer
+
+A `.` anywhere else is a syntax error, and that error is what lets Otter say
+`Otter does not use periods to access properties.`
 
 ---
 
@@ -372,19 +401,39 @@ not reachable until an object is.
 
 ---
 
-## D17. Filler words are deferred, not rejected
+## D17. Filler words vs structural words
 
-`rules2.md` section 4 allows optional words — `the`, `a`, `an`, `value` — in
-positions the grammar permits, with the rule that removing one must never
-change meaning.
+`rules2.md` section 4 lists `of` among possible filler words. **That is now
+wrong**, and the distinction matters enough to state explicitly.
 
-**Decision: not in 0.3.** They are genuinely optional by definition, so
-nothing is blocked by leaving them out, and every one of them adds a place
-the parser can go wrong. `a` in particular is already load-bearing
-(`is a thing`, `is a Person`), so treating it as skippable filler while it is
-also a keyword is exactly the kind of ambiguity that bites later.
+Words such as `the`, `a`, `an`, and `value` **may** be optional filler in
+explicitly permitted grammar positions. Structural words such as `of`, `to`,
+`from`, `in`, `where`, `into`, and `as` are **not** globally ignorable,
+because they carry grammatical meaning.
 
-Revisit once objects are solid, and add them one at a time with a test each.
+| Word | Role |
+|---|---|
+| `the` | potentially filler |
+| `a` | potentially filler |
+| `an` | potentially filler |
+| `value` | potentially filler |
+| `of` | **structural** |
+| `to` | **structural** in many forms |
+| `from` | **structural** |
+| `with` | **structural** |
+| `where` | **structural** |
+| `into` | **structural** |
+| `as` | **structural** |
+
+`name of person` cannot discard `of` — it is what establishes property
+ownership. Removing it changes `name of person` into two unrelated words.
+
+**Decision: no filler words in 0.3.** They are optional by definition, so
+nothing is blocked by leaving them out, and each one adds a place the parser
+can go wrong. `a` is already load-bearing (`is a thing`, `is a Person`), so
+treating it as skippable while it is also a keyword is exactly the ambiguity
+that bites later. Revisit once objects are solid, one word at a time, with a
+test each.
 
 ---
 
@@ -405,3 +454,82 @@ when loginButton is clicked
 **Decision: each `.` closes exactly one block**, the innermost open one. It
 never closes two at once, and it stays optional — a dedent closes a block just
 as well.
+
+---
+
+## D19. Property access
+
+> Jeff's note numbered this D8; that number was already taken by the `say`
+> formatting rule, so it lands here as D19 rather than renumbering the
+> earlier decisions.
+
+Properties are written **property-first**:
+
+```text
+property of target
+```
+
+`of` is a **structural keyword**, never filler (D17).
+
+Property access is an **expression** and may appear anywhere an expression is
+allowed — in `say`, in a condition, as a function argument.
+
+Property access may be **nested**, right-recursively:
+
+```otter
+city of address of user
+```
+
+```text
+PropertyAccessExpr("city",
+    PropertyAccessExpr("address",
+        VariableExpr("user")))
+```
+
+A property access may be used as an **assignment target**:
+
+```otter
+age of person is 30
+```
+
+The parser resolves this into an unambiguous property-access AST. **The
+interpreter never parses property relationships out of strings** — the
+structure is in the tree.
+
+### Assignment has one node, with an assignable target
+
+These all produce `AssignStmt`:
+
+```otter
+name is "Jeff"                 Target: VariableExpr
+age of person is 30            Target: PropertyAccessExpr
+text of message is "Hello"     Target: PropertyAccessExpr
+```
+
+Valid assignment targets are `VariableExpr` and `PropertyAccessExpr`. Adding
+list indexing later means adding a target type, not a second statement node.
+
+`AssignStmt` keeps a convenience constructor taking a plain `[string]` name,
+which builds the `VariableExpr` for you, so ordinary assignment stays a
+one-liner in the parser.
+
+### `person.name` is a syntax error
+
+Not deprecated, not accepted-with-a-warning — an error, with the fix in the
+message:
+
+```text
+Otter Syntax Error
+
+Line 4:
+    say person.name
+
+Otter does not use periods to access properties.
+
+Try:
+    say name of person
+```
+
+Carrying both forms would permanently complicate the lexer and undermine the
+clean "a period closes a block" rule. Otter is young enough to make this
+change now.

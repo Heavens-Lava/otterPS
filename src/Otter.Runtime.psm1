@@ -109,6 +109,69 @@ class OtterFunction {
 
 
 # ===============================================================
+# OBJECTS (0.3)
+# ===============================================================
+#
+#     person is a thing
+#         name is "Jeff"
+#         age is 29
+#     .
+#
+#     say name of person      ->  Jeff
+#     age of person is 30
+#
+# An object is a type name plus a bag of named properties. Property names are
+# case-sensitive for the same reason variable names are (D10).
+
+class OtterObject {
+    [string]$TypeName        # "thing", "Person", "text box"
+    [hashtable]$Properties
+    [System.Collections.Generic.List[string]]$Order   # insertion order, for printing
+
+    OtterObject([string]$typeName) {
+        $this.TypeName = $typeName
+        $this.Properties = [System.Collections.Hashtable]::new([System.StringComparer]::Ordinal)
+        $this.Order = [System.Collections.Generic.List[string]]::new()
+    }
+
+    [bool] HasProperty([string]$name) {
+        return $this.Properties.ContainsKey($name)
+    }
+
+    [object] ReadProperty([string]$name) {
+        if ($this.Properties.ContainsKey($name)) { return $this.Properties[$name] }
+        return $null
+    }
+
+    [void] WriteProperty([string]$name, [object]$value) {
+        if (-not $this.Properties.ContainsKey($name)) { $this.Order.Add($name) }
+        $this.Properties[$name] = $value
+    }
+
+    [string[]] PropertyNames() {
+        return $this.Order.ToArray()
+    }
+}
+
+# a Person has
+#     name
+#     age
+# .
+#
+# A custom type is a list of property names. Making one - "jeff is a Person" -
+# produces an OtterObject with those properties present but empty.
+class OtterType {
+    [string]$Name
+    [string[]]$FieldNames
+
+    OtterType([string]$name, [string[]]$fieldNames) {
+        $this.Name = $name
+        $this.FieldNames = $fieldNames
+    }
+}
+
+
+# ===============================================================
 # RETURN - how "return answer" escapes a function
 # ===============================================================
 #
@@ -148,6 +211,11 @@ function Test-OtterList {
     return $Value -is [System.Collections.Generic.List[object]]
 }
 
+function Test-OtterObject {
+    param([object]$Value)
+    return $Value -is [OtterObject]
+}
+
 
 # --- printing (D8) ----------------------------------------------
 #
@@ -184,6 +252,17 @@ function Format-OtterValue {
         return ($parts -join ', ')
     }
 
+    # An object prints the way it was declared - "a thing", "a Person" - which
+    # is the phrase the programmer wrote. Printing every property would be
+    # noise; "say name of person" is how you read one.
+    if (Test-OtterObject $Value) {
+        return "a $($Value.TypeName)"
+    }
+
+    if ($Value -is [OtterType]) {
+        return "the type $($Value.Name)"
+    }
+
     # Printing a function is almost always a mistake - a forgotten argument,
     # or a call that never happened. Say something a beginner can act on
     # rather than leaking the PowerShell class name.
@@ -211,6 +290,9 @@ function Test-OtterTruthy {
     }
 
     if (Test-OtterList $Value) { return $Value.Count -gt 0 }
+
+    # An object exists, so it is true - even one with no properties set.
+    if (Test-OtterObject $Value) { return $true }
 
     if ($Value -is [string]) { return $Value.Length -gt 0 }
 
@@ -328,5 +410,5 @@ function ConvertFrom-OtterInput {
 
 
 Export-ModuleMember -Function `
-    New-OtterList, Test-OtterList, Format-OtterValue, Test-OtterTruthy, `
+    New-OtterList, Test-OtterList, Test-OtterObject, Format-OtterValue, Test-OtterTruthy, `
     Test-OtterNumeric, ConvertTo-OtterNumber, Test-OtterEqual, ConvertFrom-OtterInput

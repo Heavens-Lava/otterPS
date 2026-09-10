@@ -106,10 +106,14 @@ enum TokenKind {
     Dedent          # one level shallower
     Newline         # end of a statement
     BlockEnd        # a period alone on a line (D4)
-    Dot             # D15: NO LONGER member access. Only ever part of a
-                    # number (3.14). Kept so the lexer can report a clear
-                    # error if someone writes person.name out of habit.
     EndOfFile       # end of source
+
+    # There is deliberately NO Dot token. Outside a quoted string a period has
+    # exactly one meaning - it closes the current block - and that is BlockEnd.
+    # A period inside a number (3.14) never leaves the number lexer. A period
+    # anywhere else is a syntax error, which is what lets the lexer say:
+    #     Otter does not use periods to access properties.
+    #     Try:  say name of person
 }
 
 class Token {
@@ -149,7 +153,7 @@ enum NodeKind {
     Logical         # and / or        (D11)
     Not             # not             (D11)
     Contains        # games contains "Zelda"  (D13)
-    MemberAccess    # name of person  (D15)
+    PropertyAccess  # name of person  (D19)
 
     # statements
     Say
@@ -171,7 +175,6 @@ enum NodeKind {
     # runtime library (milestone 7) - rules.md sections 30-31
     # objects (0.3) - rules.md sections 27-28, rules2.md section 2
     ObjectDef       # person is a thing / nameBox is a text box
-    MemberAssign    # text of message is "Hello"
     TypeDef         # a Person has
 
     ReadFile
@@ -279,12 +282,27 @@ class ContainsExpr : Node {
 }
 
 # person.name           (reserved for 0.3 - lexed and parsed, not yet run)
-class MemberAccessExpr : Node {
+# name of person        (D19 - "of" is a structural keyword, never filler)
+#
+# Property first, target second, matching how it reads aloud. Nesting is
+# right-recursive, so
+#
+#     city of address of user
+#
+# builds
+#
+#     PropertyAccessExpr("city",
+#         PropertyAccessExpr("address",
+#             VariableExpr("user")))
+#
+# The interpreter never parses a property relationship out of a string - the
+# structure is in the tree.
+class PropertyAccessExpr : Node {
+    [string]$Property
     [Node]$Target
-    [string]$MemberName
-    MemberAccessExpr([Node]$target, [string]$memberName, [int]$line) : base([NodeKind]::MemberAccess, $line) {
+    PropertyAccessExpr([string]$property, [Node]$target, [int]$line) : base([NodeKind]::PropertyAccess, $line) {
+        $this.Property = $property
         $this.Target = $target
-        $this.MemberName = $memberName
     }
 }
 
@@ -317,11 +335,26 @@ class SayStmt : Node {
 }
 
 # name is "Jeff"
+# name is "Jeff"            Target is a VariableExpr
+# age of person is 30       Target is a PropertyAccessExpr
+# text of message is "Hello"
+#
+# One node for all assignment, with an ASSIGNABLE TARGET rather than a bare
+# name. Valid targets are VariableExpr and PropertyAccessExpr; adding list
+# indexing later means adding a target type, not a second statement node.
 class AssignStmt : Node {
-    [string]$Name
+    [Node]$Target
     [Node]$Value
+
+    # Convenience form for the common case - "name is \"Jeff\"" - which builds
+    # the VariableExpr for you. Kept so plain assignment stays a one-liner.
     AssignStmt([string]$name, [Node]$value, [int]$line) : base([NodeKind]::Assign, $line) {
-        $this.Name = $name
+        $this.Target = [VariableExpr]::new($name, $line)
+        $this.Value = $value
+    }
+
+    AssignStmt([Node]$target, [Node]$value, [int]$line) : base([NodeKind]::Assign, $line) {
+        $this.Target = $target
         $this.Value = $value
     }
 }
@@ -490,10 +523,9 @@ class ReturnStmt : Node {
 # D15: properties are read as "name of person", never "person.name".
 # The period is reserved for closing a block (rules2.md section 3).
 #
-# MemberAccessExpr keeps the shape it always had - Target plus MemberName -
-# so only the SYNTAX that builds it changed, not the contract:
-#
-#     name of person   ->   MemberAccessExpr(Target: person, MemberName: name)
+# Property access is PropertyAccessExpr (see the expressions section), and
+# property ASSIGNMENT is an ordinary AssignStmt whose Target happens to be a
+# PropertyAccessExpr rather than a VariableExpr.
 
 # person is a thing        nameBox is a text box
 #     name is "Jeff"           placeholder is "Enter your name"
@@ -510,18 +542,6 @@ class ObjectDefStmt : Node {
         $this.Name = $name
         $this.TypeName = $typeName
         $this.Properties = $properties
-    }
-}
-
-# text of message is "Hello"      /      age of person is 30
-class MemberAssignStmt : Node {
-    [Node]$Target            # the object being changed
-    [string]$MemberName
-    [Node]$Value
-    MemberAssignStmt([Node]$target, [string]$memberName, [Node]$value, [int]$line) : base([NodeKind]::MemberAssign, $line) {
-        $this.Target = $target
-        $this.MemberName = $memberName
-        $this.Value = $value
     }
 }
 
