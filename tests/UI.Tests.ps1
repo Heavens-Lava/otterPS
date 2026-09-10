@@ -74,6 +74,18 @@ Test-Otter 'row and column are real provider-backed layout resources' {
     Assert-AreEqual -Expected 'Vertical' -Actual $column.Native.Orientation.ToString()
 }
 
+Test-Otter 'ordinary controls are content-sized by default' {
+    $env = New-OtterEnvironment
+    Invoke-OtterStatements -Environment $env -Statements @(
+        [CreateUiResourceStmt]::new('button', 'button', 1),
+        [CreateUiResourceStmt]::new('text box', 'box', 2),
+        [CreateUiResourceStmt]::new('text', 'label', 3)
+    )
+    foreach ($name in @('button', 'box', 'label')) {
+        Assert-AreEqual -Expected 'Left' -Actual $env.Get($name).Native.HorizontalAlignment.ToString()
+    }
+}
+
 Test-Otter 'rows and columns accept ordered and nested children' {
     $env = New-OtterEnvironment
     Invoke-OtterStatements -Environment $env -Statements @(

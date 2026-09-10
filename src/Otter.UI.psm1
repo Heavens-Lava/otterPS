@@ -96,9 +96,12 @@ function Initialize-OtterWpfProvider {
 # redesigning anything.
 $script:OtterWpfKinds = @{
     'window'   = { [System.Windows.Window]::new() }
-    'button'   = { [System.Windows.Controls.Button]::new() }
-    'text'     = { [System.Windows.Controls.TextBlock]::new() }
-    'text box' = { [System.Windows.Controls.TextBox]::new() }
+    # Controls default to content-sized widths in Otter.  WPF's default
+    # Stretch behavior makes a simple button or label fill its parent, which
+    # is surprising for beginner-facing programs; explicit width still wins.
+    'button'   = { $control = [System.Windows.Controls.Button]::new(); $control.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Left; $control }
+    'text'     = { $control = [System.Windows.Controls.TextBlock]::new(); $control.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Left; $control }
+    'text box' = { $control = [System.Windows.Controls.TextBox]::new(); $control.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Left; $control }
     'row'      = { $panel = [System.Windows.Controls.StackPanel]::new(); $panel.Orientation = [System.Windows.Controls.Orientation]::Horizontal; $panel }
     'column'   = { $panel = [System.Windows.Controls.StackPanel]::new(); $panel.Orientation = [System.Windows.Controls.Orientation]::Vertical; $panel }
 }
