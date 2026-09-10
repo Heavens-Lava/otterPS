@@ -897,6 +897,64 @@ if ($dirVarsAst.Statements[1].Target.Name -ne 'left' -or $dirVarsAst.Statements[
     throw 'Variable left must remain ordinary assignment.'
 }
 
+# 12. Improved error diagnostics and suggestions for inline property lists
+$missingCommaCaught = $false
+try {
+    ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source 'b is a badge with text "JM" weight 700')
+} catch [OtterError] {
+    $missingCommaCaught = $true
+    if ($_.Exception.Message -notlike "*I expected a comma between properties in this inline list, but found 'weight'*") {
+        throw "Expected missing-comma diagnostic, got: $($_.Exception.Message)"
+    }
+    if ($_.Exception.Suggestion -notlike "*Separate each property with a comma*") {
+        throw "Expected comma-separation suggestion, got: $($_.Exception.Suggestion)"
+    }
+}
+if (-not $missingCommaCaught) { throw 'Expected missing comma in inline properties to fail.' }
+
+# 13. Missing comma after boolean flag
+$missingCommaFlagCaught = $false
+try {
+    ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source 'b is a badge with round weight 700')
+} catch [OtterError] {
+    $missingCommaFlagCaught = $true
+    if ($_.Exception.Message -notlike "*I expected a comma between properties in this inline list, but found 'weight'*") {
+        throw "Expected missing-comma diagnostic after flag, got: $($_.Exception.Message)"
+    }
+}
+if (-not $missingCommaFlagCaught) { throw 'Expected missing comma after flag to fail.' }
+
+# 14. Multiple properties on single block line
+$multiPropLineCaught = $false
+try {
+    ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source @"
+c is a card
+    width full height full
+.
+"@)
+} catch [OtterError] {
+    $multiPropLineCaught = $true
+    if ($_.Exception.Message -notlike "*I expected each property on its own line, but found 'height' on the same line*") {
+        throw "Expected multi-prop line diagnostic, got: $($_.Exception.Message)"
+    }
+    if ($_.Exception.Suggestion -notlike "*Place 'height' on a new indented line*") {
+        throw "Expected multi-prop suggestion, got: $($_.Exception.Suggestion)"
+    }
+}
+if (-not $multiPropLineCaught) { throw 'Expected multiple properties on one line in block to fail.' }
+
+# 15. Missing property value in inline properties
+$missingValueCaught = $false
+try {
+    ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source 'b is a badge with text, weight 700')
+} catch [OtterError] {
+    $missingValueCaught = $true
+    if ($_.Exception.Message -notlike "*I expected a value for property 'text'*") {
+        throw "Expected missing value diagnostic, got: $($_.Exception.Message)"
+    }
+}
+if (-not $missingValueCaught) { throw 'Expected missing property value in inline list to fail.' }
+
 Write-Output 'Parser tests passed.'
 
 

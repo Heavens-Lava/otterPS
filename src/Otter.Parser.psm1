@@ -65,9 +65,16 @@ function New-OtterParserError {
     return [OtterError]::new($Message, $Token.Line, 'parser', $Token.Column, (Get-OtterSourceLine $Token.Line), $Suggestion)
 }
 function Assert-OtterTokenKind {
-    param([TokenKind]$Kind, [string]$Message)
+    param(
+        [TokenKind]$Kind, 
+        [string]$Message,
+        [string]$Suggestion = 'Check the expected word and try again.'
+    )
     $token = Get-OtterCurrentToken
-    if ($token.Kind -ne $Kind) { throw (New-OtterParserError "$Message I found '$($token.Text)' instead." $token 'Check the expected word and try again.') }
+    if ($token.Kind -ne $Kind) {
+        $found = if ($token.Kind -eq [TokenKind]::EndOfFile) { 'end of file' } else { "'$($token.Text)'" }
+        throw (New-OtterParserError "$Message I found $found instead." $token $Suggestion)
+    }
     return Read-OtterToken
 }
 function Skip-OtterNewlines { while (Test-OtterTokenKind ([TokenKind]::Newline)) { [void](Read-OtterToken) } }
@@ -327,8 +334,7 @@ function Read-OtterObjectBlockProperties {
             (Get-OtterCurrentToken).Text -eq 'full') {
             $fullTok = Read-OtterToken
             $value = [LiteralExpr]::new('full', $fullTok.Line)
-        } elseif (-not $hadIs -and $property.Text -in @('round', 'spread') -and 
-                  (Get-OtterCurrentToken).Kind -in @([TokenKind]::Newline, [TokenKind]::EndOfFile, [TokenKind]::Dedent, [TokenKind]::BlockEnd)) {
+        } elseif (-not $hadIs -and $property.Text -in @('round', 'spread')) {
             # Bare property name acts as a boolean flag (e.g. `round`, `spread`)
             $value = [LiteralExpr]::new($true, $property.Line)
         } else {
@@ -369,7 +375,15 @@ function Read-OtterObjectBlockProperties {
 
         $properties.Add([AssignStmt]::new($propName, $value, $property.Line))
 
-        [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the property assignment to end here.')
+        $endTok = Get-OtterCurrentToken
+        if ($endTok.Kind -ne [TokenKind]::Newline) {
+            if ($endTok.Kind -eq [TokenKind]::Identifier -or $endTok.Kind -in @([TokenKind]::With, [TokenKind]::Is, [TokenKind]::String, [TokenKind]::Number)) {
+                throw (New-OtterParserError "I expected each property on its own line, but found '$($endTok.Text)' on the same line." $endTok "Place '$($endTok.Text)' on a new indented line, or use 'with' to define inline properties separated by commas.")
+            } else {
+                throw (New-OtterParserError "I expected the property assignment to end here, but found '$($endTok.Text)'." $endTok "Place each property on its own line, or check for extra words at the end of the line.")
+            }
+        }
+        [void](Read-OtterToken)
         Skip-OtterNewlines
     }
 
@@ -427,11 +441,13 @@ function Read-OtterInlineObjectProperties {
             (Get-OtterCurrentToken).Text -eq 'full') {
             $fullTok = Read-OtterToken
             $value = [LiteralExpr]::new('full', $fullTok.Line)
-        } elseif (-not $hadIs -and $property.Text -in @('round', 'spread') -and 
-                  ((Get-OtterCurrentToken).Text -eq ',' -or (Get-OtterCurrentToken).Kind -in @([TokenKind]::Newline, [TokenKind]::EndOfFile))) {
+        } elseif (-not $hadIs -and $property.Text -in @('round', 'spread')) {
             # Bare property name acts as a boolean flag (e.g. `round`, `spread`)
             $value = [LiteralExpr]::new($true, $property.Line)
         } else {
+            if ((Get-OtterCurrentToken).Text -eq ',' -or (Get-OtterCurrentToken).Kind -in @([TokenKind]::Newline, [TokenKind]::EndOfFile)) {
+                throw (New-OtterParserError "I expected a value for property '$($property.Text)'." (Get-OtterCurrentToken) "Provide a value after the property name, such as '$($property.Text) 10' or '$($property.Text) is 10'.")
+            }
             $value = Read-OtterMathExpression
         }
 
@@ -471,7 +487,18 @@ function Read-OtterInlineObjectProperties {
             throw (New-OtterParserError 'I expected a property after the comma.' (Get-OtterCurrentToken) 'Add another property assignment after the comma.')
         }
     }
-    [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the inline properties to end here.')
+
+    $endTok = Get-OtterCurrentToken
+    if ($endTok.Kind -ne [TokenKind]::Newline -and $endTok.Kind -ne [TokenKind]::EndOfFile) {
+        if ($endTok.Kind -eq [TokenKind]::Identifier -or $endTok.Kind -in @([TokenKind]::With, [TokenKind]::Is, [TokenKind]::String, [TokenKind]::Number)) {
+            throw (New-OtterParserError "I expected a comma between properties in this inline list, but found '$($endTok.Text)'." $endTok "Separate each property with a comma, such as '..., $($endTok.Text) ...'.")
+        } else {
+            throw (New-OtterParserError "I expected the inline properties to end here, but found '$($endTok.Text)'." $endTok "Separate properties with commas or end the line.")
+        }
+    }
+    if ($endTok.Kind -eq [TokenKind]::Newline) {
+        [void](Read-OtterToken)
+    }
     return $properties.ToArray()
 }
 

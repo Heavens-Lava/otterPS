@@ -1095,7 +1095,8 @@ $handlersJoined
 function Export-OtterWebApplication {
     param(
         [Parameter(Mandatory)][string]$SourcePath,
-        [string]$OutputPath
+        [string]$OutputPath,
+        [switch]$PassThruExceptions
     )
 
     $resolvedSource = Resolve-Path -LiteralPath $SourcePath
@@ -1108,11 +1109,28 @@ function Export-OtterWebApplication {
         Import-Module (Join-Path $PSScriptRoot 'Otter.Parser.psm1') -Global
     }
 
-    $tokens = ConvertTo-OtterTokens -Source $sourceText
-    $ast = ConvertTo-OtterAst -Tokens $tokens
+    try {
+        $tokens = ConvertTo-OtterTokens -Source $sourceText
+        $ast = ConvertTo-OtterAst -Tokens $tokens
 
-    $defaultTitle = [System.IO.Path]::GetFileNameWithoutExtension($SourcePath)
-    $html = ConvertTo-OtterWeb -Program $ast -Title $defaultTitle
+        $defaultTitle = [System.IO.Path]::GetFileNameWithoutExtension($SourcePath)
+        $html = ConvertTo-OtterWeb -Program $ast -Title $defaultTitle
+    }
+    catch [OtterError] {
+        if ($PassThruExceptions) { throw }
+        Write-Host ''
+        Write-Host $_.Exception.FormatDetailed() -ForegroundColor Red
+        Write-Host ''
+        exit 1
+    }
+    catch {
+        if ($PassThruExceptions) { throw }
+        Write-Host ''
+        Write-Host 'Otter hit a problem inside itself, which means this is a bug in Otter.' -ForegroundColor Red
+        Write-Host "  $($_.Exception.Message)" -ForegroundColor DarkGray
+        Write-Host ''
+        exit 1
+    }
 
     if (-not $OutputPath) {
         $OutputPath = [System.IO.Path]::ChangeExtension($resolvedSource, '.html')
