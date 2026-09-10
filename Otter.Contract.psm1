@@ -245,6 +245,10 @@ enum NodeKind {
     # external UI resource creation (D44)
     CreateUiResource  # create button into helloButton
 
+    # UI event registration (D46) - registration only; whether/when a
+    # handler body actually runs depends on a message loop (D47), not this.
+    When              # when helloButton is clicked
+
     ReadFile
     WriteFile
     CopyFile
@@ -772,6 +776,36 @@ class CreateUiResourceStmt : Node {
     CreateUiResourceStmt([string]$typeName, [string]$target, [int]$line) : base([NodeKind]::CreateUiResource, $line) {
         $this.TypeName = $typeName
         $this.Target = $target
+    }
+}
+
+
+# when helloButton is clicked
+#     say "Hello"
+# .
+#
+# D46, registration only. EventName is READ AS A RAW WORD, exactly like
+# CreateUiResourceStmt's TypeName above - "clicked"/"changed"/"closed" are
+# NOT reserved keywords, preserving Otter's contextual-keyword philosophy.
+#
+# Frozen explicitly as part of D46 (not left to interpreter convention):
+#   - the handler Body closes over the environment active where `when`
+#     is registered, and introduces NO implicit new scope - the same
+#     environment If/While/Repeat bodies already run in, not a function
+#     call's fresh child scope.
+#   - no Otter-visible event payload yet - Body has no way to name "the
+#     event" or read anything about it. `when nameBox is changed as
+#     event` is explicitly not part of D46.
+#   - whether/when Body ever actually executes in a running program is
+#     D47's job (a message loop), not this node's.
+class WhenStmt : Node {
+    [Node]$Target        # the UI resource identifier
+    [string]$EventName   # "clicked", "changed", "closed" - a raw word
+    [Node[]]$Body
+    WhenStmt([Node]$target, [string]$eventName, [Node[]]$body, [int]$line) : base([NodeKind]::When, $line) {
+        $this.Target = $target
+        $this.EventName = $eventName
+        $this.Body = $body
     }
 }
 
