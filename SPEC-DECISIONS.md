@@ -2351,6 +2351,21 @@ a UI-resource target exactly as it does for a `thing` target; nothing
 about parsing changes based on what the target turns out to be at
 runtime.
 
+### Maintenance fix (found during D48 investigation): negative sizes leaked a raw .NET exception
+
+`Assert-OtterUiNumber` originally only checked *is this numeric* — never
+*is this negative*. Verified directly: `Window.Width = -10` throws WPF's
+own `System.ArgumentException: '-10' is not a valid value for property
+'Width'.`, which reached the user completely untranslated, since nothing
+here ever tried a negative value before. Fixed by rejecting negative
+numbers before the native object is ever touched, same discipline as the
+not-a-number case right next to it: *"The `<property>` of a `<kind>`
+can't be negative, but I got `<number>`."* Zero remains valid (WPF itself
+raises nothing for `Width = 0`, confirmed). This single fix, in one
+shared function, automatically covers every numeric UI property that
+exists now or is added later (width, height, and D48's `spacing`) — none
+of them call WPF directly.
+
 ---
 
 ## D46. UI event registration - frozen and implemented (registration only)
@@ -2611,3 +2626,165 @@ empty-window case, and the closed-window-can't-reshow case. Full suite:
 **Parser handoff to Codex needed**, same as D46: `Put Item(Expression)
 In Container(Expression)` and `Show Target(Expression)` are new
 statement shapes, not grammar D19 or any prior decision already covers.
+
+---
+
+## D48. UI styling - size, color, and window spacing - frozen and implemented
+
+```otter
+width of app is 500
+height of app is 350
+background of app is "#111827"
+spacing of app is 12
+
+width of addButton is 140
+height of addButton is 42
+background of addButton is "#2563EB"
+foreground of addButton is "white"
+```
+
+Driven entirely by real dogfooding (D47's `hello-app.ot`, `greeter.ot`,
+`calculator.ot`) rather than designed in advance — the same three gaps
+kept showing up across all three programs: no way to size a control, no
+way to color anything, no way to space controls apart. This entry closes
+all three at once, and closes a related bug D45 had been carrying
+unnoticed (see the maintenance-fix note at the end of the D45 entry
+above).
+
+### The headline result: zero grammar, zero AST, zero Codex work
+
+Every part of D48 routes through D45's existing `property of target is
+value` mechanism. Confirmed before writing anything: property names are
+already read as raw words with no reserved-word collisions, so `width`,
+`height`, `background`, `foreground`, and `spacing` needed nothing from
+the parser. All of the work is inside `Otter.UI.psm1` — this is the
+first UI decision since D44 that needed **no** contract addition and
+**no** Codex handoff at all.
+
+### Width/height apply uniformly to all four kinds - verified, not assumed
+
+Checked via reflection before extending the property table: `Window`,
+`Button`, `TextBox`, and even `TextBlock` (which isn't a `Control` at
+all) each define their own real `Width`/`Height` (`System.Double`).
+No kind needed special-casing; the same `{ Native = 'Width'; Type =
+'number' }` entry was simply added for `button`, `text box`, and `text`
+alongside window's pre-existing one. Validation is the same
+`Assert-OtterUiNumber` D45 already had — now also rejecting negative
+values, per the maintenance fix above.
+
+### Colors: one conversion path for both named and hex, verified identical
+
+`[System.Windows.Media.BrushConverter]::new().ConvertFromString(...)`
+handles `"blue"` and `"#3366FF"` through the exact same call — confirmed
+directly, so there is no named-vs-hex branching anywhere in
+`Assert-OtterUiColor`. An invalid string throws a real
+`System.FormatException`, caught and translated to *"I don't understand
+the color `"<text>"`."* — never the raw exception type or message.
+
+`Background`/`Foreground` are both typed `System.Windows.Media.Brush` on
+all four kinds, including `TextBlock` — verified via reflection, so
+"does this make sense per kind" checked out uniformly with no
+special-casing needed there either.
+
+**Colors always round-trip as a hex string, never the raw WPF `Brush`
+object.** Every color this provider ever sets is a `SolidColorBrush`
+(verified — `BrushConverter` never returns anything else here), so
+`Get-OtterUiProperty` converts it back via `.Color.ToString()` — an
+8-digit `#AARRGGBB` form. This means `background of x is "blue"` then
+reading it back gives `"#FF0000FF"`, not `"blue"` — a real, worth-noting
+asymmetry, but an honest and still-fully-Otter-safe one, the same kind
+of round-trip-not-verbatim behavior D8 already accepts for number
+formatting. A brush Otter never set (a theme-provided one, not a
+`SolidColorBrush`) reads as `gone` rather than guessing at a text form
+for it — verified every kind's *unset* `Background` is actually `null`
+(so already `gone` via the ordinary unset path) and every kind's default
+*unset* `Foreground` is already a real `SolidColorBrush` (so it reads
+back as a real color immediately, with no explicit `foreground is ...`
+ever needed) — both confirmed by reflection before relying on either.
+
+### Spacing: no `StackPanel.Spacing` exists in WPF - `Margin` is the only real mechanism, and it's genuinely stateful
+
+Verified there is no such property; a per-child `Margin` is what actually
+produces visual spacing in a `StackPanel`. Every child gets the same
+bottom `Margin`, including the last one — simpler and more robust than
+tracking which child is currently last just to skip its margin.
+
+**Confirmed directly that order matters operationally:** a child added
+*after* `spacing` is set does **not** inherit it for free — its `Margin`
+stays `0,0,0,0` until something explicitly applies the value. So this
+needed two cooperating pieces, both entirely inside `Otter.UI.psm1`:
+`Set-OtterUiSpacing` stores the value on the invisible panel's own `Tag`
+property (verified `Tag` round-trips a boxed `double` cleanly) *and*
+re-margins every child already there; `Add-OtterUiChild` reads that same
+`Tag` value for every future child. Both directions were tested
+explicitly — spacing set before any `put`, spacing set after some `put`s
+(re-margining the existing ones), and a `put` happening after spacing
+was changed *again* (inheriting the latest value, not a stale one) — all
+produce the identical end state. **No `OtterUiResource` contract change
+was needed** for this state to exist — `Tag` is a plain property every
+`FrameworkElement` already has, entirely internal to this one file.
+
+`spacing` only exists in the `window` entry of the property table (no
+`Native` key — it never reads or writes a single native property
+directly, unlike every other D45/D48 property), so it is a genuine
+runtime error on any other kind, via the same lookup every unsupported
+property already uses. Unset spacing reads as `gone`, matching every
+other never-set property's precedent — even before any `put` has ever
+happened, which would otherwise force the invisible panel to exist just
+to answer a read; `Get-OtterUiSpacing` checks the window's `Content` for
+`null` first specifically to avoid that side effect.
+
+### Visually verified, not just round-tripped through the property system
+
+Rendered a real window (`title`, `width`, `height`, `background` all
+set) with a styled button (`width`, `height`, `background`, `foreground`)
+and a text box, via `RenderTargetBitmap`, and inspected the resulting
+image directly. The window's dark background, the text box's white
+background, and — notably — the button's blue background *and* white
+text all rendered exactly as set, with no default Windows theme
+resistance to a custom `Background`/`Foreground` on `Button`/`TextBox`
+(a real risk flagged before implementing, since WPF control templates
+can sometimes override a plain `Background` write visually even though
+the property itself always accepts the write) — that risk did not
+materialize. Spacing between the two controls was clearly visible in the
+render too.
+
+### What's still explicitly out of scope
+
+**`app has padding is 24 / spacing is 12`** — a grouped-property block
+syntax — was raised during discussion but deliberately not folded into
+D48. `has` already carries established object-construction semantics
+(D16 and onward); whether it can also mean "configure this external
+resource" is a separate language-design question from "does this
+property work through `property of target is value`," which is all D48
+commits to. Worth its own investigation later, not assumed here.
+
+Also still deferred: horizontal layout, grids, explicit coordinates, any
+property beyond this five-property proving set (`width`, `height`,
+`background`, `foreground`, `spacing`) — more can be added the same
+one-line-per-property way once real programs need them, per the same
+dogfooding discipline that produced this entry in the first place.
+
+### What's built
+
+**Contract:** none — see above. **Runtime:** `src/Otter.UI.psm1`:
+extended `$script:OtterUiProperties` with `width`/`height` for `button`/
+`text box`/`text`, `background`/`foreground` for all four kinds, and
+`spacing` for `window`; added `Assert-OtterUiColor`, `Get-OtterUiSpacing`,
+`Set-OtterUiSpacing`, and `Get-OtterUiContainerPanel` (factored out of
+`Add-OtterUiChild`, now shared with the spacing functions); extended
+`Get-OtterUiProperty`/`Set-OtterUiProperty` with `'color'`/`'spacing'`
+branches; tightened `Assert-OtterUiNumber` (the D45 fix above).
+`src/Otter.Interpreter.psm1` — **unchanged**, since everything routes
+through the existing `Get-`/`Set-OtterUiProperty` calls it already had
+from D45. 15 new tests in `tests/UI.Tests.ps1` (2 for the D45 negative-
+size fix, 13 for D48 proper: width/height on every kind, colors on every
+kind via both named and hex, the invalid-color diagnostic, unset-color-
+is-gone, all three spacing-ordering scenarios, unset-spacing-is-gone,
+spacing round-trip, negative-spacing rejection, and spacing being
+window-only). Full suite: 13 files, all green. Visual render check
+saved and inspected directly (not committed — a one-off verification
+artifact, not a repo asset).
+
+**No Codex handoff.** Nothing here touches the lexer, parser, or
+contract.
