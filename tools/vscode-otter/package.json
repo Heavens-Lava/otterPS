@@ -2,7 +2,7 @@
   "name": "otter-language-support",
   "displayName": "Otter Language Support",
   "description": "Editing support for the Otter programming language.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "license": "MIT",
   "main": "src/extension.js",
