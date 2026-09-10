@@ -1,0 +1,16 @@
+# diagnostics.ot - log, warn and error (D31)
+#
+# These are not another way to say "say". "say" is what a program tells the
+# person using it; log, warn and error are what it tells whoever is running
+# it, and Otter keeps the two apart.
+
+port is 8080
+
+say "Otter web server"
+
+log "Starting up."
+log "Listening on port" port
+warn "No configuration file found, using defaults."
+error "Could not reach the database."
+
+say "Ready."

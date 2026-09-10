@@ -1,0 +1,21 @@
+# random.ot - random numbers and random choices (D30)
+
+random number from 1 to 6 into roll
+say "You rolled" roll
+
+games are
+    "Zelda"
+    "Mario"
+    "Pokemon"
+.
+
+random item from games into pick
+say "Tonight we play" pick
+
+# Picking from an empty list gives gone rather than failing.
+shelf are empty
+random item from shelf into nothing
+
+if nothing is gone
+    say "The shelf is empty."
+.

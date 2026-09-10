@@ -1,0 +1,27 @@
+# json.ot - JSON becomes ordinary Otter values (D29)
+#
+# There is no JSON navigation syntax. Once it is read, a JSON object is a
+# thing, a JSON list is a list, and JSON null is gone - so everything you
+# already know about properties works on it.
+
+write "{\"name\":\"Jeff\",\"address\":{\"city\":\"Tucson\"},\"tags\":[\"otter\",\"powershell\"],\"boss\":null}" to "user.json"
+
+read json from "user.json" into user
+
+say name of user
+say city of address of user
+say "tags:" length of tags of user
+
+for each tag in tags of user
+    say "  -" tag
+.
+
+if boss of user is gone
+    say "No boss on record."
+.
+
+convert user to json into text
+convert text from json into again
+say "round trip:" name of again
+
+delete file "user.json"

@@ -1,0 +1,30 @@
+# dates.ot - dates and time (D32)
+#
+# A date is a real value, not text. It can be taken apart, moved around,
+# compared, and formatted.
+
+date is today
+started is now
+
+say "Year:" year of date
+say "Month:" month of date
+say "Day:" day of date
+
+say "The time is" hour of started "hours" minute of started "minutes"
+
+# Moving a date around. Both spellings of a unit are accepted.
+deadline is today
+add 1 day to deadline
+add 13 days to deadline
+remove 1 month from deadline
+add 1 year to deadline
+
+format deadline as "MM/dd/yyyy" into printed
+say "Deadline:" printed
+
+days between date and deadline make waiting
+say "Days to wait:" waiting
+
+if deadline is greater than date
+    say "The deadline is still ahead."
+.
