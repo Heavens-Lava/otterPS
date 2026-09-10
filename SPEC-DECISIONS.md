@@ -16,6 +16,27 @@ Authority order, highest first:
 
 ---
 
+## Decision ledger
+
+**Before assigning a decision number, read this ledger. Do not claim a
+number already listed below. Update the ledger in the same commit when
+a new decision number is reserved.** Multiple agents work on this repo
+at once (front end, back end, web) — this ledger is the single source
+of truth for "what's the next number," so nobody has to guess or
+collide with work in flight.
+
+NEXT DECISION NUMBER: D53
+
+CLAIMED:
+- D49 — HTTP requests and web data — Gemini
+- D50 — Otter Web App Compiler — Gemini
+- D51 — Web Servers and API Routes — Gemini
+- D52 — recent grammar/UI batch documentation (`has` for existing
+  resources, comma `put`, compact/optional-`is` inline `has`,
+  contextual `the`, row/column layout) — Claude
+
+---
+
 ## Scope: what 0.2 covers
 
 | In 0.2 (milestones 1-6) | Deferred |
@@ -2788,3 +2809,375 @@ artifact, not a repo asset).
 
 **No Codex handoff.** Nothing here touches the lexer, parser, or
 contract.
+
+---
+
+## D49. HTTP requests and web data
+
+```otter
+get "https://api.example.com/status" into statusText
+get json from "https://api.example.com/users" into users
+post user to "https://api.example.com/users" into createdUser
+put user to "https://api.example.com/users/5" into updatedUser
+delete from "https://api.example.com/users/5" into result
+```
+
+### Scope and Motivation
+
+`rules2.md` Section 12, `rules3.md` Section 35, and `rules4.md` Section 23 describe
+direct, readable HTTP requests without manual socket handling, Promise boilerplate,
+or async/await syntax.
+
+D49 defines the language contract and front-end grammar for client HTTP operations:
+- `get <url> into <target>`
+- `get json from <url> into <target>`
+- `post <data> to <url> [into <target>]`
+- `put <data> to <url> [into <target>]`
+- `delete from <url> [into <target>]`
+
+### Disambiguation and Grammar Design
+
+1. **`get`**:
+   - `get files` / `get folders` -> Filesystem discovery (D20/D21).
+   - `get json from <url> into <target>` -> JSON HTTP GET.
+   - `get <expr> from <thing> into <target>` -> Dynamic key access (D41).
+   - `get <url> into <target>` -> Plain HTTP GET.
+2. **`post`**:
+   - `post` is a new statement-starting keyword (`TokenKind::Post`).
+   - Followed by data expression, `to`, URL expression, and optional `into <target>`.
+3. **`put`**:
+   - `put <resource> in <container>` (preposition is `in`) -> UI layout (D47).
+   - `put <data> to <url> [into <target>]` (preposition is `to`) -> HTTP PUT.
+4. **`delete`**:
+   - `delete folder <path>` -> Folder deletion (D21).
+   - `delete <path>` / `delete file <path>` -> File deletion (milestone 7).
+   - `delete from <url> [into <target>]` (preposition is `from`) -> HTTP DELETE.
+
+### Contract additions
+
+`TokenKind`:
+- `Post`
+
+`NodeKind`:
+- `HttpGet`
+- `HttpPost`
+- `HttpPut`
+- `HttpDelete`
+
+AST Node classes:
+- `HttpGetStmt([Node]$url, [string]$target, [bool]$asJson, [int]$line)`
+- `HttpPostStmt([Node]$data, [Node]$url, [string]$target, [bool]$asJson, [int]$line)`
+- `HttpPutStmt([Node]$data, [Node]$url, [string]$target, [bool]$asJson, [int]$line)`
+- `HttpDeleteStmt([Node]$url, [string]$target, [int]$line)`
+
+---
+
+## D50. Otter Web App Compiler (`ConvertTo-OtterWeb` / `otter build web`)
+
+```otter
+app is a page
+    title is "My Otter Web App"
+    width is 500
+    background is "#0f172a"
+.
+
+nameBox is a text box
+    placeholder is "Enter your name"
+.
+
+helloButton is a button
+    text is "Say Hello"
+    background is "#2563eb"
+    foreground is "white"
+.
+
+message is a text
+    value is ""
+    foreground is "#94a3b8"
+.
+
+when helloButton is clicked
+    name is text of nameBox
+    if name is empty
+        text of message is "Please enter a name."
+    otherwise
+        text of message is "Hello " name "!"
+    .
+.
+
+put nameBox, helloButton, message in app
+show app
+```
+
+### Scope and Motivation
+
+`rules2.md` Section 5 and `rules4.md` Sections 20-22 and 24 specify that the exact same Otter
+UI intent can run across targets (`otter run` on desktop, `otter build web` on the browser).
+Otter Web expresses what exists, how it looks, and what it does without forcing the programmer
+to manage DOM selectors, event-listener plumbing, or JavaScript frameworks.
+
+D50 defines the web compilation target:
+- Compiles an Otter `ProgramNode` into a self-contained, dependency-free HTML5/CSS3/JavaScript web application.
+- Supports both `page` and `window` as the root web viewport.
+- Maps UI resources directly to semantic HTML elements:
+  - `page` / `window` -> container card with styling (`title`, `width`, `height`, `background`, `spacing`).
+  - `button` -> `<button>` with click handling and styles.
+  - `text box` -> `<input type="text">` supporting `text` / `value` / `placeholder`.
+  - `text` -> `<div class="otter-text">` / `<p>` supporting `text` / `value` / `foreground`.
+  - `row` -> `<div class="otter-row">` with flex-direction row.
+  - `column` -> `<div class="otter-column">` with flex-direction column.
+- Compiles reactive event handlers (`when <target> is clicked`) to browser event listeners with full Otter state.
+- Compiles Otter expressions, math, variables, strings, and conditions to clean, modern JavaScript.
+
+---
+
+## D51. Web Servers and API Routes
+
+```otter
+api is a web server
+    port is 5000
+    host is "localhost"
+.
+
+when api receives GET at "/users"
+    respond with users as json
+.
+
+when api receives POST at "/users" into req
+    respond with user as json and status 201
+.
+
+when server receives a request at "/hello"
+    respond with "Hello from Otter!"
+.
+
+when api receives GET at "/health"
+    respond with status 200
+.
+
+start api
+```
+
+### Scope and Motivation
+
+`rules2.md` Sections 10 and 13 define the syntax for readable HTTP services in Otter.
+A web server is declared as an object (`api is a web server`), routes are declared as
+reactive handlers (`when <server> receives <method> at <path> [into <req>]`), and responses
+are cleanly emitted with `respond with <expr> [as json] [and status <code>]`.
+Lifecycle is controlled via `start <server>` or `listen on port <port>`.
+
+### Disambiguation and Grammar Design
+
+1. **`receives`**:
+   - Follows the server target in a `when` statement: `when <server> receives ...`.
+   - Distinguishes UI event blocks (`when <button> is clicked`) from server route blocks.
+   - Accepts either an explicit HTTP verb (`GET`, `POST`, `PUT`, `DELETE`, `PATCH`, `OPTIONS`, `HEAD`),
+     an open request pattern (`a request`), or defaults to `GET` when directly followed by `at`.
+2. **`at`**:
+   - Contextual preposition marking the route path: `at "/path"`.
+3. **`into`**:
+   - Optional capture of the incoming request context into a named variable: `into req`.
+   - The request object provides `method`, `path`, `query`, `body`, `headers`.
+4. **`respond`**:
+   - Statement starting with `respond with`.
+   - Optional `as json` formats and sends Content-Type `application/json`.
+   - Optional `and status <codeExpr>` or `with status <codeExpr>` sets HTTP response status.
+   - `respond with status <codeExpr>` allows sending status-only responses (e.g. 204 No Content).
+5. **`start` and `listen`**:
+   - `start <server>` starts the server instance.
+   - `listen on port <port>` provides the concise single-statement server form.
+
+### Contract additions
+
+`TokenKind`:
+- `Respond`
+- `Receives`
+- `At`
+- `Start`
+- `Listen`
+
+`NodeKind`:
+- `WebRoute`
+- `Respond`
+- `StartServer`
+- `ListenServer`
+
+AST Node classes:
+- `WebRouteStmt([Node]$server, [string]$method, [Node]$path, [string]$requestTarget, [Node[]]$body, [int]$line)`
+- `RespondStmt([Node]$value, [Node]$status, [bool]$asJson, [int]$line)`
+- `StartServerStmt([Node]$server, [int]$line)`
+- `ListenServerStmt([Node]$port, [int]$line)`
+
+---
+
+## D52. Retroactive documentation: `has` for existing resources, comma `put`, contextual `the`, row/column layout
+
+This entry documents work that was already implemented, tested, and
+committed (14 commits, `e327a20` through `1eb4671`) without a
+corresponding spec entry — the first batch since D16 to land that way.
+Written after the fact specifically to close that gap before more work
+builds on top of undocumented behavior. Nothing here was designed by
+this entry; it verifies and records what the code already does.
+
+### `has` now configures an existing UI resource, deterministically
+
+```otter
+create window into app
+
+app has
+    title is "Otter Calculator"
+    width is 420
+.
+```
+
+This was the exact open question from the pre-D48 investigation: could
+`has` mean *both* "construct a new thing" and "configure this existing
+resource" without ambiguity, and without a misspelled name silently
+doing the wrong thing? Confirmed by reading `Otter.Interpreter.psm1`'s
+`ObjectDef` case directly — the dispatch is on **runtime state**, not
+parser-visible information (the parser cannot know whether a name is
+already bound; `Environment.Has` is checked at execution time), which
+matches D12's precedent (`add`/`remove` dispatch on runtime type, not
+parse-time knowledge) rather than inventing a new mechanism:
+
+- **Name doesn't exist yet** → constructs a new `thing`, exactly D40's
+  original behavior, completely unchanged.
+- **Name exists and holds a UI resource** → each property in the block
+  is applied through the *existing* `Set-OtterUiProperty` (D45) — so an
+  unknown property name is caught immediately by D45's own validation,
+  the same as `property of x is value` already gives.
+- **Name exists and holds anything else** (a number, a string, an
+  existing plain `thing`, ...) → refuses outright: *"Otter will not
+  replace existing `<type>` called `"<name>"` with a new thing."* This
+  is deliberately more conservative than merging or replacing — it
+  sidesteps the identity/aliasing question a plain thing would raise
+  (does re-`has`-ing an existing `thing` update it in place, or replace
+  it and orphan any other variable referencing the old one?) by simply
+  not allowing it, leaving that as a genuinely separate, not-yet-needed
+  question rather than deciding it implicitly here.
+
+**The specific typo danger raised before implementation — `ap has ...`
+when `app` was meant — turns out to be inherently safe**, confirmed by
+how the dispatch above actually works: a name that was never bound
+takes the *construct* branch, producing a harmless new `thing` called
+`ap`; it can never reach or touch the real `app`. The genuinely
+dangerous case (reusing the *correct* name) is exactly the one the
+dispatch above makes safe.
+
+Verified directly with two tests: `has configures an existing UI
+resource without replacing it`, `has refuses to replace an existing
+non-UI value` (`tests/UI.Tests.ps1`).
+
+### Inline `has` — comma-separated, `is` optional per property
+
+```otter
+addButton has text "Add", width 120, background "#2563EB", foreground "white"
+```
+
+A second grammar was added alongside the original indented-block `has`
+(unchanged): a single-line, comma-delimited form. `is` is checked and
+consumed if present, otherwise skipped — independently for each
+property in the list — so `text is "Add"` and `text "Add"` in the same
+list both produce the identical `AssignStmt`. This went through several
+short-lived intermediate states in the commit history (briefly
+*requiring* the compact `is`-less form, before settling on making `is`
+optional) — the state described here is the final, current one, verified
+against the actual parser code (`Read-OtterInlineObjectProperties`,
+`src/Otter.Parser.psm1`), not against any intermediate commit.
+
+### `put` accepts a comma-separated list, desugared at parse time
+
+```otter
+put firstLabel, firstBox, secondLabel, secondBox, addButton, resultLabel in app
+```
+
+Confirmed by reading the parser directly: this is **not** a new AST
+node. `Read-OtterStatement`'s `Put` case returns an *array* of
+`PutInStmt` nodes (one per item, same container, order preserved), and
+`Read-OtterStatements` splices an array result into the statement list
+in place. `Otter.Interpreter.psm1` needed zero changes — every
+desugared `PutInStmt` runs through the exact `'PutIn'` case D47 already
+had.
+
+### Contextual `the` — a readability word, restricted on purpose
+
+```otter
+create the window into the app
+the text of the nameBox is "Jeff"
+say the text of the nameBox
+```
+
+`the` is consumed and discarded with no AST or semantic effect,
+verified in the parser (`src/Otter.Parser.psm1`) to apply **only**
+where it introduces a genuine `<property> of ...` sequence or a
+resource-creation target — explicitly *not* a blanket filler-word rule
+("this is not a global filler-word rule," per the parser's own
+comment). This matters: a general "skip the word `the` anywhere"
+rule would risk swallowing `the` when it was meant as an ordinary
+identifier or part of a string, which this restricted, position-specific
+version cannot do.
+
+### Row and column: real layout containers, not new UI concepts
+
+```otter
+create row into toolbar
+toolbar has spacing 10
+put folderBox, loadButton in toolbar
+put heading, toolbar, resultText in app
+```
+
+Directly answers the layout-pressure question raised by the File
+Browser dogfooding example (a text box and button that needed to sit
+side by side, which vertical-only `StackPanel` stacking could not do).
+`row` and `column` are new `OtterWpfKinds` entries — a horizontally-
+oriented and a vertically-oriented `StackPanel`, respectively — nothing
+more than that; they are `create`d, `put` into like any other resource,
+and can themselves be `put` into another window/row/column (nesting
+confirmed directly: a row inside a column inside a window, verified by
+`[object]::ReferenceEquals` down the whole chain, in
+`tests/UI.Tests.ps1`'s `rows and columns accept ordered and nested
+children`).
+
+`width`, `height`, `background`, and `spacing` all apply to `row`/
+`column` the same way they apply to `window` — the existing D45/D48
+property table, extended with two more kind entries, nothing new. One
+implementation detail changed underneath this: `Set-`/`Get-OtterUiSpacing`
+moved from storing the spacing value on the panel's own `Tag` property
+to a module-level dictionary keyed by
+`[System.Runtime.CompilerServices.RuntimeHelpers]::GetHashCode(Native)`
+— needed because a `row`/`column`'s `Native` *is* the panel itself
+(unlike a window, where the panel is `Window.Content`, a separate
+object `Tag` could live on independent of the window), so `Tag` was no
+longer available as the storage location as a `window`-only assumption.
+Spacing's own behavior (works before or after `put`, future children
+inherit the current value) is unchanged and still covered by the
+original D48 tests plus new ones for the row/column case.
+
+### An open question, surfaced but not resolved here
+
+While tracing this batch, a separate cross-target inconsistency turned
+up that this entry does **not** resolve: Gemini's D50 web compiler
+recognizes `nameBox is a text box` (`ObjectDefStmt` whose `TypeName`
+matches a UI-kind whitelist) as a UI resource declaration, alongside
+`create text box into nameBox`. Verified directly that the **desktop**
+interpreter does not — `nameBox is a text box` on `otter run` produces
+an ordinary `OtterObject` with `TypeName = "text box"` (`Test-
+OtterUiResource` is false), not a real control; `put`/`show` on it would
+fail with a genuine Otter error rather than silently doing the wrong
+thing, which is at least safe, but the same source file's meaning still
+diverges by target. Whether desktop should also accept `X is a <kind>`
+as an alternate spelling of `create <kind> into X` (unifying the two
+authoring styles) is a real decision, not something to infer from this
+investigation — left for Jeff to decide, and out of scope for D52.
+
+### What's built
+
+Everything in this entry was already implemented and tested before this
+entry was written; nothing here changes behavior. **Contract:** no
+changes — every grammar addition here (`has` runtime dispatch, inline
+`has`, comma `put`, contextual `the`, row/column) reused existing
+`NodeKind`/`Node` shapes (`ObjectDefStmt`, `PutInStmt`) or needed only
+`OtterWpfKinds`/`OtterUiProperties` table entries in `Otter.UI.psm1`.
+Full suite: 13 test files at the time of this batch (a 14th, the web
+compiler's own suite, landed separately under D50), all green.
+
