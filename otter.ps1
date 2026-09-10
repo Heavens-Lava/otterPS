@@ -1,149 +1,269 @@
-# Otter 0.1 - PowerShell edition
+using module .\Otter.Contract.psm1
+using module .\src\Otter.Runtime.psm1
+using module .\src\Otter.Lexer.psm1
+using module .\src\Otter.Parser.psm1
+using module .\src\Otter.Interpreter.psm1
+
+# otter.ps1 - the Otter interpreter
 # Author: Jeffrey Macy
 #
-# This is the same language as the C# Otter, rewritten in PowerShell.
-# Two ways to use it:
+#   otter                 -> the REPL (Read, Evaluate, Print, Loop)
+#   otter hello.ot        -> run a script
+#   otter hello.ot -DebugTokens -DebugAst   -> developer views
 #
-#   otter                 -> starts the REPL (Read, Evaluate, Print, Loop)
-#   otter hello.ot        -> runs an Otter script file, line by line
+# Otter 0.1 ran each line through a chain of StartsWith checks. 0.2 runs a
+# real pipeline, and this file is only the plumbing for it:
 #
-# param() must be the first real code in the file. PowerShell fills
-# these variables in from whatever the user typed on the command line.
+#   source text
+#       |
+#       v  ConvertTo-OtterTokens   (src/Otter.Lexer.psm1)
+#   Token[]
+#       |
+#       v  ConvertTo-OtterAst      (src/Otter.Parser.psm1)
+#   ProgramNode
+#       |
+#       v  Invoke-OtterProgram     (src/Otter.Interpreter.psm1)
+#   output
+#
+# The `using module` lines above must come before everything except comments -
+# that is a PowerShell rule, and it is also what makes the Token and Node
+# classes the same types in every module here.
+
 param(
-    # The .ot script to run. If the user gives no path at all,
-    # $Path stays empty and we fall back to the REPL.
+    # The .ot script to run. With no path at all, we start the REPL.
     [Parameter(Position = 0)]
-    [string]$Path
+    [string]$Path,
+
+    # Developer views. These are for people working on Otter itself;
+    # ordinary Otter output stays clean.
+    [switch]$DebugTokens,
+    [switch]$DebugAst,
+
+    # Show the underlying PowerShell error instead of a friendly Otter one.
+    [switch]$DebugErrors
 )
 
-# Stop the whole script on an unexpected error instead of limping along.
 $ErrorActionPreference = 'Stop'
 
+$OtterVersion = 'Otter 0.2'
 
-# ---------------------------------------------------------------
-# Invoke-OtterLine is our entire language engine.
+
+# ===============================================================
+# ERROR REPORTING (D14)
+# ===============================================================
 #
-# It is the PowerShell twin of Run(string source) in the C# version.
-#
-# PowerShell function names use a Verb-Noun shape by convention
-# ("Invoke" is the approved verb for "go do this thing"), which is
-# why this is not just called Run.
-# ---------------------------------------------------------------
-function Invoke-OtterLine {
-    param([string]$Source)
+# A raw PowerShell exception must never reach someone who is just trying to
+# learn to program. Everything funnels through here.
 
-    # Remove leading/trailing spaces so indented lines in a script
-    # file still work.
-    $source = $Source.Trim()
+function Show-OtterFailure {
+    param(
+        [Parameter(Mandatory)]$ErrorRecord,
+        [switch]$Short
+    )
 
-    # Blank lines and comment lines do nothing.
-    # In Otter, a comment starts with #, same as PowerShell.
-    if ($source -eq '' -or $source.StartsWith('#')) {
-        return
-    }
+    $exception = $ErrorRecord.Exception
 
-    # ---- keyword: say ----
-    # Check whether the command begins with our first Otter keyword.
-    if ($source.StartsWith('say ')) {
-
-        # Drop the first 4 characters ("say ") and keep the rest.
-        #
-        #   source  = say "Hello world!"
-        #   message = "Hello world!"
-        #
-        # PowerShell has no C# range operator (source[4..]), so we use
-        # Substring(4), which means "everything from index 4 onward".
-        $message = $source.Substring(4).Trim()
-
-        # If the message is wrapped in double quotes, strip them.
-        #
-        # The $message.Length -ge 2 check matters: a lone " character
-        # starts AND ends with a quote, and without this guard we would
-        # try to cut two characters off a one-character string and crash.
-        # (The C# version still has that bug - worth fixing there too.)
-        if ($message.Length -ge 2 -and
-            $message.StartsWith('"') -and
-            $message.EndsWith('"')) {
-
-            # Substring(start, length):
-            # start at index 1 (skip the opening quote) and take
-            # every character except the closing quote.
-            $message = $message.Substring(1, $message.Length - 2)
+    if ($exception -is [OtterError]) {
+        if ($Short) {
+            Write-Host $exception.Format() -ForegroundColor Red
         }
-
-        # PRINT: carry out the "say" command.
-        Write-Host $message
+        else {
+            Write-Host ''
+            Write-Host $exception.FormatDetailed() -ForegroundColor Red
+            Write-Host ''
+        }
         return
     }
 
-    # No known Otter keyword matched, so say so plainly.
-    Write-Host "I don't understand: $source"
+    # Not an Otter error - that means Otter itself has a bug. Say so honestly
+    # rather than blaming the user's program.
+    Write-Host ''
+    Write-Host 'Otter hit a problem inside itself, which means this is a bug in Otter.' -ForegroundColor Red
+    Write-Host "  $($exception.Message)" -ForegroundColor DarkGray
+
+    if ($DebugErrors) {
+        Write-Host ''
+        Write-Host $ErrorRecord.ScriptStackTrace -ForegroundColor DarkGray
+    }
+    else {
+        Write-Host '  Run again with -DebugErrors to see where.' -ForegroundColor DarkGray
+    }
+    Write-Host ''
 }
 
 
-# ---------------------------------------------------------------
-# Invoke-OtterFile runs a whole .ot script.
-#
-# A script is just a list of Otter lines, so we read the file and
-# hand each line to the same engine the REPL uses.
-# ---------------------------------------------------------------
+# ===============================================================
+# THE PIPELINE
+# ===============================================================
+
+function Invoke-OtterSource {
+    param(
+        [Parameter(Mandatory)][AllowEmptyString()][string]$Source,
+        [Parameter(Mandatory)][OtterEnvironment]$Environment
+    )
+
+    # Split once so runtime errors can quote the line they happened on.
+    $sourceLines = $Source -split "`r?`n"
+
+    $tokens = ConvertTo-OtterTokens -Source $Source
+
+    if ($DebugTokens) {
+        Write-Host '--- tokens ---' -ForegroundColor DarkCyan
+        foreach ($token in $tokens) { Write-Host "  $token" -ForegroundColor DarkGray }
+        Write-Host ''
+    }
+
+    $program = ConvertTo-OtterAst -Tokens $tokens
+
+    if ($DebugAst) {
+        Write-Host '--- ast ---' -ForegroundColor DarkCyan
+        Show-OtterAst -Node $program -Depth 1
+        Write-Host ''
+    }
+
+    Invoke-OtterProgram -Program $program -Environment $Environment -SourceLines $sourceLines
+}
+
+# A rough tree view of the AST, for -DebugAst. Deliberately simple: it walks
+# whatever child nodes a node happens to have rather than knowing every type.
+function Show-OtterAst {
+    param([object]$Node, [int]$Depth = 0)
+
+    if ($null -eq $Node) { return }
+    $pad = '  ' * $Depth
+
+    if ($Node -is [Node]) {
+        $label = $Node.Kind.ToString()
+        foreach ($extra in @('Name', 'Target', 'VariableName', 'ResultTarget')) {
+            $value = $Node.PSObject.Properties[$extra]
+            if ($value -and $value.Value) { $label += " $($value.Value)"; break }
+        }
+        if ($Node.Kind -eq [NodeKind]::Literal) {
+            $label += " = $($Node.Value)"
+        }
+        Write-Host "$pad$label" -ForegroundColor DarkGray
+
+        foreach ($property in $Node.PSObject.Properties) {
+            if ($property.Name -in @('Kind', 'Line', 'Name', 'Value', 'Target', 'VariableName', 'ResultTarget')) { continue }
+            Show-OtterAst -Node $property.Value -Depth ($Depth + 1)
+        }
+        return
+    }
+
+    if ($Node -is [IfBranch]) {
+        Write-Host "$pad" + 'branch' -ForegroundColor DarkGray
+        Show-OtterAst -Node $Node.Condition -Depth ($Depth + 1)
+        foreach ($statement in $Node.Body) { Show-OtterAst -Node $statement -Depth ($Depth + 1) }
+        return
+    }
+
+    if ($Node -is [System.Array]) {
+        foreach ($item in $Node) { Show-OtterAst -Node $item -Depth $Depth }
+    }
+}
+
+
+# ===============================================================
+# FILE MODE
+# ===============================================================
+
 function Invoke-OtterFile {
     param([string]$ScriptPath)
 
-    # Turn "hello.ot" into a full path based on where the user is
-    # standing, so error messages are unambiguous.
-    $full = Resolve-Path -LiteralPath $ScriptPath -ErrorAction SilentlyContinue
-
-    if (-not $full) {
-        Write-Host "otter: cannot find script '$ScriptPath'"
+    $resolved = Resolve-Path -LiteralPath $ScriptPath -ErrorAction SilentlyContinue
+    if (-not $resolved) {
+        Write-Host "Otter: I cannot find a file called `"$ScriptPath`"." -ForegroundColor Red
         exit 1
     }
 
-    # Get-Content returns the file as an array of lines.
-    foreach ($line in Get-Content -LiteralPath $full) {
-        Invoke-OtterLine -Source $line
+    $source = Get-Content -LiteralPath $resolved -Raw
+    if ($null -eq $source) { $source = '' }
+
+    $environment = New-OtterEnvironment
+
+    try {
+        Invoke-OtterSource -Source $source -Environment $environment
+    }
+    catch {
+        Show-OtterFailure -ErrorRecord $_
+        exit 1
     }
 }
 
 
-# ---------------------------------------------------------------
-# Start-OtterRepl is the interactive mode.
+# ===============================================================
+# REPL
+# ===============================================================
 #
-# REPL stands for Read -> Evaluate -> Print -> Loop.
-# ---------------------------------------------------------------
+# One environment lives for the whole session, so variables you set on one
+# line are still there on the next.
+#
+# Blocks need more than one line, so when a line opens a block the prompt
+# changes to "..... " and keeps collecting until you enter a blank line.
+
+$script:BlockOpeners = @('if', 'while', 'repeat', 'count', 'for', 'to', 'otherwise')
+
+function Test-OtterOpensBlock {
+    param([string]$Line)
+
+    $trimmed = $Line.Trim()
+    if ($trimmed -eq '') { return $false }
+
+    $firstWord = ($trimmed -split '\s+')[0]
+    if ($script:BlockOpeners -contains $firstWord) { return $true }
+
+    # "games are" starts a list that runs over several lines.
+    if ($trimmed -match '\bare$') { return $true }
+
+    return $false
+}
+
 function Start-OtterRepl {
 
-    Write-Host "Otter 0.1"
-    Write-Host "Readable like English. Precise like code."
-    Write-Host ""
+    Write-Host $OtterVersion
+    Write-Host 'Readable like English. Precise like code.'
+    Write-Host ''
+
+    $environment = New-OtterEnvironment
 
     while ($true) {
+        Write-Host 'otter> ' -NoNewline
+        $line = Read-Host
 
-        # Write-Host -NoNewline is PowerShell's Console.Write():
-        # the user types on the same line as the prompt.
-        Write-Host "otter> " -NoNewline
+        if ($null -eq $line) { break }
+        if ($line.Trim() -eq 'exit') { break }
+        if ($line.Trim() -eq '') { continue }
 
-        # READ: wait for the user to type an Otter command.
-        $command = Read-Host   # note: avoid the name $input - PowerShell reserves it
+        $buffer = [System.Collections.Generic.List[string]]::new()
+        $buffer.Add($line)
 
-        # Read-Host returns $null if the input stream closes (Ctrl+C /
-        # end of piped input), which is our cue to stop.
-        if ($null -eq $command -or $command.Trim() -eq 'exit') {
-            break
+        # Keep collecting while we are inside a block.
+        if (Test-OtterOpensBlock -Line $line) {
+            while ($true) {
+                Write-Host '..... ' -NoNewline
+                $more = Read-Host
+                if ($null -eq $more -or $more.Trim() -eq '') { break }
+                $buffer.Add($more)
+            }
         }
 
-        # EVALUATE + PRINT.
-        Invoke-OtterLine -Source $command
+        $source = ($buffer -join "`n")
+
+        try {
+            Invoke-OtterSource -Source $source -Environment $environment
+        }
+        catch {
+            # Short form in the REPL: you can see your own line right above.
+            Show-OtterFailure -ErrorRecord $_ -Short
+        }
     }
 }
 
 
-# ---------------------------------------------------------------
-# This is Main(). Everything above only defined functions;
-# nothing ran until here.
-#
-# If we were handed a script path, run the file. Otherwise, chat.
-# ---------------------------------------------------------------
+# ===============================================================
+# MAIN
+# ===============================================================
+
 if ($Path) {
     Invoke-OtterFile -ScriptPath $Path
 }

@@ -1,0 +1,8 @@
+# conditions.ot - indentation decides what belongs to the if
+
+age is 29
+
+if age is at least 18
+    say "You are an adult."
+
+say "Program finished."

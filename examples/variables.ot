@@ -1,0 +1,7 @@
+# variables.ot - naming things
+
+name is "Jeff"
+age is 29
+
+say "Hello" name
+say name "is" age "years old."

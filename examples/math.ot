@@ -1,0 +1,8 @@
+# math.ot - Otter does arithmetic in words
+
+number1 is 5
+number2 is 5
+
+number1 and number2 make total
+
+say total
