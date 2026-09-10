@@ -117,36 +117,135 @@ Test-Otter 'a created resource is truthy, the same reasoning as an object' {
     Assert-True (Test-OtterTruthy -Value ($env.Get('app')))
 }
 
-Test-Otter 'an error naming the value says "a text box", never TextBox or System.Windows' {
+Test-Otter 'an unsupported property still names the kind, never a WPF type name (D45)' {
     Assert-OtterFails -Containing 'a text box' -Body {
         Invoke-TestProgram @(
             [CreateUiResourceStmt]::new('text box', 'nameBox', 1),
-            [SayStmt]::new(@([PropertyAccessExpr]::new('text', [VariableExpr]::new('nameBox', 2), 2)), 2)
+            [SayStmt]::new(@([PropertyAccessExpr]::new('color', [VariableExpr]::new('nameBox', 2), 2)), 2)
         )
     }
 }
 
 
 # =================================================================
-# property access is explicitly deferred to D45 - honest, not silent
+# D45 - property read/write, routed through the toolkit-neutral mapping
 # =================================================================
 
-Test-Otter 'reading a property says "not built yet", distinct from "not a thing"' {
-    Assert-OtterFails -Containing 'not built yet' -Body {
+Test-Otter 'text of a button writes and reads back through ordinary property syntax' {
+    $out = Invoke-TestProgram @(
+        [CreateUiResourceStmt]::new('button', 'helloButton', 1),
+        [AssignStmt]::new([PropertyAccessExpr]::new('text', [VariableExpr]::new('helloButton', 2), 2), (Lit 'Say Hello'), 2),
+        [SayStmt]::new(@([PropertyAccessExpr]::new('text', [VariableExpr]::new('helloButton', 3), 3)), 3)
+    )
+    Assert-Lines -Expected @('Say Hello') -Actual $out
+}
+
+Test-Otter 'button text maps to native Content, not Text - verified on the real object' {
+    # This is the exact mapping the investigation confirmed empirically:
+    # TextBox does not even have a Content property; Button does not have
+    # a settable Text property the same way. Getting this backwards would
+    # be a silent, wrong write, not an error.
+    $env = New-OtterEnvironment
+    Invoke-OtterProgram -Environment $env -Program ([ProgramNode]::new(@(
+        [CreateUiResourceStmt]::new('button', 'helloButton', 1),
+        [AssignStmt]::new([PropertyAccessExpr]::new('text', [VariableExpr]::new('helloButton', 2), 2), (Lit 'Say Hello'), 2)
+    )))
+    $resource = $env.Get('helloButton')
+    Assert-AreEqual -Expected 'Say Hello' -Actual $resource.Native.Content
+}
+
+Test-Otter 'text box text maps to native Text, not Content' {
+    $env = New-OtterEnvironment
+    Invoke-OtterProgram -Environment $env -Program ([ProgramNode]::new(@(
+        [CreateUiResourceStmt]::new('text box', 'nameBox', 1),
+        [AssignStmt]::new([PropertyAccessExpr]::new('text', [VariableExpr]::new('nameBox', 2), 2), (Lit 'Jeff'), 2)
+    )))
+    $resource = $env.Get('nameBox')
+    Assert-AreEqual -Expected 'Jeff' -Actual $resource.Native.Text
+}
+
+Test-Otter 'window title, width and height all read and write correctly' {
+    $out = Invoke-TestProgram @(
+        [CreateUiResourceStmt]::new('window', 'app', 1),
+        [AssignStmt]::new([PropertyAccessExpr]::new('title', [VariableExpr]::new('app', 2), 2), (Lit 'My App'), 2),
+        [AssignStmt]::new([PropertyAccessExpr]::new('width', [VariableExpr]::new('app', 3), 3), (Lit 500.0), 3),
+        [AssignStmt]::new([PropertyAccessExpr]::new('height', [VariableExpr]::new('app', 4), 4), (Lit 300.0), 4),
+        [SayStmt]::new(@([PropertyAccessExpr]::new('title', [VariableExpr]::new('app', 5), 5)), 5),
+        [SayStmt]::new(@([PropertyAccessExpr]::new('width', [VariableExpr]::new('app', 6), 6)), 6),
+        [SayStmt]::new(@([PropertyAccessExpr]::new('height', [VariableExpr]::new('app', 7), 7)), 7)
+    )
+    Assert-Lines -Expected @('My App', '500', '300') -Actual $out
+}
+
+Test-Otter 'text properties coerce any value, the same conversion say already uses' {
+    # text of X is 5 sets it to "5" rather than erroring - matching how
+    # "say 5" already prints "5", not a type mismatch.
+    $out = Invoke-TestProgram @(
+        [CreateUiResourceStmt]::new('button', 'helloButton', 1),
+        [AssignStmt]::new([PropertyAccessExpr]::new('text', [VariableExpr]::new('helloButton', 2), 2), (Lit 5.0), 2),
+        [SayStmt]::new(@([PropertyAccessExpr]::new('text', [VariableExpr]::new('helloButton', 3), 3)), 3)
+    )
+    Assert-Lines -Expected @('5') -Actual $out
+}
+
+Test-Otter 'a numeric property rejects the wrong type as a clean Otter error, not a raw .NET exception' {
+    # Verified before writing Set-OtterUiProperty: WPF itself throws
+    # SetValueInvocationException naming "System.Double" directly in its
+    # message for exactly this case. That must never reach a user.
+    Assert-OtterFails -Containing 'I expected a number for the width' -Body {
         Invoke-TestProgram @(
-            [CreateUiResourceStmt]::new('button', 'helloButton', 1),
-            [SayStmt]::new(@([PropertyAccessExpr]::new('text', [VariableExpr]::new('helloButton', 2), 2)), 2)
+            [CreateUiResourceStmt]::new('window', 'app', 1),
+            [AssignStmt]::new([PropertyAccessExpr]::new('width', [VariableExpr]::new('app', 2), 2), (Lit 'not a number'), 2)
         )
     }
 }
 
-Test-Otter 'writing a property says "not built yet" too' {
-    Assert-OtterFails -Containing 'not built yet' -Body {
+Test-Otter 'the numeric-type error never leaks System.Double or any .NET name' {
+    $env = New-OtterEnvironment
+    try {
+        Invoke-OtterProgram -Environment $env -Program ([ProgramNode]::new(@(
+            [CreateUiResourceStmt]::new('window', 'app', 1),
+            [AssignStmt]::new([PropertyAccessExpr]::new('width', [VariableExpr]::new('app', 2), 2), (Lit 'not a number'), 2)
+        )))
+        throw 'expected this to fail'
+    }
+    catch {
+        Assert-False ($_.Exception.Message -like '*System.*') 'must not leak a .NET type name'
+        Assert-False ($_.Exception.Message -like '*SetValueInvocation*') 'must not leak the raw WPF exception type'
+    }
+}
+
+Test-Otter 'reading an unset text property is gone, not an error, not empty text' {
+    # D22: no value exists here yet is a different state from "" - a
+    # freshly created button has never had its text set at all.
+    $out = Invoke-TestProgram @(
+        [CreateUiResourceStmt]::new('button', 'helloButton', 1),
+        [SayStmt]::new(@([PropertyAccessExpr]::new('text', [VariableExpr]::new('helloButton', 2), 2)), 2)
+    )
+    Assert-Lines -Expected @('gone') -Actual $out
+}
+
+Test-Otter 'an unsupported property on a window names the window and the property' {
+    Assert-OtterFails -Containing 'a window has no property called "color"' -Body {
         Invoke-TestProgram @(
-            [CreateUiResourceStmt]::new('button', 'helloButton', 1),
-            [AssignStmt]::new([PropertyAccessExpr]::new('text', [VariableExpr]::new('helloButton', 2), 2), (Lit 'Say Hello'), 2)
+            [CreateUiResourceStmt]::new('window', 'app', 1),
+            [SayStmt]::new(@([PropertyAccessExpr]::new('color', [VariableExpr]::new('app', 2), 2)), 2)
         )
     }
+}
+
+Test-Otter 'setting an unsupported property fails before touching the native object at all' {
+    $env = New-OtterEnvironment
+    Invoke-OtterProgram -Environment $env -Program ([ProgramNode]::new(@(
+        [CreateUiResourceStmt]::new('button', 'helloButton', 1)
+    )))
+    $resource = $env.Get('helloButton')
+    $before = $resource.Native.Content
+
+    Assert-OtterFails -Containing 'no property called' -Body {
+        Set-OtterUiProperty -Resource $resource -Property 'color' -Value 'red' -Line 1
+    }
+    Assert-AreEqual -Expected $before -Actual $resource.Native.Content
 }
 
 

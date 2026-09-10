@@ -1040,14 +1040,15 @@ function Get-OtterValue {
                 return (Get-OtterDatePart -Date $target -Part $Expression.Property -Line $Expression.Line)
             }
 
-            # D44 explicitly does not include property translation (D45's
-            # job) - a distinct, honest "not yet" rather than falling
-            # through to the generic "not a thing" message, which would
-            # incorrectly imply this is impossible rather than unbuilt.
+            # text of helloButton                                    (D45)
+            #
+            # Routed through Otter.UI.psm1 - the only place that knows
+            # "text" means WPF Content for a button but Text for a text
+            # box. The interpreter never touches System.Windows.* itself.
             if (Test-OtterUiResource $target) {
-                throw (New-OtterRuntimeError `
-                    -Message "Reading properties of a $($target.Kind) is not built yet." `
-                    -Line $Expression.Line)
+                Write-Output -NoEnumerate (
+                    Get-OtterUiProperty -Resource $target -Property $Expression.Property -Line $Expression.Line)
+                return
             }
 
             if (-not (Test-OtterObject $target)) {
@@ -1261,12 +1262,10 @@ function Set-OtterTarget {
         'PropertyAccess' {
             $owner = Get-OtterValue -Expression $Target.Target -Environment $Environment
 
-            # D44: distinct, honest "not yet" - see the matching case in
-            # Get-OtterValue's PropertyAccess above.
+            # text of helloButton is "Say Hello"                     (D45)
             if (Test-OtterUiResource $owner) {
-                throw (New-OtterRuntimeError `
-                    -Message "Setting properties on a $($owner.Kind) is not built yet." `
-                    -Line $Target.Line)
+                Set-OtterUiProperty -Resource $owner -Property $Target.Property -Value $Value -Line $Target.Line
+                return
             }
 
             if (-not (Test-OtterObject $owner)) {
