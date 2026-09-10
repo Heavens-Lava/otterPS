@@ -1255,3 +1255,236 @@ states the reason: they are pre-reserved for a future `open "notes.txt"`
 statement (`rules.md` section 31) and future `when` events (`rules2.md`),
 neither of which exists yet. Reserving a word before its grammar exists is
 sound; D33 does not disturb it.
+
+---
+
+# Part 4 reconciliation (rules4.md)
+
+`rules4.md` confirms more than it changes — sections 12, 13, 15, 16, 17, 18
+(canonical half), 27, and 28 all independently restate decisions already
+made (D14, D17, D19, D21, D25, D27, D33) without contradicting them. Section
+17 is worth naming specifically: it arrives at D33's exact rule, unprompted,
+down to reusing `day is 7 / say day` as the example. That is strong outside
+confirmation that D33 is pointed the right way.
+
+Three items are new and safe to build now (D34-D36). Two are real open
+questions rules4 itself flags as unresolved, and are recorded as open here
+rather than decided (D37, D38). One is a tension inside rules4 itself,
+flagged rather than resolved (D39).
+
+---
+
+## D34. `plus` - a second spelling for addition, not new grammar
+
+**Verified before deciding, not assumed:** `number is number1 and 5` already
+parses and runs correctly today (`15`). Arithmetic inside a plain `is`
+assignment is not new - `Read-OtterMathExpression` is already the value
+parser for the right-hand side of every assignment, and it already accepts
+`and` as addition there. Section 4's "new direction" is a **vocabulary**
+request, not a grammar request.
+
+**Decision: `plus` lexes directly to the existing `TokenKind::And`.** No new
+`TokenKind`, no new `MathOp`, no parser change - the same one-line pattern
+as `make`/`makes` collapsing to one token (D3). `total is price plus tax`
+and `total is price and tax` become the same AST.
+
+This inherits D11's one known, accepted edge case: `plus` inside a
+*condition* would read as boolean-and, exactly as `and` already does there.
+Nobody writes `if a plus b`; D11 already decided not to add syntax to guard
+against a case no one writes, and `plus` doesn't change that math.
+
+`price and tax make total` is unaffected and stays valid - rules4 flags it
+for *review before 1.0*, not removal now. No action taken on it here.
+
+---
+
+## D35. `increase` / `decrease` - action words for numeric mutation
+
+```otter
+increase score by 5
+increase score          # implicit +1
+decrease lives          # implicit -1
+decrease health by damage
+```
+
+**Decision: these are new surface syntax over the existing `AddToStmt` /
+`RemoveFromStmt` nodes (D12) - no contract change.** `increase X` with no
+`by` synthesizes `Amount = LiteralExpr(1.0)`; `decrease X` synthesizes the
+same on the removal side. Every existing rule these nodes already carry
+applies unchanged: an undefined target is still an error naming the
+variable, and runtime dispatch is still by the target's actual type.
+
+**Numeric only - this does not touch list mutation.** `add "Pokemon" to
+games` stays the only way to append to a list; rules4's own examples never
+show `increase` or `decrease` on a list, and D12's dispatch-by-runtime-type
+behavior for lists is untouched.
+
+**Left open, not decided:** rules4 does not say whether `add`/`remove`
+should be deprecated for *numbers* now that `increase`/`decrease` exist.
+Section 4 explicitly flags `make`-arithmetic for review; it says nothing
+equivalent about `add`/`remove`. Treating silence as "no deprecation" and
+leaving `add 5 to score` fully valid, per the project's additive-only
+precedent everywhere else. If `add`/`remove` should be soft-deprecated for
+numbers the way `make`-arithmetic was flagged, that needs its own line in
+`rules4.md`, not an inference from omission.
+
+Per section 6, `increase`/`decrease` are statements only, never usable as a
+value: `number is increase number` stays invalid, matching the existing
+statement/expression split.
+
+---
+
+## D36. Bare `each` - a second spelling for the loop, not a new loop
+
+```otter
+each product in products
+    say name of product
+.
+```
+
+**Verified before deciding:** bare `each` does not parse today - checked,
+and it currently fails with *"I expected a value here"*, confirming it
+falls through to ordinary identifier handling. `each` was already flagged
+free-everywhere in `KEYWORD-AUDIT.md`.
+
+**Decision: `each` becomes a D33-mechanism-2 word** (statement-head only,
+same category as `copy`/`format`/`get`) that produces the **same
+`ForEachStmt`** the existing `for each` combiner already builds. `for each`
+stays valid - rules4 calls it "the older" form, not an invalid one, and
+nothing here removes it. This is the same coexistence pattern as D34 and
+D35: a new preferred spelling, the old one still works.
+
+No conflict with D33's own rule: `each` remains a free identifier
+everywhere except as the first token of a statement, exactly like every
+other mechanism-2 word.
+
+---
+
+## D37. `stop` - OPEN, not decided. rules4 itself says so.
+
+```otter
+to double number
+    if number is 0
+        stop
+    .
+    answer is number times 2
+    return answer
+.
+```
+
+rules4 section 14 states the semantics it wants - *"stop executing the
+current callable/process immediately without producing a return value"* -
+and then states, in the same section, that **the exact scope must be
+specified before implementation so it never ambiguously means "stop the
+entire application."** That is not a decision to build against; it is a
+decision to make.
+
+**Verified: `stop` is entirely unreserved today** - it parsed as an ordinary
+identifier and failed only because nothing named `stop` existed
+(`Otter could not find anything called "stop"`).
+
+**The natural minimal-diff implementation**, offered here as a *proposal*,
+not a decision: `stop` is sugar for `return` with no value.
+`ReturnStmt.Value` is already nullable and the interpreter's
+`OtterReturnSignal` already unwinds cleanly through nested blocks and
+through `try` (D23a). If `stop` means exactly what D23a's `return` already
+means, this needs zero new AST node and zero new interpreter logic - one
+new statement-head keyword parsed straight into `ReturnStmt(Value: $null)`.
+
+**What is actually open**, and needs Jeff's answer before this is buildable:
+
+1. Does `stop` mean anything **inside a loop** - i.e., does it also serve
+   as Otter's `break`, or is it function/event-scope only, with loop-level
+   `break`/`continue` left for later (as D23a's own wording anticipates)?
+2. Rules4 uses `stop` inside a `when ... is clicked` event handler example -
+   Otter has no `when` grammar yet (`when` is still a pre-reserved
+   placeholder per D33). Does `stop`'s spec wait for `when`, or is it
+   needed now for functions alone?
+3. If `stop` is really just `return` with no value, should it simply **be**
+   an alternate spelling of bare `return` (mirroring D34/D36's "same node,
+   new spelling" pattern), or does rules4 intend a real semantic difference
+   between "stop" and "return nothing" that I'm not seeing?
+
+Not building any of this until those are answered.
+
+---
+
+## D38. Statement continuation across lines - OPEN, needs its own design pass
+
+```otter
+get files in "Pictures" and subfolders
+    into pictures
+```
+
+This is the one item in rules4 I'm not comfortable turning into even a
+tentative proposal, because it touches the language's most load-bearing
+rule (D7): indentation **is** the block structure. Every `Indent` token
+today means "a new nested block begins." Section 10 asks for a second
+meaning - "this indented line is not a new block, it's the rest of the
+previous statement" - and the two have to be told apart somehow.
+
+Genuinely open questions, not implementation details:
+
+1. **How does the lexer know a continuation is coming, before it sees the
+   next line?** Does an incomplete statement at end-of-line signal it (the
+   parser already knows a `get files ... into <name>` statement isn't
+   finished when it hits `Newline` without ever reaching `Into`)? Or is
+   there an explicit trailing marker?
+2. **Which words may lead a continuation line?** Section 10 names
+   `where, and, with, by, in, into` as candidates, but immediately qualifies
+   it with *"only when the active grammar expects them"* - which is doing a
+   lot of work in one clause. `where`-clause filtering on `get files` has no
+   grammar at all yet (D20 documents this as unbuilt: *"the plural filter is
+   designed but not built"*, D26 note). Section 10's own filtering example
+   is speculative on top of a mechanism that is itself speculative.
+3. **Does a continuation line's indentation collide with a real nested
+   block at the same depth?** `get files in "Pictures" and subfolders` is
+   not itself a block-opening statement - but the lexer decides `Indent`
+   generically, without knowing what statement it's inside.
+
+Recommend treating this as its own milestone: freeze the answer to (1) and
+(2) as a dedicated decision before any lexer work starts, the same way D32
+froze `ClockKind`/`TimeUnit` before Codex touched the grammar. Building it
+speculatively risks exactly the kind of contract rework the whole
+contract-freeze process (`AGENTS.md`, `CLAUDE.md`) exists to prevent.
+
+---
+
+## D39. A tension inside rules4 itself, flagged rather than resolved
+
+Section 11 gives this example for `create`:
+
+```otter
+create user with
+    name is "Jeff"
+    age is 29
+.
+```
+
+This is structurally identical to what `is a thing` already does (D19) -
+an indented block of `name is <value>` properties - under a **third**
+spelling (`create X with`, alongside `X is a thing` and section 19's own
+explicitly-under-review `X has`).
+
+Section 19, two sections later, states the opposite instinct directly:
+*"Otter should ultimately prefer one canonical property-access model...
+Do not add both permanently merely as synonyms."* That principle applies
+just as directly to *object-creation* syntax as it does to the
+possessive-vs-`of` question it was written about.
+
+Not resolving this - flagging it for Jeff, since it's rules4 disagreeing
+with itself, not an implementation question. `create file "notes.txt"`
+(the other new form in section 11) has no such tension and is a clean,
+small addition once wanted: a version of `WriteFileStmt` with no content,
+or a dedicated "create an empty file" runtime op.
+
+---
+
+## Deferred, matches existing scope decisions - no action
+
+Sections 20-26 (Otter Web: buttons/text/`when` events, `otter new`/
+`otter build` project tooling, `otter.json` manifests) restate the same
+territory D16 already scoped out of the current milestone (*"0.3 is objects
+and properties only... every UI, web and database feature in Part 2 is
+built on top of them, so they come first"*). Nothing here changes that
+scoping; recorded as aligned, not as new work.
