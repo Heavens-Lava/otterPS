@@ -712,4 +712,28 @@ Test-Otter 'a UI resource does not accept dynamic get/set (D41 rule 9, inherited
     }
 }
 
+Test-Otter 'has configures an existing UI resource without replacing it' {
+    $env = New-OtterEnvironment
+    Invoke-OtterStatements -Environment $env -Statements @(
+        [CreateUiResourceStmt]::new('window', 'app', 1),
+        [ObjectDefStmt]::new('app', 'thing', @(
+            [AssignStmt]::new('title', (Lit 'Configured'), 2),
+            [AssignStmt]::new('width', (Lit 640), 2)
+        ), 2)
+    )
+    $app = $env.Get('app')
+    Assert-True (Test-OtterUiResource $app) 'has must preserve the existing UI resource.'
+    Assert-AreEqual -Expected 'Configured' -Actual $app.Native.Title
+    Assert-AreEqual -Expected 640 -Actual $app.Native.Width
+}
+
+Test-Otter 'has refuses to replace an existing non-UI value' {
+    Assert-OtterFails -Containing 'will not replace existing' -Body {
+        Invoke-TestProgram @(
+            [AssignStmt]::new('score', (Lit 10), 1),
+            [ObjectDefStmt]::new('score', 'thing', @([AssignStmt]::new('value', (Lit 20), 2)), 2)
+        )
+    }
+}
+
 Complete-OtterTests

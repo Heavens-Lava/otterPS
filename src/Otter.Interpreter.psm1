@@ -232,6 +232,20 @@ function Invoke-OtterStatement {
         #     name is "Jeff"
         # .
         'ObjectDef' {
+            if ($Environment.Has($Statement.Name)) {
+                $existing = $Environment.Get($Statement.Name)
+                if (Test-OtterUiResource $existing) {
+                    foreach ($property in $Statement.Properties) {
+                        if ($property.Target.Kind -ne [NodeKind]::Variable) {
+                            throw (New-OtterRuntimeError -Message 'A UI resource property name must be a plain name.' -Line $property.Line)
+                        }
+                        $value = Get-OtterValue -Expression $property.Value -Environment $Environment
+                        Set-OtterUiProperty -Resource $existing -Property $property.Target.Name -Value $value -Line $property.Line
+                    }
+                    return
+                }
+                throw (New-OtterRuntimeError -Message "Otter will not replace existing $((Get-OtterTypeName $existing)) called `"$($Statement.Name)`" with a new thing." -Line $Statement.Line -Suggestion 'Use a new name, or assign individual properties instead.')
+            }
             $object = New-OtterObjectValue -Statement $Statement -Environment $Environment
             $Environment.Set($Statement.Name, $object)
             return
