@@ -74,6 +74,21 @@ function Skip-OtterNewlines { while (Test-OtterTokenKind ([TokenKind]::Newline))
 
 function Read-OtterValue {
     $token = Get-OtterCurrentToken
+    # D42: a time unit followed by `between` is a date-difference value.
+    # This is deliberately checked before ordinary value parsing so the
+    # expression form can appear on the right side of `is`, in `say`, or in a
+    # condition. The statement-level D32 `... make ...` form remains separate.
+    if (Test-OtterTimeUnit $token.Kind) {
+        $next = if (($script:Position + 1) -lt $script:Tokens.Count) { $script:Tokens[$script:Position + 1] } else { $null }
+        if ($null -ne $next -and $next.Kind -eq [TokenKind]::Between) {
+            [void](Read-OtterToken)
+            [void](Read-OtterToken)
+            $start = Read-OtterValue
+            [void](Assert-OtterTokenKind ([TokenKind]::And) 'I expected "and" and the second date.')
+            $end = Read-OtterValue
+            return [DateDifferenceExpr]::new($script:OtterTimeUnits[$token.Kind], $start, $end, $token.Line)
+        }
+    }
     if ($token.Kind -in @([TokenKind]::Length, [TokenKind]::Uppercase, [TokenKind]::Lowercase, [TokenKind]::First, [TokenKind]::Last)) {
         [void](Read-OtterToken)
         [void](Assert-OtterTokenKind ([TokenKind]::Of) 'I expected "of" after this operation.')

@@ -95,8 +95,11 @@ export const pages = [
     <p>The second <code>say</code> still prints the original date, untouched.</p>
 
     <h2>The difference between two dates</h2>
-    <p><code>days between</code> gives a whole number of days between two dates:</p>
-    ${code('days between startDate and endDate make days\nsay days')}
+    <p><code>days between</code> is an expression, so assign it with the same <code>is</code> form used for every other value:</p>
+    ${code('waiting is days between startDate and endDate\nsay waiting')}
+    <p>The expression can also be used directly wherever a value is expected:</p>
+    ${code('say days between startDate and endDate')}
+    <p>The older <code>days between ... make ...</code> statement remains accepted for compatibility, but new programs should prefer the expression form.</p>
     <p>The result is signed, computed as <code>end minus start</code>:</p>
     <ul>
       <li>positive &mdash; <code>endDate</code> is later than <code>startDate</code></li>

@@ -209,6 +209,33 @@ Test-Otter 'hours between and minutes between need no new node' {
     Assert-AreEqual -Expected 'Minute' -Actual (FirstStatement 'minutes between start and finish make n').Unit.ToString()
 }
 
+Test-Otter 'date difference is an expression on the right side of is' {
+    $statement = FirstStatement 'waiting is days between startDate and endDate'
+    Assert-True ($statement -is [AssignStmt]) 'expected an AssignStmt'
+    Assert-True ($statement.Value -is [DateDifferenceExpr]) 'expected a DateDifferenceExpr value'
+    Assert-AreEqual -Expected 'Day' -Actual $statement.Value.Unit.ToString()
+    Assert-AreEqual -Expected 'startDate' -Actual $statement.Value.Start.Name
+    Assert-AreEqual -Expected 'endDate' -Actual $statement.Value.End.Name
+}
+
+Test-Otter 'date difference expression supports other units' {
+    $statement = FirstStatement 'elapsed is seconds between started and finished'
+    Assert-True ($statement.Value -is [DateDifferenceExpr]) 'expected a DateDifferenceExpr value'
+    Assert-AreEqual -Expected 'Second' -Actual $statement.Value.Unit.ToString()
+}
+
+Test-Otter 'date difference expression can be used by say' {
+    $statement = FirstStatement 'say days between startDate and endDate'
+    Assert-True ($statement.Parts[0] -is [DateDifferenceExpr]) 'expected a DateDifferenceExpr say part'
+}
+
+Test-Otter 'date difference expression can be used in a condition' {
+    $program = Parse ('if days between startDate and endDate is greater than 30' + "`n" + '    say "late"' + "`n.")
+    $condition = $program.Statements[0].Branches[0].Condition
+    Assert-True ($condition -is [ComparisonExpr]) 'expected a ComparisonExpr'
+    Assert-True ($condition.Left -is [DateDifferenceExpr]) 'expected DateDifferenceExpr on comparison left'
+}
+
 
 # =================================================================
 # the contextual lexing that holds it all together

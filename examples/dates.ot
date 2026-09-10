@@ -22,7 +22,7 @@ add 1 year to deadline
 format deadline as "MM/dd/yyyy" into printed
 say "Deadline:" printed
 
-days between date and deadline make waiting
+waiting is days between date and deadline
 say "Days to wait:" waiting
 
 if deadline is greater than date
