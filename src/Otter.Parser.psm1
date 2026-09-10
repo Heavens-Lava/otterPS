@@ -266,7 +266,10 @@ function Read-OtterInlineObjectProperties {
     $properties = [System.Collections.Generic.List[Node]]::new()
     while ($true) {
         $property = Read-OtterVariableName 'I expected a property name after "has" or a comma.'
-        [void](Assert-OtterTokenKind ([TokenKind]::Is) 'I expected "is" after the property name.')
+        # Inline has is a compact configuration list.  `is` remains accepted
+        # for compatibility, but is optional only in this comma-delimited
+        # form; ordinary assignments and multiline has keep requiring it.
+        if (Test-OtterTokenKind ([TokenKind]::Is)) { [void](Read-OtterToken) }
         $value = Read-OtterMathExpression
         $properties.Add([AssignStmt]::new($property.Text, $value, $property.Line))
         if ((Get-OtterCurrentToken).Text -ne ',') { break }

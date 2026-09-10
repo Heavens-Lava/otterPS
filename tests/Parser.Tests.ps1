@@ -315,7 +315,10 @@ if ($d47Ast.Statements[1] -isnot [ShowStmt] -or $d47Ast.Statements[1].Target.Nam
 $inlineHasSource = 'addButton has text is "Add", width is 120, height is 40, background is "#2563EB", foreground is "white"' + "`n"
 $inlineHasAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $inlineHasSource)
 if ($inlineHasAst.Statements[0] -isnot [ObjectDefStmt] -or $inlineHasAst.Statements[0].Properties.Count -ne 5 -or $inlineHasAst.Statements[0].Properties[0].Target.Name -ne 'text' -or $inlineHasAst.Statements[0].Properties[4].Target.Name -ne 'foreground') { throw 'Inline has must produce ordered property assignments.' }
-foreach ($invalidHas in @('addButton has text is "Add",', 'addButton has , width is 120', 'addButton has text "Add"', 'addButton has text is "Add" width is 120')) {
+$compactHasSource = 'panel has width windowWidth minus 40, height 300, text "Ready"' + "`n"
+$compactHasAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $compactHasSource)
+if ($compactHasAst.Statements[0] -isnot [ObjectDefStmt] -or $compactHasAst.Statements[0].Properties.Count -ne 3 -or $compactHasAst.Statements[0].Properties[0].Target.Name -ne 'width' -or $compactHasAst.Statements[0].Properties[2].Target.Name -ne 'text') { throw 'Inline has without is must parse ordered properties and expressions.' }
+foreach ($invalidHas in @('addButton has text is "Add",', 'addButton has , width is 120', 'addButton has text', 'addButton has text "Add" width 120')) {
     $rejected = $false
     try { ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source ($invalidHas + "`n")) | Out-Null } catch [OtterError] { $rejected = $true }
     if (-not $rejected) { throw "Malformed inline has should be rejected: $invalidHas" }
