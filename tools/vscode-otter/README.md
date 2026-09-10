@@ -39,9 +39,10 @@ npm run check
 - semantic completions for variables and functions discovered by the real Otter parser
 - parser-backed diagnostics for syntax errors, plus basic hover text for known variables and functions
 
-The semantic bridge currently invokes the PowerShell lexer/parser directly and
-expects the Otter repository (with `Otter.Contract.psm1`) to be available in
-the workspace or in the extension's development checkout. It is intentionally
-small and synchronous; a future Otter Language Server should replace this
-bridge and provide richer AST-aware navigation to both VS Code and Otter
-Studio.
+The semantic bridge invokes the real PowerShell lexer/parser. Packaged VSIX
+files include a frontend snapshot under `bundled-frontend/`, identified by its
+generated `manifest.json` commit. Development mode prefers that snapshot and
+can fall back to the Otter repository checkout. Rebuild the snapshot with
+`npm run bundle` before packaging a release. The bridge is intentionally small
+and synchronous; a future Otter Language Server should replace it and provide
+richer AST-aware navigation to both VS Code and Otter Studio.

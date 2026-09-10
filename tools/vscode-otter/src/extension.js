@@ -22,6 +22,8 @@ function activate(context) {
   context.subscriptions.push(diagnostics);
   function languageRoot() {
     const candidates = [];
+    const bundled = path.join(context.extensionPath, 'bundled-frontend');
+    if (fs.existsSync(path.join(bundled, 'Otter.Contract.psm1'))) candidates.push(bundled);
     for (const folder of vscode.workspace.workspaceFolders || []) candidates.push(folder.uri.fsPath);
     candidates.push(path.resolve(context.extensionPath, '..', '..'));
     return candidates.find((candidate) => fs.existsSync(path.join(candidate, 'Otter.Contract.psm1'))) || null;
