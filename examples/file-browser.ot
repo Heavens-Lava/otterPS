@@ -31,7 +31,7 @@ resultsColumn has spacing 4
 
 #scroll area so the file list stays reachable no matter how many files load (D53)
 create scroll into fileArea
-fileArea has height 350
+fileArea has width 760, height 350
 
 put resultsColumn in fileArea
 
