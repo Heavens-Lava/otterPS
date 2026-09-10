@@ -7,9 +7,9 @@ app is a page with title "Small Business Websites & Custom Web Apps | Jeffrey Ma
 # 1. TOP NAVIGATION BAR
 # ==========================================
 
-navbar is a row with justify "space-between", alignitems "center", spacing 16, padding "8px 0", width full
+navbar is a row with spread, align middle, spacing 16, padding "8px 0", width full
 
-brandGroup is a row with spacing 12, alignitems "center"
+brandGroup is a row with spacing 12, align middle
 avatarBadge is a badge with text "JM", background "#16382c", foreground "#e8d2b5", round, weight 700, size 15, padding 10
 brandInfoCol is a column with spacing 2
 brandName is a text with value "Jeffrey Macy", weight 700, size 16, foreground "#111827"
@@ -18,7 +18,7 @@ brandTagline is a text with value "Technology partner for growing businesses", s
 put brandName, brandTagline in brandInfoCol
 put avatarBadge, brandInfoCol in brandGroup
 
-navLinksRow is a row with spacing 22, alignitems "center"
+navLinksRow is a row with spacing 22, align middle
 navHome is a link with text "Home", url "#", foreground "#111827", weight 600, size 14
 navResources is a link with text "Resources", url "#", foreground "#4b5563", size 14
 navServices is a link with text "Services", url "#", foreground "#4b5563", size 14
@@ -35,12 +35,12 @@ put brandGroup, navLinksRow in navbar
 # 2. HERO SECTION (SPLIT TWO-COLUMN LAYOUT)
 # ==========================================
 
-heroRow is a row with justify "space-between", alignitems "flex-start", spacing 52, margin "20px 0 0 0", width full
+heroRow is a row with spread, align top, spacing 52, margin "20px 0 0 0", width full
 
 # --- Left Column: Editorial Headline & Upfront Pricing ---
 leftCol is a column with flex 1.05, spacing 20
 
-eyebrowRow is a row with spacing 8, alignitems "center"
+eyebrowRow is a row with spacing 8, align middle
 eyebrowDash is a text with value "―", foreground "#ea580c", weight 800, size 16
 eyebrowText is a text with value "WEBSITES FOR PEOPLE WHO CARE ABOUT THEIR CUSTOMERS", size 11, weight 700, letterspacing "0.08em", foreground "#1e4d3e"
 put eyebrowDash, eyebrowText in eyebrowRow
@@ -53,7 +53,7 @@ put headLine1, headLine2 in headlineCol
 subHead is a text with value "More than a website—build a digital home for your business.", size 18, weight 700, foreground "#1f2937"
 subDesc is a text with value "Help customers find you, understand your services, see your pricing, book appointments, make payments, access files and videos, and stay connected with your business.", size 15, foreground "#4b5563", lineheight "1.65"
 
-ctaRow is a row with spacing 16, alignitems "center"
+ctaRow is a row with spacing 16, align middle
 heroCtaBtn is a button with text "Plan My Website →", background "#184537", foreground "white", round, weight 600, padding "13px 22px", size 15
 heroEstimateBtn is a button with text "Get a Free Cost Estimate ⚡", background "#ffffff", foreground "#111827", round, border "1px solid #d1d5db", weight 600, padding "13px 22px", size 15
 put heroCtaBtn, heroEstimateBtn in ctaRow
@@ -61,12 +61,12 @@ put heroCtaBtn, heroEstimateBtn in ctaRow
 # Pricing Comparison Card
 pricingCard is a card with background "#ffffff", radius 14, border "1px solid #e5e7eb", shadow "0 4px 20px rgba(0,0,0,0.03)", padding 22, spacing 14, width full
 
-pricingHeaderRow is a row with justify "space-between", alignitems "center", width full
+pricingHeaderRow is a row with spread, align middle, width full
 pricingCardTitle is a text with value "Simple, upfront starting prices", size 14, weight 700, foreground "#111827"
 compareLink is a link with text "Compare packages", url "#", size 13, foreground "#184537", weight 600
 put pricingCardTitle, compareLink in pricingHeaderRow
 
-pricingTiersRow is a row with justify "space-between", alignitems "flex-start", spacing 0, width full
+pricingTiersRow is a row with spread, align top, spacing 0, width full
 
 tier1Col is a column with spacing 4, flex 1
 t1Name is a text with value "Starter", size 12, foreground "#6b7280"
@@ -86,7 +86,7 @@ put t3Name, t3Price in tier3Col
 put tier1Col, tier2Col, tier3Col in pricingTiersRow
 put pricingHeaderRow, pricingTiersRow in pricingCard
 
-subLinksRow is a row with spacing 14, alignitems "center"
+subLinksRow is a row with spacing 14, align middle
 subLearnLink is a link with text "I Just Want to Learn More →", url "#", size 13, foreground "#184537", weight 600
 bulletPoint is a text with value "•", foreground "#d1d5db"
 subDemosLink is a link with text "Explore Demos & Work →", url "#", size 13, foreground "#184537", weight 600
@@ -102,14 +102,14 @@ rightCol is a column with flex 1, spacing 16
 mockupOuterFrame is a card with background "rgba(255, 255, 255, 0.45)", border "1px solid rgba(255, 255, 255, 0.85)", radius 28, padding 28, shadow "0 30px 60px -15px rgba(24, 69, 55, 0.08), 0 10px 25px rgba(0,0,0,0.03)", width full
 mockupCard is a card with background "#ffffff", radius 16, border "1px solid #eef0ea", shadow "0 10px 25px rgba(0, 0, 0, 0.04)", padding 24, spacing 14, width full
 
-mockupTopRow is a row with spacing 8, alignitems "center", width full
+mockupTopRow is a row with spacing 8, align middle, width full
 dot1 is a badge with text " ", background "#ef4444", round, padding 4, size 7
 dot2 is a badge with text " ", background "#f59e0b", round, padding 4, size 7
 dot3 is a badge with text " ", background "#10b981", round, padding 4, size 7
 mockUrl is a text with value "estimator.jeffreymacy.com", size 11, foreground "#9ca3af"
 put dot1, dot2, dot3, mockUrl in mockupTopRow
 
-stepSubheadRow is a row with justify "space-between", alignitems "center", width full
+stepSubheadRow is a row with spread, align middle, width full
 stepBackText is a text with value "< SIMPLE FIRST STEP", size 11, weight 700, foreground "#ea580c", letterspacing "0.04em"
 stepNumberText is a text with value "STEP 2 OF 3", size 11, weight 600, foreground "#9ca3af"
 put stepBackText, stepNumberText in stepSubheadRow
@@ -128,7 +128,7 @@ bizDescLabel is a text with value "What does your business do? (Optional)", size
 bizDescBox is a text box with placeholder "e.g. Residential architecture and landscape design"
 
 # Questions 3 & 4 (Side by side)
-splitFieldsRow is a row with spacing 12, alignitems "flex-start", width full
+splitFieldsRow is a row with spacing 12, align top, width full
 
 fieldACol is a column with spacing 4, flex 1
 fieldALabel is a text with value "Already have a website? (Optional)", size 12, weight 600, foreground "#374151"
@@ -142,7 +142,7 @@ put fieldBLabel, siteWantsBox in fieldBCol
 
 put fieldACol, fieldBCol in splitFieldsRow
 
-bottomActionRow is a row with justify "space-between", alignitems "center", spacing 12, width full
+bottomActionRow is a row with spread, align middle, spacing 12, width full
 continueBtn is a button with text "Continue to Step 3 →", background "#184537", foreground "white", round, weight 600, padding 12, size 14
 stepStatusText is a text with value "Step 2 of 3 • Free instant estimate ready", size 12, foreground "#166534", weight 600
 put continueBtn, stepStatusText in bottomActionRow
@@ -157,7 +157,7 @@ put leftCol, rightCol in heroRow
 # 3. FLOATING WIDGETS
 # ==========================================
 
-floatingDock is a row with position "fixed", bottom 24, right 28, zindex 999, spacing 12, alignitems "center"
+floatingDock is a row with position "fixed", bottom 24, right 28, zindex 999, spacing 12, align middle
 chatWidgetBtn is a button with text "💬 Ask how Jeffrey can help", background "#163b2c", foreground "white", round, weight 600, padding 12, size 14, shadow "0 10px 25px rgba(22,59,44,0.3)"
 accessibilityBtn is a button with text "🌐", background "#163b2c", foreground "white", round, padding 12, size 14, shadow "0 10px 25px rgba(22,59,44,0.3)"
 put chatWidgetBtn, accessibilityBtn in floatingDock
