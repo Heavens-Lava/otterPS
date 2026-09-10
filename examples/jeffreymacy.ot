@@ -1,16 +1,16 @@
 # jeffreymacy.ot - Pixel-perfect recreation of www.jeffreymacy.com
 # Built with pure Otter code using our modern Web Application Compiler (D50)
 
-app is a page with title "Small Business Websites & Custom Web Apps | Jeffrey Macy", hideheader true, width "100%", maxwidth 1320, background "radial-gradient(ellipse at 85% 20%, rgba(205, 238, 218, 0.65) 0%, rgba(230, 246, 236, 0.35) 45%, rgba(251, 251, 249, 0) 70%), #fbfbf9", foreground "#111827", spacing 24, padding 28
+app is a page with title "Small Business Websites & Custom Web Apps | Jeffrey Macy", hideheader true, width full, maxwidth 1320, background "radial-gradient(ellipse at 85% 20%, rgba(205, 238, 218, 0.65) 0%, rgba(230, 246, 236, 0.35) 45%, rgba(251, 251, 249, 0) 70%), #fbfbf9", foreground "#111827", spacing 24, padding 28
 
 # ==========================================
 # 1. TOP NAVIGATION BAR
 # ==========================================
 
-navbar is a row with justify "space-between", alignitems "center", spacing 16, padding "8px 0", width "100%"
+navbar is a row with justify "space-between", alignitems "center", spacing 16, padding "8px 0", width full
 
 brandGroup is a row with spacing 12, alignitems "center"
-avatarBadge is a badge with text "JM", background "#16382c", foreground "#e8d2b5", radius 9999, weight 700, size 15, padding 10
+avatarBadge is a badge with text "JM", background "#16382c", foreground "#e8d2b5", round, weight 700, size 15, padding 10
 brandInfoCol is a column with spacing 2
 brandName is a text with value "Jeffrey Macy", weight 700, size 16, foreground "#111827"
 brandTagline is a text with value "Technology partner for growing businesses", size 12, foreground "#6b7280"
@@ -24,8 +24,8 @@ navResources is a link with text "Resources", url "#", foreground "#4b5563", siz
 navServices is a link with text "Services", url "#", foreground "#4b5563", size 14
 navProjects is a link with text "Projects", url "#", foreground "#4b5563", size 14
 navAbout is a link with text "About", url "#", foreground "#4b5563", size 14
-themePill is a badge with text "☀️ ↻", background "#f3f4f6", foreground "#4b5563", radius 9999, border "1px solid #e5e7eb", padding 6, size 12
-navPlanBtn is a button with text "Plan My Website →", background "#184537", foreground "white", radius 9999, weight 600, padding "9px 18px", size 14
+themePill is a badge with text "☀️ ↻", background "#f3f4f6", foreground "#4b5563", round, border "1px solid #e5e7eb", padding 6, size 12
+navPlanBtn is a button with text "Plan My Website →", background "#184537", foreground "white", round, weight 600, padding "9px 18px", size 14
 navLogin is a link with text "Log in", url "#", foreground "#4b5563", weight 500, size 14
 
 put navHome, navResources, navServices, navProjects, navAbout, themePill, navPlanBtn, navLogin in navLinksRow
@@ -35,7 +35,7 @@ put brandGroup, navLinksRow in navbar
 # 2. HERO SECTION (SPLIT TWO-COLUMN LAYOUT)
 # ==========================================
 
-heroRow is a row with justify "space-between", alignitems "flex-start", spacing 52, margin "20px 0 0 0", width "100%"
+heroRow is a row with justify "space-between", alignitems "flex-start", spacing 52, margin "20px 0 0 0", width full
 
 # --- Left Column: Editorial Headline & Upfront Pricing ---
 leftCol is a column with flex 1.05, spacing 20
@@ -54,19 +54,19 @@ subHead is a text with value "More than a website—build a digital home for you
 subDesc is a text with value "Help customers find you, understand your services, see your pricing, book appointments, make payments, access files and videos, and stay connected with your business.", size 15, foreground "#4b5563", lineheight "1.65"
 
 ctaRow is a row with spacing 16, alignitems "center"
-heroCtaBtn is a button with text "Plan My Website →", background "#184537", foreground "white", radius 9999, weight 600, padding "13px 22px", size 15
-heroEstimateBtn is a button with text "Get a Free Cost Estimate ⚡", background "#ffffff", foreground "#111827", radius 9999, border "1px solid #d1d5db", weight 600, padding "13px 22px", size 15
+heroCtaBtn is a button with text "Plan My Website →", background "#184537", foreground "white", round, weight 600, padding "13px 22px", size 15
+heroEstimateBtn is a button with text "Get a Free Cost Estimate ⚡", background "#ffffff", foreground "#111827", round, border "1px solid #d1d5db", weight 600, padding "13px 22px", size 15
 put heroCtaBtn, heroEstimateBtn in ctaRow
 
 # Pricing Comparison Card
-pricingCard is a card with background "#ffffff", radius 14, border "1px solid #e5e7eb", shadow "0 4px 20px rgba(0,0,0,0.03)", padding 22, spacing 14, width "100%"
+pricingCard is a card with background "#ffffff", radius 14, border "1px solid #e5e7eb", shadow "0 4px 20px rgba(0,0,0,0.03)", padding 22, spacing 14, width full
 
-pricingHeaderRow is a row with justify "space-between", alignitems "center", width "100%"
+pricingHeaderRow is a row with justify "space-between", alignitems "center", width full
 pricingCardTitle is a text with value "Simple, upfront starting prices", size 14, weight 700, foreground "#111827"
 compareLink is a link with text "Compare packages", url "#", size 13, foreground "#184537", weight 600
 put pricingCardTitle, compareLink in pricingHeaderRow
 
-pricingTiersRow is a row with justify "space-between", alignitems "flex-start", spacing 0, width "100%"
+pricingTiersRow is a row with justify "space-between", alignitems "flex-start", spacing 0, width full
 
 tier1Col is a column with spacing 4, flex 1
 t1Name is a text with value "Starter", size 12, foreground "#6b7280"
@@ -99,22 +99,22 @@ put eyebrowRow, headlineCol, subHead, subDesc, ctaRow, pricingCard, subLinksRow,
 # --- Right Column: Interactive Browser Scope Estimator ---
 rightCol is a column with flex 1, spacing 16
 
-mockupOuterFrame is a card with background "rgba(255, 255, 255, 0.45)", border "1px solid rgba(255, 255, 255, 0.85)", radius 28, padding 28, shadow "0 30px 60px -15px rgba(24, 69, 55, 0.08), 0 10px 25px rgba(0,0,0,0.03)", width "100%"
-mockupCard is a card with background "#ffffff", radius 16, border "1px solid #eef0ea", shadow "0 10px 25px rgba(0, 0, 0, 0.04)", padding 24, spacing 14, width "100%"
+mockupOuterFrame is a card with background "rgba(255, 255, 255, 0.45)", border "1px solid rgba(255, 255, 255, 0.85)", radius 28, padding 28, shadow "0 30px 60px -15px rgba(24, 69, 55, 0.08), 0 10px 25px rgba(0,0,0,0.03)", width full
+mockupCard is a card with background "#ffffff", radius 16, border "1px solid #eef0ea", shadow "0 10px 25px rgba(0, 0, 0, 0.04)", padding 24, spacing 14, width full
 
-mockupTopRow is a row with spacing 8, alignitems "center", width "100%"
-dot1 is a badge with text " ", background "#ef4444", radius 9999, padding 4, size 7
-dot2 is a badge with text " ", background "#f59e0b", radius 9999, padding 4, size 7
-dot3 is a badge with text " ", background "#10b981", radius 9999, padding 4, size 7
+mockupTopRow is a row with spacing 8, alignitems "center", width full
+dot1 is a badge with text " ", background "#ef4444", round, padding 4, size 7
+dot2 is a badge with text " ", background "#f59e0b", round, padding 4, size 7
+dot3 is a badge with text " ", background "#10b981", round, padding 4, size 7
 mockUrl is a text with value "estimator.jeffreymacy.com", size 11, foreground "#9ca3af"
 put dot1, dot2, dot3, mockUrl in mockupTopRow
 
-stepSubheadRow is a row with justify "space-between", alignitems "center", width "100%"
+stepSubheadRow is a row with justify "space-between", alignitems "center", width full
 stepBackText is a text with value "< SIMPLE FIRST STEP", size 11, weight 700, foreground "#ea580c", letterspacing "0.04em"
 stepNumberText is a text with value "STEP 2 OF 3", size 11, weight 600, foreground "#9ca3af"
 put stepBackText, stepNumberText in stepSubheadRow
 
-progressBarLine is a badge with text " ", background "#ea580c", height 3, radius 2, padding 0, width "100%"
+progressBarLine is a badge with text " ", background "#ea580c", height 3, radius 2, padding 0, width full
 categoryLabel is a text with value "YOUR BUSINESS", size 11, weight 700, letterspacing "0.06em", foreground "#ea580c"
 stepTitle is a text with value "Tell me whatever you know.", size 24, weight 800, foreground "#111827"
 stepSubtitle is a text with value "Even if it's options. A sentence is enough, and 'I'm not sure' is a great answer.", size 13, foreground "#6b7280"
@@ -128,7 +128,7 @@ bizDescLabel is a text with value "What does your business do? (Optional)", size
 bizDescBox is a text box with placeholder "e.g. Residential architecture and landscape design"
 
 # Questions 3 & 4 (Side by side)
-splitFieldsRow is a row with spacing 12, alignitems "flex-start", width "100%"
+splitFieldsRow is a row with spacing 12, alignitems "flex-start", width full
 
 fieldACol is a column with spacing 4, flex 1
 fieldALabel is a text with value "Already have a website? (Optional)", size 12, weight 600, foreground "#374151"
@@ -142,8 +142,8 @@ put fieldBLabel, siteWantsBox in fieldBCol
 
 put fieldACol, fieldBCol in splitFieldsRow
 
-bottomActionRow is a row with justify "space-between", alignitems "center", spacing 12, width "100%"
-continueBtn is a button with text "Continue to Step 3 →", background "#184537", foreground "white", radius 9999, weight 600, padding 12, size 14
+bottomActionRow is a row with justify "space-between", alignitems "center", spacing 12, width full
+continueBtn is a button with text "Continue to Step 3 →", background "#184537", foreground "white", round, weight 600, padding 12, size 14
 stepStatusText is a text with value "Step 2 of 3 • Free instant estimate ready", size 12, foreground "#166534", weight 600
 put continueBtn, stepStatusText in bottomActionRow
 
@@ -158,8 +158,8 @@ put leftCol, rightCol in heroRow
 # ==========================================
 
 floatingDock is a row with position "fixed", bottom 24, right 28, zindex 999, spacing 12, alignitems "center"
-chatWidgetBtn is a button with text "💬 Ask how Jeffrey can help", background "#163b2c", foreground "white", radius 9999, weight 600, padding 12, size 14, shadow "0 10px 25px rgba(22,59,44,0.3)"
-accessibilityBtn is a button with text "🌐", background "#163b2c", foreground "white", radius 9999, padding 12, size 14, shadow "0 10px 25px rgba(22,59,44,0.3)"
+chatWidgetBtn is a button with text "💬 Ask how Jeffrey can help", background "#163b2c", foreground "white", round, weight 600, padding 12, size 14, shadow "0 10px 25px rgba(22,59,44,0.3)"
+accessibilityBtn is a button with text "🌐", background "#163b2c", foreground "white", round, padding 12, size 14, shadow "0 10px 25px rgba(22,59,44,0.3)"
 put chatWidgetBtn, accessibilityBtn in floatingDock
 
 # ==========================================
