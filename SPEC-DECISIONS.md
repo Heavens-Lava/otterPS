@@ -4022,18 +4022,32 @@ slices that follow this one, once this architecture is frozen.
 ### Migration status (keep this table honest as work lands)
 
 **ALREADY PROVEN** (real `.ot` programs compiling and passing tests
-today, via `Otter.Web.psm1`):
+today, verified through the real production CLI, not just unit tests
+calling the emitter directly):
 - Assignment, arithmetic, comparisons, logic (`and`/`or`/`not`)
 - `if` / `while` / `for each` / `repeat`
-- Functions, objects
+- Objects
+- `count from ... to ... as ...` loops (Phase 1B, `86b3509`) — every
+  semantic verified against the real interpreter first: inclusive
+  bounds, descending ranges, bounds evaluated once, no per-iteration
+  variable scope, `stop` needing no special case
+- Event-handler JS functions — `when <x> is clicked` (and similar)
+  compile to a real JS function/closure today and were used to prove
+  Phase 1B's function-scope case
 - `try` / `otherwise`
 - HTTP GET / POST
 - Web UI compilation (real sample apps: `jeffreymacy.ot`, `portal.ot`,
   `calculator.ot`, `counter.ot`, `hello-app.ot`)
 
-**MISSING FROM THE JS BACKEND** (verified absent by direct inspection of
-`Otter.Web.psm1` — zero references found):
-- `count from ... to ... as ...` loops
+**MISSING FROM THE JS BACKEND** (verified absent by direct inspection,
+not assumed):
+- **Function declarations/calls (general, non-handler) — a real,
+  separate parity gap, not "Functions ✅" as originally (incorrectly)
+  recorded here.** Verified directly: a plain `to <name> ... .`
+  function's body does not compile into a real callable JS function
+  today; only a narrow declarative-UI-root-scanning pattern reuses the
+  function AST at all. Event-handler bodies (the bullet above) are a
+  different, already-proven mechanism — do not conflate the two.
 - list literals (`games are ... .`)
 - collection/string operations (`length of`, `uppercase of`, `sort`,
   `replace`, `split`, `join`, `find`)
@@ -4054,9 +4068,13 @@ architecture above, but the agreed starting order)
    proven generic JS generation out of `Otter.Web.psm1` into it without
    changing observable behavior — web keeps passing its existing tests
    throughout.
-2. Close NodeKind parity systematically, in this order: count loops,
-   list literals, string operations, collection operations, JSON,
-   random, diagnostics, dates.
+2. Close NodeKind parity systematically. Current order (count loops
+   done, `86b3509`; list literals in progress): count loops, list
+   literals, string operations, collection operations, **function
+   declarations/calls** (moved ahead of JSON once Phase 1B proved this
+   is a real, separate gap, not something already proven — too many
+   realistic Otter programs depend on functions to leave this late),
+   JSON, random, diagnostics, dates.
 3. Every addition is verified the same way: `.ot` source through the
    real production CLI, through the JS compiler, through an actual JS
    runtime, to an observed result — not a unit test calling the emitter
