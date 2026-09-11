@@ -174,6 +174,21 @@ enum TokenKind {
     Start           # start api
     Listen          # listen on port 8080
 
+    # --- declarative UI, reactivity, animation (D56) ------------
+    Layout          # layout row / layout column / layout cards
+    Gap             # gap 20
+    State           # state count is 0
+    Derive          # derive total is price * quantity
+    Memo            # memo sortedItems
+    On              # on start / on close
+    Await           # await get "/api/products"
+    Shared          # shared theme is "dark"
+    Use             # use files / use json / use ui
+    Focus           # focus searchBox
+    Hide            # hide sidebar
+    Animate         # animate 200ms ease-out
+    Motion          # motion pop
+
     # --- structure ----------------------------------------------
     Indent          # one level deeper (D7)
     Dedent          # one level shallower
@@ -323,6 +338,21 @@ enum NodeKind {
     Respond
     StartServer
     ListenServer
+
+    # declarative UI, reactivity, animation (D56)
+    UiElement
+    UiLayout
+    StateDef
+    DeriveDef
+    MemoDef
+    UiEvent
+    Watch
+    Lifecycle
+    UiAnimation
+    Await
+    SharedState
+    UiAction
+    UseModule
 }
 
 enum MathOp { Add; Subtract; Multiply; Divide }
@@ -1474,6 +1504,184 @@ class ListenServerStmt : Node {
     ListenServerStmt([Node]$port, [int]$line)
         : base([NodeKind]::ListenServer, $line) {
         $this.Port = $port
+    }
+}
+
+
+# ===============================================================
+# DECLARATIVE UI, REACTIVITY & ANIMATION (D56)
+# ===============================================================
+
+class ResponsiveRule {
+    [string]$Breakpoint  # 'small', 'medium', 'large'
+    [int]$Columns        # e.g. 2 in 'columns 2 on medium'
+    [bool]$Stack         # true if 'stack on small'
+    ResponsiveRule([string]$breakpoint, [int]$columns, [bool]$stack) {
+        $this.Breakpoint = $breakpoint
+        $this.Columns = $columns
+        $this.Stack = $stack
+    }
+}
+
+class UiLayoutSpec {
+    [string]$Mode
+    [string]$Align
+    [bool]$Spread
+    [Node]$Gap
+    [Node]$Columns
+    [object[]]$Responsive
+    UiLayoutSpec() {
+        $this.Mode = $null
+        $this.Align = $null
+        $this.Spread = $false
+        $this.Gap = $null
+        $this.Columns = $null
+        $this.Responsive = @()
+    }
+}
+
+class UiAnimationStep {
+    [string]$Operation   # 'fade', 'move', 'scale', 'rotate', 'slide', 'grow', 'shrink'
+    [string]$Direction   # 'in', 'out', 'up', 'down', 'left', 'right'
+    [Node]$Amount
+    UiAnimationStep([string]$operation, [string]$direction, [Node]$amount) {
+        $this.Operation = $operation
+        $this.Direction = $direction
+        $this.Amount = $amount
+    }
+}
+
+class UiAnimationBlock : Node {
+    [string]$Trigger     # 'hover', 'press', 'enter', 'leave'
+    [UiAnimationStep[]]$Steps
+    [double]$DurationMs
+    [string]$Easing      # 'ease', 'ease-out', 'ease-in', 'linear', 'spring'
+    UiAnimationBlock([string]$trigger, [UiAnimationStep[]]$steps, [double]$durationMs, [string]$easing, [int]$line)
+        : base([NodeKind]::UiAnimation, $line) {
+        $this.Trigger = $trigger
+        $this.Steps = $steps
+        $this.DurationMs = $durationMs
+        $this.Easing = $easing
+    }
+}
+
+class UiEventStmt : Node {
+    [string]$EventName   # 'click', 'change', 'input', 'submit', 'hover', 'press', 'focus', 'blur'
+    [Node[]]$Body
+    UiEventStmt([string]$eventName, [Node[]]$body, [int]$line)
+        : base([NodeKind]::UiEvent, $line) {
+        $this.EventName = $eventName
+        $this.Body = $body
+    }
+}
+
+class UiElementStmt : Node {
+    [string]$Tag
+    [string]$Variant
+    [Node]$Label
+    [string]$Name
+    [UiLayoutSpec]$Layout
+    [Node[]]$Properties
+    [Node[]]$Events
+    [Node[]]$Animations
+    [Node[]]$Children
+    UiElementStmt([string]$tag, [string]$variant, [Node]$label, [string]$name, [UiLayoutSpec]$layout, [Node[]]$properties, [Node[]]$events, [Node[]]$animations, [Node[]]$children, [int]$line)
+        : base([NodeKind]::UiElement, $line) {
+        $this.Tag = $tag
+        $this.Variant = $variant
+        $this.Label = $label
+        $this.Name = $name
+        $this.Layout = $layout
+        $this.Properties = $properties
+        $this.Events = $events
+        $this.Animations = $animations
+        $this.Children = $children
+    }
+}
+
+class StateDefStmt : Node {
+    [string]$Name
+    [Node]$InitialValue
+    StateDefStmt([string]$name, [Node]$initialValue, [int]$line)
+        : base([NodeKind]::StateDef, $line) {
+        $this.Name = $name
+        $this.InitialValue = $initialValue
+    }
+}
+
+class DeriveDefStmt : Node {
+    [string]$Name
+    [Node]$Expression
+    DeriveDefStmt([string]$name, [Node]$expression, [int]$line)
+        : base([NodeKind]::DeriveDef, $line) {
+        $this.Name = $name
+        $this.Expression = $expression
+    }
+}
+
+class MemoDefStmt : Node {
+    [string]$Name
+    [Node[]]$Body
+    MemoDefStmt([string]$name, [Node[]]$body, [int]$line)
+        : base([NodeKind]::MemoDef, $line) {
+        $this.Name = $name
+        $this.Body = $body
+    }
+}
+
+class WatchStmt : Node {
+    [string]$TargetName
+    [Node[]]$Body
+    WatchStmt([string]$targetName, [Node[]]$body, [int]$line)
+        : base([NodeKind]::Watch, $line) {
+        $this.TargetName = $targetName
+        $this.Body = $body
+    }
+}
+
+class LifecycleStmt : Node {
+    [string]$Stage       # 'start', 'close'
+    [Node[]]$Body
+    LifecycleStmt([string]$stage, [Node[]]$body, [int]$line)
+        : base([NodeKind]::Lifecycle, $line) {
+        $this.Stage = $stage
+        $this.Body = $body
+    }
+}
+
+class AwaitExpr : Node {
+    [Node]$Expression
+    AwaitExpr([Node]$expression, [int]$line)
+        : base([NodeKind]::Await, $line) {
+        $this.Expression = $expression
+    }
+}
+
+class SharedStateStmt : Node {
+    [string]$Name
+    [Node]$InitialValue
+    SharedStateStmt([string]$name, [Node]$initialValue, [int]$line)
+        : base([NodeKind]::SharedState, $line) {
+        $this.Name = $name
+        $this.InitialValue = $initialValue
+    }
+}
+
+class UiActionStmt : Node {
+    [string]$Action      # 'focus', 'hide', 'show'
+    [Node]$Target
+    UiActionStmt([string]$action, [Node]$target, [int]$line)
+        : base([NodeKind]::UiAction, $line) {
+        $this.Action = $action
+        $this.Target = $target
+    }
+}
+
+class UseModuleStmt : Node {
+    [string]$Module
+    UseModuleStmt([string]$module, [int]$line)
+        : base([NodeKind]::UseModule, $line) {
+        $this.Module = $module
     }
 }
 
