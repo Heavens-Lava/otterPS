@@ -3847,6 +3847,61 @@ contract.
 
 ## LANGUAGE DESIGN: FROZEN. V1 RUNTIME SEMANTICS: FROZEN. V1 DOGFOOD: PASSED. AUTOMATED REGRESSION: GREEN.
 
+### D56 / V1 scope note (added after auditing `a6b5152`)
+
+`a6b5152` ("renderers: connect declarative UI, reactivity, and
+animations to Web and Windows WPF") landed after D56 was frozen above,
+claiming to connect exactly the surface D56 excluded. Audited directly
+against the real production path, not against its own tests. Verdict:
+**D56 stands exactly as frozen. Nothing here changes it.**
+
+Declarative `UiElement` rendering, `UiEvent`, `UiAnimation`,
+`UiAction`, the semantic `card`/`heading`/`primary button`/`secondary
+button`/`danger button` variants, and the whole `counter.ot`
+declarative surface are **POST-V1**, confirmed rather than merely
+reasserted:
+
+- The Web compiler support is real — verified `ConvertTo-OtterWeb`
+  (the same production function `portal.ot`/`jeffreymacy.ot`/
+  `hello-app.ot` already use) produces genuine `@keyframes`, hover
+  rules, and `data-otter-bind` attributes for `counter.ot`.
+- A WPF renderer implementation exists (`Show-OtterDeclarativeAppWpf`,
+  `ConvertTo-OtterWpfWindow`, `ConvertTo-OtterWpfElement`,
+  `Render-OtterDeclarativeElementWpf`, `Add-OtterUiAnimationWpf` in
+  `Otter.UI.psm1`) — but is **not connected to `Invoke-OtterProgram` /
+  `otter.ps1`**, confirmed by finding zero references to any of them
+  anywhere in `Otter.Interpreter.psm1` or `otter.ps1`. The only caller
+  anywhere in the repository is a test that invokes
+  `ConvertTo-OtterWpfWindow` directly.
+- Running `examples/experimental/counter.ot` through the real
+  `ConvertTo-OtterTokens` → `ConvertTo-OtterAst` →
+  `Invoke-OtterProgram` pipeline — the exact path `otter.ps1` uses —
+  completes with zero errors and zero observable output. No window.
+  Real desktop execution of the declarative tree is therefore inert,
+  regardless of the renderer code's own internal quality (which is
+  reasonable where checked — animation composition correctly reuses an
+  existing `TransformGroup` rather than destroying it).
+- Cross-target semantics are not unified: `gap` (this system) and
+  `spacing` (D48, frozen) mean the same thing through two separate,
+  non-interacting mechanisms; this system's `align` handling is a
+  third independent implementation, parallel to both D45's and D54's.
+
+**Do not treat a test that calls a renderer function directly as v1
+runtime certification.** Proving `ConvertTo-OtterWpfWindow` works in
+isolation proves the renderer works in isolation — it does not prove
+`otter counter.ot` can reach it, and it currently cannot.
+
+The only reactive language features retained IN v1 remain exactly
+D56's original list: `state`, `derive`, `when <x> changes`.
+
+**Permanent process rule from this audit, kept beyond v1**: *a renderer
+capability is not considered shipped until a real `.ot` file reaches it
+through the same production entry point a user invokes.* Also recorded
+in `CLAUDE.md`, since it governs how every future audit verifies a
+claim like "connected," not just this one.
+
+---
+
 D1 through D56 constitute the frozen Otter v1 language and runtime.
 Task List, File Browser, and Contact Manager — three independently
 substantial applications exercising forms, nested containers, dynamic

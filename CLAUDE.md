@@ -128,6 +128,20 @@ before a single line of the parser exists.
   captured by the closure, and mutate a field on it rather than
   reassigning the variable itself. This applies to test harnesses only;
   it has nothing to do with Otter's own interpreter or runtime.
+- **A renderer capability is not considered shipped until a real `.ot`
+  file reaches it through the same production entry point a user
+  invokes** (`otter.ps1` → `Invoke-OtterProgram`, for desktop; the real
+  `ConvertTo-OtterWeb` call, for web). A test calling a renderer
+  function directly — `ConvertTo-OtterWpfWindow`, or similar — proves
+  that function works in isolation, not that any real program can reach
+  it. Found during the `a6b5152` audit: a whole declarative UI/
+  animation WPF renderer existed, had passing tests, and was completely
+  unreachable from `otter counter.ot` — zero references to any of its
+  functions existed anywhere in `Otter.Interpreter.psm1` or `otter.ps1`.
+  Verify reachability by running the actual `.ot` file through the real
+  pipeline before trusting a "connected" or "implemented" claim, every
+  time — this is the single highest-value adversarial check in an
+  audit, worth doing before any of the others.
 
 ## Before you hand off
 
