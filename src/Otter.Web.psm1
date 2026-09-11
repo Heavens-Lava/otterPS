@@ -399,8 +399,13 @@ function ConvertTo-OtterWeb {
             continue
         }
         if ($stmt -is [FunctionDefStmt]) {
+            # D60 Phase 1F: also let this reach the normal top-level
+            # compilation pass (below) so it compiles to a real callable JS
+            # function, in addition to the existing $functions lookup this
+            # file already uses for declarative-UI-root scanning. No
+            # `continue` - deliberately falls through to
+            # $topLevelStatements.Add($stmt) at the end of this loop.
             $functions[$stmt.Name] = $stmt
-            continue
         }
         if ($stmt -is [UiElementStmt]) {
             $declarativeRoots.Add($stmt)

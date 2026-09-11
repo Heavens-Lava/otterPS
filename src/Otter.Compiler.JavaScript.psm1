@@ -172,6 +172,18 @@ function ConvertTo-OtterJsExpression {
                 default { return "null" }
             }
         }
+        ([NodeKind]::Call) {
+            # D60 Phase 1F. Same call emission as CallStatement, for the
+            # bare-expression form of the same NodeKind (Invoke-OtterCall
+            # backs both). Kept for completeness with the interpreter's own
+            # 'Call' expression case, even though the current parser only
+            # appears to construct CallExpr already wrapped in a CallStmt
+            # (checked directly: every CallExpr]::new( site in
+            # Otter.Parser.psm1 is immediately wrapped in a CallStmt) - no
+            # confirmed syntax today nests a call inside a larger expression.
+            $argsJs = @(foreach ($a in $Expr.Arguments) { ConvertTo-OtterJsExpression -Expr $a })
+            return "$($Expr.Name)($($argsJs -join ', '))"
+        }
         default {
             return "null"
         }
@@ -181,7 +193,20 @@ function ConvertTo-OtterJsExpression {
 function ConvertTo-OtterJsStatement {
     param(
         [Parameter(Mandatory)][Node]$Stmt,
-        [int]$Indent = 2
+        [int]$Indent = 2,
+
+        # D60 Phase 1F. Null/omitted everywhere except inside a function
+        # body - top-level, event-handler, and loop-body compilation all
+        # keep their existing behavior of writing plain variables to
+        # window.<name> (or otterState), unchanged. Only FunctionDef's own
+        # compilation populates this with the set of names that must be
+        # genuinely LOCAL to that function (parameters plus any name
+        # assigned via `is` inside the body) - verified against the
+        # interpreter that a function's local variables are discarded when
+        # it returns (Environment rooted fresh at $script:GlobalEnvironment
+        # per call), so `total is ...` inside a function must become a
+        # real JS `let`, never a window write, or it would leak.
+        [System.Collections.Generic.HashSet[string]]$LocalNames = $null
     )
 
     $pad = '  ' * $Indent
@@ -206,6 +231,35 @@ function ConvertTo-OtterJsStatement {
             }
             $varName = if ($Stmt.Target -is [VariableExpr]) { $Stmt.Target.Name } else { [string]$Stmt.Target }
             $valExpr = ConvertTo-OtterJsExpression -Expr $Stmt.Value
+            if ($LocalNames -and $LocalNames.Contains($varName)) {
+                # Inside a function, and this name is genuinely local
+                # (a parameter, or first assigned inside this function's own
+                # body) - a real JS local write, never window, so it is
+                # discarded when the function returns, matching the
+                # interpreter's fresh-per-call environment exactly.
+                return "${pad}$varName = $valExpr;"
+            }
+            return "${pad}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$varName' in otterState)) { otterSetState('$varName', $valExpr); } else { window.$varName = $valExpr; }"
+        }
+        ([NodeKind]::MathInto) {
+            # D60 Phase 1F. Found while verifying recursion (Jeff's own
+            # factorial test case uses `n minus 1 make sub`) - a completely
+            # separate NodeKind from Assign, for the "X op Y make Z" surface
+            # form, but Otter.Interpreter.psm1's 'MathInto' case is
+            # IDENTICAL to Assign's plain-variable path: evaluate the
+            # expression, `Environment.Set(Target, value)` - same method,
+            # same semantics, different syntax. Missing this NodeKind
+            # entirely (it was never in scope for any earlier phase) meant
+            # `n minus 1 make sub` compiled to nothing at all (silent
+            # Statement-default no-op), leaving `sub` truly undeclared -
+            # confirmed via real JS execution: ReferenceError, not a wrong
+            # value. Reuses Assign's exact write logic, including the same
+            # LocalNames-aware local-vs-window choice.
+            $varName = $Stmt.Target
+            $valExpr = ConvertTo-OtterJsExpression -Expr $Stmt.Expression
+            if ($LocalNames -and $LocalNames.Contains($varName)) {
+                return "${pad}$varName = $valExpr;"
+            }
             return "${pad}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$varName' in otterState)) { otterSetState('$varName', $valExpr); } else { window.$varName = $valExpr; }"
         }
         ([NodeKind]::Say) {
@@ -221,7 +275,7 @@ function ConvertTo-OtterJsStatement {
                 $keyword = if ($first) { "if ($cond)" } else { "else if ($cond)" }
                 $lines.Add("${pad}$keyword {")
                 foreach ($s in $branch.Body) {
-                    $lines.Add((ConvertTo-OtterJsStatement -Stmt $s -Indent ($Indent + 1)))
+                    $lines.Add((ConvertTo-OtterJsStatement -Stmt $s -Indent ($Indent + 1) -LocalNames $LocalNames))
                 }
                 $lines.Add("${pad}}")
                 $first = $false
@@ -229,7 +283,7 @@ function ConvertTo-OtterJsStatement {
             if ($Stmt.ElseBody -and $Stmt.ElseBody.Count -gt 0) {
                 $lines.Add("${pad}else {")
                 foreach ($s in $Stmt.ElseBody) {
-                    $lines.Add((ConvertTo-OtterJsStatement -Stmt $s -Indent ($Indent + 1)))
+                    $lines.Add((ConvertTo-OtterJsStatement -Stmt $s -Indent ($Indent + 1) -LocalNames $LocalNames))
                 }
                 $lines.Add("${pad}}")
             }
@@ -240,7 +294,7 @@ function ConvertTo-OtterJsStatement {
             $lines = [System.Collections.Generic.List[string]]::new()
             $lines.Add("${pad}while ($cond) {")
             foreach ($s in $Stmt.Body) {
-                $lines.Add((ConvertTo-OtterJsStatement -Stmt $s -Indent ($Indent + 1)))
+                $lines.Add((ConvertTo-OtterJsStatement -Stmt $s -Indent ($Indent + 1) -LocalNames $LocalNames))
             }
             $lines.Add("${pad}}")
             return ($lines -join "`n")
@@ -287,7 +341,7 @@ function ConvertTo-OtterJsStatement {
             $lines.Add("${inner}for (let _n = _from; (_step > 0 && _n <= _to) || (_step < 0 && _n >= _to); _n += _step) {")
             $lines.Add("${bodyIndent}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$varName' in otterState)) { otterSetState('$varName', _n); } else { window.$varName = _n; }")
             foreach ($s in $Stmt.Body) {
-                $lines.Add((ConvertTo-OtterJsStatement -Stmt $s -Indent ($Indent + 2)))
+                $lines.Add((ConvertTo-OtterJsStatement -Stmt $s -Indent ($Indent + 2) -LocalNames $LocalNames))
             }
             $lines.Add("${inner}}")
             $lines.Add("${pad}}")
@@ -468,7 +522,7 @@ function ConvertTo-OtterJsStatement {
             $lines = [System.Collections.Generic.List[string]]::new()
             $lines.Add("${pad}for (let _i = 0; _i < $count; _i++) {")
             foreach ($s in $Stmt.Body) {
-                $lines.Add((ConvertTo-OtterJsStatement -Stmt $s -Indent ($Indent + 1)))
+                $lines.Add((ConvertTo-OtterJsStatement -Stmt $s -Indent ($Indent + 1) -LocalNames $LocalNames))
             }
             $lines.Add("${pad}}")
             return ($lines -join "`n")
@@ -479,7 +533,7 @@ function ConvertTo-OtterJsStatement {
             $lines = [System.Collections.Generic.List[string]]::new()
             $lines.Add("${pad}for (const $var of ($coll || [])) {")
             foreach ($s in $Stmt.Body) {
-                $lines.Add((ConvertTo-OtterJsStatement -Stmt $s -Indent ($Indent + 1)))
+                $lines.Add((ConvertTo-OtterJsStatement -Stmt $s -Indent ($Indent + 1) -LocalNames $LocalNames))
             }
             $lines.Add("${pad}}")
             return ($lines -join "`n")
@@ -488,12 +542,12 @@ function ConvertTo-OtterJsStatement {
             $lines = [System.Collections.Generic.List[string]]::new()
             $lines.Add("${pad}try {")
             foreach ($s in $Stmt.Body) {
-                $lines.Add((ConvertTo-OtterJsStatement -Stmt $s -Indent ($Indent + 1)))
+                $lines.Add((ConvertTo-OtterJsStatement -Stmt $s -Indent ($Indent + 1) -LocalNames $LocalNames))
             }
             $lines.Add("${pad}} catch (_err) {")
             if ($Stmt.OtherwiseBody) {
                 foreach ($s in $Stmt.OtherwiseBody) {
-                    $lines.Add((ConvertTo-OtterJsStatement -Stmt $s -Indent ($Indent + 1)))
+                    $lines.Add((ConvertTo-OtterJsStatement -Stmt $s -Indent ($Indent + 1) -LocalNames $LocalNames))
                 }
             }
             $lines.Add("${pad}}")
@@ -584,10 +638,159 @@ function ConvertTo-OtterJsStatement {
             $lines.Add("${pad}}")
             return ($lines -join "`n")
         }
+        ([NodeKind]::FunctionDef) {
+            # D60 Phase 1F. `const name = function(...) {...}` rather than a
+            # hoisted `function name() {}` declaration - deliberate, matches
+            # a real, verified interpreter behavior: calling a function
+            # before its `to ...` line is a runtime error today (no
+            # hoisting - confirmed directly), and `const` bindings are in
+            # the temporal dead zone until their own line runs, so calling
+            # too early throws in the generated JS too, the same way it
+            # does in the interpreter (different message, same "fails
+            # before declaration" shape).
+            #
+            # Parameters become real JS function arguments - this alone
+            # already matches Invoke-OtterCall's SetLocal-per-parameter
+            # (a parameter always shadows an outer variable of the same
+            # name), with zero extra code.
+            #
+            # Local variables are the real design problem this phase had to
+            # solve, verified directly rather than assumed: a function's
+            # local scope is a FRESH environment rooted at the GLOBAL
+            # environment for every call (Invoke-OtterCall: `$local =
+            # [OtterEnvironment]::new($script:GlobalEnvironment)`), so a
+            # plain `is`-assigned local is discarded when the function
+            # returns and must never leak to an enclosing/global scope
+            # (verified: a variable set inside a function and read again at
+            # top level afterward throws "could not find the variable").
+            # Every other construct in this file writes plain variables to
+            # `window.<name>`, which would leak - so this case scans the
+            # body for every VariableExpr Assign target, declares those
+            # (minus anything already a parameter) as real JS `let`s at the
+            # top of the function, and threads that name set through to
+            # every nested statement via -LocalNames so Assign (and
+            # CallStatement's "make" capture) write to the real local
+            # instead of window for exactly those names.
+            #
+            # NOT covered by that local-name scan, and deliberately not
+            # fixed in this phase (documented gap, not a silent miss):
+            # count/for-each loop variables, list literals, and
+            # sort/reverse/split/join/find/add/remove targets still write
+            # to window unconditionally even inside a function body, so
+            # they WOULD leak if used there - none of the verification
+            # cases for this phase use them inside a function, and fixing
+            # every one of those call sites to be local-aware is real,
+            # separate scope.
+            #
+            # Deliberately NOT replicated: the interpreter's one edge case
+            # where a function mutates a PRE-EXISTING global via ordinary
+            # `is` (verified: `message is "Before"` then a function doing
+            # `message is value` really does update the outer `message`).
+            # This compiler always treats an `is`-assigned name found
+            # inside a function body as local, which shadows rather than
+            # mutates in that specific case - a known, verified, documented
+            # divergence, not an oversight.
+            $fnName = $Stmt.Name
+            $paramNames = @($Stmt.Parameters)
+            $paramSet = [System.Collections.Generic.HashSet[string]]::new([string[]]$paramNames)
+            $assignedNames = Get-OtterJsFunctionLocalNames -Body $Stmt.Body
+            $allLocals = [System.Collections.Generic.HashSet[string]]::new([string[]]$assignedNames)
+            foreach ($p in $paramNames) { [void]$allLocals.Add($p) }
+            $declOnly = @($assignedNames | Where-Object { -not $paramSet.Contains($_) })
+
+            $lines = [System.Collections.Generic.List[string]]::new()
+            $bodyIndent = '  ' * ($Indent + 1)
+            $lines.Add("${pad}const $fnName = function($($paramNames -join ', ')) {")
+            if ($declOnly.Count -gt 0) {
+                $lines.Add("${bodyIndent}let $(($declOnly | Sort-Object) -join ', ');")
+            }
+            foreach ($s in $Stmt.Body) {
+                $lines.Add((ConvertTo-OtterJsStatement -Stmt $s -Indent ($Indent + 1) -LocalNames $allLocals))
+            }
+            $lines.Add("${bodyIndent}return null;")
+            $lines.Add("${pad}};")
+            return ($lines -join "`n")
+        }
+        ([NodeKind]::CallStatement) {
+            # D60 Phase 1F. `stop`/`return` need no special handling here at
+            # all: both parse to a bare Return node (confirmed via
+            # -DebugAst), and JS's native `return` already exits the
+            # function immediately from anywhere inside it - no exception-
+            # based signal needed the way the interpreter's OtterReturnSignal
+            # is, since JS functions support early return natively.
+            $call = $Stmt.Call
+            $argsJs = @(foreach ($a in $call.Arguments) { ConvertTo-OtterJsExpression -Expr $a })
+            $callJs = "$($call.Name)($($argsJs -join ', '))"
+            if ($Stmt.ResultTarget) {
+                $target = $Stmt.ResultTarget
+                if ($LocalNames -and $LocalNames.Contains($target)) {
+                    return "${pad}$target = $callJs;"
+                }
+                return "${pad}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$target' in otterState)) { otterSetState('$target', $callJs); } else { window.$target = $callJs; }"
+            }
+            return "${pad}$callJs;"
+        }
         default {
             return ""
         }
     }
+}
+
+# D60 Phase 1F. Recursively collects every plain-variable Assign target name
+# inside a function body, so FunctionDef can declare them as real JS locals.
+# Only walks constructs that can appear nested inside a function in this
+# phase's verified test cases (if/otherwise, while, repeat, try/otherwise) -
+# see the FunctionDef case above for the documented gap covering count/
+# for-each/list-literal/collection-operation targets.
+function Get-OtterJsFunctionLocalNames {
+    param([Node[]]$Body)
+
+    $names = [System.Collections.Generic.HashSet[string]]::new()
+
+    function Walk-OtterLocalNameScan {
+        param([Node[]]$Statements)
+        if ($null -eq $Statements) { return }
+        foreach ($s in $Statements) {
+            if ($s.Kind -eq [NodeKind]::Assign -and $s.Target -is [VariableExpr]) {
+                [void]$names.Add($s.Target.Name)
+            }
+            if ($s.Kind -eq [NodeKind]::CallStatement -and $s.ResultTarget) {
+                [void]$names.Add($s.ResultTarget)
+            }
+            if ($s.Kind -eq [NodeKind]::MathInto) {
+                [void]$names.Add($s.Target)
+            }
+            if ($s.Kind -eq [NodeKind]::If) {
+                # [void] on every nested call below: an unsuppressed bare
+                # call inside a PowerShell function becomes part of ITS
+                # implicit output too, which would otherwise leak into
+                # $assignedNames at the call site below and silently turn
+                # the clean HashSet return into a mixed array - this was a
+                # real bug, caught via the "Multiple ambiguous overloads"
+                # error it produced downstream, not assumed safe.
+                foreach ($branch in $s.Branches) { [void](Walk-OtterLocalNameScan -Statements $branch.Body) }
+                if ($s.ElseBody) { [void](Walk-OtterLocalNameScan -Statements $s.ElseBody) }
+            }
+            if ($s.Kind -eq [NodeKind]::While -or $s.Kind -eq [NodeKind]::Repeat) {
+                [void](Walk-OtterLocalNameScan -Statements $s.Body)
+            }
+            if ($s.Kind -eq [NodeKind]::Try) {
+                [void](Walk-OtterLocalNameScan -Statements $s.Body)
+                if ($s.OtherwiseBody) { [void](Walk-OtterLocalNameScan -Statements $s.OtherwiseBody) }
+            }
+        }
+    }
+
+    [void](Walk-OtterLocalNameScan -Statements $Body)
+    # -NoEnumerate, not `return $names`: PowerShell enumerates a returned
+    # collection into the output stream, and an EMPTY one then produces
+    # zero output objects - the caller receives $null, not an empty
+    # HashSet (the exact same reason New-OtterList/Get-OtterMutableList in
+    # Otter.Runtime.psm1 use this same pattern). Caught via a function with
+    # no locally-assigned names (examples/experimental/counter.ot's
+    # declarative-UI-bodied `to counterCard`) producing a null $assignedNames
+    # downstream, not assumed.
+    Write-Output -NoEnumerate $names
 }
 
 Export-ModuleMember -Function `
