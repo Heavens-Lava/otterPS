@@ -4051,6 +4051,17 @@ calling the emitter directly):
   parser, not implemented since it's unreachable), `split` (empty-
   separator throws, empty entries preserved). `length of`/`first of`/
   `last of` remain deliberately unhandled — see MISSING, below.
+  Real-browser reachability re-certified in the same session Phase
+  1D-B landed, after Playwright (unavailable when 1D-A itself was
+  verified, so a Node.js harness substituted then) became available
+  again — all 7 cases confirmed identical, no implementation changes.
+- `plus`, Phase 1D-B (`b120ee0`): full truth table verified against
+  the interpreter first (both-string concatenates even when both look
+  numeric; mixed string/number coerces via parsing; non-numeric
+  strings, empty/whitespace strings, and booleans all throw, matching
+  `Assert-OtterNumber`/`Test-OtterNumeric` exactly) and reproduced with
+  a runtime `typeof` check replacing the old static-AST one. Fixes the
+  real "NaN," bug found during Phase 1C's own verification.
 
 **MISSING FROM THE JS BACKEND** (verified absent by direct inspection,
 not assumed):
@@ -4079,17 +4090,14 @@ not assumed):
   drops from generated JS. Confirmed via real browser execution (Phase
   1C): `add "Pokemon" to games` produced no error and no effect — the
   list itself stayed correct and uncorrupted, just unchanged.
-- **`plus` is wrong for runtime string variables and can produce
-  `NaN`** — a real, separate expression-semantics bug, not a missing
-  NodeKind. `ConvertTo-OtterJsExpression`'s Math/Add case only detects
-  a string operand from a *literal* AST node (`"text"`), never from a
-  variable's actual runtime type, so `joined is joined plus item` where
-  both are variables holding strings falls through to
-  `Number(...) + Number(...)`, producing `NaN` in the browser even
-  though the interpreter correctly does string concatenation for the
-  same program. Found during Phase 1C verification (not fixed there,
-  deliberately - queued as its own dedicated fix, Phase 1D-B, since it
-  affects general expression semantics, not just string helpers).
+- **`Subtract`/`Multiply`/`Divide` silently produce `NaN` on a
+  non-numeric operand instead of throwing.** Same root gap `plus` had
+  (found while fixing `plus`, Phase 1D-B): the interpreter's
+  `Assert-OtterNumber` throws for all four Math operators, not just
+  Add, but only Add's JS codegen was fixed — Subtract/Multiply/Divide
+  still use plain `Number(...)`, which silently coerces a bad operand
+  to `NaN` rather than throwing. Deliberately not fixed alongside
+  `plus`, since 1D-B's scope was `plus` specifically.
 - JSON conversion (`read json`, `convert to/from json`)
 - random (`random number`, `random item`)
 - diagnostics (`log` / `warn` / `error`)
