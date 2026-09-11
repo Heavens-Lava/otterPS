@@ -3465,20 +3465,55 @@ out to be more expensive than it looks.
   change (recognizing this closed word set in property-value position)
   — deliberately out of scope for D54's freeze.
 - **Bare `spread` (no value at all) needs one small, deliberately
-  general grammar addition, not an alignment-specific one.** A bare
-  property name in a `has` block, with nothing before the next comma or
-  newline, means `is true` — e.g. `spread` desugars to `spread is
-  true`, and the same shorthand applies to any future boolean property
-  (`disabled`, `rounded`, `shadow`, ...), not just this one. The
-  semantic layer still rejects a bare property whose type isn't
-  boolean, so this doesn't weaken existing type checking anywhere.
+  general grammar addition, not an alignment-specific one.** The
+  invariant: *inside an object/configuration property context only, a
+  property name with no explicit value means that property is true.*
+  `button has round` and `button has round true` become equivalent;
+  `navbar has spread` / `spacing 12` lowers to the identical
+  `AssignStmt` shape `spread is true` would already produce — same
+  underlying representation, not a separate code path the interpreter
+  has to know about. `panel has width` still parses structurally (a
+  bare property is always structurally valid) and is rejected exactly
+  where every other type mismatch already is — the D45/D48 property
+  layer, on `width` not being boolean-typed — never in the parser
+  itself. This applies to any future boolean property (`disabled`,
+  `rounded`, `checked`, `visible`, ...) with zero new grammar per
+  property, which is the actual point of generalizing it now rather
+  than special-casing `spread`.
+
+  **Guardrail, explicitly scoped:** this rule lives *only* inside
+  `has`/object-configuration property parsing — never at ordinary
+  statement level. A bare `round` as a top-level statement must keep
+  its ordinary meaning (today: a plain expression-statement referencing
+  a variable named `round`, or whatever error that already produces) —
+  it must never silently become `round is true` outside a property
+  context. `full is 500` / `say full` stays completely unaffected by
+  any of this, since `full` there is an ordinary variable, not a
+  property name in a `has` block.
 
 ### Codex handoff
 
 Grammar-only, matching the D46/D47 pattern: general bare-boolean-property
-shorthand in `has` blocks (`property` alone → `property is true`,
-rejected downstream if that property isn't boolean-typed). Quoted
-`align "direction"` needs nothing new from the parser at all.
+shorthand, scoped strictly to `has`/object-configuration property
+parsing (never top-level statements) — `property` alone inside that
+context lowers to the same AST an explicit `property is true` would
+produce, rejected downstream if that property isn't boolean-typed.
+Quoted `align "direction"` needs nothing new from the parser at all.
+
+Parser tests required before this is considered landed:
+- `button has round`
+- `button has round, disabled`
+- `button has round, width 120`
+- block form: `button has` / `    round` / `    disabled` / `.`
+- `button has round true` (explicit form still works, identical result)
+- `panel has width` — parses structurally; the property/semantic layer
+  (not the parser) rejects it for not being boolean-typed
+- `full is 500` / `say full` — completely unaffected
+- bare `round` as a **top-level statement** — unaffected, no new
+  boolean behavior outside a property context
+- `navbar has spread` / `align "middle"` (two-line block form) produces
+  the identical property representation as the fully explicit `spread
+  is true` / `align is "middle"`
 
 ### What's built
 
