@@ -1,0 +1,228 @@
+create window into app
+app has title "Contact Manager", width 760, height 560, background "#111827"
+padding of app is 16
+spacing of app is 12
+
+create text into heading
+heading has text "Contact Manager", foreground "white"
+put heading in app
+
+create row into mainRow
+mainRow has width full, spread
+
+# ------------------------------------------------------------------
+# left side: a scrollable, growing list of contacts
+# ------------------------------------------------------------------
+
+create column into leftPanel
+leftPanel has width 220, padding 8, background "#1e293b"
+
+create text into listHeading
+listHeading has text "Contacts", foreground "white"
+put listHeading in leftPanel
+
+create scroll into contactScroll
+contactScroll has width 200, height 380
+
+create column into contactListColumn
+contactListColumn has spacing 4
+
+put contactListColumn in contactScroll
+put contactScroll in leftPanel
+
+# ------------------------------------------------------------------
+# right side: the selected/edited contact's form
+# ------------------------------------------------------------------
+
+create column into formPanel
+formPanel has width 480, padding 12, background "#1e293b", spacing 8
+
+create text into formHeading
+formHeading has text "Details", foreground "white"
+put formHeading in formPanel
+
+create text box into nameBox
+placeholder of nameBox is "Full name"
+nameBox has width 400
+
+create text box into emailBox
+placeholder of emailBox is "email@example.com"
+emailBox has width 400
+
+create text box into phoneBox
+placeholder of phoneBox is "Phone number"
+phoneBox has width 400
+
+create text box into notesBox
+placeholder of notesBox is "Notes"
+notesBox has width 400, height 80
+
+put nameBox, emailBox, phoneBox, notesBox in formPanel
+
+create row into actionRow1
+actionRow1 has width 440, spread
+
+create button into addButton
+addButton has text "Add", width 100, background "#2563EB", foreground "white"
+
+create button into saveButton
+saveButton has text "Save", width 100, background "#2563EB", foreground "white"
+
+create button into deleteButton
+deleteButton has text "Delete", width 100, background "#B91C1C", foreground "white"
+
+put addButton, saveButton, deleteButton in actionRow1
+put actionRow1 in formPanel
+
+create row into actionRow2
+actionRow2 has width 440, spread
+
+create button into clearButton
+clearButton has text "Clear", width 100
+
+create button into loadButton
+loadButton has text "Load File", width 100
+
+create button into saveFileButton
+saveFileButton has text "Save File", width 100
+
+put clearButton, loadButton, saveFileButton in actionRow2
+put actionRow2 in formPanel
+
+create text into statusText
+statusText has text "Ready.", foreground "#94a3b8"
+put statusText in formPanel
+
+put leftPanel, formPanel in mainRow
+put mainRow in app
+
+# ------------------------------------------------------------------
+# state
+# ------------------------------------------------------------------
+
+convert "[]" from json into contacts
+selectedContact is gone
+selectedButton is gone
+
+# nameBox changed - a live input event, independent of any button click
+when nameBox is changed
+    typed is text of nameBox
+    if typed is ""
+        text of statusText is "Ready."
+    otherwise
+        text of statusText is "Editing name..."
+.
+
+to clearForm
+    text of nameBox is ""
+    text of emailBox is ""
+    text of phoneBox is ""
+    text of notesBox is ""
+    selectedContact is gone
+    selectedButton is gone
+.
+
+# One call per contact gives this button and handler their OWN captured
+# "contact" - a bare for-each loop would share a single loop variable and
+# every button would end up showing the LAST contact (verified before
+# building this).
+to makeContactRow contact
+    create button into rowButton
+    rowButton has text name of contact, width 190, foreground "white"
+
+    when rowButton is clicked
+        deleted is deleted of contact
+        if deleted is true
+            text of statusText is "That contact was deleted."
+        otherwise
+            text of nameBox is name of contact
+            text of emailBox is email of contact
+            text of phoneBox is phone of contact
+            text of notesBox is notes of contact
+            selectedContact is contact
+            selectedButton is rowButton
+            text of statusText is "Editing an existing contact."
+    .
+
+    put rowButton in contactListColumn
+.
+
+# Builds and returns a brand-new contact each call. This has to be its
+# own function: a plain "newContact is a thing ... ." directly inside
+# the click handler below would reuse the SAME "newContact" binding on
+# every click (the handler runs against the environment it was
+# registered in, D46), and Otter refuses to silently replace an
+# existing non-UI value that way (D52's has-safety). A function call
+# gets its own fresh scope every time (verified separately), so
+# building the thing in here sidesteps the collision entirely.
+to buildContact contactName
+    result is a thing
+        name is contactName
+        email is text of emailBox
+        phone is text of phoneBox
+        notes is text of notesBox
+        deleted is false
+    .
+    return result
+.
+
+when addButton is clicked
+    typedName is text of nameBox
+    if typedName is ""
+        text of statusText is "Enter a name before adding."
+    otherwise
+        buildContact typedName make newContact
+        add newContact to contacts
+        makeContactRow newContact
+        clearForm
+        text of statusText is "Added."
+.
+
+when saveButton is clicked
+    if selectedContact is gone
+        text of statusText is "Select a contact to save changes to."
+    otherwise
+        name of selectedContact is text of nameBox
+        email of selectedContact is text of emailBox
+        phone of selectedContact is text of phoneBox
+        notes of selectedContact is text of notesBox
+        text of selectedButton is text of nameBox
+        text of statusText is "Saved."
+.
+
+when deleteButton is clicked
+    if selectedContact is gone
+        text of statusText is "Select a contact to delete."
+    otherwise
+        deleted of selectedContact is true
+        remove selectedContact from contacts
+        text of selectedButton is "(deleted)"
+        foreground of selectedButton is "#6b7280"
+        clearForm
+        text of statusText is "Deleted."
+.
+
+when clearButton is clicked
+    clearForm
+    text of statusText is "Ready."
+.
+
+when loadButton is clicked
+    try
+        read json from "contacts.json" into loaded
+        for each contact in loaded
+            add contact to contacts
+            makeContactRow contact
+        .
+        text of statusText is "Loaded contacts."
+    otherwise
+        text of statusText is "No saved contacts found."
+.
+
+when saveFileButton is clicked
+    convert contacts to json into contactsJson
+    write contactsJson to "contacts.json"
+    text of statusText is "Saved to file."
+.
+
+show app
