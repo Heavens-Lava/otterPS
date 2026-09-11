@@ -3793,10 +3793,23 @@ during this audit to rely heavily on this exact excluded surface (a
 `card`/`layout`/`enter`/`leave`/`hover`/`click` declarative style, not
 the `create`/`put`/`has`/`when x is clicked` system every v1 dogfood
 app actually uses) — its `click` handlers do not work, since `UiEvent`
-is now a hard error rather than a silent no-op. It is not a working v1
-example and should not be presented as one; left as-is pending a
-decision on whether to relabel, move, or update it, rather than edited
-unilaterally as part of this entry.
+is now a hard error rather than a silent no-op.
+
+**Resolved:** moved to `examples/experimental/counter.ot` (not edited
+or rewritten — its `state`/`derive`/`when count changes` lines are
+genuinely frozen v1 syntax and still work correctly; only its
+surrounding position among the working v1 examples was misleading),
+with a header comment stating plainly that it demonstrates planned
+post-v1 syntax and is not supported by Otter 1.0. The three official
+v1 dogfood applications moved alongside it into `examples/v1/`
+(`tasks.ot`, `file-browser.ot`, `contacts.ot`) so the examples
+directory itself no longer places a non-working file beside working
+ones with nothing to tell them apart. `ui-counter.ot` and `ui-input.ot`
+were checked too and confirmed to already use only the frozen D44–D47
+surface — left where they are, not moved. The Web-compiler examples
+(`jeffreymacy.ot`, `portal.ot`, `showcase.ot`, `api-server.ot`) run
+through the entirely separate `Otter.Web.psm1` pipeline, are unaffected
+by anything in this entry, and were likewise left in place.
 
 ### Silent success is worse than a clear error
 
