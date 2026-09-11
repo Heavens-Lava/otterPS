@@ -4077,16 +4077,34 @@ calling the emitter directly):
   name, unlike every other loop construct here), `add`/`remove` (dual
   dispatch on the target's runtime type per D12 — list append/splice
   or numeric add/subtract, reusing `plus`'s coercion-or-throw rules).
+- Function declarations/calls, Phase 1F (`af3a807`): parameters (real
+  JS args), local variables (real JS `let`s, threaded via an optional
+  `-LocalNames` set so every other call site's behavior is unchanged),
+  return values, bare `stop` (needs no special handling — parses to a
+  bare Return, JS's native `return` already does the right thing),
+  nested calls, recursion, calling before declaration (fails, matching
+  the interpreter's no-hoisting behavior), reading a pre-existing
+  global from inside a function, a thrown error inside a function
+  propagating to the caller, and a function invoked from a real
+  `when x is clicked` handler — all individually verified. Also adds
+  `MathInto` (`X op Y make Z`), found missing while verifying
+  recursion — reuses Assign's exact write logic (same NodeKind
+  semantics, different surface syntax).
+- **Two known, deliberate divergences from Phase 1F, not oversights:**
+  (1) the interpreter's one edge case where a function mutates a
+  PRE-EXISTING global via ordinary `is` (verified: `message is
+  "Before"` then a function doing `message is value` really does
+  update the outer `message`) is not replicated — this compiler always
+  treats an `is`-assigned name found inside a function body as local,
+  shadowing rather than mutating in that specific case. (2)
+  count/for-each loop variables, list literals, and collection-
+  operation targets used INSIDE a function body still write to
+  `window` unconditionally (the local-scoping fix only covers Assign/
+  MathInto/CallStatement targets), so they would leak if used there —
+  none of Phase 1F's verification cases exercise this combination.
 
 **MISSING FROM THE JS BACKEND** (verified absent by direct inspection,
 not assumed):
-- **Function declarations/calls (general, non-handler) — a real,
-  separate parity gap, not "Functions ✅" as originally (incorrectly)
-  recorded here.** Verified directly: a plain `to <name> ... .`
-  function's body does not compile into a real callable JS function
-  today; only a narrow declarative-UI-root-scanning pattern reuses the
-  function AST at all. Event-handler bodies (the bullet above) are a
-  different, already-proven mechanism — do not conflate the two.
 - **ForEach's loop variable does not leak to the outer scope in
   generated JS, where the interpreter's real ForEach does.** Found
   while fixing Find's scoping (Phase 1E, which needed the OPPOSITE
@@ -4124,16 +4142,14 @@ architecture above, but the agreed starting order)
    changing observable behavior — web keeps passing its existing tests
    throughout.
 2. Close NodeKind parity systematically. Current order (count loops
-   done, `86b3509`; list literals done, `23d8034`): count loops, list
-   literals, **string operations, split into 1D-A (string builtins/
-   NodeKinds themselves) and 1D-B (the `plus`/runtime-string-type bug
-   found during 1C, as its own dedicated fix since it affects general
-   expression semantics, not just string helpers — kept out of 1D-A so
-   each parity improvement stays independently reversible)**,
-   collection operations, **function declarations/calls** (moved ahead
-   of JSON once Phase 1B proved this is a real, separate gap, not
-   something already proven — too many realistic Otter programs depend
-   on functions to leave this late), JSON, random, diagnostics, dates.
+   done, `86b3509`; list literals done, `23d8034`; string ops done,
+   `09374ea`/`b120ee0`; collection ops done, `1e19652`; functions done,
+   `af3a807`): count loops, list literals, string operations (split
+   into 1D-A string builtins and 1D-B the `plus` runtime-type fix),
+   collection operations, function declarations/calls (moved ahead of
+   JSON once Phase 1B proved this was a real, separate gap — too many
+   realistic Otter programs depend on functions to leave this late).
+   Remaining: JSON, random, diagnostics, dates.
 3. Every addition is verified the same way: `.ot` source through the
    real production CLI, through the JS compiler, through an actual JS
    runtime, to an observed result — not a unit test calling the emitter
