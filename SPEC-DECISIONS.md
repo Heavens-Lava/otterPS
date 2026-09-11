@@ -25,7 +25,7 @@ at once (front end, back end, web) — this ledger is the single source
 of truth for "what's the next number," so nobody has to guess or
 collide with work in flight.
 
-NEXT DECISION NUMBER: D57
+NEXT DECISION NUMBER: D61
 
 CLAIMED:
 - D49 — HTTP requests and web data — Gemini
@@ -43,6 +43,15 @@ CLAIMED:
   the v1 dogfood exception; documented, not reverted)
 - D56 — reactive state and the experimental front-end boundary — Claude
   (landed: `ad75138`)
+- D60 — Otter Unified Application Runtime — Claude/Gemini/Jeff (frozen)
+
+**Numbering note: D57, D58, and D59 are intentionally not in this list.**
+They identify the CLI (`bc1be95`), packaging (`6ceed7e`), and
+documentation (`fd56210`) release gates, not language/spec decisions —
+they never belonged in this ledger, and are not being retroactively added
+to it now. The ledger jumps from D56 straight to D60 on purpose; nothing
+was skipped or renumbered. If "D57"/"D58"/"D59" come up in commit history
+or conversation, they mean the release gates, not entries in this file.
 
 ---
 
@@ -3839,4 +3848,235 @@ fixes with no changes to the applications themselves. The full
 automated suite is green (15/15 files). Any further language surface
 requires either a demonstrated v1 dogfood blocker (per the v1 freeze
 rule already in force) or explicit unfreezing for a post-v1 release.
+
+---
+
+# V1 expansion: the unified runtime track
+
+The CLI, packaging, and documentation release gates (referred to
+elsewhere as "D57"-"D59" — see the numbering note in the ledger above)
+certified the PowerShell/WPF stack described by D1-D56 as installable,
+documented, and ready to tag. Before tagging a final `1.0.0`, Jeff
+widened v1's actual scope: not a Windows-only teaching language, but one
+Otter source running on the web, Windows, macOS, and Linux. D60 is the
+architecture decision that follows from that widened scope.
+
+## D60. Otter Unified Application Runtime
+
+### Context
+
+Otter's v1 desktop provider (D43-D56) is WPF, and Otter's web provider
+(D49-D51) is a separate HTML/CSS/JS compiler (`Otter.Web.psm1`). These
+are two independent UI implementations sharing only the language surface
+above them — every new UI capability must be designed and built twice,
+once per provider, and Windows/macOS/Linux desktop parity was never
+achievable through WPF at all.
+
+### Decision
+
+JavaScript becomes Otter's primary generated target for portable
+application execution, and web and desktop share one generated UI/
+runtime model instead of two independent implementations.
+
+```
+                    .ot source
+                        |
+                        v
+              Lexer / Parser / AST    (unchanged - Codex, Otter.Contract.psm1)
+                        |
+                        v
+              JavaScript Compiler     (new - see module split, below)
+                        |
+           +------------+------------+
+           v            v            v
+        Console        Web        Desktop
+           |            |            |
+          JS        HTML/CSS/JS      |
+                          |          |
+                    (shared representation, see module split)
+                                      |
+                               WebView shell
+                                      |
+                          Windows / macOS / Linux
+```
+
+### Principles (frozen)
+
+1. **Otter remains one language, with one parser, one AST, one contract.**
+   This decision changes what the AST compiles *to*, not what the AST
+   *is*. No lexer/parser/AST syntax changes just to make this pivot work,
+   unless a real compatibility problem is found during implementation —
+   in which case that problem and its fix get their own decision entry,
+   not a silent change bundled into this one.
+2. **JavaScript is Otter 1.0's primary portable application compilation
+   target. The Otter language specification does not depend on
+   JavaScript semantics, and future compiler backends may target other
+   runtimes without changing valid Otter source.** This mirrors the
+   principle already governing PowerShell: the implementation language
+   must never become the definition of Otter. Console programs compile
+   to JS running on a JS host (Node or equivalent) rather than being
+   interpreted by PowerShell; web runs the generated JS directly in a
+   browser; desktop packages the same generated output inside a
+   cross-platform desktop shell/WebView.
+3. **Windows, macOS, and Linux desktop apps run from the same Otter
+   source and the same generated output.** No per-OS Otter syntax for
+   ordinary application behavior.
+4. **For UI applications, web and desktop share one generated HTML/CSS/
+   JavaScript application representation. The desktop target packages
+   that representation and adds desktop capabilities; it does not
+   maintain an independent UI renderer.** This is the same trap D60 is
+   meant to close, restated for the new architecture instead of the old
+   one: web generating HTML/CSS one way and desktop generating it
+   slightly differently would recreate exactly the provider-divergence
+   problem this decision exists to eliminate.
+5. **CSS is the canonical styling representation for the unified Web/
+   Desktop UI backend. Otter Studio and other visual tooling must
+   manipulate the same CSS consumed by the application renderer.
+   Tooling must not translate CSS through a lossy intermediate Otter
+   styling model. Unsupported CSS must be preserved rather than
+   discarded or approximated.**
+6. **WPF is no longer the definition of Otter UI.** The existing WPF
+   provider (D43-D56) is retained as prototype/research/reference and
+   **stays frozen and working** while the JS path is brought to parity
+   — it is not deleted, degraded, or blocked from further bug fixes, but
+   it stops being where new UI capability gets designed first. It also
+   becomes the reference to test the new desktop backend against: once
+   the JS/WebView desktop path can run `tasks.ot`, `file-browser.ot`,
+   and `contacts.ot`, its behavior gets compared against the
+   already-certified WPF versions of the same three applications.
+7. **Console/system capabilities remain part of Otter** (file I/O,
+   process execution, environment variables, and the rest of the
+   shell/console capability inventory already scoped) and compile to
+   runtime APIs on the JS host, not to browser-only APIs. A console
+   program must not silently depend on `window`/`document`.
+8. **Language capability is not the same thing as host capability. Host
+   restrictions do not redefine Otter semantics. When a valid Otter
+   capability is unavailable in a target host, the compiler/runtime
+   must report that capability boundary explicitly rather than
+   silently changing its meaning.** `files is get files in working
+   folder` is valid Otter; a browser cannot arbitrarily enumerate the
+   user's filesystem. That does not make filesystem access unsupported
+   by Otter — it makes it a console/desktop-host capability that is
+   unavailable, and must be reported as unavailable, on a browser host.
+   Browser-only and desktop-only capabilities must be clearly separated
+   at the runtime/provider layer, the same way D43 already separates
+   providers for UI.
+9. **Otter Studio** (Gemini's UI/CSS editor) should eventually edit and
+   render the exact CSS used at runtime, via the same browser engine the
+   runtime itself uses — not a separate approximation of it. This
+   decision establishes that as the target; Otter Studio's own design
+   stays Gemini's to work out.
+10. **No claim of "unified runtime complete" until proven.** A NodeKind
+    is only considered covered once a real `.ot` program compiles and
+    runs through the real production entry point — the same
+    reachability standard already established for the WPF audit
+    (`a6b5152`, `CLAUDE.md`'s permanent process rule). A passing unit
+    test against an internal compiler function is not, by itself,
+    sufficient evidence.
+
+### Module split (structural, frozen)
+
+`Otter.Web.psm1` does not become the universal compiler — its name and
+current single-target shape are both wrong for that role.
+
+```
+Otter.Contract.psm1              (unchanged)
+Otter.Lexer.psm1                 (unchanged - Codex)
+Otter.Parser.psm1                (unchanged - Codex)
+
+Otter.Compiler.JavaScript.psm1   <- NEW: universal JS emitter.
+                                     Otter AST -> JavaScript semantics /
+                                     code generation. Provider-agnostic:
+                                     knows nothing about HTML, CSS, or
+                                     webviews.
+        |
+        +-- Otter.Console.psm1   <- NEW, if needed: JS compiler output +
+        |                           a JS/Node host for plain console
+        |                           programs. No HTML/DOM.
+        |
+        +-- Otter.Web.psm1       <- becomes a thin TARGET ADAPTER:
+        |                           JS compiler output + HTML shell +
+        |                           CSS + browser bootstrap.
+        |
+        +-- Otter.Desktop.psm1   <- NEW: consumes the SAME Web UI
+                                     representation (not an independent
+                                     one) + a desktop runtime bridge +
+                                     WebView shell packaging.
+```
+
+`Otter.Compiler.JavaScript.psm1` gets a single clear owner (not folded
+into the old "Gemini owns Web" rule) — Web, Desktop, and Console become
+consumers of it, not competing implementations. Desktop specifically
+consumes Web's generated UI representation rather than generating its
+own — this is what principle 4, above, requires structurally.
+
+**Explicitly out of scope for this decision:** who that owner is, the
+exact generated-JS shape, exact new CLI verbs (`otter build --target
+web/windows` or similar), the exact desktop-shell technology (Tauri is
+the leading candidate from discussion, not a frozen choice — Electron,
+WebView2, or something better later are all still open), and the fate
+of `Otter.Interpreter.psm1` / `otter.ps1`'s current direct-execution
+path for console scripts. Those are implementation decisions for the
+slices that follow this one, once this architecture is frozen.
+
+### Migration status (keep this table honest as work lands)
+
+**ALREADY PROVEN** (real `.ot` programs compiling and passing tests
+today, via `Otter.Web.psm1`):
+- Assignment, arithmetic, comparisons, logic (`and`/`or`/`not`)
+- `if` / `while` / `for each` / `repeat`
+- Functions, objects
+- `try` / `otherwise`
+- HTTP GET / POST
+- Web UI compilation (real sample apps: `jeffreymacy.ot`, `portal.ot`,
+  `calculator.ot`, `counter.ot`, `hello-app.ot`)
+
+**MISSING FROM THE JS BACKEND** (verified absent by direct inspection of
+`Otter.Web.psm1` — zero references found):
+- `count from ... to ... as ...` loops
+- list literals (`games are ... .`)
+- collection/string operations (`length of`, `uppercase of`, `sort`,
+  `replace`, `split`, `join`, `find`)
+- JSON conversion (`read json`, `convert to/from json`)
+- random (`random number`, `random item`)
+- diagnostics (`log` / `warn` / `error`)
+- dates (`today`, `now`, date math)
+- console/runtime utility behavior (stdin, stdout formatting parity
+  with `say`, exit codes)
+- filesystem/system APIs for desktop/console targets (no browser
+  equivalent exists; needs a real provider-layer design, not a browser
+  polyfill)
+
+### Implementation sequencing (Phase 1, not part of the frozen
+architecture above, but the agreed starting order)
+
+1. Create `Otter.Compiler.JavaScript.psm1`. Move/extract the already-
+   proven generic JS generation out of `Otter.Web.psm1` into it without
+   changing observable behavior — web keeps passing its existing tests
+   throughout.
+2. Close NodeKind parity systematically, in this order: count loops,
+   list literals, string operations, collection operations, JSON,
+   random, diagnostics, dates.
+3. Every addition is verified the same way: `.ot` source through the
+   real production CLI, through the JS compiler, through an actual JS
+   runtime, to an observed result — not a unit test calling the emitter
+   function directly (principle 10, above).
+4. Only once the language backend has substantial NodeKind parity does
+   the Desktop host get introduced. Desktop packaging is deliberately
+   not the first milestone: the discipline is "first make Otter compile
+   consistently to JavaScript, then make that JavaScript run
+   everywhere," not the reverse.
+
+### What this decision does NOT do
+
+- Does not change any currently-frozen syntax.
+- Does not delete, degrade, or stop maintaining the WPF path.
+- Does not commit to a specific desktop-shell technology.
+- Does not resolve module ownership (beyond "one clear owner, not
+  folded into Web's"), new CLI verbs, or the exact shape of generated
+  JS — those follow as their own decisions.
+- Does not claim any part of the "missing" list above is done. It is a
+  todo list, not a status report.
+
+---
 
