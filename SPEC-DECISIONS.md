@@ -4065,6 +4065,18 @@ calling the emitter directly):
   `Assert-OtterNumber`/`Test-OtterNumeric` exactly) and reproduced with
   a runtime `typeof` check replacing the old static-AST one. Fixes the
   real "NaN," bug found during Phase 1C's own verification.
+- Collection operations, Phase 1E (`1e19652`): `length of`/`first of`/
+  `last of` (completing `OfOperation` alongside 1D-A's `uppercase`/
+  `lowercase`; `length` polymorphic via JS's native `.length` on both
+  strings and arrays, `first`/`last` list-only, `null`/gone on empty),
+  `sort` (in place, numeric-vs-ordinal comparator matching the
+  interpreter exactly — verified `["banana","Apple","cherry"]` sorts
+  to `["Apple","banana","cherry"]`, not case-insensitive), `reverse`
+  (in place), `join`, `find` (verified its item-name scoping is
+  genuinely isolated — does NOT leak to an outer variable of the same
+  name, unlike every other loop construct here), `add`/`remove` (dual
+  dispatch on the target's runtime type per D12 — list append/splice
+  or numeric add/subtract, reusing `plus`'s coercion-or-throw rules).
 
 **MISSING FROM THE JS BACKEND** (verified absent by direct inspection,
 not assumed):
@@ -4075,24 +4087,17 @@ not assumed):
   today; only a narrow declarative-UI-root-scanning pattern reuses the
   function AST at all. Event-handler bodies (the bullet above) are a
   different, already-proven mechanism — do not conflate the two.
-- collection operations (`sort`, `reverse`, `find`, `join`) — all
-  confirmed list-specific (`Test-OtterList` checked, error on a
-  non-list subject) or list-input (`join` requires a list), deferred to
-  Phase 1E rather than bundled into 1D-A's string-operations scope
-- **`length of`/`first of`/`last of`** — `length of` is polymorphic
-  (works on strings too, but also lists — confirmed via real browser
-  execution, Phase 1C: `total is length of numbers` silently sets
-  `total` to `null`); `first of`/`last of` are list-only (error on a
-  string subject in the interpreter). All three share one NodeKind
-  (`OfOperation`) with `uppercase`/`lowercase of` (done, Phase 1D-A)
-  and are deliberately left unhandled in that same switch, falling
-  through to the same `null` default, since they belong with Phase
-  1E's collection operations
-- **`add`/`remove` (list/collection mutation)** — compiles to the
-  Statement default case's `return ""`; the whole statement silently
-  drops from generated JS. Confirmed via real browser execution (Phase
-  1C): `add "Pokemon" to games` produced no error and no effect — the
-  list itself stayed correct and uncorrupted, just unchanged.
+- **ForEach's loop variable does not leak to the outer scope in
+  generated JS, where the interpreter's real ForEach does.** Found
+  while fixing Find's scoping (Phase 1E, which needed the OPPOSITE
+  behavior and got it right by checking directly rather than assuming
+  consistency with ForEach). ForEach's existing (Phase 1A) codegen
+  uses a block-scoped `for (const x of ...)`; referencing the loop
+  variable after the loop throws `ReferenceError: x is not defined` in
+  the browser, confirmed via real execution, where the interpreter
+  (SetLocal on the current environment, same mechanism as CountLoop)
+  would print the variable's last value. Not fixed yet — flagged here
+  so it doesn't get silently rediscovered later.
 - **`Subtract`/`Multiply`/`Divide` silently produce `NaN` on a
   non-numeric operand instead of throwing.** Same root gap `plus` had
   (found while fixing `plus`, Phase 1D-B): the interpreter's
