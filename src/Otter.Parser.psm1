@@ -31,7 +31,8 @@ $script:OtterIdentifierKinds = @(
     [TokenKind]::Log, [TokenKind]::Warn, [TokenKind]::Problem,
     [TokenKind]::Random, [TokenKind]::Json, [TokenKind]::Convert,
     [TokenKind]::Format, [TokenKind]::Today, [TokenKind]::Now,
-    [TokenKind]::Between, [TokenKind]::Otherwise, [TokenKind]::ForEach
+    [TokenKind]::Between, [TokenKind]::Otherwise, [TokenKind]::ForEach,
+    [TokenKind]::Count
 )
 
 function Test-OtterIdentifierToken {
@@ -49,6 +50,14 @@ function Initialize-OtterParser {
 
 function Get-OtterCurrentToken { return $script:Tokens[$script:Position] }
 function Test-OtterTokenKind { param([TokenKind]$Kind) return (Get-OtterCurrentToken).Kind -eq $Kind }
+function Test-OtterTokenOffsetKind {
+    param([int]$Offset, [TokenKind]$Kind)
+    $pos = $script:Position + $Offset
+    if ($pos -ge 0 -and $pos -lt $script:Tokens.Count) {
+        return $script:Tokens[$pos].Kind -eq $Kind
+    }
+    return $false
+}
 function Read-OtterToken { $token = Get-OtterCurrentToken; $script:Position++; return $token }
 function Get-OtterSourceLine {
     param([int]$Line)
@@ -93,6 +102,23 @@ function Test-OtterSoftContinuation {
 function Read-OtterValue {
     param([switch]$PropertyTarget)
     $token = Get-OtterCurrentToken
+    if ($token.Kind -eq [TokenKind]::Await) {
+        [void](Read-OtterToken)
+        $nextTok = Get-OtterCurrentToken
+        if ($nextTok.Kind -eq [TokenKind]::Get -or $nextTok.Text -eq 'get') {
+            [void](Read-OtterToken)
+            $arg = Read-OtterValue
+            $call = [CallExpr]::new('get', @($arg), $nextTok.Line)
+            return [AwaitExpr]::new($call, $token.Line)
+        }
+        $expr = Read-OtterValue
+        return [AwaitExpr]::new($expr, $token.Line)
+    }
+    if ($token.Kind -eq [TokenKind]::Not) {
+        [void](Read-OtterToken)
+        $operand = Read-OtterValue
+        return [NotExpr]::new($operand, $token.Line)
+    }
     # Optional readability word for property grammar only. `the` is consumed
     # when it introduces a real `<property> of ...` sequence; elsewhere it is
     # left untouched so this is not a global filler-word rule.
@@ -536,6 +562,217 @@ function Read-OtterDiagnostic {
     return [DiagnosticStmt]::new($Level, $parts.ToArray(), $Start.Line)
 }
 
+function Read-OtterAnimationBlock {
+    param([string]$Trigger, [int]$Line)
+    
+    [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the animation header to end here.')
+    [void](Assert-OtterTokenKind ([TokenKind]::Indent) 'I expected an indented animation block.')
+    
+    $steps = [System.Collections.Generic.List[UiAnimationStep]]::new()
+    $durationMs = 300.0
+    $easing = 'ease'
+    
+    Skip-OtterNewlines
+    while (-not (Test-OtterTokenKind ([TokenKind]::Dedent)) -and -not (Test-OtterTokenKind ([TokenKind]::EndOfFile)) -and -not (Test-OtterTokenKind ([TokenKind]::BlockEnd))) {
+        $cur = Get-OtterCurrentToken
+        
+        # Timing line: animate <duration> [<easing>]
+        if ($cur.Kind -eq [TokenKind]::Animate -or $cur.Text -eq 'animate') {
+            [void](Read-OtterToken)
+            $durTok = Get-OtterCurrentToken
+            if ($durTok.Kind -ne [TokenKind]::Number) {
+                throw (New-OtterParserError "Otter expected a duration (e.g. '300ms') and optional easing ('ease', 'ease-out', 'ease-in', 'spring') after 'animate', but got '$($durTok.Text)'." $durTok "Write 'animate 300ms ease-out' or similar.")
+            }
+            $numVal = [double](Read-OtterToken).Value
+            if ((Get-OtterCurrentToken).Text -eq 'ms') {
+                [void](Read-OtterToken)
+                $durationMs = $numVal
+            } elseif ((Get-OtterCurrentToken).Text -eq 's') {
+                [void](Read-OtterToken)
+                $durationMs = $numVal * 1000.0
+            } else {
+                $durationMs = $numVal
+            }
+            
+            if (-not (Test-OtterTokenKind ([TokenKind]::Newline))) {
+                $easingTok = Read-OtterToken
+                $easing = $easingTok.Text.ToLowerInvariant()
+            }
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the animate statement to end here.')
+            Skip-OtterNewlines
+            continue
+        }
+        
+        $opTok = Read-OtterToken
+        $op = $opTok.Text.ToLowerInvariant()
+        $dir = $null
+        $amount = $null
+        
+        if ($op -eq 'fade') {
+            if (-not (Test-OtterTokenKind ([TokenKind]::Newline))) {
+                $dir = (Read-OtterToken).Text.ToLowerInvariant()
+            }
+        } elseif ($op -eq 'move') {
+            if (-not (Test-OtterTokenKind ([TokenKind]::Newline))) {
+                $dir = (Read-OtterToken).Text.ToLowerInvariant()
+            }
+            if (-not (Test-OtterTokenKind ([TokenKind]::Newline))) {
+                $amount = Read-OtterMathExpression
+            }
+        } elseif ($op -eq 'slide') {
+            $dirParts = [System.Collections.Generic.List[string]]::new()
+            while (-not (Test-OtterTokenKind ([TokenKind]::Newline))) {
+                $dirParts.Add((Read-OtterToken).Text.ToLowerInvariant())
+            }
+            $dir = $dirParts -join ' '
+        } elseif ($op -in @('grow', 'shrink', 'scale', 'rotate')) {
+            if (-not (Test-OtterTokenKind ([TokenKind]::Newline))) {
+                $amount = Read-OtterMathExpression
+            }
+        }
+        
+        $steps.Add([UiAnimationStep]::new($op, $dir, $amount))
+        [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the animation step to end here.')
+        Skip-OtterNewlines
+    }
+    
+    [void](Assert-OtterTokenKind ([TokenKind]::Dedent) 'I expected the animation block to end.')
+    if (Test-OtterTokenKind ([TokenKind]::BlockEnd)) {
+        [void](Read-OtterToken)
+        Skip-OtterNewlines
+    }
+    
+    return [UiAnimationBlock]::new($Trigger, $steps.ToArray(), $durationMs, $easing, $Line)
+}
+
+function Read-OtterUiElementStatement {
+    $start = Get-OtterCurrentToken
+    $variant = $null
+    if ($start.Text -in @('primary', 'secondary', 'danger')) {
+        $variant = (Read-OtterToken).Text
+    }
+    $tagToken = Read-OtterToken
+    $tag = $tagToken.Text.ToLowerInvariant()
+    
+    $label = $null
+    $name = $null
+    
+    if ($tag -eq 'input' -and -not (Test-OtterTokenKind ([TokenKind]::Newline)) -and (Test-OtterIdentifierToken (Get-OtterCurrentToken))) {
+        $name = (Read-OtterToken).Text
+    } elseif (-not (Test-OtterTokenKind ([TokenKind]::Newline))) {
+        $label = Read-OtterMathExpression
+    }
+    
+    $layout = [UiLayoutSpec]::new()
+    $properties = [System.Collections.Generic.List[Node]]::new()
+    $events = [System.Collections.Generic.List[Node]]::new()
+    $animations = [System.Collections.Generic.List[Node]]::new()
+    $children = [System.Collections.Generic.List[Node]]::new()
+    
+    [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the UI element header to end here.')
+    
+    if (Test-OtterTokenKind ([TokenKind]::Indent)) {
+        [void](Read-OtterToken)
+        Skip-OtterNewlines
+        while (-not (Test-OtterTokenKind ([TokenKind]::Dedent)) -and -not (Test-OtterTokenKind ([TokenKind]::EndOfFile)) -and -not (Test-OtterTokenKind ([TokenKind]::BlockEnd))) {
+            $cur = Get-OtterCurrentToken
+            
+            if ($cur.Kind -eq [TokenKind]::Layout -or $cur.Text -eq 'layout') {
+                [void](Read-OtterToken)
+                $modeTok = Read-OtterToken
+                $layout.Mode = $modeTok.Text.ToLowerInvariant()
+                if ($layout.Mode -eq 'grid' -and -not (Test-OtterTokenKind ([TokenKind]::Newline))) {
+                    $layout.Columns = Read-OtterMathExpression
+                }
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the layout statement to end here.')
+                Skip-OtterNewlines
+                continue
+            }
+            if ($cur.Text -eq 'align') {
+                [void](Read-OtterToken)
+                $dirTok = Read-OtterToken
+                $layout.Align = $dirTok.Text.ToLowerInvariant()
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the align statement to end here.')
+                Skip-OtterNewlines
+                continue
+            }
+            if ($cur.Kind -eq [TokenKind]::Gap -or $cur.Text -eq 'gap') {
+                [void](Read-OtterToken)
+                $layout.Gap = Read-OtterMathExpression
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the gap statement to end here.')
+                Skip-OtterNewlines
+                continue
+            }
+            if ($cur.Text -eq 'spread') {
+                [void](Read-OtterToken)
+                $layout.Spread = $true
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the spread statement to end here.')
+                Skip-OtterNewlines
+                continue
+            }
+            if ($cur.Text -eq 'columns' -and ($script:Position + 3) -lt $script:Tokens.Count -and $script:Tokens[$script:Position + 2].Text -eq 'on') {
+                [void](Read-OtterToken)
+                $colCount = (Read-OtterToken).Value
+                [void](Read-OtterToken) # on
+                $bp = (Read-OtterToken).Text
+                $layout.Responsive += [ResponsiveRule]::new($bp, [int]$colCount, $false)
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the responsive rule to end here.')
+                Skip-OtterNewlines
+                continue
+            }
+            if ($cur.Text -eq 'stack' -and ($script:Position + 2) -lt $script:Tokens.Count -and $script:Tokens[$script:Position + 1].Text -eq 'on') {
+                [void](Read-OtterToken)
+                [void](Read-OtterToken) # on
+                $bp = (Read-OtterToken).Text
+                $layout.Responsive += [ResponsiveRule]::new($bp, 1, $true)
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the responsive rule to end here.')
+                Skip-OtterNewlines
+                continue
+            }
+            
+            if ($cur.Text -in @('round', 'background', 'placeholder', 'padding', 'margin', 'width', 'height')) {
+                $propTok = Read-OtterToken
+                $propVal = Read-OtterMathExpression
+                $properties.Add([AssignStmt]::new($propTok.Text, $propVal, $propTok.Line))
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the property statement to end here.')
+                Skip-OtterNewlines
+                continue
+            }
+            
+            if ($cur.Text -in @('enter', 'leave', 'hover', 'press') -and (Test-OtterTokenOffsetKind 1 ([TokenKind]::Newline)) -and (Test-OtterTokenOffsetKind 2 ([TokenKind]::Indent))) {
+                $triggerTok = Read-OtterToken
+                $animBlock = Read-OtterAnimationBlock -Trigger $triggerTok.Text -Line $triggerTok.Line
+                $animations.Add($animBlock)
+                Skip-OtterNewlines
+                continue
+            }
+            
+            if ($cur.Text -in @('click', 'change', 'input', 'submit', 'hover', 'press', 'focus', 'blur') -and (Test-OtterTokenOffsetKind 1 ([TokenKind]::Newline)) -and (Test-OtterTokenOffsetKind 2 ([TokenKind]::Indent))) {
+                $evtTok = Read-OtterToken
+                $evtBody = Read-OtterBlock
+                $events.Add([UiEventStmt]::new($evtTok.Text, $evtBody, $evtTok.Line))
+                Skip-OtterNewlines
+                continue
+            }
+            
+            $parsedChild = Read-OtterStatement
+            if ($parsedChild -is [System.Array]) {
+                foreach ($c in $parsedChild) { $children.Add($c) }
+            } else {
+                $children.Add($parsedChild)
+            }
+            Skip-OtterNewlines
+        }
+        [void](Assert-OtterTokenKind ([TokenKind]::Dedent) 'I expected the UI element block to end.')
+        if (Test-OtterTokenKind ([TokenKind]::BlockEnd)) {
+            [void](Read-OtterToken)
+            Skip-OtterNewlines
+        }
+    }
+    
+    return [UiElementStmt]::new($tag, $variant, $label, $name, $layout, $properties.ToArray(), $events.ToArray(), $animations.ToArray(), $children.ToArray(), $start.Line)
+}
+
 function Read-OtterStatement {
     $start = Get-OtterCurrentToken
 
@@ -561,7 +798,7 @@ function Read-OtterStatement {
     $statementKind = $start.Kind
     $nextKind = if (($script:Position + 1) -lt $script:Tokens.Count) { $script:Tokens[$script:Position + 1].Kind } else { [TokenKind]::EndOfFile }
     if (((Test-OtterIdentifierToken $start) -or ($start.Kind -eq [TokenKind]::ForEach -and $start.Text -eq 'each')) -and
-        $nextKind -in @([TokenKind]::Is, [TokenKind]::Are, [TokenKind]::Of)) {
+        $nextKind -in @([TokenKind]::Is, [TokenKind]::Are, [TokenKind]::Of, [TokenKind]::IsNot)) {
         $statementKind = [TokenKind]::Identifier
     }
 
@@ -577,11 +814,86 @@ function Read-OtterStatement {
         return [AssignStmt]::new($target, $value, $start.Line)
     }
 
+    $isVariant = ($start.Text -in @('primary', 'secondary', 'danger') -and ($script:Position + 1) -lt $script:Tokens.Count -and $script:Tokens[$script:Position + 1].Text.ToLowerInvariant() -in @('button', 'card', 'heading', 'text', 'panel', 'link', 'image', 'input'))
+    $isUiTag = ($start.Text.ToLowerInvariant() -in @('window', 'page', 'card', 'heading', 'text', 'button', 'panel', 'section', 'sidebar', 'main', 'link', 'image', 'input', 'grid'))
+    if ($isVariant -or ($isUiTag -and $nextKind -notin @([TokenKind]::Is, [TokenKind]::Are, [TokenKind]::Of, [TokenKind]::Has, [TokenKind]::Make, [TokenKind]::Into, [TokenKind]::IsNot))) {
+        return Read-OtterUiElementStatement
+    }
+
     switch ($statementKind) {
+        ([TokenKind]::State) {
+            [void](Read-OtterToken)
+            $nameTok = Read-OtterVariableName 'I expected a variable name after "state".'
+            [void](Assert-OtterTokenKind ([TokenKind]::Is) 'I expected "is" after the state variable name.')
+            $val = Read-OtterMathExpression
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the state definition to end here.')
+            return [StateDefStmt]::new($nameTok.Text, $val, $start.Line)
+        }
+        ([TokenKind]::Derive) {
+            [void](Read-OtterToken)
+            $nameTok = Read-OtterVariableName 'I expected a variable name after "derive".'
+            [void](Assert-OtterTokenKind ([TokenKind]::Is) 'I expected "is" after the derived variable name.')
+            $expr = Read-OtterMathExpression
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the derive statement to end here.')
+            return [DeriveDefStmt]::new($nameTok.Text, $expr, $start.Line)
+        }
+        ([TokenKind]::Memo) {
+            [void](Read-OtterToken)
+            $nameTok = Read-OtterVariableName 'I expected a memo name after "memo".'
+            return [MemoDefStmt]::new($nameTok.Text, (Read-OtterBlock), $start.Line)
+        }
+        ([TokenKind]::On) {
+            [void](Read-OtterToken)
+            $stageTok = Read-OtterToken
+            if ($stageTok.Text -notin @('start', 'close')) {
+                throw (New-OtterParserError "I expected 'start' or 'close' after 'on', but got '$($stageTok.Text)'." $stageTok "Write 'on start' or 'on close'.")
+            }
+            return [LifecycleStmt]::new($stageTok.Text, (Read-OtterBlock), $start.Line)
+        }
+        ([TokenKind]::Shared) {
+            [void](Read-OtterToken)
+            $nameTok = Read-OtterVariableName 'I expected a variable name after "shared".'
+            [void](Assert-OtterTokenKind ([TokenKind]::Is) 'I expected "is" after the shared variable name.')
+            $val = Read-OtterMathExpression
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the shared statement to end here.')
+            return [SharedStateStmt]::new($nameTok.Text, $val, $start.Line)
+        }
+        ([TokenKind]::Use) {
+            [void](Read-OtterToken)
+            $modTok = Read-OtterToken
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the use statement to end here.')
+            return [UseModuleStmt]::new($modTok.Text, $start.Line)
+        }
+        ([TokenKind]::Focus) {
+            [void](Read-OtterToken)
+            $target = Read-OtterValue
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the focus statement to end here.')
+            return [UiActionStmt]::new('focus', $target, $start.Line)
+        }
+        ([TokenKind]::Hide) {
+            [void](Read-OtterToken)
+            $target = Read-OtterValue
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the hide statement to end here.')
+            return [UiActionStmt]::new('hide', $target, $start.Line)
+        }
+        ([TokenKind]::Layout) {
+            [void](Read-OtterToken)
+            $modeTok = Read-OtterToken
+            $mode = $modeTok.Text.ToLowerInvariant()
+            $cols = $null
+            if ($mode -eq 'grid' -and -not (Test-OtterTokenKind ([TokenKind]::Newline))) {
+                $cols = Read-OtterMathExpression
+            }
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the layout statement to end here.')
+            $spec = [UiLayoutSpec]::new()
+            $spec.Mode = $mode
+            $spec.Columns = $cols
+            return [UiElementStmt]::new('layout', $null, $null, $null, $spec, @(), @(), @(), @(), $start.Line)
+        }
         ([TokenKind]::Say) {
             [void](Read-OtterToken)
             $parts = [System.Collections.Generic.List[Node]]::new()
-            while (-not (Test-OtterTokenKind ([TokenKind]::Newline))) { $parts.Add((Read-OtterValue)) }
+            while (-not (Test-OtterTokenKind ([TokenKind]::Newline))) { $parts.Add((Read-OtterMathExpression)) }
             [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the say statement to end here.')
             return [SayStmt]::new($parts.ToArray(), $start.Line)
         }
@@ -645,6 +957,9 @@ function Read-OtterStatement {
                 throw (New-OtterParserError 'I expected an event name.' $eventToken 'Write an event such as "clicked" or "changed".')
             }
             [void](Read-OtterToken)
+            if ($eventToken.Text -eq 'changes') {
+                return [WatchStmt]::new($target.Name, (Read-OtterBlock), $start.Line)
+            }
             return [WhenStmt]::new($target, $eventToken.Text, (Read-OtterBlock), $start.Line)
         }
         ([TokenKind]::Respond) {
@@ -1297,6 +1612,12 @@ function Read-OtterStatement {
                 $value = Read-OtterMathExpression
                 [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the assignment to end here.')
                 return [AssignStmt]::new($name.Text, $value, $name.Line)
+            }
+            if (Test-OtterTokenKind ([TokenKind]::IsNot)) {
+                [void](Read-OtterToken)
+                $value = Read-OtterMathExpression
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the assignment to end here.')
+                return [AssignStmt]::new($name.Text, [NotExpr]::new($value, $name.Line), $name.Line)
             }
             if (Test-OtterTokenKind ([TokenKind]::Are)) {
                 [void](Read-OtterToken)

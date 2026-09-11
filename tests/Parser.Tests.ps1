@@ -952,4 +952,139 @@ if ($whenWithoutIsAst.Statements[0].EventName -ne 'clicked' -or $whenWithIsAst.S
     throw 'Both forms of when statement must parse the same event name.'
 }
 
+# 17. Declarative UI & Layout (D56)
+$uiSource = @"
+window "My App"
+    heading "Welcome"
+    text "Hello from Otter"
+    primary button "Continue"
+.
+page
+    layout split
+    stack on small
+
+    section
+        layout cards
+        gap 20
+        card
+            heading "Product One"
+        .
+    .
+.
+"@
+$uiAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $uiSource)
+if ($uiAst.Statements.Count -ne 2) { throw "Expected 2 UI elements, got $($uiAst.Statements.Count)" }
+if ($uiAst.Statements[0].Tag -ne 'window' -or $uiAst.Statements[0].Children.Count -ne 3) { throw "Expected window with 3 children." }
+if ($uiAst.Statements[0].Children[2].Variant -ne 'primary' -or $uiAst.Statements[0].Children[2].Tag -ne 'button') { throw "Expected primary button." }
+if ($uiAst.Statements[1].Layout.Mode -ne 'split' -or $uiAst.Statements[1].Layout.Responsive.Count -ne 1) { throw "Expected layout split with responsive rule." }
+
+# 18. Reactive State, Derive, Memo, Watch, Lifecycle (D56)
+$reactiveSource = @"
+state count is 0
+derive doubled is count * 2
+memo sortedItems
+    return items
+.
+when count changes
+    say count
+.
+on start
+    say "Starting"
+.
+"@
+$reactiveAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $reactiveSource)
+if ($reactiveAst.Statements[0] -isnot [StateDefStmt] -or $reactiveAst.Statements[0].Name -ne 'count') { throw "Expected StateDefStmt." }
+if ($reactiveAst.Statements[1] -isnot [DeriveDefStmt] -or $reactiveAst.Statements[1].Name -ne 'doubled') { throw "Expected DeriveDefStmt." }
+if ($reactiveAst.Statements[2] -isnot [MemoDefStmt] -or $reactiveAst.Statements[2].Name -ne 'sortedItems') { throw "Expected MemoDefStmt." }
+if ($reactiveAst.Statements[3] -isnot [WatchStmt] -or $reactiveAst.Statements[3].TargetName -ne 'count') { throw "Expected WatchStmt." }
+if ($reactiveAst.Statements[4] -isnot [LifecycleStmt] -or $reactiveAst.Statements[4].Stage -ne 'start') { throw "Expected LifecycleStmt." }
+
+# 19. First-Class Animation Blocks (D56)
+$animSource = @"
+card
+    enter
+        fade in
+        move up 20
+        animate 300ms ease-out
+    .
+    leave
+        fade out
+        shrink 0.95
+        animate 200ms
+    .
+    primary button "Save"
+        hover
+            grow 1.05
+            animate 150ms
+        .
+        click
+            count is count + 1
+        .
+    .
+.
+"@
+$animAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $animSource)
+if ($animAst.Statements[0].Animations.Count -ne 2) { throw "Expected 2 animations on card." }
+$enterAnim = $animAst.Statements[0].Animations[0]
+if ($enterAnim.Trigger -ne 'enter' -or $enterAnim.DurationMs -ne 300.0 -or $enterAnim.Easing -ne 'ease-out') { throw "Expected enter animation with 300ms ease-out." }
+if ($enterAnim.Steps.Count -ne 2 -or $enterAnim.Steps[0].Operation -ne 'fade' -or $enterAnim.Steps[0].Direction -ne 'in') { throw "Expected fade in step." }
+$btn = $animAst.Statements[0].Children[0]
+if ($btn.Animations.Count -ne 1 -or $btn.Animations[0].Trigger -ne 'hover') { throw "Expected hover animation on button." }
+if ($btn.Events.Count -ne 1 -or $btn.Events[0].EventName -ne 'click') { throw "Expected click event on button." }
+
+# 20. Async / Await, Shared State, UI Action, Modules (D56)
+$asyncSource = @"
+shared theme is "dark"
+use ui
+to loadProducts
+    products is await get "/api/products"
+.
+focus searchBox
+hide sidebar
+"@
+$asyncAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $asyncSource)
+if ($asyncAst.Statements[0] -isnot [SharedStateStmt] -or $asyncAst.Statements[0].Name -ne 'theme') { throw "Expected SharedStateStmt." }
+if ($asyncAst.Statements[1] -isnot [UseModuleStmt] -or $asyncAst.Statements[1].Module -ne 'ui') { throw "Expected UseModuleStmt." }
+if ($asyncAst.Statements[2].Body[0].Value -isnot [AwaitExpr]) { throw "Expected AwaitExpr." }
+if ($asyncAst.Statements[3] -isnot [UiActionStmt] -or $asyncAst.Statements[3].Action -ne 'focus') { throw "Expected focus action." }
+if ($asyncAst.Statements[4] -isnot [UiActionStmt] -or $asyncAst.Statements[4].Action -ne 'hide') { throw "Expected hide action." }
+
+# 21. Section 29 Acceptance Program Parses Completely
+$acceptanceSource = [System.IO.File]::ReadAllText((Join-Path $PSScriptRoot '..\examples\counter.ot'))
+$acceptanceAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $acceptanceSource)
+if ($acceptanceAst.Statements.Count -ne 6) { throw "Expected 6 statements in acceptance program, got $($acceptanceAst.Statements.Count)." }
+
+# 22. Quality Diagnostic for '=' assignment
+$diagEqCaught = $false
+try {
+    ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source 'state count = 0')
+} catch [OtterError] {
+    $diagEqCaught = $true
+    if ($_.Exception.Message -notlike "*Otter does not use '=' to assign values*") {
+        throw "Expected '=' diagnostic, got: $($_.Exception.Message)"
+    }
+    if ($_.Exception.Suggestion -notlike "*state count is 0*") {
+        throw "Expected 'state count is 0' suggestion, got: $($_.Exception.Suggestion)"
+    }
+}
+if (-not $diagEqCaught) { throw "Expected '=' assignment to fail with diagnostic." }
+
+# 23. Quality Diagnostic for invalid animation duration/easing
+$diagAnimCaught = $false
+try {
+    ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source @"
+button "Save"
+    hover
+        animate fast
+    .
+.
+"@)
+} catch [OtterError] {
+    $diagAnimCaught = $true
+    if ($_.Exception.Message -notlike "*Otter expected a duration*after 'animate'*") {
+        throw "Expected invalid animate diagnostic, got: $($_.Exception.Message)"
+    }
+}
+if (-not $diagAnimCaught) { throw "Expected 'animate fast' to fail with diagnostic." }
+
 Write-Output 'Parser tests passed.'
