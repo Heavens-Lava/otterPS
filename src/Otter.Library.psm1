@@ -196,7 +196,7 @@ function Write-OtterFile {
 }
 
 # append "line one" to "log.txt"                                  (D61)
-function Append-OtterFile {
+function Add-OtterFileContent {
     param([string]$Path, [string]$Content, [int]$Line)
 
     $full = Resolve-OtterPath -Path $Path -Line $Line
@@ -726,7 +726,7 @@ function Invoke-OtterCommand {
 
 
 Export-ModuleMember -Function `
-    Resolve-OtterPath, Read-OtterFile, Write-OtterFile, Append-OtterFile, Copy-OtterFile, `
+    Resolve-OtterPath, Read-OtterFile, Write-OtterFile, Add-OtterFileContent, Copy-OtterFile, `
     Move-OtterFile, Remove-OtterFile, Test-OtterFileExists, `
     Split-OtterCommandLine, Start-OtterProgram, Invoke-OtterCommand, `
     New-OtterFileObject, Resolve-OtterFileArgument, New-OtterFolderObject, `

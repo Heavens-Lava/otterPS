@@ -522,7 +522,7 @@ function Invoke-OtterStatement {
         'AppendFile' {
             $content = Get-OtterText -Expression $Statement.Content -Environment $Environment
             $path = Get-OtterPathArgument -Expression $Statement.Path -Environment $Environment
-            Append-OtterFile -Path $path -Content $content -Line $Statement.Line
+            Add-OtterFileContent -Path $path -Content $content -Line $Statement.Line
             return
         }
 

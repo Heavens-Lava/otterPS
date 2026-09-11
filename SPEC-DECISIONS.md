@@ -4202,7 +4202,7 @@ different kind.
 
 ### What's built, what's still Codex's
 
-**Interpreter + runtime**: landed this entry (`Append-OtterFile` in
+**Interpreter + runtime**: landed this entry (`Add-OtterFileContent` in
 `Otter.Library.psm1`, the `'AppendFile'` case in
 `Otter.Interpreter.psm1`), tested directly against hand-constructed
 `AppendFileStmt` nodes per this project's established "don't block on
