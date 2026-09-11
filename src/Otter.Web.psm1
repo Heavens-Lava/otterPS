@@ -12,7 +12,7 @@ function ConvertTo-OtterJsExpression {
         ([NodeKind]::Literal) {
             $val = $Expr.Value
             if ($null -eq $val) { return 'null' }
-            if ($val -is [bool]) { return if ($val) { 'true' } else { 'false' } }
+            if ($val -is [bool]) { return $(if ($val) { 'true' } else { 'false' }) }
             if ($val -is [double] -or $val -is [int] -or $val -is [long]) { return [string]$val }
             $escaped = [string]$val -replace '\\', '\\' -replace '"', '\"' -replace "`n", '\n' -replace "`r", ''
             return "`"$escaped`""
@@ -39,11 +39,22 @@ function ConvertTo-OtterJsExpression {
             $left = ConvertTo-OtterJsExpression -Expr $Expr.Left
             $right = ConvertTo-OtterJsExpression -Expr $Expr.Right
             switch ($Expr.Op) {
-                ([MathOp]::Add) { return "(Number($left) + Number($right))" }
+                ([MathOp]::Add) {
+                    if (($Expr.Left -is [LiteralExpr] -and $Expr.Left.Value -is [string]) -or
+                        ($Expr.Right -is [LiteralExpr] -and $Expr.Right.Value -is [string]) -or
+                        $left.StartsWith('"') -or $right.StartsWith('"')) {
+                        return "($left + $right)"
+                    }
+                    return "(Number($left) + Number($right))"
+                }
                 ([MathOp]::Subtract) { return "(Number($left) - Number($right))" }
                 ([MathOp]::Multiply) { return "(Number($left) * Number($right))" }
                 ([MathOp]::Divide) { return "(Number($left) / Number($right))" }
             }
+        }
+        ([NodeKind]::Await) {
+            $inner = ConvertTo-OtterJsExpression -Expr $Expr.Expression
+            return "(await $inner)"
         }
         ([NodeKind]::Comparison) {
             $left = ConvertTo-OtterJsExpression -Expr $Expr.Left
@@ -66,7 +77,8 @@ function ConvertTo-OtterJsExpression {
             }
         }
         ([NodeKind]::Not) {
-            $inner = ConvertTo-OtterJsExpression -Expr $Expr.Expression
+            $innerNode = if ($Expr.Operand) { $Expr.Operand } else { $Expr.Expression }
+            $inner = ConvertTo-OtterJsExpression -Expr $innerNode
             return "(!$inner)"
         }
         ([NodeKind]::Contains) {
@@ -108,7 +120,7 @@ function ConvertTo-OtterJsStatement {
             }
             $varName = if ($Stmt.Target -is [VariableExpr]) { $Stmt.Target.Name } else { [string]$Stmt.Target }
             $valExpr = ConvertTo-OtterJsExpression -Expr $Stmt.Value
-            return "${pad}let $varName = $valExpr; window.$varName = $varName;"
+            return "${pad}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$varName' in otterState)) { otterSetState('$varName', $valExpr); } else { window.$varName = $valExpr; }"
         }
         ([NodeKind]::Say) {
             $parts = foreach ($p in $Stmt.Parts) { ConvertTo-OtterJsExpression -Expr $p }
@@ -214,6 +226,362 @@ function ConvertTo-OtterJsStatement {
     }
 }
 
+function Escape-OtterHtmlAttr {
+    param([string]$Text)
+    if ($null -eq $Text) { return "" }
+    return $Text -replace '&', '&amp;' -replace '"', '&quot;' -replace '<', '&lt;' -replace '>', '&gt;'
+}
+
+function ConvertTo-OtterCssEasing {
+    param([string]$Easing)
+    switch ($Easing) {
+        'ease-out' { return 'cubic-bezier(0.16, 1, 0.3, 1)' }
+        'ease-in'  { return 'cubic-bezier(0.7, 0, 0.84, 0)' }
+        'spring'   { return 'cubic-bezier(0.34, 1.56, 0.64, 1)' }
+        'linear'   { return 'linear' }
+        default    { return 'ease' }
+    }
+}
+
+function Render-OtterDeclarativeElementWeb {
+    param(
+        [Parameter(Mandatory)][Node]$Element,
+        [hashtable]$StateVars,
+        [hashtable]$DeriveVars,
+        [System.Collections.Generic.List[string]]$CssRules,
+        [System.Collections.Generic.List[string]]$JsListeners,
+        [ref]$IdCounter,
+        [int]$Depth = 1
+    )
+
+    if ($Element -isnot [UiElementStmt]) {
+        return ""
+    }
+
+    $id = if ($Element.Name) {
+        $Element.Name
+    } else {
+        $curId = [int]$IdCounter.Value
+        $IdCounter.Value = $curId + 1
+        "otter_el_$curId"
+    }
+    $tag = if ($Element.Tag) { $Element.Tag.ToLowerInvariant() } else { "panel" }
+    $variant = if ($Element.Variant) { $Element.Variant.ToLowerInvariant() } else { $null }
+
+    $styles = [System.Collections.Generic.List[string]]::new()
+    $classes = [System.Collections.Generic.List[string]]::new()
+    $classes.Add("otter-$tag")
+    if ($variant) {
+        $classes.Add("otter-$tag-$variant")
+        $classes.Add("otter-btn-$variant")
+    }
+
+    # Layout mode & presets
+    if ($Element.Layout) {
+        $mode = if ($Element.Layout.Mode) { $Element.Layout.Mode.ToLowerInvariant() } else { $null }
+        switch ($mode) {
+            'centered' {
+                $styles.Add("display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100%;")
+            }
+            'split' {
+                $styles.Add("display: flex; flex-direction: row; justify-content: space-between; align-items: center; width: 100%;")
+            }
+            'sidebar' {
+                $styles.Add("display: grid; grid-template-columns: 240px 1fr; width: 100%; min-height: 100%;")
+            }
+            'stack' {
+                $styles.Add("display: flex; flex-direction: column; width: 100%;")
+            }
+            'cards' {
+                $styles.Add("display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); width: 100%;")
+            }
+            'navbar' {
+                $styles.Add("display: flex; flex-direction: row; align-items: center; justify-content: space-between; width: 100%; padding: 12px 24px;")
+            }
+            'form' {
+                $styles.Add("display: flex; flex-direction: column; width: 100%; max-width: 480px; margin: 0 auto;")
+            }
+            'row' {
+                $styles.Add("display: flex; flex-direction: row;")
+            }
+            'column' {
+                $styles.Add("display: flex; flex-direction: column;")
+            }
+            'grid' {
+                $styles.Add("display: grid;")
+                if ($Element.Layout.Columns) {
+                    $colCount = if ($Element.Layout.Columns -is [LiteralExpr]) { $Element.Layout.Columns.Value } else { 2 }
+                    $styles.Add("grid-template-columns: repeat($colCount, minmax(0, 1fr));")
+                }
+            }
+        }
+
+        # Gap
+        if ($Element.Layout.Gap) {
+            $gapVal = if ($Element.Layout.Gap -is [LiteralExpr]) { $Element.Layout.Gap.Value } else { 12 }
+            $styles.Add("gap: ${gapVal}px;")
+        }
+
+        # Spread
+        if ($Element.Layout.Spread) {
+            $styles.Add("justify-content: space-between;")
+        }
+
+        # Align
+        if ($Element.Layout.Align) {
+            $align = $Element.Layout.Align.ToLowerInvariant()
+            switch ($align) {
+                'center' { $styles.Add("align-items: center; text-align: center; justify-content: center;") }
+                'left'   { $styles.Add("align-items: flex-start; text-align: left; justify-content: flex-start;") }
+                'right'  { $styles.Add("align-items: flex-end; text-align: right; justify-content: flex-end;") }
+                'top'    { $styles.Add("align-items: flex-start;") }
+                'middle' { $styles.Add("align-items: center;") }
+                'bottom' { $styles.Add("align-items: flex-end;") }
+            }
+        }
+
+        # Responsive
+        if ($Element.Layout.Responsive) {
+            foreach ($r in $Element.Layout.Responsive) {
+                $bpPx = switch ($r.Breakpoint.ToLowerInvariant()) {
+                    'small'  { '640px' }
+                    'medium' { '768px' }
+                    'large'  { '1024px' }
+                    default  { '768px' }
+                }
+                if ($r.Stack) {
+                    $CssRules.Add("@media (max-width: $bpPx) { #$id { flex-direction: column !important; } }")
+                }
+                if ($r.Columns -gt 0) {
+                    $CssRules.Add("@media (max-width: $bpPx) { #$id { grid-template-columns: repeat($($r.Columns), 1fr) !important; } }")
+                }
+            }
+        }
+    }
+
+    # Properties
+    if ($Element.Properties) {
+        foreach ($prop in $Element.Properties) {
+            if ($prop -is [AssignStmt]) {
+                $pName = if ($prop.Target -is [VariableExpr]) { $prop.Target.Name.ToLowerInvariant() } else { [string]$prop.Target.ToLowerInvariant() }
+                $pVal = if ($prop.Value -is [LiteralExpr]) { $prop.Value.Value } else { $null }
+                switch ($pName) {
+                    'round' {
+                        $rad = if ($null -ne $pVal -and $pVal -ne $true) { "${pVal}px" } else { "12px" }
+                        $styles.Add("border-radius: $rad;")
+                    }
+                    'gap' {
+                        $styles.Add("gap: ${pVal}px;")
+                    }
+                    'align' {
+                        switch ([string]$pVal) {
+                            'center' { $styles.Add("align-items: center; text-align: center; justify-content: center;") }
+                            'left'   { $styles.Add("align-items: flex-start; text-align: left; justify-content: flex-start;") }
+                            'right'  { $styles.Add("align-items: flex-end; text-align: right; justify-content: flex-end;") }
+                            'top'    { $styles.Add("align-items: flex-start;") }
+                            'middle' { $styles.Add("align-items: center;") }
+                            'bottom' { $styles.Add("align-items: flex-end;") }
+                        }
+                    }
+                    'spread' {
+                        if ($pVal -eq $true -or $pVal -eq 'true') { $styles.Add("justify-content: space-between;") }
+                    }
+                    'padding' {
+                        $styles.Add("padding: ${pVal}px;")
+                    }
+                    'width' {
+                        $w = if ($pVal -eq 'full') { "100%" } elseif ($pVal -is [int] -or $pVal -is [double]) { "${pVal}px" } else { $pVal }
+                        $styles.Add("width: $w;")
+                    }
+                    'height' {
+                        $h = if ($pVal -eq 'full') { "100%" } elseif ($pVal -is [int] -or $pVal -is [double]) { "${pVal}px" } else { $pVal }
+                        $styles.Add("height: $h;")
+                    }
+                    'background' {
+                        $styles.Add("background: $pVal;")
+                    }
+                    'foreground' {
+                        $styles.Add("color: $pVal;")
+                    }
+                }
+            }
+        }
+    }
+
+    # Animations
+    if ($Element.Animations) {
+        foreach ($anim in $Element.Animations) {
+            $dur = if ($anim.DurationMs -gt 0) { $anim.DurationMs } else { 200 }
+            $easingCss = ConvertTo-OtterCssEasing -Easing $anim.Easing
+
+            switch ($anim.Trigger.ToLowerInvariant()) {
+                'hover' {
+                    $scale = 1.05
+                    foreach ($step in $anim.Steps) {
+                        if ($step.Operation -in @('grow', 'scale') -and $step.Amount -and $step.Amount -is [LiteralExpr]) {
+                            $scale = $step.Amount.Value
+                        }
+                    }
+                    $styles.Add("transition: transform ${dur}ms $easingCss, box-shadow ${dur}ms $easingCss;")
+                    $CssRules.Add("#$($id):hover { transform: scale($scale); }")
+                }
+                'press' {
+                    $styles.Add("transition: transform 100ms ease;")
+                    $CssRules.Add("#$($id):active { transform: scale(0.96); }")
+                }
+                'enter' {
+                    $fromTransforms = [System.Collections.Generic.List[string]]::new()
+                    $fromOpacity = $null
+                    foreach ($step in $anim.Steps) {
+                        if ($step.Operation -eq 'fade' -and $step.Direction -eq 'in') { $fromOpacity = '0' }
+                        if ($step.Operation -eq 'move') {
+                            $amt = if ($step.Amount -and $step.Amount -is [LiteralExpr]) { $step.Amount.Value } else { 20 }
+                            switch ($step.Direction) {
+                                'up'    { $fromTransforms.Add("translateY(${amt}px)") }
+                                'down'  { $fromTransforms.Add("translateY(-${amt}px)") }
+                                'left'  { $fromTransforms.Add("translateX(${amt}px)") }
+                                'right' { $fromTransforms.Add("translateX(-${amt}px)") }
+                            }
+                        }
+                        if ($step.Operation -eq 'slide') {
+                            $fromOpacity = '0'
+                            switch ($step.Direction) {
+                                'left'   { $fromTransforms.Add("translateX(-30px)") }
+                                'right'  { $fromTransforms.Add("translateX(30px)") }
+                                'top'    { $fromTransforms.Add("translateY(-30px)") }
+                                'bottom' { $fromTransforms.Add("translateY(30px)") }
+                                default  { $fromTransforms.Add("translateX(-30px)") }
+                            }
+                        }
+                    }
+                    $fromCss = ""
+                    if ($null -ne $fromOpacity) { $fromCss += "opacity: $fromOpacity; " }
+                    if ($fromTransforms.Count -gt 0) { $fromCss += "transform: $($fromTransforms -join ' '); " }
+                    $toCss = "opacity: 1; transform: translate(0, 0) scale(1);"
+
+                    $animName = "otter_enter_$id"
+                    $CssRules.Add("@keyframes $animName { from { $fromCss } to { $toCss } }")
+                    $styles.Add("animation: $animName ${dur}ms $easingCss forwards;")
+                }
+                'leave' {
+                    $animName = "otter_leave_$id"
+                    $CssRules.Add("@keyframes $animName { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(0.95); } }")
+                }
+            }
+        }
+    }
+
+    # Events
+    if ($Element.Events) {
+        foreach ($evt in $Element.Events) {
+            $evtName = switch ($evt.EventName.ToLowerInvariant()) {
+                'click'   { 'click' }
+                'input'   { 'input' }
+                'change'  { 'change' }
+                'submit'  { 'submit' }
+                'hover'   { 'mouseenter' }
+                'press'   { 'mousedown' }
+                'focus'   { 'focus' }
+                'blur'    { 'blur' }
+                default   { $evt.EventName.ToLowerInvariant() }
+            }
+
+            $bodyStatements = [System.Collections.Generic.List[string]]::new()
+            foreach ($s in $evt.Body) {
+                $bodyStatements.Add((ConvertTo-OtterJsStatement -Stmt $s -Indent 3))
+            }
+            $bodyCode = $bodyStatements -join "`n"
+
+            $JsListeners.Add(@"
+    const el_$id = document.getElementById('$id');
+    if (el_$id) {
+      el_$id.addEventListener('$evtName', async (event) => {
+$bodyCode
+        if (typeof otterUpdateReactivity === 'function') otterUpdateReactivity();
+      });
+    }
+"@)
+        }
+    }
+
+    # Label and dynamic data binding
+    $labelAttr = ""
+    $labelText = ""
+    if ($Element.Label) {
+        if ($Element.Label -is [LiteralExpr]) {
+            $labelText = [string]$Element.Label.Value
+        } else {
+            $jsExpr = ConvertTo-OtterJsExpression -Expr $Element.Label
+            $escapedExpr = Escape-OtterHtmlAttr -Text $jsExpr
+            $labelAttr = " data-otter-bind=`"$escapedExpr`""
+            $labelText = ""
+        }
+    }
+
+    # Children
+    $childrenHtml = [System.Collections.Generic.List[string]]::new()
+    if ($Element.Children) {
+        foreach ($child in $Element.Children) {
+            if ($child -is [UiElementStmt]) {
+                $cHtml = Render-OtterDeclarativeElementWeb -Element $child -StateVars $StateVars -DeriveVars $DeriveVars -CssRules $CssRules -JsListeners $JsListeners -IdCounter $IdCounter -Depth ($Depth + 1)
+                $childrenHtml.Add($cHtml)
+            } elseif ($child -is [IfStmt]) {
+                if ($child.Branches.Count -gt 0) {
+                    $b0 = $child.Branches[0]
+                    $condExpr = ConvertTo-OtterJsExpression -Expr $b0.Condition
+                    $escapedCond = Escape-OtterHtmlAttr -Text $condExpr
+                    $subHtml = [System.Collections.Generic.List[string]]::new()
+                    foreach ($sub in $b0.Body) {
+                        if ($sub -is [UiElementStmt]) {
+                            $subHtml.Add((Render-OtterDeclarativeElementWeb -Element $sub -StateVars $StateVars -DeriveVars $DeriveVars -CssRules $CssRules -JsListeners $JsListeners -IdCounter $IdCounter -Depth ($Depth + 2)))
+                        }
+                    }
+                    $subJoined = $subHtml -join "`n"
+                    $currIfNum = [int]$IdCounter.Value
+                    $IdCounter.Value = $currIfNum + 1
+                    $ifId = "otter_if_$currIfNum"
+                    $childrenHtml.Add("      <div id=`"$ifId`" class=`"otter-conditional`" data-otter-if=`"$escapedCond`" style=`"display: none;`">`n$subJoined`n      </div>")
+                }
+            }
+        }
+    }
+
+    $styleAttr = if ($styles.Count -gt 0) { " style=`"$($styles -join ' ')`"" } else { "" }
+    $classAttr = " class=`"$($classes -join ' ')`""
+    $content = if ($childrenHtml.Count -gt 0) {
+        if ($labelText) { "$labelText`n" + ($childrenHtml -join "`n") } else { "`n" + ($childrenHtml -join "`n") + "`n    " }
+    } else {
+        $labelText
+    }
+
+    $pad = '  ' * $Depth
+
+    switch ($tag) {
+        'heading' {
+            return "${pad}<h2 id=`"$id`"$classAttr$styleAttr$labelAttr>$content</h2>"
+        }
+        'button' {
+            return "${pad}<button id=`"$id`"$classAttr$styleAttr$labelAttr>$content</button>"
+        }
+        'text' {
+            return "${pad}<div id=`"$id`"$classAttr$styleAttr$labelAttr>$content</div>"
+        }
+        'input' {
+            return "${pad}<input type=`"text`" id=`"$id`"$classAttr$styleAttr$labelAttr value=`"$labelText`" />"
+        }
+        'section' {
+            return "${pad}<section id=`"$id`"$classAttr$styleAttr$labelAttr>$content</section>"
+        }
+        'page' {
+            return "${pad}<main id=`"$id`"$classAttr$styleAttr$labelAttr>$content</main>"
+        }
+        default {
+            # card, panel, row, column, grid, window
+            return "${pad}<div id=`"$id`"$classAttr$styleAttr$labelAttr>$content</div>"
+        }
+    }
+}
+
 function ConvertTo-OtterWeb {
     param(
         [Parameter(Mandatory)][ProgramNode]$Program,
@@ -225,9 +593,34 @@ function ConvertTo-OtterWeb {
     $containers = [ordered]@{} # parent -> children list
     $whenHandlers = [System.Collections.Generic.List[WhenStmt]]::new()
     $topLevelStatements = [System.Collections.Generic.List[Node]]::new()
+    $declarativeRoots = [System.Collections.Generic.List[UiElementStmt]]::new()
+    $stateDefs = [ordered]@{}
+    $deriveDefs = [ordered]@{}
+    $watchStmts = [System.Collections.Generic.List[WatchStmt]]::new()
+    $functions = [ordered]@{}
 
     # Pass 1: Identify resources and configurations
     foreach ($stmt in $Program.Statements) {
+        if ($stmt -is [StateDefStmt]) {
+            $stateDefs[$stmt.Name] = $stmt
+            continue
+        }
+        if ($stmt -is [DeriveDefStmt]) {
+            $deriveDefs[$stmt.Name] = $stmt
+            continue
+        }
+        if ($stmt -is [WatchStmt]) {
+            $watchStmts.Add($stmt)
+            continue
+        }
+        if ($stmt -is [FunctionDefStmt]) {
+            $functions[$stmt.Name] = $stmt
+            continue
+        }
+        if ($stmt -is [UiElementStmt]) {
+            $declarativeRoots.Add($stmt)
+            continue
+        }
         if ($stmt -is [CreateUiResourceStmt]) {
             $resources[$stmt.Target] = @{
                 Kind = $stmt.TypeName.ToLowerInvariant()
@@ -519,7 +912,9 @@ function ConvertTo-OtterWeb {
             'link' {
                 $href = if ($props.Contains('url')) { $props['url'] } elseif ($props.Contains('href')) { $props['href'] } else { "#" }
                 $text = if ($props.Contains('text')) { $props['text'] } else { $href }
-                return "      <a id=`"$resName`" class=`"otter-link`" href=`"$href`"$styleAttr target=`"_blank`" rel=`"noopener noreferrer`">$text</a>"
+                $isExternal = [string]$href -match '^(?i)https?://'
+                $linkAttrs = if ($isExternal) { ' target="_blank" rel="noopener noreferrer"' } else { '' }
+                return "      <a id=`"$resName`" class=`"otter-link`" href=`"$href`"$styleAttr$linkAttrs>$text</a>"
             }
             { $_ -in @('checkbox', 'check box') } {
                 $text = if ($props.Contains('text')) { $props['text'] } else { "" }
@@ -682,6 +1077,113 @@ $optHtml
         $elementsHtml = $parts -join "`n"
     }
 
+    # Check for calls to functions that define declarative UI
+    foreach ($stmt in $topLevelStatements) {
+        if ($stmt -is [CallStmt]) {
+            $fnName = $stmt.Call.Name
+            if ($functions.Contains($fnName)) {
+                $fnDef = $functions[$fnName]
+                foreach ($bodyStmt in $fnDef.Body) {
+                    if ($bodyStmt -is [UiElementStmt]) {
+                        $declarativeRoots.Add($bodyStmt)
+                    }
+                }
+            }
+        }
+    }
+
+    # Render declarative elements if any
+    $declarativeCssRules = [System.Collections.Generic.List[string]]::new()
+    $declarativeJsListeners = [System.Collections.Generic.List[string]]::new()
+    $declarativeHtmlParts = [System.Collections.Generic.List[string]]::new()
+    $idCounter = [ref]0
+
+    foreach ($rootEl in $declarativeRoots) {
+        $rendered = Render-OtterDeclarativeElementWeb -Element $rootEl `
+            -StateVars $stateDefs `
+            -DeriveVars $deriveDefs `
+            -CssRules $declarativeCssRules `
+            -JsListeners $declarativeJsListeners `
+            -IdCounter $idCounter `
+            -Depth 2
+        if ($rendered) { $declarativeHtmlParts.Add($rendered) }
+    }
+
+    $declarativeHtml = $declarativeHtmlParts -join "`n"
+    if ($declarativeHtml) {
+        if ($elementsHtml) {
+            $elementsHtml = "$elementsHtml`n$declarativeHtml"
+        } else {
+            $elementsHtml = $declarativeHtml
+        }
+    }
+
+    if ($appTitle -eq "Otter Web App") {
+        foreach ($r in $declarativeRoots) {
+            if ($r.Tag -in @('window', 'page') -and $r.Label -is [LiteralExpr]) {
+                $appTitle = [string]$r.Label.Value
+                break
+            }
+            if ($r.Children) {
+                foreach ($c in $r.Children) {
+                    if ($c -is [UiElementStmt] -and $c.Tag -eq 'heading' -and $c.Label -is [LiteralExpr]) {
+                        $appTitle = [string]$c.Label.Value
+                        break
+                    }
+                }
+            }
+        }
+    }
+
+    $declarativeCssJoined = $declarativeCssRules -join "`n"
+    $declarativeListenersJoined = $declarativeJsListeners -join "`n"
+
+    $stateInitJs = [System.Collections.Generic.List[string]]::new()
+    foreach ($k in $stateDefs.Keys) {
+        $sNode = $stateDefs[$k]
+        $valJs = ConvertTo-OtterJsExpression -Expr $sNode.InitialValue
+        $stateInitJs.Add("    otterState['$k'] = $valJs;`n    window['$k'] = $valJs;")
+    }
+    $stateInitJoined = $stateInitJs -join "`n"
+
+    $deriveInitJs = [System.Collections.Generic.List[string]]::new()
+    foreach ($k in $deriveDefs.Keys) {
+        $dNode = $deriveDefs[$k]
+        $valJs = ConvertTo-OtterJsExpression -Expr $dNode.Expression
+        $deriveInitJs.Add(@"
+    Object.defineProperty(otterDerived, '$k', {
+      get: () => {
+        const fn = new Function('state', 'derived', 'with(state) { with(derived) { return ($valJs); } }');
+        return fn(otterState, otterDerived);
+      },
+      enumerable: true,
+      configurable: true
+    });
+    Object.defineProperty(window, '$k', {
+      get: () => otterDerived['$k'],
+      enumerable: true,
+      configurable: true
+    });
+"@)
+    }
+    $deriveInitJoined = $deriveInitJs -join "`n"
+
+    $watcherInitJs = [System.Collections.Generic.List[string]]::new()
+    foreach ($wNode in $watchStmts) {
+        $wTarget = $wNode.TargetName
+        $wBodyJs = foreach ($s in $wNode.Body) { ConvertTo-OtterJsStatement -Stmt $s -Indent 3 }
+        $wBodyJoined = $wBodyJs -join "`n"
+        $watcherInitJs.Add(@"
+    otterWatchers.push({
+      target: '$wTarget',
+      callback: () => {
+$wBodyJoined
+      }
+    });
+"@)
+    }
+    $watcherInitJoined = $watcherInitJs -join "`n"
+
     # Compile event handlers
     $jsHandlers = [System.Collections.Generic.List[string]]::new()
     foreach ($when in $whenHandlers) {
@@ -727,13 +1229,13 @@ $bodyJoined
   <style>
     :root {
       --otter-bg: $rootBg;
-      --otter-card-bg: #ffffff;
+      --otter-card-bg: #1e293b;
       --otter-text: $rootFg;
-      --otter-text-muted: #6b7280;
-      --otter-primary: #184537;
-      --otter-primary-hover: #12352a;
-      --otter-input-bg: #ffffff;
-      --otter-border: #e5e7eb;
+      --otter-text-muted: #94a3b8;
+      --otter-primary: #2563eb;
+      --otter-primary-hover: #1d4ed8;
+      --otter-input-bg: #0f172a;
+      --otter-border: #334155;
     }
     *, *::before, *::after { box-sizing: border-box; }
     * { margin: 0; padding: 0; }
@@ -745,10 +1247,11 @@ $bodyJoined
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: flex-start;
+      justify-content: center;
       margin: 0;
-      padding: 0;
+      padding: 24px;
       overflow-x: hidden;
+      box-sizing: border-box;
     }
     .otter-row {
       display: flex;
@@ -767,7 +1270,7 @@ $bodyJoined
       min-width: 0;
     }
     .otter-window {
-      background-color: #ffffff;
+      background-color: #1e293b;
       border: 1px solid var(--otter-border);
       width: 100%;
       max-width: 520px;
@@ -793,8 +1296,8 @@ $bodyJoined
       background-color: var(--otter-card-bg);
       border: 1px solid var(--otter-border);
       border-radius: 12px;
-      padding: 20px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+      padding: 24px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
       display: flex;
       flex-direction: column;
       box-sizing: border-box;
@@ -840,42 +1343,100 @@ $bodyJoined
       box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25);
     }
     .otter-text {
-      font-size: 0.95rem;
+      font-size: 1rem;
       min-height: 1.2em;
+    }
+    .otter-heading {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+      letter-spacing: -0.02em;
+      color: inherit;
+    }
+    .otter-button-primary, .otter-btn-primary {
+      background-color: #2563eb !important;
+      color: #ffffff !important;
+      border: none !important;
+      border-radius: 8px;
+      padding: 10px 18px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .otter-button-primary:hover, .otter-btn-primary:hover {
+      background-color: #1d4ed8 !important;
+    }
+    .otter-button-secondary, .otter-btn-secondary {
+      background-color: #334155 !important;
+      color: #f8fafc !important;
+      border: 1px solid #475569 !important;
+      border-radius: 8px;
+      padding: 10px 18px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    .otter-button-secondary:hover, .otter-btn-secondary:hover {
+      background-color: #475569 !important;
+    }
+    .otter-button-danger, .otter-btn-danger {
+      background-color: #dc2626 !important;
+      color: #ffffff !important;
+      border: none !important;
+      border-radius: 8px;
+      padding: 10px 18px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .otter-button-danger:hover, .otter-btn-danger:hover {
+      background-color: #b91c1c !important;
+    }
+    .otter-panel {
+      display: flex;
+      flex-direction: column;
+      box-sizing: border-box;
+      min-width: 0;
+    }
+    .otter-conditional {
+      display: flex;
+      flex-direction: column;
+      box-sizing: border-box;
+      width: 100%;
     }
     .otter-card-title {
       font-size: 1.15rem;
       font-weight: 700;
       color: var(--otter-text);
       letter-spacing: -0.01em;
+      margin-bottom: 12px;
     }
     .otter-image {
       max-width: 100%;
       height: auto;
-      border-radius: 8px;
+      border-radius: 6px;
       display: block;
     }
     .otter-link {
-      color: #60a5fa;
+      color: #38bdf8;
       text-decoration: none;
       font-weight: 500;
       transition: color 0.15s ease;
-      white-space: nowrap;
     }
-    .otter-link:hover { text-decoration: underline; color: #93c5fd; }
+    .otter-link:hover {
+      color: #7dd3fc;
+      text-decoration: underline;
+    }
     .otter-checkbox-label {
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      font-size: 0.95rem;
       cursor: pointer;
       user-select: none;
+      font-size: 0.95rem;
     }
     .otter-checkbox {
       width: 18px;
       height: 18px;
-      accent-color: var(--otter-primary);
       cursor: pointer;
+      accent-color: var(--otter-primary);
     }
     .otter-select {
       background-color: var(--otter-input-bg);
@@ -890,10 +1451,10 @@ $bodyJoined
     }
     .otter-slider {
       width: 100%;
-      accent-color: var(--otter-primary);
       cursor: pointer;
+      accent-color: var(--otter-primary);
     }
-    .otter-text-area {
+    .otter-textarea {
       background-color: var(--otter-input-bg);
       color: var(--otter-text);
       border: 1px solid var(--otter-border);
@@ -935,6 +1496,7 @@ $bodyJoined
       color: #38bdf8;
       display: none;
     }
+$declarativeCssJoined
   </style>
 </head>
 <body>
@@ -973,6 +1535,7 @@ $elementsHtml
     function otterSetProperty(id, prop, val) {
       const el = otterGetElement(id);
       if (el) {
+        if (prop === 'url' && el.tagName === 'A') { el.href = val; return; }
         el[prop] = val;
         if (el.dataset) el.dataset[prop] = val;
       }
@@ -988,6 +1551,63 @@ $elementsHtml
         out.style.display = 'block';
         out.textContent = args.join(' ');
       }
+    }
+
+    // Otter Declarative Reactivity Engine
+    const otterState = {};
+    const otterDerived = {};
+    const otterWatchers = [];
+
+$stateInitJoined
+
+$deriveInitJoined
+
+$watcherInitJoined
+
+    function otterEvaluateExpr(expr) {
+      try {
+        const fn = new Function('state', 'derived', 'with(state) { with(derived) { return (' + expr + '); } }');
+        return fn(otterState, otterDerived);
+      } catch(err) {
+        console.warn('Otter eval error in expr:', expr, err);
+        return '';
+      }
+    }
+
+    function otterUpdateReactivity() {
+      document.querySelectorAll('[data-otter-bind]').forEach(el => {
+        const expr = el.getAttribute('data-otter-bind');
+        if (!expr) return;
+        const val = otterEvaluateExpr(expr);
+        if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+          if (el.type === 'checkbox') el.checked = Boolean(val);
+          else el.value = val;
+        } else {
+          el.textContent = (val === null || val === undefined) ? '' : String(val);
+        }
+      });
+
+      document.querySelectorAll('[data-otter-if]').forEach(el => {
+        const cond = el.getAttribute('data-otter-if');
+        if (!cond) return;
+        const show = Boolean(otterEvaluateExpr(cond));
+        el.style.display = show ? '' : 'none';
+      });
+    }
+
+    function otterNotifyWatchers(name) {
+      for (const w of otterWatchers) {
+        if (w.target === name && typeof w.callback === 'function') {
+          try { w.callback(); } catch(e) { console.error('Watcher callback error:', e); }
+        }
+      }
+    }
+
+    function otterSetState(name, value) {
+      otterState[name] = value;
+      window[name] = value;
+      otterUpdateReactivity();
+      otterNotifyWatchers(name);
     }
 
     // Automatic 3D Canvas and Animation Runner
@@ -1087,6 +1707,12 @@ $topLevelJoined
 
     // Register event listeners
 $handlersJoined
+
+$declarativeListenersJoined
+
+    if (typeof otterUpdateReactivity === 'function') {
+      otterUpdateReactivity();
+    }
     })();
   </script>
 </body>

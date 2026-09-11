@@ -193,6 +193,71 @@ $script:OtterWpfKinds = @{
         $control.HorizontalScrollBarVisibility = [System.Windows.Controls.ScrollBarVisibility]::Disabled
         $control
     }
+    'card'     = {
+        $border = [System.Windows.Controls.Border]::new()
+        $border.Background = [System.Windows.Media.BrushConverter]::new().ConvertFromString('#1e293b')
+        $border.BorderBrush = [System.Windows.Media.BrushConverter]::new().ConvertFromString('#334155')
+        $border.BorderThickness = [System.Windows.Thickness]::new(1)
+        $border.CornerRadius = [System.Windows.CornerRadius]::new(12)
+        $border.Padding = [System.Windows.Thickness]::new(24)
+        $shadow = [System.Windows.Media.Effects.DropShadowEffect]::new()
+        $shadow.BlurRadius = 24
+        $shadow.Opacity = 0.35
+        $shadow.ShadowDepth = 8
+        $shadow.Direction = 270
+        $border.Effect = $shadow
+        $panel = [System.Windows.Controls.StackPanel]::new()
+        $panel.Orientation = [System.Windows.Controls.Orientation]::Vertical
+        $border.Child = $panel
+        $border
+    }
+    'heading'  = {
+        $tb = [System.Windows.Controls.TextBlock]::new()
+        $tb.FontSize = 22
+        $tb.FontWeight = [System.Windows.FontWeights]::Bold
+        $tb.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString('#f8fafc')
+        $tb.Margin = [System.Windows.Thickness]::new(0, 0, 0, 8)
+        $tb
+    }
+    'panel'    = {
+        $panel = [System.Windows.Controls.StackPanel]::new()
+        $panel.Orientation = [System.Windows.Controls.Orientation]::Vertical
+        $panel
+    }
+    'grid'     = {
+        [System.Windows.Controls.Grid]::new()
+    }
+    'primary button' = {
+        $btn = [System.Windows.Controls.Button]::new()
+        $btn.Background = [System.Windows.Media.BrushConverter]::new().ConvertFromString('#2563eb')
+        $btn.Foreground = [System.Windows.Media.Brushes]::White
+        $btn.BorderThickness = [System.Windows.Thickness]::new(0)
+        $btn.Padding = [System.Windows.Thickness]::new(18, 10, 18, 10)
+        $btn.FontWeight = [System.Windows.FontWeights]::SemiBold
+        $btn.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Left
+        $btn
+    }
+    'secondary button' = {
+        $btn = [System.Windows.Controls.Button]::new()
+        $btn.Background = [System.Windows.Media.BrushConverter]::new().ConvertFromString('#334155')
+        $btn.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString('#f8fafc')
+        $btn.BorderBrush = [System.Windows.Media.BrushConverter]::new().ConvertFromString('#475569')
+        $btn.BorderThickness = [System.Windows.Thickness]::new(1)
+        $btn.Padding = [System.Windows.Thickness]::new(18, 10, 18, 10)
+        $btn.FontWeight = [System.Windows.FontWeights]::Medium
+        $btn.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Left
+        $btn
+    }
+    'danger button' = {
+        $btn = [System.Windows.Controls.Button]::new()
+        $btn.Background = [System.Windows.Media.BrushConverter]::new().ConvertFromString('#dc2626')
+        $btn.Foreground = [System.Windows.Media.Brushes]::White
+        $btn.BorderThickness = [System.Windows.Thickness]::new(0)
+        $btn.Padding = [System.Windows.Thickness]::new(18, 10, 18, 10)
+        $btn.FontWeight = [System.Windows.FontWeights]::SemiBold
+        $btn.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Left
+        $btn
+    }
 }
 
 # create <kind> into <name>
@@ -321,6 +386,66 @@ $script:OtterUiProperties = @{
         'width'      = @{ Native = 'Width'; Type = 'number' }
         'height'     = @{ Native = 'Height'; Type = 'number' }
         'background' = @{ Native = 'Background'; Type = 'color' }
+    }
+    'primary button' = @{
+        'text'       = @{ Native = 'Content'; Type = 'text' }
+        'width'      = @{ Native = 'Width'; Type = 'number' }
+        'height'     = @{ Native = 'Height'; Type = 'number' }
+        'background' = @{ Native = 'Background'; Type = 'color' }
+        'foreground' = @{ Native = 'Foreground'; Type = 'color' }
+        'align'      = @{ Type = 'align' }
+    }
+    'secondary button' = @{
+        'text'       = @{ Native = 'Content'; Type = 'text' }
+        'width'      = @{ Native = 'Width'; Type = 'number' }
+        'height'     = @{ Native = 'Height'; Type = 'number' }
+        'background' = @{ Native = 'Background'; Type = 'color' }
+        'foreground' = @{ Native = 'Foreground'; Type = 'color' }
+        'align'      = @{ Type = 'align' }
+    }
+    'danger button' = @{
+        'text'       = @{ Native = 'Content'; Type = 'text' }
+        'width'      = @{ Native = 'Width'; Type = 'number' }
+        'height'     = @{ Native = 'Height'; Type = 'number' }
+        'background' = @{ Native = 'Background'; Type = 'color' }
+        'foreground' = @{ Native = 'Foreground'; Type = 'color' }
+        'align'      = @{ Type = 'align' }
+    }
+    'heading' = @{
+        'text'       = @{ Native = 'Text'; Type = 'text' }
+        'width'      = @{ Native = 'Width'; Type = 'number' }
+        'height'     = @{ Native = 'Height'; Type = 'number' }
+        'background' = @{ Native = 'Background'; Type = 'color' }
+        'foreground' = @{ Native = 'Foreground'; Type = 'color' }
+        'align'      = @{ Type = 'align' }
+    }
+    'panel' = @{
+        'width'      = @{ Native = 'Width'; Type = 'number' }
+        'height'     = @{ Native = 'Height'; Type = 'number' }
+        'background' = @{ Native = 'Background'; Type = 'color' }
+        'spacing'    = @{ Type = 'spacing' }
+        'padding'    = @{ Type = 'padding' }
+        'align'      = @{ Type = 'align' }
+        'spread'     = @{ Type = 'spread' }
+    }
+    'grid' = @{
+        'width'      = @{ Native = 'Width'; Type = 'number' }
+        'height'     = @{ Native = 'Height'; Type = 'number' }
+        'background' = @{ Native = 'Background'; Type = 'color' }
+        'spacing'    = @{ Type = 'spacing' }
+        'padding'    = @{ Type = 'padding' }
+        'align'      = @{ Type = 'align' }
+        'spread'     = @{ Type = 'spread' }
+    }
+    'card' = @{
+        'width'      = @{ Native = 'Width'; Type = 'number' }
+        'height'     = @{ Native = 'Height'; Type = 'number' }
+        'background' = @{ Native = 'Background'; Type = 'color' }
+        'spacing'    = @{ Type = 'spacing' }
+        'padding'    = @{ Type = 'padding' }
+        'align'      = @{ Type = 'align' }
+        'spread'     = @{ Type = 'spread' }
+        'round'      = @{ Type = 'number' }
     }
 }
 
@@ -656,9 +781,13 @@ function Set-OtterUiProperty {
 # script block is cast to it, so no per-event-type code is needed here or
 # for any future event this table gains.
 $script:OtterUiEvents = @{
-    'button'   = @{ 'clicked' = 'Click' }
-    'text box' = @{ 'changed' = 'TextChanged' }
-    'window'   = @{ 'closed'  = 'Closed' }
+    'button'           = @{ 'clicked' = 'Click'; 'click' = 'Click' }
+    'primary button'   = @{ 'clicked' = 'Click'; 'click' = 'Click' }
+    'secondary button' = @{ 'clicked' = 'Click'; 'click' = 'Click' }
+    'danger button'    = @{ 'clicked' = 'Click'; 'click' = 'Click' }
+    'card'             = @{ 'clicked' = 'PreviewMouseDown'; 'click' = 'PreviewMouseDown' }
+    'text box'         = @{ 'changed' = 'TextChanged' }
+    'window'           = @{ 'closed'  = 'Closed' }
 }
 
 function Get-OtterUiEventMapping {
@@ -1164,7 +1293,721 @@ function Show-OtterUiResource {
 }
 
 
+# ===============================================================
+# DECLARATIVE WPF RENDERING AND ANIMATIONS
+# ===============================================================
+
+function Add-OtterUiAnimationWpf {
+    param(
+        [Parameter(Mandatory)][System.Windows.FrameworkElement]$Control,
+        [Parameter(Mandatory)][UiAnimationBlock]$Anim
+    )
+
+    Initialize-OtterWpfProvider
+
+    # Setup transform group if not present
+    $transGroup = $Control.RenderTransform -as [System.Windows.Media.TransformGroup]
+    if ($null -eq $transGroup) {
+        $transGroup = [System.Windows.Media.TransformGroup]::new()
+        $scale = [System.Windows.Media.ScaleTransform]::new(1.0, 1.0)
+        $translate = [System.Windows.Media.TranslateTransform]::new(0.0, 0.0)
+        [void]$transGroup.Children.Add($scale)
+        [void]$transGroup.Children.Add($translate)
+        $Control.RenderTransform = $transGroup
+        $Control.RenderTransformOrigin = [System.Windows.Point]::new(0.5, 0.5)
+    } else {
+        $scale = $transGroup.Children[0] -as [System.Windows.Media.ScaleTransform]
+        $translate = $transGroup.Children[1] -as [System.Windows.Media.TranslateTransform]
+    }
+
+    $durMs = if ($Anim.DurationMs -gt 0) { $Anim.DurationMs } else { 200 }
+    $duration = [System.Windows.Duration]::new([TimeSpan]::FromMilliseconds($durMs))
+    $easing = [System.Windows.Media.Animation.QuadraticEase]::new()
+    switch ($Anim.Easing.ToLowerInvariant()) {
+        'ease-in'     { $easing.EasingMode = [System.Windows.Media.Animation.EasingMode]::EaseIn }
+        'ease-out'    { $easing.EasingMode = [System.Windows.Media.Animation.EasingMode]::EaseOut }
+        'ease-in-out' { $easing.EasingMode = [System.Windows.Media.Animation.EasingMode]::EaseInOut }
+        default       { $easing.EasingMode = [System.Windows.Media.Animation.EasingMode]::EaseOut }
+    }
+
+    switch ($Anim.Trigger.ToLowerInvariant()) {
+        'hover' {
+            $targetScale = 1.05
+            foreach ($step in $Anim.Steps) {
+                if ($step.Operation -in @('grow', 'scale') -and $step.Amount -is [LiteralExpr]) {
+                    $targetScale = [double]$step.Amount.Value
+                }
+            }
+            $Control.add_MouseEnter({
+                $scaleAnimX = [System.Windows.Media.Animation.DoubleAnimation]::new($targetScale, $duration)
+                $scaleAnimX.EasingFunction = $easing
+                $scaleAnimY = [System.Windows.Media.Animation.DoubleAnimation]::new($targetScale, $duration)
+                $scaleAnimY.EasingFunction = $easing
+                $scale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleXProperty, $scaleAnimX)
+                $scale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleYProperty, $scaleAnimY)
+            }.GetNewClosure())
+            $Control.add_MouseLeave({
+                $scaleAnimX = [System.Windows.Media.Animation.DoubleAnimation]::new(1.0, $duration)
+                $scaleAnimX.EasingFunction = $easing
+                $scaleAnimY = [System.Windows.Media.Animation.DoubleAnimation]::new(1.0, $duration)
+                $scaleAnimY.EasingFunction = $easing
+                $scale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleXProperty, $scaleAnimX)
+                $scale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleYProperty, $scaleAnimY)
+            }.GetNewClosure())
+        }
+        'press' {
+            $Control.add_PreviewMouseDown({
+                $scaleAnimX = [System.Windows.Media.Animation.DoubleAnimation]::new(0.96, [System.Windows.Duration]::new([TimeSpan]::FromMilliseconds(100)))
+                $scaleAnimX.EasingFunction = $easing
+                $scaleAnimY = [System.Windows.Media.Animation.DoubleAnimation]::new(0.96, [System.Windows.Duration]::new([TimeSpan]::FromMilliseconds(100)))
+                $scaleAnimY.EasingFunction = $easing
+                $scale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleXProperty, $scaleAnimX)
+                $scale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleYProperty, $scaleAnimY)
+            }.GetNewClosure())
+            $Control.add_PreviewMouseUp({
+                $scaleAnimX = [System.Windows.Media.Animation.DoubleAnimation]::new(1.0, [System.Windows.Duration]::new([TimeSpan]::FromMilliseconds(100)))
+                $scaleAnimX.EasingFunction = $easing
+                $scaleAnimY = [System.Windows.Media.Animation.DoubleAnimation]::new(1.0, [System.Windows.Duration]::new([TimeSpan]::FromMilliseconds(100)))
+                $scaleAnimY.EasingFunction = $easing
+                $scale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleXProperty, $scaleAnimX)
+                $scale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleYProperty, $scaleAnimY)
+            }.GetNewClosure())
+        }
+        'enter' {
+            $fromOpacity = $null
+            $fromX = $null
+            $fromY = $null
+            foreach ($step in $Anim.Steps) {
+                if ($step.Operation -eq 'fade' -and $step.Direction -eq 'in') {
+                    $fromOpacity = 0.0
+                }
+                if ($step.Operation -eq 'move') {
+                    $amt = if ($step.Amount -is [LiteralExpr]) { [double]$step.Amount.Value } else { 20.0 }
+                    switch ($step.Direction) {
+                        'up'    { $fromY = $amt }
+                        'down'  { $fromY = -$amt }
+                        'left'  { $fromX = $amt }
+                        'right' { $fromX = -$amt }
+                    }
+                }
+                if ($step.Operation -eq 'slide') {
+                    $fromOpacity = 0.0
+                    switch ($step.Direction) {
+                        'left'   { $fromX = -30.0 }
+                        'right'  { $fromX = 30.0 }
+                        'top'    { $fromY = -30.0 }
+                        'bottom' { $fromY = 30.0 }
+                        default  { $fromX = -30.0 }
+                    }
+                }
+            }
+
+            if ($null -ne $fromOpacity) { $Control.Opacity = $fromOpacity }
+            if ($null -ne $fromX) { $translate.X = $fromX }
+            if ($null -ne $fromY) { $translate.Y = $fromY }
+
+            $runEnter = {
+                if ($null -ne $fromOpacity) {
+                    $animOp = [System.Windows.Media.Animation.DoubleAnimation]::new($fromOpacity, 1.0, $duration)
+                    $animOp.EasingFunction = $easing
+                    $Control.BeginAnimation([System.Windows.UIElement]::OpacityProperty, $animOp)
+                }
+                if ($null -ne $fromX) {
+                    $animX = [System.Windows.Media.Animation.DoubleAnimation]::new($fromX, 0.0, $duration)
+                    $animX.EasingFunction = $easing
+                    $translate.BeginAnimation([System.Windows.Media.TranslateTransform]::XProperty, $animX)
+                }
+                if ($null -ne $fromY) {
+                    $animY = [System.Windows.Media.Animation.DoubleAnimation]::new($fromY, 0.0, $duration)
+                    $animY.EasingFunction = $easing
+                    $translate.BeginAnimation([System.Windows.Media.TranslateTransform]::YProperty, $animY)
+                }
+            }.GetNewClosure()
+
+            if ($Control.IsLoaded) {
+                & $runEnter
+            } else {
+                $Control.add_Loaded({ & $runEnter }.GetNewClosure())
+            }
+        }
+        'leave' {
+            $runLeave = {
+                $animOp = [System.Windows.Media.Animation.DoubleAnimation]::new(1.0, 0.0, $duration)
+                $animOp.EasingFunction = $easing
+                $animScaleX = [System.Windows.Media.Animation.DoubleAnimation]::new(1.0, 0.95, $duration)
+                $animScaleX.EasingFunction = $easing
+                $animScaleY = [System.Windows.Media.Animation.DoubleAnimation]::new(1.0, 0.95, $duration)
+                $animScaleY.EasingFunction = $easing
+                $Control.BeginAnimation([System.Windows.UIElement]::OpacityProperty, $animOp)
+                $scale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleXProperty, $animScaleX)
+                $scale.BeginAnimation([System.Windows.Media.ScaleTransform]::ScaleYProperty, $animScaleY)
+            }.GetNewClosure()
+            $Control.Tag = @{ LeaveAction = $runLeave }
+        }
+    }
+}
+
+function Get-OtterUiExpressionValue {
+    param(
+        [Parameter(Mandatory)][Node]$Expr,
+        [Parameter(Mandatory)][OtterEnvironment]$Environment
+    )
+
+    if ($null -eq $Expr) { return $null }
+    if ($Expr -is [LiteralExpr]) { return $Expr.Value }
+    if ($Expr -is [VariableExpr]) { return $Environment.Get($Expr.Name) }
+    if ($Expr -is [NotExpr]) {
+        $v = Get-OtterUiExpressionValue -Expr $Expr.Operand -Environment $Environment
+        return (-not [bool]$v)
+    }
+    if ($Expr -is [MathExpr]) {
+        $l = Get-OtterUiExpressionValue -Expr $Expr.Left -Environment $Environment
+        $r = Get-OtterUiExpressionValue -Expr $Expr.Right -Environment $Environment
+        $op = $Expr.Op.ToString()
+        if ($op -eq 'Add') {
+            if (($l -is [string]) -or ($r -is [string])) {
+                return ([string](Format-OtterValue -Value $l) + [string](Format-OtterValue -Value $r))
+            }
+            return ([double]$l + [double]$r)
+        } elseif ($op -eq 'Subtract') {
+            return ([double]$l - [double]$r)
+        } elseif ($op -eq 'Multiply') {
+            return ([double]$l * [double]$r)
+        } elseif ($op -eq 'Divide') {
+            return ([double]$l / [double]$r)
+        }
+    }
+    if ($Expr -is [CompareExpr]) {
+        $l = Get-OtterUiExpressionValue -Expr $Expr.Left -Environment $Environment
+        $r = Get-OtterUiExpressionValue -Expr $Expr.Right -Environment $Environment
+        $cop = $Expr.Op.ToString()
+        switch ($cop) {
+            'Equal' { return (Test-OtterEqual -Left $l -Right $r) }
+            'NotEqual' { return (-not (Test-OtterEqual -Left $l -Right $r)) }
+            'LessThan' { return ($l -lt $r) }
+            'GreaterThan' { return ($l -gt $r) }
+            'LessThanOrEqual' { return ($l -le $r) }
+            'GreaterThanOrEqual' { return ($l -ge $r) }
+        }
+    }
+    if ($Expr -is [LogicExpr]) {
+        $l = [bool](Get-OtterUiExpressionValue -Expr $Expr.Left -Environment $Environment)
+        $lop = $Expr.Op.ToString()
+        if ($lop -eq 'And') {
+            if (-not $l) { return $false }
+            return [bool](Get-OtterUiExpressionValue -Expr $Expr.Right -Environment $Environment)
+        } elseif ($lop -eq 'Or') {
+            if ($l) { return $true }
+            return [bool](Get-OtterUiExpressionValue -Expr $Expr.Right -Environment $Environment)
+        }
+    }
+    if (Get-Command -Name Get-OtterValue -ErrorAction SilentlyContinue) {
+        return (Get-OtterValue -Expression $Expr -Environment $Environment)
+    }
+    return $null
+}
+
+function Render-OtterDeclarativeElementWpf {
+    param(
+        [Parameter(Mandatory)][Node]$Element,
+        [Parameter(Mandatory)][OtterEnvironment]$Environment
+    )
+
+    Initialize-OtterWpfProvider
+
+    if ($Element -isnot [UiElementStmt]) { return $null }
+
+    $tag = if ($Element.Tag) { $Element.Tag.ToLowerInvariant() } else { "panel" }
+    $variant = if ($Element.Variant) { $Element.Variant.ToLowerInvariant() } else { $null }
+
+    $control = $null
+    $innerPanel = $null
+
+    switch ($tag) {
+        'card' {
+            $border = [System.Windows.Controls.Border]::new()
+            $border.Background = [System.Windows.Media.BrushConverter]::new().ConvertFromString('#1e293b')
+            $border.BorderBrush = [System.Windows.Media.BrushConverter]::new().ConvertFromString('#334155')
+            $border.BorderThickness = [System.Windows.Thickness]::new(1)
+            $border.CornerRadius = [System.Windows.CornerRadius]::new(12)
+            $border.Padding = [System.Windows.Thickness]::new(24)
+            $shadow = [System.Windows.Media.Effects.DropShadowEffect]::new()
+            $shadow.BlurRadius = 24
+            $shadow.Opacity = 0.35
+            $shadow.ShadowDepth = 8
+            $shadow.Direction = 270
+            $border.Effect = $shadow
+
+            $inner = [System.Windows.Controls.StackPanel]::new()
+            $inner.Orientation = [System.Windows.Controls.Orientation]::Vertical
+            $border.Child = $inner
+            $control = $border
+            $innerPanel = $inner
+        }
+        'heading' {
+            $tb = [System.Windows.Controls.TextBlock]::new()
+            $tb.FontSize = 22
+            $tb.FontWeight = [System.Windows.FontWeights]::Bold
+            $tb.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString('#f8fafc')
+            $tb.Margin = [System.Windows.Thickness]::new(0, 0, 0, 8)
+            $control = $tb
+        }
+        'text' {
+            $tb = [System.Windows.Controls.TextBlock]::new()
+            $tb.FontSize = 15
+            $tb.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString('#f8fafc')
+            $control = $tb
+        }
+        'button' {
+            $btn = [System.Windows.Controls.Button]::new()
+            $btn.Padding = [System.Windows.Thickness]::new(18, 10, 18, 10)
+            $btn.FontWeight = [System.Windows.FontWeights]::SemiBold
+            $btn.FontSize = 14
+            $btn.Cursor = [System.Windows.Input.Cursors]::Hand
+            $btn.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Left
+
+            switch ($variant) {
+                'primary' {
+                    $btn.Background = [System.Windows.Media.BrushConverter]::new().ConvertFromString('#2563eb')
+                    $btn.Foreground = [System.Windows.Media.Brushes]::White
+                    $btn.BorderThickness = [System.Windows.Thickness]::new(0)
+                }
+                'secondary' {
+                    $btn.Background = [System.Windows.Media.BrushConverter]::new().ConvertFromString('#334155')
+                    $btn.Foreground = [System.Windows.Media.BrushConverter]::new().ConvertFromString('#f8fafc')
+                    $btn.BorderBrush = [System.Windows.Media.BrushConverter]::new().ConvertFromString('#475569')
+                    $btn.BorderThickness = [System.Windows.Thickness]::new(1)
+                }
+                'danger' {
+                    $btn.Background = [System.Windows.Media.BrushConverter]::new().ConvertFromString('#dc2626')
+                    $btn.Foreground = [System.Windows.Media.Brushes]::White
+                    $btn.BorderThickness = [System.Windows.Thickness]::new(0)
+                }
+                default {
+                    $btn.Background = [System.Windows.Media.BrushConverter]::new().ConvertFromString('#2563eb')
+                    $btn.Foreground = [System.Windows.Media.Brushes]::White
+                    $btn.BorderThickness = [System.Windows.Thickness]::new(0)
+                }
+            }
+            $control = $btn
+        }
+        'panel' {
+            $p = [System.Windows.Controls.StackPanel]::new()
+            $p.Orientation = [System.Windows.Controls.Orientation]::Vertical
+            $control = $p
+            $innerPanel = $p
+        }
+        'row' {
+            $p = [System.Windows.Controls.StackPanel]::new()
+            $p.Orientation = [System.Windows.Controls.Orientation]::Horizontal
+            $control = $p
+            $innerPanel = $p
+        }
+        'column' {
+            $p = [System.Windows.Controls.StackPanel]::new()
+            $p.Orientation = [System.Windows.Controls.Orientation]::Vertical
+            $control = $p
+            $innerPanel = $p
+        }
+        default {
+            $p = [System.Windows.Controls.StackPanel]::new()
+            $control = $p
+            $innerPanel = $p
+        }
+    }
+
+    # Label / Dynamic data binding
+    if ($Element.Label) {
+        if ($Element.Label -is [LiteralExpr]) {
+            $lblVal = [string]$Element.Label.Value
+            if ($control -is [System.Windows.Controls.TextBlock]) {
+                $control.Text = $lblVal
+            } elseif ($control -is [System.Windows.Controls.Button]) {
+                $control.Content = $lblVal
+            }
+        } else {
+            $expr = $Element.Label
+            $boundControl = $control
+            $updateAction = {
+                $val = Get-OtterUiExpressionValue -Expr $expr -Environment $Environment
+                $txt = [string](Format-OtterValue -Value $val)
+                if ($boundControl.Dispatcher.CheckAccess()) {
+                    if ($boundControl -is [System.Windows.Controls.TextBlock]) { $boundControl.Text = $txt }
+                    elseif ($boundControl -is [System.Windows.Controls.Button]) { $boundControl.Content = $txt }
+                } else {
+                    $boundControl.Dispatcher.Invoke([Action]{
+                        if ($boundControl -is [System.Windows.Controls.TextBlock]) { $boundControl.Text = $txt }
+                        elseif ($boundControl -is [System.Windows.Controls.Button]) { $boundControl.Content = $txt }
+                    })
+                }
+            }.GetNewClosure()
+
+            $null = & $updateAction
+
+            # Subscribe to signals and derived values in Environment
+            foreach ($k in $Environment.Variables.Keys) {
+                $raw = $Environment.GetRaw($k)
+                if ($raw -is [OtterSignal]) {
+                    $raw.Subscribe($updateAction)
+                } elseif ($raw -is [OtterDerived]) {
+                    $raw.Subscribe($updateAction)
+                }
+            }
+        }
+    }
+
+    # Layout modes & presets
+    $childGap = 0
+    if ($Element.Layout) {
+        $mode = if ($Element.Layout.Mode) { $Element.Layout.Mode.ToLowerInvariant() } else { $null }
+        if ($innerPanel -is [System.Windows.Controls.StackPanel]) {
+            switch ($mode) {
+                'row'      { $innerPanel.Orientation = [System.Windows.Controls.Orientation]::Horizontal }
+                'column'   { $innerPanel.Orientation = [System.Windows.Controls.Orientation]::Vertical }
+                'stack'    { $innerPanel.Orientation = [System.Windows.Controls.Orientation]::Vertical }
+                'centered' {
+                    $innerPanel.Orientation = [System.Windows.Controls.Orientation]::Vertical
+                    $innerPanel.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Center
+                    $innerPanel.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
+                }
+            }
+        }
+
+        if ($Element.Layout.Gap) {
+            $childGap = if ($Element.Layout.Gap -is [LiteralExpr]) { [int]$Element.Layout.Gap.Value } else { 8 }
+        }
+
+        if ($Element.Layout.Align) {
+            $alignStr = $Element.Layout.Align.ToLowerInvariant()
+            switch ($alignStr) {
+                'center' {
+                    $control.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Center
+                    if ($innerPanel) { $innerPanel.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Center }
+                    if ($control -is [System.Windows.Controls.TextBlock]) { $control.TextAlignment = [System.Windows.TextAlignment]::Center }
+                }
+                'left'   {
+                    $control.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Left
+                    if ($innerPanel) { $innerPanel.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Left }
+                }
+                'right'  {
+                    $control.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Right
+                    if ($innerPanel) { $innerPanel.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Right }
+                }
+                'top'    { $control.VerticalAlignment = [System.Windows.VerticalAlignment]::Top }
+                'middle' { $control.VerticalAlignment = [System.Windows.VerticalAlignment]::Center }
+                'bottom' { $control.VerticalAlignment = [System.Windows.VerticalAlignment]::Bottom }
+            }
+        }
+
+        if ($Element.Layout.Spread) {
+            $control.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Stretch
+        }
+    }
+
+    # Properties
+    if ($Element.Properties) {
+        foreach ($prop in $Element.Properties) {
+            if ($prop -is [AssignStmt]) {
+                $pName = if ($prop.Target -is [VariableExpr]) { $prop.Target.Name.ToLowerInvariant() } else { [string]$prop.Target.ToLowerInvariant() }
+                $pVal = if ($prop.Value -is [LiteralExpr]) { $prop.Value.Value } else { $null }
+
+                switch ($pName) {
+                    'round' {
+                        $rad = if ($null -ne $pVal -and $pVal -ne $true) { [double]$pVal } else { 12.0 }
+                        if ($control -is [System.Windows.Controls.Border]) {
+                            $control.CornerRadius = [System.Windows.CornerRadius]::new($rad)
+                        }
+                    }
+                    'gap' {
+                        $childGap = [int]$pVal
+                    }
+                    'align' {
+                        switch ([string]$pVal) {
+                            'center' {
+                                $control.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Center
+                                if ($control -is [System.Windows.Controls.TextBlock]) { $control.TextAlignment = [System.Windows.TextAlignment]::Center }
+                            }
+                            'left'   { $control.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Left }
+                            'right'  { $control.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Right }
+                            'top'    { $control.VerticalAlignment = [System.Windows.VerticalAlignment]::Top }
+                            'middle' { $control.VerticalAlignment = [System.Windows.VerticalAlignment]::Center }
+                            'bottom' { $control.VerticalAlignment = [System.Windows.VerticalAlignment]::Bottom }
+                        }
+                    }
+                    'padding' {
+                        $padVal = [double]$pVal
+                        if ($control -is [System.Windows.Controls.Border]) {
+                            $control.Padding = [System.Windows.Thickness]::new($padVal)
+                        } elseif ($control -is [System.Windows.Controls.Control]) {
+                            $control.Padding = [System.Windows.Thickness]::new($padVal)
+                        }
+                    }
+                    'width' {
+                        if ($pVal -eq 'full') {
+                            $control.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Stretch
+                        } else {
+                            $control.Width = [double]$pVal
+                        }
+                    }
+                    'height' {
+                        if ($pVal -eq 'full') {
+                            $control.VerticalAlignment = [System.Windows.VerticalAlignment]::Stretch
+                        } else {
+                            $control.Height = [double]$pVal
+                        }
+                    }
+                    'background' {
+                        $brush = [System.Windows.Media.BrushConverter]::new().ConvertFromString([string]$pVal)
+                        if ($control -is [System.Windows.Controls.Border]) { $control.Background = $brush }
+                        elseif ($control -is [System.Windows.Controls.Control]) { $control.Background = $brush }
+                    }
+                    'foreground' {
+                        $brush = [System.Windows.Media.BrushConverter]::new().ConvertFromString([string]$pVal)
+                        if ($control -is [System.Windows.Controls.TextBlock]) { $control.Foreground = $brush }
+                        elseif ($control -is [System.Windows.Controls.Control]) { $control.Foreground = $brush }
+                    }
+                }
+            }
+        }
+    }
+
+    # Animations
+    if ($Element.Animations) {
+        foreach ($anim in $Element.Animations) {
+            Add-OtterUiAnimationWpf -Control $control -Anim $anim
+        }
+    }
+
+    # Events
+    if ($Element.Events) {
+        foreach ($evt in $Element.Events) {
+            $evtName = $evt.EventName.ToLowerInvariant()
+            $evtBody = $evt.Body
+            $targetControl = $control
+
+            if ($evtName -in @('click', 'clicked')) {
+                $clickHandler = {
+                    param($s, $e)
+                    foreach ($bStmt in $evtBody) {
+                        if ($bStmt -is [AssignStmt]) {
+                            $tName = if ($bStmt.Target -is [VariableExpr]) { $bStmt.Target.Name } else { [string]$bStmt.Target }
+                            $newVal = Get-OtterUiExpressionValue -Expr $bStmt.Value -Environment $Environment
+                            $Environment.Set($tName, $newVal)
+                        } elseif (Get-Command -Name Invoke-OtterStatement -ErrorAction SilentlyContinue) {
+                            Invoke-OtterStatement -Statement $bStmt -Environment $Environment
+                        }
+                    }
+                }.GetNewClosure()
+
+                if ($targetControl -is [System.Windows.Controls.Button]) {
+                    $targetControl.add_Click($clickHandler)
+                } else {
+                    $targetControl.add_MouseDown($clickHandler)
+                }
+            }
+        }
+    }
+
+    # Children
+    if ($Element.Children -and $innerPanel) {
+        $first = $true
+        foreach ($child in $Element.Children) {
+            if ($child -is [UiElementStmt]) {
+                $childControl = Render-OtterDeclarativeElementWpf -Element $child -Environment $Environment
+                if ($childControl) {
+                    if (-not $first -and $childGap -gt 0) {
+                        if ($innerPanel.Orientation -eq [System.Windows.Controls.Orientation]::Horizontal) {
+                            $childControl.Margin = [System.Windows.Thickness]::new($childGap, 0, 0, 0)
+                        } else {
+                            $childControl.Margin = [System.Windows.Thickness]::new(0, $childGap, 0, 0)
+                        }
+                    }
+                    [void]$innerPanel.Children.Add($childControl)
+                    $first = $false
+                }
+            } elseif ($child -is [IfStmt]) {
+                if ($child.Branches.Count -gt 0) {
+                    $b0 = $child.Branches[0]
+                    $subPanel = [System.Windows.Controls.StackPanel]::new()
+                    $subPanel.Orientation = [System.Windows.Controls.Orientation]::Vertical
+                    $subFirst = $true
+                    foreach ($sub in $b0.Body) {
+                        if ($sub -is [UiElementStmt]) {
+                            $subCtrl = Render-OtterDeclarativeElementWpf -Element $sub -Environment $Environment
+                            if ($subCtrl) {
+                                if (-not $subFirst -and $childGap -gt 0) {
+                                    $subCtrl.Margin = [System.Windows.Thickness]::new(0, $childGap, 0, 0)
+                                }
+                                [void]$subPanel.Children.Add($subCtrl)
+                                $subFirst = $false
+                            }
+                        }
+                    }
+
+                    # Conditional visibility binding
+                    $condExpr = $b0.Condition
+                    $updateCond = {
+                        $res = [bool](Get-OtterUiExpressionValue -Expr $condExpr -Environment $Environment)
+                        if ($subPanel.Dispatcher.CheckAccess()) {
+                            $subPanel.Visibility = if ($res) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Collapsed }
+                        } else {
+                            $subPanel.Dispatcher.Invoke([Action]{
+                                $subPanel.Visibility = if ($res) { [System.Windows.Visibility]::Visible } else { [System.Windows.Visibility]::Collapsed }
+                            })
+                        }
+                    }.GetNewClosure()
+
+                    $null = & $updateCond
+
+                    foreach ($k in $Environment.Variables.Keys) {
+                        $raw = $Environment.GetRaw($k)
+                        if ($raw -is [OtterSignal]) {
+                            $raw.Subscribe($updateCond)
+                        } elseif ($raw -is [OtterDerived]) {
+                            $raw.Subscribe($updateCond)
+                        }
+                    }
+
+                    if (-not $first -and $childGap -gt 0) {
+                        $subPanel.Margin = [System.Windows.Thickness]::new(0, $childGap, 0, 0)
+                    }
+                    [void]$innerPanel.Children.Add($subPanel)
+                    $first = $false
+                }
+            }
+        }
+    }
+
+    return $control
+}
+
+function ConvertTo-OtterWpfWindow {
+    param(
+        [Parameter(Mandatory)][ProgramNode]$Program,
+        [OtterEnvironment]$Environment = $null,
+        [string]$Title = "Otter App"
+    )
+
+    Initialize-OtterWpfProvider
+
+    if ($null -eq $Environment) {
+        $Environment = [OtterEnvironment]::new()
+    }
+
+    # Execute top-level non-UI statements first (state, derive, watch, functions, calls)
+    $declarativeRoots = [System.Collections.Generic.List[UiElementStmt]]::new()
+    $functions = [ordered]@{}
+    $componentFunctionNames = [System.Collections.Generic.HashSet[string]]::new()
+
+    foreach ($stmt in $Program.Statements) {
+        if ($stmt -is [FunctionDefStmt]) {
+            $functions[$stmt.Name] = $stmt
+            foreach ($bs in $stmt.Body) {
+                if ($bs -is [UiElementStmt]) {
+                    [void]$componentFunctionNames.Add($stmt.Name)
+                    break
+                }
+            }
+        }
+    }
+
+    foreach ($stmt in $Program.Statements) {
+        if ($stmt -is [FunctionDefStmt]) {
+            continue
+        }
+        if ($stmt -is [UiElementStmt]) {
+            $declarativeRoots.Add($stmt)
+            continue
+        }
+        if ($stmt -is [CallStmt] -and $componentFunctionNames.Contains($stmt.Call.Name)) {
+            # Handled below as declarative component root
+            continue
+        }
+        if ($stmt -is [StateDefStmt]) {
+            $val = Get-OtterUiExpressionValue -Expr $stmt.InitialValue -Environment $Environment
+            $Environment.SetRaw($stmt.Name, [OtterSignal]::new($stmt.Name, $val))
+            continue
+        }
+        if ($stmt -is [DeriveDefStmt]) {
+            $derived = [OtterDerived]::new($stmt.Name, $stmt.Expression, $Environment)
+            $Environment.SetRaw($stmt.Name, $derived)
+            continue
+        }
+        if (Get-Command -Name Invoke-OtterStatement -ErrorAction SilentlyContinue) {
+            Invoke-OtterStatement -Statement $stmt -Environment $Environment
+        }
+    }
+
+    # Check for calls that invoke declarative component functions (e.g. counterCard)
+    foreach ($stmt in $Program.Statements) {
+        if ($stmt -is [CallStmt] -and $componentFunctionNames.Contains($stmt.Call.Name)) {
+            $fnDef = $functions[$stmt.Call.Name]
+            foreach ($bodyStmt in $fnDef.Body) {
+                if ($bodyStmt -is [UiElementStmt]) {
+                    $declarativeRoots.Add($bodyStmt)
+                }
+            }
+        }
+    }
+
+    # Create host Window
+    $window = [System.Windows.Window]::new()
+    $window.Title = $Title
+    $window.Background = [System.Windows.Media.BrushConverter]::new().ConvertFromString('#0f172a')
+    $window.SizeToContent = [System.Windows.SizeToContent]::WidthAndHeight
+    $window.WindowStartupLocation = [System.Windows.WindowStartupLocation]::CenterScreen
+    $window.MinWidth = 420
+    $window.MinHeight = 320
+
+    $rootGrid = [System.Windows.Controls.Grid]::new()
+    $rootGrid.Margin = [System.Windows.Thickness]::new(24)
+    $rootGrid.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Center
+    $rootGrid.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
+
+    $mainStack = [System.Windows.Controls.StackPanel]::new()
+    $mainStack.Orientation = [System.Windows.Controls.Orientation]::Vertical
+    $mainStack.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Center
+    $mainStack.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
+
+    foreach ($rootEl in $declarativeRoots) {
+        $ctrl = Render-OtterDeclarativeElementWpf -Element $rootEl -Environment $Environment
+        if ($ctrl) {
+            [void]$mainStack.Children.Add($ctrl)
+            if ($rootEl.Tag -in @('window', 'page') -and $rootEl.Label -is [LiteralExpr]) {
+                $window.Title = [string]$rootEl.Label.Value
+            }
+        }
+    }
+
+    [void]$rootGrid.Children.Add($mainStack)
+    $window.Content = $rootGrid
+
+    return $window
+}
+
+function ConvertTo-OtterWpfElement {
+    param(
+        [Parameter(Mandatory)][Node]$Element,
+        [Parameter(Mandatory)][OtterEnvironment]$Environment
+    )
+    return Render-OtterDeclarativeElementWpf -Element $Element -Environment $Environment
+}
+
+function Show-OtterDeclarativeAppWpf {
+    param(
+        [Parameter(Mandatory)][ProgramNode]$Program,
+        [OtterEnvironment]$Environment = $null,
+        [string]$Title = "Otter App"
+    )
+
+    $window = ConvertTo-OtterWpfWindow -Program $Program -Environment $Environment -Title $Title
+    [void]$window.ShowDialog()
+}
+
+
 Export-ModuleMember -Function `
     Test-OtterUiResource, New-OtterUiResourceValue, Initialize-OtterWpfProvider, `
     Get-OtterUiProperty, Set-OtterUiProperty, Add-OtterUiEventHandler, `
-    Add-OtterUiChild, Show-OtterUiResource
+    Add-OtterUiChild, Show-OtterUiResource, `
+    Add-OtterUiAnimationWpf, Render-OtterDeclarativeElementWpf, ConvertTo-OtterWpfElement, `
+    Get-OtterUiExpressionValue, ConvertTo-OtterWpfWindow, Show-OtterDeclarativeAppWpf

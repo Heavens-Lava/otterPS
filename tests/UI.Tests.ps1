@@ -1378,5 +1378,86 @@ Test-Otter 'end-to-end Task List dogfood: dynamic child insertion into padded co
     Assert-AreEqual -Expected 'VisualBrush' -Actual $input.Native.Background.GetType().Name
 }
 
+Test-Otter 'declarative counter app with reactivity and native WPF animations' {
+    Import-Module (Join-Path $PSScriptRoot '..\src\Otter.Lexer.psm1') -Force
+    Import-Module (Join-Path $PSScriptRoot '..\src\Otter.Parser.psm1') -Force
+
+    $counterPath = Join-Path $PSScriptRoot '..\examples\counter.ot'
+    $tokens = ConvertTo-OtterTokens -Source (Get-Content $counterPath -Raw)
+    $ast = ConvertTo-OtterAst -Tokens $tokens
+    $window = ConvertTo-OtterWpfWindow -Program $ast
+
+    Assert-True ($null -ne $window) 'window must not be null'
+    Assert-AreEqual -Expected 'System.Windows.Controls.Grid' -Actual $window.Content.GetType().FullName
+
+    function Find-Elem($parent, $predicate) {
+        if (& $predicate $parent) { return $parent }
+        if ($parent -is [System.Windows.Controls.Panel]) {
+            foreach ($child in $parent.Children) {
+                $res = Find-Elem $child $predicate
+                if ($res) { return $res }
+            }
+        } elseif ($parent -is [System.Windows.Controls.Border]) {
+            if ($parent.Child) {
+                $res = Find-Elem $parent.Child $predicate
+                if ($res) { return $res }
+            }
+        } elseif ($parent -is [System.Windows.Controls.ContentControl] -and $parent.Content -is [System.Windows.UIElement]) {
+            $res = Find-Elem $parent.Content $predicate
+            if ($res) { return $res }
+        }
+        return $null
+    }
+
+    $card = Find-Elem $window.Content { param($e) $e -is [System.Windows.Controls.Border] }
+    $increaseBtn = Find-Elem $window.Content { param($e) $e -is [System.Windows.Controls.Button] -and $e.Content -eq 'Increase' }
+    $menuBtn = Find-Elem $window.Content { param($e) $e -is [System.Windows.Controls.Button] -and $e.Content -eq 'Menu' }
+    $countText = Find-Elem $window.Content { param($e) $e -is [System.Windows.Controls.TextBlock] -and $e.Text -like 'Count: *' }
+    $doubleText = Find-Elem $window.Content { param($e) $e -is [System.Windows.Controls.TextBlock] -and $e.Text -like 'Double: *' }
+    $menuSubpanel = Find-Elem $window.Content { param($e)
+        if ($e -is [System.Windows.Controls.StackPanel]) {
+            foreach ($c in $e.Children) {
+                if ($c -is [System.Windows.Controls.TextBlock] -and $c.Text -eq 'Settings') { return $true }
+            }
+        }
+        return $false
+    }
+
+    Assert-True ($null -ne $card) 'card must exist'
+    Assert-True ($null -ne $increaseBtn) 'increase button must exist'
+    Assert-True ($null -ne $menuBtn) 'menu button must exist'
+    Assert-AreEqual -Expected 'Count: 0' -Actual $countText.Text
+    Assert-AreEqual -Expected 'Double: 0' -Actual $doubleText.Text
+    Assert-AreEqual -Expected 'Collapsed' -Actual $menuSubpanel.Parent.Visibility.ToString()
+
+    # Enter animation initial state and trigger
+    Assert-AreEqual -Expected 0 -Actual $card.Opacity
+    $translate = $card.RenderTransform.Children[1]
+    Assert-AreEqual -Expected 20 -Actual $translate.Y
+    $card.RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.FrameworkElement]::LoadedEvent))
+    Assert-True ($card.HasAnimatedProperties) 'card enter animation must animate properties'
+
+    # Hover animation on button
+    $btnScale = $increaseBtn.RenderTransform.Children[0]
+    $mouseArgs = [System.Windows.Input.MouseEventArgs]::new([System.Windows.Input.Mouse]::PrimaryDevice, 0)
+    $mouseArgs.RoutedEvent = [System.Windows.UIElement]::MouseEnterEvent
+    $increaseBtn.RaiseEvent($mouseArgs)
+    Assert-True ($btnScale.HasAnimatedProperties) 'increase button hover must animate scale'
+
+    # Click Increase
+    $click = [System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Button]::ClickEvent)
+    $increaseBtn.RaiseEvent($click)
+    Assert-AreEqual -Expected 'Count: 1' -Actual $countText.Text
+    Assert-AreEqual -Expected 'Double: 2' -Actual $doubleText.Text
+
+    # Click Menu
+    $menuBtn.RaiseEvent($click)
+    Assert-AreEqual -Expected 'Visible' -Actual $menuSubpanel.Parent.Visibility.ToString()
+
+    # Click Menu again to collapse
+    $menuBtn.RaiseEvent($click)
+    Assert-AreEqual -Expected 'Collapsed' -Actual $menuSubpanel.Parent.Visibility.ToString()
+}
+
 Complete-OtterTests
 

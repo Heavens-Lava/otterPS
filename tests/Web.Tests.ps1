@@ -100,7 +100,28 @@ if ($portalContent -notmatch 'class="otter-card"' -or
 }
 Write-Output '  pass  portal.ot exports rich components (cards, 3D canvas, dropdown, checkbox, slider, badge, link)'
 
-# Test 5: Export jeffreymacy.ot (high-end responsive showcase recreating www.jeffreymacy.com)
+# Test 5: Internal links stay in the docs tab; external links remain safe new tabs
+$linkSource = @'
+app is a page
+    title is "Links"
+.
+internal is a link
+    text is "Docs"
+    url is "../welcome/"
+.
+external is a link
+    text is "Otter"
+    url is "https://example.com"
+.
+put internal, external in app
+'@
+$linkAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $linkSource)
+$linkHtml = ConvertTo-OtterWeb -Program $linkAst
+if ($linkHtml -match 'href="\.\./welcome/"[^>]*target="_blank"') { throw 'Internal links should not open a new tab.' }
+if ($linkHtml -notmatch 'href="https://example.com"[^>]*target="_blank"' -or $linkHtml -notmatch 'rel="noopener noreferrer"') { throw 'External links should open safely in a new tab.' }
+Write-Output '  pass  internal links stay in place while external links open safely'
+
+# Test 6: Export jeffreymacy.ot (high-end responsive showcase recreating www.jeffreymacy.com)
 $jmHtmlPath = Export-OtterWebApplication -SourcePath (Join-Path $PSScriptRoot '..\examples\jeffreymacy.ot')
 if (-not (Test-Path $jmHtmlPath)) { throw 'Expected jeffreymacy.html to exist.' }
 $jmContent = Get-Content -LiteralPath $jmHtmlPath -Raw
@@ -156,5 +177,33 @@ if ($alignHtml -notmatch 'id="contentCol"[^>]*align-items:\s*center;[^"]*justify
     throw 'Expected column with spread, align center to produce align-items: center; justify-content: space-between;'
 }
 Write-Output '  pass  spread, align middle/top, and align left/center compile to native flexbox styles'
+
+# Test 8: Declarative counter application compilation, animations, and reactivity
+$counterSource = Get-Content (Join-Path $PSScriptRoot '..\examples\counter.ot') -Raw
+$counterAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $counterSource)
+$counterHtml = ConvertTo-OtterWeb -Program $counterAst
+
+if ($counterHtml -notmatch '@keyframes otter_enter_') {
+    throw 'Expected @keyframes otter_enter_ in compiled HTML.'
+}
+if ($counterHtml -notmatch ':hover\s*\{\s*transform:\s*scale\(1\.05\);') {
+    throw 'Expected button hover scale rule in compiled HTML.'
+}
+if ($counterHtml -notmatch 'data-otter-bind="\(.*Count:.*count\)"') {
+    throw 'Expected data-otter-bind for Count in compiled HTML.'
+}
+if ($counterHtml -notmatch 'data-otter-bind="\(.*Double:.*doubled\)"') {
+    throw 'Expected data-otter-bind for Doubled in compiled HTML.'
+}
+if ($counterHtml -notmatch 'data-otter-if="menuOpen"') {
+    throw 'Expected data-otter-if for menuOpen in compiled HTML.'
+}
+if ($counterHtml -notmatch 'otterState\[.count.\]\s*=\s*0;') {
+    throw 'Expected otterState["count"] initialization in compiled HTML.'
+}
+if ($counterHtml -notmatch 'otterSetState\(.count.') {
+    throw 'Expected otterSetState on button click in compiled HTML.'
+}
+Write-Output '  pass  counter.ot compiles to reactive HTML with keyframe animations, live bindings, and state updates'
 
 Write-Output 'Web compiler tests passed.'
