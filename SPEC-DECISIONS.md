@@ -3517,11 +3517,38 @@ Parser tests required before this is considered landed:
 
 ### What's built
 
-Nothing yet. This entry freezes semantics only, per Jeff's explicit
-instruction not to implement during the investigation. WPF
-implementation (the axis-slot resolver, `Grid`-based `spread` for rows/
-columns, cross-axis per-child alignment, conflict validation) is
-Claude's, once Codex's bare-boolean-shorthand grammar lands — tested
-against real WPF layout behavior the same way D53 was, not assumed from
-this entry's reasoning alone.
+**Update:** implementation landed out of sequence — `align`/`spread`
+WPF and Web parity were built (`83b774c`) and grammar landed
+(`e316fb0`) before this entry's freeze was fully read against, and the
+WPF side did not match the frozen axis-slot model: it split `align`
+into separate `align_h`/`align_v` properties and routed by *which
+property name* was used rather than resolving the axis from the
+direction *word* itself. Concretely, `row has align "top"` silently did
+nothing useful — verified directly, it fell through `align_h`'s switch
+(left/center/right only) to a default case, leaving
+`VerticalAlignment` untouched — a direct contradiction of this entry's
+own opening principle. Found and fixed during the v1 desktop audit
+(`e10e777`): `Get-OtterUiAlignAxis` is now the one place a direction
+word maps to its axis; row/column resolve that axis against their own
+orientation into the main/cross slot exactly as frozen above, with
+general per-axis conflict validation replacing the previous ad-hoc
+pairwise checks. 12 tests rewritten/added, including real WPF geometry
+verification (`Measure`/`Arrange`/`TransformToAncestor`) for main-axis
+positioning and the corner-composition case — not just enum values.
+Main-axis positioning uses the same measure-and-margin technique
+already proven for `spread` (`StackPanel` has no native "pack to the
+end"/"center as a block" concept; `FlowDirection` was tried and
+confirmed *not* to reverse packing order for a horizontal `StackPanel`,
+so it isn't the mechanism).
+
+**A matching bug remains in `src/Otter.Parser.psm1` (Codex's lane, not
+fixed here):** it independently desugars `align <word>` into
+`align_h`/`align_v` at parse time, and performs its own conflict
+detection using a `TypeName` that isn't reliably known for two-statement
+programs (`create row into toolbar` / `toolbar has align "right"`) —
+the parser can't know `toolbar`'s kind there, only the runtime can.
+Real end-to-end `.ot` programs using `align` are blocked on this until
+Codex removes the parser-level split/conflict-detection and emits a
+plain `align` property assignment, letting the now-correct runtime
+resolve axis and conflicts. Reported to Codex separately.
 
