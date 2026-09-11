@@ -279,7 +279,9 @@ function ConvertTo-OtterWeb {
             $target = $stmt.Target.Target
             $targetName = if ($target -is [VariableExpr]) { $target.Name } else { $null }
             if ($targetName -and $resources.Contains($targetName) -and $stmt.Value -is [LiteralExpr]) {
-                $resources[$targetName].Properties[$stmt.Target.Property.ToLowerInvariant()] = $stmt.Value.Value
+                $pKey = $stmt.Target.Property.ToLowerInvariant()
+                $val = $stmt.Value.Value
+                $resources[$targetName].Properties[$pKey] = $val
                 continue
             }
         }
@@ -568,16 +570,17 @@ $optHtml
                 $spacing = if ($props.Contains('spacing')) { $props['spacing'] } else { 8 }
                 $wrap = if ($props.Contains('wrap') -and ($props['wrap'] -eq $true -or $props['wrap'] -eq 'true' -or $props['wrap'] -eq 'wrap')) { 'wrap' } else { 'nowrap' }
                 
-                # Check for runtime/compile conflicts
-                if ($props.Contains('spread') -and ($props['spread'] -eq $true -or $props['spread'] -eq 'true') -and $props.Contains('align_h')) {
-                    throw [OtterError]::new("Horizontal alignment 'align $($props['align_h'])' conflicts with 'spread' on a row.", 0, 'runtime')
+                # D54: align is one property; its word selects the physical axis.
+                $direction = if ($props.Contains('align')) { [string]$props['align'] } else { $null }
+                if ($props.Contains('spread') -and ($props['spread'] -eq $true -or $props['spread'] -eq 'true') -and $direction -in @('left', 'center', 'right')) {
+                    throw [OtterError]::new("Horizontal alignment 'align $direction' conflicts with 'spread' on a row.", 0, 'runtime')
                 }
 
                 # Horizontal placement (main axis)
                 $justify = if ($props.Contains('spread') -and ($props['spread'] -eq $true -or $props['spread'] -eq 'true')) {
                     'space-between'
-                } elseif ($props.Contains('align_h')) {
-                    switch ($props['align_h']) {
+                } elseif ($direction -in @('left', 'center', 'right')) {
+                    switch ($direction) {
                         'left'   { 'flex-start' }
                         'center' { 'center' }
                         'right'  { 'flex-end' }
@@ -590,8 +593,8 @@ $optHtml
                 }
 
                 # Vertical placement (cross axis)
-                $align = if ($props.Contains('align_v')) {
-                    switch ($props['align_v']) {
+                $align = if ($direction -in @('top', 'middle', 'bottom')) {
+                    switch ($direction) {
                         'top'    { 'flex-start' }
                         'middle' { 'center' }
                         'bottom' { 'flex-end' }
@@ -618,16 +621,17 @@ $optHtml
             'column' {
                 $spacing = if ($props.Contains('spacing')) { $props['spacing'] } else { 8 }
 
-                # Check for runtime/compile conflicts
-                if ($props.Contains('spread') -and ($props['spread'] -eq $true -or $props['spread'] -eq 'true') -and $props.Contains('align_v')) {
-                    throw [OtterError]::new("Vertical alignment 'align $($props['align_v'])' conflicts with 'spread' on a column.", 0, 'runtime')
+                # D54: align is one property; its word selects the physical axis.
+                $direction = if ($props.Contains('align')) { [string]$props['align'] } else { $null }
+                if ($props.Contains('spread') -and ($props['spread'] -eq $true -or $props['spread'] -eq 'true') -and $direction -in @('top', 'middle', 'bottom')) {
+                    throw [OtterError]::new("Vertical alignment 'align $direction' conflicts with 'spread' on a column.", 0, 'runtime')
                 }
 
                 # Vertical placement (main axis)
                 $justify = if ($props.Contains('spread') -and ($props['spread'] -eq $true -or $props['spread'] -eq 'true')) {
                     'space-between'
-                } elseif ($props.Contains('align_v')) {
-                    switch ($props['align_v']) {
+                } elseif ($direction -in @('top', 'middle', 'bottom')) {
+                    switch ($direction) {
                         'top'    { 'flex-start' }
                         'middle' { 'center' }
                         'bottom' { 'flex-end' }
@@ -640,8 +644,8 @@ $optHtml
                 }
 
                 # Horizontal placement (cross axis)
-                $align = if ($props.Contains('align_h')) {
-                    switch ($props['align_h']) {
+                $align = if ($direction -in @('left', 'center', 'right')) {
+                    switch ($direction) {
                         'left'   { 'flex-start' }
                         'center' { 'center' }
                         'right'  { 'flex-end' }
