@@ -4043,6 +4043,14 @@ calling the emitter directly):
 - HTTP GET / POST
 - Web UI compilation (real sample apps: `jeffreymacy.ot`, `portal.ot`,
   `calculator.ot`, `counter.ot`, `hello-app.ot`)
+- String operations, Phase 1D-A (`09374ea`): `starts with`/`ends with`
+  (case-sensitive, verified), `uppercase of`/`lowercase of` (Unicode-
+  correct, café → CAFÉ verified via real JS execution), `replace`
+  (all occurrences, empty-find throws — matches the interpreter; the
+  contract's `into <result>` variant is confirmed dead in the current
+  parser, not implemented since it's unreachable), `split` (empty-
+  separator throws, empty entries preserved). `length of`/`first of`/
+  `last of` remain deliberately unhandled — see MISSING, below.
 
 **MISSING FROM THE JS BACKEND** (verified absent by direct inspection,
 not assumed):
@@ -4053,13 +4061,19 @@ not assumed):
   today; only a narrow declarative-UI-root-scanning pattern reuses the
   function AST at all. Event-handler bodies (the bullet above) are a
   different, already-proven mechanism — do not conflate the two.
-- collection/string operations (`uppercase of`, `sort`, `replace`,
-  `split`, `join`, `find`) — see Phase 1D for string-specific work in
-  progress
-- **`length of <list>`** — compiles to the emitter's generic
-  `default { return "null" }` fallback (confirmed via real browser
+- collection operations (`sort`, `reverse`, `find`, `join`) — all
+  confirmed list-specific (`Test-OtterList` checked, error on a
+  non-list subject) or list-input (`join` requires a list), deferred to
+  Phase 1E rather than bundled into 1D-A's string-operations scope
+- **`length of`/`first of`/`last of`** — `length of` is polymorphic
+  (works on strings too, but also lists — confirmed via real browser
   execution, Phase 1C: `total is length of numbers` silently sets
-  `total` to `null`, not a crash but not useful)
+  `total` to `null`); `first of`/`last of` are list-only (error on a
+  string subject in the interpreter). All three share one NodeKind
+  (`OfOperation`) with `uppercase`/`lowercase of` (done, Phase 1D-A)
+  and are deliberately left unhandled in that same switch, falling
+  through to the same `null` default, since they belong with Phase
+  1E's collection operations
 - **`add`/`remove` (list/collection mutation)** — compiles to the
   Statement default case's `return ""`; the whole statement silently
   drops from generated JS. Confirmed via real browser execution (Phase
