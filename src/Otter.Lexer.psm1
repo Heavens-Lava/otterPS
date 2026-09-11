@@ -50,6 +50,7 @@ $script:OtterKeywords = @{
     'true' = [TokenKind]::True
     'false' = [TokenKind]::False
     'at' = [TokenKind]::At
+    'await' = [TokenKind]::Await
 }
 
 # D33 mechanism 2: these words introduce their existing statement forms only
@@ -75,6 +76,14 @@ $script:OtterStatementHeadKeywords = @{
     'post' = [TokenKind]::Post
     'respond' = [TokenKind]::Respond; 'start' = [TokenKind]::Start
     'listen' = [TokenKind]::Listen
+    # D56: declarative UI, reactivity, animation
+    'layout' = [TokenKind]::Layout; 'gap' = [TokenKind]::Gap
+    'state' = [TokenKind]::State; 'derive' = [TokenKind]::Derive
+    'memo' = [TokenKind]::Memo; 'on' = [TokenKind]::On
+    'await' = [TokenKind]::Await; 'shared' = [TokenKind]::Shared
+    'use' = [TokenKind]::Use; 'focus' = [TokenKind]::Focus
+    'hide' = [TokenKind]::Hide; 'animate' = [TokenKind]::Animate
+    'motion' = [TokenKind]::Motion
 }
 
 # D32: singular and plural spell the same unit, the way make/makes collapse.
@@ -211,6 +220,44 @@ function ConvertTo-OtterLineTokens {
             continue
         }
 
+        if ($character -eq '+') {
+            $tokens.Add((New-OtterToken ([TokenKind]::And) '+' $null $LineNumber $column))
+            $index++
+            $isStatementHead = $false
+            continue
+        }
+
+        if ($character -eq '*') {
+            $tokens.Add((New-OtterToken ([TokenKind]::Times) '*' $null $LineNumber $column))
+            $index++
+            $isStatementHead = $false
+            continue
+        }
+
+        if ($character -eq '-') {
+            $tokens.Add((New-OtterToken ([TokenKind]::Minus) '-' $null $LineNumber $column))
+            $index++
+            $isStatementHead = $false
+            continue
+        }
+
+        if ($character -eq '/') {
+            $tokens.Add((New-OtterToken ([TokenKind]::DividedBy) '/' $null $LineNumber $column))
+            $index++
+            $isStatementHead = $false
+            continue
+        }
+
+        if ($character -eq '=') {
+            $suggestion = if ($Text -match '^\s*state\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$') {
+                $rhs = if ($matches[2].Trim().Length -gt 0) { $matches[2].Trim() } else { "0" }
+                "Otter uses 'is' to assign values.`n`nTry:`nstate $($matches[1]) is $rhs"
+            } else {
+                "Otter uses 'is' to assign values."
+            }
+            throw [OtterError]::new("Otter does not use '=' to assign values.", $LineNumber, 'lexer', $column, $Text, $suggestion)
+        }
+
         throw [OtterError]::new("I don't understand '$character'.", $LineNumber, 'lexer', $column, $Text, 'Use Otter words such as say or if.')
     }
 
@@ -218,13 +265,20 @@ function ConvertTo-OtterLineTokens {
     $combined = [System.Collections.Generic.List[Token]]::new()
     for ($tokenIndex = 0; $tokenIndex -lt $tokens.Count; $tokenIndex++) {
         $token = $tokens[$tokenIndex]
-        $previous = if ($combined.Count -gt 0) { $combined[$combined.Count - 1] } else { $null }
+        if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -eq 'ease' -and
+            ($tokenIndex + 2) -lt $tokens.Count -and $tokens[$tokenIndex + 1].Kind -eq [TokenKind]::Minus -and
+            $tokens[$tokenIndex + 2].Text -in @('out', 'in')) {
+            $combined.Add((New-OtterToken ([TokenKind]::Identifier) "ease-$($tokens[$tokenIndex + 2].Text)" "ease-$($tokens[$tokenIndex + 2].Text)" $token.Line $token.Column))
+            $tokenIndex += 2
+            continue
+        }
         if ($token.Kind -eq [TokenKind]::Is -and ($tokenIndex + 2) -lt $tokens.Count -and
             $tokens[$tokenIndex + 1].Text -eq 'at' -and $tokens[$tokenIndex + 2].Text -eq 'least') {
             $combined.Add((New-OtterToken ([TokenKind]::IsAtLeast) 'is at least' $null $token.Line $token.Column))
             $tokenIndex += 2
             continue
         }
+        $previous = if ($combined.Count -gt 0) { $combined[$combined.Count - 1] } else { $null }
         if ($token.Kind -eq [TokenKind]::Is -and ($tokenIndex + 1) -lt $tokens.Count) {
             $next = $tokens[$tokenIndex + 1]
             if ($next.Text -eq 'not') { $combined.Add((New-OtterToken ([TokenKind]::IsNot) 'is not' $null $token.Line $token.Column)); $tokenIndex++; continue }

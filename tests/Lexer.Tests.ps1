@@ -69,4 +69,20 @@ if ($startTokens[0].Kind -ne [TokenKind]::Start) { throw 'Start at statement hea
 $listenTokens = ConvertTo-OtterTokens -Source 'listen on port 8080'
 if ($listenTokens[0].Kind -ne [TokenKind]::Listen) { throw 'Listen at statement head must emit TokenKind::Listen.' }
 
+# D56 UI & Reactivity tokens
+$feTokens = ConvertTo-OtterTokens -Source 'layout row'
+if ($feTokens[0].Kind -ne [TokenKind]::Layout) { throw 'Expected Layout token.' }
+
+$stateTokens = ConvertTo-OtterTokens -Source 'state count is 0'
+if ($stateTokens[0].Kind -ne [TokenKind]::State) { throw 'Expected State token.' }
+
+$deriveTokens = ConvertTo-OtterTokens -Source 'derive doubled is count * 2'
+if ($deriveTokens[0].Kind -ne [TokenKind]::Derive -or $deriveTokens[4].Kind -ne [TokenKind]::Times) { throw 'Expected Derive and Times tokens.' }
+
+$easeTokens = ConvertTo-OtterTokens -Source 'animate 300ms ease-out'
+if ($easeTokens[0].Kind -ne [TokenKind]::Animate -or $easeTokens[3].Text -ne 'ease-out') { throw 'Expected Animate token and ease-out identifier.' }
+
+$mathSymTokens = ConvertTo-OtterTokens -Source 'count is count + 1'
+if ($mathSymTokens[3].Kind -ne [TokenKind]::And) { throw 'Expected + to tokenize as And for addition.' }
+
 Write-Output 'Lexer tests passed.'
