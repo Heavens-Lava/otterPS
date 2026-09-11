@@ -178,8 +178,17 @@ class OtterEnvironment {
         if ($this.Variables.ContainsKey($name)) {
             $cur = $this.Variables[$name]
             if ($cur -is [OtterSignal]) {
+                # D56: a watcher fires only on an actual change, using
+                # Otter's own equality semantics - the same rule that makes
+                # two content-identical things distinct (D-audit fix) also
+                # applies here, so `state person is a thing` gets a
+                # coherent, identity-based notion of "changed." Assigning
+                # the current value again is a real, common no-op pattern
+                # (e.g. clamping logic that reassigns unconditionally) and
+                # must not fire "changes" watchers or re-run derived work.
+                $changed = -not (Test-OtterEqual -Left $cur.Value -Right $value)
                 $cur.Value = $value
-                $cur.Notify()
+                if ($changed) { $cur.Notify() }
                 return
             }
             $this.Variables[$name] = $value

@@ -904,10 +904,16 @@ function Invoke-OtterStatement {
         }
 
         # memo sortedItems ...
+        #
+        # D56: not part of Otter 1.0. Found during the v1 audit to be
+        # outright broken, not merely unfinished - this case referenced
+        # $Statement.Expression, a property MemoDefStmt does not have (it
+        # only has .Body), so this always failed before even reaching
+        # anything memo-specific. An explicit diagnostic here is strictly
+        # more honest than the confusing PowerShell-property-not-found
+        # failure this replaced.
         'MemoDef' {
-            $derived = [OtterDerived]::new($Statement.Name, $Statement.Expression, $Environment)
-            $Environment.SetRaw($Statement.Name, $derived)
-            return
+            throw (New-OtterRuntimeError -Message "'memo' is not supported in Otter 1.0." -Line $Statement.Line)
         }
 
         # when count changes ...
@@ -931,29 +937,42 @@ function Invoke-OtterStatement {
         }
 
         # on start / on close
+        #
+        # D56: not part of Otter 1.0 - neither stage has defined, tested
+        # lifecycle semantics. Previously 'start' ran its body inline
+        # immediately (indistinguishable from the body not being wrapped
+        # in "on start" at all, at the top level - not real deferred
+        # lifecycle behavior) and 'close' did nothing at all. Both now
+        # fail loudly instead of silently doing the wrong thing or nothing.
         'Lifecycle' {
-            if ($Statement.Stage.ToLowerInvariant() -eq 'start') {
-                Invoke-OtterStatements -Statements $Statement.Body -Environment $Environment
-            }
-            return
+            throw (New-OtterRuntimeError -Message "'on $($Statement.Stage)' is not supported in Otter 1.0." -Line $Statement.Line)
         }
 
         # shared theme is "dark"
+        #
+        # D56: not part of Otter 1.0 - mechanically identical to `state`,
+        # but never independently exercised or frozen, so it does not get
+        # to ride in on state's coattails.
         'SharedState' {
-            $value = Get-OtterValue -Expression $Statement.InitialValue -Environment $Environment
-            $signal = [OtterSignal]::new($Statement.Name, $value)
-            $Environment.SetRaw($Statement.Name, $signal)
-            return
+            throw (New-OtterRuntimeError -Message "'shared' is not supported in Otter 1.0." -Line $Statement.Line)
         }
 
         # use files / use ui
+        #
+        # D56: not part of Otter 1.0.
         'UseModule' {
-            return
+            throw (New-OtterRuntimeError -Message "'use' is not supported in Otter 1.0." -Line $Statement.Line)
         }
 
         # focus searchBox / hide sidebar
+        #
+        # D56: not part of Otter 1.0. Verified during the v1 audit that
+        # this was a silent no-op - confirmed directly, "hide sidebar"
+        # left Visibility at its default and "focus box" left IsFocused
+        # false, with no error either way. A feature doing nothing
+        # successfully is worse than one that says so.
         'UiAction' {
-            return
+            throw (New-OtterRuntimeError -Message "'$($Statement.Action)' is not supported in Otter 1.0." -Line $Statement.Line)
         }
 
         # card / window / primary button
@@ -964,12 +983,15 @@ function Invoke-OtterStatement {
             return
         }
 
+        # D56: not part of Otter 1.0 - confirmed a silent no-op, same
+        # reasoning as UiAction above.
         'UiEvent' {
-            return
+            throw (New-OtterRuntimeError -Message "UI event blocks are not supported in Otter 1.0." -Line $Statement.Line)
         }
 
+        # D56: not part of Otter 1.0 - confirmed a silent no-op.
         'UiAnimation' {
-            return
+            throw (New-OtterRuntimeError -Message "UI animation is not supported in Otter 1.0." -Line $Statement.Line)
         }
 
         default {
@@ -1365,8 +1387,13 @@ function Get-OtterValue {
             return (Measure-OtterDateDifference -Start $start -End $end -Unit $Expression.Unit.ToString())
         }
 
+        # D56: not part of Otter 1.0 - there is no real asynchronicity
+        # anywhere in this interpreter, so this previously just forwarded
+        # the inner value transparently, silently pretending to be a
+        # working "await" rather than admitting there is nothing to wait
+        # for yet.
         'Await' {
-            return (Get-OtterValue -Expression $Expression.Expression -Environment $Environment)
+            throw (New-OtterRuntimeError -Message "'await' is not supported in Otter 1.0." -Line $Expression.Line)
         }
 
         'UiElement' {

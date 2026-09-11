@@ -632,4 +632,71 @@ Test-Otter 'the acceptance program from the brief produces the expected output' 
 }
 
 
+# =================================================================
+# D56 - reactive state IN, experimental front-end surface OUT
+# =================================================================
+
+Test-Otter 'a watcher fires only on an actual change, using Otter equality' {
+    # v1 audit + D56: state->watch previously notified on every assignment,
+    # even reassigning the current value. Fixed in OtterEnvironment.Set to
+    # check Test-OtterEqual first. Exact sequence Jeff specified:
+    # 0->0 no fire, 0->1 fire, 1->1 no fire, 1->2 fire.
+    $out = Invoke-TestProgram @(
+        ([StateDefStmt]::new('count', (Lit 0.0), 1)),
+        ([WatchStmt]::new('count', @((SaySt @((Var 'count')))), 2)),
+        (AssignSt 'count' (Lit 0.0)),
+        (AssignSt 'count' (Lit 1.0)),
+        (AssignSt 'count' (Lit 1.0)),
+        (AssignSt 'count' (Lit 2.0))
+    )
+    Assert-Lines -Expected @('1', '2') -Actual $out
+}
+
+Test-Otter 'multiple derived values independently track the same state' {
+    $out = Invoke-TestProgram @(
+        ([StateDefStmt]::new('count', (Lit 2.0), 1)),
+        ([DeriveDefStmt]::new('doubled', ([MathExpr]::new((Var 'count'), [MathOp]::Multiply, (Lit 2.0), 2)), 2)),
+        ([DeriveDefStmt]::new('tripled', ([MathExpr]::new((Var 'count'), [MathOp]::Multiply, (Lit 3.0), 3)), 3)),
+        (SaySt @((Var 'doubled'))),
+        (SaySt @((Var 'tripled'))),
+        (AssignSt 'count' (Lit 5.0)),
+        (SaySt @((Var 'doubled'))),
+        (SaySt @((Var 'tripled')))
+    )
+    Assert-Lines -Expected @('4', '6', '10', '15') -Actual $out
+}
+
+Test-Otter 'memo, shared, use, await, on start/close, and UI action/event/animation are explicit v1 errors, never silent no-ops' {
+    # Each of these previously ran without error and did NOTHING - found
+    # during the v1 runtime audit. A silently-successful unsupported
+    # feature is worse than one that says so (D56).
+    Assert-OtterFails -Containing "'memo' is not supported in Otter 1.0" -Body {
+        Invoke-TestProgram @( ([MemoDefStmt]::new('total', @(), 1)) )
+    }
+    Assert-OtterFails -Containing "'shared' is not supported in Otter 1.0" -Body {
+        Invoke-TestProgram @( ([SharedStateStmt]::new('theme', (Lit 'dark'), 1)) )
+    }
+    Assert-OtterFails -Containing "'use' is not supported in Otter 1.0" -Body {
+        Invoke-TestProgram @( ([UseModuleStmt]::new('ui', 1)) )
+    }
+    Assert-OtterFails -Containing "'on start' is not supported in Otter 1.0" -Body {
+        Invoke-TestProgram @( ([LifecycleStmt]::new('start', @(), 1)) )
+    }
+    Assert-OtterFails -Containing "'on close' is not supported in Otter 1.0" -Body {
+        Invoke-TestProgram @( ([LifecycleStmt]::new('close', @(), 1)) )
+    }
+    Assert-OtterFails -Containing "'hide' is not supported in Otter 1.0" -Body {
+        Invoke-TestProgram @( ([UiActionStmt]::new('hide', (Var 'sidebar'), 1)) )
+    }
+    Assert-OtterFails -Containing 'UI event blocks are not supported in Otter 1.0' -Body {
+        Invoke-TestProgram @( ([UiEventStmt]::new('click', @(), 1)) )
+    }
+    Assert-OtterFails -Containing 'UI animation is not supported in Otter 1.0' -Body {
+        Invoke-TestProgram @( ([UiAnimationBlock]::new('enter', @(), 300.0, 'ease-out', 1)) )
+    }
+    Assert-OtterFails -Containing "'await' is not supported in Otter 1.0" -Body {
+        Invoke-TestProgram @( (AssignSt 'x' ([AwaitExpr]::new((Lit 1.0), 1))) )
+    }
+}
+
 Complete-OtterTests
