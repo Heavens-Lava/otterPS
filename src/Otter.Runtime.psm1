@@ -557,6 +557,22 @@ function Test-OtterEqual {
         return $true
     }
 
+    # A `thing` has no override for .ToString() (it prints as "OtterObject",
+    # the bare class name), so falling through to the string-cast comparison
+    # below made EVERY thing equal to every other thing - confirmed directly
+    # (two differently-named things compared equal), which silently broke
+    # `remove x from things` (it always matched and removed the first item,
+    # since "equal" was never actually false) for any list of `thing`
+    # values. Identity is the correct comparison here, matching how every
+    # other reference-shaped Otter value already behaves (D44's UI
+    # resources are never equal-by-content either) - two separately
+    # constructed things with identical properties are still two different
+    # things, and "remove specificThing from list" means exactly that
+    # object, not "something that looks like it."
+    if ((Test-OtterObject $Left) -or (Test-OtterObject $Right)) {
+        return [object]::ReferenceEquals($Left, $Right)
+    }
+
     # Ordinal = case-sensitive, per D10.
     return [string]::Equals([string]$Left, [string]$Right, [System.StringComparison]::Ordinal)
 }

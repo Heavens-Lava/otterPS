@@ -180,6 +180,53 @@ Test-Otter 'add to and remove from a list' {
     Assert-Lines -Expected @('Zelda, Pokemon') -Actual $out
 }
 
+Test-Otter 'remove from a list of things removes the RIGHT one, by identity - not by chance' {
+    # Found during Contact Manager dogfooding: Test-OtterEqual's fallback
+    # case cast both sides to [string] for comparison. A `thing` has no
+    # ToString() override, so every thing prints as the bare class name
+    # ("OtterObject") - meaning any two things compared EQUAL to each
+    # other, regardless of their actual properties. `remove x from
+    # things` always matched and removed the FIRST item in the list
+    # instead of the one actually referenced, silently - no error, just
+    # the wrong result. Two things with DIFFERENT names here so a
+    # string-cast-equality regression would be caught immediately: this
+    # test removes the SECOND person and asserts the FIRST one survives.
+    $out = Invoke-TestProgram @(
+        ([ObjectDefStmt]::new('alice', 'thing', @([AssignStmt]::new('name', (Lit 'Alice'), 1)), 1)),
+        ([ObjectDefStmt]::new('bob', 'thing', @([AssignStmt]::new('name', (Lit 'Bob'), 2)), 2)),
+        ([ListDefStmt]::new('people', @((Var 'alice'), (Var 'bob')), 3)),
+        ([RemoveFromStmt]::new((Var 'bob'), 'people', 4)),
+        (SaySt @([OfOperationExpr]::new([OfOperation]::Length, (Var 'people'), 5))),
+        (SaySt @([PropertyAccessExpr]::new('name', [OfOperationExpr]::new([OfOperation]::First, (Var 'people'), 6), 6)))
+    )
+    Assert-Lines -Expected @('1', 'Alice') -Actual $out
+}
+
+Test-Otter 'two separately-built things with identical-looking properties are still two different things' {
+    # The fix is identity equality, not structural/name-based equality -
+    # proven, not just asserted: both things share the SAME name here, so
+    # a structural "fix" comparing by name would not be able to tell them
+    # apart either. A distinct "id" field (irrelevant to the bug itself)
+    # is used only to observe, after removal, that the SURVIVOR is
+    # specifically personA - confirming removal targeted personB by
+    # reference, not "whichever one looked like a match."
+    $out = Invoke-TestProgram @(
+        ([ObjectDefStmt]::new('personA', 'thing', @(
+            [AssignStmt]::new('name', (Lit 'Same'), 1),
+            [AssignStmt]::new('id', (Lit 1.0), 1)
+        ), 1)),
+        ([ObjectDefStmt]::new('personB', 'thing', @(
+            [AssignStmt]::new('name', (Lit 'Same'), 2),
+            [AssignStmt]::new('id', (Lit 2.0), 2)
+        ), 2)),
+        ([ListDefStmt]::new('people', @((Var 'personA'), (Var 'personB')), 3)),
+        ([RemoveFromStmt]::new((Var 'personB'), 'people', 4)),
+        (SaySt @([OfOperationExpr]::new([OfOperation]::Length, (Var 'people'), 5))),
+        (SaySt @([PropertyAccessExpr]::new('id', [OfOperationExpr]::new([OfOperation]::First, (Var 'people'), 6), 6)))
+    )
+    Assert-Lines -Expected @('1', '1') -Actual $out
+}
+
 Test-Otter 'adding to a variable that does not exist names the variable' {
     Assert-OtterFails -Containing 'score' -Body {
         Invoke-TestProgram @( ([AddToStmt]::new((Lit 1.0), 'score', 1)) )
