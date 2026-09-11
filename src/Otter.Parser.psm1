@@ -309,7 +309,10 @@ function Read-OtterObjectBlockProperties {
         }
 
         $propName = $property.Text
-        if ($property.Text -eq 'align') {
+        if (-not $hadIs -and (Get-OtterCurrentToken).Kind -in @([TokenKind]::Newline, [TokenKind]::EndOfFile, [TokenKind]::Dedent, [TokenKind]::BlockEnd)) {
+            # D54: a bare property in a has block is boolean true.
+            $value = [LiteralExpr]::new($true, $property.Line)
+        } elseif ($property.Text -eq 'align') {
             $cur = Get-OtterCurrentToken
             $dir = $null
             if ($cur.Kind -eq [TokenKind]::Identifier -and $cur.Text -in @('top', 'middle', 'bottom', 'left', 'center', 'right')) {
@@ -416,7 +419,10 @@ function Read-OtterInlineObjectProperties {
         }
 
         $propName = $property.Text
-        if ($property.Text -eq 'align') {
+        if (-not $hadIs -and ((Get-OtterCurrentToken).Text -eq ',' -or (Get-OtterCurrentToken).Kind -in @([TokenKind]::Newline, [TokenKind]::EndOfFile))) {
+            # D54: a bare property in an inline has list is boolean true.
+            $value = [LiteralExpr]::new($true, $property.Line)
+        } elseif ($property.Text -eq 'align') {
             $cur = Get-OtterCurrentToken
             $dir = $null
             if ($cur.Kind -eq [TokenKind]::Identifier -and $cur.Text -in @('top', 'middle', 'bottom', 'left', 'center', 'right')) {

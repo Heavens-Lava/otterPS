@@ -321,7 +321,7 @@ if ($compactHasAst.Statements[0] -isnot [ObjectDefStmt] -or $compactHasAst.State
 $mixedHasSource = 'panel has width is windowWidth minus 40, height 300, text is "Ready"' + "`n"
 $mixedHasAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $mixedHasSource)
 if ($mixedHasAst.Statements[0].Properties.Count -ne 3) { throw 'Inline has should allow independently optional is markers.' }
-foreach ($invalidHas in @('addButton has text is "Add",', 'addButton has , width 120', 'addButton has text', 'addButton has text "Add" width 120')) {
+foreach ($invalidHas in @('addButton has text is "Add",', 'addButton has , width 120', 'addButton has text is, width 120', 'addButton has text "Add" width 120')) {
     $rejected = $false
     try { ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source ($invalidHas + "`n")) | Out-Null } catch [OtterError] { $rejected = $true }
     if (-not $rejected) { throw "Malformed inline has should be rejected: $invalidHas" }
@@ -703,18 +703,13 @@ if ($exprBlockAst.Statements[0].Properties[2].Value.Value -ne $true) {
     throw 'Booleans must parse inside compact multi-line blocks.'
 }
 
-# 5. Malformed missing value inside multi-line block
-$caughtMissingVal = $false
-try {
-    [void](ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source @'
+# 5. Bare properties are boolean flags (D54), including otherwise-valued names.
+$bareWidthAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source @'
 card is a card
     width
 .
-'@))
-} catch {
-    $caughtMissingVal = $true
-}
-if (-not $caughtMissingVal) { throw 'Expected error for property missing value in multi-line block.' }
+'@)
+if ($bareWidthAst.Statements[0].Properties[0].Value.Value -ne $true) { throw 'Bare properties in a multi-line block must desugar to true.' }
 
 # 6. Disallowed statements inside object block
 # 6a. Disallowed say
@@ -790,6 +785,19 @@ if ($flagBlockAst.Statements[0].Properties[1].Target.Name -ne 'round' -or $flagB
 $flagInlineAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source "pill is a badge with round, padding 6`n")
 if ($flagInlineAst.Statements[0].Properties[0].Target.Name -ne 'round' -or $flagInlineAst.Statements[0].Properties[0].Value.Value -ne $true) {
     throw 'Expected bare flag property inline to evaluate to literal true.'
+}
+$bareBooleanAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source "thing has enabled, visible`n")
+if ($bareBooleanAst.Statements[0].Properties[0].Target.Name -ne 'enabled' -or $bareBooleanAst.Statements[0].Properties[0].Value.Value -ne $true -or $bareBooleanAst.Statements[0].Properties[1].Value.Value -ne $true) {
+    throw 'Bare inline has properties must desugar to true.'
+}
+$bareBooleanBlockAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source @'
+thing has
+    enabled
+    visible
+.
+'@)
+if ($bareBooleanBlockAst.Statements[0].Properties[0].Value.Value -ne $true -or $bareBooleanBlockAst.Statements[0].Properties[1].Value.Value -ne $true) {
+    throw 'Bare block has properties must desugar to true.'
 }
 
 # 3. width full and height full parse as contextual LiteralExpr('full')
@@ -943,18 +951,10 @@ c is a card
 }
 if (-not $multiPropLineCaught) { throw 'Expected multiple properties on one line in block to fail.' }
 
-# 15. Missing property value in inline properties
-$missingValueCaught = $false
-try {
-    ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source 'b is a badge with text, weight 700')
-} catch [OtterError] {
-    $missingValueCaught = $true
-    if ($_.Exception.Message -notlike "*I expected a value for property 'text'*") {
-        throw "Expected missing value diagnostic, got: $($_.Exception.Message)"
-    }
+# 15. Bare property in inline properties is boolean true (D54)
+$bareInlineValueAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source 'b is a badge with text, weight 700')
+if ($bareInlineValueAst.Statements[0].Properties[0].Value.Value -ne $true -or $bareInlineValueAst.Statements[0].Properties[1].Value.Value -ne 700) {
+    throw 'Bare inline properties must desugar to true while valued properties remain unchanged.'
 }
-if (-not $missingValueCaught) { throw 'Expected missing property value in inline list to fail.' }
 
 Write-Output 'Parser tests passed.'
-
-
