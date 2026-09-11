@@ -55,12 +55,38 @@ param(
     [switch]$ParseOnly,
 
     # Show the underlying PowerShell error instead of a friendly Otter one.
-    [switch]$DebugErrors
+    [switch]$DebugErrors,
+
+    # D57: PowerShell's own argument binder turns `--version`/`--help` into
+    # `-version`/`-help` before matching parameter names, so these need to
+    # be real switches (matched via alias) rather than caught as $Path text.
+    [Parameter()][Alias('version')][switch]$VersionFlag,
+    [Parameter()][Alias('help')][switch]$HelpFlag
 )
 
 $ErrorActionPreference = 'Stop'
 
-$OtterVersion = 'Otter 0.2'
+# D57: ONE authoritative version source - the VERSION file at the repo root,
+# read here and nowhere else. --version and the REPL banner both read
+# $OtterVersion, so there is no second place that could drift out of sync.
+# Do not report 1.0.0 until the release version is intentionally frozen in
+# that file - it is not, yet.
+$versionFile = Join-Path $PSScriptRoot 'VERSION'
+$OtterVersionNumber = if (Test-Path -LiteralPath $versionFile) {
+    (Get-Content -LiteralPath $versionFile -Raw).Trim()
+} else {
+    '0.0.0-unknown'
+}
+$OtterVersion = "Otter $OtterVersionNumber"
+
+# D57: deliberate, documented exit codes - never PowerShell's accidental
+# default. A CLI script or CI step can rely on these to tell why otter
+# failed, not just that it did.
+$script:ExitSuccess = 0
+$script:ExitUsageError = 1     # bad CLI invocation: unknown command, missing
+                                # argument, file not found, wrong extension
+$script:ExitCheckError = 2     # the source itself does not lex/parse
+$script:ExitRuntimeError = 3   # a well-formed program failed while running
 
 
 # ===============================================================
@@ -111,26 +137,43 @@ function Show-OtterFailure {
 # THE PIPELINE
 # ===============================================================
 
+# D57: which stage a failure happened in, so the caller can pick the right
+# exit code (check error vs. runtime error) without wrapping every call site
+# in its own try/catch pair.
+$script:LastFailureStage = $null
+
 function Invoke-OtterSource {
     param(
         [Parameter(Mandatory)][AllowEmptyString()][string]$Source,
-        [Parameter(Mandatory)][OtterEnvironment]$Environment
+        [Parameter(Mandatory)][OtterEnvironment]$Environment,
+
+        # D57: `otter check` passes this explicitly so it does not depend on
+        # the -ParseOnly developer switch. Either one stops after lex+parse.
+        [switch]$CheckOnly
     )
 
     # Split once so runtime errors can quote the line they happened on.
     $sourceLines = $Source -split "`r?`n"
 
-    $tokens = ConvertTo-OtterTokens -Source $Source
+    try {
+        $tokens = ConvertTo-OtterTokens -Source $Source
 
-    if ($DebugTokens) {
-        Write-Host '--- tokens ---' -ForegroundColor DarkCyan
-        foreach ($token in $tokens) { Write-Host "  $token" -ForegroundColor DarkGray }
-        Write-Host ''
+        if ($DebugTokens) {
+            Write-Host '--- tokens ---' -ForegroundColor DarkCyan
+            foreach ($token in $tokens) { Write-Host "  $token" -ForegroundColor DarkGray }
+            Write-Host ''
+        }
+
+        $program = ConvertTo-OtterAst -Tokens $tokens
+    }
+    catch {
+        # D57: tag this as a check-stage failure so the caller can map it to
+        # the check exit code instead of the runtime one.
+        $script:LastFailureStage = 'check'
+        throw
     }
 
-    $program = ConvertTo-OtterAst -Tokens $tokens
-
-    if ($ParseOnly) {
+    if ($ParseOnly -or $CheckOnly) {
         # Reaching here means the lexer and parser both accepted the source.
         return
     }
@@ -188,26 +231,53 @@ function Show-OtterAst {
 # ===============================================================
 
 function Invoke-OtterFile {
-    param([string]$ScriptPath)
+    param(
+        [string]$ScriptPath,
+
+        # D57: `otter check` validates source without executing it or
+        # opening any UI. Same pipeline, it just stops after the parser.
+        [switch]$CheckOnly
+    )
+
+    if (-not $ScriptPath.ToLowerInvariant().EndsWith('.ot')) {
+        Write-Host "Otter: `"$ScriptPath`" is not an Otter file - expected a .ot file." -ForegroundColor Red
+        exit $script:ExitUsageError
+    }
 
     $resolved = Resolve-Path -LiteralPath $ScriptPath -ErrorAction SilentlyContinue
     if (-not $resolved) {
         Write-Host "Otter: I cannot find a file called `"$ScriptPath`"." -ForegroundColor Red
-        exit 1
+        exit $script:ExitUsageError
     }
 
-    $source = Get-Content -LiteralPath $resolved -Raw
+    # Explicit UTF-8 (no BOM) on the read side, matching the write side, so
+    # round-tripped Unicode text never silently corrupts (see Otter.Library).
+    $utf8 = [System.Text.UTF8Encoding]::new($false)
+    $source = [System.IO.File]::ReadAllText($resolved.Path, $utf8)
     if ($null -eq $source) { $source = '' }
 
     $environment = New-OtterEnvironment
+    $script:LastFailureStage = $null
 
     try {
-        Invoke-OtterSource -Source $source -Environment $environment
+        Invoke-OtterSource -Source $source -Environment $environment -CheckOnly:$CheckOnly
     }
     catch {
         Show-OtterFailure -ErrorRecord $_
-        exit 1
+        if ($script:LastFailureStage -eq 'check') {
+            exit $script:ExitCheckError
+        }
+        exit $script:ExitRuntimeError
     }
+
+    if ($CheckOnly) {
+        Write-Host "Otter: $ScriptPath is valid." -ForegroundColor Green
+    }
+    elseif ($ParseOnly) {
+        # Legacy developer flag: -ParseOnly on any run still just checks.
+        Write-Host "ok: $ScriptPath"
+    }
+    exit $script:ExitSuccess
 }
 
 
@@ -284,6 +354,41 @@ function Start-OtterRepl {
 # MAIN
 # ===============================================================
 
+function Show-OtterHelp {
+    Write-Host $OtterVersion
+    Write-Host ''
+    Write-Host 'Usage:'
+    Write-Host '  otter <file.ot>        Run an Otter program (shortest form)'
+    Write-Host '  otter run <file.ot>    Run an Otter program (explicit form)'
+    Write-Host '  otter check <file.ot>  Validate a program without running it'
+    Write-Host '  otter help             Show this help'
+    Write-Host '  otter --help           Show this help'
+    Write-Host '  otter --version        Show the Otter version'
+    Write-Host '  otter                  Start the interactive REPL'
+    Write-Host ''
+}
+
+# D57: unknown-command / missing-argument detection lives here, before any
+# subcommand branch runs, so every usage error goes through the same path.
+if ($VersionFlag -or $Path -eq '--version') {
+    Write-Host $OtterVersion
+    exit $script:ExitSuccess
+}
+
+if ($HelpFlag -or $Path -eq 'help' -or $Path -eq '--help') {
+    Show-OtterHelp
+    exit $script:ExitSuccess
+}
+
+if ($Path -eq 'run' -or $Path -eq 'check') {
+    if (-not $Target) {
+        Write-Host "Usage: otter $Path <file.ot>" -ForegroundColor Red
+        exit $script:ExitUsageError
+    }
+    Invoke-OtterFile -ScriptPath $Target -CheckOnly:($Path -eq 'check')
+    # Invoke-OtterFile always exits itself.
+}
+
 if ($Path -in @('web', 'browse', 'serve')) {
     $scriptFile = $Target
     if (-not $scriptFile) {
@@ -318,8 +423,16 @@ if ($Path -in @('web', 'browse', 'serve')) {
 }
 
 if ($Path) {
+    # Canonical shortest form: otter <file.ot>. Anything that is not a
+    # recognized command and does not look like a .ot file is a usage error,
+    # not a silent attempt to read a nonexistent file.
+    if (-not $Path.ToLowerInvariant().EndsWith('.ot')) {
+        Write-Host "Otter: I do not recognize the command `"$Path`"." -ForegroundColor Red
+        Write-Host "Run 'otter help' to see the available commands." -ForegroundColor Red
+        exit $script:ExitUsageError
+    }
     Invoke-OtterFile -ScriptPath $Path
-    if ($ParseOnly) { Write-Host "ok: $Path" }
+    # Invoke-OtterFile always exits itself.
 }
 else {
     Start-OtterRepl
