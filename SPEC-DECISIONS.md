@@ -4034,6 +4034,11 @@ calling the emitter directly):
 - Event-handler JS functions — `when <x> is clicked` (and similar)
   compile to a real JS function/closure today and were used to prove
   Phase 1B's function-scope case
+- list literals (`games are ... .`) (Phase 1C, `23d8034`) — item
+  evaluation order/count, duplicates, mixed types, list-in-list
+  flattening (splices, does not nest — verified, not assumed), and
+  reference-sharing on assignment all confirmed against the real
+  interpreter, then re-verified via real browser execution
 - `try` / `otherwise`
 - HTTP GET / POST
 - Web UI compilation (real sample apps: `jeffreymacy.ot`, `portal.ot`,
@@ -4048,9 +4053,29 @@ not assumed):
   today; only a narrow declarative-UI-root-scanning pattern reuses the
   function AST at all. Event-handler bodies (the bullet above) are a
   different, already-proven mechanism — do not conflate the two.
-- list literals (`games are ... .`)
-- collection/string operations (`length of`, `uppercase of`, `sort`,
-  `replace`, `split`, `join`, `find`)
+- collection/string operations (`uppercase of`, `sort`, `replace`,
+  `split`, `join`, `find`) — see Phase 1D for string-specific work in
+  progress
+- **`length of <list>`** — compiles to the emitter's generic
+  `default { return "null" }` fallback (confirmed via real browser
+  execution, Phase 1C: `total is length of numbers` silently sets
+  `total` to `null`, not a crash but not useful)
+- **`add`/`remove` (list/collection mutation)** — compiles to the
+  Statement default case's `return ""`; the whole statement silently
+  drops from generated JS. Confirmed via real browser execution (Phase
+  1C): `add "Pokemon" to games` produced no error and no effect — the
+  list itself stayed correct and uncorrupted, just unchanged.
+- **`plus` is wrong for runtime string variables and can produce
+  `NaN`** — a real, separate expression-semantics bug, not a missing
+  NodeKind. `ConvertTo-OtterJsExpression`'s Math/Add case only detects
+  a string operand from a *literal* AST node (`"text"`), never from a
+  variable's actual runtime type, so `joined is joined plus item` where
+  both are variables holding strings falls through to
+  `Number(...) + Number(...)`, producing `NaN` in the browser even
+  though the interpreter correctly does string concatenation for the
+  same program. Found during Phase 1C verification (not fixed there,
+  deliberately - queued as its own dedicated fix, Phase 1D-B, since it
+  affects general expression semantics, not just string helpers).
 - JSON conversion (`read json`, `convert to/from json`)
 - random (`random number`, `random item`)
 - diagnostics (`log` / `warn` / `error`)
@@ -4069,12 +4094,16 @@ architecture above, but the agreed starting order)
    changing observable behavior — web keeps passing its existing tests
    throughout.
 2. Close NodeKind parity systematically. Current order (count loops
-   done, `86b3509`; list literals in progress): count loops, list
-   literals, string operations, collection operations, **function
-   declarations/calls** (moved ahead of JSON once Phase 1B proved this
-   is a real, separate gap, not something already proven — too many
-   realistic Otter programs depend on functions to leave this late),
-   JSON, random, diagnostics, dates.
+   done, `86b3509`; list literals done, `23d8034`): count loops, list
+   literals, **string operations, split into 1D-A (string builtins/
+   NodeKinds themselves) and 1D-B (the `plus`/runtime-string-type bug
+   found during 1C, as its own dedicated fix since it affects general
+   expression semantics, not just string helpers — kept out of 1D-A so
+   each parity improvement stays independently reversible)**,
+   collection operations, **function declarations/calls** (moved ahead
+   of JSON once Phase 1B proved this is a real, separate gap, not
+   something already proven — too many realistic Otter programs depend
+   on functions to leave this late), JSON, random, diagnostics, dates.
 3. Every addition is verified the same way: `.ot` source through the
    real production CLI, through the JS compiler, through an actual JS
    runtime, to an observed result — not a unit test calling the emitter
