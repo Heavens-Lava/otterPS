@@ -1,6 +1,4 @@
 # collections.ot - working with text and lists
-#
-# NOTE: needs the parser support for D24-D26 before this runs.
 
 name is "Jeff Macy"
 

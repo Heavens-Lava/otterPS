@@ -1,6 +1,4 @@
 # files.ot - Otter reaching outside the program
-#
-# NOTE: needs the parser support for milestone 7 before this runs.
 
 write "Otter was here." to "otter-note.txt"
 
