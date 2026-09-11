@@ -179,7 +179,7 @@ if ($alignHtml -notmatch 'id="contentCol"[^>]*align-items:\s*center;[^"]*justify
 Write-Output '  pass  spread, align middle/top, and align left/center compile to native flexbox styles'
 
 # Test 8: Declarative counter application compilation, animations, and reactivity
-$counterSource = Get-Content (Join-Path $PSScriptRoot '..\examples\counter.ot') -Raw
+$counterSource = Get-Content (Join-Path $PSScriptRoot '..\examples\experimental\counter.ot') -Raw
 $counterAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $counterSource)
 $counterHtml = ConvertTo-OtterWeb -Program $counterAst
 

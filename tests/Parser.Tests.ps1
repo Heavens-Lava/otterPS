@@ -1050,7 +1050,7 @@ if ($asyncAst.Statements[3] -isnot [UiActionStmt] -or $asyncAst.Statements[3].Ac
 if ($asyncAst.Statements[4] -isnot [UiActionStmt] -or $asyncAst.Statements[4].Action -ne 'hide') { throw "Expected hide action." }
 
 # 21. Section 29 Acceptance Program Parses Completely
-$acceptanceSource = [System.IO.File]::ReadAllText((Join-Path $PSScriptRoot '..\examples\counter.ot'))
+$acceptanceSource = [System.IO.File]::ReadAllText((Join-Path $PSScriptRoot '..\examples\experimental\counter.ot'))
 $acceptanceAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $acceptanceSource)
 if ($acceptanceAst.Statements.Count -ne 6) { throw "Expected 6 statements in acceptance program, got $($acceptanceAst.Statements.Count)." }
 

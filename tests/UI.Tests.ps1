@@ -1382,7 +1382,7 @@ Test-Otter 'declarative counter app with reactivity and native WPF animations' {
     Import-Module (Join-Path $PSScriptRoot '..\src\Otter.Lexer.psm1') -Force
     Import-Module (Join-Path $PSScriptRoot '..\src\Otter.Parser.psm1') -Force
 
-    $counterPath = Join-Path $PSScriptRoot '..\examples\counter.ot'
+    $counterPath = Join-Path $PSScriptRoot '..\examples\experimental\counter.ot'
     $tokens = ConvertTo-OtterTokens -Source (Get-Content $counterPath -Raw)
     $ast = ConvertTo-OtterAst -Tokens $tokens
     $window = ConvertTo-OtterWpfWindow -Program $ast
