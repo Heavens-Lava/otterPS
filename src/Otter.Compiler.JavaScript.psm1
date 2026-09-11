@@ -152,18 +152,23 @@ function ConvertTo-OtterJsExpression {
             return "String($subjectJs).$method(String($valueJs))"
         }
         ([NodeKind]::OfOperation) {
-            # D60 Phase 1D-A: Uppercase/Lowercase only. Length/First/Last
-            # are part of the same OfOperation NodeKind but are DELIBERATELY
-            # left unhandled here (falling through to the same "null"
-            # default every other unimplemented case already returns) -
-            # verified against the interpreter that Length is polymorphic
-            # (works on lists too) and First/Last are list-only, so all
-            # three belong with Phase 1E's collection-operations work, not
-            # bundled into this string-operations commit.
+            # D60 Phase 1D-A gave Uppercase/Lowercase. Phase 1E completes
+            # the NodeKind: Length is polymorphic (works on strings AND
+            # lists - confirmed against the interpreter, dispatches on
+            # Array.isArray the same way), First/Last are LIST-ONLY (the
+            # interpreter throws on a string subject - not replicated here,
+            # matching this compiler's established convention of falling
+            # through rather than throwing for a wrong-type read in
+            # expression position) and return null/gone for an empty list,
+            # exactly like the interpreter's `First`/`Last` returning `$null`
+            # rather than erroring on an empty list.
             $subjectJs = ConvertTo-OtterJsExpression -Expr $Expr.Subject
             switch ($Expr.Operation.ToString()) {
                 'Uppercase' { return "String($subjectJs).toUpperCase()" }
                 'Lowercase' { return "String($subjectJs).toLowerCase()" }
+                'Length' { return "(($subjectJs).length)" }
+                'First' { return "(Array.isArray($subjectJs) && ($subjectJs).length > 0 ? ($subjectJs)[0] : null)" }
+                'Last' { return "(Array.isArray($subjectJs) && ($subjectJs).length > 0 ? ($subjectJs)[($subjectJs).length - 1] : null)" }
                 default { return "null" }
             }
         }
@@ -332,6 +337,129 @@ function ConvertTo-OtterJsStatement {
                 $itemIndex++
             }
             $lines.Add("${itemsInner}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$varName' in otterState)) { otterSetState('$varName', _items); } else { window.$varName = _items; }")
+            $lines.Add("${pad}}")
+            return ($lines -join "`n")
+        }
+        ([NodeKind]::Sort) {
+            # D60 Phase 1E. Matches Otter.Interpreter.psm1's 'Sort' case:
+            # mutates the SAME list object in place (JS's Array.prototype
+            # .sort() already mutates in place, matching this with zero
+            # extra reference-juggling). Comparator matches the interpreter
+            # exactly, verified directly, not assumed: numeric compare when
+            # BOTH sides parse as numbers, otherwise ordinal string compare
+            # (confirmed: sorting ["banana","Apple","cherry"] gives
+            # "Apple, banana, cherry" - ordinal, not case-insensitive, since
+            # uppercase 'A' sorts before lowercase 'b').
+            $target = $Stmt.Target
+            return "${pad}$target.sort((_a, _b) => { const _an = (typeof _a === 'number') || (typeof _a === 'string' && _a.trim() !== '' && !Number.isNaN(Number(_a))); const _bn = (typeof _b === 'number') || (typeof _b === 'string' && _b.trim() !== '' && !Number.isNaN(Number(_b))); if (_an && _bn) { return Number(_a) - Number(_b); } return String(_a) < String(_b) ? -1 : (String(_a) > String(_b) ? 1 : 0); });"
+        }
+        ([NodeKind]::Reverse) {
+            # D60 Phase 1E. Array.prototype.reverse() mutates in place,
+            # matching the interpreter's List.Reverse() exactly.
+            $target = $Stmt.Target
+            return "${pad}$target.reverse();"
+        }
+        ([NodeKind]::Join) {
+            # D60 Phase 1E. Matches Otter.Interpreter.psm1's 'Join' case:
+            # each item is formatted before joining (String(...) stands in
+            # for Format-OtterValue, same approximation already used
+            # elsewhere in this module). The interpreter throws if Subject
+            # is not a list; not replicated here as a throw, matching this
+            # module's established silent-fallback convention for a wrong-
+            # type operand in a statement that isn't `plus` (Array.isArray
+            # ? ... : String(...) falls back to treating a non-list as a
+            # single one-item join rather than crashing).
+            $subjectJs = ConvertTo-OtterJsExpression -Expr $Stmt.Subject
+            $separatorJs = ConvertTo-OtterJsExpression -Expr $Stmt.Separator
+            $target = $Stmt.Target
+            $lines = [System.Collections.Generic.List[string]]::new()
+            $inner = '  ' * ($Indent + 1)
+            $lines.Add("${pad}{")
+            $lines.Add("${inner}const _subj = $subjectJs;")
+            $lines.Add("${inner}const _sep = String($separatorJs);")
+            $lines.Add("${inner}const _joined = Array.isArray(_subj) ? _subj.map((_x) => String(_x)).join(_sep) : String(_subj);")
+            $lines.Add("${inner}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$target' in otterState)) { otterSetState('$target', _joined); } else { window.$target = _joined; }")
+            $lines.Add("${pad}}")
+            return ($lines -join "`n")
+        }
+        ([NodeKind]::Find) {
+            # D60 Phase 1E. Matches Otter.Interpreter.psm1's 'Find' case -
+            # including the ONE THING THAT MAKES IT DIFFERENT FROM COUNTLOOP
+            # /FOREACH, verified directly, not assumed: Find's item name is
+            # bound in a genuinely separate child scope (a real `new
+            # OtterEnvironment(Environment)`) that is discarded once the
+            # search ends - it does NOT leak into or overwrite an outer
+            # variable of the same name, unlike CountLoop/ForEach's
+            # SetLocal-on-the-current-environment (confirmed: an outer
+            # `item is "outer-value"` survives a `find item in nums where
+            # item is 2 into result` completely unchanged). A JS `for`
+            # loop's own `let` binding is naturally block-scoped the same
+            # way, so no window/otterState write is used for the item
+            # variable here - unlike every other loop construct in this
+            # file. Returns the first match, or null/gone if none (matches
+            # the interpreter returning $null, never throwing, on no match).
+            $collJs = ConvertTo-OtterJsExpression -Expr $Stmt.Collection
+            $itemName = $Stmt.ItemName
+            $conditionJs = ConvertTo-OtterJsExpression -Expr $Stmt.Condition
+            $target = $Stmt.Target
+            $lines = [System.Collections.Generic.List[string]]::new()
+            $inner = '  ' * ($Indent + 1)
+            $lines.Add("${pad}{")
+            $lines.Add("${inner}let _found = null;")
+            $lines.Add("${inner}for (const $itemName of ($collJs || [])) {")
+            $lines.Add("${inner}  if ($conditionJs) { _found = $itemName; break; }")
+            $lines.Add("${inner}}")
+            $lines.Add("${inner}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$target' in otterState)) { otterSetState('$target', _found); } else { window.$target = _found; }")
+            $lines.Add("${pad}}")
+            return ($lines -join "`n")
+        }
+        ([NodeKind]::AddTo) {
+            # D60 Phase 1E. Matches Invoke-OtterAddTo exactly: `add X to Y`
+            # dispatches on Y's RUNTIME TYPE (D12) - a list gets X pushed
+            # onto it, a number gets X added to it using the SAME string/
+            # number coercion-or-throw rules `plus` already has (Phase
+            # 1D-B) - a non-list, non-numeric target throws, matching the
+            # interpreter's "I can only add to a number or a list" error.
+            $target = $Stmt.Target
+            $amountJs = ConvertTo-OtterJsExpression -Expr $Stmt.Amount
+            $lines = [System.Collections.Generic.List[string]]::new()
+            $inner = '  ' * ($Indent + 1)
+            $lines.Add("${pad}{")
+            $lines.Add("${inner}const _amt = $amountJs;")
+            $lines.Add("${inner}if (Array.isArray($target)) { $target.push(_amt); }")
+            $lines.Add("${inner}else if (typeof $target === 'number' || (typeof $target === 'string' && $target.trim() !== '' && !Number.isNaN(Number($target)))) {")
+            $lines.Add("${inner}  const _aOk = typeof _amt === 'number' || (typeof _amt === 'string' && _amt.trim() !== '' && !Number.isNaN(Number(_amt)));")
+            $lines.Add("${inner}  if (!_aOk) { throw new Error('I expected a number for the amount to add to `"$target`"' + ' but got ' + JSON.stringify(_amt) + '.'); }")
+            $lines.Add("${inner}  const _sum = Number($target) + Number(_amt);")
+            $lines.Add("${inner}  if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$target' in otterState)) { otterSetState('$target', _sum); } else { window.$target = _sum; }")
+            $lines.Add("${inner}}")
+            $lines.Add("${inner}else { throw new Error('I can only add to a number or a list, but `"$target`" holds something else.'); }")
+            $lines.Add("${pad}}")
+            return ($lines -join "`n")
+        }
+        ([NodeKind]::RemoveFrom) {
+            # D60 Phase 1E. Matches Invoke-OtterRemoveFrom exactly: same
+            # dual dispatch as AddTo. For a list, removes only the FIRST
+            # matching item (by value equality - === stands in for
+            # Test-OtterEqual's structural/identity rules, a reasonable
+            # approximation for the primitives lists actually hold today);
+            # removing an absent item is a silent no-op, not an error
+            # (confirmed against the interpreter). For a number, subtracts,
+            # with the same coercion-or-throw as AddTo/plus.
+            $target = $Stmt.Target
+            $amountJs = ConvertTo-OtterJsExpression -Expr $Stmt.Amount
+            $lines = [System.Collections.Generic.List[string]]::new()
+            $inner = '  ' * ($Indent + 1)
+            $lines.Add("${pad}{")
+            $lines.Add("${inner}const _amt = $amountJs;")
+            $lines.Add("${inner}if (Array.isArray($target)) { const _idx = $target.indexOf(_amt); if (_idx !== -1) { $target.splice(_idx, 1); } }")
+            $lines.Add("${inner}else if (typeof $target === 'number' || (typeof $target === 'string' && $target.trim() !== '' && !Number.isNaN(Number($target)))) {")
+            $lines.Add("${inner}  const _aOk = typeof _amt === 'number' || (typeof _amt === 'string' && _amt.trim() !== '' && !Number.isNaN(Number(_amt)));")
+            $lines.Add("${inner}  if (!_aOk) { throw new Error('I expected a number for the amount to remove from `"$target`"' + ' but got ' + JSON.stringify(_amt) + '.'); }")
+            $lines.Add("${inner}  const _diff = Number($target) - Number(_amt);")
+            $lines.Add("${inner}  if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$target' in otterState)) { otterSetState('$target', _diff); } else { window.$target = _diff; }")
+            $lines.Add("${inner}}")
+            $lines.Add("${inner}else { throw new Error('I can only remove from a number or a list, but `"$target`" holds something else.'); }")
             $lines.Add("${pad}}")
             return ($lines -join "`n")
         }
