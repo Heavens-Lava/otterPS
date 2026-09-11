@@ -25,7 +25,7 @@ at once (front end, back end, web) — this ledger is the single source
 of truth for "what's the next number," so nobody has to guess or
 collide with work in flight.
 
-NEXT DECISION NUMBER: D56
+NEXT DECISION NUMBER: D57
 
 CLAIMED:
 - D49 — HTTP requests and web data — Gemini
@@ -41,6 +41,8 @@ CLAIMED:
 - D55 — container padding, text-box placeholder, optional event `is`
   — landed `f8508f4` (Task List dogfood, admitted retroactively under
   the v1 dogfood exception; documented, not reverted)
+- D56 — reactive state and the experimental front-end boundary — Claude
+  (landed: `ad75138`)
 
 ---
 
@@ -3697,4 +3699,148 @@ restored).
 dogfood asset**, not a disposable demo — the official Task List
 application for v1 sign-off, per Jeff's explicit instruction not to
 rebuild a duplicate.
+
+---
+
+## D56. Reactive state and the experimental front-end boundary
+
+```otter
+state count is 0
+derive doubled is count times 2
+
+when count changes
+    say count
+.
+
+count is count + 1
+```
+
+Written in direct response to the v1 runtime audit, which found the
+contract carries a substantial subsystem — `state`/`derive`/`memo`/
+`watch`/`shared`/`await`/`use`/lifecycle (`on start`/`on close`)/a
+declarative UI-element system with events and animations — with **zero**
+prior spec documentation anywhere in this file. Testing each directly
+split them sharply into genuinely working and confirmed-broken, and
+this entry draws the v1 line precisely along that evidence rather than
+along what merely has a parser production.
+
+### V1 SUPPORTED
+
+```otter
+state <name> is <value>
+derive <name> is <expression>
+when <name> changes
+    ...
+.
+```
+
+State mutation uses normal Otter assignment (`count is count + 1`), not
+special syntax. Derived values automatically track their dependencies
+(confirmed with multiple independent derived values from one state, and
+a derive-depending-on-a-derive chain, both recomputing correctly).
+Derived dependency cycles are a runtime error (existing
+`OtterDerived.IsEvaluating` guard — "Circular dependency detected").
+
+**A watcher fires only when assignment actually changes the value,
+using normal Otter equality semantics** — resolved as part of this
+entry, not assumed. Verified directly against the exact sequence Jeff
+specified:
+
+```otter
+count is 0   # 0 -> 0: watcher does not fire
+count is 1   # 0 -> 1: watcher fires
+count is 1   # 1 -> 1: watcher does not fire
+count is 2   # 1 -> 2: watcher fires
+```
+
+Reusing `Test-OtterEqual` here (rather than a separate comparison) also
+gives `state` a coherent, identity-based notion of "changed" for a
+`thing` value, for free, consistent with the equality fix this same
+audit made.
+
+### OUTSIDE THE V1 SUPPORTED SURFACE
+
+- `memo` — confirmed genuinely broken during the audit (its interpreter
+  case referenced `$Statement.Expression`, a property `MemoDefStmt`
+  does not have), not merely unfinished.
+- `shared` — mechanically identical to `state` (also backed by
+  `OtterSignal`), but never independently exercised or frozen, so it
+  does not inherit `state`'s standing.
+- `await` — there is no real asynchronicity anywhere in this
+  interpreter; it previously just forwarded its inner value
+  transparently, silently pretending to be a working await.
+- `use` (module declarations) — no runtime effect of any kind.
+- UI actions (`hide`/`focus`/the unreachable `UiAction`-flavored
+  `show`) — confirmed silent no-ops directly: `hide sidebar` left
+  `Visibility` unchanged, `focus box` left `IsFocused` false, with no
+  error either way.
+- `on start` / `on close` (`Lifecycle`) — neither stage has defined,
+  tested semantics. `on start` previously just ran its body inline
+  immediately (indistinguishable from not being wrapped in `on start`
+  at all — not real deferred lifecycle behavior); `on close` did
+  nothing at all.
+- UI event blocks (`UiEvent` — `click`/`hover`/etc. nested inside a
+  declarative UI element) and UI animation (`UiAnimation` —
+  `enter`/`leave`/`animate`) — confirmed silent no-ops.
+- Timeline/automatic layout animation, and any other parser/AST
+  scaffolding not explicitly frozen in this file.
+
+**The existence of a lexer token, parser production, AST node,
+interpreter case, or no-op implementation does not make a feature part
+of Otter v1.** Unsupported experimental syntax must not be documented
+or advertised as v1 functionality. `examples/counter.ot` was found
+during this audit to rely heavily on this exact excluded surface (a
+`card`/`layout`/`enter`/`leave`/`hover`/`click` declarative style, not
+the `create`/`put`/`has`/`when x is clicked` system every v1 dogfood
+app actually uses) — its `click` handlers do not work, since `UiEvent`
+is now a hard error rather than a silent no-op. It is not a working v1
+example and should not be presented as one; left as-is pending a
+decision on whether to relabel, move, or update it, rather than edited
+unilaterally as part of this entry.
+
+### Silent success is worse than a clear error
+
+Every item in the excluded list above previously either did nothing
+observable or (for `memo`) referenced a nonexistent field. All are now
+an explicit `OtterError`: `"'<feature>' is not supported in Otter
+1.0."` — never a raw PowerShell property-access failure, never a
+successful-looking no-op. This is a direct application of the audit's
+central finding: a feature failing loudly is safe; a feature succeeding
+while doing nothing is not.
+
+### What's built
+
+**Contract:** none — every excluded construct already existed;
+nothing was added or removed from the AST. **Runtime:**
+`OtterEnvironment.Set` (`Otter.Runtime.psm1`) now checks
+`Test-OtterEqual` before calling `OtterSignal.Notify()`.
+`Otter.Interpreter.psm1`: `MemoDef`, `Lifecycle` (both stages),
+`SharedState`, `UseModule`, `UiAction`, `UiEvent`, `UiAnimation`, and
+the `Await` expression now throw the explicit diagnostic above instead
+of silently succeeding. `UiElement` (structural nesting like `card`/
+`window` blocks) is untouched — it executes its children rather than
+doing nothing, so it did not fit the "confirmed silent no-op" bar this
+entry acted on; left as a loose end for a future pass rather than
+guessed at here. 3 new regression tests
+(`tests/Interpreter.Tests.ps1`), covering the exact fire/no-fire
+sequence, multi-dependent derives, and one assertion per newly-explicit
+error. Full suite: 15/15. All three v1 dogfood apps re-verified
+unchanged and still passing (none of them use any excluded construct).
+
+**No Codex handoff.** Nothing here touches the lexer, parser, or
+contract.
+
+---
+
+## LANGUAGE DESIGN: FROZEN. V1 RUNTIME SEMANTICS: FROZEN. V1 DOGFOOD: PASSED. AUTOMATED REGRESSION: GREEN.
+
+D1 through D56 constitute the frozen Otter v1 language and runtime.
+Task List, File Browser, and Contact Manager — three independently
+substantial applications exercising forms, nested containers, dynamic
+UI, scrolling, events, file/data persistence, and error handling —
+all pass against this frozen surface, re-verified after the v1 audit's
+fixes with no changes to the applications themselves. The full
+automated suite is green (15/15 files). Any further language surface
+requires either a demonstrated v1 dogfood blocker (per the v1 freeze
+rule already in force) or explicit unfreezing for a post-v1 release.
 
