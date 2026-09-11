@@ -285,9 +285,6 @@ function Read-OtterObjectBlockProperties {
     [void](Read-OtterToken)
 
     $properties = [System.Collections.Generic.List[Node]]::new()
-    $seenAlignH = $null
-    $seenAlignV = $null
-    $seenSpread = $false
     Skip-OtterNewlines
 
     while (-not (Test-OtterTokenKind ([TokenKind]::Dedent)) -and 
@@ -327,11 +324,6 @@ function Read-OtterObjectBlockProperties {
                 throw (New-OtterParserError "I expected an alignment direction (top, middle, bottom, left, center, right) after 'align', but got '$($cur.Text)'." $cur 'Use align top, align middle, align bottom, align left, align center, or align right.')
             }
 
-            if ($dir -in @('top', 'middle', 'bottom')) {
-                $propName = 'align_v'
-            } else {
-                $propName = 'align_h'
-            }
         } elseif ($property.Text -in @('width', 'height') -and 
             (Get-OtterCurrentToken).Kind -eq [TokenKind]::Identifier -and 
             (Get-OtterCurrentToken).Text -eq 'full') {
@@ -345,35 +337,6 @@ function Read-OtterObjectBlockProperties {
                 throw (New-OtterParserError "I expected a value for property '$($property.Text)'." (Get-OtterCurrentToken) "Provide a value after the property name, such as '$($property.Text) 10' or '$($property.Text) is 10'.")
             }
             $value = Read-OtterMathExpression
-        }
-
-        # Conflict detection
-        if ($propName -eq 'align_h') {
-            if ($null -ne $seenAlignH) {
-                throw (New-OtterParserError "Alignment 'align $dir' conflicts with earlier horizontal alignment 'align $seenAlignH'." $property 'Specify only one horizontal alignment (left, center, right).')
-            }
-            if ($seenSpread -and ($TypeName -eq 'row' -or $TypeName -eq '')) {
-                throw (New-OtterParserError "Horizontal alignment 'align $dir' conflicts with 'spread' on a row." $property "'spread' already controls horizontal distribution on a row.")
-            }
-            $seenAlignH = $dir
-        }
-        if ($propName -eq 'align_v') {
-            if ($null -ne $seenAlignV) {
-                throw (New-OtterParserError "Alignment 'align $dir' conflicts with earlier vertical alignment 'align $seenAlignV'." $property 'Specify only one vertical alignment (top, middle, bottom).')
-            }
-            if ($seenSpread -and $TypeName -eq 'column') {
-                throw (New-OtterParserError "Vertical alignment 'align $dir' conflicts with 'spread' on a column." $property "'spread' already controls vertical distribution on a column.")
-            }
-            $seenAlignV = $dir
-        }
-        if ($property.Text -eq 'spread') {
-            if ($null -ne $seenAlignH -and ($TypeName -eq 'row' -or $TypeName -eq '')) {
-                throw (New-OtterParserError "'spread' distributes space horizontally along a row and conflicts with horizontal alignment 'align $seenAlignH'." $property 'Remove either spread or the horizontal alignment.')
-            }
-            if ($null -ne $seenAlignV -and $TypeName -eq 'column') {
-                throw (New-OtterParserError "'spread' distributes space vertically along a column and conflicts with vertical alignment 'align $seenAlignV'." $property 'Remove either spread or the vertical alignment.')
-            }
-            $seenSpread = $true
         }
 
         $properties.Add([AssignStmt]::new($propName, $value, $property.Line))
@@ -403,9 +366,6 @@ function Read-OtterObjectBlock {
 function Read-OtterInlineObjectProperties {
     param([string]$TypeName = '')
     $properties = [System.Collections.Generic.List[Node]]::new()
-    $seenAlignH = $null
-    $seenAlignV = $null
-    $seenSpread = $false
 
     while ($true) {
         $property = Read-OtterVariableName 'I expected a property name after "has", "with", or a comma.'
@@ -437,11 +397,6 @@ function Read-OtterInlineObjectProperties {
                 throw (New-OtterParserError "I expected an alignment direction (top, middle, bottom, left, center, right) after 'align', but got '$($cur.Text)'." $cur 'Use align top, align middle, align bottom, align left, align center, or align right.')
             }
 
-            if ($dir -in @('top', 'middle', 'bottom')) {
-                $propName = 'align_v'
-            } else {
-                $propName = 'align_h'
-            }
         } elseif ($property.Text -in @('width', 'height') -and 
             (Get-OtterCurrentToken).Kind -eq [TokenKind]::Identifier -and 
             (Get-OtterCurrentToken).Text -eq 'full') {
@@ -455,35 +410,6 @@ function Read-OtterInlineObjectProperties {
                 throw (New-OtterParserError "I expected a value for property '$($property.Text)'." (Get-OtterCurrentToken) "Provide a value after the property name, such as '$($property.Text) 10' or '$($property.Text) is 10'.")
             }
             $value = Read-OtterMathExpression
-        }
-
-        # Conflict detection
-        if ($propName -eq 'align_h') {
-            if ($null -ne $seenAlignH) {
-                throw (New-OtterParserError "Alignment 'align $dir' conflicts with earlier horizontal alignment 'align $seenAlignH'." $property 'Specify only one horizontal alignment (left, center, right).')
-            }
-            if ($seenSpread -and ($TypeName -eq 'row' -or $TypeName -eq '')) {
-                throw (New-OtterParserError "Horizontal alignment 'align $dir' conflicts with 'spread' on a row." $property "'spread' already controls horizontal distribution on a row.")
-            }
-            $seenAlignH = $dir
-        }
-        if ($propName -eq 'align_v') {
-            if ($null -ne $seenAlignV) {
-                throw (New-OtterParserError "Alignment 'align $dir' conflicts with earlier vertical alignment 'align $seenAlignV'." $property 'Specify only one vertical alignment (top, middle, bottom).')
-            }
-            if ($seenSpread -and $TypeName -eq 'column') {
-                throw (New-OtterParserError "Vertical alignment 'align $dir' conflicts with 'spread' on a column." $property "'spread' already controls vertical distribution on a column.")
-            }
-            $seenAlignV = $dir
-        }
-        if ($property.Text -eq 'spread') {
-            if ($null -ne $seenAlignH -and ($TypeName -eq 'row' -or $TypeName -eq '')) {
-                throw (New-OtterParserError "'spread' distributes space horizontally along a row and conflicts with horizontal alignment 'align $seenAlignH'." $property 'Remove either spread or the horizontal alignment.')
-            }
-            if ($null -ne $seenAlignV -and $TypeName -eq 'column') {
-                throw (New-OtterParserError "'spread' distributes space vertically along a column and conflicts with vertical alignment 'align $seenAlignV'." $property 'Remove either spread or the vertical alignment.')
-            }
-            $seenSpread = $true
         }
 
         $properties.Add([AssignStmt]::new($propName, $value, $property.Line))
