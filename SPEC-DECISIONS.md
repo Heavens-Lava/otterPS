@@ -25,7 +25,7 @@ at once (front end, back end, web) — this ledger is the single source
 of truth for "what's the next number," so nobody has to guess or
 collide with work in flight.
 
-NEXT DECISION NUMBER: D55
+NEXT DECISION NUMBER: D56
 
 CLAIMED:
 - D49 — HTTP requests and web data — Gemini
@@ -35,8 +35,12 @@ CLAIMED:
   resources, comma `put`, compact/optional-`is` inline `has`,
   contextual `the`, row/column layout) — Claude
 - D53 — scroll container — Claude (landed: `a550cbc`, `f29213f`)
-- D54 — physical alignment and `spread` (Batch 2) — Claude (semantics
-  frozen; grammar handoff to Codex pending, WPF implementation pending)
+- D54 — physical alignment and `spread` (Batch 2) — Claude (frozen,
+  landed, and audited: `e10e777`, `2fbd447`; Web parity still pending
+  a Gemini fix to `Otter.Web.psm1`)
+- D55 — container padding, text-box placeholder, optional event `is`
+  — landed `f8508f4` (Task List dogfood, admitted retroactively under
+  the v1 dogfood exception; documented, not reverted)
 
 ---
 
@@ -3551,4 +3555,146 @@ Real end-to-end `.ot` programs using `align` are blocked on this until
 Codex removes the parser-level split/conflict-detection and emits a
 plain `align` property assignment, letting the now-correct runtime
 resolve axis and conflicts. Reported to Codex separately.
+
+**Update:** fixed in `2fbd447` — the parser now emits one `align`
+property with the original direction word for every case, matching the
+runtime exactly. Verified independently: no `align_h`/`align_v` remain
+anywhere in `src/Otter.Parser.psm1`, parser tests pass, and the full
+runtime/UI suite passes at 90 tests. `Web.Tests.ps1` still fails as of
+this update — `Otter.Web.psm1` (Gemini's file) still consumes the
+removed `align_h`/`align_v` AST shape and needs its own fix before D54
+is green across both targets; tracked separately, not blocking the
+desktop side.
+
+---
+
+## D55. Container padding, text-box placeholder, and optional event `is` - admitted under the v1 dogfood exception
+
+```otter
+create window into app
+app has title "Otter Tasks", width 420, height 520
+padding of app is 20
+spacing of app is 12
+
+create text box into taskInput
+placeholder of taskInput is "What needs to be done?"
+
+when addButton clicked
+    ...
+.
+```
+
+### How this entry differs from every other one in this file
+
+Every prior UI decision (D44 through D54) was investigated and frozen
+*before* implementation. D55 was not: `f8508f4` implemented `padding`,
+`placeholder`, and optional event `is` directly, alongside `tasks.ot`
+(the v1 Task List dogfood application), without a preceding investigation
+entry and without updating the decision ledger at the top of this file
+— a real process gap, caught during the next audit pass.
+
+**Jeff's explicit ruling, recorded verbatim in substance:** the v1
+freeze ("no new language features unless a real dogfood app cannot
+reasonably be completed without them") has its own exception clause,
+and `tasks.ot` — verified end-to-end afterward, including rendered
+screenshots showing working placeholder text, correct padding, correct
+child-insertion order, and input-clearing behavior, not just passing
+unit tests — is exactly the evidence that exception requires. **The
+feature is not reverted.** The violation was documentation/governance
+(no ledger update, no spec entry), not the feature itself, and this
+entry closes that gap retroactively. D55 is not license to add more;
+see "Explicitly out of scope" below.
+
+### `padding` - window, row, column only
+
+A number, rejecting negative values via the same `Assert-OtterUiNumber`
+discipline every other numeric UI property already uses (the D45
+maintenance fix's non-negative rule automatically covered this new
+property with zero extra code, exactly as that fix's own reasoning
+predicted it would for any future numeric property).
+
+**Implementation mechanism, verified against the actual code:** padding
+wraps the container's content in a real WPF `Border` (`Border.Padding =
+Thickness(n)`), not a property flip — `StackPanel` has no padding
+concept of its own. Handles both orderings correctly: padding set
+*before* any `put` lazily creates the `Border` wrapper directly; padding
+set *after* children already exist retrofits an existing `row`/`column`
+panel by removing it from its current parent (handling both a
+multi-child `Panel` parent and a single-child `ContentControl` parent),
+wrapping it in a new `Border`, transferring the panel's own sizing/
+alignment/margin/background onto the `Border`, and re-inserting at the
+same position — preserving `put` order and identity. Verified with a
+passing test for exactly the retrofit case ("padding set AFTER put
+still wraps correctly in parent"), not merely the simpler create-first
+case.
+
+`button`/`text`/`text box` do **not** have `padding` — they're leaf
+controls, not containers with content to inset from their own edge.
+
+### `placeholder` - text box only
+
+A string. Sets watermark text shown only while the box is empty;
+typing hides it, clearing the box restores it — verified with a
+dedicated test exercising both transitions, not just the initial
+watermark state. Implemented via the text box's real `Text`/`Background`
+plus a tracked original-background swap (`$script:OtterUiOriginalBackgrounds`),
+not a second visible control layered on top.
+
+### Optional `is` in `when <target> is <event>`
+
+`when addButton clicked` now parses identically to `when addButton is
+clicked` — `Assert-OtterTokenKind` on `Is` was loosened to
+`Test-OtterTokenKind` (consume only if present), the same optional-`is`
+philosophy already established for inline `has` blocks (D52) extended
+to this one remaining place `is` was still mandatory. No grammar
+ambiguity introduced: the token immediately after the target is always
+either `Is` (consumed) or the event name itself (read directly).
+
+### Canonical grammar, frozen explicitly (this was the actually-unresolved question from D48)
+
+**`app has padding 20` is the canonical form — not `app has padding is
+20`.** Both parse (the general inline-`has` optional-`is` rule from
+D52 doesn't distinguish this property from any other), but `is` is
+deliberately not the recommended style here: `has` already establishes
+that a property assignment follows, so `has padding is 20` reads as two
+assignment-like words doing one job. This resolves the exact ambiguity
+D48 flagged and deliberately left open ("`app has padding is 24` ...
+`has` already carries established object-construction semantics ... a
+separate language-design question"). The non-`has` form is unaffected
+and unambiguous either way: `padding of app is 20` (D19's existing
+`property of target is value` grammar) always keeps its `is`, since
+that word is doing real work there (introducing the value), not
+duplicating `has`'s own role.
+
+### Explicitly out of scope - do not expand D55
+
+This entry documents exactly `padding`, `placeholder`, and optional
+event `is`, and nothing else. It does not open a general "add more UI
+properties on demand" mandate — any further UI capability still needs
+its own dogfood-demonstrated blocker (or its own investigate-and-freeze
+cycle) before landing, per the v1 freeze directive this entry itself
+was admitted under.
+
+### What's built
+
+**Contract:** none. **Runtime:** `src/Otter.UI.psm1` — `padding`/
+`placeholder` property table entries, `Set-`/`Get-OtterUiPadding`
+(including the retrofit path), `Set-`/`Get-OtterUiPlaceholder` +
+`Update-OtterUiPlaceholderWatermark`, `Get-OtterUiElementForParent` (so
+a padding-wrapped resource's `Border` — not its raw native element —
+is what actually gets attached when the resource is later `put`
+somewhere). **Grammar:** `src/Otter.Parser.psm1` — the `when` event-name
+`Is` token loosened to optional. 156 new lines of tests in
+`tests/UI.Tests.ps1` plus new parser tests, including an explicit
+end-to-end Task List dogfood test. Full suite passed 90 (UI/runtime)
+at landing; independently re-verified after the fact with real rendered
+screenshots of `tasks.ot` (empty state showing the placeholder watermark
+and window padding; filled state after two simulated clicks showing
+both tasks in correct order, the input cleared, and the placeholder
+restored).
+
+**`examples/tasks.ot` is preserved permanently as a v1 regression/
+dogfood asset**, not a disposable demo — the official Task List
+application for v1 sign-off, per Jeff's explicit instruction not to
+rebuild a duplicate.
 
