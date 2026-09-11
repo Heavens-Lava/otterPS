@@ -60,6 +60,84 @@ if ($controlAst.Statements[4] -isnot [CountStmt]) { throw 'Expected count loop.'
 if ($controlAst.Statements[5] -isnot [ForEachStmt]) { throw 'Expected for each loop.' }
 if ($controlAst.Statements[6].Items.Count -ne 0) { throw 'Expected empty list.' }
 
+# D38B: a trailing boolean connective may continue an if/while header one
+# level deeper. The continuation indent is also the body indent.
+$continuedConditionSource = @'
+if left is 1 and
+    right is 2
+    say "yes"
+.
+if left is 1 or
+    middle is 2 and
+    right is 3
+    say "precedence"
+.
+while ready is false and
+    attempts is less than 5
+    say "retry"
+.
+'@
+$continuedConditionAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $continuedConditionSource)
+if ($continuedConditionAst.Statements.Count -ne 3) { throw 'Expected three continued-condition statements.' }
+if ($continuedConditionAst.Statements[0] -isnot [IfStmt] -or $continuedConditionAst.Statements[0].Branches[0].Condition -isnot [LogicalExpr]) { throw 'Expected a continued and condition.' }
+if ($continuedConditionAst.Statements[0].Branches[0].Body.Count -ne 1) { throw 'Expected the if body after its continued condition.' }
+$precedenceCondition = $continuedConditionAst.Statements[1].Branches[0].Condition
+if ($precedenceCondition.Op -ne [LogicalOp]::Or -or $precedenceCondition.Right.Op -ne [LogicalOp]::And) { throw 'Expected not > and > or precedence across continued lines.' }
+if ($continuedConditionAst.Statements[2] -isnot [WhileStmt] -or $continuedConditionAst.Statements[2].Body.Count -ne 1) { throw 'Expected a while body after its continued condition.' }
+
+foreach ($badContinuation in @(
+@'
+if left is 1 and
+right is 2
+    say "no"
+.
+'@,
+@'
+if left is 1 and
+    say "no"
+.
+'@,
+@'
+if left is 1 or
+    say "no"
+.
+'@,
+@'
+value is 1 and
+    2
+'@
+)) {
+    $caught = $false
+    try { ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $badContinuation) } catch [OtterError] { $caught = $true }
+    if (-not $caught) { throw 'Expected malformed continuation to fail.' }
+}
+
+$countStillReserved = $false
+try { ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source 'count is length of files') } catch { $countStillReserved = $true }
+if (-not $countStillReserved) { throw 'Expected count to remain a reserved loop keyword.' }
+
+$ordinaryBodySource = @'
+if left is 1
+    right is 2
+    say "body"
+.
+'@
+$ordinaryBodyAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $ordinaryBodySource)
+if ($ordinaryBodyAst.Statements[0].Branches[0].Condition -isnot [ComparisonExpr] -or $ordinaryBodyAst.Statements[0].Branches[0].Body.Count -ne 2) {
+    throw 'Expected an ordinary if body to remain separate from its condition.'
+}
+
+$indentJumpCaught = $false
+try {
+    ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source @'
+if left is 1 and
+        right is 2
+        say "no"
+.
+'@)
+} catch { $indentJumpCaught = $true }
+if (-not $indentJumpCaught) { throw 'Expected D7 to reject an excessive continuation indentation jump.' }
+
 $functionSource = @'
 to greet name
     say "Hello" name

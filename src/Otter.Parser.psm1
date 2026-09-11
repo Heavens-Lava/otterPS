@@ -46,6 +46,7 @@ function Initialize-OtterParser {
     $script:Position = 0
     $script:KnownFunctions = @{}
     $script:KnownTypes = @{}
+    $script:OtterBlockDepth = 0
 }
 
 function Get-OtterCurrentToken { return $script:Tokens[$script:Position] }
@@ -253,28 +254,90 @@ function Read-OtterConditionPrimary {
     return [ComparisonExpr]::new($left, $comparison, (Read-OtterValue), $operator.Line)
 }
 
+function Read-OtterConditionContinuation {
+    param([switch]$AllowContinuation)
+
+    if (-not (Test-OtterTokenKind ([TokenKind]::Newline))) { return }
+    if (-not $AllowContinuation) { return }
+
+    # D38B: a header can cross a line only after a trailing `and` or `or`.
+    # Its first continuation line must be one level deeper. Further condition
+    # lines stay at that same level, sharing the indent that will later hold
+    # the block body.
+    if (-not $script:OtterConditionUsesContinuation) {
+        if (-not (Test-OtterTokenOffsetKind 1 ([TokenKind]::Indent))) {
+            $token = Get-OtterCurrentToken
+            throw (New-OtterParserError 'I expected an indented condition continuation after this connective.' $token 'Indent the next condition line one level, or finish the condition on the same line.')
+        }
+        [void](Read-OtterToken) # Newline
+        [void](Read-OtterToken) # Indent
+        $script:OtterConditionUsesContinuation = $true
+    } else {
+        [void](Read-OtterToken) # Newline at the established continuation level
+        if (Test-OtterTokenKind ([TokenKind]::Indent)) {
+            $token = Get-OtterCurrentToken
+            throw (New-OtterParserError 'I expected the continued condition to stay at its current indentation level.' $token 'Keep each continued condition line aligned with the first continuation line.')
+        }
+    }
+
+    $next = Get-OtterCurrentToken
+    if ($next.Kind -in @([TokenKind]::Newline, [TokenKind]::Dedent, [TokenKind]::BlockEnd, [TokenKind]::EndOfFile, [TokenKind]::And, [TokenKind]::Or)) {
+        throw (New-OtterParserError 'I expected a condition after this connective.' $next 'Write a comparison or condition after "and" or "or".')
+    }
+}
+
 function Read-OtterAndCondition {
+    param([switch]$AllowContinuation)
     $left = Read-OtterConditionPrimary
     while (Test-OtterTokenKind ([TokenKind]::And)) {
         $operator = Read-OtterToken
+        Read-OtterConditionContinuation -AllowContinuation:$AllowContinuation
         $left = [LogicalExpr]::new($left, [LogicalOp]::And, (Read-OtterConditionPrimary), $operator.Line)
     }
     return $left
 }
 
 function Read-OtterCondition {
-    $left = Read-OtterAndCondition
+    param([switch]$AllowContinuation)
+    $left = Read-OtterAndCondition -AllowContinuation:$AllowContinuation
     while (Test-OtterTokenKind ([TokenKind]::Or)) {
         $operator = Read-OtterToken
-        $left = [LogicalExpr]::new($left, [LogicalOp]::Or, (Read-OtterAndCondition), $operator.Line)
+        Read-OtterConditionContinuation -AllowContinuation:$AllowContinuation
+        $left = [LogicalExpr]::new($left, [LogicalOp]::Or, (Read-OtterAndCondition -AllowContinuation:$AllowContinuation), $operator.Line)
     }
     return $left
+}
+
+function Read-OtterHeaderCondition {
+    $script:OtterConditionUsesContinuation = $false
+    return (Read-OtterCondition -AllowContinuation)
+}
+
+function Read-OtterConditionBlock {
+    if (-not $script:OtterConditionUsesContinuation) { return Read-OtterBlock }
+
+    # The continuation's Indent is already consumed. The next newline ends
+    # the final condition line; the following statements are the real body at
+    # that same indentation level.
+    [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the continued condition to end here.')
+    $next = Get-OtterCurrentToken
+    if ($next.Kind -in @([TokenKind]::Dedent, [TokenKind]::BlockEnd, [TokenKind]::EndOfFile)) {
+        throw (New-OtterParserError 'I expected an indented block after this condition.' $next 'Add at least one statement after the continued condition.')
+    }
+    $script:OtterBlockDepth++
+    try { $body = Read-OtterStatements }
+    finally { $script:OtterBlockDepth-- }
+    [void](Assert-OtterTokenKind ([TokenKind]::Dedent) 'I expected the indented block to end.')
+    if (Test-OtterTokenKind ([TokenKind]::BlockEnd)) { [void](Read-OtterToken); Skip-OtterNewlines }
+    return $body
 }
 
 function Read-OtterBlock {
     [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the statement to end here.')
     [void](Assert-OtterTokenKind ([TokenKind]::Indent) 'I expected an indented block after this statement.')
-    $body = Read-OtterStatements
+    $script:OtterBlockDepth++
+    try { $body = Read-OtterStatements }
+    finally { $script:OtterBlockDepth-- }
     [void](Assert-OtterTokenKind ([TokenKind]::Dedent) 'I expected the indented block to end.')
     if (Test-OtterTokenKind ([TokenKind]::BlockEnd)) { [void](Read-OtterToken); Skip-OtterNewlines }
     return $body
@@ -797,7 +860,8 @@ function Read-OtterStatement {
     # The statement forms themselves remain the switch cases below.
     $statementKind = $start.Kind
     $nextKind = if (($script:Position + 1) -lt $script:Tokens.Count) { $script:Tokens[$script:Position + 1].Kind } else { [TokenKind]::EndOfFile }
-    if (((Test-OtterIdentifierToken $start) -or ($start.Kind -eq [TokenKind]::ForEach -and $start.Text -eq 'each')) -and
+    if (-not ($start.Kind -eq [TokenKind]::Count -and $script:OtterBlockDepth -eq 0) -and
+        ((Test-OtterIdentifierToken $start) -or ($start.Kind -eq [TokenKind]::ForEach -and $start.Text -eq 'each')) -and
         $nextKind -in @([TokenKind]::Is, [TokenKind]::Are, [TokenKind]::Of, [TokenKind]::IsNot)) {
         $statementKind = [TokenKind]::Identifier
     }
@@ -900,10 +964,10 @@ function Read-OtterStatement {
         ([TokenKind]::If) {
             [void](Read-OtterToken)
             $branches = [System.Collections.Generic.List[IfBranch]]::new()
-            $branches.Add([IfBranch]::new((Read-OtterCondition), (Read-OtterBlock)))
+            $branches.Add([IfBranch]::new((Read-OtterHeaderCondition), (Read-OtterConditionBlock)))
             while ((Test-OtterTokenKind ([TokenKind]::Otherwise)) -and $script:Tokens[$script:Position + 1].Kind -eq [TokenKind]::If) {
                 [void](Read-OtterToken); [void](Read-OtterToken)
-                $branches.Add([IfBranch]::new((Read-OtterCondition), (Read-OtterBlock)))
+                $branches.Add([IfBranch]::new((Read-OtterHeaderCondition), (Read-OtterConditionBlock)))
             }
             $elseBody = $null
             if (Test-OtterTokenKind ([TokenKind]::Otherwise)) { [void](Read-OtterToken); $elseBody = Read-OtterBlock }
@@ -1107,7 +1171,7 @@ function Read-OtterStatement {
         }
         ([TokenKind]::While) {
             [void](Read-OtterToken)
-            return [WhileStmt]::new((Read-OtterCondition), (Read-OtterBlock), $start.Line)
+            return [WhileStmt]::new((Read-OtterHeaderCondition), (Read-OtterConditionBlock), $start.Line)
         }
         ([TokenKind]::Repeat) {
             [void](Read-OtterToken)
