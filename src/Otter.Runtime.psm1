@@ -35,7 +35,80 @@ using module ..\Otter.Contract.psm1
 #     greet "Jeff"        -> Hello Jeff     (finds the parameter)
 #     say name            -> Outside        (global was never touched)
 
+class OtterSignal {
+    [string]$Name
+    [object]$Value
+    [int]$Version
+    [System.Collections.Generic.List[object]]$Subscribers
+
+    OtterSignal([string]$name, [object]$value) {
+        $this.Name = $name
+        $this.Value = $value
+        $this.Version = 1
+        $this.Subscribers = [System.Collections.Generic.List[object]]::new()
+    }
+
+    [void] Subscribe([object]$subscriber) {
+        if (-not $this.Subscribers.Contains($subscriber)) {
+            $this.Subscribers.Add($subscriber)
+        }
+    }
+
+    [void] Notify() {
+        $this.Version++
+        foreach ($sub in $this.Subscribers.ToArray()) {
+            if ($sub -is [OtterDerived]) {
+                $sub.MarkDirty()
+            } elseif ($sub -is [scriptblock]) {
+                & $sub $this.Value
+            }
+        }
+    }
+}
+
+class OtterDerived {
+    [string]$Name
+    [Node]$Expression
+    [object]$Environment
+    [object]$CachedValue
+    [bool]$IsDirty
+    [bool]$IsEvaluating
+    [System.Collections.Generic.HashSet[string]]$Dependencies
+    [System.Collections.Generic.List[object]]$Subscribers
+
+    OtterDerived([string]$name, [Node]$expression, [object]$env) {
+        $this.Name = $name
+        $this.Expression = $expression
+        $this.Environment = $env
+        $this.CachedValue = $null
+        $this.IsDirty = $true
+        $this.IsEvaluating = $false
+        $this.Dependencies = [System.Collections.Generic.HashSet[string]]::new()
+        $this.Subscribers = [System.Collections.Generic.List[object]]::new()
+    }
+
+    [void] Subscribe([object]$subscriber) {
+        if (-not $this.Subscribers.Contains($subscriber)) {
+            $this.Subscribers.Add($subscriber)
+        }
+    }
+
+    [void] MarkDirty() {
+        $this.IsDirty = $true
+        foreach ($sub in $this.Subscribers.ToArray()) {
+            if ($sub -is [OtterDerived]) {
+                $sub.MarkDirty()
+            } elseif ($sub -is [scriptblock]) {
+                & $sub $this.CachedValue
+            }
+        }
+    }
+}
+
 class OtterEnvironment {
+    static [scriptblock]$DerivedEvaluator = $null
+    static [System.Collections.Generic.HashSet[string]]$ActiveDependencyTracker = $null
+
     [hashtable]$Variables
     [OtterEnvironment]$Parent
 
@@ -58,13 +131,37 @@ class OtterEnvironment {
         return $false
     }
 
+    [object] GetRaw([string]$name) {
+        if ($this.Variables.ContainsKey($name)) { return $this.Variables[$name] }
+        if ($null -ne $this.Parent) { return $this.Parent.GetRaw($name) }
+        return $null
+    }
+
     # Read a variable. Callers must check Has() first - the interpreter raises
     # the friendly "Otter could not find the variable" error, not this class,
     # because only the interpreter knows the line number.
     [object] Get([string]$name) {
-        if ($this.Variables.ContainsKey($name)) { return $this.Variables[$name] }
-        if ($null -ne $this.Parent) { return $this.Parent.Get($name) }
-        return $null
+        $raw = $this.GetRaw($name)
+        if ($raw -is [OtterSignal]) {
+            if ($null -ne [OtterEnvironment]::ActiveDependencyTracker) {
+                [void][OtterEnvironment]::ActiveDependencyTracker.Add($raw.Name)
+            }
+            return $raw.Value
+        }
+        if ($raw -is [OtterDerived]) {
+            if ($null -ne [OtterEnvironment]::ActiveDependencyTracker) {
+                [void][OtterEnvironment]::ActiveDependencyTracker.Add($raw.Name)
+            }
+            if ($null -ne [OtterEnvironment]::DerivedEvaluator) {
+                return (& ([OtterEnvironment]::DerivedEvaluator) $raw $this)
+            }
+            return $raw.CachedValue
+        }
+        return $raw
+    }
+
+    [void] SetRaw([string]$name, [object]$value) {
+        $this.Variables[$name] = $value
     }
 
     # Create a variable in THIS scope (named SetLocal, not Define: "define" is a
@@ -79,6 +176,12 @@ class OtterEnvironment {
     # it is created here.
     [void] Set([string]$name, [object]$value) {
         if ($this.Variables.ContainsKey($name)) {
+            $cur = $this.Variables[$name]
+            if ($cur -is [OtterSignal]) {
+                $cur.Value = $value
+                $cur.Notify()
+                return
+            }
             $this.Variables[$name] = $value
             return
         }

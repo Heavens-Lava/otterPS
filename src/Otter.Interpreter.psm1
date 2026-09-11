@@ -888,6 +888,90 @@ function Invoke-OtterStatement {
             return
         }
 
+        # state count is 0
+        'StateDef' {
+            $value = Get-OtterValue -Expression $Statement.InitialValue -Environment $Environment
+            $signal = [OtterSignal]::new($Statement.Name, $value)
+            $Environment.SetRaw($Statement.Name, $signal)
+            return
+        }
+
+        # derive doubled is count * 2
+        'DeriveDef' {
+            $derived = [OtterDerived]::new($Statement.Name, $Statement.Expression, $Environment)
+            $Environment.SetRaw($Statement.Name, $derived)
+            return
+        }
+
+        # memo sortedItems ...
+        'MemoDef' {
+            $derived = [OtterDerived]::new($Statement.Name, $Statement.Expression, $Environment)
+            $Environment.SetRaw($Statement.Name, $derived)
+            return
+        }
+
+        # when count changes ...
+        'Watch' {
+            $targetName = $Statement.TargetName
+            $raw = $Environment.GetRaw($targetName)
+            $body = $Statement.Body
+            $action = {
+                Invoke-OtterStatements -Statements $body -Environment $Environment
+            }.GetNewClosure()
+            if ($raw -is [OtterSignal]) {
+                $raw.Subscribe($action)
+            } elseif ($raw -is [OtterDerived]) {
+                $raw.Subscribe($action)
+            } else {
+                $signal = [OtterSignal]::new($targetName, $raw)
+                $signal.Subscribe($action)
+                $Environment.SetRaw($targetName, $signal)
+            }
+            return
+        }
+
+        # on start / on close
+        'Lifecycle' {
+            if ($Statement.Stage.ToLowerInvariant() -eq 'start') {
+                Invoke-OtterStatements -Statements $Statement.Body -Environment $Environment
+            }
+            return
+        }
+
+        # shared theme is "dark"
+        'SharedState' {
+            $value = Get-OtterValue -Expression $Statement.InitialValue -Environment $Environment
+            $signal = [OtterSignal]::new($Statement.Name, $value)
+            $Environment.SetRaw($Statement.Name, $signal)
+            return
+        }
+
+        # use files / use ui
+        'UseModule' {
+            return
+        }
+
+        # focus searchBox / hide sidebar
+        'UiAction' {
+            return
+        }
+
+        # card / window / primary button
+        'UiElement' {
+            if ($null -ne $Statement.Children) {
+                Invoke-OtterStatements -Statements $Statement.Children -Environment $Environment
+            }
+            return
+        }
+
+        'UiEvent' {
+            return
+        }
+
+        'UiAnimation' {
+            return
+        }
+
         default {
             throw (New-OtterRuntimeError `
                 -Message "I do not know how to run a $($Statement.Kind) statement yet." `
@@ -972,6 +1056,50 @@ function Invoke-OtterRemoveFrom {
 # EXPRESSIONS
 # ===============================================================
 
+function Get-OtterDerivedValue {
+    param(
+        [Parameter(Mandatory)][OtterDerived]$Derived,
+        [Parameter(Mandatory)][OtterEnvironment]$Environment
+    )
+
+    if ($Derived.IsEvaluating) {
+        throw (New-OtterRuntimeError -Message "Circular dependency detected in derived value `"$($Derived.Name)`"." -Line 0)
+    }
+
+    if ($Derived.IsDirty) {
+        $Derived.IsEvaluating = $true
+        $prevTracker = [OtterEnvironment]::ActiveDependencyTracker
+        $newTracker = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+        [OtterEnvironment]::ActiveDependencyTracker = $newTracker
+        try {
+            $value = Get-OtterValue -Expression $Derived.Expression -Environment $Environment
+            $Derived.CachedValue = $value
+            $Derived.IsDirty = $false
+
+            foreach ($depName in $newTracker) {
+                if ($depName -eq $Derived.Name) { continue }
+                $raw = $Environment.GetRaw($depName)
+                if ($raw -is [OtterSignal]) {
+                    $raw.Subscribe($Derived)
+                } elseif ($raw -is [OtterDerived]) {
+                    $raw.Subscribe($Derived)
+                }
+            }
+        }
+        finally {
+            [OtterEnvironment]::ActiveDependencyTracker = $prevTracker
+            $Derived.IsEvaluating = $false
+        }
+    }
+
+    return $Derived.CachedValue
+}
+
+[OtterEnvironment]::DerivedEvaluator = {
+    param([OtterDerived]$Derived, [OtterEnvironment]$Env)
+    Get-OtterDerivedValue -Derived $Derived -Environment $Env
+}
+
 function Get-OtterValue {
     param([Node]$Expression, [OtterEnvironment]$Environment)
 
@@ -998,6 +1126,11 @@ function Get-OtterValue {
         'Math' {
             $leftRaw = Get-OtterValue -Expression $Expression.Left -Environment $Environment
             $rightRaw = Get-OtterValue -Expression $Expression.Right -Environment $Environment
+
+            if ($Expression.Op.ToString() -eq 'Add' -and ($leftRaw -is [string]) -and ($rightRaw -is [string])) {
+                return $leftRaw + $rightRaw
+            }
+
             $left = Assert-OtterNumber -Value $leftRaw -Line $Expression.Line -What 'the left side of this calculation'
             $right = Assert-OtterNumber -Value $rightRaw -Line $Expression.Line -What 'the right side of this calculation'
 
@@ -1230,6 +1363,17 @@ function Get-OtterValue {
             Assert-OtterDateOperands -Start $start -End $end -Line $Expression.Line
 
             return (Measure-OtterDateDifference -Start $start -End $end -Unit $Expression.Unit.ToString())
+        }
+
+        'Await' {
+            return (Get-OtterValue -Expression $Expression.Expression -Environment $Environment)
+        }
+
+        'UiElement' {
+            if ($null -ne $Expression.Children) {
+                Invoke-OtterStatements -Statements $Expression.Children -Environment $Environment
+            }
+            return $Expression
         }
 
         default {
