@@ -711,10 +711,12 @@ function Read-OtterStatement {
                 return [WebRouteStmt]::new($target, $method, $path, $requestTarget, (Read-OtterBlock), $start.Line)
             }
 
-            [void](Assert-OtterTokenKind ([TokenKind]::Is) 'I expected "is" before the event name.')
+            if (Test-OtterTokenKind ([TokenKind]::Is)) {
+                [void](Read-OtterToken)
+            }
             $eventToken = Get-OtterCurrentToken
             if ($eventToken.Kind -in @([TokenKind]::Newline, [TokenKind]::EndOfFile)) {
-                throw (New-OtterParserError 'I expected an event name after "is".' $eventToken 'Write an event such as "clicked" or "changed".')
+                throw (New-OtterParserError 'I expected an event name.' $eventToken 'Write an event such as "clicked" or "changed".')
             }
             [void](Read-OtterToken)
             return [WhenStmt]::new($target, $eventToken.Text, (Read-OtterBlock), $start.Line)

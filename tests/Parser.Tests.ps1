@@ -957,4 +957,19 @@ if ($bareInlineValueAst.Statements[0].Properties[0].Value.Value -ne $true -or $b
     throw 'Bare inline properties must desugar to true while valued properties remain unchanged.'
 }
 
+# 16. Optional 'is' in when statement (D55)
+$whenWithoutIsAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source @"
+when addButton clicked
+    say "Clicked"
+.
+"@)
+$whenWithIsAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source @"
+when addButton is clicked
+    say "Clicked"
+.
+"@)
+if ($whenWithoutIsAst.Statements[0].EventName -ne 'clicked' -or $whenWithIsAst.Statements[0].EventName -ne 'clicked') {
+    throw 'Both forms of when statement must parse the same event name.'
+}
+
 Write-Output 'Parser tests passed.'

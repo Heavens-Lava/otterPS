@@ -1,0 +1,49 @@
+create window into app
+app has title "Otter Tasks"
+app has width 420
+app has height 520
+padding of app is 20
+spacing of app is 12
+
+create row into header
+header has width full
+header has spacing 8
+
+create text into titleText
+titleText has text "My Tasks"
+
+put titleText in header
+put header in app
+
+create row into inputRow
+inputRow has width full
+inputRow has spacing 8
+
+create text box into taskInput
+placeholder of taskInput is "What needs to be done?"
+taskInput has width 280
+
+create button into addButton
+addButton has text "Add"
+
+put taskInput in inputRow
+put addButton in inputRow
+put inputRow in app
+
+create column into taskList
+taskList has width full
+taskList has spacing 8
+
+put taskList in app
+
+when addButton clicked
+    task is text of taskInput
+    if task is not ""
+        create text into item
+        item has text task
+        put item in taskList
+        text of taskInput is ""
+    .
+.
+
+show app

@@ -1223,4 +1223,160 @@ Test-Otter 'a vertical alignment word on a plain control (no axis of its own) is
     }
 }
 
+
+# =================================================================
+# D55 - Desktop Task List Ergonomics (padding, placeholder, events)
+# =================================================================
+
+Test-Otter 'padding reads as gone when not set' {
+    $res = Invoke-TestProgramWithEnv @(
+        [CreateUiResourceStmt]::new('window', 'app', 1),
+        [CreateUiResourceStmt]::new('row', 'r', 2),
+        [CreateUiResourceStmt]::new('column', 'c', 3)
+    )
+    $app = $res.Env.Get('app')
+    $r = $res.Env.Get('r')
+    $c = $res.Env.Get('c')
+    Assert-AreEqual -Expected $null -Actual (Get-OtterUiProperty -Resource $app -Property 'padding')
+    Assert-AreEqual -Expected $null -Actual (Get-OtterUiProperty -Resource $r -Property 'padding')
+    Assert-AreEqual -Expected $null -Actual (Get-OtterUiProperty -Resource $c -Property 'padding')
+}
+
+Test-Otter 'padding on window wraps content in a border with padding' {
+    $res = Invoke-TestProgramWithEnv @(
+        [CreateUiResourceStmt]::new('window', 'app', 1),
+        [AssignStmt]::new([PropertyAccessExpr]::new('padding', [VariableExpr]::new('app', 2), 2), (Lit 20), 2),
+        [CreateUiResourceStmt]::new('button', 'btn', 3),
+        [PutInStmt]::new([VariableExpr]::new('btn', 4), [VariableExpr]::new('app', 4), 4)
+    )
+    $app = $res.Env.Get('app')
+    Assert-AreEqual -Expected 20 -Actual (Get-OtterUiProperty -Resource $app -Property 'padding')
+    $border = $app.Native.Content
+    Assert-AreEqual -Expected 'Border' -Actual $border.GetType().Name
+    Assert-AreEqual -Expected 20 -Actual $border.Padding.Top
+    Assert-AreEqual -Expected 20 -Actual $border.Padding.Left
+}
+
+Test-Otter 'padding on row wraps panel in a border with padding' {
+    $res = Invoke-TestProgramWithEnv @(
+        [CreateUiResourceStmt]::new('window', 'app', 1),
+        [CreateUiResourceStmt]::new('row', 'r', 2),
+        [AssignStmt]::new([PropertyAccessExpr]::new('padding', [VariableExpr]::new('r', 3), 3), (Lit 16), 3),
+        [CreateUiResourceStmt]::new('button', 'btn', 4),
+        [PutInStmt]::new([VariableExpr]::new('btn', 5), [VariableExpr]::new('r', 5), 5),
+        [PutInStmt]::new([VariableExpr]::new('r', 6), [VariableExpr]::new('app', 6), 6)
+    )
+    $r = $res.Env.Get('r')
+    Assert-AreEqual -Expected 16 -Actual (Get-OtterUiProperty -Resource $r -Property 'padding')
+    $app = $res.Env.Get('app')
+    $panel = if ($app.Native.Content -is [System.Windows.Controls.Border]) { $app.Native.Content.Child } else { $app.Native.Content }
+    Assert-AreEqual -Expected 1 -Actual $panel.Children.Count
+    $wrapper = $panel.Children[0]
+    Assert-AreEqual -Expected 'Border' -Actual $wrapper.GetType().Name
+    Assert-AreEqual -Expected 16 -Actual $wrapper.Padding.Top
+    Assert-AreEqual -Expected $r.Native -Actual $wrapper.Child
+}
+
+Test-Otter 'padding set AFTER put still wraps correctly in parent' {
+    $res = Invoke-TestProgramWithEnv @(
+        [CreateUiResourceStmt]::new('window', 'app', 1),
+        [CreateUiResourceStmt]::new('column', 'c', 2),
+        [PutInStmt]::new([VariableExpr]::new('c', 3), [VariableExpr]::new('app', 3), 3),
+        [AssignStmt]::new([PropertyAccessExpr]::new('padding', [VariableExpr]::new('c', 4), 4), (Lit 24), 4)
+    )
+    $c = $res.Env.Get('c')
+    Assert-AreEqual -Expected 24 -Actual (Get-OtterUiProperty -Resource $c -Property 'padding')
+    $app = $res.Env.Get('app')
+    $panel = if ($app.Native.Content -is [System.Windows.Controls.Border]) { $app.Native.Content.Child } else { $app.Native.Content }
+    Assert-AreEqual -Expected 1 -Actual $panel.Children.Count
+    $wrapper = $panel.Children[0]
+    Assert-AreEqual -Expected 'Border' -Actual $wrapper.GetType().Name
+    Assert-AreEqual -Expected 24 -Actual $wrapper.Padding.Bottom
+    Assert-AreEqual -Expected $c.Native -Actual $wrapper.Child
+}
+
+Test-Otter 'negative padding is rejected with an Otter diagnostic' {
+    Assert-OtterFails -Containing "The padding of a row can't be negative" -Body {
+        Invoke-TestProgram @(
+            [CreateUiResourceStmt]::new('row', 'r', 1),
+            [AssignStmt]::new([PropertyAccessExpr]::new('padding', [VariableExpr]::new('r', 2), 2), (Lit -5), 2)
+        )
+    }
+}
+
+Test-Otter 'placeholder on text box sets watermark and preserves empty text of box' {
+    $res = Invoke-TestProgramWithEnv @(
+        [CreateUiResourceStmt]::new('text box', 'box', 1),
+        [AssignStmt]::new([PropertyAccessExpr]::new('placeholder', [VariableExpr]::new('box', 2), 2), (Lit 'Add a new task...'), 2)
+    )
+    $box = $res.Env.Get('box')
+    Assert-AreEqual -Expected 'Add a new task...' -Actual (Get-OtterUiProperty -Resource $box -Property 'placeholder')
+    # Text of box must return empty string, NEVER the placeholder text!
+    Assert-AreEqual -Expected '' -Actual (Get-OtterUiProperty -Resource $box -Property 'text')
+    # VisualBrush watermark is on Background
+    Assert-AreEqual -Expected 'VisualBrush' -Actual $box.Native.Background.GetType().Name
+}
+
+Test-Otter 'typing in text box hides watermark and clearing restores watermark' {
+    $res = Invoke-TestProgramWithEnv @(
+        [CreateUiResourceStmt]::new('text box', 'box', 1),
+        [AssignStmt]::new([PropertyAccessExpr]::new('placeholder', [VariableExpr]::new('box', 2), 2), (Lit 'Enter name'), 2)
+    )
+    $box = $res.Env.Get('box')
+    Assert-AreEqual -Expected 'VisualBrush' -Actual $box.Native.Background.GetType().Name
+
+    # Simulate user typing
+    $box.Native.Text = 'Alice'
+    Assert-AreEqual -Expected 'Alice' -Actual (Get-OtterUiProperty -Resource $box -Property 'text')
+    Assert-AreEqual -Expected $null -Actual $box.Native.Background
+
+    # Clear text via Otter property assignment
+    Set-OtterUiProperty -Resource $box -Property 'text' -Value '' -Line 3
+    Assert-AreEqual -Expected '' -Actual (Get-OtterUiProperty -Resource $box -Property 'text')
+    Assert-AreEqual -Expected 'VisualBrush' -Actual $box.Native.Background.GetType().Name
+}
+
+Test-Otter 'end-to-end Task List dogfood: dynamic child insertion into padded column' {
+    $res = Invoke-TestProgramWithEnv @(
+        [CreateUiResourceStmt]::new('column', 'taskList', 1),
+        [AssignStmt]::new([PropertyAccessExpr]::new('padding', [VariableExpr]::new('taskList', 2), 2), (Lit 12), 2),
+        [CreateUiResourceStmt]::new('button', 'addButton', 3),
+        [CreateUiResourceStmt]::new('text box', 'taskInput', 4),
+        [AssignStmt]::new([PropertyAccessExpr]::new('placeholder', [VariableExpr]::new('taskInput', 5), 5), (Lit 'New task'), 5),
+        [AssignStmt]::new([PropertyAccessExpr]::new('text', [VariableExpr]::new('taskInput', 6), 6), (Lit 'Buy groceries'), 6),
+        [WhenStmt]::new([VariableExpr]::new('addButton', 7), 'clicked', @(
+            [AssignStmt]::new('task', [PropertyAccessExpr]::new('text', [VariableExpr]::new('taskInput', 8), 8), 8),
+            [IfStmt]::new(
+                @([IfBranch]::new(
+                    [ComparisonExpr]::new([VariableExpr]::new('task', 9), [CompareOp]::NotEqual, (Lit ''), 9),
+                    @(
+                        [CreateUiResourceStmt]::new('text', 'item', 10),
+                        [AssignStmt]::new([PropertyAccessExpr]::new('text', [VariableExpr]::new('item', 11), 11), [VariableExpr]::new('task', 11), 11),
+                        [PutInStmt]::new([VariableExpr]::new('item', 12), [VariableExpr]::new('taskList', 12), 12),
+                        [AssignStmt]::new([PropertyAccessExpr]::new('text', [VariableExpr]::new('taskInput', 13), 13), (Lit ''), 13)
+                    )
+                )),
+                $null,
+                9
+            )
+        ), 7)
+    )
+
+    $btn = $res.Env.Get('addButton')
+    $list = $res.Env.Get('taskList')
+    $input = $res.Env.Get('taskInput')
+
+    Assert-AreEqual -Expected 0 -Actual $list.Native.Children.Count
+    Assert-AreEqual -Expected 'Buy groceries' -Actual (Get-OtterUiProperty -Resource $input -Property 'text')
+
+    # Click Add
+    $btn.Native.RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Button]::ClickEvent))
+
+    Assert-AreEqual -Expected 1 -Actual $list.Native.Children.Count
+    Assert-AreEqual -Expected 'Buy groceries' -Actual $list.Native.Children[0].Text
+    Assert-AreEqual -Expected '' -Actual (Get-OtterUiProperty -Resource $input -Property 'text')
+    Assert-AreEqual -Expected 'VisualBrush' -Actual $input.Native.Background.GetType().Name
+}
+
 Complete-OtterTests
+

@@ -70,12 +70,30 @@ function Test-OtterUiResource {
 
 $script:OtterWpfLoaded = $false
 $script:OtterUiSpacing = @{}
+$script:OtterUiPadding = @{}
+$script:OtterUiWrappers = @{}
+$script:OtterUiPlaceholders = @{}
+$script:OtterUiOriginalBackgrounds = @{}
 $script:OtterUiDimensionFull = @{}
 $script:OtterUiLayout = @{}
 
+function Get-OtterUiNativeKey {
+    param([object]$Native)
+    return [System.Runtime.CompilerServices.RuntimeHelpers]::GetHashCode($Native).ToString()
+}
+
 function Get-OtterUiSpacingKey {
     param([OtterUiResource]$Resource)
-    return [System.Runtime.CompilerServices.RuntimeHelpers]::GetHashCode($Resource.Native).ToString()
+    return Get-OtterUiNativeKey -Native $Resource.Native
+}
+
+function Get-OtterUiElementForParent {
+    param([OtterUiResource]$Resource)
+    $wrapKey = Get-OtterUiSpacingKey -Resource $Resource
+    if ($script:OtterUiWrappers.ContainsKey($wrapKey)) {
+        return $script:OtterUiWrappers[$wrapKey]
+    }
+    return $Resource.Native
 }
 
 # D54: MainAlign/CrossAlign/Spread are resolved by AXIS, never by the
@@ -253,12 +271,13 @@ $script:OtterUiProperties = @{
         'align'      = @{ Type = 'align' }
     }
     'text box' = @{
-        'text'       = @{ Native = 'Text'; Type = 'text' }
-        'width'      = @{ Native = 'Width'; Type = 'number' }
-        'height'     = @{ Native = 'Height'; Type = 'number' }
-        'background' = @{ Native = 'Background'; Type = 'color' }
-        'foreground' = @{ Native = 'Foreground'; Type = 'color' }
-        'align'      = @{ Type = 'align' }
+        'text'        = @{ Native = 'Text'; Type = 'text' }
+        'placeholder' = @{ Type = 'placeholder' }
+        'width'       = @{ Native = 'Width'; Type = 'number' }
+        'height'      = @{ Native = 'Height'; Type = 'number' }
+        'background'  = @{ Native = 'Background'; Type = 'color' }
+        'foreground'  = @{ Native = 'Foreground'; Type = 'color' }
+        'align'       = @{ Type = 'align' }
     }
     'text' = @{
         'text'       = @{ Native = 'Text'; Type = 'text' }
@@ -275,12 +294,14 @@ $script:OtterUiProperties = @{
         'background' = @{ Native = 'Background'; Type = 'color' }
         'foreground' = @{ Native = 'Foreground'; Type = 'color' }
         'spacing'    = @{ Type = 'spacing' }
+        'padding'    = @{ Type = 'padding' }
     }
     'row' = @{
         'width'      = @{ Native = 'Width'; Type = 'number' }
         'height'     = @{ Native = 'Height'; Type = 'number' }
         'background' = @{ Native = 'Background'; Type = 'color' }
         'spacing'    = @{ Type = 'spacing' }
+        'padding'    = @{ Type = 'padding' }
         'align'      = @{ Type = 'align' }
         'spread'     = @{ Type = 'spread' }
     }
@@ -289,6 +310,7 @@ $script:OtterUiProperties = @{
         'height'     = @{ Native = 'Height'; Type = 'number' }
         'background' = @{ Native = 'Background'; Type = 'color' }
         'spacing'    = @{ Type = 'spacing' }
+        'padding'    = @{ Type = 'padding' }
         'align'      = @{ Type = 'align' }
         'spread'     = @{ Type = 'spread' }
     }
@@ -397,6 +419,14 @@ function Get-OtterUiProperty {
         return (Get-OtterUiSpacing -Window $Resource)
     }
 
+    if ($mapping.Type -eq 'padding') {
+        return (Get-OtterUiPadding -Resource $Resource)
+    }
+
+    if ($mapping.Type -eq 'placeholder') {
+        return (Get-OtterUiPlaceholder -Resource $Resource)
+    }
+
     if ($mapping.Type -eq 'spread') {
         $layoutKey = Get-OtterUiSpacingKey -Resource $Resource
         if (-not $script:OtterUiLayout.ContainsKey($layoutKey)) { return $false }
@@ -447,6 +477,16 @@ function Set-OtterUiProperty {
 
     if ($mapping.Type -eq 'spacing') {
         Set-OtterUiSpacing -Window $Resource -Value $Value -Line $Line
+        return
+    }
+
+    if ($mapping.Type -eq 'padding') {
+        Set-OtterUiPadding -Resource $Resource -Value $Value -Line $Line
+        return
+    }
+
+    if ($mapping.Type -eq 'placeholder') {
+        Set-OtterUiPlaceholder -Resource $Resource -Value $Value -Line $Line
         return
     }
 
@@ -528,6 +568,7 @@ function Set-OtterUiProperty {
 
     if ($mapping.Type -eq 'number') {
         $fullKey = (Get-OtterUiSpacingKey $Resource) + "_$Property"
+        $wrapKey = Get-OtterUiSpacingKey $Resource
         if ($Property -in @('width', 'height') -and $Value -eq 'full') {
             $script:OtterUiDimensionFull[$fullKey] = $true
             if ($Property -eq 'width') {
@@ -536,6 +577,10 @@ function Set-OtterUiProperty {
                 } else {
                     $Resource.Native.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Stretch
                     $Resource.Native.Width = [double]::NaN
+                    if ($script:OtterUiWrappers.ContainsKey($wrapKey)) {
+                        $script:OtterUiWrappers[$wrapKey].HorizontalAlignment = [System.Windows.HorizontalAlignment]::Stretch
+                        $script:OtterUiWrappers[$wrapKey].Width = [double]::NaN
+                    }
                 }
             } else {
                 if ($Resource.Kind -eq 'window') {
@@ -543,6 +588,10 @@ function Set-OtterUiProperty {
                 } else {
                     $Resource.Native.VerticalAlignment = [System.Windows.VerticalAlignment]::Stretch
                     $Resource.Native.Height = [double]::NaN
+                    if ($script:OtterUiWrappers.ContainsKey($wrapKey)) {
+                        $script:OtterUiWrappers[$wrapKey].VerticalAlignment = [System.Windows.VerticalAlignment]::Stretch
+                        $script:OtterUiWrappers[$wrapKey].Height = [double]::NaN
+                    }
                 }
             }
             return
@@ -551,8 +600,16 @@ function Set-OtterUiProperty {
         $script:OtterUiDimensionFull.Remove($fullKey)
         if ($Property -eq 'width' -and $Resource.Kind -ne 'window') {
             $Resource.Native.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Left
+            if ($script:OtterUiWrappers.ContainsKey($wrapKey)) {
+                $script:OtterUiWrappers[$wrapKey].HorizontalAlignment = [System.Windows.HorizontalAlignment]::Left
+                $script:OtterUiWrappers[$wrapKey].Width = $number
+            }
         } elseif ($Property -eq 'height' -and $Resource.Kind -ne 'window') {
             $Resource.Native.VerticalAlignment = [System.Windows.VerticalAlignment]::Top
+            if ($script:OtterUiWrappers.ContainsKey($wrapKey)) {
+                $script:OtterUiWrappers[$wrapKey].VerticalAlignment = [System.Windows.VerticalAlignment]::Top
+                $script:OtterUiWrappers[$wrapKey].Height = $number
+            }
         }
         $Resource.Native.($mapping.Native) = $number
         return
@@ -561,6 +618,14 @@ function Set-OtterUiProperty {
     if ($mapping.Type -eq 'color') {
         $brush = Assert-OtterUiColor -Value $Value -Property $Property -Kind $Resource.Kind -Line $Line
         $Resource.Native.($mapping.Native) = $brush
+        $wrapKey = Get-OtterUiSpacingKey $Resource
+        if ($script:OtterUiWrappers.ContainsKey($wrapKey)) {
+            $script:OtterUiWrappers[$wrapKey].Background = $brush
+        }
+        if ($script:OtterUiOriginalBackgrounds.ContainsKey($wrapKey)) {
+            $script:OtterUiOriginalBackgrounds[$wrapKey] = $brush
+            Update-OtterUiPlaceholderWatermark -TextBox $Resource.Native
+        }
         return
     }
 
@@ -660,7 +725,20 @@ function Get-OtterUiContainerPanel {
 
     if ($Container.Kind -eq 'window') {
         if ($null -eq $Container.Native.Content) {
-            $Container.Native.Content = [System.Windows.Controls.StackPanel]::new()
+            $panel = [System.Windows.Controls.StackPanel]::new()
+            $wrapKey = Get-OtterUiSpacingKey -Resource $Container
+            if ($script:OtterUiPadding.ContainsKey($wrapKey)) {
+                $border = [System.Windows.Controls.Border]::new()
+                $border.Padding = [System.Windows.Thickness]::new([double]$script:OtterUiPadding[$wrapKey])
+                $border.Child = $panel
+                $Container.Native.Content = $border
+                $script:OtterUiWrappers[$wrapKey] = $border
+            } else {
+                $Container.Native.Content = $panel
+            }
+        }
+        if ($Container.Native.Content -is [System.Windows.Controls.Border]) {
+            return $Container.Native.Content.Child
         }
         return $Container.Native.Content
     }
@@ -688,12 +766,13 @@ function Add-OtterUiScrollChild {
             'A scroll can only hold one thing. Put a column or row in it first if you need more than one.',
             $Line, 'runtime')
     }
-    if ($null -ne $Item.Native.Parent) {
+    $elementToAdd = Get-OtterUiElementForParent -Resource $Item
+    if ($null -ne $elementToAdd.Parent) {
         throw [OtterError]::new(
             "A $($Item.Kind) can only be in one place at a time, and this one is already somewhere else.",
             $Line, 'runtime')
     }
-    $Container.Native.Content = $Item.Native
+    $Container.Native.Content = $elementToAdd
 }
 
 function Add-OtterUiChild {
@@ -710,9 +789,10 @@ function Add-OtterUiChild {
     }
 
     $panel = Get-OtterUiContainerPanel -Container $Container
+    $elementToAdd = Get-OtterUiElementForParent -Resource $Item
 
     try {
-        [void]$panel.Children.Add($Item.Native)
+        [void]$panel.Children.Add($elementToAdd)
     }
     catch {
         throw [OtterError]::new(
@@ -730,9 +810,9 @@ function Add-OtterUiChild {
     if ($script:OtterUiSpacing.ContainsKey($spacingKey)) {
         $spacing = [double]$script:OtterUiSpacing[$spacingKey]
         if ($panel.Orientation -eq [System.Windows.Controls.Orientation]::Horizontal) {
-            $Item.Native.Margin = [System.Windows.Thickness]::new(0, 0, $spacing, 0)
+            $elementToAdd.Margin = [System.Windows.Thickness]::new(0, 0, $spacing, 0)
         } else {
-            $Item.Native.Margin = [System.Windows.Thickness]::new(0, 0, 0, $spacing)
+            $elementToAdd.Margin = [System.Windows.Thickness]::new(0, 0, 0, $spacing)
         }
     }
 
@@ -747,7 +827,7 @@ function Add-OtterUiChild {
         if ($layout.CrossAlign) {
             $crossAxis = if ($panel.Orientation -eq [System.Windows.Controls.Orientation]::Horizontal) { 'vertical' } else { 'horizontal' }
             $wpfValue = Get-OtterUiWpfAlignmentValue -Axis $crossAxis -Direction $layout.CrossAlign
-            if ($crossAxis -eq 'vertical') { $Item.Native.VerticalAlignment = $wpfValue } else { $Item.Native.HorizontalAlignment = $wpfValue }
+            if ($crossAxis -eq 'vertical') { $elementToAdd.VerticalAlignment = $wpfValue } else { $elementToAdd.HorizontalAlignment = $wpfValue }
         }
         if ($layout.Spread) {
             Update-OtterUiSpread -Resource $Container
@@ -910,6 +990,153 @@ function Get-OtterUiSpacing {
     $spacingKey = Get-OtterUiSpacingKey -Resource $Window
     if (-not $script:OtterUiSpacing.ContainsKey($spacingKey)) { return $null }
     return $script:OtterUiSpacing[$spacingKey]
+}
+
+function Set-OtterUiPadding {
+    param([OtterUiResource]$Resource, [object]$Value, [int]$Line)
+
+    $number = Assert-OtterUiNumber -Value $Value -Property 'padding' -Kind $Resource.Kind -Line $Line
+    $wrapKey = Get-OtterUiSpacingKey -Resource $Resource
+    $script:OtterUiPadding[$wrapKey] = $number
+
+    if ($Resource.Kind -eq 'window') {
+        if ($null -eq $Resource.Native.Content) {
+            $panel = [System.Windows.Controls.StackPanel]::new()
+            $border = [System.Windows.Controls.Border]::new()
+            $border.Padding = [System.Windows.Thickness]::new($number)
+            $border.Child = $panel
+            $Resource.Native.Content = $border
+            $script:OtterUiWrappers[$wrapKey] = $border
+        } elseif ($Resource.Native.Content -is [System.Windows.Controls.Border]) {
+            $Resource.Native.Content.Padding = [System.Windows.Thickness]::new($number)
+        } else {
+            $panel = $Resource.Native.Content
+            $Resource.Native.Content = $null
+            $border = [System.Windows.Controls.Border]::new()
+            $border.Padding = [System.Windows.Thickness]::new($number)
+            $border.Child = $panel
+            $Resource.Native.Content = $border
+            $script:OtterUiWrappers[$wrapKey] = $border
+        }
+        return
+    }
+
+    # For 'row' and 'column'
+    if ($script:OtterUiWrappers.ContainsKey($wrapKey)) {
+        $border = $script:OtterUiWrappers[$wrapKey]
+        $border.Padding = [System.Windows.Thickness]::new($number)
+    } else {
+        $border = [System.Windows.Controls.Border]::new()
+        $border.Padding = [System.Windows.Thickness]::new($number)
+        $panel = $Resource.Native
+        $border.Width = $panel.Width
+        $border.Height = $panel.Height
+        $border.HorizontalAlignment = $panel.HorizontalAlignment
+        $border.VerticalAlignment = $panel.VerticalAlignment
+        $border.Margin = $panel.Margin
+        $panel.Margin = [System.Windows.Thickness]::new(0, 0, 0, 0)
+        if ($null -ne $panel.Background) {
+            $border.Background = $panel.Background
+        }
+
+        $parent = $panel.Parent
+        if ($null -ne $parent) {
+            if ($parent -is [System.Windows.Controls.Panel]) {
+                $idx = $parent.Children.IndexOf($panel)
+                if ($idx -ge 0) {
+                    $parent.Children.RemoveAt($idx)
+                    $border.Child = $panel
+                    $parent.Children.Insert($idx, $border)
+                }
+            } elseif ($parent -is [System.Windows.Controls.ContentControl]) {
+                $parent.Content = $null
+                $border.Child = $panel
+                $parent.Content = $border
+            }
+        } else {
+            $border.Child = $panel
+        }
+        $script:OtterUiWrappers[$wrapKey] = $border
+    }
+}
+
+function Get-OtterUiPadding {
+    param([OtterUiResource]$Resource)
+
+    $wrapKey = Get-OtterUiSpacingKey -Resource $Resource
+    if (-not $script:OtterUiPadding.ContainsKey($wrapKey)) { return $null }
+    return $script:OtterUiPadding[$wrapKey]
+}
+
+function New-OtterUiWatermarkBrush {
+    param([string]$Text, [System.Windows.Media.Brush]$Background)
+
+    $textBlock = [System.Windows.Controls.TextBlock]::new()
+    $textBlock.Text = $Text
+    $textBlock.Foreground = [System.Windows.Media.Brushes]::DarkGray
+    $textBlock.FontStyle = [System.Windows.FontStyles]::Italic
+    $textBlock.Margin = [System.Windows.Thickness]::new(4, 2, 0, 0)
+
+    $grid = [System.Windows.Controls.Grid]::new()
+    if ($null -ne $Background) {
+        $grid.Background = $Background
+    } else {
+        $grid.Background = [System.Windows.Media.Brushes]::White
+    }
+    [void]$grid.Children.Add($textBlock)
+
+    $brush = [System.Windows.Media.VisualBrush]::new($grid)
+    $brush.Stretch = [System.Windows.Media.Stretch]::None
+    $brush.TileMode = [System.Windows.Media.TileMode]::None
+    $brush.AlignmentX = [System.Windows.Media.AlignmentX]::Left
+    $brush.AlignmentY = [System.Windows.Media.AlignmentY]::Top
+    return $brush
+}
+
+function Update-OtterUiPlaceholderWatermark {
+    param([System.Windows.Controls.TextBox]$TextBox)
+
+    $wrapKey = Get-OtterUiNativeKey -Native $TextBox
+    if (-not $script:OtterUiPlaceholders.ContainsKey($wrapKey)) { return }
+    $placeholderText = $script:OtterUiPlaceholders[$wrapKey]
+    $origBg = if ($script:OtterUiOriginalBackgrounds.ContainsKey($wrapKey)) { $script:OtterUiOriginalBackgrounds[$wrapKey] } else { $null }
+
+    if ([string]::IsNullOrEmpty($TextBox.Text)) {
+        $TextBox.Background = New-OtterUiWatermarkBrush -Text $placeholderText -Background $origBg
+    } else {
+        if ($null -ne $origBg) {
+            $TextBox.Background = $origBg
+        } else {
+            $TextBox.ClearValue([System.Windows.Controls.Control]::BackgroundProperty)
+        }
+    }
+}
+
+function Set-OtterUiPlaceholder {
+    param([OtterUiResource]$Resource, [object]$Value, [int]$Line)
+
+    $text = Format-OtterValue -Value $Value
+    $wrapKey = Get-OtterUiSpacingKey -Resource $Resource
+    $script:OtterUiPlaceholders[$wrapKey] = $text
+
+    $tb = $Resource.Native
+    if (-not $script:OtterUiOriginalBackgrounds.ContainsKey($wrapKey)) {
+        $script:OtterUiOriginalBackgrounds[$wrapKey] = $tb.Background
+        $tb.add_TextChanged({
+            param($sender, $e)
+            Update-OtterUiPlaceholderWatermark -TextBox $sender
+        })
+    }
+
+    Update-OtterUiPlaceholderWatermark -TextBox $tb
+}
+
+function Get-OtterUiPlaceholder {
+    param([OtterUiResource]$Resource)
+
+    $wrapKey = Get-OtterUiSpacingKey -Resource $Resource
+    if (-not $script:OtterUiPlaceholders.ContainsKey($wrapKey)) { return $null }
+    return $script:OtterUiPlaceholders[$wrapKey]
 }
 
 # show app
