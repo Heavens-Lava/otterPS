@@ -51,6 +51,26 @@ Test-Otter 'write then read gives back the same text' {
     Assert-Lines -Expected @('Hello!') -Actual $out
 }
 
+Test-Otter 'append adds to the end without disturbing what is already there (D61)' {
+    $out = Invoke-TestProgram @(
+        [WriteFileStmt]::new((Lit 'one'), (Lit 'log.txt'), 1),
+        [AppendFileStmt]::new((Lit ' two'), (Lit 'log.txt'), 2),
+        [AppendFileStmt]::new((Lit ' three'), (Lit 'log.txt'), 3),
+        [ReadFileStmt]::new((Lit 'log.txt'), 'notes', 4),
+        [SayStmt]::new(@((Var 'notes')), 5)
+    )
+    Assert-Lines -Expected @('one two three') -Actual $out
+}
+
+Test-Otter 'append creates the file when it does not exist yet, same as write (D61)' {
+    $out = Invoke-TestProgram @(
+        [AppendFileStmt]::new((Lit 'first line'), (Lit 'fresh.txt'), 1),
+        [ReadFileStmt]::new((Lit 'fresh.txt'), 'notes', 2),
+        [SayStmt]::new(@((Var 'notes')), 3)
+    )
+    Assert-Lines -Expected @('first line') -Actual $out
+}
+
 Test-Otter 'write then read round-trips non-ASCII text correctly (v1 audit finding)' {
     # Found during the v1 runtime audit: Read-OtterFile used Get-Content
     # -Raw with no explicit encoding. Write-OtterFile deliberately writes

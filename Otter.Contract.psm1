@@ -283,6 +283,7 @@ enum NodeKind {
 
     ReadFile
     WriteFile
+    AppendFile      # append "text" to "log.txt"        (D61)
     CopyFile
     MoveFile
     DeleteFile
@@ -924,6 +925,17 @@ class WriteFileStmt : Node {
     [Node]$Content
     [Node]$Path
     WriteFileStmt([Node]$content, [Node]$path, [int]$line) : base([NodeKind]::WriteFile, $line) {
+        $this.Content = $content
+        $this.Path = $path
+    }
+}
+
+# append "line one" to "log.txt"     (adds to the end; creates the file
+# if it does not exist yet, same as write)                        (D61)
+class AppendFileStmt : Node {
+    [Node]$Content
+    [Node]$Path
+    AppendFileStmt([Node]$content, [Node]$path, [int]$line) : base([NodeKind]::AppendFile, $line) {
         $this.Content = $content
         $this.Path = $path
     }

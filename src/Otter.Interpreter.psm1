@@ -518,6 +518,14 @@ function Invoke-OtterStatement {
             return
         }
 
+        # append "line one" to "log.txt"                            (D61)
+        'AppendFile' {
+            $content = Get-OtterText -Expression $Statement.Content -Environment $Environment
+            $path = Get-OtterPathArgument -Expression $Statement.Path -Environment $Environment
+            Append-OtterFile -Path $path -Content $content -Line $Statement.Line
+            return
+        }
+
         # copy "hello.txt" to "backup/hello.txt"
         'CopyFile' {
             $source = Get-OtterPathArgument -Expression $Statement.Source -Environment $Environment

@@ -195,6 +195,28 @@ function Write-OtterFile {
     }
 }
 
+# append "line one" to "log.txt"                                  (D61)
+function Append-OtterFile {
+    param([string]$Path, [string]$Content, [int]$Line)
+
+    $full = Resolve-OtterPath -Path $Path -Line $Line
+    Initialize-OtterParentFolder -FullPath $full -Line $Line
+
+    if (Test-Path -LiteralPath $full -PathType Container) {
+        throw [OtterError]::new("`"$Path`" is a folder, not a file.", $Line, 'runtime')
+    }
+
+    try {
+        # AppendAllText is create-or-append by default - no separate
+        # existence check needed. Same no-BOM UTF-8 as Write-OtterFile.
+        $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+        [System.IO.File]::AppendAllText($full, $Content, $utf8NoBom)
+    }
+    catch {
+        throw [OtterError]::new("I could not append to `"$Path`". $($_.Exception.Message)", $Line, 'runtime')
+    }
+}
+
 # copy "hello.txt" to "backup/hello.txt"
 function Copy-OtterFile {
     param([string]$Source, [string]$Destination, [int]$Line)
@@ -704,7 +726,7 @@ function Invoke-OtterCommand {
 
 
 Export-ModuleMember -Function `
-    Resolve-OtterPath, Read-OtterFile, Write-OtterFile, Copy-OtterFile, `
+    Resolve-OtterPath, Read-OtterFile, Write-OtterFile, Append-OtterFile, Copy-OtterFile, `
     Move-OtterFile, Remove-OtterFile, Test-OtterFileExists, `
     Split-OtterCommandLine, Start-OtterProgram, Invoke-OtterCommand, `
     New-OtterFileObject, Resolve-OtterFileArgument, New-OtterFolderObject, `

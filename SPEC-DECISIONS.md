@@ -25,9 +25,12 @@ at once (front end, back end, web) — this ledger is the single source
 of truth for "what's the next number," so nobody has to guess or
 collide with work in flight.
 
-NEXT DECISION NUMBER: D61
+NEXT DECISION NUMBER: D62
 
 CLAIMED:
+- D61 — `append <content> to <path>` (file append) — Claude (interpreter
+  side landed; lexer/parser side still needed from Codex — see the
+  entry below for the exact frozen shape)
 - D49 — HTTP requests and web data — Gemini
 - D50 — Otter Web App Compiler — Gemini
 - D51 — Web Servers and API Routes — Gemini
@@ -4146,6 +4149,70 @@ architecture above, but the agreed starting order)
   JS — those follow as their own decisions.
 - Does not claim any part of the "missing" list above is done. It is a
   todo list, not a status report.
+
+---
+
+## D61. `append <content> to <path>` — file append
+
+### Context
+
+Reviewing the v1 file/folder surface against what a serious desktop
+language needs (read, write, create, delete, copy, move file; create,
+list, remove folder — all already present), one real gap: no way to
+append to an existing file without reading its full contents, doing
+the string concatenation yourself, and overwriting via `write`. Common
+enough (logging, incremental output) to belong in v1.
+
+### Decision
+
+```otter
+append "line one" to "log.txt"
+append "line two" to "log.txt"
+```
+
+**Syntax**: `append <content> to <path>` — the same shape as the
+already-frozen `write <content> to <path>` (D-numbered under the
+original file milestone), with only the verb swapped. No new grammar
+pattern, no new word order.
+
+**Semantics**: appends `<content>` to the end of the file at `<path>`.
+Creates the file - and its parent folders, matching `write`'s own
+behavior - if it does not already exist yet. Same explicit UTF-8,
+no-BOM encoding `Write-OtterFile` already uses (`.NET`'s
+`AppendAllText` is create-or-append by default, so this needs no
+special-casing to get right).
+
+### Contract shape (frozen)
+
+```powershell
+# append "text" to "log.txt"
+class AppendFileStmt : Node {
+    [Node]$Content
+    [Node]$Path
+    AppendFileStmt([Node]$content, [Node]$path, [int]$line) : base([NodeKind]::AppendFile, $line) {
+        $this.Content = $content
+        $this.Path = $path
+    }
+}
+```
+
+New `NodeKind::AppendFile`, added next to `WriteFile` in the enum.
+Structurally identical to `WriteFileStmt` on purpose - same shape,
+different kind.
+
+### What's built, what's still Codex's
+
+**Interpreter + runtime**: landed this entry (`Append-OtterFile` in
+`Otter.Library.psm1`, the `'AppendFile'` case in
+`Otter.Interpreter.psm1`), tested directly against hand-constructed
+`AppendFileStmt` nodes per this project's established "don't block on
+Codex" workflow - the parser does not need to exist first.
+
+**Grammar not yet built.** Needs a new `Append` token (lexer) and one
+parser case mirroring `Write`'s existing one exactly (`Read-OtterValue`
+for content, `Assert-OtterTokenKind Newline`/`To`, `Read-OtterValue`
+for path). Codex's lane, once handed off - the frozen shape above is
+exactly what the parser needs to construct.
 
 ---
 
