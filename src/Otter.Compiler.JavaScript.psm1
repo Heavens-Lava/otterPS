@@ -55,13 +55,48 @@ function ConvertTo-OtterJsExpression {
             $right = ConvertTo-OtterJsExpression -Expr $Expr.Right
             switch ($Expr.Op) {
                 ([MathOp]::Add) {
-                    if (($Expr.Left -is [LiteralExpr] -and $Expr.Left.Value -is [string]) -or
-                        ($Expr.Right -is [LiteralExpr] -and $Expr.Right.Value -is [string]) -or
-                        $left.StartsWith('"') -or $right.StartsWith('"')) {
-                        return "($left + $right)"
-                    }
-                    return "(Number($left) + Number($right))"
+                    # D60 Phase 1D-B. The old check here was STATIC (did the
+                    # AST show a literal string, or did the generated JS text
+                    # start with a quote?) - wrong whenever a string arrives
+                    # through a variable rather than a literal, which is the
+                    # common case ("joined is joined plus item" produced
+                    # "NaN", not the concatenation the interpreter actually
+                    # does). Matches Otter.Interpreter.psm1's real 'Math'
+                    # case exactly instead, verified against the interpreter
+                    # for every combination before writing this, not assumed:
+                    #   - "a" plus "b" -> "ab" (both operands are STRING
+                    #     TYPE, so concatenate - unconditionally, even if
+                    #     both look numeric: "5" plus "3" concatenates to
+                    #     "53", it does NOT add to 8)
+                    #   - "5" plus 3 / 5 plus "3" -> 8 (only one side is a
+                    #     string, so both sides are coerced to numbers
+                    #     instead - a numeric-looking string parses fine)
+                    #   - 5 plus 10 -> 15 (plain arithmetic)
+                    #   - "a" plus 5 / 5 plus "a" -> throws (a non-numeric
+                    #     string fails coercion, matching Assert-OtterNumber)
+                    #   - "" or "  " plus 5 -> throws (empty/whitespace-only
+                    #     fails coercion too, matching .NET's double.TryParse)
+                    #   - true plus 5 -> throws (booleans are explicitly
+                    #     rejected as numeric, matching Test-OtterNumeric's
+                    #     `if ($Value -is [bool]) { return $false }` - a
+                    #     naive Number(true) would silently succeed as 1 in
+                    #     JS, which is exactly the kind of gap this phase
+                    #     exists to close)
+                    # This is a RUNTIME check (typeof, on the actual value),
+                    # not a static one - that is the whole fix. An IIFE is
+                    # used because this is expression position; no shared
+                    # runtime helper was added to keep this change entirely
+                    # inside this module (Otter.Web.psm1's boilerplate is
+                    # untouched).
+                    return "(() => { const _l = $left; const _r = $right; if (typeof _l === 'string' && typeof _r === 'string') { return _l + _r; } const _lOk = typeof _l === 'number' || (typeof _l === 'string' && _l.trim() !== '' && !Number.isNaN(Number(_l))); if (!_lOk) { throw new Error('I expected a number for the left side of this calculation but got ' + JSON.stringify(_l) + '.'); } const _rOk = typeof _r === 'number' || (typeof _r === 'string' && _r.trim() !== '' && !Number.isNaN(Number(_r))); if (!_rOk) { throw new Error('I expected a number for the right side of this calculation but got ' + JSON.stringify(_r) + '.'); } return Number(_l) + Number(_r); })()"
                 }
+                # Subtract/Multiply/Divide have the SAME underlying gap
+                # (Assert-OtterNumber throws on a non-numeric operand in the
+                # interpreter; Number(...) here silently produces NaN
+                # instead) - confirmed present, deliberately NOT fixed in
+                # this commit. Phase 1D-B's scope, per instruction, is `plus`
+                # specifically; this is flagged as a separate, still-open
+                # finding, not silently folded in here.
                 ([MathOp]::Subtract) { return "(Number($left) - Number($right))" }
                 ([MathOp]::Multiply) { return "(Number($left) * Number($right))" }
                 ([MathOp]::Divide) { return "(Number($left) / Number($right))" }
