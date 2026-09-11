@@ -1837,8 +1837,8 @@ trying to cover both:
   own, at the exact point the parser is still waiting for a required
   clause. Frozen and ready to build.
 - **D38B** (below): continuing a *condition* inside an `if`/`while` header,
-  which sits at the same natural depth as the block's own body. Still
-  under investigation, not frozen, no implementation yet.
+  which sits at the same natural depth as the block's own body. Complete -
+  see D38B for the frozen rule.
 
 ```otter
 get files in "Pictures" and subfolders
@@ -1914,105 +1914,33 @@ Grammar-only. Codex's lane. No contract change, no runtime change.
 
 ---
 
-## D38B. Condition continuation inside a block header - under investigation, NOT frozen
+## D38B. Continued if/while conditions
+
+**Commit: a1adfce**
+**Status: COMPLETE**
+
+Canonical form:
 
 ```otter
-if extension of file is ".jpg"
-    or extension of file is ".png"
-    say "yes"
+if age is at least 18 and
+    status is "active"
+    say "Allowed"
 .
 ```
 
-**Not decided. Not implemented. This entry records an investigation, the
-same way the D41 unified-representation question was investigated before
-being frozen** — evidence gathered, options laid out, decision left to
-Jeff.
+**Rule:** a condition header may continue onto the next indented line only
+when the preceding condition line ends with `and` or `or`.
 
-### Why this is a different, harder problem than D38A
-
-`if`'s condition and `if`'s body are both real, both expected, and — when
-the condition is written across two lines at the same natural depth as the
-body — currently indistinguishable at the token level:
-
-```otter
-if true or
-    false
-    say "yes"
-.
-```
-
-tokenizes as **one** `Indent`/`Dedent` pair wrapping *both* lines. Nothing
-in the indentation says where the condition ends and the body begins.
-
-**One resolution was tried and rejected: indenting the continuation deeper
-than the body.** Verified directly — this is currently a hard error
-*independent of D38 entirely*: *"Indentation cannot jump more than one
-level at a time"* (D7). Making it work would mean carving an exception into
-D7's jump-limit rule, not just adding continuation grammar. Rejected for
-exactly the reason Jeff gave: it reads backwards (the condition sits
-visually deeper than the body it belongs to) and it means touching D7
-itself, which D38A was explicit about never needing to do.
-
-**Also rejected: reusing `.` as a continuation marker.** `.` already has
-one clean job — closing a block. Giving it a second, contextual meaning is
-exactly the kind of overload this project has avoided everywhere else
-(D4's whole point was collapsing period-meanings to exactly one).
-
-### The direction worth investigating: a leading connective
-
-```otter
-if extension of file is ".jpg"
-    or extension of file is ".png"
-    say "yes"
-.
-```
-
-Here the *first* line is already a complete, valid condition on its own —
-`Read-OtterCondition` finishes reading it and returns normally, because
-nothing currently makes it keep looking for more. The idea: when what
-would otherwise be the first *body* statement instead begins with `or` or
-`and`, treat that as continuing the condition instead of starting the
-body — and only once a line's leading token is neither does real body
-parsing begin.
-
-**Verified, not assumed:** `or` (or `and`) as the leading token of an
-ordinary statement is a hard, specific error today — *"I don't understand
-'or'."* — in every case. No currently-valid body statement can begin with
-either word. That is exactly the same additive-safety property D38A relies
-on: nothing that currently works could change meaning.
-
-**What actually needs answering before this is buildable — genuinely open,
-not implementation detail:**
-
-1. **This cannot reuse the generic `Read-OtterBlock` unchanged.** `if` and
-   `while` would need their own condition-aware body reader: consume
-   `Newline`+`Indent` once, then loop — while the current line's leading
-   token is `Or`/`And`, consume it, read another condition operand, consume
-   that line's `Newline`, and check again; once a line's leading token is
-   neither, switch to ordinary `Read-OtterStatements` for the body, still
-   inside the *same* `Indent` that was already consumed for the
-   continuation. That is a real, contained rewrite of how these two
-   statements read their blocks, not a one-line addition.
-2. **Precedence across continuation lines.** D11 already defines `not` >
-   `and` > `or` on one line. Does `if a` / `    and b` / `    or c` compose
-   the same way it would on one line, or does each continuation line
-   implicitly parenthesize against the ones before it? Needs a stated rule,
-   not an inferred one.
-3. **Does this generalize to `while`, or only `if`?** The mechanism is
-   identical either way (both read a condition then a body), but each
-   needs its own explicit yes/no rather than assuming both are included
-   because one is.
-4. **Interaction with `otherwise if`.** `otherwise if <condition>` reads a
-   condition the same way `if` does — does a continued condition there
-   follow the identical rule automatically, or does chaining `otherwise`
-   onto a continuation introduce its own ambiguity worth checking
-   separately?
-
-### Status
-
-Investigation only. Report findings before any implementation, per Jeff's
-explicit instruction — this entry exists to carry that report, not to
-close the question.
+- Applies only to `if`/`while`.
+- The first continuation line indents one level; additional continuation
+  lines remain at that same level.
+- The body begins once the condition is complete (the first line whose
+  leading token is not a continuation of the condition).
+- Precedence remains `not` > `and` > `or` (D11), unchanged across
+  continuation lines.
+- No general multiline-expression behavior — this is specific to `if`/
+  `while` condition headers, not a statement- or expression-continuation
+  mechanism.
 
 ---
 
