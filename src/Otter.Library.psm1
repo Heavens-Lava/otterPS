@@ -148,7 +148,20 @@ function Read-OtterFile {
     }
 
     try {
-        $content = Get-Content -LiteralPath $full -Raw -ErrorAction Stop
+        # ReadAllText with an explicit UTF-8 decoder, not Get-Content -Raw:
+        # Get-Content's default encoding on Windows PowerShell 5.1 is the
+        # system codepage when a file has no BOM, not UTF-8 - and
+        # Write-OtterFile deliberately writes BOM-less UTF-8 (see its own
+        # comment). Confirmed directly: round-tripping "José Müller 你好"
+        # through write then read came back as mojibake
+        # ("JosÃ© MÃ¼ller ä½ å¥½") purely from this mismatch - the bytes on
+        # disk were already correct UTF-8, only the read side decoded them
+        # wrong. .NET's UTF8Encoding still honors a BOM if one is present
+        # (e.g. a file from another tool), so this is strictly a superset
+        # of what Get-Content's guess could get right, never a regression
+        # for an already-working case.
+        $utf8 = [System.Text.UTF8Encoding]::new($false)
+        $content = [System.IO.File]::ReadAllText($full, $utf8)
         if ($null -eq $content) { return '' }
         return $content
     }

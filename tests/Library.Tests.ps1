@@ -51,6 +51,24 @@ Test-Otter 'write then read gives back the same text' {
     Assert-Lines -Expected @('Hello!') -Actual $out
 }
 
+Test-Otter 'write then read round-trips non-ASCII text correctly (v1 audit finding)' {
+    # Found during the v1 runtime audit: Read-OtterFile used Get-Content
+    # -Raw with no explicit encoding. Write-OtterFile deliberately writes
+    # BOM-less UTF-8 (see its own comment on WriteAllText), and Get-Content
+    # falls back to the system codepage when there is no BOM to guess
+    # from - so on this system, "José Müller 你好" written and read back
+    # came back as mojibake ("JosÃ© MÃ¼ller ä½ å¥½"), silently - no error,
+    # just corrupted text. Fixed with an explicit UTF8Encoding on the read
+    # side, matching the write side exactly.
+    $text = "José Müller 你好"
+    $out = Invoke-TestProgram @(
+        [WriteFileStmt]::new((Lit $text), (Lit 'unicode.txt'), 1),
+        [ReadFileStmt]::new((Lit 'unicode.txt'), 'notes', 2),
+        [SayStmt]::new(@((Var 'notes')), 3)
+    )
+    Assert-Lines -Expected @($text) -Actual $out
+}
+
 Test-Otter 'file exists is false before and true after writing' {
     $out = Invoke-TestProgram @(
         [SayStmt]::new(@([FileExistsExpr]::new((Lit 'later.txt'), 1)), 1),
