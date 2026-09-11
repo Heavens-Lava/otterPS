@@ -1,3 +1,13 @@
+# Experimental Otter syntax.
+# This example demonstrates planned post-v1 declarative UI/event/animation
+# features (card, layout, enter/leave, hover/click blocks). It is not
+# supported by Otter 1.0 - see D56 in SPEC-DECISIONS.md.
+#
+# The `state`/`derive`/`when count changes` lines below ARE frozen v1
+# syntax and work correctly on their own; the `card`/`layout`/`click`
+# declarative UI blocks further down are not, and its click handlers do
+# not currently do anything (UiEvent is an explicit v1 error as of D56).
+
 state count is 0
 state menuOpen is false
 
@@ -64,5 +74,5 @@ to counterCard
 counterCard
 
 when count changes
-    say "Count changed to " + count
+    say "Count changed to" count
 .
