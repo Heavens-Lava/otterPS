@@ -1,0 +1,3 @@
+# Release packaging output (tools/Build-OtterRelease.ps1) - rebuildable from
+# a clean checkout, never committed.
+dist/

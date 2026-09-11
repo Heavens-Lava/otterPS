@@ -1507,7 +1507,7 @@ function Get-OtterUiExpressionValue {
     return $null
 }
 
-function Render-OtterDeclarativeElementWpf {
+function ConvertTo-OtterDeclarativeElementWpf {
     param(
         [Parameter(Mandatory)][Node]$Element,
         [Parameter(Mandatory)][OtterEnvironment]$Environment
@@ -1813,7 +1813,7 @@ function Render-OtterDeclarativeElementWpf {
         $first = $true
         foreach ($child in $Element.Children) {
             if ($child -is [UiElementStmt]) {
-                $childControl = Render-OtterDeclarativeElementWpf -Element $child -Environment $Environment
+                $childControl = ConvertTo-OtterDeclarativeElementWpf -Element $child -Environment $Environment
                 if ($childControl) {
                     if (-not $first -and $childGap -gt 0) {
                         if ($innerPanel.Orientation -eq [System.Windows.Controls.Orientation]::Horizontal) {
@@ -1833,7 +1833,7 @@ function Render-OtterDeclarativeElementWpf {
                     $subFirst = $true
                     foreach ($sub in $b0.Body) {
                         if ($sub -is [UiElementStmt]) {
-                            $subCtrl = Render-OtterDeclarativeElementWpf -Element $sub -Environment $Environment
+                            $subCtrl = ConvertTo-OtterDeclarativeElementWpf -Element $sub -Environment $Environment
                             if ($subCtrl) {
                                 if (-not $subFirst -and $childGap -gt 0) {
                                     $subCtrl.Margin = [System.Windows.Thickness]::new(0, $childGap, 0, 0)
@@ -1970,7 +1970,7 @@ function ConvertTo-OtterWpfWindow {
     $mainStack.VerticalAlignment = [System.Windows.VerticalAlignment]::Center
 
     foreach ($rootEl in $declarativeRoots) {
-        $ctrl = Render-OtterDeclarativeElementWpf -Element $rootEl -Environment $Environment
+        $ctrl = ConvertTo-OtterDeclarativeElementWpf -Element $rootEl -Environment $Environment
         if ($ctrl) {
             [void]$mainStack.Children.Add($ctrl)
             if ($rootEl.Tag -in @('window', 'page') -and $rootEl.Label -is [LiteralExpr]) {
@@ -1990,7 +1990,7 @@ function ConvertTo-OtterWpfElement {
         [Parameter(Mandatory)][Node]$Element,
         [Parameter(Mandatory)][OtterEnvironment]$Environment
     )
-    return Render-OtterDeclarativeElementWpf -Element $Element -Environment $Environment
+    return ConvertTo-OtterDeclarativeElementWpf -Element $Element -Environment $Environment
 }
 
 function Show-OtterDeclarativeAppWpf {
@@ -2009,5 +2009,5 @@ Export-ModuleMember -Function `
     Test-OtterUiResource, New-OtterUiResourceValue, Initialize-OtterWpfProvider, `
     Get-OtterUiProperty, Set-OtterUiProperty, Add-OtterUiEventHandler, `
     Add-OtterUiChild, Show-OtterUiResource, `
-    Add-OtterUiAnimationWpf, Render-OtterDeclarativeElementWpf, ConvertTo-OtterWpfElement, `
+    Add-OtterUiAnimationWpf, ConvertTo-OtterDeclarativeElementWpf, ConvertTo-OtterWpfElement, `
     Get-OtterUiExpressionValue, ConvertTo-OtterWpfWindow, Show-OtterDeclarativeAppWpf
