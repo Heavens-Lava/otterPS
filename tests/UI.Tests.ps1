@@ -1081,14 +1081,22 @@ Test-Otter 'row with spread distributes children across available container widt
     Assert-AreEqual -Expected 400 -Actual $pos2.X
 }
 
-Test-Otter 'row and column apply physical vertical and horizontal child alignments' {
+Test-Otter 'D54: cross-axis align is one property everywhere - a word carries its own axis, not the property name' {
+    # A row's cross axis is vertical (top/middle/bottom); a column's
+    # cross axis is horizontal (left/center/right). Both go through the
+    # SAME 'align' property - this is the exact bug found during the v1
+    # audit: an earlier implementation split 'align' into align_h/align_v
+    # and routed by property name instead of by the word's own meaning,
+    # so "align top" on a row silently did nothing (fell through a
+    # horizontal-only switch's default case instead of erroring or
+    # working). Verified fixed by checking the actual native properties.
     $res = Invoke-TestProgramWithEnv @(
         [CreateUiResourceStmt]::new('row', 'navRow', 1),
-        [AssignStmt]::new([PropertyAccessExpr]::new('align_v', [VariableExpr]::new('navRow', 2), 2), (Lit 'middle'), 2),
+        [AssignStmt]::new([PropertyAccessExpr]::new('align', [VariableExpr]::new('navRow', 2), 2), (Lit 'middle'), 2),
         [CreateUiResourceStmt]::new('button', 'btn', 3),
         [PutInStmt]::new([VariableExpr]::new('btn', 4), [VariableExpr]::new('navRow', 4), 4),
         [CreateUiResourceStmt]::new('column', 'sideCol', 5),
-        [AssignStmt]::new([PropertyAccessExpr]::new('align_h', [VariableExpr]::new('sideCol', 6), 6), (Lit 'right'), 6),
+        [AssignStmt]::new([PropertyAccessExpr]::new('align', [VariableExpr]::new('sideCol', 6), 6), (Lit 'right'), 6),
         [CreateUiResourceStmt]::new('text', 'txt', 7),
         [PutInStmt]::new([VariableExpr]::new('txt', 8), [VariableExpr]::new('sideCol', 8), 8)
     )
@@ -1098,12 +1106,119 @@ Test-Otter 'row and column apply physical vertical and horizontal child alignmen
     Assert-AreEqual -Expected 'Right' -Actual $txt.HorizontalAlignment.ToString()
 }
 
-Test-Otter 'conflict rejection on spread and flow alignment at runtime' {
+Test-Otter 'D54: cross-axis align applies to children put in AFTER it was set too' {
+    $res = Invoke-TestProgramWithEnv @(
+        [CreateUiResourceStmt]::new('row', 'navRow', 1),
+        [AssignStmt]::new([PropertyAccessExpr]::new('align', [VariableExpr]::new('navRow', 2), 2), (Lit 'bottom'), 2),
+        [CreateUiResourceStmt]::new('button', 'btn', 3),
+        [PutInStmt]::new([VariableExpr]::new('btn', 4), [VariableExpr]::new('navRow', 4), 4)
+    )
+    Assert-AreEqual -Expected 'Bottom' -Actual $res.Env.Get('btn').Native.VerticalAlignment.ToString()
+}
+
+Test-Otter 'D54: main-axis align on a row positions the child GROUP, not each child individually' {
+    $res = Invoke-TestProgramWithEnv @(
+        [CreateUiResourceStmt]::new('row', 'toolbar', 1),
+        [AssignStmt]::new([PropertyAccessExpr]::new('width', [VariableExpr]::new('toolbar', 2), 2), (Lit 500), 2),
+        [CreateUiResourceStmt]::new('button', 'b1', 3),
+        [AssignStmt]::new([PropertyAccessExpr]::new('width', [VariableExpr]::new('b1', 4), 4), (Lit 100), 4),
+        [CreateUiResourceStmt]::new('button', 'b2', 5),
+        [AssignStmt]::new([PropertyAccessExpr]::new('width', [VariableExpr]::new('b2', 6), 6), (Lit 100), 6),
+        [PutInStmt]::new([VariableExpr]::new('b1', 7), [VariableExpr]::new('toolbar', 7), 7),
+        [PutInStmt]::new([VariableExpr]::new('b2', 8), [VariableExpr]::new('toolbar', 8), 8),
+        [AssignStmt]::new([PropertyAccessExpr]::new('align', [VariableExpr]::new('toolbar', 9), 9), (Lit 'right'), 9)
+    )
+    $row = $res.Env.Get('toolbar').Native
+    $b1 = $res.Env.Get('b1').Native
+    $b2 = $res.Env.Get('b2').Native
+    $row.Measure([System.Windows.Size]::new(500, 100))
+    $row.Arrange([System.Windows.Rect]::new(0, 0, 500, 100))
+    $pos1 = $b1.TransformToAncestor($row).Transform([System.Windows.Point]::new(0, 0))
+    $pos2 = $b2.TransformToAncestor($row).Transform([System.Windows.Point]::new(0, 0))
+    # 500 total - 200 content = 300 leftover, all pushed before the group for 'right'
+    Assert-AreEqual -Expected 300 -Actual $pos1.X
+    Assert-AreEqual -Expected 400 -Actual $pos2.X
+}
+
+Test-Otter 'D54: same-axis align conflict is an error - only one alignment per axis' {
+    Assert-OtterFails -Containing 'only one alignment is allowed per axis' -Body {
+        Invoke-TestProgram @(
+            [CreateUiResourceStmt]::new('row', 'r', 1),
+            [AssignStmt]::new([PropertyAccessExpr]::new('align', [VariableExpr]::new('r', 2), 2), (Lit 'left'), 2),
+            [AssignStmt]::new([PropertyAccessExpr]::new('align', [VariableExpr]::new('r', 3), 3), (Lit 'right'), 3)
+        )
+    }
+    Assert-OtterFails -Containing 'only one alignment is allowed per axis' -Body {
+        Invoke-TestProgram @(
+            [CreateUiResourceStmt]::new('row', 'r', 1),
+            [AssignStmt]::new([PropertyAccessExpr]::new('align', [VariableExpr]::new('r', 2), 2), (Lit 'top'), 2),
+            [AssignStmt]::new([PropertyAccessExpr]::new('align', [VariableExpr]::new('r', 3), 3), (Lit 'bottom'), 3)
+        )
+    }
+}
+
+Test-Otter 'D54: spread and main-axis align conflict in both directions' {
     Assert-OtterFails -Containing 'conflicts with' -Body {
         Invoke-TestProgram @(
             [CreateUiResourceStmt]::new('row', 'r', 1),
             [AssignStmt]::new([PropertyAccessExpr]::new('spread', [VariableExpr]::new('r', 2), 2), (Lit $true), 2),
-            [AssignStmt]::new([PropertyAccessExpr]::new('align_h', [VariableExpr]::new('r', 3), 3), (Lit 'center'), 3)
+            [AssignStmt]::new([PropertyAccessExpr]::new('align', [VariableExpr]::new('r', 3), 3), (Lit 'center'), 3)
+        )
+    }
+    Assert-OtterFails -Containing 'conflicts with' -Body {
+        Invoke-TestProgram @(
+            [CreateUiResourceStmt]::new('column', 'c', 1),
+            [AssignStmt]::new([PropertyAccessExpr]::new('align', [VariableExpr]::new('c', 2), 2), (Lit 'top'), 2),
+            [AssignStmt]::new([PropertyAccessExpr]::new('spread', [VariableExpr]::new('c', 3), 3), (Lit $true), 3)
+        )
+    }
+}
+
+Test-Otter 'D54: spread and cross-axis align compose validly - different axes, different slots' {
+    $res = Invoke-TestProgramWithEnv @(
+        [CreateUiResourceStmt]::new('row', 'toolbar', 1),
+        [AssignStmt]::new([PropertyAccessExpr]::new('width', [VariableExpr]::new('toolbar', 2), 2), (Lit 500), 2),
+        [AssignStmt]::new([PropertyAccessExpr]::new('spread', [VariableExpr]::new('toolbar', 3), 3), (Lit $true), 3),
+        [AssignStmt]::new([PropertyAccessExpr]::new('align', [VariableExpr]::new('toolbar', 4), 4), (Lit 'middle'), 4),
+        [CreateUiResourceStmt]::new('button', 'btn', 5),
+        [PutInStmt]::new([VariableExpr]::new('btn', 6), [VariableExpr]::new('toolbar', 6), 6)
+    )
+    Assert-AreEqual -Expected 'Center' -Actual $res.Env.Get('btn').Native.VerticalAlignment.ToString()
+}
+
+Test-Otter 'D54: two different-axis alignments compose into a corner - valid, not a conflict' {
+    $res = Invoke-TestProgramWithEnv @(
+        [CreateUiResourceStmt]::new('row', 'toolbar', 1),
+        [AssignStmt]::new([PropertyAccessExpr]::new('width', [VariableExpr]::new('toolbar', 2), 2), (Lit 500), 2),
+        [AssignStmt]::new([PropertyAccessExpr]::new('align', [VariableExpr]::new('toolbar', 3), 3), (Lit 'top'), 3),
+        [AssignStmt]::new([PropertyAccessExpr]::new('align', [VariableExpr]::new('toolbar', 4), 4), (Lit 'right'), 4),
+        [CreateUiResourceStmt]::new('button', 'btn', 5),
+        [AssignStmt]::new([PropertyAccessExpr]::new('width', [VariableExpr]::new('btn', 6), 6), (Lit 100), 6),
+        [PutInStmt]::new([VariableExpr]::new('btn', 7), [VariableExpr]::new('toolbar', 7), 7)
+    )
+    $row = $res.Env.Get('toolbar').Native
+    $btn = $res.Env.Get('btn').Native
+    Assert-AreEqual -Expected 'Top' -Actual $btn.VerticalAlignment.ToString()
+    $row.Measure([System.Windows.Size]::new(500, 100))
+    $row.Arrange([System.Windows.Rect]::new(0, 0, 500, 100))
+    $pos = $btn.TransformToAncestor($row).Transform([System.Windows.Point]::new(0, 0))
+    Assert-AreEqual -Expected 400 -Actual $pos.X
+}
+
+Test-Otter 'an unrecognized alignment word is a clean Otter error naming the valid options' {
+    Assert-OtterFails -Containing 'A row has no alignment called "diagonal"' -Body {
+        Invoke-TestProgram @(
+            [CreateUiResourceStmt]::new('row', 'r', 1),
+            [AssignStmt]::new([PropertyAccessExpr]::new('align', [VariableExpr]::new('r', 2), 2), (Lit 'diagonal'), 2)
+        )
+    }
+}
+
+Test-Otter 'a vertical alignment word on a plain control (no axis of its own) is a clean error, not a silent default' {
+    Assert-OtterFails -Containing 'can only align left, center, or right' -Body {
+        Invoke-TestProgram @(
+            [CreateUiResourceStmt]::new('button', 'btn', 1),
+            [AssignStmt]::new([PropertyAccessExpr]::new('align', [VariableExpr]::new('btn', 2), 2), (Lit 'top'), 2)
         )
     }
 }

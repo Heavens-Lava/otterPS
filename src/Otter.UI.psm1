@@ -78,13 +78,54 @@ function Get-OtterUiSpacingKey {
     return [System.Runtime.CompilerServices.RuntimeHelpers]::GetHashCode($Resource.Native).ToString()
 }
 
+# D54: MainAlign/CrossAlign/Spread are resolved by AXIS, never by the
+# property name used to set them - "align" is one property; the word
+# itself (top/middle/bottom vs left/center/right) says which axis it
+# belongs to, via Get-OtterUiAlignAxis below.
 function Get-OtterUiLayoutEntry {
     param([OtterUiResource]$Resource)
     $key = Get-OtterUiSpacingKey -Resource $Resource
     if (-not $script:OtterUiLayout.ContainsKey($key)) {
-        $script:OtterUiLayout[$key] = @{ align_h = $null; align_v = $null; spread = $false }
+        $script:OtterUiLayout[$key] = @{ MainAlign = $null; CrossAlign = $null; Spread = $false; LastAlign = $null }
     }
     return $script:OtterUiLayout[$key]
+}
+
+# A direction word carries its own axis, independent of the container it
+# is applied to - this is the ONLY place that mapping lives. Everything
+# else asks this function "which axis does this word belong to," rather
+# than assuming from which property name was used.
+function Get-OtterUiAlignAxis {
+    param([string]$Direction, [string]$Kind, [int]$Line)
+    switch ($Direction) {
+        'top'    { return 'vertical' }
+        'middle' { return 'vertical' }
+        'bottom' { return 'vertical' }
+        'left'   { return 'horizontal' }
+        'center' { return 'horizontal' }
+        'right'  { return 'horizontal' }
+        default {
+            throw [OtterError]::new(
+                "A $Kind has no alignment called `"$Direction`".", $Line, 'runtime', 0, $null,
+                'Otter accepts: top, middle, bottom, left, center, right')
+        }
+    }
+}
+
+function Get-OtterUiWpfAlignmentValue {
+    param([string]$Axis, [string]$Direction)
+    if ($Axis -eq 'vertical') {
+        switch ($Direction) {
+            'top'    { return [System.Windows.VerticalAlignment]::Top }
+            'middle' { return [System.Windows.VerticalAlignment]::Center }
+            'bottom' { return [System.Windows.VerticalAlignment]::Bottom }
+        }
+    }
+    switch ($Direction) {
+        'left'   { return [System.Windows.HorizontalAlignment]::Left }
+        'center' { return [System.Windows.HorizontalAlignment]::Center }
+        'right'  { return [System.Windows.HorizontalAlignment]::Right }
+    }
 }
 
 function Initialize-OtterWpfProvider {
@@ -196,13 +237,19 @@ function New-OtterUiResourceValue {
 # Get-/Set-OtterUiSpacing below; it has no Native entry because it never
 # reads or writes a single native property directly.
 $script:OtterUiProperties = @{
+    # D54: 'align' is ONE property everywhere - the physical word itself
+    # carries its own axis (top/middle/bottom = vertical, left/center/
+    # right = horizontal), never the property name. button/text/text box
+    # have no main/cross axis of their own, so they only accept the
+    # horizontal words (their own content alignment); row/column resolve
+    # the word's axis against their own orientation - see Set-/
+    # Get-OtterUiProperty's 'align' handling below, not this table.
     'button' = @{
         'text'       = @{ Native = 'Content'; Type = 'text' }
         'width'      = @{ Native = 'Width'; Type = 'number' }
         'height'     = @{ Native = 'Height'; Type = 'number' }
         'background' = @{ Native = 'Background'; Type = 'color' }
         'foreground' = @{ Native = 'Foreground'; Type = 'color' }
-        'align_h'    = @{ Type = 'align_h' }
         'align'      = @{ Type = 'align' }
     }
     'text box' = @{
@@ -211,7 +258,6 @@ $script:OtterUiProperties = @{
         'height'     = @{ Native = 'Height'; Type = 'number' }
         'background' = @{ Native = 'Background'; Type = 'color' }
         'foreground' = @{ Native = 'Foreground'; Type = 'color' }
-        'align_h'    = @{ Type = 'align_h' }
         'align'      = @{ Type = 'align' }
     }
     'text' = @{
@@ -220,7 +266,6 @@ $script:OtterUiProperties = @{
         'height'     = @{ Native = 'Height'; Type = 'number' }
         'background' = @{ Native = 'Background'; Type = 'color' }
         'foreground' = @{ Native = 'Foreground'; Type = 'color' }
-        'align_h'    = @{ Type = 'align_h' }
         'align'      = @{ Type = 'align' }
     }
     'window' = @{
@@ -236,8 +281,6 @@ $script:OtterUiProperties = @{
         'height'     = @{ Native = 'Height'; Type = 'number' }
         'background' = @{ Native = 'Background'; Type = 'color' }
         'spacing'    = @{ Type = 'spacing' }
-        'align_v'    = @{ Type = 'align_v' }
-        'align_h'    = @{ Type = 'align_h' }
         'align'      = @{ Type = 'align' }
         'spread'     = @{ Type = 'spread' }
     }
@@ -246,8 +289,6 @@ $script:OtterUiProperties = @{
         'height'     = @{ Native = 'Height'; Type = 'number' }
         'background' = @{ Native = 'Background'; Type = 'color' }
         'spacing'    = @{ Type = 'spacing' }
-        'align_v'    = @{ Type = 'align_v' }
-        'align_h'    = @{ Type = 'align_h' }
         'align'      = @{ Type = 'align' }
         'spread'     = @{ Type = 'spread' }
     }
@@ -356,11 +397,21 @@ function Get-OtterUiProperty {
         return (Get-OtterUiSpacing -Window $Resource)
     }
 
-    if ($mapping.Type -in @('align_v', 'align_h', 'spread')) {
+    if ($mapping.Type -eq 'spread') {
+        $layoutKey = Get-OtterUiSpacingKey -Resource $Resource
+        if (-not $script:OtterUiLayout.ContainsKey($layoutKey)) { return $false }
+        return $script:OtterUiLayout[$layoutKey].Spread
+    }
+
+    # 'align' reads back whichever direction was set most recently -
+    # both axes can be filled at once (a valid "corner" combination, D54),
+    # so there is no single unambiguous answer when both are set; most-
+    # recent is simplest and consistent with how writing any other
+    # property already just overwrites.
+    if ($mapping.Type -eq 'align') {
         $layoutKey = Get-OtterUiSpacingKey -Resource $Resource
         if (-not $script:OtterUiLayout.ContainsKey($layoutKey)) { return $null }
-        $prop = $mapping.Type
-        return $script:OtterUiLayout[$layoutKey].$prop
+        return $script:OtterUiLayout[$layoutKey].LastAlign
     }
 
     $fullKey = (Get-OtterUiSpacingKey $Resource) + "_$Property"
@@ -399,108 +450,80 @@ function Set-OtterUiProperty {
         return
     }
 
-    if ($mapping.Type -in @('align_v', 'align_h', 'align', 'spread')) {
+    # D54: align/spread. See Get-OtterUiAlignAxis - the WORD decides the
+    # axis, never the property name. row/column additionally split that
+    # axis into "main" (the flow direction - group positioning, shared
+    # with spread) vs "cross" (perpendicular - a per-child property).
+    # button/text/text box have no axis of their own, so only the
+    # horizontal words apply to them (their own content alignment) - a
+    # vertical word there is a clear error, never a silent default.
+    if ($mapping.Type -eq 'align') {
+        $direction = ([string]$Value).ToLowerInvariant()
+        $axis = Get-OtterUiAlignAxis -Direction $direction -Kind $Resource.Kind -Line $Line
+
+        if ($Resource.Kind -notin @('row', 'column')) {
+            if ($axis -ne 'horizontal') {
+                throw [OtterError]::new(
+                    "A $($Resource.Kind) can only align left, center, or right.", $Line, 'runtime')
+            }
+            $wpfValue = Get-OtterUiWpfAlignmentValue -Axis 'horizontal' -Direction $direction
+            if ($Resource.Native -is [System.Windows.Controls.Button]) {
+                $Resource.Native.HorizontalContentAlignment = $wpfValue
+            } elseif ($Resource.Native -is [System.Windows.Controls.TextBlock] -or $Resource.Native -is [System.Windows.Controls.TextBox]) {
+                $ta = switch ($direction) {
+                    'left'   { [System.Windows.TextAlignment]::Left }
+                    'center' { [System.Windows.TextAlignment]::Center }
+                    'right'  { [System.Windows.TextAlignment]::Right }
+                }
+                $Resource.Native.TextAlignment = $ta
+            }
+            return
+        }
+
         $layout = Get-OtterUiLayoutEntry -Resource $Resource
+        $mainAxis = if ($Resource.Kind -eq 'row') { 'horizontal' } else { 'vertical' }
+        $layout.LastAlign = $direction
+
+        if ($axis -eq $mainAxis) {
+            if ($layout.Spread) {
+                throw [OtterError]::new(
+                    "align `"$direction`" conflicts with spread - they both control this $($Resource.Kind)'s main-axis position.",
+                    $Line, 'runtime')
+            }
+            if ($layout.MainAlign -and $layout.MainAlign -ne $direction) {
+                throw [OtterError]::new(
+                    "align `"$direction`" conflicts with the earlier align `"$($layout.MainAlign)`" - only one alignment is allowed per axis.",
+                    $Line, 'runtime')
+            }
+            $layout.MainAlign = $direction
+            Set-OtterUiMainAxisAlign -Resource $Resource -Direction $direction
+            return
+        }
+
+        if ($layout.CrossAlign -and $layout.CrossAlign -ne $direction) {
+            throw [OtterError]::new(
+                "align `"$direction`" conflicts with the earlier align `"$($layout.CrossAlign)`" - only one alignment is allowed per axis.",
+                $Line, 'runtime')
+        }
+        $layout.CrossAlign = $direction
         $panel = Get-OtterUiContainerPanel -Container $Resource
-
-        if ($mapping.Type -eq 'align_v') {
-            $val = ([string]$Value).ToLowerInvariant()
-            if ($layout.spread -and $Resource.Kind -eq 'column') {
-                throw [OtterError]::new("Vertical alignment 'align $val' conflicts with 'spread' on a column.", $Line, 'runtime')
-            }
-            $layout.align_v = $val
-            if ($Resource.Kind -eq 'row') {
-                $va = switch ($val) {
-                    'top'    { [System.Windows.VerticalAlignment]::Top }
-                    'middle' { [System.Windows.VerticalAlignment]::Center }
-                    'bottom' { [System.Windows.VerticalAlignment]::Bottom }
-                    default  { [System.Windows.VerticalAlignment]::Center }
-                }
-                foreach ($c in $panel.Children) { $c.VerticalAlignment = $va }
-            } elseif ($Resource.Kind -eq 'column') {
-                $va = switch ($val) {
-                    'top'    { [System.Windows.VerticalAlignment]::Top }
-                    'middle' { [System.Windows.VerticalAlignment]::Center }
-                    'bottom' { [System.Windows.VerticalAlignment]::Bottom }
-                    default  { [System.Windows.VerticalAlignment]::Top }
-                }
-                $Resource.Native.VerticalAlignment = $va
-            }
-            return
+        $wpfValue = Get-OtterUiWpfAlignmentValue -Axis $axis -Direction $direction
+        foreach ($c in $panel.Children) {
+            if ($axis -eq 'vertical') { $c.VerticalAlignment = $wpfValue } else { $c.HorizontalAlignment = $wpfValue }
         }
+        return
+    }
 
-        if ($mapping.Type -eq 'align_h' -or $mapping.Type -eq 'align') {
-            $val = ([string]$Value).ToLowerInvariant()
-            if ($Resource.Kind -eq 'row' -and $layout.spread) {
-                throw [OtterError]::new("Horizontal alignment 'align $val' conflicts with 'spread' on a row.", $Line, 'runtime')
-            }
-            $layout.align_h = $val
-            if ($Resource.Kind -eq 'row') {
-                $ha = switch ($val) {
-                    'left'   { [System.Windows.HorizontalAlignment]::Left }
-                    'center' { [System.Windows.HorizontalAlignment]::Center }
-                    'right'  { [System.Windows.HorizontalAlignment]::Right }
-                    default  { [System.Windows.HorizontalAlignment]::Left }
-                }
-                $Resource.Native.HorizontalAlignment = $ha
-            } elseif ($Resource.Kind -eq 'column') {
-                $ha = switch ($val) {
-                    'left'   { [System.Windows.HorizontalAlignment]::Left }
-                    'center' { [System.Windows.HorizontalAlignment]::Center }
-                    'right'  { [System.Windows.HorizontalAlignment]::Right }
-                    default  { [System.Windows.HorizontalAlignment]::Stretch }
-                }
-                foreach ($c in $panel.Children) { $c.HorizontalAlignment = $ha }
-            } else {
-                # Text or button alignment
-                if ($Resource.Native -is [System.Windows.Controls.Button]) {
-                    $ha = switch ($val) {
-                        'left'   { [System.Windows.HorizontalAlignment]::Left }
-                        'center' { [System.Windows.HorizontalAlignment]::Center }
-                        'right'  { [System.Windows.HorizontalAlignment]::Right }
-                        default  { [System.Windows.HorizontalAlignment]::Center }
-                    }
-                    $Resource.Native.HorizontalContentAlignment = $ha
-                } elseif ($Resource.Native -is [System.Windows.Controls.TextBlock]) {
-                    $ta = switch ($val) {
-                        'left'   { [System.Windows.TextAlignment]::Left }
-                        'center' { [System.Windows.TextAlignment]::Center }
-                        'right'  { [System.Windows.TextAlignment]::Right }
-                        default  { [System.Windows.TextAlignment]::Left }
-                    }
-                    $Resource.Native.TextAlignment = $ta
-                } elseif ($Resource.Native -is [System.Windows.Controls.TextBox]) {
-                    $ta = switch ($val) {
-                        'left'   { [System.Windows.TextAlignment]::Left }
-                        'center' { [System.Windows.TextAlignment]::Center }
-                        'right'  { [System.Windows.TextAlignment]::Right }
-                        default  { [System.Windows.TextAlignment]::Left }
-                    }
-                    $Resource.Native.TextAlignment = $ta
-                }
-            }
-            return
+    if ($mapping.Type -eq 'spread') {
+        $layout = Get-OtterUiLayoutEntry -Resource $Resource
+        if ($layout.MainAlign) {
+            throw [OtterError]::new(
+                "spread conflicts with the earlier align `"$($layout.MainAlign)`" - they both control this $($Resource.Kind)'s main-axis position.",
+                $Line, 'runtime')
         }
-
-        if ($mapping.Type -eq 'spread') {
-            if ($Resource.Kind -notin @('row', 'column')) {
-                throw [OtterError]::new("'spread' is only supported on layout containers (row, column).", $Line, 'runtime')
-            }
-            if ($Resource.Kind -eq 'row' -and $layout.align_h) {
-                throw [OtterError]::new("'spread' distributes space horizontally along a row and conflicts with horizontal alignment 'align $($layout.align_h)'.", $Line, 'runtime')
-            }
-            if ($Resource.Kind -eq 'column' -and $layout.align_v) {
-                throw [OtterError]::new("'spread' distributes space vertically along a column and conflicts with vertical alignment 'align $($layout.align_v)'.", $Line, 'runtime')
-            }
-            $layout.spread = $true
-            if ($Resource.Kind -eq 'row') {
-                $Resource.Native.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Stretch
-            } else {
-                $Resource.Native.VerticalAlignment = [System.Windows.VerticalAlignment]::Stretch
-            }
-            Update-OtterUiSpread -Resource $Resource
-            return
-        }
+        $layout.Spread = $true
+        Update-OtterUiSpread -Resource $Resource
+        return
     }
 
     if ($mapping.Type -eq 'number') {
@@ -713,29 +736,72 @@ function Add-OtterUiChild {
         }
     }
 
+    # D54: a child put in AFTER align/spread inherits it automatically -
+    # same "future children inherit the current value" rule D48 already
+    # established for spacing. CrossAlign is a per-child property applied
+    # directly here; MainAlign/Spread reposition the whole group, so they
+    # re-run their group-level function instead.
     $layoutKey = Get-OtterUiSpacingKey -Resource $Container
     if ($script:OtterUiLayout.ContainsKey($layoutKey)) {
         $layout = $script:OtterUiLayout[$layoutKey]
-        if ($panel.Orientation -eq [System.Windows.Controls.Orientation]::Horizontal) {
-            if ($layout.align_v) {
-                switch ($layout.align_v) {
-                    'top'    { $Item.Native.VerticalAlignment = [System.Windows.VerticalAlignment]::Top }
-                    'middle' { $Item.Native.VerticalAlignment = [System.Windows.VerticalAlignment]::Center }
-                    'bottom' { $Item.Native.VerticalAlignment = [System.Windows.VerticalAlignment]::Bottom }
-                }
-            }
-        } else {
-            if ($layout.align_h) {
-                switch ($layout.align_h) {
-                    'left'   { $Item.Native.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Left }
-                    'center' { $Item.Native.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Center }
-                    'right'  { $Item.Native.HorizontalAlignment = [System.Windows.HorizontalAlignment]::Right }
-                }
-            }
+        if ($layout.CrossAlign) {
+            $crossAxis = if ($panel.Orientation -eq [System.Windows.Controls.Orientation]::Horizontal) { 'vertical' } else { 'horizontal' }
+            $wpfValue = Get-OtterUiWpfAlignmentValue -Axis $crossAxis -Direction $layout.CrossAlign
+            if ($crossAxis -eq 'vertical') { $Item.Native.VerticalAlignment = $wpfValue } else { $Item.Native.HorizontalAlignment = $wpfValue }
         }
-        if ($layout.spread) {
+        if ($layout.Spread) {
             Update-OtterUiSpread -Resource $Container
+        } elseif ($layout.MainAlign) {
+            Set-OtterUiMainAxisAlign -Resource $Container -Direction $layout.MainAlign
         }
+    }
+}
+
+# Main-axis group positioning (align "left"/"center"/"right" on a row,
+# align "top"/"middle"/"bottom" on a column) - NOT a per-child property.
+# StackPanel always packs children tightly from its start edge with no
+# built-in "pack to the end" or "center as a block" option (verified -
+# checked its full property list, and FlowDirection was tried and
+# confirmed NOT to reverse packing order for a Horizontal StackPanel, so
+# it isn't the mechanism here). Achieved instead by measuring the
+# group's total size and putting the leftover space into a margin before
+# the first child (right/bottom), split before-and-after (center/middle),
+# or none at all (left/top - already the default). Same measurement
+# technique Update-OtterUiSpread already uses, and shares its real
+# limitation: computed once, not a live layout constraint, so it will
+# not re-flow automatically if the container is resized afterward.
+function Set-OtterUiMainAxisAlign {
+    param([OtterUiResource]$Resource, [string]$Direction)
+
+    $panel = Get-OtterUiContainerPanel -Container $Resource
+    $count = $panel.Children.Count
+    if ($count -eq 0) { return }
+
+    $horizontal = $panel.Orientation -eq [System.Windows.Controls.Orientation]::Horizontal
+    $avail = if ($horizontal) {
+        if (-not [double]::IsNaN($panel.Width) -and $panel.Width -gt 0) { $panel.Width } else { $panel.ActualWidth }
+    } else {
+        if (-not [double]::IsNaN($panel.Height) -and $panel.Height -gt 0) { $panel.Height } else { $panel.ActualHeight }
+    }
+
+    $total = 0
+    foreach ($c in $panel.Children) {
+        $c.Measure([System.Windows.Size]::new([double]::PositiveInfinity, [double]::PositiveInfinity))
+        $total += if ($horizontal) { $c.DesiredSize.Width } else { $c.DesiredSize.Height }
+    }
+    $leftover = $avail - $total
+    if ($leftover -le 0) { return }
+
+    $first = $panel.Children[0]
+    $before = 0
+    if ($Direction -in @('right', 'bottom')) { $before = $leftover }
+    elseif ($Direction -in @('center', 'middle')) { $before = $leftover / 2 }
+    # 'left'/'top' - no leading margin needed, StackPanel already starts there.
+
+    if ($horizontal) {
+        $first.Margin = [System.Windows.Thickness]::new($before, $first.Margin.Top, $first.Margin.Right, $first.Margin.Bottom)
+    } else {
+        $first.Margin = [System.Windows.Thickness]::new($first.Margin.Left, $before, $first.Margin.Right, $first.Margin.Bottom)
     }
 }
 
