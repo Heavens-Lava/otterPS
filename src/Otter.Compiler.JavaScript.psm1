@@ -174,6 +174,54 @@ function ConvertTo-OtterJsStatement {
             $lines.Add("${pad}}")
             return ($lines -join "`n")
         }
+        ([NodeKind]::CountLoop) {
+            # D60 Phase 1B. Matches Otter.Interpreter.psm1's 'CountLoop' case
+            # exactly (verified against the real interpreter, not assumed
+            # from JS `for`-loop habits):
+            #   - both ends inclusive
+            #   - descending ranges are valid ("count from 10 to 1" counts
+            #     down); direction is decided once, from from<=to
+            #   - From/To are evaluated exactly once, before the loop starts
+            #     (bound in _from/_to below) - a mutating bound expression
+            #     does not change an already-running loop
+            #   - the loop variable has NO separate per-iteration scope: it
+            #     is written into the same place a plain Assign would write
+            #     it (otterState if reactive, else `window.<name>`), so it
+            #     is still readable - and last-writer-wins shared with any
+            #     nested loop reusing the same name - after the loop ends,
+            #     matching SetLocal's real behavior (writes into the
+            #     CURRENT environment, never a child scope)
+            #   - the loop's own stepping counter (_n, below) is internal
+            #     and is never re-read from the visible variable, so the
+            #     body reassigning the visible variable does not affect
+            #     iteration - matching the interpreter's PowerShell-local
+            #     $n, which the same is true of
+            #   - `stop` needs no special case: it parses to a bare Return
+            #     node (verified via -DebugAst), and the existing Return
+            #     case's `return;` already exits the whole enclosing JS
+            #     function from inside a `for`, exactly matching D37
+            # Non-numeric bounds are coerced via Number(), the same silent-
+            # coercion convention the Math case already uses - not a new
+            # gap introduced here, the same one already shipped.
+            $fromJs = ConvertTo-OtterJsExpression -Expr $Stmt.From
+            $toJs = ConvertTo-OtterJsExpression -Expr $Stmt.To
+            $varName = $Stmt.VariableName
+            $inner = '  ' * ($Indent + 1)
+            $bodyIndent = '  ' * ($Indent + 2)
+            $lines = [System.Collections.Generic.List[string]]::new()
+            $lines.Add("${pad}{")
+            $lines.Add("${inner}const _from = Number($fromJs);")
+            $lines.Add("${inner}const _to = Number($toJs);")
+            $lines.Add("${inner}const _step = _from <= _to ? 1 : -1;")
+            $lines.Add("${inner}for (let _n = _from; (_step > 0 && _n <= _to) || (_step < 0 && _n >= _to); _n += _step) {")
+            $lines.Add("${bodyIndent}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$varName' in otterState)) { otterSetState('$varName', _n); } else { window.$varName = _n; }")
+            foreach ($s in $Stmt.Body) {
+                $lines.Add((ConvertTo-OtterJsStatement -Stmt $s -Indent ($Indent + 2)))
+            }
+            $lines.Add("${inner}}")
+            $lines.Add("${pad}}")
+            return ($lines -join "`n")
+        }
         ([NodeKind]::Repeat) {
             $count = ConvertTo-OtterJsExpression -Expr $Stmt.Count
             $lines = [System.Collections.Generic.List[string]]::new()
