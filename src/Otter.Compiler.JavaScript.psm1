@@ -101,6 +101,37 @@ function ConvertTo-OtterJsExpression {
             $item = ConvertTo-OtterJsExpression -Expr $Expr.Item
             return "($collection && $collection.includes ? $collection.includes($item) : false)"
         }
+        ([NodeKind]::TextMatch) {
+            # D60 Phase 1D-A. Matches Otter.Interpreter.psm1's 'TextMatch'
+            # case: both operands go through Format-OtterValue first (so
+            # this works on any formattable value, not just string
+            # literals), comparison is ordinal/case-sensitive (confirmed:
+            # "jeff" does not match a subject starting with "Jeff"), result
+            # is a plain boolean. String(...) stands in for Format-
+            # OtterValue here - full parity (list-joining, Otter's exact
+            # number formatting) is not attempted, matching-string use is
+            # the case this was verified against.
+            $subjectJs = ConvertTo-OtterJsExpression -Expr $Expr.Subject
+            $valueJs = ConvertTo-OtterJsExpression -Expr $Expr.Value
+            $method = if ($Expr.Match.ToString() -eq 'StartsWith') { 'startsWith' } else { 'endsWith' }
+            return "String($subjectJs).$method(String($valueJs))"
+        }
+        ([NodeKind]::OfOperation) {
+            # D60 Phase 1D-A: Uppercase/Lowercase only. Length/First/Last
+            # are part of the same OfOperation NodeKind but are DELIBERATELY
+            # left unhandled here (falling through to the same "null"
+            # default every other unimplemented case already returns) -
+            # verified against the interpreter that Length is polymorphic
+            # (works on lists too) and First/Last are list-only, so all
+            # three belong with Phase 1E's collection-operations work, not
+            # bundled into this string-operations commit.
+            $subjectJs = ConvertTo-OtterJsExpression -Expr $Expr.Subject
+            switch ($Expr.Operation.ToString()) {
+                'Uppercase' { return "String($subjectJs).toUpperCase()" }
+                'Lowercase' { return "String($subjectJs).toLowerCase()" }
+                default { return "null" }
+            }
+        }
         default {
             return "null"
         }
@@ -329,6 +360,66 @@ function ConvertTo-OtterJsStatement {
                 return "${pad}const res = await fetch($url, { method: 'POST', body: $body }); const $target = await res.text(); window.$target = $target;"
             }
             return "${pad}await fetch($url, { method: 'POST', body: $body });"
+        }
+        ([NodeKind]::Replace) {
+            # D60 Phase 1D-A. Matches Otter.Interpreter.psm1's 'Replace'
+            # case exactly:
+            #   - Target is a variable NAME, read directly (not a general
+            #     expression) - mirrors the interpreter's
+            #     $Environment.Get/Set($Statement.Target)
+            #   - empty find text is a thrown runtime error, not a silent
+            #     no-op (confirmed: "I cannot replace empty text.")
+            #   - ALL occurrences are replaced, not just the first
+            #     (confirmed: .NET's String.Replace replaces every
+            #     occurrence in one pass) - split+join gives the same
+            #     single-pass, non-recursive, literal-substring (no regex)
+            #     replacement semantics
+            #   - VERIFIED DEAD IN THE CURRENT PARSER, so not implemented:
+            #     the contract's ResultTarget field ("replace X with Y in
+            #     text into newText", leaving the source unchanged) has no
+            #     parser support today - Read-OtterStatement's Replace case
+            #     always asserts Newline immediately after the target, so
+            #     ResultTarget is always $null in practice. Only the
+            #     in-place mutation path is reachable, so only that path is
+            #     emitted here.
+            $findJs = ConvertTo-OtterJsExpression -Expr $Stmt.Find
+            $replacementJs = ConvertTo-OtterJsExpression -Expr $Stmt.Replacement
+            $target = $Stmt.Target
+            $lines = [System.Collections.Generic.List[string]]::new()
+            $inner = '  ' * ($Indent + 1)
+            $lines.Add("${pad}{")
+            $lines.Add("${inner}const _find = String($findJs);")
+            $lines.Add("${inner}if (_find.length === 0) { throw new Error('I cannot replace empty text.'); }")
+            $lines.Add("${inner}const _replaced = String($target).split(_find).join(String($replacementJs));")
+            $lines.Add("${inner}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$target' in otterState)) { otterSetState('$target', _replaced); } else { window.$target = _replaced; }")
+            $lines.Add("${pad}}")
+            return ($lines -join "`n")
+        }
+        ([NodeKind]::Split) {
+            # D60 Phase 1D-A. Matches Otter.Interpreter.psm1's 'Split' case:
+            #   - Subject and Separator are both general expressions
+            #   - empty separator is a thrown runtime error ("I need
+            #     something to split by."), not a silent no-op
+            #   - StringSplitOptions.None means empty entries ARE kept in
+            #     the result (confirmed: "a,,b" by "," gives 3 pieces, the
+            #     middle one empty) - JS's native .split(sep) already keeps
+            #     empty entries by default, so no extra handling is needed
+            #     to match this
+            #   - the result is a genuine list (Phase 1C's ListDef write
+            #     pattern - otterState-or-window - reused here, since a
+            #     plain JS array is already the correct representation)
+            $subjectJs = ConvertTo-OtterJsExpression -Expr $Stmt.Subject
+            $separatorJs = ConvertTo-OtterJsExpression -Expr $Stmt.Separator
+            $target = $Stmt.Target
+            $lines = [System.Collections.Generic.List[string]]::new()
+            $inner = '  ' * ($Indent + 1)
+            $lines.Add("${pad}{")
+            $lines.Add("${inner}const _sep = String($separatorJs);")
+            $lines.Add("${inner}if (_sep.length === 0) { throw new Error('I need something to split by.'); }")
+            $lines.Add("${inner}const _pieces = String($subjectJs).split(_sep);")
+            $lines.Add("${inner}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$target' in otterState)) { otterSetState('$target', _pieces); } else { window.$target = _pieces; }")
+            $lines.Add("${pad}}")
+            return ($lines -join "`n")
         }
         default {
             return ""
