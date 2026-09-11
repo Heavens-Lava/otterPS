@@ -222,6 +222,53 @@ function ConvertTo-OtterJsStatement {
             $lines.Add("${pad}}")
             return ($lines -join "`n")
         }
+        ([NodeKind]::ListDef) {
+            # D60 Phase 1C. Matches Otter.Interpreter.psm1's 'ListDef' case
+            # exactly (verified against the real interpreter):
+            #   - each item expression is evaluated exactly once, in order
+            #   - duplicates are preserved (no dedup)
+            #   - mixed element types are allowed
+            #   - a literal empty list ("items are" with nothing indented
+            #     under it) is already a PARSE-time error today (confirmed:
+            #     Read-OtterListItems requires at least one indented item),
+            #     so there is no empty-list-literal case to emit here
+            #   - the parser only allows Read-OtterValue forms as items
+            #     (literal, variable, property-access - confirmed: a full
+            #     expression like `x plus 1` is a syntax error), so every
+            #     item Otter can hand this case is something
+            #     ConvertTo-OtterJsExpression already knows how to compile
+            #   - THE NON-OBVIOUS ONE, verified directly: if an item
+            #     expression evaluates to a LIST (e.g. a bare variable
+            #     already holding a list), its elements are SPLICED into
+            #     the new list rather than nested as one element - `outer
+            #     are / inner / inner / .` produces a 4-element flat list,
+            #     not a 2-element list of lists (length of outer is 4,
+            #     first of outer is 1, not [1,2]). This falls out of
+            #     PowerShell's own `+=` auto-enumerating an array RHS in
+            #     the interpreter, intentional or not - it is current
+            #     behavior, so it is preserved here via Array.isArray.
+            #   - list assignment/sharing (`listB is listA` sharing the
+            #     same underlying list, so mutating one mutates the other)
+            #     needs no special handling: JS arrays are reference types
+            #     by default, so a plain Assign of one list variable to
+            #     another already behaves identically with zero extra code.
+            $varName = $Stmt.Name
+            $lines = [System.Collections.Generic.List[string]]::new()
+            $lines.Add("${pad}{")
+            $itemsInner = '  ' * ($Indent + 1)
+            $lines.Add("${itemsInner}const _items = [];")
+            $itemIndex = 0
+            foreach ($item in $Stmt.Items) {
+                $itemJs = ConvertTo-OtterJsExpression -Expr $item
+                $tmp = "_v$itemIndex"
+                $lines.Add("${itemsInner}const $tmp = $itemJs;")
+                $lines.Add("${itemsInner}if (Array.isArray($tmp)) { _items.push(...$tmp); } else { _items.push($tmp); }")
+                $itemIndex++
+            }
+            $lines.Add("${itemsInner}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$varName' in otterState)) { otterSetState('$varName', _items); } else { window.$varName = _items; }")
+            $lines.Add("${pad}}")
+            return ($lines -join "`n")
+        }
         ([NodeKind]::Repeat) {
             $count = ConvertTo-OtterJsExpression -Expr $Stmt.Count
             $lines = [System.Collections.Generic.List[string]]::new()
