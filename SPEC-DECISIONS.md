@@ -4126,6 +4126,39 @@ calling the emitter directly):
   Split/Join/Find/AddTo/RemoveFrom's own write sites, do not yet check
   `-LocalNames`) — narrower than Phase 1F's original blanket gap
   statement, but not yet exhaustively closed either.
+- `ReadFile` (`read <path> into <target>`), Phase 1F.2-adjacent
+  (`a225fc2`): emits a required `otterReadFile(path)` runtime hook the
+  target adapter must supply (not defined by this compiler, per D60's
+  "language capability != host capability" principle — a browser
+  cannot read arbitrary local files the way a desktop process can).
+  Found and fixed the same latent gap for the already-shipped
+  `HttpGet`/`HttpPost` (Phase 1A): calling either from inside a Phase
+  1F function would have been a JS syntax error (`await` outside
+  `async function`), just never exercised until `ReadFile` needed the
+  same fix. `FunctionDef` now detects (recursively, through the same
+  constructs the binding scanner walks) whether its body needs `await`
+  and only then declares itself `async function` — a function with
+  none of the three stays a plain synchronous function, unchanged.
+- Plain object (`thing`) representation, Phase 1F.2 (`59f53f2`): the
+  prerequisite Phase 1G (JSON) actually needed. `ObjectDef` (`is a
+  thing`) had zero JS codegen; `PropertyAccess` unconditionally assumed
+  a UI/DOM resource. A `thing` now compiles to a tagged plain JS object
+  (`{ __otterThing: true, props: {...}, order: [...] }`), and property
+  read/write dispatch between a UI resource and a plain thing at
+  runtime via `otterGetElement(name)` truthy/null — sound because no UI
+  resource ever gets a bound JS value in this compiler's architecture
+  (verified directly), so this is the same dynamic distinction the
+  interpreter's own Test-OtterUiResource/Test-OtterObject makes, just
+  checked a different way; no new compile-time threading needed.
+  Verified against the real interpreter first: reading a missing
+  property throws, writing one always succeeds and creates it (NOT the
+  same rule), `a is b` between things aliases (not copies) via plain JS
+  reference semantics, and a property can legitimately hold `gone`,
+  distinguishable from a genuinely missing one. Deliberately out of
+  scope: custom `OtterType`-declared objects (JSON never produces one),
+  and `has` against an existing plain thing throwing its protective
+  "will not replace" error (this compiler would silently construct a
+  fresh object instead — not exercised by any current case).
 
 **MISSING FROM THE JS BACKEND** (verified absent by direct inspection,
 not assumed):
