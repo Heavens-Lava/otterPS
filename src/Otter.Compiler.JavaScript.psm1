@@ -608,6 +608,30 @@ function ConvertTo-OtterJsStatement {
             }
             return "${pad}return;"
         }
+        ([NodeKind]::ReadFile) {
+            # D60. `read <path> into <target>` (Otter.Interpreter.psm1's
+            # 'ReadFile' case: Read-OtterFile, a synchronous, real
+            # filesystem read). A browser cannot read arbitrary local files
+            # the way a desktop process can (D60's "language capability !=
+            # host capability" principle) - this compiler does not decide
+            # HOW the read happens, only that a value comes back for
+            # `target`, via a required runtime hook (`otterReadFile`) the
+            # target adapter supplies (a real bridge call on Desktop; an
+            # honest per-target error/rejection wherever file access
+            # genuinely is not available, e.g. a plain browser tab with no
+            # desktop host attached - not this compiler's decision to make).
+            # That hook is inherently asynchronous (a real file read over a
+            # bridge cannot be synchronous in JS the way Read-OtterFile is
+            # in PowerShell), so this emits `await` - see FunctionDef's
+            # async-detection for how the enclosing function ends up
+            # `async` when it needs to.
+            $pathJs = ConvertTo-OtterJsExpression -Expr $Stmt.Path
+            $target = $Stmt.Target
+            if ($LocalNames -and $LocalNames.Contains($target)) {
+                return "${pad}$target = await otterReadFile($pathJs);"
+            }
+            return "${pad}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$target' in otterState)) { otterSetState('$target', await otterReadFile($pathJs)); } else { window.$target = await otterReadFile($pathJs); }"
+        }
         ([NodeKind]::HttpGet) {
             $url = ConvertTo-OtterJsExpression -Expr $Stmt.Url
             $target = $Stmt.Target
@@ -752,9 +776,22 @@ function ConvertTo-OtterJsStatement {
             }
             $declOnly = @($allLocals | Where-Object { -not $paramSet.Contains($_) })
 
+            # A function containing `read`/HTTP needs `await` inside itself
+            # (ReadFile/HttpGet/HttpPost all emit `await`, since none of
+            # them can be synchronous in JS the way their interpreter
+            # counterparts are) - `await` is a syntax error outside an
+            # `async function`, so this must be detected, not assumed. A
+            # caller that doesn't itself await this function only loses the
+            # ability to sequence AFTER it finishes - calling an async
+            # function without awaiting it is valid JS, not an error, so
+            # this stays narrowly scoped to exactly the functions that need
+            # it rather than making every function async.
+            $needsAsync = Test-OtterJsBodyNeedsAsync -Statements $Stmt.Body
+            $asyncPrefix = if ($needsAsync) { 'async ' } else { '' }
+
             $lines = [System.Collections.Generic.List[string]]::new()
             $bodyIndent = '  ' * ($Indent + 1)
-            $lines.Add("${pad}const $fnName = function($($paramNames -join ', ')) {")
+            $lines.Add("${pad}const $fnName = ${asyncPrefix}function($($paramNames -join ', ')) {")
             if ($declOnly.Count -gt 0) {
                 $lines.Add("${bodyIndent}let $(($declOnly | Sort-Object) -join ', ');")
             }
@@ -834,6 +871,9 @@ function Get-OtterJsBindingNames {
             if ($s.Kind -eq [NodeKind]::MathInto) {
                 [void]$setStyle.Add($s.Target)
             }
+            if ($s.Kind -eq [NodeKind]::ReadFile -or $s.Kind -eq [NodeKind]::HttpGet -or $s.Kind -eq [NodeKind]::HttpPost) {
+                if ($s.Target) { [void]$setStyle.Add($s.Target) }
+            }
             if ($s.Kind -eq [NodeKind]::CountLoop) {
                 [void]$alwaysLocal.Add($s.VariableName)
                 [void](Walk-OtterBindingScan -Stmts $s.Body)
@@ -874,6 +914,39 @@ function Get-OtterJsBindingNames {
     # empty HashSet vanished into $null on `return` - the exact bug found
     # and fixed in Phase 1F).
     return @{ SetStyle = $setStyle; AlwaysLocal = $alwaysLocal }
+}
+
+# D60. True if any statement in this body (recursively, through the same
+# constructs Get-OtterJsBindingNames already walks) emits `await` -
+# ReadFile, HttpGet, HttpPost today. FunctionDef uses this to decide
+# whether it must be declared `async function`; a plain function with none
+# of these stays a normal synchronous function, unchanged from before this
+# existed.
+function Test-OtterJsBodyNeedsAsync {
+    param([Node[]]$Statements)
+
+    if ($null -eq $Statements) { return $false }
+    foreach ($s in $Statements) {
+        if ($s.Kind -eq [NodeKind]::ReadFile -or $s.Kind -eq [NodeKind]::HttpGet -or $s.Kind -eq [NodeKind]::HttpPost) {
+            return $true
+        }
+        if ($s.Kind -eq [NodeKind]::If) {
+            foreach ($branch in $s.Branches) {
+                if (Test-OtterJsBodyNeedsAsync -Statements $branch.Body) { return $true }
+            }
+            if ($s.ElseBody -and (Test-OtterJsBodyNeedsAsync -Statements $s.ElseBody)) { return $true }
+        }
+        if (($s.Kind -eq [NodeKind]::While -or $s.Kind -eq [NodeKind]::Repeat -or `
+             $s.Kind -eq [NodeKind]::CountLoop -or $s.Kind -eq [NodeKind]::ForEach) -and `
+            (Test-OtterJsBodyNeedsAsync -Statements $s.Body)) {
+            return $true
+        }
+        if ($s.Kind -eq [NodeKind]::Try) {
+            if (Test-OtterJsBodyNeedsAsync -Statements $s.Body) { return $true }
+            if ($s.OtherwiseBody -and (Test-OtterJsBodyNeedsAsync -Statements $s.OtherwiseBody)) { return $true }
+        }
+    }
+    return $false
 }
 
 # D60 Phase 1F.1. The "known top-level globals" a function's Set-style
