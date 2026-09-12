@@ -758,6 +758,41 @@ function ConvertTo-OtterJsStatement {
             }
             return "${pad}await fetch($url, { method: 'POST', body: $body });"
         }
+        ([NodeKind]::Diagnostic) {
+            # D60 Phase 1I. `log ...` / `warn ...` / `error ...` - matches
+            # the interpreter's 'Diagnostic' case exactly, verified
+            # directly against it before writing any JS: parts are
+            # formatted and space-joined exactly like `say` (D8), then
+            # rendered as a SINGLE string `"<label>: <joined parts>"` -
+            # confirmed the label is always lowercase ("log"/"warn"/
+            # "error", never the DiagnosticLevel enum names Note/
+            # Warning/Problem) and that zero parts is valid syntax,
+            # producing a trailing "<label>: " with nothing after the
+            # colon-space (not an error, not an empty string with no
+            # separator). console.log/warn/error is a natural, sound
+            # mapping for the three levels - closer to Otter's intent
+            # than the interpreter's own single Write-Host-for-everything
+            # implementation (a real browser's devtools already separates
+            # these by severity), so the level is still ALSO baked into
+            # the rendered text (not left to console's own styling alone)
+            # to match the interpreter's exact observable output.
+            $label = switch ($Stmt.Level.ToString()) {
+                'Warning' { 'warn' }
+                'Problem' { 'error' }
+                default { 'log' }
+            }
+            $consoleFn = switch ($label) {
+                'warn' { 'console.warn' }
+                'error' { 'console.error' }
+                default { 'console.log' }
+            }
+            $parts = @(foreach ($p in $Stmt.Parts) { ConvertTo-OtterJsExpression -Expr $p })
+            if ($parts.Count -eq 0) {
+                return "${pad}$consoleFn('$label`: ');"
+            }
+            $joined = $parts -join ' + " " + '
+            return "${pad}$consoleFn('$label`: ' + ($joined));"
+        }
         ([NodeKind]::RandomNumber) {
             # D60 Phase 1H. `random number from <from> to <to> into <target>`
             # - matches the interpreter's 'RandomNumber' case exactly,

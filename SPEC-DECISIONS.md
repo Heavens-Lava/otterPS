@@ -4257,6 +4257,29 @@ calling the emitter directly):
   breadth check (both endpoints of a small range appearing across many
   draws) was used as a sanity signal only, not treated as a
   mathematical guarantee from a finite sample.
+- Diagnostics (`log ...` / `warn ...` / `error ...`), Phase 1I: a single
+  `Diagnostic` NodeKind case added, dispatching to
+  `console.log`/`console.warn`/`console.error` by level. Matches the
+  interpreter's `Write-OtterDiagnostic` exactly, verified directly
+  against it first: parts are formatted and space-joined exactly like
+  `say` (D8), then rendered as ONE string `"<label>: <joined parts>"`
+  where `<label>` is always the lowercase surface word ("log"/"warn"/
+  "error"), never the `DiagnosticLevel` enum name (`Note`/`Warning`/
+  `Problem`); zero parts is valid syntax (confirmed: a bare `log` with
+  nothing after it is not a parse error) and produces a trailing
+  `"<label>: "` with nothing after the colon-space, handled as its own
+  case rather than an empty join producing invalid JS. Deliberately
+  picks `console.log`/`warn`/`error` over routing everything through
+  one function the way the interpreter's own `Write-Host`-for-
+  everything implementation does - a sound, arguably-closer-to-intent
+  choice (a real browser's devtools already separates by severity), but
+  the level is still ALSO baked into the rendered text so the
+  interpreter's exact observable output string is preserved either way.
+  Verified through the full real pipeline (production CLI, JS compiler,
+  a real browser via Playwright): all three levels, a multi-part
+  message, and the zero-part case all matched the interpreter's output
+  string exactly, and `warn`/`error` correctly landed in the browser's
+  warning/error console channels respectively.
 
 **MISSING FROM THE JS BACKEND** (verified absent by direct inspection,
 not assumed):
@@ -4290,7 +4313,6 @@ not assumed):
   throws a specific, deliberate "I cannot divide by zero." error. A
   program could silently compute with `Infinity` for a while before
   anything looks wrong.
-- diagnostics (`log` / `warn` / `error`)
 - dates (`today`, `now`, date math)
 - console/runtime utility behavior (stdin, stdout formatting parity
   with `say`, exit codes)
@@ -4310,14 +4332,14 @@ architecture above, but the agreed starting order)
    `09374ea`/`b120ee0`; collection ops done, `1e19652`; functions done,
    `af3a807`; function/loop scope parity done, `779b36f`; plain-object
    representation done, `59f53f2`; JSON done, Phase 1G; random done,
-   Phase 1H): count loops, list literals, string operations (split
-   into 1D-A string builtins
-   and 1D-B the `plus` runtime-type fix), collection operations,
+   Phase 1H; diagnostics done, Phase 1I): count loops, list literals,
+   string operations (split into 1D-A string builtins and 1D-B the
+   `plus` runtime-type fix), collection operations,
    function declarations/calls (moved ahead of JSON once Phase 1B
    proved this was a real, separate gap — too many realistic Otter
    programs depend on functions to leave this late), plain objects
    (inserted ahead of JSON once JSON's own object mapping turned out to
-   depend on it), JSON, random. Remaining: diagnostics, dates.
+   depend on it), JSON, random, diagnostics. Remaining: dates.
 3. Every addition is verified the same way: `.ot` source through the
    real production CLI, through the JS compiler, through an actual JS
    runtime, to an observed result — not a unit test calling the emitter
