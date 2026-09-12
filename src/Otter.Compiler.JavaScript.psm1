@@ -38,17 +38,33 @@ function ConvertTo-OtterJsExpression {
             return $Expr.Name
         }
         ([NodeKind]::PropertyAccess) {
-            $prop = $Expr.Property.ToLowerInvariant()
+            # D60 Phase 1F.2. Same runtime dual dispatch as the Assign-to-
+            # PropertyAccess write case - see its comment for why
+            # `otterGetElement` truthy/null is a sound stand-in for the
+            # interpreter's own dynamic Test-OtterUiResource/Test-OtterObject
+            # check. The UI branch is byte-for-byte unchanged from before
+            # 1F.2. The thing branch matches the interpreter's PropertyAccess
+            # read exactly: THROWS on a missing property (verified: "This
+            # thing has no property called ..." - reading is NOT the same
+            # rule as writing, which always succeeds) and uses the
+            # property's ORIGINAL case, never lowercased.
+            $propOriginal = $Expr.Property
+            $prop = $propOriginal.ToLowerInvariant()
             $target = $Expr.Target
             $targetName = if ($target -is [VariableExpr]) { $target.Name } else { 'target' }
-            switch ($prop) {
-                'text' { return "otterGetText('$targetName')" }
-                'value' { return "otterGetText('$targetName')" }
-                'title' { return "otterGetTitle('$targetName')" }
-                'width' { return "otterGetStyle('$targetName', 'width')" }
-                'height' { return "otterGetStyle('$targetName', 'height')" }
-                default { return "otterGetProperty('$targetName', '$prop')" }
+            $uiBranch = switch ($prop) {
+                'text' { "otterGetText('$targetName')" }
+                'value' { "otterGetText('$targetName')" }
+                'title' { "otterGetTitle('$targetName')" }
+                'width' { "otterGetStyle('$targetName', 'width')" }
+                'height' { "otterGetStyle('$targetName', 'height')" }
+                default { "otterGetProperty('$targetName', '$prop')" }
             }
+            # An inline IIFE, not a named runtime-helper call, to keep this
+            # entirely self-contained in this module - same reasoning as
+            # Phase 1D-B's `plus` fix (no shared helper added to
+            # Otter.Web.psm1's boilerplate).
+            return "(otterGetElement('$targetName') ? ($uiBranch) : (() => { const _owner = $targetName; if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('$propOriginal') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called `"$propOriginal`".'); } return _owner.props['$propOriginal']; })())"
         }
         ([NodeKind]::Math) {
             $left = ConvertTo-OtterJsExpression -Expr $Expr.Left
@@ -224,20 +240,53 @@ function ConvertTo-OtterJsStatement {
     switch ($Stmt.Kind) {
         ([NodeKind]::Assign) {
             if ($Stmt.Target -is [PropertyAccessExpr]) {
-                $prop = $Stmt.Target.Property.ToLowerInvariant()
+                # D60 Phase 1F.2. Runtime dual dispatch, not a compile-time
+                # name-list check: a UI resource is ALWAYS accessed by DOM-
+                # ID lookup in this compiler (verified: no UI resource ever
+                # gets a bound window.<name>/local value anywhere in the
+                # existing codegen), so `otterGetElement(name)` returning a
+                # real element vs null is exactly the same distinction the
+                # interpreter's own Test-OtterUiResource/Test-OtterObject
+                # dynamic check makes - just checked a different way. The
+                # UI branch below is byte-for-byte the pre-1F.2 behavior
+                # (same property special-cases, same lowercased name) - a
+                # plain thing branch is added alongside it, not replacing
+                # it. Property WRITE on a thing always succeeds and creates
+                # the property if it is missing (matches WriteProperty's
+                # own unconditional behavior - verified, not the same rule
+                # as reading, which throws on a missing name) - and the
+                # property's ORIGINAL case is used for the thing branch,
+                # never lowercased, matching the interpreter's Ordinal
+                # (case-sensitive) property-name comparer exactly; only the
+                # UI-property dispatch switch below is case-insensitive.
+                $propOriginal = $Stmt.Target.Property
+                $prop = $propOriginal.ToLowerInvariant()
                 $target = $Stmt.Target.Target
                 $targetName = if ($target -is [VariableExpr]) { $target.Name } else { 'target' }
                 $valExpr = ConvertTo-OtterJsExpression -Expr $Stmt.Value
-                switch ($prop) {
-                    'text' { return "${pad}otterSetText('$targetName', $valExpr);" }
-                    'value' { return "${pad}otterSetText('$targetName', $valExpr);" }
-                    'title' { return "${pad}otterSetTitle('$targetName', $valExpr);" }
-                    'background' { return "${pad}otterSetStyle('$targetName', 'backgroundColor', $valExpr);" }
-                    'foreground' { return "${pad}otterSetStyle('$targetName', 'color', $valExpr);" }
-                    'width' { return "${pad}otterSetStyle('$targetName', 'width', typeof ($valExpr) === 'number' ? ($valExpr + 'px') : $valExpr);" }
-                    'height' { return "${pad}otterSetStyle('$targetName', 'height', typeof ($valExpr) === 'number' ? ($valExpr + 'px') : $valExpr);" }
-                    default { return "${pad}otterSetProperty('$targetName', '$prop', $valExpr);" }
+                $uiBranch = switch ($prop) {
+                    'text' { "otterSetText('$targetName', $valExpr);" }
+                    'value' { "otterSetText('$targetName', $valExpr);" }
+                    'title' { "otterSetTitle('$targetName', $valExpr);" }
+                    'background' { "otterSetStyle('$targetName', 'backgroundColor', $valExpr);" }
+                    'foreground' { "otterSetStyle('$targetName', 'color', $valExpr);" }
+                    'width' { "otterSetStyle('$targetName', 'width', typeof ($valExpr) === 'number' ? ($valExpr + 'px') : $valExpr);" }
+                    'height' { "otterSetStyle('$targetName', 'height', typeof ($valExpr) === 'number' ? ($valExpr + 'px') : $valExpr);" }
+                    default { "otterSetProperty('$targetName', '$prop', $valExpr);" }
                 }
+                $lines = [System.Collections.Generic.List[string]]::new()
+                $inner = '  ' * ($Indent + 1)
+                $lines.Add("${pad}{")
+                $lines.Add("${inner}const _el = otterGetElement('$targetName');")
+                $lines.Add("${inner}if (_el) { $uiBranch }")
+                $lines.Add("${inner}else {")
+                $lines.Add("${inner}  const _owner = $targetName;")
+                $lines.Add("${inner}  if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }")
+                $lines.Add("${inner}  if (!(('$propOriginal') in _owner.props)) { _owner.order.push('$propOriginal'); }")
+                $lines.Add("${inner}  _owner.props['$propOriginal'] = $valExpr;")
+                $lines.Add("${inner}}")
+                $lines.Add("${pad}}")
+                return ($lines -join "`n")
             }
             $varName = if ($Stmt.Target -is [VariableExpr]) { $Stmt.Target.Name } else { [string]$Stmt.Target }
             $valExpr = ConvertTo-OtterJsExpression -Expr $Stmt.Value
@@ -414,6 +463,65 @@ function ConvertTo-OtterJsStatement {
                 $itemIndex++
             }
             $lines.Add("${itemsInner}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$varName' in otterState)) { otterSetState('$varName', _items); } else { window.$varName = _items; }")
+            $lines.Add("${pad}}")
+            return ($lines -join "`n")
+        }
+        ([NodeKind]::ObjectDef) {
+            # D60 Phase 1F.2. `name is a thing / prop is val / .` - plain
+            # object construction. `thing` only: verified the interpreter's
+            # New-OtterObjectValue has a SEPARATE pre-population path for a
+            # custom declared type (`a Person has ... .` / `jeff is a
+            # Person`, via OtterType/TypeDef) that only runs when TypeName
+            # is not literally "thing" - not implemented here, deliberately
+            # out of this phase's scope (JSON only ever produces plain
+            # `thing`s, never a custom OtterType).
+            #
+            # Also NOT implemented, deliberately: `has` used against an
+            # EXISTING plain thing. Verified directly this throws in the
+            # interpreter ("Otter will not replace existing a thing called
+            # ... with a new thing") - both the construct and reconfigure
+            # forms parse to the same ObjectDef node, disambiguated at
+            # runtime by whether the name already exists. This compiler
+            # does not currently distinguish the two either - a second
+            # `is a thing`/`has` targeting an already-existing plain name
+            # would silently construct a fresh object here rather than
+            # throwing the interpreter's protective error. Documented, not
+            # silently missed - Otter.Web.psm1's own top-level scan only
+            # diverts UI-kind ObjectDefStmts elsewhere, so every ObjectDef
+            # NodeKind reaching this case is a "thing" by construction
+            # today, and re-use-of-an-existing-name is not exercised by any
+            # current verification case.
+            #
+            # Representation: a plain JS object tagged `__otterThing: true`
+            # (so PropertyAccess/property-Assign can tell it apart from a
+            # UI resource at runtime - see those cases), holding `props`
+            # (the actual property values, case-sensitive JS object keys,
+            # matching the interpreter's Ordinal-comparer hashtable exactly
+            # since JS object keys are always compared by exact string
+            # identity) and `order` (insertion order, matching
+            # OtterObject.PropertyNames() - JS preserves insertion order
+            # for non-integer-like string keys natively, so this is mostly
+            # redundant with `props`' own key order today, kept explicit
+            # for parity/future use rather than relied upon implicitly).
+            $varName = $Stmt.Name
+            $lines = [System.Collections.Generic.List[string]]::new()
+            $inner = '  ' * ($Indent + 1)
+            $lines.Add("${pad}{")
+            $lines.Add("${inner}const _props = {};")
+            $lines.Add("${inner}const _order = [];")
+            foreach ($property in $Stmt.Properties) {
+                if ($property.Kind -eq [NodeKind]::Assign -and $property.Target -is [VariableExpr]) {
+                    $propName = $property.Target.Name
+                    $propValJs = ConvertTo-OtterJsExpression -Expr $property.Value
+                    $lines.Add("${inner}_props['$propName'] = $propValJs; _order.push('$propName');")
+                }
+            }
+            $lines.Add("${inner}const _thing = { __otterThing: true, typeName: 'thing', props: _props, order: _order };")
+            if ($LocalNames -and $LocalNames.Contains($varName)) {
+                $lines.Add("${inner}$varName = _thing;")
+            } else {
+                $lines.Add("${inner}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$varName' in otterState)) { otterSetState('$varName', _thing); } else { window.$varName = _thing; }")
+            }
             $lines.Add("${pad}}")
             return ($lines -join "`n")
         }
@@ -873,6 +981,13 @@ function Get-OtterJsBindingNames {
             }
             if ($s.Kind -eq [NodeKind]::ReadFile -or $s.Kind -eq [NodeKind]::HttpGet -or $s.Kind -eq [NodeKind]::HttpPost) {
                 if ($s.Target) { [void]$setStyle.Add($s.Target) }
+            }
+            if ($s.Kind -eq [NodeKind]::ObjectDef) {
+                # D60 Phase 1F.2: `person is a thing` uses Environment.Set
+                # (verified in New-OtterObjectValue's caller), the same
+                # Set-style mechanism as Assign/MathInto - not SetLocal, so
+                # it belongs here, not in AlwaysLocal.
+                [void]$setStyle.Add($s.Name)
             }
             if ($s.Kind -eq [NodeKind]::CountLoop) {
                 [void]$alwaysLocal.Add($s.VariableName)
