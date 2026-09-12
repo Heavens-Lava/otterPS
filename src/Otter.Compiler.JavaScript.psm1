@@ -206,7 +206,17 @@ function ConvertTo-OtterJsStatement {
         # it returns (Environment rooted fresh at $script:GlobalEnvironment
         # per call), so `total is ...` inside a function must become a
         # real JS `let`, never a window write, or it would leak.
-        [System.Collections.Generic.HashSet[string]]$LocalNames = $null
+        [System.Collections.Generic.HashSet[string]]$LocalNames = $null,
+
+        # D60 Phase 1F.1. Null everywhere except when compiling a function
+        # body (threaded the same way as -LocalNames). The set of names
+        # with a top-level binding anywhere in the whole program - see
+        # Get-OtterJsTopLevelGlobalNames. FunctionDef consults this once,
+        # when first building its own -LocalNames set, to decide which
+        # Set-style bindings (Assign/MathInto/CallStatement) inside the
+        # function must be excluded from LocalNames because they mutate a
+        # real pre-existing global instead of shadowing it locally.
+        [System.Collections.Generic.HashSet[string]]$KnownGlobals = $null
     )
 
     $pad = '  ' * $Indent
@@ -339,7 +349,20 @@ function ConvertTo-OtterJsStatement {
             $lines.Add("${inner}const _to = Number($toJs);")
             $lines.Add("${inner}const _step = _from <= _to ? 1 : -1;")
             $lines.Add("${inner}for (let _n = _from; (_step > 0 && _n <= _to) || (_step < 0 && _n >= _to); _n += _step) {")
-            $lines.Add("${bodyIndent}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$varName' in otterState)) { otterSetState('$varName', _n); } else { window.$varName = _n; }")
+            if ($LocalNames -and $LocalNames.Contains($varName)) {
+                # D60 Phase 1F.1. Inside a function, CountLoop's SetLocal
+                # ALWAYS writes to the CURRENT (function-local) scope,
+                # never climbing to mutate a same-named outer/global
+                # variable even if one exists - verified directly, and
+                # different from Assign/MathInto's Set (which climbs and
+                # mutates an existing global). FunctionDef always adds
+                # CountLoop/ForEach variable names to LocalNames
+                # unconditionally for exactly this reason - see its case
+                # for the full explanation.
+                $lines.Add("${bodyIndent}$varName = _n;")
+            } else {
+                $lines.Add("${bodyIndent}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$varName' in otterState)) { otterSetState('$varName', _n); } else { window.$varName = _n; }")
+            }
             foreach ($s in $Stmt.Body) {
                 $lines.Add((ConvertTo-OtterJsStatement -Stmt $s -Indent ($Indent + 2) -LocalNames $LocalNames))
             }
@@ -528,13 +551,38 @@ function ConvertTo-OtterJsStatement {
             return ($lines -join "`n")
         }
         ([NodeKind]::ForEach) {
-            $coll = ConvertTo-OtterJsExpression -Expr $Stmt.Collection
-            $var = $Stmt.VariableName
+            # D60 Phase 1F.1. Rewritten from a bare `for (const x of ...)`
+            # (Phase 1A) - that block-scopes the loop variable to just the
+            # for-loop's own braces, so it does NOT leak the way the
+            # interpreter's real ForEach does. Confirmed as a genuine
+            # divergence via real browser execution during Phase 1E
+            # (referencing the variable after the loop threw
+            # ReferenceError, where the interpreter prints its last value)
+            # and confirmed AGAIN here as directly relevant to function
+            # scoping specifically: `for each item in items { say item } .
+            # say item` INSIDE a function reads the last value (matches
+            # SetLocal writing into the function's own current scope), so
+            # fixing this leak is a prerequisite for that case, not a
+            # separate concern. Now matches CountLoop's own pattern
+            # exactly: an internal iterator variable separate from the
+            # visible one, written via the same window/otterState-or-local
+            # choice every other construct in this file uses.
+            $collJs = ConvertTo-OtterJsExpression -Expr $Stmt.Collection
+            $varName = $Stmt.VariableName
+            $inner = '  ' * ($Indent + 1)
+            $bodyIndent = '  ' * ($Indent + 2)
             $lines = [System.Collections.Generic.List[string]]::new()
-            $lines.Add("${pad}for (const $var of ($coll || [])) {")
-            foreach ($s in $Stmt.Body) {
-                $lines.Add((ConvertTo-OtterJsStatement -Stmt $s -Indent ($Indent + 1) -LocalNames $LocalNames))
+            $lines.Add("${pad}{")
+            $lines.Add("${inner}for (const _item of ($collJs || [])) {")
+            if ($LocalNames -and $LocalNames.Contains($varName)) {
+                $lines.Add("${bodyIndent}$varName = _item;")
+            } else {
+                $lines.Add("${bodyIndent}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$varName' in otterState)) { otterSetState('$varName', _item); } else { window.$varName = _item; }")
             }
+            foreach ($s in $Stmt.Body) {
+                $lines.Add((ConvertTo-OtterJsStatement -Stmt $s -Indent ($Indent + 2) -LocalNames $LocalNames))
+            }
+            $lines.Add("${inner}}")
             $lines.Add("${pad}}")
             return ($lines -join "`n")
         }
@@ -654,49 +702,55 @@ function ConvertTo-OtterJsStatement {
             # (a parameter always shadows an outer variable of the same
             # name), with zero extra code.
             #
-            # Local variables are the real design problem this phase had to
+            # Local variables were the real design problem this phase had to
             # solve, verified directly rather than assumed: a function's
             # local scope is a FRESH environment rooted at the GLOBAL
             # environment for every call (Invoke-OtterCall: `$local =
             # [OtterEnvironment]::new($script:GlobalEnvironment)`), so a
-            # plain `is`-assigned local is discarded when the function
-            # returns and must never leak to an enclosing/global scope
-            # (verified: a variable set inside a function and read again at
-            # top level afterward throws "could not find the variable").
-            # Every other construct in this file writes plain variables to
-            # `window.<name>`, which would leak - so this case scans the
-            # body for every VariableExpr Assign target, declares those
-            # (minus anything already a parameter) as real JS `let`s at the
-            # top of the function, and threads that name set through to
-            # every nested statement via -LocalNames so Assign (and
-            # CallStatement's "make" capture) write to the real local
-            # instead of window for exactly those names.
+            # plain local is discarded when the function returns and must
+            # never leak to an enclosing/global scope (verified: reading it
+            # back at top level afterward throws "could not find the
+            # variable").
             #
-            # NOT covered by that local-name scan, and deliberately not
-            # fixed in this phase (documented gap, not a silent miss):
-            # count/for-each loop variables, list literals, and
-            # sort/reverse/split/join/find/add/remove targets still write
-            # to window unconditionally even inside a function body, so
-            # they WOULD leak if used there - none of the verification
-            # cases for this phase use them inside a function, and fixing
-            # every one of those call sites to be local-aware is real,
-            # separate scope.
-            #
-            # Deliberately NOT replicated: the interpreter's one edge case
-            # where a function mutates a PRE-EXISTING global via ordinary
-            # `is` (verified: `message is "Before"` then a function doing
-            # `message is value` really does update the outer `message`).
-            # This compiler always treats an `is`-assigned name found
-            # inside a function body as local, which shadows rather than
-            # mutates in that specific case - a known, verified, documented
-            # divergence, not an oversight.
+            # D60 Phase 1F.1 REFINED this: the interpreter's binding targets
+            # split into two genuinely different behaviors (see
+            # Get-OtterJsBindingNames for the full verification) -
+            # Assign/MathInto/CallStatement ("Set-style") mutate an existing
+            # global if one already exists by that name anywhere in the
+            # program, or become a real local only if none does; CountLoop/
+            # ForEach ("AlwaysLocal-style") are unconditionally local no
+            # matter what, even shadowing a same-named pre-existing global
+            # for the whole call (verified: an outer `item` survives a
+            # same-named `for each item in ...` inside a function completely
+            # unchanged). $KnownGlobals (the whole program's top-level
+            # binding names, passed in from the caller) is what lets
+            # Set-style names be classified correctly here.
             $fnName = $Stmt.Name
             $paramNames = @($Stmt.Parameters)
             $paramSet = [System.Collections.Generic.HashSet[string]]::new([string[]]$paramNames)
-            $assignedNames = Get-OtterJsFunctionLocalNames -Body $Stmt.Body
-            $allLocals = [System.Collections.Generic.HashSet[string]]::new([string[]]$assignedNames)
+            $bindings = Get-OtterJsBindingNames -Statements $Stmt.Body
+            # An explicit $null check and a plain (non-expression) if/else,
+            # not `$globals = if (...) {...} else {...}` and not a bare
+            # truthiness check on $KnownGlobals - BOTH of those hit the same
+            # "PowerShell enumerates an empty collection into zero pipeline
+            # outputs" behavior already found and fixed twice elsewhere in
+            # this phase (Write-Output -NoEnumerate for
+            # Get-OtterJsFunctionLocalNames's old `return $names`): an EMPTY
+            # HashSet is falsy in an `if ($x)` check, AND assigning through
+            # an if/else expression re-triggers the same collection-to-null
+            # collapse. Confirmed directly - $globals came back $null for a
+            # function with zero known top-level globals (a legitimate,
+            # common, non-error case), not just for a missing parameter.
+            $globals = $KnownGlobals
+            if ($null -eq $globals) { $globals = [System.Collections.Generic.HashSet[string]]::new() }
+
+            $allLocals = [System.Collections.Generic.HashSet[string]]::new()
             foreach ($p in $paramNames) { [void]$allLocals.Add($p) }
-            $declOnly = @($assignedNames | Where-Object { -not $paramSet.Contains($_) })
+            foreach ($n in $bindings.AlwaysLocal) { [void]$allLocals.Add($n) }
+            foreach ($n in $bindings.SetStyle) {
+                if (-not $globals.Contains($n)) { [void]$allLocals.Add($n) }
+            }
+            $declOnly = @($allLocals | Where-Object { -not $paramSet.Contains($_) })
 
             $lines = [System.Collections.Generic.List[string]]::new()
             $bodyIndent = '  ' * ($Indent + 1)
@@ -736,62 +790,116 @@ function ConvertTo-OtterJsStatement {
     }
 }
 
-# D60 Phase 1F. Recursively collects every plain-variable Assign target name
-# inside a function body, so FunctionDef can declare them as real JS locals.
-# Only walks constructs that can appear nested inside a function in this
-# phase's verified test cases (if/otherwise, while, repeat, try/otherwise) -
-# see the FunctionDef case above for the documented gap covering count/
-# for-each/list-literal/collection-operation targets.
-function Get-OtterJsFunctionLocalNames {
-    param([Node[]]$Body)
+# D60 Phase 1F.1. Recursively collects every variable-binding-target name
+# inside a set of statements, split into the two categories the interpreter
+# genuinely treats differently - verified directly, not assumed:
+#
+#   SetStyle: Assign, MathInto, CallStatement's "make" capture. The
+#   interpreter's Environment.Set() CLIMBS the parent chain and mutates an
+#   EXISTING variable of the same name wherever it is found, creating a new
+#   one in the current scope only if none exists anywhere up the chain.
+#   Confirmed: a function doing `value is 2` where a global `value` already
+#   exists really does update that global, not shadow it locally.
+#
+#   AlwaysLocalStyle: CountLoop and ForEach loop variables. The
+#   interpreter's SetLocal() ALWAYS writes into the CURRENT scope directly,
+#   never climbing, regardless of whether a same-named variable exists
+#   further up. Confirmed: a global `item` set before a function whose own
+#   `for each item in ...` uses the identical name is completely unaffected
+#   after the function returns - the loop variable shadowed it locally for
+#   the whole call, unconditionally.
+#
+# Both categories still need the same recursion into if/otherwise, while,
+# repeat, count, each, and try/otherwise - a binding buried inside one of
+# those is exactly as real as a direct child of the function body (verified
+# this matters, not just for symmetry: `if flag is true { result is 10 } .`
+# must not accidentally become a window write just because the assignment
+# isn't a direct child of the function).
+function Get-OtterJsBindingNames {
+    param([Node[]]$Statements, [switch]$DescendIntoFunctionDefs)
 
-    $names = [System.Collections.Generic.HashSet[string]]::new()
+    $setStyle = [System.Collections.Generic.HashSet[string]]::new()
+    $alwaysLocal = [System.Collections.Generic.HashSet[string]]::new()
 
-    function Walk-OtterLocalNameScan {
-        param([Node[]]$Statements)
-        if ($null -eq $Statements) { return }
-        foreach ($s in $Statements) {
+    function Walk-OtterBindingScan {
+        param([Node[]]$Stmts)
+        if ($null -eq $Stmts) { return }
+        foreach ($s in $Stmts) {
             if ($s.Kind -eq [NodeKind]::Assign -and $s.Target -is [VariableExpr]) {
-                [void]$names.Add($s.Target.Name)
+                [void]$setStyle.Add($s.Target.Name)
             }
             if ($s.Kind -eq [NodeKind]::CallStatement -and $s.ResultTarget) {
-                [void]$names.Add($s.ResultTarget)
+                [void]$setStyle.Add($s.ResultTarget)
             }
             if ($s.Kind -eq [NodeKind]::MathInto) {
-                [void]$names.Add($s.Target)
+                [void]$setStyle.Add($s.Target)
+            }
+            if ($s.Kind -eq [NodeKind]::CountLoop) {
+                [void]$alwaysLocal.Add($s.VariableName)
+                [void](Walk-OtterBindingScan -Stmts $s.Body)
+            }
+            if ($s.Kind -eq [NodeKind]::ForEach) {
+                [void]$alwaysLocal.Add($s.VariableName)
+                [void](Walk-OtterBindingScan -Stmts $s.Body)
             }
             if ($s.Kind -eq [NodeKind]::If) {
                 # [void] on every nested call below: an unsuppressed bare
                 # call inside a PowerShell function becomes part of ITS
-                # implicit output too, which would otherwise leak into
-                # $assignedNames at the call site below and silently turn
-                # the clean HashSet return into a mixed array - this was a
-                # real bug, caught via the "Multiple ambiguous overloads"
-                # error it produced downstream, not assumed safe.
-                foreach ($branch in $s.Branches) { [void](Walk-OtterLocalNameScan -Statements $branch.Body) }
-                if ($s.ElseBody) { [void](Walk-OtterLocalNameScan -Statements $s.ElseBody) }
+                # implicit output too, which would otherwise leak into the
+                # caller's variable and silently turn a clean HashSet
+                # return into a mixed array - this was a real bug, caught
+                # via the "Multiple ambiguous overloads" error it produced
+                # downstream, not assumed safe.
+                foreach ($branch in $s.Branches) { [void](Walk-OtterBindingScan -Stmts $branch.Body) }
+                if ($s.ElseBody) { [void](Walk-OtterBindingScan -Stmts $s.ElseBody) }
             }
             if ($s.Kind -eq [NodeKind]::While -or $s.Kind -eq [NodeKind]::Repeat) {
-                [void](Walk-OtterLocalNameScan -Statements $s.Body)
+                [void](Walk-OtterBindingScan -Stmts $s.Body)
             }
             if ($s.Kind -eq [NodeKind]::Try) {
-                [void](Walk-OtterLocalNameScan -Statements $s.Body)
-                if ($s.OtherwiseBody) { [void](Walk-OtterLocalNameScan -Statements $s.OtherwiseBody) }
+                [void](Walk-OtterBindingScan -Stmts $s.Body)
+                if ($s.OtherwiseBody) { [void](Walk-OtterBindingScan -Stmts $s.OtherwiseBody) }
+            }
+            if ($DescendIntoFunctionDefs -and $s.Kind -eq [NodeKind]::FunctionDef) {
+                [void](Walk-OtterBindingScan -Stmts $s.Body)
             }
         }
     }
 
-    [void](Walk-OtterLocalNameScan -Statements $Body)
-    # -NoEnumerate, not `return $names`: PowerShell enumerates a returned
-    # collection into the output stream, and an EMPTY one then produces
-    # zero output objects - the caller receives $null, not an empty
-    # HashSet (the exact same reason New-OtterList/Get-OtterMutableList in
-    # Otter.Runtime.psm1 use this same pattern). Caught via a function with
-    # no locally-assigned names (examples/experimental/counter.ot's
-    # declarative-UI-bodied `to counterCard`) producing a null $assignedNames
-    # downstream, not assumed.
-    Write-Output -NoEnumerate $names
+    [void](Walk-OtterBindingScan -Stmts $Statements)
+    # A plain hashtable, not a collection - PowerShell does not enumerate a
+    # hashtable's own entries into the output stream the way it would a
+    # bare HashSet/array, so this needs no -NoEnumerate to come back as one
+    # object (unlike the HashSet-returning helper this replaced, where an
+    # empty HashSet vanished into $null on `return` - the exact bug found
+    # and fixed in Phase 1F).
+    return @{ SetStyle = $setStyle; AlwaysLocal = $alwaysLocal }
+}
+
+# D60 Phase 1F.1. The "known top-level globals" a function's Set-style
+# bindings must be checked against: a name with a top-level (outside any
+# function) binding ANYWHERE in the program is a real global the
+# interpreter's Set() would find and mutate, matching Otter's own
+# sequential, non-hoisted execution model (there is no forward-reference
+# problem to worry about here the way there was for FunctionDef's own
+# temporal-dead-zone choice: a function can only ever be CALLED after
+# every top-level statement that runs before that call site has already
+# executed, so scanning the whole top-level program is the right
+# approximation, not merely a convenient one - it is not, however, a full
+# per-call-site dynamic check, which the interpreter's runtime chain walk
+# technically is; a name whose only top-level binding occurs AFTER every
+# call to a function that references it would still be treated here as a
+# pre-existing global, which is a known, deliberate, documented remaining
+# approximation, not a silently missed case).
+function Get-OtterJsTopLevelGlobalNames {
+    param([Node[]]$TopLevelStatements)
+
+    $bindings = Get-OtterJsBindingNames -Statements $TopLevelStatements
+    $all = [System.Collections.Generic.HashSet[string]]::new([string[]]$bindings.SetStyle)
+    foreach ($n in $bindings.AlwaysLocal) { [void]$all.Add($n) }
+    return @{ Names = $all }
 }
 
 Export-ModuleMember -Function `
-    ConvertTo-OtterJsExpression, ConvertTo-OtterJsStatement
+    ConvertTo-OtterJsExpression, ConvertTo-OtterJsStatement, `
+    Get-OtterJsBindingNames, Get-OtterJsTopLevelGlobalNames

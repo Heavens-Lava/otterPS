@@ -999,9 +999,16 @@ $bodyJoined
     }
 
     # Compile top-level code
+    # D60 Phase 1F.1: computed once, passed to every top-level statement so
+    # any FunctionDefStmt among them can tell a real pre-existing global
+    # apart from a genuinely function-local name - see
+    # Get-OtterJsTopLevelGlobalNames for why a whole-program scan is the
+    # right approximation of the interpreter's own non-hoisted, sequential
+    # execution model.
+    $topLevelGlobals = (Get-OtterJsTopLevelGlobalNames -TopLevelStatements $topLevelStatements).Names
     $topLevelJs = [System.Collections.Generic.List[string]]::new()
     foreach ($s in $topLevelStatements) {
-        $topLevelJs.Add((ConvertTo-OtterJsStatement -Stmt $s -Indent 2))
+        $topLevelJs.Add((ConvertTo-OtterJsStatement -Stmt $s -Indent 2 -KnownGlobals $topLevelGlobals))
     }
     $topLevelJoined = $topLevelJs -join "`n"
     $handlersJoined = $jsHandlers -join "`n"
