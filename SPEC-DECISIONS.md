@@ -4280,6 +4280,153 @@ calling the emitter directly):
   message, and the zero-part case all matched the interpreter's output
   string exactly, and `warn`/`error` correctly landed in the browser's
   warning/error console channels respectively.
+- Dates and time (`today`/`now`, `year`/`month`/`day`/`hour`/`minute`/
+  `second` of a date, `add <n> <unit> to <target>`/`remove <n> <unit>
+  from <target>`, `<unit> between <a> and <b> make <target>` and its
+  D42 expression form, `format <date> as "<pattern>" into <target>`,
+  and date comparison), Phase 1J: a tagged plain-object representation
+  (`{ __otterDate: true, hasTime, value: <a real JS Date>, toString()
+  {...} }`) added, plus NodeKind cases for `Clock` (expression),
+  `DateAdjust`, `DateDifference`, `DateDifferenceValue` (expression),
+  and `FormatDate`, and new date branches inside the existing
+  `PropertyAccess` and `Comparison` cases. Interpreter-first inventory
+  went well beyond reading the source: `tests/Dates.Tests.ps1`'s own
+  pinned fixtures (already part of the 17/17 regression before this
+  phase) were used as primary ground truth, since they hand-construct
+  exact `OtterDate` values the way this project's own workflow builds
+  AST nodes ahead of the parser. Confirmed and matched exactly:
+  - `today` pins to LOCAL midnight (`HasTime` false, "a date with no
+    time of day"); `now` keeps the current LOCAL wall-clock instant
+    (`HasTime` true). Both read the interpreter's own `[datetime]::Now`
+    (LOCAL, not UTC) - JS's `new Date()` is local-clock by construction
+    too, so no explicit timezone conversion was needed.
+  - Date PARTS are ordinary `PropertyAccessExpr`s, not a separate node
+    (D32.2 - deliberately, so `year of book`, book a plain thing, keeps
+    meaning the stored property) - dispatched at RUNTIME by tag,
+    checked before the existing UI/thing dispatch, matching the
+    interpreter's real Test-OtterDate-before-Test-OtterUiResource-
+    before-Test-OtterObject precedence. One genuinely surprising fact
+    found during inventory, not assumed: date-part matching is CASE-
+    INSENSITIVE ("YEAR of date" works) - this falls out of PowerShell's
+    `switch` being case-insensitive by default in
+    `Get-OtterDatePart`, not a deliberate design decision documented
+    anywhere, but it IS the real observable behavior and is now
+    replicated. `hour`/`minute`/`second` on a date with no time of day
+    throws ("This is a date with no time of day, so it has no
+    `<unit>`."); an unrecognized part throws using the property's
+    ORIGINAL case even though the match itself is case-insensitive
+    ("A date has no part called `"FORTNIGHT`"." keeps the caller's
+    exact casing, verified directly). WRITING a date's property (`year
+    of date is 2000`) already throws with the pre-existing generic
+    "something else" phrasing this compiler uses everywhere instead of
+    the interpreter's full dynamic type name - needed no new code, the
+    existing thing-write guard already rejects anything not tagged
+    `__otterThing`.
+  - `add`/`remove` REPLACES the value rather than mutating in place
+    (verified directly: two variables holding what was the same date
+    never move together after only one is adjusted) - a fresh tagged
+    date object is built and rebound via the same Set-style mechanism
+    as Assign/MathInto, never an in-place mutation, so this falls out
+    for free from the existing plain-object-assignment discipline.
+    Amounts are truncated toward zero (`Math.trunc`, matching
+    `[int][Math]::Truncate`), never rounded.
+  - **The one real risk Jeff flagged going in** - JavaScript's native
+    Date arithmetic must not be trusted to define Otter's calendar
+    semantics - was concretely real, not hypothetical: a plain
+    `setMonth` rollover in JS does NOT clamp the way `.NET`'s
+    `DateTime.AddMonths` does (31 January + 1 month would silently
+    become 3 March in native JS, not 28 February). This compiler
+    reimplements `.NET`'s exact field-based, day-clamping algorithm
+    (`Get-OtterJsAddMonthsSnippet`) instead of trusting JS's own month
+    rollover; `AddYears` reuses it as `AddMonths(years * 12)`, matching
+    `.NET`'s own documented equivalence (including clamping 29 February
+    down to 28 February for a non-leap target year). Day/Hour/Minute/
+    Second arithmetic and `<unit> between` both use epoch-millisecond
+    arithmetic instead - verified by reading the interpreter that
+    `.NET`'s own Day/Hour/Minute/Second math is pure Ticks
+    (elapsed-time) subtraction with NO timezone/DST reinterpretation at
+    any point, so epoch-ms arithmetic in JS is not a convenient
+    approximation, it is the same class of computation the interpreter
+    performs, and is DST-transition-safe by construction (an absolute
+    instant is always well-defined, unlike a local wall-clock field
+    mutation would be near a DST boundary). The sandbox this work ran
+    in has no DST-observing timezone (Arizona), so a genuine live
+    DST-crossing `.ot` run could not be produced or observed directly;
+    the reasoning above is a proof from reading both implementations'
+    actual arithmetic, not an assumption, and the two boundary cases
+    Jeff asked for by name were verified directly:
+    2024-02-28 + 1 day = 2024-02-29 (leap year, not a jump to March),
+    2024-02-29 + 1 day = 2024-03-01, and 2023-02-28 + 1 day = 2023-03-01
+    (non-leap year, the same addition DOES cross straight to March).
+  - `<unit> between <a> and <b>` (both the legacy statement and the
+    D42 expression form) matches `Measure-OtterDateDifference` exactly:
+    Year/Month use CALENDAR month arithmetic, not averaged days
+    (confirmed against the interpreter's own pinned fixture - 31
+    January to 28 February is 0 months, not ~1), Day/Hour/Minute/Second
+    use a plain elapsed-time span, and the result is SIGNED (end minus
+    start) and truncated toward zero, never rounded. Throws if either
+    operand is not a date (generic "something else" phrasing for the
+    failing side, same established approximation used elsewhere rather
+    than the interpreter's full Get-OtterTypeName text).
+  - Comparison (D32.6): two dates order by instant for all four
+    ordering operators, and Equal/NotEqual match Test-OtterEqual
+    exactly (two dates compare by instant; a date and a NON-date are
+    NEVER equal, not even a date and text that looks like one - the
+    existing plain `===`/`!==`/`<`/etc. codegen is otherwise completely
+    UNCHANGED for every other type pair, so this does not touch or
+    interact with the separately-tracked, pre-existing gap where list
+    equality already diverges from Test-OtterEqual). Mixing a date with
+    a non-date in an ORDERING comparison throws, matching
+    Assert-OtterNumber (a date is deliberately never numeric) - one
+    narrow, documented approximation here: if one side is a date and
+    the other is some THIRD bad type (neither a date nor a number),
+    this names the date side as the failing operand rather than
+    exactly replicating the interpreter's strict left-then-right
+    Assert-OtterNumber check order; a date is unconditionally not a
+    number either way, so the thrown error is still correct in
+    substance in this genuinely rare double-bad-type edge case.
+  - `format <date> as "<pattern>" into <target>`: the date itself is
+    left untouched (produces text only). Implements exactly the .NET
+    custom-format tokens PROVEN to exist in real Otter usage - searched
+    every example and test in this repo; only `yyyy`/`MM`/`dd`/`HH`/
+    `mm`/`ss` are ever used (`"MM/dd/yyyy"`, `"yyyy-MM-dd HH:mm"`).
+    Anything else in the pattern passes through LITERALLY, which is not
+    a shortcut - verified directly against the real interpreter that
+    `.NET`'s own formatter does the same thing for an unrecognized
+    letter (`format d as "qqq"` produces the literal text "qqq", not an
+    error, since 'q' is not a reserved custom-format character). .NET's
+    rarer FormatException edge cases (unbalanced quoted-literal
+    sections, escape sequences) are deliberately not replicated -
+    nothing in this codebase exercises them.
+  - **A structural limitation found during inventory, not introduced by
+    this phase**: Otter has NO date-literal syntax at all - `today` and
+    `now` are the only ways to produce a date value in any real `.ot`
+    program. This means the classic fixed-calendar-date scenarios (a
+    specific "31 January 2026", a specific "28 February 2024") cannot
+    be constructed by ANY real Otter program, for either runtime - it
+    is a language-expressiveness fact, not a testing gap in this phase.
+    The month/leap-year boundary cases above were therefore verified by
+    executing the ACTUAL compiled JS this compiler produces (extracted
+    via this project's own established "hand-construct the AST node,
+    don't block on the parser" workflow, the same one `tests/
+    Dates.Tests.ps1` itself relies on) against fixed input dates in
+    Node, rather than through a live `.ot` script - the closest
+    available equivalent to "the real pipeline" for a scenario the
+    language itself cannot express as a literal. Every OTHER date
+    behavior in this entry (parts, add/remove, comparison, format,
+    days-between, error paths) WAS verified through the full real
+    pipeline (production CLI, JS compiler, a real browser via
+    Playwright) using `today`/`now`-relative programs, since those need
+    no fixed literal to exercise.
+  - `say date` ALONE (no concatenation) passes the raw tagged object
+    straight to `console.log`, which uses its own object-inspection
+    display rather than calling `toString()` - confirmed in a real
+    browser. This is the exact same already-accepted, already-
+    documented class of cosmetic gap Phase 1G/1H found for lists
+    printing as `[Zelda, Mario]` rather than `Zelda, Mario`, not a new
+    one introduced here; `toString()` IS invoked correctly whenever a
+    date is used in a string concatenation (`say "Date:" date`, any
+    error message), confirmed directly in the same browser run.
 
 **MISSING FROM THE JS BACKEND** (verified absent by direct inspection,
 not assumed):
@@ -4313,7 +4460,6 @@ not assumed):
   throws a specific, deliberate "I cannot divide by zero." error. A
   program could silently compute with `Infinity` for a while before
   anything looks wrong.
-- dates (`today`, `now`, date math)
 - console/runtime utility behavior (stdin, stdout formatting parity
   with `say`, exit codes)
 - filesystem/system APIs for desktop/console targets (no browser
@@ -4332,14 +4478,18 @@ architecture above, but the agreed starting order)
    `09374ea`/`b120ee0`; collection ops done, `1e19652`; functions done,
    `af3a807`; function/loop scope parity done, `779b36f`; plain-object
    representation done, `59f53f2`; JSON done, Phase 1G; random done,
-   Phase 1H; diagnostics done, Phase 1I): count loops, list literals,
-   string operations (split into 1D-A string builtins and 1D-B the
-   `plus` runtime-type fix), collection operations,
-   function declarations/calls (moved ahead of JSON once Phase 1B
-   proved this was a real, separate gap — too many realistic Otter
-   programs depend on functions to leave this late), plain objects
-   (inserted ahead of JSON once JSON's own object mapping turned out to
-   depend on it), JSON, random, diagnostics. Remaining: dates.
+   Phase 1H; diagnostics done, Phase 1I; dates done, Phase 1J): count
+   loops, list literals, string operations (split into 1D-A string
+   builtins and 1D-B the `plus` runtime-type fix), collection
+   operations, function declarations/calls (moved ahead of JSON once
+   Phase 1B proved this was a real, separate gap — too many realistic
+   Otter programs depend on functions to leave this late), plain
+   objects (inserted ahead of JSON once JSON's own object mapping
+   turned out to depend on it), JSON, random, diagnostics, dates.
+   Nothing remains on this original list - next is a consolidated D60
+   parity audit (not yet written) asking what valid Otter programs the
+   interpreter can run today that this compiler still cannot, before
+   any further host/Studio integration work.
 3. Every addition is verified the same way: `.ot` source through the
    real production CLI, through the JS compiler, through an actual JS
    runtime, to an observed result — not a unit test calling the emitter

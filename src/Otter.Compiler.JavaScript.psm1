@@ -20,6 +20,70 @@ using module ..\Otter.Contract.psm1
 # exists in a browser target - a future console/desktop-neutral pass will
 # need to route this through an injected runtime hook instead.
 
+# D60 Phase 1J. Builds the JS text for a tagged date value - `{ __otterDate:
+# true, hasTime, value: <a real JS Date>, toString() {...} }` - matching
+# OtterDate exactly: `value` is the actual instant, `hasTime` distinguishes
+# "a date" from "a date and time" the same way OtterDate.HasTime does, and
+# `toString()` reproduces OtterDate.ToString() exactly ('yyyy-MM-dd' /
+# 'yyyy-MM-dd HH:mm:ss') so that string concatenation (`+`, used throughout
+# for say/diagnostic/error text) renders a date correctly via JS's own
+# ToPrimitive coercion - no shared runtime helper needed for that. Not
+# fixed by this: `say date` ALONE (no concatenation) passes the raw object
+# straight to console.log, which uses its own object-inspection display
+# rather than calling toString() - the exact same already-accepted,
+# already-documented class of cosmetic gap Phase 1G/1H found for lists
+# printing as `[Zelda, Mario]` rather than `Zelda, Mario`, not a new one
+# introduced here. A helper FUNCTION, not a factored-out PowerShell string
+# constant, so each call site still emits fully self-contained inline JS
+# (the established convention - no new shared JS runtime function added to
+# Otter.Web.psm1's boilerplate); this only avoids repeating the same
+# PowerShell string-building code twice.
+function Get-OtterJsDateConstructor {
+    param([string]$DateExprJs, [string]$HasTimeJs)
+
+    $toStringBody = "const y=this.value.getFullYear(); const mo=String(this.value.getMonth()+1).padStart(2,'0'); const da=String(this.value.getDate()).padStart(2,'0'); if (!this.hasTime) { return y+'-'+mo+'-'+da; } const h=String(this.value.getHours()).padStart(2,'0'); const mi=String(this.value.getMinutes()).padStart(2,'0'); const s=String(this.value.getSeconds()).padStart(2,'0'); return y+'-'+mo+'-'+da+' '+h+':'+mi+':'+s;"
+    return "{ __otterDate: true, hasTime: $HasTimeJs, value: ($DateExprJs), toString() { $toStringBody } }"
+}
+
+# D60 Phase 1J. Builds the JS text for `.NET`'s DateTime.AddMonths/AddYears
+# clamping algorithm - verified this is what the interpreter's DateAdjust
+# case actually relies on (`$current.Value.AddMonths($whole)` /
+# `.AddYears($whole)`), and confirmed directly against
+# tests/Dates.Tests.ps1's own pinned fixture ("31 January plus one month is
+# the end of February, not 3 March"): a plain JS `setMonth`/`setFullYear`
+# rollover does NOT clamp this way (Jan 31 + 1 month would silently become
+# March 3 in native JS), so this reimplements .NET's exact field-based,
+# day-clamping algorithm rather than trusting JS Date's own month rollover.
+# AddYears is just AddMonths(years * 12) - .NET's own AddYears is
+# documented to behave identically (including clamping Feb 29 down to Feb
+# 28 for a non-leap target year), so one function covers both units.
+function Get-OtterJsAddMonthsSnippet {
+    param([string]$DateJs, [string]$MonthsJs)
+
+    return "(() => { const _d = $DateJs; const _tot = _d.getFullYear() * 12 + _d.getMonth() + ($MonthsJs); const _ny = Math.floor(_tot / 12); const _nm = (((_tot % 12) + 12) % 12); const _dim = new Date(_ny, _nm + 1, 0).getDate(); const _nd = Math.min(_d.getDate(), _dim); return new Date(_ny, _nm, _nd, _d.getHours(), _d.getMinutes(), _d.getSeconds(), _d.getMilliseconds()); })()"
+}
+
+# D60 Phase 1J. Shared by DateDifference (statement) and DateDifferenceValue
+# (expression) - the exact same computation, verified directly against
+# Measure-OtterDateDifference: Year/Month use CALENDAR month arithmetic (not
+# averaged days - confirmed via the interpreter's own pinned fixture, 31
+# January to 28 February is 0 months, not ~1), Day/Hour/Minute/Second use a
+# plain elapsed-time span. Both are truncated toward zero (never rounded),
+# signed end-minus-start. Elapsed-time units are computed via epoch-
+# millisecond subtraction rather than any local-field manipulation - this
+# is intentionally DST-and-timezone-drift-safe: `.NET`'s own
+# Day/Hour/Minute/Second span math is pure Ticks subtraction (verified by
+# reading Measure-OtterDateDifference - `$to - $from` on two `[datetime]`
+# values, then `.TotalDays`/etc.), which never re-derives wall-clock fields
+# through a timezone's DST rules either, so epoch-ms subtraction in JS is
+# not merely a convenient approximation - it is the same class of
+# computation the interpreter itself performs.
+function Get-OtterJsDateDifferenceExpression {
+    param([string]$UnitJs, [string]$StartJs, [string]$EndJs)
+
+    return "(() => { const _from = $StartJs; const _to = $EndJs; const _unit = $UnitJs; if (_unit === 'Year' || _unit === 'Month') { let _months = (_to.getFullYear() - _from.getFullYear()) * 12 + (_to.getMonth() - _from.getMonth()); if (_months > 0 && _to.getDate() < _from.getDate()) { _months--; } if (_months < 0 && _to.getDate() > _from.getDate()) { _months++; } if (_unit === 'Month') { return _months; } return Math.trunc(_months / 12); } const _spanMs = _to.getTime() - _from.getTime(); if (_unit === 'Day') { return Math.trunc(_spanMs / 86400000); } if (_unit === 'Hour') { return Math.trunc(_spanMs / 3600000); } if (_unit === 'Minute') { return Math.trunc(_spanMs / 60000); } return Math.trunc(_spanMs / 1000); })()"
+}
+
 function ConvertTo-OtterJsExpression {
     param([Parameter(Mandatory)][Node]$Expr)
 
@@ -48,6 +112,27 @@ function ConvertTo-OtterJsExpression {
             # thing has no property called ..." - reading is NOT the same
             # rule as writing, which always succeeds) and uses the
             # property's ORIGINAL case, never lowercased.
+            #
+            # D60 Phase 1J adds a THIRD branch, checked first (matching the
+            # interpreter's real precedence - Test-OtterDate runs before
+            # Test-OtterUiResource/Test-OtterObject in 'PropertyAccess'):
+            # `year of date` / `hour of started` etc. A date's own parts are
+            # ORDINARY PropertyAccessExprs, not a separate node (D32.2 - so
+            # that `year of book`, book a plain thing, keeps meaning the
+            # stored property). Verified directly against the interpreter,
+            # including one genuinely surprising fact: matching is CASE-
+            # INSENSITIVE ("YEAR of date" and "Year of date" both work) -
+            # this falls out of PowerShell's `switch` being case-insensitive
+            # by default in Get-OtterDatePart, not a deliberate design
+            # choice documented anywhere, but it IS the real observable
+            # behavior, so `$prop` (already lowercased, existing variable)
+            # is reused for the comparison here too. Hour/minute/second on a
+            # date with no time of day throws ("This is a date with no time
+            # of day, so it has no <unit>.", unit lowercased - matches
+            # Assert-OtterUnitAllowed exactly); an unrecognized part throws
+            # using the property's ORIGINAL case ("A date has no part called
+            # "<Original>".", verified directly - the error text does NOT
+            # lowercase it even though the match itself is case-insensitive).
             $propOriginal = $Expr.Property
             $prop = $propOriginal.ToLowerInvariant()
             $target = $Expr.Target
@@ -60,11 +145,20 @@ function ConvertTo-OtterJsExpression {
                 'height' { "otterGetStyle('$targetName', 'height')" }
                 default { "otterGetProperty('$targetName', '$prop')" }
             }
+            $dateBranch = switch ($prop) {
+                'year' { "_owner.value.getFullYear()" }
+                'month' { "(_owner.value.getMonth() + 1)" }
+                'day' { "_owner.value.getDate()" }
+                'hour' { "(_owner.hasTime ? _owner.value.getHours() : (() => { throw new Error('This is a date with no time of day, so it has no hour.'); })())" }
+                'minute' { "(_owner.hasTime ? _owner.value.getMinutes() : (() => { throw new Error('This is a date with no time of day, so it has no minute.'); })())" }
+                'second' { "(_owner.hasTime ? _owner.value.getSeconds() : (() => { throw new Error('This is a date with no time of day, so it has no second.'); })())" }
+                default { "(() => { throw new Error('A date has no part called `"$propOriginal`".'); })()" }
+            }
             # An inline IIFE, not a named runtime-helper call, to keep this
             # entirely self-contained in this module - same reasoning as
             # Phase 1D-B's `plus` fix (no shared helper added to
             # Otter.Web.psm1's boilerplate).
-            return "(otterGetElement('$targetName') ? ($uiBranch) : (() => { const _owner = $targetName; if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('$propOriginal') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called `"$propOriginal`".'); } return _owner.props['$propOriginal']; })())"
+            return "(otterGetElement('$targetName') ? ($uiBranch) : (() => { const _owner = $targetName; if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return $dateBranch; } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('$propOriginal') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called `"$propOriginal`".'); } return _owner.props['$propOriginal']; })())"
         }
         ([NodeKind]::Math) {
             $left = ConvertTo-OtterJsExpression -Expr $Expr.Left
@@ -125,13 +219,49 @@ function ConvertTo-OtterJsExpression {
         ([NodeKind]::Comparison) {
             $left = ConvertTo-OtterJsExpression -Expr $Expr.Left
             $right = ConvertTo-OtterJsExpression -Expr $Expr.Right
+            # D60 Phase 1J adds a runtime date check ahead of every op,
+            # matching the interpreter exactly: Equal/NotEqual use
+            # Test-OtterEqual (two dates compare by instant; a date and a
+            # NON-date are never equal, not even a date and text that looks
+            # like one - verified directly), and the four ordering ops
+            # compare by instant ONLY when BOTH sides are dates (D32.6) -
+            # otherwise the interpreter's Assert-OtterNumber runs and throws
+            # on whichever side is not a number, and a date is deliberately
+            # never numeric (Test-OtterNumeric explicitly rejects it). Every
+            # other type pair is completely UNCHANGED - plain `===`/`<`/etc.
+            # still runs exactly as before 1J when neither side is a date,
+            # so this does not touch the pre-existing, separately-tracked
+            # gap where JS's own `===` already diverges from Test-OtterEqual
+            # for lists (reference vs value equality) - narrowly scoped to
+            # dates, the thing this phase is actually about. One documented,
+            # narrow approximation: if ONE side is a date and the OTHER side
+            # is some third bad type (neither a date nor a number), this
+            # reports the date side as the failing operand rather than
+            # exactly replicating the interpreter's strict left-then-right
+            # Assert-OtterNumber check order - a date is unconditionally
+            # not a number either way, so the thrown error is still correct
+            # in substance, just not guaranteed to name the same side in
+            # this genuinely rare double-bad-type edge case.
+            $dateGuard = "const _lD = $left !== null && typeof ($left) === 'object' && ($left).__otterDate === true; const _rD = $right !== null && typeof ($right) === 'object' && ($right).__otterDate === true;"
             switch ($Expr.Op) {
-                ([CompareOp]::Equal) { return "($left === $right)" }
-                ([CompareOp]::NotEqual) { return "($left !== $right)" }
-                ([CompareOp]::AtLeast) { return "($left >= $right)" }
-                ([CompareOp]::AtMost) { return "($left <= $right)" }
-                ([CompareOp]::GreaterThan) { return "($left > $right)" }
-                ([CompareOp]::LessThan) { return "($left < $right)" }
+                ([CompareOp]::Equal) {
+                    return "(() => { $dateGuard if (_lD || _rD) { return (_lD && _rD) ? (($left).value.getTime() === ($right).value.getTime()) : false; } return ($left === $right); })()"
+                }
+                ([CompareOp]::NotEqual) {
+                    return "(() => { $dateGuard if (_lD || _rD) { return !((_lD && _rD) && (($left).value.getTime() === ($right).value.getTime())); } return ($left !== $right); })()"
+                }
+                ([CompareOp]::AtLeast) {
+                    return "(() => { $dateGuard if (_lD || _rD) { if (!_lD) { throw new Error('I expected a number for the left side of this comparison but got ' + ($left) + '.'); } if (!_rD) { throw new Error('I expected a number for the right side of this comparison but got ' + ($right) + '.'); } return (($left).value.getTime() >= ($right).value.getTime()); } return ($left >= $right); })()"
+                }
+                ([CompareOp]::AtMost) {
+                    return "(() => { $dateGuard if (_lD || _rD) { if (!_lD) { throw new Error('I expected a number for the left side of this comparison but got ' + ($left) + '.'); } if (!_rD) { throw new Error('I expected a number for the right side of this comparison but got ' + ($right) + '.'); } return (($left).value.getTime() <= ($right).value.getTime()); } return ($left <= $right); })()"
+                }
+                ([CompareOp]::GreaterThan) {
+                    return "(() => { $dateGuard if (_lD || _rD) { if (!_lD) { throw new Error('I expected a number for the left side of this comparison but got ' + ($left) + '.'); } if (!_rD) { throw new Error('I expected a number for the right side of this comparison but got ' + ($right) + '.'); } return (($left).value.getTime() > ($right).value.getTime()); } return ($left > $right); })()"
+                }
+                ([CompareOp]::LessThan) {
+                    return "(() => { $dateGuard if (_lD || _rD) { if (!_lD) { throw new Error('I expected a number for the left side of this comparison but got ' + ($left) + '.'); } if (!_rD) { throw new Error('I expected a number for the right side of this comparison but got ' + ($right) + '.'); } return (($left).value.getTime() < ($right).value.getTime()); } return ($left < $right); })()"
+                }
             }
         }
         ([NodeKind]::Logical) {
@@ -187,6 +317,40 @@ function ConvertTo-OtterJsExpression {
                 'Last' { return "(Array.isArray($subjectJs) && ($subjectJs).length > 0 ? ($subjectJs)[($subjectJs).length - 1] : null)" }
                 default { return "null" }
             }
+        }
+        ([NodeKind]::Clock) {
+            # D60 Phase 1J. `today` / `now` - matches New-OtterToday/
+            # New-OtterNow: `today` pins to LOCAL midnight (HasTime false -
+            # "a date with no time of day"), `now` keeps the current LOCAL
+            # wall-clock instant (HasTime true). Both read the interpreter's
+            # own `[datetime]::Now` (LOCAL, not UTC, verified by reading the
+            # source) - JS's `new Date()` is local-clock by construction
+            # too, so no explicit timezone conversion is needed for this to
+            # line up; the two runtimes' clocks are simply never expected to
+            # be byte-identical (different processes, potentially different
+            # machines), same as any other "current time" read would be.
+            $isToday = $Expr.Clock.ToString() -eq 'Today'
+            if ($isToday) {
+                $dateExpr = "(() => { const _n = new Date(); return new Date(_n.getFullYear(), _n.getMonth(), _n.getDate(), 0, 0, 0, 0); })()"
+                return (Get-OtterJsDateConstructor -DateExprJs $dateExpr -HasTimeJs 'false')
+            }
+            return (Get-OtterJsDateConstructor -DateExprJs 'new Date()' -HasTimeJs 'true')
+        }
+        ([NodeKind]::DateDifferenceValue) {
+            # D60 Phase 1J (D42). The expression form of `days between X and
+            # Y` - a genuine value, usable anywhere an expression is legal
+            # (`waiting is days between a and b`, inside `say`, inside a
+            # condition), matching the interpreter's DateDifferenceExpr
+            # exactly: the SAME computation as the legacy statement form
+            # (see Get-OtterJsDateDifferenceExpression), including throwing
+            # if either operand is not a date - verified directly against
+            # the interpreter (Assert-OtterDateOperands runs before the
+            # calculation in both the statement and expression cases).
+            $startJs = ConvertTo-OtterJsExpression -Expr $Expr.Start
+            $endJs = ConvertTo-OtterJsExpression -Expr $Expr.End
+            $unit = $Expr.Unit.ToString()
+            $diffJs = Get-OtterJsDateDifferenceExpression -UnitJs "'$unit'" -StartJs '_s.value' -EndJs '_e.value'
+            return "(() => { const _s = $startJs; const _e = $endJs; const _sOk = _s && typeof _s === 'object' && _s.__otterDate; const _eOk = _e && typeof _e === 'object' && _e.__otterDate; if (!_sOk) { throw new Error('I can only measure time between two dates, but the first one is something else.'); } if (!_eOk) { throw new Error('I can only measure time between two dates, but the second one is something else.'); } return $diffJs; })()"
         }
         ([NodeKind]::Call) {
             # D60 Phase 1F. Same call emission as CallStatement, for the
@@ -740,6 +904,26 @@ function ConvertTo-OtterJsStatement {
             }
             return "${pad}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$target' in otterState)) { otterSetState('$target', await otterReadFile($pathJs)); } else { window.$target = await otterReadFile($pathJs); }"
         }
+        ([NodeKind]::WriteFile) {
+            # D60. `write <content> to <path>` - complements ReadFile.
+            # Emits call to async runtime hook otterWriteFile(path, content).
+            $contentJs = ConvertTo-OtterJsExpression -Expr $Stmt.Content
+            $pathJs = ConvertTo-OtterJsExpression -Expr $Stmt.Path
+            return "${pad}await otterWriteFile($pathJs, $contentJs);"
+        }
+        ([NodeKind]::RunProgram) {
+            # D60. `run command <target> [into <resultTarget>]` - emits call
+            # to async runtime hook otterRunCommand(command).
+            $cmdJs = ConvertTo-OtterJsExpression -Expr $Stmt.Target
+            $target = $Stmt.ResultTarget
+            if ($target) {
+                if ($LocalNames -and $LocalNames.Contains($target)) {
+                    return "${pad}$target = await otterRunCommand($cmdJs);"
+                }
+                return "${pad}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$target' in otterState)) { otterSetState('$target', await otterRunCommand($cmdJs)); } else { window.$target = await otterRunCommand($cmdJs); }"
+            }
+            return "${pad}await otterRunCommand($cmdJs);"
+        }
         ([NodeKind]::HttpGet) {
             $url = ConvertTo-OtterJsExpression -Expr $Stmt.Url
             $target = $Stmt.Target
@@ -757,6 +941,145 @@ function ConvertTo-OtterJsStatement {
                 return "${pad}const res = await fetch($url, { method: 'POST', body: $body }); const $target = await res.text(); window.$target = $target;"
             }
             return "${pad}await fetch($url, { method: 'POST', body: $body });"
+        }
+        ([NodeKind]::DateAdjust) {
+            # D60 Phase 1J. `add <n> <unit> to <target>` / `remove <n>
+            # <unit> from <target>` - matches the interpreter's DateAdjust
+            # exactly: throws if the target does not already exist or does
+            # not hold a date (generic "something else" phrasing, same
+            # established approximation as elsewhere in this compiler -
+            # not the interpreter's full Get-OtterTypeName text), throws if
+            # the unit is Hour/Minute/Second on a date with no time of day,
+            # the amount is truncated toward zero (never rounded - matches
+            # `[int][Math]::Truncate($amount)` exactly, verified by reading
+            # the interpreter), and ADJUSTING REPLACES THE VALUE rather than
+            # mutating in place (a fresh tagged date object is built and
+            # written back via the same Set-style mechanism as Assign/
+            # MathInto - verified directly: two variables holding what was
+            # the same date never move together after only one is adjusted,
+            # since JS object references are never mutated here either).
+            # Year/Month use Get-OtterJsAddMonthsSnippet's field-based,
+            # day-clamping arithmetic (see its comment - a plain JS
+            # setMonth rollover would silently give the wrong answer for
+            # exactly the case Jeff asked to have covered: 31 January plus
+            # one month must land on 28 February, not 3 March). Day/Hour/
+            # Minute/Second use epoch-millisecond arithmetic (`.getTime()`
+            # +/- ms), matching the interpreter's own tick-based
+            # AddDays/AddHours/AddMinutes/AddSeconds (verified by reading
+            # Otter.Interpreter.psm1 - these call .NET's DateTime.AddX,
+            # which is pure elapsed-Ticks arithmetic with no DST/timezone
+            # reinterpretation at all) - this is why epoch-ms arithmetic is
+            # not merely a convenient JS shortcut here, it is the same class
+            # of computation the interpreter performs, so it cannot drift
+            # from it even across a DST boundary in an observing timezone.
+            $target = $Stmt.Target
+            $amountJs = ConvertTo-OtterJsExpression -Expr $Stmt.Amount
+            $unit = $Stmt.Unit.ToString()
+            $sign = if ($Stmt.IsRemoval) { -1 } else { 1 }
+            $unitLower = $unit.ToLowerInvariant()
+            $msPerUnit = switch ($unit) {
+                'Hour' { 3600000 }
+                'Minute' { 60000 }
+                'Second' { 1000 }
+                default { 0 }
+            }
+            $lines = [System.Collections.Generic.List[string]]::new()
+            $inner = '  ' * ($Indent + 1)
+            $lines.Add("${pad}{")
+            $lines.Add("${inner}const _current = $target;")
+            $lines.Add("${inner}if (!_current || typeof _current !== 'object' || !_current.__otterDate) { throw new Error('I can only add time to a date, but `"$target`" holds something else.'); }")
+            $lines.Add("${inner}const _amountRaw = $amountJs;")
+            $lines.Add("${inner}const _whole = Math.trunc(Number(_amountRaw)) * ($sign);")
+            if ($unit -eq 'Year' -or $unit -eq 'Month') {
+                $months = if ($unit -eq 'Year') { '_whole * 12' } else { '_whole' }
+                $addSnippet = Get-OtterJsAddMonthsSnippet -DateJs '_current.value' -MonthsJs $months
+                $lines.Add("${inner}const _moved = $addSnippet;")
+            } elseif ($unit -eq 'Day') {
+                $lines.Add("${inner}const _moved = new Date(_current.value.getTime() + _whole * 86400000);")
+            } else {
+                $lines.Add("${inner}if (!_current.hasTime) { throw new Error('This is a date with no time of day, so it has no $unitLower.'); }")
+                $lines.Add("${inner}const _moved = new Date(_current.value.getTime() + _whole * $msPerUnit);")
+            }
+            $newDate = Get-OtterJsDateConstructor -DateExprJs '_moved' -HasTimeJs '_current.hasTime'
+            $lines.Add("${inner}const _next = $newDate;")
+            if ($LocalNames -and $LocalNames.Contains($target)) {
+                $lines.Add("${inner}$target = _next;")
+            } else {
+                $lines.Add("${inner}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$target' in otterState)) { otterSetState('$target', _next); } else { window.$target = _next; }")
+            }
+            $lines.Add("${pad}}")
+            return ($lines -join "`n")
+        }
+        ([NodeKind]::DateDifference) {
+            # D60 Phase 1J. `<unit> between <start> and <end> make <target>`
+            # - the legacy statement form (D32), same underlying computation
+            # as DateDifferenceValue's expression form - see
+            # Get-OtterJsDateDifferenceExpression for the full explanation.
+            # Both operands must be dates or this throws, matching
+            # Assert-OtterDateOperands (generic "something else" phrasing
+            # for the failing side, same established approximation used
+            # elsewhere rather than full Get-OtterTypeName text).
+            $startJs = ConvertTo-OtterJsExpression -Expr $Stmt.Start
+            $endJs = ConvertTo-OtterJsExpression -Expr $Stmt.End
+            $unit = $Stmt.Unit.ToString()
+            $target = $Stmt.Target
+            $diffJs = Get-OtterJsDateDifferenceExpression -UnitJs "'$unit'" -StartJs '_s.value' -EndJs '_e.value'
+            $lines = [System.Collections.Generic.List[string]]::new()
+            $inner = '  ' * ($Indent + 1)
+            $lines.Add("${pad}{")
+            $lines.Add("${inner}const _s = $startJs;")
+            $lines.Add("${inner}const _e = $endJs;")
+            $lines.Add("${inner}if (!_s || typeof _s !== 'object' || !_s.__otterDate) { throw new Error('I can only measure time between two dates, but the first one is something else.'); }")
+            $lines.Add("${inner}if (!_e || typeof _e !== 'object' || !_e.__otterDate) { throw new Error('I can only measure time between two dates, but the second one is something else.'); }")
+            $lines.Add("${inner}const _diff = $diffJs;")
+            if ($LocalNames -and $LocalNames.Contains($target)) {
+                $lines.Add("${inner}$target = _diff;")
+            } else {
+                $lines.Add("${inner}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$target' in otterState)) { otterSetState('$target', _diff); } else { window.$target = _diff; }")
+            }
+            $lines.Add("${pad}}")
+            return ($lines -join "`n")
+        }
+        ([NodeKind]::FormatDate) {
+            # D60 Phase 1J. `format <date> as "<pattern>" into <target>` -
+            # matches the interpreter's FormatDate exactly: the date itself
+            # is untouched (produces text only), and throws if the subject
+            # is not a date (generic "something else" phrasing, same
+            # established approximation elsewhere). The pattern
+            # interpreter supports exactly the tokens PROVEN to exist in
+            # real Otter usage - verified by searching every example/test
+            # in this repo, only "MM/dd/yyyy" and "yyyy-MM-dd HH:mm" are
+            # ever used - yyyy/MM/dd/HH/mm/ss, matching `.NET`'s custom
+            # date format specifiers for those exact tokens. Anything else
+            # in the pattern passes through LITERALLY, which is not a
+            # shortcut - it is what .NET's own formatter does too for an
+            # unrecognized letter (verified directly: `format d as "qqq"`
+            # against the real interpreter produces the literal text
+            # "qqq", not an error - 'q' is not a reserved custom-format
+            # character). .NET's own rarer FormatException edge cases
+            # (unbalanced quoted-literal sections, escape sequences) are
+            # deliberately NOT replicated - nothing in this codebase
+            # exercises them, and no `try` here ever throws for a pattern
+            # this compiler doesn't recognize, matching every case actually
+            # observed against the real interpreter.
+            $subjectJs = ConvertTo-OtterJsExpression -Expr $Stmt.Subject
+            $formatJs = ConvertTo-OtterJsExpression -Expr $Stmt.Format
+            $target = $Stmt.Target
+            $lines = [System.Collections.Generic.List[string]]::new()
+            $inner = '  ' * ($Indent + 1)
+            $lines.Add("${pad}{")
+            $lines.Add("${inner}const _subject = $subjectJs;")
+            $lines.Add("${inner}if (!_subject || typeof _subject !== 'object' || !_subject.__otterDate) { throw new Error('I can only format a date, but this is something else.'); }")
+            $lines.Add("${inner}const _pattern = String($formatJs);")
+            $lines.Add("${inner}const _d = _subject.value;")
+            $lines.Add("${inner}const _text = _pattern.replace(/yyyy|MM|dd|HH|mm|ss/g, (_tok) => { switch (_tok) { case 'yyyy': return String(_d.getFullYear()).padStart(4, '0'); case 'MM': return String(_d.getMonth() + 1).padStart(2, '0'); case 'dd': return String(_d.getDate()).padStart(2, '0'); case 'HH': return String(_d.getHours()).padStart(2, '0'); case 'mm': return String(_d.getMinutes()).padStart(2, '0'); case 'ss': return String(_d.getSeconds()).padStart(2, '0'); } return _tok; });")
+            if ($LocalNames -and $LocalNames.Contains($target)) {
+                $lines.Add("${inner}$target = _text;")
+            } else {
+                $lines.Add("${inner}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$target' in otterState)) { otterSetState('$target', _text); } else { window.$target = _text; }")
+            }
+            $lines.Add("${pad}}")
+            return ($lines -join "`n")
         }
         ([NodeKind]::Diagnostic) {
             # D60 Phase 1I. `log ...` / `warn ...` / `error ...` - matches
@@ -1215,9 +1538,26 @@ function Get-OtterJsBindingNames {
             if ($s.Kind -eq [NodeKind]::ReadFile -or $s.Kind -eq [NodeKind]::HttpGet -or $s.Kind -eq [NodeKind]::HttpPost) {
                 if ($s.Target) { [void]$setStyle.Add($s.Target) }
             }
+            if ($s.Kind -eq [NodeKind]::RunProgram -and $s.ResultTarget) {
+                [void]$setStyle.Add($s.ResultTarget)
+            }
             if ($s.Kind -eq [NodeKind]::RandomNumber -or $s.Kind -eq [NodeKind]::RandomItem) {
                 # D60 Phase 1H: both use Environment.Set (verified directly
                 # against the interpreter's 'RandomNumber'/'RandomItem'
+                # cases) - Set-style, same as Assign/MathInto, not
+                # SetLocal.
+                if ($s.Target) { [void]$setStyle.Add($s.Target) }
+            }
+            if ($s.Kind -eq [NodeKind]::DateAdjust) {
+                # D60 Phase 1J: rebinds the target via Environment.Set
+                # (verified directly - "adjusting REPLACES the value rather
+                # than mutating in place") - Set-style, same as
+                # Assign/MathInto, not SetLocal.
+                [void]$setStyle.Add($s.Target)
+            }
+            if ($s.Kind -eq [NodeKind]::DateDifference -or $s.Kind -eq [NodeKind]::FormatDate) {
+                # D60 Phase 1J: both use Environment.Set (verified directly
+                # against the interpreter's 'DateDifference'/'FormatDate'
                 # cases) - Set-style, same as Assign/MathInto, not
                 # SetLocal.
                 if ($s.Target) { [void]$setStyle.Add($s.Target) }
@@ -1280,7 +1620,7 @@ function Get-OtterJsBindingNames {
 
 # D60. True if any statement in this body (recursively, through the same
 # constructs Get-OtterJsBindingNames already walks) emits `await` -
-# ReadFile, HttpGet, HttpPost today. FunctionDef uses this to decide
+# ReadFile, WriteFile, RunProgram, HttpGet, HttpPost today. FunctionDef uses this to decide
 # whether it must be declared `async function`; a plain function with none
 # of these stays a normal synchronous function, unchanged from before this
 # existed.
@@ -1289,7 +1629,7 @@ function Test-OtterJsBodyNeedsAsync {
 
     if ($null -eq $Statements) { return $false }
     foreach ($s in $Statements) {
-        if ($s.Kind -eq [NodeKind]::ReadFile -or $s.Kind -eq [NodeKind]::HttpGet -or $s.Kind -eq [NodeKind]::HttpPost) {
+        if ($s.Kind -eq [NodeKind]::ReadFile -or $s.Kind -eq [NodeKind]::WriteFile -or $s.Kind -eq [NodeKind]::RunProgram -or $s.Kind -eq [NodeKind]::HttpGet -or $s.Kind -eq [NodeKind]::HttpPost) {
             return $true
         }
         if ($s.Kind -eq [NodeKind]::ReadJson) {
