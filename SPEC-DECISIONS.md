@@ -4161,6 +4161,60 @@ calling the emitter directly):
   explicit ledger entry below (MISSING), not a footnote here, since
   it's a real cross-runtime behavior difference, not a "doesn't matter
   yet" omission.
+- JSON (`read json from <path> into <target>`, `convert <subject> to
+  json into <target>`, `convert <subject> from json into <target>`),
+  Phase 1G: `ReadJson`/`ConvertToJson`/`ConvertFromJson` NodeKind cases
+  added; all three are Set-style (`Environment.Set`, verified directly
+  against the interpreter - same binding mechanism as Assign/MathInto,
+  not SetLocal). `ReadJson` reuses `ReadFile`'s async `otterReadFile`
+  host hook and is included in `Test-OtterJsBodyNeedsAsync`;
+  `ConvertToJson`/`ConvertFromJson` are pure synchronous data
+  transforms and deliberately are not. Confirmed JSON objects and plain
+  `thing`s are the same underlying representation exactly as the
+  interpreter treats them (`ConvertFrom-OtterJsonValue` constructs a
+  real `OtterObject('thing')`) - this compiler reuses Phase 1F.2's
+  `{ __otterThing: true, typeName: 'thing', props, order }` shape with
+  no new representation. Verified against the real interpreter first,
+  then end-to-end through the real production CLI, the JS compiler,
+  and an actual browser (Playwright, not the Node `vm` fallback): a
+  JSON object becomes a `thing`, a JSON array becomes a list, JSON
+  `null` becomes `gone` (JS `null`, already this compiler's existing
+  representation), numbers/booleans/strings pass through unchanged,
+  nested objects/arrays are converted recursively (not left as raw JS
+  values), duplicate JSON keys are last-one-wins (matches both the
+  interpreter and JSON.parse's own native behavior, so no special
+  handling needed), empty/whitespace input throws "There is no JSON
+  here to read.", malformed JSON throws "This is not valid JSON, so
+  Otter could not read it.", and attempting to serialize a function
+  value throws "Otter cannot turn something it can do into JSON." (a
+  JS Otter function value is a real JS function, so
+  `typeof === 'function'` is a sound stand-in for the interpreter's
+  OtterFunction/OtterType check, no extra tagging needed). The
+  substantial round-trip case Jeff specified (a `{name, active, score,
+  nickname, games: [...], address: {city}}` object, parsed, read via
+  nested property/list access, mutated through ordinary `X of Y is
+  ...`/`add ... to ...` operations, re-serialized, re-parsed, and
+  re-verified) passed identically in the real interpreter and a real
+  browser, including the non-obvious part: reading a nested list or
+  object property back out (`gamesList is games of p`, `addr is
+  address of p`) returns a REFERENCE to the same underlying value in
+  both runtimes - mutating it and re-serializing the parent reflects
+  the mutation. This needed zero special-casing in JS (arrays/objects
+  are reference types there already) once confirmed to be true of the
+  interpreter first. **One deliberate, documented divergence**: the
+  interpreter's `ConvertTo-Json` produces PowerShell's own unusual
+  pretty-print formatting (4-space indent, a double space after every
+  colon, unusually deep re-indentation of nested arrays/objects); this
+  compiler emits `JSON.stringify(value, null, 4)` instead - a standard
+  4-space pretty-print - since matching PowerShell's specific
+  whitespace quirks byte-for-byte would make the JS output look wrong
+  to anyone used to normal JSON, and nothing depends on exact
+  whitespace, only on values round-tripping correctly. `say`'s own
+  known pre-existing formatting gap (lists print as `[Zelda, Mario]`
+  via the browser console's own array formatting rather than Otter's
+  comma-joined `Zelda, Mario`, and `gone` prints as literal `null`) is
+  unrelated to JSON and was already true before this phase - not
+  something JSON introduces or fixes.
 
 **MISSING FROM THE JS BACKEND** (verified absent by direct inspection,
 not assumed):
@@ -4194,7 +4248,6 @@ not assumed):
   throws a specific, deliberate "I cannot divide by zero." error. A
   program could silently compute with `Infinity` for a while before
   anything looks wrong.
-- JSON conversion (`read json`, `convert to/from json`)
 - random (`random number`, `random item`)
 - diagnostics (`log` / `warn` / `error`)
 - dates (`today`, `now`, date math)
@@ -4214,12 +4267,15 @@ architecture above, but the agreed starting order)
 2. Close NodeKind parity systematically. Current order (count loops
    done, `86b3509`; list literals done, `23d8034`; string ops done,
    `09374ea`/`b120ee0`; collection ops done, `1e19652`; functions done,
-   `af3a807`): count loops, list literals, string operations (split
-   into 1D-A string builtins and 1D-B the `plus` runtime-type fix),
-   collection operations, function declarations/calls (moved ahead of
-   JSON once Phase 1B proved this was a real, separate gap — too many
-   realistic Otter programs depend on functions to leave this late).
-   Remaining: JSON, random, diagnostics, dates.
+   `af3a807`; function/loop scope parity done, `779b36f`; plain-object
+   representation done, `59f53f2`; JSON done, Phase 1G): count loops,
+   list literals, string operations (split into 1D-A string builtins
+   and 1D-B the `plus` runtime-type fix), collection operations,
+   function declarations/calls (moved ahead of JSON once Phase 1B
+   proved this was a real, separate gap — too many realistic Otter
+   programs depend on functions to leave this late), plain objects
+   (inserted ahead of JSON once JSON's own object mapping turned out to
+   depend on it), JSON. Remaining: random, diagnostics, dates.
 3. Every addition is verified the same way: `.ot` source through the
    real production CLI, through the JS compiler, through an actual JS
    runtime, to an observed result — not a unit test calling the emitter

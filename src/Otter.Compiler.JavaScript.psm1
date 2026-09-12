@@ -758,6 +758,114 @@ function ConvertTo-OtterJsStatement {
             }
             return "${pad}await fetch($url, { method: 'POST', body: $body });"
         }
+        ([NodeKind]::ReadJson) {
+            # D60 Phase 1G. `read json from <path> into <target>` -
+            # Read-OtterJsonFile is a synchronous real file read followed by
+            # ConvertFrom-OtterJsonText (verified: same JSON-to-Otter
+            # conversion as ConvertFromJson below, just sourced from a
+            # file). Same host-capability boundary as ReadFile - the actual
+            # read goes through the required otterReadFile(path) hook
+            # (async), matching ReadFile's own async-detection/await
+            # handling (see Test-OtterJsBodyNeedsAsync). The parse-and-
+            # otterify step is identical to ConvertFromJson - see that case
+            # for the full explanation of the recursive value rewrite and
+            # the exact empty/invalid-JSON error text, both verified
+            # directly against the real interpreter.
+            $pathJs = ConvertTo-OtterJsExpression -Expr $Stmt.Path
+            $target = $Stmt.Target
+            $lines = [System.Collections.Generic.List[string]]::new()
+            $inner = '  ' * ($Indent + 1)
+            $lines.Add("${pad}{")
+            $lines.Add("${inner}const _text = String(await otterReadFile($pathJs));")
+            $lines.Add("${inner}if (_text.trim() === '') { throw new Error('There is no JSON here to read.'); }")
+            $lines.Add("${inner}let _parsed;")
+            $lines.Add("${inner}try { _parsed = JSON.parse(_text); } catch (_e) { throw new Error('This is not valid JSON, so Otter could not read it.'); }")
+            $lines.Add("${inner}const _value = (function _otterify(v) { if (v === null) return null; if (Array.isArray(v)) return v.map(_otterify); if (typeof v === 'object') { const props = {}; const order = []; for (const k of Object.keys(v)) { props[k] = _otterify(v[k]); order.push(k); } return { __otterThing: true, typeName: 'thing', props: props, order: order }; } return v; })(_parsed);")
+            if ($LocalNames -and $LocalNames.Contains($target)) {
+                $lines.Add("${inner}$target = _value;")
+            } else {
+                $lines.Add("${inner}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$target' in otterState)) { otterSetState('$target', _value); } else { window.$target = _value; }")
+            }
+            $lines.Add("${pad}}")
+            return ($lines -join "`n")
+        }
+        ([NodeKind]::ConvertToJson) {
+            # D60 Phase 1G. `convert <subject> to json into <target>` -
+            # matches ConvertTo-OtterJsonText/ConvertTo-OtterJsonShape: a
+            # plain thing serializes as an object (property insertion order
+            # via `order`, matching OtterObject.PropertyNames()), a list as
+            # an array, functions/types throw ("Otter cannot turn something
+            # it can do into JSON.", verified directly against the real
+            # interpreter) - a JS Otter function value is a real JS
+            # function, so `typeof === 'function'` is a sound, no-extra-
+            # tagging-needed stand-in for the interpreter's
+            # OtterFunction/OtterType check. NOT byte-for-byte: the
+            # interpreter's ConvertTo-Json produces PowerShell's own
+            # unusual pretty-print (4-space indent, a double space after
+            # every colon, deeply-reindented nested arrays/objects) -
+            # JSON.stringify(v, null, 4) is used here instead, a standard
+            # 4-space pretty-print. This is a deliberate, documented
+            # cosmetic divergence (see SPEC-DECISIONS.md's D60 parity
+            # tracker), not a missed detail: matching PowerShell's specific
+            # whitespace quirks would make the JS output look wrong to
+            # anyone used to normal JSON formatting, and every verification
+            # case here depends on values round-tripping correctly, never
+            # on exact whitespace.
+            $subjectJs = ConvertTo-OtterJsExpression -Expr $Stmt.Subject
+            $target = $Stmt.Target
+            $lines = [System.Collections.Generic.List[string]]::new()
+            $inner = '  ' * ($Indent + 1)
+            $lines.Add("${pad}{")
+            $lines.Add("${inner}const _deotter = function _deotter(v) { if (v === null || v === undefined) return null; if (typeof v === 'function') { throw new Error('Otter cannot turn something it can do into JSON.'); } if (Array.isArray(v)) return v.map(_deotter); if (typeof v === 'object') { if (!v.__otterThing) { throw new Error('Otter cannot turn something it can do into JSON.'); } const out = {}; for (const k of v.order) { out[k] = _deotter(v.props[k]); } return out; } return v; };")
+            $lines.Add("${inner}const _value = JSON.stringify(_deotter($subjectJs), null, 4);")
+            if ($LocalNames -and $LocalNames.Contains($target)) {
+                $lines.Add("${inner}$target = _value;")
+            } else {
+                $lines.Add("${inner}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$target' in otterState)) { otterSetState('$target', _value); } else { window.$target = _value; }")
+            }
+            $lines.Add("${pad}}")
+            return ($lines -join "`n")
+        }
+        ([NodeKind]::ConvertFromJson) {
+            # D60 Phase 1G. `convert <subject> from json into <target>` -
+            # matches ConvertFrom-OtterJsonText/ConvertFrom-OtterJsonValue
+            # exactly, verified directly against the real interpreter:
+            # empty/whitespace text throws "There is no JSON here to
+            # read.", invalid JSON throws "This is not valid JSON, so Otter
+            # could not read it.", a JSON object becomes a plain `thing`
+            # (recursively - nested objects/arrays are converted too, never
+            # left as raw JS values), a JSON array becomes a list, JSON
+            # null becomes `gone` (JS null - already this compiler's
+            # existing representation, see the Variable case), numbers/
+            # booleans/strings pass through unchanged. Also verified
+            # directly against the real interpreter and needing NO special
+            # handling here: property access into a parsed object's list/
+            # nested-object properties returns a REFERENCE to the same
+            # underlying value, not a copy (mutating a list read out via `X
+            # of Y` and later re-serializing `Y` reflects the mutation) -
+            # this falls out for free since JS objects/arrays are already
+            # reference types and nothing here ever clones on read; and
+            # duplicate JSON keys are last-one-wins (confirmed against the
+            # real interpreter, and already JSON.parse's own native
+            # behavior, so nothing extra is needed for that case either).
+            $subjectJs = ConvertTo-OtterJsExpression -Expr $Stmt.Subject
+            $target = $Stmt.Target
+            $lines = [System.Collections.Generic.List[string]]::new()
+            $inner = '  ' * ($Indent + 1)
+            $lines.Add("${pad}{")
+            $lines.Add("${inner}const _text = String($subjectJs);")
+            $lines.Add("${inner}if (_text.trim() === '') { throw new Error('There is no JSON here to read.'); }")
+            $lines.Add("${inner}let _parsed;")
+            $lines.Add("${inner}try { _parsed = JSON.parse(_text); } catch (_e) { throw new Error('This is not valid JSON, so Otter could not read it.'); }")
+            $lines.Add("${inner}const _value = (function _otterify(v) { if (v === null) return null; if (Array.isArray(v)) return v.map(_otterify); if (typeof v === 'object') { const props = {}; const order = []; for (const k of Object.keys(v)) { props[k] = _otterify(v[k]); order.push(k); } return { __otterThing: true, typeName: 'thing', props: props, order: order }; } return v; })(_parsed);")
+            if ($LocalNames -and $LocalNames.Contains($target)) {
+                $lines.Add("${inner}$target = _value;")
+            } else {
+                $lines.Add("${inner}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$target' in otterState)) { otterSetState('$target', _value); } else { window.$target = _value; }")
+            }
+            $lines.Add("${pad}}")
+            return ($lines -join "`n")
+        }
         ([NodeKind]::Replace) {
             # D60 Phase 1D-A. Matches Otter.Interpreter.psm1's 'Replace'
             # case exactly:
@@ -982,6 +1090,13 @@ function Get-OtterJsBindingNames {
             if ($s.Kind -eq [NodeKind]::ReadFile -or $s.Kind -eq [NodeKind]::HttpGet -or $s.Kind -eq [NodeKind]::HttpPost) {
                 if ($s.Target) { [void]$setStyle.Add($s.Target) }
             }
+            if ($s.Kind -eq [NodeKind]::ReadJson -or $s.Kind -eq [NodeKind]::ConvertToJson -or $s.Kind -eq [NodeKind]::ConvertFromJson) {
+                # D60 Phase 1G: all three use Environment.Set (verified
+                # directly against the interpreter's 'ReadJson'/
+                # 'ConvertToJson'/'ConvertFromJson' cases) - Set-style,
+                # same as Assign/MathInto, not SetLocal.
+                if ($s.Target) { [void]$setStyle.Add($s.Target) }
+            }
             if ($s.Kind -eq [NodeKind]::ObjectDef) {
                 # D60 Phase 1F.2: `person is a thing` uses Environment.Set
                 # (verified in New-OtterObjectValue's caller), the same
@@ -1043,6 +1158,13 @@ function Test-OtterJsBodyNeedsAsync {
     if ($null -eq $Statements) { return $false }
     foreach ($s in $Statements) {
         if ($s.Kind -eq [NodeKind]::ReadFile -or $s.Kind -eq [NodeKind]::HttpGet -or $s.Kind -eq [NodeKind]::HttpPost) {
+            return $true
+        }
+        if ($s.Kind -eq [NodeKind]::ReadJson) {
+            # D60 Phase 1G: ReadJson does a real file read through the same
+            # async otterReadFile(path) hook as ReadFile - ConvertToJson/
+            # ConvertFromJson are pure in-memory data transforms and need
+            # no await, so they are deliberately NOT listed here.
             return $true
         }
         if ($s.Kind -eq [NodeKind]::If) {
