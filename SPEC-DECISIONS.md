@@ -4090,32 +4090,45 @@ calling the emitter directly):
   `MathInto` (`X op Y make Z`), found missing while verifying
   recursion — reuses Assign's exact write logic (same NodeKind
   semantics, different surface syntax).
-- **Two known, deliberate divergences from Phase 1F, not oversights:**
-  (1) the interpreter's one edge case where a function mutates a
-  PRE-EXISTING global via ordinary `is` (verified: `message is
-  "Before"` then a function doing `message is value` really does
-  update the outer `message`) is not replicated — this compiler always
-  treats an `is`-assigned name found inside a function body as local,
-  shadowing rather than mutating in that specific case. (2)
-  count/for-each loop variables, list literals, and collection-
-  operation targets used INSIDE a function body still write to
-  `window` unconditionally (the local-scoping fix only covers Assign/
-  MathInto/CallStatement targets), so they would leak if used there —
-  none of Phase 1F's verification cases exercise this combination.
+- Function scope parity, Phase 1F.1 (`779b36f`): closed both divergences
+  Phase 1F left as documented gaps, per direct interpreter verification,
+  not JS intuition. (1) A function mutating a PRE-EXISTING global via
+  ordinary `is` (verified: `value is 1` then a function doing `value is
+  2` really does update the outer `value`) now does the same in JS — a
+  whole-program static scan (`Get-OtterJsTopLevelGlobalNames`) finds
+  every top-level binding name once, and `FunctionDef` excludes those
+  from its own local-declaration set. (2) count/for-each loop variables
+  are the OPPOSITE rule, also now correct: SetLocal-style bindings are
+  unconditionally local even when a same-named global exists (verified:
+  a global `item` survives a same-named `for each item in ...` inside a
+  function completely unchanged) — `Get-OtterJsBindingNames` tracks
+  these separately from Assign/MathInto/CallStatement's Set-style
+  bindings and always adds them to the function's locals. Both the
+  scanner and the fix correctly recurse into if/while/repeat/count/each/
+  try/otherwise, not just direct children of the function body. Fixing
+  this also resolved the ForEach top-level leak bug below as a
+  necessary side effect (ForEach needed the same internal-iterator
+  rewrite CountLoop already had, for both the top-level and function-
+  local cases to work).
+- **One remaining, deliberate approximation from 1F.1's design, not an
+  oversight**: the "known top-level globals" scan is static (whole-
+  program) rather than a full per-call-site dynamic check the way the
+  interpreter's actual `Environment.Set()` chain walk is. Sound for
+  Otter's real execution model (no hoisting, strictly sequential — a
+  function can only be called after every top-level statement that
+  runs before that call site has already executed), but a name whose
+  only top-level binding occurs AFTER every call to a function
+  referencing it would still be (incorrectly) treated as a pre-existing
+  global. Not something any current verification case exercises.
+- List literals, collection-operation targets, and count/for-each
+  variables used INSIDE a function body are still not all uniformly
+  local-aware beyond what 1F.1 fixed (ListDef itself, and Sort/Reverse/
+  Split/Join/Find/AddTo/RemoveFrom's own write sites, do not yet check
+  `-LocalNames`) — narrower than Phase 1F's original blanket gap
+  statement, but not yet exhaustively closed either.
 
 **MISSING FROM THE JS BACKEND** (verified absent by direct inspection,
 not assumed):
-- **ForEach's loop variable does not leak to the outer scope in
-  generated JS, where the interpreter's real ForEach does.** Found
-  while fixing Find's scoping (Phase 1E, which needed the OPPOSITE
-  behavior and got it right by checking directly rather than assuming
-  consistency with ForEach). ForEach's existing (Phase 1A) codegen
-  uses a block-scoped `for (const x of ...)`; referencing the loop
-  variable after the loop throws `ReferenceError: x is not defined` in
-  the browser, confirmed via real execution, where the interpreter
-  (SetLocal on the current environment, same mechanism as CountLoop)
-  would print the variable's last value. Not fixed yet — flagged here
-  so it doesn't get silently rediscovered later.
 - **`Subtract`/`Multiply`/`Divide` silently produce `NaN` on a
   non-numeric operand instead of throwing.** Same root gap `plus` had
   (found while fixing `plus`, Phase 1D-B): the interpreter's
@@ -4123,7 +4136,14 @@ not assumed):
   Add, but only Add's JS codegen was fixed — Subtract/Multiply/Divide
   still use plain `Number(...)`, which silently coerces a bad operand
   to `NaN` rather than throwing. Deliberately not fixed alongside
-  `plus`, since 1D-B's scope was `plus` specifically.
+  `plus`, since 1D-B's scope was `plus` specifically. **Divide by zero
+  specifically is worse than plain `NaN`**: confirmed via real browser
+  execution during Phase 1F (a division-by-zero surfaced through an
+  unrelated function-scoping test) that `10 / 0` in JS produces
+  `Infinity`, a valid-looking number, not `NaN` — where the interpreter
+  throws a specific, deliberate "I cannot divide by zero." error. A
+  program could silently compute with `Infinity` for a while before
+  anything looks wrong.
 - JSON conversion (`read json`, `convert to/from json`)
 - random (`random number`, `random item`)
 - diagnostics (`log` / `warn` / `error`)
