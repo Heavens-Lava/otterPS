@@ -758,6 +758,96 @@ function ConvertTo-OtterJsStatement {
             }
             return "${pad}await fetch($url, { method: 'POST', body: $body });"
         }
+        ([NodeKind]::RandomNumber) {
+            # D60 Phase 1H. `random number from <from> to <to> into <target>`
+            # - matches the interpreter's 'RandomNumber' case exactly,
+            # verified directly against the real interpreter first, not
+            # assumed from Math.random() intuition:
+            #   - both endpoints are INCLUSIVE (confirmed: `from 1 to 1`
+            #     always returns 1; a 1-to-6 loop of 20 draws produced both
+            #     1 and 6)
+            #   - non-integer bounds are FLOORED, not rounded, before
+            #     picking (confirmed: `from 1.7 to 3.2` only ever produced
+            #     1, 2, or 3 - never 0 or 4)
+            #   - reversed bounds (`from` greater than `to`) are silently
+            #     swapped, never an error (confirmed: `from 10 to 1` stays
+            #     in range 1-10)
+            #   - negative ranges work the same as positive ones (confirmed
+            #     via a computed negative bound - the grammar has no
+            #     negative NUMBER LITERAL syntax at all, so this is only
+            #     reachable through an expression like `0 minus 5`)
+            #   - a non-numeric bound throws Assert-OtterNumber's exact
+            #     message ("I expected a number for the lowest number but
+            #     got \"a\"." / "...the highest number...") - a numeric-
+            #     LOOKING string (e.g. "5") is accepted and coerced, exactly
+            #     like Test-OtterNumeric's own string-parse branch, so this
+            #     reuses the same runtime typeof-or-numeric-string IIFE
+            #     check already established for `plus` (Phase 1D-B) rather
+            #     than a plain `Number(...)` coercion that would silently
+            #     turn a bad bound into NaN.
+            #   - the result is always a whole number (the interpreter
+            #     stores `[double]$picked` where $picked came from
+            #     Get-Random over floored integer bounds - never a
+            #     fractional value even when the input bounds were
+            #     fractional).
+            # Deliberately NOT implemented (verified absent from the
+            # grammar - the parser only recognizes "number" and "item"
+            # after "random", throwing "I expected \"number\" or \"item\"
+            # after \"random\"." for anything else): random decimals,
+            # random list/decimal selection beyond `random item`, and
+            # seeding. There is no such Otter syntax to give parity for.
+            $fromJs = ConvertTo-OtterJsExpression -Expr $Stmt.From
+            $toJs = ConvertTo-OtterJsExpression -Expr $Stmt.To
+            $target = $Stmt.Target
+            $lines = [System.Collections.Generic.List[string]]::new()
+            $inner = '  ' * ($Indent + 1)
+            $lines.Add("${pad}{")
+            $lines.Add("${inner}const _fromRaw = $fromJs;")
+            $lines.Add("${inner}const _toRaw = $toJs;")
+            $lines.Add("${inner}const _fromOk = typeof _fromRaw === 'number' || (typeof _fromRaw === 'string' && _fromRaw.trim() !== '' && !Number.isNaN(Number(_fromRaw)));")
+            $lines.Add("${inner}if (!_fromOk) { throw new Error('I expected a number for the lowest number but got ' + JSON.stringify(_fromRaw) + '.'); }")
+            $lines.Add("${inner}const _toOk = typeof _toRaw === 'number' || (typeof _toRaw === 'string' && _toRaw.trim() !== '' && !Number.isNaN(Number(_toRaw)));")
+            $lines.Add("${inner}if (!_toOk) { throw new Error('I expected a number for the highest number but got ' + JSON.stringify(_toRaw) + '.'); }")
+            $lines.Add("${inner}let _from = Math.floor(Number(_fromRaw));")
+            $lines.Add("${inner}let _to = Math.floor(Number(_toRaw));")
+            $lines.Add("${inner}if (_from > _to) { const _swap = _from; _from = _to; _to = _swap; }")
+            $lines.Add("${inner}const _picked = Math.floor(Math.random() * (_to - _from + 1)) + _from;")
+            if ($LocalNames -and $LocalNames.Contains($target)) {
+                $lines.Add("${inner}$target = _picked;")
+            } else {
+                $lines.Add("${inner}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$target' in otterState)) { otterSetState('$target', _picked); } else { window.$target = _picked; }")
+            }
+            $lines.Add("${pad}}")
+            return ($lines -join "`n")
+        }
+        ([NodeKind]::RandomItem) {
+            # D60 Phase 1H. `random item from <collection> into <target>` -
+            # matches the interpreter's 'RandomItem' case exactly, verified
+            # directly: a non-list subject throws ("I can only pick from a
+            # list, but this is..." - the interpreter names the exact
+            # runtime type via Get-OtterTypeName; this compiler uses the
+            # same simplified "something else" phrasing already established
+            # for the analogous PropertyAccess/Assign checks rather than
+            # replicating that full dynamic type-name dispatch, a
+            # deliberate approximation, not a missed detail), an EMPTY list
+            # gives `gone` (JS `null`) rather than erroring (confirmed
+            # directly), and a non-empty list picks uniformly by index.
+            $collectionJs = ConvertTo-OtterJsExpression -Expr $Stmt.Collection
+            $target = $Stmt.Target
+            $lines = [System.Collections.Generic.List[string]]::new()
+            $inner = '  ' * ($Indent + 1)
+            $lines.Add("${pad}{")
+            $lines.Add("${inner}const _collection = $collectionJs;")
+            $lines.Add("${inner}if (!Array.isArray(_collection)) { throw new Error('I can only pick from a list, but this is something else.'); }")
+            $lines.Add("${inner}const _picked = _collection.length > 0 ? _collection[Math.floor(Math.random() * _collection.length)] : null;")
+            if ($LocalNames -and $LocalNames.Contains($target)) {
+                $lines.Add("${inner}$target = _picked;")
+            } else {
+                $lines.Add("${inner}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$target' in otterState)) { otterSetState('$target', _picked); } else { window.$target = _picked; }")
+            }
+            $lines.Add("${pad}}")
+            return ($lines -join "`n")
+        }
         ([NodeKind]::ReadJson) {
             # D60 Phase 1G. `read json from <path> into <target>` -
             # Read-OtterJsonFile is a synchronous real file read followed by
@@ -1088,6 +1178,13 @@ function Get-OtterJsBindingNames {
                 [void]$setStyle.Add($s.Target)
             }
             if ($s.Kind -eq [NodeKind]::ReadFile -or $s.Kind -eq [NodeKind]::HttpGet -or $s.Kind -eq [NodeKind]::HttpPost) {
+                if ($s.Target) { [void]$setStyle.Add($s.Target) }
+            }
+            if ($s.Kind -eq [NodeKind]::RandomNumber -or $s.Kind -eq [NodeKind]::RandomItem) {
+                # D60 Phase 1H: both use Environment.Set (verified directly
+                # against the interpreter's 'RandomNumber'/'RandomItem'
+                # cases) - Set-style, same as Assign/MathInto, not
+                # SetLocal.
                 if ($s.Target) { [void]$setStyle.Add($s.Target) }
             }
             if ($s.Kind -eq [NodeKind]::ReadJson -or $s.Kind -eq [NodeKind]::ConvertToJson -or $s.Kind -eq [NodeKind]::ConvertFromJson) {

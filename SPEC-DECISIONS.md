@@ -1,4 +1,4 @@
-# Otter Spec Decisions
+﻿# Otter Spec Decisions
 
 `rules.md` plus Jeff's build brief are the language design. This file resolves
 the questions they leave open, so that two agents implementing different halves
@@ -4215,6 +4215,48 @@ calling the emitter directly):
   comma-joined `Zelda, Mario`, and `gone` prints as literal `null`) is
   unrelated to JSON and was already true before this phase - not
   something JSON introduces or fixes.
+- Random (`random number from <from> to <to> into <target>`,
+  `random item from <collection> into <target>`), Phase 1H:
+  `RandomNumber`/`RandomItem` NodeKind cases added, both Set-style
+  (`Environment.Set`, verified directly - same mechanism as
+  Assign/MathInto), neither async (`Math.random()` is synchronous, so
+  neither is added to `Test-OtterJsBodyNeedsAsync`). Confirmed via the
+  parser first that these are the ONLY two random forms Otter has today
+  (`random` followed by anything but "number" or "item" is a parse
+  error) - no decimal-random, no seeding, so there was nothing else to
+  give parity for. `RandomNumber` matches the interpreter exactly,
+  verified directly against it before writing any JS: both endpoints
+  are INCLUSIVE, non-integer bounds are FLOORED (not rounded) before
+  picking, reversed bounds (`from` greater than `to`) are silently
+  swapped rather than erroring, negative ranges work identically to
+  positive ones, a non-numeric bound throws
+  `Assert-OtterNumber`'s exact message ("I expected a number for the
+  lowest/highest number but got ...") while a numeric-looking STRING
+  bound is accepted and coerced (reuses the same runtime typeof-or-
+  numeric-string IIFE check already established for `plus` in Phase
+  1D-B, rather than a plain `Number(...)` that would silently produce
+  `NaN`), and the result is always a whole number even when the input
+  bounds were fractional. `RandomItem` matches the interpreter too: a
+  non-list subject throws (a documented simplified "something else"
+  phrasing is used in place of the interpreter's full dynamic type-name
+  dispatch, consistent with the same approximation already used
+  elsewhere in this compiler, e.g. PropertyAccess's analogous check),
+  an EMPTY list gives `gone` (JS `null`) rather than erroring, and a
+  non-empty list picks uniformly by index. Verified through the full
+  real pipeline (production CLI, JS compiler, a real browser via
+  Playwright) using invariants over many draws rather than an exact
+  expected value, since randomness cannot be certified from one sample:
+  200-300 draws each confirmed all-integer-in-range for a positive
+  range (1-6, both endpoints reached), a negative range (computed via
+  `0 minus 5` to `5`, since the grammar has no negative NUMBER LITERAL
+  syntax at all), equal bounds (`7` to `7` always returns `7`), and
+  reversed bounds (`10` to `1` stays in `1`-`10`); `random item` over
+  100 draws always returned a genuine member of the source list; an
+  empty-list draw gave `gone`; a non-numeric bound and a non-list
+  subject both threw and were caught by `try`/`otherwise`. A reachable-
+  breadth check (both endpoints of a small range appearing across many
+  draws) was used as a sanity signal only, not treated as a
+  mathematical guarantee from a finite sample.
 
 **MISSING FROM THE JS BACKEND** (verified absent by direct inspection,
 not assumed):
@@ -4248,7 +4290,6 @@ not assumed):
   throws a specific, deliberate "I cannot divide by zero." error. A
   program could silently compute with `Infinity` for a while before
   anything looks wrong.
-- random (`random number`, `random item`)
 - diagnostics (`log` / `warn` / `error`)
 - dates (`today`, `now`, date math)
 - console/runtime utility behavior (stdin, stdout formatting parity
@@ -4268,14 +4309,15 @@ architecture above, but the agreed starting order)
    done, `86b3509`; list literals done, `23d8034`; string ops done,
    `09374ea`/`b120ee0`; collection ops done, `1e19652`; functions done,
    `af3a807`; function/loop scope parity done, `779b36f`; plain-object
-   representation done, `59f53f2`; JSON done, Phase 1G): count loops,
-   list literals, string operations (split into 1D-A string builtins
+   representation done, `59f53f2`; JSON done, Phase 1G; random done,
+   Phase 1H): count loops, list literals, string operations (split
+   into 1D-A string builtins
    and 1D-B the `plus` runtime-type fix), collection operations,
    function declarations/calls (moved ahead of JSON once Phase 1B
    proved this was a real, separate gap — too many realistic Otter
    programs depend on functions to leave this late), plain objects
    (inserted ahead of JSON once JSON's own object mapping turned out to
-   depend on it), JSON. Remaining: random, diagnostics, dates.
+   depend on it), JSON, random. Remaining: diagnostics, dates.
 3. Every addition is verified the same way: `.ot` source through the
    real production CLI, through the JS compiler, through an actual JS
    runtime, to an observed result — not a unit test calling the emitter
