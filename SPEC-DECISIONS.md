@@ -4155,13 +4155,30 @@ calling the emitter directly):
   same rule), `a is b` between things aliases (not copies) via plain JS
   reference semantics, and a property can legitimately hold `gone`,
   distinguishable from a genuinely missing one. Deliberately out of
-  scope: custom `OtterType`-declared objects (JSON never produces one),
-  and `has` against an existing plain thing throwing its protective
-  "will not replace" error (this compiler would silently construct a
-  fresh object instead — not exercised by any current case).
+  scope: custom `OtterType`-declared objects (JSON never produces one,
+  deferred until something actually needs it). The `has`-against-an-
+  existing-thing guard is NOT replicated either — tracked as its own
+  explicit ledger entry below (MISSING), not a footnote here, since
+  it's a real cross-runtime behavior difference, not a "doesn't matter
+  yet" omission.
 
 **MISSING FROM THE JS BACKEND** (verified absent by direct inspection,
 not assumed):
+- **`has` against an EXISTING plain thing does not refuse replacement
+  the way the interpreter does — it silently constructs a fresh
+  object instead.** Verified directly (Phase 1F.2): the interpreter's
+  `ObjectDef` case checks `Environment.Has` first and throws ("Otter
+  will not replace existing a thing called ... with a new thing")
+  whenever the name already holds a non-UI-resource value; this
+  compiler's `ObjectDef` case has no equivalent check at all — every
+  `ObjectDef` it compiles unconditionally builds a new `{ __otterThing:
+  ... }` value. Deliberately not blocking Phase 1G (JSON's own parsing
+  path never re-triggers `ObjectDef` against an existing name), but
+  recorded here explicitly rather than left as a footnote inside the
+  Phase 1F.2 entry above: a valid Otter program that hits this path
+  should not behave differently — throw vs. silently replace — between
+  the interpreter and this compiler. Worth fixing before 1.0 sign-off,
+  independent of whether any specific later phase happens to need it.
 - **`Subtract`/`Multiply`/`Divide` silently produce `NaN` on a
   non-numeric operand instead of throwing.** Same root gap `plus` had
   (found while fixing `plus`, Phase 1D-B): the interpreter's
