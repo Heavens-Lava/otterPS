@@ -4511,6 +4511,147 @@ architecture above, but the agreed starting order)
 - Does not claim any part of the "missing" list above is done. It is a
   todo list, not a status report.
 
+### Consolidated D60 parity audit (2026-09-12, after Phases 1A-1J)
+
+The question this audit answers: **what valid Otter programs can the
+interpreter execute today that the JS backend still cannot execute
+with the same observable semantics?** — a full sweep, not another
+incremental phase, done by diffing the complete `NodeKind` enum
+against every `switch` case in `Otter.Interpreter.psm1` and
+`Otter.Compiler.JavaScript.psm1`, then verifying each apparent gap
+against a real `.ot` program through the real production CLI (not
+assumed from the diff alone).
+
+**Method note, itself a finding**: an unhandled `NodeKind` in
+`ConvertTo-OtterJsStatement` falls to a `default { return "" }` -
+a valid Otter program using an unimplemented statement compiles
+successfully and SILENTLY DOES NOTHING at that point, no compiler
+warning, no runtime error. This is worse than a loud failure and is
+the mechanism behind every gap below - confirmed directly by compiling
+each one and reading the generated JS, not inferred from the diff.
+
+**Out of scope for this audit, confirmed by design, not gaps:**
+- `WebRoute`/`Respond`/`StartServer`/`ListenServer` (D51): a genuinely
+  separate execution path (`Otter.Server.psm1`, a PowerShell-hosted
+  HTTP listener), never compiled to browser JS at all, and the
+  interpreter itself does not run these either - D49/D51 were always
+  the web provider's domain (see D60's own Context section above).
+  Not part of "interpreter vs JS backend" at all.
+- `UiElement`/`UiLayout`/`StateDef`/`DeriveDef`/`MemoDef`/`UiEvent`/
+  `Watch`/`Lifecycle`/`UiAnimation`/`SharedState`/`UiAction`/
+  `UseModule`/`CreateUiResource`/`When`/`PutIn`/`Show`: dispatched by
+  `Otter.Web.psm1` through its own TYPE-based tree walk (`-is
+  [UiElementStmt]`, etc.), a deliberately separate declarative-UI
+  rendering pipeline from this compiler's ordinary-statement `NodeKind`
+  switches (confirmed: zero `NodeKind` references exist anywhere in
+  `Otter.Web.psm1`) - already extensively exercised by the existing 91
+  WPF-declarative and 10 Web-compiler passing tests. `MemoDef` is a
+  documented non-feature in the INTERPRETER too (D56: the case is
+  provably broken - references a property `MemoDefStmt` does not have
+  - and was deliberately left as an honest diagnostic rather than
+  fixed for 1.0), so it is not a JS-backend gap either.
+- `HttpPut`/`HttpDelete`: `HttpGet`/`HttpPost` work; these two do not.
+  Since the interpreter implements NONE of the four (D49 is web-only by
+  design), this is an internal web-feature completeness gap, not an
+  interpreter-parity gap - noted for completeness, not blocking.
+- `AppendFile` (D61): has no JS case, but also has NO PARSER SUPPORT
+  YET for either runtime (`append "x" to "y"` is a syntax error today -
+  confirmed directly) - Codex's lane, not reachable via real syntax by
+  ANY runtime yet, so this cannot be an interpreter-vs-compiler gap
+  until the grammar exists.
+
+**RELEASE BLOCKERS** (reachable via real, already-parseable Otter
+syntax; the interpreter succeeds; the JS backend silently does nothing
+or produces a functionally different result; no legitimate
+host-capability excuse - these are pure language-semantics gaps):
+- **`GetKey`/`SetKey` (D41 dynamic thing access - `get "x" from thing
+  into y` / `set "x" to y in thing`) have NO JS case at all.**
+  Confirmed by compiling a real `.ot` program: `get "name" from p into
+  n` produces literally no generated statement, leaving `n` an
+  undefined JS reference; `set "age" to 30 in p` likewise produces
+  nothing, so a later `age of p` throws "no property called" instead
+  of succeeding. This is the clearest gap found in the whole audit:
+  these operate on the EXACT SAME `props`/`order` storage Phase 1F.2
+  already built for ordinary `PropertyAccess`, so there is no
+  representational work left to do, only the two missing `NodeKind`
+  cases themselves (Set-style bindings, matching `Environment.Set`).
+- **Custom `OtterType`-declared objects (`a Person has ... .` /
+  `jeff is a Person`) do not get their declared fields pre-populated
+  in JS.** Confirmed via a real, valid `.ot` program: the interpreter
+  answers `gone` for a declared-but-unset field (`New-OtterObjectValue`
+  pre-populates every `FieldNames` entry to `$null`); this compiler's
+  `ObjectDef` case always builds `{ typeName: 'thing', ... }`
+  unconditionally, with no lookup of a declared `OtterType` at all, so
+  the same program THROWS "no property called" in JS where the
+  interpreter succeeds with `gone`. Already flagged as deliberately
+  deferred in the Phase 1F.2 entry above ("JSON never produces one") -
+  this audit found it is not merely a JSON-adjacent theoretical gap,
+  it is directly reachable and produces a real functional divergence
+  on its own, independent of JSON.
+- **`ask "..." and call it x` has NO JS case at all**, unlike the
+  file/HTTP host-capability boundary cases - confirmed by compiling a
+  real `.ot` program: the target variable is left undefined, with no
+  host-hook emitted and no boundary error raised. Unlike raw filesystem
+  access, this is NOT a case where "browser" genuinely lacks the
+  capability - `window.prompt()` is a real, always-available browser
+  built-in with no desktop bridge required. This should get the same
+  `otterReadFile`-style required-host-hook treatment (an
+  `otterAsk(prompt)` hook, with D6's input coercion rules replicated -
+  numeric-looking becomes a number, `true`/`false` becomes a boolean,
+  else text), not be left silently broken.
+
+**DOCUMENTED HOST DIFFERENCES NEEDING AN EXPLICIT BOUNDARY** (the
+underlying capability is legitimately host-dependent the way `ReadFile`
+already is, but the CURRENT state is a silent no-op, not the explicit
+reported boundary D60 itself requires - "host boundaries reported
+explicitly, never silently changing meaning" is not yet true for
+these):
+- `CopyFile`/`MoveFile`/`DeleteFile`/`FileExists`: no JS case at all,
+  confirmed absent by direct inspection - not even an
+  `otterReadFile`-style required hook or an honest "not available
+  here" error. A real `.ot` program using any of these compiles clean
+  and silently does nothing.
+- `GetFiles`/`GetFolders`/`CreateFolder`/`DeleteFolder`/`CopyFolder`/
+  `MoveFolder`: same as above - filesystem discovery/folder operations,
+  all silently absent from the JS backend today.
+- These should follow `ReadFile`/`WriteFile`'s already-established
+  pattern exactly (a required runtime hook per operation, the target
+  adapter decides what's actually possible on that host) rather than
+  being invented fresh - the pattern to extend already exists, this is
+  systematic completion, not new design work.
+
+**POST-1.0 / DEFERRED** (already tracked individually above in this
+same D60 section from earlier phases - re-confirmed still open, not
+newly found, listed here only so this audit is a complete picture, not
+a partial one):
+- `has` against an existing plain thing does not refuse replacement.
+- `Subtract`/`Multiply`/`Divide` silently produce `NaN`/`Infinity`
+  instead of throwing on a bad operand.
+- `say`/diagnostic single-value display for a list/thing/date shows
+  the browser console's own object/array inspection rather than
+  Otter's `say`-formatting (string CONCATENATION already renders these
+  correctly via `toString()` - only the bare single-value case is
+  affected).
+- `ConvertTo-Json`'s PowerShell-specific whitespace vs this compiler's
+  standard `JSON.stringify` formatting.
+- `ListDef`/`Sort`/`Reverse`/`Split`/`Join`/`Find`/`AddTo`/`RemoveFrom`
+  write sites not all uniformly `-LocalNames`-aware inside function
+  bodies.
+- The narrow double-bad-type comparison edge case (a date on one side,
+  a third bad type on the other) naming the date side rather than
+  strictly replicating the interpreter's left-then-right check order.
+- `HttpPut`/`HttpDelete` (web-only completeness, not interpreter
+  parity - see "out of scope" above).
+
+**Bottom line**: after Phases 1A-1J, the JS backend has full parity
+for every ordinary imperative `NodeKind` EXCEPT the three release
+blockers above (`GetKey`/`SetKey`, custom `OtterType` field
+pre-population, `ask`) and the filesystem-discovery/copy/move/delete
+operations that need `ReadFile`-style explicit host hooks. Nothing
+found in this audit is architectural - every blocker is a missing
+`NodeKind` case or a missing hook following an already-proven pattern,
+not a reason to revisit D60's design.
+
 ---
 
 ## D61. `append <content> to <path>` — file append
