@@ -1,0 +1,103 @@
+app is a page
+    title is "Welcome to Otter"
+    width is 900
+    background is "#0f172a"
+    spacing is 16
+.
+
+siteBrand is a text
+    value is "Otter Docs"
+    weight is "700"
+    foreground is "#f8fafc"
+.
+
+siteDocs is a link
+    text is "Docs"
+    url is "/"
+.
+
+siteExamples is a link
+    text is "Examples"
+    url is "/examples/"
+.
+
+siteDownload is a link
+    text is "Download"
+    url is "/download/"
+.
+
+siteNav is a row
+    spacing is 16
+    padding is 14
+    background is "#172554"
+    radius is 10
+.
+
+put siteBrand, siteDocs, siteExamples, siteDownload in siteNav
+
+heading is a text
+    value is "Welcome to Otter"
+    foreground is "#f8fafc"
+.
+
+body is a text
+    value is "Otter is a readable programming language for useful programs, from small scripts to interactive web applications."
+    foreground is "#cbd5e1"
+.
+
+home is a link
+    text is "Documentation home"
+    url is "./"
+.
+
+installation is a link
+    text is "Installation"
+    url is "../installation/"
+.
+
+conditions is a link
+    text is "Conditions"
+    url is "../conditions/"
+.
+
+put siteNav, heading, body, home, installation, conditions in app
+
+searchBox is a text box
+    placeholder is "Search documentation..."
+    width is 360
+.
+
+searchResult is a text
+    value is "Search topics: installation, conditions, values, or loops."
+    foreground is "#475569"
+.
+
+when searchBox is changed
+    query is text of searchBox
+    if query contains "installation"
+        text of searchResult is "Result: Installation"
+    otherwise if query contains "condition"
+        text of searchResult is "Result: Conditions"
+    otherwise if query contains "value"
+        text of searchResult is "Result: Values and Types"
+    otherwise if query contains "loop"
+        text of searchResult is "Result: Loops"
+    otherwise if query contains "object"
+        text of searchResult is "Result: Objects (Language Reference)"
+    otherwise if query contains "function"
+        text of searchResult is "Result: Functions (Language Reference)"
+    otherwise if query contains "file"
+        text of searchResult is "Result: Files and Folders (Language Reference)"
+    otherwise if query contains "string"
+        text of searchResult is "Result: Strings (Language Reference)"
+    otherwise if query contains "collection"
+        text of searchResult is "Result: Collections (Language Reference)"
+    otherwise if query contains "web"
+        text of searchResult is "Result: Web Development (Examples)"
+    otherwise
+        text of searchResult is "No matching topic yet."
+    .
+.
+
+put searchBox, searchResult in app
+show app

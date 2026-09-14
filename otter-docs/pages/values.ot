@@ -1,0 +1,74 @@
+app is a page
+    title is "Values and Types"
+    width is 900
+    background is "#0f172a"
+    spacing is 16
+.
+
+siteBrand is a text
+    value is "Otter Docs"
+    weight is "700"
+    foreground is "#f8fafc"
+.
+
+siteDocs is a link
+    text is "Docs"
+    url is "/"
+.
+
+siteExamples is a link
+    text is "Examples"
+    url is "/examples/"
+.
+
+siteDownload is a link
+    text is "Download"
+    url is "/download/"
+.
+
+siteNav is a row
+    spacing is 16
+    padding is 14
+    background is "#172554"
+    radius is 10
+.
+
+put siteBrand, siteDocs, siteExamples, siteDownload in siteNav
+
+heading is a text
+    value is "Values and Types"
+    size is 30
+    weight is "700"
+    foreground is "#f8fafc"
+.
+
+body is a text
+    value is "Otter works with text, numbers, booleans, lists, objects, and gone. Use is to assign a value."
+    foreground is "#cbd5e1"
+.
+
+example is a text
+    value is "name is \"Jeff\"\nage is 29\nready is true\nmissing is gone"
+    foreground is "#a7f3d0"
+    background is "#172554"
+    padding is 18
+    radius is 8
+.
+
+home is a link
+    text is "Documentation home"
+    url is "../home/"
+.
+
+conditions is a link
+    text is "Conditions"
+    url is "../conditions/"
+.
+
+loops is a link
+    text is "Loops"
+    url is "../loops/"
+.
+
+put siteNav, heading, body, example, home, conditions, loops in app
+show app

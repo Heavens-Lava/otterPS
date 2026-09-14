@@ -1,0 +1,298 @@
+# Otter Documentation home
+app is a page
+    title is "Otter - Documentation"
+    background is "#f8fafc"
+    spacing is 20
+.
+
+brand is a text
+    value is "Otter"
+    size is 28
+    weight is "700"
+    foreground is "#0f172a"
+.
+
+mascot is a image
+    source is "/static/images/otter-explorer-icon.png"
+    alt is "Otter Explorer mascot"
+    width is 72
+    height is 72
+.
+
+tagline is a text
+    value is "Simple. Powerful. Yours."
+    foreground is "#64748b"
+.
+
+docsLink is a link
+    text is "Docs"
+    url is "/"
+.
+
+examplesLink is a link
+    text is "Examples"
+    url is "/examples/"
+.
+
+downloadLink is a link
+    text is "Download"
+    url is "/download/"
+.
+
+referenceLink is a link
+    text is "Reference"
+    url is "/reference/"
+.
+
+header is a row
+    spacing is 22
+    padding is 16
+    background is "#ffffff"
+    border is "1px solid #e2e8f0"
+.
+
+put mascot, brand, tagline, docsLink, referenceLink, examplesLink, downloadLink in header
+
+gettingStarted is a text
+    value is "GETTING STARTED"
+    weight is "700"
+    foreground is "#2563eb"
+.
+
+introduction is a link
+    text is "Introduction"
+    url is "../welcome/"
+.
+
+installation is a link
+    text is "Installation"
+    url is "../installation/"
+.
+
+firstProgram is a link
+    text is "Your First Program"
+    url is "/first-program/"
+.
+
+languageGuide is a text
+    value is "LANGUAGE GUIDE"
+    weight is "700"
+    foreground is "#2563eb"
+.
+
+referenceIndex is a link
+    text is "Language Reference"
+    url is "/reference/"
+.
+
+values is a link
+    text is "Values and Types"
+    url is "../values/"
+.
+
+conditions is a link
+    text is "Conditions"
+    url is "../conditions/"
+.
+
+loops is a link
+    text is "Loops"
+    url is "../loops/"
+.
+
+objects is a link
+    text is "Objects"
+    url is "../objects/"
+.
+
+files is a link
+    text is "Files and Folders"
+    url is "../files/"
+.
+
+sidebar is a column
+    spacing is 10
+    padding is 18
+    width is 230
+    background is "#ffffff"
+    border is "1px solid #e2e8f0"
+    radius is 10
+.
+
+put gettingStarted, introduction, installation, firstProgram, languageGuide, referenceIndex, values, conditions, loops, objects, files in sidebar
+
+eyebrow is a text
+    value is "A MODERN, HUMAN-FRIENDLY PROGRAMMING LANGUAGE"
+    weight is "700"
+    foreground is "#93c5fd"
+.
+
+heroTitle is a text
+    value is "Build Real Applications with Otter"
+    size is 34
+    weight is "700"
+    foreground is "#ffffff"
+.
+
+heroBody is a text
+    value is "Clean, natural syntax for desktop apps, web development, and real file-system work."
+    size is 18
+    foreground is "#dbeafe"
+.
+
+getStarted is a link
+    text is "Get Started"
+    url is "/first-program/"
+    background is "#1683ff"
+    foreground is "#ffffff"
+    width is 150
+.
+
+hero is a card
+    background is "#0f3557"
+    padding is 30
+    spacing is 14
+    radius is 12
+.
+
+put eyebrow, heroTitle, heroBody, getStarted in hero
+
+desktopCard is a card
+    title is "Desktop Applications"
+    background is "#eff6ff"
+    spacing is 8
+    padding is 18
+    radius is 10
+.
+
+webCard is a card
+    title is "Web Development"
+    background is "#ecfdf5"
+    spacing is 8
+    padding is 18
+    radius is 10
+.
+
+filesCard is a card
+    title is "Work with Real Files"
+    background is "#fffbeb"
+    spacing is 8
+    padding is 18
+    radius is 10
+.
+
+desktopText is a text
+    value is "Create native Windows applications with a readable syntax."
+    foreground is "#334155"
+.
+
+webText is a text
+    value is "Build responsive interfaces using the same Otter concepts."
+    foreground is "#334155"
+.
+
+filesText is a text
+    value is "Read, write, and organize files and folders directly."
+    foreground is "#334155"
+.
+
+put desktopText in desktopCard
+put webText in webCard
+put filesText in filesCard
+
+featureRow is a row
+    spacing is 12
+.
+
+put desktopCard, webCard, filesCard in featureRow
+
+popular is a text
+    value is "Popular Examples"
+    size is 24
+    weight is "700"
+    foreground is "#0f172a"
+.
+
+exampleText is a text
+    value is "person has\n    name is \"Jeff\"\n.\n\nsay name of person"
+    foreground is "#0f172a"
+    background is "#f1f5f9"
+    padding is 16
+    radius is 8
+.
+
+main is a column
+    spacing is 18
+    padding is 20
+.
+
+put hero, featureRow, popular, exampleText in main
+
+body is a row
+    spacing is 18
+    padding is 20
+.
+
+put sidebar, main in body
+
+searchBox is a text box
+    placeholder is "Search documentation..."
+    width is 360
+.
+
+searchResult is a text
+    value is "Type a topic to search: welcome, installation, values, conditions, or loops."
+    foreground is "#475569"
+.
+
+searchLink is a link
+    text is "Open matching page"
+    url is "./"
+.
+
+when searchBox is changed
+    query is text of searchBox
+    if query contains "welcome"
+        text of searchResult is "Result: Welcome to Otter"
+        text of searchLink is "Open Welcome to Otter"
+        url of searchLink is "../welcome/"
+    otherwise if query contains "installation"
+        text of searchResult is "Result: Installation"
+        text of searchLink is "Open Installation"
+        url of searchLink is "../installation/"
+    otherwise if query contains "values"
+        text of searchResult is "Result: Values and Types"
+        text of searchLink is "Open Values and Types"
+        url of searchLink is "../values/"
+    otherwise if query contains "condition"
+        text of searchResult is "Result: Conditions"
+        text of searchLink is "Open Conditions"
+        url of searchLink is "../conditions/"
+    otherwise if query contains "loop"
+        text of searchResult is "Result: Loops"
+        text of searchLink is "Open Loops"
+        url of searchLink is "../loops/"
+    otherwise if query contains "object"
+        text of searchResult is "Result: Objects (see the Language Reference)"
+    otherwise if query contains "function"
+        text of searchResult is "Result: Functions (see the Language Reference)"
+    otherwise if query contains "file"
+        text of searchResult is "Result: Files and Folders (see the Language Reference)"
+    otherwise if query contains "string"
+        text of searchResult is "Result: Strings (see the Language Reference)"
+    otherwise if query contains "collection"
+        text of searchResult is "Result: Collections (see the Language Reference)"
+    otherwise if query contains "web"
+        text of searchResult is "Result: Web Development (see the Examples)"
+        text of searchLink is "Open Web Development"
+        url of searchLink is "../welcome/"
+    otherwise
+        text of searchResult is "No matching topic yet."
+        text of searchLink is "Open documentation home"
+        url of searchLink is "./"
+    .
+.
+
+put searchBox, searchResult, searchLink in main
+put header, body in app
+show app

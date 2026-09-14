@@ -1,0 +1,97 @@
+# Otter Documentation - First Program
+
+app is a page
+    title is "Your First Otter Program"
+    background is "#f8fafc"
+    spacing is 18
+    padding is 20
+.
+
+brand is a text
+    value is "Otter Docs"
+    size is 26
+    weight is "700"
+    foreground is "#0f172a"
+.
+
+docsLink is a link
+    text is "Docs"
+    url is "/"
+.
+
+examplesLink is a link
+    text is "Examples"
+    url is "/examples/"
+.
+
+downloadLink is a link
+    text is "Download"
+    url is "/download/"
+.
+
+header is a row
+    spacing is 18
+    padding is 16
+    background is "#ffffff"
+    border is "1px solid #e2e8f0"
+    radius is 10
+.
+
+put brand, docsLink, examplesLink, downloadLink in header
+
+heading is a text
+    value is "Your first Otter program"
+    size is 34
+    weight is "700"
+    foreground is "#0f172a"
+.
+
+intro is a text
+    value is "These Windows-focused steps take you from the Otter folder to a program that says hello."
+    foreground is "#475569"
+.
+
+stepOne is a text
+    value is "1. In the Otter folder, create a file named hello.ot."
+    foreground is "#334155"
+.
+
+programText is a text
+    value is "say \"Hello, Otter!\""
+    foreground is "#a7f3d0"
+    background is "#0f172a"
+    padding is 16
+    radius is 8
+.
+
+stepTwo is a text
+    value is "2. Put this line in hello.ot, then save the file."
+    foreground is "#334155"
+.
+
+runText is a text
+    value is ".\\otter.cmd hello.ot"
+    foreground is "#a7f3d0"
+    background is "#0f172a"
+    padding is 16
+    radius is 8
+.
+
+stepThree is a text
+    value is "3. In PowerShell, run this command. Otter prints Hello, Otter!"
+    foreground is "#334155"
+.
+
+nextLink is a link
+    text is "Continue to Variables and Values"
+    url is "/values/"
+.
+
+main is a column
+    spacing is 14
+    padding is 26
+.
+
+put heading, intro, stepOne, stepTwo, programText, stepThree, runText, nextLink in main
+put header, main in app
+show app

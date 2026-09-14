@@ -1,0 +1,268 @@
+# Otter Documentation - Download
+# This page is authored in Otter and compiled with: otter web pages\download.ot
+
+app is a page
+    title is "Download Otter"
+    background is "#f8fafc"
+    spacing is 20
+    padding is 20
+.
+
+mascot is a image
+    source is "/static/images/otter-explorer-icon.png"
+    alt is "Otter mascot"
+    width is 58
+    height is 58
+.
+
+brand is a text
+    value is "Otter"
+    size is 28
+    weight is "700"
+    foreground is "#0f172a"
+.
+
+tagline is a text
+    value is "Simple. Powerful. Yours."
+    foreground is "#64748b"
+.
+
+docsLink is a link
+    text is "Docs"
+    url is "/"
+.
+
+examplesLink is a link
+    text is "Examples"
+    url is "/examples/"
+.
+
+header is a row
+    spacing is 18
+    padding is 16
+    background is "#ffffff"
+    border is "1px solid #e2e8f0"
+    radius is 10
+.
+
+put mascot, brand, tagline, docsLink, examplesLink in header
+
+eyebrow is a text
+    value is "GET STARTED WITH OTTER"
+    weight is "700"
+    foreground is "#2563eb"
+.
+
+heading is a text
+    value is "Run your first Otter program"
+    size is 36
+    weight is "700"
+    foreground is "#0f172a"
+.
+
+intro is a text
+    value is "Otter currently ships as a Windows-friendly project folder with its launcher, examples, tests, and editor support."
+    size is 18
+    foreground is "#475569"
+.
+
+releaseTitle is a text
+    value is "Current release: {{RELEASE_VERSION}}"
+    size is 22
+    weight is "700"
+    foreground is "#0f172a"
+.
+
+releaseBody is a text
+    value is "{{RELEASE_CHANNEL}}. {{WINDOWS_REQUIREMENTS}}"
+    foreground is "#475569"
+.
+
+releaseCard is a card
+    background is "#ecfdf5"
+    padding is 22
+    spacing is 8
+    radius is 12
+.
+
+put releaseTitle, releaseBody in releaseCard
+
+installerTitle is a text
+    value is "Windows installer"
+    size is 22
+    weight is "700"
+    foreground is "#0f172a"
+.
+
+installerStatus is a text
+    value is "{{INSTALLER_STATUS}}"
+    weight is "700"
+    foreground is "#b45309"
+.
+
+installerAction is a text
+    value is "A prominent download button will appear here when the signed installer is published."
+    foreground is "#475569"
+.
+
+installerCard is a card
+    background is "#fffbeb"
+    padding is 18
+    spacing is 8
+    radius is 10
+.
+
+put installerTitle, installerStatus, installerAction in installerCard
+
+detailsTitle is a text
+    value is "Release details"
+    size is 20
+    weight is "700"
+    foreground is "#0f172a"
+.
+
+requirementsDetail is a text
+    value is "Windows requirements: {{WINDOWS_REQUIREMENTS}}"
+    foreground is "#475569"
+.
+
+sizeDetail is a text
+    value is "Installer size: {{INSTALLER_SIZE}}"
+    foreground is "#475569"
+.
+
+dateDetail is a text
+    value is "Release date: {{RELEASE_DATE}}"
+    foreground is "#475569"
+.
+
+checksumDetail is a text
+    value is "SHA-256: {{SHA256}}"
+    foreground is "#475569"
+.
+
+notesDetail is a text
+    value is "Release notes: {{RELEASE_NOTES_STATUS}}"
+    foreground is "#475569"
+.
+
+releaseDetails is a card
+    background is "#ffffff"
+    padding is 18
+    spacing is 6
+    radius is 10
+.
+
+releaseLink is a link
+    text is "View release readiness"
+    url is "/release/"
+.
+
+put detailsTitle, requirementsDetail, sizeDetail, dateDetail, checksumDetail, notesDetail, releaseLink in releaseDetails
+
+stepOneTitle is a text
+    value is "1. Open the Otter folder"
+    size is 20
+    weight is "700"
+    foreground is "#0f172a"
+.
+
+stepOneBody is a text
+    value is "Use a PowerShell window in the folder containing otter.cmd."
+    foreground is "#475569"
+.
+
+stepOne is a card
+    background is "#ffffff"
+    padding is 18
+    spacing is 8
+    radius is 10
+.
+
+put stepOneTitle, stepOneBody in stepOne
+
+stepTwoTitle is a text
+    value is "2. Run an example"
+    size is 20
+    weight is "700"
+    foreground is "#0f172a"
+.
+
+runCommand is a text
+    value is ".\\otter.cmd examples\\hello.ot"
+    foreground is "#a7f3d0"
+    background is "#0f172a"
+    padding is 14
+    radius is 8
+.
+
+stepTwo is a card
+    background is "#ffffff"
+    padding is 18
+    spacing is 10
+    radius is 10
+.
+
+put stepTwoTitle, runCommand in stepTwo
+
+stepThreeTitle is a text
+    value is "3. Start building"
+    size is 20
+    weight is "700"
+    foreground is "#0f172a"
+.
+
+stepThreeBody is a text
+    value is "Change an included example or create a new .ot file. The documentation walks through the language step by step."
+    foreground is "#475569"
+.
+
+docsButton is a link
+    text is "Write your first program"
+    url is "/first-program/"
+.
+
+stepThree is a card
+    background is "#eff6ff"
+    padding is 18
+    spacing is 10
+    radius is 10
+.
+
+put stepThreeTitle, stepThreeBody, docsButton in stepThree
+
+steps is a column
+    spacing is 12
+.
+
+put stepOne, stepTwo, stepThree in steps
+
+noteTitle is a text
+    value is "About downloads"
+    size is 20
+    weight is "700"
+    foreground is "#0f172a"
+.
+
+noteBody is a text
+    value is "An official installer and public release-download link are not published yet. Until then, use the Otter project folder supplied with the current release."
+    foreground is "#475569"
+.
+
+noteCard is a card
+    background is "#fffbeb"
+    padding is 18
+    spacing is 8
+    radius is 10
+.
+
+put noteTitle, noteBody in noteCard
+
+main is a column
+    spacing is 18
+    padding is 26
+.
+
+put eyebrow, heading, intro, releaseCard, installerCard, releaseDetails, steps, noteCard in main
+put header, main in app
+show app

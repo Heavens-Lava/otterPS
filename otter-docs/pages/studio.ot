@@ -1,0 +1,145 @@
+# Otter Documentation - Studio
+
+app is a page
+    title is "Otter Studio"
+    background is "#f8fafc"
+    spacing is 18
+    padding is 20
+.
+
+brand is a text
+    value is "Otter Studio"
+    size is 28
+    weight is "700"
+    foreground is "#0f172a"
+.
+
+docsLink is a link
+    text is "Docs"
+    url is "/"
+.
+
+examplesLink is a link
+    text is "Examples"
+    url is "/examples/"
+.
+
+downloadLink is a link
+    text is "Download"
+    url is "/download/"
+.
+
+header is a row
+    spacing is 18
+    padding is 16
+    background is "#ffffff"
+    border is "1px solid #e2e8f0"
+    radius is 10
+.
+
+put brand, docsLink, examplesLink, downloadLink in header
+
+heading is a text
+    value is "Otter Studio"
+    size is 36
+    weight is "700"
+    foreground is "#0f172a"
+.
+
+intro is a text
+    value is "Otter Studio is the planned beginner-friendly editor for writing, running, and understanding Otter programs."
+    size is 18
+    foreground is "#475569"
+.
+
+statusTitle is a text
+    value is "Release status"
+    size is 21
+    weight is "700"
+    foreground is "#0f172a"
+.
+
+statusBody is a text
+    value is "{{STUDIO_STATUS}}"
+    foreground is "#92400e"
+.
+
+statusCard is a card
+    background is "#fffbeb"
+    padding is 18
+    spacing is 8
+    radius is 10
+.
+
+put statusTitle, statusBody in statusCard
+
+workflowTitle is a text
+    value is "Intended workflow"
+    size is 23
+    weight is "700"
+    foreground is "#0f172a"
+.
+
+workflowOne is a text
+    value is "1. Install Otter"
+    foreground is "#334155"
+.
+
+workflowTwo is a text
+    value is "2. Open Studio"
+    foreground is "#334155"
+.
+
+workflowThree is a text
+    value is "3. Create or open an .ot file"
+    foreground is "#334155"
+.
+
+workflowFour is a text
+    value is "4. Run the program"
+    foreground is "#334155"
+.
+
+workflowFive is a text
+    value is "5. Save your work"
+    foreground is "#334155"
+.
+
+workflowCard is a card
+    background is "#eff6ff"
+    padding is 18
+    spacing is 8
+    radius is 10
+.
+
+put workflowTitle, workflowOne, workflowTwo, workflowThree, workflowFour, workflowFive in workflowCard
+
+vsCodeTitle is a text
+    value is "Edit Otter today"
+    size is 21
+    weight is "700"
+    foreground is "#0f172a"
+.
+
+vsCodeBody is a text
+    value is "Until Studio completes its real end-to-end release gate, use the included VS Code Otter extension for syntax highlighting and editor assistance."
+    foreground is "#475569"
+.
+
+vsCodeCard is a card
+    background is "#ffffff"
+    padding is 18
+    spacing is 8
+    radius is 10
+.
+
+put vsCodeTitle, vsCodeBody in vsCodeCard
+
+main is a column
+    spacing is 16
+    padding is 26
+.
+
+put heading, intro, statusCard, workflowCard, vsCodeCard in main
+put header, main in app
+show app

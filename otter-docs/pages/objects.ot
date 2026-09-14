@@ -1,0 +1,74 @@
+app is a page
+    title is "Objects"
+    width is 900
+    background is "#0f172a"
+    spacing is 16
+.
+
+siteBrand is a text
+    value is "Otter Docs"
+    weight is "700"
+    foreground is "#f8fafc"
+.
+
+siteDocs is a link
+    text is "Docs"
+    url is "/"
+.
+
+siteExamples is a link
+    text is "Examples"
+    url is "/examples/"
+.
+
+siteDownload is a link
+    text is "Download"
+    url is "/download/"
+.
+
+siteNav is a row
+    spacing is 16
+    padding is 14
+    background is "#172554"
+    radius is 10
+.
+
+put siteBrand, siteDocs, siteExamples, siteDownload in siteNav
+
+heading is a text
+    value is "Objects and Properties"
+    size is 30
+    weight is "700"
+    foreground is "#f8fafc"
+.
+
+body is a text
+    value is "Use has to construct a thing, then read its properties with of. Properties can be nested."
+    foreground is "#cbd5e1"
+.
+
+example is a text
+    value is "person has\n    name is \"Jeff\"\n    age is 29\n.\n\nsay name of person"
+    foreground is "#a7f3d0"
+    background is "#172554"
+    padding is 18
+    radius is 8
+.
+
+home is a link
+    text is "Documentation home"
+    url is "../home/"
+.
+
+values is a link
+    text is "Values and Types"
+    url is "../values/"
+.
+
+files is a link
+    text is "Files and Folders"
+    url is "../files/"
+.
+
+put siteNav, heading, body, example, home, values, files in app
+show app

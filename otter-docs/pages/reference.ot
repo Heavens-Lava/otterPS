@@ -1,0 +1,226 @@
+# Otter Documentation - V1 Language Reference
+
+app is a page
+    title is "Otter V1 Language Reference"
+    background is "#f8fafc"
+    spacing is 18
+    padding is 20
+.
+
+brand is a text
+    value is "Otter Docs"
+    size is 26
+    weight is "700"
+    foreground is "#0f172a"
+.
+
+docsLink is a link
+    text is "Docs"
+    url is "/"
+.
+
+examplesLink is a link
+    text is "Examples"
+    url is "/examples/"
+.
+
+downloadLink is a link
+    text is "Download"
+    url is "/download/"
+.
+
+header is a row
+    spacing is 18
+    padding is 16
+    background is "#ffffff"
+    border is "1px solid #e2e8f0"
+    radius is 10
+.
+
+put brand, docsLink, examplesLink, downloadLink in header
+
+heading is a text
+    value is "Otter V1 language reference"
+    size is 34
+    weight is "700"
+    foreground is "#0f172a"
+.
+
+intro is a text
+    value is "This index covers the language and desktop UI surface certified for Otter V1. Unsupported experimental syntax is intentionally left out."
+    foreground is "#475569"
+.
+
+valuesTitle is a text
+    value is "Values and variables"
+    size is 21
+    weight is "700"
+    foreground is "#0f172a"
+.
+
+valuesBody is a text
+    value is "Text, numbers, booleans, lists, things, gone, and assignment with is."
+    foreground is "#475569"
+.
+
+valuesLink is a link
+    text is "Read values and types"
+    url is "/values/"
+.
+
+valuesCard is a card
+    background is "#ffffff"
+    padding is 16
+    spacing is 7
+    radius is 10
+.
+
+put valuesTitle, valuesBody, valuesLink in valuesCard
+
+logicTitle is a text
+    value is "Conditions, loops, and functions"
+    size is 21
+    weight is "700"
+    foreground is "#0f172a"
+.
+
+logicBody is a text
+    value is "if, otherwise, while, repeat, count, each, to, return, and stop."
+    foreground is "#475569"
+.
+
+conditionsLink is a link
+    text is "Read conditions"
+    url is "/conditions/"
+.
+
+loopsLink is a link
+    text is "Read loops"
+    url is "/loops/"
+.
+
+logicCard is a card
+    background is "#eff6ff"
+    padding is 16
+    spacing is 7
+    radius is 10
+.
+
+put logicTitle, logicBody, conditionsLink, loopsLink in logicCard
+
+dataTitle is a text
+    value is "Lists, objects, files, and folders"
+    size is 21
+    weight is "700"
+    foreground is "#0f172a"
+.
+
+dataBody is a text
+    value is "Lists and collections, property access, things, JSON, file discovery, and explicit file and folder operations."
+    foreground is "#475569"
+.
+
+objectsLink is a link
+    text is "Read objects and properties"
+    url is "/objects/"
+.
+
+filesLink is a link
+    text is "Read files and folders"
+    url is "/files/"
+.
+
+dataCard is a card
+    background is "#ecfdf5"
+    padding is 16
+    spacing is 7
+    radius is 10
+.
+
+put dataTitle, dataBody, objectsLink, filesLink in dataCard
+
+uiTitle is a text
+    value is "Desktop UI, events, and layout"
+    size is 21
+    weight is "700"
+    foreground is "#0f172a"
+.
+
+uiBody is a text
+    value is "Create windows and controls, configure them with has, put resources into windows and row or column containers, handle events, and show a window."
+    foreground is "#475569"
+.
+
+uiExample is a text
+    value is "create button into saveButton\nwhen saveButton is clicked\n    say \"Saved\"\n."
+    foreground is "#a7f3d0"
+    background is "#0f172a"
+    padding is 14
+    radius is 8
+.
+
+uiCard is a card
+    background is "#f5f3ff"
+    padding is 16
+    spacing is 8
+    radius is 10
+.
+
+put uiTitle, uiBody, uiExample in uiCard
+
+stateTitle is a text
+    value is "State, derived values, and watchers"
+    size is 21
+    weight is "700"
+    foreground is "#0f172a"
+.
+
+stateBody is a text
+    value is "V1 supports state, derive, and when a state value changes. Derivations update from their dependencies and watchers run only when a value actually changes."
+    foreground is "#475569"
+.
+
+stateCard is a card
+    background is "#fff7ed"
+    padding is 16
+    spacing is 8
+    radius is 10
+.
+
+put stateTitle, stateBody in stateCard
+
+errorsTitle is a text
+    value is "Errors and diagnostics"
+    size is 21
+    weight is "700"
+    foreground is "#0f172a"
+.
+
+errorsBody is a text
+    value is "Use try and otherwise for recoverable work. Otter also provides log, warn, and error for diagnostic output."
+    foreground is "#475569"
+.
+
+errorsCard is a card
+    background is "#fef2f2"
+    padding is 16
+    spacing is 8
+    radius is 10
+.
+
+put errorsTitle, errorsBody in errorsCard
+
+cards is a column
+    spacing is 12
+.
+
+put valuesCard, logicCard, dataCard, uiCard, stateCard, errorsCard in cards
+
+main is a column
+    spacing is 16
+    padding is 26
+.
+
+put heading, intro, cards in main
+put header, main in app
+show app

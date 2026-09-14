@@ -1,0 +1,261 @@
+# Otter Documentation - Examples
+
+app is a page
+    title is "Otter Examples"
+    background is "#f8fafc"
+    spacing is 20
+    padding is 20
+.
+
+brand is a text
+    value is "Otter"
+    size is 28
+    weight is "700"
+    foreground is "#0f172a"
+.
+
+docsLink is a link
+    text is "Docs"
+    url is "/"
+.
+
+downloadLink is a link
+    text is "Download"
+    url is "/download/"
+.
+
+header is a row
+    spacing is 20
+    padding is 16
+    background is "#ffffff"
+    border is "1px solid #e2e8f0"
+    radius is 10
+.
+
+put brand, docsLink, downloadLink in header
+
+eyebrow is a text
+    value is "LEARN BY CHANGING REAL PROGRAMS"
+    weight is "700"
+    foreground is "#2563eb"
+.
+
+heading is a text
+    value is "Otter examples"
+    size is 36
+    weight is "700"
+    foreground is "#0f172a"
+.
+
+intro is a text
+    value is "Each example is a real .ot program from the Otter project. Open one, change it, and run it."
+    size is 18
+    foreground is "#475569"
+.
+
+helloTitle is a text
+    value is "Hello, Otter!"
+    size is 21
+    weight is "700"
+    foreground is "#0f172a"
+.
+
+helloBody is a text
+    value is "The smallest useful Otter program."
+    foreground is "#475569"
+.
+
+helloSource is a link
+    text is "View hello.ot source"
+    url is "https://github.com/Heavens-Lava/otterPS/blob/master/examples/hello.ot"
+.
+
+helloDocs is a link
+    text is "Read the tutorial"
+    url is "/welcome/"
+.
+
+helloCard is a card
+    background is "#ffffff"
+    padding is 18
+    spacing is 9
+    radius is 10
+.
+
+put helloTitle, helloBody, helloSource, helloDocs in helloCard
+
+calculatorTitle is a text
+    value is "Calculator"
+    size is 21
+    weight is "700"
+    foreground is "#0f172a"
+.
+
+calculatorBody is a text
+    value is "A native UI app with text boxes, a button, and error handling."
+    foreground is "#475569"
+.
+
+calculatorSource is a link
+    text is "View calculator.ot source"
+    url is "https://github.com/Heavens-Lava/otterPS/blob/master/examples/calculator.ot"
+.
+
+calculatorCard is a card
+    background is "#eff6ff"
+    padding is 18
+    spacing is 9
+    radius is 10
+.
+
+put calculatorTitle, calculatorBody, calculatorSource in calculatorCard
+
+filesTitle is a text
+    value is "Files and folders"
+    size is 21
+    weight is "700"
+    foreground is "#0f172a"
+.
+
+filesBody is a text
+    value is "Discover and inspect files with straightforward Otter statements."
+    foreground is "#475569"
+.
+
+filesSource is a link
+    text is "View files.ot source"
+    url is "https://github.com/Heavens-Lava/otterPS/blob/master/examples/files.ot"
+.
+
+filesDocs is a link
+    text is "Read file documentation"
+    url is "/files/"
+.
+
+filesCard is a card
+    background is "#ecfdf5"
+    padding is 18
+    spacing is 9
+    radius is 10
+.
+
+put filesTitle, filesBody, filesSource, filesDocs in filesCard
+
+tasksTitle is a text
+    value is "Task List"
+    size is 21
+    weight is "700"
+    foreground is "#0f172a"
+.
+
+tasksBody is a text
+    value is "An official V1 dogfood desktop app for creating and managing tasks."
+    foreground is "#475569"
+.
+
+tasksSource is a link
+    text is "View tasks.ot source"
+    url is "https://github.com/Heavens-Lava/otterPS/blob/master/examples/v1/tasks.ot"
+.
+
+tasksCard is a card
+    background is "#f5f3ff"
+    padding is 18
+    spacing is 9
+    radius is 10
+.
+
+put tasksTitle, tasksBody, tasksSource in tasksCard
+
+browserTitle is a text
+    value is "File Browser"
+    size is 21
+    weight is "700"
+    foreground is "#0f172a"
+.
+
+browserBody is a text
+    value is "An official V1 dogfood desktop app that works with real folders and files."
+    foreground is "#475569"
+.
+
+browserSource is a link
+    text is "View file-browser.ot source"
+    url is "https://github.com/Heavens-Lava/otterPS/blob/master/examples/v1/file-browser.ot"
+.
+
+browserCard is a card
+    background is "#ecfdf5"
+    padding is 18
+    spacing is 9
+    radius is 10
+.
+
+put browserTitle, browserBody, browserSource in browserCard
+
+contactsTitle is a text
+    value is "Contact Manager"
+    size is 21
+    weight is "700"
+    foreground is "#0f172a"
+.
+
+contactsBody is a text
+    value is "An official V1 dogfood desktop app for structured contact information."
+    foreground is "#475569"
+.
+
+contactsSource is a link
+    text is "View contacts.ot source"
+    url is "https://github.com/Heavens-Lava/otterPS/blob/master/examples/v1/contacts.ot"
+.
+
+contactsCard is a card
+    background is "#fff7ed"
+    padding is 18
+    spacing is 9
+    radius is 10
+.
+
+put contactsTitle, contactsBody, contactsSource in contactsCard
+
+studioTitle is a text
+    value is "Otter Studio"
+    size is 21
+    weight is "700"
+    foreground is "#0f172a"
+.
+
+studioBody is a text
+    value is "Development preview only. Studio is not yet a certified Otter V1 command."
+    foreground is "#92400e"
+.
+
+studioLink is a link
+    text is "Read about Studio status"
+    url is "/studio/"
+.
+
+studioCard is a card
+    background is "#fffbeb"
+    padding is 18
+    spacing is 9
+    radius is 10
+.
+
+put studioTitle, studioBody, studioLink in studioCard
+
+cards is a column
+    spacing is 14
+.
+
+put helloCard, calculatorCard, filesCard, tasksCard, browserCard, contactsCard, studioCard in cards
+
+main is a column
+    spacing is 18
+    padding is 26
+.
+
+put eyebrow, heading, intro, cards in main
+put header, main in app
+show app

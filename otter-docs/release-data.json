@@ -1,0 +1,11 @@
+{
+  "version": "1.0.0-rc.1",
+  "channel": "Release candidate",
+  "windowsRequirements": "Windows 10 or Windows 11 with Windows PowerShell 5.1.",
+  "installerStatus": "Installer not published yet",
+  "installerSize": "Published with the installer",
+  "releaseDate": "Published with the installer",
+  "sha256": "Published with the installer",
+  "releaseNotesStatus": "Release notes will be published with the installer.",
+  "studioStatus": "Development preview only — Studio is not a certified Otter V1 command yet."
+}

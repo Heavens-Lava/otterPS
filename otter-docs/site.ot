@@ -1,0 +1,139 @@
+# Otter Documentation site shell
+# This is the first page of the documentation site, authored in Otter.
+
+app is a page
+    title is "Otter Documentation"
+    width is 1180
+    background is "#0f172a"
+    spacing is 18
+.
+
+header is a text
+    value is "Otter Documentation"
+    foreground is "#f8fafc"
+.
+
+intro is a text
+    value is "Readable like English. Precise like code."
+    foreground is "#94a3b8"
+.
+
+navigation is a column
+    spacing is 8
+.
+
+gettingStarted is a text
+    value is "GETTING STARTED"
+    foreground is "#38bdf8"
+.
+
+welcomeLink is a link
+    text is "Welcome to Otter"
+    url is "#welcome"
+.
+
+helloLink is a link
+    text is "Hello, Otter!"
+    url is "#hello"
+.
+
+referenceLink is a link
+    text is "Language Reference"
+    url is "#reference"
+.
+
+installationLink is a link
+    text is "Installation"
+    url is "#installation"
+.
+
+valuesLink is a link
+    text is "Values and Types"
+    url is "#values"
+.
+
+conditionsLink is a link
+    text is "Conditions"
+    url is "#conditions"
+.
+
+put gettingStarted, welcomeLink, helloLink, installationLink, valuesLink, conditionsLink, referenceLink in navigation
+
+content is a column
+    spacing is 12
+.
+
+welcomeHeading is a text
+    value is "Welcome to Otter"
+    foreground is "#f8fafc"
+.
+
+welcomeBody is a text
+    value is "Otter is a readable programming language for useful programs, from small scripts to interactive web applications."
+    foreground is "#cbd5e1"
+.
+
+helloHeading is a text
+    value is "Hello, Otter!"
+    foreground is "#f8fafc"
+.
+
+helloExample is a text
+    value is "say \"Hello, Otter!\""
+    foreground is "#a7f3d0"
+.
+
+referenceHeading is a text
+    value is "Language Reference"
+    foreground is "#f8fafc"
+.
+
+referenceBody is a text
+    value is "Explore values, expressions, conditions, loops, objects, files, and web applications."
+    foreground is "#cbd5e1"
+.
+
+installationHeading is a text
+    value is "Installation"
+    foreground is "#f8fafc"
+.
+
+installationBody is a text
+    value is "Download Otter for Windows, then run an .ot file from PowerShell with .\\otter.cmd your-program.ot."
+    foreground is "#cbd5e1"
+.
+
+valuesHeading is a text
+    value is "Values and Types"
+    foreground is "#f8fafc"
+.
+
+valuesBody is a text
+    value is "Otter programs work with text, numbers, booleans, lists, objects, and gone. Use is to assign a value."
+    foreground is "#cbd5e1"
+.
+
+valuesExample is a text
+    value is "name is \"Jeff\"\nage is 29\nready is true"
+    foreground is "#a7f3d0"
+.
+
+conditionsHeading is a text
+    value is "Conditions"
+    foreground is "#f8fafc"
+.
+
+conditionsBody is a text
+    value is "An if block runs when its condition is true. Blocks end with a period on its own line."
+    foreground is "#cbd5e1"
+.
+
+conditionsExample is a text
+    value is "if age is at least 18\n    say \"Welcome.\"\n."
+    foreground is "#a7f3d0"
+.
+
+put welcomeHeading, welcomeBody, helloHeading, helloExample, installationHeading, installationBody, valuesHeading, valuesBody, valuesExample, conditionsHeading, conditionsBody, conditionsExample, referenceHeading, referenceBody in content
+put header, intro, navigation, content in app
+
+show app

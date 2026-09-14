@@ -1,0 +1,106 @@
+# Otter Documentation - Release Status
+
+app is a page
+    title is "Otter Release Status"
+    background is "#f8fafc"
+    spacing is 18
+    padding is 20
+.
+
+brand is a text
+    value is "Otter Release"
+    size is 28
+    weight is "700"
+    foreground is "#0f172a"
+.
+
+docsLink is a link
+    text is "Docs"
+    url is "/"
+.
+
+downloadLink is a link
+    text is "Download"
+    url is "/download/"
+.
+
+header is a row
+    spacing is 18
+    padding is 16
+    background is "#ffffff"
+    border is "1px solid #e2e8f0"
+    radius is 10
+.
+
+put brand, docsLink, downloadLink in header
+
+heading is a text
+    value is "Release readiness"
+    size is 34
+    weight is "700"
+    foreground is "#0f172a"
+.
+
+versionText is a text
+    value is "Current version: {{RELEASE_VERSION}} ({{RELEASE_CHANNEL}})"
+    foreground is "#475569"
+.
+
+installerText is a text
+    value is "Installer: {{INSTALLER_STATUS}}"
+    foreground is "#475569"
+.
+
+windowsText is a text
+    value is "Windows requirements: {{WINDOWS_REQUIREMENTS}}"
+    foreground is "#475569"
+.
+
+checksumText is a text
+    value is "SHA-256: {{SHA256}}"
+    foreground is "#475569"
+.
+
+notesText is a text
+    value is "Release notes: {{RELEASE_NOTES_STATUS}}"
+    foreground is "#475569"
+.
+
+releaseCard is a card
+    background is "#ffffff"
+    padding is 18
+    spacing is 8
+    radius is 10
+.
+
+put versionText, installerText, windowsText, checksumText, notesText in releaseCard
+
+checklistTitle is a text
+    value is "V1 publication checklist"
+    size is 22
+    weight is "700"
+    foreground is "#0f172a"
+.
+
+checklistBody is a text
+    value is "Before publishing an installer: certify the installer, provide its size, release date, SHA-256 checksum, and release notes, then replace the download-page notice with the real signed download link."
+    foreground is "#475569"
+.
+
+checklistCard is a card
+    background is "#ecfdf5"
+    padding is 18
+    spacing is 8
+    radius is 10
+.
+
+put checklistTitle, checklistBody in checklistCard
+
+main is a column
+    spacing is 16
+    padding is 26
+.
+
+put heading, releaseCard, checklistCard in main
+put header, main in app
+show app
