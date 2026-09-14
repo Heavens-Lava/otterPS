@@ -4718,3 +4718,280 @@ exactly what the parser needs to construct.
 
 ---
 
+# Studio dogfood: from simulated to real (D62-D66)
+
+### Context
+
+A consolidated D60 parity audit (2026-09-12) found the JS backend had
+closed nearly every ordinary-language `NodeKind` gap. Attention then
+turned to Otter Studio (`examples/studio.ot`) as the next real dogfood
+target - and a live audit of Studio (not a read of Gemini's own report
+about it) found the actual blocker was never "does Studio have the
+right APIs," it was "can a real user reach those APIs through Otter's
+own supported CLI at all."
+
+Three separate, independently-confirmed problems, each reachable only
+by actually running the real entry point rather than reading source or
+calling internal functions directly:
+
+1. **No real Studio/Desktop entry point existed.**
+   `Start-OtterDesktopApplication` (`Otter.Desktop.psm1`) was itself
+   soundly built - a real ephemeral-port bridge, a real 256-bit
+   cryptographic token, a real request-servicing loop - but `otter.ps1`
+   never called it. The only callers anywhere in the repo were
+   `tests/Terminal.Tests.ps1` and Gemini's own ad-hoc
+   `scratch/verify_*.ps1` scripts. This is the exact same
+   "disconnected capability" class of bug the `a6b5152` WPF audit found
+   and that produced this file's existing renderer-reachability rule -
+   it recurred here in a different subsystem, which is why two new
+   CLAUDE.md rules are added below rather than trusting the existing
+   one to generalize on its own.
+2. **Studio-specific behavior was hand-written directly into shared
+   compiler/runtime code.** `Otter.Web.psm1`'s HTML-shell boilerplate
+   (`~line 1643-1667`) contains hardcoded JavaScript wiring specific
+   Studio element IDs by name (`profPowerShell`, `profCmd`,
+   `profGitBash`, `profWsl`, `profRepl`, `termRunBtn`, `termBox`,
+   `termPrompt`) - injected unconditionally into EVERY compiled Otter
+   web app, not gated to Studio at all. This means Otter Studio is
+   partially implemented in JavaScript that lives outside Otter itself,
+   in a module every other Otter program also pays for. Confirmed by
+   direct inspection, not assumed from Gemini's characterization of it
+   as "profile-switching UI" - it is that, but it is ALSO living in the
+   wrong layer entirely.
+3. **A live, uncaught round-trip test found the "real" Run path lies
+   about outcome.** `runBtn`'s handler in `studio.ot` genuinely calls
+   `run command cmd into runOutput` (a real `RunProgram` invocation) -
+   not the hardcoded literal output a surface read of an isolated
+   snippet might suggest - but then unconditionally ends with `text of
+   probHeadline is "Program Succeeded."` / `"Exit code: 0"` regardless
+   of what `runOutput` actually contains, and has no `try`/`otherwise`
+   around the call at all. A failed run (bridge unavailable, bad path,
+   nonzero exit) throws uncaught, aborting the handler right after
+   "Running..." is shown - leaving the UI stuck on "Running..." forever
+   with the only evidence of failure sitting in the browser devtools
+   console, never surfaced to whoever is looking at the page.
+
+**A fourth problem was found only by actually running the fix, not by
+reading the code that appeared to fix it**: even after confirming
+`otter.ps1` had (uncommitted) local changes correctly routing `otter
+studio`/`otter desktop <file.ot>` through
+`Start-OtterDesktopApplication`, running `otter studio` for real showed
+the whole session - bridge included - tearing itself down in well
+under a second. `Start-OtterDesktopApplication`'s lifetime loop watches
+`$proc.HasExited` on the PID `Start-Process` returns for the launched
+browser; Edge's (and Chrome's) `--app=` launch hands off to a
+short-lived launcher process that exits almost immediately once a real
+browser window opens under a DIFFERENT, separate PID (confirmed via
+`tasklist` - real `msedge.exe` processes were still running under
+different PIDs than the one Otter had launched and was watching). The
+lifetime loop sees its own PID exit, tears down the bridge and deletes
+the session's instance HTML within about a second - long before a user
+could plausibly click Scan, Open, Save, or Run. The CLI plumbing to
+reach the entry point and the entry point's own internals were both
+independently correct; the specific combination still failed the one
+test that matters (a live run of the supported command), which is
+exactly why this file's discipline requires that test over reading
+code or calling internals directly.
+
+**Numbering note**: D57-D59 are already reserved (the CLI/packaging/
+documentation release gates that certified the v1 PowerShell/WPF stack
+- see the "V1 expansion" section header above) and D61 is `append`, so
+this work is logged as D62-D66, not D57-D61.
+
+### D62. Real Desktop CLI + durable session lifetime
+
+**Status: partially implemented, not landed.** `otter.ps1` has an
+uncommitted local change adding `otter studio` and `otter desktop
+<file.ot>`, both correctly routing to `Start-OtterDesktopApplication`
+(confirmed: the full regression suite - 17/17 - still passes with this
+change present). This is real, needed progress, NOT the completed
+decision - the acceptance test below currently fails, live-verified,
+because of the PID-lifetime bug found above. Do not commit `otter.ps1`
+or `Otter.Desktop.psm1` until the lifetime design below is implemented
+and the acceptance test below passes for real.
+
+**Decision**: the desktop bridge's lifetime is tied to the launched
+Otter PAGE being alive, not to the PID of whatever process
+`Start-Process` happens to return for the browser launch. Chromium's
+process model (launcher, browser, renderer, utility, and reused
+existing-browser-instance processes) makes PID-matching fundamentally
+fragile and browser-specific - Otter should not need to understand
+Edge or Chrome internals just to know whether its own desktop app is
+still open.
+
+**Architecture**:
+
+```
+otter studio
+    |
+Start-OtterDesktopApplication
+    |
+create bridge/session
+    |
+launch browser app
+    |
+page loads and begins heartbeat
+    |
+bridge remains alive while heartbeat is fresh
+    |
+page closes / heartbeat stops
+    |
+grace timeout
+    |
+bridge + temporary HTML cleaned up
+```
+
+The injected session bridge script (already present, already
+constructing `window.__OTTER_DESKTOP_BRIDGE__`) additionally starts a
+periodic heartbeat request to a new bridge endpoint (e.g. a `POST
+/api/session/heartbeat` alongside the existing `/api/fs/read`,
+`/api/fs/write`, `/api/terminal/exec`, `/api/fs/files`,
+`/api/fs/folders`). The bridge session tracks the timestamp of the
+last heartbeat it received; `Start-OtterDesktopApplication`'s lifetime
+loop keeps running as long as the last heartbeat is within a grace
+window (a few seconds, generous enough that one delayed heartbeat -
+a slow tick, a backgrounded tab throttled by the OS - does not kill a
+session that is genuinely still open), not as long as one specific PID
+hasn't exited. `$proc.HasExited` may remain as ONE contributing signal
+(a fast-path for the ordinary "user closed the window and the process
+tree actually did exit cleanly" case) but must never be the sole or
+authoritative signal, since this phase proved directly that it can be
+wrong even in the common case.
+
+**Acceptance test** (must be run for real, not simulated or called
+directly): launch `otter studio` normally, wait several seconds
+(enough that the old PID-based bug would already have torn the bridge
+down), then perform a real bridge operation (e.g. Scan) and confirm it
+succeeds. This is the exact test that caught the current bug and must
+be the one that certifies its fix.
+
+### D63. Remove Studio-specific handwritten JavaScript from the shared web runtime
+
+Delete the hardcoded Studio event-wiring block from `Otter.Web.psm1`
+(the `profPowerShell`/`profCmd`/`profGitBash`/`profWsl`/`profRepl`/
+`termRunBtn`/`termBox`/`termPrompt` block). Every behavior it currently
+provides must be re-implemented as ordinary Otter source in
+`examples/studio.ot`, e.g.:
+
+```otter
+when profPowerShell is clicked
+    activeShell is "powershell"
+    text of termBadge is "PowerShell"
+.
+
+when profCmd is clicked
+    activeShell is "cmd"
+    text of termBadge is "Command Prompt"
+.
+```
+
+**If removing the JavaScript breaks something Otter cannot currently
+express, that is useful information, not a blocker to route around**:
+it means the language/runtime is missing a real capability, and that
+capability should be added to Otter (a new statement, a new host hook
+following the already-established `otterReadFile`-style pattern,
+whatever the gap turns out to be) rather than restoring
+Studio-specific JavaScript to paper over it. `Otter.Web.psm1` must not
+know that a particular application contains an element named
+`termRunBtn` - a shared compiler/runtime module knowing the identifiers
+of one example application is the architectural failure this decision
+exists to close, and per the new CLAUDE.md rule below, it must not
+recur in a third subsystem.
+
+### D64. Certify the filesystem vertical slice: Scan -> Open -> Read -> Save
+
+Through the real, supported CLI only (`otter studio`, once D62 lands) -
+no scratch script, no direct PowerShell module call, satisfies this.
+The feature passes only if someone launching Studio the normal way can
+actually use it:
+
+- **Scan**: click Scan, see real files/folders from the actual
+  filesystem populate the sidebar.
+- **Open**: click a real file, see its actual on-disk contents in the
+  editor.
+- **Read**: prove it is not hardcoded by modifying the target file's
+  contents (a canary edit) between test runs and confirming the
+  canary appears.
+- **Save**: edit the in-editor content, save, verify the ON-DISK bytes
+  actually changed (not just that the UI claims success), then reload
+  the file and prove the edit persisted.
+
+The current five-preallocated-file-button sidebar (`fileMain`,
+`fileOrganizer`, `fileReadme`, `fileHello`, `fileShowcase`) is an
+acceptable INTERMEDIATE dogfood implementation - `scanFolder` already
+rewrites their text/paths from a real `GetFiles`/`GetFolders` call
+(Phase 1's consolidated audit incorrectly listed `GetFiles`/
+`GetFolders` as missing from the JS backend; they are implemented -
+that was an extraction error in this file's own audit, corrected here)
+- but it is explicitly marked TEMPORARY, capped at 5 real files
+regardless of how many actually exist. The end state is dynamically
+generated child elements, one per real directory entry, not a fixed
+number of preallocated slots.
+
+### D65. Certify real Run/Terminal execution
+
+Real PowerShell and CMD execution through the real bridge, with the
+unconditional-success state removed entirely. The execution API must
+expose at least: standard output, standard error output, and exit
+code - not a single opaque success/fail assumption baked into the
+caller. Studio then derives its own UI state from those real values,
+e.g.:
+
+```otter
+result is run command commandText
+
+if exit code of result is 0
+    text of probHeadline is "Program Succeeded."
+otherwise
+    text of probHeadline is "Program Failed."
+.
+text of probSubline is "Exit code: " and exit code of result
+text of outputBox is output of result
+```
+
+This surfaces a real language-design requirement, not a Studio-only
+patch: Otter needs a genuine, pleasant way to inspect a STRUCTURED
+result from a system operation (multiple named fields - output, error
+output, exit code - not one plain text/number value the way `run
+command ... into x` returns today). This should be solved as a proper
+language capability, the same way JSON/dates/random each got a real
+inventory-first design pass, not hacked around with several
+Studio-specific parallel variables standing in for what should be one
+structured value.
+
+### D66. Failure behavior must be visible, not a silent hang
+
+Disconnect the bridge, or deliberately cause an operation to fail
+(bad path, nonzero exit, network-level failure), and confirm Studio
+shows an honest, visible failure state - something like "Unable to run
+program. Desktop Bridge is not available." - rather than leaving the
+UI stuck at "Running..." with the only evidence of failure sitting in
+the browser's own devtools console. This is a direct extension of the
+philosophy D56 already established for the experimental front-end
+boundary: failure should fail LOUDLY, never create the illusion that a
+feature exists and quietly succeeded when it did not. This needs its
+own explicit test because "Running..." is a more dangerous failure mode
+than a visible error - it looks like the feature is working right up
+until someone waits long enough to notice it never finishes.
+
+### New CLAUDE.md rules (added because this exact architectural failure
+has now recurred across subsystems)
+
+1. **Application behavior must be implemented in Otter source.**
+   Compiler/runtime modules may provide generic capabilities, but they
+   must never contain application-specific behavior, element IDs,
+   workflows, or state for example applications.
+2. **A feature is not considered implemented until it is reachable and
+   functional through a supported user-facing Otter entry point.**
+   Tests, scratch scripts, or direct internal module calls do not
+   establish feature completion.
+3. **Acceptance tests must exercise the supported entry point
+   end-to-end whenever the feature crosses process, browser,
+   filesystem, bridge, or runtime boundaries.** Source inspection and
+   isolated unit tests are insufficient for those features - this
+   phase's own PID-lifetime bug and the original disconnected-bridge
+   bug were BOTH invisible to source reading and would have been
+   caught immediately by this rule.
+
+---
+

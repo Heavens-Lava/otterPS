@@ -142,6 +142,42 @@ before a single line of the parser exists.
   pipeline before trusting a "connected" or "implemented" claim, every
   time — this is the single highest-value adversarial check in an
   audit, worth doing before any of the others.
+- **Application behavior must be implemented in Otter source.**
+  Compiler/runtime modules (`Otter.Web.psm1`, `Otter.Desktop.psm1`,
+  `Otter.Compiler.JavaScript.psm1`, etc.) may provide generic
+  capabilities, but they must never contain application-specific
+  behavior, element IDs, workflows, or state for example applications.
+  Found during the Otter Studio dogfood audit (D62-D66,
+  SPEC-DECISIONS.md): `Otter.Web.psm1`'s shared HTML boilerplate had
+  hardcoded JavaScript wired to Studio-specific element IDs
+  (`profPowerShell`, `termRunBtn`, etc.), injected into every compiled
+  Otter app whether it needed it or not — meaning Otter Studio was
+  partially implemented outside Otter itself, in a module every other
+  program also paid for. If removing such code breaks something Otter
+  cannot currently express, that is a real language/runtime gap to
+  close, not a reason to restore the hand-written JavaScript.
+- **A feature is not considered implemented until it is reachable and
+  functional through a supported user-facing Otter entry point.**
+  Tests, scratch scripts, or direct internal module calls do not
+  establish feature completion — this is the renderer-reachability
+  rule above, generalized: it recurred as a SECOND, independent
+  instance during the Studio audit (`Start-OtterDesktopApplication`
+  was itself soundly built, but `otter.ps1` never called it — the only
+  callers anywhere in the repo were a test file and ad-hoc
+  `scratch/verify_*.ps1` scripts).
+- **Acceptance tests must exercise the supported entry point
+  end-to-end whenever the feature crosses process, browser,
+  filesystem, bridge, or runtime boundaries.** Source inspection and
+  isolated unit tests are insufficient for those features. Found
+  during the same Studio audit: reading `Otter.Desktop.psm1` showed a
+  correctly-built bridge, and reading `otter.ps1`'s (uncommitted) CLI
+  change showed it correctly routed to that bridge — but only an
+  actual `otter studio` run revealed the bridge tore itself down
+  within about a second, because its lifetime loop watched the wrong
+  process PID (Chromium's launcher-vs-real-browser-process split).
+  Neither bug — the disconnected entry point, or this one — was
+  visible from source reading alone; both were only visible by running
+  the real command and waiting to see what actually happened.
 
 ## Before you hand off
 
