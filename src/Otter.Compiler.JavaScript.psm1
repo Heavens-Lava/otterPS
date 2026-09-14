@@ -490,6 +490,37 @@ function ConvertTo-OtterJsStatement {
             $joined = $parts -join ' + " " + '
             return "${pad}otterSay($joined);"
         }
+        ([NodeKind]::Ask) {
+            # D60 consolidated-audit release blocker. `ask "..." and call
+            # it x` (D6) - matches ConvertFrom-OtterInput exactly: trim,
+            # exactly "true"/"false" (case-sensitive, matching the
+            # interpreter's literal string comparison) becomes a boolean,
+            # else a successful numeric parse becomes a number, else the
+            # ORIGINAL untrimmed text is kept (leading spaces may be
+            # deliberate in text, per the interpreter's own comment).
+            # Unlike ReadFile/HttpGet/GetFiles, this needs NO host-bridge
+            # hook and NO async/await at all: `window.prompt()` is a real,
+            # always-available, SYNCHRONOUS browser built-in - the same
+            # reason D62 gave for treating Studio's terminal-profile UI as
+            # in-language-reach rather than a genuine host boundary. This
+            # is deliberately NOT wired through a required external hook
+            # the way file/process access is, because the capability
+            # genuinely exists in every browser, no bridge required.
+            # `window.prompt` returning `null` (the user pressed Cancel -
+            # a real browser affordance with no console equivalent to
+            # match against, since a console Ctrl+C terminates the
+            # process rather than returning a value) is treated as an
+            # empty string, a reasonable, documented, browser-native
+            # analog rather than an attempt to replicate behavior no
+            # console-based interpreter run could ever exercise.
+            $promptJs = ConvertTo-OtterJsExpression -Expr $Stmt.Prompt
+            $target = $Stmt.Name
+            $coerced = "(() => { const _raw = window.prompt(String($promptJs)); const _text = (_raw === null) ? '' : _raw; const _trimmed = _text.trim(); if (_trimmed === 'true') { return true; } if (_trimmed === 'false') { return false; } if (_trimmed.length > 0 && !Number.isNaN(Number(_trimmed))) { return Number(_trimmed); } return _text; })()"
+            if ($LocalNames -and $LocalNames.Contains($target)) {
+                return "${pad}$target = $coerced;"
+            }
+            return "${pad}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$target' in otterState)) { otterSetState('$target', $coerced); } else { window.$target = $coerced; }"
+        }
         ([NodeKind]::If) {
             $lines = [System.Collections.Generic.List[string]]::new()
             $first = $true
@@ -630,15 +661,54 @@ function ConvertTo-OtterJsStatement {
             $lines.Add("${pad}}")
             return ($lines -join "`n")
         }
+        ([NodeKind]::TypeDef) {
+            # D60 consolidated-audit release blocker. `a Person has
+            # / name / age / .` - matches the interpreter's 'TypeDef'
+            # case exactly: `Environment.Set($TypeName, [OtterType]::new(
+            # $TypeName, $FieldNames))`, a genuine Set-style binding of a
+            # real value under the type's own name, not a compile-time-
+            # only declaration - `ObjectDef`'s case above looks this up
+            # DYNAMICALLY at runtime (see its comment), so the type must
+            # be a real, tagged runtime value here too, not merely
+            # tracked in this compiler's own bookkeeping.
+            $typeName = $Stmt.TypeName
+            $fieldsJs = (@($Stmt.FieldNames | ForEach-Object { "'$_'" })) -join ', '
+            $typeObj = "{ __otterType: true, typeName: '$typeName', fieldNames: [$fieldsJs] }"
+            if ($LocalNames -and $LocalNames.Contains($typeName)) {
+                return "${pad}$typeName = $typeObj;"
+            }
+            return "${pad}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$typeName' in otterState)) { otterSetState('$typeName', $typeObj); } else { window.$typeName = $typeObj; }"
+        }
         ([NodeKind]::ObjectDef) {
-            # D60 Phase 1F.2. `name is a thing / prop is val / .` - plain
-            # object construction. `thing` only: verified the interpreter's
-            # New-OtterObjectValue has a SEPARATE pre-population path for a
-            # custom declared type (`a Person has ... .` / `jeff is a
-            # Person`, via OtterType/TypeDef) that only runs when TypeName
-            # is not literally "thing" - not implemented here, deliberately
-            # out of this phase's scope (JSON only ever produces plain
-            # `thing`s, never a custom OtterType).
+            # D60 Phase 1F.2, extended by the consolidated-audit release-
+            # blocker pass. `name is a thing / prop is val / .` AND
+            # `jeff is a Person` (a custom declared type) share this one
+            # NodeKind - `$Stmt.TypeName` is a compile-time-known string
+            # either way ("thing" or "Person"), so the object's own
+            # `typeName` field now carries whatever was actually declared,
+            # not a hardcoded literal "thing". When TypeName is not
+            # literally "thing", this matches New-OtterObjectValue's
+            # SEPARATE pre-population path exactly: verified directly
+            # against the interpreter that `$Environment.Get($TypeName)`
+            # is a genuinely DYNAMIC, order-dependent lookup (a `TypeDef`
+            # that has not executed yet - e.g. sitting inside a branch
+            # that never ran - means the type simply is not there, and
+            # pre-population is silently skipped, not an error) - so this
+            # is a runtime check here too, not a static one resolved from
+            # reading every `TypeDef` in the program ahead of time, even
+            # though in practice `TypeDef`'s shape is always static. See
+            # the `TypeDef` case for how `$TypeName` becomes a real,
+            # tagged runtime value. Every declared field is pre-populated
+            # to `null` (`gone`) BEFORE the object literal's own explicit
+            # properties are applied - an explicit property with the same
+            # name then overwrites the `gone` default without duplicating
+            # its `order` entry (matches `WriteProperty`'s own
+            # `if (-not $this.Properties.ContainsKey($name))` guard on the
+            # ORDER list specifically, not a guard on the write itself -
+            # replicated in the property loop below, not just in
+            # pre-population, since running the literal body twice with
+            # the same name inside one `is a thing` block would hit this
+            # too).
             #
             # Also NOT implemented, deliberately: `has` used against an
             # EXISTING plain thing. Verified directly this throws in the
@@ -668,19 +738,23 @@ function ConvertTo-OtterJsStatement {
             # redundant with `props`' own key order today, kept explicit
             # for parity/future use rather than relied upon implicitly).
             $varName = $Stmt.Name
+            $typeName = $Stmt.TypeName
             $lines = [System.Collections.Generic.List[string]]::new()
             $inner = '  ' * ($Indent + 1)
             $lines.Add("${pad}{")
             $lines.Add("${inner}const _props = {};")
             $lines.Add("${inner}const _order = [];")
+            if ($typeName -ne 'thing') {
+                $lines.Add("${inner}if (typeof $typeName !== 'undefined' && $typeName && typeof $typeName === 'object' && $typeName.__otterType) { for (const _f of $typeName.fieldNames) { if (!(_f in _props)) { _order.push(_f); } _props[_f] = null; } }")
+            }
             foreach ($property in $Stmt.Properties) {
                 if ($property.Kind -eq [NodeKind]::Assign -and $property.Target -is [VariableExpr]) {
                     $propName = $property.Target.Name
                     $propValJs = ConvertTo-OtterJsExpression -Expr $property.Value
-                    $lines.Add("${inner}_props['$propName'] = $propValJs; _order.push('$propName');")
+                    $lines.Add("${inner}if (!(('$propName') in _props)) { _order.push('$propName'); } _props['$propName'] = $propValJs;")
                 }
             }
-            $lines.Add("${inner}const _thing = { __otterThing: true, typeName: 'thing', props: _props, order: _order };")
+            $lines.Add("${inner}const _thing = { __otterThing: true, typeName: '$typeName', props: _props, order: _order };")
             if ($LocalNames -and $LocalNames.Contains($varName)) {
                 $lines.Add("${inner}$varName = _thing;")
             } else {
@@ -923,6 +997,74 @@ function ConvertTo-OtterJsStatement {
                 return "${pad}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$target' in otterState)) { otterSetState('$target', await otterRunCommand($cmdJs)); } else { window.$target = await otterRunCommand($cmdJs); }"
             }
             return "${pad}await otterRunCommand($cmdJs);"
+        }
+        ([NodeKind]::GetKey) {
+            # D60 consolidated-audit release blocker. `get "key" from
+            # thing into target` (D41 dynamic access) - matches the
+            # interpreter's 'GetKey' case exactly, verified directly:
+            # operates on the EXACT SAME `props`/`order` storage Phase
+            # 1F.2 already built for ordinary PropertyAccess (dynamic
+            # access and `X of Y` read/write the same underlying thing -
+            # confirmed by reading Assert-OtterDynamicKeyTarget/
+            # WriteProperty/ReadProperty, not assumed), so this needed no
+            # new representation, only the missing NodeKind case itself.
+            # Target must be a plain `thing` (TypeName exactly 'thing',
+            # not a UI resource, not a file/folder object, not a declared
+            # custom type - Assert-OtterDynamicKeyTarget checks BOTH
+            # "is this an object at all" and "is its TypeName literally
+            # thing", two different error messages, both replicated
+            # here). The key must be a genuine JS string - D41 keys are
+            # deliberately text-only, no numeric/boolean/date coercion
+            # (matches Assert-OtterStringKey exactly). Reading a missing
+            # key returns `gone` (JS `null`) rather than throwing - NOT
+            # the same rule as ordinary `X of Y` property access, which
+            # throws on a missing name (verified directly: ReadProperty
+            # has no HasProperty guard here on purpose, per the
+            # interpreter's own comment).
+            $targetJs = ConvertTo-OtterJsExpression -Expr $Stmt.Target
+            $keyJs = ConvertTo-OtterJsExpression -Expr $Stmt.Key
+            $result = $Stmt.ResultTarget
+            $lines = [System.Collections.Generic.List[string]]::new()
+            $inner = '  ' * ($Indent + 1)
+            $lines.Add("${pad}{")
+            $lines.Add("${inner}const _owner = $targetJs;")
+            $lines.Add("${inner}if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read from a thing, but this is something else.'); }")
+            $lines.Add("${inner}if (_owner.typeName !== 'thing') { throw new Error('I can only read properties dynamically on a thing, but this is a ' + _owner.typeName + '.'); }")
+            $lines.Add("${inner}const _key = $keyJs;")
+            $lines.Add("${inner}if (typeof _key !== 'string') { throw new Error('I need text for a dynamic key, but this is something else.'); }")
+            $lines.Add("${inner}const _val = (_key in _owner.props) ? _owner.props[_key] : null;")
+            if ($LocalNames -and $LocalNames.Contains($result)) {
+                $lines.Add("${inner}$result = _val;")
+            } else {
+                $lines.Add("${inner}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$result' in otterState)) { otterSetState('$result', _val); } else { window.$result = _val; }")
+            }
+            $lines.Add("${pad}}")
+            return ($lines -join "`n")
+        }
+        ([NodeKind]::SetKey) {
+            # D60 consolidated-audit release blocker. `set "key" to val
+            # in thing` (D41) - matches the interpreter's 'SetKey' case:
+            # same target/key validation as GetKey above, then an
+            # unconditional create-or-replace (matches WriteProperty's
+            # own unconditional behavior - the same rule Assign-to-
+            # PropertyAccess's write case already uses for `X of Y is
+            # ...`, reused here verbatim since it is the exact same
+            # underlying operation through a different surface syntax).
+            $targetJs = ConvertTo-OtterJsExpression -Expr $Stmt.Target
+            $keyJs = ConvertTo-OtterJsExpression -Expr $Stmt.Key
+            $valJs = ConvertTo-OtterJsExpression -Expr $Stmt.Value
+            $lines = [System.Collections.Generic.List[string]]::new()
+            $inner = '  ' * ($Indent + 1)
+            $lines.Add("${pad}{")
+            $lines.Add("${inner}const _owner = $targetJs;")
+            $lines.Add("${inner}if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only write to a thing, but this is something else.'); }")
+            $lines.Add("${inner}if (_owner.typeName !== 'thing') { throw new Error('I can only write properties dynamically on a thing, but this is a ' + _owner.typeName + '.'); }")
+            $lines.Add("${inner}const _key = $keyJs;")
+            $lines.Add("${inner}if (typeof _key !== 'string') { throw new Error('I need text for a dynamic key, but this is something else.'); }")
+            $lines.Add("${inner}if (!(_key in _owner.props)) { _owner.order.push(_key); }")
+            $lines.Add("${inner}_owner.props[_key] = $valJs;")
+            $lines.Add("${pad}}")
+            return ($lines -join "`n")
         }
         ([NodeKind]::HttpGet) {
             $url = ConvertTo-OtterJsExpression -Expr $Stmt.Url
@@ -1555,6 +1697,14 @@ function Get-OtterJsBindingNames {
                 # Assign/MathInto, not SetLocal.
                 [void]$setStyle.Add($s.Target)
             }
+            if ($s.Kind -eq [NodeKind]::GetKey) {
+                # D41: uses Environment.Set (verified directly against
+                # the interpreter's 'GetKey' case) - Set-style, same as
+                # Assign/MathInto, not SetLocal. SetKey has no result
+                # target - it writes into the thing's own property
+                # storage, not into a local Otter variable.
+                if ($s.ResultTarget) { [void]$setStyle.Add($s.ResultTarget) }
+            }
             if ($s.Kind -eq [NodeKind]::DateDifference -or $s.Kind -eq [NodeKind]::FormatDate) {
                 # D60 Phase 1J: both use Environment.Set (verified directly
                 # against the interpreter's 'DateDifference'/'FormatDate'
@@ -1574,6 +1724,18 @@ function Get-OtterJsBindingNames {
                 # (verified in New-OtterObjectValue's caller), the same
                 # Set-style mechanism as Assign/MathInto - not SetLocal, so
                 # it belongs here, not in AlwaysLocal.
+                [void]$setStyle.Add($s.Name)
+            }
+            if ($s.Kind -eq [NodeKind]::TypeDef) {
+                # Consolidated-audit release blocker: `a Person has ...`
+                # uses Environment.Set (verified directly) - Set-style,
+                # same as ObjectDef/Assign/MathInto, not SetLocal.
+                [void]$setStyle.Add($s.TypeName)
+            }
+            if ($s.Kind -eq [NodeKind]::Ask) {
+                # Consolidated-audit release blocker: `ask ... and call
+                # it x` uses Environment.Set (verified directly) -
+                # Set-style, same as Assign/MathInto, not SetLocal.
                 [void]$setStyle.Add($s.Name)
             }
             if ($s.Kind -eq [NodeKind]::CountLoop) {
