@@ -4800,15 +4800,77 @@ this work is logged as D62-D66, not D57-D61.
 
 ### D62. Real Desktop CLI + durable session lifetime
 
-**Status: partially implemented, not landed.** `otter.ps1` has an
-uncommitted local change adding `otter studio` and `otter desktop
-<file.ot>`, both correctly routing to `Start-OtterDesktopApplication`
-(confirmed: the full regression suite - 17/17 - still passes with this
-change present). This is real, needed progress, NOT the completed
-decision - the acceptance test below currently fails, live-verified,
-because of the PID-lifetime bug found above. Do not commit `otter.ps1`
-or `Otter.Desktop.psm1` until the lifetime design below is implemented
-and the acceptance test below passes for real.
+**Status: IMPLEMENTED / REGRESSION PASS - manual-close acceptance
+pending.** `src/Otter.Desktop.psm1` and `tests/Terminal.Tests.ps1` are
+committed (`41148e7`) with the heartbeat/grace-timeout design below:
+`OtterTerminalBridgeSession` gained `LastHeartbeatUtc`,
+`HasReceivedHeartbeat`, `HeartbeatGraceMs` (8000ms default),
+`StartupGraceMs` (20000ms default), and `IsSessionAlive()`; a new
+`POST /api/session/heartbeat` route (same token gate as every other
+route) updates that state; the client-side injection script sends a
+heartbeat every 2000ms via a plain `fetch`, no `sendBeacon`/
+`beforeunload`/`pagehide` close signal (deliberately - see below);
+`Start-OtterDesktopApplication`'s lifetime loop is exactly `while
+($bridgeSession.IsRunning -and $bridgeSession.IsSessionAlive())`, with
+`$proc.HasExited` removed from the condition entirely, not merely
+demoted. `otter.ps1`'s pending `otter studio`/`otter desktop <file.ot>`
+CLI routing and the unrelated `Otter.Compiler.JavaScript.psm1`
+AddTo/RemoveFrom/Join/ListDef diff were deliberately left out of this
+commit - neither belongs in it.
+
+No `sendBeacon`/goodbye close signal exists, by design, not omission:
+the client never needs to successfully announce its own death for the
+bridge to notice - the host observes ABSENCE of heartbeats rather than
+depending on a browser unload event firing reliably (unload/pagehide
+handlers are themselves known-unreliable across browsers and tab-
+discard scenarios, which would have reintroduced exactly the kind of
+"trust the client to tell us" fragility this whole phase exists to
+remove).
+
+**What is directly verified, live, not merely by reading code**: a
+real `otter studio` launch survived past the original PID-based
+failure window (the launcher PID exits within about a second, exactly
+reproducing the original bug's timing, and the session did NOT tear
+down when that happened); the session was still alive and its instance
+HTML still present after the full 20-second `StartupGraceMs` window
+elapsed, which is only possible if real heartbeats from the actual
+page had been arriving and refreshing `HasReceivedHeartbeat`/
+`LastHeartbeatUtc` (there is no other way past-grace survival is
+achievable); a real authenticated `/api/fs/files` bridge call made
+after that point returned genuine on-disk file listings; the session
+later shut down on its own (heartbeat loss, not manual intervention)
+and printed a clean-exit message with the temporary instance HTML
+confirmed deleted afterward; all of this against the current
+committed code, with the full regression suite passing (17/17)
+throughout, including four new deterministic heartbeat-lifetime tests
+(startup-grace expiry, steady-state-grace expiry, a real
+`/api/session/heartbeat` request advancing `LastHeartbeatUtc`, and the
+route requiring the normal bridge token).
+
+**What is NOT yet independently confirmed**: the specific manual
+"launch Studio, locate the real window, close it by hand, watch the
+bridge notice within `HeartbeatGraceMs` and clean up" sequence. This
+session's attempt hit a practical environment problem, not a design
+flaw - the sandbox already had 100+ `msedge.exe` processes running for
+unrelated work, and Edge folded the `--app=` launch into that existing
+pool rather than exposing an identifiable new process
+(`Get-CimInstance ... -Filter "CommandLine like '*studio.desktop.html*'"`
+found nothing), so a specific window could not be safely isolated and
+closed without risking unrelated browser state. The committed code
+adds `-UserDataDir`/`$env:OTTER_BROWSER_USER_DATA_DIR` isolated-profile
+support, which directly targets this exact problem (an isolated
+profile makes the launched instance uniquely identifiable) - the
+commit message claims this was used to certify the manual-close path
+end-to-end (WM_CLOSE -> heartbeat loss -> grace expiration -> clean
+exit and cleanup), but no such mechanism appears in the committed
+`tests/Terminal.Tests.ps1` diff, so that specific claim has not been
+independently reproduced from the repository content alone. Recorded
+here as pending, not certified, until it is: run under a controlled/
+isolated browser instance, with the actual close-and-observe sequence
+performed and its result reported, not merely asserted in a commit
+message. No further D62 implementation changes should be made merely
+to accommodate a messy shared-Edge-process environment - this is a
+verification gap, not a code gap.
 
 **Decision**: the desktop bridge's lifetime is tied to the launched
 Otter PAGE being alive, not to the PID of whatever process
@@ -4862,8 +4924,11 @@ wrong even in the common case.
 directly): launch `otter studio` normally, wait several seconds
 (enough that the old PID-based bug would already have torn the bridge
 down), then perform a real bridge operation (e.g. Scan) and confirm it
-succeeds. This is the exact test that caught the current bug and must
-be the one that certifies its fix.
+succeeds. **This half passed live**, as described above. The
+remaining half of this same acceptance test - closing the real window
+by hand and observing the bridge notice and clean up - is the
+"manual-close acceptance pending" item this decision's status line
+refers to.
 
 ### D63. Remove Studio-specific handwritten JavaScript from the shared web runtime
 
