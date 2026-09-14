@@ -679,8 +679,22 @@ function Start-OtterProgram {
     }
 }
 
+function ConvertTo-OtterProcessArgument {
+    param([string]$Argument)
+
+    if ($Argument.Length -eq 0) { return '""' }
+    if ($Argument -notmatch '[\s"]') { return $Argument }
+
+    # ProcessStartInfo.Arguments is one command-line string on .NET Framework.
+    # Quote only as much as Windows' command-line parser requires, retaining
+    # the argument boundaries already established by Split-OtterCommandLine.
+    $escaped = [regex]::Replace($Argument, '(\\*)"', '$1$1\\"')
+    $escaped = [regex]::Replace($escaped, '(\\+)$', '$1$1')
+    return '"' + $escaped + '"'
+}
+
 # run command "git status"              - waits, prints nothing
-# run command "git status" into result  - waits, hands back the output
+# run command "git status" into result  - waits, hands back a command result
 function Invoke-OtterCommand {
     param([string]$CommandLine, [int]$Line)
 
@@ -695,33 +709,42 @@ function Invoke-OtterCommand {
             $Line, 'runtime')
     }
 
-    $previous = $ErrorActionPreference
-    $ErrorActionPreference = 'Continue'
     try {
-        # The call operator runs the program directly - no cmd.exe, so nothing
-        # in the text can be interpreted as a shell instruction.
-        if ($arguments.Count -gt 0) {
-            $raw = & $program @arguments 2>&1
-        }
-        else {
-            $raw = & $program 2>&1
-        }
+        # Use Process directly rather than PowerShell's native-command
+        # pipeline. Windows PowerShell turns native stderr into ErrorRecords;
+        # Process preserves the child's two streams exactly as Otter promises.
+        $info = [System.Diagnostics.ProcessStartInfo]::new()
+        $info.FileName = if ($resolved.Path) { $resolved.Path } else { $program }
+        $info.Arguments = (@($arguments | ForEach-Object { ConvertTo-OtterProcessArgument $_ }) -join ' ')
+        $info.UseShellExecute = $false
+        $info.RedirectStandardOutput = $true
+        $info.RedirectStandardError = $true
+        $info.CreateNoWindow = $true
+        $info.StandardOutputEncoding = [System.Text.Encoding]::UTF8
+        $info.StandardErrorEncoding = [System.Text.Encoding]::UTF8
+
+        $process = [System.Diagnostics.Process]::Start($info)
+        if ($null -eq $process) { throw 'The program process did not start.' }
+        $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+        $stderrTask = $process.StandardError.ReadToEndAsync()
+        $process.WaitForExit()
+        [System.Threading.Tasks.Task]::WaitAll(@($stdoutTask, $stderrTask))
+        # Native programs conventionally end a displayed line with CRLF.
+        # Otter values are line-oriented (as they were before D65), so keep
+        # interior newlines but remove only the terminal display whitespace.
+        $stdout = $stdoutTask.Result.TrimEnd()
+        $stderr = $stderrTask.Result.TrimEnd()
+        $exitCode = [double]$process.ExitCode
     }
     catch {
         throw [OtterError]::new("`"$program`" could not run. $($_.Exception.Message)", $Line, 'runtime')
     }
-    finally {
-        $ErrorActionPreference = $previous
-    }
 
-    # A native program's stderr arrives as ErrorRecord objects rather than
-    # text, so flatten everything back to plain lines.
-    $lines = foreach ($item in $raw) {
-        if ($item -is [System.Management.Automation.ErrorRecord]) { $item.ToString() }
-        else { [string]$item }
-    }
-
-    return (($lines) -join [Environment]::NewLine)
+    $result = [OtterObject]::new('command result')
+    $result.WriteProperty('output', $stdout)
+    $result.WriteProperty('error output', $stderr)
+    $result.WriteProperty('exit code', $exitCode)
+    return $result
 }
 
 

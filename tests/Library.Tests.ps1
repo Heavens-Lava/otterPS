@@ -191,10 +191,20 @@ Test-Otter 'an unclosed quote in a command is an Otter error' {
 Test-Otter 'run command captures a real program output' {
     $out = Invoke-TestProgram @(
         [RunStmt]::new((Lit 'whoami'), $true, 'who', 1),
-        [SayStmt]::new(@((Var 'who')), 2)
+        [SayStmt]::new(@([PropertyAccessExpr]::new('output', (Var 'who'), 2)), 2)
     )
     Assert-True ($out.Count -eq 1) 'expected exactly one line of output'
     Assert-True ($out[0].Length -gt 0) 'expected whoami to print something'
+}
+
+Test-Otter 'run command captures structured stdout stderr and exit code' {
+    $out = Invoke-TestProgram @(
+        [RunStmt]::new((Lit 'cmd /c "echo standard output & echo standard error 1>&2 & exit 7"'), $true, 'result', 1),
+        [SayStmt]::new(@([PropertyAccessExpr]::new('output', (Var 'result'), 2)), 2),
+        [SayStmt]::new(@([PropertyAccessExpr]::new('error output', (Var 'result'), 3)), 3),
+        [SayStmt]::new(@([PropertyAccessExpr]::new('exit code', (Var 'result'), 4)), 4)
+    )
+    Assert-Lines -Expected @('standard output', 'standard error', '7') -Actual $out
 }
 
 Test-Otter 'running a program that does not exist names it' {

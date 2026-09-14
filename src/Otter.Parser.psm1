@@ -100,6 +100,21 @@ function Test-OtterSoftContinuation {
     return $true
 }
 
+function Test-OtterCommandResultPropertyAt {
+    param([int]$Position)
+
+    if ($Position -ge $script:Tokens.Count) { return $false }
+    $first = $script:Tokens[$Position]
+    if (-not (Test-OtterIdentifierToken $first)) { return $false }
+    if (($Position + 2) -ge $script:Tokens.Count) { return $false }
+
+    $second = $script:Tokens[$Position + 1]
+    $third = $script:Tokens[$Position + 2]
+    return (($first.Text -eq 'exit' -and $second.Text -eq 'code') -or
+            ($first.Text -eq 'error' -and $second.Text -eq 'output')) -and
+        $third.Kind -eq [TokenKind]::Of
+}
+
 function Read-OtterValue {
     param([switch]$PropertyTarget)
     $token = Get-OtterCurrentToken
@@ -127,7 +142,8 @@ function Read-OtterValue {
         (Test-OtterIdentifierToken $script:Tokens[$script:Position + 1])) -or
         ($token.Text -eq 'the' -and ($script:Position + 2) -lt $script:Tokens.Count -and
         $script:Tokens[$script:Position + 1].Kind -in $script:OtterIdentifierKinds -and
-        $script:Tokens[$script:Position + 2].Kind -eq [TokenKind]::Of)) {
+        ($script:Tokens[$script:Position + 2].Kind -eq [TokenKind]::Of -or
+         (Test-OtterCommandResultPropertyAt ($script:Position + 1))))) {
         [void](Read-OtterToken)
         $token = Get-OtterCurrentToken
     }
@@ -168,6 +184,12 @@ function Read-OtterValue {
     }
     if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -eq 'now') {
         [void](Read-OtterToken); return [ClockExpr]::new([ClockKind]::Now, $token.Line)
+    }
+    if (Test-OtterCommandResultPropertyAt $script:Position) {
+        $first = Read-OtterToken
+        $second = Read-OtterToken
+        [void](Assert-OtterTokenKind ([TokenKind]::Of) 'I expected "of" after this command result property.')
+        return [PropertyAccessExpr]::new("$($first.Text) $($second.Text)", (Read-OtterValue -PropertyTarget), $first.Line)
     }
     if (Test-OtterIdentifierToken $token) {
         [void](Read-OtterToken)

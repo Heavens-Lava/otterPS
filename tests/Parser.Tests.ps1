@@ -213,6 +213,18 @@ if ($fileAst.Statements[5] -isnot [DeleteFileStmt]) { throw 'Expected delete fil
 if ($fileAst.Statements[6].Branches[0].Condition -isnot [FileExistsExpr]) { throw 'Expected file exists condition.' }
 if (-not $fileAst.Statements[7].IsCommand -and $fileAst.Statements[8].IsCommand -and $fileAst.Statements[8].ResultTarget -eq 'status') { } else { throw 'Expected run forms to preserve command and capture flags.' }
 
+$commandResultAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source @'
+run command "whoami" into result
+say output of result
+say error output of result
+if exit code of result is 0
+    say "Succeeded"
+.
+'@)
+if ($commandResultAst.Statements[1].Parts[0].Property -ne 'output') { throw 'Expected output of result to remain ordinary property access.' }
+if ($commandResultAst.Statements[2].Parts[0].Property -ne 'error output') { throw 'Expected error output of result to preserve its two-word property name.' }
+if ($commandResultAst.Statements[3].Branches[0].Condition.Left.Property -ne 'exit code') { throw 'Expected exit code of result to preserve its two-word property name.' }
+
 $part3Source = @'
 get files in "Pictures" and subfolders into files
 get folders in "Documents" into folders
