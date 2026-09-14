@@ -44,14 +44,28 @@ referenceLink is a link
     url is "/reference/"
 .
 
-header is a row
-    spacing is 22
+identity is a row
+    spacing is 14
     padding is 16
-    background is "#ffffff"
-    border is "1px solid #e2e8f0"
 .
 
-put mascot, brand, tagline, docsLink, referenceLink, examplesLink, downloadLink in header
+put mascot, brand, tagline in identity
+
+navigation is a row
+    spacing is 18
+    padding is 16
+.
+
+put docsLink, referenceLink, examplesLink, downloadLink in navigation
+
+header is a column
+    spacing is 4
+    background is "#ffffff"
+    border is "1px solid #e2e8f0"
+    radius is 10
+.
+
+put identity, navigation in header
 
 gettingStarted is a text
     value is "GETTING STARTED"
@@ -113,7 +127,7 @@ files is a link
 sidebar is a column
     spacing is 10
     padding is 18
-    width is 230
+    width is "full"
     background is "#ffffff"
     border is "1px solid #e2e8f0"
     radius is 10
@@ -146,6 +160,8 @@ getStarted is a link
     background is "#1683ff"
     foreground is "#ffffff"
     width is 150
+    padding is 12
+    radius is 8
 .
 
 hero is a card
@@ -158,7 +174,6 @@ hero is a card
 put eyebrow, heroTitle, heroBody, getStarted in hero
 
 desktopCard is a card
-    title is "Desktop Applications"
     background is "#eff6ff"
     spacing is 8
     padding is 18
@@ -166,7 +181,6 @@ desktopCard is a card
 .
 
 webCard is a card
-    title is "Web Development"
     background is "#ecfdf5"
     spacing is 8
     padding is 18
@@ -174,7 +188,6 @@ webCard is a card
 .
 
 filesCard is a card
-    title is "Work with Real Files"
     background is "#fffbeb"
     spacing is 8
     padding is 18
@@ -186,9 +199,23 @@ desktopText is a text
     foreground is "#334155"
 .
 
+desktopHeading is a text
+    value is "Desktop Applications"
+    size is 20
+    weight is "700"
+    foreground is "#0f172a"
+.
+
 webText is a text
     value is "Build responsive interfaces using the same Otter concepts."
     foreground is "#334155"
+.
+
+webHeading is a text
+    value is "Web Development"
+    size is 20
+    weight is "700"
+    foreground is "#0f172a"
 .
 
 filesText is a text
@@ -196,11 +223,18 @@ filesText is a text
     foreground is "#334155"
 .
 
-put desktopText in desktopCard
-put webText in webCard
-put filesText in filesCard
+filesHeading is a text
+    value is "Work with Real Files"
+    size is 20
+    weight is "700"
+    foreground is "#0f172a"
+.
 
-featureRow is a row
+put desktopHeading, desktopText in desktopCard
+put webHeading, webText in webCard
+put filesHeading, filesText in filesCard
+
+featureRow is a column
     spacing is 12
 .
 
@@ -228,7 +262,7 @@ main is a column
 
 put hero, featureRow, popular, exampleText in main
 
-body is a row
+body is a column
     spacing is 18
     padding is 20
 .
