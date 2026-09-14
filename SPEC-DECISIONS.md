@@ -4560,45 +4560,67 @@ each one and reading the generated JS, not inferred from the diff.
   ANY runtime yet, so this cannot be an interpreter-vs-compiler gap
   until the grammar exists.
 
-**RELEASE BLOCKERS** (reachable via real, already-parseable Otter
-syntax; the interpreter succeeds; the JS backend silently does nothing
-or produces a functionally different result; no legitimate
-host-capability excuse - these are pure language-semantics gaps):
+**RELEASE BLOCKERS - RESOLVED** (2026-09-14; all three closed in one
+pass, `Otter.Compiler.JavaScript.psm1` only, isolated from an unrelated
+uncommitted diff in that same file - see the commit note below):
 - **`GetKey`/`SetKey` (D41 dynamic thing access - `get "x" from thing
-  into y` / `set "x" to y in thing`) have NO JS case at all.**
-  Confirmed by compiling a real `.ot` program: `get "name" from p into
-  n` produces literally no generated statement, leaving `n` an
-  undefined JS reference; `set "age" to 30 in p` likewise produces
-  nothing, so a later `age of p` throws "no property called" instead
-  of succeeding. This is the clearest gap found in the whole audit:
-  these operate on the EXACT SAME `props`/`order` storage Phase 1F.2
-  already built for ordinary `PropertyAccess`, so there is no
-  representational work left to do, only the two missing `NodeKind`
-  cases themselves (Set-style bindings, matching `Environment.Set`).
+  into y` / `set "x" to y in thing`).** Added both `NodeKind` cases,
+  operating on the exact same `props`/`order` storage Phase 1F.2
+  already built for ordinary `PropertyAccess` - no new representation
+  needed. Matches `Assert-OtterDynamicKeyTarget`/`Assert-OtterStringKey`
+  exactly: the target must be a `thing` (checked in two steps, two
+  distinct error messages, matching the interpreter's own two-step
+  check - "I can only read from/write to a thing, but this is
+  something else." for a non-object, "I can only read/write properties
+  dynamically on a thing, but this is a `<TypeName>`." for an object
+  whose `typeName` is not literally `'thing'`), the key must be a
+  genuine string (no coercion), and a missing key on `GetKey` returns
+  `gone` rather than throwing (NOT the same rule as `X of Y`, which
+  throws - verified this is deliberate, per the interpreter's own
+  comment on `ReadProperty` having no `HasProperty` guard here on
+  purpose). Verified end-to-end (production CLI, JS compiler, a real
+  browser): read/write round-trip, a missing key giving `gone`, a
+  non-thing target throwing, and a non-string key throwing, all
+  matching the interpreter exactly.
 - **Custom `OtterType`-declared objects (`a Person has ... .` /
-  `jeff is a Person`) do not get their declared fields pre-populated
-  in JS.** Confirmed via a real, valid `.ot` program: the interpreter
-  answers `gone` for a declared-but-unset field (`New-OtterObjectValue`
-  pre-populates every `FieldNames` entry to `$null`); this compiler's
-  `ObjectDef` case always builds `{ typeName: 'thing', ... }`
-  unconditionally, with no lookup of a declared `OtterType` at all, so
-  the same program THROWS "no property called" in JS where the
-  interpreter succeeds with `gone`. Already flagged as deliberately
-  deferred in the Phase 1F.2 entry above ("JSON never produces one") -
-  this audit found it is not merely a JSON-adjacent theoretical gap,
-  it is directly reachable and produces a real functional divergence
-  on its own, independent of JSON.
-- **`ask "..." and call it x` has NO JS case at all**, unlike the
-  file/HTTP host-capability boundary cases - confirmed by compiling a
-  real `.ot` program: the target variable is left undefined, with no
-  host-hook emitted and no boundary error raised. Unlike raw filesystem
-  access, this is NOT a case where "browser" genuinely lacks the
-  capability - `window.prompt()` is a real, always-available browser
-  built-in with no desktop bridge required. This should get the same
-  `otterReadFile`-style required-host-hook treatment (an
-  `otterAsk(prompt)` hook, with D6's input coercion rules replicated -
-  numeric-looking becomes a number, `true`/`false` becomes a boolean,
-  else text), not be left silently broken.
+  `jeff is a Person`) now get their declared fields pre-populated in
+  JS.** Added a `TypeDef` `NodeKind` case (previously had none at all)
+  constructing a real, tagged runtime value (`{ __otterType: true,
+  typeName, fieldNames }`), bound Set-style under the type's own name -
+  matching the interpreter's `Environment.Set($TypeName,
+  [OtterType]::new(...))` exactly, including that this is a genuinely
+  DYNAMIC, order-dependent lookup (a `TypeDef` that has not executed
+  yet means the type simply is not there), not something resolved
+  statically from reading every `TypeDef` in the program ahead of
+  time. `ObjectDef`'s case now uses `$Stmt.TypeName` (already a
+  compile-time-known string, "thing" or a declared name) as the
+  object's real `typeName` instead of a hardcoded literal, and - when
+  it is not literally "thing" - looks up that runtime-tagged type value
+  and pre-populates every declared field to `null` (`gone`) before
+  applying the object literal's own explicit properties, matching
+  `New-OtterObjectValue` exactly. Fixed a latent duplicate-order bug
+  found while doing this: the property-literal loop previously pushed
+  to `order` unconditionally on every property, which would have
+  double-counted a field also present in `fieldNames` - now guarded
+  with the same `if (!(key in props))` check `WriteProperty` itself
+  uses. Verified end-to-end: a declared-but-unset field reads as
+  `gone` in JS exactly as it does in the interpreter, where it
+  previously threw "no property called."
+- **`ask "..." and call it x`.** Added a synchronous `NodeKind` case
+  using `window.prompt()` - a real, always-available browser built-in,
+  needing no host-bridge hook and no `async`/`await` at all (unlike
+  `ReadFile`/`HttpGet`/`GetFiles`, this is not a genuine host-capability
+  boundary the way raw filesystem/process access is). Replicates
+  `ConvertFrom-OtterInput` exactly: trim, an exact (case-sensitive)
+  `"true"`/`"false"` becomes a boolean, else a successful numeric parse
+  becomes a number, else the ORIGINAL untrimmed text is kept. One
+  documented, deliberate host-native choice with no interpreter
+  equivalent to match against: `window.prompt` returning `null` (the
+  user pressed Cancel, a real browser affordance a console's Ctrl+C has
+  no equivalent return value for) is treated as an empty string.
+  Verified end-to-end using Playwright's dialog handler to answer the
+  real `window.prompt()` calls: text, a numeric answer, and a boolean
+  answer all coerced identically to the interpreter.
 
 **DOCUMENTED HOST DIFFERENCES NEEDING AN EXPLICIT BOUNDARY** (the
 underlying capability is legitimately host-dependent the way `ReadFile`
@@ -4643,14 +4665,15 @@ a partial one):
 - `HttpPut`/`HttpDelete` (web-only completeness, not interpreter
   parity - see "out of scope" above).
 
-**Bottom line**: after Phases 1A-1J, the JS backend has full parity
-for every ordinary imperative `NodeKind` EXCEPT the three release
-blockers above (`GetKey`/`SetKey`, custom `OtterType` field
-pre-population, `ask`) and the filesystem-discovery/copy/move/delete
-operations that need `ReadFile`-style explicit host hooks. Nothing
-found in this audit is architectural - every blocker is a missing
-`NodeKind` case or a missing hook following an already-proven pattern,
-not a reason to revisit D60's design.
+**Bottom line**: after Phases 1A-1J plus the three release-blocker
+fixes above, the JS backend has full parity for every ordinary
+imperative `NodeKind` EXCEPT the filesystem-discovery/copy/move/delete
+operations that still need `ReadFile`-style explicit host hooks
+(`CopyFile`/`MoveFile`/`DeleteFile`/`FileExists`/`CreateFolder`/
+`DeleteFolder`/`CopyFolder`/`MoveFolder`). Nothing found in this audit
+was architectural - every blocker was a missing `NodeKind` case or a
+missing hook following an already-proven pattern, not a reason to
+revisit D60's design.
 
 ---
 
