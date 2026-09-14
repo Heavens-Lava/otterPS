@@ -61,6 +61,7 @@ $script:OtterStatementHeadKeywords = @{
     'copy' = [TokenKind]::Copy; 'move' = [TokenKind]::Move
     'delete' = [TokenKind]::Delete; 'create' = [TokenKind]::Create
     'read' = [TokenKind]::Read; 'write' = [TokenKind]::Write
+    'append' = [TokenKind]::Append
     'sort' = [TokenKind]::Sort; 'reverse' = [TokenKind]::Reverse
     'replace' = [TokenKind]::Replace; 'split' = [TokenKind]::Split
     'join' = [TokenKind]::Join; 'find' = [TokenKind]::Find

@@ -24,7 +24,7 @@ $script:OtterIdentifierKinds = @(
     [TokenKind]::Identifier, [TokenKind]::File, [TokenKind]::Files,
     [TokenKind]::Folder, [TokenKind]::Folders, [TokenKind]::Has,
     [TokenKind]::Copy, [TokenKind]::Move, [TokenKind]::Delete,
-    [TokenKind]::Create, [TokenKind]::Read, [TokenKind]::Write,
+    [TokenKind]::Create, [TokenKind]::Read, [TokenKind]::Write, [TokenKind]::Append,
     [TokenKind]::Sort, [TokenKind]::Reverse, [TokenKind]::Replace,
     [TokenKind]::Split, [TokenKind]::Join, [TokenKind]::Find,
     [TokenKind]::Get, [TokenKind]::Try, [TokenKind]::Run,
@@ -1470,6 +1470,14 @@ function Read-OtterStatement {
             $path = Read-OtterValue
             [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the write statement to end here.')
             return [WriteFileStmt]::new($content, $path, $start.Line)
+        }
+        ([TokenKind]::Append) {
+            [void](Read-OtterToken)
+            $content = Read-OtterValue
+            [void](Assert-OtterTokenKind ([TokenKind]::To) 'I expected "to" and a file path.')
+            $path = Read-OtterValue
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the append statement to end here.')
+            return [AppendFileStmt]::new($content, $path, $start.Line)
         }
         ([TokenKind]::Copy) {
             [void](Read-OtterToken)

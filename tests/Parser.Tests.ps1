@@ -194,6 +194,7 @@ if ($nested.Property -ne 'city' -or $nested.Target.Property -ne 'address' -or $n
 
 $fileSource = @'
 write "Hello" to "note.txt"
+append " world" to "note.txt"
 read "note.txt" into notes
 copy "note.txt" to "backup/note.txt"
 move "note.txt" to "archive/note.txt"
@@ -205,11 +206,12 @@ run command "git status" into status
 '@
 $fileAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $fileSource)
 if ($fileAst.Statements[0] -isnot [WriteFileStmt]) { throw 'Expected write file statement.' }
-if ($fileAst.Statements[1] -isnot [ReadFileStmt] -or $fileAst.Statements[1].Target -ne 'notes') { throw 'Expected read file statement.' }
-if ($fileAst.Statements[2] -isnot [CopyFileStmt] -or $fileAst.Statements[3] -isnot [MoveFileStmt]) { throw 'Expected copy and move statements.' }
-if ($fileAst.Statements[4] -isnot [DeleteFileStmt]) { throw 'Expected delete file statement.' }
-if ($fileAst.Statements[5].Branches[0].Condition -isnot [FileExistsExpr]) { throw 'Expected file exists condition.' }
-if (-not $fileAst.Statements[6].IsCommand -and $fileAst.Statements[7].IsCommand -and $fileAst.Statements[7].ResultTarget -eq 'status') { } else { throw 'Expected run forms to preserve command and capture flags.' }
+if ($fileAst.Statements[1] -isnot [AppendFileStmt] -or $fileAst.Statements[1].Content.Value -ne ' world' -or $fileAst.Statements[1].Path.Value -ne 'note.txt') { throw 'Expected append file statement.' }
+if ($fileAst.Statements[2] -isnot [ReadFileStmt] -or $fileAst.Statements[2].Target -ne 'notes') { throw 'Expected read file statement.' }
+if ($fileAst.Statements[3] -isnot [CopyFileStmt] -or $fileAst.Statements[4] -isnot [MoveFileStmt]) { throw 'Expected copy and move statements.' }
+if ($fileAst.Statements[5] -isnot [DeleteFileStmt]) { throw 'Expected delete file statement.' }
+if ($fileAst.Statements[6].Branches[0].Condition -isnot [FileExistsExpr]) { throw 'Expected file exists condition.' }
+if (-not $fileAst.Statements[7].IsCommand -and $fileAst.Statements[8].IsCommand -and $fileAst.Statements[8].ResultTarget -eq 'status') { } else { throw 'Expected run forms to preserve command and capture flags.' }
 
 $part3Source = @'
 get files in "Pictures" and subfolders into files

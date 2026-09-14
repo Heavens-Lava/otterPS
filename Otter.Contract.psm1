@@ -147,6 +147,7 @@ enum TokenKind {
     Has             # a Person HAS
     Read            # read "notes.txt" into notes
     Write
+    Append          # append "line" to "notes.txt" (D61)
     Copy
     Move
     Delete
