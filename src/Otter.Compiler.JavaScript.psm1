@@ -353,16 +353,12 @@ function ConvertTo-OtterJsExpression {
             return "(() => { const _s = $startJs; const _e = $endJs; const _sOk = _s && typeof _s === 'object' && _s.__otterDate; const _eOk = _e && typeof _e === 'object' && _e.__otterDate; if (!_sOk) { throw new Error('I can only measure time between two dates, but the first one is something else.'); } if (!_eOk) { throw new Error('I can only measure time between two dates, but the second one is something else.'); } return $diffJs; })()"
         }
         ([NodeKind]::Call) {
-            # D60 Phase 1F. Same call emission as CallStatement, for the
-            # bare-expression form of the same NodeKind (Invoke-OtterCall
-            # backs both). Kept for completeness with the interpreter's own
-            # 'Call' expression case, even though the current parser only
-            # appears to construct CallExpr already wrapped in a CallStmt
-            # (checked directly: every CallExpr]::new( site in
-            # Otter.Parser.psm1 is immediately wrapped in a CallStmt) - no
-            # confirmed syntax today nests a call inside a larger expression.
             $argsJs = @(foreach ($a in $Expr.Arguments) { ConvertTo-OtterJsExpression -Expr $a })
             return "$($Expr.Name)($($argsJs -join ', '))"
+        }
+        ([NodeKind]::FileExists) {
+            $pathJs = ConvertTo-OtterJsExpression -Expr $Expr.Path
+            return "(await otterFileExists($pathJs))"
         }
         default {
             return "null"
@@ -402,6 +398,10 @@ function ConvertTo-OtterJsStatement {
     $pad = '  ' * $Indent
 
     switch ($Stmt.Kind) {
+        ([NodeKind]::Await) {
+            $inner = ConvertTo-OtterJsExpression -Expr $Stmt.Expression
+            return "${pad}await $inner;"
+        }
         ([NodeKind]::Assign) {
             if ($Stmt.Target -is [PropertyAccessExpr]) {
                 # D60 Phase 1F.2. Runtime dual dispatch, not a compile-time
@@ -657,7 +657,11 @@ function ConvertTo-OtterJsStatement {
                 $lines.Add("${itemsInner}if (Array.isArray($tmp)) { _items.push(...$tmp); } else { _items.push($tmp); }")
                 $itemIndex++
             }
-            $lines.Add("${itemsInner}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$varName' in otterState)) { otterSetState('$varName', _items); } else { window.$varName = _items; }")
+            if ($LocalNames -and $LocalNames.Contains($varName)) {
+                $lines.Add("${itemsInner}$varName = _items;")
+            } else {
+                $lines.Add("${itemsInner}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$varName' in otterState)) { otterSetState('$varName', _items); } else { window.$varName = _items; }")
+            }
             $lines.Add("${pad}}")
             return ($lines -join "`n")
         }
@@ -801,7 +805,11 @@ function ConvertTo-OtterJsStatement {
             $lines.Add("${inner}const _subj = $subjectJs;")
             $lines.Add("${inner}const _sep = String($separatorJs);")
             $lines.Add("${inner}const _joined = Array.isArray(_subj) ? _subj.map((_x) => String(_x)).join(_sep) : String(_subj);")
-            $lines.Add("${inner}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$target' in otterState)) { otterSetState('$target', _joined); } else { window.$target = _joined; }")
+            if ($LocalNames -and $LocalNames.Contains($target)) {
+                $lines.Add("${inner}$target = _joined;")
+            } else {
+                $lines.Add("${inner}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$target' in otterState)) { otterSetState('$target', _joined); } else { window.$target = _joined; }")
+            }
             $lines.Add("${pad}}")
             return ($lines -join "`n")
         }
@@ -854,7 +862,11 @@ function ConvertTo-OtterJsStatement {
             $lines.Add("${inner}  const _aOk = typeof _amt === 'number' || (typeof _amt === 'string' && _amt.trim() !== '' && !Number.isNaN(Number(_amt)));")
             $lines.Add("${inner}  if (!_aOk) { throw new Error('I expected a number for the amount to add to `"$target`"' + ' but got ' + JSON.stringify(_amt) + '.'); }")
             $lines.Add("${inner}  const _sum = Number($target) + Number(_amt);")
-            $lines.Add("${inner}  if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$target' in otterState)) { otterSetState('$target', _sum); } else { window.$target = _sum; }")
+            if ($LocalNames -and $LocalNames.Contains($target)) {
+                $lines.Add("${inner}  $target = _sum;")
+            } else {
+                $lines.Add("${inner}  if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$target' in otterState)) { otterSetState('$target', _sum); } else { window.$target = _sum; }")
+            }
             $lines.Add("${inner}}")
             $lines.Add("${inner}else { throw new Error('I can only add to a number or a list, but `"$target`" holds something else.'); }")
             $lines.Add("${pad}}")
@@ -880,7 +892,11 @@ function ConvertTo-OtterJsStatement {
             $lines.Add("${inner}  const _aOk = typeof _amt === 'number' || (typeof _amt === 'string' && _amt.trim() !== '' && !Number.isNaN(Number(_amt)));")
             $lines.Add("${inner}  if (!_aOk) { throw new Error('I expected a number for the amount to remove from `"$target`"' + ' but got ' + JSON.stringify(_amt) + '.'); }")
             $lines.Add("${inner}  const _diff = Number($target) - Number(_amt);")
-            $lines.Add("${inner}  if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$target' in otterState)) { otterSetState('$target', _diff); } else { window.$target = _diff; }")
+            if ($LocalNames -and $LocalNames.Contains($target)) {
+                $lines.Add("${inner}  $target = _diff;")
+            } else {
+                $lines.Add("${inner}  if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$target' in otterState)) { otterSetState('$target', _diff); } else { window.$target = _diff; }")
+            }
             $lines.Add("${inner}}")
             $lines.Add("${inner}else { throw new Error('I can only remove from a number or a list, but `"$target`" holds something else.'); }")
             $lines.Add("${pad}}")
@@ -997,6 +1013,65 @@ function ConvertTo-OtterJsStatement {
                 return "${pad}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$target' in otterState)) { otterSetState('$target', await otterRunCommand($cmdJs)); } else { window.$target = await otterRunCommand($cmdJs); }"
             }
             return "${pad}await otterRunCommand($cmdJs);"
+        }
+        ([NodeKind]::GetFiles) {
+            # D60. `get files in <folder> [and subfolders] into <target>` - emits call
+            # to async runtime hook otterGetFiles(folder, includeSubfolders).
+            $folderJs = ConvertTo-OtterJsExpression -Expr $Stmt.Folder
+            $subfoldersJs = if ($Stmt.IncludeSubfolders) { 'true' } else { 'false' }
+            $target = $Stmt.Target
+            if ($LocalNames -and $LocalNames.Contains($target)) {
+                return "${pad}$target = await otterGetFiles($folderJs, $subfoldersJs);"
+            }
+            return "${pad}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$target' in otterState)) { otterSetState('$target', await otterGetFiles($folderJs, $subfoldersJs)); } else { window.$target = await otterGetFiles($folderJs, $subfoldersJs); }"
+        }
+        ([NodeKind]::GetFolders) {
+            # D60. `get folders in <folder> [and subfolders] into <target>` - emits call
+            # to async runtime hook otterGetFolders(folder, includeSubfolders).
+            $folderJs = ConvertTo-OtterJsExpression -Expr $Stmt.Folder
+            $subfoldersJs = if ($Stmt.IncludeSubfolders) { 'true' } else { 'false' }
+            $target = $Stmt.Target
+            if ($LocalNames -and $LocalNames.Contains($target)) {
+                return "${pad}$target = await otterGetFolders($folderJs, $subfoldersJs);"
+            }
+            return "${pad}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$target' in otterState)) { otterSetState('$target', await otterGetFolders($folderJs, $subfoldersJs)); } else { window.$target = await otterGetFolders($folderJs, $subfoldersJs); }"
+        }
+        ([NodeKind]::AppendFile) {
+            $pathJs = ConvertTo-OtterJsExpression -Expr $Stmt.Path
+            $contentJs = ConvertTo-OtterJsExpression -Expr $Stmt.Content
+            return "${pad}await otterAppendFile($pathJs, $contentJs);"
+        }
+        ([NodeKind]::CopyFile) {
+            $sourceJs = ConvertTo-OtterJsExpression -Expr $Stmt.Source
+            $destinationJs = ConvertTo-OtterJsExpression -Expr $Stmt.Destination
+            return "${pad}await otterCopyFile($sourceJs, $destinationJs);"
+        }
+        ([NodeKind]::MoveFile) {
+            $sourceJs = ConvertTo-OtterJsExpression -Expr $Stmt.Source
+            $destinationJs = ConvertTo-OtterJsExpression -Expr $Stmt.Destination
+            return "${pad}await otterMoveFile($sourceJs, $destinationJs);"
+        }
+        ([NodeKind]::DeleteFile) {
+            $pathJs = ConvertTo-OtterJsExpression -Expr $Stmt.Path
+            return "${pad}await otterDeleteFile($pathJs);"
+        }
+        ([NodeKind]::CreateFolder) {
+            $pathJs = ConvertTo-OtterJsExpression -Expr $Stmt.Path
+            return "${pad}await otterCreateFolder($pathJs);"
+        }
+        ([NodeKind]::DeleteFolder) {
+            $pathJs = ConvertTo-OtterJsExpression -Expr $Stmt.Path
+            return "${pad}await otterDeleteFolder($pathJs);"
+        }
+        ([NodeKind]::CopyFolder) {
+            $sourceJs = ConvertTo-OtterJsExpression -Expr $Stmt.Source
+            $destinationJs = ConvertTo-OtterJsExpression -Expr $Stmt.Destination
+            return "${pad}await otterCopyFolder($sourceJs, $destinationJs);"
+        }
+        ([NodeKind]::MoveFolder) {
+            $sourceJs = ConvertTo-OtterJsExpression -Expr $Stmt.Source
+            $destinationJs = ConvertTo-OtterJsExpression -Expr $Stmt.Destination
+            return "${pad}await otterMoveFolder($sourceJs, $destinationJs);"
         }
         ([NodeKind]::GetKey) {
             # D60 consolidated-audit release blocker. `get "key" from
@@ -1512,7 +1587,11 @@ function ConvertTo-OtterJsStatement {
             $lines.Add("${inner}const _sep = String($separatorJs);")
             $lines.Add("${inner}if (_sep.length === 0) { throw new Error('I need something to split by.'); }")
             $lines.Add("${inner}const _pieces = String($subjectJs).split(_sep);")
-            $lines.Add("${inner}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$target' in otterState)) { otterSetState('$target', _pieces); } else { window.$target = _pieces; }")
+            if ($LocalNames -and $LocalNames.Contains($target)) {
+                $lines.Add("${inner}$target = _pieces;")
+            } else {
+                $lines.Add("${inner}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$target' in otterState)) { otterSetState('$target', _pieces); } else { window.$target = _pieces; }")
+            }
             $lines.Add("${pad}}")
             return ($lines -join "`n")
         }
@@ -1606,6 +1685,7 @@ function ConvertTo-OtterJsStatement {
             }
             $lines.Add("${bodyIndent}return null;")
             $lines.Add("${pad}};")
+            $lines.Add("${pad}if (typeof window !== 'undefined') { window.$fnName = $fnName; }")
             return ($lines -join "`n")
         }
         ([NodeKind]::CallStatement) {
@@ -1682,6 +1762,18 @@ function Get-OtterJsBindingNames {
             }
             if ($s.Kind -eq [NodeKind]::RunProgram -and $s.ResultTarget) {
                 [void]$setStyle.Add($s.ResultTarget)
+            }
+            if (($s.Kind -eq [NodeKind]::GetFiles -or $s.Kind -eq [NodeKind]::GetFolders) -and $s.Target) {
+                [void]$setStyle.Add($s.Target)
+            }
+            if ($s.Kind -eq [NodeKind]::ListDef) {
+                [void]$setStyle.Add($s.Name)
+            }
+            if ($s.Kind -eq [NodeKind]::Join -or $s.Kind -eq [NodeKind]::Split) {
+                [void]$setStyle.Add($s.Target)
+            }
+            if ($s.Kind -eq [NodeKind]::AddTo -or $s.Kind -eq [NodeKind]::RemoveFrom) {
+                [void]$setStyle.Add($s.Target)
             }
             if ($s.Kind -eq [NodeKind]::RandomNumber -or $s.Kind -eq [NodeKind]::RandomItem) {
                 # D60 Phase 1H: both use Environment.Set (verified directly
@@ -1780,6 +1872,37 @@ function Get-OtterJsBindingNames {
     return @{ SetStyle = $setStyle; AlwaysLocal = $alwaysLocal }
 }
 
+# True when an expression contains a filesystem-existence check or await. `exists`
+# is the one filesystem operation that appears in expression position, so
+# its bridge call carries an `await` rather than living in a statement case.
+function Test-OtterJsExpressionNeedsAsync {
+    param([Node]$Expression)
+
+    if ($null -eq $Expression) { return $false }
+    switch ($Expression.Kind) {
+        ([NodeKind]::FileExists) { return $true }
+        ([NodeKind]::Await) { return $true }
+        ([NodeKind]::Math) { return (Test-OtterJsExpressionNeedsAsync $Expression.Left) -or (Test-OtterJsExpressionNeedsAsync $Expression.Right) }
+        ([NodeKind]::Comparison) { return (Test-OtterJsExpressionNeedsAsync $Expression.Left) -or (Test-OtterJsExpressionNeedsAsync $Expression.Right) }
+        ([NodeKind]::Logical) { return (Test-OtterJsExpressionNeedsAsync $Expression.Left) -or (Test-OtterJsExpressionNeedsAsync $Expression.Right) }
+        ([NodeKind]::Not) {
+            $operand = if ($Expression.Operand) { $Expression.Operand } else { $Expression.Expression }
+            return (Test-OtterJsExpressionNeedsAsync $operand)
+        }
+        ([NodeKind]::Contains) { return (Test-OtterJsExpressionNeedsAsync $Expression.Collection) -or (Test-OtterJsExpressionNeedsAsync $Expression.Item) }
+        ([NodeKind]::TextMatch) { return (Test-OtterJsExpressionNeedsAsync $Expression.Subject) -or (Test-OtterJsExpressionNeedsAsync $Expression.Value) }
+        ([NodeKind]::OfOperation) { return (Test-OtterJsExpressionNeedsAsync $Expression.Subject) }
+        ([NodeKind]::PropertyAccess) { return (Test-OtterJsExpressionNeedsAsync $Expression.Target) }
+        ([NodeKind]::DateDifferenceValue) { return (Test-OtterJsExpressionNeedsAsync $Expression.Start) -or (Test-OtterJsExpressionNeedsAsync $Expression.End) }
+        ([NodeKind]::Call) {
+            foreach ($argument in $Expression.Arguments) {
+                if (Test-OtterJsExpressionNeedsAsync $argument) { return $true }
+            }
+        }
+    }
+    return $false
+}
+
 # D60. True if any statement in this body (recursively, through the same
 # constructs Get-OtterJsBindingNames already walks) emits `await` -
 # ReadFile, WriteFile, RunProgram, HttpGet, HttpPost today. FunctionDef uses this to decide
@@ -1791,7 +1914,7 @@ function Test-OtterJsBodyNeedsAsync {
 
     if ($null -eq $Statements) { return $false }
     foreach ($s in $Statements) {
-        if ($s.Kind -eq [NodeKind]::ReadFile -or $s.Kind -eq [NodeKind]::WriteFile -or $s.Kind -eq [NodeKind]::RunProgram -or $s.Kind -eq [NodeKind]::HttpGet -or $s.Kind -eq [NodeKind]::HttpPost) {
+        if ($s.Kind -eq [NodeKind]::Await -or $s.Kind -eq [NodeKind]::ReadFile -or $s.Kind -eq [NodeKind]::WriteFile -or $s.Kind -eq [NodeKind]::AppendFile -or $s.Kind -eq [NodeKind]::CopyFile -or $s.Kind -eq [NodeKind]::MoveFile -or $s.Kind -eq [NodeKind]::DeleteFile -or $s.Kind -eq [NodeKind]::CreateFolder -or $s.Kind -eq [NodeKind]::DeleteFolder -or $s.Kind -eq [NodeKind]::CopyFolder -or $s.Kind -eq [NodeKind]::MoveFolder -or $s.Kind -eq [NodeKind]::GetFiles -or $s.Kind -eq [NodeKind]::GetFolders -or $s.Kind -eq [NodeKind]::RunProgram -or $s.Kind -eq [NodeKind]::HttpGet -or $s.Kind -eq [NodeKind]::HttpPost) {
             return $true
         }
         if ($s.Kind -eq [NodeKind]::ReadJson) {
@@ -1801,12 +1924,26 @@ function Test-OtterJsBodyNeedsAsync {
             # no await, so they are deliberately NOT listed here.
             return $true
         }
+        if ($s.Kind -eq [NodeKind]::Assign -and (Test-OtterJsExpressionNeedsAsync $s.Value)) { return $true }
+        if ($s.Kind -eq [NodeKind]::MathInto -and (Test-OtterJsExpressionNeedsAsync $s.Expression)) { return $true }
+        if ($s.Kind -eq [NodeKind]::Return -and (Test-OtterJsExpressionNeedsAsync $s.Value)) { return $true }
+        if ($s.Kind -eq [NodeKind]::Say) {
+            # SayStmt's real field is Parts, not Values - a `say (file "x"
+            # exists)`-style async subexpression inside a function body
+            # was silently never detected here (PowerShell returns $null
+            # for a nonexistent property rather than throwing, so
+            # `foreach ($value in $s.Values)` looked like a working, just
+            # always-empty, check - found by direct testing, not assumed).
+            foreach ($value in $s.Parts) { if (Test-OtterJsExpressionNeedsAsync $value) { return $true } }
+        }
         if ($s.Kind -eq [NodeKind]::If) {
             foreach ($branch in $s.Branches) {
+                if (Test-OtterJsExpressionNeedsAsync $branch.Condition) { return $true }
                 if (Test-OtterJsBodyNeedsAsync -Statements $branch.Body) { return $true }
             }
             if ($s.ElseBody -and (Test-OtterJsBodyNeedsAsync -Statements $s.ElseBody)) { return $true }
         }
+        if ($s.Kind -eq [NodeKind]::While -and (Test-OtterJsExpressionNeedsAsync $s.Condition)) { return $true }
         if (($s.Kind -eq [NodeKind]::While -or $s.Kind -eq [NodeKind]::Repeat -or `
              $s.Kind -eq [NodeKind]::CountLoop -or $s.Kind -eq [NodeKind]::ForEach) -and `
             (Test-OtterJsBodyNeedsAsync -Statements $s.Body)) {
