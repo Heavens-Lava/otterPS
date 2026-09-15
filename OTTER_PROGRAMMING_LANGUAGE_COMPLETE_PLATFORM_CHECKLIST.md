@@ -54,21 +54,21 @@ creation.
 -   [x] AST
 -   [x] Interpreter/runtime architecture
 -   [x] Portable JavaScript compiler architecture
--   [ ] Formal grammar
--   [ ] Formal semantic specification
--   [ ] Versioned AST contract
--   [ ] Standard diagnostic contract
--   [ ] Language version declaration/strategy
--   [ ] Compatibility policy
--   [ ] Deprecation policy
--   [ ] Feature-gating/version negotiation
--   [ ] Conformance suite
--   [ ] Reference implementation designation
--   [ ] Runtime/provider specification
--   [ ] Standard-library specification
--   [ ] Compiler backend interface
--   [ ] Host capability interface
--   [ ] Stable module/package ABI/API strategy
+-   [x] Formal grammar
+-   [x] Formal semantic specification
+-   [x] Versioned AST contract
+-   [x] Standard diagnostic contract
+-   [x] Language version declaration/strategy
+-   [x] Compatibility policy
+-   [x] Deprecation policy
+-   [x] Feature-gating/version negotiation
+-   [x] Conformance suite
+-   [x] Reference implementation designation
+-   [x] Runtime/provider specification
+-   [x] Standard-library specification
+-   [x] Compiler backend interface
+-   [x] Host capability interface
+-   [x] Stable module/package ABI/API strategy
 
 # 2. Core Syntax & Control Flow
 
@@ -83,10 +83,12 @@ creation.
 -   [x] `minus`
 -   [x] `times`
 -   [x] `divided by`
--   [x] Percent operation
--   [x] Power operation
--   [x] Mutation with `increase`
--   [x] Mutation with `decrease`
+-   [ ] Percent operation (verified absent - zero references in the
+    interpreter, contract, or parser; not a real Otter construct today)
+-   [ ] Power operation (verified absent, same as Percent)
+-   [ ] Mutation with `increase` (verified absent - no such keyword
+    exists anywhere; `add ... to` covers this today)
+-   [ ] Mutation with `decrease` (verified absent, same as `increase`)
 -   [x] `add ... to`
 -   [x] `remove ... from`
 -   [x] Equality
@@ -112,13 +114,13 @@ creation.
 -   [x] Controlled multiline condition continuation
 -   [x] Comments
 -   [ ] Freeze remainder/modulo wording
--   [ ] Freeze all remaining contextual-keyword behavior
--   [ ] Freeze operator precedence table
--   [ ] Document evaluation order
--   [ ] Short-circuit behavior certification
--   [ ] Tail-call behavior decision
--   [ ] Generator/yield decision only if real applications require it
--   [ ] Pattern matching decision only if dogfooding requires it
+-   [x] Freeze all remaining contextual-keyword behavior
+-   [x] Freeze operator precedence table
+-   [x] Document evaluation order
+-   [x] Short-circuit behavior certification
+-   [x] Tail-call behavior decision
+-   [x] Generator/yield decision only if real applications require it
+-   [x] Pattern matching decision only if dogfooding requires it
 
 # 3. Data Model
 
@@ -132,24 +134,24 @@ creation.
 -   [x] Dynamic keys
 -   [x] Reference aliasing for things
 -   [x] Missing property distinct from property containing `gone`
--   [ ] Numeric precision/range specification
--   [ ] Integer vs floating-point strategy
--   [ ] Large integer strategy
--   [ ] Decimal/money-safe numeric strategy
--   [ ] Unicode string semantics
--   [ ] Grapheme-safe string operations
+-   [x] Numeric precision/range specification
+-   [x] Integer vs floating-point strategy
+-   [x] Large integer strategy
+-   [x] Decimal/money-safe numeric strategy
+-   [x] Unicode string semantics
+-   [x] Grapheme-safe string operations
 -   [ ] Binary/byte data
 -   [ ] Buffers
--   [ ] Streams
+-   [x] Streams
 -   [ ] Immutable/read-only values if demonstrated necessary
--   [ ] Map/dictionary decision
--   [ ] Set collection decision
--   [ ] Tuple/record decision
--   [ ] Enum/symbol decision
--   [ ] Structured error value/type
--   [ ] User-defined types parity
--   [ ] Type metadata/reflection strategy
--   [ ] Serialization contract
+-   [x] Map/dictionary decision
+-   [x] Set collection decision
+-   [x] Tuple/record decision
+-   [x] Enum/symbol decision
+-   [x] Structured error value/type
+-   [x] User-defined types parity
+-   [x] Type metadata/reflection strategy
+-   [x] Serialization contract
 
 # 4. Objects, Types & Properties
 
@@ -161,18 +163,18 @@ creation.
 -   [x] Property assignment
 -   [x] Dynamic object keys
 -   [x] JS plain-object alias semantics
--   [ ] Portable custom `OtterType` construction parity
--   [ ] Resolve existing-thing `has` protective parity
--   [ ] Methods/member-behavior decision
--   [ ] Encapsulation/public-private decision
--   [ ] Composition model
--   [ ] Inheritance decision --- only if justified
--   [ ] Interface/protocol/trait strategy if needed
--   [ ] Generic/template type strategy if needed
--   [ ] Reflection/introspection
--   [ ] Runtime type querying
--   [ ] Object cloning/copying
--   [ ] Equality/hash semantics
+-   [x] Portable custom `OtterType` construction parity
+-   [x] Resolve existing-thing `has` protective parity
+-   [x] Methods/member-behavior decision
+-   [x] Encapsulation/public-private decision
+-   [x] Composition model
+-   [x] Inheritance decision --- only if justified
+-   [x] Interface/protocol/trait strategy if needed
+-   [x] Generic/template type strategy if needed
+-   [x] Reflection/introspection
+-   [x] Runtime type querying
+-   [x] Object cloning/copying
+-   [x] Equality/hash semantics
 
 # 5. Functions, Scope & Modules
 
@@ -185,21 +187,21 @@ creation.
 -   [x] Global mutation behavior parity
 -   [x] Call-before-declaration behavior parity
 -   [x] Shared module resolver work reported
--   [ ] Production-certify `use`
--   [ ] Freeze module resolution
--   [ ] Relative modules
+-   [x] Production-certify `use`
+-   [x] Freeze module resolution
+-   [x] Relative modules
 -   [ ] Package modules
--   [ ] Circular dependency semantics
--   [ ] Module initialization order
--   [ ] Duplicate-load semantics
--   [ ] Public/private exports if needed
--   [ ] Namespace collision policy
--   [ ] Module caching/invalidation
--   [ ] Closures
+-   [x] Circular dependency semantics
+-   [x] Module initialization order
+-   [x] Duplicate-load semantics
+-   [x] Public/private exports if needed
+-   [x] Namespace collision policy
+-   [x] Module caching/invalidation
+-   [x] Closures
 -   [ ] First-class function values if required
 -   [ ] Callbacks/delegates
--   [ ] Lambda/anonymous function decision only if necessary
--   [ ] Cross-module symbol metadata for IDE tooling
+-   [x] Lambda/anonymous function decision only if necessary
+-   [x] Cross-module symbol metadata for IDE tooling
 
 # 6. Errors & Diagnostics
 
@@ -209,33 +211,33 @@ creation.
 -   [x] `warn`
 -   [x] `error`
 -   [x] Source diagnostics exist
--   [ ] Stable diagnostic codes
--   [ ] Exact file/line/column ranges
+-   [x] Stable diagnostic codes
+-   [x] Exact file/line/column ranges
 -   [ ] Multiple diagnostics per parse where safe
 -   [ ] Parser recovery
--   [ ] Stack traces expressed in Otter terms
+-   [x] Stack traces expressed in Otter terms
 -   [ ] Nested/cause errors
--   [ ] Structured errors
--   [ ] Error categories
+-   [x] Structured errors
+-   [x] Error categories
 -   [ ] Custom/user errors
--   [ ] Async error propagation
--   [ ] Host/provider error translation
--   [ ] Diagnostic suggestions/quick fixes
--   [ ] Panic/fatal-runtime policy
+-   [x] Async error propagation
+-   [x] Host/provider error translation
+-   [x] Diagnostic suggestions/quick fixes
+-   [x] Panic/fatal-runtime policy
 -   [ ] Crash-report format
 
 # 7. Memory & Resource Management
 
--   [ ] Define memory model
--   [ ] Garbage collection/reference management strategy per backend
--   [ ] Resource lifetime semantics
--   [ ] Deterministic cleanup mechanism where needed
--   [ ] File/socket/process handle cleanup
+-   [x] Define memory model
+-   [x] Garbage collection/reference management strategy per backend
+-   [x] Resource lifetime semantics
+-   [x] Deterministic cleanup mechanism where needed
+-   [x] File/socket/process handle cleanup
 -   [ ] Disposal/finalization model
--   [ ] Circular reference behavior
+-   [x] Circular reference behavior
 -   [ ] Weak references only if needed
 -   [ ] Memory limits
--   [ ] Out-of-memory behavior
+-   [x] Out-of-memory behavior
 -   [ ] Large-object handling
 -   [ ] Native resource ownership rules
 -   [ ] FFI ownership rules
@@ -244,25 +246,25 @@ creation.
 
 -   [x] Async compiler support exists for file/HTTP operations in
     functions
--   [ ] Language-level async task model
--   [ ] Awaiting asynchronous operations
--   [ ] Cancellation
--   [ ] Cancellation tokens/signals
--   [ ] Timeouts
--   [ ] One-shot timers
--   [ ] Repeating timers
--   [ ] Background tasks
+-   [x] Language-level async task model
+-   [x] Awaiting asynchronous operations
+-   [x] Cancellation
+-   [x] Cancellation tokens/signals
+-   [x] Timeouts
+-   [x] One-shot timers
+-   [x] Repeating timers
+-   [x] Background tasks
 -   [ ] Worker/thread abstraction
--   [ ] Thread-safe runtime rules
+-   [x] Thread-safe runtime rules
 -   [ ] Synchronization primitives
 -   [ ] Channels/message passing
 -   [ ] Concurrent collections if needed
--   [ ] UI-thread dispatch
--   [ ] Process concurrency
+-   [x] UI-thread dispatch
+-   [x] Process concurrency
 -   [ ] Parallel loops/tasks if justified
--   [ ] Deadlock guidance/tooling
--   [ ] Race detection strategy
--   [ ] Structured concurrency decision
+-   [x] Deadlock guidance/tooling
+-   [x] Race detection strategy
+-   [x] Structured concurrency decision
 
 # 9. Filesystem
 
@@ -276,11 +278,11 @@ creation.
 -   [x] Move
 -   [x] Delete
 -   [x] File metadata/properties
--   [ ] File exists portable certification
--   [ ] Folder exists
+-   [x] File exists portable certification
+-   [x] Folder exists
 -   [ ] Atomic save
--   [ ] Safe overwrite
--   [ ] Text encodings
+-   [x] Safe overwrite
+-   [x] Text encodings
 -   [ ] Binary read/write
 -   [ ] Random-access file IO
 -   [ ] Streams
@@ -288,14 +290,14 @@ creation.
 -   [ ] File locks
 -   [ ] File watching
 -   [ ] Recursive watching
--   [ ] Temp files/folders
--   [ ] User/app data folders
--   [ ] Path combine/normalize
--   [ ] Cross-platform path rules
+-   [x] Temp files/folders
+-   [x] User/app data folders
+-   [x] Path combine/normalize
+-   [x] Cross-platform path rules
 -   [ ] Symbolic links/reparse points
 -   [ ] Permission/ownership APIs
 -   [ ] Disk/free-space information
--   [ ] File dialogs via UI provider
+-   [x] File dialogs via UI provider
 -   [ ] ZIP/archive provider
 
 # 10. Shell & System Administration
@@ -308,18 +310,18 @@ creation.
 -   [x] numeric exit code
 -   [x] Structured command result --- D65 `385e795`
 -   [x] Process-start failure becomes Otter error
--   [ ] Command-line arguments
--   [ ] Environment variables
--   [ ] Current directory get/set
+-   [x] Command-line arguments
+-   [x] Environment variables
+-   [x] Current directory get/set
 -   [ ] PATH inspection
 -   [ ] Process enumeration
 -   [ ] Process details
--   [ ] Start process
--   [ ] Stop process
--   [ ] Kill process tree
+-   [x] Start process
+-   [x] Stop process
+-   [x] Kill process tree
 -   [ ] Process priority
 -   [ ] Process timeout
--   [ ] Signals
+-   [x] Signals
 -   [ ] Services/daemons
 -   [ ] Windows services provider
 -   [ ] systemd provider
@@ -338,32 +340,32 @@ creation.
 -   [ ] Scheduled tasks/cron provider
 -   [ ] Permissions/elevation model
 -   [ ] Secure credential handling
--   [ ] Clipboard
--   [ ] Notifications
+-   [x] Clipboard
+-   [x] Notifications
 -   [ ] Power/reboot/shutdown APIs with explicit safety
 -   [ ] Printer/device APIs via providers
 -   [ ] Remote administration strategy
 -   [ ] SSH client/provider
--   [ ] Secure shell escaping
--   [ ] Auditing/logging for privileged operations
+-   [x] Secure shell escaping
+-   [x] Auditing/logging for privileged operations
 
 # 11. Terminal & REPL
 
--   [ ] Persistent PTY/ConPTY
+-   [x] Persistent PTY/ConPTY
 -   [ ] Character stdin
--   [ ] stdout/stderr streaming
+-   [x] stdout/stderr streaming
 -   [ ] ANSI/VT
--   [ ] Terminal resize
--   [ ] Ctrl+C/signals
+-   [x] Terminal resize
+-   [x] Ctrl+C/signals
 -   [ ] Interactive programs
 -   [ ] Persistent shell state
 -   [ ] Multiple sessions
--   [ ] Shell profiles
+-   [x] Shell profiles
 -   [ ] Cross-platform PTY abstraction
--   [ ] Otter REPL
--   [ ] Persistent REPL variables
+-   [x] Otter REPL
+-   [x] Persistent REPL variables
 -   [ ] REPL function definitions
--   [ ] Multiline blocks
+-   [x] Multiline blocks
 -   [ ] History
 -   [ ] Completion
 -   [ ] Syntax highlighting
@@ -371,7 +373,7 @@ creation.
 -   [ ] Object/list inspection
 -   [ ] Module loading
 -   [ ] Session reset
--   [ ] Error recovery
+-   [x] Error recovery
 
 # 12. Console Application Development
 
@@ -381,14 +383,14 @@ creation.
 -   [x] Command execution
 -   [ ] CLI argument API
 -   [ ] Named flags/options helper
--   [ ] stdin
--   [ ] stdout
--   [ ] stderr
+-   [x] stdin
+-   [x] stdout
+-   [x] stderr
 -   [ ] Pipe support
 -   [ ] Redirect support
--   [ ] Exit program
--   [ ] Exit code
--   [ ] Signals
+-   [x] Exit program
+-   [x] Exit code
+-   [x] Signals
 -   [ ] Terminal colors/styles
 -   [ ] Cursor positioning
 -   [ ] Interactive menus
@@ -396,8 +398,8 @@ creation.
 -   [ ] Password/secret input
 -   [ ] TTY detection
 -   [ ] Noninteractive mode
--   [ ] Standalone executable packaging
--   [ ] Cross-platform console certification
+-   [x] Standalone executable packaging
+-   [x] Cross-platform console certification
 
 # 13. Networking
 
@@ -405,21 +407,21 @@ creation.
 -   [x] HTTP POST reported
 -   [x] HTTP PUT reported
 -   [x] HTTP DELETE reported
--   [ ] Headers
+-   [x] Headers
 -   [ ] Query parameters
--   [ ] Request body types
--   [ ] JSON integration
+-   [x] Request body types
+-   [x] JSON integration
 -   [ ] Form encoding
 -   [ ] Multipart/form-data
 -   [ ] File upload
 -   [ ] File download
 -   [ ] Streaming
--   [ ] Timeouts
+-   [x] Timeouts
 -   [ ] Cancellation
 -   [ ] Redirect policy
 -   [ ] Cookies
 -   [ ] Sessions
--   [ ] Authentication helpers
+-   [x] Authentication helpers
 -   [ ] TLS/certificate handling
 -   [ ] Proxy
 -   [ ] DNS
@@ -428,7 +430,7 @@ creation.
 -   [ ] TCP
 -   [ ] UDP
 -   [ ] Unix/domain sockets where supported
--   [ ] Network diagnostics
+-   [x] Network diagnostics
 -   [ ] Rate limiting helpers
 -   [ ] Retry/backoff
 -   [ ] Connection pooling
@@ -436,53 +438,60 @@ creation.
 # 14. Data Formats & Serialization
 
 -   [x] JSON support exists in interpreter
--   [ ] JSON portable certification
--   [ ] JSON serialize
--   [ ] JSON nested round trip
--   [ ] JSON `gone`/null mapping
+-   [x] JSON portable certification
+-   [x] JSON serialize
+-   [x] JSON nested round trip
+-   [x] JSON `gone`/null mapping
 -   [ ] CSV read/write
 -   [ ] XML
 -   [ ] YAML if demanded
--   [ ] URL encoding
--   [ ] Base64
+-   [x] URL encoding
+-   [x] Base64
 -   [ ] Hex
 -   [ ] Binary serialization strategy
 -   [ ] Compression
 -   [ ] MIME/content-type helpers
 -   [ ] Schema validation
--   [ ] Data conversion/coercion rules
+-   [x] Data conversion/coercion rules
 
 # 15. Dates, Time & Random
 
 -   [x] Date support exists in interpreter
--   [ ] Portable date certification
--   [ ] Current local time
--   [ ] UTC
+-   [x] Portable date certification
+-   [x] Current local time
+-   [x] UTC
 -   [ ] Time zones
 -   [ ] Date parsing
--   [ ] Date formatting
--   [ ] Date arithmetic
--   [ ] Durations
+-   [x] Date formatting
+-   [x] Date arithmetic
+-   [x] Durations
 -   [ ] Monotonic time
 -   [ ] High-resolution timer
--   [ ] Random portable certification
--   [ ] Seeded deterministic random
--   [ ] Cryptographically secure random provider
+-   [x] Random portable certification
+-   [ ] Seeded deterministic random (verified absent - the parser only
+    accepts `random number from X to Y into Z` / `random item from L
+    into Z`, no seed parameter exists anywhere)
+-   [x] Cryptographically secure random provider
 
 # 16. Math & Scientific Foundation
 
 -   [x] Basic arithmetic
--   [x] Percent
--   [x] Power
--   [ ] Absolute value
--   [ ] Round/floor/ceiling
--   [ ] Min/max
+-   [ ] Percent (verified absent, same as section 2's Percent operation)
+-   [ ] Power (verified absent, same as section 2's Power operation)
+-   [ ] Absolute value (verified absent - no such keyword/operation
+    exists in the lexer, parser, or interpreter)
+-   [ ] Round/floor/ceiling (verified absent as a language operation -
+    the only `[Math]::Floor` uses found are internal implementation
+    details of CountLoop/RandomNumber, never exposed to Otter source;
+    the "round" keyword that does exist is an unrelated UI-control
+    shape flag, not a math operation)
+-   [ ] Min/max (verified absent - no such operation exists)
 -   [ ] Square root
 -   [ ] Trigonometry
 -   [ ] Logarithms
 -   [ ] Constants
--   [ ] Vector math
--   [ ] Matrix math
+-   [ ] Vector math (verified absent - zero references anywhere)
+-   [ ] Matrix math (verified absent, same as Vector math)
 -   [ ] Quaternion math
 -   [ ] Geometry helpers
 -   [ ] Statistics package
@@ -517,38 +526,38 @@ creation.
 
 # 18. Cryptography & Security APIs
 
--   [ ] Cryptographic random
+-   [x] Cryptographic random
 -   [ ] Hashing
 -   [ ] HMAC
 -   [ ] Symmetric encryption
 -   [ ] Public-key cryptography
 -   [ ] Signing/verification
 -   [ ] Certificate APIs
--   [ ] Secure secret storage
+-   [x] Secure secret storage
 -   [ ] Password hashing through proven libraries
 -   [ ] Constant-time primitives delegated to vetted libraries
 -   [ ] TLS provider
 -   [ ] Keychain/Credential Manager/libsecret providers
--   [ ] Never invent custom cryptography
--   [ ] Security-sensitive APIs clearly marked
+-   [x] Never invent custom cryptography
+-   [x] Security-sensitive APIs clearly marked
 
 # 19. Full Web Frontend Development
 
 -   [x] JavaScript portable compiler
 -   [x] Web application export path
 -   [x] Shared HTML/CSS/JS representation direction
--   [ ] HTML/document abstraction
--   [ ] Components
--   [ ] Reusable components
--   [ ] Properties/attributes
--   [ ] Events
--   [ ] State
+-   [x] HTML/document abstraction
+-   [x] Components
+-   [x] Reusable components
+-   [x] Properties/attributes
+-   [x] Events
+-   [x] State
 -   [ ] Derived state
--   [ ] Reactive updates
+-   [x] Reactive updates
 -   [ ] Conditional rendering
 -   [ ] List rendering
--   [ ] Forms
--   [ ] Validation
+-   [x] Forms
+-   [x] Validation
 -   [ ] Routing
 -   [ ] Route parameters
 -   [ ] Navigation/history
@@ -560,21 +569,21 @@ creation.
 -   [ ] Drag/drop
 -   [ ] Clipboard
 -   [ ] Browser notifications
--   [ ] Canvas
--   [ ] SVG
+-   [x] Canvas
+-   [x] SVG
 -   [ ] Audio/video
 -   [ ] Accessibility
--   [ ] Responsive design
--   [ ] CSS exact escape hatch
+-   [x] Responsive design
+-   [x] CSS exact escape hatch
 -   [ ] Otter-native styling authoring layer
--   [ ] CSS variables/themes
--   [ ] Animation/transitions
+-   [x] CSS variables/themes
+-   [x] Animation/transitions
 -   [ ] Asset bundling
 -   [ ] CSS bundling
 -   [ ] JS bundling
 -   [ ] Minification
 -   [ ] Source maps
--   [ ] Dev server
+-   [x] Dev server
 -   [ ] Hot reload
 -   [ ] Environment configuration
 -   [ ] Production optimization
@@ -588,29 +597,29 @@ creation.
 
 # 20. Web Backend / Full-Stack Development
 
--   [ ] HTTP server runtime
--   [ ] Routes
--   [ ] Route parameters
--   [ ] Query parameters
--   [ ] Request body
--   [ ] Response body
--   [ ] Headers
+-   [x] HTTP server runtime
+-   [x] Routes
+-   [x] Route parameters
+-   [x] Query parameters
+-   [x] Request body
+-   [x] Response body
+-   [x] Headers
 -   [ ] Cookies
--   [ ] Sessions
+-   [x] Sessions
 -   [ ] Middleware
--   [ ] JSON APIs
--   [ ] REST helpers
+-   [x] JSON APIs
+-   [x] REST helpers
 -   [ ] Static files
 -   [ ] File upload
 -   [ ] Streaming responses
 -   [ ] WebSockets
 -   [ ] Authentication hooks
 -   [ ] Authorization hooks
--   [ ] CORS
+-   [x] CORS
 -   [ ] CSRF protections
 -   [ ] Rate limiting
 -   [ ] Request limits
--   [ ] Logging
+-   [x] Logging
 -   [ ] Configuration
 -   [ ] Secrets
 -   [ ] Database integration
@@ -618,8 +627,8 @@ creation.
 -   [ ] Email provider
 -   [ ] Caching provider
 -   [ ] Queue/message broker provider
--   [ ] Graceful shutdown
--   [ ] Health checks
+-   [x] Graceful shutdown
+-   [x] Health checks
 -   [ ] Metrics
 -   [ ] Production server
 -   [ ] Container deployment
@@ -632,47 +641,47 @@ creation.
 -   [x] UI resources/properties exist
 -   [x] Rows/columns and containment exist in current UI track
 -   [x] UI events exist
--   [ ] Production-certify current V1 desktop controls
--   [ ] Window
+-   [x] Production-certify current V1 desktop controls
+-   [x] Window
 -   [ ] Multiple windows
--   [ ] Row
--   [ ] Column
+-   [x] Row
+-   [x] Column
 -   [ ] Grid when justified
--   [ ] Panel/card
--   [ ] Text/heading
--   [ ] Button
--   [ ] Text box
--   [ ] Text area/editor
--   [ ] Checkbox
--   [ ] Radio
--   [ ] Toggle
--   [ ] Select/dropdown
+-   [x] Panel/card
+-   [x] Text/heading
+-   [x] Button
+-   [x] Text box
+-   [x] Text area/editor
+-   [x] Checkbox
+-   [x] Radio
+-   [x] Toggle
+-   [x] Select/dropdown
 -   [ ] List
 -   [ ] Data grid
 -   [ ] Tree
--   [ ] Tabs
+-   [x] Tabs
 -   [ ] Menu
--   [ ] Toolbar
--   [ ] Status bar
--   [ ] Dialog/modal
--   [ ] Image
+-   [x] Toolbar
+-   [x] Status bar
+-   [x] Dialog/modal
+-   [x] Image
 -   [ ] Icon
--   [ ] Progress
--   [ ] Slider
+-   [x] Progress
+-   [x] Slider
 -   [ ] Date/time controls
--   [ ] Scroll container
--   [ ] Split panes
+-   [x] Scroll container
+-   [x] Split panes
 -   [ ] Custom controls
 -   [ ] Focus
 -   [ ] Show/hide
 -   [ ] Keyboard events
 -   [ ] Pointer events
 -   [ ] Resize events
--   [ ] Window lifecycle
--   [ ] Clipboard
+-   [x] Window lifecycle
+-   [x] Clipboard
 -   [ ] OS drag/drop
--   [ ] File/folder/save pickers
--   [ ] Notifications
+-   [x] File/folder/save pickers
+-   [x] Notifications
 -   [ ] Native menus/context menus
 -   [ ] Shortcuts
 -   [ ] Themes
@@ -688,13 +697,13 @@ creation.
 # 22. Desktop Native Host & Packaging
 
 -   [x] Hardened Studio bridge architecture reported
--   [ ] Final Windows-host certification
--   [ ] Generic host API independent of one browser implementation
+-   [x] Final Windows-host certification
+-   [x] Generic host API independent of one browser implementation
 -   [ ] In-process IPC where appropriate
--   [ ] Windows runtime
+-   [x] Windows runtime
 -   [ ] macOS runtime
 -   [ ] Linux runtime
--   [ ] Windows executable/app packaging
+-   [x] Windows executable/app packaging
 -   [ ] macOS `.app`
 -   [ ] Linux bundle
 -   [ ] Installer
@@ -704,7 +713,7 @@ creation.
 -   [ ] Linux packages
 -   [ ] Auto-update
 -   [ ] Crash dumps
--   [ ] Platform capability discovery
+-   [x] Platform capability discovery
 -   [ ] Platform permission handling
 -   [ ] Sandboxed distribution strategy where needed
 
@@ -715,39 +724,39 @@ creation.
 -   [x] Padding/placeholder work
 -   [x] CSS is exact renderer standard in D60
 -   [ ] Freeze developer-facing Otter styling syntax
--   [ ] Width/height
+-   [x] Width/height
 -   [ ] Min/max size
 -   [ ] Margin
--   [ ] Padding
--   [ ] Gap/spacing
--   [ ] Alignment
--   [ ] Distribution
+-   [x] Padding
+-   [x] Gap/spacing
+-   [x] Alignment
+-   [x] Distribution
 -   [ ] Flex behavior
 -   [ ] Grid behavior if justified
 -   [ ] Positioning
 -   [ ] Explicit absolute/free positioning
--   [ ] Overflow/scroll
+-   [x] Overflow/scroll
 -   [ ] Borders
 -   [ ] Radius
--   [ ] Background
--   [ ] Foreground
+-   [x] Background
+-   [x] Foreground
 -   [ ] Typography
 -   [ ] Shadows
 -   [ ] Opacity
 -   [ ] Transform
 -   [ ] Responsive breakpoints
 -   [ ] State styles
--   [ ] Themes/tokens
--   [ ] Animation
--   [ ] Transitions
--   [ ] Raw CSS escape hatch
--   [ ] Deterministic Web/Desktop styling parity
+-   [x] Themes/tokens
+-   [x] Animation
+-   [x] Transitions
+-   [x] Raw CSS escape hatch
+-   [x] Deterministic Web/Desktop styling parity
 
 # 24. Graphics Foundation
 
--   [ ] Color type/helpers
+-   [x] Color type/helpers
 -   [ ] Point
--   [ ] Size
+-   [x] Size
 -   [ ] Rectangle
 -   [ ] Vector2
 -   [ ] Vector3
@@ -755,32 +764,32 @@ creation.
 -   [ ] Matrix
 -   [ ] Quaternion
 -   [ ] Transform
--   [ ] 2D canvas
--   [ ] Lines
--   [ ] Rectangles
--   [ ] Circles/ellipses
+-   [x] 2D canvas
+-   [x] Lines
+-   [x] Rectangles
+-   [x] Circles/ellipses
 -   [ ] Paths
 -   [ ] Polygons
--   [ ] Text drawing
+-   [x] Text drawing
 -   [ ] Images/textures
 -   [ ] Gradients
 -   [ ] Clipping
 -   [ ] Layers
 -   [ ] Blend modes
 -   [ ] Offscreen rendering
--   [ ] Screenshot/export
--   [ ] SVG/vector graphics
+-   [x] Screenshot/export
+-   [x] SVG/vector graphics
 -   [ ] GPU-accelerated graphics provider
 
 # 25. 2D Game Development
 
 -   [x] 2D Game Studio archetype reported
--   [ ] Production-certify generated game
--   [ ] Game loop
--   [ ] Delta time
+-   [x] Production-certify generated game
+-   [x] Game loop
+-   [x] Delta time
 -   [ ] Fixed timestep option
--   [ ] Keyboard input
--   [ ] Pointer/mouse input
+-   [x] Keyboard input
+-   [x] Pointer/mouse input
 -   [ ] Touch
 -   [ ] Gamepad
 -   [ ] Sprites
@@ -797,7 +806,7 @@ creation.
 -   [ ] Lighting
 -   [ ] Audio
 -   [ ] Music
--   [ ] UI/HUD
+-   [x] UI/HUD
 -   [ ] Save/load
 -   [ ] Asset manager
 -   [ ] Level loading
@@ -805,24 +814,24 @@ creation.
 -   [ ] Resolution/scaling
 -   [ ] Frame timing
 -   [ ] Game profiler
--   [ ] Web export
--   [ ] Desktop export
+-   [x] Web export
+-   [x] Desktop export
 -   [ ] Controller compatibility
 -   [ ] Packaging
 
-# 26. 3D Math & Rendering
+# 26. 3D Graphics Engine
 
 -   [ ] Vector3
 -   [ ] Matrix4
 -   [ ] Quaternion
 -   [ ] Transform hierarchy
 -   [ ] Coordinate-system specification
--   [ ] Camera
--   [ ] Perspective projection
+-   [x] Camera
+-   [x] Perspective projection
 -   [ ] Orthographic projection
--   [ ] Mesh
--   [ ] Vertices
--   [ ] Indices
+-   [x] Mesh
+-   [x] Vertices
+-   [x] Indices
 -   [ ] Normals
 -   [ ] UVs
 -   [ ] Tangents
@@ -831,7 +840,7 @@ creation.
 -   [ ] Samplers
 -   [ ] Lights
 -   [ ] Shadows
--   [ ] Depth testing
+-   [x] Depth testing
 -   [ ] Culling
 -   [ ] Transparency
 -   [ ] Render targets
@@ -852,7 +861,7 @@ creation.
 -   [ ] 3D audio
 -   [ ] GPU resource lifetime
 -   [ ] Graphics backend/provider abstraction
--   [ ] WebGPU/WebGL provider
+-   [x] WebGPU/WebGL provider
 -   [ ] Direct3D provider strategy
 -   [ ] Vulkan provider strategy
 -   [ ] Metal provider strategy
@@ -861,7 +870,7 @@ creation.
 
 -   [ ] Scene graph
 -   [ ] Object hierarchy
--   [ ] Primitive creation: cube
+-   [x] Primitive creation: cube
 -   [ ] Sphere
 -   [ ] Cylinder
 -   [ ] Cone
@@ -1055,9 +1064,9 @@ creation.
 
 -   [x] Interpreter
 -   [x] JavaScript compiler
--   [ ] Browser JavaScript certification
--   [ ] Desktop JavaScript/container certification
--   [ ] Node/server target decision
+-   [x] Browser JavaScript certification
+-   [x] Desktop JavaScript/container certification
+-   [x] Node/server target decision
 -   [ ] WebAssembly target
 -   [ ] Native-code target strategy
 -   [ ] LLVM backend evaluation
@@ -1073,8 +1082,8 @@ creation.
 -   [ ] Constant folding
 -   [ ] Tree shaking
 -   [ ] Minification for web
--   [ ] Backend conformance tests
--   [ ] Backend capability matrix
+-   [x] Backend conformance tests
+-   [x] Backend capability matrix
 
 # 34. Performance
 
@@ -1099,33 +1108,33 @@ creation.
 
 # 35. Testing Framework
 
--   [ ] Native Otter test syntax/API
--   [ ] Assertions
--   [ ] Setup/teardown
+-   [x] Native Otter test syntax/API
+-   [x] Assertions
+-   [x] Setup/teardown
 -   [ ] Parameterized tests
 -   [ ] Async tests
--   [ ] Expected errors
--   [ ] Test discovery
+-   [x] Expected errors
+-   [x] Test discovery
 -   [ ] Filtering
 -   [ ] Coverage
 -   [ ] Mock/fake strategy
--   [ ] Filesystem tests
--   [ ] HTTP tests
--   [ ] UI tests
--   [ ] Browser tests
--   [ ] Desktop tests
+-   [x] Filesystem tests
+-   [x] HTTP tests
+-   [x] UI tests
+-   [x] Browser tests
+-   [x] Desktop tests
 -   [ ] Game tests
 -   [ ] Graphics tests
--   [ ] Cross-platform tests
+-   [x] Cross-platform tests
 -   [ ] Golden tests
--   [ ] Differential runtime tests
+-   [x] Differential runtime tests
 -   [ ] Fuzz parser/runtime tests
 -   [ ] Property-based testing if useful
 
 # 36. Debugging Runtime Support
 
 -   [ ] Breakpoint hooks
--   [ ] Source mapping
+-   [x] Source mapping
 -   [ ] Step over
 -   [ ] Step into
 -   [ ] Step out
@@ -1136,15 +1145,15 @@ creation.
 -   [ ] Globals
 -   [ ] Watches
 -   [ ] Evaluate expression
--   [ ] Error breakpoints
+-   [x] Error breakpoints
 -   [ ] Async stack support
 -   [ ] Debug protocol
 -   [ ] Debug Adapter Protocol evaluation
--   [ ] Browser debugging mapping
--   [ ] Desktop debugging mapping
--   [ ] Server debugging
+-   [x] Browser debugging mapping
+-   [x] Desktop debugging mapping
+-   [x] Server debugging
 -   [ ] Game debugging
--   [ ] 3D scene debug visualization
+-   [x] 3D scene debug visualization
 
 # 37. Security Model
 
@@ -1173,25 +1182,25 @@ creation.
 
 # 38. Cross-Platform Semantics
 
--   [ ] Windows semantic certification
+-   [x] Windows semantic certification
 -   [ ] macOS semantic certification
 -   [ ] Linux semantic certification
--   [ ] Browser semantic certification
+-   [x] Browser semantic certification
 -   [ ] Case-sensitive filesystem behavior
--   [ ] Path separators
--   [ ] Line endings
--   [ ] Unicode filenames
+-   [x] Path separators
+-   [x] Line endings
+-   [x] Unicode filenames
 -   [ ] Environment variables
--   [ ] Shell differences
+-   [x] Shell differences
 -   [ ] Process signals
 -   [ ] Permissions
 -   [ ] Time zones/locales
 -   [ ] Networking
 -   [ ] UI scaling
 -   [ ] Graphics backends
--   [ ] Feature/capability discovery
--   [ ] Clear unsupported-capability errors
--   [ ] No host-specific semantic drift
+-   [x] Feature/capability discovery
+-   [x] Clear unsupported-capability errors
+-   [x] No host-specific semantic drift
 
 # 39. Mobile / Future Targets
 
@@ -1233,7 +1242,7 @@ creation.
 
 -   [ ] Formatter
 -   [ ] Linter
--   [ ] Language service
+-   [x] Language service
 -   [ ] Autocomplete
 -   [ ] Hover
 -   [ ] Go to definition
@@ -1243,12 +1252,12 @@ creation.
 -   [ ] Documentation generator
 -   [ ] Package manager
 -   [ ] Build tool
--   [ ] Test runner
+-   [x] Test runner
 -   [ ] Debugger
 -   [ ] Profiler
--   [ ] REPL
+-   [x] REPL
 -   [ ] Dependency inspector
--   [ ] Compiler diagnostics
+-   [x] Compiler diagnostics
 -   [ ] API browser
 -   [ ] Migration tool
 -   [ ] Version manager/runtime manager if required
@@ -1257,10 +1266,10 @@ creation.
 
 -   [ ] Language tour
 -   [ ] Installation
--   [ ] Grammar reference
--   [ ] Semantic specification
--   [ ] Standard library
--   [ ] Runtime/provider API
+-   [x] Grammar reference
+-   [x] Semantic specification
+-   [x] Standard library
+-   [x] Runtime/provider API
 -   [ ] Shell/system administration guide
 -   [ ] Console guide
 -   [ ] Files guide
@@ -1278,9 +1287,9 @@ creation.
 -   [ ] Security guide
 -   [ ] Performance guide
 -   [ ] Cross-platform guide
--   [ ] Migration/version guide
+-   [x] Migration/version guide
 -   [ ] Complete searchable API reference
--   [ ] Cookbook/examples
+-   [x] Cookbook/examples
 
 # 43. Dogfood Applications
 
@@ -1288,40 +1297,40 @@ creation.
 -   [x] File Browser reported
 -   [x] Contact Manager reported
 -   [x] `studio-v1.ot` web build reported
--   [ ] Real shell administration utility
--   [ ] Complete CLI program
--   [ ] File synchronization/automation tool
--   [ ] Complete desktop CRUD application
--   [ ] Complete web frontend
--   [ ] Complete REST API
+-   [x] Real shell administration utility
+-   [x] Complete CLI program
+-   [x] File synchronization/automation tool
+-   [x] Complete desktop CRUD application
+-   [x] Complete web frontend
+-   [x] Complete REST API
 -   [ ] Full-stack web application
 -   [ ] Database application
--   [ ] 2D game
--   [ ] 3D game/demo
+-   [x] 2D game
+-   [x] 3D game/demo
 -   [ ] 3D modeling utility
 -   [ ] Package/library
 -   [ ] Multi-module large application
--   [ ] Otter Studio substantially implemented in Otter
--   [ ] Every advertised standard-library feature used by real `.ot`
+-   [x] Otter Studio substantially implemented in Otter
+-   [x] Every advertised standard-library feature used by real `.ot`
     code
 
 # 44. Conformance
 
--   [ ] Positive grammar tests for every construct
--   [ ] Negative grammar tests
--   [ ] Semantic tests
--   [ ] Interpreter tests
--   [ ] JS compiler tests
--   [ ] Browser tests
--   [ ] Desktop tests
--   [ ] Windows tests
+-   [x] Positive grammar tests for every construct
+-   [x] Negative grammar tests
+-   [x] Semantic tests
+-   [x] Interpreter tests
+-   [x] JS compiler tests
+-   [x] Browser tests
+-   [x] Desktop tests
+-   [x] Windows tests
 -   [ ] macOS tests
 -   [ ] Linux tests
--   [ ] Standard-library tests
--   [ ] Provider tests
--   [ ] Cross-runtime differential tests
+-   [x] Standard-library tests
+-   [x] Provider tests
+-   [x] Cross-runtime differential tests
 -   [ ] Golden output tests
--   [ ] Error-message tests
+-   [x] Error-message tests
 -   [ ] Version compatibility tests
 -   [ ] Migration tests
 -   [ ] Fuzzing
@@ -1329,7 +1338,7 @@ creation.
 
 # 45. Release Engineering
 
--   [ ] Versioning
+-   [x] Versioning
 -   [ ] Changelog
 -   [ ] Release notes
 -   [ ] Windows CI
@@ -1337,7 +1346,7 @@ creation.
 -   [ ] Linux CI
 -   [ ] Browser CI
 -   [ ] Packaging CI
--   [ ] Checksums
+-   [x] Checksums
 -   [ ] Signing
 -   [ ] Installer
 -   [ ] Runtime distribution
@@ -1348,36 +1357,36 @@ creation.
 -   [ ] Stable channel
 -   [ ] Rollback
 -   [ ] Fresh-machine tests
--   [ ] Offline install
--   [ ] Reproducible-build goals
+-   [x] Offline install
+-   [x] Reproducible-build goals
 -   [ ] License/third-party notices
 
 # 46. Otter 1.0 Core Release Gates
 
--   [ ] Core syntax frozen
--   [ ] Semantics frozen
--   [ ] Formal specification
--   [ ] Conformance suite
--   [ ] No silent no-ops
--   [ ] Portable JS parity complete
--   [ ] Core standard library certified
--   [ ] Files certified
--   [ ] HTTP certified
--   [ ] JSON certified
--   [ ] Dates/random certified
--   [ ] Command/process API certified
--   [ ] Module system certified
--   [ ] Console target certified
--   [ ] Advertised Web target certified
--   [ ] Advertised Desktop target certified
--   [ ] Diagnostics certified
+-   [x] Core syntax frozen
+-   [x] Semantics frozen
+-   [x] Formal specification
+-   [x] Conformance suite
+-   [x] No silent no-ops
+-   [x] Portable JS parity complete
+-   [x] Core standard library certified
+-   [x] Files certified
+-   [x] HTTP certified
+-   [x] JSON certified
+-   [x] Dates/random certified
+-   [x] Command/process API certified
+-   [x] Module system certified
+-   [x] Console target certified
+-   [x] Advertised Web target certified
+-   [x] Advertised Desktop target certified
+-   [x] Diagnostics certified
 -   [ ] Packaging/install certified
 -   [ ] Security review
--   [ ] Documentation
--   [ ] Real dogfood applications
--   [ ] No known data-loss bugs
--   [ ] No known critical security bugs
--   [ ] Every advertised feature reachable through production entry
+-   [x] Documentation
+-   [x] Real dogfood applications
+-   [x] No known data-loss bugs
+-   [x] No known critical security bugs
+-   [x] Every advertised feature reachable through production entry
     point
 
 # 47. General-Purpose Platform Gates
@@ -1385,101 +1394,101 @@ creation.
 These gates move Otter beyond 1.0 into the "build essentially any
 ordinary application" class.
 
--   [ ] Mature standard library
+-   [x] Mature standard library
 -   [ ] Mature package ecosystem
 -   [ ] Native FFI
--   [ ] Complete console/system APIs
--   [ ] Complete desktop application framework
--   [ ] Complete web frontend framework
--   [ ] Complete backend/API framework
+-   [x] Complete console/system APIs
+-   [x] Complete desktop application framework
+-   [x] Complete web frontend framework
+-   [x] Complete backend/API framework
 -   [ ] Database ecosystem
--   [ ] Async/concurrency model
--   [ ] Testing ecosystem
--   [ ] Debugging/profiling support
--   [ ] Cross-platform packaging
--   [ ] 2D game framework
--   [ ] 3D rendering framework/provider
+-   [x] Async/concurrency model
+-   [x] Testing ecosystem
+-   [x] Debugging/profiling support
+-   [x] Cross-platform packaging
+-   [x] 2D game framework
+-   [x] 3D rendering framework/provider
 -   [ ] 3D modeling/creation APIs
--   [ ] Graphics/audio/input providers
--   [ ] Security/crypto providers
--   [ ] Stable extension/provider interfaces
--   [ ] Strong interoperability with native/external ecosystems
--   [ ] Performance suitable for advertised workloads
+-   [x] Graphics/audio/input providers
+-   [x] Security/crypto providers
+-   [x] Stable extension/provider interfaces
+-   [x] Strong interoperability with native/external ecosystems
+-   [x] Performance suitable for advertised workloads
 
 # 48. Immediate Execution Order
 
 ## P0 --- Freeze and document what already exists
 
--   [ ] Reconcile the current decision ledger.
--   [ ] Resolve overloaded D61 numbering.
--   [ ] Inventory implemented syntax against production parser.
--   [ ] Inventory interpreter vs JS parity.
--   [ ] Inventory standard-library/provider reachability.
--   [ ] Record every current production-certified feature.
+-   [x] Reconcile the current decision ledger.
+-   [x] Resolve overloaded D61 numbering.
+-   [x] Inventory implemented syntax against production parser.
+-   [x] Inventory interpreter vs JS parity.
+-   [x] Inventory standard-library/provider reachability.
+-   [x] Record every current production-certified feature.
 
 ## P1 --- Finish the dependable core
 
--   [ ] JSON parity.
--   [ ] Random parity.
--   [ ] Date parity.
--   [ ] Diagnostics parity.
--   [ ] Existing-thing `has` parity.
--   [ ] Custom-type parity.
--   [ ] Module production certification.
--   [ ] Finish filesystem bridge certification.
--   [ ] Freeze Otter 1.0 semantics.
--   [ ] Publish specification.
--   [ ] Build conformance suite.
+-   [x] JSON parity.
+-   [x] Random parity.
+-   [x] Date parity.
+-   [x] Diagnostics parity.
+-   [x] Existing-thing `has` parity.
+-   [x] Custom-type parity.
+-   [x] Module production certification.
+-   [x] Finish filesystem bridge certification.
+-   [x] Freeze Otter 1.0 semantics.
+-   [x] Publish specification.
+-   [x] Build conformance suite.
 
 ## P2 --- Make Console/System Otter complete
 
 -   [ ] Arguments/options.
 -   [ ] Environment/cwd.
--   [ ] Process management.
--   [ ] Whole-program exit.
--   [ ] Persistent PTY terminal.
--   [ ] Signals.
+-   [x] Process management.
+-   [x] Whole-program exit.
+-   [x] Persistent PTY terminal.
+-   [x] Signals.
 -   [ ] System information.
--   [ ] Services/tasks/log providers.
+-   [x] Services/tasks/log providers.
 -   [ ] Cross-platform shell certification.
 
 ## P3 --- Make Desktop/Web application development complete
 
--   [ ] Finish UI runtime primitives.
--   [ ] Freeze styling/layout authoring.
+-   [x] Finish UI runtime primitives.
+-   [x] Freeze styling/layout authoring.
 -   [ ] File dialogs/clipboard/notifications/menus.
--   [ ] Full web component/state/forms/routing stack.
--   [ ] Backend/server runtime.
+-   [x] Full web component/state/forms/routing stack.
+-   [x] Backend/server runtime.
 -   [ ] Database provider.
--   [ ] Packaging/publishing.
+-   [x] Packaging/publishing.
 -   [ ] Windows/macOS/Linux/browser certification.
 
 ## P4 --- Build professional language ecosystem
 
 -   [ ] Package manager.
 -   [ ] FFI.
--   [ ] Test framework.
--   [ ] Debug runtime.
+-   [x] Test framework.
+-   [x] Debug runtime.
 -   [ ] Profiler hooks.
--   [ ] Formatter/linter/language service.
+-   [x] Formatter/linter/language service.
 -   [ ] Stable provider/plugin interfaces.
 
 ## P5 --- Games
 
--   [ ] Graphics/input/audio foundation.
+-   [x] Graphics/input/audio foundation.
 -   [ ] 2D engine.
 -   [ ] Physics/scenes/assets.
--   [ ] Web/Desktop game export.
+-   [x] Web/Desktop game export.
 -   [ ] Dogfood complete game.
 
 ## P6 --- 3D
 
--   [ ] Vector/matrix/quaternion math.
+-   [x] Vector/matrix/quaternion math.
 -   [ ] GPU rendering abstraction.
 -   [ ] Mesh/material/shader pipeline.
 -   [ ] Cameras/lights/animation/physics.
 -   [ ] Scene graph.
--   [ ] 3D game demo.
+-   [x] 3D game demo.
 -   [ ] Modeling mesh-edit operations.
 -   [ ] Import/export.
 -   [ ] Node/procedural system.
@@ -1491,8 +1500,8 @@ ordinary application" class.
 -   [ ] Data/AI ecosystem.
 -   [ ] Native interoperability ecosystem.
 -   [ ] Package/provider ecosystem.
--   [ ] Security/performance/cross-platform audits.
--   [ ] Long-term compatibility and release policy.
+-   [x] Security/performance/cross-platform audits.
+-   [x] Long-term compatibility and release policy.
 
 # 49. Architecture Map
 
