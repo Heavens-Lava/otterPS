@@ -1142,22 +1142,66 @@ function ConvertTo-OtterJsStatement {
             return ($lines -join "`n")
         }
         ([NodeKind]::HttpGet) {
+            # D49/D60. Block-scoped (`{ ... }`) deliberately: `const res`
+            # was previously emitted bare at the caller's own indent level,
+            # which is fine for exactly one HTTP call in a given scope but
+            # is a real, confirmed bug for two or more - JS rejects
+            # redeclaring `const res` in the same scope with a hard
+            # SyntaxError, breaking the ENTIRE compiled script (not just
+            # that statement), the moment a real Otter program makes two
+            # HttpGet/Post/Put/Delete calls at the same level. Found by
+            # compiling and running an actual two-call `.ot` program in a
+            # real browser, not by reading the code. Wrapping in its own
+            # block - the same pattern every other multi-line statement
+            # case in this file already uses - fixes it with no change to
+            # the emitted values or control flow.
             $url = ConvertTo-OtterJsExpression -Expr $Stmt.Url
             $target = $Stmt.Target
-            if ($Stmt.AsJson) {
-                return "${pad}const res = await fetch($url); const $target = await res.json(); window.$target = $target;"
-            }
-            return "${pad}const res = await fetch($url); const $target = await res.text(); window.$target = $target;"
+            $readBody = if ($Stmt.AsJson) { 'res.json()' } else { 'res.text()' }
+            return "${pad}{ const res = await fetch($url); const $target = await $readBody; window.$target = $target; }"
         }
         ([NodeKind]::HttpPost) {
+            # D49/D60. Block-scoped - see HttpGet's comment for why.
             $data = ConvertTo-OtterJsExpression -Expr $Stmt.Data
             $url = ConvertTo-OtterJsExpression -Expr $Stmt.Url
             $target = $Stmt.Target
             $body = if ($Stmt.AsJson) { "JSON.stringify($data)" } else { "(typeof $data === 'object' ? JSON.stringify($data) : String($data))" }
             if ($target) {
-                return "${pad}const res = await fetch($url, { method: 'POST', body: $body }); const $target = await res.text(); window.$target = $target;"
+                return "${pad}{ const res = await fetch($url, { method: 'POST', body: $body }); const $target = await res.text(); window.$target = $target; }"
             }
             return "${pad}await fetch($url, { method: 'POST', body: $body });"
+        }
+        ([NodeKind]::HttpPut) {
+            # D49/D60. `put data to "https://..." [into result]` - mirrors
+            # HttpPost exactly (same Data/Url/Target/AsJson shape in the
+            # contract), only the HTTP method word differs. Web-only by
+            # design (D49 was always the web provider's domain - the
+            # interpreter has no HttpPut/HttpDelete case at all, confirmed
+            # directly, so there is no interpreter behavior to match here,
+            # only HttpPost's own already-established codegen shape).
+            # Block-scoped - see HttpGet's comment for why.
+            $data = ConvertTo-OtterJsExpression -Expr $Stmt.Data
+            $url = ConvertTo-OtterJsExpression -Expr $Stmt.Url
+            $target = $Stmt.Target
+            $body = if ($Stmt.AsJson) { "JSON.stringify($data)" } else { "(typeof $data === 'object' ? JSON.stringify($data) : String($data))" }
+            if ($target) {
+                return "${pad}{ const res = await fetch($url, { method: 'PUT', body: $body }); const $target = await res.text(); window.$target = $target; }"
+            }
+            return "${pad}await fetch($url, { method: 'PUT', body: $body });"
+        }
+        ([NodeKind]::HttpDelete) {
+            # D49/D60. `delete "https://..." [into result]` - mirrors
+            # HttpGet's shape minus AsJson (HttpDeleteStmt has no AsJson
+            # field in the contract - a DELETE response is read as plain
+            # text, matching HttpGet's own non-JSON branch). Same
+            # web-only reasoning as HttpPut above. Block-scoped - see
+            # HttpGet's comment for why.
+            $url = ConvertTo-OtterJsExpression -Expr $Stmt.Url
+            $target = $Stmt.Target
+            if ($target) {
+                return "${pad}{ const res = await fetch($url, { method: 'DELETE' }); const $target = await res.text(); window.$target = $target; }"
+            }
+            return "${pad}await fetch($url, { method: 'DELETE' });"
         }
         ([NodeKind]::DateAdjust) {
             # D60 Phase 1J. `add <n> <unit> to <target>` / `remove <n>
@@ -1757,7 +1801,7 @@ function Get-OtterJsBindingNames {
             if ($s.Kind -eq [NodeKind]::MathInto) {
                 [void]$setStyle.Add($s.Target)
             }
-            if ($s.Kind -eq [NodeKind]::ReadFile -or $s.Kind -eq [NodeKind]::HttpGet -or $s.Kind -eq [NodeKind]::HttpPost) {
+            if ($s.Kind -eq [NodeKind]::ReadFile -or $s.Kind -eq [NodeKind]::HttpGet -or $s.Kind -eq [NodeKind]::HttpPost -or $s.Kind -eq [NodeKind]::HttpPut -or $s.Kind -eq [NodeKind]::HttpDelete) {
                 if ($s.Target) { [void]$setStyle.Add($s.Target) }
             }
             if ($s.Kind -eq [NodeKind]::RunProgram -and $s.ResultTarget) {
@@ -1914,7 +1958,7 @@ function Test-OtterJsBodyNeedsAsync {
 
     if ($null -eq $Statements) { return $false }
     foreach ($s in $Statements) {
-        if ($s.Kind -eq [NodeKind]::Await -or $s.Kind -eq [NodeKind]::ReadFile -or $s.Kind -eq [NodeKind]::WriteFile -or $s.Kind -eq [NodeKind]::AppendFile -or $s.Kind -eq [NodeKind]::CopyFile -or $s.Kind -eq [NodeKind]::MoveFile -or $s.Kind -eq [NodeKind]::DeleteFile -or $s.Kind -eq [NodeKind]::CreateFolder -or $s.Kind -eq [NodeKind]::DeleteFolder -or $s.Kind -eq [NodeKind]::CopyFolder -or $s.Kind -eq [NodeKind]::MoveFolder -or $s.Kind -eq [NodeKind]::GetFiles -or $s.Kind -eq [NodeKind]::GetFolders -or $s.Kind -eq [NodeKind]::RunProgram -or $s.Kind -eq [NodeKind]::HttpGet -or $s.Kind -eq [NodeKind]::HttpPost) {
+        if ($s.Kind -eq [NodeKind]::Await -or $s.Kind -eq [NodeKind]::ReadFile -or $s.Kind -eq [NodeKind]::WriteFile -or $s.Kind -eq [NodeKind]::AppendFile -or $s.Kind -eq [NodeKind]::CopyFile -or $s.Kind -eq [NodeKind]::MoveFile -or $s.Kind -eq [NodeKind]::DeleteFile -or $s.Kind -eq [NodeKind]::CreateFolder -or $s.Kind -eq [NodeKind]::DeleteFolder -or $s.Kind -eq [NodeKind]::CopyFolder -or $s.Kind -eq [NodeKind]::MoveFolder -or $s.Kind -eq [NodeKind]::GetFiles -or $s.Kind -eq [NodeKind]::GetFolders -or $s.Kind -eq [NodeKind]::RunProgram -or $s.Kind -eq [NodeKind]::HttpGet -or $s.Kind -eq [NodeKind]::HttpPost -or $s.Kind -eq [NodeKind]::HttpPut -or $s.Kind -eq [NodeKind]::HttpDelete) {
             return $true
         }
         if ($s.Kind -eq [NodeKind]::ReadJson) {

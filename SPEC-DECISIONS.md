@@ -4550,15 +4550,36 @@ each one and reading the generated JS, not inferred from the diff.
   provably broken - references a property `MemoDefStmt` does not have
   - and was deliberately left as an honest diagnostic rather than
   fixed for 1.0), so it is not a JS-backend gap either.
-- `HttpPut`/`HttpDelete`: `HttpGet`/`HttpPost` work; these two do not.
-  Since the interpreter implements NONE of the four (D49 is web-only by
-  design), this is an internal web-feature completeness gap, not an
-  interpreter-parity gap - noted for completeness, not blocking.
-- `AppendFile` (D61): has no JS case, but also has NO PARSER SUPPORT
-  YET for either runtime (`append "x" to "y"` is a syntax error today -
-  confirmed directly) - Codex's lane, not reachable via real syntax by
-  ANY runtime yet, so this cannot be an interpreter-vs-compiler gap
-  until the grammar exists.
+- ~~`HttpPut`/`HttpDelete`~~ **RESOLVED** (2026-09-15): both added,
+  mirroring `HttpPost`/`HttpGet`'s existing shape exactly (`HttpPutStmt`
+  has the same Data/Url/Target/AsJson fields as `HttpPostStmt`;
+  `HttpDeleteStmt` is `HttpGetStmt` minus `AsJson`). Real parser support
+  already existed (`put ... to ... into ...` / `delete from ... into
+  ...`), confirmed directly. Verified against real network calls in a
+  real browser (Playwright, `httpbin.org/put` and `/delete`), not
+  simulated. Since the interpreter implements none of the four HTTP
+  verbs (D49 is web-only by design), there was no interpreter behavior
+  to match - only `HttpGet`/`HttpPost`'s own established codegen shape.
+  **A real, more serious bug was found and fixed along the way**: all
+  four HTTP statement cases (`HttpGet`/`HttpPost`/`HttpPut`/
+  `HttpDelete`) emitted a bare `const res = await fetch(...)` at the
+  caller's indent level, not wrapped in its own block - harmless for
+  exactly one HTTP call in a given scope, but a confirmed hard
+  `SyntaxError: Identifier 'res' has already been declared` for two or
+  more calls at the same scope level, which breaks the ENTIRE compiled
+  script, not just the offending statement. This was a PRE-EXISTING bug
+  in `HttpGet`/`HttpPost` (not introduced by adding Put/Delete) -
+  reproduced directly by compiling and running a real two-call `.ot`
+  program in a real browser before assuming the mirrored pattern was
+  safe to copy. Fixed by wrapping each case in its own `{ ... }` block,
+  the same convention every other multi-line statement case in this
+  file already uses; verified the fix with the same real two-call
+  program, no other change to emitted values or control flow.
+- `AppendFile` (D61): **RESOLVED**, real parser support now exists
+  (`append "x" to "y"` parses and compiles correctly, confirmed
+  directly) - the JS case was added and verified end-to-end (real
+  desktop bridge, real on-disk content) alongside the other filesystem
+  operations closed in the same pass (see the filesystem entry above).
 
 **RELEASE BLOCKERS - RESOLVED** (2026-09-14; all three closed in one
 pass, `Otter.Compiler.JavaScript.psm1` only, isolated from an unrelated
@@ -4622,25 +4643,34 @@ uncommitted diff in that same file - see the commit note below):
   real `window.prompt()` calls: text, a numeric answer, and a boolean
   answer all coerced identically to the interpreter.
 
-**DOCUMENTED HOST DIFFERENCES NEEDING AN EXPLICIT BOUNDARY** (the
-underlying capability is legitimately host-dependent the way `ReadFile`
-already is, but the CURRENT state is a silent no-op, not the explicit
-reported boundary D60 itself requires - "host boundaries reported
-explicitly, never silently changing meaning" is not yet true for
-these):
-- `CopyFile`/`MoveFile`/`DeleteFile`/`FileExists`: no JS case at all,
-  confirmed absent by direct inspection - not even an
-  `otterReadFile`-style required hook or an honest "not available
-  here" error. A real `.ot` program using any of these compiles clean
-  and silently does nothing.
-- `GetFiles`/`GetFolders`/`CreateFolder`/`DeleteFolder`/`CopyFolder`/
-  `MoveFolder`: same as above - filesystem discovery/folder operations,
-  all silently absent from the JS backend today.
-- These should follow `ReadFile`/`WriteFile`'s already-established
-  pattern exactly (a required runtime hook per operation, the target
-  adapter decides what's actually possible on that host) rather than
-  being invented fresh - the pattern to extend already exists, this is
-  systematic completion, not new design work.
+**DOCUMENTED HOST DIFFERENCES NEEDING AN EXPLICIT BOUNDARY - ALL
+RESOLVED** (2026-09-15): `CopyFile`/`MoveFile`/`DeleteFile`/
+`FileExists`/`CreateFolder`/`DeleteFolder`/`CopyFolder`/`MoveFolder`/
+`AppendFile` all now have real `NodeKind` cases following the exact
+`ReadFile`/`WriteFile`-established pattern (a required `otterXxx`
+runtime hook per operation; the target adapter, `Otter.Web.psm1`/
+`Otter.Desktop.psm1`, decides what's actually possible on that host -
+confirmed both already define every hook, the plain-browser fallback
+throwing an honest "Desktop Bridge is not available" the same way
+`otterReadFile` already does). `FileExists` is the first EXPRESSION-
+position host call (used inline in `if file "x" exists`), which needed
+a new `Test-OtterJsExpressionNeedsAsync` helper threaded through
+`Assign`/`MathInto`/`Return`/`Say`/`If`/`While` conditions, since the
+existing async-detection scanner only walked statement bodies, never
+expressions nested inside them - a real design gap, not merely an
+oversight, since `FileExists` could not have worked correctly inside
+any conditional without it. Verified end-to-end through the REAL
+desktop bridge (not just `otter web`, since these need actual
+host-backed file access) - copy/move/delete file, both branches of
+file-exists, create folder, append into a newly-created file, and
+copy/move folder (recursive, contents intact) all checked via real
+on-disk state after a real `otter.ps1 desktop` launch, not console
+output alone. A real bug was found and fixed along the way:
+`Test-OtterJsBodyNeedsAsync`'s `Say` case referenced `$s.Values`, but
+`SayStmt`'s actual field is `$s.Parts` - PowerShell silently returns
+`$null` for a nonexistent property rather than erroring, so a `say
+(file "x" exists)`-style async subexpression inside a function body
+was never actually detected as needing `async`.
 
 **POST-1.0 / DEFERRED** (already tracked individually above in this
 same D60 section from earlier phases - re-confirmed still open, not
@@ -4662,18 +4692,13 @@ a partial one):
 - The narrow double-bad-type comparison edge case (a date on one side,
   a third bad type on the other) naming the date side rather than
   strictly replicating the interpreter's left-then-right check order.
-- `HttpPut`/`HttpDelete` (web-only completeness, not interpreter
-  parity - see "out of scope" above).
 
-**Bottom line**: after Phases 1A-1J plus the three release-blocker
-fixes above, the JS backend has full parity for every ordinary
-imperative `NodeKind` EXCEPT the filesystem-discovery/copy/move/delete
-operations that still need `ReadFile`-style explicit host hooks
-(`CopyFile`/`MoveFile`/`DeleteFile`/`FileExists`/`CreateFolder`/
-`DeleteFolder`/`CopyFolder`/`MoveFolder`). Nothing found in this audit
-was architectural - every blocker was a missing `NodeKind` case or a
-missing hook following an already-proven pattern, not a reason to
-revisit D60's design.
+**Bottom line (updated 2026-09-15)**: the JS backend now has full
+`NodeKind` parity for the entire ordinary-imperative-language surface,
+including every filesystem operation and `HttpPut`/`HttpDelete`.
+Nothing found across this whole audit was architectural - every
+blocker was a missing `NodeKind` case or a missing hook following an
+already-proven pattern, not a reason to revisit D60's design.
 
 ---
 
