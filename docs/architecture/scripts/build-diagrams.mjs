@@ -123,70 +123,77 @@ function diagram(name, width = 1800, height = 1120) {
 }
 
 function buildMasterArchitecture() {
-  const d = diagram('Otter Platform Master Architecture');
-  d.label('OTTER PLATFORM MASTER ARCHITECTURE', 40, 25, 1120, 48, { size: 28 });
-  d.label('Readable language · shared frontend · provider-backed applications', 40, 70, 1120, 32, { size: 16, bold: false, font: '#475569' });
+  const d = diagram('Otter Platform Master Architecture', 1800, 1080);
 
-  const governance = d.vertex(
-    `Architecture & certification sources\nPlatform checklist: ${platformChecklist.complete}/${platformChecklist.total} complete\nStudio checklist: ${studioChecklist.complete}/${studioChecklist.total} complete`,
-    1240, 25, 500, 85,
-    { fill: '#fff7ed', stroke: '#f59e0b', font: '#7c2d12' }
+  // Large architectural bands establish hierarchy before the individual
+  // nodes are added. Keeping cross-band connectors to a minimum makes this
+  // useful as a platform map rather than a wiring schematic.
+  d.vertex('', 25, 145, 1750, 145, { fill: '#f8fafc', stroke: '#cbd5e1', extra: 'arcSize=18;' });
+  d.vertex('', 25, 310, 1750, 205, { fill: '#faf5ff', stroke: '#d8b4fe', extra: 'arcSize=18;' });
+  d.vertex('', 25, 535, 1750, 235, { fill: '#f8fafc', stroke: '#cbd5e1', extra: 'arcSize=18;' });
+  d.vertex('', 25, 790, 1750, 245, { fill: '#fffbeb', stroke: '#fed7aa', extra: 'arcSize=18;' });
+
+  d.vertex(
+    '<div style="text-align:left"><b style="font-size:28px">OTTER PLATFORM MASTER ARCHITECTURE</b><br><span style="font-size:16px;color:#cbd5e1">Readable language · shared frontend · provider-backed applications</span></div>',
+    25, 20, 1750, 105,
+    { fill: '#0f172a', stroke: '#0f172a', font: '#ffffff', shadow: true, extra: 'align=left;spacingLeft=28;' }
+  );
+  d.vertex(
+    `<div><b>LIVE CERTIFICATION</b><br><span style="font-size:18px">${platformChecklist.complete}/${platformChecklist.total}</span> platform &nbsp;·&nbsp; <span style="font-size:18px">${studioChecklist.complete}/${studioChecklist.total}</span> Studio</div>`,
+    1285, 37, 450, 70,
+    { fill: '#172554', stroke: '#60a5fa', font: '#ffffff', extra: 'strokeWidth=1;' }
   );
 
-  d.label('AUTHORING & DEVELOPER EXPERIENCE', 40, 135, 600, 30, { size: 17, font: '#1d4ed8' });
-  const studio = d.vertex('Otter Studio\nEditor · Designer · Terminal · Debugger', 50, 180, 300, 90, { fill: '#eff6ff', stroke: '#2563eb', shadow: true });
-  const vscode = d.vertex('VS Code Extension\nHighlighting · Language Service', 390, 180, 300, 90, { fill: '#eff6ff', stroke: '#2563eb' });
-  const cli = d.vertex('CLI & REPL\notter run · check · web · desktop · serve', 730, 180, 340, 90, { fill: '#eff6ff', stroke: '#2563eb' });
+  d.label('01  AUTHORING & DEVELOPER EXPERIENCE', 50, 157, 620, 28, { size: 16, font: '#1d4ed8' });
+  d.label('Clients consume the same Otter source, frontend, and semantic services.', 1050, 157, 680, 28, { size: 13, bold: false, align: 'right', font: '#64748b' });
+  d.vertex('<b>Otter Studio</b><br><span style="font-size:13px;color:#475569">Editor · Designer · Terminal · Debugger</span>', 65, 200, 310, 65, { fill: '#eff6ff', stroke: '#2563eb', shadow: true });
+  d.vertex('<b>VS Code Extension</b><br><span style="font-size:13px;color:#475569">Highlighting · Language Service</span>', 410, 200, 310, 65, { fill: '#eff6ff', stroke: '#2563eb' });
+  d.vertex('<b>CLI & REPL</b><br><span style="font-size:13px;color:#475569">run · check · web · desktop · serve</span>', 755, 200, 330, 65, { fill: '#eff6ff', stroke: '#2563eb' });
+  d.vertex('<b>Architecture Sources</b><br><span style="font-size:13px;color:#7c2d12">Platform + Studio checklists · release gates</span>', 1190, 200, 520, 65, { fill: '#fff7ed', stroke: '#f59e0b' });
 
-  d.label('SHARED LANGUAGE CORE', 40, 315, 600, 30, { size: 17, font: '#7e22ce' });
-  const source = d.vertex('Otter source\nmain.ot + modules', 40, 360, 200, 90, { fill: '#dbeafe', stroke: '#0284c7', shadow: true });
-  const moduleResolver = d.vertex('Module Resolver\nsource graph + source map', 275, 360, 250, 90, { fill: '#faf5ff', stroke: '#9333ea' });
-  const lexer = d.vertex('Lexer\nsource → tokens', 560, 360, 220, 90, { fill: '#faf5ff', stroke: '#9333ea' });
-  const parser = d.vertex('Parser + Contract\ntokens → typed AST', 815, 350, 280, 110, { fill: '#f3e8ff', stroke: '#7e22ce', shadow: true });
-  const semantics = d.vertex('Semantic Services\nsymbols · diagnostics · scopes', 1130, 360, 300, 90, { fill: '#faf5ff', stroke: '#9333ea' });
-  const tests = d.vertex('Conformance & Tests\nparser · runtime · targets · dogfood', 1470, 360, 290, 90, { fill: '#f0fdf4', stroke: '#16a34a' });
+  d.label('02  SHARED LANGUAGE CORE', 50, 322, 500, 28, { size: 16, font: '#7e22ce' });
+  d.label('One deterministic frontend serves every execution target and editor client.', 1000, 322, 730, 28, { size: 13, bold: false, align: 'right', font: '#64748b' });
+  const source = d.vertex('<b>Otter Source</b><br><span style="font-size:13px">main.ot + modules</span>', 55, 385, 190, 80, { fill: '#dbeafe', stroke: '#0284c7', shadow: true });
+  const moduleResolver = d.vertex('<b>Module Resolver</b><br><span style="font-size:13px">source graph + map</span>', 285, 385, 225, 80, { fill: '#ffffff', stroke: '#9333ea' });
+  const lexer = d.vertex('<b>Lexer</b><br><span style="font-size:13px">source → Token[]</span>', 550, 385, 190, 80, { fill: '#ffffff', stroke: '#9333ea' });
+  const parser = d.vertex('<b>Parser + Contract</b><br><span style="font-size:13px">tokens → typed AST</span>', 780, 375, 250, 100, { fill: '#f3e8ff', stroke: '#7e22ce', shadow: true });
+  const semantics = d.vertex('<b>Semantic Services</b><br><span style="font-size:13px">symbols · diagnostics · scopes</span>', 1070, 385, 285, 80, { fill: '#ffffff', stroke: '#9333ea' });
+  const tests = d.vertex('<b>Conformance & Tests</b><br><span style="font-size:13px">frontend · runtime · targets · dogfood</span>', 1395, 385, 325, 80, { fill: '#f0fdf4', stroke: '#16a34a' });
 
-  d.label('EXECUTION, COMPILATION & CAPABILITIES', 40, 505, 720, 30, { size: 17, font: '#047857' });
-  const interpreter = d.vertex('Interpreter\nexecutes the AST', 80, 555, 270, 90, { fill: '#ecfdf5', stroke: '#059669' });
-  const jsCompiler = d.vertex('JavaScript Compiler\nAST → HTML/CSS/JS', 400, 555, 290, 90, { fill: '#ecfdf5', stroke: '#059669' });
-  const runtime = d.vertex('Runtime + Library\nvalues · files · JSON · time · processes', 740, 545, 350, 110, { fill: '#d1fae5', stroke: '#047857', shadow: true });
-  const providers = d.vertex('Provider Layer\nUI · filesystem · process · HTTP · host bridges', 1140, 545, 380, 110, { fill: '#ecfdf5', stroke: '#059669' });
-  const build = d.vertex('Build & Packaging\nartifacts · installer · releases', 1570, 545, 190, 110, { fill: '#fff7ed', stroke: '#f59e0b' });
+  d.label('03  EXECUTION & COMPILATION', 50, 547, 520, 28, { size: 16, font: '#047857' });
+  d.vertex('', 55, 590, 815, 145, { fill: '#ecfdf5', stroke: '#a7f3d0', extra: 'arcSize=18;' });
+  d.vertex('', 905, 590, 815, 145, { fill: '#fff7ed', stroke: '#fed7aa', extra: 'arcSize=18;' });
+  d.label('DIRECT EXECUTION', 75, 600, 240, 25, { size: 13, font: '#047857' });
+  d.label('COMPILED APPLICATION', 925, 600, 280, 25, { size: 13, font: '#b45309' });
+  const interpreter = d.vertex('<b>Interpreter</b><br><span style="font-size:12px">executes ProgramNode</span>', 80, 640, 215, 65, { fill: '#ffffff', stroke: '#059669' });
+  const runtime = d.vertex('<b>Runtime + Library</b><br><span style="font-size:12px">values · files · JSON · processes</span>', 330, 630, 275, 85, { fill: '#d1fae5', stroke: '#047857', shadow: true });
+  const providers = d.vertex('<b>Native Providers</b><br><span style="font-size:12px">UI · filesystem · process · HTTP</span>', 640, 640, 205, 65, { fill: '#ffffff', stroke: '#059669' });
+  const jsCompiler = d.vertex('<b>JavaScript Compiler</b><br><span style="font-size:12px">AST → generated program</span>', 930, 640, 225, 65, { fill: '#ffffff', stroke: '#d97706' });
+  const artifact = d.vertex('<b>Application Artifact</b><br><span style="font-size:12px">HTML · CSS · JavaScript</span>', 1190, 640, 225, 65, { fill: '#ffffff', stroke: '#d97706' });
+  const bridge = d.vertex('<b>Target Runtime / Bridge</b><br><span style="font-size:12px">browser APIs · authenticated host</span>', 1450, 630, 245, 85, { fill: '#ffedd5', stroke: '#ea580c', shadow: true });
 
-  d.label('APPLICATION TARGETS', 40, 705, 500, 30, { size: 17, font: '#b45309' });
-  const consoleTarget = d.vertex('Console & Automation\nV1 target', 50, 750, 260, 100, { fill: '#fffbeb', stroke: '#d97706' });
-  const webTarget = d.vertex('Web Applications\nBrowser runtime', 350, 750, 260, 100, { fill: '#fffbeb', stroke: '#d97706' });
-  const desktopTarget = d.vertex('Desktop Applications\nNative host + bridge', 650, 750, 270, 100, { fill: '#fffbeb', stroke: '#d97706' });
-  const serverTarget = d.vertex('Server / API\nHTTP routes + JSON', 960, 750, 260, 100, { fill: '#fffbeb', stroke: '#d97706' });
-  const futureTarget = d.vertex('Future Targets\nGame · Mobile · 3D · Compute', 1260, 750, 300, 100, { fill: '#f8fafc', stroke: '#94a3b8', dashed: true });
+  d.label('04  APPLICATION TARGETS & HOSTS', 50, 802, 600, 28, { size: 16, font: '#b45309' });
+  const consoleTarget = d.vertex('<b>Console & Automation</b><br><span style="font-size:12px">direct runtime</span>', 55, 855, 280, 75, { fill: '#ffffff', stroke: '#d97706' });
+  const webTarget = d.vertex('<b>Web Applications</b><br><span style="font-size:12px">browser runtime</span>', 370, 855, 280, 75, { fill: '#ffffff', stroke: '#d97706' });
+  const desktopTarget = d.vertex('<b>Desktop Applications</b><br><span style="font-size:12px">native host + bridge</span>', 685, 855, 280, 75, { fill: '#ffffff', stroke: '#d97706' });
+  const serverTarget = d.vertex('<b>Server / API</b><br><span style="font-size:12px">HTTP routes + JSON</span>', 1000, 855, 280, 75, { fill: '#ffffff', stroke: '#d97706' });
+  const futureTarget = d.vertex('<b>Future Targets</b><br><span style="font-size:12px">Game · Mobile · 3D · Compute</span>', 1315, 855, 405, 75, { fill: '#f8fafc', stroke: '#94a3b8', dashed: true });
+  d.vertex('<b>WINDOWS</b> · Primary V1 host', 110, 960, 360, 42, { fill: '#eff6ff', stroke: '#2563eb', font: '#1e3a8a', extra: 'fontSize=13;' });
+  d.vertex('<b>macOS</b> · Planned certification', 650, 960, 360, 42, { fill: '#ffffff', stroke: '#94a3b8', font: '#475569', dashed: true, extra: 'fontSize=13;' });
+  d.vertex('<b>Linux</b> · Planned certification', 1190, 960, 360, 42, { fill: '#ffffff', stroke: '#94a3b8', font: '#475569', dashed: true, extra: 'fontSize=13;' });
 
-  d.label('HOST CERTIFICATION', 40, 900, 500, 30, { size: 17, font: '#475569' });
-  const windows = d.vertex('Windows\nPrimary V1 host', 260, 945, 300, 80, { fill: '#eff6ff', stroke: '#2563eb' });
-  const mac = d.vertex('macOS\nPlanned certification', 700, 945, 300, 80, { fill: '#f8fafc', stroke: '#94a3b8', dashed: true });
-  const linux = d.vertex('Linux\nPlanned certification', 1140, 945, 300, 80, { fill: '#f8fafc', stroke: '#94a3b8', dashed: true });
-
-  d.edge(studio, source, '', { color: '#2563eb' });
-  d.edge(cli, source);
   d.edge(source, moduleResolver);
   d.edge(moduleResolver, lexer);
   d.edge(lexer, parser);
   d.edge(parser, semantics);
-  d.edge(parser, interpreter);
-  d.edge(parser, jsCompiler);
+  d.edge(semantics, tests, '', { color: '#16a34a' });
   d.edge(interpreter, runtime);
-  d.edge(jsCompiler, runtime);
   d.edge(runtime, providers);
-  d.edge(providers, consoleTarget);
-  d.edge(providers, desktopTarget);
-  d.edge(providers, serverTarget);
-  d.edge(jsCompiler, webTarget);
-  d.edge(build, webTarget);
-  d.edge(build, desktopTarget);
-  d.edge(governance, tests, 'release gates', { dashed: true, color: '#f59e0b' });
-  d.edge(consoleTarget, windows);
-  d.edge(desktopTarget, windows);
+  d.edge(jsCompiler, artifact);
+  d.edge(artifact, bridge);
 
-  d.label('Blue: authoring / current host    Purple: language core    Green: runtime/compiler    Gold: application targets    Dashed: planned or governance', 80, 1060, 1600, 30, { size: 14, bold: false, align: 'center', font: '#475569' });
+  d.label('CURRENT', 60, 930, 120, 24, { size: 11, font: '#16a34a' });
+  d.label('PLANNED / REQUIRES CERTIFICATION', 1380, 930, 330, 24, { size: 11, font: '#64748b', align: 'right' });
   return d.xml();
 }
 
@@ -240,9 +247,283 @@ function buildCompilerPipeline() {
   return d.xml();
 }
 
+function buildStudioArchitecture() {
+  const d = diagram('Otter Studio Internal Architecture', 1800, 1080);
+  d.vertex('<div style="text-align:left"><b style="font-size:28px">OTTER STUDIO INTERNAL ARCHITECTURE</b><br><span style="font-size:16px;color:#cbd5e1">A professional workbench built on shared Otter services</span></div>', 25, 20, 1750, 105, { fill: '#0f172a', stroke: '#0f172a', font: '#ffffff', shadow: true, extra: 'align=left;spacingLeft=28;' });
+
+  d.vertex('', 25, 145, 1750, 175, { fill: '#eff6ff', stroke: '#bfdbfe' });
+  d.label('01  WORKBENCH SURFACE', 50, 157, 430, 28, { size: 16, font: '#1d4ed8' });
+  const explorer = d.vertex('<b>Explorer</b><br><span style="font-size:12px">projects · files · assets</span>', 55, 215, 260, 70, { fill: '#ffffff', stroke: '#2563eb' });
+  const editor = d.vertex('<b>Source Editor</b><br><span style="font-size:12px">tabs · syntax · diagnostics</span>', 345, 205, 290, 90, { fill: '#dbeafe', stroke: '#2563eb', shadow: true });
+  const designer = d.vertex('<b>UI Designer</b><br><span style="font-size:12px">canvas · hierarchy · toolbox</span>', 665, 205, 290, 90, { fill: '#dbeafe', stroke: '#2563eb', shadow: true });
+  const inspector = d.vertex('<b>Inspector</b><br><span style="font-size:12px">properties · events · variables</span>', 985, 215, 280, 70, { fill: '#ffffff', stroke: '#2563eb' });
+  const panels = d.vertex('<b>Output Workbench</b><br><span style="font-size:12px">problems · output · terminal · tests</span>', 1295, 215, 425, 70, { fill: '#ffffff', stroke: '#2563eb' });
+
+  d.vertex('', 25, 340, 1750, 180, { fill: '#faf5ff', stroke: '#d8b4fe' });
+  d.label('02  COORDINATION & SHARED SERVICES', 50, 352, 600, 28, { size: 16, font: '#7e22ce' });
+  const workbench = d.vertex('<b>Workbench Controller</b><br><span style="font-size:12px">commands · document state · panels</span>', 90, 410, 330, 75, { fill: '#ffffff', stroke: '#9333ea' });
+  const project = d.vertex('<b>Project / Workspace</b><br><span style="font-size:12px">tree · paths · configuration</span>', 460, 410, 300, 75, { fill: '#ffffff', stroke: '#9333ea' });
+  const language = d.vertex('<b>Otter Language Service</b><br><span style="font-size:12px">symbols · diagnostics · navigation</span>', 800, 400, 340, 95, { fill: '#f3e8ff', stroke: '#7e22ce', shadow: true });
+  const model = d.vertex('<b>UI Model Service</b><br><span style="font-size:12px">canonical tree · mutations · source sync</span>', 1180, 400, 340, 95, { fill: '#f3e8ff', stroke: '#7e22ce', shadow: true });
+  const commands = d.vertex('<b>Command Bus</b><br><span style="font-size:12px">run · build · save · debug</span>', 1560, 410, 170, 75, { fill: '#ffffff', stroke: '#9333ea' });
+
+  d.vertex('', 25, 540, 1750, 220, { fill: '#ecfdf5', stroke: '#a7f3d0' });
+  d.label('03  ENGINES & INTEGRATIONS', 50, 552, 520, 28, { size: 16, font: '#047857' });
+  const frontend = d.vertex('<b>Real Otter Frontend</b><br><span style="font-size:12px">module resolver · lexer · parser · AST</span>', 60, 620, 320, 90, { fill: '#ffffff', stroke: '#059669', shadow: true });
+  const roundtrip = d.vertex('<b>Designer Round Trip</b><br><span style="font-size:12px">parse · model · generate · verify</span>', 415, 620, 300, 90, { fill: '#ffffff', stroke: '#059669' });
+  const buildRun = d.vertex('<b>Build / Run Service</b><br><span style="font-size:12px">console · web · desktop · server</span>', 750, 620, 300, 90, { fill: '#ffffff', stroke: '#059669' });
+  const terminal = d.vertex('<b>Terminal / Process</b><br><span style="font-size:12px">PTY · stdout · stderr · exit code</span>', 1085, 620, 300, 90, { fill: '#ffffff', stroke: '#059669' });
+  d.vertex('<b>Debugger + Tests</b><br><span style="font-size:12px">planned professional services</span>', 1420, 620, 300, 90, { fill: '#f8fafc', stroke: '#94a3b8', dashed: true });
+
+  d.vertex('', 25, 780, 1750, 250, { fill: '#fff7ed', stroke: '#fed7aa' });
+  d.label('04  RUNTIMES, HOSTS & ECOSYSTEM', 50, 792, 620, 28, { size: 16, font: '#b45309' });
+  const runtime = d.vertex('<b>Otter Runtime</b><br><span style="font-size:12px">interpreter · standard library</span>', 60, 860, 285, 80, { fill: '#ffffff', stroke: '#d97706' });
+  const compiler = d.vertex('<b>JavaScript Compiler</b><br><span style="font-size:12px">web application artifacts</span>', 380, 860, 285, 80, { fill: '#ffffff', stroke: '#d97706' });
+  const bridge = d.vertex('<b>Desktop Host Bridge</b><br><span style="font-size:12px">authenticated host capabilities</span>', 700, 850, 315, 100, { fill: '#ffedd5', stroke: '#ea580c', shadow: true });
+  const gitPackages = d.vertex('<b>Git · Packages · Extensions</b><br><span style="font-size:12px">planned ecosystem integrations</span>', 1050, 860, 325, 80, { fill: '#f8fafc', stroke: '#94a3b8', dashed: true });
+  const hosts = d.vertex('<b>Windows Host</b><br><span style="font-size:12px">browser · native UI · filesystem · processes</span>', 1410, 850, 310, 100, { fill: '#eff6ff', stroke: '#2563eb' });
+
+  d.edge(explorer, project);
+  d.edge(editor, language);
+  d.edge(designer, model);
+  d.edge(inspector, model);
+  d.edge(panels, workbench);
+  d.edge(workbench, commands);
+  d.edge(language, frontend);
+  d.edge(model, roundtrip);
+  d.edge(commands, buildRun);
+  d.edge(commands, terminal);
+  d.edge(buildRun, runtime);
+  d.edge(buildRun, compiler);
+  d.edge(terminal, bridge);
+  d.edge(runtime, hosts);
+  d.edge(compiler, hosts);
+  d.edge(bridge, hosts);
+  return d.xml();
+}
+
+function buildDesignerRoundTrip() {
+  const d = diagram('UI Designer Round-Trip Architecture', 1800, 980);
+  d.vertex('<div style="text-align:left"><b style="font-size:28px">UI DESIGNER ROUND-TRIP ARCHITECTURE</b><br><span style="font-size:16px;color:#cbd5e1">Visual edits remain real Otter source, compiled by the real pipeline</span></div>', 25, 20, 1750, 105, { fill: '#0f172a', stroke: '#0f172a', font: '#ffffff', shadow: true, extra: 'align=left;spacingLeft=28;' });
+
+  d.label('SOURCE → MODEL → DESIGNER', 55, 160, 600, 30, { size: 16, font: '#7e22ce' });
+  const source = d.vertex('<b>.ot UI Source</b><br><span style="font-size:12px">canonical authoring format</span>', 55, 220, 240, 90, { fill: '#dbeafe', stroke: '#0284c7', shadow: true });
+  const parser = d.vertex('<b>Real Parser / AST</b><br><span style="font-size:12px">same frontend used by builds</span>', 355, 220, 260, 90, { fill: '#f3e8ff', stroke: '#7e22ce' });
+  const uiModel = d.vertex('<b>Otter UI Model</b><br><span style="font-size:12px">resources · properties · hierarchy · events</span>', 675, 210, 310, 110, { fill: '#f3e8ff', stroke: '#7e22ce', shadow: true });
+  const designer = d.vertex('<b>Designer Workbench</b><br><span style="font-size:12px">canvas · toolbox · hierarchy · inspector</span>', 1045, 210, 320, 110, { fill: '#eff6ff', stroke: '#2563eb', shadow: true });
+  const preview = d.vertex('<b>DOM + CSS Preview</b><br><span style="font-size:12px">interactive design renderer</span>', 1425, 220, 300, 90, { fill: '#eff6ff', stroke: '#2563eb' });
+  d.edge(source, parser);
+  d.edge(parser, uiModel);
+  d.edge(uiModel, designer, '', { bidirectional: true, color: '#7e22ce' });
+  d.edge(designer, preview, '', { bidirectional: true, color: '#2563eb' });
+
+  d.vertex('', 25, 380, 1750, 270, { fill: '#ecfdf5', stroke: '#a7f3d0' });
+  d.label('VISUAL EDIT → CANONICAL SOURCE', 55, 395, 650, 30, { size: 16, font: '#047857' });
+  const gesture = d.vertex('<b>Drag / Drop / Edit</b><br><span style="font-size:12px">one explicit user operation</span>', 60, 475, 250, 90, { fill: '#ffffff', stroke: '#059669' });
+  const mutation = d.vertex('<b>Model Mutation</b><br><span style="font-size:12px">validated deterministic change</span>', 365, 475, 260, 90, { fill: '#ffffff', stroke: '#059669' });
+  const generator = d.vertex('<b>Otter Generator</b><br><span style="font-size:12px">stable formatting + ordering</span>', 680, 475, 260, 90, { fill: '#ffffff', stroke: '#059669' });
+  const canonical = d.vertex('<b>Canonical .ot</b><br><span style="font-size:12px">readable source saved to disk</span>', 995, 475, 260, 90, { fill: '#d1fae5', stroke: '#047857', shadow: true });
+  const compiler = d.vertex('<b>Real Compiler</b><br><span style="font-size:12px">no designer-only renderer path</span>', 1310, 475, 260, 90, { fill: '#ffffff', stroke: '#059669' });
+  const rendered = d.vertex('<b>Rendered UI</b><br><span style="font-size:12px">same behavior and structure</span>', 1625, 475, 120, 90, { fill: '#ffffff', stroke: '#059669' });
+  d.edge(gesture, mutation);
+  d.edge(mutation, generator);
+  d.edge(generator, canonical);
+  d.edge(canonical, compiler);
+  d.edge(compiler, rendered);
+
+  const gate = d.vertex('<b>ROUND-TRIP CERTIFICATION GATE</b><br><span style="font-size:14px">parse → model → generate → parse again → equivalent AST → equivalent rendered UI</span>', 250, 730, 1300, 105, { fill: '#f0fdf4', stroke: '#16a34a', shadow: true });
+  d.vertex('<b>Rule:</b> the designer never invents private UI semantics. Unsupported edits remain explicit gaps.', 390, 865, 1020, 55, { fill: '#fff7ed', stroke: '#f59e0b', font: '#7c2d12' });
+  return d.xml();
+}
+
+function buildRuntimeProviders() {
+  const d = diagram('Runtime Capability and Provider Map', 1800, 1050);
+  d.vertex('<div style="text-align:left"><b style="font-size:28px">RUNTIME CAPABILITY & PROVIDER MAP</b><br><span style="font-size:16px;color:#cbd5e1">Stable Otter semantics above host-specific implementations</span></div>', 25, 20, 1750, 105, { fill: '#0f172a', stroke: '#0f172a', font: '#ffffff', shadow: true, extra: 'align=left;spacingLeft=28;' });
+
+  const semantics = d.vertex('<b>OTTER LANGUAGE SEMANTICS</b><br><span style="font-size:14px">values · scope · errors · objects · collections · dates · command results</span>', 260, 160, 1280, 90, { fill: '#f3e8ff', stroke: '#7e22ce', shadow: true });
+  const contract = d.vertex('<b>CAPABILITY CONTRACTS</b><br><span style="font-size:14px">portable operation shape · validation · Otter-facing diagnostics</span>', 350, 300, 1100, 85, { fill: '#d1fae5', stroke: '#047857', shadow: true });
+  d.edge(semantics, contract);
+
+  d.label('PROVIDER IMPLEMENTATIONS', 50, 425, 500, 30, { size: 16, font: '#047857' });
+  const file = d.vertex('<b>Filesystem</b><br><span style="font-size:12px">read · write · append · discover · mutate</span>', 45, 485, 270, 90, { fill: '#ffffff', stroke: '#059669' });
+  const process = d.vertex('<b>Process / Shell</b><br><span style="font-size:12px">launch · streams · exit code · PTY</span>', 340, 485, 270, 90, { fill: '#ffffff', stroke: '#059669' });
+  const http = d.vertex('<b>HTTP / Server</b><br><span style="font-size:12px">client · routes · JSON · status</span>', 635, 485, 270, 90, { fill: '#ffffff', stroke: '#059669' });
+  const ui = d.vertex('<b>UI</b><br><span style="font-size:12px">resources · properties · events · layout</span>', 930, 485, 270, 90, { fill: '#ffffff', stroke: '#059669' });
+  const system = d.vertex('<b>System Services</b><br><span style="font-size:12px">environment · clipboard · services · tasks</span>', 1225, 485, 270, 90, { fill: '#f8fafc', stroke: '#94a3b8', dashed: true });
+  const data = d.vertex('<b>Data Providers</b><br><span style="font-size:12px">database · packages · FFI</span>', 1520, 485, 235, 90, { fill: '#f8fafc', stroke: '#94a3b8', dashed: true });
+  for (const provider of [file, process, http, ui, system, data]) d.edge(contract, provider);
+
+  d.vertex('', 25, 635, 1750, 340, { fill: '#f8fafc', stroke: '#cbd5e1' });
+  d.label('HOST DELIVERY', 50, 650, 400, 30, { size: 16, font: '#1d4ed8' });
+  d.vertex('<b>PowerShell Runtime</b><br><span style="font-size:12px">direct interpreter providers</span>', 70, 720, 300, 85, { fill: '#eff6ff', stroke: '#2563eb' });
+  d.vertex('<b>Browser Runtime</b><br><span style="font-size:12px">portable JS + browser APIs</span>', 410, 720, 300, 85, { fill: '#eff6ff', stroke: '#2563eb' });
+  d.vertex('<b>Desktop Bridge</b><br><span style="font-size:12px">authenticated native capabilities</span>', 750, 710, 320, 105, { fill: '#dbeafe', stroke: '#2563eb', shadow: true });
+  d.vertex('<b>Server Host</b><br><span style="font-size:12px">HTTP listener + backend providers</span>', 1110, 720, 300, 85, { fill: '#eff6ff', stroke: '#2563eb' });
+  d.vertex('<b>Future Native Hosts</b><br><span style="font-size:12px">macOS · Linux · mobile · game</span>', 1450, 720, 270, 85, { fill: '#ffffff', stroke: '#94a3b8', dashed: true });
+  d.vertex('<b>Current principle</b><br>Unsupported host capability → clear Otter error', 90, 860, 480, 70, { fill: '#f0fdf4', stroke: '#16a34a' });
+  d.vertex('<b>Portability gate</b><br>Same source + semantics, provider-specific implementation', 660, 860, 480, 70, { fill: '#fff7ed', stroke: '#f59e0b' });
+  d.vertex('<b>Security gate</b><br>Dangerous or expensive behavior stays visible', 1230, 860, 480, 70, { fill: '#fef2f2', stroke: '#dc2626' });
+  return d.xml();
+}
+
+function buildTargetPlatforms() {
+  const d = diagram('Otter Target Architecture Map', 1800, 1030);
+  d.vertex('<div style="text-align:left"><b style="font-size:28px">OTTER TARGET ARCHITECTURE</b><br><span style="font-size:16px;color:#cbd5e1">Shared language core, explicit target adapters, honest host certification</span></div>', 25, 20, 1750, 105, { fill: '#0f172a', stroke: '#0f172a', font: '#ffffff', shadow: true, extra: 'align=left;spacingLeft=28;' });
+  const core = d.vertex('<b>SHARED OTTER CORE</b><br><span style="font-size:14px">module resolver · lexer · parser · AST · semantics · diagnostics · standard values</span>', 240, 155, 1320, 90, { fill: '#f3e8ff', stroke: '#7e22ce', shadow: true });
+  const selector = d.vertex('<b>Build / Run Target Selection</b><br><span style="font-size:12px">explicit CLI and project configuration</span>', 650, 290, 500, 75, { fill: '#fff7ed', stroke: '#f59e0b' });
+  d.edge(core, selector);
+
+  const targets = [
+    { x: 35, title: 'CONSOLE / AUTOMATION', compiler: 'Interpreter', runtime: 'Runtime + shell/files', artifact: '.ot execution', host: 'Windows V1', planned: false },
+    { x: 385, title: 'WEB APPLICATION', compiler: 'JavaScript compiler', runtime: 'Browser runtime', artifact: 'HTML · CSS · JS', host: 'Browser certification', planned: false },
+    { x: 735, title: 'DESKTOP APPLICATION', compiler: 'JS compiler / interpreter', runtime: 'Desktop bridge + UI', artifact: 'Packaged desktop app', host: 'Windows V1', planned: false },
+    { x: 1085, title: 'SERVER / API', compiler: 'Interpreter', runtime: 'HTTP server runtime', artifact: 'Service process', host: 'Host certification', planned: false },
+    { x: 1435, title: 'FUTURE TARGETS', compiler: 'Target backend', runtime: 'Game · Mobile · 3D', artifact: 'Target artifact', host: 'Planned', planned: true }
+  ];
+  for (const target of targets) {
+    const stroke = target.planned ? '#94a3b8' : '#d97706';
+    const dashed = target.planned;
+    d.vertex(`<b>${target.title}</b>`, target.x, 420, 315, 55, { fill: target.planned ? '#f8fafc' : '#fffbeb', stroke, dashed, font: target.planned ? '#475569' : '#92400e', extra: 'fontSize=13;' });
+    d.vertex(`<b>Frontend / Compiler</b><br><span style="font-size:12px">${target.compiler}</span>`, target.x, 495, 315, 75, { fill: '#ffffff', stroke, dashed });
+    d.vertex(`<b>Target Runtime</b><br><span style="font-size:12px">${target.runtime}</span>`, target.x, 590, 315, 75, { fill: '#ffffff', stroke, dashed });
+    d.vertex(`<b>Artifact</b><br><span style="font-size:12px">${target.artifact}</span>`, target.x, 685, 315, 75, { fill: '#ffffff', stroke, dashed });
+    d.vertex(`<b>Host Gate</b><br><span style="font-size:12px">${target.host}</span>`, target.x, 800, 315, 75, { fill: target.planned ? '#ffffff' : '#eff6ff', stroke: target.planned ? '#94a3b8' : '#2563eb', dashed });
+  }
+  d.vertex('<b>Shared guarantee:</b> target differences belong in compilers, runtimes, and providers—not silent changes to Otter semantics.', 230, 920, 1340, 65, { fill: '#f0fdf4', stroke: '#16a34a' });
+  return d.xml();
+}
+
+function buildFeatureDependencies() {
+  const d = diagram('IDE Feature Dependency Graph', 1800, 1040);
+  d.vertex('<div style="text-align:left"><b style="font-size:28px">IDE FEATURE DEPENDENCY GRAPH</b><br><span style="font-size:16px;color:#cbd5e1">What must be trustworthy before higher-level Studio features can be certified</span></div>', 25, 20, 1750, 105, { fill: '#0f172a', stroke: '#0f172a', font: '#ffffff', shadow: true, extra: 'align=left;spacingLeft=28;' });
+
+  d.label('FOUNDATION', 55, 160, 300, 30, { size: 16, font: '#7e22ce' });
+  const contract = d.vertex('<b>Versioned Contract</b><br><span style="font-size:12px">tokens · AST · diagnostics</span>', 80, 215, 290, 80, { fill: '#f3e8ff', stroke: '#7e22ce' });
+  const parser = d.vertex('<b>Parser + Source Map</b><br><span style="font-size:12px">canonical meaning + locations</span>', 420, 205, 320, 100, { fill: '#f3e8ff', stroke: '#7e22ce', shadow: true });
+  const runtime = d.vertex('<b>Runtime Semantics</b><br><span style="font-size:12px">scope · values · capabilities</span>', 790, 215, 300, 80, { fill: '#d1fae5', stroke: '#047857' });
+  const uiModel = d.vertex('<b>Canonical UI Model</b><br><span style="font-size:12px">resources · properties · events</span>', 1140, 215, 300, 80, { fill: '#dbeafe', stroke: '#2563eb' });
+  const conformance = d.vertex('<b>Conformance Harness</b><br><span style="font-size:12px">real source + real entry points</span>', 1490, 215, 260, 80, { fill: '#f0fdf4', stroke: '#16a34a' });
+  d.edge(contract, parser);
+  d.edge(parser, runtime);
+  d.edge(runtime, conformance);
+  d.edge(uiModel, conformance);
+
+  d.vertex('', 25, 350, 1750, 250, { fill: '#eff6ff', stroke: '#bfdbfe' });
+  d.label('SHARED SERVICES', 55, 365, 350, 30, { size: 16, font: '#1d4ed8' });
+  const diagnostics = d.vertex('<b>Diagnostics</b><br><span style="font-size:12px">errors · source lines · fixes</span>', 65, 440, 260, 80, { fill: '#ffffff', stroke: '#2563eb' });
+  const symbols = d.vertex('<b>Symbol Model</b><br><span style="font-size:12px">scope · definitions · references</span>', 360, 430, 285, 100, { fill: '#dbeafe', stroke: '#2563eb', shadow: true });
+  const compiler = d.vertex('<b>Compiler / Runner</b><br><span style="font-size:12px">build · execute · target selection</span>', 680, 440, 285, 80, { fill: '#ffffff', stroke: '#2563eb' });
+  const renderer = d.vertex('<b>UI Renderer</b><br><span style="font-size:12px">model → preview</span>', 1000, 440, 250, 80, { fill: '#ffffff', stroke: '#2563eb' });
+  const generator = d.vertex('<b>Source Generator</b><br><span style="font-size:12px">UI model → canonical .ot</span>', 1285, 440, 275, 80, { fill: '#ffffff', stroke: '#2563eb' });
+  const process = d.vertex('<b>Process / PTY</b><br><span style="font-size:12px">streams · exit · signals</span>', 1595, 440, 150, 80, { fill: '#ffffff', stroke: '#2563eb' });
+  d.edge(parser, diagnostics);
+  d.edge(parser, symbols);
+  d.edge(parser, compiler);
+  d.edge(uiModel, renderer);
+  d.edge(uiModel, generator);
+  d.edge(runtime, process);
+
+  d.label('PROFESSIONAL IDE FEATURES', 55, 635, 500, 30, { size: 16, font: '#b45309' });
+  const editor = d.vertex('<b>Smart Editor</b><br><span style="font-size:12px">completion · hover · navigation</span>', 65, 700, 275, 85, { fill: '#fffbeb', stroke: '#d97706' });
+  const refactor = d.vertex('<b>References + Rename</b><br><span style="font-size:12px">shadowing-safe transformations</span>', 375, 700, 285, 85, { fill: '#fffbeb', stroke: '#d97706' });
+  const designer = d.vertex('<b>Visual Designer</b><br><span style="font-size:12px">drag/drop · inspector · round trip</span>', 695, 690, 300, 105, { fill: '#fffbeb', stroke: '#d97706', shadow: true });
+  const debuggerNode = d.vertex('<b>Debugger</b><br><span style="font-size:12px">breakpoints · stepping · variables</span>', 1030, 700, 280, 85, { fill: '#f8fafc', stroke: '#94a3b8', dashed: true });
+  const testExplorer = d.vertex('<b>Test Explorer</b><br><span style="font-size:12px">discover · run · report</span>', 1345, 700, 260, 85, { fill: '#f8fafc', stroke: '#94a3b8', dashed: true });
+  const packaging = d.vertex('<b>Packaging</b><br><span style="font-size:12px">artifacts · installer · publish</span>', 1640, 700, 110, 85, { fill: '#f8fafc', stroke: '#94a3b8', dashed: true });
+  d.edge(diagnostics, editor);
+  d.edge(symbols, editor);
+  d.edge(symbols, refactor);
+  d.edge(renderer, designer);
+  d.edge(generator, designer);
+  d.edge(compiler, debuggerNode);
+  d.edge(process, debuggerNode);
+  d.edge(compiler, testExplorer);
+  d.edge(compiler, packaging);
+
+  d.vertex('<b>CERTIFICATION RULE</b><br><span style="font-size:14px">A feature is not complete because its UI exists. Its dependencies, real source path, failure behavior, and target host must all pass.</span>', 250, 875, 1300, 95, { fill: '#f0fdf4', stroke: '#16a34a', shadow: true });
+  return d.xml();
+}
+
+function phaseProgress(text, phase) {
+  const startPattern = new RegExp(`^## P${phase}\\b`, 'm');
+  const start = text.search(startPattern);
+  if (start < 0) return { complete: 0, total: 0 };
+  const remainder = text.slice(start);
+  const next = remainder.slice(1).search(/^## P\d+\b/m);
+  const section = next < 0 ? remainder : remainder.slice(0, next + 1);
+  return {
+    total: (section.match(/^\s*-\s+\[[ xX]\]/gm) || []).length,
+    complete: (section.match(/^\s*-\s+\[[xX]\]/gm) || []).length
+  };
+}
+
+function buildReleaseRoadmap() {
+  const d = diagram('Release Roadmap and Certification Map', 1800, 1050);
+  d.vertex('<div style="text-align:left"><b style="font-size:28px">RELEASE ROADMAP & CERTIFICATION MAP</b><br><span style="font-size:16px;color:#cbd5e1">P0 → P7, driven by both permanent master checklists</span></div>', 25, 20, 1750, 105, { fill: '#0f172a', stroke: '#0f172a', font: '#ffffff', shadow: true, extra: 'align=left;spacingLeft=28;' });
+
+  const names = [
+    'Protect & freeze foundations',
+    'Language / runtime parity',
+    'Studio journey + Console/System',
+    'Designer + Desktop/Web',
+    'Professional language ecosystem',
+    'Build/Debug + Games',
+    'Tests/Packages/Git + 3D',
+    'Ship + platform maturity'
+  ];
+  const descriptions = [
+    'Preserve current work · reconcile architecture',
+    'Core semantics · providers · conformance',
+    'Open/edit/save/run · administration capabilities',
+    'Round trip · UI runtime · web/backend completion',
+    'Language service · packages · build system',
+    'Run/debug lifecycle · game foundations',
+    'Testing · source control · extensions · 3D',
+    'Installer · docs · cross-platform certification'
+  ];
+  const cards = [];
+  for (let phase = 0; phase < 8; phase += 1) {
+    const platform = phaseProgress(platformChecklist.text, phase);
+    const studio = phaseProgress(studioChecklist.text, phase);
+    const complete = platform.complete + studio.complete;
+    const total = platform.total + studio.total;
+    const row = phase < 4 ? 0 : 1;
+    const column = phase < 4 ? phase : 7 - phase;
+    const x = 70 + column * 425;
+    const y = row === 0 ? 235 : 590;
+    const ratio = total > 0 ? complete / total : 0;
+    const fill = ratio === 1 ? '#f0fdf4' : ratio > 0.5 ? '#fffbeb' : '#f8fafc';
+    const stroke = ratio === 1 ? '#16a34a' : ratio > 0.5 ? '#d97706' : '#64748b';
+    const card = d.vertex(
+      `<div style="text-align:left"><b style="font-size:20px">P${phase}</b><br><b>${names[phase]}</b><br><span style="font-size:12px;color:#475569">${descriptions[phase]}</span><br><br><b>${complete}/${total}</b> checklist gates complete</div>`,
+      x, y, 365, 190,
+      { fill, stroke, shadow: phase <= 2, extra: 'align=left;spacingLeft=18;' }
+    );
+    cards.push(card);
+  }
+  d.label('FOUNDATION → PRODUCT', 70, 175, 500, 30, { size: 16, font: '#1d4ed8' });
+  d.label('ECOSYSTEM → RELEASE', 70, 530, 500, 30, { size: 16, font: '#b45309' });
+  d.edge(cards[0], cards[1]);
+  d.edge(cards[1], cards[2]);
+  d.edge(cards[2], cards[3]);
+  d.edge(cards[3], cards[4]);
+  d.edge(cards[4], cards[5]);
+  d.edge(cards[5], cards[6]);
+  d.edge(cards[6], cards[7]);
+  d.vertex('<b>PERMANENT GATE</b><br><span style="font-size:14px">implementation → focused tests → dogfood → production entry point → host certification → checklist [x]</span>', 250, 875, 1300, 90, { fill: '#eff6ff', stroke: '#2563eb', shadow: true });
+  d.label('Counts are generated from both master checklist files at build time.', 500, 985, 800, 28, { size: 13, bold: false, align: 'center', font: '#64748b' });
+  return d.xml();
+}
+
 const outputs = new Map([
   ['otter-master.drawio', buildMasterArchitecture()],
-  ['compiler-pipeline.drawio', buildCompilerPipeline()]
+  ['compiler-pipeline.drawio', buildCompilerPipeline()],
+  ['studio-architecture.drawio', buildStudioArchitecture()],
+  ['designer-roundtrip.drawio', buildDesignerRoundTrip()],
+  ['runtime-providers.drawio', buildRuntimeProviders()],
+  ['target-platforms.drawio', buildTargetPlatforms()],
+  ['feature-dependencies.drawio', buildFeatureDependencies()],
+  ['release-roadmap.drawio', buildReleaseRoadmap()]
 ]);
 
 fs.mkdirSync(architectureDir, { recursive: true });
