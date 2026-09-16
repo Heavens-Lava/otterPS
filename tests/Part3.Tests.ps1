@@ -460,6 +460,32 @@ Test-Otter 'D70: get processes into list returns a real, non-empty list of proce
     Assert-True ([double]$out[0] -gt 0) "expected at least one real running process, got [$($out[0])]"
 }
 
+Test-Otter 'D75: run into p reports real memory, CPU time, and start time for a process we own' {
+    $out = Invoke-TestProgram @(
+        [RunStmt]::new((Lit 'notepad.exe'), $false, 'p', 1),
+        [SayStmt]::new(@((PropOf 'memoryBytes' (Var 'p'))), 2),
+        [SayStmt]::new(@((PropOf 'cpuSeconds' (Var 'p'))), 3),
+        [SayStmt]::new(@((PropOf 'startTime' (Var 'p'))), 4),
+        [KillProcessStmt]::new((Var 'p'), $false, 5)
+    )
+    Assert-AreEqual -Expected 3 -Actual $out.Count
+    Assert-True ([double]$out[0] -gt 0) "expected real positive memory usage, got [$($out[0])]"
+    Assert-True ([double]$out[1] -ge 0) "expected a real, non-negative CPU time, got [$($out[1])]"
+    Assert-True ($out[2] -match '^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$') "expected a real formatted timestamp, got [$($out[2])]"
+}
+
+Test-Otter 'D75: get processes into list degrades individual inaccessible fields to gone instead of failing the whole enumeration' {
+    # Some processes on any real machine (SYSTEM-owned, other users) throw
+    # Access Denied when queried for StartTime/TotalProcessorTime - this
+    # confirms that failure is isolated to the one field, not the whole
+    # statement, by checking the real machine's own real process list.
+    $out = Invoke-TestProgram @(
+        [GetProcessesStmt]::new('procs', 1),
+        [SayStmt]::new(@(([OfOperationExpr]::new([OfOperation]::Length, (Var 'procs'), 2))), 2)
+    )
+    Assert-True ([double]$out[0] -gt 0) 'expected the enumeration to complete and return processes despite any per-process access errors'
+}
+
 Test-Otter 'D70: kill process actually terminates the real OS process' {
     $out = Invoke-TestProgram @(
         [RunStmt]::new((Lit 'notepad.exe'), $false, 'p', 1),

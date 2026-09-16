@@ -887,6 +887,27 @@ function New-OtterProcessObject {
     $name = $null
     try { $name = $Process.ProcessName } catch { $name = $null }
     $info.WriteProperty('name', $name)
+
+    # D75: memory/CPU/start-time. Each read is wrapped INDIVIDUALLY, not
+    # in one shared try/catch, because `get processes into list` walks
+    # every running process on the machine, including ones owned by
+    # other users or SYSTEM - querying .WorkingSet64/.TotalProcessorTime/
+    # .StartTime on those throws a real Win32Exception ("Access is
+    # denied"), confirmed directly, while .Id/.ProcessName above stay
+    # readable for any process. One field failing degrades to null for
+    # that field alone rather than losing the whole process entry.
+    $memoryBytes = $null
+    try { $memoryBytes = [double]$Process.WorkingSet64 } catch { $memoryBytes = $null }
+    $info.WriteProperty('memoryBytes', $memoryBytes)
+
+    $cpuSeconds = $null
+    try { $cpuSeconds = [double]$Process.TotalProcessorTime.TotalSeconds } catch { $cpuSeconds = $null }
+    $info.WriteProperty('cpuSeconds', $cpuSeconds)
+
+    $startTime = $null
+    try { $startTime = $Process.StartTime.ToString('yyyy-MM-dd HH:mm:ss') } catch { $startTime = $null }
+    $info.WriteProperty('startTime', $startTime)
+
     return $info
 }
 

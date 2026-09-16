@@ -5757,3 +5757,48 @@ exists.
 
 ---
 
+## D75. Richer process details — memory, CPU time, and start time on every process handle
+
+**Status: IMPLEMENTED and verified end-to-end through the real `otter
+run` CLI, including confirming the per-field failure isolation against
+this machine's own real, mixed-ownership process list. No grammar
+change needed - a pure data-shape extension of the existing `process`
+thing both `run ... into p` and `get processes into list` already
+produce.**
+
+Closes the "Process details (id/name only so far)" item D70 flagged as
+future work. `New-OtterProcessObject` (`Otter.Library.psm1`) now also
+reads `memoryBytes` (`WorkingSet64`), `cpuSeconds`
+(`TotalProcessorTime.TotalSeconds`), and `startTime` (formatted).
+
+**A real, machine-independent failure mode handled correctly, not
+assumed away:** `get processes into list` enumerates EVERY running
+process on the machine, including ones owned by other users or SYSTEM.
+Querying `.TotalProcessorTime`/`.StartTime` (and, on some processes,
+even `.WorkingSet64`) on a process you do not own throws a real
+`Win32Exception` ("Access is denied") - confirmed directly against this
+machine's own real process list, where 143 of the currently-running
+processes could not report a `startTime`. Each of the three new fields
+is read in its OWN try/catch, independent of the other two and
+independent of `.Id`/`.ProcessName` (which stay readable for any
+process) - one field failing degrades to `gone` for that field alone,
+never losing the process entry or crashing the whole enumeration.
+
+**No JS-compiler change needed:** the existing `GetProcesses` JS
+emission already copies whatever keys the `otterGetProcesses()` host
+hook's raw objects carry into `props` generically (`for (const k of
+Object.keys(v))`), so it is already forward-compatible with the three
+new fields without any edit - confirmed by inspection, not assumed.
+
+**Verified:** through the real `otter run` CLI - a real, currently-
+running `notepad.exe`'s actual working-set memory, CPU time, and a
+correctly-formatted real start timestamp, all read successfully for a
+process this session owns; separately, enumerating every process on
+this real machine and checking each one's fields directly showed 0
+processes with an inaccessible `memoryBytes`/`cpuSeconds` but 143 with
+an inaccessible `startTime` - proof the try/catch isolation is real and
+exercised on this exact machine, not merely plausible in theory. Two
+new regression tests in `tests/Part3.Tests.ps1`.
+
+---
+

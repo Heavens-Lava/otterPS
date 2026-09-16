@@ -351,8 +351,11 @@ creation.
     list of `process` things (id/name) for every currently-running
     process, verified through the real `otter run` CLI. See
     SPEC-DECISIONS.md D70)
--   [ ] Process details (id/name only so far - CPU/memory/start-time per
-    process deliberately deferred, see D70's "out of scope" note)
+-   [x] Process details (D75: `memoryBytes`/`cpuSeconds`/`startTime`
+    added to the existing process thing shape, verified through the
+    real `otter run` CLI including confirming per-field failure
+    isolation against this machine's own mixed-ownership process list
+    - see SPEC-DECISIONS.md D75)
 -   [x] Start process (`run "notepad.exe"` - Start-OtterProgram, real and
     reachable; its `into p` result target was silently dropped before
     D70, now fixed to hand back a real process handle)
