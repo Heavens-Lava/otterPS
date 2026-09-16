@@ -265,6 +265,8 @@ export class OtterStudioIde {
     this.btnFormatDoc = document.getElementById('btnFormatDoc');
     this.btnFindDoc = document.getElementById('btnFindDoc');
     this.btnGoToDefinition = document.getElementById('btnGoToDefinition');
+    this.btnPeekDefinition = document.getElementById('btnPeekDefinition');
+    this.definitionPeekEl = document.getElementById('definitionPeek');
     this.btnToggleWordWrap = document.getElementById('btnToggleWordWrap');
     this.breadcrumbsEl = document.getElementById('editorBreadcrumbs');
 
@@ -322,6 +324,7 @@ export class OtterStudioIde {
     this.btnNavigateForward?.addEventListener('click', () => this.navigateHistoryForward());
     this.btnToggleWordWrap?.addEventListener('click', () => this.setWordWrap(!this.wordWrap));
     this.btnGoToDefinition?.addEventListener('click', () => this.goToDefinition());
+    this.btnPeekDefinition?.addEventListener('click', () => this.peekDefinition());
     this.workspaceSearchForm?.addEventListener('submit', event => {
       event.preventDefault();
       this.searchWorkspace();
@@ -761,6 +764,34 @@ export class OtterStudioIde {
       path: location.path,
       line: Number(definition.Line) || 1,
       column: Number(definition.Column) || 0
+    });
+  }
+
+  peekDefinition() {
+    const word = this.wordAtCursor();
+    const location = this.currentEditorLocation();
+    if (!word || !location || !this.definitionPeekEl) return;
+    const definition = definitionForWord(this.workspaceSymbols, location.path, word, location.line);
+    if (!definition) {
+      this.definitionPeekEl.style.display = 'none';
+      this.setProblemsStatus(false, `No definition found for '${word}'.`, 'Only declarations in this Otter file are currently resolved.', 'Peek Definition', 'Try a declared variable or function.');
+      return;
+    }
+    const sourceLine = (this.currentCode.split(/\r?\n/)[Math.max(0, Number(definition.Line) - 1)] || '').trim();
+    this.definitionPeekEl.innerHTML = `
+      <div class="definition-peek-header">
+        <span><strong>${this.escapeHtml(definition.Name)}</strong> · ${this.escapeHtml(definition.Kind || 'declaration')} · Line ${Number(definition.Line) || 1}</span>
+        <button type="button" class="definition-peek-close" aria-label="Close definition preview">×</button>
+      </div>
+      <pre>${this.escapeHtml(sourceLine)}</pre>
+      <button type="button" class="definition-peek-open">Go to definition</button>`;
+    this.definitionPeekEl.style.display = 'block';
+    this.definitionPeekEl.querySelector('.definition-peek-close')?.addEventListener('click', () => {
+      this.definitionPeekEl.style.display = 'none';
+    });
+    this.definitionPeekEl.querySelector('.definition-peek-open')?.addEventListener('click', () => {
+      this.definitionPeekEl.style.display = 'none';
+      this.navigateToLocation({ path: location.path, line: Number(definition.Line) || 1, column: Number(definition.Column) || 0 });
     });
   }
 
@@ -1747,7 +1778,8 @@ export class OtterStudioIde {
         }
         if (e.key === 'F12') {
           e.preventDefault();
-          this.goToDefinition();
+          if (e.altKey) this.peekDefinition();
+          else this.goToDefinition();
           return;
         }
         if (e.ctrlKey && e.key === 'f') {

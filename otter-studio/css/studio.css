@@ -1140,6 +1140,52 @@ body {
   flex: 0 0 auto;
 }
 
+.definition-peek {
+  position: absolute;
+  z-index: 30;
+  top: 66px;
+  right: 18px;
+  width: min(430px, calc(100% - 36px));
+  border: 1px solid #93c5fd;
+  border-radius: 8px;
+  background: #eff6ff;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.2);
+  color: #0f172a;
+  overflow: hidden;
+}
+
+.definition-peek-header {
+  min-height: 30px;
+  padding: 0 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-bottom: 1px solid #bfdbfe;
+  font-size: 11px;
+}
+
+.definition-peek pre {
+  margin: 0;
+  padding: 10px;
+  overflow-x: auto;
+  background: #fff;
+  font: 12px/1.5 var(--font-code);
+  white-space: pre-wrap;
+}
+
+.definition-peek-close,
+.definition-peek-open {
+  border: 0;
+  background: transparent;
+  color: #1d4ed8;
+  cursor: pointer;
+  font: inherit;
+}
+
+.definition-peek-close { font-size: 18px; line-height: 1; }
+.definition-peek-open { padding: 7px 10px; font-size: 11px; font-weight: 650; }
+
 .breadcrumb-part {
   border: 0;
   padding: 0;

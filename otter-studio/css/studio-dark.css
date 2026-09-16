@@ -283,6 +283,10 @@ body.theme-dark {
 }
 
 .theme-dark .editor-breadcrumbs { background: #091522; border-color: #1a2b3d; }
+.theme-dark .definition-peek { background: #122235; border-color: #2d91df; color: #e2edf8; box-shadow: 0 14px 35px rgba(0, 0, 0, 0.5); }
+.theme-dark .definition-peek-header { border-color: #294057; }
+.theme-dark .definition-peek pre { background: #091522; color: #dbe8f5; }
+.theme-dark .definition-peek-close, .theme-dark .definition-peek-open { color: #9fd2ff; }
 .theme-dark .breadcrumb-part { color: #8fa4b9; }
 .theme-dark .breadcrumb-part.is-current { color: #e2edf8; }
 .theme-dark .breadcrumb-separator { color: #536a80; }

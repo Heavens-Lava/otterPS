@@ -243,6 +243,7 @@
             <button class="tab-quick-btn" id="btnFormatDoc" title="Format Document (Shift+Alt+F)">🧹 Format</button>
             <button class="tab-quick-btn" id="btnFindDoc" title="Find in File (Ctrl+F)">🔍 Find</button>
             <button class="tab-quick-btn" id="btnGoToDefinition" title="Go to Definition (F12)">↗ Definition</button>
+            <button class="tab-quick-btn" id="btnPeekDefinition" title="Peek Definition (Alt+F12)">⌕ Peek</button>
             <button class="tab-quick-btn" id="btnToggleWordWrap" title="Toggle Word Wrap (Alt+Z)" aria-pressed="false">↪ Wrap</button>
           </div>
 
@@ -268,6 +269,7 @@
             </div>
           </div>
           <nav class="editor-breadcrumbs" id="editorBreadcrumbs" aria-label="Current file path"></nav>
+          <aside class="definition-peek" id="definitionPeek" aria-live="polite" style="display: none;"></aside>
           <!-- Code Canvas / Line Numbers & Source -->
           <div class="code-viewport" id="codeViewport">
             <!-- Find & Replace Floating Widget -->
