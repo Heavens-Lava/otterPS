@@ -112,6 +112,10 @@ enum TokenKind {
     # --- printers (D83) -------------------------------------------------
     Print           # print "file.txt" to "PrinterName"
 
+    # --- ZIP/archive provider (D87) --------------------------------------
+    Zip             # zip folder "src" into "archive.zip"
+    Unzip           # unzip "archive.zip" into "dest"
+
     # --- strings and collections (D24, D25, D26) ----------------
     Length          # length of name / length of games
     Uppercase
@@ -438,6 +442,10 @@ enum NodeKind {
     # --- SSH client (D85) ---------------------------------------------------
     RunSshCommand          # run command "..." over ssh to "user@host"
                             # [into result]
+
+    # --- ZIP/archive provider (D87) -----------------------------------------
+    ZipFolder              # zip folder "src" into "archive.zip"
+    UnzipFile              # unzip "archive.zip" into "dest"
 }
 
 enum MathOp { Add; Subtract; Multiply; Divide }
@@ -1539,6 +1547,26 @@ class RunSshCommandStmt : Node {
         $this.Command = $command
         $this.HostName = $hostName
         $this.ResultTarget = $resultTarget
+    }
+}
+
+# zip folder "src" into "archive.zip"                                 (D87)
+class ZipFolderStmt : Node {
+    [Node]$SourceFolder
+    [Node]$ArchivePath
+    ZipFolderStmt([Node]$sourceFolder, [Node]$archivePath, [int]$line) : base([NodeKind]::ZipFolder, $line) {
+        $this.SourceFolder = $sourceFolder
+        $this.ArchivePath = $archivePath
+    }
+}
+
+# unzip "archive.zip" into "dest"                                     (D87)
+class UnzipFileStmt : Node {
+    [Node]$ArchivePath
+    [Node]$DestinationFolder
+    UnzipFileStmt([Node]$archivePath, [Node]$destinationFolder, [int]$line) : base([NodeKind]::UnzipFile, $line) {
+        $this.ArchivePath = $archivePath
+        $this.DestinationFolder = $destinationFolder
     }
 }
 

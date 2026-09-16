@@ -748,6 +748,22 @@ function Invoke-OtterStatement {
             return
         }
 
+        # zip folder "src" into "archive.zip"                            (D87)
+        'ZipFolder' {
+            $source = Get-OtterPathArgument -Expression $Statement.SourceFolder -Environment $Environment
+            $archive = Get-OtterPathArgument -Expression $Statement.ArchivePath -Environment $Environment
+            New-OtterZipArchive -SourceFolder $source -ArchivePath $archive -Line $Statement.Line
+            return
+        }
+
+        # unzip "archive.zip" into "dest"                                (D87)
+        'UnzipFile' {
+            $archive = Get-OtterPathArgument -Expression $Statement.ArchivePath -Environment $Environment
+            $dest = Get-OtterPathArgument -Expression $Statement.DestinationFolder -Environment $Environment
+            Expand-OtterZipArchive -ArchivePath $archive -DestinationFolder $dest -Line $Statement.Line
+            return
+        }
+
         # run command "..." on remote "host" using credential "n"        (D84)
         # [into result]
         'RunRemoteCommand' {

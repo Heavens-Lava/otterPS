@@ -6437,3 +6437,48 @@ project's Windows PowerShell 5.1 scope).
 
 ---
 
+## D87. ZIP/archive provider — `zip folder "src" into "archive.zip"`, `unzip "archive.zip" into "dest"`
+
+**Status: IMPLEMENTED and verified end-to-end through the real `otter
+run` CLI, including independently re-opening the created archive with
+a fresh, separate `ZipFile.OpenRead` call - not trusting Otter's own
+success report as proof the file is a genuine, valid ZIP.**
+
+Two new statements built on `System.IO.Compression.ZipFile`
+(`CreateFromDirectory`/`ExtractToDirectory`) - built into .NET
+Framework 4.5+, confirmed present in this environment, no extra module
+or external tool needed. "zip"/"unzip" are new lexer keywords (no
+collisions confirmed before adding); `zip folder "src" into
+"archive.zip"` reuses the existing `Folder` token, matching `create
+folder`/`delete folder`'s own grammar shape.
+
+**Two deliberate safety/convention choices:**
+- `zip` REFUSES to overwrite an existing archive path, with a clean,
+  specific error rather than silently replacing it or crashing with a
+  raw `IOException` - matching `.NET`'s own `CreateFromDirectory`
+  behavior (which already throws on an existing path) but translated
+  into this language's own error voice, with an actionable suggestion
+  (`delete "..." first`).
+- `unzip` creates the destination folder if it does not exist yet,
+  matching `WriteFile`/`SetRegistryValue`'s own "creates missing
+  structure" convention rather than requiring the caller to `create
+  folder` first.
+
+**Verified:** through the real `otter run` CLI - a real folder with
+two real text files zipped, then unzipped into a different real
+folder, with both files' content read back byte-for-byte correct;
+the resulting archive independently re-opened with a SEPARATE, fresh
+`[System.IO.Compression.ZipFile]::OpenRead` call (not reusing anything
+from the write path) confirming exactly two real entries inside, the
+correct proof this is a genuine ZIP rather than trusting the write
+path's own success return; zipping into an already-existing path
+correctly refused (and the existing file's content confirmed
+UNCHANGED afterward - not partially overwritten); unzipping a
+nonexistent archive caught cleanly. Three new regression tests in
+`tests/Part3.Tests.ps1`. JS compiler emits calls to two new required
+host hooks (`otterZipFolder`/`otterUnzipFile`) with no bridge
+implementation yet, same reported-boundary treatment as every other
+filesystem hook in this compiler.
+
+---
+

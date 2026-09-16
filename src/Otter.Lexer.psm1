@@ -93,6 +93,8 @@ $script:OtterStatementHeadKeywords = @{
     'restart' = [TokenKind]::Restart; 'shut' = [TokenKind]::Shut
     # D83: `print "file.txt" to "PrinterName"`
     'print' = [TokenKind]::Print
+    # D87: `zip folder "src" into "archive.zip"` / `unzip "a.zip" into "dest"`
+    'zip' = [TokenKind]::Zip; 'unzip' = [TokenKind]::Unzip
     # D56: declarative UI, reactivity, animation
     'layout' = [TokenKind]::Layout; 'gap' = [TokenKind]::Gap
     'state' = [TokenKind]::State; 'derive' = [TokenKind]::Derive

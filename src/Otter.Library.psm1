@@ -962,6 +962,59 @@ function Invoke-OtterSshCommand {
     }
 }
 
+# zip folder "src" into "archive.zip"                                 (D87)
+# System.IO.Compression.ZipFile - built into .NET Framework 4.5+, no
+# extra module or external tool needed, confirmed present in this
+# environment. Refuses to overwrite an existing archive path (matching
+# .NET's own CreateFromDirectory behavior, which throws rather than
+# silently replacing) with a clean, specific Otter error rather than a
+# raw IOException.
+function New-OtterZipArchive {
+    param([string]$SourceFolder, [string]$ArchivePath, [int]$Line)
+
+    $fullSource = Assert-OtterFolderExists -Path $SourceFolder -Line $Line
+    $fullArchive = Resolve-OtterPath -Path $ArchivePath -Line $Line
+    Initialize-OtterParentFolder -FullPath $fullArchive -Line $Line
+
+    if (Test-Path -LiteralPath $fullArchive) {
+        throw [OtterError]::new(
+            "`"$ArchivePath`" already exists - I will not overwrite an existing archive.",
+            $Line, 'runtime', 0, $null,
+            "delete `"$ArchivePath`" first if you want to replace it")
+    }
+
+    try {
+        Add-Type -AssemblyName System.IO.Compression.FileSystem -ErrorAction Stop
+        [System.IO.Compression.ZipFile]::CreateFromDirectory($fullSource, $fullArchive)
+    } catch {
+        throw [OtterError]::new(
+            "I could not zip `"$SourceFolder`" to `"$ArchivePath`". $($_.Exception.Message)",
+            $Line, 'runtime')
+    }
+}
+
+# unzip "archive.zip" into "dest"                                     (D87)
+# Creates the destination folder if it does not exist yet, matching
+# WriteFile/SetRegistryValue's own "creates missing structure" convention.
+function Expand-OtterZipArchive {
+    param([string]$ArchivePath, [string]$DestinationFolder, [int]$Line)
+
+    $fullArchive = Resolve-OtterPath -Path $ArchivePath -Line $Line
+    if (-not (Test-Path -LiteralPath $fullArchive -PathType Leaf)) {
+        throw [OtterError]::new("I could not find an archive called `"$ArchivePath`".", $Line, 'runtime')
+    }
+    $fullDest = Resolve-OtterPath -Path $DestinationFolder -Line $Line
+
+    try {
+        Add-Type -AssemblyName System.IO.Compression.FileSystem -ErrorAction Stop
+        [System.IO.Compression.ZipFile]::ExtractToDirectory($fullArchive, $fullDest)
+    } catch {
+        throw [OtterError]::new(
+            "I could not unzip `"$ArchivePath`" to `"$DestinationFolder`". $($_.Exception.Message)",
+            $Line, 'runtime')
+    }
+}
+
 # get owner of "x" into owner                                        (D74)
 # Works on either a file or a folder - ownership is a filesystem-wide
 # concept, unlike read-only below, which this module deliberately
@@ -1897,4 +1950,5 @@ Export-ModuleMember -Function `
     Get-OtterEventLogEntries, `
     Set-OtterCredential, Get-OtterCredential, Remove-OtterCredential, `
     Get-OtterPowerActionCommandLine, Invoke-OtterPowerAction, Send-OtterFileToPrinter, `
-    Invoke-OtterRemoteCommand, Invoke-OtterSshCommand
+    Invoke-OtterRemoteCommand, Invoke-OtterSshCommand, `
+    New-OtterZipArchive, Expand-OtterZipArchive

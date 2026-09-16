@@ -1743,6 +1743,25 @@ function Read-OtterStatement {
             [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the print statement to end here.')
             return [PrintFileStmt]::new($printPath, $printerName, $start.Line)
         }
+        # zip folder "src" into "archive.zip"                            (D87)
+        ([TokenKind]::Zip) {
+            [void](Read-OtterToken)
+            [void](Assert-OtterTokenKind ([TokenKind]::Folder) 'I expected "folder" after "zip".')
+            $zipSource = Read-OtterValue
+            [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and an archive path.')
+            $zipArchive = Read-OtterValue
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the zip statement to end here.')
+            return [ZipFolderStmt]::new($zipSource, $zipArchive, $start.Line)
+        }
+        # unzip "archive.zip" into "dest"                                (D87)
+        ([TokenKind]::Unzip) {
+            [void](Read-OtterToken)
+            $unzipArchive = Read-OtterValue
+            [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a destination folder.')
+            $unzipDest = Read-OtterValue
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the unzip statement to end here.')
+            return [UnzipFileStmt]::new($unzipArchive, $unzipDest, $start.Line)
+        }
         ([TokenKind]::Sort) {
             [void](Read-OtterToken)
             $target = Read-OtterVariableName 'I expected a collection name after "sort".'

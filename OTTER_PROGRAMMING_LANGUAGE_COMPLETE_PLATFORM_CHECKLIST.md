@@ -327,7 +327,11 @@ creation.
     into info` - `freeBytes`/`totalBytes` fields, same feature as
     "Disk information" below. See SPEC-DECISIONS.md D69)
 -   [x] File dialogs via UI provider
--   [ ] ZIP/archive provider
+-   [x] ZIP/archive provider (D87: `zip folder "src" into "archive.zip"`,
+    `unzip "archive.zip" into "dest"` - real `System.IO.Compression.
+    ZipFile`, verified end-to-end including independently re-opening
+    the created archive with a fresh `ZipFile.OpenRead` call. See
+    SPEC-DECISIONS.md D87)
 
 # 10. Shell & System Administration
 

@@ -1176,6 +1176,57 @@ Test-Otter 'D86: every service in the real list has a non-blank status' {
     Assert-Lines -Expected @('all have a status') -Actual $out
 }
 
+# =================================================================
+# D87 - ZIP/archive provider
+# =================================================================
+
+Test-Otter 'D87: zip then unzip round-trips real file content byte-for-byte' {
+    $srcFolder = Join-Path $sandbox 'd87-src'
+    $archivePath = Join-Path $sandbox 'd87-archive.zip'
+    $destFolder = Join-Path $sandbox 'd87-dest'
+    [void](New-Item -ItemType Directory -Path $srcFolder -Force)
+    Set-Content -LiteralPath (Join-Path $srcFolder 'a.txt') -Value 'content of a' -NoNewline
+    Set-Content -LiteralPath (Join-Path $srcFolder 'b.txt') -Value 'content of b' -NoNewline
+
+    $out = Invoke-TestProgram @(
+        [ZipFolderStmt]::new((Lit $srcFolder), (Lit $archivePath), 1),
+        [UnzipFileStmt]::new((Lit $archivePath), (Lit $destFolder), 2),
+        [ReadFileStmt]::new((Lit (Join-Path $destFolder 'a.txt')), 'contentsA', 3),
+        [ReadFileStmt]::new((Lit (Join-Path $destFolder 'b.txt')), 'contentsB', 4),
+        [SayStmt]::new(@((Var 'contentsA')), 5),
+        [SayStmt]::new(@((Var 'contentsB')), 6)
+    )
+    Assert-Lines -Expected @('content of a', 'content of b') -Actual $out
+
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $zip = [System.IO.Compression.ZipFile]::OpenRead($archivePath)
+    try {
+        Assert-AreEqual -Expected 2 -Actual $zip.Entries.Count
+    } finally {
+        $zip.Dispose()
+    }
+}
+
+Test-Otter 'D87: zip into an archive path that already exists is a clean Otter error, not an overwrite' {
+    $srcFolder = Join-Path $sandbox 'd87-src2'
+    $archivePath = Join-Path $sandbox 'd87-existing.zip'
+    [void](New-Item -ItemType Directory -Path $srcFolder -Force)
+    Set-Content -LiteralPath (Join-Path $srcFolder 'x.txt') -Value 'x' -NoNewline
+    Set-Content -LiteralPath $archivePath -Value 'not a real zip, just a placeholder' -NoNewline
+
+    Assert-OtterFails -Containing "already exists - I will not overwrite an existing archive" -Body {
+        Invoke-TestProgram @( [ZipFolderStmt]::new((Lit $srcFolder), (Lit $archivePath), 1) )
+    }
+    Assert-AreEqual -Expected 'not a real zip, just a placeholder' -Actual (Get-Content -LiteralPath $archivePath -Raw)
+}
+
+Test-Otter 'D87: unzip a file that does not exist is a clean Otter error' {
+    $missingArchive = Join-Path $sandbox 'd87-does-not-exist.zip'
+    Assert-OtterFails -Containing "I could not find an archive called" -Body {
+        Invoke-TestProgram @( [UnzipFileStmt]::new((Lit $missingArchive), (Lit (Join-Path $sandbox 'd87-dest2')), 1) )
+    }
+}
+
 Set-Location $originalLocation
 Remove-Item -LiteralPath $sandbox -Recurse -Force -ErrorAction SilentlyContinue
 
