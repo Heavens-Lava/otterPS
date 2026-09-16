@@ -13,6 +13,7 @@ export class OtterStudioIde {
     this.currentCode = '# untitled.ot\n\nsay "Hello from Otter!"\n';
     this.currentProjectFolder = null;
     this.currentProjectName = null;
+    this.wordWrap = typeof localStorage !== 'undefined' && localStorage.getItem('otter-studio-word-wrap') === 'true';
     this.files = {};
     this.activeTab = 'problems'; // 'problems' | 'output' | 'terminal'
     this.autocompleteVisible = false;
@@ -262,6 +263,8 @@ export class OtterStudioIde {
     this.btnAddNewTab = document.getElementById('btnAddNewTab');
     this.btnFormatDoc = document.getElementById('btnFormatDoc');
     this.btnFindDoc = document.getElementById('btnFindDoc');
+    this.btnToggleWordWrap = document.getElementById('btnToggleWordWrap');
+    this.breadcrumbsEl = document.getElementById('editorBreadcrumbs');
 
     // Floating Find & Replace Widget Elements
     this.findReplaceWidget = document.getElementById('findReplaceWidget');
@@ -315,6 +318,7 @@ export class OtterStudioIde {
     this.navigationPaletteInput?.addEventListener('keydown', event => this.handleNavigationKeydown(event));
     this.btnNavigateBack?.addEventListener('click', () => this.navigateHistoryBack());
     this.btnNavigateForward?.addEventListener('click', () => this.navigateHistoryForward());
+    this.btnToggleWordWrap?.addEventListener('click', () => this.setWordWrap(!this.wordWrap));
     this.workspaceSearchForm?.addEventListener('submit', event => {
       event.preventDefault();
       this.searchWorkspace();
@@ -1538,6 +1542,7 @@ export class OtterStudioIde {
     });
 
     this.codeAreaEl.innerHTML = html;
+    this.updateEditorChrome();
 
     // Attach inline editor handlers
     this.setupInlineEditor();
@@ -1561,6 +1566,37 @@ export class OtterStudioIde {
         });
       }
     }
+  }
+
+  setWordWrap(enabled) {
+    this.wordWrap = Boolean(enabled);
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('otter-studio-word-wrap', String(this.wordWrap));
+    }
+    this.updateEditorChrome();
+  }
+
+  updateEditorChrome() {
+    this.codeViewport?.classList.toggle('is-word-wrapped', this.wordWrap);
+    if (this.btnToggleWordWrap) {
+      this.btnToggleWordWrap.classList.toggle('is-active', this.wordWrap);
+      this.btnToggleWordWrap.setAttribute('aria-pressed', String(this.wordWrap));
+      this.btnToggleWordWrap.title = `${this.wordWrap ? 'Disable' : 'Enable'} Word Wrap (Alt+Z)`;
+    }
+    this.renderBreadcrumbs();
+  }
+
+  renderBreadcrumbs() {
+    if (!this.breadcrumbsEl) return;
+    const path = (this.currentFile || 'untitled.ot').replace(/\\/g, '/');
+    const fileParts = path.split('/').filter(Boolean);
+    const project = this.currentProjectName || (this.currentProjectFolder ? this.currentProjectFolder.split(/[\\/]/).filter(Boolean).pop() : 'Otter Studio');
+    const parts = project && fileParts[0] !== project ? [project, ...fileParts] : fileParts;
+    this.breadcrumbsEl.innerHTML = parts.map((part, index) => {
+      const separator = index ? '<span class="breadcrumb-separator">›</span>' : '';
+      const current = index === parts.length - 1;
+      return `${separator}<button type="button" class="breadcrumb-part${current ? ' is-current' : ''}" ${current ? 'aria-current="page"' : ''}>${this.escapeHtml(part)}</button>`;
+    }).join('');
   }
 
   renderGutter(count) {
@@ -1672,6 +1708,11 @@ export class OtterStudioIde {
 
       textarea.addEventListener('keydown', (e) => {
         // Keyboard shortcuts
+        if (e.altKey && !e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 'z') {
+          e.preventDefault();
+          this.setWordWrap(!this.wordWrap);
+          return;
+        }
         if (e.ctrlKey && e.key === 'f') {
           e.preventDefault();
           this.openFind(false);

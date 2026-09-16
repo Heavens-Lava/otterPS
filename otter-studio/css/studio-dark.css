@@ -282,6 +282,12 @@ body.theme-dark {
   color: #c9d8e7;
 }
 
+.theme-dark .editor-breadcrumbs { background: #091522; border-color: #1a2b3d; }
+.theme-dark .breadcrumb-part { color: #8fa4b9; }
+.theme-dark .breadcrumb-part.is-current { color: #e2edf8; }
+.theme-dark .breadcrumb-separator { color: #536a80; }
+.theme-dark .tab-quick-btn.is-active { background: #173a5c; border-color: #2d91df; color: #9fd2ff; }
+
 .theme-dark .templates-new-project-btn {
   color: #6bb6ff;
 }
