@@ -77,6 +77,10 @@ $script:OtterStatementHeadKeywords = @{
     'post' = [TokenKind]::Post
     'respond' = [TokenKind]::Respond; 'start' = [TokenKind]::Start
     'listen' = [TokenKind]::Listen
+    # D67: system integration (clipboard, notifications, env/system
+    # folders, file dialogs) - 'copy'/'get' above already exist and are
+    # reused; 'notify' and 'choose' are the only genuinely new words.
+    'notify' = [TokenKind]::Notify; 'choose' = [TokenKind]::Choose
     # D56: declarative UI, reactivity, animation
     'layout' = [TokenKind]::Layout; 'gap' = [TokenKind]::Gap
     'state' = [TokenKind]::State; 'derive' = [TokenKind]::Derive

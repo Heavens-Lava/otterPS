@@ -153,6 +153,8 @@ enum TokenKind {
     Delete
     File
     Exists
+    Notify          # notify "Title" with "Message" (D67)
+    Choose          # choose file/folder into path (D67)
     Into
     Run
     Command

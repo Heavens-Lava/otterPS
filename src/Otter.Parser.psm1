@@ -32,7 +32,7 @@ $script:OtterIdentifierKinds = @(
     [TokenKind]::Random, [TokenKind]::Json, [TokenKind]::Convert,
     [TokenKind]::Format, [TokenKind]::Today, [TokenKind]::Now,
     [TokenKind]::Between, [TokenKind]::Otherwise, [TokenKind]::ForEach,
-    [TokenKind]::Count
+    [TokenKind]::Count, [TokenKind]::Notify, [TokenKind]::Choose
 )
 
 function Test-OtterIdentifierToken {
@@ -1233,6 +1233,43 @@ function Read-OtterStatement {
         ([TokenKind]::Get) {
             [void](Read-OtterToken)
             $kind = Get-OtterCurrentToken
+            # D67: `get clipboard into text` - "clipboard" stays an
+            # ORDINARY IDENTIFIER, matched by text, the same way
+            # "files"/"folders"/"item" are handled elsewhere in this
+            # grammar rather than reserving another keyword.
+            if ($kind.Kind -eq [TokenKind]::Identifier -and $kind.Text -eq 'clipboard') {
+                [void](Read-OtterToken)
+                [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a result name.')
+                $target = Read-OtterVariableName 'I expected a result name after "into".'
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the get statement to end here.')
+                return [GetClipboardStmt]::new($target.Text, $start.Line)
+            }
+            # D67: `get environment variable "PATH" into value` -
+            # "environment" and "variable" are both ordinary identifiers.
+            if ($kind.Kind -eq [TokenKind]::Identifier -and $kind.Text -eq 'environment') {
+                [void](Read-OtterToken)
+                $variableWord = Get-OtterCurrentToken
+                if ($variableWord.Kind -ne [TokenKind]::Identifier -or $variableWord.Text -ne 'variable') {
+                    throw (New-OtterParserError 'I expected "variable" after "environment".' $variableWord 'get environment variable "PATH" into value')
+                }
+                [void](Read-OtterToken)
+                $name = Read-OtterValue
+                [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a result name.')
+                $target = Read-OtterVariableName 'I expected a result name after "into".'
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the get statement to end here.')
+                return [GetEnvironmentVariableStmt]::new($name, $target.Text, $start.Line)
+            }
+            # D67: `get system folder "temp" into path` - "system" is an
+            # ordinary identifier; "folder" reuses the existing token.
+            if ($kind.Kind -eq [TokenKind]::Identifier -and $kind.Text -eq 'system') {
+                [void](Read-OtterToken)
+                [void](Assert-OtterTokenKind ([TokenKind]::Folder) 'I expected "folder" after "system".')
+                $folderName = Read-OtterValue
+                [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a result name.')
+                $target = Read-OtterVariableName 'I expected a result name after "into".'
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the get statement to end here.')
+                return [GetSystemFolderStmt]::new($folderName, $target.Text, $start.Line)
+            }
             if ($kind.Kind -eq [TokenKind]::Files -or $kind.Kind -eq [TokenKind]::Folders) {
                 [void](Read-OtterToken)
                 [void](Assert-OtterTokenKind ([TokenKind]::In) 'I expected "in" and a folder path.')
@@ -1513,6 +1550,16 @@ function Read-OtterStatement {
             }
             $source = Read-OtterValue
             [void](Assert-OtterTokenKind ([TokenKind]::To) 'I expected "to" and a destination path.')
+            # D67: `copy "text" to clipboard` - checked as a plain
+            # identifier BEFORE calling Read-OtterValue for a normal file
+            # destination, since Read-OtterValue would otherwise happily
+            # consume "clipboard" as a bare variable reference.
+            $maybeClipboard = Get-OtterCurrentToken
+            if ($maybeClipboard.Kind -eq [TokenKind]::Identifier -and $maybeClipboard.Text -eq 'clipboard') {
+                [void](Read-OtterToken)
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the copy statement to end here.')
+                return [CopyToClipboardStmt]::new($source, $start.Line)
+            }
             $destination = Read-OtterValue
             [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the copy statement to end here.')
             return [CopyFileStmt]::new($source, $destination, $start.Line)
@@ -1559,6 +1606,44 @@ function Read-OtterStatement {
             $path = Read-OtterValue
             [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the delete statement to end here.')
             return [DeleteFileStmt]::new($path, $start.Line)
+        }
+        # notify "Title" with "Message"                                (D67)
+        ([TokenKind]::Notify) {
+            [void](Read-OtterToken)
+            $title = Read-OtterValue
+            [void](Assert-OtterTokenKind ([TokenKind]::With) 'I expected "with" and a message.')
+            $message = Read-OtterValue
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the notify statement to end here.')
+            return [NotifyStmt]::new($title, $message, $start.Line)
+        }
+        # choose file into path         / choose folder into path      (D67)
+        # choose file to save into path
+        ([TokenKind]::Choose) {
+            [void](Read-OtterToken)
+            if (Test-OtterTokenKind ([TokenKind]::Folder)) {
+                [void](Read-OtterToken)
+                [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a result name.')
+                $target = Read-OtterVariableName 'I expected a result name after "into".'
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the choose statement to end here.')
+                return [ChooseFolderStmt]::new($target.Text, $start.Line)
+            }
+            [void](Assert-OtterTokenKind ([TokenKind]::File) 'I expected "file" or "folder" after "choose".')
+            if (Test-OtterTokenKind ([TokenKind]::To)) {
+                [void](Read-OtterToken)
+                $saveWord = Get-OtterCurrentToken
+                if ($saveWord.Kind -ne [TokenKind]::Identifier -or $saveWord.Text -ne 'save') {
+                    throw (New-OtterParserError 'I expected "save" after "to".' $saveWord 'choose file to save into path')
+                }
+                [void](Read-OtterToken)
+                [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a result name.')
+                $target = Read-OtterVariableName 'I expected a result name after "into".'
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the choose statement to end here.')
+                return [ChooseSaveFileStmt]::new($target.Text, $start.Line)
+            }
+            [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a result name.')
+            $target = Read-OtterVariableName 'I expected a result name after "into".'
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the choose statement to end here.')
+            return [ChooseFileStmt]::new($target.Text, $start.Line)
         }
         ([TokenKind]::Run) {
             [void](Read-OtterToken)
