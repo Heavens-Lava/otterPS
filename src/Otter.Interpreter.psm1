@@ -644,6 +644,22 @@ function Invoke-OtterStatement {
             return
         }
 
+        # create symbolic link "l" pointing to "t"                     (D73)
+        'CreateSymbolicLink' {
+            $linkPath = Get-OtterPathArgument -Expression $Statement.LinkPath -Environment $Environment
+            $targetPath = Get-OtterPathArgument -Expression $Statement.TargetPath -Environment $Environment
+            New-OtterSymbolicLink -LinkPath $linkPath -TargetPath $targetPath -Line $Statement.Line
+            return
+        }
+
+        # get symbolic link target of "l" into t                       (D73)
+        'GetSymbolicLinkTarget' {
+            $linkPath = Get-OtterPathArgument -Expression $Statement.LinkPath -Environment $Environment
+            $target = Get-OtterSymbolicLinkTarget -LinkPath $linkPath -Line $Statement.Line
+            $Environment.Set($Statement.Target, $target)
+            return
+        }
+
         'DeleteFolder' {
             Remove-OtterFolder -Path (Get-OtterPathArgument -Expression $Statement.Path -Environment $Environment) -Line $Statement.Line
             return
@@ -1473,6 +1489,12 @@ function Get-OtterValue {
         'FileLocked' {
             $path = Get-OtterPathArgument -Expression $Expression.Path -Environment $Environment
             return (Test-OtterFileLocked -Path $path -Line $Expression.Line)
+        }
+
+        # if file "l" is a symbolic link                                (D73)
+        'FileIsSymbolicLink' {
+            $path = Get-OtterPathArgument -Expression $Expression.Path -Environment $Environment
+            return (Test-OtterSymbolicLink -Path $path -Line $Expression.Line)
         }
 
         # length of name / length of games / uppercase of name /

@@ -252,14 +252,25 @@ function Read-OtterConditionPrimary {
             [void](Read-OtterToken)
             return [FileExistsExpr]::new($path, $fileToken.Line)
         }
-        # D72: `file "x" is locked`
-        [void](Assert-OtterTokenKind ([TokenKind]::Is) 'I expected "exists" or "is locked" after the file path.')
-        $lockedWord = Get-OtterCurrentToken
-        if ($lockedWord.Kind -ne [TokenKind]::Identifier -or $lockedWord.Text -ne 'locked') {
-            throw (New-OtterParserError 'I expected "locked" after "is".' $lockedWord 'file "x" is locked')
+        # D72: `file "x" is locked`  /  D73: `file "x" is a symbolic link`
+        [void](Assert-OtterTokenKind ([TokenKind]::Is) 'I expected "exists", "is locked", or "is a symbolic link" after the file path.')
+        $afterIs = Get-OtterCurrentToken
+        if ($afterIs.Kind -eq [TokenKind]::Identifier -and $afterIs.Text -eq 'locked') {
+            [void](Read-OtterToken)
+            return [FileLockedExpr]::new($path, $fileToken.Line)
+        }
+        [void](Assert-OtterTokenKind ([TokenKind]::A) 'I expected "locked" or "a symbolic link" after "is".')
+        $symbolicWord = Get-OtterCurrentToken
+        if ($symbolicWord.Kind -ne [TokenKind]::Identifier -or $symbolicWord.Text -ne 'symbolic') {
+            throw (New-OtterParserError 'I expected "symbolic link" after "is a".' $symbolicWord 'file "x" is a symbolic link')
         }
         [void](Read-OtterToken)
-        return [FileLockedExpr]::new($path, $fileToken.Line)
+        $linkWord3 = Get-OtterCurrentToken
+        if ($linkWord3.Kind -ne [TokenKind]::Identifier -or $linkWord3.Text -ne 'link') {
+            throw (New-OtterParserError 'I expected "link" after "symbolic".' $linkWord3 'file "x" is a symbolic link')
+        }
+        [void](Read-OtterToken)
+        return [FileIsSymbolicLinkExpr]::new($path, $fileToken.Line)
     }
     $left = Read-OtterValue
     if (Test-OtterTokenKind ([TokenKind]::Contains)) {
@@ -1305,6 +1316,26 @@ function Read-OtterStatement {
                 [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the get statement to end here.')
                 return [GetProcessesStmt]::new($target.Text, $start.Line)
             }
+            # D73: `get symbolic link target of "l" into t`
+            if ($kind.Kind -eq [TokenKind]::Identifier -and $kind.Text -eq 'symbolic') {
+                [void](Read-OtterToken)
+                $linkWord2 = Get-OtterCurrentToken
+                if ($linkWord2.Kind -ne [TokenKind]::Identifier -or $linkWord2.Text -ne 'link') {
+                    throw (New-OtterParserError 'I expected "link" after "symbolic".' $linkWord2 'get symbolic link target of "l" into t')
+                }
+                [void](Read-OtterToken)
+                $targetWord = Get-OtterCurrentToken
+                if ($targetWord.Kind -ne [TokenKind]::Identifier -or $targetWord.Text -ne 'target') {
+                    throw (New-OtterParserError 'I expected "target" after "link".' $targetWord 'get symbolic link target of "l" into t')
+                }
+                [void](Read-OtterToken)
+                [void](Assert-OtterTokenKind ([TokenKind]::Of) 'I expected "of" and a link path.')
+                $linkPath2 = Read-OtterValue
+                [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a result name.')
+                $target2 = Read-OtterVariableName 'I expected a result name after "into".'
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the get statement to end here.')
+                return [GetSymbolicLinkTargetStmt]::new($linkPath2, $target2.Text, $start.Line)
+            }
             if ($kind.Kind -eq [TokenKind]::Files -or $kind.Kind -eq [TokenKind]::Folders) {
                 [void](Read-OtterToken)
                 [void](Assert-OtterTokenKind ([TokenKind]::In) 'I expected "in" and a folder path.')
@@ -1395,6 +1426,28 @@ function Read-OtterStatement {
                 $path = Read-OtterValue
                 [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the create statement to end here.')
                 return [CreateFolderStmt]::new($path, $start.Line)
+            }
+            # D73: `create symbolic link "l" pointing to "t"` - checked
+            # as plain identifier text before the generic UI-resource
+            # path below, same technique as the Folder check above.
+            $maybeSymbolic = Get-OtterCurrentToken
+            if ($maybeSymbolic.Kind -eq [TokenKind]::Identifier -and $maybeSymbolic.Text -eq 'symbolic') {
+                [void](Read-OtterToken)
+                $linkWord = Get-OtterCurrentToken
+                if ($linkWord.Kind -ne [TokenKind]::Identifier -or $linkWord.Text -ne 'link') {
+                    throw (New-OtterParserError 'I expected "link" after "symbolic".' $linkWord 'create symbolic link "l" pointing to "t"')
+                }
+                [void](Read-OtterToken)
+                $linkPath = Read-OtterValue
+                $pointingWord = Get-OtterCurrentToken
+                if ($pointingWord.Kind -ne [TokenKind]::Identifier -or $pointingWord.Text -ne 'pointing') {
+                    throw (New-OtterParserError 'I expected "pointing to" and a target path.' $pointingWord 'create symbolic link "l" pointing to "t"')
+                }
+                [void](Read-OtterToken)
+                [void](Assert-OtterTokenKind ([TokenKind]::To) 'I expected "to" and a target path.')
+                $targetPath = Read-OtterValue
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the create statement to end here.')
+                return [CreateSymbolicLinkStmt]::new($linkPath, $targetPath, $start.Line)
             }
             # `the` is an article here only when another kind word follows;
             # `create the into x` keeps `the` as the raw resource kind.

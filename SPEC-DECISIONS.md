@@ -5622,3 +5622,73 @@ text-file operations.
 
 ---
 
+## D73. Symbolic links — `create symbolic link ... pointing to ...`, `get symbolic link target of ... into ...`, `file "x" is a symbolic link`
+
+**Status: interpreter-side IMPLEMENTED. The READ side (get target,
+is-a-symlink) verified end-to-end through the real `otter run` CLI
+against a real Windows reparse point. Symlink CREATION verified only
+via its clean failure path in this environment - no Administrator/
+Developer Mode privilege was available to test the success path
+directly, and the test suite checks whichever outcome the machine
+running it actually produces rather than assuming one. JS/web-side
+compiler emission implemented; the required host hooks have no bridge
+implementation yet, same reported boundary as D69-D72.**
+
+**Design:** three additions, kept separate rather than folded into
+existing statements since none of them share a shape with anything
+else in the grammar:
+- `create symbolic link "l" pointing to "t"` - the link kind (file vs.
+  directory) is auto-detected from whatever already exists at the
+  target path. Windows' own symlink API needs to know which kind it is
+  creating, but Otter code should not have to say so when the answer
+  is already sitting on disk. Requires the target to already exist -
+  if it does not, this is reported as a clean error rather than
+  guessing a kind.
+- `get symbolic link target of "l" into t` - reads what the link
+  points to.
+- `file "x" is a symbolic link` - a third branch inside the existing
+  `file "x" ...` condition-primary grammar (alongside D72's `is
+  locked`), sharing the path-read logic with `exists`/`is locked`
+  rather than duplicating it.
+
+**A real, environment-dependent limitation surfaced and handled
+explicitly, not papered over:** creating a real Windows symbolic link
+requires either Administrator privileges or Developer Mode turned on
+(Windows 10+) - confirmed directly: `New-Item -ItemType SymbolicLink`
+failed with "Administrator privilege required for this operation" in
+this session's own shell. `New-OtterSymbolicLink` detects this specific
+failure and reports "this needs Administrator privileges or Developer
+Mode turned on" with a suggestion, rather than letting a raw .NET
+exception or a generic "could not create" message reach the user - the
+cause is specific and actionable, so the error is too.
+
+**Interpreter** (`Otter.Library.psm1`): `New-OtterSymbolicLink` uses
+`New-Item -ItemType SymbolicLink`, which (confirmed directly) handles
+both file and directory targets uniformly on PowerShell 5.1 without
+Otter needing to tell it which kind it is making. `Get-
+OtterSymbolicLinkTarget`/`Test-OtterSymbolicLink` both read
+`(Get-Item ...).LinkType`/`.Target` - real .NET/PowerShell reparse-
+point introspection, not a heuristic.
+
+**Verified:** the READ side through the real `otter run` CLI against a
+real directory JUNCTION (a reparse-point kind that needs no elevated
+privilege on Windows, deliberately used here to exercise the identical
+`.LinkType`/`.Target` code path a true symbolic link would, since no
+Administrator access was available in this session to create one) -
+correct target resolution, correct link/non-link discrimination
+against both a junction and a plain real folder, and a clean error
+asking a non-link for its target. Symlink CREATION verified through
+its real, reproducible failure path (the exact privilege error above,
+caught cleanly by `otherwise into reason`); the success path could not
+be directly exercised in this environment, so the regression test
+checks whichever of the two real outcomes the running machine actually
+produces, rather than assuming admin is available - a future run with
+Administrator access (or Developer Mode) will exercise the success
+branch of the same test without any change to the test itself.
+
+**Deliberately out of scope:** Permission/ownership APIs (file owner,
+read-only flag) remain unchecked, a similarly-shaped but separate
+piece of future work.
+
+---
+

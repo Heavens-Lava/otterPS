@@ -479,6 +479,71 @@ function New-OtterFolder {
     }
 }
 
+# create symbolic link "l" pointing to "t"                            (D73)
+# The link kind (file vs. directory) is auto-detected from whatever
+# already exists at TargetPath - New-Item -ItemType SymbolicLink needs
+# to know which kind it is making, and Windows treats file/directory
+# symlinks as genuinely different reparse-point types. Requires either
+# Administrator privileges or Windows 10+ Developer Mode - a real,
+# environment-dependent limitation, so a permission failure is
+# translated into a clean Otter error naming that cause specifically,
+# not a generic "could not create" message.
+function New-OtterSymbolicLink {
+    param([string]$LinkPath, [string]$TargetPath, [int]$Line)
+
+    $fullTarget = Resolve-OtterPath -Path $TargetPath -Line $Line
+    if (-not (Test-Path -LiteralPath $fullTarget)) {
+        throw [OtterError]::new("I could not find `"$TargetPath`" to point the link at.", $Line, 'runtime')
+    }
+    $fullLink = Resolve-OtterPath -Path $LinkPath -Line $Line
+    Initialize-OtterParentFolder -FullPath $fullLink -Line $Line
+
+    try {
+        # New-Item -ItemType SymbolicLink handles both file and directory
+        # targets uniformly on PowerShell 5.1 - it inspects -Target itself
+        # to pick the right underlying reparse-point flavor, so Otter does
+        # not need to (and, per the class comment above, should not have
+        # to) tell it which kind this is.
+        [void](New-Item -ItemType SymbolicLink -Path $fullLink -Target $fullTarget -Force -ErrorAction Stop)
+    }
+    catch {
+        $message = $_.Exception.Message
+        if ($message -match 'privilege' -or $message -match 'required privilege') {
+            throw [OtterError]::new(
+                "I could not create the symbolic link `"$LinkPath`" - this needs Administrator privileges or Developer Mode turned on.",
+                $Line, 'runtime', 0, $null,
+                'Run as Administrator, or turn on Developer Mode in Windows Settings.')
+        }
+        throw [OtterError]::new("I could not create the symbolic link `"$LinkPath`". $message", $Line, 'runtime')
+    }
+}
+
+# get symbolic link target of "l" into t                              (D73)
+function Get-OtterSymbolicLinkTarget {
+    param([string]$LinkPath, [int]$Line)
+
+    $full = Resolve-OtterPath -Path $LinkPath -Line $Line
+    if (-not (Test-Path -LiteralPath $full)) {
+        throw [OtterError]::new("I could not find a link called `"$LinkPath`".", $Line, 'runtime')
+    }
+    $item = Get-Item -LiteralPath $full -Force
+    if (-not $item.LinkType) {
+        throw [OtterError]::new("`"$LinkPath`" is not a symbolic link.", $Line, 'runtime')
+    }
+    return [string]$item.Target
+}
+
+# if file "l" is a symbolic link                                      (D73)
+function Test-OtterSymbolicLink {
+    param([string]$Path, [int]$Line)
+
+    if ([string]::IsNullOrWhiteSpace($Path)) { return $false }
+    $full = Resolve-OtterPath -Path $Path -Line $Line
+    if (-not (Test-Path -LiteralPath $full)) { return $false }
+    $item = Get-Item -LiteralPath $full -Force
+    return [bool]$item.LinkType
+}
+
 # delete folder "Backup"
 #
 # Otter will not erase a folder that still has things in it. Jeff's own
@@ -1145,4 +1210,5 @@ Export-ModuleMember -Function `
     ConvertFrom-OtterJsonText, ConvertTo-OtterJsonText, Read-OtterJsonFile, `
     Show-OtterNotification, Show-OtterFileDialog, Get-OtterSystemInfoValue, `
     New-OtterProcessObject, Get-OtterProcessList, Stop-OtterProcess, `
-    Set-OtterProcessPriority, Wait-OtterProcess
+    Set-OtterProcessPriority, Wait-OtterProcess, `
+    New-OtterSymbolicLink, Get-OtterSymbolicLinkTarget, Test-OtterSymbolicLink

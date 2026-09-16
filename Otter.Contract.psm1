@@ -390,6 +390,11 @@ enum NodeKind {
     KillProcess       # kill process p / kill process p and its children
     SetProcessPriority  # set priority of process p to "high"
     WaitForProcess      # wait for process p up to 5 seconds [into finished]
+
+    # --- symbolic links (D73) --------------------------------------
+    CreateSymbolicLink     # create symbolic link "l" pointing to "t"
+    GetSymbolicLinkTarget  # get symbolic link target of "l" into t
+    FileIsSymbolicLink     # an EXPRESSION: if file "l" is a symbolic link
 }
 
 enum MathOp { Add; Subtract; Multiply; Divide }
@@ -1259,6 +1264,38 @@ class WaitForProcessStmt : Node {
         $this.ProcessExpr = $processExpr
         $this.TimeoutSeconds = $timeoutSeconds
         $this.Target = $target
+    }
+}
+
+# create symbolic link "link.txt" pointing to "target.txt"            (D73)
+# The link kind (file vs. directory) is auto-detected from whatever
+# already exists at TargetPath - Windows' own symlink API needs to know
+# which kind it is creating, but Otter code should not have to say so
+# when the answer is already sitting on disk.
+class CreateSymbolicLinkStmt : Node {
+    [Node]$LinkPath
+    [Node]$TargetPath
+    CreateSymbolicLinkStmt([Node]$linkPath, [Node]$targetPath, [int]$line) : base([NodeKind]::CreateSymbolicLink, $line) {
+        $this.LinkPath = $linkPath
+        $this.TargetPath = $targetPath
+    }
+}
+
+# get symbolic link target of "link.txt" into target                 (D73)
+class GetSymbolicLinkTargetStmt : Node {
+    [Node]$LinkPath
+    [string]$Target
+    GetSymbolicLinkTargetStmt([Node]$linkPath, [string]$target, [int]$line) : base([NodeKind]::GetSymbolicLinkTarget, $line) {
+        $this.LinkPath = $linkPath
+        $this.Target = $target
+    }
+}
+
+# if file "link.txt" is a symbolic link                               (D73)
+class FileIsSymbolicLinkExpr : Node {
+    [Node]$Path
+    FileIsSymbolicLinkExpr([Node]$path, [int]$line) : base([NodeKind]::FileIsSymbolicLink, $line) {
+        $this.Path = $path
     }
 }
 

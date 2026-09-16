@@ -311,7 +311,12 @@ creation.
 -   [x] User/app data folders
 -   [x] Path combine/normalize
 -   [x] Cross-platform path rules
--   [ ] Symbolic links/reparse points
+-   [x] Symbolic links/reparse points (D73: `create symbolic link ...
+    pointing to ...`, `get symbolic link target of ... into ...`,
+    `file "x" is a symbolic link`. Read side verified through the real
+    `otter run` CLI against a real Windows junction; creation verified
+    via its real, environment-dependent privilege-error path - see
+    SPEC-DECISIONS.md D73)
 -   [ ] Permission/ownership APIs
 -   [x] Disk/free-space information (D69: `get system information "disk"
     into info` - `freeBytes`/`totalBytes` fields, same feature as

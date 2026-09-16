@@ -397,6 +397,15 @@ function ConvertTo-OtterJsExpression {
             $pathJs = ConvertTo-OtterJsExpression -Expr $Expr.Path
             return "(await otterFileLocked($pathJs))"
         }
+        ([NodeKind]::FileIsSymbolicLink) {
+            # D73. `file "x" is a symbolic link` - REQUIRED runtime hook
+            # `otterFileIsSymbolicLink(path)`, no bridge implementation
+            # yet - browsers have no filesystem-link concept at all, so
+            # this is a genuine host boundary even more fundamentally
+            # than D69-D72's hooks.
+            $pathJs = ConvertTo-OtterJsExpression -Expr $Expr.Path
+            return "(await otterFileIsSymbolicLink($pathJs))"
+        }
         default {
             return "null"
         }
@@ -1204,6 +1213,23 @@ function ConvertTo-OtterJsStatement {
         ([NodeKind]::CreateFolder) {
             $pathJs = ConvertTo-OtterJsExpression -Expr $Stmt.Path
             return "${pad}await otterCreateFolder($pathJs);"
+        }
+        ([NodeKind]::CreateSymbolicLink) {
+            # D73. REQUIRED runtime hook `otterCreateSymbolicLink(link,
+            # target)`, no bridge implementation yet - a genuine
+            # filesystem-only host boundary.
+            $linkJs = ConvertTo-OtterJsExpression -Expr $Stmt.LinkPath
+            $targetJs = ConvertTo-OtterJsExpression -Expr $Stmt.TargetPath
+            return "${pad}await otterCreateSymbolicLink($linkJs, $targetJs);"
+        }
+        ([NodeKind]::GetSymbolicLinkTarget) {
+            # D73. REQUIRED runtime hook `otterGetSymbolicLinkTarget(link)`.
+            $linkJs = ConvertTo-OtterJsExpression -Expr $Stmt.LinkPath
+            $target = $Stmt.Target
+            if ($LocalNames -and $LocalNames.Contains($target)) {
+                return "${pad}$target = await otterGetSymbolicLinkTarget($linkJs);"
+            }
+            return "${pad}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$target' in otterState)) { otterSetState('$target', await otterGetSymbolicLinkTarget($linkJs)); } else { window.$target = await otterGetSymbolicLinkTarget($linkJs); }"
         }
         ([NodeKind]::DeleteFolder) {
             $pathJs = ConvertTo-OtterJsExpression -Expr $Stmt.Path
@@ -2103,8 +2129,8 @@ function Get-OtterJsBindingNames {
             if ($s.Kind -eq [NodeKind]::RunProgram -and $s.ResultTarget) {
                 [void]$setStyle.Add($s.ResultTarget)
             }
-            if ($s.Kind -eq [NodeKind]::GetClipboard -or $s.Kind -eq [NodeKind]::GetEnvironmentVariable -or $s.Kind -eq [NodeKind]::GetSystemFolder -or $s.Kind -eq [NodeKind]::ChooseFile -or $s.Kind -eq [NodeKind]::ChooseFolder -or $s.Kind -eq [NodeKind]::ChooseSaveFile -or $s.Kind -eq [NodeKind]::GetSystemInfo -or $s.Kind -eq [NodeKind]::GetProcesses -or $s.Kind -eq [NodeKind]::WaitForProcess) {
-                # D67/D69/D70/D71: all nine use Environment.Set (verified
+            if ($s.Kind -eq [NodeKind]::GetClipboard -or $s.Kind -eq [NodeKind]::GetEnvironmentVariable -or $s.Kind -eq [NodeKind]::GetSystemFolder -or $s.Kind -eq [NodeKind]::ChooseFile -or $s.Kind -eq [NodeKind]::ChooseFolder -or $s.Kind -eq [NodeKind]::ChooseSaveFile -or $s.Kind -eq [NodeKind]::GetSystemInfo -or $s.Kind -eq [NodeKind]::GetProcesses -or $s.Kind -eq [NodeKind]::WaitForProcess -or $s.Kind -eq [NodeKind]::GetSymbolicLinkTarget) {
+                # D67/D69/D70/D71/D73: all ten use Environment.Set (verified
                 # directly) - Set-style, same as Assign/MathInto, not SetLocal.
                 if ($s.Target) { [void]$setStyle.Add($s.Target) }
             }
@@ -2228,6 +2254,7 @@ function Test-OtterJsExpressionNeedsAsync {
     switch ($Expression.Kind) {
         ([NodeKind]::FileExists) { return $true }
         ([NodeKind]::FileLocked) { return $true }
+        ([NodeKind]::FileIsSymbolicLink) { return $true }
         ([NodeKind]::Await) { return $true }
         ([NodeKind]::Math) { return (Test-OtterJsExpressionNeedsAsync $Expression.Left) -or (Test-OtterJsExpressionNeedsAsync $Expression.Right) }
         ([NodeKind]::Comparison) { return (Test-OtterJsExpressionNeedsAsync $Expression.Left) -or (Test-OtterJsExpressionNeedsAsync $Expression.Right) }
@@ -2261,7 +2288,7 @@ function Test-OtterJsBodyNeedsAsync {
 
     if ($null -eq $Statements) { return $false }
     foreach ($s in $Statements) {
-        if ($s.Kind -eq [NodeKind]::Await -or $s.Kind -eq [NodeKind]::ReadFile -or $s.Kind -eq [NodeKind]::WriteFile -or $s.Kind -eq [NodeKind]::AppendFile -or $s.Kind -eq [NodeKind]::CopyFile -or $s.Kind -eq [NodeKind]::MoveFile -or $s.Kind -eq [NodeKind]::DeleteFile -or $s.Kind -eq [NodeKind]::CreateFolder -or $s.Kind -eq [NodeKind]::DeleteFolder -or $s.Kind -eq [NodeKind]::CopyFolder -or $s.Kind -eq [NodeKind]::MoveFolder -or $s.Kind -eq [NodeKind]::GetFiles -or $s.Kind -eq [NodeKind]::GetFolders -or $s.Kind -eq [NodeKind]::RunProgram -or $s.Kind -eq [NodeKind]::HttpGet -or $s.Kind -eq [NodeKind]::HttpPost -or $s.Kind -eq [NodeKind]::HttpPut -or $s.Kind -eq [NodeKind]::HttpDelete -or $s.Kind -eq [NodeKind]::CopyToClipboard -or $s.Kind -eq [NodeKind]::GetClipboard -or $s.Kind -eq [NodeKind]::Notify -or $s.Kind -eq [NodeKind]::GetEnvironmentVariable -or $s.Kind -eq [NodeKind]::GetSystemFolder -or $s.Kind -eq [NodeKind]::ChooseFile -or $s.Kind -eq [NodeKind]::ChooseFolder -or $s.Kind -eq [NodeKind]::ChooseSaveFile -or $s.Kind -eq [NodeKind]::GetSystemInfo -or $s.Kind -eq [NodeKind]::GetProcesses -or $s.Kind -eq [NodeKind]::KillProcess -or $s.Kind -eq [NodeKind]::SetProcessPriority -or $s.Kind -eq [NodeKind]::WaitForProcess) {
+        if ($s.Kind -eq [NodeKind]::Await -or $s.Kind -eq [NodeKind]::ReadFile -or $s.Kind -eq [NodeKind]::WriteFile -or $s.Kind -eq [NodeKind]::AppendFile -or $s.Kind -eq [NodeKind]::CopyFile -or $s.Kind -eq [NodeKind]::MoveFile -or $s.Kind -eq [NodeKind]::DeleteFile -or $s.Kind -eq [NodeKind]::CreateFolder -or $s.Kind -eq [NodeKind]::DeleteFolder -or $s.Kind -eq [NodeKind]::CopyFolder -or $s.Kind -eq [NodeKind]::MoveFolder -or $s.Kind -eq [NodeKind]::GetFiles -or $s.Kind -eq [NodeKind]::GetFolders -or $s.Kind -eq [NodeKind]::RunProgram -or $s.Kind -eq [NodeKind]::HttpGet -or $s.Kind -eq [NodeKind]::HttpPost -or $s.Kind -eq [NodeKind]::HttpPut -or $s.Kind -eq [NodeKind]::HttpDelete -or $s.Kind -eq [NodeKind]::CopyToClipboard -or $s.Kind -eq [NodeKind]::GetClipboard -or $s.Kind -eq [NodeKind]::Notify -or $s.Kind -eq [NodeKind]::GetEnvironmentVariable -or $s.Kind -eq [NodeKind]::GetSystemFolder -or $s.Kind -eq [NodeKind]::ChooseFile -or $s.Kind -eq [NodeKind]::ChooseFolder -or $s.Kind -eq [NodeKind]::ChooseSaveFile -or $s.Kind -eq [NodeKind]::GetSystemInfo -or $s.Kind -eq [NodeKind]::GetProcesses -or $s.Kind -eq [NodeKind]::KillProcess -or $s.Kind -eq [NodeKind]::SetProcessPriority -or $s.Kind -eq [NodeKind]::WaitForProcess -or $s.Kind -eq [NodeKind]::CreateSymbolicLink -or $s.Kind -eq [NodeKind]::GetSymbolicLinkTarget) {
             return $true
         }
         if ($s.Kind -eq [NodeKind]::ReadJson) {

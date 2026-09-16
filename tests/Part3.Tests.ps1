@@ -660,6 +660,75 @@ Test-Otter 'D72: file is locked is true for a file another process holds open ex
     }
 }
 
+# =================================================================
+# D73 - symbolic links
+# =================================================================
+
+Test-Otter 'D73: get symbolic link target and is a symbolic link work on a real reparse point' {
+    # Directory JUNCTIONS need no elevated privilege on Windows, unlike
+    # true symbolic links - used here to exercise the exact same
+    # Get-Item .LinkType/.Target code path Test-OtterSymbolicLink and
+    # Get-OtterSymbolicLinkTarget both read, without requiring this test
+    # run to be Administrator.
+    $realFolder = Join-Path $sandbox 'd73-real'
+    $junction = Join-Path $sandbox 'd73-junction'
+    [void](New-Item -ItemType Directory -Path $realFolder -Force)
+    [void](New-Item -ItemType Junction -Path $junction -Target $realFolder -Force)
+
+    $out = Invoke-TestProgram @(
+        [GetSymbolicLinkTargetStmt]::new((Lit $junction), 'target', 1),
+        [SayStmt]::new(@((Var 'target')), 2),
+        [IfStmt]::new(
+            @([IfBranch]::new([FileIsSymbolicLinkExpr]::new((Lit $junction), 3),
+                @([SayStmt]::new(@((Lit 'is a link')), 4)))),
+            @([SayStmt]::new(@((Lit 'not a link')), 6)), 3)
+    )
+    Assert-Lines -Expected @($realFolder, 'is a link') -Actual $out
+}
+
+Test-Otter 'D73: is a symbolic link is false for a plain real folder' {
+    $realFolder = Join-Path $sandbox 'd73-plain'
+    [void](New-Item -ItemType Directory -Path $realFolder -Force)
+    $out = Invoke-TestProgram @(
+        [IfStmt]::new(
+            @([IfBranch]::new([FileIsSymbolicLinkExpr]::new((Lit $realFolder), 1),
+                @([SayStmt]::new(@((Lit 'is a link')), 2)))),
+            @([SayStmt]::new(@((Lit 'not a link')), 4)), 1)
+    )
+    Assert-Lines -Expected @('not a link') -Actual $out
+}
+
+Test-Otter 'D73: get symbolic link target of something that is not a link is a clean Otter error' {
+    $realFolder = Join-Path $sandbox 'd73-not-a-link'
+    [void](New-Item -ItemType Directory -Path $realFolder -Force)
+    Assert-OtterFails -Containing 'is not a symbolic link' -Body {
+        Invoke-TestProgram @( [GetSymbolicLinkTargetStmt]::new((Lit $realFolder), 'target', 1) )
+    }
+}
+
+Test-Otter 'D73: create symbolic link either succeeds for real or fails with a clean, specific error' {
+    # This environment may or may not have Administrator/Developer Mode
+    # privilege to actually create a symlink - both outcomes are
+    # meaningful and checked, rather than assuming one or the other.
+    $targetFile = Join-Path $sandbox 'd73-link-target.txt'
+    $linkFile = Join-Path $sandbox 'd73-link.txt'
+    Set-Content -LiteralPath $targetFile -Value 'link target content' -NoNewline
+
+    $out = Invoke-TestProgram @(
+        [TryStmt]::new(
+            @([CreateSymbolicLinkStmt]::new((Lit $linkFile), (Lit $targetFile), 1),
+              [ReadFileStmt]::new((Lit $linkFile), 'contents', 2),
+              [SayStmt]::new(@((Lit 'created:'), (Var 'contents')), 3)),
+            @([SayStmt]::new(@((Lit 'denied:'), (Var 'reason')), 5)), 'reason', 1)
+    )
+    Assert-AreEqual -Expected 1 -Actual $out.Count
+    if ($out[0] -like 'created:*') {
+        Assert-AreEqual -Expected 'created: link target content' -Actual $out[0]
+    } else {
+        Assert-True ($out[0] -like 'denied:*Administrator*Developer Mode*') "expected the specific privilege error, got [$($out[0])]"
+    }
+}
+
 
 Set-Location $originalLocation
 Remove-Item -LiteralPath $sandbox -Recurse -Force -ErrorAction SilentlyContinue
