@@ -1,0 +1,576 @@
+/* canvas.css - Visual Designer Canvas, selection handles, and drop indicators */
+
+#canvasContainer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+.canvas-topbar {
+  height: 36px;
+  background: rgba(15, 23, 42, 0.6);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  z-index: 20;
+}
+
+.canvas-breadcrumbs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+}
+
+.crumb-item {
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 3px;
+  transition: all 0.15s ease;
+}
+
+.crumb-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.crumb-item.is-active {
+  color: #60a5fa;
+  font-weight: 600;
+}
+
+.crumb-sep {
+  color: var(--text-muted);
+}
+
+.canvas-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.canvas-zoom-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+/* Canvas Viewport */
+.canvas-viewport {
+  flex: 1;
+  overflow: auto;
+  padding: 40px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  position: relative;
+  /* Blueprint / Grid Background */
+  background-color: #060911;
+  background-image:
+    radial-gradient(circle, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.canvas-window-wrapper {
+  background: #0f172a;
+  border-radius: 12px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  transition: box-shadow 0.2s ease;
+}
+
+.window-titlebar {
+  height: 36px;
+  background: #141f36;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  position: relative;
+  user-select: none;
+}
+
+.window-dots {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.dot-red { background: #ef4444; }
+.dot-yellow { background: #f59e0b; }
+.dot-green { background: #10b981; }
+
+.window-title-text {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.window-dimension-badge {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+.window-content-area {
+  min-height: 480px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  cursor: default;
+}
+
+/* Canvas Element Base */
+.canvas-element {
+  position: relative;
+  transition: outline 0.1s ease, background-color 0.15s ease;
+  user-select: none;
+}
+
+.canvas-element:hover {
+  outline: 1px dashed rgba(59, 130, 246, 0.5);
+  outline-offset: 1px;
+}
+
+.canvas-element.is-selected {
+  outline: 2px solid var(--accent-primary) !important;
+  outline-offset: 1px;
+  z-index: 10;
+}
+
+/* Floating Selection Badge */
+.selection-badge {
+  position: absolute;
+  top: -24px;
+  left: -2px;
+  height: 20px;
+  background: var(--accent-primary);
+  color: #fff;
+  border-radius: 3px 3px 0 0;
+  padding: 0 6px;
+  font-size: 10px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  pointer-events: auto;
+  z-index: 100;
+}
+
+.badge-name {
+  color: #fff;
+}
+
+.badge-kind {
+  background: rgba(0, 0, 0, 0.25);
+  padding: 1px 4px;
+  border-radius: 2px;
+  font-size: 9px;
+}
+
+.badge-actions {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 2px;
+}
+
+.badge-btn {
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 1px 4px;
+  border-radius: 2px;
+  opacity: 0.85;
+  transition: all 0.1s ease;
+}
+
+.badge-btn:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.badge-btn.badge-del:hover {
+  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.4);
+}
+
+/* Interactive Resize Handles */
+.resize-handle {
+  position: absolute;
+  background: #ffffff;
+  border: 1.5px solid #2563eb;
+  border-radius: 2px;
+  z-index: 101;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  pointer-events: auto;
+}
+
+.resize-handle.handle-e {
+  top: 50%;
+  right: -5px;
+  transform: translateY(-50%);
+  width: 7px;
+  height: 14px;
+  cursor: ew-resize;
+}
+
+.resize-handle.handle-s {
+  bottom: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 14px;
+  height: 7px;
+  cursor: ns-resize;
+}
+
+.resize-handle.handle-se {
+  bottom: -5px;
+  right: -5px;
+  width: 8px;
+  height: 8px;
+  cursor: nwse-resize;
+}
+
+/* Floating Live Dimension Tooltip */
+.resize-dimension-tooltip {
+  position: absolute;
+  background: #0f172a;
+  color: #38bdf8;
+  border: 1px solid #38bdf8;
+  border-radius: 4px;
+  padding: 3px 7px;
+  font-size: 11px;
+  font-family: monospace;
+  font-weight: 600;
+  pointer-events: none;
+  z-index: 1000;
+  white-space: nowrap;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+}
+
+/* Drop Targets & Drag Indicators */
+.canvas-element[draggable="true"] {
+  cursor: grab;
+}
+
+.canvas-element.is-dragging {
+  opacity: 0.35 !important;
+  outline: 2px dashed #60a5fa !important;
+  cursor: grabbing !important;
+}
+
+/* ===============================================================
+   GrapesJS-Style Designer Interaction Overlay
+   =============================================================== */
+.designer-canvas-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 500;
+  overflow: visible;
+}
+
+.designer-target-box {
+  position: absolute;
+  border: 2px solid #2563eb;
+  border-radius: 6px;
+  background: rgba(37, 99, 235, 0.05);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+  pointer-events: none;
+  z-index: 501;
+  transition: all 0.04s ease-out;
+}
+
+.designer-target-badge {
+  position: absolute;
+  top: -22px;
+  left: -2px;
+  background: #2563eb;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px 4px 0 0;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.25);
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+
+.designer-insertion-line {
+  position: absolute;
+  background: #2563eb;
+  border-radius: 3px;
+  box-shadow: 0 0 10px #2563eb, 0 0 4px #60a5fa;
+  pointer-events: none;
+  z-index: 502;
+  transition: all 0.04s ease-out;
+}
+
+.designer-insertion-line.is-vertical {
+  width: 3px;
+}
+
+.designer-insertion-line.is-horizontal {
+  height: 3px;
+}
+
+.designer-insertion-line .line-dot {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  background: #2563eb;
+  border: 1.5px solid #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.designer-insertion-line.is-vertical .dot-start {
+  top: -3px;
+  left: -2px;
+}
+
+.designer-insertion-line.is-vertical .dot-end {
+  bottom: -3px;
+  left: -2px;
+}
+
+.designer-insertion-line.is-horizontal .dot-start {
+  left: -3px;
+  top: -2px;
+}
+
+.designer-insertion-line.is-horizontal .dot-end {
+  right: -3px;
+  top: -2px;
+}
+
+/* Container Specific Canvas Styling */
+.canvas-row {
+  display: flex;
+  flex-direction: row;
+  min-height: 38px;
+}
+
+.canvas-column {
+  display: flex;
+  flex-direction: column;
+  min-height: 38px;
+}
+
+.canvas-card {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+}
+
+.canvas-scroll {
+  overflow-y: auto;
+}
+
+/* Controls Styling in Canvas */
+.canvas-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 6px;
+}
+
+.canvas-textbox {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 13px;
+}
+
+.canvas-textbox.is-placeholder {
+  color: var(--text-muted);
+}
+
+.canvas-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.canvas-slider {
+  display: flex;
+  align-items: center;
+  padding: 8px 0;
+}
+
+.slider-track {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+  position: relative;
+}
+
+.slider-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
+.canvas-dropdown {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 13px;
+}
+
+.canvas-progress {
+  width: 100%;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  border-radius: inherit;
+}
+
+.empty-canvas-prompt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 260px;
+  border: 2px dashed rgba(148, 163, 184, 0.4);
+  border-radius: 8px;
+  color: #94a3b8;
+  gap: 8px;
+  user-select: none;
+  pointer-events: none;
+  margin: 16px;
+  padding: 24px;
+  text-align: center;
+}
+
+.empty-canvas-prompt .prompt-icon {
+  font-size: 36px;
+  opacity: 0.8;
+}
+
+.empty-canvas-prompt .prompt-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.empty-canvas-prompt .prompt-desc {
+  font-size: 12px;
+  color: #94a3b8;
+  max-width: 320px;
+  line-height: 1.4;
+}
+
+/* Canvas Mode Switcher (Design vs Live Interact) */
+.canvas-mode-toggle {
+  display: flex;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.canvas-toggle-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 9px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.canvas-toggle-btn:hover {
+  color: #ffffff;
+}
+
+.canvas-toggle-btn.is-active {
+  background: #2563eb;
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+/* Inline Text Editor on Canvas */
+.canvas-inline-editor {
+  background: rgba(30, 41, 59, 0.95);
+  color: #ffffff !important;
+  border: 1.5px solid #3b82f6;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+  min-width: 60px;
+  width: auto;
+  max-width: 100%;
+}
+
+/* Live Interactive Canvas State */
+.canvas-element.is-interactive-mode {
+  cursor: default;
+}
+
+.canvas-element.is-interactive-mode.canvas-button {
+  cursor: pointer;
+  transition: transform 0.08s ease, filter 0.08s ease;
+}
+
+.canvas-element.is-interactive-mode.canvas-button:hover {
+  filter: brightness(1.1);
+}
+
+.canvas-element.is-interactive-mode.canvas-button.btn-clicked {
+  transform: scale(0.96);
+  filter: brightness(0.9);
+}

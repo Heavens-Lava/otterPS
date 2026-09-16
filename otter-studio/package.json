@@ -1,0 +1,12 @@
+{
+  "name": "otter-studio",
+  "version": "1.0.0",
+  "description": "Visual UI Designer and IDE for Otter Desktop & Web Applications",
+  "type": "module",
+  "scripts": {
+    "dev": "node serve.mjs",
+    "start": "node serve.mjs",
+    "check": "node --check serve.mjs && node --check js/ide.js && node --check js/app.js && node --check scripts/external-change.test.mjs && node --check scripts/smoke.mjs && npm test",
+    "test": "node scripts/external-change.test.mjs && node scripts/smoke.mjs"
+  }
+}

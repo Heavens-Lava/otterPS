@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Otter Studio</title>
+  <meta name="description" content="Otter Studio - Visual UI Designer and IDE for Otter Applications">
+
+  <!-- Modern Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <!-- Core Styles -->
+  <link rel="stylesheet" href="css/studio.css">
+  <link rel="stylesheet" href="css/canvas.css">
+  <link rel="stylesheet" href="css/components.css">
+</head>
+<body class="theme-light">
+  <div class="studio-shell">
+    <!-- Top Global Header -->
+    <header class="studio-header">
+      <div class="header-left">
+        <div class="brand-badge">
+          <div class="brand-avatar">
+            <img src="img/otter-avatar.svg" alt="Otter Mascot" />
+          </div>
+          <div class="brand-text-wrap">
+            <span class="brand-title">Otter Studio</span>
+            <span class="brand-subtitle">Readable like English. Precise like code.</span>
+          </div>
+        </div>
+
+        <!-- Classic Menu Bar -->
+        <nav class="studio-menu-bar">
+          <div class="menu-item" data-menu="file" id="menuFile">
+            File <span class="menu-arrow">▾</span>
+            <div class="dropdown-menu" id="dropdownFile">
+              <div class="dropdown-item" id="menuItemNewProject">
+                <span class="dropdown-icon">✨</span>
+                <span>New Project...</span>
+                <span class="dropdown-shortcut">Ctrl+Shift+N</span>
+              </div>
+              <div class="dropdown-item" id="menuItemNewFile">
+                <span class="dropdown-icon">📄</span>
+                <span>New File</span>
+                <span class="dropdown-shortcut">Ctrl+N</span>
+              </div>
+              <div class="dropdown-item" id="menuItemOpenFolder">
+                <span class="dropdown-icon">📂</span>
+                <span>Open Folder...</span>
+                <span class="dropdown-shortcut">Ctrl+O</span>
+              </div>
+              <div class="dropdown-divider"></div>
+              <div class="dropdown-item" id="menuItemSave">
+                <span class="dropdown-icon">💾</span>
+                <span>Save</span>
+                <span class="dropdown-shortcut">Ctrl+S</span>
+              </div>
+            </div>
+          </div>
+          <div class="menu-item" data-menu="edit">Edit <span class="menu-arrow">▾</span></div>
+          <div class="menu-item" data-menu="run">Run <span class="menu-arrow">▾</span></div>
+          <div class="menu-item" data-menu="view">View <span class="menu-arrow">▾</span></div>
+          <div class="menu-item" data-menu="help">Help <span class="menu-arrow">▾</span></div>
+        </nav>
+      </div>
+
+      <div class="header-right">
+        <div class="header-search-wrap">
+          <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input type="text" class="header-search-input" placeholder="Search documentation..." />
+        </div>
+
+        <!-- Window Controls -->
+        <div class="window-controls">
+          <button class="win-btn win-min" title="Minimize">—</button>
+          <button class="win-btn win-max" title="Maximize">□</button>
+          <button class="win-btn win-close" title="Close">✕</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="studio-workspace">
+      <!-- Left Sidebar: Project Files, Toolbox, Hierarchy -->
+      <aside class="sidebar-left">
+        <!-- Sidebar Navigation Tabs -->
+        <div class="sidebar-tab-switcher">
+          <button class="sidebar-switch-btn is-active" id="btnPaneFiles" data-pane="files">
+            <span class="tab-btn-icon">📁</span>
+            <span>Files</span>
+          </button>
+          <button class="sidebar-switch-btn" id="btnPaneToolbox" data-pane="toolbox">
+            <span class="tab-btn-icon">🧰</span>
+            <span>Toolbox</span>
+          </button>
+          <button class="sidebar-switch-btn" id="btnPaneHierarchy" data-pane="hierarchy">
+            <span class="tab-btn-icon">🌲</span>
+            <span>Outline</span>
+          </button>
+        </div>
+
+        <!-- Pane 1: Project Files & Templates -->
+        <div class="sidebar-pane" id="paneFiles">
+          <div class="panel-card project-card" style="flex: 1.2;">
+            <div class="panel-card-header">
+              <span class="panel-card-title" id="projectCardTitle">Project Files</span>
+              <div class="header-action-btns">
+                <button class="icon-btn-minimal" id="btnNewProjectHeader" title="New Project (Ctrl+Shift+N)">✨</button>
+                <button class="icon-btn-minimal" id="btnOpenFolderHeader" title="Open Folder (Ctrl+O)">📂</button>
+              </div>
+            </div>
+            <div class="project-tree" id="projectTree">
+              <div class="no-project-box">
+                <div class="no-project-icon">📂</div>
+                <div class="no-project-title">No Folder Opened</div>
+                <div class="no-project-subtitle">Create a project or open a folder to start.</div>
+                <div class="no-project-actions">
+                  <button class="btn-clean-action" id="btnNewProjectAction">✨ New Project...</button>
+                  <button class="btn-clean-action-sec" id="btnOpenFolderAction">Open Folder</button>
+                </div>
+              </div>
+            </div>
+            <div class="project-actions">
+              <button class="new-file-btn" id="newFileBtn">
+                <span>+ New File</span>
+                <span class="btn-arrow">▾</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="panel-card templates-card" style="flex: 0.9;">
+            <div class="panel-card-header">
+              <span class="panel-card-title">Templates</span>
+            </div>
+            <div class="templates-list">
+              <div class="template-item" data-template="simple">
+                <span class="template-icon">📄</span>
+                <span class="template-name">Simple Program</span>
+              </div>
+              <div class="template-item" data-template="automation">
+                <span class="template-icon">🤖</span>
+                <span class="template-name">Automation</span>
+              </div>
+              <div class="template-item" data-template="website">
+                <span class="template-icon">🌐</span>
+                <span class="template-name">Website</span>
+                <span class="badge-pill">Coming later</span>
+              </div>
+              <div class="template-item is-designer" data-template="desktop">
+                <span class="template-icon">💻</span>
+                <span class="template-name">Desktop App</span>
+                <span class="badge-pill badge-ui">UI Designer</span>
+              </div>
+              <div class="template-item" data-template="mobile">
+                <span class="template-icon">📱</span>
+                <span class="template-name">Mobile App</span>
+                <span class="badge-pill">Coming later</span>
+              </div>
+              <div class="template-item" data-template="game">
+                <span class="template-icon">🎮</span>
+                <span class="template-name">Game</span>
+                <span class="badge-pill">Coming later</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pane 2: Toolbox -->
+        <div class="sidebar-pane" id="paneToolbox" style="display: none;">
+          <div class="panel-card" id="toolboxPanel" style="flex: 1;"></div>
+        </div>
+
+        <!-- Pane 3: Hierarchy Outline -->
+        <div class="sidebar-pane" id="paneHierarchy" style="display: none;">
+          <div class="panel-card" id="hierarchyPanel" style="flex: 1;"></div>
+        </div>
+      </aside>
+
+      <!-- Center Work Area: Code Editor OR Visual Designer -->
+      <section class="center-work-area" id="centerWorkArea">
+        <!-- Persistent Top Tabs & Mode Switcher Bar -->
+        <div class="editor-tabs-bar" id="centerTopTabsBar">
+          <div class="editor-tabs-scroll" id="editorTabsScroll">
+            <div class="editor-tab is-active" id="tabMainOt" data-path="untitled.ot">
+              <span class="tab-icon">📄</span>
+              <span class="tab-title">untitled.ot</span>
+              <span class="tab-dirty-dot" style="display:none;">●</span>
+              <span class="tab-close">×</span>
+            </div>
+          </div>
+          <button class="add-tab-btn" id="btnAddNewTab" title="New File (Ctrl+N)">+</button>
+
+          <div class="editor-quick-actions">
+            <button class="tab-quick-btn" id="btnFormatDoc" title="Format Document (Shift+Alt+F)">🧹 Format</button>
+            <button class="tab-quick-btn" id="btnFindDoc" title="Find in File (Ctrl+F)">🔍 Find</button>
+          </div>
+
+          <div class="mode-switch-pills">
+            <button class="mode-pill is-active" id="pillCodeMode">Code</button>
+            <button class="mode-pill" id="pillDesignerMode">UI Designer</button>
+            <button class="mode-pill" id="pillSplitMode">Split</button>
+            <button class="mode-pill" id="pillPreviewMode">Live App</button>
+          </div>
+        </div>
+
+        <!-- Code Editor Mode View -->
+        <div class="code-editor-view" id="codeEditorView">
+          <div class="external-change-banner" id="externalChangeBanner" role="alert" style="display: none;">
+            <div class="external-change-copy">
+              <strong id="externalChangeTitle">This file changed on disk.</strong>
+              <span id="externalChangeMessage">Choose which version you want to keep.</span>
+            </div>
+            <div class="external-change-actions">
+              <button type="button" class="external-change-btn secondary" id="btnKeepLocalChanges">Keep My Changes</button>
+              <button type="button" class="external-change-btn primary" id="btnReloadExternalFile">Reload from Disk</button>
+            </div>
+          </div>
+          <!-- Code Canvas / Line Numbers & Source -->
+          <div class="code-viewport" id="codeViewport">
+            <!-- Find & Replace Floating Widget -->
+            <div class="find-replace-widget" id="findReplaceWidget" style="display: none;">
+              <div class="find-row">
+                <button class="find-toggle-replace" id="btnToggleReplaceMode" title="Toggle Replace (Ctrl+H)">▸</button>
+                <div class="find-input-wrap">
+                  <input type="text" class="find-input" id="findInput" placeholder="Find..." />
+                  <span class="find-count" id="findCount">No results</span>
+                </div>
+                <button class="find-action-btn" id="btnFindPrev" title="Previous Match (Shift+Enter)">↑</button>
+                <button class="find-action-btn" id="btnFindNext" title="Next Match (Enter)">↓</button>
+                <button class="find-action-btn find-close" id="btnFindClose" title="Close (Esc)">✕</button>
+              </div>
+              <div class="replace-row" id="replaceRow" style="display: none;">
+                <input type="text" class="find-input" id="replaceInput" placeholder="Replace..." />
+                <button class="find-action-btn" id="btnReplaceOne" title="Replace (Enter)">Replace</button>
+                <button class="find-action-btn" id="btnReplaceAll" title="Replace All">All</button>
+              </div>
+            </div>
+
+            <div class="line-numbers-gutter" id="lineNumbersGutter">
+              <span>1</span><span>2</span>
+            </div>
+            <div class="code-text-area" id="codeTextArea">
+              <div class="code-line"><span class="tok-comment"># untitled.ot</span></div>
+              <div class="code-line"><span class="tok-kw">say</span> <span class="tok-str">"Hello from Otter!"</span></div>
+            </div>
+
+            <!-- Autocomplete / IntelliSense Popup Overlay (Hidden initially) -->
+            <div class="autocomplete-popup" id="autocompletePopup" style="top: 360px; left: 80px; display: none;">
+              <div class="autocomplete-list">
+                <div class="ac-item is-selected">
+                  <span class="ac-icon">📄</span>
+                  <div class="ac-text-wrap">
+                    <span class="ac-title"><strong>get files in...</strong></span>
+                    <span class="ac-desc">Get files from a folder</span>
+                  </div>
+                </div>
+                <div class="ac-item">
+                  <span class="ac-icon">📁</span>
+                  <div class="ac-text-wrap">
+                    <span class="ac-title">get folders in...</span>
+                    <span class="ac-desc">Get folders from a folder</span>
+                  </div>
+                </div>
+                <div class="ac-item">
+                  <span class="ac-icon">👤</span>
+                  <div class="ac-text-wrap">
+                    <span class="ac-title">get user where...</span>
+                    <span class="ac-desc">Find a user</span>
+                  </div>
+                </div>
+                <div class="ac-item">
+                  <span class="ac-icon ac-icon-green">💵</span>
+                  <div class="ac-text-wrap">
+                    <span class="ac-title">get environment variable...</span>
+                    <span class="ac-desc">Read an environment variable</span>
+                  </div>
+                </div>
+                <div class="ac-item">
+                  <span class="ac-icon">🪟</span>
+                  <div class="ac-text-wrap">
+                    <span class="ac-title">get running processes</span>
+                    <span class="ac-desc">Get a list of processes</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Documentation Card Attached to Popup -->
+              <div class="autocomplete-doc-card">
+                <div class="doc-card-title">
+                  <span class="doc-icon">📄</span>
+                  <strong>get files in...</strong>
+                </div>
+                <div class="doc-card-desc">Gets a list of files from a folder.</div>
+                <div class="doc-card-example-title">Example:</div>
+                <div class="doc-card-example">
+                  <span class="tok-kw">get files in</span> <span class="tok-str">"Pictures"</span> <span class="tok-kw">into</span> <span class="tok-var">files</span>
+                </div>
+                <a href="#" class="doc-card-link">Learn more →</a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Visual Designer View (Canvas) -->
+        <div class="visual-designer-view" id="canvasContainer" style="display: none;"></div>
+
+        <!-- Split / Standalone Code Editor Container -->
+        <div class="full-editor-view" id="editorContainer" style="display: none;"></div>
+
+        <!-- Live Runtime Preview Container -->
+        <div class="preview-app-view" id="previewContainer" style="display: none;"></div>
+      </section>
+
+      <!-- Right Sidebar: Program Output, Variables Inspector, Watch -->
+      <aside class="sidebar-right" id="codeRightSidebar">
+        <!-- Program Output Card -->
+        <div class="panel-card program-output-card">
+          <div class="panel-card-header">
+            <div class="header-with-icon">
+              <span class="play-icon">▶</span>
+              <span class="panel-card-title">Program</span>
+            </div>
+            <div class="card-header-actions">
+              <button class="pill-action-btn" id="clearProgramBtn">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="9" x2="15" y2="15"/><line x1="15" y1="9" x2="9" y2="15"/></svg>
+                Clear
+              </button>
+              <button class="icon-btn-minimal" title="More options">···</button>
+            </div>
+          </div>
+          <div class="program-output-body" id="programOutputBody">
+            <div class="log-line log-empty" style="color: #94a3b8; font-style: italic; padding: 8px 4px;">Click ▶ Run (F5) to execute your program.</div>
+          </div>
+        </div>
+
+        <!-- Variables Inspector Card -->
+        <div class="panel-card variables-card">
+          <div class="panel-card-header">
+            <div class="header-with-icon">
+              <span class="var-icon">[x=]</span>
+              <span class="panel-card-title">Variables</span>
+            </div>
+            <button class="icon-btn-minimal" title="Collapse"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></button>
+          </div>
+          <div class="variables-body">
+            <div class="var-empty-state" style="color: #94a3b8; font-style: italic; font-size: 11px; padding: 6px 4px;">Variables will appear here while running.</div>
+          </div>
+        </div>
+
+        <!-- Watch Card -->
+        <div class="panel-card watch-card">
+          <div class="panel-card-header">
+            <div class="header-with-icon">
+              <span class="watch-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/></svg></span>
+              <span class="panel-card-title">Watch</span>
+            </div>
+            <button class="icon-btn-minimal" title="Add Watch">+</button>
+          </div>
+          <div class="watch-body">
+            <span class="watch-placeholder">Click + to watch a variable while running.</span>
+          </div>
+        </div>
+      </aside>
+
+      <!-- UI Designer Properties & Events Sidebar (Shown in UI Designer Mode) -->
+      <aside class="sidebar-right" id="designerRightSidebar" style="display: none;">
+        <div class="right-sidebar-header">
+          <button class="right-tab-btn is-active" data-tab="properties">Properties</button>
+          <button class="right-tab-btn" data-tab="events">Events</button>
+        </div>
+        <div class="properties-content-wrap" id="propertiesTab">
+          <div id="propertiesContent"></div>
+        </div>
+        <div class="events-content-wrap" id="eventsTab" style="display: none;">
+          <div id="eventsContent"></div>
+        </div>
+      </aside>
+    </main>
+
+    <!-- Bottom Problems / Output Drawer with Otter Mascot Cheer -->
+    <div class="studio-bottom-drawer" id="bottomDrawer">
+      <div class="drawer-header">
+        <div class="drawer-tabs">
+          <button class="drawer-tab is-active" data-drawer-tab="problems">Problems</button>
+          <button class="drawer-tab" data-drawer-tab="output">Output</button>
+          <button class="drawer-tab" data-drawer-tab="terminal">Terminal</button>
+          <button class="drawer-tab" data-drawer-tab="livecode">⚡ Otter Code</button>
+        </div>
+      </div>
+      <div class="drawer-content">
+        <!-- Tab 1: Problems -->
+        <div class="drawer-panel" id="panelProblems" style="display: flex; width: 100%; align-items: center; justify-content: space-between;">
+          <div class="problem-status-banner">
+            <div class="status-check-circle">✓</div>
+            <div class="problem-text-wrap">
+              <span class="problem-title">No problems found.</span>
+              <span class="problem-subtitle">Your code looks good!</span>
+            </div>
+          </div>
+
+          <!-- Cute Mascot Cheer Card -->
+          <div class="mascot-cheer-card">
+            <div class="mascot-img-wrap">
+              <img src="img/otter-cheer.svg" alt="Cheering Otter" />
+            </div>
+            <div class="cheer-speech-bubble">
+              <span class="cheer-headline">Great job!</span>
+              <span class="cheer-tagline">Keep going! 🐾</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 2: Output -->
+        <div class="drawer-panel" id="panelOutput" style="display: none; width: 100%; height: 100%; overflow-y: auto;">
+          <div class="output-tab-log" id="outputTabLog" style="font-family: var(--font-code); font-size: 12px; color: var(--text-main); padding: 4px 8px; line-height: 1.6;">
+            <div class="log-run-entry" style="color: var(--text-muted); font-style: italic;">Program execution logs will appear here. Click ▶ Run to execute your Otter code.</div>
+          </div>
+        </div>
+
+        <!-- Tab 3: Interactive Terminal -->
+        <div class="drawer-panel" id="panelTerminal" style="display: none; width: 100%; height: 100%; flex-direction: column;">
+          <div class="terminal-container" style="flex: 1; display: flex; flex-direction: column; min-height: 0;">
+            <div class="terminal-history" id="terminalHistory" style="flex: 1; overflow-y: auto; font-family: var(--font-code); font-size: 12px; line-height: 1.5; color: #1e293b; padding: 4px 8px;">
+              <div class="terminal-welcome" style="color: #2563eb; font-weight: 600;">Otter Studio Interactive Terminal [v1.0]</div>
+              <div class="terminal-welcome-sub" style="color: #64748b; margin-bottom: 6px;">Connected to local repo shell. Type commands and press Enter. (e.g. <code>..\..\otter run main.ot</code>, <code>dir</code>)</div>
+            </div>
+            <form class="terminal-input-row" id="terminalForm" style="display: flex; align-items: center; border-top: 1px solid var(--border-subtle); padding: 4px 8px; gap: 8px;">
+              <span class="terminal-prompt" style="font-family: var(--font-code); font-size: 12px; font-weight: 600; color: #16a34a;">PS C:\projects\otterPS&gt;</span>
+              <input type="text" class="terminal-input" id="terminalInput" autocomplete="off" spellcheck="false" placeholder="Type a command and press Enter..." style="flex: 1; border: none; outline: none; font-family: var(--font-code); font-size: 12px; background: transparent; color: #0f172a;" />
+            </form>
+          </div>
+        </div>
+
+        <!-- Tab 4: Live Generated Otter Code -->
+        <div class="drawer-panel" id="panelLiveCode" style="display: none; width: 100%; height: 100%; overflow-y: auto; padding: 8px 14px; background: #0b1120; box-sizing: border-box;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid rgba(255,255,255,0.08);">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span style="font-size: 13px;">⚡</span>
+              <span style="font-size: 11px; font-weight: 700; color: #60a5fa; letter-spacing: 0.02em;">CANONICAL OTTER SOURCE (GENERATED FROM DESIGNER)</span>
+            </div>
+            <button class="editor-btn" id="btnCopyLiveCode" style="font-size: 10px; padding: 2px 8px; background: rgba(255,255,255,0.08); color: #e2e8f0; border: 1px solid rgba(255,255,255,0.15); border-radius: 4px; cursor: pointer;">Copy Code</button>
+          </div>
+          <pre id="drawerGeneratedCodeArea" style="margin: 0; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #e2e8f0; line-height: 1.6; white-space: pre-wrap; word-break: break-word;"></pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Status Bar -->
+    <footer class="studio-statusbar">
+      <div class="statusbar-left">
+        <div class="run-button-group">
+          <button class="big-run-btn" id="mainRunBtn">
+            <span class="run-triangle">▶</span>
+            <span>Run</span>
+          </button>
+          <button class="run-dropdown-toggle">▾</button>
+        </div>
+        <div class="problems-indicator">
+          <span class="indicator-icon">✓</span>
+          <span>No problems</span>
+        </div>
+      </div>
+      <div class="statusbar-right">
+        <span>Ln 17, Col 5</span>
+        <span>Spaces: 4</span>
+        <span>UTF-8</span>
+        <span class="otter-ver-tag">Otter 1.0</span>
+      </div>
+    </footer>
+  </div>
+
+  <!-- ===============================================================
+       NEW PROJECT / STARTUP WIZARD MODAL
+       =============================================================== -->
+  <div class="modal-backdrop" id="newProjectModal" style="display: none;">
+    <div class="modal-dialog new-project-dialog">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <div class="modal-brand-badge">
+            <img src="img/otter-avatar.svg" alt="Otter" class="modal-avatar" />
+            <div>
+              <h2 class="modal-title">Create New Otter Application</h2>
+              <p class="modal-subtitle">Pick what type of project or application you want to build</p>
+            </div>
+          </div>
+        </div>
+        <button class="modal-close-btn" id="btnCloseNewProjectModal" title="Close (Esc)">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Archetype Card Grid (Console, App, Web, Game) -->
+        <div class="archetypes-grid">
+          <!-- 1. Console -->
+          <div class="archetype-card is-selected" data-archetype="console">
+            <div class="card-badge">CLI Tool</div>
+            <div class="archetype-icon">💻</div>
+            <div class="archetype-name">Console App</div>
+            <div class="archetype-desc">Command-line tools, automation scripts, background workers, and file processors.</div>
+            <div class="archetype-features">
+              <span>✓ Interactive terminal</span>
+              <span>✓ Formatted logging</span>
+              <span>✓ Fast execution</span>
+            </div>
+          </div>
+
+          <!-- 2. Desktop App -->
+          <div class="archetype-card" data-archetype="desktop">
+            <div class="card-badge badge-designer">UI Designer</div>
+            <div class="archetype-icon">🪟</div>
+            <div class="archetype-name">Desktop Application</div>
+            <div class="archetype-desc">Native GUI software with drag-and-drop windows, buttons, forms, and cards.</div>
+            <div class="archetype-features">
+              <span>✓ Visual UI Designer</span>
+              <span>✓ Live property inspector</span>
+              <span>✓ Otter code generation</span>
+            </div>
+          </div>
+
+          <!-- 3. Web App -->
+          <div class="archetype-card" data-archetype="web">
+            <div class="card-badge badge-web">Reactive Web</div>
+            <div class="archetype-icon">🌐</div>
+            <div class="archetype-name">Web Application</div>
+            <div class="archetype-desc">Modern responsive web applications with interactive components and custom CSS.</div>
+            <div class="archetype-features">
+              <span>✓ Reactive HTML</span>
+              <span>✓ Live browser preview</span>
+              <span>✓ Split code & design</span>
+            </div>
+          </div>
+
+          <!-- 4. 2D Game -->
+          <div class="archetype-card" data-archetype="game">
+            <div class="card-badge badge-game">2D Game</div>
+            <div class="archetype-icon">🎮</div>
+            <div class="archetype-name">2D Game</div>
+            <div class="archetype-desc">Interactive arcade mini-game with game loop, keyboard controls, and score tracking.</div>
+            <div class="archetype-features">
+              <span>✓ 2D Canvas loop</span>
+              <span>✓ Keyboard controls</span>
+              <span>✓ Instant playability</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Configuration Row -->
+        <div class="project-config-section">
+          <div class="config-field">
+            <label class="config-label" for="inputProjectName">Project Name</label>
+            <input type="text" class="config-input" id="inputProjectName" value="my-cli-tool" spellcheck="false" />
+          </div>
+          <div class="config-field">
+            <label class="config-label" for="selectProjectTemplate">Starter Template</label>
+            <select class="config-select" id="selectProjectTemplate">
+              <option value="complete">Standard Starter (Recommended)</option>
+              <option value="minimal">Minimal / Blank File</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <div class="modal-footer-left">
+          <button class="btn-modal-link" id="btnModalOpenFolder">📂 Open Existing Folder...</button>
+          <button class="btn-modal-link" id="btnModalStartBlank">Blank Canvas</button>
+        </div>
+        <div class="modal-footer-right">
+          <button class="btn-modal-cancel" id="btnCancelNewProject">Cancel</button>
+          <button class="btn-modal-primary" id="btnConfirmCreateProject">Create Project →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Application Module Entry Point -->
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 120" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bodyBrown" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#b07d56"/>
+      <stop offset="100%" stop-color="#7c4a27"/>
+    </linearGradient>
+    <linearGradient id="cheerMuzzle" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#fffbeb"/>
+      <stop offset="100%" stop-color="#fde68a"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Tail in background -->
+  <path d="M 85,95 Q 125,100 135,88 Q 115,115 80,105 Z" fill="#7c4a27"/>
+
+  <!-- Body -->
+  <path d="M 30,110 Q 32,70 50,60 Q 75,55 90,70 Q 100,85 98,110 Z" fill="url(#bodyBrown)"/>
+
+  <!-- Left Ear -->
+  <circle cx="44" cy="30" r="10" fill="#7c4a27"/>
+  <circle cx="44" cy="30" r="6" fill="#fde68a"/>
+
+  <!-- Right Ear -->
+  <circle cx="86" cy="30" r="10" fill="#7c4a27"/>
+  <circle cx="86" cy="30" r="6" fill="#fde68a"/>
+
+  <!-- Head -->
+  <ellipse cx="65" cy="48" rx="26" ry="24" fill="url(#bodyBrown)"/>
+
+  <!-- Muzzle -->
+  <ellipse cx="65" cy="56" rx="16" ry="12" fill="url(#cheerMuzzle)"/>
+
+  <!-- Eyes (Happy / Smiling) -->
+  <circle cx="54" cy="45" r="4.5" fill="#1e1b18"/>
+  <circle cx="52.5" cy="43.5" r="1.8" fill="#ffffff"/>
+
+  <circle cx="76" cy="45" r="4.5" fill="#1e1b18"/>
+  <circle cx="74.5" cy="43.5" r="1.8" fill="#ffffff"/>
+
+  <!-- Nose -->
+  <path d="M 61,52 Q 65,50 69,52 Q 65,56 61,52 Z" fill="#2d1d14"/>
+
+  <!-- Happy Mouth -->
+  <path d="M 61,56 Q 65,60 69,56" fill="none" stroke="#2d1d14" stroke-width="2" stroke-linecap="round"/>
+
+  <!-- Left Paw resting -->
+  <ellipse cx="42" cy="92" rx="9" ry="7" fill="#8c5835"/>
+  <circle cx="38" cy="90" r="2" fill="#5c3519"/>
+  <circle cx="42" cy="88" r="2" fill="#5c3519"/>
+  <circle cx="46" cy="90" r="2" fill="#5c3519"/>
+
+  <!-- Right Paw waving -->
+  <ellipse cx="88" cy="92" rx="9" ry="7" fill="#8c5835"/>
+  <circle cx="84" cy="90" r="2" fill="#5c3519"/>
+  <circle cx="88" cy="88" r="2" fill="#5c3519"/>
+  <circle cx="92" cy="90" r="2" fill="#5c3519"/>
+</svg>
