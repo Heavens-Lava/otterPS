@@ -276,7 +276,8 @@ platform.
 -   [ ] Outline
 -   [x] Dirty indicator (tab dirty dot, input tracking, save clearing)
 -   [x] Save All / Save File (Ctrl+S)
--   [ ] External-change detection
+-   [x] External-change detection with SHA-256 revisions, clean-buffer reload,
+    dirty-buffer conflict UI, and stale-write rejection (`661f9c9`)
 -   [x] Autosave (session snapshot in localStorage)
 -   [x] Crash recovery (auto-restore on browser restart)
 
@@ -944,9 +945,9 @@ platform.
 
 ## P0 --- Protect current work
 
--   [ ] Track the complete `otter-studio/` project intentionally.
--   [ ] Make a clean Studio baseline commit.
--   [ ] Commit the repeatable Studio smoke tests.
+-   [x] Track the complete `otter-studio/` project intentionally (`661f9c9`).
+-   [x] Make a clean Studio baseline commit (`661f9c9`).
+-   [x] Commit the repeatable Studio smoke tests (`661f9c9`).
 -   [ ] Keep environmental `HttpListener` limitations separate from
     product defects.
 
@@ -1003,7 +1004,8 @@ platform.
 -   [x] Problems/squiggles.
 -   [x] Autocomplete/hover/go-to-definition/rename (rich autocomplete & snippets implemented).
 -   [x] Formatter (Shift+Alt+F & clean indent rules).
--   [ ] External-change detection.
+-   [x] External-change detection with safe reload/conflict handling
+    (`661f9c9`).
 -   [x] Autosave/crash recovery (localStorage session persistence).
 
 ## P5 --- Build/run/debug
