@@ -331,14 +331,31 @@ creation.
     into pathText` then `split pathText by ";" into pathEntries` -
     verified through the real `otter run` CLI on a real `.ot` file,
     returning a real list of individual PATH entries)
--   [ ] Process enumeration
--   [ ] Process details
--   [x] Start process
--   [x] Stop process
--   [x] Kill process tree
+-   [x] Process enumeration (D70: `get processes into list` - a real
+    list of `process` things (id/name) for every currently-running
+    process, verified through the real `otter run` CLI. See
+    SPEC-DECISIONS.md D70)
+-   [ ] Process details (id/name only so far - CPU/memory/start-time per
+    process deliberately deferred, see D70's "out of scope" note)
+-   [x] Start process (`run "notepad.exe"` - Start-OtterProgram, real and
+    reachable; its `into p` result target was silently dropped before
+    D70, now fixed to hand back a real process handle)
+-   [x] Stop process (D70: `kill process p` - real `Stop-Process`
+    termination reachable from an `.ot` program for the first time,
+    verified by confirming the real OS process was actually dead
+    afterward. Corrected from a false checkmark - see below)
+-   [x] Kill process tree (D70: `kill process p and its children` -
+    real recursive termination via a CIM parent/child walk, verified
+    against a genuine two-level real process tree, confirmed dead
+    root-to-leaf. Corrected from a false checkmark - see below)
 -   [ ] Process priority
 -   [ ] Process timeout
--   [x] Signals
+-   [x] Signals (this line specifically, in the process-management
+    context: D70 closes it the same way as "Stop process" above -
+    corrected from a false checkmark, now real and reachable. The
+    OTHER two "Signals" lines elsewhere in this checklist, about the
+    CLI's own Ctrl+C handling, are a different capability and
+    unaffected by this correction)
 -   [ ] Services/daemons
 -   [ ] Windows services provider
 -   [ ] systemd provider

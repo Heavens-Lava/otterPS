@@ -1286,6 +1286,15 @@ function Read-OtterStatement {
                 [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the get statement to end here.')
                 return [GetSystemInfoStmt]::new($infoKind, $target.Text, $start.Line)
             }
+            # D70: `get processes into list` - "processes" is an ordinary
+            # identifier, same design as "system"/"clipboard" above.
+            if ($kind.Kind -eq [TokenKind]::Identifier -and $kind.Text -eq 'processes') {
+                [void](Read-OtterToken)
+                [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a result name.')
+                $target = Read-OtterVariableName 'I expected a result name after "into".'
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the get statement to end here.')
+                return [GetProcessesStmt]::new($target.Text, $start.Line)
+            }
             if ($kind.Kind -eq [TokenKind]::Files -or $kind.Kind -eq [TokenKind]::Folders) {
                 [void](Read-OtterToken)
                 [void](Assert-OtterTokenKind ([TokenKind]::In) 'I expected "in" and a folder path.')
@@ -1396,6 +1405,34 @@ function Read-OtterStatement {
             $message = Read-OtterValue
             [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the fail statement to end here.')
             return [FailStmt]::new($message, $start.Line)
+        }
+        # kill process p                                                (D70)
+        # kill process p and its children
+        ([TokenKind]::Kill) {
+            [void](Read-OtterToken)
+            $processWord = Get-OtterCurrentToken
+            if ($processWord.Kind -ne [TokenKind]::Identifier -or $processWord.Text -ne 'process') {
+                throw (New-OtterParserError 'I expected "process" after "kill".' $processWord 'kill process p')
+            }
+            [void](Read-OtterToken)
+            $processExpr = Read-OtterValue
+            $includeChildren = $false
+            if (Test-OtterTokenKind ([TokenKind]::And)) {
+                [void](Read-OtterToken)
+                $itsWord = Get-OtterCurrentToken
+                if ($itsWord.Kind -ne [TokenKind]::Identifier -or $itsWord.Text -ne 'its') {
+                    throw (New-OtterParserError 'I expected "its children" after "and".' $itsWord 'kill process p and its children')
+                }
+                [void](Read-OtterToken)
+                $childrenWord = Get-OtterCurrentToken
+                if ($childrenWord.Kind -ne [TokenKind]::Identifier -or $childrenWord.Text -ne 'children') {
+                    throw (New-OtterParserError 'I expected "children" after "its".' $childrenWord 'kill process p and its children')
+                }
+                [void](Read-OtterToken)
+                $includeChildren = $true
+            }
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the kill statement to end here.')
+            return [KillProcessStmt]::new($processExpr, $includeChildren, $start.Line)
         }
         ([TokenKind]::Sort) {
             [void](Read-OtterToken)

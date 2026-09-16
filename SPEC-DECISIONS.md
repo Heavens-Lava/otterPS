@@ -5378,3 +5378,102 @@ reach and is flagged here as an open item, not silently assumed done.
 
 ---
 
+## D70. Process management — `run ... into p`, `get processes into list`, `kill process p [and its children]`
+
+**Status: interpreter-side IMPLEMENTED and verified end-to-end through
+the real `otter run` CLI, including real process termination and real
+subtree kills. JS/web-side compiler emission implemented and verified
+as far as this module can reach; the required host hooks
+(`otterGetProcesses`, `otterKillProcess`) have no bridge implementation
+yet - a real, reported host boundary, Gemini's lane, matching the
+D67/D69 precedent.**
+
+**Checklist correction first.** Before building anything, "Stop
+process", "Kill process tree", and the process-management instance of
+"Signals" were found to be falsely checked: `Stop-Process`/process
+termination existed only inside `Otter.Desktop.psm1`'s bridge, reachable
+solely by Otter Studio's own terminal UI clicking "stop" on a running
+command - never from an `.ot` program. Zero `kill`/`stop`/`terminate`-
+process keyword existed anywhere in the lexer or contract. Corrected to
+`[ ]` with the verification performed, matching this session's
+established practice for prior false checkmarks (Percent, Power,
+increase/decrease, Clipboard/Notify/dialogs before their grammar
+existed).
+
+**A second, real bug found and fixed in the same pass:** `run
+"notepad.exe" into p` already PARSED successfully - `RunStmt.
+ResultTarget` was always populated - but the interpreter's `RunProgram`
+case returned before ever setting it for the non-command form, so `p`
+was silently left undefined. `Start-OtterProgram` now returns a real
+process handle (a `process` thing with `id`/`name`) and the interpreter
+case uses it.
+
+**Design:**
+- `run "notepad.exe" into p` (fixed, not new syntax) and
+  `get processes into list` (new - "processes" is an ordinary
+  identifier, extending the existing `get` dispatch the same way
+  "system"/"clipboard" do) both produce the SAME `process` thing shape
+  (`id`, `name`), so `kill process p` works identically on a handle from
+  either source.
+- `kill process p` terminates one process by its real PID. `kill
+  process p and its children` also walks and terminates its whole
+  subtree. Two forms of one new keyword (`kill`) rather than inventing
+  a second one - "stop" was rejected outright: it is already a D33
+  contextual keyword mapped to `Return` when it is the first word of a
+  line (`stop` as a `return` synonym, predating this decision), so
+  `stop process p` would have silently parsed as a return statement
+  returning the value `process p` - a real, checked landmine, not a
+  hypothetical one.
+- Killing a process that has already exited, or asking to kill a
+  handle whose real process is already gone, is NOT an error - `kill`
+  achieving the end state it was asked for (the process no longer
+  running) is success, matching this language's existing tolerance for
+  idempotent end-state requests elsewhere (e.g. `Otter.Interpreter.
+  psm1`'s "a closed window cannot be shown again" being an error, but
+  deleting an already-deleted file being fine in other contexts).
+- Killing something that is not a real process handle at all (e.g. a
+  bare number) is a clean Otter error naming exactly what went wrong.
+
+**Interpreter** (`Otter.Library.psm1`): `Get-OtterProcessList` uses
+plain `Get-Process` - no CIM needed for a live snapshot. `Stop-
+OtterProcess`'s child-walk uses `Get-CimInstance Win32_Process`
+filtered by `ParentProcessId`, breadth-first, because .NET alone has no
+portable way to enumerate a process's children on Windows PowerShell
+5.1 (same reasoning as D69's CIM-backed kinds); wrapped in try/catch so
+a CIM-less host degrades to killing just the requested process instead
+of crashing.
+
+**JS compiler:** `GetProcesses`/`KillProcess` wrap/read the same
+`__otterThing` shape D69 established, typed `'process'`. `KillProcess`
+checks for a real thing with an `id` property before calling the host
+hook, matching the interpreter's own guard. `otterGetProcesses`/
+`otterKillProcess` are REQUIRED runtime hooks with no implementation in
+`Otter.Web.psm1`/`Otter.Desktop.psm1` yet - reported, not silently
+assumed done.
+
+**Verified:** through the real `otter run` CLI - `run "notepad.exe"
+into p` capturing a real PID and name, `kill process p` confirmed via
+`Get-Process` afterward showing the process truly gone, `get processes
+into list` returning the real, current, non-trivial process count of
+the machine, and a genuine two-level real process tree (a
+`powershell.exe` parent that itself started a real `notepad.exe`
+child - `cmd.exe`'s `timeout` builtin was tried first and found to fail
+outside a real console, a real finding about the test environment, not
+about Otter) killed root-to-leaf with `kill process p and its
+children`, confirmed dead process-by-process afterward. A single kill
+(no `and its children`) confirmed to leave the child alive, proving the
+flag actually changes behavior rather than always killing everything.
+Five new regression tests in `tests/Part3.Tests.ps1`. The JS-compiler
+wrapping/guard logic verified by executing the generated code directly
+in Node against hand-stubbed hooks.
+
+**Deliberately out of scope for this pass** (flagged as open, not
+silently deferred): Process priority, Process timeout, and Process
+details (beyond `id`/`name`) remain unchecked on the platform
+checklist - each needs its own design (a property-write side effect for
+priority; new blocking-wait semantics for timeout) meaningfully
+different in shape from the read-only queries D69/D70 cover, and were
+judged too large to fold into this same well-scoped pass.
+
+---
+

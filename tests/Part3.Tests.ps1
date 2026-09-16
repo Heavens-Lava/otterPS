@@ -438,6 +438,80 @@ Test-Otter 'D69: otherwise into reason catches an unknown system information kin
     Assert-Lines -Expected @('I do not know a kind of system information called "bogus".') -Actual $out
 }
 
+# =================================================================
+# D70 - process management: run ... into p, get processes, kill
+# =================================================================
+
+Test-Otter 'D70: run into p hands back a real process handle, no longer silently dropped' {
+    $out = Invoke-TestProgram @(
+        [RunStmt]::new((Lit 'notepad.exe'), $false, 'p', 1),
+        [SayStmt]::new(@((PropOf 'name' (Var 'p'))), 2),
+        [KillProcessStmt]::new((Var 'p'), $false, 3)
+    )
+    Assert-AreEqual -Expected 1 -Actual $out.Count
+    Assert-True ($out[0] -ieq 'notepad') "expected the process name to be notepad (case-insensitive), got [$($out[0])]"
+}
+
+Test-Otter 'D70: get processes into list returns a real, non-empty list of process things' {
+    $out = Invoke-TestProgram @(
+        [GetProcessesStmt]::new('procs', 1),
+        [SayStmt]::new(@(([OfOperationExpr]::new([OfOperation]::Length, (Var 'procs'), 2))), 2)
+    )
+    Assert-True ([double]$out[0] -gt 0) "expected at least one real running process, got [$($out[0])]"
+}
+
+Test-Otter 'D70: kill process actually terminates the real OS process' {
+    $out = Invoke-TestProgram @(
+        [RunStmt]::new((Lit 'notepad.exe'), $false, 'p', 1),
+        [SayStmt]::new(@((PropOf 'id' (Var 'p'))), 2),
+        [KillProcessStmt]::new((Var 'p'), $false, 3)
+    )
+    Assert-AreEqual -Expected 1 -Actual $out.Count
+    $killedPid = [int][double]::Parse($out[0])
+    Start-Sleep -Milliseconds 400
+    $stillAlive = Get-Process -Id $killedPid -ErrorAction SilentlyContinue
+    Assert-True ($null -eq $stillAlive) "expected process $killedPid to be dead after kill process"
+}
+
+Test-Otter 'D70: kill process p and its children kills the whole subtree' {
+    # cmd.exe's own `timeout` builtin refuses to run without a real console
+    # (fails instantly under some launch contexts, including this test
+    # harness), which would make the "parent" exit before the test can
+    # observe it - powershell.exe's Start-Sleep has no such requirement,
+    # so it reliably stays alive while its own child (notepad.exe) runs.
+    $parent = Start-Process -FilePath 'powershell.exe' -ArgumentList '-NoProfile -Command "Start-Process notepad.exe; Start-Sleep -Seconds 60"' -PassThru
+    Start-Sleep -Milliseconds 1500
+    $children = @(Get-CimInstance -ClassName Win32_Process -Filter ("ParentProcessId = " + $parent.Id) -ErrorAction SilentlyContinue)
+    Assert-True ($children.Count -gt 0) 'expected the spawned cmd.exe to have a real child process to test against'
+
+    $out = Invoke-TestProgram @(
+        [AssignStmt]::new('parentId', (Lit ([double]$parent.Id)), 1),
+        [GetProcessesStmt]::new('allProcs', 2),
+        [FindStmt]::new('found', (Var 'allProcs'), (CompareEx (PropOf 'id' (Var 'found')) 'Equal' (Var 'parentId')), 'foundProc', 3),
+        [KillProcessStmt]::new((Var 'foundProc'), $true, 4),
+        [SayStmt]::new(@((Lit 'killed')), 5)
+    )
+    Assert-Lines -Expected @('killed') -Actual $out
+
+    Start-Sleep -Milliseconds 500
+    $parentAlive = Get-Process -Id $parent.Id -ErrorAction SilentlyContinue
+    Assert-True ($null -eq $parentAlive) "expected parent process $($parent.Id) to be dead"
+    foreach ($c in $children) {
+        $alive = Get-Process -Id $c.ProcessId -ErrorAction SilentlyContinue
+        if ($alive) { Stop-Process -Id $c.ProcessId -Force -ErrorAction SilentlyContinue }
+        Assert-True ($null -eq $alive) "expected child process $($c.ProcessId) to be dead after kill ... and its children"
+    }
+}
+
+Test-Otter 'D70: kill process refuses anything that is not a real process handle' {
+    Assert-OtterFails -Containing 'I can only kill a real process handle' -Body {
+        Invoke-TestProgram @(
+            [AssignStmt]::new('notAHandle', (Lit 42.0), 1),
+            [KillProcessStmt]::new((Var 'notAHandle'), $false, 2)
+        )
+    }
+}
+
 
 Set-Location $originalLocation
 Remove-Item -LiteralPath $sandbox -Recurse -Force -ErrorAction SilentlyContinue

@@ -656,7 +656,13 @@ function Split-OtterCommandLine {
     return , $parts.ToArray()
 }
 
-# run "notepad.exe"      - starts it and carries straight on
+# run "notepad.exe"                - starts it and carries straight on
+# run "notepad.exe" into p          - same, and hands back a real process
+#                                     handle (id, name) for kill/details
+#                                     later (D70). Was silently discarded
+#                                     before D70 - `into p` parsed fine but
+#                                     the interpreter never populated it
+#                                     for the non-command form.
 function Start-OtterProgram {
     param([string]$Target, [int]$Line)
 
@@ -665,17 +671,88 @@ function Start-OtterProgram {
     $arguments = @($parts | Select-Object -Skip 1)
 
     try {
-        if ($arguments.Count -gt 0) {
-            [void](Start-Process -FilePath $program -ArgumentList $arguments -PassThru -ErrorAction Stop)
+        $started = if ($arguments.Count -gt 0) {
+            Start-Process -FilePath $program -ArgumentList $arguments -PassThru -ErrorAction Stop
         }
         else {
-            [void](Start-Process -FilePath $program -PassThru -ErrorAction Stop)
+            Start-Process -FilePath $program -PassThru -ErrorAction Stop
         }
     }
     catch {
         throw [OtterError]::new(
             "I could not start `"$program`". $($_.Exception.Message)",
             $Line, 'runtime')
+    }
+    return New-OtterProcessObject -Process $started
+}
+
+# The shared shape for a running-process handle, whether it came from
+# `run ... into p` (D70's fix) or `get processes into list` (D70).
+function New-OtterProcessObject {
+    param([System.Diagnostics.Process]$Process)
+
+    $info = [OtterObject]::new('process')
+    $info.WriteProperty('id', [double]$Process.Id)
+    $name = $null
+    try { $name = $Process.ProcessName } catch { $name = $null }
+    $info.WriteProperty('name', $name)
+    return $info
+}
+
+# get processes into list                                              (D70)
+function Get-OtterProcessList {
+    $list = [System.Collections.Generic.List[object]]::new()
+    foreach ($proc in (Get-Process -ErrorAction SilentlyContinue)) {
+        $list.Add((New-OtterProcessObject -Process $proc))
+    }
+    Write-Output -NoEnumerate $list
+}
+
+# kill process p                    - a single process, by its real PID
+# kill process p and its children   - that process and its whole subtree
+#
+# "and its children" walks Win32_Process's ParentProcessId links via CIM,
+# because .NET alone has no portable way to find a process's children on
+# Windows PowerShell 5.1 - the same reason D69's "os"/"cpu"/"memory" kinds
+# go through CIM. A process that has already exited is not an error - it
+# is already gone, which is exactly what `kill` was asked to make true.
+function Stop-OtterProcess {
+    param([double]$ProcessId, [bool]$IncludeChildren, [int]$Line)
+
+    $rootPid = [int]$ProcessId
+    $targets = [System.Collections.Generic.List[int]]::new()
+    $targets.Add($rootPid)
+
+    if ($IncludeChildren) {
+        try {
+            $frontier = [System.Collections.Generic.Queue[int]]::new()
+            $frontier.Enqueue($rootPid)
+            while ($frontier.Count -gt 0) {
+                $current = $frontier.Dequeue()
+                $children = Get-CimInstance -ClassName Win32_Process -Filter "ParentProcessId = $current" -ErrorAction Stop
+                foreach ($child in $children) {
+                    $childId = [int]$child.ProcessId
+                    if (-not $targets.Contains($childId)) {
+                        $targets.Add($childId)
+                        $frontier.Enqueue($childId)
+                    }
+                }
+            }
+        } catch {
+            # CIM unavailable on this host - fall back to killing just the
+            # one process rather than crashing the whole statement.
+        }
+    }
+
+    foreach ($targetId in $targets) {
+        try {
+            Stop-Process -Id $targetId -Force -ErrorAction Stop
+        } catch {
+            # Already exited, or never existed - `kill` making that true
+            # is success, not failure (matches the interpreter's own
+            # "a closed window cannot be shown again" tolerance elsewhere:
+            # asking for an end state that already holds is not an error).
+        }
     }
 }
 
@@ -952,4 +1029,5 @@ Export-ModuleMember -Function `
     Get-OtterFilesIn, Get-OtterFoldersIn, New-OtterFolder, Remove-OtterFolder, `
     Copy-OtterFolder, Move-OtterFolder, `
     ConvertFrom-OtterJsonText, ConvertTo-OtterJsonText, Read-OtterJsonFile, `
-    Show-OtterNotification, Show-OtterFileDialog, Get-OtterSystemInfoValue
+    Show-OtterNotification, Show-OtterFileDialog, Get-OtterSystemInfoValue, `
+    New-OtterProcessObject, Get-OtterProcessList, Stop-OtterProcess

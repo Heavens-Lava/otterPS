@@ -554,7 +554,15 @@ function Invoke-OtterStatement {
             $target = Get-OtterText -Expression $Statement.Target -Environment $Environment
 
             if (-not $Statement.IsCommand) {
-                Start-OtterProgram -Target $target -Line $Statement.Line
+                # D70: `into p` used to be silently dropped here - it parsed
+                # fine (RunStmt.ResultTarget was always populated by the
+                # parser) but this branch returned before ever setting it,
+                # leaving `p` undefined. Start-OtterProgram now hands back a
+                # real process handle (id, name) for kill/details later.
+                $handle = Start-OtterProgram -Target $target -Line $Statement.Line
+                if ($Statement.ResultTarget) {
+                    $Environment.Set($Statement.ResultTarget, $handle)
+                }
                 return
             }
 
@@ -562,6 +570,25 @@ function Invoke-OtterStatement {
             if ($Statement.ResultTarget) {
                 $Environment.Set($Statement.ResultTarget, $output)
             }
+            return
+        }
+
+        # get processes into list                                        (D70)
+        'GetProcesses' {
+            $list = Get-OtterProcessList
+            $Environment.Set($Statement.Target, $list)
+            return
+        }
+
+        # kill process p            / kill process p and its children    (D70)
+        'KillProcess' {
+            $processValue = Get-OtterValue -Expression $Statement.ProcessExpr -Environment $Environment
+            if (-not (Test-OtterObject $processValue) -or -not ($processValue.HasProperty('id'))) {
+                throw (New-OtterRuntimeError `
+                    -Message 'I can only kill a real process handle, such as the one "run ... into p" or "get processes into list" gives you.' `
+                    -Line $Statement.Line)
+            }
+            Stop-OtterProcess -ProcessId $processValue.ReadProperty('id') -IncludeChildren $Statement.IncludeChildren -Line $Statement.Line
             return
         }
 

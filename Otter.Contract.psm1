@@ -99,6 +99,9 @@ enum TokenKind {
     Try             # try / otherwise
     Fail            # fail with "message" - a real user-raised error (D68)
 
+    # --- process management (D70) ----------------------------------
+    Kill            # kill process p / kill process p and its children
+
     # --- strings and collections (D24, D25, D26) ----------------
     Length          # length of name / length of games
     Uppercase
@@ -379,6 +382,10 @@ enum NodeKind {
 
     # --- system information (D69) --------------------------------
     GetSystemInfo     # get system information "os" into info
+
+    # --- process management (D70) --------------------------------
+    GetProcesses      # get processes into list
+    KillProcess       # kill process p / kill process p and its children
 }
 
 enum MathOp { Add; Subtract; Multiply; Divide }
@@ -1177,6 +1184,29 @@ class GetSystemInfoStmt : Node {
     GetSystemInfoStmt([Node]$infoKind, [string]$target, [int]$line) : base([NodeKind]::GetSystemInfo, $line) {
         $this.InfoKind = $infoKind
         $this.Target = $target
+    }
+}
+
+# get processes into list                                             (D70)
+# Each entry is a "process" thing with id/name - the SAME shape `run
+# "notepad.exe" into p` now produces, so `kill process p` (below) works
+# on a handle from either statement without special-casing which one.
+class GetProcessesStmt : Node {
+    [string]$Target
+    GetProcessesStmt([string]$target, [int]$line) : base([NodeKind]::GetProcesses, $line) {
+        $this.Target = $target
+    }
+}
+
+# kill process p                        - one process, by its real PID
+# kill process p and its children       - that process and its whole
+#                                          subtree (IncludeChildren)
+class KillProcessStmt : Node {
+    [Node]$ProcessExpr
+    [bool]$IncludeChildren
+    KillProcessStmt([Node]$processExpr, [bool]$includeChildren, [int]$line) : base([NodeKind]::KillProcess, $line) {
+        $this.ProcessExpr = $processExpr
+        $this.IncludeChildren = $includeChildren
     }
 }
 
