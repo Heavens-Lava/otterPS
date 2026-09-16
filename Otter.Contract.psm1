@@ -109,6 +109,9 @@ enum TokenKind {
     Restart         # restart the computer
     Shut            # shut down the computer
 
+    # --- printers (D83) -------------------------------------------------
+    Print           # print "file.txt" to "PrinterName"
+
     # --- strings and collections (D24, D25, D26) ----------------
     Length          # length of name / length of games
     Uppercase
@@ -424,6 +427,9 @@ enum NodeKind {
     # --- power/session actions (D82) ------------------------------------
     PowerAction            # lock the computer / sign out / restart the
                             # computer / shut down the computer
+
+    # --- printers (D83) --------------------------------------------------
+    PrintFile              # print "file.txt" to "PrinterName"
 }
 
 enum MathOp { Add; Subtract; Multiply; Divide }
@@ -1463,6 +1469,20 @@ class PowerActionStmt : Node {
     [string]$Action
     PowerActionStmt([string]$action, [int]$line) : base([NodeKind]::PowerAction, $line) {
         $this.Action = $action
+    }
+}
+
+# print "file.txt" to "PrinterName"                                   (D83)
+# Scoped to TEXT files, matching every other filesystem statement in
+# this language - the file's own content is sent to the named printer
+# as plain text, not rendered through a document format's own print
+# handler (no PDF/image/rich-document printing here).
+class PrintFileStmt : Node {
+    [Node]$Path
+    [Node]$PrinterName
+    PrintFileStmt([Node]$path, [Node]$printerName, [int]$line) : base([NodeKind]::PrintFile, $line) {
+        $this.Path = $path
+        $this.PrinterName = $printerName
     }
 }
 

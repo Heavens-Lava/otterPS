@@ -740,6 +740,14 @@ function Invoke-OtterStatement {
             return
         }
 
+        # print "file.txt" to "PrinterName"                              (D83)
+        'PrintFile' {
+            $path = Get-OtterPathArgument -Expression $Statement.Path -Environment $Environment
+            $printerName = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.PrinterName -Environment $Environment)
+            Send-OtterFileToPrinter -Path $path -PrinterName $printerName -Line $Statement.Line
+            return
+        }
+
         'DeleteFolder' {
             Remove-OtterFolder -Path (Get-OtterPathArgument -Expression $Statement.Path -Environment $Environment) -Line $Statement.Line
             return

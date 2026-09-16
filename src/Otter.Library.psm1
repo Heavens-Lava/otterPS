@@ -792,6 +792,64 @@ function Invoke-OtterPowerAction {
     }
 }
 
+# print "file.txt" to "PrinterName"                                   (D83)
+# Scoped to plain text, matching every other filesystem statement in
+# this language: the file's own text content is sent to the printer
+# directly via System.Drawing.Printing.PrintDocument, one physical page
+# per real page of text (measured against the printer's own real
+# printable area, not assumed), rather than shelling out to a
+# document-format-specific print handler. The printer name is checked
+# against the real, currently-installed printer list FIRST, so a
+# typo'd name fails with a clean, specific Otter error instead of
+# either silently going to the default printer or a confusing .NET
+# printing exception.
+function Send-OtterFileToPrinter {
+    param([string]$Path, [string]$PrinterName, [int]$Line)
+
+    $content = Read-OtterFile -Path $Path -Line $Line
+
+    Add-Type -AssemblyName System.Drawing -ErrorAction SilentlyContinue
+    $installed = [System.Drawing.Printing.PrinterSettings]::InstalledPrinters
+    if ($installed -notcontains $PrinterName) {
+        throw [OtterError]::new(
+            "I could not find a printer called ""$PrinterName"".",
+            $Line, 'runtime', 0, $null,
+            'Check the exact printer name with get system information "printers" into list.')
+    }
+
+    try {
+        $doc = [System.Drawing.Printing.PrintDocument]::new()
+        $doc.PrinterSettings.PrinterName = $PrinterName
+        $font = [System.Drawing.Font]::new('Consolas', 10)
+        # A bare reassigned closure variable does NOT reliably persist
+        # across separate PrintPage event invocations for the same
+        # document (the same WPF-timer-closure gotcha CLAUDE.md already
+        # documents for DispatcherTimer.Tick) - a mutable reference type
+        # (this hashtable), mutated by field rather than reassigned by
+        # name, is used instead so multi-page documents print their
+        # later pages' real remaining text, not a stale first-page copy.
+        $state = @{ Remaining = $content }
+        $printPageHandler = {
+            param($sender, $e)
+            $linesPerPage = [int]($e.MarginBounds.Height / $font.GetHeight($e.Graphics))
+            $lines = $state.Remaining -split "`r`n|`n"
+            $pageLines = $lines | Select-Object -First $linesPerPage
+            $y = [float]$e.MarginBounds.Top
+            foreach ($lineText in $pageLines) {
+                $e.Graphics.DrawString($lineText, $font, [System.Drawing.Brushes]::Black, [float]$e.MarginBounds.Left, $y)
+                $y += $font.GetHeight($e.Graphics)
+            }
+            $remainingLines = @($lines | Select-Object -Skip $linesPerPage)
+            $state.Remaining = ($remainingLines -join "`n")
+            $e.HasMorePages = ($remainingLines.Count -gt 0)
+        }.GetNewClosure()
+        $doc.add_PrintPage($printPageHandler)
+        $doc.Print()
+    } catch {
+        throw [OtterError]::new("I could not print `"$Path`" to `"$PrinterName`". $($_.Exception.Message)", $Line, 'runtime')
+    }
+}
+
 # get owner of "x" into owner                                        (D74)
 # Works on either a file or a folder - ownership is a filesystem-wide
 # concept, unlike read-only below, which this module deliberately
@@ -1638,11 +1696,44 @@ function Get-OtterSystemInfoValue {
             Write-Output -NoEnumerate $list
             return
         }
+        # get system information "printers" into list                   (D83)
+        # Win32_Printer, not Get-Printer: its .Default is a plain boolean
+        # already on the object (confirmed directly), where Get-Printer
+        # requires a second lookup to find the default - simpler, and
+        # available on every PowerShell 5.1 host without an extra module.
+        'printers' {
+            $list = [System.Collections.Generic.List[object]]::new()
+            try {
+                $printers = Get-CimInstance -ClassName Win32_Printer -ErrorAction Stop
+            } catch {
+                Write-Output -NoEnumerate $list
+                return
+            }
+            # Win32_Printer.PrinterStatus is a raw WMI value-mapped code
+            # (confirmed directly via Get-CimClass's ValueMap qualifier),
+            # not a friendly string - translated here so "status" reads
+            # like the rest of this language's output, not a bare number.
+            $statusNames = @{
+                1 = 'other'; 2 = 'unknown'; 3 = 'idle'; 4 = 'printing'
+                5 = 'warming up'; 6 = 'stopped printing'; 7 = 'offline'
+            }
+            foreach ($printer in $printers) {
+                $entry = [OtterObject]::new('printer')
+                $entry.WriteProperty('name', $printer.Name)
+                $statusCode = [int]$printer.PrinterStatus
+                $statusText = if ($statusNames.ContainsKey($statusCode)) { $statusNames[$statusCode] } else { 'unknown' }
+                $entry.WriteProperty('status', $statusText)
+                $entry.WriteProperty('isDefault', [bool]$printer.Default)
+                $list.Add($entry)
+            }
+            Write-Output -NoEnumerate $list
+            return
+        }
         default {
             throw [OtterError]::new(
                 "I do not know a kind of system information called ""$Kind"".",
                 $Line, 'runtime', 0, $null,
-                'get system information "os" into info (also: "cpu", "memory", "disk", "network", "user", "groups", "software", "tasks")')
+                'get system information "os" into info (also: "cpu", "memory", "disk", "network", "user", "groups", "software", "tasks", "printers")')
         }
     }
 }
@@ -1663,4 +1754,4 @@ Export-ModuleMember -Function `
     Get-OtterRegistryValue, Set-OtterRegistryValue, Remove-OtterRegistryValue, Test-OtterRegistryKeyExists, `
     Get-OtterEventLogEntries, `
     Set-OtterCredential, Get-OtterCredential, Remove-OtterCredential, `
-    Get-OtterPowerActionCommandLine, Invoke-OtterPowerAction
+    Get-OtterPowerActionCommandLine, Invoke-OtterPowerAction, Send-OtterFileToPrinter

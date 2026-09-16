@@ -459,7 +459,15 @@ creation.
     verified via real command construction, not real execution - this
     session's own safety classifier blocked executing `shutdown.exe`
     outright. See SPEC-DECISIONS.md D82)
--   [ ] Printer/device APIs via providers
+-   [x] Printer/device APIs via providers (D83, scoped to printers per
+    explicit direction, not the full breadth "device APIs" could mean:
+    `get system information "printers" into list` (verified against
+    this machine's 6 real installed printers) and `print "file.txt"
+    to "PrinterName"` (text files, real printer-existence check
+    verified against a real and a fake name; a completed print job
+    was not exercised - "Microsoft Print to PDF" opens a real blocking
+    Save dialog as part of its own driver behavior). See
+    SPEC-DECISIONS.md D83)
 -   [ ] Remote administration strategy
 -   [ ] SSH client/provider
 -   [x] Secure shell escaping

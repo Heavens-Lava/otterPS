@@ -1079,6 +1079,52 @@ Test-Otter 'D82: an unrecognized power action is a clean Otter error, not a sile
     }
 }
 
+# =================================================================
+# D83 - printers
+#
+# `print` to a nonexistent printer name is verified for real (a clean,
+# safe error path). Printing to a REAL installed printer is
+# deliberately NOT exercised here: a physical printer wastes real
+# paper, and "Microsoft Print to PDF" (present on every Windows 10/11
+# machine) opens a real, blocking Save As dialog as part of its own
+# driver behavior regardless of how the print job was started - which
+# would hang this automated suite waiting for interactive input. The
+# printer-name validity check itself (InstalledPrinters -contains ...)
+# was confirmed by hand against both a real installed printer name and
+# a fake one - see SPEC-DECISIONS.md D83.
+# =================================================================
+
+Test-Otter 'D83: get system information "printers" returns a real, non-empty list of printer things' {
+    $out = Invoke-TestProgram @(
+        [GetSystemInfoStmt]::new((Lit 'printers'), 'printers', 1),
+        [SayStmt]::new(@(([OfOperationExpr]::new([OfOperation]::Length, (Var 'printers'), 2))), 2),
+        [SayStmt]::new(@((PropOf 'name' ([OfOperationExpr]::new([OfOperation]::First, (Var 'printers'), 3)))), 3)
+    )
+    Assert-AreEqual -Expected 2 -Actual $out.Count
+    Assert-True ([double]$out[0] -gt 0) "expected at least one real installed printer, got [$($out[0])]"
+    Assert-False ([string]::IsNullOrWhiteSpace($out[1])) 'expected a real, non-blank printer name'
+}
+
+Test-Otter 'D83: exactly one printer in the real list is marked default' {
+    $out = Invoke-TestProgram @(
+        [GetSystemInfoStmt]::new((Lit 'printers'), 'printers', 1),
+        [FindStmt]::new('p', (Var 'printers'), (CompareEx (PropOf 'isDefault' (Var 'p')) 'Equal' (Lit $true)), 'defaultPrinter', 2),
+        [IfStmt]::new(
+            @([IfBranch]::new((CompareEx (Var 'defaultPrinter') 'Equal' (Gone)),
+                @([SayStmt]::new(@((Lit 'no default found')), 4)))),
+            @([SayStmt]::new(@((Lit 'found a default')), 6)), 3)
+    )
+    Assert-Lines -Expected @('found a default') -Actual $out
+}
+
+Test-Otter 'D83: print to a printer name that does not exist is a clean Otter error' {
+    $path = Join-Path $sandbox 'd83-print-test.txt'
+    Set-Content -LiteralPath $path -Value 'print test content' -NoNewline
+    Assert-OtterFails -Containing 'I could not find a printer called "ThisPrinterDoesNotExist12345"' -Body {
+        Invoke-TestProgram @( [PrintFileStmt]::new((Lit $path), (Lit 'ThisPrinterDoesNotExist12345'), 1) )
+    }
+}
+
 Set-Location $originalLocation
 Remove-Item -LiteralPath $sandbox -Recurse -Force -ErrorAction SilentlyContinue
 

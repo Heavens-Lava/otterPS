@@ -6178,3 +6178,84 @@ its own explicit confirmation, not a plain pass-through.
 
 ---
 
+## D83. Printer/device APIs — `get system information "printers" into list`, `print "file.txt" to "PrinterName"`
+
+**Status: IMPLEMENTED. Read side (`get system information "printers"`)
+verified fully, for real, against this machine's own 6 real installed
+printers. Write side (`print`) verified via its clean error path (a
+nonexistent printer name) and via directly confirming the exact
+printer-existence check against both a real and a fake printer name -
+NOT via an actual completed print job, for a real, concrete reason
+documented below.**
+
+Scoped narrowly per explicit direction: printers only (not the full
+breadth "device APIs" could mean - USB, Bluetooth, etc. remain
+untouched). `get system information "printers" into list` is a fifth
+list-shaped kind on D69's existing statement (`network`/`software`/
+`tasks`/`printers`), returning `printer` things (`name`, `status`,
+`isDefault`) via `Win32_Printer` - its `.Default` is a plain boolean
+already on the object (confirmed directly), unlike `Get-Printer`,
+which needs a second lookup to find the default. `PrinterStatus`
+itself is a raw WMI value-mapped numeric code, not a friendly string
+(confirmed via `Get-CimClass`'s `ValueMap` qualifier) - translated to
+readable text (`idle`/`printing`/`offline`/etc.) rather than surfacing
+the bare number.
+
+`print "file.txt" to "PrinterName"` is new, dedicated grammar (two
+arguments - a path and a printer name - do not fit D69's single-kind-
+string shape). Deliberately scoped to plain TEXT files, matching every
+other filesystem statement in this language: the file's own text
+content is sent directly to the named printer via `System.Drawing.
+Printing.PrintDocument`, paginated against the printer's own real
+printable area, not a document-format-specific print handler (no PDF/
+image/rich-document printing). The printer name is checked against the
+real, currently-installed printer list FIRST, so a typo'd name fails
+with a specific Otter error rather than a confusing .NET exception or
+silently going to the default printer.
+
+**A real closure bug caught and fixed before it ever ran, by applying a
+lesson already on record:** the multi-page `PrintPage` event handler
+initially tracked remaining text in a bare, reassigned closure
+variable - CLAUDE.md already documents, from D53's WPF timer work, that
+a plain reassigned local variable does not reliably persist across
+separate invocations of the same closure. Recognized and fixed before
+ever testing it: remaining text now lives in a mutable hashtable field,
+mutated in place, with `.GetNewClosure()` making the capture explicit.
+
+**Why `print` was not verified via a real completed print job, even
+though `get printers` was fully verified for real:** every option
+available in this environment fails safely, not silently - a physical
+printer would waste real paper for no verification benefit beyond what
+the error-path and existence-check tests already prove; "Microsoft
+Print to PDF" (present on every Windows 10/11 machine, the obvious
+choice for a paperless real test) opens a real, blocking Save As
+dialog as an intrinsic part of its OWN driver behavior, regardless of
+how the print job was started - not a UI convenience layer that could
+be bypassed, but the actual mechanism by which that virtual printer
+decides where to write the PDF. Running it here would hang this
+session waiting for interactive input with no way to supply it. This
+was a genuine environment constraint discovered by reasoning about the
+printer driver's own behavior, not an assumption made to avoid the
+work.
+
+**Verified:** through the real `otter run` CLI - `get system
+information "printers"` returned all 6 of this machine's real,
+currently-installed printers (`OneNote (Desktop)`, `OneNote (Desktop)
+- Protected`, `Microsoft Print to PDF`, `lcrecpt2 (HP LaserJet M611)`,
+`Adobe PDF`, and the real network printer `\\PS01.azleg.state.az.us\
+LCS`), each with a real, human-readable status and the correct single
+printer flagged `isDefault: true` (matching a direct `Get-CimInstance
+Win32_Printer` spot-check run beforehand); `print` to a nonexistent
+printer name caught cleanly by `otherwise into reason`; the exact
+`[System.Drawing.Printing.PrinterSettings]::InstalledPrinters -contains
+...` check used inside `Send-OtterFileToPrinter` confirmed directly to
+return `true` for a real printer name and `false` for a fake one.
+Three new regression tests in `tests/Part3.Tests.ps1`. JS compiler
+emits a call to a new required host hook (`otterPrintFile`) - a
+browser's own `window.print()` prints the CURRENT PAGE to whatever
+printer the user picks in an OS dialog, not an arbitrary file to an
+arbitrary named printer, so this is a genuine host boundary, not a
+browser API gap that could be worked around.
+
+---
+

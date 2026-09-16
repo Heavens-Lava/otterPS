@@ -1734,6 +1734,15 @@ function Read-OtterStatement {
             [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the shut down statement to end here.')
             return [PowerActionStmt]::new('shutDown', $start.Line)
         }
+        # print "file.txt" to "PrinterName"                             (D83)
+        ([TokenKind]::Print) {
+            [void](Read-OtterToken)
+            $printPath = Read-OtterValue
+            [void](Assert-OtterTokenKind ([TokenKind]::To) 'I expected "to" and a printer name.')
+            $printerName = Read-OtterValue
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the print statement to end here.')
+            return [PrintFileStmt]::new($printPath, $printerName, $start.Line)
+        }
         ([TokenKind]::Sort) {
             [void](Read-OtterToken)
             $target = Read-OtterVariableName 'I expected a collection name after "sort".'

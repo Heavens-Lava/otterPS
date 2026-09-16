@@ -91,6 +91,8 @@ $script:OtterStatementHeadKeywords = @{
     # `shut down the computer`
     'lock' = [TokenKind]::Lock; 'sign' = [TokenKind]::Sign
     'restart' = [TokenKind]::Restart; 'shut' = [TokenKind]::Shut
+    # D83: `print "file.txt" to "PrinterName"`
+    'print' = [TokenKind]::Print
     # D56: declarative UI, reactivity, animation
     'layout' = [TokenKind]::Layout; 'gap' = [TokenKind]::Gap
     'state' = [TokenKind]::State; 'derive' = [TokenKind]::Derive

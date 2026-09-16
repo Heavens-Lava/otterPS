@@ -1340,6 +1340,17 @@ function ConvertTo-OtterJsStatement {
             $actionJs = ConvertTo-OtterJsExpression -Expr ([LiteralExpr]::new($Stmt.Action, $Stmt.Line))
             return "${pad}await otterPowerAction($actionJs);"
         }
+        ([NodeKind]::PrintFile) {
+            # D83. REQUIRED runtime hook `otterPrintFile(path, printerName)`
+            # - a browser cannot print to a named local printer directly
+            # (`window.print()` opens the OS print dialog for the CURRENT
+            # PAGE, not an arbitrary file to an arbitrary named printer) -
+            # a genuine host boundary, same reported-not-assumed treatment
+            # as every other D69-D83 hook.
+            $printPathJs = ConvertTo-OtterJsExpression -Expr $Stmt.Path
+            $printerNameJs = ConvertTo-OtterJsExpression -Expr $Stmt.PrinterName
+            return "${pad}await otterPrintFile($printPathJs, $printerNameJs);"
+        }
         ([NodeKind]::DeleteFolder) {
             $pathJs = ConvertTo-OtterJsExpression -Expr $Stmt.Path
             return "${pad}await otterDeleteFolder($pathJs);"
@@ -1496,8 +1507,8 @@ function ConvertTo-OtterJsStatement {
             # "network"/"software" are lists of THINGS (wrapped in
             # __otterThing); "groups" is a list of plain strings (no
             # structure worth wrapping); everything else is a single thing.
-            $lines.Add("${inner}const _typeNames = { os: 'operating system', cpu: 'cpu', memory: 'memory', disk: 'disk', network: 'network interface', user: 'user', software: 'software', tasks: 'scheduled task' };")
-            $lines.Add("${inner}const _listKinds = { network: true, groups: true, software: true, tasks: true };")
+            $lines.Add("${inner}const _typeNames = { os: 'operating system', cpu: 'cpu', memory: 'memory', disk: 'disk', network: 'network interface', user: 'user', software: 'software', tasks: 'scheduled task', printers: 'printer' };")
+            $lines.Add("${inner}const _listKinds = { network: true, groups: true, software: true, tasks: true, printers: true };")
             $lines.Add("${inner}const _plainListKinds = { groups: true };")
             $lines.Add("${inner}if (!(_kind in _typeNames) && !(_kind in _listKinds)) { throw new Error('I do not know a kind of system information called `"' + _kindOriginal + '`".'); }")
             $lines.Add("${inner}const _raw = await otterGetSystemInfo(_kind);")
@@ -2411,7 +2422,7 @@ function Test-OtterJsBodyNeedsAsync {
 
     if ($null -eq $Statements) { return $false }
     foreach ($s in $Statements) {
-        if ($s.Kind -eq [NodeKind]::Await -or $s.Kind -eq [NodeKind]::ReadFile -or $s.Kind -eq [NodeKind]::WriteFile -or $s.Kind -eq [NodeKind]::AppendFile -or $s.Kind -eq [NodeKind]::CopyFile -or $s.Kind -eq [NodeKind]::MoveFile -or $s.Kind -eq [NodeKind]::DeleteFile -or $s.Kind -eq [NodeKind]::CreateFolder -or $s.Kind -eq [NodeKind]::DeleteFolder -or $s.Kind -eq [NodeKind]::CopyFolder -or $s.Kind -eq [NodeKind]::MoveFolder -or $s.Kind -eq [NodeKind]::GetFiles -or $s.Kind -eq [NodeKind]::GetFolders -or $s.Kind -eq [NodeKind]::RunProgram -or $s.Kind -eq [NodeKind]::HttpGet -or $s.Kind -eq [NodeKind]::HttpPost -or $s.Kind -eq [NodeKind]::HttpPut -or $s.Kind -eq [NodeKind]::HttpDelete -or $s.Kind -eq [NodeKind]::CopyToClipboard -or $s.Kind -eq [NodeKind]::GetClipboard -or $s.Kind -eq [NodeKind]::Notify -or $s.Kind -eq [NodeKind]::GetEnvironmentVariable -or $s.Kind -eq [NodeKind]::GetSystemFolder -or $s.Kind -eq [NodeKind]::ChooseFile -or $s.Kind -eq [NodeKind]::ChooseFolder -or $s.Kind -eq [NodeKind]::ChooseSaveFile -or $s.Kind -eq [NodeKind]::GetSystemInfo -or $s.Kind -eq [NodeKind]::GetProcesses -or $s.Kind -eq [NodeKind]::KillProcess -or $s.Kind -eq [NodeKind]::SetProcessPriority -or $s.Kind -eq [NodeKind]::WaitForProcess -or $s.Kind -eq [NodeKind]::CreateSymbolicLink -or $s.Kind -eq [NodeKind]::GetSymbolicLinkTarget -or $s.Kind -eq [NodeKind]::GetFileOwner -or $s.Kind -eq [NodeKind]::SetFileReadOnly -or $s.Kind -eq [NodeKind]::GetRegistryValue -or $s.Kind -eq [NodeKind]::SetRegistryValue -or $s.Kind -eq [NodeKind]::DeleteRegistryValue -or $s.Kind -eq [NodeKind]::GetEventLogEntries -or $s.Kind -eq [NodeKind]::SetCredential -or $s.Kind -eq [NodeKind]::GetCredential -or $s.Kind -eq [NodeKind]::DeleteCredential -or $s.Kind -eq [NodeKind]::PowerAction) {
+        if ($s.Kind -eq [NodeKind]::Await -or $s.Kind -eq [NodeKind]::ReadFile -or $s.Kind -eq [NodeKind]::WriteFile -or $s.Kind -eq [NodeKind]::AppendFile -or $s.Kind -eq [NodeKind]::CopyFile -or $s.Kind -eq [NodeKind]::MoveFile -or $s.Kind -eq [NodeKind]::DeleteFile -or $s.Kind -eq [NodeKind]::CreateFolder -or $s.Kind -eq [NodeKind]::DeleteFolder -or $s.Kind -eq [NodeKind]::CopyFolder -or $s.Kind -eq [NodeKind]::MoveFolder -or $s.Kind -eq [NodeKind]::GetFiles -or $s.Kind -eq [NodeKind]::GetFolders -or $s.Kind -eq [NodeKind]::RunProgram -or $s.Kind -eq [NodeKind]::HttpGet -or $s.Kind -eq [NodeKind]::HttpPost -or $s.Kind -eq [NodeKind]::HttpPut -or $s.Kind -eq [NodeKind]::HttpDelete -or $s.Kind -eq [NodeKind]::CopyToClipboard -or $s.Kind -eq [NodeKind]::GetClipboard -or $s.Kind -eq [NodeKind]::Notify -or $s.Kind -eq [NodeKind]::GetEnvironmentVariable -or $s.Kind -eq [NodeKind]::GetSystemFolder -or $s.Kind -eq [NodeKind]::ChooseFile -or $s.Kind -eq [NodeKind]::ChooseFolder -or $s.Kind -eq [NodeKind]::ChooseSaveFile -or $s.Kind -eq [NodeKind]::GetSystemInfo -or $s.Kind -eq [NodeKind]::GetProcesses -or $s.Kind -eq [NodeKind]::KillProcess -or $s.Kind -eq [NodeKind]::SetProcessPriority -or $s.Kind -eq [NodeKind]::WaitForProcess -or $s.Kind -eq [NodeKind]::CreateSymbolicLink -or $s.Kind -eq [NodeKind]::GetSymbolicLinkTarget -or $s.Kind -eq [NodeKind]::GetFileOwner -or $s.Kind -eq [NodeKind]::SetFileReadOnly -or $s.Kind -eq [NodeKind]::GetRegistryValue -or $s.Kind -eq [NodeKind]::SetRegistryValue -or $s.Kind -eq [NodeKind]::DeleteRegistryValue -or $s.Kind -eq [NodeKind]::GetEventLogEntries -or $s.Kind -eq [NodeKind]::SetCredential -or $s.Kind -eq [NodeKind]::GetCredential -or $s.Kind -eq [NodeKind]::DeleteCredential -or $s.Kind -eq [NodeKind]::PowerAction -or $s.Kind -eq [NodeKind]::PrintFile) {
             return $true
         }
         if ($s.Kind -eq [NodeKind]::ReadJson) {
