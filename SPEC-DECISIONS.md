@@ -5839,3 +5839,51 @@ in Node against a hand-stubbed hook. Two new regression tests in
 
 ---
 
+## D77. Installed software information — `get system information "software" into apps`
+
+**Status: IMPLEMENTED and verified end-to-end through the real `otter
+run` CLI against this machine's own real 431 installed applications.
+No new grammar - slots into D69's existing statement, same as D76.**
+
+Closes "Installed software information". Returns a LIST of `software`
+things (`name`, `version`, `publisher`), read from the registry's own
+`Uninstall` keys under `HKLM\...\Uninstall`, `HKLM\...\WOW6432Node\
+...\Uninstall` (32-bit apps on 64-bit Windows), and `HKCU\...\Uninstall`
+(per-user installs) - the same place Windows' own "Apps & features"
+panel reads from.
+
+**Deliberately NOT `Get-CimInstance Win32_Product`**, the more
+"obvious" way to ask this question: that WMI class is documented and
+widely known to trigger a Windows Installer CONSISTENCY CHECK
+(effectively re-validating, and sometimes silently repairing, every
+MSI package on the machine) merely by being queried - a real,
+surprising cost for what looks like a read-only question. The registry
+approach used here has no such side effect. Entries with no
+`DisplayName` (Windows Update patches, redistributable components, not
+real user-visible applications) are skipped, matching what "Apps &
+features" itself shows rather than the registry's full, noisier raw
+contents.
+
+**The JS-compiler's kind-dispatch was refactored, not just extended,**
+once "software" arrived as a THIRD list-shaped kind alongside
+"network": the previous hand-rolled `_kind === 'network' ? ... :
+_kind === 'groups' ? ... : ...` ternary chain from D76 would have grown
+a third branch doing almost the same thing, which was the signal to
+generalize instead. It is now three small lookup tables (`_typeNames`,
+`_listKinds`, `_plainListKinds`) plus one `if`, verified functionally
+identical to the old behavior for `os`/`network`/`groups` (all three
+executed together in Node against hand-stubbed data, not just the new
+`software` path in isolation) before adding `software` on top.
+
+**Verified:** through the real `otter run` CLI against this real
+machine's own installed software - 431 real applications returned,
+spot-checked the first five by name/publisher/version against genuinely
+installed programs (draw.io/JGraph, Audacity/Audacity Team, AutoHotkey/
+AutoHotkey Foundation LLC, Bambu Studio/Bambulab, Docker Desktop/Docker
+Inc. - all real, correct, recognizable data, not placeholders). Two new
+regression tests in `tests/Part3.Tests.ps1`, including one confirming
+every returned entry has a real non-blank name (the exact filter this
+implementation applies).
+
+---
+

@@ -1399,15 +1399,22 @@ function ConvertTo-OtterJsStatement {
             $lines.Add("${pad}{")
             $lines.Add("${inner}const _kindOriginal = String($infoKindJs);")
             $lines.Add("${inner}const _kind = _kindOriginal.toLowerCase();")
-            # D76 adds "user" (a single thing, same shape as os/cpu/etc.)
-            # and "groups" (a plain array of strings - group NAMES have no
-            # further structure worth wrapping in __otterThing, unlike
-            # network's per-interface objects).
-            $lines.Add("${inner}const _typeNames = { os: 'operating system', cpu: 'cpu', memory: 'memory', disk: 'disk', network: 'network interface', user: 'user' };")
-            $lines.Add("${inner}if (!(_kind in _typeNames) && _kind !== 'groups') { throw new Error('I do not know a kind of system information called `"' + _kindOriginal + '`".'); }")
+            # D76/D77 generalized this from a hand-rolled ternary chain into
+            # three small lookup tables, once a THIRD list-shaped kind
+            # ("software", alongside "network") arrived and made the old
+            # one-off `_kind === 'network' ? ... : _kind === 'groups' ...`
+            # chain harder to extend correctly than to just generalize.
+            # "network"/"software" are lists of THINGS (wrapped in
+            # __otterThing); "groups" is a list of plain strings (no
+            # structure worth wrapping); everything else is a single thing.
+            $lines.Add("${inner}const _typeNames = { os: 'operating system', cpu: 'cpu', memory: 'memory', disk: 'disk', network: 'network interface', user: 'user', software: 'software' };")
+            $lines.Add("${inner}const _listKinds = { network: true, groups: true, software: true };")
+            $lines.Add("${inner}const _plainListKinds = { groups: true };")
+            $lines.Add("${inner}if (!(_kind in _typeNames) && !(_kind in _listKinds)) { throw new Error('I do not know a kind of system information called `"' + _kindOriginal + '`".'); }")
             $lines.Add("${inner}const _raw = await otterGetSystemInfo(_kind);")
             $lines.Add("${inner}const _wrapOne = (v, tn) => { const props = {}; const order = []; if (v) { for (const k of Object.keys(v)) { props[k] = v[k]; order.push(k); } } return { __otterThing: true, typeName: tn, props: props, order: order }; };")
-            $lines.Add("${inner}const _value = (_kind === 'network') ? (Array.isArray(_raw) ? _raw.map((x) => _wrapOne(x, 'network interface')) : []) : (_kind === 'groups') ? (Array.isArray(_raw) ? _raw : []) : _wrapOne(_raw, _typeNames[_kind]);")
+            $lines.Add("${inner}let _value;")
+            $lines.Add("${inner}if (_kind in _listKinds) { const _arr = Array.isArray(_raw) ? _raw : []; _value = (_kind in _plainListKinds) ? _arr : _arr.map((x) => _wrapOne(x, _typeNames[_kind])); } else { _value = _wrapOne(_raw, _typeNames[_kind]); }")
             if ($LocalNames -and $LocalNames.Contains($target)) {
                 $lines.Add("${inner}$target = _value;")
             } else {

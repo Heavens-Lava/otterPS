@@ -402,7 +402,12 @@ creation.
 -   [x] Network-interface information (D69: `get system information
     "network" into info` - a real list of active, non-loopback
     interfaces with name and IPv4 address)
--   [ ] Installed software information
+-   [x] Installed software information (D77: `get system information
+    "software" into apps` - real registry Uninstall-key enumeration
+    (NOT Win32_Product, which is documented to trigger a Windows
+    Installer consistency check as a side effect), verified against
+    431 real installed applications on this machine. See
+    SPEC-DECISIONS.md D77)
 -   [ ] Registry provider for Windows
 -   [ ] Event log provider
 -   [ ] System logs provider

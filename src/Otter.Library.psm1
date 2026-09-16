@@ -1314,11 +1314,49 @@ function Get-OtterSystemInfoValue {
             Write-Output -NoEnumerate $list
             return
         }
+        # get system information "software" into list                   (D77)
+        # A list of "software" things (name/version/publisher) read from
+        # the registry's own Uninstall keys - the same place Windows'
+        # "Apps & features" panel reads from. Deliberately NOT
+        # Get-CimInstance Win32_Product: that class is documented and
+        # widely known to trigger a Windows Installer CONSISTENCY CHECK
+        # (effectively re-validating, and sometimes repairing, every MSI
+        # package on the machine) as a side effect of merely being
+        # queried - a real, surprising cost for what looks like a
+        # read-only question, avoided here on purpose. Entries with no
+        # DisplayName (patches/updates/components, not real applications)
+        # are skipped, matching what "Apps & features" itself shows.
+        'software' {
+            $list = [System.Collections.Generic.List[object]]::new()
+            $uninstallPaths = @(
+                'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*',
+                'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*',
+                'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*'
+            )
+            foreach ($regPath in $uninstallPaths) {
+                try {
+                    $entries = Get-ItemProperty -Path $regPath -ErrorAction SilentlyContinue
+                    foreach ($entry in $entries) {
+                        if ([string]::IsNullOrWhiteSpace($entry.DisplayName)) { continue }
+                        $software = [OtterObject]::new('software')
+                        $software.WriteProperty('name', $entry.DisplayName)
+                        $software.WriteProperty('version', $(if ($entry.DisplayVersion) { $entry.DisplayVersion } else { $null }))
+                        $software.WriteProperty('publisher', $(if ($entry.Publisher) { $entry.Publisher } else { $null }))
+                        $list.Add($software)
+                    }
+                } catch {
+                    # this registry hive/path is unavailable on this host -
+                    # move on to the next one rather than failing the list
+                }
+            }
+            Write-Output -NoEnumerate $list
+            return
+        }
         default {
             throw [OtterError]::new(
                 "I do not know a kind of system information called ""$Kind"".",
                 $Line, 'runtime', 0, $null,
-                'get system information "os" into info (also: "cpu", "memory", "disk", "network", "user", "groups")')
+                'get system information "os" into info (also: "cpu", "memory", "disk", "network", "user", "groups", "software")')
         }
     }
 }

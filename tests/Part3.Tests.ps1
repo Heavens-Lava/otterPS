@@ -457,6 +457,26 @@ Test-Otter 'D76: get system information "groups" returns a real, non-empty list 
     Assert-True ([double]$out[0] -gt 0) "expected at least one real Windows group, got [$($out[0])]"
 }
 
+Test-Otter 'D77: get system information "software" returns a real, non-empty list of installed software things' {
+    $out = Invoke-TestProgram @(
+        [GetSystemInfoStmt]::new((Lit 'software'), 'apps', 1),
+        [SayStmt]::new(@(([OfOperationExpr]::new([OfOperation]::Length, (Var 'apps'), 2))), 2)
+    )
+    Assert-True ([double]$out[0] -gt 0) "expected at least one real installed application, got [$($out[0])]"
+}
+
+Test-Otter 'D77: every software entry has a real, non-empty name' {
+    $out = Invoke-TestProgram @(
+        [GetSystemInfoStmt]::new((Lit 'software'), 'apps', 1),
+        [FindStmt]::new('app', (Var 'apps'), (CompareEx (PropOf 'name' (Var 'app')) 'Equal' (Gone)), 'blank', 2),
+        [IfStmt]::new(
+            @([IfBranch]::new((CompareEx (Var 'blank') 'Equal' (Gone)),
+                @([SayStmt]::new(@((Lit 'all named')), 4)))),
+            @([SayStmt]::new(@((Lit 'found a blank name')), 6)), 3)
+    )
+    Assert-Lines -Expected @('all named') -Actual $out
+}
+
 # =================================================================
 # D70 - process management: run ... into p, get processes, kill
 # =================================================================
