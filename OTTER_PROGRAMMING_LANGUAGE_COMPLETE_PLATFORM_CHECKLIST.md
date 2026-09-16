@@ -225,7 +225,12 @@ creation.
 -   [ ] Nested/cause errors
 -   [x] Structured errors
 -   [x] Error categories
--   [ ] Custom/user errors
+-   [x] Custom/user errors (D68: `fail with "message"` raises a real,
+    catchable custom error through the same `OtterError` machinery as
+    every built-in error; `otherwise into reason` captures the caught
+    message for either kind. Real lexer/parser grammar, interpreter,
+    and JS-compiler implementation, verified through the real `otter
+    run` CLI - see SPEC-DECISIONS.md D68)
 -   [x] Async error propagation
 -   [x] Host/provider error translation
 -   [x] Diagnostic suggestions/quick fixes
