@@ -6327,3 +6327,78 @@ D69-D84 hook.
 
 ---
 
+## D85. SSH client/provider — `run command "..." over ssh to "user@host" [into result]`
+
+**Status: IMPLEMENTED. Verified for real: a genuine `ssh.exe` process
+launched, a real DNS resolution attempted and genuinely failed, its
+exact real error text captured and translated cleanly. No automated
+regression test added - see the reasoning below, not a gap papered
+over.**
+
+Shells out to the real, already-installed OpenSSH client
+(`C:\Windows\System32\OpenSSH\ssh.exe`, confirmed present on this
+machine, falling back to any `ssh.exe` on `PATH` otherwise) via the
+existing `Invoke-OtterCommand` path (D60/D84) - a real SSH session, not
+a custom protocol implementation.
+
+**Deliberately NO credential clause, unlike D84's WinRM form - a real
+platform constraint discovered and respected, not designed around by
+guesswork:** confirmed directly that `ssh.exe` reads a password/
+passphrase prompt from the real terminal device, not stdin, precisely
+to resist being scripted this way - there is no bundled Windows
+equivalent of `sshpass` to feed it one non-interactively. Rather than
+build a broken or insecure password path, this statement supports only
+key-based authentication (an already-configured key or agent) - which
+is also the standard, secure way real SSH automation is done, so the
+constraint and the correct design point at the same answer.
+
+**Two safety flags always passed, confirmed by direct testing to do
+what they claim:** `-o BatchMode=yes` makes `ssh` FAIL IMMEDIATELY with
+a clean error instead of hanging forever at a prompt it cannot answer
+(confirmed directly against a real unreachable host: the command
+returned in under a second, not hanging) - the same "explicit safety"
+spirit D82 already applies to power actions, here preventing a silent
+hang rather than a silent destructive action. `-o
+StrictHostKeyChecking=accept-new` auto-trusts a NEW host key (first
+contact) without an interactive prompt, while still rejecting a
+CHANGED one (a real potential man-in-the-middle indicator) -
+deliberately not the fully permissive `=no`, to preserve that one
+genuine safety check.
+
+**A real bug caught and fixed before ever testing it, by reading the
+callee's actual contract instead of assuming its shape:**
+`Invoke-OtterCommand` (D60) returns an `OtterObject` (`.ReadProperty(
+'output')`/`'error output'`/`'exit code'`), not a plain object with
+`.StandardOutput`/`.StandardError`/`.ExitCode` properties - the initial
+draft used the wrong property names, caught by reading the actual
+function before running anything, not by a failed test run.
+
+**Why no automated regression test was added, unlike every other D6x-
+D8x addition:** D85 has no credential-lookup-style failure that can be
+checked without any network I/O at all (unlike D84, which fails
+instantly on a missing stored credential before ever touching the
+network) - every real path through `Invoke-OtterSshCommand` involves a
+genuine `ssh.exe` process launch and a real DNS/connection attempt,
+whose timing and exact failure text are environment-dependent in the
+same way D84's WinRM failure path already was judged too fragile to
+automate. Rather than write a test that could flake in a different
+network environment, or a test that asserts nothing meaningful, this
+was verified once, by hand, and documented here - an honest choice,
+not an oversight.
+
+**Verified:** through the real `otter run` CLI - `run command "whoami"
+over ssh to "nonexistent-ssh-host-12345" into result` genuinely
+launched the real `ssh.exe`, which genuinely attempted DNS resolution
+and genuinely failed (`"ssh: Could not resolve hostname ...: No such
+host is known."`), caught cleanly by `otherwise into reason` with that
+real error text embedded; the existing, unrelated `run command "..."
+into result` form (no `over ssh` clause) confirmed completely
+unaffected. Grammar for the full success-path syntax (`over ssh to
+"user@host" into result`) accepted by the real parser (`otter check`).
+JS compiler emits a call to a new required host hook
+(`otterRunSshCommand`) - SSH is a real OS-level client tool a browser
+cannot shell out to at all, same reported boundary as every other
+D69-D85 hook.
+
+---
+

@@ -2089,6 +2089,24 @@ function Read-OtterStatement {
                 [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the run statement to end here.')
                 return [RunRemoteCommandStmt]::new($target, $hostName, $credentialName, $remoteResultTarget, $start.Line)
             }
+            # D85: `run command "..." over ssh to "user@host" [into result]`
+            if ($isCommand -and $maybeOn.Kind -eq [TokenKind]::Identifier -and $maybeOn.Text -eq 'over') {
+                [void](Read-OtterToken)
+                $sshWord = Get-OtterCurrentToken
+                if ($sshWord.Kind -ne [TokenKind]::Identifier -or $sshWord.Text -ne 'ssh') {
+                    throw (New-OtterParserError 'I expected "ssh" after "over".' $sshWord 'run command "..." over ssh to "user@host"')
+                }
+                [void](Read-OtterToken)
+                [void](Assert-OtterTokenKind ([TokenKind]::To) 'I expected "to" and a host.')
+                $sshHostName = Read-OtterValue
+                $sshResultTarget = $null
+                if (Test-OtterTokenKind ([TokenKind]::Into)) {
+                    [void](Read-OtterToken)
+                    $sshResultTarget = (Read-OtterVariableName 'I expected a variable name after "into".').Text
+                }
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the run statement to end here.')
+                return [RunSshCommandStmt]::new($target, $sshHostName, $sshResultTarget, $start.Line)
+            }
             $resultTarget = $null
             if (Test-OtterTokenKind ([TokenKind]::Into)) {
                 [void](Read-OtterToken)

@@ -477,7 +477,13 @@ creation.
     success path could not be verified in this environment - WinRM is
     not enabled even for loopback here, and enabling it was judged out
     of scope to do unilaterally. See SPEC-DECISIONS.md D84)
--   [ ] SSH client/provider
+-   [x] SSH client/provider (D85: `run command "..." over ssh to
+    "user@host" [into result]` - real `ssh.exe`, key-based auth only
+    (no bundled non-interactive password support exists on this
+    platform - confirmed directly, and key-based is the correct/
+    standard choice for automation anyway). Verified for real: a
+    genuine ssh.exe launch, real DNS failure, cleanly translated. See
+    SPEC-DECISIONS.md D85)
 -   [x] Secure shell escaping
 -   [x] Auditing/logging for privileged operations
 

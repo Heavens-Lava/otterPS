@@ -434,6 +434,10 @@ enum NodeKind {
     # --- remote administration (D84) --------------------------------------
     RunRemoteCommand       # run command "..." on remote "host" using
                             # credential "n" [into result]
+
+    # --- SSH client (D85) ---------------------------------------------------
+    RunSshCommand          # run command "..." over ssh to "user@host"
+                            # [into result]
 }
 
 enum MathOp { Add; Subtract; Multiply; Divide }
@@ -1514,6 +1518,26 @@ class RunRemoteCommandStmt : Node {
         $this.Command = $command
         $this.HostName = $hostName
         $this.CredentialName = $credentialName
+        $this.ResultTarget = $resultTarget
+    }
+}
+
+# run command "..." over ssh to "user@host" [into result]              (D85)
+# Deliberately NO credential clause, unlike D84's WinRM form: `ssh.exe`
+# cannot accept a password non-interactively without extra tooling this
+# platform does not bundle (confirmed directly - ssh reads a password
+# from the real terminal device, not stdin, specifically to resist
+# exactly this scripting pattern). Key-based auth (an already-configured
+# key or agent) is both the only thing this can honestly support AND
+# the standard, secure way real SSH automation is done - not a
+# limitation papered over, a correct design choice for this transport.
+class RunSshCommandStmt : Node {
+    [Node]$Command
+    [Node]$HostName
+    [string]$ResultTarget
+    RunSshCommandStmt([Node]$command, [Node]$hostName, [string]$resultTarget, [int]$line) : base([NodeKind]::RunSshCommand, $line) {
+        $this.Command = $command
+        $this.HostName = $hostName
         $this.ResultTarget = $resultTarget
     }
 }

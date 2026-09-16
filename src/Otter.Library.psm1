@@ -911,6 +911,57 @@ function Invoke-OtterRemoteCommand {
     }
 }
 
+# run command "..." over ssh to "user@host" [into result]             (D85)
+# Shells out to the real ssh.exe (Windows' own built-in OpenSSH client
+# at System32\OpenSSH, confirmed present, falling back to any ssh.exe
+# on PATH otherwise) via the existing Invoke-OtterCommand path - a real
+# SSH session, not a custom protocol implementation. -o BatchMode=yes
+# is always passed: it makes ssh FAIL IMMEDIATELY with a clean error
+# instead of hanging forever at an interactive password/passphrase
+# prompt it has no way to answer non-interactively (confirmed directly:
+# ssh reads such prompts from the real terminal device, not stdin) -
+# the same "explicit safety" spirit D82 already applies to power
+# actions, here preventing an Otter program from silently hanging
+# rather than preventing an accidental action. -o StrictHostKeyChecking
+# =accept-new auto-trusts a NEW host key (first contact) without an
+# interactive prompt, while still rejecting a CHANGED one (a real
+# potential man-in-the-middle indicator) - accept-new, not the fully
+# permissive "no", preserves that one genuine safety check.
+function Invoke-OtterSshCommand {
+    param([string]$Command, [string]$HostName, [int]$Line)
+
+    $sshPath = if (Test-Path -LiteralPath 'C:\Windows\System32\OpenSSH\ssh.exe') {
+        'C:\Windows\System32\OpenSSH\ssh.exe'
+    } else {
+        'ssh.exe'
+    }
+
+    try {
+        $commandLine = "$sshPath -o BatchMode=yes -o StrictHostKeyChecking=accept-new $HostName $Command"
+        # Invoke-OtterCommand returns an OtterObject (the same "command
+        # result" thing D65's plain local `run command` already produces)
+        # - read via ReadProperty, not dot-notation, which this class does
+        # not support.
+        $result = Invoke-OtterCommand -CommandLine $commandLine -Line $Line
+        $exitCode = $result.ReadProperty('exit code')
+        $stdout = $result.ReadProperty('output')
+        $stderr = $result.ReadProperty('error output')
+        if ($exitCode -ne 0) {
+            $detail = if ($stderr) { $stderr } else { $stdout }
+            throw [OtterError]::new(
+                ("I could not run that command over ssh on `"$HostName`". $detail").Trim(),
+                $Line, 'runtime')
+        }
+        return $stdout
+    } catch [OtterError] {
+        throw
+    } catch {
+        throw [OtterError]::new(
+            "I could not run that command over ssh on `"$HostName`". $($_.Exception.Message)",
+            $Line, 'runtime')
+    }
+}
+
 # get owner of "x" into owner                                        (D74)
 # Works on either a file or a folder - ownership is a filesystem-wide
 # concept, unlike read-only below, which this module deliberately
@@ -1816,4 +1867,4 @@ Export-ModuleMember -Function `
     Get-OtterEventLogEntries, `
     Set-OtterCredential, Get-OtterCredential, Remove-OtterCredential, `
     Get-OtterPowerActionCommandLine, Invoke-OtterPowerAction, Send-OtterFileToPrinter, `
-    Invoke-OtterRemoteCommand
+    Invoke-OtterRemoteCommand, Invoke-OtterSshCommand

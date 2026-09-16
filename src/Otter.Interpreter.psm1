@@ -761,6 +761,17 @@ function Invoke-OtterStatement {
             return
         }
 
+        # run command "..." over ssh to "user@host" [into result]        (D85)
+        'RunSshCommand' {
+            $command = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.Command -Environment $Environment)
+            $hostName = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.HostName -Environment $Environment)
+            $output = Invoke-OtterSshCommand -Command $command -HostName $hostName -Line $Statement.Line
+            if ($Statement.ResultTarget) {
+                $Environment.Set($Statement.ResultTarget, $output)
+            }
+            return
+        }
+
         'DeleteFolder' {
             Remove-OtterFolder -Path (Get-OtterPathArgument -Expression $Statement.Path -Environment $Environment) -Line $Statement.Line
             return
