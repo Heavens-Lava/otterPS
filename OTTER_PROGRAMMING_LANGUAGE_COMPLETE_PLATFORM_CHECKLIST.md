@@ -468,7 +468,15 @@ creation.
     was not exercised - "Microsoft Print to PDF" opens a real blocking
     Save dialog as part of its own driver behavior). See
     SPEC-DECISIONS.md D83)
--   [ ] Remote administration strategy
+-   [x] Remote administration strategy (D84, treated as PowerShell
+    Remoting support per explicit direction: `run command "..." on
+    remote "host" using credential "n" [into result]` via real WinRM.
+    Credential-lookup failure verified for real; a real WinRM
+    connection attempt to an unreachable host verified once by hand
+    (genuinely failed over the network, translated cleanly); the
+    success path could not be verified in this environment - WinRM is
+    not enabled even for loopback here, and enabling it was judged out
+    of scope to do unilaterally. See SPEC-DECISIONS.md D84)
 -   [ ] SSH client/provider
 -   [x] Secure shell escaping
 -   [x] Auditing/logging for privileged operations

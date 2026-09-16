@@ -748,6 +748,19 @@ function Invoke-OtterStatement {
             return
         }
 
+        # run command "..." on remote "host" using credential "n"        (D84)
+        # [into result]
+        'RunRemoteCommand' {
+            $command = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.Command -Environment $Environment)
+            $hostName = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.HostName -Environment $Environment)
+            $credentialName = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.CredentialName -Environment $Environment)
+            $output = Invoke-OtterRemoteCommand -Command $command -HostName $hostName -CredentialName $credentialName -Line $Statement.Line
+            if ($Statement.ResultTarget) {
+                $Environment.Set($Statement.ResultTarget, $output)
+            }
+            return
+        }
+
         'DeleteFolder' {
             Remove-OtterFolder -Path (Get-OtterPathArgument -Expression $Statement.Path -Environment $Environment) -Line $Statement.Line
             return

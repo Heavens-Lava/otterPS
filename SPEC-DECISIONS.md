@@ -6259,3 +6259,71 @@ browser API gap that could be worked around.
 
 ---
 
+## D84. Remote administration strategy — `run command "..." on remote "host" using credential "n" [into result]`
+
+**Status: IMPLEMENTED. The credential-lookup failure path verified
+fully, for real (fast, no network I/O). The unreachable-host failure
+path verified once, by hand, with a REAL WinRM connection attempt that
+genuinely failed over the network and was translated into a clean
+error - not exercised in the automated regression suite, since a real
+network call's timing and failure mode are environment-dependent in a
+way none of this project's other automated tests are. The SUCCESS path
+(a real reachable remote host) could not be verified at all in this
+environment: WinRM is not enabled even for loopback on this machine
+(confirmed directly via `Test-WSMan`), and enabling it (`Enable-
+PSRemoting`/`winrm quickconfig`) would be a real change to this
+machine's network-service configuration and security posture, not
+something to do unilaterally just to test a feature.**
+
+Treated as PowerShell Remoting (WinRM) support per explicit direction -
+the natural, already-idiomatic Windows remote-administration mechanism,
+not a custom protocol. `run command "..." on remote "host" using
+credential "n"` extends the EXISTING `run command "..."` grammar with
+an optional trailing clause (only valid after `command`, checked as
+plain identifier text before the existing `into` handling) rather than
+becoming a wholly separate statement at the grammar level - but IS a
+genuinely separate `NodeKind`/class (`RunRemoteCommandStmt`, not more
+fields on `RunStmt`): `RunStmt` already carries three different
+meanings (fire-and-forget launch / blocking local command / its
+`IsCommand` flag), and a remote result has a different shape (captured
+output TEXT, not the local `CommandResult`'s separate stdout/stderr/
+exit-code, since a WinRM session does not expose those the same way a
+local `Process` object does) - conflating the two was judged worse
+than the small duplication of grammar-entry code.
+
+**`CredentialName` deliberately doubles as the remote username, reusing
+D81 rather than inventing a second credential concept:** `using
+credential "AZLEG\jmacy"` means "connect as `AZLEG\jmacy` using the
+password stored under that exact name" via D81's `Get-OtterCredential`
+- no separate username field, and no change to D81's own storage
+format or meaning. The remote command itself runs as a real native
+process ON THE REMOTE MACHINE (`& $exe $args` inside the remote
+scriptblock), matching the SAME "run a real external program" meaning
+`Invoke-OtterCommand` already gives the local `run command` statement,
+rather than executing the command text as arbitrary remote PowerShell
+script - staying consistent with the local statement's own meaning was
+judged more important than exposing everything WinRM could technically
+do.
+
+**Verified:** through the real `otter run` CLI - `run command ... on
+remote ... using credential "n"` with no matching stored credential
+failed with a specific, clean error (no network call attempted at all,
+confirmed by the failure being instantaneous); the SAME statement with
+a credential that DOES exist genuinely reached `Invoke-Command` and
+attempted a real WinRM connection over the network to a nonexistent
+host, which genuinely failed and was translated into a clean Otter
+error (not a raw PowerShell remoting exception); the existing, unrelated
+`run command "..." into result` form (no `on remote` clause) confirmed
+completely unaffected - same structured `CommandResult` output as
+before. Grammar for the full success-path syntax (`on remote "host"
+using credential "n" into result`) accepted by the real parser
+(`otter check`). One new regression test in `tests/Part3.Tests.ps1`
+(the credential-lookup failure, safe and fast); the real network
+failure path is documented here, not automated, for the reasons above.
+JS compiler emits a call to a new required host hook
+(`otterRunRemoteCommand`) - WinRM is a Windows-only host concept a
+browser cannot reach at all, same reported boundary as every other
+D69-D84 hook.
+
+---
+

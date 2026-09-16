@@ -1125,6 +1125,29 @@ Test-Otter 'D83: print to a printer name that does not exist is a clean Otter er
     }
 }
 
+# =================================================================
+# D84 - remote administration (PowerShell Remoting)
+#
+# Only the credential-lookup failure is exercised here (fast, no
+# network I/O at all - it fails before Invoke-Command is ever called).
+# The "unreachable host" real network failure path was verified once,
+# by hand, outside this automated suite: a real WinRM connection
+# attempt to a nonexistent host genuinely failed and was translated
+# into a clean Otter error. That path is deliberately NOT in the
+# automated regression suite because network calls are slow and their
+# failure mode is environment-dependent (a corporate DNS/proxy setup
+# could behave very differently from this session's own network) - see
+# SPEC-DECISIONS.md D84.
+# =================================================================
+
+Test-Otter 'D84: run command on remote without a matching stored credential is a clean Otter error' {
+    Assert-OtterFails -Containing 'I do not have a credential called "OtterTest-D84-NoSuchCred"' -Body {
+        Invoke-TestProgram @(
+            [RunRemoteCommandStmt]::new((Lit 'whoami'), (Lit 'some-host'), (Lit 'OtterTest-D84-NoSuchCred'), 'result', 1)
+        )
+    }
+}
+
 Set-Location $originalLocation
 Remove-Item -LiteralPath $sandbox -Recurse -Force -ErrorAction SilentlyContinue
 

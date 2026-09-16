@@ -2058,6 +2058,37 @@ function Read-OtterStatement {
             $isCommand = $false
             if (Test-OtterTokenKind ([TokenKind]::Command)) { [void](Read-OtterToken); $isCommand = $true }
             $target = Read-OtterValue
+            # D84: `run command "..." on remote "host" using credential "n"
+            # [into result]` - only valid after `run command`, checked as
+            # plain identifier text before the existing `into` handling.
+            $maybeOn = Get-OtterCurrentToken
+            if ($isCommand -and $maybeOn.Kind -eq [TokenKind]::Identifier -and $maybeOn.Text -eq 'on') {
+                [void](Read-OtterToken)
+                $remoteWord = Get-OtterCurrentToken
+                if ($remoteWord.Kind -ne [TokenKind]::Identifier -or $remoteWord.Text -ne 'remote') {
+                    throw (New-OtterParserError 'I expected "remote" after "on".' $remoteWord 'run command "..." on remote "host" using credential "n"')
+                }
+                [void](Read-OtterToken)
+                $hostName = Read-OtterValue
+                $usingWord = Get-OtterCurrentToken
+                if ($usingWord.Kind -ne [TokenKind]::Identifier -or $usingWord.Text -ne 'using') {
+                    throw (New-OtterParserError 'I expected "using credential" after the host name.' $usingWord 'run command "..." on remote "host" using credential "n"')
+                }
+                [void](Read-OtterToken)
+                $credentialWord = Get-OtterCurrentToken
+                if ($credentialWord.Kind -ne [TokenKind]::Identifier -or $credentialWord.Text -ne 'credential') {
+                    throw (New-OtterParserError 'I expected "credential" after "using".' $credentialWord 'run command "..." on remote "host" using credential "n"')
+                }
+                [void](Read-OtterToken)
+                $credentialName = Read-OtterValue
+                $remoteResultTarget = $null
+                if (Test-OtterTokenKind ([TokenKind]::Into)) {
+                    [void](Read-OtterToken)
+                    $remoteResultTarget = (Read-OtterVariableName 'I expected a variable name after "into".').Text
+                }
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the run statement to end here.')
+                return [RunRemoteCommandStmt]::new($target, $hostName, $credentialName, $remoteResultTarget, $start.Line)
+            }
             $resultTarget = $null
             if (Test-OtterTokenKind ([TokenKind]::Into)) {
                 [void](Read-OtterToken)

@@ -850,6 +850,67 @@ function Send-OtterFileToPrinter {
     }
 }
 
+# run command "..." on remote "host" using credential "n" [into result]
+#                                                                       (D84)
+# Real PowerShell Remoting (WinRM) via Invoke-Command - the natural,
+# already-idiomatic Windows remote-administration mechanism, not a
+# custom protocol. CredentialName doubles as the remote username: it is
+# looked up in D81's credential vault for the PASSWORD, so `using
+# credential "AZLEG\jmacy"` means "connect as AZLEG\jmacy using the
+# password stored under that exact name" - no separate username field,
+# and no change to D81's own storage format or meaning.
+#
+# The remote command is run as a native process ON THE REMOTE MACHINE
+# (Start-Process -Wait piped through Get-Content on its own captured
+# output), matching the SAME "run a real external program" semantics
+# Invoke-OtterCommand already gives locally, rather than executing the
+# command text as arbitrary remote PowerShell script - the two are not
+# interchangeable, and staying consistent with the local statement's
+# own meaning was judged more important than exposing everything WinRM
+# could technically do.
+#
+# The result is captured OUTPUT TEXT, not the local CommandResult's
+# separate stdout/stderr/exit-code thing - a WinRM session does not
+# expose those the same way a local System.Diagnostics.Process does,
+# and approximating them would risk implying a precision this
+# mechanism cannot actually deliver.
+function Invoke-OtterRemoteCommand {
+    param([string]$Command, [string]$HostName, [string]$CredentialName, [int]$Line)
+
+    $password = Get-OtterCredential -Name $CredentialName -Line $Line
+    if ($null -eq $password) {
+        throw [OtterError]::new(
+            "I do not have a credential called `"$CredentialName`" - use set credential `"$CredentialName`" to `"...`" to store one first.",
+            $Line, 'runtime')
+    }
+
+    try {
+        $secure = ConvertTo-SecureString -String $password -AsPlainText -Force
+        $psCredential = [System.Management.Automation.PSCredential]::new($CredentialName, $secure)
+    } catch {
+        throw [OtterError]::new("I could not build a credential for `"$CredentialName`". $($_.Exception.Message)", $Line, 'runtime')
+    }
+
+    try {
+        $result = Invoke-Command -ComputerName $HostName -Credential $psCredential -ScriptBlock {
+            param($cmd)
+            $parts = $cmd -split '\s+', 2
+            $exe = $parts[0]
+            $args = if ($parts.Count -gt 1) { $parts[1] } else { '' }
+            if ($args) {
+                & $exe $args 2>&1 | Out-String
+            } else {
+                & $exe 2>&1 | Out-String
+            }
+        } -ArgumentList $Command -ErrorAction Stop
+        return [string]$result
+    } catch {
+        throw [OtterError]::new(
+            "I could not run that command on `"$HostName`". $($_.Exception.Message)",
+            $Line, 'runtime')
+    }
+}
+
 # get owner of "x" into owner                                        (D74)
 # Works on either a file or a folder - ownership is a filesystem-wide
 # concept, unlike read-only below, which this module deliberately
@@ -1754,4 +1815,5 @@ Export-ModuleMember -Function `
     Get-OtterRegistryValue, Set-OtterRegistryValue, Remove-OtterRegistryValue, Test-OtterRegistryKeyExists, `
     Get-OtterEventLogEntries, `
     Set-OtterCredential, Get-OtterCredential, Remove-OtterCredential, `
-    Get-OtterPowerActionCommandLine, Invoke-OtterPowerAction, Send-OtterFileToPrinter
+    Get-OtterPowerActionCommandLine, Invoke-OtterPowerAction, Send-OtterFileToPrinter, `
+    Invoke-OtterRemoteCommand

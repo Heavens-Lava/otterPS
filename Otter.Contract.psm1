@@ -430,6 +430,10 @@ enum NodeKind {
 
     # --- printers (D83) --------------------------------------------------
     PrintFile              # print "file.txt" to "PrinterName"
+
+    # --- remote administration (D84) --------------------------------------
+    RunRemoteCommand       # run command "..." on remote "host" using
+                            # credential "n" [into result]
 }
 
 enum MathOp { Add; Subtract; Multiply; Divide }
@@ -1483,6 +1487,34 @@ class PrintFileStmt : Node {
     PrintFileStmt([Node]$path, [Node]$printerName, [int]$line) : base([NodeKind]::PrintFile, $line) {
         $this.Path = $path
         $this.PrinterName = $printerName
+    }
+}
+
+# run command "..." on remote "host" using credential "n" [into result] (D84)
+# A genuinely SEPARATE statement from RunStmt, not an extra optional
+# field bolted onto it: RunStmt already carries three different
+# meanings (fire-and-forget launch / blocking local command / its own
+# IsCommand flag), and remote execution has a different result shape
+# (captured text output, not the local CommandResult's separate stdout/
+# stderr/exit-code, since a WinRM session does not expose those the
+# same way a local Process object does) - conflating the two would
+# make both harder to reason about.
+#
+# CredentialName doubles as the remote username: it is looked up in
+# D81's credential vault (set credential "n" to "secret") for the
+# PASSWORD, so `using credential "AZLEG\jmacy"` means "connect as
+# AZLEG\jmacy using the password stored under that exact name" - no
+# separate username field, and no change to D81's own storage format.
+class RunRemoteCommandStmt : Node {
+    [Node]$Command
+    [Node]$HostName
+    [Node]$CredentialName
+    [string]$ResultTarget
+    RunRemoteCommandStmt([Node]$command, [Node]$hostName, [Node]$credentialName, [string]$resultTarget, [int]$line) : base([NodeKind]::RunRemoteCommand, $line) {
+        $this.Command = $command
+        $this.HostName = $hostName
+        $this.CredentialName = $credentialName
+        $this.ResultTarget = $resultTarget
     }
 }
 
