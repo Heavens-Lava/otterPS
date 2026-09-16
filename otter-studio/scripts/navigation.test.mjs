@@ -4,7 +4,8 @@ import {
   flattenProjectFiles,
   NavigationHistory,
   symbolsForFile,
-  definitionForWord
+  definitionForWord,
+  occurrencesForWord
 } from '../js/navigation/symbol-index.js';
 
 const files = flattenProjectFiles([
@@ -43,6 +44,9 @@ const definitions = [
 assert.equal(definitionForWord(definitions, 'projects/demo/main.ot', 'name', 14).Line, 12, 'nearest preceding declaration must win');
 assert.equal(definitionForWord(definitions, 'projects/demo/main.ot', 'greet', 4).Line, 20, 'later declarations must resolve for forward function calls');
 assert.equal(definitionForWord(definitions, 'projects/demo/main.ot', 'missing', 4), null, 'unknown words must not navigate arbitrarily');
+
+const occurrences = occurrencesForWord('name is "name"\n# name is a comment\nsay name\n', 'name');
+assert.deepEqual(occurrences.map(hit => [hit.line, hit.column]), [[1, 0], [3, 4]], 'occurrence search must ignore quoted strings and comments');
 
 const history = new NavigationHistory(3);
 history.record({ path: 'main.ot', line: 2, column: 0 });

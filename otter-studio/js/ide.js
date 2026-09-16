@@ -5,7 +5,8 @@ import {
   flattenProjectFiles,
   NavigationHistory,
   symbolsForFile,
-  definitionForWord
+  definitionForWord,
+  occurrencesForWord
 } from './navigation/symbol-index.js';
 
 export class OtterStudioIde {
@@ -266,6 +267,7 @@ export class OtterStudioIde {
     this.btnFindDoc = document.getElementById('btnFindDoc');
     this.btnGoToDefinition = document.getElementById('btnGoToDefinition');
     this.btnPeekDefinition = document.getElementById('btnPeekDefinition');
+    this.btnFindOccurrences = document.getElementById('btnFindOccurrences');
     this.definitionPeekEl = document.getElementById('definitionPeek');
     this.btnToggleWordWrap = document.getElementById('btnToggleWordWrap');
     this.breadcrumbsEl = document.getElementById('editorBreadcrumbs');
@@ -325,6 +327,7 @@ export class OtterStudioIde {
     this.btnToggleWordWrap?.addEventListener('click', () => this.setWordWrap(!this.wordWrap));
     this.btnGoToDefinition?.addEventListener('click', () => this.goToDefinition());
     this.btnPeekDefinition?.addEventListener('click', () => this.peekDefinition());
+    this.btnFindOccurrences?.addEventListener('click', () => this.findOccurrences());
     this.workspaceSearchForm?.addEventListener('submit', event => {
       event.preventDefault();
       this.searchWorkspace();
@@ -620,7 +623,7 @@ export class OtterStudioIde {
         path: file.path,
         icon: file.name.toLowerCase().endsWith('.ot') ? 'OT' : '•'
       }));
-    } else {
+    } else if (mode === 'symbols') {
       this.navigationPaletteTitle.textContent = 'Go to Symbol';
       this.navigationPaletteInput.placeholder = 'Type a symbol name…';
       this.navigationItems = symbolsForFile(this.workspaceSymbols, this.currentFile)
@@ -665,7 +668,7 @@ export class OtterStudioIde {
           <span class="navigation-item-label">${this.escapeHtml(item.label)}</span>
           <span class="navigation-item-detail">${this.escapeHtml(item.detail)}</span>
         </span>
-        <span class="navigation-item-meta">${item.type === 'symbol' ? `Line ${item.line}` : ''}</span>
+        <span class="navigation-item-meta">${item.type === 'symbol' || item.type === 'occurrence' ? `Line ${item.line}` : ''}</span>
       </button>
     `).join('');
     this.navigationPaletteList.querySelectorAll('[data-navigation-index]').forEach(button => {
@@ -702,7 +705,7 @@ export class OtterStudioIde {
       await this.navigateToLocation({ path: item.path, line: 1, column: 0 });
       return;
     }
-    await this.navigateToLocation({ path: this.currentFile, line: item.line, column: item.column });
+    await this.navigateToLocation({ path: item.path || this.currentFile, line: item.line, column: item.column });
   }
 
   currentEditorLocation() {
@@ -793,6 +796,30 @@ export class OtterStudioIde {
       this.definitionPeekEl.style.display = 'none';
       this.navigateToLocation({ path: location.path, line: Number(definition.Line) || 1, column: Number(definition.Column) || 0 });
     });
+  }
+
+  findOccurrences() {
+    const word = this.wordAtCursor();
+    if (!word || !this.navigationPaletteBackdrop || !this.navigationPaletteInput) return;
+    const occurrences = occurrencesForWord(this.currentCode, word);
+    this.navigationMode = 'occurrences';
+    this.navigationIndex = 0;
+    this.navigationPaletteTitle.textContent = `Occurrences of ${word}`;
+    this.navigationPaletteInput.placeholder = 'Occurrences in the active file';
+    this.navigationPaletteInput.value = '';
+    this.navigationItems = occurrences.map(hit => ({
+      type: 'occurrence',
+      label: word,
+      detail: `Line ${hit.line}: ${hit.text}`,
+      path: this.currentFile,
+      line: hit.line,
+      column: hit.column,
+      icon: '•'
+    }));
+    this.filteredNavigationItems = this.navigationItems;
+    this.renderNavigationPalette();
+    this.navigationPaletteBackdrop.style.display = 'flex';
+    setTimeout(() => this.navigationPaletteInput.focus(), 0);
   }
 
   updateNavigationButtons() {
@@ -1778,7 +1805,8 @@ export class OtterStudioIde {
         }
         if (e.key === 'F12') {
           e.preventDefault();
-          if (e.altKey) this.peekDefinition();
+          if (e.shiftKey) this.findOccurrences();
+          else if (e.altKey) this.peekDefinition();
           else this.goToDefinition();
           return;
         }

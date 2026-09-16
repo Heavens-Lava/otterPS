@@ -61,6 +61,34 @@ export function definitionForWord(symbols, filePath, name, line) {
   return beforeCursor[0] || candidates[0];
 }
 
+// A safe lexical occurrence scan for the active document. It is intentionally
+// not called semantic Find References: full scope-aware references need richer
+// parser metadata. Comments and quoted strings cannot produce false matches.
+export function occurrencesForWord(source, name) {
+  if (!name) return [];
+  const occurrences = [];
+  const isWordChar = character => /[A-Za-z0-9_]/.test(character || '');
+  for (const [index, line] of String(source || '').split(/\r?\n/).entries()) {
+    let inString = false;
+    for (let column = 0; column < line.length;) {
+      const character = line[column];
+      if (character === '"') {
+        inString = !inString;
+        column++;
+        continue;
+      }
+      if (!inString && character === '#') break;
+      if (!inString && line.startsWith(name, column) && !isWordChar(line[column - 1]) && !isWordChar(line[column + name.length])) {
+        occurrences.push({ line: index + 1, column, text: line.trim() });
+        column += name.length;
+        continue;
+      }
+      column++;
+    }
+  }
+  return occurrences;
+}
+
 export class NavigationHistory {
   constructor(limit = 100) {
     this.limit = limit;
