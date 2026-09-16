@@ -5,6 +5,8 @@ import path from 'node:path';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const studioRoot = path.resolve(scriptDir, '..');
+const componentEditorSource = await fs.readFile(path.join(studioRoot, 'js', 'components', 'editor.js'), 'utf8');
+const appSource = await fs.readFile(path.join(studioRoot, 'js', 'app.js'), 'utf8');
 const { OtterUiModel } = await import(pathToFileURL(path.join(studioRoot, 'js', 'model', 'ui-model.js')).href);
 const { parseOtterSource } = await import(pathToFileURL(path.join(studioRoot, 'js', 'compiler', 'otter-parser.js')).href);
 
@@ -36,4 +38,10 @@ assert.equal(model.components.size, 0, 'deleting source clears every stale UI co
 assert.equal(parseOtterSource('say "Console only"\n', model), false, 'a non-UI program does not fabricate a UI tree');
 assert.equal(model.getRoot(), null);
 
-console.log('Studio source synchronization tests passed: UI source creates a model and empty source clears it.');
+assert.doesNotMatch(componentEditorSource, /Apply to Canvas/, 'the split editor must not require a manual apply action');
+assert.match(componentEditorSource, /scheduleOtterSourceSync\(\)/, 'the split editor must synchronize source edits live');
+assert.match(componentEditorSource, /otter:source-changed/, 'the split editor must update the primary source buffer too');
+assert.match(componentEditorSource, /otter:source-synced/, 'the split editor must display source opened in the primary editor');
+assert.match(appSource, /otter:source-synced/, 'the Studio shell must publish successful source reconciliation');
+
+console.log('Studio source synchronization tests passed: live split editor, UI source creation, and empty-source clearing.');

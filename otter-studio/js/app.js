@@ -161,7 +161,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       // The browser-side UI reader only mutates the model after it has found
       // a complete window declaration, so incomplete edits keep the last
       // valid visual tree while the user is typing.
-      if (parseOtterSource(source, uiModel)) return;
+      if (parseOtterSource(source, uiModel)) {
+        window.dispatchEvent(new CustomEvent('otter:source-synced', {
+          detail: { source }
+        }));
+        return;
+      }
 
       // A valid non-UI Otter program intentionally has no visual tree. Use
       // the real parser to distinguish that from temporarily invalid source.
@@ -188,7 +193,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   window.addEventListener('otter:source-changed', event => {
-    syncUiFromSource(event.detail?.source ?? '');
+    const source = event.detail?.source ?? '';
+    if (event.detail?.origin === 'component-editor') {
+      ide.currentCode = source;
+      const activeTab = ide.openTabs.find(tab => tab.path === ide.currentFile);
+      if (activeTab) {
+        activeTab.content = source;
+        activeTab.isDirty = true;
+      }
+      ide.saveSessionState();
+    }
+    syncUiFromSource(source);
   });
 
   uiModel.subscribe((changeType) => {

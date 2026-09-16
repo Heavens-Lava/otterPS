@@ -27,9 +27,7 @@ export function renderEditor(containerEl, uiModel, cssAstManager) {
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           Download
         </button>
-        <button class="editor-btn editor-btn-primary" id="applyCodeBtn" title="Apply manual edits back to Visual Designer">
-          Apply to Canvas
-        </button>
+        <span class="editor-live-status" title="Valid Otter UI source updates the designer automatically">● Live sync</span>
       </div>
     </div>
     <div class="editor-wrapper">
@@ -48,11 +46,11 @@ export function renderEditor(containerEl, uiModel, cssAstManager) {
   const highlightLayer = containerEl.querySelector('#codeHighlightLayer');
   const copyBtn = containerEl.querySelector('#copyCodeBtn');
   const downloadBtn = containerEl.querySelector('#downloadBtn');
-  const applyBtn = containerEl.querySelector('#applyCodeBtn');
   const statusText = containerEl.querySelector('#editorStatusText');
   const fileTypeStatus = containerEl.querySelector('#fileTypeStatus');
 
   let isTyping = false;
+  let sourceSyncTimer = null;
 
   function refreshEditor() {
     if (isTyping) return;
@@ -132,8 +130,12 @@ export function renderEditor(containerEl, uiModel, cssAstManager) {
     } else {
       highlightCss(textarea.value);
     }
-    statusText.innerText = 'Unsaved changes (Click Apply to Canvas)';
-    statusText.style.color = '#f59e0b';
+    if (activeTab === 'otter') {
+      scheduleOtterSourceSync();
+    } else {
+      statusText.innerText = 'Unsaved CSS changes';
+      statusText.style.color = '#f59e0b';
+    }
     highlightLayer.scrollTop = textarea.scrollTop;
     highlightLayer.scrollLeft = textarea.scrollLeft;
   });
@@ -143,24 +145,26 @@ export function renderEditor(containerEl, uiModel, cssAstManager) {
     highlightLayer.scrollLeft = textarea.scrollLeft;
   });
 
-  applyBtn.addEventListener('click', () => {
-    if (activeTab === 'otter') {
+  function scheduleOtterSourceSync() {
+    if (sourceSyncTimer) clearTimeout(sourceSyncTimer);
+    statusText.innerText = 'Updating designer…';
+    statusText.style.color = '#60a5fa';
+    sourceSyncTimer = setTimeout(() => {
       const success = parseOtterSource(textarea.value, uiModel);
       if (success) {
-        isTyping = false;
-        refreshEditor();
+        statusText.innerText = 'Designer updated from source';
+        statusText.style.color = '#22c55e';
+        window.dispatchEvent(new CustomEvent('otter:source-changed', {
+          detail: { source: textarea.value, origin: 'component-editor' }
+        }));
       } else {
-        statusText.innerText = 'Error parsing Otter source';
-        statusText.style.color = '#ef4444';
+        // Do not destroy the last valid design while the author is midway
+        // through a change. The shared diagnostics path explains the error.
+        statusText.innerText = 'Waiting for valid UI source';
+        statusText.style.color = '#f59e0b';
       }
-    } else {
-      // Re-parse CSS losslessly
-      cssAstManager.parse(textarea.value);
-      isTyping = false;
-      window.dispatchEvent(new CustomEvent('css-updated', { detail: { source: 'editor' } }));
-      refreshEditor();
-    }
-  });
+    }, 180);
+  }
 
   copyBtn.addEventListener('click', () => {
     navigator.clipboard?.writeText(textarea.value).then(() => {
@@ -193,6 +197,19 @@ export function renderEditor(containerEl, uiModel, cssAstManager) {
     if (e.detail?.source !== 'editor' && !isTyping) {
       refreshEditor();
     }
+  });
+
+  // The primary editor is authoritative when a file is opened or edited.
+  // Keep this split-editor surface showing that exact source rather than an
+  // older model-generated representation.
+  window.addEventListener('otter:source-synced', event => {
+    const source = event.detail?.source;
+    if (activeTab !== 'otter' || typeof source !== 'string' || textarea.value === source) return;
+    isTyping = true;
+    textarea.value = source;
+    highlightOtter(source);
+    statusText.innerText = 'Live source synchronized';
+    statusText.style.color = '#22c55e';
   });
 }
 

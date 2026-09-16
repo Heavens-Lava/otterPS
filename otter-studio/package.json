@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "node serve.mjs",
     "start": "node serve.mjs",
-    "check": "node --check serve.mjs && node --check js/ide.js && node --check js/app.js && node --check js/compiler/otter-parser.js && node --check js/model/ui-model.js && node --check js/navigation/symbol-index.js && node --check scripts/external-change.test.mjs && node --check scripts/navigation.test.mjs && node --check scripts/source-sync.test.mjs && node --check scripts/workspace-shell.test.mjs && node --check scripts/smoke.mjs && npm test",
+    "check": "node --check serve.mjs && node --check js/ide.js && node --check js/app.js && node --check js/components/editor.js && node --check js/compiler/otter-parser.js && node --check js/model/ui-model.js && node --check js/navigation/symbol-index.js && node --check scripts/external-change.test.mjs && node --check scripts/navigation.test.mjs && node --check scripts/source-sync.test.mjs && node --check scripts/workspace-shell.test.mjs && node --check scripts/smoke.mjs && npm test",
     "test": "node scripts/external-change.test.mjs && node scripts/navigation.test.mjs && node scripts/source-sync.test.mjs && node scripts/workspace-shell.test.mjs && node scripts/smoke.mjs"
   }
 }
