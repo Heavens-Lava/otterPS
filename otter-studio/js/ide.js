@@ -27,6 +27,7 @@ export class OtterStudioIde {
     this.externalCheckIntervalMs = 2000;
     this.workspaceFiles = [];
     this.workspaceSymbols = [];
+    this.templatesCollapsed = false;
     this.navigationMode = null;
     this.navigationItems = [];
     this.filteredNavigationItems = [];
@@ -219,6 +220,15 @@ export class OtterStudioIde {
         window.dispatchEvent(new CustomEvent('otter:open-new-project'));
       });
     }
+    this.templatesCard = document.getElementById('templatesCard');
+    this.btnToggleTemplates = document.getElementById('btnToggleTemplates');
+    this.btnTemplatesNewProject = document.getElementById('btnTemplatesNewProject');
+    this.btnToggleTemplates?.addEventListener('click', () => {
+      this.setTemplatesCollapsed(!this.templatesCollapsed);
+    });
+    this.btnTemplatesNewProject?.addEventListener('click', () => {
+      window.dispatchEvent(new CustomEvent('otter:open-new-project'));
+    });
 
     // Editor Elements
     this.codeViewport = document.getElementById('codeViewport');
@@ -398,9 +408,23 @@ export class OtterStudioIde {
   }
 
   // --- Project Tree & Workspace Management ---
+  setTemplatesCollapsed(collapsed) {
+    this.templatesCollapsed = Boolean(collapsed);
+    if (!this.templatesCard) return;
+
+    this.templatesCard.classList.toggle('is-collapsed', this.templatesCollapsed);
+    if (this.btnToggleTemplates) {
+      this.btnToggleTemplates.textContent = this.templatesCollapsed ? '⌄' : '⌃';
+      this.btnToggleTemplates.title = this.templatesCollapsed ? 'Expand templates' : 'Collapse templates';
+      this.btnToggleTemplates.setAttribute('aria-label', this.btnToggleTemplates.title);
+      this.btnToggleTemplates.setAttribute('aria-expanded', String(!this.templatesCollapsed));
+    }
+  }
+
   renderCleanProjectTree() {
     this.currentProjectFolder = null;
     this.currentProjectName = null;
+    this.setTemplatesCollapsed(false);
     if (!this.projectTreeEl) return;
     this.projectTreeEl.innerHTML = `
       <div class="no-project-box">
@@ -444,6 +468,7 @@ export class OtterStudioIde {
       if (data && data.tree && data.tree.length > 0) {
         this.currentProjectFolder = data.rootPath || folder;
         this.currentProjectName = data.name || folder;
+        this.setTemplatesCollapsed(true);
         this.workspaceFiles = flattenProjectFiles(data.tree, this.currentProjectFolder);
         this.renderProjectTree(data.tree, this.currentProjectName, this.currentProjectFolder);
         this.refreshWorkspaceSymbols();

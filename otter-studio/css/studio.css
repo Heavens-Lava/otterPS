@@ -175,6 +175,29 @@ body {
   width: 260px;
 }
 
+.theme-toggle-btn {
+  min-width: 72px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: var(--bg-card);
+  color: var(--text-main);
+  font: 600 11px var(--font-ui);
+  cursor: pointer;
+}
+
+.theme-toggle-btn:hover {
+  background: var(--bg-hover);
+}
+
+.theme-toggle-icon {
+  font-size: 14px;
+}
+
 .window-controls {
   display: flex;
   align-items: center;
@@ -494,6 +517,37 @@ body {
 
 .templates-card {
   flex: 1;
+  min-height: 38px;
+  transition: flex 160ms ease, max-height 160ms ease;
+}
+
+.templates-card.is-collapsed {
+  flex: 0 0 38px !important;
+  max-height: 38px;
+}
+
+.templates-card.is-collapsed .templates-list {
+  display: none;
+}
+
+.templates-new-project-btn {
+  border: 0;
+  border-radius: 4px;
+  padding: 3px 6px;
+  background: transparent;
+  color: var(--accent-blue);
+  font: 600 10px var(--font-ui);
+  cursor: pointer;
+}
+
+.templates-new-project-btn:hover {
+  background: var(--bg-hover);
+}
+
+.templates-toggle-btn {
+  width: 20px;
+  height: 20px;
+  font-size: 13px;
 }
 
 .templates-list {

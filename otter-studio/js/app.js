@@ -14,6 +14,32 @@ import { renderPreview } from './components/preview.js';
 import { OtterStudioIde } from './ide.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
+  const themeToggle = document.getElementById('btnThemeToggle');
+  const storedTheme = localStorage.getItem('otter-studio-theme');
+  const initialTheme = storedTheme === 'light' || storedTheme === 'dark' ? storedTheme : 'dark';
+
+  function applyTheme(theme) {
+    const dark = theme === 'dark';
+    document.body.classList.toggle('theme-dark', dark);
+    document.body.classList.toggle('theme-light', !dark);
+    if (themeToggle) {
+      const nextTheme = dark ? 'light' : 'dark';
+      const label = dark ? 'Light' : 'Dark';
+      themeToggle.querySelector('.theme-toggle-icon').textContent = dark ? '☀' : '☾';
+      themeToggle.querySelector('.theme-toggle-label').textContent = label;
+      themeToggle.title = `Switch to ${nextTheme} theme`;
+      themeToggle.setAttribute('aria-label', themeToggle.title);
+      themeToggle.setAttribute('aria-pressed', String(dark));
+    }
+  }
+
+  applyTheme(initialTheme);
+  themeToggle?.addEventListener('click', () => {
+    const nextTheme = document.body.classList.contains('theme-dark') ? 'light' : 'dark';
+    localStorage.setItem('otter-studio-theme', nextTheme);
+    applyTheme(nextTheme);
+  });
+
   // Initialize Core In-Memory Model & CSS AST Engine
   const defaultTpl = StarterTemplates['blank'];
   const uiModel = new OtterUiModel();

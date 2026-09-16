@@ -1,0 +1,376 @@
+/* Professional workbench shell and opt-in dark theme.
+   Application previews intentionally keep their own target styling. */
+
+/* Shared dense workbench geometry for both themes. */
+.studio-workspace {
+  padding: 0;
+  gap: 0;
+}
+
+.sidebar-left {
+  width: 300px;
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  gap: 0;
+  border-right: 1px solid var(--border-card);
+}
+
+.sidebar-tab-switcher {
+  grid-column: 1;
+  grid-row: 1;
+  flex-direction: column;
+  justify-content: flex-start;
+  border: 0;
+  border-right: 1px solid var(--border-card);
+  border-radius: 0;
+  padding: 8px 4px;
+  box-shadow: none;
+}
+
+.sidebar-switch-btn {
+  flex: 0 0 52px;
+  width: 46px;
+  min-height: 52px;
+  flex-direction: column;
+  gap: 4px;
+  border-radius: 5px;
+  font-size: 9px;
+}
+
+.sidebar-switch-btn .tab-btn-icon {
+  font-size: 17px;
+}
+
+.sidebar-pane {
+  grid-column: 2;
+  grid-row: 1;
+  padding: 8px;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.center-work-area,
+.studio-bottom-drawer,
+.panel-card {
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.sidebar-right {
+  width: 300px;
+  gap: 0;
+  border-left: 1px solid var(--border-card);
+}
+
+.sidebar-right .panel-card {
+  border-width: 0 0 1px;
+}
+
+.studio-bottom-drawer {
+  margin: 0;
+  height: 132px;
+  border-width: 1px 0 0;
+}
+
+.studio-statusbar {
+  height: 30px;
+  margin-top: 0;
+}
+
+/* Dark workbench palette. */
+body.theme-dark {
+  --bg-app: #07111d;
+  --bg-card: #0d1927;
+  --bg-hover: #17283a;
+  --bg-active: #20364c;
+  --bg-selected: #123c64;
+  --border-subtle: #22364a;
+  --border-card: #263b50;
+  --text-main: #d9e5f2;
+  --text-muted: #91a6bb;
+  --text-faint: #657b91;
+  --accent-blue: #2c91ff;
+  --accent-green: #2cc56f;
+  --accent-green-hover: #24a960;
+  background: var(--bg-app);
+  color: var(--text-main);
+  color-scheme: dark;
+}
+
+.theme-dark .studio-header {
+  height: 56px;
+  background: #08131f;
+  border-color: var(--border-card);
+}
+
+.theme-dark .brand-title,
+.theme-dark .panel-card-title,
+.theme-dark .problem-title,
+.theme-dark .otter-ver-tag {
+  color: #eef6ff;
+}
+
+.theme-dark .brand-subtitle {
+  color: #7f96ab;
+}
+
+.theme-dark .menu-item,
+.theme-dark .win-btn {
+  color: #c7d5e4;
+}
+
+.theme-dark .menu-item:hover,
+.theme-dark .win-btn:hover {
+  background: #18283a;
+  color: #fff;
+}
+
+.theme-dark .header-search-input {
+  width: min(520px, 32vw);
+  background: #0d1b2b;
+  border-color: #294057;
+  color: #dce9f6;
+}
+
+.theme-dark .header-search-input:focus {
+  width: min(560px, 36vw);
+  background: #101f31;
+  border-color: var(--accent-blue);
+}
+
+.theme-dark .header-search-input::placeholder {
+  color: #71879d;
+}
+
+.theme-dark .theme-toggle-btn {
+  background: #101f31;
+  border-color: #294057;
+  color: #cbd9e7;
+}
+
+.theme-dark .studio-workspace,
+.theme-dark .sidebar-tab-switcher,
+.theme-dark .sidebar-left,
+.theme-dark .sidebar-right,
+.theme-dark .center-work-area,
+.theme-dark .panel-card,
+.theme-dark .studio-bottom-drawer,
+.theme-dark .studio-statusbar {
+  background: var(--bg-app);
+  border-color: var(--border-card);
+}
+
+.theme-dark .sidebar-tab-switcher {
+  background: #091522;
+}
+
+.theme-dark .sidebar-switch-btn {
+  color: #8298ad;
+}
+
+.theme-dark .sidebar-switch-btn:hover {
+  color: #e8f2fc;
+  background: #14273a;
+}
+
+.theme-dark .sidebar-switch-btn.is-active {
+  background: linear-gradient(180deg, #144f82, #113e67);
+  color: #fff;
+  box-shadow: inset 3px 0 #32a0ff;
+}
+
+.theme-dark .sidebar-pane {
+  background: #0b1724;
+}
+
+.theme-dark .panel-card {
+  background: #0d1927;
+}
+
+.theme-dark .panel-card-header,
+.theme-dark .drawer-header,
+.theme-dark .editor-tabs-bar {
+  background: #0b1724;
+  border-color: var(--border-card);
+}
+
+.theme-dark .project-folder-root,
+.theme-dark .project-folder-item,
+.theme-dark .project-file-item,
+.theme-dark .template-item,
+.theme-dark .outline-symbol,
+.theme-dark .program-output-body,
+.theme-dark .workspace-search-summary,
+.theme-dark .workspace-search-results {
+  color: var(--text-main);
+}
+
+.theme-dark .project-file-item:hover,
+.theme-dark .project-folder-item:hover,
+.theme-dark .template-item:hover,
+.theme-dark .outline-symbol:hover {
+  background: var(--bg-hover);
+}
+
+.theme-dark .project-file-item.is-active,
+.theme-dark .template-item.is-active {
+  background: #173a5c;
+  color: #72b7ff;
+}
+
+.theme-dark .new-file-btn,
+.theme-dark .btn-clean-action-sec,
+.theme-dark .workspace-search-input,
+.theme-dark .workspace-search-submit,
+.theme-dark .pill-action-btn,
+.theme-dark .tab-quick-btn {
+  background: #122235;
+  border-color: #294057;
+  color: #c9d8e7;
+}
+
+.theme-dark .templates-new-project-btn {
+  color: #6bb6ff;
+}
+
+.theme-dark .badge-pill {
+  background: #17283a;
+  color: #8fa4b9;
+}
+
+.theme-dark .badge-ui {
+  background: #133f68;
+  color: #79bdff;
+}
+
+.theme-dark .editor-tab {
+  background: #101d2b;
+  border-color: #263a4f;
+  color: #8fa5ba;
+}
+
+.theme-dark .editor-tab:hover {
+  background: #152639;
+  color: #e7f1fb;
+}
+
+.theme-dark .editor-tab.is-active {
+  background: #0d1927;
+  color: #f0f7ff;
+  border-top-color: #2f9cff;
+}
+
+.theme-dark .mode-switch-pills {
+  background: #07111d;
+  border: 1px solid #20364a;
+}
+
+.theme-dark .mode-pill {
+  color: #8fa4b9;
+}
+
+.theme-dark .mode-pill.is-active {
+  background: linear-gradient(180deg, #1769ad, #12538a);
+  color: #fff;
+  box-shadow: inset 0 0 0 1px #2d91df;
+}
+
+.theme-dark .code-viewport,
+.theme-dark .line-numbers-gutter,
+.theme-dark .code-text-area {
+  background: #091522;
+}
+
+.theme-dark .line-numbers-gutter {
+  color: #536a80;
+  border-color: #1a2b3d;
+}
+
+.theme-dark .code-text-area {
+  color: #dbe8f5;
+  caret-color: #7ec2ff;
+}
+
+.theme-dark .active-line {
+  background: rgba(36, 74, 106, 0.38);
+}
+
+.theme-dark .code-cursor {
+  background: #79bdff;
+  box-shadow: 0 0 5px rgba(121, 189, 255, 0.55);
+}
+
+.theme-dark .tok-comment { color: #7890a8; font-style: italic; }
+.theme-dark .tok-kw { color: #50b4ff; }
+.theme-dark .tok-var { color: #e2edf8; }
+.theme-dark .tok-str { color: #f5a35c; }
+.theme-dark .tok-num { color: #74d6c0; }
+
+.theme-dark .studio-bottom-drawer,
+.theme-dark .drawer-content {
+  background: #091522;
+}
+
+.theme-dark .drawer-tab.is-active {
+  background: #152639;
+  color: #f1f7fd;
+}
+
+.theme-dark .terminal-history,
+.theme-dark .terminal-input,
+.theme-dark .output-tab-log {
+  color: #d4e1ee !important;
+}
+
+.theme-dark .terminal-input-row {
+  border-color: #263a4f !important;
+}
+
+.theme-dark .terminal-prompt {
+  color: #5fd58e !important;
+}
+
+.theme-dark .studio-statusbar {
+  background: #0a1623;
+  color: #8399ae;
+}
+
+.theme-dark .dropdown-menu,
+.theme-dark .navigation-palette,
+.theme-dark .new-project-dialog {
+  background: #101e2d;
+  border-color: #2a4056;
+  color: var(--text-main);
+}
+
+.theme-dark .navigation-palette-heading,
+.theme-dark .navigation-item-detail,
+.theme-dark .navigation-item-meta,
+.theme-dark .navigation-palette-help {
+  color: #8da2b7;
+}
+
+.theme-dark .navigation-palette-input,
+.theme-dark .config-input,
+.theme-dark .config-select {
+  background: #091522;
+  border-color: #30485f;
+  color: #e4eef8;
+}
+
+.theme-dark .navigation-palette-item {
+  color: #e4eef8;
+}
+
+.theme-dark .navigation-palette-item:hover,
+.theme-dark .navigation-palette-item.is-selected {
+  background: #173a5c;
+}
+
+@media (max-width: 1100px) {
+  .sidebar-left { width: 250px; }
+  .sidebar-right { width: 240px; }
+  .theme-toggle-label { display: none; }
+  .theme-toggle-btn { min-width: 32px; width: 32px; }
+}

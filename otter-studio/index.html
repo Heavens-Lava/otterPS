@@ -15,8 +15,9 @@
   <link rel="stylesheet" href="css/studio.css">
   <link rel="stylesheet" href="css/canvas.css">
   <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/studio-dark.css">
 </head>
-<body class="theme-light">
+<body class="theme-dark">
   <div class="studio-shell">
     <!-- Top Global Header -->
     <header class="studio-header">
@@ -71,8 +72,13 @@
           <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
           </svg>
-          <input type="text" class="header-search-input" placeholder="Search documentation..." />
+          <input type="text" class="header-search-input" placeholder="Search files, symbols, or commands..." />
         </div>
+
+        <button class="theme-toggle-btn" id="btnThemeToggle" type="button" title="Switch to light theme" aria-label="Switch to light theme">
+          <span class="theme-toggle-icon" aria-hidden="true">☀</span>
+          <span class="theme-toggle-label">Light</span>
+        </button>
 
         <!-- Window Controls -->
         <div class="window-controls">
@@ -136,11 +142,15 @@
             </div>
           </div>
 
-          <div class="panel-card templates-card" style="flex: 0.9;">
-            <div class="panel-card-header">
+          <div class="panel-card templates-card" id="templatesCard" style="flex: 0.9;">
+            <div class="panel-card-header templates-card-header">
               <span class="panel-card-title">Templates</span>
+              <div class="header-action-btns">
+                <button class="templates-new-project-btn" id="btnTemplatesNewProject" type="button">+ New Project</button>
+                <button class="icon-btn-minimal templates-toggle-btn" id="btnToggleTemplates" type="button" title="Collapse templates" aria-label="Collapse templates" aria-expanded="true">⌃</button>
+              </div>
             </div>
-            <div class="templates-list">
+            <div class="templates-list" id="templatesList">
               <div class="template-item" data-template="simple">
                 <span class="template-icon">📄</span>
                 <span class="template-name">Simple Program</span>
