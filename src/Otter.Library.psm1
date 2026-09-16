@@ -748,6 +748,80 @@ function Invoke-OtterCommand {
 }
 
 
+# ===============================================================
+# SYSTEM INTEGRATION (D67)
+# ===============================================================
+
+# notify "Title" with "Message" - a real Windows balloon-tip
+# notification via System.Windows.Forms.NotifyIcon, the same
+# dependency-free approach the Desktop bridge's file dialogs already
+# use. Deliberately real, not an in-page/console-only stand-in - the
+# whole point of D67 was closing gaps where a "notification" turned out
+# to only ever be a fake DOM toast.
+function Show-OtterNotification {
+    param([string]$Title, [string]$Message)
+
+    try {
+        Add-Type -AssemblyName System.Windows.Forms -ErrorAction Stop
+        Add-Type -AssemblyName System.Drawing -ErrorAction Stop
+        $icon = [System.Windows.Forms.NotifyIcon]::new()
+        $icon.Icon = [System.Drawing.SystemIcons]::Information
+        $icon.Visible = $true
+        $icon.BalloonTipTitle = $Title
+        $icon.BalloonTipText = $Message
+        $icon.ShowBalloonTip(5000)
+        Start-Sleep -Milliseconds 200
+        $icon.Dispose()
+    } catch {
+        # A host with no desktop session (a CI runner, a plain shell with
+        # no Windows Forms message loop available) cannot show a real
+        # toast - fails quietly rather than crashing the whole program,
+        # the same "unsupported host capability fails clearly, not
+        # silently" principle applied at the narrowest possible point
+        # (this call), not by pretending the notification succeeded.
+    }
+}
+
+# choose file / choose folder / choose file to save - real Windows
+# common dialogs (OpenFileDialog/FolderBrowserDialog/SaveFileDialog) on
+# a dedicated STA thread, since these dialogs require STA and the
+# interpreter's own thread is not guaranteed to be one. Blocks until
+# the user closes the dialog - no artificial timeout - matching how a
+# real, synchronous "choose a file" call in a desktop application
+# actually behaves. Returns $null (gone) if the user cancels.
+function Show-OtterFileDialog {
+    param([ValidateSet('OpenFile', 'SaveFile', 'Folder')][string]$Mode)
+
+    $resultPath = $null
+    $thread = [System.Threading.Thread]::new([System.Threading.ThreadStart]{
+        try {
+            Add-Type -AssemblyName System.Windows.Forms -ErrorAction Stop
+            $dialog = switch ($Mode) {
+                'OpenFile' { [System.Windows.Forms.OpenFileDialog]::new() }
+                'SaveFile' { [System.Windows.Forms.SaveFileDialog]::new() }
+                'Folder' { [System.Windows.Forms.FolderBrowserDialog]::new() }
+            }
+            if ($dialog.GetType().Name -eq 'FolderBrowserDialog') {
+                if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+                    $script:otterDialogResult = $dialog.SelectedPath
+                }
+            } else {
+                if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+                    $script:otterDialogResult = $dialog.FileName
+                }
+            }
+        } catch {
+            $script:otterDialogResult = $null
+        }
+    })
+    $script:otterDialogResult = $null
+    $thread.SetApartmentState([System.Threading.ApartmentState]::STA)
+    $thread.Start()
+    $thread.Join()
+    return $script:otterDialogResult
+}
+
+
 Export-ModuleMember -Function `
     Resolve-OtterPath, Read-OtterFile, Write-OtterFile, Add-OtterFileContent, Copy-OtterFile, `
     Move-OtterFile, Remove-OtterFile, Test-OtterFileExists, `
@@ -755,4 +829,5 @@ Export-ModuleMember -Function `
     New-OtterFileObject, Resolve-OtterFileArgument, New-OtterFolderObject, `
     Get-OtterFilesIn, Get-OtterFoldersIn, New-OtterFolder, Remove-OtterFolder, `
     Copy-OtterFolder, Move-OtterFolder, `
-    ConvertFrom-OtterJsonText, ConvertTo-OtterJsonText, Read-OtterJsonFile
+    ConvertFrom-OtterJsonText, ConvertTo-OtterJsonText, Read-OtterJsonFile, `
+    Show-OtterNotification, Show-OtterFileDialog

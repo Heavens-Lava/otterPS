@@ -355,6 +355,23 @@ enum NodeKind {
     SharedState
     UiAction
     UseModule
+
+    # system integration (D67) - reachable Otter syntax for capabilities
+    # that previously existed only as unreachable JS/host-runtime
+    # plumbing (Otter.Web.psm1/Otter.Desktop.psm1's otterClipboard/
+    # otterNotify/otterGetEnv/otterGetSystemPaths/otterChooseFile/
+    # otterChooseFolder/otterSaveFileDialog) with no Otter-language
+    # front door at all - confirmed by direct inspection: zero
+    # references anywhere in this contract, the lexer, or the parser
+    # before D67.
+    CopyToClipboard   # copy "text" to clipboard
+    GetClipboard      # get clipboard into text
+    Notify            # notify "Title" with "Message"
+    GetEnvironmentVariable  # get environment variable "PATH" into value
+    GetSystemFolder   # get system folder "temp" into path
+    ChooseFile        # choose file into path
+    ChooseFolder      # choose folder into path
+    ChooseSaveFile    # choose file to save into path
 }
 
 enum MathOp { Add; Subtract; Multiply; Divide }
@@ -1066,6 +1083,104 @@ class MoveFolderStmt : Node {
     MoveFolderStmt([Node]$source, [Node]$destination, [int]$line) : base([NodeKind]::MoveFolder, $line) {
         $this.Source = $source
         $this.Destination = $destination
+    }
+}
+
+
+# ===============================================================
+# SYSTEM INTEGRATION (D67)
+# ===============================================================
+#
+#     copy "text" to clipboard
+#     get clipboard into text
+#     notify "Title" with "Message"
+#     get environment variable "PATH" into value
+#     get system folder "temp" into path         - "temp"/"appdata"/"user"/"current"
+#     choose file into path
+#     choose folder into path
+#     choose file to save into path
+#
+# All eight give a real Otter front door to capabilities that already
+# existed as working JS/host-runtime plumbing (Otter.Web.psm1's plain-
+# browser fallbacks, Otter.Desktop.psm1's authenticated bridge) but had
+# NO Otter syntax reaching them at all before D67 - confirmed directly:
+# `copyToClipboard "hello"` happened to PARSE (it matched the generic
+# function-call grammar) but threw "Otter could not find anything
+# called ..." at runtime, since no such function was ever declared.
+# That was never a real language capability, just an accident of the
+# call-by-name mechanism reaching into whichever JS globals happened to
+# exist on a given target - these dedicated statements are the fix.
+
+# copy "text" to clipboard
+class CopyToClipboardStmt : Node {
+    [Node]$Text
+    CopyToClipboardStmt([Node]$text, [int]$line) : base([NodeKind]::CopyToClipboard, $line) {
+        $this.Text = $text
+    }
+}
+
+# get clipboard into text
+class GetClipboardStmt : Node {
+    [string]$Target
+    GetClipboardStmt([string]$target, [int]$line) : base([NodeKind]::GetClipboard, $line) {
+        $this.Target = $target
+    }
+}
+
+# notify "Title" with "Message"
+class NotifyStmt : Node {
+    [Node]$Title
+    [Node]$Message
+    NotifyStmt([Node]$title, [Node]$message, [int]$line) : base([NodeKind]::Notify, $line) {
+        $this.Title = $title
+        $this.Message = $message
+    }
+}
+
+# get environment variable "PATH" into value      - gone if not set
+class GetEnvironmentVariableStmt : Node {
+    [Node]$Name
+    [string]$Target
+    GetEnvironmentVariableStmt([Node]$name, [string]$target, [int]$line) : base([NodeKind]::GetEnvironmentVariable, $line) {
+        $this.Name = $name
+        $this.Target = $target
+    }
+}
+
+# get system folder "temp" into path
+# FolderName is one of: "temp", "appdata", "user", "current" - a plain
+# string VALUE, not a keyword, so adding another named folder later
+# needs no grammar change, only a new case in the interpreter/compiler.
+class GetSystemFolderStmt : Node {
+    [Node]$FolderName
+    [string]$Target
+    GetSystemFolderStmt([Node]$folderName, [string]$target, [int]$line) : base([NodeKind]::GetSystemFolder, $line) {
+        $this.FolderName = $folderName
+        $this.Target = $target
+    }
+}
+
+# choose file into path                            - gone if cancelled
+class ChooseFileStmt : Node {
+    [string]$Target
+    ChooseFileStmt([string]$target, [int]$line) : base([NodeKind]::ChooseFile, $line) {
+        $this.Target = $target
+    }
+}
+
+# choose folder into path                          - gone if cancelled
+class ChooseFolderStmt : Node {
+    [string]$Target
+    ChooseFolderStmt([string]$target, [int]$line) : base([NodeKind]::ChooseFolder, $line) {
+        $this.Target = $target
+    }
+}
+
+# choose file to save into path                    - gone if cancelled
+class ChooseSaveFileStmt : Node {
+    [string]$Target
+    ChooseSaveFileStmt([string]$target, [int]$line) : base([NodeKind]::ChooseSaveFile, $line) {
+        $this.Target = $target
     }
 }
 

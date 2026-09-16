@@ -607,6 +607,79 @@ function Invoke-OtterStatement {
             return
         }
 
+        # --- system integration (D67) ---------------------------
+
+        # copy "text" to clipboard
+        'CopyToClipboard' {
+            $text = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.Text -Environment $Environment)
+            Set-Clipboard -Value $text
+            return
+        }
+
+        # get clipboard into text          - gone if the clipboard holds no text
+        'GetClipboard' {
+            $value = $null
+            try { $value = Get-Clipboard -Raw -ErrorAction Stop } catch { $value = $null }
+            $Environment.Set($Statement.Target, $value)
+            return
+        }
+
+        # notify "Title" with "Message"    - a real OS toast, not a fake one
+        'Notify' {
+            $title = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.Title -Environment $Environment)
+            $message = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.Message -Environment $Environment)
+            Show-OtterNotification -Title $title -Message $message
+            return
+        }
+
+        # get environment variable "PATH" into value      - gone if not set
+        'GetEnvironmentVariable' {
+            $name = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.Name -Environment $Environment)
+            $value = [System.Environment]::GetEnvironmentVariable($name)
+            $Environment.Set($Statement.Target, $value)
+            return
+        }
+
+        # get system folder "temp" into path
+        'GetSystemFolder' {
+            $folderName = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.FolderName -Environment $Environment)
+            $path = switch ($folderName.ToLowerInvariant()) {
+                'temp' { [System.IO.Path]::GetTempPath() }
+                'appdata' { [System.Environment]::GetFolderPath('ApplicationData') }
+                'user' { [System.Environment]::GetFolderPath('UserProfile') }
+                'current' { (Get-Location).Path }
+                default {
+                    throw (New-OtterRuntimeError `
+                        -Message "I do not know a system folder called ""$folderName""." `
+                        -Line $Statement.Line `
+                        -Suggestion 'get system folder "temp" into path (also: "appdata", "user", "current")')
+                }
+            }
+            $Environment.Set($Statement.Target, $path)
+            return
+        }
+
+        # choose file into path            - gone if the user cancels
+        'ChooseFile' {
+            $path = Show-OtterFileDialog -Mode 'OpenFile'
+            $Environment.Set($Statement.Target, $path)
+            return
+        }
+
+        # choose folder into path          - gone if the user cancels
+        'ChooseFolder' {
+            $path = Show-OtterFileDialog -Mode 'Folder'
+            $Environment.Set($Statement.Target, $path)
+            return
+        }
+
+        # choose file to save into path    - gone if the user cancels
+        'ChooseSaveFile' {
+            $path = Show-OtterFileDialog -Mode 'SaveFile'
+            $Environment.Set($Statement.Target, $path)
+            return
+        }
+
         # --- try / otherwise (D23) ------------------------------
         #
         #     try

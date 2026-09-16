@@ -5108,3 +5108,124 @@ has now recurred across subsystems)
 
 ---
 
+## D67. System integration gets a real Otter front door (Clipboard, Notify, Environment/System folders, File dialogs)
+
+### Context
+
+Verifying a batch of reported work (clipboard, notifications, system
+paths/env vars, native file/folder dialogs) turned up the exact rule-2
+failure CLAUDE.md was just amended for: real, working JS/PowerShell
+plumbing (`Otter.Web.psm1`'s `window.otterClipboard`/`otterNotify`/
+`otterGetEnv`/`otterGetSystemPaths`/`otterChooseFile`/`otterChooseFolder`/
+`otterSaveFileDialog`, `Otter.Desktop.psm1`'s matching bridge endpoints)
+with **zero Otter language syntax reaching any of it** - confirmed by
+grepping `Otter.Contract.psm1`, the lexer, and the parser for every
+relevant word: no matches anywhere. Proven concretely, not just
+inferred: `copyToClipboard "hello"` *parses* as valid (`otter check`
+reports it fine, since it happens to match the generic function-call
+grammar), but running it through the real interpreter throws `Otter
+could not find anything called "copyToClipboard"` - it was never a
+real language capability, only an accident of the call-by-name
+mechanism reaching into whatever JS global happened to share its name.
+
+A second, independent finding in the same pass: "System Notifications"
+was not a real OS notification at all - `window.otterNotify` only ever
+created an in-page DOM toast `<div>`, and the Desktop bridge's `/api/
+system/notify` endpoint received the request and echoed back
+`{completed:true}` without calling any actual Windows notification
+API.
+
+### Decision
+
+Give all four capabilities real, first-class Otter statements:
+
+```otter
+copy "text" to clipboard
+get clipboard into text
+
+notify "Title" with "Message"
+
+get environment variable "PATH" into value
+get system folder "temp" into path        - also "appdata", "user", "current"
+
+choose file into path
+choose folder into path
+choose file to save into path
+```
+
+`FolderName` (`"temp"`/`"appdata"`/`"user"`/`"current"`) is a plain
+string VALUE, not a keyword - adding another named system folder later
+needs no grammar change, only one new case in the interpreter and
+compiler.
+
+### What's built, what's still Codex's
+
+**Contract, interpreter, and JS compiler: landed.** Eight new
+`NodeKind`s and node classes (`CopyToClipboard`, `GetClipboard`,
+`Notify`, `GetEnvironmentVariable`, `GetSystemFolder`, `ChooseFile`,
+`ChooseFolder`, `ChooseSaveFile`), following this project's established
+"don't block on Codex" workflow - built and verified entirely against
+hand-constructed AST nodes, since no parser grammar exists yet.
+
+- **Interpreter** (`Show-OtterNotification`/`Show-OtterFileDialog` in
+  `Otter.Library.psm1`, the eight `NodeKind` cases in
+  `Otter.Interpreter.psm1`): uses real, native APIs throughout -
+  `Set-Clipboard`/`Get-Clipboard`, `[System.Environment]::
+  GetEnvironmentVariable`/`GetFolderPath`, and (unlike the JS side's
+  DOM-toast approximation) a REAL Windows balloon-tip notification via
+  `System.Windows.Forms.NotifyIcon`, plus real
+  `OpenFileDialog`/`SaveFileDialog`/`FolderBrowserDialog` on a
+  dedicated STA thread (blocking with a plain `.Join()` until the user
+  closes the dialog - deliberately NOT copying a timeout-based
+  `.Join(500)` pattern found elsewhere during this same review, which
+  looks like a real bug: a real user picking a file will often take
+  longer than 500ms, so that pattern likely reports false cancellations
+  while its dialog is still open on screen - flagged for `Otter.
+  Desktop.psm1`, not fixed here, since that file is not this module's
+  to edit). Verified directly against hand-built AST nodes: a real
+  clipboard write-then-read round-trip, a real environment variable
+  lookup (both the found and not-found/`gone` cases), a real system
+  temp-folder path, the "I do not know a system folder called ..."
+  error for an invalid name, and that `notify` completes without
+  crashing (a real balloon-tip cannot be visually confirmed from an
+  automated, non-interactive session, so this one specific case is
+  verified as "does not crash and calls the real API," not "visually
+  confirmed on screen").
+- **JS compiler** (`Otter.Compiler.JavaScript.psm1`): all eight cases
+  reuse the ALREADY-EXISTING, already-working host hooks - no new
+  runtime plumbing needed, only the missing `NodeKind` cases making
+  that plumbing reachable. `GetClipboard`/`ChooseFile`/`ChooseFolder`/
+  `ChooseSaveFile` map an empty-string hook result to `gone`, matching
+  the interpreter's own null-on-cancel/nothing-there behavior (a
+  documented, narrow approximation for `GetClipboard` specifically: a
+  clipboard genuinely holding empty text is indistinguishable from an
+  empty clipboard through this hook, so it reads as `gone` in JS but as
+  empty text in the interpreter - not reachable any other way given the
+  underlying browser/bridge APIs). Verified end-to-end: the generated
+  JS calls inspected directly for correctness, then a real desktop
+  bridge session launched via the actual `otter.ps1 desktop` entry
+  point, hitting `/api/system/clipboard` (write then read - round-trip
+  confirmed) and `/api/system/env` (a real `PATH` lookup, a real
+  `tempFolder` path) directly over HTTP with the session's real
+  authentication token - the same verification technique already
+  established for D62's bridge work.
+- **`notify` remains a documented, deliberate cross-runtime
+  difference, not a bug**: the interpreter shows a real OS toast; the
+  JS/web path still only shows an in-page DOM toast, because
+  `Otter.Desktop.psm1`'s `/api/system/notify` handler is still the
+  no-op found during verification - fixing that is `Otter.Desktop.
+  psm1` work, out of this module's scope, and is exactly the kind of
+  boundary D60 says must be reported, not silently papered over.
+
+**Grammar not yet built - Codex's lane.** Needs eight new lexer tokens
+(`Notify`, `Choose`, and reuse of already-existing `Copy`/`Get`/`Into`/
+`With`/`To`/`Folder`/`File` elsewhere) and eight parser cases
+constructing the node shapes above exactly - the frozen contract
+classes are exactly what the parser needs to build. `"clipboard"`,
+`"temp"`/`"appdata"`/`"user"`/`"current"` stay ORDINARY identifiers/
+string values, matched by text, the same way `"files"`/`"folders"`/
+`"number"`/`"item"` already are elsewhere in this grammar - not new
+reserved words.
+
+---
+

@@ -84,6 +84,36 @@ function Get-OtterJsDateDifferenceExpression {
     return "(() => { const _from = $StartJs; const _to = $EndJs; const _unit = $UnitJs; if (_unit === 'Year' || _unit === 'Month') { let _months = (_to.getFullYear() - _from.getFullYear()) * 12 + (_to.getMonth() - _from.getMonth()); if (_months > 0 && _to.getDate() < _from.getDate()) { _months--; } if (_months < 0 && _to.getDate() > _from.getDate()) { _months++; } if (_unit === 'Month') { return _months; } return Math.trunc(_months / 12); } const _spanMs = _to.getTime() - _from.getTime(); if (_unit === 'Day') { return Math.trunc(_spanMs / 86400000); } if (_unit === 'Hour') { return Math.trunc(_spanMs / 3600000); } if (_unit === 'Minute') { return Math.trunc(_spanMs / 60000); } return Math.trunc(_spanMs / 1000); })()"
 }
 
+# D67. Shared by ChooseFile/ChooseFolder/ChooseSaveFile - all three
+# dialog hooks already return the identical shape (an empty string for
+# "cancelled or no bridge", a real path otherwise), so the write logic
+# is genuinely byte-identical across all three, only the hook call
+# differs. Maps '' to `gone`, matching the interpreter's own file-
+# dialog helper (which returns `$null` on cancel, never an empty
+# string).
+function Get-OtterJsDialogSnippet {
+    param(
+        [int]$Indent,
+        [string]$Pad,
+        [string]$HookCall,
+        [string]$Target,
+        [System.Collections.Generic.HashSet[string]]$LocalNames
+    )
+
+    $lines = [System.Collections.Generic.List[string]]::new()
+    $inner = '  ' * ($Indent + 1)
+    $lines.Add("${Pad}{")
+    $lines.Add("${inner}const _raw = await $HookCall;")
+    $lines.Add("${inner}const _path = (_raw === '' || _raw === null || _raw === undefined) ? null : _raw;")
+    if ($LocalNames -and $LocalNames.Contains($Target)) {
+        $lines.Add("${inner}$Target = _path;")
+    } else {
+        $lines.Add("${inner}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$Target' in otterState)) { otterSetState('$Target', _path); } else { window.$Target = _path; }")
+    }
+    $lines.Add("${Pad}}")
+    return ($lines -join "`n")
+}
+
 function ConvertTo-OtterJsExpression {
     param([Parameter(Mandatory)][Node]$Expr)
 
@@ -1073,6 +1103,114 @@ function ConvertTo-OtterJsStatement {
             $destinationJs = ConvertTo-OtterJsExpression -Expr $Stmt.Destination
             return "${pad}await otterMoveFolder($sourceJs, $destinationJs);"
         }
+        ([NodeKind]::CopyToClipboard) {
+            # D67. `copy "text" to clipboard` - reuses `window.otterClipboard.copy`,
+            # already defined and working infrastructure (both Web.psm1's
+            # plain-browser `navigator.clipboard` fallback and the Desktop
+            # bridge's real `Set-Clipboard` call) that previously had no
+            # Otter syntax reaching it at all - see the contract's D67
+            # comment for the exact "parses but throws at runtime" gap this
+            # closes.
+            $textJs = ConvertTo-OtterJsExpression -Expr $Stmt.Text
+            return "${pad}await otterClipboard.copy(String($textJs));"
+        }
+        ([NodeKind]::GetClipboard) {
+            # D67. `get clipboard into text`. An empty-string result from
+            # the JS hook (used uniformly for "the clipboard holds empty
+            # text" AND "there is nothing on the clipboard", since the
+            # hook cannot distinguish the two) is mapped to `gone` here,
+            # matching the interpreter's own `Get-Clipboard` failure path -
+            # a documented, narrow approximation: a clipboard genuinely
+            # holding empty text reads as `gone` in JS but as empty text in
+            # the interpreter, not reachable any other way given what the
+            # underlying browser/bridge APIs can report.
+            $target = $Stmt.Target
+            $lines = [System.Collections.Generic.List[string]]::new()
+            $inner = '  ' * ($Indent + 1)
+            $lines.Add("${pad}{")
+            $lines.Add("${inner}const _raw = await otterClipboard.paste();")
+            $lines.Add("${inner}const _val = (_raw === '' || _raw === null || _raw === undefined) ? null : _raw;")
+            if ($LocalNames -and $LocalNames.Contains($target)) {
+                $lines.Add("${inner}$target = _val;")
+            } else {
+                $lines.Add("${inner}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$target' in otterState)) { otterSetState('$target', _val); } else { window.$target = _val; }")
+            }
+            $lines.Add("${pad}}")
+            return ($lines -join "`n")
+        }
+        ([NodeKind]::Notify) {
+            # D67. `notify "Title" with "Message"`. NOT a byte-for-byte
+            # match with the interpreter's real OS balloon-tip toast - the
+            # existing `otterNotify` hook only ever shows an in-page DOM
+            # toast (confirmed by reading it directly), and the Desktop
+            # bridge's `/api/system/notify` endpoint is a documented no-op
+            # that echoes success without calling any real Windows
+            # notification API. This is a genuine, deliberately reported
+            # host difference (D60's "language capability != host
+            # capability" - the browser target legitimately cannot show a
+            # native OS toast the way the desktop interpreter can), not
+            # something this compiler can silently paper over - fixing the
+            # bridge side to show a REAL OS toast is `Otter.Desktop.psm1`
+            # work, out of this module's scope.
+            $titleJs = ConvertTo-OtterJsExpression -Expr $Stmt.Title
+            $messageJs = ConvertTo-OtterJsExpression -Expr $Stmt.Message
+            return "${pad}await otterNotify(String($titleJs), String($messageJs));"
+        }
+        ([NodeKind]::GetEnvironmentVariable) {
+            # D67. `get environment variable "PATH" into value` - reuses
+            # the already-defined `otterGetEnv` hook, which already
+            # returns `null` for an unset variable, matching
+            # `[System.Environment]::GetEnvironmentVariable` exactly (both
+            # return null/gone for a name that isn't set - no mapping
+            # needed here).
+            $nameJs = ConvertTo-OtterJsExpression -Expr $Stmt.Name
+            $target = $Stmt.Target
+            $lines = [System.Collections.Generic.List[string]]::new()
+            $inner = '  ' * ($Indent + 1)
+            $lines.Add("${pad}{")
+            $lines.Add("${inner}const _val = await otterGetEnv(String($nameJs));")
+            if ($LocalNames -and $LocalNames.Contains($target)) {
+                $lines.Add("${inner}$target = _val;")
+            } else {
+                $lines.Add("${inner}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$target' in otterState)) { otterSetState('$target', _val); } else { window.$target = _val; }")
+            }
+            $lines.Add("${pad}}")
+            return ($lines -join "`n")
+        }
+        ([NodeKind]::GetSystemFolder) {
+            # D67. `get system folder "temp" into path` - `FolderName` is
+            # a general expression (almost always a literal in practice,
+            # but not guaranteed), so the "temp"/"appdata"/"user"/
+            # "current" dispatch happens at RUNTIME here, matching the
+            # interpreter's own runtime switch exactly, including the
+            # "I do not know a system folder called ..." error text for
+            # anything else (using the ORIGINAL, non-lowercased text in
+            # the message, matching the interpreter).
+            $folderNameJs = ConvertTo-OtterJsExpression -Expr $Stmt.FolderName
+            $target = $Stmt.Target
+            $lines = [System.Collections.Generic.List[string]]::new()
+            $inner = '  ' * ($Indent + 1)
+            $lines.Add("${pad}{")
+            $lines.Add("${inner}const _paths = await otterGetSystemPaths();")
+            $lines.Add("${inner}const _nameOriginal = String($folderNameJs);")
+            $lines.Add("${inner}const _name = _nameOriginal.toLowerCase();")
+            $lines.Add("${inner}let _path;")
+            $lines.Add("${inner}if (_name === 'temp') { _path = _paths.tempFolder; }")
+            $lines.Add("${inner}else if (_name === 'appdata') { _path = _paths.appDataFolder; }")
+            $lines.Add("${inner}else if (_name === 'user') { _path = _paths.userFolder; }")
+            $lines.Add("${inner}else if (_name === 'current') { _path = _paths.currentDirectory; }")
+            $lines.Add("${inner}else { throw new Error('I do not know a system folder called `"' + _nameOriginal + '`".'); }")
+            if ($LocalNames -and $LocalNames.Contains($target)) {
+                $lines.Add("${inner}$target = _path;")
+            } else {
+                $lines.Add("${inner}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$target' in otterState)) { otterSetState('$target', _path); } else { window.$target = _path; }")
+            }
+            $lines.Add("${pad}}")
+            return ($lines -join "`n")
+        }
+        ([NodeKind]::ChooseFile) { return (Get-OtterJsDialogSnippet -Indent $Indent -Pad $pad -HookCall 'otterChooseFile()' -Target $Stmt.Target -LocalNames $LocalNames) }
+        ([NodeKind]::ChooseFolder) { return (Get-OtterJsDialogSnippet -Indent $Indent -Pad $pad -HookCall 'otterChooseFolder()' -Target $Stmt.Target -LocalNames $LocalNames) }
+        ([NodeKind]::ChooseSaveFile) { return (Get-OtterJsDialogSnippet -Indent $Indent -Pad $pad -HookCall 'otterSaveFileDialog()' -Target $Stmt.Target -LocalNames $LocalNames) }
         ([NodeKind]::GetKey) {
             # D60 consolidated-audit release blocker. `get "key" from
             # thing into target` (D41 dynamic access) - matches the
@@ -1807,6 +1945,11 @@ function Get-OtterJsBindingNames {
             if ($s.Kind -eq [NodeKind]::RunProgram -and $s.ResultTarget) {
                 [void]$setStyle.Add($s.ResultTarget)
             }
+            if ($s.Kind -eq [NodeKind]::GetClipboard -or $s.Kind -eq [NodeKind]::GetEnvironmentVariable -or $s.Kind -eq [NodeKind]::GetSystemFolder -or $s.Kind -eq [NodeKind]::ChooseFile -or $s.Kind -eq [NodeKind]::ChooseFolder -or $s.Kind -eq [NodeKind]::ChooseSaveFile) {
+                # D67: all six use Environment.Set (verified directly) -
+                # Set-style, same as Assign/MathInto, not SetLocal.
+                if ($s.Target) { [void]$setStyle.Add($s.Target) }
+            }
             if (($s.Kind -eq [NodeKind]::GetFiles -or $s.Kind -eq [NodeKind]::GetFolders) -and $s.Target) {
                 [void]$setStyle.Add($s.Target)
             }
@@ -1958,7 +2101,7 @@ function Test-OtterJsBodyNeedsAsync {
 
     if ($null -eq $Statements) { return $false }
     foreach ($s in $Statements) {
-        if ($s.Kind -eq [NodeKind]::Await -or $s.Kind -eq [NodeKind]::ReadFile -or $s.Kind -eq [NodeKind]::WriteFile -or $s.Kind -eq [NodeKind]::AppendFile -or $s.Kind -eq [NodeKind]::CopyFile -or $s.Kind -eq [NodeKind]::MoveFile -or $s.Kind -eq [NodeKind]::DeleteFile -or $s.Kind -eq [NodeKind]::CreateFolder -or $s.Kind -eq [NodeKind]::DeleteFolder -or $s.Kind -eq [NodeKind]::CopyFolder -or $s.Kind -eq [NodeKind]::MoveFolder -or $s.Kind -eq [NodeKind]::GetFiles -or $s.Kind -eq [NodeKind]::GetFolders -or $s.Kind -eq [NodeKind]::RunProgram -or $s.Kind -eq [NodeKind]::HttpGet -or $s.Kind -eq [NodeKind]::HttpPost -or $s.Kind -eq [NodeKind]::HttpPut -or $s.Kind -eq [NodeKind]::HttpDelete) {
+        if ($s.Kind -eq [NodeKind]::Await -or $s.Kind -eq [NodeKind]::ReadFile -or $s.Kind -eq [NodeKind]::WriteFile -or $s.Kind -eq [NodeKind]::AppendFile -or $s.Kind -eq [NodeKind]::CopyFile -or $s.Kind -eq [NodeKind]::MoveFile -or $s.Kind -eq [NodeKind]::DeleteFile -or $s.Kind -eq [NodeKind]::CreateFolder -or $s.Kind -eq [NodeKind]::DeleteFolder -or $s.Kind -eq [NodeKind]::CopyFolder -or $s.Kind -eq [NodeKind]::MoveFolder -or $s.Kind -eq [NodeKind]::GetFiles -or $s.Kind -eq [NodeKind]::GetFolders -or $s.Kind -eq [NodeKind]::RunProgram -or $s.Kind -eq [NodeKind]::HttpGet -or $s.Kind -eq [NodeKind]::HttpPost -or $s.Kind -eq [NodeKind]::HttpPut -or $s.Kind -eq [NodeKind]::HttpDelete -or $s.Kind -eq [NodeKind]::CopyToClipboard -or $s.Kind -eq [NodeKind]::GetClipboard -or $s.Kind -eq [NodeKind]::Notify -or $s.Kind -eq [NodeKind]::GetEnvironmentVariable -or $s.Kind -eq [NodeKind]::GetSystemFolder -or $s.Kind -eq [NodeKind]::ChooseFile -or $s.Kind -eq [NodeKind]::ChooseFolder -or $s.Kind -eq [NodeKind]::ChooseSaveFile) {
             return $true
         }
         if ($s.Kind -eq [NodeKind]::ReadJson) {
@@ -2025,6 +2168,98 @@ function Get-OtterJsTopLevelGlobalNames {
     return @{ Names = $all }
 }
 
+function ConvertTo-OtterCommandLineArguments {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [string[]]$Arguments
+    )
+
+    $flags = [ordered]@{}
+    $positional = [System.Collections.Generic.List[string]]::new()
+
+    for ($i = 0; $i -lt $Arguments.Length; $i++) {
+        $arg = $Arguments[$i]
+        if ($arg -match '^--([^=]+)=(.*)$') {
+            $flags[$Matches[1]] = $Matches[2]
+        }
+        elseif ($arg -match '^--(.+)$') {
+            $key = $Matches[1]
+            if ($i + 1 -lt $Arguments.Length -and -not ($Arguments[$i + 1].StartsWith('-'))) {
+                $i++
+                $flags[$key] = $Arguments[$i]
+            } else {
+                $flags[$key] = $true
+            }
+        }
+        elseif ($arg -match '^-([a-zA-Z0-9]+)$') {
+            $key = $Matches[1]
+            if ($i + 1 -lt $Arguments.Length -and -not ($Arguments[$i + 1].StartsWith('-'))) {
+                $i++
+                $flags[$key] = $Arguments[$i]
+            } else {
+                $flags[$key] = $true
+            }
+        }
+        else {
+            $positional.Add($arg)
+        }
+    }
+
+    return @{
+        Positional = $positional.ToArray()
+        Flags = $flags
+        Raw = $Arguments
+    }
+}
+
+function Get-OtterJsCliPreamble {
+    return @"
+const otterArgs = (typeof process !== 'undefined' && process.argv) ? process.argv.slice(2) : [];
+function otterParseCli(args) {
+    const flags = {};
+    const positional = [];
+    for (let i = 0; i < args.length; i++) {
+        const a = args[i];
+        if (a.startsWith('--')) {
+            const eq = a.indexOf('=');
+            if (eq > 2) {
+                flags[a.slice(2, eq)] = a.slice(eq + 1);
+            } else {
+                const k = a.slice(2);
+                if (i + 1 < args.length && !args[i + 1].startsWith('-')) {
+                    flags[k] = args[++i];
+                } else {
+                    flags[k] = true;
+                }
+            }
+        } else if (a.startsWith('-') && a.length > 1) {
+            const k = a.slice(1);
+            if (i + 1 < args.length && !args[i + 1].startsWith('-')) {
+                flags[k] = args[++i];
+            } else {
+                flags[k] = true;
+            }
+        } else {
+            positional.push(a);
+        }
+    }
+    return {
+        __otterThing: true,
+        typeName: 'arguments',
+        props: {
+            positional: positional,
+            flags: flags,
+            first: positional.length > 0 ? positional[0] : null,
+            count: positional.length
+        },
+        order: ['positional', 'flags', 'first', 'count']
+    };
+}
+"@
+}
+
 Export-ModuleMember -Function `
     ConvertTo-OtterJsExpression, ConvertTo-OtterJsStatement, `
-    Get-OtterJsBindingNames, Get-OtterJsTopLevelGlobalNames
+    Get-OtterJsBindingNames, Get-OtterJsTopLevelGlobalNames, `
+    ConvertTo-OtterCommandLineArguments, Get-OtterJsCliPreamble

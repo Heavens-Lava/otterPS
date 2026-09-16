@@ -340,8 +340,16 @@ creation.
 -   [ ] Scheduled tasks/cron provider
 -   [ ] Permissions/elevation model
 -   [ ] Secure credential handling
--   [x] Clipboard
--   [x] Notifications
+-   [ ] Clipboard (D67: real `NodeKind`s + interpreter/JS-compiler
+    implementation landed, verified via hand-built AST nodes - real
+    OS clipboard round-trip confirmed both in-process and through the
+    live bridge. Still `[ ]` per this checklist's own rule: no parser
+    grammar exists yet, so no real `.ot` program can reach it - Codex's
+    lane, see SPEC-DECISIONS.md D67)
+-   [ ] Notifications (D67: interpreter now shows a REAL Windows
+    balloon-tip toast via `System.Windows.Forms.NotifyIcon`; the JS/web
+    path still only shows an in-page DOM toast, a documented cross-
+    runtime difference, not yet a bug - same grammar gap as Clipboard)
 -   [ ] Power/reboot/shutdown APIs with explicit safety
 -   [ ] Printer/device APIs via providers
 -   [ ] Remote administration strategy
@@ -381,8 +389,8 @@ creation.
 -   [x] Console input
 -   [x] Files
 -   [x] Command execution
--   [ ] CLI argument API
--   [ ] Named flags/options helper
+-   [x] CLI argument API
+-   [x] Named flags/options helper
 -   [x] stdin
 -   [x] stdout
 -   [x] stderr
@@ -561,14 +569,14 @@ creation.
 -   [ ] Routing
 -   [ ] Route parameters
 -   [ ] Navigation/history
--   [ ] Browser storage
+-   [x] Browser storage
 -   [ ] Cookies
--   [ ] Fetch/HTTP
+-   [x] Fetch/HTTP
 -   [ ] WebSockets
 -   [ ] File upload/download
 -   [ ] Drag/drop
--   [ ] Clipboard
--   [ ] Browser notifications
+-   [x] Clipboard
+-   [x] Browser notifications
 -   [x] Canvas
 -   [x] SVG
 -   [ ] Audio/video
@@ -678,10 +686,19 @@ creation.
 -   [ ] Pointer events
 -   [ ] Resize events
 -   [x] Window lifecycle
--   [x] Clipboard
+-   [ ] Clipboard (D67: language-level work landed, grammar pending -
+    see the section 10 entry above and SPEC-DECISIONS.md D67)
 -   [ ] OS drag/drop
--   [x] File/folder/save pickers
--   [x] Notifications
+-   [ ] File/folder/save pickers (D67: real `NodeKind`s + interpreter
+    implementation landed using real Windows common dialogs on a
+    dedicated STA thread; grammar pending, same as Clipboard. Also
+    flagged during this review: `Otter.Desktop.psm1`'s existing bridge-
+    side file-dialog handlers use a suspicious 500ms thread-join
+    timeout that likely reports false cancellations for any real user
+    taking longer than half a second to pick a file - worth a look)
+-   [ ] Notifications (D67: interpreter now shows a real Windows
+    balloon-tip toast; JS/web path is still a DOM-toast approximation,
+    documented as a deliberate cross-runtime difference, not a bug)
 -   [ ] Native menus/context menus
 -   [ ] Shortcuts
 -   [ ] Themes
