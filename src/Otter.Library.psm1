@@ -544,6 +544,66 @@ function Test-OtterSymbolicLink {
     return [bool]$item.LinkType
 }
 
+# get owner of "x" into owner                                        (D74)
+# Works on either a file or a folder - ownership is a filesystem-wide
+# concept, unlike read-only below, which this module deliberately
+# restricts to files only (see Test-OtterFileReadOnly's comment).
+function Get-OtterFileOwner {
+    param([string]$Path, [int]$Line)
+
+    $full = Resolve-OtterPath -Path $Path -Line $Line
+    if (-not (Test-Path -LiteralPath $full)) {
+        throw [OtterError]::new("I could not find `"$Path`" to check its owner.", $Line, 'runtime')
+    }
+    try {
+        $acl = Get-Acl -LiteralPath $full -ErrorAction Stop
+        return $acl.Owner
+    }
+    catch {
+        throw [OtterError]::new("I could not read the owner of `"$Path`". $($_.Exception.Message)", $Line, 'runtime')
+    }
+}
+
+# if file "x" is read only                                           (D74)
+# Deliberately files only, not folders: Windows' read-only ATTRIBUTE on
+# a folder is a long-standing, well-known no-op for the "cannot
+# accidentally modify" protection a programmer actually wants (Explorer
+# and most tools ignore it entirely for folders) - answering this
+# question for a folder would return a real bit flag that does not mean
+# what the same flag means on a file, which is worse than not answering
+# it at all.
+function Test-OtterFileReadOnly {
+    param([string]$Path, [int]$Line)
+
+    if ([string]::IsNullOrWhiteSpace($Path)) { return $false }
+    $full = Resolve-OtterPath -Path $Path -Line $Line
+    if (-not (Test-Path -LiteralPath $full -PathType Leaf)) { return $false }
+    $item = Get-Item -LiteralPath $full -Force
+    return [bool]($item.Attributes -band [System.IO.FileAttributes]::ReadOnly)
+}
+
+# set file "x" to read only / to writable                            (D74)
+function Set-OtterFileReadOnly {
+    param([string]$Path, [bool]$ReadOnly, [int]$Line)
+
+    $full = Resolve-OtterPath -Path $Path -Line $Line
+    if (-not (Test-Path -LiteralPath $full -PathType Leaf)) {
+        throw [OtterError]::new("I could not find a file called `"$Path`" to change.", $Line, 'runtime')
+    }
+    try {
+        $current = [System.IO.File]::GetAttributes($full)
+        $updated = if ($ReadOnly) {
+            $current -bor [System.IO.FileAttributes]::ReadOnly
+        } else {
+            $current -band (-bnot [System.IO.FileAttributes]::ReadOnly)
+        }
+        [System.IO.File]::SetAttributes($full, $updated)
+    }
+    catch {
+        throw [OtterError]::new("I could not change `"$Path`"'s read-only setting. $($_.Exception.Message)", $Line, 'runtime')
+    }
+}
+
 # delete folder "Backup"
 #
 # Otter will not erase a folder that still has things in it. Jeff's own
@@ -1211,4 +1271,5 @@ Export-ModuleMember -Function `
     Show-OtterNotification, Show-OtterFileDialog, Get-OtterSystemInfoValue, `
     New-OtterProcessObject, Get-OtterProcessList, Stop-OtterProcess, `
     Set-OtterProcessPriority, Wait-OtterProcess, `
-    New-OtterSymbolicLink, Get-OtterSymbolicLinkTarget, Test-OtterSymbolicLink
+    New-OtterSymbolicLink, Get-OtterSymbolicLinkTarget, Test-OtterSymbolicLink, `
+    Get-OtterFileOwner, Test-OtterFileReadOnly, Set-OtterFileReadOnly

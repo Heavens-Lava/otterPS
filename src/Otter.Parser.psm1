@@ -253,13 +253,23 @@ function Read-OtterConditionPrimary {
             return [FileExistsExpr]::new($path, $fileToken.Line)
         }
         # D72: `file "x" is locked`  /  D73: `file "x" is a symbolic link`
-        [void](Assert-OtterTokenKind ([TokenKind]::Is) 'I expected "exists", "is locked", or "is a symbolic link" after the file path.')
+        # D74: `file "x" is read only`
+        [void](Assert-OtterTokenKind ([TokenKind]::Is) 'I expected "exists", "is locked", "is read only", or "is a symbolic link" after the file path.')
         $afterIs = Get-OtterCurrentToken
         if ($afterIs.Kind -eq [TokenKind]::Identifier -and $afterIs.Text -eq 'locked') {
             [void](Read-OtterToken)
             return [FileLockedExpr]::new($path, $fileToken.Line)
         }
-        [void](Assert-OtterTokenKind ([TokenKind]::A) 'I expected "locked" or "a symbolic link" after "is".')
+        if ($afterIs.Kind -eq [TokenKind]::Identifier -and $afterIs.Text -eq 'read') {
+            [void](Read-OtterToken)
+            $onlyWord2 = Get-OtterCurrentToken
+            if ($onlyWord2.Kind -ne [TokenKind]::Identifier -or $onlyWord2.Text -ne 'only') {
+                throw (New-OtterParserError 'I expected "only" after "read".' $onlyWord2 'file "x" is read only')
+            }
+            [void](Read-OtterToken)
+            return [FileIsReadOnlyExpr]::new($path, $fileToken.Line)
+        }
+        [void](Assert-OtterTokenKind ([TokenKind]::A) 'I expected "locked", "read only", or "a symbolic link" after "is".')
         $symbolicWord = Get-OtterCurrentToken
         if ($symbolicWord.Kind -ne [TokenKind]::Identifier -or $symbolicWord.Text -ne 'symbolic') {
             throw (New-OtterParserError 'I expected "symbolic link" after "is a".' $symbolicWord 'file "x" is a symbolic link')
@@ -1336,6 +1346,16 @@ function Read-OtterStatement {
                 [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the get statement to end here.')
                 return [GetSymbolicLinkTargetStmt]::new($linkPath2, $target2.Text, $start.Line)
             }
+            # D74: `get owner of "x" into owner`
+            if ($kind.Kind -eq [TokenKind]::Identifier -and $kind.Text -eq 'owner') {
+                [void](Read-OtterToken)
+                [void](Assert-OtterTokenKind ([TokenKind]::Of) 'I expected "of" and a file path.')
+                $ownerPath = Read-OtterValue
+                [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a result name.')
+                $ownerTarget = Read-OtterVariableName 'I expected a result name after "into".'
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the get statement to end here.')
+                return [GetFileOwnerStmt]::new($ownerPath, $ownerTarget.Text, $start.Line)
+            }
             if ($kind.Kind -eq [TokenKind]::Files -or $kind.Kind -eq [TokenKind]::Folders) {
                 [void](Read-OtterToken)
                 [void](Assert-OtterTokenKind ([TokenKind]::In) 'I expected "in" and a folder path.')
@@ -1410,6 +1430,30 @@ function Read-OtterStatement {
                 $priority = Read-OtterValue
                 [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the set statement to end here.')
                 return [SetProcessPriorityStmt]::new($processExpr, $priority, $start.Line)
+            }
+            # D74: `set file "x" to read only` / `set file "x" to writable`
+            if (Test-OtterTokenKind ([TokenKind]::File)) {
+                [void](Read-OtterToken)
+                $roPath = Read-OtterValue
+                [void](Assert-OtterTokenKind ([TokenKind]::To) 'I expected "to" and "read only" or "writable".')
+                $roWord = Get-OtterCurrentToken
+                $readOnly = $false
+                if ($roWord.Kind -eq [TokenKind]::Identifier -and $roWord.Text -eq 'read') {
+                    [void](Read-OtterToken)
+                    $onlyWord = Get-OtterCurrentToken
+                    if ($onlyWord.Kind -ne [TokenKind]::Identifier -or $onlyWord.Text -ne 'only') {
+                        throw (New-OtterParserError 'I expected "only" after "read".' $onlyWord 'set file "x" to read only')
+                    }
+                    [void](Read-OtterToken)
+                    $readOnly = $true
+                } elseif ($roWord.Kind -eq [TokenKind]::Identifier -and $roWord.Text -eq 'writable') {
+                    [void](Read-OtterToken)
+                    $readOnly = $false
+                } else {
+                    throw (New-OtterParserError 'I expected "read only" or "writable" after "to".' $roWord 'set file "x" to read only')
+                }
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the set statement to end here.')
+                return [SetFileReadOnlyStmt]::new($roPath, $readOnly, $start.Line)
             }
             $key = Read-OtterValue
             [void](Assert-OtterTokenKind ([TokenKind]::To) 'I expected "to" and a value.')

@@ -660,6 +660,21 @@ function Invoke-OtterStatement {
             return
         }
 
+        # get owner of "x" into owner                                    (D74)
+        'GetFileOwner' {
+            $path = Get-OtterPathArgument -Expression $Statement.Path -Environment $Environment
+            $owner = Get-OtterFileOwner -Path $path -Line $Statement.Line
+            $Environment.Set($Statement.Target, $owner)
+            return
+        }
+
+        # set file "x" to read only / to writable                        (D74)
+        'SetFileReadOnly' {
+            $path = Get-OtterPathArgument -Expression $Statement.Path -Environment $Environment
+            Set-OtterFileReadOnly -Path $path -ReadOnly $Statement.ReadOnly -Line $Statement.Line
+            return
+        }
+
         'DeleteFolder' {
             Remove-OtterFolder -Path (Get-OtterPathArgument -Expression $Statement.Path -Environment $Environment) -Line $Statement.Line
             return
@@ -1495,6 +1510,12 @@ function Get-OtterValue {
         'FileIsSymbolicLink' {
             $path = Get-OtterPathArgument -Expression $Expression.Path -Environment $Environment
             return (Test-OtterSymbolicLink -Path $path -Line $Expression.Line)
+        }
+
+        # if file "x" is read only                                       (D74)
+        'FileIsReadOnly' {
+            $path = Get-OtterPathArgument -Expression $Expression.Path -Environment $Environment
+            return (Test-OtterFileReadOnly -Path $path -Line $Expression.Line)
         }
 
         # length of name / length of games / uppercase of name /

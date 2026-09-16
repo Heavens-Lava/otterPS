@@ -317,7 +317,12 @@ creation.
     `otter run` CLI against a real Windows junction; creation verified
     via its real, environment-dependent privilege-error path - see
     SPEC-DECISIONS.md D73)
--   [ ] Permission/ownership APIs
+-   [x] Permission/ownership APIs (D74: `get owner of ... into ...`,
+    `file "x" is read only`, `set file "x" to read only`/`to writable`
+    - a real `Get-Acl` owner lookup and a real OS-enforced read-only
+    attribute, verified through the real `otter run` CLI including
+    confirming a genuine write failure against a file set read-only.
+    See SPEC-DECISIONS.md D74)
 -   [x] Disk/free-space information (D69: `get system information "disk"
     into info` - `freeBytes`/`totalBytes` fields, same feature as
     "Disk information" below. See SPEC-DECISIONS.md D69)

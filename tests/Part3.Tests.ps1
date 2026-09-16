@@ -729,6 +729,77 @@ Test-Otter 'D73: create symbolic link either succeeds for real or fails with a c
     }
 }
 
+# =================================================================
+# D74 - permissions and ownership
+# =================================================================
+
+Test-Otter 'D74: get owner of a real file returns the real current Windows user' {
+    $path = Join-Path $sandbox 'd74-owned.txt'
+    Set-Content -LiteralPath $path -Value 'x' -NoNewline
+    $out = Invoke-TestProgram @(
+        [GetFileOwnerStmt]::new((Lit $path), 'owner', 1),
+        [SayStmt]::new(@((Var 'owner')), 2)
+    )
+    $expectedOwner = (Get-Acl -LiteralPath $path).Owner
+    Assert-Lines -Expected @($expectedOwner) -Actual $out
+}
+
+Test-Otter 'D74: is read only is false for an ordinary writable file' {
+    $path = Join-Path $sandbox 'd74-writable.txt'
+    Set-Content -LiteralPath $path -Value 'x' -NoNewline
+    $out = Invoke-TestProgram @(
+        [IfStmt]::new(
+            @([IfBranch]::new([FileIsReadOnlyExpr]::new((Lit $path), 1),
+                @([SayStmt]::new(@((Lit 'read only')), 2)))),
+            @([SayStmt]::new(@((Lit 'writable')), 4)), 1)
+    )
+    Assert-Lines -Expected @('writable') -Actual $out
+    Remove-Item -LiteralPath $path -Force
+}
+
+Test-Otter 'D74: set file to read only actually changes the real OS attribute, and writing to it really fails' {
+    $path = Join-Path $sandbox 'd74-toggle.txt'
+    Set-Content -LiteralPath $path -Value 'original' -NoNewline
+    try {
+        $out = Invoke-TestProgram @(
+            [SetFileReadOnlyStmt]::new((Lit $path), $true, 1),
+            [IfStmt]::new(
+                @([IfBranch]::new([FileIsReadOnlyExpr]::new((Lit $path), 2),
+                    @([SayStmt]::new(@((Lit 'read only')), 3)))),
+                @([SayStmt]::new(@((Lit 'writable')), 5)), 2),
+            [TryStmt]::new(
+                @([WriteFileStmt]::new((Lit 'should fail'), (Lit $path), 6)),
+                @([SayStmt]::new(@((Lit 'write blocked')), 8)), 6)
+        )
+        Assert-Lines -Expected @('read only', 'write blocked') -Actual $out
+        Assert-True ((Get-Item -LiteralPath $path).Attributes -band [System.IO.FileAttributes]::ReadOnly) 'expected the real OS ReadOnly attribute to actually be set'
+        Assert-AreEqual -Expected 'original' -Actual (Get-Content -LiteralPath $path -Raw)
+    } finally {
+        Set-ItemProperty -LiteralPath $path -Name IsReadOnly -Value $false -ErrorAction SilentlyContinue
+    }
+}
+
+Test-Otter 'D74: set file to writable clears the real OS attribute and writing works again' {
+    $path = Join-Path $sandbox 'd74-untoggle.txt'
+    Set-Content -LiteralPath $path -Value 'original' -NoNewline
+    Set-ItemProperty -LiteralPath $path -Name IsReadOnly -Value $true
+    $out = Invoke-TestProgram @(
+        [SetFileReadOnlyStmt]::new((Lit $path), $false, 1),
+        [WriteFileStmt]::new((Lit 'now writable'), (Lit $path), 2),
+        [ReadFileStmt]::new((Lit $path), 'contents', 3),
+        [SayStmt]::new(@((Var 'contents')), 4)
+    )
+    Assert-Lines -Expected @('now writable') -Actual $out
+    Assert-False ((Get-Item -LiteralPath $path).Attributes -band [System.IO.FileAttributes]::ReadOnly) 'expected the real OS ReadOnly attribute to actually be cleared'
+}
+
+Test-Otter 'D74: get owner of a file that does not exist is a clean Otter error' {
+    $path = Join-Path $sandbox 'd74-does-not-exist.txt'
+    Assert-OtterFails -Containing 'I could not find' -Body {
+        Invoke-TestProgram @( [GetFileOwnerStmt]::new((Lit $path), 'owner', 1) )
+    }
+}
+
 
 Set-Location $originalLocation
 Remove-Item -LiteralPath $sandbox -Recurse -Force -ErrorAction SilentlyContinue

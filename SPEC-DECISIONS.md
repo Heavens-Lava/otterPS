@@ -5692,3 +5692,68 @@ piece of future work.
 
 ---
 
+## D74. Permissions and ownership — `get owner of ... into ...`, `file "x" is read only`, `set file "x" to read only`/`to writable`
+
+**Status: interpreter-side IMPLEMENTED and verified end-to-end through
+the real `otter run` CLI, including confirming the OS actually rejects
+a write to a file Otter set read-only. JS/web-side compiler emission
+implemented; the required host hooks have no bridge implementation yet,
+same reported boundary as D69-D73.**
+
+Closes the item D73 deliberately deferred.
+
+**Design:**
+- `get owner of "x" into owner` - works on either a file or a folder;
+  ownership is a filesystem-wide concept. Added to the existing `get`
+  dispatch alongside "system"/"clipboard"/"symbolic link target".
+- `file "x" is read only` - a FOURTH branch in the `file "x" ...`
+  condition-primary chain, alongside `exists`/`is locked`/`is a
+  symbolic link`.
+- `set file "x" to read only` / `set file "x" to writable` - added to
+  the existing `set` dispatch, peeked as a `File` token right after
+  `set`, before the generic dynamic-key path (same technique as D71's
+  `set priority of process ...`).
+- Deliberately FILES ONLY, not folders, for the read-only pair: a
+  folder's read-only ATTRIBUTE on Windows is a long-standing, widely-
+  known no-op for the "cannot accidentally modify" protection a
+  programmer actually wants (Explorer and most tools ignore it
+  entirely for folders) - answering `is read only` for a folder would
+  return a real bit that does not mean what the same bit means on a
+  file, which would be worse than refusing to answer. `get owner`
+  keeps working on folders since ownership genuinely means the same
+  thing for both.
+- `"make"` was considered and rejected as the verb for the read-only
+  toggle: it is already a heavily-used, ALWAYS-tokenized keyword for
+  mid-statement result binding (`await x make y`, `X make Y` as an
+  `into` alternative), not a D33 contextual keyword, so it could never
+  cleanly carry a second, unrelated "change a state" meaning. `set`
+  already carries exactly that meaning elsewhere in this grammar
+  (D71's process priority), so it was reused instead of inventing a
+  third statement-head word.
+
+**Interpreter** (`Otter.Library.psm1`): `Get-OtterFileOwner` uses
+`Get-Acl`; `Test-OtterFileReadOnly`/`Set-OtterFileReadOnly` use the
+real `System.IO.FileAttributes.ReadOnly` bit via `File.GetAttributes`/
+`SetAttributes` - a real OS-level protection, not a cosmetic flag
+Otter tracks on its own.
+
+**Verified:** through the real `otter run` CLI - the real current
+Windows user's name returned by `get owner` (matching `(Get-Acl
+...).Owner` exactly), a fresh file correctly reported as writable,
+`set file ... to read only` flipping the real attribute (confirmed via
+`Get-Item` afterward) AND causing a subsequent real write to genuinely
+fail with the OS's own "Access to the path ... is denied" - proving
+this is real OS enforcement, not a value Otter merely remembers -
+`set file ... to writable` correctly reversing both the attribute and
+the write-failure. Five new regression tests in `tests/Part3.Tests.ps1`.
+JS-compiler shapes verified by direct inspection (no bridge exists yet
+to execute them against).
+
+With D69 through D74, the platform checklist's filesystem-metadata and
+process-management sections are now complete except for items that
+genuinely require new Otter architecture (a byte/buffer runtime value,
+a callback mechanism) rather than more surface area on what already
+exists.
+
+---
+

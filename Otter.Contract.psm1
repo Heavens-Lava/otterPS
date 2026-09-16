@@ -395,6 +395,11 @@ enum NodeKind {
     CreateSymbolicLink     # create symbolic link "l" pointing to "t"
     GetSymbolicLinkTarget  # get symbolic link target of "l" into t
     FileIsSymbolicLink     # an EXPRESSION: if file "l" is a symbolic link
+
+    # --- permissions and ownership (D74) ----------------------------
+    GetFileOwner           # get owner of "x" into owner
+    FileIsReadOnly         # an EXPRESSION: if file "x" is read only
+    SetFileReadOnly        # set file "x" to read only / to writable
 }
 
 enum MathOp { Add; Subtract; Multiply; Divide }
@@ -1296,6 +1301,34 @@ class FileIsSymbolicLinkExpr : Node {
     [Node]$Path
     FileIsSymbolicLinkExpr([Node]$path, [int]$line) : base([NodeKind]::FileIsSymbolicLink, $line) {
         $this.Path = $path
+    }
+}
+
+# get owner of "x" into owner                                        (D74)
+class GetFileOwnerStmt : Node {
+    [Node]$Path
+    [string]$Target
+    GetFileOwnerStmt([Node]$path, [string]$target, [int]$line) : base([NodeKind]::GetFileOwner, $line) {
+        $this.Path = $path
+        $this.Target = $target
+    }
+}
+
+# if file "x" is read only                                           (D74)
+class FileIsReadOnlyExpr : Node {
+    [Node]$Path
+    FileIsReadOnlyExpr([Node]$path, [int]$line) : base([NodeKind]::FileIsReadOnly, $line) {
+        $this.Path = $path
+    }
+}
+
+# set file "x" to read only  /  set file "x" to writable             (D74)
+class SetFileReadOnlyStmt : Node {
+    [Node]$Path
+    [bool]$ReadOnly
+    SetFileReadOnlyStmt([Node]$path, [bool]$readOnly, [int]$line) : base([NodeKind]::SetFileReadOnly, $line) {
+        $this.Path = $path
+        $this.ReadOnly = $readOnly
     }
 }
 
