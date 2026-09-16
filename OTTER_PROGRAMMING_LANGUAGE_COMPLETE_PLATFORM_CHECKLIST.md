@@ -307,7 +307,9 @@ creation.
 -   [x] Cross-platform path rules
 -   [ ] Symbolic links/reparse points
 -   [ ] Permission/ownership APIs
--   [ ] Disk/free-space information
+-   [x] Disk/free-space information (D69: `get system information "disk"
+    into info` - `freeBytes`/`totalBytes` fields, same feature as
+    "Disk information" below. See SPEC-DECISIONS.md D69)
 -   [x] File dialogs via UI provider
 -   [ ] ZIP/archive provider
 
@@ -324,7 +326,11 @@ creation.
 -   [x] Command-line arguments
 -   [x] Environment variables
 -   [x] Current directory get/set
--   [ ] PATH inspection
+-   [x] PATH inspection (already fully expressible with existing
+    grammar, no new syntax needed: `get environment variable "PATH"
+    into pathText` then `split pathText by ";" into pathEntries` -
+    verified through the real `otter run` CLI on a real `.ot` file,
+    returning a real list of individual PATH entries)
 -   [ ] Process enumeration
 -   [ ] Process details
 -   [x] Start process
@@ -339,11 +345,19 @@ creation.
 -   [ ] launchd provider
 -   [ ] User/account information
 -   [ ] Groups/roles
--   [ ] Machine/OS information
--   [ ] CPU information
--   [ ] Memory information
--   [ ] Disk information
--   [ ] Network-interface information
+-   [x] Machine/OS information (D69: `get system information "os" into
+    info` - real name/version/architecture/machineName, verified
+    through the real `otter run` CLI. See SPEC-DECISIONS.md D69)
+-   [x] CPU information (D69: `get system information "cpu" into info` -
+    real name and logical core count)
+-   [x] Memory information (D69: `get system information "memory" into
+    info` - real total/free bytes via WMI)
+-   [x] Disk information (D69: `get system information "disk" into
+    info` - real total/free bytes for the current drive via
+    `System.IO.DriveInfo`)
+-   [x] Network-interface information (D69: `get system information
+    "network" into info` - a real list of active, non-loopback
+    interfaces with name and IPv4 address)
 -   [ ] Installed software information
 -   [ ] Registry provider for Windows
 -   [ ] Event log provider

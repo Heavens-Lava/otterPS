@@ -376,6 +376,9 @@ enum NodeKind {
     ChooseFile        # choose file into path
     ChooseFolder      # choose folder into path
     ChooseSaveFile    # choose file to save into path
+
+    # --- system information (D69) --------------------------------
+    GetSystemInfo     # get system information "os" into info
 }
 
 enum MathOp { Add; Subtract; Multiply; Divide }
@@ -1160,6 +1163,19 @@ class GetSystemFolderStmt : Node {
     [string]$Target
     GetSystemFolderStmt([Node]$folderName, [string]$target, [int]$line) : base([NodeKind]::GetSystemFolder, $line) {
         $this.FolderName = $folderName
+        $this.Target = $target
+    }
+}
+
+# get system information "os" into info               (D69)
+# InfoKind is one of: "os", "cpu", "memory", "disk", "network" - a plain
+# string VALUE, not a keyword, same design as GetSystemFolder's
+# FolderName - adding another info kind later needs no grammar change.
+class GetSystemInfoStmt : Node {
+    [Node]$InfoKind
+    [string]$Target
+    GetSystemInfoStmt([Node]$infoKind, [string]$target, [int]$line) : base([NodeKind]::GetSystemInfo, $line) {
+        $this.InfoKind = $infoKind
         $this.Target = $target
     }
 }

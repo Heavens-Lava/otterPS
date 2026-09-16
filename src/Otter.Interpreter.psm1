@@ -659,6 +659,14 @@ function Invoke-OtterStatement {
             return
         }
 
+        # get system information "os" into info                          (D69)
+        'GetSystemInfo' {
+            $infoKind = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.InfoKind -Environment $Environment)
+            $value = Get-OtterSystemInfoValue -Kind $infoKind -Line $Statement.Line
+            $Environment.Set($Statement.Target, $value)
+            return
+        }
+
         # choose file into path            - gone if the user cancels
         'ChooseFile' {
             $path = Show-OtterFileDialog -Mode 'OpenFile'

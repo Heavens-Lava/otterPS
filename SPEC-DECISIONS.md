@@ -5304,3 +5304,77 @@ same shape as the interpreter's own error-message text.
 
 ---
 
+## D69. System information — `get system information "os"/"cpu"/"memory"/"disk"/"network" into info`
+
+**Status: interpreter-side IMPLEMENTED and verified end-to-end through
+the real `otter run` CLI. JS/web-side compiler emission implemented and
+verified as far as this module can reach; the required host hook
+(`otterGetSystemInfo`) has no bridge implementation yet — a real,
+reported host boundary, Gemini's lane, matching the D67 precedent.**
+
+Closes five platform-checklist items in one grammar extension: Machine/
+OS information, CPU information, Memory information, Disk information,
+Network-interface information (the checklist's separate "Disk/free-
+space information" line is the same data - `disk`'s `freeBytes` field
+covers it). Also confirmed "PATH inspection" needs NO new syntax at
+all: `get environment variable "PATH" into pathText` (D67) followed by
+the existing `split pathText by ";" into pathEntries` already produces
+a real list of PATH entries - verified through the real CLI before
+building anything new for it.
+
+**Design:** `get system information "<kind>" into info` - `<kind>` is a
+plain string VALUE ("os", "cpu", "memory", "disk", "network"), matched
+by text, not a keyword - the same design as D67's `GetSystemFolder`
+`FolderName`, so adding another kind later needs no grammar change.
+"system" and "information" are both ORDINARY identifiers, extending the
+existing `get system folder ...` parser branch (peeks for `Folder`
+first, falls through to `information` otherwise) rather than adding a
+new top-level statement.
+
+Every kind but `network` returns a single thing (`operating system`/
+`cpu`/`memory`/`disk`) with named fields; `network` returns a LIST of
+`network interface` things (one per active, non-loopback interface) -
+the natural shape for "how many interfaces does this machine have",
+the same reasoning `GetFolders` already uses for returning a list.
+
+**Interpreter** (`Get-OtterSystemInfoValue`, `Otter.Library.psm1`):
+`os`/`cpu`/`memory` go through `Get-CimInstance` (WMI) because .NET
+alone has no portable way to name the OS/CPU or read total-vs-free
+physical memory on Windows PowerShell 5.1; each is wrapped in
+try/catch so a CIM-less or locked-down host degrades to `null` fields
+rather than crashing. `disk` and `network` use plain .NET
+(`System.IO.DriveInfo` / `System.Net.NetworkInformation.
+NetworkInterface`) - faster, and no WMI dependency for the two kinds
+that do not need it. An unrecognized kind throws "I do not know a kind
+of system information called "<kind>"." (original, non-lowercased
+text), matching `GetSystemFolder`'s error-text convention exactly.
+
+**JS compiler:** the raw object/array the host hook returns is wrapped
+at runtime into the same `__otterThing` shape (`{ __otterThing: true,
+typeName, props, order }`) `ObjectDef`/JSON-decoding already use
+elsewhere in this compiler, so `name of info` reads through the
+ordinary `PropertyAccess` path with zero special-casing there. This is
+a genuine D60 host boundary, reported rather than papered over:
+`otterGetSystemInfo` is a REQUIRED runtime hook with no implementation
+in `Otter.Web.psm1` and no `/api/system/info` endpoint in
+`Otter.Desktop.psm1` yet - a plain `otter web` page or a bridge without
+that endpoint will throw a clear "otterGetSystemInfo is not defined"/
+missing-hook error, never silently return wrong data.
+
+**Verified:** the interpreter side through the real `otter run` CLI on
+a real `.ot` file - every kind's real field values printed correctly
+(actual OS caption/version/architecture/machine name, actual CPU name
+and core count, actual total/free memory and disk bytes, two real
+active network interfaces with real IPv4 addresses), the unknown-kind
+error caught cleanly by `otherwise into reason` (D68). Twelve new
+regression tests added to `tests/Part3.Tests.ps1` covering clipboard/
+environment/system-folder (D67, previously untested) and all five
+D69 info kinds plus the error path. The JS-compiler wrapping and
+error-text logic verified by executing the generated code directly in
+Node against a hand-stubbed `otterGetSystemInfo`, confirming correct
+field shaping, the `network`-returns-an-array special case, and the
+exact error text - the bridge-side hook itself is out of this module's
+reach and is flagged here as an open item, not silently assumed done.
+
+---
+

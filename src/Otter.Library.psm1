@@ -822,6 +822,128 @@ function Show-OtterFileDialog {
 }
 
 
+# get system information "os"/"cpu"/"memory"/"disk"/"network" into info  (D69)
+#
+# "os", "cpu", and "memory" go through CIM (WMI) because .NET alone has no
+# portable way to name the OS/CPU or read total-vs-free physical memory on
+# Windows PowerShell 5.1; each is wrapped in try/catch so a locked-down or
+# CIM-less host degrades to $null fields instead of a crash. "disk" and
+# "network" use plain .NET (DriveInfo / NetworkInformation) - faster, and
+# no WMI dependency for the two kinds that do not need it.
+#
+# Every kind but "network" returns a single OtterObject; "network" returns
+# a LIST of them (one per active, non-loopback interface) - the natural
+# shape for "how many network interfaces does this machine have", the same
+# way GetFolders returns a list rather than a single folder.
+function Get-OtterSystemInfoValue {
+    param([string]$Kind, [int]$Line)
+
+    switch ($Kind.ToLowerInvariant()) {
+        'os' {
+            $info = [OtterObject]::new('operating system')
+            $caption = $null
+            $version = $null
+            try {
+                $os = Get-CimInstance -ClassName Win32_OperatingSystem -ErrorAction Stop
+                $caption = $os.Caption
+                $version = $os.Version
+            } catch {
+                $caption = [System.Environment]::OSVersion.VersionString
+                $version = [System.Environment]::OSVersion.Version.ToString()
+            }
+            $info.WriteProperty('name', $caption)
+            $info.WriteProperty('version', $version)
+            $info.WriteProperty('architecture', $(if ([System.Environment]::Is64BitOperatingSystem) { '64-bit' } else { '32-bit' }))
+            $info.WriteProperty('machineName', [System.Environment]::MachineName)
+            return $info
+        }
+        'cpu' {
+            $info = [OtterObject]::new('cpu')
+            $name = $null
+            try {
+                $proc = Get-CimInstance -ClassName Win32_Processor -ErrorAction Stop | Select-Object -First 1
+                $name = $proc.Name
+            } catch {
+                $name = $null
+            }
+            $info.WriteProperty('name', $name)
+            $info.WriteProperty('cores', [double][System.Environment]::ProcessorCount)
+            return $info
+        }
+        'memory' {
+            $info = [OtterObject]::new('memory')
+            $totalBytes = $null
+            $freeBytes = $null
+            try {
+                $os = Get-CimInstance -ClassName Win32_OperatingSystem -ErrorAction Stop
+                $totalBytes = [double]($os.TotalVisibleMemorySize) * 1024.0
+                $freeBytes = [double]($os.FreePhysicalMemory) * 1024.0
+            } catch {
+                $totalBytes = $null
+                $freeBytes = $null
+            }
+            $info.WriteProperty('totalBytes', $totalBytes)
+            $info.WriteProperty('freeBytes', $freeBytes)
+            return $info
+        }
+        'disk' {
+            $info = [OtterObject]::new('disk')
+            $drive = (Get-Location).Drive
+            $totalBytes = $null
+            $freeBytes = $null
+            $driveName = $null
+            if ($drive) {
+                try {
+                    $driveInfo = [System.IO.DriveInfo]::new($drive.Name)
+                    $totalBytes = [double]$driveInfo.TotalSize
+                    $freeBytes = [double]$driveInfo.AvailableFreeSpace
+                    $driveName = $drive.Name
+                } catch {
+                    $totalBytes = $null
+                    $freeBytes = $null
+                }
+            }
+            $info.WriteProperty('drive', $driveName)
+            $info.WriteProperty('totalBytes', $totalBytes)
+            $info.WriteProperty('freeBytes', $freeBytes)
+            return $info
+        }
+        'network' {
+            $list = [System.Collections.Generic.List[object]]::new()
+            try {
+                $interfaces = [System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces() |
+                    Where-Object {
+                        $_.OperationalStatus -eq [System.Net.NetworkInformation.OperationalStatus]::Up -and
+                        $_.NetworkInterfaceType -ne [System.Net.NetworkInformation.NetworkInterfaceType]::Loopback
+                    }
+                foreach ($iface in $interfaces) {
+                    $entry = [OtterObject]::new('network interface')
+                    $entry.WriteProperty('name', $iface.Name)
+                    $address = $null
+                    foreach ($unicast in $iface.GetIPProperties().UnicastAddresses) {
+                        if ($unicast.Address.AddressFamily -eq [System.Net.Sockets.AddressFamily]::InterNetwork) {
+                            $address = $unicast.Address.ToString()
+                            break
+                        }
+                    }
+                    $entry.WriteProperty('address', $address)
+                    $list.Add($entry)
+                }
+            } catch {
+                # leave $list empty rather than crash on a locked-down host
+            }
+            Write-Output -NoEnumerate $list
+            return
+        }
+        default {
+            throw [OtterError]::new(
+                "I do not know a kind of system information called ""$Kind"".",
+                $Line, 'runtime', 0, $null,
+                'get system information "os" into info (also: "cpu", "memory", "disk", "network")')
+        }
+    }
+}
+
 Export-ModuleMember -Function `
     Resolve-OtterPath, Read-OtterFile, Write-OtterFile, Add-OtterFileContent, Copy-OtterFile, `
     Move-OtterFile, Remove-OtterFile, Test-OtterFileExists, `
@@ -830,4 +952,4 @@ Export-ModuleMember -Function `
     Get-OtterFilesIn, Get-OtterFoldersIn, New-OtterFolder, Remove-OtterFolder, `
     Copy-OtterFolder, Move-OtterFolder, `
     ConvertFrom-OtterJsonText, ConvertTo-OtterJsonText, Read-OtterJsonFile, `
-    Show-OtterNotification, Show-OtterFileDialog
+    Show-OtterNotification, Show-OtterFileDialog, Get-OtterSystemInfoValue

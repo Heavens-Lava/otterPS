@@ -1263,12 +1263,28 @@ function Read-OtterStatement {
             # ordinary identifier; "folder" reuses the existing token.
             if ($kind.Kind -eq [TokenKind]::Identifier -and $kind.Text -eq 'system') {
                 [void](Read-OtterToken)
-                [void](Assert-OtterTokenKind ([TokenKind]::Folder) 'I expected "folder" after "system".')
-                $folderName = Read-OtterValue
+                if (Test-OtterTokenKind ([TokenKind]::Folder)) {
+                    [void](Read-OtterToken)
+                    $folderName = Read-OtterValue
+                    [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a result name.')
+                    $target = Read-OtterVariableName 'I expected a result name after "into".'
+                    [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the get statement to end here.')
+                    return [GetSystemFolderStmt]::new($folderName, $target.Text, $start.Line)
+                }
+                # D69: `get system information "os" into info` - "information"
+                # is an ordinary identifier too; the kind ("os"/"cpu"/
+                # "memory"/"disk"/"network") is a plain string VALUE, matched
+                # by text, not a reserved word - same design as FolderName.
+                $infoWord = Get-OtterCurrentToken
+                if ($infoWord.Kind -ne [TokenKind]::Identifier -or $infoWord.Text -ne 'information') {
+                    throw (New-OtterParserError 'I expected "folder" or "information" after "system".' $infoWord 'get system information "os" into info')
+                }
+                [void](Read-OtterToken)
+                $infoKind = Read-OtterValue
                 [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a result name.')
                 $target = Read-OtterVariableName 'I expected a result name after "into".'
                 [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the get statement to end here.')
-                return [GetSystemFolderStmt]::new($folderName, $target.Text, $start.Line)
+                return [GetSystemInfoStmt]::new($infoKind, $target.Text, $start.Line)
             }
             if ($kind.Kind -eq [TokenKind]::Files -or $kind.Kind -eq [TokenKind]::Folders) {
                 [void](Read-OtterToken)

@@ -1225,6 +1225,48 @@ function ConvertTo-OtterJsStatement {
             $lines.Add("${pad}}")
             return ($lines -join "`n")
         }
+        ([NodeKind]::GetSystemInfo) {
+            # D69. `get system information "os"/"cpu"/"memory"/"disk"/
+            # "network" into info`. Unlike GetSystemFolder (a plain string),
+            # every kind here returns thing-shaped data, so the raw object
+            # the host hook returns is wrapped into the SAME `__otterThing`
+            # shape ObjectDef/JSON-decoding already use elsewhere in this
+            # compiler (`{ __otterThing, typeName, props, order }`), so
+            # `name of info` reads through the ordinary PropertyAccess path
+            # with no special-casing there. "network" wraps each array
+            # element individually, matching the interpreter's own choice
+            # to return a LIST of things for that one kind. This is a real,
+            # reported host boundary (D60): `otterGetSystemInfo` is a
+            # REQUIRED runtime hook with no implementation in Otter.Web.psm1
+            # yet - a plain `otter web` page or a bridge without a
+            # `/api/system/info` endpoint will throw "otterGetSystemInfo is
+            # not defined"/a clear missing-hook error, not silently return
+            # wrong data. Verified as far as this module can: the wrapping
+            # and error-text logic executed directly against a hand-stubbed
+            # hook in Node, matching the interpreter's field names, typeNames,
+            # and "I do not know a kind of system information called ..."
+            # error text (using the ORIGINAL, non-lowercased text, same as
+            # GetSystemFolder). The hook itself is Gemini's lane.
+            $infoKindJs = ConvertTo-OtterJsExpression -Expr $Stmt.InfoKind
+            $target = $Stmt.Target
+            $lines = [System.Collections.Generic.List[string]]::new()
+            $inner = '  ' * ($Indent + 1)
+            $lines.Add("${pad}{")
+            $lines.Add("${inner}const _kindOriginal = String($infoKindJs);")
+            $lines.Add("${inner}const _kind = _kindOriginal.toLowerCase();")
+            $lines.Add("${inner}const _typeNames = { os: 'operating system', cpu: 'cpu', memory: 'memory', disk: 'disk', network: 'network interface' };")
+            $lines.Add("${inner}if (!(_kind in _typeNames)) { throw new Error('I do not know a kind of system information called `"' + _kindOriginal + '`".'); }")
+            $lines.Add("${inner}const _raw = await otterGetSystemInfo(_kind);")
+            $lines.Add("${inner}const _wrapOne = (v, tn) => { const props = {}; const order = []; if (v) { for (const k of Object.keys(v)) { props[k] = v[k]; order.push(k); } } return { __otterThing: true, typeName: tn, props: props, order: order }; };")
+            $lines.Add("${inner}const _value = (_kind === 'network') ? (Array.isArray(_raw) ? _raw.map((x) => _wrapOne(x, 'network interface')) : []) : _wrapOne(_raw, _typeNames[_kind]);")
+            if ($LocalNames -and $LocalNames.Contains($target)) {
+                $lines.Add("${inner}$target = _value;")
+            } else {
+                $lines.Add("${inner}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$target' in otterState)) { otterSetState('$target', _value); } else { window.$target = _value; }")
+            }
+            $lines.Add("${pad}}")
+            return ($lines -join "`n")
+        }
         ([NodeKind]::ChooseFile) { return (Get-OtterJsDialogSnippet -Indent $Indent -Pad $pad -HookCall 'otterChooseFile()' -Target $Stmt.Target -LocalNames $LocalNames) }
         ([NodeKind]::ChooseFolder) { return (Get-OtterJsDialogSnippet -Indent $Indent -Pad $pad -HookCall 'otterChooseFolder()' -Target $Stmt.Target -LocalNames $LocalNames) }
         ([NodeKind]::ChooseSaveFile) { return (Get-OtterJsDialogSnippet -Indent $Indent -Pad $pad -HookCall 'otterSaveFileDialog()' -Target $Stmt.Target -LocalNames $LocalNames) }
@@ -1962,8 +2004,8 @@ function Get-OtterJsBindingNames {
             if ($s.Kind -eq [NodeKind]::RunProgram -and $s.ResultTarget) {
                 [void]$setStyle.Add($s.ResultTarget)
             }
-            if ($s.Kind -eq [NodeKind]::GetClipboard -or $s.Kind -eq [NodeKind]::GetEnvironmentVariable -or $s.Kind -eq [NodeKind]::GetSystemFolder -or $s.Kind -eq [NodeKind]::ChooseFile -or $s.Kind -eq [NodeKind]::ChooseFolder -or $s.Kind -eq [NodeKind]::ChooseSaveFile) {
-                # D67: all six use Environment.Set (verified directly) -
+            if ($s.Kind -eq [NodeKind]::GetClipboard -or $s.Kind -eq [NodeKind]::GetEnvironmentVariable -or $s.Kind -eq [NodeKind]::GetSystemFolder -or $s.Kind -eq [NodeKind]::ChooseFile -or $s.Kind -eq [NodeKind]::ChooseFolder -or $s.Kind -eq [NodeKind]::ChooseSaveFile -or $s.Kind -eq [NodeKind]::GetSystemInfo) {
+                # D67/D69: all seven use Environment.Set (verified directly) -
                 # Set-style, same as Assign/MathInto, not SetLocal.
                 if ($s.Target) { [void]$setStyle.Add($s.Target) }
             }
@@ -2119,7 +2161,7 @@ function Test-OtterJsBodyNeedsAsync {
 
     if ($null -eq $Statements) { return $false }
     foreach ($s in $Statements) {
-        if ($s.Kind -eq [NodeKind]::Await -or $s.Kind -eq [NodeKind]::ReadFile -or $s.Kind -eq [NodeKind]::WriteFile -or $s.Kind -eq [NodeKind]::AppendFile -or $s.Kind -eq [NodeKind]::CopyFile -or $s.Kind -eq [NodeKind]::MoveFile -or $s.Kind -eq [NodeKind]::DeleteFile -or $s.Kind -eq [NodeKind]::CreateFolder -or $s.Kind -eq [NodeKind]::DeleteFolder -or $s.Kind -eq [NodeKind]::CopyFolder -or $s.Kind -eq [NodeKind]::MoveFolder -or $s.Kind -eq [NodeKind]::GetFiles -or $s.Kind -eq [NodeKind]::GetFolders -or $s.Kind -eq [NodeKind]::RunProgram -or $s.Kind -eq [NodeKind]::HttpGet -or $s.Kind -eq [NodeKind]::HttpPost -or $s.Kind -eq [NodeKind]::HttpPut -or $s.Kind -eq [NodeKind]::HttpDelete -or $s.Kind -eq [NodeKind]::CopyToClipboard -or $s.Kind -eq [NodeKind]::GetClipboard -or $s.Kind -eq [NodeKind]::Notify -or $s.Kind -eq [NodeKind]::GetEnvironmentVariable -or $s.Kind -eq [NodeKind]::GetSystemFolder -or $s.Kind -eq [NodeKind]::ChooseFile -or $s.Kind -eq [NodeKind]::ChooseFolder -or $s.Kind -eq [NodeKind]::ChooseSaveFile) {
+        if ($s.Kind -eq [NodeKind]::Await -or $s.Kind -eq [NodeKind]::ReadFile -or $s.Kind -eq [NodeKind]::WriteFile -or $s.Kind -eq [NodeKind]::AppendFile -or $s.Kind -eq [NodeKind]::CopyFile -or $s.Kind -eq [NodeKind]::MoveFile -or $s.Kind -eq [NodeKind]::DeleteFile -or $s.Kind -eq [NodeKind]::CreateFolder -or $s.Kind -eq [NodeKind]::DeleteFolder -or $s.Kind -eq [NodeKind]::CopyFolder -or $s.Kind -eq [NodeKind]::MoveFolder -or $s.Kind -eq [NodeKind]::GetFiles -or $s.Kind -eq [NodeKind]::GetFolders -or $s.Kind -eq [NodeKind]::RunProgram -or $s.Kind -eq [NodeKind]::HttpGet -or $s.Kind -eq [NodeKind]::HttpPost -or $s.Kind -eq [NodeKind]::HttpPut -or $s.Kind -eq [NodeKind]::HttpDelete -or $s.Kind -eq [NodeKind]::CopyToClipboard -or $s.Kind -eq [NodeKind]::GetClipboard -or $s.Kind -eq [NodeKind]::Notify -or $s.Kind -eq [NodeKind]::GetEnvironmentVariable -or $s.Kind -eq [NodeKind]::GetSystemFolder -or $s.Kind -eq [NodeKind]::ChooseFile -or $s.Kind -eq [NodeKind]::ChooseFolder -or $s.Kind -eq [NodeKind]::ChooseSaveFile -or $s.Kind -eq [NodeKind]::GetSystemInfo) {
             return $true
         }
         if ($s.Kind -eq [NodeKind]::ReadJson) {

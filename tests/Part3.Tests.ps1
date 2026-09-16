@@ -320,6 +320,125 @@ Test-Otter 'the Part 3 milestone: discovery, properties and gone together' {
 }
 
 
+# =================================================================
+# D67/D69 - system integration: clipboard, environment, system
+# folders/information. Notify and the file/folder dialogs are
+# deliberately NOT covered here - they show a real OS toast or block
+# on a real WinForms dialog, neither of which is safe to run
+# unattended in a test suite; they were verified manually through the
+# real CLI instead (see SPEC-DECISIONS.md D67).
+# =================================================================
+
+Test-Otter 'D67: copy to clipboard then get clipboard round-trips real OS clipboard text' {
+    $out = Invoke-TestProgram @(
+        [CopyToClipboardStmt]::new((Lit 'otter regression test clipboard text'), 1),
+        [GetClipboardStmt]::new('pasted', 2),
+        [SayStmt]::new(@((Var 'pasted')), 3)
+    )
+    Assert-Lines -Expected @('otter regression test clipboard text') -Actual $out
+}
+
+Test-Otter 'D67: get environment variable reads a real, currently-set variable' {
+    $env:OTTER_TEST_VAR_D67 = 'present-value'
+    try {
+        $out = Invoke-TestProgram @(
+            [GetEnvironmentVariableStmt]::new((Lit 'OTTER_TEST_VAR_D67'), 'value', 1),
+            [SayStmt]::new(@((Var 'value')), 2)
+        )
+        Assert-Lines -Expected @('present-value') -Actual $out
+    } finally {
+        Remove-Item Env:\OTTER_TEST_VAR_D67 -ErrorAction SilentlyContinue
+    }
+}
+
+Test-Otter 'D67: get environment variable is gone for a variable that is not set' {
+    $out = Invoke-TestProgram @(
+        [GetEnvironmentVariableStmt]::new((Lit 'OTTER_TEST_VAR_DEFINITELY_UNSET_D67'), 'value', 1),
+        [IfStmt]::new(
+            @([IfBranch]::new((CompareEx (Var 'value') 'Equal' (Gone)),
+                @([SayStmt]::new(@((Lit 'gone as expected')), 3)))),
+            @([SayStmt]::new(@((Lit 'unexpectedly present')), 5)), 2)
+    )
+    Assert-Lines -Expected @('gone as expected') -Actual $out
+}
+
+Test-Otter 'D67: get system folder "temp" returns a real, existing folder' {
+    $out = Invoke-TestProgram @(
+        [GetSystemFolderStmt]::new((Lit 'temp'), 'path', 1),
+        [SayStmt]::new(@((Var 'path')), 2)
+    )
+    Assert-AreEqual -Expected 1 -Actual $out.Count
+    Assert-True (Test-Path -LiteralPath $out[0] -PathType Container) 'expected the reported temp folder to actually exist'
+}
+
+Test-Otter 'D67: get system folder with an unknown name is a clean Otter error' {
+    Assert-OtterFails -Containing 'I do not know a system folder called "bogus"' -Body {
+        Invoke-TestProgram @( [GetSystemFolderStmt]::new((Lit 'bogus'), 'path', 1) )
+    }
+}
+
+Test-Otter 'D69: get system information "os" returns real, non-empty OS fields' {
+    $out = Invoke-TestProgram @(
+        [GetSystemInfoStmt]::new((Lit 'os'), 'info', 1),
+        [SayStmt]::new(@((PropOf 'architecture' (Var 'info'))), 2),
+        [SayStmt]::new(@((PropOf 'machineName' (Var 'info'))), 3)
+    )
+    Assert-True ($out[0] -eq '64-bit' -or $out[0] -eq '32-bit') "expected architecture to be 64-bit or 32-bit, got [$($out[0])]"
+    Assert-AreEqual -Expected ([System.Environment]::MachineName) -Actual $out[1]
+}
+
+Test-Otter 'D69: get system information "cpu" reports at least one logical core' {
+    $out = Invoke-TestProgram @(
+        [GetSystemInfoStmt]::new((Lit 'cpu'), 'info', 1),
+        [SayStmt]::new(@((PropOf 'cores' (Var 'info'))), 2)
+    )
+    Assert-True ([double]$out[0] -gt 0) "expected at least one logical core, got [$($out[0])]"
+}
+
+Test-Otter 'D69: get system information "memory" reports free at or below total' {
+    $out = Invoke-TestProgram @(
+        [GetSystemInfoStmt]::new((Lit 'memory'), 'info', 1),
+        [SayStmt]::new(@((PropOf 'totalBytes' (Var 'info'))), 2),
+        [SayStmt]::new(@((PropOf 'freeBytes' (Var 'info'))), 3)
+    )
+    Assert-True ([double]$out[0] -gt 0) "expected total memory to be positive, got [$($out[0])]"
+    Assert-True ([double]$out[1] -le [double]$out[0]) "expected free memory to be at or below total"
+}
+
+Test-Otter 'D69: get system information "disk" reports the current drive with free at or below total' {
+    $out = Invoke-TestProgram @(
+        [GetSystemInfoStmt]::new((Lit 'disk'), 'info', 1),
+        [SayStmt]::new(@((PropOf 'totalBytes' (Var 'info'))), 2),
+        [SayStmt]::new(@((PropOf 'freeBytes' (Var 'info'))), 3)
+    )
+    Assert-True ([double]$out[0] -gt 0) "expected total disk size to be positive, got [$($out[0])]"
+    Assert-True ([double]$out[1] -le [double]$out[0]) "expected free disk space to be at or below total"
+}
+
+Test-Otter 'D69: get system information "network" returns a list of interface things' {
+    $out = Invoke-TestProgram @(
+        [GetSystemInfoStmt]::new((Lit 'network'), 'interfaces', 1),
+        [SayStmt]::new(@((Lit 'ok')), 2)
+    )
+    Assert-Lines -Expected @('ok') -Actual $out
+}
+
+Test-Otter 'D69: get system information with an unknown kind is a clean Otter error' {
+    Assert-OtterFails -Containing 'I do not know a kind of system information called "bogus"' -Body {
+        Invoke-TestProgram @( [GetSystemInfoStmt]::new((Lit 'bogus'), 'info', 1) )
+    }
+}
+
+Test-Otter 'D69: otherwise into reason catches an unknown system information kind' {
+    $out = Invoke-TestProgram @(
+        [TryStmt]::new(
+            @([GetSystemInfoStmt]::new((Lit 'bogus'), 'info', 2)),
+            @([SayStmt]::new(@((Var 'reason')), 4)), 'reason', 1)
+    )
+    Assert-Lines -Expected @('I do not know a kind of system information called "bogus".') -Actual $out
+}
+
+
 Set-Location $originalLocation
 Remove-Item -LiteralPath $sandbox -Recurse -Force -ErrorAction SilentlyContinue
 
