@@ -61,6 +61,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   const paneFiles = document.getElementById('paneFiles');
   const paneToolbox = document.getElementById('paneToolbox');
   const paneHierarchy = document.getElementById('paneHierarchy');
+  const sourceOutlinePanel = document.getElementById('sourceOutlinePanel');
+  const designerHierarchyPanel = document.getElementById('hierarchyPanel');
+
+  function setOutlineContext(mode) {
+    const sourceMode = mode === 'code';
+    if (sourceOutlinePanel) sourceOutlinePanel.style.display = sourceMode ? 'flex' : 'none';
+    if (designerHierarchyPanel) designerHierarchyPanel.style.display = sourceMode ? 'none' : 'flex';
+  }
 
   function switchSidebarPane(pane) {
     [btnPaneFiles, btnPaneToolbox, btnPaneHierarchy].forEach(b => b?.classList.remove('is-active'));
@@ -161,6 +169,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     if (mode === 'code') {
+      setOutlineContext('code');
       codeEditorView.style.display = 'flex';
       canvasEl.style.display = 'none';
       editorEl.style.display = 'none';
@@ -173,6 +182,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       syncCodeFromUiModel();
       switchSidebarPane('files');
     } else if (mode === 'designer') {
+      setOutlineContext('designer');
       codeEditorView.style.display = 'none';
       canvasEl.style.display = 'flex';
       editorEl.style.display = 'none';
@@ -192,6 +202,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       syncCodeFromUiModel();
     } else if (mode === 'split') {
+      setOutlineContext('designer');
       codeEditorView.style.display = 'none';
       canvasEl.style.display = 'flex';
       editorEl.style.display = 'flex';
@@ -210,6 +221,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       syncCodeFromUiModel();
     } else if (mode === 'preview') {
+      setOutlineContext('designer');
       codeEditorView.style.display = 'none';
       canvasEl.style.display = 'none';
       editorEl.style.display = 'none';

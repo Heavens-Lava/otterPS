@@ -14,6 +14,8 @@ const port = 4300 + (process.pid % 500);
 const baseUrl = `http://127.0.0.1:${port}`;
 const temporaryRelativePath = `scratch/studio-smoke-${process.pid}.ot`;
 const temporaryPath = path.join(repoRoot, temporaryRelativePath);
+const symbolWorkspaceRelativePath = `scratch/studio-symbols-${process.pid}`;
+const symbolWorkspacePath = path.join(repoRoot, symbolWorkspaceRelativePath);
 
 function wait(milliseconds) {
   return new Promise(resolve => setTimeout(resolve, milliseconds));
@@ -143,8 +145,33 @@ try {
   assert.equal(invalidDiagnostic.ok, false, 'invalid Otter must reach Studio as a diagnostic');
   assert.ok(invalidDiagnostic.line > 0, 'Studio diagnostics must identify a source line');
 
-  console.log('Otter Studio smoke test passed: scan, open, save, external-change protection, run, terminal, diagnostics, failures.');
+  const symbolSource = `answer is 42
+
+to greet name
+    say "Hello" name
+.
+`;
+  const analysis = await request('/api/analyze', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code: symbolSource })
+  });
+  assert.equal(analysis.Ok, true, analysis.Message || 'semantic analysis failed');
+  assert.ok(analysis.Symbols.some(symbol => symbol.Name === 'answer' && symbol.Kind === 'variable'));
+  assert.ok(analysis.Symbols.some(symbol => symbol.Name === 'greet' && symbol.Kind === 'function'));
+  assert.ok(analysis.Symbols.some(symbol => symbol.Name === 'name' && symbol.Kind === 'parameter'));
+
+  await fs.mkdir(symbolWorkspacePath, { recursive: true });
+  await fs.writeFile(path.join(symbolWorkspacePath, 'main.ot'), symbolSource, 'utf8');
+  await fs.writeFile(path.join(symbolWorkspacePath, 'helper.ot'), 'to helper value\n    return value\n.\n', 'utf8');
+  const workspaceIndex = await request(`/api/workspace-symbols?folder=${encodeURIComponent(symbolWorkspaceRelativePath)}`);
+  assert.equal(workspaceIndex.files.length, 2);
+  assert.ok(workspaceIndex.symbols.some(symbol => symbol.Name === 'greet' && symbol.File.endsWith('/main.ot')));
+  assert.ok(workspaceIndex.symbols.some(symbol => symbol.Name === 'helper' && symbol.File.endsWith('/helper.ot')));
+
+  console.log('Otter Studio smoke test passed: scan, open, save, external-change protection, symbols, run, terminal, diagnostics, failures.');
 } finally {
   await fs.rm(temporaryPath, { force: true });
+  await fs.rm(symbolWorkspacePath, { force: true, recursive: true });
   if (!server.killed) server.kill();
 }

@@ -176,7 +176,16 @@
 
         <!-- Pane 3: Hierarchy Outline -->
         <div class="sidebar-pane" id="paneHierarchy" style="display: none;">
-          <div class="panel-card" id="hierarchyPanel" style="flex: 1;"></div>
+          <div class="panel-card source-outline-card" id="sourceOutlinePanel" style="flex: 1;">
+            <div class="panel-card-header">
+              <span class="panel-card-title">Document Outline</span>
+              <button class="outline-refresh-btn" id="btnRefreshOutline" title="Refresh symbols">↻</button>
+            </div>
+            <div class="source-outline-body" id="sourceOutlineBody">
+              <div class="outline-empty">Open an Otter file to see its symbols.</div>
+            </div>
+          </div>
+          <div class="panel-card" id="hierarchyPanel" style="display: none; flex: 1;"></div>
         </div>
       </aside>
 
@@ -195,6 +204,8 @@
           <button class="add-tab-btn" id="btnAddNewTab" title="New File (Ctrl+N)">+</button>
 
           <div class="editor-quick-actions">
+            <button class="tab-quick-btn" id="btnQuickOpen" title="Quick Open (Ctrl+P)">⌕ Open</button>
+            <button class="tab-quick-btn" id="btnGoToSymbol" title="Go to Symbol (Ctrl+Shift+O)">＠ Symbol</button>
             <button class="tab-quick-btn" id="btnFormatDoc" title="Format Document (Shift+Alt+F)">🧹 Format</button>
             <button class="tab-quick-btn" id="btnFindDoc" title="Find in File (Ctrl+F)">🔍 Find</button>
           </div>
@@ -573,6 +584,15 @@
           <button class="btn-modal-primary" id="btnConfirmCreateProject">Create Project →</button>
         </div>
       </div>
+    </div>
+  </div>
+
+  <div class="navigation-palette-backdrop" id="navigationPaletteBackdrop" style="display: none;">
+    <div class="navigation-palette" role="dialog" aria-modal="true" aria-labelledby="navigationPaletteTitle">
+      <div class="navigation-palette-heading" id="navigationPaletteTitle">Quick Open</div>
+      <input class="navigation-palette-input" id="navigationPaletteInput" type="text" autocomplete="off" spellcheck="false" placeholder="Type a file name..." />
+      <div class="navigation-palette-list" id="navigationPaletteList" role="listbox"></div>
+      <div class="navigation-palette-help">↑↓ navigate · Enter open · Esc close</div>
     </div>
   </div>
 

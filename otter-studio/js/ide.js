@@ -1,5 +1,11 @@
 // ide.js - Interactive Code Editor, Real Project Tree, Terminal, and Execution Engine for Otter Studio
 
+import {
+  filterNavigationItems,
+  flattenProjectFiles,
+  symbolsForFile
+} from './navigation/symbol-index.js';
+
 export class OtterStudioIde {
   constructor() {
     this.currentFile = 'untitled.ot';
@@ -18,6 +24,12 @@ export class OtterStudioIde {
     this.externalCheckTimer = null;
     this.externalCheckInFlight = false;
     this.externalCheckIntervalMs = 2000;
+    this.workspaceFiles = [];
+    this.workspaceSymbols = [];
+    this.navigationMode = null;
+    this.navigationItems = [];
+    this.filteredNavigationItems = [];
+    this.navigationIndex = 0;
     this.suggestions = [
       {
         icon: '📝',
@@ -216,6 +228,14 @@ export class OtterStudioIde {
     this.externalChangeMessage = document.getElementById('externalChangeMessage');
     this.btnKeepLocalChanges = document.getElementById('btnKeepLocalChanges');
     this.btnReloadExternalFile = document.getElementById('btnReloadExternalFile');
+    this.sourceOutlineBody = document.getElementById('sourceOutlineBody');
+    this.btnRefreshOutline = document.getElementById('btnRefreshOutline');
+    this.btnQuickOpen = document.getElementById('btnQuickOpen');
+    this.btnGoToSymbol = document.getElementById('btnGoToSymbol');
+    this.navigationPaletteBackdrop = document.getElementById('navigationPaletteBackdrop');
+    this.navigationPaletteTitle = document.getElementById('navigationPaletteTitle');
+    this.navigationPaletteInput = document.getElementById('navigationPaletteInput');
+    this.navigationPaletteList = document.getElementById('navigationPaletteList');
 
     // Multi-Tab & Quick Action Elements
     this.tabsScrollEl = document.getElementById('editorTabsScroll');
@@ -265,6 +285,14 @@ export class OtterStudioIde {
   bindEvents() {
     this.btnKeepLocalChanges?.addEventListener('click', () => this.keepLocalChanges());
     this.btnReloadExternalFile?.addEventListener('click', () => this.reloadExternalFile());
+    this.btnRefreshOutline?.addEventListener('click', () => this.refreshWorkspaceSymbols());
+    this.btnQuickOpen?.addEventListener('click', () => this.openNavigationPalette('files'));
+    this.btnGoToSymbol?.addEventListener('click', () => this.openNavigationPalette('symbols'));
+    this.navigationPaletteBackdrop?.addEventListener('click', event => {
+      if (event.target === this.navigationPaletteBackdrop) this.closeNavigationPalette();
+    });
+    this.navigationPaletteInput?.addEventListener('input', () => this.filterNavigationPalette());
+    this.navigationPaletteInput?.addEventListener('keydown', event => this.handleNavigationKeydown(event));
 
     // Bottom Drawer Tab switching
     this.drawerTabs.forEach((tab, index) => {
@@ -291,6 +319,14 @@ export class OtterStudioIde {
       if (e.ctrlKey && e.key === 's') {
         e.preventDefault();
         this.saveCurrentFile();
+      }
+      if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 'p') {
+        e.preventDefault();
+        this.openNavigationPalette('files');
+      }
+      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'o') {
+        e.preventDefault();
+        this.openNavigationPalette('symbols');
       }
     });
 
@@ -380,7 +416,9 @@ export class OtterStudioIde {
       if (data && data.tree && data.tree.length > 0) {
         this.currentProjectFolder = data.rootPath || folder;
         this.currentProjectName = data.name || folder;
+        this.workspaceFiles = flattenProjectFiles(data.tree, this.currentProjectFolder);
         this.renderProjectTree(data.tree, this.currentProjectName, this.currentProjectFolder);
+        this.refreshWorkspaceSymbols();
       } else {
         alert(data.error || 'Folder is empty or could not be loaded.');
       }
@@ -434,6 +472,170 @@ export class OtterStudioIde {
         if (p) this.loadFile(p);
       });
     });
+  }
+
+  async refreshWorkspaceSymbols() {
+    if (!this.currentProjectFolder) {
+      this.renderSourceOutline();
+      return;
+    }
+    if (this.sourceOutlineBody) {
+      this.sourceOutlineBody.innerHTML = '<div class="outline-loading">Indexing Otter symbols…</div>';
+    }
+    try {
+      const res = await fetch(`/api/workspace-symbols?folder=${encodeURIComponent(this.currentProjectFolder)}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not index the workspace.');
+      this.workspaceSymbols = data.symbols || [];
+      if (Array.isArray(data.files) && data.files.length > 0) {
+        const known = new Map(this.workspaceFiles.map(file => [file.path, file]));
+        for (const filePath of data.files) {
+          if (!known.has(filePath)) {
+            known.set(filePath, { name: filePath.split('/').pop(), path: filePath });
+          }
+        }
+        this.workspaceFiles = [...known.values()];
+      }
+      this.renderSourceOutline();
+    } catch (error) {
+      if (this.sourceOutlineBody) {
+        this.sourceOutlineBody.innerHTML = `<div class="outline-empty">${this.escapeHtml(error.message)}</div>`;
+      }
+    }
+  }
+
+  updateCurrentDocumentSymbols(analysis) {
+    if (!analysis || analysis.Ok === false || !this.currentFile) return;
+    this.workspaceSymbols = this.workspaceSymbols.filter(symbol => symbol.File !== this.currentFile);
+    for (const symbol of analysis.Symbols || []) {
+      this.workspaceSymbols.push({ ...symbol, File: this.currentFile });
+    }
+    this.renderSourceOutline();
+  }
+
+  renderSourceOutline() {
+    if (!this.sourceOutlineBody) return;
+    const symbols = symbolsForFile(this.workspaceSymbols, this.currentFile)
+      .filter(symbol => Number(symbol.ScopeId) === 0);
+    if (symbols.length === 0) {
+      this.sourceOutlineBody.innerHTML = '<div class="outline-empty">No declarations found in this file.</div>';
+      return;
+    }
+    this.sourceOutlineBody.innerHTML = symbols.map((symbol, index) => `
+      <button class="outline-symbol" type="button" data-outline-index="${index}" title="Go to line ${Number(symbol.Line) || 1}">
+        <span class="outline-symbol-icon">${symbol.Kind === 'function' ? 'ƒ' : symbol.Kind === 'object' ? '◇' : 'v'}</span>
+        <span class="outline-symbol-name">${this.escapeHtml(symbol.Name)}</span>
+        <span class="outline-symbol-line">${Number(symbol.Line) || 1}</span>
+      </button>
+    `).join('');
+    this.sourceOutlineBody.querySelectorAll('[data-outline-index]').forEach(button => {
+      button.addEventListener('click', () => {
+        const symbol = symbols[Number(button.dataset.outlineIndex)];
+        if (symbol) this.goToLine(Number(symbol.Line), Number(symbol.Column));
+      });
+    });
+  }
+
+  openNavigationPalette(mode) {
+    if (!this.navigationPaletteBackdrop || !this.navigationPaletteInput) return;
+    this.navigationMode = mode;
+    this.navigationIndex = 0;
+    if (mode === 'files') {
+      this.navigationPaletteTitle.textContent = 'Quick Open';
+      this.navigationPaletteInput.placeholder = 'Type a file name…';
+      const files = this.workspaceFiles.length > 0
+        ? this.workspaceFiles
+        : this.openTabs.map(tab => ({ name: tab.name, path: tab.path }));
+      this.navigationItems = files.map(file => ({
+        type: 'file',
+        label: file.name,
+        detail: file.path,
+        path: file.path,
+        icon: file.name.toLowerCase().endsWith('.ot') ? 'OT' : '•'
+      }));
+    } else {
+      this.navigationPaletteTitle.textContent = 'Go to Symbol';
+      this.navigationPaletteInput.placeholder = 'Type a symbol name…';
+      this.navigationItems = symbolsForFile(this.workspaceSymbols, this.currentFile)
+        .filter(symbol => Number(symbol.ScopeId) === 0)
+        .map(symbol => ({
+          type: 'symbol',
+          label: symbol.Name,
+          detail: symbol.Kind,
+          line: Number(symbol.Line) || 1,
+          column: Number(symbol.Column) || 0,
+          icon: symbol.Kind === 'function' ? 'ƒ' : symbol.Kind === 'object' ? '◇' : 'v'
+        }));
+    }
+    this.navigationPaletteInput.value = '';
+    this.filteredNavigationItems = this.navigationItems;
+    this.renderNavigationPalette();
+    this.navigationPaletteBackdrop.style.display = 'flex';
+    setTimeout(() => this.navigationPaletteInput.focus(), 0);
+  }
+
+  closeNavigationPalette() {
+    if (this.navigationPaletteBackdrop) this.navigationPaletteBackdrop.style.display = 'none';
+    this.navigationMode = null;
+  }
+
+  filterNavigationPalette() {
+    this.filteredNavigationItems = filterNavigationItems(this.navigationItems, this.navigationPaletteInput?.value || '');
+    this.navigationIndex = 0;
+    this.renderNavigationPalette();
+  }
+
+  renderNavigationPalette() {
+    if (!this.navigationPaletteList) return;
+    if (this.filteredNavigationItems.length === 0) {
+      this.navigationPaletteList.innerHTML = '<div class="navigation-palette-empty">No matching items.</div>';
+      return;
+    }
+    this.navigationPaletteList.innerHTML = this.filteredNavigationItems.map((item, index) => `
+      <button class="navigation-palette-item${index === this.navigationIndex ? ' is-selected' : ''}" type="button" role="option" aria-selected="${index === this.navigationIndex}" data-navigation-index="${index}">
+        <span class="navigation-item-icon">${this.escapeHtml(item.icon)}</span>
+        <span class="navigation-item-copy">
+          <span class="navigation-item-label">${this.escapeHtml(item.label)}</span>
+          <span class="navigation-item-detail">${this.escapeHtml(item.detail)}</span>
+        </span>
+        <span class="navigation-item-meta">${item.type === 'symbol' ? `Line ${item.line}` : ''}</span>
+      </button>
+    `).join('');
+    this.navigationPaletteList.querySelectorAll('[data-navigation-index]').forEach(button => {
+      button.addEventListener('click', () => this.activateNavigationItem(Number(button.dataset.navigationIndex)));
+    });
+    this.navigationPaletteList.querySelector('.is-selected')?.scrollIntoView({ block: 'nearest' });
+  }
+
+  handleNavigationKeydown(event) {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      this.closeNavigationPalette();
+      return;
+    }
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      const direction = event.key === 'ArrowDown' ? 1 : -1;
+      const count = this.filteredNavigationItems.length;
+      if (count > 0) this.navigationIndex = (this.navigationIndex + direction + count) % count;
+      this.renderNavigationPalette();
+      return;
+    }
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      this.activateNavigationItem(this.navigationIndex);
+    }
+  }
+
+  async activateNavigationItem(index) {
+    const item = this.filteredNavigationItems[index];
+    if (!item) return;
+    this.closeNavigationPalette();
+    if (item.type === 'file') {
+      await this.loadFile(item.path);
+      return;
+    }
+    this.goToLine(item.line, item.column);
   }
 
   async promptNewFile() {
@@ -524,6 +726,7 @@ export class OtterStudioIde {
     this.renderEditorCode(this.currentCode);
     this.lintCurrentCode();
     this.renderExternalChangeBanner();
+    this.renderSourceOutline();
   }
 
   renderTabs() {
@@ -1009,7 +1212,7 @@ export class OtterStudioIde {
     }
   }
 
-  goToLine(lineNum) {
+  goToLine(lineNum, column = 0) {
     const textarea = document.getElementById('hiddenEditorInput');
     if (!textarea) return;
     const lines = textarea.value.split('\n');
@@ -1019,6 +1222,7 @@ export class OtterStudioIde {
       charOffset += lines[i].length + 1;
     }
     textarea.focus();
+    charOffset += Math.min(Math.max(0, column), lines[targetLine - 1].length);
     textarea.selectionStart = textarea.selectionEnd = charOffset;
     this.updateCursorPos(textarea);
 
@@ -1699,21 +1903,25 @@ export class OtterStudioIde {
 
   async lintCurrentCode() {
     try {
-      const res = await fetch('/api/lint', {
+      const res = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code: this.currentCode })
       });
       const data = await res.json();
 
-      if (data.ok) {
+      if (data.Ok !== false) {
         this.errorLine = null;
+        this.updateCurrentDocumentSymbols(data);
         this.setProblemsStatus(true, 'No problems found.', 'Your code looks good!', 'Great job!', 'Keep going! 🐾');
       } else {
-        this.errorLine = (typeof data.line === 'number') ? data.line : null;
-        const lineNote = data.line ? `Line ${data.line}: ` : '';
-        const msg = lineNote + (data.message || 'Syntax issue detected');
-        const sub = data.suggestion ? `Suggestion: ${data.suggestion}` : 'Check your grammar.';
+        const errorLine = data.Line ?? data.line;
+        const message = data.Message ?? data.message;
+        const suggestion = data.Suggestion ?? data.suggestion;
+        this.errorLine = (typeof errorLine === 'number') ? errorLine : null;
+        const lineNote = errorLine ? `Line ${errorLine}: ` : '';
+        const msg = lineNote + (message || 'Syntax issue detected');
+        const sub = suggestion ? `Suggestion: ${suggestion}` : 'Check your grammar.';
         this.setProblemsStatus(false, msg, sub, 'Syntax Check', 'Keep checking your code! 🐾');
       }
       this.updateErrorSquiggles();

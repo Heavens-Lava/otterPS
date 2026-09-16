@@ -4,13 +4,15 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { exec, execFile } from 'node:child_process';
+import { exec, execFile, spawn } from 'node:child_process';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.resolve(__dirname, '..');
 
 const PORT = Number(process.env.OTTER_STUDIO_PORT || 4200);
+const ANALYZER_PATH = path.join(REPO_ROOT, 'tools', 'vscode-otter', 'scripts', 'analyze.ps1');
+const workspaceSymbolCache = new Map();
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -79,6 +81,65 @@ function scanDir(dirPath, relativeTo) {
     }
   }
   return result;
+}
+
+function collectOtterFiles(dirPath) {
+  const ignored = new Set(['.git', 'node_modules', 'dist', 'build', 'backup']);
+  const files = [];
+  for (const entry of fs.readdirSync(dirPath, { withFileTypes: true })) {
+    if (entry.isDirectory() && ignored.has(entry.name)) continue;
+    const fullPath = path.join(dirPath, entry.name);
+    if (entry.isDirectory()) files.push(...collectOtterFiles(fullPath));
+    else if (entry.isFile() && entry.name.toLowerCase().endsWith('.ot')) files.push(fullPath);
+  }
+  return files;
+}
+
+function analyzeOtterSource(source) {
+  return new Promise((resolve, reject) => {
+    const child = spawn('powershell.exe', [
+      '-NoProfile',
+      '-ExecutionPolicy', 'Bypass',
+      '-File', ANALYZER_PATH,
+      '-Root', REPO_ROOT
+    ], { cwd: REPO_ROOT, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', chunk => { stdout += chunk; });
+    child.stderr.on('data', chunk => { stderr += chunk; });
+    child.on('error', reject);
+    child.on('close', () => {
+      try {
+        resolve(JSON.parse(stdout.trim()));
+      } catch {
+        reject(new Error(stderr.trim() || 'Otter symbol analysis did not return valid JSON.'));
+      }
+    });
+    child.stdin.end(source);
+  });
+}
+
+async function mapWithConcurrency(items, concurrency, worker) {
+  const results = new Array(items.length);
+  let next = 0;
+  async function run() {
+    while (next < items.length) {
+      const index = next;
+      next += 1;
+      results[index] = await worker(items[index], index);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, run));
+  return results;
+}
+
+async function analyzeOtterFile(filePath) {
+  const snapshot = readFileSnapshot(filePath);
+  const cached = workspaceSymbolCache.get(filePath);
+  if (cached?.revision === snapshot.revision) return cached.analysis;
+  const analysis = await analyzeOtterSource(snapshot.content);
+  workspaceSymbolCache.set(filePath, { revision: snapshot.revision, analysis });
+  return analysis;
 }
 
 const server = http.createServer(async (req, res) => {
@@ -261,6 +322,59 @@ const server = http.createServer(async (req, res) => {
         name: projName,
         mainFile: `${relFolder}/${fileName}`,
         tree
+      });
+    } catch (err) {
+      sendJson(res, { error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/analyze' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const analysis = await analyzeOtterSource(body.code || '');
+      sendJson(res, analysis, analysis.Ok === false ? 422 : 200);
+    } catch (err) {
+      sendJson(res, { Ok: false, Message: err.message, Line: 1, Column: 0 }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/workspace-symbols' && req.method === 'GET') {
+    try {
+      const folderParam = urlObj.searchParams.get('folder');
+      if (!folderParam) return sendJson(res, { files: [], symbols: [], diagnostics: [] });
+      const workspaceRoot = path.resolve(REPO_ROOT, folderParam);
+      if (!workspaceRoot.startsWith(REPO_ROOT) || !fs.existsSync(workspaceRoot)) {
+        return sendJson(res, { error: 'Workspace folder not found' }, 404);
+      }
+      const otterFiles = collectOtterFiles(workspaceRoot).slice(0, 500);
+      const analyses = await mapWithConcurrency(otterFiles, 4, async filePath => ({
+        filePath,
+        analysis: await analyzeOtterFile(filePath)
+      }));
+      const symbols = [];
+      const diagnostics = [];
+      for (const { filePath, analysis } of analyses) {
+        const relativePath = path.relative(REPO_ROOT, filePath).replace(/\\/g, '/');
+        if (analysis.Ok === false) {
+          diagnostics.push({
+            File: relativePath,
+            Message: analysis.Message,
+            Line: analysis.Line,
+            Column: analysis.Column
+          });
+          continue;
+        }
+        for (const symbol of analysis.Symbols || []) {
+          symbols.push({ ...symbol, File: relativePath });
+        }
+      }
+      symbols.sort((left, right) => left.File.localeCompare(right.File) || Number(left.Line) - Number(right.Line));
+      sendJson(res, {
+        files: otterFiles.map(filePath => path.relative(REPO_ROOT, filePath).replace(/\\/g, '/')),
+        symbols,
+        diagnostics
       });
     } catch (err) {
       sendJson(res, { error: err.message }, 500);
