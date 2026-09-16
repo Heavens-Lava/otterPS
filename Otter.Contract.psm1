@@ -95,8 +95,9 @@ enum TokenKind {
     # --- dynamic thing access (D41) ------------------------------
     Set             # set "Jeff" to 100 in scores
 
-    # --- errors (D23) -------------------------------------------
+    # --- errors (D23, D68) ----------------------------------------
     Try             # try / otherwise
+    Fail            # fail with "message" - a real user-raised error (D68)
 
     # --- strings and collections (D24, D25, D26) ----------------
     Length          # length of name / length of games
@@ -301,8 +302,9 @@ enum NodeKind {
     CopyFolder
     MoveFolder
 
-    # errors (D23)
+    # errors (D23, D68)
     Try             # try / otherwise
+    Fail            # fail with "message"
 
     # strings and collections (D24, D25, D26)
     OfOperation     # length/uppercase/lowercase/first/last OF something
@@ -1198,16 +1200,38 @@ class ChooseSaveFileStmt : Node {
 #     .
 #
 # The beginner form: if anything in the body fails, run the otherwise body
-# instead. No error variable, no error types - those come later if needed.
+# instead. No error variable, no error types by default - D68 adds an
+# OPTIONAL error-message capture ("otherwise into reason") and a way for
+# Otter code to raise its own named error (FailStmt, below), without
+# requiring either from existing programs.
 #
 # A "return" inside a try body is NOT an error and must escape cleanly.
 
 class TryStmt : Node {
     [Node[]]$Body
     [Node[]]$OtherwiseBody
+    [string]$ErrorTarget   # D68: "otherwise into reason" - null when absent
     TryStmt([Node[]]$body, [Node[]]$otherwiseBody, [int]$line) : base([NodeKind]::Try, $line) {
         $this.Body = $body
         $this.OtherwiseBody = $otherwiseBody
+        $this.ErrorTarget = $null
+    }
+    TryStmt([Node[]]$body, [Node[]]$otherwiseBody, [string]$errorTarget, [int]$line) : base([NodeKind]::Try, $line) {
+        $this.Body = $body
+        $this.OtherwiseBody = $otherwiseBody
+        $this.ErrorTarget = $errorTarget
+    }
+}
+
+# D68: `fail with "message"` - a real, user-raised custom error. Reuses the
+# same OtterError machinery as every built-in runtime error (same "Otter
+# Runtime Error" banner, same line number, catchable by try/otherwise), so
+# a user-defined failure looks and behaves exactly like a built-in one -
+# no separate error-type hierarchy needed for the beginner form.
+class FailStmt : Node {
+    [Node]$Message
+    FailStmt([Node]$message, [int]$line) : base([NodeKind]::Fail, $line) {
+        $this.Message = $message
     }
 }
 

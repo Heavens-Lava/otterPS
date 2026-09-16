@@ -5217,15 +5217,90 @@ hand-constructed AST nodes, since no parser grammar exists yet.
   psm1` work, out of this module's scope, and is exactly the kind of
   boundary D60 says must be reported, not silently papered over.
 
-**Grammar not yet built - Codex's lane.** Needs eight new lexer tokens
-(`Notify`, `Choose`, and reuse of already-existing `Copy`/`Get`/`Into`/
-`With`/`To`/`Folder`/`File` elsewhere) and eight parser cases
-constructing the node shapes above exactly - the frozen contract
-classes are exactly what the parser needs to build. `"clipboard"`,
-`"temp"`/`"appdata"`/`"user"`/`"current"` stay ORDINARY identifiers/
-string values, matched by text, the same way `"files"`/`"folders"`/
-`"number"`/`"item"` already are elsewhere in this grammar - not new
-reserved words.
+**Grammar wired in `f52dcad`** (originally documented above as pending):
+`Notify`/`Choose` lexer tokens added, plus reuse of already-existing
+`Copy`/`Get`/`Into`/`With`/`To`/`Folder`/`File` tokens elsewhere, and
+eight parser cases constructing the node shapes above exactly.
+`"clipboard"`, `"temp"`/`"appdata"`/`"user"`/`"current"` stayed ORDINARY
+identifiers/string values, matched by text, the same way `"files"`/
+`"folders"`/`"number"`/`"item"` already are elsewhere in this grammar -
+not new reserved words. Reverified end-to-end through the real
+`otter run`/`otter check` CLI after landing (clipboard round trip,
+environment variable lookup, system-folder path, notify toast, and all
+three `choose file`/`choose folder`/`choose file to save` forms).
+
+---
+
+## D68. Custom/user errors — `fail with "message"` and `otherwise into reason`
+
+**Status: IMPLEMENTED - lexer/parser/interpreter/JS-compiler complete,
+verified through the real `otter run`/`otter check` CLI.**
+
+`try`/`otherwise` (D23) was deliberately built as "the beginner form": no
+error variable, no error types, on the stated rationale "those come later
+if needed." The platform checklist's "Custom/user errors" item is exactly
+that later need, and D60's own gap audit confirmed there was no way for
+Otter code to (a) raise its own named failure with a message, or (b) find
+out what a caught failure actually said - `otherwise` could only run a
+fixed fallback body blind to the cause.
+
+**Design (deliberately the smallest extension that closes the gap):**
+
+- `fail with "message"` - a new statement, raises a real Otter runtime
+  error carrying that exact message. It reuses the SAME `OtterError`
+  machinery as every built-in runtime error (same "Otter Runtime Error"
+  banner, same line number, catchable by an ordinary `try`) - a
+  user-raised failure looks and behaves exactly like a built-in one.
+  No new error-type hierarchy, no `error types`, on purpose - this is
+  still the beginner form, just no longer blind to a hand-authored
+  message.
+- `otherwise into reason` (optional; plain `otherwise` still works
+  unchanged) - binds the failure's message text into `reason` for the
+  otherwise body to inspect, matching `ask`/`get`-style `into` binding
+  used everywhere else in this grammar rather than inventing new syntax.
+  Works for ANY caught failure, not just `fail`-raised ones - a caught
+  file-not-found error's message is just as inspectable, which is the
+  simplest, most consistent behavior (no special-casing user- vs.
+  built-in-raised errors).
+
+**Contract:** `Otter.Contract.psm1` gains `Fail` (TokenKind, NodeKind),
+`FailStmt{Message}`, and `TryStmt.ErrorTarget` (nullable string,
+backward compatible - the original 3-arg constructor still exists and
+sets it to `$null`).
+
+**Grammar (Codex's lane, wired directly per the same "don't block on
+Codex" authorization used for D67 - Codex was occupied elsewhere and
+confirmed reachable via review afterward):** `fail` added as a
+statement-head lexer keyword; `Try`'s parser case now optionally reads
+`into <name>` right after `otherwise` before the block.
+
+**Interpreter:** `Fail` formats its message exactly like `say` (D8's
+`Format-OtterValue`) and throws through the same `New-OtterRuntimeError`
+helper every other runtime error already uses. `Try`'s catch handler,
+when `ErrorTarget` is set, binds the caught exception's `.Message` into
+that variable in the try statement's enclosing environment before
+running the otherwise body - the `OtterReturnSignal` passthrough check
+(a `return` inside `try` is control flow, not a failure) is unchanged
+and still runs first.
+
+**JS compiler:** `Fail` emits `throw new Error(String(<message>));` -
+compiled programs already wrap arbitrary JS exceptions the same way the
+interpreter wraps arbitrary PowerShell ones, so no new bridge/host hook
+is needed here, unlike D60/D67's filesystem and system-integration work.
+`Try`'s existing `catch (_err) { ... }` block gains, when `ErrorTarget`
+is set, a first line binding `_err.message` (or `String(_err)` as a
+fallback for a non-`Error` throw) into the target name, following the
+same `LocalNames`-aware local-vs-`window` assignment convention as every
+other statement target in this compiler.
+
+**Verified:** a real `.ot` file through the real `otter run` CLI -
+`fail with "custom failure text"` inside a `try`, caught by
+`otherwise into reason`, printed the exact message back; a plain
+`otherwise` (no `into`) with an existing program continued to work
+unchanged (backward compatibility confirmed); `otter check` confirmed
+the grammar parses cleanly. JS-compiler side verified via the regression
+suite plus direct inspection of the generated `catch` block shape - the
+same shape as the interpreter's own error-message text.
 
 ---
 

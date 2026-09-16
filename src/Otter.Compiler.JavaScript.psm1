@@ -985,6 +985,18 @@ function ConvertTo-OtterJsStatement {
                 $lines.Add((ConvertTo-OtterJsStatement -Stmt $s -Indent ($Indent + 1) -LocalNames $LocalNames))
             }
             $lines.Add("${pad}} catch (_err) {")
+            $inner = '  ' * ($Indent + 1)
+            # D68: `otherwise into reason` - binds the caught failure's
+            # message text for ANY caught error, matching the interpreter's
+            # own "works for built-in errors too, not just fail" behavior.
+            if ($Stmt.ErrorTarget) {
+                $reasonExpr = "(_err && _err.message) ? _err.message : String(_err)"
+                if ($LocalNames -and $LocalNames.Contains($Stmt.ErrorTarget)) {
+                    $lines.Add("${inner}$($Stmt.ErrorTarget) = $reasonExpr;")
+                } else {
+                    $lines.Add("${inner}window.$($Stmt.ErrorTarget) = $reasonExpr;")
+                }
+            }
             if ($Stmt.OtherwiseBody) {
                 foreach ($s in $Stmt.OtherwiseBody) {
                     $lines.Add((ConvertTo-OtterJsStatement -Stmt $s -Indent ($Indent + 1) -LocalNames $LocalNames))
@@ -992,6 +1004,11 @@ function ConvertTo-OtterJsStatement {
             }
             $lines.Add("${pad}}")
             return ($lines -join "`n")
+        }
+        # fail with "message"                                            (D68)
+        ([NodeKind]::Fail) {
+            $messageJs = ConvertTo-OtterJsExpression -Expr $Stmt.Message
+            return "${pad}throw new Error(String($messageJs));"
         }
         ([NodeKind]::Return) {
             if ($Stmt.Value) {
@@ -2040,6 +2057,7 @@ function Get-OtterJsBindingNames {
                 [void](Walk-OtterBindingScan -Stmts $s.Body)
             }
             if ($s.Kind -eq [NodeKind]::Try) {
+                if ($s.ErrorTarget) { [void]$setStyle.Add($s.ErrorTarget) }
                 [void](Walk-OtterBindingScan -Stmts $s.Body)
                 if ($s.OtherwiseBody) { [void](Walk-OtterBindingScan -Stmts $s.OtherwiseBody) }
             }

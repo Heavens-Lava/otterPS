@@ -224,6 +224,42 @@ Test-Otter 'a failure inside try does not stop the rest of the program' {
     Assert-Lines -Expected @('recovered', 'carrying on') -Actual $out
 }
 
+Test-Otter 'D68: fail with raises a real catchable custom error' {
+    $out = Invoke-TestProgram @(
+        [TryStmt]::new(
+            @([FailStmt]::new((Lit 'custom failure text'), 2)),
+            @([SayStmt]::new(@((Lit 'caught it')), 4)), 1)
+    )
+    Assert-Lines -Expected @('caught it') -Actual $out
+}
+
+Test-Otter 'D68: otherwise into reason binds the failure message' {
+    $out = Invoke-TestProgram @(
+        [TryStmt]::new(
+            @([FailStmt]::new((Lit 'custom failure text'), 2)),
+            @([SayStmt]::new(@((Lit 'caught:'), (Var 'reason')), 4)), 'reason', 1)
+    )
+    Assert-Lines -Expected @('caught: custom failure text') -Actual $out
+}
+
+Test-Otter 'D68: otherwise into reason also binds a built-in errors message' {
+    $out = Invoke-TestProgram @(
+        [TryStmt]::new(
+            @([ReadFileStmt]::new((Lit 'missing.json'), 'x', 2)),
+            @([SayStmt]::new(@((Var 'reason')), 4)), 'reason', 1)
+    )
+    Assert-Lines -Expected @('I could not find a file called "missing.json".') -Actual $out
+}
+
+Test-Otter 'D68: plain otherwise with no into still works unchanged' {
+    $out = Invoke-TestProgram @(
+        [TryStmt]::new(
+            @([FailStmt]::new((Lit 'ignored'), 2)),
+            @([SayStmt]::new(@((Lit 'fallback')), 4)), 1)
+    )
+    Assert-Lines -Expected @('fallback') -Actual $out
+}
+
 Test-Otter 'return escapes straight through a try' {
     # If try caught the return signal, this would print the otherwise body
     # and lose the value. Control flow is not failure.

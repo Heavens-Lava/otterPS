@@ -1360,11 +1360,26 @@ function Read-OtterStatement {
             [void](Read-OtterToken)
             $body = Read-OtterBlock
             $otherwiseBody = $null
+            $errorTarget = $null
             if (Test-OtterTokenKind ([TokenKind]::Otherwise)) {
                 [void](Read-OtterToken)
+                # D68: `otherwise into reason` - optional; plain `otherwise`
+                # still works unchanged for every existing program.
+                if (Test-OtterTokenKind ([TokenKind]::Into)) {
+                    [void](Read-OtterToken)
+                    $errorTarget = (Read-OtterVariableName 'I expected a variable name after "into".').Text
+                }
                 $otherwiseBody = Read-OtterBlock
             }
-            return [TryStmt]::new($body, $otherwiseBody, $start.Line)
+            return [TryStmt]::new($body, $otherwiseBody, $errorTarget, $start.Line)
+        }
+        # fail with "message"                                           (D68)
+        ([TokenKind]::Fail) {
+            [void](Read-OtterToken)
+            [void](Assert-OtterTokenKind ([TokenKind]::With) 'I expected "with" and a message.')
+            $message = Read-OtterValue
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the fail statement to end here.')
+            return [FailStmt]::new($message, $start.Line)
         }
         ([TokenKind]::Sort) {
             [void](Read-OtterToken)

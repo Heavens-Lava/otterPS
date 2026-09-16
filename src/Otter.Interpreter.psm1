@@ -697,11 +697,27 @@ function Invoke-OtterStatement {
                 # one would silently run the otherwise body instead.
                 if ($_.Exception -is [OtterReturnSignal]) { throw }
 
+                # D68: `otherwise into reason` - binds the caught failure's
+                # message text for ANY caught error, not just `fail`-raised
+                # ones, before running the otherwise body.
+                if ($Statement.ErrorTarget) {
+                    $Environment.Set($Statement.ErrorTarget, $_.Exception.Message)
+                }
+
                 if ($null -ne $Statement.OtherwiseBody) {
                     Invoke-OtterStatements -Statements $Statement.OtherwiseBody -Environment $Environment
                 }
             }
             return
+        }
+
+        # fail with "message"                                            (D68)
+        # A real, user-raised custom error. Reuses the same OtterError
+        # machinery as every built-in runtime error, so a hand-authored
+        # failure is caught by an ordinary `try` exactly like a built-in one.
+        'Fail' {
+            $message = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.Message -Environment $Environment)
+            throw (New-OtterRuntimeError -Message $message -Line $Statement.Line)
         }
 
         # --- collections and strings (D25) ----------------------

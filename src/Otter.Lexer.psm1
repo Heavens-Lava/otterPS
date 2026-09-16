@@ -81,6 +81,8 @@ $script:OtterStatementHeadKeywords = @{
     # folders, file dialogs) - 'copy'/'get' above already exist and are
     # reused; 'notify' and 'choose' are the only genuinely new words.
     'notify' = [TokenKind]::Notify; 'choose' = [TokenKind]::Choose
+    # D68: `fail with "message"` - user-raised custom errors
+    'fail' = [TokenKind]::Fail
     # D56: declarative UI, reactivity, animation
     'layout' = [TokenKind]::Layout; 'gap' = [TokenKind]::Gap
     'state' = [TokenKind]::State; 'derive' = [TokenKind]::Derive
