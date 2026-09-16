@@ -478,6 +478,74 @@ Test-Otter 'D77: every software entry has a real, non-empty name' {
 }
 
 # =================================================================
+# D78 - Windows registry
+# =================================================================
+
+Test-Otter 'D78: registry key exists is false before creation and true after a real value is set' {
+    $keyPath = 'HKCU:\Software\OtterLangTest-D78-A'
+    Remove-Item -Path $keyPath -Recurse -Force -ErrorAction SilentlyContinue
+    try {
+        $out = Invoke-TestProgram @(
+            [IfStmt]::new(
+                @([IfBranch]::new([RegistryKeyExistsExpr]::new((Lit $keyPath), 1),
+                    @([SayStmt]::new(@((Lit 'exists')), 2)))),
+                @([SayStmt]::new(@((Lit 'does not exist')), 4)), 1),
+            [SetRegistryValueStmt]::new((Lit 'TestValue'), (Lit 'hello'), (Lit $keyPath), 5),
+            [IfStmt]::new(
+                @([IfBranch]::new([RegistryKeyExistsExpr]::new((Lit $keyPath), 6),
+                    @([SayStmt]::new(@((Lit 'exists')), 7)))),
+                @([SayStmt]::new(@((Lit 'does not exist')), 9)), 6)
+        )
+        Assert-Lines -Expected @('does not exist', 'exists') -Actual $out
+        Assert-True (Test-Path -LiteralPath $keyPath) 'expected the real registry key to actually exist now'
+    } finally {
+        Remove-Item -Path $keyPath -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+
+Test-Otter 'D78: get registry value round-trips a real value and delete really removes it' {
+    $keyPath = 'HKCU:\Software\OtterLangTest-D78-B'
+    Remove-Item -Path $keyPath -Recurse -Force -ErrorAction SilentlyContinue
+    try {
+        $out = Invoke-TestProgram @(
+            [SetRegistryValueStmt]::new((Lit 'Greeting'), (Lit 'hello registry'), (Lit $keyPath), 1),
+            [GetRegistryValueStmt]::new((Lit 'Greeting'), (Lit $keyPath), 'value', 2),
+            [SayStmt]::new(@((Var 'value')), 3),
+            [DeleteRegistryValueStmt]::new((Lit 'Greeting'), (Lit $keyPath), 4),
+            [GetRegistryValueStmt]::new((Lit 'Greeting'), (Lit $keyPath), 'afterDelete', 5),
+            [IfStmt]::new(
+                @([IfBranch]::new((CompareEx (Var 'afterDelete') 'Equal' (Gone)),
+                    @([SayStmt]::new(@((Lit 'gone')), 7)))),
+                @([SayStmt]::new(@((Lit 'still present')), 9)), 6)
+        )
+        Assert-Lines -Expected @('hello registry', 'gone') -Actual $out
+        $realValue = Get-ItemProperty -LiteralPath $keyPath -Name 'Greeting' -ErrorAction SilentlyContinue
+        Assert-True ($null -eq $realValue) 'expected the real registry value to actually be gone'
+    } finally {
+        Remove-Item -Path $keyPath -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+
+Test-Otter 'D78: get registry value from a key that does not exist is gone, not an error' {
+    $keyPath = 'HKCU:\Software\OtterLangTest-D78-DoesNotExist'
+    Remove-Item -Path $keyPath -Recurse -Force -ErrorAction SilentlyContinue
+    $out = Invoke-TestProgram @(
+        [GetRegistryValueStmt]::new((Lit 'Anything'), (Lit $keyPath), 'value', 1),
+        [IfStmt]::new(
+            @([IfBranch]::new((CompareEx (Var 'value') 'Equal' (Gone)),
+                @([SayStmt]::new(@((Lit 'gone')), 3)))),
+            @([SayStmt]::new(@((Lit 'has a value')), 5)), 2)
+    )
+    Assert-Lines -Expected @('gone') -Actual $out
+}
+
+Test-Otter 'D78: a registry path that does not look like one is a clean Otter error' {
+    Assert-OtterFails -Containing 'does not look like a registry key path' -Body {
+        Invoke-TestProgram @( [GetRegistryValueStmt]::new((Lit 'x'), (Lit 'NotARealRegistryPath'), 'value', 1) )
+    }
+}
+
+# =================================================================
 # D70 - process management: run ... into p, get processes, kill
 # =================================================================
 

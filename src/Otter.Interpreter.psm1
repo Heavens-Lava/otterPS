@@ -675,6 +675,32 @@ function Invoke-OtterStatement {
             return
         }
 
+        # get registry value "n" from "path" into t                     (D78)
+        'GetRegistryValue' {
+            $valueName = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.ValueName -Environment $Environment)
+            $keyPath = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.KeyPath -Environment $Environment)
+            $value = Get-OtterRegistryValue -ValueName $valueName -KeyPath $keyPath -Line $Statement.Line
+            $Environment.Set($Statement.Target, $value)
+            return
+        }
+
+        # set registry value "n" to "d" in "path"                       (D78)
+        'SetRegistryValue' {
+            $valueName = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.ValueName -Environment $Environment)
+            $value = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.Value -Environment $Environment)
+            $keyPath = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.KeyPath -Environment $Environment)
+            Set-OtterRegistryValue -ValueName $valueName -Value $value -KeyPath $keyPath -Line $Statement.Line
+            return
+        }
+
+        # delete registry value "n" from "path"                         (D78)
+        'DeleteRegistryValue' {
+            $valueName = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.ValueName -Environment $Environment)
+            $keyPath = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.KeyPath -Environment $Environment)
+            Remove-OtterRegistryValue -ValueName $valueName -KeyPath $keyPath -Line $Statement.Line
+            return
+        }
+
         'DeleteFolder' {
             Remove-OtterFolder -Path (Get-OtterPathArgument -Expression $Statement.Path -Environment $Environment) -Line $Statement.Line
             return
@@ -1516,6 +1542,12 @@ function Get-OtterValue {
         'FileIsReadOnly' {
             $path = Get-OtterPathArgument -Expression $Expression.Path -Environment $Environment
             return (Test-OtterFileReadOnly -Path $path -Line $Expression.Line)
+        }
+
+        # if registry key "path" exists                                 (D78)
+        'RegistryKeyExists' {
+            $keyPath = Format-OtterValue -Value (Get-OtterValue -Expression $Expression.KeyPath -Environment $Environment)
+            return (Test-OtterRegistryKeyExists -KeyPath $keyPath)
         }
 
         # length of name / length of games / uppercase of name /

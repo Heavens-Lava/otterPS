@@ -5887,3 +5887,73 @@ implementation applies).
 
 ---
 
+## D78. Windows registry — `get`/`set`/`delete registry value ... [from/to/in] "path"`, `registry key "path" exists`
+
+**Status: IMPLEMENTED and verified end-to-end through the real `otter
+run` CLI against a real, isolated `HKCU:\Software\...` test key -
+including confirming the real registry state directly with `Get-
+ItemProperty`/`Test-Path` after each operation, not just trusting
+Otter's own report of success.**
+
+The first genuinely NEW grammar this OS-admin tail has needed since
+D69's `get system information` was designed - registry operations take
+two independent path-like arguments (a value name AND a key path),
+which does not fit that statement's single-kind-string shape, so this
+is four new statement/expression forms instead: `get registry value
+"n" from "path" into t`, `set registry value "n" to "d" in "path"`,
+`delete registry value "n" from "path"`, and `registry key "path"
+exists` (a condition-primary, alongside `file "path" ...`). "registry"/
+"value"/"key" are all ordinary identifiers matched by text - no new
+lexer keyword needed, same D33 contextual-keyword discipline every
+prior D6x/D7x addition has used.
+
+**Design choices, each deliberate:**
+- `get registry value` returns `gone` (not an error) for a missing
+  value OR a missing key entirely - matching D67's
+  `GetEnvironmentVariable`'s own "unset means gone" choice, since a
+  missing registry value is an equally ordinary, expected outcome.
+- `set registry value` creates the key path if it does not exist yet -
+  matching `WriteFile`'s own "creates the parent folder if needed"
+  convention, so the two `set`-a-value-somewhere statements in this
+  language behave the same way about missing intermediate structure.
+- `delete registry value` on an already-missing value (or an
+  already-missing key) is success, not an error - the same "asking for
+  an end state that already holds" tolerance `kill`/`Stop-OtterProcess`
+  already established.
+- Registry key paths are their OWN namespace
+  (`HKCU:`/`HKLM:`/`HKCR:`/`HKU:`/`HKCC:`), never routed through
+  `Resolve-OtterPath` (which anchors relative paths against the current
+  working directory - a filesystem-only concept that would silently
+  misinterpret a registry path). `Assert-OtterRegistryKeyPath` checks
+  the drive prefix up front and reports a specific, actionable error
+  for anything else, rather than a confusing filesystem-flavored
+  failure.
+- A `REG_DWORD`/`REG_QWORD` value read back comes from .NET as a
+  native integer type; it is cast to `[double]` before reaching Otter
+  code, matching how this language's number runtime type is always a
+  double (the same normalization JSON-number decoding already performs
+  elsewhere) - confirmed by checking the actual .NET type PowerShell's
+  registry provider returns, not assumed.
+- Values are always written as `REG_SZ` (string) - Otter has no
+  separate integer/string registry-value concept to expose, and the
+  value is already `Format-OtterValue`-stringified (matching `say`'s
+  own formatting) before the write, keeping the write path simple and
+  the round-trip predictable.
+
+**Verified:** through the real `otter run` CLI against a real, isolated
+`HKCU:\Software\OtterLangD78Test` key created and destroyed entirely by
+this session - `registry key ... exists` correctly `false` before
+creation and `true` after a real `set`; a real value written, read back
+byte-for-byte, then genuinely deleted (confirmed via `Get-ItemProperty`
+directly against the real registry afterward, not just Otter's own
+report); a missing value/key both correctly reporting `gone`; and an
+invalid path (no recognized drive prefix) caught cleanly. Four new
+regression tests in `tests/Part3.Tests.ps1`, each cleaning up its own
+real registry key in a `finally` block regardless of pass/fail. JS
+compiler emits calls to four new required host hooks with no bridge
+implementation yet, same reported-boundary treatment as D69-D77 - a
+Windows registry is a host concept even a desktop bridge only has on
+one platform, a real boundary worth naming explicitly here.
+
+---
+

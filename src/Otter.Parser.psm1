@@ -245,6 +245,19 @@ function Read-OtterConditionPrimary {
         $token = Read-OtterToken
         return [NotExpr]::new((Read-OtterConditionPrimary), $token.Line)
     }
+    # D78: `if registry key "HKCU:\Software\MyApp" exists`
+    $maybeRegistry = Get-OtterCurrentToken
+    if ($maybeRegistry.Kind -eq [TokenKind]::Identifier -and $maybeRegistry.Text -eq 'registry') {
+        $registryToken = Read-OtterToken
+        $keyWord = Get-OtterCurrentToken
+        if ($keyWord.Kind -ne [TokenKind]::Identifier -or $keyWord.Text -ne 'key') {
+            throw (New-OtterParserError 'I expected "key" after "registry".' $keyWord 'if registry key "HKCU:\Software\MyApp" exists')
+        }
+        [void](Read-OtterToken)
+        $regKeyPath = Read-OtterValue
+        [void](Assert-OtterTokenKind ([TokenKind]::Exists) 'I expected "exists" after the registry key path.')
+        return [RegistryKeyExistsExpr]::new($regKeyPath, $registryToken.Line)
+    }
     if (Test-OtterTokenKind ([TokenKind]::File)) {
         $fileToken = Read-OtterToken
         $path = Read-OtterValue
@@ -1356,6 +1369,22 @@ function Read-OtterStatement {
                 [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the get statement to end here.')
                 return [GetFileOwnerStmt]::new($ownerPath, $ownerTarget.Text, $start.Line)
             }
+            # D78: `get registry value "n" from "path" into t`
+            if ($kind.Kind -eq [TokenKind]::Identifier -and $kind.Text -eq 'registry') {
+                [void](Read-OtterToken)
+                $regValueWord = Get-OtterCurrentToken
+                if ($regValueWord.Kind -ne [TokenKind]::Identifier -or $regValueWord.Text -ne 'value') {
+                    throw (New-OtterParserError 'I expected "value" after "registry".' $regValueWord 'get registry value "n" from "path" into t')
+                }
+                [void](Read-OtterToken)
+                $regValueName = Read-OtterValue
+                [void](Assert-OtterTokenKind ([TokenKind]::From) 'I expected "from" and a registry key path.')
+                $regKeyPathGet = Read-OtterValue
+                [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a result name.')
+                $regTarget = Read-OtterVariableName 'I expected a result name after "into".'
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the get statement to end here.')
+                return [GetRegistryValueStmt]::new($regValueName, $regKeyPathGet, $regTarget.Text, $start.Line)
+            }
             if ($kind.Kind -eq [TokenKind]::Files -or $kind.Kind -eq [TokenKind]::Folders) {
                 [void](Read-OtterToken)
                 [void](Assert-OtterTokenKind ([TokenKind]::In) 'I expected "in" and a folder path.')
@@ -1454,6 +1483,23 @@ function Read-OtterStatement {
                 }
                 [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the set statement to end here.')
                 return [SetFileReadOnlyStmt]::new($roPath, $readOnly, $start.Line)
+            }
+            # D78: `set registry value "n" to "d" in "path"`
+            $maybeRegistrySet = Get-OtterCurrentToken
+            if ($maybeRegistrySet.Kind -eq [TokenKind]::Identifier -and $maybeRegistrySet.Text -eq 'registry') {
+                [void](Read-OtterToken)
+                $regValueWordSet = Get-OtterCurrentToken
+                if ($regValueWordSet.Kind -ne [TokenKind]::Identifier -or $regValueWordSet.Text -ne 'value') {
+                    throw (New-OtterParserError 'I expected "value" after "registry".' $regValueWordSet 'set registry value "n" to "d" in "path"')
+                }
+                [void](Read-OtterToken)
+                $regValueNameSet = Read-OtterValue
+                [void](Assert-OtterTokenKind ([TokenKind]::To) 'I expected "to" and a value.')
+                $regValueData = Read-OtterValue
+                [void](Assert-OtterTokenKind ([TokenKind]::In) 'I expected "in" and a registry key path.')
+                $regKeyPathSet = Read-OtterValue
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the set statement to end here.')
+                return [SetRegistryValueStmt]::new($regValueNameSet, $regValueData, $regKeyPathSet, $start.Line)
             }
             $key = Read-OtterValue
             [void](Assert-OtterTokenKind ([TokenKind]::To) 'I expected "to" and a value.')
@@ -1814,6 +1860,21 @@ function Read-OtterStatement {
         }
         ([TokenKind]::Delete) {
             [void](Read-OtterToken)
+            # D78: `delete registry value "n" from "path"`
+            $maybeRegistryDel = Get-OtterCurrentToken
+            if ($maybeRegistryDel.Kind -eq [TokenKind]::Identifier -and $maybeRegistryDel.Text -eq 'registry') {
+                [void](Read-OtterToken)
+                $regValueWordDel = Get-OtterCurrentToken
+                if ($regValueWordDel.Kind -ne [TokenKind]::Identifier -or $regValueWordDel.Text -ne 'value') {
+                    throw (New-OtterParserError 'I expected "value" after "registry".' $regValueWordDel 'delete registry value "n" from "path"')
+                }
+                [void](Read-OtterToken)
+                $regValueNameDel = Read-OtterValue
+                [void](Assert-OtterTokenKind ([TokenKind]::From) 'I expected "from" and a registry key path.')
+                $regKeyPathDel = Read-OtterValue
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the delete statement to end here.')
+                return [DeleteRegistryValueStmt]::new($regValueNameDel, $regKeyPathDel, $start.Line)
+            }
             if (Test-OtterTokenKind ([TokenKind]::Folder)) {
                 [void](Read-OtterToken)
                 $path = Read-OtterValue

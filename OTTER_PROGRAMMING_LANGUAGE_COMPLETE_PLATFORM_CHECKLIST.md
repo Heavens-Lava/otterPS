@@ -408,7 +408,13 @@ creation.
     Installer consistency check as a side effect), verified against
     431 real installed applications on this machine. See
     SPEC-DECISIONS.md D77)
--   [ ] Registry provider for Windows
+-   [x] Registry provider for Windows (D78: `get`/`set`/`delete
+    registry value ...`, `registry key "path" exists` - real grammar
+    (the first genuinely new grammar this OS-admin tail needed since
+    D69), verified through the real `otter run` CLI against a real,
+    isolated `HKCU:\Software\...` test key, confirmed directly with
+    `Get-ItemProperty`/`Test-Path` after each operation. See
+    SPEC-DECISIONS.md D78)
 -   [ ] Event log provider
 -   [ ] System logs provider
 -   [ ] Scheduled tasks/cron provider

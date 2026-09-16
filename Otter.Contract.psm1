@@ -400,6 +400,12 @@ enum NodeKind {
     GetFileOwner           # get owner of "x" into owner
     FileIsReadOnly         # an EXPRESSION: if file "x" is read only
     SetFileReadOnly        # set file "x" to read only / to writable
+
+    # --- Windows registry (D78) --------------------------------------
+    GetRegistryValue       # get registry value "n" from "path" into t
+    SetRegistryValue       # set registry value "n" to "d" in "path"
+    DeleteRegistryValue    # delete registry value "n" from "path"
+    RegistryKeyExists      # an EXPRESSION: if registry key "path" exists
 }
 
 enum MathOp { Add; Subtract; Multiply; Divide }
@@ -1329,6 +1335,54 @@ class SetFileReadOnlyStmt : Node {
     SetFileReadOnlyStmt([Node]$path, [bool]$readOnly, [int]$line) : base([NodeKind]::SetFileReadOnly, $line) {
         $this.Path = $path
         $this.ReadOnly = $readOnly
+    }
+}
+
+# get registry value "n" from "HKCU:\Software\MyApp" into t           (D78)
+# `gone` (not an error) when the value or the key does not exist -
+# matching D67's GetEnvironmentVariable's own "unset means gone, not a
+# failure" choice, since a missing registry value is an equally
+# ordinary, expected outcome for real Otter programs to branch on.
+class GetRegistryValueStmt : Node {
+    [Node]$ValueName
+    [Node]$KeyPath
+    [string]$Target
+    GetRegistryValueStmt([Node]$valueName, [Node]$keyPath, [string]$target, [int]$line) : base([NodeKind]::GetRegistryValue, $line) {
+        $this.ValueName = $valueName
+        $this.KeyPath = $keyPath
+        $this.Target = $target
+    }
+}
+
+# set registry value "n" to "d" in "HKCU:\Software\MyApp"             (D78)
+# Creates the key path if it does not exist yet, matching WriteFile's
+# own "creates the parent folder if needed" convention for files.
+class SetRegistryValueStmt : Node {
+    [Node]$ValueName
+    [Node]$Value
+    [Node]$KeyPath
+    SetRegistryValueStmt([Node]$valueName, [Node]$value, [Node]$keyPath, [int]$line) : base([NodeKind]::SetRegistryValue, $line) {
+        $this.ValueName = $valueName
+        $this.Value = $value
+        $this.KeyPath = $keyPath
+    }
+}
+
+# delete registry value "n" from "HKCU:\Software\MyApp"               (D78)
+class DeleteRegistryValueStmt : Node {
+    [Node]$ValueName
+    [Node]$KeyPath
+    DeleteRegistryValueStmt([Node]$valueName, [Node]$keyPath, [int]$line) : base([NodeKind]::DeleteRegistryValue, $line) {
+        $this.ValueName = $valueName
+        $this.KeyPath = $keyPath
+    }
+}
+
+# if registry key "HKCU:\Software\MyApp" exists                       (D78)
+class RegistryKeyExistsExpr : Node {
+    [Node]$KeyPath
+    RegistryKeyExistsExpr([Node]$keyPath, [int]$line) : base([NodeKind]::RegistryKeyExists, $line) {
+        $this.KeyPath = $keyPath
     }
 }
 

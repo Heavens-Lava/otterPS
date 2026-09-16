@@ -544,6 +544,91 @@ function Test-OtterSymbolicLink {
     return [bool]$item.LinkType
 }
 
+# Registry key paths (D78) are their OWN namespace, not filesystem
+# paths - "HKCU:\Software\MyApp" must never go through Resolve-
+# OtterPath (which anchors relative paths against the current working
+# directory, a filesystem-only concept). This validates the drive
+# prefix instead, so a typo'd path fails with a clear Otter error
+# rather than silently becoming a nonsense filesystem lookup.
+function Assert-OtterRegistryKeyPath {
+    param([string]$KeyPath, [int]$Line)
+
+    if ($KeyPath -notmatch '^(HKCU|HKLM|HKCR|HKU|HKCC):') {
+        throw [OtterError]::new(
+            "`"$KeyPath`" does not look like a registry key path.",
+            $Line, 'runtime', 0, $null,
+            'Registry paths start with HKCU:, HKLM:, HKCR:, HKU:, or HKCC: - for example "HKCU:\Software\MyApp".')
+    }
+}
+
+# get registry value "n" from "path" into t                           (D78)
+# `gone` (not an error) when the value or the key does not exist -
+# matching GetEnvironmentVariable's own "unset means gone" choice.
+function Get-OtterRegistryValue {
+    param([string]$ValueName, [string]$KeyPath, [int]$Line)
+
+    Assert-OtterRegistryKeyPath -KeyPath $KeyPath -Line $Line
+    if (-not (Test-Path -LiteralPath $KeyPath)) { return $null }
+    try {
+        $item = Get-ItemProperty -LiteralPath $KeyPath -Name $ValueName -ErrorAction Stop
+        $raw = $item.$ValueName
+        # A REG_DWORD/REG_QWORD comes back as a .NET integer type, which
+        # Otter's own number runtime type is always a double - cast here
+        # so `add`/comparisons on a registry-read number work the same
+        # way they do on a number literal, matching how JSON-number
+        # decoding already normalizes to double elsewhere in this module.
+        if ($raw -is [int] -or $raw -is [long] -or $raw -is [uint32] -or $raw -is [uint64]) {
+            return [double]$raw
+        }
+        return $raw
+    } catch {
+        return $null
+    }
+}
+
+# set registry value "n" to "d" in "path"                              (D78)
+# Creates the key path if it does not exist yet, matching WriteFile's
+# own "creates the parent folder if needed" convention.
+function Set-OtterRegistryValue {
+    param([string]$ValueName, [string]$Value, [string]$KeyPath, [int]$Line)
+
+    Assert-OtterRegistryKeyPath -KeyPath $KeyPath -Line $Line
+    try {
+        if (-not (Test-Path -LiteralPath $KeyPath)) {
+            [void](New-Item -Path $KeyPath -Force -ErrorAction Stop)
+        }
+        [void](New-ItemProperty -Path $KeyPath -Name $ValueName -Value $Value -PropertyType String -Force -ErrorAction Stop)
+    } catch {
+        throw [OtterError]::new(
+            "I could not set the registry value `"$ValueName`" in `"$KeyPath`". $($_.Exception.Message)",
+            $Line, 'runtime')
+    }
+}
+
+# delete registry value "n" from "path"                                (D78)
+# Deleting a value that is already gone is success, not an error - the
+# same "asking for an end state that already holds" tolerance kill/stop
+# already use elsewhere in this module.
+function Remove-OtterRegistryValue {
+    param([string]$ValueName, [string]$KeyPath, [int]$Line)
+
+    Assert-OtterRegistryKeyPath -KeyPath $KeyPath -Line $Line
+    if (-not (Test-Path -LiteralPath $KeyPath)) { return }
+    try {
+        Remove-ItemProperty -LiteralPath $KeyPath -Name $ValueName -ErrorAction Stop
+    } catch {
+        # already gone, or never existed - nothing left to do
+    }
+}
+
+# if registry key "path" exists                                       (D78)
+function Test-OtterRegistryKeyExists {
+    param([string]$KeyPath)
+
+    if ($KeyPath -notmatch '^(HKCU|HKLM|HKCR|HKU|HKCC):') { return $false }
+    return (Test-Path -LiteralPath $KeyPath)
+}
+
 # get owner of "x" into owner                                        (D74)
 # Works on either a file or a folder - ownership is a filesystem-wide
 # concept, unlike read-only below, which this module deliberately
@@ -1373,4 +1458,5 @@ Export-ModuleMember -Function `
     New-OtterProcessObject, Get-OtterProcessList, Stop-OtterProcess, `
     Set-OtterProcessPriority, Wait-OtterProcess, `
     New-OtterSymbolicLink, Get-OtterSymbolicLinkTarget, Test-OtterSymbolicLink, `
-    Get-OtterFileOwner, Test-OtterFileReadOnly, Set-OtterFileReadOnly
+    Get-OtterFileOwner, Test-OtterFileReadOnly, Set-OtterFileReadOnly, `
+    Get-OtterRegistryValue, Set-OtterRegistryValue, Remove-OtterRegistryValue, Test-OtterRegistryKeyExists
