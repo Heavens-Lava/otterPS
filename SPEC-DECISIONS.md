@@ -6482,3 +6482,51 @@ filesystem hook in this compiler.
 
 ---
 
+## D88. Percent and Power operations — `X percent of Y`, `X power Y`
+
+**Status: IMPLEMENTED and verified end-to-end through the real `otter
+run` CLI, including confirming Power participates in the same flat,
+left-to-right precedence chain every other arithmetic operator in this
+language already uses.**
+
+Closes both "Percent operation" and "Power operation" - correctly
+verified absent earlier this session (zero references anywhere before
+this). Both extend the SAME existing infix chain `plus`/`minus`/
+`times`/`divided by` already use (`Read-OtterMathExpression`), not a
+new expression shape: `X power Y` is a direct binary operator, no glue
+word needed; `X percent of Y` needs "of" consumed between the operator
+and the right operand - the one exception in that loop, since every
+other operator there reads its right operand immediately.
+
+**Power deliberately follows this language's own frozen, non-standard
+precedence convention rather than mathematical convention** - D7
+already froze operator precedence as flat and strictly left-to-right
+(`2 plus 3 times 4` evaluates as `(2+3)*4=20`, confirmed directly, not
+standard math's `2+12=14`); `2 power 3 plus 1` therefore evaluates as
+`(2^3)+1=9`, not `2^4=16`. Deviating from that established convention
+just for the new operator would have been a genuinely worse choice
+than staying consistent with a decision already frozen, even though it
+is not how exponentiation is usually taught.
+
+**The JS compiler's implementation deliberately matches an existing,
+already-documented gap rather than fixing it only for the two new
+operators:** `Subtract`/`Multiply`/`Divide` already use plain
+`Number(...)` coercion with no validation (a known, flagged-but-
+unfixed finding from Phase 1D-B - the interpreter's own
+`Assert-OtterNumber` throws on a non-numeric operand, but `Number(...)`
+silently produces `NaN` instead). `Percent`/`Power` use the exact same
+minimal pattern for consistency with their siblings - rigorously
+validating only the two newest operators while their neighbors stay
+unvalidated would be a worse, more confusing inconsistency than
+matching the existing local convention.
+
+**Verified:** through the real `otter run` CLI - `20 percent of 150`
+→ `30`, `10 percent of 50` → `5`, `2 power 10` → `1024`, `5 power 2` →
+`25`, all real, correct values; `2 power 3 plus 1` → `9` confirming the
+flat left-to-right chain applies to the new operator exactly as it
+already does to the existing ones. The generated JS for both operators
+executed directly in real Node, producing identical results to the
+interpreter. Two new regression tests in `tests/Interpreter.Tests.ps1`.
+
+---
+

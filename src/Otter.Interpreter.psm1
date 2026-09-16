@@ -1473,6 +1473,10 @@ function Get-OtterValue {
                     }
                     return $left / $right
                 }
+                # X percent of Y                                          (D88)
+                'Percent' { return ($left / 100.0) * $right }
+                # X power Y                                                (D88)
+                'Power' { return [Math]::Pow($left, $right) }
             }
             return $null
         }

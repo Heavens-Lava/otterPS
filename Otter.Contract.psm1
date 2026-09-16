@@ -116,6 +116,10 @@ enum TokenKind {
     Zip             # zip folder "src" into "archive.zip"
     Unzip           # unzip "archive.zip" into "dest"
 
+    # --- math operators (D88) ---------------------------------------------
+    Percent         # X percent of Y
+    Power           # X power Y
+
     # --- strings and collections (D24, D25, D26) ----------------
     Length          # length of name / length of games
     Uppercase
@@ -448,7 +452,7 @@ enum NodeKind {
     UnzipFile              # unzip "archive.zip" into "dest"
 }
 
-enum MathOp { Add; Subtract; Multiply; Divide }
+enum MathOp { Add; Subtract; Multiply; Divide; Percent; Power }   # D88
 
 enum CompareOp { Equal; NotEqual; AtLeast; AtMost; GreaterThan; LessThan }
 

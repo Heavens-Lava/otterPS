@@ -145,6 +145,27 @@ Test-Otter 'dividing by zero is a friendly Otter error' {
     }
 }
 
+Test-Otter 'D88: percent and power operators compute real values' {
+    $out = Invoke-TestProgram @(
+        (SaySt @((MathEx (Lit 20.0) 'Percent' (Lit 150.0)))),
+        (SaySt @((MathEx (Lit 10.0) 'Percent' (Lit 50.0)))),
+        (SaySt @((MathEx (Lit 2.0) 'Power' (Lit 10.0)))),
+        (SaySt @((MathEx (Lit 5.0) 'Power' (Lit 2.0))))
+    )
+    Assert-Lines -Expected @('30', '5', '1024', '25') -Actual $out
+}
+
+Test-Otter 'D88: power participates in the SAME flat left-to-right chain as every other math operator' {
+    # 2 power 3 plus 1 -> (2^3) + 1 = 9, NOT standard precedence (2^4=16) -
+    # matching this language's already-frozen "no operator precedence,
+    # strictly left to right" design (confirmed directly: `2 plus 3 times
+    # 4` already evaluates as (2+3)*4=20, not 2+12=14).
+    $out = Invoke-TestProgram @(
+        (SaySt @((MathEx (MathEx (Lit 2.0) 'Power' (Lit 3.0)) 'Add' (Lit 1.0))))
+    )
+    Assert-Lines -Expected @('9') -Actual $out
+}
+
 Test-Otter 'doing maths on text explains itself' {
     Assert-OtterFails -Containing 'I expected a number' -Body {
         Invoke-TestProgram @(

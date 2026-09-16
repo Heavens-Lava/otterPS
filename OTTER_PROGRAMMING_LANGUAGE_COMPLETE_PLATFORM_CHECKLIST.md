@@ -83,9 +83,12 @@ creation.
 -   [x] `minus`
 -   [x] `times`
 -   [x] `divided by`
--   [ ] Percent operation (verified absent - zero references in the
-    interpreter, contract, or parser; not a real Otter construct today)
--   [ ] Power operation (verified absent, same as Percent)
+-   [x] Percent operation (D88: `X percent of Y` - real infix operator,
+    verified through the real `otter run` CLI. See SPEC-DECISIONS.md
+    D88)
+-   [x] Power operation (D88: `X power Y` - real infix operator,
+    deliberately follows this language's own frozen flat left-to-right
+    precedence rather than standard math precedence, verified directly)
 -   [x] Mutation with `increase` (`increase X by N` - real lexer
     keyword mapping to the same Add token as `add`, real parser
     grammar, verified through the real CLI: `otter run` on a real
@@ -623,8 +626,9 @@ creation.
 # 16. Math & Scientific Foundation
 
 -   [x] Basic arithmetic
--   [ ] Percent (verified absent, same as section 2's Percent operation)
--   [ ] Power (verified absent, same as section 2's Power operation)
+-   [x] Percent (D88, same as section 2's Percent operation - see
+    SPEC-DECISIONS.md D88)
+-   [x] Power (D88, same as section 2's Power operation)
 -   [ ] Absolute value (verified absent - no such keyword/operation
     exists in the lexer, parser, or interpreter)
 -   [ ] Round/floor/ceiling (verified absent as a language operation -

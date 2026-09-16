@@ -226,14 +226,24 @@ function Read-OtterMathExpression {
     while ((Test-OtterTokenKind ([TokenKind]::And)) -or
            (Test-OtterTokenKind ([TokenKind]::Minus)) -or
            (Test-OtterTokenKind ([TokenKind]::Times)) -or
-           (Test-OtterTokenKind ([TokenKind]::DividedBy))) {
+           (Test-OtterTokenKind ([TokenKind]::DividedBy)) -or
+           (Test-OtterTokenKind ([TokenKind]::Percent)) -or
+           (Test-OtterTokenKind ([TokenKind]::Power))) {
         $operator = Read-OtterToken
+        # D88: `X percent of Y` needs "of" consumed between the operator
+        # and the right operand - every other operator here reads the
+        # right operand immediately, so this is the one exception.
+        if ($operator.Kind -eq [TokenKind]::Percent) {
+            [void](Assert-OtterTokenKind ([TokenKind]::Of) 'I expected "of" after "percent".')
+        }
         $right = Read-OtterValue
         $mathOp = switch ($operator.Kind) {
             ([TokenKind]::And) { [MathOp]::Add }
             ([TokenKind]::Minus) { [MathOp]::Subtract }
             ([TokenKind]::Times) { [MathOp]::Multiply }
             ([TokenKind]::DividedBy) { [MathOp]::Divide }
+            ([TokenKind]::Percent) { [MathOp]::Percent }
+            ([TokenKind]::Power) { [MathOp]::Power }
         }
         $left = [MathExpr]::new($left, $mathOp, $right, $operator.Line)
     }

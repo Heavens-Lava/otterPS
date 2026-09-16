@@ -240,6 +240,16 @@ function ConvertTo-OtterJsExpression {
                 ([MathOp]::Subtract) { return "(Number($left) - Number($right))" }
                 ([MathOp]::Multiply) { return "(Number($left) * Number($right))" }
                 ([MathOp]::Divide) { return "(Number($left) / Number($right))" }
+                # D88. Same minimal Number() coercion as Subtract/Multiply/
+                # Divide above - the interpreter's Assert-OtterNumber
+                # validation gap for these operators is already a known,
+                # documented, deliberately-unfixed finding from Phase 1D-B;
+                # matching that existing local convention here rather than
+                # rigorously validating only the two NEW operators, which
+                # would be inconsistent with their siblings for no real
+                # benefit.
+                ([MathOp]::Percent) { return "((Number($left) / 100) * Number($right))" }
+                ([MathOp]::Power) { return "(Math.pow(Number($left), Number($right)))" }
             }
         }
         ([NodeKind]::Await) {
