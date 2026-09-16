@@ -3,7 +3,8 @@ import {
   filterNavigationItems,
   flattenProjectFiles,
   NavigationHistory,
-  symbolsForFile
+  symbolsForFile,
+  definitionForWord
 } from '../js/navigation/symbol-index.js';
 
 const files = flattenProjectFiles([
@@ -33,6 +34,15 @@ const symbols = symbolsForFile([
   { Name: 'other', File: 'projects/demo/lib/helpers.ot', Line: 1, Column: 0 }
 ], 'projects/demo/main.ot');
 assert.deepEqual(symbols.map(symbol => symbol.Name), ['earlier', 'later']);
+
+const definitions = [
+  { Name: 'name', File: 'projects/demo/main.ot', Line: 2, Column: 0 },
+  { Name: 'name', File: 'projects/demo/main.ot', Line: 12, Column: 4 },
+  { Name: 'greet', File: 'projects/demo/main.ot', Line: 20, Column: 3 }
+];
+assert.equal(definitionForWord(definitions, 'projects/demo/main.ot', 'name', 14).Line, 12, 'nearest preceding declaration must win');
+assert.equal(definitionForWord(definitions, 'projects/demo/main.ot', 'greet', 4).Line, 20, 'later declarations must resolve for forward function calls');
+assert.equal(definitionForWord(definitions, 'projects/demo/main.ot', 'missing', 4), null, 'unknown words must not navigate arbitrarily');
 
 const history = new NavigationHistory(3);
 history.record({ path: 'main.ot', line: 2, column: 0 });

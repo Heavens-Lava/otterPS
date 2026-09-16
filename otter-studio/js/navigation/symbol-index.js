@@ -47,6 +47,20 @@ export function symbolsForFile(symbols, filePath) {
     .sort((left, right) => Number(left.Line) - Number(right.Line) || Number(left.Column) - Number(right.Column));
 }
 
+// Resolve only declarations that the current document can legally see without
+// inventing module/hoisting semantics.  The nearest declaration before the
+// cursor wins; a later declaration is used for forward-declared functions.
+export function definitionForWord(symbols, filePath, name, line) {
+  const candidates = symbolsForFile(symbols, filePath)
+    .filter(symbol => symbol.Name === name);
+  if (candidates.length === 0) return null;
+
+  const beforeCursor = candidates
+    .filter(symbol => Number(symbol.Line) <= Number(line))
+    .sort((left, right) => Number(right.Line) - Number(left.Line));
+  return beforeCursor[0] || candidates[0];
+}
+
 export class NavigationHistory {
   constructor(limit = 100) {
     this.limit = limit;

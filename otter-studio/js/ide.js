@@ -4,7 +4,8 @@ import {
   filterNavigationItems,
   flattenProjectFiles,
   NavigationHistory,
-  symbolsForFile
+  symbolsForFile,
+  definitionForWord
 } from './navigation/symbol-index.js';
 
 export class OtterStudioIde {
@@ -263,6 +264,7 @@ export class OtterStudioIde {
     this.btnAddNewTab = document.getElementById('btnAddNewTab');
     this.btnFormatDoc = document.getElementById('btnFormatDoc');
     this.btnFindDoc = document.getElementById('btnFindDoc');
+    this.btnGoToDefinition = document.getElementById('btnGoToDefinition');
     this.btnToggleWordWrap = document.getElementById('btnToggleWordWrap');
     this.breadcrumbsEl = document.getElementById('editorBreadcrumbs');
 
@@ -319,6 +321,7 @@ export class OtterStudioIde {
     this.btnNavigateBack?.addEventListener('click', () => this.navigateHistoryBack());
     this.btnNavigateForward?.addEventListener('click', () => this.navigateHistoryForward());
     this.btnToggleWordWrap?.addEventListener('click', () => this.setWordWrap(!this.wordWrap));
+    this.btnGoToDefinition?.addEventListener('click', () => this.goToDefinition());
     this.workspaceSearchForm?.addEventListener('submit', event => {
       event.preventDefault();
       this.searchWorkspace();
@@ -730,6 +733,35 @@ export class OtterStudioIde {
   async navigateHistoryForward() {
     const location = this.navigationHistory.forward();
     if (location) await this.navigateToLocation(location, false);
+  }
+
+  wordAtCursor() {
+    const textarea = document.getElementById('hiddenEditorInput');
+    if (!textarea) return null;
+    const source = textarea.value;
+    const cursor = textarea.selectionStart;
+    const isWordChar = character => /[A-Za-z0-9_]/.test(character || '');
+    let start = cursor;
+    let end = cursor;
+    while (start > 0 && isWordChar(source[start - 1])) start--;
+    while (end < source.length && isWordChar(source[end])) end++;
+    return start === end ? null : source.slice(start, end);
+  }
+
+  async goToDefinition() {
+    const word = this.wordAtCursor();
+    const location = this.currentEditorLocation();
+    if (!word || !location) return;
+    const definition = definitionForWord(this.workspaceSymbols, location.path, word, location.line);
+    if (!definition) {
+      this.setProblemsStatus(false, `No definition found for '${word}'.`, 'Only declarations in this Otter file are currently resolved.', 'Go to Definition', 'Try a declared variable or function.');
+      return;
+    }
+    await this.navigateToLocation({
+      path: location.path,
+      line: Number(definition.Line) || 1,
+      column: Number(definition.Column) || 0
+    });
   }
 
   updateNavigationButtons() {
@@ -1711,6 +1743,11 @@ export class OtterStudioIde {
         if (e.altKey && !e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 'z') {
           e.preventDefault();
           this.setWordWrap(!this.wordWrap);
+          return;
+        }
+        if (e.key === 'F12') {
+          e.preventDefault();
+          this.goToDefinition();
           return;
         }
         if (e.ctrlKey && e.key === 'f') {

@@ -26,9 +26,12 @@ assert.match(ide, /setSelectionRange\(start, end\)/, 'Editor redraws must restor
 assert.match(ide, /textarea\.scrollTop = editorState\.scrollTop/, 'Editor redraws must restore the original scroll position');
 assert.match(html, /id="btnToggleWordWrap"/, 'Editor must expose an explicit word-wrap control');
 assert.match(html, /id="editorBreadcrumbs"/, 'Editor must expose the current-file breadcrumbs');
+assert.match(html, /id="btnGoToDefinition"/, 'Editor must expose Go to Definition');
 assert.match(ide, /otter-studio-word-wrap/, 'Word-wrap preference must persist between Studio sessions');
 assert.match(ide, /Alt\+Z/, 'Word-wrap must be discoverable through its keyboard shortcut');
 assert.match(ide, /renderBreadcrumbs\(\)/, 'Editor chrome must render breadcrumbs as files change');
+assert.match(ide, /definitionForWord/, 'Go to Definition must use the indexed symbol resolver');
+assert.match(ide, /e\.key === 'F12'/, 'Go to Definition must have the standard F12 shortcut');
 assert.match(darkCss, /body\.theme-dark/, 'Dark workbench colors must remain theme-scoped');
 assert.match(darkCss, /\.theme-dark \.code-text-area[\s\S]*caret-color:/, 'Dark editor must keep a visible caret');
 
