@@ -13,7 +13,7 @@ export function parseOtterSource(source, targetModel) {
   const parenting = new Map(); // containerName -> [childNames]
   const eventHandlers = new Map(); // name -> { [eventKind]: body }
 
-  let currentBlock = null; // { type: 'has'|'when', name: '', eventKind: '', lines: [] }
+  let currentBlock = null; // { type: 'has'|'object'|'when', name: '', eventKind: '', lines: [] }
 
   for (let i = 0; i < lines.length; i++) {
     const rawLine = lines[i];
@@ -25,7 +25,7 @@ export function parseOtterSource(source, targetModel) {
     // Check for block terminator
     if (line === '.') {
       if (currentBlock) {
-        if (currentBlock.type === 'has') {
+        if (currentBlock.type === 'has' || currentBlock.type === 'object') {
           processHasBlock(currentBlock, createdComponents);
         } else if (currentBlock.type === 'when') {
           if (!eventHandlers.has(currentBlock.name)) {
@@ -54,6 +54,32 @@ export function parseOtterSource(source, targetModel) {
           kind,
           properties: { ...ComponentSchema[kind].defaultProperties }
         });
+      }
+      continue;
+    }
+
+    // 1b. Modern declarative UI: `saveButton is a button with text "Save"`.
+    // The UI model calls its root a window; `page` is the equivalent Web
+    // spelling and maps to that same design surface.
+    const declarativeMatch = line.match(/^(?:the\s+)?([a-zA-Z0-9_]+)\s+is\s+a\s+(.+)$/i);
+    if (declarativeMatch) {
+      const name = declarativeMatch[1].trim();
+      const declarationTail = declarativeMatch[2].trim();
+      const withIndex = declarationTail.search(/\s+with\s+/i);
+      const rawKind = (withIndex === -1 ? declarationTail : declarationTail.slice(0, withIndex)).trim().toLowerCase();
+      const kind = rawKind === 'page' ? 'window' : rawKind;
+      const inlineProperties = withIndex === -1 ? null : declarationTail.slice(withIndex).replace(/^\s+with\s+/i, '');
+      if (ComponentSchema[kind]) {
+        createdComponents.set(name, {
+          name,
+          kind,
+          properties: { ...ComponentSchema[kind].defaultProperties }
+        });
+        if (inlineProperties) {
+          processHasProps(name, inlineProperties, createdComponents);
+        } else {
+          currentBlock = { type: 'object', name, lines: [] };
+        }
       }
       continue;
     }
@@ -189,7 +215,7 @@ function processHasBlock(block, createdComponents) {
   for (const line of block.lines) {
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith('#')) continue;
-    parsePropertyLine(trimmed, comp.properties);
+    parsePropertyLine(trimmed, comp.properties, comp.kind);
   }
 }
 
@@ -200,11 +226,11 @@ function processHasProps(name, propsString, createdComponents) {
   // Split by comma
   const parts = propsString.split(',');
   for (const part of parts) {
-    parsePropertyLine(part.trim(), comp.properties);
+    parsePropertyLine(part.trim(), comp.properties, comp.kind);
   }
 }
 
-function parsePropertyLine(text, properties) {
+function parsePropertyLine(text, properties, kind = '') {
   if (text.toLowerCase() === 'spread') {
     properties['spread'] = true;
     return;
@@ -216,7 +242,11 @@ function parsePropertyLine(text, properties) {
 
   const match = text.match(/^([a-zA-Z0-9_]+)\s+(?:is\s+)?(.+)$/);
   if (match) {
-    const key = match[1].toLowerCase();
+    let key = match[1].toLowerCase();
+    // Current Otter Web examples use both `value` and `text` for visible
+    // text. Studio's internal text component uses `text`, so preserve the
+    // visual result when reading a real declarative source file.
+    if (key === 'value' && ['text', 'heading', 'badge'].includes(kind)) key = 'text';
     const val = parseValue(match[2].trim());
     properties[key] = val;
   }

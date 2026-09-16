@@ -9,6 +9,7 @@ const componentEditorSource = await fs.readFile(path.join(studioRoot, 'js', 'com
 const appSource = await fs.readFile(path.join(studioRoot, 'js', 'app.js'), 'utf8');
 const { OtterUiModel } = await import(pathToFileURL(path.join(studioRoot, 'js', 'model', 'ui-model.js')).href);
 const { parseOtterSource } = await import(pathToFileURL(path.join(studioRoot, 'js', 'compiler', 'otter-parser.js')).href);
+const { generateOtterSource } = await import(pathToFileURL(path.join(studioRoot, 'js', 'compiler', 'otter-generator.js')).href);
 
 const model = new OtterUiModel();
 const source = `create window into app
@@ -25,6 +26,26 @@ assert.equal(parseOtterSource(source, model), true);
 assert.equal(model.getRoot().name, 'app');
 assert.equal(model.getRoot().children.length, 1);
 assert.equal(model.getComponent(model.getRoot().children[0]).name, 'saveButton');
+
+const declarativeSource = `app is a page with title "Declarative Studio"
+
+saveButton is a button with text "Save", padding 8, background "black", round, foreground "white"
+
+put saveButton in app
+show app
+`;
+assert.equal(parseOtterSource(declarativeSource, model), true, 'modern declarative UI source must drive the Studio designer');
+assert.equal(model.getRoot().name, 'app');
+assert.equal(model.getRoot().properties.title, 'Declarative Studio');
+const declarativeButton = model.getComponent(model.getRoot().children[0]);
+assert.equal(declarativeButton.name, 'saveButton');
+assert.equal(declarativeButton.properties.padding, 8);
+assert.equal(declarativeButton.properties.round, 8);
+
+const regeneratedDeclarativeSource = generateOtterSource(model);
+assert.match(regeneratedDeclarativeSource, /^app is a window with /m, 'Studio must emit modern declarative UI declarations');
+assert.match(regeneratedDeclarativeSource, /^saveButton is a button with /m, 'Studio must emit modern declarative component declarations');
+assert.doesNotMatch(regeneratedDeclarativeSource, /^create /m, 'Studio must not regenerate the legacy create-into UI form');
 
 const currentOtterSource = await fs.readFile(path.resolve(studioRoot, '..', 'examples', 'hello-app.ot'), 'utf8');
 assert.equal(parseOtterSource(currentOtterSource, model), true, 'current Otter UI source must drive the Studio designer');

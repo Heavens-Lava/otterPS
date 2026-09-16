@@ -14,12 +14,11 @@ export function generateOtterSource(uiModel) {
   lines.push(`# ===============================================================`);
   lines.push('');
 
-  // 1. Create and configure the Root Window
-  lines.push(`create window into ${root.name}`);
+  // 1. Declare the root with Otter's declarative UI grammar.  This is the
+  // same `name is a kind with ...` form emitted by the current web compiler;
+  // Studio must not teach the older create-then-configure spelling by default.
   const rootPropLines = formatProperties(root.properties, ComponentSchema['window']);
-  if (rootPropLines.length > 0) {
-    lines.push(`${root.name} has ${rootPropLines.join(', ')}`);
-  }
+  lines.push(declareComponent(root.name, 'window', rootPropLines));
   lines.push('');
 
   // 2. Walk the tree to declare components and configure them
@@ -30,15 +29,10 @@ export function generateOtterSource(uiModel) {
       const child = uiModel.getComponent(childId);
       if (!child) continue;
 
-      // Declaration
-      lines.push(`create ${child.kind} into ${child.name}`);
-
-      // Configuration
+      // Declaration and configuration share one declarative statement.
       const schema = ComponentSchema[child.kind] || {};
       const propLines = formatProperties(child.properties, schema);
-      if (propLines.length > 0) {
-        lines.push(`${child.name} has ${propLines.join(', ')}`);
-      }
+      lines.push(declareComponent(child.name, child.kind, propLines));
 
       lines.push('');
 
@@ -102,6 +96,13 @@ export function generateOtterSource(uiModel) {
   lines.push('');
 
   return lines.join('\n');
+}
+
+function declareComponent(name, kind, propertyParts) {
+  const prefix = `${name} is a ${kind}`;
+  return propertyParts.length > 0
+    ? `${prefix} with ${propertyParts.join(', ')}`
+    : prefix;
 }
 
 function formatProperties(props, schema) {
