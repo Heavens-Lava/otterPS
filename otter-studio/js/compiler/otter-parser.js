@@ -3,7 +3,10 @@
 import { ComponentSchema } from '../model/schema.js';
 
 export function parseOtterSource(source, targetModel) {
-  if (!source || !source.trim()) return false;
+  if (!source || !source.trim()) {
+    targetModel.clearFromSource();
+    return true;
+  }
 
   const lines = source.split('\n');
   const createdComponents = new Map(); // name -> { kind, properties: {} }
@@ -41,7 +44,7 @@ export function parseOtterSource(source, targetModel) {
     }
 
     // 1. "create <kind> into <name>"
-    const createMatch = line.match(/^create\s+(?:the\s+)?([a-zA-Z0-9\s]+?)\s+into\s+([a-zA-Z0-9_]+)$/i);
+    const createMatch = line.match(/^create\s+(?:the\s+)?([a-zA-Z0-9\s]+?)\s+into\s+(?:the\s+)?([a-zA-Z0-9_]+)$/i);
     if (createMatch) {
       const kind = createMatch[1].trim().toLowerCase();
       const name = createMatch[2].trim();
@@ -56,7 +59,7 @@ export function parseOtterSource(source, targetModel) {
     }
 
     // 2. "<name> has" (starts block) or "<name> has <key> <val>, ..."
-    const hasBlockMatch = line.match(/^([a-zA-Z0-9_]+)\s+has$/i);
+    const hasBlockMatch = line.match(/^(?:the\s+)?([a-zA-Z0-9_]+)\s+has$/i);
     if (hasBlockMatch) {
       currentBlock = {
         type: 'has',
@@ -66,7 +69,7 @@ export function parseOtterSource(source, targetModel) {
       continue;
     }
 
-    const inlineHasMatch = line.match(/^([a-zA-Z0-9_]+)\s+has\s+(.+)$/i);
+    const inlineHasMatch = line.match(/^(?:the\s+)?([a-zA-Z0-9_]+)\s+has\s+(.+)$/i);
     if (inlineHasMatch) {
       const name = inlineHasMatch[1];
       const rest = inlineHasMatch[2];
@@ -75,7 +78,7 @@ export function parseOtterSource(source, targetModel) {
     }
 
     // 3. "<prop> of <name> is <val>"
-    const propOfMatch = line.match(/^([a-zA-Z0-9_]+)\s+of\s+([a-zA-Z0-9_]+)\s+is\s+(.+)$/i);
+    const propOfMatch = line.match(/^(?:the\s+)?([a-zA-Z0-9_]+)\s+of\s+(?:the\s+)?([a-zA-Z0-9_]+)\s+is\s+(.+)$/i);
     if (propOfMatch) {
       const propKey = propOfMatch[1].toLowerCase();
       const name = propOfMatch[2];
@@ -88,7 +91,7 @@ export function parseOtterSource(source, targetModel) {
     }
 
     // 4. "put <items> in <container>"
-    const putMatch = line.match(/^put\s+(.+?)\s+in\s+([a-zA-Z0-9_]+)$/i);
+    const putMatch = line.match(/^put\s+(.+?)\s+in\s+(?:the\s+)?([a-zA-Z0-9_]+)$/i);
     if (putMatch) {
       const itemsRaw = putMatch[1];
       const containerName = putMatch[2];
@@ -101,7 +104,7 @@ export function parseOtterSource(source, targetModel) {
     }
 
     // 5. "when <name> is <event>"
-    const whenMatch = line.match(/^when\s+([a-zA-Z0-9_]+)\s+(?:is\s+)?([a-zA-Z0-9_]+)$/i);
+    const whenMatch = line.match(/^when\s+(?:the\s+)?([a-zA-Z0-9_]+)\s+(?:is\s+)?([a-zA-Z0-9_]+)$/i);
     if (whenMatch) {
       currentBlock = {
         type: 'when',
@@ -171,9 +174,7 @@ export function parseOtterSource(source, targetModel) {
   for (const [name, events] of eventHandlers.entries()) {
     const id = nameToId.get(name);
     if (id) {
-      for (const [eventKind, body] of Object.entries(events)) {
-        targetModel.setEvent(id, eventKind, body);
-      }
+      targetModel.events.set(id, { ...events });
     }
   }
 
@@ -213,7 +214,7 @@ function parsePropertyLine(text, properties) {
     return;
   }
 
-  const match = text.match(/^([a-zA-Z0-9_]+)\s+(.+)$/);
+  const match = text.match(/^([a-zA-Z0-9_]+)\s+(?:is\s+)?(.+)$/);
   if (match) {
     const key = match[1].toLowerCase();
     const val = parseValue(match[2].trim());

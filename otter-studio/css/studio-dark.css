@@ -78,6 +78,58 @@
   margin-top: 0;
 }
 
+/* Side-by-side workbench: code remains in the central editor and the
+   designer occupies a dedicated right-hand pane. The existing Split mode
+   remains the vertical designer-over-code arrangement. */
+.center-work-area.is-workbench {
+  display: grid;
+  grid-template-columns: minmax(480px, 1.35fr) minmax(340px, 0.85fr);
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.center-work-area.is-workbench .code-editor-view,
+.center-work-area.is-workbench .visual-designer-view {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+
+.center-work-area.is-workbench .code-editor-view {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.center-work-area.is-workbench .visual-designer-view {
+  grid-column: 2;
+  grid-row: 1;
+  border-left: 1px solid var(--border-card);
+}
+
+.center-work-area.is-workbench .canvas-topbar {
+  padding: 0 10px;
+}
+
+.center-work-area.is-workbench .canvas-viewport {
+  padding: 18px;
+}
+
+.center-work-area.is-workbench .canvas-window-wrapper {
+  transform: scale(0.72);
+  transform-origin: top center;
+  margin-bottom: -20%;
+}
+
+@media (max-width: 1320px) {
+  .center-work-area.is-workbench {
+    grid-template-columns: minmax(380px, 1fr) minmax(300px, 0.8fr);
+  }
+
+  .center-work-area.is-workbench .canvas-window-wrapper {
+    transform: scale(0.6);
+    margin-bottom: -35%;
+  }
+}
+
 /* Dark workbench palette. */
 body.theme-dark {
   --bg-app: #07111d;

@@ -117,6 +117,17 @@ export class OtterUiModel {
     }
   }
 
+  clearFromSource() {
+    this.components.clear();
+    this.events.clear();
+    this.rootId = null;
+    this.selectedId = null;
+    this.nameCounters = {};
+    this.undoStack = [];
+    this.redoStack = [];
+    this.notify('source-clear');
+  }
+
   // --- Identifier & Variable Generation ---
 
   generateVariableName(kind) {

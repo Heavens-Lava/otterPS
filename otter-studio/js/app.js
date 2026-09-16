@@ -61,6 +61,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const toolboxEl = document.getElementById('toolboxPanel');
   const hierarchyEl = document.getElementById('hierarchyPanel');
   const canvasEl = document.getElementById('canvasContainer');
+  const centerWorkArea = document.getElementById('centerWorkArea');
   const propertiesEl = document.getElementById('propertiesContent');
   const eventsEl = document.getElementById('eventsContent');
   const editorEl = document.getElementById('editorContainer');
@@ -141,9 +142,67 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  uiModel.subscribe(() => {
+  let sourceSyncTimer = null;
+  let sourceSyncRevision = 0;
+
+  async function syncUiFromSource(source, immediate = false) {
+    const revision = ++sourceSyncRevision;
+    if (sourceSyncTimer) clearTimeout(sourceSyncTimer);
+
+    const apply = async () => {
+      if (revision !== sourceSyncRevision) return;
+
+      // Empty source is a valid empty design, not a reason to retain stale UI.
+      if (!source || !source.trim()) {
+        parseOtterSource('', uiModel);
+        return;
+      }
+
+      // The browser-side UI reader only mutates the model after it has found
+      // a complete window declaration, so incomplete edits keep the last
+      // valid visual tree while the user is typing.
+      if (parseOtterSource(source, uiModel)) return;
+
+      // A valid non-UI Otter program intentionally has no visual tree. Use
+      // the real parser to distinguish that from temporarily invalid source.
+      try {
+        const response = await fetch('/api/lint', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code: source })
+        });
+        const result = await response.json();
+        if (revision === sourceSyncRevision && result.ok) {
+          uiModel.clearFromSource();
+        }
+      } catch (error) {
+        console.warn('Could not validate source for visual synchronization:', error);
+      }
+    };
+
+    if (immediate) {
+      await apply();
+    } else {
+      sourceSyncTimer = setTimeout(apply, 180);
+    }
+  }
+
+  window.addEventListener('otter:source-changed', event => {
+    syncUiFromSource(event.detail?.source ?? '');
+  });
+
+  uiModel.subscribe((changeType) => {
+    if (changeType === 'parse' || changeType === 'source-clear') {
+      const liveCodeArea = document.getElementById('drawerGeneratedCodeArea');
+      if (liveCodeArea) liveCodeArea.textContent = ide.currentCode;
+      return;
+    }
     syncCodeFromUiModel();
   });
+
+  // Reconcile the file loaded during IDE initialization. This listener is
+  // installed after init, so the initial source needs one explicit pass.
+  syncUiFromSource(ide.currentCode, true);
 
   // Bottom Drawer Tabs
   const drawerTabs = document.querySelectorAll('.drawer-tab');
@@ -185,6 +244,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const modePills = document.querySelectorAll('.mode-pill');
 
   function setMode(mode) {
+    centerWorkArea.classList.toggle('is-workbench', mode === 'workbench');
     modePills.forEach(p => p.classList.remove('is-active'));
     const activePill = document.getElementById(`pill${capitalize(mode)}Mode`);
     if (activePill) activePill.classList.add('is-active');
@@ -214,7 +274,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       designerRightSidebar.style.display = 'none';
       bottomDrawer.style.display = 'flex';
 
-      syncCodeFromUiModel();
       switchSidebarPane('files');
     } else if (mode === 'designer') {
       setOutlineContext('designer');
@@ -228,14 +287,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       bottomDrawer.style.display = 'flex';
 
       // Attempt reverse-sync from code editor if user typed custom Otter code
-      if (ide && ide.currentCode) {
-        try {
-          parseOtterSource(ide.currentCode, uiModel);
-        } catch (err) {
-          console.warn('Reverse parse from code failed:', err);
-        }
-      }
-      syncCodeFromUiModel();
+      syncUiFromSource(ide.currentCode, true);
     } else if (mode === 'split') {
       setOutlineContext('designer');
       codeEditorView.style.display = 'none';
@@ -247,14 +299,19 @@ document.addEventListener('DOMContentLoaded', async () => {
       designerRightSidebar.style.display = 'flex';
       bottomDrawer.style.display = 'none';
 
-      if (ide && ide.currentCode) {
-        try {
-          parseOtterSource(ide.currentCode, uiModel);
-        } catch (err) {
-          console.warn('Reverse parse from code failed:', err);
-        }
-      }
-      syncCodeFromUiModel();
+      syncUiFromSource(ide.currentCode, true);
+    } else if (mode === 'workbench') {
+      setOutlineContext('designer');
+      codeEditorView.style.display = 'flex';
+      canvasEl.style.display = 'flex';
+      editorEl.style.display = 'none';
+      previewEl.style.display = 'none';
+
+      codeRightSidebar.style.display = 'none';
+      designerRightSidebar.style.display = 'flex';
+      bottomDrawer.style.display = 'flex';
+
+      syncUiFromSource(ide.currentCode, true);
     } else if (mode === 'preview') {
       setOutlineContext('designer');
       codeEditorView.style.display = 'none';
@@ -272,12 +329,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('pillCodeMode')?.addEventListener('click', () => setMode('code'));
   document.getElementById('pillDesignerMode')?.addEventListener('click', () => setMode('designer'));
   document.getElementById('pillSplitMode')?.addEventListener('click', () => setMode('split'));
+  document.getElementById('pillWorkbenchMode')?.addEventListener('click', () => setMode('workbench'));
   document.getElementById('pillPreviewMode')?.addEventListener('click', () => setMode('preview'));
 
   // Check URL parameters for initial mode (e.g. ?mode=designer)
   const urlParams = new URLSearchParams(window.location.search);
   const initialMode = urlParams.get('mode');
-  if (initialMode && ['code', 'designer', 'split', 'preview'].includes(initialMode)) {
+  if (initialMode && ['code', 'designer', 'split', 'workbench', 'preview'].includes(initialMode)) {
     setMode(initialMode);
   }
 

@@ -1498,6 +1498,15 @@ export class OtterStudioIde {
     return `# untitled.ot\n\nsay "Hello from Otter!"\n`;
   }
 
+  emitSourceChanged() {
+    window.dispatchEvent(new CustomEvent('otter:source-changed', {
+      detail: {
+        source: this.currentCode,
+        file: this.currentFile
+      }
+    }));
+  }
+
   // --- Interactive Code Editor & Syntax Highlighting ---
   renderEditorCode(codeText) {
     if (!this.codeAreaEl) return;
@@ -1625,6 +1634,7 @@ export class OtterStudioIde {
         this.updateCursorPos(textarea);
         this.saveSessionState();
         this.debouncedLint();
+        this.emitSourceChanged();
       });
 
       textarea.addEventListener('keydown', (e) => {
@@ -1686,6 +1696,7 @@ export class OtterStudioIde {
           this.updateCursorPos(textarea);
           this.saveSessionState();
           this.debouncedLint();
+          this.emitSourceChanged();
           return;
         }
 
@@ -1727,6 +1738,8 @@ export class OtterStudioIde {
           this.markCurrentTabDirty(true);
           this.renderEditorCode(this.currentCode);
           this.saveSessionState();
+          this.debouncedLint();
+          this.emitSourceChanged();
           return;
         }
 
