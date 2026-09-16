@@ -290,10 +290,11 @@ body {
 
 .sidebar-switch-btn {
   flex: 1;
+  min-width: 0;
   background: transparent;
   border: none;
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   font-family: inherit;
   padding: 6px 4px;
@@ -302,8 +303,13 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
+  gap: 3px;
   transition: all 0.12s ease;
+}
+
+.sidebar-switch-btn .tab-btn-icon {
+  flex: 0 0 auto;
+  font-size: 11px;
 }
 
 .sidebar-switch-btn:hover {
@@ -2050,4 +2056,114 @@ body {
 .btn-modal-primary:hover {
   background: #1d4ed8;
   box-shadow: 0 4px 8px rgba(37, 99, 235, 0.3);
+}
+
+.tab-quick-btn:disabled {
+  opacity: 0.38;
+  cursor: default;
+}
+
+.workspace-search-card {
+  min-height: 0;
+}
+
+.workspace-search-form {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 8px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.workspace-search-input {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 5px;
+  padding: 7px 8px;
+  outline: none;
+  color: #0f172a;
+  font: 11px var(--font-code);
+}
+
+.workspace-search-input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
+}
+
+.workspace-search-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  color: #64748b;
+  font-size: 10px;
+}
+
+.workspace-search-options label {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.workspace-search-submit {
+  margin-left: auto;
+  border: 0;
+  border-radius: 4px;
+  background: #2563eb;
+  padding: 4px 8px;
+  color: #fff;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+}
+
+.workspace-search-summary {
+  padding: 7px 9px;
+  border-bottom: 1px solid var(--border-subtle);
+  color: #64748b;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.workspace-search-results {
+  flex: 1;
+  overflow: auto;
+  padding: 5px;
+}
+
+.workspace-search-result {
+  width: 100%;
+  display: block;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  padding: 7px;
+  color: #0f172a;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.workspace-search-result:hover {
+  background: var(--bg-hover);
+}
+
+.search-result-location {
+  display: block;
+  overflow: hidden;
+  color: #2563eb;
+  font-size: 10px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-result-preview {
+  display: block;
+  margin-top: 3px;
+  overflow: hidden;
+  color: #475569;
+  font: 10px var(--font-code);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

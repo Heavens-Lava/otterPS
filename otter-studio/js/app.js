@@ -58,9 +58,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnPaneFiles = document.getElementById('btnPaneFiles');
   const btnPaneToolbox = document.getElementById('btnPaneToolbox');
   const btnPaneHierarchy = document.getElementById('btnPaneHierarchy');
+  const btnPaneSearch = document.getElementById('btnPaneSearch');
   const paneFiles = document.getElementById('paneFiles');
   const paneToolbox = document.getElementById('paneToolbox');
   const paneHierarchy = document.getElementById('paneHierarchy');
+  const paneSearch = document.getElementById('paneSearch');
   const sourceOutlinePanel = document.getElementById('sourceOutlinePanel');
   const designerHierarchyPanel = document.getElementById('hierarchyPanel');
 
@@ -71,10 +73,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function switchSidebarPane(pane) {
-    [btnPaneFiles, btnPaneToolbox, btnPaneHierarchy].forEach(b => b?.classList.remove('is-active'));
+    [btnPaneFiles, btnPaneToolbox, btnPaneHierarchy, btnPaneSearch].forEach(b => b?.classList.remove('is-active'));
     if (paneFiles) paneFiles.style.display = 'none';
     if (paneToolbox) paneToolbox.style.display = 'none';
     if (paneHierarchy) paneHierarchy.style.display = 'none';
+    if (paneSearch) paneSearch.style.display = 'none';
 
     if (pane === 'files') {
       btnPaneFiles?.classList.add('is-active');
@@ -85,12 +88,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     } else if (pane === 'hierarchy') {
       btnPaneHierarchy?.classList.add('is-active');
       if (paneHierarchy) paneHierarchy.style.display = 'flex';
+    } else if (pane === 'search') {
+      btnPaneSearch?.classList.add('is-active');
+      if (paneSearch) paneSearch.style.display = 'flex';
+      setTimeout(() => document.getElementById('workspaceSearchInput')?.focus(), 0);
     }
   }
 
   btnPaneFiles?.addEventListener('click', () => switchSidebarPane('files'));
   btnPaneToolbox?.addEventListener('click', () => switchSidebarPane('toolbox'));
   btnPaneHierarchy?.addEventListener('click', () => switchSidebarPane('hierarchy'));
+  btnPaneSearch?.addEventListener('click', () => switchSidebarPane('search'));
+  window.addEventListener('otter:sidebar-pane', event => switchSidebarPane(event.detail));
 
   // Live Code Synchronizer from UI Model -> Code Editors
   function syncCodeFromUiModel() {

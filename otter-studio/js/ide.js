@@ -3,6 +3,7 @@
 import {
   filterNavigationItems,
   flattenProjectFiles,
+  NavigationHistory,
   symbolsForFile
 } from './navigation/symbol-index.js';
 
@@ -30,6 +31,7 @@ export class OtterStudioIde {
     this.navigationItems = [];
     this.filteredNavigationItems = [];
     this.navigationIndex = 0;
+    this.navigationHistory = new NavigationHistory();
     this.suggestions = [
       {
         icon: '📝',
@@ -236,6 +238,14 @@ export class OtterStudioIde {
     this.navigationPaletteTitle = document.getElementById('navigationPaletteTitle');
     this.navigationPaletteInput = document.getElementById('navigationPaletteInput');
     this.navigationPaletteList = document.getElementById('navigationPaletteList');
+    this.btnNavigateBack = document.getElementById('btnNavigateBack');
+    this.btnNavigateForward = document.getElementById('btnNavigateForward');
+    this.workspaceSearchForm = document.getElementById('workspaceSearchForm');
+    this.workspaceSearchInput = document.getElementById('workspaceSearchInput');
+    this.workspaceSearchRegex = document.getElementById('workspaceSearchRegex');
+    this.workspaceSearchCase = document.getElementById('workspaceSearchCase');
+    this.workspaceSearchSummary = document.getElementById('workspaceSearchSummary');
+    this.workspaceSearchResults = document.getElementById('workspaceSearchResults');
 
     // Multi-Tab & Quick Action Elements
     this.tabsScrollEl = document.getElementById('editorTabsScroll');
@@ -293,6 +303,12 @@ export class OtterStudioIde {
     });
     this.navigationPaletteInput?.addEventListener('input', () => this.filterNavigationPalette());
     this.navigationPaletteInput?.addEventListener('keydown', event => this.handleNavigationKeydown(event));
+    this.btnNavigateBack?.addEventListener('click', () => this.navigateHistoryBack());
+    this.btnNavigateForward?.addEventListener('click', () => this.navigateHistoryForward());
+    this.workspaceSearchForm?.addEventListener('submit', event => {
+      event.preventDefault();
+      this.searchWorkspace();
+    });
 
     // Bottom Drawer Tab switching
     this.drawerTabs.forEach((tab, index) => {
@@ -327,6 +343,18 @@ export class OtterStudioIde {
       if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'o') {
         e.preventDefault();
         this.openNavigationPalette('symbols');
+      }
+      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent('otter:sidebar-pane', { detail: 'search' }));
+      }
+      if (e.altKey && e.key === 'ArrowLeft') {
+        e.preventDefault();
+        this.navigateHistoryBack();
+      }
+      if (e.altKey && e.key === 'ArrowRight') {
+        e.preventDefault();
+        this.navigateHistoryForward();
       }
     });
 
@@ -531,7 +559,11 @@ export class OtterStudioIde {
     this.sourceOutlineBody.querySelectorAll('[data-outline-index]').forEach(button => {
       button.addEventListener('click', () => {
         const symbol = symbols[Number(button.dataset.outlineIndex)];
-        if (symbol) this.goToLine(Number(symbol.Line), Number(symbol.Column));
+        if (symbol) this.navigateToLocation({
+          path: this.currentFile,
+          line: Number(symbol.Line),
+          column: Number(symbol.Column)
+        });
       });
     });
   }
@@ -632,10 +664,106 @@ export class OtterStudioIde {
     if (!item) return;
     this.closeNavigationPalette();
     if (item.type === 'file') {
-      await this.loadFile(item.path);
+      await this.navigateToLocation({ path: item.path, line: 1, column: 0 });
       return;
     }
-    this.goToLine(item.line, item.column);
+    await this.navigateToLocation({ path: this.currentFile, line: item.line, column: item.column });
+  }
+
+  currentEditorLocation() {
+    const textarea = document.getElementById('hiddenEditorInput');
+    if (!textarea || !this.currentFile) return null;
+    const before = textarea.value.substring(0, textarea.selectionStart);
+    const lines = before.split('\n');
+    return {
+      path: this.currentFile,
+      line: lines.length,
+      column: lines[lines.length - 1].length
+    };
+  }
+
+  async navigateToLocation(location, record = true) {
+    if (!location?.path) return;
+    if (record) {
+      this.navigationHistory.record(this.currentEditorLocation());
+      this.navigationHistory.record(location);
+    }
+    await this.loadFile(location.path);
+    this.goToLine(location.line || 1, location.column || 0);
+    this.updateNavigationButtons();
+  }
+
+  async navigateHistoryBack() {
+    const location = this.navigationHistory.back();
+    if (location) await this.navigateToLocation(location, false);
+  }
+
+  async navigateHistoryForward() {
+    const location = this.navigationHistory.forward();
+    if (location) await this.navigateToLocation(location, false);
+  }
+
+  updateNavigationButtons() {
+    if (this.btnNavigateBack) this.btnNavigateBack.disabled = !this.navigationHistory.canBack;
+    if (this.btnNavigateForward) this.btnNavigateForward.disabled = !this.navigationHistory.canForward;
+  }
+
+  async searchWorkspace() {
+    const query = this.workspaceSearchInput?.value || '';
+    if (!query.trim()) {
+      this.workspaceSearchSummary.textContent = 'Enter text to search the current workspace.';
+      this.workspaceSearchResults.innerHTML = '';
+      return;
+    }
+    if (!this.currentProjectFolder) {
+      this.workspaceSearchSummary.textContent = 'Open a project folder before searching.';
+      return;
+    }
+    this.workspaceSearchSummary.textContent = 'Searching…';
+    this.workspaceSearchResults.innerHTML = '';
+    try {
+      const res = await fetch('/api/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          folder: this.currentProjectFolder,
+          query,
+          regex: this.workspaceSearchRegex?.checked === true,
+          caseSensitive: this.workspaceSearchCase?.checked === true
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Workspace search failed.');
+      const suffix = data.truncated ? ' (first 500 shown)' : '';
+      this.workspaceSearchSummary.textContent = `${data.results.length} result${data.results.length === 1 ? '' : 's'} in ${data.filesSearched} files${suffix}.`;
+      this.renderWorkspaceSearchResults(data.results);
+    } catch (error) {
+      this.workspaceSearchSummary.textContent = error.message;
+    }
+  }
+
+  renderWorkspaceSearchResults(results) {
+    if (!this.workspaceSearchResults) return;
+    if (!results?.length) {
+      this.workspaceSearchResults.innerHTML = '<div class="outline-empty">No matches found.</div>';
+      return;
+    }
+    this.workspaceSearchResults.innerHTML = results.map((result, index) => `
+      <button class="workspace-search-result" type="button" data-search-index="${index}">
+        <span class="search-result-location">${this.escapeHtml(result.path)}:${Number(result.line)}:${Number(result.column) + 1}</span>
+        <span class="search-result-preview">${this.escapeHtml(result.preview)}</span>
+      </button>
+    `).join('');
+    this.workspaceSearchResults.querySelectorAll('[data-search-index]').forEach(button => {
+      button.addEventListener('click', () => {
+        const result = results[Number(button.dataset.searchIndex)];
+        if (result) this.navigateToLocation({
+          path: result.path,
+          line: Number(result.line),
+          column: Number(result.column)
+        });
+      });
+    });
   }
 
   async promptNewFile() {

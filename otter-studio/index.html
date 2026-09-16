@@ -101,6 +101,10 @@
             <span class="tab-btn-icon">🌲</span>
             <span>Outline</span>
           </button>
+          <button class="sidebar-switch-btn" id="btnPaneSearch" data-pane="search">
+            <span class="tab-btn-icon">⌕</span>
+            <span>Search</span>
+          </button>
         </div>
 
         <!-- Pane 1: Project Files & Templates -->
@@ -187,6 +191,24 @@
           </div>
           <div class="panel-card" id="hierarchyPanel" style="display: none; flex: 1;"></div>
         </div>
+
+        <div class="sidebar-pane" id="paneSearch" style="display: none;">
+          <div class="panel-card workspace-search-card" style="flex: 1;">
+            <div class="panel-card-header">
+              <span class="panel-card-title">Find in Files</span>
+            </div>
+            <form class="workspace-search-form" id="workspaceSearchForm">
+              <input class="workspace-search-input" id="workspaceSearchInput" type="text" autocomplete="off" spellcheck="false" placeholder="Search workspace…" />
+              <div class="workspace-search-options">
+                <label><input type="checkbox" id="workspaceSearchRegex" /> Regex</label>
+                <label><input type="checkbox" id="workspaceSearchCase" /> Match case</label>
+                <button type="submit" class="workspace-search-submit">Find</button>
+              </div>
+            </form>
+            <div class="workspace-search-summary" id="workspaceSearchSummary">Enter text to search the current workspace.</div>
+            <div class="workspace-search-results" id="workspaceSearchResults"></div>
+          </div>
+        </div>
       </aside>
 
       <!-- Center Work Area: Code Editor OR Visual Designer -->
@@ -204,6 +226,8 @@
           <button class="add-tab-btn" id="btnAddNewTab" title="New File (Ctrl+N)">+</button>
 
           <div class="editor-quick-actions">
+            <button class="tab-quick-btn" id="btnNavigateBack" title="Go Back (Alt+Left)" disabled>←</button>
+            <button class="tab-quick-btn" id="btnNavigateForward" title="Go Forward (Alt+Right)" disabled>→</button>
             <button class="tab-quick-btn" id="btnQuickOpen" title="Quick Open (Ctrl+P)">⌕ Open</button>
             <button class="tab-quick-btn" id="btnGoToSymbol" title="Go to Symbol (Ctrl+Shift+O)">＠ Symbol</button>
             <button class="tab-quick-btn" id="btnFormatDoc" title="Format Document (Shift+Alt+F)">🧹 Format</button>

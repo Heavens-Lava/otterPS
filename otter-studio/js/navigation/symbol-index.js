@@ -46,3 +46,41 @@ export function symbolsForFile(symbols, filePath) {
     .filter(symbol => symbol.File === filePath)
     .sort((left, right) => Number(left.Line) - Number(right.Line) || Number(left.Column) - Number(right.Column));
 }
+
+export class NavigationHistory {
+  constructor(limit = 100) {
+    this.limit = limit;
+    this.entries = [];
+    this.index = -1;
+  }
+
+  record(location) {
+    if (!location?.path) return;
+    const normalized = {
+      path: location.path,
+      line: Math.max(1, Number(location.line) || 1),
+      column: Math.max(0, Number(location.column) || 0)
+    };
+    const current = this.entries[this.index];
+    if (current && current.path === normalized.path && current.line === normalized.line && current.column === normalized.column) return;
+    this.entries = this.entries.slice(0, this.index + 1);
+    this.entries.push(normalized);
+    if (this.entries.length > this.limit) this.entries.shift();
+    this.index = this.entries.length - 1;
+  }
+
+  back() {
+    if (this.index <= 0) return null;
+    this.index -= 1;
+    return this.entries[this.index];
+  }
+
+  forward() {
+    if (this.index < 0 || this.index >= this.entries.length - 1) return null;
+    this.index += 1;
+    return this.entries[this.index];
+  }
+
+  get canBack() { return this.index > 0; }
+  get canForward() { return this.index >= 0 && this.index < this.entries.length - 1; }
+}

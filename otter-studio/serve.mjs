@@ -95,6 +95,19 @@ function collectOtterFiles(dirPath) {
   return files;
 }
 
+function collectWorkspaceTextFiles(dirPath) {
+  const ignored = new Set(['.git', 'node_modules', 'dist', 'build', 'backup']);
+  const extensions = new Set(['.ot', '.css', '.json', '.md', '.txt', '.html', '.js', '.mjs']);
+  const files = [];
+  for (const entry of fs.readdirSync(dirPath, { withFileTypes: true })) {
+    if (entry.isDirectory() && ignored.has(entry.name)) continue;
+    const fullPath = path.join(dirPath, entry.name);
+    if (entry.isDirectory()) files.push(...collectWorkspaceTextFiles(fullPath));
+    else if (entry.isFile() && extensions.has(path.extname(entry.name).toLowerCase())) files.push(fullPath);
+  }
+  return files;
+}
+
 function analyzeOtterSource(source) {
   return new Promise((resolve, reject) => {
     const child = spawn('powershell.exe', [
@@ -375,6 +388,80 @@ const server = http.createServer(async (req, res) => {
         files: otterFiles.map(filePath => path.relative(REPO_ROOT, filePath).replace(/\\/g, '/')),
         symbols,
         diagnostics
+      });
+    } catch (err) {
+      sendJson(res, { error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/search' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const query = String(body.query || '');
+      if (!query) return sendJson(res, { results: [], filesSearched: 0, truncated: false });
+      const folderParam = body.folder;
+      if (!folderParam) return sendJson(res, { error: 'Workspace folder required' }, 400);
+      const workspaceRoot = path.resolve(REPO_ROOT, folderParam);
+      if (!workspaceRoot.startsWith(REPO_ROOT) || !fs.existsSync(workspaceRoot)) {
+        return sendJson(res, { error: 'Workspace folder not found' }, 404);
+      }
+
+      const caseSensitive = body.caseSensitive === true;
+      const useRegex = body.regex === true;
+      let pattern = null;
+      if (useRegex) {
+        try {
+          pattern = new RegExp(query, caseSensitive ? 'g' : 'gi');
+        } catch (error) {
+          return sendJson(res, { error: `Invalid regular expression: ${error.message}` }, 400);
+        }
+      }
+
+      const files = collectWorkspaceTextFiles(workspaceRoot);
+      const results = [];
+      const maxResults = 500;
+      for (const filePath of files) {
+        if (results.length >= maxResults) break;
+        const stats = fs.statSync(filePath);
+        if (stats.size > 2 * 1024 * 1024) continue;
+        const lines = fs.readFileSync(filePath, 'utf8').split(/\r?\n/);
+        for (let lineIndex = 0; lineIndex < lines.length && results.length < maxResults; lineIndex += 1) {
+          const line = lines[lineIndex];
+          const columns = [];
+          if (pattern) {
+            pattern.lastIndex = 0;
+            let match;
+            while ((match = pattern.exec(line)) !== null) {
+              columns.push(match.index);
+              if (match[0].length === 0) pattern.lastIndex += 1;
+            }
+          } else {
+            const source = caseSensitive ? line : line.toLowerCase();
+            const needle = caseSensitive ? query : query.toLowerCase();
+            let cursor = 0;
+            while (cursor <= source.length) {
+              const found = source.indexOf(needle, cursor);
+              if (found < 0) break;
+              columns.push(found);
+              cursor = found + Math.max(1, needle.length);
+            }
+          }
+          for (const column of columns) {
+            results.push({
+              path: path.relative(REPO_ROOT, filePath).replace(/\\/g, '/'),
+              line: lineIndex + 1,
+              column,
+              preview: line.trim()
+            });
+            if (results.length >= maxResults) break;
+          }
+        }
+      }
+      sendJson(res, {
+        results,
+        filesSearched: files.length,
+        truncated: results.length >= maxResults
       });
     } catch (err) {
       sendJson(res, { error: err.message }, 500);

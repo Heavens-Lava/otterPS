@@ -169,7 +169,33 @@ to greet name
   assert.ok(workspaceIndex.symbols.some(symbol => symbol.Name === 'greet' && symbol.File.endsWith('/main.ot')));
   assert.ok(workspaceIndex.symbols.some(symbol => symbol.Name === 'helper' && symbol.File.endsWith('/helper.ot')));
 
-  console.log('Otter Studio smoke test passed: scan, open, save, external-change protection, symbols, run, terminal, diagnostics, failures.');
+  const literalSearch = await request('/api/search', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ folder: symbolWorkspaceRelativePath, query: 'Hello' })
+  });
+  assert.equal(literalSearch.results.length, 1);
+  assert.ok(literalSearch.results[0].path.endsWith('/main.ot'));
+  assert.equal(literalSearch.results[0].line, 4);
+
+  const regexSearch = await request('/api/search', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ folder: symbolWorkspaceRelativePath, query: 'to\\s+h(?:elper|ello)', regex: true })
+  });
+  assert.equal(regexSearch.results.length, 1);
+  assert.ok(regexSearch.results[0].path.endsWith('/helper.ot'));
+
+  const invalidRegexResponse = await fetch(`${baseUrl}/api/search`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ folder: symbolWorkspaceRelativePath, query: '[', regex: true })
+  });
+  const invalidRegex = await invalidRegexResponse.json();
+  assert.equal(invalidRegexResponse.status, 400);
+  assert.match(invalidRegex.error, /Invalid regular expression/);
+
+  console.log('Otter Studio smoke test passed: scan, open, save, external-change protection, symbols, workspace search, run, terminal, diagnostics, failures.');
 } finally {
   await fs.rm(temporaryPath, { force: true });
   await fs.rm(symbolWorkspacePath, { force: true, recursive: true });

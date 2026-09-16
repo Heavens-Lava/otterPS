@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {
   filterNavigationItems,
   flattenProjectFiles,
+  NavigationHistory,
   symbolsForFile
 } from '../js/navigation/symbol-index.js';
 
@@ -33,4 +34,13 @@ const symbols = symbolsForFile([
 ], 'projects/demo/main.ot');
 assert.deepEqual(symbols.map(symbol => symbol.Name), ['earlier', 'later']);
 
-console.log('Studio navigation tests passed: project flattening, fuzzy Quick Open, and ordered outlines.');
+const history = new NavigationHistory(3);
+history.record({ path: 'main.ot', line: 2, column: 0 });
+history.record({ path: 'helper.ot', line: 5, column: 3 });
+assert.deepEqual(history.back(), { path: 'main.ot', line: 2, column: 0 });
+assert.deepEqual(history.forward(), { path: 'helper.ot', line: 5, column: 3 });
+history.back();
+history.record({ path: 'third.ot', line: 1, column: 0 });
+assert.equal(history.canForward, false, 'new navigation must discard the old forward branch');
+
+console.log('Studio navigation tests passed: project flattening, fuzzy Quick Open, ordered outlines, and history.');
