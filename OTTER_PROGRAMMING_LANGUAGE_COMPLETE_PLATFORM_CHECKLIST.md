@@ -380,8 +380,13 @@ creation.
     OTHER two "Signals" lines elsewhere in this checklist, about the
     CLI's own Ctrl+C handling, are a different capability and
     unaffected by this correction)
--   [ ] Services/daemons
--   [ ] Windows services provider
+-   [x] Services/daemons (Windows only - see "Windows services
+    provider" below; systemd/launchd remain unaddressed, matching this
+    project's Windows PowerShell 5.1 scope)
+-   [x] Windows services provider (D86: `get system information
+    "services" into list` - real, read-only, verified against this
+    machine's own 314 real Windows services. See SPEC-DECISIONS.md
+    D86)
 -   [ ] systemd provider
 -   [ ] launchd provider
 -   [x] User/account information (D76: `get system information "user"

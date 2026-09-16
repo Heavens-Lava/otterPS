@@ -6402,3 +6402,38 @@ D69-D85 hook.
 
 ---
 
+## D86. Services/daemons — `get system information "services" into list`
+
+**Status: IMPLEMENTED and verified end-to-end through the real `otter
+run` CLI against this machine's own 314 real Windows services. No new
+grammar - a sixth list-shaped kind on D69's existing statement
+(`network`/`software`/`tasks`/`printers`/`services`).**
+
+Read-only, matching the same scope convention already established for
+`"tasks"` (D80) and `"printers"` (D83): every `"...provider"` checklist
+item this project has closed means enumerate/inspect what exists, not
+start/stop/create/delete it. Returns a LIST of `service` things
+(`name`, `displayName`, `status`, `startType`) via `Get-Service`.
+Unlike `Win32_Printer`'s `PrinterStatus` (D83, a raw WMI numeric code
+needing a translation table), `Get-Service`'s `Status`/`StartType` are
+already real .NET enums with readable `.ToString()` values (`Running`/
+`Stopped`/`Automatic`/`Manual`/etc.) - confirmed directly, no
+translation layer needed here.
+
+**Verified:** through the real `otter run` CLI - 314 real Windows
+services returned, matching a manual `Get-Service` spot-check run
+beforehand; the first five inspected by name/display-name/status/
+start-type against genuinely real, recognizable Windows services
+(`AarSvc_ce0883`/Agent Activation Runtime, `AdobeARMservice`/Adobe
+Acrobat Update Service - correctly shown `Running` while the others
+correctly show `Stopped`, matching their actual state at query time).
+Two new regression tests in `tests/Part3.Tests.ps1`. No JS-compiler
+code change needed beyond the two lookup-table entries - the dispatch
+logic is already fully generic, same as D77's/D80's additions.
+
+**Windows-only per this implementation** (`systemd`/`launchd`
+equivalents on Linux/macOS remain unaddressed, matching this whole
+project's Windows PowerShell 5.1 scope).
+
+---
+

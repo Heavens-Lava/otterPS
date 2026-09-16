@@ -1841,11 +1841,41 @@ function Get-OtterSystemInfoValue {
             Write-Output -NoEnumerate $list
             return
         }
+        # get system information "services" into list                   (D86)
+        # A list of "service" things (name/displayName/status/startType)
+        # via Get-Service - read-only, matching the same scope convention
+        # "tasks" (D80) and "printers" (D83) already established for
+        # "...provider" checklist items: enumerate/inspect what exists,
+        # not start/stop/create/delete it. Get-Service's Status/StartType
+        # are already real .NET enums with readable ToString() values
+        # (confirmed directly), unlike Win32_Printer's raw status code -
+        # no translation table needed here.
+        'services' {
+            $list = [System.Collections.Generic.List[object]]::new()
+            try {
+                $services = Get-Service -ErrorAction Stop
+            } catch {
+                Write-Output -NoEnumerate $list
+                return
+            }
+            foreach ($svc in $services) {
+                $entry = [OtterObject]::new('service')
+                $entry.WriteProperty('name', $svc.Name)
+                $entry.WriteProperty('displayName', $svc.DisplayName)
+                $entry.WriteProperty('status', $svc.Status.ToString())
+                $startType = $null
+                try { $startType = $svc.StartType.ToString() } catch { $startType = $null }
+                $entry.WriteProperty('startType', $startType)
+                $list.Add($entry)
+            }
+            Write-Output -NoEnumerate $list
+            return
+        }
         default {
             throw [OtterError]::new(
                 "I do not know a kind of system information called ""$Kind"".",
                 $Line, 'runtime', 0, $null,
-                'get system information "os" into info (also: "cpu", "memory", "disk", "network", "user", "groups", "software", "tasks", "printers")')
+                'get system information "os" into info (also: "cpu", "memory", "disk", "network", "user", "groups", "software", "tasks", "printers", "services")')
         }
     }
 }

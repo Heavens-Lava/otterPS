@@ -1148,6 +1148,34 @@ Test-Otter 'D84: run command on remote without a matching stored credential is a
     }
 }
 
+# =================================================================
+# D86 - Windows services provider (read-only, same scope convention
+# as "tasks"/"printers" for every other "...provider" checklist item)
+# =================================================================
+
+Test-Otter 'D86: get system information "services" returns a real, non-empty list of service things' {
+    $out = Invoke-TestProgram @(
+        [GetSystemInfoStmt]::new((Lit 'services'), 'services', 1),
+        [SayStmt]::new(@(([OfOperationExpr]::new([OfOperation]::Length, (Var 'services'), 2))), 2),
+        [SayStmt]::new(@((PropOf 'name' ([OfOperationExpr]::new([OfOperation]::First, (Var 'services'), 3)))), 3)
+    )
+    Assert-AreEqual -Expected 2 -Actual $out.Count
+    Assert-True ([double]$out[0] -gt 0) "expected at least one real Windows service, got [$($out[0])]"
+    Assert-False ([string]::IsNullOrWhiteSpace($out[1])) 'expected a real, non-blank service name'
+}
+
+Test-Otter 'D86: every service in the real list has a non-blank status' {
+    $out = Invoke-TestProgram @(
+        [GetSystemInfoStmt]::new((Lit 'services'), 'services', 1),
+        [FindStmt]::new('s', (Var 'services'), (CompareEx (PropOf 'status' (Var 's')) 'Equal' (Gone)), 'blank', 2),
+        [IfStmt]::new(
+            @([IfBranch]::new((CompareEx (Var 'blank') 'Equal' (Gone)),
+                @([SayStmt]::new(@((Lit 'all have a status')), 4)))),
+            @([SayStmt]::new(@((Lit 'found a service with no status')), 6)), 3)
+    )
+    Assert-Lines -Expected @('all have a status') -Actual $out
+}
+
 Set-Location $originalLocation
 Remove-Item -LiteralPath $sandbox -Recurse -Force -ErrorAction SilentlyContinue
 
