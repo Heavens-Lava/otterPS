@@ -265,15 +265,17 @@ platform.
 -   [ ] Large-file mode
 -   [ ] Breadcrumbs
 -   [x] Find/replace (in-editor floating widget with Next/Prev/Replace/All)
--   [ ] Find/replace in files
--   [ ] Regex search
+-   [x] Find in files with bounded workspace search and clickable results
+    (`4e100a0`)
+-   [ ] Replace in files
+-   [x] Regex search with invalid-pattern diagnostics (`4e100a0`)
 -   [x] Go to line (Ctrl+G modal & scroll into view)
 -   [x] Quick Open with fuzzy file matching and keyboard navigation
     (`2f7806c`)
 -   [x] Go to symbol from the parser-backed document index (`2f7806c`)
 -   [ ] Definition/implementation/references
 -   [ ] Peek definition
--   [ ] Navigation history
+-   [x] Back/forward navigation history across files and symbols (`4e100a0`)
 -   [x] Parser-backed clickable document Outline (`2f7806c`)
 -   [x] Dirty indicator (tab dirty dot, input tracking, save clearing)
 -   [x] Save All / Save File (Ctrl+S)
