@@ -1511,6 +1511,19 @@ export class OtterStudioIde {
   renderEditorCode(codeText) {
     if (!this.codeAreaEl) return;
 
+    // Redrawing syntax-highlighted markup must not behave like navigating to
+    // a new document. Keep the native editor's caret, selection, and scroll
+    // viewport stable while the highlighted layer refreshes beneath it.
+    const existingTextarea = document.getElementById('hiddenEditorInput');
+    const editorState = existingTextarea && document.activeElement === existingTextarea
+      ? {
+          start: existingTextarea.selectionStart,
+          end: existingTextarea.selectionEnd,
+          scrollTop: existingTextarea.scrollTop,
+          scrollLeft: existingTextarea.scrollLeft
+        }
+      : null;
+
     const lines = codeText.split('\n');
     this.renderGutter(lines.length);
 
@@ -1528,6 +1541,26 @@ export class OtterStudioIde {
 
     // Attach inline editor handlers
     this.setupInlineEditor();
+
+    if (editorState) {
+      const textarea = document.getElementById('hiddenEditorInput');
+      if (textarea) {
+        const limit = this.currentCode.length;
+        const start = Math.min(editorState.start, limit);
+        const end = Math.min(editorState.end, limit);
+        requestAnimationFrame(() => {
+          textarea.focus({ preventScroll: true });
+          textarea.setSelectionRange(start, end);
+          textarea.scrollTop = editorState.scrollTop;
+          textarea.scrollLeft = editorState.scrollLeft;
+          if (this.codeAreaEl) {
+            this.codeAreaEl.scrollTop = editorState.scrollTop;
+            this.codeAreaEl.scrollLeft = editorState.scrollLeft;
+          }
+          if (this.gutterEl) this.gutterEl.scrollTop = editorState.scrollTop;
+        });
+      }
+    }
   }
 
   renderGutter(count) {
