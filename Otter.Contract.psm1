@@ -103,6 +103,12 @@ enum TokenKind {
     Kill            # kill process p / kill process p and its children
     Wait            # wait for process p up to 5 seconds
 
+    # --- power/session actions (D82) ---------------------------------
+    Lock            # lock the computer
+    Sign            # sign out
+    Restart         # restart the computer
+    Shut            # shut down the computer
+
     # --- strings and collections (D24, D25, D26) ----------------
     Length          # length of name / length of games
     Uppercase
@@ -414,6 +420,10 @@ enum NodeKind {
     SetCredential          # set credential "n" to "secret"
     GetCredential          # get credential "n" into secret
     DeleteCredential       # delete credential "n"
+
+    # --- power/session actions (D82) ------------------------------------
+    PowerAction            # lock the computer / sign out / restart the
+                            # computer / shut down the computer
 }
 
 enum MathOp { Add; Subtract; Multiply; Divide }
@@ -1441,6 +1451,18 @@ class DeleteCredentialStmt : Node {
     [Node]$Name
     DeleteCredentialStmt([Node]$name, [int]$line) : base([NodeKind]::DeleteCredential, $line) {
         $this.Name = $name
+    }
+}
+
+# lock the computer / sign out / restart the computer /               (D82)
+# shut down the computer
+# Action is one of: "lock", "signOut", "restart", "shutDown" - carried
+# as a plain string rather than a separate NodeKind per verb, since all
+# four are the exact same shape (no arguments, no result).
+class PowerActionStmt : Node {
+    [string]$Action
+    PowerActionStmt([string]$action, [int]$line) : base([NodeKind]::PowerAction, $line) {
+        $this.Action = $action
     }
 }
 

@@ -1682,6 +1682,58 @@ function Read-OtterStatement {
             [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the wait statement to end here.')
             return [WaitForProcessStmt]::new($waitProcessExpr, $seconds, $waitTarget, $start.Line)
         }
+        # lock the computer                                             (D82)
+        ([TokenKind]::Lock) {
+            [void](Read-OtterToken)
+            Read-OtterOptionalTheBeforeName
+            $computerWord = Get-OtterCurrentToken
+            if ($computerWord.Kind -ne [TokenKind]::Identifier -or $computerWord.Text -ne 'computer') {
+                throw (New-OtterParserError 'I expected "the computer" after "lock".' $computerWord 'lock the computer')
+            }
+            [void](Read-OtterToken)
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the lock statement to end here.')
+            return [PowerActionStmt]::new('lock', $start.Line)
+        }
+        # sign out                                                      (D82)
+        ([TokenKind]::Sign) {
+            [void](Read-OtterToken)
+            $outWord = Get-OtterCurrentToken
+            if ($outWord.Kind -ne [TokenKind]::Identifier -or $outWord.Text -ne 'out') {
+                throw (New-OtterParserError 'I expected "out" after "sign".' $outWord 'sign out')
+            }
+            [void](Read-OtterToken)
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the sign out statement to end here.')
+            return [PowerActionStmt]::new('signOut', $start.Line)
+        }
+        # restart the computer                                         (D82)
+        ([TokenKind]::Restart) {
+            [void](Read-OtterToken)
+            Read-OtterOptionalTheBeforeName
+            $computerWord2 = Get-OtterCurrentToken
+            if ($computerWord2.Kind -ne [TokenKind]::Identifier -or $computerWord2.Text -ne 'computer') {
+                throw (New-OtterParserError 'I expected "the computer" after "restart".' $computerWord2 'restart the computer')
+            }
+            [void](Read-OtterToken)
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the restart statement to end here.')
+            return [PowerActionStmt]::new('restart', $start.Line)
+        }
+        # shut down the computer                                       (D82)
+        ([TokenKind]::Shut) {
+            [void](Read-OtterToken)
+            $downWord = Get-OtterCurrentToken
+            if ($downWord.Kind -ne [TokenKind]::Identifier -or $downWord.Text -ne 'down') {
+                throw (New-OtterParserError 'I expected "down" after "shut".' $downWord 'shut down the computer')
+            }
+            [void](Read-OtterToken)
+            Read-OtterOptionalTheBeforeName
+            $computerWord3 = Get-OtterCurrentToken
+            if ($computerWord3.Kind -ne [TokenKind]::Identifier -or $computerWord3.Text -ne 'computer') {
+                throw (New-OtterParserError 'I expected "the computer" after "shut down".' $computerWord3 'shut down the computer')
+            }
+            [void](Read-OtterToken)
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the shut down statement to end here.')
+            return [PowerActionStmt]::new('shutDown', $start.Line)
+        }
         ([TokenKind]::Sort) {
             [void](Read-OtterToken)
             $target = Read-OtterVariableName 'I expected a collection name after "sort".'

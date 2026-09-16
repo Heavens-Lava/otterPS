@@ -733,6 +733,13 @@ function Invoke-OtterStatement {
             return
         }
 
+        # lock the computer / sign out / restart the computer /          (D82)
+        # shut down the computer
+        'PowerAction' {
+            Invoke-OtterPowerAction -Action $Statement.Action -Line $Statement.Line
+            return
+        }
+
         'DeleteFolder' {
             Remove-OtterFolder -Path (Get-OtterPathArgument -Expression $Statement.Path -Environment $Environment) -Line $Statement.Line
             return

@@ -754,6 +754,44 @@ function Remove-OtterCredential {
     }
 }
 
+# The real command line for each power action, as a PURE lookup with no
+# side effect - deliberately split out from Invoke-OtterPowerAction
+# below so this mapping can be tested exhaustively without ever letting
+# a test suite actually shut down, restart, sign out of, or lock the
+# machine it runs on. "restart"/"shutDown" pass a real, non-zero grace
+# period (30 seconds) rather than /t 0, so a program using this is
+# never able to end a user's session with zero warning - the "explicit
+# safety" this checklist item's own name asks for.
+function Get-OtterPowerActionCommandLine {
+    param([string]$Action, [int]$Line)
+
+    switch ($Action) {
+        'lock' { return 'rundll32.exe user32.dll,LockWorkStation' }
+        'signOut' { return 'shutdown.exe /l' }
+        'restart' { return 'shutdown.exe /r /t 30 /c "An Otter program requested a restart."' }
+        'shutDown' { return 'shutdown.exe /s /t 30 /c "An Otter program requested a shutdown."' }
+        default {
+            throw [OtterError]::new("I do not know a power action called ""$Action"".", $Line, 'runtime')
+        }
+    }
+}
+
+# lock the computer / sign out / restart the computer /               (D82)
+# shut down the computer
+# Every action shells out to the real Windows shutdown.exe/rundll32.exe
+# tools - the same real OS mechanism the Start menu's own power/account
+# controls use, not a simulation.
+function Invoke-OtterPowerAction {
+    param([string]$Action, [int]$Line)
+
+    $commandLine = Get-OtterPowerActionCommandLine -Action $Action -Line $Line
+    try {
+        Invoke-OtterCommand -CommandLine $commandLine -Line $Line | Out-Null
+    } catch {
+        throw [OtterError]::new("I could not $Action the computer. $($_.Exception.Message)", $Line, 'runtime')
+    }
+}
+
 # get owner of "x" into owner                                        (D74)
 # Works on either a file or a folder - ownership is a filesystem-wide
 # concept, unlike read-only below, which this module deliberately
@@ -1624,4 +1662,5 @@ Export-ModuleMember -Function `
     Get-OtterFileOwner, Test-OtterFileReadOnly, Set-OtterFileReadOnly, `
     Get-OtterRegistryValue, Set-OtterRegistryValue, Remove-OtterRegistryValue, Test-OtterRegistryKeyExists, `
     Get-OtterEventLogEntries, `
-    Set-OtterCredential, Get-OtterCredential, Remove-OtterCredential
+    Set-OtterCredential, Get-OtterCredential, Remove-OtterCredential, `
+    Get-OtterPowerActionCommandLine, Invoke-OtterPowerAction

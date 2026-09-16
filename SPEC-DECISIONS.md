@@ -6102,3 +6102,79 @@ browser has no equivalent for at all.
 
 ---
 
+## D82. Power/reboot/shutdown APIs with explicit safety — `lock the computer` / `sign out` / `restart the computer` / `shut down the computer`
+
+**Status: IMPLEMENTED. `lock` genuinely, actually executed and
+verified for real, with Jeff's explicit prior approval, given the risk
+category involved. `restart`/`shutDown` verified by real command
+construction (confirmed via `Split-OtterCommandLine` that each maps to
+the exact real `shutdown.exe` invocation Windows itself would run) and
+grammar acceptance (`otter check`), NOT by real execution -
+`shutdown.exe` was blocked outright by this session's own safety
+classifier even under a deliberate schedule-then-immediately-abort
+plan, a sensible boundary this work does not attempt to route around.
+`signOut` verified the same way as restart/shutDown, for an additional,
+self-imposed reason: a real sign-out could plausibly terminate the very
+shell this session runs in, an unacceptable risk to take unilaterally
+even though Jeff's approval covered it.**
+
+Four statements, one shape (`PowerActionStmt{Action}`, a plain string
+rather than four separate `NodeKind`s, since all four take no
+arguments and produce no result): `lock the computer`, `sign out`,
+`restart the computer`, `shut down the computer`. Each shells out to
+the real Windows tool the Start menu's own power/account controls use
+(`shutdown.exe`/`rundll32.exe user32.dll,LockWorkStation`) via the
+already-established `Invoke-OtterCommand` path (D60) - not a
+simulation, a real OS call.
+
+**"...with explicit safety" (the checklist item's own wording) is a
+real design constraint here, not just a name:** `restart`/`shutDown`
+always pass a real, non-zero grace period (`/t 30`, never `/t 0`), so
+an Otter program can never end a user's session with zero warning - a
+regression test asserts this directly against the real command string,
+not just that the feature "works."
+
+**A real bug found immediately by the first execution attempt:**
+`Invoke-OtterPowerAction` was never added to `Otter.Library.psm1`'s
+`Export-ModuleMember` list - the very first real run (`lock the
+computer`) failed with "The term 'Invoke-OtterPowerAction' is not
+recognized," a clean, honest failure surfaced by actually running the
+thing rather than trusting the code read correctly. Fixed immediately,
+verified by rerunning the same real command afterward.
+
+**A deliberate refactor for testability without risk:**
+`Get-OtterPowerActionCommandLine` was split out as a PURE, side-
+effect-free lookup specifically so the command-mapping logic can be
+covered by the automated regression suite exhaustively, without any
+risk of the test suite itself ever triggering a real shutdown/restart/
+sign-out/lock as a side effect of `tests/Run-Tests.ps1` - a real,
+serious concern for a feature category like this one, addressed by
+design rather than by trusting nobody runs the dangerous path.
+
+**Verified:**
+- `lock the computer` - actually executed once, by hand, with Jeff's
+  prior explicit approval given the risk category; the command
+  completed without error (the real `rundll32.exe
+  user32.dll,LockWorkStation` call).
+- `restart`/`shutDown`/`signOut` - grammar accepted by the real parser
+  (`otter check` on all four forms together); each verified via
+  `Split-OtterCommandLine` to resolve to the exact real executable and
+  arguments Windows' own shutdown mechanism expects, WITHOUT executing
+  them - `shutdown.exe` itself was blocked by this session's own
+  safety classifier when attempted under a deliberate schedule-then-
+  abort plan, confirming rather than working around that boundary.
+- Three new regression tests in `tests/Part3.Tests.ps1`, all against
+  the pure `Get-OtterPowerActionCommandLine` function - deliberately
+  NOT run through the full interpreter/`Invoke-TestProgram` path,
+  which would reach a genuine `shutdown.exe`/`rundll32.exe` call as a
+  side effect of running the test suite.
+
+JS compiler emits a call to a new required host hook
+(`otterPowerAction`), flagged in its own comment as the least browser-
+reachable capability in this entire compiler - locking/restarting/
+signing out of/shutting down the OS is not something a web page can do
+at all, and even a desktop bridge should treat this hook as deserving
+its own explicit confirmation, not a plain pass-through.
+
+---
+

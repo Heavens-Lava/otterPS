@@ -451,7 +451,14 @@ creation.
     `System.Windows.Forms.NotifyIcon`; the JS/web path shows an
     in-page DOM toast instead - a documented, deliberate cross-
     runtime difference, not a bug)
--   [ ] Power/reboot/shutdown APIs with explicit safety
+-   [x] Power/reboot/shutdown APIs with explicit safety (D82: `lock the
+    computer`/`sign out`/`restart the computer`/`shut down the
+    computer` - real OS calls, always a real non-zero grace period for
+    restart/shutdown (never `/t 0`). `lock` actually executed and
+    verified with prior explicit approval; restart/shutdown/sign-out
+    verified via real command construction, not real execution - this
+    session's own safety classifier blocked executing `shutdown.exe`
+    outright. See SPEC-DECISIONS.md D82)
 -   [ ] Printer/device APIs via providers
 -   [ ] Remote administration strategy
 -   [ ] SSH client/provider

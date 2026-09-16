@@ -87,6 +87,10 @@ $script:OtterStatementHeadKeywords = @{
     'kill' = [TokenKind]::Kill
     # D71: `wait for process p up to 5 seconds`
     'wait' = [TokenKind]::Wait
+    # D82: `lock the computer` / `sign out` / `restart the computer` /
+    # `shut down the computer`
+    'lock' = [TokenKind]::Lock; 'sign' = [TokenKind]::Sign
+    'restart' = [TokenKind]::Restart; 'shut' = [TokenKind]::Shut
     # D56: declarative UI, reactivity, animation
     'layout' = [TokenKind]::Layout; 'gap' = [TokenKind]::Gap
     'state' = [TokenKind]::State; 'derive' = [TokenKind]::Derive

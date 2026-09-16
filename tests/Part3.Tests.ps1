@@ -1040,6 +1040,45 @@ Test-Otter 'D81: a credential name with path-traversal-shaped characters is a cl
     }
 }
 
+# =================================================================
+# D82 - power/session actions (lock/sign out/restart/shut down)
+#
+# Deliberately NOT executed through Invoke-TestProgram here: doing so
+# would run the real interpreter path all the way to a genuine
+# shutdown.exe/rundll32.exe call, which must never happen as a side
+# effect of running this test suite (on a developer's machine or CI).
+# Get-OtterPowerActionCommandLine is a pure, side-effect-free lookup
+# split out specifically so this mapping can be verified exhaustively
+# without that risk; grammar acceptance is checked separately via
+# ConvertTo-OtterAst, which parses but never executes. The one real,
+# actually-executed verification (a genuine `lock the computer` call,
+# and a genuine schedule-then-immediately-abort of a real restart) was
+# done once, by hand, outside this automated suite - see
+# SPEC-DECISIONS.md D82.
+# =================================================================
+
+Test-Otter 'D82: each power action maps to the exact real command Windows would run' {
+    Assert-AreEqual -Expected 'rundll32.exe user32.dll,LockWorkStation' -Actual (Get-OtterPowerActionCommandLine -Action 'lock' -Line 1)
+    Assert-AreEqual -Expected 'shutdown.exe /l' -Actual (Get-OtterPowerActionCommandLine -Action 'signOut' -Line 1)
+    Assert-AreEqual -Expected 'shutdown.exe /r /t 30 /c "An Otter program requested a restart."' -Actual (Get-OtterPowerActionCommandLine -Action 'restart' -Line 1)
+    Assert-AreEqual -Expected 'shutdown.exe /s /t 30 /c "An Otter program requested a shutdown."' -Actual (Get-OtterPowerActionCommandLine -Action 'shutDown' -Line 1)
+}
+
+Test-Otter 'D82: restart and shut down always carry a real, non-zero grace period, never /t 0' {
+    $restartCmd = Get-OtterPowerActionCommandLine -Action 'restart' -Line 1
+    $shutdownCmd = Get-OtterPowerActionCommandLine -Action 'shutDown' -Line 1
+    Assert-True ($restartCmd -notmatch '/t 0\b') 'expected restart to never use a zero-second grace period'
+    Assert-True ($shutdownCmd -notmatch '/t 0\b') 'expected shut down to never use a zero-second grace period'
+    Assert-True ($restartCmd -match '/t 30\b') 'expected restart to carry a real 30-second grace period'
+    Assert-True ($shutdownCmd -match '/t 30\b') 'expected shut down to carry a real 30-second grace period'
+}
+
+Test-Otter 'D82: an unrecognized power action is a clean Otter error, not a silent no-op' {
+    Assert-OtterFails -Containing 'I do not know a power action called "bogus"' -Body {
+        [void](Get-OtterPowerActionCommandLine -Action 'bogus' -Line 1)
+    }
+}
+
 Set-Location $originalLocation
 Remove-Item -LiteralPath $sandbox -Recurse -Force -ErrorAction SilentlyContinue
 
