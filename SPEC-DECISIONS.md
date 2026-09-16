@@ -5957,3 +5957,47 @@ one platform, a real boundary worth naming explicitly here.
 
 ---
 
+## D79. Event log / system log provider — `get event log entries from "..." up to N into entries`
+
+**Status: IMPLEMENTED and verified end-to-end through the real `otter
+run` CLI against this machine's own real Windows System event log.**
+
+Closes BOTH "Event log provider" and "System logs provider" on the
+platform checklist with one feature: on Windows, the "System" log IS
+the system log - there is no separate OS-level syslog-style provider
+to add on top of the same `Get-WinEvent` surface, so treating these as
+two features to build would have meant building the same thing twice
+under two names. `LogName` is a plain string VALUE (`"System"`,
+`"Application"`, `"Security"`, or any other real log name on the
+machine), matched at runtime, same design as `GetSystemFolder`'s
+`FolderName` - "event"/"log"/"entries" are ordinary identifiers, no new
+lexer keyword. `"up to N"` reuses the exact phrasing D71's `wait for
+process ... up to N seconds` already established for a maximum/limit
+argument, rather than inventing new wording for the same idea.
+
+**A real distinction found and preserved, not flattened into one
+"empty or error" behavior:** a log NAME that does not exist on this
+machine (a typo, most likely) is a genuine error - confirmed the real
+message text directly (`"There is not an event log on the localhost
+computer that matches ..."`) and translated it into a clean, specific
+Otter error. A real, valid log that simply has zero entries matching
+the query is NOT an error - it returns an empty list, confirmed by
+directly reproducing the exact real message text `Get-WinEvent` throws
+for that case (`"No events were found that match the specified
+selection criteria."`) and matching it precisely, rather than guessing
+at the wording. Collapsing these two cases into one behavior would
+have hidden real typos as if they were merely quiet logs.
+
+**Verified:** through the real `otter run` CLI - 5 real entries
+returned from this machine's actual System log, with a real, non-blank
+provider name, level, and formatted timestamp on the first entry
+(`Microsoft-Windows-HttpService`/`Information`, matching a manual
+`Get-WinEvent` spot-check of the same log run beforehand); a genuinely
+nonexistent log name caught cleanly by `otherwise into reason`. Three
+new regression tests in `tests/Part3.Tests.ps1`. JS compiler emits a
+call to a new required host hook (`otterGetEventLogEntries`) with no
+bridge implementation yet - a Windows event log, like the registry, is
+a host/platform concept a browser has no notion of at all.
+
+---
+

@@ -415,8 +415,13 @@ creation.
     isolated `HKCU:\Software\...` test key, confirmed directly with
     `Get-ItemProperty`/`Test-Path` after each operation. See
     SPEC-DECISIONS.md D78)
--   [ ] Event log provider
--   [ ] System logs provider
+-   [x] Event log provider (D79: `get event log entries from "..." up
+    to N into entries` - real `Get-WinEvent` data, verified against
+    this machine's actual System log. Same feature as "System logs
+    provider" below - see SPEC-DECISIONS.md D79)
+-   [x] System logs provider (D79: on Windows the "System" log IS the
+    system log - same statement, same verification, no separate
+    feature needed)
 -   [ ] Scheduled tasks/cron provider
 -   [ ] Permissions/elevation model
 -   [ ] Secure credential handling

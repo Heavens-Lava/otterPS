@@ -701,6 +701,15 @@ function Invoke-OtterStatement {
             return
         }
 
+        # get event log entries from "System" up to 20 into entries      (D79)
+        'GetEventLogEntries' {
+            $logName = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.LogName -Environment $Environment)
+            $maxEntries = Assert-OtterNumber -Value (Get-OtterValue -Expression $Statement.MaxEntries -Environment $Environment) -Line $Statement.Line -What 'a maximum number of entries'
+            $entries = Get-OtterEventLogEntries -LogName $logName -MaxEntries $maxEntries -Line $Statement.Line
+            $Environment.Set($Statement.Target, $entries)
+            return
+        }
+
         'DeleteFolder' {
             Remove-OtterFolder -Path (Get-OtterPathArgument -Expression $Statement.Path -Environment $Environment) -Line $Statement.Line
             return

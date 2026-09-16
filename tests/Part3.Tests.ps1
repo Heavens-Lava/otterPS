@@ -546,6 +546,36 @@ Test-Otter 'D78: a registry path that does not look like one is a clean Otter er
 }
 
 # =================================================================
+# D79 - Windows event log
+# =================================================================
+
+Test-Otter 'D79: get event log entries returns real entries with real fields from the System log' {
+    $out = Invoke-TestProgram @(
+        [GetEventLogEntriesStmt]::new((Lit 'System'), (Lit 5.0), 'entries', 1),
+        [SayStmt]::new(@(([OfOperationExpr]::new([OfOperation]::Length, (Var 'entries'), 2))), 2),
+        [SayStmt]::new(@((PropOf 'source' ([OfOperationExpr]::new([OfOperation]::First, (Var 'entries'), 3)))), 3)
+    )
+    Assert-AreEqual -Expected 2 -Actual $out.Count
+    Assert-AreEqual -Expected '5' -Actual $out[0]
+    Assert-False ([string]::IsNullOrWhiteSpace($out[1])) 'expected a real, non-blank event source name'
+}
+
+Test-Otter 'D79: get event log entries from a log that does not exist is a clean Otter error' {
+    Assert-OtterFails -Containing 'I could not read the event log "ThisLogDoesNotExist12345"' -Body {
+        Invoke-TestProgram @( [GetEventLogEntriesStmt]::new((Lit 'ThisLogDoesNotExist12345'), (Lit 5.0), 'entries', 1) )
+    }
+}
+
+Test-Otter 'D79: otherwise into reason catches a missing event log by name' {
+    $out = Invoke-TestProgram @(
+        [TryStmt]::new(
+            @([GetEventLogEntriesStmt]::new((Lit 'ThisLogDoesNotExist12345'), (Lit 5.0), 'entries', 2)),
+            @([SayStmt]::new(@((Lit 'caught')), 4)), 'reason', 1)
+    )
+    Assert-Lines -Expected @('caught') -Actual $out
+}
+
+# =================================================================
 # D70 - process management: run ... into p, get processes, kill
 # =================================================================
 

@@ -406,6 +406,9 @@ enum NodeKind {
     SetRegistryValue       # set registry value "n" to "d" in "path"
     DeleteRegistryValue    # delete registry value "n" from "path"
     RegistryKeyExists      # an EXPRESSION: if registry key "path" exists
+
+    # --- event/system logs (D79) --------------------------------------
+    GetEventLogEntries     # get event log entries from "n" up to N into t
 }
 
 enum MathOp { Add; Subtract; Multiply; Divide }
@@ -1383,6 +1386,22 @@ class RegistryKeyExistsExpr : Node {
     [Node]$KeyPath
     RegistryKeyExistsExpr([Node]$keyPath, [int]$line) : base([NodeKind]::RegistryKeyExists, $line) {
         $this.KeyPath = $keyPath
+    }
+}
+
+# get event log entries from "System" up to 20 into entries           (D79)
+# LogName is a plain string VALUE ("System", "Application", "Security",
+# or any other real Windows log name), not a keyword - same design as
+# D67's GetSystemFolder FolderName, so a caller can name any log this
+# machine actually has without a grammar change.
+class GetEventLogEntriesStmt : Node {
+    [Node]$LogName
+    [Node]$MaxEntries
+    [string]$Target
+    GetEventLogEntriesStmt([Node]$logName, [Node]$maxEntries, [string]$target, [int]$line) : base([NodeKind]::GetEventLogEntries, $line) {
+        $this.LogName = $logName
+        $this.MaxEntries = $maxEntries
+        $this.Target = $target
     }
 }
 

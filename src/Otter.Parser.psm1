@@ -1385,6 +1385,33 @@ function Read-OtterStatement {
                 [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the get statement to end here.')
                 return [GetRegistryValueStmt]::new($regValueName, $regKeyPathGet, $regTarget.Text, $start.Line)
             }
+            # D79: `get event log entries from "System" up to 20 into t`
+            if ($kind.Kind -eq [TokenKind]::Identifier -and $kind.Text -eq 'event') {
+                [void](Read-OtterToken)
+                $logWord = Get-OtterCurrentToken
+                if ($logWord.Kind -ne [TokenKind]::Identifier -or $logWord.Text -ne 'log') {
+                    throw (New-OtterParserError 'I expected "log" after "event".' $logWord 'get event log entries from "System" up to 20 into entries')
+                }
+                [void](Read-OtterToken)
+                $entriesWord = Get-OtterCurrentToken
+                if ($entriesWord.Kind -ne [TokenKind]::Identifier -or $entriesWord.Text -ne 'entries') {
+                    throw (New-OtterParserError 'I expected "entries" after "log".' $entriesWord 'get event log entries from "System" up to 20 into entries')
+                }
+                [void](Read-OtterToken)
+                [void](Assert-OtterTokenKind ([TokenKind]::From) 'I expected "from" and a log name.')
+                $logName = Read-OtterValue
+                $upWord2 = Get-OtterCurrentToken
+                if ($upWord2.Kind -ne [TokenKind]::Identifier -or $upWord2.Text -ne 'up') {
+                    throw (New-OtterParserError 'I expected "up to" and a maximum count.' $upWord2 'get event log entries from "System" up to 20 into entries')
+                }
+                [void](Read-OtterToken)
+                [void](Assert-OtterTokenKind ([TokenKind]::To) 'I expected "to" and a maximum count.')
+                $maxEntries = Read-OtterValue
+                [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a result name.')
+                $eventTarget = Read-OtterVariableName 'I expected a result name after "into".'
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the get statement to end here.')
+                return [GetEventLogEntriesStmt]::new($logName, $maxEntries, $eventTarget.Text, $start.Line)
+            }
             if ($kind.Kind -eq [TokenKind]::Files -or $kind.Kind -eq [TokenKind]::Folders) {
                 [void](Read-OtterToken)
                 [void](Assert-OtterTokenKind ([TokenKind]::In) 'I expected "in" and a folder path.')

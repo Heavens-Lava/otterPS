@@ -629,6 +629,44 @@ function Test-OtterRegistryKeyExists {
     return (Test-Path -LiteralPath $KeyPath)
 }
 
+# get event log entries from "System" up to 20 into entries           (D79)
+# LogName is any real Windows event log name ("System", "Application",
+# "Security", or a real custom application/provider log) - a plain
+# string VALUE, matched at runtime, same design as GetSystemFolder's
+# FolderName. Covers both "Event log provider" and "System logs
+# provider" on the platform checklist: Windows' own "System" log IS
+# the system log on this platform - there is no separate OS-level
+# syslog-style provider to add on top of the same Get-WinEvent surface.
+# Newest entries first, matching what Event Viewer itself shows by
+# default and what most callers actually want ("what just happened").
+function Get-OtterEventLogEntries {
+    param([string]$LogName, [double]$MaxEntries, [int]$Line)
+
+    $list = [System.Collections.Generic.List[object]]::new()
+    try {
+        $events = Get-WinEvent -LogName $LogName -MaxEvents ([int]$MaxEntries) -ErrorAction Stop
+    } catch {
+        if ($_.Exception.Message -match 'No events were found') {
+            Write-Output -NoEnumerate $list
+            return
+        }
+        throw [OtterError]::new(
+            "I could not read the event log `"$LogName`". $($_.Exception.Message)",
+            $Line, 'runtime')
+    }
+    foreach ($evt in $events) {
+        $entry = [OtterObject]::new('event log entry')
+        $entry.WriteProperty('source', $evt.ProviderName)
+        $entry.WriteProperty('level', $evt.LevelDisplayName)
+        $entry.WriteProperty('time', $evt.TimeCreated.ToString('yyyy-MM-dd HH:mm:ss'))
+        $message = $null
+        try { $message = $evt.Message } catch { $message = $null }
+        $entry.WriteProperty('message', $message)
+        $list.Add($entry)
+    }
+    Write-Output -NoEnumerate $list
+}
+
 # get owner of "x" into owner                                        (D74)
 # Works on either a file or a folder - ownership is a filesystem-wide
 # concept, unlike read-only below, which this module deliberately
@@ -1459,4 +1497,5 @@ Export-ModuleMember -Function `
     Set-OtterProcessPriority, Wait-OtterProcess, `
     New-OtterSymbolicLink, Get-OtterSymbolicLinkTarget, Test-OtterSymbolicLink, `
     Get-OtterFileOwner, Test-OtterFileReadOnly, Set-OtterFileReadOnly, `
-    Get-OtterRegistryValue, Set-OtterRegistryValue, Remove-OtterRegistryValue, Test-OtterRegistryKeyExists
+    Get-OtterRegistryValue, Set-OtterRegistryValue, Remove-OtterRegistryValue, Test-OtterRegistryKeyExists, `
+    Get-OtterEventLogEntries
