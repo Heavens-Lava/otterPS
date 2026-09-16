@@ -1565,7 +1565,14 @@ export class OtterStudioIde {
       textarea.style.left = '0';
       textarea.style.width = '100%';
       textarea.style.height = '100%';
-      textarea.style.opacity = '0';
+      // Keep the native textarea present so its caret and selection remain
+      // visible, but let the highlighted code layer provide the glyph colors.
+      textarea.style.opacity = '1';
+      textarea.style.color = 'transparent';
+      textarea.style.caretColor = '#2563eb';
+      textarea.style.background = 'transparent';
+      textarea.style.border = '0';
+      textarea.style.outline = 'none';
       textarea.style.zIndex = '5';
       textarea.style.fontFamily = 'inherit';
       textarea.style.fontSize = 'inherit';
