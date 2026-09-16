@@ -629,15 +629,14 @@ creation.
 -   [x] Percent (D88, same as section 2's Percent operation - see
     SPEC-DECISIONS.md D88)
 -   [x] Power (D88, same as section 2's Power operation)
--   [ ] Absolute value (verified absent - no such keyword/operation
-    exists in the lexer, parser, or interpreter)
--   [ ] Round/floor/ceiling (verified absent as a language operation -
-    the only `[Math]::Floor` uses found are internal implementation
-    details of CountLoop/RandomNumber, never exposed to Otter source;
-    the "round" keyword that does exist is an unrelated UI-control
-    shape flag, not a math operation)
--   [ ] Min/max (verified absent - no such operation exists)
--   [ ] Square root
+-   [x] Absolute value (D89: `absolute value of X` - see
+    SPEC-DECISIONS.md D89)
+-   [x] Round/floor/ceiling (D89: `round of X` / `round up of X` /
+    `round down of X`, real .NET AwayFromZero rounding parity confirmed
+    against the JS compiler's own emitted ternary - see D89)
+-   [x] Min/max (D89: `larger of X and Y` / `smaller of X and Y`)
+-   [x] Square root (D89: `square root of X`, negative input is a
+    friendly Otter runtime error, not `NaN`)
 -   [ ] Trigonometry
 -   [ ] Logarithms
 -   [ ] Constants

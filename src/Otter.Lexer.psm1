@@ -364,9 +364,33 @@ function ConvertTo-OtterLineTokens {
                 'lowercase' { [TokenKind]::Lowercase }
                 'first' { [TokenKind]::First }
                 'last' { [TokenKind]::Last }
+                'round' { [TokenKind]::Round }         # D89: `round of X`
+                'larger' { [TokenKind]::Larger }       # D89: `larger of X and Y`
+                'smaller' { [TokenKind]::Smaller }     # D89: `smaller of X and Y`
                 default { $null }
             }
             if ($null -ne $operationKind) { $combined.Add((New-OtterToken $operationKind $token.Text $null $token.Line $token.Column)); continue }
+        }
+        # D89: two-word operation names, contextual the same way as the
+        # single-word ones above - only combined right before `of`, so
+        # "absolute value" or "round up" stay ordinary identifiers anywhere
+        # else (e.g. as a variable or parameter name).
+        if ($token.Kind -eq [TokenKind]::Identifier -and ($tokenIndex + 2) -lt $tokens.Count -and
+            $tokens[$tokenIndex + 1].Kind -eq [TokenKind]::Identifier -and
+            $tokens[$tokenIndex + 2].Kind -eq [TokenKind]::Of) {
+            $secondWord = $tokens[$tokenIndex + 1].Text
+            $twoWordKind = switch ("$($token.Text) $secondWord") {
+                'absolute value' { [TokenKind]::AbsoluteValue }
+                'square root' { [TokenKind]::SquareRoot }
+                'round up' { [TokenKind]::RoundUp }
+                'round down' { [TokenKind]::RoundDown }
+                default { $null }
+            }
+            if ($null -ne $twoWordKind) {
+                $combined.Add((New-OtterToken $twoWordKind "$($token.Text) $secondWord" $null $token.Line $token.Column))
+                $tokenIndex++
+                continue
+            }
         }
         if ($token.Kind -eq [TokenKind]::Identifier -and ($tokenIndex + 1) -lt $tokens.Count -and
             $tokens[$tokenIndex + 1].Kind -eq [TokenKind]::With) {

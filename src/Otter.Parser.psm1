@@ -162,7 +162,8 @@ function Read-OtterValue {
             return [DateDifferenceExpr]::new($script:OtterTimeUnits[$token.Kind], $start, $end, $token.Line)
         }
     }
-    if ($token.Kind -in @([TokenKind]::Length, [TokenKind]::Uppercase, [TokenKind]::Lowercase, [TokenKind]::First, [TokenKind]::Last)) {
+    if ($token.Kind -in @([TokenKind]::Length, [TokenKind]::Uppercase, [TokenKind]::Lowercase, [TokenKind]::First, [TokenKind]::Last,
+                          [TokenKind]::AbsoluteValue, [TokenKind]::SquareRoot, [TokenKind]::Round, [TokenKind]::RoundUp, [TokenKind]::RoundDown)) {
         [void](Read-OtterToken)
         [void](Assert-OtterTokenKind ([TokenKind]::Of) 'I expected "of" after this operation.')
         $operation = switch ($token.Kind) {
@@ -171,8 +172,23 @@ function Read-OtterValue {
             ([TokenKind]::Lowercase) { [OfOperation]::Lowercase }
             ([TokenKind]::First) { [OfOperation]::First }
             ([TokenKind]::Last) { [OfOperation]::Last }
+            ([TokenKind]::AbsoluteValue) { [OfOperation]::AbsoluteValue }   # D89: absolute value of X
+            ([TokenKind]::SquareRoot) { [OfOperation]::SquareRoot }        # D89: square root of X
+            ([TokenKind]::Round) { [OfOperation]::Round }                 # D89: round of X
+            ([TokenKind]::RoundUp) { [OfOperation]::RoundUp }             # D89: round up of X
+            ([TokenKind]::RoundDown) { [OfOperation]::RoundDown }         # D89: round down of X
         }
         return [OfOperationExpr]::new($operation, (Read-OtterValue -PropertyTarget), $token.Line)
+    }
+    # D89: larger of X and Y / smaller of X and Y
+    if ($token.Kind -in @([TokenKind]::Larger, [TokenKind]::Smaller)) {
+        [void](Read-OtterToken)
+        [void](Assert-OtterTokenKind ([TokenKind]::Of) 'I expected "of" after this operation.')
+        $isMax = ($token.Kind -eq [TokenKind]::Larger)
+        $left = Read-OtterValue
+        [void](Assert-OtterTokenKind ([TokenKind]::And) 'I expected "and" and the second value.')
+        $right = Read-OtterValue
+        return [MinMaxExpr]::new($isMax, $left, $right, $token.Line)
     }
     # These words are commands in statement position, but ordinary names in
     # expression position: `for each file in files`, `name of file`.

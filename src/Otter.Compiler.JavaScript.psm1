@@ -355,8 +355,24 @@ function ConvertTo-OtterJsExpression {
                 'Length' { return "(($subjectJs).length)" }
                 'First' { return "(Array.isArray($subjectJs) && ($subjectJs).length > 0 ? ($subjectJs)[0] : null)" }
                 'Last' { return "(Array.isArray($subjectJs) && ($subjectJs).length > 0 ? ($subjectJs)[($subjectJs).length - 1] : null)" }
+                # D89: absolute value / square root / round / round up (ceiling) / round down (floor).
+                # Round matches the interpreter's MidpointRounding.AwayFromZero (5.5 -> 6, not
+                # JS Math.round's own away-from-zero-for-positives-only rule, which happens to
+                # agree for positive numbers but not negative ones - .5 offset trick keeps parity).
+                'AbsoluteValue' { return "Math.abs(Number($subjectJs))" }
+                'SquareRoot' { return "Math.sqrt(Number($subjectJs))" }
+                'Round' { return "(Number($subjectJs) < 0 ? -Math.round(-Number($subjectJs)) : Math.round(Number($subjectJs)))" }
+                'RoundUp' { return "Math.ceil(Number($subjectJs))" }
+                'RoundDown' { return "Math.floor(Number($subjectJs))" }
                 default { return "null" }
             }
+        }
+        ([NodeKind]::MinMax) {
+            # D89: larger of X and Y / smaller of X and Y
+            $leftJs = ConvertTo-OtterJsExpression -Expr $Expr.Left
+            $rightJs = ConvertTo-OtterJsExpression -Expr $Expr.Right
+            $fn = if ($Expr.IsMax) { 'Math.max' } else { 'Math.min' }
+            return "$fn(Number($leftJs), Number($rightJs))"
         }
         ([NodeKind]::Clock) {
             # D60 Phase 1J. `today` / `now` - matches New-OtterToday/
@@ -2464,6 +2480,7 @@ function Test-OtterJsExpressionNeedsAsync {
         ([NodeKind]::Contains) { return (Test-OtterJsExpressionNeedsAsync $Expression.Collection) -or (Test-OtterJsExpressionNeedsAsync $Expression.Item) }
         ([NodeKind]::TextMatch) { return (Test-OtterJsExpressionNeedsAsync $Expression.Subject) -or (Test-OtterJsExpressionNeedsAsync $Expression.Value) }
         ([NodeKind]::OfOperation) { return (Test-OtterJsExpressionNeedsAsync $Expression.Subject) }
+        ([NodeKind]::MinMax) { return (Test-OtterJsExpressionNeedsAsync $Expression.Left) -or (Test-OtterJsExpressionNeedsAsync $Expression.Right) }
         ([NodeKind]::PropertyAccess) { return (Test-OtterJsExpressionNeedsAsync $Expression.Target) }
         ([NodeKind]::DateDifferenceValue) { return (Test-OtterJsExpressionNeedsAsync $Expression.Start) -or (Test-OtterJsExpressionNeedsAsync $Expression.End) }
         ([NodeKind]::Call) {

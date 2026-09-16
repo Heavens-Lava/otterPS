@@ -166,6 +166,34 @@ Test-Otter 'D88: power participates in the SAME flat left-to-right chain as ever
     Assert-Lines -Expected @('9') -Actual $out
 }
 
+Test-Otter 'D89: absolute value, square root, round, round up, and round down compute real values' {
+    $out = Invoke-TestProgram @(
+        (SaySt @([OfOperationExpr]::new([OfOperation]::AbsoluteValue, (Lit -7.0), 1))),
+        (SaySt @([OfOperationExpr]::new([OfOperation]::SquareRoot, (Lit 81.0), 2))),
+        (SaySt @([OfOperationExpr]::new([OfOperation]::Round, (Lit 4.5), 3))),
+        (SaySt @([OfOperationExpr]::new([OfOperation]::Round, (Lit -4.5), 4))),
+        (SaySt @([OfOperationExpr]::new([OfOperation]::RoundUp, (Lit 4.1), 5))),
+        (SaySt @([OfOperationExpr]::new([OfOperation]::RoundDown, (Lit 4.9), 6)))
+    )
+    Assert-Lines -Expected @('7', '9', '5', '-5', '5', '4') -Actual $out
+}
+
+Test-Otter 'D89: square root of a negative number is a friendly Otter error' {
+    Assert-OtterFails -Containing 'square root of a negative number' -Body {
+        Invoke-TestProgram @(
+            (SaySt @([OfOperationExpr]::new([OfOperation]::SquareRoot, (Lit -9.0), 1)))
+        )
+    }
+}
+
+Test-Otter 'D89: larger/smaller of two values picks the real min/max' {
+    $out = Invoke-TestProgram @(
+        (SaySt @([MinMaxExpr]::new($true, (Lit 3.0), (Lit 8.0), 1))),
+        (SaySt @([MinMaxExpr]::new($false, (Lit 3.0), (Lit 8.0), 2)))
+    )
+    Assert-Lines -Expected @('8', '3') -Actual $out
+}
+
 Test-Otter 'doing maths on text explains itself' {
     Assert-OtterFails -Containing 'I expected a number' -Body {
         Invoke-TestProgram @(

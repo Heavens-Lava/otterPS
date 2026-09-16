@@ -1682,8 +1682,48 @@ function Get-OtterValue {
                     Write-Output -NoEnumerate $subject[$subject.Count - 1]
                     return
                 }
+
+                # absolute value of X / square root of X / round of X /
+                # round up of X / round down of X                    (D89)
+                'AbsoluteValue' {
+                    $n = Assert-OtterNumber -Value $subject -Line $Expression.Line -What 'the absolute value'
+                    return [Math]::Abs($n)
+                }
+
+                'SquareRoot' {
+                    $n = Assert-OtterNumber -Value $subject -Line $Expression.Line -What 'the square root'
+                    if ($n -lt 0) {
+                        throw (New-OtterRuntimeError `
+                            -Message "I can't take the square root of a negative number ($n)." `
+                            -Line $Expression.Line)
+                    }
+                    return [Math]::Sqrt($n)
+                }
+
+                'Round' {
+                    $n = Assert-OtterNumber -Value $subject -Line $Expression.Line -What 'rounding'
+                    return [Math]::Round([double]$n, 0, [MidpointRounding]::AwayFromZero)
+                }
+
+                'RoundUp' {
+                    $n = Assert-OtterNumber -Value $subject -Line $Expression.Line -What 'rounding'
+                    return [Math]::Ceiling($n)
+                }
+
+                'RoundDown' {
+                    $n = Assert-OtterNumber -Value $subject -Line $Expression.Line -What 'rounding'
+                    return [Math]::Floor($n)
+                }
             }
             return $null
+        }
+
+        # larger of X and Y / smaller of X and Y                     (D89)
+        'MinMax' {
+            $left = Assert-OtterNumber -Value (Get-OtterValue -Expression $Expression.Left -Environment $Environment) -Line $Expression.Line -What 'comparing sizes'
+            $right = Assert-OtterNumber -Value (Get-OtterValue -Expression $Expression.Right -Environment $Environment) -Line $Expression.Line -What 'comparing sizes'
+            if ($Expression.IsMax) { return [Math]::Max($left, $right) }
+            return [Math]::Min($left, $right)
         }
 
         # if name starts with "J"   /   if name ends with "Macy"

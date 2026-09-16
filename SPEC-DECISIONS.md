@@ -6530,3 +6530,64 @@ interpreter. Two new regression tests in `tests/Interpreter.Tests.ps1`.
 
 ---
 
+## D89. Absolute value, square root, round/round up/round down, and min/max — `absolute value of X`, `square root of X`, `round of X`, `round up of X`, `round down of X`, `larger of X and Y`, `smaller of X and Y`
+
+**Status: IMPLEMENTED and verified end-to-end through the real `otter
+run`/`otter check`/`otter web` CLI.**
+
+**Design.** All five unary operations reuse the existing `OfOperation`
+family (`length of X`, `uppercase of X`, `first of X`, ...) rather than
+inventing new grammar shapes — `AbsoluteValue`/`SquareRoot`/`Round`/
+`RoundUp`/`RoundDown` were simply added as five new `OfOperation` enum
+values sharing the same `OfOperationExpr` node the existing five
+operations already use. `larger of X and Y`/`smaller of X and Y` do
+not fit that single-subject shape (they take two operands), so they
+got a new dedicated `MinMaxExpr` node (`NodeKind.MinMax`) instead,
+modeled directly on `TextMatchExpr`'s existing two-operand pattern.
+
+**Lexer.** Both `round`/`larger`/`smaller` (single word) and `absolute
+value`/`square root`/`round up`/`round down` (two words) are
+recognized *only* immediately before the `of` token, the same
+contextual mechanism `length`/`uppercase`/`first`/`last` already use —
+confirmed directly that `round is 5`, `absolute is "hello"`, and
+`larger is 42` all still work as ordinary variable names, since the
+combining check never fires without a following `of`.
+
+**Rounding parity.** `round of X` uses .NET's
+`[Math]::Round($n, 0, [MidpointRounding]::AwayFromZero)` in the
+interpreter (`4.5` → `5`, `-4.5` → `-5` — confirmed both directions,
+since .NET's *default* rounding is banker's/to-even and would have
+given `4.5` → `4` instead). The JS compiler could not use plain
+`Math.round` for parity, because JS's `Math.round` is only
+away-from-zero for positive numbers (`Math.round(-4.5)` is `-4`, not
+`-5`) — emitted `(n < 0 ? -Math.round(-n) : Math.round(n))` instead,
+confirmed to match the interpreter on `-4.5`, `-4.4`, and `-4.6` when
+run directly in real Node.
+
+**Square root of a negative number is a friendly Otter runtime error**
+(`I can't take the square root of a negative number (-9).`), not
+`NaN` — confirmed via the real CLI on `square root of negativeNumber`
+where `negativeNumber is 0 minus 9` (Otter has no negative-literal
+syntax, so a real negative value has to be produced via subtraction
+first — confirmed this is the correct, existing behavior, not a gap:
+`0 minus 9` is the only way to write `-9` as source text today). The
+JS compiler does not replicate this validation (matching the
+established convention already documented for D60 Phase 1D-B/D88:
+some operators validate, some don't, and this repo's compiler accepts
+that inconsistency rather than fixing only the newest cases).
+
+**Verified:** through the real `otter run` CLI — `absolute value of
+7` → `7`, `square root of 81` → `9`, `round of 4.5` → `5`, `round up
+of 4.1` → `5`, `round down of 4.9` → `4`, `larger of 3 and 8` → `8`,
+`smaller of 3 and 8` → `3`, `absolute value of (0 minus 12.5)` → `12.5`
+— all real, correct values. `otter check` accepted the same file as
+valid. `otter web` compiled the same source to a standalone HTML app;
+the emitted JS (`Math.abs`, `Math.sqrt`, `Math.ceil`, `Math.floor`,
+`Math.max`, `Math.min`, and the rounding-parity ternary) was extracted
+and run directly in real Node, producing output identical to the
+interpreter. Five new regression tests in `tests/Interpreter.Tests.ps1`
+(covering all five `OfOperation` values, the negative-square-root
+error, and both `larger`/`smaller` directions).
+
+---
+

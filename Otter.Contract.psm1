@@ -120,6 +120,15 @@ enum TokenKind {
     Percent         # X percent of Y
     Power           # X power Y
 
+    # --- more math operations (D89) ----------------------------------------
+    AbsoluteValue   # absolute value of X
+    SquareRoot      # square root of X
+    Round           # round of X
+    RoundUp         # round up of X (ceiling)
+    RoundDown       # round down of X (floor)
+    Larger          # larger of X and Y
+    Smaller         # smaller of X and Y
+
     # --- strings and collections (D24, D25, D26) ----------------
     Length          # length of name / length of games
     Uppercase
@@ -450,6 +459,9 @@ enum NodeKind {
     # --- ZIP/archive provider (D87) -----------------------------------------
     ZipFolder              # zip folder "src" into "archive.zip"
     UnzipFile              # unzip "archive.zip" into "dest"
+
+    # --- more math operations (D89) ------------------------------------------
+    MinMax                 # larger of X and Y / smaller of X and Y
 }
 
 enum MathOp { Add; Subtract; Multiply; Divide; Percent; Power }   # D88
@@ -467,7 +479,7 @@ enum LogicalOp { And; Or }
 # Pretending every list literally carries a "length" property would make the
 # runtime object model strange to keep the grammar tidy. They share surface
 # syntax and nothing else.
-enum OfOperation { Length; Uppercase; Lowercase; First; Last }
+enum OfOperation { Length; Uppercase; Lowercase; First; Last; AbsoluteValue; SquareRoot; Round; RoundUp; RoundDown }   # D89 added the last five
 
 # if name starts with "J"   /   if name ends with "Macy"
 enum TextMatch { StartsWith; EndsWith }
@@ -1661,6 +1673,18 @@ class OfOperationExpr : Node {
     OfOperationExpr([OfOperation]$operation, [Node]$subject, [int]$line) : base([NodeKind]::OfOperation, $line) {
         $this.Operation = $operation
         $this.Subject = $subject
+    }
+}
+
+# D89: larger of X and Y / smaller of X and Y
+class MinMaxExpr : Node {
+    [bool]$IsMax
+    [Node]$Left
+    [Node]$Right
+    MinMaxExpr([bool]$isMax, [Node]$left, [Node]$right, [int]$line) : base([NodeKind]::MinMax, $line) {
+        $this.IsMax = $isMax
+        $this.Left = $left
+        $this.Right = $right
     }
 }
 
