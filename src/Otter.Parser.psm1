@@ -248,8 +248,18 @@ function Read-OtterConditionPrimary {
     if (Test-OtterTokenKind ([TokenKind]::File)) {
         $fileToken = Read-OtterToken
         $path = Read-OtterValue
-        [void](Assert-OtterTokenKind ([TokenKind]::Exists) 'I expected "exists" after the file path.')
-        return [FileExistsExpr]::new($path, $fileToken.Line)
+        if (Test-OtterTokenKind ([TokenKind]::Exists)) {
+            [void](Read-OtterToken)
+            return [FileExistsExpr]::new($path, $fileToken.Line)
+        }
+        # D72: `file "x" is locked`
+        [void](Assert-OtterTokenKind ([TokenKind]::Is) 'I expected "exists" or "is locked" after the file path.')
+        $lockedWord = Get-OtterCurrentToken
+        if ($lockedWord.Kind -ne [TokenKind]::Identifier -or $lockedWord.Text -ne 'locked') {
+            throw (New-OtterParserError 'I expected "locked" after "is".' $lockedWord 'file "x" is locked')
+        }
+        [void](Read-OtterToken)
+        return [FileLockedExpr]::new($path, $fileToken.Line)
     }
     $left = Read-OtterValue
     if (Test-OtterTokenKind ([TokenKind]::Contains)) {
@@ -1644,8 +1654,16 @@ function Read-OtterStatement {
             $content = Read-OtterValue
             [void](Assert-OtterTokenKind ([TokenKind]::To) 'I expected "to" and a file path.')
             $path = Read-OtterValue
+            # D72: `write "x" to "path" atomically` - optional trailing
+            # qualifier; plain `write ... to ...` is unchanged.
+            $atomic = $false
+            $atomicWord = Get-OtterCurrentToken
+            if ($atomicWord.Kind -eq [TokenKind]::Identifier -and $atomicWord.Text -eq 'atomically') {
+                [void](Read-OtterToken)
+                $atomic = $true
+            }
             [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the write statement to end here.')
-            return [WriteFileStmt]::new($content, $path, $start.Line)
+            return [WriteFileStmt]::new($content, $path, $atomic, $start.Line)
         }
         ([TokenKind]::Append) {
             [void](Read-OtterToken)

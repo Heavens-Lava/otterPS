@@ -291,14 +291,20 @@ creation.
 -   [x] File metadata/properties
 -   [x] File exists portable certification
 -   [x] Folder exists
--   [ ] Atomic save
+-   [x] Atomic save (D72: `write "x" to "path" atomically` - a real
+    temp-file-then-atomic-rename, verified through the real `otter run`
+    CLI including replacing an already-existing file. Found and fixed
+    a real .NET Framework `File.Replace(...,null)` bug along the way -
+    see SPEC-DECISIONS.md D72)
 -   [x] Safe overwrite
 -   [x] Text encodings
 -   [ ] Binary read/write
 -   [ ] Random-access file IO
 -   [ ] Streams
 -   [ ] Large-file handling
--   [ ] File locks
+-   [x] File locks (D72: `file "x" is locked` - a real exclusive-open
+    check, verified against a file genuinely held open elsewhere via
+    `FileShare.None` from outside Otter)
 -   [ ] File watching
 -   [ ] Recursive watching
 -   [x] Temp files/folders

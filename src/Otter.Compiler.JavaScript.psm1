@@ -390,6 +390,13 @@ function ConvertTo-OtterJsExpression {
             $pathJs = ConvertTo-OtterJsExpression -Expr $Expr.Path
             return "(await otterFileExists($pathJs))"
         }
+        ([NodeKind]::FileLocked) {
+            # D72. `file "x" is locked` - REQUIRED runtime hook
+            # `otterFileLocked(path)`, no bridge implementation yet, same
+            # reported boundary as the other D69-D72 system hooks.
+            $pathJs = ConvertTo-OtterJsExpression -Expr $Expr.Path
+            return "(await otterFileLocked($pathJs))"
+        }
         default {
             return "null"
         }
@@ -1044,9 +1051,19 @@ function ConvertTo-OtterJsStatement {
         ([NodeKind]::WriteFile) {
             # D60. `write <content> to <path>` - complements ReadFile.
             # Emits call to async runtime hook otterWriteFile(path, content).
+            #
+            # D72: `write ... to ... atomically` passes a third argument,
+            # $Stmt.Atomic, through to the SAME hook rather than a
+            # different one - whether the write is genuinely atomic is a
+            # real host boundary (a browser/Node file-write path's actual
+            # atomicity guarantee is the bridge's responsibility, same as
+            # every other filesystem operation in this compiler), reported
+            # here rather than silently assumed. No bridge implementation
+            # honors this third argument yet - Gemini's lane.
             $contentJs = ConvertTo-OtterJsExpression -Expr $Stmt.Content
             $pathJs = ConvertTo-OtterJsExpression -Expr $Stmt.Path
-            return "${pad}await otterWriteFile($pathJs, $contentJs);"
+            $atomicJs = if ($Stmt.Atomic) { 'true' } else { 'false' }
+            return "${pad}await otterWriteFile($pathJs, $contentJs, $atomicJs);"
         }
         ([NodeKind]::RunProgram) {
             # D60. `run command <target> [into <resultTarget>]` - emits call
@@ -2210,6 +2227,7 @@ function Test-OtterJsExpressionNeedsAsync {
     if ($null -eq $Expression) { return $false }
     switch ($Expression.Kind) {
         ([NodeKind]::FileExists) { return $true }
+        ([NodeKind]::FileLocked) { return $true }
         ([NodeKind]::Await) { return $true }
         ([NodeKind]::Math) { return (Test-OtterJsExpressionNeedsAsync $Expression.Left) -or (Test-OtterJsExpressionNeedsAsync $Expression.Right) }
         ([NodeKind]::Comparison) { return (Test-OtterJsExpressionNeedsAsync $Expression.Left) -or (Test-OtterJsExpressionNeedsAsync $Expression.Right) }

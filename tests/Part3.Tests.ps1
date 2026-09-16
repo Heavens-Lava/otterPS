@@ -581,6 +581,85 @@ Test-Otter 'D71: wait for process refuses anything that is not a real process ha
     }
 }
 
+# =================================================================
+# D72 - atomic save and file locks
+# =================================================================
+
+Test-Otter 'D72: write atomically creates a brand-new file with the right content' {
+    $path = Join-Path $sandbox 'd72-new.txt'
+    $out = Invoke-TestProgram @(
+        [WriteFileStmt]::new((Lit 'brand new atomic content'), (Lit $path), $true, 1),
+        [ReadFileStmt]::new((Lit $path), 'contents', 2),
+        [SayStmt]::new(@((Var 'contents')), 3)
+    )
+    Assert-Lines -Expected @('brand new atomic content') -Actual $out
+    Assert-AreEqual -Expected 0 -Actual @(Get-ChildItem -LiteralPath $sandbox -Filter '*.otter-tmp-*').Count
+    Assert-AreEqual -Expected 0 -Actual @(Get-ChildItem -LiteralPath $sandbox -Filter '*.otter-bak-*').Count
+}
+
+Test-Otter 'D72: write atomically replaces an already-existing file, leaving no temp/backup residue' {
+    $path = Join-Path $sandbox 'd72-existing.txt'
+    Set-Content -LiteralPath $path -Value 'old content' -NoNewline
+    $out = Invoke-TestProgram @(
+        [WriteFileStmt]::new((Lit 'new content replacing old'), (Lit $path), $true, 1),
+        [ReadFileStmt]::new((Lit $path), 'contents', 2),
+        [SayStmt]::new(@((Var 'contents')), 3)
+    )
+    Assert-Lines -Expected @('new content replacing old') -Actual $out
+    Assert-AreEqual -Expected 0 -Actual @(Get-ChildItem -LiteralPath $sandbox -Filter '*.otter-tmp-*').Count
+    Assert-AreEqual -Expected 0 -Actual @(Get-ChildItem -LiteralPath $sandbox -Filter '*.otter-bak-*').Count
+}
+
+Test-Otter 'D72: a plain write with no atomically qualifier still works unchanged' {
+    $path = Join-Path $sandbox 'd72-plain.txt'
+    $out = Invoke-TestProgram @(
+        [WriteFileStmt]::new((Lit 'plain write'), (Lit $path), 1),
+        [ReadFileStmt]::new((Lit $path), 'contents', 2),
+        [SayStmt]::new(@((Var 'contents')), 3)
+    )
+    Assert-Lines -Expected @('plain write') -Actual $out
+}
+
+Test-Otter 'D72: file is locked is false for a free file that exists' {
+    $path = Join-Path $sandbox 'd72-free.txt'
+    Set-Content -LiteralPath $path -Value 'free' -NoNewline
+    $out = Invoke-TestProgram @(
+        [IfStmt]::new(
+            @([IfBranch]::new([FileLockedExpr]::new((Lit $path), 1),
+                @([SayStmt]::new(@((Lit 'locked')), 2)))),
+            @([SayStmt]::new(@((Lit 'not locked')), 4)), 1)
+    )
+    Assert-Lines -Expected @('not locked') -Actual $out
+}
+
+Test-Otter 'D72: file is locked is false for a file that does not exist' {
+    $path = Join-Path $sandbox 'd72-does-not-exist.txt'
+    $out = Invoke-TestProgram @(
+        [IfStmt]::new(
+            @([IfBranch]::new([FileLockedExpr]::new((Lit $path), 1),
+                @([SayStmt]::new(@((Lit 'locked')), 2)))),
+            @([SayStmt]::new(@((Lit 'not locked')), 4)), 1)
+    )
+    Assert-Lines -Expected @('not locked') -Actual $out
+}
+
+Test-Otter 'D72: file is locked is true for a file another process holds open exclusively' {
+    $path = Join-Path $sandbox 'd72-locked.txt'
+    Set-Content -LiteralPath $path -Value 'locked' -NoNewline
+    $stream = [System.IO.File]::Open($path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
+    try {
+        $out = Invoke-TestProgram @(
+            [IfStmt]::new(
+                @([IfBranch]::new([FileLockedExpr]::new((Lit $path), 1),
+                    @([SayStmt]::new(@((Lit 'locked')), 2)))),
+                @([SayStmt]::new(@((Lit 'not locked')), 4)), 1)
+        )
+        Assert-Lines -Expected @('locked') -Actual $out
+    } finally {
+        $stream.Close()
+    }
+}
+
 
 Set-Location $originalLocation
 Remove-Item -LiteralPath $sandbox -Recurse -Force -ErrorAction SilentlyContinue

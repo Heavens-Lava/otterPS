@@ -514,7 +514,7 @@ function Invoke-OtterStatement {
         'WriteFile' {
             $content = Get-OtterText -Expression $Statement.Content -Environment $Environment
             $path = Get-OtterPathArgument -Expression $Statement.Path -Environment $Environment
-            Write-OtterFile -Path $path -Content $content -Line $Statement.Line
+            Write-OtterFile -Path $path -Content $content -Line $Statement.Line -Atomic $Statement.Atomic
             return
         }
 
@@ -1467,6 +1467,12 @@ function Get-OtterValue {
         'FileExists' {
             $path = Get-OtterPathArgument -Expression $Expression.Path -Environment $Environment
             return (Test-OtterFileExists -Path $path -Line $Expression.Line)
+        }
+
+        # if file "hello.txt" is locked                                (D72)
+        'FileLocked' {
+            $path = Get-OtterPathArgument -Expression $Expression.Path -Environment $Environment
+            return (Test-OtterFileLocked -Path $path -Line $Expression.Line)
         }
 
         # length of name / length of games / uppercase of name /

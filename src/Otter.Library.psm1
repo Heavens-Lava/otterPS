@@ -172,7 +172,7 @@ function Read-OtterFile {
 
 # write "Hello!" to "hello.txt"    - replaces whatever was there
 function Write-OtterFile {
-    param([string]$Path, [string]$Content, [int]$Line)
+    param([string]$Path, [string]$Content, [int]$Line, [bool]$Atomic = $false)
 
     $full = Resolve-OtterPath -Path $Path -Line $Line
     Initialize-OtterParentFolder -FullPath $full -Line $Line
@@ -181,16 +181,53 @@ function Write-OtterFile {
         throw [OtterError]::new("`"$Path`" is a folder, not a file.", $Line, 'runtime')
     }
 
+    # WriteAllText, not Set-Content -Encoding UTF8: on PowerShell 5.1 that
+    # switch always prepends a byte-order mark, which other tools show as
+    # a stray "i>>?" at the start of the file and which makes "size of
+    # file" three bytes larger than the text the programmer wrote.
+    # UTF8Encoding($false) means "UTF-8, no BOM".
+    $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
+
+    if (-not $Atomic) {
+        try {
+            [System.IO.File]::WriteAllText($full, $Content, $utf8NoBom)
+        }
+        catch {
+            throw [OtterError]::new("I could not write to `"$Path`". $($_.Exception.Message)", $Line, 'runtime')
+        }
+        return
+    }
+
+    # D72: write the real content to a TEMP file in the same folder first,
+    # then perform a single atomic rename onto the real path - a reader
+    # (or a crash mid-write) never sees a half-written file, unlike the
+    # plain path above which writes directly into place. File.Replace
+    # (when the target already exists) and File.Move (when it does not)
+    # are both single filesystem operations on the same volume, which is
+    # what "atomic" actually means here - a temp-then-copy would not be.
+    #
+    # File.Replace's backup-path argument MUST be a real path here, not
+    # null or empty - confirmed by direct testing: passing $null (per its
+    # own MSDN-documented "no backup file created" meaning) throws "The
+    # path is not of a legal form" on this PowerShell 5.1/.NET Framework
+    # combination, a real, reproducible quirk, not a hypothetical one. A
+    # second temp suffix is used as a throwaway backup path and deleted
+    # immediately after.
+    $tempPath = $full + '.otter-tmp-' + [Guid]::NewGuid().ToString('N').Substring(0, 8)
+    $backupPath = $full + '.otter-bak-' + [Guid]::NewGuid().ToString('N').Substring(0, 8)
     try {
-        # WriteAllText, not Set-Content -Encoding UTF8: on PowerShell 5.1 that
-        # switch always prepends a byte-order mark, which other tools show as
-        # a stray "i>>?" at the start of the file and which makes "size of
-        # file" three bytes larger than the text the programmer wrote.
-        # UTF8Encoding($false) means "UTF-8, no BOM".
-        $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
-        [System.IO.File]::WriteAllText($full, $Content, $utf8NoBom)
+        [System.IO.File]::WriteAllText($tempPath, $Content, $utf8NoBom)
+        if (Test-Path -LiteralPath $full -PathType Leaf) {
+            [System.IO.File]::Replace($tempPath, $full, $backupPath)
+            Remove-Item -LiteralPath $backupPath -Force -ErrorAction SilentlyContinue
+        } else {
+            [System.IO.File]::Move($tempPath, $full)
+        }
     }
     catch {
+        if (Test-Path -LiteralPath $tempPath) {
+            Remove-Item -LiteralPath $tempPath -Force -ErrorAction SilentlyContinue
+        }
         throw [OtterError]::new("I could not write to `"$Path`". $($_.Exception.Message)", $Line, 'runtime')
     }
 }
@@ -307,6 +344,35 @@ function Test-OtterFileExists {
     if ([string]::IsNullOrWhiteSpace($Path)) { return $false }
     $full = Resolve-OtterPath -Path $Path -Line $Line
     return (Test-Path -LiteralPath $full -PathType Leaf)
+}
+
+# if file "x" is locked                                              (D72)
+# A file that does not exist is not "locked" - that is what "exists"
+# already answers; this asks the DIFFERENT question of whether the file
+# is currently held open elsewhere. Detected the only reliable way on
+# Windows PowerShell 5.1: try to open it exclusively (FileShare.None)
+# and see whether that succeeds - there is no direct "who has this open"
+# API available without a native/PInvoke dependency this module does
+# not carry.
+function Test-OtterFileLocked {
+    param([string]$Path, [int]$Line)
+
+    if ([string]::IsNullOrWhiteSpace($Path)) { return $false }
+    $full = Resolve-OtterPath -Path $Path -Line $Line
+    if (-not (Test-Path -LiteralPath $full -PathType Leaf)) { return $false }
+
+    try {
+        $stream = [System.IO.File]::Open($full, [System.IO.FileMode]::Open, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
+        $stream.Close()
+        return $false
+    } catch [System.IO.IOException] {
+        return $true
+    } catch {
+        # Some other failure (permissions, etc.) - not the same question
+        # as "locked", so fail with a clean Otter error rather than
+        # silently reporting a wrong answer either way.
+        throw [OtterError]::new("I could not check whether `"$Path`" is locked. $($_.Exception.Message)", $Line, 'runtime')
+    }
 }
 
 
@@ -1071,7 +1137,7 @@ function Get-OtterSystemInfoValue {
 
 Export-ModuleMember -Function `
     Resolve-OtterPath, Read-OtterFile, Write-OtterFile, Add-OtterFileContent, Copy-OtterFile, `
-    Move-OtterFile, Remove-OtterFile, Test-OtterFileExists, `
+    Move-OtterFile, Remove-OtterFile, Test-OtterFileExists, Test-OtterFileLocked, `
     Split-OtterCommandLine, Start-OtterProgram, Invoke-OtterCommand, `
     New-OtterFileObject, Resolve-OtterFileArgument, New-OtterFolderObject, `
     Get-OtterFilesIn, Get-OtterFoldersIn, New-OtterFolder, Remove-OtterFolder, `

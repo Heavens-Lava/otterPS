@@ -296,6 +296,7 @@ enum NodeKind {
     MoveFile
     DeleteFile
     FileExists      # an EXPRESSION: if file "x" exists
+    FileLocked      # an EXPRESSION: if file "x" is locked            (D72)
     RunProgram      # run "notepad.exe" / run command "git status"
 
     # discovery (D20, D21)
@@ -959,9 +960,16 @@ class ReadFileStmt : Node {
 class WriteFileStmt : Node {
     [Node]$Content
     [Node]$Path
+    [bool]$Atomic    # write ... to ... atomically                  (D72)
     WriteFileStmt([Node]$content, [Node]$path, [int]$line) : base([NodeKind]::WriteFile, $line) {
         $this.Content = $content
         $this.Path = $path
+        $this.Atomic = $false
+    }
+    WriteFileStmt([Node]$content, [Node]$path, [bool]$atomic, [int]$line) : base([NodeKind]::WriteFile, $line) {
+        $this.Content = $content
+        $this.Path = $path
+        $this.Atomic = $atomic
     }
 }
 
@@ -1008,6 +1016,18 @@ class DeleteFileStmt : Node {
 class FileExistsExpr : Node {
     [Node]$Path
     FileExistsExpr([Node]$path, [int]$line) : base([NodeKind]::FileExists, $line) {
+        $this.Path = $path
+    }
+}
+
+# if file "x" is locked                                              (D72)
+# True when the file exists but cannot currently be opened exclusively
+# (another process holds it open) - false both when it is free AND when
+# it does not exist at all, matching "exists" being the separate,
+# already-established question.
+class FileLockedExpr : Node {
+    [Node]$Path
+    FileLockedExpr([Node]$path, [int]$line) : base([NodeKind]::FileLocked, $line) {
         $this.Path = $path
     }
 }

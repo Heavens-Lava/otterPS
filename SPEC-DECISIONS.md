@@ -5544,3 +5544,81 @@ scoped as future work (richer per-process details beyond id/name).
 
 ---
 
+## D72. Atomic save and file locks — `write ... to ... atomically`, `file "x" is locked`
+
+**Status: interpreter-side IMPLEMENTED and verified end-to-end through
+the real `otter run` CLI, including a real .NET Framework bug found and
+fixed along the way. JS/web-side compiler emission implemented; the
+required host hooks (`otterFileLocked`, and a third argument on the
+existing `otterWriteFile`) have no bridge implementation yet, same
+reported boundary as D69-D71.**
+
+**Design:**
+- `write "content" to "path" atomically` - an optional trailing
+  qualifier on the existing `write` statement (plain `write ... to ...`
+  is completely unchanged), rather than a new statement, since the
+  destination and content are identical - only the safety guarantee
+  differs.
+- `file "x" is locked` - a new condition-primary expression alongside
+  the existing `file "x" exists`, checked in the SAME `if (Test-
+  OtterTokenKind Exists) {...}` branch point so both share the `file
+  "x" ...` prefix without duplicating the path-read logic.
+  Deliberately returns `false` both when the file is genuinely free AND
+  when it does not exist at all - "locked" and "exists" are different
+  questions, and conflating them would make `is locked` an unreliable
+  proxy for `exists` that just happens to often agree with it.
+
+**A real bug found and fixed while implementing atomic save:**
+`System.IO.File]::Replace($temp, $target, $null)` - the documented
+.NET API for atomically replacing an existing file, with `$null` for
+"no backup file" - throws `"The path is not of a legal form"` on this
+PowerShell 5.1/.NET Framework combination, REGARDLESS of whether the
+paths themselves are valid. Reproduced directly and isolated: passing
+an empty string instead of `$null` fails identically; passing a REAL
+(if throwaway) backup path succeeds every time. `Write-OtterFile`'s
+atomic branch now always passes a real, immediately-deleted backup
+path rather than trusting the documented "null means no backup"
+behavior - this is exactly the kind of assumed-API-behavior gap this
+project's verification discipline exists to catch, found here because
+the first real end-to-end test (replacing an ALREADY-EXISTING file, not
+just creating a new one) was run before declaring the feature done.
+
+**Interpreter** (`Otter.Library.psm1`): the atomic path writes the real
+content to a temp file in the same folder first, then performs a
+SINGLE atomic rename onto the real path via `File.Replace` (target
+exists) or `File.Move` (target does not) - both single filesystem
+operations on the same volume, which is what "atomic" means here; a
+temp-then-copy would not be. `Test-OtterFileLocked` detects a lock the
+only reliable way available without a native/PInvoke dependency: try to
+open the file exclusively (`FileShare.None`) and see whether that
+throws `IOException`.
+
+**JS compiler:** `WriteFile`'s existing `otterWriteFile(path, content)`
+hook call gains a third argument, `$Stmt.Atomic`, rather than a
+separate hook - whether a browser/Node file write is genuinely atomic
+is the bridge's responsibility to honor, same as every other
+filesystem host boundary in this compiler; no bridge implementation
+honors it yet, reported not assumed. `FileLocked` emits a call to a new
+required hook, `otterFileLocked(path)`, mirroring `FileExists`'s own
+shape and async-scanner registration exactly.
+
+**Verified:** through the real `otter run` CLI - atomic write creating
+a brand-new file, atomic write REPLACING an already-existing file (the
+scenario that surfaced the `File.Replace` bug above), a real exclusive
+lock (opened directly via `[System.IO.File]::Open` with
+`FileShare.None` from outside Otter) correctly detected as locked, and
+a free file correctly reported as not locked. Confirmed no leftover
+`.otter-tmp-*`/`.otter-bak-*` residue after either atomic-write test.
+Six new regression tests in `tests/Part3.Tests.ps1`. JS-compiler shapes
+verified by direct inspection of the generated code (no bridge exists
+yet to execute it against).
+
+**Deliberately out of scope for this pass:** Binary read/write,
+random-access file IO, streams, large-file handling, symbolic links,
+and permission/ownership APIs remain unchecked - each needs either a
+new Otter runtime value (raw bytes/buffers do not exist in this
+language yet) or a meaningfully different design shape than this pass's
+text-file operations.
+
+---
+
