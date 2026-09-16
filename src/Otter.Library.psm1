@@ -756,6 +756,54 @@ function Stop-OtterProcess {
     }
 }
 
+# set priority of process p to "high"                                 (D71)
+function Set-OtterProcessPriority {
+    param([double]$ProcessId, [string]$Priority, [int]$Line)
+
+    $priorityClass = switch ($Priority.ToLowerInvariant()) {
+        'low' { [System.Diagnostics.ProcessPriorityClass]::Idle }
+        'below normal' { [System.Diagnostics.ProcessPriorityClass]::BelowNormal }
+        'normal' { [System.Diagnostics.ProcessPriorityClass]::Normal }
+        'above normal' { [System.Diagnostics.ProcessPriorityClass]::AboveNormal }
+        'high' { [System.Diagnostics.ProcessPriorityClass]::High }
+        'realtime' { [System.Diagnostics.ProcessPriorityClass]::RealTime }
+        default {
+            throw [OtterError]::new(
+                "I do not know a process priority called ""$Priority"".",
+                $Line, 'runtime', 0, $null,
+                'set priority of process p to "high" (also: "low", "below normal", "normal", "above normal", "realtime")')
+        }
+    }
+
+    try {
+        $proc = Get-Process -Id ([int]$ProcessId) -ErrorAction Stop
+        $proc.PriorityClass = $priorityClass
+    } catch {
+        throw [OtterError]::new(
+            "I could not set that process's priority. $($_.Exception.Message)",
+            $Line, 'runtime')
+    }
+}
+
+# wait for process p up to 5 seconds [into finished]                  (D71)
+# Real, blocking, with a real timeout - Process.WaitForExit(ms) returns
+# whether the process had already exited by the deadline. A process that
+# does not exist (already gone) counts as "finished" - there is nothing
+# left to wait for, matching this feature's own kill/stop tolerance for
+# an end state that already holds.
+function Wait-OtterProcess {
+    param([double]$ProcessId, [double]$TimeoutSeconds)
+
+    try {
+        $proc = Get-Process -Id ([int]$ProcessId) -ErrorAction Stop
+    } catch {
+        return $true
+    }
+
+    $timeoutMs = [int]([Math]::Max(0, $TimeoutSeconds * 1000))
+    return [bool]$proc.WaitForExit($timeoutMs)
+}
+
 function ConvertTo-OtterProcessArgument {
     param([string]$Argument)
 
@@ -1030,4 +1078,5 @@ Export-ModuleMember -Function `
     Copy-OtterFolder, Move-OtterFolder, `
     ConvertFrom-OtterJsonText, ConvertTo-OtterJsonText, Read-OtterJsonFile, `
     Show-OtterNotification, Show-OtterFileDialog, Get-OtterSystemInfoValue, `
-    New-OtterProcessObject, Get-OtterProcessList, Stop-OtterProcess
+    New-OtterProcessObject, Get-OtterProcessList, Stop-OtterProcess, `
+    Set-OtterProcessPriority, Wait-OtterProcess

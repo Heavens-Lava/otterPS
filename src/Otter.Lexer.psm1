@@ -85,6 +85,8 @@ $script:OtterStatementHeadKeywords = @{
     'fail' = [TokenKind]::Fail
     # D70: `kill process p` / `kill process p and its children`
     'kill' = [TokenKind]::Kill
+    # D71: `wait for process p up to 5 seconds`
+    'wait' = [TokenKind]::Wait
     # D56: declarative UI, reactivity, animation
     'layout' = [TokenKind]::Layout; 'gap' = [TokenKind]::Gap
     'state' = [TokenKind]::State; 'derive' = [TokenKind]::Derive

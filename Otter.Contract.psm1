@@ -99,8 +99,9 @@ enum TokenKind {
     Try             # try / otherwise
     Fail            # fail with "message" - a real user-raised error (D68)
 
-    # --- process management (D70) ----------------------------------
+    # --- process management (D70, D71) ------------------------------
     Kill            # kill process p / kill process p and its children
+    Wait            # wait for process p up to 5 seconds
 
     # --- strings and collections (D24, D25, D26) ----------------
     Length          # length of name / length of games
@@ -383,9 +384,11 @@ enum NodeKind {
     # --- system information (D69) --------------------------------
     GetSystemInfo     # get system information "os" into info
 
-    # --- process management (D70) --------------------------------
+    # --- process management (D70, D71) ----------------------------
     GetProcesses      # get processes into list
     KillProcess       # kill process p / kill process p and its children
+    SetProcessPriority  # set priority of process p to "high"
+    WaitForProcess      # wait for process p up to 5 seconds [into finished]
 }
 
 enum MathOp { Add; Subtract; Multiply; Divide }
@@ -1207,6 +1210,35 @@ class KillProcessStmt : Node {
     KillProcessStmt([Node]$processExpr, [bool]$includeChildren, [int]$line) : base([NodeKind]::KillProcess, $line) {
         $this.ProcessExpr = $processExpr
         $this.IncludeChildren = $includeChildren
+    }
+}
+
+# set priority of process p to "high"                                 (D71)
+# Priority is one of: "low", "below normal", "normal", "above normal",
+# "high", "realtime" - a plain string VALUE, not a keyword, same design
+# as GetSystemFolder's FolderName.
+class SetProcessPriorityStmt : Node {
+    [Node]$ProcessExpr
+    [Node]$Priority
+    SetProcessPriorityStmt([Node]$processExpr, [Node]$priority, [int]$line) : base([NodeKind]::SetProcessPriority, $line) {
+        $this.ProcessExpr = $processExpr
+        $this.Priority = $priority
+    }
+}
+
+# wait for process p up to 5 seconds [into finished]                  (D71)
+# Blocks until the process exits or the timeout elapses, whichever
+# comes first. `finished` (optional) is a real boolean: true if the
+# process had already exited by the deadline, false if it was still
+# running and the wait simply gave up.
+class WaitForProcessStmt : Node {
+    [Node]$ProcessExpr
+    [Node]$TimeoutSeconds
+    [string]$Target
+    WaitForProcessStmt([Node]$processExpr, [Node]$timeoutSeconds, [string]$target, [int]$line) : base([NodeKind]::WaitForProcess, $line) {
+        $this.ProcessExpr = $processExpr
+        $this.TimeoutSeconds = $timeoutSeconds
+        $this.Target = $target
     }
 }
 

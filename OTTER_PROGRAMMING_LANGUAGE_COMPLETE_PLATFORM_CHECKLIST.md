@@ -348,8 +348,13 @@ creation.
     real recursive termination via a CIM parent/child walk, verified
     against a genuine two-level real process tree, confirmed dead
     root-to-leaf. Corrected from a false checkmark - see below)
--   [ ] Process priority
--   [ ] Process timeout
+-   [x] Process priority (D71: `set priority of process p to "high"` -
+    a real `System.Diagnostics.Process.PriorityClass` change, confirmed
+    via `Get-Process` afterward. See SPEC-DECISIONS.md D71)
+-   [x] Process timeout (D71: `wait for process p up to 5 seconds
+    into finished` - a real, blocking `Process.WaitForExit(ms)` with a
+    real boolean result, verified both while the process was still
+    running and after it exited)
 -   [x] Signals (this line specifically, in the process-management
     context: D70 closes it the same way as "Stop process" above -
     corrected from a false checkmark, now real and reachable. The

@@ -512,6 +512,75 @@ Test-Otter 'D70: kill process refuses anything that is not a real process handle
     }
 }
 
+# =================================================================
+# D71 - process priority and process timeout
+# =================================================================
+
+Test-Otter 'D71: set process priority actually changes the real OS process priority' {
+    $out = Invoke-TestProgram @(
+        [RunStmt]::new((Lit 'notepad.exe'), $false, 'p', 1),
+        [SetProcessPriorityStmt]::new((Var 'p'), (Lit 'high'), 2),
+        [SayStmt]::new(@((PropOf 'id' (Var 'p'))), 3)
+    )
+    Assert-AreEqual -Expected 1 -Actual $out.Count
+    $targetPid = [int][double]::Parse($out[0])
+    try {
+        $proc = Get-Process -Id $targetPid -ErrorAction Stop
+        Assert-AreEqual -Expected 'High' -Actual ([string]$proc.PriorityClass)
+    } finally {
+        Stop-Process -Id $targetPid -Force -ErrorAction SilentlyContinue
+    }
+}
+
+Test-Otter 'D71: set process priority with an unknown level is a clean Otter error' {
+    $out = Invoke-TestProgram @(
+        [RunStmt]::new((Lit 'notepad.exe'), $false, 'p', 1),
+        [TryStmt]::new(
+            @([SetProcessPriorityStmt]::new((Var 'p'), (Lit 'bogus'), 2)),
+            @([SayStmt]::new(@((Var 'reason')), 3)), 'reason', 1),
+        [KillProcessStmt]::new((Var 'p'), $false, 4)
+    )
+    Assert-Lines -Expected @('I do not know a process priority called "bogus".') -Actual $out
+}
+
+Test-Otter 'D71: set process priority refuses anything that is not a real process handle' {
+    Assert-OtterFails -Containing 'I can only set the priority of a real process handle' -Body {
+        Invoke-TestProgram @(
+            [AssignStmt]::new('notAHandle', (Lit 42.0), 1),
+            [SetProcessPriorityStmt]::new((Var 'notAHandle'), (Lit 'high'), 2)
+        )
+    }
+}
+
+Test-Otter 'D71: wait for process up to N seconds returns false while the process is still running' {
+    $out = Invoke-TestProgram @(
+        [RunStmt]::new((Lit 'notepad.exe'), $false, 'p', 1),
+        [WaitForProcessStmt]::new((Var 'p'), (Lit 1.0), 'finished', 2),
+        [SayStmt]::new(@((Var 'finished')), 3),
+        [KillProcessStmt]::new((Var 'p'), $false, 4)
+    )
+    Assert-Lines -Expected @('false') -Actual $out
+}
+
+Test-Otter 'D71: wait for process up to N seconds returns true once the process has exited' {
+    $out = Invoke-TestProgram @(
+        [RunStmt]::new((Lit 'notepad.exe'), $false, 'p', 1),
+        [KillProcessStmt]::new((Var 'p'), $false, 2),
+        [WaitForProcessStmt]::new((Var 'p'), (Lit 5.0), 'finished', 3),
+        [SayStmt]::new(@((Var 'finished')), 4)
+    )
+    Assert-Lines -Expected @('true') -Actual $out
+}
+
+Test-Otter 'D71: wait for process refuses anything that is not a real process handle' {
+    Assert-OtterFails -Containing 'I can only wait for a real process handle' -Body {
+        Invoke-TestProgram @(
+            [AssignStmt]::new('notAHandle', (Lit 42.0), 1),
+            [WaitForProcessStmt]::new((Var 'notAHandle'), (Lit 1.0), 'finished', 2)
+        )
+    }
+}
+
 
 Set-Location $originalLocation
 Remove-Item -LiteralPath $sandbox -Recurse -Force -ErrorAction SilentlyContinue

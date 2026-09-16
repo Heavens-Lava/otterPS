@@ -1103,6 +1103,46 @@ function ConvertTo-OtterJsStatement {
             $lines.Add("${pad}}")
             return ($lines -join "`n")
         }
+        ([NodeKind]::SetProcessPriority) {
+            # D71. `set priority of process p to "high"` - REQUIRED runtime
+            # hook `otterSetProcessPriority(id, priority)`, no bridge
+            # implementation yet, same reported-boundary treatment as
+            # GetProcesses/KillProcess.
+            $processJs = ConvertTo-OtterJsExpression -Expr $Stmt.ProcessExpr
+            $priorityJs = ConvertTo-OtterJsExpression -Expr $Stmt.Priority
+            $lines = [System.Collections.Generic.List[string]]::new()
+            $inner = '  ' * ($Indent + 1)
+            $lines.Add("${pad}{")
+            $lines.Add("${inner}const _p = $processJs;")
+            $lines.Add("${inner}if (!_p || typeof _p !== 'object' || !_p.__otterThing || !('id' in _p.props)) { throw new Error('I can only set the priority of a real process handle, such as the one `"run ... into p`" or `"get processes into list`" gives you.'); }")
+            $lines.Add("${inner}await otterSetProcessPriority(_p.props.id, String($priorityJs));")
+            $lines.Add("${pad}}")
+            return ($lines -join "`n")
+        }
+        ([NodeKind]::WaitForProcess) {
+            # D71. `wait for process p up to 5 seconds [into finished]` -
+            # REQUIRED runtime hook `otterWaitForProcess(id, seconds)`,
+            # expected to return a real boolean (same meaning as the
+            # interpreter's Process.WaitForExit(ms)).
+            $processJs = ConvertTo-OtterJsExpression -Expr $Stmt.ProcessExpr
+            $secondsJs = ConvertTo-OtterJsExpression -Expr $Stmt.TimeoutSeconds
+            $target = $Stmt.Target
+            $lines = [System.Collections.Generic.List[string]]::new()
+            $inner = '  ' * ($Indent + 1)
+            $lines.Add("${pad}{")
+            $lines.Add("${inner}const _p = $processJs;")
+            $lines.Add("${inner}if (!_p || typeof _p !== 'object' || !_p.__otterThing || !('id' in _p.props)) { throw new Error('I can only wait for a real process handle, such as the one `"run ... into p`" or `"get processes into list`" gives you.'); }")
+            $lines.Add("${inner}const _finished = await otterWaitForProcess(_p.props.id, Number($secondsJs));")
+            if ($target) {
+                if ($LocalNames -and $LocalNames.Contains($target)) {
+                    $lines.Add("${inner}$target = _finished;")
+                } else {
+                    $lines.Add("${inner}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$target' in otterState)) { otterSetState('$target', _finished); } else { window.$target = _finished; }")
+                }
+            }
+            $lines.Add("${pad}}")
+            return ($lines -join "`n")
+        }
         ([NodeKind]::GetFiles) {
             # D60. `get files in <folder> [and subfolders] into <target>` - emits call
             # to async runtime hook otterGetFiles(folder, includeSubfolders).
@@ -2046,8 +2086,8 @@ function Get-OtterJsBindingNames {
             if ($s.Kind -eq [NodeKind]::RunProgram -and $s.ResultTarget) {
                 [void]$setStyle.Add($s.ResultTarget)
             }
-            if ($s.Kind -eq [NodeKind]::GetClipboard -or $s.Kind -eq [NodeKind]::GetEnvironmentVariable -or $s.Kind -eq [NodeKind]::GetSystemFolder -or $s.Kind -eq [NodeKind]::ChooseFile -or $s.Kind -eq [NodeKind]::ChooseFolder -or $s.Kind -eq [NodeKind]::ChooseSaveFile -or $s.Kind -eq [NodeKind]::GetSystemInfo -or $s.Kind -eq [NodeKind]::GetProcesses) {
-                # D67/D69/D70: all eight use Environment.Set (verified
+            if ($s.Kind -eq [NodeKind]::GetClipboard -or $s.Kind -eq [NodeKind]::GetEnvironmentVariable -or $s.Kind -eq [NodeKind]::GetSystemFolder -or $s.Kind -eq [NodeKind]::ChooseFile -or $s.Kind -eq [NodeKind]::ChooseFolder -or $s.Kind -eq [NodeKind]::ChooseSaveFile -or $s.Kind -eq [NodeKind]::GetSystemInfo -or $s.Kind -eq [NodeKind]::GetProcesses -or $s.Kind -eq [NodeKind]::WaitForProcess) {
+                # D67/D69/D70/D71: all nine use Environment.Set (verified
                 # directly) - Set-style, same as Assign/MathInto, not SetLocal.
                 if ($s.Target) { [void]$setStyle.Add($s.Target) }
             }
@@ -2203,7 +2243,7 @@ function Test-OtterJsBodyNeedsAsync {
 
     if ($null -eq $Statements) { return $false }
     foreach ($s in $Statements) {
-        if ($s.Kind -eq [NodeKind]::Await -or $s.Kind -eq [NodeKind]::ReadFile -or $s.Kind -eq [NodeKind]::WriteFile -or $s.Kind -eq [NodeKind]::AppendFile -or $s.Kind -eq [NodeKind]::CopyFile -or $s.Kind -eq [NodeKind]::MoveFile -or $s.Kind -eq [NodeKind]::DeleteFile -or $s.Kind -eq [NodeKind]::CreateFolder -or $s.Kind -eq [NodeKind]::DeleteFolder -or $s.Kind -eq [NodeKind]::CopyFolder -or $s.Kind -eq [NodeKind]::MoveFolder -or $s.Kind -eq [NodeKind]::GetFiles -or $s.Kind -eq [NodeKind]::GetFolders -or $s.Kind -eq [NodeKind]::RunProgram -or $s.Kind -eq [NodeKind]::HttpGet -or $s.Kind -eq [NodeKind]::HttpPost -or $s.Kind -eq [NodeKind]::HttpPut -or $s.Kind -eq [NodeKind]::HttpDelete -or $s.Kind -eq [NodeKind]::CopyToClipboard -or $s.Kind -eq [NodeKind]::GetClipboard -or $s.Kind -eq [NodeKind]::Notify -or $s.Kind -eq [NodeKind]::GetEnvironmentVariable -or $s.Kind -eq [NodeKind]::GetSystemFolder -or $s.Kind -eq [NodeKind]::ChooseFile -or $s.Kind -eq [NodeKind]::ChooseFolder -or $s.Kind -eq [NodeKind]::ChooseSaveFile -or $s.Kind -eq [NodeKind]::GetSystemInfo -or $s.Kind -eq [NodeKind]::GetProcesses -or $s.Kind -eq [NodeKind]::KillProcess) {
+        if ($s.Kind -eq [NodeKind]::Await -or $s.Kind -eq [NodeKind]::ReadFile -or $s.Kind -eq [NodeKind]::WriteFile -or $s.Kind -eq [NodeKind]::AppendFile -or $s.Kind -eq [NodeKind]::CopyFile -or $s.Kind -eq [NodeKind]::MoveFile -or $s.Kind -eq [NodeKind]::DeleteFile -or $s.Kind -eq [NodeKind]::CreateFolder -or $s.Kind -eq [NodeKind]::DeleteFolder -or $s.Kind -eq [NodeKind]::CopyFolder -or $s.Kind -eq [NodeKind]::MoveFolder -or $s.Kind -eq [NodeKind]::GetFiles -or $s.Kind -eq [NodeKind]::GetFolders -or $s.Kind -eq [NodeKind]::RunProgram -or $s.Kind -eq [NodeKind]::HttpGet -or $s.Kind -eq [NodeKind]::HttpPost -or $s.Kind -eq [NodeKind]::HttpPut -or $s.Kind -eq [NodeKind]::HttpDelete -or $s.Kind -eq [NodeKind]::CopyToClipboard -or $s.Kind -eq [NodeKind]::GetClipboard -or $s.Kind -eq [NodeKind]::Notify -or $s.Kind -eq [NodeKind]::GetEnvironmentVariable -or $s.Kind -eq [NodeKind]::GetSystemFolder -or $s.Kind -eq [NodeKind]::ChooseFile -or $s.Kind -eq [NodeKind]::ChooseFolder -or $s.Kind -eq [NodeKind]::ChooseSaveFile -or $s.Kind -eq [NodeKind]::GetSystemInfo -or $s.Kind -eq [NodeKind]::GetProcesses -or $s.Kind -eq [NodeKind]::KillProcess -or $s.Kind -eq [NodeKind]::SetProcessPriority -or $s.Kind -eq [NodeKind]::WaitForProcess) {
             return $true
         }
         if ($s.Kind -eq [NodeKind]::ReadJson) {

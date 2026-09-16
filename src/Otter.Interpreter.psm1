@@ -592,6 +592,35 @@ function Invoke-OtterStatement {
             return
         }
 
+        # set priority of process p to "high"                            (D71)
+        'SetProcessPriority' {
+            $processValue = Get-OtterValue -Expression $Statement.ProcessExpr -Environment $Environment
+            if (-not (Test-OtterObject $processValue) -or -not ($processValue.HasProperty('id'))) {
+                throw (New-OtterRuntimeError `
+                    -Message 'I can only set the priority of a real process handle, such as the one "run ... into p" or "get processes into list" gives you.' `
+                    -Line $Statement.Line)
+            }
+            $priorityText = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.Priority -Environment $Environment)
+            Set-OtterProcessPriority -ProcessId $processValue.ReadProperty('id') -Priority $priorityText -Line $Statement.Line
+            return
+        }
+
+        # wait for process p up to 5 seconds [into finished]             (D71)
+        'WaitForProcess' {
+            $processValue = Get-OtterValue -Expression $Statement.ProcessExpr -Environment $Environment
+            if (-not (Test-OtterObject $processValue) -or -not ($processValue.HasProperty('id'))) {
+                throw (New-OtterRuntimeError `
+                    -Message 'I can only wait for a real process handle, such as the one "run ... into p" or "get processes into list" gives you.' `
+                    -Line $Statement.Line)
+            }
+            $seconds = Assert-OtterNumber -Value (Get-OtterValue -Expression $Statement.TimeoutSeconds -Environment $Environment) -Line $Statement.Line -What 'a number of seconds'
+            $finished = Wait-OtterProcess -ProcessId $processValue.ReadProperty('id') -TimeoutSeconds $seconds
+            if ($Statement.Target) {
+                $Environment.Set($Statement.Target, $finished)
+            }
+            return
+        }
+
         # --- discovery and folders (D20, D21) -------------------
 
         # get files in "Pictures" [and subfolders] into files

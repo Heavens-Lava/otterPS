@@ -1351,6 +1351,25 @@ function Read-OtterStatement {
         }
         ([TokenKind]::Set) {
             [void](Read-OtterToken)
+            # D71: `set priority of process p to "high"` - checked as plain
+            # identifier text BEFORE the generic dynamic-key path below,
+            # since "priority" is not something Read-OtterValue would ever
+            # otherwise stop at.
+            $maybePriority = Get-OtterCurrentToken
+            if ($maybePriority.Kind -eq [TokenKind]::Identifier -and $maybePriority.Text -eq 'priority') {
+                [void](Read-OtterToken)
+                [void](Assert-OtterTokenKind ([TokenKind]::Of) 'I expected "of process" after "priority".')
+                $processWord = Get-OtterCurrentToken
+                if ($processWord.Kind -ne [TokenKind]::Identifier -or $processWord.Text -ne 'process') {
+                    throw (New-OtterParserError 'I expected "process" after "of".' $processWord 'set priority of process p to "high"')
+                }
+                [void](Read-OtterToken)
+                $processExpr = Read-OtterValue
+                [void](Assert-OtterTokenKind ([TokenKind]::To) 'I expected "to" and a priority level.')
+                $priority = Read-OtterValue
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the set statement to end here.')
+                return [SetProcessPriorityStmt]::new($processExpr, $priority, $start.Line)
+            }
             $key = Read-OtterValue
             [void](Assert-OtterTokenKind ([TokenKind]::To) 'I expected "to" and a value.')
             $value = Read-OtterValue
@@ -1433,6 +1452,36 @@ function Read-OtterStatement {
             }
             [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the kill statement to end here.')
             return [KillProcessStmt]::new($processExpr, $includeChildren, $start.Line)
+        }
+        # wait for process p up to 5 seconds [into finished]            (D71)
+        ([TokenKind]::Wait) {
+            [void](Read-OtterToken)
+            $forWord = Get-OtterCurrentToken
+            if ($forWord.Kind -ne [TokenKind]::Identifier -or $forWord.Text -ne 'for') {
+                throw (New-OtterParserError 'I expected "for process" after "wait".' $forWord 'wait for process p up to 5 seconds')
+            }
+            [void](Read-OtterToken)
+            $processWord2 = Get-OtterCurrentToken
+            if ($processWord2.Kind -ne [TokenKind]::Identifier -or $processWord2.Text -ne 'process') {
+                throw (New-OtterParserError 'I expected "process" after "for".' $processWord2 'wait for process p up to 5 seconds')
+            }
+            [void](Read-OtterToken)
+            $waitProcessExpr = Read-OtterValue
+            $upWord = Get-OtterCurrentToken
+            if ($upWord.Kind -ne [TokenKind]::Identifier -or $upWord.Text -ne 'up') {
+                throw (New-OtterParserError 'I expected "up to" and a number of seconds.' $upWord 'wait for process p up to 5 seconds')
+            }
+            [void](Read-OtterToken)
+            [void](Assert-OtterTokenKind ([TokenKind]::To) 'I expected "to" and a number of seconds.')
+            $seconds = Read-OtterValue
+            [void](Assert-OtterTokenKind ([TokenKind]::Second) 'I expected "seconds" after the number.')
+            $waitTarget = $null
+            if (Test-OtterTokenKind ([TokenKind]::Into)) {
+                [void](Read-OtterToken)
+                $waitTarget = (Read-OtterVariableName 'I expected a result name after "into".').Text
+            }
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the wait statement to end here.')
+            return [WaitForProcessStmt]::new($waitProcessExpr, $seconds, $waitTarget, $start.Line)
         }
         ([TokenKind]::Sort) {
             [void](Read-OtterToken)

@@ -5477,3 +5477,70 @@ judged too large to fold into this same well-scoped pass.
 
 ---
 
+## D71. Process priority and process timeout — `set priority of process p to "high"`, `wait for process p up to 5 seconds`
+
+**Status: interpreter-side IMPLEMENTED and verified end-to-end through
+the real `otter run` CLI, including a confirmed real-OS priority change
+and real blocking waits with a real timeout. JS/web-side compiler
+emission implemented and verified as far as this module can reach; the
+required host hooks (`otterSetProcessPriority`, `otterWaitForProcess`)
+have no bridge implementation yet, same reported boundary as D69/D70.**
+
+Closes the two items D70 deliberately deferred.
+
+**Design:**
+- `set priority of process p to "high"` - `"high"` is a plain string
+  VALUE (`"low"`, `"below normal"`, `"normal"`, `"above normal"`,
+  `"high"`, `"realtime"`), matched by text, same design as
+  `GetSystemFolder`'s `FolderName`. Grammar is checked as a peeked
+  identifier ("priority") right after `set`, before the generic
+  dynamic-key path (`set X to Y in Z`, D41) - `Read-OtterValue` would
+  never otherwise know to stop at the word "priority", so the peek
+  happens first, same technique D67/D69 already used for "system"/
+  "clipboard" inside the `get` dispatch.
+- `wait for process p up to 5 seconds [into finished]` - a real,
+  blocking wait with a real timeout via `Process.WaitForExit(ms)`.
+  `finished` (optional `into`) is a real boolean: true if the process
+  had already exited by the deadline, false if the wait simply gave up
+  while it was still running. A process that no longer exists at all
+  counts as finished - there is nothing left to wait for, matching this
+  feature's own kill/stop tolerance for an end state that already
+  holds.
+- Both statements share `KillProcess`'s "I can only ... a real process
+  handle" guard, checked identically in the interpreter and the JS
+  compiler.
+
+**Interpreter** (`Otter.Library.psm1`): `Set-OtterProcessPriority`
+validates the priority string BEFORE ever calling `Get-Process`, so an
+unknown priority level throws its own clean error regardless of whether
+the process handle's PID still resolves to a real, running process.
+Setting `PriorityClass` on a process that has exited is wrapped in
+try/catch, translating a raw Win32 exception into a clean Otter error
+rather than letting it escape. `Wait-OtterProcess` returns `$true`
+immediately for a PID that no longer resolves, otherwise a real
+`Process.WaitForExit(ms)` blocking call.
+
+**JS compiler:** both statements wrap `ConvertTo-OtterJsExpression`
+calls to the new required hooks, checked against the same
+`__otterThing`-with-`id` guard `KillProcess` established, so a
+malformed `p` fails in the JS compiler exactly the way it fails in the
+interpreter.
+
+**Verified:** through the real `otter run` CLI - a real `notepad.exe`
+process's priority set to "high" and confirmed via `Get-Process`
+afterward showing `PriorityClass: High`; `wait for process ... up to 1
+second` on a live, still-running process correctly returned `false`;
+the same wait after `kill process p` correctly returned `true`; an
+unknown priority level caught cleanly by `otherwise into reason`. Six
+new regression tests in `tests/Part3.Tests.ps1`, including a direct
+`Get-Process`-based assertion that the real OS priority class actually
+changed, not just that the statement ran without error. JS-compiler
+logic verified by executing the generated wrapping/guard code in Node
+against hand-stubbed hooks.
+
+With D69, D70, and D71 together, the platform checklist's entire
+process-management section is now either done or explicitly, narrowly
+scoped as future work (richer per-process details beyond id/name).
+
+---
+
