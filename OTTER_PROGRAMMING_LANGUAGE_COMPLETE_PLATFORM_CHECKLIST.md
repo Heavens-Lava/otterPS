@@ -86,9 +86,15 @@ creation.
 -   [ ] Percent operation (verified absent - zero references in the
     interpreter, contract, or parser; not a real Otter construct today)
 -   [ ] Power operation (verified absent, same as Percent)
--   [ ] Mutation with `increase` (verified absent - no such keyword
-    exists anywhere; `add ... to` covers this today)
--   [ ] Mutation with `decrease` (verified absent, same as `increase`)
+-   [x] Mutation with `increase` (`increase X by N` - real lexer
+    keyword mapping to the same Add token as `add`, real parser
+    grammar, verified through the real CLI: `otter run` on a real
+    `.ot` file with `increase score by 3` printed the correct
+    mutated value. Correction: an earlier pass in this checklist
+    wrongly marked this absent before the keyword mapping was
+    noticed in `Otter.Lexer.psm1`)
+-   [x] Mutation with `decrease` (`decrease X by N`, same verification
+    as `increase`, maps to the same Remove token as `remove ... from`)
 -   [x] `add ... to`
 -   [x] `remove ... from`
 -   [x] Equality
@@ -340,16 +346,17 @@ creation.
 -   [ ] Scheduled tasks/cron provider
 -   [ ] Permissions/elevation model
 -   [ ] Secure credential handling
--   [ ] Clipboard (D67: real `NodeKind`s + interpreter/JS-compiler
-    implementation landed, verified via hand-built AST nodes - real
-    OS clipboard round-trip confirmed both in-process and through the
-    live bridge. Still `[ ]` per this checklist's own rule: no parser
-    grammar exists yet, so no real `.ot` program can reach it - Codex's
-    lane, see SPEC-DECISIONS.md D67)
--   [ ] Notifications (D67: interpreter now shows a REAL Windows
-    balloon-tip toast via `System.Windows.Forms.NotifyIcon`; the JS/web
-    path still only shows an in-page DOM toast, a documented cross-
-    runtime difference, not yet a bug - same grammar gap as Clipboard)
+-   [x] Clipboard (D67: real `NodeKind`s + interpreter/JS-compiler
+    implementation, real lexer/parser grammar wired in `f52dcad`
+    (`copy "text" to clipboard`, `get clipboard into x`). Verified
+    through the real `otter run` CLI on a real `.ot` file: a real
+    OS clipboard write-then-read round trip printed back exactly)
+-   [x] Notifications (D67: `notify "Title" with "Message"` real
+    grammar wired in `f52dcad`, verified through the real `otter run`
+    CLI. Interpreter shows a REAL Windows balloon-tip toast via
+    `System.Windows.Forms.NotifyIcon`; the JS/web path shows an
+    in-page DOM toast instead - a documented, deliberate cross-
+    runtime difference, not a bug)
 -   [ ] Power/reboot/shutdown APIs with explicit safety
 -   [ ] Printer/device APIs via providers
 -   [ ] Remote administration strategy
@@ -686,19 +693,24 @@ creation.
 -   [ ] Pointer events
 -   [ ] Resize events
 -   [x] Window lifecycle
--   [ ] Clipboard (D67: language-level work landed, grammar pending -
-    see the section 10 entry above and SPEC-DECISIONS.md D67)
+-   [x] Clipboard (D67: real grammar wired in `f52dcad`, verified
+    through the real CLI - see the section 10 entry above and
+    SPEC-DECISIONS.md D67)
 -   [ ] OS drag/drop
--   [ ] File/folder/save pickers (D67: real `NodeKind`s + interpreter
-    implementation landed using real Windows common dialogs on a
-    dedicated STA thread; grammar pending, same as Clipboard. Also
-    flagged during this review: `Otter.Desktop.psm1`'s existing bridge-
-    side file-dialog handlers use a suspicious 500ms thread-join
-    timeout that likely reports false cancellations for any real user
-    taking longer than half a second to pick a file - worth a look)
--   [ ] Notifications (D67: interpreter now shows a real Windows
-    balloon-tip toast; JS/web path is still a DOM-toast approximation,
-    documented as a deliberate cross-runtime difference, not a bug)
+-   [x] File/folder/save pickers (D67: real `NodeKind`s + interpreter
+    implementation using real Windows common dialogs on a dedicated
+    STA thread; real grammar (`choose file into x`, `choose folder
+    into x`, `choose file to save into x`) wired in `f52dcad` and
+    confirmed via `otter check` on a real `.ot` file exercising all
+    three forms. Still flagged, unfixed (not my file):
+    `Otter.Desktop.psm1`'s bridge-side file-dialog handlers use a
+    suspicious 500ms thread-join timeout that likely reports false
+    cancellations for any real user taking longer than half a second
+    to pick a file - worth a look)
+-   [x] Notifications (D67: real grammar wired in `f52dcad`, verified
+    through the real CLI. Interpreter shows a real Windows balloon-tip
+    toast; JS/web path is still a DOM-toast approximation, documented
+    as a deliberate cross-runtime difference, not a bug)
 -   [ ] Native menus/context menus
 -   [ ] Shortcuts
 -   [ ] Themes
