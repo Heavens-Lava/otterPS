@@ -6001,3 +6001,51 @@ a host/platform concept a browser has no notion of at all.
 
 ---
 
+## D80. Scheduled tasks/cron provider — `get system information "tasks" into t`
+
+**Status: IMPLEMENTED and verified end-to-end through the real `otter
+run` CLI against this machine's own real 201 scheduled tasks. No new
+grammar - slots into D69's existing statement as a fourth list-shaped
+kind, alongside `network`/`software`/`groups`.**
+
+Closes "Scheduled tasks/cron provider" (read side - see scope note
+below). Returns a LIST of `scheduled task` things (`name`, `state`,
+`lastRunTime`, `nextRunTime`) via the real Windows Task Scheduler
+(`Get-ScheduledTask`/`Get-ScheduledTaskInfo`).
+
+**A real, per-task failure mode found and isolated, not assumed
+away:** `lastRunTime`/`nextRunTime` come from a SEPARATE call
+(`Get-ScheduledTaskInfo`) per task, distinct from the call that
+enumerates the tasks themselves - confirmed directly that this second
+call can fail for a specific task (a stale or disabled task
+definition) even when the task enumerated successfully. That lookup is
+wrapped per-task, degrading only `lastRunTime`/`nextRunTime` to `null`
+for that one task rather than dropping the task entirely or failing
+the whole list - the same tolerance already established for
+`GetProcesses`'s per-process field reads (D75) and `"groups"`'s
+per-SID translation (D76).
+
+**Verified:** through the real `otter run` CLI against this real
+machine's own Task Scheduler - 201 real scheduled tasks returned
+(matching a manual `Get-ScheduledTask` count run beforehand exactly),
+spot-checked the first five by name/state/last-run/next-run against
+genuinely scheduled, recognizable tasks (Adobe Acrobat Update Task,
+C1UserExperience, ETW Host Service Updater v16 - correctly showing
+`Running` rather than `Ready` for the one actually running at query
+time - and two more, all with real, correctly-formatted timestamps).
+Two new regression tests in `tests/Part3.Tests.ps1`. No JS-compiler
+code change needed beyond the two lookup-table entries (`_typeNames`,
+`_listKinds`) - the wrapping/dispatch logic is already fully generic,
+confirmed by inspection rather than assumed, same as D77's addition of
+`"software"`.
+
+**Scope note - "provider" here means READ access** (enumerate/inspect
+existing scheduled tasks), matching every other "...provider" item
+this OS-admin tail has closed (registry, event log). CREATING or
+modifying a scheduled task (triggers, actions, run-as identity) is a
+meaningfully larger, separate surface with real security implications
+of its own, deliberately not attempted in this same pass - flagged as
+open, not silently folded in.
+
+---
+

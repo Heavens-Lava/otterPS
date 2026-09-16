@@ -422,7 +422,12 @@ creation.
 -   [x] System logs provider (D79: on Windows the "System" log IS the
     system log - same statement, same verification, no separate
     feature needed)
--   [ ] Scheduled tasks/cron provider
+-   [x] Scheduled tasks/cron provider (D80: `get system information
+    "tasks" into t` - real read access via the Windows Task Scheduler,
+    verified against this machine's own 201 real scheduled tasks.
+    Read-only scope, deliberate - creating/modifying tasks is a
+    separate, larger surface not attempted here. See
+    SPEC-DECISIONS.md D80)
 -   [ ] Permissions/elevation model
 -   [ ] Secure credential handling
 -   [x] Clipboard (D67: real `NodeKind`s + interpreter/JS-compiler

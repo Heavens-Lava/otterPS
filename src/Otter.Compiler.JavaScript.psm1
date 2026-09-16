@@ -1461,8 +1461,8 @@ function ConvertTo-OtterJsStatement {
             # "network"/"software" are lists of THINGS (wrapped in
             # __otterThing); "groups" is a list of plain strings (no
             # structure worth wrapping); everything else is a single thing.
-            $lines.Add("${inner}const _typeNames = { os: 'operating system', cpu: 'cpu', memory: 'memory', disk: 'disk', network: 'network interface', user: 'user', software: 'software' };")
-            $lines.Add("${inner}const _listKinds = { network: true, groups: true, software: true };")
+            $lines.Add("${inner}const _typeNames = { os: 'operating system', cpu: 'cpu', memory: 'memory', disk: 'disk', network: 'network interface', user: 'user', software: 'software', tasks: 'scheduled task' };")
+            $lines.Add("${inner}const _listKinds = { network: true, groups: true, software: true, tasks: true };")
             $lines.Add("${inner}const _plainListKinds = { groups: true };")
             $lines.Add("${inner}if (!(_kind in _typeNames) && !(_kind in _listKinds)) { throw new Error('I do not know a kind of system information called `"' + _kindOriginal + '`".'); }")
             $lines.Add("${inner}const _raw = await otterGetSystemInfo(_kind);")

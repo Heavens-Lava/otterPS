@@ -477,6 +477,29 @@ Test-Otter 'D77: every software entry has a real, non-empty name' {
     Assert-Lines -Expected @('all named') -Actual $out
 }
 
+Test-Otter 'D80: get system information "tasks" returns a real, non-empty list of scheduled task things' {
+    $out = Invoke-TestProgram @(
+        [GetSystemInfoStmt]::new((Lit 'tasks'), 't', 1),
+        [SayStmt]::new(@(([OfOperationExpr]::new([OfOperation]::Length, (Var 't'), 2))), 2),
+        [SayStmt]::new(@((PropOf 'name' ([OfOperationExpr]::new([OfOperation]::First, (Var 't'), 3)))), 3)
+    )
+    Assert-AreEqual -Expected 2 -Actual $out.Count
+    Assert-True ([double]$out[0] -gt 0) "expected at least one real scheduled task, got [$($out[0])]"
+    Assert-False ([string]::IsNullOrWhiteSpace($out[1])) 'expected a real, non-blank task name'
+}
+
+Test-Otter 'D80: every scheduled task has a real, recognized state' {
+    $out = Invoke-TestProgram @(
+        [GetSystemInfoStmt]::new((Lit 'tasks'), 't', 1),
+        [FindStmt]::new('task', (Var 't'), (CompareEx (PropOf 'state' (Var 'task')) 'Equal' (Gone)), 'blank', 2),
+        [IfStmt]::new(
+            @([IfBranch]::new((CompareEx (Var 'blank') 'Equal' (Gone)),
+                @([SayStmt]::new(@((Lit 'all have a state')), 4)))),
+            @([SayStmt]::new(@((Lit 'found a task with no state')), 6)), 3)
+    )
+    Assert-Lines -Expected @('all have a state') -Actual $out
+}
+
 # =================================================================
 # D78 - Windows registry
 # =================================================================

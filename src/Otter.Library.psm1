@@ -1475,11 +1475,49 @@ function Get-OtterSystemInfoValue {
             Write-Output -NoEnumerate $list
             return
         }
+        # get system information "tasks" into list                       (D80)
+        # A list of "scheduled task" things (name/state/lastRunTime/
+        # nextRunTime) via the Windows Task Scheduler. lastRunTime/
+        # nextRunTime come from a SEPARATE call (Get-ScheduledTaskInfo)
+        # per task - confirmed directly that TaskScheduler occasionally
+        # refuses that second call for a specific task (a stale/disabled
+        # task definition) even though the task itself enumerated fine,
+        # so that lookup is wrapped per-task, degrading only those two
+        # fields to null rather than dropping the task or the whole list.
+        'tasks' {
+            $list = [System.Collections.Generic.List[object]]::new()
+            try {
+                $tasks = Get-ScheduledTask -ErrorAction Stop
+            } catch {
+                Write-Output -NoEnumerate $list
+                return
+            }
+            foreach ($task in $tasks) {
+                $entry = [OtterObject]::new('scheduled task')
+                $entry.WriteProperty('name', $task.TaskName)
+                $entry.WriteProperty('state', $task.State.ToString())
+                $lastRun = $null
+                $nextRun = $null
+                try {
+                    $info = $task | Get-ScheduledTaskInfo -ErrorAction Stop
+                    if ($info.LastRunTime) { $lastRun = $info.LastRunTime.ToString('yyyy-MM-dd HH:mm:ss') }
+                    if ($info.NextRunTime) { $nextRun = $info.NextRunTime.ToString('yyyy-MM-dd HH:mm:ss') }
+                } catch {
+                    $lastRun = $null
+                    $nextRun = $null
+                }
+                $entry.WriteProperty('lastRunTime', $lastRun)
+                $entry.WriteProperty('nextRunTime', $nextRun)
+                $list.Add($entry)
+            }
+            Write-Output -NoEnumerate $list
+            return
+        }
         default {
             throw [OtterError]::new(
                 "I do not know a kind of system information called ""$Kind"".",
                 $Line, 'runtime', 0, $null,
-                'get system information "os" into info (also: "cpu", "memory", "disk", "network", "user", "groups", "software")')
+                'get system information "os" into info (also: "cpu", "memory", "disk", "network", "user", "groups", "software", "tasks")')
         }
     }
 }
