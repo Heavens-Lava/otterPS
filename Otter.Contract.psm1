@@ -129,6 +129,13 @@ enum TokenKind {
     Larger          # larger of X and Y
     Smaller         # smaller of X and Y
 
+    # --- trigonometry, logarithms (D90) -------------------------------------
+    Sine            # sine of X (X in degrees)
+    Cosine          # cosine of X (X in degrees)
+    Tangent         # tangent of X (X in degrees)
+    LogTen          # log of X (base 10)
+    NaturalLog      # natural log of X (base e)
+
     # --- strings and collections (D24, D25, D26) ----------------
     Length          # length of name / length of games
     Uppercase
@@ -479,7 +486,7 @@ enum LogicalOp { And; Or }
 # Pretending every list literally carries a "length" property would make the
 # runtime object model strange to keep the grammar tidy. They share surface
 # syntax and nothing else.
-enum OfOperation { Length; Uppercase; Lowercase; First; Last; AbsoluteValue; SquareRoot; Round; RoundUp; RoundDown }   # D89 added the last five
+enum OfOperation { Length; Uppercase; Lowercase; First; Last; AbsoluteValue; SquareRoot; Round; RoundUp; RoundDown; Sine; Cosine; Tangent; LogTen; NaturalLog }   # D89 added AbsoluteValue..RoundDown, D90 added Sine..NaturalLog
 
 # if name starts with "J"   /   if name ends with "Macy"
 enum TextMatch { StartsWith; EndsWith }

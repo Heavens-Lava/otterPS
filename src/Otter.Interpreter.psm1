@@ -1714,6 +1714,47 @@ function Get-OtterValue {
                     $n = Assert-OtterNumber -Value $subject -Line $Expression.Line -What 'rounding'
                     return [Math]::Floor($n)
                 }
+
+                # sine of X / cosine of X / tangent of X                (D90)
+                # X is in DEGREES, not radians - "sine of 90" reading as 1
+                # is what a non-technical, "readable like English" caller
+                # expects; converting internally keeps that expectation
+                # true without asking the caller to think in radians.
+                'Sine' {
+                    $n = Assert-OtterNumber -Value $subject -Line $Expression.Line -What 'sine'
+                    return [Math]::Sin($n * [Math]::PI / 180.0)
+                }
+
+                'Cosine' {
+                    $n = Assert-OtterNumber -Value $subject -Line $Expression.Line -What 'cosine'
+                    return [Math]::Cos($n * [Math]::PI / 180.0)
+                }
+
+                'Tangent' {
+                    $n = Assert-OtterNumber -Value $subject -Line $Expression.Line -What 'tangent'
+                    return [Math]::Tan($n * [Math]::PI / 180.0)
+                }
+
+                # log of X (base 10) / natural log of X (base e)        (D90)
+                'LogTen' {
+                    $n = Assert-OtterNumber -Value $subject -Line $Expression.Line -What 'a logarithm'
+                    if ($n -le 0) {
+                        throw (New-OtterRuntimeError `
+                            -Message "I can't take the log of a number that isn't positive ($n)." `
+                            -Line $Expression.Line)
+                    }
+                    return [Math]::Log10($n)
+                }
+
+                'NaturalLog' {
+                    $n = Assert-OtterNumber -Value $subject -Line $Expression.Line -What 'a logarithm'
+                    if ($n -le 0) {
+                        throw (New-OtterRuntimeError `
+                            -Message "I can't take the natural log of a number that isn't positive ($n)." `
+                            -Line $Expression.Line)
+                    }
+                    return [Math]::Log($n)
+                }
             }
             return $null
         }

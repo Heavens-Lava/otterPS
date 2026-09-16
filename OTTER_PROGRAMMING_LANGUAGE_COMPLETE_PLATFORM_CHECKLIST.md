@@ -637,9 +637,13 @@ creation.
 -   [x] Min/max (D89: `larger of X and Y` / `smaller of X and Y`)
 -   [x] Square root (D89: `square root of X`, negative input is a
     friendly Otter runtime error, not `NaN`)
--   [ ] Trigonometry
--   [ ] Logarithms
--   [ ] Constants
+-   [x] Trigonometry (D90: `sine of X` / `cosine of X` / `tangent of X`,
+    X in degrees - see SPEC-DECISIONS.md D90)
+-   [x] Logarithms (D90: `log of X` (base 10) / `natural log of X`
+    (base e), non-positive input is a friendly Otter runtime error)
+-   [x] Constants (D90: `pi` - a parse-time literal, not a runtime
+    lookup; found and documented a real, pre-existing JS-compiler
+    number-formatting gap while verifying this - see D90)
 -   [ ] Vector math (verified absent - zero references anywhere)
 -   [ ] Matrix math (verified absent, same as Vector math)
 -   [ ] Quaternion math

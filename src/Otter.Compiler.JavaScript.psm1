@@ -364,6 +364,19 @@ function ConvertTo-OtterJsExpression {
                 'Round' { return "(Number($subjectJs) < 0 ? -Math.round(-Number($subjectJs)) : Math.round(Number($subjectJs)))" }
                 'RoundUp' { return "Math.ceil(Number($subjectJs))" }
                 'RoundDown' { return "Math.floor(Number($subjectJs))" }
+                # D90: trig operands are in DEGREES (matches the interpreter's
+                # Sine/Cosine/Tangent - converted to radians here since JS's
+                # Math.sin/cos/tan all expect radians). Logs match the
+                # interpreter's base-10/base-e split; domain validation
+                # (positive-only) is NOT replicated here, matching this
+                # compiler's established convention (D60 Phase 1D-B/D88/D89)
+                # of leaving some operators unvalidated rather than only
+                # fixing the newest ones.
+                'Sine' { return "Math.sin(Number($subjectJs) * Math.PI / 180)" }
+                'Cosine' { return "Math.cos(Number($subjectJs) * Math.PI / 180)" }
+                'Tangent' { return "Math.tan(Number($subjectJs) * Math.PI / 180)" }
+                'LogTen' { return "Math.log10(Number($subjectJs))" }
+                'NaturalLog' { return "Math.log(Number($subjectJs))" }
                 default { return "null" }
             }
         }

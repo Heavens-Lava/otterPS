@@ -367,6 +367,14 @@ function ConvertTo-OtterLineTokens {
                 'round' { [TokenKind]::Round }         # D89: `round of X`
                 'larger' { [TokenKind]::Larger }       # D89: `larger of X and Y`
                 'smaller' { [TokenKind]::Smaller }     # D89: `smaller of X and Y`
+                'sine' { [TokenKind]::Sine }           # D90: `sine of X`
+                'cosine' { [TokenKind]::Cosine }       # D90: `cosine of X`
+                'tangent' { [TokenKind]::Tangent }     # D90: `tangent of X`
+                'log' { [TokenKind]::LogTen }          # D90: `log of X` (base 10) - `log` is
+                                                        # only ever TokenKind::Log at statement
+                                                        # head (the `log "message"` statement);
+                                                        # here, mid-expression, it is plain
+                                                        # Identifier, so this case is reachable.
                 default { $null }
             }
             if ($null -ne $operationKind) { $combined.Add((New-OtterToken $operationKind $token.Text $null $token.Line $token.Column)); continue }
@@ -384,6 +392,7 @@ function ConvertTo-OtterLineTokens {
                 'square root' { [TokenKind]::SquareRoot }
                 'round up' { [TokenKind]::RoundUp }
                 'round down' { [TokenKind]::RoundDown }
+                'natural log' { [TokenKind]::NaturalLog }   # D90: `natural log of X`
                 default { $null }
             }
             if ($null -ne $twoWordKind) {

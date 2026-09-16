@@ -6591,3 +6591,101 @@ error, and both `larger`/`smaller` directions).
 
 ---
 
+## D90. Trigonometry, logarithms, and the `pi` constant — `sine of X`, `cosine of X`, `tangent of X`, `log of X`, `natural log of X`, `pi`
+
+**Status: IMPLEMENTED and verified end-to-end through the real `otter
+run`/`otter check`/`otter web` CLI. Found and documented one real,
+pre-existing JS-compiler gap along the way (see below) - not
+introduced by this decision, but first made user-visible by it.**
+
+**Design.** `sine`/`cosine`/`tangent`/`log`/`natural log` are five more
+`OfOperation` values, same family as D24 and D89 - no new node types.
+`pi` is different in kind from every other operation added since D69:
+it takes no subject, so it isn't an operation at all. It is parsed
+directly into a `LiteralExpr` holding `[Math]::PI` - a parse-time
+constant-fold, not a runtime lookup, node, or JS emission of its own.
+This means `pi` needed zero interpreter and zero JS-compiler changes;
+it is indistinguishable from a hand-written number literal by the time
+either backend sees it. It follows the exact precedent D32 already set
+for `today`/`now`: the word always means the constant in expression
+position, even shadowing a variable assigned that name - an accepted,
+pre-existing tradeoff, not a new one introduced here. `e` (Euler's
+number) was deliberately NOT added as a second bare constant: unlike
+`pi`, a bare single-letter word is very likely to collide with
+ordinary variable use (`for each e in errors`), and `today`/`now`'s
+always-shadow behavior only reads as a reasonable tradeoff for
+distinctive words, not a one-letter one. `natural log of X` remains
+the only way to reach Euler's number's logarithm; a bare `e` constant
+can be added later without touching anything already shipped.
+
+**Angles are in DEGREES, not radians** - `sine of 90` returning `1`
+is what a non-technical, "readable like English" caller expects, and
+converting internally (`n * Math.PI / 180`, both backends) keeps that
+true without asking a Otter caller to think in radians at all.
+
+**A real lexer bug was found and fixed before this ever reached
+testing:** the initial design assumed `log` needed special-casing
+because `TokenKind::Log` (the `log "message"` statement keyword) is
+"always active" per D33. Checked against the actual keyword tables and
+found this assumption backwards - `log` is in
+`$script:OtterStatementHeadKeywords`, not the always-active table, so
+it is ONLY `TokenKind::Log` when it is the first token on a line.
+Inside `say log of 100`, `log` is not statement-head, so it lexes as
+plain `Identifier` - meaning the correct fix was simply adding `'log'`
+to the SAME generic single-word contextual switch `length`/`first`/
+`round`/etc. already use, not a special-cased check for
+`TokenKind::Log`. Caught directly, before committing, by dumping the
+real token stream for `say log of 100` and seeing `Identifier 'log'`
+instead of the expected `LogTen` - confirms the value of checking a
+lexer assumption against the actual token stream rather than against
+which table a keyword's own comment claims it lives in.
+
+**Log domain validation** matches D89's square-root precedent: `log of
+0` or any non-positive number is a friendly Otter runtime error ("I
+can't take the log of a number that isn't positive (0)."), not `NaN`
+or a raw exception. Not replicated in the JS compiler, matching the
+established, already-documented convention that some operators
+validate and some don't in that backend (D60 Phase 1D-B, D88, D89).
+
+**A real, pre-existing JS-compiler number-formatting gap, found while
+verifying this decision (not introduced by it):** `tangent of 45`
+computes `0.9999999999999999` in raw IEEE754 double math (both the
+.NET interpreter and JS get this same imprecise value from their
+respective `Tan` implementations). The interpreter's `say` always
+passes numbers through `Format-OtterValue`, which rounds to 10
+decimals before printing - `0.9999999999999999` becomes a clean `1`.
+The JS-compiled app's `otterSay` does no such formatting at all: it is
+a bare `console.log(...args)`, so a compiled web app would print the
+raw, ugly float directly. Checked and confirmed this is not new to
+D90 - `Otter.Compiler.JavaScript.psm1` has never had a general
+number-formatting helper matching `Format-OtterValue`'s rounding (the
+existing TextMatch comment from D60 Phase 1D-A already flags this same
+category of non-parity: "String(...) stands in for Format-OtterValue -
+full parity ... is not attempted"). D90 is simply the first operation
+whose correct output is naturally irrational/imprecise enough to make
+that pre-existing gap visible in a common case. Fixing general
+`say`-output number formatting in the JS compiler is a real, separate,
+larger task (it touches every numeric expression, not just this
+decision's five operations) and is intentionally left for its own
+decision rather than folded into this one as scope creep.
+
+**Verified:** through the real `otter run` CLI - `sine of 90` → `1`,
+`cosine of 0` → `1`, `tangent of 45` → `1`, `log of 100` → `2`,
+`natural log of 1` → `0`, `pi` → `3.1415926536`, `pi times 2` →
+`6.2831853072`, `pi times radius times radius` (radius = 3) →
+`28.2743338823` - all real, correct values. Confirmed `log`/`sine`
+still work as ordinary variable names (`log is 5` / `say log` → `5`;
+`sine is "hello"` / `say sine` → `hello`), proving the contextual
+lexer combining never fires without a following `of`. `otter check`
+accepted the same file as valid. `otter web` compiled the same source;
+the emitted JS (`Math.sin`/`Math.cos`/`Math.tan` with the degree-to-
+radian conversion, `Math.log10`, `Math.log`, and `pi` inlined as the
+literal `3.14159265358979`) was extracted and run directly in real
+Node, confirming identical raw values to the interpreter except for
+the documented `tangent of 45` display-formatting gap above. Four new
+regression tests in `tests/Interpreter.Tests.ps1` (trig, both logs,
+the log domain error, and pi's double precision through ordinary
+math).
+
+---
+

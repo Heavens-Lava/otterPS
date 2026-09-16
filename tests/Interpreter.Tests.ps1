@@ -194,6 +194,37 @@ Test-Otter 'D89: larger/smaller of two values picks the real min/max' {
     Assert-Lines -Expected @('8', '3') -Actual $out
 }
 
+Test-Otter 'D90: sine, cosine, and tangent take degrees, matching everyday expectations' {
+    $out = Invoke-TestProgram @(
+        (SaySt @([OfOperationExpr]::new([OfOperation]::Sine, (Lit 90.0), 1))),
+        (SaySt @([OfOperationExpr]::new([OfOperation]::Cosine, (Lit 0.0), 2))),
+        (SaySt @([OfOperationExpr]::new([OfOperation]::Tangent, (Lit 45.0), 3)))
+    )
+    Assert-Lines -Expected @('1', '1', '1') -Actual $out
+}
+
+Test-Otter 'D90: log (base 10) and natural log (base e) compute real values' {
+    $out = Invoke-TestProgram @(
+        (SaySt @([OfOperationExpr]::new([OfOperation]::LogTen, (Lit 100.0), 1))),
+        (SaySt @([OfOperationExpr]::new([OfOperation]::NaturalLog, (Lit ([Math]::E)), 2)))
+    )
+    Assert-Lines -Expected @('2', '1') -Actual $out
+}
+
+Test-Otter 'D90: log of zero or a negative number is a friendly Otter error' {
+    Assert-OtterFails -Containing "isn't positive" -Body {
+        Invoke-TestProgram @( (SaySt @([OfOperationExpr]::new([OfOperation]::LogTen, (Lit 0.0), 1))) )
+    }
+}
+
+Test-Otter 'D90: pi carries real double precision through ordinary math (parser-level "pi" literal is verified separately via the real CLI)' {
+    $out = Invoke-TestProgram @(
+        (SaySt @((MathEx (Lit ([Math]::PI)) 'Multiply' (Lit 2.0))))
+    )
+    $expected = ([Math]::PI * 2.0).ToString('0.##########', [System.Globalization.CultureInfo]::InvariantCulture)
+    Assert-Lines -Expected @($expected) -Actual $out
+}
+
 Test-Otter 'doing maths on text explains itself' {
     Assert-OtterFails -Containing 'I expected a number' -Body {
         Invoke-TestProgram @(

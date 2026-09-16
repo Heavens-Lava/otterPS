@@ -163,7 +163,8 @@ function Read-OtterValue {
         }
     }
     if ($token.Kind -in @([TokenKind]::Length, [TokenKind]::Uppercase, [TokenKind]::Lowercase, [TokenKind]::First, [TokenKind]::Last,
-                          [TokenKind]::AbsoluteValue, [TokenKind]::SquareRoot, [TokenKind]::Round, [TokenKind]::RoundUp, [TokenKind]::RoundDown)) {
+                          [TokenKind]::AbsoluteValue, [TokenKind]::SquareRoot, [TokenKind]::Round, [TokenKind]::RoundUp, [TokenKind]::RoundDown,
+                          [TokenKind]::Sine, [TokenKind]::Cosine, [TokenKind]::Tangent, [TokenKind]::LogTen, [TokenKind]::NaturalLog)) {
         [void](Read-OtterToken)
         [void](Assert-OtterTokenKind ([TokenKind]::Of) 'I expected "of" after this operation.')
         $operation = switch ($token.Kind) {
@@ -177,6 +178,11 @@ function Read-OtterValue {
             ([TokenKind]::Round) { [OfOperation]::Round }                 # D89: round of X
             ([TokenKind]::RoundUp) { [OfOperation]::RoundUp }             # D89: round up of X
             ([TokenKind]::RoundDown) { [OfOperation]::RoundDown }         # D89: round down of X
+            ([TokenKind]::Sine) { [OfOperation]::Sine }                   # D90: sine of X (degrees)
+            ([TokenKind]::Cosine) { [OfOperation]::Cosine }               # D90: cosine of X (degrees)
+            ([TokenKind]::Tangent) { [OfOperation]::Tangent }             # D90: tangent of X (degrees)
+            ([TokenKind]::LogTen) { [OfOperation]::LogTen }               # D90: log of X (base 10)
+            ([TokenKind]::NaturalLog) { [OfOperation]::NaturalLog }       # D90: natural log of X (base e)
         }
         return [OfOperationExpr]::new($operation, (Read-OtterValue -PropertyTarget), $token.Line)
     }
@@ -200,6 +206,15 @@ function Read-OtterValue {
     }
     if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -eq 'now') {
         [void](Read-OtterToken); return [ClockExpr]::new([ClockKind]::Now, $token.Line)
+    }
+    # D90: `pi` is a literal constant, resolved at PARSE time - it never
+    # touches the interpreter or JS compiler as its own node, the same way
+    # a number literal doesn't. Matches D32's today/now precedent: this
+    # word always means the constant in expression position, even if a
+    # variable named "pi" was assigned - an accepted, existing tradeoff,
+    # not a new one.
+    if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -eq 'pi') {
+        [void](Read-OtterToken); return [LiteralExpr]::new([Math]::PI, $token.Line)
     }
     if (Test-OtterCommandResultPropertyAt $script:Position) {
         $first = Read-OtterToken
