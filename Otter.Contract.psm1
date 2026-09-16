@@ -409,6 +409,11 @@ enum NodeKind {
 
     # --- event/system logs (D79) --------------------------------------
     GetEventLogEntries     # get event log entries from "n" up to N into t
+
+    # --- secure credential storage (D81) -------------------------------
+    SetCredential          # set credential "n" to "secret"
+    GetCredential          # get credential "n" into secret
+    DeleteCredential       # delete credential "n"
 }
 
 enum MathOp { Add; Subtract; Multiply; Divide }
@@ -1402,6 +1407,40 @@ class GetEventLogEntriesStmt : Node {
         $this.LogName = $logName
         $this.MaxEntries = $maxEntries
         $this.Target = $target
+    }
+}
+
+# set credential "n" to "secret"                                     (D81)
+# Encrypted at rest via Windows DPAPI, CurrentUser scope - decryptable
+# only by the same OS login that wrote it, on the same machine. Not a
+# secrets-sharing or secrets-syncing mechanism; a local-only vault.
+class SetCredentialStmt : Node {
+    [Node]$Name
+    [Node]$Secret
+    SetCredentialStmt([Node]$name, [Node]$secret, [int]$line) : base([NodeKind]::SetCredential, $line) {
+        $this.Name = $name
+        $this.Secret = $secret
+    }
+}
+
+# get credential "n" into secret                                     (D81)
+# `gone` (not an error) when no credential by that name has been set -
+# matching GetEnvironmentVariable/GetRegistryValue's own "unset means
+# gone" choice.
+class GetCredentialStmt : Node {
+    [Node]$Name
+    [string]$Target
+    GetCredentialStmt([Node]$name, [string]$target, [int]$line) : base([NodeKind]::GetCredential, $line) {
+        $this.Name = $name
+        $this.Target = $target
+    }
+}
+
+# delete credential "n"                                               (D81)
+class DeleteCredentialStmt : Node {
+    [Node]$Name
+    DeleteCredentialStmt([Node]$name, [int]$line) : base([NodeKind]::DeleteCredential, $line) {
+        $this.Name = $name
     }
 }
 

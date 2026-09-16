@@ -710,6 +710,29 @@ function Invoke-OtterStatement {
             return
         }
 
+        # set credential "n" to "secret"                                 (D81)
+        'SetCredential' {
+            $name = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.Name -Environment $Environment)
+            $secret = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.Secret -Environment $Environment)
+            Set-OtterCredential -Name $name -Secret $secret -Line $Statement.Line
+            return
+        }
+
+        # get credential "n" into secret                                 (D81)
+        'GetCredential' {
+            $name = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.Name -Environment $Environment)
+            $secret = Get-OtterCredential -Name $name -Line $Statement.Line
+            $Environment.Set($Statement.Target, $secret)
+            return
+        }
+
+        # delete credential "n"                                          (D81)
+        'DeleteCredential' {
+            $name = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.Name -Environment $Environment)
+            Remove-OtterCredential -Name $name -Line $Statement.Line
+            return
+        }
+
         'DeleteFolder' {
             Remove-OtterFolder -Path (Get-OtterPathArgument -Expression $Statement.Path -Environment $Environment) -Line $Statement.Line
             return

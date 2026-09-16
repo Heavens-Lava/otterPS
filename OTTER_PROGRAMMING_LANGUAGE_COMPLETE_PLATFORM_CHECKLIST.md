@@ -428,8 +428,18 @@ creation.
     Read-only scope, deliberate - creating/modifying tasks is a
     separate, larger surface not attempted here. See
     SPEC-DECISIONS.md D80)
--   [ ] Permissions/elevation model
--   [ ] Secure credential handling
+-   [ ] Permissions/elevation model (PARTIAL, deliberately not flipped
+    to done: D76's `isAdmin` on `get system information "user"` covers
+    real elevation DETECTION, and operations that need elevation
+    already report it specifically (D73's symlink-creation error is
+    the clearest example) - but there is no way for an Otter program to
+    REQUEST elevation/relaunch as admin, a genuine security decision
+    needing its own explicit sign-off, not something to fold into a
+    read-only OS-info pass)
+-   [x] Secure credential handling (D81: `set`/`get`/`delete
+    credential "n"` - real Windows DPAPI encryption (CurrentUser
+    scope), verified by confirming the stored file on disk is
+    genuinely encrypted, not plaintext. See SPEC-DECISIONS.md D81)
 -   [x] Clipboard (D67: real `NodeKind`s + interpreter/JS-compiler
     implementation, real lexer/parser grammar wired in `f52dcad`
     (`copy "text" to clipboard`, `get clipboard into x`). Verified

@@ -667,6 +667,93 @@ function Get-OtterEventLogEntries {
     Write-Output -NoEnumerate $list
 }
 
+# Where D81's credential vault lives - one file per credential name,
+# under this user's own LOCALAPPDATA (never roamed, never synced,
+# never shared with other Windows accounts on the same machine).
+function Get-OtterCredentialStorePath {
+    $dir = Join-Path $env:LOCALAPPDATA 'Otter\Credentials'
+    if (-not (Test-Path -LiteralPath $dir)) {
+        [void](New-Item -ItemType Directory -Path $dir -Force)
+    }
+    return $dir
+}
+
+# A credential NAME becomes a filename - reject anything that is not a
+# safe, boring identifier before it ever touches the filesystem, so a
+# name like "..\..\..\Windows\System32\evil" cannot escape the
+# credential store directory (a real path-traversal shape, checked for
+# deliberately, not assumed impossible).
+function Assert-OtterCredentialName {
+    param([string]$Name, [int]$Line)
+
+    if ([string]::IsNullOrWhiteSpace($Name) -or $Name -notmatch '^[A-Za-z0-9_.\- ]+$') {
+        throw [OtterError]::new(
+            "`"$Name`" is not a valid credential name.",
+            $Line, 'runtime', 0, $null,
+            'Credential names may only use letters, numbers, spaces, dots, dashes, and underscores.')
+    }
+}
+
+# set credential "n" to "secret"                                      (D81)
+# Encrypted with Windows DPAPI, CurrentUser scope: System.Security.
+# Cryptography.ProtectedData ties the encryption key to this specific
+# Windows login on this specific machine - decrypting the stored file
+# on another account, or copying it to another machine, does not work.
+# This is a local-only vault, not a secrets-sharing mechanism.
+function Set-OtterCredential {
+    param([string]$Name, [string]$Secret, [int]$Line)
+
+    Assert-OtterCredentialName -Name $Name -Line $Line
+    Add-Type -AssemblyName System.Security -ErrorAction SilentlyContinue
+    $path = Join-Path (Get-OtterCredentialStorePath) "$Name.cred"
+    try {
+        $plainBytes = [System.Text.Encoding]::UTF8.GetBytes($Secret)
+        $protectedBytes = [System.Security.Cryptography.ProtectedData]::Protect(
+            $plainBytes, $null, [System.Security.Cryptography.DataProtectionScope]::CurrentUser)
+        [System.IO.File]::WriteAllText($path, [Convert]::ToBase64String($protectedBytes))
+    } catch {
+        throw [OtterError]::new("I could not save the credential `"$Name`". $($_.Exception.Message)", $Line, 'runtime')
+    }
+}
+
+# get credential "n" into secret                                      (D81)
+# `gone` (not an error) when no credential by that name has been set -
+# matching GetEnvironmentVariable/GetRegistryValue's own "unset means
+# gone" choice.
+function Get-OtterCredential {
+    param([string]$Name, [int]$Line)
+
+    Assert-OtterCredentialName -Name $Name -Line $Line
+    $path = Join-Path (Get-OtterCredentialStorePath) "$Name.cred"
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { return $null }
+    try {
+        Add-Type -AssemblyName System.Security -ErrorAction SilentlyContinue
+        $protectedBytes = [Convert]::FromBase64String([System.IO.File]::ReadAllText($path))
+        $plainBytes = [System.Security.Cryptography.ProtectedData]::Unprotect(
+            $protectedBytes, $null, [System.Security.Cryptography.DataProtectionScope]::CurrentUser)
+        return [System.Text.Encoding]::UTF8.GetString($plainBytes)
+    } catch {
+        # A file that exists but cannot be decrypted (wrong user account,
+        # moved from another machine, corrupted) is functionally the
+        # same as "no usable credential here" - gone, not a crash.
+        return $null
+    }
+}
+
+# delete credential "n"                                               (D81)
+# Deleting a credential that is already gone is success, not an error -
+# the same "asking for an end state that already holds" tolerance
+# kill/registry-value-delete already established elsewhere.
+function Remove-OtterCredential {
+    param([string]$Name, [int]$Line)
+
+    Assert-OtterCredentialName -Name $Name -Line $Line
+    $path = Join-Path (Get-OtterCredentialStorePath) "$Name.cred"
+    if (Test-Path -LiteralPath $path -PathType Leaf) {
+        Remove-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue
+    }
+}
+
 # get owner of "x" into owner                                        (D74)
 # Works on either a file or a folder - ownership is a filesystem-wide
 # concept, unlike read-only below, which this module deliberately
@@ -1536,4 +1623,5 @@ Export-ModuleMember -Function `
     New-OtterSymbolicLink, Get-OtterSymbolicLinkTarget, Test-OtterSymbolicLink, `
     Get-OtterFileOwner, Test-OtterFileReadOnly, Set-OtterFileReadOnly, `
     Get-OtterRegistryValue, Set-OtterRegistryValue, Remove-OtterRegistryValue, Test-OtterRegistryKeyExists, `
-    Get-OtterEventLogEntries
+    Get-OtterEventLogEntries, `
+    Set-OtterCredential, Get-OtterCredential, Remove-OtterCredential

@@ -6049,3 +6049,56 @@ open, not silently folded in.
 
 ---
 
+## D81. Secure credential handling — `set`/`get`/`delete credential "n" [to "secret"]`
+
+**Status: IMPLEMENTED and verified end-to-end through the real `otter
+run` CLI, including confirming the stored file on disk is genuinely
+encrypted (the plaintext secret does not appear in it, checked
+directly with a raw content search).**
+
+Closes "Secure credential handling", the last item in this OS-admin
+tail's security-sensitive pair (alongside D76's already-shipped
+`isAdmin` detection, which closes the read-only half of "Permissions/
+elevation model" - self-elevation/relaunch-as-admin is deliberately
+NOT part of this or any prior D8x work, flagged as a real design
+decision needing its own sign-off rather than folded in here).
+
+**Design, deliberately narrow and local-only:** `set credential "n" to
+"secret"` / `get credential "n" into secret` / `delete credential
+"n"`. Secrets are encrypted with Windows DPAPI (`System.Security.
+Cryptography.ProtectedData`, `DataProtectionScope.CurrentUser`) and
+stored one file per credential name under this Windows account's own
+`%LOCALAPPDATA%\Otter\Credentials\` - a key tied to the specific OS
+login on the specific machine that wrote it. This is explicitly a
+LOCAL VAULT, not a secrets-sharing or secrets-syncing mechanism: the
+encrypted file is meaningless on another account or another machine
+(confirmed by design, not just claimed - DPAPI's CurrentUser scope is
+exactly this guarantee). `get credential` on an unset name returns
+`gone`, matching `GetEnvironmentVariable`/`GetRegistryValue`'s own
+"unset means gone" choice; `delete credential` on an already-absent
+name is success, matching the same end-state tolerance established
+throughout D70-D80.
+
+**A real injection shape checked for, not assumed impossible:** a
+credential NAME becomes a filename directly, so `Assert-
+OtterCredentialName` rejects anything outside a safe, boring character
+set (letters/digits/spaces/dots/dashes/underscores) BEFORE it ever
+reaches the filesystem - `"..\..\evil"` and similar path-traversal-
+shaped names are caught with a specific, clean error rather than
+silently writing outside the credential store directory.
+
+**Verified:** through the real `otter run` CLI - an unset credential
+correctly `gone`; a real secret written, read back byte-for-byte, then
+directly inspected on disk (a real base64 DPAPI blob, confirmed via
+`Select-String` that the plaintext secret string does NOT appear
+anywhere in the stored file); genuine deletion confirmed by checking
+the real file is gone from disk afterward, not just trusting Otter's
+own report; a path-traversal-shaped name rejected cleanly. Four new
+regression tests in `tests/Part3.Tests.ps1`, each cleaning up its own
+real credential file. JS compiler emits calls to three new required
+host hooks with no bridge implementation yet - DPAPI, like the
+registry and event log before it, is a Windows-only host concept a
+browser has no equivalent for at all.
+
+---
+

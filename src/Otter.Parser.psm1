@@ -1385,6 +1385,15 @@ function Read-OtterStatement {
                 [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the get statement to end here.')
                 return [GetRegistryValueStmt]::new($regValueName, $regKeyPathGet, $regTarget.Text, $start.Line)
             }
+            # D81: `get credential "n" into secret`
+            if ($kind.Kind -eq [TokenKind]::Identifier -and $kind.Text -eq 'credential') {
+                [void](Read-OtterToken)
+                $credName = Read-OtterValue
+                [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a result name.')
+                $credTarget = Read-OtterVariableName 'I expected a result name after "into".'
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the get statement to end here.')
+                return [GetCredentialStmt]::new($credName, $credTarget.Text, $start.Line)
+            }
             # D79: `get event log entries from "System" up to 20 into t`
             if ($kind.Kind -eq [TokenKind]::Identifier -and $kind.Text -eq 'event') {
                 [void](Read-OtterToken)
@@ -1527,6 +1536,16 @@ function Read-OtterStatement {
                 $regKeyPathSet = Read-OtterValue
                 [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the set statement to end here.')
                 return [SetRegistryValueStmt]::new($regValueNameSet, $regValueData, $regKeyPathSet, $start.Line)
+            }
+            # D81: `set credential "n" to "secret"`
+            $maybeCredentialSet = Get-OtterCurrentToken
+            if ($maybeCredentialSet.Kind -eq [TokenKind]::Identifier -and $maybeCredentialSet.Text -eq 'credential') {
+                [void](Read-OtterToken)
+                $credNameSet = Read-OtterValue
+                [void](Assert-OtterTokenKind ([TokenKind]::To) 'I expected "to" and a secret value.')
+                $credSecret = Read-OtterValue
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the set statement to end here.')
+                return [SetCredentialStmt]::new($credNameSet, $credSecret, $start.Line)
             }
             $key = Read-OtterValue
             [void](Assert-OtterTokenKind ([TokenKind]::To) 'I expected "to" and a value.')
@@ -1901,6 +1920,14 @@ function Read-OtterStatement {
                 $regKeyPathDel = Read-OtterValue
                 [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the delete statement to end here.')
                 return [DeleteRegistryValueStmt]::new($regValueNameDel, $regKeyPathDel, $start.Line)
+            }
+            # D81: `delete credential "n"`
+            $maybeCredentialDel = Get-OtterCurrentToken
+            if ($maybeCredentialDel.Kind -eq [TokenKind]::Identifier -and $maybeCredentialDel.Text -eq 'credential') {
+                [void](Read-OtterToken)
+                $credNameDel = Read-OtterValue
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the delete statement to end here.')
+                return [DeleteCredentialStmt]::new($credNameDel, $start.Line)
             }
             if (Test-OtterTokenKind ([TokenKind]::Folder)) {
                 [void](Read-OtterToken)

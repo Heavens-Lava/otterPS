@@ -986,6 +986,59 @@ Test-Otter 'D74: get owner of a file that does not exist is a clean Otter error'
     }
 }
 
+# =================================================================
+# D81 - secure credential storage (Windows DPAPI, CurrentUser scope)
+# =================================================================
+
+Test-Otter 'D81: get credential for an unset name is gone, not an error' {
+    $out = Invoke-TestProgram @(
+        [GetCredentialStmt]::new((Lit 'OtterTest-D81-Unset'), 'secret', 1),
+        [IfStmt]::new(
+            @([IfBranch]::new((CompareEx (Var 'secret') 'Equal' (Gone)),
+                @([SayStmt]::new(@((Lit 'gone')), 3)))),
+            @([SayStmt]::new(@((Lit 'has a value')), 5)), 2)
+    )
+    Assert-Lines -Expected @('gone') -Actual $out
+}
+
+Test-Otter 'D81: set credential round-trips a real secret and is genuinely encrypted at rest' {
+    $credPath = Join-Path $env:LOCALAPPDATA 'Otter\Credentials\OtterTest-D81-RoundTrip.cred'
+    Remove-Item -LiteralPath $credPath -Force -ErrorAction SilentlyContinue
+    try {
+        $out = Invoke-TestProgram @(
+            [SetCredentialStmt]::new((Lit 'OtterTest-D81-RoundTrip'), (Lit 'super-secret-value-98765'), 1),
+            [GetCredentialStmt]::new((Lit 'OtterTest-D81-RoundTrip'), 'secret', 2),
+            [SayStmt]::new(@((Var 'secret')), 3)
+        )
+        Assert-Lines -Expected @('super-secret-value-98765') -Actual $out
+        Assert-True (Test-Path -LiteralPath $credPath) 'expected a real credential file to exist on disk'
+        $rawContent = Get-Content -LiteralPath $credPath -Raw
+        Assert-False ($rawContent -like '*super-secret-value-98765*') 'expected the secret to be encrypted at rest, not stored in plaintext'
+    } finally {
+        Remove-Item -LiteralPath $credPath -Force -ErrorAction SilentlyContinue
+    }
+}
+
+Test-Otter 'D81: delete credential really removes the file and get afterward is gone' {
+    $credPath = Join-Path $env:LOCALAPPDATA 'Otter\Credentials\OtterTest-D81-Delete.cred'
+    $out = Invoke-TestProgram @(
+        [SetCredentialStmt]::new((Lit 'OtterTest-D81-Delete'), (Lit 'temporary'), 1),
+        [DeleteCredentialStmt]::new((Lit 'OtterTest-D81-Delete'), 2),
+        [GetCredentialStmt]::new((Lit 'OtterTest-D81-Delete'), 'afterDelete', 3),
+        [IfStmt]::new(
+            @([IfBranch]::new((CompareEx (Var 'afterDelete') 'Equal' (Gone)),
+                @([SayStmt]::new(@((Lit 'gone')), 5)))),
+            @([SayStmt]::new(@((Lit 'still present')), 7)), 4)
+    )
+    Assert-Lines -Expected @('gone') -Actual $out
+    Assert-False (Test-Path -LiteralPath $credPath) 'expected the real credential file to actually be deleted'
+}
+
+Test-Otter 'D81: a credential name with path-traversal-shaped characters is a clean Otter error' {
+    Assert-OtterFails -Containing 'is not a valid credential name' -Body {
+        Invoke-TestProgram @( [SetCredentialStmt]::new((Lit '..\..\evil'), (Lit 'x'), 1) )
+    }
+}
 
 Set-Location $originalLocation
 Remove-Item -LiteralPath $sandbox -Recurse -Force -ErrorAction SilentlyContinue

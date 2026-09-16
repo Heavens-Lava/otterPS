@@ -1305,6 +1305,29 @@ function ConvertTo-OtterJsStatement {
             $regPathJs = ConvertTo-OtterJsExpression -Expr $Stmt.KeyPath
             return "${pad}await otterDeleteRegistryValue($regNameJs, $regPathJs);"
         }
+        ([NodeKind]::SetCredential) {
+            # D81. REQUIRED runtime hook `otterSetCredential(name, secret)` -
+            # Windows DPAPI is a host/platform concept a browser has no
+            # equivalent for at all, an even more fundamental boundary
+            # than the registry/event-log hooks above.
+            $credNameJs = ConvertTo-OtterJsExpression -Expr $Stmt.Name
+            $credSecretJs = ConvertTo-OtterJsExpression -Expr $Stmt.Secret
+            return "${pad}await otterSetCredential($credNameJs, $credSecretJs);"
+        }
+        ([NodeKind]::GetCredential) {
+            # D81. REQUIRED runtime hook `otterGetCredential(name)`.
+            $credNameJs = ConvertTo-OtterJsExpression -Expr $Stmt.Name
+            $target = $Stmt.Target
+            if ($LocalNames -and $LocalNames.Contains($target)) {
+                return "${pad}$target = await otterGetCredential($credNameJs);"
+            }
+            return "${pad}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$target' in otterState)) { otterSetState('$target', await otterGetCredential($credNameJs)); } else { window.$target = await otterGetCredential($credNameJs); }"
+        }
+        ([NodeKind]::DeleteCredential) {
+            # D81. REQUIRED runtime hook `otterDeleteCredential(name)`.
+            $credNameJs = ConvertTo-OtterJsExpression -Expr $Stmt.Name
+            return "${pad}await otterDeleteCredential($credNameJs);"
+        }
         ([NodeKind]::DeleteFolder) {
             $pathJs = ConvertTo-OtterJsExpression -Expr $Stmt.Path
             return "${pad}await otterDeleteFolder($pathJs);"
@@ -2214,8 +2237,8 @@ function Get-OtterJsBindingNames {
             if ($s.Kind -eq [NodeKind]::RunProgram -and $s.ResultTarget) {
                 [void]$setStyle.Add($s.ResultTarget)
             }
-            if ($s.Kind -eq [NodeKind]::GetClipboard -or $s.Kind -eq [NodeKind]::GetEnvironmentVariable -or $s.Kind -eq [NodeKind]::GetSystemFolder -or $s.Kind -eq [NodeKind]::ChooseFile -or $s.Kind -eq [NodeKind]::ChooseFolder -or $s.Kind -eq [NodeKind]::ChooseSaveFile -or $s.Kind -eq [NodeKind]::GetSystemInfo -or $s.Kind -eq [NodeKind]::GetProcesses -or $s.Kind -eq [NodeKind]::WaitForProcess -or $s.Kind -eq [NodeKind]::GetSymbolicLinkTarget -or $s.Kind -eq [NodeKind]::GetFileOwner -or $s.Kind -eq [NodeKind]::GetRegistryValue -or $s.Kind -eq [NodeKind]::GetEventLogEntries) {
-                # D67/D69/D70/D71/D73/D74/D78/D79: all thirteen use
+            if ($s.Kind -eq [NodeKind]::GetClipboard -or $s.Kind -eq [NodeKind]::GetEnvironmentVariable -or $s.Kind -eq [NodeKind]::GetSystemFolder -or $s.Kind -eq [NodeKind]::ChooseFile -or $s.Kind -eq [NodeKind]::ChooseFolder -or $s.Kind -eq [NodeKind]::ChooseSaveFile -or $s.Kind -eq [NodeKind]::GetSystemInfo -or $s.Kind -eq [NodeKind]::GetProcesses -or $s.Kind -eq [NodeKind]::WaitForProcess -or $s.Kind -eq [NodeKind]::GetSymbolicLinkTarget -or $s.Kind -eq [NodeKind]::GetFileOwner -or $s.Kind -eq [NodeKind]::GetRegistryValue -or $s.Kind -eq [NodeKind]::GetEventLogEntries -or $s.Kind -eq [NodeKind]::GetCredential) {
+                # D67/D69/D70/D71/D73/D74/D78/D79/D81: all fourteen use
                 # Environment.Set (verified directly) - Set-style, same as
                 # Assign/MathInto, not SetLocal.
                 if ($s.Target) { [void]$setStyle.Add($s.Target) }
@@ -2376,7 +2399,7 @@ function Test-OtterJsBodyNeedsAsync {
 
     if ($null -eq $Statements) { return $false }
     foreach ($s in $Statements) {
-        if ($s.Kind -eq [NodeKind]::Await -or $s.Kind -eq [NodeKind]::ReadFile -or $s.Kind -eq [NodeKind]::WriteFile -or $s.Kind -eq [NodeKind]::AppendFile -or $s.Kind -eq [NodeKind]::CopyFile -or $s.Kind -eq [NodeKind]::MoveFile -or $s.Kind -eq [NodeKind]::DeleteFile -or $s.Kind -eq [NodeKind]::CreateFolder -or $s.Kind -eq [NodeKind]::DeleteFolder -or $s.Kind -eq [NodeKind]::CopyFolder -or $s.Kind -eq [NodeKind]::MoveFolder -or $s.Kind -eq [NodeKind]::GetFiles -or $s.Kind -eq [NodeKind]::GetFolders -or $s.Kind -eq [NodeKind]::RunProgram -or $s.Kind -eq [NodeKind]::HttpGet -or $s.Kind -eq [NodeKind]::HttpPost -or $s.Kind -eq [NodeKind]::HttpPut -or $s.Kind -eq [NodeKind]::HttpDelete -or $s.Kind -eq [NodeKind]::CopyToClipboard -or $s.Kind -eq [NodeKind]::GetClipboard -or $s.Kind -eq [NodeKind]::Notify -or $s.Kind -eq [NodeKind]::GetEnvironmentVariable -or $s.Kind -eq [NodeKind]::GetSystemFolder -or $s.Kind -eq [NodeKind]::ChooseFile -or $s.Kind -eq [NodeKind]::ChooseFolder -or $s.Kind -eq [NodeKind]::ChooseSaveFile -or $s.Kind -eq [NodeKind]::GetSystemInfo -or $s.Kind -eq [NodeKind]::GetProcesses -or $s.Kind -eq [NodeKind]::KillProcess -or $s.Kind -eq [NodeKind]::SetProcessPriority -or $s.Kind -eq [NodeKind]::WaitForProcess -or $s.Kind -eq [NodeKind]::CreateSymbolicLink -or $s.Kind -eq [NodeKind]::GetSymbolicLinkTarget -or $s.Kind -eq [NodeKind]::GetFileOwner -or $s.Kind -eq [NodeKind]::SetFileReadOnly -or $s.Kind -eq [NodeKind]::GetRegistryValue -or $s.Kind -eq [NodeKind]::SetRegistryValue -or $s.Kind -eq [NodeKind]::DeleteRegistryValue -or $s.Kind -eq [NodeKind]::GetEventLogEntries) {
+        if ($s.Kind -eq [NodeKind]::Await -or $s.Kind -eq [NodeKind]::ReadFile -or $s.Kind -eq [NodeKind]::WriteFile -or $s.Kind -eq [NodeKind]::AppendFile -or $s.Kind -eq [NodeKind]::CopyFile -or $s.Kind -eq [NodeKind]::MoveFile -or $s.Kind -eq [NodeKind]::DeleteFile -or $s.Kind -eq [NodeKind]::CreateFolder -or $s.Kind -eq [NodeKind]::DeleteFolder -or $s.Kind -eq [NodeKind]::CopyFolder -or $s.Kind -eq [NodeKind]::MoveFolder -or $s.Kind -eq [NodeKind]::GetFiles -or $s.Kind -eq [NodeKind]::GetFolders -or $s.Kind -eq [NodeKind]::RunProgram -or $s.Kind -eq [NodeKind]::HttpGet -or $s.Kind -eq [NodeKind]::HttpPost -or $s.Kind -eq [NodeKind]::HttpPut -or $s.Kind -eq [NodeKind]::HttpDelete -or $s.Kind -eq [NodeKind]::CopyToClipboard -or $s.Kind -eq [NodeKind]::GetClipboard -or $s.Kind -eq [NodeKind]::Notify -or $s.Kind -eq [NodeKind]::GetEnvironmentVariable -or $s.Kind -eq [NodeKind]::GetSystemFolder -or $s.Kind -eq [NodeKind]::ChooseFile -or $s.Kind -eq [NodeKind]::ChooseFolder -or $s.Kind -eq [NodeKind]::ChooseSaveFile -or $s.Kind -eq [NodeKind]::GetSystemInfo -or $s.Kind -eq [NodeKind]::GetProcesses -or $s.Kind -eq [NodeKind]::KillProcess -or $s.Kind -eq [NodeKind]::SetProcessPriority -or $s.Kind -eq [NodeKind]::WaitForProcess -or $s.Kind -eq [NodeKind]::CreateSymbolicLink -or $s.Kind -eq [NodeKind]::GetSymbolicLinkTarget -or $s.Kind -eq [NodeKind]::GetFileOwner -or $s.Kind -eq [NodeKind]::SetFileReadOnly -or $s.Kind -eq [NodeKind]::GetRegistryValue -or $s.Kind -eq [NodeKind]::SetRegistryValue -or $s.Kind -eq [NodeKind]::DeleteRegistryValue -or $s.Kind -eq [NodeKind]::GetEventLogEntries -or $s.Kind -eq [NodeKind]::SetCredential -or $s.Kind -eq [NodeKind]::GetCredential -or $s.Kind -eq [NodeKind]::DeleteCredential) {
             return $true
         }
         if ($s.Kind -eq [NodeKind]::ReadJson) {
