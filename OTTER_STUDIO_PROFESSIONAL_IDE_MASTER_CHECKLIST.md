@@ -268,12 +268,13 @@ platform.
 -   [ ] Find/replace in files
 -   [ ] Regex search
 -   [x] Go to line (Ctrl+G modal & scroll into view)
--   [ ] Quick Open
--   [ ] Go to symbol
+-   [x] Quick Open with fuzzy file matching and keyboard navigation
+    (`2f7806c`)
+-   [x] Go to symbol from the parser-backed document index (`2f7806c`)
 -   [ ] Definition/implementation/references
 -   [ ] Peek definition
 -   [ ] Navigation history
--   [ ] Outline
+-   [x] Parser-backed clickable document Outline (`2f7806c`)
 -   [x] Dirty indicator (tab dirty dot, input tracking, save clearing)
 -   [x] Save All / Save File (Ctrl+S)
 -   [x] External-change detection with SHA-256 revisions, clean-buffer reload,
@@ -291,7 +292,7 @@ platform.
 -   [x] Autocomplete (rich keyword, UI widget, and loop suggestions)
 -   [x] Context-aware keyword/property/function suggestions
 -   [ ] Parameter/signature help
--   [ ] Workspace symbol index
+-   [x] Cached parser-backed workspace symbol index (`2f7806c`)
 -   [ ] Go to definition
 -   [ ] Find references
 -   [ ] Rename
