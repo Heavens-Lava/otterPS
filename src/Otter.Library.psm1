@@ -1272,11 +1272,53 @@ function Get-OtterSystemInfoValue {
             Write-Output -NoEnumerate $list
             return
         }
+        # get system information "user" into u                          (D76)
+        'user' {
+            $info = [OtterObject]::new('user')
+            $identity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
+            $nameParts = $identity.Name -split '\\', 2
+            $domain = if ($nameParts.Count -eq 2) { $nameParts[0] } else { $null }
+            $name = if ($nameParts.Count -eq 2) { $nameParts[1] } else { $nameParts[0] }
+            $info.WriteProperty('name', $name)
+            $info.WriteProperty('domain', $domain)
+            $isAdmin = $false
+            try {
+                $principal = [System.Security.Principal.WindowsPrincipal]::new($identity)
+                $isAdmin = $principal.IsInRole([System.Security.Principal.WindowsBuiltInRole]::Administrator)
+            } catch { $isAdmin = $false }
+            $info.WriteProperty('isAdmin', $isAdmin)
+            return $info
+        }
+        # get system information "groups" into g                        (D76)
+        # A list of plain group-name strings, not things - a group here
+        # has no further structure worth exposing yet, unlike "network"'s
+        # entries. Some of the current user's group SIDs can fail to
+        # translate to a name (a stale/orphaned SID from a deleted group
+        # or a domain the machine can no longer reach) - those are
+        # skipped individually rather than failing the whole list, the
+        # same tolerance GetProcesses/GetSystemInfo already use elsewhere.
+        'groups' {
+            $list = [System.Collections.Generic.List[object]]::new()
+            try {
+                $identity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
+                foreach ($group in $identity.Groups) {
+                    try {
+                        $list.Add($group.Translate([System.Security.Principal.NTAccount]).Value)
+                    } catch {
+                        # an untranslatable SID - skip it, not the whole list
+                    }
+                }
+            } catch {
+                # leave $list empty rather than crash on a locked-down host
+            }
+            Write-Output -NoEnumerate $list
+            return
+        }
         default {
             throw [OtterError]::new(
                 "I do not know a kind of system information called ""$Kind"".",
                 $Line, 'runtime', 0, $null,
-                'get system information "os" into info (also: "cpu", "memory", "disk", "network")')
+                'get system information "os" into info (also: "cpu", "memory", "disk", "network", "user", "groups")')
         }
     }
 }

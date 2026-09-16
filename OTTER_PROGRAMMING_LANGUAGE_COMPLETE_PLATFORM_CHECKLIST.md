@@ -384,8 +384,11 @@ creation.
 -   [ ] Windows services provider
 -   [ ] systemd provider
 -   [ ] launchd provider
--   [ ] User/account information
--   [ ] Groups/roles
+-   [x] User/account information (D76: `get system information "user"
+    into u` - real name/domain/isAdmin, no new grammar needed, slots
+    directly into D69's existing statement. See SPEC-DECISIONS.md D76)
+-   [x] Groups/roles (D76: `get system information "groups" into g` -
+    a real list of the current Windows account's group names)
 -   [x] Machine/OS information (D69: `get system information "os" into
     info` - real name/version/architecture/machineName, verified
     through the real `otter run` CLI. See SPEC-DECISIONS.md D69)

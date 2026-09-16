@@ -438,6 +438,25 @@ Test-Otter 'D69: otherwise into reason catches an unknown system information kin
     Assert-Lines -Expected @('I do not know a kind of system information called "bogus".') -Actual $out
 }
 
+Test-Otter 'D76: get system information "user" returns the real current Windows user' {
+    $out = Invoke-TestProgram @(
+        [GetSystemInfoStmt]::new((Lit 'user'), 'u', 1),
+        [SayStmt]::new(@((PropOf 'name' (Var 'u'))), 2),
+        [SayStmt]::new(@((PropOf 'domain' (Var 'u'))), 3)
+    )
+    $identity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
+    $parts = $identity.Name -split '\\', 2
+    Assert-Lines -Expected @($parts[1], $parts[0]) -Actual $out
+}
+
+Test-Otter 'D76: get system information "groups" returns a real, non-empty list of group names' {
+    $out = Invoke-TestProgram @(
+        [GetSystemInfoStmt]::new((Lit 'groups'), 'g', 1),
+        [SayStmt]::new(@(([OfOperationExpr]::new([OfOperation]::Length, (Var 'g'), 2))), 2)
+    )
+    Assert-True ([double]$out[0] -gt 0) "expected at least one real Windows group, got [$($out[0])]"
+}
+
 # =================================================================
 # D70 - process management: run ... into p, get processes, kill
 # =================================================================

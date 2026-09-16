@@ -1399,11 +1399,15 @@ function ConvertTo-OtterJsStatement {
             $lines.Add("${pad}{")
             $lines.Add("${inner}const _kindOriginal = String($infoKindJs);")
             $lines.Add("${inner}const _kind = _kindOriginal.toLowerCase();")
-            $lines.Add("${inner}const _typeNames = { os: 'operating system', cpu: 'cpu', memory: 'memory', disk: 'disk', network: 'network interface' };")
-            $lines.Add("${inner}if (!(_kind in _typeNames)) { throw new Error('I do not know a kind of system information called `"' + _kindOriginal + '`".'); }")
+            # D76 adds "user" (a single thing, same shape as os/cpu/etc.)
+            # and "groups" (a plain array of strings - group NAMES have no
+            # further structure worth wrapping in __otterThing, unlike
+            # network's per-interface objects).
+            $lines.Add("${inner}const _typeNames = { os: 'operating system', cpu: 'cpu', memory: 'memory', disk: 'disk', network: 'network interface', user: 'user' };")
+            $lines.Add("${inner}if (!(_kind in _typeNames) && _kind !== 'groups') { throw new Error('I do not know a kind of system information called `"' + _kindOriginal + '`".'); }")
             $lines.Add("${inner}const _raw = await otterGetSystemInfo(_kind);")
             $lines.Add("${inner}const _wrapOne = (v, tn) => { const props = {}; const order = []; if (v) { for (const k of Object.keys(v)) { props[k] = v[k]; order.push(k); } } return { __otterThing: true, typeName: tn, props: props, order: order }; };")
-            $lines.Add("${inner}const _value = (_kind === 'network') ? (Array.isArray(_raw) ? _raw.map((x) => _wrapOne(x, 'network interface')) : []) : _wrapOne(_raw, _typeNames[_kind]);")
+            $lines.Add("${inner}const _value = (_kind === 'network') ? (Array.isArray(_raw) ? _raw.map((x) => _wrapOne(x, 'network interface')) : []) : (_kind === 'groups') ? (Array.isArray(_raw) ? _raw : []) : _wrapOne(_raw, _typeNames[_kind]);")
             if ($LocalNames -and $LocalNames.Contains($target)) {
                 $lines.Add("${inner}$target = _value;")
             } else {

@@ -5802,3 +5802,40 @@ new regression tests in `tests/Part3.Tests.ps1`.
 
 ---
 
+## D76. User/account information and groups — `get system information "user"/"groups" into ...`
+
+**Status: IMPLEMENTED and verified end-to-end through the real `otter
+run` CLI against this session's own real Windows account. No new
+grammar - both kinds slot directly into D69's existing `get system
+information "<kind>" into info` statement, which was deliberately
+designed so a new kind needs no grammar change at all.**
+
+Closes "User/account information" and "Groups/roles". `"user"` returns
+a single `user` thing (`name`, `domain`, `isAdmin` via
+`WindowsPrincipal.IsInRole(Administrator)`); `"groups"` returns a
+LIST of plain group-NAME strings, not things - a group has no further
+structure worth exposing yet, unlike `"network"`'s per-interface
+objects, so it is not wrapped in `__otterThing` at all, a genuinely
+different shape from every other kind that needed its own handling in
+both the interpreter and the JS compiler's kind-dispatch.
+
+**A real, exercised failure mode:** a user's group membership
+(`WindowsIdentity.Groups`) is a list of SIDs, and translating a SID to
+a readable name (`.Translate(NTAccount)`) can fail for a stale/
+orphaned SID (a deleted group, or a domain the machine can no longer
+reach) - each translation is attempted individually, and a failure
+skips that one entry rather than failing the whole list, the same
+tolerance already established for `GetProcesses`/other `GetSystemInfo`
+kinds.
+
+**Verified:** through the real `otter run` CLI against this session's
+own actual Windows account - real username (`jmacy`), real domain
+(`AZLEG`), a real (and correctly `false`) admin-status check, and 51
+real Windows group memberships including a genuine, correctly-named
+group (`AZLEG\Domain Users`). The JS-compiler's "groups" pass-through
+(no `__otterThing` wrapping) verified by executing the generated logic
+in Node against a hand-stubbed hook. Two new regression tests in
+`tests/Part3.Tests.ps1`.
+
+---
+
