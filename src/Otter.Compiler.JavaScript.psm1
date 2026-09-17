@@ -238,26 +238,21 @@ function ConvertTo-OtterJsExpression {
                     # which never mentions booleans/and/conditions at all.
                     return "(() => { const _l = $left; const _r = $right; if (typeof _l === 'string' && typeof _r === 'string') { return _l + _r; } if (typeof _l === 'boolean' || typeof _r === 'boolean') { throw new Error('A true/false value cannot be combined with `"and`" here. Boolean `"and`"/`"or`" only work inside an if or while condition.'); } const _lOk = typeof _l === 'number' || (typeof _l === 'string' && _l.trim() !== '' && !Number.isNaN(Number(_l))); if (!_lOk) { throw new Error('I expected a number for the left side of this calculation but got ' + JSON.stringify(_l) + '.'); } const _rOk = typeof _r === 'number' || (typeof _r === 'string' && _r.trim() !== '' && !Number.isNaN(Number(_r))); if (!_rOk) { throw new Error('I expected a number for the right side of this calculation but got ' + JSON.stringify(_r) + '.'); } return Number(_l) + Number(_r); })()"
                 }
-                # Subtract/Multiply/Divide have the SAME underlying gap
-                # (Assert-OtterNumber throws on a non-numeric operand in the
-                # interpreter; Number(...) here silently produces NaN
-                # instead) - confirmed present, deliberately NOT fixed in
-                # this commit. Phase 1D-B's scope, per instruction, is `plus`
-                # specifically; this is flagged as a separate, still-open
-                # finding, not silently folded in here.
-                ([MathOp]::Subtract) { return "(Number($left) - Number($right))" }
-                ([MathOp]::Multiply) { return "(Number($left) * Number($right))" }
-                ([MathOp]::Divide) { return "(Number($left) / Number($right))" }
-                # D88. Same minimal Number() coercion as Subtract/Multiply/
-                # Divide above - the interpreter's Assert-OtterNumber
-                # validation gap for these operators is already a known,
-                # documented, deliberately-unfixed finding from Phase 1D-B;
-                # matching that existing local convention here rather than
-                # rigorously validating only the two NEW operators, which
-                # would be inconsistent with their siblings for no real
-                # benefit.
-                ([MathOp]::Percent) { return "((Number($left) / 100) * Number($right))" }
-                ([MathOp]::Power) { return "(Math.pow(Number($left), Number($right)))" }
+                ([MathOp]::Subtract) {
+                    return "(() => { const _l = $left; const _r = $right; const _lOk = typeof _l === 'number' || (typeof _l === 'string' && _l.trim() !== '' && !Number.isNaN(Number(_l))); if (!_lOk) { throw new Error('I expected a number for the left side of this calculation but got ' + JSON.stringify(_l) + '.'); } const _rOk = typeof _r === 'number' || (typeof _r === 'string' && _r.trim() !== '' && !Number.isNaN(Number(_r))); if (!_rOk) { throw new Error('I expected a number for the right side of this calculation but got ' + JSON.stringify(_r) + '.'); } return Number(_l) - Number(_r); })()"
+                }
+                ([MathOp]::Multiply) {
+                    return "(() => { const _l = $left; const _r = $right; const _lOk = typeof _l === 'number' || (typeof _l === 'string' && _l.trim() !== '' && !Number.isNaN(Number(_l))); if (!_lOk) { throw new Error('I expected a number for the left side of this calculation but got ' + JSON.stringify(_l) + '.'); } const _rOk = typeof _r === 'number' || (typeof _r === 'string' && _r.trim() !== '' && !Number.isNaN(Number(_r))); if (!_rOk) { throw new Error('I expected a number for the right side of this calculation but got ' + JSON.stringify(_r) + '.'); } return Number(_l) * Number(_r); })()"
+                }
+                ([MathOp]::Divide) {
+                    return "(() => { const _l = $left; const _r = $right; const _lOk = typeof _l === 'number' || (typeof _l === 'string' && _l.trim() !== '' && !Number.isNaN(Number(_l))); if (!_lOk) { throw new Error('I expected a number for the left side of this calculation but got ' + JSON.stringify(_l) + '.'); } const _rOk = typeof _r === 'number' || (typeof _r === 'string' && _r.trim() !== '' && !Number.isNaN(Number(_r))); if (!_rOk) { throw new Error('I expected a number for the right side of this calculation but got ' + JSON.stringify(_r) + '.'); } if (Number(_r) === 0) { throw new Error('I cannot divide by zero.'); } return Number(_l) / Number(_r); })()"
+                }
+                ([MathOp]::Percent) {
+                    return "(() => { const _l = $left; const _r = $right; const _lOk = typeof _l === 'number' || (typeof _l === 'string' && _l.trim() !== '' && !Number.isNaN(Number(_l))); if (!_lOk) { throw new Error('I expected a number for the left side of this calculation but got ' + JSON.stringify(_l) + '.'); } const _rOk = typeof _r === 'number' || (typeof _r === 'string' && _r.trim() !== '' && !Number.isNaN(Number(_r))); if (!_rOk) { throw new Error('I expected a number for the right side of this calculation but got ' + JSON.stringify(_r) + '.'); } return (Number(_l) / 100) * Number(_r); })()"
+                }
+                ([MathOp]::Power) {
+                    return "(() => { const _l = $left; const _r = $right; const _lOk = typeof _l === 'number' || (typeof _l === 'string' && _l.trim() !== '' && !Number.isNaN(Number(_l))); if (!_lOk) { throw new Error('I expected a number for the left side of this calculation but got ' + JSON.stringify(_l) + '.'); } const _rOk = typeof _r === 'number' || (typeof _r === 'string' && _r.trim() !== '' && !Number.isNaN(Number(_r))); if (!_rOk) { throw new Error('I expected a number for the right side of this calculation but got ' + JSON.stringify(_r) + '.'); } return Math.pow(Number(_l), Number(_r)); })()"
+                }
             }
         }
         ([NodeKind]::Await) {

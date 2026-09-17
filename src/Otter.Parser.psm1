@@ -127,6 +127,22 @@ function Read-OtterValue {
             $call = [CallExpr]::new('get', @($arg), $nextTok.Line)
             return [AwaitExpr]::new($call, $token.Line)
         }
+        if (Test-OtterIdentifierToken $nextTok) {
+            [void](Read-OtterToken)
+            $args = [System.Collections.Generic.List[Node]]::new()
+            while (-not (Test-OtterTokenKind ([TokenKind]::Newline)) -and -not (Test-OtterTokenKind ([TokenKind]::Make)) -and -not (Test-OtterTokenKind ([TokenKind]::Into)) -and -not (Test-OtterTokenKind ([TokenKind]::And)) -and -not (Test-OtterTokenKind ([TokenKind]::Minus)) -and -not (Test-OtterTokenKind ([TokenKind]::Times)) -and -not (Test-OtterTokenKind ([TokenKind]::DividedBy))) {
+                if (-not (Test-OtterTokenKind ([TokenKind]::Newline)) -and ($script:Tokens[$script:Position].Kind -in @([TokenKind]::Number, [TokenKind]::String, [TokenKind]::True, [TokenKind]::False, [TokenKind]::Identifier))) {
+                    $args.Add((Read-OtterValue))
+                } else {
+                    break
+                }
+            }
+            if ($args.Count -gt 0 -or $script:KnownFunctions.ContainsKey($nextTok.Text)) {
+                $call = [CallExpr]::new($nextTok.Text, $args.ToArray(), $nextTok.Line)
+                return [AwaitExpr]::new($call, $token.Line)
+            }
+            return [AwaitExpr]::new([VariableExpr]::new($nextTok.Text, $nextTok.Line), $token.Line)
+        }
         $expr = Read-OtterValue
         return [AwaitExpr]::new($expr, $token.Line)
     }
@@ -1056,6 +1072,45 @@ function Read-OtterStatement {
     }
 
     switch ($statementKind) {
+        ([TokenKind]::Await) {
+            $start = Read-OtterToken
+            $nextTok = Get-OtterCurrentToken
+            $expr = $null
+            if ($nextTok.Kind -eq [TokenKind]::Get -or $nextTok.Text -eq 'get') {
+                [void](Read-OtterToken)
+                $arg = Read-OtterValue
+                $expr = [CallExpr]::new('get', @($arg), $nextTok.Line)
+            } elseif (Test-OtterIdentifierToken $nextTok) {
+                [void](Read-OtterToken)
+                $args = [System.Collections.Generic.List[Node]]::new()
+                while (-not (Test-OtterTokenKind ([TokenKind]::Newline)) -and -not (Test-OtterTokenKind ([TokenKind]::Make)) -and -not (Test-OtterTokenKind ([TokenKind]::Into))) {
+                    if (Test-OtterTokenKind ([TokenKind]::And)) { [void](Read-OtterToken); continue }
+                    $args.Add((Read-OtterValue))
+                }
+                if ($args.Count -gt 0 -or $script:KnownFunctions.ContainsKey($nextTok.Text)) {
+                    $expr = [CallExpr]::new($nextTok.Text, $args.ToArray(), $nextTok.Line)
+                } else {
+                    $expr = [VariableExpr]::new($nextTok.Text, $nextTok.Line)
+                }
+            } else {
+                $expr = Read-OtterValue
+            }
+
+            if (Test-OtterTokenKind ([TokenKind]::Make)) {
+                [void](Read-OtterToken)
+                $target = (Read-OtterVariableName 'I expected a variable name after "make".').Text
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the await statement to end here.')
+                return [AssignStmt]::new($target, [AwaitExpr]::new($expr, $start.Line), $start.Line)
+            }
+            if (Test-OtterTokenKind ([TokenKind]::Into)) {
+                [void](Read-OtterToken)
+                $target = (Read-OtterVariableName 'I expected a variable name after "into".').Text
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the await statement to end here.')
+                return [AssignStmt]::new($target, [AwaitExpr]::new($expr, $start.Line), $start.Line)
+            }
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the await statement to end here.')
+            return [AwaitExpr]::new($expr, $start.Line)
+        }
         ([TokenKind]::State) {
             [void](Read-OtterToken)
             $nameTok = Read-OtterVariableName 'I expected a variable name after "state".'
@@ -2476,6 +2531,12 @@ function Read-OtterStatement {
             $target = Read-OtterVariableName 'I expected a variable name after "make".'
             [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the math statement to end here.')
             return [MathIntoStmt]::new($expression, $target.Text, $start.Line)
+        }
+        ([TokenKind]::Indent) {
+            throw (New-OtterParserError "Unexpected indentation." $start 'Remove the extra space or tab at the beginning of the line.')
+        }
+        ([TokenKind]::Dedent) {
+            throw (New-OtterParserError "Unexpected unindent." $start 'Make sure block indentation lines up.')
         }
         default { throw (New-OtterParserError "I don't understand '$($start.Text)'." $start 'Start a statement with a word such as say, if, or a variable name.') }
     }
