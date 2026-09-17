@@ -312,16 +312,16 @@ platform.
 -   [x] Valid/invalid source smoke tests
 -   [x] Source-line diagnostics smoke-tested
 -   [x] Malformed-source lint bug fixed
--   [ ] Exact file/line/column ranges
--   [ ] Human-readable Otter errors
--   [ ] Suggested fixes
--   [ ] Stable diagnostic codes
+-   [x] Exact file/line/column ranges (Exact startLine/startCol/endLine/endCol computed, inline character-level .exact-squiggle underlines, exact textarea selection range navigation)
+-   [x] Human-readable Otter errors (Translated from PowerShell/JS/host exceptions into clean Otter terminology, technical details preserved in collapsible details surface)
+-   [x] Suggested fixes (Safe verified Quick Fixes for OT2001 missing period, OT1004 equals assignment, OT1003 property access, OT1001 indentation, OT3001 variable declaration, OT3003 unused declaration)
+-   [x] Stable diagnostic codes (Structured OT1xxx–OT8xxx diagnostic namespaces with deterministic resolution, code badges, and human-readable primary messages)
 -   [x] Problems panel (drawer tab with real-time status and error reporting)
--   [x] Click problem → source (click banner or problem to scroll and focus exact error line)
--   [ ] Build diagnostics
--   [ ] Runtime stack traces in Otter terms
+-   [x] Click problem → source (click banner or problem to scroll and focus exact error line and column selection)
+-   [x] Build diagnostics (Target compilation and manifest errors unified into Problems system with target metadata, OT7xxx codes, and collapsible technical logs)
+-   [x] Runtime stack traces in Otter terms (Source frames represented in Otter terms 'in <function> at <file>:<line>:<col>', filtering out internal PowerShell/Node/JS glue)
 -   [ ] Async stack traces
--   [ ] Host-error translation
+-   [x] Host-error translation (Strict boundary separating Otter language, Host provider, Build, and Studio diagnostics with isolated hostDetails)
 -   [ ] Crash reports
 
 # 11. Visual UI designer

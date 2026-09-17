@@ -1456,13 +1456,13 @@ body {
 .tok-ui { color: #059669; font-weight: 600; }
 
 /* Error squiggles, Gutter error indicators, and Block matching */
-.code-line.has-error {
+.code-line.has-error:not(:has(.exact-squiggle)) {
   text-decoration: underline wavy #ef4444;
   text-decoration-skip-ink: none;
   background: rgba(239, 68, 68, 0.08);
 }
 
-.code-line.has-warning {
+.code-line.has-warning:not(:has(.exact-squiggle)) {
   text-decoration: underline wavy #f59e0b;
   text-decoration-skip-ink: none;
   background: rgba(245, 158, 11, 0.08);
@@ -1506,6 +1506,93 @@ body {
 .outline-symbol-icon.kind-var { color: #0284c7; font-weight: 700; }
 .outline-symbol-icon.kind-obj { color: #8b5cf6; font-weight: 700; }
 .outline-symbol-icon.kind-ui { color: #10b981; font-weight: 700; }
+
+/* Exact Diagnostic Squiggles & Badges */
+.exact-squiggle {
+  text-decoration: underline wavy #ef4444 !important;
+  text-decoration-skip-ink: none !important;
+  background: rgba(239, 68, 68, 0.12);
+  border-radius: 2px;
+}
+.exact-squiggle.squiggle-warning {
+  text-decoration: underline wavy #f59e0b !important;
+  text-decoration-skip-ink: none !important;
+  background: rgba(245, 158, 11, 0.12);
+}
+.exact-squiggle.squiggle-info {
+  text-decoration: underline wavy #3b82f6 !important;
+  text-decoration-skip-ink: none !important;
+  background: rgba(59, 130, 246, 0.12);
+}
+
+.problem-code-badge {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-code);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 3px;
+  margin-right: 8px;
+  letter-spacing: 0.04em;
+}
+.problem-code-badge.severity-error {
+  background: rgba(239, 68, 68, 0.15);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+.problem-code-badge.severity-warning {
+  background: rgba(245, 158, 11, 0.15);
+  color: #d97706;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+.problem-code-badge.severity-info {
+  background: rgba(59, 130, 246, 0.15);
+  color: #2563eb;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.host-error-details {
+  margin-top: 6px;
+  background: rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 11px;
+  max-width: 100%;
+}
+.host-error-details summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: #64748b;
+  outline: none;
+}
+.host-error-details pre {
+  margin: 6px 0 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: var(--font-code);
+  font-size: 11px;
+  color: #475569;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.stack-frames-list {
+  margin-top: 4px;
+  font-family: var(--font-code);
+  font-size: 11px;
+  color: #475569;
+}
+.stack-frame-item {
+  padding: 2px 4px;
+  cursor: pointer;
+  border-radius: 2px;
+}
+.stack-frame-item:hover {
+  background: rgba(59, 130, 246, 0.1);
+  color: #2563eb;
+}
 
 
 /* ===============================================================

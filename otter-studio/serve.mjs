@@ -887,12 +887,18 @@ const server = http.createServer(async (req, res) => {
           # A typed OtterError catch is resolved before that import and can
           # fail to parse, which used to make invalid source look valid.
           $line = if ($_.Exception.PSObject.Properties['Line']) { $_.Exception.Line } else { 1 }
+          $column = if ($_.Exception.PSObject.Properties['Column']) { $_.Exception.Column } else { 1 }
+          $stage = if ($_.Exception.PSObject.Properties['Stage']) { $_.Exception.Stage } else { 'parser' }
+          $sourceLine = if ($_.Exception.PSObject.Properties['SourceLine']) { $_.Exception.SourceLine } else { $null }
           $suggestion = if ($_.Exception.PSObject.Properties['Suggestion']) { $_.Exception.Suggestion } else { $null }
           $kind = if ($_.Exception.PSObject.Properties['Kind']) { $_.Exception.Kind } else { $null }
           [PSCustomObject]@{
             ok = $false
             message = $_.Exception.Message
             line = $line
+            column = $column
+            stage = $stage
+            sourceLine = $sourceLine
             suggestion = $suggestion
             kind = $kind
           } | ConvertTo-Json

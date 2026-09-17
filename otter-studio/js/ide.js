@@ -39,6 +39,22 @@ import {
   renderVirtualizedGutter,
   DEFAULT_LINE_HEIGHT
 } from './editor/large-file.js';
+import {
+  DiagnosticCodes,
+  DiagnosticMetadata,
+  resolveDiagnosticCode
+} from './diagnostics/diagnostic-codes.js';
+import {
+  translateHostError,
+  extractOtterStackFrames,
+  formatOtterStackTrace
+} from './diagnostics/host-translator.js';
+import {
+  computeExactRange,
+  normalizeDiagnostic,
+  getDiagnosticQuickFixes,
+  DiagnosticCollection
+} from './diagnostics/diagnostic-manager.js';
 
 export class OtterStudioIde {
   constructor() {
@@ -58,6 +74,10 @@ export class OtterStudioIde {
     this.findMatches = [];
     this.currentMatchIndex = -1;
     this.errorLine = null;
+    this.warningLine = null;
+    this.diagnosticCollection = new DiagnosticCollection();
+    this.activeDiagnostics = [];
+    this.currentDiagnostic = null;
     this.currentFilteredSuggestions = [];
     this.manifestViewMode = 'form'; // 'form' | 'json'
     this.currentSolutionPath = null;
@@ -207,6 +227,7 @@ export class OtterStudioIde {
   }
 
   async init() {
+    window.__otterIde = this;
     this.bindDomElements();
     this.bindEvents();
 
@@ -473,15 +494,23 @@ export class OtterStudioIde {
     this.problemStatusBanner = document.getElementById('problemStatusBanner');
     this.problemStatusBanner?.addEventListener('click', (e) => {
       if (e.target === this.btnProblemQuickFix || this.btnProblemQuickFix?.contains(e.target)) return;
+      if (this.currentDiagnostic) {
+        this.navigateToDiagnostic(this.currentDiagnostic);
+        return;
+      }
       const target = this.errorLine || this.warningLine;
       if (target) this.goToLine(target);
     });
     this.problemStatusBanner?.addEventListener('keydown', event => {
       if (event.target === this.btnProblemQuickFix || this.btnProblemQuickFix?.contains(event.target)) return;
       if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        if (this.currentDiagnostic) {
+          this.navigateToDiagnostic(this.currentDiagnostic);
+          return;
+        }
         const target = this.errorLine || this.warningLine;
         if (target) {
-          event.preventDefault();
           this.goToLine(target);
         }
       }
@@ -2473,7 +2502,12 @@ export class OtterStudioIde {
         const lineNum = idx + 1;
         let renderedLine = this.syntaxHighlightLine(line);
         const indentClass = line.startsWith('        ') ? ' ind-2' : (line.startsWith('    ') ? ' ind-1' : '');
-        const errClass = (this.errorLine === lineNum) ? ' has-error' : '';
+        const errClass = (this.errorLine === lineNum) ? ' has-error' : ((this.warningLine === lineNum) ? ' has-warning' : '');
+
+        const lineDiags = (this.activeDiagnostics || []).filter(d => d.startLine === lineNum);
+        if (lineDiags.length > 0) {
+          renderedLine = this.applyExactSquigglesToLine(renderedLine, lineNum, line, lineDiags);
+        }
 
         html += `<div class="code-line${indentClass}${errClass}" data-line="${lineNum}">${renderedLine || '&nbsp;'}</div>`;
       });
@@ -3310,9 +3344,37 @@ export class OtterStudioIde {
 
       // Update Problems / Mascot banner
       if (data.exitCode === 0) {
+        this.activeDiagnostics = [];
+        this.diagnosticCollection.clear(this.currentFile);
+        this.currentDiagnostic = null;
+        this.errorLine = null;
+        this.warningLine = null;
         this.setProblemsStatus(true, 'No problems found.', 'Your code looks good!', 'Great job!', 'Keep going! 🐾');
+        this.updateErrorSquiggles();
       } else {
-        this.setProblemsStatus(false, 'Runtime Error encountered.', data.stderr || 'Execution failed. Check details in Output.', 'Need a hand?', 'Check the error message! 🔍');
+        const rawErr = data.stderr || data.error || 'Execution failed.';
+        const translated = translateHostError(rawErr, { file: this.currentFile, line: 1 });
+        const diag = normalizeDiagnostic({
+          ...(translated || {}),
+          stage: 'runtime',
+          hostDetails: translated?.hostDetails || rawErr
+        }, this.currentCode, this.currentFile);
+
+        this.activeDiagnostics = [diag];
+        this.diagnosticCollection.set(this.currentFile, [diag]);
+        this.currentDiagnostic = diag;
+        this.errorLine = diag.startLine;
+        this.availableQuickFixes = diag.fixes;
+        this.setProblemsStatus(
+          false,
+          `${diag.code}  ${diag.message}`,
+          `Line ${diag.startLine}, Col ${diag.startColumn} (${this.currentFile}) — Runtime Execution`,
+          'Execution Error',
+          'Check the error message! 🔍',
+          false,
+          diag
+        );
+        this.updateErrorSquiggles();
       }
 
     } catch (err) {
@@ -3432,9 +3494,19 @@ export class OtterStudioIde {
     if (this.isLargeFileMode) {
       this.errorLine = null;
       this.warningLine = null;
+      this.activeDiagnostics = [];
+      this.diagnosticCollection.clear(this.currentFile);
+      this.currentDiagnostic = null;
       this.availableQuickFixes = [];
       if (this.btnProblemQuickFix) this.btnProblemQuickFix.style.display = 'none';
-      this.setProblemsStatus(true, 'Large File Mode Active', 'AST analysis bypassed for high performance.', 'Large File', 'Virtualization active. ⚡', false);
+      const diag = normalizeDiagnostic({
+        code: DiagnosticCodes.LARGE_FILE_ANALYSIS_BYPASS,
+        severity: 'info',
+        source: 'studio',
+        category: 'studio',
+        message: 'AST analysis bypassed for high performance.'
+      }, this.currentCode, this.currentFile);
+      this.setProblemsStatus(true, 'Large File Mode Active', 'AST analysis bypassed for high performance.', 'Large File', 'Virtualization active. ⚡', false, diag);
       this.updateErrorSquiggles();
       return;
     }
@@ -3442,6 +3514,9 @@ export class OtterStudioIde {
     if (this.currentFile && !this.currentFile.endsWith('.ot')) {
       this.errorLine = null;
       this.warningLine = null;
+      this.activeDiagnostics = [];
+      this.diagnosticCollection.clear(this.currentFile);
+      this.currentDiagnostic = null;
       this.availableQuickFixes = [];
       if (this.btnProblemQuickFix) this.btnProblemQuickFix.style.display = 'none';
 
@@ -3453,7 +3528,16 @@ export class OtterStudioIde {
           if (this.currentFile.endsWith('project.json')) {
             const validation = validateManifest(parsed, this.workspaceFiles);
             if (!validation.ok) {
-              this.setProblemsStatus(false, `Manifest Error: ${validation.errors[0]}`, 'Check project.json', 'Manifest', 'Invalid manifest configuration.', false);
+              const diag = normalizeDiagnostic({
+                code: DiagnosticCodes.MANIFEST_VALIDATION_ERROR,
+                severity: 'error',
+                source: 'build',
+                category: 'build',
+                message: `Manifest Error: ${validation.errors[0]}`
+              }, this.currentCode, this.currentFile);
+              this.activeDiagnostics = [diag];
+              this.currentDiagnostic = diag;
+              this.setProblemsStatus(false, `${diag.code}  ${diag.message}`, 'Check project.json', 'Manifest', 'Invalid manifest configuration.', false, diag);
             } else if (validation.warnings.length > 0) {
               this.setProblemsStatus(true, `Notice: ${validation.warnings[0]}`, 'Advisory', 'Manifest', 'Manifest has advisory warnings.', false);
             } else {
@@ -3463,7 +3547,16 @@ export class OtterStudioIde {
             this.setProblemsStatus(true, 'Valid JSON Configuration', 'Ready', 'JSON', 'Config valid. ⚙', false);
           }
         } catch (err) {
-          this.setProblemsStatus(false, `JSON Error: ${err.message}`, 'Check JSON formatting', 'JSON Syntax', 'Invalid JSON syntax.', false);
+          const diag = normalizeDiagnostic({
+            code: DiagnosticCodes.MANIFEST_VALIDATION_ERROR,
+            severity: 'error',
+            source: 'studio',
+            category: 'syntax',
+            message: `JSON Error: ${err.message}`
+          }, this.currentCode, this.currentFile);
+          this.activeDiagnostics = [diag];
+          this.currentDiagnostic = diag;
+          this.setProblemsStatus(false, `${diag.code}  ${diag.message}`, 'Check JSON formatting', 'JSON Syntax', 'Invalid JSON syntax.', false, diag);
         }
       } else {
         this.setProblemsStatus(true, 'Ready', 'Text file', 'Text', '', false);
@@ -3480,7 +3573,7 @@ export class OtterStudioIde {
       });
       const data = await res.json();
 
-      if (data.Ok !== false) {
+      if (data.Ok !== false && data.ok !== false) {
         this.errorLine = null;
         this.updateCurrentDocumentSymbols(data);
 
@@ -3492,28 +3585,33 @@ export class OtterStudioIde {
         );
 
         if (semanticDiags.length > 0) {
-          const first = semanticDiags[0];
-          this.warningLine = first.line;
-          const fixes = otterLanguageService.getQuickFixes(first, this.currentCode);
-          this.availableQuickFixes = fixes;
-          if (this.btnProblemQuickFix) {
-            if (fixes.length > 0) {
-              this.btnProblemQuickFix.style.display = 'inline-flex';
-              this.btnProblemQuickFix.textContent = `💡 ${fixes[0].title}`;
-              this.btnProblemQuickFix.title = fixes[0].title;
-            } else {
-              this.btnProblemQuickFix.style.display = 'none';
-            }
-          }
+          const normalizedSemantics = semanticDiags.map(sd => normalizeDiagnostic({
+            ...sd,
+            stage: 'analyzer',
+            severity: 'warning',
+            isWarning: true
+          }, this.currentCode, this.currentFile));
+
+          this.activeDiagnostics = normalizedSemantics;
+          this.diagnosticCollection.set(this.currentFile, normalizedSemantics);
+          const first = normalizedSemantics[0];
+          this.currentDiagnostic = first;
+          this.warningLine = first.startLine;
+          this.availableQuickFixes = first.fixes;
+
           this.setProblemsStatus(
             false,
-            `Line ${first.line}: ${first.message}`,
-            `Semantic check: ${first.code}`,
+            `${first.code}  ${first.message}`,
+            `Line ${first.startLine}, Col ${first.startColumn} (${this.currentFile}) — Semantic Advisory`,
             'Code Advisory',
             'Review variables and execution flow. 🐾',
-            true
+            true,
+            first
           );
         } else {
+          this.activeDiagnostics = [];
+          this.diagnosticCollection.set(this.currentFile, []);
+          this.currentDiagnostic = null;
           this.warningLine = null;
           this.availableQuickFixes = [];
           if (this.btnProblemQuickFix) this.btnProblemQuickFix.style.display = 'none';
@@ -3521,26 +3619,34 @@ export class OtterStudioIde {
         }
       } else {
         this.warningLine = null;
-        const errorLine = data.Line ?? data.line;
-        const message = data.Message ?? data.message;
-        const suggestion = data.Suggestion ?? data.suggestion;
-        this.errorLine = (typeof errorLine === 'number') ? errorLine : null;
-        const lineNote = errorLine ? `Line ${errorLine}: ` : '';
-        const msg = lineNote + (message || 'Syntax issue detected');
-        const sub = suggestion ? `Suggestion: ${suggestion}` : 'Check your grammar.';
+        const diag = normalizeDiagnostic({
+          Line: data.Line ?? data.line,
+          Column: data.Column ?? data.column,
+          Message: data.Message ?? data.message,
+          Suggestion: data.Suggestion ?? data.suggestion,
+          SourceLine: data.SourceLine ?? data.sourceLine,
+          stage: data.stage || 'parser',
+          source: 'otter'
+        }, this.currentCode, this.currentFile);
 
-        const fixes = otterLanguageService.getQuickFixes({ message, line: errorLine }, this.currentCode);
-        this.availableQuickFixes = fixes;
-        if (this.btnProblemQuickFix) {
-          if (fixes.length > 0) {
-            this.btnProblemQuickFix.style.display = 'inline-flex';
-            this.btnProblemQuickFix.textContent = `💡 ${fixes[0].title}`;
-            this.btnProblemQuickFix.title = fixes[0].title;
-          } else {
-            this.btnProblemQuickFix.style.display = 'none';
-          }
-        }
-        this.setProblemsStatus(false, msg, sub, 'Syntax Check', 'Keep checking your code! 🐾', false);
+        this.activeDiagnostics = [diag];
+        this.diagnosticCollection.set(this.currentFile, [diag]);
+        this.currentDiagnostic = diag;
+        this.errorLine = diag.startLine;
+        this.availableQuickFixes = diag.fixes;
+
+        const lineNote = diag.startLine ? `Line ${diag.startLine}, Col ${diag.startColumn} (${this.currentFile}) — ` : '';
+        const sub = diag.suggestion ? `Suggestion: ${diag.suggestion}` : 'Check your grammar.';
+
+        this.setProblemsStatus(
+          false,
+          `${diag.code}  ${diag.message}`,
+          lineNote + sub,
+          'Syntax Check',
+          'Keep checking your code! 🐾',
+          false,
+          diag
+        );
       }
       this.updateErrorSquiggles();
     } catch {
@@ -3578,9 +3684,37 @@ export class OtterStudioIde {
     }
   }
 
-  setProblemsStatus(ok, title, subtitle, cheerH, cheerT, isWarning = false) {
-    if (this.problemTitle) this.problemTitle.innerText = title;
-    if (this.problemSubtitle) this.problemSubtitle.innerText = subtitle;
+  setProblemsStatus(ok, title, subtitle, cheerH, cheerT, isWarning = false, diagnostic = null) {
+    if (this.problemTitle) {
+      if (diagnostic?.code) {
+        const severityClass = diagnostic.severity === 'warning' ? 'severity-warning' : (diagnostic.severity === 'info' ? 'severity-info' : 'severity-error');
+        const cleanTitle = title.replace(new RegExp(`^${diagnostic.code}\\s*`), '');
+        this.problemTitle.innerHTML = `<span class="problem-code-badge ${severityClass}">${this.escapeHtml(diagnostic.code)}</span><span>${this.escapeHtml(cleanTitle)}</span>`;
+      } else {
+        this.problemTitle.innerText = title;
+      }
+    }
+
+    if (this.problemSubtitle) {
+      let subHtml = `<span>${this.escapeHtml(subtitle)}</span>`;
+      if (diagnostic?.hostDetails) {
+        subHtml += `
+          <details class="host-error-details">
+            <summary>Technical Details (${this.escapeHtml(diagnostic.source || 'host')})</summary>
+            <pre>${this.escapeHtml(diagnostic.hostDetails)}</pre>
+          </details>
+        `;
+      }
+      if (diagnostic?.stack && diagnostic.stack.length > 0) {
+        subHtml += `
+          <div class="stack-frames-list">
+            ${diagnostic.stack.map(f => `<div class="stack-frame-item" title="Click to navigate" data-file="${this.escapeHtml(f.file)}" data-line="${f.line}" data-col="${f.column}">at ${f.functionName && f.functionName !== '<script>' ? `in ${this.escapeHtml(f.functionName)} ` : ''}${this.escapeHtml(f.file)}:${f.line}${f.column > 1 ? `:${f.column}` : ''}</div>`).join('')}
+          </div>
+        `;
+      }
+      this.problemSubtitle.innerHTML = subHtml;
+    }
+
     if (this.cheerHeadline) this.cheerHeadline.innerText = cheerH;
     if (this.cheerTagline) this.cheerTagline.innerText = cheerT;
 
@@ -3597,11 +3731,21 @@ export class OtterStudioIde {
       }
     }
 
+    if (this.btnProblemQuickFix) {
+      if (!ok && diagnostic?.fixes && diagnostic.fixes.length > 0) {
+        this.btnProblemQuickFix.style.display = 'inline-flex';
+        this.btnProblemQuickFix.textContent = `💡 ${diagnostic.fixes[0].title}`;
+        this.btnProblemQuickFix.title = diagnostic.fixes[0].title;
+      } else {
+        this.btnProblemQuickFix.style.display = 'none';
+      }
+    }
+
     if (this.problemStatusBanner) {
-      const target = this.errorLine || this.warningLine;
+      const target = diagnostic?.startLine || this.errorLine || this.warningLine;
       if (!ok && target) {
         this.problemStatusBanner.classList.add('has-error-clickable');
-        this.problemStatusBanner.title = `Click to navigate to line ${target} in source`;
+        this.problemStatusBanner.title = `Click to navigate to ${diagnostic?.file || this.currentFile}:${diagnostic?.startLine || target}:${diagnostic?.startColumn || 1} in source`;
       } else {
         this.problemStatusBanner.classList.remove('has-error-clickable');
         this.problemStatusBanner.title = 'No problems detected';
@@ -3777,6 +3921,240 @@ export class OtterStudioIde {
     if (this.editorSignatureHelpEl) {
       this.editorSignatureHelpEl.style.display = 'none';
     }
+  }
+
+  applyExactSquigglesToLine(renderedHtml, lineNum, rawLineText, diags = []) {
+    if (!diags || diags.length === 0) return renderedHtml;
+
+    let resultHtml = renderedHtml;
+    for (const diag of diags) {
+      const startCol = diag.startColumn || 1;
+      const endCol = diag.endColumn || (startCol + 1);
+      const severityClass = diag.severity === 'warning' ? 'squiggle-warning' : (diag.severity === 'info' ? 'squiggle-info' : 'squiggle-error');
+      const title = this.escapeHtml(`${diag.code}: ${diag.message}`);
+
+      // If diagnostic points past line text (e.g. missing block terminator at EOF or line end)
+      if (startCol > rawLineText.length) {
+        resultHtml += `<span class="exact-squiggle ${severityClass}" title="${title}">&nbsp;</span>`;
+        continue;
+      }
+
+      // Wrap exact character slice in renderedHtml
+      resultHtml = this.wrapExactRangeInHtml(resultHtml, startCol, endCol, `exact-squiggle ${severityClass}`, title);
+    }
+    return resultHtml;
+  }
+
+  wrapExactRangeInHtml(html, startCol, endCol, className, title) {
+    let output = '';
+    let visIdx = 0;
+    let inTag = false;
+    let tagBuffer = '';
+    let isUnderlining = false;
+
+    for (let i = 0; i < html.length; i++) {
+      const c = html[i];
+      if (c === '<') {
+        inTag = true;
+        tagBuffer = '<';
+        continue;
+      }
+      if (inTag) {
+        tagBuffer += c;
+        if (c === '>') {
+          inTag = false;
+          output += tagBuffer;
+          tagBuffer = '';
+        }
+        continue;
+      }
+
+      // Handle HTML entities (e.g. &amp;, &lt;, &gt;, &quot;, &#039;)
+      let textChunk = c;
+      if (c === '&') {
+        const semiIdx = html.indexOf(';', i);
+        if (semiIdx > i && semiIdx - i <= 8) {
+          textChunk = html.slice(i, semiIdx + 1);
+          i = semiIdx;
+        }
+      }
+
+      const shouldUnderline = (visIdx >= startCol - 1 && visIdx < endCol - 1);
+      if (shouldUnderline && !isUnderlining) {
+        output += `<span class="${className}" title="${title}">`;
+        isUnderlining = true;
+      } else if (!shouldUnderline && isUnderlining) {
+        output += '</span>';
+        isUnderlining = false;
+      }
+
+      output += textChunk;
+      visIdx++;
+    }
+
+    if (isUnderlining) {
+      output += '</span>';
+    }
+
+    return output;
+  }
+
+  navigateToDiagnostic(diag) {
+    if (!diag) return;
+    if (diag.file && diag.file !== this.currentFile) {
+      const tab = this.openTabs.find(t => t.path === diag.file);
+      if (tab) {
+        this.switchTab(diag.file);
+      }
+    }
+
+    const textarea = document.getElementById('hiddenEditorInput');
+    if (!textarea) return;
+
+    const startOffset = this.getOffsetFromPosition(this.currentCode, diag.startLine, diag.startColumn);
+    const endOffset = this.getOffsetFromPosition(this.currentCode, diag.endLine, diag.endColumn);
+
+    textarea.focus();
+    textarea.setSelectionRange(startOffset, Math.max(startOffset, endOffset));
+
+    const lineHeight = DEFAULT_LINE_HEIGHT || 22;
+    const targetScrollTop = Math.max(0, (diag.startLine - 3) * lineHeight);
+    textarea.scrollTop = targetScrollTop;
+    if (this.codeAreaEl) this.codeAreaEl.scrollTop = targetScrollTop;
+    if (this.gutterEl) this.gutterEl.scrollTop = targetScrollTop;
+
+    this.updateCursorPos(textarea);
+    this.renderCursorOverlays();
+  }
+
+  navigateToPosition(file, line, column = 1) {
+    if (file && file !== this.currentFile) {
+      this.switchTab(file);
+    }
+    const diag = {
+      file: file || this.currentFile,
+      startLine: line,
+      startColumn: column,
+      endLine: line,
+      endColumn: column + 1
+    };
+    this.navigateToDiagnostic(diag);
+  }
+
+  checkDiagnosticAtCursor(textarea) {
+    if (!textarea || !this.activeDiagnostics || this.activeDiagnostics.length === 0) return;
+    const offset = textarea.selectionStart;
+    const { line, column } = this.multiCursor.getLineAndCol(this.currentCode, offset);
+    const found = this.activeDiagnostics.find(d => {
+      if (line < d.startLine || line > d.endLine) return false;
+      if (line === d.startLine && column < d.startColumn) return false;
+      if (line === d.endLine && column > d.endColumn) return false;
+      return true;
+    });
+    if (found && found !== this.currentDiagnostic) {
+      this.currentDiagnostic = found;
+      this.setProblemsStatus(
+        false,
+        `${found.code}  ${found.message}`,
+        `Line ${found.startLine}, Col ${found.startColumn} (${found.file})`,
+        'Syntax Check',
+        'Keep checking your code! 🐾',
+        found.severity === 'warning',
+        found
+      );
+    }
+  }
+
+  applyCurrentQuickFix() {
+    if (!this.availableQuickFixes || this.availableQuickFixes.length === 0) return;
+    this.applyQuickFix(this.availableQuickFixes[0]);
+  }
+
+  applyQuickFix(fix) {
+    if (!fix) return;
+    if (Array.isArray(fix.edits) && fix.edits.length > 0) {
+      for (const edit of fix.edits) {
+        if (edit.file && edit.file !== this.currentFile) {
+          const targetTab = this.openTabs.find(t => t.path === edit.file);
+          if (targetTab) {
+            targetTab.content = this.applyEditToText(targetTab.content, edit);
+            targetTab.isDirty = true;
+          }
+        } else {
+          this.currentCode = this.applyEditToText(this.currentCode, edit);
+          this.markCurrentTabDirty(true);
+        }
+      }
+    } else if (typeof fix.apply === 'function') {
+      const updated = fix.apply(this.currentCode);
+      if (typeof updated === 'string') {
+        this.currentCode = updated;
+        this.markCurrentTabDirty(true);
+      }
+    }
+
+    const textarea = document.getElementById('hiddenEditorInput');
+    if (textarea) {
+      textarea.value = this.currentCode;
+    }
+    this.renderEditorCode(this.currentCode);
+    this.saveSessionState();
+    this.debouncedLint();
+    this.emitSourceChanged();
+  }
+
+  applyEditToText(text, edit) {
+    const startOffset = this.getOffsetFromPosition(text, edit.startLine, edit.startColumn);
+    const endOffset = this.getOffsetFromPosition(text, edit.endLine, edit.endColumn);
+    return text.slice(0, startOffset) + (edit.newText ?? '') + text.slice(endOffset);
+  }
+
+  getOffsetFromPosition(text, line = 1, column = 1) {
+    const lines = (text || '').split('\n');
+    let offset = 0;
+    const safeLine = Math.max(1, Math.min(line, lines.length));
+    for (let i = 0; i < safeLine - 1; i++) {
+      offset += lines[i].length + 1; // +1 for newline
+    }
+    const lineLen = lines[safeLine - 1] ? lines[safeLine - 1].length : 0;
+    offset += Math.min(Math.max(0, (column || 1) - 1), lineLen);
+    return offset;
+  }
+
+  populateBuildDiagnostics(target, buildResult) {
+    if (!buildResult) return;
+    const isOk = buildResult.ok !== false && !buildResult.error;
+    if (isOk) {
+      this.diagnosticCollection.clear(`build-${target}`);
+      this.setProblemsStatus(true, `Build Succeeded (${target})`, `Target ${target} compiled cleanly.`, 'Build Ready', 'Ready to run or deploy! 🚀');
+      return;
+    }
+
+    const rawError = buildResult.error || buildResult.stderr || 'Build failed';
+    const translated = translateHostError(rawError, { file: this.currentFile, isBuild: true, target });
+    const diag = normalizeDiagnostic({
+      ...(translated || {}),
+      code: DiagnosticCodes.TARGET_COMPILATION_ERROR,
+      message: translated?.message || `Target compilation failed for ${target}`,
+      target,
+      source: 'build',
+      category: 'build',
+      hostDetails: buildResult.stderr || buildResult.stdout || rawError
+    }, this.currentCode, this.currentFile);
+
+    this.diagnosticCollection.set(`build-${target}`, [diag]);
+    this.activeDiagnostics = [diag];
+    this.currentDiagnostic = diag;
+    this.setProblemsStatus(
+      false,
+      `[${target.toUpperCase()} Build] ${diag.code}  ${diag.message}`,
+      `Build target: ${target} — Target Compiler Check`,
+      'Build Issue',
+      'Review build error details. ⚙',
+      false,
+      diag
+    );
+    this.updateErrorSquiggles();
   }
 
   escapeHtml(str) {
