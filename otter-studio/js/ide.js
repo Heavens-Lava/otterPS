@@ -2542,6 +2542,106 @@ export class OtterStudioIde {
     }
   }
 
+  // Shared word-wrap-aware pixel<->offset conversion for the hidden editor textarea.
+  // A single logical line can render as multiple visual rows when word-wrap is on, so
+  // callers must not assume `\n`-split index === visual row. This mirrors the textarea's
+  // box/typography into an off-screen element and reads real layout, matching whatever
+  // wrapping the browser actually performed.
+  _getEditorPositionMirror(textarea) {
+    let div = this._editorPositionMirrorEl;
+    if (!div) {
+      div = document.createElement('div');
+      div.style.position = 'absolute';
+      div.style.visibility = 'hidden';
+      div.style.top = '-9999px';
+      div.style.left = '-9999px';
+      div.style.pointerEvents = 'none';
+      document.body.appendChild(div);
+      this._editorPositionMirrorEl = div;
+    }
+    const style = window.getComputedStyle(textarea);
+    const mirrorProps = [
+      'boxSizing', 'width', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
+      'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth', 'borderStyle',
+      'fontStyle', 'fontVariant', 'fontWeight', 'fontSize', 'lineHeight', 'fontFamily',
+      'letterSpacing', 'wordSpacing', 'whiteSpace', 'wordBreak', 'overflowWrap', 'tabSize'
+    ];
+    mirrorProps.forEach((prop) => { div.style[prop] = style[prop]; });
+    return div;
+  }
+
+  _getEditorCharWidth(textarea) {
+    if (!this._editorCharWidthCache) this._editorCharWidthCache = new Map();
+    const style = window.getComputedStyle(textarea);
+    const key = `${style.fontSize}|${style.fontFamily}|${style.letterSpacing}`;
+    if (this._editorCharWidthCache.has(key)) return this._editorCharWidthCache.get(key);
+    if (!this._editorMeasureCanvas) this._editorMeasureCanvas = document.createElement('canvas');
+    const ctx = this._editorMeasureCanvas.getContext('2d');
+    ctx.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+    const width = ctx.measureText('MMMMMMMMMM').width / 10 || 7.8;
+    this._editorCharWidthCache.set(key, width);
+    return width;
+  }
+
+  // offset -> {left, top} in textarea-local pixels, valid whether or not the line wraps.
+  _offsetToEditorCoords(textarea, offset) {
+    const div = this._getEditorPositionMirror(textarea);
+    const value = textarea.value;
+    const clamped = Math.max(0, Math.min(offset, value.length));
+    div.textContent = value.slice(0, clamped);
+    const marker = document.createElement('span');
+    marker.textContent = value.slice(clamped, clamped + 1) || '.';
+    div.appendChild(marker);
+    const coords = { left: marker.offsetLeft, top: marker.offsetTop };
+    div.removeChild(marker);
+    return coords;
+  }
+
+  // {x, y} textarea-local pixels -> nearest string offset, wrap-aware.
+  _editorCoordsToOffset(textarea, targetX, targetY) {
+    const value = textarea.value;
+    const len = value.length;
+    if (len === 0) return 0;
+    if (!this.wordWrap) {
+      // Fast path: no visual wrapping, so `\n`-split index is exactly the visual row.
+      const computedStyle = window.getComputedStyle(textarea);
+      const lineHeight = parseFloat(computedStyle.lineHeight) || DEFAULT_LINE_HEIGHT;
+      const padTop = parseFloat(computedStyle.paddingTop) || 16;
+      const padLeft = parseFloat(computedStyle.paddingLeft) || 20;
+      const charWidth = this._getEditorCharWidth(textarea);
+      const lines = value.split('\n');
+      const lineIdx = Math.floor((targetY - padTop) / lineHeight);
+      if (lineIdx < 0 || lineIdx >= lines.length) return -1;
+      const colIdx = Math.max(0, Math.floor((targetX - padLeft) / charWidth));
+      let lineStart = 0;
+      for (let i = 0; i < lineIdx; i++) lineStart += lines[i].length + 1;
+      return Math.min(lineStart + lines[lineIdx].length, lineStart + colIdx);
+    }
+    // Word-wrap path: binary search for the visual row (top is monotonic in offset),
+    // then linear-scan within that single row for the closest column.
+    let lo = 0, hi = len;
+    while (lo < hi) {
+      const mid = Math.ceil((lo + hi) / 2);
+      if (this._offsetToEditorCoords(textarea, mid).top <= targetY) lo = mid; else hi = mid - 1;
+    }
+    const rowTop = this._offsetToEditorCoords(textarea, lo).top;
+    let best = lo;
+    let bestDist = Math.abs(this._offsetToEditorCoords(textarea, lo).left - targetX);
+    for (let o = lo + 1; o <= len; o++) {
+      const c = this._offsetToEditorCoords(textarea, o);
+      if (c.top !== rowTop) break;
+      const dist = Math.abs(c.left - targetX);
+      if (dist <= bestDist) { bestDist = dist; best = o; }
+    }
+    for (let o = lo - 1; o >= 0; o--) {
+      const c = this._offsetToEditorCoords(textarea, o);
+      if (c.top !== rowTop) break;
+      const dist = Math.abs(c.left - targetX);
+      if (dist <= bestDist) { bestDist = dist; best = o; }
+    }
+    return best;
+  }
+
   renderCursorOverlays() {
     if (!this.codeAreaEl) return;
     let layer = document.getElementById('multiCursorLayer');
@@ -2557,15 +2657,23 @@ export class OtterStudioIde {
       return;
     }
 
+    const textarea = document.getElementById('hiddenEditorInput');
     const lineHeight = DEFAULT_LINE_HEIGHT;
-    const charWidth = 7.8;
+    const charWidth = textarea ? this._getEditorCharWidth(textarea) : 7.8;
     const paddingTop = 16;
     const paddingLeft = 20;
 
     for (const cursor of this.multiCursor.secondaries) {
-      const { line, column } = this.multiCursor.getLineAndCol(this.currentCode, cursor.start);
-      const top = (line - 1) * lineHeight + paddingTop;
-      const left = column * charWidth + paddingLeft;
+      let top, left;
+      if (this.wordWrap && textarea) {
+        const coords = this._offsetToEditorCoords(textarea, cursor.start);
+        top = coords.top;
+        left = coords.left;
+      } else {
+        const { line, column } = this.multiCursor.getLineAndCol(this.currentCode, cursor.start);
+        top = (line - 1) * lineHeight + paddingTop;
+        left = column * charWidth + paddingLeft;
+      }
 
       const caretEl = document.createElement('div');
       caretEl.className = 'secondary-cursor-caret';
@@ -2574,8 +2682,15 @@ export class OtterStudioIde {
       layer.appendChild(caretEl);
 
       if (cursor.start !== cursor.end) {
-        const { column: endCol } = this.multiCursor.getLineAndCol(this.currentCode, cursor.end);
-        const width = Math.max(2, (endCol - column) * charWidth);
+        let width;
+        if (this.wordWrap && textarea) {
+          const endCoords = this._offsetToEditorCoords(textarea, cursor.end);
+          width = Math.max(2, endCoords.top === top ? endCoords.left - left : charWidth);
+        } else {
+          const { column } = this.multiCursor.getLineAndCol(this.currentCode, cursor.start);
+          const { column: endCol } = this.multiCursor.getLineAndCol(this.currentCode, cursor.end);
+          width = Math.max(2, (endCol - column) * charWidth);
+        }
         const selEl = document.createElement('div');
         selEl.className = 'secondary-cursor-selection';
         selEl.style.top = `${top}px`;
@@ -3795,24 +3910,10 @@ export class OtterStudioIde {
     const textarea = document.getElementById('hiddenEditorInput');
     if (!textarea || !this.editorHoverTooltipEl) return;
 
-    let offset = -1;
     const rect = textarea.getBoundingClientRect();
     const x = event.clientX - rect.left + textarea.scrollLeft;
     const y = event.clientY - rect.top + textarea.scrollTop;
-    const computedStyle = window.getComputedStyle ? window.getComputedStyle(textarea) : null;
-    const lineHeight = computedStyle ? (parseFloat(computedStyle.lineHeight) || 22) : 22;
-    const padTop = computedStyle ? (parseFloat(computedStyle.paddingTop) || 16) : 16;
-    const padLeft = computedStyle ? (parseFloat(computedStyle.paddingLeft) || 20) : 20;
-    const lineIdx = Math.floor((y - padTop) / lineHeight);
-    const lines = textarea.value.split('\n');
-
-    if (lineIdx >= 0 && lineIdx < lines.length) {
-      const charWidth = 7.8;
-      const colIdx = Math.max(0, Math.floor((x - padLeft) / charWidth));
-      let lineStart = 0;
-      for (let i = 0; i < lineIdx; i++) lineStart += lines[i].length + 1;
-      offset = Math.min(lineStart + lines[lineIdx].length, lineStart + colIdx);
-    }
+    const offset = this._editorCoordsToOffset(textarea, x, y);
 
     if (offset < 0 || offset > textarea.value.length) {
       this.hideHoverTooltip();
@@ -3825,7 +3926,8 @@ export class OtterStudioIde {
       return;
     }
 
-    const info = getHoverInfo(word, this.currentFile, this.workspaceSymbols, lineIdx + 1);
+    const lineForHover = textarea.value.slice(0, offset).split('\n').length;
+    const info = getHoverInfo(word, this.currentFile, this.workspaceSymbols, lineForHover);
     if (!info) {
       this.hideHoverTooltip();
       return;
@@ -3940,17 +4042,14 @@ export class OtterStudioIde {
 
     this.editorSignatureHelpEl.innerHTML = html;
 
-    const lines = textarea.value.slice(0, textarea.selectionStart).split('\n');
-    const lineIdx = lines.length - 1;
-    const colIdx = lines[lineIdx].length;
-    const lineHeight = 20;
-    const charWidth = 7.8;
+    const coords = this._offsetToEditorCoords(textarea, textarea.selectionStart);
+    const lineHeight = parseFloat(window.getComputedStyle(textarea).lineHeight) || 20;
 
-    let left = Math.max(10, colIdx * charWidth - textarea.scrollLeft + 40);
-    let top = Math.max(10, (lineIdx + 1) * lineHeight - textarea.scrollTop + 10);
+    let left = Math.max(10, coords.left - textarea.scrollLeft + 20);
+    let top = Math.max(10, coords.top + lineHeight - textarea.scrollTop + 10);
     const viewportRect = this.codeAreaEl?.parentElement?.getBoundingClientRect() || { width: 600, height: 400 };
     if (left + 360 > viewportRect.width) left = Math.max(10, viewportRect.width - 370);
-    if (top + 100 > viewportRect.height) top = Math.max(10, lineIdx * lineHeight - textarea.scrollTop - 70);
+    if (top + 100 > viewportRect.height) top = Math.max(10, coords.top - textarea.scrollTop - 70);
 
     this.editorSignatureHelpEl.style.left = `${left}px`;
     this.editorSignatureHelpEl.style.top = `${top}px`;

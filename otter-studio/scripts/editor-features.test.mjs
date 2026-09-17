@@ -342,8 +342,17 @@ async function runTests() {
     });
 
     test('Hover calculation accounts for editor padding offsets', () => {
-      assert.match(ideJs, /padTop = computedStyle \? \(parseFloat\(computedStyle\.paddingTop\) \|\| 16\) : 16/, 'handleEditorHover must account for paddingTop');
-      assert.match(ideJs, /padLeft = computedStyle \? \(parseFloat\(computedStyle\.paddingLeft\) \|\| 20\) : 20/, 'handleEditorHover must account for paddingLeft');
+      // handleEditorHover delegates to the shared, word-wrap-aware _editorCoordsToOffset
+      // helper; its non-wrap fast path still reads paddingTop/paddingLeft from computedStyle.
+      assert.match(ideJs, /padTop = parseFloat\(computedStyle\.paddingTop\) \|\| 16/, '_editorCoordsToOffset must account for paddingTop');
+      assert.match(ideJs, /padLeft = parseFloat\(computedStyle\.paddingLeft\) \|\| 20/, '_editorCoordsToOffset must account for paddingLeft');
+      assert.match(ideJs, /_editorCoordsToOffset\(textarea, x, y\)/, 'handleEditorHover must use the shared coords-to-offset helper');
+    });
+
+    test('Hover and cursor-overlay position math is word-wrap aware', () => {
+      assert.match(ideJs, /_offsetToEditorCoords\(textarea, offset\)/, 'must have an offset-to-pixel-coords helper for wrapped lines');
+      assert.match(ideJs, /if \(!this\.wordWrap\) \{/, '_editorCoordsToOffset must branch on wordWrap state');
+      assert.match(ideJs, /if \(this\.wordWrap && textarea\) \{/, 'renderCursorOverlays must branch on wordWrap state');
     });
   })();
 

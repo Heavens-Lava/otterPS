@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   DiagnosticCodes,
   DiagnosticMetadata,
@@ -36,7 +37,7 @@ async function runDiagnosticsTests() {
   }
 
   function parseWithRealOtter(source) {
-    const repoRoot = path.resolve('.');
+    const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
     const psCmd = `
       $ErrorActionPreference = 'Stop'
       Import-Module (Join-Path '${repoRoot}\\src' 'Otter.Lexer.psm1') -Global
