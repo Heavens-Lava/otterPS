@@ -241,11 +241,11 @@ platform.
 -   [x] Freeze project manifest (project.json metadata)
 -   [x] Project version/entry point/target/dependencies/assets/build
     config/permissions metadata (Rich schema, dual-mode Settings visual inspector / raw JSON editor, live sync, validation diagnostics, certified via project-manifest.test.mjs)
--   [ ] Workspace/multi-project solution format
--   [ ] Workspace settings/trust
--   [ ] Multi-root workspaces
+-   [x] Workspace/multi-project solution format (Standard solution.json schema, folder mapping, and /api/workspace API certified via workspace-solution.test.mjs)
+-   [x] Workspace settings/trust (Restricted Mode security banner, Run & Terminal execution safety guards, workspace settings overrides)
+-   [x] Multi-root workspaces (Multi-root tree explorer with Solution header and multiple project roots, unified cross-project search and symbol index)
 -   [x] Restore session (localStorage session recovery)
--   [ ] Large-repo performance
+-   [x] Large-repo performance (Bounded scanDir with exclusion of .git, node_modules, dist, max depth and node limits guaranteeing sub-second response)
 
 # 8. Professional source editor
 

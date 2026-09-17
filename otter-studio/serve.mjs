@@ -11,6 +11,12 @@ import {
   validateManifest,
   serializeManifest
 } from './js/project/project-manifest.js';
+import {
+  createDefaultSolution,
+  normalizeSolution,
+  validateSolution,
+  serializeSolution
+} from './js/project/workspace-solution.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -65,29 +71,49 @@ function readFileSnapshot(filePath) {
   };
 }
 
-function scanDir(dirPath, relativeTo) {
-  const entries = fs.readdirSync(dirPath, { withFileTypes: true });
-  const result = [];
-  for (const entry of entries) {
-    const fullPath = path.join(dirPath, entry.name);
-    const relPath = path.relative(relativeTo, fullPath).replace(/\\/g, '/');
-    if (entry.isDirectory()) {
-      result.push({
-        name: entry.name,
-        path: relPath,
-        isDir: true,
-        children: scanDir(fullPath, relativeTo)
-      });
-    } else {
-      result.push({
-        name: entry.name,
-        path: relPath,
-        isDir: false,
-        size: fs.statSync(fullPath).size
-      });
-    }
+const IGNORED_DIR_NAMES = new Set([
+  '.git', 'node_modules', 'dist', 'build', 'backup', 'bin', 'obj',
+  '.cache', '.playwright-mcp', '.vs', '.vscode', '.system_generated'
+]);
+
+function scanDir(dirPath, relativeTo, depth = 0, state = { totalNodes: 0 }) {
+  if (depth > 12 || state.totalNodes >= 5000) {
+    return [];
   }
-  return result;
+  try {
+    const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+    const result = [];
+    for (const entry of entries) {
+      if (state.totalNodes >= 5000) break;
+      if (entry.isDirectory() && IGNORED_DIR_NAMES.has(entry.name)) {
+        continue;
+      }
+      const fullPath = path.join(dirPath, entry.name);
+      const relPath = path.relative(relativeTo, fullPath).replace(/\\/g, '/');
+      state.totalNodes++;
+
+      if (entry.isDirectory()) {
+        result.push({
+          name: entry.name,
+          path: relPath,
+          isDir: true,
+          children: scanDir(fullPath, relativeTo, depth + 1, state)
+        });
+      } else {
+        let size = 0;
+        try { size = fs.statSync(fullPath).size; } catch {}
+        result.push({
+          name: entry.name,
+          path: relPath,
+          isDir: false,
+          size
+        });
+      }
+    }
+    return result;
+  } catch {
+    return [];
+  }
 }
 
 function collectOtterFiles(dirPath) {
@@ -436,6 +462,113 @@ const server = http.createServer(async (req, res) => {
         path: path.relative(REPO_ROOT, targetFile).replace(/\\/g, '/'),
         manifest: normalized,
         validation
+      });
+    } catch (err) {
+      sendJson(res, { error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/workspace' && req.method === 'GET') {
+    try {
+      const solutionPath = urlObj.searchParams.get('path') || 'solution.json';
+      const targetFile = path.resolve(REPO_ROOT, solutionPath);
+      if (!targetFile.startsWith(REPO_ROOT) || !fs.existsSync(targetFile)) {
+        return sendJson(res, { error: 'Solution file not found' }, 404);
+      }
+
+      const raw = fs.readFileSync(targetFile, 'utf8');
+      const parsed = JSON.parse(raw);
+      const normalized = normalizeSolution(parsed);
+      const validation = validateSolution(normalized);
+
+      const roots = [];
+      for (const folder of normalized.folders) {
+        const rootPath = path.resolve(REPO_ROOT, folder.path);
+        if (rootPath.startsWith(REPO_ROOT) && fs.existsSync(rootPath)) {
+          let manifest = null;
+          const projJson = path.join(rootPath, 'project.json');
+          if (fs.existsSync(projJson)) {
+            try {
+              manifest = normalizeManifest(JSON.parse(fs.readFileSync(projJson, 'utf8')));
+            } catch {}
+          }
+          roots.push({
+            name: folder.name || path.basename(rootPath),
+            path: path.relative(REPO_ROOT, rootPath).replace(/\\/g, '/'),
+            manifest,
+            tree: scanDir(rootPath, rootPath)
+          });
+        }
+      }
+
+      sendJson(res, {
+        ok: true,
+        path: path.relative(REPO_ROOT, targetFile).replace(/\\/g, '/'),
+        solution: normalized,
+        validation,
+        roots
+      });
+    } catch (err) {
+      sendJson(res, { error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/workspace' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const solutionPath = body.path || 'solution.json';
+      const targetFile = path.resolve(REPO_ROOT, solutionPath);
+      if (!targetFile.startsWith(REPO_ROOT)) {
+        return sendJson(res, { error: 'Forbidden' }, 403);
+      }
+
+      if (!body.solution || typeof body.solution !== 'object') {
+        return sendJson(res, { error: 'Solution object required' }, 400);
+      }
+
+      const normalized = normalizeSolution(body.solution);
+      const validation = validateSolution(normalized);
+      if (!validation.ok && body.force !== true) {
+        return sendJson(res, { ok: false, error: 'Validation failed', validation }, 422);
+      }
+
+      const dir = path.dirname(targetFile);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(targetFile, serializeSolution(normalized), 'utf8');
+
+      sendJson(res, {
+        ok: true,
+        path: path.relative(REPO_ROOT, targetFile).replace(/\\/g, '/'),
+        solution: normalized,
+        validation
+      });
+    } catch (err) {
+      sendJson(res, { error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/create-solution' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const solName = (body.name || 'my-solution').trim();
+      const solPath = body.path || `${solName}.solution.json`;
+      const targetFile = path.resolve(REPO_ROOT, solPath);
+      if (!targetFile.startsWith(REPO_ROOT)) {
+        return sendJson(res, { error: 'Forbidden' }, 403);
+      }
+
+      const solution = createDefaultSolution(solName, body.folders || [], body.settings || {}, body.trust || {});
+      const dir = path.dirname(targetFile);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(targetFile, serializeSolution(solution), 'utf8');
+
+      sendJson(res, {
+        ok: true,
+        path: path.relative(REPO_ROOT, targetFile).replace(/\\/g, '/'),
+        solution
       });
     } catch (err) {
       sendJson(res, { error: err.message }, 500);

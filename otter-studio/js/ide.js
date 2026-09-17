@@ -23,6 +23,14 @@ import { highlightOtterLine } from './editor/syntax/otter.js';
 import { snapshotTabState, restoreTabState } from './editor/document-state.js';
 import { renderProjectSettings } from './components/project-settings.js';
 import { normalizeManifest, serializeManifest, validateManifest } from './project/project-manifest.js';
+import {
+  createDefaultSolution,
+  normalizeSolution,
+  validateSolution,
+  serializeSolution,
+  isWorkspaceTrusted,
+  setWorkspaceTrust
+} from './project/workspace-solution.js';
 
 export class OtterStudioIde {
   constructor() {
@@ -41,6 +49,10 @@ export class OtterStudioIde {
     this.errorLine = null;
     this.currentFilteredSuggestions = [];
     this.manifestViewMode = 'form'; // 'form' | 'json'
+    this.currentSolutionPath = null;
+    this.currentSolution = null;
+    this.isMultiRoot = false;
+    this.isTrusted = true;
     this.externalCheckTimer = null;
     this.externalCheckInFlight = false;
     this.externalCheckIntervalMs = 2000;
@@ -268,6 +280,18 @@ export class OtterStudioIde {
       this.manifestViewMode = 'json';
       this.activateTab(this.currentFile);
     });
+
+    // Workspace Trust & Multi-Root Solution Elements
+    this.workspaceTrustBanner = document.getElementById('workspaceTrustBanner');
+    this.btnTrustWorkspace = document.getElementById('btnTrustWorkspace');
+    this.btnDismissTrustBanner = document.getElementById('btnDismissTrustBanner');
+    this.btnWorkspaceTrustStatus = document.getElementById('btnWorkspaceTrustStatus');
+
+    this.btnTrustWorkspace?.addEventListener('click', () => this.grantWorkspaceTrust());
+    this.btnDismissTrustBanner?.addEventListener('click', () => this.hideTrustBanner());
+    this.btnWorkspaceTrustStatus?.addEventListener('click', () => this.toggleWorkspaceTrust());
+    document.getElementById('menuItemNewSolution')?.addEventListener('click', () => this.promptNewSolution());
+
     this.templatesCard = document.getElementById('templatesCard');
     this.btnToggleTemplates = document.getElementById('btnToggleTemplates');
     this.btnTemplatesNewProject = document.getElementById('btnTemplatesNewProject');
@@ -624,15 +648,25 @@ export class OtterStudioIde {
       this.renderCleanProjectTree();
       return;
     }
+
+    if (folder.endsWith('.solution.json') || folder.endsWith('solution.json') || folder.endsWith('.otter-workspace')) {
+      await this.loadSolution(folder);
+      return;
+    }
+
     try {
       const res = await fetch(`/api/project?folder=${encodeURIComponent(folder)}`);
       const data = await res.json();
       if (data && data.tree && data.tree.length > 0) {
+        this.isMultiRoot = false;
+        this.currentSolutionPath = null;
+        this.currentSolution = null;
         this.currentProjectFolder = data.rootPath || folder;
         this.currentProjectName = data.name || folder;
         this.setTemplatesCollapsed(true);
         this.workspaceFiles = flattenProjectFiles(data.tree, this.currentProjectFolder);
         this.renderProjectTree(data.tree, this.currentProjectName, this.currentProjectFolder);
+        this.checkWorkspaceTrust();
         this.refreshWorkspaceSymbols();
       } else {
         alert(data.error || 'Folder is empty or could not be loaded.');
@@ -640,6 +674,199 @@ export class OtterStudioIde {
     } catch (err) {
       console.warn('Could not fetch project tree from server:', err);
     }
+  }
+
+  async loadSolution(solutionPath) {
+    try {
+      const res = await fetch(`/api/workspace?path=${encodeURIComponent(solutionPath)}`);
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || 'Could not load solution.');
+      }
+      this.currentSolutionPath = data.path;
+      this.currentSolution = data.solution;
+      this.isMultiRoot = true;
+      this.currentProjectName = data.solution.name;
+      this.currentProjectFolder = data.path;
+
+      // Flatten files across all project roots
+      const allFiles = [];
+      for (const root of data.roots || []) {
+        const rootFiles = flattenProjectFiles(root.tree, root.path);
+        allFiles.push(...rootFiles);
+      }
+      this.workspaceFiles = allFiles;
+
+      this.setTemplatesCollapsed(true);
+      this.renderMultiRootProjectTree(data.solution, data.roots);
+      this.checkWorkspaceTrust();
+      this.refreshWorkspaceSymbols();
+      this.saveSessionState();
+    } catch (err) {
+      console.warn('Error loading solution:', err);
+      alert('Error loading solution: ' + err.message);
+    }
+  }
+
+  renderMultiRootProjectTree(solution, roots = []) {
+    if (!this.projectTreeEl) return;
+
+    let html = `
+      <div class="solution-header" title="${this.escapeHtml(this.currentSolutionPath || '')}">
+        <div class="solution-title">
+          <span class="solution-icon">📦</span>
+          <span>${this.escapeHtml(solution.name || 'Solution')}</span>
+        </div>
+        <span class="solution-badge">${roots.length} PROJECTS</span>
+      </div>
+      <div class="multi-root-container">
+    `;
+
+    const renderNodes = (nodes, parentFolder) => {
+      let out = '';
+      for (const item of nodes) {
+        const fullPath = parentFolder ? `${parentFolder}/${item.path}` : item.path;
+        const isSelected = (this.currentFile === fullPath) ? ' is-active' : '';
+        if (item.isDir) {
+          out += `
+            <div class="project-folder-item" data-folder="${fullPath}">
+              <span class="folder-arrow">▾</span>
+              <span class="folder-icon">📁</span>
+              <span class="folder-name">${this.escapeHtml(item.name)}</span>
+            </div>
+            <div class="folder-children-wrap" data-parent-folder="${fullPath}">
+              ${item.children ? renderNodes(item.children, parentFolder) : ''}
+            </div>
+          `;
+        } else {
+          const icon = item.name.endsWith('.ot') ? '📄' : (item.name.endsWith('.css') ? '🎨' : (item.name.endsWith('.json') ? '⚙' : '📝'));
+          out += `
+            <div class="project-file-item${isSelected}" data-path="${fullPath}" title="${fullPath}">
+              <span class="file-icon">${icon}</span>
+              <span class="file-name">${this.escapeHtml(item.name)}</span>
+            </div>
+          `;
+        }
+      }
+      return out;
+    };
+
+    for (const root of roots) {
+      html += `
+        <div class="multi-root-folder" data-root-path="${root.path}">
+          <div class="multi-root-header">
+            <span class="root-arrow">▾</span>
+            <span class="root-icon">📁</span>
+            <span class="root-name">${this.escapeHtml(root.name)}</span>
+          </div>
+          <div class="root-children-wrap">
+            ${renderNodes(root.tree, root.path)}
+          </div>
+        </div>
+      `;
+    }
+
+    html += `</div>`;
+    this.projectTreeEl.innerHTML = html;
+
+    // Attach click events
+    this.projectTreeEl.querySelectorAll('.project-file-item').forEach(el => {
+      el.addEventListener('click', () => {
+        this.projectTreeEl.querySelectorAll('.project-file-item').forEach(f => f.classList.remove('is-active'));
+        el.classList.add('is-active');
+        const p = el.getAttribute('data-path');
+        if (p) this.loadFile(p);
+      });
+    });
+
+    this.projectTreeEl.querySelectorAll('.multi-root-header').forEach(header => {
+      header.addEventListener('click', () => {
+        const wrap = header.nextElementSibling;
+        const arrow = header.querySelector('.root-arrow');
+        if (wrap) {
+          const isCollapsed = wrap.style.display === 'none';
+          wrap.style.display = isCollapsed ? 'block' : 'none';
+          if (arrow) arrow.textContent = isCollapsed ? '▾' : '›';
+        }
+      });
+    });
+
+    this.projectTreeEl.querySelectorAll('.project-folder-item').forEach(el => {
+      el.addEventListener('click', () => {
+        const folder = el.getAttribute('data-folder');
+        const wrap = this.projectTreeEl.querySelector(`.folder-children-wrap[data-parent-folder="${folder}"]`);
+        const arrow = el.querySelector('.folder-arrow');
+        if (wrap) {
+          const isCollapsed = wrap.style.display === 'none';
+          wrap.style.display = isCollapsed ? 'block' : 'none';
+          if (arrow) arrow.textContent = isCollapsed ? '▾' : '›';
+        }
+      });
+    });
+  }
+
+  async promptNewSolution() {
+    const name = prompt('Enter solution name (e.g. MySuite):', 'MySuite');
+    if (!name) return;
+    const folders = [];
+    if (this.currentProjectFolder && !this.isMultiRoot) {
+      folders.push({ name: this.currentProjectName || 'App', path: this.currentProjectFolder });
+    }
+    try {
+      const res = await fetch('/api/create-solution', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, folders })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        await this.loadSolution(data.path);
+      }
+    } catch (e) {
+      alert('Error creating solution: ' + e.message);
+    }
+  }
+
+  checkWorkspaceTrust() {
+    const target = this.currentSolutionPath || this.currentProjectFolder;
+    this.isTrusted = isWorkspaceTrusted(target, this.currentSolution);
+
+    if (this.workspaceTrustBanner) {
+      this.workspaceTrustBanner.style.display = this.isTrusted ? 'none' : 'flex';
+    }
+
+    if (this.btnWorkspaceTrustStatus) {
+      this.btnWorkspaceTrustStatus.textContent = this.isTrusted ? '🛡️ Trusted' : '🛡️ Restricted';
+      this.btnWorkspaceTrustStatus.className = `statusbar-btn trust-status-btn ${this.isTrusted ? 'is-trusted' : 'is-untrusted'}`;
+      this.btnWorkspaceTrustStatus.title = this.isTrusted ? 'Workspace is trusted. Execution permitted.' : 'Workspace is in Restricted Mode. Click to manage trust.';
+    }
+  }
+
+  grantWorkspaceTrust() {
+    const target = this.currentSolutionPath || this.currentProjectFolder;
+    setWorkspaceTrust(target, true);
+    if (this.currentSolution?.trust) {
+      this.currentSolution.trust.isTrusted = true;
+    }
+    this.isTrusted = true;
+    this.checkWorkspaceTrust();
+  }
+
+  hideTrustBanner() {
+    if (this.workspaceTrustBanner) {
+      this.workspaceTrustBanner.style.display = 'none';
+    }
+  }
+
+  toggleWorkspaceTrust() {
+    const target = this.currentSolutionPath || this.currentProjectFolder;
+    const next = !this.isTrusted;
+    setWorkspaceTrust(target, next);
+    if (this.currentSolution?.trust) {
+      this.currentSolution.trust.isTrusted = next;
+    }
+    this.isTrusted = next;
+    this.checkWorkspaceTrust();
   }
 
   renderProjectTree(items, rootName, rootFolder) {
@@ -2093,6 +2320,8 @@ export class OtterStudioIde {
       const session = {
         currentFile: this.currentFile,
         currentFolder: this.currentProjectFolder,
+        currentSolutionPath: this.currentSolutionPath,
+        isMultiRoot: this.isMultiRoot,
         openTabs: this.openTabs.map(t => ({
           path: t.path,
           name: t.name,
@@ -2118,13 +2347,17 @@ export class OtterStudioIde {
       if (session && session.openTabs && session.openTabs.length > 0) {
         this.openTabs = session.openTabs;
         this.currentProjectFolder = session.currentFolder || null;
+        this.currentSolutionPath = session.currentSolutionPath || null;
+        this.isMultiRoot = Boolean(session.isMultiRoot);
         this.currentFile = session.currentFile || session.openTabs[0].path;
         const curTab = this.openTabs.find(t => t.path === this.currentFile) || this.openTabs[0];
         this.currentCode = curTab.content;
         this.renderTabs();
         this.renderEditorCode(this.currentCode);
         this.lintCurrentCode();
-        if (this.currentProjectFolder) {
+        if (session.currentSolutionPath) {
+          await this.loadSolution(session.currentSolutionPath);
+        } else if (this.currentProjectFolder) {
           await this.loadProjectTree(this.currentProjectFolder);
         }
         const textarea = document.getElementById('hiddenEditorInput');
@@ -2758,6 +2991,13 @@ export class OtterStudioIde {
 
   async runCurrentProgram() {
     if (!this.mainRunBtn) return;
+
+    if (!this.isTrusted) {
+      const proceed = confirm('Restricted Mode: This workspace is untrusted. Running code in an untrusted workspace may be unsafe.\n\nDo you want to trust this workspace and run the program?');
+      if (!proceed) return;
+      this.grantWorkspaceTrust();
+    }
+
     this.mainRunBtn.classList.add('is-running');
     if (this.runBtnLabel) this.runBtnLabel.innerText = 'Running...';
     if (this.btnStopProgram) this.btnStopProgram.style.display = 'inline-flex';
@@ -2882,9 +3122,15 @@ export class OtterStudioIde {
 
   // --- Real Interactive Terminal ---
   async executeTerminalCommand(cmdText) {
-    if (!this.terminalHistory) return;
+    if (!cmdText || !this.terminalHistory) return;
 
-    // Append Command Row
+    if (!this.isTrusted) {
+      const proceed = confirm('Restricted Mode: This workspace is untrusted. Executing terminal commands in an untrusted workspace may be unsafe.\n\nDo you want to trust this workspace and proceed?');
+      if (!proceed) return;
+      this.grantWorkspaceTrust();
+    }
+
+    // Append Command entry to history
     const cmdEl = document.createElement('div');
     cmdEl.className = 'terminal-cmd-row';
     cmdEl.innerHTML = `<span class="prompt-text">PS C:\\projects\\otterPS&gt;</span> <span class="cmd-text">${this.escapeHtml(cmdText)}</span>`;

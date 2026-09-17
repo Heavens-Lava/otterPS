@@ -63,6 +63,10 @@
                 <span class="dropdown-icon">⚙</span>
                 <span>Project Settings...</span>
               </div>
+              <div class="dropdown-item" id="menuItemNewSolution">
+                <span class="dropdown-icon">📦</span>
+                <span>New Solution...</span>
+              </div>
             </div>
           </div>
           <div class="menu-item" data-menu="edit">Edit <span class="menu-arrow">▾</span></div>
@@ -282,6 +286,17 @@
             <div class="external-change-actions">
               <button type="button" class="external-change-btn secondary" id="btnKeepLocalChanges">Keep My Changes</button>
               <button type="button" class="external-change-btn primary" id="btnReloadExternalFile">Reload from Disk</button>
+            </div>
+          </div>
+          <div class="workspace-trust-banner" id="workspaceTrustBanner" role="alert" style="display: none;">
+            <div class="trust-banner-icon">🛡️</div>
+            <div class="trust-banner-copy">
+              <strong id="trustBannerTitle">Restricted Mode</strong>
+              <span id="trustBannerMsg">Code execution and terminal commands are restricted for safety because this workspace is untrusted.</span>
+            </div>
+            <div class="trust-banner-actions">
+              <button type="button" class="btn-trust-action primary" id="btnTrustWorkspace">Trust Workspace</button>
+              <button type="button" class="btn-trust-action secondary" id="btnDismissTrustBanner">Don't Trust</button>
             </div>
           </div>
           <div class="manifest-toggle-bar" id="manifestToggleBar" style="display: none;">
@@ -571,6 +586,7 @@
         <span>Spaces: 4</span>
         <button type="button" class="statusbar-btn" id="btnEolSelector" title="Toggle End of Line Sequence (CRLF / LF)">CRLF</button>
         <button type="button" class="statusbar-btn" id="btnEncodingSelector" title="Select File Encoding">UTF-8</button>
+        <button type="button" class="statusbar-btn" id="btnWorkspaceTrustStatus" title="Workspace Trust Status">🛡️ Trusted</button>
         <span class="otter-ver-tag">Otter 1.0</span>
       </div>
     </footer>
