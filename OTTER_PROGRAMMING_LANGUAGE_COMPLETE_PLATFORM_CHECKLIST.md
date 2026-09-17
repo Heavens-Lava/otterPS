@@ -107,7 +107,15 @@ creation.
 -   [x] `not`
 -   [x] `and`
 -   [x] `or`
--   [x] Boolean precedence
+-   [x] Boolean precedence (V1 audit fix: `and`/`or` work as boolean logic
+    inside `if`/`while`; a stray boolean reaching `and`/`plus` OUTSIDE a
+    condition now gets a specific, honest diagnostic naming booleans and
+    conditions, instead of either a misleading arithmetic error or an
+    over-broad parser-level rejection that briefly, incorrectly broke
+    `and`'s real, legitimate use as a numeric-addition/string-
+    concatenation synonym outside a condition - confirmed against three
+    real production examples that regressed and were fixed. See commit
+    605659d)
 -   [x] `if`
 -   [x] `otherwise if`
 -   [x] `otherwise`
