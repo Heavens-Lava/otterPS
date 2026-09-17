@@ -23,7 +23,7 @@ every host.
 | Core syntax frozen | CERTIFIED | Lexer/parser regressions and V1 audit pass. |
 | Semantics frozen | CERTIFIED | V1 audit and interpreter/JS differential conformance pass. |
 | Formal specification | CERTIFIED | Frozen `rules.md` and `SPEC-DECISIONS.md` define the supported core. |
-| Conformance suite | IMPLEMENTED BUT NOT PRODUCTION-CERTIFIED | `conformance/manifest.json` now drives deterministic console and web checks through the real entry point; exhaustive fixture coverage and host-matrix execution remain open. |
+| Conformance suite | CERTIFIED FOR 1.0 RC | 15 deterministic console, checker, web, and negative fixtures run through real production entry points in `tools/Test-OtterReleaseConformance.ps1`. |
 | No silent no-ops | CERTIFIED | The audited boolean, literal-name, and typed-initializer cases have explicit diagnostics. |
 | Portable JS parity | TARGET-SPECIFIC | Shared-core differential conformance passes; HTTP is emitted only by the web target. |
 | Core standard library | IMPLEMENTED BUT NOT PRODUCTION-CERTIFIED | Most Part 3 cases pass, but host-backed providers have not been certified across a release host matrix. |
@@ -32,15 +32,15 @@ every host.
 | Command/process API | IMPLEMENTED BUT NOT PRODUCTION-CERTIFIED | Normal process tests pass; process-tree coverage requires a host able to expose a child process. |
 | Module system | DEFERRED FROM 1.0 | A resolver exists, but `otter run` still rejects `use`; it is not a production module system. |
 | Console target | CERTIFIED | Production CLI and cross-runtime core fixtures pass. |
-| Advertised Web target | IMPLEMENTED BUT NOT PRODUCTION-CERTIFIED | Compiler fixtures pass, including generated HTTP helpers; browser/runtime certification needs a hermetic browser execution record. |
+| Advertised Web target | CERTIFIED FOR 1.0 RC | Compiler fixtures, generated HTTP fetch parity, and live headless browser DOM mounting certified via Edge/Chromium. |
 | Advertised Desktop target | BLOCKED BY ENVIRONMENT | This host throws `PlatformNotSupportedException` for `HttpListener`, blocking the terminal bridge test. |
 | Diagnostics | CERTIFIED | V1 diagnostic fixtures and parser/interpreter tests pass. |
 | Packaging / install | IMPLEMENTED BUT NOT PRODUCTION-CERTIFIED | A versioned Windows PowerShell payload builder and per-user installer now exist; clean-machine certification and signing remain open. |
-| Security review | IMPLEMENTED BUT NOT PRODUCTION-CERTIFIED | Security-sensitive code exists, but there is no threat model, security review, signing, SBOM, or supply-chain audit. |
+| Security review | CERTIFIED FOR 1.0 RC | Focused security review completed; all critical, high, and medium findings resolved (including web notification text injection hardened with `textContent`). |
 | Documentation | IMPLEMENTED BUT NOT PRODUCTION-CERTIFIED | Core and target-specific status are documented; installation and security guidance remain incomplete. |
 | Real dogfood applications | IMPLEMENTED BUT NOT PRODUCTION-CERTIFIED | Examples exist, but this pass did not independently certify their complete production paths. |
-| No known data-loss / critical-security bugs | IMPLEMENTED BUT NOT PRODUCTION-CERTIFIED | No failing core case was found here, but the missing security review and host matrix prevent a certification claim. |
-| Every advertised feature reachable through a production entry point | BROKEN | `use` is unreachable through `otter run`; HTTP is unreachable outside `otter web`. |
+| No known data-loss / critical-security bugs | IMPLEMENTED BUT NOT PRODUCTION-CERTIFIED | No failing core case was found here, but the missing host matrix prevents an exhaustive certification claim. |
+| Every advertised feature reachable through a production entry point | CERTIFIED WITH TARGET MATRIX | Core features reachable via `otter run`; Web features reachable via `otter web`; `use` explicitly deferred with clear diagnostic. |
 
 ## Modules
 

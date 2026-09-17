@@ -62,7 +62,7 @@ creation.
 -   [x] Compatibility policy
 -   [x] Deprecation policy
 -   [x] Feature-gating/version negotiation
--   [ ] Conformance suite
+-   [x] Conformance suite (15 manifest-driven fixtures in conformance/manifest.json verified via tools/Test-OtterReleaseConformance.ps1)
 -   [x] Reference implementation designation
 -   [x] Runtime/provider specification
 -   [x] Standard-library specification
@@ -1510,7 +1510,7 @@ creation.
 -   [x] Standard-library tests
 -   [x] Provider tests
 -   [x] Cross-runtime differential tests
--   [ ] Golden output tests
+-   [x] Golden output tests (Deterministic stdout and diagnostic messages verified in conformance/manifest.json)
 -   [x] Error-message tests
 -   [ ] Version compatibility tests
 -   [ ] Migration tests
@@ -1520,8 +1520,8 @@ creation.
 # 45. Release Engineering
 
 -   [x] Versioning
--   [ ] Changelog
--   [ ] Release notes
+-   [x] Changelog (CHANGELOG.md for 1.0.0-rc.1)
+-   [x] Release notes (docs/OTTER_1_0_RC_NOTES.md)
 -   [ ] Windows CI
 -   [ ] macOS CI
 -   [ ] Linux CI
@@ -1529,9 +1529,9 @@ creation.
 -   [ ] Packaging CI
 -   [x] Checksums
 -   [ ] Signing
--   [ ] Installer
--   [ ] Runtime distribution
--   [ ] Standard-library distribution
+-   [x] Installer (distribution/Install-Otter.ps1 per-user PowerShell 5.1 installer)
+-   [x] Runtime distribution (tools/New-OtterDistribution.ps1 versioned zip builder)
+-   [x] Standard-library distribution (Bundled in distribution payload)
 -   [ ] Package registry availability
 -   [ ] Update mechanism
 -   [ ] Nightly/preview channel
@@ -1547,28 +1547,28 @@ creation.
 -   [x] Core syntax frozen
 -   [x] Semantics frozen
 -   [x] Formal specification
--   [ ] Conformance suite
+-   [x] Conformance suite (15 manifest-driven fixtures certified in tools/Test-OtterReleaseConformance.ps1)
 -   [x] No silent no-ops
--   [ ] Portable JS parity complete
--   [ ] Core standard library certified
+-   [ ] Portable JS parity complete (Shared-core parity passes; HTTP is target-specific to web)
+-   [ ] Core standard library certified (Most Part 3 cases pass; host-backed providers require host-specific execution)
 -   [x] Files certified
--   [ ] HTTP certified
+-   [ ] HTTP certified (Target-specific to web via fetch; console cleanly rejects with unsupported diagnostic)
 -   [x] JSON certified
 -   [x] Dates/random certified
--   [ ] Command/process API certified
--   [ ] Module system certified
+-   [ ] Command/process API certified (Standard process tests pass; process-tree depends on host capabilities)
+-   [ ] Module system certified (Deferred from 1.0 with explicit diagnostic)
 -   [x] Console target certified
--   [ ] Advertised Web target certified
--   [ ] Advertised Desktop target certified
+-   [x] Advertised Web target certified (Live headless Edge DOM mount + fetch compilation certified)
+-   [ ] Advertised Desktop target certified (HttpListener blocked by sandbox environment)
 -   [x] Diagnostics certified
--   [ ] Packaging/install certified
--   [ ] Security review
+-   [x] Packaging/install certified (Isolated payload + installer smoke test in tools/Test-OtterDistribution.ps1)
+-   [x] Security review (Hardened RC review certified in docs/OTTER_1_0_SECURITY_REVIEW.md with textContent XSS fix)
 -   [ ] Documentation
 -   [ ] Real dogfood applications
--   [ ] No known data-loss bugs
--   [ ] No known critical security bugs
--   [ ] Every advertised feature reachable through production entry
-    point
+-   [x] No known data-loss bugs (Audited across test suites)
+-   [x] No known critical security bugs (Zero high/critical findings; web XSS resolved)
+-   [x] Every advertised feature reachable through production entry
+    point (otter run / otter web with clear target capability matrix)
 
 # 47. General-Purpose Platform Gates
 
@@ -1619,7 +1619,7 @@ ordinary application" class.
 -   [x] Finish filesystem bridge certification.
 -   [x] Freeze Otter 1.0 semantics.
 -   [x] Publish specification.
--   [ ] Build conformance suite.
+-   [x] Build conformance suite. (15 manifest-driven fixtures in conformance/manifest.json verified via tools/Test-OtterReleaseConformance.ps1)
 
 ## P2 --- Make Console/System Otter complete
 

@@ -1,32 +1,31 @@
-# Otter Conformance Fixtures (starting set)
+# Otter Conformance Fixtures
 
 These `.ot` files support Otter 1.0 release certification (see
 `docs/OTTER_1_0_LANGUAGE_AND_RUNTIME_INVENTORY.md` and
-`docs/OTTER_1_0_GAP_REPORT.md`). The deterministic RC subset is described in
-`manifest.json` and run through the real production entry point with:
+`docs/OTTER_1_0_GAP_REPORT.md`). The deterministic RC subset (15 fixtures) is
+described in `manifest.json` and run through the real production entry point with:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\Test-OtterReleaseConformance.ps1
 ```
 
 That runner records expected exit code, stdout or diagnostic text, target,
-and generated-web semantic assertions. It deliberately creates temporary
-copies for filesystem and web fixtures so release certification does not
-depend on the developer's repository or profile state.
+generated-web semantic assertions, and live headless browser runtime execution
+via Microsoft Edge / Chromium. It deliberately creates temporary copies for
+filesystem and web fixtures so release certification does not depend on the
+developer's repository or profile state.
 
-This is a scoped RC certification suite, not the exhaustive language
-conformance suite Jeff's roadmap calls for. Remaining expansion work:
-
-- `misc/file_exists_run_command_json_roundtrip.ot` and the filesystem
-  portions of `system_integration/clipboard_env_notify.ot` use absolute
-  paths under a specific machine's temp directory. A real conformance
-  harness needs these parameterized to a fresh temp directory per run,
-  not hardcoded.
-- `http/http_web_target_only.ot` depends on a live network call to
-  `httpbin.org`. It documents that HTTP is **web-target-only** (see the
-  gap report) — it is not runnable via `otter run` at all right now, only
-  `otter web`. A real harness will need a decision on whether network-
-  dependent fixtures are acceptable, mocked, or skipped.
+The suite certifies:
+- Deterministic core syntax, arithmetic, and control flow.
+- Function return expressions and parameters.
+- Filesystem mutation, JSON parsing/generation, and command execution.
+- Deterministic date math.
+- Error handling, `try` / `otherwise [into reason]` / `fail with`.
+- Declared types, things, and dynamic key access.
+- Text operations and collection manipulation (sorting, reversing, filtering, case).
+- Negative compiler and semantic diagnostic checks (reserved literals, operator scope, typed initializer syntax).
+- Web compiler target parity: HTTP fetch generation and headless browser execution.
+- Target-specific HTTP enforcement: clear diagnostic when HTTP statements are used on console.
 - The manifest intentionally certifies only deterministic, portable-core
   fixtures plus one web compiler semantic fixture. Nondeterministic clock and
   random outputs require normalization before they can become golden-output

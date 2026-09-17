@@ -1,5 +1,6 @@
 using module ..\Otter.Contract.psm1
 using module .\Otter.Compiler.JavaScript.psm1
+using module .\Otter.Module.psm1
 
 # Otter.Web.psm1
 #
@@ -437,7 +438,9 @@ function ConvertTo-OtterWeb {
                 'window', 'page', 'button', 'text box', 'text', 'row', 'column',
                 'image', 'list', 'link', 'card', 'checkbox', 'check box',
                 'dropdown', 'drop down', 'select', 'slider', 'range',
-                'text area', 'textarea', 'badge', 'tag', 'canvas', 'table'
+                'text area', 'textarea', 'badge', 'tag', 'canvas', 'table', 'scroll',
+                'progress', 'progress bar', 'toggle', 'switch', 'radio', 'radio button',
+                'dialog', 'modal'
             )
             if ($kind -in $knownKinds) {
                 $res = @{
@@ -517,6 +520,9 @@ function ConvertTo-OtterWeb {
         }
     }
 
+    $isPage = ($null -ne $rootName -and $resources[$rootName].Kind -eq 'page')
+    $bodyClass = if ($isPage) { ' class="otter-has-page"' } else { '' }
+
     # HTML rendering helper
     function Render-OtterElement([string]$resName) {
         if (-not $resources.Contains($resName)) { return "" }
@@ -527,7 +533,7 @@ function ConvertTo-OtterWeb {
         $styles = [System.Collections.Generic.List[string]]::new()
         if ($props.Contains('width')) {
             $w = $props['width']
-            $wCss = if ($w -eq 'full') { "100%" } elseif ($w -is [int] -or $w -is [double]) { "${w}px" } else { $w }
+            $wCss = if ($w -eq 'full') { "100%; max-width: 100%" } elseif ($w -is [int] -or $w -is [double]) { "${w}px" } else { $w }
             $styles.Add("width: $wCss;")
         }
         if ($props.Contains('height')) {
@@ -597,6 +603,12 @@ function ConvertTo-OtterWeb {
         if ($props.Contains('letterspacing')) {
             $styles.Add("letter-spacing: $($props['letterspacing']);")
         }
+        if ($props.Contains('whitespace')) {
+            $styles.Add("white-space: $($props['whitespace']);")
+        }
+        if ($props.Contains('overflow')) {
+            $styles.Add("overflow: $($props['overflow']);")
+        }
         if ($props.Contains('align')) {
             $styles.Add("text-align: $($props['align']);")
         } elseif ($kind -notin @('row', 'column') -and $props.Contains('align_h')) {
@@ -665,7 +677,7 @@ function ConvertTo-OtterWeb {
                 return @"
     <main id="$resName" class="otter-page"$styleAttr>
       $headerHtml
-      <div class="otter-page-content" style="display: flex; flex-direction: column; gap: ${spacing}px; width: 100%; min-width: 0;">$childHtml</div>
+      <div class="otter-page-content" style="display: flex; flex-direction: column; gap: ${spacing}px; width: 100%; min-width: 0; flex: 1 1 0%; min-height: 0; height: 100%;">$childHtml</div>
     </main>
 "@
             }
@@ -750,6 +762,22 @@ $optHtml
                 $anim = if ($props.Contains('animation')) { $props['animation'] } else { "" }
                 $mode = if ($props.Contains('mode')) { $props['mode'] } else { "2d" }
                 return "      <canvas id=`"$resName`" class=`"otter-canvas`" width=`"$w`" height=`"$h`" data-animation=`"$anim`" data-mode=`"$mode`"$styleAttr></canvas>"
+            }
+            { $_ -in @('progress', 'progress bar') } {
+                $val = if ($props.Contains('value')) { $props['value'] } else { 0 }
+                $max = if ($props.Contains('max')) { $props['max'] } else { 100 }
+                return "      <progress id=`"$resName`" class=`"otter-progress`" value=`"$val`" max=`"$max`"$styleAttr></progress>"
+            }
+            { $_ -in @('toggle', 'switch') } {
+                $text = if ($props.Contains('text')) { $props['text'] } else { "" }
+                $checked = if ($props.Contains('checked') -and ($props['checked'] -eq $true -or $props['checked'] -eq 'true')) { " checked" } else { "" }
+                return "      <label class=`"otter-toggle-label`"$styleAttr><input type=`"checkbox`" id=`"$resName`" class=`"otter-toggle`" role=`"switch`"$checked /><span class=`"otter-toggle-track`"><span class=`"otter-toggle-thumb`"></span></span><span class=`"otter-toggle-text`">$text</span></label>"
+            }
+            { $_ -in @('radio', 'radio button') } {
+                $text = if ($props.Contains('text')) { $props['text'] } else { "" }
+                $group = if ($props.Contains('group')) { $props['group'] } elseif ($props.Contains('name')) { $props['name'] } else { "default-group" }
+                $checked = if ($props.Contains('checked') -and ($props['checked'] -eq $true -or $props['checked'] -eq 'true')) { " checked" } else { "" }
+                return "      <label class=`"otter-radio-label`"$styleAttr><input type=`"radio`" id=`"$resName`" name=`"$group`" class=`"otter-radio`"$checked /> <span>$text</span></label>"
             }
             'row' {
                 $spacing = if ($props.Contains('spacing')) { $props['spacing'] } else { 8 }
@@ -851,6 +879,13 @@ $optHtml
                 $styleAttr = if ($styles.Count -gt 0) { " style=`"$($styles -join ' ')`"" } else { "" }
                 return @"
       <div id="$resName" class="otter-column"$styleAttr>$childHtml</div>
+"@
+            }
+            'scroll' {
+                $styles.Add("overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column;")
+                $styleAttr = if ($styles.Count -gt 0) { " style=`"$($styles -join ' ')`"" } else { "" }
+                return @"
+      <div id="$resName" class="otter-scroll"$styleAttr>$childHtml</div>
 "@
             }
             default {
@@ -1050,6 +1085,17 @@ $bodyJoined
       overflow-x: hidden;
       box-sizing: border-box;
     }
+    body.otter-has-page {
+      display: flex;
+      flex-direction: column;
+      padding: 0;
+      margin: 0;
+      min-height: 100vh;
+      height: 100vh;
+      max-height: 100vh;
+      box-sizing: border-box;
+      overflow: hidden;
+    }
     .otter-row {
       display: flex;
       flex-direction: row;
@@ -1192,6 +1238,14 @@ $bodyJoined
       box-sizing: border-box;
       min-width: 0;
     }
+    .otter-scroll {
+      overflow-y: auto;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+      box-sizing: border-box;
+      min-width: 0;
+    }
     .otter-conditional {
       display: flex;
       flex-direction: column;
@@ -1251,6 +1305,7 @@ $bodyJoined
       cursor: pointer;
       accent-color: var(--otter-primary);
     }
+    .otter-text-area,
     .otter-textarea {
       background-color: var(--otter-input-bg);
       color: var(--otter-text);
@@ -1283,6 +1338,106 @@ $bodyJoined
       max-width: 100%;
       display: block;
     }
+    .otter-progress {
+      width: 100%;
+      height: 12px;
+      border-radius: 9999px;
+      overflow: hidden;
+      appearance: none;
+      -webkit-appearance: none;
+      border: 1px solid var(--otter-border);
+      background: var(--otter-input-bg);
+    }
+    .otter-progress::-webkit-progress-bar {
+      background: var(--otter-input-bg);
+      border-radius: 9999px;
+    }
+    .otter-progress::-webkit-progress-value {
+      background: linear-gradient(90deg, #38bdf8, #818cf8);
+      border-radius: 9999px;
+      transition: width 0.3s ease;
+    }
+    .otter-progress::-moz-progress-bar {
+      background: linear-gradient(90deg, #38bdf8, #818cf8);
+      border-radius: 9999px;
+    }
+    .otter-toggle-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .otter-toggle {
+      position: absolute;
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .otter-toggle-track {
+      width: 44px;
+      height: 24px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 9999px;
+      position: relative;
+      transition: background 0.25s ease;
+    }
+    .otter-toggle-thumb {
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 20px;
+      height: 20px;
+      background: white;
+      border-radius: 50%;
+      transition: transform 0.25s ease;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+    .otter-toggle:checked + .otter-toggle-track {
+      background: var(--otter-primary);
+    }
+    .otter-toggle:checked + .otter-toggle-track .otter-toggle-thumb {
+      transform: translateX(20px);
+    }
+    .otter-radio-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .otter-radio {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+      accent-color: var(--otter-primary);
+    }
+    .otter-toast-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      z-index: 99999;
+      pointer-events: none;
+    }
+    .otter-toast {
+      background: #1e293b;
+      color: #f8fafc;
+      border: 1px solid #334155;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      padding: 12px 18px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      pointer-events: auto;
+      animation: otterToastIn 0.25s ease-out;
+      max-width: 320px;
+    }
+    @keyframes otterToastIn {
+      from { transform: translateY(12px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
     #otter-live-output {
       margin-top: 16px;
       padding: 8px 12px;
@@ -1296,7 +1451,7 @@ $bodyJoined
 $declarativeCssJoined
   </style>
 </head>
-<body>
+<body$bodyClass>
 $elementsHtml
   <div id="otter-live-output"></div>
 
@@ -1309,15 +1464,23 @@ $elementsHtml
       const el = otterGetElement(id);
       if (!el) return '';
       if (el.type === 'checkbox') return el.checked;
-      if ('value' in el) return el.value;
+      const tag = el.tagName ? el.tagName.toUpperCase() : '';
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
+        return el.value;
+      }
       return el.textContent || '';
     }
     function otterSetText(id, val) {
       const el = otterGetElement(id);
       if (!el) return;
       if (el.type === 'checkbox') { el.checked = Boolean(val); return; }
+      const tag = el.tagName ? el.tagName.toUpperCase() : '';
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
+        el.value = val;
+      } else {
+        el.textContent = val;
+      }
       if ('value' in el) { el.value = val; }
-      else { el.textContent = val; }
     }
     function otterGetTitle(id) { return document.title; }
     function otterSetTitle(id, val) { document.title = val; }
@@ -1349,6 +1512,395 @@ $elementsHtml
         out.textContent = args.join(' ');
       }
     }
+    async function otterReadFile(filePath) {
+      const bridge = window.__OTTER_DESKTOP_BRIDGE__;
+      if (!bridge || !bridge.port || !bridge.token) {
+        console.warn('Desktop Bridge is not available to read "' + filePath + '".');
+        return '';
+      }
+      const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/fs/read', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Otter-Token': bridge.token
+        },
+        body: JSON.stringify({ path: filePath })
+      });
+      if (!resp.ok) {
+        throw new Error('Could not read file "' + filePath + '": HTTP ' + resp.status);
+      }
+      const data = await resp.json();
+      return data.content || '';
+    }
+    async function otterWriteFile(filePath, content) {
+      const bridge = window.__OTTER_DESKTOP_BRIDGE__;
+      if (!bridge || !bridge.port || !bridge.token) {
+        console.warn('Desktop Bridge is not available to write "' + filePath + '".');
+        return false;
+      }
+      const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/fs/write', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Otter-Token': bridge.token
+        },
+        body: JSON.stringify({ path: filePath, content: content })
+      });
+      if (!resp.ok) {
+        throw new Error('Could not write file "' + filePath + '": HTTP ' + resp.status);
+      }
+      return await resp.json();
+    }
+    window.otterWriteFile = otterWriteFile;
+
+    async function otterRunCommand(command) {
+      const bridge = window.__OTTER_DESKTOP_BRIDGE__;
+      if (!bridge || !bridge.port || !bridge.token) {
+        throw new Error('Desktop Bridge is not available to run "' + command + '".');
+      }
+      const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/terminal/exec', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Otter-Token': bridge.token
+        },
+        body: JSON.stringify({ command: command })
+      });
+      if (!resp.ok) {
+        throw new Error('Could not execute command "' + command + '": HTTP ' + resp.status);
+      }
+      const data = await resp.json();
+      const stdout = data.stdout || '';
+      const stderr = data.stderr || '';
+      return {
+        __otterThing: true,
+        typeName: 'command result',
+        props: {
+          output: stdout,
+          'error output': stderr,
+          'exit code': Number.isFinite(Number(data.exitCode)) ? Number(data.exitCode) : -1
+        },
+        order: ['output', 'error output', 'exit code']
+      };
+    }
+    window.otterRunCommand = otterRunCommand;
+
+    async function otterGetFiles(folderPath, includeSubfolders = false) {
+      const bridge = window.__OTTER_DESKTOP_BRIDGE__;
+      if (!bridge || !bridge.port || !bridge.token) {
+        console.warn('Desktop Bridge is not available to get files in "' + folderPath + '".');
+        return [];
+      }
+      const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/fs/files', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Otter-Token': bridge.token
+        },
+        body: JSON.stringify({ path: folderPath, recursive: includeSubfolders })
+      });
+      if (!resp.ok) {
+        throw new Error('Could not get files in "' + folderPath + '": HTTP ' + resp.status);
+      }
+      return await resp.json();
+    }
+    window.otterGetFiles = otterGetFiles;
+
+    async function otterGetFolders(folderPath, includeSubfolders = false) {
+      const bridge = window.__OTTER_DESKTOP_BRIDGE__;
+      if (!bridge || !bridge.port || !bridge.token) {
+        console.warn('Desktop Bridge is not available to get folders in "' + folderPath + '".');
+        return [];
+      }
+      const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/fs/folders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Otter-Token': bridge.token
+        },
+        body: JSON.stringify({ path: folderPath, recursive: includeSubfolders })
+      });
+      if (!resp.ok) {
+        throw new Error('Could not get folders in "' + folderPath + '": HTTP ' + resp.status);
+      }
+      return await resp.json();
+    }
+    window.otterGetFolders = otterGetFolders;
+
+    async function otterFileOperation(operation, payload) {
+      const bridge = window.__OTTER_DESKTOP_BRIDGE__;
+      if (!bridge || !bridge.port || !bridge.token) {
+        throw new Error('Desktop Bridge is not available for file operations.');
+      }
+      const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/fs/operate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Otter-Token': bridge.token
+        },
+        body: JSON.stringify(Object.assign({ operation: operation }, payload || {}))
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        throw new Error(data.error || 'The filesystem operation could not be completed.');
+      }
+      return data;
+    }
+    async function otterFileExists(filePath) {
+      const result = await otterFileOperation('file-exists', { path: filePath });
+      return Boolean(result.exists);
+    }
+    function otterAppendFile(filePath, content) { return otterFileOperation('append-file', { path: filePath, content: content }); }
+    function otterCopyFile(source, destination) { return otterFileOperation('copy-file', { source: source, destination: destination }); }
+    function otterMoveFile(source, destination) { return otterFileOperation('move-file', { source: source, destination: destination }); }
+    function otterDeleteFile(filePath) { return otterFileOperation('delete-file', { path: filePath }); }
+    function otterCreateFolder(folderPath) { return otterFileOperation('create-folder', { path: folderPath }); }
+    function otterDeleteFolder(folderPath) { return otterFileOperation('delete-folder', { path: folderPath }); }
+    function otterCopyFolder(source, destination) { return otterFileOperation('copy-folder', { source: source, destination: destination }); }
+    function otterMoveFolder(source, destination) { return otterFileOperation('move-folder', { source: source, destination: destination }); }
+    window.otterFileExists = otterFileExists;
+    window.otterAppendFile = otterAppendFile;
+    window.otterCopyFile = otterCopyFile;
+    window.otterMoveFile = otterMoveFile;
+    window.otterDeleteFile = otterDeleteFile;
+    window.otterCreateFolder = otterCreateFolder;
+    window.otterDeleteFolder = otterDeleteFolder;
+    window.otterCopyFolder = otterCopyFolder;
+    window.otterMoveFolder = otterMoveFolder;
+    function otterWait(seconds) {
+      const ms = Math.max(0, Number(seconds) * 1000);
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+    function otterDelay(ms) {
+      const delayMs = Math.max(0, Number(ms));
+      return new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+    window.otterWait = otterWait;
+    window.otterDelay = otterDelay;
+    window.wait = otterWait;
+    window.delay = otterDelay;
+    // D67: getDesktopBridge() was called by every system-integration hook
+    // below (clipboard/notify/env/systemPaths/chooseFile/chooseFolder/
+    // saveFileDialog) but never actually defined anywhere in this file -
+    // a real, confirmed "ReferenceError: getDesktopBridge is not
+    // defined" for every one of them on a plain `otter web` compile
+    // (found by loading a real compiled page in a real browser, not by
+    // reading the code). The desktop-bridge path itself was unaffected,
+    // since Otter.Desktop.psm1's own injection completely overrides
+    // window.otterClipboard/etc. before this file's definitions would
+    // ever run. Matches the exact `window.__OTTER_DESKTOP_BRIDGE__`
+    // check every other already-working hook (otterReadFile,
+    // otterGetFiles, etc.) already uses inline, just factored into the
+    // one shared helper name this file's own code already assumed existed.
+    function getDesktopBridge() {
+      return window.__OTTER_DESKTOP_BRIDGE__ || null;
+    }
+    window.otterClipboard = {
+      copy: async function(text) {
+        const bridge = getDesktopBridge();
+        if (bridge) {
+          const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/system/clipboard', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Otter-Token': bridge.token },
+            body: JSON.stringify({ text: text })
+          });
+          return await resp.json();
+        }
+        if (navigator.clipboard) {
+          await navigator.clipboard.writeText(text);
+          return { completed: true };
+        }
+        return { completed: false };
+      },
+      paste: async function() {
+        const bridge = getDesktopBridge();
+        if (bridge) {
+          const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/system/clipboard', {
+            method: 'GET',
+            headers: { 'X-Otter-Token': bridge.token }
+          });
+          const data = await resp.json();
+          return data.text || '';
+        }
+        if (navigator.clipboard) {
+          return await navigator.clipboard.readText();
+        }
+        return '';
+      }
+    };
+    window.otterNotify = async function(title, message) {
+      const bridge = getDesktopBridge();
+      if (bridge) {
+        fetch('http://127.0.0.1:' + bridge.port + '/api/system/notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Otter-Token': bridge.token },
+          body: JSON.stringify({ title: title, message: message })
+        }).catch(() => {});
+      }
+      let container = document.getElementById('otter-toast-container');
+      if (!container) {
+        container = document.createElement('div');
+        container.id = 'otter-toast-container';
+        container.className = 'otter-toast-container';
+        document.body.appendChild(container);
+      }
+      const toast = document.createElement('div');
+      toast.className = 'otter-toast';
+      const toastTitle = document.createElement('strong');
+      toastTitle.textContent = title || 'Notification';
+      const toastMsg = document.createElement('div');
+      toastMsg.textContent = message || '';
+      toast.appendChild(toastTitle);
+      toast.appendChild(toastMsg);
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.3s';
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+      return { completed: true };
+    };
+    window.otterGetEnv = async function(name) {
+      const bridge = getDesktopBridge();
+      if (bridge) {
+        const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/system/env', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Otter-Token': bridge.token },
+          body: JSON.stringify({ name: name })
+        });
+        const data = await resp.json();
+        return data.value;
+      }
+      return null;
+    };
+    window.otterGetSystemPaths = async function() {
+      const bridge = getDesktopBridge();
+      if (bridge) {
+        const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/system/env', {
+          method: 'GET',
+          headers: { 'X-Otter-Token': bridge.token }
+        });
+        return await resp.json();
+      }
+      return {};
+    };
+    window.otterChooseFile = async function() {
+      const bridge = getDesktopBridge();
+      if (bridge) {
+        const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/dialog/open-file', {
+          method: 'POST',
+          headers: { 'X-Otter-Token': bridge.token }
+        });
+        const data = await resp.json();
+        return data.path || '';
+      }
+      return '';
+    };
+    window.otterChooseFolder = async function() {
+      const bridge = getDesktopBridge();
+      if (bridge) {
+        const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/dialog/folder', {
+          method: 'POST',
+          headers: { 'X-Otter-Token': bridge.token }
+        });
+        const data = await resp.json();
+        return data.path || '';
+      }
+      return '';
+    };
+    window.otterSaveFileDialog = async function() {
+      const bridge = getDesktopBridge();
+      if (bridge) {
+        const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/dialog/save-file', {
+          method: 'POST',
+          headers: { 'X-Otter-Token': bridge.token }
+        });
+        const data = await resp.json();
+        return data.path || '';
+      }
+      return '';
+    };
+    window.copyToClipboard = window.otterClipboard.copy;
+    window.getClipboard = window.otterClipboard.paste;
+    window.notify = window.otterNotify;
+    window.chooseFile = window.otterChooseFile;
+    window.chooseFolder = window.otterChooseFolder;
+    window.saveFileDialog = window.otterSaveFileDialog;
+    window.otterStorage = {
+      get: function(key, defaultVal = null) {
+        try {
+          const val = localStorage.getItem(key);
+          if (val === null) return defaultVal;
+          try { return JSON.parse(val); } catch(_) { return val; }
+        } catch(_) { return defaultVal; }
+      },
+      set: function(key, val) {
+        try {
+          const serialized = (typeof val === 'object' && val !== null) ? JSON.stringify(val) : String(val);
+          localStorage.setItem(key, serialized);
+          return true;
+        } catch(_) { return false; }
+      },
+      remove: function(key) {
+        try { localStorage.removeItem(key); return true; } catch(_) { return false; }
+      },
+      clear: function() {
+        try { localStorage.clear(); return true; } catch(_) { return false; }
+      },
+      session: {
+        get: function(key, defaultVal = null) {
+          try {
+            const val = sessionStorage.getItem(key);
+            if (val === null) return defaultVal;
+            try { return JSON.parse(val); } catch(_) { return val; }
+          } catch(_) { return defaultVal; }
+        },
+        set: function(key, val) {
+          try {
+            const serialized = (typeof val === 'object' && val !== null) ? JSON.stringify(val) : String(val);
+            sessionStorage.setItem(key, serialized);
+            return true;
+          } catch(_) { return false; }
+        },
+        remove: function(key) {
+          try { sessionStorage.removeItem(key); return true; } catch(_) { return false; }
+        }
+      }
+    };
+    window.getStorage = window.otterStorage.get;
+    window.setStorage = window.otterStorage.set;
+    window.removeStorage = window.otterStorage.remove;
+    window.otterFetch = async function(url, options = {}) {
+      const resp = await fetch(url, options);
+      const contentType = resp.headers.get('content-type') || '';
+      let data;
+      if (contentType.includes('application/json')) {
+        data = await resp.json();
+      } else {
+        data = await resp.text();
+      }
+      return {
+        ok: resp.ok,
+        status: resp.status,
+        statusText: resp.statusText,
+        data: data,
+        headers: Object.fromEntries(resp.headers.entries())
+      };
+    };
+    window.otterGetJson = async function(url, headers = {}) {
+      const res = await window.otterFetch(url, { method: 'GET', headers: Object.assign({ 'Accept': 'application/json' }, headers) });
+      return res.data;
+    };
+    window.otterPostJson = async function(url, body = {}, headers = {}) {
+      const res = await window.otterFetch(url, {
+        method: 'POST',
+        headers: Object.assign({ 'Content-Type': 'application/json', 'Accept': 'application/json' }, headers),
+        body: JSON.stringify(body)
+      });
+      return res.data;
+    };
+    window.httpGet = window.otterGetJson;
+    window.httpPost = window.otterPostJson;
 
     // Otter Declarative Reactivity Engine
     const otterState = {};
@@ -1521,13 +2073,10 @@ $declarativeListenersJoined
 
 function Export-OtterWebApplication {
     param(
-        [Parameter(Mandatory)][string]$SourcePath,
+        [Parameter(Mandatory)][string[]]$SourcePath,
         [string]$OutputPath,
         [switch]$PassThruExceptions
     )
-
-    $resolvedSource = Resolve-Path -LiteralPath $SourcePath
-    $sourceText = Get-Content -LiteralPath $resolvedSource -Raw -Encoding UTF8
 
     if (-not (Get-Command ConvertTo-OtterTokens -ErrorAction SilentlyContinue)) {
         Import-Module (Join-Path $PSScriptRoot 'Otter.Lexer.psm1') -Global
@@ -1535,18 +2084,52 @@ function Export-OtterWebApplication {
     if (-not (Get-Command ConvertTo-OtterAst -ErrorAction SilentlyContinue)) {
         Import-Module (Join-Path $PSScriptRoot 'Otter.Parser.psm1') -Global
     }
+    if (-not (Get-Command Resolve-OtterModuleSource -ErrorAction SilentlyContinue)) {
+        Import-Module (Join-Path $PSScriptRoot 'Otter.Module.psm1') -Global
+    }
+
+    $sourceParts = [System.Collections.Generic.List[string]]::new()
+    $primarySource = $null
+    $resolvedProgram = $null
+
+    foreach ($src in $SourcePath) {
+        $resolved = Resolve-Path -LiteralPath $src
+        if ($null -eq $primarySource) { $primarySource = $resolved.Path }
+        $resolvedProgram = Resolve-OtterModuleSource -FilePath $resolved.Path
+        $sourceParts.Add($resolvedProgram.CombinedSource)
+    }
+    $sourceText = $sourceParts -join "`n"
 
     try {
         $tokens = ConvertTo-OtterTokens -Source $sourceText
         $ast = ConvertTo-OtterAst -Tokens $tokens
 
-        $defaultTitle = [System.IO.Path]::GetFileNameWithoutExtension($SourcePath)
+        $defaultTitle = [System.IO.Path]::GetFileNameWithoutExtension($primarySource)
         $html = ConvertTo-OtterWeb -Program $ast -Title $defaultTitle
+
+        $sidecarCss = [System.IO.Path]::ChangeExtension($primarySource, '.css')
+        if (Test-Path -LiteralPath $sidecarCss) {
+            $cssContent = [System.IO.File]::ReadAllText($sidecarCss, [System.Text.Encoding]::UTF8)
+            if ($html -match '(?i)</head>') {
+                $html = $html -replace '(?i)</head>', "<style id=`"otter-sidecar-style`">`n$cssContent`n</style>`n</head>"
+            }
+        }
     }
     catch [OtterError] {
         if ($PassThruExceptions) { throw }
+        # Remap combined line number back to originating file & line if source map exists
+        $err = $_.Exception
+        if ($resolvedProgram -and $err.Line -gt 0) {
+            $origin = $resolvedProgram.FindOrigin($err.Line)
+            if ($origin) {
+                $err.Line = $origin.LocalLine
+                $relFile = [System.IO.Path]::GetFileName($origin.FilePath)
+                Write-Host ''
+                Write-Host "In $($relFile):" -ForegroundColor DarkGray
+            }
+        }
         Write-Host ''
-        Write-Host $_.Exception.FormatDetailed() -ForegroundColor Red
+        Write-Host $err.FormatDetailed() -ForegroundColor Red
         Write-Host ''
         exit 1
     }
@@ -1560,7 +2143,7 @@ function Export-OtterWebApplication {
     }
 
     if (-not $OutputPath) {
-        $OutputPath = [System.IO.Path]::ChangeExtension($resolvedSource, '.html')
+        $OutputPath = [System.IO.Path]::ChangeExtension($primarySource, '.html')
     }
 
     Set-Content -LiteralPath $OutputPath -Value $html -Encoding UTF8

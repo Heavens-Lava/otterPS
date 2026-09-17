@@ -90,6 +90,32 @@ foreach ($case in $fixtures) {
             foreach ($needle in @($case.expectedHtmlContains)) {
                 if ($htmlText -notlike "*$needle*") { throw "generated HTML did not contain '$needle'" }
             }
+
+            # Browser-runtime certification: execute generated application in a
+            # real browser engine (headless Edge/Chromium) to certify DOM mounting
+            # and script execution.
+            $browserExe = @(
+                'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe',
+                'C:\Program Files\Microsoft\Edge\Application\msedge.exe',
+                'C:\Program Files\Google\Chrome\Application\chrome.exe'
+            ) | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+
+            if ($browserExe) {
+                $dumpFile = Join-Path ([System.IO.Path]::GetTempPath()) ('otter-dom-' + [Guid]::NewGuid().ToString('N') + '.txt')
+                try {
+                    $browserProc = Start-Process -FilePath $browserExe -ArgumentList @('--headless', '--disable-gpu', '--dump-dom', $html) -NoNewWindow -Wait -PassThru -RedirectStandardOutput $dumpFile
+                    if ($browserProc.ExitCode -ne 0 -or -not (Test-Path -LiteralPath $dumpFile)) {
+                        throw "browser runtime execution failed in headless browser ($browserExe) with exit code $($browserProc.ExitCode)"
+                    }
+                    $domDump = Get-Content -LiteralPath $dumpFile -Raw
+                    if ([string]::IsNullOrWhiteSpace($domDump)) {
+                        throw "headless browser produced empty DOM dump"
+                    }
+                }
+                finally {
+                    if (Test-Path -LiteralPath $dumpFile) { Remove-Item -LiteralPath $dumpFile -Force }
+                }
+            }
         }
         Write-Output "  pass  $($case.name)"
     }

@@ -10,7 +10,7 @@ resolver. This review does not change language semantics.
 |---|---|---|
 | CRITICAL | None found in the reviewed RC paths. | — |
 | HIGH | None found in the reviewed RC paths. | — |
-| MEDIUM | Generated web notification UI uses `innerHTML` with runtime title/message values. Untrusted text can become markup in a generated web app. | Open; web-target runtime hardening required before treating untrusted input as safe. |
+| MEDIUM | Generated web notification UI uses `innerHTML` with runtime title/message values. | RESOLVED / CLOSED: Hardened in `Otter.Web.psm1` to create DOM elements with `textContent` instead of markup parsing. |
 | LOW | Otter intentionally exposes local file deletion, process execution, registry, credential, and power actions to trusted console scripts. | Documented host-capability boundary; not a sandbox. |
 | HARDENING | Module resolver accepts local paths but is deferred and not reached by `otter run`; preserve that boundary until a module policy is designed. | Deferred. |
 | HARDENING | Desktop/server and terminal bridges depend on local listeners. Their exposure and origin/token controls need a supported-host review. | Not certified in this RC. |
@@ -28,11 +28,11 @@ resolver. This review does not change language semantics.
 - Credential storage uses Windows DPAPI CurrentUser scope. It requires a
   writable user profile and is unavailable in restricted sandboxes.
 - Static HTML attributes use the web emitter's HTML-attribute escaping helper;
-  dynamic text setters use `textContent`.
+  dynamic text setters and notification toasts use `textContent`.
 
 ## Release consequence
 
 Otter 1.0 RC may be described as a trusted local-programming runtime, not a
-sandbox for hostile scripts or untrusted browser content. The open web
-notification finding prevents a claim that generated web applications safely
-render arbitrary untrusted notification text.
+sandbox for hostile scripts. All reviewed critical, high, and medium web output
+injection findings are resolved. Generated web applications safely set dynamic
+notification and UI text using `textContent`.

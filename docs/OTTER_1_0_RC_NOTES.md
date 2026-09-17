@@ -21,8 +21,7 @@
 - The installer is per-user and requires Windows PowerShell 5.1. There is no
   package registry, auto-update service, or signed installer yet.
 - Otter is a trusted local-programming runtime, not a sandbox for untrusted
-  scripts. See the security review before deploying generated web output with
-  untrusted notification text.
+  scripts. Dynamic web notification text is safely set with textContent.
 
 ## Verification commands
 

@@ -11,7 +11,7 @@ is intentionally not part of Otter 1.0.
 | Local command execution | Yes | Bridge-dependent | Not certified here | Yes for console | IMPLEMENTED BUT NOT PRODUCTION-CERTIFIED across hosts |
 | HTTP GET/POST/PUT/DELETE | No | Yes (`fetch`) | No claim | No | TARGET-SPECIFIC |
 | `use` modules | No — explicit diagnostic | Resolver groundwork only | No claim | No | DEFERRED FROM 1.0 |
-| Browser UI compilation | No | Yes | No claim | No | IMPLEMENTED BUT NOT PRODUCTION-CERTIFIED in a browser runtime |
+| Browser UI compilation | No | Yes | No claim | No | CERTIFIED in browser runtime (Edge/Chromium headless DOM mounting) |
 | Desktop/server listener hosting | No | No | Host-dependent | No | BLOCKED BY ENVIRONMENT in this pass |
 | Packaging / installer | Per-user script | N/A | N/A | N/A | IMPLEMENTED BUT NOT PRODUCTION-CERTIFIED on a clean machine |
 

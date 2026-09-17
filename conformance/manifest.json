@@ -72,6 +72,70 @@
       "expectedExitCode": 0,
       "expectedHtmlContains": ["<!DOCTYPE html>", "<title>Otter RC Web</title>", "id=\"plusButton\"", "addEventListener('click',"],
       "targets": ["web"]
+    },
+    {
+      "name": "try-fail",
+      "mode": "run",
+      "source": "conformance/errors/try_fail.ot",
+      "expectedExitCode": 0,
+      "expectedStdout": ["caught: custom failure", "caught without capturing reason", "no failure here"],
+      "targets": ["console", "portable-core"]
+    },
+    {
+      "name": "things-and-dynamic-keys",
+      "mode": "run",
+      "source": "conformance/objects/things_and_dynamic_keys.ot",
+      "expectedExitCode": 0,
+      "expectedStdout": ["Jeff", "40", "Sam", "blue", "100"],
+      "targets": ["console", "portable-core"]
+    },
+    {
+      "name": "collections-and-text",
+      "mode": "run",
+      "source": "conformance/strings/collections_and_text.ot",
+      "expectedExitCode": 0,
+      "expectedStdout": [
+        "Mario, Metroid, Zelda",
+        "Zelda, Metroid, Mario",
+        "Hello World",
+        "one, two, three",
+        "one - two - three",
+        "3",
+        "HELLO WORLD",
+        "hello world",
+        "Zelda",
+        "Mario",
+        "starts-with works",
+        "ends-with works",
+        "Mario",
+        "8",
+        "3"
+      ],
+      "targets": ["console", "portable-core"]
+    },
+    {
+      "name": "typed-initializer-negative",
+      "mode": "check",
+      "source": "conformance/negative/typed_object_indented_initializer.ot",
+      "expectedExitCode": 2,
+      "expectedDiagnosticContains": "is a declared type, so its properties must use 'with' on the same line",
+      "targets": ["console", "portable-core"]
+    },
+    {
+      "name": "http-web-target-only",
+      "mode": "web",
+      "source": "conformance/http/http_web_target_only.ot",
+      "expectedExitCode": 0,
+      "expectedHtmlContains": ["fetch(\"https://httpbin.org/get\")", "method: 'POST'", "method: 'PUT'", "method: 'DELETE'"],
+      "targets": ["web"]
+    },
+    {
+      "name": "http-console-negative",
+      "mode": "run",
+      "source": "conformance/http/http_web_target_only.ot",
+      "expectedExitCode": 3,
+      "expectedDiagnosticContains": "I do not know how to run a HttpGet statement yet",
+      "targets": ["console", "portable-core"]
     }
   ]
 }
