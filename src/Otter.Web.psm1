@@ -295,7 +295,7 @@ $bodyCode
     $labelText = ""
     if ($Element.Label) {
         if ($Element.Label -is [LiteralExpr]) {
-            $labelText = [string]$Element.Label.Value
+            $labelText = Escape-OtterHtmlAttr -Text ([string]$Element.Label.Value)
         } else {
             $jsExpr = ConvertTo-OtterJsExpression -Expr $Element.Label
             $escapedExpr = Escape-OtterHtmlAttr -Text $jsExpr
@@ -685,7 +685,7 @@ function ConvertTo-OtterWeb {
                 $spacing = if ($props.Contains('spacing')) { $props['spacing'] } else { 12 }
                 if (-not $props.Contains('gap')) { $styles.Add("gap: ${spacing}px;") }
                 $styleAttr = if ($styles.Count -gt 0) { " style=`"$($styles -join ' ')`"" } else { "" }
-                $cardTitle = if ($props.Contains('title')) { "<h3 class=`"otter-card-title`">$($props['title'])</h3>" } else { "" }
+                $cardTitle = if ($props.Contains('title')) { "<h3 class=`"otter-card-title`">$(Escape-OtterHtmlAttr -Text ([string]$props['title']))</h3>" } else { "" }
                 return @"
       <div id="$resName" class="otter-card"$styleAttr>
         $cardTitle
@@ -694,32 +694,40 @@ function ConvertTo-OtterWeb {
 "@
             }
             'button' {
-                $text = if ($props.Contains('text')) { $props['text'] } else { "Button" }
+                $rawText = if ($props.Contains('text')) { [string]$props['text'] } else { "Button" }
+                $text = Escape-OtterHtmlAttr -Text $rawText
                 return "      <button id=`"$resName`" class=`"otter-button`"$styleAttr>$text</button>"
             }
             'text box' {
-                $val = if ($props.Contains('text')) { $props['text'] } elseif ($props.Contains('value')) { $props['value'] } else { "" }
-                $ph = if ($props.Contains('placeholder')) { " placeholder=`"$($props['placeholder'])`"" } else { "" }
+                $rawVal = if ($props.Contains('text')) { [string]$props['text'] } elseif ($props.Contains('value')) { [string]$props['value'] } else { "" }
+                $val = Escape-OtterHtmlAttr -Text $rawVal
+                $ph = if ($props.Contains('placeholder')) { " placeholder=`"$(Escape-OtterHtmlAttr -Text ([string]$props['placeholder']))`"" } else { "" }
                 return "      <input type=`"text`" id=`"$resName`" class=`"otter-text-box`" value=`"$val`"$ph$styleAttr />"
             }
             'text' {
-                $val = if ($props.Contains('text')) { $props['text'] } elseif ($props.Contains('value')) { $props['value'] } else { "" }
+                $rawVal = if ($props.Contains('text')) { [string]$props['text'] } elseif ($props.Contains('value')) { [string]$props['value'] } else { "" }
+                $val = Escape-OtterHtmlAttr -Text $rawVal
                 return "      <div id=`"$resName`" class=`"otter-text`"$styleAttr>$val</div>"
             }
             'image' {
-                $src = if ($props.Contains('source')) { $props['source'] } elseif ($props.Contains('src')) { $props['src'] } else { "" }
-                $alt = if ($props.Contains('alt')) { $props['alt'] } else { $resName }
+                $rawSrc = if ($props.Contains('source')) { [string]$props['source'] } elseif ($props.Contains('src')) { [string]$props['src'] } else { "" }
+                $rawAlt = if ($props.Contains('alt')) { [string]$props['alt'] } else { $resName }
+                $src = Escape-OtterHtmlAttr -Text $rawSrc
+                $alt = Escape-OtterHtmlAttr -Text $rawAlt
                 return "      <img id=`"$resName`" class=`"otter-image`" src=`"$src`" alt=`"$alt`"$styleAttr />"
             }
             'link' {
-                $href = if ($props.Contains('url')) { $props['url'] } elseif ($props.Contains('href')) { $props['href'] } else { "#" }
-                $text = if ($props.Contains('text')) { $props['text'] } else { $href }
-                $isExternal = [string]$href -match '^(?i)https?://'
+                $rawHref = if ($props.Contains('url')) { [string]$props['url'] } elseif ($props.Contains('href')) { [string]$props['href'] } else { "#" }
+                $rawText = if ($props.Contains('text')) { [string]$props['text'] } else { $rawHref }
+                $href = Escape-OtterHtmlAttr -Text $rawHref
+                $text = Escape-OtterHtmlAttr -Text $rawText
+                $isExternal = [string]$rawHref -match '^(?i)https?://'
                 $linkAttrs = if ($isExternal) { ' target="_blank" rel="noopener noreferrer"' } else { '' }
                 return "      <a id=`"$resName`" class=`"otter-link`" href=`"$href`"$styleAttr$linkAttrs>$text</a>"
             }
             { $_ -in @('checkbox', 'check box') } {
-                $text = if ($props.Contains('text')) { $props['text'] } else { "" }
+                $rawText = if ($props.Contains('text')) { [string]$props['text'] } else { "" }
+                $text = Escape-OtterHtmlAttr -Text $rawText
                 $checked = if ($props.Contains('checked') -and $props['checked']) { " checked" } else { "" }
                 return "      <label class=`"otter-checkbox-label`"$styleAttr><input type=`"checkbox`" id=`"$resName`" class=`"otter-checkbox`"$checked /> <span>$text</span></label>"
             }
@@ -733,7 +741,10 @@ function ConvertTo-OtterWeb {
                         $opts = ([string]$rawOpts -split ',') | ForEach-Object { $_.Trim() }
                     }
                 }
-                $optHtml = ($opts | ForEach-Object { "        <option value=`"$_`">$_</option>" }) -join "`n"
+                $optHtml = ($opts | ForEach-Object {
+                    $escOpt = Escape-OtterHtmlAttr -Text ([string]$_)
+                    "        <option value=`"$escOpt`">$escOpt</option>"
+                }) -join "`n"
                 return @"
       <select id="$resName" class="otter-select"$styleAttr>
 $optHtml
@@ -747,20 +758,22 @@ $optHtml
                 return "      <input type=`"range`" id=`"$resName`" class=`"otter-slider`" min=`"$min`" max=`"$max`" value=`"$val`"$styleAttr />"
             }
             { $_ -in @('text area', 'textarea') } {
-                $val = if ($props.Contains('text')) { $props['text'] } elseif ($props.Contains('value')) { $props['value'] } else { "" }
-                $ph = if ($props.Contains('placeholder')) { " placeholder=`"$($props['placeholder'])`"" } else { "" }
+                $rawVal = if ($props.Contains('text')) { [string]$props['text'] } elseif ($props.Contains('value')) { [string]$props['value'] } else { "" }
+                $val = Escape-OtterHtmlAttr -Text $rawVal
+                $ph = if ($props.Contains('placeholder')) { " placeholder=`"$(Escape-OtterHtmlAttr -Text ([string]$props['placeholder']))`"" } else { "" }
                 $rows = if ($props.Contains('rows')) { $props['rows'] } else { 3 }
                 return "      <textarea id=`"$resName`" class=`"otter-text-area`" rows=`"$rows`"$ph$styleAttr>$val</textarea>"
             }
             { $_ -in @('badge', 'tag') } {
-                $text = if ($props.Contains('text')) { $props['text'] } else { "" }
+                $rawText = if ($props.Contains('text')) { [string]$props['text'] } else { "" }
+                $text = Escape-OtterHtmlAttr -Text $rawText
                 return "      <span id=`"$resName`" class=`"otter-badge`"$styleAttr>$text</span>"
             }
             'canvas' {
                 $w = if ($props.Contains('width')) { $props['width'] } else { 400 }
                 $h = if ($props.Contains('height')) { $props['height'] } else { 300 }
-                $anim = if ($props.Contains('animation')) { $props['animation'] } else { "" }
-                $mode = if ($props.Contains('mode')) { $props['mode'] } else { "2d" }
+                $anim = if ($props.Contains('animation')) { Escape-OtterHtmlAttr -Text ([string]$props['animation']) } else { "" }
+                $mode = if ($props.Contains('mode')) { Escape-OtterHtmlAttr -Text ([string]$props['mode']) } else { "2d" }
                 return "      <canvas id=`"$resName`" class=`"otter-canvas`" width=`"$w`" height=`"$h`" data-animation=`"$anim`" data-mode=`"$mode`"$styleAttr></canvas>"
             }
             { $_ -in @('progress', 'progress bar') } {
@@ -769,13 +782,16 @@ $optHtml
                 return "      <progress id=`"$resName`" class=`"otter-progress`" value=`"$val`" max=`"$max`"$styleAttr></progress>"
             }
             { $_ -in @('toggle', 'switch') } {
-                $text = if ($props.Contains('text')) { $props['text'] } else { "" }
+                $rawText = if ($props.Contains('text')) { [string]$props['text'] } else { "" }
+                $text = Escape-OtterHtmlAttr -Text $rawText
                 $checked = if ($props.Contains('checked') -and ($props['checked'] -eq $true -or $props['checked'] -eq 'true')) { " checked" } else { "" }
                 return "      <label class=`"otter-toggle-label`"$styleAttr><input type=`"checkbox`" id=`"$resName`" class=`"otter-toggle`" role=`"switch`"$checked /><span class=`"otter-toggle-track`"><span class=`"otter-toggle-thumb`"></span></span><span class=`"otter-toggle-text`">$text</span></label>"
             }
             { $_ -in @('radio', 'radio button') } {
-                $text = if ($props.Contains('text')) { $props['text'] } else { "" }
-                $group = if ($props.Contains('group')) { $props['group'] } elseif ($props.Contains('name')) { $props['name'] } else { "default-group" }
+                $rawText = if ($props.Contains('text')) { [string]$props['text'] } else { "" }
+                $text = Escape-OtterHtmlAttr -Text $rawText
+                $rawGroup = if ($props.Contains('group')) { [string]$props['group'] } elseif ($props.Contains('name')) { [string]$props['name'] } else { "default-group" }
+                $group = Escape-OtterHtmlAttr -Text $rawGroup
                 $checked = if ($props.Contains('checked') -and ($props['checked'] -eq $true -or $props['checked'] -eq 'true')) { " checked" } else { "" }
                 return "      <label class=`"otter-radio-label`"$styleAttr><input type=`"radio`" id=`"$resName`" name=`"$group`" class=`"otter-radio`"$checked /> <span>$text</span></label>"
             }

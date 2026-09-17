@@ -2,11 +2,14 @@ using module ..\Otter.Contract.psm1
 
 # tools/Invoke-OtterDifferentialFuzzer.ps1
 # Grammar-aware Differential Testing & Fuzzer for Otter 1.0 RC
+# Scaled for 10,000+ Differential & 10,000+ Mutation Fuzzing Gauntlet
 
 param(
     [int]$Seed = 20261010,
-    [int]$Iterations = 100,
-    [ValidateSet('All', 'Differential', 'MutationFuzz')][string]$Mode = 'All'
+    [int]$Iterations = 10000,
+    [int]$BatchSize = 250,
+    [ValidateSet('All', 'Differential', 'MutationFuzz')][string]$Mode = 'All',
+    [int]$SeedOffset = 0
 )
 
 $ErrorActionPreference = 'Stop'
@@ -18,268 +21,398 @@ Import-Module (Join-Path $PSScriptRoot '..\src\Otter.Compiler.JavaScript.psm1') 
 
 $rand = [System.Random]::new($Seed)
 
-function Run-OtterInterpreterDirect {
-    param([string]$Source)
-    $stdout = [System.Collections.Generic.List[string]]::new()
-    $writer = { param($t) $stdout.Add([string]$t) }.GetNewClosure()
-    Set-OtterOutputWriter -Writer $writer
-    try {
-        $tokens = ConvertTo-OtterTokens -Source $Source
-        $ast = ConvertTo-OtterAst -Tokens $tokens
-        $env = New-OtterEnvironment
-        Invoke-OtterProgram -Program $ast -Environment $env
-        return @{
-            Success = $true
-            Stdout = ($stdout -join "`n").Trim()
-            Error = $null
-            ErrorType = $null
-        }
-    } catch [OtterError] {
-        return @{
-            Success = $false
-            Stdout = ($stdout -join "`n").Trim()
-            Error = $_.Exception.Message
-            ErrorType = 'OtterError'
-            Line = $_.Exception.Line
-        }
-    } catch {
-        return @{
-            Success = $false
-            Stdout = ($stdout -join "`n").Trim()
-            Error = $_.Exception.Message
-            ErrorType = 'HostException'
-            Raw = $_.Exception
-        }
-    } finally {
-        Set-OtterOutputWriter -Writer $null
-    }
-}
-
-function Run-OtterNodeDirect {
-    param([string]$Source)
-    try {
-        $tokens = ConvertTo-OtterTokens -Source $Source
-        $ast = ConvertTo-OtterAst -Tokens $tokens
-
-        $jsLines = [System.Collections.Generic.List[string]]::new()
-        $jsLines.Add('const window = globalThis;')
-        $jsLines.Add('global.window = globalThis;')
-        $jsLines.Add('const fs = require("fs");')
-        $jsLines.Add('const cp = require("child_process");')
-        $jsLines.Add('const otterLog = console.log;')
-        $jsLines.Add('const otterWarn = console.warn;')
-        $jsLines.Add('const otterError = console.error;')
-        $jsLines.Add('const otterSay = (...args) => console.log(args.join(" "));')
-        $jsLines.Add('const otterGetElement = () => null;')
-        $jsLines.Add('(async () => {')
-        foreach ($stmt in $ast.Statements) {
-            $compiled = ConvertTo-OtterJsStatement -Stmt $stmt -Indent 1
-            $jsLines.Add($compiled)
-        }
-        $jsLines.Add('})();')
-        $fullJs = $jsLines -join "`n"
-
-        $tmp = [System.IO.Path]::GetTempFileName() + ".js"
-        [System.IO.File]::WriteAllText($tmp, $fullJs, [System.Text.Encoding]::UTF8)
-        $prevOutEnc = [Console]::OutputEncoding
-        try {
-            [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-            $nodeOut = cmd /c "chcp 65001 >nul && node `"$tmp`" 2>&1"
-            $exitCode = $LASTEXITCODE
-            $outStr = ($nodeOut -join "`n").Trim()
-            if ($exitCode -eq 0) {
-                return @{
-                    Success = $true
-                    Stdout = $outStr
-                    Error = $null
-                }
-            } else {
-                return @{
-                    Success = $false
-                    Stdout = ""
-                    Error = $outStr
-                }
-            }
-        } finally {
-            [Console]::OutputEncoding = $prevOutEnc
-            Remove-Item $tmp -Force -ErrorAction SilentlyContinue
-        }
-    } catch [OtterError] {
-        return @{
-            Success = $false
-            Stdout = ""
-            Error = $_.Exception.Message
-            ErrorType = 'OtterError'
-        }
-    } catch {
-        return @{
-            Success = $false
-            Stdout = ""
-            Error = $_.Exception.Message
-            ErrorType = 'HostException'
-        }
-    }
-}
-
 # -------------------------------------------------------------
-# GENERATOR: Valid Portable Core Otter Programs
+# GENERATOR: Multi-Feature Interactive Portable Core Programs
 # -------------------------------------------------------------
-function New-RandomValidOtterProgram {
+function New-RandomInteractiveOtterProgram {
+    param([int]$ProgramSeed)
+    $r = [System.Random]::new($ProgramSeed)
     $lines = [System.Collections.Generic.List[string]]::new()
-    
-    # Define a helper function
-    $fnName = "compute" + $rand.Next(100, 999)
-    $lines.Add("to $fnName num1 and num2")
-    $op = @('plus', 'minus', 'times')[$rand.Next(3)]
-    $lines.Add("    res is num1 $op num2")
-    $lines.Add("    return res")
-    $lines.Add(".")
-    
-    # Generate variables
-    $v1 = $rand.Next(1, 50)
-    $v2 = $rand.Next(1, 50)
-    $lines.Add("x is $v1")
-    $lines.Add("y is $v2")
-    $lines.Add("val is $fnName x and y")
-    
-    # Add a condition
-    $lines.Add("if val is greater than 20")
-    $lines.Add("    say `"high`"")
-    $lines.Add("otherwise")
-    $lines.Add("    say `"low`"")
+
+    # 1. Helper function with local math, condition, and return
+    $fn1 = "calc" + $r.Next(100, 999)
+    $lines.Add("to $fn1 num")
+    $threshold = $r.Next(5, 25)
+    $multiplier = $r.Next(2, 5)
+    $adder = $r.Next(1, 10)
+    $lines.Add("    if num is greater than $threshold")
+    $lines.Add("        return num times $multiplier")
+    $lines.Add("    otherwise")
+    $lines.Add("        return num plus $adder")
+    $lines.Add("    .")
     $lines.Add(".")
 
-    # Add a loop
-    $loopBound = $rand.Next(2, 6)
-    $lines.Add("total is 0")
-    $lines.Add("count from 1 to $loopBound as step")
-    $lines.Add("    total is total plus step")
+    # 2. Nested function call
+    $fn2 = "pipeline" + $r.Next(100, 999)
+    $lines.Add("to $fn2 val")
+    $lines.Add("    mid is $fn1 val")
+    $lines.Add("    return mid plus 1")
     $lines.Add(".")
-    $lines.Add("say total")
+
+    # 3. Dynamic objects and nested property chains
+    $lines.Add("leaf has")
+    $lines.Add("    score is " + $r.Next(1, 30))
+    $lines.Add("    label is `"leafVal`"")
+    $lines.Add(".")
+    $lines.Add("branch has")
+    $lines.Add("    child is leaf")
+    $lines.Add("    city is `"Denver`"")
+    $lines.Add(".")
+    $lines.Add("root has")
+    $lines.Add("    nxt is branch")
+    $lines.Add(".")
+
+    # 4. Property access & nested function execution
+    $lines.Add("sc is score of child of nxt of root")
+    $lines.Add("computed is $fn2 sc")
+    $lines.Add("say computed")
+
+    # 5. Dynamic key access
+    $lines.Add("get `"city`" from branch into foundCity")
+    $lines.Add("say foundCity")
+
+    # 6. List definitions, nested lists, and list mutations
+    $lines.Add("nums are")
+    $lines.Add("    " + $r.Next(1, 10))
+    $lines.Add("    " + $r.Next(11, 20))
+    $lines.Add("    " + $r.Next(21, 30))
+    $lines.Add(".")
+    $lines.Add("add 99 to nums")
+    $lines.Add("remove 99 from nums")
     
-    # Add a list
-    $lines.Add("items are")
-    $lines.Add("    10")
-    $lines.Add("    20")
-    $lines.Add("    30")
+    # 7. for each loop with accumulator
+    $lines.Add("sum is 0")
+    $lines.Add("for each item in nums")
+    $lines.Add("    sum is sum plus item")
     $lines.Add(".")
-    $lines.Add("firstItem is first of items")
-    $lines.Add("lastItem is last of items")
-    $lines.Add("len is length of items")
-    $lines.Add("say firstItem lastItem len")
+    $lines.Add("say sum")
+
+    # 8. List functions (first of, last of, length of)
+    $lines.Add("firstN is first of nums")
+    $lines.Add("lastN is last of nums")
+    $lines.Add("lenN is length of nums")
+    $lines.Add("say firstN lastN lenN")
+
+    # 9. Count loop with conditional comparison
+    $loopLimit = $r.Next(3, 7)
+    $lines.Add("accum is 0")
+    $lines.Add("count from 1 to $loopLimit as step")
+    $lines.Add("    if step is at least 2")
+    $lines.Add("        accum is accum plus step")
+    $lines.Add("    .")
+    $lines.Add(".")
+    $lines.Add("say accum")
+
+    # 10. String operations and gone checks
+    $lines.Add("greeting is `"hello`"")
+    $lines.Add("greetingLen is length of greeting")
+    $lines.Add("say greetingLen")
+    $lines.Add("gVal is gone")
+    $lines.Add("if gVal is gone")
+    $lines.Add("    say `"is_gone`"")
+    $lines.Add(".")
 
     return ($lines -join "`n")
 }
 
 # -------------------------------------------------------------
-# MUTATOR: Introduces near-valid syntax mutations
+# MUTATOR: 13-Class Grammar-Aware Adversarial Mutation Suite
 # -------------------------------------------------------------
-function Mutate-OtterSource {
-    param([string]$Source)
+function Mutate-OtterGrammarAware {
+    param([string]$Source, [int]$MutationSeed)
+    $r = [System.Random]::new($MutationSeed)
     $srcLines = $Source -split "`n"
-    $idx = $rand.Next($srcLines.Length)
-    $line = $srcLines[$idx]
-    
-    $mutation = $rand.Next(5)
-    switch ($mutation) {
-        0 { # Add unclosed quote
-            $srcLines[$idx] = $line + ' "unclosed'
-        }
-        1 { # Indentation mutation
-            $srcLines[$idx] = "`t`t" + $line
-        }
-        2 { # Remove block terminator
-            if ($line.Trim() -eq '.') {
-                $srcLines[$idx] = '# dropped period'
-            } else {
-                $srcLines[$idx] = $line + ' extraWord'
+    if ($srcLines.Length -eq 0) { return "say `"empty`"" }
+    $lineIdx = $r.Next($srcLines.Length)
+    $line = $srcLines[$lineIdx]
+
+    $mutationClass = $r.Next(14)
+    switch ($mutationClass) {
+        0 { # 1. Token deletion
+            $words = $line.Split(' ')
+            if ($words.Length -gt 1) {
+                $dropIdx = $r.Next($words.Length)
+                $words = $words[0..($dropIdx - 1)] + $words[($dropIdx + 1)..($words.Length - 1)]
+                $srcLines[$lineIdx] = ($words -join ' ')
             }
         }
-        3 { # Chained assignment / operator error
-            $srcLines[$idx] = $line + ' is 42'
+        1 { # 2. Token duplication
+            $words = $line.Split(' ')
+            if ($words.Length -gt 0) {
+                $dupIdx = $r.Next($words.Length)
+                $words[$dupIdx] = "$($words[$dupIdx]) $($words[$dupIdx])"
+                $srcLines[$lineIdx] = ($words -join ' ')
+            }
         }
-        4 { # Keyword collision
-            $srcLines[$idx] = "make is 10"
+        2 { # 3. Operator substitution
+            $srcLines[$lineIdx] = $line -replace ' plus ', ' times ' -replace ' is ', ' = '
+        }
+        3 { # 4. Keyword substitution
+            $srcLines[$lineIdx] = $line -replace '^(\s*)if ', '$1while ' -replace '^(\s*)to ', '$1fn '
+        }
+        4 { # 5. Block terminator removal / addition
+            if ($line.Trim() -eq '.') {
+                $srcLines[$lineIdx] = '# dropped period'
+            } else {
+                $srcLines[$lineIdx] = "$line`n."
+            }
+        }
+        5 { # 6. Indentation mutation (irregular spaces/tabs)
+            $badIndent = switch ($r.Next(3)) {
+                0 { "   " }    # 3 spaces
+                1 { "     " }  # 5 spaces
+                default { "`t  " } # mixed tab and spaces
+            }
+            $srcLines[$lineIdx] = $badIndent + $line.TrimStart()
+        }
+        6 { # 7. Malformed strings (unclosed quotes, bad escapes)
+            $srcLines[$lineIdx] = $line + ' "unclosed string'
+        }
+        7 { # 8. Malformed numbers
+            $srcLines[$lineIdx] = $line -replace '\b\d+\b', '1.2.3'
+        }
+        8 { # 9. Malformed property chains
+            $srcLines[$lineIdx] = $line -replace ' of ', ' of of '
+        }
+        9 { # 10. Malformed function calls (missing args, extra tokens)
+            $srcLines[$lineIdx] = $line + ' extraArg1 extraArg2'
+        }
+        10 { # 11. Malformed object/list blocks (bare words inside)
+            $srcLines[$lineIdx] = "    bareWordWithoutProperty"
+        }
+        11 { # 12. CRLF/LF variation
+            $Source = $Source -replace "`r`n", "`n"
+            return ($Source -replace "`n", "`r`n")
+        }
+        12 { # 13. Comments at structural boundaries
+            $srcLines[$lineIdx] = $line -replace ' is ', ' # boundary comment `n is '
+        }
+        13 { # 14. Unicode text in comments
+            $srcLines[$lineIdx] = $line + ' # Unicode comment test'
         }
     }
     return ($srcLines -join "`n")
 }
 
 Write-Host "====================================================" -ForegroundColor Cyan
-Write-Host "Otter 1.0 RC Differential Testing & Fuzzing Gauntlet" -ForegroundColor Cyan
+Write-Host "Otter 1.0 RC Scaled Adversarial Gauntlet (Batch 3)" -ForegroundColor Cyan
 Write-Host "Seed: $Seed | Iterations: $Iterations | Mode: $Mode" -ForegroundColor Cyan
 Write-Host "====================================================" -ForegroundColor Cyan
 
-$differentialPassed = 0
-$differentialFailed = 0
-$fuzzSafe = 0
-$fuzzRawCrashes = 0
 $issues = [System.Collections.Generic.List[hashtable]]::new()
 
+# =============================================================
+# PART 1: 10,000 SEEDED DIFFERENTIAL RUNS
+# =============================================================
 if ($Mode -in @('All', 'Differential')) {
-    Write-Host "`nRunning Differential Parity Suite ($Iterations iterations)..." -ForegroundColor Yellow
-    for ($i = 1; $i -le $Iterations; $i++) {
-        $source = New-RandomValidOtterProgram
-        $resInt = Run-OtterInterpreterDirect -Source $source
-        $resNode = Run-OtterNodeDirect -Source $source
+    Write-Host "`nRunning $Iterations Seeded Feature-Interaction Differential Programs..." -ForegroundColor Yellow
+    $diffPassed = 0
+    $diffDisagreements = 0
 
-        if ($resInt.Success -and $resNode.Success) {
-            if ($resInt.Stdout -eq $resNode.Stdout) {
-                $differentialPassed++
-            } else {
-                $differentialFailed++
-                $issues.Add(@{
-                    Type = 'INTERPRETER_JS_DISAGREEMENT'
-                    Iteration = $i
-                    Source = $source
-                    InterpreterStdout = $resInt.Stdout
-                    NodeStdout = $resNode.Stdout
+    $batchCount = [int][Math]::Ceiling($Iterations / $BatchSize)
+    $totalEvaluated = 0
+
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+
+    $stdoutBuffer = [System.Collections.Generic.List[string]]::new()
+    Set-OtterOutputWriter -Writer { param($m) $stdoutBuffer.Add($m) }.GetNewClosure()
+
+    try {
+        for ($b = 0; $b -lt $batchCount; $b++) {
+            $curBatchSize = [Math]::Min($BatchSize, ($Iterations - $totalEvaluated))
+            $batchPrograms = [System.Collections.Generic.List[hashtable]]::new()
+
+            for ($i = 0; $i -lt $curBatchSize; $i++) {
+                $progSeed = $Seed + $SeedOffset + $totalEvaluated + $i
+                $src = New-RandomInteractiveOtterProgram -ProgramSeed $progSeed
+                
+                # In-process Interpreter run
+                $stdoutBuffer.Clear()
+                $intOut = ""
+                $intSuccess = $true
+                $intAst = $null
+                try {
+                    $t = ConvertTo-OtterTokens -Source $src
+                    $intAst = ConvertTo-OtterAst -Tokens $t
+                    $env = New-OtterEnvironment
+                    Invoke-OtterProgram -Program $intAst -Environment $env
+                    $intOut = ($stdoutBuffer -join "`n").Trim()
+                } catch {
+                    $intSuccess = $false
+                    $intOut = $_.Exception.Message
+                }
+
+                $batchPrograms.Add(@{
+                    Seed = $progSeed
+                    Source = $src
+                    Ast = $intAst
+                    IntOut = $intOut
+                    IntSuccess = $intSuccess
                 })
             }
-        } else {
-            $differentialFailed++
-            $issues.Add(@{
-                Type = 'RUNTIME_EXECUTION_FAILURE'
-                Iteration = $i
-                Source = $source
-                Interpreter = $resInt
-                Node = $resNode
-            })
+
+        # Build batched Node JS runner with vm.runInNewContext
+        $jsLines = [System.Collections.Generic.List[string]]::new()
+        $jsLines.Add('const fs = require("fs");')
+        $jsLines.Add('const vm = require("vm");')
+        $jsLines.Add('const results = [];')
+        $jsLines.Add('const tests = [')
+        foreach ($bp in $batchPrograms) {
+            $codeLines = [System.Collections.Generic.List[string]]::new()
+            if ($bp.Ast) {
+                foreach ($stmt in $bp.Ast.Statements) {
+                    $codeLines.Add((ConvertTo-OtterJsStatement -Stmt $stmt -Indent 0))
+                }
+            }
+            $escapedCode = ($codeLines -join "`n")
+            $jsonCode = ConvertTo-Json -InputObject $escapedCode
+            $jsLines.Add("  $jsonCode,")
+        }
+        $jsLines.Add('];')
+
+        $jsLines.Add(@'
+for (let i = 0; i < tests.length; i++) {
+  const output = [];
+  const sandbox = {
+    output: output,
+    otterSay: (...args) => output.push(args.join(' ')),
+    otterGetElement: () => null,
+    console: console,
+    Math: Math,
+    Date: Date,
+    String: String,
+    Number: Number,
+    Boolean: Boolean,
+    Array: Array,
+    Object: Object
+  };
+  sandbox.window = sandbox;
+  sandbox.globalThis = sandbox;
+  sandbox.global = sandbox;
+  try {
+    vm.runInNewContext(tests[i], sandbox);
+    results.push({ success: true, stdout: output.join('\n').trim() });
+  } catch(e) {
+    results.push({ success: false, error: e.message });
+  }
+}
+fs.writeFileSync(process.argv[2], JSON.stringify(results));
+'@)
+
+        $tmpJs = [System.IO.Path]::GetTempFileName() + '.js'
+        $tmpOut = [System.IO.Path]::GetTempFileName() + '.json'
+        [System.IO.File]::WriteAllText($tmpJs, ($jsLines -join "`n"), [System.Text.Encoding]::UTF8)
+
+        try {
+            node $tmpJs $tmpOut
+            $jsonRaw = [System.IO.File]::ReadAllText($tmpOut, [System.Text.Encoding]::UTF8)
+            $nodeResults = ConvertFrom-Json $jsonRaw
+
+            for ($i = 0; $i -lt $curBatchSize; $i++) {
+                $bp = $batchPrograms[$i]
+                $nr = $nodeResults[$i]
+
+                if ($bp.IntSuccess -and $nr.success -and ($bp.IntOut -eq $nr.stdout)) {
+                    $diffPassed++
+                } else {
+                    $diffDisagreements++
+                    $issues.Add(@{
+                        Category = 'DIFFERENTIAL_DISAGREEMENT'
+                        Seed = $bp.Seed
+                        Source = $bp.Source
+                        InterpreterOut = $bp.IntOut
+                        NodeOut = $(if ($nr.success) { $nr.stdout } else { $nr.error })
+                    })
+                }
+            }
+        } finally {
+            Remove-Item $tmpJs -Force -ErrorAction SilentlyContinue
+            Remove-Item $tmpOut -Force -ErrorAction SilentlyContinue
+        }
+
+        $totalEvaluated += $curBatchSize
+        if ($totalEvaluated % 1000 -eq 0 -or $totalEvaluated -eq $Iterations) {
+            Write-Host "  Differential progress: $totalEvaluated / $Iterations ($diffPassed passed, $diffDisagreements disagreements)" -ForegroundColor Cyan
         }
     }
-    Write-Host "Differential Testing: $differentialPassed passed, $differentialFailed disagreements." -ForegroundColor $(if ($differentialFailed -eq 0) { 'Green' } else { 'Red' })
+} finally {
+    Set-OtterOutputWriter -Writer $null
+}
+    $sw.Stop()
+    Write-Host "Completed $Iterations Differential Runs in $($sw.Elapsed.TotalSeconds.ToString('F1'))s ($diffPassed passed, $diffDisagreements disagreements)." -ForegroundColor $(if ($diffDisagreements -eq 0) { 'Green' } else { 'Red' })
 }
 
+# =============================================================
+# PART 2: 10,000 SEEDED GRAMMAR-AWARE MUTATION FUZZ RUNS
+# =============================================================
 if ($Mode -in @('All', 'MutationFuzz')) {
-    Write-Host "`nRunning Mutation Fuzzing Suite ($Iterations iterations)..." -ForegroundColor Yellow
-    for ($i = 1; $i -le $Iterations; $i++) {
-        $base = New-RandomValidOtterProgram
-        $mutated = Mutate-OtterSource -Source $base
-        
-        $resInt = Run-OtterInterpreterDirect -Source $mutated
-        if ($resInt.ErrorType -eq 'HostException') {
-            $fuzzRawCrashes++
-            $issues.Add(@{
-                Type = 'RAW_HOST_EXCEPTION'
-                Iteration = $i
-                Source = $mutated
-                Error = $resInt.Error
-            })
-        } else {
-            $fuzzSafe++
+    Write-Host "`nRunning $Iterations Seeded Grammar-Aware Mutation Fuzzing Runs..." -ForegroundColor Yellow
+    $fuzzHandledSafely = 0
+    $fuzzRawCrashes = 0
+    $swFuzz = [System.Diagnostics.Stopwatch]::StartNew()
+    $maxSteps = 1000
+    $script:FuzzStepCount = 0
+    Set-OtterStatementHook -Hook {
+        param($Statement, $Environment, $CallStack)
+        $script:FuzzStepCount++
+        if ($script:FuzzStepCount -gt 1000) {
+            throw [OtterError]::new('Execution step limit exceeded in fuzzer (infinite loop guard).', $Statement.Line, 'runtime', 0, $null, 'Ensure loops terminate.')
         }
+    }.GetNewClosure()
+
+    Set-OtterOutputWriter -Writer { param($m) }.GetNewClosure()
+    try {
+        for ($i = 1; $i -le $Iterations; $i++) {
+            $baseSeed = $Seed + $SeedOffset + $i
+            $baseSrc = New-RandomInteractiveOtterProgram -ProgramSeed $baseSeed
+            $mutatedSrc = Mutate-OtterGrammarAware -Source $baseSrc -MutationSeed ($baseSeed * 7 + 13)
+
+            $script:FuzzStepCount = 0
+            try {
+                $tokens = ConvertTo-OtterTokens -Source $mutatedSrc
+                $ast = ConvertTo-OtterAst -Tokens $tokens
+                $env = New-OtterEnvironment
+                $null = Invoke-OtterProgram -Program $ast -Environment $env
+                $fuzzHandledSafely++
+            } catch [OtterError] {
+                # Controlled Otter diagnostic: expected and safe!
+                $fuzzHandledSafely++
+            } catch {
+                # Raw .NET / PowerShell exception escaped: CRITICAL DEFECT!
+                $fuzzRawCrashes++
+                $issues.Add(@{
+                    Category = 'RAW_HOST_EXCEPTION_ESCAPE'
+                    Iteration = $i
+                    Seed = $baseSeed
+                    Source = $mutatedSrc
+                    ExceptionType = $_.Exception.GetType().FullName
+                    ExceptionMessage = $_.Exception.Message
+                })
+            }
+
+            if ($i % 1000 -eq 0 -or $i -eq $Iterations) {
+                Write-Host "  Mutation Fuzz progress: $i / $Iterations ($fuzzHandledSafely safe, $fuzzRawCrashes raw crashes)" -ForegroundColor Cyan
+            }
+        }
+    } finally {
+        Set-OtterStatementHook -Hook $null
+        Set-OtterOutputWriter -Writer $null
     }
-    Write-Host "Mutation Fuzzing: $fuzzSafe handled safely as OtterError/Pass, $fuzzRawCrashes raw host exceptions." -ForegroundColor $(if ($fuzzRawCrashes -eq 0) { 'Green' } else { 'Red' })
+    $swFuzz.Stop()
+    Write-Host "Completed $Iterations Mutation Fuzzing Runs in $($swFuzz.Elapsed.TotalSeconds.ToString('F1'))s ($fuzzHandledSafely safe, $fuzzRawCrashes raw crashes)." -ForegroundColor $(if ($fuzzRawCrashes -eq 0) { 'Green' } else { 'Red' })
 }
 
+# =============================================================
+# FINAL VERIFICATION & REPORT
+# =============================================================
 Write-Host "`n===================================================="
 if ($issues.Count -eq 0) {
-    Write-Host "GAUNTLET CERTIFIED: 0 disagreements, 0 raw host crashes." -ForegroundColor Green
+    Write-Host "GAUNTLET CERTIFIED: 0 disagreements across 10,000 differential programs, 0 raw host exceptions across 10,000 mutations." -ForegroundColor Green
     exit 0
 } else {
-    Write-Host "DEFECTS FOUND: $($issues.Count)" -ForegroundColor Red
-    foreach ($issue in $issues) {
-        Write-Host "  - [$($issue.Type)] Iteration $($issue.Iteration)" -ForegroundColor Yellow
+    Write-Host "DEFECTS IDENTIFIED: $($issues.Count)" -ForegroundColor Red
+    foreach ($issue in $issues | Select-Object -First 10) {
+        Write-Host "  - [$($issue.Category)] Seed: $($issue.Seed) | Error: $($issue.ExceptionMessage)$($issue.InterpreterOut)" -ForegroundColor Yellow
     }
     exit 1
 }

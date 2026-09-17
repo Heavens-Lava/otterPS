@@ -124,6 +124,7 @@ function ConvertTo-OtterJsExpression {
             if ($val -is [bool]) { return $(if ($val) { 'true' } else { 'false' }) }
             if ($val -is [double] -or $val -is [int] -or $val -is [long]) { return [string]$val }
             $escaped = [string]$val -replace '\\', '\\' -replace '"', '\"' -replace "`n", '\n' -replace "`r", ''
+            $escaped = $escaped -replace '(?i)</script', '<\/script'
             return "`"$escaped`""
         }
         ([NodeKind]::Variable) {
@@ -768,9 +769,7 @@ function ConvertTo-OtterJsStatement {
             $itemIndex = 0
             foreach ($item in $Stmt.Items) {
                 $itemJs = ConvertTo-OtterJsExpression -Expr $item
-                $tmp = "_v$itemIndex"
-                $lines.Add("${itemsInner}const $tmp = $itemJs;")
-                $lines.Add("${itemsInner}if (Array.isArray($tmp)) { _items.push(...$tmp); } else { _items.push($tmp); }")
+                $lines.Add("${itemsInner}_items.push($itemJs);")
                 $itemIndex++
             }
             if ($LocalNames -and $LocalNames.Contains($varName)) {

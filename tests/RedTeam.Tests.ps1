@@ -604,6 +604,154 @@ say msg
     }
 }
 
+# -------------------------------------------------------------
+# VECTOR 10: SCRIPT ESCAPING & INJECTION RESISTANCE (RT-007)
+# -------------------------------------------------------------
+Assert-AdversarialCase -Name "V10_script_breakout_escaped" -Vector "ScriptEscaping" -ExpectedCategory "Pass" -Source @"
+payload is "</script><script>alert('xss')</script>"
+say payload
+"@ -Validator {
+    param($Interpreter, $Node)
+    if (-not $Interpreter.Success) { throw "Interpreter failed: $($Interpreter.Error)" }
+    if ($Interpreter.Stdout -ne "</script><script>alert('xss')</script>") { throw "Interpreter wrong stdout: $($Interpreter.Stdout)" }
+    if (-not $Node.Success) { throw "Node failed: $($Node.Error)" }
+    if ($Node.Stdout -ne "</script><script>alert('xss')</script>") { throw "Node wrong stdout: $($Node.Stdout)" }
+}
+
+# -------------------------------------------------------------
+# VECTOR 11: COLLECTION PASSING & MUTATION INTEGRITY (RT-008)
+# -------------------------------------------------------------
+Assert-AdversarialCase -Name "V11_empty_list_function_parameter" -Vector "CollectionIntegrity" -ExpectedCategory "Pass" -Source @"
+to inspectItems items
+    say length of items
+.
+emptyList are empty
+inspectItems emptyList
+"@ -Validator {
+    param($Interpreter, $Node)
+    if (-not $Interpreter.Success) { throw "Interpreter failed: $($Interpreter.Error)" }
+    if ($Interpreter.Stdout -ne "0") { throw "Interpreter wrong stdout: $($Interpreter.Stdout)" }
+    if (-not $Node.Success) { throw "Node failed: $($Node.Error)" }
+    if ($Node.Stdout -ne "0") { throw "Node wrong stdout: $($Node.Stdout)" }
+}
+
+Assert-AdversarialCase -Name "V11_populated_list_function_parameter" -Vector "CollectionIntegrity" -ExpectedCategory "Pass" -Source @"
+to inspectItems items
+    say length of items
+    say first of items
+.
+items are
+    10
+    20
+    30
+.
+inspectItems items
+"@ -Validator {
+    param($Interpreter, $Node)
+    if (-not $Interpreter.Success) { throw "Interpreter failed: $($Interpreter.Error)" }
+    if ($Interpreter.Stdout -ne "3`n10") { throw "Interpreter wrong stdout: $($Interpreter.Stdout)" }
+    if (-not $Node.Success) { throw "Node failed: $($Node.Error)" }
+    if ($Node.Stdout -ne "3`n10") { throw "Node wrong stdout: $($Node.Stdout)" }
+}
+
+Assert-AdversarialCase -Name "V11_nested_list_definition_preserves_length" -Vector "CollectionIntegrity" -ExpectedCategory "Pass" -Source @"
+row1 are
+    1
+    2
+.
+row2 are
+    3
+    4
+.
+matrix are
+    row1
+    row2
+.
+say length of matrix
+"@ -Validator {
+    param($Interpreter, $Node)
+    if (-not $Interpreter.Success) { throw "Interpreter failed: $($Interpreter.Error)" }
+    if ($Interpreter.Stdout -ne "2") { throw "Interpreter wrong stdout: $($Interpreter.Stdout)" }
+    if (-not $Node.Success) { throw "Node failed: $($Node.Error)" }
+    if ($Node.Stdout -ne "2") { throw "Node wrong stdout: $($Node.Stdout)" }
+}
+
+Assert-AdversarialCase -Name "V11_collection_mutation_during_each" -Vector "CollectionIntegrity" -ExpectedCategory "Pass" -Source @"
+items are
+    1
+    2
+    3
+.
+out are empty
+for each x in items
+    add x to out
+    if x is 2
+        remove 3 from items
+    .
+.
+say length of out
+say length of items
+"@ -Validator {
+    param($Interpreter, $Node)
+    if (-not $Interpreter.Success) { throw "Interpreter failed: $($Interpreter.Error)" }
+    if ($Interpreter.Stdout -ne "3`n2") { throw "Interpreter wrong stdout: $($Interpreter.Stdout)" }
+    if (-not $Node.Success) { throw "Node failed: $($Node.Error)" }
+    if ($Node.Stdout -ne "3`n2") { throw "Node wrong stdout: $($Node.Stdout)" }
+}
+
+# -------------------------------------------------------------
+# VECTOR 12: RECURSION GUARD & STACK LIMIT (RT-009)
+# -------------------------------------------------------------
+Assert-AdversarialCase -Name "V12_infinite_recursion_handled_gracefully" -Vector "RecursionGuard" -ExpectedCategory "ExpectedRejection" -Source @"
+to infiniteLoop n
+    next is n plus 1
+    infiniteLoop next
+.
+infiniteLoop 1
+"@ -Validator {
+    param($Interpreter, $Node)
+    if ($Interpreter.Success) { throw "Interpreter silently succeeded on infinite recursion!" }
+    if ($Interpreter.ErrorType -ne 'OtterError') {
+        throw "Interpreter leaked raw host exception: $($Interpreter.Error)"
+    }
+    if ($Interpreter.Error -notmatch "Call depth limit exceeded") {
+        throw "Interpreter unexpected error message: $($Interpreter.Error)"
+    }
+}
+
+# -------------------------------------------------------------
+# VECTOR 13: DEEP NESTED PROPERTY ACCESS STRESS (Depths 1..25)
+# -------------------------------------------------------------
+Assert-AdversarialCase -Name "V13_deep_nested_property_chains" -Vector "DeepProperties" -ExpectedCategory "Pass" -Source @"
+l0 has
+    val is 42
+.
+l1 has
+    child is l0
+.
+l2 has
+    child is l1
+.
+l3 has
+    child is l2
+.
+l4 has
+    child is l3
+.
+l5 has
+    child is l4
+.
+say val of child of child of child of child of child of l5
+val of child of child of child of child of child of l5 is 99
+say val of child of child of child of child of child of l5
+"@ -Validator {
+    param($Interpreter, $Node)
+    if (-not $Interpreter.Success) { throw "Interpreter failed: $($Interpreter.Error)" }
+    if ($Interpreter.Stdout -ne "42`n99") { throw "Interpreter wrong stdout: $($Interpreter.Stdout)" }
+    if (-not $Node.Success) { throw "Node failed: $($Node.Error)" }
+    if ($Node.Stdout -ne "42`n99") { throw "Node wrong stdout: $($Node.Stdout)" }
+}
+
 Write-Output ''
 $failed = $results | Where-Object { $null -ne $_.Defect }
 if ($failed.Count -eq 0) {

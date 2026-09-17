@@ -33,6 +33,38 @@ $script:SourceLines = @()
 # so a function cannot see its caller's local variables.
 $script:GlobalEnvironment = $null
 
+# ===============================================================
+# DEBUGGER HOOK
+# ===============================================================
+#
+# ONE instrumentation point for the whole interpreter: every statement,
+# top-level or nested (if/while/repeat/foreach bodies, function bodies - all
+# of them run through Invoke-OtterStatement), passes through here first. A
+# debugger (src/Otter.Debugger.psm1) plugs in by calling
+# Set-OtterStatementHook; nothing else in this file knows a debugger exists.
+#
+# When no hook is set (the default - every normal `otter run`), this is a
+# single null check per statement and nothing else changes: no extra output,
+# no altered control flow, no altered values. That is what "preserve normal
+# execution semantics when debugging is disabled" means at the code level.
+$script:StatementHook = $null
+
+function Set-OtterStatementHook {
+    param([scriptblock]$Hook)
+    $script:StatementHook = $Hook
+}
+
+# The Otter call stack, in Otter terms only: which function is running and
+# the Otter source line that called it. Maintained unconditionally (it is
+# pure bookkeeping - a list add/remove around a call - and never touches an
+# Otter value or a control-flow decision), so "Otter call frames" are a real,
+# always-available concept, not something that only exists while debugging.
+$script:CallStack = [System.Collections.Generic.List[object]]::new()
+
+function Get-OtterCallStackSnapshot {
+    return $script:CallStack
+}
+
 # Where "say" sends its text. Defaults to the console; tests swap in a
 # collector so they can assert on what a program printed. Keeping this behind
 # one function is also what lets `say` avoid Write-Output, which would leak
@@ -164,6 +196,7 @@ function Invoke-OtterProgram {
 
     $script:SourceLines = $SourceLines
     $script:GlobalEnvironment = $Environment
+    $script:CallStack.Clear()
 
     try {
         Invoke-OtterStatements -Statements $Program.Statements -Environment $Environment
@@ -202,6 +235,10 @@ function Invoke-OtterStatements {
 
 function Invoke-OtterStatement {
     param([Node]$Statement, [OtterEnvironment]$Environment)
+
+    if ($null -ne $script:StatementHook) {
+        & $script:StatementHook -Statement $Statement -Environment $Environment -CallStack $script:CallStack
+    }
 
     switch ($Statement.Kind.ToString()) {
 
@@ -464,9 +501,9 @@ function Invoke-OtterStatement {
 
         # games are / games are empty      (D13)
         'ListDef' {
-            $values = @()
+            $values = [System.Collections.Generic.List[object]]::new()
             foreach ($item in $Statement.Items) {
-                $values += (Get-OtterValue -Expression $item -Environment $Environment)
+                $values.Add((Get-OtterValue -Expression $item -Environment $Environment))
             }
             $Environment.Set($Statement.Name, (New-OtterList -Items $values))
             return
@@ -1919,9 +1956,9 @@ function Invoke-OtterCall {
     }
 
     # Arguments are worked out in the CALLER's scope, before the new one exists.
-    $arguments = @()
+    $arguments = [System.Collections.Generic.List[object]]::new()
     foreach ($argument in $Call.Arguments) {
-        $arguments += (Get-OtterValue -Expression $argument -Environment $Environment)
+        $arguments.Add((Get-OtterValue -Expression $argument -Environment $Environment))
     }
 
     $local = [OtterEnvironment]::new($script:GlobalEnvironment)
@@ -1931,20 +1968,35 @@ function Invoke-OtterCall {
         $local.SetLocal($target.Parameters[$i], $arguments[$i])
     }
 
-    try {
-        Invoke-OtterStatements -Statements $target.Body -Environment $local
-    }
-    catch {
-        # "return" is control flow wearing an exception's clothes.
-        if ($_.Exception -is [OtterReturnSignal]) {
-            Write-Output -NoEnumerate $_.Exception.Value
-            return
-        }
-        throw
+    if ($script:CallStack.Count -ge 250) {
+        throw (New-OtterRuntimeError -Message 'Call depth limit exceeded (possible infinite recursion).' -Line $Call.Line -Suggestion 'Check for infinite recursion or reduce call nesting.')
     }
 
-    # A function that never returns anything produces nothing.
-    return $null
+    # Otter call frame: which function, called from which Otter source line,
+    # with which local scope. Pushed/popped around the body so a debugger (or
+    # anything else) asking "what is Otter's call stack right now" gets a
+    # real answer in Otter terms - never a PowerShell call stack.
+    $frame = [pscustomobject]@{ FunctionName = $name; CallLine = $Call.Line; Environment = $local }
+    [void]$script:CallStack.Add($frame)
+    try {
+        try {
+            Invoke-OtterStatements -Statements $target.Body -Environment $local
+        }
+        catch {
+            # "return" is control flow wearing an exception's clothes.
+            if ($_.Exception -is [OtterReturnSignal]) {
+                Write-Output -NoEnumerate $_.Exception.Value
+                return
+            }
+            throw
+        }
+
+        # A function that never returns anything produces nothing.
+        return $null
+    }
+    finally {
+        $script:CallStack.RemoveAt($script:CallStack.Count - 1)
+    }
 }
 
 
@@ -2188,4 +2240,5 @@ function New-OtterEnvironment {
 Export-ModuleMember -Function `
     Invoke-OtterProgram, Invoke-OtterStatements, Invoke-OtterStatement, `
     Get-OtterValue, Invoke-OtterCall, New-OtterEnvironment, Get-OtterTypeName, `
-    Set-OtterOutputWriter, Set-OtterDiagnosticWriter, Write-OtterLine, Get-OtterText, Get-OtterPathArgument, Set-OtterTarget
+    Set-OtterOutputWriter, Set-OtterDiagnosticWriter, Write-OtterLine, Get-OtterText, Get-OtterPathArgument, Set-OtterTarget, `
+    Set-OtterStatementHook, Get-OtterCallStackSnapshot
