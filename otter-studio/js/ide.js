@@ -257,8 +257,10 @@ export class OtterStudioIde {
     this.btnNavigateForward = document.getElementById('btnNavigateForward');
     this.workspaceSearchForm = document.getElementById('workspaceSearchForm');
     this.workspaceSearchInput = document.getElementById('workspaceSearchInput');
+    this.workspaceReplaceInput = document.getElementById('workspaceReplaceInput');
     this.workspaceSearchRegex = document.getElementById('workspaceSearchRegex');
     this.workspaceSearchCase = document.getElementById('workspaceSearchCase');
+    this.btnWorkspaceReplaceAll = document.getElementById('btnWorkspaceReplaceAll');
     this.workspaceSearchSummary = document.getElementById('workspaceSearchSummary');
     this.workspaceSearchResults = document.getElementById('workspaceSearchResults');
 
@@ -341,6 +343,7 @@ export class OtterStudioIde {
       event.preventDefault();
       this.searchWorkspace();
     });
+    this.btnWorkspaceReplaceAll?.addEventListener('click', () => this.replaceWorkspace());
 
     this.problemStatusBanner = document.getElementById('problemStatusBanner');
     this.problemStatusBanner?.addEventListener('click', () => {
@@ -906,6 +909,42 @@ export class OtterStudioIde {
         });
       });
     });
+  }
+
+  async replaceWorkspace() {
+    const query = this.workspaceSearchInput?.value || '';
+    const replaceWith = this.workspaceReplaceInput?.value ?? '';
+    if (!query.trim()) {
+      this.workspaceSearchSummary.textContent = 'Enter text to search for before replacing.';
+      return;
+    }
+    if (!this.currentProjectFolder) {
+      this.workspaceSearchSummary.textContent = 'Open a project folder before replacing.';
+      return;
+    }
+    this.workspaceSearchSummary.textContent = 'Replacing across files…';
+    try {
+      const res = await fetch('/api/replace', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          folder: this.currentProjectFolder,
+          query,
+          replace: replaceWith,
+          regex: this.workspaceSearchRegex?.checked === true,
+          caseSensitive: this.workspaceSearchCase?.checked === true
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Workspace replacement failed.');
+      this.workspaceSearchSummary.textContent = `Replaced ${data.totalReplacements} occurrence${data.totalReplacements === 1 ? '' : 's'} across ${data.filesModified} file${data.filesModified === 1 ? '' : 's'}.`;
+      if (this.currentFile) {
+        await this.reloadExternalFile();
+      }
+      this.searchWorkspace();
+    } catch (error) {
+      this.workspaceSearchSummary.textContent = error.message;
+    }
   }
 
   async promptNewFile() {

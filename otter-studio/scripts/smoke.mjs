@@ -195,7 +195,26 @@ to greet name
   assert.equal(invalidRegexResponse.status, 400);
   assert.match(invalidRegex.error, /Invalid regular expression/);
 
-  console.log('Otter Studio smoke test passed: scan, open, save, external-change protection, symbols, workspace search, run, terminal, diagnostics, failures.');
+  const replaceResult = await request('/api/replace', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      folder: symbolWorkspaceRelativePath,
+      query: 'Hello',
+      replace: 'Greetings'
+    })
+  });
+  assert.equal(replaceResult.filesModified, 1);
+  assert.equal(replaceResult.totalReplacements, 1);
+
+  const verifyReplaced = await request('/api/search', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ folder: symbolWorkspaceRelativePath, query: 'Greetings' })
+  });
+  assert.equal(verifyReplaced.results.length, 1);
+
+  console.log('Otter Studio smoke test passed: scan, open, save, external-change protection, symbols, workspace search, workspace replace, run, terminal, diagnostics, failures.');
 } finally {
   await fs.rm(temporaryPath, { force: true });
   await fs.rm(symbolWorkspacePath, { force: true, recursive: true });

@@ -267,7 +267,7 @@ platform.
 -   [x] Find/replace (in-editor floating widget with Next/Prev/Replace/All)
 -   [x] Find in files with bounded workspace search and clickable results
     (`4e100a0`)
--   [ ] Replace in files
+-   [x] Replace in files (POST /api/replace with multi-file match counter and Replace All confirmation)
 -   [x] Regex search with invalid-pattern diagnostics (`4e100a0`)
 -   [x] Go to line (Ctrl+G modal & scroll into view)
 -   [x] Quick Open with fuzzy file matching and keyboard navigation

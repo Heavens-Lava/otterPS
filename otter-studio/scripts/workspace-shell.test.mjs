@@ -46,9 +46,13 @@ assert.match(ide, /handleEditorHover/, 'Editor must support hover information lo
 assert.match(ide, /checkSignatureHelp/, 'Editor must support real-time parameter signature help');
 assert.match(ide, /detectFileEol/, 'Editor must automatically detect CRLF/LF line endings');
 assert.match(ide, /problemStatusBanner\?\.addEventListener\('click'/, 'Clicking problem banner must navigate to source');
+assert.match(html, /id="workspaceReplaceInput"/, 'Workspace search pane must expose a replace input');
+assert.match(html, /id="btnWorkspaceReplaceAll"/, 'Workspace search pane must expose a Replace All button');
+assert.match(ide, /replaceWorkspace\(\)/, 'IDE must support workspace-wide replacement');
 assert.match(darkCss, /\.theme-dark \.editor-hover-tooltip/, 'Dark theme must scope hover tooltip styles');
 assert.match(darkCss, /\.theme-dark \.editor-signature-help/, 'Dark theme must scope signature help styles');
 
-console.log('Otter Studio workspace shell tests passed: themes, visible caret, project-aware templates, hover help, signature help, and EOL/encoding selectors.');
+console.log('Otter Studio workspace shell tests passed: themes, visible caret, project-aware templates, hover help, signature help, EOL/encoding selectors, and workspace replace.');
+
 
 

@@ -469,6 +469,86 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (pathname === '/api/replace' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const query = String(body.query || '');
+      const replaceWith = String(body.replace ?? '');
+      if (!query) return sendJson(res, { error: 'Search query required' }, 400);
+      const folderParam = body.folder;
+      if (!folderParam) return sendJson(res, { error: 'Workspace folder required' }, 400);
+      const workspaceRoot = path.resolve(REPO_ROOT, folderParam);
+      if (!workspaceRoot.startsWith(REPO_ROOT) || !fs.existsSync(workspaceRoot)) {
+        return sendJson(res, { error: 'Workspace folder not found' }, 404);
+      }
+
+      const caseSensitive = body.caseSensitive === true;
+      const useRegex = body.regex === true;
+      let pattern = null;
+      if (useRegex) {
+        try {
+          pattern = new RegExp(query, caseSensitive ? 'g' : 'gi');
+        } catch (error) {
+          return sendJson(res, { error: `Invalid regular expression: ${error.message}` }, 400);
+        }
+      }
+
+      const files = collectWorkspaceTextFiles(workspaceRoot);
+      let filesModified = 0;
+      let totalReplacements = 0;
+
+      for (const filePath of files) {
+        const stats = fs.statSync(filePath);
+        if (stats.size > 2 * 1024 * 1024) continue;
+        const original = fs.readFileSync(filePath, 'utf8');
+        let updated = original;
+        let fileMatches = 0;
+
+        if (pattern) {
+          pattern.lastIndex = 0;
+          const matches = original.match(pattern);
+          if (matches && matches.length > 0) {
+            fileMatches = matches.length;
+            updated = original.replace(pattern, replaceWith);
+          }
+        } else {
+          const needle = caseSensitive ? query : query.toLowerCase();
+          let count = 0;
+          let idx = 0;
+          const searchIn = caseSensitive ? original : original.toLowerCase();
+          while ((idx = searchIn.indexOf(needle, idx)) !== -1) {
+            count++;
+            idx += needle.length;
+          }
+          if (count > 0) {
+            fileMatches = count;
+            if (caseSensitive) {
+              updated = original.split(query).join(replaceWith);
+            } else {
+              const esc = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+              updated = original.replace(new RegExp(esc, 'gi'), replaceWith);
+            }
+          }
+        }
+
+        if (fileMatches > 0) {
+          fs.writeFileSync(filePath, updated, 'utf8');
+          filesModified++;
+          totalReplacements += fileMatches;
+        }
+      }
+
+      sendJson(res, {
+        success: true,
+        filesModified,
+        totalReplacements
+      });
+    } catch (err) {
+      sendJson(res, { error: err.message }, 500);
+    }
+    return;
+  }
+
   // --- Execution & Otter Runner API ---
   if (pathname === '/api/run' && req.method === 'POST') {
     try {

@@ -205,14 +205,16 @@
         <div class="sidebar-pane" id="paneSearch" style="display: none;">
           <div class="panel-card workspace-search-card" style="flex: 1;">
             <div class="panel-card-header">
-              <span class="panel-card-title">Find in Files</span>
+              <span class="panel-card-title">Search &amp; Replace in Files</span>
             </div>
             <form class="workspace-search-form" id="workspaceSearchForm">
               <input class="workspace-search-input" id="workspaceSearchInput" type="text" autocomplete="off" spellcheck="false" placeholder="Search workspace…" />
+              <input class="workspace-search-input" id="workspaceReplaceInput" type="text" autocomplete="off" spellcheck="false" placeholder="Replace with…" style="margin-top: 6px;" />
               <div class="workspace-search-options">
                 <label><input type="checkbox" id="workspaceSearchRegex" /> Regex</label>
                 <label><input type="checkbox" id="workspaceSearchCase" /> Match case</label>
-                <button type="submit" class="workspace-search-submit">Find</button>
+                <button type="submit" class="workspace-search-submit" id="btnWorkspaceFind">Find</button>
+                <button type="button" class="workspace-search-submit secondary" id="btnWorkspaceReplaceAll" style="background: #2563eb; color: #fff;">Replace All</button>
               </div>
             </form>
             <div class="workspace-search-summary" id="workspaceSearchSummary">Enter text to search the current workspace.</div>
