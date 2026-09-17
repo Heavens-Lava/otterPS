@@ -1,0 +1,23 @@
+person has name "Jeff", age 40
+convert person to json into jsonText
+say jsonText
+
+convert jsonText from json into rebuilt
+say name of rebuilt
+say age of rebuilt
+
+random number from 1 to 10 into n
+if n is at least 1
+    if n is at most 10
+        say "random number in range"
+
+fruits are
+    "apple"
+    "banana"
+    "cherry"
+random item from fruits into pick
+if fruits contains pick
+    say "random item picked from the list"
+
+log "this is a log message"
+warn "this is a warning"

@@ -1,0 +1,30 @@
+now is now
+say now
+say year of now
+say month of now
+say day of now
+say hour of now
+say minute of now
+
+today is today
+say today
+say year of today
+
+myDate is today
+add 7 days to myDate
+say myDate
+
+remove 1 month from myDate
+say myDate
+
+startDate is today
+endDate is today
+add 10 days to endDate
+days between startDate and endDate make total
+say total
+
+diff is days between startDate and endDate
+say diff
+
+format now as "yyyy-MM-dd HH:mm:ss" into formatted
+say formatted

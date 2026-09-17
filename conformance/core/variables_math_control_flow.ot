@@ -1,0 +1,49 @@
+score is 10
+score is score plus 5
+say score
+
+total is 4 times 3 minus 2
+say total
+
+isReady is true
+isDone is false
+say not isDone
+if isReady and not isDone
+    say "and-not works in a condition"
+if isReady or isDone
+    say "or works in a condition"
+
+names are empty
+add "Jeff" to names
+add "Otter" to names
+say names
+remove "Jeff" from names
+say names
+
+if score is greater than 10
+    say "big"
+otherwise
+    say "small"
+
+if names contains "Otter"
+    say "found"
+
+count from 1 to 3 as n
+    say n
+
+i is 0
+while i is less than 3
+    say i
+    i is i plus 1
+
+repeat 2 times
+    say "hi"
+
+for each name in names
+    say name
+
+to addNumbers x y
+    return x plus y
+
+addNumbers 3 4 make result
+say result

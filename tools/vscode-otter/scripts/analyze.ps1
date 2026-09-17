@@ -93,12 +93,6 @@ try {
             elseif ($null -ne $property.Value -and $null -ne $property.Value.PSObject.Properties['Line']) { Visit $property.Value $scope }
         }
     }
-    # Function calls may legally precede their `to` declaration. Predeclare
-    # top-level functions before collecting uses; variables are intentionally
-    # not hoisted because an early read is a runtime error in Otter.
-    foreach ($statement in $ast.Statements) {
-        if ($statement.GetType().Name -eq 'FunctionDefStmt') { Add-Symbol $statement.Name 'function' $statement.Line $rootScope $statement.Parameters }
-    }
     foreach ($statement in $ast.Statements) { Visit $statement $rootScope }
     $rootScope.EndLine = [Math]::Max($rootScope.EndLine, $sourceLines.Count)
     [pscustomobject]@{ Ok = $true; Variables = @($variables | Select-Object -Unique); Functions = @($functions | Select-Object -Unique); Symbols = @($symbols); References = @($references); Scopes = @($scopes); ObjectProperties = $objectProperties } | ConvertTo-Json -Compress -Depth 8

@@ -1,0 +1,12 @@
+get environment variable "PATH" into pathValue
+say length of pathValue
+
+get system folder "temp" into tempPath
+say tempPath
+
+copy "otter-sweep-clipboard-test" to clipboard
+get clipboard into clipboardText
+say clipboardText
+
+notify "Otter Sweep" with "This is a test notification."
+say "notify sent"

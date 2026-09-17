@@ -1,0 +1,18 @@
+a Person has
+    name
+    age
+
+jeff is a Person with name "Jeff", age 40
+say name of jeff
+say age of jeff
+
+sam is a Person with name "Sam", age 25
+say name of sam
+
+thing1 has color "blue", size 10
+say color of thing1
+
+scores has empty true
+set "Jeff" to 100 in scores
+get "Jeff" from scores into score
+say score

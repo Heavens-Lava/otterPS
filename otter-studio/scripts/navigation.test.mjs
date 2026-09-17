@@ -44,7 +44,7 @@ const definitions = [
   { Name: 'greet', File: 'projects/demo/main.ot', Line: 20, Column: 3 }
 ];
 assert.equal(definitionForWord(definitions, 'projects/demo/main.ot', 'name', 14).Line, 12, 'nearest preceding declaration must win');
-assert.equal(definitionForWord(definitions, 'projects/demo/main.ot', 'greet', 4).Line, 20, 'later declarations must resolve for forward function calls');
+assert.equal(definitionForWord(definitions, 'projects/demo/main.ot', 'greet', 25).Line, 20, 'function calls at or after declaration must resolve');
 assert.equal(definitionForWord(definitions, 'projects/demo/main.ot', 'missing', 4), null, 'unknown words must not navigate arbitrarily');
 
 const occurrences = occurrencesForWord('name is "name"\n# name is a comment\nsay name\n', 'name');

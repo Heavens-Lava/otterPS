@@ -1,0 +1,14 @@
+try
+    fail with "custom failure"
+otherwise into reason
+    say "caught:" reason
+
+try
+    fail with "second failure"
+otherwise
+    say "caught without capturing reason"
+
+try
+    say "no failure here"
+otherwise
+    say "should not print"

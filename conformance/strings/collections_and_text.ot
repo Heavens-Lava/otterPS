@@ -1,0 +1,38 @@
+games are
+    "Zelda"
+    "Mario"
+    "Metroid"
+
+sort games
+say games
+
+reverse games
+say games
+
+message is "Hello Jeff"
+replace "Jeff" with "World" in message
+say message
+
+sentence is "one,two,three"
+split sentence by "," into parts
+say parts
+
+join parts with " - " into joined
+say joined
+
+say length of games
+say uppercase of message
+say lowercase of message
+say first of games
+say last of games
+
+if message starts with "Hello"
+    say "starts-with works"
+if message ends with "World"
+    say "ends-with works"
+
+find item in games where item is "Mario" into found
+say found
+
+say larger of 3 and 8
+say smaller of 3 and 8

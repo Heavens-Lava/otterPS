@@ -1,0 +1,11 @@
+get "https://httpbin.org/get" into response
+say length of response
+
+post "hello" to "https://httpbin.org/post" into postResponse
+say length of postResponse
+
+put "hello" to "https://httpbin.org/put" into putResponse
+say length of putResponse
+
+delete from "https://httpbin.org/delete" into deleteResponse
+say length of deleteResponse

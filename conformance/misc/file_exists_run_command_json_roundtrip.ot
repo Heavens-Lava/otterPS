@@ -1,0 +1,12 @@
+if file "C:/Users/jmacy/AppData/Local/Temp/otter_sweep/fsbatch/deleteme2.txt" exists
+    say "file exists check works"
+
+run command "cmd /c echo hello-from-run" into result
+say output of result
+say exit code of result
+
+person has name "Jeff", age 40
+convert person to json into jsonText
+write jsonText to "C:/Users/jmacy/AppData/Local/Temp/otter_sweep/fsbatch/person.json"
+read json from "C:/Users/jmacy/AppData/Local/Temp/otter_sweep/fsbatch/person.json" into loaded
+say name of loaded
