@@ -20,13 +20,17 @@ try {
         return $scope
     }
     $rootScope = New-Scope -parent -1 -start 1
-    function Add-Symbol([string]$name, [string]$kind, [int]$line, [object]$scope) {
-        if ($name -and -not ($symbols | Where-Object { $_.Name -eq $name -and $_.ScopeId -eq $scope.Id })) {
+    function Add-Symbol([string]$name, [string]$kind, [int]$line, [object]$scope, [string[]]$parameters = @()) {
+        $existing = $symbols | Where-Object { $_.Name -eq $name -and $_.ScopeId -eq $scope.Id }
+        if ($name -and -not $existing) {
             $column = 0
             if ($line -gt 0 -and $line -le $sourceLines.Count) { $found = $sourceLines[$line - 1].IndexOf($name); if ($found -ge 0) { $column = $found } }
-            $symbols.Add([pscustomobject]@{ Name = $name; Kind = $kind; Line = $line; Column = $column; ScopeId = $scope.Id })
+            $sym = [pscustomobject]@{ Name = $name; Kind = $kind; Line = $line; Column = $column; ScopeId = $scope.Id; Parameters = @($parameters) }
+            $symbols.Add($sym)
             $scope.Symbols.Add($name)
             $references.Add([pscustomobject]@{ Name = $name; Line = $line; Column = $column; ScopeId = $scope.Id; IsDeclaration = $true })
+        } elseif ($existing -and $parameters -and $parameters.Count -gt 0 -and (-not $existing.Parameters -or $existing.Parameters.Count -eq 0)) {
+            $existing.Parameters = @($parameters)
         }
     }
     function Resolve-SymbolScope([string]$name, [object]$scope) {
@@ -53,7 +57,7 @@ try {
             'ListDefStmt' { $variables.Add($node.Name); Add-Symbol $node.Name 'variable' $node.Line $scope; foreach ($item in $node.Items) { Visit $item $scope } }
             'AskStmt' { $variables.Add($node.Name); Add-Symbol $node.Name 'variable' $node.Line $scope; Visit $node.Prompt $scope }
             'FunctionDefStmt' {
-                $functions.Add($node.Name); Add-Symbol $node.Name 'function' $node.Line $scope
+                $functions.Add($node.Name); Add-Symbol $node.Name 'function' $node.Line $scope $node.Parameters
                 $child = New-Scope $scope.Id $node.Line
                 foreach ($p in $node.Parameters) { $variables.Add($p); Add-Symbol $p 'parameter' $node.Line $child }
                 foreach ($item in $node.Body) { Visit $item $child }
@@ -93,14 +97,14 @@ try {
     # top-level functions before collecting uses; variables are intentionally
     # not hoisted because an early read is a runtime error in Otter.
     foreach ($statement in $ast.Statements) {
-        if ($statement.GetType().Name -eq 'FunctionDefStmt') { Add-Symbol $statement.Name 'function' $statement.Line $rootScope }
+        if ($statement.GetType().Name -eq 'FunctionDefStmt') { Add-Symbol $statement.Name 'function' $statement.Line $rootScope $statement.Parameters }
     }
     foreach ($statement in $ast.Statements) { Visit $statement $rootScope }
     $rootScope.EndLine = [Math]::Max($rootScope.EndLine, $sourceLines.Count)
     [pscustomobject]@{ Ok = $true; Variables = @($variables | Select-Object -Unique); Functions = @($functions | Select-Object -Unique); Symbols = @($symbols); References = @($references); Scopes = @($scopes); ObjectProperties = $objectProperties } | ConvertTo-Json -Compress -Depth 8
 }
 catch {
-    $error = $_.Exception
-    [pscustomobject]@{ Ok = $false; Message = $error.Message; Line = $error.Line; Column = $error.Column; SourceLine = $error.SourceLine; Suggestion = $error.Suggestion } | ConvertTo-Json -Compress
+    $err = $_.Exception
+    [pscustomobject]@{ Ok = $false; Message = $err.Message; Line = $err.Line; Column = $err.Column; SourceLine = $err.SourceLine; Suggestion = $err.Suggestion } | ConvertTo-Json -Compress
     exit 1
 }

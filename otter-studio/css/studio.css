@@ -1286,6 +1286,64 @@ body {
   background: rgba(255, 255, 255, 0.18);
 }
 
+.launch-profile-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  z-index: 50;
+  min-width: 220px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.2);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.launch-profile-header {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  padding: 4px 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.launch-profile-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 0;
+  background: transparent;
+  color: #1e293b;
+  font-size: 12px;
+  border-radius: 5px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s ease;
+}
+
+.launch-profile-item:hover,
+.launch-profile-item.is-active {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.launch-profile-item .profile-title {
+  flex: 1;
+  font-weight: 500;
+}
+
+.launch-profile-item .profile-shortcut {
+  font-size: 11px;
+  color: #94a3b8;
+  font-family: var(--font-code);
+}
+
+
 
 
 .breadcrumb-part {
@@ -2405,3 +2463,106 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Rename Symbol Dialog & Diff Preview */
+.rename-dialog {
+  max-width: 580px;
+  width: 90vw;
+}
+
+.rename-field-group {
+  margin-bottom: 12px;
+}
+
+.rename-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: #334155;
+  margin-bottom: 4px;
+}
+
+.rename-input {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-panel);
+  font-family: var(--font-code);
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.rename-input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+}
+
+.rename-summary {
+  font-size: 11px;
+  color: #64748b;
+  margin-bottom: 10px;
+}
+
+.rename-preview-container {
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: var(--bg-main);
+  overflow: hidden;
+  max-height: 220px;
+  display: flex;
+  flex-direction: column;
+}
+
+.rename-preview-title {
+  padding: 6px 10px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #64748b;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.rename-preview-list {
+  overflow-y: auto;
+  padding: 4px 0;
+  flex: 1;
+}
+
+.rename-preview-item {
+  padding: 4px 10px;
+  font-family: var(--font-code);
+  font-size: 11px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+.rename-preview-loc {
+  font-size: 10px;
+  font-weight: 700;
+  color: #2563eb;
+  margin-bottom: 2px;
+}
+
+.rename-preview-diff {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rename-diff-old {
+  color: #dc2626;
+  background: rgba(220, 38, 38, 0.08);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+.rename-diff-new {
+  color: #16a34a;
+  background: rgba(22, 163, 74, 0.08);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+

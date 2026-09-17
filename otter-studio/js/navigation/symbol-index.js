@@ -48,17 +48,29 @@ export function symbolsForFile(symbols, filePath) {
 }
 
 // Resolve only declarations that the current document can legally see without
-// inventing module/hoisting semantics.  The nearest declaration before the
+// inventing module/hoisting semantics. The nearest declaration before the
 // cursor wins; a later declaration is used for forward-declared functions.
-export function definitionForWord(symbols, filePath, name, line) {
-  const candidates = symbolsForFile(symbols, filePath)
+// If not found in the current file, cross-file workspace symbols are checked.
+export function definitionForWord(symbols, filePath, name, line, workspaceSymbols = []) {
+  const allSymbols = symbols || [];
+  const candidates = symbolsForFile(allSymbols, filePath)
     .filter(symbol => symbol.Name === name);
-  if (candidates.length === 0) return null;
+  if (candidates.length > 0) {
+    const beforeCursor = candidates
+      .filter(symbol => Number(symbol.Line) <= Number(line))
+      .sort((left, right) => Number(right.Line) - Number(left.Line));
+    return beforeCursor[0] || candidates[0];
+  }
 
-  const beforeCursor = candidates
-    .filter(symbol => Number(symbol.Line) <= Number(line))
-    .sort((left, right) => Number(right.Line) - Number(left.Line));
-  return beforeCursor[0] || candidates[0];
+  // Cross-file fallback: if not found in current file, search workspace symbols
+  const pool = [...allSymbols, ...(workspaceSymbols || [])];
+  const remoteCandidates = pool.filter(s => s.File !== filePath && s.Name === name);
+  if (remoteCandidates.length > 0) {
+    const remoteFn = remoteCandidates.find(s => (s.Kind || s.kind) === 'function');
+    return remoteFn || remoteCandidates[0];
+  }
+
+  return null;
 }
 
 // A safe lexical occurrence scan for the active document. It is intentionally

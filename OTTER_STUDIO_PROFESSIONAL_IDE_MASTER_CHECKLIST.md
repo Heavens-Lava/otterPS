@@ -295,9 +295,9 @@ platform.
 -   [x] Context-aware keyword/property/function suggestions
 -   [x] Parameter/signature help (real-time signature popup with active-parameter highlighting and documentation)
 -   [x] Cached parser-backed workspace symbol index (`2f7806c`)
--   [x] Go to definition (F12 symbol-index resolver)
--   [ ] Find references
--   [ ] Rename
+-   [x] Go to definition (F12 and Ctrl+Click symbol-index resolver with cross-file lookup and history preservation)
+-   [x] Find references (AST-backed scope-aware references displayed in Search pane with clickable navigation)
+-   [x] Rename (AST/scope-aware symbol rename with pre-modification preview diff modal)
 -   [ ] Code actions/quick fixes
 -   [ ] Extract function
 -   [ ] Unused/unreachable diagnostics

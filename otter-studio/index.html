@@ -247,6 +247,8 @@
             <button class="tab-quick-btn" id="btnGoToDefinition" title="Go to Definition (F12)">↗ Definition</button>
             <button class="tab-quick-btn" id="btnPeekDefinition" title="Peek Definition (Alt+F12)">⌕ Peek</button>
             <button class="tab-quick-btn" id="btnFindOccurrences" title="Find Occurrences in this File (Shift+F12)">◉ Occurrences</button>
+            <button class="tab-quick-btn" id="btnFindReferences" title="Find References in Workspace (Shift+Alt+F12)">⇶ References</button>
+            <button class="tab-quick-btn" id="btnRenameSymbol" title="Rename Symbol (F2)">✎ Rename</button>
             <button class="tab-quick-btn" id="btnToggleWordWrap" title="Toggle Word Wrap (Alt+Z)" aria-pressed="false">↪ Wrap</button>
           </div>
 
@@ -508,12 +510,34 @@
     <!-- Bottom Status Bar -->
     <footer class="studio-statusbar">
       <div class="statusbar-left">
-        <div class="run-button-group">
-          <button class="big-run-btn" id="mainRunBtn">
+        <div class="run-button-group" style="position: relative;">
+          <button class="big-run-btn" id="mainRunBtn" title="Run (F5)">
             <span class="run-triangle">▶</span>
-            <span>Run</span>
+            <span id="runBtnLabel">Run</span>
           </button>
-          <button class="run-dropdown-toggle">▾</button>
+          <button class="big-run-btn stop-btn" id="btnStopProgram" style="display: none; background: #dc2626;" title="Stop Execution (Shift+F5)">
+            <span class="run-square" style="font-size: 10px; margin-right: 4px;">■</span>
+            <span>Stop</span>
+          </button>
+          <button class="run-dropdown-toggle" id="btnRunDropdown" title="Select Launch Profile">▾</button>
+          <div class="launch-profile-menu" id="launchProfileMenu" style="display: none;">
+            <div class="launch-profile-header">Launch Profiles</div>
+            <button type="button" class="launch-profile-item is-active" data-profile="current">
+              <span class="profile-icon">▶</span>
+              <span class="profile-title">Run Current File</span>
+              <span class="profile-shortcut">F5</span>
+            </button>
+            <button type="button" class="launch-profile-item" data-profile="project">
+              <span class="profile-icon">🚀</span>
+              <span class="profile-title">Run Project Entry</span>
+              <span class="profile-shortcut">Ctrl+F5</span>
+            </button>
+            <button type="button" class="launch-profile-item" data-profile="terminal">
+              <span class="profile-icon">💻</span>
+              <span class="profile-title">Run in Terminal</span>
+              <span class="profile-shortcut">Alt+F5</span>
+            </button>
+          </div>
         </div>
         <div class="problems-indicator">
           <span class="indicator-icon">✓</span>
@@ -628,6 +652,34 @@
         <div class="modal-footer-right">
           <button class="btn-modal-cancel" id="btnCancelNewProject">Cancel</button>
           <button class="btn-modal-primary" id="btnConfirmCreateProject">Create Project →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Rename Symbol Preview Modal -->
+  <div class="modal-backdrop" id="modalRenameSymbol" style="display: none;">
+    <div class="modal-dialog rename-dialog" role="dialog" aria-modal="true" aria-labelledby="renameModalTitle">
+      <div class="modal-header">
+        <h2 class="modal-title" id="renameModalTitle">Rename Symbol</h2>
+        <button class="modal-close" id="btnCloseRenameModal" aria-label="Close dialog">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="rename-field-group">
+          <label class="rename-label" for="inputRenameNewName">New symbol name</label>
+          <input type="text" class="rename-input" id="inputRenameNewName" autocomplete="off" spellcheck="false" />
+        </div>
+        <div class="rename-summary" id="renameModalSummary">Scanning references…</div>
+        <div class="rename-preview-container">
+          <div class="rename-preview-title">Changes Preview:</div>
+          <div class="rename-preview-list" id="renamePreviewList"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <div class="modal-footer-left"></div>
+        <div class="modal-footer-right">
+          <button class="btn-modal-cancel" id="btnCancelRename">Cancel</button>
+          <button class="btn-modal-primary" id="btnApplyRename">Apply Rename</button>
         </div>
       </div>
     </div>

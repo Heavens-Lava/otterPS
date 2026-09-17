@@ -27,4 +27,6 @@ to greet name
 '@ | powershell.exe -NoProfile -ExecutionPolicy Bypass -File $analyzer -Root $repo | ConvertFrom-Json
 if (-not $forward.Ok -or @($forward.Symbols | Where-Object { $_.Name -eq 'greet' }).Count -ne 1) { throw 'Forward function calls should resolve to their later declaration.' }
 if (@($forward.References | Where-Object { $_.Name -eq 'greet' }).Count -ne 2) { throw 'Forward function references should include declaration and call.' }
+$fnSym = $forward.Symbols | Where-Object { $_.Name -eq 'greet' } | Select-Object -First 1
+if (-not $fnSym.Parameters -or $fnSym.Parameters[0] -ne 'name') { throw 'Function symbol should retain parameter names.' }
 Write-Output 'Semantic analyzer tests passed.'

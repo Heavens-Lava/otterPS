@@ -10,6 +10,7 @@ import {
 } from './navigation/symbol-index.js';
 import { getHoverInfo, getWordAtOffset } from './navigation/hover-provider.js';
 import { getSignatureHelp } from './navigation/signature-provider.js';
+import { otterLanguageService } from './language/otter-language-service.js';
 
 export class OtterStudioIde {
   constructor() {
@@ -272,6 +273,17 @@ export class OtterStudioIde {
     this.btnGoToDefinition = document.getElementById('btnGoToDefinition');
     this.btnPeekDefinition = document.getElementById('btnPeekDefinition');
     this.btnFindOccurrences = document.getElementById('btnFindOccurrences');
+    this.btnFindReferences = document.getElementById('btnFindReferences');
+    this.btnRenameSymbol = document.getElementById('btnRenameSymbol');
+    this.modalRenameSymbol = document.getElementById('modalRenameSymbol');
+    this.inputRenameNewName = document.getElementById('inputRenameNewName');
+    this.renameModalSummary = document.getElementById('renameModalSummary');
+    this.renamePreviewList = document.getElementById('renamePreviewList');
+    this.btnCancelRename = document.getElementById('btnCancelRename');
+    this.btnCloseRenameModal = document.getElementById('btnCloseRenameModal');
+    this.btnApplyRename = document.getElementById('btnApplyRename');
+    this.currentRenameSymbol = null;
+    this.currentRenamePlan = null;
     this.definitionPeekEl = document.getElementById('definitionPeek');
     this.editorHoverTooltipEl = document.getElementById('editorHoverTooltip');
     this.editorSignatureHelpEl = document.getElementById('editorSignatureHelp');
@@ -297,8 +309,13 @@ export class OtterStudioIde {
     this.btnFindClose = document.getElementById('btnFindClose');
 
     // Status bar
-    this.statusBarPos = document.querySelector('.statusbar-right span:first-child');
+    this.statusBarPos = document.getElementById('statusbarPos') || document.querySelector('.statusbar-right span:first-child');
     this.mainRunBtn = document.getElementById('mainRunBtn');
+    this.btnStopProgram = document.getElementById('btnStopProgram');
+    this.btnRunDropdown = document.getElementById('btnRunDropdown');
+    this.launchProfileMenu = document.getElementById('launchProfileMenu');
+    this.runBtnLabel = document.getElementById('runBtnLabel');
+    this.launchProfile = typeof localStorage !== 'undefined' ? (localStorage.getItem('otter-studio-launch-profile') || 'current') : 'current';
     this.clearProgramBtn = document.getElementById('clearProgramBtn');
 
     // Right Sidebar
@@ -339,6 +356,23 @@ export class OtterStudioIde {
     this.btnGoToDefinition?.addEventListener('click', () => this.goToDefinition());
     this.btnPeekDefinition?.addEventListener('click', () => this.peekDefinition());
     this.btnFindOccurrences?.addEventListener('click', () => this.findOccurrences());
+    this.btnFindReferences?.addEventListener('click', () => this.findReferences());
+    this.btnRenameSymbol?.addEventListener('click', () => this.promptRename());
+    this.btnCloseRenameModal?.addEventListener('click', () => this.closeRenameModal());
+    this.btnCancelRename?.addEventListener('click', () => this.closeRenameModal());
+    this.btnApplyRename?.addEventListener('click', () => this.applyRename());
+    this.inputRenameNewName?.addEventListener('input', () => this.updateRenamePreview());
+    this.inputRenameNewName?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        this.applyRename();
+      } else if (e.key === 'Escape') {
+        this.closeRenameModal();
+      }
+    });
+    this.modalRenameSymbol?.addEventListener('click', (e) => {
+      if (e.target === this.modalRenameSymbol) this.closeRenameModal();
+    });
     this.workspaceSearchForm?.addEventListener('submit', event => {
       event.preventDefault();
       this.searchWorkspace();
@@ -372,14 +406,38 @@ export class OtterStudioIde {
 
     // Run Buttons
     if (this.mainRunBtn) {
-      this.mainRunBtn.addEventListener('click', () => this.runCurrentProgram());
+      this.mainRunBtn.addEventListener('click', () => this.runActiveProfile());
     }
+
+    this.btnStopProgram?.addEventListener('click', () => this.stopCurrentProgram());
+    this.btnRunDropdown?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.toggleLaunchProfileMenu();
+    });
+    document.addEventListener('click', () => this.closeLaunchProfileMenu());
+
+    this.launchProfileMenu?.querySelectorAll('.launch-profile-item').forEach(item => {
+      item.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const profile = item.dataset.profile;
+        if (profile) this.setLaunchProfile(profile);
+      });
+    });
 
     // Keyboard Shortcuts: F5 / Ctrl+Enter to Run
     window.addEventListener('keydown', (e) => {
       if (e.key === 'F5' || (e.ctrlKey && e.key === 'Enter')) {
         e.preventDefault();
-        this.runCurrentProgram();
+        if (e.shiftKey) {
+          this.stopCurrentProgram();
+        } else if (e.ctrlKey && e.key === 'F5') {
+          this.runProject();
+        } else if (e.altKey) {
+          this.runInTerminal();
+        } else {
+          this.runActiveProfile();
+        }
+        return;
       }
       if (e.ctrlKey && e.key === 's') {
         e.preventDefault();
@@ -784,15 +842,17 @@ export class OtterStudioIde {
     const word = this.wordAtCursor();
     const location = this.currentEditorLocation();
     if (!word || !location) return;
-    const definition = definitionForWord(this.workspaceSymbols, location.path, word, location.line);
+    const definition = definitionForWord(this.workspaceSymbols, location.path, word, location.line, this.workspaceSymbols);
     if (!definition) {
-      this.setProblemsStatus(false, `No definition found for '${word}'.`, 'Only declarations in this Otter file are currently resolved.', 'Go to Definition', 'Try a declared variable or function.');
+      this.setProblemsStatus(false, `No definition found for '${word}'.`, 'Only declarations in this Otter file or workspace are currently resolved.', 'Go to Definition', 'Try a declared variable or function.');
       return;
     }
+    this.navigationHistory.record(location);
+    this.updateNavigationButtons();
     await this.navigateToLocation({
-      path: location.path,
-      line: Number(definition.Line) || 1,
-      column: Number(definition.Column) || 0
+      path: definition.File || definition.path || location.path,
+      line: Number(definition.Line || definition.line) || 1,
+      column: Number(definition.Column || definition.column) || 0
     });
   }
 
@@ -800,16 +860,16 @@ export class OtterStudioIde {
     const word = this.wordAtCursor();
     const location = this.currentEditorLocation();
     if (!word || !location || !this.definitionPeekEl) return;
-    const definition = definitionForWord(this.workspaceSymbols, location.path, word, location.line);
+    const definition = definitionForWord(this.workspaceSymbols, location.path, word, location.line, this.workspaceSymbols);
     if (!definition) {
       this.definitionPeekEl.style.display = 'none';
-      this.setProblemsStatus(false, `No definition found for '${word}'.`, 'Only declarations in this Otter file are currently resolved.', 'Peek Definition', 'Try a declared variable or function.');
+      this.setProblemsStatus(false, `No definition found for '${word}'.`, 'Only declarations in this Otter file or workspace are currently resolved.', 'Peek Definition', 'Try a declared variable or function.');
       return;
     }
-    const sourceLine = (this.currentCode.split(/\r?\n/)[Math.max(0, Number(definition.Line) - 1)] || '').trim();
+    const sourceLine = (this.currentCode.split(/\r?\n/)[Math.max(0, Number(definition.Line || definition.line) - 1)] || '').trim();
     this.definitionPeekEl.innerHTML = `
       <div class="definition-peek-header">
-        <span><strong>${this.escapeHtml(definition.Name)}</strong> · ${this.escapeHtml(definition.Kind || 'declaration')} · Line ${Number(definition.Line) || 1}</span>
+        <span><strong>${this.escapeHtml(definition.Name || definition.name)}</strong> · ${this.escapeHtml(definition.Kind || definition.kind || 'declaration')} · Line ${Number(definition.Line || definition.line) || 1}</span>
         <button type="button" class="definition-peek-close" aria-label="Close definition preview">×</button>
       </div>
       <pre>${this.escapeHtml(sourceLine)}</pre>
@@ -820,7 +880,7 @@ export class OtterStudioIde {
     });
     this.definitionPeekEl.querySelector('.definition-peek-open')?.addEventListener('click', () => {
       this.definitionPeekEl.style.display = 'none';
-      this.navigateToLocation({ path: location.path, line: Number(definition.Line) || 1, column: Number(definition.Column) || 0 });
+      this.navigateToLocation({ path: definition.File || definition.path || location.path, line: Number(definition.Line || definition.line) || 1, column: Number(definition.Column || definition.column) || 0 });
     });
   }
 
@@ -846,6 +906,140 @@ export class OtterStudioIde {
     this.renderNavigationPalette();
     this.navigationPaletteBackdrop.style.display = 'flex';
     setTimeout(() => this.navigationPaletteInput.focus(), 0);
+  }
+
+  findReferences() {
+    const word = this.wordAtCursor();
+    const location = this.currentEditorLocation();
+    if (!word || !location) {
+      this.setProblemsStatus(false, 'No symbol selected for Find References.', 'Place cursor on a variable or function.', 'Find References');
+      return;
+    }
+
+    const references = otterLanguageService.findReferences(
+      word,
+      location.path,
+      this.currentCode,
+      this.workspaceSymbols
+    );
+
+    // Switch sidebar tab to Search pane
+    const btnSearch = document.getElementById('btnPaneSearch');
+    if (btnSearch) btnSearch.click();
+
+    if (this.workspaceSearchSummary) {
+      this.workspaceSearchSummary.textContent = references.length === 0
+        ? `No references found for '${word}'.`
+        : `Found ${references.length} reference${references.length === 1 ? '' : 's'} for '${word}':`;
+    }
+
+    if (this.workspaceSearchResults) {
+      if (references.length === 0) {
+        this.workspaceSearchResults.innerHTML = `<div class="outline-empty">No references found for '${this.escapeHtml(word)}'.</div>`;
+        return;
+      }
+      this.workspaceSearchResults.innerHTML = references.map(ref => `
+        <button type="button" class="workspace-search-result" data-path="${this.escapeHtml(ref.file)}" data-line="${ref.line}" data-column="${ref.column}">
+          <span class="search-result-location">${this.escapeHtml(ref.file)}:${ref.line}:${ref.column + 1}</span>
+          <span class="search-result-preview">${this.escapeHtml(ref.text || word)}</span>
+        </button>
+      `).join('');
+
+      this.workspaceSearchResults.querySelectorAll('.workspace-search-result').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const path = btn.dataset.path;
+          const line = Number(btn.dataset.line) || 1;
+          const column = Number(btn.dataset.column) || 0;
+          this.navigateToLocation({ path, line, column });
+        });
+      });
+    }
+  }
+
+  promptRename() {
+    const word = this.wordAtCursor();
+    const location = this.currentEditorLocation();
+    if (!word || !location) {
+      this.setProblemsStatus(false, 'No symbol selected for rename.', 'Place the cursor on a variable or function identifier.', 'Rename Symbol', 'Place cursor on a valid symbol.');
+      return;
+    }
+    this.currentRenameSymbol = word;
+    if (this.modalRenameSymbol && this.inputRenameNewName) {
+      this.modalRenameSymbol.style.display = 'flex';
+      this.inputRenameNewName.value = word;
+      this.inputRenameNewName.focus();
+      this.inputRenameNewName.select();
+      this.updateRenamePreview();
+    }
+  }
+
+  closeRenameModal() {
+    if (this.modalRenameSymbol) {
+      this.modalRenameSymbol.style.display = 'none';
+      this.currentRenamePlan = null;
+    }
+  }
+
+  updateRenamePreview() {
+    if (!this.inputRenameNewName || !this.currentRenameSymbol) return;
+    const newName = this.inputRenameNewName.value;
+    const plan = otterLanguageService.prepareRename(
+      this.currentRenameSymbol,
+      newName,
+      this.currentFile,
+      this.currentCode,
+      this.workspaceSymbols
+    );
+    this.currentRenamePlan = plan;
+
+    if (!plan.ok) {
+      if (this.renameModalSummary) {
+        this.renameModalSummary.textContent = plan.error;
+        this.renameModalSummary.style.color = '#ef4444';
+      }
+      if (this.renamePreviewList) this.renamePreviewList.innerHTML = '';
+      if (this.btnApplyRename) this.btnApplyRename.disabled = true;
+      return;
+    }
+
+    if (this.renameModalSummary) {
+      this.renameModalSummary.textContent = `Found ${plan.referencesCount} occurrence${plan.referencesCount === 1 ? '' : 's'} across ${plan.affectedLinesCount} line${plan.affectedLinesCount === 1 ? '' : 's'}.`;
+      this.renameModalSummary.style.color = '';
+    }
+    if (this.btnApplyRename) this.btnApplyRename.disabled = false;
+
+    if (this.renamePreviewList) {
+      this.renamePreviewList.innerHTML = plan.edits.map(edit => `
+        <div class="rename-preview-item">
+          <div class="rename-preview-loc">${this.escapeHtml(edit.file)}: Line ${edit.line}</div>
+          <div class="rename-preview-diff">
+            <span class="rename-diff-old">- ${this.escapeHtml(edit.originalLine)}</span>
+            <span class="rename-diff-new">+ ${this.escapeHtml(edit.modifiedLine)}</span>
+          </div>
+        </div>
+      `).join('');
+    }
+  }
+
+  async applyRename() {
+    if (!this.currentRenamePlan || !this.currentRenamePlan.ok) return;
+    const plan = this.currentRenamePlan;
+    const newCode = otterLanguageService.applyRenameToSource(
+      this.currentCode,
+      plan.oldName,
+      plan.newName,
+      plan.edits
+    );
+
+    this.currentCode = newCode;
+    const textarea = document.getElementById('hiddenEditorInput');
+    if (textarea) textarea.value = newCode;
+    this.markCurrentTabDirty(true);
+    this.renderEditorCode(this.currentCode);
+    this.closeRenameModal();
+    await this.refreshWorkspaceSymbols();
+    this.debouncedLint();
+    this.setProblemsStatus(true, `Renamed '${plan.oldName}' to '${plan.newName}' across ${plan.referencesCount} location${plan.referencesCount === 1 ? '' : 's'}.`, 'Symbol rename complete.');
   }
 
   updateNavigationButtons() {
@@ -1863,6 +2057,14 @@ export class OtterStudioIde {
         this.hideHoverTooltip();
       });
 
+      textarea.addEventListener('click', (e) => {
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          this.updateCursorPos(textarea);
+          this.goToDefinition();
+        }
+      });
+
       textarea.addEventListener('input', () => {
         this.hideHoverTooltip();
         this.checkSignatureHelp();
@@ -1894,9 +2096,15 @@ export class OtterStudioIde {
         }
         if (e.key === 'F12') {
           e.preventDefault();
-          if (e.shiftKey) this.findOccurrences();
+          if (e.shiftKey && e.altKey) this.findReferences();
+          else if (e.shiftKey) this.findOccurrences();
           else if (e.altKey) this.peekDefinition();
           else this.goToDefinition();
+          return;
+        }
+        if (e.key === 'F2') {
+          e.preventDefault();
+          this.promptRename();
           return;
         }
         if (e.ctrlKey && e.key === 'f') {
@@ -2165,17 +2373,104 @@ export class OtterStudioIde {
   }
 
   // --- Real Program Execution ---
+  async runActiveProfile() {
+    if (this.launchProfile === 'project') {
+      await this.runProject();
+    } else if (this.launchProfile === 'terminal') {
+      await this.runInTerminal();
+    } else {
+      await this.runCurrentProgram();
+    }
+  }
+
+  async runProject() {
+    let entry = 'main.ot';
+    if (this.currentProjectFolder) {
+      const openMain = this.openTabs.find(t => t.path.endsWith('main.ot') || t.path.endsWith('organizer.ot'));
+      if (openMain) {
+        entry = openMain.path;
+      } else {
+        entry = `${this.currentProjectFolder}/main.ot`;
+      }
+    }
+    await this.loadFile(entry);
+    await this.runCurrentProgram();
+  }
+
+  async runInTerminal() {
+    const filename = this.currentFile || 'main.ot';
+    if (this.terminalInput && this.terminalForm) {
+      this.terminalInput.value = `otter run "${filename}"`;
+      this.terminalForm.dispatchEvent(new Event('submit'));
+      const termTab = Array.from(this.drawerTabs).find(t => t.innerText.toLowerCase().includes('terminal'));
+      if (termTab) termTab.click();
+    }
+  }
+
+  async stopCurrentProgram() {
+    try {
+      await fetch('/api/stop', { method: 'POST' });
+      if (this.programOutputBody) {
+        this.programOutputBody.innerHTML += '<div class="log-line log-error" style="color: #f97316;">Execution stopped by user.</div>';
+      }
+    } catch {}
+    if (this.btnStopProgram) this.btnStopProgram.style.display = 'none';
+    if (this.mainRunBtn) {
+      this.mainRunBtn.style.display = 'inline-flex';
+      this.mainRunBtn.classList.remove('is-running');
+      if (this.runBtnLabel) this.runBtnLabel.innerText = this.launchProfile === 'project' ? 'Run Project' : (this.launchProfile === 'terminal' ? 'Run (Term)' : 'Run');
+    }
+  }
+
+  setLaunchProfile(profile) {
+    this.launchProfile = profile;
+    try {
+      localStorage.setItem('otter-studio-launch-profile', profile);
+    } catch {}
+    if (this.launchProfileMenu) {
+      this.launchProfileMenu.querySelectorAll('.launch-profile-item').forEach(item => {
+        item.classList.toggle('is-active', item.dataset.profile === profile);
+      });
+    }
+    if (this.runBtnLabel) {
+      if (profile === 'project') this.runBtnLabel.innerText = 'Run Project';
+      else if (profile === 'terminal') this.runBtnLabel.innerText = 'Run (Term)';
+      else this.runBtnLabel.innerText = 'Run';
+    }
+    this.closeLaunchProfileMenu();
+  }
+
+  toggleLaunchProfileMenu() {
+    if (!this.launchProfileMenu) return;
+    const isVisible = this.launchProfileMenu.style.display !== 'none';
+    if (isVisible) {
+      this.closeLaunchProfileMenu();
+    } else {
+      this.launchProfileMenu.style.display = 'flex';
+    }
+  }
+
+  closeLaunchProfileMenu() {
+    if (this.launchProfileMenu) {
+      this.launchProfileMenu.style.display = 'none';
+    }
+  }
+
   async runCurrentProgram() {
     if (!this.mainRunBtn) return;
     this.mainRunBtn.classList.add('is-running');
-    this.mainRunBtn.querySelector('span:last-child').innerText = 'Running...';
+    if (this.runBtnLabel) this.runBtnLabel.innerText = 'Running...';
+    if (this.btnStopProgram) this.btnStopProgram.style.display = 'inline-flex';
+    this.mainRunBtn.style.display = 'none';
 
     // Save first. A disk conflict must be resolved before execution so the
     // runner never receives a version the user has not chosen explicitly.
     const saved = await this.saveCurrentFile();
     if (!saved) {
+      if (this.btnStopProgram) this.btnStopProgram.style.display = 'none';
+      this.mainRunBtn.style.display = 'inline-flex';
       this.mainRunBtn.classList.remove('is-running');
-      this.mainRunBtn.querySelector('span:last-child').innerText = 'Run';
+      if (this.runBtnLabel) this.runBtnLabel.innerText = 'Run';
       return;
     }
 
@@ -2236,8 +2531,12 @@ export class OtterStudioIde {
         this.programOutputBody.innerHTML = `<div class="log-line log-error">${this.escapeHtml(err.message)}</div>`;
       }
     } finally {
+      if (this.btnStopProgram) this.btnStopProgram.style.display = 'none';
+      this.mainRunBtn.style.display = 'inline-flex';
       this.mainRunBtn.classList.remove('is-running');
-      this.mainRunBtn.querySelector('span:last-child').innerText = 'Run';
+      if (this.runBtnLabel) {
+        this.runBtnLabel.innerText = this.launchProfile === 'project' ? 'Run Project' : (this.launchProfile === 'terminal' ? 'Run (Term)' : 'Run');
+      }
     }
   }
 
@@ -2441,7 +2740,7 @@ export class OtterStudioIde {
       return;
     }
 
-    const info = getHoverInfo(word, this.currentFile, this.workspaceSymbols);
+    const info = getHoverInfo(word, this.currentFile, this.workspaceSymbols, lineIdx + 1);
     if (!info) {
       this.hideHoverTooltip();
       return;

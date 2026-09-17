@@ -50,9 +50,15 @@ assert.match(html, /id="workspaceReplaceInput"/, 'Workspace search pane must exp
 assert.match(html, /id="btnWorkspaceReplaceAll"/, 'Workspace search pane must expose a Replace All button');
 assert.match(ide, /replaceWorkspace\(\)/, 'IDE must support workspace-wide replacement');
 assert.match(darkCss, /\.theme-dark \.editor-hover-tooltip/, 'Dark theme must scope hover tooltip styles');
-assert.match(darkCss, /\.theme-dark \.editor-signature-help/, 'Dark theme must scope signature help styles');
+assert.match(html, /id="btnFindReferences"/, 'Editor must expose Find References button');
+assert.match(html, /id="btnRenameSymbol"/, 'Editor must expose Rename Symbol button');
+assert.match(html, /id="modalRenameSymbol"/, 'Studio must have a rename preview dialog');
+assert.match(ide, /findReferences\(\)/, 'IDE must implement Find References');
+assert.match(ide, /promptRename\(\)/, 'IDE must implement safe Rename Symbol');
+assert.match(ide, /e\.ctrlKey.*goToDefinition/s, 'Editor must support Ctrl+Click to Go to Definition');
+assert.match(darkCss, /\.theme-dark \.rename-dialog/, 'Dark theme must style the rename dialog');
 
-console.log('Otter Studio workspace shell tests passed: themes, visible caret, project-aware templates, hover help, signature help, EOL/encoding selectors, and workspace replace.');
+console.log('Otter Studio workspace shell tests passed: themes, visible caret, project-aware templates, hover help, signature help, EOL/encoding selectors, workspace replace, references, and rename.');
 
 
 

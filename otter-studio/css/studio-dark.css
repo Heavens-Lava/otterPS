@@ -295,6 +295,13 @@ body.theme-dark {
 .theme-dark .editor-signature-label { color: #e2edf8; }
 .theme-dark .editor-signature-active-param { color: #60a5fa; }
 .theme-dark .editor-signature-doc { color: #94a3b8; }
+.theme-dark .launch-profile-menu { background: #122235; border-color: #2d91df; box-shadow: 0 14px 35px rgba(0, 0, 0, 0.5); }
+.theme-dark .launch-profile-header { color: #8fa4b9; }
+.theme-dark .launch-profile-item { color: #e2edf8; }
+.theme-dark .launch-profile-item:hover,
+.theme-dark .launch-profile-item.is-active { background: #173a5c; color: #9fd2ff; }
+.theme-dark .launch-profile-item .profile-shortcut { color: #64748b; }
+
 
 
 .theme-dark .breadcrumb-part { color: #8fa4b9; }
@@ -410,19 +417,38 @@ body.theme-dark {
 
 .theme-dark .dropdown-menu,
 .theme-dark .navigation-palette,
-.theme-dark .new-project-dialog {
+.theme-dark .new-project-dialog,
+.theme-dark .rename-dialog {
   background: #101e2d;
   border-color: #2a4056;
   color: var(--text-main);
 }
 
-.theme-dark .navigation-palette-heading,
-.theme-dark .navigation-item-detail,
-.theme-dark .navigation-item-meta,
-.theme-dark .navigation-palette-help {
+.theme-dark .rename-label {
+  color: #c7d5e4;
+}
+
+.theme-dark .rename-summary {
   color: #8da2b7;
 }
 
+.theme-dark .rename-preview-container {
+  background: #091522;
+  border-color: #263b50;
+}
+
+.theme-dark .rename-preview-title {
+  background: #0d1a29;
+  border-color: #263b50;
+  color: #8da2b7;
+}
+
+.theme-dark .rename-preview-item {
+  border-color: #172738;
+  color: #dbe7f3;
+}
+
+.theme-dark .rename-input,
 .theme-dark .navigation-palette-input,
 .theme-dark .config-input,
 .theme-dark .config-select {

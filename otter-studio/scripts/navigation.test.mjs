@@ -83,7 +83,103 @@ assert.equal(addSig2?.activeParameter, 1, 'second param active after "to"');
 const countSig = getSignatureHelp('count i from 1 to ');
 assert.equal(countSig?.activeParameter, 2, 'third param active after "to" in count loop');
 
-console.log('Studio navigation tests passed: project flattening, fuzzy Quick Open, ordered outlines, history, hover documentation, word extraction, and signature help.');
+import { otterLanguageService } from '../js/language/otter-language-service.js';
+import { getBuiltinMetadata } from '../js/language/otter-metadata.js';
+
+// --- Authoritative Metadata Verification ---
+const metadataSay = getBuiltinMetadata('say');
+assert.equal(metadataSay?.category, 'statement');
+assert.equal(metadataSay?.syntax, 'say <expression>');
+const metadataIf = getBuiltinMetadata('if');
+assert.match(metadataIf?.doc, /indented block/);
+
+// --- User-defined function hover with parameters ---
+const fnHover = getHoverInfo('calculateScore', 'projects/demo/main.ot', [
+  {
+    name: 'calculateScore',
+    kind: 'function',
+    line: 15,
+    path: 'projects/demo/main.ot',
+    parameters: ['base', 'bonus']
+  }
+]);
+assert.equal(fnHover?.kind, 'function');
+assert.equal(fnHover?.signature, 'to calculateScore base and bonus');
+assert.match(fnHover?.description, /2 parameters/);
+assert.deepEqual(fnHover?.parameters, ['base', 'bonus']);
+
+// --- Known variable hover with declaration info (no speculative types) ---
+const varHover = getHoverInfo('userCount', 'projects/demo/main.ot', [
+  {
+    name: 'userCount',
+    kind: 'variable',
+    line: 5,
+    path: 'projects/demo/main.ot'
+  }
+]);
+assert.equal(varHover?.kind, 'variable');
+assert.equal(varHover?.signature, 'variable userCount');
+assert.match(varHover?.description, /Declared at line 5/);
+
+// --- Cross-File Go to Definition ---
+const workspaceSymbolsPool = [
+  { Name: 'helperFn', Kind: 'function', File: 'projects/demo/lib/helpers.ot', Line: 10, Column: 3 }
+];
+const crossDef = definitionForWord(
+  [{ Name: 'localFn', Kind: 'function', File: 'projects/demo/main.ot', Line: 2, Column: 0 }],
+  'projects/demo/main.ot',
+  'helperFn',
+  1,
+  workspaceSymbolsPool
+);
+assert.equal(crossDef?.File, 'projects/demo/lib/helpers.ot', 'cross-file definition resolves from workspace pool');
+assert.equal(crossDef?.Line, 10);
+
+// --- Scope-Aware Find References ---
+const sampleSource = `
+score is 10
+say "score in quotes is not a ref" # score in comment is not a ref
+score is score plus 5
+`;
+const scoreRefs = otterLanguageService.findReferences('score', 'main.ot', sampleSource);
+assert.equal(scoreRefs.length, 3, 'findReferences must find 3 variable references and skip strings/comments');
+assert.equal(scoreRefs[0].line, 2);
+assert.equal(scoreRefs[1].line, 4);
+assert.equal(scoreRefs[2].line, 4);
+
+// --- Safe Rename Symbol with Preview Diff ---
+const renamePlan = otterLanguageService.prepareRename(
+  'score',
+  'totalPoints',
+  'main.ot',
+  sampleSource
+);
+assert.equal(renamePlan.ok, true);
+assert.equal(renamePlan.oldName, 'score');
+assert.equal(renamePlan.newName, 'totalPoints');
+assert.equal(renamePlan.referencesCount, 3);
+assert.equal(renamePlan.affectedLinesCount, 2);
+assert.match(renamePlan.edits[0].modifiedLine, /totalPoints is 10/);
+assert.match(renamePlan.edits[1].originalLine, /score is score plus 5/);
+
+// Applying rename must transform source safely without touching strings/comments
+const renamedSource = otterLanguageService.applyRenameToSource(
+  sampleSource,
+  'score',
+  'totalPoints',
+  renamePlan.edits
+);
+assert.match(renamedSource, /totalPoints is 10/);
+assert.match(renamedSource, /"score in quotes is not a ref"/, 'strings must not be renamed');
+assert.match(renamedSource, /# score in comment is not a ref/, 'comments must not be renamed');
+assert.match(renamedSource, /totalPoints is totalPoints plus 5/);
+
+// Invalid rename validation
+const invalidRename = otterLanguageService.prepareRename('score', '123bad', 'main.ot', sampleSource);
+assert.equal(invalidRename.ok, false);
+assert.match(invalidRename.error, /not a valid Otter identifier/);
+
+console.log('Studio navigation tests passed: project flattening, fuzzy Quick Open, ordered outlines, history, hover documentation, word extraction, signature help, function parameters, cross-file definition, safe references, and preview rename.');
 
 
 
