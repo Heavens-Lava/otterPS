@@ -98,12 +98,12 @@ export class OtterStudioIde {
     this.suggestions = [
       {
         icon: '📝',
-        title: 'make [name] is [value]',
-        desc: 'Create or reassign variable',
-        insert: 'make count is 0',
-        example: 'make score is 100',
-        docTitle: 'make ... is ...',
-        docDesc: 'Declares or binds a variable with an initial value.'
+        title: '[name] is [value]',
+        desc: 'Assign variable',
+        insert: 'count is 0',
+        example: 'score is 100',
+        docTitle: '[name] is [value]',
+        docDesc: 'Assigns a value to a variable (canonical Otter assignment).'
       },
       {
         icon: '🔀',
@@ -4110,9 +4110,13 @@ export class OtterStudioIde {
   }
 
   getOffsetFromPosition(text, line = 1, column = 1) {
-    const lines = (text || '').split('\n');
+    const raw = text || '';
+    const lines = raw.split('\n');
+    if (line > lines.length) {
+      return raw.length;
+    }
     let offset = 0;
-    const safeLine = Math.max(1, Math.min(line, lines.length));
+    const safeLine = Math.max(1, line);
     for (let i = 0; i < safeLine - 1; i++) {
       offset += lines[i].length + 1; // +1 for newline
     }

@@ -208,7 +208,7 @@ assert.equal(wsResults[0].path, 'src/server.ot');
 // --- 3. Safe Extract-Function Refactoring (with No-Hoisting Pre-Declaration) ---
 const extractTestSource = `
 to runProcess
-    make val is 5
+    val is 5
     say val
 .
 `;
@@ -238,13 +238,12 @@ assert.equal(indentFixes.length, 1);
 assert.equal(indentFixes[0].apply(), 'to hello\n    say "hi"\n.');
 
 const undeclaredFixes = otterLanguageService.getQuickFixes({ message: 'could not find anything called "userTotal"', line: 1 }, 'say userTotal');
-assert.equal(undeclaredFixes.length, 1);
-assert.match(undeclaredFixes[0].apply(), /make userTotal is gone\nsay userTotal/);
+assert.equal(undeclaredFixes.length, 0, 'Undeclared variable must not offer automatic source mutation');
 
 // --- 5. Unused-Variable Diagnostics ---
 const unusedVarSource = `
-make usedVar is 10
-make unusedVar is 20
+usedVar is 10
+unusedVar is 20
 say usedVar
 `;
 const semanticSymbols = [

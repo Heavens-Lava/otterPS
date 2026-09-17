@@ -77,24 +77,24 @@ async function runTests() {
   console.log('\n--- 2. Select Next Occurrence (Ctrl+D) ---');
 
   test('Automatically expands word under primary cursor and selects next occurrence', () => {
-    const code = 'make score is 10\nadd 5 to score\nsay score';
+    const code = 'score is 10\nadd 5 to score\nsay score';
     const mgr = new MultiCursorManager();
-    // Cursor initially at offset 7 (inside "score")
-    mgr.setPrimaryCursor(7, 7);
+    // Cursor initially at offset 2 (inside "score")
+    mgr.setPrimaryCursor(2, 2);
 
     const addedFirst = mgr.selectNextOccurrence(code);
     assert.equal(addedFirst, true);
     assert.equal(mgr.cursors.length, 2);
-    // First cursor should be expanded to first "score" [5, 10]
-    assert.deepEqual(mgr.cursors[0], { start: 5, end: 10 });
-    // Second cursor should select second "score" [26, 31]
-    assert.deepEqual(mgr.cursors[1], { start: 26, end: 31 });
+    // First cursor should be expanded to first "score" [0, 5]
+    assert.deepEqual(mgr.cursors[0], { start: 0, end: 5 });
+    // Second cursor should select second "score" [21, 26]
+    assert.deepEqual(mgr.cursors[1], { start: 21, end: 26 });
 
     // Press Ctrl+D again to select third "score"
     const addedSecond = mgr.selectNextOccurrence(code);
     assert.equal(addedSecond, true);
     assert.equal(mgr.cursors.length, 3);
-    assert.deepEqual(mgr.cursors[2], { start: 36, end: 41 });
+    assert.deepEqual(mgr.cursors[2], { start: 31, end: 36 });
   });
 
   test('Wraps around document when finding next occurrence', () => {
@@ -185,15 +185,15 @@ async function runTests() {
   });
 
   test('Simultaneously replaces non-empty selections across multiple cursors', () => {
-    const code = 'make foo is 1\nmake foo is 2';
+    const code = 'foo is 1\nfoo is 2';
     const mgr = new MultiCursorManager();
-    mgr.setPrimaryCursor(5, 8);  // 'foo' line 1
-    mgr.addCursor(19, 22);       // 'foo' line 2
+    mgr.setPrimaryCursor(0, 3);  // 'foo' line 1
+    mgr.addCursor(9, 12);       // 'foo' line 2
 
     const result = mgr.applyEdit(code, 'target', false, false);
-    assert.equal(result.code, 'make target is 1\nmake target is 2');
-    assert.equal(mgr.cursors[0].start, 11);
-    assert.equal(mgr.cursors[1].start, 28);
+    assert.equal(result.code, 'target is 1\ntarget is 2');
+    assert.equal(mgr.cursors[0].start, 6);
+    assert.equal(mgr.cursors[1].start, 18);
   });
 
   test('Simultaneously inserts newlines across multiple cursors', () => {

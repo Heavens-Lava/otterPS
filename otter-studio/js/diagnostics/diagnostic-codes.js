@@ -121,7 +121,7 @@ export const DiagnosticMetadata = {
     category: 'syntax',
     severity: 'error',
     title: 'Invalid Assignment',
-    defaultMessage: 'Invalid make or assignment statement.'
+    defaultMessage: 'Invalid assignment statement.'
   },
   [DiagnosticCodes.MISSING_CONDITION]: {
     code: 'OT2005',
@@ -426,4 +426,82 @@ export function resolveDiagnosticCode(message = '', stage = 'parser', context = 
 
   // Default fallback
   return DiagnosticCodes.UNEXPECTED_TOKEN;
+}
+
+/**
+ * Diagnostic Certification Status Tiers
+ * 1. DEFINED: Code and metadata exist in Studio registry.
+ * 2. MAPPED: Code is deterministically resolved from real lexer/parser/runtime/build/host diagnostic strings.
+ * 3. PRODUCTION_VERIFIED: Code mapping and normalization has verified automated test coverage with real compiler/runtime/server.
+ */
+export const DiagnosticCertificationTier = {
+  DEFINED: 'DEFINED',
+  MAPPED: 'MAPPED',
+  PRODUCTION_VERIFIED: 'PRODUCTION_VERIFIED'
+};
+
+export const DiagnosticCertificationStatus = {
+  // OT1xxx - Lexical
+  [DiagnosticCodes.INDENTATION_JUMP]: DiagnosticCertificationTier.PRODUCTION_VERIFIED,
+  [DiagnosticCodes.INVALID_CHARACTER]: DiagnosticCertificationTier.MAPPED,
+  [DiagnosticCodes.PERIOD_PROPERTY_ACCESS]: DiagnosticCertificationTier.PRODUCTION_VERIFIED,
+  [DiagnosticCodes.EQUALS_ASSIGNMENT]: DiagnosticCertificationTier.PRODUCTION_VERIFIED,
+  [DiagnosticCodes.UNTERMINATED_STRING]: DiagnosticCertificationTier.MAPPED,
+
+  // OT2xxx - Syntax / Parser
+  [DiagnosticCodes.MISSING_BLOCK_TERMINATOR]: DiagnosticCertificationTier.PRODUCTION_VERIFIED,
+  [DiagnosticCodes.UNEXPECTED_TOKEN]: DiagnosticCertificationTier.PRODUCTION_VERIFIED,
+  [DiagnosticCodes.UNEXPECTED_EOF]: DiagnosticCertificationTier.MAPPED,
+  [DiagnosticCodes.INVALID_ASSIGNMENT]: DiagnosticCertificationTier.MAPPED,
+  [DiagnosticCodes.MISSING_CONDITION]: DiagnosticCertificationTier.MAPPED,
+  [DiagnosticCodes.INVALID_FUNCTION_DEF]: DiagnosticCertificationTier.MAPPED,
+  [DiagnosticCodes.EXTRANEOUS_BLOCK_TERMINATOR]: DiagnosticCertificationTier.PRODUCTION_VERIFIED,
+
+  // OT3xxx - Name / Scope
+  [DiagnosticCodes.UNDECLARED_VARIABLE]: DiagnosticCertificationTier.PRODUCTION_VERIFIED,
+  [DiagnosticCodes.UNKNOWN_FUNCTION]: DiagnosticCertificationTier.MAPPED,
+  [DiagnosticCodes.UNUSED_DECLARATION]: DiagnosticCertificationTier.PRODUCTION_VERIFIED,
+  [DiagnosticCodes.UNREACHABLE_CODE]: DiagnosticCertificationTier.PRODUCTION_VERIFIED,
+  [DiagnosticCodes.FUNCTION_HOISTING_VIOLATION]: DiagnosticCertificationTier.MAPPED,
+
+  // OT4xxx - Type / Value / Operation
+  [DiagnosticCodes.TYPE_MISMATCH]: DiagnosticCertificationTier.DEFINED,
+  [DiagnosticCodes.PROPERTY_NOT_FOUND]: DiagnosticCertificationTier.DEFINED,
+  [DiagnosticCodes.DIVISION_BY_ZERO]: DiagnosticCertificationTier.PRODUCTION_VERIFIED,
+  [DiagnosticCodes.COLLECTION_OUT_OF_RANGE]: DiagnosticCertificationTier.DEFINED,
+
+  // OT5xxx - Runtime
+  [DiagnosticCodes.PROGRAM_FAILURE]: DiagnosticCertificationTier.PRODUCTION_VERIFIED,
+  [DiagnosticCodes.GONE_ACCESS]: DiagnosticCertificationTier.MAPPED,
+  [DiagnosticCodes.CALL_STACK_OVERFLOW]: DiagnosticCertificationTier.MAPPED,
+  [DiagnosticCodes.ARGUMENT_COUNT_MISMATCH]: DiagnosticCertificationTier.DEFINED,
+
+  // OT6xxx - Filesystem / System / Provider
+  [DiagnosticCodes.FILE_NOT_FOUND]: DiagnosticCertificationTier.PRODUCTION_VERIFIED,
+  [DiagnosticCodes.FOLDER_NOT_FOUND]: DiagnosticCertificationTier.MAPPED,
+  [DiagnosticCodes.FILE_ACCESS_DENIED]: DiagnosticCertificationTier.PRODUCTION_VERIFIED,
+  [DiagnosticCodes.INVALID_PATH_TYPE]: DiagnosticCertificationTier.MAPPED,
+  [DiagnosticCodes.COMMAND_EXECUTION_FAILURE]: DiagnosticCertificationTier.PRODUCTION_VERIFIED,
+  [DiagnosticCodes.NETWORK_REQUEST_FAILURE]: DiagnosticCertificationTier.DEFINED,
+
+  // OT7xxx - Build / Target
+  [DiagnosticCodes.TARGET_COMPILATION_ERROR]: DiagnosticCertificationTier.PRODUCTION_VERIFIED,
+  [DiagnosticCodes.MANIFEST_VALIDATION_ERROR]: DiagnosticCertificationTier.PRODUCTION_VERIFIED,
+  [DiagnosticCodes.MISSING_BUILD_ASSET]: DiagnosticCertificationTier.MAPPED,
+  [DiagnosticCodes.BUNDLE_GENERATION_ERROR]: DiagnosticCertificationTier.DEFINED,
+
+  // OT8xxx - Tooling / Studio
+  [DiagnosticCodes.UNTRUSTED_WORKSPACE_BLOCKED]: DiagnosticCertificationTier.PRODUCTION_VERIFIED,
+  [DiagnosticCodes.LARGE_FILE_ANALYSIS_BYPASS]: DiagnosticCertificationTier.PRODUCTION_VERIFIED,
+  [DiagnosticCodes.FILE_CHANGED_ON_DISK]: DiagnosticCertificationTier.PRODUCTION_VERIFIED,
+  [DiagnosticCodes.STUDIO_ANALYZER_ERROR]: DiagnosticCertificationTier.PRODUCTION_VERIFIED
+};
+
+export function getDiagnosticCertification(code) {
+  return DiagnosticCertificationStatus[code] || DiagnosticCertificationTier.DEFINED;
+}
+
+// Decorate metadata registry with explicit certification tier
+for (const [code, meta] of Object.entries(DiagnosticMetadata)) {
+  meta.certification = getDiagnosticCertification(code);
 }

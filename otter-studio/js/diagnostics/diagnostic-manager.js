@@ -209,28 +209,62 @@ export function getDiagnosticQuickFixes(diagnostic, sourceText = '') {
 
   switch (code) {
     case DiagnosticCodes.MISSING_BLOCK_TERMINATOR: { // OT2001
-      // Safe fix: Insert '.' block terminator
-      // Determine proper indentation for the closing '.'
+      // Safe fix: Insert '.' block terminator at the end of the unclosed block
       const matchIndent = targetLine.match(/^(\s*)/);
       const indent = matchIndent ? matchIndent[1] : '';
+      const baseIndentLen = indent.length;
+      let insertLineIdx = lineIdx + 1;
+      while (insertLineIdx < lines.length) {
+        const nextLine = lines[insertLineIdx];
+        if (nextLine.trim() === '') {
+          insertLineIdx++;
+          continue;
+        }
+        const nextIndentMatch = nextLine.match(/^(\s*)/);
+        const nextIndent = nextIndentMatch ? nextIndentMatch[1].length : 0;
+        if (nextIndent > baseIndentLen) {
+          insertLineIdx++;
+        } else {
+          break;
+        }
+      }
+      const needsPrefixNewline = insertLineIdx >= lines.length && sourceText.length > 0 && !sourceText.endsWith('\n');
+      const dotText = needsPrefixNewline ? `\n${indent}.\n` : `${indent}.\n`;
       fixes.push({
         title: 'Add closing "."',
         description: 'Appends a closing period to complete the open block.',
         edits: [{
           file,
-          startLine: startLine + 1,
+          startLine: insertLineIdx + 1,
           startColumn: 1,
-          endLine: startLine + 1,
+          endLine: insertLineIdx + 1,
           endColumn: 1,
-          newText: `${indent}.\n`
+          newText: dotText
         }]
       });
       break;
     }
 
     case DiagnosticCodes.EQUALS_ASSIGNMENT: { // OT1004
-      // Safe fix: Replace '=' with 'is'
-      if (targetLine.includes('=')) {
+      // Canonical Otter assignment is: <name> is <value> (never introduce 'make')
+      const makeMatch = targetLine.match(/^(\s*)make\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(.*)$/);
+      if (makeMatch) {
+        const indent = makeMatch[1];
+        const varName = makeMatch[2];
+        const value = makeMatch[3].trim();
+        fixes.push({
+          title: `Replace with canonical assignment '${varName} is ${value}'`,
+          description: "Otter assigns variables with '<name> is <value>' without 'make'.",
+          edits: [{
+            file,
+            startLine,
+            startColumn: 1,
+            endLine: startLine,
+            endColumn: targetLine.length + 1,
+            newText: `${indent}${varName} is ${value}`
+          }]
+        });
+      } else if (targetLine.includes('=')) {
         fixes.push({
           title: "Replace '=' with 'is'",
           description: "Otter uses 'is' for assignment and comparison.",
@@ -291,40 +325,29 @@ export function getDiagnosticQuickFixes(diagnostic, sourceText = '') {
     }
 
     case DiagnosticCodes.UNDECLARED_VARIABLE: { // OT3001
-      // Safe fix: If variable name is identifiable from message
-      const varMatch = message.match(/'([^']+)'/) || message.match(/"([^"]+)"/);
-      if (varMatch) {
-        const varName = varMatch[1];
-        fixes.push({
-          title: `Declare variable '${varName}'`,
-          description: `Add 'make ${varName} is gone' before use.`,
-          edits: [{
-            file,
-            startLine,
-            startColumn: 1,
-            endLine: startLine,
-            endColumn: 1,
-            newText: `make ${varName} is gone\n`
-          }]
-        });
-      }
+      // For an undeclared identifier, do NOT automatically create 'name is gone'.
+      // The IDE cannot determine the intended initial value or type safely.
+      // Explanatory guidance is provided in suggestion without source mutation.
       break;
     }
 
     case DiagnosticCodes.UNUSED_DECLARATION: { // OT3003
-      // Safe fix: Remove unused declaration or comment it
-      fixes.push({
-        title: 'Remove unused declaration',
-        description: 'Delete the statement declaring the unused symbol.',
-        edits: [{
-          file,
-          startLine,
-          startColumn: 1,
-          endLine: startLine + 1,
-          endColumn: 1,
-          newText: ''
-        }]
-      });
+      // Safe fix: Only remove declaration if it is a pure variable assignment without side effects
+      const isPureAssign = /^\s*[a-zA-Z_][a-zA-Z0-9_]*\s+is\s+[^;]+$/.test(targetLine.trim());
+      if (isPureAssign) {
+        fixes.push({
+          title: 'Remove unused declaration',
+          description: 'Delete the statement declaring the unused symbol.',
+          edits: [{
+            file,
+            startLine,
+            startColumn: 1,
+            endLine: startLine + 1,
+            endColumn: 1,
+            newText: ''
+          }]
+        });
+      }
       break;
     }
 

@@ -1,6 +1,15 @@
 // diagnostics-experience.test.mjs - Dedicated Certification Suite for Section 10: Diagnostics Experience
 import assert from 'node:assert/strict';
-import { DiagnosticCodes, DiagnosticMetadata, resolveDiagnosticCode } from '../js/diagnostics/diagnostic-codes.js';
+import { spawnSync } from 'node:child_process';
+import path from 'node:path';
+import {
+  DiagnosticCodes,
+  DiagnosticMetadata,
+  DiagnosticCertificationTier,
+  DiagnosticCertificationStatus,
+  getDiagnosticCertification,
+  resolveDiagnosticCode
+} from '../js/diagnostics/diagnostic-codes.js';
 import { translateHostError, extractOtterStackFrames, formatOtterStackTrace } from '../js/diagnostics/host-translator.js';
 import {
   computeExactRange,
@@ -23,6 +32,40 @@ async function runDiagnosticsTests() {
     } catch (err) {
       console.error(`  ✗ ${name}:`, err.message);
       failed++;
+    }
+  }
+
+  function parseWithRealOtter(source) {
+    const repoRoot = path.resolve('.');
+    const psCmd = `
+      $ErrorActionPreference = 'Stop'
+      Import-Module (Join-Path '${repoRoot}\\src' 'Otter.Lexer.psm1') -Global
+      Import-Module (Join-Path '${repoRoot}\\src' 'Otter.Parser.psm1') -Global
+      try {
+        $src = @'
+${source}
+'@
+        $toks = ConvertTo-OtterTokens -Source $src
+        $ast = ConvertTo-OtterAst -Tokens $toks
+        $firstType = if ($ast.Statements.Count -gt 0) { $ast.Statements[0].GetType().Name } else { $null }
+        [pscustomobject]@{
+          Ok = $true
+          StatementCount = $ast.Statements.Count
+          FirstType = $firstType
+        } | ConvertTo-Json
+      } catch {
+        [pscustomobject]@{
+          Ok = $false
+          Message = $_.Exception.Message
+          Stage = $_.Exception.Stage
+        } | ConvertTo-Json
+      }
+    `;
+    const result = spawnSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', psCmd], { encoding: 'utf8' });
+    try {
+      return JSON.parse(result.stdout.trim());
+    } catch (err) {
+      return { Ok: false, Message: result.stderr || result.stdout };
     }
   }
 
@@ -67,13 +110,13 @@ async function runDiagnosticsTests() {
   });
 
   test('Computes exact range for equals assignment operator', () => {
-    const source = 'make score = 10\n';
-    // "=" is at column 12 (index 11)
-    const range = computeExactRange(source, 1, 12, DiagnosticCodes.EQUALS_ASSIGNMENT, "Does not use '='");
+    const source = 'score = 10\n';
+    // "=" is at column 7 (index 6)
+    const range = computeExactRange(source, 1, 7, DiagnosticCodes.EQUALS_ASSIGNMENT, "Does not use '='");
     assert.equal(range.startLine, 1);
-    assert.equal(range.startColumn, 12);
+    assert.equal(range.startColumn, 7);
     assert.equal(range.endLine, 1);
-    assert.equal(range.endColumn, 13);
+    assert.equal(range.endColumn, 8);
   });
 
   test('Computes exact range for missing block terminator', () => {
@@ -95,12 +138,11 @@ async function runDiagnosticsTests() {
 
   test('HTML exact squiggle wrapping applies only to offending characters', () => {
     const ide = new OtterStudioIde();
-    const renderedHtml = '<span class="tok-kw">make</span> <span class="tok-var">score</span> = <span class="tok-num">10</span>';
-    // Offending token is "=" at startCol: 12, endCol: 13
-    const wrapped = ide.wrapExactRangeInHtml(renderedHtml, 12, 13, 'exact-squiggle squiggle-error', 'OT1004');
+    const renderedHtml = '<span class="tok-var">score</span> = <span class="tok-num">10</span>';
+    // Offending token is "=" at startCol: 7, endCol: 8
+    const wrapped = ide.wrapExactRangeInHtml(renderedHtml, 7, 8, 'exact-squiggle squiggle-error', 'OT1004');
     assert.ok(wrapped.includes('<span class="exact-squiggle squiggle-error" title="OT1004">=</span>'), `Wrapped HTML must underline only '=': ${wrapped}`);
-    // "make" and "score" should NOT have exact-squiggle
-    assert.ok(!wrapped.includes('class="tok-kw exact-squiggle'));
+    // "score" should NOT have exact-squiggle
     assert.ok(!wrapped.includes('class="tok-var exact-squiggle'));
   });
 
@@ -146,7 +188,7 @@ async function runDiagnosticsTests() {
     assert.equal(translated.source, 'host');
     assert.equal(translated.code, DiagnosticCodes.UNDECLARED_VARIABLE);
     assert.equal(translated.message, "I don't know a variable called 'activeUser'.");
-    assert.ok(translated.suggestion.includes("Declare 'activeUser' using 'make activeUser is ...'"));
+    assert.ok(translated.suggestion.includes("Assign a value to 'activeUser' before using it"));
     assert.equal(translated.hostDetails, rawJsError);
   });
 
@@ -176,7 +218,7 @@ Try:
   console.log('\n--- 4. Suggested Fixes ---');
 
   test('Generates safe Quick Fix for missing block terminator (OT2001)', () => {
-    const source = 'to computeTotal\n    make x is 10\n';
+    const source = 'to computeTotal\n    x is 10\n';
     const diag = normalizeDiagnostic({
       Line: 1,
       Column: 1,
@@ -191,7 +233,27 @@ Try:
     assert.equal(fix.edits[0].newText, '.\n');
   });
 
-  test('Generates safe Quick Fix for equals assignment (OT1004)', () => {
+  test('Generates safe Quick Fix for equals assignment (OT1004) without introducing make', () => {
+    const source = 'score = 100\n';
+    const diag = normalizeDiagnostic({
+      Line: 1,
+      Column: 7,
+      Message: "Otter does not use '=' to assign values."
+    }, source, 'main.ot');
+
+    assert.equal(diag.code, DiagnosticCodes.EQUALS_ASSIGNMENT);
+    assert.ok(diag.fixes.length > 0);
+    const fix = diag.fixes[0];
+    assert.equal(fix.title, "Replace '=' with 'is'");
+    assert.equal(fix.edits[0].newText, 'is');
+
+    // Test applying the edit produces canonical assignment: score is 100
+    const ide = new OtterStudioIde();
+    const updated = ide.applyEditToText(source, fix.edits[0]);
+    assert.equal(updated, 'score is 100\n');
+  });
+
+  test('Generates safe Quick Fix for equals assignment with make prefix stripping make', () => {
     const source = 'make score = 100\n';
     const diag = normalizeDiagnostic({
       Line: 1,
@@ -202,13 +264,39 @@ Try:
     assert.equal(diag.code, DiagnosticCodes.EQUALS_ASSIGNMENT);
     assert.ok(diag.fixes.length > 0);
     const fix = diag.fixes[0];
-    assert.equal(fix.title, "Replace '=' with 'is'");
-    assert.equal(fix.edits[0].newText, 'is');
+    assert.equal(fix.title, "Replace with canonical assignment 'score is 100'");
 
-    // Test applying the edit
     const ide = new OtterStudioIde();
     const updated = ide.applyEditToText(source, fix.edits[0]);
-    assert.equal(updated, 'make score is 100\n');
+    assert.equal(updated, 'score is 100\n');
+  });
+
+  test('Never creates automatic edit for undeclared variable (OT3001) - guidance only', () => {
+    const source = 'say mysteryTotal\n';
+    const diag = normalizeDiagnostic({
+      Line: 1,
+      Column: 5,
+      Message: "I could not find anything called 'mysteryTotal'."
+    }, source, 'main.ot');
+
+    assert.equal(diag.code, DiagnosticCodes.UNDECLARED_VARIABLE);
+    assert.equal(diag.fixes.length, 0, 'Undeclared variable must have 0 automatic edits');
+  });
+
+  test('Safely removes unused declaration (OT3003) for pure assignment statement', () => {
+    const source = 'used is 10\nunused is 20\nsay used\n';
+    const diag = normalizeDiagnostic({
+      Line: 2,
+      Column: 1,
+      Message: "Variable 'unused' declared but never read.",
+      semanticType: 'unused-variable'
+    }, source, 'main.ot');
+
+    assert.equal(diag.code, DiagnosticCodes.UNUSED_DECLARATION);
+    assert.equal(diag.fixes.length, 1);
+    const ide = new OtterStudioIde();
+    const updated = ide.applyEditToText(source, diag.fixes[0].edits[0]);
+    assert.equal(updated, 'used is 10\nsay used\n');
   });
 
   test('Generates safe Quick Fix for period property access (OT1003)', () => {
@@ -358,28 +446,190 @@ Try:
       const response = await fetch('http://127.0.0.1:4200/api/lint', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: 'make speed = 80' })
+        body: JSON.stringify({ code: 'speed = 80' })
       });
       if (response.ok) {
         const raw = await response.json();
         assert.equal(raw.ok, false);
         assert.equal(raw.stage, 'lexer');
         assert.equal(raw.line, 1);
-        assert.equal(raw.column, 12);
-        const normalized = normalizeDiagnostic(raw, 'make speed = 80', 'main.ot');
+        assert.equal(raw.column, 7);
+        const normalized = normalizeDiagnostic(raw, 'speed = 80', 'main.ot');
         assert.equal(normalized.code, DiagnosticCodes.EQUALS_ASSIGNMENT);
         assert.equal(normalized.startLine, 1);
-        assert.equal(normalized.startColumn, 12);
-        assert.equal(normalized.endColumn, 13);
+        assert.equal(normalized.startColumn, 7);
+        assert.equal(normalized.endColumn, 8);
         assert.ok(normalized.fixes.length > 0);
         assert.equal(normalized.fixes[0].title, "Replace '=' with 'is'");
-        console.log('  ✓ Real /api/lint lexer diagnostic returns exact range and resolves stable code OT1004 with Quick Fix');
+        const ide = new OtterStudioIde();
+        const updated = ide.applyEditToText('speed = 80', normalized.fixes[0].edits[0]);
+        assert.equal(updated, 'speed is 80');
+        console.log('  ✓ Real /api/lint lexer diagnostic returns exact range and resolves stable code OT1004 with canonical Quick Fix');
         passed++;
       }
     } catch {
       console.log('  ⚠ Live server not reachable for integration test, skipping route check');
     }
   })();
+
+  // --- 10. Diagnostic Code Certification Status Audit ---
+  console.log('\n--- 10. Diagnostic Code Certification Status Audit ---');
+
+  test('Distinguishes DEFINED, MAPPED, and PRODUCTION_VERIFIED status tiers', () => {
+    assert.equal(DiagnosticCertificationTier.DEFINED, 'DEFINED');
+    assert.equal(DiagnosticCertificationTier.MAPPED, 'MAPPED');
+    assert.equal(DiagnosticCertificationTier.PRODUCTION_VERIFIED, 'PRODUCTION_VERIFIED');
+
+    // Certified production verified codes
+    assert.equal(getDiagnosticCertification('OT1004'), DiagnosticCertificationTier.PRODUCTION_VERIFIED);
+    assert.equal(getDiagnosticCertification('OT3001'), DiagnosticCertificationTier.PRODUCTION_VERIFIED);
+    assert.equal(getDiagnosticCertification('OT3003'), DiagnosticCertificationTier.PRODUCTION_VERIFIED);
+    assert.equal(getDiagnosticCertification('OT2001'), DiagnosticCertificationTier.PRODUCTION_VERIFIED);
+    assert.equal(getDiagnosticCertification('OT1001'), DiagnosticCertificationTier.PRODUCTION_VERIFIED);
+
+    // Mapped codes (deterministic translation exists, not yet live-compiler integration certified)
+    assert.equal(getDiagnosticCertification('OT1002'), DiagnosticCertificationTier.MAPPED);
+    assert.equal(getDiagnosticCertification('OT2004'), DiagnosticCertificationTier.MAPPED);
+    assert.equal(getDiagnosticCertification('OT3002'), DiagnosticCertificationTier.MAPPED);
+
+    // Defined codes (defined schema/metadata placeholder)
+    assert.equal(getDiagnosticCertification('OT4001'), DiagnosticCertificationTier.DEFINED);
+    assert.equal(getDiagnosticCertification('OT4002'), DiagnosticCertificationTier.DEFINED);
+    assert.equal(getDiagnosticCertification('OT7004'), DiagnosticCertificationTier.DEFINED);
+
+    // Verify all codes in DiagnosticCodes have defined status
+    for (const [key, code] of Object.entries(DiagnosticCodes)) {
+      const status = getDiagnosticCertification(code);
+      assert.ok(status, `Code ${code} (${key}) must have a certification status`);
+      assert.ok(
+        [DiagnosticCertificationTier.DEFINED, DiagnosticCertificationTier.MAPPED, DiagnosticCertificationTier.PRODUCTION_VERIFIED].includes(status),
+        `Status ${status} must be a valid tier`
+      );
+    }
+  });
+
+  // --- 11. Real Otter Parser Verification for Canonical Assignment & Quick Fix Outputs ---
+  console.log('\n--- 11. Real Otter Parser Verification for Canonical Assignment & Quick Fix Outputs ---');
+
+  test('Real Otter parser certifies canonical variable assignment syntax without make', () => {
+    const t1 = parseWithRealOtter('name is "Jeff"');
+    assert.equal(t1.Ok, true, `name is "Jeff" failed: ${t1.Message}`);
+    assert.equal(t1.StatementCount, 1);
+    assert.equal(t1.FirstType, 'AssignStmt');
+
+    const t2 = parseWithRealOtter('score is 100');
+    assert.equal(t2.Ok, true, `score is 100 failed: ${t2.Message}`);
+    assert.equal(t2.StatementCount, 1);
+    assert.equal(t2.FirstType, 'AssignStmt');
+
+    const t3 = parseWithRealOtter('total is price times quantity');
+    assert.equal(t3.Ok, true, `total is price times quantity failed: ${t3.Message}`);
+    assert.equal(t3.StatementCount, 1);
+    assert.equal(t3.FirstType, 'AssignStmt');
+
+    // Confirm that 'make score is 100' is rejected by the real Otter parser
+    const invalidMake = parseWithRealOtter('make score is 100');
+    assert.equal(invalidMake.Ok, false, 'make score is 100 must be rejected by parser');
+    assert.match(invalidMake.Message, /don't understand 'make'/i);
+  });
+
+  test('Real Otter parser certifies OT1004 equals assignment Quick Fix output', () => {
+    const source = 'score = 100';
+    const diag = normalizeDiagnostic({
+      Line: 1,
+      Column: 7,
+      Message: "Otter does not use '=' to assign values."
+    }, source, 'main.ot');
+
+    assert.equal(diag.fixes.length, 1);
+    const ide = new OtterStudioIde();
+    const fixedSource = ide.applyEditToText(source, diag.fixes[0].edits[0]);
+    assert.equal(fixedSource, 'score is 100');
+
+    // Run real Otter parser on the Quick Fix output
+    const parsed = parseWithRealOtter(fixedSource);
+    assert.equal(parsed.Ok, true, `Quick Fix output failed parsing: ${parsed.Message}`);
+    assert.equal(parsed.StatementCount, 1);
+    assert.equal(parsed.FirstType, 'AssignStmt');
+  });
+
+  test('Real Otter parser certifies OT1004 equals assignment with make-prefix Quick Fix output', () => {
+    const source = 'make score = 100';
+    const diag = normalizeDiagnostic({
+      Line: 1,
+      Column: 12,
+      Message: "Otter does not use '=' to assign values."
+    }, source, 'main.ot');
+
+    assert.equal(diag.fixes.length, 1);
+    const ide = new OtterStudioIde();
+    const fixedSource = ide.applyEditToText(source, diag.fixes[0].edits[0]);
+    assert.equal(fixedSource, 'score is 100');
+
+    // Run real Otter parser on the Quick Fix output
+    const parsed = parseWithRealOtter(fixedSource);
+    assert.equal(parsed.Ok, true, `Quick Fix output failed parsing: ${parsed.Message}`);
+    assert.equal(parsed.StatementCount, 1);
+    assert.equal(parsed.FirstType, 'AssignStmt');
+  });
+
+  test('Real Otter parser certifies OT2001 missing block terminator Quick Fix output', () => {
+    const source = 'if score is greater than 10\n    say "You won!"';
+    const diag = normalizeDiagnostic({
+      Line: 1,
+      Column: 1,
+      Message: 'Expected "." to close this block.'
+    }, source, 'main.ot');
+
+    assert.equal(diag.fixes.length, 1);
+    const ide = new OtterStudioIde();
+    const fixedSource = ide.applyEditToText(source, diag.fixes[0].edits[0]);
+
+    // Run real Otter parser on the Quick Fix output
+    const parsed = parseWithRealOtter(fixedSource);
+    assert.equal(parsed.Ok, true, `Quick Fix output failed parsing: ${parsed.Message}`);
+    assert.equal(parsed.FirstType, 'IfStmt');
+  });
+
+  test('Real Otter parser certifies OT1003 period property access Quick Fix output', () => {
+    const source = 'say player.score';
+    const diag = normalizeDiagnostic({
+      Line: 1,
+      Column: 11,
+      Message: 'Otter does not use periods to access properties.'
+    }, source, 'main.ot');
+
+    assert.equal(diag.fixes.length, 1);
+    const ide = new OtterStudioIde();
+    const fixedSource = ide.applyEditToText(source, diag.fixes[0].edits[0]);
+    assert.equal(fixedSource, 'say score of player');
+
+    // Run real Otter parser on the Quick Fix output
+    const parsed = parseWithRealOtter(fixedSource);
+    assert.equal(parsed.Ok, true, `Quick Fix output failed parsing: ${parsed.Message}`);
+    assert.equal(parsed.FirstType, 'SayStmt');
+  });
+
+  test('Real Otter parser certifies OT3003 unused declaration removal Quick Fix output', () => {
+    const source = 'score is 100\nunused is 20\nsay score\n';
+    const diag = normalizeDiagnostic({
+      Line: 2,
+      Column: 1,
+      Message: "Variable 'unused' declared but never read.",
+      semanticType: 'unused-variable'
+    }, source, 'main.ot');
+
+    assert.equal(diag.fixes.length, 1);
+    const ide = new OtterStudioIde();
+    const fixedSource = ide.applyEditToText(source, diag.fixes[0].edits[0]);
+    assert.equal(fixedSource, 'score is 100\nsay score\n');
+
+    // Run real Otter parser on the Quick Fix output
+    const parsed = parseWithRealOtter(fixedSource);
+    assert.equal(parsed.Ok, true, `Quick Fix output failed parsing: ${parsed.Message}`);
+    assert.equal(parsed.StatementCount, 2);
+    assert.equal(parsed.FirstType, 'AssignStmt');
+  });
 
   console.log(`\nDiagnostics Experience Test Results: ${passed} passed, ${failed} failed`);
   if (failed > 0) {

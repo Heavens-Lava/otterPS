@@ -148,7 +148,7 @@ export function translateHostError(rawErrorText = '', context = {}) {
       category: 'scope',
       code: DiagnosticCodes.UNDECLARED_VARIABLE,
       message: `I don't know a variable called '${varName}'.`,
-      suggestion: `Declare '${varName}' using 'make ${varName} is ...' before using it.`,
+      suggestion: `Assign a value to '${varName}' before using it (e.g. '${varName} is ...').`,
       line: extractLineNumber(text) || context.line || 1,
       column: extractColumnNumber(text) || context.column || 1,
       hostDetails: text,

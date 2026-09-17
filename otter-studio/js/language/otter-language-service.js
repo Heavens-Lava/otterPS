@@ -516,20 +516,8 @@ export class OtterLanguageService {
       });
     }
 
-    // 3. Declare variable for undeclared variable error
-    const undefinedMatch = diagnostic.message.match(/could not find anything called "([^"]+)"/i) || diagnostic.message.match(/undefined variable ([A-Za-z0-9_]+)/i);
-    if (undefinedMatch) {
-      const varName = undefinedMatch[1];
-      fixes.push({
-        title: `Declare variable 'make ${varName} is gone'`,
-        kind: 'quickfix',
-        apply: () => {
-          const target = Math.max(0, Math.min(line - 1, lines.length));
-          lines.splice(target, 0, `make ${varName} is gone`);
-          return lines.join('\n');
-        }
-      });
-    }
+    // 3. Undeclared variables: Do NOT automatically generate edits (e.g. 'name is gone')
+    // Intent and value cannot be safely inferred; provide explanatory guidance only without source mutation.
 
     // 4. Remove unused variable declaration
     if (diagnostic.code === 'unused-variable' && diagnostic.symbolName) {

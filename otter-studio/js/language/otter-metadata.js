@@ -30,23 +30,26 @@ export const OTTER_LANGUAGE_METADATA = [
   },
   {
     name: 'make',
-    category: 'statement',
-    syntax: 'make <variable> is <value>',
-    doc: 'Declares or binds a new variable in the current scope with an initial value.',
-    example: 'make count is 0',
-    prefix: /^\s*make\s+/i,
+    category: 'keyword',
+    syntax: '<expression> make <variable>',
+    doc: 'Captures the result of an arithmetic expression, function call, or date calculation into a variable.',
+    example: 'number1 and number2 make total',
     parameters: [
-      { name: 'name', label: '<variable>', doc: 'Name of the variable to declare.' },
-      { name: 'value', label: '<value>', doc: 'Initial expression or value.' }
-    ],
-    splitParam: /\s+is\s+/i
+      { name: 'expression', label: '<expression>', doc: 'Expression or function call producing a result.' },
+      { name: 'variable', label: '<variable>', doc: 'Target variable to store the computed result.' }
+    ]
   },
   {
     name: 'is',
-    category: 'operator',
-    syntax: '<target> is <value>',
-    doc: 'Assigns a value at statement level, or tests for equality inside a condition.',
-    example: 'total is 10'
+    category: 'statement',
+    syntax: '<variable> is <value>',
+    doc: 'Canonical Otter variable assignment at statement level, or equality comparison inside a condition.',
+    example: 'score is 100',
+    prefix: /^\s*([a-zA-Z_][a-zA-Z0-9_]*)\s+is\s+/i,
+    parameters: [
+      { name: 'variable', label: '<variable>', doc: 'Variable name to assign to.' },
+      { name: 'value', label: '<value>', doc: 'Value or expression to assign.' }
+    ]
   },
   {
     name: 'function',
