@@ -8,6 +8,7 @@ import {
   occurrencesForWord
 } from '../js/navigation/symbol-index.js';
 import { getHoverInfo, getWordAtOffset } from '../js/navigation/hover-provider.js';
+import { getSignatureHelp } from '../js/navigation/signature-provider.js';
 
 const files = flattenProjectFiles([
   { name: 'main.ot', path: 'main.ot', isDir: false },
@@ -72,6 +73,17 @@ assert.equal(getWordAtOffset('say "hello"', 1), 'say', 'offset in single keyword
 assert.equal(getWordAtOffset('for each file in files', 5), 'for each', 'offset in multi-word keyword must return full phrase');
 assert.equal(getWordAtOffset('greet("world")', 2), 'greet', 'offset in function identifier must return identifier');
 
-console.log('Studio navigation tests passed: project flattening, fuzzy Quick Open, ordered outlines, history, hover documentation, and word-at-offset extraction.');
+const addSig1 = getSignatureHelp('add 5 ');
+assert.equal(addSig1?.label, 'add <value> to <collection>', 'add signature label matches');
+assert.equal(addSig1?.activeParameter, 0, 'first param active before "to"');
+
+const addSig2 = getSignatureHelp('add 5 to ');
+assert.equal(addSig2?.activeParameter, 1, 'second param active after "to"');
+
+const countSig = getSignatureHelp('count i from 1 to ');
+assert.equal(countSig?.activeParameter, 2, 'third param active after "to" in count loop');
+
+console.log('Studio navigation tests passed: project flattening, fuzzy Quick Open, ordered outlines, history, hover documentation, word extraction, and signature help.');
+
 
 

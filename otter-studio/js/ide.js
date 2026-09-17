@@ -9,6 +9,7 @@ import {
   occurrencesForWord
 } from './navigation/symbol-index.js';
 import { getHoverInfo, getWordAtOffset } from './navigation/hover-provider.js';
+import { getSignatureHelp } from './navigation/signature-provider.js';
 
 export class OtterStudioIde {
   constructor() {
@@ -271,9 +272,14 @@ export class OtterStudioIde {
     this.btnFindOccurrences = document.getElementById('btnFindOccurrences');
     this.definitionPeekEl = document.getElementById('definitionPeek');
     this.editorHoverTooltipEl = document.getElementById('editorHoverTooltip');
+    this.editorSignatureHelpEl = document.getElementById('editorSignatureHelp');
     this.hoverDebounceTimer = null;
     this.btnToggleWordWrap = document.getElementById('btnToggleWordWrap');
     this.breadcrumbsEl = document.getElementById('editorBreadcrumbs');
+    this.btnEolSelector = document.getElementById('btnEolSelector');
+    this.btnEncodingSelector = document.getElementById('btnEncodingSelector');
+    this.fileEncoding = 'UTF-8';
+    this.fileEol = 'CRLF';
 
     // Floating Find & Replace Widget Elements
     this.findReplaceWidget = document.getElementById('findReplaceWidget');
@@ -346,6 +352,9 @@ export class OtterStudioIde {
         this.goToLine(this.errorLine);
       }
     });
+
+    this.btnEolSelector?.addEventListener('click', () => this.toggleEol());
+    this.btnEncodingSelector?.addEventListener('click', () => this.toggleEncoding());
 
     // Bottom Drawer Tab switching
     this.drawerTabs.forEach((tab, index) => {
@@ -977,6 +986,7 @@ export class OtterStudioIde {
 
     this.currentFile = tab.path;
     this.currentCode = tab.content;
+    this.detectFileEol(this.currentCode);
 
     const textarea = document.getElementById('hiddenEditorInput');
     if (textarea) {
@@ -1792,6 +1802,7 @@ export class OtterStudioIde {
       // Pixel-perfect synchronized scrolling
       textarea.addEventListener('scroll', () => {
         this.hideHoverTooltip();
+        this.hideSignatureHelp();
         if (this.codeAreaEl) {
           this.codeAreaEl.scrollTop = textarea.scrollTop;
           this.codeAreaEl.scrollLeft = textarea.scrollLeft;
@@ -1815,6 +1826,7 @@ export class OtterStudioIde {
 
       textarea.addEventListener('input', () => {
         this.hideHoverTooltip();
+        this.checkSignatureHelp();
         this.currentCode = textarea.value;
         this.markCurrentTabDirty(true);
         this.renderEditorCode(this.currentCode);
@@ -1826,6 +1838,15 @@ export class OtterStudioIde {
 
       textarea.addEventListener('keydown', (e) => {
         this.hideHoverTooltip();
+        if (e.ctrlKey && e.shiftKey && e.key === ' ') {
+          e.preventDefault();
+          this.checkSignatureHelp();
+          return;
+        }
+        if (e.key === 'Escape') {
+          this.hideSignatureHelp();
+          this.hideHoverTooltip();
+        }
         // Keyboard shortcuts
         if (e.altKey && !e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 'z') {
           e.preventDefault();
@@ -2415,6 +2436,107 @@ export class OtterStudioIde {
   hideHoverTooltip() {
     if (this.editorHoverTooltipEl) {
       this.editorHoverTooltipEl.style.display = 'none';
+    }
+  }
+
+  detectFileEol(content) {
+    if (!content) return 'CRLF';
+    const crlfCount = (content.match(/\r\n/g) || []).length;
+    const lfCount = (content.match(/[^\r]\n/g) || []).length;
+    this.fileEol = (lfCount > crlfCount) ? 'LF' : 'CRLF';
+    this.updateEolIndicator();
+    return this.fileEol;
+  }
+
+  toggleEol() {
+    this.fileEol = (this.fileEol === 'CRLF') ? 'LF' : 'CRLF';
+    if (this.currentCode) {
+      if (this.fileEol === 'CRLF') {
+        this.currentCode = this.currentCode.replace(/\r?\n/g, '\r\n');
+      } else {
+        this.currentCode = this.currentCode.replace(/\r\n/g, '\n');
+      }
+      const textarea = document.getElementById('hiddenEditorInput');
+      if (textarea) textarea.value = this.currentCode;
+      this.markCurrentTabDirty(true);
+    }
+    this.updateEolIndicator();
+  }
+
+  updateEolIndicator() {
+    if (this.btnEolSelector) {
+      this.btnEolSelector.textContent = this.fileEol;
+    }
+  }
+
+  toggleEncoding() {
+    const encodings = ['UTF-8', 'UTF-8 with BOM', 'ASCII', 'UTF-16LE'];
+    const nextIdx = (encodings.indexOf(this.fileEncoding) + 1) % encodings.length;
+    this.fileEncoding = encodings[nextIdx];
+    if (this.btnEncodingSelector) {
+      this.btnEncodingSelector.textContent = this.fileEncoding;
+    }
+  }
+
+  checkSignatureHelp() {
+    const textarea = document.getElementById('hiddenEditorInput');
+    if (!textarea || !this.editorSignatureHelpEl) return;
+    const text = textarea.value;
+    const cursor = textarea.selectionStart;
+    const lineStart = text.lastIndexOf('\n', cursor - 1) + 1;
+    const lineUntilCursor = text.slice(lineStart, cursor);
+
+    const help = getSignatureHelp(lineUntilCursor, this.workspaceSymbols);
+    if (!help) {
+      this.hideSignatureHelp();
+      return;
+    }
+    this.showSignatureHelp(help, textarea);
+  }
+
+  showSignatureHelp(help, textarea) {
+    if (!this.editorSignatureHelpEl) return;
+    let labelHtml = '';
+    help.parameters.forEach((param, idx) => {
+      if (idx > 0) labelHtml += ' ';
+      if (idx === help.activeParameter) {
+        labelHtml += `<span class="editor-signature-active-param">${this.escapeHtml(param.label)}</span>`;
+      } else {
+        labelHtml += `<span>${this.escapeHtml(param.label)}</span>`;
+      }
+    });
+
+    let html = `<div class="editor-signature-label">${this.escapeHtml(help.label)}</div>`;
+    if (help.doc) {
+      html += `<div class="editor-signature-doc">${this.escapeHtml(help.doc)}</div>`;
+    }
+    const activeDoc = help.parameters[help.activeParameter]?.doc;
+    if (activeDoc) {
+      html += `<div class="editor-signature-doc" style="margin-top: 4px; font-weight: 500; color: #2563eb;">${this.escapeHtml(help.parameters[help.activeParameter].label)}: ${this.escapeHtml(activeDoc)}</div>`;
+    }
+
+    this.editorSignatureHelpEl.innerHTML = html;
+
+    const lines = textarea.value.slice(0, textarea.selectionStart).split('\n');
+    const lineIdx = lines.length - 1;
+    const colIdx = lines[lineIdx].length;
+    const lineHeight = 20;
+    const charWidth = 7.8;
+
+    let left = Math.max(10, colIdx * charWidth - textarea.scrollLeft + 40);
+    let top = Math.max(10, (lineIdx + 1) * lineHeight - textarea.scrollTop + 10);
+    const viewportRect = this.codeAreaEl?.parentElement?.getBoundingClientRect() || { width: 600, height: 400 };
+    if (left + 360 > viewportRect.width) left = Math.max(10, viewportRect.width - 370);
+    if (top + 100 > viewportRect.height) top = Math.max(10, lineIdx * lineHeight - textarea.scrollTop - 70);
+
+    this.editorSignatureHelpEl.style.left = `${left}px`;
+    this.editorSignatureHelpEl.style.top = `${top}px`;
+    this.editorSignatureHelpEl.style.display = 'block';
+  }
+
+  hideSignatureHelp() {
+    if (this.editorSignatureHelpEl) {
+      this.editorSignatureHelpEl.style.display = 'none';
     }
   }
 

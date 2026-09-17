@@ -261,7 +261,7 @@ platform.
 -   [x] Format document/selection (Shift+Alt+F / format button)
 -   [ ] Multiple cursors
 -   [x] Word wrap (Alt+Z toggle & localStorage persistence)
--   [ ] Encoding/EOL selector
+-   [x] Encoding/EOL selector (interactive statusbar buttons with CRLF/LF normalization and encoding picker)
 -   [ ] Large-file mode
 -   [x] Breadcrumbs (interactive path navigation header)
 -   [x] Find/replace (in-editor floating widget with Next/Prev/Replace/All)
@@ -293,7 +293,7 @@ platform.
 -   [x] Hover (interactive tooltip for keywords, builtins, and symbols)
 -   [x] Autocomplete (rich keyword, UI widget, and loop suggestions)
 -   [x] Context-aware keyword/property/function suggestions
--   [ ] Parameter/signature help
+-   [x] Parameter/signature help (real-time signature popup with active-parameter highlighting and documentation)
 -   [x] Cached parser-backed workspace symbol index (`2f7806c`)
 -   [x] Go to definition (F12 symbol-index resolver)
 -   [ ] Find references

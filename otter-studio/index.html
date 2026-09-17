@@ -272,6 +272,7 @@
           <nav class="editor-breadcrumbs" id="editorBreadcrumbs" aria-label="Current file path"></nav>
           <aside class="definition-peek" id="definitionPeek" aria-live="polite" style="display: none;"></aside>
           <aside class="editor-hover-tooltip" id="editorHoverTooltip" aria-live="polite" style="display: none;"></aside>
+          <aside class="editor-signature-help" id="editorSignatureHelp" aria-live="polite" style="display: none;"></aside>
           <!-- Code Canvas / Line Numbers & Source -->
           <div class="code-viewport" id="codeViewport">
             <!-- Find & Replace Floating Widget -->
@@ -518,9 +519,10 @@
         </div>
       </div>
       <div class="statusbar-right">
-        <span>Ln 17, Col 5</span>
+        <span id="statusbarPos">Ln 17, Col 5</span>
         <span>Spaces: 4</span>
-        <span>UTF-8</span>
+        <button type="button" class="statusbar-btn" id="btnEolSelector" title="Toggle End of Line Sequence (CRLF / LF)">CRLF</button>
+        <button type="button" class="statusbar-btn" id="btnEncodingSelector" title="Select File Encoding">UTF-8</button>
         <span class="otter-ver-tag">Otter 1.0</span>
       </div>
     </footer>

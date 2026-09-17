@@ -291,6 +291,11 @@ body.theme-dark {
 .theme-dark .editor-hover-signature { background: #1a3048; color: #60a5fa; }
 .theme-dark .editor-hover-desc { color: #cbd5e1; }
 .theme-dark .editor-hover-example { color: #94a3b8; border-color: #294057; }
+.theme-dark .editor-signature-help { background: #122235; border-color: #2d91df; color: #e2edf8; box-shadow: 0 14px 35px rgba(0, 0, 0, 0.5); }
+.theme-dark .editor-signature-label { color: #e2edf8; }
+.theme-dark .editor-signature-active-param { color: #60a5fa; }
+.theme-dark .editor-signature-doc { color: #94a3b8; }
+
 
 .theme-dark .breadcrumb-part { color: #8fa4b9; }
 .theme-dark .breadcrumb-part.is-current { color: #e2edf8; }

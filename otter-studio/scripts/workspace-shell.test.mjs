@@ -38,10 +38,17 @@ assert.match(ide, /e\.key === 'F12'/, 'Go to Definition must have the standard F
 assert.match(ide, /peekDefinition\(\)/, 'Studio must support a non-navigating definition preview');
 assert.match(ide, /occurrencesForWord/, 'Occurrence search must use the safe lexical scanner');
 assert.match(html, /id="editorHoverTooltip"/, 'Editor must expose a hover tooltip surface');
+assert.match(html, /id="editorSignatureHelp"/, 'Editor must expose a signature help surface');
+assert.match(html, /id="btnEolSelector"/, 'Status bar must expose an EOL selector button');
+assert.match(html, /id="btnEncodingSelector"/, 'Status bar must expose an encoding selector button');
 assert.match(html, /id="problemStatusBanner"/, 'Problems drawer must expose a clickable status banner');
 assert.match(ide, /handleEditorHover/, 'Editor must support hover information lookup');
+assert.match(ide, /checkSignatureHelp/, 'Editor must support real-time parameter signature help');
+assert.match(ide, /detectFileEol/, 'Editor must automatically detect CRLF/LF line endings');
 assert.match(ide, /problemStatusBanner\?\.addEventListener\('click'/, 'Clicking problem banner must navigate to source');
 assert.match(darkCss, /\.theme-dark \.editor-hover-tooltip/, 'Dark theme must scope hover tooltip styles');
+assert.match(darkCss, /\.theme-dark \.editor-signature-help/, 'Dark theme must scope signature help styles');
 
-console.log('Otter Studio workspace shell tests passed: themes, visible caret, project-aware templates, hover help, and problem-to-source navigation.');
+console.log('Otter Studio workspace shell tests passed: themes, visible caret, project-aware templates, hover help, signature help, and EOL/encoding selectors.');
+
 
