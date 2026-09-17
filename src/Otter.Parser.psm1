@@ -1803,6 +1803,27 @@ function Read-OtterStatement {
             [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the unzip statement to end here.')
             return [UnzipFileStmt]::new($unzipArchive, $unzipDest, $start.Line)
         }
+        # hash "text" as "sha256" [with key "secret"] into digest        (D91)
+        ([TokenKind]::Hash) {
+            [void](Read-OtterToken)
+            $hashText = Read-OtterValue
+            [void](Assert-OtterTokenKind ([TokenKind]::As) 'I expected "as" and an algorithm name.')
+            $hashAlgorithm = Read-OtterValue
+            $hashKey = $null
+            if (Test-OtterTokenKind ([TokenKind]::With)) {
+                [void](Read-OtterToken)
+                $keyWord = Get-OtterCurrentToken
+                if ($keyWord.Kind -ne [TokenKind]::Identifier -or $keyWord.Text -ne 'key') {
+                    throw (New-OtterParserError 'I expected "key" after "with".' $keyWord 'hash "text" as "sha256" with key "secret" into digest')
+                }
+                [void](Read-OtterToken)
+                $hashKey = Read-OtterValue
+            }
+            [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a result name.')
+            $hashTarget = Read-OtterVariableName 'I expected a result name after "into".'
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the hash statement to end here.')
+            return [HashTextStmt]::new($hashText, $hashAlgorithm, $hashKey, $hashTarget.Text, $start.Line)
+        }
         ([TokenKind]::Sort) {
             [void](Read-OtterToken)
             $target = Read-OtterVariableName 'I expected a collection name after "sort".'

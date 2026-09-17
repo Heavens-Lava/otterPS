@@ -225,6 +225,36 @@ Test-Otter 'D90: pi carries real double precision through ordinary math (parser-
     Assert-Lines -Expected @($expected) -Actual $out
 }
 
+Test-Otter 'D91: hash computes real, known-correct digests for md5 and sha256' {
+    $out = Invoke-TestProgram @(
+        [HashTextStmt]::new((Lit ''), (Lit 'sha256'), $null, 'digest1', 1),
+        (SaySt @((Var 'digest1'))),
+        [HashTextStmt]::new((Lit 'hello'), (Lit 'md5'), $null, 'digest2', 2),
+        (SaySt @((Var 'digest2')))
+    )
+    # e3b0c4... is the universally known SHA-256 of the empty string;
+    # 5d4140... is the equally well-known MD5 of "hello" - both checked
+    # against these public constants, not just against .NET's own output.
+    Assert-Lines -Expected @(
+        'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+        '5d41402abc4b2a76b9719d911017c592'
+    ) -Actual $out
+}
+
+Test-Otter 'D91: hash with a key computes a real HMAC, different from the plain hash' {
+    $out = Invoke-TestProgram @(
+        [HashTextStmt]::new((Lit 'message'), (Lit 'sha256'), (Lit 'key'), 'hmac1', 1),
+        (SaySt @((Var 'hmac1')))
+    )
+    Assert-Lines -Expected @('6e9ef29b75fffc5b7abae527d58fdadb2fe42e7219011976917343065f58ed4a') -Actual $out
+}
+
+Test-Otter 'D91: an unknown hash algorithm name is a friendly Otter error' {
+    Assert-OtterFails -Containing "don't know a hash algorithm" -Body {
+        Invoke-TestProgram @( [HashTextStmt]::new((Lit 'x'), (Lit 'sha999'), $null, 'digest', 1) )
+    }
+}
+
 Test-Otter 'doing maths on text explains itself' {
     Assert-OtterFails -Containing 'I expected a number' -Body {
         Invoke-TestProgram @(

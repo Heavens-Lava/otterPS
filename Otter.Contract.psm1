@@ -136,6 +136,10 @@ enum TokenKind {
     LogTen          # log of X (base 10)
     NaturalLog      # natural log of X (base e)
 
+    # --- hashing/HMAC (D91) --------------------------------------------------
+    Hash            # hash "text" as "sha256" into digest
+                    # hash "text" as "sha256" with key "secret" into digest (HMAC)
+
     # --- strings and collections (D24, D25, D26) ----------------
     Length          # length of name / length of games
     Uppercase
@@ -469,6 +473,9 @@ enum NodeKind {
 
     # --- more math operations (D89) ------------------------------------------
     MinMax                 # larger of X and Y / smaller of X and Y
+
+    # --- hashing/HMAC (D91) --------------------------------------------------
+    HashText               # hash "text" as "sha256" [with key "secret"] into digest
 }
 
 enum MathOp { Add; Subtract; Multiply; Divide; Percent; Power }   # D88
@@ -1692,6 +1699,20 @@ class MinMaxExpr : Node {
         $this.IsMax = $isMax
         $this.Left = $left
         $this.Right = $right
+    }
+}
+
+# D91: hash "text" as "sha256" [with key "secret"] into digest
+class HashTextStmt : Node {
+    [Node]$Text
+    [Node]$Algorithm
+    [Node]$Key             # $null when this is a plain hash, not an HMAC
+    [string]$ResultTarget
+    HashTextStmt([Node]$text, [Node]$algorithm, [Node]$key, [string]$resultTarget, [int]$line) : base([NodeKind]::HashText, $line) {
+        $this.Text = $text
+        $this.Algorithm = $algorithm
+        $this.Key = $key
+        $this.ResultTarget = $resultTarget
     }
 }
 

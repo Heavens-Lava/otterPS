@@ -6689,3 +6689,98 @@ math).
 
 ---
 
+## D91. Hashing and HMAC — `hash "text" as "sha256" into digest`, `hash "text" as "sha256" with key "secret" into digest`
+
+**Status: IMPLEMENTED and verified end-to-end through the real `otter
+run`/`otter check`/`otter web` CLI. Found and fixed one real, serious
+correctness bug before this ever shipped (see below).**
+
+**Design.** One new statement, `hash <text> as <algorithm> [with key
+<key>] into <result>`, covering both plain hashing and HMAC (a keyed,
+tamper-evident hash) - the `with key` clause is the only difference
+between the two, so this is one grammar shape and one node
+(`HashTextStmt`), not two. The algorithm name (`"md5"`, `"sha1"`,
+`"sha256"`, `"sha384"`, `"sha512"`) is a plain runtime string value
+matched by text, same as D67's `FolderName`/D69's system-info `kind`
+precedent - adding a new algorithm name later needs zero grammar
+changes. Output is lowercase hex, the universal convention (git object
+hashes, checksum tools, etc). Every algorithm is an unmodified,
+direct call into .NET's own `System.Security.Cryptography` classes -
+**never invent custom cryptography** (an existing, already-checked
+checklist principle) is honored exactly, not just claimed.
+
+**A real, serious bug was found and fixed by a failing test, before
+this ever shipped:** `Get-OtterHash`'s `$Key` parameter was originally
+typed `[string]`. PowerShell silently coerces a `$null` argument into
+an EMPTY STRING when bound to a `[string]` parameter - so `$null -ne
+$Key` was ALWAYS true inside the function, even when the caller passed
+no key at all. The practical effect: EVERY plain hash (no `with key`
+clause) was silently computed as an HMAC with an empty-string key
+instead - `hash "" as "sha256" into digest` returned
+`b613679a0814d9ec772f95d778c35fc5ff1697c493715653c6c712144292c5ad`
+(HMAC-SHA256 of `""` keyed with `""`), not the correct, universally-
+known SHA-256-of-empty-string constant
+`e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`.
+Every plain (non-HMAC) hash this feature could have produced before
+this fix was wrong. Caught immediately by a regression test asserting
+against that exact known public constant, not by the test suite
+happening to skip the code path - fixed by changing the parameter to
+untyped `[object]$Key`, which preserves a real `$null` all the way
+through. This is the reason `Assert-OtterFails`/known-answer test
+vectors matter more for cryptographic code than almost anywhere else
+in this codebase: a subtle type-coercion bug here would have silently
+produced a DIFFERENT WRONG VALUE for every single call, not an
+exception - the kind of bug that never surfaces without checking
+output against an external, independently-known-correct answer.
+
+**MD5 and SHA-1 are included** despite both being cryptographically
+broken for collision resistance, because "hashing" as a general-
+purpose language feature has legitimate non-security uses (checksums,
+change detection, cache keys) where compatibility with existing
+tooling matters more than security margin - this is not the same
+question as "Password hashing through proven libraries" (checklist,
+still open), which will need a deliberately-restricted, purpose-built
+algorithm choice (e.g. PBKDF2/bcrypt-shaped, not a raw hash) precisely
+BECAUSE that use case is security-sensitive. Not conflating the two
+was a deliberate scoping decision for this entry.
+
+**JS compiler:** `otterHashText(text, algorithm, key)` is a REQUIRED
+runtime hook (Gemini's lane, `Otter.Web.psm1`), same reported-not-
+assumed boundary as every other D69-D90 hook. Unlike most of those
+hooks, this one has an obvious, real, no-server-needed implementation
+available in every modern browser - the native Web Crypto API
+(`crypto.subtle.digest`/`crypto.subtle.sign` with an imported HMAC
+key) - documented in the compiler's own comment so the hook isn't
+implemented with a heavier third-party library unnecessarily. A
+prototype of that exact implementation was run directly in real Node
+against `crypto.webcrypto.subtle` and produced results identical to
+the interpreter for both a plain SHA-256 and an HMAC-SHA256 call,
+confirming the hook's documented contract is sound. One real,
+load-bearing backend difference: browsers do not expose MD5 through
+SubtleCrypto at all (dropped for security reasons), so a compiled web
+app cannot match the interpreter's real MD5 support - the hook should
+throw a clear "not supported in a browser" error for that one
+algorithm name, not silently return wrong data.
+
+**Verified:** through the real `otter run` CLI - `hash "hello" as
+"md5"` → `5d41402abc4b2a76b9719d911017c592` (the universally-known MD5
+of "hello"), `hash "" as "sha256"` →
+`e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`
+(the universally-known SHA-256 of the empty string), `hash "message"
+as "sha256" with key "key"` →
+`6e9ef29b75fffc5b7abae527d58fdadb2fe42e7219011976917343065f58ed4a` -
+all three checked against externally-known-correct values, not just
+against .NET's own output a second time. `otter check` accepted the
+same file as valid. `otter web` compiled the same source; the emitted
+`await otterHashText(...)` calls matched the documented hook signature
+exactly, and a real Web Crypto prototype of that hook produced
+identical results to the interpreter in Node. Confirmed `hash` cannot
+be used as a plain variable name (`hash is 5` is a syntax error) -
+checked this is a pre-existing, already-accepted limitation shared by
+every other statement-head keyword since D70 (`zip is 5` fails
+identically), not something new introduced here. Four new regression
+tests in `tests/Interpreter.Tests.ps1`, including the two known-answer
+vectors that caught the `$Key` coercion bug.
+
+---
+

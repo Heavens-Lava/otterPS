@@ -681,8 +681,11 @@ creation.
 # 18. Cryptography & Security APIs
 
 -   [x] Cryptographic random
--   [ ] Hashing
--   [ ] HMAC
+-   [x] Hashing (D91: `hash "text" as "sha256" into digest` - md5/sha1/
+    sha256/sha384/sha512 via .NET's own System.Security.Cryptography,
+    never a hand-rolled algorithm - see SPEC-DECISIONS.md D91)
+-   [x] HMAC (D91: `hash "text" as "sha256" with key "secret" into
+    digest` - same statement, one optional clause)
 -   [ ] Symmetric encryption
 -   [ ] Public-key cryptography
 -   [ ] Signing/verification

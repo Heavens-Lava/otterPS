@@ -1015,6 +1015,72 @@ function Expand-OtterZipArchive {
     }
 }
 
+# hash "text" as "sha256" [with key "secret"] into digest             (D91)
+# Never invents its own cryptography - every algorithm here is a direct,
+# unmodified call into .NET's own System.Security.Cryptography classes,
+# matching this project's "never invent custom cryptography" checklist
+# principle. $Key present means HMAC (a keyed, tamper-evident hash);
+# $Key absent means a plain, unkeyed hash. Output is lowercase hex, the
+# universal convention (matches git object hashes, checksums tools, etc).
+function Get-OtterHash {
+    # $Key is deliberately untyped ([object], not [string]): PowerShell
+    # silently coerces a $null argument into an EMPTY STRING when bound to
+    # a [string] parameter, which would make "no key" and "empty-string
+    # key" indistinguishable inside this function - and $null -ne $Key
+    # would then be true even when the caller passed no key at all,
+    # silently computing an HMAC with an empty key instead of a plain
+    # hash. Caught by a real test failure (sha256 of "" returned the
+    # HMAC-SHA256("", key: "") value instead) before this ever shipped.
+    param([string]$Text, [string]$Algorithm, [object]$Key, [int]$Line)
+
+    $normalized = $Algorithm.ToLowerInvariant().Replace('-', '').Replace(' ', '')
+    $textBytes = [System.Text.Encoding]::UTF8.GetBytes($Text)
+    $validNames = '"md5", "sha1", "sha256", "sha384", or "sha512"'
+
+    if ($null -ne $Key) {
+        $keyBytes = [System.Text.Encoding]::UTF8.GetBytes($Key)
+        $hmac = switch ($normalized) {
+            'md5' { [System.Security.Cryptography.HMACMD5]::new($keyBytes) }
+            'sha1' { [System.Security.Cryptography.HMACSHA1]::new($keyBytes) }
+            'sha256' { [System.Security.Cryptography.HMACSHA256]::new($keyBytes) }
+            'sha384' { [System.Security.Cryptography.HMACSHA384]::new($keyBytes) }
+            'sha512' { [System.Security.Cryptography.HMACSHA512]::new($keyBytes) }
+            default { $null }
+        }
+        if ($null -eq $hmac) {
+            throw [OtterError]::new(
+                "I don't know a hash algorithm called `"$Algorithm`". Try $validNames.",
+                $Line, 'runtime')
+        }
+        try {
+            $hashBytes = $hmac.ComputeHash($textBytes)
+        } finally {
+            $hmac.Dispose()
+        }
+    } else {
+        $hasher = switch ($normalized) {
+            'md5' { [System.Security.Cryptography.MD5]::Create() }
+            'sha1' { [System.Security.Cryptography.SHA1]::Create() }
+            'sha256' { [System.Security.Cryptography.SHA256]::Create() }
+            'sha384' { [System.Security.Cryptography.SHA384]::Create() }
+            'sha512' { [System.Security.Cryptography.SHA512]::Create() }
+            default { $null }
+        }
+        if ($null -eq $hasher) {
+            throw [OtterError]::new(
+                "I don't know a hash algorithm called `"$Algorithm`". Try $validNames.",
+                $Line, 'runtime')
+        }
+        try {
+            $hashBytes = $hasher.ComputeHash($textBytes)
+        } finally {
+            $hasher.Dispose()
+        }
+    }
+
+    return ([System.BitConverter]::ToString($hashBytes).Replace('-', '').ToLowerInvariant())
+}
+
 # get owner of "x" into owner                                        (D74)
 # Works on either a file or a folder - ownership is a filesystem-wide
 # concept, unlike read-only below, which this module deliberately
@@ -1951,4 +2017,5 @@ Export-ModuleMember -Function `
     Set-OtterCredential, Get-OtterCredential, Remove-OtterCredential, `
     Get-OtterPowerActionCommandLine, Invoke-OtterPowerAction, Send-OtterFileToPrinter, `
     Invoke-OtterRemoteCommand, Invoke-OtterSshCommand, `
-    New-OtterZipArchive, Expand-OtterZipArchive
+    New-OtterZipArchive, Expand-OtterZipArchive, `
+    Get-OtterHash

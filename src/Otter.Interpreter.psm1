@@ -764,6 +764,19 @@ function Invoke-OtterStatement {
             return
         }
 
+        # hash "text" as "sha256" [with key "secret"] into digest        (D91)
+        'HashText' {
+            $text = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.Text -Environment $Environment)
+            $algorithm = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.Algorithm -Environment $Environment)
+            $key = $null
+            if ($null -ne $Statement.Key) {
+                $key = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.Key -Environment $Environment)
+            }
+            $digest = Get-OtterHash -Text $text -Algorithm $algorithm -Key $key -Line $Statement.Line
+            $Environment.Set($Statement.ResultTarget, $digest)
+            return
+        }
+
         # run command "..." on remote "host" using credential "n"        (D84)
         # [into result]
         'RunRemoteCommand' {

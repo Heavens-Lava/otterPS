@@ -1438,6 +1438,39 @@ function ConvertTo-OtterJsStatement {
             $unzipDestJs = ConvertTo-OtterJsExpression -Expr $Stmt.DestinationFolder
             return "${pad}await otterUnzipFile($unzipArchiveJs, $unzipDestJs);"
         }
+        ([NodeKind]::HashText) {
+            # D91. REQUIRED runtime hook `otterHashText(text, algorithm, key)`,
+            # same reported-not-assumed boundary as every other D69-D90 hook -
+            # this module only emits the call, it does not implement the hook
+            # (that belongs in Otter.Web.psm1, Gemini's lane). Unlike most
+            # hooks here, this ONE has an obvious real, no-server-needed
+            # implementation available in every modern browser: the native
+            # Web Crypto API (`crypto.subtle.digest`/`crypto.subtle.sign`
+            # with an imported HMAC key when `key` is non-null) - noted here
+            # so whoever implements the hook does not reach for a heavier
+            # third-party hashing library unnecessarily. One real, load-
+            # bearing difference from the interpreter: browsers do not
+            # expose MD5 through SubtleCrypto at all (dropped for security
+            # reasons), so a compiled app asking for `"md5"` cannot match
+            # the interpreter's real MD5 support - the hook should throw a
+            # clear "not supported in a browser" error for that one
+            # algorithm name rather than silently returning wrong data.
+            $hashTextJs = ConvertTo-OtterJsExpression -Expr $Stmt.Text
+            $hashAlgoJs = ConvertTo-OtterJsExpression -Expr $Stmt.Algorithm
+            $hashKeyJs = if ($null -ne $Stmt.Key) { ConvertTo-OtterJsExpression -Expr $Stmt.Key } else { 'null' }
+            $target = $Stmt.ResultTarget
+            $lines = [System.Collections.Generic.List[string]]::new()
+            $inner = '  ' * ($Indent + 1)
+            $lines.Add("${pad}{")
+            $lines.Add("${inner}const _digest = await otterHashText($hashTextJs, $hashAlgoJs, $hashKeyJs);")
+            if ($LocalNames -and $LocalNames.Contains($target)) {
+                $lines.Add("${inner}$target = _digest;")
+            } else {
+                $lines.Add("${inner}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$target' in otterState)) { otterSetState('$target', _digest); } else { window.$target = _digest; }")
+            }
+            $lines.Add("${pad}}")
+            return ($lines -join "`n")
+        }
         ([NodeKind]::DeleteFolder) {
             $pathJs = ConvertTo-OtterJsExpression -Expr $Stmt.Path
             return "${pad}await otterDeleteFolder($pathJs);"
@@ -2353,6 +2386,9 @@ function Get-OtterJsBindingNames {
             if ($s.Kind -eq [NodeKind]::RunRemoteCommand -and $s.ResultTarget) {
                 [void]$setStyle.Add($s.ResultTarget)
             }
+            if ($s.Kind -eq [NodeKind]::HashText -and $s.ResultTarget) {
+                [void]$setStyle.Add($s.ResultTarget)
+            }
             if ($s.Kind -eq [NodeKind]::GetClipboard -or $s.Kind -eq [NodeKind]::GetEnvironmentVariable -or $s.Kind -eq [NodeKind]::GetSystemFolder -or $s.Kind -eq [NodeKind]::ChooseFile -or $s.Kind -eq [NodeKind]::ChooseFolder -or $s.Kind -eq [NodeKind]::ChooseSaveFile -or $s.Kind -eq [NodeKind]::GetSystemInfo -or $s.Kind -eq [NodeKind]::GetProcesses -or $s.Kind -eq [NodeKind]::WaitForProcess -or $s.Kind -eq [NodeKind]::GetSymbolicLinkTarget -or $s.Kind -eq [NodeKind]::GetFileOwner -or $s.Kind -eq [NodeKind]::GetRegistryValue -or $s.Kind -eq [NodeKind]::GetEventLogEntries -or $s.Kind -eq [NodeKind]::GetCredential) {
                 # D67/D69/D70/D71/D73/D74/D78/D79/D81: all fourteen use
                 # Environment.Set (verified directly) - Set-style, same as
@@ -2516,7 +2552,7 @@ function Test-OtterJsBodyNeedsAsync {
 
     if ($null -eq $Statements) { return $false }
     foreach ($s in $Statements) {
-        if ($s.Kind -eq [NodeKind]::Await -or $s.Kind -eq [NodeKind]::ReadFile -or $s.Kind -eq [NodeKind]::WriteFile -or $s.Kind -eq [NodeKind]::AppendFile -or $s.Kind -eq [NodeKind]::CopyFile -or $s.Kind -eq [NodeKind]::MoveFile -or $s.Kind -eq [NodeKind]::DeleteFile -or $s.Kind -eq [NodeKind]::CreateFolder -or $s.Kind -eq [NodeKind]::DeleteFolder -or $s.Kind -eq [NodeKind]::CopyFolder -or $s.Kind -eq [NodeKind]::MoveFolder -or $s.Kind -eq [NodeKind]::GetFiles -or $s.Kind -eq [NodeKind]::GetFolders -or $s.Kind -eq [NodeKind]::RunProgram -or $s.Kind -eq [NodeKind]::HttpGet -or $s.Kind -eq [NodeKind]::HttpPost -or $s.Kind -eq [NodeKind]::HttpPut -or $s.Kind -eq [NodeKind]::HttpDelete -or $s.Kind -eq [NodeKind]::CopyToClipboard -or $s.Kind -eq [NodeKind]::GetClipboard -or $s.Kind -eq [NodeKind]::Notify -or $s.Kind -eq [NodeKind]::GetEnvironmentVariable -or $s.Kind -eq [NodeKind]::GetSystemFolder -or $s.Kind -eq [NodeKind]::ChooseFile -or $s.Kind -eq [NodeKind]::ChooseFolder -or $s.Kind -eq [NodeKind]::ChooseSaveFile -or $s.Kind -eq [NodeKind]::GetSystemInfo -or $s.Kind -eq [NodeKind]::GetProcesses -or $s.Kind -eq [NodeKind]::KillProcess -or $s.Kind -eq [NodeKind]::SetProcessPriority -or $s.Kind -eq [NodeKind]::WaitForProcess -or $s.Kind -eq [NodeKind]::CreateSymbolicLink -or $s.Kind -eq [NodeKind]::GetSymbolicLinkTarget -or $s.Kind -eq [NodeKind]::GetFileOwner -or $s.Kind -eq [NodeKind]::SetFileReadOnly -or $s.Kind -eq [NodeKind]::GetRegistryValue -or $s.Kind -eq [NodeKind]::SetRegistryValue -or $s.Kind -eq [NodeKind]::DeleteRegistryValue -or $s.Kind -eq [NodeKind]::GetEventLogEntries -or $s.Kind -eq [NodeKind]::SetCredential -or $s.Kind -eq [NodeKind]::GetCredential -or $s.Kind -eq [NodeKind]::DeleteCredential -or $s.Kind -eq [NodeKind]::PowerAction -or $s.Kind -eq [NodeKind]::PrintFile -or $s.Kind -eq [NodeKind]::RunRemoteCommand -or $s.Kind -eq [NodeKind]::RunSshCommand -or $s.Kind -eq [NodeKind]::ZipFolder -or $s.Kind -eq [NodeKind]::UnzipFile) {
+        if ($s.Kind -eq [NodeKind]::Await -or $s.Kind -eq [NodeKind]::ReadFile -or $s.Kind -eq [NodeKind]::WriteFile -or $s.Kind -eq [NodeKind]::AppendFile -or $s.Kind -eq [NodeKind]::CopyFile -or $s.Kind -eq [NodeKind]::MoveFile -or $s.Kind -eq [NodeKind]::DeleteFile -or $s.Kind -eq [NodeKind]::CreateFolder -or $s.Kind -eq [NodeKind]::DeleteFolder -or $s.Kind -eq [NodeKind]::CopyFolder -or $s.Kind -eq [NodeKind]::MoveFolder -or $s.Kind -eq [NodeKind]::GetFiles -or $s.Kind -eq [NodeKind]::GetFolders -or $s.Kind -eq [NodeKind]::RunProgram -or $s.Kind -eq [NodeKind]::HttpGet -or $s.Kind -eq [NodeKind]::HttpPost -or $s.Kind -eq [NodeKind]::HttpPut -or $s.Kind -eq [NodeKind]::HttpDelete -or $s.Kind -eq [NodeKind]::CopyToClipboard -or $s.Kind -eq [NodeKind]::GetClipboard -or $s.Kind -eq [NodeKind]::Notify -or $s.Kind -eq [NodeKind]::GetEnvironmentVariable -or $s.Kind -eq [NodeKind]::GetSystemFolder -or $s.Kind -eq [NodeKind]::ChooseFile -or $s.Kind -eq [NodeKind]::ChooseFolder -or $s.Kind -eq [NodeKind]::ChooseSaveFile -or $s.Kind -eq [NodeKind]::GetSystemInfo -or $s.Kind -eq [NodeKind]::GetProcesses -or $s.Kind -eq [NodeKind]::KillProcess -or $s.Kind -eq [NodeKind]::SetProcessPriority -or $s.Kind -eq [NodeKind]::WaitForProcess -or $s.Kind -eq [NodeKind]::CreateSymbolicLink -or $s.Kind -eq [NodeKind]::GetSymbolicLinkTarget -or $s.Kind -eq [NodeKind]::GetFileOwner -or $s.Kind -eq [NodeKind]::SetFileReadOnly -or $s.Kind -eq [NodeKind]::GetRegistryValue -or $s.Kind -eq [NodeKind]::SetRegistryValue -or $s.Kind -eq [NodeKind]::DeleteRegistryValue -or $s.Kind -eq [NodeKind]::GetEventLogEntries -or $s.Kind -eq [NodeKind]::SetCredential -or $s.Kind -eq [NodeKind]::GetCredential -or $s.Kind -eq [NodeKind]::DeleteCredential -or $s.Kind -eq [NodeKind]::PowerAction -or $s.Kind -eq [NodeKind]::PrintFile -or $s.Kind -eq [NodeKind]::RunRemoteCommand -or $s.Kind -eq [NodeKind]::RunSshCommand -or $s.Kind -eq [NodeKind]::ZipFolder -or $s.Kind -eq [NodeKind]::UnzipFile -or $s.Kind -eq [NodeKind]::HashText) {
             return $true
         }
         if ($s.Kind -eq [NodeKind]::ReadJson) {
