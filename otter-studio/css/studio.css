@@ -619,6 +619,24 @@ body {
   width: 100%;
 }
 
+.center-work-area.is-split {
+  display: flex;
+  flex-direction: column;
+}
+
+.center-work-area.is-split .visual-designer-view {
+  flex: 1 1 50%;
+  min-height: 0;
+  height: 50%;
+  border-bottom: 1px solid var(--border-card);
+}
+
+.center-work-area.is-split .code-editor-view {
+  flex: 1 1 50%;
+  min-height: 0;
+  height: 50%;
+}
+
 .external-change-banner {
   min-height: 44px;
   padding: 8px 12px;

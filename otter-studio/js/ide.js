@@ -611,28 +611,36 @@ export class OtterStudioIde {
       <div class="project-folder-children">
     `;
 
-    for (const item of items) {
-      const fullPath = rootFolder ? `${rootFolder}/${item.path}` : item.path;
-      const isSelected = (this.currentFile === fullPath) ? ' is-active' : '';
-      if (item.isDir) {
-        html += `
-          <div class="project-folder-item" data-folder="${fullPath}">
-            <span class="folder-arrow">›</span>
-            <span class="folder-icon">📁</span>
-            <span class="folder-name">${item.name}</span>
-          </div>
-        `;
-      } else {
-        const icon = item.name.endsWith('.ot') ? '📄' : (item.name.endsWith('.css') ? '🎨' : '📄');
-        html += `
-          <div class="project-file-item${isSelected}" data-path="${fullPath}">
-            <span class="file-icon">${icon}</span>
-            <span class="file-name">${item.name}</span>
-          </div>
-        `;
+    const renderNodes = (nodes, parentFolder) => {
+      let out = '';
+      for (const item of nodes) {
+        const fullPath = parentFolder ? `${parentFolder}/${item.path}` : item.path;
+        const isSelected = (this.currentFile === fullPath) ? ' is-active' : '';
+        if (item.isDir) {
+          out += `
+            <div class="project-folder-item" data-folder="${fullPath}">
+              <span class="folder-arrow">▾</span>
+              <span class="folder-icon">📁</span>
+              <span class="folder-name">${this.escapeHtml(item.name)}</span>
+            </div>
+            <div class="folder-children-wrap" data-parent-folder="${fullPath}">
+              ${item.children ? renderNodes(item.children, parentFolder) : ''}
+            </div>
+          `;
+        } else {
+          const icon = item.name.endsWith('.ot') ? '📄' : (item.name.endsWith('.css') ? '🎨' : (item.name.endsWith('.json') ? '⚙' : '📝'));
+          out += `
+            <div class="project-file-item${isSelected}" data-path="${fullPath}" title="${fullPath}">
+              <span class="file-icon">${icon}</span>
+              <span class="file-name">${this.escapeHtml(item.name)}</span>
+            </div>
+          `;
+        }
       }
-    }
+      return out;
+    };
 
+    html += renderNodes(items, rootFolder);
     html += `</div>`;
     this.projectTreeEl.innerHTML = html;
 
@@ -643,6 +651,19 @@ export class OtterStudioIde {
         el.classList.add('is-active');
         const p = el.getAttribute('data-path');
         if (p) this.loadFile(p);
+      });
+    });
+
+    this.projectTreeEl.querySelectorAll('.project-folder-item').forEach(el => {
+      el.addEventListener('click', () => {
+        const folder = el.getAttribute('data-folder');
+        const wrap = this.projectTreeEl.querySelector(`.folder-children-wrap[data-parent-folder="${folder}"]`);
+        const arrow = el.querySelector('.folder-arrow');
+        if (wrap) {
+          const isCollapsed = wrap.style.display === 'none';
+          wrap.style.display = isCollapsed ? 'block' : 'none';
+          if (arrow) arrow.textContent = isCollapsed ? '▾' : '›';
+        }
       });
     });
   }
@@ -1277,6 +1298,10 @@ export class OtterStudioIde {
       return;
     }
 
+    if (this.openTabs.length === 1 && this.openTabs[0].path === 'untitled.ot' && !this.openTabs[0].isDirty) {
+      this.openTabs = [];
+    }
+
     let fileContent = this.getDefaultCode();
     let fileRevision = null;
     try {
@@ -1325,6 +1350,26 @@ export class OtterStudioIde {
     this.lintCurrentCode();
     this.renderExternalChangeBanner();
     this.renderSourceOutline();
+
+    if (this.projectTreeEl) {
+      this.projectTreeEl.querySelectorAll('.project-file-item').forEach(el => {
+        if (el.getAttribute('data-path') === filePath) {
+          el.classList.add('is-active');
+        } else {
+          el.classList.remove('is-active');
+        }
+      });
+    }
+
+    if (filePath.endsWith('.css') && window.otterCssAstManager) {
+      try {
+        window.otterCssAstManager.parse(this.currentCode);
+      } catch (err) {
+        console.warn('CSS AST sync on tab activate:', err);
+      }
+    }
+
+    window.dispatchEvent(new CustomEvent('otter:ensure-editor-visible', { detail: { path: filePath } }));
   }
 
   renderTabs() {
@@ -2053,7 +2098,53 @@ export class OtterStudioIde {
     this.gutterEl.innerHTML = spans;
   }
 
+  syntaxHighlightCssLine(line) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('/*') && trimmed.endsWith('*/')) {
+      return `<span class="tok-comment">${this.escapeHtml(line)}</span>`;
+    }
+    let l = this.escapeHtml(line);
+    l = l.replace(/\/\*[\s\S]*?\*\//g, '<span class="tok-comment">$&</span>');
+    l = l.replace(/"([^"]*)"|'([^']*)'/g, '<span class="tok-str">$&</span>');
+
+    if (l.includes('{')) {
+      const parts = l.split('{');
+      const selector = parts[0]
+        .replace(/([#][A-Za-z0-9_-]+)/g, '<span class="tok-ui">$1</span>')
+        .replace(/([.][A-Za-z0-9_-]+)/g, '<span class="tok-fn">$1</span>')
+        .replace(/\b(window|button|label|textbox|canvas|body|div|span|h1|h2|h3|p|a|input)\b/g, '<span class="tok-kw">$1</span>');
+      l = selector + '{' + parts.slice(1).join('{');
+    } else if (l.includes(':')) {
+      const colonIdx = l.indexOf(':');
+      const prop = l.substring(0, colonIdx);
+      const val = l.substring(colonIdx + 1);
+      const highlightedProp = prop.replace(/([a-zA-Z-]+)/g, '<span class="tok-var">$1</span>');
+      const highlightedVal = val
+        .replace(/#[0-9a-fA-F]{3,8}\b/g, '<span class="tok-ui">$&</span>')
+        .replace(/\b(\d+(?:\.\d+)?(?:px|em|rem|%|vh|vw|s|ms)?)\b/g, '<span class="tok-num">$1</span>')
+        .replace(/\b(true|false|none|block|flex|grid|inline|absolute|relative|fixed|auto|center|bold|solid|hidden)\b/g, '<span class="tok-kw">$1</span>');
+      l = highlightedProp + ':' + highlightedVal;
+    }
+    return l;
+  }
+
+  syntaxHighlightJsonLine(line) {
+    let l = this.escapeHtml(line);
+    l = l.replace(/"([^"]+)"(?=\s*:)/g, '<span class="tok-var">"$1"</span>');
+    l = l.replace(/(:\s*)"([^"]*)"/g, '$1<span class="tok-str">"$2"</span>');
+    l = l.replace(/(:\s*)(\d+(?:\.\d+)?)/g, '$1<span class="tok-num">$2</span>');
+    l = l.replace(/(:\s*)(true|false|null)\b/g, '$1<span class="tok-bool">$2</span>');
+    return l;
+  }
+
   syntaxHighlightLine(line) {
+    if (this.currentFile?.endsWith('.css')) {
+      return this.syntaxHighlightCssLine(line);
+    }
+    if (this.currentFile?.endsWith('.json')) {
+      return this.syntaxHighlightJsonLine(line);
+    }
+
     if (line.trim().startsWith('#')) {
       return `<span class="tok-comment">${this.escapeHtml(line)}</span>`;
     }
@@ -2769,6 +2860,28 @@ export class OtterStudioIde {
   }
 
   async lintCurrentCode() {
+    if (this.currentFile && !this.currentFile.endsWith('.ot')) {
+      this.errorLine = null;
+      this.warningLine = null;
+      this.availableQuickFixes = [];
+      if (this.btnProblemQuickFix) this.btnProblemQuickFix.style.display = 'none';
+
+      if (this.currentFile.endsWith('.css')) {
+        this.setProblemsStatus(true, 'CSS Stylesheet', 'Lossless CSS styles.', 'CSS 3.0', 'Styling active. 🎨', false);
+      } else if (this.currentFile.endsWith('.json')) {
+        try {
+          JSON.parse(this.currentCode);
+          this.setProblemsStatus(true, 'Valid JSON Configuration', 'Ready', 'JSON', 'Config valid. ⚙', false);
+        } catch (err) {
+          this.setProblemsStatus(false, `JSON Error: ${err.message}`, 'Check JSON formatting', 'JSON Syntax', 'Invalid JSON syntax.', false);
+        }
+      } else {
+        this.setProblemsStatus(true, 'Ready', 'Text file', 'Text', '', false);
+      }
+      this.updateErrorSquiggles();
+      return;
+    }
+
     try {
       const res = await fetch('/api/analyze', {
         method: 'POST',

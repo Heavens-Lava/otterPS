@@ -81,6 +81,24 @@
 /* Side-by-side workbench: code remains in the central editor and the
    designer occupies a dedicated right-hand pane. The existing Split mode
    remains the vertical designer-over-code arrangement. */
+.center-work-area.is-split {
+  display: flex;
+  flex-direction: column;
+}
+
+.center-work-area.is-split .visual-designer-view {
+  flex: 1 1 50%;
+  min-height: 0;
+  height: 50%;
+  border-bottom: 1px solid var(--border-card);
+}
+
+.center-work-area.is-split .code-editor-view {
+  flex: 1 1 50%;
+  min-height: 0;
+  height: 50%;
+}
+
 .center-work-area.is-workbench {
   display: grid;
   grid-template-columns: minmax(480px, 1.35fr) minmax(340px, 0.85fr);

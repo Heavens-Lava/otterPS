@@ -194,6 +194,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   window.addEventListener('otter:source-changed', event => {
     const source = event.detail?.source ?? '';
+    const file = event.detail?.file ?? ide.currentFile;
     if (event.detail?.origin === 'component-editor') {
       ide.currentCode = source;
       const activeTab = ide.openTabs.find(tab => tab.path === ide.currentFile);
@@ -203,7 +204,18 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       ide.saveSessionState();
     }
-    syncUiFromSource(source);
+    if (file && file.endsWith('.css')) {
+      if (cssAstManager) {
+        try {
+          cssAstManager.parse(source);
+        } catch (e) {
+          console.warn('CSS AST manager parse failed:', e);
+        }
+      }
+      window.dispatchEvent(new CustomEvent('otter:source-synced', { detail: { source, file } }));
+    } else if (!file || file.endsWith('.ot')) {
+      syncUiFromSource(source);
+    }
   });
 
   uiModel.subscribe((changeType) => {
@@ -212,7 +224,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (liveCodeArea) liveCodeArea.textContent = ide.currentCode;
       return;
     }
-    syncCodeFromUiModel();
+    if (!ide.currentFile || ide.currentFile.endsWith('.ot')) {
+      syncCodeFromUiModel();
+    }
   });
 
   // Reconcile the file loaded during IDE initialization. This listener is
@@ -259,24 +273,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   const modePills = document.querySelectorAll('.mode-pill');
 
   function setMode(mode) {
+    centerWorkArea.classList.toggle('is-split', mode === 'split');
     centerWorkArea.classList.toggle('is-workbench', mode === 'workbench');
     modePills.forEach(p => p.classList.remove('is-active'));
     const activePill = document.getElementById(`pill${capitalize(mode)}Mode`);
     if (activePill) activePill.classList.add('is-active');
-
-    const tabMainOt = document.getElementById('tabMainOt');
-    if (tabMainOt) {
-      if (mode === 'designer') {
-        tabMainOt.innerHTML = '<span class="tab-icon">🎨</span><span class="tab-title">UI Designer (app)</span>';
-      } else if (mode === 'split') {
-        tabMainOt.innerHTML = '<span class="tab-icon">⚡</span><span class="tab-title">Split View (Designer + Code)</span>';
-      } else if (mode === 'preview') {
-        tabMainOt.innerHTML = '<span class="tab-icon">▶</span><span class="tab-title">Live Preview</span>';
-      } else {
-        const curName = ide.currentFile ? ide.currentFile.split('/').pop() : 'main.ot';
-        tabMainOt.innerHTML = `<span class="tab-icon">📄</span><span class="tab-title">${curName}</span><span class="tab-close">×</span>`;
-      }
-    }
 
     if (mode === 'code') {
       setOutlineContext('code');
@@ -301,20 +302,23 @@ document.addEventListener('DOMContentLoaded', async () => {
       designerRightSidebar.style.display = 'flex';
       bottomDrawer.style.display = 'flex';
 
-      // Attempt reverse-sync from code editor if user typed custom Otter code
-      syncUiFromSource(ide.currentCode, true);
+      if (!ide.currentFile || ide.currentFile.endsWith('.ot')) {
+        syncUiFromSource(ide.currentCode, true);
+      }
     } else if (mode === 'split') {
       setOutlineContext('designer');
-      codeEditorView.style.display = 'none';
+      codeEditorView.style.display = 'flex';
       canvasEl.style.display = 'flex';
-      editorEl.style.display = 'flex';
+      editorEl.style.display = 'none';
       previewEl.style.display = 'none';
 
       codeRightSidebar.style.display = 'none';
       designerRightSidebar.style.display = 'flex';
       bottomDrawer.style.display = 'none';
 
-      syncUiFromSource(ide.currentCode, true);
+      if (!ide.currentFile || ide.currentFile.endsWith('.ot')) {
+        syncUiFromSource(ide.currentCode, true);
+      }
     } else if (mode === 'workbench') {
       setOutlineContext('designer');
       codeEditorView.style.display = 'flex';
@@ -326,7 +330,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       designerRightSidebar.style.display = 'flex';
       bottomDrawer.style.display = 'flex';
 
-      syncUiFromSource(ide.currentCode, true);
+      if (!ide.currentFile || ide.currentFile.endsWith('.ot')) {
+        syncUiFromSource(ide.currentCode, true);
+      }
     } else if (mode === 'preview') {
       setOutlineContext('designer');
       codeEditorView.style.display = 'none';
@@ -339,6 +345,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       bottomDrawer.style.display = 'none';
     }
   }
+
+  // Ensure code editor is visible when opening/activating files
+  window.addEventListener('otter:ensure-editor-visible', () => {
+    const activePill = document.querySelector('.mode-pill.is-active');
+    if (activePill && (activePill.id === 'pillDesignerMode' || activePill.id === 'pillPreviewMode')) {
+      setMode('code');
+    }
+  });
 
   // Pill click handlers
   document.getElementById('pillCodeMode')?.addEventListener('click', () => setMode('code'));
@@ -353,17 +367,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (initialMode && ['code', 'designer', 'split', 'workbench', 'preview'].includes(initialMode)) {
     setMode(initialMode);
   }
-
-  // Project Explorer File Clicks
-  document.getElementById('projectFileMain')?.addEventListener('click', () => {
-    setMode('code');
-  });
-
-  document.getElementById('projectFileCss')?.addEventListener('click', () => {
-    setMode('split');
-    const tabCss = document.getElementById('tabCss');
-    if (tabCss) tabCss.click();
-  });
 
   // Template clicks
   const templateItems = document.querySelectorAll('.template-item');
@@ -566,10 +569,19 @@ document.addEventListener('DOMContentLoaded', async () => {
           console.warn('Backend create-project failed, using local in-memory:', apiErr);
         }
 
+        const filePath = `${projectFolder}/${fileName}`;
         ide.currentProjectFolder = projectFolder;
         ide.currentProjectName = projName;
-        ide.currentFile = `${projectFolder}/${fileName}`;
+        ide.currentFile = filePath;
         ide.currentCode = initialCode;
+
+        ide.openTabs = [{
+          path: filePath,
+          name: fileName,
+          content: initialCode,
+          isDirty: false,
+          icon: fileName.endsWith('.ot') ? '📄' : (fileName.endsWith('.css') ? '🎨' : '📝')
+        }];
 
         // Render real project tree in sidebar explorer!
         ide.renderProjectTree(projectTree, projName, projectFolder);
@@ -578,9 +590,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         const projTitleEl = document.getElementById('projectCardTitle');
         if (projTitleEl) projTitleEl.textContent = `Project: ${projName}`;
 
-        const tabTitle = document.querySelector('.editor-tab.is-active .tab-title');
-        if (tabTitle) tabTitle.innerText = fileName;
+        if (initialCss && cssAstManager) {
+          try {
+            cssAstManager.parse(initialCss);
+          } catch (cssErr) {
+            console.warn('Initial CSS parse error:', cssErr);
+          }
+        }
 
+        ide.renderTabs();
         ide.renderEditorCode(initialCode);
         ide.lintCurrentCode();
         syncCodeFromUiModel();
