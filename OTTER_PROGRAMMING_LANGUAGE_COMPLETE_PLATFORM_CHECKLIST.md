@@ -195,22 +195,22 @@ creation.
 -   [x] Loop variable scope parity work
 -   [x] Global mutation behavior parity
 -   [x] Call-before-declaration behavior parity
--   [x] Shared module resolver work reported
--   [x] Production-certify `use`
--   [x] Freeze module resolution
--   [x] Relative modules
+-   [ ] Shared module resolver work reported
+-   [ ] Production-certify `use`
+-   [ ] Freeze module resolution
+-   [ ] Relative modules
 -   [ ] Package modules
--   [x] Circular dependency semantics
--   [x] Module initialization order
--   [x] Duplicate-load semantics
--   [x] Public/private exports if needed
--   [x] Namespace collision policy
--   [x] Module caching/invalidation
+-   [ ] Circular dependency semantics
+-   [ ] Module initialization order
+-   [ ] Duplicate-load semantics
+-   [ ] Public/private exports if needed
+-   [ ] Namespace collision policy
+-   [ ] Module caching/invalidation
 -   [x] Closures
 -   [ ] First-class function values if required
 -   [ ] Callbacks/delegates
 -   [x] Lambda/anonymous function decision only if necessary
--   [x] Cross-module symbol metadata for IDE tooling
+-   [ ] Cross-module symbol metadata for IDE tooling
 
 # 6. Errors & Diagnostics
 
@@ -1549,24 +1549,24 @@ creation.
 -   [x] Formal specification
 -   [ ] Conformance suite
 -   [x] No silent no-ops
--   [x] Portable JS parity complete
--   [x] Core standard library certified
+-   [ ] Portable JS parity complete
+-   [ ] Core standard library certified
 -   [x] Files certified
 -   [ ] HTTP certified
 -   [x] JSON certified
 -   [x] Dates/random certified
--   [x] Command/process API certified
+-   [ ] Command/process API certified
 -   [ ] Module system certified
 -   [x] Console target certified
--   [x] Advertised Web target certified
--   [x] Advertised Desktop target certified
+-   [ ] Advertised Web target certified
+-   [ ] Advertised Desktop target certified
 -   [x] Diagnostics certified
 -   [ ] Packaging/install certified
 -   [ ] Security review
--   [x] Documentation
--   [x] Real dogfood applications
--   [x] No known data-loss bugs
--   [x] No known critical security bugs
+-   [ ] Documentation
+-   [ ] Real dogfood applications
+-   [ ] No known data-loss bugs
+-   [ ] No known critical security bugs
 -   [ ] Every advertised feature reachable through production entry
     point
 
