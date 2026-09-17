@@ -1,14 +1,21 @@
 # Otter Conformance Fixtures (starting set)
 
-These `.ot` files were written and verified during the Otter 1.0
-language/runtime capability sweep (see
+These `.ot` files support Otter 1.0 release certification (see
 `docs/OTTER_1_0_LANGUAGE_AND_RUNTIME_INVENTORY.md` and
-`docs/OTTER_1_0_GAP_REPORT.md`). Every file here was run for real through
-`otter run <file>` (or `otter check` at minimum) and its output was
-inspected before being committed.
+`docs/OTTER_1_0_GAP_REPORT.md`). The deterministic RC subset is described in
+`manifest.json` and run through the real production entry point with:
 
-This is a **starting point**, not the formal Otter 1.0 conformance suite
-Jeff's roadmap calls for. Known gaps before it can become that:
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\Test-OtterReleaseConformance.ps1
+```
+
+That runner records expected exit code, stdout or diagnostic text, target,
+and generated-web semantic assertions. It deliberately creates temporary
+copies for filesystem and web fixtures so release certification does not
+depend on the developer's repository or profile state.
+
+This is a scoped RC certification suite, not the exhaustive language
+conformance suite Jeff's roadmap calls for. Remaining expansion work:
 
 - `misc/file_exists_run_command_json_roundtrip.ot` and the filesystem
   portions of `system_integration/clipboard_env_notify.ot` use absolute
@@ -20,12 +27,10 @@ Jeff's roadmap calls for. Known gaps before it can become that:
   gap report) — it is not runnable via `otter run` at all right now, only
   `otter web`. A real harness will need a decision on whether network-
   dependent fixtures are acceptable, mocked, or skipped.
-- None of these files yet assert their own expected output programmatically
-  - they were verified by a human (well, an agent) reading the real
-    `otter run` output during the sweep. The formal suite Jeff describes
-    needs each fixture paired with an expected-output file and an
-    automated diff, run through both the interpreter and (where
-    applicable) the JS compiler, per his Phase 5 vision.
+- The manifest intentionally certifies only deterministic, portable-core
+  fixtures plus one web compiler semantic fixture. Nondeterministic clock and
+  random outputs require normalization before they can become golden-output
+  cases.
 - Coverage here is not exhaustive. D69-D92 (system info, processes,
   symlinks, permissions, registry, event logs, credentials, power
   actions, printers, remote/SSH, ZIP, hashing, encryption, extended

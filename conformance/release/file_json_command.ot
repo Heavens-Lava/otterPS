@@ -1,0 +1,12 @@
+person has name "Otter", version 1
+convert person to json into text
+write text to "release-person.json"
+read json from "release-person.json" into loaded
+say name of loaded
+
+run command "cmd /c echo command-ok" into result
+say output of result
+say exit code of result
+
+delete file "release-person.json"
+say "cleaned"

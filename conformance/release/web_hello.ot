@@ -1,0 +1,20 @@
+app is a page
+    title is "Otter RC Web"
+.
+
+counter is a text
+    text is "0"
+.
+
+plusButton is a button
+    text is "+1"
+.
+
+score is 0
+when plusButton is clicked
+    score is score plus 1
+    text of counter is score
+.
+
+put counter, plusButton in app
+show app

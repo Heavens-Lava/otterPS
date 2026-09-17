@@ -1,0 +1,5 @@
+startDate is today
+finish is today
+add 1 day to finish
+days between startDate and finish make difference
+say difference

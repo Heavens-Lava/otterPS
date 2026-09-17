@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "fixtures": [
+    {
+      "name": "hello",
+      "mode": "run",
+      "source": "conformance/release/hello.ot",
+      "expectedExitCode": 0,
+      "expectedStdout": ["Hello from Otter"],
+      "targets": ["console", "portable-core"]
+    },
+    {
+      "name": "variables-control-flow",
+      "mode": "run",
+      "source": "conformance/core/variables_math_control_flow.ot",
+      "expectedExitCode": 0,
+      "expectedStdout": ["15", "10", "true", "and-not works in a condition", "or works in a condition", "Jeff, Otter", "Otter", "big", "found", "1", "2", "3", "0", "1", "2", "hi", "hi", "Otter", "7"],
+      "targets": ["console", "portable-core"]
+    },
+    {
+      "name": "function-return-expression",
+      "mode": "run",
+      "source": "conformance/core/function_return_expression.ot",
+      "expectedExitCode": 0,
+      "expectedStdout": ["20", "7", "20", "10"],
+      "targets": ["console", "portable-core"]
+    },
+    {
+      "name": "file-json-command",
+      "mode": "run-in-temp-directory",
+      "source": "conformance/release/file_json_command.ot",
+      "expectedExitCode": 0,
+      "expectedStdout": ["Otter", "command-ok", "0", "cleaned"],
+      "targets": ["console", "portable-core"]
+    },
+    {
+      "name": "date-math",
+      "mode": "run",
+      "source": "conformance/release/date_math.ot",
+      "expectedExitCode": 0,
+      "expectedStdout": ["1"],
+      "targets": ["console", "portable-core"]
+    },
+    {
+      "name": "reserved-literal-negative",
+      "mode": "check",
+      "source": "conformance/negative/reserved_literal_variable.ot",
+      "expectedExitCode": 2,
+      "expectedDiagnosticContains": "built-in value, not a variable name",
+      "targets": ["console", "portable-core"]
+    },
+    {
+      "name": "or-outside-condition-negative",
+      "mode": "check",
+      "source": "conformance/negative/or_outside_condition.ot",
+      "expectedExitCode": 2,
+      "expectedDiagnosticContains": "only works inside an if or while condition",
+      "targets": ["console", "portable-core"]
+    },
+    {
+      "name": "boolean-and-negative",
+      "mode": "run",
+      "source": "conformance/negative/boolean_operators_outside_conditions.ot",
+      "expectedExitCode": 3,
+      "expectedDiagnosticContains": "Boolean \"and\"/\"or\" only work inside an if or while condition",
+      "targets": ["console", "portable-core"]
+    },
+    {
+      "name": "web-hello",
+      "mode": "web",
+      "source": "conformance/release/web_hello.ot",
+      "expectedExitCode": 0,
+      "expectedHtmlContains": ["<!DOCTYPE html>", "<title>Otter RC Web</title>", "id=\"plusButton\"", "addEventListener('click',"],
+      "targets": ["web"]
+    }
+  ]
+}

@@ -23,7 +23,7 @@ every host.
 | Core syntax frozen | CERTIFIED | Lexer/parser regressions and V1 audit pass. |
 | Semantics frozen | CERTIFIED | V1 audit and interpreter/JS differential conformance pass. |
 | Formal specification | CERTIFIED | Frozen `rules.md` and `SPEC-DECISIONS.md` define the supported core. |
-| Conformance suite | IMPLEMENTED BUT NOT PRODUCTION-CERTIFIED | The regression suite is substantial, but `conformance/` explicitly lacks automated expected outputs, hermetic fixtures, and complete target execution. |
+| Conformance suite | IMPLEMENTED BUT NOT PRODUCTION-CERTIFIED | `conformance/manifest.json` now drives deterministic console and web checks through the real entry point; exhaustive fixture coverage and host-matrix execution remain open. |
 | No silent no-ops | CERTIFIED | The audited boolean, literal-name, and typed-initializer cases have explicit diagnostics. |
 | Portable JS parity | TARGET-SPECIFIC | Shared-core differential conformance passes; HTTP is emitted only by the web target. |
 | Core standard library | IMPLEMENTED BUT NOT PRODUCTION-CERTIFIED | Most Part 3 cases pass, but host-backed providers have not been certified across a release host matrix. |
@@ -35,7 +35,7 @@ every host.
 | Advertised Web target | IMPLEMENTED BUT NOT PRODUCTION-CERTIFIED | Compiler fixtures pass, including generated HTTP helpers; browser/runtime certification needs a hermetic browser execution record. |
 | Advertised Desktop target | BLOCKED BY ENVIRONMENT | This host throws `PlatformNotSupportedException` for `HttpListener`, blocking the terminal bridge test. |
 | Diagnostics | CERTIFIED | V1 diagnostic fixtures and parser/interpreter tests pass. |
-| Packaging / install | DEFERRED FROM 1.0 | No installer, runtime distribution, signed artifact, or fresh-machine test exists. A source-checkout release can state this honestly. |
+| Packaging / install | IMPLEMENTED BUT NOT PRODUCTION-CERTIFIED | A versioned Windows PowerShell payload builder and per-user installer now exist; clean-machine certification and signing remain open. |
 | Security review | IMPLEMENTED BUT NOT PRODUCTION-CERTIFIED | Security-sensitive code exists, but there is no threat model, security review, signing, SBOM, or supply-chain audit. |
 | Documentation | IMPLEMENTED BUT NOT PRODUCTION-CERTIFIED | Core and target-specific status are documented; installation and security guidance remain incomplete. |
 | Real dogfood applications | IMPLEMENTED BUT NOT PRODUCTION-CERTIFIED | Examples exist, but this pass did not independently certify their complete production paths. |
