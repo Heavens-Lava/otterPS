@@ -214,7 +214,13 @@ to greet name
   });
   assert.equal(verifyReplaced.results.length, 1);
 
-  console.log('Otter Studio smoke test passed: scan, open, save, external-change protection, symbols, workspace search, workspace replace, run, terminal, diagnostics, failures.');
+  const stopResponse = await request('/api/stop', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' }
+  });
+  assert.ok(typeof stopResponse.stopped === 'boolean', 'stop endpoint must return stopped boolean');
+
+  console.log('Otter Studio smoke test passed: scan, open, save, external-change protection, symbols, workspace search, workspace replace, stop runner, run, terminal, diagnostics, failures.');
 } finally {
   await fs.rm(temporaryPath, { force: true });
   await fs.rm(symbolWorkspacePath, { force: true, recursive: true });

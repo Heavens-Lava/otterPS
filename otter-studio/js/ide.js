@@ -21,6 +21,8 @@ import { highlightCssLine } from './editor/syntax/css.js';
 import { highlightJsonLine } from './editor/syntax/json.js';
 import { highlightOtterLine } from './editor/syntax/otter.js';
 import { snapshotTabState, restoreTabState } from './editor/document-state.js';
+import { renderProjectSettings } from './components/project-settings.js';
+import { normalizeManifest, serializeManifest, validateManifest } from './project/project-manifest.js';
 
 export class OtterStudioIde {
   constructor() {
@@ -38,6 +40,7 @@ export class OtterStudioIde {
     this.currentMatchIndex = -1;
     this.errorLine = null;
     this.currentFilteredSuggestions = [];
+    this.manifestViewMode = 'form'; // 'form' | 'json'
     this.externalCheckTimer = null;
     this.externalCheckInFlight = false;
     this.externalCheckIntervalMs = 2000;
@@ -238,6 +241,33 @@ export class OtterStudioIde {
         window.dispatchEvent(new CustomEvent('otter:open-new-project'));
       });
     }
+    this.btnProjectSettingsHeader = document.getElementById('btnProjectSettingsHeader');
+    if (this.btnProjectSettingsHeader) {
+      this.btnProjectSettingsHeader.addEventListener('click', () => {
+        this.openProjectSettings();
+      });
+    }
+    this.projectSettingsContainer = document.getElementById('projectSettingsContainer');
+    this.manifestToggleBar = document.getElementById('manifestToggleBar');
+    this.btnToggleSettingsForm = document.getElementById('btnToggleSettingsForm');
+    this.btnToggleSettingsJson = document.getElementById('btnToggleSettingsJson');
+
+    this.btnToggleSettingsForm?.addEventListener('click', () => {
+      if (this.manifestViewMode === 'form') return;
+      try {
+        JSON.parse(this.currentCode);
+        this.manifestViewMode = 'form';
+        this.activateTab(this.currentFile);
+      } catch (err) {
+        alert('Cannot switch to Visual Settings: project.json contains invalid JSON syntax:\n' + err.message);
+      }
+    });
+
+    this.btnToggleSettingsJson?.addEventListener('click', () => {
+      if (this.manifestViewMode === 'json') return;
+      this.manifestViewMode = 'json';
+      this.activateTab(this.currentFile);
+    });
     this.templatesCard = document.getElementById('templatesCard');
     this.btnToggleTemplates = document.getElementById('btnToggleTemplates');
     this.btnTemplatesNewProject = document.getElementById('btnTemplatesNewProject');
@@ -1401,8 +1431,91 @@ export class OtterStudioIde {
     // Restore caret position and scroll offset for newly activated tab
     restoreTabState(tab, textarea, this.codeAreaEl, this.gutterEl);
 
+    // Project Manifest Mode Handling (Visual Form vs Raw JSON)
+    const isManifest = filePath.endsWith('project.json');
+    if (this.manifestToggleBar) {
+      this.manifestToggleBar.style.display = isManifest ? 'flex' : 'none';
+    }
+
+    if (isManifest && this.manifestViewMode === 'form') {
+      if (this.projectSettingsContainer) {
+        this.projectSettingsContainer.style.display = 'block';
+      }
+      if (this.codeViewport) {
+        this.codeViewport.style.display = 'none';
+      }
+      this.btnToggleSettingsForm?.classList.add('is-active');
+      this.btnToggleSettingsJson?.classList.remove('is-active');
+      this.renderProjectSettingsView();
+    } else {
+      if (this.projectSettingsContainer) {
+        this.projectSettingsContainer.style.display = 'none';
+      }
+      if (this.codeViewport) {
+        this.codeViewport.style.display = 'flex';
+      }
+      if (isManifest) {
+        this.btnToggleSettingsForm?.classList.remove('is-active');
+        this.btnToggleSettingsJson?.classList.add('is-active');
+      }
+    }
+
     this.saveSessionState();
     window.dispatchEvent(new CustomEvent('otter:ensure-editor-visible', { detail: { path: filePath } }));
+  }
+
+  async openProjectSettings() {
+    let manifestPath = 'project.json';
+    if (this.currentProjectFolder) {
+      manifestPath = `${this.currentProjectFolder}/project.json`;
+    }
+    this.manifestViewMode = 'form';
+    await this.loadFile(manifestPath);
+  }
+
+  renderProjectSettingsView() {
+    if (!this.projectSettingsContainer) return;
+    let manifestObj = null;
+    try {
+      manifestObj = JSON.parse(this.currentCode);
+    } catch {
+      manifestObj = normalizeManifest(null);
+    }
+
+    renderProjectSettings(this.projectSettingsContainer, {
+      manifest: manifestObj,
+      filePath: this.currentFile,
+      projectFiles: this.workspaceFiles,
+      onChange: (updatedManifest) => {
+        const serialized = serializeManifest(updatedManifest);
+        this.currentCode = serialized;
+        const currentTab = this.openTabs.find(t => t.path === this.currentFile);
+        if (currentTab) {
+          currentTab.content = serialized;
+          currentTab.isDirty = true;
+        }
+        const textarea = document.getElementById('hiddenEditorInput');
+        if (textarea) {
+          textarea.value = serialized;
+        }
+        this.renderTabs();
+
+        if (updatedManifest.name) {
+          this.currentProjectName = updatedManifest.name;
+          const projTitleEl = document.getElementById('projectCardTitle');
+          if (projTitleEl) {
+            projTitleEl.textContent = `Project: ${updatedManifest.name}`;
+          }
+        }
+      },
+      onSwitchToJson: () => {
+        this.manifestViewMode = 'json';
+        this.activateTab(this.currentFile);
+      },
+      onSave: () => {
+        this.saveCurrentFile();
+      }
+    });
   }
 
   renderTabs() {
@@ -1491,6 +1604,19 @@ export class OtterStudioIde {
           tab.externalRevision = null;
           tab.externalContent = null;
           tab.externalDeleted = false;
+        }
+
+        if (this.currentFile && this.currentFile.endsWith('project.json')) {
+          try {
+            const parsed = JSON.parse(this.currentCode);
+            if (parsed.name) {
+              this.currentProjectName = parsed.name;
+              const projTitleEl = document.getElementById('projectCardTitle');
+              if (projTitleEl) {
+                projTitleEl.textContent = `Project: ${parsed.name}`;
+              }
+            }
+          } catch {}
         }
       }
 
@@ -2818,8 +2944,19 @@ export class OtterStudioIde {
         this.setProblemsStatus(true, 'CSS Stylesheet', 'Lossless CSS styles.', 'CSS 3.0', 'Styling active. 🎨', false);
       } else if (this.currentFile.endsWith('.json')) {
         try {
-          JSON.parse(this.currentCode);
-          this.setProblemsStatus(true, 'Valid JSON Configuration', 'Ready', 'JSON', 'Config valid. ⚙', false);
+          const parsed = JSON.parse(this.currentCode);
+          if (this.currentFile.endsWith('project.json')) {
+            const validation = validateManifest(parsed, this.workspaceFiles);
+            if (!validation.ok) {
+              this.setProblemsStatus(false, `Manifest Error: ${validation.errors[0]}`, 'Check project.json', 'Manifest', 'Invalid manifest configuration.', false);
+            } else if (validation.warnings.length > 0) {
+              this.setProblemsStatus(true, `Notice: ${validation.warnings[0]}`, 'Advisory', 'Manifest', 'Manifest has advisory warnings.', false);
+            } else {
+              this.setProblemsStatus(true, `Project Manifest (${parsed.name || 'app'})`, 'Ready', 'Manifest', 'Manifest valid. ⚙', false);
+            }
+          } else {
+            this.setProblemsStatus(true, 'Valid JSON Configuration', 'Ready', 'JSON', 'Config valid. ⚙', false);
+          }
         } catch (err) {
           this.setProblemsStatus(false, `JSON Error: ${err.message}`, 'Check JSON formatting', 'JSON Syntax', 'Invalid JSON syntax.', false);
         }

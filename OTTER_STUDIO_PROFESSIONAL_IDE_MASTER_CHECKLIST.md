@@ -239,8 +239,8 @@ platform.
 -   [x] Validate names and overwrite safety (sanitizing names and directory bounds)
 -   [x] Recent/pinned projects (session & localStorage tracking)
 -   [x] Freeze project manifest (project.json metadata)
--   [ ] Project version/entry point/target/dependencies/assets/build
-    config/permissions metadata
+-   [x] Project version/entry point/target/dependencies/assets/build
+    config/permissions metadata (Rich schema, dual-mode Settings visual inspector / raw JSON editor, live sync, validation diagnostics, certified via project-manifest.test.mjs)
 -   [ ] Workspace/multi-project solution format
 -   [ ] Workspace settings/trust
 -   [ ] Multi-root workspaces

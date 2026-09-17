@@ -5,6 +5,12 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { exec, execFile, spawn } from 'node:child_process';
+import {
+  createDefaultManifest,
+  normalizeManifest,
+  validateManifest,
+  serializeManifest
+} from './js/project/project-manifest.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -13,6 +19,7 @@ const REPO_ROOT = path.resolve(__dirname, '..');
 const PORT = Number(process.env.OTTER_STUDIO_PORT || 4200);
 const ANALYZER_PATH = path.join(REPO_ROOT, 'tools', 'vscode-otter', 'scripts', 'analyze.ps1');
 const workspaceSymbolCache = new Map();
+let activeRunProcess = null;
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -317,14 +324,14 @@ const server = http.createServer(async (req, res) => {
         fs.writeFileSync(path.join(projectDir, 'styles.css'), body.css || '/* Otter Stylesheet */\n', 'utf8');
       }
 
-      // 3. Write project.json metadata
-      const manifest = {
-        name: projName,
-        archetype: body.archetype || 'desktop',
-        main: fileName,
-        created: new Date().toISOString()
-      };
-      fs.writeFileSync(path.join(projectDir, 'project.json'), JSON.stringify(manifest, null, 2), 'utf8');
+      // 3. Write rich project.json metadata
+      const manifest = createDefaultManifest(projName, body.archetype || 'desktop', fileName, {
+        description: body.description,
+        author: body.author,
+        version: body.version || '1.0.0'
+      });
+      manifest.main = fileName;
+      fs.writeFileSync(path.join(projectDir, 'project.json'), serializeManifest(manifest), 'utf8');
 
       const relFolder = path.relative(REPO_ROOT, projectDir).replace(/\\/g, '/');
       const tree = scanDir(projectDir, projectDir);
@@ -334,7 +341,101 @@ const server = http.createServer(async (req, res) => {
         folder: relFolder,
         name: projName,
         mainFile: `${relFolder}/${fileName}`,
-        tree
+        tree,
+        manifest
+      });
+    } catch (err) {
+      sendJson(res, { error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/project-manifest' && req.method === 'GET') {
+    try {
+      const folderParam = urlObj.searchParams.get('folder') || '';
+      const filePathParam = urlObj.searchParams.get('path');
+      let targetFile = null;
+      let projectDir = null;
+
+      if (filePathParam) {
+        targetFile = path.resolve(REPO_ROOT, filePathParam);
+        projectDir = path.dirname(targetFile);
+      } else if (folderParam) {
+        projectDir = path.resolve(REPO_ROOT, folderParam);
+        targetFile = path.join(projectDir, 'project.json');
+      } else {
+        return sendJson(res, { error: 'Folder or path parameter is required' }, 400);
+      }
+
+      if (!targetFile.startsWith(REPO_ROOT) || !fs.existsSync(targetFile)) {
+        return sendJson(res, { error: 'project.json not found' }, 404);
+      }
+
+      const raw = fs.readFileSync(targetFile, 'utf8');
+      const parsed = JSON.parse(raw);
+      const normalized = normalizeManifest(parsed);
+      const projectTree = scanDir(projectDir, projectDir);
+      const validation = validateManifest(normalized, projectTree);
+
+      sendJson(res, {
+        ok: true,
+        path: path.relative(REPO_ROOT, targetFile).replace(/\\/g, '/'),
+        folder: path.relative(REPO_ROOT, projectDir).replace(/\\/g, '/'),
+        manifest: normalized,
+        validation
+      });
+    } catch (err) {
+      sendJson(res, { error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/project-manifest' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const folderParam = body.folder || '';
+      const filePathParam = body.path;
+      let targetFile = null;
+      let projectDir = null;
+
+      if (filePathParam) {
+        targetFile = path.resolve(REPO_ROOT, filePathParam);
+        projectDir = path.dirname(targetFile);
+      } else if (folderParam) {
+        projectDir = path.resolve(REPO_ROOT, folderParam);
+        targetFile = path.join(projectDir, 'project.json');
+      } else {
+        return sendJson(res, { error: 'Folder or path parameter is required' }, 400);
+      }
+
+      if (!targetFile.startsWith(REPO_ROOT)) {
+        return sendJson(res, { error: 'Forbidden' }, 403);
+      }
+
+      if (!body.manifest || typeof body.manifest !== 'object') {
+        return sendJson(res, { error: 'Manifest object is required' }, 400);
+      }
+
+      const normalized = normalizeManifest(body.manifest);
+      const projectTree = fs.existsSync(projectDir) ? scanDir(projectDir, projectDir) : [];
+      const validation = validateManifest(normalized, projectTree);
+
+      if (!validation.ok && body.force !== true) {
+        return sendJson(res, {
+          ok: false,
+          error: 'Manifest validation failed',
+          validation
+        }, 422);
+      }
+
+      const serialized = serializeManifest(normalized);
+      fs.writeFileSync(targetFile, serialized, 'utf8');
+
+      sendJson(res, {
+        ok: true,
+        path: path.relative(REPO_ROOT, targetFile).replace(/\\/g, '/'),
+        manifest: normalized,
+        validation
       });
     } catch (err) {
       sendJson(res, { error: err.message }, 500);
@@ -567,7 +668,16 @@ const server = http.createServer(async (req, res) => {
       const cmd = `"${otterCmd}" run "${scriptName}"`;
       const startTime = Date.now();
 
-      exec(cmd, { cwd: runDir, timeout: 10000 }, (error, stdout, stderr) => {
+      if (activeRunProcess) {
+        try {
+          if (process.platform === 'win32') exec(`taskkill /pid ${activeRunProcess.pid} /f /t`, () => {});
+          else activeRunProcess.kill('SIGTERM');
+        } catch {}
+        activeRunProcess = null;
+      }
+
+      const child = exec(cmd, { cwd: runDir, timeout: 30000 }, (error, stdout, stderr) => {
+        activeRunProcess = null;
         const durationMs = Date.now() - startTime;
         sendJson(res, {
           exitCode: error ? (error.code || 1) : 0,
@@ -577,10 +687,24 @@ const server = http.createServer(async (req, res) => {
           error: error ? error.message : null
         });
       });
+      activeRunProcess = child;
     } catch (err) {
       sendJson(res, { error: err.message }, 500);
     }
     return;
+  }
+
+  // --- Stop Running Process API ---
+  if (pathname === '/api/stop' && req.method === 'POST') {
+    if (activeRunProcess) {
+      try {
+        if (process.platform === 'win32') exec(`taskkill /pid ${activeRunProcess.pid} /f /t`, () => {});
+        else activeRunProcess.kill('SIGTERM');
+      } catch {}
+      activeRunProcess = null;
+      return sendJson(res, { stopped: true });
+    }
+    return sendJson(res, { stopped: false, message: 'No process currently running' });
   }
 
   // --- Interactive Terminal API ---

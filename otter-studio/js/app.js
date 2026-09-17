@@ -473,6 +473,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     menuFile?.classList.remove('is-open');
     ide.saveCurrentFile();
   });
+  document.getElementById('menuItemProjectSettings')?.addEventListener('click', () => {
+    menuFile?.classList.remove('is-open');
+    ide.openProjectSettings();
+  });
 
   // ===============================================================
   // NEW PROJECT / STARTUP WIZARD MODAL (Console, App, Web, Game)

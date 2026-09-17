@@ -58,6 +58,11 @@
                 <span>Save</span>
                 <span class="dropdown-shortcut">Ctrl+S</span>
               </div>
+              <div class="dropdown-divider"></div>
+              <div class="dropdown-item" id="menuItemProjectSettings">
+                <span class="dropdown-icon">⚙</span>
+                <span>Project Settings...</span>
+              </div>
             </div>
           </div>
           <div class="menu-item" data-menu="edit">Edit <span class="menu-arrow">▾</span></div>
@@ -121,6 +126,7 @@
               <div class="header-action-btns">
                 <button class="icon-btn-minimal" id="btnNewProjectHeader" title="New Project (Ctrl+Shift+N)">✨</button>
                 <button class="icon-btn-minimal" id="btnOpenFolderHeader" title="Open Folder (Ctrl+O)">📂</button>
+                <button class="icon-btn-minimal" id="btnProjectSettingsHeader" title="Project Settings (project.json)">⚙</button>
               </div>
             </div>
             <div class="project-tree" id="projectTree">
@@ -278,6 +284,13 @@
               <button type="button" class="external-change-btn primary" id="btnReloadExternalFile">Reload from Disk</button>
             </div>
           </div>
+          <div class="manifest-toggle-bar" id="manifestToggleBar" style="display: none;">
+            <div class="manifest-toggle-pills">
+              <button type="button" class="manifest-toggle-pill is-active" id="btnToggleSettingsForm">⚙ Visual Settings</button>
+              <button type="button" class="manifest-toggle-pill" id="btnToggleSettingsJson">📄 Raw JSON</button>
+            </div>
+            <span class="manifest-toggle-hint">Editing in visual form or raw JSON synchronizes in real time.</span>
+          </div>
           <nav class="editor-breadcrumbs" id="editorBreadcrumbs" aria-label="Current file path"></nav>
           <aside class="definition-peek" id="definitionPeek" aria-live="polite" style="display: none;"></aside>
           <aside class="editor-hover-tooltip" id="editorHoverTooltip" aria-live="polite" style="display: none;"></aside>
@@ -366,6 +379,9 @@
               </div>
             </div>
           </div>
+
+          <!-- Project Settings View Container -->
+          <div class="project-settings-view" id="projectSettingsContainer" style="display: none;"></div>
         </div>
 
         <!-- Visual Designer View (Canvas) -->
