@@ -1,4 +1,4 @@
-using module ..\Otter.Contract.psm1
+﻿using module ..\Otter.Contract.psm1
 
 # tests/RedTeam.Tests.ps1
 # Adversarial Red Team Gauntlet Test Suite (1.0 RC)
@@ -68,6 +68,9 @@ function Run-OtterNode {
         $jsLines.Add('const otterError = console.error;')
         $jsLines.Add('const otterSay = (...args) => console.log(args.join(" "));')
         $jsLines.Add('const otterGetElement = () => null;')
+        $jsLines.Add('const otterReadFile = async (p) => { if (!fs.existsSync(p)) throw new Error("I could not find a file called \"" + p + "\"."); return fs.readFileSync(p, "utf8"); };')
+        $jsLines.Add('const otterWriteFile = async (p, content, atomic) => { const dir = require("path").dirname(p); if (dir && !fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true }); if (atomic) { const tmp = p + ".otter-tmp-" + Math.random().toString(36).slice(2); fs.writeFileSync(tmp, content, "utf8"); fs.renameSync(tmp, p); } else { fs.writeFileSync(p, content, "utf8"); } };')
+        $jsLines.Add('const otterRunCommand = async (cmd) => { return new Promise((resolve) => { cp.exec(cmd, { encoding: "utf8" }, (err, stdout, stderr) => { const code = err ? (typeof err.code === "number" ? err.code : 1) : 0; resolve({ __otterThing: true, typeName: "command result", props: { "output": stdout ? stdout.trimEnd() : "", "error output": stderr ? stderr.trimEnd() : "", "exit code": code }, order: ["output", "error output", "exit code"] }); }); }); };')
         $jsLines.Add('(async () => {')
         foreach ($stmt in $ast.Statements) {
             $compiled = ConvertTo-OtterJsStatement -Stmt $stmt -Indent 1
@@ -391,6 +394,214 @@ say htmlSnippet
     if (-not $Interpreter.Success) { throw "Interpreter failed: $($Interpreter.Error)" }
     if (-not $Node.Success) { throw "Node failed: $($Node.Error)" }
     if ($Interpreter.Stdout -ne $Node.Stdout) { throw "Disagreement on script tag string!" }
+}
+
+# -------------------------------------------------------------
+# VECTOR 4 (EXPANDED): COLLECTIONS & OBJECTS DEEP DIVE
+# -------------------------------------------------------------
+Assert-AdversarialCase -Name "V4_nested_property_read_and_write" -Vector "CollectionsAndObjects" -ExpectedCategory "Pass" -Source @"
+address has
+    city is "Tucson"
+.
+user has
+    address is address
+.
+say city of address of user
+city of address of user is "Phoenix"
+say city of address of user
+"@ -Validator {
+    param($Interpreter, $Node)
+    if (-not $Interpreter.Success) { throw "Interpreter failed: $($Interpreter.Error)" }
+    if ($Interpreter.Stdout -ne "Tucson`nPhoenix") { throw "Interpreter unexpected stdout: '$($Interpreter.Stdout)'" }
+    if (-not $Node.Success) { throw "Node failed: $($Node.Error)" }
+    if ($Node.Stdout -ne "Tucson`nPhoenix") { throw "Node unexpected stdout: '$($Node.Stdout)'" }
+}
+
+Assert-AdversarialCase -Name "V4_foreach_non_list_rejection" -Vector "CollectionsAndObjects" -ExpectedCategory "ExpectedRejection" -Source @"
+text is "hello"
+each c in text
+    say c
+.
+"@ -Validator {
+    param($Interpreter, $Node)
+    if ($Interpreter.Success) { throw "Interpreter silently succeeded on iterating non-list text!" }
+    if ($Interpreter.Error -notmatch "can only go through a list") { throw "Interpreter unexpected error: $($Interpreter.Error)" }
+    if ($Node.Success) { throw "Node silently succeeded on iterating non-list text!" }
+    if ($Node.Error -notmatch "can only go through a list") { throw "Node unexpected error: $($Node.Error)" }
+}
+
+Assert-AdversarialCase -Name "V4_foreach_iteration_snapshotting" -Vector "CollectionsAndObjects" -ExpectedCategory "Pass" -Source @"
+numbers are
+    1
+    2
+    3
+.
+total is 0
+each n in numbers
+    total is total plus 1
+    if total is less than 10
+        add 99 to numbers
+    .
+.
+say total
+"@ -Validator {
+    param($Interpreter, $Node)
+    if (-not $Interpreter.Success) { throw "Interpreter failed: $($Interpreter.Error)" }
+    if ($Interpreter.Stdout -ne "3") { throw "Interpreter expected 3, got '$($Interpreter.Stdout)'" }
+    if (-not $Node.Success) { throw "Node failed: $($Node.Error)" }
+    if ($Node.Stdout -ne "3") { throw "Node expected 3, got '$($Node.Stdout)'" }
+}
+
+Assert-AdversarialCase -Name "V4_first_of_number_rejection" -Vector "CollectionsAndObjects" -ExpectedCategory "ExpectedRejection" -Source @"
+x is first of 123
+say x
+"@ -Validator {
+    param($Interpreter, $Node)
+    if ($Interpreter.Success) { throw "Interpreter silently succeeded on first of number!" }
+    if ($Interpreter.Error -notmatch "Only a list has a first item") { throw "Interpreter unexpected error: $($Interpreter.Error)" }
+    if ($Node.Success) { throw "Node silently succeeded on first of number!" }
+    if ($Node.Error -notmatch "Only a list has a first item") { throw "Node unexpected error: $($Node.Error)" }
+}
+
+Assert-AdversarialCase -Name "V4_last_of_number_rejection" -Vector "CollectionsAndObjects" -ExpectedCategory "ExpectedRejection" -Source @"
+x is last of 123
+say x
+"@ -Validator {
+    param($Interpreter, $Node)
+    if ($Interpreter.Success) { throw "Interpreter silently succeeded on last of number!" }
+    if ($Interpreter.Error -notmatch "Only a list has a last item") { throw "Interpreter unexpected error: $($Interpreter.Error)" }
+    if ($Node.Success) { throw "Node silently succeeded on last of number!" }
+    if ($Node.Error -notmatch "Only a list has a last item") { throw "Node unexpected error: $($Node.Error)" }
+}
+
+Assert-AdversarialCase -Name "V4_length_of_number_rejection" -Vector "CollectionsAndObjects" -ExpectedCategory "ExpectedRejection" -Source @"
+x is length of 123
+say x
+"@ -Validator {
+    param($Interpreter, $Node)
+    if ($Interpreter.Success) { throw "Interpreter silently succeeded on length of number!" }
+    if ($Interpreter.Error -notmatch "measure the length") { throw "Interpreter unexpected error: $($Interpreter.Error)" }
+    if ($Node.Success) { throw "Node silently succeeded on length of number!" }
+    if ($Node.Error -notmatch "measure the length") { throw "Node unexpected error: $($Node.Error)" }
+}
+
+# -------------------------------------------------------------
+# VECTOR 6 (EXPANDED): UNICODE & COMBINING CHARACTERS
+# -------------------------------------------------------------
+Assert-AdversarialCase -Name "V6_extended_unicode_and_combining_characters" -Vector "UnicodeAndEscaping" -ExpectedCategory "Pass" -Source @"
+msg is "こんにちは世界 / 你好世界 / 한국어 𝒞𝒽ℯ𝒸𝓀"
+say msg
+"@ -Validator {
+    param($Interpreter, $Node)
+    if (-not $Interpreter.Success) { throw "Interpreter failed: $($Interpreter.Error)" }
+    if ($Interpreter.Stdout -ne "こんにちは世界 / 你好世界 / 한국어 𝒞𝒽ℯ𝒸𝓀") { throw "Interpreter stdout mismatch: '$($Interpreter.Stdout)'" }
+    if (-not $Node.Success) { throw "Node failed: $($Node.Error)" }
+    if ($Node.Stdout -ne "こんにちは世界 / 你好世界 / 한국어 𝒞𝒽ℯ𝒸𝓀") { throw "Node stdout mismatch: '$($Node.Stdout)'" }
+}
+
+# -------------------------------------------------------------
+# VECTOR 7: FILESYSTEM RED TEAM
+# -------------------------------------------------------------
+Assert-AdversarialCase -Name "V7_write_read_roundtrip_with_spaces_in_path" -Vector "Filesystem" -ExpectedCategory "Pass" -Source @"
+path is "scratch/redteam test folder/test spaces.txt"
+write "hello from spaces" to path
+read path into data
+say data
+"@ -Validator {
+    param($Interpreter, $Node)
+    if (-not $Interpreter.Success) { throw "Interpreter failed: $($Interpreter.Error)" }
+    if ($Interpreter.Stdout -ne "hello from spaces") { throw "Interpreter unexpected stdout: '$($Interpreter.Stdout)'" }
+    if (-not $Node.Success) { throw "Node failed: $($Node.Error)" }
+    if ($Node.Stdout -ne "hello from spaces") { throw "Node unexpected stdout: '$($Node.Stdout)'" }
+}
+
+Assert-AdversarialCase -Name "V7_read_missing_file_fails_clearly" -Vector "Filesystem" -ExpectedCategory "ExpectedRejection" -Source @"
+read "scratch/totally_missing_file_xyz.txt" into data
+say data
+"@ -Validator {
+    param($Interpreter, $Node)
+    if ($Interpreter.Success) { throw "Interpreter silently succeeded on missing file!" }
+    if ($Interpreter.Error -notmatch "could not find a file called") { throw "Interpreter unexpected error: $($Interpreter.Error)" }
+    if ($Node.Success) { throw "Node silently succeeded on missing file!" }
+    if ($Node.Error -notmatch "could not find a file called") { throw "Node unexpected error: $($Node.Error)" }
+}
+
+Assert-AdversarialCase -Name "V7_atomic_write_preserves_content" -Vector "Filesystem" -ExpectedCategory "Pass" -Source @"
+path is "scratch/atomic_test.txt"
+write "atomic content" to path atomically
+read path into data
+say data
+"@ -Validator {
+    param($Interpreter, $Node)
+    if (-not $Interpreter.Success) { throw "Interpreter failed: $($Interpreter.Error)" }
+    if ($Interpreter.Stdout -ne "atomic content") { throw "Interpreter unexpected stdout: '$($Interpreter.Stdout)'" }
+    if (-not $Node.Success) { throw "Node failed: $($Node.Error)" }
+    if ($Node.Stdout -ne "atomic content") { throw "Node unexpected stdout: '$($Node.Stdout)'" }
+}
+
+# -------------------------------------------------------------
+# VECTOR 8: COMMAND / PROCESS RED TEAM
+# -------------------------------------------------------------
+Assert-AdversarialCase -Name "V8_command_with_spaces_and_quotes" -Vector "CommandAndProcess" -ExpectedCategory "Pass" -Source @"
+run command "cmd.exe /c echo hello world" into res
+say output of res
+say exit code of res
+"@ -Validator {
+    param($Interpreter, $Node)
+    if (-not $Interpreter.Success) { throw "Interpreter failed: $($Interpreter.Error)" }
+    if ($Interpreter.Stdout -ne "hello world`n0") { throw "Interpreter unexpected stdout: '$($Interpreter.Stdout)'" }
+    if (-not $Node.Success) { throw "Node failed: $($Node.Error)" }
+    if ($Node.Stdout -ne "hello world`n0") { throw "Node unexpected stdout: '$($Node.Stdout)'" }
+}
+
+Assert-AdversarialCase -Name "V8_command_nonzero_exit_code" -Vector "CommandAndProcess" -ExpectedCategory "Pass" -Source @"
+run command "cmd.exe /c exit 5" into res
+say exit code of res
+"@ -Validator {
+    param($Interpreter, $Node)
+    if (-not $Interpreter.Success) { throw "Interpreter failed: $($Interpreter.Error)" }
+    if ($Interpreter.Stdout -ne "5") { throw "Interpreter unexpected stdout: '$($Interpreter.Stdout)'" }
+    if (-not $Node.Success) { throw "Node failed: $($Node.Error)" }
+    if ($Node.Stdout -ne "5") { throw "Node unexpected stdout: '$($Node.Stdout)'" }
+}
+
+Assert-AdversarialCase -Name "V8_nonexistent_command_rejection" -Vector "CommandAndProcess" -ExpectedCategory "ExpectedRejection" -Source @"
+run command "nonexistent_cli_program_xyz_12345" into res
+say output of res
+"@ -Validator {
+    param($Interpreter, $Node)
+    if ($Interpreter.Success) { throw "Interpreter silently succeeded on nonexistent command!" }
+    if ($Interpreter.Error -notmatch "could not find a program called") {
+        throw "Interpreter unexpected error: $($Interpreter.Error)"
+    }
+}
+
+# -------------------------------------------------------------
+# VECTOR 9: ERROR-QUALITY GAUNTLET
+# -------------------------------------------------------------
+Assert-AdversarialCase -Name "V9_undefined_variable_diagnostic" -Vector "ErrorQuality" -ExpectedCategory "ExpectedRejection" -Source @"
+say nonexistentSecretVariable
+"@ -Validator {
+    param($Interpreter, $Node)
+    if ($Interpreter.Success) { throw "Interpreter silently succeeded on undefined variable!" }
+    if ($Interpreter.Error -notmatch "could not find the variable") {
+        throw "Interpreter leaked host exception or unclear message: $($Interpreter.Error)"
+    }
+}
+
+Assert-AdversarialCase -Name "V9_unclosed_string_diagnostic" -Vector "ErrorQuality" -ExpectedCategory "ExpectedRejection" -Source @"
+msg is "this string never closes
+say msg
+"@ -Validator {
+    param($Interpreter, $Node)
+    if ($Interpreter.Success) { throw "Interpreter silently succeeded on unclosed string!" }
+    if ($Interpreter.Error -notmatch "string never closes") {
+        throw "Interpreter unexpected diagnostic: $($Interpreter.Error)"
+    }
+    if ($Node.Success) { throw "Node silently succeeded on unclosed string!" }
+    if ($Node.Error -notmatch "string never closes") {
+        throw "Node unexpected diagnostic: $($Node.Error)"
+    }
 }
 
 Write-Output ''

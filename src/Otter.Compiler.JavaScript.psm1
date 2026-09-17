@@ -166,7 +166,9 @@ function ConvertTo-OtterJsExpression {
             $propOriginal = $Expr.Property
             $prop = $propOriginal.ToLowerInvariant()
             $target = $Expr.Target
-            $targetName = if ($target -is [VariableExpr]) { $target.Name } else { 'target' }
+            $isVar = $target -is [VariableExpr]
+            $targetName = if ($isVar) { $target.Name } else { '' }
+            $targetJs = ConvertTo-OtterJsExpression -Expr $target
             $uiBranch = switch ($prop) {
                 'text' { "otterGetText('$targetName')" }
                 'value' { "otterGetText('$targetName')" }
@@ -188,7 +190,11 @@ function ConvertTo-OtterJsExpression {
             # entirely self-contained in this module - same reasoning as
             # Phase 1D-B's `plus` fix (no shared helper added to
             # Otter.Web.psm1's boilerplate).
-            return "(otterGetElement('$targetName') ? ($uiBranch) : (() => { const _owner = $targetName; if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return $dateBranch; } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('$propOriginal') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called `"$propOriginal`".'); } return _owner.props['$propOriginal']; })())"
+            if ($isVar) {
+                return "(otterGetElement('$targetName') ? ($uiBranch) : (() => { const _owner = $targetName; if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return $dateBranch; } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('$propOriginal') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called `"$propOriginal`".'); } return _owner.props['$propOriginal']; })())"
+            } else {
+                return "((() => { const _owner = ($targetJs); if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return $dateBranch; } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('$propOriginal') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called `"$propOriginal`".'); } return _owner.props['$propOriginal']; })())"
+            }
         }
         ([NodeKind]::Math) {
             $left = ConvertTo-OtterJsExpression -Expr $Expr.Left
@@ -355,9 +361,9 @@ function ConvertTo-OtterJsExpression {
             switch ($Expr.Operation.ToString()) {
                 'Uppercase' { return "String($subjectJs).toUpperCase()" }
                 'Lowercase' { return "String($subjectJs).toLowerCase()" }
-                'Length' { return "(($subjectJs).length)" }
-                'First' { return "(Array.isArray($subjectJs) && ($subjectJs).length > 0 ? ($subjectJs)[0] : null)" }
-                'Last' { return "(Array.isArray($subjectJs) && ($subjectJs).length > 0 ? ($subjectJs)[($subjectJs).length - 1] : null)" }
+                'Length' { return "((_s) => { if (Array.isArray(_s) || typeof _s === 'string') return _s.length; throw new Error('I can only measure the length of a list or text, but this is something else.'); })($subjectJs)" }
+                'First' { return "((_s) => { if (!Array.isArray(_s)) throw new Error('Only a list has a first item, but this is something else.'); return _s.length > 0 ? _s[0] : null; })($subjectJs)" }
+                'Last' { return "((_s) => { if (!Array.isArray(_s)) throw new Error('Only a list has a last item, but this is something else.'); return _s.length > 0 ? _s[_s.length - 1] : null; })($subjectJs)" }
                 # D89: absolute value / square root / round / round up (ceiling) / round down (floor).
                 # Round matches the interpreter's MidpointRounding.AwayFromZero (5.5 -> 6, not
                 # JS Math.round's own away-from-zero-for-positives-only rule, which happens to
@@ -527,29 +533,38 @@ function ConvertTo-OtterJsStatement {
                 $propOriginal = $Stmt.Target.Property
                 $prop = $propOriginal.ToLowerInvariant()
                 $target = $Stmt.Target.Target
-                $targetName = if ($target -is [VariableExpr]) { $target.Name } else { 'target' }
+                $isVar = $target -is [VariableExpr]
+                $targetName = if ($isVar) { $target.Name } else { '' }
+                $targetJs = ConvertTo-OtterJsExpression -Expr $target
                 $valExpr = ConvertTo-OtterJsExpression -Expr $Stmt.Value
-                $uiBranch = switch ($prop) {
-                    'text' { "otterSetText('$targetName', $valExpr);" }
-                    'value' { "otterSetText('$targetName', $valExpr);" }
-                    'title' { "otterSetTitle('$targetName', $valExpr);" }
-                    'background' { "otterSetStyle('$targetName', 'backgroundColor', $valExpr);" }
-                    'foreground' { "otterSetStyle('$targetName', 'color', $valExpr);" }
-                    'width' { "otterSetStyle('$targetName', 'width', typeof ($valExpr) === 'number' ? ($valExpr + 'px') : $valExpr);" }
-                    'height' { "otterSetStyle('$targetName', 'height', typeof ($valExpr) === 'number' ? ($valExpr + 'px') : $valExpr);" }
-                    default { "otterSetProperty('$targetName', '$prop', $valExpr);" }
-                }
                 $lines = [System.Collections.Generic.List[string]]::new()
                 $inner = '  ' * ($Indent + 1)
                 $lines.Add("${pad}{")
-                $lines.Add("${inner}const _el = otterGetElement('$targetName');")
-                $lines.Add("${inner}if (_el) { $uiBranch }")
-                $lines.Add("${inner}else {")
-                $lines.Add("${inner}  const _owner = $targetName;")
-                $lines.Add("${inner}  if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }")
-                $lines.Add("${inner}  if (!(('$propOriginal') in _owner.props)) { _owner.order.push('$propOriginal'); }")
-                $lines.Add("${inner}  _owner.props['$propOriginal'] = $valExpr;")
-                $lines.Add("${inner}}")
+                if ($isVar) {
+                    $uiBranch = switch ($prop) {
+                        'text' { "otterSetText('$targetName', $valExpr);" }
+                        'value' { "otterSetText('$targetName', $valExpr);" }
+                        'title' { "otterSetTitle('$targetName', $valExpr);" }
+                        'background' { "otterSetStyle('$targetName', 'backgroundColor', $valExpr);" }
+                        'foreground' { "otterSetStyle('$targetName', 'color', $valExpr);" }
+                        'width' { "otterSetStyle('$targetName', 'width', typeof ($valExpr) === 'number' ? ($valExpr + 'px') : $valExpr);" }
+                        'height' { "otterSetStyle('$targetName', 'height', typeof ($valExpr) === 'number' ? ($valExpr + 'px') : $valExpr);" }
+                        default { "otterSetProperty('$targetName', '$prop', $valExpr);" }
+                    }
+                    $lines.Add("${inner}const _el = otterGetElement('$targetName');")
+                    $lines.Add("${inner}if (_el) { $uiBranch }")
+                    $lines.Add("${inner}else {")
+                    $lines.Add("${inner}  const _owner = $targetName;")
+                    $lines.Add("${inner}  if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }")
+                    $lines.Add("${inner}  if (!(('$propOriginal') in _owner.props)) { _owner.order.push('$propOriginal'); }")
+                    $lines.Add("${inner}  _owner.props['$propOriginal'] = $valExpr;")
+                    $lines.Add("${inner}}")
+                } else {
+                    $lines.Add("${inner}const _owner = ($targetJs);")
+                    $lines.Add("${inner}if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }")
+                    $lines.Add("${inner}if (!(('$propOriginal') in _owner.props)) { _owner.order.push('$propOriginal'); }")
+                    $lines.Add("${inner}_owner.props['$propOriginal'] = $valExpr;")
+                }
                 $lines.Add("${pad}}")
                 return ($lines -join "`n")
             }
@@ -1036,7 +1051,10 @@ function ConvertTo-OtterJsStatement {
             $bodyIndent = '  ' * ($Indent + 2)
             $lines = [System.Collections.Generic.List[string]]::new()
             $lines.Add("${pad}{")
-            $lines.Add("${inner}for (const _item of ($collJs || [])) {")
+            $lines.Add("${inner}const _coll = ($collJs);")
+            $lines.Add("${inner}if (!Array.isArray(_coll)) { throw new Error('I can only go through a list, but this is something else.'); }")
+            $lines.Add("${inner}const _snapshot = _coll.slice();")
+            $lines.Add("${inner}for (const _item of _snapshot) {")
             if ($LocalNames -and $LocalNames.Contains($varName)) {
                 $lines.Add("${bodyIndent}$varName = _item;")
             } else {
