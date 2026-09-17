@@ -686,13 +686,23 @@ creation.
     never a hand-rolled algorithm - see SPEC-DECISIONS.md D91)
 -   [x] HMAC (D91: `hash "text" as "sha256" with key "secret" into
     digest` - same statement, one optional clause)
--   [ ] Symmetric encryption
+-   [x] Symmetric encryption (D92: `encrypt "text" with key "secret"
+    into cipher` / `decrypt ... into text` - AES-256-CBC + HMAC-SHA256
+    encrypt-then-MAC via PBKDF2-derived keys, real bidirectional
+    cross-backend (interpreter <-> Web Crypto) verification in Node -
+    see SPEC-DECISIONS.md D92)
 -   [ ] Public-key cryptography
 -   [ ] Signing/verification
 -   [ ] Certificate APIs
 -   [x] Secure secret storage
 -   [ ] Password hashing through proven libraries
--   [ ] Constant-time primitives delegated to vetted libraries
+-   [ ] Constant-time primitives delegated to vetted libraries (PARTIAL
+    - D92's tag comparison IS constant-time, but hand-implemented, not
+    delegated to a library: confirmed
+    System.Security.Cryptography.CryptographicOperations.FixedTimeEquals
+    does not exist on this project's .NET Framework 4.8 runtime, so
+    there is no vetted library to delegate to here - leaving this
+    unchecked rather than overclaiming)
 -   [ ] TLS provider
 -   [ ] Keychain/Credential Manager/libsecret providers
 -   [x] Never invent custom cryptography

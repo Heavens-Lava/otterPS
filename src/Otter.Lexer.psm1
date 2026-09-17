@@ -99,6 +99,8 @@ $script:OtterStatementHeadKeywords = @{
     'zip' = [TokenKind]::Zip; 'unzip' = [TokenKind]::Unzip
     # D91: `hash "text" as "sha256" [with key "secret"] into digest`
     'hash' = [TokenKind]::Hash
+    # D92: `encrypt "text" with key "secret" into cipher` / `decrypt "cipher" with key "secret" into text`
+    'encrypt' = [TokenKind]::Encrypt; 'decrypt' = [TokenKind]::Decrypt
     # D56: declarative UI, reactivity, animation
     'layout' = [TokenKind]::Layout; 'gap' = [TokenKind]::Gap
     'state' = [TokenKind]::State; 'derive' = [TokenKind]::Derive

@@ -140,6 +140,10 @@ enum TokenKind {
     Hash            # hash "text" as "sha256" into digest
                     # hash "text" as "sha256" with key "secret" into digest (HMAC)
 
+    # --- symmetric encryption (D92) -------------------------------------------
+    Encrypt         # encrypt "text" with key "secret" into cipher
+    Decrypt         # decrypt "cipher" with key "secret" into text
+
     # --- strings and collections (D24, D25, D26) ----------------
     Length          # length of name / length of games
     Uppercase
@@ -476,6 +480,10 @@ enum NodeKind {
 
     # --- hashing/HMAC (D91) --------------------------------------------------
     HashText               # hash "text" as "sha256" [with key "secret"] into digest
+
+    # --- symmetric encryption (D92) -------------------------------------------
+    EncryptText            # encrypt "text" with key "secret" into cipher
+    DecryptText            # decrypt "cipher" with key "secret" into text
 }
 
 enum MathOp { Add; Subtract; Multiply; Divide; Percent; Power }   # D88
@@ -1711,6 +1719,30 @@ class HashTextStmt : Node {
     HashTextStmt([Node]$text, [Node]$algorithm, [Node]$key, [string]$resultTarget, [int]$line) : base([NodeKind]::HashText, $line) {
         $this.Text = $text
         $this.Algorithm = $algorithm
+        $this.Key = $key
+        $this.ResultTarget = $resultTarget
+    }
+}
+
+# D92: encrypt "text" with key "secret" into cipher
+class EncryptTextStmt : Node {
+    [Node]$Text
+    [Node]$Key
+    [string]$ResultTarget
+    EncryptTextStmt([Node]$text, [Node]$key, [string]$resultTarget, [int]$line) : base([NodeKind]::EncryptText, $line) {
+        $this.Text = $text
+        $this.Key = $key
+        $this.ResultTarget = $resultTarget
+    }
+}
+
+# D92: decrypt "cipher" with key "secret" into text
+class DecryptTextStmt : Node {
+    [Node]$CipherText
+    [Node]$Key
+    [string]$ResultTarget
+    DecryptTextStmt([Node]$cipherText, [Node]$key, [string]$resultTarget, [int]$line) : base([NodeKind]::DecryptText, $line) {
+        $this.CipherText = $cipherText
         $this.Key = $key
         $this.ResultTarget = $resultTarget
     }

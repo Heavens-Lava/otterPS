@@ -1471,6 +1471,89 @@ function ConvertTo-OtterJsStatement {
             $lines.Add("${pad}}")
             return ($lines -join "`n")
         }
+        ([NodeKind]::EncryptText) {
+            # D92. REQUIRED runtime hook `otterEncryptText(text, key)` -
+            # same reported-not-assumed boundary as every other hook, but
+            # with an exact, ALREADY-VERIFIED reference implementation
+            # available (this is real encryption, not a convenience
+            # feature - getting the hook subtly wrong would silently make
+            # ciphertext incompatible between backends or, worse, insecure,
+            # so this is spelled out precisely rather than left to
+            # independent re-derivation from a one-line description).
+            # The reference implementation below was written using the
+            # native Web Crypto API and cross-verified for REAL in Node:
+            # a message encrypted by Otter.Library.psm1's Protect-OtterText
+            # was decrypted successfully by this exact JS implementation,
+            # and a message encrypted by this exact JS implementation was
+            # decrypted successfully by Unprotect-OtterText - confirmed
+            # bidirectional byte-for-byte compatibility, not just "looks
+            # like the same algorithm":
+            #
+            #   async function otterEncryptText(text, key) {
+            #     const enc = new TextEncoder();
+            #     const salt = crypto.getRandomValues(new Uint8Array(16));
+            #     const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(key), 'PBKDF2', false, ['deriveBits']);
+            #     const derived = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' }, keyMaterial, 512);
+            #     const d = new Uint8Array(derived);
+            #     const encKeyBytes = d.slice(0, 32), macKeyBytes = d.slice(32, 64);
+            #     const aesKey = await crypto.subtle.importKey('raw', encKeyBytes, 'AES-CBC', false, ['encrypt']);
+            #     const iv = crypto.getRandomValues(new Uint8Array(16));
+            #     const cipherBytes = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-CBC', iv }, aesKey, enc.encode(text)));
+            #     const hmacKey = await crypto.subtle.importKey('raw', macKeyBytes, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+            #     const toAuth = new Uint8Array([...salt, ...iv, ...cipherBytes]);
+            #     const tagBytes = new Uint8Array(await crypto.subtle.sign('HMAC', hmacKey, toAuth));
+            #     const payload = new Uint8Array([...salt, ...iv, ...cipherBytes, ...tagBytes]);
+            #     return btoa(String.fromCharCode(...payload));
+            #   }
+            #
+            # `otterDecryptText(cipherText, key)` is the mirror: base64-
+            # decode, split into salt(16)/iv(16)/cipher/tag(32) by the SAME
+            # offsets, re-derive both keys via PBKDF2 with the extracted
+            # salt, recompute the HMAC tag and compare it in CONSTANT TIME
+            # (accumulate XOR over every byte, never branch/return early on
+            # a mismatch) BEFORE attempting AES-CBC decryption - verifying
+            # the tag first is what prevents a padding-oracle attack; doing
+            # it the other way round is the classic mistake this
+            # implementation deliberately avoids. Every failure path (bad
+            # base64, too-short data, bad tag, bad padding) must throw the
+            # SAME generic message, never distinguishing which one - a
+            # backend that reports "bad key" vs "bad format" differently
+            # would leak an oracle to a determined attacker.
+            $encryptTextJs = ConvertTo-OtterJsExpression -Expr $Stmt.Text
+            $encryptKeyJs = ConvertTo-OtterJsExpression -Expr $Stmt.Key
+            $target = $Stmt.ResultTarget
+            $lines = [System.Collections.Generic.List[string]]::new()
+            $inner = '  ' * ($Indent + 1)
+            $lines.Add("${pad}{")
+            $lines.Add("${inner}const _cipher = await otterEncryptText($encryptTextJs, $encryptKeyJs);")
+            if ($LocalNames -and $LocalNames.Contains($target)) {
+                $lines.Add("${inner}$target = _cipher;")
+            } else {
+                $lines.Add("${inner}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$target' in otterState)) { otterSetState('$target', _cipher); } else { window.$target = _cipher; }")
+            }
+            $lines.Add("${pad}}")
+            return ($lines -join "`n")
+        }
+        ([NodeKind]::DecryptText) {
+            # D92. REQUIRED runtime hook `otterDecryptText(cipherText, key)`.
+            # See the EncryptText case above for the full construction and
+            # the real, bidirectional Node cross-verification against the
+            # interpreter's Protect-OtterText/Unprotect-OtterText.
+            $decryptCipherJs = ConvertTo-OtterJsExpression -Expr $Stmt.CipherText
+            $decryptKeyJs = ConvertTo-OtterJsExpression -Expr $Stmt.Key
+            $target = $Stmt.ResultTarget
+            $lines = [System.Collections.Generic.List[string]]::new()
+            $inner = '  ' * ($Indent + 1)
+            $lines.Add("${pad}{")
+            $lines.Add("${inner}const _plain = await otterDecryptText($decryptCipherJs, $decryptKeyJs);")
+            if ($LocalNames -and $LocalNames.Contains($target)) {
+                $lines.Add("${inner}$target = _plain;")
+            } else {
+                $lines.Add("${inner}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$target' in otterState)) { otterSetState('$target', _plain); } else { window.$target = _plain; }")
+            }
+            $lines.Add("${pad}}")
+            return ($lines -join "`n")
+        }
         ([NodeKind]::DeleteFolder) {
             $pathJs = ConvertTo-OtterJsExpression -Expr $Stmt.Path
             return "${pad}await otterDeleteFolder($pathJs);"
@@ -2389,6 +2472,9 @@ function Get-OtterJsBindingNames {
             if ($s.Kind -eq [NodeKind]::HashText -and $s.ResultTarget) {
                 [void]$setStyle.Add($s.ResultTarget)
             }
+            if (($s.Kind -eq [NodeKind]::EncryptText -or $s.Kind -eq [NodeKind]::DecryptText) -and $s.ResultTarget) {
+                [void]$setStyle.Add($s.ResultTarget)
+            }
             if ($s.Kind -eq [NodeKind]::GetClipboard -or $s.Kind -eq [NodeKind]::GetEnvironmentVariable -or $s.Kind -eq [NodeKind]::GetSystemFolder -or $s.Kind -eq [NodeKind]::ChooseFile -or $s.Kind -eq [NodeKind]::ChooseFolder -or $s.Kind -eq [NodeKind]::ChooseSaveFile -or $s.Kind -eq [NodeKind]::GetSystemInfo -or $s.Kind -eq [NodeKind]::GetProcesses -or $s.Kind -eq [NodeKind]::WaitForProcess -or $s.Kind -eq [NodeKind]::GetSymbolicLinkTarget -or $s.Kind -eq [NodeKind]::GetFileOwner -or $s.Kind -eq [NodeKind]::GetRegistryValue -or $s.Kind -eq [NodeKind]::GetEventLogEntries -or $s.Kind -eq [NodeKind]::GetCredential) {
                 # D67/D69/D70/D71/D73/D74/D78/D79/D81: all fourteen use
                 # Environment.Set (verified directly) - Set-style, same as
@@ -2552,7 +2638,7 @@ function Test-OtterJsBodyNeedsAsync {
 
     if ($null -eq $Statements) { return $false }
     foreach ($s in $Statements) {
-        if ($s.Kind -eq [NodeKind]::Await -or $s.Kind -eq [NodeKind]::ReadFile -or $s.Kind -eq [NodeKind]::WriteFile -or $s.Kind -eq [NodeKind]::AppendFile -or $s.Kind -eq [NodeKind]::CopyFile -or $s.Kind -eq [NodeKind]::MoveFile -or $s.Kind -eq [NodeKind]::DeleteFile -or $s.Kind -eq [NodeKind]::CreateFolder -or $s.Kind -eq [NodeKind]::DeleteFolder -or $s.Kind -eq [NodeKind]::CopyFolder -or $s.Kind -eq [NodeKind]::MoveFolder -or $s.Kind -eq [NodeKind]::GetFiles -or $s.Kind -eq [NodeKind]::GetFolders -or $s.Kind -eq [NodeKind]::RunProgram -or $s.Kind -eq [NodeKind]::HttpGet -or $s.Kind -eq [NodeKind]::HttpPost -or $s.Kind -eq [NodeKind]::HttpPut -or $s.Kind -eq [NodeKind]::HttpDelete -or $s.Kind -eq [NodeKind]::CopyToClipboard -or $s.Kind -eq [NodeKind]::GetClipboard -or $s.Kind -eq [NodeKind]::Notify -or $s.Kind -eq [NodeKind]::GetEnvironmentVariable -or $s.Kind -eq [NodeKind]::GetSystemFolder -or $s.Kind -eq [NodeKind]::ChooseFile -or $s.Kind -eq [NodeKind]::ChooseFolder -or $s.Kind -eq [NodeKind]::ChooseSaveFile -or $s.Kind -eq [NodeKind]::GetSystemInfo -or $s.Kind -eq [NodeKind]::GetProcesses -or $s.Kind -eq [NodeKind]::KillProcess -or $s.Kind -eq [NodeKind]::SetProcessPriority -or $s.Kind -eq [NodeKind]::WaitForProcess -or $s.Kind -eq [NodeKind]::CreateSymbolicLink -or $s.Kind -eq [NodeKind]::GetSymbolicLinkTarget -or $s.Kind -eq [NodeKind]::GetFileOwner -or $s.Kind -eq [NodeKind]::SetFileReadOnly -or $s.Kind -eq [NodeKind]::GetRegistryValue -or $s.Kind -eq [NodeKind]::SetRegistryValue -or $s.Kind -eq [NodeKind]::DeleteRegistryValue -or $s.Kind -eq [NodeKind]::GetEventLogEntries -or $s.Kind -eq [NodeKind]::SetCredential -or $s.Kind -eq [NodeKind]::GetCredential -or $s.Kind -eq [NodeKind]::DeleteCredential -or $s.Kind -eq [NodeKind]::PowerAction -or $s.Kind -eq [NodeKind]::PrintFile -or $s.Kind -eq [NodeKind]::RunRemoteCommand -or $s.Kind -eq [NodeKind]::RunSshCommand -or $s.Kind -eq [NodeKind]::ZipFolder -or $s.Kind -eq [NodeKind]::UnzipFile -or $s.Kind -eq [NodeKind]::HashText) {
+        if ($s.Kind -eq [NodeKind]::Await -or $s.Kind -eq [NodeKind]::ReadFile -or $s.Kind -eq [NodeKind]::WriteFile -or $s.Kind -eq [NodeKind]::AppendFile -or $s.Kind -eq [NodeKind]::CopyFile -or $s.Kind -eq [NodeKind]::MoveFile -or $s.Kind -eq [NodeKind]::DeleteFile -or $s.Kind -eq [NodeKind]::CreateFolder -or $s.Kind -eq [NodeKind]::DeleteFolder -or $s.Kind -eq [NodeKind]::CopyFolder -or $s.Kind -eq [NodeKind]::MoveFolder -or $s.Kind -eq [NodeKind]::GetFiles -or $s.Kind -eq [NodeKind]::GetFolders -or $s.Kind -eq [NodeKind]::RunProgram -or $s.Kind -eq [NodeKind]::HttpGet -or $s.Kind -eq [NodeKind]::HttpPost -or $s.Kind -eq [NodeKind]::HttpPut -or $s.Kind -eq [NodeKind]::HttpDelete -or $s.Kind -eq [NodeKind]::CopyToClipboard -or $s.Kind -eq [NodeKind]::GetClipboard -or $s.Kind -eq [NodeKind]::Notify -or $s.Kind -eq [NodeKind]::GetEnvironmentVariable -or $s.Kind -eq [NodeKind]::GetSystemFolder -or $s.Kind -eq [NodeKind]::ChooseFile -or $s.Kind -eq [NodeKind]::ChooseFolder -or $s.Kind -eq [NodeKind]::ChooseSaveFile -or $s.Kind -eq [NodeKind]::GetSystemInfo -or $s.Kind -eq [NodeKind]::GetProcesses -or $s.Kind -eq [NodeKind]::KillProcess -or $s.Kind -eq [NodeKind]::SetProcessPriority -or $s.Kind -eq [NodeKind]::WaitForProcess -or $s.Kind -eq [NodeKind]::CreateSymbolicLink -or $s.Kind -eq [NodeKind]::GetSymbolicLinkTarget -or $s.Kind -eq [NodeKind]::GetFileOwner -or $s.Kind -eq [NodeKind]::SetFileReadOnly -or $s.Kind -eq [NodeKind]::GetRegistryValue -or $s.Kind -eq [NodeKind]::SetRegistryValue -or $s.Kind -eq [NodeKind]::DeleteRegistryValue -or $s.Kind -eq [NodeKind]::GetEventLogEntries -or $s.Kind -eq [NodeKind]::SetCredential -or $s.Kind -eq [NodeKind]::GetCredential -or $s.Kind -eq [NodeKind]::DeleteCredential -or $s.Kind -eq [NodeKind]::PowerAction -or $s.Kind -eq [NodeKind]::PrintFile -or $s.Kind -eq [NodeKind]::RunRemoteCommand -or $s.Kind -eq [NodeKind]::RunSshCommand -or $s.Kind -eq [NodeKind]::ZipFolder -or $s.Kind -eq [NodeKind]::UnzipFile -or $s.Kind -eq [NodeKind]::HashText -or $s.Kind -eq [NodeKind]::EncryptText -or $s.Kind -eq [NodeKind]::DecryptText) {
             return $true
         }
         if ($s.Kind -eq [NodeKind]::ReadJson) {

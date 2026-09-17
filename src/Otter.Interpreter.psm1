@@ -777,6 +777,24 @@ function Invoke-OtterStatement {
             return
         }
 
+        # encrypt "text" with key "secret" into cipher                    (D92)
+        'EncryptText' {
+            $text = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.Text -Environment $Environment)
+            $key = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.Key -Environment $Environment)
+            $cipher = Protect-OtterText -Text $text -Key $key -Line $Statement.Line
+            $Environment.Set($Statement.ResultTarget, $cipher)
+            return
+        }
+
+        # decrypt "cipher" with key "secret" into text                    (D92)
+        'DecryptText' {
+            $cipherText = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.CipherText -Environment $Environment)
+            $key = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.Key -Environment $Environment)
+            $plain = Unprotect-OtterText -CipherText $cipherText -Key $key -Line $Statement.Line
+            $Environment.Set($Statement.ResultTarget, $plain)
+            return
+        }
+
         # run command "..." on remote "host" using credential "n"        (D84)
         # [into result]
         'RunRemoteCommand' {

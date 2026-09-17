@@ -6784,3 +6784,97 @@ vectors that caught the `$Key` coercion bug.
 
 ---
 
+## D92. Symmetric encryption — `encrypt "text" with key "secret" into cipher`, `decrypt "cipher" with key "secret" into text`
+
+**Status: IMPLEMENTED and verified end-to-end through the real `otter
+run`/`otter check`/`otter web` CLI, including real bidirectional
+cross-backend compatibility testing in Node. Jeff explicitly approved
+the construction before implementation began - this is real
+encryption, not a low-stakes convenience feature, and deserved a
+design check-in the way D91's hashing did not.**
+
+**Construction (encrypt-then-MAC):**
+1. A random 16-byte salt, fresh per message.
+2. `Rfc2898DeriveBytes` (PBKDF2-HMACSHA256, 100,000 iterations) derives
+   64 bytes from the passphrase and that salt - the first 32 bytes
+   become the AES key, the last 32 become a SEPARATE HMAC key. The
+   same key material never backs both encryption and authentication.
+3. AES-256-CBC with a random 16-byte IV encrypts the plaintext.
+4. HMAC-SHA256 over `salt || IV || ciphertext`, using the separate MAC
+   key from step 2, authenticates the whole message.
+5. Output is `base64(salt || IV || ciphertext || tag)`.
+
+Decryption verifies the HMAC tag BEFORE attempting any AES decryption.
+This ordering is deliberate: authenticating first is what prevents a
+padding-oracle attack (decrypting first and inspecting whether padding
+looks valid, before checking the MAC, is the classic mistake this
+avoids). The tag comparison is CONSTANT-TIME - confirmed
+`System.Security.Cryptography.CryptographicOperations` (which would
+otherwise supply `FixedTimeEquals`) does not exist on this project's
+.NET Framework 4.8 runtime, so `Test-OtterConstantTimeEquals` hand-
+implements the standard no-early-exit XOR-accumulator pattern instead.
+Every single failure path - malformed base64, too-short data, a bad
+tag, a bad key - throws the exact same generic message ("the key is
+wrong, or the data is corrupted"), never distinguishing which, so no
+failure mode leaks information to something probing it. Every
+primitive (`Aes`, `Rfc2898DeriveBytes`, `HMACSHA256`,
+`RandomNumberGenerator`) is .NET's own unmodified implementation,
+composed in a well-established, published pattern - never invents
+custom cryptography.
+
+**Why not AES-GCM (authenticated encryption in one primitive,
+avoiding a hand-composed MAC entirely)?** Checked directly:
+`System.Security.Cryptography.AesGcm` does not exist on this project's
+.NET Framework 4.8 runtime (confirmed by direct type lookup - it was
+only added in .NET Core 3.0+). Encrypt-then-MAC with AES-CBC + HMAC is
+the correct, standard fallback construction for a runtime without
+native AEAD support, not a shortcut.
+
+**Real, thorough verification, given the stakes:** beyond the usual
+real-CLI round-trip check, this decision's `Protect-OtterText`/
+`Unprotect-OtterText` were tested directly for: a correct round-trip;
+tampering detection (flipping a single ciphertext byte after
+encryption is rejected, not silently mis-decrypted); wrong-key
+rejection; malformed-input rejection (non-base64 input produces the
+same friendly error, not a raw .NET exception); an empty-string
+round-trip; and confirming two encryptions of the identical plaintext
+with the identical key produce DIFFERENT ciphertext each time (proving
+the salt/IV are genuinely randomized per call, not accidentally
+fixed).
+
+**A real, independent JS-side implementation was written using the
+native Web Crypto API and cross-verified for REAL in Node - not just
+transcribed from the interpreter's code and trusted:** a message
+encrypted by `Protect-OtterText` (PowerShell/.NET) was decrypted
+successfully by the JS implementation (`crypto.subtle` under Node),
+and a message encrypted by the JS implementation was decrypted
+successfully by `Unprotect-OtterText`. This confirms genuine
+bidirectional byte-for-byte compatibility of the exact construction
+above (same salt/IV/tag sizes and offsets, same PBKDF2 iteration
+count, same HMAC input ordering) across two completely independent
+crypto library implementations, not merely "the JS looks like it
+implements the same algorithm." The full, verified JS reference
+implementation is embedded directly in
+`Otter.Compiler.JavaScript.psm1`'s own comment for the `EncryptText`
+case, so whoever implements the REQUIRED `otterEncryptText`/
+`otterDecryptText` runtime hooks in `Otter.Web.psm1` (Gemini's lane -
+this module only emits the call, same reported-not-assumed boundary
+as every other D69-D91 hook) has an exact, already-tested
+implementation to use rather than needing to re-derive one from a
+prose description and risk a subtle, silently-incompatible mistake.
+
+**Verified:** through the real `otter run` CLI - `encrypt "the launch
+code is 4242" with key "..."` produced real ciphertext, and `decrypt`
+with the SAME key recovered the exact original plaintext. `decrypt`
+with the WRONG key produced the friendly generic error, not the real
+plaintext and not a raw exception. `otter check` accepted the same
+file as valid. `otter web` compiled the same source; the emitted
+`await otterEncryptText(...)`/`await otterDecryptText(...)` calls
+matched the documented hook signatures exactly, and the hooks'
+reference implementation was the one cross-verified against the
+interpreter in real Node, described above. Five new regression tests
+in `tests/Interpreter.Tests.ps1` (round-trip, salt/IV randomization,
+wrong-key rejection, and malformed-input rejection).
+
+---
+

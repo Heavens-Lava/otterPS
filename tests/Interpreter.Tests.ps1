@@ -255,6 +255,42 @@ Test-Otter 'D91: an unknown hash algorithm name is a friendly Otter error' {
     }
 }
 
+Test-Otter 'D92: encrypt then decrypt round-trips to the real original text' {
+    $out = Invoke-TestProgram @(
+        [EncryptTextStmt]::new((Lit 'a real secret message'), (Lit 'correct-key'), 'cipher', 1),
+        [DecryptTextStmt]::new((Var 'cipher'), (Lit 'correct-key'), 'plain', 2),
+        (SaySt @((Var 'plain')))
+    )
+    Assert-Lines -Expected @('a real secret message') -Actual $out
+}
+
+Test-Otter 'D92: encrypting the same text twice gives different ciphertext each time (fresh salt/IV)' {
+    $out = Invoke-TestProgram @(
+        [EncryptTextStmt]::new((Lit 'same text'), (Lit 'k'), 'cipher1', 1),
+        [EncryptTextStmt]::new((Lit 'same text'), (Lit 'k'), 'cipher2', 2),
+        (SaySt @((Var 'cipher1'))),
+        (SaySt @((Var 'cipher2')))
+    )
+    Assert-True ($out[0] -cne $out[1]) "expected two independently-encrypted ciphertexts of the same text to differ (fresh salt/IV each call), but got the same value twice: $($out[0])"
+}
+
+Test-Otter 'D92: decrypting with the wrong key is a friendly Otter error, not the real plaintext' {
+    Assert-OtterFails -Containing 'the key is wrong, or the data is corrupted' -Body {
+        Invoke-TestProgram @(
+            [EncryptTextStmt]::new((Lit 'top secret'), (Lit 'right-key'), 'cipher', 1),
+            [DecryptTextStmt]::new((Var 'cipher'), (Lit 'wrong-key'), 'plain', 2)
+        )
+    }
+}
+
+Test-Otter 'D92: decrypting garbage input is the same friendly error, not a raw .NET exception' {
+    Assert-OtterFails -Containing 'the key is wrong, or the data is corrupted' -Body {
+        Invoke-TestProgram @(
+            [DecryptTextStmt]::new((Lit 'not valid base64 at all!!!'), (Lit 'k'), 'plain', 1)
+        )
+    }
+}
+
 Test-Otter 'doing maths on text explains itself' {
     Assert-OtterFails -Containing 'I expected a number' -Body {
         Invoke-TestProgram @(

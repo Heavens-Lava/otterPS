@@ -1824,6 +1824,38 @@ function Read-OtterStatement {
             [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the hash statement to end here.')
             return [HashTextStmt]::new($hashText, $hashAlgorithm, $hashKey, $hashTarget.Text, $start.Line)
         }
+        # encrypt "text" with key "secret" into cipher                    (D92)
+        ([TokenKind]::Encrypt) {
+            [void](Read-OtterToken)
+            $encryptText = Read-OtterValue
+            [void](Assert-OtterTokenKind ([TokenKind]::With) 'I expected "with key" and a key.')
+            $keyWord = Get-OtterCurrentToken
+            if ($keyWord.Kind -ne [TokenKind]::Identifier -or $keyWord.Text -ne 'key') {
+                throw (New-OtterParserError 'I expected "key" after "with".' $keyWord 'encrypt "text" with key "secret" into cipher')
+            }
+            [void](Read-OtterToken)
+            $encryptKey = Read-OtterValue
+            [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a result name.')
+            $encryptTarget = Read-OtterVariableName 'I expected a result name after "into".'
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the encrypt statement to end here.')
+            return [EncryptTextStmt]::new($encryptText, $encryptKey, $encryptTarget.Text, $start.Line)
+        }
+        # decrypt "cipher" with key "secret" into text                    (D92)
+        ([TokenKind]::Decrypt) {
+            [void](Read-OtterToken)
+            $decryptCipher = Read-OtterValue
+            [void](Assert-OtterTokenKind ([TokenKind]::With) 'I expected "with key" and a key.')
+            $keyWord2 = Get-OtterCurrentToken
+            if ($keyWord2.Kind -ne [TokenKind]::Identifier -or $keyWord2.Text -ne 'key') {
+                throw (New-OtterParserError 'I expected "key" after "with".' $keyWord2 'decrypt "cipher" with key "secret" into text')
+            }
+            [void](Read-OtterToken)
+            $decryptKey = Read-OtterValue
+            [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a result name.')
+            $decryptTarget = Read-OtterVariableName 'I expected a result name after "into".'
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the decrypt statement to end here.')
+            return [DecryptTextStmt]::new($decryptCipher, $decryptKey, $decryptTarget.Text, $start.Line)
+        }
         ([TokenKind]::Sort) {
             [void](Read-OtterToken)
             $target = Read-OtterVariableName 'I expected a collection name after "sort".'

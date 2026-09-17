@@ -1081,6 +1081,161 @@ function Get-OtterHash {
     return ([System.BitConverter]::ToString($hashBytes).Replace('-', '').ToLowerInvariant())
 }
 
+# encrypt "text" with key "secret" into cipher /
+# decrypt "cipher" with key "secret" into text                        (D92)
+#
+# Construction (encrypt-then-MAC, chosen deliberately after a Jeff-approved
+# design check-in - this is real cryptography, not a low-stakes convenience
+# feature like D91's hashing):
+#   1. A random 16-byte salt per message.
+#   2. PBKDF2-HMACSHA256(passphrase, salt, 100000 iterations) derives 64
+#      bytes, split into a 32-byte AES key and a SEPARATE 32-byte HMAC key -
+#      the same passphrase never backs both operations with the same key
+#      material.
+#   3. AES-256-CBC with a random 16-byte IV encrypts the plaintext.
+#   4. HMAC-SHA256 over (salt || IV || ciphertext) authenticates the whole
+#      message, using the SEPARATE HMAC key from step 2.
+#   5. Output is base64(salt || IV || ciphertext || tag).
+# Decryption verifies the HMAC tag BEFORE attempting any AES decryption -
+# this ordering is what a padding-oracle attack exploits when done the
+# other way round (decrypt-then-verify), so it is checked first here on
+# purpose, using a constant-time comparison (.NET Framework 4.8 has no
+# CryptographicOperations.FixedTimeEquals - confirmed absent on this
+# runtime - so Test-OtterConstantTimeEquals below implements the standard
+# no-early-exit XOR-accumulator pattern by hand). Every primitive (AES,
+# PBKDF2, HMAC) is .NET's own unmodified implementation, composed in a
+# well-established, published pattern - never invents custom cryptography.
+# A single generic error covers EVERY decryption failure (bad base64, too-
+# short data, wrong key, tampered data) so no failure mode leaks which
+# specific thing was wrong to something that might be probing it.
+$script:OtterEncryptionSaltSize = 16
+$script:OtterEncryptionIvSize = 16
+$script:OtterEncryptionTagSize = 32
+$script:OtterEncryptionIterations = 100000
+
+function Get-OtterEncryptionKeys {
+    param([string]$Key, [byte[]]$Salt)
+
+    $keyBytes = [System.Text.Encoding]::UTF8.GetBytes($Key)
+    $derive = [System.Security.Cryptography.Rfc2898DeriveBytes]::new(
+        $keyBytes, $Salt, $script:OtterEncryptionIterations, [System.Security.Cryptography.HashAlgorithmName]::SHA256)
+    try {
+        $material = $derive.GetBytes(64)
+        return @{
+            EncryptionKey = [byte[]]$material[0..31]
+            MacKey        = [byte[]]$material[32..63]
+        }
+    } finally {
+        $derive.Dispose()
+    }
+}
+
+function Test-OtterConstantTimeEquals {
+    param([byte[]]$A, [byte[]]$B)
+
+    if ($A.Length -ne $B.Length) { return $false }
+    $diff = 0
+    for ($i = 0; $i -lt $A.Length; $i++) {
+        $diff = $diff -bor ($A[$i] -bxor $B[$i])
+    }
+    return ($diff -eq 0)
+}
+
+function Protect-OtterText {
+    param([string]$Text, [string]$Key, [int]$Line)
+
+    $salt = [byte[]]::new($script:OtterEncryptionSaltSize)
+    $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+    try { $rng.GetBytes($salt) } finally { $rng.Dispose() }
+
+    $keys = Get-OtterEncryptionKeys -Key $Key -Salt $salt
+
+    $aes = [System.Security.Cryptography.Aes]::Create()
+    $cipherBytes = $null
+    $iv = $null
+    try {
+        $aes.Key = $keys.EncryptionKey
+        $aes.GenerateIV()
+        $iv = $aes.IV
+        $plainBytes = [System.Text.Encoding]::UTF8.GetBytes($Text)
+        $encryptor = $aes.CreateEncryptor()
+        try {
+            $cipherBytes = $encryptor.TransformFinalBlock($plainBytes, 0, $plainBytes.Length)
+        } finally {
+            $encryptor.Dispose()
+        }
+    } finally {
+        $aes.Dispose()
+    }
+
+    $hmac = [System.Security.Cryptography.HMACSHA256]::new($keys.MacKey)
+    try {
+        $tag = $hmac.ComputeHash($salt + $iv + $cipherBytes)
+    } finally {
+        $hmac.Dispose()
+    }
+
+    return [System.Convert]::ToBase64String($salt + $iv + $cipherBytes + $tag)
+}
+
+function Unprotect-OtterText {
+    param([string]$CipherText, [string]$Key, [int]$Line)
+
+    $failure = [OtterError]::new(
+        'I could not decrypt this - the key is wrong, or the data is corrupted.',
+        $Line, 'runtime')
+
+    try {
+        $payload = [System.Convert]::FromBase64String($CipherText)
+    } catch {
+        throw $failure
+    }
+
+    $ivStart = $script:OtterEncryptionSaltSize
+    $cipherStart = $ivStart + $script:OtterEncryptionIvSize
+    $minLength = $cipherStart + $script:OtterEncryptionTagSize
+    if ($payload.Length -lt $minLength) {
+        throw $failure
+    }
+
+    $salt = [byte[]]$payload[0..($ivStart - 1)]
+    $iv = [byte[]]$payload[$ivStart..($cipherStart - 1)]
+    $tagStart = $payload.Length - $script:OtterEncryptionTagSize
+    $cipherBytes = if ($tagStart -gt $cipherStart) { [byte[]]$payload[$cipherStart..($tagStart - 1)] } else { [byte[]]@() }
+    $tag = [byte[]]$payload[$tagStart..($payload.Length - 1)]
+
+    $keys = Get-OtterEncryptionKeys -Key $Key -Salt $salt
+
+    $hmac = [System.Security.Cryptography.HMACSHA256]::new($keys.MacKey)
+    try {
+        $expectedTag = $hmac.ComputeHash($salt + $iv + $cipherBytes)
+    } finally {
+        $hmac.Dispose()
+    }
+
+    if (-not (Test-OtterConstantTimeEquals -A $tag -B $expectedTag)) {
+        throw $failure
+    }
+
+    $aes = [System.Security.Cryptography.Aes]::Create()
+    try {
+        $aes.Key = $keys.EncryptionKey
+        $aes.IV = $iv
+        $decryptor = $aes.CreateDecryptor()
+        try {
+            $plainBytes = $decryptor.TransformFinalBlock($cipherBytes, 0, $cipherBytes.Length)
+        } catch {
+            throw $failure
+        } finally {
+            $decryptor.Dispose()
+        }
+    } finally {
+        $aes.Dispose()
+    }
+
+    return [System.Text.Encoding]::UTF8.GetString($plainBytes)
+}
+
 # get owner of "x" into owner                                        (D74)
 # Works on either a file or a folder - ownership is a filesystem-wide
 # concept, unlike read-only below, which this module deliberately
@@ -2018,4 +2173,5 @@ Export-ModuleMember -Function `
     Get-OtterPowerActionCommandLine, Invoke-OtterPowerAction, Send-OtterFileToPrinter, `
     Invoke-OtterRemoteCommand, Invoke-OtterSshCommand, `
     New-OtterZipArchive, Expand-OtterZipArchive, `
-    Get-OtterHash
+    Get-OtterHash, `
+    Protect-OtterText, Unprotect-OtterText
