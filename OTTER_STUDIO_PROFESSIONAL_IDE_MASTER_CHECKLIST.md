@@ -260,10 +260,10 @@ platform.
 -   [x] Comment/uncomment (Ctrl+/ multi-line toggle)
 -   [x] Format document/selection (Shift+Alt+F / format button)
 -   [ ] Multiple cursors
--   [ ] Word wrap
+-   [x] Word wrap (Alt+Z toggle & localStorage persistence)
 -   [ ] Encoding/EOL selector
 -   [ ] Large-file mode
--   [ ] Breadcrumbs
+-   [x] Breadcrumbs (interactive path navigation header)
 -   [x] Find/replace (in-editor floating widget with Next/Prev/Replace/All)
 -   [x] Find in files with bounded workspace search and clickable results
     (`4e100a0`)
@@ -273,8 +273,8 @@ platform.
 -   [x] Quick Open with fuzzy file matching and keyboard navigation
     (`2f7806c`)
 -   [x] Go to symbol from the parser-backed document index (`2f7806c`)
--   [ ] Definition/implementation/references
--   [ ] Peek definition
+-   [x] Definition/implementation/occurrences (indexed Go to Definition F12, Occurrences Shift+F12)
+-   [x] Peek definition (Alt+F12 in-editor preview card)
 -   [x] Back/forward navigation history across files and symbols (`4e100a0`)
 -   [x] Parser-backed clickable document Outline (`2f7806c`)
 -   [x] Dirty indicator (tab dirty dot, input tracking, save clearing)
@@ -290,19 +290,19 @@ platform.
 -   [ ] Incremental AST
 -   [x] Background diagnostics (debounced /api/lint via PowerShell Otter parser)
 -   [x] Error/warning squiggles (in-editor wavy underline & gutter markers)
--   [ ] Hover
+-   [x] Hover (interactive tooltip for keywords, builtins, and symbols)
 -   [x] Autocomplete (rich keyword, UI widget, and loop suggestions)
 -   [x] Context-aware keyword/property/function suggestions
 -   [ ] Parameter/signature help
 -   [x] Cached parser-backed workspace symbol index (`2f7806c`)
--   [ ] Go to definition
+-   [x] Go to definition (F12 symbol-index resolver)
 -   [ ] Find references
 -   [ ] Rename
 -   [ ] Code actions/quick fixes
 -   [ ] Extract function
 -   [ ] Unused/unreachable diagnostics
 -   [ ] Semantic highlighting
--   [ ] Documentation hover
+-   [x] Documentation hover (rich syntax signatures, explanations, and usage examples)
 -   [ ] Cross-file/module resolution
 -   [ ] LSP support if beneficial
 -   [ ] Stable language-service plugin API
@@ -316,8 +316,8 @@ platform.
 -   [ ] Human-readable Otter errors
 -   [ ] Suggested fixes
 -   [ ] Stable diagnostic codes
--   [ ] Problems panel
--   [ ] Click problem → source
+-   [x] Problems panel (drawer tab with real-time status and error reporting)
+-   [x] Click problem → source (click banner or problem to scroll and focus exact error line)
 -   [ ] Build diagnostics
 -   [ ] Runtime stack traces in Otter terms
 -   [ ] Async stack traces

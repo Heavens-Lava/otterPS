@@ -1186,6 +1186,60 @@ body {
 .definition-peek-close { font-size: 18px; line-height: 1; }
 .definition-peek-open { padding: 7px 10px; font-size: 11px; font-weight: 650; }
 
+.editor-hover-tooltip {
+  position: absolute;
+  z-index: 35;
+  max-width: 380px;
+  border: 1px solid #93c5fd;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.18);
+  color: #0f172a;
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.45;
+  pointer-events: auto;
+}
+
+.editor-hover-signature {
+  font-family: var(--font-code);
+  font-weight: 600;
+  color: #2563eb;
+  background: #eff6ff;
+  padding: 4px 6px;
+  border-radius: 4px;
+  margin-bottom: 6px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.editor-hover-desc {
+  color: #334155;
+  margin-bottom: 4px;
+}
+
+.editor-hover-example {
+  font-family: var(--font-code);
+  font-size: 11px;
+  color: #64748b;
+  border-top: 1px dashed #e2e8f0;
+  padding-top: 4px;
+  margin-top: 6px;
+}
+
+.problem-status-banner.has-error-clickable {
+  cursor: pointer;
+  border: 1px dashed #f87171;
+  border-radius: 6px;
+  padding: 4px 8px;
+  transition: background 0.15s ease;
+}
+
+.problem-status-banner.has-error-clickable:hover {
+  background: rgba(239, 68, 68, 0.08);
+}
+
+
 .breadcrumb-part {
   border: 0;
   padding: 0;

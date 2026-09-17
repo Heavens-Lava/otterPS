@@ -8,6 +8,7 @@ import {
   definitionForWord,
   occurrencesForWord
 } from './navigation/symbol-index.js';
+import { getHoverInfo, getWordAtOffset } from './navigation/hover-provider.js';
 
 export class OtterStudioIde {
   constructor() {
@@ -269,6 +270,8 @@ export class OtterStudioIde {
     this.btnPeekDefinition = document.getElementById('btnPeekDefinition');
     this.btnFindOccurrences = document.getElementById('btnFindOccurrences');
     this.definitionPeekEl = document.getElementById('definitionPeek');
+    this.editorHoverTooltipEl = document.getElementById('editorHoverTooltip');
+    this.hoverDebounceTimer = null;
     this.btnToggleWordWrap = document.getElementById('btnToggleWordWrap');
     this.breadcrumbsEl = document.getElementById('editorBreadcrumbs');
 
@@ -331,6 +334,17 @@ export class OtterStudioIde {
     this.workspaceSearchForm?.addEventListener('submit', event => {
       event.preventDefault();
       this.searchWorkspace();
+    });
+
+    this.problemStatusBanner = document.getElementById('problemStatusBanner');
+    this.problemStatusBanner?.addEventListener('click', () => {
+      if (this.errorLine) this.goToLine(this.errorLine);
+    });
+    this.problemStatusBanner?.addEventListener('keydown', event => {
+      if ((event.key === 'Enter' || event.key === ' ') && this.errorLine) {
+        event.preventDefault();
+        this.goToLine(this.errorLine);
+      }
     });
 
     // Bottom Drawer Tab switching
@@ -1777,6 +1791,7 @@ export class OtterStudioIde {
 
       // Pixel-perfect synchronized scrolling
       textarea.addEventListener('scroll', () => {
+        this.hideHoverTooltip();
         if (this.codeAreaEl) {
           this.codeAreaEl.scrollTop = textarea.scrollTop;
           this.codeAreaEl.scrollLeft = textarea.scrollLeft;
@@ -1786,7 +1801,20 @@ export class OtterStudioIde {
         }
       });
 
+      textarea.addEventListener('mousemove', (e) => {
+        clearTimeout(this.hoverDebounceTimer);
+        this.hoverDebounceTimer = setTimeout(() => {
+          this.handleEditorHover(e);
+        }, 250);
+      });
+
+      textarea.addEventListener('mouseleave', () => {
+        clearTimeout(this.hoverDebounceTimer);
+        this.hideHoverTooltip();
+      });
+
       textarea.addEventListener('input', () => {
+        this.hideHoverTooltip();
         this.currentCode = textarea.value;
         this.markCurrentTabDirty(true);
         this.renderEditorCode(this.currentCode);
@@ -1797,6 +1825,7 @@ export class OtterStudioIde {
       });
 
       textarea.addEventListener('keydown', (e) => {
+        this.hideHoverTooltip();
         // Keyboard shortcuts
         if (e.altKey && !e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 'z') {
           e.preventDefault();
@@ -2308,6 +2337,85 @@ export class OtterStudioIde {
         this.statusCheckCircle.innerText = '!';
       }
     }
+
+    if (this.problemStatusBanner) {
+      if (!ok && this.errorLine) {
+        this.problemStatusBanner.classList.add('has-error-clickable');
+        this.problemStatusBanner.title = `Click to navigate to line ${this.errorLine} in source`;
+      } else {
+        this.problemStatusBanner.classList.remove('has-error-clickable');
+        this.problemStatusBanner.title = 'No problems detected';
+      }
+    }
+  }
+
+  handleEditorHover(event) {
+    const textarea = document.getElementById('hiddenEditorInput');
+    if (!textarea || !this.editorHoverTooltipEl) return;
+
+    let offset = -1;
+    const rect = textarea.getBoundingClientRect();
+    const x = event.clientX - rect.left + textarea.scrollLeft;
+    const y = event.clientY - rect.top + textarea.scrollTop;
+    const computedStyle = window.getComputedStyle ? window.getComputedStyle(textarea) : null;
+    const lineHeight = computedStyle ? (parseFloat(computedStyle.lineHeight) || 20) : 20;
+    const lineIdx = Math.floor(y / lineHeight);
+    const lines = textarea.value.split('\n');
+
+    if (lineIdx >= 0 && lineIdx < lines.length) {
+      const charWidth = 7.8;
+      const colIdx = Math.max(0, Math.floor(x / charWidth));
+      let lineStart = 0;
+      for (let i = 0; i < lineIdx; i++) lineStart += lines[i].length + 1;
+      offset = Math.min(lineStart + lines[lineIdx].length, lineStart + colIdx);
+    }
+
+    if (offset < 0 || offset > textarea.value.length) {
+      this.hideHoverTooltip();
+      return;
+    }
+
+    const word = getWordAtOffset(textarea.value, offset);
+    if (!word) {
+      this.hideHoverTooltip();
+      return;
+    }
+
+    const info = getHoverInfo(word, this.currentFile, this.workspaceSymbols);
+    if (!info) {
+      this.hideHoverTooltip();
+      return;
+    }
+
+    this.showHoverTooltip(info, event.clientX, event.clientY);
+  }
+
+  showHoverTooltip(info, clientX, clientY) {
+    if (!this.editorHoverTooltipEl) return;
+    let html = `<div class="editor-hover-signature">${this.escapeHtml(info.signature || info.title)}</div>`;
+    if (info.description) {
+      html += `<div class="editor-hover-desc">${this.escapeHtml(info.description)}</div>`;
+    }
+    if (info.example) {
+      html += `<div class="editor-hover-example"><strong>Example:</strong><br><code>${this.escapeHtml(info.example)}</code></div>`;
+    }
+    this.editorHoverTooltipEl.innerHTML = html;
+
+    const viewportRect = this.codeAreaEl?.parentElement?.getBoundingClientRect() || { top: 0, left: 0, width: 600, height: 400 };
+    let left = clientX - viewportRect.left + 12;
+    let top = clientY - viewportRect.top + 16;
+    if (left + 340 > viewportRect.width) left = Math.max(10, viewportRect.width - 350);
+    if (top + 140 > viewportRect.height) top = Math.max(10, clientY - viewportRect.top - 130);
+
+    this.editorHoverTooltipEl.style.left = `${Math.max(10, left)}px`;
+    this.editorHoverTooltipEl.style.top = `${Math.max(10, top)}px`;
+    this.editorHoverTooltipEl.style.display = 'block';
+  }
+
+  hideHoverTooltip() {
+    if (this.editorHoverTooltipEl) {
+      this.editorHoverTooltipEl.style.display = 'none';
+    }
   }
 
   escapeHtml(str) {
@@ -2319,3 +2427,4 @@ export class OtterStudioIde {
       .replace(/"/g, '&quot;');
   }
 }
+

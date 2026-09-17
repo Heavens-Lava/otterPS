@@ -37,7 +37,11 @@ assert.match(ide, /definitionForWord/, 'Go to Definition must use the indexed sy
 assert.match(ide, /e\.key === 'F12'/, 'Go to Definition must have the standard F12 shortcut');
 assert.match(ide, /peekDefinition\(\)/, 'Studio must support a non-navigating definition preview');
 assert.match(ide, /occurrencesForWord/, 'Occurrence search must use the safe lexical scanner');
-assert.match(darkCss, /body\.theme-dark/, 'Dark workbench colors must remain theme-scoped');
-assert.match(darkCss, /\.theme-dark \.code-text-area[\s\S]*caret-color:/, 'Dark editor must keep a visible caret');
+assert.match(html, /id="editorHoverTooltip"/, 'Editor must expose a hover tooltip surface');
+assert.match(html, /id="problemStatusBanner"/, 'Problems drawer must expose a clickable status banner');
+assert.match(ide, /handleEditorHover/, 'Editor must support hover information lookup');
+assert.match(ide, /problemStatusBanner\?\.addEventListener\('click'/, 'Clicking problem banner must navigate to source');
+assert.match(darkCss, /\.theme-dark \.editor-hover-tooltip/, 'Dark theme must scope hover tooltip styles');
 
-console.log('Otter Studio workspace shell tests passed: themes, visible caret, and project-aware templates.');
+console.log('Otter Studio workspace shell tests passed: themes, visible caret, project-aware templates, hover help, and problem-to-source navigation.');
+

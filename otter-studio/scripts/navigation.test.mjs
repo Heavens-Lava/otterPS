@@ -7,6 +7,7 @@ import {
   definitionForWord,
   occurrencesForWord
 } from '../js/navigation/symbol-index.js';
+import { getHoverInfo, getWordAtOffset } from '../js/navigation/hover-provider.js';
 
 const files = flattenProjectFiles([
   { name: 'main.ot', path: 'main.ot', isDir: false },
@@ -57,4 +58,20 @@ history.back();
 history.record({ path: 'third.ot', line: 1, column: 0 });
 assert.equal(history.canForward, false, 'new navigation must discard the old forward branch');
 
-console.log('Studio navigation tests passed: project flattening, fuzzy Quick Open, ordered outlines, and history.');
+const sayDoc = getHoverInfo('say');
+assert.equal(sayDoc?.kind, 'builtin', 'say keyword must resolve to builtin hover info');
+assert.match(sayDoc?.description, /console/, 'say doc must explain console output');
+
+const symbolDoc = getHoverInfo('greet', 'projects/demo/main.ot', [
+  { name: 'greet', kind: 'function', line: 20, path: 'projects/demo/main.ot' }
+]);
+assert.equal(symbolDoc?.kind, 'function', 'user functions must resolve in hover info');
+assert.equal(symbolDoc?.line, 20, 'symbol hover info must report the declaration line');
+
+assert.equal(getWordAtOffset('say "hello"', 1), 'say', 'offset in single keyword must return keyword');
+assert.equal(getWordAtOffset('for each file in files', 5), 'for each', 'offset in multi-word keyword must return full phrase');
+assert.equal(getWordAtOffset('greet("world")', 2), 'greet', 'offset in function identifier must return identifier');
+
+console.log('Studio navigation tests passed: project flattening, fuzzy Quick Open, ordered outlines, history, hover documentation, and word-at-offset extraction.');
+
+
