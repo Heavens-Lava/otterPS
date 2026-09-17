@@ -62,7 +62,7 @@ creation.
 -   [x] Compatibility policy
 -   [x] Deprecation policy
 -   [x] Feature-gating/version negotiation
--   [x] Conformance suite
+-   [ ] Conformance suite
 -   [x] Reference implementation designation
 -   [x] Runtime/provider specification
 -   [x] Standard-library specification
@@ -1547,16 +1547,16 @@ creation.
 -   [x] Core syntax frozen
 -   [x] Semantics frozen
 -   [x] Formal specification
--   [x] Conformance suite
+-   [ ] Conformance suite
 -   [x] No silent no-ops
 -   [x] Portable JS parity complete
 -   [x] Core standard library certified
 -   [x] Files certified
--   [x] HTTP certified
+-   [ ] HTTP certified
 -   [x] JSON certified
 -   [x] Dates/random certified
 -   [x] Command/process API certified
--   [x] Module system certified
+-   [ ] Module system certified
 -   [x] Console target certified
 -   [x] Advertised Web target certified
 -   [x] Advertised Desktop target certified
@@ -1567,7 +1567,7 @@ creation.
 -   [x] Real dogfood applications
 -   [x] No known data-loss bugs
 -   [x] No known critical security bugs
--   [x] Every advertised feature reachable through production entry
+-   [ ] Every advertised feature reachable through production entry
     point
 
 # 47. General-Purpose Platform Gates
@@ -1615,11 +1615,11 @@ ordinary application" class.
 -   [x] Diagnostics parity.
 -   [x] Existing-thing `has` parity.
 -   [x] Custom-type parity.
--   [x] Module production certification.
+-   [ ] Module production certification.
 -   [x] Finish filesystem bridge certification.
 -   [x] Freeze Otter 1.0 semantics.
 -   [x] Publish specification.
--   [x] Build conformance suite.
+-   [ ] Build conformance suite.
 
 ## P2 --- Make Console/System Otter complete
 

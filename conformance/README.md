@@ -54,7 +54,7 @@ Jeff's roadmap calls for. Known gaps before it can become that:
 | `http/` | documents that `get`/`post`/`put`/`delete from` a URL **only work through `otter web`**, not `otter run` - see the gap report |
 | `system_integration/` | clipboard, environment variables, system folders, `notify` |
 | `misc/` | `if file ... exists`, `run command "..." into result`, `read json from ... into` |
-| `negative/` | programs that must be rejected with a clear diagnostic; these are run with `otter check`, not `otter run` |
+| `negative/` | programs that must fail with a clear diagnostic; most use `otter check`, while `boolean_operators_outside_conditions.ot` intentionally parses as addition syntax and fails under `otter run` when its operands are boolean |
 
 Run any of them directly:
 

@@ -73,9 +73,10 @@ The rejection is verified through `otter check` using
 precedence** (a frozen, deliberate design decision, D7). `2 plus 3 times
 4` is `(2+3)*4 = 20`, not `14`.
 
-`and` remains lexically compatible with the historical arithmetic token only
-for legacy `left and right make result` statements. Ordinary arithmetic uses
-`plus` or `+`.
+`and` remains a deliberate synonym for addition and text concatenation in
+ordinary arithmetic expressions, including (but not limited to) the
+historical `left and right make result` form. `plus` and `+` are equivalent
+addition spellings.
 
 ### A3. Comparisons and boolean logic
 
@@ -83,10 +84,11 @@ for legacy `left and right make result` statements. Ordinary arithmetic uses
 |---|---|
 | `is`, `is not`, `is at least`, `is at most`, `is greater than`, `is less than` | PRODUCTION VERIFIED, inside `if`/`while` |
 | `not X` | PRODUCTION VERIFIED **as a general expression** (works in `say`, assignment, anywhere) |
-| `X and Y`, `X or Y` | PRODUCTION VERIFIED **inside a condition** (`if`/`while`) only |
+| `X and Y`, `X or Y` | `and` is also verified as addition/text concatenation outside a condition; `or` is condition-only |
 
-`and`/`or` are **condition-position only**. Valid condition behavior is
-unchanged:
+`or` is **condition-position only**. `and` is boolean conjunction in a
+condition, while outside a condition it remains the established addition /
+text-concatenation spelling. Valid condition behavior is unchanged:
 
 ```
 if isReady or isDone
@@ -94,17 +96,20 @@ if isReady or isDone
 
 say isReady or isDone   # Syntax Error: says `or` is condition-only
 
-combined is isReady and isDone
-say combined            # Syntax Error: says `and` is condition-only
+combined is 2 and 3
+say combined            # works: prints "5"
 ```
 
-`or` outside a condition is a syntax error. `and` in an ordinary expression
-is also a syntax error, not an arithmetic AST; only the legacy
-`... and ... make result` form remains compatible. Both errors name the valid
-`if`/`while` context and suggest `plus` for numeric addition. `not` remains
-available wherever a value expression is accepted. The negative fixture
-`conformance/negative/boolean_operators_outside_conditions.ot` verifies the
-real `otter check` diagnostic.
+`or` outside a condition is a syntax error. An `and` expression outside a
+condition parses as addition/concatenation; if either operand evaluates to a
+boolean, both interpreter and JS target give the specific condition-only
+diagnostic rather than silently coercing it into arithmetic. `not` remains
+available wherever a value expression is accepted.
+
+`conformance/negative/or_outside_condition.ot` verifies the parse-time `or`
+diagnostic through `otter check`. `conformance/negative/boolean_operators_outside_conditions.ot`
+is intentionally parse-valid and verifies the boolean-operand diagnostic
+through `otter run`.
 
 ### A4. Conditions and blocks
 

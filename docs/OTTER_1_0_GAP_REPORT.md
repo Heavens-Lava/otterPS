@@ -52,13 +52,19 @@ implies otherwise.
 
 ### Resolved: condition-only `and` / `or`
 
-Source-word `and` no longer silently lowers to arithmetic in ordinary
-expressions outside `if`/`while`; both connectives now issue an Otter syntax
-diagnostic naming their valid context. The historical
-`left and right make result` form remains supported for compatibility.
-Numeric addition uses `plus` or `+`. The negative
-fixture `conformance/negative/boolean_operators_outside_conditions.ot` is
-verified through the real `otter check` entry point.
+Source-word `and` remains deliberate addition/text-concatenation syntax in
+ordinary expressions, so it cannot be rejected at parse time without
+breaking existing programs. A boolean operand reaching that arithmetic path
+now gives a specific condition-only diagnostic instead of silently coercing
+to another arithmetic operation; interpreter and JS target agree. `or` has
+no corresponding arithmetic meaning and remains a parse-time condition-only
+diagnostic. The historical `left and right make result` form remains
+supported, as do `plus` and `+`.
+
+`conformance/negative/or_outside_condition.ot` is verified through the real
+`otter check` entry point. The boolean-`and` fixture is intentionally
+parse-valid and is verified through the real `otter run` entry point, where
+operand types are available.
 
 ### Resolved: function values
 

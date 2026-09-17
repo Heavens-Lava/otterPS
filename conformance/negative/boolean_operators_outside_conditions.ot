@@ -1,5 +1,11 @@
-# This file must be rejected by `otter check`.
-# `and` and `or` are boolean condition operators, not arithmetic operators.
+# This file parses successfully (`otter check` accepts it) - `and` is a
+# real, deliberate synonym for numeric addition/string concatenation
+# outside a condition, matching real production Otter programs (see
+# examples/cli-app.ot, examples/studio.ot, examples/terminal.ot).
+#
+# It must be REJECTED by `otter run`, though: these two operands are real
+# booleans, and boolean "and" only means something inside an if/while
+# condition. Verified via the real CLI - see conformance/README.md.
 
 ready is true
 active is true
