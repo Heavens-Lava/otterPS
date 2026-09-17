@@ -228,7 +228,15 @@ function ConvertTo-OtterJsExpression {
                     # runtime helper was added to keep this change entirely
                     # inside this module (Otter.Web.psm1's boilerplate is
                     # untouched).
-                    return "(() => { const _l = $left; const _r = $right; if (typeof _l === 'string' && typeof _r === 'string') { return _l + _r; } const _lOk = typeof _l === 'number' || (typeof _l === 'string' && _l.trim() !== '' && !Number.isNaN(Number(_l))); if (!_lOk) { throw new Error('I expected a number for the left side of this calculation but got ' + JSON.stringify(_l) + '.'); } const _rOk = typeof _r === 'number' || (typeof _r === 'string' && _r.trim() !== '' && !Number.isNaN(Number(_r))); if (!_rOk) { throw new Error('I expected a number for the right side of this calculation but got ' + JSON.stringify(_r) + '.'); } return Number(_l) + Number(_r); })()"
+                    # Parity addition: a boolean operand almost always means
+                    # the source used boolean `and`/`or` OUTSIDE an if/while
+                    # (where `and` is a real, deliberate synonym for `plus`/
+                    # string-concat - see Read-OtterMathExpression's own
+                    # comment). Matches the interpreter's Get-OtterValue
+                    # 'Math'/'Add' case: give that specific diagnosis before
+                    # falling through to the generic numeric-coercion error,
+                    # which never mentions booleans/and/conditions at all.
+                    return "(() => { const _l = $left; const _r = $right; if (typeof _l === 'string' && typeof _r === 'string') { return _l + _r; } if (typeof _l === 'boolean' || typeof _r === 'boolean') { throw new Error('A true/false value cannot be combined with `"and`" here. Boolean `"and`"/`"or`" only work inside an if or while condition.'); } const _lOk = typeof _l === 'number' || (typeof _l === 'string' && _l.trim() !== '' && !Number.isNaN(Number(_l))); if (!_lOk) { throw new Error('I expected a number for the left side of this calculation but got ' + JSON.stringify(_l) + '.'); } const _rOk = typeof _r === 'number' || (typeof _r === 'string' && _r.trim() !== '' && !Number.isNaN(Number(_r))); if (!_rOk) { throw new Error('I expected a number for the right side of this calculation but got ' + JSON.stringify(_r) + '.'); } return Number(_l) + Number(_r); })()"
                 }
                 # Subtract/Multiply/Divide have the SAME underlying gap
                 # (Assert-OtterNumber throws on a non-numeric operand in the

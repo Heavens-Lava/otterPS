@@ -78,7 +78,15 @@ function Run-NodeWithStdout {
     $tempJs = Join-Path $sandbox ("test_" + [System.Guid]::NewGuid().ToString('N') + ".js")
     [System.IO.File]::WriteAllText($tempJs, $jsCode, [System.Text.Encoding]::UTF8)
 
-    $nodeOut = & node $tempJs 2>&1
+    # Route the stderr merge through cmd.exe's own redirection rather than
+    # PowerShell's `2>&1` operator on a native executable - under this
+    # script's `$ErrorActionPreference = 'Stop'`, PowerShell wraps each
+    # stderr line from a native command in a terminating ErrorRecord (a
+    # known, documented PowerShell 5.1 pitfall), which explodes this whole
+    # function the first time Node actually throws instead of exiting 0.
+    # Every test here before the V1 audit's error-case coverage happened to
+    # only exercise Node's SUCCESS path, so this never surfaced until now.
+    $nodeOut = cmd /c "node `"$tempJs`" 2>&1"
     return ($nodeOut -join "`n").Trim()
 }
 
@@ -260,6 +268,46 @@ say exit code of cmdRes
         throw "Command execution parity failed. Interpreter: '$intOut', Node: '$nodeOut'"
     }
     Write-Output "  pass  run command, stdout capture, and exit code match across runtimes"
+
+    # 11. V1 audit: `and`/`plus` parity - real addition/concatenation still
+    # works outside a condition on BOTH runtimes (a real production pattern
+    # - examples/terminal.ot concatenates text with `and` outside any
+    # if/while), and a stray BOOLEAN operand gives the same specific,
+    # honest diagnostic on both runtimes rather than a generic type error.
+    $andAdditionSrc = @'
+total is 5 and 3
+say total
+greeting is "Hello " and "World"
+say greeting
+'@
+    $intOut = Run-InterpreterWithStdout -Source $andAdditionSrc
+    $nodeOut = Run-NodeWithStdout -Source $andAdditionSrc
+    if ($intOut -ne "8`nHello World" -or $nodeOut -ne "8`nHello World" -or $intOut -ne $nodeOut) {
+        throw "and-as-addition parity failed. Interpreter: '$intOut', Node: '$nodeOut'"
+    }
+    Write-Output "  pass  `"and`" still adds numbers and concatenates strings outside a condition, on both runtimes"
+
+    $booleanAndSrc = @'
+ready is true
+active is true
+result is ready and active
+say result
+'@
+    $intErrorMessage = $null
+    try {
+        Run-InterpreterWithStdout -Source $booleanAndSrc | Out-Null
+    } catch {
+        $intErrorMessage = $_.Exception.Message
+    }
+    $nodeOut = Run-NodeWithStdout -Source $booleanAndSrc
+    $expectedPhrase = 'Boolean "and"/"or" only work inside an if or while condition'
+    if ($null -eq $intErrorMessage -or $intErrorMessage -notmatch [regex]::Escape($expectedPhrase)) {
+        throw "Expected the interpreter to reject a boolean 'and' outside a condition with the specific diagnostic, got: $intErrorMessage"
+    }
+    if ($nodeOut -notmatch [regex]::Escape($expectedPhrase)) {
+        throw "Expected the JS compiler to reject a boolean 'and' outside a condition with the same diagnostic, got: $nodeOut"
+    }
+    Write-Output "  pass  a stray boolean reaching `"and`" outside a condition gives the same specific diagnostic on both runtimes"
 
     Write-Output "`nDifferential Conformance: All cross-runtime tests passed!"
 

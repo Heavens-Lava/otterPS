@@ -1179,6 +1179,22 @@ button "Save"
 }
 if (-not $diagAnimCaught) { throw "Expected 'animate fast' to fail with diagnostic." }
 
+# 24. Statement-level await, await with make/into, and timer calls (Section 8)
+$awaitSrc = @"
+await delay 100
+await fetch "data" make res
+await get "/api/items" into items
+total is await calculateTotal
+"@
+$awaitAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $awaitSrc)
+if ($awaitAst.Statements.Count -ne 4) { throw "Expected 4 statements in await test." }
+if ($awaitAst.Statements[0] -isnot [AwaitExpr]) { throw "Expected statement 0 to be AwaitExpr." }
+if ($awaitAst.Statements[1] -isnot [AssignStmt] -or $awaitAst.Statements[1].Target.Name -ne 'res') { throw "Expected statement 1 to be AssignStmt into res." }
+if ($awaitAst.Statements[1].Value -isnot [AwaitExpr]) { throw "Expected statement 1 value to be AwaitExpr." }
+if ($awaitAst.Statements[2] -isnot [AssignStmt] -or $awaitAst.Statements[2].Target.Name -ne 'items') { throw "Expected statement 2 to be AssignStmt into items." }
+if ($awaitAst.Statements[3] -isnot [AssignStmt] -or $awaitAst.Statements[3].Target.Name -ne 'total') { throw "Expected statement 3 to be AssignStmt into total." }
+if ($awaitAst.Statements[3].Value -isnot [AwaitExpr]) { throw "Expected statement 3 value to be AwaitExpr." }
+
 # V1 audit: and/or are condition-only in ordinary expressions. `plus`
 # retains numeric addition, while legacy `and ... make` remains compatible.
 $booleanConditionAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source @'
@@ -1188,21 +1204,32 @@ if age is at least 18 and active is true
 '@)
 if ($booleanConditionAst.Statements[0].Branches[0].Condition -isnot [LogicalExpr]) { throw 'Expected and to remain a boolean condition operator.' }
 
-foreach ($invalidBooleanExpression in @(
-    'result is ready and active',
-    'say ready or active'
-)) {
-    $caught = $false
-    try {
-        ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $invalidBooleanExpression)
-    } catch [OtterError] {
-        $caught = $_.Exception.Message -match 'only works inside an if or while condition'
-    }
-    if (-not $caught) { throw "Expected a condition-only boolean diagnostic for: $invalidBooleanExpression" }
+# `or` has no legitimate meaning outside a condition (unlike `and`, which is
+# a genuine, real synonym for numeric addition/string concatenation - see
+# examples/cli-app.ot, examples/studio.ot, examples/terminal.ot, all of
+# which use `and` this way in real, shipped Otter programs). Rejecting `or`
+# at PARSE time is safe; `and` is not rejected here for that reason - a
+# stray BOOLEAN operand reaching `and` is instead caught at runtime, by
+# type, in the interpreter/JS compiler's own 'Math'/Add case, which is the
+# only place that can tell a real addition from a misplaced boolean `and`.
+$caught = $false
+try {
+    ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source 'say ready or active')
+} catch [OtterError] {
+    $caught = $_.Exception.Message -match 'only works inside an if or while condition'
 }
+if (-not $caught) { throw 'Expected a condition-only diagnostic for: say ready or active' }
+
+# `and` outside a condition remains valid GRAMMAR (it is real addition/
+# concatenation syntax) - only a boolean operand at RUNTIME is an error.
+# Confirmed this parses cleanly with no exception:
+[void](ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source 'result is ready and active'))
 
 $legacyMakeAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source 'number1 and number2 make total')
-if ($legacyMakeAst.Statements[0] -isnot [MathIntoStmt] -or $legacyMakeAst.Statements[0].Expression.Op -ne [MathOp]::Add) { throw 'Expected legacy and-addition to remain compatible in a make statement.' }
+if ($legacyMakeAst.Statements[0] -isnot [MathIntoStmt] -or $legacyMakeAst.Statements[0].Expression.Op -ne [MathOp]::Add) { throw 'Expected and-addition to remain valid in a make statement.' }
+
+$plainAndAdditionAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source 'result is 5 and 3')
+if ($plainAndAdditionAst.Statements[0] -isnot [AssignStmt] -or $plainAndAdditionAst.Statements[0].Value -isnot [MathExpr] -or $plainAndAdditionAst.Statements[0].Value.Op -ne [MathOp]::Add) { throw 'Expected and to remain valid addition syntax outside a make statement too.' }
 
 # V1 audit: a declared function is a value expression once its declaration
 # is visible.  Existing statement calls and `make` capture remain separate.

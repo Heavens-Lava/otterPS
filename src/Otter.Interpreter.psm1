@@ -1489,6 +1489,25 @@ function Get-OtterValue {
                 return $leftRaw + $rightRaw
             }
 
+            # `and`/`plus` share one token (TokenKind::And) for arithmetic
+            # addition and string concatenation - that overload is
+            # deliberate and used throughout real Otter programs (e.g.
+            # `text of a is text of b and c and "\n"`). But `and` is ALSO
+            # how boolean logic reads inside a condition. A boolean value
+            # reaching this far means the source almost certainly meant
+            # boolean `and`/`or` OUTSIDE an if/while, where they are not
+            # valid - give that specific, honest diagnosis here rather than
+            # letting it fall through to Assert-OtterNumber's generic "I
+            # expected a number" message, which never mentions booleans,
+            # `and`, or conditions and sends a reader in the wrong
+            # direction entirely.
+            if ($Expression.Op.ToString() -eq 'Add' -and (($leftRaw -is [bool]) -or ($rightRaw -is [bool]))) {
+                throw (New-OtterRuntimeError `
+                    -Message 'A true/false value cannot be combined with "and" here. Boolean "and"/"or" only work inside an if or while condition.' `
+                    -Line $Expression.Line `
+                    -Suggestion 'if condition1 and condition2')
+            }
+
             $left = Assert-OtterNumber -Value $leftRaw -Line $Expression.Line -What 'the left side of this calculation'
             $right = Assert-OtterNumber -Value $rightRaw -Line $Expression.Line -What 'the right side of this calculation'
 

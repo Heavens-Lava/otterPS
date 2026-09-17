@@ -501,6 +501,30 @@ Test-Otter 'or short-circuits too' {
     Assert-Lines -Expected @('true') -Actual $out
 }
 
+Test-Otter 'V1 audit: `and`/`plus` still add numbers and concatenate strings outside a condition' {
+    # `and` and `plus` are the same token (D3/D7) - this must keep working
+    # exactly as before; real production programs rely on it
+    # (examples/cli-app.ot, examples/studio.ot, examples/terminal.ot all
+    # concatenate text with `and` outside any if/while).
+    $out = Invoke-TestProgram @(
+        (SaySt @((MathEx (Lit 5.0) 'Add' (Lit 3.0)))),
+        (SaySt @((MathEx (Lit 'Hello ') 'Add' (Lit 'World'))))
+    )
+    Assert-Lines -Expected @('8', 'Hello World') -Actual $out
+}
+
+Test-Otter 'V1 audit: a boolean reaching `and`/`plus` outside a condition is a specific, honest diagnostic' {
+    # A MathExpr with Op=Add and a BOOLEAN operand means the source almost
+    # certainly meant boolean `and`/`or` outside an if/while by mistake.
+    # This must name booleans/and/conditions directly, not fall through to
+    # Assert-OtterNumber's generic "I expected a number" message.
+    Assert-OtterFails -Containing 'Boolean "and"/"or" only work inside an if or while condition' -Body {
+        Invoke-TestProgram @(
+            (SaySt @((MathEx (Lit $true) 'Add' (Lit $false))))
+        )
+    }
+}
+
 
 # =================================================================
 # truthiness (D9)
@@ -634,6 +658,26 @@ Test-Otter 'a function returns a value' {
         (SaySt @((Var 'result')))
     )
     Assert-Lines -Expected @('10') -Actual $out
+}
+
+Test-Otter 'V1 audit: a function call is a real value expression, usable directly after `is` (not just `... make result`)' {
+    # to double number / return number times 2 / answer is double 10
+    # This exercises Get-OtterValue's own 'Call' case directly through an
+    # AssignStmt, not CallStmt - the two are genuinely different interpreter
+    # dispatch paths, and only CallStmt had direct interpreter test coverage
+    # before this V1 fix.
+    $out = Invoke-TestProgram @(
+        ([FunctionDefStmt]::new('double', @('number'), @(
+            ([ReturnStmt]::new((MathEx (Var 'number') 'Multiply' (Lit 2.0)), 2))
+        ), 1)),
+        ([AssignStmt]::new('answer', [CallExpr]::new('double', @((Lit 10.0)), 5), 5)),
+        (SaySt @((Var 'answer'))),
+        ([AssignStmt]::new('nested', [CallExpr]::new('double', @([CallExpr]::new('double', @((Lit 5.0)), 6)), 6), 6)),
+        (SaySt @((Var 'nested'))),
+        ([AssignStmt]::new('arithmetic', (MathEx ([CallExpr]::new('double', @((Lit 3.0)), 7)) 'Add' (Lit 1.0)), 7)),
+        (SaySt @((Var 'arithmetic')))
+    )
+    Assert-Lines -Expected @('20', '20', '7') -Actual $out
 }
 
 Test-Otter 'return escapes from inside a loop' {

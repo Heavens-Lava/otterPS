@@ -266,7 +266,6 @@ function Read-OtterVariableName {
 }
 
 function Read-OtterMathExpression {
-    param([switch]$AllowLegacyAndAddition)
     $left = Read-OtterValue
     while ((Test-OtterTokenKind ([TokenKind]::And)) -or
            (Test-OtterTokenKind ([TokenKind]::Minus)) -or
@@ -275,12 +274,19 @@ function Read-OtterMathExpression {
            (Test-OtterTokenKind ([TokenKind]::Percent)) -or
            (Test-OtterTokenKind ([TokenKind]::Power))) {
         $operator = Read-OtterToken
-        # `and` and `or` are condition operators in V1.  `plus` and `+`
-        # share TokenKind::And for historical lexer compatibility, so inspect
-        # the original source text before lowering to MathOp::Add.
-        if ($operator.Kind -eq [TokenKind]::And -and $operator.Text -eq 'and' -and -not $AllowLegacyAndAddition) {
-            throw (New-OtterParserError '"and" only works inside an if or while condition.' $operator 'Use "plus" when adding numbers, or move the boolean expression into an if or while condition.')
-        }
+        # `and`/`plus` deliberately share TokenKind::And (D3/D7) - `and` is
+        # a genuine, real synonym for numeric addition and string
+        # concatenation OUTSIDE a condition (confirmed still in real,
+        # existing production .ot files: examples/cli-app.ot,
+        # examples/studio.ot, examples/terminal.ot all use `and` this way).
+        # A PARSE-time rejection of bare `and` here cannot tell that use
+        # apart from boolean `and` used by mistake outside an if/while -
+        # only the INTERPRETER, once it knows the actual runtime type of
+        # both operands, can tell a stray boolean from a real number/string
+        # and give the specific "and/or only work in a condition" diagnosis
+        # (see Get-OtterValue's 'Math'/'Add' case). Do not reintroduce a
+        # parser-level rejection of `and` here without re-checking those
+        # three files.
         # D88: `X percent of Y` needs "of" consumed between the operator
         # and the right operand - every other operator here reads the
         # right operand immediately, so this is the one exception.
@@ -2454,7 +2460,7 @@ function Read-OtterStatement {
             # A make statement owns arithmetic; otherwise this is a function call.
             if (Test-OtterTokenBeforeNewline ([TokenKind]::Make)) {
                 $script:Position--
-                $expression = Read-OtterMathExpression -AllowLegacyAndAddition
+                $expression = Read-OtterMathExpression
                 [void](Assert-OtterTokenKind ([TokenKind]::Make) 'I expected "make" and a result variable.')
                 $target = Read-OtterVariableName 'I expected a variable name after "make".'
                 [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the math statement to end here.')
@@ -2465,7 +2471,7 @@ function Read-OtterStatement {
             return [CallStmt]::new($call, $null, $name.Line)
         }
         ([TokenKind]::Number) {
-            $expression = Read-OtterMathExpression -AllowLegacyAndAddition
+            $expression = Read-OtterMathExpression
             [void](Assert-OtterTokenKind ([TokenKind]::Make) 'I expected "make" and a result variable.')
             $target = Read-OtterVariableName 'I expected a variable name after "make".'
             [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the math statement to end here.')
