@@ -2623,6 +2623,12 @@ export class OtterStudioIde {
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem('otter-studio-word-wrap', String(this.wordWrap));
     }
+    const textarea = document.getElementById('hiddenEditorInput');
+    if (textarea) {
+      textarea.style.whiteSpace = this.wordWrap ? 'pre-wrap' : 'pre';
+      textarea.style.wordBreak = this.wordWrap ? 'break-all' : 'normal';
+      textarea.style.overflowWrap = this.wordWrap ? 'anywhere' : 'normal';
+    }
     this.updateEditorChrome();
   }
 
@@ -2682,30 +2688,51 @@ export class OtterStudioIde {
 
   setupInlineEditor() {
     let textarea = document.getElementById('hiddenEditorInput');
-    if (!textarea) {
+    const container = document.getElementById('codeEditorContainer') || this.codeAreaEl?.parentElement;
+    if (!textarea && container) {
       textarea = document.createElement('textarea');
       textarea.id = 'hiddenEditorInput';
-      textarea.style.position = 'absolute';
-      textarea.style.top = '0';
-      textarea.style.left = '0';
-      textarea.style.width = '100%';
-      textarea.style.height = '100%';
-      // Keep the native textarea present so its caret and selection remain
-      // visible, but let the highlighted code layer provide the glyph colors.
-      textarea.style.opacity = '1';
-      textarea.style.color = 'transparent';
-      textarea.style.caretColor = '#2563eb';
-      textarea.style.background = 'transparent';
-      textarea.style.border = '0';
-      textarea.style.outline = 'none';
-      textarea.style.zIndex = '5';
-      textarea.style.fontFamily = 'inherit';
-      textarea.style.fontSize = 'inherit';
-      textarea.style.lineHeight = 'inherit';
-      textarea.style.resize = 'none';
+      textarea.className = 'code-editor-input';
       textarea.spellcheck = false;
-      this.codeAreaEl.parentElement.style.position = 'relative';
-      this.codeAreaEl.parentElement.appendChild(textarea);
+      container.appendChild(textarea);
+    }
+    if (!textarea) return;
+
+    // Strict typography and geometry synchronization with syntax highlight layer
+    textarea.style.position = 'absolute';
+    textarea.style.top = '0';
+    textarea.style.left = '0';
+    textarea.style.width = '100%';
+    textarea.style.height = '100%';
+    textarea.style.boxSizing = 'border-box';
+    textarea.style.padding = '16px 20px';
+    textarea.style.margin = '0';
+    textarea.style.border = '0';
+    textarea.style.outline = 'none';
+    textarea.style.resize = 'none';
+    textarea.style.fontFamily = 'var(--font-code, "JetBrains Mono", Consolas, monospace)';
+    textarea.style.fontSize = '13px';
+    textarea.style.lineHeight = '22px';
+    textarea.style.letterSpacing = '0px';
+    textarea.style.tabSize = '4';
+    textarea.style.fontVariantLigatures = 'none';
+    textarea.style.whiteSpace = this.wordWrap ? 'pre-wrap' : 'pre';
+    textarea.style.wordBreak = this.wordWrap ? 'break-all' : 'normal';
+    textarea.style.overflowWrap = this.wordWrap ? 'anywhere' : 'normal';
+    textarea.style.overflow = 'auto';
+    textarea.style.opacity = '1';
+    textarea.style.color = 'transparent';
+    textarea.style.caretColor = '#2563eb';
+    textarea.style.background = 'transparent';
+    textarea.style.zIndex = '5';
+    textarea.spellcheck = false;
+
+    if (container) {
+      container.style.position = 'relative';
+    }
+
+    if (!textarea.dataset.editorBound) {
+      textarea.dataset.editorBound = 'true';
 
       // Pixel-perfect synchronized scrolling
       textarea.addEventListener('scroll', () => {
@@ -3055,6 +3082,17 @@ export class OtterStudioIde {
           this.renderCursorOverlays();
         }
       });
+    }
+
+    if (this.gutterEl && !this.gutterEl.dataset.wheelBound) {
+      this.gutterEl.dataset.wheelBound = 'true';
+      this.gutterEl.addEventListener('wheel', (e) => {
+        if (textarea) {
+          textarea.scrollTop += e.deltaY;
+          textarea.scrollLeft += e.deltaX;
+          e.preventDefault();
+        }
+      }, { passive: false });
     }
 
     if (textarea.value !== this.currentCode) {
@@ -3762,13 +3800,15 @@ export class OtterStudioIde {
     const x = event.clientX - rect.left + textarea.scrollLeft;
     const y = event.clientY - rect.top + textarea.scrollTop;
     const computedStyle = window.getComputedStyle ? window.getComputedStyle(textarea) : null;
-    const lineHeight = computedStyle ? (parseFloat(computedStyle.lineHeight) || 20) : 20;
-    const lineIdx = Math.floor(y / lineHeight);
+    const lineHeight = computedStyle ? (parseFloat(computedStyle.lineHeight) || 22) : 22;
+    const padTop = computedStyle ? (parseFloat(computedStyle.paddingTop) || 16) : 16;
+    const padLeft = computedStyle ? (parseFloat(computedStyle.paddingLeft) || 20) : 20;
+    const lineIdx = Math.floor((y - padTop) / lineHeight);
     const lines = textarea.value.split('\n');
 
     if (lineIdx >= 0 && lineIdx < lines.length) {
       const charWidth = 7.8;
-      const colIdx = Math.max(0, Math.floor(x / charWidth));
+      const colIdx = Math.max(0, Math.floor((x - padLeft) / charWidth));
       let lineStart = 0;
       for (let i = 0; i < lineIdx; i++) lineStart += lines[i].length + 1;
       offset = Math.min(lineStart + lines[lineIdx].length, lineStart + colIdx);

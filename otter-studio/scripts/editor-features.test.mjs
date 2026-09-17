@@ -299,6 +299,54 @@ async function runTests() {
     assert.ok(linesHtml.includes('has-error'));
   });
 
+  console.log('\n--- 8. Pixel-Perfect Editor Alignment & Geometry Synchronization ---');
+  await (async () => {
+    const fs = await import('node:fs/promises');
+    const path = await import('node:path');
+    const { fileURLToPath } = await import('node:url');
+    const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+    const studioRoot = path.resolve(scriptDir, '..');
+
+    const html = await fs.readFile(path.join(studioRoot, 'index.html'), 'utf8');
+    const css = await fs.readFile(path.join(studioRoot, 'css', 'studio.css'), 'utf8');
+    const darkCss = await fs.readFile(path.join(studioRoot, 'css', 'studio-dark.css'), 'utf8');
+    const ideJs = await fs.readFile(path.join(studioRoot, 'js', 'ide.js'), 'utf8');
+
+    test('DOM structure nests codeTextArea and hiddenEditorInput in codeEditorContainer', () => {
+      assert.ok(html.includes('id="codeEditorContainer"'), 'index.html must define codeEditorContainer');
+      assert.ok(html.includes('id="hiddenEditorInput"'), 'index.html must define hiddenEditorInput inside editor container');
+      assert.ok(html.indexOf('id="lineNumbersGutter"') < html.indexOf('id="codeEditorContainer"'), 'Gutter must precede codeEditorContainer');
+    });
+
+    test('CSS enforces identical padding (16px 20px) on both codeTextArea and hiddenEditorInput', () => {
+      assert.match(css, /\.code-text-area\s*\{[^}]*padding:\s*16px 20px;/, 'code-text-area must have 16px 20px padding');
+      assert.match(css, /#hiddenEditorInput\s*\{[^}]*padding:\s*16px 20px;/, 'hiddenEditorInput must have 16px 20px padding');
+    });
+
+    test('CSS and JS enforce identical monospace font and 22px line-height on both layers', () => {
+      assert.match(css, /\.code-text-area\s*\{[^}]*line-height:\s*22px;/, 'code-text-area line-height must be 22px');
+      assert.match(css, /#hiddenEditorInput\s*\{[^}]*line-height:\s*22px;/, 'hiddenEditorInput line-height must be 22px');
+      assert.match(css, /#hiddenEditorInput\s*\{[^}]*font-family:\s*var\(--font-code\);/, 'hiddenEditorInput must use monospace var(--font-code)');
+      assert.match(ideJs, /textarea\.style\.lineHeight = '22px'/, 'ide.js setupInlineEditor must explicitly set 22px line-height');
+      assert.match(ideJs, /textarea\.style\.padding = '16px 20px'/, 'ide.js setupInlineEditor must explicitly set 16px 20px padding');
+    });
+
+    test('CSS disables extraneous indented padding to prevent double-space drift', () => {
+      assert.match(css, /\.code-line\.ind-1\s*\{\s*padding-left:\s*0;\s*\}/, 'ind-1 padding must be 0');
+      assert.match(css, /\.code-line\.ind-2\s*\{\s*padding-left:\s*0;\s*\}/, 'ind-2 padding must be 0');
+    });
+
+    test('Selection overlay keeps underlying syntax highlighting visible and aligned', () => {
+      assert.match(css, /#hiddenEditorInput::selection\s*\{[^}]*color:\s*transparent;/, 'Selection text must be transparent to reveal syntax highlight');
+      assert.match(darkCss, /\.theme-dark\s+#hiddenEditorInput::selection/, 'Dark theme must style selection highlight');
+    });
+
+    test('Hover calculation accounts for editor padding offsets', () => {
+      assert.match(ideJs, /padTop = computedStyle \? \(parseFloat\(computedStyle\.paddingTop\) \|\| 16\) : 16/, 'handleEditorHover must account for paddingTop');
+      assert.match(ideJs, /padLeft = computedStyle \? \(parseFloat\(computedStyle\.paddingLeft\) \|\| 20\) : 20/, 'handleEditorHover must account for paddingLeft');
+    });
+  })();
+
   console.log(`\nResults: ${passed} passed, ${failed} failed`);
   if (failed > 0) {
     process.exit(1);

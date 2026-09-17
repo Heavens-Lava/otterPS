@@ -375,6 +375,7 @@ body.theme-dark {
 
 .theme-dark .code-viewport,
 .theme-dark .line-numbers-gutter,
+.theme-dark .code-editor-container,
 .theme-dark .code-text-area {
   background: #091522;
 }
@@ -387,6 +388,15 @@ body.theme-dark {
 .theme-dark .code-text-area {
   color: #dbe8f5;
   caret-color: #7ec2ff;
+}
+
+.theme-dark #hiddenEditorInput {
+  caret-color: #7ec2ff;
+}
+
+.theme-dark #hiddenEditorInput::selection {
+  background: rgba(59, 130, 246, 0.45);
+  color: transparent;
 }
 
 .theme-dark .active-line {
