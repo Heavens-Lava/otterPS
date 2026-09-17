@@ -247,9 +247,11 @@ export class OtterStudioIde {
     this.btnKeepLocalChanges = document.getElementById('btnKeepLocalChanges');
     this.btnReloadExternalFile = document.getElementById('btnReloadExternalFile');
     this.sourceOutlineBody = document.getElementById('sourceOutlineBody');
+    this.outlineFilterInput = document.getElementById('outlineFilterInput');
     this.btnRefreshOutline = document.getElementById('btnRefreshOutline');
     this.btnQuickOpen = document.getElementById('btnQuickOpen');
     this.btnGoToSymbol = document.getElementById('btnGoToSymbol');
+    this.btnWorkspaceSymbols = document.getElementById('btnWorkspaceSymbols');
     this.navigationPaletteBackdrop = document.getElementById('navigationPaletteBackdrop');
     this.navigationPaletteTitle = document.getElementById('navigationPaletteTitle');
     this.navigationPaletteInput = document.getElementById('navigationPaletteInput');
@@ -264,6 +266,10 @@ export class OtterStudioIde {
     this.btnWorkspaceReplaceAll = document.getElementById('btnWorkspaceReplaceAll');
     this.workspaceSearchSummary = document.getElementById('workspaceSearchSummary');
     this.workspaceSearchResults = document.getElementById('workspaceSearchResults');
+    this.btnExtractFunction = document.getElementById('btnExtractFunction');
+    this.btnProblemQuickFix = document.getElementById('btnProblemQuickFix');
+    this.availableQuickFixes = [];
+    this.warningLine = null;
 
     // Multi-Tab & Quick Action Elements
     this.tabsScrollEl = document.getElementById('editorTabsScroll');
@@ -343,8 +349,10 @@ export class OtterStudioIde {
     this.btnKeepLocalChanges?.addEventListener('click', () => this.keepLocalChanges());
     this.btnReloadExternalFile?.addEventListener('click', () => this.reloadExternalFile());
     this.btnRefreshOutline?.addEventListener('click', () => this.refreshWorkspaceSymbols());
+    this.outlineFilterInput?.addEventListener('input', () => this.renderSourceOutline());
     this.btnQuickOpen?.addEventListener('click', () => this.openNavigationPalette('files'));
     this.btnGoToSymbol?.addEventListener('click', () => this.openNavigationPalette('symbols'));
+    this.btnWorkspaceSymbols?.addEventListener('click', () => this.openNavigationPalette('workspace-symbols'));
     this.navigationPaletteBackdrop?.addEventListener('click', event => {
       if (event.target === this.navigationPaletteBackdrop) this.closeNavigationPalette();
     });
@@ -358,6 +366,11 @@ export class OtterStudioIde {
     this.btnFindOccurrences?.addEventListener('click', () => this.findOccurrences());
     this.btnFindReferences?.addEventListener('click', () => this.findReferences());
     this.btnRenameSymbol?.addEventListener('click', () => this.promptRename());
+    this.btnExtractFunction?.addEventListener('click', () => this.extractFunction());
+    this.btnProblemQuickFix?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.applyCurrentQuickFix();
+    });
     this.btnCloseRenameModal?.addEventListener('click', () => this.closeRenameModal());
     this.btnCancelRename?.addEventListener('click', () => this.closeRenameModal());
     this.btnApplyRename?.addEventListener('click', () => this.applyRename());
@@ -380,13 +393,19 @@ export class OtterStudioIde {
     this.btnWorkspaceReplaceAll?.addEventListener('click', () => this.replaceWorkspace());
 
     this.problemStatusBanner = document.getElementById('problemStatusBanner');
-    this.problemStatusBanner?.addEventListener('click', () => {
-      if (this.errorLine) this.goToLine(this.errorLine);
+    this.problemStatusBanner?.addEventListener('click', (e) => {
+      if (e.target === this.btnProblemQuickFix || this.btnProblemQuickFix?.contains(e.target)) return;
+      const target = this.errorLine || this.warningLine;
+      if (target) this.goToLine(target);
     });
     this.problemStatusBanner?.addEventListener('keydown', event => {
-      if ((event.key === 'Enter' || event.key === ' ') && this.errorLine) {
-        event.preventDefault();
-        this.goToLine(this.errorLine);
+      if (event.target === this.btnProblemQuickFix || this.btnProblemQuickFix?.contains(event.target)) return;
+      if (event.key === 'Enter' || event.key === ' ') {
+        const target = this.errorLine || this.warningLine;
+        if (target) {
+          event.preventDefault();
+          this.goToLine(target);
+        }
       }
     });
 
@@ -446,6 +465,10 @@ export class OtterStudioIde {
       if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 'p') {
         e.preventDefault();
         this.openNavigationPalette('files');
+      }
+      if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 't') {
+        e.preventDefault();
+        this.openNavigationPalette('workspace-symbols');
       }
       if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'o') {
         e.preventDefault();
@@ -665,19 +688,29 @@ export class OtterStudioIde {
 
   renderSourceOutline() {
     if (!this.sourceOutlineBody) return;
-    const symbols = symbolsForFile(this.workspaceSymbols, this.currentFile)
+    const allSymbols = symbolsForFile(this.workspaceSymbols, this.currentFile)
       .filter(symbol => Number(symbol.ScopeId) === 0);
+    const filterQuery = (this.outlineFilterInput?.value || '').trim().toLowerCase();
+    const symbols = filterQuery
+      ? allSymbols.filter(s => (s.Name || '').toLowerCase().includes(filterQuery) || (s.Kind || '').toLowerCase().includes(filterQuery))
+      : allSymbols;
+
     if (symbols.length === 0) {
-      this.sourceOutlineBody.innerHTML = '<div class="outline-empty">No declarations found in this file.</div>';
+      this.sourceOutlineBody.innerHTML = `<div class="outline-empty">${filterQuery ? 'No matching symbols found.' : 'No declarations found in this file.'}</div>`;
       return;
     }
-    this.sourceOutlineBody.innerHTML = symbols.map((symbol, index) => `
+    this.sourceOutlineBody.innerHTML = symbols.map((symbol, index) => {
+      const kind = (symbol.Kind || 'variable').toLowerCase();
+      const kindClass = kind === 'function' ? 'kind-fn' : (kind === 'ui' ? 'kind-ui' : (kind === 'object' ? 'kind-obj' : 'kind-var'));
+      const icon = kind === 'function' ? 'ƒ' : (kind === 'ui' ? '⊞' : (kind === 'object' ? '◇' : 'v'));
+      return `
       <button class="outline-symbol" type="button" data-outline-index="${index}" title="Go to line ${Number(symbol.Line) || 1}">
-        <span class="outline-symbol-icon">${symbol.Kind === 'function' ? 'ƒ' : symbol.Kind === 'object' ? '◇' : 'v'}</span>
+        <span class="outline-symbol-icon ${kindClass}">${icon}</span>
         <span class="outline-symbol-name">${this.escapeHtml(symbol.Name)}</span>
         <span class="outline-symbol-line">${Number(symbol.Line) || 1}</span>
       </button>
-    `).join('');
+    `;
+    }).join('');
     this.sourceOutlineBody.querySelectorAll('[data-outline-index]').forEach(button => {
       button.addEventListener('click', () => {
         const symbol = symbols[Number(button.dataset.outlineIndex)];
@@ -712,14 +745,21 @@ export class OtterStudioIde {
       this.navigationPaletteInput.placeholder = 'Type a symbol name…';
       this.navigationItems = symbolsForFile(this.workspaceSymbols, this.currentFile)
         .filter(symbol => Number(symbol.ScopeId) === 0)
-        .map(symbol => ({
-          type: 'symbol',
-          label: symbol.Name,
-          detail: symbol.Kind,
-          line: Number(symbol.Line) || 1,
-          column: Number(symbol.Column) || 0,
-          icon: symbol.Kind === 'function' ? 'ƒ' : symbol.Kind === 'object' ? '◇' : 'v'
-        }));
+        .map(symbol => {
+          const kind = (symbol.Kind || 'variable').toLowerCase();
+          return {
+            type: 'symbol',
+            label: symbol.Name,
+            detail: kind,
+            line: Number(symbol.Line) || 1,
+            column: Number(symbol.Column) || 0,
+            icon: kind === 'function' ? 'ƒ' : (kind === 'ui' ? '⊞' : (kind === 'object' ? '◇' : 'v'))
+          };
+        });
+    } else if (mode === 'workspace-symbols') {
+      this.navigationPaletteTitle.textContent = 'Workspace Symbols';
+      this.navigationPaletteInput.placeholder = 'Type a symbol name across workspace…';
+      this.navigationItems = otterLanguageService.searchWorkspaceSymbols(this.workspaceSymbols, '');
     }
     this.navigationPaletteInput.value = '';
     this.filteredNavigationItems = this.navigationItems;
@@ -734,7 +774,17 @@ export class OtterStudioIde {
   }
 
   filterNavigationPalette() {
-    this.filteredNavigationItems = filterNavigationItems(this.navigationItems, this.navigationPaletteInput?.value || '');
+    const rawVal = this.navigationPaletteInput?.value || '';
+    if (rawVal.startsWith('#')) {
+      this.navigationMode = 'workspace-symbols';
+      this.navigationPaletteTitle.textContent = 'Workspace Symbols';
+      const query = rawVal.slice(1).trim();
+      this.filteredNavigationItems = otterLanguageService.searchWorkspaceSymbols(this.workspaceSymbols, query);
+    } else if (this.navigationMode === 'workspace-symbols') {
+      this.filteredNavigationItems = otterLanguageService.searchWorkspaceSymbols(this.workspaceSymbols, rawVal);
+    } else {
+      this.filteredNavigationItems = filterNavigationItems(this.navigationItems, rawVal);
+    }
     this.navigationIndex = 0;
     this.renderNavigationPalette();
   }
@@ -1045,6 +1095,50 @@ export class OtterStudioIde {
   updateNavigationButtons() {
     if (this.btnNavigateBack) this.btnNavigateBack.disabled = !this.navigationHistory.canBack;
     if (this.btnNavigateForward) this.btnNavigateForward.disabled = !this.navigationHistory.canForward;
+  }
+
+  applyCurrentQuickFix() {
+    if (!this.availableQuickFixes || this.availableQuickFixes.length === 0) return;
+    const fix = this.availableQuickFixes[0];
+    const newCode = fix.apply();
+    if (typeof newCode === 'string' && newCode !== this.currentCode) {
+      this.currentCode = newCode;
+      this.markCurrentTabDirty(true);
+      this.renderEditorCode(this.currentCode);
+      const textarea = document.getElementById('hiddenEditorInput');
+      if (textarea) textarea.value = this.currentCode;
+      this.debouncedLint();
+    }
+  }
+
+  extractFunction() {
+    const textarea = document.getElementById('hiddenEditorInput');
+    if (!textarea) return;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = (start !== end) ? textarea.value.substring(start, end) : '';
+    if (!selectedText.trim()) {
+      alert('Please select the code statements you wish to extract into a function.');
+      return;
+    }
+
+    const fnName = prompt('Enter new function name for extracted code:', 'extractedAction');
+    if (!fnName) return;
+
+    const beforeSel = textarea.value.substring(0, start);
+    const cursorLine = beforeSel.split('\n').length;
+    const result = otterLanguageService.prepareExtractFunction(selectedText, fnName, this.currentCode, cursorLine);
+    if (!result.ok) {
+      alert(result.error);
+      return;
+    }
+
+    this.currentCode = result.newCode;
+    this.markCurrentTabDirty(true);
+    this.renderEditorCode(this.currentCode);
+    if (textarea) textarea.value = this.currentCode;
+    this.debouncedLint();
+    this.setProblemsStatus(true, `Extracted function '${result.fnName}'.`, 'Code refactored successfully.');
   }
 
   async searchWorkspace() {
@@ -1951,8 +2045,10 @@ export class OtterStudioIde {
     let spans = '';
     const maxLines = Math.max(count, 1);
     for (let i = 1; i <= maxLines; i++) {
-      const errMarker = (this.errorLine === i) ? ' class="gutter-err"' : '';
-      spans += `<span${errMarker}>${i}</span>`;
+      let markerClass = '';
+      if (this.errorLine === i) markerClass = ' class="gutter-err"';
+      else if (this.warningLine === i) markerClass = ' class="gutter-warn"';
+      spans += `<span${markerClass}>${i}</span>`;
     }
     this.gutterEl.innerHTML = spans;
   }
@@ -1961,6 +2057,12 @@ export class OtterStudioIde {
     if (line.trim().startsWith('#')) {
       return `<span class="tok-comment">${this.escapeHtml(line)}</span>`;
     }
+
+    // Get current symbols for semantic highlighting
+    const currentSymbols = symbolsForFile(this.workspaceSymbols, this.currentFile);
+    const userFns = new Set(currentSymbols.filter(s => (s.Kind || s.kind) === 'function').map(s => (s.Name || s.name || '').toLowerCase()));
+    const userVars = new Set(currentSymbols.filter(s => ['variable', 'parameter', 'loop-variable'].includes((s.Kind || s.kind || '').toLowerCase())).map(s => (s.Name || s.name || '').toLowerCase()));
+    const uiWidgets = new Set(['window', 'button', 'label', 'textbox', 'canvas', 'box', 'column', 'row', 'stack', 'card', 'slider', 'checkbox']);
 
     let l = this.escapeHtml(line);
 
@@ -1988,7 +2090,7 @@ export class OtterStudioIde {
 
     // Single keywords
     const singleKeywords = [
-      'make', 'when', 'function', 'return', 'stop', 'if', 'otherwise',
+      'to', 'make', 'when', 'function', 'return', 'stop', 'if', 'otherwise',
       'while', 'count', 'repeat', 'has', 'is', 'add', 'remove', 'put',
       'ask', 'display', 'wait', 'say', 'get', 'into', 'not', 'and', 'or',
       'game'
@@ -2001,6 +2103,22 @@ export class OtterStudioIde {
 
     // Period block terminator
     l = l.replace(/(^|\s)(\.)(\s|$)/g, '$1<span class="tok-kw">.</span>$3');
+
+    // Semantic Highlighting for user functions, variables, and UI widgets (only outside existing HTML tags)
+    l = l.replace(/(<[^>]+>)|(\b[A-Za-z_][A-Za-z0-9_]*\b)/g, (match, tag, word) => {
+      if (tag) return tag;
+      const lower = (word || '').toLowerCase();
+      if (userFns.has(lower)) {
+        return `<span class="tok-fn">${word}</span>`;
+      }
+      if (uiWidgets.has(lower)) {
+        return `<span class="tok-ui">${word}</span>`;
+      }
+      if (userVars.has(lower)) {
+        return `<span class="tok-var">${word}</span>`;
+      }
+      return word;
+    });
 
     return l;
   }
@@ -2130,6 +2248,23 @@ export class OtterStudioIde {
         if ((e.shiftKey && e.altKey && (e.key === 'f' || e.key === 'F')) || (e.ctrlKey && e.shiftKey && (e.key === 'i' || e.key === 'I'))) {
           e.preventDefault();
           this.formatCurrentDocument();
+          return;
+        }
+        if (e.altKey && e.key === 'Enter') {
+          if (this.availableQuickFixes && this.availableQuickFixes.length > 0) {
+            e.preventDefault();
+            this.applyCurrentQuickFix();
+            return;
+          }
+        }
+        if (e.ctrlKey && e.shiftKey && (e.key === 'r' || e.key === 'R')) {
+          e.preventDefault();
+          this.extractFunction();
+          return;
+        }
+        if (e.ctrlKey && !e.shiftKey && (e.key === 't' || e.key === 'T')) {
+          e.preventDefault();
+          this.openNavigationPalette('workspace-symbols');
           return;
         }
         if (e.ctrlKey && e.key === 's') {
@@ -2645,8 +2780,44 @@ export class OtterStudioIde {
       if (data.Ok !== false) {
         this.errorLine = null;
         this.updateCurrentDocumentSymbols(data);
-        this.setProblemsStatus(true, 'No problems found.', 'Your code looks good!', 'Great job!', 'Keep going! 🐾');
+
+        // Compute semantic diagnostics (unused variables and unreachable code)
+        const semanticDiags = otterLanguageService.computeSemanticDiagnostics(
+          this.currentCode,
+          data.Symbols || [],
+          data.References || data.AstReferences || []
+        );
+
+        if (semanticDiags.length > 0) {
+          const first = semanticDiags[0];
+          this.warningLine = first.line;
+          const fixes = otterLanguageService.getQuickFixes(first, this.currentCode);
+          this.availableQuickFixes = fixes;
+          if (this.btnProblemQuickFix) {
+            if (fixes.length > 0) {
+              this.btnProblemQuickFix.style.display = 'inline-flex';
+              this.btnProblemQuickFix.textContent = `💡 ${fixes[0].title}`;
+              this.btnProblemQuickFix.title = fixes[0].title;
+            } else {
+              this.btnProblemQuickFix.style.display = 'none';
+            }
+          }
+          this.setProblemsStatus(
+            false,
+            `Line ${first.line}: ${first.message}`,
+            `Semantic check: ${first.code}`,
+            'Code Advisory',
+            'Review variables and execution flow. 🐾',
+            true
+          );
+        } else {
+          this.warningLine = null;
+          this.availableQuickFixes = [];
+          if (this.btnProblemQuickFix) this.btnProblemQuickFix.style.display = 'none';
+          this.setProblemsStatus(true, 'No problems found.', 'Your code looks good!', 'Great job!', 'Keep going! 🐾', false);
+        }
       } else {
+        this.warningLine = null;
         const errorLine = data.Line ?? data.line;
         const message = data.Message ?? data.message;
         const suggestion = data.Suggestion ?? data.suggestion;
@@ -2654,7 +2825,19 @@ export class OtterStudioIde {
         const lineNote = errorLine ? `Line ${errorLine}: ` : '';
         const msg = lineNote + (message || 'Syntax issue detected');
         const sub = suggestion ? `Suggestion: ${suggestion}` : 'Check your grammar.';
-        this.setProblemsStatus(false, msg, sub, 'Syntax Check', 'Keep checking your code! 🐾');
+
+        const fixes = otterLanguageService.getQuickFixes({ message, line: errorLine }, this.currentCode);
+        this.availableQuickFixes = fixes;
+        if (this.btnProblemQuickFix) {
+          if (fixes.length > 0) {
+            this.btnProblemQuickFix.style.display = 'inline-flex';
+            this.btnProblemQuickFix.textContent = `💡 ${fixes[0].title}`;
+            this.btnProblemQuickFix.title = fixes[0].title;
+          } else {
+            this.btnProblemQuickFix.style.display = 'none';
+          }
+        }
+        this.setProblemsStatus(false, msg, sub, 'Syntax Check', 'Keep checking your code! 🐾', false);
       }
       this.updateErrorSquiggles();
     } catch {
@@ -2665,8 +2848,10 @@ export class OtterStudioIde {
   updateErrorSquiggles() {
     if (!this.codeAreaEl) return;
     this.codeAreaEl.querySelectorAll('.code-line.has-error').forEach(el => el.classList.remove('has-error'));
+    this.codeAreaEl.querySelectorAll('.code-line.has-warning').forEach(el => el.classList.remove('has-warning'));
     if (this.gutterEl) {
       this.gutterEl.querySelectorAll('.gutter-err').forEach(el => el.classList.remove('gutter-err'));
+      this.gutterEl.querySelectorAll('.gutter-warn').forEach(el => el.classList.remove('gutter-warn'));
     }
 
     if (this.errorLine) {
@@ -2678,10 +2863,19 @@ export class OtterStudioIde {
           gutterSpans[this.errorLine - 1].classList.add('gutter-err');
         }
       }
+    } else if (this.warningLine) {
+      const warnLineEl = this.codeAreaEl.querySelector(`[data-line="${this.warningLine}"]`);
+      if (warnLineEl) warnLineEl.classList.add('has-warning');
+      if (this.gutterEl) {
+        const gutterSpans = this.gutterEl.querySelectorAll('span');
+        if (gutterSpans[this.warningLine - 1]) {
+          gutterSpans[this.warningLine - 1].classList.add('gutter-warn');
+        }
+      }
     }
   }
 
-  setProblemsStatus(ok, title, subtitle, cheerH, cheerT) {
+  setProblemsStatus(ok, title, subtitle, cheerH, cheerT, isWarning = false) {
     if (this.problemTitle) this.problemTitle.innerText = title;
     if (this.problemSubtitle) this.problemSubtitle.innerText = subtitle;
     if (this.cheerHeadline) this.cheerHeadline.innerText = cheerH;
@@ -2691,6 +2885,9 @@ export class OtterStudioIde {
       if (ok) {
         this.statusCheckCircle.style.background = '#22c55e';
         this.statusCheckCircle.innerText = '✓';
+      } else if (isWarning) {
+        this.statusCheckCircle.style.background = '#f59e0b';
+        this.statusCheckCircle.innerText = '▲';
       } else {
         this.statusCheckCircle.style.background = '#ef4444';
         this.statusCheckCircle.innerText = '!';
@@ -2698,9 +2895,10 @@ export class OtterStudioIde {
     }
 
     if (this.problemStatusBanner) {
-      if (!ok && this.errorLine) {
+      const target = this.errorLine || this.warningLine;
+      if (!ok && target) {
         this.problemStatusBanner.classList.add('has-error-clickable');
-        this.problemStatusBanner.title = `Click to navigate to line ${this.errorLine} in source`;
+        this.problemStatusBanner.title = `Click to navigate to line ${target} in source`;
       } else {
         this.problemStatusBanner.classList.remove('has-error-clickable');
         this.problemStatusBanner.title = 'No problems detected';

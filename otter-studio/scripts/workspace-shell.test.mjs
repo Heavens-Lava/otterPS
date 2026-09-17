@@ -58,7 +58,19 @@ assert.match(ide, /promptRename\(\)/, 'IDE must implement safe Rename Symbol');
 assert.match(ide, /e\.ctrlKey.*goToDefinition/s, 'Editor must support Ctrl+Click to Go to Definition');
 assert.match(darkCss, /\.theme-dark \.rename-dialog/, 'Dark theme must style the rename dialog');
 
-console.log('Otter Studio workspace shell tests passed: themes, visible caret, project-aware templates, hover help, signature help, EOL/encoding selectors, workspace replace, references, and rename.');
+assert.match(html, /id="outlineFilterInput"/, 'Document outline must expose a filter input');
+assert.match(html, /id="btnWorkspaceSymbols"/, 'Editor quick actions must expose Workspace Symbols button');
+assert.match(html, /id="btnExtractFunction"/, 'Editor quick actions must expose Extract Function button');
+assert.match(html, /id="btnProblemQuickFix"/, 'Problems banner must expose Quick Fix button');
+assert.match(ide, /openNavigationPalette\('workspace-symbols'\)/, 'IDE must support workspace symbol palette');
+assert.match(ide, /e\.key\.toLowerCase\(\) === 't'/, 'IDE must bind Ctrl+T for workspace symbols');
+assert.match(ide, /extractFunction\(\)/, 'IDE must support Extract Function refactoring');
+assert.match(ide, /applyCurrentQuickFix\(\)/, 'IDE must support applying problem quick fixes');
+assert.match(darkCss, /\.theme-dark \.tok-fn/, 'Dark theme must style semantic function tokens');
+assert.match(darkCss, /\.theme-dark \.outline-symbol-icon/, 'Dark theme must style outline symbol kind icons');
+assert.match(darkCss, /\.theme-dark \.code-line\.has-warning/, 'Dark theme must style warning squiggles');
+
+console.log('Otter Studio workspace shell tests passed: themes, visible caret, project-aware templates, hover help, signature help, EOL/encoding selectors, workspace replace, references, rename, outline filtering, workspace symbols, extract function, and quick fixes.');
 
 
 

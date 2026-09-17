@@ -354,6 +354,247 @@ export class OtterLanguageService {
 
     return null;
   }
+
+  // --- 8. Semantic Diagnostics (Unused Variables & Unreachable Code) ---
+  computeSemanticDiagnostics(source, symbols = [], astReferences = []) {
+    const diagnostics = [];
+    if (!source) return diagnostics;
+    const lines = source.split(/\r?\n/);
+
+    // 1. Unused Variables
+    const variables = symbols.filter(s => (s.Kind || s.kind) === 'variable' && Number(s.ScopeId ?? s.scopeId) >= 0);
+    for (const v of variables) {
+      const name = v.Name || v.name;
+      const declLine = Number(v.Line || v.line) || 1;
+      // If we have AST references:
+      if (Array.isArray(astReferences) && astReferences.length > 0) {
+        const reads = astReferences.filter(r => r.Name?.toLowerCase() === name.toLowerCase() && !r.IsDeclaration && Number(r.ScopeId) === Number(v.ScopeId ?? v.scopeId));
+        if (reads.length === 0) {
+          diagnostics.push({
+            severity: 'warning',
+            code: 'unused-variable',
+            message: `Variable '${name}' is declared but never read.`,
+            line: declLine,
+            column: Number(v.Column || v.column) || 0,
+            symbolName: name
+          });
+        }
+      } else {
+        // Lexical check
+        const refs = this.lexicalReferences(source, name, '');
+        if (refs.length <= 1) {
+          diagnostics.push({
+            severity: 'warning',
+            code: 'unused-variable',
+            message: `Variable '${name}' is declared but never read.`,
+            line: declLine,
+            column: Number(v.Column || v.column) || 0,
+            symbolName: name
+          });
+        }
+      }
+    }
+
+    // 2. Unreachable Code after unconditional return or stop
+    let blockHasReturn = false;
+    let returnIndent = -1;
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      const indent = line.search(/\S/);
+
+      if (trimmed === '.' || (returnIndent >= 0 && indent < returnIndent)) {
+        blockHasReturn = false;
+        returnIndent = -1;
+      }
+
+      if (blockHasReturn && returnIndent >= 0 && indent >= returnIndent && trimmed !== '.') {
+        diagnostics.push({
+          severity: 'warning',
+          code: 'unreachable-code',
+          message: 'Unreachable code detected after return or stop.',
+          line: i + 1,
+          column: indent >= 0 ? indent : 0
+        });
+      }
+
+      if (trimmed === 'stop' || trimmed.startsWith('return ') || trimmed === 'return') {
+        blockHasReturn = true;
+        returnIndent = indent;
+      }
+    }
+
+    return diagnostics;
+  }
+
+  // --- 9. Safe Extract-Function Refactoring ---
+  prepareExtractFunction(selectedText, fnName, currentCode, cursorLine = 1) {
+    const trimmedFn = (fnName || '').trim();
+    if (!trimmedFn) {
+      return { ok: false, error: 'Function name cannot be empty.' };
+    }
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(trimmedFn)) {
+      return { ok: false, error: `'${trimmedFn}' is not a valid Otter identifier.` };
+    }
+    if (!selectedText || !selectedText.trim()) {
+      return { ok: false, error: 'Select one or more statements to extract.' };
+    }
+
+    const code = currentCode || '';
+    const selIdx = code.indexOf(selectedText);
+    if (selIdx === -1) {
+      return { ok: false, error: 'Selected text could not be located in document.' };
+    }
+
+    const selectedLines = selectedText.split(/\r?\n/).filter(l => l.trim().length > 0);
+    const indentedBody = selectedLines.map(l => '    ' + l.trim()).join('\n');
+    const fnDef = `to ${trimmedFn}\n${indentedBody}\n.\n\n`;
+
+    // 1. Replace selection in place with the function call
+    const beforeSel = code.slice(0, selIdx);
+    const afterSel = code.slice(selIdx + selectedText.length);
+    const replacedCode = beforeSel + trimmedFn + afterSel;
+
+    // 2. Find the top-level insertion point BEFORE the calling site
+    // (Otter enforces sequential execution with no function hoisting)
+    const codeLines = replacedCode.split(/\r?\n/);
+    const callLineIdx = beforeSel.split(/\r?\n/).length - 1;
+
+    let insertLine = 0;
+    for (let i = callLineIdx; i >= 0; i--) {
+      const l = codeLines[i];
+      if (l && l.search(/\S/) === 0 && !l.trim().startsWith('#') && !l.trim().startsWith('.')) {
+        insertLine = i;
+        break;
+      }
+    }
+
+    const newCodeLines = [...codeLines];
+    const defLines = [`to ${trimmedFn}`, ...selectedLines.map(l => '    ' + l.trim()), '.', ''];
+    newCodeLines.splice(insertLine, 0, ...defLines);
+
+    return {
+      ok: true,
+      fnName: trimmedFn,
+      fnDef,
+      newCode: newCodeLines.join('\n')
+    };
+  }
+
+  // --- 10. Code Actions & Quick Fixes ---
+  getQuickFixes(diagnostic, sourceCode) {
+    const fixes = [];
+    if (!diagnostic || !diagnostic.message) return fixes;
+    const msg = diagnostic.message.toLowerCase();
+    const line = Number(diagnostic.line) || 1;
+    const lines = (sourceCode || '').split(/\r?\n/);
+
+    // 1. Missing block end '.'
+    if (msg.includes('expected "."') || (msg.includes('missing') && msg.includes('.'))) {
+      fixes.push({
+        title: "Add missing block end '.'",
+        kind: 'quickfix',
+        apply: () => {
+          const target = Math.max(0, Math.min(line - 1, lines.length));
+          lines.splice(target + 1, 0, '.');
+          return lines.join('\n');
+        }
+      });
+    }
+
+    // 2. Fix block indentation
+    if (msg.includes('indent') || msg.includes('indentation')) {
+      fixes.push({
+        title: 'Fix line indentation (4 spaces)',
+        kind: 'quickfix',
+        apply: () => {
+          const target = Math.max(0, Math.min(line - 1, lines.length - 1));
+          lines[target] = '    ' + lines[target].trim();
+          return lines.join('\n');
+        }
+      });
+    }
+
+    // 3. Declare variable for undeclared variable error
+    const undefinedMatch = diagnostic.message.match(/could not find anything called "([^"]+)"/i) || diagnostic.message.match(/undefined variable ([A-Za-z0-9_]+)/i);
+    if (undefinedMatch) {
+      const varName = undefinedMatch[1];
+      fixes.push({
+        title: `Declare variable 'make ${varName} is gone'`,
+        kind: 'quickfix',
+        apply: () => {
+          const target = Math.max(0, Math.min(line - 1, lines.length));
+          lines.splice(target, 0, `make ${varName} is gone`);
+          return lines.join('\n');
+        }
+      });
+    }
+
+    // 4. Remove unused variable declaration
+    if (diagnostic.code === 'unused-variable' && diagnostic.symbolName) {
+      fixes.push({
+        title: `Remove unused variable '${diagnostic.symbolName}'`,
+        kind: 'quickfix',
+        apply: () => {
+          const target = Math.max(0, Math.min(line - 1, lines.length - 1));
+          lines.splice(target, 1);
+          return lines.join('\n');
+        }
+      });
+    }
+
+    return fixes;
+  }
+
+  // --- 11. Symbol Outline Filtering ---
+  filterOutlineSymbols(symbols, query) {
+    if (!Array.isArray(symbols)) return [];
+    const q = (query || '').trim().toLowerCase();
+    if (!q) return symbols;
+    return symbols.filter(s => {
+      const name = (s.Name || s.name || '').toLowerCase();
+      const kind = (s.Kind || s.kind || '').toLowerCase();
+      return name.includes(q) || kind.includes(q);
+    });
+  }
+
+  // --- 12. Workspace Symbol Search ---
+  searchWorkspaceSymbols(workspaceSymbols, query) {
+    if (!Array.isArray(workspaceSymbols)) return [];
+    const q = (query || '').trim().toLowerCase();
+    const symbols = workspaceSymbols.filter(s => {
+      if (!q) return true;
+      const name = (s.Name || s.name || '').toLowerCase();
+      const file = (s.File || s.file || '').toLowerCase();
+      const kind = (s.Kind || s.kind || '').toLowerCase();
+      return name.includes(q) || file.includes(q) || kind.includes(q);
+    });
+
+    return symbols.map(s => {
+      const kind = (s.Kind || s.kind || 'symbol').toLowerCase();
+      const icon = kind === 'function' ? 'ƒ' : (kind === 'ui' ? '⊞' : (kind === 'object' ? '◇' : 'v'));
+      const filePath = s.File || s.file || '';
+      const fileName = filePath.split(/[\\/]/).pop() || 'file.ot';
+      return {
+        type: 'symbol',
+        label: s.Name || s.name,
+        detail: `${fileName} (${kind})`,
+        path: filePath,
+        line: Number(s.Line || s.line) || 1,
+        column: Number(s.Column || s.column) || 0,
+        icon
+      };
+    });
+  }
 }
 
 export const otterLanguageService = new OtterLanguageService();
+
+// Standalone exports for modular consumption and testing
+export const filterOutlineSymbols = (symbols, query) => otterLanguageService.filterOutlineSymbols(symbols, query);
+export const searchWorkspaceSymbols = (workspaceSymbols, query) => otterLanguageService.searchWorkspaceSymbols(workspaceSymbols, query);
+export const computeSemanticDiagnostics = (source, symbols, astReferences) => otterLanguageService.computeSemanticDiagnostics(source, symbols, astReferences);
+export const prepareExtractFunction = (selectedText, fnName, currentCode, cursorLine) => otterLanguageService.prepareExtractFunction(selectedText, fnName, currentCode, cursorLine);
+export const getQuickFixes = (diagnostic, sourceCode) => otterLanguageService.getQuickFixes(diagnostic, sourceCode);
+

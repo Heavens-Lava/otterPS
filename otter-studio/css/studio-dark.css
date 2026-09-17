@@ -382,9 +382,36 @@ body.theme-dark {
 
 .theme-dark .tok-comment { color: #7890a8; font-style: italic; }
 .theme-dark .tok-kw { color: #50b4ff; }
-.theme-dark .tok-var { color: #e2edf8; }
+.theme-dark .tok-var { color: #9cdcfe; }
+.theme-dark .tok-fn { color: #e5c07b; font-weight: 600; }
+.theme-dark .tok-ui { color: #4ec9b0; font-weight: 600; }
+.theme-dark .tok-bool { color: #c678dd; font-weight: 600; }
 .theme-dark .tok-str { color: #f5a35c; }
 .theme-dark .tok-num { color: #74d6c0; }
+
+.theme-dark .code-line.has-warning {
+  text-decoration: underline wavy #e5c07b;
+  background: rgba(229, 192, 123, 0.1);
+}
+
+.theme-dark .line-numbers-gutter span.gutter-warn {
+  color: #e5c07b;
+  font-weight: 700;
+  position: relative;
+}
+
+.theme-dark .line-numbers-gutter span.gutter-warn::before {
+  content: '▲';
+  font-size: 8px;
+  color: #e5c07b;
+  position: absolute;
+  left: 4px;
+}
+
+.theme-dark .outline-symbol-icon.kind-fn { color: #e5c07b; }
+.theme-dark .outline-symbol-icon.kind-var { color: #9cdcfe; }
+.theme-dark .outline-symbol-icon.kind-obj { color: #c678dd; }
+.theme-dark .outline-symbol-icon.kind-ui { color: #4ec9b0; }
 
 .theme-dark .studio-bottom-drawer,
 .theme-dark .drawer-content {

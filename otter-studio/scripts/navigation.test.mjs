@@ -179,7 +179,109 @@ const invalidRename = otterLanguageService.prepareRename('score', '123bad', 'mai
 assert.equal(invalidRename.ok, false);
 assert.match(invalidRename.error, /not a valid Otter identifier/);
 
-console.log('Studio navigation tests passed: project flattening, fuzzy Quick Open, ordered outlines, history, hover documentation, word extraction, signature help, function parameters, cross-file definition, safe references, and preview rename.');
+// --- 1. Symbol Outline Filtering ---
+const outlineSymbols = [
+  { Name: 'initApp', Kind: 'function', Line: 1 },
+  { Name: 'userCount', Kind: 'variable', Line: 5 },
+  { Name: 'appWindow', Kind: 'ui', Line: 10 }
+];
+const filteredOutline = otterLanguageService.filterOutlineSymbols(outlineSymbols, 'user');
+assert.equal(filteredOutline.length, 1);
+assert.equal(filteredOutline[0].Name, 'userCount');
+const filteredByKind = otterLanguageService.filterOutlineSymbols(outlineSymbols, 'function');
+assert.equal(filteredByKind.length, 1);
+assert.equal(filteredByKind[0].Name, 'initApp');
+assert.equal(otterLanguageService.filterOutlineSymbols(outlineSymbols, 'nomatch').length, 0);
+
+// --- 2. Workspace Symbol Search ---
+const multiFileWorkspace = [
+  { Name: 'startServer', Kind: 'function', File: 'src/server.ot', Line: 1 },
+  { Name: 'configObj', Kind: 'object', File: 'src/config.ot', Line: 3 },
+  { Name: 'submitBtn', Kind: 'ui', File: 'src/ui.ot', Line: 12 }
+];
+const wsResults = otterLanguageService.searchWorkspaceSymbols(multiFileWorkspace, 'server');
+assert.equal(wsResults.length, 1);
+assert.equal(wsResults[0].label, 'startServer');
+assert.equal(wsResults[0].icon, 'ƒ');
+assert.equal(wsResults[0].path, 'src/server.ot');
+
+// --- 3. Safe Extract-Function Refactoring (with No-Hoisting Pre-Declaration) ---
+const extractTestSource = `
+to runProcess
+    make val is 5
+    say val
+.
+`;
+const extracted = otterLanguageService.prepareExtractFunction('say val', 'logVal', extractTestSource, 4);
+assert.equal(extracted.ok, true);
+assert.equal(extracted.fnName, 'logVal');
+// Verify new function definition is inserted BEFORE the caller (to runProcess)
+const defIndex = extracted.newCode.indexOf('to logVal');
+const callerIndex = extracted.newCode.indexOf('to runProcess');
+assert.ok(defIndex !== -1 && callerIndex !== -1, 'both definition and caller must exist');
+assert.ok(defIndex < callerIndex, 'Otter has no function hoisting: extracted function MUST be defined before caller');
+assert.match(extracted.newCode, /logVal\n\./, 'call site must be replaced with new function identifier');
+
+// Verify validation on invalid identifier
+const badExtract = otterLanguageService.prepareExtractFunction('say val', '123_invalid', extractTestSource, 4);
+assert.equal(badExtract.ok, false);
+assert.match(badExtract.error, /valid Otter identifier/);
+
+// --- 4. Code Actions & Quick Fixes ---
+const missingDotFixes = otterLanguageService.getQuickFixes({ message: 'expected "." to close block', line: 2 }, 'to hello\n    say "hi"');
+assert.equal(missingDotFixes.length, 1);
+assert.equal(missingDotFixes[0].title, "Add missing block end '.'");
+assert.equal(missingDotFixes[0].apply(), 'to hello\n    say "hi"\n.');
+
+const indentFixes = otterLanguageService.getQuickFixes({ message: 'expected indentation of 4 spaces', line: 2 }, 'to hello\nsay "hi"\n.');
+assert.equal(indentFixes.length, 1);
+assert.equal(indentFixes[0].apply(), 'to hello\n    say "hi"\n.');
+
+const undeclaredFixes = otterLanguageService.getQuickFixes({ message: 'could not find anything called "userTotal"', line: 1 }, 'say userTotal');
+assert.equal(undeclaredFixes.length, 1);
+assert.match(undeclaredFixes[0].apply(), /make userTotal is gone\nsay userTotal/);
+
+// --- 5. Unused-Variable Diagnostics ---
+const unusedVarSource = `
+make usedVar is 10
+make unusedVar is 20
+say usedVar
+`;
+const semanticSymbols = [
+  { Name: 'usedVar', Kind: 'variable', Line: 2, ScopeId: 0 },
+  { Name: 'unusedVar', Kind: 'variable', Line: 3, ScopeId: 0 }
+];
+const astRefs = [
+  { Name: 'usedVar', IsDeclaration: true, ScopeId: 0, Line: 2 },
+  { Name: 'unusedVar', IsDeclaration: true, ScopeId: 0, Line: 3 },
+  { Name: 'usedVar', IsDeclaration: false, ScopeId: 0, Line: 4 } // read of usedVar
+];
+const diagnostics = otterLanguageService.computeSemanticDiagnostics(unusedVarSource, semanticSymbols, astRefs);
+const unusedWarnings = diagnostics.filter(d => d.code === 'unused-variable');
+assert.equal(unusedWarnings.length, 1);
+assert.equal(unusedWarnings[0].symbolName, 'unusedVar');
+assert.equal(unusedWarnings[0].line, 3);
+assert.match(unusedWarnings[0].message, /declared but never read/);
+
+// Quick fix for unused variable
+const unusedFixes = otterLanguageService.getQuickFixes(unusedWarnings[0], unusedVarSource);
+assert.equal(unusedFixes.length, 1);
+assert.match(unusedFixes[0].title, /Remove unused variable 'unusedVar'/);
+
+// --- 6. Unreachable-Code Diagnostics ---
+const unreachableSource = `
+to checkStatus
+    return 100
+    say "This line is unreachable"
+.
+`;
+const unreachableDiags = otterLanguageService.computeSemanticDiagnostics(unreachableSource, [], []);
+const unreachableWarnings = unreachableDiags.filter(d => d.code === 'unreachable-code');
+assert.equal(unreachableWarnings.length, 1);
+assert.equal(unreachableWarnings[0].line, 4);
+assert.match(unreachableWarnings[0].message, /Unreachable code detected after return or stop/);
+
+console.log('Studio navigation tests passed: project flattening, fuzzy Quick Open, ordered outlines, history, hover documentation, word extraction, signature help, function parameters, cross-file definition, safe references, preview rename, outline filtering, workspace symbol search, safe extract-function, code actions/quick fixes, unused-variable diagnostics, and unreachable-code diagnostics.');
 
 
 

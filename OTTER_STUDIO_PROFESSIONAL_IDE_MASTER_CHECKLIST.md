@@ -298,10 +298,10 @@ platform.
 -   [x] Go to definition (F12 and Ctrl+Click symbol-index resolver with cross-file lookup and history preservation)
 -   [x] Find references (AST-backed scope-aware references displayed in Search pane with clickable navigation)
 -   [x] Rename (AST/scope-aware symbol rename with pre-modification preview diff modal)
--   [ ] Code actions/quick fixes
--   [ ] Extract function
--   [ ] Unused/unreachable diagnostics
--   [ ] Semantic highlighting
+-   [x] Code actions/quick fixes (in-editor Alt+Enter and problem-banner suggestions for block closures, indentation, undeclared variables, and unused declarations)
+-   [x] Extract function (safe selection refactoring preserving Otter's sequential pre-declaration / no-hoisting invariant via Ctrl+Shift+R)
+-   [x] Unused/unreachable diagnostics (AST and scope-backed warnings with amber squiggles, gutter warnings, and problem status advisory)
+-   [x] Semantic highlighting (real-time scope-aware colorization for user functions, variables, and UI elements)
 -   [x] Documentation hover (rich syntax signatures, explanations, and usage examples)
 -   [ ] Cross-file/module resolution
 -   [ ] LSP support if beneficial
