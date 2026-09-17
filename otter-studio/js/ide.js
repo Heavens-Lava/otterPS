@@ -11,6 +11,16 @@ import {
 import { getHoverInfo, getWordAtOffset } from './navigation/hover-provider.js';
 import { getSignatureHelp } from './navigation/signature-provider.js';
 import { otterLanguageService } from './language/otter-language-service.js';
+import {
+  getLanguageForFile,
+  getFileIcon,
+  highlightSourceLine,
+  isOtterFile
+} from './editor/file-language-router.js';
+import { highlightCssLine } from './editor/syntax/css.js';
+import { highlightJsonLine } from './editor/syntax/json.js';
+import { highlightOtterLine } from './editor/syntax/otter.js';
+import { snapshotTabState, restoreTabState } from './editor/document-state.js';
 
 export class OtterStudioIde {
   constructor() {
@@ -188,9 +198,11 @@ export class OtterStudioIde {
       this.renderCleanProjectTree();
       await this.loadFile(fileParam);
     } else {
-      // Clean startup: fresh untitled file, no pre-opened folder
-      this.renderCleanProjectTree();
-      this.loadUntitledFile();
+      const restored = await this.restoreSessionState();
+      if (!restored) {
+        this.renderCleanProjectTree();
+        this.loadUntitledFile();
+      }
     }
 
     this.startExternalChangeMonitor();
@@ -1316,7 +1328,7 @@ export class OtterStudioIde {
     }
 
     const fileName = filePath.split('/').pop();
-    const icon = fileName.endsWith('.ot') ? '📄' : (fileName.endsWith('.css') ? '🎨' : (fileName.endsWith('.json') ? '⚙' : '📝'));
+    const icon = getFileIcon(filePath);
     const newTab = {
       path: filePath,
       name: fileName,
@@ -1326,7 +1338,11 @@ export class OtterStudioIde {
       diskRevision: fileRevision,
       externalRevision: null,
       externalContent: null,
-      externalDeleted: false
+      externalDeleted: false,
+      selectionStart: 0,
+      selectionEnd: 0,
+      scrollTop: 0,
+      scrollLeft: 0
     };
     this.openTabs.push(newTab);
     this.activateTab(filePath);
@@ -1335,6 +1351,15 @@ export class OtterStudioIde {
   activateTab(filePath) {
     const tab = this.openTabs.find(t => t.path === filePath);
     if (!tab) return;
+
+    // Snapshot departing tab's unsaved text, caret selection, and scroll offsets
+    if (this.currentFile && this.currentFile !== filePath) {
+      const prevTab = this.openTabs.find(t => t.path === this.currentFile);
+      if (prevTab) {
+        const textarea = document.getElementById('hiddenEditorInput');
+        snapshotTabState(prevTab, textarea);
+      }
+    }
 
     this.currentFile = tab.path;
     this.currentCode = tab.content;
@@ -1364,11 +1389,19 @@ export class OtterStudioIde {
     if (filePath.endsWith('.css') && window.otterCssAstManager) {
       try {
         window.otterCssAstManager.parse(this.currentCode);
+        const styleTag = document.getElementById('canvasUserCss');
+        if (styleTag) {
+          styleTag.textContent = window.otterCssAstManager.generateCss();
+        }
       } catch (err) {
         console.warn('CSS AST sync on tab activate:', err);
       }
     }
 
+    // Restore caret position and scroll offset for newly activated tab
+    restoreTabState(tab, textarea, this.codeAreaEl, this.gutterEl);
+
+    this.saveSessionState();
     window.dispatchEvent(new CustomEvent('otter:ensure-editor-visible', { detail: { path: filePath } }));
   }
 
@@ -1924,6 +1957,13 @@ export class OtterStudioIde {
 
   saveSessionState() {
     try {
+      const activeTextarea = document.getElementById('hiddenEditorInput');
+      if (activeTextarea && this.currentFile) {
+        const curTab = this.openTabs.find(t => t.path === this.currentFile);
+        if (curTab) {
+          snapshotTabState(curTab, activeTextarea);
+        }
+      }
       const session = {
         currentFile: this.currentFile,
         currentFolder: this.currentProjectFolder,
@@ -1933,14 +1973,18 @@ export class OtterStudioIde {
           content: t.content,
           isDirty: t.isDirty,
           icon: t.icon,
-          diskRevision: t.diskRevision || null
+          diskRevision: t.diskRevision || null,
+          selectionStart: t.selectionStart,
+          selectionEnd: t.selectionEnd,
+          scrollTop: t.scrollTop,
+          scrollLeft: t.scrollLeft
         }))
       };
       localStorage.setItem('otter_studio_session', JSON.stringify(session));
     } catch (e) {}
   }
 
-  restoreSessionState() {
+  async restoreSessionState() {
     try {
       const saved = localStorage.getItem('otter_studio_session');
       if (!saved) return false;
@@ -1955,8 +1999,10 @@ export class OtterStudioIde {
         this.renderEditorCode(this.currentCode);
         this.lintCurrentCode();
         if (this.currentProjectFolder) {
-          this.loadProjectTree(this.currentProjectFolder);
+          await this.loadProjectTree(this.currentProjectFolder);
         }
+        const textarea = document.getElementById('hiddenEditorInput');
+        restoreTabState(curTab, textarea, this.codeAreaEl, this.gutterEl);
         return true;
       }
     } catch {
@@ -2099,42 +2145,11 @@ export class OtterStudioIde {
   }
 
   syntaxHighlightCssLine(line) {
-    const trimmed = line.trim();
-    if (trimmed.startsWith('/*') && trimmed.endsWith('*/')) {
-      return `<span class="tok-comment">${this.escapeHtml(line)}</span>`;
-    }
-    let l = this.escapeHtml(line);
-    l = l.replace(/\/\*[\s\S]*?\*\//g, '<span class="tok-comment">$&</span>');
-    l = l.replace(/"([^"]*)"|'([^']*)'/g, '<span class="tok-str">$&</span>');
-
-    if (l.includes('{')) {
-      const parts = l.split('{');
-      const selector = parts[0]
-        .replace(/([#][A-Za-z0-9_-]+)/g, '<span class="tok-ui">$1</span>')
-        .replace(/([.][A-Za-z0-9_-]+)/g, '<span class="tok-fn">$1</span>')
-        .replace(/\b(window|button|label|textbox|canvas|body|div|span|h1|h2|h3|p|a|input)\b/g, '<span class="tok-kw">$1</span>');
-      l = selector + '{' + parts.slice(1).join('{');
-    } else if (l.includes(':')) {
-      const colonIdx = l.indexOf(':');
-      const prop = l.substring(0, colonIdx);
-      const val = l.substring(colonIdx + 1);
-      const highlightedProp = prop.replace(/([a-zA-Z-]+)/g, '<span class="tok-var">$1</span>');
-      const highlightedVal = val
-        .replace(/#[0-9a-fA-F]{3,8}\b/g, '<span class="tok-ui">$&</span>')
-        .replace(/\b(\d+(?:\.\d+)?(?:px|em|rem|%|vh|vw|s|ms)?)\b/g, '<span class="tok-num">$1</span>')
-        .replace(/\b(true|false|none|block|flex|grid|inline|absolute|relative|fixed|auto|center|bold|solid|hidden)\b/g, '<span class="tok-kw">$1</span>');
-      l = highlightedProp + ':' + highlightedVal;
-    }
-    return l;
+    return highlightCssLine(line);
   }
 
   syntaxHighlightJsonLine(line) {
-    let l = this.escapeHtml(line);
-    l = l.replace(/"([^"]+)"(?=\s*:)/g, '<span class="tok-var">"$1"</span>');
-    l = l.replace(/(:\s*)"([^"]*)"/g, '$1<span class="tok-str">"$2"</span>');
-    l = l.replace(/(:\s*)(\d+(?:\.\d+)?)/g, '$1<span class="tok-num">$2</span>');
-    l = l.replace(/(:\s*)(true|false|null)\b/g, '$1<span class="tok-bool">$2</span>');
-    return l;
+    return highlightJsonLine(line);
   }
 
   syntaxHighlightLine(line) {
@@ -2144,74 +2159,7 @@ export class OtterStudioIde {
     if (this.currentFile?.endsWith('.json')) {
       return this.syntaxHighlightJsonLine(line);
     }
-
-    if (line.trim().startsWith('#')) {
-      return `<span class="tok-comment">${this.escapeHtml(line)}</span>`;
-    }
-
-    // Get current symbols for semantic highlighting
-    const currentSymbols = symbolsForFile(this.workspaceSymbols, this.currentFile);
-    const userFns = new Set(currentSymbols.filter(s => (s.Kind || s.kind) === 'function').map(s => (s.Name || s.name || '').toLowerCase()));
-    const userVars = new Set(currentSymbols.filter(s => ['variable', 'parameter', 'loop-variable'].includes((s.Kind || s.kind || '').toLowerCase())).map(s => (s.Name || s.name || '').toLowerCase()));
-    const uiWidgets = new Set(['window', 'button', 'label', 'textbox', 'canvas', 'box', 'column', 'row', 'stack', 'card', 'slider', 'checkbox']);
-
-    let l = this.escapeHtml(line);
-
-    // Strings
-    l = l.replace(/"([^"]*)"/g, '<span class="tok-str">"$1"</span>');
-
-    // Numbers
-    l = l.replace(/\b(\d+(?:\.\d+)?)\b/g, '<span class="tok-num">$1</span>');
-
-    // Booleans & Special Values
-    l = l.replace(/\b(true|false|gone)\b/g, '<span class="tok-bool">$1</span>');
-
-    // Multi-word keywords & comparison operators
-    const multiWordKeywords = [
-      'is at least', 'is at most', 'is greater than', 'is less than', 'is not',
-      'get files in', 'get folders in', 'and subfolders into', 'copy file to',
-      'for each', 'name of', 'extension of', 'create folder', 'divided by',
-      'on tick', 'on key'
-    ];
-
-    for (const kw of multiWordKeywords) {
-      const reg = new RegExp(`\\b(${kw})\\b`, 'gi');
-      l = l.replace(reg, '<span class="tok-kw">$1</span>');
-    }
-
-    // Single keywords
-    const singleKeywords = [
-      'to', 'make', 'when', 'function', 'return', 'stop', 'if', 'otherwise',
-      'while', 'count', 'repeat', 'has', 'is', 'add', 'remove', 'put',
-      'ask', 'display', 'wait', 'say', 'get', 'into', 'not', 'and', 'or',
-      'game'
-    ];
-
-    for (const kw of singleKeywords) {
-      const reg = new RegExp(`\\b(${kw})\\b`, 'gi');
-      l = l.replace(reg, '<span class="tok-kw">$1</span>');
-    }
-
-    // Period block terminator
-    l = l.replace(/(^|\s)(\.)(\s|$)/g, '$1<span class="tok-kw">.</span>$3');
-
-    // Semantic Highlighting for user functions, variables, and UI widgets (only outside existing HTML tags)
-    l = l.replace(/(<[^>]+>)|(\b[A-Za-z_][A-Za-z0-9_]*\b)/g, (match, tag, word) => {
-      if (tag) return tag;
-      const lower = (word || '').toLowerCase();
-      if (userFns.has(lower)) {
-        return `<span class="tok-fn">${word}</span>`;
-      }
-      if (uiWidgets.has(lower)) {
-        return `<span class="tok-ui">${word}</span>`;
-      }
-      if (userVars.has(lower)) {
-        return `<span class="tok-var">${word}</span>`;
-      }
-      return word;
-    });
-
-    return l;
+    return highlightOtterLine(line, this.workspaceSymbols, this.currentFile);
   }
 
   setupInlineEditor() {

@@ -208,6 +208,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (cssAstManager) {
         try {
           cssAstManager.parse(source);
+          const styleTag = document.getElementById('canvasUserCss');
+          if (styleTag) {
+            styleTag.textContent = cssAstManager.generateCss();
+          }
         } catch (e) {
           console.warn('CSS AST manager parse failed:', e);
         }
@@ -639,9 +643,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  // Auto-open modal on fresh startup if no folder/project/file is set
+  // Auto-open modal on fresh startup if no folder/project/file is set and no previous session restored
   const hasSpecificTarget = urlParams.get('folder') || urlParams.get('project') || urlParams.get('file');
-  if (!hasSpecificTarget) {
+  const hasRestoredSession = ide.currentProjectFolder || (ide.openTabs.length > 0 && ide.openTabs[0].path !== 'untitled.ot');
+  if (!hasSpecificTarget && !hasRestoredSession) {
     openNewProjectModal();
   }
 });
