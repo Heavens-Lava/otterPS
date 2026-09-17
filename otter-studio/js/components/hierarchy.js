@@ -43,7 +43,7 @@ export function renderHierarchy(containerEl, uiModel, cssAstManager = null) {
 
     function renderNode(comp, depth = 0) {
       const schema = ComponentSchema[comp.kind] || {};
-      const isSelected = uiModel.selectedId === comp.id;
+      const isSelected = uiModel.isSelected(comp.id);
       const hasChildren = comp.children && comp.children.length > 0;
       const isCollapsed = collapsedNodes.has(comp.id);
 
@@ -81,24 +81,19 @@ export function renderHierarchy(containerEl, uiModel, cssAstManager = null) {
         });
       }
 
-      // Selection
+      // Selection (Single select or Ctrl+Click multi-select)
       nodeEl.addEventListener('click', (e) => {
         e.stopPropagation();
-        uiModel.select(comp.id);
+        const multi = e.ctrlKey || e.metaKey;
+        uiModel.select(comp.id, multi);
       });
 
-      // Hover canvas highlight
+      // Hover canvas highlight on overlay
       nodeEl.addEventListener('mouseenter', () => {
-        const canvasEl = document.getElementById(comp.name);
-        if (canvasEl && !canvasEl.classList.contains('is-selected')) {
-          canvasEl.style.outline = '2px dashed #60a5fa';
-        }
+        window.dispatchEvent(new CustomEvent('otter:highlight-component', { detail: { id: comp.id } }));
       });
       nodeEl.addEventListener('mouseleave', () => {
-        const canvasEl = document.getElementById(comp.name);
-        if (canvasEl && !canvasEl.classList.contains('is-selected')) {
-          canvasEl.style.outline = '';
-        }
+        window.dispatchEvent(new CustomEvent('otter:highlight-component', { detail: { id: null } }));
       });
 
       // Action buttons

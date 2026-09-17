@@ -17,15 +17,23 @@ export function renderProperties(containerEl, uiModel, cssAstManager) {
     const cssDecls = cssAstManager ? cssAstManager.getRuleDeclarations(selector) : {};
     const props = selected.properties || {};
 
+    const count = uiModel.selectedIds.size;
+    const badgeText = count > 1 ? `${selected.kind} (${count} selected)` : selected.kind;
+
     containerEl.innerHTML = `
       <div class="properties-header">
         <span class="panel-title">Properties</span>
-        <span class="badge badge-accent">${selected.kind}</span>
+        <span class="badge badge-accent">${badgeText}</span>
       </div>
       <div class="properties-body" id="propertiesBody">
         <!-- Identity Group -->
         <div class="prop-group">
           <div class="prop-group-title">Otter Identity</div>
+          ${count > 1 ? `
+            <div class="prop-row" style="color: #93c5fd; font-size: 11px; margin-bottom: 6px;">
+              <span>Multi-select active (${count} components). Showing primary:</span>
+            </div>
+          ` : ''}
           <div class="prop-row">
             <label class="prop-label">Selector</label>
             <div class="selector-badge">${selector}</div>

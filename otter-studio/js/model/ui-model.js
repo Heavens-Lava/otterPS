@@ -7,6 +7,7 @@ export class OtterUiModel {
     this.components = new Map();
     this.rootId = null;
     this.selectedId = null;
+    this.selectedIds = new Set();
     this.events = new Map(); // id -> { [eventKind]: handlerCode }
     this.listeners = new Set();
     this.nameCounters = {};
@@ -38,6 +39,7 @@ export class OtterUiModel {
     });
     this.rootId = root.id;
     this.selectedId = root.id;
+    this.selectedIds = new Set([root.id]);
   }
 
   // --- Snapshot & History (Undo / Redo) ---
@@ -51,6 +53,7 @@ export class OtterUiModel {
       }]),
       rootId: this.rootId,
       selectedId: this.selectedId,
+      selectedIds: Array.from(this.selectedIds),
       events: Array.from(this.events.entries()).map(([k, v]) => [k, { ...v }]),
       nameCounters: { ...this.nameCounters }
     };
@@ -64,6 +67,7 @@ export class OtterUiModel {
     }]));
     this.rootId = snap.rootId;
     this.selectedId = snap.selectedId;
+    this.selectedIds = new Set(snap.selectedIds || (snap.selectedId ? [snap.selectedId] : []));
     this.events = new Map(snap.events.map(([k, v]) => [k, { ...v }]));
     this.nameCounters = { ...snap.nameCounters };
   }
@@ -122,6 +126,7 @@ export class OtterUiModel {
     this.events.clear();
     this.rootId = null;
     this.selectedId = null;
+    this.selectedIds.clear();
     this.nameCounters = {};
     this.undoStack = [];
     this.redoStack = [];
@@ -183,11 +188,38 @@ export class OtterUiModel {
     return this.components.get(this.rootId) || null;
   }
 
-  select(id) {
-    if (this.selectedId !== id) {
-      this.selectedId = id;
-      this.notify('select', { id });
+  select(id, multi = false) {
+    if (id === null) {
+      this.selectedId = null;
+      this.selectedIds.clear();
+      this.notify('select', { id: null, selectedIds: [] });
+      return;
     }
+
+    if (multi) {
+      if (this.selectedIds.has(id)) {
+        this.selectedIds.delete(id);
+        const arr = Array.from(this.selectedIds);
+        this.selectedId = arr.length > 0 ? arr[arr.length - 1] : null;
+      } else {
+        this.selectedIds.add(id);
+        this.selectedId = id;
+      }
+    } else {
+      this.selectedIds.clear();
+      this.selectedIds.add(id);
+      this.selectedId = id;
+    }
+
+    this.notify('select', { id: this.selectedId, selectedIds: Array.from(this.selectedIds) });
+  }
+
+  isSelected(id) {
+    return this.selectedIds.has(id);
+  }
+
+  getSelectedComponents() {
+    return Array.from(this.selectedIds).map(id => this.getComponent(id)).filter(Boolean);
   }
 
   addChild(parentId, kind, properties = {}, atIndex = null) {
@@ -341,10 +373,12 @@ export class OtterUiModel {
     for (const removeId of toRemove) {
       this.components.delete(removeId);
       this.events.delete(removeId);
+      this.selectedIds.delete(removeId);
     }
 
-    if (this.selectedId === id) {
-      this.select(comp.parentId || this.rootId);
+    if (this.selectedId === id || !this.selectedIds.has(this.selectedId)) {
+      const nextId = comp.parentId || this.rootId;
+      this.select(nextId);
     }
 
     this.notify('remove', { id });

@@ -39,7 +39,7 @@ export function renderCanvas(containerEl, uiModel, cssAstManager) {
         </div>
       </div>
       <div class="canvas-viewport" id="canvasViewport">
-        <div class="canvas-window-wrapper ${uiModel.selectedId === root.id && !isInteractMode ? 'is-selected-window' : ''}" id="canvasWindowWrapper">
+        <div class="canvas-window-wrapper otter-window ${uiModel.isSelected(root.id) && !isInteractMode ? 'is-selected-window' : ''}" id="canvasWindowWrapper">
           <div class="window-titlebar">
             <div class="window-dots">
               <span class="dot dot-red"></span>
@@ -52,12 +52,16 @@ export function renderCanvas(containerEl, uiModel, cssAstManager) {
           <div class="window-content-area" id="${root.name}" data-id="${root.id}"></div>
         </div>
 
-        <!-- GrapesJS-style Decoupled Designer Overlay -->
-        <div class="designer-canvas-overlay" id="designerOverlay" style="display: none;">
-          <div class="designer-target-box" id="designerTargetBox">
+        <!-- Decoupled Designer Overlay -->
+        <div class="designer-canvas-overlay" id="designerOverlay" style="${isInteractMode ? 'display: none;' : ''}">
+          <div id="designerSelectionContainer"></div>
+          <div class="designer-hover-box" id="designerHoverBox" style="display: none;">
+            <span class="designer-hover-badge" id="designerHoverBadge"></span>
+          </div>
+          <div class="designer-target-box" id="designerTargetBox" style="display: none;">
             <span class="designer-target-badge" id="designerTargetBadge"></span>
           </div>
-          <div class="designer-insertion-line" id="designerInsertionLine">
+          <div class="designer-insertion-line" id="designerInsertionLine" style="display: none;">
             <div class="line-dot dot-start"></div>
             <div class="line-dot dot-end"></div>
           </div>
@@ -105,6 +109,13 @@ export function renderCanvas(containerEl, uiModel, cssAstManager) {
       });
     }
 
+    // Viewport background click deselects
+    viewportEl.addEventListener('click', (e) => {
+      if (!isInteractMode && e.target === viewportEl) {
+        uiModel.select(null);
+      }
+    });
+
     // Root click selects window if in design mode
     contentArea.addEventListener('click', (e) => {
       if (!isInteractMode && e.target === contentArea) {
@@ -112,8 +123,13 @@ export function renderCanvas(containerEl, uiModel, cssAstManager) {
       }
     });
 
-    if (!isInteractMode && uiModel.selectedId === root.id && windowWrapper) {
-      attachResizeHandles(windowWrapper, root);
+    const titlebarEl = containerEl.querySelector('.window-titlebar');
+    if (titlebarEl) {
+      titlebarEl.addEventListener('click', (e) => {
+        if (!isInteractMode && e.target !== titleTextEl) {
+          uiModel.select(root.id);
+        }
+      });
     }
 
     // Recursively render child components into contentArea
@@ -136,9 +152,89 @@ export function renderCanvas(containerEl, uiModel, cssAstManager) {
       contentArea.appendChild(promptEl);
     }
 
-    // Attach GrapesJS-style designer interaction layer to viewport (only in Design mode)
+    // Attach designer interaction layer to viewport (only in Design mode)
     if (!isInteractMode) {
       setupDesignerInteraction(viewportEl, contentArea, root);
+      updateOverlay();
+    }
+  }
+
+  function updateOverlay() {
+    if (isInteractMode) return;
+    const viewportEl = containerEl.querySelector('#canvasViewport');
+    const overlayEl = containerEl.querySelector('#designerOverlay');
+    const selectionContainer = containerEl.querySelector('#designerSelectionContainer');
+    const windowWrapper = containerEl.querySelector('#canvasWindowWrapper');
+    const root = uiModel.getRoot();
+    if (!viewportEl || !overlayEl || !selectionContainer || !root) return;
+
+    selectionContainer.innerHTML = '';
+    const vpRect = viewportEl.getBoundingClientRect();
+    const scrollLeft = viewportEl.scrollLeft;
+    const scrollTop = viewportEl.scrollTop;
+
+    for (const selectedId of uiModel.selectedIds) {
+      let targetEl = null;
+      if (selectedId === root.id) {
+        targetEl = windowWrapper;
+      } else {
+        targetEl = containerEl.querySelector(`[data-id="${selectedId}"]`);
+      }
+      if (!targetEl) continue;
+
+      const comp = uiModel.getComponent(selectedId);
+      if (!comp) continue;
+
+      const elRect = targetEl.getBoundingClientRect();
+      const left = elRect.left - vpRect.left + scrollLeft;
+      const top = elRect.top - vpRect.top + scrollTop;
+      const width = elRect.width;
+      const height = elRect.height;
+
+      const isPrimary = (selectedId === uiModel.selectedId);
+
+      const box = document.createElement('div');
+      box.className = `designer-selection-box ${isPrimary ? 'is-primary' : 'is-multi'}`;
+      box.setAttribute('data-selection-id', selectedId);
+      box.style.left = `${left}px`;
+      box.style.top = `${top}px`;
+      box.style.width = `${width}px`;
+      box.style.height = `${height}px`;
+
+      if (isPrimary) {
+        // Floating Selection Badge on Overlay
+        const badge = document.createElement('div');
+        badge.className = 'designer-selection-badge';
+        badge.innerHTML = `
+          <span class="badge-name">${escapeHtml(comp.name)}</span>
+          <span class="badge-kind">${escapeHtml(comp.kind)}</span>
+          <div class="badge-actions">
+            ${comp.id !== root.id ? `
+              <button class="badge-btn badge-dup" title="Duplicate (Ctrl+D)">⎘</button>
+              <button class="badge-btn badge-del" title="Delete (Del)">×</button>
+            ` : ''}
+          </div>
+        `;
+        badge.querySelector('.badge-dup')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          uiModel.duplicateComponent(comp.id, cssAstManager);
+        });
+        badge.querySelector('.badge-del')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          uiModel.removeComponent(comp.id);
+        });
+        box.appendChild(badge);
+
+        // Attach Overlay Resize Handles (E, S, SE)
+        ['handle-e', 'handle-s', 'handle-se'].forEach(handleClass => {
+          const handle = document.createElement('div');
+          handle.className = `designer-resize-handle ${handleClass}`;
+          attachOverlayResize(handle, handleClass, targetEl, comp, viewportEl, box);
+          box.appendChild(handle);
+        });
+      }
+
+      selectionContainer.appendChild(box);
     }
   }
 
@@ -315,72 +411,73 @@ export function renderCanvas(containerEl, uiModel, cssAstManager) {
 
   function renderCanvasComponent(comp, parentId, indexInParent) {
     const schema = ComponentSchema[comp.kind] || {};
-    const isSelected = !isInteractMode && uiModel.selectedId === comp.id;
     const props = comp.properties || {};
 
     const el = document.createElement('div');
     el.id = comp.name; // ID matches CSS selector #compName
-    el.className = `canvas-element ${schema.isContainer ? 'is-container' : 'is-control'} ${isSelected ? 'is-selected' : ''} ${isInteractMode ? 'is-interactive-mode' : ''}`;
+    el.className = `canvas-element ${schema.isContainer ? 'is-container' : 'is-control'} ${isInteractMode ? 'is-interactive-mode' : ''}`;
     el.setAttribute('data-id', comp.id);
     el.setAttribute('data-kind', comp.kind);
 
-    // Component-specific content
+    // Component-specific content with canonical Otter runtime classes
     switch (comp.kind) {
       case 'row':
-        el.classList.add('canvas-row');
+        el.classList.add('canvas-row', 'otter-row');
         break;
       case 'column':
-        el.classList.add('canvas-column');
+        el.classList.add('canvas-column', 'otter-column');
         break;
       case 'card':
-        el.classList.add('canvas-card', 'task-item');
+        el.classList.add('canvas-card', 'otter-card', 'task-item');
         break;
       case 'scroll':
-        el.classList.add('canvas-scroll');
+        el.classList.add('canvas-scroll', 'otter-scroll');
         break;
       case 'heading':
-        el.classList.add('canvas-heading');
+        el.classList.add('canvas-heading', 'otter-heading');
         el.innerText = props.text || 'Heading';
         break;
       case 'text':
-        el.classList.add('canvas-text');
+        el.classList.add('canvas-text', 'otter-text');
         el.innerText = props.text || 'Text Label';
         break;
       case 'button':
       case 'primary button':
       case 'danger button':
-        el.classList.add('canvas-button');
+        el.classList.add('canvas-button', 'otter-button', 'otter-btn');
+        if (comp.kind === 'primary button') el.classList.add('otter-btn-primary');
+        if (comp.kind === 'danger button') el.classList.add('otter-btn-danger');
         el.innerText = props.text || 'Button';
         break;
       case 'text box':
-        el.classList.add('canvas-textbox');
+        el.classList.add('canvas-textbox', 'otter-textbox', 'otter-input');
         el.innerText = props.text || props.placeholder || 'Enter text...';
         if (!props.text && props.placeholder) el.classList.add('is-placeholder');
         break;
       case 'checkbox':
-        el.classList.add('canvas-checkbox');
+        el.classList.add('canvas-checkbox', 'otter-checkbox');
         el.innerHTML = `
           <input type="checkbox" ${props.checked ? 'checked' : ''} ${!isInteractMode ? 'disabled style="pointer-events:none;"' : ''} />
           <span>${escapeHtml(props.text || 'Checkbox')}</span>
         `;
         break;
       case 'slider':
-        el.classList.add('canvas-slider');
+        el.classList.add('canvas-slider', 'otter-slider');
         el.innerHTML = `
           <div class="slider-track"><div class="slider-thumb" style="left: ${props.value || 50}%;"></div></div>
         `;
         break;
       case 'dropdown':
-        el.classList.add('canvas-dropdown');
+        el.classList.add('canvas-dropdown', 'otter-dropdown', 'otter-select');
         el.innerHTML = `<span>${escapeHtml(props.placeholder || 'Select option...')}</span><span class="arrow">▾</span>`;
         break;
       case 'progress bar':
-        el.classList.add('canvas-progress');
+        el.classList.add('canvas-progress', 'otter-progress');
         const pct = Math.min(100, Math.max(0, ((props.value || 0) / (props.maximum || 100)) * 100));
         el.innerHTML = `<div class="progress-bar-fill" style="width:${pct}%;background:${props.foreground || '#3b82f6'};"></div>`;
         break;
       case 'image':
-        el.classList.add('canvas-image');
+        el.classList.add('canvas-image', 'otter-image');
         el.innerHTML = `<img src="${escapeHtml(props.source || '')}" alt="" style="width:100%;height:100%;object-fit:cover;pointer-events:none;" />`;
         break;
     }
@@ -424,7 +521,8 @@ export function renderCanvas(containerEl, uiModel, cssAstManager) {
         });
       }
     } else {
-      // --- DESIGN MODE BEHAVIORS (Selection, Drag, Resize, Inline Edit) ---
+      // --- DESIGN MODE BEHAVIORS (Selection, Drag, Inline Edit) ---
+      // Note: Application DOM remains pure. Zero designer badges or handles are inserted here.
       if (['heading', 'text', 'button', 'primary button', 'danger button'].includes(comp.kind)) {
         el.title = 'Double-click to edit text';
         el.addEventListener('dblclick', (e) => {
@@ -440,32 +538,6 @@ export function renderCanvas(containerEl, uiModel, cssAstManager) {
             startInlineEdit(span, comp, 'text');
           });
         }
-      }
-
-      // Selection Badge and Resize Handles if selected
-      if (isSelected) {
-        const badge = document.createElement('div');
-        badge.className = 'selection-badge';
-        badge.innerHTML = `
-          <span class="badge-name">${comp.name}</span>
-          <span class="badge-kind">${comp.kind}</span>
-          <div class="badge-actions">
-            <button class="badge-btn badge-dup" title="Duplicate (Ctrl+D)">⎘</button>
-            <button class="badge-btn badge-del" title="Delete (Del)">×</button>
-          </div>
-        `;
-        badge.querySelector('.badge-dup').addEventListener('click', (e) => {
-          e.stopPropagation();
-          uiModel.duplicateComponent(comp.id, cssAstManager);
-        });
-        badge.querySelector('.badge-del').addEventListener('click', (e) => {
-          e.stopPropagation();
-          uiModel.removeComponent(comp.id);
-        });
-        el.appendChild(badge);
-
-        // Attach Resize Handles
-        attachResizeHandles(el, comp);
       }
 
       // Draggable element handling
@@ -491,10 +563,11 @@ export function renderCanvas(containerEl, uiModel, cssAstManager) {
         });
       }
 
-      // Click to select
+      // Click to select (Single click or Ctrl+Click multi-select)
       el.addEventListener('click', (e) => {
         e.stopPropagation();
-        uiModel.select(comp.id);
+        const multi = e.ctrlKey || e.metaKey;
+        uiModel.select(comp.id, multi);
       });
     }
 
@@ -513,70 +586,118 @@ export function renderCanvas(containerEl, uiModel, cssAstManager) {
   }
 
   // =========================================================================
-  // Interactive On-Canvas Resize Handles
+  // Decoupled Overlay Resize Handling (Mutates Supported Model/CSS Properties)
   // =========================================================================
 
-  function attachResizeHandles(targetEl, comp) {
-    if (!cssAstManager) return;
+  function attachOverlayResize(handleEl, handleClass, targetEl, comp, viewportEl, boxEl) {
+    handleEl.addEventListener('mousedown', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
 
-    ['handle-e', 'handle-s', 'handle-se'].forEach(handleClass => {
-      const handle = document.createElement('div');
-      handle.className = `resize-handle ${handleClass}`;
-      handle.addEventListener('mousedown', (e) => {
-        e.stopPropagation();
-        e.preventDefault();
+      const startX = e.clientX;
+      const startY = e.clientY;
+      const startRect = targetEl.getBoundingClientRect();
+      const selector = `#${comp.name}`;
+      const initialWidth = comp.properties.width !== undefined ? comp.properties.width : (cssAstManager ? cssAstManager.getProperty(selector, 'width') : null);
+      const initialHeight = comp.properties.height !== undefined ? comp.properties.height : (cssAstManager ? cssAstManager.getProperty(selector, 'height') : null);
 
-        const startX = e.clientX;
-        const startY = e.clientY;
-        const startRect = targetEl.getBoundingClientRect();
-        const selector = `#${comp.name}`;
-        const viewportEl = containerEl.querySelector('#canvasViewport');
+      const tooltip = document.createElement('div');
+      tooltip.className = 'resize-dimension-tooltip';
+      viewportEl.appendChild(tooltip);
 
-        const tooltip = document.createElement('div');
-        tooltip.className = 'resize-dimension-tooltip';
-        viewportEl.appendChild(tooltip);
+      let isCancelled = false;
 
-        function onMouseMove(moveEvent) {
-          moveEvent.preventDefault();
-          const deltaX = moveEvent.clientX - startX;
-          const deltaY = moveEvent.clientY - startY;
+      function onMouseMove(moveEvent) {
+        if (isCancelled) return;
+        moveEvent.preventDefault();
+        const deltaX = moveEvent.clientX - startX;
+        const deltaY = moveEvent.clientY - startY;
 
-          const newW = Math.max(32, Math.round((startRect.width + deltaX) / 8) * 8);
-          const newH = Math.max(28, Math.round((startRect.height + deltaY) / 8) * 8);
+        const newW = Math.max(32, Math.round((startRect.width + deltaX) / 8) * 8);
+        const newH = Math.max(28, Math.round((startRect.height + deltaY) / 8) * 8);
 
-          if (handleClass === 'handle-e') {
+        if (handleClass === 'handle-e') {
+          if (cssAstManager) cssAstManager.setProperty(selector, 'width', `${newW}px`);
+          comp.properties.width = `${newW}px`;
+          tooltip.textContent = `W: ${newW}px`;
+          boxEl.style.width = `${newW}px`;
+          targetEl.style.width = `${newW}px`;
+        } else if (handleClass === 'handle-s') {
+          if (cssAstManager) cssAstManager.setProperty(selector, 'height', `${newH}px`);
+          comp.properties.height = `${newH}px`;
+          tooltip.textContent = `H: ${newH}px`;
+          boxEl.style.height = `${newH}px`;
+          targetEl.style.height = `${newH}px`;
+        } else {
+          if (cssAstManager) {
             cssAstManager.setProperty(selector, 'width', `${newW}px`);
-            tooltip.textContent = `W: ${newW}px`;
-          } else if (handleClass === 'handle-s') {
             cssAstManager.setProperty(selector, 'height', `${newH}px`);
-            tooltip.textContent = `H: ${newH}px`;
+          }
+          comp.properties.width = `${newW}px`;
+          comp.properties.height = `${newH}px`;
+          tooltip.textContent = `${newW}px × ${newH}px`;
+          boxEl.style.width = `${newW}px`;
+          boxEl.style.height = `${newH}px`;
+          targetEl.style.width = `${newW}px`;
+          targetEl.style.height = `${newH}px`;
+        }
+
+        const vpRect = viewportEl.getBoundingClientRect();
+        tooltip.style.left = `${moveEvent.clientX - vpRect.left + viewportEl.scrollLeft + 12}px`;
+        tooltip.style.top = `${moveEvent.clientY - vpRect.top + viewportEl.scrollTop - 28}px`;
+
+        window.dispatchEvent(new CustomEvent('css-updated', { detail: { selector, source: 'resize' } }));
+      }
+
+      function onKeyDown(keyEvent) {
+        if (keyEvent.key === 'Escape') {
+          keyEvent.preventDefault();
+          keyEvent.stopPropagation();
+          isCancelled = true;
+          if (initialWidth !== null && initialWidth !== undefined) {
+            if (cssAstManager) cssAstManager.setProperty(selector, 'width', initialWidth);
+            comp.properties.width = initialWidth;
+            targetEl.style.width = initialWidth;
           } else {
-            cssAstManager.setProperty(selector, 'width', `${newW}px`);
-            cssAstManager.setProperty(selector, 'height', `${newH}px`);
-            tooltip.textContent = `${newW}px × ${newH}px`;
+            if (cssAstManager) cssAstManager.removeProperty(selector, 'width');
+            delete comp.properties.width;
+            targetEl.style.width = '';
           }
-
-          const vpRect = viewportEl.getBoundingClientRect();
-          tooltip.style.left = `${moveEvent.clientX - vpRect.left + viewportEl.scrollLeft + 12}px`;
-          tooltip.style.top = `${moveEvent.clientY - vpRect.top + viewportEl.scrollTop - 28}px`;
-
-          window.dispatchEvent(new CustomEvent('css-updated', { detail: { selector, source: 'resize' } }));
+          if (initialHeight !== null && initialHeight !== undefined) {
+            if (cssAstManager) cssAstManager.setProperty(selector, 'height', initialHeight);
+            comp.properties.height = initialHeight;
+            targetEl.style.height = initialHeight;
+          } else {
+            if (cssAstManager) cssAstManager.removeProperty(selector, 'height');
+            delete comp.properties.height;
+            targetEl.style.height = '';
+          }
+          cleanup();
+          updateOverlay();
         }
+      }
 
-        function onMouseUp() {
-          window.removeEventListener('mousemove', onMouseMove);
-          window.removeEventListener('mouseup', onMouseUp);
-          if (tooltip.parentNode) {
-            tooltip.parentNode.removeChild(tooltip);
-          }
+      function cleanup() {
+        window.removeEventListener('mousemove', onMouseMove);
+        window.removeEventListener('mouseup', onMouseUp);
+        window.removeEventListener('keydown', onKeyDown);
+        if (tooltip.parentNode) {
+          tooltip.parentNode.removeChild(tooltip);
+        }
+      }
+
+      function onMouseUp() {
+        cleanup();
+        if (!isCancelled) {
           uiModel.saveSnapshot();
+          uiModel.notify('property', { id: comp.id, prop: 'dimensions' });
+          updateOverlay();
         }
+      }
 
-        window.addEventListener('mousemove', onMouseMove);
-        window.addEventListener('mouseup', onMouseUp);
-      });
-
-      targetEl.appendChild(handle);
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('mouseup', onMouseUp);
+      window.addEventListener('keydown', onKeyDown);
     });
   }
 
@@ -693,6 +814,86 @@ export function renderCanvas(containerEl, uiModel, cssAstManager) {
           uiModel.moveChild(compId, hit.targetComp.id, hit.insertIndex);
         }
       }
+    });
+
+    // Mouse hover tracking for decoupled overlay outline
+    viewportEl.addEventListener('mousemove', (e) => {
+      if (isInteractMode || currentDraggedComponentId) return;
+      const hoverBox = containerEl.querySelector('#designerHoverBox');
+      const hoverBadge = containerEl.querySelector('#designerHoverBadge');
+      if (!hoverBox || !hoverBadge) return;
+
+      const target = e.target.closest('[data-id]');
+      if (!target || target === contentArea || target.getAttribute('data-id') === root.id) {
+        hoverBox.style.display = 'none';
+        return;
+      }
+
+      const hoverId = target.getAttribute('data-id');
+      if (uiModel.isSelected(hoverId)) {
+        hoverBox.style.display = 'none';
+        return;
+      }
+
+      const comp = uiModel.getComponent(hoverId);
+      if (!comp) {
+        hoverBox.style.display = 'none';
+        return;
+      }
+
+      const elRect = target.getBoundingClientRect();
+      const vpRect = viewportEl.getBoundingClientRect();
+      hoverBox.style.left = `${elRect.left - vpRect.left + viewportEl.scrollLeft}px`;
+      hoverBox.style.top = `${elRect.top - vpRect.top + viewportEl.scrollTop}px`;
+      hoverBox.style.width = `${elRect.width}px`;
+      hoverBox.style.height = `${elRect.height}px`;
+      hoverBadge.textContent = `${comp.name} (${comp.kind})`;
+      hoverBox.style.display = 'block';
+    });
+
+    viewportEl.addEventListener('mouseleave', () => {
+      const hoverBox = containerEl.querySelector('#designerHoverBox');
+      if (hoverBox) hoverBox.style.display = 'none';
+    });
+
+    // Viewport scroll and window resize keep overlay aligned
+    viewportEl.addEventListener('scroll', () => {
+      updateOverlay();
+    });
+    window.addEventListener('resize', () => {
+      updateOverlay();
+    });
+
+    // External hover events (e.g. from component tree)
+    window.addEventListener('otter:highlight-component', (e) => {
+      if (isInteractMode) return;
+      const hoverBox = containerEl.querySelector('#designerHoverBox');
+      const hoverBadge = containerEl.querySelector('#designerHoverBadge');
+      if (!hoverBox || !hoverBadge) return;
+
+      const compId = e.detail?.id;
+      if (!compId) {
+        hoverBox.style.display = 'none';
+        return;
+      }
+      const target = containerEl.querySelector(`[data-id="${compId}"]`);
+      if (!target || uiModel.isSelected(compId)) {
+        hoverBox.style.display = 'none';
+        return;
+      }
+      const comp = uiModel.getComponent(compId);
+      if (!comp) {
+        hoverBox.style.display = 'none';
+        return;
+      }
+      const elRect = target.getBoundingClientRect();
+      const vpRect = viewportEl.getBoundingClientRect();
+      hoverBox.style.left = `${elRect.left - vpRect.left + viewportEl.scrollLeft}px`;
+      hoverBox.style.top = `${elRect.top - vpRect.top + viewportEl.scrollTop}px`;
+      hoverBox.style.width = `${elRect.width}px`;
+      hoverBox.style.height = `${elRect.height}px`;
+      hoverBadge.textContent = `${comp.name} (${comp.kind})`;
+      hoverBox.style.display = 'block';
     });
   }
 

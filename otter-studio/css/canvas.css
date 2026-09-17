@@ -140,121 +140,10 @@
   cursor: default;
 }
 
-/* Canvas Element Base */
+/* Canvas Element Base (Pure Application DOM) */
 .canvas-element {
   position: relative;
-  transition: outline 0.1s ease, background-color 0.15s ease;
   user-select: none;
-}
-
-.canvas-element:hover {
-  outline: 1px dashed rgba(59, 130, 246, 0.5);
-  outline-offset: 1px;
-}
-
-.canvas-element.is-selected {
-  outline: 2px solid var(--accent-primary) !important;
-  outline-offset: 1px;
-  z-index: 10;
-}
-
-/* Floating Selection Badge */
-.selection-badge {
-  position: absolute;
-  top: -24px;
-  left: -2px;
-  height: 20px;
-  background: var(--accent-primary);
-  color: #fff;
-  border-radius: 3px 3px 0 0;
-  padding: 0 6px;
-  font-size: 10px;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  white-space: nowrap;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-  pointer-events: auto;
-  z-index: 100;
-}
-
-.badge-name {
-  color: #fff;
-}
-
-.badge-kind {
-  background: rgba(0, 0, 0, 0.25);
-  padding: 1px 4px;
-  border-radius: 2px;
-  font-size: 9px;
-}
-
-.badge-actions {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  margin-left: 2px;
-}
-
-.badge-btn {
-  background: transparent;
-  border: none;
-  color: #fff;
-  font-size: 11px;
-  line-height: 1;
-  cursor: pointer;
-  padding: 1px 4px;
-  border-radius: 2px;
-  opacity: 0.85;
-  transition: all 0.1s ease;
-}
-
-.badge-btn:hover {
-  opacity: 1;
-  background: rgba(255, 255, 255, 0.25);
-}
-
-.badge-btn.badge-del:hover {
-  color: #fca5a5;
-  background: rgba(239, 68, 68, 0.4);
-}
-
-/* Interactive Resize Handles */
-.resize-handle {
-  position: absolute;
-  background: #ffffff;
-  border: 1.5px solid #2563eb;
-  border-radius: 2px;
-  z-index: 101;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
-  pointer-events: auto;
-}
-
-.resize-handle.handle-e {
-  top: 50%;
-  right: -5px;
-  transform: translateY(-50%);
-  width: 7px;
-  height: 14px;
-  cursor: ew-resize;
-}
-
-.resize-handle.handle-s {
-  bottom: -5px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 14px;
-  height: 7px;
-  cursor: ns-resize;
-}
-
-.resize-handle.handle-se {
-  bottom: -5px;
-  right: -5px;
-  width: 8px;
-  height: 8px;
-  cursor: nwse-resize;
 }
 
 /* Floating Live Dimension Tooltip */
@@ -286,7 +175,7 @@
 }
 
 /* ===============================================================
-   GrapesJS-Style Designer Interaction Overlay
+   Decoupled Designer Overlay (Zero Pollution in App DOM)
    =============================================================== */
 .designer-canvas-overlay {
   position: absolute;
@@ -299,6 +188,152 @@
   overflow: visible;
 }
 
+/* Selection Rectangles on Overlay */
+.designer-selection-box {
+  position: absolute;
+  border: 2px solid #3b82f6;
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 520;
+  box-sizing: border-box;
+}
+
+.designer-selection-box.is-primary {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.3), inset 0 0 0 1px rgba(59, 130, 246, 0.15);
+}
+
+.designer-selection-box.is-multi {
+  border: 2px dashed #60a5fa;
+  background: rgba(96, 165, 250, 0.08);
+}
+
+/* Floating Selection Badge on Overlay */
+.designer-selection-badge {
+  position: absolute;
+  top: -24px;
+  left: -2px;
+  height: 20px;
+  background: #3b82f6;
+  color: #ffffff;
+  border-radius: 4px 4px 0 0;
+  padding: 0 6px;
+  font-size: 10px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.35);
+  pointer-events: auto;
+  z-index: 530;
+}
+
+.designer-selection-badge .badge-name {
+  color: #ffffff;
+}
+
+.designer-selection-badge .badge-kind {
+  background: rgba(0, 0, 0, 0.25);
+  padding: 1px 4px;
+  border-radius: 2px;
+  font-size: 9px;
+}
+
+.designer-selection-badge .badge-actions {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 2px;
+}
+
+.designer-selection-badge .badge-btn {
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 1px 4px;
+  border-radius: 2px;
+  opacity: 0.85;
+  transition: all 0.1s ease;
+}
+
+.designer-selection-badge .badge-btn:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.designer-selection-badge .badge-btn.badge-del:hover {
+  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.4);
+}
+
+/* Decoupled Overlay Resize Handles */
+.designer-resize-handle {
+  position: absolute;
+  background: #ffffff;
+  border: 1.5px solid #2563eb;
+  border-radius: 2px;
+  z-index: 540;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  pointer-events: auto;
+  box-sizing: border-box;
+}
+
+.designer-resize-handle.handle-e {
+  top: 50%;
+  right: -5px;
+  transform: translateY(-50%);
+  width: 7px;
+  height: 14px;
+  cursor: ew-resize;
+}
+
+.designer-resize-handle.handle-s {
+  bottom: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 14px;
+  height: 7px;
+  cursor: ns-resize;
+}
+
+.designer-resize-handle.handle-se {
+  bottom: -5px;
+  right: -5px;
+  width: 8px;
+  height: 8px;
+  cursor: nwse-resize;
+}
+
+/* Decoupled Hover Box on Overlay */
+.designer-hover-box {
+  position: absolute;
+  border: 1.5px dashed rgba(96, 165, 250, 0.7);
+  background: rgba(96, 165, 250, 0.04);
+  border-radius: 4px;
+  pointer-events: none;
+  z-index: 510;
+  box-sizing: border-box;
+}
+
+.designer-hover-badge {
+  position: absolute;
+  top: -18px;
+  left: 0;
+  background: rgba(15, 23, 42, 0.9);
+  color: #93c5fd;
+  border: 1px solid rgba(96, 165, 250, 0.4);
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-size: 9px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Drag Target Box & Insertion Indicators on Overlay */
 .designer-target-box {
   position: absolute;
   border: 2px solid #2563eb;
@@ -371,6 +406,49 @@
 .designer-insertion-line.is-horizontal .dot-end {
   right: -3px;
   top: -2px;
+}
+
+/* ===============================================================
+   Canonical Otter Runtime Styling (WYSIWYG with Web/Desktop Target)
+   =============================================================== */
+.otter-window {
+  position: relative;
+}
+
+.otter-row {
+  display: flex;
+  flex-direction: row;
+  min-height: 38px;
+}
+
+.otter-column {
+  display: flex;
+  flex-direction: column;
+  min-height: 38px;
+}
+
+.otter-card {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+}
+
+.otter-scroll {
+  overflow-y: auto;
+}
+
+button.otter-btn, .canvas-button {
+  font-family: inherit;
+  outline: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+input.otter-input, .canvas-textbox {
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 /* Container Specific Canvas Styling */
