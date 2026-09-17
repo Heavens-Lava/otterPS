@@ -1,0 +1,22 @@
+# A declared function can produce a value wherever an expression is accepted.
+
+to double number
+    return number times 2
+.
+
+answer is double 10
+say answer
+
+to combine first and second
+    return first plus second
+.
+
+sum is combine 3 and 4
+say sum
+
+nested is double double 5
+say nested
+
+# Legacy statement-style capture remains supported.
+double 5 make legacyAnswer
+say legacyAnswer

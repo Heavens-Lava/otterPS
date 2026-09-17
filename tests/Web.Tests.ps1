@@ -18,7 +18,7 @@ plusBtn is a button
 .
 score is 0
 when plusBtn is clicked
-    score is score and 1
+    score is score plus 1
     text of counter is score
 .
 put counter, plusBtn in app

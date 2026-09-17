@@ -50,53 +50,27 @@ needed: implement HTTP in the interpreter (real, scoped work -
 document HTTP as web-target-only for 1.0 and correct anywhere that
 implies otherwise.
 
-### A3. `and`/`or` outside a condition fail in a way that actively misleads
+### Resolved: condition-only `and` / `or`
 
-Not a missing feature - a **usability trap already in the shipped
-language**. `if X or Y` works. `result is X or Y` and `say X or Y` do
-not - `or` is a flat syntax error, and `and` (sharing a token with
-arithmetic `plus`) is silently reinterpreted as addition and fails with
-"I expected a number for the left side of this calculation" - a message
-that never mentions booleans, `and`, or conditions, and will send anyone
-debugging it in the wrong direction. `not` has no such restriction and
-works everywhere. Before freezing 1.0 semantics (Jeff's Gate 3), this
-needs an explicit decision: either extend `and`/`or` to work as general
-boolean expressions (a real grammar change, more work), or keep them
-condition-only but make the **error message honest** ("`and`/`or` only
-work inside `if`/`while` - did you mean...") instead of a misleading
-arithmetic error. Either is acceptable; leaving the current confusing
-error as V1's frozen behavior is not.
+Source-word `and` no longer silently lowers to arithmetic in ordinary
+expressions outside `if`/`while`; both connectives now issue an Otter syntax
+diagnostic naming their valid context. The historical
+`left and right make result` form remains supported for compatibility.
+Numeric addition uses `plus` or `+`. The negative
+fixture `conformance/negative/boolean_operators_outside_conditions.ot` is
+verified through the real `otter check` entry point.
 
-### A4. Calling a function for its return value has exactly one working form, and it's not the obvious one
+### Resolved: function values
 
-`result is myFunc arg1 arg2` is a syntax error. Only `myFunc arg1 arg2
-make result` works. This isn't inherently a blocker (it's discoverable,
-consistent, and has a clear error), but it directly contradicts the
-"boringly reliable... no repository knowledge" bar Jeff set for 1.0's
-CLI/first-run experience - a brand-new user's first instinct, given `is`
-already means "assign," will be to write `result is greet "Jeff"` and
-hit a syntax error with no explanit mention of `make`. **Minimum bar for
-1.0:** the error message for this exact case should say so directly
-("Did you mean: `greet 'Jeff' make result`?"). Whether to also add
-expression-position calling is a bigger, real design decision - flagged
-here, not decided.
+A declared function can now be used as an expression: `result is myFunc
+arg1`. Existing statement calls and `... make result` capture remain valid.
+`conformance/core/function_return_expression.ot` was run through `otter run`,
+and differential interpreter/JavaScript parity covers the expression form.
 
 ---
 
 ## B. V1 SHOULD-HAVE (real gaps, not release-blocking on their own)
 
-- **Typed-object indented-block initialization silently drops
-  properties for a declared type.** `x is a KnownType` followed by an
-  indented block (no `with`) parses "successfully" but sets **zero**
-  properties, and the block's lines are misparsed as unrelated
-  statements with a confusing downstream error. The **inline `with`
-  form works correctly** and is a fine primary path, but a form that
-  looks reasonable, doesn't error where the mistake actually is, and
-  fails on typed-vs-untyped objects differently is a real trap for a
-  1.0 language. Either make the block form work for declared types too,
-  or make the parser reject it immediately with a clear "declared types
-  need `with ...`" error instead of silently accepting it and failing
-  later.
 - **`run "x"` vs `run command "x"` return genuinely different result
   shapes**, and nothing in the surface syntax hints at this. Should be
   stated as an explicit, named rule in the 1.0 spec (Gate 4), not left
@@ -108,11 +82,10 @@ here, not decided.
   caught it - a sign it's a natural, likely mistake for real users too.
   Worth a line in the spec's filesystem section calling it out
   explicitly.
-- **`today`/`now`/`pi`-named variables are unreadable after assignment**
-  (see the inventory's Part A1). Low real-world impact (nobody should
-  name a variable `pi`), but if it's going to remain frozen v1 behavior,
-  it should be a *documented* trade-off, not a silent trap discovered by
-  accident.
+
+The typed-object initializer and literal-name collision findings are resolved
+by the V1 semantic-correction pass; their negative fixtures now protect the
+diagnostics from regression.
 
 ---
 
@@ -209,16 +182,12 @@ Section C.
 | PARSES BUT RUNTIME UNVERIFIED (interactive/environment-limited) | ~12 |
 | EXPLICITLY NOT SUPPORTED IN V1 (confirmed decisions already made) | 8 |
 | TARGET-SPECIFIC (web-only, absent from interpreter) | 4 |
-| Real semantic inconsistencies discovered (Phase 4) | 4 (Sections A3/A4, B's object-block and run/run-command items) |
-| Actual V1 release blockers | 4 (Section A) |
+| Semantic inconsistencies fixed in the V1 correction pass | 4 (`and`/`or`, function values, literal bindings, typed blocks) |
+| Remaining V1 release decisions | 2 (`use` scope and HTTP target classification) |
 
-**Bottom line:** the language core (Part A of the inventory) is in
-excellent, genuinely-frozen-ready shape - the arithmetic/loop/function/
-object/error-handling foundation held up to real execution with only
-minor, fixable rough edges. The real risk to a dependable 1.0 isn't
-missing features; it's two roadmap assumptions (modules, HTTP) that
-don't match what's actually shipped, and a small number of confusing
-error messages around `and`/`or` and function-call-for-value that a
-first-time user will hit almost immediately. All four are small, bounded
-pieces of work - fixable well within a "discipline, not invention" V1
-finish line.
+**Bottom line:** the language core is in a genuinely frozen-ready shape. The
+audited semantic traps are fixed and covered through parser tests, real CLI
+fixtures, and function-call parity. The remaining V1 work is product
+classification, not casual feature growth: formally exclude modules or
+implement them, and explicitly retain HTTP as web-target-only or design a
+portable provider contract.

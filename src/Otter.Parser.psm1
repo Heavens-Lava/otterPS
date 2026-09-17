@@ -223,6 +223,13 @@ function Read-OtterValue {
         return [PropertyAccessExpr]::new("$($first.Text) $($second.Text)", (Read-OtterValue -PropertyTarget), $first.Line)
     }
     if (Test-OtterIdentifierToken $token) {
+        # A declared function is a real value-producing expression.  Its
+        # arity tells us exactly how many following values belong to the
+        # call, so a trailing condition `and` remains available to the
+        # condition reader instead of being guessed as another argument.
+        if ($script:KnownFunctions.ContainsKey($token.Text)) {
+            return Read-OtterFunctionCallExpression -FunctionToken $token
+        }
         [void](Read-OtterToken)
         if (Test-OtterTokenKind ([TokenKind]::Of)) {
             [void](Read-OtterToken)
@@ -243,16 +250,23 @@ function Read-OtterValue {
 }
 
 function Read-OtterVariableName {
-    param([string]$Message)
+    param(
+        [string]$Message,
+        [switch]$AllowReservedLiteral
+    )
     $token = Get-OtterCurrentToken
     if (-not (Test-OtterIdentifierToken $token)) {
         throw (New-OtterParserError $Message $token 'Use a name to hold this value.')
+    }
+    if (-not $AllowReservedLiteral -and $token.Text -in @('today', 'now', 'pi')) {
+        throw (New-OtterParserError "'$($token.Text)' is a built-in value, not a variable name." $token 'Choose a different variable name, such as "currentTime" or "circleRatio".')
     }
     [void](Read-OtterToken)
     return $token
 }
 
 function Read-OtterMathExpression {
+    param([switch]$AllowLegacyAndAddition)
     $left = Read-OtterValue
     while ((Test-OtterTokenKind ([TokenKind]::And)) -or
            (Test-OtterTokenKind ([TokenKind]::Minus)) -or
@@ -261,6 +275,12 @@ function Read-OtterMathExpression {
            (Test-OtterTokenKind ([TokenKind]::Percent)) -or
            (Test-OtterTokenKind ([TokenKind]::Power))) {
         $operator = Read-OtterToken
+        # `and` and `or` are condition operators in V1.  `plus` and `+`
+        # share TokenKind::And for historical lexer compatibility, so inspect
+        # the original source text before lowering to MathOp::Add.
+        if ($operator.Kind -eq [TokenKind]::And -and $operator.Text -eq 'and' -and -not $AllowLegacyAndAddition) {
+            throw (New-OtterParserError '"and" only works inside an if or while condition.' $operator 'Use "plus" when adding numbers, or move the boolean expression into an if or while condition.')
+        }
         # D88: `X percent of Y` needs "of" consumed between the operator
         # and the right operand - every other operator here reads the
         # right operand immediately, so this is the one exception.
@@ -277,6 +297,10 @@ function Read-OtterMathExpression {
             ([TokenKind]::Power) { [MathOp]::Power }
         }
         $left = [MathExpr]::new($left, $mathOp, $right, $operator.Line)
+    }
+    if (Test-OtterTokenKind ([TokenKind]::Or)) {
+        $operator = Get-OtterCurrentToken
+        throw (New-OtterParserError '"or" only works inside an if or while condition.' $operator 'Move the boolean expression into an if or while condition.')
     }
     return $left
 }
@@ -492,7 +516,7 @@ function Read-OtterObjectBlockProperties {
             throw (New-OtterParserError 'Only property assignments belong inside an object.' $cur 'Remove control flow or actions from this object block.')
         }
 
-        $property = Read-OtterVariableName 'I expected a property name.'
+        $property = Read-OtterVariableName 'I expected a property name.' -AllowReservedLiteral
 
         # 'is' is optional: both "property value" and "property is value" are valid
         $hadIs = $false
@@ -564,7 +588,7 @@ function Read-OtterInlineObjectProperties {
     $properties = [System.Collections.Generic.List[Node]]::new()
 
     while ($true) {
-        $property = Read-OtterVariableName 'I expected a property name after "has", "with", or a comma.'
+        $property = Read-OtterVariableName 'I expected a property name after "has", "with", or a comma.' -AllowReservedLiteral
         # Inline has and with are comma-delimited configuration lists.  `is` is
         # optional independently for each property, so compact, explicit,
         # and mixed styles all produce the same assignment nodes.
@@ -651,7 +675,7 @@ function Read-OtterTypeFields {
     $fields = [System.Collections.Generic.List[string]]::new()
     Skip-OtterNewlines
     while (-not (Test-OtterTokenKind ([TokenKind]::Dedent))) {
-        $field = Read-OtterVariableName 'I expected a property name.'
+        $field = Read-OtterVariableName 'I expected a property name.' -AllowReservedLiteral
         $fields.Add($field.Text)
         [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the property name to end here.')
         Skip-OtterNewlines
@@ -706,6 +730,36 @@ function Read-OtterCallArguments {
         $arguments.Add((Read-OtterValue))
     }
     return $arguments.ToArray()
+}
+
+# Calls in expression position use the declared function's arity rather than
+# a greedy "read until newline" rule.  That keeps this deterministic:
+#
+#   if isAdult age and active is true
+#
+# `isAdult` consumes its one argument and leaves `and` for the condition.
+function Read-OtterFunctionCallExpression {
+    param([Token]$FunctionToken)
+
+    if (-not $script:KnownFunctions.ContainsKey($FunctionToken.Text)) {
+        throw (New-OtterParserError "I don't know a function called '$($FunctionToken.Text)'." $FunctionToken)
+    }
+
+    [void](Read-OtterToken)
+    $arguments = [System.Collections.Generic.List[Node]]::new()
+    $arity = [int]$script:KnownFunctions[$FunctionToken.Text]
+
+    for ($index = 0; $index -lt $arity; $index++) {
+        if ($index -gt 0 -and (Test-OtterTokenKind ([TokenKind]::And))) {
+            [void](Read-OtterToken)
+        }
+        $current = Get-OtterCurrentToken
+        if ($current.Kind -in @([TokenKind]::Newline, [TokenKind]::EndOfFile, [TokenKind]::Make, [TokenKind]::Into, [TokenKind]::Or)) {
+            throw (New-OtterParserError "I expected argument $($index + 1) for '$($FunctionToken.Text)'." $current "Provide $arity argument(s) for '$($FunctionToken.Text)'.")
+        }
+        $arguments.Add((Read-OtterValue))
+    }
+    return [CallExpr]::new($FunctionToken.Text, $arguments.ToArray(), $FunctionToken.Line)
 }
 
 function Read-OtterFunctionName {
@@ -971,6 +1025,10 @@ function Read-OtterStatement {
         ((Test-OtterIdentifierToken $start) -or ($start.Kind -eq [TokenKind]::ForEach -and $start.Text -eq 'each')) -and
         $nextKind -in @([TokenKind]::Is, [TokenKind]::Are, [TokenKind]::Of, [TokenKind]::IsNot)) {
         $statementKind = [TokenKind]::Identifier
+    }
+
+    if ($statementKind -eq [TokenKind]::Identifier -and $start.Text -in @('today', 'now', 'pi')) {
+        throw (New-OtterParserError "'$($start.Text)' is a built-in value, not a variable name." $start 'Choose a different variable name, such as "currentDate", "currentTime", or "circleRatio".')
     }
 
     # `the property of target is value` is the assignment counterpart of the
@@ -2245,7 +2303,7 @@ function Read-OtterStatement {
             }
             # Definitions are visible from their own body onward, which also
             # allows a function to call itself recursively.
-            $script:KnownFunctions[$name.Text] = $true
+            $script:KnownFunctions[$name.Text] = $parameters.Count
             return [FunctionDefStmt]::new($name.Text, $parameters.ToArray(), (Read-OtterBlock), $start.Line)
         }
         ([TokenKind]::Return) {
@@ -2323,6 +2381,9 @@ function Read-OtterStatement {
         }
         ([TokenKind]::Identifier) {
             $name = Read-OtterToken
+            if ($name.Text -eq 'pi') {
+                throw (New-OtterParserError "'pi' is a built-in value, not a variable name." $name 'Choose a different variable name, such as "circleRatio".')
+            }
             # D40: `person has` is the canonical untyped object literal. It
             # deliberately shares the existing ObjectDefStmt shape with
             # `person is a thing`; custom type declarations remain on the A
@@ -2354,6 +2415,10 @@ function Read-OtterStatement {
                         $properties = Read-OtterObjectBlockProperties -AllowEmpty ($typeName -eq 'thing') -TypeName $typeName
                     } else {
                         [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the object definition to end here.')
+                        if (Test-OtterTokenKind ([TokenKind]::Indent)) {
+                            $indent = Get-OtterCurrentToken
+                            throw (New-OtterParserError "'$typeName' is a declared type, so its properties must use 'with' on the same line." $indent "Write '$($name.Text) is a $typeName with property value'.")
+                        }
                         $properties = @()
                     }
                     return [ObjectDefStmt]::new($name.Text, $typeName, $properties, $name.Line)
@@ -2389,7 +2454,7 @@ function Read-OtterStatement {
             # A make statement owns arithmetic; otherwise this is a function call.
             if (Test-OtterTokenBeforeNewline ([TokenKind]::Make)) {
                 $script:Position--
-                $expression = Read-OtterMathExpression
+                $expression = Read-OtterMathExpression -AllowLegacyAndAddition
                 [void](Assert-OtterTokenKind ([TokenKind]::Make) 'I expected "make" and a result variable.')
                 $target = Read-OtterVariableName 'I expected a variable name after "make".'
                 [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the math statement to end here.')
@@ -2400,7 +2465,7 @@ function Read-OtterStatement {
             return [CallStmt]::new($call, $null, $name.Line)
         }
         ([TokenKind]::Number) {
-            $expression = Read-OtterMathExpression
+            $expression = Read-OtterMathExpression -AllowLegacyAndAddition
             [void](Assert-OtterTokenKind ([TokenKind]::Make) 'I expected "make" and a result variable.')
             $target = Read-OtterVariableName 'I expected a variable name after "make".'
             [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the math statement to end here.')

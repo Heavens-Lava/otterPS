@@ -20,14 +20,14 @@ if ($ast.Statements[2].Branches[0].Body[0] -isnot [SayStmt]) { throw 'Expected s
 $mathSource = @'
 number1 is 5
 number2 is 10
-number1 and number2 make total
+number1 plus number2 make total
 add 5 to total
 remove 2 from total
 ask "Name?" and call it name
 '@
 $mathAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $mathSource)
 if ($mathAst.Statements[2] -isnot [MathIntoStmt]) { throw 'Expected a math-into statement.' }
-if ($mathAst.Statements[2].Expression.Op -ne [MathOp]::Add) { throw 'Expected and to mean addition in a make statement.' }
+if ($mathAst.Statements[2].Expression.Op -ne [MathOp]::Add) { throw 'Expected plus to mean addition in a make statement.' }
 if ($mathAst.Statements[3] -isnot [AddToStmt]) { throw 'Expected add statement.' }
 if ($mathAst.Statements[4] -isnot [RemoveFromStmt]) { throw 'Expected remove statement.' }
 if ($mathAst.Statements[5] -isnot [AskStmt]) { throw 'Expected ask statement.' }
@@ -143,7 +143,7 @@ to greet name
     say "Hello" name
 greet "Jeff"
 to add number1 and number2
-    number1 and number2 make answer
+    number1 plus number2 make answer
     return answer
 add 5 and 10 make total
 '@
@@ -1178,5 +1178,79 @@ button "Save"
     }
 }
 if (-not $diagAnimCaught) { throw "Expected 'animate fast' to fail with diagnostic." }
+
+# V1 audit: and/or are condition-only in ordinary expressions. `plus`
+# retains numeric addition, while legacy `and ... make` remains compatible.
+$booleanConditionAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source @'
+if age is at least 18 and active is true
+    say "Allowed"
+.
+'@)
+if ($booleanConditionAst.Statements[0].Branches[0].Condition -isnot [LogicalExpr]) { throw 'Expected and to remain a boolean condition operator.' }
+
+foreach ($invalidBooleanExpression in @(
+    'result is ready and active',
+    'say ready or active'
+)) {
+    $caught = $false
+    try {
+        ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $invalidBooleanExpression)
+    } catch [OtterError] {
+        $caught = $_.Exception.Message -match 'only works inside an if or while condition'
+    }
+    if (-not $caught) { throw "Expected a condition-only boolean diagnostic for: $invalidBooleanExpression" }
+}
+
+$legacyMakeAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source 'number1 and number2 make total')
+if ($legacyMakeAst.Statements[0] -isnot [MathIntoStmt] -or $legacyMakeAst.Statements[0].Expression.Op -ne [MathOp]::Add) { throw 'Expected legacy and-addition to remain compatible in a make statement.' }
+
+# V1 audit: a declared function is a value expression once its declaration
+# is visible.  Existing statement calls and `make` capture remain separate.
+$callValueAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source @'
+to double number
+    return number times 2
+.
+answer is double 10
+say answer
+double 5 make legacyAnswer
+'@)
+if ($callValueAst.Statements[1].Value -isnot [CallExpr] -or $callValueAst.Statements[1].Value.Name -ne 'double' -or $callValueAst.Statements[1].Value.Arguments.Count -ne 1) { throw 'Expected a function call expression on the right side of is.' }
+if ($callValueAst.Statements[3] -isnot [CallStmt] -or $callValueAst.Statements[3].ResultTarget -ne 'legacyAnswer') { throw 'Expected legacy make capture to remain supported.' }
+
+$nestedCallAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source @'
+to double number
+    return number times 2
+.
+answer is double double 5
+'@)
+if ($nestedCallAst.Statements[1].Value -isnot [CallExpr] -or $nestedCallAst.Statements[1].Value.Arguments[0] -isnot [CallExpr]) { throw 'Expected nested function calls to remain value expressions.' }
+
+$missingCallArgument = $false
+try { ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source "to double number`n    return number`n.`nanswer is double`n") } catch [OtterError] { $missingCallArgument = $_.Exception.Message -match 'I expected argument 1' }
+if (-not $missingCallArgument) { throw 'Expected a clear missing function argument diagnostic.' }
+
+# V1 audit: literal words cannot become unreadable variables after assignment.
+foreach ($reservedLiteralAssignment in @('today is 5', 'now is 5', 'pi is 5', 'read "x" into pi')) {
+    $caught = $false
+    try { ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $reservedLiteralAssignment) } catch [OtterError] { $caught = $_.Exception.Message -match 'built-in value' }
+    if (-not $caught) { throw "Expected a reserved-literal diagnostic for: $reservedLiteralAssignment" }
+}
+
+# V1 audit: typed objects either use inline `with` or fail where the
+# unsupported indented initializer begins; they can no longer discard it.
+$typedBlockRejected = $false
+try {
+    ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source @'
+a Person has
+    name
+.
+sam is a Person
+    name is "Sam"
+.
+'@)
+} catch [OtterError] {
+    $typedBlockRejected = $_.Exception.Message -match 'declared type.*with'
+}
+if (-not $typedBlockRejected) { throw 'Expected an indented declared-type initializer to be rejected clearly.' }
 
 Write-Output 'Parser tests passed.'

@@ -45,7 +45,7 @@ Jeff's roadmap calls for. Known gaps before it can become that:
 
 | Directory | Covers |
 |---|---|
-| `core/` | variables, arithmetic, `if`/`otherwise`, `while`, `repeat`, `count...as`, `for each`, lists, functions (`to`/`return`/`... make result`), `and`/`or`/`not` |
+| `core/` | variables, arithmetic, `if`/`otherwise`, `while`, `repeat`, `count...as`, `for each`, lists, and function returns in both expression and legacy `... make result` forms |
 | `objects/` | `a Type has`, `X has ...`, `X is a Type with ...`, dynamic `get X from Y into Z` / `set X to Y in Z` |
 | `errors/` | `try` / `otherwise [into name]` / `fail with` |
 | `strings/` | `sort`, `reverse`, `replace ... with ... in`, `split ... by ... into`, `join ... with ... into`, `find ... in ... where ... into`, `starts with`/`ends with`, `length`/`uppercase`/`lowercase`/`first`/`last` of, `larger`/`smaller of ... and ...` |
@@ -54,6 +54,7 @@ Jeff's roadmap calls for. Known gaps before it can become that:
 | `http/` | documents that `get`/`post`/`put`/`delete from` a URL **only work through `otter web`**, not `otter run` - see the gap report |
 | `system_integration/` | clipboard, environment variables, system folders, `notify` |
 | `misc/` | `if file ... exists`, `run command "..." into result`, `read json from ... into` |
+| `negative/` | programs that must be rejected with a clear diagnostic; these are run with `otter check`, not `otter run` |
 
 Run any of them directly:
 

@@ -1,0 +1,4 @@
+# This file must be rejected by `otter check`.
+# today, now, and pi are built-in literals and cannot be variable names.
+
+now is 5

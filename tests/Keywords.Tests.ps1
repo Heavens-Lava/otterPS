@@ -23,7 +23,6 @@ $statementWords = @(
     @('warn', [TokenKind]::Warn), @('error', [TokenKind]::Problem),
     @('random', [TokenKind]::Random), @('json', [TokenKind]::Json),
     @('convert', [TokenKind]::Convert), @('format', [TokenKind]::Format),
-    @('today', [TokenKind]::Today), @('now', [TokenKind]::Now),
     @('between', [TokenKind]::Between), @('otherwise', [TokenKind]::Otherwise)
 )
 
@@ -52,6 +51,15 @@ foreach ($entry in $statementWords) {
         $readBack = (Parse-Otter "$word is `"value`"`nsay $word").Statements[1].Parts[0]
         if ($readBack -isnot [VariableExpr] -or $readBack.Name -ne $word) { throw "$word must read back as a variable." }
     }
+}
+
+# D32 literal words are deliberately no longer writable bindings. Keeping
+# them out of D33's general identifier audit prevents assignments which a
+# later expression read could never resolve back to the assigned value.
+foreach ($literalName in @('today', 'now', 'pi')) {
+    $caught = $false
+    try { [void](Parse-Otter "$literalName is 5") } catch [OtterError] { $caught = $_.Exception.Message -match 'built-in value' }
+    if (-not $caught) { throw "$literalName must be rejected as a writable variable name." }
 }
 
 # D32 is more specific than D33. In expression position `today` and `now`

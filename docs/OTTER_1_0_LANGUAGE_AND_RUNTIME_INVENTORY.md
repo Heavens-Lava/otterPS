@@ -1,6 +1,6 @@
 # Otter 1.0 Language and Runtime Inventory
 
-**Authoritative as of:** commit `96580f0` plus this sweep's own findings.
+**Authoritative as of:** commit `6a7b9e3` plus the V1 semantic-correction pass.
 **Method:** every claim below was checked against the actual production
 lexer/parser/interpreter source (`Otter.Contract.psm1`,
 `src/Otter.Lexer.psm1`, `src/Otter.Parser.psm1`,
@@ -52,24 +52,17 @@ say score
 ```
 Output: `15`.
 
-**Important, previously-uncertified finding:** a variable literally named
-`today` or `now` can be **assigned and even mutated** (`add 7 days to
-today` succeeds), but can **never be read back by that name** - every
-expression-position reference to the bare word `today`/`now` always
-resolves to the live current date/time instead, silently ignoring the
-variable. Confirmed directly via `-DebugAst`: `say today` compiles to a
-bare `Clock` node, not `Variable(today)`, regardless of any prior
-assignment. This is a real, load-bearing inconsistency - see the Gap
-Report, Section on Semantic Consistency.
-
-Same finding for `pi` (D90): expression position always wins over any
-variable of the same name.
+**V1 semantic correction:** `today`, `now`, and `pi` are reserved literal
+names. They are rejected wherever a writable variable binding is expected,
+rather than accepting an assignment expression parsing could never read back.
+The rejection is verified through `otter check` using
+`conformance/negative/reserved_literal_variable.ot`.
 
 ### A2. Arithmetic
 
 | Syntax | Operator | Status |
 |---|---|---|
-| `a plus b` / `a and b` (math context) | add | PRODUCTION VERIFIED |
+| `a plus b` / `a + b` (math context) | add | PRODUCTION VERIFIED |
 | `a minus b` | subtract | PRODUCTION VERIFIED |
 | `a times b` | multiply | PRODUCTION VERIFIED |
 | `a divided by b` | divide (friendly error on divide-by-zero) | PRODUCTION VERIFIED |
@@ -80,10 +73,9 @@ variable of the same name.
 precedence** (a frozen, deliberate design decision, D7). `2 plus 3 times
 4` is `(2+3)*4 = 20`, not `14`.
 
-**Real, confirmed inconsistency:** `plus`/`and` share one token
-(`TokenKind::And`). This is harmless for arithmetic, but see A3 below -
-it is the root cause of `and` behaving completely differently inside vs.
-outside a condition.
+`and` remains lexically compatible with the historical arithmetic token only
+for legacy `left and right make result` statements. Ordinary arithmetic uses
+`plus` or `+`.
 
 ### A3. Comparisons and boolean logic
 
@@ -93,29 +85,26 @@ outside a condition.
 | `not X` | PRODUCTION VERIFIED **as a general expression** (works in `say`, assignment, anywhere) |
 | `X and Y`, `X or Y` | PRODUCTION VERIFIED **inside a condition** (`if`/`while`) only |
 
-**Major, previously-uncertified finding (semantic inconsistency - flagged
-per Phase 4, not fixed):** `and`/`or` are **condition-position only**.
-Confirmed directly:
+`and`/`or` are **condition-position only**. Valid condition behavior is
+unchanged:
 
 ```
 if isReady or isDone
     say "yes"          # works: prints "yes"
 
-say isReady or isDone   # Syntax Error: "I expected a value here."
+say isReady or isDone   # Syntax Error: says `or` is condition-only
 
 combined is isReady and isDone
-say combined            # Runtime Error: "I expected a number for the
-                         #  left side of this calculation but got true."
+say combined            # Syntax Error: says `and` is condition-only
 ```
 
-`or` outside a condition is a hard syntax error. `and` outside a
-condition is **silently reinterpreted as arithmetic addition** (since
-`and` and `plus` are the same token) and fails with a confusing
-type-error message that never mentions booleans at all. `not`, by
-contrast, works everywhere. This asymmetry (`not` universal, `and`/`or`
-condition-only, with `and`'s outside-a-condition failure mode being a
-misleading arithmetic error) is real and worth a deliberate V1 decision
-- see the Gap Report.
+`or` outside a condition is a syntax error. `and` in an ordinary expression
+is also a syntax error, not an arithmetic AST; only the legacy
+`... and ... make result` form remains compatible. Both errors name the valid
+`if`/`while` context and suggest `plus` for numeric addition. `not` remains
+available wherever a value expression is accepted. The negative fixture
+`conformance/negative/boolean_operators_outside_conditions.ot` verifies the
+real `otter check` diagnostic.
 
 ### A4. Conditions and blocks
 
@@ -155,27 +144,27 @@ it needed no new syntax.
 |---|---|---|
 | `to name param1 param2` *(body)* `return value` | function definition | PRODUCTION VERIFIED |
 | `name arg1 arg2` | bare call, discards result | PRODUCTION VERIFIED |
-| `name arg1 arg2 make result` | call **and capture the return value** | PRODUCTION VERIFIED |
+| `name arg1 arg2 make result` | legacy statement call and capture | PRODUCTION VERIFIED |
+| `result is name arg1 arg2` | function call as a value expression | PRODUCTION VERIFIED |
 
-**Real, previously-unstated finding:** `result is myFunc arg1 arg2` -
-i.e., calling a function as the right-hand side of a plain `is`
-assignment - is **not valid syntax**. Confirmed directly:
+Calling a declared function as the right-hand side of `is` is valid:
 
 ```
 to addNumbers x y
     return x plus y
 
-result is addNumbers 3 4      # Syntax Error: "I expected the assignment
-                               #  to end here. I found '3' instead."
+result is addNumbers 3 and 4  # Works. result -> 7
 
 addNumbers 3 4 make result    # Works. result -> 7
 say result
 ```
 
-The canonical, and apparently *only*, way to capture a function's return
-value is the `... make result` form - not an expression-position call.
-This should be written down as a frozen rule before 1.0, since it is
-easy for a reader (or a future contributor) to assume the opposite.
+The parser resolves an expression call by the declared function's arity, so
+the call consumes exactly its arguments and leaves a following boolean
+connective for the condition parser. The legacy `... make result` form remains
+supported. `conformance/core/function_return_expression.ot` was executed
+through `otter run`; differential interpreter/JavaScript parity also verifies
+the expression form.
 
 **Also confirmed:** the single-letter name `a` cannot be used as a
 parameter or variable name - it collides with the reserved word `a`
@@ -198,30 +187,26 @@ not re-verified fresh in this pass since no syntax changed.
 | `x is a TypeName with prop1 "v1", prop2 "v2"` | typed object, **inline `with`, comma-separated** | PRODUCTION VERIFIED |
 | `name of thing` | property read | PRODUCTION VERIFIED |
 
-**Real, confirmed limitation:** for a type **already declared** via `a
-TypeName has ...`, the indented-block initializer form
-(`x is a TypeName` followed by indented `prop value` lines, no `with`)
-does **not** work - it silently produces an object with **zero**
-properties set, and the following indented lines are parsed as
-unrelated top-level statements (which then usually fail with a confusing
-"I don't understand ''" a line or two later). Confirmed directly:
+**V1 grammar rule:** for a type **already declared** via `a TypeName has ...`,
+properties must use the inline `with` form. An indented initializer is rejected
+at its opening indentation with an Otter diagnostic rather than silently
+producing an object with zero properties:
 
 ```
 a Person has
     name
     age
 
-sam is a Person        # only valid this way for a KNOWN type if
-    name "Sam"          # followed by "with ...", NOT an indented block -
-    age 25               # this indented form silently drops the properties
+sam is a Person
+    name "Sam"          # rejected: use `with` on the same line
+    age 25
 
 sam is a Person with name "Sam", age 25   # <- the only form that works
 ```
 
-The indented block form **does** work for `has` (untyped things) and for
-`is a` where the type name is `thing` or not yet declared. This asymmetry
-between declared/undeclared types is a real, confirmed inconsistency -
-see the Gap Report.
+The indented block form continues to work for `has` (untyped things) and for
+`is a thing`. The declared-type rejection is covered by
+`conformance/negative/typed_object_indented_initializer.ot`.
 
 ### A9. Dynamic keys (D41)
 

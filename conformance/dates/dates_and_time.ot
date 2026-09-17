@@ -1,14 +1,14 @@
-now is now
-say now
-say year of now
-say month of now
-say day of now
-say hour of now
-say minute of now
+currentNow is now
+say currentNow
+say year of currentNow
+say month of currentNow
+say day of currentNow
+say hour of currentNow
+say minute of currentNow
 
-today is today
-say today
-say year of today
+currentToday is today
+say currentToday
+say year of currentToday
 
 myDate is today
 add 7 days to myDate
