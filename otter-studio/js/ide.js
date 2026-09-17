@@ -31,11 +31,22 @@ import {
   isWorkspaceTrusted,
   setWorkspaceTrust
 } from './project/workspace-solution.js';
+import { MultiCursorManager } from './editor/multi-cursor.js';
+import {
+  isLargeFile,
+  computeVisibleRange,
+  renderVirtualizedLines,
+  renderVirtualizedGutter,
+  DEFAULT_LINE_HEIGHT
+} from './editor/large-file.js';
 
 export class OtterStudioIde {
   constructor() {
     this.currentFile = 'untitled.ot';
     this.currentCode = '# untitled.ot\n\nsay "Hello from Otter!"\n';
+    this.multiCursor = new MultiCursorManager();
+    this.isLargeFileMode = false;
+    this.currentVirtualRange = null;
     this.currentProjectFolder = null;
     this.currentProjectName = null;
     this.wordWrap = typeof localStorage !== 'undefined' && localStorage.getItem('otter-studio-word-wrap') === 'true';
@@ -381,6 +392,7 @@ export class OtterStudioIde {
     this.btnFindClose = document.getElementById('btnFindClose');
 
     // Status bar
+    this.statusLargeFile = document.getElementById('statusLargeFile');
     this.statusBarPos = document.getElementById('statusbarPos') || document.querySelector('.statusbar-right span:first-child');
     this.mainRunBtn = document.getElementById('mainRunBtn');
     this.btnStopProgram = document.getElementById('btnStopProgram');
@@ -1622,6 +1634,11 @@ export class OtterStudioIde {
     this.currentCode = tab.content;
     this.detectFileEol(this.currentCode);
 
+    if (this.multiCursor) {
+      this.multiCursor.setPrimaryCursor(0, 0);
+      this.multiCursor.clearSecondaryCursors();
+    }
+
     const textarea = document.getElementById('hiddenEditorInput');
     if (textarea) {
       textarea.value = this.currentCode;
@@ -1657,6 +1674,10 @@ export class OtterStudioIde {
 
     // Restore caret position and scroll offset for newly activated tab
     restoreTabState(tab, textarea, this.codeAreaEl, this.gutterEl);
+    if (textarea && this.multiCursor) {
+      this.multiCursor.setPrimaryCursor(textarea.selectionStart, textarea.selectionEnd);
+    }
+    this.renderCursorOverlays();
 
     // Project Manifest Mode Handling (Visual Form vs Raw JSON)
     const isManifest = filePath.endsWith('project.json');
@@ -2420,19 +2441,47 @@ export class OtterStudioIde {
       : null;
 
     const lines = codeText.split('\n');
-    this.renderGutter(lines.length);
+    this.isLargeFileMode = isLargeFile(codeText);
+    if (this.statusLargeFile) {
+      this.statusLargeFile.style.display = this.isLargeFileMode ? 'inline-block' : 'none';
+    }
 
-    let html = '';
-    lines.forEach((line, idx) => {
-      const lineNum = idx + 1;
-      let renderedLine = this.syntaxHighlightLine(line);
-      const indentClass = line.startsWith('        ') ? ' ind-2' : (line.startsWith('    ') ? ' ind-1' : '');
-      const errClass = (this.errorLine === lineNum) ? ' has-error' : '';
+    if (this.isLargeFileMode) {
+      const viewportHeight = this.codeAreaEl.parentElement?.clientHeight || 600;
+      const scrollTop = existingTextarea ? existingTextarea.scrollTop : (this.codeAreaEl.parentElement?.scrollTop || 0);
+      const range = computeVisibleRange(scrollTop, viewportHeight, lines.length, DEFAULT_LINE_HEIGHT, 40);
+      this.currentVirtualRange = range;
 
-      html += `<div class="code-line${indentClass}${errClass}" data-line="${lineNum}">${renderedLine || '&nbsp;'}</div>`;
-    });
+      const gutterHtml = renderVirtualizedGutter(range.startIndex, range.endIndex, range.topSpacerHeight, range.bottomSpacerHeight, this.errorLine, this.warningLine);
+      if (this.gutterEl) this.gutterEl.innerHTML = gutterHtml;
 
-    this.codeAreaEl.innerHTML = html;
+      const linesHtml = renderVirtualizedLines(
+        lines,
+        range.startIndex,
+        range.endIndex,
+        range.topSpacerHeight,
+        range.bottomSpacerHeight,
+        (line) => this.syntaxHighlightLine(line),
+        this.errorLine
+      );
+      this.codeAreaEl.innerHTML = linesHtml;
+    } else {
+      this.renderGutter(lines.length);
+
+      let html = '';
+      lines.forEach((line, idx) => {
+        const lineNum = idx + 1;
+        let renderedLine = this.syntaxHighlightLine(line);
+        const indentClass = line.startsWith('        ') ? ' ind-2' : (line.startsWith('    ') ? ' ind-1' : '');
+        const errClass = (this.errorLine === lineNum) ? ' has-error' : '';
+
+        html += `<div class="code-line${indentClass}${errClass}" data-line="${lineNum}">${renderedLine || '&nbsp;'}</div>`;
+      });
+
+      this.codeAreaEl.innerHTML = html;
+    }
+
+    this.renderCursorOverlays();
     this.updateEditorChrome();
 
     // Attach inline editor handlers
@@ -2456,6 +2505,82 @@ export class OtterStudioIde {
           if (this.gutterEl) this.gutterEl.scrollTop = editorState.scrollTop;
         });
       }
+    }
+  }
+
+  renderCursorOverlays() {
+    if (!this.codeAreaEl) return;
+    let layer = document.getElementById('multiCursorLayer');
+    if (!layer) {
+      layer = document.createElement('div');
+      layer.id = 'multiCursorLayer';
+      layer.className = 'multi-cursor-layer';
+      this.codeAreaEl.appendChild(layer);
+    }
+    layer.innerHTML = '';
+
+    if (!this.multiCursor || !this.multiCursor.hasMultipleCursors()) {
+      return;
+    }
+
+    const lineHeight = DEFAULT_LINE_HEIGHT;
+    const charWidth = 7.8;
+    const paddingTop = 16;
+    const paddingLeft = 20;
+
+    for (const cursor of this.multiCursor.secondaries) {
+      const { line, column } = this.multiCursor.getLineAndCol(this.currentCode, cursor.start);
+      const top = (line - 1) * lineHeight + paddingTop;
+      const left = column * charWidth + paddingLeft;
+
+      const caretEl = document.createElement('div');
+      caretEl.className = 'secondary-cursor-caret';
+      caretEl.style.top = `${top}px`;
+      caretEl.style.left = `${left}px`;
+      layer.appendChild(caretEl);
+
+      if (cursor.start !== cursor.end) {
+        const { column: endCol } = this.multiCursor.getLineAndCol(this.currentCode, cursor.end);
+        const width = Math.max(2, (endCol - column) * charWidth);
+        const selEl = document.createElement('div');
+        selEl.className = 'secondary-cursor-selection';
+        selEl.style.top = `${top}px`;
+        selEl.style.left = `${left}px`;
+        selEl.style.width = `${width}px`;
+        selEl.style.height = `${lineHeight}px`;
+        layer.appendChild(selEl);
+      }
+    }
+  }
+
+  handleVirtualizedScroll(textarea) {
+    if (!this.isLargeFileMode || !textarea) return;
+    const lines = this.currentCode.split('\n');
+    const viewportHeight = textarea.clientHeight || 600;
+    const range = computeVisibleRange(textarea.scrollTop, viewportHeight, lines.length, DEFAULT_LINE_HEIGHT, 40);
+
+    if (this.currentVirtualRange &&
+        Math.abs(range.startIndex - this.currentVirtualRange.startIndex) < 10 &&
+        Math.abs(range.endIndex - this.currentVirtualRange.endIndex) < 10) {
+      return;
+    }
+
+    this.currentVirtualRange = range;
+    if (this.gutterEl) {
+      this.gutterEl.innerHTML = renderVirtualizedGutter(range.startIndex, range.endIndex, range.topSpacerHeight, range.bottomSpacerHeight, this.errorLine, this.warningLine);
+    }
+    if (this.codeAreaEl) {
+      const linesHtml = renderVirtualizedLines(
+        lines,
+        range.startIndex,
+        range.endIndex,
+        range.topSpacerHeight,
+        range.bottomSpacerHeight,
+        (line) => this.syntaxHighlightLine(line),
+        this.errorLine
+      );
+      this.codeAreaEl.innerHTML = linesHtml;
+      this.renderCursorOverlays();
     }
   }
 
@@ -2559,6 +2684,9 @@ export class OtterStudioIde {
         if (this.gutterEl) {
           this.gutterEl.scrollTop = textarea.scrollTop;
         }
+        if (this.isLargeFileMode) {
+          this.handleVirtualizedScroll(textarea);
+        }
       });
 
       textarea.addEventListener('mousemove', (e) => {
@@ -2578,6 +2706,16 @@ export class OtterStudioIde {
           e.preventDefault();
           this.updateCursorPos(textarea);
           this.goToDefinition();
+        } else if (e.altKey) {
+          const clickPos = textarea.selectionStart;
+          this.multiCursor.addCursor(clickPos, clickPos);
+          this.renderCursorOverlays();
+          this.updateCursorPos(textarea);
+        } else {
+          this.multiCursor.setPrimaryCursor(textarea.selectionStart, textarea.selectionEnd);
+          this.multiCursor.clearSecondaryCursors();
+          this.renderCursorOverlays();
+          this.updateCursorPos(textarea);
         }
       });
 
@@ -2585,6 +2723,8 @@ export class OtterStudioIde {
         this.hideHoverTooltip();
         this.checkSignatureHelp();
         this.currentCode = textarea.value;
+        this.multiCursor.setPrimaryCursor(textarea.selectionStart, textarea.selectionEnd);
+        this.renderCursorOverlays();
         this.markCurrentTabDirty(true);
         this.renderEditorCode(this.currentCode);
         this.updateCursorPos(textarea);
@@ -2603,6 +2743,107 @@ export class OtterStudioIde {
         if (e.key === 'Escape') {
           this.hideSignatureHelp();
           this.hideHoverTooltip();
+          if (this.multiCursor && this.multiCursor.hasMultipleCursors()) {
+            this.multiCursor.clearSecondaryCursors();
+            this.renderCursorOverlays();
+            this.updateCursorPos(textarea);
+            return;
+          }
+        }
+        // Multi-cursor next occurrence (Ctrl+D)
+        if (e.ctrlKey && !e.shiftKey && (e.key === 'd' || e.key === 'D')) {
+          e.preventDefault();
+          this.multiCursor.setPrimaryCursor(textarea.selectionStart, textarea.selectionEnd);
+          const added = this.multiCursor.selectNextOccurrence(this.currentCode);
+          if (added) {
+            this.renderCursorOverlays();
+            this.updateCursorPos(textarea);
+          }
+          return;
+        }
+        // Multi-cursor column carets (Ctrl+Alt+Up / Down)
+        if (e.ctrlKey && e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+          e.preventDefault();
+          this.multiCursor.setPrimaryCursor(textarea.selectionStart, textarea.selectionEnd);
+          const dir = e.key === 'ArrowUp' ? -1 : 1;
+          const added = this.multiCursor.addColumnCursor(this.currentCode, dir);
+          if (added) {
+            this.renderCursorOverlays();
+            this.updateCursorPos(textarea);
+          }
+          return;
+        }
+
+        // Multi-cursor simultaneous typing / deleting
+        if (this.multiCursor && this.multiCursor.hasMultipleCursors()) {
+          if (e.key === 'Backspace') {
+            e.preventDefault();
+            const res = this.multiCursor.applyEdit(this.currentCode, '', true, false);
+            if (res) {
+              this.currentCode = res.code;
+              textarea.value = res.code;
+              textarea.selectionStart = this.multiCursor.primary.start;
+              textarea.selectionEnd = this.multiCursor.primary.end;
+              this.markCurrentTabDirty(true);
+              this.renderEditorCode(this.currentCode);
+              this.updateCursorPos(textarea);
+              this.saveSessionState();
+              this.debouncedLint();
+              this.emitSourceChanged();
+            }
+            return;
+          }
+          if (e.key === 'Delete') {
+            e.preventDefault();
+            const res = this.multiCursor.applyEdit(this.currentCode, '', false, true);
+            if (res) {
+              this.currentCode = res.code;
+              textarea.value = res.code;
+              textarea.selectionStart = this.multiCursor.primary.start;
+              textarea.selectionEnd = this.multiCursor.primary.end;
+              this.markCurrentTabDirty(true);
+              this.renderEditorCode(this.currentCode);
+              this.updateCursorPos(textarea);
+              this.saveSessionState();
+              this.debouncedLint();
+              this.emitSourceChanged();
+            }
+            return;
+          }
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            const res = this.multiCursor.applyEdit(this.currentCode, '\n', false, false);
+            if (res) {
+              this.currentCode = res.code;
+              textarea.value = res.code;
+              textarea.selectionStart = this.multiCursor.primary.start;
+              textarea.selectionEnd = this.multiCursor.primary.end;
+              this.markCurrentTabDirty(true);
+              this.renderEditorCode(this.currentCode);
+              this.updateCursorPos(textarea);
+              this.saveSessionState();
+              this.debouncedLint();
+              this.emitSourceChanged();
+            }
+            return;
+          }
+          if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+            e.preventDefault();
+            const res = this.multiCursor.applyEdit(this.currentCode, e.key, false, false);
+            if (res) {
+              this.currentCode = res.code;
+              textarea.value = res.code;
+              textarea.selectionStart = this.multiCursor.primary.start;
+              textarea.selectionEnd = this.multiCursor.primary.end;
+              this.markCurrentTabDirty(true);
+              this.renderEditorCode(this.currentCode);
+              this.updateCursorPos(textarea);
+              this.saveSessionState();
+              this.debouncedLint();
+              this.emitSourceChanged();
+            }
+            return;
+          }
         }
         // Keyboard shortcuts
         if (e.altKey && !e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 'z') {
@@ -2775,6 +3016,10 @@ export class OtterStudioIde {
         if (!['ArrowUp', 'ArrowDown', 'Enter', 'Tab', 'Escape'].includes(e.key)) {
           this.updateCursorPos(textarea);
         }
+        if (this.multiCursor) {
+          this.multiCursor.setPrimaryCursor(textarea.selectionStart, textarea.selectionEnd);
+          this.renderCursorOverlays();
+        }
       });
     }
 
@@ -2790,7 +3035,11 @@ export class OtterStudioIde {
     const lineNum = lines.length;
     const colNum = lines[lines.length - 1].length + 1;
     if (this.statusBarPos) {
-      this.statusBarPos.innerText = `Ln ${lineNum}, Col ${colNum}`;
+      if (this.multiCursor && this.multiCursor.hasMultipleCursors()) {
+        this.statusBarPos.innerText = `Ln ${lineNum}, Col ${colNum} (${this.multiCursor.cursors.length} cursors)`;
+      } else {
+        this.statusBarPos.innerText = `Ln ${lineNum}, Col ${colNum}`;
+      }
     }
 
     // Dynamic Block matching
@@ -3180,6 +3429,16 @@ export class OtterStudioIde {
   }
 
   async lintCurrentCode() {
+    if (this.isLargeFileMode) {
+      this.errorLine = null;
+      this.warningLine = null;
+      this.availableQuickFixes = [];
+      if (this.btnProblemQuickFix) this.btnProblemQuickFix.style.display = 'none';
+      this.setProblemsStatus(true, 'Large File Mode Active', 'AST analysis bypassed for high performance.', 'Large File', 'Virtualization active. ⚡', false);
+      this.updateErrorSquiggles();
+      return;
+    }
+
     if (this.currentFile && !this.currentFile.endsWith('.ot')) {
       this.errorLine = null;
       this.warningLine = null;

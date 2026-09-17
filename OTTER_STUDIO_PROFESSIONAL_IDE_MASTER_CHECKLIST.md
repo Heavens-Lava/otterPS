@@ -45,7 +45,7 @@ platform.
 -   [x] Basic diagnostics with source line
 -   [ ] New Project wizard with Console/Desktop/Web/2D Game archetypes
     \[DONE, needs production certification per archetype\]
--   [ ] Professional source editor
+-   [x] Professional source editor (Complete Section 8 certification)
 -   [ ] Language intelligence
 -   [ ] Debugger
 -   [ ] Production visual UI designer
@@ -259,10 +259,10 @@ platform.
 -   [x] Auto-indent (preserves indent, 4 spaces on block start)
 -   [x] Comment/uncomment (Ctrl+/ multi-line toggle)
 -   [x] Format document/selection (Shift+Alt+F / format button)
--   [ ] Multiple cursors
+-   [x] Multiple cursors (Alt+Click secondary cursors, Ctrl+D next occurrence with word expansion, Ctrl+Alt+Up/Down column carets, reverse-offset simultaneous typing/deletion, blinking caret overlays, status bar cursor counter)
 -   [x] Word wrap (Alt+Z toggle & localStorage persistence)
 -   [x] Encoding/EOL selector (interactive statusbar buttons with CRLF/LF normalization and encoding picker)
--   [ ] Large-file mode
+-   [x] Large-file mode (automatic threshold detection for >=3,000 lines or >=500KB, viewport virtualization with dynamic spacers, status bar badge, and AST linting bypass)
 -   [x] Breadcrumbs (interactive path navigation header)
 -   [x] Find/replace (in-editor floating widget with Next/Prev/Replace/All)
 -   [x] Find in files with bounded workspace search and clickable results
