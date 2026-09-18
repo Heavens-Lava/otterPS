@@ -1484,6 +1484,202 @@ function Read-OtterJsonFile {
 
 
 # ===============================================================
+# CSV SUPPORT (D95)
+# ===============================================================
+
+function ConvertFrom-OtterCsvText {
+    param([string]$Text, [int]$Line)
+
+    if ([string]::IsNullOrWhiteSpace($Text)) {
+        throw [OtterError]::new('Otter needs a header row to read CSV into things.', $Line, 'runtime')
+    }
+
+    $rawRows = [System.Collections.Generic.List[System.Collections.Generic.List[string]]]::new()
+    $currentRow = [System.Collections.Generic.List[string]]::new()
+    $currentCell = [System.Text.StringBuilder]::new()
+    $inQuotes = $false
+    $len = $Text.Length
+    $i = 0
+
+    while ($i -lt $len) {
+        $ch = $Text[$i]
+        if ($inQuotes) {
+            if ($ch -eq '"') {
+                if ($i + 1 -lt $len -and $Text[$i + 1] -eq '"') {
+                    [void]$currentCell.Append('"')
+                    $i++
+                } else {
+                    $inQuotes = $false
+                }
+            } else {
+                [void]$currentCell.Append($ch)
+            }
+        } else {
+            if ($ch -eq '"') {
+                $inQuotes = $true
+            } elseif ($ch -eq ',') {
+                $currentRow.Add($currentCell.ToString())
+                [void]$currentCell.Clear()
+            } elseif ($ch -eq "`r") {
+                if ($i + 1 -lt $len -and $Text[$i + 1] -eq "`n") {
+                    $i++
+                }
+                $currentRow.Add($currentCell.ToString())
+                [void]$currentCell.Clear()
+                $rawRows.Add($currentRow)
+                $currentRow = [System.Collections.Generic.List[string]]::new()
+            } elseif ($ch -eq "`n") {
+                $currentRow.Add($currentCell.ToString())
+                [void]$currentCell.Clear()
+                $rawRows.Add($currentRow)
+                $currentRow = [System.Collections.Generic.List[string]]::new()
+            } else {
+                [void]$currentCell.Append($ch)
+            }
+        }
+        $i++
+    }
+
+    if ($inQuotes) {
+        throw [OtterError]::new('This is not valid CSV, so Otter could not read it.', $Line, 'runtime')
+    }
+
+    if ($currentCell.Length -gt 0 -or $currentRow.Count -gt 0) {
+        $currentRow.Add($currentCell.ToString())
+        $rawRows.Add($currentRow)
+    }
+
+    # Ignore trailing empty lines per RFC 4180
+    while ($rawRows.Count -gt 0 -and $rawRows[$rawRows.Count - 1].Count -eq 1 -and $rawRows[$rawRows.Count - 1][0] -eq '') {
+        $rawRows.RemoveAt($rawRows.Count - 1)
+    }
+
+    if ($rawRows.Count -eq 0) {
+        throw [OtterError]::new('Otter needs a header row to read CSV into things.', $Line, 'runtime')
+    }
+
+    $headers = $rawRows[0]
+    if ($headers.Count -eq 0) {
+        throw [OtterError]::new('Otter needs a header row to read CSV into things.', $Line, 'runtime')
+    }
+
+    # Validate header fields: non-empty and unique
+    $headerSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($header in $headers) {
+        if ([string]::IsNullOrWhiteSpace($header)) {
+            throw [OtterError]::new('CSV headers cannot be empty.', $Line, 'runtime')
+        }
+        if ($headerSet.Contains($header)) {
+            throw [OtterError]::new("CSV header ""$header"" appears more than once.", $Line, 'runtime')
+        }
+        [void]$headerSet.Add($header)
+    }
+
+    $resultList = [System.Collections.Generic.List[object]]::new()
+    for ($rowIdx = 1; $rowIdx -lt $rawRows.Count; $rowIdx++) {
+        $r = $rawRows[$rowIdx]
+        $rowNum = $rowIdx + 1
+        if ($r.Count -ne $headers.Count) {
+            throw [OtterError]::new("Row $rowNum has $($r.Count) fields, but the CSV header defines $($headers.Count) columns.", $Line, 'runtime')
+        }
+        $thing = [OtterObject]::new('thing')
+        for ($colIdx = 0; $colIdx -lt $headers.Count; $colIdx++) {
+            $thing.WriteProperty($headers[$colIdx], [string]$r[$colIdx])
+        }
+        $resultList.Add($thing)
+    }
+
+    Write-Output -NoEnumerate $resultList
+}
+
+function ConvertTo-OtterCsvCell {
+    param([object]$Value)
+    if ($null -eq $Value) { return '' }
+    $s = Format-OtterValue -Value $Value
+    if ($s -match '["\,\r\n]') {
+        return '"' + $s.Replace('"', '""') + '"'
+    }
+    return $s
+}
+
+function ConvertTo-OtterCsvText {
+    param([object]$Rows, [int]$Line)
+
+    if ($null -eq $Rows -or $Rows -isnot [System.Collections.Generic.List[object]]) {
+        throw [OtterError]::new('Otter can only write a list of things to CSV.', $Line, 'runtime')
+    }
+
+    if ($Rows.Count -eq 0) {
+        throw [OtterError]::new('Otter cannot write an empty list to CSV because there are no column headers.', $Line, 'runtime')
+    }
+
+    $first = $Rows[0]
+    if ($first -isnot [OtterObject]) {
+        throw [OtterError]::new('Otter can only write a list of things to CSV.', $Line, 'runtime')
+    }
+
+    $columns = @($first.PropertyNames())
+    if ($columns.Length -eq 0) {
+        throw [OtterError]::new('Otter cannot write things with no properties to CSV.', $Line, 'runtime')
+    }
+
+    # Verify that all subsequent rows have the exact same property names
+    for ($i = 0; $i -lt $Rows.Count; $i++) {
+        $rowNum = $i + 2
+        $item = $Rows[$i]
+        if ($item -isnot [OtterObject]) {
+            throw [OtterError]::new('Otter can only write a list of things to CSV.', $Line, 'runtime')
+        }
+        $props = @($item.PropertyNames())
+        if ($props.Length -ne $columns.Length) {
+            throw [OtterError]::new("Row $rowNum properties do not match the columns defined by the first row.", $Line, 'runtime')
+        }
+        foreach ($col in $columns) {
+            if (-not $item.HasProperty($col)) {
+                throw [OtterError]::new("Row $rowNum properties do not match the columns defined by the first row.", $Line, 'runtime')
+            }
+        }
+    }
+
+    $sb = [System.Text.StringBuilder]::new()
+    # Write header line
+    $headerCells = @()
+    foreach ($col in $columns) {
+        $headerCells += ConvertTo-OtterCsvCell -Value $col
+    }
+    [void]$sb.Append(($headerCells -join ','))
+    [void]$sb.Append("`r`n")
+
+    # Write data rows
+    foreach ($item in $Rows) {
+        $dataCells = @()
+        foreach ($col in $columns) {
+            $val = $item.ReadProperty($col)
+            $dataCells += ConvertTo-OtterCsvCell -Value $val
+        }
+        [void]$sb.Append(($dataCells -join ','))
+        [void]$sb.Append("`r`n")
+    }
+
+    return $sb.ToString()
+}
+
+function Read-OtterCsvFile {
+    param([string]$Path, [int]$Line)
+
+    $text = Read-OtterFile -Path $Path -Line $Line
+    Write-Output -NoEnumerate (ConvertFrom-OtterCsvText -Text $text -Line $Line)
+}
+
+function Write-OtterCsvFile {
+    param([object]$Rows, [string]$Path, [int]$Line)
+
+    $text = ConvertTo-OtterCsvText -Rows $Rows -Line $Line
+    Write-OtterFile -Path $Path -Content $text -Line $Line
+}
+
+
+# ===============================================================
 # PROGRAMS AND COMMANDS  (rules.md section 31)
 # ===============================================================
 #
@@ -2162,6 +2358,7 @@ Export-ModuleMember -Function `
     Get-OtterFilesIn, Get-OtterFoldersIn, New-OtterFolder, Remove-OtterFolder, `
     Copy-OtterFolder, Move-OtterFolder, `
     ConvertFrom-OtterJsonText, ConvertTo-OtterJsonText, Read-OtterJsonFile, `
+    ConvertFrom-OtterCsvText, ConvertTo-OtterCsvText, Read-OtterCsvFile, Write-OtterCsvFile, `
     Show-OtterNotification, Show-OtterFileDialog, Get-OtterSystemInfoValue, `
     New-OtterProcessObject, Get-OtterProcessList, Stop-OtterProcess, `
     Set-OtterProcessPriority, Wait-OtterProcess, `

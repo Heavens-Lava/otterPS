@@ -45,6 +45,92 @@ function Get-OtterJsDateConstructor {
     return "{ __otterDate: true, hasTime: $HasTimeJs, value: ($DateExprJs), toString() { $toStringBody } }"
 }
 
+# D95: Portable RFC 4180 CSV parser and serializer in JavaScript
+$script:OtterJsFromCsvFunc = @'
+(text) => {
+  if (!text || text.trim() === '') { throw new Error('Otter needs a header row to read CSV into things.'); }
+  const rows = []; let curRow = []; let curCell = ''; let inQuotes = false; let i = 0; const len = text.length;
+  while (i < len) {
+    const ch = text[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (i + 1 < len && text[i + 1] === '"') { curCell += '"'; i++; }
+        else { inQuotes = false; }
+      } else { curCell += ch; }
+    } else {
+      if (ch === '"') { inQuotes = true; }
+      else if (ch === ',') { curRow.push(curCell); curCell = ''; }
+      else if (ch === '\r') {
+        if (i + 1 < len && text[i + 1] === '\n') { i++; }
+        curRow.push(curCell); curCell = ''; rows.push(curRow); curRow = [];
+      } else if (ch === '\n') {
+        curRow.push(curCell); curCell = ''; rows.push(curRow); curRow = [];
+      } else { curCell += ch; }
+    }
+    i++;
+  }
+  if (inQuotes) { throw new Error('This is not valid CSV, so Otter could not read it.'); }
+  if (curCell.length > 0 || curRow.length > 0) { curRow.push(curCell); rows.push(curRow); }
+  while (rows.length > 0 && rows[rows.length - 1].length === 1 && rows[rows.length - 1][0] === '') { rows.pop(); }
+  if (rows.length === 0) { throw new Error('Otter needs a header row to read CSV into things.'); }
+  const headers = rows[0];
+  if (headers.length === 0) { throw new Error('Otter needs a header row to read CSV into things.'); }
+  const headerSet = new Set();
+  for (let h = 0; h < headers.length; h++) {
+    const head = headers[h];
+    if (!head || head.trim() === '') { throw new Error('CSV headers cannot be empty.'); }
+    const lower = head.toLowerCase();
+    if (headerSet.has(lower)) { throw new Error('CSV header "' + head + '" appears more than once.'); }
+    headerSet.add(lower);
+  }
+  const result = [];
+  for (let r = 1; r < rows.length; r++) {
+    const row = rows[r]; const rowNum = r + 1;
+    if (row.length !== headers.length) {
+      throw new Error('Row ' + rowNum + ' has ' + row.length + ' fields, but the CSV header defines ' + headers.length + ' columns.');
+    }
+    const props = {}; const order = [];
+    for (let c = 0; c < headers.length; c++) { props[headers[c]] = String(row[c]); order.push(headers[c]); }
+    result.push({ __otterThing: true, typeName: 'thing', props: props, order: order });
+  }
+  return result;
+}
+'@
+
+$script:OtterJsToCsvFunc = @'
+(rows) => {
+  if (!Array.isArray(rows)) { throw new Error('Otter can only write a list of things to CSV.'); }
+  if (rows.length === 0) { throw new Error('Otter cannot write an empty list to CSV because there are no column headers.'); }
+  const first = rows[0];
+  if (!first || !first.__otterThing) { throw new Error('Otter can only write a list of things to CSV.'); }
+  const columns = first.order ? first.order.slice() : Object.keys(first.props || {});
+  if (columns.length === 0) { throw new Error('Otter cannot write things with no properties to CSV.'); }
+  for (let i = 0; i < rows.length; i++) {
+    const item = rows[i]; const rowNum = i + 2;
+    if (!item || !item.__otterThing) { throw new Error('Otter can only write a list of things to CSV.'); }
+    const itemProps = item.props ? Object.keys(item.props) : [];
+    if (itemProps.length !== columns.length) { throw new Error('Row ' + rowNum + ' properties do not match the columns defined by the first row.'); }
+    for (let c = 0; c < columns.length; c++) {
+      if (!(columns[c] in item.props)) { throw new Error('Row ' + rowNum + ' properties do not match the columns defined by the first row.'); }
+    }
+  }
+  function escapeCell(v) {
+    if (v === null || v === undefined) return '';
+    const s = String(v);
+    if (/["\,\r\n]/.test(s)) { return '"' + s.replace(/"/g, '""') + '"'; }
+    return s;
+  }
+  const outLines = [];
+  outLines.push(columns.map(escapeCell).join(','));
+  for (let i = 0; i < rows.length; i++) {
+    const item = rows[i];
+    const cells = columns.map(function(c) { return escapeCell(item.props[c]); });
+    outLines.push(cells.join(','));
+  }
+  return outLines.join('\r\n') + '\r\n';
+}
+'@
+
 # D60 Phase 1J. Builds the JS text for `.NET`'s DateTime.AddMonths/AddYears
 # clamping algorithm - verified this is what the interpreter's DateAdjust
 # case actually relies on (`$current.Value.AddMonths($whole)` /
@@ -1693,6 +1779,17 @@ function ConvertTo-OtterJsStatement {
             $lines.Add("${pad}}")
             return ($lines -join "`n")
         }
+        ([NodeKind]::SetCurrentDirectory) {
+            # D94. `set current directory to <path>`
+            $pathJs = ConvertTo-OtterJsExpression -Expr $Stmt.Path
+            return "${pad}if (typeof process !== 'undefined' && process.chdir) { process.chdir($pathJs); }"
+        }
+        ([NodeKind]::SetEnvironmentVariable) {
+            # D94. `set environment variable <name> to <value>`
+            $nameJs = ConvertTo-OtterJsExpression -Expr $Stmt.Name
+            $valJs = ConvertTo-OtterJsExpression -Expr $Stmt.Value
+            return "${pad}if (typeof process !== 'undefined' && process.env) { process.env[$nameJs] = $valJs; }"
+        }
         ([NodeKind]::GetSystemInfo) {
             # D69. `get system information "os"/"cpu"/"memory"/"disk"/
             # "network" into info`. Unlike GetSystemFolder (a plain string),
@@ -2251,6 +2348,68 @@ function ConvertTo-OtterJsStatement {
             $lines.Add("${pad}}")
             return ($lines -join "`n")
         }
+        ([NodeKind]::ReadCsv) {
+            # D95. `read csv from <path> into <target>`
+            $pathJs = ConvertTo-OtterJsExpression -Expr $Stmt.Path
+            $target = $Stmt.Target
+            $lines = [System.Collections.Generic.List[string]]::new()
+            $inner = '  ' * ($Indent + 1)
+            $lines.Add("${pad}{")
+            $lines.Add("${inner}const _text = String(await otterReadFile($pathJs));")
+            $lines.Add("${inner}const _value = ($script:OtterJsFromCsvFunc)(_text);")
+            if ($LocalNames -and $LocalNames.Contains($target)) {
+                $lines.Add("${inner}$target = _value;")
+            } else {
+                $lines.Add("${inner}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$target' in otterState)) { otterSetState('$target', _value); } else { window.$target = _value; }")
+            }
+            $lines.Add("${pad}}")
+            return ($lines -join "`n")
+        }
+        ([NodeKind]::WriteCsv) {
+            # D95. `write csv <rows> to <path>`
+            $rowsJs = ConvertTo-OtterJsExpression -Expr $Stmt.Rows
+            $pathJs = ConvertTo-OtterJsExpression -Expr $Stmt.Path
+            $lines = [System.Collections.Generic.List[string]]::new()
+            $inner = '  ' * ($Indent + 1)
+            $lines.Add("${pad}{")
+            $lines.Add("${inner}const _csv = ($script:OtterJsToCsvFunc)($rowsJs);")
+            $lines.Add("${inner}await otterWriteFile($pathJs, _csv);")
+            $lines.Add("${pad}}")
+            return ($lines -join "`n")
+        }
+        ([NodeKind]::ConvertToCsv) {
+            # D95. `convert <subject> to csv into <target>`
+            $subjectJs = ConvertTo-OtterJsExpression -Expr $Stmt.Subject
+            $target = $Stmt.Target
+            $lines = [System.Collections.Generic.List[string]]::new()
+            $inner = '  ' * ($Indent + 1)
+            $lines.Add("${pad}{")
+            $lines.Add("${inner}const _value = ($script:OtterJsToCsvFunc)($subjectJs);")
+            if ($LocalNames -and $LocalNames.Contains($target)) {
+                $lines.Add("${inner}$target = _value;")
+            } else {
+                $lines.Add("${inner}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$target' in otterState)) { otterSetState('$target', _value); } else { window.$target = _value; }")
+            }
+            $lines.Add("${pad}}")
+            return ($lines -join "`n")
+        }
+        ([NodeKind]::ConvertFromCsv) {
+            # D95. `convert <subject> from csv into <target>`
+            $subjectJs = ConvertTo-OtterJsExpression -Expr $Stmt.Subject
+            $target = $Stmt.Target
+            $lines = [System.Collections.Generic.List[string]]::new()
+            $inner = '  ' * ($Indent + 1)
+            $lines.Add("${pad}{")
+            $lines.Add("${inner}const _text = String($subjectJs);")
+            $lines.Add("${inner}const _value = ($script:OtterJsFromCsvFunc)(_text);")
+            if ($LocalNames -and $LocalNames.Contains($target)) {
+                $lines.Add("${inner}$target = _value;")
+            } else {
+                $lines.Add("${inner}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$target' in otterState)) { otterSetState('$target', _value); } else { window.$target = _value; }")
+            }
+            $lines.Add("${pad}}")
+            return ($lines -join "`n")
+        }
         ([NodeKind]::Replace) {
             # D60 Phase 1D-A. Matches Otter.Interpreter.psm1's 'Replace'
             # case exactly:
@@ -2542,11 +2701,9 @@ function Get-OtterJsBindingNames {
                 # SetLocal.
                 if ($s.Target) { [void]$setStyle.Add($s.Target) }
             }
-            if ($s.Kind -eq [NodeKind]::ReadJson -or $s.Kind -eq [NodeKind]::ConvertToJson -or $s.Kind -eq [NodeKind]::ConvertFromJson) {
-                # D60 Phase 1G: all three use Environment.Set (verified
-                # directly against the interpreter's 'ReadJson'/
-                # 'ConvertToJson'/'ConvertFromJson' cases) - Set-style,
-                # same as Assign/MathInto, not SetLocal.
+            if ($s.Kind -eq [NodeKind]::ReadJson -or $s.Kind -eq [NodeKind]::ConvertToJson -or $s.Kind -eq [NodeKind]::ConvertFromJson -or $s.Kind -eq [NodeKind]::ReadCsv -or $s.Kind -eq [NodeKind]::ConvertToCsv -or $s.Kind -eq [NodeKind]::ConvertFromCsv) {
+                # D60 Phase 1G / D95: all use Environment.Set (verified directly
+                # against interpreter) - Set-style, same as Assign/MathInto.
                 if ($s.Target) { [void]$setStyle.Add($s.Target) }
             }
             if ($s.Kind -eq [NodeKind]::ObjectDef) {
@@ -2661,11 +2818,8 @@ function Test-OtterJsBodyNeedsAsync {
         if ($s.Kind -eq [NodeKind]::Await -or $s.Kind -eq [NodeKind]::ReadFile -or $s.Kind -eq [NodeKind]::WriteFile -or $s.Kind -eq [NodeKind]::AppendFile -or $s.Kind -eq [NodeKind]::CopyFile -or $s.Kind -eq [NodeKind]::MoveFile -or $s.Kind -eq [NodeKind]::DeleteFile -or $s.Kind -eq [NodeKind]::CreateFolder -or $s.Kind -eq [NodeKind]::DeleteFolder -or $s.Kind -eq [NodeKind]::CopyFolder -or $s.Kind -eq [NodeKind]::MoveFolder -or $s.Kind -eq [NodeKind]::GetFiles -or $s.Kind -eq [NodeKind]::GetFolders -or $s.Kind -eq [NodeKind]::RunProgram -or $s.Kind -eq [NodeKind]::HttpGet -or $s.Kind -eq [NodeKind]::HttpPost -or $s.Kind -eq [NodeKind]::HttpPut -or $s.Kind -eq [NodeKind]::HttpDelete -or $s.Kind -eq [NodeKind]::CopyToClipboard -or $s.Kind -eq [NodeKind]::GetClipboard -or $s.Kind -eq [NodeKind]::Notify -or $s.Kind -eq [NodeKind]::GetEnvironmentVariable -or $s.Kind -eq [NodeKind]::GetSystemFolder -or $s.Kind -eq [NodeKind]::ChooseFile -or $s.Kind -eq [NodeKind]::ChooseFolder -or $s.Kind -eq [NodeKind]::ChooseSaveFile -or $s.Kind -eq [NodeKind]::GetSystemInfo -or $s.Kind -eq [NodeKind]::GetProcesses -or $s.Kind -eq [NodeKind]::KillProcess -or $s.Kind -eq [NodeKind]::SetProcessPriority -or $s.Kind -eq [NodeKind]::WaitForProcess -or $s.Kind -eq [NodeKind]::CreateSymbolicLink -or $s.Kind -eq [NodeKind]::GetSymbolicLinkTarget -or $s.Kind -eq [NodeKind]::GetFileOwner -or $s.Kind -eq [NodeKind]::SetFileReadOnly -or $s.Kind -eq [NodeKind]::GetRegistryValue -or $s.Kind -eq [NodeKind]::SetRegistryValue -or $s.Kind -eq [NodeKind]::DeleteRegistryValue -or $s.Kind -eq [NodeKind]::GetEventLogEntries -or $s.Kind -eq [NodeKind]::SetCredential -or $s.Kind -eq [NodeKind]::GetCredential -or $s.Kind -eq [NodeKind]::DeleteCredential -or $s.Kind -eq [NodeKind]::PowerAction -or $s.Kind -eq [NodeKind]::PrintFile -or $s.Kind -eq [NodeKind]::RunRemoteCommand -or $s.Kind -eq [NodeKind]::RunSshCommand -or $s.Kind -eq [NodeKind]::ZipFolder -or $s.Kind -eq [NodeKind]::UnzipFile -or $s.Kind -eq [NodeKind]::HashText -or $s.Kind -eq [NodeKind]::EncryptText -or $s.Kind -eq [NodeKind]::DecryptText) {
             return $true
         }
-        if ($s.Kind -eq [NodeKind]::ReadJson) {
-            # D60 Phase 1G: ReadJson does a real file read through the same
-            # async otterReadFile(path) hook as ReadFile - ConvertToJson/
-            # ConvertFromJson are pure in-memory data transforms and need
-            # no await, so they are deliberately NOT listed here.
+        if ($s.Kind -eq [NodeKind]::ReadJson -or $s.Kind -eq [NodeKind]::ReadCsv -or $s.Kind -eq [NodeKind]::WriteCsv) {
+            # D60 Phase 1G / D95: ReadJson/ReadCsv/WriteCsv do real file I/O through async hooks
             return $true
         }
         if ($s.Kind -eq [NodeKind]::Assign -and (Test-OtterJsExpressionNeedsAsync $s.Value)) { return $true }

@@ -1154,6 +1154,40 @@ function Invoke-OtterStatement {
             return
         }
 
+        # --- csv (D95) ------------------------------------------
+
+        # read csv from "customers.csv" into customers
+        'ReadCsv' {
+            $path = Get-OtterPathArgument -Expression $Statement.Path -Environment $Environment
+            $value = Read-OtterCsvFile -Path $path -Line $Statement.Line
+            $Environment.Set($Statement.Target, $value)
+            return
+        }
+
+        # write csv customers to "export.csv"
+        'WriteCsv' {
+            $rows = Get-OtterValue -Expression $Statement.Rows -Environment $Environment
+            $path = Get-OtterPathArgument -Expression $Statement.Path -Environment $Environment
+            Write-OtterCsvFile -Rows $rows -Path $path -Line $Statement.Line
+            return
+        }
+
+        # convert customers to csv into text
+        'ConvertToCsv' {
+            $subject = Get-OtterValue -Expression $Statement.Subject -Environment $Environment
+            $text = ConvertTo-OtterCsvText -Rows $subject -Line $Statement.Line
+            $Environment.Set($Statement.Target, $text)
+            return
+        }
+
+        # convert text from csv into customers
+        'ConvertFromCsv' {
+            $text = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.Subject -Environment $Environment)
+            $value = ConvertFrom-OtterCsvText -Text $text -Line $Statement.Line
+            $Environment.Set($Statement.Target, $value)
+            return
+        }
+
         # --- random (D30) ---------------------------------------
 
         # random number from 1 to 10 into number    - both ends included

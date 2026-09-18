@@ -1,0 +1,23 @@
+# csv.ot - CSV becomes a list of ordinary Otter things (D95)
+#
+# A CSV document reads into a list of things, where each column header
+# becomes a property name. All cell values are preserved as text.
+
+rawCsv is "id,name,role,dept\n00101,Alice,Architect,Engineering\n00102,Bob,Lead,Design\n00103,Carol,Manager,Operations"
+
+convert rawCsv from csv into team
+
+say "Loaded" length of team "team members:"
+for each member in team
+    say "  [" id of member "] " name of member " - " role of member " (" dept of member ")"
+.
+
+write csv team to "team-export.csv"
+
+read csv from "team-export.csv" into reloaded
+say "Reloaded from disk:" length of reloaded "records."
+
+convert reloaded to csv into exportedText
+say "Exported CSV length:" length of exportedText "characters."
+
+delete file "team-export.csv"
