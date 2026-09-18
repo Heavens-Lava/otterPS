@@ -1575,6 +1575,37 @@ body {
   position: relative;
 }
 
+/* Debugger (first slice): click a gutter line number to toggle a breakpoint;
+   a paused frame highlights the exact Otter source line it is about to run. */
+.line-numbers-gutter span {
+  cursor: pointer;
+}
+
+.line-numbers-gutter span.gutter-breakpoint {
+  position: relative;
+}
+
+.line-numbers-gutter span.gutter-breakpoint::after {
+  content: '●';
+  font-size: 9px;
+  color: #dc2626;
+  position: absolute;
+  right: 3px;
+  top: 0;
+}
+
+.line-numbers-gutter span.gutter-debug-pause {
+  color: #f8fafc;
+  background: #d97706;
+  font-weight: 700;
+}
+
+.code-line.has-debug-pause {
+  background: rgba(217, 119, 6, 0.18);
+  outline: 1px solid rgba(217, 119, 6, 0.5);
+  outline-offset: -1px;
+}
+
 .line-numbers-gutter span.gutter-warn::before {
   content: '▲';
   font-size: 8px;

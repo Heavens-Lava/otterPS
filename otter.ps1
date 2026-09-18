@@ -66,7 +66,11 @@ param(
     # `-version`/`-help` before matching parameter names, so these need to
     # be real switches (matched via alias) rather than caught as $Path text.
     [Parameter()][Alias('version')][switch]$VersionFlag,
-    [Parameter()][Alias('help')][switch]$HelpFlag
+    [Parameter()][Alias('help')][switch]$HelpFlag,
+
+    # Trailing arguments passed to the Otter program (D94 / Batch 1)
+    [Parameter(ValueFromRemainingArguments = $true)]
+    [string[]]$Arguments
 )
 
 $ErrorActionPreference = 'Stop'
@@ -248,7 +252,9 @@ function Invoke-OtterFile {
         # flag adds is emitting the "finished" protocol event once the
         # program stops, however it stops - normally or on error - so
         # Studio can always tell "still running/paused" apart from "done".
-        [switch]$DebugSession
+        [switch]$DebugSession,
+
+        [string[]]$Arguments = @()
     )
 
     if (-not $ScriptPath.ToLowerInvariant().EndsWith('.ot')) {
@@ -268,7 +274,7 @@ function Invoke-OtterFile {
     $source = [System.IO.File]::ReadAllText($resolved.Path, $utf8)
     if ($null -eq $source) { $source = '' }
 
-    $environment = New-OtterEnvironment
+    $environment = New-OtterEnvironment -Arguments $Arguments
     $script:LastFailureStage = $null
 
     try {
@@ -403,7 +409,7 @@ if ($Path -eq 'run' -or $Path -eq 'check') {
         Write-Host "Usage: otter $Path <file.ot>" -ForegroundColor Red
         exit $script:ExitUsageError
     }
-    Invoke-OtterFile -ScriptPath $Target -CheckOnly:($Path -eq 'check')
+    Invoke-OtterFile -ScriptPath $Target -CheckOnly:($Path -eq 'check') -Arguments $Arguments
     # Invoke-OtterFile always exits itself.
 }
 
@@ -418,7 +424,7 @@ if ($Path -eq 'debug') {
     }
     Import-Module (Join-Path $PSScriptRoot 'src\Otter.Debugger.psm1') -Force
     Start-OtterDebugSession -FileName (Split-Path -Leaf $Target) -Breakpoints $breakpointLines
-    Invoke-OtterFile -ScriptPath $Target -DebugSession
+    Invoke-OtterFile -ScriptPath $Target -DebugSession -Arguments $Arguments
     # Invoke-OtterFile always exits itself.
 }
 
@@ -474,7 +480,10 @@ if ($Path) {
         Write-Host "Run 'otter help' to see the available commands." -ForegroundColor Red
         exit $script:ExitUsageError
     }
-    Invoke-OtterFile -ScriptPath $Path
+    $scriptArgs = @()
+    if ($Target) { $scriptArgs += $Target }
+    if ($Arguments) { $scriptArgs += $Arguments }
+    Invoke-OtterFile -ScriptPath $Path -Arguments $scriptArgs
     # Invoke-OtterFile always exits itself.
 }
 else {

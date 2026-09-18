@@ -1,0 +1,10 @@
+# debugger-demo.ot - smallest real program for the first debugger slice.
+# Line numbers matter here: this file is the fixture the debugger tests
+# set a breakpoint against by exact line number.
+name is "Jeff"
+score is 0
+add 5 to score
+say "Score is" score
+add 3 to score
+say "Final score is" score
+say "Done" name

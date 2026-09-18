@@ -27,6 +27,37 @@ const ANALYZER_PATH = path.join(REPO_ROOT, 'tools', 'vscode-otter', 'scripts', '
 const workspaceSymbolCache = new Map();
 let activeRunProcess = null;
 
+// Debugger (first slice): sessionId -> { child, events: [], output: [],
+// finished: bool, exitCode: number|null, buffer: string }. Each session is a
+// real, separate `otter.ps1 debug` process (src/Otter.Debugger.psm1) - this
+// map is pure relay bookkeeping, never a second interpreter. See the
+// "@@OTTER_DEBUG@@ " line protocol documented in that module: any stdout
+// line with that prefix is a debug event (JSON after the prefix), and every
+// other line is exactly what the Otter program itself printed via `say`.
+const debugSessions = new Map();
+const OTTER_DEBUG_EVENT_PREFIX = '@@OTTER_DEBUG@@ ';
+
+function pumpDebugSessionOutput(session, chunk) {
+  session.buffer += chunk;
+  const lines = session.buffer.split('\n');
+  session.buffer = lines.pop(); // last entry may be a partial line - keep it
+  for (const rawLine of lines) {
+    const line = rawLine.endsWith('\r') ? rawLine.slice(0, -1) : rawLine;
+    if (line.startsWith(OTTER_DEBUG_EVENT_PREFIX)) {
+      try {
+        session.events.push(JSON.parse(line.slice(OTTER_DEBUG_EVENT_PREFIX.length)));
+      } catch {
+        // A malformed protocol line is a bug worth seeing, not silently
+        // dropping - surface it as ordinary program output instead of
+        // pretending it never happened.
+        session.output.push(line);
+      }
+    } else if (line.length > 0) {
+      session.output.push(line);
+    }
+  }
+}
+
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -838,6 +869,110 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, { stopped: true });
     }
     return sendJson(res, { stopped: false, message: 'No process currently running' });
+  }
+
+  // --- Debugger (first slice): start/poll/continue/stop a real otter.ps1
+  // debug session. See src/Otter.Debugger.psm1 for the protocol and
+  // src/Otter.Interpreter.psm1's Set-OtterStatementHook for how the
+  // production interpreter itself exposes the one hook this relies on. ---
+
+  if (pathname === '/api/debug/start' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const relPath = body.path || 'examples/file-organizer/main.ot';
+      const safePath = path.resolve(REPO_ROOT, relPath);
+      if (!safePath.startsWith(REPO_ROOT)) {
+        return sendJson(res, { error: 'Forbidden' }, 403);
+      }
+
+      if (typeof body.content === 'string') {
+        fs.writeFileSync(safePath, body.content, 'utf8');
+      }
+
+      const runDir = path.dirname(safePath);
+      const scriptName = path.basename(safePath);
+      const breakpoints = Array.isArray(body.breakpoints)
+        ? body.breakpoints.filter(n => Number.isInteger(n)).join(',')
+        : '';
+      const otterPs1 = path.join(REPO_ROOT, 'otter.ps1');
+
+      const child = spawn('powershell.exe', [
+        '-NoProfile', '-ExecutionPolicy', 'Bypass',
+        '-File', otterPs1, 'debug', scriptName, '-Breakpoints', breakpoints
+      ], { cwd: runDir, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
+
+      const sessionId = crypto.randomUUID();
+      const session = { child, events: [], output: [], finished: false, exitCode: null, buffer: '' };
+      debugSessions.set(sessionId, session);
+
+      child.stdout.on('data', chunk => pumpDebugSessionOutput(session, chunk.toString('utf8')));
+      child.stderr.on('data', chunk => { session.output.push(chunk.toString('utf8').trimEnd()); });
+      child.on('close', code => {
+        if (session.buffer.length > 0) {
+          pumpDebugSessionOutput(session, '\n');
+        }
+        session.finished = true;
+        session.exitCode = code;
+      });
+
+      sendJson(res, { sessionId });
+    } catch (err) {
+      sendJson(res, { error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/debug/poll' && req.method === 'GET') {
+    const sessionId = urlObj.searchParams.get('sessionId');
+    const session = debugSessions.get(sessionId);
+    if (!session) {
+      return sendJson(res, { error: 'Unknown or expired debug session' }, 404);
+    }
+
+    const events = session.events.splice(0);
+    const output = session.output.splice(0);
+    const finished = session.finished;
+    sendJson(res, { events, output, finished, exitCode: session.exitCode });
+
+    // Nothing left to relay and the process is done - safe to forget it.
+    if (finished && session.events.length === 0 && session.output.length === 0) {
+      debugSessions.delete(sessionId);
+    }
+    return;
+  }
+
+  if (pathname === '/api/debug/continue' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const session = debugSessions.get(body.sessionId);
+      if (!session) {
+        return sendJson(res, { error: 'Unknown or expired debug session' }, 404);
+      }
+      session.child.stdin.write('continue\n');
+      sendJson(res, { ok: true });
+    } catch (err) {
+      sendJson(res, { error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/debug/stop' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const session = debugSessions.get(body.sessionId);
+      if (!session) {
+        return sendJson(res, { stopped: false, message: 'No such debug session' });
+      }
+      try {
+        if (process.platform === 'win32') exec(`taskkill /pid ${session.child.pid} /f /t`, () => {});
+        else session.child.kill('SIGTERM');
+      } catch {}
+      debugSessions.delete(body.sessionId);
+      sendJson(res, { stopped: true });
+    } catch (err) {
+      sendJson(res, { error: err.message }, 500);
+    }
+    return;
   }
 
   // --- Interactive Terminal API ---

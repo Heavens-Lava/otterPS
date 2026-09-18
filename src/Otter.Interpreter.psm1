@@ -908,6 +908,15 @@ function Invoke-OtterStatement {
             return
         }
 
+        # set environment variable "NAME" to "VALUE"                    (D94)
+        'SetEnvironmentVariable' {
+            $name = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.Name -Environment $Environment)
+            $val = Get-OtterValue -Expression $Statement.Value -Environment $Environment
+            $value = if ($null -eq $val) { $null } else { Format-OtterValue -Value $val }
+            [System.Environment]::SetEnvironmentVariable($name, $value)
+            return
+        }
+
         # get system folder "temp" into path
         'GetSystemFolder' {
             $folderName = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.FolderName -Environment $Environment)
@@ -924,6 +933,21 @@ function Invoke-OtterStatement {
                 }
             }
             $Environment.Set($Statement.Target, $path)
+            return
+        }
+
+        # set current directory to "Projects"                           (D94)
+        'SetCurrentDirectory' {
+            $path = Get-OtterPathArgument -Expression $Statement.Path -Environment $Environment
+            if (-not (Test-Path -LiteralPath $path -PathType Container)) {
+                throw (New-OtterRuntimeError `
+                    -Message "I cannot find a folder called ""$path""." `
+                    -Line $Statement.Line `
+                    -Suggestion 'set current directory to "path/to/folder"')
+            }
+            $resolved = (Resolve-Path -LiteralPath $path).Path
+            [System.IO.Directory]::SetCurrentDirectory($resolved)
+            Set-Location -LiteralPath $resolved
             return
         }
 
@@ -2233,7 +2257,16 @@ function Get-OtterTypeName {
 }
 
 function New-OtterEnvironment {
-    return [OtterEnvironment]::new()
+    param([object[]]$Arguments = @())
+    $env = [OtterEnvironment]::new()
+    $argList = [System.Collections.Generic.List[object]]::new()
+    if ($null -ne $Arguments) {
+        foreach ($arg in $Arguments) {
+            $argList.Add([string]$arg)
+        }
+    }
+    $env.Set('arguments', $argList)
+    return $env
 }
 
 

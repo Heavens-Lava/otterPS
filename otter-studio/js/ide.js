@@ -66,6 +66,14 @@ export class OtterStudioIde {
     this.currentProjectFolder = null;
     this.currentProjectName = null;
     this.wordWrap = typeof localStorage !== 'undefined' && localStorage.getItem('otter-studio-word-wrap') === 'true';
+    // Debugger (first slice): breakpoints are Otter source line numbers the
+    // user armed by clicking the gutter; debugSessionId identifies the real
+    // production otter.ps1 debug process on Studio's backend.
+    this.debugBreakpoints = new Set();
+    this.debugSessionId = null;
+    this.debugPausedLine = null;
+    this.debugCallStack = null;
+    this.debugPollTimer = null;
     this.files = {};
     this.activeTab = 'problems'; // 'problems' | 'output' | 'terminal'
     this.autocompleteVisible = false;
@@ -417,6 +425,8 @@ export class OtterStudioIde {
     this.statusBarPos = document.getElementById('statusbarPos') || document.querySelector('.statusbar-right span:first-child');
     this.mainRunBtn = document.getElementById('mainRunBtn');
     this.btnStopProgram = document.getElementById('btnStopProgram');
+    this.btnDebugProgram = document.getElementById('btnDebugProgram');
+    this.btnDebugContinue = document.getElementById('btnDebugContinue');
     this.btnRunDropdown = document.getElementById('btnRunDropdown');
     this.launchProfileMenu = document.getElementById('launchProfileMenu');
     this.runBtnLabel = document.getElementById('runBtnLabel');
@@ -536,6 +546,8 @@ export class OtterStudioIde {
     }
 
     this.btnStopProgram?.addEventListener('click', () => this.stopCurrentProgram());
+    this.btnDebugProgram?.addEventListener('click', () => this.startDebugSession());
+    this.btnDebugContinue?.addEventListener('click', () => this.continueDebugSession());
     this.btnRunDropdown?.addEventListener('click', (e) => {
       e.stopPropagation();
       this.toggleLaunchProfileMenu();
@@ -2503,13 +2515,14 @@ export class OtterStudioIde {
         let renderedLine = this.syntaxHighlightLine(line);
         const indentClass = line.startsWith('        ') ? ' ind-2' : (line.startsWith('    ') ? ' ind-1' : '');
         const errClass = (this.errorLine === lineNum) ? ' has-error' : ((this.warningLine === lineNum) ? ' has-warning' : '');
+        const pauseClass = (this.debugPausedLine === lineNum) ? ' has-debug-pause' : '';
 
         const lineDiags = (this.activeDiagnostics || []).filter(d => d.startLine === lineNum);
         if (lineDiags.length > 0) {
           renderedLine = this.applyExactSquigglesToLine(renderedLine, lineNum, line, lineDiags);
         }
 
-        html += `<div class="code-line${indentClass}${errClass}" data-line="${lineNum}">${renderedLine || '&nbsp;'}</div>`;
+        html += `<div class="code-line${indentClass}${errClass}${pauseClass}" data-line="${lineNum}">${renderedLine || '&nbsp;'}</div>`;
       });
 
       this.codeAreaEl.innerHTML = html;
@@ -2775,12 +2788,29 @@ export class OtterStudioIde {
     let spans = '';
     const maxLines = Math.max(count, 1);
     for (let i = 1; i <= maxLines; i++) {
-      let markerClass = '';
-      if (this.errorLine === i) markerClass = ' class="gutter-err"';
-      else if (this.warningLine === i) markerClass = ' class="gutter-warn"';
-      spans += `<span${markerClass}>${i}</span>`;
+      const classes = [];
+      if (this.errorLine === i) classes.push('gutter-err');
+      else if (this.warningLine === i) classes.push('gutter-warn');
+      if (this.debugBreakpoints && this.debugBreakpoints.has(i)) classes.push('gutter-breakpoint');
+      if (this.debugPausedLine === i) classes.push('gutter-debug-pause');
+      const classAttr = classes.length ? ` class="${classes.join(' ')}"` : '';
+      spans += `<span${classAttr} data-line="${i}">${i}</span>`;
     }
     this.gutterEl.innerHTML = spans;
+  }
+
+  // Debugger (first slice): click a gutter line number to arm/disarm a
+  // breakpoint on that exact Otter source line. Otter Studio never decides
+  // WHERE execution pauses - it only tells the real interpreter which lines
+  // to stop on (src/Otter.Debugger.psm1 does the actual pausing).
+  toggleBreakpoint(lineNumber) {
+    if (!this.debugBreakpoints) this.debugBreakpoints = new Set();
+    if (this.debugBreakpoints.has(lineNumber)) {
+      this.debugBreakpoints.delete(lineNumber);
+    } else {
+      this.debugBreakpoints.add(lineNumber);
+    }
+    this.renderGutter((this.currentCode || '').split('\n').length);
   }
 
   syntaxHighlightCssLine(line) {
@@ -3210,6 +3240,16 @@ export class OtterStudioIde {
       }, { passive: false });
     }
 
+    if (this.gutterEl && !this.gutterEl.dataset.breakpointBound) {
+      this.gutterEl.dataset.breakpointBound = 'true';
+      this.gutterEl.addEventListener('click', (e) => {
+        const target = e.target.closest('[data-line]');
+        if (!target) return;
+        const lineNumber = parseInt(target.dataset.line, 10);
+        if (Number.isFinite(lineNumber)) this.toggleBreakpoint(lineNumber);
+      });
+    }
+
     if (textarea.value !== this.currentCode) {
       textarea.value = this.currentCode;
     }
@@ -3377,6 +3417,18 @@ export class OtterStudioIde {
   }
 
   async stopCurrentProgram() {
+    if (this.debugSessionId) {
+      try {
+        await fetch('/api/debug/stop', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId: this.debugSessionId })
+        });
+        this.appendProgramOutputLine('Debug session stopped by user.');
+      } catch {}
+      this.endDebugSession();
+      return;
+    }
     try {
       await fetch('/api/stop', { method: 'POST' });
       if (this.programOutputBody) {
@@ -3542,6 +3594,177 @@ export class OtterStudioIde {
         this.runBtnLabel.innerText = this.launchProfile === 'project' ? 'Run Project' : (this.launchProfile === 'terminal' ? 'Run (Term)' : 'Run');
       }
     }
+  }
+
+  // --- Debugger (first slice) ---
+  //
+  // breakpoint -> pause -> exact source location -> locals -> continue,
+  // through the real production otter.ps1 debug subcommand
+  // (src/Otter.Debugger.psm1), never a second interpreter inside Studio.
+  // Studio's backend (serve.mjs /api/debug/*) spawns that real process and
+  // relays its line-oriented protocol; this is the client side of that
+  // relay: start a session, poll it, show what it reports, let the user
+  // continue.
+
+  async startDebugSession() {
+    if (!this.btnDebugProgram) return;
+    if (this.debugSessionId) return; // a session is already running
+
+    if (!this.isTrusted) {
+      const proceed = confirm('Restricted Mode: This workspace is untrusted. Running code in an untrusted workspace may be unsafe.\n\nDo you want to trust this workspace and debug the program?');
+      if (!proceed) return;
+      this.grantWorkspaceTrust();
+    }
+
+    const saved = await this.saveCurrentFile();
+    if (!saved) return;
+
+    this.clearDebugPauseState();
+    this.btnDebugProgram.style.display = 'none';
+    if (this.mainRunBtn) this.mainRunBtn.style.display = 'none';
+    if (this.btnStopProgram) this.btnStopProgram.style.display = 'inline-flex';
+    if (this.programOutputBody) {
+      this.programOutputBody.innerHTML = '<div class="log-line">Starting Otter debug session...</div>';
+    }
+    if (this.variablesBody) {
+      this.variablesBody.innerHTML = '<div class="empty-state-text" style="padding: 16px 12px; font-size: 12px; color: var(--text-faint); text-align: center;">Waiting for a breakpoint...</div>';
+    }
+
+    try {
+      const res = await fetch('/api/debug/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          path: this.currentFile,
+          content: this.currentCode,
+          breakpoints: Array.from(this.debugBreakpoints)
+        })
+      });
+      const data = await res.json();
+      if (!data.sessionId) throw new Error(data.error || 'Otter debug session could not be started.');
+
+      this.debugSessionId = data.sessionId;
+      this.debugPollTimer = setInterval(() => this.pollDebugSession(), 250);
+    } catch (err) {
+      if (this.programOutputBody) {
+        this.programOutputBody.innerHTML = `<div class="log-line log-error">${this.escapeHtml(err.message)}</div>`;
+      }
+      this.endDebugSession();
+    }
+  }
+
+  async pollDebugSession() {
+    if (!this.debugSessionId) return;
+    let data;
+    try {
+      const res = await fetch(`/api/debug/poll?sessionId=${encodeURIComponent(this.debugSessionId)}`);
+      data = await res.json();
+    } catch {
+      return; // a transient poll failure is not the same as the session ending
+    }
+
+    for (const line of (data.output || [])) {
+      this.appendProgramOutputLine(line);
+    }
+
+    for (const event of (data.events || [])) {
+      if (event.event === 'paused') {
+        this.handleDebugPaused(event);
+      } else if (event.event === 'finished') {
+        this.appendProgramOutputLine('Program finished.', true);
+      }
+    }
+
+    if (data.finished) {
+      this.endDebugSession();
+    }
+  }
+
+  appendProgramOutputLine(text, success = false) {
+    if (!this.programOutputBody) return;
+    if (this.programOutputBody.querySelector('.log-empty, .log-line')?.textContent?.includes('Starting Otter debug session')) {
+      this.programOutputBody.innerHTML = '';
+    }
+    const cls = success ? 'log-line log-success' : 'log-line';
+    const rendered = success ? `<strong>${this.escapeHtml(text)}</strong>` : this.escapeHtml(text);
+    this.programOutputBody.innerHTML += `<div class="${cls}">${rendered}</div>`;
+    this.programOutputBody.scrollTop = this.programOutputBody.scrollHeight;
+  }
+
+  // A real Otter call frame paused execution: exact file/line, and the
+  // Otter locals that frame actually owns - straight from
+  // Get-OtterDebugLocals in src/Otter.Debugger.psm1, never derived by
+  // Studio itself from source text (contrast updateVariablesInspector's
+  // post-run best-effort regex scan above, which this session intentionally
+  // does not use while paused).
+  handleDebugPaused(event) {
+    this.debugPausedLine = event.line;
+    this.debugCallStack = event.callStack || [];
+    this.renderGutter((this.currentCode || '').split('\n').length);
+    const lineEl = this.codeAreaEl?.querySelector(`.code-line[data-line="${event.line}"]`);
+    if (lineEl) {
+      lineEl.classList.add('has-debug-pause');
+      lineEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
+    this.renderDebugLocals(event.locals || {}, event.callStack || []);
+    if (this.btnDebugContinue) this.btnDebugContinue.style.display = 'inline-flex';
+    this.appendProgramOutputLine(`Paused at ${event.file}:${event.line}`);
+  }
+
+  renderDebugLocals(locals, callStack) {
+    if (!this.variablesBody) return;
+    const names = Object.keys(locals);
+    let html = '';
+    if (callStack.length > 0) {
+      html += `<div style="padding: 4px 8px; font-size: 11px; color: var(--text-faint);">in ${this.escapeHtml(callStack[callStack.length - 1].function)}()</div>`;
+    }
+    if (names.length === 0) {
+      html += '<div class="var-empty-state" style="color: #94a3b8; font-style: italic; font-size: 11px; padding: 6px 4px;">No variables in this scope yet.</div>';
+    } else {
+      html += names.map(name => `
+        <div class="var-row" style="display: flex; justify-content: space-between; gap: 8px; padding: 3px 8px; font-family: var(--font-code); font-size: 12px;">
+          <span style="color: #0891b2;">${this.escapeHtml(name)}</span>
+          <span style="color: var(--text-main); font-weight: 600;">${this.escapeHtml(String(locals[name]))}</span>
+        </div>
+      `).join('');
+    }
+    this.variablesBody.innerHTML = html;
+  }
+
+  async continueDebugSession() {
+    if (!this.debugSessionId) return;
+    this.clearDebugPauseState(true);
+    try {
+      await fetch('/api/debug/continue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: this.debugSessionId })
+      });
+    } catch {}
+  }
+
+  // Clears the visual "paused here" state. keepSession=true is used by
+  // "Continue" (the session itself is still running, just no longer
+  // stopped); the default (session start/end) also drops debugCallStack.
+  clearDebugPauseState(keepSession = false) {
+    if (this.debugPausedLine !== null && this.codeAreaEl) {
+      const lineEl = this.codeAreaEl.querySelector(`.code-line[data-line="${this.debugPausedLine}"]`);
+      lineEl?.classList.remove('has-debug-pause');
+    }
+    this.debugPausedLine = null;
+    this.renderGutter((this.currentCode || '').split('\n').length);
+    if (this.btnDebugContinue) this.btnDebugContinue.style.display = 'none';
+    if (!keepSession) this.debugCallStack = null;
+  }
+
+  endDebugSession() {
+    if (this.debugPollTimer) clearInterval(this.debugPollTimer);
+    this.debugPollTimer = null;
+    this.debugSessionId = null;
+    this.clearDebugPauseState();
+    if (this.btnDebugProgram) this.btnDebugProgram.style.display = 'inline-flex';
+    if (this.mainRunBtn) this.mainRunBtn.style.display = 'inline-flex';
+    if (this.btnStopProgram) this.btnStopProgram.style.display = 'none';
   }
 
   updateVariablesInspector(success) {

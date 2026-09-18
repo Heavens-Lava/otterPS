@@ -889,4 +889,94 @@ Test-Otter 'memo, shared, use, await, on start/close, and UI action/event/animat
     }
 }
 
+
+# =================================================================
+# debugger hook (first slice) - Set-OtterStatementHook / call frames
+# =================================================================
+#
+# The debugger itself (src/Otter.Debugger.psm1) is exercised end-to-end as a
+# real subprocess in tests/Debugger.Tests.ps1. These are the fast, in-process
+# unit tests for the ONE interpreter mechanism it depends on: every statement
+# passes through the hook with its real Otter line and environment, and the
+# call stack is real Otter call frames (function name + calling line), pushed
+# and popped exactly around the call.
+
+Test-Otter 'no hook set: statements run with zero behavior change (the default for every ordinary run)' {
+    Set-OtterStatementHook -Hook $null
+    $out = Invoke-TestProgram @(
+        (AssignSt 'name' (Lit 'Jeff')),
+        (SaySt @((Var 'name')))
+    )
+    Assert-Lines -Expected @('Jeff') -Actual $out
+}
+
+Test-Otter 'the statement hook sees every top-level statement, in order, with its real Otter line number' {
+    $seenLines = [System.Collections.Generic.List[int]]::new()
+    $hook = { param($Statement, $Environment, $CallStack) $seenLines.Add($Statement.Line) }.GetNewClosure()
+    Set-OtterStatementHook -Hook $hook
+    try {
+        Invoke-TestProgram @(
+            (AssignSt 'a' (Lit 1.0) 10),
+            (AssignSt 'b' (Lit 2.0) 11),
+            (SaySt @((Var 'a')) 12)
+        ) | Out-Null
+    }
+    finally {
+        Set-OtterStatementHook -Hook $null
+    }
+    Assert-AreEqual -Expected '10|11|12' -Actual ($seenLines -join '|')
+}
+
+Test-Otter 'the statement hook sees the Otter environment the statement is about to run in - real locals, not PowerShell state' {
+    # A hashtable, not a reassigned plain variable: a scriptblock invoked (via
+    # Invoke-OtterStatement, in a different module's scope) after
+    # .GetNewClosure() writes to its OWN captured copy of a plain variable,
+    # not this scope's - the same "mutable reference type, not a reassigned
+    # local" rule CLAUDE.md documents for WPF tick handlers applies here too.
+    $captured = @{ scoreAtSay = $null }
+    $hook = {
+        param($Statement, $Environment, $CallStack)
+        if ($Statement.Kind -eq [NodeKind]::Say) {
+            $captured.scoreAtSay = $Environment.Get('score')
+        }
+    }.GetNewClosure()
+    Set-OtterStatementHook -Hook $hook
+    try {
+        Invoke-TestProgram @(
+            (AssignSt 'score' (Lit 5.0) 1),
+            (SaySt @((Var 'score')) 2)
+        ) | Out-Null
+    }
+    finally {
+        Set-OtterStatementHook -Hook $null
+    }
+    Assert-AreEqual -Expected 5 -Actual $captured.scoreAtSay
+}
+
+Test-Otter 'the Otter call stack is empty at top level and has one real Otter call frame while a function body runs' {
+    $captured = @{ stackSizeInsideCall = -1; frameFunctionName = $null; frameCallLine = -1 }
+    $hook = {
+        param($Statement, $Environment, $CallStack)
+        if ($Statement.Kind -eq [NodeKind]::Say -and $CallStack.Count -gt 0) {
+            $captured.stackSizeInsideCall = $CallStack.Count
+            $captured.frameFunctionName = $CallStack[0].FunctionName
+            $captured.frameCallLine = $CallStack[0].CallLine
+        }
+    }.GetNewClosure()
+    Set-OtterStatementHook -Hook $hook
+    try {
+        Invoke-TestProgram @(
+            ([FunctionDefStmt]::new('greet', @('name'), @((SaySt @((Var 'name')) 99)), 1)),
+            ([CallStmt]::new([CallExpr]::new('greet', @((Lit 'Jeff')), 5), $null, 5))
+        ) | Out-Null
+    }
+    finally {
+        Set-OtterStatementHook -Hook $null
+    }
+    Assert-AreEqual -Expected 1 -Actual $captured.stackSizeInsideCall
+    Assert-AreEqual -Expected 'greet' -Actual $captured.frameFunctionName
+    Assert-AreEqual -Expected 5 -Actual $captured.frameCallLine
+    Assert-AreEqual -Expected 0 -Actual (Get-OtterCallStackSnapshot).Count
+}
+
 Complete-OtterTests
