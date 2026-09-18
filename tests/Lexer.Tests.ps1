@@ -63,6 +63,24 @@ if ((@($getJsonTokens | ForEach-Object Kind) -join ',') -ne 'Get,Json,From,Strin
     throw 'Json after get must emit TokenKind::Json.'
 }
 
+# D95 CSV tokens are structural only in their dedicated productions.
+$readCsvTokens = ConvertTo-OtterTokens -Source 'read csv from "customers.csv" into customers'
+if ((@($readCsvTokens | ForEach-Object Kind) -join ',') -ne 'Read,Csv,From,String,Into,Identifier,Newline,EndOfFile') {
+    throw 'Csv after read must emit TokenKind::Csv.'
+}
+$writeCsvTokens = ConvertTo-OtterTokens -Source 'write csv customers to "export.csv"'
+if ((@($writeCsvTokens | ForEach-Object Kind) -join ',') -ne 'Write,Csv,Identifier,To,String,Newline,EndOfFile') {
+    throw 'Csv after write must emit TokenKind::Csv.'
+}
+$csvIdentifierTokens = ConvertTo-OtterTokens -Source 'say csv'
+if ($csvIdentifierTokens[1].Kind -ne [TokenKind]::Identifier) {
+    throw 'Csv outside a CSV production must remain an ordinary identifier.'
+}
+$getCsvTokens = ConvertTo-OtterTokens -Source 'get csv into result'
+if ($getCsvTokens[1].Kind -ne [TokenKind]::Identifier) {
+    throw 'Csv must not become structural in unrelated get productions.'
+}
+
 # D51 Web Server tests
 $routeTokens = ConvertTo-OtterTokens -Source 'when api receives GET at "/users"'
 if ((@($routeTokens | ForEach-Object Kind) -join ',') -ne 'When,Identifier,Receives,Identifier,At,String,Newline,EndOfFile') {

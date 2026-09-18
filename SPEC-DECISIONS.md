@@ -1,4 +1,4 @@
-﻿# Otter Spec Decisions
+# Otter Spec Decisions
 
 `rules.md` plus Jeff's build brief are the language design. This file resolves
 the questions they leave open, so that two agents implementing different halves
@@ -6877,4 +6877,98 @@ in `tests/Interpreter.Tests.ps1` (round-trip, salt/IV randomization,
 wrong-key rejection, and malformed-input rejection).
 
 ---
+
+## D94. CLI arguments, working directory mutation, and environment variable setting — `arguments`, `get arguments into <var>`, `get current directory into <var>`, `set current directory to <path>`, `set environment variable <name> to <value>`
+
+**Authoritative spec:** Jeff's V1 Completion directive (Batch 1).
+
+**Problem:**
+Otter programs running from the command line (`otter run script.ot arg1 arg2` or `otter script.ot arg1 arg2`) could not receive command-line arguments, preventing Otter scripts from functioning as parameterized CLI tools. Additionally, automation scripts could inspect the current directory via `get system folder "current" into path` (D67), but lacked a natural controlled-English alias `get current directory into folder`, had no mechanism to change the working directory (`set current directory to "Projects"`), and could read environment variables (`get environment variable "PATH" into val`) but could not mutate them (`set environment variable "NAME" to "VALUE"`) to configure child processes launched via `run command`.
+
+**Decision:**
+1. **CLI Arguments:**
+   - Pre-populated in the script's root `OtterEnvironment` under the variable name `arguments` as a standard `OtterList` (`System.Collections.Generic.List[object]`) containing string arguments passed after the script path on the CLI.
+   - Both explicit execution (`otter run script.ot Jeff 42`) and canonical short form (`otter script.ot Jeff 42`) capture trailing parameters and populate `arguments`.
+   - When no CLI arguments are supplied, `arguments` is an empty list (`[]`). `length of arguments` is `0`, and `first of arguments` is `gone`.
+   - Access: Can be referenced directly as variable `arguments` (`length of arguments`, `first of arguments`, `for each arg in arguments ...`) or via statement form `get arguments into <var>` (parsed as `AssignStmt` from variable `arguments`).
+2. **Current Working Directory:**
+   - `get current directory into <target>` (and synonym `get current folder into <target>`) parses into existing `[GetSystemFolderStmt]::new((Lit 'current'), $target, $line)`. Zero contract changes required for inspection.
+   - `set current directory to <path>` (and synonym `set current folder to <path>`) parses into `[SetCurrentDirectoryStmt]::new($path, $line)`.
+   - The interpreter resolves relative paths against the current working directory, validates directory existence (`I cannot find a folder called "..."`), and sets both `[System.IO.Directory]::SetCurrentDirectory($resolved)` and `Set-Location $resolved` so .NET I/O and PowerShell commands stay synchronized.
+3. **Environment Variable Setting:**
+   - `set environment variable <name> to <value>` parses into `[SetEnvironmentVariableStmt]::new($name, $value, $line)`.
+   - Setting a value calls `[System.Environment]::SetEnvironmentVariable($name, $value)`. Setting to `gone` or empty string removes/clears the variable.
+   - Mutated environment variables are inherited by child processes launched via `run command` and are readable via `get environment variable <name> into <target>`.
+4. **JS Compiler:**
+   - `SetCurrentDirectory` compiles to `if (typeof process !== 'undefined' && process.chdir) { process.chdir($pathJs); }`.
+   - `SetEnvironmentVariable` compiles to `if (typeof process !== 'undefined' && process.env) { process.env[$nameJs] = $valJs; }`.
+   - `GetSystemFolder` with `'current'` maps to `(await otterGetSystemPaths()).currentDirectory`.
+
+---
+
+## D95. CSV read/write and conversion — `read csv`, `write csv`, `convert ... to/from csv`
+
+**Authoritative spec:** Jeff's approved Batch 2 decision.
+
+**Decision:**
+CSV integrates tabular data into Otter using standard lists and things (`OtterObject`), introducing no bespoke query syntax or CSV-specific runtime data types.
+
+### Syntax & Grammar
+
+Four symmetrical statement forms:
+
+```otter
+read csv from "customers.csv" into customers
+write csv customers to "export.csv"
+convert csvText from csv into customers
+convert customers to csv into csvText
+```
+
+`csv` is a contextual keyword: it is structural only when immediately preceded by `read`, `write`, `to`, or `from`. Outside these specific productions, `csv` remains a valid user identifier (e.g. `csv is "..."`, `say csv`), complying with D33 keyword narrowing.
+
+### Reading Semantics (`read csv`, `convert ... from csv`)
+
+1. **Header Row Required:**
+   - The first CSV record must be a valid header row.
+   - If the input is empty or contains no header, Otter raises a clean diagnostic: `Otter needs a header row to read CSV into things.`
+   - **Non-empty headers:** Blank header names (e.g. `name,,age`) are rejected with an Otter diagnostic.
+   - **Unique headers:** Duplicate header names (e.g. `name,name,age`) are rejected with an Otter diagnostic.
+2. **List of Things Representation:**
+   - The document evaluates to a standard Otter list (`System.Collections.Generic.List[object]`).
+   - Each data row becomes one Otter `thing` (`OtterObject`), where property names correspond to the header columns.
+3. **No Automatic Type Coercion (Text Preservation):**
+   - All cell values are preserved as Otter text (`[string]`).
+   - Reading CSV does **not** infer numbers, booleans, dates, or `gone`.
+   - Crucially, identifiers with leading zeroes or specific string formats (such as `00123` or `08540`) remain verbatim text (`"00123"`, `"08540"`).
+   - If numeric manipulation is required, the programmer converts values explicitly in user code.
+4. **Empty Fields vs. Missing Fields:**
+   - An empty field (e.g. `Jeff,,Macy`) represents an existing field containing no characters and becomes **empty text `""`**, never `gone`.
+   - Every data row must contain the **exact same number of fields** as declared by the header.
+   - Ragged rows (too few or too many fields) are rejected with a deterministic diagnostic (e.g. `Row 4 has 2 fields, but the CSV header defines 3 columns.`), rather than silently manufacturing `gone` or dropping fields.
+5. **RFC 4180 Compliance:**
+   - Quoted fields with commas, escaped double quotes (`""`), embedded newlines inside quotes, and full UTF-8 / Unicode characters are preserved accurately.
+
+### Writing Semantics (`write csv`, `convert ... to csv`)
+
+1. **Input Requirements:**
+   - The input subject must be a list of Otter things (`OtterObject`s).
+2. **Deterministic Column Ordering:**
+   - Column names and their sequential order are established strictly by the property order of the **first row's thing**.
+   - Otter does not union disparate property sets across arbitrary rows.
+   - Every subsequent thing in the list must contain the **same set of properties**. If a subsequent row contains missing or extra properties, Otter raises a clear diagnostic.
+3. **Field Serialization & Formatting:**
+   - Text values containing commas, double quotes, or newlines are quoted and escaped per RFC 4180.
+   - Numbers and booleans format naturally.
+   - If an Otter property value is explicitly `gone` (`$null`), it serializes as an empty cell (`,,`).
+   - Output uses CRLF / standard line endings.
+
+### Shared AST Contract
+
+| AST Node | Parameters | NodeKind |
+|---|---|---|
+| `ReadCsvStmt` | `[Node]$Path`, `[string]$Target`, `[int]$Line` | `ReadCsv` |
+| `WriteCsvStmt` | `[Node]$Rows`, `[Node]$Path`, `[int]$Line` | `WriteCsv` |
+| `ConvertToCsvStmt` | `[Node]$Subject`, `[string]$Target`, `[int]$Line` | `ConvertToCsv` |
+| `ConvertFromCsvStmt` | `[Node]$Subject`, `[string]$Target`, `[int]$Line` | `ConvertFromCsv` |
+
 

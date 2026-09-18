@@ -1280,4 +1280,19 @@ sam is a Person
 }
 if (-not $typedBlockRejected) { throw 'Expected an indented declared-type initializer to be rejected clearly.' }
 
+# D95: CSV follows the existing JSON statement family and `csv` stays usable
+# as a normal variable name outside its structural positions.
+$csvAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source @'
+read csv from "customers.csv" into customers
+write csv customers to "export.csv"
+convert csvText from csv into parsedCustomers
+convert customers to csv into csvText
+csv is "name,age"
+'@)
+if ($csvAst.Statements[0] -isnot [ReadCsvStmt] -or $csvAst.Statements[0].Target -ne 'customers') { throw 'Expected read csv AST.' }
+if ($csvAst.Statements[1] -isnot [WriteCsvStmt] -or $csvAst.Statements[1].Rows.Name -ne 'customers') { throw 'Expected write csv AST.' }
+if ($csvAst.Statements[2] -isnot [ConvertFromCsvStmt] -or $csvAst.Statements[2].Target -ne 'parsedCustomers') { throw 'Expected convert from csv AST.' }
+if ($csvAst.Statements[3] -isnot [ConvertToCsvStmt] -or $csvAst.Statements[3].Target -ne 'csvText') { throw 'Expected convert to csv AST.' }
+if ($csvAst.Statements[4] -isnot [AssignStmt] -or $csvAst.Statements[4].Target.Name -ne 'csv') { throw 'Expected csv to remain a valid variable name.' }
+
 Write-Output 'Parser tests passed.'

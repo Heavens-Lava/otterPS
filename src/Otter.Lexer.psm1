@@ -346,11 +346,17 @@ function ConvertTo-OtterLineTokens {
             $combined.Add((New-OtterToken ([TokenKind]::It) 'it' $null $token.Line $token.Column))
             continue
         }
-        # D29 is likewise more specific than D33: json is structural in the
-        # read/convert productions, but remains free as a name elsewhere.
+        # D29 is more specific than D33: json is structural in its dedicated
+        # productions, but remains free as a name elsewhere.
         if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -eq 'json' -and
             $null -ne $previous -and $previous.Kind -in @([TokenKind]::Read, [TokenKind]::To, [TokenKind]::From, [TokenKind]::Get, [TokenKind]::As)) {
             $combined.Add((New-OtterToken ([TokenKind]::Json) 'json' $null $token.Line $token.Column))
+            continue
+        }
+        # D95 is structural only in the four CSV statement forms.
+        if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -eq 'csv' -and
+            $null -ne $previous -and $previous.Kind -in @([TokenKind]::Read, [TokenKind]::Write, [TokenKind]::To, [TokenKind]::From)) {
+            $combined.Add((New-OtterToken ([TokenKind]::Csv) 'csv' $null $token.Line $token.Column))
             continue
         }
         # D51: receives is structural in server route definitions

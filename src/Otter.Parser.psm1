@@ -29,7 +29,7 @@ $script:OtterIdentifierKinds = @(
     [TokenKind]::Split, [TokenKind]::Join, [TokenKind]::Find,
     [TokenKind]::Get, [TokenKind]::Try, [TokenKind]::Run,
     [TokenKind]::Log, [TokenKind]::Warn, [TokenKind]::Problem,
-    [TokenKind]::Random, [TokenKind]::Json, [TokenKind]::Convert,
+    [TokenKind]::Random, [TokenKind]::Json, [TokenKind]::Csv, [TokenKind]::Convert,
     [TokenKind]::Format, [TokenKind]::Today, [TokenKind]::Now,
     [TokenKind]::Between, [TokenKind]::Otherwise, [TokenKind]::ForEach,
     [TokenKind]::Count, [TokenKind]::Notify, [TokenKind]::Choose
@@ -1463,6 +1463,27 @@ function Read-OtterStatement {
                 [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the get statement to end here.')
                 return [GetEnvironmentVariableStmt]::new($name, $target.Text, $start.Line)
             }
+            # D94: `get current directory into folder` (also: "folder")
+            if ($kind.Kind -eq [TokenKind]::Identifier -and $kind.Text -eq 'current') {
+                [void](Read-OtterToken)
+                $dirWord = Get-OtterCurrentToken
+                if ($dirWord.Kind -eq [TokenKind]::Folder -or ($dirWord.Kind -eq [TokenKind]::Identifier -and ($dirWord.Text -eq 'directory' -or $dirWord.Text -eq 'folder'))) {
+                    [void](Read-OtterToken)
+                    [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a result name.')
+                    $target = Read-OtterVariableName 'I expected a result name after "into".'
+                    [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the get statement to end here.')
+                    return [GetSystemFolderStmt]::new([LiteralExpr]::new('current', $start.Line), $target.Text, $start.Line)
+                }
+                throw (New-OtterParserError 'I expected "directory" or "folder" after "current".' $dirWord 'get current directory into folder')
+            }
+            # D94: `get arguments into args`
+            if ($kind.Kind -eq [TokenKind]::Identifier -and $kind.Text -eq 'arguments') {
+                [void](Read-OtterToken)
+                [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a result name.')
+                $target = Read-OtterVariableName 'I expected a result name after "into".'
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the get statement to end here.')
+                return [AssignStmt]::new($target.Text, [VariableExpr]::new('arguments', $start.Line), $start.Line)
+            }
             # D67: `get system folder "temp" into path` - "system" is an
             # ordinary identifier; "folder" reuses the existing token.
             if ($kind.Kind -eq [TokenKind]::Identifier -and $kind.Text -eq 'system') {
@@ -1679,6 +1700,35 @@ function Read-OtterStatement {
                 }
                 [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the set statement to end here.')
                 return [SetFileReadOnlyStmt]::new($roPath, $readOnly, $start.Line)
+            }
+            # D94: `set current directory to <path>` (also: "folder")
+            $maybeCurrentSet = Get-OtterCurrentToken
+            if ($maybeCurrentSet.Kind -eq [TokenKind]::Identifier -and $maybeCurrentSet.Text -eq 'current') {
+                [void](Read-OtterToken)
+                $dirWord = Get-OtterCurrentToken
+                if ($dirWord.Kind -eq [TokenKind]::Folder -or ($dirWord.Kind -eq [TokenKind]::Identifier -and ($dirWord.Text -eq 'directory' -or $dirWord.Text -eq 'folder'))) {
+                    [void](Read-OtterToken)
+                    [void](Assert-OtterTokenKind ([TokenKind]::To) 'I expected "to" and a folder path.')
+                    $pathExpr = Read-OtterValue
+                    [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the set statement to end here.')
+                    return [SetCurrentDirectoryStmt]::new($pathExpr, $start.Line)
+                }
+                throw (New-OtterParserError 'I expected "directory" or "folder" after "current".' $dirWord 'set current directory to "Projects"')
+            }
+            # D94: `set environment variable "NAME" to "VALUE"`
+            $maybeEnvSet = Get-OtterCurrentToken
+            if ($maybeEnvSet.Kind -eq [TokenKind]::Identifier -and $maybeEnvSet.Text -eq 'environment') {
+                [void](Read-OtterToken)
+                $varWord = Get-OtterCurrentToken
+                if ($varWord.Kind -ne [TokenKind]::Identifier -or $varWord.Text -ne 'variable') {
+                    throw (New-OtterParserError 'I expected "variable" after "environment".' $varWord 'set environment variable "NAME" to "VALUE"')
+                }
+                [void](Read-OtterToken)
+                $nameExpr = Read-OtterValue
+                [void](Assert-OtterTokenKind ([TokenKind]::To) 'I expected "to" and a value.')
+                $valExpr = Read-OtterValue
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the set statement to end here.')
+                return [SetEnvironmentVariableStmt]::new($nameExpr, $valExpr, $start.Line)
             }
             # D78: `set registry value "n" to "d" in "path"`
             $maybeRegistrySet = Get-OtterCurrentToken
@@ -2091,26 +2141,40 @@ function Read-OtterStatement {
 
             throw (New-OtterParserError 'I expected "number" or "item" after "random".' $what 'Write "random number from 1 to 10 into n" or "random item from games into g".')
         }
-        # convert user to json into text                            (D29)
-        # convert text from json into user
+        # convert user to json/csv into text                        (D29, D95)
+        # convert text from json/csv into user
         ([TokenKind]::Convert) {
             [void](Read-OtterToken)
             $subject = Read-OtterValue
 
             if (Test-OtterTokenKind ([TokenKind]::To)) {
                 [void](Read-OtterToken)
-                [void](Assert-OtterTokenKind ([TokenKind]::Json) 'I expected "json" after "to".')
+                $format = Get-OtterCurrentToken
+                if ($format.Kind -notin @([TokenKind]::Json, [TokenKind]::Csv)) {
+                    throw (New-OtterParserError 'I expected "json" or "csv" after "to".' $format 'Write "convert rows to csv into text" or "convert user to json into text".')
+                }
+                [void](Read-OtterToken)
                 [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a variable name.')
                 $target = Read-OtterVariableName 'I expected a variable name after "into".'
                 [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the convert statement to end here.')
+                if ($format.Kind -eq [TokenKind]::Csv) {
+                    return [ConvertToCsvStmt]::new($subject, $target.Text, $start.Line)
+                }
                 return [ConvertToJsonStmt]::new($subject, $target.Text, $start.Line)
             }
 
-            [void](Assert-OtterTokenKind ([TokenKind]::From) 'I expected "to json" or "from json" here.')
-            [void](Assert-OtterTokenKind ([TokenKind]::Json) 'I expected "json" after "from".')
+            [void](Assert-OtterTokenKind ([TokenKind]::From) 'I expected "to json/csv" or "from json/csv" here.')
+            $format = Get-OtterCurrentToken
+            if ($format.Kind -notin @([TokenKind]::Json, [TokenKind]::Csv)) {
+                throw (New-OtterParserError 'I expected "json" or "csv" after "from".' $format 'Write "convert text from csv into rows" or "convert text from json into user".')
+            }
+            [void](Read-OtterToken)
             [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a variable name.')
             $target = Read-OtterVariableName 'I expected a variable name after "into".'
             [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the convert statement to end here.')
+            if ($format.Kind -eq [TokenKind]::Csv) {
+                return [ConvertFromCsvStmt]::new($subject, $target.Text, $start.Line)
+            }
             return [ConvertFromJsonStmt]::new($subject, $target.Text, $start.Line)
         }
         ([TokenKind]::Read) {
@@ -2125,6 +2189,16 @@ function Read-OtterStatement {
                 [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the read statement to end here.')
                 return [ReadJsonStmt]::new($jsonPath, $jsonTarget.Text, $start.Line)
             }
+            # read csv from "customers.csv" into customers         (D95)
+            if (Test-OtterTokenKind ([TokenKind]::Csv)) {
+                [void](Read-OtterToken)
+                [void](Assert-OtterTokenKind ([TokenKind]::From) 'I expected "from" and a CSV file path.')
+                $csvPath = Read-OtterValue
+                [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a variable name.')
+                $csvTarget = Read-OtterVariableName 'I expected a variable name after "into".'
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the read statement to end here.')
+                return [ReadCsvStmt]::new($csvPath, $csvTarget.Text, $start.Line)
+            }
             $path = Read-OtterValue
             [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a variable name.')
             $target = Read-OtterVariableName 'I expected a variable name after "into".'
@@ -2133,6 +2207,15 @@ function Read-OtterStatement {
         }
         ([TokenKind]::Write) {
             [void](Read-OtterToken)
+            # write csv rows to "export.csv"                       (D95)
+            if (Test-OtterTokenKind ([TokenKind]::Csv)) {
+                [void](Read-OtterToken)
+                $rows = Read-OtterValue
+                [void](Assert-OtterTokenKind ([TokenKind]::To) 'I expected "to" and a CSV file path.')
+                $csvPath = Read-OtterValue
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the write CSV statement to end here.')
+                return [WriteCsvStmt]::new($rows, $csvPath, $start.Line)
+            }
             $content = Read-OtterValue
             [void](Assert-OtterTokenKind ([TokenKind]::To) 'I expected "to" and a file path.')
             $path = Read-OtterValue

@@ -162,8 +162,9 @@ enum TokenKind {
     Find            # find file in files where ... into result
     Where
 
-    # --- json, random, logging (D29, D30, D31) ------------------
+    # --- json, csv, random, logging (D29, D30, D31, D95) --------
     Json            # read json from "settings.json" into settings
+    Csv             # read csv from "customers.csv" into customers
     Convert         # convert user to json into text
     Random          # random number from 1 to 10 into number
     Item            # random item from games into game
@@ -362,10 +363,14 @@ enum NodeKind {
     Join
     Find
 
-    # json, random, logging (D29, D30, D31)
+    # json, csv, random, logging (D29, D30, D31, D95)
     ReadJson
     ConvertToJson
     ConvertFromJson
+    ReadCsv
+    WriteCsv
+    ConvertToCsv
+    ConvertFromCsv
     RandomNumber
     RandomItem
     Diagnostic      # log / warn / error
@@ -418,7 +423,9 @@ enum NodeKind {
     GetClipboard      # get clipboard into text
     Notify            # notify "Title" with "Message"
     GetEnvironmentVariable  # get environment variable "PATH" into value
+    SetEnvironmentVariable  # set environment variable "NAME" to "VALUE"
     GetSystemFolder   # get system folder "temp" into path
+    SetCurrentDirectory # set current directory to "path"
     ChooseFile        # choose file into path
     ChooseFolder      # choose folder into path
     ChooseSaveFile    # choose file to save into path
@@ -1278,6 +1285,16 @@ class GetEnvironmentVariableStmt : Node {
     }
 }
 
+# set environment variable "NAME" to "VALUE"
+class SetEnvironmentVariableStmt : Node {
+    [Node]$Name
+    [Node]$Value
+    SetEnvironmentVariableStmt([Node]$name, [Node]$value, [int]$line) : base([NodeKind]::SetEnvironmentVariable, $line) {
+        $this.Name = $name
+        $this.Value = $value
+    }
+}
+
 # get system folder "temp" into path
 # FolderName is one of: "temp", "appdata", "user", "current" - a plain
 # string VALUE, not a keyword, so adding another named folder later
@@ -1288,6 +1305,14 @@ class GetSystemFolderStmt : Node {
     GetSystemFolderStmt([Node]$folderName, [string]$target, [int]$line) : base([NodeKind]::GetSystemFolder, $line) {
         $this.FolderName = $folderName
         $this.Target = $target
+    }
+}
+
+# set current directory to "path"
+class SetCurrentDirectoryStmt : Node {
+    [Node]$Path
+    SetCurrentDirectoryStmt([Node]$path, [int]$line) : base([NodeKind]::SetCurrentDirectory, $line) {
+        $this.Path = $path
     }
 }
 
@@ -1846,7 +1871,7 @@ class FindStmt : Node {
 
 
 # ===============================================================
-# JSON, RANDOM, DIAGNOSTICS (D29, D30, D31)
+# JSON, CSV, RANDOM, DIAGNOSTICS (D29, D30, D31, D95)
 # ===============================================================
 
 # read json from "settings.json" into settings
@@ -1874,6 +1899,46 @@ class ConvertFromJsonStmt : Node {
     [Node]$Subject
     [string]$Target
     ConvertFromJsonStmt([Node]$subject, [string]$target, [int]$line) : base([NodeKind]::ConvertFromJson, $line) {
+        $this.Subject = $subject
+        $this.Target = $target
+    }
+}
+
+# read csv from "customers.csv" into customers
+class ReadCsvStmt : Node {
+    [Node]$Path
+    [string]$Target
+    ReadCsvStmt([Node]$path, [string]$target, [int]$line) : base([NodeKind]::ReadCsv, $line) {
+        $this.Path = $path
+        $this.Target = $target
+    }
+}
+
+# write csv customers to "export.csv"
+class WriteCsvStmt : Node {
+    [Node]$Rows
+    [Node]$Path
+    WriteCsvStmt([Node]$rows, [Node]$path, [int]$line) : base([NodeKind]::WriteCsv, $line) {
+        $this.Rows = $rows
+        $this.Path = $path
+    }
+}
+
+# convert customers to csv into csvText
+class ConvertToCsvStmt : Node {
+    [Node]$Subject
+    [string]$Target
+    ConvertToCsvStmt([Node]$subject, [string]$target, [int]$line) : base([NodeKind]::ConvertToCsv, $line) {
+        $this.Subject = $subject
+        $this.Target = $target
+    }
+}
+
+# convert csvText from csv into customers
+class ConvertFromCsvStmt : Node {
+    [Node]$Subject
+    [string]$Target
+    ConvertFromCsvStmt([Node]$subject, [string]$target, [int]$line) : base([NodeKind]::ConvertFromCsv, $line) {
         $this.Subject = $subject
         $this.Target = $target
     }
