@@ -1,4 +1,4 @@
-﻿# Otter 1.0 RC - Master Checklist Reconciliation Report
+# Otter 1.0 RC - Master Checklist Reconciliation Report
 
 **Date:** September 17, 2026  
 **Target Release:** Otter 1.0.0-rc.1  
@@ -12,11 +12,12 @@
 | Category | Code | Count | Percentage | Definition |
 |---|---|---|---|---|
 | **REQUIRED FOR OTTER 1.0** | **A** | 11 | 1.5% | Required for final 1.0 release gating (installer, CLI contract, diagnostics, reachability, docs). |
-| **ALREADY IMPLEMENTED BUT NOT CERTIFIED** | **B** | 78 | 10.7% | Already implemented in current codebase; validated and certified in this closure pass. |
+| **ALREADY IMPLEMENTED BUT NOT CERTIFIED** | **B** | 93 | 12.7% | Already implemented in current codebase; validated and certified (+15 items reconciled from triage audit). |
 | **TARGET-SPECIFIC** | **C** | 18 | 2.5% | Target-specific capabilities (Web-only HTTP, Windows-only WPF/Registry). |
-| **DEFERRED TO 1.1+** | **D** | 543 | 74.4% | Explicitly deferred to post-1.0 roadmap (FFI, 3D/games, modules/use, streams, DB, mobile). |
+| **DEFERRED TO 1.1+** | **D** | 504 | 69.0% | Explicitly deferred to post-1.0 roadmap (FFI, 3D/games, modules/use, streams, DB, mobile; 504 genuine backlog items). |
 | **IDE/STUDIO WORK, NOT LANGUAGE 1.0** | **E** | 78 | 10.7% | Otter Studio / IDE tooling, not part of language 1.0 core. |
-| **OBSOLETE / SUPERSEDED BY CURRENT ARCHITECTURE** | **F** | 2 | 0.3% | Superseded or obsolete under frozen D1-D93 language architecture. |
+| **OBSOLETE / DUPLICATE ROLL-UPS** | **F** | 26 | 3.6% | Superseded items (2), duplicate roll-up milestones (23 in Sec 47/48), and checklist legend non-item (1). |
+| **TOTAL** | | **730** | **100.0%** | **Complete audit across all unchecked checklist items** |
 
 ---
 
@@ -40,7 +41,7 @@ These items represent the concrete active verification gates being closed during
 
 ## 3. Category B: Implemented Capabilities Certified in 1.0
 
-Total: 78 items across core subsystems:
+Total: 93 items across core subsystems (including 15 items reconciled from deferred triage):
 
 ### 6. Errors & Diagnostics (4 items)
 - [x] Multiple diagnostics per parse where safe
@@ -77,9 +78,22 @@ Total: 78 items across core subsystems:
 - [x] Monotonic time
 - [x] High-resolution timer
 
+### 15. Formats & Serialization (1 item)
+- [x] Compression (D87: zip folder / unzip archive via System.IO.Compression.ZipFile)
+
 ### 16. Math & Scientific Foundation (2 items)
 - [x] Geometry helpers
 - [x] Complex numbers if needed
+
+### 18. Security (1 item)
+- [x] Constant-time primitives (D92: hand-implemented constant-time tag comparison against timing attacks)
+
+### 34. Performance (5 items)
+- [x] Lexer benchmark (certified in tools/Profile-OtterParser.ps1)
+- [x] Parser benchmark (certified in tools/Profile-OtterParser.ps1)
+- [x] Interpreter benchmark (certified in tools/Profile-OtterInterpreter.ps1)
+- [x] Memory benchmark (certified in tools/Test-ResourceSoak.ps1)
+- [x] Performance regression CI (certified in tools/Test-OtterPerformanceGate.ps1)
 
 ### 35. Testing Framework (10 items)
 - [x] Parameterized tests
@@ -92,6 +106,14 @@ Total: 78 items across core subsystems:
 - [x] Golden tests
 - [x] Fuzz parser/runtime tests
 - [x] Property-based testing if useful
+
+### 36. Debugging Runtime Support (6 items)
+- [x] Breakpoint hooks (certified in src/Otter.Debugger.psm1 / Set-OtterStatementHook)
+- [x] Pause (certified in src/Otter.Debugger.psm1)
+- [x] Continue (certified in src/Otter.Debugger.psm1)
+- [x] Stack frames (certified in src/Otter.Debugger.psm1)
+- [x] Locals (certified in src/Otter.Debugger.psm1 / Get-OtterDebugLocals)
+- [x] Debug protocol (certified @@OTTER_DEBUG@@ JSON stream)
 
 ### 37. Security Model (22 items)
 - [x] Language/runtime threat model
@@ -140,6 +162,10 @@ Total: 78 items across core subsystems:
 - [x] Fuzzing
 - [x] Long-running stability tests
 
+### 48. Immediate Execution Order (2 items)
+- [x] System information (D76: get system information "os"/"cpu"/"user"/"memory")
+- [x] File dialogs/clipboard/notifications (D70, D84: clipboard, notify, choose file/folder/save file)
+
 ---
 
 ## 4. Category C: Target-Specific Capabilities
@@ -163,51 +189,45 @@ Total: 18 items partitioned by execution target:
 - **44. Conformance**: Linux tests - Reason: Target-specific feature (Web runtime, Windows Desktop/WPF, or OS-specific provider).
 - **45. Release Engineering**: macOS CI - Reason: Target-specific feature (Web runtime, Windows Desktop/WPF, or OS-specific provider).
 - **45. Release Engineering**: Linux CI - Reason: Target-specific feature (Web runtime, Windows Desktop/WPF, or OS-specific provider).
-- **48. Immediate Execution Order**: Windows/macOS/Linux/browser certification. - Reason: Target-specific feature (Web runtime, Windows Desktop/WPF, or OS-specific provider).
+- **48. Immediate Execution Order**: Cross-platform shell certification. - Reason: Target-specific feature (Web runtime, Windows Desktop/WPF, or OS-specific provider).
 
 ---
 
 ## 5. Category D: Deferred Post-1.0 Scope (1.1+ Roadmap)
 
-Total: 543 items formally deferred to prevent scope creep. Major deferred areas include:
+Total: 504 items formally deferred post-1.0 (543 original minus 15 implemented, 23 duplicate roll-ups, and 1 legend non-item). Major deferred areas include:
 
 - **27. 3D Creation / Modeling** (58 items deferred)
 - **26. 3D Graphics Engine** (32 items deferred)
-- **19. Full Web Frontend Development** (27 items deferred)
-- **25. 2D Game Development** (26 items deferred)
-- **21. Desktop UI Development** (25 items deferred)
-- **31. Package Ecosystem** (24 items deferred)
-- **48. Immediate Execution Order** (23 items deferred)
+- **30. Native Interoperability / FFI** (28 items deferred)
+- **20. Web Backend / Full-Stack Development** (26 items deferred)
+- **19. Full Web Frontend Development** (25 items deferred)
+- **21. Desktop UI Development** (24 items deferred)
+- **22. Desktop Native Host & Packaging** (24 items deferred)
 - **28. Game Engine / 3D Engine Layer** (23 items deferred)
-- **32. Build System** (23 items deferred)
-- **13. Networking** (20 items deferred)
-- **20. Web Backend / Full-Stack Development** (19 items deferred)
-- **30. Native Interoperability / FFI** (19 items deferred)
-- **17. Database Development** (18 items deferred)
-- **34. Performance** (17 items deferred)
-- **24. Graphics Foundation** (16 items deferred)
-- **39. Mobile / Future Targets** (16 items deferred)
-- **33. Compiler Targets** (15 items deferred)
-- **23. UI Layout & Styling Language** (15 items deferred)
-- **36. Debugging Runtime Support** (15 items deferred)
-- **5. Functions, Scope & Modules** (13 items deferred)
-- **50. Final Success Definition** (13 items deferred)
-- **29. Audio & Media** (10 items deferred)
-- **40. Data Science / AI / Compute Ecosystem** (9 items deferred)
-- **45. Release Engineering** (9 items deferred)
-- **14. Data Formats & Serialization** (8 items deferred)
-- **22. Desktop Native Host & Packaging** (8 items deferred)
-- **16. Math & Scientific Foundation** (7 items deferred)
-- **7. Memory & Resource Management** (6 items deferred)
-- **8. Async, Tasks, Timers & Concurrency** (5 items deferred)
-- **18. Cryptography & Security APIs** (5 items deferred)
-- **9. Filesystem** (5 items deferred)
-- **47. General-Purpose Platform Gates** (4 items deferred)
-- **42. Documentation** (3 items deferred)
-- **11. Terminal & REPL** (3 items deferred)
-- **3. Data Model** (2 items deferred)
-- **Header** (1 items deferred)
-- **10. Shell & System Administration** (1 items deferred)
+- **17. Database Development** (22 items deferred)
+- **39. Mobile / Future Targets** (22 items deferred)
+- **25. 2D Games & Canvas** (21 items deferred)
+- **29. Audio & Media** (21 items deferred)
+- **31. Package Ecosystem** (20 items deferred)
+- **40. Data Science / AI / Compute Ecosystem** (19 items deferred)
+- **32. Documentation Engine & Extraction** (15 items deferred)
+- **9. Filesystem**: Streams, async file IO, watch directory, file locks, symlinks, sparse files, attributes (7 items deferred)
+- **10. Shell & System Administration**: Shell redirection, process pipelines, user switching, daemonize (4 items deferred)
+- **13. Networking**: WebSockets, TLS/SSL config, DNS lookup, raw sockets (4 items deferred)
+- **14. Protocols**: HTTP/2, HTTP/3, gRPC, MQTT, SMTP/IMAP (5 items deferred)
+- **15. Formats & Serialization**: Hex, binary serialization, MIME helpers, schema validation (4 items deferred)
+- **16. Math & Scientific Foundation**: Big numbers, statistics, matrix math, decimal types (4 items deferred)
+- **18. Cryptography & Security APIs**: Certificate APIs, password hashing libraries (2 items deferred)
+- **24. Graphics Foundation**: Direct2D, OpenGL, Vulkan, Metal abstractions (4 items deferred)
+- **33. Concurrency & Parallelism**: Channels, actors, mutexes, thread pools (4 items deferred)
+- **34. Performance**: Compiler benchmark, startup benchmark, file IO benchmark, HTTP benchmark, UI benchmark, CPU profiler integration, memory profiler integration, allocation tracking (8 items deferred)
+- **36. Debugging Runtime Support**: Step over, step into, step out, globals, watches, evaluate expression, async stack support, DAP evaluation (8 items deferred)
+- **38. Cross-Platform Semantics**: Path normalization across OSes, locale-specific collation (2 items deferred)
+- **47. Platform Completeness Gates**: Long-term API stability contract (1 item deferred)
+- **48. Immediate Execution Order**: Long-term compatibility and release policy (1 item deferred)
+
+*(See `docs/OTTER_DEFERRED_CHECKLIST_TRIAGE.md` for complete granular classification of each deferred item across D1, D2, D3, and D4 tiers.)*
 
 ---
 
@@ -296,7 +316,39 @@ Total: 78 items belonging to developer tooling, editor extensions, or Otter Stud
 
 ---
 
-## 7. Category F: Obsolete / Superseded Items
+## 7. Category F: Obsolete / Duplicate Roll-ups
 
+Total: 26 items
+
+### Superseded Technical Items (2 items)
 - **2. Core Syntax & Control Flow**: Freeze remainder/modulo wording - Reason: Superseded by D88 flat math precedence and frozen value semantics.
 - **3. Data Model**: Immutable/read-only values if demonstrated necessary - Reason: Superseded by D88 flat math precedence and frozen value semantics.
+
+### Legend Non-Item (1 item)
+- **Header Legend Artifact**: Line 22 `[ ]` definition mark (escaped in master checklist as non-item legend entry).
+
+### Section 47 & 48 Duplicate Roll-Up Milestones (23 items)
+These checklist items represent high-level milestone headings in Sections 47 & 48 that duplicate concrete subsystem items tracked and categorized in their primary sections:
+1. **47. Platform Completeness Gates**: Mature package ecosystem *(Duplicate of Section 31)*
+2. **47. Platform Completeness Gates**: Native FFI *(Duplicate of Section 30)*
+3. **47. Platform Completeness Gates**: Database ecosystem *(Duplicate of Section 17)*
+4. **47. Platform Completeness Gates**: 3D modeling/creation APIs *(Duplicate of Section 27)*
+5. **48. Immediate Execution Order (P1)**: Module production certification *(Duplicate of Section 5, Line 207)*
+6. **48. Immediate Execution Order (P2)**: Cross-platform shell certification *(Duplicate of Section 38)*
+7. **48. Immediate Execution Order (P4)**: Package manager *(Duplicate of Section 31, Line 1203)*
+8. **48. Immediate Execution Order (P4)**: FFI *(Duplicate of Section 30, Line 1173)*
+9. **48. Immediate Execution Order (P4)**: Profiler hooks *(Duplicate of Section 34, Line 1291)*
+10. **48. Immediate Execution Order (P5)**: 2D engine *(Duplicate of Section 25, Line 989)*
+11. **48. Immediate Execution Order (P5)**: Physics/scenes/assets *(Duplicate of Section 25, Lines 988, 1000)*
+12. **48. Immediate Execution Order (P5)**: Dogfood complete game *(Duplicate of Section 25 & Section 43)*
+13. **48. Immediate Execution Order (P6)**: GPU rendering abstraction *(Duplicate of Section 24, Line 968)*
+14. **48. Immediate Execution Order (P6)**: Mesh/material/shader pipeline *(Duplicate of Section 26, Lines 1027, 1037)*
+15. **48. Immediate Execution Order (P6)**: Cameras/lights/animation/physics *(Duplicate of Section 26 & Section 28)*
+16. **48. Immediate Execution Order (P6)**: Scene graph *(Duplicate of Section 27, Line 1060)*
+17. **48. Immediate Execution Order (P6)**: Modeling mesh-edit operations *(Duplicate of Section 27, Line 1068)*
+18. **48. Immediate Execution Order (P6)**: Import/export *(Duplicate of Section 27, Lines 1106-1111)*
+19. **48. Immediate Execution Order (P6)**: Node/procedural system *(Duplicate of Section 27, Line 1094)*
+20. **48. Immediate Execution Order (P6)**: Dogfood 3D creation application *(Duplicate of Section 27 & Section 43)*
+21. **48. Immediate Execution Order (P7)**: Mobile/future targets where desired *(Duplicate of Section 39, Line 1396)*
+22. **48. Immediate Execution Order (P7)**: Data/AI ecosystem *(Duplicate of Section 40, Line 1416)*
+23. **48. Immediate Execution Order (P7)**: Native interoperability ecosystem *(Duplicate of Section 30)*

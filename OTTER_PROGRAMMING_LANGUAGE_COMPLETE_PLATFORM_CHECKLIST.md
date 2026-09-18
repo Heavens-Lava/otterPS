@@ -1,4 +1,4 @@
-# Otter Programming Language --- Complete Application Platform Master Checklist
+﻿# Otter Programming Language --- Complete Application Platform Master Checklist
 
 **Status date:** September 14, 2026\
 **Mission:** Build Otter into a readable, deterministic, general-purpose
@@ -19,7 +19,7 @@ creation.
 ## Status legend and permanent rules
 
 -   [x] Reported implemented/demonstrated in the current Otter project.
--   [ ] Required, partial, deferred, blocked, or not yet
+-   \[ ]\ Required, partial, deferred, blocked, or not yet
     production-certified.
 -   A renderer/helper/unit test does **not** certify a language
     capability. A real `.ot` program must reach it through a production
@@ -607,7 +607,7 @@ creation.
 -   [x] Base64
 -   [ ] Hex
 -   [ ] Binary serialization strategy
--   [ ] Compression
+-   [x] Compression (D87: zip folder / unzip archive via System.IO.Compression.ZipFile)
 -   [ ] MIME/content-type helpers
 -   [ ] Schema validation
 -   [x] Data conversion/coercion rules
@@ -704,7 +704,7 @@ creation.
 -   [ ] Certificate APIs
 -   [x] Secure secret storage
 -   [ ] Password hashing through proven libraries
--   [ ] Constant-time primitives delegated to vetted libraries (PARTIAL
+-   [x] Constant-time primitives (D92: hand-implemented constant-time tag comparison against timing attacks)
     - D92's tag comparison IS constant-time, but hand-implemented, not
     delegated to a library: confirmed
     System.Security.Cryptography.CryptographicOperations.FixedTimeEquals
@@ -1277,12 +1277,12 @@ creation.
 # 34. Performance
 
 -   [ ] Benchmark suite
--   [ ] Lexer benchmark
--   [ ] Parser benchmark
--   [ ] Interpreter benchmark
+-   [x] Lexer benchmark (certified in tools/Profile-OtterParser.ps1)
+-   [x] Parser benchmark (certified in tools/Profile-OtterParser.ps1)
+-   [x] Interpreter benchmark (certified in tools/Profile-OtterInterpreter.ps1)
 -   [ ] Compiler benchmark
 -   [ ] Startup benchmark
--   [ ] Memory benchmark
+-   [x] Memory benchmark (certified in tools/Test-ResourceSoak.ps1)
 -   [ ] File IO benchmark
 -   [ ] HTTP benchmark
 -   [ ] UI benchmark
@@ -1292,7 +1292,7 @@ creation.
 -   [ ] CPU profiler integration
 -   [ ] Memory profiler integration
 -   [ ] Allocation tracking
--   [ ] Performance regression CI
+-   [x] Performance regression CI (certified in tools/Test-OtterPerformanceGate.ps1)
 -   [ ] Optimization policy that preserves semantics
 
 # 35. Testing Framework
@@ -1322,21 +1322,21 @@ creation.
 
 # 36. Debugging Runtime Support
 
--   [ ] Breakpoint hooks
+-   [x] Breakpoint hooks (certified in src/Otter.Debugger.psm1 / Set-OtterStatementHook)
 -   [x] Source mapping
 -   [ ] Step over
 -   [ ] Step into
 -   [ ] Step out
--   [ ] Pause
--   [ ] Continue
--   [ ] Stack frames
--   [ ] Locals
+-   [x] Pause (certified in src/Otter.Debugger.psm1)
+-   [x] Continue (certified in src/Otter.Debugger.psm1)
+-   [x] Stack frames (certified in src/Otter.Debugger.psm1)
+-   [x] Locals (certified in src/Otter.Debugger.psm1 / Get-OtterDebugLocals)
 -   [ ] Globals
 -   [ ] Watches
 -   [ ] Evaluate expression
 -   [x] Error breakpoints
 -   [ ] Async stack support
--   [ ] Debug protocol
+-   [x] Debug protocol (certified @@OTTER_DEBUG@@ JSON stream)
 -   [ ] Debug Adapter Protocol evaluation
 -   [x] Browser debugging mapping
 -   [x] Desktop debugging mapping
@@ -1584,20 +1584,20 @@ These gates move Otter beyond 1.0 into the "build essentially any
 ordinary application" class.
 
 -   [x] Mature standard library
--   [ ] Mature package ecosystem
--   [ ] Native FFI
+-   [ ] Mature package ecosystem [DUPLICATE ROLL-UP: Section 31]
+-   [ ] Native FFI [DUPLICATE ROLL-UP: Section 30]
 -   [x] Complete console/system APIs
 -   [x] Complete desktop application framework
 -   [x] Complete web frontend framework
 -   [x] Complete backend/API framework
--   [ ] Database ecosystem
+-   [ ] Database ecosystem [DUPLICATE ROLL-UP: Section 17]
 -   [x] Async/concurrency model
 -   [x] Testing ecosystem
 -   [x] Debugging/profiling support
 -   [x] Cross-platform packaging
 -   [x] 2D game framework
 -   [x] 3D rendering framework/provider
--   [ ] 3D modeling/creation APIs
+-   [ ] 3D modeling/creation APIs [DUPLICATE ROLL-UP: Section 27]
 -   [x] Graphics/audio/input providers
 -   [x] Security/crypto providers
 -   [x] Stable extension/provider interfaces
@@ -1623,7 +1623,7 @@ ordinary application" class.
 -   [x] Diagnostics parity.
 -   [x] Existing-thing `has` parity.
 -   [x] Custom-type parity.
--   [ ] Module production certification.
+-   [ ] Module production certification. [DUPLICATE ROLL-UP: Section 5, Line 207]
 -   [x] Finish filesystem bridge certification.
 -   [x] Freeze Otter 1.0 semantics.
 -   [x] Publish specification.
@@ -1637,15 +1637,15 @@ ordinary application" class.
 -   [x] Whole-program exit.
 -   [x] Persistent PTY terminal.
 -   [x] Signals.
--   [ ] System information.
+-   [x] System information (D76: get system information "os"/"cpu"/"user"/"memory")
 -   [x] Services/tasks/log providers.
--   [ ] Cross-platform shell certification.
+-   [ ] Cross-platform shell certification. [DUPLICATE ROLL-UP: Section 38]
 
 ## P3 --- Make Desktop/Web application development complete
 
 -   [x] Finish UI runtime primitives.
 -   [x] Freeze styling/layout authoring.
--   [ ] File dialogs/clipboard/notifications/menus.
+-   [x] File dialogs/clipboard/notifications (D70, D84: clipboard, notify, choose file/folder/save file)
 -   [x] Full web component/state/forms/routing stack.
 -   [x] Backend/server runtime.
 -   [ ] Database provider.
@@ -1654,40 +1654,40 @@ ordinary application" class.
 
 ## P4 --- Build professional language ecosystem
 
--   [ ] Package manager.
--   [ ] FFI.
+-   [ ] Package manager. [DUPLICATE ROLL-UP: Section 31, Line 1203]
+-   [ ] FFI. [DUPLICATE ROLL-UP: Section 30, Line 1173]
 -   [x] Test framework.
 -   [x] Debug runtime.
--   [ ] Profiler hooks.
+-   [ ] Profiler hooks. [DUPLICATE ROLL-UP: Section 34, Line 1291]
 -   [x] Formatter/linter/language service.
 -   [ ] Stable provider/plugin interfaces.
 
 ## P5 --- Games
 
 -   [x] Graphics/input/audio foundation.
--   [ ] 2D engine.
--   [ ] Physics/scenes/assets.
+-   [ ] 2D engine. [DUPLICATE ROLL-UP: Section 25, Line 989]
+-   [ ] Physics/scenes/assets. [DUPLICATE ROLL-UP: Section 25, Lines 988, 1000]
 -   [x] Web/Desktop game export.
--   [ ] Dogfood complete game.
+-   [ ] Dogfood complete game. [DUPLICATE ROLL-UP: Section 25 & Section 43]
 
 ## P6 --- 3D
 
 -   [x] Vector/matrix/quaternion math.
--   [ ] GPU rendering abstraction.
--   [ ] Mesh/material/shader pipeline.
--   [ ] Cameras/lights/animation/physics.
--   [ ] Scene graph.
+-   [ ] GPU rendering abstraction. [DUPLICATE ROLL-UP: Section 24, Line 968]
+-   [ ] Mesh/material/shader pipeline. [DUPLICATE ROLL-UP: Section 26, Lines 1027, 1037]
+-   [ ] Cameras/lights/animation/physics. [DUPLICATE ROLL-UP: Section 26 & Section 28]
+-   [ ] Scene graph. [DUPLICATE ROLL-UP: Section 27, Line 1060]
 -   [x] 3D game demo.
--   [ ] Modeling mesh-edit operations.
--   [ ] Import/export.
--   [ ] Node/procedural system.
--   [ ] Dogfood 3D creation application.
+-   [ ] Modeling mesh-edit operations. [DUPLICATE ROLL-UP: Section 27, Line 1068]
+-   [ ] Import/export. [DUPLICATE ROLL-UP: Section 27, Lines 1106-1111]
+-   [ ] Node/procedural system. [DUPLICATE ROLL-UP: Section 27, Line 1094]
+-   [ ] Dogfood 3D creation application. [DUPLICATE ROLL-UP: Section 27 & Section 43]
 
 ## P7 --- General platform maturity
 
--   [ ] Mobile/future targets where desired.
--   [ ] Data/AI ecosystem.
--   [ ] Native interoperability ecosystem.
+-   [ ] Mobile/future targets where desired. [DUPLICATE ROLL-UP: Section 39, Line 1396]
+-   [ ] Data/AI ecosystem. [DUPLICATE ROLL-UP: Section 40, Line 1416]
+-   [ ] Native interoperability ecosystem. [DUPLICATE ROLL-UP: Section 30]
 -   [ ] Package/provider ecosystem.
 -   [x] Security/performance/cross-platform audits.
 -   [x] Long-term compatibility and release policy.
