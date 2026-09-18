@@ -266,11 +266,35 @@
   - Attack classes exercised: token deletion, token duplication, operator substitution, keyword substitution (`if` -> `while`, `to` -> `fn`), block terminator removal/addition, indentation corruption, malformed strings, malformed numbers, malformed property chains, malformed function calls, bare words in blocks, CRLF/LF variations, and comments at structural boundaries.
   - **Raw Host Crashes: 0 (100% safe)**.
 
+### Batch 4: RC Hardening Pass 1 — Profiling, Soak, Adversarial Subsystems & Differential Parity
+- **Adversarial Passes**:
+  - **Filesystem Adversarial Suite (`tests/FilesystemAdversarial.Tests.ps1`)**: 15 / 15 passed (empty files, 0-byte files, 440KB files, Unicode/emoji paths, spaces, nested directories, read-only protection, missing parents, source==destination collisions, file locking).
+  - **Process Adversarial Suite (`tests/ProcessAdversarial.Tests.ps1`)**: 11 / 11 passed (clean exit codes, missing binaries, quoted args, Unicode output, stderr/stdout separation, 50KB+ buffers, zero zombie processes).
+- **Long-Run Differential Verification (`tools/Invoke-OtterDifferentialHardening.ps1`)**:
+  - 1,000 / 1,000 seeded programs (Seed 20260918) evaluated with **0 disagreements** between PowerShell Interpreter and JavaScript Compiler.
+  - Biased feature interactions verified: deep call chains, nested objects, property chains, `gone` checks, list mutations during iteration, math boundaries, and escaped strings.
+- **Resource Soak Suite (`tools/Test-ResourceSoak.ps1`)**:
+  - 8 / 8 soak workloads certified **STABLE** with zero unbounded memory growth or resource leaks across 1,000 parses, 1,000 executions, 200 web compilations, 500 file I/O cycles, 50 command runs, 500 JSON roundtrips, 5,000 function calls, and 500 error diagnostics.
+- **Installation Soak Suite (`tests/InstallSoak.Tests.ps1`)**:
+  - 13 / 13 checks passed across sequential install -> run -> web compile -> uninstall cycles, confirming clean disk cleanup and PATH deduplication.
+- **Performance Regression Gate (`tools/Test-OtterPerformanceGate.ps1`)**:
+  - 5 / 5 benchmarks certified **STABLE** within established 3.0x release variance tolerances.
+
 ---
 
 ## Certification Summary
 
 - `tests/RedTeam.Tests.ps1`: **40 / 40** adversarial cases passed (100%).
+- `tests/FilesystemAdversarial.Tests.ps1`: **15 / 15** cases passed (100%).
+- `tests/ProcessAdversarial.Tests.ps1`: **11 / 11** cases passed (100%).
+- `tests/InstallSoak.Tests.ps1`: **13 / 13** lifecycle checks passed (100%).
+- `tools/Test-ResourceSoak.ps1`: **8 / 8** workloads certified STABLE (0 memory/handle leaks).
+- `tools/Invoke-OtterDifferentialHardening.ps1`: **1,000 / 1,000** differential programs passed with **0 disagreements** (100%).
 - `tools/Invoke-OtterParallelGauntlet.ps1`: **10,000 / 10,000** differential programs and **10,000 / 10,000** mutations passed with **0 disagreements** and **0 host crashes** (100%).
-- `tests/Run-Tests.ps1`: **21 / 21** test suites passed (100%).
+- `tests/Run-Tests.ps1`: **28 / 28** test suites passed (100%).
 - `tools/Test-OtterReleaseConformance.ps1`: **15 / 15** release fixtures passed (100%).
+- `tools/Test-DocumentationExamples.ps1`: **25 / 25** canonical examples passed (100%).
+- `tests/CliContract.Tests.ps1`: **18 / 18** CLI contract tests passed (100%).
+- `tests/StandardLibrary.Tests.ps1`: **31 / 31** standard library capabilities passed (100%).
+- `tests/DiagnosticMatrix.Tests.ps1`: **15 / 15** diagnostic categories passed (100%).
+- `tools/Test-OtterPerformanceGate.ps1`: **5 / 5** benchmarks certified within release tolerances (100%).
