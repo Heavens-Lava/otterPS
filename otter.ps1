@@ -57,6 +57,11 @@ param(
     # Show the underlying PowerShell error instead of a friendly Otter one.
     [switch]$DebugErrors,
 
+    # otter debug <file.ot> -Breakpoints "5,12"  - comma-separated 1-based
+    # Otter source line numbers. First-slice debugger: see
+    # src/Otter.Debugger.psm1.
+    [string]$Breakpoints,
+
     # D57: PowerShell's own argument binder turns `--version`/`--help` into
     # `-version`/`-help` before matching parameter names, so these need to
     # be real switches (matched via alias) rather than caught as $Path text.
@@ -236,7 +241,14 @@ function Invoke-OtterFile {
 
         # D57: `otter check` validates source without executing it or
         # opening any UI. Same pipeline, it just stops after the parser.
-        [switch]$CheckOnly
+        [switch]$CheckOnly,
+
+        # otter debug: a debug session (src/Otter.Debugger.psm1) was already
+        # wired into the interpreter before this call. The only thing this
+        # flag adds is emitting the "finished" protocol event once the
+        # program stops, however it stops - normally or on error - so
+        # Studio can always tell "still running/paused" apart from "done".
+        [switch]$DebugSession
     )
 
     if (-not $ScriptPath.ToLowerInvariant().EndsWith('.ot')) {
@@ -263,12 +275,15 @@ function Invoke-OtterFile {
         Invoke-OtterSource -Source $source -Environment $environment -CheckOnly:$CheckOnly
     }
     catch {
+        if ($DebugSession) { Complete-OtterDebugSession }
         Show-OtterFailure -ErrorRecord $_
         if ($script:LastFailureStage -eq 'check') {
             exit $script:ExitCheckError
         }
         exit $script:ExitRuntimeError
     }
+
+    if ($DebugSession) { Complete-OtterDebugSession }
 
     if ($CheckOnly) {
         Write-Host "Otter: $ScriptPath is valid." -ForegroundColor Green
@@ -360,7 +375,10 @@ function Show-OtterHelp {
     Write-Host 'Usage:'
     Write-Host '  otter <file.ot>        Run an Otter program (shortest form)'
     Write-Host '  otter run <file.ot>    Run an Otter program (explicit form)'
+    Write-Host '  otter web <file.ot>    Compile an Otter web application to HTML/JS'
     Write-Host '  otter check <file.ot>  Validate a program without running it'
+    Write-Host '  otter desktop <file.ot> Run an Otter Desktop app with system bridge'
+    Write-Host '  otter studio           Launch Otter Studio IDE & UI Designer'
     Write-Host '  otter help             Show this help'
     Write-Host '  otter --help           Show this help'
     Write-Host '  otter --version        Show the Otter version'
@@ -389,11 +407,36 @@ if ($Path -eq 'run' -or $Path -eq 'check') {
     # Invoke-OtterFile always exits itself.
 }
 
-if ($Path -in @('web', 'browse', 'serve')) {
+if ($Path -eq 'debug') {
+    if (-not $Target) {
+        Write-Host 'Usage: otter debug <file.ot> -Breakpoints "5,12"' -ForegroundColor Red
+        exit $script:ExitUsageError
+    }
+    $breakpointLines = @()
+    if ($Breakpoints) {
+        $breakpointLines = @($Breakpoints -split ',' | ForEach-Object { [int]($_.Trim()) })
+    }
+    Import-Module (Join-Path $PSScriptRoot 'src\Otter.Debugger.psm1') -Force
+    Start-OtterDebugSession -FileName (Split-Path -Leaf $Target) -Breakpoints $breakpointLines
+    Invoke-OtterFile -ScriptPath $Target -DebugSession
+    # Invoke-OtterFile always exits itself.
+}
+
+if ($Path -in @('web', 'browse', 'serve', 'desktop', 'studio')) {
+    if ($Path -eq 'studio') {
+        Import-Module (Join-Path $PSScriptRoot 'src\Otter.Desktop.psm1') -Force
+        Start-OtterStudio
+        exit 0
+    }
     $scriptFile = $Target
     if (-not $scriptFile) {
         Write-Host "Usage: otter $Path <script.ot>"
         exit 1
+    }
+    if ($Path -eq 'desktop') {
+        Import-Module (Join-Path $PSScriptRoot 'src\Otter.Desktop.psm1') -Force
+        Start-OtterDesktopApplication -SourcePath $scriptFile
+        exit 0
     }
     if ($Path -eq 'web' -or $Path -eq 'browse') {
         Import-Module (Join-Path $PSScriptRoot 'src\Otter.Web.psm1') -Force

@@ -44,7 +44,7 @@ if (Test-Path -LiteralPath $destinationFull) {
 }
 New-Item -ItemType Directory -Path $destinationFull | Out-Null
 
-foreach ($item in @('otter.ps1', 'otter.cmd', 'Otter.Contract.psm1', 'VERSION', 'README.md')) {
+foreach ($item in @('otter.ps1', 'otter.cmd', 'Otter.Contract.psm1', 'VERSION', 'README.md', 'Uninstall-Otter.ps1')) {
     $source = Join-Path $packageRoot $item
     if (Test-Path -LiteralPath $source) { Copy-Item -LiteralPath $source -Destination $destinationFull -Force }
 }

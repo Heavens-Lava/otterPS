@@ -28,6 +28,7 @@ foreach ($item in @('otter.ps1', 'otter.cmd', 'Otter.Contract.psm1', 'VERSION'))
 }
 Copy-Item -LiteralPath (Join-Path $root 'src') -Destination $stage -Recurse -Force
 Copy-Item -LiteralPath (Join-Path $root 'distribution\Install-Otter.ps1') -Destination $stage -Force
+Copy-Item -LiteralPath (Join-Path $root 'distribution\Uninstall-Otter.ps1') -Destination $stage -Force
 Copy-Item -LiteralPath (Join-Path $root 'distribution\README.md') -Destination (Join-Path $stage 'README.md') -Force
 
 $files = Get-ChildItem -LiteralPath $stage -Recurse -File | Sort-Object FullName | ForEach-Object {
