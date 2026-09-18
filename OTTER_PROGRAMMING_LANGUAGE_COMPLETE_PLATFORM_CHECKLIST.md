@@ -1,4 +1,4 @@
-﻿# Otter Programming Language --- Complete Application Platform Master Checklist
+# Otter Programming Language --- Complete Application Platform Master Checklist
 
 **Status date:** September 14, 2026\
 **Mission:** Build Otter into a readable, deterministic, general-purpose
@@ -600,7 +600,22 @@ creation.
 -   [x] JSON serialize
 -   [x] JSON nested round trip
 -   [x] JSON `gone`/null mapping
--   [ ] CSV read/write
+-   [x] CSV read/write (D95: `read csv from <path> into <target>`, `write csv <rows> to <path>`, `convert <rows> to csv into <target>`, `convert <text> from csv into <target>`. Provenance: frontend/spec commit `fec73dc`, backend/runtime/parity commit `de3f345`)
+    -   [x] Grammar
+    -   [x] Lexer
+    -   [x] Parser
+    -   [x] AST
+    -   [x] Interpreter runtime
+    -   [x] JS compiler parity
+    -   [x] File I/O
+    -   [x] UTF-8 handling
+    -   [x] RFC 4180 behavior
+    -   [x] Diagnostics
+    -   [x] Production CLI example (`examples/csv.ot`)
+    -   [x] 41 CSV tests (`tests/Csv.Tests.ps1`)
+    -   [x] Full suite (`30 of 30 test files passed`)
+    -   [x] Independent cross-agent audit
+    -   [x] Certified Implemented
 -   [ ] XML
 -   [ ] YAML if demanded
 -   [x] URL encoding
