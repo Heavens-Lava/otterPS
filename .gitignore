@@ -1,3 +1,10 @@
 # Release packaging output (tools/Build-OtterRelease.ps1) - rebuildable from
 # a clean checkout, never committed.
 dist/
+scratch/
+.playwright-mcp/
+backup/
+debug.log
+otter-site-publish/
+examples/file-organizer/output/
+
