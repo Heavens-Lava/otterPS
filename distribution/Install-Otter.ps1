@@ -44,11 +44,14 @@ if (Test-Path -LiteralPath $destinationFull) {
 }
 New-Item -ItemType Directory -Path $destinationFull | Out-Null
 
-foreach ($item in @('otter.ps1', 'otter.cmd', 'Otter.Contract.psm1', 'VERSION', 'README.md', 'Uninstall-Otter.ps1')) {
+foreach ($item in @('otter.ps1', 'otter.cmd', 'Otter.Contract.psm1', 'VERSION', 'README.md', 'Uninstall-Otter.ps1', 'LICENSE', 'THIRD-PARTY-NOTICES.md', 'INSTALL.md', 'TOUR.md')) {
     $source = Join-Path $packageRoot $item
     if (Test-Path -LiteralPath $source) { Copy-Item -LiteralPath $source -Destination $destinationFull -Force }
 }
 Copy-Item -LiteralPath (Join-Path $packageRoot 'src') -Destination $destinationFull -Recurse -Force
+if (Test-Path -LiteralPath (Join-Path $packageRoot 'examples')) {
+    Copy-Item -LiteralPath (Join-Path $packageRoot 'examples') -Destination $destinationFull -Recurse -Force
+}
 
 $installedCommand = Join-Path $destinationFull 'otter.cmd'
 & $installedCommand --version | Out-Host

@@ -23,10 +23,21 @@ if (Test-Path -LiteralPath $stage) {
 }
 New-Item -ItemType Directory -Path $stage | Out-Null
 
-foreach ($item in @('otter.ps1', 'otter.cmd', 'Otter.Contract.psm1', 'VERSION')) {
-    Copy-Item -LiteralPath (Join-Path $root $item) -Destination $stage -Force
+foreach ($item in @('otter.ps1', 'otter.cmd', 'Otter.Contract.psm1', 'VERSION', 'LICENSE', 'THIRD-PARTY-NOTICES.md', 'INSTALL.md', 'TOUR.md')) {
+    $src = Join-Path $root $item
+    if (Test-Path -LiteralPath $src) {
+        Copy-Item -LiteralPath $src -Destination $stage -Force
+    }
 }
 Copy-Item -LiteralPath (Join-Path $root 'src') -Destination $stage -Recurse -Force
+$examplesStage = Join-Path $stage 'examples'
+New-Item -ItemType Directory -Path $examplesStage -Force | Out-Null
+foreach ($ex in @('hello.ot', 'csv.ot', 'download.ot', 'cli-arguments.ot', 'conditions.ot', 'objects.ot', 'math.ot', 'files.ot', 'calculator.ot', 'hello-app.ot')) {
+    $exPath = Join-Path (Join-Path $root 'examples') $ex
+    if (Test-Path -LiteralPath $exPath) {
+        Copy-Item -LiteralPath $exPath -Destination $examplesStage -Force
+    }
+}
 Copy-Item -LiteralPath (Join-Path $root 'distribution\Install-Otter.ps1') -Destination $stage -Force
 Copy-Item -LiteralPath (Join-Path $root 'distribution\Uninstall-Otter.ps1') -Destination $stage -Force
 Copy-Item -LiteralPath (Join-Path $root 'distribution\README.md') -Destination (Join-Path $stage 'README.md') -Force
