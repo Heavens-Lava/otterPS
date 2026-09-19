@@ -1,0 +1,6 @@
+# cli-app.ot - Demonstrating console arguments and flags in Otter
+say "Otter CLI Tool v1.0"
+say "Run with options like: --mode=release --count 5 app.ot"
+
+defaultMode is "development"
+say "Default mode: " and defaultMode

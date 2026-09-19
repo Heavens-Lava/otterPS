@@ -2,6 +2,7 @@ using module ..\Otter.Contract.psm1
 using module .\Otter.Compiler.JavaScript.psm1
 using module .\Otter.Module.psm1
 using module .\Otter.Web.psm1
+using module .\Otter.Library.psm1
 
 # Otter.Desktop.psm1 - Native Desktop Application Host & Terminal Bridge for Otter
 #
@@ -338,6 +339,51 @@ class OtterTerminalBridgeSession {
                     $res.StatusCode = 200
                 }
             }
+            elseif ($path -eq "/api/fs/download" -and $req.HttpMethod -eq "POST") {
+                $reader = [System.IO.StreamReader]::new($req.InputStream, [System.Text.Encoding]::UTF8)
+                $body = $reader.ReadToEnd()
+                $json = if ($body) { ConvertFrom-Json $body } else { $null }
+
+                $targetUrl = if ($json -and $json.url) { [string]$json.url } else { "" }
+                $targetPath = if ($json -and $json.path) { [string]$json.path } else { "" }
+
+                if ([string]::IsNullOrEmpty($targetUrl) -or [string]::IsNullOrEmpty($targetPath)) {
+                    $res.StatusCode = 400
+                    $errPayload = @{ error = "Both url and path parameters are required." } | ConvertTo-Json -Compress
+                    $buffer = [System.Text.Encoding]::UTF8.GetBytes($errPayload)
+                    $res.ContentLength64 = $buffer.Length
+                    $res.OutputStream.Write($buffer, 0, $buffer.Length)
+                } else {
+                    $fullPath = if ([System.IO.Path]::IsPathRooted($targetPath)) {
+                        $targetPath
+                    } else {
+                        [System.IO.Path]::Combine($this.Cwd, $targetPath)
+                    }
+
+                    try {
+                        Receive-OtterFileDownload -Url $targetUrl -Path $fullPath -Line 0
+                        $res.ContentType = "application/json; charset=utf-8"
+                        $respObj = @{
+                            url = $targetUrl
+                            path = $targetPath
+                            fullPath = (Resolve-Path -LiteralPath $fullPath).Path
+                            downloaded = $true
+                        }
+                        $payload = $respObj | ConvertTo-Json -Compress
+                        $buffer = [System.Text.Encoding]::UTF8.GetBytes($payload)
+                        $res.ContentLength64 = $buffer.Length
+                        $res.OutputStream.Write($buffer, 0, $buffer.Length)
+                        $res.StatusCode = 200
+                    } catch {
+                        $res.StatusCode = 500
+                        $res.ContentType = "application/json; charset=utf-8"
+                        $errPayload = @{ error = $_.Exception.Message } | ConvertTo-Json -Compress
+                        $buffer = [System.Text.Encoding]::UTF8.GetBytes($errPayload)
+                        $res.ContentLength64 = $buffer.Length
+                        $res.OutputStream.Write($buffer, 0, $buffer.Length)
+                    }
+                }
+            }
             elseif ($path -eq "/api/fs/files" -and ($req.HttpMethod -eq "POST" -or $req.HttpMethod -eq "GET")) {
                 $targetPath = $null
                 $recursive = $false
@@ -479,6 +525,260 @@ class OtterTerminalBridgeSession {
                     $res.OutputStream.Write($buffer, 0, $buffer.Length)
                     $res.StatusCode = 200
                 }
+            }
+            elseif ($path -eq "/api/timer/wait" -and $req.HttpMethod -eq "POST") {
+                $reader = [System.IO.StreamReader]::new($req.InputStream, [System.Text.Encoding]::UTF8)
+                $body = $reader.ReadToEnd()
+                $json = if ($body) { ConvertFrom-Json $body } else { $null }
+                $delayMs = if ($json -and $null -ne $json.delayMs) { [int]$json.delayMs } elseif ($json -and $null -ne $json.seconds) { [int]($json.seconds * 1000) } else { 0 }
+                if ($delayMs -gt 0) {
+                    [System.Threading.Thread]::Sleep($delayMs)
+                }
+                $res.ContentType = "application/json; charset=utf-8"
+                $payload = @{
+                    completed = $true
+                    elapsedMs = $delayMs
+                } | ConvertTo-Json -Compress
+                $buffer = [System.Text.Encoding]::UTF8.GetBytes($payload)
+                $res.ContentLength64 = $buffer.Length
+                $res.OutputStream.Write($buffer, 0, $buffer.Length)
+                $res.StatusCode = 200
+            }
+            elseif ($path -eq "/api/system/clipboard") {
+                if ($req.HttpMethod -eq "POST") {
+                    $reader = [System.IO.StreamReader]::new($req.InputStream, [System.Text.Encoding]::UTF8)
+                    $body = $reader.ReadToEnd()
+                    $json = if ($body) { ConvertFrom-Json $body } else { $null }
+                    $clipText = if ($json -and $null -ne $json.text) { [string]$json.text } else { '' }
+                    try {
+                        Set-Clipboard -Value $clipText -ErrorAction SilentlyContinue
+                    } catch {}
+                    $res.ContentType = "application/json; charset=utf-8"
+                    $payload = @{ completed = $true; length = $clipText.Length } | ConvertTo-Json -Compress
+                    $buffer = [System.Text.Encoding]::UTF8.GetBytes($payload)
+                    $res.ContentLength64 = $buffer.Length
+                    $res.OutputStream.Write($buffer, 0, $buffer.Length)
+                    $res.StatusCode = 200
+                } else {
+                    $readText = ""
+                    try {
+                        $readText = [string](Get-Clipboard -Raw -ErrorAction SilentlyContinue)
+                    } catch {}
+                    $res.ContentType = "application/json; charset=utf-8"
+                    $payload = @{ text = $readText; completed = $true } | ConvertTo-Json -Compress
+                    $buffer = [System.Text.Encoding]::UTF8.GetBytes($payload)
+                    $res.ContentLength64 = $buffer.Length
+                    $res.OutputStream.Write($buffer, 0, $buffer.Length)
+                    $res.StatusCode = 200
+                }
+            }
+            elseif ($path -eq "/api/system/notify" -and $req.HttpMethod -eq "POST") {
+                $reader = [System.IO.StreamReader]::new($req.InputStream, [System.Text.Encoding]::UTF8)
+                $body = $reader.ReadToEnd()
+                $json = if ($body) { ConvertFrom-Json $body } else { $null }
+                $title = if ($json -and $null -ne $json.title) { [string]$json.title } else { 'Otter Notification' }
+                $msg = if ($json -and $null -ne $json.message) { [string]$json.message } else { '' }
+                $res.ContentType = "application/json; charset=utf-8"
+                $payload = @{ completed = $true; title = $title; message = $msg } | ConvertTo-Json -Compress
+                $buffer = [System.Text.Encoding]::UTF8.GetBytes($payload)
+                $res.ContentLength64 = $buffer.Length
+                $res.OutputStream.Write($buffer, 0, $buffer.Length)
+                $res.StatusCode = 200
+            }
+            elseif ($path -eq "/api/system/env") {
+                $varName = $null
+                if ($req.HttpMethod -eq "POST") {
+                    $reader = [System.IO.StreamReader]::new($req.InputStream, [System.Text.Encoding]::UTF8)
+                    $body = $reader.ReadToEnd()
+                    $json = if ($body) { ConvertFrom-Json $body } else { $null }
+                    $varName = if ($json -and $null -ne $json.name) { [string]$json.name } else { $null }
+                }
+                $envVal = if ($varName) { [System.Environment]::GetEnvironmentVariable($varName) } else { $null }
+                $tempPath = [System.IO.Path]::GetTempPath()
+                $appData = [System.Environment]::GetFolderPath('ApplicationData')
+                $userProfile = [System.Environment]::GetFolderPath('UserProfile')
+                $res.ContentType = "application/json; charset=utf-8"
+                $payload = @{
+                    completed = $true
+                    name = $varName
+                    value = $envVal
+                    tempFolder = $tempPath
+                    appDataFolder = $appData
+                    userFolder = $userProfile
+                    currentDirectory = $this.Cwd
+                } | ConvertTo-Json -Compress
+                $buffer = [System.Text.Encoding]::UTF8.GetBytes($payload)
+                $res.ContentLength64 = $buffer.Length
+                $res.OutputStream.Write($buffer, 0, $buffer.Length)
+                $res.StatusCode = 200
+            }
+            elseif ($path -eq "/api/dialog/open-file") {
+                $script:staDialogPath = ""
+                try {
+                    $staThread = [System.Threading.Thread]::new([System.Threading.ThreadStart]{
+                        Add-Type -AssemblyName System.Windows.Forms -ErrorAction SilentlyContinue
+                        $dlg = New-Object System.Windows.Forms.OpenFileDialog
+                        $dlg.InitialDirectory = $this.Cwd
+                        if ($dlg.ShowDialog().ToString() -eq "OK") {
+                            $script:staDialogPath = $dlg.FileName
+                        }
+                    })
+                    $staThread.SetApartmentState([System.Threading.ApartmentState]::STA)
+                    $staThread.Start()
+                    $staThread.Join(500)
+                } catch {}
+                $res.ContentType = "application/json; charset=utf-8"
+                $payload = @{ path = [string]$script:staDialogPath; cancelled = [bool](-not $script:staDialogPath) } | ConvertTo-Json -Compress
+                $buffer = [System.Text.Encoding]::UTF8.GetBytes($payload)
+                $res.ContentLength64 = $buffer.Length
+                $res.OutputStream.Write($buffer, 0, $buffer.Length)
+                $res.StatusCode = 200
+            }
+            elseif ($path -eq "/api/dialog/save-file") {
+                $script:staDialogPath = ""
+                try {
+                    $staThread = [System.Threading.Thread]::new([System.Threading.ThreadStart]{
+                        Add-Type -AssemblyName System.Windows.Forms -ErrorAction SilentlyContinue
+                        $dlg = New-Object System.Windows.Forms.SaveFileDialog
+                        $dlg.InitialDirectory = $this.Cwd
+                        if ($dlg.ShowDialog().ToString() -eq "OK") {
+                            $script:staDialogPath = $dlg.FileName
+                        }
+                    })
+                    $staThread.SetApartmentState([System.Threading.ApartmentState]::STA)
+                    $staThread.Start()
+                    $staThread.Join(500)
+                } catch {}
+                $res.ContentType = "application/json; charset=utf-8"
+                $payload = @{ path = [string]$script:staDialogPath; cancelled = [bool](-not $script:staDialogPath) } | ConvertTo-Json -Compress
+                $buffer = [System.Text.Encoding]::UTF8.GetBytes($payload)
+                $res.ContentLength64 = $buffer.Length
+                $res.OutputStream.Write($buffer, 0, $buffer.Length)
+                $res.StatusCode = 200
+            }
+            elseif ($path -eq "/api/dialog/folder") {
+                $script:staDialogPath = ""
+                try {
+                    $staThread = [System.Threading.Thread]::new([System.Threading.ThreadStart]{
+                        Add-Type -AssemblyName System.Windows.Forms -ErrorAction SilentlyContinue
+                        $dlg = New-Object System.Windows.Forms.FolderBrowserDialog
+                        $dlg.SelectedPath = $this.Cwd
+                        if ($dlg.ShowDialog().ToString() -eq "OK") {
+                            $script:staDialogPath = $dlg.SelectedPath
+                        }
+                    })
+                    $staThread.SetApartmentState([System.Threading.ApartmentState]::STA)
+                    $staThread.Start()
+                    $staThread.Join(500)
+                } catch {}
+                $res.ContentType = "application/json; charset=utf-8"
+                $payload = @{ path = [string]$script:staDialogPath; cancelled = [bool](-not $script:staDialogPath) } | ConvertTo-Json -Compress
+                $buffer = [System.Text.Encoding]::UTF8.GetBytes($payload)
+                $res.ContentLength64 = $buffer.Length
+                $res.OutputStream.Write($buffer, 0, $buffer.Length)
+                $res.StatusCode = 200
+            }
+            elseif ($path -eq "/api/fs/operate" -and $req.HttpMethod -eq "POST") {
+                # The web compiler deliberately does not perform filesystem
+                # work itself.  All mutating operations cross this one local,
+                # authenticated Desktop bridge boundary instead.  Keeping
+                # the operation names here also keeps System.IO/PowerShell
+                # details out of generated browser code.
+                $reader = [System.IO.StreamReader]::new($req.InputStream, [System.Text.Encoding]::UTF8)
+                $body = $reader.ReadToEnd()
+                $json = if ($body) { ConvertFrom-Json $body } else { $null }
+                $operation = if ($json -and $json.operation) { [string]$json.operation } else { '' }
+                $sourcePath = if ($json -and $json.source) { [string]$json.source } else { '' }
+                $destinationPath = if ($json -and $json.destination) { [string]$json.destination } else { '' }
+                $targetPath = if ($json -and $json.path) { [string]$json.path } else { '' }
+                $content = if ($json -and $null -ne $json.content) { [string]$json.content } else { '' }
+                $bridgeCwd = $this.Cwd
+                $result = $null
+
+                $resolveBridgePath = {
+                    param([string]$Value)
+                    if ([string]::IsNullOrWhiteSpace($Value)) {
+                        throw [System.InvalidOperationException]::new('A file or folder path is required.')
+                    }
+                    if ([System.IO.Path]::IsPathRooted($Value)) { return $Value }
+                    return [System.IO.Path]::Combine($bridgeCwd, $Value)
+                }
+
+                switch ($operation) {
+                    'file-exists' {
+                        $fullPath = & $resolveBridgePath $targetPath
+                        $result = @{ exists = [bool](Test-Path -LiteralPath $fullPath -PathType Leaf) }
+                    }
+                    'append-file' {
+                        $fullPath = & $resolveBridgePath $targetPath
+                        $parent = [System.IO.Path]::GetDirectoryName($fullPath)
+                        if ($parent) { [void][System.IO.Directory]::CreateDirectory($parent) }
+                        [System.IO.File]::AppendAllText($fullPath, $content, [System.Text.UTF8Encoding]::new($false))
+                        $result = @{ completed = $true }
+                    }
+                    'copy-file' {
+                        $from = & $resolveBridgePath $sourcePath
+                        $to = & $resolveBridgePath $destinationPath
+                        if (-not (Test-Path -LiteralPath $from -PathType Leaf)) { throw [System.InvalidOperationException]::new("I could not find a file called `"$sourcePath`" to copy.") }
+                        if (Test-Path -LiteralPath $to -PathType Container) { $to = [System.IO.Path]::Combine($to, [System.IO.Path]::GetFileName($from)) }
+                        else { $parent = [System.IO.Path]::GetDirectoryName($to); if ($parent) { [void][System.IO.Directory]::CreateDirectory($parent) } }
+                        Copy-Item -LiteralPath $from -Destination $to -Force -ErrorAction Stop
+                        $result = @{ completed = $true }
+                    }
+                    'move-file' {
+                        $from = & $resolveBridgePath $sourcePath
+                        $to = & $resolveBridgePath $destinationPath
+                        if (-not (Test-Path -LiteralPath $from -PathType Leaf)) { throw [System.InvalidOperationException]::new("I could not find a file called `"$sourcePath`" to move.") }
+                        if (Test-Path -LiteralPath $to -PathType Container) { $to = [System.IO.Path]::Combine($to, [System.IO.Path]::GetFileName($from)) }
+                        else { $parent = [System.IO.Path]::GetDirectoryName($to); if ($parent) { [void][System.IO.Directory]::CreateDirectory($parent) } }
+                        Move-Item -LiteralPath $from -Destination $to -Force -ErrorAction Stop
+                        $result = @{ completed = $true }
+                    }
+                    'delete-file' {
+                        $fullPath = & $resolveBridgePath $targetPath
+                        if (Test-Path -LiteralPath $fullPath -PathType Container) { throw [System.InvalidOperationException]::new("`"$targetPath`" is a folder. Otter only deletes files.") }
+                        if (-not (Test-Path -LiteralPath $fullPath -PathType Leaf)) { throw [System.InvalidOperationException]::new("I could not find a file called `"$targetPath`" to delete.") }
+                        Remove-Item -LiteralPath $fullPath -Force -ErrorAction Stop
+                        $result = @{ completed = $true }
+                    }
+                    'create-folder' {
+                        $fullPath = & $resolveBridgePath $targetPath
+                        [void][System.IO.Directory]::CreateDirectory($fullPath)
+                        $result = @{ completed = $true }
+                    }
+                    'delete-folder' {
+                        $fullPath = & $resolveBridgePath $targetPath
+                        if (Test-Path -LiteralPath $fullPath -PathType Leaf) { throw [System.InvalidOperationException]::new("`"$targetPath`" is a file, not a folder.") }
+                        if (-not (Test-Path -LiteralPath $fullPath -PathType Container)) { throw [System.InvalidOperationException]::new("I could not find a folder called `"$targetPath`" to delete.") }
+                        if (@(Get-ChildItem -LiteralPath $fullPath -Force).Count -gt 0) { throw [System.InvalidOperationException]::new("The folder `"$targetPath`" is not empty. Otter only deletes empty folders.") }
+                        Remove-Item -LiteralPath $fullPath -Force -ErrorAction Stop
+                        $result = @{ completed = $true }
+                    }
+                    'copy-folder' {
+                        $from = & $resolveBridgePath $sourcePath
+                        $to = & $resolveBridgePath $destinationPath
+                        if (-not (Test-Path -LiteralPath $from -PathType Container)) { throw [System.InvalidOperationException]::new("I could not find a folder called `"$sourcePath`".") }
+                        if (Test-Path -LiteralPath $to -PathType Container) { $to = [System.IO.Path]::Combine($to, [System.IO.Path]::GetFileName($from.TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar))) }
+                        Copy-Item -LiteralPath $from -Destination $to -Recurse -Force -ErrorAction Stop
+                        $result = @{ completed = $true }
+                    }
+                    'move-folder' {
+                        $from = & $resolveBridgePath $sourcePath
+                        $to = & $resolveBridgePath $destinationPath
+                        if (-not (Test-Path -LiteralPath $from -PathType Container)) { throw [System.InvalidOperationException]::new("I could not find a folder called `"$sourcePath`".") }
+                        if (Test-Path -LiteralPath $to -PathType Container) { $to = [System.IO.Path]::Combine($to, [System.IO.Path]::GetFileName($from.TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar))) }
+                        Move-Item -LiteralPath $from -Destination $to -Force -ErrorAction Stop
+                        $result = @{ completed = $true }
+                    }
+                    default { throw [System.InvalidOperationException]::new('That filesystem operation is not available.') }
+                }
+
+                $res.ContentType = "application/json; charset=utf-8"
+                $payload = $result | ConvertTo-Json -Compress
+                $buffer = [System.Text.Encoding]::UTF8.GetBytes($payload)
+                $res.ContentLength64 = $buffer.Length
+                $res.OutputStream.Write($buffer, 0, $buffer.Length)
+                $res.StatusCode = 200
             }
             else {
                 $res.StatusCode = 404
@@ -871,6 +1171,75 @@ function Start-OtterDesktopApplication {
     # 3. Create session-specific runtime instance HTML with injected bridge credentials
     $rawHtml = Get-Content -LiteralPath $resolvedHtml -Raw -Encoding UTF8
     $injectionScript = @"
+<style id="otter-desktop-window-foundation">
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    max-width: 100vw !important;
+    max-height: 100vh !important;
+    overflow: hidden !important;
+    background: #f0f4f9 !important;
+  }
+  body.otter-has-page {
+    margin: 0 !important;
+    padding: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+    overflow: hidden !important;
+  }
+  main.otter-page {
+    margin: 0 !important;
+    padding: 8px 12px 6px 12px !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+    display: flex !important;
+    flex-direction: column !important;
+    box-sizing: border-box !important;
+    border-radius: 0 !important;
+    overflow: hidden !important;
+    flex: 1 1 0% !important;
+  }
+  .otter-page-content {
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    flex: 1 1 0% !important;
+    min-height: 0 !important;
+    width: 100% !important;
+    overflow: hidden !important;
+  }
+  #workspaceRow {
+    flex: 1 1 0% !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    overflow: hidden !important;
+  }
+  #leftSidebar, #centerCol, #rightSidebar {
+    height: 100% !important;
+    min-height: 0 !important;
+  }
+  #statusBar {
+    flex-shrink: 0 !important;
+  }
+  #headerBar {
+    flex-shrink: 0 !important;
+  }
+  #problemsDrawer {
+    flex-shrink: 0 !important;
+  }
+  #winControls {
+    display: none !important;
+  }
+</style>
 <script id="otter-desktop-session-bridge">
 window.__OTTER_DESKTOP_BRIDGE__ = {
   port: $($bridgeSession.Port),
@@ -901,6 +1270,21 @@ window.__OTTER_DESKTOP_BRIDGE__ = {
     });
     if (!res.ok) {
       throw new Error('Failed to write file ' + filePath + ': HTTP ' + res.status);
+    }
+    return await res.json();
+  },
+  async downloadFile(url, filePath) {
+    const res = await fetch('http://127.0.0.1:' + this.port + '/api/fs/download', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Otter-Token': this.token
+      },
+      body: JSON.stringify({ url: url, path: filePath })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || ('Failed to download file ' + filePath + ': HTTP ' + res.status));
     }
     return await res.json();
   },
@@ -953,6 +1337,99 @@ window.__OTTER_DESKTOP_BRIDGE__ = {
       throw new Error('Failed to get folders in ' + folderPath + ': HTTP ' + res.status);
     }
     return await res.json();
+  },
+  async fileOperation(operation, payload = {}) {
+    const res = await fetch('http://127.0.0.1:' + this.port + '/api/fs/operate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Otter-Token': this.token
+      },
+      body: JSON.stringify(Object.assign({ operation: operation }, payload))
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(data.error || 'The filesystem operation could not be completed.');
+    }
+    return data;
+  },
+  async wait(seconds) {
+    const ms = Math.max(0, Number(seconds) * 1000);
+    return new Promise(resolve => setTimeout(resolve, ms));
+  },
+  async delay(ms) {
+    const delayMs = Math.max(0, Number(ms));
+    return new Promise(resolve => setTimeout(resolve, delayMs));
+  },
+  async clipboard(action = 'paste', text = '') {
+    const isCopy = action === 'copy';
+    const method = isCopy ? 'POST' : 'GET';
+    const body = isCopy ? JSON.stringify({ text: text }) : null;
+    const res = await fetch('http://127.0.0.1:' + this.port + '/api/system/clipboard', {
+      method: method,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Otter-Token': this.token
+      },
+      body: body
+    });
+    return await res.json();
+  },
+  async notify(title, message) {
+    const res = await fetch('http://127.0.0.1:' + this.port + '/api/system/notify', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Otter-Token': this.token
+      },
+      body: JSON.stringify({ title: title, message: message })
+    });
+    return await res.json();
+  },
+  async getEnv(name) {
+    const res = await fetch('http://127.0.0.1:' + this.port + '/api/system/env', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Otter-Token': this.token
+      },
+      body: JSON.stringify({ name: name })
+    });
+    const data = await res.json();
+    return data.value;
+  },
+  async getSystemPaths() {
+    const res = await fetch('http://127.0.0.1:' + this.port + '/api/system/env', {
+      method: 'GET',
+      headers: {
+        'X-Otter-Token': this.token
+      }
+    });
+    return await res.json();
+  },
+  async chooseFile() {
+    const res = await fetch('http://127.0.0.1:' + this.port + '/api/dialog/open-file', {
+      method: 'POST',
+      headers: { 'X-Otter-Token': this.token }
+    });
+    const data = await res.json();
+    return data.path || '';
+  },
+  async chooseFolder() {
+    const res = await fetch('http://127.0.0.1:' + this.port + '/api/dialog/folder', {
+      method: 'POST',
+      headers: { 'X-Otter-Token': this.token }
+    });
+    const data = await res.json();
+    return data.path || '';
+  },
+  async saveFileDialog() {
+    const res = await fetch('http://127.0.0.1:' + this.port + '/api/dialog/save-file', {
+      method: 'POST',
+      headers: { 'X-Otter-Token': this.token }
+    });
+    const data = await res.json();
+    return data.path || '';
   }
 };
 window.otterReadFile = function(filePath) {
@@ -967,9 +1444,24 @@ window.otterWriteFile = function(filePath, content) {
   }
   throw new Error('Desktop Bridge is not available for file operations');
 };
+window.otterDownloadFile = function(url, filePath) {
+  if (window.__OTTER_DESKTOP_BRIDGE__ && typeof window.__OTTER_DESKTOP_BRIDGE__.downloadFile === 'function') {
+    return window.__OTTER_DESKTOP_BRIDGE__.downloadFile(url, filePath);
+  }
+  throw new Error('Desktop Bridge is not available for file download in this browser.');
+};
 window.otterRunCommand = function(command) {
   if (window.__OTTER_DESKTOP_BRIDGE__ && typeof window.__OTTER_DESKTOP_BRIDGE__.exec === 'function') {
-    return window.__OTTER_DESKTOP_BRIDGE__.exec(command).then(res => (res.stdout || res.output || res.stderr || '').trim());
+    return window.__OTTER_DESKTOP_BRIDGE__.exec(command).then(res => ({
+      __otterThing: true,
+      typeName: 'command result',
+      props: {
+        output: res.stdout || '',
+        'error output': res.stderr || '',
+        'exit code': Number.isFinite(Number(res.exitCode)) ? Number(res.exitCode) : -1
+      },
+      order: ['output', 'error output', 'exit code']
+    }));
   }
   throw new Error('Desktop Bridge is not available for command execution');
 };
@@ -985,6 +1477,170 @@ window.otterGetFolders = function(folderPath, includeSubfolders = false) {
   }
   throw new Error('Desktop Bridge is not available for folder discovery');
 };
+window.otterFileExists = function(filePath) {
+  if (window.__OTTER_DESKTOP_BRIDGE__ && typeof window.__OTTER_DESKTOP_BRIDGE__.fileOperation === 'function') {
+    return window.__OTTER_DESKTOP_BRIDGE__.fileOperation('file-exists', { path: filePath }).then(result => Boolean(result.exists));
+  }
+  throw new Error('Desktop Bridge is not available for file operations');
+};
+window.otterAppendFile = function(filePath, content) { return window.__OTTER_DESKTOP_BRIDGE__.fileOperation('append-file', { path: filePath, content: content }); };
+window.otterCopyFile = function(source, destination) { return window.__OTTER_DESKTOP_BRIDGE__.fileOperation('copy-file', { source: source, destination: destination }); };
+window.otterMoveFile = function(source, destination) { return window.__OTTER_DESKTOP_BRIDGE__.fileOperation('move-file', { source: source, destination: destination }); };
+window.otterDeleteFile = function(filePath) { return window.__OTTER_DESKTOP_BRIDGE__.fileOperation('delete-file', { path: filePath }); };
+window.otterCreateFolder = function(folderPath) { return window.__OTTER_DESKTOP_BRIDGE__.fileOperation('create-folder', { path: folderPath }); };
+window.otterDeleteFolder = function(folderPath) { return window.__OTTER_DESKTOP_BRIDGE__.fileOperation('delete-folder', { path: folderPath }); };
+window.otterCopyFolder = function(source, destination) { return window.__OTTER_DESKTOP_BRIDGE__.fileOperation('copy-folder', { source: source, destination: destination }); };
+window.otterMoveFolder = function(source, destination) { return window.__OTTER_DESKTOP_BRIDGE__.fileOperation('move-folder', { source: source, destination: destination }); };
+window.otterWait = function(seconds) {
+  const ms = Math.max(0, Number(seconds) * 1000);
+  return new Promise(resolve => setTimeout(resolve, ms));
+};
+window.otterDelay = function(ms) {
+  const delayMs = Math.max(0, Number(ms));
+  return new Promise(resolve => setTimeout(resolve, delayMs));
+};
+window.wait = window.otterWait;
+window.delay = window.otterDelay;
+window.otterClipboard = {
+  copy: function(text) {
+    if (window.__OTTER_DESKTOP_BRIDGE__) {
+      return window.__OTTER_DESKTOP_BRIDGE__.clipboard('copy', text);
+    }
+    if (navigator.clipboard) {
+      return navigator.clipboard.writeText(text);
+    }
+    return Promise.resolve(false);
+  },
+  paste: function() {
+    if (window.__OTTER_DESKTOP_BRIDGE__) {
+      return window.__OTTER_DESKTOP_BRIDGE__.clipboard('paste').then(r => r.text || '');
+    }
+    if (navigator.clipboard) {
+      return navigator.clipboard.readText();
+    }
+    return Promise.resolve('');
+  }
+};
+window.otterNotify = function(title, message) {
+  if (window.__OTTER_DESKTOP_BRIDGE__) {
+    return window.__OTTER_DESKTOP_BRIDGE__.notify(title, message);
+  }
+  if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+    new Notification(title, { body: message });
+  }
+  return Promise.resolve({ completed: true });
+};
+window.otterGetEnv = function(name) {
+  if (window.__OTTER_DESKTOP_BRIDGE__) {
+    return window.__OTTER_DESKTOP_BRIDGE__.getEnv(name);
+  }
+  return Promise.resolve(null);
+};
+window.otterGetSystemPaths = function() {
+  if (window.__OTTER_DESKTOP_BRIDGE__) {
+    return window.__OTTER_DESKTOP_BRIDGE__.getSystemPaths();
+  }
+  return Promise.resolve({});
+};
+window.otterChooseFile = function() {
+  if (window.__OTTER_DESKTOP_BRIDGE__) {
+    return window.__OTTER_DESKTOP_BRIDGE__.chooseFile();
+  }
+  return Promise.resolve('');
+};
+window.otterChooseFolder = function() {
+  if (window.__OTTER_DESKTOP_BRIDGE__) {
+    return window.__OTTER_DESKTOP_BRIDGE__.chooseFolder();
+  }
+  return Promise.resolve('');
+};
+window.otterSaveFileDialog = function() {
+  if (window.__OTTER_DESKTOP_BRIDGE__) {
+    return window.__OTTER_DESKTOP_BRIDGE__.saveFileDialog();
+  }
+  return Promise.resolve('');
+};
+window.copyToClipboard = window.otterClipboard.copy;
+window.getClipboard = window.otterClipboard.paste;
+window.notify = window.otterNotify;
+window.chooseFile = window.otterChooseFile;
+window.chooseFolder = window.otterChooseFolder;
+window.saveFileDialog = window.otterSaveFileDialog;
+window.otterStorage = {
+  get: function(key, defaultVal = null) {
+    try {
+      const val = localStorage.getItem(key);
+      if (val === null) return defaultVal;
+      try { return JSON.parse(val); } catch(_) { return val; }
+    } catch(_) { return defaultVal; }
+  },
+  set: function(key, val) {
+    try {
+      const serialized = (typeof val === 'object' && val !== null) ? JSON.stringify(val) : String(val);
+      localStorage.setItem(key, serialized);
+      return true;
+    } catch(_) { return false; }
+  },
+  remove: function(key) {
+    try { localStorage.removeItem(key); return true; } catch(_) { return false; }
+  },
+  clear: function() {
+    try { localStorage.clear(); return true; } catch(_) { return false; }
+  },
+  session: {
+    get: function(key, defaultVal = null) {
+      try {
+        const val = sessionStorage.getItem(key);
+        if (val === null) return defaultVal;
+        try { return JSON.parse(val); } catch(_) { return val; }
+      } catch(_) { return defaultVal; }
+    },
+    set: function(key, val) {
+      try {
+        const serialized = (typeof val === 'object' && val !== null) ? JSON.stringify(val) : String(val);
+        sessionStorage.setItem(key, serialized);
+        return true;
+      } catch(_) { return false; }
+    },
+    remove: function(key) {
+      try { sessionStorage.removeItem(key); return true; } catch(_) { return false; }
+    }
+  }
+};
+window.getStorage = window.otterStorage.get;
+window.setStorage = window.otterStorage.set;
+window.removeStorage = window.otterStorage.remove;
+window.otterFetch = async function(url, options = {}) {
+  const resp = await fetch(url, options);
+  const contentType = resp.headers.get('content-type') || '';
+  let data;
+  if (contentType.includes('application/json')) {
+    data = await resp.json();
+  } else {
+    data = await resp.text();
+  }
+  return {
+    ok: resp.ok,
+    status: resp.status,
+    statusText: resp.statusText,
+    data: data,
+    headers: Object.fromEntries(resp.headers.entries())
+  };
+};
+window.otterGetJson = async function(url, headers = {}) {
+  const res = await window.otterFetch(url, { method: 'GET', headers: Object.assign({ 'Accept': 'application/json' }, headers) });
+  return res.data;
+};
+window.otterPostJson = async function(url, body = {}, headers = {}) {
+  const res = await window.otterFetch(url, {
+    method: 'POST',
+    headers: Object.assign({ 'Content-Type': 'application/json', 'Accept': 'application/json' }, headers),
+    body: JSON.stringify(body)
+  });
+  return res.data;
+};
+window.httpGet = window.otterGetJson;
+window.httpPost = window.otterPostJson;
 
 // D62: durable session lifetime. This is generic desktop-runtime
 // infrastructure - it knows nothing about Studio or any other
@@ -1046,7 +1702,10 @@ window.otterGetFolders = function(folderPath, includeSubfolders = false) {
     if ($exePath) {
         $appArgs = @(
             "--app=$uri",
-            "--window-size=$Width,$Height"
+            "--window-size=$Width,$Height",
+            "--disable-infobars",
+            "--no-first-run",
+            "--no-default-browser-check"
         )
         if ($UserDataDir) {
             $appArgs += "--user-data-dir=$UserDataDir"
@@ -1090,4 +1749,95 @@ window.otterGetFolders = function(folderPath, includeSubfolders = false) {
     }
 }
 
-Export-ModuleMember -Function Start-OtterDesktopApplication, Get-OtterAvailableShells, Invoke-OtterShellCommand, Start-OtterTerminalBridge, Stop-OtterTerminalBridge, New-OtterSessionToken
+function Start-OtterStudio {
+    <#
+    .SYNOPSIS
+    Launches the full Otter Studio IDE & Visual UI Designer in native desktop App Mode.
+    #>
+    [CmdletBinding()]
+    param(
+        [string]$Mode = "code",
+        [int]$Port = 4200
+    )
+
+    $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+    $serverScript = Join-Path $repoRoot 'otter-studio\serve.mjs'
+
+    # 1. Check if server on port is already listening; if not, launch it
+    $serverRunning = $false
+    try {
+        $tcp = [System.Net.Sockets.TcpClient]::new()
+        $ar = $tcp.BeginConnect("127.0.0.1", $Port, $null, $null)
+        if ($ar.AsyncWaitHandle.WaitOne(300)) {
+            $tcp.EndConnect($ar)
+            $serverRunning = $true
+            $tcp.Close()
+        }
+    } catch { }
+
+    if (-not $serverRunning) {
+        $nodeCandidates = @(
+            'node',
+            'C:\Program Files\nodejs\node.exe',
+            'C:\Program Files (x86)\nodejs\node.exe'
+        )
+        $nodeExe = $null
+        foreach ($c in $nodeCandidates) {
+            if (Get-Command $c -ErrorAction SilentlyContinue) {
+                $nodeExe = $c
+                break
+            }
+        }
+        if (-not $nodeExe) {
+            throw [OtterError]::new("Node.js is required to run the full Otter Studio backend. Please ensure node is installed.", 0, 'runtime')
+        }
+
+        $psi = [System.Diagnostics.ProcessStartInfo]::new()
+        $psi.FileName = $nodeExe
+        $psi.Arguments = "`"$serverScript`""
+        $psi.WorkingDirectory = (Join-Path $repoRoot 'otter-studio')
+        $psi.UseShellExecute = $false
+        $psi.CreateNoWindow = $true
+        [System.Diagnostics.Process]::Start($psi) | Out-Null
+        Start-Sleep -Milliseconds 800
+    }
+
+    # 2. Locate Edge or Chrome for dedicated App Mode
+    $browserCandidates = @(
+        'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe',
+        'C:\Program Files\Microsoft\Edge\Application\msedge.exe',
+        'C:\Program Files\Google\Chrome\Application\chrome.exe',
+        'C:\Program Files (x86)\Google\Chrome\Application\chrome.exe'
+    )
+
+    $exePath = $null
+    foreach ($cand in $browserCandidates) {
+        if (Test-Path $cand) {
+            $exePath = $cand
+            break
+        }
+    }
+
+    $url = if ($Mode -and $Mode -ne 'code') {
+        "http://127.0.0.1:$Port/?mode=$Mode"
+    } else {
+        "http://127.0.0.1:$Port"
+    }
+
+    if ($exePath) {
+        $appArgs = @(
+            "--app=$url",
+            "--window-size=1440,900",
+            "--disable-infobars",
+            "--no-first-run",
+            "--no-default-browser-check"
+        )
+        Start-Process -FilePath $exePath -ArgumentList $appArgs
+    } else {
+        Start-Process $url
+    }
+
+    Write-Host "Otter Studio launched at $url (Native Desktop Window)." -ForegroundColor Green
+}
+
+Export-ModuleMember -Function Start-OtterDesktopApplication, Start-OtterStudio, Get-OtterAvailableShells, Invoke-OtterShellCommand, Start-OtterTerminalBridge, Stop-OtterTerminalBridge, New-OtterSessionToken

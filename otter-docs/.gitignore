@@ -1,1 +1,4 @@
 dist/
+site.html
+generated/
+pages/*.html

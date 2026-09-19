@@ -1,0 +1,35 @@
+{
+  "$schema": "https://otter-lang.org/schema/project-v1.json",
+  "name": "milestone-app",
+  "version": "1.0.0",
+  "description": "Modern Otter web application",
+  "archetype": "web",
+  "target": "web",
+  "entryPoint": "main.ot",
+  "author": "Otter Developer",
+  "license": "MIT",
+  "created": "2026-09-18T15:10:25.041Z",
+  "build": {
+    "outputDir": "dist",
+    "minify": false,
+    "sourceMaps": true,
+    "clean": true
+  },
+  "permissions": {
+    "filesystem": true,
+    "network": true,
+    "clipboard": true,
+    "process": false
+  },
+  "dependencies": {
+    "core": "^1.0.0"
+  },
+  "assets": [
+    "styles.css"
+  ],
+  "scripts": {
+    "start": "otter run main.ot",
+    "build": "otter build",
+    "test": "otter test"
+  }
+}

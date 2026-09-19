@@ -1,0 +1,4 @@
+# Console App
+say "Otter CLI Test Executed"
+score is 3
+say "Score is" score

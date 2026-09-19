@@ -8,7 +8,6 @@ the text of helloButton is "Say Hello"
 
 put nameBox, helloButton in app
 
-
 text of nameBox is "Hello Otter"
 
 when helloButton is clicked

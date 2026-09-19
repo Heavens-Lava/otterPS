@@ -1,0 +1,11 @@
+/* Application Stylesheet */
+#app {
+    width: 720px;
+    min-height: 480px;
+    background: #ffffff;
+    border-radius: 8px;
+    padding: 24px;
+    gap: 16px;
+    display: flex;
+    flex-direction: column;
+}

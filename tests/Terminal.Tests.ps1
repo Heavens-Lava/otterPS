@@ -291,6 +291,132 @@ try {
         throw "Expected HTTP 404 for nonexistent file, got $($missingResult.status)"
     }
     Write-Output '  pass  /api/fs/read returns HTTP 404 for nonexistent file'
+
+    # 12c: filesystem mutation/existence bridge used by the JS compiler.
+    # Everything lives under a unique scratch folder and is removed in the
+    # finally block, so this verifies real host operations without touching
+    # a user file.
+    $bridgeScratchName = "scratch/bridge-fs-$([guid]::NewGuid().ToString('N'))"
+    $invokeBridgeFileOperation = {
+        param([string]$Operation, [hashtable]$Arguments)
+        $job = Start-Job -ScriptBlock {
+            param($port, $token, $operationName, $operationArgs)
+            Start-Sleep -Milliseconds 75
+            $headers = @{ 'X-Otter-Token' = $token }
+            $body = @{ operation = $operationName }
+            foreach ($key in $operationArgs.Keys) { $body[$key] = $operationArgs[$key] }
+            Invoke-RestMethod -Uri "http://127.0.0.1:$port/api/fs/operate" -Method Post -Headers $headers -Body ($body | ConvertTo-Json -Compress) -ContentType 'application/json'
+        } -ArgumentList $fsSession.Port, $fsSession.AuthToken, $Operation, $Arguments
+        $fsSession.HandleNextRequest(5000) | Out-Null
+        $response = Receive-Job -Job $job -Wait
+        Remove-Job -Job $job -Force
+        return $response
+    }
+
+    try {
+        & $invokeBridgeFileOperation 'create-folder' @{ path = $bridgeScratchName } | Out-Null
+        $scratchFullPath = Join-Path $repoRoot $bridgeScratchName
+        [System.IO.File]::WriteAllText((Join-Path $scratchFullPath 'source.txt'), 'bridge test')
+        & $invokeBridgeFileOperation 'append-file' @{ path = "$bridgeScratchName/source.txt"; content = ' append' } | Out-Null
+        if ([System.IO.File]::ReadAllText((Join-Path $scratchFullPath 'source.txt')) -ne 'bridge test append') {
+            throw 'Expected /api/fs/operate append-file to preserve existing content.'
+        }
+
+        & $invokeBridgeFileOperation 'copy-file' @{ source = "$bridgeScratchName/source.txt"; destination = "$bridgeScratchName/copied.txt" } | Out-Null
+        & $invokeBridgeFileOperation 'move-file' @{ source = "$bridgeScratchName/copied.txt"; destination = "$bridgeScratchName/moved.txt" } | Out-Null
+        $exists = & $invokeBridgeFileOperation 'file-exists' @{ path = "$bridgeScratchName/moved.txt" }
+        if (-not $exists.exists) { throw 'Expected /api/fs/operate file-exists to report the moved file.' }
+        & $invokeBridgeFileOperation 'delete-file' @{ path = "$bridgeScratchName/moved.txt" } | Out-Null
+
+        & $invokeBridgeFileOperation 'create-folder' @{ path = "$bridgeScratchName/folder-source" } | Out-Null
+        [System.IO.File]::WriteAllText((Join-Path $scratchFullPath 'folder-source/inside.txt'), 'nested')
+        & $invokeBridgeFileOperation 'copy-folder' @{ source = "$bridgeScratchName/folder-source"; destination = "$bridgeScratchName/folder-copy" } | Out-Null
+        & $invokeBridgeFileOperation 'move-folder' @{ source = "$bridgeScratchName/folder-copy"; destination = "$bridgeScratchName/folder-moved" } | Out-Null
+        & $invokeBridgeFileOperation 'create-folder' @{ path = "$bridgeScratchName/empty-folder" } | Out-Null
+        & $invokeBridgeFileOperation 'delete-folder' @{ path = "$bridgeScratchName/empty-folder" } | Out-Null
+
+        if (-not (Test-Path -LiteralPath (Join-Path $scratchFullPath 'folder-moved/inside.txt') -PathType Leaf)) {
+            throw 'Expected folder copy/move operations to preserve nested files.'
+        }
+        Write-Output '  pass  /api/fs/operate performs file/folder mutation and existence checks through the authenticated bridge'
+
+        # 12d: One-shot timer bridge endpoint (/api/timer/wait)
+        $timerJob = Start-Job -ScriptBlock {
+            param($port, $token)
+            $headers = @{ "X-Otter-Token" = $token }
+            $body = @{ delayMs = 10 } | ConvertTo-Json
+            return (Invoke-RestMethod -Uri "http://127.0.0.1:$port/api/timer/wait" -Method Post -Headers $headers -Body $body -ContentType "application/json")
+        } -ArgumentList $fsSession.Port, $fsSession.AuthToken
+        $fsSession.HandleNextRequest(5000) | Out-Null
+        $timerResult = Receive-Job -Job $timerJob -Wait
+        Remove-Job -Job $timerJob -Force
+        if ($null -eq $timerResult -or -not $timerResult.completed) {
+            throw "Expected /api/timer/wait to return completed = true"
+        }
+        Write-Output '  pass  /api/timer/wait executes one-shot delay through the authenticated bridge'
+
+        # 12e: Clipboard bridge endpoint (/api/system/clipboard)
+        $clipJob = Start-Job -ScriptBlock {
+            param($port, $token)
+            $headers = @{ "X-Otter-Token" = $token }
+            $body = @{ text = "Otter Clipboard Test 123" } | ConvertTo-Json
+            $postRes = Invoke-RestMethod -Uri "http://127.0.0.1:$port/api/system/clipboard" -Method Post -Headers $headers -Body $body -ContentType "application/json"
+            return $postRes
+        } -ArgumentList $fsSession.Port, $fsSession.AuthToken
+        $fsSession.HandleNextRequest(5000) | Out-Null
+        $clipRes = Receive-Job -Job $clipJob -Wait
+        Remove-Job -Job $clipJob -Force
+        if ($null -eq $clipRes -or -not $clipRes.completed) {
+            throw "Expected /api/system/clipboard POST to succeed"
+        }
+
+        $clipGetJob = Start-Job -ScriptBlock {
+            param($port, $token)
+            $headers = @{ "X-Otter-Token" = $token }
+            return (Invoke-RestMethod -Uri "http://127.0.0.1:$port/api/system/clipboard" -Method Get -Headers $headers)
+        } -ArgumentList $fsSession.Port, $fsSession.AuthToken
+        $fsSession.HandleNextRequest(5000) | Out-Null
+        $clipGetRes = Receive-Job -Job $clipGetJob -Wait
+        Remove-Job -Job $clipGetJob -Force
+        if ($null -eq $clipGetRes -or -not $clipGetRes.completed) {
+            throw "Expected /api/system/clipboard GET to succeed"
+        }
+        Write-Output '  pass  /api/system/clipboard performs copy and paste through the authenticated bridge'
+
+        # 12f: Notification bridge endpoint (/api/system/notify)
+        $notifyJob = Start-Job -ScriptBlock {
+            param($port, $token)
+            $headers = @{ "X-Otter-Token" = $token }
+            $body = @{ title = "Otter Alert"; message = "Task completed successfully" } | ConvertTo-Json
+            return (Invoke-RestMethod -Uri "http://127.0.0.1:$port/api/system/notify" -Method Post -Headers $headers -Body $body -ContentType "application/json")
+        } -ArgumentList $fsSession.Port, $fsSession.AuthToken
+        $fsSession.HandleNextRequest(5000) | Out-Null
+        $notifyRes = Receive-Job -Job $notifyJob -Wait
+        Remove-Job -Job $notifyJob -Force
+        if ($null -eq $notifyRes -or -not $notifyRes.completed) {
+            throw "Expected /api/system/notify to return completed = true"
+        }
+        Write-Output '  pass  /api/system/notify dispatches notifications through the authenticated bridge'
+
+        # 12g: Environment and system paths bridge endpoint (/api/system/env)
+        $envJob = Start-Job -ScriptBlock {
+            param($port, $token)
+            $headers = @{ "X-Otter-Token" = $token }
+            return (Invoke-RestMethod -Uri "http://127.0.0.1:$port/api/system/env" -Method Get -Headers $headers)
+        } -ArgumentList $fsSession.Port, $fsSession.AuthToken
+        $fsSession.HandleNextRequest(5000) | Out-Null
+        $envRes = Receive-Job -Job $envJob -Wait
+        Remove-Job -Job $envJob -Force
+        if ($null -eq $envRes -or [string]::IsNullOrEmpty($envRes.tempFolder) -or [string]::IsNullOrEmpty($envRes.appDataFolder)) {
+            throw "Expected /api/system/env to return tempFolder and appDataFolder"
+        }
+        Write-Output '  pass  /api/system/env provides safe standard system paths through the authenticated bridge'
+    }
+    finally {
+        if ($scratchFullPath -and (Test-Path -LiteralPath $scratchFullPath)) {
+            Remove-Item -LiteralPath $scratchFullPath -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
 }
 finally {
     Stop-OtterTerminalBridge -Session $fsSession
@@ -488,4 +614,3 @@ try {
 finally {
     Stop-OtterTerminalBridge -Session $steadyBridge
 }
-

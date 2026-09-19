@@ -1,0 +1,224 @@
+# explorer.ot - Otter Explorer web prototype
+
+app is a page
+    title is "Otter Explorer"
+    width is 1180
+    background is "#f8fafc"
+    spacing is 14
+.
+
+brandIcon is a image
+    source is "../otter-docs/static/images/otter-explorer-icon.png"
+    alt is "Otter Explorer"
+    width is 44
+    height is 44
+.
+
+brand is a text
+    value is "Otter Explorer"
+    size is 22
+    weight is "700"
+    foreground is "#0f172a"
+.
+
+tagline is a text
+    value is "Find. Organize. Do more."
+    foreground is "#64748b"
+.
+
+header is a row
+    spacing is 12
+    padding is 14
+    background is "#ffffff"
+    border is "1px solid #e2e8f0"
+.
+
+put brandIcon, brand, tagline in header
+
+homeIcon is a image
+    source is "../otter-docs/static/icons/home.svg"
+    alt is "Home"
+    width is 20
+    height is 20
+.
+
+homeText is a text
+    value is "Home"
+    foreground is "#1d4ed8"
+.
+
+recentIcon is a image
+    source is "../otter-docs/static/icons/file.svg"
+    alt is "Recent"
+    width is 20
+    height is 20
+.
+
+recentText is a text
+    value is "Recent"
+    foreground is "#334155"
+.
+
+sidebar is a column
+    spacing is 14
+    padding is 18
+    width is 190
+    background is "#ffffff"
+    border is "1px solid #e2e8f0"
+    radius is 10
+.
+
+put homeIcon, homeText, recentIcon, recentText in sidebar
+
+searchBox is a text box
+    placeholder is "Search files, folders, or ask something..."
+    width is 470
+.
+
+newButton is a button
+    text is "New"
+    width is 88
+.
+
+toolbar is a row
+    spacing is 10
+    padding is 12
+    background is "#ffffff"
+    border is "1px solid #e2e8f0"
+    radius is 8
+.
+
+put searchBox, newButton in toolbar
+
+location is a text
+    value is "Home  /  Pictures  /  Vacation"
+    size is 18
+    weight is "700"
+    foreground is "#0f172a"
+.
+
+fileOne is a card
+    title is "beach.jpg"
+    background is "#eff6ff"
+    padding is 14
+    spacing is 8
+    radius is 8
+.
+
+fileOneInfo is a text
+    value is "Image  ·  2.4 MB"
+    foreground is "#475569"
+.
+
+openOne is a button
+    text is "Preview"
+    width is 90
+.
+
+fileTwo is a card
+    title is "mountain.png"
+    background is "#eff6ff"
+    padding is 14
+    spacing is 8
+    radius is 8
+.
+
+fileTwoInfo is a text
+    value is "Image  ·  1.8 MB"
+    foreground is "#475569"
+.
+
+openTwo is a button
+    text is "Preview"
+    width is 90
+.
+
+fileThree is a card
+    title is "notes.txt"
+    background is "#f1f5f9"
+    padding is 14
+    spacing is 8
+    radius is 8
+.
+
+fileThreeInfo is a text
+    value is "Text file  ·  12 KB"
+    foreground is "#475569"
+.
+
+openThree is a button
+    text is "Preview"
+    width is 90
+.
+
+put fileOneInfo, openOne in fileOne
+put fileTwoInfo, openTwo in fileTwo
+put fileThreeInfo, openThree in fileThree
+
+filesRow is a row
+    spacing is 12
+.
+
+put fileOne, fileTwo, fileThree in filesRow
+
+preview is a card
+    title is "Preview"
+    background is "#ffffff"
+    padding is 18
+    spacing is 8
+    radius is 10
+.
+
+previewText is a text
+    value is "Select a file to preview its details."
+    foreground is "#475569"
+.
+
+put previewText in preview
+
+status is a text
+    value is "24 items"
+    foreground is "#64748b"
+.
+
+main is a column
+    spacing is 14
+    padding is 18
+.
+
+put toolbar, location, filesRow, preview, status in main
+
+body is a row
+    spacing is 16
+    padding is 16
+.
+
+put sidebar, main in body
+
+when newButton is clicked
+    text of status is "New item action is ready."
+.
+
+when openOne is clicked
+    text of previewText is "beach.jpg  ·  Image  ·  2.4 MB"
+.
+
+when openTwo is clicked
+    text of previewText is "mountain.png  ·  Image  ·  1.8 MB"
+.
+
+when openThree is clicked
+    text of previewText is "notes.txt  ·  Text file  ·  12 KB"
+.
+
+when searchBox is changed
+    query is text of searchBox
+    if query is empty
+        text of status is "24 items"
+    otherwise
+        text of status is "Searching..."
+    .
+.
+
+put header, body in app
+show app

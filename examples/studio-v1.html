@@ -1,0 +1,906 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Otter Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,600;1,700&family=Playfair+Display:ital,wght@1,500;1,600;1,700&family=Newsreader:ital,opsz,wght@1,6..72,500;1,6..72,600;1,6..72,700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --otter-bg: #f1f5f9;
+      --otter-card-bg: #1e293b;
+      --otter-text: #f8fafc;
+      --otter-text-muted: #94a3b8;
+      --otter-primary: #2563eb;
+      --otter-primary-hover: #1d4ed8;
+      --otter-input-bg: #0f172a;
+      --otter-border: #334155;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    * { margin: 0; padding: 0; }
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: #f1f5f9;
+      color: #f8fafc;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin: 0;
+      padding: 24px;
+      overflow-x: hidden;
+      box-sizing: border-box;
+    }
+    body.otter-has-page {
+      display: flex;
+      flex-direction: column;
+      padding: 0;
+      margin: 0;
+      min-height: 100vh;
+      height: 100vh;
+      max-height: 100vh;
+      box-sizing: border-box;
+      overflow: hidden;
+    }
+    .otter-row {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: flex-start;
+      box-sizing: border-box;
+      min-width: 0;
+    }
+    .otter-column {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      justify-content: flex-start;
+      box-sizing: border-box;
+      min-width: 0;
+    }
+    .otter-window {
+      background-color: #1e293b;
+      border: 1px solid var(--otter-border);
+      width: 100%;
+      max-width: 520px;
+      margin: 24px auto;
+      display: flex;
+      flex-direction: column;
+      box-sizing: border-box;
+      min-width: 0;
+    }
+    .otter-page {
+      background: transparent;
+      border: none;
+      width: 100%;
+      max-width: 1320px;
+      margin: 0 auto;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      box-sizing: border-box;
+      min-width: 0;
+    }
+    .otter-card {
+      background-color: var(--otter-card-bg);
+      border: 1px solid var(--otter-border);
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+      display: flex;
+      flex-direction: column;
+      box-sizing: border-box;
+      min-width: 0;
+    }
+    .otter-title {
+      font-size: 1.35rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+      letter-spacing: -0.02em;
+    }
+    .otter-button {
+      background-color: var(--otter-primary);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 18px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.15s ease, transform 0.08s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      white-space: nowrap;
+      user-select: none;
+    }
+    .otter-button:hover { background-color: var(--otter-primary-hover); }
+    .otter-button:active { transform: scale(0.98); }
+    .otter-text-box {
+      background-color: var(--otter-input-bg);
+      color: var(--otter-text);
+      border: 1px solid var(--otter-border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.15s ease;
+      width: 100%;
+    }
+    .otter-text-box:focus {
+      border-color: var(--otter-primary);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25);
+    }
+    .otter-text {
+      font-size: 1rem;
+      min-height: 1.2em;
+    }
+    .otter-heading {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+      letter-spacing: -0.02em;
+      color: inherit;
+    }
+    .otter-button-primary, .otter-btn-primary {
+      background-color: #2563eb !important;
+      color: #ffffff !important;
+      border: none !important;
+      border-radius: 8px;
+      padding: 10px 18px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .otter-button-primary:hover, .otter-btn-primary:hover {
+      background-color: #1d4ed8 !important;
+    }
+    .otter-button-secondary, .otter-btn-secondary {
+      background-color: #334155 !important;
+      color: #f8fafc !important;
+      border: 1px solid #475569 !important;
+      border-radius: 8px;
+      padding: 10px 18px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    .otter-button-secondary:hover, .otter-btn-secondary:hover {
+      background-color: #475569 !important;
+    }
+    .otter-button-danger, .otter-btn-danger {
+      background-color: #dc2626 !important;
+      color: #ffffff !important;
+      border: none !important;
+      border-radius: 8px;
+      padding: 10px 18px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .otter-button-danger:hover, .otter-btn-danger:hover {
+      background-color: #b91c1c !important;
+    }
+    .otter-panel {
+      display: flex;
+      flex-direction: column;
+      box-sizing: border-box;
+      min-width: 0;
+    }
+    .otter-scroll {
+      overflow-y: auto;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+      box-sizing: border-box;
+      min-width: 0;
+    }
+    .otter-conditional {
+      display: flex;
+      flex-direction: column;
+      box-sizing: border-box;
+      width: 100%;
+    }
+    .otter-card-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--otter-text);
+      letter-spacing: -0.01em;
+      margin-bottom: 12px;
+    }
+    .otter-image {
+      max-width: 100%;
+      height: auto;
+      border-radius: 6px;
+      display: block;
+    }
+    .otter-link {
+      color: #38bdf8;
+      text-decoration: none;
+      font-weight: 500;
+      transition: color 0.15s ease;
+    }
+    .otter-link:hover {
+      color: #7dd3fc;
+      text-decoration: underline;
+    }
+    .otter-checkbox-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      user-select: none;
+      font-size: 0.95rem;
+    }
+    .otter-checkbox {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+      accent-color: var(--otter-primary);
+    }
+    .otter-select {
+      background-color: var(--otter-input-bg);
+      color: var(--otter-text);
+      border: 1px solid var(--otter-border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.95rem;
+      outline: none;
+      cursor: pointer;
+      width: 100%;
+    }
+    .otter-slider {
+      width: 100%;
+      cursor: pointer;
+      accent-color: var(--otter-primary);
+    }
+    .otter-text-area,
+    .otter-textarea {
+      background-color: var(--otter-input-bg);
+      color: var(--otter-text);
+      border: 1px solid var(--otter-border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.95rem;
+      outline: none;
+      width: 100%;
+      resize: vertical;
+      font-family: inherit;
+    }
+    .otter-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      white-space: nowrap;
+      background: rgba(37,99,235,0.2);
+      color: #93c5fd;
+      border: 1px solid rgba(37,99,235,0.3);
+    }
+    .otter-canvas {
+      background: #020617;
+      border: 1px solid var(--otter-border);
+      border-radius: 8px;
+      max-width: 100%;
+      display: block;
+    }
+    #otter-live-output {
+      margin-top: 16px;
+      padding: 8px 12px;
+      background: rgba(0,0,0,0.3);
+      border-radius: 6px;
+      font-family: monospace;
+      font-size: 0.85rem;
+      color: #38bdf8;
+      display: none;
+    }
+
+  </style>
+</head>
+<body class="otter-has-page">
+    <main id="app" class="otter-page" style="background: #f1f5f9; padding: 16px; gap: 12px;">
+      <header class="otter-page-header"><h1 class="otter-title">Otter Studio</h1></header>
+      <div class="otter-page-content" style="display: flex; flex-direction: column; gap: 12px; width: 100%; min-width: 0; flex: 1 1 0%; min-height: 0; height: 100%;">
+      <div id="heading" class="otter-text" style="color: #0f172a;">Otter Studio</div>
+      <div id="subtitle" class="otter-text" style="color: #475569;">Open files, edit them, save them, and run commands.</div>
+      <div id="toolbar" class="otter-row" style="display: flex; flex-direction: row; gap: 8px; align-items: center; justify-content: flex-start; flex-wrap: nowrap;">
+      <input type="text" id="folderBox" class="otter-text-box" value="examples" placeholder="Folder to scan" />
+      <button id="scanButton" class="otter-button">Scan files</button>
+      <button id="openButton" class="otter-button">Open first file</button>
+</div>
+      <div id="scanStatus" class="otter-text" style="color: #475569;">Choose a folder, then scan it.</div>
+      <div id="selectedPath" class="otter-text" style="color: #475569;">No file selected</div>
+      <textarea id="editor" class="otter-text-area" rows="3" placeholder="The selected file appears here." style="height: 260px;"></textarea>
+      <button id="saveButton" class="otter-button">Save file</button>
+      <div id="terminalToolbar" class="otter-row" style="display: flex; flex-direction: row; gap: 8px; align-items: center; justify-content: flex-start; flex-wrap: nowrap;">
+      <input type="text" id="terminalInput" class="otter-text-box" value="" placeholder="Type a command, such as git status" />
+      <button id="runButton" class="otter-button">Run command</button>
+</div>
+      <div id="terminalOutput" class="otter-text" style="color: #334155;">Command output appears here.</div>
+</div>
+    </main>
+  <div id="otter-live-output"></div>
+
+  <script>
+    // Otter Runtime helpers for the browser
+    const empty = "";
+    const gone = null;
+    function otterGetElement(id) { return document.getElementById(id); }
+    function otterGetText(id) {
+      const el = otterGetElement(id);
+      if (!el) return '';
+      if (el.type === 'checkbox') return el.checked;
+      const tag = el.tagName ? el.tagName.toUpperCase() : '';
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
+        return el.value;
+      }
+      return el.textContent || '';
+    }
+    function otterSetText(id, val) {
+      const el = otterGetElement(id);
+      if (!el) return;
+      if (el.type === 'checkbox') { el.checked = Boolean(val); return; }
+      const tag = el.tagName ? el.tagName.toUpperCase() : '';
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
+        el.value = val;
+      } else {
+        el.textContent = val;
+      }
+      if ('value' in el) { el.value = val; }
+    }
+    function otterGetTitle(id) { return document.title; }
+    function otterSetTitle(id, val) { document.title = val; }
+    function otterSetStyle(id, prop, val) {
+      const el = otterGetElement(id);
+      if (el) el.style[prop] = val;
+    }
+    function otterGetStyle(id, prop) {
+      const el = otterGetElement(id);
+      return el ? el.style[prop] : '';
+    }
+    function otterSetProperty(id, prop, val) {
+      const el = otterGetElement(id);
+      if (el) {
+        if (prop === 'url' && el.tagName === 'A') { el.href = val; return; }
+        el[prop] = val;
+        if (el.dataset) el.dataset[prop] = val;
+      }
+    }
+    function otterGetProperty(id, prop) {
+      const el = otterGetElement(id);
+      return el ? el[prop] : '';
+    }
+    function otterSay(...args) {
+      console.log(...args);
+      const out = document.getElementById('otter-live-output');
+      if (out) {
+        out.style.display = 'block';
+        out.textContent = args.join(' ');
+      }
+    }
+    async function otterReadFile(filePath) {
+      const bridge = window.__OTTER_DESKTOP_BRIDGE__;
+      if (!bridge || !bridge.port || !bridge.token) {
+        console.warn('Desktop Bridge is not available to read "' + filePath + '".');
+        return '';
+      }
+      const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/fs/read', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Otter-Token': bridge.token
+        },
+        body: JSON.stringify({ path: filePath })
+      });
+      if (!resp.ok) {
+        throw new Error('Could not read file "' + filePath + '": HTTP ' + resp.status);
+      }
+      const data = await resp.json();
+      return data.content || '';
+    }
+    async function otterWriteFile(filePath, content) {
+      const bridge = window.__OTTER_DESKTOP_BRIDGE__;
+      if (!bridge || !bridge.port || !bridge.token) {
+        console.warn('Desktop Bridge is not available to write "' + filePath + '".');
+        return false;
+      }
+      const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/fs/write', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Otter-Token': bridge.token
+        },
+        body: JSON.stringify({ path: filePath, content: content })
+      });
+      if (!resp.ok) {
+        throw new Error('Could not write file "' + filePath + '": HTTP ' + resp.status);
+      }
+      return await resp.json();
+    }
+    window.otterWriteFile = otterWriteFile;
+
+    async function otterRunCommand(command) {
+      const bridge = window.__OTTER_DESKTOP_BRIDGE__;
+      if (!bridge || !bridge.port || !bridge.token) {
+        throw new Error('Desktop Bridge is not available to run "' + command + '".');
+      }
+      const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/terminal/exec', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Otter-Token': bridge.token
+        },
+        body: JSON.stringify({ command: command })
+      });
+      if (!resp.ok) {
+        throw new Error('Could not execute command "' + command + '": HTTP ' + resp.status);
+      }
+      const data = await resp.json();
+      const stdout = data.stdout || '';
+      const stderr = data.stderr || '';
+      return {
+        __otterThing: true,
+        typeName: 'command result',
+        props: {
+          output: stdout,
+          'error output': stderr,
+          'exit code': Number.isFinite(Number(data.exitCode)) ? Number(data.exitCode) : -1
+        },
+        order: ['output', 'error output', 'exit code']
+      };
+    }
+    window.otterRunCommand = otterRunCommand;
+
+    async function otterGetFiles(folderPath, includeSubfolders = false) {
+      const bridge = window.__OTTER_DESKTOP_BRIDGE__;
+      if (!bridge || !bridge.port || !bridge.token) {
+        console.warn('Desktop Bridge is not available to get files in "' + folderPath + '".');
+        return [];
+      }
+      const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/fs/files', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Otter-Token': bridge.token
+        },
+        body: JSON.stringify({ path: folderPath, recursive: includeSubfolders })
+      });
+      if (!resp.ok) {
+        throw new Error('Could not get files in "' + folderPath + '": HTTP ' + resp.status);
+      }
+      return await resp.json();
+    }
+    window.otterGetFiles = otterGetFiles;
+
+    async function otterGetFolders(folderPath, includeSubfolders = false) {
+      const bridge = window.__OTTER_DESKTOP_BRIDGE__;
+      if (!bridge || !bridge.port || !bridge.token) {
+        console.warn('Desktop Bridge is not available to get folders in "' + folderPath + '".');
+        return [];
+      }
+      const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/fs/folders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Otter-Token': bridge.token
+        },
+        body: JSON.stringify({ path: folderPath, recursive: includeSubfolders })
+      });
+      if (!resp.ok) {
+        throw new Error('Could not get folders in "' + folderPath + '": HTTP ' + resp.status);
+      }
+      return await resp.json();
+    }
+    window.otterGetFolders = otterGetFolders;
+
+    async function otterFileOperation(operation, payload) {
+      const bridge = window.__OTTER_DESKTOP_BRIDGE__;
+      if (!bridge || !bridge.port || !bridge.token) {
+        throw new Error('Desktop Bridge is not available for file operations.');
+      }
+      const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/fs/operate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Otter-Token': bridge.token
+        },
+        body: JSON.stringify(Object.assign({ operation: operation }, payload || {}))
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        throw new Error(data.error || 'The filesystem operation could not be completed.');
+      }
+      return data;
+    }
+    async function otterFileExists(filePath) {
+      const result = await otterFileOperation('file-exists', { path: filePath });
+      return Boolean(result.exists);
+    }
+    function otterAppendFile(filePath, content) { return otterFileOperation('append-file', { path: filePath, content: content }); }
+    function otterCopyFile(source, destination) { return otterFileOperation('copy-file', { source: source, destination: destination }); }
+    function otterMoveFile(source, destination) { return otterFileOperation('move-file', { source: source, destination: destination }); }
+    function otterDeleteFile(filePath) { return otterFileOperation('delete-file', { path: filePath }); }
+    function otterCreateFolder(folderPath) { return otterFileOperation('create-folder', { path: folderPath }); }
+    function otterDeleteFolder(folderPath) { return otterFileOperation('delete-folder', { path: folderPath }); }
+    function otterCopyFolder(source, destination) { return otterFileOperation('copy-folder', { source: source, destination: destination }); }
+    function otterMoveFolder(source, destination) { return otterFileOperation('move-folder', { source: source, destination: destination }); }
+    window.otterFileExists = otterFileExists;
+    window.otterAppendFile = otterAppendFile;
+    window.otterCopyFile = otterCopyFile;
+    window.otterMoveFile = otterMoveFile;
+    window.otterDeleteFile = otterDeleteFile;
+    window.otterCreateFolder = otterCreateFolder;
+    window.otterDeleteFolder = otterDeleteFolder;
+    window.otterCopyFolder = otterCopyFolder;
+    window.otterMoveFolder = otterMoveFolder;
+
+    // Otter Declarative Reactivity Engine
+    const otterState = {};
+    const otterDerived = {};
+    const otterWatchers = [];
+
+
+
+
+
+
+
+    function otterEvaluateExpr(expr) {
+      try {
+        const fn = new Function('state', 'derived', 'with(state) { with(derived) { return (' + expr + '); } }');
+        return fn(otterState, otterDerived);
+      } catch(err) {
+        console.warn('Otter eval error in expr:', expr, err);
+        return '';
+      }
+    }
+
+    function otterUpdateReactivity() {
+      document.querySelectorAll('[data-otter-bind]').forEach(el => {
+        const expr = el.getAttribute('data-otter-bind');
+        if (!expr) return;
+        const val = otterEvaluateExpr(expr);
+        if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+          if (el.type === 'checkbox') el.checked = Boolean(val);
+          else el.value = val;
+        } else {
+          el.textContent = (val === null || val === undefined) ? '' : String(val);
+        }
+      });
+
+      document.querySelectorAll('[data-otter-if]').forEach(el => {
+        const cond = el.getAttribute('data-otter-if');
+        if (!cond) return;
+        const show = Boolean(otterEvaluateExpr(cond));
+        el.style.display = show ? '' : 'none';
+      });
+    }
+
+    function otterNotifyWatchers(name) {
+      for (const w of otterWatchers) {
+        if (w.target === name && typeof w.callback === 'function') {
+          try { w.callback(); } catch(e) { console.error('Watcher callback error:', e); }
+        }
+      }
+    }
+
+    function otterSetState(name, value) {
+      otterState[name] = value;
+      window[name] = value;
+      otterUpdateReactivity();
+      otterNotifyWatchers(name);
+    }
+
+    // Automatic 3D Canvas and Animation Runner
+    document.querySelectorAll('canvas.otter-canvas').forEach((canvas) => {
+      const mode = canvas.getAttribute('data-mode') || '2d';
+      const anim = canvas.getAttribute('data-animation') || '';
+      if (mode === '3d' || anim === 'spin' || anim === '3d') {
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        let angleX = 0;
+        let angleY = 0;
+        const vertices = [
+          [-1, -1, -1], [1, -1, -1], [1, 1, -1], [-1, 1, -1],
+          [-1, -1, 1], [1, -1, 1], [1, 1, 1], [-1, 1, 1]
+        ];
+        const edges = [
+          [0,1],[1,2],[2,3],[3,0],
+          [4,5],[5,6],[6,7],[7,4],
+          [0,4],[1,5],[2,6],[3,7]
+        ];
+        function render3D() {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+          // Dynamic speed calculation from slider or canvas property
+          let spd = 1.0;
+          const liveSlider = document.getElementById('speedSlider') || document.querySelector('input[type="range"]');
+          if (canvas.speed !== undefined && canvas.speed !== null && canvas.speed !== '') {
+            spd = Number(canvas.speed) / 25;
+          } else if (canvas.dataset.speed) {
+            spd = Number(canvas.dataset.speed) / 25;
+          } else if (liveSlider) {
+            spd = Number(liveSlider.value) / 25;
+          }
+          const turbo = document.getElementById('agreeCheckbox');
+          if (turbo && turbo.checked) {
+            spd *= 2.0;
+          }
+          if (isNaN(spd) || spd < 0) spd = 0;
+
+          angleX += 0.015 * spd;
+          angleY += 0.02 * spd;
+          const cx = canvas.width / 2;
+          const cy = canvas.height / 2;
+          const scale = Math.min(cx, cy) * 0.55;
+          const projected = vertices.map(([x, y, z]) => {
+            let cosY = Math.cos(angleY), sinY = Math.sin(angleY);
+            let x1 = x * cosY - z * sinY;
+            let z1 = x * sinY + z * cosY;
+            let cosX = Math.cos(angleX), sinX = Math.sin(angleX);
+            let y2 = y * cosX - z1 * sinX;
+            let z2 = y * sinX + z1 * cosX;
+            const distance = 3.2;
+            const p = distance / (distance + z2);
+            return [cx + x1 * scale * p, cy + y2 * scale * p];
+          });
+          const themeSel = document.getElementById('themeDropdown');
+          let strokeCol = canvas.color || canvas.dataset.color || '#38bdf8';
+          let glowCol = canvas.glow || canvas.dataset.glow || '#0284c7';
+          if (themeSel) {
+            if (themeSel.value === 'Electric Indigo') {
+              strokeCol = '#c084fc'; glowCol = '#a855f7';
+            } else if (themeSel.value === 'Cyberpunk Emerald') {
+              strokeCol = '#34d399'; glowCol = '#059669';
+            }
+          }
+          ctx.strokeStyle = strokeCol;
+          ctx.lineWidth = 2.5;
+          ctx.shadowColor = glowCol;
+          ctx.shadowBlur = 8;
+          edges.forEach(([i, j]) => {
+            ctx.beginPath();
+            ctx.moveTo(projected[i][0], projected[i][1]);
+            ctx.lineTo(projected[j][0], projected[j][1]);
+            ctx.stroke();
+          });
+          requestAnimationFrame(render3D);
+        }
+        render3D();
+
+        const liveSlider = document.getElementById('speedSlider') || document.querySelector('input[type="range"]');
+        if (liveSlider) {
+          const updateSpeedLabel = () => {
+            const lbl = document.getElementById('speedLabel');
+            if (lbl) {
+              lbl.textContent = 'Animation Speed: ' + liveSlider.value + '%';
+            }
+          };
+          liveSlider.addEventListener('input', updateSpeedLabel);
+          updateSpeedLabel();
+        }
+      }
+    });
+
+    // Top-level application initialization
+    (async function() {
+
+
+    // Register event listeners
+    const el_scanButton = document.getElementById('scanButton');
+    if (el_scanButton) {
+      el_scanButton.addEventListener('click', async (event) => {
+      try {
+        if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('files' in otterState)) { otterSetState('files', await otterGetFiles((otterGetElement('folderBox') ? (otterGetText('folderBox')) : (() => { const _owner = folderBox; if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return (() => { throw new Error('A date has no part called "text".'); })(); } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('text') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called "text".'); } return _owner.props['text']; })()), false)); } else { window.files = await otterGetFiles((otterGetElement('folderBox') ? (otterGetText('folderBox')) : (() => { const _owner = folderBox; if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return (() => { throw new Error('A date has no part called "text".'); })(); } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('text') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called "text".'); } return _owner.props['text']; })()), false); }
+        if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('selectedFile' in otterState)) { otterSetState('selectedFile', (Array.isArray(files) && (files).length > 0 ? (files)[0] : null)); } else { window.selectedFile = (Array.isArray(files) && (files).length > 0 ? (files)[0] : null); }
+        if ((() => { const _lD = selectedFile !== null && typeof (selectedFile) === 'object' && (selectedFile).__otterDate === true; const _rD = null !== null && typeof (null) === 'object' && (null).__otterDate === true; if (_lD || _rD) { return (_lD && _rD) ? ((selectedFile).value.getTime() === (null).value.getTime()) : false; } return (selectedFile === null); })()) {
+          {
+            const _el = otterGetElement('scanStatus');
+            if (_el) { otterSetText('scanStatus', "That folder does not contain any files."); }
+            else {
+              const _owner = scanStatus;
+              if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+              if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+              _owner.props['text'] = "That folder does not contain any files.";
+            }
+          }
+          {
+            const _el = otterGetElement('selectedPath');
+            if (_el) { otterSetText('selectedPath', "No file selected"); }
+            else {
+              const _owner = selectedPath;
+              if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+              if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+              _owner.props['text'] = "No file selected";
+            }
+          }
+        }
+        else {
+          if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('fileCount' in otterState)) { otterSetState('fileCount', ((files).length)); } else { window.fileCount = ((files).length); }
+          {
+            const _el = otterGetElement('scanStatus');
+            if (_el) { otterSetText('scanStatus', fileCount); }
+            else {
+              const _owner = scanStatus;
+              if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+              if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+              _owner.props['text'] = fileCount;
+            }
+          }
+          {
+            const _el = otterGetElement('selectedPath');
+            if (_el) { otterSetText('selectedPath', (otterGetElement('selectedFile') ? (otterGetProperty('selectedFile', 'path')) : (() => { const _owner = selectedFile; if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return (() => { throw new Error('A date has no part called "path".'); })(); } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('path') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called "path".'); } return _owner.props['path']; })())); }
+            else {
+              const _owner = selectedPath;
+              if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+              if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+              _owner.props['text'] = (otterGetElement('selectedFile') ? (otterGetProperty('selectedFile', 'path')) : (() => { const _owner = selectedFile; if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return (() => { throw new Error('A date has no part called "path".'); })(); } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('path') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called "path".'); } return _owner.props['path']; })());
+            }
+          }
+        }
+      } catch (_err) {
+        {
+          const _el = otterGetElement('scanStatus');
+          if (_el) { otterSetText('scanStatus', "I could not scan that folder."); }
+          else {
+            const _owner = scanStatus;
+            if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+            if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+            _owner.props['text'] = "I could not scan that folder.";
+          }
+        }
+      }
+      });
+    }
+    const el_openButton = document.getElementById('openButton');
+    if (el_openButton) {
+      el_openButton.addEventListener('click', async (event) => {
+      try {
+        if ((() => { const _lD = selectedFile !== null && typeof (selectedFile) === 'object' && (selectedFile).__otterDate === true; const _rD = null !== null && typeof (null) === 'object' && (null).__otterDate === true; if (_lD || _rD) { return (_lD && _rD) ? ((selectedFile).value.getTime() === (null).value.getTime()) : false; } return (selectedFile === null); })()) {
+          {
+            const _el = otterGetElement('scanStatus');
+            if (_el) { otterSetText('scanStatus', "Scan a folder before opening a file."); }
+            else {
+              const _owner = scanStatus;
+              if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+              if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+              _owner.props['text'] = "Scan a folder before opening a file.";
+            }
+          }
+        }
+        else {
+          if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('contents' in otterState)) { otterSetState('contents', await otterReadFile(selectedFile)); } else { window.contents = await otterReadFile(selectedFile); }
+          {
+            const _el = otterGetElement('editor');
+            if (_el) { otterSetText('editor', contents); }
+            else {
+              const _owner = editor;
+              if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+              if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+              _owner.props['text'] = contents;
+            }
+          }
+          {
+            const _el = otterGetElement('scanStatus');
+            if (_el) { otterSetText('scanStatus', (otterGetElement('selectedFile') ? (otterGetProperty('selectedFile', 'name')) : (() => { const _owner = selectedFile; if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return (() => { throw new Error('A date has no part called "name".'); })(); } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('name') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called "name".'); } return _owner.props['name']; })())); }
+            else {
+              const _owner = scanStatus;
+              if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+              if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+              _owner.props['text'] = (otterGetElement('selectedFile') ? (otterGetProperty('selectedFile', 'name')) : (() => { const _owner = selectedFile; if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return (() => { throw new Error('A date has no part called "name".'); })(); } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('name') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called "name".'); } return _owner.props['name']; })());
+            }
+          }
+        }
+      } catch (_err) {
+        {
+          const _el = otterGetElement('scanStatus');
+          if (_el) { otterSetText('scanStatus', "I could not open that file."); }
+          else {
+            const _owner = scanStatus;
+            if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+            if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+            _owner.props['text'] = "I could not open that file.";
+          }
+        }
+      }
+      });
+    }
+    const el_saveButton = document.getElementById('saveButton');
+    if (el_saveButton) {
+      el_saveButton.addEventListener('click', async (event) => {
+      try {
+        if ((() => { const _lD = selectedFile !== null && typeof (selectedFile) === 'object' && (selectedFile).__otterDate === true; const _rD = null !== null && typeof (null) === 'object' && (null).__otterDate === true; if (_lD || _rD) { return (_lD && _rD) ? ((selectedFile).value.getTime() === (null).value.getTime()) : false; } return (selectedFile === null); })()) {
+          {
+            const _el = otterGetElement('scanStatus');
+            if (_el) { otterSetText('scanStatus', "Scan and open a file before saving."); }
+            else {
+              const _owner = scanStatus;
+              if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+              if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+              _owner.props['text'] = "Scan and open a file before saving.";
+            }
+          }
+        }
+        else {
+          await otterWriteFile(selectedFile, (otterGetElement('editor') ? (otterGetText('editor')) : (() => { const _owner = editor; if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return (() => { throw new Error('A date has no part called "text".'); })(); } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('text') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called "text".'); } return _owner.props['text']; })()));
+          {
+            const _el = otterGetElement('scanStatus');
+            if (_el) { otterSetText('scanStatus', (otterGetElement('selectedFile') ? (otterGetProperty('selectedFile', 'name')) : (() => { const _owner = selectedFile; if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return (() => { throw new Error('A date has no part called "name".'); })(); } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('name') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called "name".'); } return _owner.props['name']; })())); }
+            else {
+              const _owner = scanStatus;
+              if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+              if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+              _owner.props['text'] = (otterGetElement('selectedFile') ? (otterGetProperty('selectedFile', 'name')) : (() => { const _owner = selectedFile; if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return (() => { throw new Error('A date has no part called "name".'); })(); } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('name') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called "name".'); } return _owner.props['name']; })());
+            }
+          }
+        }
+      } catch (_err) {
+        {
+          const _el = otterGetElement('scanStatus');
+          if (_el) { otterSetText('scanStatus', "I could not save that file."); }
+          else {
+            const _owner = scanStatus;
+            if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+            if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+            _owner.props['text'] = "I could not save that file.";
+          }
+        }
+      }
+      });
+    }
+    const el_runButton = document.getElementById('runButton');
+    if (el_runButton) {
+      el_runButton.addEventListener('click', async (event) => {
+      try {
+        if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('commandOutput' in otterState)) { otterSetState('commandOutput', await otterRunCommand((otterGetElement('terminalInput') ? (otterGetText('terminalInput')) : (() => { const _owner = terminalInput; if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return (() => { throw new Error('A date has no part called "text".'); })(); } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('text') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called "text".'); } return _owner.props['text']; })()))); } else { window.commandOutput = await otterRunCommand((otterGetElement('terminalInput') ? (otterGetText('terminalInput')) : (() => { const _owner = terminalInput; if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return (() => { throw new Error('A date has no part called "text".'); })(); } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('text') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called "text".'); } return _owner.props['text']; })())); }
+        if ((() => { const _lD = (otterGetElement('commandOutput') ? (otterGetProperty('commandOutput', 'exit code')) : (() => { const _owner = commandOutput; if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return (() => { throw new Error('A date has no part called "exit code".'); })(); } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('exit code') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called "exit code".'); } return _owner.props['exit code']; })()) !== null && typeof ((otterGetElement('commandOutput') ? (otterGetProperty('commandOutput', 'exit code')) : (() => { const _owner = commandOutput; if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return (() => { throw new Error('A date has no part called "exit code".'); })(); } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('exit code') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called "exit code".'); } return _owner.props['exit code']; })())) === 'object' && ((otterGetElement('commandOutput') ? (otterGetProperty('commandOutput', 'exit code')) : (() => { const _owner = commandOutput; if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return (() => { throw new Error('A date has no part called "exit code".'); })(); } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('exit code') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called "exit code".'); } return _owner.props['exit code']; })())).__otterDate === true; const _rD = 0 !== null && typeof (0) === 'object' && (0).__otterDate === true; if (_lD || _rD) { return (_lD && _rD) ? (((otterGetElement('commandOutput') ? (otterGetProperty('commandOutput', 'exit code')) : (() => { const _owner = commandOutput; if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return (() => { throw new Error('A date has no part called "exit code".'); })(); } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('exit code') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called "exit code".'); } return _owner.props['exit code']; })())).value.getTime() === (0).value.getTime()) : false; } return ((otterGetElement('commandOutput') ? (otterGetProperty('commandOutput', 'exit code')) : (() => { const _owner = commandOutput; if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return (() => { throw new Error('A date has no part called "exit code".'); })(); } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('exit code') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called "exit code".'); } return _owner.props['exit code']; })()) === 0); })()) {
+          {
+            const _el = otterGetElement('terminalOutput');
+            if (_el) { otterSetText('terminalOutput', (otterGetElement('commandOutput') ? (otterGetProperty('commandOutput', 'output')) : (() => { const _owner = commandOutput; if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return (() => { throw new Error('A date has no part called "output".'); })(); } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('output') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called "output".'); } return _owner.props['output']; })())); }
+            else {
+              const _owner = terminalOutput;
+              if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+              if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+              _owner.props['text'] = (otterGetElement('commandOutput') ? (otterGetProperty('commandOutput', 'output')) : (() => { const _owner = commandOutput; if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return (() => { throw new Error('A date has no part called "output".'); })(); } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('output') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called "output".'); } return _owner.props['output']; })());
+            }
+          }
+        }
+        else {
+          {
+            const _el = otterGetElement('terminalOutput');
+            if (_el) { otterSetText('terminalOutput', (otterGetElement('commandOutput') ? (otterGetProperty('commandOutput', 'error output')) : (() => { const _owner = commandOutput; if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return (() => { throw new Error('A date has no part called "error output".'); })(); } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('error output') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called "error output".'); } return _owner.props['error output']; })())); }
+            else {
+              const _owner = terminalOutput;
+              if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+              if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+              _owner.props['text'] = (otterGetElement('commandOutput') ? (otterGetProperty('commandOutput', 'error output')) : (() => { const _owner = commandOutput; if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return (() => { throw new Error('A date has no part called "error output".'); })(); } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('error output') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called "error output".'); } return _owner.props['error output']; })());
+            }
+          }
+        }
+      } catch (_err) {
+        {
+          const _el = otterGetElement('terminalOutput');
+          if (_el) { otterSetText('terminalOutput', "Unable to run that command."); }
+          else {
+            const _owner = terminalOutput;
+            if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+            if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+            _owner.props['text'] = "Unable to run that command.";
+          }
+        }
+      }
+      });
+    }
+
+
+
+    if (typeof otterUpdateReactivity === 'function') {
+      otterUpdateReactivity();
+    }
+    })();
+  </script>
+</body>
+</html>

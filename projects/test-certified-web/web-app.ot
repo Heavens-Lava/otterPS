@@ -1,0 +1,4 @@
+# Web App
+page "app"
+    card "hero"
+.

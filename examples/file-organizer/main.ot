@@ -1,0 +1,3 @@
+﻿# main.ot - File organizer main runner
+use "organizer.ot"
+say "File organizer initialized."

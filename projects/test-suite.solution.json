@@ -1,0 +1,28 @@
+{
+  "$schema": "https://otter-lang.org/schema/workspace-v1.json",
+  "name": "test-suite",
+  "version": "1.0.0",
+  "folders": [
+    {
+      "name": "Console App",
+      "path": "projects/test-certified-console"
+    },
+    {
+      "name": "Web App",
+      "path": "projects/test-certified-web"
+    },
+    {
+      "name": "Game App",
+      "path": "projects/test-certified-game"
+    }
+  ],
+  "settings": {
+    "editor.wordWrap": false,
+    "editor.tabSize": 2,
+    "otter.lintOnType": true
+  },
+  "trust": {
+    "isTrusted": true,
+    "trustedAt": "2026-09-18T15:10:25.907Z"
+  }
+}

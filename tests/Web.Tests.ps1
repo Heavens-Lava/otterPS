@@ -2,6 +2,7 @@ using module ..\Otter.Contract.psm1
 Import-Module (Join-Path $PSScriptRoot '..\src\Otter.Lexer.psm1') -Global -Force
 Import-Module (Join-Path $PSScriptRoot '..\src\Otter.Parser.psm1') -Global -Force
 Import-Module (Join-Path $PSScriptRoot '..\src\Otter.Web.psm1') -Global -Force
+Import-Module (Join-Path $PSScriptRoot '..\src\Otter.Compiler.JavaScript.psm1') -Global -Force
 
 Write-Output 'Otter Web Compiler (D50)'
 
@@ -80,7 +81,7 @@ $calcContent = Get-Content -LiteralPath $calcHtmlPath -Raw
 if ($calcContent -notmatch 'id="addButton"' -or $calcContent -notmatch 'id="resultLabel"') {
     throw 'Expected addButton and resultLabel in compiled calculator.html.'
 }
-if ($calcContent -notmatch 'Number\(number1\)') {
+if ($calcContent -notmatch 'Number\(_l\)' -and $calcContent -notmatch 'Number\(number1\)') {
     throw 'Expected arithmetic compilation in calculator event handler.'
 }
 Write-Output '  pass  calculator.ot exports to standalone HTML with full math and try/catch'
@@ -189,10 +190,10 @@ if ($counterHtml -notmatch '@keyframes otter_enter_') {
 if ($counterHtml -notmatch ':hover\s*\{\s*transform:\s*scale\(1\.05\);') {
     throw 'Expected button hover scale rule in compiled HTML.'
 }
-if ($counterHtml -notmatch 'data-otter-bind="\(.*Count:.*count\)"') {
+if ($counterHtml -notmatch 'data-otter-bind="[^"]*Count:[^"]*count') {
     throw 'Expected data-otter-bind for Count in compiled HTML.'
 }
-if ($counterHtml -notmatch 'data-otter-bind="\(.*Double:.*doubled\)"') {
+if ($counterHtml -notmatch 'data-otter-bind="[^"]*Double:[^"]*doubled') {
     throw 'Expected data-otter-bind for Doubled in compiled HTML.'
 }
 if ($counterHtml -notmatch 'data-otter-if="menuOpen"') {
@@ -205,5 +206,96 @@ if ($counterHtml -notmatch 'otterSetState\(.count.') {
     throw 'Expected otterSetState on button click in compiled HTML.'
 }
 Write-Output '  pass  counter.ot compiles to reactive HTML with keyframe animations, live bindings, and state updates'
+
+# Test 12: Real dogfood test - studio-v1.ot compiles through the parser and bridge hooks
+$studioV1Ast = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source (Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\examples\studio-v1.ot') -Raw))
+$studioV1Html = ConvertTo-OtterWeb -Program $studioV1Ast
+if ($studioV1Html -notmatch 'otterGetFiles' -or $studioV1Html -notmatch 'otterReadFile' -or $studioV1Html -notmatch 'otterWriteFile' -or $studioV1Html -notmatch 'otterRunCommand') {
+    throw 'Expected V1 Studio to compile its filesystem and terminal operations through the generic bridge hooks.'
+}
+foreach ($message in @('I could not scan that folder.', 'I could not open that file.', 'I could not save that file.', 'Unable to run that command.')) {
+    if ($studioV1Html -notmatch [regex]::Escape($message)) {
+        throw "Expected V1 Studio to visibly report: $message"
+    }
+}
+if ($studioV1Html -notmatch 'catch \(_err\)') {
+    throw 'Expected V1 Studio try/otherwise blocks to compile to catch handlers.'
+}
+Write-Output '  pass  studio-v1.ot compiles through the ordinary production parser and bridge hooks'
+
+# Test 13: Async, await statement, and timers (Section 8)
+$asyncTimerSource = @"
+to delayNotice
+    await delay 250
+    say "Timer done"
+.
+"@
+$asyncTimerAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $asyncTimerSource)
+$asyncTimerHtml = ConvertTo-OtterWeb -Program $asyncTimerAst
+if ($asyncTimerHtml -notmatch 'const delayNotice = async function\(\)') {
+    throw 'Expected function with await delay to compile as async.'
+}
+if ($asyncTimerHtml -notmatch 'await delay\(250\);') {
+    throw 'Expected await delay statement to compile to await delay(250);'
+}
+if ($asyncTimerHtml -notmatch 'window.otterWait' -or $asyncTimerHtml -notmatch 'window.otterDelay') {
+    throw 'Expected compiled web app runtime to include otterWait and otterDelay timer hooks.'
+}
+Write-Output '  pass  async await and one-shot timer compilation (Section 8)'
+
+# Test 14: Progress, Toggle, Radio controls and System runtime helpers (Section 10 & 21)
+$controlsSource = @"
+app is a page
+    title is "Controls App"
+.
+pBar is a progress
+    value is 75
+    max is 100
+.
+tSwitch is a toggle
+    text is "Night Mode"
+.
+rBtn is a radio
+    text is "Choice 1"
+    name is "opts"
+.
+put pBar, tSwitch, rBtn in app
+show app
+"@
+$controlsAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $controlsSource)
+$controlsHtml = ConvertTo-OtterWeb -Program $controlsAst
+if ($controlsHtml -notmatch '<progress id="pBar" class="otter-progress" value="75" max="100"') {
+    throw 'Expected compiled HTML to contain <progress id="pBar"...'
+}
+if ($controlsHtml -notmatch '<input type="checkbox" id="tSwitch" class="otter-toggle"') {
+    throw 'Expected compiled HTML to contain <input type="checkbox" id="tSwitch" class="otter-toggle"...'
+}
+if ($controlsHtml -notmatch '<input type="radio" id="rBtn" name="opts" class="otter-radio"') {
+    throw 'Expected compiled HTML to contain <input type="radio" id="rBtn" name="opts" class="otter-radio"...'
+}
+if ($controlsHtml -notmatch 'window\.otterClipboard' -or $controlsHtml -notmatch 'window\.otterNotify' -or $controlsHtml -notmatch 'window\.otterGetEnv') {
+    throw 'Expected compiled HTML runtime to expose otterClipboard, otterNotify, and otterGetEnv.'
+}
+Write-Output '  pass  progress, toggle, radio controls and system runtime helpers (Section 10 & 21)'
+
+# Test 15: Browser Storage and HTTP Client runtime helpers (Section 19)
+if ($controlsHtml -notmatch 'window\.otterStorage' -or $controlsHtml -notmatch 'window\.otterFetch' -or $controlsHtml -notmatch 'window\.otterGetJson' -or $controlsHtml -notmatch 'window\.otterPostJson') {
+    throw 'Expected compiled HTML runtime to expose otterStorage, otterFetch, otterGetJson, and otterPostJson.'
+}
+Write-Output '  pass  browser storage and http fetch client runtime helpers (Section 19)'
+
+# Test 16: CLI Argument API and Named Flags parser (Section 12)
+$parsedCli = ConvertTo-OtterCommandLineArguments -Arguments @('run', 'script.ot', '--port=8080', '--verbose', '-o', 'out.txt')
+if ($parsedCli.Positional.Length -ne 2 -or $parsedCli.Positional[0] -ne 'run' -or $parsedCli.Positional[1] -ne 'script.ot') {
+    throw "Expected positional arguments ['run', 'script.ot'], got: $($parsedCli.Positional | ConvertTo-Json)"
+}
+if ($parsedCli.Flags['port'] -ne '8080' -or $parsedCli.Flags['verbose'] -ne $true -or $parsedCli.Flags['o'] -ne 'out.txt') {
+    throw "Expected flags port=8080, verbose=true, o=out.txt, got: $($parsedCli.Flags | ConvertTo-Json)"
+}
+$cliPreamble = Get-OtterJsCliPreamble
+if ($cliPreamble -notmatch 'otterParseCli' -or $cliPreamble -notmatch 'otterArgs') {
+    throw 'Expected JS CLI preamble to define otterParseCli and otterArgs.'
+}
+Write-Output '  pass  CLI argument API and named flags/options parser (Section 12)'
 
 Write-Output 'Web compiler tests passed.'

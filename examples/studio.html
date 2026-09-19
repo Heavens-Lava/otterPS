@@ -1,0 +1,3582 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Otter Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,600;1,700&family=Playfair+Display:ital,wght@1,500;1,600;1,700&family=Newsreader:ital,opsz,wght@1,6..72,500;1,6..72,600;1,6..72,700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --otter-bg: #f0f4f9;
+      --otter-card-bg: #1e293b;
+      --otter-text: #0f172a;
+      --otter-text-muted: #94a3b8;
+      --otter-primary: #2563eb;
+      --otter-primary-hover: #1d4ed8;
+      --otter-input-bg: #0f172a;
+      --otter-border: #334155;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    * { margin: 0; padding: 0; }
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: #f0f4f9;
+      color: #0f172a;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin: 0;
+      padding: 24px;
+      overflow-x: hidden;
+      box-sizing: border-box;
+    }
+    body.otter-has-page {
+      display: flex;
+      flex-direction: column;
+      padding: 0;
+      margin: 0;
+      min-height: 100vh;
+      height: 100vh;
+      max-height: 100vh;
+      box-sizing: border-box;
+      overflow: hidden;
+    }
+    .otter-row {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: flex-start;
+      box-sizing: border-box;
+      min-width: 0;
+    }
+    .otter-column {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      justify-content: flex-start;
+      box-sizing: border-box;
+      min-width: 0;
+    }
+    .otter-window {
+      background-color: #1e293b;
+      border: 1px solid var(--otter-border);
+      width: 100%;
+      max-width: 520px;
+      margin: 24px auto;
+      display: flex;
+      flex-direction: column;
+      box-sizing: border-box;
+      min-width: 0;
+    }
+    .otter-page {
+      background: transparent;
+      border: none;
+      width: 100%;
+      max-width: 1320px;
+      margin: 0 auto;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      box-sizing: border-box;
+      min-width: 0;
+    }
+    .otter-card {
+      background-color: var(--otter-card-bg);
+      border: 1px solid var(--otter-border);
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+      display: flex;
+      flex-direction: column;
+      box-sizing: border-box;
+      min-width: 0;
+    }
+    .otter-title {
+      font-size: 1.35rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+      letter-spacing: -0.02em;
+    }
+    .otter-button {
+      background-color: var(--otter-primary);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 18px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.15s ease, transform 0.08s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      white-space: nowrap;
+      user-select: none;
+    }
+    .otter-button:hover { background-color: var(--otter-primary-hover); }
+    .otter-button:active { transform: scale(0.98); }
+    .otter-text-box {
+      background-color: var(--otter-input-bg);
+      color: var(--otter-text);
+      border: 1px solid var(--otter-border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.15s ease;
+      width: 100%;
+    }
+    .otter-text-box:focus {
+      border-color: var(--otter-primary);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25);
+    }
+    .otter-text {
+      font-size: 1rem;
+      min-height: 1.2em;
+    }
+    .otter-heading {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+      letter-spacing: -0.02em;
+      color: inherit;
+    }
+    .otter-button-primary, .otter-btn-primary {
+      background-color: #2563eb !important;
+      color: #ffffff !important;
+      border: none !important;
+      border-radius: 8px;
+      padding: 10px 18px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .otter-button-primary:hover, .otter-btn-primary:hover {
+      background-color: #1d4ed8 !important;
+    }
+    .otter-button-secondary, .otter-btn-secondary {
+      background-color: #334155 !important;
+      color: #f8fafc !important;
+      border: 1px solid #475569 !important;
+      border-radius: 8px;
+      padding: 10px 18px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    .otter-button-secondary:hover, .otter-btn-secondary:hover {
+      background-color: #475569 !important;
+    }
+    .otter-button-danger, .otter-btn-danger {
+      background-color: #dc2626 !important;
+      color: #ffffff !important;
+      border: none !important;
+      border-radius: 8px;
+      padding: 10px 18px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .otter-button-danger:hover, .otter-btn-danger:hover {
+      background-color: #b91c1c !important;
+    }
+    .otter-panel {
+      display: flex;
+      flex-direction: column;
+      box-sizing: border-box;
+      min-width: 0;
+    }
+    .otter-scroll {
+      overflow-y: auto;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+      box-sizing: border-box;
+      min-width: 0;
+    }
+    .otter-conditional {
+      display: flex;
+      flex-direction: column;
+      box-sizing: border-box;
+      width: 100%;
+    }
+    .otter-card-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--otter-text);
+      letter-spacing: -0.01em;
+      margin-bottom: 12px;
+    }
+    .otter-image {
+      max-width: 100%;
+      height: auto;
+      border-radius: 6px;
+      display: block;
+    }
+    .otter-link {
+      color: #38bdf8;
+      text-decoration: none;
+      font-weight: 500;
+      transition: color 0.15s ease;
+    }
+    .otter-link:hover {
+      color: #7dd3fc;
+      text-decoration: underline;
+    }
+    .otter-checkbox-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      user-select: none;
+      font-size: 0.95rem;
+    }
+    .otter-checkbox {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+      accent-color: var(--otter-primary);
+    }
+    .otter-select {
+      background-color: var(--otter-input-bg);
+      color: var(--otter-text);
+      border: 1px solid var(--otter-border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.95rem;
+      outline: none;
+      cursor: pointer;
+      width: 100%;
+    }
+    .otter-slider {
+      width: 100%;
+      cursor: pointer;
+      accent-color: var(--otter-primary);
+    }
+    .otter-text-area,
+    .otter-textarea {
+      background-color: var(--otter-input-bg);
+      color: var(--otter-text);
+      border: 1px solid var(--otter-border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.95rem;
+      outline: none;
+      width: 100%;
+      resize: vertical;
+      font-family: inherit;
+    }
+    .otter-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      white-space: nowrap;
+      background: rgba(37,99,235,0.2);
+      color: #93c5fd;
+      border: 1px solid rgba(37,99,235,0.3);
+    }
+    .otter-canvas {
+      background: #020617;
+      border: 1px solid var(--otter-border);
+      border-radius: 8px;
+      max-width: 100%;
+      display: block;
+    }
+    .otter-progress {
+      width: 100%;
+      height: 12px;
+      border-radius: 9999px;
+      overflow: hidden;
+      appearance: none;
+      -webkit-appearance: none;
+      border: 1px solid var(--otter-border);
+      background: var(--otter-input-bg);
+    }
+    .otter-progress::-webkit-progress-bar {
+      background: var(--otter-input-bg);
+      border-radius: 9999px;
+    }
+    .otter-progress::-webkit-progress-value {
+      background: linear-gradient(90deg, #38bdf8, #818cf8);
+      border-radius: 9999px;
+      transition: width 0.3s ease;
+    }
+    .otter-progress::-moz-progress-bar {
+      background: linear-gradient(90deg, #38bdf8, #818cf8);
+      border-radius: 9999px;
+    }
+    .otter-toggle-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .otter-toggle {
+      position: absolute;
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .otter-toggle-track {
+      width: 44px;
+      height: 24px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 9999px;
+      position: relative;
+      transition: background 0.25s ease;
+    }
+    .otter-toggle-thumb {
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 20px;
+      height: 20px;
+      background: white;
+      border-radius: 50%;
+      transition: transform 0.25s ease;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    }
+    .otter-toggle:checked + .otter-toggle-track {
+      background: var(--otter-primary);
+    }
+    .otter-toggle:checked + .otter-toggle-track .otter-toggle-thumb {
+      transform: translateX(20px);
+    }
+    .otter-radio-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .otter-radio {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+      accent-color: var(--otter-primary);
+    }
+    .otter-toast-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      z-index: 99999;
+      pointer-events: none;
+    }
+    .otter-toast {
+      background: #1e293b;
+      color: #f8fafc;
+      border: 1px solid #334155;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      padding: 12px 18px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      pointer-events: auto;
+      animation: otterToastIn 0.25s ease-out;
+      max-width: 320px;
+    }
+    @keyframes otterToastIn {
+      from { transform: translateY(12px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    #otter-live-output {
+      margin-top: 16px;
+      padding: 8px 12px;
+      background: rgba(0,0,0,0.3);
+      border-radius: 6px;
+      font-family: monospace;
+      font-size: 0.85rem;
+      color: #38bdf8;
+      display: none;
+    }
+
+  </style>
+<style id="otter-sidecar-style">
+/* studio.css - Pixel-perfect Authoritative CSS for Otter Studio (Reference Mockup Parity) */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+  --bg-app: #f0f4f9;
+  --bg-card: #ffffff;
+  --bg-hover: #f1f5f9;
+  --bg-selected: #eff6ff;
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --text-faint: #94a3b8;
+  --border-subtle: #e2e8f0;
+  --border-card: #e2e8f0;
+  --accent-blue: #2563eb;
+  --accent-green: #16a34a;
+  --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-code: 'JetBrains Mono', Consolas, "Courier New", monospace;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  background-color: var(--bg-app) !important;
+  color: var(--text-main);
+  font-family: var(--font-ui) !important;
+  height: 100vh !important;
+  max-height: 100vh !important;
+  width: 100vw !important;
+  max-width: 100vw !important;
+  overflow: hidden !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  -webkit-font-smoothing: antialiased;
+}
+
+body.otter-has-page {
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100vh !important;
+  max-height: 100vh !important;
+  width: 100vw !important;
+  max-width: 100vw !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+
+main.otter-page, #studio {
+  width: 100vw !important;
+  max-width: 100vw !important;
+  height: 100vh !important;
+  max-height: 100vh !important;
+  margin: 0 !important;
+  padding: 8px 12px 6px 12px !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  flex: 1 1 0% !important;
+  gap: 6px !important;
+  background: var(--bg-app) !important;
+}
+
+.otter-page-content {
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  width: 100% !important;
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+  gap: 6px !important;
+}
+
+/* ===============================================================
+   1. TOP GLOBAL HEADER BAR
+   =============================================================== */
+#headerBar {
+  height: 48px !important;
+  min-height: 48px !important;
+  max-height: 48px !important;
+  background: #ffffff !important;
+  border-radius: 8px !important;
+  border: 1px solid var(--border-subtle) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+  padding: 0 14px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  flex-shrink: 0 !important;
+  width: 100% !important;
+}
+
+#brandWrap {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+}
+
+#mascotLogo {
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 8px !important;
+  object-fit: cover !important;
+  display: block !important;
+}
+
+#brandTitle {
+  font-family: var(--font-ui) !important;
+  font-weight: 700 !important;
+  font-size: 15px !important;
+  color: #0f172a !important;
+  line-height: 1.2 !important;
+  letter-spacing: -0.2px !important;
+}
+
+#brandSubtitle {
+  font-family: var(--font-ui) !important;
+  font-size: 11px !important;
+  color: var(--text-muted) !important;
+}
+
+#menuBar {
+  display: flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  margin-left: 8px !important;
+}
+
+#menuBar button, .menu-item {
+  font-family: var(--font-ui) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: #334155 !important;
+  background: transparent !important;
+  border: none !important;
+  border-radius: 6px !important;
+  padding: 4px 8px !important;
+  cursor: pointer !important;
+  transition: background 0.15s ease, color 0.15s ease !important;
+}
+
+#menuBar button:hover, .menu-item:hover {
+  background: var(--bg-hover) !important;
+  color: #0f172a !important;
+}
+
+#searchDocBox {
+  background: #f8fafc !important;
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: 6px !important;
+  padding: 5px 12px !important;
+  font-size: 11px !important;
+  color: #0f172a !important;
+  width: 210px !important;
+  outline: none !important;
+  transition: all 0.15s ease !important;
+  font-family: var(--font-ui) !important;
+}
+
+#searchDocBox:focus {
+  border-color: var(--accent-blue) !important;
+  background: #ffffff !important;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15) !important;
+}
+
+#winMinBtn, #winMaxBtn, #winCloseBtn {
+  background: transparent !important;
+  border: none !important;
+  color: #64748b !important;
+  font-size: 12px !important;
+  padding: 4px 8px !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+#winMinBtn:hover, #winMaxBtn:hover {
+  background: var(--bg-hover) !important;
+  color: #0f172a !important;
+}
+
+#winCloseBtn:hover {
+  background: #fee2e2 !important;
+  color: #dc2626 !important;
+}
+
+/* ===============================================================
+   2. MAIN 3-COLUMN WORKSPACE
+   =============================================================== */
+#workspaceRow {
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 8px !important;
+  width: 100% !important;
+  overflow: hidden !important;
+}
+
+/* --- Left Sidebar --- */
+#leftSidebar {
+  width: 220px !important;
+  min-width: 220px !important;
+  max-width: 220px !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+  overflow-y: auto !important;
+  flex-shrink: 0 !important;
+}
+
+#projectCard, #templatesCard {
+  background: #ffffff !important;
+  border: 1px solid var(--border-card) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+  padding: 8px 10px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 3px !important;
+}
+
+#projectTitle, #templatesHeader {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: #0f172a !important;
+  letter-spacing: 0.02em !important;
+}
+
+#projectRootFolder {
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  color: #1e293b !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+
+#folderRow, #folderInput, #folderSummary, #folderUpBtn,
+#fileOrganizer, #fileHello, #fileShowcase {
+  display: none !important;
+}
+
+#fileMain, #folderSlot1, #folderSlot2, #folderSlot3, #fileReadme,
+#tplSimple, #tplAutomation, #tplWebsite, #tplDesktop {
+  font-family: var(--font-ui) !important;
+  font-size: 12px !important;
+  color: #334155 !important;
+  background: transparent !important;
+  border: none !important;
+  border-radius: 4px !important;
+  padding: 3px 8px !important;
+  cursor: pointer !important;
+  text-align: left !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  width: 100% !important;
+  transition: background 0.15s ease, color 0.15s ease !important;
+}
+
+#fileMain {
+  background: #eff6ff !important;
+  color: #1d4ed8 !important;
+  font-weight: 600 !important;
+}
+
+#tplAutomation {
+  background: #eff6ff !important;
+  color: #1d4ed8 !important;
+  font-weight: 600 !important;
+}
+
+#fileMain:hover, #folderSlot1:hover, #folderSlot2:hover, #folderSlot3:hover, #fileReadme:hover,
+#tplSimple:hover, #tplAutomation:hover {
+  background: var(--bg-hover) !important;
+  color: #0f172a !important;
+}
+
+#newFileBtn {
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 6px !important;
+  color: #334155 !important;
+  font-weight: 600 !important;
+  font-size: 11px !important;
+  padding: 4px 10px !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 4px !important;
+  width: 100% !important;
+  margin-top: 3px !important;
+}
+
+#newFileBtn:hover {
+  background: #f8fafc !important;
+  border-color: #94a3b8 !important;
+}
+
+.coming-later-badge, .badge-pill, #tplWebBadge, #tplDeskBadge, #tplMobBadge, #tplGameBadge {
+  font-size: 9px !important;
+  font-weight: 500 !important;
+  color: var(--text-faint) !important;
+  background: #f1f5f9 !important;
+  border-radius: 9999px !important;
+  padding: 2px 7px !important;
+  letter-spacing: 0.02em !important;
+}
+
+/* --- Center Column: Code Editor & Autocomplete Overlay --- */
+#centerCol {
+  flex: 1 1 0% !important;
+  min-width: 0 !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  background: #ffffff !important;
+  border: 1px solid var(--border-card) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  position: relative !important;
+}
+
+#editorTabsRow {
+  height: 38px !important;
+  min-height: 38px !important;
+  max-height: 38px !important;
+  background: #f8fafc !important;
+  border-bottom: 1px solid var(--border-subtle) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 8px !important;
+  padding: 0 10px !important;
+  border-radius: 8px 8px 0 0 !important;
+}
+
+#tabItem {
+  background: #ffffff !important;
+  border: 1px solid var(--border-subtle) !important;
+  border-bottom-color: #ffffff !important;
+  border-radius: 6px 6px 0 0 !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  color: #0f172a !important;
+  padding: 6px 12px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  margin-bottom: -1px !important;
+}
+
+#addTabBtn {
+  background: transparent !important;
+  border: none !important;
+  color: var(--text-muted) !important;
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  padding: 2px 6px !important;
+  border-radius: 4px !important;
+}
+
+#addTabBtn:hover {
+  background: var(--bg-hover) !important;
+  color: #0f172a !important;
+}
+
+#checkBtn, #saveBtn, #editorActions {
+  display: none !important;
+}
+
+#codeAreaRow {
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  display: flex !important;
+  flex-direction: row !important;
+  padding: 12px 14px !important;
+  gap: 14px !important;
+  overflow: auto !important;
+  position: relative !important;
+  font-family: var(--font-code) !important;
+  font-size: 13px !important;
+  line-height: 22px !important;
+}
+
+#gutterCol {
+  display: flex !important;
+  flex-direction: column !important;
+  color: #94a3b8 !important;
+  user-select: none !important;
+  text-align: right !important;
+  padding-right: 12px !important;
+  border-right: 1px solid #f1f5f9 !important;
+  width: 24px !important;
+  min-width: 24px !important;
+}
+
+#codeLinesCol {
+  flex: 1 1 0% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  color: #0f172a !important;
+  white-space: pre !important;
+  font-family: var(--font-code) !important;
+  font-size: 13px !important;
+  line-height: 22px !important;
+}
+
+#gutterCol > *, #codeLinesCol > * {
+  height: 22px !important;
+  line-height: 22px !important;
+  min-height: 22px !important;
+  box-sizing: border-box !important;
+}
+
+.tok-comment { color: #16a34a !important; }
+.tok-str { color: #dc2626 !important; }
+.tok-kw { color: #2563eb !important; font-weight: 600 !important; }
+.tok-var { color: #0f172a !important; }
+
+/* Floating 2-Column Autocomplete Popup */
+#autocompleteBox {
+  position: absolute !important;
+  top: 422px !important;
+  left: 64px !important;
+  z-index: 30 !important;
+  width: 440px !important;
+  display: flex !important;
+  flex-direction: row !important;
+  background: #ffffff !important;
+  border-radius: 8px !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+  overflow: hidden !important;
+}
+
+#acListCol {
+  width: 210px !important;
+  min-width: 210px !important;
+  background: #ffffff !important;
+  border-right: 1px solid #fef08a !important;
+  padding: 6px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+}
+
+.ac-entry {
+  padding: 4px 8px !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+#ac1 {
+  background: #eff6ff !important;
+  border-radius: 4px !important;
+}
+
+#acDocCard {
+  flex: 1 1 0% !important;
+  background: #fefce8 !important;
+  padding: 10px 12px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 5px !important;
+  font-family: var(--font-ui) !important;
+}
+
+#docHead {
+  font-weight: 700 !important;
+  font-size: 11px !important;
+  color: #713f12 !important;
+}
+
+#docExpl {
+  font-size: 10px !important;
+  color: #854d0e !important;
+  line-height: 1.4 !important;
+}
+
+#docExTitle {
+  font-weight: 700 !important;
+  font-size: 10px !important;
+  color: #713f12 !important;
+  margin-top: 2px !important;
+}
+
+#docCode {
+  background: #ffffff !important;
+  border: 1px solid #fef08a !important;
+  border-radius: 4px !important;
+  padding: 4px 8px !important;
+  font-family: var(--font-code) !important;
+  font-size: 9px !important;
+  color: #0f172a !important;
+  display: inline-block !important;
+}
+
+#docLink {
+  color: var(--accent-blue) !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  text-decoration: none !important;
+  margin-top: 3px !important;
+}
+
+/* --- Right Sidebar --- */
+#rightSidebar {
+  width: 235px !important;
+  min-width: 235px !important;
+  max-width: 235px !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+  overflow-y: auto !important;
+  flex-shrink: 0 !important;
+}
+
+#outputCard, #variablesCard, #watchCard {
+  background: #ffffff !important;
+  border: 1px solid var(--border-card) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+  padding: 8px 10px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 4px !important;
+}
+
+#outputTitle, #varTitle, #watchTitle {
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  color: #0f172a !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+
+#clearBtn {
+  background: #f8fafc !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 4px !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  color: #475569 !important;
+  padding: 2px 7px !important;
+  cursor: pointer !important;
+}
+
+#outputLogCol {
+  font-family: var(--font-code) !important;
+  font-size: 11px !important;
+  color: #334155 !important;
+  line-height: 1.4 !important;
+}
+
+#outDone {
+  color: var(--accent-green) !important;
+  font-weight: 700 !important;
+}
+
+#varListCol {
+  font-family: var(--font-code) !important;
+  font-size: 11px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 3px !important;
+}
+
+#subVarCol {
+  border-left: 1px solid var(--border-subtle) !important;
+  padding-left: 10px !important;
+  margin-left: 6px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+}
+
+/* ===============================================================
+   3. BOTTOM PROBLEMS DRAWER
+   =============================================================== */
+#problemsDrawer {
+  height: 98px !important;
+  min-height: 98px !important;
+  max-height: 98px !important;
+  background: #ffffff !important;
+  border: 1px solid var(--border-card) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+  padding: 8px 14px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+  flex-shrink: 0 !important;
+  width: 100% !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+#drawerHeader {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  border-bottom: 1px solid #f1f5f9 !important;
+  padding-bottom: 4px !important;
+}
+
+#tabProblems {
+  background: transparent !important;
+  color: #1d4ed8 !important;
+  font-weight: 700 !important;
+  font-size: 12px !important;
+  padding: 4px 10px !important;
+  border: none !important;
+  border-bottom: 2px solid #2563eb !important;
+  border-radius: 0 !important;
+  cursor: pointer !important;
+}
+
+#tabOutput, #tabTerminal {
+  background: transparent !important;
+  color: #64748b !important;
+  font-weight: 500 !important;
+  font-size: 12px !important;
+  padding: 4px 10px !important;
+  border: none !important;
+  border-bottom: 2px solid transparent !important;
+  border-radius: 0 !important;
+  cursor: pointer !important;
+}
+
+#problemsContentRow {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  flex: 1 1 0% !important;
+  width: 100% !important;
+}
+
+#probStatusWrap {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+}
+
+#probCheckCircle {
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 50% !important;
+  background: #16a34a !important;
+  color: #ffffff !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-weight: 800 !important;
+  font-size: 16px !important;
+}
+
+#probHeadline {
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  color: #0f172a !important;
+}
+
+#probSubline {
+  font-size: 12px !important;
+  color: var(--text-muted) !important;
+}
+
+/* Mascot Cheer & Speech Bubble */
+#mascotCheerWrap {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  position: relative !important;
+  margin-right: 16px !important;
+}
+
+#cheerBubble {
+  background: #fefce8 !important;
+  border: 1px solid #fef08a !important;
+  border-radius: 8px !important;
+  padding: 4px 12px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 1px !important;
+  position: relative !important;
+}
+
+#cheerBubble::after {
+  content: "" !important;
+  position: absolute !important;
+  right: -6px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  border-width: 5px 0 5px 6px !important;
+  border-style: solid !important;
+  border-color: transparent transparent transparent #fefce8 !important;
+  display: block !important;
+}
+
+#cheerTitle {
+  font-weight: 700 !important;
+  font-size: 11px !important;
+  color: #15803d !important;
+  line-height: 1.2 !important;
+}
+
+#cheerSub {
+  font-size: 10px !important;
+  color: #713f12 !important;
+  line-height: 1.2 !important;
+}
+
+#mascotCheerImg {
+  width: 76px !important;
+  height: 62px !important;
+  object-fit: contain !important;
+  display: block !important;
+}
+
+/* Hide terminalPanel inside problems drawer by default */
+#terminalPanel {
+  display: none !important;
+}
+
+/* ===============================================================
+   4. BOTTOM STATUS BAR
+   =============================================================== */
+#statusBar {
+  height: 34px !important;
+  min-height: 34px !important;
+  max-height: 34px !important;
+  background: #ffffff !important;
+  border: 1px solid var(--border-card) !important;
+  border-radius: 6px !important;
+  padding: 0 12px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  flex-shrink: 0 !important;
+  width: 100% !important;
+  z-index: 10 !important;
+  position: relative !important;
+}
+
+#statusLeft {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+}
+
+#runBtn {
+  background: #16a34a !important;
+  color: #ffffff !important;
+  border-radius: 9999px !important;
+  font-weight: 700 !important;
+  font-size: 12px !important;
+  padding: 4px 16px !important;
+  border: none !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  transition: background 0.15s ease !important;
+}
+
+#runBtn:hover {
+  background: #15803d !important;
+}
+
+#statusOk {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  color: #16a34a !important;
+}
+
+#statusRight {
+  font-size: 11px !important;
+  color: var(--text-muted) !important;
+  font-family: var(--font-ui) !important;
+}
+
+</style>
+</head>
+<body class="otter-has-page">
+    <main id="studio" class="otter-page" style="width: 100%; max-width: 100%; background: #f0f4f9; color: #0f172a; padding: 8px 12px 6px 12px; height: 100vh; max-height: 100vh; overflow: hidden; display: flex; flex-direction: column; box-sizing: border-box;; gap: 6px;">
+      
+      <div class="otter-page-content" style="display: flex; flex-direction: column; gap: 6px; width: 100%; min-width: 0; flex: 1 1 0%; min-height: 0; height: 100%;">
+      <div id="headerBar" class="otter-row" style="width: 100%; max-width: 100%; background: #ffffff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); padding: 4px 14px; text-align: middle; display: flex; flex-direction: row; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: nowrap;">
+      <div id="headerLeft" class="otter-row" style="text-align: middle; display: flex; flex-direction: row; gap: 12px; align-items: center; justify-content: flex-start; flex-wrap: nowrap;">
+      <div id="brandWrap" class="otter-row" style="text-align: middle; display: flex; flex-direction: row; gap: 10px; align-items: center; justify-content: flex-start; flex-wrap: nowrap;">
+      <img id="mascotLogo" class="otter-image" src="otter-avatar.svg" alt="Otter Mascot" style="width: 36px; height: 36px; border-radius: 8px;" />
+      <div id="brandTextCol" class="otter-column" style="display: flex; flex-direction: column; gap: 0px; align-items: stretch; justify-content: flex-start;">
+      <div id="brandTitle" class="otter-text" style="color: #0f172a; font-size: 15px; font-weight: 700;">Otter Studio</div>
+      <div id="brandSubtitle" class="otter-text" style="color: #64748b; font-size: 11px;">Readable like English. Precise like code.</div>
+</div>
+</div>
+      <div id="menuBar" class="otter-row" style="text-align: middle; display: flex; flex-direction: row; gap: 4px; align-items: center; justify-content: flex-start; flex-wrap: nowrap;">
+      <button id="fileMenu" class="otter-button" style="background: transparent; color: #334155; padding: 3px 6px; font-size: 13px; font-weight: 500;">📄 File ▾</button>
+      <button id="editMenu" class="otter-button" style="background: transparent; color: #334155; padding: 3px 6px; font-size: 13px; font-weight: 500;">Edit ▾</button>
+      <button id="runMenu" class="otter-button" style="background: transparent; color: #334155; padding: 3px 6px; font-size: 13px; font-weight: 500;">Run ▾</button>
+      <button id="viewMenu" class="otter-button" style="background: transparent; color: #334155; padding: 3px 6px; font-size: 13px; font-weight: 500;">View ▾</button>
+      <button id="helpMenu" class="otter-button" style="background: transparent; color: #334155; padding: 3px 6px; font-size: 13px; font-weight: 500;">Help ▾</button>
+</div>
+</div>
+      <div id="headerRight" class="otter-row" style="text-align: middle; display: flex; flex-direction: row; gap: 8px; align-items: center; justify-content: flex-start; flex-wrap: nowrap;">
+      <input type="text" id="searchDocBox" class="otter-text-box" value="" placeholder="🔍 Search documentation..." style="width: 210px; background: #f8fafc; border-radius: 6px; border: 1px solid #e2e8f0; padding: 5px 12px; font-size: 11px;" />
+      <button id="winMinBtn" class="otter-button" style="background: transparent; color: #64748b; padding: 2px 6px; font-size: 12px;">—</button>
+      <button id="winMaxBtn" class="otter-button" style="background: transparent; color: #64748b; padding: 2px 6px; font-size: 12px;">□</button>
+      <button id="winCloseBtn" class="otter-button" style="background: transparent; color: #64748b; padding: 2px 6px; font-size: 12px;">✕</button>
+</div>
+</div>
+      <div id="workspaceRow" class="otter-row" style="width: 100%; max-width: 100%; text-align: top; flex: 1 1 0%; min-height: 0; height: 100%; overflow: hidden;; display: flex; flex-direction: row; gap: 8px; align-items: flex-start; justify-content: space-between; flex-wrap: nowrap;">
+      <div id="leftSidebar" class="otter-column" style="width: 225px; height: 100%; min-height: 0; overflow-y: auto;; display: flex; flex-direction: column; gap: 6px; align-items: stretch; justify-content: flex-start;">
+      <div id="projectCard" class="otter-card" style="width: 100%; max-width: 100%; background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); padding: 10px; gap: 3px;">
+        
+        
+      <div id="projectHeader" class="otter-row" style="width: 100%; max-width: 100%; text-align: middle; display: flex; flex-direction: row; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: nowrap;">
+      <div id="projectTitle" class="otter-text" style="color: #0f172a; font-size: 11px; font-weight: 700;">Project</div>
+      <div id="projectCollapse" class="otter-text" style="color: #94a3b8; font-size: 12px; font-weight: 700;">‹</div>
+</div>
+      <div id="projectRootRow" class="otter-row" style="width: 100%; max-width: 100%; padding: 2px 0; text-align: middle; display: flex; flex-direction: row; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: nowrap;">
+      <div id="projectRootFolder" class="otter-text" style="color: #1e293b; font-size: 12px; font-weight: 700;">📁 File Organizer</div>
+      <button id="folderScanBtn" class="otter-button" style="background: transparent; color: #64748b; border-radius: 4px; padding: 1px 4px; font-size: 12px; font-weight: 700;">↻</button>
+</div>
+      <button id="fileMain" class="otter-button" style="width: 100%; max-width: 100%; background: #eff6ff; color: #1d4ed8; border-radius: 4px; padding: 4px 8px; font-size: 12px; font-weight: 600;">📄 main.ot</button>
+      <button id="folderSlot1" class="otter-button" style="width: 100%; max-width: 100%; background: transparent; color: #334155; border-radius: 4px; padding: 4px 8px; font-size: 12px; font-weight: 500;">› 📁 data</button>
+      <button id="folderSlot2" class="otter-button" style="width: 100%; max-width: 100%; background: transparent; color: #334155; border-radius: 4px; padding: 4px 8px; font-size: 12px; font-weight: 500;">› 📁 images</button>
+      <button id="folderSlot3" class="otter-button" style="width: 100%; max-width: 100%; background: transparent; color: #334155; border-radius: 4px; padding: 4px 8px; font-size: 12px; font-weight: 500;">› 📁 output</button>
+      <button id="fileReadme" class="otter-button" style="width: 100%; max-width: 100%; background: transparent; color: #334155; border-radius: 4px; padding: 4px 8px; font-size: 12px; font-weight: 500;">📄 README.txt</button>
+      <button id="newFileBtn" class="otter-button" style="width: 100%; max-width: 100%; background: #ffffff; color: #334155; border-radius: 6px; border: 1px solid #cbd5e1; padding: 5px 10px; font-size: 11px; font-weight: 600;">+ New File ▾</button>
+
+      </div>
+      <div id="templatesCard" class="otter-card" style="width: 100%; max-width: 100%; background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); padding: 10px; gap: 3px;">
+        
+        
+      <div id="templatesHeader" class="otter-text" style="color: #0f172a; font-size: 11px; font-weight: 700;">Templates</div>
+      <button id="tplSimple" class="otter-button" style="width: 100%; max-width: 100%; background: transparent; color: #475569; border-radius: 4px; padding: 4px 8px; font-size: 12px; font-weight: 500;">📄 Simple Program</button>
+      <button id="tplAutomation" class="otter-button" style="width: 100%; max-width: 100%; background: #eff6ff; color: #1d4ed8; border-radius: 4px; padding: 4px 8px; font-size: 12px; font-weight: 600;">🤖 Automation</button>
+      <div id="tplWebRow" class="otter-row" style="width: 100%; max-width: 100%; padding: 3px 8px; text-align: middle; display: flex; flex-direction: row; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: nowrap;">
+      <div id="tplWebText" class="otter-text" style="color: #475569; font-size: 12px;">🌐 Website</div>
+      <span id="tplWebBadge" class="otter-badge" style="background: #f1f5f9; color: #94a3b8; border-radius: 9999px; padding: 2px 6px; font-size: 9px;">Coming later</span>
+</div>
+      <div id="tplDeskRow" class="otter-row" style="width: 100%; max-width: 100%; padding: 3px 8px; text-align: middle; display: flex; flex-direction: row; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: nowrap;">
+      <div id="tplDeskText" class="otter-text" style="color: #475569; font-size: 12px;">💻 Desktop App</div>
+      <span id="tplDeskBadge" class="otter-badge" style="background: #f1f5f9; color: #94a3b8; border-radius: 9999px; padding: 2px 6px; font-size: 9px;">Coming later</span>
+</div>
+      <div id="tplMobRow" class="otter-row" style="width: 100%; max-width: 100%; padding: 3px 8px; text-align: middle; display: flex; flex-direction: row; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: nowrap;">
+      <div id="tplMobText" class="otter-text" style="color: #475569; font-size: 12px;">📱 Mobile App</div>
+      <span id="tplMobBadge" class="otter-badge" style="background: #f1f5f9; color: #94a3b8; border-radius: 9999px; padding: 2px 6px; font-size: 9px;">Coming later</span>
+</div>
+      <div id="tplGameRow" class="otter-row" style="width: 100%; max-width: 100%; padding: 3px 8px; text-align: middle; display: flex; flex-direction: row; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: nowrap;">
+      <div id="tplGameText" class="otter-text" style="color: #475569; font-size: 12px;">🎮 Game</div>
+      <span id="tplGameBadge" class="otter-badge" style="background: #f1f5f9; color: #94a3b8; border-radius: 9999px; padding: 2px 6px; font-size: 9px;">Coming later</span>
+</div>
+
+      </div>
+</div>
+      <div id="centerCol" class="otter-column" style="background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); flex: 1; min-width: 0; height: 100%; min-height: 0; display: flex; flex-direction: column; overflow: hidden; position: relative;; display: flex; flex-direction: column; gap: 0px; align-items: stretch; justify-content: flex-start;">
+      <div id="editorTabsRow" class="otter-row" style="width: 100%; max-width: 100%; background: #f8fafc; padding: 4px 12px; text-align: middle; border-bottom: 1px solid #e2e8f0; border-radius: 8px 8px 0 0;; display: flex; flex-direction: row; gap: 8px; align-items: center; justify-content: flex-start; flex-wrap: nowrap;">
+      <span id="tabItem" class="otter-badge" style="background: #ffffff; color: #0f172a; border-radius: 4px; border: 1px solid #e2e8f0; padding: 6px 14px; font-size: 12px; font-weight: 600;">📄 main.ot  ×</span>
+      <button id="addTabBtn" class="otter-button" style="background: transparent; color: #64748b; padding: 2px 6px; font-size: 15px; font-weight: 600;">+</button>
+</div>
+      <div id="codeAreaRow" class="otter-row" style="width: 100%; max-width: 100%; padding: 14px 18px; text-align: top; flex: 1 1 0%; min-height: 0; display: flex; position: relative; overflow: auto; font-family: var(--font-code); font-size: 13px; line-height: 22px;; display: flex; flex-direction: row; gap: 14px; align-items: flex-start; justify-content: flex-start; flex-wrap: nowrap;">
+      <div id="gutterCol" class="otter-column" style="width: 28px; user-select: none; color: #94a3b8; text-align: right; line-height: 22px; font-family: var(--font-code); font-size: 13px;; display: flex; flex-direction: column; gap: 0px; align-items: stretch; justify-content: flex-start;">
+      <div id="g1" class="otter-text" style="height: 22px; line-height: 22px;;">1</div>
+      <div id="g2" class="otter-text" style="height: 22px; line-height: 22px;;">2</div>
+      <div id="g3" class="otter-text" style="height: 22px; line-height: 22px;;">3</div>
+      <div id="g4" class="otter-text" style="height: 22px; line-height: 22px;;">4</div>
+      <div id="g5" class="otter-text" style="height: 22px; line-height: 22px;;">5</div>
+      <div id="g6" class="otter-text" style="height: 22px; line-height: 22px;;">6</div>
+      <div id="g7" class="otter-text" style="height: 22px; line-height: 22px;;">7</div>
+      <div id="g8" class="otter-text" style="height: 22px; line-height: 22px;;">8</div>
+      <div id="g9" class="otter-text" style="height: 22px; line-height: 22px;;">9</div>
+      <div id="g10" class="otter-text" style="height: 22px; line-height: 22px;;">10</div>
+      <div id="g11" class="otter-text" style="height: 22px; line-height: 22px;;">11</div>
+      <div id="g12" class="otter-text" style="height: 22px; line-height: 22px;;">12</div>
+      <div id="g13" class="otter-text" style="height: 22px; line-height: 22px;;">13</div>
+      <div id="g14" class="otter-text" style="height: 22px; line-height: 22px;;">14</div>
+      <div id="g15" class="otter-text" style="height: 22px; line-height: 22px;;">15</div>
+      <div id="g16" class="otter-text" style="height: 22px; line-height: 22px;;">16</div>
+      <div id="g17" class="otter-text" style="height: 22px; line-height: 22px;;">17</div>
+</div>
+      <div id="codeLinesCol" class="otter-column" style="flex: 1; min-width: 0; font-family: var(--font-code); font-size: 13px; line-height: 22px; white-space: pre;; display: flex; flex-direction: column; gap: 0px; align-items: stretch; justify-content: flex-start;">
+      <div id="c1" class="otter-text" style="height: 22px; line-height: 22px;;">&lt;span class='tok-comment'&gt;# File Organizer&lt;/span&gt;</div>
+      <div id="c2" class="otter-text" style="height: 22px; line-height: 22px;;">&lt;span class='tok-comment'&gt;# Finds all image files and copies them to an output folder.&lt;/span&gt;</div>
+      <div id="c3" class="otter-text" style="height: 22px; line-height: 22px;;">&amp;nbsp;</div>
+      <div id="c4" class="otter-text" style="height: 22px; line-height: 22px;;">&lt;span class='tok-var'&gt;folder&lt;/span&gt; &lt;span class='tok-kw'&gt;is&lt;/span&gt; &lt;span class='tok-str'&gt;&quot;Pictures&quot;&lt;/span&gt;</div>
+      <div id="c5" class="otter-text" style="height: 22px; line-height: 22px;;">&lt;span class='tok-kw'&gt;get files in&lt;/span&gt; &lt;span class='tok-var'&gt;folder&lt;/span&gt; &lt;span class='tok-kw'&gt;and subfolders into&lt;/span&gt; &lt;span class='tok-var'&gt;files&lt;/span&gt;</div>
+      <div id="c6" class="otter-text" style="height: 22px; line-height: 22px;;">&amp;nbsp;</div>
+      <div id="c7" class="otter-text" style="height: 22px; line-height: 22px;;">&lt;span class='tok-kw'&gt;create&lt;/span&gt; &lt;span class='tok-kw'&gt;folder&lt;/span&gt; &lt;span class='tok-str'&gt;&quot;output&quot;&lt;/span&gt;</div>
+      <div id="c8" class="otter-text" style="height: 22px; line-height: 22px;;">&amp;nbsp;</div>
+      <div id="c9" class="otter-text" style="height: 22px; line-height: 22px;;">&lt;span class='tok-kw'&gt;for each&lt;/span&gt; &lt;span class='tok-var'&gt;file&lt;/span&gt; &lt;span class='tok-kw'&gt;in&lt;/span&gt; &lt;span class='tok-var'&gt;files&lt;/span&gt;</div>
+      <div id="c10" class="otter-text" style="height: 22px; line-height: 22px;;">    &lt;span class='tok-kw'&gt;if&lt;/span&gt; &lt;span class='tok-kw'&gt;extension of&lt;/span&gt; &lt;span class='tok-var'&gt;file&lt;/span&gt; &lt;span class='tok-kw'&gt;is&lt;/span&gt; &lt;span class='tok-str'&gt;&quot;.jpg&quot;&lt;/span&gt; &lt;span class='tok-kw'&gt;or&lt;/span&gt; &lt;span class='tok-kw'&gt;extension of&lt;/span&gt; &lt;span class='tok-var'&gt;file&lt;/span&gt; &lt;span class='tok-kw'&gt;is&lt;/span&gt; &lt;span class='tok-str'&gt;&quot;.png&quot;&lt;/span&gt;</div>
+      <div id="c11" class="otter-text" style="height: 22px; line-height: 22px;;">        &lt;span class='tok-kw'&gt;copy file to&lt;/span&gt; &lt;span class='tok-str'&gt;&quot;output&quot;&lt;/span&gt;</div>
+      <div id="c12" class="otter-text" style="height: 22px; line-height: 22px;;">        &lt;span class='tok-kw'&gt;say&lt;/span&gt; &lt;span class='tok-str'&gt;&quot;Copied&quot;&lt;/span&gt; &lt;span class='tok-kw'&gt;name of&lt;/span&gt; &lt;span class='tok-var'&gt;file&lt;/span&gt;</div>
+      <div id="c13" class="otter-text" style="height: 22px; line-height: 22px;;">    &lt;span class='tok-kw'&gt;.&lt;/span&gt;</div>
+      <div id="c14" class="otter-text" style="height: 22px; line-height: 22px;;">&lt;span class='tok-kw'&gt;.&lt;/span&gt;</div>
+      <div id="c15" class="otter-text" style="height: 22px; line-height: 22px;;">&amp;nbsp;</div>
+      <div id="c16" class="otter-text" style="height: 22px; line-height: 22px;;">&lt;span class='tok-kw'&gt;say&lt;/span&gt; &lt;span class='tok-str'&gt;&quot;All done!&quot;&lt;/span&gt;</div>
+      <div id="c17" class="otter-text" style="height: 22px; line-height: 22px;;">&lt;span class='tok-kw'&gt;get&lt;/span&gt; &lt;span style='color:#0f172a; font-weight: 700;'&gt;|&lt;/span&gt;</div>
+</div>
+</div>
+      <div id="autocompleteBox" class="otter-row" style="text-align: top; position: absolute; top: 388px; left: 80px; z-index: 30; width: 440px; border-radius: 8px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.12); border: 1px solid #e2e8f0; display: flex;; display: flex; flex-direction: row; gap: 0px; align-items: flex-start; justify-content: flex-start; flex-wrap: nowrap;">
+      <div id="acListCol" class="otter-column" style="width: 210px; background: #ffffff; padding: 6px; display: flex; flex-direction: column; gap: 2px; align-items: stretch; justify-content: flex-start;">
+      <div id="ac1" class="otter-column" style="width: 100%; max-width: 100%; background: #eff6ff; border-radius: 4px; padding: 4px 8px; display: flex; flex-direction: column; gap: 0px; align-items: stretch; justify-content: flex-start;">
+      <div id="ac1Head" class="otter-text" style="color: #1d4ed8; font-size: 11px; font-weight: 700;">📄 get files in...</div>
+      <div id="ac1Sub" class="otter-text" style="color: #64748b; font-size: 9px;">Get files from a folder</div>
+</div>
+      <div id="ac2" class="otter-column" style="width: 100%; max-width: 100%; padding: 4px 8px; display: flex; flex-direction: column; gap: 0px; align-items: stretch; justify-content: flex-start;">
+      <div id="ac2Head" class="otter-text" style="color: #334155; font-size: 11px; font-weight: 500;">📁 get folders in...</div>
+      <div id="ac2Sub" class="otter-text" style="color: #64748b; font-size: 9px;">Get folders from a folder</div>
+</div>
+      <div id="ac3" class="otter-column" style="width: 100%; max-width: 100%; padding: 4px 8px; display: flex; flex-direction: column; gap: 0px; align-items: stretch; justify-content: flex-start;">
+      <div id="ac3Head" class="otter-text" style="color: #334155; font-size: 11px; font-weight: 500;">👤 get user where...</div>
+      <div id="ac3Sub" class="otter-text" style="color: #64748b; font-size: 9px;">Find a user</div>
+</div>
+      <div id="ac4" class="otter-column" style="width: 100%; max-width: 100%; padding: 4px 8px; display: flex; flex-direction: column; gap: 0px; align-items: stretch; justify-content: flex-start;">
+      <div id="ac4Head" class="otter-text" style="color: #334155; font-size: 11px; font-weight: 500;">💵 get environment variable...</div>
+      <div id="ac4Sub" class="otter-text" style="color: #64748b; font-size: 9px;">Read an environment variable</div>
+</div>
+      <div id="ac5" class="otter-column" style="width: 100%; max-width: 100%; padding: 4px 8px; display: flex; flex-direction: column; gap: 0px; align-items: stretch; justify-content: flex-start;">
+      <div id="ac5Head" class="otter-text" style="color: #334155; font-size: 11px; font-weight: 500;">🪟 get running processes</div>
+      <div id="ac5Sub" class="otter-text" style="color: #64748b; font-size: 9px;">Get a list of processes</div>
+</div>
+</div>
+      <div id="acDocCard" class="otter-column" style="background: #fefce8; padding: 10px; flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; align-items: stretch; justify-content: flex-start;">
+      <div id="docHead" class="otter-text" style="color: #713f12; font-size: 11px; font-weight: 700;">📄 get files in...</div>
+      <div id="docExpl" class="otter-text" style="color: #854d0e; font-size: 10px;">Gets a list of files from a folder.</div>
+      <div id="docExTitle" class="otter-text" style="color: #713f12; font-size: 10px; font-weight: 700;">Example:</div>
+      <span id="docCode" class="otter-badge" style="background: #ffffff; color: #0f172a; border-radius: 4px; border: 1px solid #fef08a; padding: 4px; font-size: 9px;">get files in &quot;Pictures&quot; into files</span>
+      <a id="docLink" class="otter-link" href="#" style="color: #2563eb; font-size: 10px; font-weight: 600;">Learn more →</a>
+</div>
+</div>
+</div>
+      <div id="rightSidebar" class="otter-column" style="width: 260px; height: 100%; min-height: 0; overflow-y: auto;; display: flex; flex-direction: column; gap: 6px; align-items: stretch; justify-content: flex-start;">
+      <div id="outputCard" class="otter-card" style="width: 100%; max-width: 100%; background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); padding: 10px; gap: 4px;">
+        
+        
+      <div id="outputHeader" class="otter-row" style="width: 100%; max-width: 100%; text-align: middle; display: flex; flex-direction: row; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: nowrap;">
+      <div id="outputTitle" class="otter-text" style="color: #0f172a; font-size: 12px; font-weight: 700;">▶ Program</div>
+      <div id="outputActions" class="otter-row" style="text-align: middle; display: flex; flex-direction: row; gap: 4px; align-items: center; justify-content: flex-start; flex-wrap: nowrap;">
+      <button id="clearBtn" class="otter-button" style="background: #f8fafc; color: #475569; border-radius: 4px; border: 1px solid #cbd5e1; padding: 2px 7px; font-size: 10px; font-weight: 600;">Clear</button>
+      <button id="moreBtn" class="otter-button" style="background: transparent; color: #64748b; padding: 2px 4px; font-size: 11px; font-weight: 700;">···</button>
+</div>
+</div>
+      <div id="outputLogCol" class="otter-column" style="font-family: var(--font-code); font-size: 11px; line-height: 1.5;; display: flex; flex-direction: column; gap: 2px; align-items: stretch; justify-content: flex-start;">
+      <div id="out1" class="otter-text" style="color: #334155; font-size: 11px;">Copied beach.jpg</div>
+      <div id="out2" class="otter-text" style="color: #334155; font-size: 11px;">Copied mountain.png</div>
+      <div id="out3" class="otter-text" style="color: #334155; font-size: 11px;">Copied forest.jpg</div>
+      <div id="out4" class="otter-text" style="color: #334155; font-size: 11px;">Copied sunset.png</div>
+      <div id="out5" class="otter-text" style="color: #334155; font-size: 11px;">Copied photo.jpg</div>
+      <div id="outEmpty" class="otter-text" style="font-size: 2px;"> </div>
+      <div id="outDone" class="otter-text" style="color: #16a34a; font-size: 11px; font-weight: 700;">All done!</div>
+</div>
+
+      </div>
+      <div id="variablesCard" class="otter-card" style="width: 100%; max-width: 100%; background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); padding: 10px; gap: 4px;">
+        
+        
+      <div id="varHeader" class="otter-row" style="width: 100%; max-width: 100%; text-align: middle; display: flex; flex-direction: row; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: nowrap;">
+      <div id="varTitle" class="otter-text" style="color: #0f172a; font-size: 12px; font-weight: 700;">🗂️ Variables</div>
+      <div id="varCollapse" class="otter-text" style="color: #94a3b8; font-size: 12px; font-weight: 700;">▾</div>
+</div>
+      <div id="varListCol" class="otter-column" style="font-family: var(--font-code); font-size: 11px;; display: flex; flex-direction: column; gap: 2px; align-items: stretch; justify-content: flex-start;">
+      <div id="var1Row" class="otter-row" style="width: 100%; max-width: 100%; text-align: middle; display: flex; flex-direction: row; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: nowrap;">
+      <div id="v1Key" class="otter-text" style="color: #334155; font-size: 11px;">folder</div>
+      <div id="v1Val" class="otter-text" style="color: #dc2626; font-size: 11px;">&quot;Pictures&quot;</div>
+</div>
+      <div id="var2Row" class="otter-row" style="width: 100%; max-width: 100%; text-align: middle; display: flex; flex-direction: row; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: nowrap;">
+      <div id="v2Key" class="otter-text" style="color: #334155; font-size: 11px;">› files</div>
+      <div id="v2Val" class="otter-text" style="color: #64748b; font-size: 11px;">[ 24 items ]</div>
+</div>
+      <div id="var3Head" class="otter-text" style="color: #334155; font-size: 11px;">▾ file  (current item)</div>
+      <div id="subVarCol" class="otter-column" style="padding: 0 0 0 10; border-left: 1px solid #e2e8f0; margin-left: 6px;; display: flex; flex-direction: column; gap: 1px; align-items: stretch; justify-content: flex-start;">
+      <div id="s1" class="otter-text" style="color: #dc2626; font-size: 10px;">name      &quot;beach.jpg&quot;</div>
+      <div id="s2" class="otter-text" style="color: #dc2626; font-size: 10px;">extension &quot;.jpg&quot;</div>
+      <div id="s3" class="otter-text" style="color: #475569; font-size: 10px;">size      2.4 MB</div>
+      <div id="s4" class="otter-text" style="color: #475569; font-size: 10px;">modified  2026-09-08 14:32</div>
+</div>
+      <div id="var4Row" class="otter-row" style="width: 100%; max-width: 100%; text-align: middle; display: flex; flex-direction: row; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: nowrap;">
+      <div id="v4Key" class="otter-text" style="color: #334155; font-size: 11px;">output</div>
+      <div id="v4Val" class="otter-text" style="color: #dc2626; font-size: 11px;">&quot;output&quot;</div>
+</div>
+</div>
+
+      </div>
+      <div id="watchCard" class="otter-card" style="width: 100%; max-width: 100%; background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); padding: 10px; gap: 4px;">
+        
+        
+      <div id="watchHeader" class="otter-row" style="width: 100%; max-width: 100%; text-align: middle; display: flex; flex-direction: row; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: nowrap;">
+      <div id="watchTitle" class="otter-text" style="color: #0f172a; font-size: 12px; font-weight: 700;">👁️ Watch</div>
+      <button id="watchAdd" class="otter-button" style="background: transparent; color: #64748b; padding: 2px 5px; font-size: 12px; font-weight: 700;">+</button>
+</div>
+      <div id="watchDesc" class="otter-text" style="color: #94a3b8; font-size: 10px;">Click + to watch a variable while running.</div>
+
+      </div>
+</div>
+</div>
+      <div id="problemsDrawer" class="otter-column" style="width: 100%; max-width: 100%; background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05); padding: 6px 14px; position: relative; overflow: hidden; height: 96px; min-height: 96px;; display: flex; flex-direction: column; gap: 4px; align-items: stretch; justify-content: flex-start;">
+      <div id="drawerHeader" class="otter-row" style="width: 100%; max-width: 100%; text-align: middle; display: flex; flex-direction: row; gap: 6px; align-items: center; justify-content: flex-start; flex-wrap: nowrap;">
+      <button id="tabProblems" class="otter-button" style="background: #ffffff; color: #2563eb; border-radius: 4px; border: 1px solid #e2e8f0; padding: 2px 8px; font-size: 11px; font-weight: 700;">Problems</button>
+      <button id="tabOutput" class="otter-button" style="background: transparent; color: #64748b; padding: 2px 8px; font-size: 11px; font-weight: 500;">Output</button>
+      <button id="tabTerminal" class="otter-button" style="background: transparent; color: #64748b; padding: 2px 8px; font-size: 11px; font-weight: 500;">Terminal</button>
+</div>
+      <div id="problemsContentRow" class="otter-row" style="width: 100%; max-width: 100%; text-align: middle; display: flex; flex-direction: row; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: nowrap;">
+      <div id="probStatusWrap" class="otter-row" style="text-align: middle; display: flex; flex-direction: row; gap: 12px; align-items: center; justify-content: flex-start; flex-wrap: nowrap;">
+      <span id="probCheckCircle" class="otter-badge" style="background: #22c55e; color: white; border-radius: 9999px; padding: 5px 9px; font-size: 15px; font-weight: 800;">✓</span>
+      <div id="probTextCol" class="otter-column" style="display: flex; flex-direction: column; gap: 0px; align-items: stretch; justify-content: flex-start;">
+      <div id="probHeadline" class="otter-text" style="color: #0f172a; font-size: 14px; font-weight: 700;">No problems found.</div>
+      <div id="probSubline" class="otter-text" style="color: #64748b; font-size: 12px; white-space: pre-wrap;">Your code looks good!</div>
+</div>
+</div>
+      <div id="mascotCheerWrap" class="otter-row" style="text-align: middle; position: relative; margin-right: 16px;; display: flex; flex-direction: row; gap: 10px; align-items: center; justify-content: flex-start; flex-wrap: nowrap;">
+      <div id="cheerBubble" class="otter-card" style="background: #fefce8; border-radius: 6px; border: 1px solid #fef08a; padding: 5px 12px; gap: 1px;">
+        
+        
+      <div id="cheerTitle" class="otter-text" style="color: #166534; font-size: 12px; font-weight: 700;">Great job!</div>
+      <div id="cheerSub" class="otter-text" style="color: #15803d; font-size: 11px;">Keep going! 🐾</div>
+
+      </div>
+      <img id="mascotCheerImg" class="otter-image" src="otter-cheer.svg" alt="Cheering Otter" style="width: 96px; height: 80px;" />
+</div>
+</div>
+</div>
+      <div id="statusBar" class="otter-row" style="width: 100%; max-width: 100%; background: #ffffff; border-radius: 6px; border: 1px solid #e2e8f0; padding: 4px 14px; text-align: middle; box-sizing: border-box; height: 36px; min-height: 36px;; display: flex; flex-direction: row; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: nowrap;">
+      <div id="statusLeft" class="otter-row" style="text-align: middle; display: flex; flex-direction: row; gap: 14px; align-items: center; justify-content: flex-start; flex-wrap: nowrap;">
+      <button id="runBtn" class="otter-button" style="background: #16a34a; color: #ffffff; border-radius: 9999px; padding: 6px 18px; font-size: 12px; font-weight: 700;">▶ Run ▾</button>
+      <div id="statusOk" class="otter-text" style="color: #16a34a; font-size: 11px; font-weight: 600;">✓ No problems</div>
+</div>
+      <div id="statusRight" class="otter-text" style="color: #64748b; font-size: 11px;">Ln 17, Col 5   Spaces: 4   UTF-8   Otter 0.1</div>
+</div>
+</div>
+    </main>
+  <div id="otter-live-output"></div>
+
+  <script>
+    // Otter Runtime helpers for the browser
+    const empty = "";
+    const gone = null;
+    function otterGetElement(id) { return document.getElementById(id); }
+    function otterGetText(id) {
+      const el = otterGetElement(id);
+      if (!el) return '';
+      if (el.type === 'checkbox') return el.checked;
+      const tag = el.tagName ? el.tagName.toUpperCase() : '';
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
+        return el.value;
+      }
+      return el.textContent || '';
+    }
+    function otterSetText(id, val) {
+      const el = otterGetElement(id);
+      if (!el) return;
+      if (el.type === 'checkbox') { el.checked = Boolean(val); return; }
+      const tag = el.tagName ? el.tagName.toUpperCase() : '';
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
+        el.value = val;
+      } else {
+        el.textContent = val;
+      }
+      if ('value' in el) { el.value = val; }
+    }
+    function otterGetTitle(id) { return document.title; }
+    function otterSetTitle(id, val) { document.title = val; }
+    function otterSetStyle(id, prop, val) {
+      const el = otterGetElement(id);
+      if (el) el.style[prop] = val;
+    }
+    function otterGetStyle(id, prop) {
+      const el = otterGetElement(id);
+      return el ? el.style[prop] : '';
+    }
+    function otterSetProperty(id, prop, val) {
+      const el = otterGetElement(id);
+      if (el) {
+        if (prop === 'url' && el.tagName === 'A') { el.href = val; return; }
+        el[prop] = val;
+        if (el.dataset) el.dataset[prop] = val;
+      }
+    }
+    function otterGetProperty(id, prop) {
+      const el = otterGetElement(id);
+      return el ? el[prop] : '';
+    }
+    function otterSay(...args) {
+      console.log(...args);
+      const out = document.getElementById('otter-live-output');
+      if (out) {
+        out.style.display = 'block';
+        out.textContent = args.join(' ');
+      }
+    }
+    async function otterReadFile(filePath) {
+      const bridge = window.__OTTER_DESKTOP_BRIDGE__;
+      if (!bridge || !bridge.port || !bridge.token) {
+        console.warn('Desktop Bridge is not available to read "' + filePath + '".');
+        return '';
+      }
+      const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/fs/read', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Otter-Token': bridge.token
+        },
+        body: JSON.stringify({ path: filePath })
+      });
+      if (!resp.ok) {
+        throw new Error('Could not read file "' + filePath + '": HTTP ' + resp.status);
+      }
+      const data = await resp.json();
+      return data.content || '';
+    }
+    async function otterWriteFile(filePath, content) {
+      const bridge = window.__OTTER_DESKTOP_BRIDGE__;
+      if (!bridge || !bridge.port || !bridge.token) {
+        console.warn('Desktop Bridge is not available to write "' + filePath + '".');
+        return false;
+      }
+      const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/fs/write', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Otter-Token': bridge.token
+        },
+        body: JSON.stringify({ path: filePath, content: content })
+      });
+      if (!resp.ok) {
+        throw new Error('Could not write file "' + filePath + '": HTTP ' + resp.status);
+      }
+      return await resp.json();
+    }
+    window.otterWriteFile = otterWriteFile;
+
+    async function otterDownloadFile(url, filePath) {
+      const bridge = window.__OTTER_DESKTOP_BRIDGE__;
+      if (!bridge || !bridge.port || !bridge.token) {
+        throw new Error('Desktop Bridge is not available for file download in this browser.');
+      }
+      const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/fs/download', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Otter-Token': bridge.token
+        },
+        body: JSON.stringify({ url: url, path: filePath })
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.error || ('Download failed with HTTP ' + resp.status));
+      }
+      return await resp.json();
+    }
+    window.otterDownloadFile = otterDownloadFile;
+
+    async function otterRunCommand(command) {
+      const bridge = window.__OTTER_DESKTOP_BRIDGE__;
+      if (!bridge || !bridge.port || !bridge.token) {
+        throw new Error('Desktop Bridge is not available to run "' + command + '".');
+      }
+      const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/terminal/exec', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Otter-Token': bridge.token
+        },
+        body: JSON.stringify({ command: command })
+      });
+      if (!resp.ok) {
+        throw new Error('Could not execute command "' + command + '": HTTP ' + resp.status);
+      }
+      const data = await resp.json();
+      const stdout = data.stdout || '';
+      const stderr = data.stderr || '';
+      return {
+        __otterThing: true,
+        typeName: 'command result',
+        props: {
+          output: stdout,
+          'error output': stderr,
+          'exit code': Number.isFinite(Number(data.exitCode)) ? Number(data.exitCode) : -1
+        },
+        order: ['output', 'error output', 'exit code']
+      };
+    }
+    window.otterRunCommand = otterRunCommand;
+
+    async function otterGetFiles(folderPath, includeSubfolders = false) {
+      const bridge = window.__OTTER_DESKTOP_BRIDGE__;
+      if (!bridge || !bridge.port || !bridge.token) {
+        console.warn('Desktop Bridge is not available to get files in "' + folderPath + '".');
+        return [];
+      }
+      const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/fs/files', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Otter-Token': bridge.token
+        },
+        body: JSON.stringify({ path: folderPath, recursive: includeSubfolders })
+      });
+      if (!resp.ok) {
+        throw new Error('Could not get files in "' + folderPath + '": HTTP ' + resp.status);
+      }
+      return await resp.json();
+    }
+    window.otterGetFiles = otterGetFiles;
+
+    async function otterGetFolders(folderPath, includeSubfolders = false) {
+      const bridge = window.__OTTER_DESKTOP_BRIDGE__;
+      if (!bridge || !bridge.port || !bridge.token) {
+        console.warn('Desktop Bridge is not available to get folders in "' + folderPath + '".');
+        return [];
+      }
+      const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/fs/folders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Otter-Token': bridge.token
+        },
+        body: JSON.stringify({ path: folderPath, recursive: includeSubfolders })
+      });
+      if (!resp.ok) {
+        throw new Error('Could not get folders in "' + folderPath + '": HTTP ' + resp.status);
+      }
+      return await resp.json();
+    }
+    window.otterGetFolders = otterGetFolders;
+
+    async function otterFileOperation(operation, payload) {
+      const bridge = window.__OTTER_DESKTOP_BRIDGE__;
+      if (!bridge || !bridge.port || !bridge.token) {
+        throw new Error('Desktop Bridge is not available for file operations.');
+      }
+      const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/fs/operate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Otter-Token': bridge.token
+        },
+        body: JSON.stringify(Object.assign({ operation: operation }, payload || {}))
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        throw new Error(data.error || 'The filesystem operation could not be completed.');
+      }
+      return data;
+    }
+    async function otterFileExists(filePath) {
+      const result = await otterFileOperation('file-exists', { path: filePath });
+      return Boolean(result.exists);
+    }
+    function otterAppendFile(filePath, content) { return otterFileOperation('append-file', { path: filePath, content: content }); }
+    function otterCopyFile(source, destination) { return otterFileOperation('copy-file', { source: source, destination: destination }); }
+    function otterMoveFile(source, destination) { return otterFileOperation('move-file', { source: source, destination: destination }); }
+    function otterDeleteFile(filePath) { return otterFileOperation('delete-file', { path: filePath }); }
+    function otterCreateFolder(folderPath) { return otterFileOperation('create-folder', { path: folderPath }); }
+    function otterDeleteFolder(folderPath) { return otterFileOperation('delete-folder', { path: folderPath }); }
+    function otterCopyFolder(source, destination) { return otterFileOperation('copy-folder', { source: source, destination: destination }); }
+    function otterMoveFolder(source, destination) { return otterFileOperation('move-folder', { source: source, destination: destination }); }
+    window.otterFileExists = otterFileExists;
+    window.otterAppendFile = otterAppendFile;
+    window.otterCopyFile = otterCopyFile;
+    window.otterMoveFile = otterMoveFile;
+    window.otterDeleteFile = otterDeleteFile;
+    window.otterCreateFolder = otterCreateFolder;
+    window.otterDeleteFolder = otterDeleteFolder;
+    window.otterCopyFolder = otterCopyFolder;
+    window.otterMoveFolder = otterMoveFolder;
+    function otterWait(seconds) {
+      const ms = Math.max(0, Number(seconds) * 1000);
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+    function otterDelay(ms) {
+      const delayMs = Math.max(0, Number(ms));
+      return new Promise(resolve => setTimeout(resolve, delayMs));
+    }
+    window.otterWait = otterWait;
+    window.otterDelay = otterDelay;
+    window.wait = otterWait;
+    window.delay = otterDelay;
+    // D67: getDesktopBridge() was called by every system-integration hook
+    // below (clipboard/notify/env/systemPaths/chooseFile/chooseFolder/
+    // saveFileDialog) but never actually defined anywhere in this file -
+    // a real, confirmed "ReferenceError: getDesktopBridge is not
+    // defined" for every one of them on a plain otter web compile
+    // (found by loading a real compiled page in a real browser, not by
+    // reading the code). The desktop-bridge path itself was unaffected,
+    // since Otter.Desktop.psm1's own injection completely overrides
+    // window.otterClipboard/etc. before this file's definitions would
+    // ever run. Matches the exact window.__OTTER_DESKTOP_BRIDGE__
+    // check every other already-working hook (otterReadFile,
+    // otterGetFiles, etc.) already uses inline, just factored into the
+    // one shared helper name this file's own code already assumed existed.
+    function getDesktopBridge() {
+      return window.__OTTER_DESKTOP_BRIDGE__ || null;
+    }
+    window.otterClipboard = {
+      copy: async function(text) {
+        const bridge = getDesktopBridge();
+        if (bridge) {
+          const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/system/clipboard', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Otter-Token': bridge.token },
+            body: JSON.stringify({ text: text })
+          });
+          return await resp.json();
+        }
+        if (navigator.clipboard) {
+          await navigator.clipboard.writeText(text);
+          return { completed: true };
+        }
+        return { completed: false };
+      },
+      paste: async function() {
+        const bridge = getDesktopBridge();
+        if (bridge) {
+          const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/system/clipboard', {
+            method: 'GET',
+            headers: { 'X-Otter-Token': bridge.token }
+          });
+          const data = await resp.json();
+          return data.text || '';
+        }
+        if (navigator.clipboard) {
+          return await navigator.clipboard.readText();
+        }
+        return '';
+      }
+    };
+    window.otterNotify = async function(title, message) {
+      const bridge = getDesktopBridge();
+      if (bridge) {
+        fetch('http://127.0.0.1:' + bridge.port + '/api/system/notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Otter-Token': bridge.token },
+          body: JSON.stringify({ title: title, message: message })
+        }).catch(() => {});
+      }
+      let container = document.getElementById('otter-toast-container');
+      if (!container) {
+        container = document.createElement('div');
+        container.id = 'otter-toast-container';
+        container.className = 'otter-toast-container';
+        document.body.appendChild(container);
+      }
+      const toast = document.createElement('div');
+      toast.className = 'otter-toast';
+      const toastTitle = document.createElement('strong');
+      toastTitle.textContent = title || 'Notification';
+      const toastMsg = document.createElement('div');
+      toastMsg.textContent = message || '';
+      toast.appendChild(toastTitle);
+      toast.appendChild(toastMsg);
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.3s';
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+      return { completed: true };
+    };
+    window.otterGetEnv = async function(name) {
+      const bridge = getDesktopBridge();
+      if (bridge) {
+        const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/system/env', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Otter-Token': bridge.token },
+          body: JSON.stringify({ name: name })
+        });
+        const data = await resp.json();
+        return data.value;
+      }
+      return null;
+    };
+    window.otterGetSystemPaths = async function() {
+      const bridge = getDesktopBridge();
+      if (bridge) {
+        const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/system/env', {
+          method: 'GET',
+          headers: { 'X-Otter-Token': bridge.token }
+        });
+        return await resp.json();
+      }
+      return {};
+    };
+    window.otterChooseFile = async function() {
+      const bridge = getDesktopBridge();
+      if (bridge) {
+        const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/dialog/open-file', {
+          method: 'POST',
+          headers: { 'X-Otter-Token': bridge.token }
+        });
+        const data = await resp.json();
+        return data.path || '';
+      }
+      return '';
+    };
+    window.otterChooseFolder = async function() {
+      const bridge = getDesktopBridge();
+      if (bridge) {
+        const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/dialog/folder', {
+          method: 'POST',
+          headers: { 'X-Otter-Token': bridge.token }
+        });
+        const data = await resp.json();
+        return data.path || '';
+      }
+      return '';
+    };
+    window.otterSaveFileDialog = async function() {
+      const bridge = getDesktopBridge();
+      if (bridge) {
+        const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/dialog/save-file', {
+          method: 'POST',
+          headers: { 'X-Otter-Token': bridge.token }
+        });
+        const data = await resp.json();
+        return data.path || '';
+      }
+      return '';
+    };
+    window.copyToClipboard = window.otterClipboard.copy;
+    window.getClipboard = window.otterClipboard.paste;
+    window.notify = window.otterNotify;
+    window.chooseFile = window.otterChooseFile;
+    window.chooseFolder = window.otterChooseFolder;
+    window.saveFileDialog = window.otterSaveFileDialog;
+    window.otterStorage = {
+      get: function(key, defaultVal = null) {
+        try {
+          const val = localStorage.getItem(key);
+          if (val === null) return defaultVal;
+          try { return JSON.parse(val); } catch(_) { return val; }
+        } catch(_) { return defaultVal; }
+      },
+      set: function(key, val) {
+        try {
+          const serialized = (typeof val === 'object' && val !== null) ? JSON.stringify(val) : String(val);
+          localStorage.setItem(key, serialized);
+          return true;
+        } catch(_) { return false; }
+      },
+      remove: function(key) {
+        try { localStorage.removeItem(key); return true; } catch(_) { return false; }
+      },
+      clear: function() {
+        try { localStorage.clear(); return true; } catch(_) { return false; }
+      },
+      session: {
+        get: function(key, defaultVal = null) {
+          try {
+            const val = sessionStorage.getItem(key);
+            if (val === null) return defaultVal;
+            try { return JSON.parse(val); } catch(_) { return val; }
+          } catch(_) { return defaultVal; }
+        },
+        set: function(key, val) {
+          try {
+            const serialized = (typeof val === 'object' && val !== null) ? JSON.stringify(val) : String(val);
+            sessionStorage.setItem(key, serialized);
+            return true;
+          } catch(_) { return false; }
+        },
+        remove: function(key) {
+          try { sessionStorage.removeItem(key); return true; } catch(_) { return false; }
+        }
+      }
+    };
+    window.getStorage = window.otterStorage.get;
+    window.setStorage = window.otterStorage.set;
+    window.removeStorage = window.otterStorage.remove;
+    window.otterFetch = async function(url, options = {}) {
+      const resp = await fetch(url, options);
+      const contentType = resp.headers.get('content-type') || '';
+      let data;
+      if (contentType.includes('application/json')) {
+        data = await resp.json();
+      } else {
+        data = await resp.text();
+      }
+      return {
+        ok: resp.ok,
+        status: resp.status,
+        statusText: resp.statusText,
+        data: data,
+        headers: Object.fromEntries(resp.headers.entries())
+      };
+    };
+    window.otterGetJson = async function(url, headers = {}) {
+      const res = await window.otterFetch(url, { method: 'GET', headers: Object.assign({ 'Accept': 'application/json' }, headers) });
+      return res.data;
+    };
+    window.otterPostJson = async function(url, body = {}, headers = {}) {
+      const res = await window.otterFetch(url, {
+        method: 'POST',
+        headers: Object.assign({ 'Content-Type': 'application/json', 'Accept': 'application/json' }, headers),
+        body: JSON.stringify(body)
+      });
+      return res.data;
+    };
+    window.httpGet = window.otterGetJson;
+    window.httpPost = window.otterPostJson;
+
+    // Otter Declarative Reactivity Engine
+    const otterState = {};
+    const otterDerived = {};
+    const otterWatchers = [];
+
+
+
+
+
+
+
+    function otterEvaluateExpr(expr) {
+      try {
+        const fn = new Function('state', 'derived', 'with(state) { with(derived) { return (' + expr + '); } }');
+        return fn(otterState, otterDerived);
+      } catch(err) {
+        console.warn('Otter eval error in expr:', expr, err);
+        return '';
+      }
+    }
+
+    function otterUpdateReactivity() {
+      document.querySelectorAll('[data-otter-bind]').forEach(el => {
+        const expr = el.getAttribute('data-otter-bind');
+        if (!expr) return;
+        const val = otterEvaluateExpr(expr);
+        if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
+          if (el.type === 'checkbox') el.checked = Boolean(val);
+          else el.value = val;
+        } else {
+          el.textContent = (val === null || val === undefined) ? '' : String(val);
+        }
+      });
+
+      document.querySelectorAll('[data-otter-if]').forEach(el => {
+        const cond = el.getAttribute('data-otter-if');
+        if (!cond) return;
+        const show = Boolean(otterEvaluateExpr(cond));
+        el.style.display = show ? '' : 'none';
+      });
+    }
+
+    function otterNotifyWatchers(name) {
+      for (const w of otterWatchers) {
+        if (w.target === name && typeof w.callback === 'function') {
+          try { w.callback(); } catch(e) { console.error('Watcher callback error:', e); }
+        }
+      }
+    }
+
+    function otterSetState(name, value) {
+      otterState[name] = value;
+      window[name] = value;
+      otterUpdateReactivity();
+      otterNotifyWatchers(name);
+    }
+
+    // Automatic 3D Canvas and Animation Runner
+    document.querySelectorAll('canvas.otter-canvas').forEach((canvas) => {
+      const mode = canvas.getAttribute('data-mode') || '2d';
+      const anim = canvas.getAttribute('data-animation') || '';
+      if (mode === '3d' || anim === 'spin' || anim === '3d') {
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        let angleX = 0;
+        let angleY = 0;
+        const vertices = [
+          [-1, -1, -1], [1, -1, -1], [1, 1, -1], [-1, 1, -1],
+          [-1, -1, 1], [1, -1, 1], [1, 1, 1], [-1, 1, 1]
+        ];
+        const edges = [
+          [0,1],[1,2],[2,3],[3,0],
+          [4,5],[5,6],[6,7],[7,4],
+          [0,4],[1,5],[2,6],[3,7]
+        ];
+        function render3D() {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+          // Dynamic speed calculation from slider or canvas property
+          let spd = 1.0;
+          const liveSlider = document.getElementById('speedSlider') || document.querySelector('input[type="range"]');
+          if (canvas.speed !== undefined && canvas.speed !== null && canvas.speed !== '') {
+            spd = Number(canvas.speed) / 25;
+          } else if (canvas.dataset.speed) {
+            spd = Number(canvas.dataset.speed) / 25;
+          } else if (liveSlider) {
+            spd = Number(liveSlider.value) / 25;
+          }
+          const turbo = document.getElementById('agreeCheckbox');
+          if (turbo && turbo.checked) {
+            spd *= 2.0;
+          }
+          if (isNaN(spd) || spd < 0) spd = 0;
+
+          angleX += 0.015 * spd;
+          angleY += 0.02 * spd;
+          const cx = canvas.width / 2;
+          const cy = canvas.height / 2;
+          const scale = Math.min(cx, cy) * 0.55;
+          const projected = vertices.map(([x, y, z]) => {
+            let cosY = Math.cos(angleY), sinY = Math.sin(angleY);
+            let x1 = x * cosY - z * sinY;
+            let z1 = x * sinY + z * cosY;
+            let cosX = Math.cos(angleX), sinX = Math.sin(angleX);
+            let y2 = y * cosX - z1 * sinX;
+            let z2 = y * sinX + z1 * cosX;
+            const distance = 3.2;
+            const p = distance / (distance + z2);
+            return [cx + x1 * scale * p, cy + y2 * scale * p];
+          });
+          const themeSel = document.getElementById('themeDropdown');
+          let strokeCol = canvas.color || canvas.dataset.color || '#38bdf8';
+          let glowCol = canvas.glow || canvas.dataset.glow || '#0284c7';
+          if (themeSel) {
+            if (themeSel.value === 'Electric Indigo') {
+              strokeCol = '#c084fc'; glowCol = '#a855f7';
+            } else if (themeSel.value === 'Cyberpunk Emerald') {
+              strokeCol = '#34d399'; glowCol = '#059669';
+            }
+          }
+          ctx.strokeStyle = strokeCol;
+          ctx.lineWidth = 2.5;
+          ctx.shadowColor = glowCol;
+          ctx.shadowBlur = 8;
+          edges.forEach(([i, j]) => {
+            ctx.beginPath();
+            ctx.moveTo(projected[i][0], projected[i][1]);
+            ctx.lineTo(projected[j][0], projected[j][1]);
+            ctx.stroke();
+          });
+          requestAnimationFrame(render3D);
+        }
+        render3D();
+
+        const liveSlider = document.getElementById('speedSlider') || document.querySelector('input[type="range"]');
+        if (liveSlider) {
+          const updateSpeedLabel = () => {
+            const lbl = document.getElementById('speedLabel');
+            if (lbl) {
+              lbl.textContent = 'Animation Speed: ' + liveSlider.value + '%';
+            }
+          };
+          liveSlider.addEventListener('input', updateSpeedLabel);
+          updateSpeedLabel();
+        }
+      }
+    });
+
+    // Top-level application initialization
+    (async function() {
+    if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('activeFilePath' in otterState)) { otterSetState('activeFilePath', "examples/file-organizer/main.ot"); } else { window.activeFilePath = "examples/file-organizer/main.ot"; }
+    if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('activeFolder' in otterState)) { otterSetState('activeFolder', "examples/file-organizer"); } else { window.activeFolder = "examples/file-organizer"; }
+    if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('path1' in otterState)) { otterSetState('path1', "examples/file-organizer/main.ot"); } else { window.path1 = "examples/file-organizer/main.ot"; }
+    if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('path2' in otterState)) { otterSetState('path2', "examples/file-organizer/organizer.ot"); } else { window.path2 = "examples/file-organizer/organizer.ot"; }
+    if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('path3' in otterState)) { otterSetState('path3', "examples/file-organizer/README.txt"); } else { window.path3 = "examples/file-organizer/README.txt"; }
+    if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('path4' in otterState)) { otterSetState('path4', "examples/hello.ot"); } else { window.path4 = "examples/hello.ot"; }
+    if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('path5' in otterState)) { otterSetState('path5', "examples/showcase.ot"); } else { window.path5 = "examples/showcase.ot"; }
+    if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('fpath1' in otterState)) { otterSetState('fpath1', "examples/file-organizer/data"); } else { window.fpath1 = "examples/file-organizer/data"; }
+    if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('fpath2' in otterState)) { otterSetState('fpath2', "examples/file-organizer/images"); } else { window.fpath2 = "examples/file-organizer/images"; }
+    if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('fpath3' in otterState)) { otterSetState('fpath3', "examples/file-organizer/output"); } else { window.fpath3 = "examples/file-organizer/output"; }
+    const restoreMainCode = function() {
+      {
+        const _el = otterGetElement('tabItem');
+        if (_el) { otterSetText('tabItem', "📄 main.ot  ×"); }
+        else {
+          const _owner = tabItem;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "📄 main.ot  ×";
+        }
+      }
+      {
+        const _el = otterGetElement('c1');
+        if (_el) { otterSetText('c1', "<span class='tok-comment'># File Organizer</span>"); }
+        else {
+          const _owner = c1;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "<span class='tok-comment'># File Organizer</span>";
+        }
+      }
+      {
+        const _el = otterGetElement('c2');
+        if (_el) { otterSetText('c2', "<span class='tok-comment'># Finds all image files and copies them to an output folder.</span>"); }
+        else {
+          const _owner = c2;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "<span class='tok-comment'># Finds all image files and copies them to an output folder.</span>";
+        }
+      }
+      {
+        const _el = otterGetElement('c3');
+        if (_el) { otterSetText('c3', "&nbsp;"); }
+        else {
+          const _owner = c3;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "&nbsp;";
+        }
+      }
+      {
+        const _el = otterGetElement('c4');
+        if (_el) { otterSetText('c4', "<span class='tok-var'>folder</span> <span class='tok-kw'>is</span> <span class='tok-str'>\"Pictures\"</span>"); }
+        else {
+          const _owner = c4;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "<span class='tok-var'>folder</span> <span class='tok-kw'>is</span> <span class='tok-str'>\"Pictures\"</span>";
+        }
+      }
+      {
+        const _el = otterGetElement('c5');
+        if (_el) { otterSetText('c5', "<span class='tok-kw'>get files in</span> <span class='tok-var'>folder</span> <span class='tok-kw'>and subfolders into</span> <span class='tok-var'>files</span>"); }
+        else {
+          const _owner = c5;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "<span class='tok-kw'>get files in</span> <span class='tok-var'>folder</span> <span class='tok-kw'>and subfolders into</span> <span class='tok-var'>files</span>";
+        }
+      }
+      {
+        const _el = otterGetElement('c6');
+        if (_el) { otterSetText('c6', "&nbsp;"); }
+        else {
+          const _owner = c6;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "&nbsp;";
+        }
+      }
+      {
+        const _el = otterGetElement('c7');
+        if (_el) { otterSetText('c7', "<span class='tok-kw'>create</span> <span class='tok-kw'>folder</span> <span class='tok-str'>\"output\"</span>"); }
+        else {
+          const _owner = c7;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "<span class='tok-kw'>create</span> <span class='tok-kw'>folder</span> <span class='tok-str'>\"output\"</span>";
+        }
+      }
+      {
+        const _el = otterGetElement('c8');
+        if (_el) { otterSetText('c8', "&nbsp;"); }
+        else {
+          const _owner = c8;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "&nbsp;";
+        }
+      }
+      {
+        const _el = otterGetElement('c9');
+        if (_el) { otterSetText('c9', "<span class='tok-kw'>for each</span> <span class='tok-var'>file</span> <span class='tok-kw'>in</span> <span class='tok-var'>files</span>"); }
+        else {
+          const _owner = c9;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "<span class='tok-kw'>for each</span> <span class='tok-var'>file</span> <span class='tok-kw'>in</span> <span class='tok-var'>files</span>";
+        }
+      }
+      {
+        const _el = otterGetElement('c10');
+        if (_el) { otterSetText('c10', "    <span class='tok-kw'>if</span> <span class='tok-kw'>extension of</span> <span class='tok-var'>file</span> <span class='tok-kw'>is</span> <span class='tok-str'>\".jpg\"</span> <span class='tok-kw'>or</span> <span class='tok-kw'>extension of</span> <span class='tok-var'>file</span> <span class='tok-kw'>is</span> <span class='tok-str'>\".png\"</span>"); }
+        else {
+          const _owner = c10;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "    <span class='tok-kw'>if</span> <span class='tok-kw'>extension of</span> <span class='tok-var'>file</span> <span class='tok-kw'>is</span> <span class='tok-str'>\".jpg\"</span> <span class='tok-kw'>or</span> <span class='tok-kw'>extension of</span> <span class='tok-var'>file</span> <span class='tok-kw'>is</span> <span class='tok-str'>\".png\"</span>";
+        }
+      }
+      {
+        const _el = otterGetElement('c11');
+        if (_el) { otterSetText('c11', "        <span class='tok-kw'>copy file to</span> <span class='tok-str'>\"output\"</span>"); }
+        else {
+          const _owner = c11;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "        <span class='tok-kw'>copy file to</span> <span class='tok-str'>\"output\"</span>";
+        }
+      }
+      {
+        const _el = otterGetElement('c12');
+        if (_el) { otterSetText('c12', "        <span class='tok-kw'>say</span> <span class='tok-str'>\"Copied\"</span> <span class='tok-kw'>name of</span> <span class='tok-var'>file</span>"); }
+        else {
+          const _owner = c12;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "        <span class='tok-kw'>say</span> <span class='tok-str'>\"Copied\"</span> <span class='tok-kw'>name of</span> <span class='tok-var'>file</span>";
+        }
+      }
+      {
+        const _el = otterGetElement('c13');
+        if (_el) { otterSetText('c13', "    <span class='tok-kw'>.</span>"); }
+        else {
+          const _owner = c13;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "    <span class='tok-kw'>.</span>";
+        }
+      }
+      {
+        const _el = otterGetElement('c14');
+        if (_el) { otterSetText('c14', "<span class='tok-kw'>.</span>"); }
+        else {
+          const _owner = c14;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "<span class='tok-kw'>.</span>";
+        }
+      }
+      {
+        const _el = otterGetElement('c15');
+        if (_el) { otterSetText('c15', "&nbsp;"); }
+        else {
+          const _owner = c15;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "&nbsp;";
+        }
+      }
+      {
+        const _el = otterGetElement('c16');
+        if (_el) { otterSetText('c16', "<span class='tok-kw'>say</span> <span class='tok-str'>\"All done!\"</span>"); }
+        else {
+          const _owner = c16;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "<span class='tok-kw'>say</span> <span class='tok-str'>\"All done!\"</span>";
+        }
+      }
+      {
+        const _el = otterGetElement('c17');
+        if (_el) { otterSetText('c17', "<span class='tok-kw'>get</span> <span style='color:#0f172a; font-weight: 700;'>|</span>"); }
+        else {
+          const _owner = c17;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "<span class='tok-kw'>get</span> <span style='color:#0f172a; font-weight: 700;'>|</span>";
+        }
+      }
+      {
+        const _el = otterGetElement('v1Key');
+        if (_el) { otterSetText('v1Key', "folder"); }
+        else {
+          const _owner = v1Key;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "folder";
+        }
+      }
+      {
+        const _el = otterGetElement('v1Val');
+        if (_el) { otterSetText('v1Val', "\"Pictures\""); }
+        else {
+          const _owner = v1Val;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "\"Pictures\"";
+        }
+      }
+      {
+        const _el = otterGetElement('v2Key');
+        if (_el) { otterSetText('v2Key', "› files"); }
+        else {
+          const _owner = v2Key;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "› files";
+        }
+      }
+      {
+        const _el = otterGetElement('v2Val');
+        if (_el) { otterSetText('v2Val', "[ 24 items ]"); }
+        else {
+          const _owner = v2Val;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "[ 24 items ]";
+        }
+      }
+      return null;
+    };
+    if (typeof window !== 'undefined') { window.restoreMainCode = restoreMainCode; }
+
+    // Register event listeners
+    const el_termRunBtn = document.getElementById('termRunBtn');
+    if (el_termRunBtn) {
+      el_termRunBtn.addEventListener('click', async (event) => {
+      if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('cmd' in otterState)) { otterSetState('cmd', (otterGetElement('termBox') ? (otterGetText('termBox')) : (() => { const _owner = termBox; if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return (() => { throw new Error('A date has no part called "text".'); })(); } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('text') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called "text".'); } return _owner.props['text']; })())); } else { window.cmd = (otterGetElement('termBox') ? (otterGetText('termBox')) : (() => { const _owner = termBox; if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return (() => { throw new Error('A date has no part called "text".'); })(); } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('text') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called "text".'); } return _owner.props['text']; })()); }
+      if ((() => { const _lD = cmd !== null && typeof (cmd) === 'object' && (cmd).__otterDate === true; const _rD = "" !== null && typeof ("") === 'object' && ("").__otterDate === true; if (_lD || _rD) { return !((_lD && _rD) && ((cmd).value.getTime() === ("").value.getTime())); } return (cmd !== ""); })()) {
+        if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('cmdOutput' in otterState)) { otterSetState('cmdOutput', await otterRunCommand(cmd)); } else { window.cmdOutput = await otterRunCommand(cmd); }
+        {
+          const _el = otterGetElement('termLog3');
+          if (_el) { otterSetText('termLog3', (() => { const _l = (() => { const _l = (() => { const _l = (() => { const _l = (otterGetElement('termPrompt') ? (otterGetText('termPrompt')) : (() => { const _owner = termPrompt; if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return (() => { throw new Error('A date has no part called "text".'); })(); } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('text') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called "text".'); } return _owner.props['text']; })()); const _r = cmd; if (typeof _l === 'string' && typeof _r === 'string') { return _l + _r; } if (typeof _l === 'boolean' || typeof _r === 'boolean') { throw new Error('A true/false value cannot be combined with "and" here. Boolean "and"/"or" only work inside an if or while condition.'); } const _lOk = typeof _l === 'number' || (typeof _l === 'string' && _l.trim() !== '' && !Number.isNaN(Number(_l))); if (!_lOk) { throw new Error('I expected a number for the left side of this calculation but got ' + JSON.stringify(_l) + '.'); } const _rOk = typeof _r === 'number' || (typeof _r === 'string' && _r.trim() !== '' && !Number.isNaN(Number(_r))); if (!_rOk) { throw new Error('I expected a number for the right side of this calculation but got ' + JSON.stringify(_r) + '.'); } return Number(_l) + Number(_r); })(); const _r = "\n"; if (typeof _l === 'string' && typeof _r === 'string') { return _l + _r; } if (typeof _l === 'boolean' || typeof _r === 'boolean') { throw new Error('A true/false value cannot be combined with "and" here. Boolean "and"/"or" only work inside an if or while condition.'); } const _lOk = typeof _l === 'number' || (typeof _l === 'string' && _l.trim() !== '' && !Number.isNaN(Number(_l))); if (!_lOk) { throw new Error('I expected a number for the left side of this calculation but got ' + JSON.stringify(_l) + '.'); } const _rOk = typeof _r === 'number' || (typeof _r === 'string' && _r.trim() !== '' && !Number.isNaN(Number(_r))); if (!_rOk) { throw new Error('I expected a number for the right side of this calculation but got ' + JSON.stringify(_r) + '.'); } return Number(_l) + Number(_r); })(); const _r = cmdOutput; if (typeof _l === 'string' && typeof _r === 'string') { return _l + _r; } if (typeof _l === 'boolean' || typeof _r === 'boolean') { throw new Error('A true/false value cannot be combined with "and" here. Boolean "and"/"or" only work inside an if or while condition.'); } const _lOk = typeof _l === 'number' || (typeof _l === 'string' && _l.trim() !== '' && !Number.isNaN(Number(_l))); if (!_lOk) { throw new Error('I expected a number for the left side of this calculation but got ' + JSON.stringify(_l) + '.'); } const _rOk = typeof _r === 'number' || (typeof _r === 'string' && _r.trim() !== '' && !Number.isNaN(Number(_r))); if (!_rOk) { throw new Error('I expected a number for the right side of this calculation but got ' + JSON.stringify(_r) + '.'); } return Number(_l) + Number(_r); })(); const _r = "\n"; if (typeof _l === 'string' && typeof _r === 'string') { return _l + _r; } if (typeof _l === 'boolean' || typeof _r === 'boolean') { throw new Error('A true/false value cannot be combined with "and" here. Boolean "and"/"or" only work inside an if or while condition.'); } const _lOk = typeof _l === 'number' || (typeof _l === 'string' && _l.trim() !== '' && !Number.isNaN(Number(_l))); if (!_lOk) { throw new Error('I expected a number for the left side of this calculation but got ' + JSON.stringify(_l) + '.'); } const _rOk = typeof _r === 'number' || (typeof _r === 'string' && _r.trim() !== '' && !Number.isNaN(Number(_r))); if (!_rOk) { throw new Error('I expected a number for the right side of this calculation but got ' + JSON.stringify(_r) + '.'); } return Number(_l) + Number(_r); })()); }
+          else {
+            const _owner = termLog3;
+            if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+            if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+            _owner.props['text'] = (() => { const _l = (() => { const _l = (() => { const _l = (() => { const _l = (otterGetElement('termPrompt') ? (otterGetText('termPrompt')) : (() => { const _owner = termPrompt; if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return (() => { throw new Error('A date has no part called "text".'); })(); } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('text') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called "text".'); } return _owner.props['text']; })()); const _r = cmd; if (typeof _l === 'string' && typeof _r === 'string') { return _l + _r; } if (typeof _l === 'boolean' || typeof _r === 'boolean') { throw new Error('A true/false value cannot be combined with "and" here. Boolean "and"/"or" only work inside an if or while condition.'); } const _lOk = typeof _l === 'number' || (typeof _l === 'string' && _l.trim() !== '' && !Number.isNaN(Number(_l))); if (!_lOk) { throw new Error('I expected a number for the left side of this calculation but got ' + JSON.stringify(_l) + '.'); } const _rOk = typeof _r === 'number' || (typeof _r === 'string' && _r.trim() !== '' && !Number.isNaN(Number(_r))); if (!_rOk) { throw new Error('I expected a number for the right side of this calculation but got ' + JSON.stringify(_r) + '.'); } return Number(_l) + Number(_r); })(); const _r = "\n"; if (typeof _l === 'string' && typeof _r === 'string') { return _l + _r; } if (typeof _l === 'boolean' || typeof _r === 'boolean') { throw new Error('A true/false value cannot be combined with "and" here. Boolean "and"/"or" only work inside an if or while condition.'); } const _lOk = typeof _l === 'number' || (typeof _l === 'string' && _l.trim() !== '' && !Number.isNaN(Number(_l))); if (!_lOk) { throw new Error('I expected a number for the left side of this calculation but got ' + JSON.stringify(_l) + '.'); } const _rOk = typeof _r === 'number' || (typeof _r === 'string' && _r.trim() !== '' && !Number.isNaN(Number(_r))); if (!_rOk) { throw new Error('I expected a number for the right side of this calculation but got ' + JSON.stringify(_r) + '.'); } return Number(_l) + Number(_r); })(); const _r = cmdOutput; if (typeof _l === 'string' && typeof _r === 'string') { return _l + _r; } if (typeof _l === 'boolean' || typeof _r === 'boolean') { throw new Error('A true/false value cannot be combined with "and" here. Boolean "and"/"or" only work inside an if or while condition.'); } const _lOk = typeof _l === 'number' || (typeof _l === 'string' && _l.trim() !== '' && !Number.isNaN(Number(_l))); if (!_lOk) { throw new Error('I expected a number for the left side of this calculation but got ' + JSON.stringify(_l) + '.'); } const _rOk = typeof _r === 'number' || (typeof _r === 'string' && _r.trim() !== '' && !Number.isNaN(Number(_r))); if (!_rOk) { throw new Error('I expected a number for the right side of this calculation but got ' + JSON.stringify(_r) + '.'); } return Number(_l) + Number(_r); })(); const _r = "\n"; if (typeof _l === 'string' && typeof _r === 'string') { return _l + _r; } if (typeof _l === 'boolean' || typeof _r === 'boolean') { throw new Error('A true/false value cannot be combined with "and" here. Boolean "and"/"or" only work inside an if or while condition.'); } const _lOk = typeof _l === 'number' || (typeof _l === 'string' && _l.trim() !== '' && !Number.isNaN(Number(_l))); if (!_lOk) { throw new Error('I expected a number for the left side of this calculation but got ' + JSON.stringify(_l) + '.'); } const _rOk = typeof _r === 'number' || (typeof _r === 'string' && _r.trim() !== '' && !Number.isNaN(Number(_r))); if (!_rOk) { throw new Error('I expected a number for the right side of this calculation but got ' + JSON.stringify(_r) + '.'); } return Number(_l) + Number(_r); })();
+          }
+        }
+        {
+          const _el = otterGetElement('termBox');
+          if (_el) { otterSetText('termBox', ""); }
+          else {
+            const _owner = termBox;
+            if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+            if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+            _owner.props['text'] = "";
+          }
+        }
+      }
+      });
+    }
+    const el_termClearBtn = document.getElementById('termClearBtn');
+    if (el_termClearBtn) {
+      el_termClearBtn.addEventListener('click', async (event) => {
+      {
+        const _el = otterGetElement('termLog1');
+        if (_el) { otterSetText('termLog1', ""); }
+        else {
+          const _owner = termLog1;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "";
+        }
+      }
+      {
+        const _el = otterGetElement('termLog2');
+        if (_el) { otterSetText('termLog2', ""); }
+        else {
+          const _owner = termLog2;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "";
+        }
+      }
+      {
+        const _el = otterGetElement('termLog3');
+        if (_el) { otterSetText('termLog3', ""); }
+        else {
+          const _owner = termLog3;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "";
+        }
+      }
+      });
+    }
+    const el_profPowerShell = document.getElementById('profPowerShell');
+    if (el_profPowerShell) {
+      el_profPowerShell.addEventListener('click', async (event) => {
+      {
+        const _el = otterGetElement('termBadge');
+        if (_el) { otterSetText('termBadge', "PowerShell"); }
+        else {
+          const _owner = termBadge;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "PowerShell";
+        }
+      }
+      {
+        const _el = otterGetElement('termPrompt');
+        if (_el) { otterSetText('termPrompt', "PS C:\\projects\\otterPS> "); }
+        else {
+          const _owner = termPrompt;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "PS C:\\projects\\otterPS> ";
+        }
+      }
+      {
+        const _el = otterGetElement('termWelcome');
+        if (_el) { otterSetText('termWelcome', "PowerShell Profile Active [Default System Shell]\nDefault host: Windows PowerShell / PowerShell 7\n"); }
+        else {
+          const _owner = termWelcome;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "PowerShell Profile Active [Default System Shell]\nDefault host: Windows PowerShell / PowerShell 7\n";
+        }
+      }
+      });
+    }
+    const el_profCmd = document.getElementById('profCmd');
+    if (el_profCmd) {
+      el_profCmd.addEventListener('click', async (event) => {
+      {
+        const _el = otterGetElement('termBadge');
+        if (_el) { otterSetText('termBadge', "Command Prompt"); }
+        else {
+          const _owner = termBadge;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "Command Prompt";
+        }
+      }
+      {
+        const _el = otterGetElement('termPrompt');
+        if (_el) { otterSetText('termPrompt', "C:\\projects\\otterPS> "); }
+        else {
+          const _owner = termPrompt;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "C:\\projects\\otterPS> ";
+        }
+      }
+      {
+        const _el = otterGetElement('termWelcome');
+        if (_el) { otterSetText('termWelcome', "Microsoft Windows [Version 10.0] - Command Prompt\n(c) Microsoft Corporation. All rights reserved.\n"); }
+        else {
+          const _owner = termWelcome;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "Microsoft Windows [Version 10.0] - Command Prompt\n(c) Microsoft Corporation. All rights reserved.\n";
+        }
+      }
+      });
+    }
+    const el_profGitBash = document.getElementById('profGitBash');
+    if (el_profGitBash) {
+      el_profGitBash.addEventListener('click', async (event) => {
+      {
+        const _el = otterGetElement('termBadge');
+        if (_el) { otterSetText('termBadge', "Git Bash"); }
+        else {
+          const _owner = termBadge;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "Git Bash";
+        }
+      }
+      {
+        const _el = otterGetElement('termPrompt');
+        if (_el) { otterSetText('termPrompt', "user@otter:~/projects/otterPS$ "); }
+        else {
+          const _owner = termPrompt;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "user@otter:~/projects/otterPS$ ";
+        }
+      }
+      {
+        const _el = otterGetElement('termWelcome');
+        if (_el) { otterSetText('termWelcome', "Git Bash (MINGW64) Profile Active\n"); }
+        else {
+          const _owner = termWelcome;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "Git Bash (MINGW64) Profile Active\n";
+        }
+      }
+      });
+    }
+    const el_profWsl = document.getElementById('profWsl');
+    if (el_profWsl) {
+      el_profWsl.addEventListener('click', async (event) => {
+      {
+        const _el = otterGetElement('termBadge');
+        if (_el) { otterSetText('termBadge', "WSL (Linux)"); }
+        else {
+          const _owner = termBadge;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "WSL (Linux)";
+        }
+      }
+      {
+        const _el = otterGetElement('termPrompt');
+        if (_el) { otterSetText('termPrompt', "otter@linux:~/projects/otterPS$ "); }
+        else {
+          const _owner = termPrompt;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "otter@linux:~/projects/otterPS$ ";
+        }
+      }
+      {
+        const _el = otterGetElement('termWelcome');
+        if (_el) { otterSetText('termWelcome', "WSL2 Ubuntu Linux Subsystem Active\n"); }
+        else {
+          const _owner = termWelcome;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "WSL2 Ubuntu Linux Subsystem Active\n";
+        }
+      }
+      });
+    }
+    const el_profRepl = document.getElementById('profRepl');
+    if (el_profRepl) {
+      el_profRepl.addEventListener('click', async (event) => {
+      {
+        const _el = otterGetElement('termBadge');
+        if (_el) { otterSetText('termBadge', "Otter REPL"); }
+        else {
+          const _owner = termBadge;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "Otter REPL";
+        }
+      }
+      {
+        const _el = otterGetElement('termPrompt');
+        if (_el) { otterSetText('termPrompt', "otter> "); }
+        else {
+          const _owner = termPrompt;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "otter> ";
+        }
+      }
+      {
+        const _el = otterGetElement('termWelcome');
+        if (_el) { otterSetText('termWelcome', "Otter Interactive REPL 0.2.0\nType Otter language expressions (e.g. name is \"Jeff\", say name).\n"); }
+        else {
+          const _owner = termWelcome;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "Otter Interactive REPL 0.2.0\nType Otter language expressions (e.g. name is \"Jeff\", say name).\n";
+        }
+      }
+      });
+    }
+    const el_runBtn = document.getElementById('runBtn');
+    if (el_runBtn) {
+      el_runBtn.addEventListener('click', async (event) => {
+      {
+        const _el = otterGetElement('probHeadline');
+        if (_el) { otterSetText('probHeadline', (() => { const _l = "Running "; const _r = activeFilePath; if (typeof _l === 'string' && typeof _r === 'string') { return _l + _r; } if (typeof _l === 'boolean' || typeof _r === 'boolean') { throw new Error('A true/false value cannot be combined with "and" here. Boolean "and"/"or" only work inside an if or while condition.'); } const _lOk = typeof _l === 'number' || (typeof _l === 'string' && _l.trim() !== '' && !Number.isNaN(Number(_l))); if (!_lOk) { throw new Error('I expected a number for the left side of this calculation but got ' + JSON.stringify(_l) + '.'); } const _rOk = typeof _r === 'number' || (typeof _r === 'string' && _r.trim() !== '' && !Number.isNaN(Number(_r))); if (!_rOk) { throw new Error('I expected a number for the right side of this calculation but got ' + JSON.stringify(_r) + '.'); } return Number(_l) + Number(_r); })()); }
+        else {
+          const _owner = probHeadline;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = (() => { const _l = "Running "; const _r = activeFilePath; if (typeof _l === 'string' && typeof _r === 'string') { return _l + _r; } if (typeof _l === 'boolean' || typeof _r === 'boolean') { throw new Error('A true/false value cannot be combined with "and" here. Boolean "and"/"or" only work inside an if or while condition.'); } const _lOk = typeof _l === 'number' || (typeof _l === 'string' && _l.trim() !== '' && !Number.isNaN(Number(_l))); if (!_lOk) { throw new Error('I expected a number for the left side of this calculation but got ' + JSON.stringify(_l) + '.'); } const _rOk = typeof _r === 'number' || (typeof _r === 'string' && _r.trim() !== '' && !Number.isNaN(Number(_r))); if (!_rOk) { throw new Error('I expected a number for the right side of this calculation but got ' + JSON.stringify(_r) + '.'); } return Number(_l) + Number(_r); })();
+        }
+      }
+      {
+        const _el = otterGetElement('probSubline');
+        if (_el) { otterSetText('probSubline', "Executing via Otter CLI..."); }
+        else {
+          const _owner = probSubline;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "Executing via Otter CLI...";
+        }
+      }
+      if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('cmd' in otterState)) { otterSetState('cmd', (() => { const _l = "powershell -ExecutionPolicy Bypass -File .\\otter.ps1 run "; const _r = activeFilePath; if (typeof _l === 'string' && typeof _r === 'string') { return _l + _r; } if (typeof _l === 'boolean' || typeof _r === 'boolean') { throw new Error('A true/false value cannot be combined with "and" here. Boolean "and"/"or" only work inside an if or while condition.'); } const _lOk = typeof _l === 'number' || (typeof _l === 'string' && _l.trim() !== '' && !Number.isNaN(Number(_l))); if (!_lOk) { throw new Error('I expected a number for the left side of this calculation but got ' + JSON.stringify(_l) + '.'); } const _rOk = typeof _r === 'number' || (typeof _r === 'string' && _r.trim() !== '' && !Number.isNaN(Number(_r))); if (!_rOk) { throw new Error('I expected a number for the right side of this calculation but got ' + JSON.stringify(_r) + '.'); } return Number(_l) + Number(_r); })()); } else { window.cmd = (() => { const _l = "powershell -ExecutionPolicy Bypass -File .\\otter.ps1 run "; const _r = activeFilePath; if (typeof _l === 'string' && typeof _r === 'string') { return _l + _r; } if (typeof _l === 'boolean' || typeof _r === 'boolean') { throw new Error('A true/false value cannot be combined with "and" here. Boolean "and"/"or" only work inside an if or while condition.'); } const _lOk = typeof _l === 'number' || (typeof _l === 'string' && _l.trim() !== '' && !Number.isNaN(Number(_l))); if (!_lOk) { throw new Error('I expected a number for the left side of this calculation but got ' + JSON.stringify(_l) + '.'); } const _rOk = typeof _r === 'number' || (typeof _r === 'string' && _r.trim() !== '' && !Number.isNaN(Number(_r))); if (!_rOk) { throw new Error('I expected a number for the right side of this calculation but got ' + JSON.stringify(_r) + '.'); } return Number(_l) + Number(_r); })(); }
+      if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('runOutput' in otterState)) { otterSetState('runOutput', await otterRunCommand(cmd)); } else { window.runOutput = await otterRunCommand(cmd); }
+      {
+        const _el = otterGetElement('out1');
+        if (_el) { otterSetText('out1', runOutput); }
+        else {
+          const _owner = out1;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = runOutput;
+        }
+      }
+      {
+        const _el = otterGetElement('out2');
+        if (_el) { otterSetText('out2', ""); }
+        else {
+          const _owner = out2;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "";
+        }
+      }
+      {
+        const _el = otterGetElement('out3');
+        if (_el) { otterSetText('out3', ""); }
+        else {
+          const _owner = out3;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "";
+        }
+      }
+      {
+        const _el = otterGetElement('out4');
+        if (_el) { otterSetText('out4', ""); }
+        else {
+          const _owner = out4;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "";
+        }
+      }
+      {
+        const _el = otterGetElement('out5');
+        if (_el) { otterSetText('out5', ""); }
+        else {
+          const _owner = out5;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "";
+        }
+      }
+      if ((runOutput && runOutput.includes ? runOutput.includes("Error") : false)) {
+        {
+          const _el = otterGetElement('probCheckCircle');
+          if (_el) { otterSetText('probCheckCircle', "⚠"); }
+          else {
+            const _owner = probCheckCircle;
+            if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+            if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+            _owner.props['text'] = "⚠";
+          }
+        }
+        {
+          const _el = otterGetElement('probHeadline');
+          if (_el) { otterSetText('probHeadline', "Execution Error"); }
+          else {
+            const _owner = probHeadline;
+            if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+            if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+            _owner.props['text'] = "Execution Error";
+          }
+        }
+        {
+          const _el = otterGetElement('probSubline');
+          if (_el) { otterSetText('probSubline', runOutput); }
+          else {
+            const _owner = probSubline;
+            if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+            if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+            _owner.props['text'] = runOutput;
+          }
+        }
+        {
+          const _el = otterGetElement('cheerTitle');
+          if (_el) { otterSetText('cheerTitle', "Execution Failed"); }
+          else {
+            const _owner = cheerTitle;
+            if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+            if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+            _owner.props['text'] = "Execution Failed";
+          }
+        }
+        {
+          const _el = otterGetElement('cheerSub');
+          if (_el) { otterSetText('cheerSub', "Review the error output above. 🐾"); }
+          else {
+            const _owner = cheerSub;
+            if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+            if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+            _owner.props['text'] = "Review the error output above. 🐾";
+          }
+        }
+        {
+          const _el = otterGetElement('outDone');
+          if (_el) { otterSetText('outDone', "Execution failed."); }
+          else {
+            const _owner = outDone;
+            if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+            if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+            _owner.props['text'] = "Execution failed.";
+          }
+        }
+      }
+      else {
+        {
+          const _el = otterGetElement('probCheckCircle');
+          if (_el) { otterSetText('probCheckCircle', "✓"); }
+          else {
+            const _owner = probCheckCircle;
+            if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+            if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+            _owner.props['text'] = "✓";
+          }
+        }
+        {
+          const _el = otterGetElement('probHeadline');
+          if (_el) { otterSetText('probHeadline', "Program Succeeded."); }
+          else {
+            const _owner = probHeadline;
+            if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+            if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+            _owner.props['text'] = "Program Succeeded.";
+          }
+        }
+        {
+          const _el = otterGetElement('probSubline');
+          if (_el) { otterSetText('probSubline', "Execution completed with exit code 0."); }
+          else {
+            const _owner = probSubline;
+            if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+            if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+            _owner.props['text'] = "Execution completed with exit code 0.";
+          }
+        }
+        {
+          const _el = otterGetElement('cheerTitle');
+          if (_el) { otterSetText('cheerTitle', "Great job!"); }
+          else {
+            const _owner = cheerTitle;
+            if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+            if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+            _owner.props['text'] = "Great job!";
+          }
+        }
+        {
+          const _el = otterGetElement('cheerSub');
+          if (_el) { otterSetText('cheerSub', "Keep going! 🐾"); }
+          else {
+            const _owner = cheerSub;
+            if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+            if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+            _owner.props['text'] = "Keep going! 🐾";
+          }
+        }
+        {
+          const _el = otterGetElement('outDone');
+          if (_el) { otterSetText('outDone', "Execution complete."); }
+          else {
+            const _owner = outDone;
+            if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+            if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+            _owner.props['text'] = "Execution complete.";
+          }
+        }
+      }
+      });
+    }
+    const el_clearBtn = document.getElementById('clearBtn');
+    if (el_clearBtn) {
+      el_clearBtn.addEventListener('click', async (event) => {
+      {
+        const _el = otterGetElement('out1');
+        if (_el) { otterSetText('out1', ""); }
+        else {
+          const _owner = out1;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "";
+        }
+      }
+      {
+        const _el = otterGetElement('out2');
+        if (_el) { otterSetText('out2', ""); }
+        else {
+          const _owner = out2;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "";
+        }
+      }
+      {
+        const _el = otterGetElement('out3');
+        if (_el) { otterSetText('out3', ""); }
+        else {
+          const _owner = out3;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "";
+        }
+      }
+      {
+        const _el = otterGetElement('out4');
+        if (_el) { otterSetText('out4', ""); }
+        else {
+          const _owner = out4;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "";
+        }
+      }
+      {
+        const _el = otterGetElement('out5');
+        if (_el) { otterSetText('out5', ""); }
+        else {
+          const _owner = out5;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "";
+        }
+      }
+      {
+        const _el = otterGetElement('outDone');
+        if (_el) { otterSetText('outDone', "Output cleared."); }
+        else {
+          const _owner = outDone;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "Output cleared.";
+        }
+      }
+      });
+    }
+    const el_fileMain = document.getElementById('fileMain');
+    if (el_fileMain) {
+      el_fileMain.addEventListener('click', async (event) => {
+      restoreMainCode();
+      });
+    }
+    const el_tplAutomation = document.getElementById('tplAutomation');
+    if (el_tplAutomation) {
+      el_tplAutomation.addEventListener('click', async (event) => {
+      restoreMainCode();
+      });
+    }
+    const el_fileReadme = document.getElementById('fileReadme');
+    if (el_fileReadme) {
+      el_fileReadme.addEventListener('click', async (event) => {
+      {
+        const _el = otterGetElement('tabItem');
+        if (_el) { otterSetText('tabItem', "📄 README.txt  ×"); }
+        else {
+          const _owner = tabItem;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "📄 README.txt  ×";
+        }
+      }
+      {
+        const _el = otterGetElement('c1');
+        if (_el) { otterSetText('c1', "# README.txt"); }
+        else {
+          const _owner = c1;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "# README.txt";
+        }
+      }
+      {
+        const _el = otterGetElement('c2');
+        if (_el) { otterSetText('c2', "File Organizer utility written in Otter."); }
+        else {
+          const _owner = c2;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "File Organizer utility written in Otter.";
+        }
+      }
+      {
+        const _el = otterGetElement('c3');
+        if (_el) { otterSetText('c3', "&nbsp;"); }
+        else {
+          const _owner = c3;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "&nbsp;";
+        }
+      }
+      {
+        const _el = otterGetElement('c4');
+        if (_el) { otterSetText('c4', "Scans Pictures folder and sorts images by extension."); }
+        else {
+          const _owner = c4;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "Scans Pictures folder and sorts images by extension.";
+        }
+      }
+      {
+        const _el = otterGetElement('c5');
+        if (_el) { otterSetText('c5', "&nbsp;"); }
+        else {
+          const _owner = c5;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "&nbsp;";
+        }
+      }
+      {
+        const _el = otterGetElement('c6');
+        if (_el) { otterSetText('c6', "Usage:"); }
+        else {
+          const _owner = c6;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "Usage:";
+        }
+      }
+      {
+        const _el = otterGetElement('c7');
+        if (_el) { otterSetText('c7', "  otter run main.ot"); }
+        else {
+          const _owner = c7;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "  otter run main.ot";
+        }
+      }
+      {
+        const _el = otterGetElement('c8');
+        if (_el) { otterSetText('c8', "&nbsp;"); }
+        else {
+          const _owner = c8;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "&nbsp;";
+        }
+      }
+      {
+        const _el = otterGetElement('c9');
+        if (_el) { otterSetText('c9', "&nbsp;"); }
+        else {
+          const _owner = c9;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "&nbsp;";
+        }
+      }
+      {
+        const _el = otterGetElement('c10');
+        if (_el) { otterSetText('c10', "&nbsp;"); }
+        else {
+          const _owner = c10;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "&nbsp;";
+        }
+      }
+      {
+        const _el = otterGetElement('c11');
+        if (_el) { otterSetText('c11', "&nbsp;"); }
+        else {
+          const _owner = c11;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "&nbsp;";
+        }
+      }
+      {
+        const _el = otterGetElement('c12');
+        if (_el) { otterSetText('c12', "&nbsp;"); }
+        else {
+          const _owner = c12;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "&nbsp;";
+        }
+      }
+      {
+        const _el = otterGetElement('c13');
+        if (_el) { otterSetText('c13', "&nbsp;"); }
+        else {
+          const _owner = c13;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "&nbsp;";
+        }
+      }
+      {
+        const _el = otterGetElement('c14');
+        if (_el) { otterSetText('c14', "&nbsp;"); }
+        else {
+          const _owner = c14;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "&nbsp;";
+        }
+      }
+      {
+        const _el = otterGetElement('c15');
+        if (_el) { otterSetText('c15', "&nbsp;"); }
+        else {
+          const _owner = c15;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "&nbsp;";
+        }
+      }
+      {
+        const _el = otterGetElement('c16');
+        if (_el) { otterSetText('c16', "&nbsp;"); }
+        else {
+          const _owner = c16;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "&nbsp;";
+        }
+      }
+      {
+        const _el = otterGetElement('c17');
+        if (_el) { otterSetText('c17', "&nbsp;"); }
+        else {
+          const _owner = c17;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "&nbsp;";
+        }
+      }
+      {
+        const _el = otterGetElement('v1Key');
+        if (_el) { otterSetText('v1Key', "type"); }
+        else {
+          const _owner = v1Key;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "type";
+        }
+      }
+      {
+        const _el = otterGetElement('v1Val');
+        if (_el) { otterSetText('v1Val', "\"Text Document\""); }
+        else {
+          const _owner = v1Val;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "\"Text Document\"";
+        }
+      }
+      {
+        const _el = otterGetElement('v2Key');
+        if (_el) { otterSetText('v2Key', "encoding"); }
+        else {
+          const _owner = v2Key;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "encoding";
+        }
+      }
+      {
+        const _el = otterGetElement('v2Val');
+        if (_el) { otterSetText('v2Val', "\"UTF-8\""); }
+        else {
+          const _owner = v2Val;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "\"UTF-8\"";
+        }
+      }
+      });
+    }
+    const el_tplSimple = document.getElementById('tplSimple');
+    if (el_tplSimple) {
+      el_tplSimple.addEventListener('click', async (event) => {
+      {
+        const _el = otterGetElement('tabItem');
+        if (_el) { otterSetText('tabItem', "📄 hello.ot  ×"); }
+        else {
+          const _owner = tabItem;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "📄 hello.ot  ×";
+        }
+      }
+      {
+        const _el = otterGetElement('c1');
+        if (_el) { otterSetText('c1', "# hello.ot - Simple Otter Program"); }
+        else {
+          const _owner = c1;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "# hello.ot - Simple Otter Program";
+        }
+      }
+      {
+        const _el = otterGetElement('c2');
+        if (_el) { otterSetText('c2', "say \"Hello from Otter!\""); }
+        else {
+          const _owner = c2;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "say \"Hello from Otter!\"";
+        }
+      }
+      {
+        const _el = otterGetElement('c3');
+        if (_el) { otterSetText('c3', "&nbsp;"); }
+        else {
+          const _owner = c3;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "&nbsp;";
+        }
+      }
+      {
+        const _el = otterGetElement('c4');
+        if (_el) { otterSetText('c4', "name is \"World\""); }
+        else {
+          const _owner = c4;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "name is \"World\"";
+        }
+      }
+      {
+        const _el = otterGetElement('c5');
+        if (_el) { otterSetText('c5', "say \"Welcome, \" and name"); }
+        else {
+          const _owner = c5;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "say \"Welcome, \" and name";
+        }
+      }
+      {
+        const _el = otterGetElement('c6');
+        if (_el) { otterSetText('c6', "&nbsp;"); }
+        else {
+          const _owner = c6;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "&nbsp;";
+        }
+      }
+      {
+        const _el = otterGetElement('c7');
+        if (_el) { otterSetText('c7', "&nbsp;"); }
+        else {
+          const _owner = c7;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "&nbsp;";
+        }
+      }
+      {
+        const _el = otterGetElement('c8');
+        if (_el) { otterSetText('c8', "&nbsp;"); }
+        else {
+          const _owner = c8;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "&nbsp;";
+        }
+      }
+      {
+        const _el = otterGetElement('c9');
+        if (_el) { otterSetText('c9', "&nbsp;"); }
+        else {
+          const _owner = c9;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "&nbsp;";
+        }
+      }
+      {
+        const _el = otterGetElement('c10');
+        if (_el) { otterSetText('c10', "&nbsp;"); }
+        else {
+          const _owner = c10;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "&nbsp;";
+        }
+      }
+      {
+        const _el = otterGetElement('c11');
+        if (_el) { otterSetText('c11', "&nbsp;"); }
+        else {
+          const _owner = c11;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "&nbsp;";
+        }
+      }
+      {
+        const _el = otterGetElement('c12');
+        if (_el) { otterSetText('c12', "&nbsp;"); }
+        else {
+          const _owner = c12;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "&nbsp;";
+        }
+      }
+      {
+        const _el = otterGetElement('c13');
+        if (_el) { otterSetText('c13', "&nbsp;"); }
+        else {
+          const _owner = c13;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "&nbsp;";
+        }
+      }
+      {
+        const _el = otterGetElement('c14');
+        if (_el) { otterSetText('c14', "&nbsp;"); }
+        else {
+          const _owner = c14;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "&nbsp;";
+        }
+      }
+      {
+        const _el = otterGetElement('c15');
+        if (_el) { otterSetText('c15', "&nbsp;"); }
+        else {
+          const _owner = c15;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "&nbsp;";
+        }
+      }
+      {
+        const _el = otterGetElement('c16');
+        if (_el) { otterSetText('c16', "&nbsp;"); }
+        else {
+          const _owner = c16;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "&nbsp;";
+        }
+      }
+      {
+        const _el = otterGetElement('c17');
+        if (_el) { otterSetText('c17', "&nbsp;"); }
+        else {
+          const _owner = c17;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "&nbsp;";
+        }
+      }
+      {
+        const _el = otterGetElement('v1Key');
+        if (_el) { otterSetText('v1Key', "greeting"); }
+        else {
+          const _owner = v1Key;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "greeting";
+        }
+      }
+      {
+        const _el = otterGetElement('v1Val');
+        if (_el) { otterSetText('v1Val', "\"Hello, world!\""); }
+        else {
+          const _owner = v1Val;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "\"Hello, world!\"";
+        }
+      }
+      {
+        const _el = otterGetElement('v2Key');
+        if (_el) { otterSetText('v2Key', "status"); }
+        else {
+          const _owner = v2Key;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "status";
+        }
+      }
+      {
+        const _el = otterGetElement('v2Val');
+        if (_el) { otterSetText('v2Val', "\"ready\""); }
+        else {
+          const _owner = v2Val;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "\"ready\"";
+        }
+      }
+      });
+    }
+    const el_newFileBtn = document.getElementById('newFileBtn');
+    if (el_newFileBtn) {
+      el_newFileBtn.addEventListener('click', async (event) => {
+      {
+        const _el = otterGetElement('tabItem');
+        if (_el) { otterSetText('tabItem', "📄 untitled.ot  ×"); }
+        else {
+          const _owner = tabItem;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "📄 untitled.ot  ×";
+        }
+      }
+      {
+        const _el = otterGetElement('c1');
+        if (_el) { otterSetText('c1', "# untitled.ot"); }
+        else {
+          const _owner = c1;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "# untitled.ot";
+        }
+      }
+      {
+        const _el = otterGetElement('c2');
+        if (_el) { otterSetText('c2', "say \"Hello from Otter!\""); }
+        else {
+          const _owner = c2;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "say \"Hello from Otter!\"";
+        }
+      }
+      {
+        const _el = otterGetElement('c3');
+        if (_el) { otterSetText('c3', "&nbsp;"); }
+        else {
+          const _owner = c3;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "&nbsp;";
+        }
+      }
+      {
+        const _el = otterGetElement('c4');
+        if (_el) { otterSetText('c4', "&nbsp;"); }
+        else {
+          const _owner = c4;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "&nbsp;";
+        }
+      }
+      {
+        const _el = otterGetElement('c5');
+        if (_el) { otterSetText('c5', "&nbsp;"); }
+        else {
+          const _owner = c5;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "&nbsp;";
+        }
+      }
+      {
+        const _el = otterGetElement('c6');
+        if (_el) { otterSetText('c6', "&nbsp;"); }
+        else {
+          const _owner = c6;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "&nbsp;";
+        }
+      }
+      {
+        const _el = otterGetElement('c7');
+        if (_el) { otterSetText('c7', "&nbsp;"); }
+        else {
+          const _owner = c7;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "&nbsp;";
+        }
+      }
+      {
+        const _el = otterGetElement('c8');
+        if (_el) { otterSetText('c8', "&nbsp;"); }
+        else {
+          const _owner = c8;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "&nbsp;";
+        }
+      }
+      {
+        const _el = otterGetElement('c9');
+        if (_el) { otterSetText('c9', "&nbsp;"); }
+        else {
+          const _owner = c9;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "&nbsp;";
+        }
+      }
+      {
+        const _el = otterGetElement('c10');
+        if (_el) { otterSetText('c10', "&nbsp;"); }
+        else {
+          const _owner = c10;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "&nbsp;";
+        }
+      }
+      {
+        const _el = otterGetElement('c11');
+        if (_el) { otterSetText('c11', "&nbsp;"); }
+        else {
+          const _owner = c11;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "&nbsp;";
+        }
+      }
+      {
+        const _el = otterGetElement('c12');
+        if (_el) { otterSetText('c12', "&nbsp;"); }
+        else {
+          const _owner = c12;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "&nbsp;";
+        }
+      }
+      {
+        const _el = otterGetElement('c13');
+        if (_el) { otterSetText('c13', "&nbsp;"); }
+        else {
+          const _owner = c13;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "&nbsp;";
+        }
+      }
+      {
+        const _el = otterGetElement('c14');
+        if (_el) { otterSetText('c14', "&nbsp;"); }
+        else {
+          const _owner = c14;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "&nbsp;";
+        }
+      }
+      {
+        const _el = otterGetElement('c15');
+        if (_el) { otterSetText('c15', "&nbsp;"); }
+        else {
+          const _owner = c15;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "&nbsp;";
+        }
+      }
+      {
+        const _el = otterGetElement('c16');
+        if (_el) { otterSetText('c16', "&nbsp;"); }
+        else {
+          const _owner = c16;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "&nbsp;";
+        }
+      }
+      {
+        const _el = otterGetElement('c17');
+        if (_el) { otterSetText('c17', "&nbsp;"); }
+        else {
+          const _owner = c17;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "&nbsp;";
+        }
+      }
+      });
+    }
+    const el_ac1 = document.getElementById('ac1');
+    if (el_ac1) {
+      el_ac1.addEventListener('click', async (event) => {
+      {
+        const _el = otterGetElement('c17');
+        if (_el) { otterSetText('c17', "<span class='tok-kw'>get files in</span> <span class='tok-str'>\"Pictures\"</span> <span class='tok-kw'>into</span> <span class='tok-var'>files</span>"); }
+        else {
+          const _owner = c17;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "<span class='tok-kw'>get files in</span> <span class='tok-str'>\"Pictures\"</span> <span class='tok-kw'>into</span> <span class='tok-var'>files</span>";
+        }
+      }
+      });
+    }
+    const el_ac2 = document.getElementById('ac2');
+    if (el_ac2) {
+      el_ac2.addEventListener('click', async (event) => {
+      {
+        const _el = otterGetElement('c17');
+        if (_el) { otterSetText('c17', "<span class='tok-kw'>get folders in</span> <span class='tok-str'>\"Pictures\"</span> <span class='tok-kw'>into</span> <span class='tok-var'>folders</span>"); }
+        else {
+          const _owner = c17;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "<span class='tok-kw'>get folders in</span> <span class='tok-str'>\"Pictures\"</span> <span class='tok-kw'>into</span> <span class='tok-var'>folders</span>";
+        }
+      }
+      });
+    }
+    const el_tabTerminal = document.getElementById('tabTerminal');
+    if (el_tabTerminal) {
+      el_tabTerminal.addEventListener('click', async (event) => {
+      {
+        const _el = otterGetElement('probHeadline');
+        if (_el) { otterSetText('probHeadline', "Terminal Session Active (System Shell / REPL)"); }
+        else {
+          const _owner = probHeadline;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "Terminal Session Active (System Shell / REPL)";
+        }
+      }
+      {
+        const _el = otterGetElement('probSubline');
+        if (_el) { otterSetText('probSubline', "Select a profile (PS, CMD, Bash, WSL, REPL) and run commands."); }
+        else {
+          const _owner = probSubline;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "Select a profile (PS, CMD, Bash, WSL, REPL) and run commands.";
+        }
+      }
+      });
+    }
+    const el_tabProblems = document.getElementById('tabProblems');
+    if (el_tabProblems) {
+      el_tabProblems.addEventListener('click', async (event) => {
+      {
+        const _el = otterGetElement('probHeadline');
+        if (_el) { otterSetText('probHeadline', "No problems found."); }
+        else {
+          const _owner = probHeadline;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "No problems found.";
+        }
+      }
+      {
+        const _el = otterGetElement('probSubline');
+        if (_el) { otterSetText('probSubline', "Your code looks good!"); }
+        else {
+          const _owner = probSubline;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "Your code looks good!";
+        }
+      }
+      });
+    }
+    const el_tabOutput = document.getElementById('tabOutput');
+    if (el_tabOutput) {
+      el_tabOutput.addEventListener('click', async (event) => {
+      {
+        const _el = otterGetElement('probHeadline');
+        if (_el) { otterSetText('probHeadline', "Program Output Stream"); }
+        else {
+          const _owner = probHeadline;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "Program Output Stream";
+        }
+      }
+      {
+        const _el = otterGetElement('probSubline');
+        if (_el) { otterSetText('probSubline', "Live output from running Otter programs."); }
+        else {
+          const _owner = probSubline;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = "Live output from running Otter programs.";
+        }
+      }
+      });
+    }
+
+
+
+    if (typeof otterUpdateReactivity === 'function') {
+      otterUpdateReactivity();
+    }
+    })();
+  </script>
+</body>
+</html>

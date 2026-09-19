@@ -8,6 +8,10 @@
     "check": "node scripts/check-examples.mjs",
     "check:site": "node scripts/check-site.mjs",
     "serve": "node scripts/serve.mjs",
-    "dev": "node scripts/build.mjs && node scripts/serve.mjs"
+    "dev": "node scripts/build.mjs && node scripts/serve.mjs",
+    "build:otter": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-otter-pages.ps1",
+    "audit:otter": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/audit-otter-routes.ps1",
+    "serve:otter": "node scripts/serve-otter-pages.mjs",
+    "dev:otter": "npm run build:otter && npm run audit:otter && npm run serve:otter"
   }
 }

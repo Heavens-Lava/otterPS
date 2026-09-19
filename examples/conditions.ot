@@ -6,3 +6,9 @@ if age is at least 18
     say "You are an adult."
 
 say "Program finished."
+
+i is 0
+while i is less than 10
+    say i
+    increase i
+.

@@ -1,0 +1,140 @@
+# studio-v1.ot - a production-parser-compatible Otter Studio shell.
+#
+# It deliberately uses only the ordinary V1 UI and bridge grammar.  The
+# richer declarative Studio prototype remains separate until that dialect has
+# a real production parser/runtime path.
+
+app is a page
+    title is "Otter Studio"
+    background is "#f1f5f9"
+    spacing is 12
+    padding is 16
+.
+
+heading is a text
+    text is "Otter Studio"
+    foreground is "#0f172a"
+.
+
+subtitle is a text
+    text is "Open files, edit them, save them, and run commands."
+    foreground is "#475569"
+.
+
+folderBox is a text box
+    text is "examples"
+    placeholder is "Folder to scan"
+.
+
+scanButton is a button
+    text is "Scan files"
+.
+
+openButton is a button
+    text is "Open first file"
+.
+
+toolbar is a row
+    spacing is 8
+.
+
+put folderBox, scanButton, openButton in toolbar
+
+scanStatus is a text
+    text is "Choose a folder, then scan it."
+    foreground is "#475569"
+.
+
+selectedPath is a text
+    text is "No file selected"
+    foreground is "#475569"
+.
+
+editor is a text area
+    placeholder is "The selected file appears here."
+    height is 260
+.
+
+saveButton is a button
+    text is "Save file"
+.
+
+terminalInput is a text box
+    placeholder is "Type a command, such as git status"
+.
+
+runButton is a button
+    text is "Run command"
+.
+
+terminalToolbar is a row
+    spacing is 8
+.
+
+put terminalInput, runButton in terminalToolbar
+
+terminalOutput is a text
+    text is "Command output appears here."
+    foreground is "#334155"
+.
+
+put heading, subtitle, toolbar, scanStatus, selectedPath, editor, saveButton, terminalToolbar, terminalOutput in app
+
+when scanButton is clicked
+    try
+        get files in text of folderBox into files
+        selectedFile is first of files
+        if selectedFile is gone
+            text of scanStatus is "That folder does not contain any files."
+            text of selectedPath is "No file selected"
+        otherwise
+            fileCount is length of files
+            text of scanStatus is fileCount
+            text of selectedPath is path of selectedFile
+        .
+    otherwise
+        text of scanStatus is "I could not scan that folder."
+    .
+.
+
+when openButton is clicked
+    try
+        if selectedFile is gone
+            text of scanStatus is "Scan a folder before opening a file."
+        otherwise
+            read selectedFile into contents
+            text of editor is contents
+            text of scanStatus is name of selectedFile
+        .
+    otherwise
+        text of scanStatus is "I could not open that file."
+    .
+.
+
+when saveButton is clicked
+    try
+        if selectedFile is gone
+            text of scanStatus is "Scan and open a file before saving."
+        otherwise
+            write text of editor to selectedFile
+            text of scanStatus is name of selectedFile
+        .
+    otherwise
+        text of scanStatus is "I could not save that file."
+    .
+.
+
+when runButton is clicked
+    try
+        run command text of terminalInput into commandOutput
+        if exit code of commandOutput is 0
+            text of terminalOutput is output of commandOutput
+        otherwise
+            text of terminalOutput is error output of commandOutput
+        .
+    otherwise
+        text of terminalOutput is "Unable to run that command."
+    .
+.
+
+show app

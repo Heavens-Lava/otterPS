@@ -1,0 +1,24 @@
+# examples/cli-arguments.ot
+# Demonstrates CLI arguments and working directory in Otter 1.0 (D94)
+
+say "Otter CLI Program"
+say "================="
+
+if length of arguments is 0
+    say "No arguments provided. Try: otter run examples/cli-arguments.ot Jeff 42"
+otherwise
+    total is length of arguments
+    say "Total arguments: " total
+    firstArg is first of arguments
+    say "First argument:  " firstArg
+    lastArg is last of arguments
+    say "Last argument:   " lastArg
+    
+    say "Argument list:"
+    for each arg in arguments
+        say " - " arg
+    .
+.
+
+get current directory into folder
+say "Current directory: " folder

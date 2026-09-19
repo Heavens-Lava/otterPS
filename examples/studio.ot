@@ -1,0 +1,492 @@
+# studio.ot - Pixel-perfect Otter Studio IDE written in pure Otter
+# Compiled via Otter Web Compiler (D50) into responsive HTML5/CSS3/JS matching the reference mockup
+
+use "terminal.ot"
+
+activeFilePath is "examples/file-organizer/main.ot"
+activeFolder is "examples/file-organizer"
+path1 is "examples/file-organizer/main.ot"
+path2 is "examples/file-organizer/organizer.ot"
+path3 is "examples/file-organizer/README.txt"
+path4 is "examples/hello.ot"
+path5 is "examples/showcase.ot"
+fpath1 is "examples/file-organizer/data"
+fpath2 is "examples/file-organizer/images"
+fpath3 is "examples/file-organizer/output"
+
+studio is a page with title "Otter Studio", hideheader true, width full, background "#f0f4f9", foreground "#0f172a", spacing 6, padding "8px 12px 6px 12px", customstyle "height: 100vh; max-height: 100vh; overflow: hidden; display: flex; flex-direction: column; box-sizing: border-box;"
+
+# =========================================================
+# 1. TOP GLOBAL HEADER BAR
+# =========================================================
+
+headerBar is a row with spread, align middle, spacing 12, padding "4px 14px", background "#ffffff", radius 8, shadow "0 1px 3px rgba(0,0,0,0.05)", width full
+
+brandWrap is a row with spacing 10, align middle
+mascotLogo is a image with source "otter-avatar.svg", width 36, height 36, radius 8, alt "Otter Mascot"
+brandTextCol is a column with spacing 0
+brandTitle is a text with value "Otter Studio", weight 700, size 15, foreground "#0f172a"
+brandSubtitle is a text with value "Readable like English. Precise like code.", size 11, foreground "#64748b"
+put brandTitle, brandSubtitle in brandTextCol
+put mascotLogo, brandTextCol in brandWrap
+
+menuBar is a row with spacing 4, align middle
+fileMenu is a button with text "📄 File ▾", background "transparent", foreground "#334155", weight 500, size 13, padding "3px 6px"
+editMenu is a button with text "Edit ▾", background "transparent", foreground "#334155", weight 500, size 13, padding "3px 6px"
+runMenu is a button with text "Run ▾", background "transparent", foreground "#334155", weight 500, size 13, padding "3px 6px"
+viewMenu is a button with text "View ▾", background "transparent", foreground "#334155", weight 500, size 13, padding "3px 6px"
+helpMenu is a button with text "Help ▾", background "transparent", foreground "#334155", weight 500, size 13, padding "3px 6px"
+put fileMenu, editMenu, runMenu, viewMenu, helpMenu in menuBar
+
+headerLeft is a row with spacing 12, align middle
+put brandWrap, menuBar in headerLeft
+
+headerRight is a row with spacing 8, align middle
+searchDocBox is a text box with placeholder "🔍 Search documentation...", width 210, background "#f8fafc", radius 6, border "1px solid #e2e8f0", size 11, padding "5px 12px"
+winMinBtn is a button with text "—", background "transparent", foreground "#64748b", size 12, padding "2px 6px"
+winMaxBtn is a button with text "□", background "transparent", foreground "#64748b", size 12, padding "2px 6px"
+winCloseBtn is a button with text "✕", background "transparent", foreground "#64748b", size 12, padding "2px 6px"
+put searchDocBox, winMinBtn, winMaxBtn, winCloseBtn in headerRight
+
+put headerLeft, headerRight in headerBar
+
+# =========================================================
+# 2. MAIN 3-COLUMN WORKSPACE
+# =========================================================
+
+workspaceRow is a row with spread, align top, spacing 8, width full, customstyle "flex: 1 1 0%; min-height: 0; height: 100%; overflow: hidden;"
+
+# --- Left Sidebar (Project & Templates) ---
+leftSidebar is a column with width 225, spacing 6, customstyle "height: 100%; min-height: 0; overflow-y: auto;"
+
+projectCard is a card with background "#ffffff", radius 8, border "1px solid #e2e8f0", shadow "0 1px 3px rgba(0,0,0,0.05)", padding 10, spacing 3, width full
+projectHeader is a row with spread, align middle, width full
+projectTitle is a text with value "Project", weight 700, size 11, foreground "#0f172a"
+projectCollapse is a text with value "‹", foreground "#94a3b8", weight 700, size 12
+put projectTitle, projectCollapse in projectHeader
+
+projectRootRow is a row with spread, align middle, width full, padding "2px 0"
+projectRootFolder is a text with value "📁 File Organizer", weight 700, size 12, foreground "#1e293b"
+folderScanBtn is a button with text "↻", background "transparent", foreground "#64748b", radius 4, weight 700, size 12, padding "1px 4px"
+put projectRootFolder, folderScanBtn in projectRootRow
+
+fileMain is a button with text "📄 main.ot", background "#eff6ff", foreground "#1d4ed8", radius 4, weight 600, size 12, padding "4px 8px", width full
+folderSlot1 is a button with text "› 📁 data", background "transparent", foreground "#334155", radius 4, weight 500, size 12, padding "4px 8px", width full
+folderSlot2 is a button with text "› 📁 images", background "transparent", foreground "#334155", radius 4, weight 500, size 12, padding "4px 8px", width full
+folderSlot3 is a button with text "› 📁 output", background "transparent", foreground "#334155", radius 4, weight 500, size 12, padding "4px 8px", width full
+fileReadme is a button with text "📄 README.txt", background "transparent", foreground "#334155", radius 4, weight 500, size 12, padding "4px 8px", width full
+newFileBtn is a button with text "+ New File ▾", background "#ffffff", foreground "#334155", border "1px solid #cbd5e1", radius 6, weight 600, size 11, padding "5px 10px", width full
+
+put projectHeader, projectRootRow, fileMain, folderSlot1, folderSlot2, folderSlot3, fileReadme, newFileBtn in projectCard
+
+templatesCard is a card with background "#ffffff", radius 8, border "1px solid #e2e8f0", shadow "0 1px 3px rgba(0,0,0,0.05)", padding 10, spacing 3, width full
+templatesHeader is a text with value "Templates", weight 700, size 11, foreground "#0f172a"
+tplSimple is a button with text "📄 Simple Program", background "transparent", foreground "#475569", radius 4, weight 500, size 12, padding "4px 8px", width full
+tplAutomation is a button with text "🤖 Automation", background "#eff6ff", foreground "#1d4ed8", radius 4, weight 600, size 12, padding "4px 8px", width full
+
+tplWebRow is a row with spread, align middle, padding "3px 8px", width full
+tplWebText is a text with value "🌐 Website", size 12, foreground "#475569"
+tplWebBadge is a badge with text "Coming later", background "#f1f5f9", foreground "#94a3b8", radius 9999, size 9, padding "2px 6px"
+put tplWebText, tplWebBadge in tplWebRow
+
+tplDeskRow is a row with spread, align middle, padding "3px 8px", width full
+tplDeskText is a text with value "💻 Desktop App", size 12, foreground "#475569"
+tplDeskBadge is a badge with text "Coming later", background "#f1f5f9", foreground "#94a3b8", radius 9999, size 9, padding "2px 6px"
+put tplDeskText, tplDeskBadge in tplDeskRow
+
+tplMobRow is a row with spread, align middle, padding "3px 8px", width full
+tplMobText is a text with value "📱 Mobile App", size 12, foreground "#475569"
+tplMobBadge is a badge with text "Coming later", background "#f1f5f9", foreground "#94a3b8", radius 9999, size 9, padding "2px 6px"
+put tplMobText, tplMobBadge in tplMobRow
+
+tplGameRow is a row with spread, align middle, padding "3px 8px", width full
+tplGameText is a text with value "🎮 Game", size 12, foreground "#475569"
+tplGameBadge is a badge with text "Coming later", background "#f1f5f9", foreground "#94a3b8", radius 9999, size 9, padding "2px 6px"
+put tplGameText, tplGameBadge in tplGameRow
+
+put templatesHeader, tplSimple, tplAutomation, tplWebRow, tplDeskRow, tplMobRow, tplGameRow in templatesCard
+put projectCard, templatesCard in leftSidebar
+
+# --- Center Column (Code Editor & Autocomplete Overlay) ---
+centerCol is a column with flex 1, spacing 0, background "#ffffff", radius 8, border "1px solid #e2e8f0", shadow "0 1px 3px rgba(0,0,0,0.05)", customstyle "height: 100%; min-height: 0; display: flex; flex-direction: column; overflow: hidden; position: relative;"
+
+editorTabsRow is a row with align middle, spacing 8, padding "4px 12px", background "#f8fafc", width full, customstyle "border-bottom: 1px solid #e2e8f0; border-radius: 8px 8px 0 0;"
+tabItem is a badge with text "📄 main.ot  ×", background "#ffffff", foreground "#0f172a", radius 4, weight 600, size 12, padding "6px 14px", border "1px solid #e2e8f0"
+addTabBtn is a button with text "+", background "transparent", foreground "#64748b", weight 600, size 15, padding "2px 6px"
+put tabItem, addTabBtn in editorTabsRow
+
+codeAreaRow is a row with spacing 14, align top, padding "14px 18px", width full, customstyle "flex: 1 1 0%; min-height: 0; display: flex; position: relative; overflow: auto; font-family: var(--font-code); font-size: 13px; line-height: 22px;"
+
+gutterCol is a column with spacing 0, width 28, customstyle "user-select: none; color: #94a3b8; text-align: right; line-height: 22px; font-family: var(--font-code); font-size: 13px;"
+g1 is a text with value "1", customstyle "height: 22px; line-height: 22px;"
+g2 is a text with value "2", customstyle "height: 22px; line-height: 22px;"
+g3 is a text with value "3", customstyle "height: 22px; line-height: 22px;"
+g4 is a text with value "4", customstyle "height: 22px; line-height: 22px;"
+g5 is a text with value "5", customstyle "height: 22px; line-height: 22px;"
+g6 is a text with value "6", customstyle "height: 22px; line-height: 22px;"
+g7 is a text with value "7", customstyle "height: 22px; line-height: 22px;"
+g8 is a text with value "8", customstyle "height: 22px; line-height: 22px;"
+g9 is a text with value "9", customstyle "height: 22px; line-height: 22px;"
+g10 is a text with value "10", customstyle "height: 22px; line-height: 22px;"
+g11 is a text with value "11", customstyle "height: 22px; line-height: 22px;"
+g12 is a text with value "12", customstyle "height: 22px; line-height: 22px;"
+g13 is a text with value "13", customstyle "height: 22px; line-height: 22px;"
+g14 is a text with value "14", customstyle "height: 22px; line-height: 22px;"
+g15 is a text with value "15", customstyle "height: 22px; line-height: 22px;"
+g16 is a text with value "16", customstyle "height: 22px; line-height: 22px;"
+g17 is a text with value "17", customstyle "height: 22px; line-height: 22px;"
+put g1, g2, g3, g4, g5, g6, g7, g8, g9, g10, g11, g12, g13, g14, g15, g16, g17 in gutterCol
+
+codeLinesCol is a column with flex 1, spacing 0, customstyle "font-family: var(--font-code); font-size: 13px; line-height: 22px; white-space: pre;"
+c1 is a text with value "<span class='tok-comment'># File Organizer</span>", customstyle "height: 22px; line-height: 22px;"
+c2 is a text with value "<span class='tok-comment'># Finds all image files and copies them to an output folder.</span>", customstyle "height: 22px; line-height: 22px;"
+c3 is a text with value "&nbsp;", customstyle "height: 22px; line-height: 22px;"
+c4 is a text with value "<span class='tok-var'>folder</span> <span class='tok-kw'>is</span> <span class='tok-str'>\"Pictures\"</span>", customstyle "height: 22px; line-height: 22px;"
+c5 is a text with value "<span class='tok-kw'>get files in</span> <span class='tok-var'>folder</span> <span class='tok-kw'>and subfolders into</span> <span class='tok-var'>files</span>", customstyle "height: 22px; line-height: 22px;"
+c6 is a text with value "&nbsp;", customstyle "height: 22px; line-height: 22px;"
+c7 is a text with value "<span class='tok-kw'>create</span> <span class='tok-kw'>folder</span> <span class='tok-str'>\"output\"</span>", customstyle "height: 22px; line-height: 22px;"
+c8 is a text with value "&nbsp;", customstyle "height: 22px; line-height: 22px;"
+c9 is a text with value "<span class='tok-kw'>for each</span> <span class='tok-var'>file</span> <span class='tok-kw'>in</span> <span class='tok-var'>files</span>", customstyle "height: 22px; line-height: 22px;"
+c10 is a text with value "    <span class='tok-kw'>if</span> <span class='tok-kw'>extension of</span> <span class='tok-var'>file</span> <span class='tok-kw'>is</span> <span class='tok-str'>\".jpg\"</span> <span class='tok-kw'>or</span> <span class='tok-kw'>extension of</span> <span class='tok-var'>file</span> <span class='tok-kw'>is</span> <span class='tok-str'>\".png\"</span>", customstyle "height: 22px; line-height: 22px;"
+c11 is a text with value "        <span class='tok-kw'>copy file to</span> <span class='tok-str'>\"output\"</span>", customstyle "height: 22px; line-height: 22px;"
+c12 is a text with value "        <span class='tok-kw'>say</span> <span class='tok-str'>\"Copied\"</span> <span class='tok-kw'>name of</span> <span class='tok-var'>file</span>", customstyle "height: 22px; line-height: 22px;"
+c13 is a text with value "    <span class='tok-kw'>.</span>", customstyle "height: 22px; line-height: 22px;"
+c14 is a text with value "<span class='tok-kw'>.</span>", customstyle "height: 22px; line-height: 22px;"
+c15 is a text with value "&nbsp;", customstyle "height: 22px; line-height: 22px;"
+c16 is a text with value "<span class='tok-kw'>say</span> <span class='tok-str'>\"All done!\"</span>", customstyle "height: 22px; line-height: 22px;"
+c17 is a text with value "<span class='tok-kw'>get</span> <span style='color:#0f172a; font-weight: 700;'>|</span>", customstyle "height: 22px; line-height: 22px;"
+
+put c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16, c17 in codeLinesCol
+
+put gutterCol, codeLinesCol in codeAreaRow
+
+# Autocomplete Doc Overlay (Floats absolutely over editor at line 17)
+autocompleteBox is a row with spacing 0, align top, customstyle "position: absolute; top: 388px; left: 80px; z-index: 30; width: 440px; border-radius: 8px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.12); border: 1px solid #e2e8f0; display: flex;"
+
+acListCol is a column with spacing 2, width 210, background "#ffffff", padding 6
+ac1 is a column with spacing 0, background "#eff6ff", radius 4, padding "4px 8px", width full
+ac1Head is a text with value "📄 get files in...", weight 700, size 11, foreground "#1d4ed8"
+ac1Sub is a text with value "Get files from a folder", size 9, foreground "#64748b"
+put ac1Head, ac1Sub in ac1
+
+ac2 is a column with spacing 0, padding "4px 8px", width full
+ac2Head is a text with value "📁 get folders in...", weight 500, size 11, foreground "#334155"
+ac2Sub is a text with value "Get folders from a folder", size 9, foreground "#64748b"
+put ac2Head, ac2Sub in ac2
+
+ac3 is a column with spacing 0, padding "4px 8px", width full
+ac3Head is a text with value "👤 get user where...", weight 500, size 11, foreground "#334155"
+ac3Sub is a text with value "Find a user", size 9, foreground "#64748b"
+put ac3Head, ac3Sub in ac3
+
+ac4 is a column with spacing 0, padding "4px 8px", width full
+ac4Head is a text with value "💵 get environment variable...", weight 500, size 11, foreground "#334155"
+ac4Sub is a text with value "Read an environment variable", size 9, foreground "#64748b"
+put ac4Head, ac4Sub in ac4
+
+ac5 is a column with spacing 0, padding "4px 8px", width full
+ac5Head is a text with value "🪟 get running processes", weight 500, size 11, foreground "#334155"
+ac5Sub is a text with value "Get a list of processes", size 9, foreground "#64748b"
+put ac5Head, ac5Sub in ac5
+
+put ac1, ac2, ac3, ac4, ac5 in acListCol
+
+acDocCard is a column with spacing 4, flex 1, background "#fefce8", padding 10
+docHead is a text with value "📄 get files in...", weight 700, size 11, foreground "#713f12"
+docExpl is a text with value "Gets a list of files from a folder.", size 10, foreground "#854d0e"
+docExTitle is a text with value "Example:", weight 700, size 10, foreground "#713f12"
+docCode is a badge with text "get files in \"Pictures\" into files", background "#ffffff", foreground "#0f172a", radius 4, size 9, padding 4, border "1px solid #fef08a"
+docLink is a link with text "Learn more →", url "#", size 10, foreground "#2563eb", weight 600
+put docHead, docExpl, docExTitle, docCode, docLink in acDocCard
+
+put acListCol, acDocCard in autocompleteBox
+
+put editorTabsRow, codeAreaRow, autocompleteBox in centerCol
+
+# --- Right Sidebar (Program Output & Variables Inspector) ---
+rightSidebar is a column with width 260, spacing 6, customstyle "height: 100%; min-height: 0; overflow-y: auto;"
+
+outputCard is a card with background "#ffffff", radius 8, border "1px solid #e2e8f0", shadow "0 1px 3px rgba(0,0,0,0.05)", padding 10, spacing 4, width full
+outputHeader is a row with spread, align middle, width full
+outputTitle is a text with value "▶ Program", weight 700, size 12, foreground "#0f172a"
+outputActions is a row with spacing 4, align middle
+clearBtn is a button with text "Clear", background "#f8fafc", foreground "#475569", border "1px solid #cbd5e1", radius 4, weight 600, size 10, padding "2px 7px"
+moreBtn is a button with text "···", background "transparent", foreground "#64748b", weight 700, size 11, padding "2px 4px"
+put clearBtn, moreBtn in outputActions
+put outputTitle, outputActions in outputHeader
+
+outputLogCol is a column with spacing 2, customstyle "font-family: var(--font-code); font-size: 11px; line-height: 1.5;"
+out1 is a text with value "Copied beach.jpg", size 11, foreground "#334155"
+out2 is a text with value "Copied mountain.png", size 11, foreground "#334155"
+out3 is a text with value "Copied forest.jpg", size 11, foreground "#334155"
+out4 is a text with value "Copied sunset.png", size 11, foreground "#334155"
+out5 is a text with value "Copied photo.jpg", size 11, foreground "#334155"
+outEmpty is a text with value " ", size 2
+outDone is a text with value "All done!", size 11, weight 700, foreground "#16a34a"
+put out1, out2, out3, out4, out5, outEmpty, outDone in outputLogCol
+
+put outputHeader, outputLogCol in outputCard
+
+variablesCard is a card with background "#ffffff", radius 8, border "1px solid #e2e8f0", shadow "0 1px 3px rgba(0,0,0,0.05)", padding 10, spacing 4, width full
+varHeader is a row with spread, align middle, width full
+varTitle is a text with value "🗂️ Variables", weight 700, size 12, foreground "#0f172a"
+varCollapse is a text with value "▾", foreground "#94a3b8", weight 700, size 12
+put varTitle, varCollapse in varHeader
+
+varListCol is a column with spacing 2, customstyle "font-family: var(--font-code); font-size: 11px;"
+var1Row is a row with spread, align middle, width full
+v1Key is a text with value "folder", size 11, foreground "#334155"
+v1Val is a text with value "\"Pictures\"", size 11, foreground "#dc2626"
+put v1Key, v1Val in var1Row
+
+var2Row is a row with spread, align middle, width full
+v2Key is a text with value "› files", size 11, foreground "#334155"
+v2Val is a text with value "[ 24 items ]", size 11, foreground "#64748b"
+put v2Key, v2Val in var2Row
+
+var3Head is a text with value "▾ file  (current item)", size 11, foreground "#334155"
+subVarCol is a column with spacing 1, padding "0 0 0 10", customstyle "border-left: 1px solid #e2e8f0; margin-left: 6px;"
+s1 is a text with value "name      \"beach.jpg\"", size 10, foreground "#dc2626"
+s2 is a text with value "extension \".jpg\"", size 10, foreground "#dc2626"
+s3 is a text with value "size      2.4 MB", size 10, foreground "#475569"
+s4 is a text with value "modified  2026-09-08 14:32", size 10, foreground "#475569"
+put s1, s2, s3, s4 in subVarCol
+
+var4Row is a row with spread, align middle, width full
+v4Key is a text with value "output", size 11, foreground "#334155"
+v4Val is a text with value "\"output\"", size 11, foreground "#dc2626"
+put v4Key, v4Val in var4Row
+
+put var1Row, var2Row, var3Head, subVarCol, var4Row in varListCol
+put varHeader, varListCol in variablesCard
+
+watchCard is a card with background "#ffffff", radius 8, border "1px solid #e2e8f0", shadow "0 1px 3px rgba(0,0,0,0.05)", padding 10, spacing 4, width full
+watchHeader is a row with spread, align middle, width full
+watchTitle is a text with value "👁️ Watch", weight 700, size 12, foreground "#0f172a"
+watchAdd is a button with text "+", background "transparent", foreground "#64748b", weight 700, size 12, padding "2px 5px"
+put watchTitle, watchAdd in watchHeader
+watchDesc is a text with value "Click + to watch a variable while running.", size 10, foreground "#94a3b8"
+put watchHeader, watchDesc in watchCard
+
+put outputCard, variablesCard, watchCard in rightSidebar
+
+put leftSidebar, centerCol, rightSidebar in workspaceRow
+
+# =========================================================
+# 3. BOTTOM DRAWER (PROBLEMS, OUTPUT & REUSABLE TERMINAL)
+# =========================================================
+
+problemsDrawer is a column with spacing 4, padding "6px 14px", background "#ffffff", radius 8, border "1px solid #e2e8f0", shadow "0 1px 3px rgba(0,0,0,0.05)", width full, customstyle "position: relative; overflow: hidden; height: 96px; min-height: 96px;"
+
+drawerHeader is a row with spacing 6, align middle, width full
+tabProblems is a button with text "Problems", background "#ffffff", foreground "#2563eb", weight 700, size 11, padding "2px 8px", radius 4, border "1px solid #e2e8f0"
+tabOutput is a button with text "Output", background "transparent", foreground "#64748b", weight 500, size 11, padding "2px 8px"
+tabTerminal is a button with text "Terminal", background "transparent", foreground "#64748b", weight 500, size 11, padding "2px 8px"
+put tabProblems, tabOutput, tabTerminal in drawerHeader
+
+problemsContentRow is a row with spread, align middle, spacing 10, width full
+
+probStatusWrap is a row with spacing 12, align middle
+probCheckCircle is a badge with text "✓", background "#22c55e", foreground "white", round, weight 800, size 15, padding "5px 9px"
+probTextCol is a column with spacing 0
+probHeadline is a text with value "No problems found.", weight 700, size 14, foreground "#0f172a"
+probSubline is a text with value "Your code looks good!", size 12, foreground "#64748b", whitespace "pre-wrap"
+put probHeadline, probSubline in probTextCol
+put probCheckCircle, probTextCol in probStatusWrap
+
+mascotCheerWrap is a row with spacing 10, align middle, customstyle "position: relative; margin-right: 16px;"
+cheerBubble is a card with background "#fefce8", border "1px solid #fef08a", radius 6, padding "5px 12px", spacing 1
+cheerTitle is a text with value "Great job!", weight 700, size 12, foreground "#166534"
+cheerSub is a text with value "Keep going! 🐾", size 11, foreground "#15803d"
+put cheerTitle, cheerSub in cheerBubble
+mascotCheerImg is a image with source "otter-cheer.svg", width 96, height 80, alt "Cheering Otter"
+put cheerBubble, mascotCheerImg in mascotCheerWrap
+
+put probStatusWrap, mascotCheerWrap in problemsContentRow
+
+put drawerHeader, problemsContentRow in problemsDrawer
+
+# =========================================================
+# 4. BOTTOM GREEN RUN STATUS BAR
+# =========================================================
+
+statusBar is a row with spread, align middle, padding "4px 14px", background "#ffffff", radius 6, border "1px solid #e2e8f0", width full, customstyle "box-sizing: border-box; height: 36px; min-height: 36px;"
+
+statusLeft is a row with spacing 14, align middle
+runBtn is a button with text "▶ Run ▾", background "#16a34a", foreground "#ffffff", radius 9999, weight 700, size 12, padding "6px 18px"
+statusOk is a text with value "✓ No problems", size 11, weight 600, foreground "#16a34a"
+put runBtn, statusOk in statusLeft
+
+statusRight is a text with value "Ln 17, Col 5   Spaces: 4   UTF-8   Otter 0.1", size 11, foreground "#64748b"
+
+put statusLeft, statusRight in statusBar
+
+# =========================================================
+# 5. ASSEMBLE PAGE & EVENTS (IN PURE OTTER)
+# =========================================================
+
+when runBtn is clicked
+    text of probHeadline is "Running " and activeFilePath
+    text of probSubline is "Executing via Otter CLI..."
+    cmd is "powershell -ExecutionPolicy Bypass -File .\otter.ps1 run " and activeFilePath
+    run command cmd into runOutput
+    text of out1 is runOutput
+    text of out2 is ""
+    text of out3 is ""
+    text of out4 is ""
+    text of out5 is ""
+    if runOutput contains "Error"
+        text of probCheckCircle is "⚠"
+        text of probHeadline is "Execution Error"
+        text of probSubline is runOutput
+        text of cheerTitle is "Execution Failed"
+        text of cheerSub is "Review the error output above. 🐾"
+        text of outDone is "Execution failed."
+    otherwise
+        text of probCheckCircle is "✓"
+        text of probHeadline is "Program Succeeded."
+        text of probSubline is "Execution completed with exit code 0."
+        text of cheerTitle is "Great job!"
+        text of cheerSub is "Keep going! 🐾"
+        text of outDone is "Execution complete."
+    .
+.
+
+when clearBtn is clicked
+    text of out1 is ""
+    text of out2 is ""
+    text of out3 is ""
+    text of out4 is ""
+    text of out5 is ""
+    text of outDone is "Output cleared."
+.
+
+to restoreMainCode
+    text of tabItem is "📄 main.ot  ×"
+    text of c1 is "<span class='tok-comment'># File Organizer</span>"
+    text of c2 is "<span class='tok-comment'># Finds all image files and copies them to an output folder.</span>"
+    text of c3 is "&nbsp;"
+    text of c4 is "<span class='tok-var'>folder</span> <span class='tok-kw'>is</span> <span class='tok-str'>\"Pictures\"</span>"
+    text of c5 is "<span class='tok-kw'>get files in</span> <span class='tok-var'>folder</span> <span class='tok-kw'>and subfolders into</span> <span class='tok-var'>files</span>"
+    text of c6 is "&nbsp;"
+    text of c7 is "<span class='tok-kw'>create</span> <span class='tok-kw'>folder</span> <span class='tok-str'>\"output\"</span>"
+    text of c8 is "&nbsp;"
+    text of c9 is "<span class='tok-kw'>for each</span> <span class='tok-var'>file</span> <span class='tok-kw'>in</span> <span class='tok-var'>files</span>"
+    text of c10 is "    <span class='tok-kw'>if</span> <span class='tok-kw'>extension of</span> <span class='tok-var'>file</span> <span class='tok-kw'>is</span> <span class='tok-str'>\".jpg\"</span> <span class='tok-kw'>or</span> <span class='tok-kw'>extension of</span> <span class='tok-var'>file</span> <span class='tok-kw'>is</span> <span class='tok-str'>\".png\"</span>"
+    text of c11 is "        <span class='tok-kw'>copy file to</span> <span class='tok-str'>\"output\"</span>"
+    text of c12 is "        <span class='tok-kw'>say</span> <span class='tok-str'>\"Copied\"</span> <span class='tok-kw'>name of</span> <span class='tok-var'>file</span>"
+    text of c13 is "    <span class='tok-kw'>.</span>"
+    text of c14 is "<span class='tok-kw'>.</span>"
+    text of c15 is "&nbsp;"
+    text of c16 is "<span class='tok-kw'>say</span> <span class='tok-str'>\"All done!\"</span>"
+    text of c17 is "<span class='tok-kw'>get</span> <span style='color:#0f172a; font-weight: 700;'>|</span>"
+    text of v1Key is "folder"
+    text of v1Val is "\"Pictures\""
+    text of v2Key is "› files"
+    text of v2Val is "[ 24 items ]"
+.
+
+when fileMain is clicked
+    restoreMainCode
+.
+
+when tplAutomation is clicked
+    restoreMainCode
+.
+
+when fileReadme is clicked
+    text of tabItem is "📄 README.txt  ×"
+    text of c1 is "# README.txt"
+    text of c2 is "File Organizer utility written in Otter."
+    text of c3 is "&nbsp;"
+    text of c4 is "Scans Pictures folder and sorts images by extension."
+    text of c5 is "&nbsp;"
+    text of c6 is "Usage:"
+    text of c7 is "  otter run main.ot"
+    text of c8 is "&nbsp;"
+    text of c9 is "&nbsp;"
+    text of c10 is "&nbsp;"
+    text of c11 is "&nbsp;"
+    text of c12 is "&nbsp;"
+    text of c13 is "&nbsp;"
+    text of c14 is "&nbsp;"
+    text of c15 is "&nbsp;"
+    text of c16 is "&nbsp;"
+    text of c17 is "&nbsp;"
+    text of v1Key is "type"
+    text of v1Val is "\"Text Document\""
+    text of v2Key is "encoding"
+    text of v2Val is "\"UTF-8\""
+.
+
+when tplSimple is clicked
+    text of tabItem is "📄 hello.ot  ×"
+    text of c1 is "# hello.ot - Simple Otter Program"
+    text of c2 is "say \"Hello from Otter!\""
+    text of c3 is "&nbsp;"
+    text of c4 is "name is \"World\""
+    text of c5 is "say \"Welcome, \" and name"
+    text of c6 is "&nbsp;"
+    text of c7 is "&nbsp;"
+    text of c8 is "&nbsp;"
+    text of c9 is "&nbsp;"
+    text of c10 is "&nbsp;"
+    text of c11 is "&nbsp;"
+    text of c12 is "&nbsp;"
+    text of c13 is "&nbsp;"
+    text of c14 is "&nbsp;"
+    text of c15 is "&nbsp;"
+    text of c16 is "&nbsp;"
+    text of c17 is "&nbsp;"
+    text of v1Key is "greeting"
+    text of v1Val is "\"Hello, world!\""
+    text of v2Key is "status"
+    text of v2Val is "\"ready\""
+.
+
+when newFileBtn is clicked
+    text of tabItem is "📄 untitled.ot  ×"
+    text of c1 is "# untitled.ot"
+    text of c2 is "say \"Hello from Otter!\""
+    text of c3 is "&nbsp;"
+    text of c4 is "&nbsp;"
+    text of c5 is "&nbsp;"
+    text of c6 is "&nbsp;"
+    text of c7 is "&nbsp;"
+    text of c8 is "&nbsp;"
+    text of c9 is "&nbsp;"
+    text of c10 is "&nbsp;"
+    text of c11 is "&nbsp;"
+    text of c12 is "&nbsp;"
+    text of c13 is "&nbsp;"
+    text of c14 is "&nbsp;"
+    text of c15 is "&nbsp;"
+    text of c16 is "&nbsp;"
+    text of c17 is "&nbsp;"
+.
+
+when ac1 is clicked
+    text of c17 is "<span class='tok-kw'>get files in</span> <span class='tok-str'>\"Pictures\"</span> <span class='tok-kw'>into</span> <span class='tok-var'>files</span>"
+.
+
+when ac2 is clicked
+    text of c17 is "<span class='tok-kw'>get folders in</span> <span class='tok-str'>\"Pictures\"</span> <span class='tok-kw'>into</span> <span class='tok-var'>folders</span>"
+.
+
+when tabTerminal is clicked
+    text of probHeadline is "Terminal Session Active (System Shell / REPL)"
+    text of probSubline is "Select a profile (PS, CMD, Bash, WSL, REPL) and run commands."
+.
+
+when tabProblems is clicked
+    text of probHeadline is "No problems found."
+    text of probSubline is "Your code looks good!"
+.
+
+when tabOutput is clicked
+    text of probHeadline is "Program Output Stream"
+    text of probSubline is "Live output from running Otter programs."
+.
+
+put headerBar, workspaceRow, problemsDrawer, statusBar in studio
+show studio

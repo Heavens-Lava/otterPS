@@ -1,0 +1,35 @@
+{
+  "$schema": "https://otter-lang.org/schema/project-v1.json",
+  "name": "test-certified-desktop",
+  "version": "1.0.0",
+  "description": "Modern Otter desktop application",
+  "archetype": "desktop",
+  "target": "desktop",
+  "entryPoint": "app.ot",
+  "author": "Otter Developer",
+  "license": "MIT",
+  "created": "2026-09-17T18:27:54.825Z",
+  "build": {
+    "outputDir": "dist",
+    "minify": false,
+    "sourceMaps": true,
+    "clean": true
+  },
+  "permissions": {
+    "filesystem": true,
+    "network": false,
+    "clipboard": true,
+    "process": false
+  },
+  "dependencies": {
+    "core": "^1.0.0"
+  },
+  "assets": [
+    "styles.css"
+  ],
+  "scripts": {
+    "start": "otter run app.ot",
+    "build": "otter build",
+    "test": "otter test"
+  }
+}

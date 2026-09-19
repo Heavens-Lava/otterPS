@@ -16,6 +16,53 @@ The site intentionally documents only implemented Otter behavior. Additions to
 the language should first be frozen in the language contract and decisions,
 then documented here in user-facing terms.
 
+## Otter-authored site shell
+
+`site.ot` is the first documentation page authored entirely in Otter. Compile
+it from the repository root with:
+
+```powershell
+.\otter.cmd web otter-docs\site.ot -NoOpen
+```
+
+This writes `otter-docs/site.html`. The page uses Otter's current web resources,
+rows, columns, links, grouped properties, and containment syntax. The existing
+Node build remains available while navigation, content loading, and search are
+migrated incrementally to Otter output.
+
+Independent Otter-authored routes live in `pages/`. Build them into clean URL
+directories with Windows PowerShell:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\otter-docs\scripts\build-otter-pages.ps1
+```
+
+The generated routes include the home page, Download, Examples, First Program,
+Reference, Release Status, Studio status, and the current tutorial/reference
+pages. Generated HTML is intentionally ignored; the `.ot` files are the source
+of truth.
+
+`release-data.json` is the single website source for the current release
+version, Windows requirements, and installer metadata. The Otter route build
+fails if its version differs from the repository `VERSION` file. Until an
+installer is actually published, its size, date, checksum, release notes, and
+download action remain explicit "not published" states rather than placeholders.
+
+Audit generated internal navigation before publishing:
+
+```powershell
+npm run audit:otter
+```
+
+Preview the generated Otter site locally:
+
+```powershell
+npm run dev:otter
+```
+
+Then open `http://localhost:4174/`. The root route serves the Otter home page;
+other routes use the generated clean directories.
+
 ## Every example is checked against the real parser
 
 ```powershell

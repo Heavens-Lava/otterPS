@@ -9,7 +9,7 @@ const note = (text) => `<aside class="note"><strong>Note</strong><p>${text}</p><
 
 export const sections = [
   ['Getting Started', [
-    ['welcome', 'Welcome to Otter'], ['installation', 'Installation'], ['hello', 'Hello, Otter!'], ['running-files', 'Running .ot Files'], ['repl', 'REPL']
+    ['welcome', 'Welcome to Otter'], ['download', 'Download Otter'], ['installation', 'Installation'], ['hello', 'Hello, Otter!'], ['running-files', 'Running .ot Files'], ['repl', 'REPL']
   ]],
   ['Learn Otter', [
     ['variables', 'Variables and Values'], ['input-output', 'Input and Output'], ['conditions', 'Conditions'], ['loops', 'Loops'], ['lists', 'Lists'], ['functions', 'Functions'], ['objects', 'Objects'], ['files-folders', 'Files and Folders'], ['error-handling', 'Error Handling']
@@ -32,14 +32,37 @@ export const pages = [
     <p>Otter is a small programming language designed to read naturally while remaining precise. Programs use words and indentation instead of punctuation-heavy syntax.</p>
     ${code('say "Hello, Otter!"')}
     <p>Start with a short program, then grow into files, folders, objects, and collections without changing how the language reads.</p>`, 'A gentle introduction to Otter.'),
+  page('download', 'Download Otter', 'Getting Started', `
+    <p class="lead">Otter is currently distributed as a Windows-friendly project folder. It includes the <code>otter</code> launcher, the language implementation, examples, tests, and editor support.</p>
+    <section class="download-hero">
+      <div>
+        <p class="eyebrow">CURRENT RELEASE</p>
+        <h2>Otter for Windows</h2>
+        <p>Run Otter with Windows PowerShell 5.1. No separate runtime installation is required.</p>
+      </div>
+      <div class="download-status"><strong>Source-first release</strong><span>Installer coming later</span></div>
+    </section>
+    <h2>Start from the Otter folder</h2>
+    <p>Open PowerShell in the folder containing <code>otter.cmd</code>, then run one of the included examples:</p>
+    ${shell('.\\otter.cmd examples\\hello.ot')}
+    <p>To make the <code>otter</code> command available from any folder, add the Otter project folder to your user PATH. See <a href="/installation/">Installation</a> for the exact command and a quick verification step.</p>
+    <h2>What is included</h2>
+    <div class="download-grid">
+      <div><strong>Otter launcher</strong><span>Run <code>.ot</code> programs from PowerShell.</span></div>
+      <div><strong>Examples</strong><span>Learn from programs you can run and change.</span></div>
+      <div><strong>VS Code support</strong><span>Syntax highlighting and editor help for <code>.ot</code> files.</span></div>
+      <div><strong>Web compiler</strong><span>Build an Otter web program with <code>otter web</code>.</span></div>
+    </div>
+    ${note('An official installer and public release-download link are not published yet. Until then, use the Otter project folder supplied with the current release.')}`,
+    'How to get and run the current Windows release of Otter.'),
   page('installation', 'Installation', 'Getting Started', `
-    <p>Otter runs on Windows PowerShell 5.1. There is nothing to install and nothing to download &mdash; run a program straight from the project folder:</p>
+    <p>Otter runs on Windows PowerShell 5.1. Start from the Otter project folder, which contains the launcher and examples. See <a href="/download/">Download Otter</a> for what is currently included.</p>
     ${shell('.\\otter.cmd examples\\hello.ot')}
     <p>To use <code>otter</code> from any folder, the way <code>python</code> works, add the project folder to your PATH once:</p>
     ${shell("$userPath = [Environment]::GetEnvironmentVariable('Path','User')\n[Environment]::SetEnvironmentVariable('Path', $userPath + ';C:\\path\\to\\otterPS', 'User')")}
     <p>Open a <strong>new</strong> terminal afterwards. A program keeps the environment it started with, so an already-open window will not see the change.</p>
     ${shell('otter hello.ot')}
-    ${note('A packaged installer and editor integration are not available yet. This page will be updated when an official distribution exists.')}`),
+    ${note('A packaged installer is not available yet. This page will be updated when an official distribution exists.')}`),
   page('hello', 'Hello, Otter!', 'Getting Started', `<p>Create <code>hello.ot</code>:</p>${code('say "Hello, Otter!"')}<p>Run it with the Otter launcher.</p>`),
   page('running-files', 'Running .ot Files', 'Getting Started', `<p>Pass an Otter source file to the launcher.</p>${shell('otter hello.ot')}<p>Otter reports syntax and runtime errors with the line that needs attention.</p><p>To check that a file is well formed without running it, add <code>-ParseOnly</code>. Nothing is printed, no file is written, and no program is launched.</p>${shell('otter hello.ot -ParseOnly')}`),
   page('repl', 'REPL', 'Getting Started', `<p>Run <code>otter</code> without a file to start the interactive prompt. Variables set on one line are still there on the next. Type <code>exit</code> to leave it.</p>${shell('otter> name is "Jeff"\notter> say "Hello" name\nHello Jeff\notter> exit')}`),

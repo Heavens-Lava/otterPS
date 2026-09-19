@@ -1,9 +1,8 @@
 # objects.ot - things and their properties
 #
-# NOTE: needs the parser support for 0.3 before this runs.
 # Properties are read with "of", never with a period.
 
-person is a thing
+person has
     name is "Jeff"
     age is 29
 .
@@ -15,12 +14,14 @@ age of person is 30
 
 say "Now" age of person
 
-# Nesting reads right to left: the city of the address of the user.
-address is a thing
+# Nesting reads right to left:
+# the city of the address of the user.
+
+address has
     city is "Tucson"
 .
 
-user is a thing
+user has
     address is address
 .
 
