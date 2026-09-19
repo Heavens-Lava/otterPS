@@ -32,7 +32,8 @@ $script:OtterIdentifierKinds = @(
     [TokenKind]::Random, [TokenKind]::Json, [TokenKind]::Csv, [TokenKind]::Convert,
     [TokenKind]::Format, [TokenKind]::Today, [TokenKind]::Now,
     [TokenKind]::Between, [TokenKind]::Otherwise, [TokenKind]::ForEach,
-    [TokenKind]::Count, [TokenKind]::Notify, [TokenKind]::Choose
+    [TokenKind]::Count, [TokenKind]::Notify, [TokenKind]::Choose,
+    [TokenKind]::Download
 )
 
 function Test-OtterIdentifierToken {
@@ -2329,6 +2330,17 @@ function Read-OtterStatement {
             $path = Read-OtterValue
             [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the delete statement to end here.')
             return [DeleteFileStmt]::new($path, $start.Line)
+        }
+        # download file from <url> to <path>                            (D96)
+        ([TokenKind]::Download) {
+            [void](Read-OtterToken)
+            [void](Assert-OtterTokenKind ([TokenKind]::File) 'I expected "file" after "download".' 'Write: download file from <url> to <path>')
+            [void](Assert-OtterTokenKind ([TokenKind]::From) 'I expected "from" after "file".' 'Write: download file from <url> to <path>')
+            $url = Read-OtterMathExpression
+            [void](Assert-OtterTokenKind ([TokenKind]::To) 'I expected "to" and a destination path.' 'Write: download file from <url> to <path>')
+            $path = Read-OtterMathExpression
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the download statement to end here.')
+            return [DownloadFileStmt]::new($url, $path, $start.Line)
         }
         # notify "Title" with "Message"                                (D67)
         ([TokenKind]::Notify) {

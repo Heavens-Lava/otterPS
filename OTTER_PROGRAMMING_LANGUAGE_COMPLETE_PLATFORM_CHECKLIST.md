@@ -572,7 +572,31 @@ creation.
 -   [ ] Form encoding
 -   [ ] Multipart/form-data
 -   [ ] File upload
--   [ ] File download
+-   [x] File download (D96: `download file from <url> to <path>`. Complete byte-identical streaming, atomic same-directory promotion, CreateNew collision safety, truncation detection, failure cleanup, JS compiler & Desktop Bridge integration)
+    -   [x] Specification
+    -   [x] Contract
+    -   [x] Lexer
+    -   [x] Parser
+    -   [x] Frontend tests
+    -   [x] Runtime
+    -   [x] Binary streaming
+    -   [x] Same-directory temporary file
+    -   [x] CreateNew temp safety
+    -   [x] No-overwrite promotion
+    -   [x] Collision-race protection
+    -   [x] Content-Length truncation detection
+    -   [x] Chunked interruption detection
+    -   [x] Failure cleanup
+    -   [x] Redirect limits
+    -   [x] JS compiler integration
+    -   [x] Desktop Bridge integration
+    -   [x] Bridge authentication/security
+    -   [x] Production CLI (`examples/download.ot`)
+    -   [x] 34 D96 tests (`tests/Download.Tests.ps1`)
+    -   [x] 31/31 repository suites (`tests/Run-Tests.ps1`)
+    -   [x] 15/15 release conformance (`tools/Test-OtterReleaseConformance.ps1`)
+    -   [x] Independent adversarial audit
+    -   [x] Certified Implemented
 -   [ ] Streaming
 -   [x] Timeouts
 -   [ ] Cancellation

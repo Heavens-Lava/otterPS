@@ -1,0 +1,17 @@
+# download.ot - File Download (D96)
+#
+# Downloads a file from an HTTP/HTTPS URL directly to a destination path
+# using streaming transfer and atomic promotion.
+
+say "Downloading robots.txt from httpbin.org..."
+download file from "https://httpbin.org/robots.txt" to "downloaded-robots.txt"
+
+if file "downloaded-robots.txt" exists
+    read "downloaded-robots.txt" into content
+    say "Downloaded successfully! Content:"
+    say content
+    delete file "downloaded-robots.txt"
+    say "Cleaned up temporary download."
+otherwise
+    say "Download failed to produce destination file."
+.

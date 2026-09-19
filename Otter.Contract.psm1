@@ -214,8 +214,9 @@ enum TokenKind {
     Put             # put helloButton in app          (D47)
     Show            # show app                        (D47)
 
-    # --- networking & http (D49) --------------------------------
+    # --- networking & http (D49, D96) ---------------------------
     Post            # post data to "https://..." into result
+    Download        # download file from <url> to <path> (D96)
 
     # --- web servers & api routes (D51) -------------------------
     Respond         # respond with "..." as json and status 200
@@ -384,11 +385,12 @@ enum NodeKind {
     # dates and time, as an expression (D42)
     DateDifferenceValue  # days between startDate and endDate       (a VALUE, usable anywhere an expression is)
 
-    # networking & http (D49)
+    # networking & http (D49, D96)
     HttpGet
     HttpPost
     HttpPut
     HttpDelete
+    DownloadFile
 
     # web servers & api routes (D51)
     WebRoute
@@ -2161,6 +2163,16 @@ class HttpDeleteStmt : Node {
     HttpDeleteStmt([Node]$url, [string]$target, [int]$line) : base([NodeKind]::HttpDelete, $line) {
         $this.Url = $url
         $this.Target = $target
+    }
+}
+
+# download file from <url> to <path> (D96)
+class DownloadFileStmt : Node {
+    [Node]$Url
+    [Node]$Path
+    DownloadFileStmt([Node]$url, [Node]$path, [int]$line) : base([NodeKind]::DownloadFile, $line) {
+        $this.Url = $url
+        $this.Path = $path
     }
 }
 

@@ -81,6 +81,20 @@ if ($getCsvTokens[1].Kind -ne [TokenKind]::Identifier) {
     throw 'Csv must not become structural in unrelated get productions.'
 }
 
+# D96: download file tokens and contextual behavior
+$downloadTokens = ConvertTo-OtterTokens -Source 'download file from "https://example.com/data.bin" to "out.bin"'
+if ((@($downloadTokens | ForEach-Object Kind) -join ',') -ne 'Download,File,From,String,To,String,Newline,EndOfFile') {
+    throw 'Expected download file statement tokens: Download,File,From,String,To,String,Newline,EndOfFile.'
+}
+$downloadIdentifierTokens = ConvertTo-OtterTokens -Source 'say download'
+if ($downloadIdentifierTokens[1].Kind -ne [TokenKind]::Identifier) {
+    throw 'Download outside statement head must remain an ordinary identifier.'
+}
+$downloadPropTokens = ConvertTo-OtterTokens -Source 'url of download'
+if ($downloadPropTokens[2].Kind -ne [TokenKind]::Identifier) {
+    throw 'Download in property position must remain an ordinary identifier.'
+}
+
 # D51 Web Server tests
 $routeTokens = ConvertTo-OtterTokens -Source 'when api receives GET at "/users"'
 if ((@($routeTokens | ForEach-Object Kind) -join ',') -ne 'When,Identifier,Receives,Identifier,At,String,Newline,EndOfFile') {

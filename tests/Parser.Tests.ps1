@@ -1295,4 +1295,73 @@ if ($csvAst.Statements[2] -isnot [ConvertFromCsvStmt] -or $csvAst.Statements[2].
 if ($csvAst.Statements[3] -isnot [ConvertToCsvStmt] -or $csvAst.Statements[3].Target -ne 'csvText') { throw 'Expected convert to csv AST.' }
 if ($csvAst.Statements[4] -isnot [AssignStmt] -or $csvAst.Statements[4].Target.Name -ne 'csv') { throw 'Expected csv to remain a valid variable name.' }
 
+# D96: File download statement and contextual keyword behavior
+$downloadAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source @'
+download file from "https://example.com/data.bin" to "downloads/data.bin"
+baseUrl is "https://example.com"
+url is baseUrl plus "/customers.csv"
+destination is "downloads/customers.csv"
+download file from url to destination
+download file from baseUrl plus "/customers.csv" to destFolder plus "/file.csv"
+download is "downloads/data.bin"
+say download
+'@)
+
+if ($downloadAst.Statements[0] -isnot [DownloadFileStmt]) { throw 'Expected DownloadFileStmt node for canonical download.' }
+if ($downloadAst.Statements[0].Url -isnot [LiteralExpr] -or $downloadAst.Statements[0].Url.Value -ne 'https://example.com/data.bin') { throw 'Expected literal URL in DownloadFileStmt.' }
+if ($downloadAst.Statements[0].Path -isnot [LiteralExpr] -or $downloadAst.Statements[0].Path.Value -ne 'downloads/data.bin') { throw 'Expected literal destination Path in DownloadFileStmt.' }
+
+if ($downloadAst.Statements[4] -isnot [DownloadFileStmt]) { throw 'Expected DownloadFileStmt node with variable expressions.' }
+if ($downloadAst.Statements[4].Url -isnot [VariableExpr] -or $downloadAst.Statements[4].Url.Name -ne 'url') { throw 'Expected VariableExpr URL in DownloadFileStmt.' }
+if ($downloadAst.Statements[4].Path -isnot [VariableExpr] -or $downloadAst.Statements[4].Path.Name -ne 'destination') { throw 'Expected VariableExpr destination Path in DownloadFileStmt.' }
+
+if ($downloadAst.Statements[5] -isnot [DownloadFileStmt]) { throw 'Expected DownloadFileStmt node with compound expressions.' }
+if ($downloadAst.Statements[5].Url -isnot [MathExpr]) { throw 'Expected MathExpr URL in compound DownloadFileStmt.' }
+if ($downloadAst.Statements[5].Path -isnot [MathExpr]) { throw 'Expected MathExpr destination Path in compound DownloadFileStmt.' }
+
+if ($downloadAst.Statements[6] -isnot [AssignStmt] -or $downloadAst.Statements[6].Target.Name -ne 'download') { throw 'Expected download to remain a valid variable assignment target.' }
+if ($downloadAst.Statements[7] -isnot [SayStmt] -or $downloadAst.Statements[7].Parts[0].Name -ne 'download') { throw 'Expected download variable to be readable in say statement.' }
+
+# D96 error diagnostics
+$missingFileRejected = $false
+try {
+    ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source 'download "https://example.com" to "out.bin"')
+} catch {
+    if ($_.Exception.Message -like '*I expected "file" after "download"*' -and $_.Exception.Suggestion -like '*download file from*') {
+        $missingFileRejected = $true
+    }
+}
+if (-not $missingFileRejected) { throw 'Expected download without "file" to be rejected with clean diagnostic.' }
+
+$missingFromRejected = $false
+try {
+    ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source 'download file "https://example.com" to "out.bin"')
+} catch {
+    if ($_.Exception.Message -like '*I expected "from" after "file"*') {
+        $missingFromRejected = $true
+    }
+}
+if (-not $missingFromRejected) { throw 'Expected download without "from" to be rejected with clean diagnostic.' }
+
+$missingToRejected = $false
+try {
+    ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source 'download file from "https://example.com"')
+} catch {
+    if ($_.Exception.Message -like '*I expected "to"*') {
+        $missingToRejected = $true
+    }
+}
+if (-not $missingToRejected) { throw 'Expected download without "to" to be rejected with clean diagnostic.' }
+
+$trailingTokensRejected = $false
+try {
+    ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source 'download file from "https://example.com" to "out.bin" extra')
+} catch {
+    if ($_.Exception.Message -like '*I expected the download statement to end here*') {
+        $trailingTokensRejected = $true
+    }
+}
+if (-not $trailingTokensRejected) { throw 'Expected trailing tokens on download statement to be rejected with clean diagnostic.' }
+
 Write-Output 'Parser tests passed.'
+

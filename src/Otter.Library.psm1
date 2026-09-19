@@ -2350,6 +2350,246 @@ function Get-OtterSystemInfoValue {
     }
 }
 
+# ===============================================================
+# FILE DOWNLOAD (D96)
+# ===============================================================
+
+function Receive-OtterFileDownload {
+    param(
+        [Parameter(Mandatory)][string]$Url,
+        [Parameter(Mandatory)][string]$Path,
+        [int]$Line = 0
+    )
+
+    # 1. URL validation
+    if ([string]::IsNullOrWhiteSpace($Url)) {
+        throw [OtterError]::new('I need a URL to download from.', $Line, 'runtime')
+    }
+
+    $uri = $null
+    try {
+        $uri = [System.Uri]::new($Url, [System.UriKind]::Absolute)
+    }
+    catch {
+        throw [OtterError]::new("`"$Url`" is not a valid URL.", $Line, 'runtime')
+    }
+
+    if ($uri.Scheme -ne 'http' -and $uri.Scheme -ne 'https') {
+        throw [OtterError]::new(
+            "I can only download files using http or https, but this URL uses `"$($uri.Scheme)`".",
+            $Line, 'runtime')
+    }
+
+    # 2. Path & directory validation
+    $full = Resolve-OtterPath -Path $Path -Line $Line
+
+    if (Test-Path -LiteralPath $full -PathType Container) {
+        throw [OtterError]::new("`"$Path`" is a folder, not a file.", $Line, 'runtime')
+    }
+
+    $parent = [System.IO.Path]::GetDirectoryName($full)
+    if (-not [string]::IsNullOrEmpty($parent) -and -not (Test-Path -LiteralPath $parent -PathType Container)) {
+        throw [OtterError]::new(
+            "I cannot find the folder `"$parent`". Otter does not create destination folders automatically.",
+            $Line, 'runtime')
+    }
+
+    # Pre-download destination check: fail before issuing HTTP request if practical
+    if (Test-Path -LiteralPath $full) {
+        throw [OtterError]::new(
+            "A file called `"$Path`" already exists. Otter will not overwrite it.",
+            $Line, 'runtime')
+    }
+
+    # 3. Temporary file in the destination directory (same-volume / same-directory)
+    $tempFileName = '.otter-dl-' + [System.Guid]::NewGuid().ToString('N') + '.tmp'
+    $tempFile = if ([string]::IsNullOrEmpty($parent)) {
+        $tempFileName
+    } else {
+        [System.IO.Path]::Combine($parent, $tempFileName)
+    }
+
+    # 4. HTTP streaming directly to FileStream
+    Add-Type -AssemblyName System.Net.Http -ErrorAction SilentlyContinue
+
+    $handler = $null
+    $client = $null
+    $response = $null
+    $responseStream = $null
+    $fileStream = $null
+    $promoted = $false
+
+    try {
+        $handler = [System.Net.Http.HttpClientHandler]::new()
+        $handler.AllowAutoRedirect = $true
+        $handler.MaxAutomaticRedirections = 10
+        $client = [System.Net.Http.HttpClient]::new($handler)
+        $client.Timeout = [System.TimeSpan]::FromSeconds(60)
+
+        try {
+            $response = $client.GetAsync($uri, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead).GetAwaiter().GetResult()
+        }
+        catch {
+            $baseEx = $_.Exception
+            while ($baseEx.InnerException) { $baseEx = $baseEx.InnerException }
+            $msg = $baseEx.Message
+            if ($msg -match 'redirect' -or $baseEx.GetType().Name -eq 'ProtocolViolationException') {
+                throw [OtterError]::new("Download from `"$Url`" exceeded the redirect limit.", $Line, 'runtime')
+            }
+            if ($msg -match 'No such host' -or ($baseEx -is [System.Net.Sockets.SocketException] -and $baseEx.SocketErrorCode -eq [System.Net.Sockets.SocketError]::HostNotFound)) {
+                throw [OtterError]::new("Could not resolve host `"$($uri.Host)`".", $Line, 'runtime')
+            }
+            if ($msg -match 'refused' -or ($baseEx -is [System.Net.Sockets.SocketException] -and $baseEx.SocketErrorCode -eq [System.Net.Sockets.SocketError]::ConnectionRefused)) {
+                throw [OtterError]::new("Could not connect to `"$Url`": connection refused.", $Line, 'runtime')
+            }
+            throw [OtterError]::new("Could not connect to `"$Url`": $msg", $Line, 'runtime')
+        }
+
+        # Check if redirected to an unsupported scheme
+        if ($response.RequestMessage -and $response.RequestMessage.RequestUri) {
+            $finalScheme = $response.RequestMessage.RequestUri.Scheme
+            if ($finalScheme -ne 'http' -and $finalScheme -ne 'https') {
+                throw [OtterError]::new(
+                    "I can only download files using http or https, but this URL redirected to `"$finalScheme`".",
+                    $Line, 'runtime')
+            }
+        }
+
+        # Check HTTP status code
+        if (-not $response.IsSuccessStatusCode) {
+            $statusCode = [int]$response.StatusCode
+            $reason = $response.ReasonPhrase
+            if ($statusCode -ge 300 -and $statusCode -lt 400) {
+                if ($response.Headers.Location) {
+                    $loc = $response.Headers.Location
+                    if ($loc.IsAbsoluteUri -and $loc.Scheme -ne 'http' -and $loc.Scheme -ne 'https') {
+                        throw [OtterError]::new(
+                            "I can only download files using http or https, but this URL redirected to `"$($loc.Scheme)`".",
+                            $Line, 'runtime')
+                    }
+                }
+                throw [OtterError]::new("Download from `"$Url`" exceeded the redirect limit.", $Line, 'runtime')
+            }
+            throw [OtterError]::new("Download failed with HTTP status $statusCode ($reason).", $Line, 'runtime')
+        }
+
+        $expectedLength = $response.Content.Headers.ContentLength
+
+        # Open response stream
+        try {
+            $responseStream = $response.Content.ReadAsStreamAsync().GetAwaiter().GetResult()
+        }
+        catch {
+            throw [OtterError]::new("The network connection failed while opening download stream from `"$Url`".", $Line, 'runtime')
+        }
+
+        # Open file stream in destination directory
+        try {
+            $fileStream = [System.IO.FileStream]::new(
+                $tempFile,
+                [System.IO.FileMode]::CreateNew,
+                [System.IO.FileAccess]::Write,
+                [System.IO.FileShare]::None)
+        }
+        catch {
+            throw [OtterError]::new("Could not create temporary file in `"$parent`": $($_.Exception.Message)", $Line, 'runtime')
+        }
+
+        # Stream bytes directly into file without memory buffering
+        $buffer = New-Object byte[] 65536
+        $totalBytesRead = 0L
+
+        try {
+            while ($true) {
+                $bytesRead = $responseStream.Read($buffer, 0, $buffer.Length)
+                if ($bytesRead -le 0) { break }
+                $fileStream.Write($buffer, 0, $bytesRead)
+                $totalBytesRead += $bytesRead
+            }
+            $fileStream.Flush()
+        }
+        catch {
+            throw [OtterError]::new("The network connection was closed prematurely while downloading `"$Url`".", $Line, 'runtime')
+        }
+
+        # Close streams before promotion
+        $fileStream.Close()
+        $fileStream.Dispose()
+        $fileStream = $null
+
+        $responseStream.Close()
+        $responseStream.Dispose()
+        $responseStream = $null
+
+        # Detect truncated response if Content-Length was provided
+        if ($null -ne $expectedLength -and $totalBytesRead -lt $expectedLength) {
+            throw [OtterError]::new(
+                "Download from `"$Url`" was interrupted: received $totalBytesRead bytes, but expected $expectedLength bytes.",
+                $Line, 'runtime')
+        }
+
+        # Check destination collision again right before promotion
+        if (Test-Path -LiteralPath $full) {
+            throw [OtterError]::new(
+                "A file called `"$Path`" already exists. Otter will not overwrite it.",
+                $Line, 'runtime')
+        }
+
+        # Atomic move/promotion
+        try {
+            [System.IO.File]::Move($tempFile, $full)
+            $promoted = $true
+        }
+        catch {
+            if ($_.Exception.Message -match 'already exists' -or (Test-Path -LiteralPath $full)) {
+                throw [OtterError]::new(
+                    "A file called `"$Path`" already exists. Otter will not overwrite it.",
+                    $Line, 'runtime')
+            }
+            throw [OtterError]::new("Could not save download to `"$Path`": $($_.Exception.Message)", $Line, 'runtime')
+        }
+    }
+    catch {
+        # Clean up temporary file on ANY failure
+        if (-not $promoted -and (Test-Path -LiteralPath $tempFile)) {
+            try {
+                if ($null -ne $fileStream) {
+                    $fileStream.Close()
+                    $fileStream.Dispose()
+                    $fileStream = $null
+                }
+            } catch { }
+            Remove-Item -LiteralPath $tempFile -Force -ErrorAction SilentlyContinue
+        }
+
+        if ($_ -is [OtterError]) {
+            throw $_
+        }
+        if ($_.Exception -is [OtterError]) {
+            throw $_.Exception
+        }
+
+        throw [OtterError]::new("Could not download `"$Url`" to `"$Path`": $($_.Exception.Message)", $Line, 'runtime')
+    }
+    finally {
+        if ($null -ne $fileStream) {
+            try { $fileStream.Close(); $fileStream.Dispose() } catch { }
+        }
+        if ($null -ne $responseStream) {
+            try { $responseStream.Close(); $responseStream.Dispose() } catch { }
+        }
+        if ($null -ne $response) {
+            try { $response.Dispose() } catch { }
+        }
+        if ($null -ne $client) {
+            try { $client.Dispose() } catch { }
+        }
+        if ($null -ne $handler) {
+            try { $handler.Dispose() } catch { }
+        }
+    }
+}
+
 Export-ModuleMember -Function `
     Resolve-OtterPath, Read-OtterFile, Write-OtterFile, Add-OtterFileContent, Copy-OtterFile, `
     Move-OtterFile, Remove-OtterFile, Test-OtterFileExists, Test-OtterFileLocked, `
@@ -2359,6 +2599,7 @@ Export-ModuleMember -Function `
     Copy-OtterFolder, Move-OtterFolder, `
     ConvertFrom-OtterJsonText, ConvertTo-OtterJsonText, Read-OtterJsonFile, `
     ConvertFrom-OtterCsvText, ConvertTo-OtterCsvText, Read-OtterCsvFile, Write-OtterCsvFile, `
+    Receive-OtterFileDownload, `
     Show-OtterNotification, Show-OtterFileDialog, Get-OtterSystemInfoValue, `
     New-OtterProcessObject, Get-OtterProcessList, Stop-OtterProcess, `
     Set-OtterProcessPriority, Wait-OtterProcess, `

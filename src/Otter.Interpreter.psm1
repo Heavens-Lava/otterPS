@@ -586,6 +586,14 @@ function Invoke-OtterStatement {
             return
         }
 
+        # download file from <url> to <path>                            (D96)
+        'DownloadFile' {
+            $url = Get-OtterText -Expression $Statement.Url -Environment $Environment
+            $path = Get-OtterPathArgument -Expression $Statement.Path -Environment $Environment
+            Receive-OtterFileDownload -Url $url -Path $path -Line $Statement.Line
+            return
+        }
+
         # run "notepad.exe"  /  run command "git status" into result
         'RunProgram' {
             $target = Get-OtterText -Expression $Statement.Target -Environment $Environment

@@ -1232,6 +1232,13 @@ function ConvertTo-OtterJsStatement {
             $atomicJs = if ($Stmt.Atomic) { 'true' } else { 'false' }
             return "${pad}await otterWriteFile($pathJs, $contentJs, $atomicJs);"
         }
+        ([NodeKind]::DownloadFile) {
+            # D96: `download file from <url> to <path>`
+            # Emits call to async runtime hook otterDownloadFile(url, path).
+            $urlJs = ConvertTo-OtterJsExpression -Expr $Stmt.Url
+            $pathJs = ConvertTo-OtterJsExpression -Expr $Stmt.Path
+            return "${pad}await otterDownloadFile($urlJs, $pathJs);"
+        }
         ([NodeKind]::RunProgram) {
             # D60. `run command <target> [into <resultTarget>]` - emits call
             # to async runtime hook otterRunCommand(command).
@@ -2818,8 +2825,8 @@ function Test-OtterJsBodyNeedsAsync {
         if ($s.Kind -eq [NodeKind]::Await -or $s.Kind -eq [NodeKind]::ReadFile -or $s.Kind -eq [NodeKind]::WriteFile -or $s.Kind -eq [NodeKind]::AppendFile -or $s.Kind -eq [NodeKind]::CopyFile -or $s.Kind -eq [NodeKind]::MoveFile -or $s.Kind -eq [NodeKind]::DeleteFile -or $s.Kind -eq [NodeKind]::CreateFolder -or $s.Kind -eq [NodeKind]::DeleteFolder -or $s.Kind -eq [NodeKind]::CopyFolder -or $s.Kind -eq [NodeKind]::MoveFolder -or $s.Kind -eq [NodeKind]::GetFiles -or $s.Kind -eq [NodeKind]::GetFolders -or $s.Kind -eq [NodeKind]::RunProgram -or $s.Kind -eq [NodeKind]::HttpGet -or $s.Kind -eq [NodeKind]::HttpPost -or $s.Kind -eq [NodeKind]::HttpPut -or $s.Kind -eq [NodeKind]::HttpDelete -or $s.Kind -eq [NodeKind]::CopyToClipboard -or $s.Kind -eq [NodeKind]::GetClipboard -or $s.Kind -eq [NodeKind]::Notify -or $s.Kind -eq [NodeKind]::GetEnvironmentVariable -or $s.Kind -eq [NodeKind]::GetSystemFolder -or $s.Kind -eq [NodeKind]::ChooseFile -or $s.Kind -eq [NodeKind]::ChooseFolder -or $s.Kind -eq [NodeKind]::ChooseSaveFile -or $s.Kind -eq [NodeKind]::GetSystemInfo -or $s.Kind -eq [NodeKind]::GetProcesses -or $s.Kind -eq [NodeKind]::KillProcess -or $s.Kind -eq [NodeKind]::SetProcessPriority -or $s.Kind -eq [NodeKind]::WaitForProcess -or $s.Kind -eq [NodeKind]::CreateSymbolicLink -or $s.Kind -eq [NodeKind]::GetSymbolicLinkTarget -or $s.Kind -eq [NodeKind]::GetFileOwner -or $s.Kind -eq [NodeKind]::SetFileReadOnly -or $s.Kind -eq [NodeKind]::GetRegistryValue -or $s.Kind -eq [NodeKind]::SetRegistryValue -or $s.Kind -eq [NodeKind]::DeleteRegistryValue -or $s.Kind -eq [NodeKind]::GetEventLogEntries -or $s.Kind -eq [NodeKind]::SetCredential -or $s.Kind -eq [NodeKind]::GetCredential -or $s.Kind -eq [NodeKind]::DeleteCredential -or $s.Kind -eq [NodeKind]::PowerAction -or $s.Kind -eq [NodeKind]::PrintFile -or $s.Kind -eq [NodeKind]::RunRemoteCommand -or $s.Kind -eq [NodeKind]::RunSshCommand -or $s.Kind -eq [NodeKind]::ZipFolder -or $s.Kind -eq [NodeKind]::UnzipFile -or $s.Kind -eq [NodeKind]::HashText -or $s.Kind -eq [NodeKind]::EncryptText -or $s.Kind -eq [NodeKind]::DecryptText) {
             return $true
         }
-        if ($s.Kind -eq [NodeKind]::ReadJson -or $s.Kind -eq [NodeKind]::ReadCsv -or $s.Kind -eq [NodeKind]::WriteCsv) {
-            # D60 Phase 1G / D95: ReadJson/ReadCsv/WriteCsv do real file I/O through async hooks
+        if ($s.Kind -eq [NodeKind]::ReadJson -or $s.Kind -eq [NodeKind]::ReadCsv -or $s.Kind -eq [NodeKind]::WriteCsv -or $s.Kind -eq [NodeKind]::DownloadFile) {
+            # D60 Phase 1G / D95 / D96: ReadJson/ReadCsv/WriteCsv/DownloadFile do real file I/O through async hooks
             return $true
         }
         if ($s.Kind -eq [NodeKind]::Assign -and (Test-OtterJsExpressionNeedsAsync $s.Value)) { return $true }

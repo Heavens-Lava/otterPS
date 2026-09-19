@@ -6971,4 +6971,73 @@ convert customers to csv into csvText
 | `ConvertToCsvStmt` | `[Node]$Subject`, `[string]$Target`, `[int]$Line` | `ConvertToCsv` |
 | `ConvertFromCsvStmt` | `[Node]$Subject`, `[string]$Target`, `[int]$Line` | `ConvertFromCsv` |
 
+---
+
+## D96. File download — `download file from <url> to <path>`
+
+**Authoritative spec:** Jeff's approved D96 decision.
+
+**Decision:**
+Otter provides first-class streaming file download functionality that bridges network transfer and local file persistence without buffering whole files in memory or forcing text decoding.
+
+### Syntax & Grammar
+
+Canonical syntax:
+
+```otter
+download file from <url> to <path>
+```
+
+- No shorter equivalent form is defined: `file` is mandatory.
+- `<url>` and `<path>` are ordinary Otter expressions evaluating to text.
+- `download` is a contextual keyword: it is recognized as a statement keyword only when introducing this statement at statement head. Outside of introducing a download statement, `download` remains a valid normal identifier (e.g. `download is "..."`, `say download`), complying with D33 keyword narrowing.
+
+### Behavior
+
+1. **Streaming & Raw Bytes:**
+   - Downloads response body as raw binary bytes.
+   - Does not interpret or decode downloaded content as text.
+   - Streams directly without buffering entire payload in memory.
+   - Supports binary files (archives, images, executables) and text files equally.
+2. **HTTP Semantics:**
+   - Successful HTTP 2xx response status is required.
+   - Standard bounded HTTP redirects (e.g., 301, 302, 307, 308) are followed automatically.
+3. **Filesystem Safety & Atomicity:**
+   - The parent destination directory must already exist; Otter does not implicitly create missing parent directories.
+   - Existing destination files are never overwritten; attempting to download over an existing destination is refused before altering it.
+   - **Pre-download destination check:** If the destination exists before the download starts, fail before issuing the HTTP request if practical.
+   - **Temporary file location:** The temporary file must be created specifically in the destination directory (not an arbitrary system temp folder like `%TEMP%`). Creating the temp file in the same directory ensures the final promotion to destination is a same-volume, same-directory operation, making atomic rename behavior reliable.
+   - **Successful lifecycle:** HTTP stream -> temporary file in destination directory -> fully completed response -> close/flush temp file -> promote temp file to requested destination.
+   - The destination file becomes visible only after successful completion and atomic promotion.
+   - **Failure rules:**
+     - If the download fails: destination remains absent, and any temporary file is removed.
+     - If final promotion from temp -> destination fails: report failure, remove temporary file, and do not leave a partial destination.
+     - Failure at any point guarantees: no partial destination file, no leftover temp file, and no existing destination damaged.
+
+### Hosts
+
+- **Desktop / Console:**
+  - Uses native HTTP client and filesystem provider.
+- **Browser:**
+  - Requires appropriate host/Desktop Bridge capabilities.
+  - A browser environment lacking the capability reports the unavailable capability honestly rather than redefining D96 semantics.
+
+### Errors & Diagnostics
+
+- **Invalid URL:** Clean Otter diagnostic naming the malformed URL.
+- **Missing destination directory:** Clean Otter diagnostic naming the missing directory.
+- **Destination already exists:** Refuses without modifying existing file (detected prior to HTTP request when practical).
+- **HTTP non-success:** Clean status-aware Otter diagnostic (including status code).
+- **Network interruption / failure:** Clean diagnostic and guaranteed temporary-file cleanup.
+- **Final promotion failure:** Clean diagnostic, temp cleanup, no partial destination.
+- **Permission failure:** Clean Otter diagnostic.
+- No raw PowerShell, .NET, or JavaScript host exceptions escape to the user.
+
+### Shared AST Contract
+
+| AST Node | Parameters | NodeKind |
+|---|---|---|
+| `DownloadFileStmt` | `[Node]$Url`, `[Node]$Path`, `[int]$Line` | `DownloadFile` |
+
+
 

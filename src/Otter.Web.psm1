@@ -1569,6 +1569,27 @@ $elementsHtml
     }
     window.otterWriteFile = otterWriteFile;
 
+    async function otterDownloadFile(url, filePath) {
+      const bridge = window.__OTTER_DESKTOP_BRIDGE__;
+      if (!bridge || !bridge.port || !bridge.token) {
+        throw new Error('Desktop Bridge is not available for file download in this browser.');
+      }
+      const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/fs/download', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Otter-Token': bridge.token
+        },
+        body: JSON.stringify({ url: url, path: filePath })
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.error || ('Download failed with HTTP ' + resp.status));
+      }
+      return await resp.json();
+    }
+    window.otterDownloadFile = otterDownloadFile;
+
     async function otterRunCommand(command) {
       const bridge = window.__OTTER_DESKTOP_BRIDGE__;
       if (!bridge || !bridge.port || !bridge.token) {
