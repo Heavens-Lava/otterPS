@@ -324,6 +324,17 @@ function ConvertTo-OtterLineTokens {
             $tokenIndex++
             continue
         }
+        # D100: `console is interactive` - one combined token for the whole
+        # fixed phrase, so "console" stays an ordinary, unreserved
+        # identifier in every other context (D33 narrowing) - same shape
+        # as the `for each`/`is at least` combiners above.
+        if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -eq 'console' -and
+            ($tokenIndex + 2) -lt $tokens.Count -and $tokens[$tokenIndex + 1].Kind -eq [TokenKind]::Is -and
+            $tokens[$tokenIndex + 2].Text -eq 'interactive') {
+            $combined.Add((New-OtterToken ([TokenKind]::ConsoleInteractive) 'console is interactive' $null $token.Line $token.Column))
+            $tokenIndex += 2
+            continue
+        }
         # D97: `begin transaction` combined token
         if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -eq 'begin' -and
             ($tokenIndex + 1) -lt $tokens.Count -and $tokens[$tokenIndex + 1].Text -eq 'transaction') {

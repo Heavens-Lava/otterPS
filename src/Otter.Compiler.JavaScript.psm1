@@ -483,6 +483,14 @@ function ConvertTo-OtterJsExpression {
             $fn = if ($Expr.IsMax) { 'Math.max' } else { 'Math.min' }
             return "$fn(Number($leftJs), Number($rightJs))"
         }
+        ([NodeKind]::ConsoleInteractive) {
+            # D100: console/interpreter-target only for this first pass -
+            # a clean compile-time error, consistent with the statement-
+            # level D100 primitives above, rather than guessing at a web
+            # semantic (e.g. "always true in a browser") that was never
+            # part of the approved design.
+            throw [OtterError]::new('`console is interactive` is not supported on the web target yet.', $Expr.Line, 'runtime')
+        }
         ([NodeKind]::Clock) {
             # D60 Phase 1J. `today` / `now` - matches New-OtterToday/
             # New-OtterNow: `today` pins to LOCAL midnight (HasTime false -
@@ -689,11 +697,27 @@ function ConvertTo-OtterJsStatement {
             return "${pad}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$varName' in otterState)) { otterSetState('$varName', $valExpr); } else { window.$varName = $valExpr; }"
         }
         ([NodeKind]::Say) {
+            # D100: `say "..." in color "..."` is console-target only for
+            # this first pass. A clean compile-time error, not a silently
+            # colorless print - this compiler's default case for an
+            # unhandled node kind returns "" (compiles to nothing at all),
+            # which would be exactly the silently-different behavior D100
+            # explicitly said to avoid.
+            if ($null -ne $Stmt.ColorExpr) {
+                throw [OtterError]::new('`say ... in color` is not supported on the web target yet.', $Stmt.Line, 'runtime')
+            }
             $parts = foreach ($p in $Stmt.Parts) { ConvertTo-OtterJsExpression -Expr $p }
             $joined = $parts -join ' + " " + '
             return "${pad}otterSay($joined);"
         }
         ([NodeKind]::Ask) {
+            # D100: `ask secretly` - window.prompt() has no masked-input
+            # variant at all, so silently falling back to a plain,
+            # unmasked prompt would be worse than a clean error; console-
+            # target only for this first pass.
+            if ($Stmt.Secret) {
+                throw [OtterError]::new('`ask secretly` is not supported on the web target yet.', $Stmt.Line, 'runtime')
+            }
             # D60 consolidated-audit release blocker. `ask "..." and call
             # it x` (D6) - matches ConvertFrom-OtterInput exactly: trim,
             # exactly "true"/"false" (case-sensitive, matching the
@@ -2592,6 +2616,21 @@ function ConvertTo-OtterJsStatement {
                 return "${pad}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$target' in otterState)) { otterSetState('$target', $callJs); } else { window.$target = $callJs; }"
             }
             return "${pad}$callJs;"
+        }
+        # D100: console UX primitives are console/interpreter-target only
+        # for this first pass - a clean compile-time error for each,
+        # naming the actual statement, rather than falling through to the
+        # `default` case below (which compiles an unhandled kind to
+        # nothing at all - exactly the silently-different behavior D100
+        # explicitly said to avoid).
+        ([NodeKind]::SetCursorPosition) {
+            throw [OtterError]::new('`set cursor to ...` is not supported on the web target yet.', $Stmt.Line, 'runtime')
+        }
+        ([NodeKind]::ChooseFromList) {
+            throw [OtterError]::new('`choose from ... into ...` is not supported on the web target yet.', $Stmt.Line, 'runtime')
+        }
+        ([NodeKind]::ShowProgress) {
+            throw [OtterError]::new('`show progress ...` is not supported on the web target yet.', $Stmt.Line, 'runtime')
         }
         default {
             return ""

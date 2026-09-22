@@ -77,13 +77,98 @@ function Set-OtterOutputWriter {
     $script:OutputWriter = $Writer
 }
 
+# D100: show progress redraws in place (leading \r, no newline) so a run
+# of calls updates one bar rather than spamming lines - but that means the
+# cursor is left mid-line afterward. Any OTHER output must flush a real
+# newline first or it lands glued onto the end of the bar's text.
+$script:OtterProgressBarActive = $false
+
+function Complete-OtterProgressBarLine {
+    if ($script:OtterProgressBarActive) {
+        Write-Host ''
+        $script:OtterProgressBarActive = $false
+    }
+}
+
 function Write-OtterLine {
     param([string]$Text)
+    Complete-OtterProgressBarLine
     if ($null -ne $script:OutputWriter) {
         & $script:OutputWriter $Text
         return
     }
     Write-Host $Text
+}
+
+# D100: say "..." in color "red". Console/interpreter target only - the
+# color itself never changes what a test observes as the printed TEXT
+# (a test harness's $script:OutputWriter still gets exactly the same
+# string it always did), only the real console's foreground color when
+# there is no custom writer installed.
+$script:OtterConsoleColorNames = @(
+    'red', 'green', 'yellow', 'blue', 'cyan', 'magenta', 'white', 'black',
+    'gray', 'darkgray', 'darkred', 'darkgreen', 'darkyellow', 'darkblue',
+    'darkcyan', 'darkmagenta'
+)
+
+function Get-OtterConsoleColor {
+    param([string]$Name, [int]$Line)
+
+    $normalized = $Name.Trim().ToLowerInvariant()
+    if ($script:OtterConsoleColorNames -notcontains $normalized) {
+        throw (New-OtterRuntimeError `
+            -Message "I don't recognize the color `"$Name`". Valid colors are: $($script:OtterConsoleColorNames -join ', ')." `
+            -Line $Line `
+            -Suggestion 'say "Error!" in color "red"')
+    }
+    return [System.ConsoleColor]$normalized
+}
+
+function Write-OtterColoredLine {
+    param([string]$Text, [string]$ColorName, [int]$Line)
+
+    Complete-OtterProgressBarLine
+    if ($null -ne $script:OutputWriter) {
+        & $script:OutputWriter $Text
+        return
+    }
+    $resolved = Get-OtterConsoleColor -Name $ColorName -Line $Line
+    Write-Host $Text -ForegroundColor $resolved
+}
+
+# D100: ask secretly "..." and call it x. Reads one line character-by-
+# character, masking each typed character with "*" instead of echoing it,
+# terminating on Enter (Backspace removes the last character). Falls back
+# to a plain Read-Host (unmasked, but still fully functional) when the
+# console does not support raw key reading at all - a redirected/piped
+# stdin, which [Console]::ReadKey throws on. That fallback is what lets
+# this statement still be exercised under this project's own piped-stdin
+# test automation, even though it cannot verify real masking that way.
+function Read-OtterSecretLine {
+    $buffer = [System.Text.StringBuilder]::new()
+    try {
+        while ($true) {
+            $key = [Console]::ReadKey($true)
+            if ($key.Key -eq [ConsoleKey]::Enter) {
+                Write-Host ''
+                break
+            }
+            if ($key.Key -eq [ConsoleKey]::Backspace) {
+                if ($buffer.Length -gt 0) {
+                    [void]$buffer.Remove($buffer.Length - 1, 1)
+                    Write-Host "`b `b" -NoNewline
+                }
+                continue
+            }
+            if ($key.KeyChar -and -not [char]::IsControl($key.KeyChar)) {
+                [void]$buffer.Append($key.KeyChar)
+                Write-Host '*' -NoNewline
+            }
+        }
+        return $buffer.ToString()
+    } catch {
+        return Read-Host
+    }
 }
 
 # D31: log / warn / error are DIAGNOSTIC output and go somewhere separate
@@ -100,6 +185,7 @@ function Set-OtterDiagnosticWriter {
 function Write-OtterDiagnostic {
     param([string]$Level, [string]$Text)
 
+    Complete-OtterProgressBarLine
     if ($null -ne $script:DiagnosticWriter) {
         & $script:DiagnosticWriter $Level $Text
         return
@@ -244,9 +330,14 @@ function Invoke-OtterStatement {
     switch ($Statement.Kind.ToString()) {
 
         # say "Hello" name        (D8: parts joined by exactly one space)
+        # say "Error!" in color "red"                                  (D100)
         'Say' {
             if ($Statement.Parts.Count -eq 0) {
-                Write-OtterLine -Text ''
+                if ($null -ne $Statement.ColorExpr) {
+                    Write-OtterColoredLine -Text '' -ColorName (Format-OtterValue -Value (Get-OtterValue -Expression $Statement.ColorExpr -Environment $Environment)) -Line $Statement.Line
+                } else {
+                    Write-OtterLine -Text ''
+                }
                 return
             }
             $rendered = @()
@@ -254,7 +345,19 @@ function Invoke-OtterStatement {
                 $value = Get-OtterValue -Expression $part -Environment $Environment
                 $rendered += (Format-OtterValue -Value $value)
             }
-            Write-OtterLine -Text ($rendered -join ' ')
+            $text = $rendered -join ' '
+            if ($null -ne $Statement.ColorExpr) {
+                $colorValue = Get-OtterValue -Expression $Statement.ColorExpr -Environment $Environment
+                if ($colorValue -isnot [string]) {
+                    throw (New-OtterRuntimeError `
+                        -Message "I need text for a color name, but this is $(Get-OtterTypeName $colorValue)." `
+                        -Line $Statement.Line `
+                        -Suggestion 'say "Error!" in color "red"')
+                }
+                Write-OtterColoredLine -Text $text -ColorName $colorValue -Line $Statement.Line
+            } else {
+                Write-OtterLine -Text $text
+            }
             return
         }
 
@@ -402,10 +505,16 @@ function Invoke-OtterStatement {
         }
 
         # ask "What is your name?" and call it name       (D6)
+        # ask secretly "Password:" and call it pw                      (D100)
         'Ask' {
+            Complete-OtterProgressBarLine
             $prompt = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.Prompt -Environment $Environment)
             Write-Host "$prompt " -NoNewline
-            $typed = Read-Host
+            if ($Statement.Secret) {
+                $typed = Read-OtterSecretLine
+            } else {
+                $typed = Read-Host
+            }
             $Environment.Set($Statement.Name, (ConvertFrom-OtterInput -Text $typed))
             return
         }
@@ -698,6 +807,82 @@ function Invoke-OtterStatement {
                 $list.Add($columns)
             }
             $Environment.Set($Statement.Target, $list)
+            return
+        }
+
+        # set cursor to row 5 column 10                                (D100)
+        # Otter's row/column are 1-based; [Console]::SetCursorPosition is
+        # 0-based, hence the -1 on each.
+        'SetCursorPosition' {
+            $row = Assert-OtterNumber -Value (Get-OtterValue -Expression $Statement.Row -Environment $Environment) -Line $Statement.Line -What 'a cursor row'
+            $column = Assert-OtterNumber -Value (Get-OtterValue -Expression $Statement.Column -Environment $Environment) -Line $Statement.Line -What 'a cursor column'
+            if ($row -lt 1 -or $column -lt 1) {
+                throw (New-OtterRuntimeError `
+                    -Message 'I need a row and column of 1 or greater.' `
+                    -Line $Statement.Line `
+                    -Suggestion 'set cursor to row 1 column 1')
+            }
+            try {
+                [Console]::SetCursorPosition([int]$column - 1, [int]$row - 1)
+            } catch {
+                throw (New-OtterRuntimeError `
+                    -Message "I could not move the cursor there. $($_.Exception.Message)" `
+                    -Line $Statement.Line)
+            }
+            return
+        }
+
+        # show progress 50 percent                                     (D100)
+        # Redraws on the current line via a leading carriage return, so
+        # repeated calls update one bar in place rather than spamming
+        # new lines - the normal expectation for a CLI progress indicator.
+        'ShowProgress' {
+            $percent = Assert-OtterNumber -Value (Get-OtterValue -Expression $Statement.Percent -Environment $Environment) -Line $Statement.Line -What 'a progress percentage'
+            if ($percent -lt 0 -or $percent -gt 100) {
+                throw (New-OtterRuntimeError `
+                    -Message "I need a percentage between 0 and 100, but got $(Format-OtterValue -Value $percent)." `
+                    -Line $Statement.Line `
+                    -Suggestion 'show progress 50 percent')
+            }
+            $width = 20
+            $filled = [int][Math]::Round($width * ($percent / 100))
+            $bar = ('#' * $filled) + ('-' * ($width - $filled))
+            if ($null -ne $script:OutputWriter) {
+                & $script:OutputWriter "[$bar] $(Format-OtterValue -Value $percent)%"
+            } else {
+                Write-Host "`r[$bar] $(Format-OtterValue -Value $percent)%" -NoNewline
+                $script:OtterProgressBarActive = $true
+            }
+            return
+        }
+
+        # choose from options into choice                              (D100)
+        # Target receives the SELECTED ITEM itself, not its position -
+        # matching how `random item from games into game` already hands
+        # back an element, not an index.
+        'ChooseFromList' {
+            Complete-OtterProgressBarLine
+            $options = Get-OtterValue -Expression $Statement.Options -Environment $Environment
+            if (-not (Test-OtterList $options) -or $options.Count -eq 0) {
+                throw (New-OtterRuntimeError `
+                    -Message 'I cannot choose from an empty list.' `
+                    -Line $Statement.Line)
+            }
+            for ($i = 0; $i -lt $options.Count; $i++) {
+                Write-Host "  $($i + 1). $(Format-OtterValue -Value $options[$i])"
+            }
+            $selected = $null
+            while ($null -eq $selected) {
+                Write-Host 'Choose a number: ' -NoNewline
+                $typed = Read-Host
+                $asNumber = 0
+                if ([int]::TryParse($typed, [ref]$asNumber) -and $asNumber -ge 1 -and $asNumber -le $options.Count) {
+                    $selected = $options[$asNumber - 1]
+                } else {
+                    Write-Host "  Please enter a number from 1 to $($options.Count)." -ForegroundColor Yellow
+                }
+            }
+            $Environment.Set($Statement.Target, $selected)
             return
         }
 
@@ -2042,6 +2227,15 @@ function Get-OtterValue {
         'Clock' {
             if ($Expression.Clock.ToString() -eq 'Today') { return (New-OtterToday) }
             return (New-OtterNow)
+        }
+
+        # console is interactive                                        (D100)
+        # False if EITHER stdin or stdout is redirected - most of the
+        # console-UX primitives (colors, cursor positioning, progress
+        # bars, interactive menus) only make sense when both are real,
+        # attached streams, which is exactly what gating on this is for.
+        'ConsoleInteractive' {
+            return (-not ([Console]::IsInputRedirected -or [Console]::IsOutputRedirected))
         }
 
         # days between startDate and endDate                            (D42)

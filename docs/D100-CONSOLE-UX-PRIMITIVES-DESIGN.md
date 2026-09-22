@@ -1,12 +1,28 @@
 # D100: Console UX Primitives — Colors, Cursor, Menus, Progress, Secret Input, TTY Detection
 
-**Status:** Approved by Jeff — ready for implementation
+**Status:** Implemented and certified — see "Implementation note" below.
 **Authoritative spec:** Jeff's sign-off in-session, covering the 6 items left
 unchecked in checklist section 12 (Console Application Development) after
 independent verification found no existing grammar for any of them.
-**Author:** Claude (interpreter/runtime) — grammar/lexer/parser implementation
-belongs to Codex (`src/Otter.Lexer.psm1`, `src/Otter.Parser.psm1` are not
-mine to edit; this document is the handoff).
+**Author:** Claude (interpreter/runtime). Grammar/lexer/parser/Contract
+implementation is normally Codex's (`src/Otter.Lexer.psm1`,
+`src/Otter.Parser.psm1`) — this document was originally written as the
+handoff to them, but Jeff authorized Claude to implement the full stack
+directly since Codex was unavailable (see the implementation note).
+
+**Implementation note (added after the fact):** all six features below were
+implemented exactly as specified — Contract, lexer, parser, interpreter, and
+JS-compiler rejection cases — and certified end-to-end through the real
+`otter run`/`otter check`/`otter web` CLI in
+`tests/ConsoleUxPrimitives.Tests.ps1` (18 tests). Two things this sandbox
+could not verify are called out explicitly in that test file rather than
+silently skipped: real cursor movement (no attached console handle here even
+when not explicitly redirected) and real character masking for `ask
+secretly` (`[Console]::ReadKey` throws under redirected stdin, so those
+tests exercise the documented `Read-Host` fallback instead). One real bug
+was found and fixed during implementation testing: `show progress` redrawing
+in place left a following `say` glued onto the same line until a
+progress-bar-pending-newline flush was added.
 
 ---
 

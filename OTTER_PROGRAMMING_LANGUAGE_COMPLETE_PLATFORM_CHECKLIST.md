@@ -715,25 +715,42 @@ creation.
 -   [x] Exit program
 -   [x] Exit code
 -   [x] Signals
--   [ ] Terminal colors/styles (design approved by Jeff, spec written -
-    `say "x" in color "red"`. See docs/D100-CONSOLE-UX-PRIMITIVES-DESIGN.md.
-    Awaiting Codex for the lexer/parser/Contract side - not mine to
-    implement, src/Otter.Lexer.psm1 and src/Otter.Parser.psm1 are not my
-    files)
--   [ ] Cursor positioning (design approved, spec written - `set cursor to
-    row 5 column 10`. See D100. Same implementation-routing note as above)
--   [ ] Interactive menus (design approved, spec written - `choose from
-    options into choice`, reusing D67's choose-file grammar shape. See
-    D100. Same routing note)
--   [ ] Progress indicators (design approved, spec written - `show
-    progress 50 percent`, reusing D88's percent token. See D100. Same
-    routing note)
--   [ ] Password/secret input (design approved, spec written - `ask
-    secretly "Password:" and call it pw`. See D100. Same routing note)
--   [ ] TTY detection (design approved, spec written - `if console is
-    interactive`. See D100. Same routing note)
--   [ ] Noninteractive mode (no separate syntax needed once TTY detection
-    above lands - `if not console is interactive` already composes via
+-   [x] Terminal colors/styles (D100, implemented end-to-end: with Codex
+    unavailable, Jeff authorized me to implement the full stack including
+    lexer/parser/Contract, normally Codex's files - `say "x" in color
+    "red"`, console/interpreter target only per the approved scope;
+    unrecognized color names get a clean diagnostic listing valid names;
+    web/desktop targets get a clean compile-time "not supported yet"
+    error rather than silently dropping the color. Certified in
+    tests/ConsoleUxPrimitives.Tests.ps1 through the real `otter run`/
+    `otter web` CLI. See docs/D100-CONSOLE-UX-PRIMITIVES-DESIGN.md)
+-   [x] Cursor positioning (D100: `set cursor to row 5 column 10`, 1-based
+    matching D5's counting convention, validated before touching the real
+    console. Real cursor movement could not be verified in this sandbox -
+    no attached console handle even when not explicitly redirected - but
+    the full parse/dispatch/validation path is certified for real)
+-   [x] Interactive menus (D100: `choose from options into choice`, reuses
+    D67's choose-file grammar shape; returns the SELECTED ITEM, not its
+    position; re-prompts cleanly on non-numeric/out-of-range input;
+    rejects an empty list with a clean diagnostic. Certified end-to-end
+    with real piped stdin selections)
+-   [x] Progress indicators (D100: `show progress 50 percent`, reuses
+    D88's percent token; redraws in place via `\r`; a later `say` flushes
+    a real newline first so it never lands glued onto the bar - found and
+    fixed this exact bug during implementation testing; rejects values
+    outside 0-100 rather than silently clamping)
+-   [x] Password/secret input (D100: `ask secretly "Password:" and call
+    it pw`; masks each typed character with `*` via `[Console]::ReadKey`,
+    falling back to plain `Read-Host` when the console doesn't support
+    raw key reading at all - which is also what let this be certified
+    under this project's own piped-stdin test automation)
+-   [x] TTY detection (D100: `console is interactive`, false when either
+    stdin or stdout is redirected; "console" confirmed to remain an
+    ordinary, unreserved variable name everywhere outside the exact
+    combined phrase - the parser-sensitivity risk flagged before
+    implementation, verified safe via a dedicated collision test)
+-   [x] Noninteractive mode (no separate syntax needed - `if not console is
+    interactive` already composes via
     D11's existing `not`. See D100's closing note)
 -   [x] Standalone executable packaging
 -   [x] Cross-platform console certification

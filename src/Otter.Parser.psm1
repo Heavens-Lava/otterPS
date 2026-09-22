@@ -291,6 +291,12 @@ function Read-OtterValue {
         ([TokenKind]::Gone) { [void](Read-OtterToken); return [LiteralExpr]::new($null, $token.Line) }
         ([TokenKind]::Today) { [void](Read-OtterToken); return [ClockExpr]::new([ClockKind]::Today, $token.Line) }
         ([TokenKind]::Now) { [void](Read-OtterToken); return [ClockExpr]::new([ClockKind]::Now, $token.Line) }
+        # D100: console is interactive - already a single combined token
+        # from the lexer's phrase combiner (see ConsoleInteractive there),
+        # so it is just another boolean-valued literal-like expression
+        # here, usable anywhere true/false/gone are, including composed
+        # with `not`/`and`/`or`, not only as a bare `if` condition.
+        ([TokenKind]::ConsoleInteractive) { [void](Read-OtterToken); return [ConsoleInteractiveExpr]::new($token.Line) }
         default { throw (New-OtterParserError 'I expected a value here.' $token 'Add a text value, number, true, false, or variable name.') }
     }
 }
@@ -1213,9 +1219,23 @@ function Read-OtterStatement {
         ([TokenKind]::Say) {
             [void](Read-OtterToken)
             $parts = [System.Collections.Generic.List[Node]]::new()
-            while (-not (Test-OtterTokenKind ([TokenKind]::Newline))) { $parts.Add((Read-OtterMathExpression)) }
+            while (-not (Test-OtterTokenKind ([TokenKind]::Newline)) -and -not (Test-OtterTokenKind ([TokenKind]::In))) { $parts.Add((Read-OtterMathExpression)) }
+            # D100: say "..." in color "red" - "in" is already a reserved
+            # token everywhere (for each X in Y), so this can never collide
+            # with a legitimate say-part; a bare "in" here was always a
+            # parse error before this, never a regression.
+            $colorExpr = $null
+            if (Test-OtterTokenKind ([TokenKind]::In)) {
+                [void](Read-OtterToken)
+                $colorWord = Get-OtterCurrentToken
+                if ($colorWord.Kind -ne [TokenKind]::Identifier -or $colorWord.Text -ne 'color') {
+                    throw (New-OtterParserError 'I expected "color" after "in".' $colorWord 'say "Error!" in color "red"')
+                }
+                [void](Read-OtterToken)
+                $colorExpr = Read-OtterValue
+            }
             [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the say statement to end here.')
-            return [SayStmt]::new($parts.ToArray(), $start.Line)
+            return [SayStmt]::new($parts.ToArray(), $colorExpr, $start.Line)
         }
         ([TokenKind]::If) {
             [void](Read-OtterToken)
@@ -1419,6 +1439,17 @@ function Read-OtterStatement {
         }
         ([TokenKind]::Show) {
             [void](Read-OtterToken)
+            # D100: show progress 50 percent - "progress" is an ordinary
+            # identifier, checked by text, ahead of the generic "show a UI
+            # resource" fallback below.
+            $maybeProgress = Get-OtterCurrentToken
+            if ($maybeProgress.Kind -eq [TokenKind]::Identifier -and $maybeProgress.Text -eq 'progress') {
+                [void](Read-OtterToken)
+                $percentExpr = Read-OtterValue
+                [void](Assert-OtterTokenKind ([TokenKind]::Percent) 'I expected "percent" after the progress amount.')
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the show progress statement to end here.')
+                return [ShowProgressStmt]::new($percentExpr, $start.Line)
+            }
             Read-OtterOptionalTheBeforeName
             $targetToken = Read-OtterVariableName 'I expected a resource name after "show".'
             $target = [VariableExpr]::new($targetToken.Text, $targetToken.Line)
@@ -1456,13 +1487,22 @@ function Read-OtterStatement {
         }
         ([TokenKind]::Ask) {
             [void](Read-OtterToken)
+            # D100: ask secretly "Password:" and call it pw - "secretly" is
+            # an ordinary identifier, checked by text, same as every other
+            # contextual modifier in this grammar.
+            $secret = $false
+            $maybeSecret = Get-OtterCurrentToken
+            if ($maybeSecret.Kind -eq [TokenKind]::Identifier -and $maybeSecret.Text -eq 'secretly') {
+                [void](Read-OtterToken)
+                $secret = $true
+            }
             $prompt = Read-OtterValue
             [void](Assert-OtterTokenKind ([TokenKind]::And) 'I expected "and call it" after the question.')
             [void](Assert-OtterTokenKind ([TokenKind]::Call) 'I expected "call" after "and".')
             [void](Assert-OtterTokenKind ([TokenKind]::It) 'I expected "it" after "call".')
             $name = Read-OtterVariableName 'I expected a variable name after "call it".'
             [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the question to end here.')
-            return [AskStmt]::new($prompt, $name.Text, $start.Line)
+            return [AskStmt]::new($prompt, $name.Text, $secret, $start.Line)
         }
         ([TokenKind]::Get) {
             [void](Read-OtterToken)
@@ -1714,6 +1754,28 @@ function Read-OtterStatement {
         }
         ([TokenKind]::Set) {
             [void](Read-OtterToken)
+            # D100: set cursor to row 5 column 10 - "cursor"/"row"/"column"
+            # are ordinary identifiers, checked by text, same convention as
+            # "priority"/"current"/"environment" elsewhere in this grammar.
+            $maybeCursor = Get-OtterCurrentToken
+            if ($maybeCursor.Kind -eq [TokenKind]::Identifier -and $maybeCursor.Text -eq 'cursor') {
+                [void](Read-OtterToken)
+                [void](Assert-OtterTokenKind ([TokenKind]::To) 'I expected "to" after "cursor".')
+                $rowWord = Get-OtterCurrentToken
+                if ($rowWord.Kind -ne [TokenKind]::Identifier -or $rowWord.Text -ne 'row') {
+                    throw (New-OtterParserError 'I expected "row" after "to".' $rowWord 'set cursor to row 5 column 10')
+                }
+                [void](Read-OtterToken)
+                $rowExpr = Read-OtterValue
+                $columnWord = Get-OtterCurrentToken
+                if ($columnWord.Kind -ne [TokenKind]::Identifier -or $columnWord.Text -ne 'column') {
+                    throw (New-OtterParserError 'I expected "column" after the row number.' $columnWord 'set cursor to row 5 column 10')
+                }
+                [void](Read-OtterToken)
+                $columnExpr = Read-OtterValue
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the set cursor statement to end here.')
+                return [SetCursorPositionStmt]::new($rowExpr, $columnExpr, $start.Line)
+            }
             # D71: `set priority of process p to "high"` - checked as plain
             # identifier text BEFORE the generic dynamic-key path below,
             # since "priority" is not something Read-OtterValue would ever
@@ -2568,6 +2630,18 @@ function Read-OtterStatement {
         # choose file to save into path
         ([TokenKind]::Choose) {
             [void](Read-OtterToken)
+            # D100: choose from options into choice - "from" is already a
+            # reserved token everywhere, trivially distinguishable from the
+            # File/Folder branches below (different TokenKind entirely, no
+            # ambiguity).
+            if (Test-OtterTokenKind ([TokenKind]::From)) {
+                [void](Read-OtterToken)
+                $optionsExpr = Read-OtterValue
+                [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a result name.')
+                $target = Read-OtterVariableName 'I expected a result name after "into".'
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the choose statement to end here.')
+                return [ChooseFromListStmt]::new($optionsExpr, $target.Text, $start.Line)
+            }
             if (Test-OtterTokenKind ([TokenKind]::Folder)) {
                 [void](Read-OtterToken)
                 [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a result name.')

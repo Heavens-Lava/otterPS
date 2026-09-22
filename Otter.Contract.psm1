@@ -228,6 +228,12 @@ enum TokenKind {
     Rollback        # rollback tx
     Parameter       # parameter "name" is value
 
+    # --- console UX primitives (D100) ----------------------------
+    ConsoleInteractive  # console is interactive - one combined token for
+                        # the whole fixed phrase (matches Contains/IsAtLeast
+                        # precedent), so "console" stays an ordinary,
+                        # unreserved identifier everywhere else.
+
 
     # --- web servers & api routes (D51) -------------------------
     Respond         # respond with "..." as json and status 200
@@ -515,6 +521,14 @@ enum NodeKind {
     RollbackTransaction    # rollback tx
     GetTables              # get tables from db into tables (D98)
     GetColumns             # get columns from table in db into columns (D98)
+
+    # --- console UX primitives (D100) ------------------------------------------
+    SetCursorPosition       # set cursor to row 5 column 10
+    ChooseFromList          # choose from options into choice
+    ShowProgress            # show progress 50 percent
+    ConsoleInteractive      # console is interactive (an EXPRESSION - the
+                             # TokenKind above is the combined phrase this
+                             # parses from)
 }
 
 enum MathOp { Add; Subtract; Multiply; Divide; Percent; Power }   # D88
@@ -690,10 +704,17 @@ class ProgramNode : Node {
 }
 
 # say "Hello" name   -> one expression per value (D8: joined by one space)
+# say "Error!" in color "red"   -> ColorExpr set (D100)
 class SayStmt : Node {
     [Node[]]$Parts
+    [Node]$ColorExpr    # say ... in color "..."                     (D100)
     SayStmt([Node[]]$parts, [int]$line) : base([NodeKind]::Say, $line) {
         $this.Parts = $parts
+        $this.ColorExpr = $null
+    }
+    SayStmt([Node[]]$parts, [Node]$colorExpr, [int]$line) : base([NodeKind]::Say, $line) {
+        $this.Parts = $parts
+        $this.ColorExpr = $colorExpr
     }
 }
 
@@ -723,12 +744,20 @@ class AssignStmt : Node {
 }
 
 # ask "What is your name?" and call it name
+# ask secretly "Password:" and call it pw     -> Secret = true        (D100)
 class AskStmt : Node {
     [Node]$Prompt
     [string]$Name
+    [bool]$Secret
     AskStmt([Node]$prompt, [string]$name, [int]$line) : base([NodeKind]::Ask, $line) {
         $this.Prompt = $prompt
         $this.Name = $name
+        $this.Secret = $false
+    }
+    AskStmt([Node]$prompt, [string]$name, [bool]$secret, [int]$line) : base([NodeKind]::Ask, $line) {
+        $this.Prompt = $prompt
+        $this.Name = $name
+        $this.Secret = $secret
     }
 }
 
@@ -2530,6 +2559,62 @@ class GetColumnsStmt : Node {
         $this.Table = $table
         $this.Connection = $connection
         $this.Target = $target
+    }
+}
+
+
+# ===============================================================
+# CONSOLE UX PRIMITIVES (D100)
+# ===============================================================
+#
+# Console/interpreter target only for this first pass. Desktop and web
+# targets report a clean "not supported on this target" diagnostic rather
+# than a silently different or degraded behavior.
+
+# set cursor to row 5 column 10
+# Otter's row/column are 1-based, matching D5's inclusive counting
+# convention - the interpreter subtracts 1 before calling the real
+# [Console]::SetCursorPosition, which is 0-based.
+class SetCursorPositionStmt : Node {
+    [Node]$Row
+    [Node]$Column
+    SetCursorPositionStmt([Node]$row, [Node]$column, [int]$line) : base([NodeKind]::SetCursorPosition, $line) {
+        $this.Row = $row
+        $this.Column = $column
+    }
+}
+
+# choose from options into choice
+# Reuses D67's Choose token family. Target receives the SELECTED ITEM
+# itself, not its position - matching how `random item from games into
+# game` already hands back an element, not an index.
+class ChooseFromListStmt : Node {
+    [Node]$Options
+    [string]$Target
+    ChooseFromListStmt([Node]$options, [string]$target, [int]$line) : base([NodeKind]::ChooseFromList, $line) {
+        $this.Options = $options
+        $this.Target = $target
+    }
+}
+
+# show progress 50 percent
+# No label/message argument in this first pass - deliberate, see D100.
+class ShowProgressStmt : Node {
+    [Node]$Percent
+    ShowProgressStmt([Node]$percent, [int]$line) : base([NodeKind]::ShowProgress, $line) {
+        $this.Percent = $percent
+    }
+}
+
+# console is interactive                                             (D100)
+# An EXPRESSION (usable directly in an `if`/`while` condition, same as any
+# other boolean-valued expression), not a statement. No fields: the whole
+# meaning is carried by the NodeKind itself, parsed from the single
+# combined ConsoleInteractive token (see src/Otter.Lexer.psm1's phrase
+# combiner - the same mechanism `is at least`/`for each` already use) so
+# "console" remains an ordinary, unreserved identifier everywhere else.
+class ConsoleInteractiveExpr : Node {
+    ConsoleInteractiveExpr([int]$line) : base([NodeKind]::ConsoleInteractive, $line) {
     }
 }
 
