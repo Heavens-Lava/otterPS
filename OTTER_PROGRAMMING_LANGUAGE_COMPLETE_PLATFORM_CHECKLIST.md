@@ -704,26 +704,26 @@ creation.
 
 # 17. Database Development
 
--   [ ] Database provider interface
--   [ ] SQLite
+-   [x] Database provider interface
+-   [x] SQLite
 -   [ ] SQL Server
 -   [ ] PostgreSQL
 -   [ ] MySQL/MariaDB
--   [ ] Connection management
--   [ ] Parameterized queries
--   [ ] Query results
--   [ ] Transactions
+-   [x] Connection management
+-   [x] Parameterized queries
+-   [x] Query results
+-   [x] Transactions
 -   [ ] Prepared statements
 -   [ ] Connection pooling
 -   [ ] Migrations
--   [ ] Schema introspection
+-   [x] Schema introspection
 -   [ ] Stored procedures
 -   [ ] Bulk operations
 -   [ ] Async database operations
 -   [ ] ORM/query-builder only if justified
 -   [ ] NoSQL provider interface
--   [ ] Secrets/connection strings
--   [ ] Database conformance tests
+-   [x] Secrets/connection strings
+-   [x] Database conformance tests
 
 # 18. Cryptography & Security APIs
 

@@ -1,0 +1,83 @@
+database has
+    provider is "sqlite"
+    connection is ":memory:"
+.
+
+connect database into db
+
+execute db with
+    "create table if not exists tasks (id integer primary key autoincrement, title text, completed integer, priority text)"
+
+firstTaskTitle is "Buy groceries"
+secondTaskTitle is "Write Otter 1.1 docs"
+
+execute db with
+    "insert into tasks (title, completed, priority) values (@title, @completed, @priority)"
+    parameter "title" is firstTaskTitle
+    parameter "completed" is 0
+    parameter "priority" is "high"
+into insertResult1
+
+say "Inserted first task, rows affected:"
+say rows affected of insertResult1
+
+execute db with
+    "insert into tasks (title, completed, priority) values (@title, @completed, @priority)"
+    parameter "title" is secondTaskTitle
+    parameter "completed" is 1
+    parameter "priority" is gone
+into insertResult2
+
+say "Inserted second task, last inserted id:"
+say last inserted id of insertResult2
+
+query db with
+    "select id, title, completed, priority from tasks"
+into allTasks
+
+say "Listing all tasks:"
+each task in allTasks
+    say title of task
+    if completed of task is 1
+        say "Status: completed"
+    otherwise
+        say "Status: pending"
+    .
+    if priority of task is gone
+        say "Priority: none"
+    otherwise
+        say priority of task
+    .
+.
+
+execute db with
+    "update tasks set completed = 1 where title = @title"
+    parameter "title" is firstTaskTitle
+into updateResult
+
+say "Updated rows:"
+say rows affected of updateResult
+
+begin transaction on db into tx
+
+say "Inserting third task inside transaction..."
+execute tx with
+    "insert into tasks (title, completed, priority) values (@title, @completed, @priority)"
+    parameter "title" is "Temp transaction task"
+    parameter "completed" is 0
+    parameter "priority" is "low"
+
+commit tx
+say "Transaction committed."
+
+query db with
+    "select count(*) as count from tasks"
+into countRows
+
+say "Final task count:"
+each row in countRows
+    say count of row
+.
+
+disconnect db
+say "Database tasks demonstration complete."

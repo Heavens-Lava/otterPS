@@ -33,7 +33,10 @@ $script:OtterIdentifierKinds = @(
     [TokenKind]::Format, [TokenKind]::Today, [TokenKind]::Now,
     [TokenKind]::Between, [TokenKind]::Otherwise, [TokenKind]::ForEach,
     [TokenKind]::Count, [TokenKind]::Notify, [TokenKind]::Choose,
-    [TokenKind]::Download
+    [TokenKind]::Download,
+    [TokenKind]::Connect, [TokenKind]::Disconnect, [TokenKind]::Query,
+    [TokenKind]::Execute, [TokenKind]::Commit, [TokenKind]::Rollback,
+    [TokenKind]::Parameter
 )
 
 function Test-OtterIdentifierToken {
@@ -111,10 +114,28 @@ function Test-OtterCommandResultPropertyAt {
 
     $second = $script:Tokens[$Position + 1]
     $third = $script:Tokens[$Position + 2]
-    return (($first.Text -eq 'exit' -and $second.Text -eq 'code') -or
-            ($first.Text -eq 'error' -and $second.Text -eq 'output')) -and
-        $third.Kind -eq [TokenKind]::Of
+    if ((($first.Text -eq 'exit' -and $second.Text -eq 'code') -or
+         ($first.Text -eq 'error' -and $second.Text -eq 'output') -or
+         ($first.Text -eq 'rows' -and $second.Text -eq 'affected') -or
+         ($first.Text -eq 'primary' -and $second.Text -eq 'key') -or
+         ($first.Text -eq 'database' -and $second.Text -eq 'type') -or
+         ($first.Text -eq 'default' -and $second.Text -eq 'expression')) -and
+        $third.Kind -eq [TokenKind]::Of) {
+        return $true
+    }
+
+    if (($Position + 3) -lt $script:Tokens.Count) {
+        $fourth = $script:Tokens[$Position + 3]
+        if ($first.Text -eq 'last' -and $second.Text -eq 'inserted' -and $third.Text -eq 'id' -and $fourth.Kind -eq [TokenKind]::Of) {
+            return $true
+        }
+        if ($first.Text -eq 'primary' -and $second.Text -eq 'key' -and $third.Text -eq 'position' -and $fourth.Kind -eq [TokenKind]::Of) {
+            return $true
+        }
+    }
+    return $false
 }
+
 
 function Read-OtterValue {
     param([switch]$PropertyTarget)
@@ -236,8 +257,16 @@ function Read-OtterValue {
     if (Test-OtterCommandResultPropertyAt $script:Position) {
         $first = Read-OtterToken
         $second = Read-OtterToken
+        $propName = "$($first.Text) $($second.Text)"
+        if ($first.Text -eq 'last' -and $second.Text -eq 'inserted' -and (Get-OtterCurrentToken).Text -eq 'id') {
+            $third = Read-OtterToken
+            $propName = "$($first.Text) $($second.Text) $($third.Text)"
+        } elseif ($first.Text -eq 'primary' -and $second.Text -eq 'key' -and (Get-OtterCurrentToken).Text -eq 'position') {
+            $third = Read-OtterToken
+            $propName = "$($first.Text) $($second.Text) $($third.Text)"
+        }
         [void](Assert-OtterTokenKind ([TokenKind]::Of) 'I expected "of" after this command result property.')
-        return [PropertyAccessExpr]::new("$($first.Text) $($second.Text)", (Read-OtterValue -PropertyTarget), $first.Line)
+        return [PropertyAccessExpr]::new($propName, (Read-OtterValue -PropertyTarget), $first.Line)
     }
     if (Test-OtterIdentifierToken $token) {
         # A declared function is a real value-producing expression.  Its
@@ -1621,6 +1650,32 @@ function Read-OtterStatement {
                 if ($kind.Kind -eq [TokenKind]::Files) { return [GetFilesStmt]::new($folder, $includeSubfolders, $target.Text, $start.Line) }
                 return [GetFoldersStmt]::new($folder, $includeSubfolders, $target.Text, $start.Line)
             }
+            # D98: get tables from <connection> into <target>
+            if ($kind.Kind -eq [TokenKind]::Identifier -and $kind.Text -eq 'tables') {
+                [void](Read-OtterToken)
+                [void](Assert-OtterTokenKind ([TokenKind]::From) 'I expected "from" after "get tables".' 'Write: get tables from db into tables')
+                $connection = Read-OtterValue
+                $continued = Test-OtterSoftContinuation
+                [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a result name after "get tables from db".' 'Write: get tables from db into tables')
+                $target = Read-OtterVariableName 'I expected a result name after "into".'
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the get tables statement to end here.')
+                if ($continued) { [void](Assert-OtterTokenKind ([TokenKind]::Dedent) 'I expected the continued get tables clause to end.') }
+                return [GetTablesStmt]::new($connection, $target.Text, $start.Line)
+            }
+            # D98: get columns from <table> in <connection> into <target>
+            if ($kind.Kind -eq [TokenKind]::Identifier -and $kind.Text -eq 'columns') {
+                [void](Read-OtterToken)
+                [void](Assert-OtterTokenKind ([TokenKind]::From) 'I expected "from" after "get columns".' 'Write: get columns from "table" in db into columns')
+                $table = Read-OtterValue
+                [void](Assert-OtterTokenKind ([TokenKind]::In) 'I expected "in" and the database connection after the table.' 'Write: get columns from "table" in db into columns')
+                $connection = Read-OtterValue
+                $continued = Test-OtterSoftContinuation
+                [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a result name after the database connection.' 'Write: get columns from "table" in db into columns')
+                $target = Read-OtterVariableName 'I expected a result name after "into".'
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the get columns statement to end here.')
+                if ($continued) { [void](Assert-OtterTokenKind ([TokenKind]::Dedent) 'I expected the continued get columns clause to end.') }
+                return [GetColumnsStmt]::new($table, $connection, $target.Text, $start.Line)
+            }
             if ($kind.Kind -eq [TokenKind]::Json) {
                 [void](Read-OtterToken)
                 [void](Assert-OtterTokenKind ([TokenKind]::From) 'I expected "from" and a URL after "get json".')
@@ -2341,6 +2396,164 @@ function Read-OtterStatement {
             $path = Read-OtterMathExpression
             [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the download statement to end here.')
             return [DownloadFileStmt]::new($url, $path, $start.Line)
+        }
+        # connect database into db                                     (D97)
+        ([TokenKind]::Connect) {
+            [void](Read-OtterToken)
+            $config = Read-OtterMathExpression
+            [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a variable name after the database configuration.' 'Write: connect database into db')
+            $target = Read-OtterVariableName 'I expected a variable name after "into".'
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the connect statement to end here.')
+            return [ConnectDbStmt]::new($config, $target.Text, $start.Line)
+        }
+        # disconnect db                                                (D97)
+        ([TokenKind]::Disconnect) {
+            [void](Read-OtterToken)
+            $connection = Read-OtterValue
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the disconnect statement to end here.')
+            return [DisconnectDbStmt]::new($connection, $start.Line)
+        }
+        # query db with ... into tasks                                 (D97)
+        ([TokenKind]::Query) {
+            [void](Read-OtterToken)
+            $connection = Read-OtterValue
+            [void](Assert-OtterTokenKind ([TokenKind]::With) 'I expected "with" after the database connection.' 'Write: query db with "select ... " into tasks')
+            $parameters = [System.Collections.Generic.List[DbParameter]]::new()
+            $queryExpr = $null
+            $target = $null
+
+            if (Test-OtterTokenKind ([TokenKind]::Newline)) {
+                [void](Read-OtterToken)
+                [void](Assert-OtterTokenKind ([TokenKind]::Indent) 'I expected an indented block after "with".')
+                Skip-OtterNewlines
+                $queryExpr = Read-OtterMathExpression
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected a newline after the SQL query string.')
+                Skip-OtterNewlines
+
+                while (-not (Test-OtterTokenKind ([TokenKind]::Dedent)) -and -not (Test-OtterTokenKind ([TokenKind]::BlockEnd)) -and -not (Test-OtterTokenKind ([TokenKind]::EndOfFile))) {
+                    $curTok = Get-OtterCurrentToken
+                    if ($curTok.Kind -eq [TokenKind]::Parameter -or ($curTok.Kind -eq [TokenKind]::Identifier -and $curTok.Text -eq 'parameter')) {
+                        [void](Read-OtterToken)
+                        $paramNameTok = Get-OtterCurrentToken
+                        if ($paramNameTok.Kind -notin @([TokenKind]::String, [TokenKind]::Identifier)) {
+                            throw (New-OtterParserError 'I expected a parameter name (such as "id" or id) after "parameter".' $paramNameTok 'Write: parameter "id" is userId')
+                        }
+                        [void](Read-OtterToken)
+                        $paramName = if ($paramNameTok.Kind -eq [TokenKind]::String) { $paramNameTok.Value } else { $paramNameTok.Text }
+                        [void](Assert-OtterTokenKind ([TokenKind]::Is) 'I expected "is" after the parameter name.' "Write: parameter `"$paramName`" is value")
+                        $paramValue = Read-OtterMathExpression
+                        [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the parameter definition to end here.')
+                        Skip-OtterNewlines
+                        $parameters.Add([DbParameter]::new($paramName, $paramValue, $paramNameTok.Line))
+                    } else {
+                        throw (New-OtterParserError "I expected 'parameter' or the end of the query block, but found '$($curTok.Text)'." $curTok 'Write: parameter "name" is value')
+                    }
+                }
+
+                [void](Assert-OtterTokenKind ([TokenKind]::Dedent) 'I expected the query block to end.')
+                if (Test-OtterTokenKind ([TokenKind]::BlockEnd)) { [void](Read-OtterToken); Skip-OtterNewlines }
+                Skip-OtterNewlines
+
+                [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a result variable name for the query.' 'Write: query db with ... into tasks')
+                $targetTok = Read-OtterVariableName 'I expected a variable name after "into".'
+                $target = $targetTok.Text
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the query statement to end here.')
+            } else {
+                $queryExpr = Read-OtterMathExpression
+                [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a result variable name for the query.' 'Write: query db with "select ... " into tasks')
+                $targetTok = Read-OtterVariableName 'I expected a variable name after "into".'
+                $target = $targetTok.Text
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the query statement to end here.')
+            }
+
+            return [DbQueryStmt]::new($connection, $queryExpr, $parameters.ToArray(), $target, $start.Line)
+        }
+        # execute db with ... [into result]                            (D97)
+        ([TokenKind]::Execute) {
+            [void](Read-OtterToken)
+            $connection = Read-OtterValue
+            [void](Assert-OtterTokenKind ([TokenKind]::With) 'I expected "with" after the database connection.' 'Write: execute db with "insert ... " into result')
+            $parameters = [System.Collections.Generic.List[DbParameter]]::new()
+            $commandExpr = $null
+            $target = $null
+
+            if (Test-OtterTokenKind ([TokenKind]::Newline)) {
+                [void](Read-OtterToken)
+                [void](Assert-OtterTokenKind ([TokenKind]::Indent) 'I expected an indented block after "with".')
+                Skip-OtterNewlines
+                $commandExpr = Read-OtterMathExpression
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected a newline after the SQL command string.')
+                Skip-OtterNewlines
+
+                while (-not (Test-OtterTokenKind ([TokenKind]::Dedent)) -and -not (Test-OtterTokenKind ([TokenKind]::BlockEnd)) -and -not (Test-OtterTokenKind ([TokenKind]::EndOfFile))) {
+                    $curTok = Get-OtterCurrentToken
+                    if ($curTok.Kind -eq [TokenKind]::Parameter -or ($curTok.Kind -eq [TokenKind]::Identifier -and $curTok.Text -eq 'parameter')) {
+                        [void](Read-OtterToken)
+                        $paramNameTok = Get-OtterCurrentToken
+                        if ($paramNameTok.Kind -notin @([TokenKind]::String, [TokenKind]::Identifier)) {
+                            throw (New-OtterParserError 'I expected a parameter name (such as "id" or id) after "parameter".' $paramNameTok 'Write: parameter "id" is userId')
+                        }
+                        [void](Read-OtterToken)
+                        $paramName = if ($paramNameTok.Kind -eq [TokenKind]::String) { $paramNameTok.Value } else { $paramNameTok.Text }
+                        [void](Assert-OtterTokenKind ([TokenKind]::Is) 'I expected "is" after the parameter name.' "Write: parameter `"$paramName`" is value")
+                        $paramValue = Read-OtterMathExpression
+                        [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the parameter definition to end here.')
+                        Skip-OtterNewlines
+                        $parameters.Add([DbParameter]::new($paramName, $paramValue, $paramNameTok.Line))
+                    } else {
+                        throw (New-OtterParserError "I expected 'parameter' or the end of the execute block, but found '$($curTok.Text)'." $curTok 'Write: parameter "name" is value')
+                    }
+                }
+
+                [void](Assert-OtterTokenKind ([TokenKind]::Dedent) 'I expected the execute block to end.')
+                if (Test-OtterTokenKind ([TokenKind]::BlockEnd)) { [void](Read-OtterToken); Skip-OtterNewlines }
+                Skip-OtterNewlines
+
+                if (Test-OtterTokenKind ([TokenKind]::Into)) {
+                    [void](Read-OtterToken)
+                    $targetTok = Read-OtterVariableName 'I expected a variable name after "into".'
+                    $target = $targetTok.Text
+                    [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the execute statement to end here.')
+                }
+            } else {
+                $commandExpr = Read-OtterMathExpression
+                if (Test-OtterTokenKind ([TokenKind]::Into)) {
+                    [void](Read-OtterToken)
+                    $targetTok = Read-OtterVariableName 'I expected a variable name after "into".'
+                    $target = $targetTok.Text
+                }
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the execute statement to end here.')
+            }
+
+            return [DbExecuteStmt]::new($connection, $commandExpr, $parameters.ToArray(), $target, $start.Line)
+        }
+        # begin transaction on db into tx                              (D97)
+        ([TokenKind]::BeginTransaction) {
+            [void](Read-OtterToken)
+            $onTok = Get-OtterCurrentToken
+            if ($onTok.Kind -ne [TokenKind]::On -and -not ($onTok.Kind -eq [TokenKind]::Identifier -and $onTok.Text -eq 'on')) {
+                throw (New-OtterParserError 'I expected "on" after "begin transaction".' $onTok 'Write: begin transaction on db into tx')
+            }
+            [void](Read-OtterToken)
+            $connection = Read-OtterValue
+            [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a transaction variable name.' 'Write: begin transaction on db into tx')
+            $target = Read-OtterVariableName 'I expected a transaction variable name after "into".'
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the begin transaction statement to end here.')
+            return [BeginTransactionStmt]::new($connection, $target.Text, $start.Line)
+        }
+        # commit tx                                                    (D97)
+        ([TokenKind]::Commit) {
+            [void](Read-OtterToken)
+            $transaction = Read-OtterValue
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the commit statement to end here.')
+            return [CommitTransactionStmt]::new($transaction, $start.Line)
+        }
+        # rollback tx                                                  (D97)
+        ([TokenKind]::Rollback) {
+            [void](Read-OtterToken)
+            $transaction = Read-OtterValue
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the rollback statement to end here.')
+            return [RollbackTransactionStmt]::new($transaction, $start.Line)
         }
         # notify "Title" with "Message"                                (D67)
         ([TokenKind]::Notify) {

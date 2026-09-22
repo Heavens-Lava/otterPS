@@ -218,6 +218,17 @@ enum TokenKind {
     Post            # post data to "https://..." into result
     Download        # download file from <url> to <path> (D96)
 
+    # --- database provider (D97) --------------------------------
+    Connect         # connect database into db
+    Disconnect      # disconnect db
+    Query           # query db with ... into tasks
+    Execute         # execute db with ... into result
+    BeginTransaction # begin transaction on db into tx
+    Commit          # commit tx
+    Rollback        # rollback tx
+    Parameter       # parameter "name" is value
+
+
     # --- web servers & api routes (D51) -------------------------
     Respond         # respond with "..." as json and status 200
     Receives        # when api receives GET at "/users"
@@ -493,6 +504,17 @@ enum NodeKind {
     # --- symmetric encryption (D92) -------------------------------------------
     EncryptText            # encrypt "text" with key "secret" into cipher
     DecryptText            # decrypt "cipher" with key "secret" into text
+
+    # --- database operations (D97) --------------------------------------------
+    ConnectDb              # connect database into db
+    DisconnectDb           # disconnect db
+    DbQuery                # query db with ... into tasks
+    DbExecute              # execute db with ... into result
+    BeginTransaction       # begin transaction on db into tx
+    CommitTransaction      # commit tx
+    RollbackTransaction    # rollback tx
+    GetTables              # get tables from db into tables (D98)
+    GetColumns             # get columns from table in db into columns (D98)
 }
 
 enum MathOp { Add; Subtract; Multiply; Divide; Percent; Power }   # D88
@@ -2409,6 +2431,108 @@ class UseModuleStmt : Node {
         $this.Module = $module
     }
 }
+
+
+# ===============================================================
+# DATABASE OPERATIONS (D97)
+# ===============================================================
+
+class DbParameter {
+    [string]$Name
+    [Node]$Value
+    [int]$Line
+    DbParameter([string]$name, [Node]$value, [int]$line) {
+        $this.Name = $name
+        $this.Value = $value
+        $this.Line = $line
+    }
+}
+
+class ConnectDbStmt : Node {
+    [Node]$Config
+    [string]$Target
+    ConnectDbStmt([Node]$config, [string]$target, [int]$line) : base([NodeKind]::ConnectDb, $line) {
+        $this.Config = $config
+        $this.Target = $target
+    }
+}
+
+class DisconnectDbStmt : Node {
+    [Node]$Connection
+    DisconnectDbStmt([Node]$connection, [int]$line) : base([NodeKind]::DisconnectDb, $line) {
+        $this.Connection = $connection
+    }
+}
+
+class DbQueryStmt : Node {
+    [Node]$Connection
+    [Node]$Query
+    [DbParameter[]]$Parameters
+    [string]$Target
+    DbQueryStmt([Node]$connection, [Node]$query, [DbParameter[]]$parameters, [string]$target, [int]$line) : base([NodeKind]::DbQuery, $line) {
+        $this.Connection = $connection
+        $this.Query = $query
+        $this.Parameters = $parameters
+        $this.Target = $target
+    }
+}
+
+class DbExecuteStmt : Node {
+    [Node]$Connection
+    [Node]$Command
+    [DbParameter[]]$Parameters
+    [string]$Target
+    DbExecuteStmt([Node]$connection, [Node]$command, [DbParameter[]]$parameters, [string]$target, [int]$line) : base([NodeKind]::DbExecute, $line) {
+        $this.Connection = $connection
+        $this.Command = $command
+        $this.Parameters = $parameters
+        $this.Target = $target
+    }
+}
+
+class BeginTransactionStmt : Node {
+    [Node]$Connection
+    [string]$Target
+    BeginTransactionStmt([Node]$connection, [string]$target, [int]$line) : base([NodeKind]::BeginTransaction, $line) {
+        $this.Connection = $connection
+        $this.Target = $target
+    }
+}
+
+class CommitTransactionStmt : Node {
+    [Node]$Transaction
+    CommitTransactionStmt([Node]$transaction, [int]$line) : base([NodeKind]::CommitTransaction, $line) {
+        $this.Transaction = $transaction
+    }
+}
+
+class RollbackTransactionStmt : Node {
+    [Node]$Transaction
+    RollbackTransactionStmt([Node]$transaction, [int]$line) : base([NodeKind]::RollbackTransaction, $line) {
+        $this.Transaction = $transaction
+    }
+}
+
+class GetTablesStmt : Node {
+    [Node]$Connection
+    [string]$Target
+    GetTablesStmt([Node]$connection, [string]$target, [int]$line) : base([NodeKind]::GetTables, $line) {
+        $this.Connection = $connection
+        $this.Target = $target
+    }
+}
+
+class GetColumnsStmt : Node {
+    [Node]$Table
+    [Node]$Connection
+    [string]$Target
+    GetColumnsStmt([Node]$table, [Node]$connection, [string]$target, [int]$line) : base([NodeKind]::GetColumns, $line) {
+        $this.Table = $table
+        $this.Connection = $connection
+        $this.Target = $target
+    }
+}
+
 
 
 # ===============================================================

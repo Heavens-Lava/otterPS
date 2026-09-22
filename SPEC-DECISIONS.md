@@ -7039,5 +7039,149 @@ download file from <url> to <path>
 |---|---|---|
 | `DownloadFileStmt` | `[Node]$Url`, `[Node]$Path`, `[int]$Line` | `DownloadFile` |
 
+---
+
+## D97. Database Architecture & Core Contract (SQLite Foundation)
+
+**Authoritative spec:** Jeff's approved D97 build brief and architecture proposal.
+
+**Decision:**
+Otter 1.1 introduces first-class database support via an extensible provider architecture, decoupling language semantics from underlying database engines. The reference provider implements SQLite on Windows using the operating system's built-in `winsqlite3.dll` without external package dependencies.
+
+### Syntax & Grammar
+
+1. **Configuration & Connection:**
+   ```otter
+   tasksDb has
+       provider is "sqlite"
+       connection is "tasks.db"
+   .
+
+   connect tasksDb into db
+   disconnect db
+   ```
+   - Database configuration uses standard untyped object literals (`has`, D40).
+   - `connect <configExpr> into <targetVar>` creates a `'database connection'` object.
+   - `disconnect <connectionExpr>` explicitly closes the connection. Operating on a closed connection raises a clean diagnostic.
+
+2. **Queries (`query ... with ... into ...`):**
+   ```otter
+   query db with
+       "select id, title, completed from tasks where status = @status"
+       parameter "status" is filterStatus
+   into tasks
+   ```
+   - Queries return tabular rows and always require `into`.
+   - Single-line shorthand: `query db with "select * from tasks" into tasks`.
+   - The first element of the `with` block is the SQL text expression.
+   - Parameters follow on subsequent lines: `parameter "<name>" is <expression>`.
+
+3. **Commands (`execute ... with ... [into ...]`):**
+   ```otter
+   execute db with
+       "insert into users (name, email) values (@name, @email)"
+       parameter "name" is userName
+       parameter "email" is userEmail
+   into result
+   ```
+   - Handles `INSERT`, `UPDATE`, `DELETE`, and DDL.
+   - `into` is optional. When specified, receives a `'database result'` object with `rows affected of result` and `last inserted id of result`.
+
+4. **Transactions (`begin transaction`, `commit`, `rollback`):**
+   ```otter
+   begin transaction on db into tx
+   execute tx with ...
+   commit tx
+   ```
+   - Or in failure scenarios: `rollback tx`.
+   - Compatible with `try / otherwise` (D23).
+
+### Result & NULL Model
+
+1. **Rows:** A list of `OtterObject` instances with `TypeName = 'database row'`. Column names become accessible properties (`title of task`).
+2. **Command Result:** An `OtterObject` with `TypeName = 'database result'` exposing `rows affected` and `last inserted id`.
+3. **Database NULL:** Maps 1:1 to Otter `gone` (`$null`, D22). Missing/NULL columns evaluate to `gone`. Binding `gone` as a parameter binds SQL `DBNull.Value`.
+
+### Security Model
+
+- Parameterized binding is mandatory and first-class. Unsafe string interpolation is not promoted.
+- Connection strings and credentials are sanitized and masked in all diagnostics and logs.
+
+### Shared AST Contract
+
+| AST Node | Parameters | NodeKind |
+|---|---|---|
+| `ConnectDbStmt` | `[Node]$Config, [string]$Target, [int]$Line` | `ConnectDb` |
+| `DisconnectDbStmt` | `[Node]$Connection, [int]$Line` | `DisconnectDb` |
+| `DbQueryStmt` | `[Node]$Connection, [Node]$Query, [DbParameter[]]$Parameters, [string]$Target, [int]$Line` | `DbQuery` |
+| `DbExecuteStmt` | `[Node]$Connection, [Node]$Command, [DbParameter[]]$Parameters, [string]$Target, [int]$Line` | `DbExecute` |
+| `BeginTransactionStmt` | `[Node]$Connection, [string]$Target, [int]$Line` | `BeginTransaction` |
+| `CommitTransactionStmt` | `[Node]$Transaction, [int]$Line` | `CommitTransaction` |
+| `RollbackTransactionStmt` | `[Node]$Transaction, [int]$Line` | `RollbackTransaction` |
+
+---
+
+## D98. Database Schema Introspection
+
+**Authoritative spec:** Jeff's approved D98 build brief and architecture proposal.
+
+**Decision:**
+Otter 1.1 provides universal, provider-independent schema introspection capabilities for database engines. The language surface uses natural English-like syntax while the provider translates to host-specific metadata queries.
+
+### Syntax & Grammar
+
+1. **Table Introspection:**
+   ```otter
+   get tables from db into tables
+
+   each table in tables
+       say name of table
+       say schema of table
+       say kind of table       # "table" or "view"
+   .
+   ```
+
+2. **Column Introspection:**
+   ```otter
+   get columns from "tasks" in db into columns
+   # or passing a database table object directly:
+   get columns from table in db into columns
+
+   each column in columns
+       say name of column
+       say type of column                 # portable category: "text", "number", "boolean", "bytes", "time", "any"
+       say database type of column        # provider-native description: "INTEGER", "nvarchar(100)", etc.
+       say nullable of column             # true / false
+       say primary key of column          # true / false
+       say primary key position of column # integer position (1, 2, ...) or gone
+       say default expression of column   # reported default expression text or gone
+   .
+   ```
+
+### Metadata Model
+
+1. **Table Result (`database table`):**
+   - `name`: string name of table or view.
+   - `schema`: string provider schema/namespace (e.g. `'main'` for SQLite), or `gone`.
+   - `kind`: `'table'` or `'view'`.
+
+2. **Column Result (`database column`):**
+   - `name`: column identifier.
+   - `type`: portable category (`'text'`, `'number'`, `'boolean'`, `'bytes'`, `'time'`, `'any'`).
+   - `database type`: verbatim declared engine type.
+   - `nullable`: boolean indicating if NULL values are permitted.
+   - `primary key`: boolean indicating if column participates in primary key.
+   - `primary key position`: integer 1-based order in primary key, or `gone`.
+   - `default expression`: verbatim text of column default expression, or `gone`.
+
+### Shared AST Contract
+
+| AST Node | Parameters | NodeKind |
+|---|---|---|
+| `GetTablesStmt` | `[Node]$Connection, [string]$Target, [int]$Line` | `GetTables` |
+| `GetColumnsStmt` | `[Node]$Table, [Node]$Connection, [string]$Target, [int]$Line` | `GetColumns` |
+
+
+
 
 

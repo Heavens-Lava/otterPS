@@ -2,6 +2,7 @@ using module .\Otter.Contract.psm1
 using module .\src\Otter.Runtime.psm1
 using module .\src\Otter.Lexer.psm1
 using module .\src\Otter.Parser.psm1
+using module .\src\Otter.Database.psm1
 using module .\src\Otter.Interpreter.psm1
 
 # otter.ps1 - the Otter interpreter
@@ -74,6 +75,25 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+# Otter source files are read as UTF-8 explicitly (see Invoke-OtterFile
+# below), but without this, `say`/output written through the CONSOLE still
+# goes out re-encoded as whatever legacy OEM code page the host happens to
+# be running (437 on a stock US Windows install) - any character outside
+# that code page (CJK, emoji, most accented Latin) silently becomes "?" on
+# the way out, and the same corruption hits a parent process capturing
+# otter.ps1's stdout (e.g. `& powershell ... otter.ps1 file.ot`), since a
+# child's OutputEncoding governs how it encodes bytes onto its own stdout
+# handle regardless of who is on the other end. Forcing real UTF-8 here
+# makes Unicode `say` output correct both for a real terminal and for any
+# caller capturing this process's output.
+try {
+    [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+} catch {
+    # Some hosts (a redirected/non-interactive stdout, certain CI runners)
+    # refuse to let a script change console encoding - not fatal, since
+    # ASCII-only output is unaffected either way.
+}
 
 # D57: ONE authoritative version source - the VERSION file at the repo root,
 # read here and nowhere else. --version and the REPL banner both read
@@ -259,13 +279,13 @@ function Invoke-OtterFile {
 
     if (-not $ScriptPath.ToLowerInvariant().EndsWith('.ot')) {
         Write-Host "Otter: `"$ScriptPath`" is not an Otter file - expected a .ot file." -ForegroundColor Red
-        exit $script:ExitUsageError
+        [Environment]::Exit($script:ExitUsageError)
     }
 
     $resolved = Resolve-Path -LiteralPath $ScriptPath -ErrorAction SilentlyContinue
     if (-not $resolved) {
         Write-Host "Otter: I cannot find a file called `"$ScriptPath`"." -ForegroundColor Red
-        exit $script:ExitUsageError
+        [Environment]::Exit($script:ExitUsageError)
     }
 
     # Explicit UTF-8 (no BOM) on the read side, matching the write side, so
@@ -284,9 +304,9 @@ function Invoke-OtterFile {
         if ($DebugSession) { Complete-OtterDebugSession }
         Show-OtterFailure -ErrorRecord $_
         if ($script:LastFailureStage -eq 'check') {
-            exit $script:ExitCheckError
+            [Environment]::Exit($script:ExitCheckError)
         }
-        exit $script:ExitRuntimeError
+        [Environment]::Exit($script:ExitRuntimeError)
     }
 
     if ($DebugSession) { Complete-OtterDebugSession }
@@ -407,7 +427,7 @@ if ($HelpFlag -or $Path -eq 'help' -or $Path -eq '--help') {
 if ($Path -eq 'run' -or $Path -eq 'check') {
     if (-not $Target) {
         Write-Host "Usage: otter $Path <file.ot>" -ForegroundColor Red
-        exit $script:ExitUsageError
+        [Environment]::Exit($script:ExitUsageError)
     }
     Invoke-OtterFile -ScriptPath $Target -CheckOnly:($Path -eq 'check') -Arguments $Arguments
     # Invoke-OtterFile always exits itself.
@@ -478,7 +498,7 @@ if ($Path) {
     if (-not $Path.ToLowerInvariant().EndsWith('.ot')) {
         Write-Host "Otter: I do not recognize the command `"$Path`"." -ForegroundColor Red
         Write-Host "Run 'otter help' to see the available commands." -ForegroundColor Red
-        exit $script:ExitUsageError
+        [Environment]::Exit($script:ExitUsageError)
     }
     $scriptArgs = @()
     if ($Target) { $scriptArgs += $Target }

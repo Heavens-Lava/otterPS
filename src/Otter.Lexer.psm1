@@ -103,6 +103,11 @@ $script:OtterStatementHeadKeywords = @{
     'encrypt' = [TokenKind]::Encrypt; 'decrypt' = [TokenKind]::Decrypt
     # D96: `download file from <url> to <path>`
     'download' = [TokenKind]::Download
+    # D97: database operations (connect, disconnect, query, execute, commit, rollback, parameter)
+    'connect' = [TokenKind]::Connect; 'disconnect' = [TokenKind]::Disconnect
+    'query' = [TokenKind]::Query; 'execute' = [TokenKind]::Execute
+    'commit' = [TokenKind]::Commit; 'rollback' = [TokenKind]::Rollback
+    'parameter' = [TokenKind]::Parameter
     # D56: declarative UI, reactivity, animation
     'layout' = [TokenKind]::Layout; 'gap' = [TokenKind]::Gap
     'state' = [TokenKind]::State; 'derive' = [TokenKind]::Derive
@@ -316,6 +321,13 @@ function ConvertTo-OtterLineTokens {
         if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -eq 'for' -and
             ($tokenIndex + 1) -lt $tokens.Count -and $tokens[$tokenIndex + 1].Text -eq 'each') {
             $combined.Add((New-OtterToken ([TokenKind]::ForEach) 'for each' $null $token.Line $token.Column))
+            $tokenIndex++
+            continue
+        }
+        # D97: `begin transaction` combined token
+        if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -eq 'begin' -and
+            ($tokenIndex + 1) -lt $tokens.Count -and $tokens[$tokenIndex + 1].Text -eq 'transaction') {
+            $combined.Add((New-OtterToken ([TokenKind]::BeginTransaction) 'begin transaction' $null $token.Line $token.Column))
             $tokenIndex++
             continue
         }

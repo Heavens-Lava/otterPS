@@ -125,4 +125,29 @@ if ($easeTokens[0].Kind -ne [TokenKind]::Animate -or $easeTokens[3].Text -ne 'ea
 $mathSymTokens = ConvertTo-OtterTokens -Source 'count is count + 1'
 if ($mathSymTokens[3].Kind -ne [TokenKind]::And) { throw 'Expected + to tokenize as And for addition.' }
 
+# D97 Database tokens
+$dbConnectTokens = ConvertTo-OtterTokens -Source 'connect dbConfig into db'
+if ($dbConnectTokens[0].Kind -ne [TokenKind]::Connect) { throw 'Expected Connect token.' }
+if ($dbConnectTokens[2].Kind -ne [TokenKind]::Into) { throw 'Expected Into token.' }
+
+$dbDisconnectTokens = ConvertTo-OtterTokens -Source 'disconnect db'
+if ($dbDisconnectTokens[0].Kind -ne [TokenKind]::Disconnect) { throw 'Expected Disconnect token.' }
+
+$dbTxTokens = ConvertTo-OtterTokens -Source 'begin transaction on db into tx'
+if ($dbTxTokens[0].Kind -ne [TokenKind]::BeginTransaction) { throw 'Expected BeginTransaction token.' }
+
+$dbCommitTokens = ConvertTo-OtterTokens -Source 'commit tx'
+if ($dbCommitTokens[0].Kind -ne [TokenKind]::Commit) { throw 'Expected Commit token.' }
+
+$dbRollbackTokens = ConvertTo-OtterTokens -Source 'rollback tx'
+if ($dbRollbackTokens[0].Kind -ne [TokenKind]::Rollback) { throw 'Expected Rollback token.' }
+
+# Contextual keyword narrowing: database words remain ordinary identifiers away from statement head
+$identTokens = ConvertTo-OtterTokens -Source 'say query'
+if ($identTokens[1].Kind -ne [TokenKind]::Identifier) { throw 'query must remain an identifier away from statement head.' }
+
+$identTokens2 = ConvertTo-OtterTokens -Source 'say connect'
+if ($identTokens2[1].Kind -ne [TokenKind]::Identifier) { throw 'connect must remain an identifier away from statement head.' }
+
 Write-Output 'Lexer tests passed.'
+

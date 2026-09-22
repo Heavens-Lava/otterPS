@@ -2,6 +2,7 @@ using module ..\Otter.Contract.psm1
 using module .\Otter.Runtime.psm1
 using module .\Otter.Library.psm1
 using module .\Otter.UI.psm1
+using module .\Otter.Database.psm1
 
 # Otter.Interpreter.psm1
 #
@@ -591,6 +592,112 @@ function Invoke-OtterStatement {
             $url = Get-OtterText -Expression $Statement.Url -Environment $Environment
             $path = Get-OtterPathArgument -Expression $Statement.Path -Environment $Environment
             Receive-OtterFileDownload -Url $url -Path $path -Line $Statement.Line
+            return
+        }
+
+        # connect database into db                                     (D97)
+        'ConnectDb' {
+            $config = Get-OtterValue -Expression $Statement.Config -Environment $Environment
+            $connObj = Connect-OtterDatabase -ConfigValue $config -Line $Statement.Line
+            $Environment.Set($Statement.Target, $connObj)
+            return
+        }
+
+        # disconnect db                                                (D97)
+        'DisconnectDb' {
+            $conn = Get-OtterValue -Expression $Statement.Connection -Environment $Environment
+            Disconnect-OtterDatabase -ConnectionValue $conn -Line $Statement.Line
+            return
+        }
+
+        # query db with ... into tasks                                 (D97)
+        'DbQuery' {
+            $conn = Get-OtterValue -Expression $Statement.Connection -Environment $Environment
+            $queryText = Get-OtterText -Expression $Statement.Query -Environment $Environment
+            $params = @{}
+            if ($null -ne $Statement.Parameters) {
+                foreach ($p in $Statement.Parameters) {
+                    $pVal = Get-OtterValue -Expression $p.Value -Environment $Environment
+                    $params[$p.Name] = $pVal
+                }
+            }
+            $rows = Invoke-OtterDatabaseQuery -TargetValue $conn -Sql $queryText -Parameters $params -Line $Statement.Line
+            $list = [System.Collections.Generic.List[object]]::new()
+            if ($rows -is [System.Collections.IEnumerable] -and $rows -isnot [string]) {
+                foreach ($r in $rows) { $list.Add($r) }
+            } elseif ($null -ne $rows) {
+                $list.Add($rows)
+            }
+            $Environment.Set($Statement.Target, $list)
+            return
+        }
+
+        # execute db with ... [into result]                            (D97)
+        'DbExecute' {
+            $conn = Get-OtterValue -Expression $Statement.Connection -Environment $Environment
+            $cmdText = Get-OtterText -Expression $Statement.Command -Environment $Environment
+            $params = @{}
+            if ($null -ne $Statement.Parameters) {
+                foreach ($p in $Statement.Parameters) {
+                    $pVal = Get-OtterValue -Expression $p.Value -Environment $Environment
+                    $params[$p.Name] = $pVal
+                }
+            }
+            $res = Invoke-OtterDatabaseCommand -TargetValue $conn -Sql $cmdText -Parameters $params -Line $Statement.Line
+            if (-not [string]::IsNullOrEmpty($Statement.Target)) {
+                $Environment.Set($Statement.Target, $res)
+            }
+            return
+        }
+
+        # begin transaction on db into tx                              (D97)
+        'BeginTransaction' {
+            $conn = Get-OtterValue -Expression $Statement.Connection -Environment $Environment
+            $txObj = Start-OtterDatabaseTransaction -ConnectionValue $conn -Line $Statement.Line
+            $Environment.Set($Statement.Target, $txObj)
+            return
+        }
+
+        # commit tx                                                    (D97)
+        'CommitTransaction' {
+            $tx = Get-OtterValue -Expression $Statement.Transaction -Environment $Environment
+            Complete-OtterDatabaseTransaction -TransactionValue $tx -Line $Statement.Line
+            return
+        }
+
+        # rollback tx                                                  (D97)
+        'RollbackTransaction' {
+            $tx = Get-OtterValue -Expression $Statement.Transaction -Environment $Environment
+            Undo-OtterDatabaseTransaction -TransactionValue $tx -Line $Statement.Line
+            return
+        }
+
+        # get tables from db into tables                               (D98)
+        'GetTables' {
+            $conn = Get-OtterValue -Expression $Statement.Connection -Environment $Environment
+            $tables = Get-OtterDatabaseTables -TargetValue $conn -Line $Statement.Line
+            $list = [System.Collections.Generic.List[object]]::new()
+            if ($tables -is [System.Collections.IEnumerable] -and $tables -isnot [string]) {
+                foreach ($t in $tables) { $list.Add($t) }
+            } elseif ($null -ne $tables) {
+                $list.Add($tables)
+            }
+            $Environment.Set($Statement.Target, $list)
+            return
+        }
+
+        # get columns from table in db into columns                    (D98)
+        'GetColumns' {
+            $table = Get-OtterValue -Expression $Statement.Table -Environment $Environment
+            $conn = Get-OtterValue -Expression $Statement.Connection -Environment $Environment
+            $columns = Get-OtterDatabaseColumns -TargetValue $conn -TableOrName $table -Line $Statement.Line
+            $list = [System.Collections.Generic.List[object]]::new()
+            if ($columns -is [System.Collections.IEnumerable] -and $columns -isnot [string]) {
+                foreach ($c in $columns) { $list.Add($c) }
+            } elseif ($null -ne $columns) {
+                $list.Add($columns)
+            }
+            $Environment.Set($Statement.Target, $list)
             return
         }
 

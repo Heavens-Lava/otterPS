@@ -1,0 +1,44 @@
+database has
+    provider is "sqlite"
+    connection is ":memory:"
+.
+
+connect database into db
+
+# Create sample tables and views for dogfooding schema introspection
+execute db with "create table tasks (id integer primary key autoincrement, title text not null, completed integer default 0, priority text default 'normal')"
+execute db with "create table notes (note_id integer, task_id integer, body text, created_at text default CURRENT_TIMESTAMP, primary key (note_id, task_id))"
+execute db with "create view pending_tasks as select id, title from tasks where completed = 0"
+
+say "Inspecting database tables and views:"
+get tables from db into tables
+
+each table in tables
+    say "---"
+    say kind of table
+    say name of table
+    say schema of table
+
+    get columns from table in db into columns
+    each column in columns
+        say name of column
+        say type of column
+        say database type of column
+        if nullable of column is true
+            say "nullable"
+        otherwise
+            say "not nullable"
+        .
+        if primary key of column is true
+            say "pk position:"
+            say primary key position of column
+        .
+        if default expression of column is not gone
+            say "default expression:"
+            say default expression of column
+        .
+    .
+.
+
+disconnect db
+say "Schema introspection dogfood demonstration complete."

@@ -95,8 +95,54 @@ enum TokenKind {
     # --- dynamic thing access (D41) ------------------------------
     Set             # set "Jeff" to 100 in scores
 
-    # --- errors (D23) -------------------------------------------
+    # --- errors (D23, D68) ----------------------------------------
     Try             # try / otherwise
+    Fail            # fail with "message" - a real user-raised error (D68)
+
+    # --- process management (D70, D71) ------------------------------
+    Kill            # kill process p / kill process p and its children
+    Wait            # wait for process p up to 5 seconds
+
+    # --- power/session actions (D82) ---------------------------------
+    Lock            # lock the computer
+    Sign            # sign out
+    Restart         # restart the computer
+    Shut            # shut down the computer
+
+    # --- printers (D83) -------------------------------------------------
+    Print           # print "file.txt" to "PrinterName"
+
+    # --- ZIP/archive provider (D87) --------------------------------------
+    Zip             # zip folder "src" into "archive.zip"
+    Unzip           # unzip "archive.zip" into "dest"
+
+    # --- math operators (D88) ---------------------------------------------
+    Percent         # X percent of Y
+    Power           # X power Y
+
+    # --- more math operations (D89) ----------------------------------------
+    AbsoluteValue   # absolute value of X
+    SquareRoot      # square root of X
+    Round           # round of X
+    RoundUp         # round up of X (ceiling)
+    RoundDown       # round down of X (floor)
+    Larger          # larger of X and Y
+    Smaller         # smaller of X and Y
+
+    # --- trigonometry, logarithms (D90) -------------------------------------
+    Sine            # sine of X (X in degrees)
+    Cosine          # cosine of X (X in degrees)
+    Tangent         # tangent of X (X in degrees)
+    LogTen          # log of X (base 10)
+    NaturalLog      # natural log of X (base e)
+
+    # --- hashing/HMAC (D91) --------------------------------------------------
+    Hash            # hash "text" as "sha256" into digest
+                    # hash "text" as "sha256" with key "secret" into digest (HMAC)
+
+    # --- symmetric encryption (D92) -------------------------------------------
+    Encrypt         # encrypt "text" with key "secret" into cipher
+    Decrypt         # decrypt "cipher" with key "secret" into text
 
     # --- strings and collections (D24, D25, D26) ----------------
     Length          # length of name / length of games
@@ -116,8 +162,9 @@ enum TokenKind {
     Find            # find file in files where ... into result
     Where
 
-    # --- json, random, logging (D29, D30, D31) ------------------
+    # --- json, csv, random, logging (D29, D30, D31, D95) --------
     Json            # read json from "settings.json" into settings
+    Csv             # read csv from "customers.csv" into customers
     Convert         # convert user to json into text
     Random          # random number from 1 to 10 into number
     Item            # random item from games into game
@@ -147,11 +194,14 @@ enum TokenKind {
     Has             # a Person HAS
     Read            # read "notes.txt" into notes
     Write
+    Append          # append "line" to "notes.txt" (D61)
     Copy
     Move
     Delete
     File
     Exists
+    Notify          # notify "Title" with "Message" (D67)
+    Choose          # choose file/folder into path (D67)
     Into
     Run
     Command
@@ -164,8 +214,20 @@ enum TokenKind {
     Put             # put helloButton in app          (D47)
     Show            # show app                        (D47)
 
-    # --- networking & http (D49) --------------------------------
+    # --- networking & http (D49, D96) ---------------------------
     Post            # post data to "https://..." into result
+    Download        # download file from <url> to <path> (D96)
+
+    # --- database provider (D97) --------------------------------
+    Connect         # connect database into db
+    Disconnect      # disconnect db
+    Query           # query db with ... into tasks
+    Execute         # execute db with ... into result
+    BeginTransaction # begin transaction on db into tx
+    Commit          # commit tx
+    Rollback        # rollback tx
+    Parameter       # parameter "name" is value
+
 
     # --- web servers & api routes (D51) -------------------------
     Respond         # respond with "..." as json and status 200
@@ -173,6 +235,21 @@ enum TokenKind {
     At              # ...at "/path"
     Start           # start api
     Listen          # listen on port 8080
+
+    # --- declarative UI, reactivity, animation (D56) ------------
+    Layout          # layout row / layout column / layout cards
+    Gap             # gap 20
+    State           # state count is 0
+    Derive          # derive total is price * quantity
+    Memo            # memo sortedItems
+    On              # on start / on close
+    Await           # await get "/api/products"
+    Shared          # shared theme is "dark"
+    Use             # use files / use json / use ui
+    Focus           # focus searchBox
+    Hide            # hide sidebar
+    Animate         # animate 200ms ease-out
+    Motion          # motion pop
 
     # --- structure ----------------------------------------------
     Indent          # one level deeper (D7)
@@ -268,10 +345,12 @@ enum NodeKind {
 
     ReadFile
     WriteFile
+    AppendFile      # append "text" to "log.txt"        (D61)
     CopyFile
     MoveFile
     DeleteFile
     FileExists      # an EXPRESSION: if file "x" exists
+    FileLocked      # an EXPRESSION: if file "x" is locked            (D72)
     RunProgram      # run "notepad.exe" / run command "git status"
 
     # discovery (D20, D21)
@@ -282,8 +361,9 @@ enum NodeKind {
     CopyFolder
     MoveFolder
 
-    # errors (D23)
+    # errors (D23, D68)
     Try             # try / otherwise
+    Fail            # fail with "message"
 
     # strings and collections (D24, D25, D26)
     OfOperation     # length/uppercase/lowercase/first/last OF something
@@ -295,10 +375,14 @@ enum NodeKind {
     Join
     Find
 
-    # json, random, logging (D29, D30, D31)
+    # json, csv, random, logging (D29, D30, D31, D95)
     ReadJson
     ConvertToJson
     ConvertFromJson
+    ReadCsv
+    WriteCsv
+    ConvertToCsv
+    ConvertFromCsv
     RandomNumber
     RandomItem
     Diagnostic      # log / warn / error
@@ -312,20 +396,128 @@ enum NodeKind {
     # dates and time, as an expression (D42)
     DateDifferenceValue  # days between startDate and endDate       (a VALUE, usable anywhere an expression is)
 
-    # networking & http (D49)
+    # networking & http (D49, D96)
     HttpGet
     HttpPost
     HttpPut
     HttpDelete
+    DownloadFile
 
     # web servers & api routes (D51)
     WebRoute
     Respond
     StartServer
     ListenServer
+
+    # declarative UI, reactivity, animation (D56)
+    UiElement
+    UiLayout
+    StateDef
+    DeriveDef
+    MemoDef
+    UiEvent
+    Watch
+    Lifecycle
+    UiAnimation
+    Await
+    SharedState
+    UiAction
+    UseModule
+
+    # system integration (D67) - reachable Otter syntax for capabilities
+    # that previously existed only as unreachable JS/host-runtime
+    # plumbing (Otter.Web.psm1/Otter.Desktop.psm1's otterClipboard/
+    # otterNotify/otterGetEnv/otterGetSystemPaths/otterChooseFile/
+    # otterChooseFolder/otterSaveFileDialog) with no Otter-language
+    # front door at all - confirmed by direct inspection: zero
+    # references anywhere in this contract, the lexer, or the parser
+    # before D67.
+    CopyToClipboard   # copy "text" to clipboard
+    GetClipboard      # get clipboard into text
+    Notify            # notify "Title" with "Message"
+    GetEnvironmentVariable  # get environment variable "PATH" into value
+    SetEnvironmentVariable  # set environment variable "NAME" to "VALUE"
+    GetSystemFolder   # get system folder "temp" into path
+    SetCurrentDirectory # set current directory to "path"
+    ChooseFile        # choose file into path
+    ChooseFolder      # choose folder into path
+    ChooseSaveFile    # choose file to save into path
+
+    # --- system information (D69) --------------------------------
+    GetSystemInfo     # get system information "os" into info
+
+    # --- process management (D70, D71) ----------------------------
+    GetProcesses      # get processes into list
+    KillProcess       # kill process p / kill process p and its children
+    SetProcessPriority  # set priority of process p to "high"
+    WaitForProcess      # wait for process p up to 5 seconds [into finished]
+
+    # --- symbolic links (D73) --------------------------------------
+    CreateSymbolicLink     # create symbolic link "l" pointing to "t"
+    GetSymbolicLinkTarget  # get symbolic link target of "l" into t
+    FileIsSymbolicLink     # an EXPRESSION: if file "l" is a symbolic link
+
+    # --- permissions and ownership (D74) ----------------------------
+    GetFileOwner           # get owner of "x" into owner
+    FileIsReadOnly         # an EXPRESSION: if file "x" is read only
+    SetFileReadOnly        # set file "x" to read only / to writable
+
+    # --- Windows registry (D78) --------------------------------------
+    GetRegistryValue       # get registry value "n" from "path" into t
+    SetRegistryValue       # set registry value "n" to "d" in "path"
+    DeleteRegistryValue    # delete registry value "n" from "path"
+    RegistryKeyExists      # an EXPRESSION: if registry key "path" exists
+
+    # --- event/system logs (D79) --------------------------------------
+    GetEventLogEntries     # get event log entries from "n" up to N into t
+
+    # --- secure credential storage (D81) -------------------------------
+    SetCredential          # set credential "n" to "secret"
+    GetCredential          # get credential "n" into secret
+    DeleteCredential       # delete credential "n"
+
+    # --- power/session actions (D82) ------------------------------------
+    PowerAction            # lock the computer / sign out / restart the
+                            # computer / shut down the computer
+
+    # --- printers (D83) --------------------------------------------------
+    PrintFile              # print "file.txt" to "PrinterName"
+
+    # --- remote administration (D84) --------------------------------------
+    RunRemoteCommand       # run command "..." on remote "host" using
+                            # credential "n" [into result]
+
+    # --- SSH client (D85) ---------------------------------------------------
+    RunSshCommand          # run command "..." over ssh to "user@host"
+                            # [into result]
+
+    # --- ZIP/archive provider (D87) -----------------------------------------
+    ZipFolder              # zip folder "src" into "archive.zip"
+    UnzipFile              # unzip "archive.zip" into "dest"
+
+    # --- more math operations (D89) ------------------------------------------
+    MinMax                 # larger of X and Y / smaller of X and Y
+
+    # --- hashing/HMAC (D91) --------------------------------------------------
+    HashText               # hash "text" as "sha256" [with key "secret"] into digest
+
+    # --- symmetric encryption (D92) -------------------------------------------
+    EncryptText            # encrypt "text" with key "secret" into cipher
+    DecryptText            # decrypt "cipher" with key "secret" into text
+
+    # --- database operations (D97) --------------------------------------------
+    ConnectDb              # connect database into db
+    DisconnectDb           # disconnect db
+    DbQuery                # query db with ... into tasks
+    DbExecute              # execute db with ... into result
+    BeginTransaction       # begin transaction on db into tx
+    CommitTransaction      # commit tx
+    RollbackTransaction    # rollback tx
+    GetTables              # get tables from db into tables (D98)
+    GetColumns             # get columns from table in db into columns (D98)
 }
 
-enum MathOp { Add; Subtract; Multiply; Divide }
+enum MathOp { Add; Subtract; Multiply; Divide; Percent; Power }   # D88
 
 enum CompareOp { Equal; NotEqual; AtLeast; AtMost; GreaterThan; LessThan }
 
@@ -340,7 +532,7 @@ enum LogicalOp { And; Or }
 # Pretending every list literally carries a "length" property would make the
 # runtime object model strange to keep the grammar tidy. They share surface
 # syntax and nothing else.
-enum OfOperation { Length; Uppercase; Lowercase; First; Last }
+enum OfOperation { Length; Uppercase; Lowercase; First; Last; AbsoluteValue; SquareRoot; Round; RoundUp; RoundDown; Sine; Cosine; Tangent; LogTen; NaturalLog }   # D89 added AbsoluteValue..RoundDown, D90 added Sine..NaturalLog
 
 # if name starts with "J"   /   if name ends with "Macy"
 enum TextMatch { StartsWith; EndsWith }
@@ -893,7 +1085,25 @@ class ReadFileStmt : Node {
 class WriteFileStmt : Node {
     [Node]$Content
     [Node]$Path
+    [bool]$Atomic    # write ... to ... atomically                  (D72)
     WriteFileStmt([Node]$content, [Node]$path, [int]$line) : base([NodeKind]::WriteFile, $line) {
+        $this.Content = $content
+        $this.Path = $path
+        $this.Atomic = $false
+    }
+    WriteFileStmt([Node]$content, [Node]$path, [bool]$atomic, [int]$line) : base([NodeKind]::WriteFile, $line) {
+        $this.Content = $content
+        $this.Path = $path
+        $this.Atomic = $atomic
+    }
+}
+
+# append "line one" to "log.txt"     (adds to the end; creates the file
+# if it does not exist yet, same as write)                        (D61)
+class AppendFileStmt : Node {
+    [Node]$Content
+    [Node]$Path
+    AppendFileStmt([Node]$content, [Node]$path, [int]$line) : base([NodeKind]::AppendFile, $line) {
         $this.Content = $content
         $this.Path = $path
     }
@@ -931,6 +1141,18 @@ class DeleteFileStmt : Node {
 class FileExistsExpr : Node {
     [Node]$Path
     FileExistsExpr([Node]$path, [int]$line) : base([NodeKind]::FileExists, $line) {
+        $this.Path = $path
+    }
+}
+
+# if file "x" is locked                                              (D72)
+# True when the file exists but cannot currently be opened exclusively
+# (another process holds it open) - false both when it is free AND when
+# it does not exist at all, matching "exists" being the separate,
+# already-established question.
+class FileLockedExpr : Node {
+    [Node]$Path
+    FileLockedExpr([Node]$path, [int]$line) : base([NodeKind]::FileLocked, $line) {
         $this.Path = $path
     }
 }
@@ -1028,6 +1250,439 @@ class MoveFolderStmt : Node {
 
 
 # ===============================================================
+# SYSTEM INTEGRATION (D67)
+# ===============================================================
+#
+#     copy "text" to clipboard
+#     get clipboard into text
+#     notify "Title" with "Message"
+#     get environment variable "PATH" into value
+#     get system folder "temp" into path         - "temp"/"appdata"/"user"/"current"
+#     choose file into path
+#     choose folder into path
+#     choose file to save into path
+#
+# All eight give a real Otter front door to capabilities that already
+# existed as working JS/host-runtime plumbing (Otter.Web.psm1's plain-
+# browser fallbacks, Otter.Desktop.psm1's authenticated bridge) but had
+# NO Otter syntax reaching them at all before D67 - confirmed directly:
+# `copyToClipboard "hello"` happened to PARSE (it matched the generic
+# function-call grammar) but threw "Otter could not find anything
+# called ..." at runtime, since no such function was ever declared.
+# That was never a real language capability, just an accident of the
+# call-by-name mechanism reaching into whichever JS globals happened to
+# exist on a given target - these dedicated statements are the fix.
+
+# copy "text" to clipboard
+class CopyToClipboardStmt : Node {
+    [Node]$Text
+    CopyToClipboardStmt([Node]$text, [int]$line) : base([NodeKind]::CopyToClipboard, $line) {
+        $this.Text = $text
+    }
+}
+
+# get clipboard into text
+class GetClipboardStmt : Node {
+    [string]$Target
+    GetClipboardStmt([string]$target, [int]$line) : base([NodeKind]::GetClipboard, $line) {
+        $this.Target = $target
+    }
+}
+
+# notify "Title" with "Message"
+class NotifyStmt : Node {
+    [Node]$Title
+    [Node]$Message
+    NotifyStmt([Node]$title, [Node]$message, [int]$line) : base([NodeKind]::Notify, $line) {
+        $this.Title = $title
+        $this.Message = $message
+    }
+}
+
+# get environment variable "PATH" into value      - gone if not set
+class GetEnvironmentVariableStmt : Node {
+    [Node]$Name
+    [string]$Target
+    GetEnvironmentVariableStmt([Node]$name, [string]$target, [int]$line) : base([NodeKind]::GetEnvironmentVariable, $line) {
+        $this.Name = $name
+        $this.Target = $target
+    }
+}
+
+# set environment variable "NAME" to "VALUE"
+class SetEnvironmentVariableStmt : Node {
+    [Node]$Name
+    [Node]$Value
+    SetEnvironmentVariableStmt([Node]$name, [Node]$value, [int]$line) : base([NodeKind]::SetEnvironmentVariable, $line) {
+        $this.Name = $name
+        $this.Value = $value
+    }
+}
+
+# get system folder "temp" into path
+# FolderName is one of: "temp", "appdata", "user", "current" - a plain
+# string VALUE, not a keyword, so adding another named folder later
+# needs no grammar change, only a new case in the interpreter/compiler.
+class GetSystemFolderStmt : Node {
+    [Node]$FolderName
+    [string]$Target
+    GetSystemFolderStmt([Node]$folderName, [string]$target, [int]$line) : base([NodeKind]::GetSystemFolder, $line) {
+        $this.FolderName = $folderName
+        $this.Target = $target
+    }
+}
+
+# set current directory to "path"
+class SetCurrentDirectoryStmt : Node {
+    [Node]$Path
+    SetCurrentDirectoryStmt([Node]$path, [int]$line) : base([NodeKind]::SetCurrentDirectory, $line) {
+        $this.Path = $path
+    }
+}
+
+# get system information "os" into info               (D69)
+# InfoKind is one of: "os", "cpu", "memory", "disk", "network" - a plain
+# string VALUE, not a keyword, same design as GetSystemFolder's
+# FolderName - adding another info kind later needs no grammar change.
+class GetSystemInfoStmt : Node {
+    [Node]$InfoKind
+    [string]$Target
+    GetSystemInfoStmt([Node]$infoKind, [string]$target, [int]$line) : base([NodeKind]::GetSystemInfo, $line) {
+        $this.InfoKind = $infoKind
+        $this.Target = $target
+    }
+}
+
+# get processes into list                                             (D70)
+# Each entry is a "process" thing with id/name - the SAME shape `run
+# "notepad.exe" into p` now produces, so `kill process p` (below) works
+# on a handle from either statement without special-casing which one.
+class GetProcessesStmt : Node {
+    [string]$Target
+    GetProcessesStmt([string]$target, [int]$line) : base([NodeKind]::GetProcesses, $line) {
+        $this.Target = $target
+    }
+}
+
+# kill process p                        - one process, by its real PID
+# kill process p and its children       - that process and its whole
+#                                          subtree (IncludeChildren)
+class KillProcessStmt : Node {
+    [Node]$ProcessExpr
+    [bool]$IncludeChildren
+    KillProcessStmt([Node]$processExpr, [bool]$includeChildren, [int]$line) : base([NodeKind]::KillProcess, $line) {
+        $this.ProcessExpr = $processExpr
+        $this.IncludeChildren = $includeChildren
+    }
+}
+
+# set priority of process p to "high"                                 (D71)
+# Priority is one of: "low", "below normal", "normal", "above normal",
+# "high", "realtime" - a plain string VALUE, not a keyword, same design
+# as GetSystemFolder's FolderName.
+class SetProcessPriorityStmt : Node {
+    [Node]$ProcessExpr
+    [Node]$Priority
+    SetProcessPriorityStmt([Node]$processExpr, [Node]$priority, [int]$line) : base([NodeKind]::SetProcessPriority, $line) {
+        $this.ProcessExpr = $processExpr
+        $this.Priority = $priority
+    }
+}
+
+# wait for process p up to 5 seconds [into finished]                  (D71)
+# Blocks until the process exits or the timeout elapses, whichever
+# comes first. `finished` (optional) is a real boolean: true if the
+# process had already exited by the deadline, false if it was still
+# running and the wait simply gave up.
+class WaitForProcessStmt : Node {
+    [Node]$ProcessExpr
+    [Node]$TimeoutSeconds
+    [string]$Target
+    WaitForProcessStmt([Node]$processExpr, [Node]$timeoutSeconds, [string]$target, [int]$line) : base([NodeKind]::WaitForProcess, $line) {
+        $this.ProcessExpr = $processExpr
+        $this.TimeoutSeconds = $timeoutSeconds
+        $this.Target = $target
+    }
+}
+
+# create symbolic link "link.txt" pointing to "target.txt"            (D73)
+# The link kind (file vs. directory) is auto-detected from whatever
+# already exists at TargetPath - Windows' own symlink API needs to know
+# which kind it is creating, but Otter code should not have to say so
+# when the answer is already sitting on disk.
+class CreateSymbolicLinkStmt : Node {
+    [Node]$LinkPath
+    [Node]$TargetPath
+    CreateSymbolicLinkStmt([Node]$linkPath, [Node]$targetPath, [int]$line) : base([NodeKind]::CreateSymbolicLink, $line) {
+        $this.LinkPath = $linkPath
+        $this.TargetPath = $targetPath
+    }
+}
+
+# get symbolic link target of "link.txt" into target                 (D73)
+class GetSymbolicLinkTargetStmt : Node {
+    [Node]$LinkPath
+    [string]$Target
+    GetSymbolicLinkTargetStmt([Node]$linkPath, [string]$target, [int]$line) : base([NodeKind]::GetSymbolicLinkTarget, $line) {
+        $this.LinkPath = $linkPath
+        $this.Target = $target
+    }
+}
+
+# if file "link.txt" is a symbolic link                               (D73)
+class FileIsSymbolicLinkExpr : Node {
+    [Node]$Path
+    FileIsSymbolicLinkExpr([Node]$path, [int]$line) : base([NodeKind]::FileIsSymbolicLink, $line) {
+        $this.Path = $path
+    }
+}
+
+# get owner of "x" into owner                                        (D74)
+class GetFileOwnerStmt : Node {
+    [Node]$Path
+    [string]$Target
+    GetFileOwnerStmt([Node]$path, [string]$target, [int]$line) : base([NodeKind]::GetFileOwner, $line) {
+        $this.Path = $path
+        $this.Target = $target
+    }
+}
+
+# if file "x" is read only                                           (D74)
+class FileIsReadOnlyExpr : Node {
+    [Node]$Path
+    FileIsReadOnlyExpr([Node]$path, [int]$line) : base([NodeKind]::FileIsReadOnly, $line) {
+        $this.Path = $path
+    }
+}
+
+# set file "x" to read only  /  set file "x" to writable             (D74)
+class SetFileReadOnlyStmt : Node {
+    [Node]$Path
+    [bool]$ReadOnly
+    SetFileReadOnlyStmt([Node]$path, [bool]$readOnly, [int]$line) : base([NodeKind]::SetFileReadOnly, $line) {
+        $this.Path = $path
+        $this.ReadOnly = $readOnly
+    }
+}
+
+# get registry value "n" from "HKCU:\Software\MyApp" into t           (D78)
+# `gone` (not an error) when the value or the key does not exist -
+# matching D67's GetEnvironmentVariable's own "unset means gone, not a
+# failure" choice, since a missing registry value is an equally
+# ordinary, expected outcome for real Otter programs to branch on.
+class GetRegistryValueStmt : Node {
+    [Node]$ValueName
+    [Node]$KeyPath
+    [string]$Target
+    GetRegistryValueStmt([Node]$valueName, [Node]$keyPath, [string]$target, [int]$line) : base([NodeKind]::GetRegistryValue, $line) {
+        $this.ValueName = $valueName
+        $this.KeyPath = $keyPath
+        $this.Target = $target
+    }
+}
+
+# set registry value "n" to "d" in "HKCU:\Software\MyApp"             (D78)
+# Creates the key path if it does not exist yet, matching WriteFile's
+# own "creates the parent folder if needed" convention for files.
+class SetRegistryValueStmt : Node {
+    [Node]$ValueName
+    [Node]$Value
+    [Node]$KeyPath
+    SetRegistryValueStmt([Node]$valueName, [Node]$value, [Node]$keyPath, [int]$line) : base([NodeKind]::SetRegistryValue, $line) {
+        $this.ValueName = $valueName
+        $this.Value = $value
+        $this.KeyPath = $keyPath
+    }
+}
+
+# delete registry value "n" from "HKCU:\Software\MyApp"               (D78)
+class DeleteRegistryValueStmt : Node {
+    [Node]$ValueName
+    [Node]$KeyPath
+    DeleteRegistryValueStmt([Node]$valueName, [Node]$keyPath, [int]$line) : base([NodeKind]::DeleteRegistryValue, $line) {
+        $this.ValueName = $valueName
+        $this.KeyPath = $keyPath
+    }
+}
+
+# if registry key "HKCU:\Software\MyApp" exists                       (D78)
+class RegistryKeyExistsExpr : Node {
+    [Node]$KeyPath
+    RegistryKeyExistsExpr([Node]$keyPath, [int]$line) : base([NodeKind]::RegistryKeyExists, $line) {
+        $this.KeyPath = $keyPath
+    }
+}
+
+# get event log entries from "System" up to 20 into entries           (D79)
+# LogName is a plain string VALUE ("System", "Application", "Security",
+# or any other real Windows log name), not a keyword - same design as
+# D67's GetSystemFolder FolderName, so a caller can name any log this
+# machine actually has without a grammar change.
+class GetEventLogEntriesStmt : Node {
+    [Node]$LogName
+    [Node]$MaxEntries
+    [string]$Target
+    GetEventLogEntriesStmt([Node]$logName, [Node]$maxEntries, [string]$target, [int]$line) : base([NodeKind]::GetEventLogEntries, $line) {
+        $this.LogName = $logName
+        $this.MaxEntries = $maxEntries
+        $this.Target = $target
+    }
+}
+
+# set credential "n" to "secret"                                     (D81)
+# Encrypted at rest via Windows DPAPI, CurrentUser scope - decryptable
+# only by the same OS login that wrote it, on the same machine. Not a
+# secrets-sharing or secrets-syncing mechanism; a local-only vault.
+class SetCredentialStmt : Node {
+    [Node]$Name
+    [Node]$Secret
+    SetCredentialStmt([Node]$name, [Node]$secret, [int]$line) : base([NodeKind]::SetCredential, $line) {
+        $this.Name = $name
+        $this.Secret = $secret
+    }
+}
+
+# get credential "n" into secret                                     (D81)
+# `gone` (not an error) when no credential by that name has been set -
+# matching GetEnvironmentVariable/GetRegistryValue's own "unset means
+# gone" choice.
+class GetCredentialStmt : Node {
+    [Node]$Name
+    [string]$Target
+    GetCredentialStmt([Node]$name, [string]$target, [int]$line) : base([NodeKind]::GetCredential, $line) {
+        $this.Name = $name
+        $this.Target = $target
+    }
+}
+
+# delete credential "n"                                               (D81)
+class DeleteCredentialStmt : Node {
+    [Node]$Name
+    DeleteCredentialStmt([Node]$name, [int]$line) : base([NodeKind]::DeleteCredential, $line) {
+        $this.Name = $name
+    }
+}
+
+# lock the computer / sign out / restart the computer /               (D82)
+# shut down the computer
+# Action is one of: "lock", "signOut", "restart", "shutDown" - carried
+# as a plain string rather than a separate NodeKind per verb, since all
+# four are the exact same shape (no arguments, no result).
+class PowerActionStmt : Node {
+    [string]$Action
+    PowerActionStmt([string]$action, [int]$line) : base([NodeKind]::PowerAction, $line) {
+        $this.Action = $action
+    }
+}
+
+# print "file.txt" to "PrinterName"                                   (D83)
+# Scoped to TEXT files, matching every other filesystem statement in
+# this language - the file's own content is sent to the named printer
+# as plain text, not rendered through a document format's own print
+# handler (no PDF/image/rich-document printing here).
+class PrintFileStmt : Node {
+    [Node]$Path
+    [Node]$PrinterName
+    PrintFileStmt([Node]$path, [Node]$printerName, [int]$line) : base([NodeKind]::PrintFile, $line) {
+        $this.Path = $path
+        $this.PrinterName = $printerName
+    }
+}
+
+# run command "..." on remote "host" using credential "n" [into result] (D84)
+# A genuinely SEPARATE statement from RunStmt, not an extra optional
+# field bolted onto it: RunStmt already carries three different
+# meanings (fire-and-forget launch / blocking local command / its own
+# IsCommand flag), and remote execution has a different result shape
+# (captured text output, not the local CommandResult's separate stdout/
+# stderr/exit-code, since a WinRM session does not expose those the
+# same way a local Process object does) - conflating the two would
+# make both harder to reason about.
+#
+# CredentialName doubles as the remote username: it is looked up in
+# D81's credential vault (set credential "n" to "secret") for the
+# PASSWORD, so `using credential "AZLEG\jmacy"` means "connect as
+# AZLEG\jmacy using the password stored under that exact name" - no
+# separate username field, and no change to D81's own storage format.
+class RunRemoteCommandStmt : Node {
+    [Node]$Command
+    [Node]$HostName
+    [Node]$CredentialName
+    [string]$ResultTarget
+    RunRemoteCommandStmt([Node]$command, [Node]$hostName, [Node]$credentialName, [string]$resultTarget, [int]$line) : base([NodeKind]::RunRemoteCommand, $line) {
+        $this.Command = $command
+        $this.HostName = $hostName
+        $this.CredentialName = $credentialName
+        $this.ResultTarget = $resultTarget
+    }
+}
+
+# run command "..." over ssh to "user@host" [into result]              (D85)
+# Deliberately NO credential clause, unlike D84's WinRM form: `ssh.exe`
+# cannot accept a password non-interactively without extra tooling this
+# platform does not bundle (confirmed directly - ssh reads a password
+# from the real terminal device, not stdin, specifically to resist
+# exactly this scripting pattern). Key-based auth (an already-configured
+# key or agent) is both the only thing this can honestly support AND
+# the standard, secure way real SSH automation is done - not a
+# limitation papered over, a correct design choice for this transport.
+class RunSshCommandStmt : Node {
+    [Node]$Command
+    [Node]$HostName
+    [string]$ResultTarget
+    RunSshCommandStmt([Node]$command, [Node]$hostName, [string]$resultTarget, [int]$line) : base([NodeKind]::RunSshCommand, $line) {
+        $this.Command = $command
+        $this.HostName = $hostName
+        $this.ResultTarget = $resultTarget
+    }
+}
+
+# zip folder "src" into "archive.zip"                                 (D87)
+class ZipFolderStmt : Node {
+    [Node]$SourceFolder
+    [Node]$ArchivePath
+    ZipFolderStmt([Node]$sourceFolder, [Node]$archivePath, [int]$line) : base([NodeKind]::ZipFolder, $line) {
+        $this.SourceFolder = $sourceFolder
+        $this.ArchivePath = $archivePath
+    }
+}
+
+# unzip "archive.zip" into "dest"                                     (D87)
+class UnzipFileStmt : Node {
+    [Node]$ArchivePath
+    [Node]$DestinationFolder
+    UnzipFileStmt([Node]$archivePath, [Node]$destinationFolder, [int]$line) : base([NodeKind]::UnzipFile, $line) {
+        $this.ArchivePath = $archivePath
+        $this.DestinationFolder = $destinationFolder
+    }
+}
+
+# choose file into path                            - gone if cancelled
+class ChooseFileStmt : Node {
+    [string]$Target
+    ChooseFileStmt([string]$target, [int]$line) : base([NodeKind]::ChooseFile, $line) {
+        $this.Target = $target
+    }
+}
+
+# choose folder into path                          - gone if cancelled
+class ChooseFolderStmt : Node {
+    [string]$Target
+    ChooseFolderStmt([string]$target, [int]$line) : base([NodeKind]::ChooseFolder, $line) {
+        $this.Target = $target
+    }
+}
+
+# choose file to save into path                    - gone if cancelled
+class ChooseSaveFileStmt : Node {
+    [string]$Target
+    ChooseSaveFileStmt([string]$target, [int]$line) : base([NodeKind]::ChooseSaveFile, $line) {
+        $this.Target = $target
+    }
+}
+
+
+# ===============================================================
 # ERROR HANDLING (D23)
 # ===============================================================
 #
@@ -1038,16 +1693,38 @@ class MoveFolderStmt : Node {
 #     .
 #
 # The beginner form: if anything in the body fails, run the otherwise body
-# instead. No error variable, no error types - those come later if needed.
+# instead. No error variable, no error types by default - D68 adds an
+# OPTIONAL error-message capture ("otherwise into reason") and a way for
+# Otter code to raise its own named error (FailStmt, below), without
+# requiring either from existing programs.
 #
 # A "return" inside a try body is NOT an error and must escape cleanly.
 
 class TryStmt : Node {
     [Node[]]$Body
     [Node[]]$OtherwiseBody
+    [string]$ErrorTarget   # D68: "otherwise into reason" - null when absent
     TryStmt([Node[]]$body, [Node[]]$otherwiseBody, [int]$line) : base([NodeKind]::Try, $line) {
         $this.Body = $body
         $this.OtherwiseBody = $otherwiseBody
+        $this.ErrorTarget = $null
+    }
+    TryStmt([Node[]]$body, [Node[]]$otherwiseBody, [string]$errorTarget, [int]$line) : base([NodeKind]::Try, $line) {
+        $this.Body = $body
+        $this.OtherwiseBody = $otherwiseBody
+        $this.ErrorTarget = $errorTarget
+    }
+}
+
+# D68: `fail with "message"` - a real, user-raised custom error. Reuses the
+# same OtterError machinery as every built-in runtime error (same "Otter
+# Runtime Error" banner, same line number, catchable by try/otherwise), so
+# a user-defined failure looks and behaves exactly like a built-in one -
+# no separate error-type hierarchy needed for the beginner form.
+class FailStmt : Node {
+    [Node]$Message
+    FailStmt([Node]$message, [int]$line) : base([NodeKind]::Fail, $line) {
+        $this.Message = $message
     }
 }
 
@@ -1067,6 +1744,56 @@ class OfOperationExpr : Node {
     OfOperationExpr([OfOperation]$operation, [Node]$subject, [int]$line) : base([NodeKind]::OfOperation, $line) {
         $this.Operation = $operation
         $this.Subject = $subject
+    }
+}
+
+# D89: larger of X and Y / smaller of X and Y
+class MinMaxExpr : Node {
+    [bool]$IsMax
+    [Node]$Left
+    [Node]$Right
+    MinMaxExpr([bool]$isMax, [Node]$left, [Node]$right, [int]$line) : base([NodeKind]::MinMax, $line) {
+        $this.IsMax = $isMax
+        $this.Left = $left
+        $this.Right = $right
+    }
+}
+
+# D91: hash "text" as "sha256" [with key "secret"] into digest
+class HashTextStmt : Node {
+    [Node]$Text
+    [Node]$Algorithm
+    [Node]$Key             # $null when this is a plain hash, not an HMAC
+    [string]$ResultTarget
+    HashTextStmt([Node]$text, [Node]$algorithm, [Node]$key, [string]$resultTarget, [int]$line) : base([NodeKind]::HashText, $line) {
+        $this.Text = $text
+        $this.Algorithm = $algorithm
+        $this.Key = $key
+        $this.ResultTarget = $resultTarget
+    }
+}
+
+# D92: encrypt "text" with key "secret" into cipher
+class EncryptTextStmt : Node {
+    [Node]$Text
+    [Node]$Key
+    [string]$ResultTarget
+    EncryptTextStmt([Node]$text, [Node]$key, [string]$resultTarget, [int]$line) : base([NodeKind]::EncryptText, $line) {
+        $this.Text = $text
+        $this.Key = $key
+        $this.ResultTarget = $resultTarget
+    }
+}
+
+# D92: decrypt "cipher" with key "secret" into text
+class DecryptTextStmt : Node {
+    [Node]$CipherText
+    [Node]$Key
+    [string]$ResultTarget
+    DecryptTextStmt([Node]$cipherText, [Node]$key, [string]$resultTarget, [int]$line) : base([NodeKind]::DecryptText, $line) {
+        $this.CipherText = $cipherText
+        $this.Key = $key
+        $this.ResultTarget = $resultTarget
     }
 }
 
@@ -1168,7 +1895,7 @@ class FindStmt : Node {
 
 
 # ===============================================================
-# JSON, RANDOM, DIAGNOSTICS (D29, D30, D31)
+# JSON, CSV, RANDOM, DIAGNOSTICS (D29, D30, D31, D95)
 # ===============================================================
 
 # read json from "settings.json" into settings
@@ -1196,6 +1923,46 @@ class ConvertFromJsonStmt : Node {
     [Node]$Subject
     [string]$Target
     ConvertFromJsonStmt([Node]$subject, [string]$target, [int]$line) : base([NodeKind]::ConvertFromJson, $line) {
+        $this.Subject = $subject
+        $this.Target = $target
+    }
+}
+
+# read csv from "customers.csv" into customers
+class ReadCsvStmt : Node {
+    [Node]$Path
+    [string]$Target
+    ReadCsvStmt([Node]$path, [string]$target, [int]$line) : base([NodeKind]::ReadCsv, $line) {
+        $this.Path = $path
+        $this.Target = $target
+    }
+}
+
+# write csv customers to "export.csv"
+class WriteCsvStmt : Node {
+    [Node]$Rows
+    [Node]$Path
+    WriteCsvStmt([Node]$rows, [Node]$path, [int]$line) : base([NodeKind]::WriteCsv, $line) {
+        $this.Rows = $rows
+        $this.Path = $path
+    }
+}
+
+# convert customers to csv into csvText
+class ConvertToCsvStmt : Node {
+    [Node]$Subject
+    [string]$Target
+    ConvertToCsvStmt([Node]$subject, [string]$target, [int]$line) : base([NodeKind]::ConvertToCsv, $line) {
+        $this.Subject = $subject
+        $this.Target = $target
+    }
+}
+
+# convert csvText from csv into customers
+class ConvertFromCsvStmt : Node {
+    [Node]$Subject
+    [string]$Target
+    ConvertFromCsvStmt([Node]$subject, [string]$target, [int]$line) : base([NodeKind]::ConvertFromCsv, $line) {
         $this.Subject = $subject
         $this.Target = $target
     }
@@ -1421,6 +2188,16 @@ class HttpDeleteStmt : Node {
     }
 }
 
+# download file from <url> to <path> (D96)
+class DownloadFileStmt : Node {
+    [Node]$Url
+    [Node]$Path
+    DownloadFileStmt([Node]$url, [Node]$path, [int]$line) : base([NodeKind]::DownloadFile, $line) {
+        $this.Url = $url
+        $this.Path = $path
+    }
+}
+
 # ===============================================================
 # WEB SERVERS & API ROUTES (D51)
 # ===============================================================
@@ -1476,6 +2253,286 @@ class ListenServerStmt : Node {
         $this.Port = $port
     }
 }
+
+
+# ===============================================================
+# DECLARATIVE UI, REACTIVITY & ANIMATION (D56)
+# ===============================================================
+
+class ResponsiveRule {
+    [string]$Breakpoint  # 'small', 'medium', 'large'
+    [int]$Columns        # e.g. 2 in 'columns 2 on medium'
+    [bool]$Stack         # true if 'stack on small'
+    ResponsiveRule([string]$breakpoint, [int]$columns, [bool]$stack) {
+        $this.Breakpoint = $breakpoint
+        $this.Columns = $columns
+        $this.Stack = $stack
+    }
+}
+
+class UiLayoutSpec {
+    [string]$Mode
+    [string]$Align
+    [bool]$Spread
+    [Node]$Gap
+    [Node]$Columns
+    [object[]]$Responsive
+    UiLayoutSpec() {
+        $this.Mode = $null
+        $this.Align = $null
+        $this.Spread = $false
+        $this.Gap = $null
+        $this.Columns = $null
+        $this.Responsive = @()
+    }
+}
+
+class UiAnimationStep {
+    [string]$Operation   # 'fade', 'move', 'scale', 'rotate', 'slide', 'grow', 'shrink'
+    [string]$Direction   # 'in', 'out', 'up', 'down', 'left', 'right'
+    [Node]$Amount
+    UiAnimationStep([string]$operation, [string]$direction, [Node]$amount) {
+        $this.Operation = $operation
+        $this.Direction = $direction
+        $this.Amount = $amount
+    }
+}
+
+class UiAnimationBlock : Node {
+    [string]$Trigger     # 'hover', 'press', 'enter', 'leave'
+    [UiAnimationStep[]]$Steps
+    [double]$DurationMs
+    [string]$Easing      # 'ease', 'ease-out', 'ease-in', 'linear', 'spring'
+    UiAnimationBlock([string]$trigger, [UiAnimationStep[]]$steps, [double]$durationMs, [string]$easing, [int]$line)
+        : base([NodeKind]::UiAnimation, $line) {
+        $this.Trigger = $trigger
+        $this.Steps = $steps
+        $this.DurationMs = $durationMs
+        $this.Easing = $easing
+    }
+}
+
+class UiEventStmt : Node {
+    [string]$EventName   # 'click', 'change', 'input', 'submit', 'hover', 'press', 'focus', 'blur'
+    [Node[]]$Body
+    UiEventStmt([string]$eventName, [Node[]]$body, [int]$line)
+        : base([NodeKind]::UiEvent, $line) {
+        $this.EventName = $eventName
+        $this.Body = $body
+    }
+}
+
+class UiElementStmt : Node {
+    [string]$Tag
+    [string]$Variant
+    [Node]$Label
+    [string]$Name
+    [UiLayoutSpec]$Layout
+    [Node[]]$Properties
+    [Node[]]$Events
+    [Node[]]$Animations
+    [Node[]]$Children
+    UiElementStmt([string]$tag, [string]$variant, [Node]$label, [string]$name, [UiLayoutSpec]$layout, [Node[]]$properties, [Node[]]$events, [Node[]]$animations, [Node[]]$children, [int]$line)
+        : base([NodeKind]::UiElement, $line) {
+        $this.Tag = $tag
+        $this.Variant = $variant
+        $this.Label = $label
+        $this.Name = $name
+        $this.Layout = $layout
+        $this.Properties = $properties
+        $this.Events = $events
+        $this.Animations = $animations
+        $this.Children = $children
+    }
+}
+
+class StateDefStmt : Node {
+    [string]$Name
+    [Node]$InitialValue
+    StateDefStmt([string]$name, [Node]$initialValue, [int]$line)
+        : base([NodeKind]::StateDef, $line) {
+        $this.Name = $name
+        $this.InitialValue = $initialValue
+    }
+}
+
+class DeriveDefStmt : Node {
+    [string]$Name
+    [Node]$Expression
+    DeriveDefStmt([string]$name, [Node]$expression, [int]$line)
+        : base([NodeKind]::DeriveDef, $line) {
+        $this.Name = $name
+        $this.Expression = $expression
+    }
+}
+
+class MemoDefStmt : Node {
+    [string]$Name
+    [Node[]]$Body
+    MemoDefStmt([string]$name, [Node[]]$body, [int]$line)
+        : base([NodeKind]::MemoDef, $line) {
+        $this.Name = $name
+        $this.Body = $body
+    }
+}
+
+class WatchStmt : Node {
+    [string]$TargetName
+    [Node[]]$Body
+    WatchStmt([string]$targetName, [Node[]]$body, [int]$line)
+        : base([NodeKind]::Watch, $line) {
+        $this.TargetName = $targetName
+        $this.Body = $body
+    }
+}
+
+class LifecycleStmt : Node {
+    [string]$Stage       # 'start', 'close'
+    [Node[]]$Body
+    LifecycleStmt([string]$stage, [Node[]]$body, [int]$line)
+        : base([NodeKind]::Lifecycle, $line) {
+        $this.Stage = $stage
+        $this.Body = $body
+    }
+}
+
+class AwaitExpr : Node {
+    [Node]$Expression
+    AwaitExpr([Node]$expression, [int]$line)
+        : base([NodeKind]::Await, $line) {
+        $this.Expression = $expression
+    }
+}
+
+class SharedStateStmt : Node {
+    [string]$Name
+    [Node]$InitialValue
+    SharedStateStmt([string]$name, [Node]$initialValue, [int]$line)
+        : base([NodeKind]::SharedState, $line) {
+        $this.Name = $name
+        $this.InitialValue = $initialValue
+    }
+}
+
+class UiActionStmt : Node {
+    [string]$Action      # 'focus', 'hide', 'show'
+    [Node]$Target
+    UiActionStmt([string]$action, [Node]$target, [int]$line)
+        : base([NodeKind]::UiAction, $line) {
+        $this.Action = $action
+        $this.Target = $target
+    }
+}
+
+class UseModuleStmt : Node {
+    [string]$Module
+    UseModuleStmt([string]$module, [int]$line)
+        : base([NodeKind]::UseModule, $line) {
+        $this.Module = $module
+    }
+}
+
+
+# ===============================================================
+# DATABASE OPERATIONS (D97)
+# ===============================================================
+
+class DbParameter {
+    [string]$Name
+    [Node]$Value
+    [int]$Line
+    DbParameter([string]$name, [Node]$value, [int]$line) {
+        $this.Name = $name
+        $this.Value = $value
+        $this.Line = $line
+    }
+}
+
+class ConnectDbStmt : Node {
+    [Node]$Config
+    [string]$Target
+    ConnectDbStmt([Node]$config, [string]$target, [int]$line) : base([NodeKind]::ConnectDb, $line) {
+        $this.Config = $config
+        $this.Target = $target
+    }
+}
+
+class DisconnectDbStmt : Node {
+    [Node]$Connection
+    DisconnectDbStmt([Node]$connection, [int]$line) : base([NodeKind]::DisconnectDb, $line) {
+        $this.Connection = $connection
+    }
+}
+
+class DbQueryStmt : Node {
+    [Node]$Connection
+    [Node]$Query
+    [DbParameter[]]$Parameters
+    [string]$Target
+    DbQueryStmt([Node]$connection, [Node]$query, [DbParameter[]]$parameters, [string]$target, [int]$line) : base([NodeKind]::DbQuery, $line) {
+        $this.Connection = $connection
+        $this.Query = $query
+        $this.Parameters = $parameters
+        $this.Target = $target
+    }
+}
+
+class DbExecuteStmt : Node {
+    [Node]$Connection
+    [Node]$Command
+    [DbParameter[]]$Parameters
+    [string]$Target
+    DbExecuteStmt([Node]$connection, [Node]$command, [DbParameter[]]$parameters, [string]$target, [int]$line) : base([NodeKind]::DbExecute, $line) {
+        $this.Connection = $connection
+        $this.Command = $command
+        $this.Parameters = $parameters
+        $this.Target = $target
+    }
+}
+
+class BeginTransactionStmt : Node {
+    [Node]$Connection
+    [string]$Target
+    BeginTransactionStmt([Node]$connection, [string]$target, [int]$line) : base([NodeKind]::BeginTransaction, $line) {
+        $this.Connection = $connection
+        $this.Target = $target
+    }
+}
+
+class CommitTransactionStmt : Node {
+    [Node]$Transaction
+    CommitTransactionStmt([Node]$transaction, [int]$line) : base([NodeKind]::CommitTransaction, $line) {
+        $this.Transaction = $transaction
+    }
+}
+
+class RollbackTransactionStmt : Node {
+    [Node]$Transaction
+    RollbackTransactionStmt([Node]$transaction, [int]$line) : base([NodeKind]::RollbackTransaction, $line) {
+        $this.Transaction = $transaction
+    }
+}
+
+class GetTablesStmt : Node {
+    [Node]$Connection
+    [string]$Target
+    GetTablesStmt([Node]$connection, [string]$target, [int]$line) : base([NodeKind]::GetTables, $line) {
+        $this.Connection = $connection
+        $this.Target = $target
+    }
+}
+
+class GetColumnsStmt : Node {
+    [Node]$Table
+    [Node]$Connection
+    [string]$Target
+    GetColumnsStmt([Node]$table, [Node]$connection, [string]$target, [int]$line) : base([NodeKind]::GetColumns, $line) {
+        $this.Table = $table
+        $this.Connection = $connection
+        $this.Target = $target
+    }
+}
+
 
 
 # ===============================================================

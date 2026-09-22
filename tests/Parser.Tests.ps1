@@ -1363,5 +1363,61 @@ try {
 }
 if (-not $trailingTokensRejected) { throw 'Expected trailing tokens on download statement to be rejected with clean diagnostic.' }
 
+# D97 Database Parser Tests
+$dbSrc = @'
+database has
+    provider is "sqlite"
+    connection is "test.db"
+.
+connect database into db
+query db with
+    "select id, title from tasks where id = @id"
+    parameter "id" is 1
+into tasks
+execute db with
+    "insert into tasks (title) values (@title)"
+    parameter "title" is "New task"
+into res
+execute db with "delete from tasks where id = 1"
+begin transaction on db into tx
+execute tx with "update tasks set title = 'Done'"
+commit tx
+rollback tx
+disconnect db
+'@
+
+$dbAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $dbSrc)
+if ($dbAst.Statements[0] -isnot [ObjectDefStmt]) { throw 'Expected ObjectDefStmt for database config.' }
+if ($dbAst.Statements[1] -isnot [ConnectDbStmt]) { throw 'Expected ConnectDbStmt.' }
+if ($dbAst.Statements[1].Target -ne 'db') { throw 'Expected ConnectDbStmt target to be db.' }
+if ($dbAst.Statements[2] -isnot [DbQueryStmt]) { throw 'Expected DbQueryStmt.' }
+if ($dbAst.Statements[2].Target -ne 'tasks') { throw 'Expected DbQueryStmt target to be tasks.' }
+if ($dbAst.Statements[2].Parameters.Count -ne 1) { throw 'Expected 1 query parameter.' }
+if ($dbAst.Statements[2].Parameters[0].Name -ne 'id') { throw 'Expected parameter name id.' }
+if ($dbAst.Statements[3] -isnot [DbExecuteStmt]) { throw 'Expected DbExecuteStmt.' }
+if ($dbAst.Statements[3].Target -ne 'res') { throw 'Expected DbExecuteStmt target to be res.' }
+if ($dbAst.Statements[4] -isnot [DbExecuteStmt]) { throw 'Expected DbExecuteStmt without into.' }
+if (-not [string]::IsNullOrEmpty($dbAst.Statements[4].Target)) { throw 'Expected DbExecuteStmt target to be empty/null.' }
+if ($dbAst.Statements[5] -isnot [BeginTransactionStmt]) { throw 'Expected BeginTransactionStmt.' }
+if ($dbAst.Statements[5].Target -ne 'tx') { throw 'Expected BeginTransactionStmt target to be tx.' }
+if ($dbAst.Statements[6] -isnot [DbExecuteStmt]) { throw 'Expected DbExecuteStmt in transaction.' }
+if ($dbAst.Statements[7] -isnot [CommitTransactionStmt]) { throw 'Expected CommitTransactionStmt.' }
+if ($dbAst.Statements[8] -isnot [RollbackTransactionStmt]) { throw 'Expected RollbackTransactionStmt.' }
+if ($dbAst.Statements[9] -isnot [DisconnectDbStmt]) { throw 'Expected DisconnectDbStmt.' }
+
+# D98 Schema Introspection Parser Tests
+$schemaSrc = @'
+get tables from db into tables
+get columns from "tasks" in db into cols1
+get columns from table in db into cols2
+'@
+$schemaAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $schemaSrc)
+if ($schemaAst.Statements[0] -isnot [GetTablesStmt]) { throw 'Expected GetTablesStmt.' }
+if ($schemaAst.Statements[0].Target -ne 'tables') { throw 'Expected target to be tables.' }
+if ($schemaAst.Statements[1] -isnot [GetColumnsStmt]) { throw 'Expected GetColumnsStmt for string.' }
+if ($schemaAst.Statements[1].Target -ne 'cols1') { throw 'Expected target to be cols1.' }
+if ($schemaAst.Statements[2] -isnot [GetColumnsStmt]) { throw 'Expected GetColumnsStmt for variable.' }
+if ($schemaAst.Statements[2].Target -ne 'cols2') { throw 'Expected target to be cols2.' }
+
 Write-Output 'Parser tests passed.'
 
