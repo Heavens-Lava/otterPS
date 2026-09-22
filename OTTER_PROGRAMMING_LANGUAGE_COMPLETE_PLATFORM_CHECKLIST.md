@@ -698,18 +698,37 @@ creation.
 -   [x] stdin
 -   [x] stdout
 -   [x] stderr
--   [ ] Pipe support
--   [ ] Redirect support
+-   [x] Pipe support (verified for real: `otter run x.ot | Measure-Object
+    -Line` and plain `$out = otter run x.ot` both correctly capture clean
+    output through PowerShell's pipeline - no encoding issues, unlike `>`
+    below)
+-   [x] Redirect support (Otter's own stdout is always correct UTF-8 text
+    - confirmed via a real cmd.exe-style OS-level redirect capturing
+    clean output. There IS a real, user-visible mangling when redirecting
+    through Windows PowerShell 5.1's own bare `>`/`Out-File` operator
+    specifically - but proven, by testing a plain `'hello world' >
+    file.txt` with NO Otter involved at all, to be PS 5.1's own decades-
+    old default UTF-16-with-BOM file-writing encoding, identical for any
+    native command's output, not an Otter defect. Workaround for a real
+    user hitting this: pipe through `| Out-File -Encoding utf8` instead
+    of bare `>`, or redirect from cmd.exe/otter.cmd directly)
 -   [x] Exit program
 -   [x] Exit code
 -   [x] Signals
--   [ ] Terminal colors/styles
--   [ ] Cursor positioning
--   [ ] Interactive menus
--   [ ] Progress indicators
--   [ ] Password/secret input
--   [ ] TTY detection
--   [ ] Noninteractive mode
+-   [ ] Terminal colors/styles (real gap: no grammar exists for styled
+    `say` output - confirmed zero color/style-related TokenKind or
+    NodeKind anywhere in the frozen contract. New syntax, not mine to
+    invent unilaterally)
+-   [ ] Cursor positioning (real gap, same reasoning - no grammar exists)
+-   [ ] Interactive menus (real gap, same reasoning - no grammar exists)
+-   [ ] Progress indicators (real gap, same reasoning - no grammar exists)
+-   [ ] Password/secret input (real gap: confirmed `AskStmt` has only a
+    prompt and a target variable name, no masked-input variant or flag)
+-   [ ] TTY detection (real gap: no Otter-visible way to ask "am I
+    running interactively" - confirmed no `[Console]::IsInputRedirected`/
+    `IsOutputRedirected`-style check reachable from Otter source)
+-   [ ] Noninteractive mode (blocked on TTY detection above existing at
+    all - nothing for an Otter program to branch on yet)
 -   [x] Standalone executable packaging
 -   [x] Cross-platform console certification
 
