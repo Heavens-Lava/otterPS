@@ -86,7 +86,11 @@ show app
 "@ -Encoding utf8
 
         Assert-SoakStep "Cycle $cycle - Web compile using installed binary" {
-            $webOut = & $otterCmd web $webScriptFile
+            # -NoOpen: otter.ps1's `web` command opens the compiled HTML in
+            # the default browser unless told not to - without this, every
+            # soak cycle (5 by default) popped a real browser tab pointing
+            # at a temp file, on every full test-suite run.
+            $webOut = & $otterCmd web $webScriptFile -NoOpen
             if ($LASTEXITCODE -ne 0) { throw "Web compile failed with code $LASTEXITCODE" }
             $expectedHtml = Join-Path $testRoot 'web_app.html'
             if (-not (Test-Path -LiteralPath $expectedHtml)) { throw "Generated web HTML not found" }

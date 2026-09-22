@@ -108,6 +108,69 @@ $OtterVersionNumber = if (Test-Path -LiteralPath $versionFile) {
 }
 $OtterVersion = "Otter $OtterVersionNumber"
 
+# D94 CLI arguments, corrected: declaring `[Parameter(ValueFromRemainingArguments
+# = $true)]` above (needed to capture arbitrary trailing arguments for the
+# Otter PROGRAM) makes this an "advanced" script, which makes PowerShell
+# silently add its own common parameters (-Verbose, -Debug, -ErrorAction,
+# -WarningAction, -InformationAction, -ErrorVariable, -WarningVariable,
+# -InformationVariable, -OutVariable, -OutBuffer, -PipelineVariable) to it.
+# Confirmed by direct testing: `otter run script.ot -Verbose` silently
+# vanishes from $Arguments entirely (intercepted as PowerShell's own
+# -Verbose switch instead), and `otter run script.ot -OutVariable foo`
+# swallows BOTH tokens, leaving the Otter program with zero arguments and
+# no error - exactly the "silently narrows/corrupts a real capability"
+# failure mode this project treats as a bug, not a footnote. None of these
+# common parameters have ever done anything for otter.ps1 itself (nothing
+# here reads $VerbosePreference, Write-Verbose, etc.), so recovering them
+# for the Otter program costs nothing. Fixed by bypassing the parameter
+# binder for the trailing-arguments slice entirely: recompute it from the
+# real, raw command line (which is never touched by parameter binding) and
+# strip out only otter.ps1's own known flags ourselves.
+$script:OtterOwnSwitchFlags = @('-DebugTokens', '-DebugAst', '-ParseOnly', '-DebugErrors', '-Open', '-NoOpen', '-version', '-help')
+$script:OtterOwnValueFlags = @('-Breakpoints', '-Port')
+
+function Get-OtterRawTrailingArguments {
+    param([int]$SkipCount)
+
+    $all = [Environment]::GetCommandLineArgs()
+    $scriptIndex = -1
+    for ($i = 0; $i -lt $all.Count; $i++) {
+        if ($all[$i] -ieq '-File' -and ($i + 1) -lt $all.Count) {
+            $scriptIndex = $i + 1
+            break
+        }
+    }
+    # Not a `-File` invocation (dot-sourced, -Command, ISE, ...) - no reliable
+    # raw command line to recover from. Returning $null (not @()) tells the
+    # caller to fall back to whatever PowerShell's own binder produced,
+    # rather than silently truncating real arguments to nothing.
+    if ($scriptIndex -lt 0) { return $null }
+
+    # Deliberately NOT using PowerShell's range-slice operator (`..`) here.
+    # Reproduced directly and repeatedly: in this exact advanced-script
+    # context (this param block, with -Debug actually bound), a range slice
+    # that resolves to exactly one element - even wrapped in @() - comes
+    # back corrupted to just that element's first CHARACTER instead of the
+    # element itself (`otter run file.ot -Debug` turned the single
+    # remaining token "-Debug" into "-"). Root cause not fully pinned down
+    # after extensive isolation (survives removing @(), using two distinct
+    # variables instead of self-reassignment, and stripping comments - only
+    # avoiding `..` slicing entirely made it go away in every case tried).
+    # A plain index copy-loop sidesteps the whole family of quirks.
+    $indexToken = $scriptIndex + 1
+    $result = [System.Collections.Generic.List[string]]::new()
+    $skipRemaining = $SkipCount
+    while ($indexToken -lt $all.Count) {
+        $token = $all[$indexToken]
+        $indexToken++
+        if ($skipRemaining -gt 0) { $skipRemaining--; continue }
+        if ($script:OtterOwnSwitchFlags -icontains $token) { continue }
+        if ($script:OtterOwnValueFlags -icontains $token) { $indexToken++; continue }
+        $result.Add($token)
+    }
+    return ,$result.ToArray()
+}
+
 # D57: deliberate, documented exit codes - never PowerShell's accidental
 # default. A CLI script or CI step can rely on these to tell why otter
 # failed, not just that it did.
@@ -429,7 +492,10 @@ if ($Path -eq 'run' -or $Path -eq 'check') {
         Write-Host "Usage: otter $Path <file.ot>" -ForegroundColor Red
         [Environment]::Exit($script:ExitUsageError)
     }
-    Invoke-OtterFile -ScriptPath $Target -CheckOnly:($Path -eq 'check') -Arguments $Arguments
+    # SkipCount 2: raw trailing tokens are [run|check, <target>, ...program args]
+    $rawArgs = Get-OtterRawTrailingArguments -SkipCount 2
+    $effectiveArguments = if ($null -ne $rawArgs) { $rawArgs } else { $Arguments }
+    Invoke-OtterFile -ScriptPath $Target -CheckOnly:($Path -eq 'check') -Arguments $effectiveArguments
     # Invoke-OtterFile always exits itself.
 }
 
@@ -444,7 +510,12 @@ if ($Path -eq 'debug') {
     }
     Import-Module (Join-Path $PSScriptRoot 'src\Otter.Debugger.psm1') -Force
     Start-OtterDebugSession -FileName (Split-Path -Leaf $Target) -Breakpoints $breakpointLines
-    Invoke-OtterFile -ScriptPath $Target -DebugSession -Arguments $Arguments
+    # SkipCount 2: raw trailing tokens are [debug, <target>, ...program args]
+    # (-Breakpoints itself is stripped out by Get-OtterRawTrailingArguments
+    # regardless of where it appears, same as every other otter.ps1 flag).
+    $rawArgs = Get-OtterRawTrailingArguments -SkipCount 2
+    $effectiveArguments = if ($null -ne $rawArgs) { $rawArgs } else { $Arguments }
+    Invoke-OtterFile -ScriptPath $Target -DebugSession -Arguments $effectiveArguments
     # Invoke-OtterFile always exits itself.
 }
 
@@ -500,9 +571,20 @@ if ($Path) {
         Write-Host "Run 'otter help' to see the available commands." -ForegroundColor Red
         [Environment]::Exit($script:ExitUsageError)
     }
-    $scriptArgs = @()
-    if ($Target) { $scriptArgs += $Target }
-    if ($Arguments) { $scriptArgs += $Arguments }
+    # SkipCount 1: raw trailing tokens are [<path.ot>, ...program args]. Not
+    # relying on bound $Target/$Arguments here at all - in this form $Target
+    # binds to whatever the program's OWN first argument happens to be
+    # (position 1), which the raw-argv reconstruction never needs to know or
+    # compensate for since it reads the real command line directly.
+    $rawArgs = Get-OtterRawTrailingArguments -SkipCount 1
+    $scriptArgs = if ($null -ne $rawArgs) {
+        $rawArgs
+    } else {
+        $fallback = @()
+        if ($Target) { $fallback += $Target }
+        if ($Arguments) { $fallback += $Arguments }
+        $fallback
+    }
     Invoke-OtterFile -ScriptPath $Path -Arguments $scriptArgs
     # Invoke-OtterFile always exits itself.
 }
