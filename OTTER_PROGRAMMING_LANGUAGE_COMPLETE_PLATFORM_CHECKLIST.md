@@ -404,15 +404,35 @@ creation.
     see SPEC-DECISIONS.md D72)
 -   [x] Safe overwrite
 -   [x] Text encodings
--   [ ] Binary read/write
--   [ ] Random-access file IO
--   [ ] Streams
--   [ ] Large-file handling
+-   [ ] Binary read/write (real gap, blocked on the same missing
+    binary/byte value type noted in Section 3 - `read`/`write` only ever
+    handle text (`Read-OtterFile` is a UTF-8 `ReadAllText`); no path
+    reads/writes raw bytes today)
+-   [ ] Random-access file IO (real gap: confirmed no `.Seek`/random-
+    access file API anywhere Otter code can reach - `read`/`write` are
+    always whole-file operations)
+-   [ ] Streams (real gap for the FILESYSTEM specifically: no persistent,
+    Otter-visible open-file handle with read/write/seek methods exists.
+    Note this is distinct from Section 3's already-checked "Streams",
+    which covers the download-streaming/process-I/O-stream capability
+    that does exist internally, not a general file-stream object type)
+-   [ ] Large-file handling (real, honest limitation: `read`/`write`
+    always load/hold the whole file in memory via `ReadAllText`/
+    `WriteAllText` - fine for the config/data-file sizes every real
+    dogfood program in this project has used, but a genuinely large file
+    would need the same kind of chunked/streaming treatment D96 gave
+    downloads specifically, which nothing has demonstrated a need for on
+    the general read/write path yet)
 -   [x] File locks (D72: `file "x" is locked` - a real exclusive-open
     check, verified against a file genuinely held open elsewhere via
     `FileShare.None` from outside Otter)
--   [ ] File watching
--   [ ] Recursive watching
+-   [ ] File watching (real gap: no FileSystemWatcher or equivalent
+    anywhere in the runtime. Would need a new event/callback mechanism -
+    likely modeled on D46's `when X is clicked` UI-event pattern, but for
+    filesystem changes - which is new grammar, not something to invent
+    unilaterally here)
+-   [ ] Recursive watching (same gap as file watching, one level deeper -
+    blocked on it existing at all first)
 -   [x] Temp files/folders
 -   [x] User/app data folders
 -   [x] Path combine/normalize
