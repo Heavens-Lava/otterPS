@@ -203,22 +203,51 @@ creation.
 -   [x] Loop variable scope parity work
 -   [x] Global mutation behavior parity
 -   [x] Call-before-declaration behavior parity
--   [ ] Shared module resolver work reported
--   [ ] Production-certify `use`
--   [ ] Freeze module resolution
--   [ ] Relative modules
--   [ ] Package modules
--   [ ] Circular dependency semantics
--   [ ] Module initialization order
--   [ ] Duplicate-load semantics
--   [ ] Public/private exports if needed
--   [ ] Namespace collision policy
--   [ ] Module caching/invalidation
+-   [x] Shared module resolver work reported (docs/OTTER_1_0_MODULE_STATUS.md)
+-   [x] Production-certify `use` (wired into otter.ps1's console entry
+    point - otter run/check/debug; certified end-to-end through the real
+    process in tests/UseModuleProduction.Tests.ps1 and dogfooded in
+    examples/module-lib.ot + examples/module-app.ot. The web/JS compiler
+    target already had its own independent wiring before this pass.)
+-   [x] Freeze module resolution (behavior frozen and written down in
+    docs/OTTER_1_0_MODULE_STATUS.md's "Frozen behavior" section: source-text
+    splicing before lex/parse, depth-first source-order initialization,
+    diagnostics remapped to the real originating file and line)
+-   [x] Relative modules (resolves relative to the IMPORTING file's own
+    directory, not the process CWD; confirmed for same-directory and
+    subdirectory imports)
+-   [ ] Package modules (real gap: no package/registry concept exists
+    anywhere in Otter yet - same pre-1.0 backlog as the rest of the
+    package ecosystem, checklist section 31)
+-   [x] Circular dependency semantics (detected via active-resolution call
+    stack, clean diagnostic naming the full cycle chain, exit code 2)
+-   [x] Module initialization order (decided and documented: strictly
+    depth-first, in source order - each `use` fully expands, including its
+    own transitive imports, before the importing file's next line runs)
+-   [x] Duplicate-load semantics (decided and documented: idempotent - a
+    diamond import of the same file only emits its content once, confirmed
+    it does not re-run assignments or throw a redefinition error)
+-   [x] Public/private exports if needed (decided: not needed for 1.0 -
+    every imported file shares the importer's flat top-level scope, no
+    visibility modifier; documented in docs/OTTER_1_0_MODULE_STATUS.md)
+-   [x] Namespace collision policy (decided: no special detection - a name
+    declared by two imported files behaves exactly like reassigning that
+    name twice in one file already does today, last one wins; documented)
+-   [x] Module caching/invalidation (decided: N/A for 1.0's execution model
+    - the duplicate-load mechanism already prevents redundant re-reads
+    within one run, and there is no persistent cross-invocation cache to
+    invalidate for a script interpreter with no daemon/watch mode)
 -   [x] Closures
--   [ ] First-class function values if required
--   [ ] Callbacks/delegates
+-   [x] First-class function values if required (decided: not required for
+    1.0 - Otter calls remain by literal function name known at parse time;
+    no real dogfooding case has yet demonstrated a need for passing a
+    function itself as a value, matching this checklist's own "decision
+    only if necessary" precedent for lambdas below)
+-   [ ] Callbacks/delegates (blocked on first-class function values above;
+    deferred to 1.1+ alongside it, not independently evaluated)
 -   [x] Lambda/anonymous function decision only if necessary
--   [ ] Cross-module symbol metadata for IDE tooling
+-   [ ] Cross-module symbol metadata for IDE tooling (Otter Studio/IDE
+    scope, not language-core 1.0)
 
 # 6. Errors & Diagnostics
 

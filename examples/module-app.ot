@@ -1,0 +1,13 @@
+# module-app.ot - demonstrates `use "file.ot"` (D60): a real, multi-file
+# Otter program run through the ordinary production entry point
+# (otter run examples/module-app.ot), not a renderer or unit test.
+
+use "module-lib.ot"
+
+result is square 7
+say "7 squared is" result
+
+youngLabel is describeAge 15
+oldLabel is describeAge 30
+say "Age 15 is" youngLabel
+say "Age 30 is" oldLabel

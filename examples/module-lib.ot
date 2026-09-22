@@ -1,0 +1,11 @@
+# module-lib.ot - a small reusable library, meant to be imported with
+# `use "module-lib.ot"` rather than run on its own.
+
+to square number
+    return number times number
+
+to describeAge age
+    if age is at least 18
+        return "adult"
+    otherwise
+        return "minor"

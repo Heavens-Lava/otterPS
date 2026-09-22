@@ -4,6 +4,7 @@ using module .\src\Otter.Lexer.psm1
 using module .\src\Otter.Parser.psm1
 using module .\src\Otter.Database.psm1
 using module .\src\Otter.Interpreter.psm1
+using module .\src\Otter.Module.psm1
 
 # otter.ps1 - the Otter interpreter
 # Author: Jeffrey Macy
@@ -224,6 +225,54 @@ function Show-OtterFailure {
     Write-Host ''
 }
 
+# Module resolution (src/Otter.Module.psm1) splices imported files' text
+# directly into the combined source before lexing, so any diagnostic's
+# `.Line` is a position in that COMBINED text, not the file a user actually
+# wrote. Without this, every error inside an imported module would quote
+# the wrong line number and the wrong source text (whatever happens to sit
+# at that line in the spliced-together result). Translates the line back
+# through the resolver's own source map and, for anything outside the root
+# script itself, names which imported file it actually came from - the
+# closest this can get to real per-file diagnostics without a FilePath
+# field on the frozen OtterError contract class.
+function Get-OtterRemappedError {
+    param(
+        [Parameter(Mandatory)]$ErrorRecord,
+        [Parameter(Mandatory)][OtterResolvedProgram]$ResolvedProgram,
+        [Parameter(Mandatory)][string]$RootFile
+    )
+
+    $exception = $ErrorRecord.Exception
+    if ($exception -isnot [OtterError] -or $exception.Line -le 0) {
+        return $ErrorRecord
+    }
+
+    $origin = Get-OtterSourceLocation -Program $ResolvedProgram -CombinedLine $exception.Line
+    if ($null -eq $origin) {
+        return $ErrorRecord
+    }
+
+    $message = $exception.Message
+    if ($origin.FilePath -ne $RootFile) {
+        $message = "In `"$([System.IO.Path]::GetFileName($origin.FilePath))`": $message"
+    }
+
+    $sourceLine = $exception.SourceLine
+    try {
+        $originLines = [System.IO.File]::ReadAllLines($origin.FilePath)
+        if ($origin.LocalLine -ge 1 -and $origin.LocalLine -le $originLines.Count) {
+            $sourceLine = $originLines[$origin.LocalLine - 1]
+        }
+    } catch {
+        # Fall back to whatever source line the original exception already
+        # carried rather than failing the whole remap over this.
+    }
+
+    $remapped = [OtterError]::new($message, $origin.LocalLine, $exception.Stage, $exception.Column, $sourceLine, $exception.Suggestion)
+    return [System.Management.Automation.ErrorRecord]::new(
+        $remapped, $ErrorRecord.FullyQualifiedErrorId, $ErrorRecord.CategoryInfo.Category, $ErrorRecord.TargetObject)
+}
+
 
 # ===============================================================
 # THE PIPELINE
@@ -351,21 +400,40 @@ function Invoke-OtterFile {
         [Environment]::Exit($script:ExitUsageError)
     }
 
-    # Explicit UTF-8 (no BOM) on the read side, matching the write side, so
-    # round-tripped Unicode text never silently corrupts (see Otter.Library).
-    $utf8 = [System.Text.UTF8Encoding]::new($false)
-    $source = [System.IO.File]::ReadAllText($resolved.Path, $utf8)
+    # D94-follow-on (module resolution, console targets): `use "file.ot"`
+    # is resolved at the SOURCE TEXT level, before anything is lexed -
+    # exactly the approach docs/OTTER_1_0_MODULE_STATUS.md already
+    # recommended, and exactly what src/Otter.Module.psm1 already
+    # implements (it just was never called from a production entry point).
+    # A file with no `use` lines resolves to itself unchanged, so this is
+    # always safe to run, not just when imports are present.
+    $script:LastFailureStage = $null
+    $resolvedProgram = $null
+    try {
+        $resolvedProgram = Resolve-OtterModuleSource -FilePath $resolved.Path
+    }
+    catch {
+        $script:LastFailureStage = 'check'
+        if ($DebugSession) { Complete-OtterDebugSession }
+        Show-OtterFailure -ErrorRecord $_
+        [Environment]::Exit($script:ExitCheckError)
+    }
+    $source = $resolvedProgram.CombinedSource
     if ($null -eq $source) { $source = '' }
 
     $environment = New-OtterEnvironment -Arguments $Arguments
-    $script:LastFailureStage = $null
 
     try {
         Invoke-OtterSource -Source $source -Environment $environment -CheckOnly:$CheckOnly
     }
     catch {
         if ($DebugSession) { Complete-OtterDebugSession }
-        Show-OtterFailure -ErrorRecord $_
+        # Remap the combined-source line the error actually fired on back to
+        # the real imported file it came from - otherwise every diagnostic
+        # inside an imported module quotes the WRONG line (a position in the
+        # spliced-together text no one ever sees) and the wrong source text.
+        $remapped = Get-OtterRemappedError -ErrorRecord $_ -ResolvedProgram $resolvedProgram -RootFile $resolved.Path
+        Show-OtterFailure -ErrorRecord $remapped
         if ($script:LastFailureStage -eq 'check') {
             [Environment]::Exit($script:ExitCheckError)
         }

@@ -68,7 +68,7 @@ function Resolve-OtterModuleSourceInternal {
 
     $resolved = Resolve-Path -LiteralPath $FilePath -ErrorAction SilentlyContinue
     if (-not $resolved) {
-        throw [OtterError]::new("Cannot find Otter source file `"$FilePath`".", 0, 'runtime')
+        throw [OtterError]::new("Cannot find Otter source file `"$FilePath`".", 0, 'parser')
     }
     $fullPath = $resolved.Path
 
@@ -78,7 +78,7 @@ function Resolve-OtterModuleSourceInternal {
         $cycleList.Add($fullPath)
         $cycleNames = $cycleList | ForEach-Object { [System.IO.Path]::GetFileName($_) }
         $cycleChain = $cycleNames -join ' -> '
-        throw [OtterError]::new("Circular import detected: $cycleChain", 0, 'runtime')
+        throw [OtterError]::new("Circular import detected: $cycleChain", 0, 'parser')
     }
 
     # If already loaded in an earlier sibling/branch, do not re-emit
@@ -101,7 +101,7 @@ function Resolve-OtterModuleSourceInternal {
             $importTarget = [System.IO.Path]::Combine($dir, $importRel)
 
             if (-not (Test-Path -LiteralPath $importTarget)) {
-                throw [OtterError]::new("Cannot find imported Otter file `"$importRel`" at `"$importTarget`".", $localLineNum, 'runtime', 1, $line, "Check that `"$importRel`" exists in `"$dir`".")
+                throw [OtterError]::new("Cannot find imported Otter file `"$importRel`" at `"$importTarget`".", $localLineNum, 'parser', 1, $line, "Check that `"$importRel`" exists in `"$dir`".")
             }
 
             # Emit comment header for import
