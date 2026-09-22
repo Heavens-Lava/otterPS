@@ -494,6 +494,11 @@ function Start-OtterRepl {
 
         if ($null -eq $line) { break }
         if ($line.Trim() -eq 'exit') { break }
+        if ($line.Trim() -eq 'reset') {
+            $environment = New-OtterEnvironment
+            Write-Host 'Otter: session reset - all variables and functions cleared.' -ForegroundColor DarkGray
+            continue
+        }
         if ($line.Trim() -eq '') { continue }
 
         $buffer = [System.Collections.Generic.List[string]]::new()

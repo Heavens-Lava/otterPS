@@ -625,27 +625,66 @@ creation.
 # 11. Terminal & REPL
 
 -   [x] Persistent PTY/ConPTY
--   [ ] Character stdin
+-   [ ] Character stdin (real gap: confirmed no true ConPTY Win32 API
+    (`CreatePseudoConsole`) usage anywhere - the desktop terminal bridge
+    is `System.Diagnostics.Process` with UTF-8 stream redirection per its
+    own header comment, which does not give raw/character-mode stdin the
+    way a genuine pseudo-console does)
 -   [x] stdout/stderr streaming
--   [ ] ANSI/VT
+-   [ ] ANSI/VT (same real gap as Character stdin - full ANSI/VT escape
+    interpretation needs an actual PTY, not a plain redirected stream)
 -   [x] Terminal resize
 -   [x] Ctrl+C/signals
--   [ ] Interactive programs
--   [ ] Persistent shell state
--   [ ] Multiple sessions
+-   [ ] Interactive programs (real gap at the LANGUAGE level: `run`/`run
+    command` are one-shot - output is captured and returned only after
+    the process finishes, confirmed by RunStmt's design; there is no
+    statement for a live, bidirectional interactive session from Otter
+    source itself)
+-   [ ] Persistent shell state (blocked on the same one-shot-process gap
+    above - each `run command` is a fresh process, not a continuing
+    session that remembers a prior `cd` or shell variable)
+-   [ ] Multiple sessions (blocked on the same gap - nothing to have more
+    than one of yet)
 -   [x] Shell profiles
--   [ ] Cross-platform PTY abstraction
+-   [ ] Cross-platform PTY abstraction (blocked on Character stdin/ANSI-VT
+    above existing at all first)
 -   [x] Otter REPL
 -   [x] Persistent REPL variables
--   [ ] REPL function definitions
+-   [x] REPL function definitions (confirmed real: a `to greet name` /
+    `say "Hello" name` definition typed across multiple REPL lines
+    collects and runs correctly - certified in tests/Repl.Tests.ps1
+    against the real otter.ps1 process)
 -   [x] Multiline blocks
--   [ ] History
--   [ ] Completion
--   [ ] Syntax highlighting
--   [ ] Pretty-print values
--   [ ] Object/list inspection
--   [ ] Module loading
--   [ ] Session reset
+-   [ ] History (real gap, confirmed by testing rather than assumed: the
+    REPL reads input via `Read-Host`, and PSReadLine's arrow-key history
+    only intercepts the top-level PowerShell prompt's own read loop, NOT
+    `Read-Host` calls made from inside a running script - so no history
+    exists today even though PSReadLine 2.0.0 is present on this
+    machine. A real fix needs a custom raw-console-input reader
+    (`[Console]::ReadKey`), which cannot be exercised in this sandbox -
+    redirected/piped stdin (which this entire test suite's REPL
+    automation depends on, including the new tests/Repl.Tests.ps1) makes
+    `[Console]::ReadKey` throw, so shipping that blind without real
+    interactive verification was judged too risky to do here)
+-   [ ] Completion (blocked on the same custom-input-reader gap as History
+    - no Otter-aware tab-completion exists, and generic PSReadLine
+    completion does not apply to `Read-Host` either)
+-   [ ] Syntax highlighting (same gap - would also need the custom reader
+    above to color text as it's typed)
+-   [ ] Pretty-print values (real gap, confirmed by testing: typing a bare
+    expression like a variable name at the REPL is NOT auto-printed - it
+    errors as an unrecognized statement. `say` already formats lists/
+    objects well (D8), but the REPL itself has no auto-echo of a bare
+    expression's value)
+-   [ ] Object/list inspection (same gap as Pretty-print values - there is
+    no REPL-specific inspect/auto-print behavior to format the result of)
+-   [ ] Module loading (real, deliberate gap: this session's `use` wiring
+    only covers file-mode entry points (`otter run`/`check`/`debug`) -
+    the REPL has no file path for `use`'s relative-path resolution to
+    resolve against, and was not extended to it)
+-   [x] Session reset (added: typing `reset` at the REPL prompt replaces
+    the environment with a fresh one - clears every variable and function
+    without restarting the process. Certified in tests/Repl.Tests.ps1)
 -   [x] Error recovery
 
 # 12. Console Application Development
