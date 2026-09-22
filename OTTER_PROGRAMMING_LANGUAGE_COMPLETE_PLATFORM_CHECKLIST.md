@@ -978,14 +978,26 @@ creation.
     number-formatting gap while verifying this - see D90)
 -   [ ] Vector math (verified absent - zero references anywhere)
 -   [ ] Matrix math (verified absent, same as Vector math)
--   [ ] Quaternion math
--   [ ] Geometry helpers
--   [ ] Statistics package
--   [ ] Linear algebra package
--   [ ] Complex numbers if needed
--   [ ] Arbitrary precision package
--   [ ] SIMD/vectorization provider
--   [ ] Scientific package ecosystem
+-   [ ] Quaternion math (real gap, naturally deferred alongside checklist
+    section 26's 3D graphics engine - quaternions exist almost
+    exclusively for 3D rotation math, which has no home yet either)
+-   [ ] Geometry helpers (verified absent - zero distance/angle/geometry
+    code anywhere, contrary to an earlier, uncited claim elsewhere that
+    this was already done)
+-   [ ] Statistics package (real gap, no dogfooding need demonstrated yet)
+-   [ ] Linear algebra package (real gap, same reasoning)
+-   [x] Complex numbers if needed (decided: not needed - no real
+    dogfooding case anywhere in this project has needed them, matching
+    this checklist's own "decision only if necessary" precedent for
+    lambdas/first-class functions elsewhere)
+-   [ ] Arbitrary precision package (real gap - Otter's numbers are all
+    ordinary doubles; no bignum/arbitrary-precision type exists)
+-   [ ] SIMD/vectorization provider (real gap, and arguably premature
+    before any of the math packages above that would actually need it
+    exist at all)
+-   [ ] Scientific package ecosystem (the umbrella item covering
+    everything above - real, substantial 1.1+ backlog, not attempted
+    here piecemeal without a demonstrated real need)
 
 # 17. Database Development
 
