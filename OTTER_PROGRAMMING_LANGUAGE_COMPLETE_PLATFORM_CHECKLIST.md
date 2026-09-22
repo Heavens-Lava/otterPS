@@ -1056,20 +1056,38 @@ creation.
     encrypt-then-MAC via PBKDF2-derived keys, real bidirectional
     cross-backend (interpreter <-> Web Crypto) verification in Node -
     see SPEC-DECISIONS.md D92)
--   [ ] Public-key cryptography
--   [ ] Signing/verification
--   [ ] Certificate APIs
+-   [ ] Public-key cryptography (real gap, confirmed absent - zero
+    RSA/ECDSA/asymmetric-key code anywhere)
+-   [ ] Signing/verification (blocked on Public-key cryptography above -
+    digital signatures need an asymmetric key pair to sign/verify with)
+-   [ ] Certificate APIs (real gap, confirmed absent - no X.509
+    certificate handling exposed anywhere)
 -   [x] Secure secret storage
--   [ ] Password hashing through proven libraries
--   [x] Constant-time primitives (D92: hand-implemented constant-time tag comparison against timing attacks)
-    - D92's tag comparison IS constant-time, but hand-implemented, not
-    delegated to a library: confirmed
-    System.Security.Cryptography.CryptographicOperations.FixedTimeEquals
-    does not exist on this project's .NET Framework 4.8 runtime, so
-    there is no vetted library to delegate to here - leaving this
-    unchecked rather than overclaiming)
--   [ ] TLS provider
--   [ ] Keychain/Credential Manager/libsecret providers
+-   [ ] Password hashing through proven libraries (real gap: D91's
+    general-purpose `hash` statement covers md5/sha1/sha256/sha384/
+    sha512, but none of those are appropriate for password storage -
+    no dedicated slow/salted password-hashing function (bcrypt/PBKDF2/
+    Argon2-style) is exposed as its own statement)
+-   [ ] Constant-time primitives (fixed a real checkbox/note
+    inconsistency - this was marked [x] while its own note said "leaving
+    this unchecked rather than overclaiming". D92's tag comparison IS
+    constant-time, but hand-implemented rather than delegated to a
+    vetted library, because `System.Security.Cryptography.
+    CryptographicOperations.FixedTimeEquals` does not exist on this
+    project's .NET Framework 4.8 runtime - there is no vetted library to
+    delegate to here, so honestly this stays unchecked as originally
+    intended)
+-   [ ] TLS provider (real gap, and notably blocked on the same missing
+    raw-socket capability Section 13 already found TCP/UDP blocked on -
+    nothing to wrap a TLS layer around exists yet)
+-   [ ] Keychain/Credential Manager/libsecret providers (real gap,
+    genuinely distinct from the already-shipped D81 "Secure secret
+    storage" above, not a duplicate: D81 is Otter's own private DPAPI-
+    encrypted file vault under `%LOCALAPPDATA%\Otter\Credentials\`, never
+    touching the actual native Windows Credential Manager application/
+    API (`CredWriteW`/`CredReadW`) that this item is asking about - a
+    credential D81 stores is invisible to Windows' own Credential
+    Manager control panel)
 -   [x] Never invent custom cryptography
 -   [x] Security-sensitive APIs clearly marked
 
