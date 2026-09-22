@@ -130,7 +130,12 @@ creation.
 -   [x] Nested blocks
 -   [x] Controlled multiline condition continuation
 -   [x] Comments
--   [ ] Freeze remainder/modulo wording
+-   [ ] Freeze remainder/modulo wording (real gap, not just wording: no
+    modulo/remainder operation exists at all - confirmed no `Modulo`/
+    `Remainder` value anywhere in MathOp, TokenKind, or SPEC-DECISIONS.md.
+    Adding it means deciding NEW controlled-English wording (e.g.
+    "remainder of X and Y") and a Contract/MathOp change, which is a real
+    design decision for Jeff, not something to invent unilaterally here)
 -   [x] Freeze all remaining contextual-keyword behavior
 -   [x] Freeze operator precedence table
 -   [x] Document evaluation order
@@ -157,10 +162,16 @@ creation.
 -   [x] Decimal/money-safe numeric strategy
 -   [x] Unicode string semantics
 -   [x] Grapheme-safe string operations
--   [ ] Binary/byte data
--   [ ] Buffers
+-   [ ] Binary/byte data (real gap: no byte-array/binary value type exists
+    anywhere in the runtime - would need a genuinely new Contract-level
+    value type and syntax decision, not something to add unilaterally)
+-   [ ] Buffers (same gap as binary/byte data - buffers presuppose bytes,
+    which do not exist yet)
 -   [x] Streams
--   [ ] Immutable/read-only values if demonstrated necessary
+-   [x] Immutable/read-only values if demonstrated necessary (decided: not
+    needed - no real dogfooding case across this project has demonstrated
+    a need for explicit immutability; Otter's existing copy-on-assign
+    primitives and reference-semantics lists/objects have been sufficient)
 -   [x] Map/dictionary decision
 -   [x] Set collection decision
 -   [x] Tuple/record decision
