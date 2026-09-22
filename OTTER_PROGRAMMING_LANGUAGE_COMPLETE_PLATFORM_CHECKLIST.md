@@ -883,15 +883,32 @@ creation.
     -   [x] Full suite (`30 of 30 test files passed`)
     -   [x] Independent cross-agent audit
     -   [x] Certified Implemented
--   [ ] XML
--   [ ] YAML if demanded
--   [x] URL encoding
--   [x] Base64
--   [ ] Hex
--   [ ] Binary serialization strategy
+-   [ ] XML (real gap - confirmed zero XML-related grammar or runtime
+    code anywhere, unlike CSV/JSON which are both real, full features)
+-   [x] YAML if demanded (decided: not demanded - CSV and JSON already
+    cover this project's real structured-data needs; matches this
+    checklist's own "decision only if necessary" precedent for lambdas)
+-   [ ] URL encoding (correcting a false checkmark, found while
+    re-verifying: confirmed zero URL-encoding code anywhere in the
+    parser, interpreter, or JS compiler - not even an internal helper.
+    A real gap, not a done feature)
+-   [ ] Base64 (correcting a false checkmark: Base64 exists only as an
+    internal wire-format detail of D81's credential storage and D92's
+    encrypt/decrypt output - confirmed zero user-facing `convert ... to/
+    from base64`-style grammar anywhere. An Otter program has no way to
+    base64-encode or decode anything itself today)
+-   [ ] Hex (same real gap and same reasoning as Base64 - D91's `hash`
+    statement happens to OUTPUT lowercase hex digests, but that is a
+    fixed detail of that one feature, not a general-purpose, user-facing
+    hex encode/decode capability)
+-   [ ] Binary serialization strategy (blocked on the same missing
+    binary/byte value type noted repeatedly elsewhere - Sections 3, 9,
+    and 13 all hit this identical root gap)
 -   [x] Compression (D87: zip folder / unzip archive via System.IO.Compression.ZipFile)
--   [ ] MIME/content-type helpers
--   [ ] Schema validation
+-   [ ] MIME/content-type helpers (real gap - confirmed no MIME-type
+    detection or lookup capability anywhere)
+-   [ ] Schema validation (real gap - confirmed no structural/schema
+    validation capability anywhere, for JSON or otherwise)
 -   [x] Data conversion/coercion rules
 
 # 15. Dates, Time & Random
