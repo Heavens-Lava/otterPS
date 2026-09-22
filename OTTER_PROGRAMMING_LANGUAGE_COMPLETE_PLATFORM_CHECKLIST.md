@@ -356,14 +356,29 @@ creation.
 -   [x] One-shot timers
 -   [x] Repeating timers
 -   [x] Background tasks
--   [ ] Worker/thread abstraction
+-   [x] Worker/thread abstraction (decided: not applicable for 1.0 - every
+    Otter concurrency primitive (background tasks, one-shot/repeating
+    timers, async file/HTTP) is COOPERATIVE, single-threaded-event-loop
+    concurrency: JS's own event loop on the web target, WPF's single-
+    threaded Dispatcher on desktop (see the DispatcherTimer note in
+    CLAUDE.md). Otter code is never handed a second real OS thread to run
+    on, so there is nothing for a worker/thread abstraction to wrap.)
 -   [x] Thread-safe runtime rules
--   [ ] Synchronization primitives
--   [ ] Channels/message passing
--   [ ] Concurrent collections if needed
+-   [x] Synchronization primitives (decided: not applicable - with no real
+    concurrent execution of Otter code exposed to the language, there is
+    no shared-mutable-state race to synchronize against in the first
+    place; adding mutex/semaphore-style primitives would be solving a
+    problem this model cannot have)
+-   [x] Channels/message passing (same reasoning as synchronization
+    primitives above - nothing concurrent to pass messages between)
+-   [x] Concurrent collections if needed (decided: not needed, same
+    single-threaded-event-loop reasoning)
 -   [x] UI-thread dispatch
 -   [x] Process concurrency
--   [ ] Parallel loops/tasks if justified
+-   [x] Parallel loops/tasks if justified (decided: not justified - no
+    real dogfood workload in this project has been CPU-bound rather than
+    I/O-bound; every async example is file/HTTP/timer driven, which the
+    existing cooperative model already serves)
 -   [x] Deadlock guidance/tooling
 -   [x] Race detection strategy
 -   [x] Structured concurrency decision
