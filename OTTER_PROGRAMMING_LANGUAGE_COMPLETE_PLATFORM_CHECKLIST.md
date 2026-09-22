@@ -916,19 +916,44 @@ creation.
 -   [x] Date support exists in interpreter
 -   [x] Portable date certification
 -   [x] Current local time
--   [x] UTC
--   [ ] Time zones
--   [ ] Date parsing
+-   [ ] UTC (correcting a false checkmark, found while re-verifying: `today`/
+    `now` are always LOCAL time - confirmed directly in the JS compiler's
+    own comment ("own `[datetime]::Now` (LOCAL, not UTC..."). The only
+    `UtcNow` usage anywhere in the runtime is Otter.Desktop.psm1's
+    internal host-bridge heartbeat tracking, not anything an Otter
+    program can read or request. No user-facing way to get a UTC date
+    exists today)
+-   [ ] Time zones (real gap - confirmed zero timezone-related code
+    anywhere; `today`/`now` are hardcoded to the local system zone with
+    no way to read, convert, or specify a different one)
+-   [ ] Date parsing (real gap - confirmed no `[datetime]::Parse`/
+    `ParseExact`-style code anywhere; a date can only come from `today`/
+    `now` or date arithmetic on one of those, never from parsing a
+    string a program received, e.g. from a file or an API response)
 -   [x] Date formatting
 -   [x] Date arithmetic
 -   [x] Durations
--   [ ] Monotonic time
--   [ ] High-resolution timer
+-   [ ] Monotonic time (real gap - confirmed no `Stopwatch` or equivalent
+    monotonic clock anywhere; timing something always means taking two
+    wall-clock `now` readings and subtracting, which is vulnerable to a
+    system clock change mid-measurement)
+-   [ ] High-resolution timer (same real gap as Monotonic time - `now`'s
+    precision is whatever `[datetime]::Now` naturally gives, no
+    dedicated sub-millisecond timer exists)
 -   [x] Random portable certification
 -   [ ] Seeded deterministic random (verified absent - the parser only
     accepts `random number from X to Y into Z` / `random item from L
     into Z`, no seed parameter exists anywhere)
--   [x] Cryptographically secure random provider
+-   [x] Cryptographically secure random provider (precise, not a false
+    positive but worth being exact about: this refers to D92's real
+    `RandomNumberGenerator`-backed key/salt/IV generation for encryption,
+    which is correctly cryptographically secure where it actually
+    matters. The general-purpose `random number from X to Y`/`random
+    item from L` statements are ordinary `Get-Random` (System.Random)
+    underneath, NOT cryptographically secure - the right design choice
+    for everyday randomness, not a gap, just worth distinguishing from
+    this line so nobody assumes `random number` is safe for anything
+    security-sensitive)
 
 # 16. Math & Scientific Foundation
 
