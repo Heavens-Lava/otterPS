@@ -715,20 +715,26 @@ creation.
 -   [x] Exit program
 -   [x] Exit code
 -   [x] Signals
--   [ ] Terminal colors/styles (real gap: no grammar exists for styled
-    `say` output - confirmed zero color/style-related TokenKind or
-    NodeKind anywhere in the frozen contract. New syntax, not mine to
-    invent unilaterally)
--   [ ] Cursor positioning (real gap, same reasoning - no grammar exists)
--   [ ] Interactive menus (real gap, same reasoning - no grammar exists)
--   [ ] Progress indicators (real gap, same reasoning - no grammar exists)
--   [ ] Password/secret input (real gap: confirmed `AskStmt` has only a
-    prompt and a target variable name, no masked-input variant or flag)
--   [ ] TTY detection (real gap: no Otter-visible way to ask "am I
-    running interactively" - confirmed no `[Console]::IsInputRedirected`/
-    `IsOutputRedirected`-style check reachable from Otter source)
--   [ ] Noninteractive mode (blocked on TTY detection above existing at
-    all - nothing for an Otter program to branch on yet)
+-   [ ] Terminal colors/styles (design approved by Jeff, spec written -
+    `say "x" in color "red"`. See docs/D100-CONSOLE-UX-PRIMITIVES-DESIGN.md.
+    Awaiting Codex for the lexer/parser/Contract side - not mine to
+    implement, src/Otter.Lexer.psm1 and src/Otter.Parser.psm1 are not my
+    files)
+-   [ ] Cursor positioning (design approved, spec written - `set cursor to
+    row 5 column 10`. See D100. Same implementation-routing note as above)
+-   [ ] Interactive menus (design approved, spec written - `choose from
+    options into choice`, reusing D67's choose-file grammar shape. See
+    D100. Same routing note)
+-   [ ] Progress indicators (design approved, spec written - `show
+    progress 50 percent`, reusing D88's percent token. See D100. Same
+    routing note)
+-   [ ] Password/secret input (design approved, spec written - `ask
+    secretly "Password:" and call it pw`. See D100. Same routing note)
+-   [ ] TTY detection (design approved, spec written - `if console is
+    interactive`. See D100. Same routing note)
+-   [ ] Noninteractive mode (no separate syntax needed once TTY detection
+    above lands - `if not console is interactive` already composes via
+    D11's existing `not`. See D100's closing note)
 -   [x] Standalone executable packaging
 -   [x] Cross-platform console certification
 
