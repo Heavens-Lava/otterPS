@@ -1003,22 +1003,43 @@ creation.
 
 -   [x] Database provider interface
 -   [x] SQLite
--   [ ] SQL Server
--   [ ] PostgreSQL
--   [ ] MySQL/MariaDB
+-   [ ] SQL Server (real gap - the provider architecture is generic by
+    design (`Otter.Database.psm1`'s own header: "Database providers
+    implement the translation to host engines"), but only the SQLite
+    provider is actually implemented; adding another engine is real,
+    separate work per engine)
+-   [ ] PostgreSQL (same gap and same reasoning as SQL Server)
+-   [ ] MySQL/MariaDB (same gap and same reasoning as SQL Server)
 -   [x] Connection management
 -   [x] Parameterized queries
 -   [x] Query results
 -   [x] Transactions
--   [ ] Prepared statements
--   [ ] Connection pooling
--   [ ] Migrations
+-   [ ] Prepared statements (real gap, confirmed precisely: the raw
+    SQLite C API's own `sqlite3_prepare_v2` is used internally, as it
+    must be for any query to run at all, and there's even an unused
+    `SupportsPreparedStatements` capability flag on the provider object -
+    but nothing reads that flag anywhere, and no Otter-level statement
+    exists to prepare a query once and execute it many times with
+    different parameters, reusing the compiled statement)
+-   [ ] Connection pooling (real gap - `connect database into db` always
+    opens a fresh connection; no pooling/reuse across connections exists)
+-   [ ] Migrations (real gap - no schema-versioning/migration system;
+    schema changes are just ordinary `execute db with "ALTER TABLE ..."`)
 -   [x] Schema introspection
--   [ ] Stored procedures
--   [ ] Bulk operations
--   [ ] Async database operations
--   [ ] ORM/query-builder only if justified
--   [ ] NoSQL provider interface
+-   [ ] Stored procedures (real gap - `execute`/`query` run raw SQL text
+    only; no dedicated CALL/EXEC-procedure grammar)
+-   [ ] Bulk operations (real gap - no batch-insert/bulk-copy statement;
+    each row needs its own `execute`)
+-   [ ] Async database operations (real gap - every database statement is
+    synchronous/blocking, no async/await integration)
+-   [ ] ORM/query-builder only if justified (real gap, deliberately -
+    matches D99's separate, explicitly "not approved yet" Otter Query
+    Language RFC; raw SQL via `execute`/`query` is the only access path
+    today)
+-   [ ] NoSQL provider interface (real gap - the provider architecture is
+    SQL-shaped throughout (connections, parameterized SQL text,
+    transactions); a NoSQL provider would need its own interface design,
+    not just another implementation of the existing one)
 -   [x] Secrets/connection strings
 -   [x] Database conformance tests
 
