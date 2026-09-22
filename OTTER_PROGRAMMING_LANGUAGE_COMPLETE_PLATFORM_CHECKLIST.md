@@ -1102,48 +1102,80 @@ creation.
 -   [x] Properties/attributes
 -   [x] Events
 -   [x] State
--   [ ] Derived state
+-   [x] Derived state (correcting a false NEGATIVE - the opposite mistake
+    from most other sections: `derive total is price times quantity`
+    genuinely works, real `OtterDerived` reactive tracking in the
+    interpreter, verified through the real `otter run` CLI producing the
+    correct computed value AND compiling cleanly through `otter web`)
 -   [x] Reactive updates
--   [ ] Conditional rendering
--   [ ] List rendering
+-   [x] Conditional rendering (correcting a false negative, verified
+    directly: an `if`/`otherwise` around UI element creation + `put`
+    compiles into real, working conditional JS referencing the live
+    reactive state variable, confirmed by inspecting the generated output)
+-   [ ] List rendering (inconclusive - a `each item in items` loop
+    building and `put`-ing a UI element per item hit a real parse error
+    in my own test attempt; not confirmed working OR broken, would need
+    someone more familiar with D56's exact UI-in-a-loop grammar to verify
+    properly rather than guessing at syntax)
 -   [x] Forms
 -   [x] Validation
--   [ ] Routing
--   [ ] Route parameters
--   [ ] Navigation/history
+-   [ ] Routing (real gap - confirmed no client-side URL/view router;
+    D51's `when api receives GET at "/path"` is backend API routing, a
+    different capability from a frontend SPA router)
+-   [ ] Route parameters (blocked on Routing above)
+-   [ ] Navigation/history (real gap - no browser History API integration)
 -   [x] Browser storage
--   [ ] Cookies
+-   [ ] Cookies (real gap - no cookie read/write capability exposed)
 -   [x] Fetch/HTTP
--   [ ] WebSockets
--   [ ] File upload/download
--   [ ] Drag/drop
+-   [ ] WebSockets (real gap, confirmed zero WebSocket code anywhere -
+    same real gap already documented in Section 13)
+-   [ ] File upload/download (real gap for genuine file upload - blocked
+    on the missing binary/byte type noted repeatedly elsewhere; D96's
+    download statement covers file DOWNLOAD already, separately)
+-   [ ] Drag/drop (real gap, confirmed zero drag/drop code anywhere)
 -   [x] Clipboard
 -   [x] Browser notifications
 -   [x] Canvas
 -   [x] SVG
--   [ ] Audio/video
--   [ ] Accessibility
+-   [ ] Audio/video (real gap - confirmed no audio/video element support)
+-   [ ] Accessibility (real gap - confirmed only one incidental
+    `role="switch"` on the toggle control, not a systematic ARIA/
+    accessibility strategy across components)
 -   [x] Responsive design
 -   [x] CSS exact escape hatch
--   [ ] Otter-native styling authoring layer
+-   [ ] Otter-native styling authoring layer (real gap - styling today is
+    either inline property values on UI resources or the CSS escape
+    hatch above, not a dedicated Otter styling language/authoring layer)
 -   [x] CSS variables/themes
 -   [x] Animation/transitions
--   [ ] Asset bundling
--   [ ] CSS bundling
--   [ ] JS bundling
--   [ ] Minification
--   [ ] Source maps
+-   [ ] Asset bundling (real gap, confirmed zero bundling code anywhere)
+-   [ ] CSS bundling (same real gap as Asset bundling)
+-   [ ] JS bundling (same real gap as Asset bundling)
+-   [ ] Minification (real gap, confirmed zero minification code anywhere)
+-   [ ] Source maps (real gap for BUILD source maps specifically -
+    confirmed the one "source map" hit in this codebase is this
+    session's unrelated multi-file `use` diagnostics remapping, not
+    anything for compiled JS/CSS debugging)
 -   [x] Dev server
--   [ ] Hot reload
--   [ ] Environment configuration
--   [ ] Production optimization
--   [ ] Static-site generation
--   [ ] PWA
--   [ ] Service workers
--   [ ] SSR/hydration decision
--   [ ] SEO/meta
--   [ ] Browser compatibility matrix
--   [ ] Web publishing/deployment
+-   [ ] Hot reload (real gap - the dev server serves files but does not
+    push live-reload updates on change)
+-   [ ] Environment configuration (real gap - no dev/staging/production
+    config-value mechanism)
+-   [ ] Production optimization (real gap, blocked on the
+    bundling/minification gaps above)
+-   [ ] Static-site generation (real gap)
+-   [ ] PWA (real gap, confirmed zero manifest/PWA code anywhere)
+-   [ ] Service workers (real gap, confirmed zero service-worker code
+    anywhere)
+-   [ ] SSR/hydration decision (real gap - `otter web` produces a single
+    static/client-rendered HTML export; no server-rendering step exists
+    to make a decision about)
+-   [ ] SEO/meta (real gap - no dedicated meta-tag/SEO authoring surface)
+-   [ ] Browser compatibility matrix (real gap - no documented, tested
+    browser support matrix; certification so far has been against one
+    real, specific target - headless Edge)
+-   [ ] Web publishing/deployment (real gap - `otter web` exports a
+    static HTML file; no deployment/publishing pipeline beyond that)
 
 # 20. Web Backend / Full-Stack Development
 
