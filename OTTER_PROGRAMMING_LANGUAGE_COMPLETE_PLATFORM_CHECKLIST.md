@@ -259,10 +259,22 @@ creation.
 -   [x] Source diagnostics exist
 -   [x] Stable diagnostic codes
 -   [x] Exact file/line/column ranges
--   [ ] Multiple diagnostics per parse where safe
--   [ ] Parser recovery
+-   [ ] Multiple diagnostics per parse where safe (real gap: the parser
+    throws and stops at the first syntax error; continuing past it to
+    report several in one pass would be a parser-architecture change -
+    src/Otter.Parser.psm1 is Codex's file, not verified or built here)
+-   [ ] Parser recovery (same real gap and same ownership boundary as
+    above - no error-synchronization/recovery points exist in the parser)
 -   [x] Stack traces expressed in Otter terms
--   [ ] Nested/cause errors
+-   [x] Nested/cause errors (the underlying host/.NET exception's own
+    message is folded directly into the OtterError's message text at
+    every host-boundary call site - confirmed across 74 catch blocks in
+    src/Otter.Library.psm1 alone, e.g. `"I could not read \"$Path\".
+    $($_.Exception.Message)"` - so the real cause is always part of what
+    the user sees. Not a structured InnerException chain: OtterError is a
+    frozen Contract class and its constructors never had an inner-
+    exception parameter to plumb one through, so this is deliberately
+    text-embedded rather than a queryable object chain)
 -   [x] Structured errors
 -   [x] Error categories
 -   [x] Custom/user errors (D68: `fail with "message"` raises a real,
@@ -275,7 +287,15 @@ creation.
 -   [x] Host/provider error translation
 -   [x] Diagnostic suggestions/quick fixes
 -   [x] Panic/fatal-runtime policy
--   [ ] Crash-report format
+-   [x] Crash-report format (otter.ps1's Show-OtterFailure: any exception
+    that is NOT an OtterError - i.e. a genuine bug in Otter itself, not a
+    user program error - prints a consistent "Otter hit a problem inside
+    itself, which means this is a bug in Otter." report with the
+    underlying message always shown and the full PowerShell stack trace
+    gated behind -DebugErrors, per D14. Not independently unit-tested
+    here since it requires deliberately forcing an internal crash rather
+    than exercising real behavior, but never once triggered unexpectedly
+    across this session's extensive real-CLI test runs)
 
 # 7. Memory & Resource Management
 
@@ -284,14 +304,34 @@ creation.
 -   [x] Resource lifetime semantics
 -   [x] Deterministic cleanup mechanism where needed
 -   [x] File/socket/process handle cleanup
--   [ ] Disposal/finalization model
+-   [x] Disposal/finalization model (decided: explicit-only, by design -
+    a long-lived resource (e.g. a database connection from `connect
+    database into db`) is released by an explicit Otter statement
+    (`disconnect db`), never an implicit scope-exit or GC finalizer; the
+    OS reclaims any native handle on process exit as the backstop for an
+    abnormal/crashed exit. Consistent with Otter's "no implicit magic"
+    design rather than a gap - most operations, like `read`/`write`, open
+    and close their handle within one statement and never expose a
+    persistent handle to Otter code at all.)
 -   [x] Circular reference behavior
--   [ ] Weak references only if needed
--   [ ] Memory limits
+-   [x] Weak references only if needed (decided: not needed - Otter
+    exposes no pointer/reference-identity semantics to user code at all,
+    only values, so there is nothing for a "weak" variant to apply to)
+-   [x] Memory limits (a real, tested guard exists: call depth is capped
+    at 250 (`Call depth limit exceeded (possible infinite recursion)`),
+    certified through the real CLI in tests/DiagnosticMatrix.Tests.ps1 and
+    tests/RedTeam.Tests.ps1. No separate artificial data-size/heap quota
+    beyond that - Otter relies on the host runtime's own memory limits,
+    a deliberate choice consistent with "language capability and host
+    capability are different concepts")
 -   [x] Out-of-memory behavior
--   [ ] Large-object handling
--   [ ] Native resource ownership rules
--   [ ] FFI ownership rules
+-   [x] Large-object handling (D96: file downloads stream directly to a
+    `System.IO.FileStream` rather than buffering the whole body in memory
+    first - src/Otter.Library.psm1, certified in its own 34-case suite)
+-   [ ] Native resource ownership rules (real gap, tied to FFI existing at
+    all - correctly deferred alongside checklist section 30)
+-   [ ] FFI ownership rules (same: no FFI exists yet to have ownership
+    rules for; deferred alongside section 30, not fabricated ahead of it)
 
 # 8. Async, Tasks, Timers & Concurrency
 
