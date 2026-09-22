@@ -761,13 +761,23 @@ creation.
 -   [x] HTTP POST reported
 -   [x] HTTP PUT reported
 -   [x] HTTP DELETE reported
--   [x] Headers
--   [ ] Query parameters
+-   [ ] Headers (correcting a false checkmark, found while re-verifying:
+    `HttpGetStmt`/`HttpPostStmt`/etc. have only `Url`/`Data`/`Target`/
+    `AsJson` fields - confirmed no `Headers` field anywhere in the
+    Contract and no header-related code in the JS compiler. There is
+    genuinely no way for an Otter program to set a custom request header
+    today - a real gap, not a done feature)
+-   [x] Query parameters (already fully expressible with zero new syntax:
+    a URL is just an ordinary expression, so `"https://api/search?q="
+    and term` builds a query string exactly like any other string
+    concatenation. Verified through the real `otter run` CLI)
 -   [x] Request body types
 -   [x] JSON integration
--   [ ] Form encoding
--   [ ] Multipart/form-data
--   [ ] File upload
+-   [ ] Form encoding (real gap - only JSON request bodies exist; no
+    `application/x-www-form-urlencoded` encoding)
+-   [ ] Multipart/form-data (real gap, and blocked on Section 9's missing
+    binary/byte type for any real file-part payload)
+-   [ ] File upload (same blocker as multipart/form-data above)
 -   [x] File download (D96: `download file from <url> to <path>`. Complete byte-identical streaming, atomic same-directory promotion, CreateNew collision safety, truncation detection, failure cleanup, JS compiler & Desktop Bridge integration)
     -   [x] Specification
     -   [x] Contract
@@ -793,25 +803,62 @@ creation.
     -   [x] 15/15 release conformance (`tools/Test-OtterReleaseConformance.ps1`)
     -   [x] Independent adversarial audit
     -   [x] Certified Implemented
--   [ ] Streaming
+-   [ ] Streaming (D96 added real byte-streaming, but only for the
+    dedicated `download file from ... to ...` statement - ordinary
+    `get`/`post`/`put`/`delete` still buffer the whole response, a real
+    gap for large arbitrary HTTP responses)
 -   [x] Timeouts
--   [ ] Cancellation
--   [ ] Redirect policy
--   [ ] Cookies
--   [ ] Sessions
--   [x] Authentication helpers
--   [ ] TLS/certificate handling
--   [ ] Proxy
--   [ ] DNS
--   [ ] WebSocket client
--   [ ] WebSocket server
--   [ ] TCP
--   [ ] UDP
--   [ ] Unix/domain sockets where supported
+-   [ ] Cancellation (real gap: no cancellation-token concept is exposed
+    for an in-flight HTTP call the way D71 gives process operations one)
+-   [ ] Redirect policy (real gap: requests follow redirects the way
+    `fetch()` does by default, with no Otter-level control - `fetch`
+    does support a `redirect` option (follow/error/manual) that could be
+    exposed, just isn't today)
+-   [ ] Cookies (browsers already handle cookies transparently for
+    same-origin `fetch()` with no code required - but there is no
+    Otter-level way to read or set one deliberately, a real if narrow gap)
+-   [ ] Sessions (same reasoning as Cookies - transparent by default,
+    no explicit Otter-level control)
+-   [ ] Authentication helpers (correcting a false checkmark, found while
+    re-verifying: this is blocked on the same missing Headers support
+    above - there is no way to attach an Authorization/Bearer header to
+    a request at all today)
+-   [x] TLS/certificate handling (decided: not applicable to this
+    project's fetch()-based, web-only HTTP model - browsers handle
+    TLS/certificate validation entirely themselves and deliberately
+    expose zero JS-level control over it, for real security reasons
+    outside this language's power to change)
+-   [x] Proxy (decided: not applicable, same reasoning as TLS - proxy
+    configuration is a browser/OS-level concern `fetch()` never exposes
+    to JS)
+-   [x] DNS (decided: not applicable, same reasoning - `fetch()` resolves
+    DNS transparently with zero JS-level control)
+-   [ ] WebSocket client (real, substantial gap - an entirely new
+    protocol/statement family needing its own real grammar design, e.g.
+    a D100-style RFC for `connect websocket ...`/`send .../`when ...
+    receives a message`. Not attempted in this pass)
+-   [ ] WebSocket server (same gap, one level bigger - would extend
+    D51's existing web-server-route infrastructure)
+-   [ ] TCP (real gap, and notably NOT something the current web-only
+    HTTP model could ever reach even if built - browsers cannot open raw
+    TCP sockets at all, a fundamental JS security restriction. Raw
+    sockets would need to be a console/desktop-target capability using
+    real .NET sockets, an entirely separate, currently unaddressed
+    surface from anything HTTP-related above)
+-   [ ] UDP (same reasoning and same gap as TCP)
+-   [ ] Unix/domain sockets where supported (same reasoning as TCP/UDP;
+    also questionable fit for this project's Windows PowerShell 5.1
+    scope specifically, though Windows 10+ does support AF_UNIX)
 -   [x] Network diagnostics
--   [ ] Rate limiting helpers
--   [ ] Retry/backoff
--   [ ] Connection pooling
+-   [ ] Rate limiting helpers (real gap - no built-in throttling)
+-   [ ] Retry/backoff (real gap, and blocked on a smaller, separate one:
+    there is no general-purpose `wait 5 seconds` sleep/delay statement
+    to build a real backoff delay from - only D71's process-specific
+    `wait for process p up to N seconds` exists today)
+-   [x] Connection pooling (decided: not applicable - HTTP keep-alive and
+    connection reuse are already handled transparently by the browser's
+    own `fetch()` implementation; there is nothing for a higher-level
+    Otter-visible pooling API to add control over)
 
 # 14. Data Formats & Serialization
 
