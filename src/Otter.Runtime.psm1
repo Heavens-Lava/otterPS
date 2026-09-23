@@ -284,6 +284,23 @@ function Test-OtterFileWatcher {
     return $Value -is [OtterFileWatcher]
 }
 
+# D105: XML. Wraps a real [System.Xml.XmlNode] - an XmlDocument for a
+# document-shaped value (from `xml from text/file`/`xml with root`),
+# an XmlElement for anything selected out of one (`element X in Y`,
+# `root of X`). Both derive from XmlNode, so every XML operation works
+# uniformly on either without the interpreter needing to know which.
+class OtterXml {
+    [System.Xml.XmlNode]$Node
+    OtterXml([System.Xml.XmlNode]$node) {
+        $this.Node = $node
+    }
+}
+
+function Test-OtterXml {
+    param([object]$Value)
+    return $Value -is [OtterXml]
+}
+
 function New-OtterToday {
     return [OtterDate]::new([datetime]::Now, $false)
 }
@@ -473,6 +490,11 @@ function Format-OtterValue {
     # fact that's unambiguous (the count); `hex from bytes x` / `text
     # from bytes x` are how a program asks for an actual representation.
     if (Test-OtterBytes $Value) { return "<$($Value.Value.Length) bytes>" }
+
+    # D105: unlike bytes, XML has no ambiguous-representation problem -
+    # its OWN serialized text IS the value, so `say document` showing
+    # that text is the least surprising choice, not a special case.
+    if (Test-OtterXml $Value) { return $Value.Node.OuterXml }
 
     if (Test-OtterList $Value) {
         $parts = foreach ($item in $Value) { Format-OtterValue -Value $item }
@@ -690,4 +712,4 @@ Export-ModuleMember -Function `
     New-OtterList, Test-OtterList, Test-OtterObject, Test-OtterDate, `
     New-OtterToday, New-OtterNow, Format-OtterValue, Test-OtterTruthy, `
     Test-OtterNumeric, ConvertTo-OtterNumber, Test-OtterEqual, ConvertFrom-OtterInput, `
-    Test-OtterBytes, Test-OtterFileWatcher
+    Test-OtterBytes, Test-OtterFileWatcher, Test-OtterXml

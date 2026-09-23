@@ -571,6 +571,24 @@ enum NodeKind {
     ChangedFileName              # an EXPRESSION: changed file name
     ChangeKind                   # an EXPRESSION: change kind
     OldPath                       # an EXPRESSION: old path
+
+    # --- XML (D105) - console AND web both supported. `text`/`name`/`root`/
+    # `attributes` "of" a value ride the EXISTING generic PropertyAccess
+    # NodeKind (no new grammar needed there - only the interpreter/JS
+    # compiler gain a new branch for when the target is xml). -----------
+    XmlFrom                    # xml from text X / xml from file X / xml with root X
+    XmlSelect                   # element X in Y / elements X in Y / child X in Y / children X in Y
+    XmlAttribute                 # attribute X of Y
+    XmlTextOfNameIn               # text of NAME in XML (sugar over text of (element NAME in XML))
+    XmlElementExists               # a CONDITION primary: element X exists in Y
+    XmlHasAttribute                 # a CONDITION primary: Y has attribute X
+    XmlToText                        # text from xml X / pretty text from xml X
+    XmlSetText                        # set text of X to V / set text of NAME in XML to V
+    XmlSetAttribute                    # set attribute X of Y to V
+    XmlRemoveAttribute                  # remove attribute X from Y
+    XmlAddElement                        # add element X to Y [and call it Z] [with text T]
+    XmlRemoveElement                      # remove element X
+    XmlWriteFile                           # write xml X to file P
 }
 
 enum MathOp { Add; Subtract; Multiply; Divide; Percent; Power }   # D88
@@ -579,6 +597,9 @@ enum CompareOp { Equal; NotEqual; AtLeast; AtMost; GreaterThan; LessThan }
 
 enum WatchKind { File; Folder }                                       # D104
 enum WatchEventKind { Change; Create; Delete; Rename }                 # D104
+
+enum XmlSourceKind { Text; File; Root }                                # D105
+enum XmlSelectKind { Element; Elements; Child; Children }              # D105
 
 # D11: boolean operators. Precedence, loosest last: not -> and -> or.
 enum LogicalOp { And; Or }
@@ -2932,6 +2953,157 @@ class ChangeKindExpr : Node {
 }
 class OldPathExpr : Node {
     OldPathExpr([int]$line) : base([NodeKind]::OldPath, $line) {}
+}
+
+# D105: XML. `text`/`name`/`root`/`attributes` "of" a value read through
+# the EXISTING generic PropertyAccessExpr - only the genuinely new shapes
+# (an extra argument, or an "in"/"from" clause `of` alone can't express)
+# get their own class below.
+
+# xml from text "<a/>"  /  xml from file "books.xml"  /  xml with root "library"
+class XmlFromExpr : Node {
+    [XmlSourceKind]$Source
+    [Node]$Value
+    XmlFromExpr([XmlSourceKind]$source, [Node]$value, [int]$line) : base([NodeKind]::XmlFrom, $line) {
+        $this.Source = $source
+        $this.Value = $value
+    }
+}
+
+# element "book" in document / elements "book" in document / child 0 in
+# book / children 0 in book (child/children select by POSITION, element/
+# elements select by TAG NAME - the only way the four are distinguishable)
+class XmlSelectExpr : Node {
+    [XmlSelectKind]$SelectKind
+    [Node]$Selector
+    [Node]$Xml
+    XmlSelectExpr([XmlSelectKind]$selectKind, [Node]$selector, [Node]$xml, [int]$line) : base([NodeKind]::XmlSelect, $line) {
+        $this.SelectKind = $selectKind
+        $this.Selector = $selector
+        $this.Xml = $xml
+    }
+}
+
+# attribute "id" of book
+class XmlAttributeExpr : Node {
+    [Node]$Name
+    [Node]$Element
+    XmlAttributeExpr([Node]$name, [Node]$element, [int]$line) : base([NodeKind]::XmlAttribute, $line) {
+        $this.Name = $name
+        $this.Element = $element
+    }
+}
+
+# text of "title" in book - sugar over text of (element "title" in book).
+# Plain `text of book` (no "in" clause) rides ordinary PropertyAccessExpr.
+class XmlTextOfNameInExpr : Node {
+    [Node]$Name
+    [Node]$Xml
+    XmlTextOfNameInExpr([Node]$name, [Node]$xml, [int]$line) : base([NodeKind]::XmlTextOfNameIn, $line) {
+        $this.Name = $name
+        $this.Xml = $xml
+    }
+}
+
+# element "book" exists in document - a CONDITION primary, same shape as
+# the pre-existing `file "x" exists`/`registry key "..." exists`.
+class XmlElementExistsExpr : Node {
+    [Node]$Selector
+    [Node]$Xml
+    XmlElementExistsExpr([Node]$selector, [Node]$xml, [int]$line) : base([NodeKind]::XmlElementExists, $line) {
+        $this.Selector = $selector
+        $this.Xml = $xml
+    }
+}
+
+# book has attribute "id" - a CONDITION primary
+class XmlHasAttributeExpr : Node {
+    [Node]$Element
+    [Node]$Name
+    XmlHasAttributeExpr([Node]$element, [Node]$name, [int]$line) : base([NodeKind]::XmlHasAttribute, $line) {
+        $this.Element = $element
+        $this.Name = $name
+    }
+}
+
+# text from xml document / pretty text from xml document
+class XmlToTextExpr : Node {
+    [Node]$Xml
+    [bool]$Pretty
+    XmlToTextExpr([Node]$xml, [bool]$pretty, [int]$line) : base([NodeKind]::XmlToText, $line) {
+        $this.Xml = $xml
+        $this.Pretty = $pretty
+    }
+}
+
+# set text of book to "Learning Otter"  /  set text of "title" in document to "..."
+# NameIn/XmlIn are both $null for the plain (no "in" clause) form.
+class XmlSetTextStmt : Node {
+    [Node]$Element
+    [Node]$NameIn
+    [Node]$XmlIn
+    [Node]$Value
+    XmlSetTextStmt([Node]$element, [Node]$nameIn, [Node]$xmlIn, [Node]$value, [int]$line) : base([NodeKind]::XmlSetText, $line) {
+        $this.Element = $element
+        $this.NameIn = $nameIn
+        $this.XmlIn = $xmlIn
+        $this.Value = $value
+    }
+}
+
+# set attribute "id" of book to "42"
+class XmlSetAttributeStmt : Node {
+    [Node]$Name
+    [Node]$Element
+    [Node]$Value
+    XmlSetAttributeStmt([Node]$name, [Node]$element, [Node]$value, [int]$line) : base([NodeKind]::XmlSetAttribute, $line) {
+        $this.Name = $name
+        $this.Element = $element
+        $this.Value = $value
+    }
+}
+
+# remove attribute "id" from book
+class XmlRemoveAttributeStmt : Node {
+    [Node]$Name
+    [Node]$Element
+    XmlRemoveAttributeStmt([Node]$name, [Node]$element, [int]$line) : base([NodeKind]::XmlRemoveAttribute, $line) {
+        $this.Name = $name
+        $this.Element = $element
+    }
+}
+
+# add element "book" to library [and call it book] [with text "..."] -
+# Text/Target both $null unless written.
+class XmlAddElementStmt : Node {
+    [Node]$Name
+    [Node]$Xml
+    [Node]$Text
+    [string]$Target
+    XmlAddElementStmt([Node]$name, [Node]$xml, [Node]$text, [string]$target, [int]$line) : base([NodeKind]::XmlAddElement, $line) {
+        $this.Name = $name
+        $this.Xml = $xml
+        $this.Text = $text
+        $this.Target = $target
+    }
+}
+
+# remove element book
+class XmlRemoveElementStmt : Node {
+    [Node]$Element
+    XmlRemoveElementStmt([Node]$element, [int]$line) : base([NodeKind]::XmlRemoveElement, $line) {
+        $this.Element = $element
+    }
+}
+
+# write xml document to file "books.xml"
+class XmlWriteFileStmt : Node {
+    [Node]$Xml
+    [Node]$Path
+    XmlWriteFileStmt([Node]$xml, [Node]$path, [int]$line) : base([NodeKind]::XmlWriteFile, $line) {
+        $this.Xml = $xml
+        $this.Path = $path
+    }
 }
 
 

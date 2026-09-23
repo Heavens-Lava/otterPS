@@ -275,6 +275,72 @@ function Invoke-OtterWatchEventLoop {
     }
 }
 
+# ===============================================================
+# XML (D105) - console AND web both supported. A document-shaped
+# OtterXml wraps a real [System.Xml.XmlDocument]; anything selected out
+# of one (root of/element .../child ...) wraps the [System.Xml.XmlElement]
+# it found. Both derive from XmlNode, so every helper below works on
+# either uniformly - Assert-OtterXmlElement is the one place that draws
+# the line, for the handful of operations (attributes, adding/removing a
+# child, setting text) that genuinely need a real element, not a document.
+# ===============================================================
+
+# element/elements/child/children only ever search DIRECT children -
+# never recursively - keeping "elements 'book' in document" predictable
+# (it means the book elements immediately under the root, not anywhere
+# in the whole tree). A document's search root is its DocumentElement,
+# so `element "book" in document` still works without the caller first
+# reaching for `root of document` themselves.
+function Get-OtterXmlSearchRoot {
+    param([System.Xml.XmlNode]$Node)
+    if ($Node -is [System.Xml.XmlDocument]) { return $Node.DocumentElement }
+    return $Node
+}
+
+function Get-OtterXmlChildElements {
+    param([System.Xml.XmlNode]$Node)
+    $root = Get-OtterXmlSearchRoot -Node $Node
+    $matches = [System.Collections.Generic.List[System.Xml.XmlElement]]::new()
+    if ($null -ne $root) {
+        foreach ($child in $root.ChildNodes) {
+            if ($child -is [System.Xml.XmlElement]) { $matches.Add($child) }
+        }
+    }
+    # -NoEnumerate matters even for a plain array return: PowerShell
+    # unwraps a SINGLE-item array/pipeline result back into a bare
+    # scalar on return (confirmed directly - a one-element `return @(x)`
+    # arrived at the caller as `x` itself, not `@(x)`, making
+    # `$found.Count` silently $null instead of 1 and corrupting every
+    # caller downstream of it).
+    Write-Output -NoEnumerate $matches
+}
+
+function Find-OtterXmlChildElementsByName {
+    param([System.Xml.XmlNode]$Node, [string]$Name)
+    $all = Get-OtterXmlChildElements -Node $Node
+    $matches = [System.Collections.Generic.List[System.Xml.XmlElement]]::new()
+    foreach ($e in $all) {
+        if ($e.Name -eq $Name) { $matches.Add($e) }
+    }
+    Write-Output -NoEnumerate $matches
+}
+
+function Assert-OtterXmlElement {
+    param([OtterXml]$Xml, [int]$Line, [string]$What)
+    if ($Xml.Node -isnot [System.Xml.XmlElement]) {
+        throw (New-OtterRuntimeError `
+            -Message "I can only $What on an xml element, but this is an xml document. Use ""root of ...`" or `"element ... in ...`" to get an element first." `
+            -Line $Line)
+    }
+}
+
+function New-OtterXmlRuntimeError {
+    param([string]$Text, [int]$Line)
+    throw (New-OtterRuntimeError `
+        -Message "This is not valid XML, so Otter could not read it: $Text" `
+        -Line $Line)
+}
+
 function Write-OtterLine {
     param([string]$Text)
     Complete-OtterProgressBarLine
@@ -1165,6 +1231,126 @@ function Invoke-OtterStatement {
                 $script:OtterWatcherHandlers[$watcher] = [System.Collections.Generic.List[hashtable]]::new()
             }
             $script:OtterWatcherHandlers[$watcher].Add(@{ EventKind = $Statement.EventKind; Body = $Statement.Body; Environment = $Environment })
+            return
+        }
+
+        # write xml document to file "books.xml"                       (D105)
+        'XmlWriteFile' {
+            $xml = Get-OtterValue -Expression $Statement.Xml -Environment $Environment
+            if (-not (Test-OtterXml $xml)) {
+                throw (New-OtterRuntimeError `
+                    -Message "I can only write xml, but this is $(Get-OtterTypeName -Value $xml)." `
+                    -Line $Statement.Line)
+            }
+            $path = Get-OtterPathArgument -Expression $Statement.Path -Environment $Environment
+            Write-OtterFile -Path $path -Content $xml.Node.OuterXml -Line $Statement.Line -Atomic $false
+            return
+        }
+
+        # add element "book" to library [and call it book] [with text "..."]  (D105)
+        'XmlAddElement' {
+            $name = Get-OtterText -Expression $Statement.Name -Environment $Environment
+            $xml = Get-OtterValue -Expression $Statement.Xml -Environment $Environment
+            if (-not (Test-OtterXml $xml)) {
+                throw (New-OtterRuntimeError `
+                    -Message "I can only add an element to xml, but this is $(Get-OtterTypeName -Value $xml)." `
+                    -Line $Statement.Line)
+            }
+            $ownerDoc = if ($xml.Node -is [System.Xml.XmlDocument]) { $xml.Node } else { $xml.Node.OwnerDocument }
+            $newElem = $ownerDoc.CreateElement($name)
+            if ($null -ne $Statement.Text) {
+                $newElem.InnerText = Get-OtterText -Expression $Statement.Text -Environment $Environment
+            }
+            # Appending to a whole DOCUMENT targets/creates its
+            # DocumentElement - matches `xml with root "library"` +
+            # `add element "book" to library` needing no special-casing
+            # by the caller.
+            $parentNode = $xml.Node
+            if ($xml.Node -is [System.Xml.XmlDocument]) {
+                $parentNode = if ($null -eq $xml.Node.DocumentElement) { $xml.Node } else { $xml.Node.DocumentElement }
+            }
+            [void]$parentNode.AppendChild($newElem)
+            if ($Statement.Target) {
+                $Environment.Set($Statement.Target, [OtterXml]::new($newElem))
+            }
+            return
+        }
+
+        # remove element book                                          (D105)
+        'XmlRemoveElement' {
+            $elem = Get-OtterValue -Expression $Statement.Element -Environment $Environment
+            if (-not (Test-OtterXml $elem)) {
+                throw (New-OtterRuntimeError `
+                    -Message "I can only remove an xml element, but this is $(Get-OtterTypeName -Value $elem)." `
+                    -Line $Statement.Line)
+            }
+            Assert-OtterXmlElement -Xml $elem -Line $Statement.Line -What 'remove'
+            if ($null -eq $elem.Node.ParentNode) {
+                throw (New-OtterRuntimeError `
+                    -Message 'This element has no parent to remove it from.' `
+                    -Line $Statement.Line)
+            }
+            [void]$elem.Node.ParentNode.RemoveChild($elem.Node)
+            return
+        }
+
+        # set text of book to "..."  /  set text of "title" in document to "..."  (D105)
+        'XmlSetText' {
+            $value = Get-OtterText -Expression $Statement.Value -Environment $Environment
+            if ($null -ne $Statement.Element) {
+                $elem = Get-OtterValue -Expression $Statement.Element -Environment $Environment
+                if (-not (Test-OtterXml $elem)) {
+                    throw (New-OtterRuntimeError `
+                        -Message "I can only set the text of an xml element, but this is $(Get-OtterTypeName -Value $elem)." `
+                        -Line $Statement.Line)
+                }
+                Assert-OtterXmlElement -Xml $elem -Line $Statement.Line -What 'set the text of'
+                $elem.Node.InnerText = $value
+                return
+            }
+            $name = Get-OtterText -Expression $Statement.NameIn -Environment $Environment
+            $xmlIn = Get-OtterValue -Expression $Statement.XmlIn -Environment $Environment
+            if (-not (Test-OtterXml $xmlIn)) {
+                throw (New-OtterRuntimeError `
+                    -Message "I can only set text within xml, but this is $(Get-OtterTypeName -Value $xmlIn)." `
+                    -Line $Statement.Line)
+            }
+            $found = Find-OtterXmlChildElementsByName -Node $xmlIn.Node -Name $name
+            if ($found.Count -eq 0) {
+                throw (New-OtterRuntimeError `
+                    -Message "I couldn't find an element called ""$name"" to set the text of." `
+                    -Line $Statement.Line)
+            }
+            $found[0].InnerText = $value
+            return
+        }
+
+        # set attribute "id" of book to "42"                            (D105)
+        'XmlSetAttribute' {
+            $name = Get-OtterText -Expression $Statement.Name -Environment $Environment
+            $elem = Get-OtterValue -Expression $Statement.Element -Environment $Environment
+            if (-not (Test-OtterXml $elem)) {
+                throw (New-OtterRuntimeError `
+                    -Message "I can only set an attribute of an xml element, but this is $(Get-OtterTypeName -Value $elem)." `
+                    -Line $Statement.Line)
+            }
+            Assert-OtterXmlElement -Xml $elem -Line $Statement.Line -What 'set an attribute of'
+            $value = Get-OtterText -Expression $Statement.Value -Environment $Environment
+            $elem.Node.SetAttribute($name, $value)
+            return
+        }
+
+        # remove attribute "id" from book                               (D105)
+        'XmlRemoveAttribute' {
+            $name = Get-OtterText -Expression $Statement.Name -Environment $Environment
+            $elem = Get-OtterValue -Expression $Statement.Element -Environment $Environment
+            if (-not (Test-OtterXml $elem)) {
+                throw (New-OtterRuntimeError `
+                    -Message "I can only remove an attribute of an xml element, but this is $(Get-OtterTypeName -Value $elem)." `
+                    -Line $Statement.Line)
+            }
+            Assert-OtterXmlElement -Xml $elem -Line $Statement.Line -What 'remove an attribute of'
+            $elem.Node.RemoveAttribute($name)
             return
         }
 
@@ -2318,6 +2504,50 @@ function Get-OtterValue {
                 return
             }
 
+            # name of book / root of document / text of book / attributes
+            # of book                                                    (D105)
+            # No new grammar needed for these four - they already reach
+            # here through the ordinary "<word> of <expr>" PropertyAccess
+            # every other property read uses.
+            if (Test-OtterXml $target) {
+                switch ($Expression.Property) {
+                    'name' {
+                        Assert-OtterXmlElement -Xml $target -Line $Expression.Line -What 'read the name of'
+                        return $target.Node.Name
+                    }
+                    'root' {
+                        if ($target.Node -isnot [System.Xml.XmlDocument]) {
+                            throw (New-OtterRuntimeError `
+                                -Message '"root of" only makes sense on an xml document, not an element.' `
+                                -Line $Expression.Line)
+                        }
+                        if ($null -eq $target.Node.DocumentElement) { return $null }
+                        return [OtterXml]::new($target.Node.DocumentElement)
+                    }
+                    'text' {
+                        return $target.Node.InnerText
+                    }
+                    'attributes' {
+                        Assert-OtterXmlElement -Xml $target -Line $Expression.Line -What 'read the attributes of'
+                        $list = New-OtterList
+                        foreach ($a in $target.Node.Attributes) { [void]$list.Add($a.Name) }
+                        # -NoEnumerate matters: a bare `return $list` unrolls
+                        # it into separate pipeline items (confirmed
+                        # directly - it arrives at the caller as a plain
+                        # object[], which then fails every Test-Otter* type
+                        # check), the same reason every other list-shaped
+                        # return in this file goes through Write-Output.
+                        Write-Output -NoEnumerate $list
+                        return
+                    }
+                    default {
+                        throw (New-OtterRuntimeError `
+                            -Message "This xml value has no property called ""$($Expression.Property)"". Try name, root, text, or attributes." `
+                            -Line $Expression.Line)
+                    }
+                }
+            }
+
             if (-not (Test-OtterObject $target)) {
                 throw (New-OtterRuntimeError `
                     -Message "I can only read properties of a thing, but this is $(Get-OtterTypeName $target)." `
@@ -2704,6 +2934,186 @@ function Get-OtterValue {
             return $script:OtterCurrentWatchEvent.OldPath
         }
 
+        # xml from text source / xml from file "books.xml" / xml with root "library"   (D105)
+        'XmlFrom' {
+            switch ($Expression.Source) {
+                ([XmlSourceKind]::Text) {
+                    $text = Get-OtterText -Expression $Expression.Value -Environment $Environment
+                    $doc = [System.Xml.XmlDocument]::new()
+                    try {
+                        $doc.LoadXml($text)
+                    } catch {
+                        $xmlErrMsg = $_.Exception.Message
+                        if ($_.Exception.InnerException) { $xmlErrMsg = $_.Exception.InnerException.Message }
+                        New-OtterXmlRuntimeError -Text $xmlErrMsg -Line $Expression.Line
+                    }
+                    return [OtterXml]::new($doc)
+                }
+                ([XmlSourceKind]::File) {
+                    $path = Get-OtterPathArgument -Expression $Expression.Value -Environment $Environment
+                    $text = Read-OtterFile -Path $path -Line $Expression.Line
+                    $doc = [System.Xml.XmlDocument]::new()
+                    try {
+                        $doc.LoadXml($text)
+                    } catch {
+                        $xmlErrMsg = $_.Exception.Message
+                        if ($_.Exception.InnerException) { $xmlErrMsg = $_.Exception.InnerException.Message }
+                        New-OtterXmlRuntimeError -Text $xmlErrMsg -Line $Expression.Line
+                    }
+                    return [OtterXml]::new($doc)
+                }
+                ([XmlSourceKind]::Root) {
+                    $rootName = Get-OtterText -Expression $Expression.Value -Environment $Environment
+                    $doc = [System.Xml.XmlDocument]::new()
+                    $rootElem = $doc.CreateElement($rootName)
+                    [void]$doc.AppendChild($rootElem)
+                    return [OtterXml]::new($doc)
+                }
+            }
+        }
+
+        # element "book" in document / elements "book" in document /
+        # child 0 in book / children ... in book                        (D105)
+        # element/elements search DIRECT children by TAG NAME; child
+        # selects the Nth direct child element by POSITION (0-based, the
+        # only way "child"/"element" are meaningfully different words);
+        # children returns every direct child element (the selector
+        # value exists only for grammatical symmetry with "child N").
+        'XmlSelect' {
+            $xml = Get-OtterValue -Expression $Expression.Xml -Environment $Environment
+            if (-not (Test-OtterXml $xml)) {
+                throw (New-OtterRuntimeError `
+                    -Message "I can only look for elements in xml, but this is $(Get-OtterTypeName -Value $xml)." `
+                    -Line $Expression.Line)
+            }
+            switch ($Expression.SelectKind) {
+                ([XmlSelectKind]::Element) {
+                    $name = Get-OtterText -Expression $Expression.Selector -Environment $Environment
+                    $found = Find-OtterXmlChildElementsByName -Node $xml.Node -Name $name
+                    if ($found.Count -eq 0) { return $null }
+                    return [OtterXml]::new($found[0])
+                }
+                ([XmlSelectKind]::Elements) {
+                    $name = Get-OtterText -Expression $Expression.Selector -Environment $Environment
+                    $found = Find-OtterXmlChildElementsByName -Node $xml.Node -Name $name
+                    $list = New-OtterList
+                    foreach ($f in $found) { [void]$list.Add([OtterXml]::new($f)) }
+                    # -NoEnumerate matters here too - see the "attributes"
+                    # property case's own comment above for why a bare
+                    # `return $list` is a real, confirmed bug for this
+                    # exact list-of-OtterXml shape.
+                    Write-Output -NoEnumerate $list
+                    return
+                }
+                ([XmlSelectKind]::Child) {
+                    $index = Assert-OtterNumber -Value (Get-OtterValue -Expression $Expression.Selector -Environment $Environment) -Line $Expression.Line -What 'a child index'
+                    $children = Get-OtterXmlChildElements -Node $xml.Node
+                    $i = [int]$index
+                    if ($i -lt 0 -or $i -ge $children.Count) { return $null }
+                    return [OtterXml]::new($children[$i])
+                }
+                ([XmlSelectKind]::Children) {
+                    $children = Get-OtterXmlChildElements -Node $xml.Node
+                    $list = New-OtterList
+                    foreach ($c in $children) { [void]$list.Add([OtterXml]::new($c)) }
+                    Write-Output -NoEnumerate $list
+                    return
+                }
+            }
+        }
+
+        # attribute "id" of book                                        (D105)
+        # A missing attribute reads as gone (D22), not an error - matches
+        # the interpreter's own dynamic-key-access precedent.
+        'XmlAttribute' {
+            $name = Get-OtterText -Expression $Expression.Name -Environment $Environment
+            $elem = Get-OtterValue -Expression $Expression.Element -Environment $Environment
+            if (-not (Test-OtterXml $elem)) {
+                throw (New-OtterRuntimeError `
+                    -Message "I can only read an attribute of an xml element, but this is $(Get-OtterTypeName -Value $elem)." `
+                    -Line $Expression.Line)
+            }
+            Assert-OtterXmlElement -Xml $elem -Line $Expression.Line -What 'read an attribute of'
+            if (-not $elem.Node.HasAttribute($name)) { return $null }
+            return $elem.Node.GetAttribute($name)
+        }
+
+        # text of "title" in book - sugar over text of (element "title" in book)   (D105)
+        'XmlTextOfNameIn' {
+            $name = Get-OtterText -Expression $Expression.Name -Environment $Environment
+            $xml = Get-OtterValue -Expression $Expression.Xml -Environment $Environment
+            if (-not (Test-OtterXml $xml)) {
+                throw (New-OtterRuntimeError `
+                    -Message "I can only look for elements in xml, but this is $(Get-OtterTypeName -Value $xml)." `
+                    -Line $Expression.Line)
+            }
+            $found = Find-OtterXmlChildElementsByName -Node $xml.Node -Name $name
+            if ($found.Count -eq 0) {
+                throw (New-OtterRuntimeError `
+                    -Message "I couldn't find an element called ""$name""." `
+                    -Line $Expression.Line)
+            }
+            return $found[0].InnerText
+        }
+
+        # element "book" exists in document                             (D105)
+        'XmlElementExists' {
+            $xml = Get-OtterValue -Expression $Expression.Xml -Environment $Environment
+            if (-not (Test-OtterXml $xml)) {
+                throw (New-OtterRuntimeError `
+                    -Message "I can only look for elements in xml, but this is $(Get-OtterTypeName -Value $xml)." `
+                    -Line $Expression.Line)
+            }
+            $name = Get-OtterText -Expression $Expression.Selector -Environment $Environment
+            return ((Find-OtterXmlChildElementsByName -Node $xml.Node -Name $name).Count -gt 0)
+        }
+
+        # book has attribute "id"                                       (D105)
+        'XmlHasAttribute' {
+            $elem = Get-OtterValue -Expression $Expression.Element -Environment $Environment
+            if (-not (Test-OtterXml $elem)) {
+                throw (New-OtterRuntimeError `
+                    -Message "I can only ask whether an xml element has an attribute, but this is $(Get-OtterTypeName -Value $elem)." `
+                    -Line $Expression.Line)
+            }
+            Assert-OtterXmlElement -Xml $elem -Line $Expression.Line -What 'ask about an attribute of'
+            $name = Get-OtterText -Expression $Expression.Name -Environment $Environment
+            return $elem.Node.HasAttribute($name)
+        }
+
+        # text from xml document / pretty text from xml document        (D105)
+        'XmlToText' {
+            $xml = Get-OtterValue -Expression $Expression.Xml -Environment $Environment
+            if (-not (Test-OtterXml $xml)) {
+                throw (New-OtterRuntimeError `
+                    -Message "I can only read text from xml, but this is $(Get-OtterTypeName -Value $xml)." `
+                    -Line $Expression.Line)
+            }
+            if (-not $Expression.Pretty) { return $xml.Node.OuterXml }
+            # A StringBuilder-backed XmlWriter always reports "utf-16" in
+            # its own declaration, regardless of the Encoding setting
+            # (confirmed directly - a real .NET quirk, not an Otter bug:
+            # a StringBuilder is inherently UTF-16 text, and the writer
+            # is technically correct to say so). A MemoryStream-backed
+            # writer instead honors UTF-8 for real, matching what
+            # Write-OtterFile actually saves to disk - no misleading
+            # declaration either way.
+            $ms = [System.IO.MemoryStream]::new()
+            $settings = [System.Xml.XmlWriterSettings]::new()
+            $settings.Indent = $true
+            $settings.IndentChars = '  '
+            $settings.OmitXmlDeclaration = ($xml.Node -isnot [System.Xml.XmlDocument])
+            $settings.Encoding = [System.Text.UTF8Encoding]::new($false)
+            $writer = [System.Xml.XmlWriter]::Create($ms, $settings)
+            try {
+                $xml.Node.WriteTo($writer)
+                $writer.Flush()
+                return [System.Text.Encoding]::UTF8.GetString($ms.ToArray())
+            } finally {
+                $writer.Close()
+            }
+        }
+
         # days between startDate and endDate                            (D42)
         #
         # A genuine value, so it evaluates the same way Get-OtterValue
@@ -3061,6 +3471,7 @@ function Get-OtterTypeName {
     if ($Value -is [OtterType]) { return "the type $($Value.Name)" }
     if (Test-OtterBytes $Value) { return 'bytes' }
     if (Test-OtterFileWatcher $Value) { return 'a file watcher' }
+    if (Test-OtterXml $Value) { return 'xml' }
     if (Test-OtterList $Value) { return 'a list' }
     if ($Value -is [double] -or $Value -is [int] -or $Value -is [long]) { return 'a number' }
     if ($Value -is [string]) { return 'some text' }

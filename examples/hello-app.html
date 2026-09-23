@@ -1122,7 +1122,7 @@
     const el_helloButton = document.getElementById('helloButton');
     if (el_helloButton) {
       el_helloButton.addEventListener('click', async (event) => {
-      otterSay((otterGetElement('nameBox') ? (otterGetText('nameBox')) : (() => { const _owner = nameBox; if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return (() => { throw new Error('A date has no part called "text".'); })(); } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('text') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called "text".'); } return _owner.props['text']; })()));
+      otterSay((otterGetElement('nameBox') ? (otterGetText('nameBox')) : (() => { const _owner = nameBox; if (_owner && typeof _owner === 'object' && _owner.__otterXml) { return _owner.node.textContent; } if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return (() => { throw new Error('A date has no part called "text".'); })(); } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('text') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called "text".'); } return _owner.props['text']; })()));
       });
     }
 

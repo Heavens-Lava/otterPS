@@ -597,4 +597,78 @@ try {
 }
 Write-Output '  pass  variant-qualified UI kinds (primary/secondary/danger button) compile to valid, correctly-styled JS'
 
+# Test 24: XML (D105) - the full acceptance example compiles to real
+# DOMParser/XMLSerializer-based JS, verified with a real Node syntax
+# check (DOMParser/XMLSerializer themselves are genuine browser DOM APIs
+# Node.js does not provide, so live execution was verified separately,
+# by hand, in a real browser via Playwright - byte-for-byte identical
+# output to this project's own console-target tests, see
+# tests/Xml.Tests.ps1's own header comment).
+$xmlSource = @"
+doc is xml with root "library"
+library is root of doc
+add element "book" to library and call it book
+set attribute "id" of book to "42"
+add element "title" with text "Learning Otter" to book
+output is text from xml doc
+say output
+pretty is pretty text from xml doc
+say pretty
+books is elements "book" in library
+if element "book" exists in doc
+    say "exists"
+.
+if book has attribute "id"
+    say "has attribute"
+.
+remove attribute "id" from book
+remove element book
+"@
+$xmlAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $xmlSource)
+$xmlJsLines = [System.Collections.Generic.List[string]]::new()
+foreach ($s in $xmlAst.Statements) { $xmlJsLines.Add((ConvertTo-OtterJsStatement -Stmt $s -Indent 0)) }
+$xmlJs = $xmlJsLines -join "`n"
+if ($xmlJs -notmatch '__otterXml: true') {
+    throw 'Expected xml with root to compile to a tagged __otterXml wrapper.'
+}
+if ($xmlJs -notmatch 'document\.implementation\.createDocument') {
+    throw 'Expected "xml with root" to compile to document.implementation.createDocument.'
+}
+if ($xmlJs -notmatch 'new XMLSerializer\(\)\.serializeToString') {
+    throw 'Expected "text from xml" to compile to XMLSerializer.'
+}
+if ($xmlJs -notmatch 'setAttribute') {
+    throw 'Expected "set attribute ... of ... to ..." to compile to a real setAttribute call.'
+}
+if ($xmlJs -notmatch 'removeAttribute') {
+    throw 'Expected "remove attribute ... from ..." to compile to a real removeAttribute call.'
+}
+if ($xmlJs -notmatch 'removeChild') {
+    throw 'Expected "remove element ..." to compile to a real removeChild call.'
+}
+$xmlScriptFile = Join-Path ([System.IO.Path]::GetTempPath()) ("otter_xml_$([Guid]::NewGuid().ToString('N')).js")
+Set-Content -LiteralPath $xmlScriptFile -Value $xmlJs
+try {
+    & node --check $xmlScriptFile
+    if ($LASTEXITCODE -ne 0) { throw 'Compiled XML JS failed a real Node syntax check.' }
+} finally {
+    Remove-Item -LiteralPath $xmlScriptFile -Force -ErrorAction SilentlyContinue
+}
+Write-Output '  pass  XML (D105) compiles to real DOMParser/XMLSerializer-based JS (verified live in a browser separately)'
+
+# Test 25: a variable literally named "document" overwrites the browser's
+# own global `document` - a real, PRE-EXISTING bug found while verifying
+# D105 (not caused by it: any Otter variable name that collides with a
+# JS/browser global has this problem, not something specific to xml).
+# This is not something D105 introduces or is expected to fix; documented
+# here as a known trap so it stays visible rather than silently
+# rediscovered later.
+$docCollisionSource = 'document is "hello"'
+$docCollisionAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $docCollisionSource)
+$docCollisionJs = ConvertTo-OtterJsStatement -Stmt $docCollisionAst.Statements[0] -Indent 0
+if ($docCollisionJs -notmatch 'window\.document\s*=') {
+    throw 'Expected the known "document" global-collision trap to still reproduce (regression check, not a fix) - a variable named "document" no longer compiles to window.document = ..., which means either it was fixed (great - update this test) or something else changed.'
+}
+Write-Output '  pass  (documented, not fixed) a variable named "document" still overwrites the browser global - known trap, not new'
+
 Write-Output 'Web compiler tests passed.'

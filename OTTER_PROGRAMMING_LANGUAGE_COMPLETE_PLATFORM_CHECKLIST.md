@@ -931,8 +931,48 @@ creation.
     -   [x] Full suite (`30 of 30 test files passed`)
     -   [x] Independent cross-agent audit
     -   [x] Certified Implemented
--   [ ] XML (real gap - confirmed zero XML-related grammar or runtime
-    code anywhere, unlike CSV/JSON which are both real, full features)
+-   [x] XML (D105: full read/write DOM-style API on BOTH console and web
+    - `xml from text`/`xml from file`/`xml with root`, `element`/
+    `elements` (by tag name) and `child`/`children` (by position) `in`,
+    `attribute ... of ...`, `text`/`name`/`root`/`attributes` of (all
+    ride the existing generic PropertyAccess grammar, no new syntax),
+    `element ... exists in ...` and `... has attribute ...` predicates,
+    `set text of`/`set attribute ... of ... to ...`, `add element ...
+    to ... [and call it ...] [with text ...]`, `remove element`/`remove
+    attribute ... from ...`, `text from xml`/`pretty text from xml`,
+    `write xml ... to file`. Console: real [System.Xml.XmlDocument].
+    Web: real DOMParser/XMLSerializer/document.implementation - verified
+    live in a real browser via Playwright, byte-for-byte identical
+    output to the console target (down to the pretty-printed indentation
+    - a browser has no built-in XML pretty-printer, so one was written
+    by hand walking the real DOM tree, not reformatting serialized
+    text). Malformed XML fails loudly on both targets (DOMParser does
+    NOT throw on its own - it silently returns a document containing a
+    `<parsererror>` element instead, which has to be checked for by
+    hand to get a real error at all). THREE real parser bugs found and
+    fixed before shipping: (1) "element"/"child"/"elements"/"children"/
+    "attribute" as a bare identifier value (`say element`) initially
+    threw instead of falling back to an ordinary variable read; (2)
+    `add element`/`remove element`/`remove attribute` initially
+    shadowed D12's own generic `add X to Y`/`remove X from Y` whenever
+    a variable happened to be named "element"/"attribute" - both (1)
+    and (2) fixed with the same backtracking approach D103's `route
+    otherwise` fix used; (3) every new "X of Y"/"X in Y" xml grammar
+    form initially called Read-OtterValue for its target without
+    `-PropertyTarget`, so a bare "the book" at the end of a clause broke
+    - this one was caught only by running the FULL suite, since it
+    actually broke Otter's own PRE-EXISTING "text of the nameBox" UI
+    grammar in Codex's Parser.Tests.ps1, not anything in this feature's
+    own tests (none of which happened to use "the"). Also found,
+    documented but NOT fixed (pre-existing, not specific to XML): an
+    Otter variable literally named "document" overwrites the browser's
+    own global `document`, since ordinary top-level variables compile to
+    plain `window.<name> = ...` assignments with no collision guard
+    against JS/browser globals - any Otter program naming a variable
+    that way has this problem on web, not something introduced by or
+    unique to D105. 22 production tests on console
+    (`tests/Xml.Tests.ps1`) plus codegen-shape and real-Node-syntax-
+    check coverage for web (`tests/Web.Tests.ps1`))
 -   [x] YAML if demanded (decided: not demanded - CSV and JSON already
     cover this project's real structured-data needs; matches this
     checklist's own "decision only if necessary" precedent for lambdas)

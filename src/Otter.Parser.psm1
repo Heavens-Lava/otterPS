@@ -466,6 +466,121 @@ function Read-OtterValue {
         [void](Read-OtterToken) # path
         return [OldPathExpr]::new($token.Line)
     }
+    # D105: XML. All leading words here (xml/pretty/element/elements/
+    # child/children/attribute) are ordinary, unreserved identifiers
+    # (D33 mechanism 1), checked by text only in these exact positions.
+    if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -eq 'xml' -and
+        ((Test-OtterTokenOffsetKind 1 ([TokenKind]::From)) -or (Test-OtterTokenOffsetKind 1 ([TokenKind]::With)))) {
+        [void](Read-OtterToken) # xml
+        $fromOrWith = Read-OtterToken
+        if ($fromOrWith.Kind -eq [TokenKind]::From) {
+            $kindWord = Get-OtterCurrentToken
+            if ($kindWord.Kind -eq [TokenKind]::Identifier -and $kindWord.Text -eq 'text') {
+                [void](Read-OtterToken)
+                return [XmlFromExpr]::new([XmlSourceKind]::Text, (Read-OtterValue), $token.Line)
+            }
+            if ($kindWord.Kind -eq [TokenKind]::File) {
+                [void](Read-OtterToken)
+                return [XmlFromExpr]::new([XmlSourceKind]::File, (Read-OtterValue), $token.Line)
+            }
+            throw (New-OtterParserError 'I expected "text" or "file" after "xml from".' $kindWord 'Write: xml from text source, or xml from file "books.xml"')
+        }
+        # xml with root "library"
+        $rootWord = Get-OtterCurrentToken
+        if (-not ($rootWord.Kind -eq [TokenKind]::Identifier -and $rootWord.Text -eq 'root')) {
+            throw (New-OtterParserError 'I expected "root" after "xml with".' $rootWord 'Write: xml with root "library"')
+        }
+        [void](Read-OtterToken)
+        return [XmlFromExpr]::new([XmlSourceKind]::Root, (Read-OtterValue), $token.Line)
+    }
+    if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -eq 'pretty' -and
+        (Test-OtterTokenOffsetKind 1 ([TokenKind]::Identifier)) -and $script:Tokens[$script:Position + 1].Text -eq 'text' -and
+        (Test-OtterTokenOffsetKind 2 ([TokenKind]::From))) {
+        [void](Read-OtterToken) # pretty
+        [void](Read-OtterToken) # text
+        [void](Read-OtterToken) # from
+        $xmlWord = Get-OtterCurrentToken
+        if (-not ($xmlWord.Kind -eq [TokenKind]::Identifier -and $xmlWord.Text -eq 'xml')) {
+            throw (New-OtterParserError 'I expected "xml" after "pretty text from".' $xmlWord 'Write: pretty text from xml document')
+        }
+        [void](Read-OtterToken)
+        return [XmlToTextExpr]::new((Read-OtterValue), $true, $token.Line)
+    }
+    if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -eq 'text' -and
+        (Test-OtterTokenOffsetKind 1 ([TokenKind]::From))) {
+        $secondTok = $script:Tokens[$script:Position + 2]
+        if (($script:Position + 2) -lt $script:Tokens.Count -and $secondTok.Kind -eq [TokenKind]::Identifier -and $secondTok.Text -eq 'xml') {
+            [void](Read-OtterToken) # text
+            [void](Read-OtterToken) # from
+            [void](Read-OtterToken) # xml
+            return [XmlToTextExpr]::new((Read-OtterValue), $false, $token.Line)
+        }
+    }
+    if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -eq 'text' -and
+        (Test-OtterTokenOffsetKind 1 ([TokenKind]::Of))) {
+        [void](Read-OtterToken) # text
+        [void](Read-OtterToken) # of
+        # -PropertyTarget matters: without it, "the" in "text of the
+        # nameBox" is never stripped (that filler-word handling is
+        # gated on this switch), leaving "the" to be misread as an
+        # ordinary variable name and "nameBox" as unconsumed leftover
+        # input - a real regression, caught by Parser.Tests.ps1's own
+        # existing "text of the nameBox" coverage, not by any of this
+        # feature's own tests (none of them happened to use "the").
+        $nameOrElem = Read-OtterValue -PropertyTarget
+        if ((Get-OtterCurrentToken).Kind -eq [TokenKind]::In) {
+            [void](Read-OtterToken)
+            return [XmlTextOfNameInExpr]::new($nameOrElem, (Read-OtterValue -PropertyTarget), $token.Line)
+        }
+        return [PropertyAccessExpr]::new('text', $nameOrElem, $token.Line)
+    }
+    if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -in @('element', 'elements', 'child', 'children')) {
+        # Backtracking, not a hard commit: "element"/"child"/etc are
+        # ordinary identifiers, so a BARE use of one as a plain variable
+        # ("say element") must still work - confirmed as a real bug
+        # without this: an unconditional attempt here threw "I expected a
+        # value here" the moment nothing selector-shaped followed, instead
+        # of falling through to treat the word as a plain variable read.
+        $savedXmlSelectPos = $script:Position
+        $selectKind = switch ($token.Text) {
+            'element' { [XmlSelectKind]::Element }
+            'elements' { [XmlSelectKind]::Elements }
+            'child' { [XmlSelectKind]::Child }
+            'children' { [XmlSelectKind]::Children }
+        }
+        [void](Read-OtterToken)
+        $xmlSelectOk = $true
+        $selector = $null
+        try {
+            $selector = Read-OtterValue
+        } catch {
+            $xmlSelectOk = $false
+        }
+        if ($xmlSelectOk -and (Get-OtterCurrentToken).Kind -eq [TokenKind]::In) {
+            [void](Read-OtterToken)
+            return [XmlSelectExpr]::new($selectKind, $selector, (Read-OtterValue -PropertyTarget), $token.Line)
+        }
+        $script:Position = $savedXmlSelectPos
+    }
+    if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -eq 'attribute') {
+        # Same backtracking reasoning as element/elements/child/children
+        # above - "attribute" alone ("say attribute") must still read as
+        # a plain variable.
+        $savedXmlAttrPos = $script:Position
+        [void](Read-OtterToken)
+        $xmlAttrOk = $true
+        $attrName = $null
+        try {
+            $attrName = Read-OtterValue
+        } catch {
+            $xmlAttrOk = $false
+        }
+        if ($xmlAttrOk -and (Get-OtterCurrentToken).Kind -eq [TokenKind]::Of) {
+            [void](Read-OtterToken)
+            return [XmlAttributeExpr]::new($attrName, (Read-OtterValue -PropertyTarget), $token.Line)
+        }
+        $script:Position = $savedXmlAttrPos
+    }
     if (Test-OtterIdentifierToken $token) {
         # A declared function is a real value-producing expression.  Its
         # arity tells us exactly how many following values belong to the
@@ -566,6 +681,26 @@ function Read-OtterConditionPrimary {
         $token = Read-OtterToken
         return [NotExpr]::new((Read-OtterConditionPrimary), $token.Line)
     }
+    # D105: `element "book" exists in document` - checked before the
+    # generic `$left = Read-OtterValue` below, which would otherwise
+    # treat "element" as the start of the ordinary "element X in Y"
+    # selection expression (Read-OtterValue's own XmlSelect handling) and
+    # throw when it hits "exists" instead of the "in" it requires. A
+    # saved-position backtrack restores cleanly whenever this ISN'T the
+    # exists form, so plain "element X in Y" still reaches that handling
+    # untouched.
+    $maybeXmlExists = Get-OtterCurrentToken
+    if ($maybeXmlExists.Kind -eq [TokenKind]::Identifier -and $maybeXmlExists.Text -eq 'element') {
+        $savedPos = $script:Position
+        [void](Read-OtterToken) # element
+        $xmlExistsSelector = Read-OtterValue
+        if ((Get-OtterCurrentToken).Kind -eq [TokenKind]::Exists) {
+            [void](Read-OtterToken)
+            [void](Assert-OtterTokenKind ([TokenKind]::In) 'I expected "in" after "exists".')
+            return [XmlElementExistsExpr]::new($xmlExistsSelector, (Read-OtterValue -PropertyTarget), $maybeXmlExists.Line)
+        }
+        $script:Position = $savedPos
+    }
     # D78: `if registry key "HKCU:\Software\MyApp" exists`
     $maybeRegistry = Get-OtterCurrentToken
     if ($maybeRegistry.Kind -eq [TokenKind]::Identifier -and $maybeRegistry.Text -eq 'registry') {
@@ -628,6 +763,16 @@ function Read-OtterConditionPrimary {
         $isWord = Read-OtterToken
         [void](Read-OtterToken)
         return [IsWatchingExpr]::new($left, $isWord.Line)
+    }
+    # D105: `book has attribute "id"` - "has" is already a reserved
+    # TokenKind (used elsewhere for thing-property declarations), so
+    # this is checked by KIND, not text; "attribute" is unreserved.
+    if ((Get-OtterCurrentToken).Kind -eq [TokenKind]::Has -and
+        ($script:Position + 1) -lt $script:Tokens.Count -and $script:Tokens[$script:Position + 1].Kind -eq [TokenKind]::Identifier -and
+        $script:Tokens[$script:Position + 1].Text -eq 'attribute') {
+        $hasWord = Read-OtterToken
+        [void](Read-OtterToken) # attribute
+        return [XmlHasAttributeExpr]::new($left, (Read-OtterValue), $hasWord.Line)
     }
     if (Test-OtterTokenKind ([TokenKind]::Contains)) {
         $operator = Read-OtterToken
@@ -2108,6 +2253,47 @@ function Read-OtterStatement {
         }
         ([TokenKind]::Set) {
             [void](Read-OtterToken)
+            # set text of book to "Learning Otter"                   (D105)
+            # set text of "title" in document to "..."
+            # "text" is an ordinary identifier, checked by text, same
+            # convention as "cursor"/"random" above.
+            $maybeXmlText = Get-OtterCurrentToken
+            if ($maybeXmlText.Kind -eq [TokenKind]::Identifier -and $maybeXmlText.Text -eq 'text' -and
+                (Test-OtterTokenOffsetKind 1 ([TokenKind]::Of))) {
+                [void](Read-OtterToken) # text
+                [void](Read-OtterToken) # of
+                # -PropertyTarget on both reads below: same "the X" trap
+                # as the expression-level "text of" case above - a bare
+                # "the book"/"the document" at the end of the clause
+                # needs it stripped, since there is nothing after it for
+                # the OTHER (PropertyTarget-independent) "the X of Y"
+                # lookahead to key off.
+                $xmlTextTarget = Read-OtterValue -PropertyTarget
+                $xmlTextNameIn = $null
+                $xmlTextXmlIn = $null
+                if ((Get-OtterCurrentToken).Kind -eq [TokenKind]::In) {
+                    [void](Read-OtterToken)
+                    $xmlTextNameIn = $xmlTextTarget
+                    $xmlTextXmlIn = Read-OtterValue -PropertyTarget
+                    $xmlTextTarget = $null
+                }
+                [void](Assert-OtterTokenKind ([TokenKind]::To) 'I expected "to" and a value.')
+                $xmlTextValue = Read-OtterMathExpression
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the set text statement to end here.')
+                return [XmlSetTextStmt]::new($xmlTextTarget, $xmlTextNameIn, $xmlTextXmlIn, $xmlTextValue, $start.Line)
+            }
+            # set attribute "id" of book to "42"                     (D105)
+            $maybeXmlAttr = Get-OtterCurrentToken
+            if ($maybeXmlAttr.Kind -eq [TokenKind]::Identifier -and $maybeXmlAttr.Text -eq 'attribute') {
+                [void](Read-OtterToken)
+                $xmlAttrName = Read-OtterValue
+                [void](Assert-OtterTokenKind ([TokenKind]::Of) 'I expected "of" and an element after the attribute name.' 'Write: set attribute "id" of book to "42"')
+                $xmlAttrElem = Read-OtterValue -PropertyTarget
+                [void](Assert-OtterTokenKind ([TokenKind]::To) 'I expected "to" and a value.')
+                $xmlAttrValue = Read-OtterMathExpression
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the set attribute statement to end here.')
+                return [XmlSetAttributeStmt]::new($xmlAttrName, $xmlAttrElem, $xmlAttrValue, $start.Line)
+            }
             # D101: set random seed to 42 - "random" is only reserved at
             # STATEMENT HEAD (D33 mechanism 2, $script:OtterStatementHeadKeywords),
             # so here, as the SECOND token on the line, it already lexes
@@ -2762,6 +2948,16 @@ function Read-OtterStatement {
                 [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the write CSV statement to end here.')
                 return [WriteCsvStmt]::new($rows, $csvPath, $start.Line)
             }
+            # write xml document to file "books.xml"                (D105)
+            if ((Get-OtterCurrentToken).Kind -eq [TokenKind]::Identifier -and (Get-OtterCurrentToken).Text -eq 'xml') {
+                [void](Read-OtterToken)
+                $xmlExpr = Read-OtterValue -PropertyTarget
+                [void](Assert-OtterTokenKind ([TokenKind]::To) 'I expected "to" and a file path.')
+                [void](Assert-OtterTokenKind ([TokenKind]::File) 'I expected "file" and a path.' 'Write: write xml document to file "books.xml"')
+                $xmlPath = Read-OtterValue
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the write xml statement to end here.')
+                return [XmlWriteFileStmt]::new($xmlExpr, $xmlPath, $start.Line)
+            }
             $content = Read-OtterValue
             [void](Assert-OtterTokenKind ([TokenKind]::To) 'I expected "to" and a file path.')
             $path = Read-OtterValue
@@ -3202,6 +3398,52 @@ function Read-OtterStatement {
         }
         ([TokenKind]::Add) {
             [void](Read-OtterToken)
+            # add element "book" to library [and call it book] [with text "..."]   (D105)
+            # Backtracking, not a hard commit: "element" is an ordinary
+            # identifier, so `add element to counter` (D12's plain "add X
+            # to Y", where a variable is genuinely named "element") must
+            # still parse that way - confirmed as a real bug without
+            # this: an unconditional attempt here threw "I expected a
+            # value here" on "to" instead of falling through to D12.
+            $savedXmlAddPos = $script:Position
+            $xmlAddOk = $true
+            $xmlAddResult = $null
+            if ((Get-OtterCurrentToken).Kind -eq [TokenKind]::Identifier -and (Get-OtterCurrentToken).Text -eq 'element') {
+                try {
+                    [void](Read-OtterToken)
+                    $elemName = Read-OtterValue
+                    $elemText = $null
+                    if ((Get-OtterCurrentToken).Kind -eq [TokenKind]::With) {
+                        [void](Read-OtterToken)
+                        if (-not ((Get-OtterCurrentToken).Kind -eq [TokenKind]::Identifier -and (Get-OtterCurrentToken).Text -eq 'text')) {
+                            throw 'not the xml add-element form'
+                        }
+                        [void](Read-OtterToken)
+                        $elemText = Read-OtterValue
+                    }
+                    if ((Get-OtterCurrentToken).Kind -ne [TokenKind]::To) { throw 'not the xml add-element form' }
+                    [void](Read-OtterToken)
+                    $xmlExpr = Read-OtterValue -PropertyTarget
+                    $elemTarget = $null
+                    if ((Get-OtterCurrentToken).Kind -eq [TokenKind]::And) {
+                        [void](Read-OtterToken)
+                        [void](Assert-OtterTokenKind ([TokenKind]::Call) 'I expected "call" after "and".')
+                        [void](Assert-OtterTokenKind ([TokenKind]::It) 'I expected "it" after "call".')
+                        $elemTargetTok = Read-OtterVariableName 'I expected a name after "call it".'
+                        $elemTarget = $elemTargetTok.Text
+                    }
+                    [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the add element statement to end here.')
+                    $xmlAddResult = [XmlAddElementStmt]::new($elemName, $xmlExpr, $elemText, $elemTarget, $start.Line)
+                } catch {
+                    $xmlAddOk = $false
+                }
+            } else {
+                $xmlAddOk = $false
+            }
+            if ($xmlAddOk) {
+                return $xmlAddResult
+            }
+            $script:Position = $savedXmlAddPos
             if ($start.Text -eq 'increase') {
                 $target = Read-OtterVariableName 'I expected a variable name after "increase".'
                 $amount = [LiteralExpr]::new(1.0, $start.Line)
@@ -3239,6 +3481,47 @@ function Read-OtterStatement {
         }
         ([TokenKind]::Remove) {
             [void](Read-OtterToken)
+            # remove element book                                   (D105)
+            # remove attribute "id" from book
+            # Backtracking, not a hard commit - "element"/"attribute" are
+            # ordinary identifiers, so D12's plain "remove X from Y" with
+            # a variable genuinely named "element"/"attribute" must still
+            # parse that way (same class of bug as "add element" above).
+            if ((Get-OtterCurrentToken).Kind -eq [TokenKind]::Identifier -and (Get-OtterCurrentToken).Text -eq 'element') {
+                $savedXmlRemElemPos = $script:Position
+                $xmlRemElemOk = $true
+                $xmlRemElemResult = $null
+                try {
+                    [void](Read-OtterToken)
+                    $elemExpr = Read-OtterValue -PropertyTarget
+                    if ((Get-OtterCurrentToken).Kind -ne [TokenKind]::Newline) { throw 'not the xml remove-element form' }
+                    [void](Read-OtterToken)
+                    $xmlRemElemResult = [XmlRemoveElementStmt]::new($elemExpr, $start.Line)
+                } catch {
+                    $xmlRemElemOk = $false
+                }
+                if ($xmlRemElemOk) { return $xmlRemElemResult }
+                $script:Position = $savedXmlRemElemPos
+            }
+            if ((Get-OtterCurrentToken).Kind -eq [TokenKind]::Identifier -and (Get-OtterCurrentToken).Text -eq 'attribute') {
+                $savedXmlRemAttrPos = $script:Position
+                $xmlRemAttrOk = $true
+                $xmlRemAttrResult = $null
+                try {
+                    [void](Read-OtterToken)
+                    $attrName = Read-OtterValue
+                    if ((Get-OtterCurrentToken).Kind -ne [TokenKind]::From) { throw 'not the xml remove-attribute form' }
+                    [void](Read-OtterToken)
+                    $attrElem = Read-OtterValue -PropertyTarget
+                    if ((Get-OtterCurrentToken).Kind -ne [TokenKind]::Newline) { throw 'not the xml remove-attribute form' }
+                    [void](Read-OtterToken)
+                    $xmlRemAttrResult = [XmlRemoveAttributeStmt]::new($attrName, $attrElem, $start.Line)
+                } catch {
+                    $xmlRemAttrOk = $false
+                }
+                if ($xmlRemAttrOk) { return $xmlRemAttrResult }
+                $script:Position = $savedXmlRemAttrPos
+            }
             if ($start.Text -eq 'decrease') {
                 $target = Read-OtterVariableName 'I expected a variable name after "decrease".'
                 $amount = [LiteralExpr]::new(1.0, $start.Line)

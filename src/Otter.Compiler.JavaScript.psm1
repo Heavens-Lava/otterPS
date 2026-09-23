@@ -286,6 +286,62 @@ function Get-OtterJsBytesConstructor {
     return "{ __otterBytes: true, value: ($BytesExprJs), toString() { return '<' + this.value.length + ' bytes>'; } }"
 }
 
+# D105: XML. `{ __otterXml: true, node: <a real DOM Node - Document or
+# Element>, toString() {...} }` - the same tagged-wrapper shape every
+# other D10x runtime value uses (OtterDate/OtterBytes above), so `say
+# document` reads correctly through the same ToPrimitive/`+` mechanism.
+function Get-OtterJsXmlConstructor {
+    param([string]$NodeExprJs)
+    return "{ __otterXml: true, node: ($NodeExprJs), toString() { return new XMLSerializer().serializeToString(this.node); } }"
+}
+
+# element/elements/child/children only ever search DIRECT children -
+# matches Otter.Interpreter.psm1's own Get-OtterXmlSearchRoot/
+# Get-OtterXmlChildElements exactly (same reasoning: predictable,
+# `elements "book" in document` means immediately under the root, never
+# a recursive search).
+$script:OtterJsXmlSearchRootFunc = '(node) => (node.nodeType === 9 ? node.documentElement : node)'
+$script:OtterJsXmlChildElementsFunc = @"
+(node) => {
+  const root = ($script:OtterJsXmlSearchRootFunc)(node);
+  return root ? Array.prototype.filter.call(root.childNodes, (n) => n.nodeType === 1) : [];
+}
+"@
+$script:OtterJsXmlFindByNameFunc = @"
+(node, name) => (($script:OtterJsXmlChildElementsFunc)(node)).filter((e) => e.nodeName === name)
+"@
+
+# No built-in XML pretty-printer in a browser (unlike .NET's
+# XmlWriterSettings.Indent) - this walks the real DOM tree directly
+# (not a string-reformatter) so it can never be fooled by text that
+# happens to look like a tag.
+$script:OtterJsXmlPrettyFunc = @'
+(node, includeDecl) => {
+  function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function escAttr(s) { return esc(s).replace(/"/g, '&quot;'); }
+  function render(el, depth) {
+    const pad = '  '.repeat(depth);
+    let attrs = '';
+    for (let i = 0; i < el.attributes.length; i++) {
+      attrs += ' ' + el.attributes[i].name + '="' + escAttr(el.attributes[i].value) + '"';
+    }
+    const kids = Array.prototype.filter.call(el.childNodes, (n) => n.nodeType === 1);
+    if (kids.length === 0) {
+      const text = el.textContent || '';
+      if (text.length === 0) { return pad + '<' + el.nodeName + attrs + ' />'; }
+      return pad + '<' + el.nodeName + attrs + '>' + esc(text) + '</' + el.nodeName + '>';
+    }
+    let out = pad + '<' + el.nodeName + attrs + '>\n';
+    for (const k of kids) { out += render(k, depth + 1) + '\n'; }
+    out += pad + '</' + el.nodeName + '>';
+    return out;
+  }
+  const root = node.nodeType === 9 ? node.documentElement : node;
+  const body = render(root, 0);
+  return includeDecl ? '<?xml version="1.0" encoding="utf-8"?>\n' + body : body;
+}
+'@
+
 # D60 Phase 1J. Builds the JS text for `.NET`'s DateTime.AddMonths/AddYears
 # clamping algorithm - verified this is what the interpreter's DateAdjust
 # case actually relies on (`$current.Value.AddMonths($whole)` /
@@ -428,14 +484,27 @@ function ConvertTo-OtterJsExpression {
                 'second' { "(_owner.hasTime ? _owner.value.getSeconds() : (() => { throw new Error('This is a date with no time of day, so it has no second.'); })())" }
                 default { "(() => { throw new Error('A date has no part called `"$propOriginal`".'); })()" }
             }
+            # D105: name/root/text/attributes of an xml value - checked
+            # alongside the date branch, before the generic "thing"
+            # fallback (an xml value is never __otterThing-tagged, so
+            # order relative to the date check doesn't matter, only that
+            # both run before the thing/property-miss error).
+            $xmlBranch = switch ($prop) {
+                'name' { "(_owner.node.nodeType === 1 ? _owner.node.nodeName : (() => { throw new Error('I can only read the name of on an xml element, but this is an xml document.'); })())" }
+                'root' { "(_owner.node.nodeType === 9 ? (_owner.node.documentElement ? ($(Get-OtterJsXmlConstructor -NodeExprJs '_owner.node.documentElement')) : null) : (() => { throw new Error('`"root of`" only makes sense on an xml document, not an element.'); })())" }
+                'text' { "_owner.node.textContent" }
+                'attributes' { "(_owner.node.nodeType === 1 ? Array.prototype.map.call(_owner.node.attributes, (a) => a.name) : (() => { throw new Error('I can only read the attributes of on an xml element, but this is an xml document.'); })())" }
+                default { "(() => { throw new Error('This xml value has no property called `"$propOriginal`". Try name, root, text, or attributes.'); })()" }
+            }
+
             # An inline IIFE, not a named runtime-helper call, to keep this
             # entirely self-contained in this module - same reasoning as
             # Phase 1D-B's `plus` fix (no shared helper added to
             # Otter.Web.psm1's boilerplate).
             if ($isVar) {
-                return "(otterGetElement('$targetName') ? ($uiBranch) : (() => { const _owner = $targetName; if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return $dateBranch; } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('$propOriginal') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called `"$propOriginal`".'); } return _owner.props['$propOriginal']; })())"
+                return "(otterGetElement('$targetName') ? ($uiBranch) : (() => { const _owner = $targetName; if (_owner && typeof _owner === 'object' && _owner.__otterXml) { return $xmlBranch; } if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return $dateBranch; } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('$propOriginal') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called `"$propOriginal`".'); } return _owner.props['$propOriginal']; })())"
             } else {
-                return "((() => { const _owner = ($targetJs); if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return $dateBranch; } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('$propOriginal') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called `"$propOriginal`".'); } return _owner.props['$propOriginal']; })())"
+                return "((() => { const _owner = ($targetJs); if (_owner && typeof _owner === 'object' && _owner.__otterXml) { return $xmlBranch; } if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return $dateBranch; } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('$propOriginal') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called `"$propOriginal`".'); } return _owner.props['$propOriginal']; })())"
             }
         }
         ([NodeKind]::Math) {
@@ -769,6 +838,78 @@ function ConvertTo-OtterJsExpression {
         }
         ([NodeKind]::OldPath) {
             throw [OtterError]::new('File/folder watching is not supported on the web target.', $Expr.Line, 'runtime')
+        }
+        # D105: XML - console AND web both supported. DOMParser/
+        # XMLSerializer are standard browser globals, no CDN script needed.
+        ([NodeKind]::XmlFrom) {
+            switch ($Expr.Source) {
+                ([XmlSourceKind]::Text) {
+                    $textJs = ConvertTo-OtterJsExpression -Expr $Expr.Value
+                    # DOMParser does not throw on malformed XML - it
+                    # returns a document containing a <parsererror>
+                    # element instead, so that has to be checked for by
+                    # hand to fail loudly the same way the interpreter's
+                    # try/catch around LoadXml does.
+                    $parseJs = "((_t) => { const _d = new DOMParser().parseFromString(_t, 'application/xml'); const _pe = _d.getElementsByTagName('parsererror')[0]; if (_pe) { throw new Error('This is not valid XML, so Otter could not read it: ' + _pe.textContent); } return _d; })(String($textJs))"
+                    return (Get-OtterJsXmlConstructor -NodeExprJs $parseJs)
+                }
+                ([XmlSourceKind]::File) {
+                    $pathJs = ConvertTo-OtterJsExpression -Expr $Expr.Value
+                    $parseJs = "((_t) => { const _d = new DOMParser().parseFromString(_t, 'application/xml'); const _pe = _d.getElementsByTagName('parsererror')[0]; if (_pe) { throw new Error('This is not valid XML, so Otter could not read it: ' + _pe.textContent); } return _d; })(await otterReadFile($pathJs))"
+                    return (Get-OtterJsXmlConstructor -NodeExprJs $parseJs)
+                }
+                ([XmlSourceKind]::Root) {
+                    $nameJs = ConvertTo-OtterJsExpression -Expr $Expr.Value
+                    $rootJs = "((_n) => { const _d = document.implementation.createDocument(null, _n, null); return _d; })(String($nameJs))"
+                    return (Get-OtterJsXmlConstructor -NodeExprJs $rootJs)
+                }
+            }
+        }
+        ([NodeKind]::XmlSelect) {
+            $xmlJs = ConvertTo-OtterJsExpression -Expr $Expr.Xml
+            $guard = "((_x) => { if (!_x || typeof _x !== 'object' || !_x.__otterXml) { throw new Error('I can only look for elements in xml, but this is something else.'); } return _x; })($xmlJs)"
+            switch ($Expr.SelectKind) {
+                ([XmlSelectKind]::Element) {
+                    $nameJs = ConvertTo-OtterJsExpression -Expr $Expr.Selector
+                    return "((_x, _n) => { const _found = ($script:OtterJsXmlFindByNameFunc)(_x.node, String(_n)); return _found.length > 0 ? ($(Get-OtterJsXmlConstructor -NodeExprJs '_found[0]')) : null; })($guard, $nameJs)"
+                }
+                ([XmlSelectKind]::Elements) {
+                    $nameJs = ConvertTo-OtterJsExpression -Expr $Expr.Selector
+                    return "((_x, _n) => (($script:OtterJsXmlFindByNameFunc)(_x.node, String(_n))).map((_e) => ($(Get-OtterJsXmlConstructor -NodeExprJs '_e'))))($guard, $nameJs)"
+                }
+                ([XmlSelectKind]::Child) {
+                    $idxJs = ConvertTo-OtterJsExpression -Expr $Expr.Selector
+                    return "((_x, _i) => { const _kids = ($script:OtterJsXmlChildElementsFunc)(_x.node); const _ii = Number(_i); return (_ii >= 0 && _ii < _kids.length) ? ($(Get-OtterJsXmlConstructor -NodeExprJs '_kids[_ii]')) : null; })($guard, $idxJs)"
+                }
+                ([XmlSelectKind]::Children) {
+                    return "((_x) => (($script:OtterJsXmlChildElementsFunc)(_x.node)).map((_e) => ($(Get-OtterJsXmlConstructor -NodeExprJs '_e'))))($guard)"
+                }
+            }
+        }
+        ([NodeKind]::XmlAttribute) {
+            $nameJs = ConvertTo-OtterJsExpression -Expr $Expr.Name
+            $elemJs = ConvertTo-OtterJsExpression -Expr $Expr.Element
+            return "((_e, _n) => { if (!_e || typeof _e !== 'object' || !_e.__otterXml) { throw new Error('I can only read an attribute of an xml element, but this is something else.'); } return _e.node.hasAttribute(String(_n)) ? _e.node.getAttribute(String(_n)) : null; })($elemJs, $nameJs)"
+        }
+        ([NodeKind]::XmlTextOfNameIn) {
+            $nameJs = ConvertTo-OtterJsExpression -Expr $Expr.Name
+            $xmlJs = ConvertTo-OtterJsExpression -Expr $Expr.Xml
+            return "((_x, _n) => { if (!_x || typeof _x !== 'object' || !_x.__otterXml) { throw new Error('I can only look for elements in xml, but this is something else.'); } const _found = ($script:OtterJsXmlFindByNameFunc)(_x.node, String(_n)); if (_found.length === 0) { throw new Error('I could not find an element called ' + String(_n) + '.'); } return _found[0].textContent; })($xmlJs, $nameJs)"
+        }
+        ([NodeKind]::XmlElementExists) {
+            $xmlJs = ConvertTo-OtterJsExpression -Expr $Expr.Xml
+            $nameJs = ConvertTo-OtterJsExpression -Expr $Expr.Selector
+            return "((_x, _n) => { if (!_x || typeof _x !== 'object' || !_x.__otterXml) { throw new Error('I can only look for elements in xml, but this is something else.'); } return (($script:OtterJsXmlFindByNameFunc)(_x.node, String(_n))).length > 0; })($xmlJs, $nameJs)"
+        }
+        ([NodeKind]::XmlHasAttribute) {
+            $elemJs = ConvertTo-OtterJsExpression -Expr $Expr.Element
+            $nameJs = ConvertTo-OtterJsExpression -Expr $Expr.Name
+            return "((_e, _n) => { if (!_e || typeof _e !== 'object' || !_e.__otterXml) { throw new Error('I can only ask whether an xml element has an attribute, but this is something else.'); } return _e.node.hasAttribute(String(_n)); })($elemJs, $nameJs)"
+        }
+        ([NodeKind]::XmlToText) {
+            $xmlJs = ConvertTo-OtterJsExpression -Expr $Expr.Xml
+            $prettyJs = if ($Expr.Pretty) { 'true' } else { 'false' }
+            return "((_x) => { if (!_x || typeof _x !== 'object' || !_x.__otterXml) { throw new Error('I can only read text from xml, but this is something else.'); } return $prettyJs ? (($script:OtterJsXmlPrettyFunc)(_x.node, _x.node.nodeType === 9)) : new XMLSerializer().serializeToString(_x.node); })($xmlJs)"
         }
         ([NodeKind]::DateDifferenceValue) {
             # D60 Phase 1J (D42). The expression form of `days between X and
@@ -3007,6 +3148,53 @@ function ConvertTo-OtterJsStatement {
         ([NodeKind]::WatchEvent) {
             throw [OtterError]::new('File/folder watching is not supported on the web target.', $Stmt.Line, 'runtime')
         }
+        # D105: XML - console AND web both supported.
+        ([NodeKind]::XmlWriteFile) {
+            $xmlJs = ConvertTo-OtterJsExpression -Expr $Stmt.Xml
+            $pathJs = ConvertTo-OtterJsExpression -Expr $Stmt.Path
+            $guardJs = "((_x) => { if (!_x || typeof _x !== 'object' || !_x.__otterXml) { throw new Error('I can only write xml, but this is something else.'); } return _x; })($xmlJs)"
+            return "${pad}await otterWriteFile($pathJs, new XMLSerializer().serializeToString(($guardJs).node), false);"
+        }
+        ([NodeKind]::XmlAddElement) {
+            $nameJs = ConvertTo-OtterJsExpression -Expr $Stmt.Name
+            $xmlJs = ConvertTo-OtterJsExpression -Expr $Stmt.Xml
+            $textJs = if ($null -ne $Stmt.Text) { ConvertTo-OtterJsExpression -Expr $Stmt.Text } else { 'null' }
+            $addCallJs = "((_x, _n, _t) => { if (!_x || typeof _x !== 'object' || !_x.__otterXml) { throw new Error('I can only add an element to xml, but this is something else.'); } const _ownerDoc = _x.node.nodeType === 9 ? _x.node : _x.node.ownerDocument; const _el = _ownerDoc.createElement(String(_n)); if (_t !== null) { _el.textContent = String(_t); } const _parent = _x.node.nodeType === 9 ? (_x.node.documentElement || _x.node) : _x.node; _parent.appendChild(_el); return _el; })($xmlJs, $nameJs, $textJs)"
+            if ($Stmt.Target) {
+                $target = $Stmt.Target
+                $wrappedJs = Get-OtterJsXmlConstructor -NodeExprJs $addCallJs
+                if ($LocalNames -and $LocalNames.Contains($target)) {
+                    return "${pad}$target = $wrappedJs;"
+                }
+                return "${pad}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$target' in otterState)) { otterSetState('$target', $wrappedJs); } else { window.$target = $wrappedJs; }"
+            }
+            return "${pad}$addCallJs;"
+        }
+        ([NodeKind]::XmlRemoveElement) {
+            $elemJs = ConvertTo-OtterJsExpression -Expr $Stmt.Element
+            return "${pad}((_e) => { if (!_e || typeof _e !== 'object' || !_e.__otterXml) { throw new Error('I can only remove an xml element, but this is something else.'); } if (_e.node.nodeType !== 1) { throw new Error('I can only remove on an xml element, but this is an xml document.'); } if (!_e.node.parentNode) { throw new Error('This element has no parent to remove it from.'); } _e.node.parentNode.removeChild(_e.node); })($elemJs);"
+        }
+        ([NodeKind]::XmlSetText) {
+            $valueJs = ConvertTo-OtterJsExpression -Expr $Stmt.Value
+            if ($null -ne $Stmt.Element) {
+                $elemJs = ConvertTo-OtterJsExpression -Expr $Stmt.Element
+                return "${pad}((_e, _v) => { if (!_e || typeof _e !== 'object' || !_e.__otterXml) { throw new Error('I can only set the text of an xml element, but this is something else.'); } if (_e.node.nodeType !== 1) { throw new Error('I can only set the text of on an xml element, but this is an xml document.'); } _e.node.textContent = String(_v); })($elemJs, $valueJs);"
+            }
+            $nameJs = ConvertTo-OtterJsExpression -Expr $Stmt.NameIn
+            $xmlInJs = ConvertTo-OtterJsExpression -Expr $Stmt.XmlIn
+            return "${pad}((_x, _n, _v) => { if (!_x || typeof _x !== 'object' || !_x.__otterXml) { throw new Error('I can only set text within xml, but this is something else.'); } const _found = ($script:OtterJsXmlFindByNameFunc)(_x.node, String(_n)); if (_found.length === 0) { throw new Error('I could not find an element called ' + String(_n) + ' to set the text of.'); } _found[0].textContent = String(_v); })($xmlInJs, $nameJs, $valueJs);"
+        }
+        ([NodeKind]::XmlSetAttribute) {
+            $nameJs = ConvertTo-OtterJsExpression -Expr $Stmt.Name
+            $elemJs = ConvertTo-OtterJsExpression -Expr $Stmt.Element
+            $valueJs = ConvertTo-OtterJsExpression -Expr $Stmt.Value
+            return "${pad}((_e, _n, _v) => { if (!_e || typeof _e !== 'object' || !_e.__otterXml) { throw new Error('I can only set an attribute of an xml element, but this is something else.'); } if (_e.node.nodeType !== 1) { throw new Error('I can only set an attribute of on an xml element, but this is an xml document.'); } _e.node.setAttribute(String(_n), String(_v)); })($elemJs, $nameJs, $valueJs);"
+        }
+        ([NodeKind]::XmlRemoveAttribute) {
+            $nameJs = ConvertTo-OtterJsExpression -Expr $Stmt.Name
+            $elemJs = ConvertTo-OtterJsExpression -Expr $Stmt.Element
+            return "${pad}((_e, _n) => { if (!_e || typeof _e !== 'object' || !_e.__otterXml) { throw new Error('I can only remove an attribute of an xml element, but this is something else.'); } if (_e.node.nodeType !== 1) { throw new Error('I can only remove an attribute of on an xml element, but this is an xml document.'); } _e.node.removeAttribute(String(_n)); })($elemJs, $nameJs);"
+        }
         default {
             return ""
         }
@@ -3216,6 +3404,7 @@ function Test-OtterJsExpressionNeedsAsync {
         ([NodeKind]::MinMax) { return (Test-OtterJsExpressionNeedsAsync $Expression.Left) -or (Test-OtterJsExpressionNeedsAsync $Expression.Right) }
         ([NodeKind]::PropertyAccess) { return (Test-OtterJsExpressionNeedsAsync $Expression.Target) }
         ([NodeKind]::DateDifferenceValue) { return (Test-OtterJsExpressionNeedsAsync $Expression.Start) -or (Test-OtterJsExpressionNeedsAsync $Expression.End) }
+        ([NodeKind]::XmlFrom) { return $Expression.Source -eq [XmlSourceKind]::File }
         ([NodeKind]::Call) {
             foreach ($argument in $Expression.Arguments) {
                 if (Test-OtterJsExpressionNeedsAsync $argument) { return $true }
@@ -3241,6 +3430,11 @@ function Test-OtterJsBodyNeedsAsync {
         }
         if ($s.Kind -eq [NodeKind]::ReadJson -or $s.Kind -eq [NodeKind]::ReadCsv -or $s.Kind -eq [NodeKind]::WriteCsv -or $s.Kind -eq [NodeKind]::DownloadFile) {
             # D60 Phase 1G / D95 / D96: ReadJson/ReadCsv/WriteCsv/DownloadFile do real file I/O through async hooks
+            return $true
+        }
+        if ($s.Kind -eq [NodeKind]::XmlWriteFile) {
+            # D105: write xml ... to file ... - real file I/O through the
+            # same async otterWriteFile hook WriteFile itself uses.
             return $true
         }
         if ($s.Kind -eq [NodeKind]::Assign -and (Test-OtterJsExpressionNeedsAsync $s.Value)) { return $true }
