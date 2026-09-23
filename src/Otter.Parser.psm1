@@ -369,6 +369,46 @@ function Read-OtterValue {
         }
         return [DateFromTextExpr]::new($dateSource, $dateFormat, $token.Line)
     }
+    # D102: the bytes type. "bytes"/"empty"/"text"/"hex"/"base64" are all
+    # checked by TEXT only in these exact narrow positions (D33 mechanism
+    # 1, same as "date from" above) - `bytes is 5`, `text is "hi"`, `hex
+    # is 3` all still just name an ordinary variable everywhere else.
+    if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -eq 'bytes' -and
+        ($script:Position + 1) -lt $script:Tokens.Count -and $script:Tokens[$script:Position + 1].Kind -eq [TokenKind]::From) {
+        [void](Read-OtterToken) # bytes
+        [void](Read-OtterToken) # from
+        $encWord = Get-OtterCurrentToken
+        $op = if ($encWord.Kind -eq [TokenKind]::Identifier -and $encWord.Text -eq 'text') { [BytesOp]::FromText }
+              elseif ($encWord.Kind -eq [TokenKind]::Identifier -and $encWord.Text -eq 'hex') { [BytesOp]::FromHex }
+              elseif ($encWord.Kind -eq [TokenKind]::Identifier -and $encWord.Text -eq 'base64') { [BytesOp]::FromBase64 }
+              else { $null }
+        if ($null -eq $op) {
+            throw (New-OtterParserError "I expected ""text"", ""hex"", or ""base64"" after ""bytes from""." $encWord 'Write: bytes from text "Hello", bytes from hex "48656C6C6F", or bytes from base64 "SGVsbG8="')
+        }
+        [void](Read-OtterToken)
+        return [BytesExpr]::new($op, (Read-OtterValue), $token.Line)
+    }
+    if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -eq 'empty' -and
+        ($script:Position + 1) -lt $script:Tokens.Count -and $script:Tokens[$script:Position + 1].Kind -eq [TokenKind]::Identifier -and
+        $script:Tokens[$script:Position + 1].Text -eq 'bytes') {
+        [void](Read-OtterToken) # empty
+        [void](Read-OtterToken) # bytes
+        return [BytesExpr]::new([BytesOp]::Empty, $null, $token.Line)
+    }
+    if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -in @('text', 'hex', 'base64') -and
+        ($script:Position + 1) -lt $script:Tokens.Count -and $script:Tokens[$script:Position + 1].Kind -eq [TokenKind]::From -and
+        ($script:Position + 2) -lt $script:Tokens.Count -and $script:Tokens[$script:Position + 2].Kind -eq [TokenKind]::Identifier -and
+        $script:Tokens[$script:Position + 2].Text -eq 'bytes') {
+        $op = switch ($token.Text) {
+            'text' { [BytesOp]::ToText }
+            'hex' { [BytesOp]::ToHex }
+            'base64' { [BytesOp]::ToBase64 }
+        }
+        [void](Read-OtterToken) # text|hex|base64
+        [void](Read-OtterToken) # from
+        [void](Read-OtterToken) # bytes
+        return [BytesExpr]::new($op, (Read-OtterValue), $token.Line)
+    }
     if (Test-OtterIdentifierToken $token) {
         # A declared function is a real value-producing expression.  Its
         # arity tells us exactly how many following values belong to the

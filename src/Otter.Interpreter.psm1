@@ -2134,8 +2134,9 @@ function Get-OtterValue {
                 'Length' {
                     if (Test-OtterList $subject) { return [double]$subject.Count }
                     if ($subject -is [string]) { return [double]$subject.Length }
+                    if (Test-OtterBytes $subject) { return [double]$subject.Value.Length }   # D102
                     throw (New-OtterRuntimeError `
-                        -Message "I can only measure the length of text or a list, but this is $(Get-OtterTypeName $subject)." `
+                        -Message "I can only measure the length of text, a list, or bytes, but this is $(Get-OtterTypeName $subject)." `
                         -Line $Expression.Line)
                 }
 
@@ -2323,6 +2324,84 @@ function Get-OtterValue {
                     -Message "I couldn't understand ""$text"" as a date." `
                     -Line $Expression.Line `
                     -Suggestion 'date from "2024-01-15" using "yyyy-MM-dd"')
+            }
+        }
+
+        # D102: bytes type. Text is text, bytes are bytes, hex/base64 are
+        # textual REPRESENTATIONS of bytes - every conversion here is
+        # explicit and every malformed input is a clean Otter runtime
+        # error, never a silent empty-bytes/mangled-text fallback (the
+        # design's own "do not silently ..." rules, taken literally).
+        'Bytes' {
+            switch ($Expression.Op) {
+                ([BytesOp]::Empty) {
+                    return [OtterBytes]::new([byte[]]@())
+                }
+                ([BytesOp]::FromText) {
+                    $text = Get-OtterText -Expression $Expression.Source -Environment $Environment
+                    return [OtterBytes]::new([System.Text.Encoding]::UTF8.GetBytes($text))
+                }
+                ([BytesOp]::FromHex) {
+                    $text = Get-OtterText -Expression $Expression.Source -Environment $Environment
+                    $clean = $text.Trim()
+                    if ($clean.Length -eq 0 -or ($clean.Length % 2) -ne 0 -or $clean -notmatch '^[0-9A-Fa-f]+$') {
+                        throw (New-OtterRuntimeError `
+                            -Message "I can't read ""$text"" as hex - it needs to be pairs of hex digits (0-9, A-F)." `
+                            -Line $Expression.Line `
+                            -Suggestion 'bytes from hex "48656C6C6F"')
+                    }
+                    $bytes = [byte[]]::new($clean.Length / 2)
+                    for ($hi = 0; $hi -lt $bytes.Length; $hi++) {
+                        $bytes[$hi] = [System.Convert]::ToByte($clean.Substring($hi * 2, 2), 16)
+                    }
+                    return [OtterBytes]::new($bytes)
+                }
+                ([BytesOp]::FromBase64) {
+                    $text = Get-OtterText -Expression $Expression.Source -Environment $Environment
+                    try {
+                        return [OtterBytes]::new([System.Convert]::FromBase64String($text))
+                    } catch {
+                        throw (New-OtterRuntimeError `
+                            -Message "I can't read ""$text"" as base64 - it isn't valid base64 text." `
+                            -Line $Expression.Line `
+                            -Suggestion 'bytes from base64 "SGVsbG8="')
+                    }
+                }
+                ([BytesOp]::ToText) {
+                    $bytesValue = Get-OtterValue -Expression $Expression.Source -Environment $Environment
+                    if (-not (Test-OtterBytes $bytesValue)) {
+                        throw (New-OtterRuntimeError `
+                            -Message "I can only read text from bytes, but this is $(Get-OtterTypeName $bytesValue)." `
+                            -Line $Expression.Line)
+                    }
+                    try {
+                        $strictUtf8 = [System.Text.UTF8Encoding]::new($false, $true)
+                        return $strictUtf8.GetString($bytesValue.Value)
+                    } catch {
+                        throw (New-OtterRuntimeError `
+                            -Message "These bytes aren't valid UTF-8 text." `
+                            -Line $Expression.Line)
+                    }
+                }
+                ([BytesOp]::ToHex) {
+                    $bytesValue = Get-OtterValue -Expression $Expression.Source -Environment $Environment
+                    if (-not (Test-OtterBytes $bytesValue)) {
+                        throw (New-OtterRuntimeError `
+                            -Message "I can only read hex from bytes, but this is $(Get-OtterTypeName $bytesValue)." `
+                            -Line $Expression.Line)
+                    }
+                    $hexChars = foreach ($b in $bytesValue.Value) { $b.ToString('X2') }
+                    return ($hexChars -join '')
+                }
+                ([BytesOp]::ToBase64) {
+                    $bytesValue = Get-OtterValue -Expression $Expression.Source -Environment $Environment
+                    if (-not (Test-OtterBytes $bytesValue)) {
+                        throw (New-OtterRuntimeError `
+                            -Message "I can only read base64 from bytes, but this is $(Get-OtterTypeName $bytesValue)." `
+                            -Line $Expression.Line)
+                    }
+                    return [System.Convert]::ToBase64String($bytesValue.Value)
+                }
             }
         }
 
@@ -2681,6 +2760,7 @@ function Get-OtterTypeName {
     }
     if (Test-OtterObject $Value) { return "a $($Value.TypeName)" }
     if ($Value -is [OtterType]) { return "the type $($Value.Name)" }
+    if (Test-OtterBytes $Value) { return 'bytes' }
     if (Test-OtterList $Value) { return 'a list' }
     if ($Value -is [double] -or $Value -is [int] -or $Value -is [long]) { return 'a number' }
     if ($Value -is [string]) { return 'some text' }

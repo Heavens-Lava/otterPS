@@ -795,9 +795,14 @@ creation.
 -   [x] JSON integration
 -   [ ] Form encoding (real gap - only JSON request bodies exist; no
     `application/x-www-form-urlencoded` encoding)
--   [ ] Multipart/form-data (real gap, and blocked on Section 9's missing
-    binary/byte type for any real file-part payload)
--   [ ] File upload (same blocker as multipart/form-data above)
+-   [ ] Multipart/form-data (real gap - still not implemented, though
+    D102's new `bytes` type resolves the byte-value blocker this used to
+    cite; what's missing now is the multipart-body-building/HTTP-request
+    integration itself, not a representable byte value to put in it)
+-   [ ] File upload (same gap as multipart/form-data above - and also
+    still blocked on `bytes from file`, which D102 deliberately left as
+    reserved grammar rather than implementing, per the design spec's own
+    item 10)
 -   [x] File download (D96: `download file from <url> to <path>`. Complete byte-identical streaming, atomic same-directory promotion, CreateNew collision safety, truncation detection, failure cleanup, JS compiler & Desktop Bridge integration)
     -   [x] Specification
     -   [x] Contract
@@ -919,18 +924,24 @@ creation.
     re-verifying: confirmed zero URL-encoding code anywhere in the
     parser, interpreter, or JS compiler - not even an internal helper.
     A real gap, not a done feature)
--   [ ] Base64 (correcting a false checkmark: Base64 exists only as an
-    internal wire-format detail of D81's credential storage and D92's
-    encrypt/decrypt output - confirmed zero user-facing `convert ... to/
-    from base64`-style grammar anywhere. An Otter program has no way to
-    base64-encode or decode anything itself today)
--   [ ] Hex (same real gap and same reasoning as Base64 - D91's `hash`
-    statement happens to OUTPUT lowercase hex digests, but that is a
-    fixed detail of that one feature, not a general-purpose, user-facing
-    hex encode/decode capability)
--   [ ] Binary serialization strategy (blocked on the same missing
-    binary/byte value type noted repeatedly elsewhere - Sections 3, 9,
-    and 13 all hit this identical root gap)
+-   [x] Base64 (D102: `bytes from base64 X` / `base64 from bytes X`, part
+    of the new first-class `bytes` type. Deliberately explicit rather
+    than implicit - text/bytes/hex/base64 are never silently
+    interchangeable, matching rules.md's own D102 design principle.
+    Full stack (Contract/Parser/Interpreter/JS compiler), verified
+    cross-runtime identical via the design spec's own acceptance example
+    run through both the console and web production entry points)
+-   [x] Hex (D102: `bytes from hex X` (case-insensitive input) / `hex
+    from bytes X` (uppercase output, e.g. "48656C6C6F") - same `bytes`
+    type as Base64 above, same file)
+-   [x] Binary serialization strategy (D102 resolves the root gap: a real
+    first-class `bytes` type now exists - `[byte[]]`-backed on console
+    (a dedicated `OtterBytes` wrapper class, not a plain array, so it is
+    never confused with an Otter list), a tagged `Uint8Array` on web.
+    `bytes from file`/`write bytes ... to file` and HTTP-body integration
+    are explicitly NOT part of this pass - reserved grammar per the
+    design spec's own item 10/11, not implemented as an incompatible
+    alternative. 13 production tests, `tests/Bytes.Tests.ps1`)
 -   [x] Compression (D87: zip folder / unzip archive via System.IO.Compression.ZipFile)
 -   [ ] MIME/content-type helpers (real gap - confirmed no MIME-type
     detection or lookup capability anywhere)

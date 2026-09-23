@@ -217,6 +217,75 @@ $script:OtterJsParseExactDateFunc = @'
 }
 '@
 
+# D102: bytes type. Every helper here throws a plain Error with the same
+# wording the interpreter uses on malformed input (New-OtterRuntimeError's
+# text, read directly from Otter.Interpreter.psm1's 'Bytes' case) - no
+# silent empty-bytes/mangled-text fallback, matching the design's own
+# "fail loudly" rule. TextEncoder/TextDecoder are standard browser/Node
+# globals, not an external resource - no CDN script needed for them.
+$script:OtterJsBytesFromHexFunc = @'
+(text) => {
+  const clean = text.trim();
+  if (clean.length === 0 || clean.length % 2 !== 0 || !/^[0-9A-Fa-f]+$/.test(clean)) {
+    throw new Error('I can\'t read "' + text + '" as hex - it needs to be pairs of hex digits (0-9, A-F).');
+  }
+  const bytes = new Uint8Array(clean.length / 2);
+  for (let i = 0; i < bytes.length; i++) { bytes[i] = parseInt(clean.substr(i * 2, 2), 16); }
+  return bytes;
+}
+'@
+
+$script:OtterJsBytesFromBase64Func = @'
+(text) => {
+  try {
+    const bin = atob(text);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) { bytes[i] = bin.charCodeAt(i); }
+    return bytes;
+  } catch (e) {
+    throw new Error('I can\'t read "' + text + '" as base64 - it isn\'t valid base64 text.');
+  }
+}
+'@
+
+$script:OtterJsBytesToHexFunc = @'
+(bytes) => {
+  let out = '';
+  for (let i = 0; i < bytes.length; i++) { out += bytes[i].toString(16).toUpperCase().padStart(2, '0'); }
+  return out;
+}
+'@
+
+$script:OtterJsBytesToBase64Func = @'
+(bytes) => {
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) { bin += String.fromCharCode(bytes[i]); }
+  return btoa(bin);
+}
+'@
+
+$script:OtterJsBytesToTextFunc = @'
+(bytes) => {
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch (e) {
+    throw new Error("These bytes aren't valid UTF-8 text.");
+  }
+}
+'@
+
+# The `{ __otterBytes: true, value: <Uint8Array>, toString() {...} }`
+# wrapper - same reason OtterDate gets one (Get-OtterJsDateConstructor's
+# comment): a plain Uint8Array's own toString() is a comma-joined number
+# list ("72,101,108,108,111"), not the `<N bytes>` Format-OtterValue
+# gives - and `say`'s codegen concatenates with plain `+`, which reads
+# an object's toString() through JS's normal ToPrimitive coercion, the
+# same mechanism dates already rely on.
+function Get-OtterJsBytesConstructor {
+    param([string]$BytesExprJs)
+    return "{ __otterBytes: true, value: ($BytesExprJs), toString() { return '<' + this.value.length + ' bytes>'; } }"
+}
+
 # D60 Phase 1J. Builds the JS text for `.NET`'s DateTime.AddMonths/AddYears
 # clamping algorithm - verified this is what the interpreter's DateAdjust
 # case actually relies on (`$current.Value.AddMonths($whole)` /
@@ -465,12 +534,17 @@ function ConvertTo-OtterJsExpression {
             # in substance, just not guaranteed to name the same side in
             # this genuinely rare double-bad-type edge case.
             $dateGuard = "const _lD = $left !== null && typeof ($left) === 'object' && ($left).__otterDate === true; const _rD = $right !== null && typeof ($right) === 'object' && ($right).__otterDate === true;"
+            # D102: two bytes values compare by CONTENT for Equal/NotEqual,
+            # matching Test-OtterEqual - JS's own `===` would otherwise
+            # compare the wrapper objects by reference, silently returning
+            # false for two separately-decoded-but-identical byte arrays.
+            $bytesGuard = "const _lB = $left !== null && typeof ($left) === 'object' && ($left).__otterBytes === true; const _rB = $right !== null && typeof ($right) === 'object' && ($right).__otterBytes === true; const _bytesEq = (a, b) => { if (a.length !== b.length) return false; for (let _i = 0; _i < a.length; _i++) { if (a[_i] !== b[_i]) return false; } return true; };"
             switch ($Expr.Op) {
                 ([CompareOp]::Equal) {
-                    return "(() => { $dateGuard if (_lD || _rD) { return (_lD && _rD) ? (($left).value.getTime() === ($right).value.getTime()) : false; } return ($left === $right); })()"
+                    return "(() => { $dateGuard $bytesGuard if (_lD || _rD) { return (_lD && _rD) ? (($left).value.getTime() === ($right).value.getTime()) : false; } if (_lB || _rB) { return (_lB && _rB) ? _bytesEq(($left).value, ($right).value) : false; } return ($left === $right); })()"
                 }
                 ([CompareOp]::NotEqual) {
-                    return "(() => { $dateGuard if (_lD || _rD) { return !((_lD && _rD) && (($left).value.getTime() === ($right).value.getTime())); } return ($left !== $right); })()"
+                    return "(() => { $dateGuard $bytesGuard if (_lD || _rD) { return !((_lD && _rD) && (($left).value.getTime() === ($right).value.getTime())); } if (_lB || _rB) { return !((_lB && _rB) && _bytesEq(($left).value, ($right).value)); } return ($left !== $right); })()"
                 }
                 ([CompareOp]::AtLeast) {
                     return "(() => { $dateGuard if (_lD || _rD) { if (!_lD) { throw new Error('I expected a number for the left side of this comparison but got ' + ($left) + '.'); } if (!_rD) { throw new Error('I expected a number for the right side of this comparison but got ' + ($right) + '.'); } return (($left).value.getTime() >= ($right).value.getTime()); } return ($left >= $right); })()"
@@ -534,7 +608,7 @@ function ConvertTo-OtterJsExpression {
             switch ($Expr.Operation.ToString()) {
                 'Uppercase' { return "String($subjectJs).toUpperCase()" }
                 'Lowercase' { return "String($subjectJs).toLowerCase()" }
-                'Length' { return "((_s) => { if (Array.isArray(_s) || typeof _s === 'string') return _s.length; throw new Error('I can only measure the length of a list or text, but this is something else.'); })($subjectJs)" }
+                'Length' { return "((_s) => { if (Array.isArray(_s) || typeof _s === 'string') return _s.length; if (_s && typeof _s === 'object' && _s.__otterBytes) return _s.value.length; throw new Error('I can only measure the length of text, a list, or bytes, but this is something else.'); })($subjectJs)" }
                 'First' { return "((_s) => { if (!Array.isArray(_s)) throw new Error('Only a list has a first item, but this is something else.'); return _s.length > 0 ? _s[0] : null; })($subjectJs)" }
                 'Last' { return "((_s) => { if (!Array.isArray(_s)) throw new Error('Only a list has a last item, but this is something else.'); return _s.length > 0 ? _s[_s.length - 1] : null; })($subjectJs)" }
                 # D89: absolute value / square root / round / round up (ceiling) / round down (floor).
@@ -630,6 +704,42 @@ function ConvertTo-OtterJsExpression {
             }
             $toStringBody = "const y=this.value.getFullYear(); const mo=String(this.value.getMonth()+1).padStart(2,'0'); const da=String(this.value.getDate()).padStart(2,'0'); if (!this.hasTime) { return y+'-'+mo+'-'+da; } const h=String(this.value.getHours()).padStart(2,'0'); const mi=String(this.value.getMinutes()).padStart(2,'0'); const s=String(this.value.getSeconds()).padStart(2,'0'); return y+'-'+mo+'-'+da+' '+h+':'+mi+':'+s;"
             return "((_d) => ({ __otterDate: true, hasTime: (_d.getHours() !== 0 || _d.getMinutes() !== 0 || _d.getSeconds() !== 0), value: _d, toString() { $toStringBody } }))($parseJs)"
+        }
+        ([NodeKind]::Bytes) {
+            # D102: bytes type. Empty/FromText/FromHex/FromBase64 all
+            # produce a wrapped Uint8Array (Get-OtterJsBytesConstructor);
+            # ToText/ToHex/ToBase64 read a plain string back out of one,
+            # rejecting anything that isn't the wrapper shape - matches
+            # the interpreter's own Test-OtterBytes guard on those three.
+            switch ($Expr.Op.ToString()) {
+                'Empty' {
+                    return (Get-OtterJsBytesConstructor -BytesExprJs 'new Uint8Array(0)')
+                }
+                'FromText' {
+                    $sourceJs = ConvertTo-OtterJsExpression -Expr $Expr.Source
+                    return (Get-OtterJsBytesConstructor -BytesExprJs "new TextEncoder().encode(String($sourceJs))")
+                }
+                'FromHex' {
+                    $sourceJs = ConvertTo-OtterJsExpression -Expr $Expr.Source
+                    return (Get-OtterJsBytesConstructor -BytesExprJs "($script:OtterJsBytesFromHexFunc)(String($sourceJs))")
+                }
+                'FromBase64' {
+                    $sourceJs = ConvertTo-OtterJsExpression -Expr $Expr.Source
+                    return (Get-OtterJsBytesConstructor -BytesExprJs "($script:OtterJsBytesFromBase64Func)(String($sourceJs))")
+                }
+                'ToText' {
+                    $sourceJs = ConvertTo-OtterJsExpression -Expr $Expr.Source
+                    return "((_b) => { if (!_b || typeof _b !== 'object' || !_b.__otterBytes) { throw new Error('I can only read text from bytes, but this is something else.'); } return ($script:OtterJsBytesToTextFunc)(_b.value); })($sourceJs)"
+                }
+                'ToHex' {
+                    $sourceJs = ConvertTo-OtterJsExpression -Expr $Expr.Source
+                    return "((_b) => { if (!_b || typeof _b !== 'object' || !_b.__otterBytes) { throw new Error('I can only read hex from bytes, but this is something else.'); } return ($script:OtterJsBytesToHexFunc)(_b.value); })($sourceJs)"
+                }
+                'ToBase64' {
+                    $sourceJs = ConvertTo-OtterJsExpression -Expr $Expr.Source
+                    return "((_b) => { if (!_b || typeof _b !== 'object' || !_b.__otterBytes) { throw new Error('I can only read base64 from bytes, but this is something else.'); } return ($script:OtterJsBytesToBase64Func)(_b.value); })($sourceJs)"
+                }
+            }
         }
         ([NodeKind]::DateDifferenceValue) {
             # D60 Phase 1J (D42). The expression form of `days between X and

@@ -241,6 +241,24 @@ function Test-OtterDate {
     return $Value -is [OtterDate]
 }
 
+# D102: bytes is its own runtime type, deliberately NOT a plain [byte[]]
+# (which PowerShell would happily treat as just another array/list, the
+# exact "bytes is secretly a list of numbers" conflation rules.md's D102
+# design explicitly rejects) and NOT text. Wrapping it, the same pattern
+# OtterDate uses, keeps `Test-OtterBytes`/type-name reporting exact and
+# keeps a bytes value out of Test-OtterList's list-shaped code paths.
+class OtterBytes {
+    [byte[]]$Value
+    OtterBytes([byte[]]$value) {
+        $this.Value = $value
+    }
+}
+
+function Test-OtterBytes {
+    param([object]$Value)
+    return $Value -is [OtterBytes]
+}
+
 function New-OtterToday {
     return [OtterDate]::new([datetime]::Now, $false)
 }
@@ -424,6 +442,13 @@ function Format-OtterValue {
     # different shape has "format date as ...".
     if (Test-OtterDate $Value) { return $Value.ToString() }
 
+    # D102: raw bytes are deliberately never displayed AS hex or AS text
+    # here - that would silently pick one of the two representations the
+    # design explicitly keeps separate. `<N bytes>` names only the one
+    # fact that's unambiguous (the count); `hex from bytes x` / `text
+    # from bytes x` are how a program asks for an actual representation.
+    if (Test-OtterBytes $Value) { return "<$($Value.Value.Length) bytes>" }
+
     if (Test-OtterList $Value) {
         $parts = foreach ($item in $Value) { Format-OtterValue -Value $item }
         return ($parts -join ', ')
@@ -558,6 +583,22 @@ function Test-OtterEqual {
         return (ConvertTo-OtterNumber $Left) -eq (ConvertTo-OtterNumber $Right)
     }
 
+    # D102: two bytes values compare by CONTENT, not reference - matches
+    # section 9's acceptance example (two separately-built byte arrays
+    # decoded from the same hex text must compare equal). A bytes value
+    # and anything else are never equal, same "no silent cross-type
+    # match" rule OtterDate gets above.
+    if ((Test-OtterBytes $Left) -or (Test-OtterBytes $Right)) {
+        if ((Test-OtterBytes $Left) -and (Test-OtterBytes $Right)) {
+            if ($Left.Value.Length -ne $Right.Value.Length) { return $false }
+            for ($bi = 0; $bi -lt $Left.Value.Length; $bi++) {
+                if ($Left.Value[$bi] -ne $Right.Value[$bi]) { return $false }
+            }
+            return $true
+        }
+        return $false
+    }
+
     if ((Test-OtterList $Left) -and (Test-OtterList $Right)) {
         if ($Left.Count -ne $Right.Count) { return $false }
         for ($i = 0; $i -lt $Left.Count; $i++) {
@@ -623,4 +664,5 @@ function ConvertFrom-OtterInput {
 Export-ModuleMember -Function `
     New-OtterList, Test-OtterList, Test-OtterObject, Test-OtterDate, `
     New-OtterToday, New-OtterNow, Format-OtterValue, Test-OtterTruthy, `
-    Test-OtterNumeric, ConvertTo-OtterNumber, Test-OtterEqual, ConvertFrom-OtterInput
+    Test-OtterNumeric, ConvertTo-OtterNumber, Test-OtterEqual, ConvertFrom-OtterInput, `
+    Test-OtterBytes

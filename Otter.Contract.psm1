@@ -543,6 +543,10 @@ enum NodeKind {
     StartTimer               # start timer workTimer
     DateFromText             # date from "2024-01-15" [using "MM/dd/yyyy"] -
                               # an EXPRESSION, usable directly after `is`
+
+    # --- bytes type (D102) -------------------------------------------------
+    Bytes                    # empty bytes / bytes from text|hex|base64 X /
+                              # text|hex|base64 from bytes X - all EXPRESSIONS
 }
 
 enum MathOp { Add; Subtract; Multiply; Divide; Percent; Power }   # D88
@@ -2746,6 +2750,23 @@ class DateFromTextExpr : Node {
     DateFromTextExpr([Node]$source, [Node]$format, [int]$line) : base([NodeKind]::DateFromText, $line) {
         $this.Source = $source
         $this.Format = $format
+    }
+}
+
+# D102: bytes type - the binary/text boundary is explicit (rules.md's own
+# design principle: text is text, bytes are bytes, hex/base64 are textual
+# REPRESENTATIONS of bytes, never silently interchangeable with either).
+enum BytesOp { Empty; FromText; FromHex; FromBase64; ToText; ToHex; ToBase64 }
+
+# empty bytes / bytes from text|hex|base64 X / text|hex|base64 from bytes X.
+# One class for all seven forms (mirrors OfOperationExpr's own one-class-
+# many-operations shape) - Source is $null only for Empty.
+class BytesExpr : Node {
+    [BytesOp]$Op
+    [Node]$Source
+    BytesExpr([BytesOp]$op, [Node]$source, [int]$line) : base([NodeKind]::Bytes, $line) {
+        $this.Op = $op
+        $this.Source = $source
     }
 }
 
