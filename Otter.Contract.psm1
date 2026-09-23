@@ -228,6 +228,20 @@ enum TokenKind {
     Rollback        # rollback tx
     Parameter       # parameter "name" is value
 
+    # --- query language (D99) -----------------------------------
+    OrderBy         # order by
+    Then            # then first_name ascending
+    Distinct        # get distinct state from ...
+    Ascending       # ascending
+    Descending      # descending
+    IsIn            # is in
+    IsNotIn         # is not in
+    IsBetween       # is between
+    Sum             # sum amount from ...
+    Average         # average price from ...
+    Minimum         # minimum price from ...
+    Maximum         # maximum price from ...
+
     # --- console UX primitives (D100) ----------------------------
     ConsoleInteractive  # console is interactive - one combined token for
                         # the whole fixed phrase (matches Contains/IsAtLeast
@@ -589,6 +603,26 @@ enum NodeKind {
     XmlAddElement                        # add element X to Y [and call it Z] [with text T]
     XmlRemoveElement                      # remove element X
     XmlWriteFile                           # write xml X to file P
+
+    # --- WebSockets (D106) - console/desktop AND web both fully supported. --
+    # state/url/protocol "of" a socket ride the EXISTING generic
+    # PropertyAccess grammar, no new grammar needed for those three.
+    WebSocketConnect          # connect to websocket X [using protocol P] and call it Y
+    WebSocketSend             # send X through Y
+    WebSocketClose            # close websocket X [with code N] [and reason R]
+    WebSocketEvent            # on open of X / on message from X / on close of X / on error of X
+    WebSocketIsState          # a CONDITION primary: X is connecting/open/closing/closed
+    ReceivedMessage           # an EXPRESSION, ambient inside "on message from"
+    CloseCode                 # an EXPRESSION, ambient inside "on close of"
+    CloseReason               # an EXPRESSION, ambient inside "on close of"
+    CloseWasClean             # an EXPRESSION, ambient inside "on close of"
+    WebSocketErrorValue       # an EXPRESSION, ambient inside "on error of"
+
+    # --- query language (D99) -----------------------------------
+    QueryStmt                # get [distinct] fields from table in db [as alias] [where ...] [order by ...] [take N] [skip N] into target
+    QueryAggregateStmt       # count/sum/average/minimum/maximum from table in db ... into target
+    QueryBetweenExpr         # expr between low and high
+    QueryInExpr              # expr is in / is not in collection
 }
 
 enum MathOp { Add; Subtract; Multiply; Divide; Percent; Power }   # D88
@@ -600,6 +634,9 @@ enum WatchEventKind { Change; Create; Delete; Rename }                 # D104
 
 enum XmlSourceKind { Text; File; Root }                                # D105
 enum XmlSelectKind { Element; Elements; Child; Children }              # D105
+
+enum WebSocketEventKind { Open; Message; Close; Error }                # D106
+enum WebSocketConnState { Connecting; Open; Closing; Closed }          # D106
 
 # D11: boolean operators. Precedence, loosest last: not -> and -> or.
 enum LogicalOp { And; Or }
@@ -3103,6 +3140,165 @@ class XmlWriteFileStmt : Node {
     XmlWriteFileStmt([Node]$xml, [Node]$path, [int]$line) : base([NodeKind]::XmlWriteFile, $line) {
         $this.Xml = $xml
         $this.Path = $path
+    }
+}
+
+# D106: WebSockets. `state`/`url`/`protocol` "of" a socket ride the
+# EXISTING generic PropertyAccessExpr, same as D105's xml properties -
+# only the genuinely new shapes get their own class below.
+
+# connect to websocket "wss://..." [using protocol "chat"] and call it X
+class WebSocketConnectStmt : Node {
+    [Node]$Url
+    [Node]$Protocol
+    [string]$Target
+    WebSocketConnectStmt([Node]$url, [Node]$protocol, [string]$target, [int]$line) : base([NodeKind]::WebSocketConnect, $line) {
+        $this.Url = $url
+        $this.Protocol = $protocol
+        $this.Target = $target
+    }
+}
+
+# send "Hello" through socket
+class WebSocketSendStmt : Node {
+    [Node]$Message
+    [Node]$Socket
+    WebSocketSendStmt([Node]$message, [Node]$socket, [int]$line) : base([NodeKind]::WebSocketSend, $line) {
+        $this.Message = $message
+        $this.Socket = $socket
+    }
+}
+
+# close websocket socket [with code 1000] [and reason "Done"]
+class WebSocketCloseStmt : Node {
+    [Node]$Socket
+    [Node]$Code
+    [Node]$Reason
+    WebSocketCloseStmt([Node]$socket, [Node]$code, [Node]$reason, [int]$line) : base([NodeKind]::WebSocketClose, $line) {
+        $this.Socket = $socket
+        $this.Code = $code
+        $this.Reason = $reason
+    }
+}
+
+# on open of X / on message from X / on close of X / on error of X
+class WebSocketEventStmt : Node {
+    [WebSocketEventKind]$EventKind
+    [Node]$Socket
+    [Node[]]$Body
+    WebSocketEventStmt([WebSocketEventKind]$eventKind, [Node]$socket, [Node[]]$body, [int]$line) : base([NodeKind]::WebSocketEvent, $line) {
+        $this.EventKind = $eventKind
+        $this.Socket = $socket
+        $this.Body = $body
+    }
+}
+
+# socket is connecting / socket is open / socket is closing / socket is closed
+class WebSocketIsStateExpr : Node {
+    [Node]$Socket
+    [WebSocketConnState]$ConnState
+    WebSocketIsStateExpr([Node]$socket, [WebSocketConnState]$connState, [int]$line) : base([NodeKind]::WebSocketIsState, $line) {
+        $this.Socket = $socket
+        $this.ConnState = $connState
+    }
+}
+
+# received message / close code / close reason / close was clean /
+# websocket error - ambient context, argument-free expressions.
+class ReceivedMessageExpr : Node {
+    ReceivedMessageExpr([int]$line) : base([NodeKind]::ReceivedMessage, $line) {}
+}
+class CloseCodeExpr : Node {
+    CloseCodeExpr([int]$line) : base([NodeKind]::CloseCode, $line) {}
+}
+class CloseReasonExpr : Node {
+    CloseReasonExpr([int]$line) : base([NodeKind]::CloseReason, $line) {}
+}
+class CloseWasCleanExpr : Node {
+    CloseWasCleanExpr([int]$line) : base([NodeKind]::CloseWasClean, $line) {}
+}
+class WebSocketErrorExpr : Node {
+    WebSocketErrorExpr([int]$line) : base([NodeKind]::WebSocketErrorValue, $line) {}
+}
+
+# D99: Otter Query Language (OQL)
+
+class QueryOrderByItem {
+    [Node]$Expression
+    [bool]$IsDescending
+    QueryOrderByItem([Node]$expression, [bool]$isDescending) {
+        $this.Expression = $expression
+        $this.IsDescending = $isDescending
+    }
+}
+
+class QueryStmt : Node {
+    [bool]$IsDistinct
+    [Node[]]$Projections       # Empty/null or list of expressions (all columns if empty)
+    [string]$Table             # Table name
+    [Node]$Connection          # DB connection expression (e.g. Variable "db")
+    [string]$Alias             # Optional alias (or null)
+    [Node]$Where               # Optional filter expression
+    [QueryOrderByItem[]]$OrderBy # List of ordering items
+    [Node]$Limit               # Optional limit expression (take N / first N)
+    [Node]$Offset              # Optional offset expression (skip N)
+    [string]$Target            # Destination variable name ("into <target>")
+
+    QueryStmt([bool]$isDistinct, [Node[]]$projections, [string]$table, [Node]$connection, [string]$alias, [Node]$where, [QueryOrderByItem[]]$orderBy, [Node]$limit, [Node]$offset, [string]$target, [int]$line) : base([NodeKind]::QueryStmt, $line) {
+        $this.IsDistinct = $isDistinct
+        $this.Projections = $projections
+        $this.Table = $table
+        $this.Connection = $connection
+        $this.Alias = $alias
+        $this.Where = $where
+        $this.OrderBy = $orderBy
+        $this.Limit = $limit
+        $this.Offset = $offset
+        $this.Target = $target
+    }
+}
+
+class QueryAggregateStmt : Node {
+    [string]$AggregateFunc     # "count", "sum", "average", "minimum", "maximum"
+    [Node]$Expression          # The column / expression being aggregated (e.g. column or table)
+    [string]$Table             # Table name
+    [Node]$Connection          # DB connection expression
+    [string]$Alias             # Optional alias
+    [Node]$Where               # Optional filter expression
+    [string]$Target            # Destination variable name
+
+    QueryAggregateStmt([string]$aggregateFunc, [Node]$expression, [string]$table, [Node]$connection, [string]$alias, [Node]$where, [string]$target, [int]$line) : base([NodeKind]::QueryAggregateStmt, $line) {
+        $this.AggregateFunc = $aggregateFunc
+        $this.Expression = $expression
+        $this.Table = $table
+        $this.Connection = $connection
+        $this.Alias = $alias
+        $this.Where = $where
+        $this.Target = $target
+    }
+}
+
+class QueryBetweenExpr : Node {
+    [Node]$Expression
+    [Node]$Lower
+    [Node]$Upper
+
+    QueryBetweenExpr([Node]$expression, [Node]$lower, [Node]$upper, [int]$line) : base([NodeKind]::QueryBetweenExpr, $line) {
+        $this.Expression = $expression
+        $this.Lower = $lower
+        $this.Upper = $upper
+    }
+}
+
+class QueryInExpr : Node {
+    [Node]$Expression
+    [Node]$Collection
+    [bool]$IsNot
+
+    QueryInExpr([Node]$expression, [Node]$collection, [bool]$isNot, [int]$line) : base([NodeKind]::QueryInExpr, $line) {
+        $this.Expression = $expression
+        $this.Collection = $collection
+        $this.IsNot = $isNot
     }
 }
 

@@ -53,6 +53,11 @@ $script:OtterKeywords = @{
     'false' = [TokenKind]::False
     'at' = [TokenKind]::At
     'await' = [TokenKind]::Await
+    # D99: query language keywords
+    'distinct' = [TokenKind]::Distinct
+    'then' = [TokenKind]::Then
+    'ascending' = [TokenKind]::Ascending
+    'descending' = [TokenKind]::Descending
 }
 
 # D33 mechanism 2: these words introduce their existing statement forms only
@@ -108,6 +113,9 @@ $script:OtterStatementHeadKeywords = @{
     'query' = [TokenKind]::Query; 'execute' = [TokenKind]::Execute
     'commit' = [TokenKind]::Commit; 'rollback' = [TokenKind]::Rollback
     'parameter' = [TokenKind]::Parameter
+    # D99: query language operations
+    'sum' = [TokenKind]::Sum; 'average' = [TokenKind]::Average
+    'minimum' = [TokenKind]::Minimum; 'maximum' = [TokenKind]::Maximum
     # D56: declarative UI, reactivity, animation
     'layout' = [TokenKind]::Layout; 'gap' = [TokenKind]::Gap
     'state' = [TokenKind]::State; 'derive' = [TokenKind]::Derive
@@ -314,10 +322,20 @@ function ConvertTo-OtterLineTokens {
         $previous = if ($combined.Count -gt 0) { $combined[$combined.Count - 1] } else { $null }
         if ($token.Kind -eq [TokenKind]::Is -and ($tokenIndex + 1) -lt $tokens.Count) {
             $next = $tokens[$tokenIndex + 1]
+            if ($next.Text -eq 'in') { $combined.Add((New-OtterToken ([TokenKind]::IsIn) 'is in' $null $token.Line $token.Column)); $tokenIndex++; continue }
+            if ($next.Text -eq 'not' -and ($tokenIndex + 2) -lt $tokens.Count -and $tokens[$tokenIndex + 2].Text -eq 'in') { $combined.Add((New-OtterToken ([TokenKind]::IsNotIn) 'is not in' $null $token.Line $token.Column)); $tokenIndex += 2; continue }
+            if ($next.Text -eq 'between') { $combined.Add((New-OtterToken ([TokenKind]::IsBetween) 'is between' $null $token.Line $token.Column)); $tokenIndex++; continue }
             if ($next.Text -eq 'not') { $combined.Add((New-OtterToken ([TokenKind]::IsNot) 'is not' $null $token.Line $token.Column)); $tokenIndex++; continue }
             if (($tokenIndex + 2) -lt $tokens.Count -and $next.Text -eq 'at' -and $tokens[$tokenIndex + 2].Text -eq 'most') { $combined.Add((New-OtterToken ([TokenKind]::IsAtMost) 'is at most' $null $token.Line $token.Column)); $tokenIndex += 2; continue }
             if (($tokenIndex + 2) -lt $tokens.Count -and $next.Text -eq 'greater' -and $tokens[$tokenIndex + 2].Text -eq 'than') { $combined.Add((New-OtterToken ([TokenKind]::IsGreaterThan) 'is greater than' $null $token.Line $token.Column)); $tokenIndex += 2; continue }
             if (($tokenIndex + 2) -lt $tokens.Count -and $next.Text -eq 'less' -and $tokens[$tokenIndex + 2].Text -eq 'than') { $combined.Add((New-OtterToken ([TokenKind]::IsLessThan) 'is less than' $null $token.Line $token.Column)); $tokenIndex += 2; continue }
+        }
+        # D99: `order by`
+        if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -eq 'order' -and
+            ($tokenIndex + 1) -lt $tokens.Count -and $tokens[$tokenIndex + 1].Text -eq 'by') {
+            $combined.Add((New-OtterToken ([TokenKind]::OrderBy) 'order by' $null $token.Line $token.Column))
+            $tokenIndex++
+            continue
         }
         if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -eq 'for' -and
             ($tokenIndex + 1) -lt $tokens.Count -and $tokens[$tokenIndex + 1].Text -eq 'each') {

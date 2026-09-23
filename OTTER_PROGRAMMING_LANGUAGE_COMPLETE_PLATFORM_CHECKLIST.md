@@ -878,7 +878,7 @@ creation.
     to JS)
 -   [x] DNS (decided: not applicable, same reasoning - `fetch()` resolves
     DNS transparently with zero JS-level control)
--   [ ] WebSocket client (real, substantial gap - an entirely new
+-   [x] WebSocket client (D106, implemented, tests/WebSocket.Tests.ps1; was: an entirely new
     protocol/statement family needing its own real grammar design, e.g.
     a D100-style RFC for `connect websocket ...`/`send .../`when ...
     receives a message`. Not attempted in this pass)
@@ -1141,9 +1141,7 @@ creation.
 -   [ ] Async database operations (real gap - every database statement is
     synchronous/blocking, no async/await integration)
 -   [ ] ORM/query-builder only if justified (real gap, deliberately -
-    matches D99's separate, explicitly "not approved yet" Otter Query
-    Language RFC; raw SQL via `execute`/`query` is the only access path
-    today)
+    matches D99 - Otter Query Language (OQL) now implemented: `get`, `where`, `order by`, `limit`/`offset`, aggregates; tests/Query.Tests.ps1; raw SQL via `execute`/`query` remains too
 -   [ ] NoSQL provider interface (real gap - the provider architecture is
     SQL-shaped throughout (connections, parameterized SQL text,
     transactions); a NoSQL provider would need its own interface design,
@@ -1252,7 +1250,7 @@ creation.
 -   [x] Browser storage
 -   [ ] Cookies (real gap - no cookie read/write capability exposed)
 -   [x] Fetch/HTTP
--   [ ] WebSockets (real gap, confirmed zero WebSocket code anywhere -
+-   [x] WebSockets (D106, implemented - previously
     same real gap already documented in Section 13)
 -   [ ] File upload/download (real gap for genuine file upload - blocked
     on the missing binary/byte type noted repeatedly elsewhere; D96's
@@ -1319,7 +1317,7 @@ creation.
 -   [ ] Static files
 -   [ ] File upload
 -   [ ] Streaming responses
--   [ ] WebSockets
+-   [x] WebSockets (D106)
 -   [ ] Authentication hooks
 -   [ ] Authorization hooks
 -   [x] CORS

@@ -1419,5 +1419,66 @@ if ($schemaAst.Statements[1].Target -ne 'cols1') { throw 'Expected target to be 
 if ($schemaAst.Statements[2] -isnot [GetColumnsStmt]) { throw 'Expected GetColumnsStmt for variable.' }
 if ($schemaAst.Statements[2].Target -ne 'cols2') { throw 'Expected target to be cols2.' }
 
+# --- D106: WebSockets ---
+$wsCode = @"
+connect to websocket "wss://example.com/chat" and call it socket
+connect to websocket "wss://example.com/proto" using protocol "chat" and call it protoSocket
+send "Hello" through socket
+close websocket socket
+close websocket socket with code 1000 and reason "Done"
+on open of socket
+    send "Ready" through socket
+.
+on message from socket
+    say received message
+.
+on close of socket
+    say close code
+    say close reason
+    if close was clean
+        say "Clean close"
+    .
+.
+on error of socket
+    say websocket error
+.
+if socket is connecting
+    say "Connecting"
+.
+if socket is open
+    say "Open"
+.
+if socket is closing
+    say "Closing"
+.
+if socket is closed
+    say "Closed"
+.
+"@
+$wsAst = ConvertTo-OtterAst (ConvertTo-OtterTokens $wsCode)
+if ($wsAst.Statements.Count -ne 13) { throw "Expected 13 statements in wsAst, got $($wsAst.Statements.Count)." }
+if ($wsAst.Statements[0].Kind -ne [NodeKind]::WebSocketConnect) { throw 'Expected WebSocketConnect node.' }
+if ($wsAst.Statements[0].Target -ne 'socket') { throw 'Expected target socket.' }
+if ($null -ne $wsAst.Statements[0].Protocol) { throw 'Expected null protocol for stmt 0.' }
+if ($wsAst.Statements[1].Kind -ne [NodeKind]::WebSocketConnect) { throw 'Expected WebSocketConnect node with protocol.' }
+if ($null -eq $wsAst.Statements[1].Protocol) { throw 'Expected non-null protocol for stmt 1.' }
+if ($wsAst.Statements[2].Kind -ne [NodeKind]::WebSocketSend) { throw 'Expected WebSocketSend node.' }
+if ($wsAst.Statements[3].Kind -ne [NodeKind]::WebSocketClose) { throw 'Expected WebSocketClose node.' }
+if ($wsAst.Statements[4].Kind -ne [NodeKind]::WebSocketClose) { throw 'Expected WebSocketClose node with code/reason.' }
+if ($null -eq $wsAst.Statements[4].Code -or $null -eq $wsAst.Statements[4].Reason) { throw 'Expected Code and Reason on stmt 4.' }
+if ($wsAst.Statements[5].Kind -ne [NodeKind]::WebSocketEvent -or $wsAst.Statements[5].EventKind -ne [WebSocketEventKind]::Open) { throw 'Expected Open event.' }
+if ($wsAst.Statements[6].Kind -ne [NodeKind]::WebSocketEvent -or $wsAst.Statements[6].EventKind -ne [WebSocketEventKind]::Message) { throw 'Expected Message event.' }
+if ($wsAst.Statements[6].Body[0].Parts[0].Kind -ne [NodeKind]::ReceivedMessage) { throw 'Expected ReceivedMessageExpr.' }
+if ($wsAst.Statements[7].Kind -ne [NodeKind]::WebSocketEvent -or $wsAst.Statements[7].EventKind -ne [WebSocketEventKind]::Close) { throw 'Expected Close event.' }
+if ($wsAst.Statements[7].Body[0].Parts[0].Kind -ne [NodeKind]::CloseCode) { throw 'Expected CloseCodeExpr.' }
+if ($wsAst.Statements[7].Body[1].Parts[0].Kind -ne [NodeKind]::CloseReason) { throw 'Expected CloseReasonExpr.' }
+if ($wsAst.Statements[7].Body[2].Branches[0].Condition.Kind -ne [NodeKind]::CloseWasClean) { throw 'Expected CloseWasCleanExpr.' }
+if ($wsAst.Statements[8].Kind -ne [NodeKind]::WebSocketEvent -or $wsAst.Statements[8].EventKind -ne [WebSocketEventKind]::Error) { throw 'Expected Error event.' }
+if ($wsAst.Statements[8].Body[0].Parts[0].Kind -ne [NodeKind]::WebSocketErrorValue) { throw 'Expected WebSocketErrorExpr.' }
+if ($wsAst.Statements[9].Branches[0].Condition.Kind -ne [NodeKind]::WebSocketIsState -or $wsAst.Statements[9].Branches[0].Condition.ConnState -ne [WebSocketConnState]::Connecting) { throw 'Expected is connecting state.' }
+if ($wsAst.Statements[10].Branches[0].Condition.Kind -ne [NodeKind]::WebSocketIsState -or $wsAst.Statements[10].Branches[0].Condition.ConnState -ne [WebSocketConnState]::Open) { throw 'Expected is open state.' }
+if ($wsAst.Statements[11].Branches[0].Condition.Kind -ne [NodeKind]::WebSocketIsState -or $wsAst.Statements[11].Branches[0].Condition.ConnState -ne [WebSocketConnState]::Closing) { throw 'Expected is closing state.' }
+if ($wsAst.Statements[12].Branches[0].Condition.Kind -ne [NodeKind]::WebSocketIsState -or $wsAst.Statements[12].Branches[0].Condition.ConnState -ne [WebSocketConnState]::Closed) { throw 'Expected is closed state.' }
+
 Write-Output 'Parser tests passed.'
 

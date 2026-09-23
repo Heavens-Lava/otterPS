@@ -36,7 +36,10 @@ $script:OtterIdentifierKinds = @(
     [TokenKind]::Download,
     [TokenKind]::Connect, [TokenKind]::Disconnect, [TokenKind]::Query,
     [TokenKind]::Execute, [TokenKind]::Commit, [TokenKind]::Rollback,
-    [TokenKind]::Parameter
+    [TokenKind]::Parameter,
+    [TokenKind]::Distinct, [TokenKind]::Then, [TokenKind]::Ascending,
+    [TokenKind]::Descending, [TokenKind]::Sum, [TokenKind]::Average,
+    [TokenKind]::Minimum, [TokenKind]::Maximum
 )
 
 function Test-OtterIdentifierToken {
@@ -466,6 +469,49 @@ function Read-OtterValue {
         [void](Read-OtterToken) # path
         return [OldPathExpr]::new($token.Line)
     }
+    # D106: WebSockets contextual event expressions
+    # received message
+    if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -eq 'received' -and
+        ($script:Position + 1) -lt $script:Tokens.Count -and $script:Tokens[$script:Position + 1].Kind -eq [TokenKind]::Identifier -and
+        $script:Tokens[$script:Position + 1].Text -eq 'message') {
+        [void](Read-OtterToken) # received
+        [void](Read-OtterToken) # message
+        return [ReceivedMessageExpr]::new($token.Line)
+    }
+    # close was clean (check before close code/reason because it has 3 words)
+    if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -eq 'close' -and
+        ($script:Position + 2) -lt $script:Tokens.Count -and
+        $script:Tokens[$script:Position + 1].Kind -eq [TokenKind]::Identifier -and $script:Tokens[$script:Position + 1].Text -eq 'was' -and
+        $script:Tokens[$script:Position + 2].Kind -eq [TokenKind]::Identifier -and $script:Tokens[$script:Position + 2].Text -eq 'clean') {
+        [void](Read-OtterToken) # close
+        [void](Read-OtterToken) # was
+        [void](Read-OtterToken) # clean
+        return [CloseWasCleanExpr]::new($token.Line)
+    }
+    # close code
+    if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -eq 'close' -and
+        ($script:Position + 1) -lt $script:Tokens.Count -and $script:Tokens[$script:Position + 1].Kind -eq [TokenKind]::Identifier -and
+        $script:Tokens[$script:Position + 1].Text -eq 'code') {
+        [void](Read-OtterToken) # close
+        [void](Read-OtterToken) # code
+        return [CloseCodeExpr]::new($token.Line)
+    }
+    # close reason
+    if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -eq 'close' -and
+        ($script:Position + 1) -lt $script:Tokens.Count -and $script:Tokens[$script:Position + 1].Kind -eq [TokenKind]::Identifier -and
+        $script:Tokens[$script:Position + 1].Text -eq 'reason') {
+        [void](Read-OtterToken) # close
+        [void](Read-OtterToken) # reason
+        return [CloseReasonExpr]::new($token.Line)
+    }
+    # websocket error
+    if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -eq 'websocket' -and
+        ($script:Position + 1) -lt $script:Tokens.Count -and
+        ($script:Tokens[$script:Position + 1].Kind -eq [TokenKind]::Problem -or $script:Tokens[$script:Position + 1].Text -eq 'error')) {
+        [void](Read-OtterToken) # websocket
+        [void](Read-OtterToken) # error
+        return [WebSocketErrorExpr]::new($token.Line)
+    }
     # D105: XML. All leading words here (xml/pretty/element/elements/
     # child/children/attribute) are ordinary, unreserved identifiers
     # (D33 mechanism 1), checked by text only in these exact positions.
@@ -763,6 +809,21 @@ function Read-OtterConditionPrimary {
         $isWord = Read-OtterToken
         [void](Read-OtterToken)
         return [IsWatchingExpr]::new($left, $isWord.Line)
+    }
+    # D106: `socket is connecting` / `socket is open` / `socket is closing` / `socket is closed`
+    if ((Get-OtterCurrentToken).Kind -eq [TokenKind]::Is -and ($script:Position + 1) -lt $script:Tokens.Count) {
+        $nextTok = $script:Tokens[$script:Position + 1]
+        $wsConnState = $null
+        if ($nextTok.Text -eq 'connecting') { $wsConnState = [WebSocketConnState]::Connecting }
+        elseif ($nextTok.Kind -eq [TokenKind]::Open -or $nextTok.Text -eq 'open') { $wsConnState = [WebSocketConnState]::Open }
+        elseif ($nextTok.Text -eq 'closing') { $wsConnState = [WebSocketConnState]::Closing }
+        elseif ($nextTok.Text -eq 'closed') { $wsConnState = [WebSocketConnState]::Closed }
+
+        if ($null -ne $wsConnState) {
+            $isWord = Read-OtterToken
+            [void](Read-OtterToken) # state word
+            return [WebSocketIsStateExpr]::new($left, $wsConnState, $isWord.Line)
+        }
     }
     # D105: `book has attribute "id"` - "has" is already a reserved
     # TokenKind (used elsewhere for thing-property declarations), so
@@ -1410,6 +1471,470 @@ function Read-OtterUiElementStatement {
     return [UiElementStmt]::new($tag, $variant, $label, $name, $layout, $properties.ToArray(), $events.ToArray(), $animations.ToArray(), $children.ToArray(), $start.Line)
 }
 
+# ===============================================================
+# D99: Otter Query Language (OQL) Parser Productions
+# ===============================================================
+
+function Test-OtterIsQueryStatement {
+    $tok = Get-OtterCurrentToken
+    if ($tok.Kind -ne [TokenKind]::Get) { return $false }
+    $pos = $script:Position + 1
+    if ($pos -ge $script:Tokens.Count) { return $false }
+
+    while ($pos -lt $script:Tokens.Count -and $script:Tokens[$pos].Kind -in @([TokenKind]::Newline, [TokenKind]::Indent)) {
+        $pos++
+    }
+    if ($pos -ge $script:Tokens.Count) { return $false }
+
+    $firstTok = $script:Tokens[$pos]
+    if ($firstTok.Kind -eq [TokenKind]::Distinct) { return $true }
+    if ($firstTok.Kind -eq [TokenKind]::Identifier -and $firstTok.Text -eq 'all') {
+        $nextPos = $pos + 1
+        while ($nextPos -lt $script:Tokens.Count -and $script:Tokens[$nextPos].Kind -in @([TokenKind]::Newline, [TokenKind]::Indent)) {
+            $nextPos++
+        }
+        if ($nextPos -lt $script:Tokens.Count -and $script:Tokens[$nextPos].Kind -eq [TokenKind]::From) {
+            return $true
+        }
+    }
+
+    # Protected built-in get statements (D67, D98, files/folders/json)
+    if ($firstTok.Kind -in @([TokenKind]::Files, [TokenKind]::Folders)) { return $false }
+    if ($firstTok.Kind -eq [TokenKind]::Identifier -and $firstTok.Text -in @(
+        'files', 'folders', 'clipboard', 'environment', 'current', 'arguments', 'system', 'processes',
+        'symbolic', 'owner', 'registry', 'credential', 'event', 'tables', 'columns'
+    )) {
+        return $false
+    }
+
+    # Look ahead for 'from' followed by 'in' within the same statement
+    $sawFrom = $false
+    $limit = [Math]::Min($script:Tokens.Count, $pos + 80)
+    $indentDepth = 0
+    while ($pos -lt $limit) {
+        $k = $script:Tokens[$pos].Kind
+        if ($k -eq [TokenKind]::EndOfFile) { break }
+        if ($k -eq [TokenKind]::Indent) {
+            $indentDepth++
+        } elseif ($k -eq [TokenKind]::Dedent) {
+            $indentDepth--
+            if ($indentDepth -le 0) { break }
+        } elseif ($k -eq [TokenKind]::Newline) {
+            if ($indentDepth -eq 0) {
+                $next = $pos + 1
+                while ($next -lt $limit -and $script:Tokens[$next].Kind -eq [TokenKind]::Newline) {
+                    $next++
+                }
+                if ($next -ge $limit -or $script:Tokens[$next].Kind -ne [TokenKind]::Indent) {
+                    break
+                }
+            }
+        } elseif ($k -eq [TokenKind]::From) {
+            $sawFrom = $true
+        } elseif ($sawFrom -and $k -eq [TokenKind]::In) {
+            return $true
+        }
+        $pos++
+    }
+    return $false
+}
+
+function Read-OtterQueryWhere {
+    return Read-OtterQueryOrExpr
+}
+
+function Read-OtterQueryOrExpr {
+    $left = Read-OtterQueryAndExpr
+    while (Test-OtterTokenKind ([TokenKind]::Or)) {
+        $opTok = Read-OtterToken
+        $right = Read-OtterQueryAndExpr
+        $left = [LogicalExpr]::new($left, [LogicalOp]::Or, $right, $opTok.Line)
+    }
+    return $left
+}
+
+function Read-OtterQueryAndExpr {
+    $left = Read-OtterQueryConditionTerm
+    while (Test-OtterTokenKind ([TokenKind]::And)) {
+        $opTok = Read-OtterToken
+        $right = Read-OtterQueryConditionTerm
+        $left = [LogicalExpr]::new($left, [LogicalOp]::And, $right, $opTok.Line)
+    }
+    return $left
+}
+
+function Read-OtterQueryConditionTerm {
+    # Operands use Read-OtterValue, not Read-OtterMathExpression: "and" doubles
+    # as the "plus" operator there, so a math read would swallow
+    # `minAge and active` as addition instead of leaving "and" as the
+    # where-clause connective (same reason ordinary if-conditions do this).
+    $left = Read-OtterValue
+    $startLine = $left.Line
+
+    if ((Test-OtterTokenKind ([TokenKind]::IsIn)) -or (Test-OtterTokenKind ([TokenKind]::In)) -or ((Get-OtterCurrentToken).Kind -eq [TokenKind]::Identifier -and (Get-OtterCurrentToken).Text -eq 'in')) {
+        [void](Read-OtterToken)
+        $coll = Read-OtterValue
+        return [QueryInExpr]::new($left, $coll, $false, $startLine)
+    }
+    if (Test-OtterTokenKind ([TokenKind]::IsNotIn)) {
+        [void](Read-OtterToken)
+        $coll = Read-OtterValue
+        return [QueryInExpr]::new($left, $coll, $true, $startLine)
+    }
+
+    if ((Test-OtterTokenKind ([TokenKind]::IsBetween)) -or (Test-OtterTokenKind ([TokenKind]::Between)) -or ((Get-OtterCurrentToken).Kind -eq [TokenKind]::Identifier -and (Get-OtterCurrentToken).Text -eq 'between')) {
+        [void](Read-OtterToken)
+        $lower = Read-OtterValue
+        [void](Assert-OtterTokenKind ([TokenKind]::And) 'I expected "and" and upper bound in between expression.' 'where age is between 18 and 65')
+        $upper = Read-OtterValue
+        return [QueryBetweenExpr]::new($left, $lower, $upper, $startLine)
+    }
+
+    if (Test-OtterTokenKind ([TokenKind]::Contains)) {
+        $operator = Read-OtterToken
+        return [ContainsExpr]::new($left, (Read-OtterValue), $operator.Line)
+    }
+
+    if ((Test-OtterTokenKind ([TokenKind]::StartsWith)) -or (Test-OtterTokenKind ([TokenKind]::EndsWith))) {
+        $operator = Read-OtterToken
+        $match = if ($operator.Kind -eq [TokenKind]::StartsWith) { [TextMatch]::StartsWith } else { [TextMatch]::EndsWith }
+        return [TextMatchExpr]::new($left, $match, (Read-OtterValue), $operator.Line)
+    }
+
+    $compOp = switch ((Get-OtterCurrentToken).Kind) {
+        ([TokenKind]::Is) { [CompareOp]::Equal }
+        ([TokenKind]::IsNot) { [CompareOp]::NotEqual }
+        ([TokenKind]::IsAtLeast) { [CompareOp]::AtLeast }
+        ([TokenKind]::IsAtMost) { [CompareOp]::AtMost }
+        ([TokenKind]::IsGreaterThan) { [CompareOp]::GreaterThan }
+        ([TokenKind]::IsLessThan) { [CompareOp]::LessThan }
+        default { $null }
+    }
+
+    if ($null -ne $compOp) {
+        [void](Read-OtterToken)
+        $right = Read-OtterValue
+        return [ComparisonExpr]::new($left, $compOp, $right, $startLine)
+    }
+
+    return $left
+}
+
+function Read-OtterQueryOrderByItems {
+    $items = [System.Collections.Generic.List[QueryOrderByItem]]::new()
+    while (-not (Test-OtterTokenKind ([TokenKind]::EndOfFile))) {
+        $expr = Read-OtterMathExpression
+        $isDesc = $false
+        if (Test-OtterTokenKind ([TokenKind]::Ascending)) {
+            [void](Read-OtterToken)
+            $isDesc = $false
+        } elseif (Test-OtterTokenKind ([TokenKind]::Descending)) {
+            [void](Read-OtterToken)
+            $isDesc = $true
+        }
+        $items.Add([QueryOrderByItem]::new($expr, $isDesc))
+
+        while ((Test-OtterTokenKind ([TokenKind]::Newline)) -or (Test-OtterTokenKind ([TokenKind]::Indent))) {
+            [void](Read-OtterToken)
+        }
+
+        if (Test-OtterTokenKind ([TokenKind]::Then)) {
+            [void](Read-OtterToken)
+        } else {
+            break
+        }
+    }
+    return $items
+}
+
+function Read-OtterQueryStatement {
+    $start = Read-OtterToken
+    $isDistinct = $false
+    $indentCount = 0
+
+    while ((Test-OtterTokenKind ([TokenKind]::Newline)) -or (Test-OtterTokenKind ([TokenKind]::Indent))) {
+        if (Test-OtterTokenKind ([TokenKind]::Indent)) { $indentCount++ }
+        [void](Read-OtterToken)
+    }
+
+    if (Test-OtterTokenKind ([TokenKind]::Distinct)) {
+        $isDistinct = $true
+        [void](Read-OtterToken)
+    }
+
+    $projections = [System.Collections.Generic.List[Node]]::new()
+    $curr = Get-OtterCurrentToken
+    if ($curr.Kind -eq [TokenKind]::Identifier -and $curr.Text -eq 'all') {
+        [void](Read-OtterToken)
+    } else {
+        while (-not (Test-OtterTokenKind ([TokenKind]::From)) -and -not (Test-OtterTokenKind ([TokenKind]::EndOfFile))) {
+            while ((Test-OtterTokenKind ([TokenKind]::Newline)) -or (Test-OtterTokenKind ([TokenKind]::Indent))) {
+                if (Test-OtterTokenKind ([TokenKind]::Indent)) { $indentCount++ }
+                [void](Read-OtterToken)
+            }
+            if (Test-OtterTokenKind ([TokenKind]::From)) { break }
+
+            $field = Read-OtterValue
+            $projections.Add($field)
+
+            if (Test-OtterTokenKind ([TokenKind]::And)) {
+                [void](Read-OtterToken)
+            } elseif (Test-OtterTokenKind ([TokenKind]::Identifier) -and (Get-OtterCurrentToken).Text -eq ',') {
+                [void](Read-OtterToken)
+            }
+            while ((Test-OtterTokenKind ([TokenKind]::Newline)) -or (Test-OtterTokenKind ([TokenKind]::Indent))) {
+                if (Test-OtterTokenKind ([TokenKind]::Indent)) { $indentCount++ }
+                [void](Read-OtterToken)
+            }
+        }
+    }
+
+    while ((Test-OtterTokenKind ([TokenKind]::Newline)) -or (Test-OtterTokenKind ([TokenKind]::Indent))) {
+        if (Test-OtterTokenKind ([TokenKind]::Indent)) { $indentCount++ }
+        [void](Read-OtterToken)
+    }
+
+    [void](Assert-OtterTokenKind ([TokenKind]::From) 'I expected "from" and a table name in query.')
+    while ((Test-OtterTokenKind ([TokenKind]::Newline)) -or (Test-OtterTokenKind ([TokenKind]::Indent))) {
+        if (Test-OtterTokenKind ([TokenKind]::Indent)) { $indentCount++ }
+        [void](Read-OtterToken)
+    }
+
+    $tableTok = Read-OtterToken
+    $tableName = if ($tableTok.Kind -eq [TokenKind]::String) { [string]$tableTok.Value } else { $tableTok.Text }
+
+    while ((Test-OtterTokenKind ([TokenKind]::Newline)) -or (Test-OtterTokenKind ([TokenKind]::Indent))) {
+        if (Test-OtterTokenKind ([TokenKind]::Indent)) { $indentCount++ }
+        [void](Read-OtterToken)
+    }
+
+    [void](Assert-OtterTokenKind ([TokenKind]::In) 'I expected "in" and database connection after table name.')
+    $connection = Read-OtterMathExpression
+
+    $alias = $null
+    if (Test-OtterTokenKind ([TokenKind]::As)) {
+        [void](Read-OtterToken)
+        $aliasTok = Read-OtterVariableName 'I expected alias name after "as".'
+        $alias = $aliasTok.Text
+    }
+
+    if (Test-OtterTokenKind ([TokenKind]::With)) {
+        [void](Read-OtterToken)
+    }
+
+    $where = $null
+    $orderBy = [System.Collections.Generic.List[QueryOrderByItem]]::new()
+    $limit = $null
+    $offset = $null
+    $target = $null
+
+    while (-not (Test-OtterTokenKind ([TokenKind]::EndOfFile))) {
+        while ((Test-OtterTokenKind ([TokenKind]::Newline)) -or (Test-OtterTokenKind ([TokenKind]::Indent)) -or (Test-OtterTokenKind ([TokenKind]::Dedent))) {
+            if (Test-OtterTokenKind ([TokenKind]::Indent)) { $indentCount++ }
+            elseif (Test-OtterTokenKind ([TokenKind]::Dedent)) { $indentCount-- }
+            [void](Read-OtterToken)
+        }
+
+        $k = (Get-OtterCurrentToken).Kind
+        if ($k -eq [TokenKind]::With) {
+            [void](Read-OtterToken)
+        }
+        elseif ($k -eq [TokenKind]::Where) {
+            [void](Read-OtterToken)
+            $where = Read-OtterQueryWhere
+        }
+        elseif ($k -eq [TokenKind]::OrderBy) {
+            [void](Read-OtterToken)
+            $orderBy = Read-OtterQueryOrderByItems
+        }
+        elseif ($k -eq [TokenKind]::Identifier -and (Get-OtterCurrentToken).Text -in @('take', 'first', 'limit')) {
+            [void](Read-OtterToken)
+            $limit = Read-OtterMathExpression
+        }
+        elseif ($k -eq [TokenKind]::Identifier -and (Get-OtterCurrentToken).Text -in @('skip', 'offset')) {
+            [void](Read-OtterToken)
+            $offset = Read-OtterMathExpression
+        }
+        elseif ($k -eq [TokenKind]::Into) {
+            [void](Read-OtterToken)
+            $targetTok = Read-OtterVariableName 'I expected target variable name after "into".'
+            $target = $targetTok.Text
+            break
+        }
+        else {
+            break
+        }
+    }
+
+    if ([string]::IsNullOrEmpty($target)) {
+        throw (New-OtterParserError 'I expected "into" and a result name for the query.' (Get-OtterCurrentToken) 'get all from customers in db into customers')
+    }
+
+    while ($indentCount -gt 0 -and ((Test-OtterTokenKind ([TokenKind]::Dedent)) -or (Test-OtterTokenKind ([TokenKind]::Newline)))) {
+        if (Test-OtterTokenKind ([TokenKind]::Dedent)) { $indentCount-- }
+        [void](Read-OtterToken)
+    }
+    [QueryOrderByItem[]]$orderByArray = if ($null -ne $orderBy) { @($orderBy) } else { @() }
+    [Node[]]$projectionsArray = if ($null -ne $projections) { @($projections) } else { @() }
+    return [QueryStmt]::new($isDistinct, $projectionsArray, $tableName, $connection, $alias, $where, $orderByArray, $limit, $offset, $target, $start.Line)
+}
+
+function Test-OtterAggregateStatementAhead {
+    param([int]$StartPos)
+    $pos = $StartPos + 1
+    $hasFrom = $false
+    $hasInto = $false
+    $hasTo = $false
+    while ($pos -lt $script:Tokens.Count -and $script:Tokens[$pos].Kind -ne [TokenKind]::Newline -and $script:Tokens[$pos].Kind -ne [TokenKind]::EndOfFile) {
+        if ($script:Tokens[$pos].Kind -eq [TokenKind]::From) { $hasFrom = $true }
+        if ($script:Tokens[$pos].Kind -eq [TokenKind]::Into) { $hasInto = $true }
+        if ($script:Tokens[$pos].Kind -eq [TokenKind]::To) { $hasTo = $true }
+        $pos++
+    }
+    if ($script:Tokens[$StartPos].Kind -eq [TokenKind]::Count -and $hasTo -and -not $hasInto) {
+        return $false
+    }
+
+    # Multi-line form:
+    #     sum of score from scores in db with
+    #         where pass is 1
+    #     into passingSum
+    # The first line has `from` but no `into` - the `into` arrives after the
+    # indented `with` block dedents. Keep scanning across that continuation
+    # (and only that: a Newline at depth 0 NOT followed by an Indent ends the
+    # statement) so the trailing `into` line is still seen. Only attempted when
+    # the first line already had `from`, so ordinary `count from 1 to 10`
+    # loops and plain variables named sum/min/max never scan further.
+    if ($hasFrom -and -not $hasInto -and $pos -lt $script:Tokens.Count -and
+        $script:Tokens[$pos].Kind -eq [TokenKind]::Newline -and
+        ($pos + 1) -lt $script:Tokens.Count -and $script:Tokens[$pos + 1].Kind -eq [TokenKind]::Indent) {
+        $depth = 0
+        $limit = [Math]::Min($script:Tokens.Count, $pos + 200)
+        while ($pos -lt $limit) {
+            $k = $script:Tokens[$pos].Kind
+            if ($k -eq [TokenKind]::EndOfFile) { break }
+            if ($k -eq [TokenKind]::Indent) {
+                $depth++
+            } elseif ($k -eq [TokenKind]::Dedent) {
+                $depth--
+            } elseif ($k -eq [TokenKind]::Newline) {
+                if ($depth -le 0) {
+                    $next = $pos + 1
+                    while ($next -lt $limit -and $script:Tokens[$next].Kind -eq [TokenKind]::Newline) { $next++ }
+                    if ($next -ge $limit -or $script:Tokens[$next].Kind -ne [TokenKind]::Indent) { break }
+                }
+            } elseif ($k -eq [TokenKind]::Into -and $depth -le 0) {
+                $hasInto = $true
+                break
+            }
+            $pos++
+        }
+    }
+    return ($hasFrom -and $hasInto)
+}
+
+function Read-OtterQueryAggregateStatement {
+    $start = Read-OtterToken
+    $funcName = $start.Text.ToLowerInvariant()
+    $indentCount = 0
+
+    while ((Test-OtterTokenKind ([TokenKind]::Newline)) -or (Test-OtterTokenKind ([TokenKind]::Indent))) {
+        if (Test-OtterTokenKind ([TokenKind]::Indent)) { $indentCount++ }
+        [void](Read-OtterToken)
+    }
+
+    if (Test-OtterTokenKind ([TokenKind]::Of)) {
+        [void](Read-OtterToken)
+        while ((Test-OtterTokenKind ([TokenKind]::Newline)) -or (Test-OtterTokenKind ([TokenKind]::Indent))) {
+            if (Test-OtterTokenKind ([TokenKind]::Indent)) { $indentCount++ }
+            [void](Read-OtterToken)
+        }
+    }
+
+    $expr = if ($funcName -eq 'count' -and (Get-OtterCurrentToken).Text -eq 'all') {
+        [void](Read-OtterToken)
+        [VariableExpr]::new('*', $start.Line)
+    } else {
+        Read-OtterMathExpression
+    }
+
+    while ((Test-OtterTokenKind ([TokenKind]::Newline)) -or (Test-OtterTokenKind ([TokenKind]::Indent))) {
+        if (Test-OtterTokenKind ([TokenKind]::Indent)) { $indentCount++ }
+        [void](Read-OtterToken)
+    }
+
+    [void](Assert-OtterTokenKind ([TokenKind]::From) 'I expected "from" and table name after aggregate expression.')
+    while ((Test-OtterTokenKind ([TokenKind]::Newline)) -or (Test-OtterTokenKind ([TokenKind]::Indent))) {
+        if (Test-OtterTokenKind ([TokenKind]::Indent)) { $indentCount++ }
+        [void](Read-OtterToken)
+    }
+
+    $tableTok = Read-OtterToken
+    $tableName = if ($tableTok.Kind -eq [TokenKind]::String) { [string]$tableTok.Value } else { $tableTok.Text }
+
+    while ((Test-OtterTokenKind ([TokenKind]::Newline)) -or (Test-OtterTokenKind ([TokenKind]::Indent))) {
+        if (Test-OtterTokenKind ([TokenKind]::Indent)) { $indentCount++ }
+        [void](Read-OtterToken)
+    }
+
+    [void](Assert-OtterTokenKind ([TokenKind]::In) 'I expected "in" and database connection after table name.')
+    $connection = Read-OtterMathExpression
+
+    $alias = $null
+    if (Test-OtterTokenKind ([TokenKind]::As)) {
+        [void](Read-OtterToken)
+        $aliasTok = Read-OtterVariableName 'I expected alias name after "as".'
+        $alias = $aliasTok.Text
+    }
+
+    if (Test-OtterTokenKind ([TokenKind]::With)) {
+        [void](Read-OtterToken)
+    }
+
+    $where = $null
+    $target = $null
+
+    while (-not (Test-OtterTokenKind ([TokenKind]::EndOfFile))) {
+        while ((Test-OtterTokenKind ([TokenKind]::Newline)) -or (Test-OtterTokenKind ([TokenKind]::Indent)) -or (Test-OtterTokenKind ([TokenKind]::Dedent))) {
+            if (Test-OtterTokenKind ([TokenKind]::Indent)) { $indentCount++ }
+            elseif (Test-OtterTokenKind ([TokenKind]::Dedent)) { $indentCount-- }
+            [void](Read-OtterToken)
+        }
+
+        $k = (Get-OtterCurrentToken).Kind
+        if ($k -eq [TokenKind]::With) {
+            [void](Read-OtterToken)
+        }
+        elseif ($k -eq [TokenKind]::Where) {
+            [void](Read-OtterToken)
+            $where = Read-OtterQueryWhere
+        }
+        elseif ($k -eq [TokenKind]::Into) {
+            [void](Read-OtterToken)
+            $targetTok = Read-OtterVariableName 'I expected target variable name after "into".'
+            $target = $targetTok.Text
+            break
+        }
+        else {
+            break
+        }
+    }
+
+    if ([string]::IsNullOrEmpty($target)) {
+        throw (New-OtterParserError 'I expected "into" and a result name for the aggregate.' (Get-OtterCurrentToken) "$funcName ... from $tableName in db into total")
+    }
+
+    while ($indentCount -gt 0 -and ((Test-OtterTokenKind ([TokenKind]::Dedent)) -or (Test-OtterTokenKind ([TokenKind]::Newline)))) {
+        if (Test-OtterTokenKind ([TokenKind]::Dedent)) { $indentCount-- }
+        [void](Read-OtterToken)
+    }
+    if (Test-OtterTokenKind ([TokenKind]::Newline)) {
+        [void](Read-OtterToken)
+    }
+
+    return [QueryAggregateStmt]::new($funcName, $expr, $tableName, $connection, $alias, $where, $target, $start.Line)
+}
+
 function Read-OtterStatement {
     $start = Get-OtterCurrentToken
 
@@ -1432,6 +1957,14 @@ function Read-OtterStatement {
     # A D33 statement-head word still names a variable when the rest of this
     # line makes assignment, list definition, or property assignment explicit.
     # The statement forms themselves remain the switch cases below.
+    $isAggregateQuery = ($start.Kind -in @([TokenKind]::Count, [TokenKind]::Sum, [TokenKind]::Average, [TokenKind]::Minimum, [TokenKind]::Maximum) -or
+        ($start.Kind -eq [TokenKind]::Identifier -and $start.Text -in @('total', 'avg', 'min', 'max'))) -and
+        (Test-OtterAggregateStatementAhead $script:Position)
+
+    if ($isAggregateQuery) {
+        return Read-OtterQueryAggregateStatement
+    }
+
     $statementKind = $start.Kind
     $nextKind = if (($script:Position + 1) -lt $script:Tokens.Count) { $script:Tokens[$script:Position + 1].Kind } else { [TokenKind]::EndOfFile }
     if (-not ($start.Kind -eq [TokenKind]::Count -and $script:OtterBlockDepth -eq 0) -and
@@ -1537,6 +2070,49 @@ function Read-OtterStatement {
         return [FileWatchStmt]::new($watchKind, $path, $recursive, $nameTok.Text, $start.Line)
     }
 
+    # D106: `close websocket socket [with code 1000] [and reason "Done"]`
+    $isCloseWs = ($start.Text -eq 'close' -and $nextKind -notin @([TokenKind]::Is, [TokenKind]::Are, [TokenKind]::Of, [TokenKind]::IsNot) -and
+        ($script:Position + 1) -lt $script:Tokens.Count -and $script:Tokens[$script:Position + 1].Kind -eq [TokenKind]::Identifier -and
+        $script:Tokens[$script:Position + 1].Text -eq 'websocket')
+    if ($isCloseWs) {
+        [void](Read-OtterToken) # close
+        [void](Read-OtterToken) # websocket
+        $wsSocket = Read-OtterValue
+        $wsCode = $null
+        $wsReason = $null
+        if ((Get-OtterCurrentToken).Kind -eq [TokenKind]::With -and
+            ($script:Position + 1) -lt $script:Tokens.Count -and $script:Tokens[$script:Position + 1].Kind -eq [TokenKind]::Identifier -and
+            $script:Tokens[$script:Position + 1].Text -eq 'code') {
+            [void](Read-OtterToken) # with
+            [void](Read-OtterToken) # code
+            $wsCode = Read-OtterValue
+        }
+        if ((Get-OtterCurrentToken).Kind -eq [TokenKind]::And -and
+            ($script:Position + 1) -lt $script:Tokens.Count -and $script:Tokens[$script:Position + 1].Kind -eq [TokenKind]::Identifier -and
+            $script:Tokens[$script:Position + 1].Text -eq 'reason') {
+            [void](Read-OtterToken) # and
+            [void](Read-OtterToken) # reason
+            $wsReason = Read-OtterMathExpression
+        }
+        [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the close websocket statement to end here.')
+        return [WebSocketCloseStmt]::new($wsSocket, $wsCode, $wsReason, $start.Line)
+    }
+
+    # D106: `send "Hello" through socket`
+    $isSendWs = ($start.Text -eq 'send' -and $nextKind -notin @([TokenKind]::Is, [TokenKind]::Are, [TokenKind]::Of, [TokenKind]::IsNot))
+    if ($isSendWs) {
+        [void](Read-OtterToken) # send
+        $wsMessage = Read-OtterMathExpression
+        $throughTok = Get-OtterCurrentToken
+        if (-not ($throughTok.Kind -eq [TokenKind]::Identifier -and $throughTok.Text -eq 'through')) {
+            throw (New-OtterParserError 'I expected "through" and a websocket after the message.' $throughTok 'Write: send "Hello" through socket')
+        }
+        [void](Read-OtterToken) # through
+        $wsSocket = Read-OtterValue
+        [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the send statement to end here.')
+        return [WebSocketSendStmt]::new($wsMessage, $wsSocket, $start.Line)
+    }
+
     switch ($statementKind) {
         ([TokenKind]::Await) {
             $start = Read-OtterToken
@@ -1640,6 +2216,35 @@ function Read-OtterStatement {
                 [void](Read-OtterToken) # in
                 $watcher = Read-OtterValue
                 return [WatchEventStmt]::new([WatchEventKind]::Rename, $watcher, (Read-OtterBlock), $start.Line)
+            }
+            # D106: WebSockets event handlers
+            # on open of <socket>
+            if (($stageTok.Kind -eq [TokenKind]::Open -or $stageTok.Text -eq 'open') -and (Test-OtterTokenOffsetKind 1 ([TokenKind]::Of))) {
+                [void](Read-OtterToken) # open
+                [void](Read-OtterToken) # of
+                $socket = Read-OtterValue
+                return [WebSocketEventStmt]::new([WebSocketEventKind]::Open, $socket, (Read-OtterBlock), $start.Line)
+            }
+            # on message from <socket>
+            if ($stageTok.Text -eq 'message' -and (Test-OtterTokenOffsetKind 1 ([TokenKind]::From))) {
+                [void](Read-OtterToken) # message
+                [void](Read-OtterToken) # from
+                $socket = Read-OtterValue
+                return [WebSocketEventStmt]::new([WebSocketEventKind]::Message, $socket, (Read-OtterBlock), $start.Line)
+            }
+            # on close of <socket>
+            if ($stageTok.Text -eq 'close' -and (Test-OtterTokenOffsetKind 1 ([TokenKind]::Of))) {
+                [void](Read-OtterToken) # close
+                [void](Read-OtterToken) # of
+                $socket = Read-OtterValue
+                return [WebSocketEventStmt]::new([WebSocketEventKind]::Close, $socket, (Read-OtterBlock), $start.Line)
+            }
+            # on error of <socket>
+            if (($stageTok.Kind -eq [TokenKind]::Problem -or $stageTok.Text -eq 'error') -and (Test-OtterTokenOffsetKind 1 ([TokenKind]::Of))) {
+                [void](Read-OtterToken) # error
+                [void](Read-OtterToken) # of
+                $socket = Read-OtterValue
+                return [WebSocketEventStmt]::new([WebSocketEventKind]::Error, $socket, (Read-OtterBlock), $start.Line)
             }
             $stageTok = Read-OtterToken
             if ($stageTok.Text -notin @('start', 'close')) {
@@ -1962,15 +2567,22 @@ function Read-OtterStatement {
             return [RepeatStmt]::new($count, (Read-OtterBlock), $start.Line)
         }
         ([TokenKind]::Count) {
-            [void](Read-OtterToken)
-            [void](Assert-OtterTokenKind ([TokenKind]::From) 'I expected "from" after count.')
-            $from = Read-OtterMathExpression
-            [void](Assert-OtterTokenKind ([TokenKind]::To) 'I expected "to" after the starting number.')
-            $to = Read-OtterMathExpression
-            [void](Assert-OtterTokenKind ([TokenKind]::As) 'I expected "as" before the counter name.')
-            $name = Read-OtterVariableName 'I expected a counter name.'
-            return [CountStmt]::new($name.Text, $from, $to, (Read-OtterBlock), $start.Line)
+            if ($script:Tokens[$script:Position + 1].Kind -eq [TokenKind]::From) {
+                [void](Read-OtterToken)
+                [void](Assert-OtterTokenKind ([TokenKind]::From) 'I expected "from" after count.')
+                $from = Read-OtterMathExpression
+                [void](Assert-OtterTokenKind ([TokenKind]::To) 'I expected "to" after the starting number.')
+                $to = Read-OtterMathExpression
+                [void](Assert-OtterTokenKind ([TokenKind]::As) 'I expected "as" before the counter name.')
+                $name = Read-OtterVariableName 'I expected a counter name.'
+                return [CountStmt]::new($name.Text, $from, $to, (Read-OtterBlock), $start.Line)
+            }
+            return Read-OtterQueryAggregateStatement
         }
+        ([TokenKind]::Sum) { return Read-OtterQueryAggregateStatement }
+        ([TokenKind]::Average) { return Read-OtterQueryAggregateStatement }
+        ([TokenKind]::Minimum) { return Read-OtterQueryAggregateStatement }
+        ([TokenKind]::Maximum) { return Read-OtterQueryAggregateStatement }
         ([TokenKind]::ForEach) {
             [void](Read-OtterToken)
             $name = Read-OtterVariableName 'I expected a loop variable after "for each".'
@@ -1998,6 +2610,9 @@ function Read-OtterStatement {
             return [AskStmt]::new($prompt, $name.Text, $secret, $start.Line)
         }
         ([TokenKind]::Get) {
+            if (Test-OtterIsQueryStatement) {
+                return Read-OtterQueryStatement
+            }
             [void](Read-OtterToken)
             $kind = Get-OtterCurrentToken
             # D67: `get clipboard into text` - "clipboard" stays an
@@ -3087,8 +3702,35 @@ function Read-OtterStatement {
             return [DownloadFileStmt]::new($url, $path, $start.Line)
         }
         # connect database into db                                     (D97)
+        # connect to websocket "wss://..." [using protocol P] and call it X  (D106)
         ([TokenKind]::Connect) {
             [void](Read-OtterToken)
+            # D106: "to" right after "connect" is unambiguous - D97's own
+            # config expression never legitimately starts with the
+            # reserved "to" token, so no backtracking is needed here.
+            if ((Get-OtterCurrentToken).Kind -eq [TokenKind]::To) {
+                [void](Read-OtterToken)
+                if (-not ((Get-OtterCurrentToken).Kind -eq [TokenKind]::Identifier -and (Get-OtterCurrentToken).Text -eq 'websocket')) {
+                    throw (New-OtterParserError 'I expected "websocket" after "connect to".' (Get-OtterCurrentToken) 'Write: connect to websocket "wss://example.com" and call it chat')
+                }
+                [void](Read-OtterToken)
+                $wsUrl = Read-OtterValue
+                $wsProtocol = $null
+                if ((Get-OtterCurrentToken).Kind -eq [TokenKind]::Identifier -and (Get-OtterCurrentToken).Text -eq 'using') {
+                    [void](Read-OtterToken)
+                    if (-not ((Get-OtterCurrentToken).Kind -eq [TokenKind]::Identifier -and (Get-OtterCurrentToken).Text -eq 'protocol')) {
+                        throw (New-OtterParserError 'I expected "protocol" after "using".' (Get-OtterCurrentToken) 'Write: connect to websocket "..." using protocol "chat" and call it chat')
+                    }
+                    [void](Read-OtterToken)
+                    $wsProtocol = Read-OtterValue
+                }
+                [void](Assert-OtterTokenKind ([TokenKind]::And) 'I expected "and call it" and a name.' 'Write: connect to websocket "..." and call it chat')
+                [void](Assert-OtterTokenKind ([TokenKind]::Call) 'I expected "call" after "and".')
+                [void](Assert-OtterTokenKind ([TokenKind]::It) 'I expected "it" after "call".')
+                $wsTarget = Read-OtterVariableName 'I expected a name after "call it".'
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the connect statement to end here.')
+                return [WebSocketConnectStmt]::new($wsUrl, $wsProtocol, $wsTarget.Text, $start.Line)
+            }
             $config = Read-OtterMathExpression
             [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a variable name after the database configuration.' 'Write: connect database into db')
             $target = Read-OtterVariableName 'I expected a variable name after "into".'

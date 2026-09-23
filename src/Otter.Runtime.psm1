@@ -301,6 +301,48 @@ function Test-OtterXml {
     return $Value -is [OtterXml]
 }
 
+# D106: WebSockets. Wraps a real [System.Net.WebSockets.ClientWebSocket]
+class OtterWebSocket {
+    [System.Net.WebSockets.ClientWebSocket]$Native
+    [string]$Url
+    [string]$Protocol
+    [string]$Id
+    [string]$State
+    [string]$LastError
+    [int]$CloseCode
+    [string]$CloseReason
+    [bool]$CloseWasClean
+    [System.Threading.CancellationTokenSource]$Cts
+    [object]$ConnectTask
+    [object]$ReceiveTask
+    [System.IO.MemoryStream]$MessageBuffer
+    [object]$MessageBufferType
+    [bool]$Disposed
+
+    OtterWebSocket([System.Net.WebSockets.ClientWebSocket]$native, [string]$url, [string]$protocol, [string]$id) {
+        $this.Native = $native
+        $this.Url = $url
+        $this.Protocol = $protocol
+        $this.Id = $id
+        $this.State = 'connecting'
+        $this.LastError = $null
+        $this.CloseCode = 0
+        $this.CloseReason = ''
+        $this.CloseWasClean = $false
+        $this.Cts = [System.Threading.CancellationTokenSource]::new()
+        $this.ConnectTask = $null
+        $this.ReceiveTask = $null
+        $this.MessageBuffer = [System.IO.MemoryStream]::new()
+        $this.MessageBufferType = $null
+        $this.Disposed = $false
+    }
+}
+
+function Test-OtterWebSocket {
+    param([object]$Value)
+    return $Value -is [OtterWebSocket]
+}
+
 function New-OtterToday {
     return [OtterDate]::new([datetime]::Now, $false)
 }
@@ -495,6 +537,9 @@ function Format-OtterValue {
     # its OWN serialized text IS the value, so `say document` showing
     # that text is the least surprising choice, not a special case.
     if (Test-OtterXml $Value) { return $Value.Node.OuterXml }
+
+    # D106: WebSockets
+    if (Test-OtterWebSocket $Value) { return "a websocket" }
 
     if (Test-OtterList $Value) {
         $parts = foreach ($item in $Value) { Format-OtterValue -Value $item }
@@ -712,4 +757,4 @@ Export-ModuleMember -Function `
     New-OtterList, Test-OtterList, Test-OtterObject, Test-OtterDate, `
     New-OtterToday, New-OtterNow, Format-OtterValue, Test-OtterTruthy, `
     Test-OtterNumeric, ConvertTo-OtterNumber, Test-OtterEqual, ConvertFrom-OtterInput, `
-    Test-OtterBytes, Test-OtterFileWatcher, Test-OtterXml
+    Test-OtterBytes, Test-OtterFileWatcher, Test-OtterXml, Test-OtterWebSocket

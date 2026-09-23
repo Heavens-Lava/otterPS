@@ -502,9 +502,9 @@ function ConvertTo-OtterJsExpression {
             # Phase 1D-B's `plus` fix (no shared helper added to
             # Otter.Web.psm1's boilerplate).
             if ($isVar) {
-                return "(otterGetElement('$targetName') ? ($uiBranch) : (() => { const _owner = $targetName; if (_owner && typeof _owner === 'object' && _owner.__otterXml) { return $xmlBranch; } if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return $dateBranch; } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('$propOriginal') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called `"$propOriginal`".'); } return _owner.props['$propOriginal']; })())"
+                return "(otterGetElement('$targetName') ? ($uiBranch) : (() => { const _owner = $targetName; if (_owner && typeof _owner === 'object' && _owner.__otterXml) { return $xmlBranch; } if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return $dateBranch; } if (_owner && typeof _owner === 'object' && _owner.__otterWebSocket) { if ('$propOriginal' === 'state') return (_owner.ws.readyState === 0 ? 'connecting' : _owner.ws.readyState === 1 ? 'open' : _owner.ws.readyState === 2 ? 'closing' : 'closed'); if ('$propOriginal' === 'url') return _owner.url; if ('$propOriginal' === 'protocol') return _owner.ws.protocol || _owner.protocol || ''; throw new Error('A websocket has no property called `"$propOriginal`".'); } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('$propOriginal') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called `"$propOriginal`".'); } return _owner.props['$propOriginal']; })())"
             } else {
-                return "((() => { const _owner = ($targetJs); if (_owner && typeof _owner === 'object' && _owner.__otterXml) { return $xmlBranch; } if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return $dateBranch; } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('$propOriginal') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called `"$propOriginal`".'); } return _owner.props['$propOriginal']; })())"
+                return "((() => { const _owner = ($targetJs); if (_owner && typeof _owner === 'object' && _owner.__otterXml) { return $xmlBranch; } if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return $dateBranch; } if (_owner && typeof _owner === 'object' && _owner.__otterWebSocket) { if ('$propOriginal' === 'state') return (_owner.ws.readyState === 0 ? 'connecting' : _owner.ws.readyState === 1 ? 'open' : _owner.ws.readyState === 2 ? 'closing' : 'closed'); if ('$propOriginal' === 'url') return _owner.url; if ('$propOriginal' === 'protocol') return _owner.ws.protocol || _owner.protocol || ''; throw new Error('A websocket has no property called `"$propOriginal`".'); } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('$propOriginal') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called `"$propOriginal`".'); } return _owner.props['$propOriginal']; })())"
             }
         }
         ([NodeKind]::Math) {
@@ -910,6 +910,26 @@ function ConvertTo-OtterJsExpression {
             $xmlJs = ConvertTo-OtterJsExpression -Expr $Expr.Xml
             $prettyJs = if ($Expr.Pretty) { 'true' } else { 'false' }
             return "((_x) => { if (!_x || typeof _x !== 'object' || !_x.__otterXml) { throw new Error('I can only read text from xml, but this is something else.'); } return $prettyJs ? (($script:OtterJsXmlPrettyFunc)(_x.node, _x.node.nodeType === 9)) : new XMLSerializer().serializeToString(_x.node); })($xmlJs)"
+        }
+        ([NodeKind]::WebSocketIsState) {
+            $targetJs = ConvertTo-OtterJsExpression -Expr $Expr.Socket
+            $stateStr = $Expr.ConnState.ToString().ToLowerInvariant()
+            return "((_s) => { if (!_s || typeof _s !== 'object' || !_s.__otterWebSocket) { throw new Error('I can only check the state of a websocket, but this is something else.'); } const _st = (_s.ws.readyState === 0 ? 'connecting' : _s.ws.readyState === 1 ? 'open' : _s.ws.readyState === 2 ? 'closing' : 'closed'); return _st === '$stateStr'; })($targetJs)"
+        }
+        ([NodeKind]::ReceivedMessage) {
+            return '((typeof _otterCurrentWsContext !== "undefined" && _otterCurrentWsContext && "message" in _otterCurrentWsContext) ? _otterCurrentWsContext.message : (() => { throw new Error("\"received message\" is only available inside \"on message from ...\"."); })())'
+        }
+        ([NodeKind]::CloseCode) {
+            return '((typeof _otterCurrentWsContext !== "undefined" && _otterCurrentWsContext && "closeCode" in _otterCurrentWsContext) ? _otterCurrentWsContext.closeCode : (() => { throw new Error("\"close code\" is only available inside \"on close of ...\"."); })())'
+        }
+        ([NodeKind]::CloseReason) {
+            return '((typeof _otterCurrentWsContext !== "undefined" && _otterCurrentWsContext && "closeReason" in _otterCurrentWsContext) ? _otterCurrentWsContext.closeReason : (() => { throw new Error("\"close reason\" is only available inside \"on close of ...\"."); })())'
+        }
+        ([NodeKind]::CloseWasClean) {
+            return '((typeof _otterCurrentWsContext !== "undefined" && _otterCurrentWsContext && "closeWasClean" in _otterCurrentWsContext) ? _otterCurrentWsContext.closeWasClean : (() => { throw new Error("\"close was clean\" is only available inside \"on close of ...\"."); })())'
+        }
+        ([NodeKind]::WebSocketErrorValue) {
+            return '((typeof _otterCurrentWsContext !== "undefined" && _otterCurrentWsContext && "error" in _otterCurrentWsContext) ? _otterCurrentWsContext.error : (() => { throw new Error("\"websocket error\" is only available inside \"on error of ...\"."); })())'
         }
         ([NodeKind]::DateDifferenceValue) {
             # D60 Phase 1J (D42). The expression form of `days between X and
@@ -3195,6 +3215,53 @@ function ConvertTo-OtterJsStatement {
             $elemJs = ConvertTo-OtterJsExpression -Expr $Stmt.Element
             return "${pad}((_e, _n) => { if (!_e || typeof _e !== 'object' || !_e.__otterXml) { throw new Error('I can only remove an attribute of an xml element, but this is something else.'); } if (_e.node.nodeType !== 1) { throw new Error('I can only remove an attribute of on an xml element, but this is an xml document.'); } _e.node.removeAttribute(String(_n)); })($elemJs, $nameJs);"
         }
+        # D106: WebSockets - console AND web both supported.
+        ([NodeKind]::WebSocketConnect) {
+            $urlJs = ConvertTo-OtterJsExpression -Expr $Stmt.Url
+            $protocolJs = if ($null -ne $Stmt.Protocol) { ConvertTo-OtterJsExpression -Expr $Stmt.Protocol } else { 'null' }
+            $target = $Stmt.Target
+            $ctorJs = "((_u, _p) => { const _url = String(_u).trim(); if (!_url.toLowerCase().startsWith('ws://') && !_url.toLowerCase().startsWith('wss://')) { throw new Error('I need a websocket URL starting with \'ws://\' or \'wss://\', but this was \'' + _url + '\'.'); } const _ws = _p ? new WebSocket(_url, [_p]) : new WebSocket(_url); _ws.binaryType = 'arraybuffer'; return { __otterWebSocket: true, ws: _ws, url: _url, protocol: _p || '', toString() { return 'a websocket'; } }; })($urlJs, $protocolJs)"
+            if ($LocalNames -and $LocalNames.Contains($target)) {
+                return "${pad}$target = $ctorJs;"
+            }
+            return "${pad}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$target' in otterState)) { otterSetState('$target', $ctorJs); } else { window.$target = $ctorJs; }"
+        }
+        ([NodeKind]::WebSocketSend) {
+            $socketJs = ConvertTo-OtterJsExpression -Expr $Stmt.Socket
+            $msgJs = ConvertTo-OtterJsExpression -Expr $Stmt.Message
+            return "${pad}((_s, _m) => { if (!_s || typeof _s !== 'object' || !_s.__otterWebSocket) { throw new Error('I can only send through a websocket, but this is something else.'); } if (_s.ws.readyState !== 1) { throw new Error('I cannot send through a websocket that is not open (its state is \'' + (_s.ws.readyState === 0 ? 'connecting' : _s.ws.readyState === 2 ? 'closing' : 'closed') + '\').'); } if (typeof _m === 'string') { _s.ws.send(_m); } else if (_m && typeof _m === 'object' && _m.__otterBytes) { _s.ws.send(_m.value.buffer); } else { throw new Error('I can only send text or bytes through a websocket, but this is something else.'); } })($socketJs, $msgJs);"
+        }
+        ([NodeKind]::WebSocketClose) {
+            $socketJs = ConvertTo-OtterJsExpression -Expr $Stmt.Socket
+            $codeJs = if ($null -ne $Stmt.Code) { ConvertTo-OtterJsExpression -Expr $Stmt.Code } else { '1000' }
+            $reasonJs = if ($null -ne $Stmt.Reason) { ConvertTo-OtterJsExpression -Expr $Stmt.Reason } else { '""' }
+            return "${pad}((_s, _c, _r) => { if (!_s || typeof _s !== 'object' || !_s.__otterWebSocket) { throw new Error('I can only close a websocket, but this is something else.'); } if (_s.ws.readyState <= 1) { _s.ws.close(_c, _r); } })($socketJs, $codeJs, $reasonJs);"
+        }
+        ([NodeKind]::WebSocketEvent) {
+            $socketJs = ConvertTo-OtterJsExpression -Expr $Stmt.Socket
+            $eventKind = $Stmt.EventKind.ToString().ToLowerInvariant()
+            $bodyLines = [System.Collections.Generic.List[string]]::new()
+            foreach ($s in $Stmt.Body) {
+                $line = ConvertTo-OtterJsStatement -Stmt $s -Indent ($Indent + 2) -LocalNames $LocalNames
+                if ($line) { $bodyLines.Add($line) }
+            }
+            $bodyJs = $bodyLines -join "`n"
+
+            switch ($eventKind) {
+                'open' {
+                    return "${pad}((_s) => { if (!_s || typeof _s !== 'object' || !_s.__otterWebSocket) { throw new Error('I can only listen for a websocket event on a websocket, but this is something else.'); } _s.ws.addEventListener('open', async () => {`n$bodyJs`n${pad}  }); })($socketJs);"
+                }
+                'message' {
+                    return "${pad}((_s) => { if (!_s || typeof _s !== 'object' || !_s.__otterWebSocket) { throw new Error('I can only listen for a websocket event on a websocket, but this is something else.'); } _s.ws.addEventListener('message', async (_evt) => { const _prev = (typeof _otterCurrentWsContext !== 'undefined' ? _otterCurrentWsContext : null); const _msg = (_evt.data instanceof ArrayBuffer) ? { __otterBytes: true, value: new Uint8Array(_evt.data), toString() { return '<' + this.value.length + ' bytes>'; } } : _evt.data; _otterCurrentWsContext = { message: _msg }; try {`n$bodyJs`n${pad}  } finally { _otterCurrentWsContext = _prev; } }); })($socketJs);"
+                }
+                'close' {
+                    return "${pad}((_s) => { if (!_s || typeof _s !== 'object' || !_s.__otterWebSocket) { throw new Error('I can only listen for a websocket event on a websocket, but this is something else.'); } _s.ws.addEventListener('close', async (_evt) => { const _prev = (typeof _otterCurrentWsContext !== 'undefined' ? _otterCurrentWsContext : null); _otterCurrentWsContext = { closeCode: _evt.code, closeReason: _evt.reason || '', closeWasClean: _evt.wasClean }; try {`n$bodyJs`n${pad}  } finally { _otterCurrentWsContext = _prev; } }); })($socketJs);"
+                }
+                'error' {
+                    return "${pad}((_s) => { if (!_s || typeof _s !== 'object' || !_s.__otterWebSocket) { throw new Error('I can only listen for a websocket event on a websocket, but this is something else.'); } _s.ws.addEventListener('error', async (_evt) => { const _prev = (typeof _otterCurrentWsContext !== 'undefined' ? _otterCurrentWsContext : null); _otterCurrentWsContext = { error: 'WebSocket error' }; try {`n$bodyJs`n${pad}  } finally { _otterCurrentWsContext = _prev; } }); })($socketJs);"
+                }
+            }
+        }
         default {
             return ""
         }
@@ -3360,6 +3427,12 @@ function Get-OtterJsBindingNames {
                 if ($s.ErrorTarget) { [void]$setStyle.Add($s.ErrorTarget) }
                 [void](Walk-OtterBindingScan -Stmts $s.Body)
                 if ($s.OtherwiseBody) { [void](Walk-OtterBindingScan -Stmts $s.OtherwiseBody) }
+            }
+            if ($s.Kind -eq [NodeKind]::WebSocketConnect -and $s.Target) {
+                [void]$setStyle.Add($s.Target)
+            }
+            if ($s.Kind -eq [NodeKind]::WebSocketEvent) {
+                [void](Walk-OtterBindingScan -Stmts $s.Body)
             }
             if ($DescendIntoFunctionDefs -and $s.Kind -eq [NodeKind]::FunctionDef) {
                 [void](Walk-OtterBindingScan -Stmts $s.Body)

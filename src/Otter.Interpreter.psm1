@@ -208,71 +208,261 @@ function Stop-OtterFileWatcherInternal {
 # watching). Real OS file-system events, not polling - the 1-second
 # Wait-Event timeout only re-checks "should this loop exit now", it is
 # not how changes are detected.
-function Invoke-OtterWatchEventLoop {
-    while ($script:OtterActiveWatchers.Count -gt 0) {
-        $evt = Wait-Event -Timeout 1
-        if ($null -eq $evt) { continue }
-        Remove-Event -EventIdentifier $evt.EventIdentifier -ErrorAction SilentlyContinue
+# ===============================================================
+# WEBSOCKETS (D106)
+# ===============================================================
 
-        $watcherObj = $evt.MessageData
-        if ($null -eq $watcherObj -or -not $watcherObj.Active) { continue }
+$script:OtterActiveWebSockets = [System.Collections.Generic.List[OtterWebSocket]]::new()
+$script:OtterWebSocketHandlers = [System.Collections.Generic.Dictionary[object, System.Collections.Generic.List[hashtable]]]::new()
+$script:OtterCurrentWsContext = $null
 
-        $sourceId = $evt.SourceIdentifier
-        $kindWord = $sourceId.Substring($sourceId.LastIndexOf('_') + 1)
+function Close-OtterWebSocketInternal {
+    param([Parameter(Mandatory)][OtterWebSocket]$Socket)
+    if ($Socket.Disposed) { return }
+    $Socket.Disposed = $true
+    try {
+        $Socket.Cts.Cancel()
+    } catch {}
+    try {
+        $Socket.Native.Dispose()
+    } catch {}
+    try {
+        $Socket.MessageBuffer.Dispose()
+    } catch {}
+}
 
-        if ($kindWord -eq 'Error') {
-            # D104 section 22: surface a runtime diagnostic rather than
-            # silently going quiet - printed directly (there is no single
-            # "current statement" this background failure belongs to).
-            Write-OtterDiagnostic -Level 'error' -Text "A file watcher stopped working unexpectedly for ""$($watcherObj.Path)""."
-            Stop-OtterFileWatcherInternal -Watcher $watcherObj
-            continue
+function Invoke-OtterWebSocketHandlers {
+    param(
+        [Parameter(Mandatory)][OtterWebSocket]$Socket,
+        [Parameter(Mandatory)][WebSocketEventKind]$EventKind,
+        [Parameter(Mandatory)][hashtable]$Context
+    )
+
+    if (-not $script:OtterWebSocketHandlers.ContainsKey($Socket)) { return }
+    $handlers = $script:OtterWebSocketHandlers[$Socket] | Where-Object { $_.EventKind -eq $EventKind }
+    if (-not $handlers) { return }
+
+    $prevContext = $script:OtterCurrentWsContext
+    $script:OtterCurrentWsContext = $Context
+    try {
+        foreach ($h in $handlers) {
+            Invoke-OtterStatements -Statements $h.Body -Environment $h.Environment
         }
+    } finally {
+        $script:OtterCurrentWsContext = $prevContext
+    }
+}
 
-        $eventKind = switch ($kindWord) {
-            'Changed' { [WatchEventKind]::Change }
-            'Created' { [WatchEventKind]::Create }
-            'Deleted' { [WatchEventKind]::Delete }
-            'Renamed' { [WatchEventKind]::Rename }
-            default { $null }
+function Invoke-OtterWatchEventLoopStep {
+    param([double]$Timeout = 0.05)
+    if ($script:OtterActiveWatchers.Count -eq 0) { return }
+    $evt = Wait-Event -Timeout $Timeout
+    if ($null -eq $evt) { return }
+    Remove-Event -EventIdentifier $evt.EventIdentifier -ErrorAction SilentlyContinue
+
+    $watcherObj = $evt.MessageData
+    if ($null -eq $watcherObj -or -not $watcherObj.Active) { return }
+
+    $sourceId = $evt.SourceIdentifier
+    $kindWord = $sourceId.Substring($sourceId.LastIndexOf('_') + 1)
+
+    if ($kindWord -eq 'Error') {
+        # D104 section 22: surface a runtime diagnostic rather than
+        # silently going quiet - printed directly (there is no single
+        # "current statement" this background failure belongs to).
+        Write-OtterDiagnostic -Level 'error' -Text "A file watcher stopped working unexpectedly for ""$($watcherObj.Path)""."
+        Stop-OtterFileWatcherInternal -Watcher $watcherObj
+        return
+    }
+
+    $eventKind = switch ($kindWord) {
+        'Changed' { [WatchEventKind]::Change }
+        'Created' { [WatchEventKind]::Create }
+        'Deleted' { [WatchEventKind]::Delete }
+        'Renamed' { [WatchEventKind]::Rename }
+        default { $null }
+    }
+    if ($null -eq $eventKind) { return }
+
+    $evtArgs = $evt.SourceEventArgs
+    $path = $evtArgs.FullPath
+    $oldPath = if ($eventKind -eq [WatchEventKind]::Rename) { $evtArgs.OldFullPath } else { $null }
+
+    $debounceKey = "$($watcherObj.GetHashCode())|$kindWord|$path"
+    if (Test-OtterWatchEventShouldCoalesce -Key $debounceKey) { return }
+
+    if (-not $script:OtterWatcherHandlers.ContainsKey($watcherObj)) { return }
+    $handlers = $script:OtterWatcherHandlers[$watcherObj] | Where-Object { $_.EventKind -eq $eventKind }
+    if (-not $handlers) { return }
+
+    $changeKindText = switch ($eventKind) {
+        ([WatchEventKind]::Change) { 'changed' }
+        ([WatchEventKind]::Create) { 'created' }
+        ([WatchEventKind]::Delete) { 'deleted' }
+        ([WatchEventKind]::Rename) { 'renamed' }
+    }
+    $previousContext = $script:OtterCurrentWatchEvent
+    $script:OtterCurrentWatchEvent = @{
+        Path = $path
+        FileName = Split-Path -Leaf $path
+        Kind = $changeKindText
+        OldPath = $oldPath
+    }
+    try {
+        # D104 section 24: handlers run one at a time, on this same
+        # thread, through the ordinary interpreter - never concurrently,
+        # never re-entering this loop mid-handler.
+        foreach ($h in $handlers) {
+            Invoke-OtterStatements -Statements $h.Body -Environment $h.Environment
         }
-        if ($null -eq $eventKind) { continue }
+    } finally {
+        $script:OtterCurrentWatchEvent = $previousContext
+    }
+}
 
-        $evtArgs = $evt.SourceEventArgs
-        $path = $evtArgs.FullPath
-        $oldPath = if ($eventKind -eq [WatchEventKind]::Rename) { $evtArgs.OldFullPath } else { $null }
-
-        $debounceKey = "$($watcherObj.GetHashCode())|$kindWord|$path"
-        if (Test-OtterWatchEventShouldCoalesce -Key $debounceKey) { continue }
-
-        if (-not $script:OtterWatcherHandlers.ContainsKey($watcherObj)) { continue }
-        $handlers = $script:OtterWatcherHandlers[$watcherObj] | Where-Object { $_.EventKind -eq $eventKind }
-        if (-not $handlers) { continue }
-
-        $changeKindText = switch ($eventKind) {
-            ([WatchEventKind]::Change) { 'changed' }
-            ([WatchEventKind]::Create) { 'created' }
-            ([WatchEventKind]::Delete) { 'deleted' }
-            ([WatchEventKind]::Rename) { 'renamed' }
-        }
-        $previousContext = $script:OtterCurrentWatchEvent
-        $script:OtterCurrentWatchEvent = @{
-            Path = $path
-            FileName = Split-Path -Leaf $path
-            Kind = $changeKindText
-            OldPath = $oldPath
-        }
-        try {
-            # D104 section 24: handlers run one at a time, on this same
-            # thread, through the ordinary interpreter - never concurrently,
-            # never re-entering this loop mid-handler.
-            foreach ($h in $handlers) {
-                Invoke-OtterStatements -Statements $h.Body -Environment $h.Environment
+function Invoke-OtterWebSocketEventLoopStep {
+    $sockets = @($script:OtterActiveWebSockets)
+    foreach ($ws in $sockets) {
+        if ($ws.State -eq 'connecting') {
+            if ($null -ne $ws.ConnectTask -and $ws.ConnectTask.IsCompleted) {
+                if ($ws.ConnectTask.IsFaulted -or $ws.ConnectTask.IsCanceled) {
+                    $ws.State = 'closed'
+                    $errText = if ($null -ne $ws.ConnectTask.Exception) {
+                        $ws.ConnectTask.Exception.GetBaseException().Message
+                    } else {
+                        "Failed to connect to $($ws.Url)"
+                    }
+                    $ws.LastError = $errText
+                    $ws.CloseCode = 1006
+                    $ws.CloseReason = $errText
+                    $ws.CloseWasClean = $false
+                    Invoke-OtterWebSocketHandlers -Socket $ws -EventKind ([WebSocketEventKind]::Error) -Context @{ Error = $errText }
+                    Invoke-OtterWebSocketHandlers -Socket $ws -EventKind ([WebSocketEventKind]::Close) -Context @{ CloseCode = 1006; CloseReason = $errText; CloseWasClean = $false }
+                } else {
+                    $ws.State = 'open'
+                    if (-not [string]::IsNullOrEmpty($ws.Native.SubProtocol)) {
+                        $ws.Protocol = $ws.Native.SubProtocol
+                    }
+                    Invoke-OtterWebSocketHandlers -Socket $ws -EventKind ([WebSocketEventKind]::Open) -Context @{}
+                }
             }
-        } finally {
-            $script:OtterCurrentWatchEvent = $previousContext
+        }
+        elseif ($ws.State -eq 'open') {
+            if ($ws.Native.State -in @([System.Net.WebSockets.WebSocketState]::CloseReceived, [System.Net.WebSockets.WebSocketState]::Closed, [System.Net.WebSockets.WebSocketState]::Aborted)) {
+                $ws.State = 'closed'
+                $code = if ($null -ne $ws.Native.CloseStatus) { [int]$ws.Native.CloseStatus } else { 1000 }
+                $reason = if ($null -ne $ws.Native.CloseStatusDescription) { [string]$ws.Native.CloseStatusDescription } else { '' }
+                $clean = ($code -eq 1000)
+                $ws.CloseCode = $code
+                $ws.CloseReason = $reason
+                $ws.CloseWasClean = $clean
+                Invoke-OtterWebSocketHandlers -Socket $ws -EventKind ([WebSocketEventKind]::Close) -Context @{ CloseCode = $code; CloseReason = $reason; CloseWasClean = $clean }
+                continue
+            }
+
+            if ($null -eq $ws.ReceiveTask) {
+                $buf = [byte[]]::new(65536)
+                $seg = [System.ArraySegment[byte]]::new($buf)
+                $ws.ReceiveTask = @{ Task = $ws.Native.ReceiveAsync($seg, $ws.Cts.Token); Buffer = $buf }
+            }
+
+            if ($ws.ReceiveTask.Task.IsCompleted) {
+                $task = $ws.ReceiveTask.Task
+                $buf = $ws.ReceiveTask.Buffer
+                $ws.ReceiveTask = $null
+
+                if ($task.IsFaulted -or $task.IsCanceled) {
+                    $ws.State = 'closed'
+                    $errText = if ($null -ne $task.Exception) {
+                        $task.Exception.GetBaseException().Message
+                    } else {
+                        "WebSocket connection ended unexpectedly"
+                    }
+                    $ws.LastError = $errText
+                    $ws.CloseCode = 1006
+                    $ws.CloseReason = $errText
+                    $ws.CloseWasClean = $false
+                    Invoke-OtterWebSocketHandlers -Socket $ws -EventKind ([WebSocketEventKind]::Error) -Context @{ Error = $errText }
+                    Invoke-OtterWebSocketHandlers -Socket $ws -EventKind ([WebSocketEventKind]::Close) -Context @{ CloseCode = 1006; CloseReason = $errText; CloseWasClean = $false }
+                } else {
+                    $res = $task.Result
+                    if ($res.MessageType -eq [System.Net.WebSockets.WebSocketMessageType]::Close) {
+                        $ws.State = 'closed'
+                        $ws.CloseCode = if ($null -ne $res.CloseStatus) { [int]$res.CloseStatus } else { 1000 }
+                        $ws.CloseReason = if ($null -ne $res.CloseStatusDescription) { [string]$res.CloseStatusDescription } else { '' }
+                        $ws.CloseWasClean = ($ws.CloseCode -eq 1000)
+                        Invoke-OtterWebSocketHandlers -Socket $ws -EventKind ([WebSocketEventKind]::Close) -Context @{ CloseCode = $ws.CloseCode; CloseReason = $ws.CloseReason; CloseWasClean = $ws.CloseWasClean }
+                    } else {
+                        $ws.MessageBuffer.Write($buf, 0, $res.Count)
+                        if ($null -eq $ws.MessageBufferType) { $ws.MessageBufferType = $res.MessageType }
+                        if ($res.EndOfMessage) {
+                            $msg = if ($ws.MessageBufferType -eq [System.Net.WebSockets.WebSocketMessageType]::Text) {
+                                [System.Text.Encoding]::UTF8.GetString($ws.MessageBuffer.ToArray())
+                            } else {
+                                [OtterBytes]::new($ws.MessageBuffer.ToArray())
+                            }
+                            $ws.MessageBuffer.SetLength(0)
+                            $ws.MessageBufferType = $null
+                            Invoke-OtterWebSocketHandlers -Socket $ws -EventKind ([WebSocketEventKind]::Message) -Context @{ Message = $msg }
+                        }
+                    }
+                }
+            }
+        }
+        elseif ($ws.State -eq 'closing') {
+            if ($ws.Native.State -in @([System.Net.WebSockets.WebSocketState]::Closed, [System.Net.WebSockets.WebSocketState]::Aborted, [System.Net.WebSockets.WebSocketState]::CloseReceived)) {
+                $ws.State = 'closed'
+                Invoke-OtterWebSocketHandlers -Socket $ws -EventKind ([WebSocketEventKind]::Close) -Context @{ CloseCode = $ws.CloseCode; CloseReason = $ws.CloseReason; CloseWasClean = $ws.CloseWasClean }
+                continue
+            }
+
+            if ($null -eq $ws.ReceiveTask) {
+                $buf = [byte[]]::new(4096)
+                $seg = [System.ArraySegment[byte]]::new($buf)
+                $ws.ReceiveTask = @{ Task = $ws.Native.ReceiveAsync($seg, $ws.Cts.Token); Buffer = $buf }
+            }
+
+            if ($ws.ReceiveTask.Task.IsCompleted) {
+                $ws.ReceiveTask = $null
+                $ws.State = 'closed'
+                Invoke-OtterWebSocketHandlers -Socket $ws -EventKind ([WebSocketEventKind]::Close) -Context @{ CloseCode = $ws.CloseCode; CloseReason = $ws.CloseReason; CloseWasClean = $ws.CloseWasClean }
+            }
         }
     }
+}
+
+function Invoke-OtterEventLoop {
+    while ($true) {
+        $hasWatchers = ($script:OtterActiveWatchers.Count -gt 0)
+        $hasSockets = $false
+        foreach ($ws in $script:OtterActiveWebSockets) {
+            if ($ws.State -in @('connecting', 'open', 'closing')) {
+                if ($script:OtterWebSocketHandlers.ContainsKey($ws) -and $script:OtterWebSocketHandlers[$ws].Count -gt 0) {
+                    $hasSockets = $true
+                    break
+                }
+            }
+        }
+
+        if (-not $hasWatchers -and -not $hasSockets) {
+            break
+        }
+
+        if ($hasWatchers) {
+            $watchTimeout = if ($hasSockets) { 0.02 } else { 0.5 }
+            Invoke-OtterWatchEventLoopStep -Timeout $watchTimeout
+        } elseif ($hasSockets) {
+            Start-Sleep -Milliseconds 10
+        }
+
+        if ($hasSockets) {
+            Invoke-OtterWebSocketEventLoopStep
+        }
+    }
+}
+
+function Invoke-OtterWatchEventLoop {
+    Invoke-OtterEventLoop
 }
 
 # ===============================================================
@@ -544,14 +734,15 @@ function Invoke-OtterProgram {
     $script:OtterCurrentWatchEvent = $null
     $script:OtterWatchLastEventAt = @{}
 
+    # D106: reset per-run websocket state
+    $script:OtterActiveWebSockets = [System.Collections.Generic.List[OtterWebSocket]]::new()
+    $script:OtterWebSocketHandlers = [System.Collections.Generic.Dictionary[object, System.Collections.Generic.List[hashtable]]]::new()
+    $script:OtterCurrentWsContext = $null
+
     try {
         Invoke-OtterStatements -Statements $Program.Statements -Environment $Environment
-        # D104: a program that registered a watcher and never stopped it
-        # stays alive here, dispatching real file-system events, until
-        # every watcher is stopped (explicitly, or the process exits).
-        # Returns immediately - no watchers, no behavior change at all -
-        # for every program that doesn't use D104.
-        Invoke-OtterWatchEventLoop
+        # D104 & D106: unified event loop for file watchers and active websockets
+        Invoke-OtterEventLoop
     }
     catch {
         # D37: "stop" (and a hypothetical top-level "return") both throw an
@@ -571,6 +762,7 @@ function Invoke-OtterProgram {
     }
     finally {
         foreach ($w in @($script:OtterActiveWatchers)) { Stop-OtterFileWatcherInternal -Watcher $w }
+        foreach ($ws in @($script:OtterActiveWebSockets)) { Close-OtterWebSocketInternal -Socket $ws }
     }
 }
 
@@ -583,6 +775,147 @@ function Invoke-OtterStatements {
     }
 }
 
+
+# ===============================================================
+# D99: OTTER QUERY LANGUAGE (OQL) SQL CONVERSION
+# ===============================================================
+
+function New-OtterQueryParamName {
+    param([int[]]$ParamIndex)
+    $curr = $ParamIndex[0]
+    $ParamIndex[0] = $curr + 1
+    return "p$curr"
+}
+
+function ConvertTo-OtterQuerySqlExpression {
+    param(
+        [Parameter(Mandatory)][Node]$Node,
+        [Parameter(Mandatory)][OtterEnvironment]$Environment,
+        [Parameter(Mandatory)][hashtable]$Parameters,
+        [Parameter(Mandatory)][int[]]$ParamIndex,
+        [switch]$IsWhereClause
+    )
+
+    if ($Node -is [VariableExpr]) {
+        if ($Node.Name -eq '*') { return '*' }
+        return "[$($Node.Name)]"
+    }
+
+    if ($Node -is [PropertyAccessExpr]) {
+        $targetName = if ($Node.Target -is [VariableExpr]) { $Node.Target.Name } else { 'col' }
+        return "[$targetName].[$($Node.Property)]"
+    }
+
+    if ($Node -is [LiteralExpr]) {
+        $pName = New-OtterQueryParamName $ParamIndex
+        $val = $Node.Value
+        if ($null -eq $val) {
+            $Parameters[$pName] = [System.DBNull]::Value
+        } else {
+            $Parameters[$pName] = $val
+        }
+        return "@$pName"
+    }
+
+    if ($Node -is [QueryBetweenExpr]) {
+        $colSql = ConvertTo-OtterQuerySqlExpression -Node $Node.Expression -Environment $Environment -Parameters $Parameters -ParamIndex $ParamIndex
+        $lowVal = Get-OtterValue -Expression $Node.Lower -Environment $Environment
+        $highVal = Get-OtterValue -Expression $Node.Upper -Environment $Environment
+        $pLow = New-OtterQueryParamName $ParamIndex
+        $pHigh = New-OtterQueryParamName $ParamIndex
+        $Parameters[$pLow] = if ($null -eq $lowVal) { [System.DBNull]::Value } else { $lowVal }
+        $Parameters[$pHigh] = if ($null -eq $highVal) { [System.DBNull]::Value } else { $highVal }
+        return "($colSql BETWEEN @$pLow AND @$pHigh)"
+    }
+
+    if ($Node -is [QueryInExpr]) {
+        $colSql = ConvertTo-OtterQuerySqlExpression -Node $Node.Expression -Environment $Environment -Parameters $Parameters -ParamIndex $ParamIndex
+        $itemsVal = Get-OtterValue -Expression $Node.Collection -Environment $Environment
+        $itemsList = [System.Collections.Generic.List[object]]::new()
+        if ($itemsVal -is [System.Collections.IEnumerable] -and $itemsVal -isnot [string]) {
+            foreach ($it in $itemsVal) { $itemsList.Add($it) }
+        } elseif ($null -ne $itemsVal) {
+            $itemsList.Add($itemsVal)
+        }
+
+        if ($itemsList.Count -eq 0) {
+            if ($Node.IsNot) { return '(1 = 1)' } else { return '(1 = 0)' }
+        }
+
+        $paramNames = [System.Collections.Generic.List[string]]::new()
+        foreach ($it in $itemsList) {
+            $pName = New-OtterQueryParamName $ParamIndex
+            $Parameters[$pName] = if ($null -eq $it) { [System.DBNull]::Value } else { $it }
+            $paramNames.Add("@$pName")
+        }
+        $inListSql = $paramNames -join ', '
+        $opSql = if ($Node.IsNot) { 'NOT IN' } else { 'IN' }
+        return "($colSql $opSql ($inListSql))"
+    }
+
+    if ($Node -is [TextMatchExpr]) {
+        $colSql = ConvertTo-OtterQuerySqlExpression -Node $Node.Subject -Environment $Environment -Parameters $Parameters -ParamIndex $ParamIndex
+        $patternVal = Get-OtterValue -Expression $Node.Value -Environment $Environment
+        $patternStr = if ($null -ne $patternVal) { [string]$patternVal } else { '' }
+        $sqlPattern = if ($Node.Match -eq [TextMatch]::StartsWith) { "$patternStr%" } else { "%$patternStr" }
+        $pName = New-OtterQueryParamName $ParamIndex
+        $Parameters[$pName] = $sqlPattern
+        return "($colSql LIKE @$pName)"
+    }
+
+    if ($Node -is [ContainsExpr]) {
+        $colSql = ConvertTo-OtterQuerySqlExpression -Node $Node.Collection -Environment $Environment -Parameters $Parameters -ParamIndex $ParamIndex
+        $patternVal = Get-OtterValue -Expression $Node.Item -Environment $Environment
+        $patternStr = if ($null -ne $patternVal) { [string]$patternVal } else { '' }
+        $pName = New-OtterQueryParamName $ParamIndex
+        $Parameters[$pName] = "%$patternStr%"
+        return "($colSql LIKE @$pName)"
+    }
+
+    if ($Node -is [ComparisonExpr]) {
+        $colSql = ConvertTo-OtterQuerySqlExpression -Node $Node.Left -Environment $Environment -Parameters $Parameters -ParamIndex $ParamIndex
+        $rightVal = Get-OtterValue -Expression $Node.Right -Environment $Environment
+        
+        if ($null -eq $rightVal) {
+            if ($Node.Op -eq [CompareOp]::Equal) {
+                return "($colSql IS NULL)"
+            } elseif ($Node.Op -eq [CompareOp]::NotEqual) {
+                return "($colSql IS NOT NULL)"
+            }
+        }
+
+        $pName = New-OtterQueryParamName $ParamIndex
+        $Parameters[$pName] = if ($null -eq $rightVal) { [System.DBNull]::Value } else { $rightVal }
+
+        $opSql = switch ($Node.Op) {
+            ([CompareOp]::Equal) { '=' }
+            ([CompareOp]::NotEqual) { '<>' }
+            ([CompareOp]::GreaterThan) { '>' }
+            ([CompareOp]::AtLeast) { '>=' }
+            ([CompareOp]::LessThan) { '<' }
+            ([CompareOp]::AtMost) { '<=' }
+            default { '=' }
+        }
+        return "($colSql $opSql @$pName)"
+    }
+
+    if ($Node -is [LogicalExpr]) {
+        $leftSql = ConvertTo-OtterQuerySqlExpression -Node $Node.Left -Environment $Environment -Parameters $Parameters -ParamIndex $ParamIndex -IsWhereClause
+        $rightSql = ConvertTo-OtterQuerySqlExpression -Node $Node.Right -Environment $Environment -Parameters $Parameters -ParamIndex $ParamIndex -IsWhereClause
+        $opSql = if ($Node.Op -eq [LogicalOp]::Or) { 'OR' } else { 'AND' }
+        return "($leftSql $opSql $rightSql)"
+    }
+
+    if ($Node -is [NotExpr]) {
+        $innerSql = ConvertTo-OtterQuerySqlExpression -Node $Node.Operand -Environment $Environment -Parameters $Parameters -ParamIndex $ParamIndex -IsWhereClause
+        return "(NOT $innerSql)"
+    }
+
+    $val = Get-OtterValue -Expression $Node -Environment $Environment
+    $pName = New-OtterQueryParamName $ParamIndex
+    $Parameters[$pName] = if ($null -eq $val) { [System.DBNull]::Value } else { $val }
+    return "@$pName"
+}
 
 # ===============================================================
 # STATEMENTS
@@ -1078,6 +1411,170 @@ function Invoke-OtterStatement {
             return
         }
 
+        # get ... from table in db [as alias] [where ...] [order by ...] [take N] [skip M] into target  (D99)
+        'QueryStmt' {
+            $conn = Get-OtterValue -Expression $Statement.Connection -Environment $Environment
+            $parameters = @{}
+            $paramIndex = [int[]]@(0)
+
+            $projParts = [System.Collections.Generic.List[string]]::new()
+            if ($null -eq $Statement.Projections -or $Statement.Projections.Count -eq 0) {
+                $projParts.Add('*')
+            } else {
+                foreach ($p in $Statement.Projections) {
+                    if ($p -is [VariableExpr]) {
+                        if ($p.Name -eq '*') { $projParts.Add('*') }
+                        else { $projParts.Add("[$($p.Name)]") }
+                    } elseif ($p -is [PropertyAccessExpr]) {
+                        $t = if ($p.Target -is [VariableExpr]) { $p.Target.Name } else { 'col' }
+                        $projParts.Add("[$t].[$($p.PropertyName)]")
+                    } else {
+                        $pName = Get-OtterText -Expression $p -Environment $Environment
+                        $projParts.Add("[$pName]")
+                    }
+                }
+            }
+            $distinctSql = if ($Statement.IsDistinct) { 'DISTINCT ' } else { '' }
+            $projsSql = $projParts -join ', '
+
+            $tableSql = "[$($Statement.Table)]"
+            if (-not [string]::IsNullOrEmpty($Statement.Alias)) {
+                $tableSql += " AS [$($Statement.Alias)]"
+            }
+
+            $whereSql = ''
+            if ($null -ne $Statement.Where) {
+                $whereSql = ConvertTo-OtterQuerySqlExpression -Node $Statement.Where -Environment $Environment -Parameters $parameters -ParamIndex $paramIndex -IsWhereClause
+            }
+
+            $orderParts = [System.Collections.Generic.List[string]]::new()
+            if ($null -ne $Statement.OrderBy -and $Statement.OrderBy.Count -gt 0) {
+                foreach ($item in $Statement.OrderBy) {
+                    $col = if ($item.Expression -is [VariableExpr]) {
+                        "[$($item.Expression.Name)]"
+                    } elseif ($item.Expression -is [PropertyAccessExpr]) {
+                        $t = if ($item.Expression.Target -is [VariableExpr]) { $item.Expression.Target.Name } else { 'col' }
+                        "[$t].[$($item.Expression.PropertyName)]"
+                    } else {
+                        $colName = Get-OtterText -Expression $item.Expression -Environment $Environment
+                        "[$colName]"
+                    }
+                    $dir = if ($item.IsDescending) { 'DESC' } else { 'ASC' }
+                    $orderParts.Add("$col $dir")
+                }
+            }
+
+            $limitSql = ''
+            if ($null -ne $Statement.Limit) {
+                $limitVal = Get-OtterValue -Expression $Statement.Limit -Environment $Environment
+                $pLimit = New-OtterQueryParamName $paramIndex
+                $parameters[$pLimit] = [int]$limitVal
+                if ($null -ne $Statement.Offset) {
+                    $offsetVal = Get-OtterValue -Expression $Statement.Offset -Environment $Environment
+                    $pOffset = New-OtterQueryParamName $paramIndex
+                    $parameters[$pOffset] = [int]$offsetVal
+                    $limitSql = " LIMIT @$pLimit OFFSET @$pOffset"
+                } else {
+                    $limitSql = " LIMIT @$pLimit"
+                }
+            } elseif ($null -ne $Statement.Offset) {
+                $offsetVal = Get-OtterValue -Expression $Statement.Offset -Environment $Environment
+                $pOffset = New-OtterQueryParamName $paramIndex
+                $parameters[$pOffset] = [int]$offsetVal
+                $limitSql = " LIMIT -1 OFFSET @$pOffset"
+            }
+
+            $sql = "SELECT $distinctSql$projsSql FROM $tableSql"
+            if (-not [string]::IsNullOrEmpty($whereSql)) {
+                $sql += " WHERE $whereSql"
+            }
+            if ($orderParts.Count -gt 0) {
+                $sql += " ORDER BY $($orderParts -join ', ')"
+            }
+            if (-not [string]::IsNullOrEmpty($limitSql)) {
+                $sql += $limitSql
+            }
+
+            $rows = Invoke-OtterDatabaseQuery -TargetValue $conn -Sql $sql -Parameters $parameters -Line $Statement.Line
+            $list = [System.Collections.Generic.List[object]]::new()
+            if ($rows -is [System.Collections.IEnumerable] -and $rows -isnot [string]) {
+                foreach ($r in $rows) { $list.Add($r) }
+            } elseif ($null -ne $rows) {
+                $list.Add($rows)
+            }
+            $Environment.Set($Statement.Target, $list)
+            return
+        }
+
+        # count/sum/average/minimum/maximum ... from table in db [where ...] into target  (D99)
+        'QueryAggregateStmt' {
+            $conn = Get-OtterValue -Expression $Statement.Connection -Environment $Environment
+            $parameters = @{}
+            $paramIndex = [int[]]@(0)
+
+            $aggFunc = switch ($Statement.AggregateFunc.ToLowerInvariant()) {
+                'count' { 'COUNT' }
+                'sum' { 'SUM' }
+                'total' { 'TOTAL' }
+                'average' { 'AVG' }
+                'avg' { 'AVG' }
+                'minimum' { 'MIN' }
+                'min' { 'MIN' }
+                'maximum' { 'MAX' }
+                'max' { 'MAX' }
+                default { 'COUNT' }
+            }
+            $colExpr = if ($null -eq $Statement.Expression) {
+                '*'
+            } elseif ($Statement.Expression -is [VariableExpr] -and $Statement.Expression.Name -eq '*') {
+                '*'
+            } elseif ($Statement.Expression -is [VariableExpr]) {
+                "[$($Statement.Expression.Name)]"
+            } elseif ($Statement.Expression -is [PropertyAccessExpr]) {
+                $t = if ($Statement.Expression.Target -is [VariableExpr]) { $Statement.Expression.Target.Name } else { 'col' }
+                "[$t].[$($Statement.Expression.PropertyName)]"
+            } else {
+                "*"
+            }
+
+            $tableSql = "[$($Statement.Table)]"
+            if (-not [string]::IsNullOrEmpty($Statement.Alias)) {
+                $tableSql += " AS [$($Statement.Alias)]"
+            }
+
+            $whereSql = ''
+            if ($null -ne $Statement.Where) {
+                $whereSql = ConvertTo-OtterQuerySqlExpression -Node $Statement.Where -Environment $Environment -Parameters $parameters -ParamIndex $paramIndex -IsWhereClause
+            }
+
+            $sql = "SELECT $aggFunc($colExpr) AS [agg_result] FROM $tableSql"
+            if (-not [string]::IsNullOrEmpty($whereSql)) {
+                $sql += " WHERE $whereSql"
+            }
+
+            $rows = Invoke-OtterDatabaseQuery -TargetValue $conn -Sql $sql -Parameters $parameters -Line $Statement.Line
+            $res = $null
+            if ($null -ne $rows -and $rows.Count -gt 0) {
+                $firstRow = $rows[0]
+                $val = if ($firstRow -is [OtterObject]) {
+                    $firstRow.ReadProperty('agg_result')
+                } else {
+                    $firstRow
+                }
+
+                if ($null -eq $val -or $val -is [System.DBNull]) {
+                    if ($Statement.AggregateFunc.ToLowerInvariant() -eq 'count') { $res = 0 } else { $res = $null }
+                } else {
+                    $res = $val
+                }
+            } else {
+                if ($Statement.AggregateFunc.ToLowerInvariant() -eq 'count') { $res = 0 } else { $res = $null }
+            }
+
+            $Environment.Set($Statement.Target, $res)
+            return
+        }
+
         # set cursor to row 5 column 10                                (D100)
         # Otter's row/column are 1-based; [Console]::SetCursorPosition is
         # 0-based, hence the -1 on each.
@@ -1231,6 +1728,165 @@ function Invoke-OtterStatement {
                 $script:OtterWatcherHandlers[$watcher] = [System.Collections.Generic.List[hashtable]]::new()
             }
             $script:OtterWatcherHandlers[$watcher].Add(@{ EventKind = $Statement.EventKind; Body = $Statement.Body; Environment = $Environment })
+            return
+        }
+
+        # connect to websocket "wss://..." [using protocol P] and call it X   (D106)
+        'WebSocketConnect' {
+            $rawUrl = Get-OtterValue -Expression $Statement.Url -Environment $Environment
+            if ($rawUrl -isnot [string]) {
+                throw (New-OtterRuntimeError `
+                    -Message "I need text for a websocket URL, but this is $(Get-OtterTypeName -Value $rawUrl)." `
+                    -Line $Statement.Line `
+                    -Suggestion 'connect to websocket "wss://example.com/chat" and call it socket')
+            }
+            $url = $rawUrl.Trim()
+            if (-not ($url.StartsWith('ws://', [System.StringComparison]::OrdinalIgnoreCase) -or
+                      $url.StartsWith('wss://', [System.StringComparison]::OrdinalIgnoreCase))) {
+                throw (New-OtterRuntimeError `
+                    -Message "I need a websocket URL starting with 'ws://' or 'wss://', but this was '$url'." `
+                    -Line $Statement.Line `
+                    -Suggestion 'connect to websocket "wss://example.com/chat" and call it socket')
+            }
+            $uri = $null
+            try {
+                $uri = [System.Uri]::new($url)
+            } catch {
+                throw (New-OtterRuntimeError `
+                    -Message "The websocket URL '$url' is not a valid web address." `
+                    -Line $Statement.Line)
+            }
+
+            $protocol = $null
+            if ($null -ne $Statement.Protocol) {
+                $pVal = Get-OtterValue -Expression $Statement.Protocol -Environment $Environment
+                if ($pVal -isnot [string]) {
+                    throw (New-OtterRuntimeError `
+                        -Message "I need text for a websocket protocol, but this is $(Get-OtterTypeName -Value $pVal)." `
+                        -Line $Statement.Line)
+                }
+                $protocol = [string]$pVal
+            }
+
+            $cws = [System.Net.WebSockets.ClientWebSocket]::new()
+            if (-not [string]::IsNullOrEmpty($protocol)) {
+                $cws.Options.AddSubProtocol($protocol)
+            }
+
+            $wsObj = [OtterWebSocket]::new($cws, $url, $(if ($null -ne $protocol) { $protocol } else { '' }), [guid]::NewGuid().ToString('N'))
+            $script:OtterActiveWebSockets.Add($wsObj)
+            $Environment.Set($Statement.Target, $wsObj)
+
+            try {
+                $wsObj.ConnectTask = $cws.ConnectAsync($uri, $wsObj.Cts.Token)
+            } catch {
+                $wsObj.State = 'closed'
+                $wsObj.LastError = $_.Exception.GetBaseException().Message
+            }
+            return
+        }
+
+        # send "Hello" through socket                                  (D106)
+        'WebSocketSend' {
+            $ws = Get-OtterValue -Expression $Statement.Socket -Environment $Environment
+            if (-not (Test-OtterWebSocket $ws)) {
+                throw (New-OtterRuntimeError `
+                    -Message "I can only send through a websocket, but this is $(Get-OtterTypeName -Value $ws)." `
+                    -Line $Statement.Line `
+                    -Suggestion 'send "Hello" through socket')
+            }
+            if ($ws.State -ne 'open') {
+                throw (New-OtterRuntimeError `
+                    -Message "I cannot send through a websocket that is not open (its state is '$($ws.State)')." `
+                    -Line $Statement.Line `
+                    -Suggestion "Wait for ""on open of $($Statement.Socket)"" before sending.")
+            }
+
+            $msg = Get-OtterValue -Expression $Statement.Message -Environment $Environment
+            $bytes = $null
+            $msgType = [System.Net.WebSockets.WebSocketMessageType]::Text
+            if ($msg -is [string]) {
+                $bytes = [System.Text.Encoding]::UTF8.GetBytes([string]$msg)
+                $msgType = [System.Net.WebSockets.WebSocketMessageType]::Text
+            } elseif (Test-OtterBytes $msg) {
+                $bytes = $msg.Value
+                $msgType = [System.Net.WebSockets.WebSocketMessageType]::Binary
+            } else {
+                throw (New-OtterRuntimeError `
+                    -Message "I can only send text or bytes through a websocket, but this is $(Get-OtterTypeName -Value $msg)." `
+                    -Line $Statement.Line `
+                    -Suggestion 'send "Hello" through socket')
+            }
+
+            try {
+                $segment = [System.ArraySegment[byte]]::new($bytes)
+                $sendTask = $ws.Native.SendAsync($segment, $msgType, $true, $ws.Cts.Token)
+                $sendTask.Wait()
+            } catch {
+                throw (New-OtterRuntimeError `
+                    -Message "Failed to send through websocket: $($_.Exception.GetBaseException().Message)" `
+                    -Line $Statement.Line)
+            }
+            return
+        }
+
+        # close websocket socket [with code 1000] [and reason "Done"]  (D106)
+        'WebSocketClose' {
+            $ws = Get-OtterValue -Expression $Statement.Socket -Environment $Environment
+            if (-not (Test-OtterWebSocket $ws)) {
+                throw (New-OtterRuntimeError `
+                    -Message "I can only close a websocket, but this is $(Get-OtterTypeName -Value $ws)." `
+                    -Line $Statement.Line `
+                    -Suggestion 'close websocket socket')
+            }
+            $code = 1000
+            if ($null -ne $Statement.Code) {
+                $cVal = Get-OtterValue -Expression $Statement.Code -Environment $Environment
+                if (-not (Test-OtterNumeric $cVal)) {
+                    throw (New-OtterRuntimeError `
+                        -Message "I need a number for a close code, but this is $(Get-OtterTypeName -Value $cVal)." `
+                        -Line $Statement.Line)
+                }
+                $code = [int](ConvertTo-OtterNumber $cVal)
+            }
+            $reason = ''
+            if ($null -ne $Statement.Reason) {
+                $rVal = Get-OtterValue -Expression $Statement.Reason -Environment $Environment
+                if ($rVal -isnot [string]) {
+                    throw (New-OtterRuntimeError `
+                        -Message "I need text for a close reason, but this is $(Get-OtterTypeName -Value $rVal)." `
+                        -Line $Statement.Line)
+                }
+                $reason = [string]$rVal
+            }
+
+            if ($ws.State -in @('connecting', 'open')) {
+                $ws.State = 'closing'
+                $ws.CloseCode = $code
+                $ws.CloseReason = $reason
+                $ws.CloseWasClean = ($code -eq 1000)
+                try {
+                    $status = [System.Net.WebSockets.WebSocketCloseStatus]$code
+                    $closeTask = $ws.Native.CloseOutputAsync($status, $reason, $ws.Cts.Token)
+                } catch {
+                    $ws.State = 'closed'
+                }
+            }
+            return
+        }
+
+        # on open/message/close/error of socket                        (D106)
+        'WebSocketEvent' {
+            $ws = Get-OtterValue -Expression $Statement.Socket -Environment $Environment
+            if (-not (Test-OtterWebSocket $ws)) {
+                throw (New-OtterRuntimeError `
+                    -Message "I can only listen for a websocket event on a websocket, but this is $(Get-OtterTypeName -Value $ws)." `
+                    -Line $Statement.Line)
+            }
+            if (-not $script:OtterWebSocketHandlers.ContainsKey($ws)) {
+                $script:OtterWebSocketHandlers[$ws] = [System.Collections.Generic.List[hashtable]]::new()
+            }
+            $script:OtterWebSocketHandlers[$ws].Add(@{ EventKind = $Statement.EventKind; Body = $Statement.Body; Environment = $Environment })
             return
         }
 
@@ -2548,6 +3204,20 @@ function Get-OtterValue {
                 }
             }
 
+            # D106: state of socket / url of socket / protocol of socket
+            if (Test-OtterWebSocket $target) {
+                switch ($Expression.Property) {
+                    'state' { return $target.State }
+                    'url' { return $target.Url }
+                    'protocol' { return $target.Protocol }
+                    default {
+                        throw (New-OtterRuntimeError `
+                            -Message "A websocket has no property called ""$($Expression.Property)"". Try state, url, or protocol." `
+                            -Line $Expression.Line)
+                    }
+                }
+            }
+
             if (-not (Test-OtterObject $target)) {
                 throw (New-OtterRuntimeError `
                     -Message "I can only read properties of a thing, but this is $(Get-OtterTypeName $target)." `
@@ -2932,6 +3602,63 @@ function Get-OtterValue {
                     -Line $Expression.Line)
             }
             return $script:OtterCurrentWatchEvent.OldPath
+        }
+
+        # D106: WebSockets contextual event expressions and state test
+        'WebSocketIsState' {
+            $ws = Get-OtterValue -Expression $Expression.Socket -Environment $Environment
+            if (-not (Test-OtterWebSocket $ws)) {
+                throw (New-OtterRuntimeError `
+                    -Message "I can only ask about the state of a websocket, but this is $(Get-OtterTypeName -Value $ws)." `
+                    -Line $Expression.Line)
+            }
+            $targetState = switch ($Expression.ConnState) {
+                ([WebSocketConnState]::Connecting) { 'connecting' }
+                ([WebSocketConnState]::Open) { 'open' }
+                ([WebSocketConnState]::Closing) { 'closing' }
+                ([WebSocketConnState]::Closed) { 'closed' }
+            }
+            return ($ws.State -eq $targetState)
+        }
+        'ReceivedMessage' {
+            if ($null -eq $script:OtterCurrentWsContext -or -not $script:OtterCurrentWsContext.ContainsKey('Message')) {
+                throw (New-OtterRuntimeError `
+                    -Message '"received message" is only available inside "on message from ...".' `
+                    -Line $Expression.Line)
+            }
+            return $script:OtterCurrentWsContext.Message
+        }
+        'CloseCode' {
+            if ($null -eq $script:OtterCurrentWsContext -or -not $script:OtterCurrentWsContext.ContainsKey('CloseCode')) {
+                throw (New-OtterRuntimeError `
+                    -Message '"close code" is only available inside "on close of ...".' `
+                    -Line $Expression.Line)
+            }
+            return $script:OtterCurrentWsContext.CloseCode
+        }
+        'CloseReason' {
+            if ($null -eq $script:OtterCurrentWsContext -or -not $script:OtterCurrentWsContext.ContainsKey('CloseReason')) {
+                throw (New-OtterRuntimeError `
+                    -Message '"close reason" is only available inside "on close of ...".' `
+                    -Line $Expression.Line)
+            }
+            return $script:OtterCurrentWsContext.CloseReason
+        }
+        'CloseWasClean' {
+            if ($null -eq $script:OtterCurrentWsContext -or -not $script:OtterCurrentWsContext.ContainsKey('CloseWasClean')) {
+                throw (New-OtterRuntimeError `
+                    -Message '"close was clean" is only available inside "on close of ...".' `
+                    -Line $Expression.Line)
+            }
+            return $script:OtterCurrentWsContext.CloseWasClean
+        }
+        'WebSocketErrorValue' {
+            if ($null -eq $script:OtterCurrentWsContext -or -not $script:OtterCurrentWsContext.ContainsKey('Error')) {
+                throw (New-OtterRuntimeError `
+                    -Message '"websocket error" is only available inside "on error of ...".' `
+                    -Line $Expression.Line)
+            }
+            return $script:OtterCurrentWsContext.Error
         }
 
         # xml from text source / xml from file "books.xml" / xml with root "library"   (D105)
@@ -3472,6 +4199,7 @@ function Get-OtterTypeName {
     if (Test-OtterBytes $Value) { return 'bytes' }
     if (Test-OtterFileWatcher $Value) { return 'a file watcher' }
     if (Test-OtterXml $Value) { return 'xml' }
+    if (Test-OtterWebSocket $Value) { return 'a websocket' }
     if (Test-OtterList $Value) { return 'a list' }
     if ($Value -is [double] -or $Value -is [int] -or $Value -is [long]) { return 'a number' }
     if ($Value -is [string]) { return 'some text' }

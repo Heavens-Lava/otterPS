@@ -189,18 +189,15 @@ into customers
   - If it matches an Otter variable or expression, its runtime value is bound as a parameter (`@p1`).
   - If the programmer wants to compare two columns in an unaliased table, they MUST use the column qualification syntax or an alias:
     `where billing_state of customers is shipping_state of customers`
-  - If a variable name shadows the column name (`state is state`), the compiler issues an **Otter Ambiguity Diagnostic**:
-    ```
-    Otter Ambiguity Error at Line 4:
-        where state is state
-    
-    Both the database table "customers" and your Otter program have a variable named "state".
-    To compare the column against your variable, declare an alias:
-        from customers in db as customer
-        where state of customer is state
-    ```
+  - If a variable name matches the column name (`where state is state`), it is **deterministic**:
+    - **Left operand** is the database column `state`.
+    - **Right operand** is the in-scope Otter variable `state` (`@p1 = "Arizona"`).
+    - Conceptual reading: *"where the column state is the value state"*.
+    - Otter removes unnecessary ceremony: no diagnostic is thrown for this natural, unambiguous sentence.
+  - Column-to-column comparisons require qualification:
+    `where billing_state of customer is shipping_state of customer`
 
-This completely eliminates guessing, gives helpful compiler guidance, and guarantees 100% safety.
+This completely eliminates guessing, avoids unnecessary ceremony, and guarantees 100% safety.
 
 ---
 
@@ -484,7 +481,7 @@ Bound to Target Variable in Environment
 
 | # | Question | Proposed Architectural Decision |
 |---|---|---|
-| **1** | Column vs Variable resolution | Fully resolved in Section 3: Aliases (`prop of alias`) denote columns; bare variables matching program scope are parameterized values; literals are values. |
+| **1** | Column vs Variable resolution | Fully resolved in Section 3 & 8: In `where <left> is <right>`, unqualified left is column, right is Otter variable/value (`where state is state`). Explicit qualification via `of` (`where state of c is state`). Column-to-column comparison requires qualification. |
 | **2** | Is `get customers from customers` repetitive? | Yes, which is why `from <table> in <db>` is preferred. For all columns, `get all from customers in db into customers` or `get customers from customers in db into customers` are both supported. |
 | **3** | What does `get customers` mean vs `get name and email`? | `get customers` (or `get all`) projects the entire row record (`SELECT *`). Naming specific fields projects only those fields. |
 | **4** | Should source aliases be optional? | Optional for simple single-table queries; required when joins or self-referential column/variable names exist. |
@@ -504,7 +501,7 @@ Bound to Target Variable in Environment
 | **18**| Aliases in resulting row objects? | `as <name>` sets the exact property name on the resulting `database row` object. |
 | **19**| Semantics of `count of employees` in outer joins? | `count of employees` maps to `COUNT(employee.id)`, returning 0 for unmatched rows, matching SQL behavior. |
 | **20**| SQL NULL vs Otter `gone`? | `where col is gone` -> `col IS NULL`. `where col is not gone` -> `col IS NOT NULL`. Query results with NULL columns read as `gone` in Otter. |
-| **21**| Multi-column ordering? | Supported via indented block under `order by` or `and` separation: `order by state and name descending`. |
+| **21**| Multi-column ordering? | Supported via `then`: `order by last_name ascending then first_name ascending`. |
 | **22**| Limiting and pagination? | `first <n>` (`LIMIT n`) and `skip <n>` (`OFFSET n`). Clean, English words already familiar in Otter list processing. |
 | **23**| AST pipeline architecture? | Described in Section 5. Clean separation between language parser, AST, and database providers. |
 | **24**| Compatibility with existing lexer/parser? | Zero regressions. Preserves D41 dynamic keys, HTTP get, loops, and conditions. |
@@ -519,3 +516,137 @@ Bound to Target Variable in Environment
 1. **Keep D99 in Design Proposal Status:** Do not commit to parser or contract changes until Jeff reviews this design document and approves the resolution to Question #1 and the AST shape.
 2. **Retain Raw SQL as the Foundation:** D97 and D98 remain the production foundation for Otter 1.1.
 3. **Prototype in Isolation:** When approved, implement Level 1 (Fixtures A, B, C, D) in a dedicated experimental test branch before expanding to joins and grouping.
+
+---
+
+## 8. Additional D99 Design Decisions (Authoritative Specification)
+
+### 1. WHERE Resolution
+Within a standard query comparison:
+```otter
+where <left> is <right>
+```
+An unqualified bare identifier on the **LEFT** is interpreted as a query column when that column exists.  
+An identifier on the **RIGHT** follows normal Otter expression/variable resolution.
+
+Therefore:
+```otter
+state is "Arizona"
+
+get all from customers in db
+    where state is state
+    into customers
+```
+means:
+- database column `state`
+- equals
+- Otter variable `state`
+
+Explicit qualification remains available:
+```otter
+where state of customer is state
+```
+Column-to-column comparisons require qualification:
+```otter
+where billing_state of customer is shipping_state of customer
+```
+
+### 2. Multiple Ordering
+Support:
+```otter
+order by last_name ascending
+    then first_name ascending
+```
+Another example:
+```otter
+order by created descending
+    then id descending
+```
+
+### 3. Distinct
+Support:
+```otter
+get distinct state from customers in db into states
+```
+
+### 4. Collection Comparison
+Support:
+```otter
+where state is in states
+where state is not in states
+```
+Collection values must be safely parameterized.
+
+### 5. Range Comparison
+Support:
+```otter
+where age is between minimumAge and maximumAge
+```
+`between` is inclusive.
+
+### 6. Aggregates
+Reserve and support:
+```otter
+count customers from customers in db into total
+
+sum amount from orders in db into total
+
+average price from products in db into averagePrice
+
+minimum price from products in db into minimumPrice
+
+maximum price from products in db into maximumPrice
+```
+Aggregates execute in the database rather than retrieving all rows.
+
+### 7. Result Records
+Query rows become ordinary Otter record-like values.
+Example:
+```otter
+get name and email from customers in db into customers
+
+for each customer in customers
+    say name of customer
+    say email of customer
+.
+```
+
+### 8. Provider Independence
+D99 grammar must not contain SQLite, SQL Server, PostgreSQL, or MySQL specific query syntax.  
+Provider differences belong behind the query provider/compiler.
+
+### 9. Query Architecture
+Use:
+```
+Source
+  -> Query AST
+  -> Database provider/compiler
+  -> Parameterized provider command
+  -> Otter records
+```
+Do not construct SQL during parsing.
+
+### 10. Parameterization
+All runtime values must be passed through the provider's parameter mechanism wherever the underlying database supports parameters.  
+Never concatenate user/runtime values into generated SQL.
+
+### 11. Translation Failure
+If a query expression cannot be translated by the active database provider, fail with an Otter diagnostic.  
+Do **NOT** silently fetch an entire table and evaluate the unsupported condition client-side.
+
+### 12. Boolean Precedence
+`and` has higher precedence than `or`.  
+Do not invent SQL-style parentheses solely for D99.  
+More expressive English-style grouping (such as `where either ... or ... and ...`) may be designed separately. Until grouping is implemented, diagnostics should reject expressions whose intended grouping cannot be represented clearly.
+
+### 13. Future Single-Row Forms
+Reserve:
+```otter
+get first ...
+get one ...
+```
+- `first`: returns zero-or-one result (the first matching row or Otter's normal missing value `gone`).
+- `one`: requires exactly one matching row (0 rows = error, >1 row = error).
+
+Do not implement these until their interaction with projection and result typing is specified completely.
+
