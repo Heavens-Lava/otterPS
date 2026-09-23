@@ -298,4 +298,58 @@ if ($cliPreamble -notmatch 'otterParseCli' -or $cliPreamble -notmatch 'otterArgs
 }
 Write-Output '  pass  CLI argument API and named flags/options parser (Section 12)'
 
+# Test 17: HTTP headers/options block (D101) - with header/cookies/redirects/timeout
+$httpOptsSource = @"
+get "https://api.example.com/data" into result
+    with header "Authorization" is "Bearer abc123"
+    with header "Accept" is "application/json"
+    with cookies
+    following redirects
+    with timeout 30 seconds
+say result
+
+post "payload" to "https://api.example.com/submit" into postResult
+    without cookies
+    without redirects
+say postResult
+"@
+$httpOptsAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $httpOptsSource)
+$httpOptsJsLines = [System.Collections.Generic.List[string]]::new()
+foreach ($s in $httpOptsAst.Statements) { $httpOptsJsLines.Add((ConvertTo-OtterJsStatement -Stmt $s -Indent 0)) }
+$httpOptsJs = $httpOptsJsLines -join "`n"
+if ($httpOptsJs -notmatch "\[String\(`"Authorization`"\)\]: String\(`"Bearer abc123`"\)") {
+    throw 'Expected the Authorization header to be compiled into the fetch options object.'
+}
+if ($httpOptsJs -notmatch "_opts\.credentials = 'include';") {
+    throw 'Expected `with cookies` to compile to credentials: include.'
+}
+if ($httpOptsJs -notmatch 'AbortController') {
+    throw 'Expected `with timeout` to compile to an AbortController-based timeout.'
+}
+if ($httpOptsJs -notmatch "_opts\.credentials = 'omit';") {
+    throw 'Expected `without cookies` to compile to credentials: omit.'
+}
+if ($httpOptsJs -notmatch "_opts\.redirect = 'manual';") {
+    throw 'Expected `without redirects` to compile to redirect: manual.'
+}
+if ($httpOptsJs -match 'redirect') { } else { throw 'redirect handling missing entirely.' }
+Write-Output '  pass  HTTP headers/options block compiles to real fetch() options (D101)'
+
+# Test 18: a plain get/post/put/delete with no options block is completely unaffected
+$httpPlainSource = @"
+get "https://api.example.com/data" into plainResult
+say plainResult
+"@
+$httpPlainAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $httpPlainSource)
+$httpPlainJsLines = [System.Collections.Generic.List[string]]::new()
+foreach ($s in $httpPlainAst.Statements) { $httpPlainJsLines.Add((ConvertTo-OtterJsStatement -Stmt $s -Indent 0)) }
+$httpPlainJs = $httpPlainJsLines -join "`n"
+if ($httpPlainJs -match '_opts') {
+    throw 'A plain get with no options block should not emit an _opts variable at all.'
+}
+if ($httpPlainJs -notmatch 'await fetch\("https://api\.example\.com/data", \{\}\);') {
+    throw 'Expected a plain get to still call fetch with an empty options object.'
+}
+Write-Output '  pass  get/post/put/delete with no options block is unaffected (D101)'
+
 Write-Output 'Web compiler tests passed.'

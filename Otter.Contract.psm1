@@ -2180,16 +2180,51 @@ class FormatDateStmt : Node {
 # NETWORKING & HTTP (D49)
 # ===============================================================
 
+# D101: with header "X" is Y (repeatable) - one name/value pair of an
+# HTTP request's optional header block. Not a Node itself (never appears
+# anywhere an expression or statement can), same non-Node-helper pattern
+# as IfBranch above.
+class HttpHeaderClause {
+    [Node]$Name
+    [Node]$Value
+    HttpHeaderClause([Node]$name, [Node]$value) {
+        $this.Name = $name
+        $this.Value = $value
+    }
+}
+
+# D101: the optional indented options block on get/post/put/delete -
+# with header "X" is Y (repeatable), with cookies / without cookies,
+# following redirects / without redirects, with timeout N seconds. Every
+# field defaults to "unspecified" ($null for the two nullable flags, an
+# empty array for Headers) so the interpreter/JS compiler can fall back
+# to the HTTP client's own ordinary default behavior when a clause was
+# never written - matches the language's general "you only write what
+# you mean to change" bias.
+class HttpOptions {
+    [HttpHeaderClause[]]$Headers = @()
+    [System.Nullable[bool]]$WithCookies = $null
+    [System.Nullable[bool]]$FollowRedirects = $null
+    [Node]$TimeoutSeconds = $null
+}
+
 # get "https://..." into result
 # get json from "https://..." into result
 class HttpGetStmt : Node {
     [Node]$Url
     [string]$Target
     [bool]$AsJson
+    [HttpOptions]$Options = $null
     HttpGetStmt([Node]$url, [string]$target, [bool]$asJson, [int]$line) : base([NodeKind]::HttpGet, $line) {
         $this.Url = $url
         $this.Target = $target
         $this.AsJson = $asJson
+    }
+    HttpGetStmt([Node]$url, [string]$target, [bool]$asJson, [HttpOptions]$options, [int]$line) : base([NodeKind]::HttpGet, $line) {
+        $this.Url = $url
+        $this.Target = $target
+        $this.AsJson = $asJson
+        $this.Options = $options
     }
 }
 
@@ -2199,11 +2234,19 @@ class HttpPostStmt : Node {
     [Node]$Url
     [string]$Target
     [bool]$AsJson
+    [HttpOptions]$Options = $null
     HttpPostStmt([Node]$data, [Node]$url, [string]$target, [bool]$asJson, [int]$line) : base([NodeKind]::HttpPost, $line) {
         $this.Data = $data
         $this.Url = $url
         $this.Target = $target
         $this.AsJson = $asJson
+    }
+    HttpPostStmt([Node]$data, [Node]$url, [string]$target, [bool]$asJson, [HttpOptions]$options, [int]$line) : base([NodeKind]::HttpPost, $line) {
+        $this.Data = $data
+        $this.Url = $url
+        $this.Target = $target
+        $this.AsJson = $asJson
+        $this.Options = $options
     }
 }
 
@@ -2213,11 +2256,19 @@ class HttpPutStmt : Node {
     [Node]$Url
     [string]$Target
     [bool]$AsJson
+    [HttpOptions]$Options = $null
     HttpPutStmt([Node]$data, [Node]$url, [string]$target, [bool]$asJson, [int]$line) : base([NodeKind]::HttpPut, $line) {
         $this.Data = $data
         $this.Url = $url
         $this.Target = $target
         $this.AsJson = $asJson
+    }
+    HttpPutStmt([Node]$data, [Node]$url, [string]$target, [bool]$asJson, [HttpOptions]$options, [int]$line) : base([NodeKind]::HttpPut, $line) {
+        $this.Data = $data
+        $this.Url = $url
+        $this.Target = $target
+        $this.AsJson = $asJson
+        $this.Options = $options
     }
 }
 
@@ -2225,9 +2276,15 @@ class HttpPutStmt : Node {
 class HttpDeleteStmt : Node {
     [Node]$Url
     [string]$Target
+    [HttpOptions]$Options = $null
     HttpDeleteStmt([Node]$url, [string]$target, [int]$line) : base([NodeKind]::HttpDelete, $line) {
         $this.Url = $url
         $this.Target = $target
+    }
+    HttpDeleteStmt([Node]$url, [string]$target, [HttpOptions]$options, [int]$line) : base([NodeKind]::HttpDelete, $line) {
+        $this.Url = $url
+        $this.Target = $target
+        $this.Options = $options
     }
 }
 

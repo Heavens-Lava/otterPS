@@ -45,6 +45,57 @@ function Get-OtterJsDateConstructor {
     return "{ __otterDate: true, hasTime: $HasTimeJs, value: ($DateExprJs), toString() { $toStringBody } }"
 }
 
+# D101: `with header "X" is Y` / `with cookies` / `without cookies` /
+# `following redirects` / `without redirects` / `with timeout N seconds`
+# - the optional options block on get/post/put/delete. Web-only (the
+# interpreter has no HttpGet/Post/Put/Delete case at all, confirmed
+# directly - there is no console-target HTTP to give this parity
+# against). Builds the JS lines needed BEFORE `const res = await
+# fetch(...)` (an `_opts` object merging the base method/body with
+# whatever this options block specified, plus AbortController/setTimeout
+# wiring when a timeout was given) and the line needed AFTER it
+# (clearing that timer) - every HttpGet/Post/Put/Delete case threads
+# these around its own `fetch(url, ...)` call.
+function Get-OtterJsHttpOptionsSetup {
+    param([HttpOptions]$Options, [string]$BaseOptsJs, [string]$Inner)
+
+    $result = [pscustomobject]@{ SetupLines = [System.Collections.Generic.List[string]]::new(); OptsVarJs = $BaseOptsJs; TeardownLine = $null }
+    if ($null -eq $Options) { return $result }
+
+    $needsOptsVar = ($Options.Headers.Count -gt 0) -or ($null -ne $Options.WithCookies) -or ($null -ne $Options.FollowRedirects) -or ($null -ne $Options.TimeoutSeconds)
+    if (-not $needsOptsVar) { return $result }
+
+    $result.SetupLines.Add("${Inner}const _opts = Object.assign({}, $BaseOptsJs);")
+    if ($Options.Headers.Count -gt 0) {
+        $headerEntries = @(foreach ($h in $Options.Headers) {
+            $nameJs = ConvertTo-OtterJsExpression -Expr $h.Name
+            $valueJs = ConvertTo-OtterJsExpression -Expr $h.Value
+            "[String($nameJs)]: String($valueJs)"
+        })
+        $result.SetupLines.Add("${Inner}_opts.headers = Object.assign({}, _opts.headers, { $($headerEntries -join ', ') });")
+    }
+    if ($Options.WithCookies -eq $true) {
+        $result.SetupLines.Add("${Inner}_opts.credentials = 'include';")
+    } elseif ($Options.WithCookies -eq $false) {
+        $result.SetupLines.Add("${Inner}_opts.credentials = 'omit';")
+    }
+    if ($Options.FollowRedirects -eq $false) {
+        # fetch has no "give me the 3xx response instead of following it"
+        # mode - 'manual' is the closest available: it returns an opaque,
+        # unreadable response rather than throwing, so a program that asks
+        # for this still gets *a* result back instead of a crash.
+        $result.SetupLines.Add("${Inner}_opts.redirect = 'manual';")
+    }
+    if ($null -ne $Options.TimeoutSeconds) {
+        $timeoutJs = ConvertTo-OtterJsExpression -Expr $Options.TimeoutSeconds
+        $result.SetupLines.Add("${Inner}const _ac = new AbortController(); _opts.signal = _ac.signal;")
+        $result.SetupLines.Add("${Inner}const _timer = setTimeout(() => _ac.abort(), Number($timeoutJs) * 1000);")
+        $result.TeardownLine = "${Inner}clearTimeout(_timer);"
+    }
+    $result.OptsVarJs = '_opts'
+    return $result
+}
+
 # D95: Portable RFC 4180 CSV parser and serializer in JavaScript
 $script:OtterJsFromCsvFunc = @'
 (text) => {
@@ -2033,7 +2084,16 @@ function ConvertTo-OtterJsStatement {
             $url = ConvertTo-OtterJsExpression -Expr $Stmt.Url
             $target = $Stmt.Target
             $readBody = if ($Stmt.AsJson) { 'res.json()' } else { 'res.text()' }
-            return "${pad}{ const res = await fetch($url); const $target = await $readBody; window.$target = $target; }"
+            $inner = '  ' * ($Indent + 1)
+            $opts = Get-OtterJsHttpOptionsSetup -Options $Stmt.Options -BaseOptsJs '{}' -Inner $inner
+            $lines = [System.Collections.Generic.List[string]]::new()
+            $lines.Add("${pad}{")
+            $lines.AddRange($opts.SetupLines)
+            $lines.Add("${inner}const res = await fetch($url, $($opts.OptsVarJs));")
+            if ($opts.TeardownLine) { $lines.Add($opts.TeardownLine) }
+            $lines.Add("${inner}const $target = await $readBody; window.$target = $target;")
+            $lines.Add("${pad}}")
+            return ($lines -join "`n")
         }
         ([NodeKind]::HttpPost) {
             # D49/D60. Block-scoped - see HttpGet's comment for why.
@@ -2041,10 +2101,18 @@ function ConvertTo-OtterJsStatement {
             $url = ConvertTo-OtterJsExpression -Expr $Stmt.Url
             $target = $Stmt.Target
             $body = if ($Stmt.AsJson) { "JSON.stringify($data)" } else { "(typeof $data === 'object' ? JSON.stringify($data) : String($data))" }
+            $inner = '  ' * ($Indent + 1)
+            $opts = Get-OtterJsHttpOptionsSetup -Options $Stmt.Options -BaseOptsJs "{ method: 'POST', body: $body }" -Inner $inner
+            $lines = [System.Collections.Generic.List[string]]::new()
+            $lines.Add("${pad}{")
+            $lines.AddRange($opts.SetupLines)
+            $lines.Add("${inner}const res = await fetch($url, $($opts.OptsVarJs));")
+            if ($opts.TeardownLine) { $lines.Add($opts.TeardownLine) }
             if ($target) {
-                return "${pad}{ const res = await fetch($url, { method: 'POST', body: $body }); const $target = await res.text(); window.$target = $target; }"
+                $lines.Add("${inner}const $target = await res.text(); window.$target = $target;")
             }
-            return "${pad}await fetch($url, { method: 'POST', body: $body });"
+            $lines.Add("${pad}}")
+            return ($lines -join "`n")
         }
         ([NodeKind]::HttpPut) {
             # D49/D60. `put data to "https://..." [into result]` - mirrors
@@ -2059,10 +2127,18 @@ function ConvertTo-OtterJsStatement {
             $url = ConvertTo-OtterJsExpression -Expr $Stmt.Url
             $target = $Stmt.Target
             $body = if ($Stmt.AsJson) { "JSON.stringify($data)" } else { "(typeof $data === 'object' ? JSON.stringify($data) : String($data))" }
+            $inner = '  ' * ($Indent + 1)
+            $opts = Get-OtterJsHttpOptionsSetup -Options $Stmt.Options -BaseOptsJs "{ method: 'PUT', body: $body }" -Inner $inner
+            $lines = [System.Collections.Generic.List[string]]::new()
+            $lines.Add("${pad}{")
+            $lines.AddRange($opts.SetupLines)
+            $lines.Add("${inner}const res = await fetch($url, $($opts.OptsVarJs));")
+            if ($opts.TeardownLine) { $lines.Add($opts.TeardownLine) }
             if ($target) {
-                return "${pad}{ const res = await fetch($url, { method: 'PUT', body: $body }); const $target = await res.text(); window.$target = $target; }"
+                $lines.Add("${inner}const $target = await res.text(); window.$target = $target;")
             }
-            return "${pad}await fetch($url, { method: 'PUT', body: $body });"
+            $lines.Add("${pad}}")
+            return ($lines -join "`n")
         }
         ([NodeKind]::HttpDelete) {
             # D49/D60. `delete "https://..." [into result]` - mirrors
@@ -2073,10 +2149,18 @@ function ConvertTo-OtterJsStatement {
             # HttpGet's comment for why.
             $url = ConvertTo-OtterJsExpression -Expr $Stmt.Url
             $target = $Stmt.Target
+            $inner = '  ' * ($Indent + 1)
+            $opts = Get-OtterJsHttpOptionsSetup -Options $Stmt.Options -BaseOptsJs "{ method: 'DELETE' }" -Inner $inner
+            $lines = [System.Collections.Generic.List[string]]::new()
+            $lines.Add("${pad}{")
+            $lines.AddRange($opts.SetupLines)
+            $lines.Add("${inner}const res = await fetch($url, $($opts.OptsVarJs));")
+            if ($opts.TeardownLine) { $lines.Add($opts.TeardownLine) }
             if ($target) {
-                return "${pad}{ const res = await fetch($url, { method: 'DELETE' }); const $target = await res.text(); window.$target = $target; }"
+                $lines.Add("${inner}const $target = await res.text(); window.$target = $target;")
             }
-            return "${pad}await fetch($url, { method: 'DELETE' });"
+            $lines.Add("${pad}}")
+            return ($lines -join "`n")
         }
         ([NodeKind]::DateAdjust) {
             # D60 Phase 1J. `add <n> <unit> to <target>` / `remove <n>

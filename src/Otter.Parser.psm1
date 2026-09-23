@@ -104,6 +104,86 @@ function Test-OtterSoftContinuation {
     return $true
 }
 
+# D101: the optional indented HTTP options block on get/post/put/delete -
+#   get "url" into result
+#       with header "Authorization" is "Bearer abc123"
+#       with header "Accept" is "application/json"
+#       with cookies                  (or: without cookies)
+#       following redirects           (or: without redirects)
+#       with timeout 30 seconds
+# Mirrors Read-OtterBlock's Newline+Indent...Dedent shape, but for a
+# sequence of option clauses rather than statements - returns $null (not
+# an empty HttpOptions) when no block is present, so the interpreter/JS
+# compiler can tell "no options written" from "an options block that
+# happens to set nothing", though today every clause sets something.
+function Read-OtterHttpOptions {
+    if (-not (Test-OtterTokenKind ([TokenKind]::Newline)) -or -not (Test-OtterTokenOffsetKind 1 ([TokenKind]::Indent))) {
+        return $null
+    }
+    [void](Read-OtterToken) # Newline
+    [void](Read-OtterToken) # Indent
+
+    $options = [HttpOptions]::new()
+    $headers = [System.Collections.Generic.List[HttpHeaderClause]]::new()
+
+    while (-not (Test-OtterTokenKind ([TokenKind]::Dedent))) {
+        $clauseStart = Get-OtterCurrentToken
+        if ($clauseStart.Kind -eq [TokenKind]::With) {
+            [void](Read-OtterToken)
+            $word = Get-OtterCurrentToken
+            if ($word.Kind -eq [TokenKind]::Identifier -and $word.Text -eq 'header') {
+                [void](Read-OtterToken)
+                $name = Read-OtterValue
+                [void](Assert-OtterTokenKind ([TokenKind]::Is) 'I expected "is" and a header value after the header name.' 'Write: with header "Accept" is "application/json"')
+                $value = Read-OtterValue
+                $headers.Add([HttpHeaderClause]::new($name, $value))
+            } elseif ($word.Kind -eq [TokenKind]::Identifier -and $word.Text -eq 'cookies') {
+                [void](Read-OtterToken)
+                $options.WithCookies = $true
+            } elseif ($word.Kind -eq [TokenKind]::Identifier -and $word.Text -eq 'timeout') {
+                [void](Read-OtterToken)
+                $options.TimeoutSeconds = Read-OtterValue
+                $unitTok = Get-OtterCurrentToken
+                if ($unitTok.Kind -eq [TokenKind]::Second -or
+                    ($unitTok.Kind -eq [TokenKind]::Identifier -and $unitTok.Text -in @('second', 'seconds'))) {
+                    [void](Read-OtterToken)
+                } else {
+                    throw (New-OtterParserError 'I expected "seconds" after the timeout value.' $unitTok 'Write: with timeout 30 seconds')
+                }
+            } else {
+                throw (New-OtterParserError "I don't recognize the HTTP option ""with $($word.Text)""." $word 'Write: with header "X" is Y, with cookies, or with timeout N seconds.')
+            }
+        } elseif ($clauseStart.Kind -eq [TokenKind]::Identifier -and $clauseStart.Text -eq 'without') {
+            [void](Read-OtterToken)
+            $word = Get-OtterCurrentToken
+            if ($word.Kind -eq [TokenKind]::Identifier -and $word.Text -eq 'cookies') {
+                [void](Read-OtterToken)
+                $options.WithCookies = $false
+            } elseif ($word.Kind -eq [TokenKind]::Identifier -and $word.Text -eq 'redirects') {
+                [void](Read-OtterToken)
+                $options.FollowRedirects = $false
+            } else {
+                throw (New-OtterParserError "I don't recognize the HTTP option ""without $($word.Text)""." $word 'Write: without cookies, or without redirects.')
+            }
+        } elseif ($clauseStart.Kind -eq [TokenKind]::Identifier -and $clauseStart.Text -eq 'following') {
+            [void](Read-OtterToken)
+            $word = Get-OtterCurrentToken
+            if ($word.Kind -eq [TokenKind]::Identifier -and $word.Text -eq 'redirects') {
+                [void](Read-OtterToken)
+                $options.FollowRedirects = $true
+            } else {
+                throw (New-OtterParserError 'I expected "redirects" after "following".' $word 'Write: following redirects')
+            }
+        } else {
+            throw (New-OtterParserError "I don't recognize ""$($clauseStart.Text)"" as an HTTP option." $clauseStart 'Write: with header "X" is Y, with cookies, without cookies, following redirects, without redirects, or with timeout N seconds.')
+        }
+        [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the HTTP option to end here.')
+    }
+    [void](Read-OtterToken) # Dedent
+    $options.Headers = $headers.ToArray()
+    return $options
+}
+
 function Test-OtterCommandResultPropertyAt {
     param([int]$Position)
 
@@ -1413,9 +1493,12 @@ function Read-OtterStatement {
                 $targetToken = Read-OtterVariableName 'I expected a result name after "into".'
                 $target = $targetToken.Text
             }
-            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the post statement to end here.')
+            $options = if (-not $continued) { Read-OtterHttpOptions } else { $null }
+            if ($null -eq $options) {
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the post statement to end here.')
+            }
             if ($continued) { [void](Assert-OtterTokenKind ([TokenKind]::Dedent) 'I expected the continued post clause to end.') }
-            return [HttpPostStmt]::new($data, $url, $target, $asJson, $start.Line)
+            return [HttpPostStmt]::new($data, $url, $target, $asJson, $options, $start.Line)
         }
         ([TokenKind]::Put) {
             [void](Read-OtterToken)
@@ -1434,9 +1517,12 @@ function Read-OtterStatement {
                     $targetToken = Read-OtterVariableName 'I expected a result name after "into".'
                     $target = $targetToken.Text
                 }
-                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the put statement to end here.')
+                $options = if (-not $continued) { Read-OtterHttpOptions } else { $null }
+                if ($null -eq $options) {
+                    [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the put statement to end here.')
+                }
                 if ($continued) { [void](Assert-OtterTokenKind ([TokenKind]::Dedent) 'I expected the continued put clause to end.') }
-                return [HttpPutStmt]::new($firstItem, $url, $target, $true, $start.Line)
+                return [HttpPutStmt]::new($firstItem, $url, $target, $true, $options, $start.Line)
             }
             if (Test-OtterTokenKind ([TokenKind]::To)) {
                 [void](Read-OtterToken)
@@ -1448,9 +1534,12 @@ function Read-OtterStatement {
                     $targetToken = Read-OtterVariableName 'I expected a result name after "into".'
                     $target = $targetToken.Text
                 }
-                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the put statement to end here.')
+                $options = if (-not $continued) { Read-OtterHttpOptions } else { $null }
+                if ($null -eq $options) {
+                    [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the put statement to end here.')
+                }
                 if ($continued) { [void](Assert-OtterTokenKind ([TokenKind]::Dedent) 'I expected the continued put clause to end.') }
-                return [HttpPutStmt]::new($firstItem, $url, $target, $false, $start.Line)
+                return [HttpPutStmt]::new($firstItem, $url, $target, $false, $options, $start.Line)
             }
             $items.Add($firstItem)
             while ((Get-OtterCurrentToken).Text -eq ',') {
@@ -1757,9 +1846,12 @@ function Read-OtterStatement {
                 $continued = Test-OtterSoftContinuation
                 [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a result name.')
                 $target = Read-OtterVariableName 'I expected a result name after "into".'
-                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the get statement to end here.')
+                $options = if (-not $continued) { Read-OtterHttpOptions } else { $null }
+                if ($null -eq $options) {
+                    [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the get statement to end here.')
+                }
                 if ($continued) { [void](Assert-OtterTokenKind ([TokenKind]::Dedent) 'I expected the continued get clause to end.') }
-                return [HttpGetStmt]::new($url, $target.Text, $true, $start.Line)
+                return [HttpGetStmt]::new($url, $target.Text, $true, $options, $start.Line)
             }
             # D41 dynamic key access OR HTTP GET
             $first = Read-OtterValue
@@ -1782,9 +1874,12 @@ function Read-OtterStatement {
             $continued = Test-OtterSoftContinuation
             [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "from" or "into" after the value.')
             $result = Read-OtterVariableName 'I expected a result name after "into".'
-            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the get statement to end here.')
+            $options = if (-not $continued) { Read-OtterHttpOptions } else { $null }
+            if ($null -eq $options) {
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the get statement to end here.')
+            }
             if ($continued) { [void](Assert-OtterTokenKind ([TokenKind]::Dedent) 'I expected the continued get clause to end.') }
-            return [HttpGetStmt]::new($first, $result.Text, $asJson, $start.Line)
+            return [HttpGetStmt]::new($first, $result.Text, $asJson, $options, $start.Line)
         }
         ([TokenKind]::Set) {
             [void](Read-OtterToken)
@@ -2536,9 +2631,12 @@ function Read-OtterStatement {
                     $targetToken = Read-OtterVariableName 'I expected a result name after "into".'
                     $target = $targetToken.Text
                 }
-                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the delete statement to end here.')
+                $options = if (-not $continued) { Read-OtterHttpOptions } else { $null }
+                if ($null -eq $options) {
+                    [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the delete statement to end here.')
+                }
                 if ($continued) { [void](Assert-OtterTokenKind ([TokenKind]::Dedent) 'I expected the continued delete clause to end.') }
-                return [HttpDeleteStmt]::new($url, $target, $start.Line)
+                return [HttpDeleteStmt]::new($url, $target, $options, $start.Line)
             }
             [void](Assert-OtterTokenKind ([TokenKind]::File) 'I expected "file" after delete.')
             $path = Read-OtterValue

@@ -757,16 +757,36 @@ creation.
 
 # 13. Networking
 
--   [x] HTTP GET reported
--   [x] HTTP POST reported
--   [x] HTTP PUT reported
--   [x] HTTP DELETE reported
--   [ ] Headers (correcting a false checkmark, found while re-verifying:
-    `HttpGetStmt`/`HttpPostStmt`/etc. have only `Url`/`Data`/`Target`/
-    `AsJson` fields - confirmed no `Headers` field anywhere in the
-    Contract and no header-related code in the JS compiler. There is
-    genuinely no way for an Otter program to set a custom request header
-    today - a real gap, not a done feature)
+-   [x] HTTP GET reported (web target only - see the note below,
+    found while verifying D101's headers/options work: console/desktop
+    has NO HttpGet/Post/Put/Delete interpreter case at all. Confirmed by
+    actually running `otter run` against `get "url" into result`, which
+    throws "I do not know how to run a HttpGet statement yet." This is a
+    pre-existing gap, not introduced by D101, and D101 deliberately did
+    not attempt to close it - see Jeff's own scoping decision on it)
+-   [x] HTTP POST reported (web target only, same gap as GET above)
+-   [x] HTTP PUT reported (web target only, same gap as GET above)
+-   [x] HTTP DELETE reported (web target only, same gap as GET above)
+-   [ ] Console/desktop HTTP implementation (real gap, found during the
+    D101 headers/options audit: `Otter.Interpreter.psm1` has zero
+    HttpGet/HttpPost/HttpPut/HttpDelete cases - every one of the four
+    checkmarks above is real only for the web (browser `fetch()`)
+    target. A console/desktop program cannot make an HTTP request at
+    all today. Not attempted as part of D101 - Jeff scoped that batch to
+    "web-target headers/options only" specifically because building
+    real console HTTP from scratch (a `System.Net.Http.HttpClient`
+    integration, not an extension of something that already works) is a
+    substantially bigger task than adding options to an existing call)
+-   [x] Headers (D101: `with header "Name" is Value` (repeatable),
+    `with`/`without cookies`, `following`/`without redirects`, `with
+    timeout N seconds` - a new optional indented options block on
+    get/post/put/delete. Web target only (see the note under Section 21
+    below: console/desktop has no HTTP implementation at all to attach
+    this to, confirmed by actually running `otter run` against a real
+    `get ... into result` - a pre-existing gap, not something this batch
+    introduced or fixed). Verified with a real local HTTP server: the
+    compiled JS's `Authorization` header genuinely reached the request.
+    2 production tests, `tests/Web.Tests.ps1`)
 -   [x] Query parameters (already fully expressible with zero new syntax:
     a URL is just an ordinary expression, so `"https://api/search?q="
     and term` builds a query string exactly like any other string
@@ -810,19 +830,23 @@ creation.
 -   [x] Timeouts
 -   [ ] Cancellation (real gap: no cancellation-token concept is exposed
     for an in-flight HTTP call the way D71 gives process operations one)
--   [ ] Redirect policy (real gap: requests follow redirects the way
-    `fetch()` does by default, with no Otter-level control - `fetch`
-    does support a `redirect` option (follow/error/manual) that could be
-    exposed, just isn't today)
--   [ ] Cookies (browsers already handle cookies transparently for
-    same-origin `fetch()` with no code required - but there is no
-    Otter-level way to read or set one deliberately, a real if narrow gap)
--   [ ] Sessions (same reasoning as Cookies - transparent by default,
-    no explicit Otter-level control)
--   [ ] Authentication helpers (correcting a false checkmark, found while
-    re-verifying: this is blocked on the same missing Headers support
-    above - there is no way to attach an Authorization/Bearer header to
-    a request at all today)
+-   [x] Redirect policy (D101: `following redirects` (the existing
+    `fetch()` default, made explicit) / `without redirects`, which maps
+    to `fetch`'s own `redirect: 'manual'` - returns an opaque response
+    rather than throwing, since `fetch` has no direct "give me the 3xx
+    response itself" mode)
+-   [x] Cookies (D101: `with cookies` / `without cookies` map to
+    `fetch`'s `credentials: 'include'`/`'omit'`, giving deliberate
+    Otter-level control on top of the browser's already-transparent
+    same-origin default)
+-   [ ] Sessions (real gap, unrelated to D101's Cookies work above - no
+    Otter-level session concept exists, only the lower-level per-request
+    cookie inclusion/exclusion D101 added)
+-   [x] Authentication helpers (D101: unblocked by the new Headers
+    support above - `with header "Authorization" is "Bearer " and token`
+    now attaches any auth scheme an API wants; no dedicated OAuth/Bearer
+    helper syntax was added beyond that, since a plain header clause
+    already covers it)
 -   [x] TLS/certificate handling (decided: not applicable to this
     project's fetch()-based, web-only HTTP model - browsers handle
     TLS/certificate validation entirely themselves and deliberately
