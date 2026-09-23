@@ -547,6 +547,20 @@ enum NodeKind {
     # --- bytes type (D102) -------------------------------------------------
     Bytes                    # empty bytes / bytes from text|hex|base64 X /
                               # text|hex|base64 from bytes X - all EXPRESSIONS
+
+    # --- SPA routing (D103) - web-target only; console/desktop-without-web-
+    # host fall through to the interpreter's own default "I do not know how
+    # to run/work out a <kind> ... yet" errors, which already satisfy the
+    # design's "must fail loudly, never silently no-op" platform rule with
+    # no extra interpreter code needed. -----------------------------------
+    Route                    # route "/path" shows page / route otherwise shows page
+    GoToRoute                # go to "/path"
+    GoNavigate                # go back / go forward
+    ReplaceRoute              # replace route with "/path"
+    RouteChangeEvent          # on route change ... .
+    CurrentRoute              # an EXPRESSION: current route
+    RouteParameter            # an EXPRESSION: route parameter "id"
+    QueryParameter            # an EXPRESSION: query parameter "search"
 }
 
 enum MathOp { Add; Subtract; Multiply; Divide; Percent; Power }   # D88
@@ -2767,6 +2781,74 @@ class BytesExpr : Node {
     BytesExpr([BytesOp]$op, [Node]$source, [int]$line) : base([NodeKind]::Bytes, $line) {
         $this.Op = $op
         $this.Source = $source
+    }
+}
+
+# D103: SPA routing - web-target only (see the NodeKind block's own note).
+# route "/path" shows page / route otherwise shows page. Path is $null
+# only for the `otherwise` (fallback) form.
+class RouteStmt : Node {
+    [Node]$Path
+    [bool]$IsOtherwise
+    [string]$PageName
+    RouteStmt([Node]$path, [bool]$isOtherwise, [string]$pageName, [int]$line) : base([NodeKind]::Route, $line) {
+        $this.Path = $path
+        $this.IsOtherwise = $isOtherwise
+        $this.PageName = $pageName
+    }
+}
+
+# go to "/path" [ / go to destination]
+class GoToRouteStmt : Node {
+    [Node]$Path
+    GoToRouteStmt([Node]$path, [int]$line) : base([NodeKind]::GoToRoute, $line) {
+        $this.Path = $path
+    }
+}
+
+# go back / go forward
+class GoNavigateStmt : Node {
+    [bool]$IsForward
+    GoNavigateStmt([bool]$isForward, [int]$line) : base([NodeKind]::GoNavigate, $line) {
+        $this.IsForward = $isForward
+    }
+}
+
+# replace route with "/login" - navigates without adding browser history
+class ReplaceRouteStmt : Node {
+    [Node]$Path
+    ReplaceRouteStmt([Node]$path, [int]$line) : base([NodeKind]::ReplaceRoute, $line) {
+        $this.Path = $path
+    }
+}
+
+# on route change \n <statements> . - fires after any successful
+# navigation, including browser Back/Forward.
+class RouteChangeStmt : Node {
+    [Node[]]$Body
+    RouteChangeStmt([Node[]]$body, [int]$line) : base([NodeKind]::RouteChangeEvent, $line) {
+        $this.Body = $body
+    }
+}
+
+# current route - the current URL path, as text
+class CurrentRouteExpr : Node {
+    CurrentRouteExpr([int]$line) : base([NodeKind]::CurrentRoute, $line) {}
+}
+
+# route parameter "id" - a named :segment from the matched route, as text
+class RouteParameterExpr : Node {
+    [Node]$Name
+    RouteParameterExpr([Node]$name, [int]$line) : base([NodeKind]::RouteParameter, $line) {
+        $this.Name = $name
+    }
+}
+
+# query parameter "search" - a URL query-string value, as text
+class QueryParameterExpr : Node {
+    [Node]$Name
+    QueryParameterExpr([Node]$name, [int]$line) : base([NodeKind]::QueryParameter, $line) {
+        $this.Name = $name
     }
 }
 

@@ -352,4 +352,200 @@ if ($httpPlainJs -notmatch 'await fetch\("https://api\.example\.com/data", \{\}\
 }
 Write-Output '  pass  get/post/put/delete with no options block is unaffected (D101)'
 
+# Test 19: SPA routing (D103) - codegen shape
+$routeSource = @"
+homePage is a page
+    title is "Home"
+.
+aboutPage is a page
+    title is "About"
+.
+notFoundPage is a page
+    title is "Not Found"
+.
+route "/" shows homePage
+route "/about" shows aboutPage
+route "/users/:id" shows userPage
+route otherwise shows notFoundPage
+go to "/about"
+go to destination
+go back
+go forward
+replace route with "/login"
+on route change
+    say current route
+.
+"@
+$routeAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $routeSource)
+$routeJsLines = [System.Collections.Generic.List[string]]::new()
+foreach ($s in $routeAst.Statements) { $routeJsLines.Add((ConvertTo-OtterJsStatement -Stmt $s -Indent 0)) }
+$routeJs = $routeJsLines -join "`n"
+if ($routeJs -notmatch "window\.otterRouter\.register\(""/"", 'homePage'\)") {
+    throw 'Expected a static route to compile to a register() call.'
+}
+if ($routeJs -notmatch "window\.otterRouter\.register\(""/users/:id"", 'userPage'\)") {
+    throw 'Expected a parameterized route to compile to a register() call.'
+}
+if ($routeJs -notmatch "window\.otterRouter\.registerOtherwise\('notFoundPage'\)") {
+    throw 'Expected `route otherwise` to compile to registerOtherwise(), not register() with a stray variable (regression: "otherwise" only lexes as its own token at statement head, not mid-line).'
+}
+if ($routeJs -notmatch 'window\.otterRouter\.goTo\("/about"\)') {
+    throw 'Expected go-to-a-literal-path to compile to goTo().'
+}
+if ($routeJs -notmatch 'window\.history\.back\(\)') {
+    throw 'Expected go-back to compile to window.history.back().'
+}
+if ($routeJs -notmatch 'window\.history\.forward\(\)') {
+    throw 'Expected go-forward to compile to window.history.forward().'
+}
+if ($routeJs -notmatch 'window\.otterRouter\.replaceRoute\("/login"\)') {
+    throw 'Expected replace-route to compile to replaceRoute().'
+}
+if ($routeJs -notmatch 'window\.otterRouter\.changeHandlers\.push') {
+    throw 'Expected on-route-change to register a change handler.'
+}
+Write-Output '  pass  route/go/replace-route/on-route-change compile to the expected otterRouter calls (D103)'
+
+# Test 20: a variable literally named "route" still works with the
+# pre-existing text-replace statement (replace X with Y in Z) - the two
+# share a `replace ... with ...` prefix, told apart by whether "in"
+# follows.
+$replaceCollisionSource = @"
+route is "hello world"
+replace "world" with "there" in route
+say route
+"@
+$replaceAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $replaceCollisionSource)
+if ($replaceAst.Statements[1] -isnot [ReplaceStmt]) {
+    throw 'Expected replace ... with ... in route to still parse as the ordinary text-replace statement when "route" is just a variable name.'
+}
+Write-Output '  pass  "replace X with Y in route" (a variable literally named route) still parses as ordinary text replacement (D103)'
+
+# Test 21: the real otterRouter runtime object - register/match/param/
+# queryParam/errors - executed for real in Node against the actual
+# compiled output (not a hand-written reimplementation), matching this
+# project's cross-runtime-parity precedent (Csv.Tests.ps1 Case 26).
+$routerOtSource = @"
+homePage is a page
+    title is "Home"
+.
+aboutPage is a page
+    title is "About"
+.
+userPage is a page
+    title is "User"
+.
+notFoundPage is a page
+    title is "Not Found"
+.
+route "/" shows homePage
+route "/about" shows aboutPage
+route "/users/:id" shows userPage
+route otherwise shows notFoundPage
+"@
+$routerOtFile = Join-Path ([System.IO.Path]::GetTempPath()) ("otter_d103_$([Guid]::NewGuid().ToString('N')).ot")
+[System.IO.File]::WriteAllText($routerOtFile, $routerOtSource, [System.Text.UTF8Encoding]::new($false))
+try {
+    $routerHtmlPath = Export-OtterWebApplication -SourcePath $routerOtFile
+    $routerHtml = Get-Content -LiteralPath $routerHtmlPath -Raw
+    if ($routerHtml -notmatch '(?s)<script>(.*)</script>') {
+        throw 'Expected a <script> block in the compiled routing app.'
+    }
+    $routerScriptBody = $Matches[1]
+    $nodeScript = @"
+global.window = global;
+global.document = { getElementById: () => null, title: '', querySelectorAll: () => [], addEventListener: () => {} };
+global.history = { pushState: () => {}, replaceState: () => {}, back: () => {}, forward: () => {} };
+global.location = { pathname: '/', search: '' };
+global.otterSay = () => {};
+global.performance = require('perf_hooks').performance;
+global.addEventListener = () => {};
+
+$routerScriptBody
+
+const r = window.otterRouter;
+const errors = [];
+function expect(cond, msg) { if (!cond) errors.push(msg); }
+
+expect(r.match('/').pageId === 'homePage', 'root route did not match homePage');
+expect(r.match('/about').pageId === 'aboutPage', 'static route did not match aboutPage');
+expect(r.match('/about/').pageId === 'aboutPage', 'trailing slash did not normalize');
+const um = r.match('/users/42');
+expect(um.pageId === 'userPage', 'param route did not match userPage');
+expect(um.params.id === '42', 'route param "id" was not extracted correctly');
+expect(r.match('/nope').pageId === 'notFoundPage', 'unmatched route did not fall back to notFoundPage');
+
+let threw = false;
+try { r.register('/about', 'x'); } catch (e) { threw = /already registered/.test(e.message); }
+expect(threw, 'registering a duplicate route pattern did not throw');
+
+threw = false;
+try { r.register('no-slash', 'x'); } catch (e) { threw = /must begin with/.test(e.message); }
+expect(threw, 'a route not starting with / did not throw');
+
+threw = false;
+try { r.register('/dup/:id/:id', 'x'); } catch (e) { threw = /more than once/.test(e.message); }
+expect(threw, 'a duplicate parameter name in one route did not throw');
+
+r.register('/users/settings', 'homePage');
+expect(r.match('/users/settings').pageId === 'homePage', 'a static route did not win over a parameterized one at the same depth');
+expect(r.match('/users/42').pageId === 'userPage', 'the parameterized route stopped working after a static sibling was added');
+
+r.register('/search/:term', 'homePage');
+expect(r.match('/search/hello%20world').params.term === 'hello world', 'route parameters were not URL-decoded');
+
+if (errors.length > 0) {
+  console.log('ROUTER_FAIL: ' + errors.join(' | '));
+} else {
+  console.log('ROUTER_OK');
+}
+"@
+    $nodeScriptFile = Join-Path ([System.IO.Path]::GetTempPath()) ("otter_d103_node_$([Guid]::NewGuid().ToString('N')).js")
+    Set-Content -LiteralPath $nodeScriptFile -Value $nodeScript
+    try {
+        $nodeOut = & node $nodeScriptFile
+        $nodeOutJoined = $nodeOut -join "`n"
+        if ($nodeOutJoined -ne 'ROUTER_OK') {
+            throw "Real otterRouter runtime logic must pass register/match/param/error checks in Node. Got: $nodeOutJoined"
+        }
+    } finally {
+        Remove-Item -LiteralPath $nodeScriptFile -Force -ErrorAction SilentlyContinue
+    }
+} finally {
+    Remove-Item -LiteralPath $routerOtFile -Force -ErrorAction SilentlyContinue
+    $routerHtmlCleanup = [System.IO.Path]::ChangeExtension($routerOtFile, '.html')
+    Remove-Item -LiteralPath $routerHtmlCleanup -Force -ErrorAction SilentlyContinue
+}
+Write-Output '  pass  the real otterRouter runtime (register/match/params/precedence/errors) is correct, executed in Node (D103)'
+
+# Test 22: `go to` fails loudly on the console target rather than silently
+# no-op'ing - there is no console/desktop routing implementation, and
+# D103's own platform rule requires a real failure, never a silent no-op.
+# Runs the real otter.ps1 `run` entry point, not just a source inspection.
+$goToConsoleFile = Join-Path ([System.IO.Path]::GetTempPath()) ("otter_d103_console_$([Guid]::NewGuid().ToString('N')).ot")
+[System.IO.File]::WriteAllText($goToConsoleFile, 'go to "/about"', [System.Text.UTF8Encoding]::new($false))
+try {
+    $otterPs1Path = Join-Path (Split-Path -Parent $PSScriptRoot) 'otter.ps1'
+    $consolePsi = [System.Diagnostics.ProcessStartInfo]::new()
+    $consolePsi.FileName = 'powershell.exe'
+    $consolePsi.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$otterPs1Path`" run `"$goToConsoleFile`""
+    $consolePsi.RedirectStandardOutput = $true
+    $consolePsi.RedirectStandardError = $true
+    $consolePsi.UseShellExecute = $false
+    $consoleProcess = [System.Diagnostics.Process]::new()
+    $consoleProcess.StartInfo = $consolePsi
+    [void]$consoleProcess.Start()
+    $consoleOut = $consoleProcess.StandardOutput.ReadToEnd()
+    $consoleProcess.WaitForExit(15000) | Out-Null
+    if ($consoleProcess.ExitCode -ne 3) {
+        throw "Expected 'go to' on the console target to be a clean runtime error (exit 3), got exit $($consoleProcess.ExitCode)."
+    }
+    if ($consoleOut -notmatch 'I do not know how to run a GoToRoute statement yet') {
+        throw 'Expected a specific, non-silent diagnostic naming the unsupported statement.'
+    }
+} finally {
+    Remove-Item -LiteralPath $goToConsoleFile -Force -ErrorAction SilentlyContinue
+}
+Write-Output '  pass  "go to" fails loudly (not silently) on the console target, via a real otter.ps1 run (D103)'
+
 Write-Output 'Web compiler tests passed.'

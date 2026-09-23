@@ -524,13 +524,18 @@ function ConvertTo-OtterWeb {
     $bodyClass = if ($isPage) { ' class="otter-has-page"' } else { '' }
 
     # HTML rendering helper
-    function Render-OtterElement([string]$resName) {
+    function Render-OtterElement([string]$resName, [bool]$Hidden = $false) {
         if (-not $resources.Contains($resName)) { return "" }
         $r = $resources[$resName]
         $kind = $r.Kind
         $props = $r.Properties
 
         $styles = [System.Collections.Generic.List[string]]::new()
+        # D103: a route-managed page not matching the initially-loaded URL
+        # starts hidden, so nothing flashes before the router's own
+        # showForCurrentPath() (which runs right after these top-level
+        # statements execute) picks the one that actually matches.
+        if ($Hidden) { $styles.Add('display: none;') }
         if ($props.Contains('width')) {
             $w = $props['width']
             $wCss = if ($w -eq 'full') { "100%; max-width: 100%" } elseif ($w -is [int] -or $w -is [double]) { "${w}px" } else { $w }
@@ -910,8 +915,26 @@ $optHtml
         }
     }
 
+    # D103: every page a `route` statement names must reach the DOM, not
+    # just the usual single "first resource" root - the router decides
+    # at runtime which one is visible, so all of them have to exist to
+    # be shown/hidden. Order-preserving, de-duplicated (the same page
+    # can legitimately back more than one route pattern).
+    $routePageNames = [System.Collections.Generic.List[string]]::new()
+    $routePageSeen = [System.Collections.Generic.HashSet[string]]::new()
+    foreach ($stmt in $Program.Statements) {
+        if ($stmt -is [RouteStmt] -and $stmt.PageName -and $routePageSeen.Add($stmt.PageName)) {
+            $routePageNames.Add($stmt.PageName)
+        }
+    }
+
     $elementsHtml = ""
-    if ($rootName) {
+    if ($routePageNames.Count -gt 0) {
+        $parts = for ($ri = 0; $ri -lt $routePageNames.Count; $ri++) {
+            Render-OtterElement -resName $routePageNames[$ri] -Hidden ($ri -gt 0)
+        }
+        $elementsHtml = $parts -join "`n"
+    } elseif ($rootName) {
         $elementsHtml = Render-OtterElement -resName $rootName
     } else {
         $parts = foreach ($name in $resources.Keys) { Render-OtterElement -resName $name }
@@ -1939,6 +1962,86 @@ $elementsHtml
     window.httpGet = window.otterGetJson;
     window.httpPost = window.otterPostJson;
 
+    // D103: SPA routing. A generic capability (no app-specific IDs or
+    // behavior baked in here - every page id/path comes from the
+    // compiled program's own route statements), matching this
+    // project's own rule that shared runtime modules stay generic.
+    // Route patterns are validated here, at genuine RUNTIME, rather than
+    // only for literal-string paths at parse time - this way every path
+    // (literal or computed) goes through the exact same checks.
+    window.otterRouter = {
+      routes: [],
+      otherwiseId: null,
+      currentParams: {},
+      changeHandlers: [],
+      register: function(pathPattern, pageId) {
+        if (typeof pathPattern !== 'string' || pathPattern.length === 0 || pathPattern.charAt(0) !== '/') {
+          throw new Error('A route must begin with "/", but got "' + pathPattern + '".');
+        }
+        const segs = pathPattern.split('/').filter(function(s) { return s.length > 0; });
+        const paramNames = [];
+        const regexParts = segs.map(function(seg) {
+          if (seg.charAt(0) === ':') {
+            const name = seg.substring(1);
+            if (paramNames.indexOf(name) !== -1) {
+              throw new Error('Route "' + pathPattern + '" uses the parameter name "' + name + '" more than once.');
+            }
+            paramNames.push(name);
+            return '([^/]+)';
+          }
+          return seg.replace(/[.*+?^`${}()|[\]\\]/g, '\\`$&');
+        });
+        if (this.routes.some(function(r) { return r.pattern === pathPattern; })) {
+          throw new Error('Route "' + pathPattern + '" is already registered.');
+        }
+        const regex = new RegExp('^/' + regexParts.join('/') + '/?$');
+        this.routes.push({ pattern: pathPattern, paramNames: paramNames, regex: regex, pageId: pageId, isStatic: paramNames.length === 0 });
+        // Static routes must win over parameterized ones at the same
+        // depth (design spec item 16: /users/settings beats /users/:id) -
+        // keeping static routes sorted first makes "match" a plain
+        // first-match scan with no separate specificity pass.
+        this.routes.sort(function(a, b) { return (a.isStatic === b.isStatic) ? 0 : (a.isStatic ? -1 : 1); });
+      },
+      registerOtherwise: function(pageId) { this.otherwiseId = pageId; },
+      match: function(path) {
+        let p = path.length > 1 && path.charAt(path.length - 1) === '/' ? path.slice(0, -1) : path;
+        for (let i = 0; i < this.routes.length; i++) {
+          const r = this.routes[i];
+          const m = r.regex.exec(p);
+          if (m) {
+            const params = {};
+            r.paramNames.forEach(function(name, idx) { params[name] = decodeURIComponent(m[idx + 1]); });
+            return { pageId: r.pageId, params: params };
+          }
+        }
+        return this.otherwiseId ? { pageId: this.otherwiseId, params: {} } : null;
+      },
+      showForCurrentPath: function() {
+        const path = window.location.pathname;
+        const matched = this.match(path);
+        if (!matched) {
+          throw new Error('No route matches "' + path + '" and no "route otherwise" fallback was declared.');
+        }
+        this.currentParams = matched.params;
+        this.routes.forEach((r) => { const el = document.getElementById(r.pageId); if (el) el.style.display = 'none'; });
+        if (this.otherwiseId) { const el = document.getElementById(this.otherwiseId); if (el) el.style.display = 'none'; }
+        const target = document.getElementById(matched.pageId);
+        if (target) target.style.display = '';
+        this.changeHandlers.forEach((h) => h());
+      },
+      goTo: function(path) {
+        window.history.pushState({}, '', path);
+        this.showForCurrentPath();
+      },
+      replaceRoute: function(path) {
+        window.history.replaceState({}, '', path);
+        this.showForCurrentPath();
+      },
+      param: function(name) { return Object.prototype.hasOwnProperty.call(this.currentParams, name) ? this.currentParams[name] : null; },
+      queryParam: function(name) { return new URLSearchParams(window.location.search).get(name); }
+    };
+    window.addEventListener('popstate', function() { window.otterRouter.showForCurrentPath(); });
+
     // Otter Declarative Reactivity Engine
     const otterState = {};
     const otterDerived = {};
@@ -2090,6 +2193,14 @@ $watcherInitJoined
     // Top-level application initialization
     (async function() {
 $topLevelJoined
+
+    // D103: show the page matching the URL the browser actually loaded -
+    // the programmer never calls go-to at startup (design spec item
+    // 13). Guarded so a program with no route statements at all pays
+    // nothing and behaves exactly as before D103.
+    if (window.otterRouter.routes.length > 0 || window.otterRouter.otherwiseId) {
+      window.otterRouter.showForCurrentPath();
+    }
 
     // Register event listeners
 $handlersJoined

@@ -741,6 +741,17 @@ function ConvertTo-OtterJsExpression {
                 }
             }
         }
+        ([NodeKind]::CurrentRoute) {
+            return 'window.location.pathname'
+        }
+        ([NodeKind]::RouteParameter) {
+            $nameJs = ConvertTo-OtterJsExpression -Expr $Expr.Name
+            return "(window.otterRouter.param(String($nameJs)))"
+        }
+        ([NodeKind]::QueryParameter) {
+            $nameJs = ConvertTo-OtterJsExpression -Expr $Expr.Name
+            return "(window.otterRouter.queryParam(String($nameJs)))"
+        }
         ([NodeKind]::DateDifferenceValue) {
             # D60 Phase 1J (D42). The expression form of `days between X and
             # Y` - a genuine value, usable anywhere an expression is legal
@@ -2918,6 +2929,41 @@ function ConvertTo-OtterJsStatement {
                 return "${pad}$target = performance.now();"
             }
             return "${pad}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$target' in otterState)) { otterSetState('$target', performance.now()); } else { window.$target = performance.now(); }"
+        }
+
+        # D103: SPA routing - web-target only. window.otterRouter is the
+        # generic runtime object Otter.Web.psm1 injects into every
+        # compiled page (see its own comment there); these cases just
+        # call into it.
+        ([NodeKind]::Route) {
+            if ($Stmt.IsOtherwise) {
+                return "${pad}window.otterRouter.registerOtherwise('$($Stmt.PageName)');"
+            }
+            $pathJs = ConvertTo-OtterJsExpression -Expr $Stmt.Path
+            return "${pad}window.otterRouter.register($pathJs, '$($Stmt.PageName)');"
+        }
+        ([NodeKind]::GoToRoute) {
+            $pathJs = ConvertTo-OtterJsExpression -Expr $Stmt.Path
+            return "${pad}window.otterRouter.goTo($pathJs);"
+        }
+        ([NodeKind]::GoNavigate) {
+            $method = if ($Stmt.IsForward) { 'forward' } else { 'back' }
+            return "${pad}window.history.$method();"
+        }
+        ([NodeKind]::ReplaceRoute) {
+            $pathJs = ConvertTo-OtterJsExpression -Expr $Stmt.Path
+            return "${pad}window.otterRouter.replaceRoute($pathJs);"
+        }
+        ([NodeKind]::RouteChangeEvent) {
+            $needsAsync = Test-OtterJsBodyNeedsAsync -Statements $Stmt.Body
+            $asyncKw = if ($needsAsync) { 'async ' } else { '' }
+            $lines = [System.Collections.Generic.List[string]]::new()
+            $lines.Add("${pad}window.otterRouter.changeHandlers.push(${asyncKw}() => {")
+            foreach ($s in $Stmt.Body) {
+                $lines.Add((ConvertTo-OtterJsStatement -Stmt $s -Indent ($Indent + 1) -LocalNames $LocalNames))
+            }
+            $lines.Add("${pad}});")
+            return ($lines -join "`n")
         }
         default {
             return ""

@@ -409,6 +409,29 @@ function Read-OtterValue {
         [void](Read-OtterToken) # bytes
         return [BytesExpr]::new($op, (Read-OtterValue), $token.Line)
     }
+    # D103: SPA routing expressions. "current"/"route" are ordinary,
+    # unreserved identifiers (D33 mechanism 1) - "query"/"parameter" are
+    # already-reserved TokenKinds from D97/D98's database grammar, so
+    # `query parameter X` is checked by KIND, needing no text match at all.
+    if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -eq 'current' -and
+        ($script:Position + 1) -lt $script:Tokens.Count -and $script:Tokens[$script:Position + 1].Kind -eq [TokenKind]::Identifier -and
+        $script:Tokens[$script:Position + 1].Text -eq 'route') {
+        [void](Read-OtterToken) # current
+        [void](Read-OtterToken) # route
+        return [CurrentRouteExpr]::new($token.Line)
+    }
+    if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -eq 'route' -and
+        ($script:Position + 1) -lt $script:Tokens.Count -and $script:Tokens[$script:Position + 1].Kind -eq [TokenKind]::Parameter) {
+        [void](Read-OtterToken) # route
+        [void](Read-OtterToken) # parameter
+        return [RouteParameterExpr]::new((Read-OtterValue), $token.Line)
+    }
+    if ($token.Kind -eq [TokenKind]::Query -and
+        ($script:Position + 1) -lt $script:Tokens.Count -and $script:Tokens[$script:Position + 1].Kind -eq [TokenKind]::Parameter) {
+        [void](Read-OtterToken) # query
+        [void](Read-OtterToken) # parameter
+        return [QueryParameterExpr]::new((Read-OtterValue), $token.Line)
+    }
     if (Test-OtterIdentifierToken $token) {
         # A declared function is a real value-producing expression.  Its
         # arity tells us exactly how many following values belong to the
@@ -1248,6 +1271,57 @@ function Read-OtterStatement {
         return Read-OtterUiElementStatement
     }
 
+    # D103: SPA routing. "route"/"go" are ordinary, completely unreserved
+    # identifiers (D33 mechanism 1, same as the isUiTag check just above)
+    # - excluded here whenever the line is actually an assignment
+    # ("route is ...", "go is ...") so a variable named either word is
+    # still fully usable.
+    $isRouteDecl = ($start.Text -eq 'route' -and $nextKind -notin @([TokenKind]::Is, [TokenKind]::Are, [TokenKind]::Of, [TokenKind]::IsNot))
+    if ($isRouteDecl) {
+        [void](Read-OtterToken)
+        # "otherwise" only lexes as TokenKind::Otherwise at STATEMENT HEAD
+        # (D33 mechanism 2) - one position later, right after "route", it
+        # is a plain Identifier, so this must match by TEXT, not kind
+        # (confirmed directly: tokenizing "route otherwise shows x" gives
+        # Identifier/Identifier/Identifier/Identifier, not TokenKind::Otherwise
+        # anywhere - checking the kind here silently fell through to
+        # treating "otherwise" as an ordinary route-path variable instead).
+        if ((Get-OtterCurrentToken).Kind -eq [TokenKind]::Identifier -and (Get-OtterCurrentToken).Text -eq 'otherwise') {
+            [void](Read-OtterToken)
+            if (-not (Test-OtterTokenKind ([TokenKind]::Show)) -and -not ((Get-OtterCurrentToken).Text -eq 'shows')) {
+                throw (New-OtterParserError 'I expected "shows" and a page after "route otherwise".' (Get-OtterCurrentToken) 'Write: route otherwise shows notFoundPage')
+            }
+            [void](Read-OtterToken)
+            $pageTok = Read-OtterVariableName 'I expected a page name after "shows".'
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the route statement to end here.')
+            return [RouteStmt]::new($null, $true, $pageTok.Text, $start.Line)
+        }
+        $path = Read-OtterMathExpression
+        if (-not (Test-OtterTokenKind ([TokenKind]::Show)) -and -not ((Get-OtterCurrentToken).Text -eq 'shows')) {
+            throw (New-OtterParserError 'I expected "shows" and a page after the route path.' (Get-OtterCurrentToken) 'Write: route "/about" shows aboutPage')
+        }
+        [void](Read-OtterToken)
+        $pageTok = Read-OtterVariableName 'I expected a page name after "shows".'
+        [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the route statement to end here.')
+        return [RouteStmt]::new($path, $false, $pageTok.Text, $start.Line)
+    }
+    $isGoStmt = ($start.Text -eq 'go' -and $nextKind -notin @([TokenKind]::Is, [TokenKind]::Are, [TokenKind]::Of, [TokenKind]::IsNot) -and
+        (($nextKind -eq [TokenKind]::To) -or
+         (($script:Position + 1) -lt $script:Tokens.Count -and $script:Tokens[$script:Position + 1].Kind -eq [TokenKind]::Identifier -and $script:Tokens[$script:Position + 1].Text -in @('back', 'forward'))))
+    if ($isGoStmt) {
+        [void](Read-OtterToken)
+        $direction = Get-OtterCurrentToken
+        if ($direction.Kind -eq [TokenKind]::Identifier -and $direction.Text -in @('back', 'forward')) {
+            [void](Read-OtterToken)
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the go statement to end here.')
+            return [GoNavigateStmt]::new(($direction.Text -eq 'forward'), $start.Line)
+        }
+        [void](Assert-OtterTokenKind ([TokenKind]::To) 'I expected "to" and a route after "go".' 'Write: go to "/about"')
+        $path = Read-OtterMathExpression
+        [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the go statement to end here.')
+        return [GoToRouteStmt]::new($path, $start.Line)
+    }
+
     switch ($statementKind) {
         ([TokenKind]::Await) {
             $start = Read-OtterToken
@@ -1311,6 +1385,17 @@ function Read-OtterStatement {
         }
         ([TokenKind]::On) {
             [void](Read-OtterToken)
+            # D103: `on route change` - fires after any successful
+            # navigation, including browser Back/Forward. Checked before
+            # the start/close error below so it doesn't collide with it.
+            $stageTok = Get-OtterCurrentToken
+            if ($stageTok.Kind -eq [TokenKind]::Identifier -and $stageTok.Text -eq 'route' -and
+                ($script:Position + 1) -lt $script:Tokens.Count -and $script:Tokens[$script:Position + 1].Kind -eq [TokenKind]::Identifier -and
+                $script:Tokens[$script:Position + 1].Text -eq 'change') {
+                [void](Read-OtterToken) # route
+                [void](Read-OtterToken) # change
+                return [RouteChangeStmt]::new((Read-OtterBlock), $start.Line)
+            }
             $stageTok = Read-OtterToken
             if ($stageTok.Text -notin @('start', 'close')) {
                 throw (New-OtterParserError "I expected 'start' or 'close' after 'on', but got '$($stageTok.Text)'." $stageTok "Write 'on start' or 'on close'.")
@@ -2389,9 +2474,20 @@ function Read-OtterStatement {
         }
         ([TokenKind]::Replace) {
             [void](Read-OtterToken)
+            # D103: `replace route with "/path"` shares its `replace ...
+            # with ...` prefix with the pre-existing text-replacement
+            # statement below - told apart by what comes AFTER: the route
+            # form has no `in` clause, the text form always requires one.
+            # A variable actually named "route" used with the ordinary
+            # text-replace statement still works correctly (falls through
+            # to the generic form below whenever "in" follows).
             $find = Read-OtterValue
             [void](Assert-OtterTokenKind ([TokenKind]::With) 'I expected "with" and replacement text.')
-            $replacement = Read-OtterValue
+            $replacement = Read-OtterMathExpression
+            if ($find -is [VariableExpr] -and $find.Name -eq 'route' -and -not (Test-OtterTokenKind ([TokenKind]::In))) {
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the replace route statement to end here.')
+                return [ReplaceRouteStmt]::new($replacement, $start.Line)
+            }
             [void](Assert-OtterTokenKind ([TokenKind]::In) 'I expected "in" and the text variable to change.')
             $target = Read-OtterVariableName 'I expected a text variable after "in".'
             [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the replace statement to end here.')

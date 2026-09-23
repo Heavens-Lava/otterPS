@@ -1171,11 +1171,28 @@ creation.
     properly rather than guessing at syntax)
 -   [x] Forms
 -   [x] Validation
--   [ ] Routing (real gap - confirmed no client-side URL/view router;
-    D51's `when api receives GET at "/path"` is backend API routing, a
-    different capability from a frontend SPA router)
--   [ ] Route parameters (blocked on Routing above)
--   [ ] Navigation/history (real gap - no browser History API integration)
+-   [x] Routing (D103: `route "/path" shows page` / `route otherwise
+    shows page`, distinct from D51's backend `when api receives GET at
+    "/path"`. All declared pages render into the DOM (a real change to
+    the compiler's previous "only ever render one root" assumption -
+    confirmed by testing: without it, a second declared `page` never
+    reached the DOM at all), the router shows/hides the one matching the
+    loaded URL, static routes beat parameterized ones at the same depth,
+    duplicate routes/duplicate param names/a path not starting with "/"
+    all fail loudly rather than silently misbehaving. Verified live in a
+    real browser via Playwright - initial load, SPA navigation with no
+    full reload, params, browser Back restoring the previous page - not
+    just by reading the compiled JS. Console/desktop: no implementation,
+    fails loudly (`otter run` on `go to "..."` throws a clean, specific
+    error), matching the design spec's own platform rule. 5 production
+    tests including a real Node-executed run of the router's own runtime
+    logic, `tests/Web.Tests.ps1`)
+-   [x] Route parameters (D103: `route parameter "id"`, URL-decoded,
+    always text - see Routing above)
+-   [x] Navigation/history (D103: `go to`/`go back`/`go forward`/
+    `replace route with` wrap `history.pushState`/`back`/`forward`/
+    `replaceState`; a real `popstate` listener keeps the browser's own
+    Back/Forward buttons working with no extra code, verified live)
 -   [x] Browser storage
 -   [ ] Cookies (real gap - no cookie read/write capability exposed)
 -   [x] Fetch/HTTP
