@@ -421,6 +421,9 @@ function Invoke-OtterFile {
     $source = $resolvedProgram.CombinedSource
     if ($null -eq $source) { $source = '' }
 
+    # D111: secrets are scoped to this program's identity.
+    Set-OtterApplicationId -Path $resolved.Path
+
     $environment = New-OtterEnvironment -Arguments $Arguments
 
     try {

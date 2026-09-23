@@ -512,6 +512,24 @@ function Read-OtterValue {
         [void](Read-OtterToken) # error
         return [WebSocketErrorExpr]::new($token.Line)
     }
+    # D111: `secret "name"` reads a secret; `secret "name" exists` tests for one.
+    # "secret" stays an ordinary identifier: it only means the vault when a
+    # text literal follows, or a bare name that ends the line / precedes "exists".
+    if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -eq 'secret' -and ($script:Position + 1) -lt $script:Tokens.Count) {
+        $secretNext = $script:Tokens[$script:Position + 1]
+        $secretNameIsLiteral = ($secretNext.Kind -eq [TokenKind]::String)
+        $secretNameIsVariable = ($secretNext.Kind -eq [TokenKind]::Identifier -and ($script:Position + 2) -lt $script:Tokens.Count -and
+            ($script:Tokens[$script:Position + 2].Kind -in @([TokenKind]::Newline, [TokenKind]::Exists)))
+        if ($secretNameIsLiteral -or $secretNameIsVariable) {
+            [void](Read-OtterToken) # secret
+            $secretName = Read-OtterValue
+            if ((Get-OtterCurrentToken).Kind -eq [TokenKind]::Exists) {
+                [void](Read-OtterToken)
+                return [SecretExistsExpr]::new($secretName, $token.Line)
+            }
+            return [SecretReadExpr]::new($secretName, $token.Line)
+        }
+    }
     # D109: cryptography expressions. Plain identifiers (D33 mechanism 1),
     # matched by text only in these exact shapes.
     if ($token.Kind -eq [TokenKind]::Identifier -and ($script:Position + 1) -lt $script:Tokens.Count) {
@@ -2232,6 +2250,28 @@ function Read-OtterStatement {
         $netSock = Read-OtterValue
         [void](Assert-OtterTokenKind ([TokenKind]::Newline) "I expected the close $netProto statement to end here.")
         return [NetCloseStmt]::new($netProto, $netSock, $start.Line)
+    }
+
+    # D111: `store secret "name" with value V` / `delete secret "name"`
+    if (($start.Text -eq 'store' -or $start.Text -eq 'delete') -and ($script:Position + 1) -lt $script:Tokens.Count -and
+        $script:Tokens[$script:Position + 1].Kind -eq [TokenKind]::Identifier -and $script:Tokens[$script:Position + 1].Text -eq 'secret' -and
+        -not (Test-OtterTokenOffsetKind 2 ([TokenKind]::Is))) {
+        [void](Read-OtterToken) # store / delete
+        [void](Read-OtterToken) # secret
+        $vaultName = Read-OtterValue
+        if ($start.Text -eq 'delete') {
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the delete secret statement to end here.')
+            return [DeleteSecretStmt]::new($vaultName, $start.Line)
+        }
+        [void](Assert-OtterTokenKind ([TokenKind]::With) 'I expected "with value" and the secret to store.' 'store secret "api-token" with value token')
+        $valueWord = Get-OtterCurrentToken
+        if (-not ($valueWord.Kind -eq [TokenKind]::Identifier -and $valueWord.Text -eq 'value')) {
+            throw (New-OtterParserError 'I expected "value" after "with".' $valueWord 'store secret "api-token" with value token')
+        }
+        [void](Read-OtterToken)
+        $vaultValue = Read-OtterMathExpression
+        [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the store secret statement to end here.')
+        return [StoreSecretStmt]::new($vaultName, $vaultValue, $start.Line)
     }
 
     # D109: `generate encryption key and call it key`

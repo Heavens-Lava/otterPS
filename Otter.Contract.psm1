@@ -636,7 +636,12 @@ enum NodeKind {
     HashPassword              # hash password P and call it H
     PasswordMatches           # a CONDITION: password P matches hash H
     SecurelyEquals            # a CONDITION: A securely equals B
-    # --- query language (D99) -----------------------------------
+
+    # --- Credential vault (D111) - console only; web reports unsupported. --
+    StoreSecret               # store secret NAME with value V
+    DeleteSecret              # delete secret NAME
+    SecretRead                # EXPRESSION: secret NAME
+    SecretExists              # a CONDITION: secret NAME exists    # --- query language (D99) -----------------------------------
     QueryStmt                # get [distinct] fields from table in db [as alias] [where ...] [order by ...] [take N] [skip N] into target
     QueryAggregateStmt       # count/sum/average/minimum/maximum from table in db ... into target
     QueryBetweenExpr         # expr between low and high
@@ -3378,6 +3383,43 @@ class SecurelyEqualsExpr : Node {
     SecurelyEqualsExpr([Node]$left, [Node]$right, [int]$line) : base([NodeKind]::SecurelyEquals, $line) {
         $this.Left = $left
         $this.Right = $right
+    }
+}
+
+# D111: credential vault. Secrets live in the operating system's credential
+# store, scoped to the running Otter application - never in a file.
+
+# store secret "api-token" with value token
+class StoreSecretStmt : Node {
+    [Node]$Name
+    [Node]$Value
+    StoreSecretStmt([Node]$name, [Node]$value, [int]$line) : base([NodeKind]::StoreSecret, $line) {
+        $this.Name = $name
+        $this.Value = $value
+    }
+}
+
+# delete secret "api-token"
+class DeleteSecretStmt : Node {
+    [Node]$Name
+    DeleteSecretStmt([Node]$name, [int]$line) : base([NodeKind]::DeleteSecret, $line) {
+        $this.Name = $name
+    }
+}
+
+# secret "api-token"
+class SecretReadExpr : Node {
+    [Node]$Name
+    SecretReadExpr([Node]$name, [int]$line) : base([NodeKind]::SecretRead, $line) {
+        $this.Name = $name
+    }
+}
+
+# secret "api-token" exists
+class SecretExistsExpr : Node {
+    [Node]$Name
+    SecretExistsExpr([Node]$name, [int]$line) : base([NodeKind]::SecretExists, $line) {
+        $this.Name = $name
     }
 }
 

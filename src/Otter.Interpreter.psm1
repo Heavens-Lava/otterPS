@@ -1939,6 +1939,63 @@ function Invoke-OtterStatement {
             return
         }
 
+        # store secret "api-token" with value token                     (D111)
+        'StoreSecret' {
+            Assert-OtterVaultAvailable -Line $Statement.Line
+            $target = Get-OtterSecretTarget -Name (Get-OtterValue -Expression $Statement.Name -Environment $Environment) -Line $Statement.Line
+            $secretValue = Get-OtterValue -Expression $Statement.Value -Environment $Environment
+            # Text and bytes only; never silently converted to one another.
+            if ($secretValue -is [string]) {
+                $kind = 'otter-text'
+                $blob = [System.Text.Encoding]::UTF8.GetBytes($secretValue)
+            } elseif (Test-OtterBytes $secretValue) {
+                $kind = 'otter-bytes'
+                $blob = [byte[]]$secretValue.Value
+            } else {
+                throw (New-OtterRuntimeError `
+                    -Message "A secret can hold text or bytes, but this is $(Get-OtterTypeName -Value $secretValue)." `
+                    -Line $Statement.Line)
+            }
+            if ($blob.Length -eq 0) {
+                throw (New-OtterRuntimeError -Message 'A secret cannot be empty.' -Line $Statement.Line)
+            }
+            if ($blob.Length -gt $script:OtterCredentialMaxBlob) {
+                throw (New-OtterRuntimeError `
+                    -Message "That secret is $($blob.Length) bytes, but the credential store holds at most $($script:OtterCredentialMaxBlob) bytes per secret." `
+                    -Line $Statement.Line)
+            }
+            try {
+                [OtterCredentialApi]::Write($target, $kind, $blob)
+            } catch {
+                # Never echo the value; the Win32 message names only the failure.
+                throw (New-OtterRuntimeError `
+                    -Message "I could not store the secret: $($_.Exception.GetBaseException().Message)" `
+                    -Line $Statement.Line)
+            }
+            return
+        }
+
+        # delete secret "api-token"                                      (D111)
+        'DeleteSecret' {
+            Assert-OtterVaultAvailable -Line $Statement.Line
+            $nameValue = Get-OtterValue -Expression $Statement.Name -Environment $Environment
+            $target = Get-OtterSecretTarget -Name $nameValue -Line $Statement.Line
+            try {
+                $removed = [OtterCredentialApi]::Delete($target)
+            } catch {
+                throw (New-OtterRuntimeError `
+                    -Message "I could not delete the secret: $($_.Exception.GetBaseException().Message)" `
+                    -Line $Statement.Line)
+            }
+            if (-not $removed) {
+                throw (New-OtterRuntimeError `
+                    -Message "There is no secret called ""$nameValue"" to delete." `
+                    -Line $Statement.Line `
+                    -Suggestion 'if secret "name" exists ...')
+            }
+            return
+        }
+
         # generate encryption key and call it key                       (D109)
         'GenerateKey' {
             $Environment.Set($Statement.Target, [OtterBytes]::new((New-OtterSecureRandomByteArray -Count $script:OtterCryptoKeyLength)))
@@ -3472,6 +3529,145 @@ function Test-OtterPasswordHash {
     return (Test-OtterConstantTimeEqual -Left $derived -Right $expected)
 }
 
+# ===============================================================
+# CREDENTIAL VAULT (D111) - console only
+# ===============================================================
+# Secrets are stored in the Windows Credential Manager (the OS credential
+# store, protected by the signed-in user's login) through advapi32
+# CredWrite/CredRead/CredDelete. Nothing here writes a file, an .env, or
+# a reversible key of Otter's own.
+#
+# Scoping: each secret's target name carries the running application's
+# identity (a hash of the full path of the .ot file), so two unrelated
+# Otter programs storing "api-token" never see each other's value. Text
+# and bytes secrets are told apart by a marker in the credential comment,
+# so a stored kind never silently changes on read-back.
+
+$script:OtterApplicationId = 'otter-repl'
+$script:OtterCredentialApiLoaded = $false
+$script:OtterCredentialMaxBlob = 2560   # CRED_MAX_CREDENTIAL_BLOB_SIZE
+
+function Set-OtterApplicationId {
+    param([Parameter(Mandatory)][string]$Path)
+    $full = [System.IO.Path]::GetFullPath($Path).ToLowerInvariant()
+    $hash = [System.Security.Cryptography.SHA256]::Create()
+    try { $digest = $hash.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($full)) } finally { $hash.Dispose() }
+    $short = ([System.BitConverter]::ToString($digest, 0, 8) -replace '-', '').ToLowerInvariant()
+    $script:OtterApplicationId = "$([System.IO.Path]::GetFileNameWithoutExtension($Path))-$short"
+}
+
+function Initialize-OtterCredentialApi {
+    if ($script:OtterCredentialApiLoaded) { return }
+    if (-not ('OtterCredentialApi' -as [type])) {
+        Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+using System.Text;
+
+public static class OtterCredentialApi {
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct CREDENTIAL {
+        public uint Flags;
+        public uint Type;
+        public string TargetName;
+        public string Comment;
+        public System.Runtime.InteropServices.ComTypes.FILETIME LastWritten;
+        public uint CredentialBlobSize;
+        public IntPtr CredentialBlob;
+        public uint Persist;
+        public uint AttributeCount;
+        public IntPtr Attributes;
+        public string TargetAlias;
+        public string UserName;
+    }
+
+    [DllImport("advapi32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern bool CredWrite(ref CREDENTIAL credential, uint flags);
+    [DllImport("advapi32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern bool CredRead(string target, uint type, uint flags, out IntPtr credential);
+    [DllImport("advapi32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern bool CredDelete(string target, uint type, uint flags);
+    [DllImport("advapi32.dll")]
+    private static extern void CredFree(IntPtr buffer);
+
+    private const int ERROR_NOT_FOUND = 1168;
+
+    public static void Write(string target, string kind, byte[] blob) {
+        IntPtr pin = Marshal.AllocHGlobal(Math.Max(blob.Length, 1));
+        try {
+            Marshal.Copy(blob, 0, pin, blob.Length);
+            CREDENTIAL c = new CREDENTIAL();
+            c.Type = 1;                      // CRED_TYPE_GENERIC
+            c.TargetName = target;
+            c.Comment = kind;
+            c.CredentialBlobSize = (uint)blob.Length;
+            c.CredentialBlob = pin;
+            c.Persist = 2;                   // CRED_PERSIST_LOCAL_MACHINE
+            c.UserName = "otter";
+            if (!CredWrite(ref c, 0)) {
+                throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+            }
+        } finally {
+            // Do not leave secret bytes lying in unmanaged memory.
+            for (int i = 0; i < blob.Length; i++) { Marshal.WriteByte(pin, i, 0); }
+            Marshal.FreeHGlobal(pin);
+        }
+    }
+
+    // Returns false when no such credential exists.
+    public static bool Read(string target, out string kind, out byte[] blob) {
+        kind = null; blob = null;
+        IntPtr ptr;
+        if (!CredRead(target, 1, 0, out ptr)) {
+            int err = Marshal.GetLastWin32Error();
+            if (err == ERROR_NOT_FOUND) { return false; }
+            throw new System.ComponentModel.Win32Exception(err);
+        }
+        try {
+            CREDENTIAL c = (CREDENTIAL)Marshal.PtrToStructure(ptr, typeof(CREDENTIAL));
+            kind = c.Comment;
+            blob = new byte[c.CredentialBlobSize];
+            if (c.CredentialBlobSize > 0) { Marshal.Copy(c.CredentialBlob, blob, 0, (int)c.CredentialBlobSize); }
+            return true;
+        } finally {
+            CredFree(ptr);
+        }
+    }
+
+    // Returns false when no such credential exists.
+    public static bool Delete(string target) {
+        if (CredDelete(target, 1, 0)) { return true; }
+        int err = Marshal.GetLastWin32Error();
+        if (err == ERROR_NOT_FOUND) { return false; }
+        throw new System.ComponentModel.Win32Exception(err);
+    }
+}
+'@
+    }
+    $script:OtterCredentialApiLoaded = $true
+}
+
+function Get-OtterSecretTarget {
+    param([object]$Name, [int]$Line)
+    if ($Name -isnot [string] -or [string]::IsNullOrWhiteSpace($Name)) {
+        throw (New-OtterRuntimeError `
+            -Message "I need a secret name as non-empty text, but this is $(Get-OtterTypeName -Value $Name)." `
+            -Line $Line `
+            -Suggestion 'store secret "api-token" with value token')
+    }
+    return "otter:$($script:OtterApplicationId):$Name"
+}
+
+function Assert-OtterVaultAvailable {
+    param([int]$Line)
+    if ([System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) {
+        throw (New-OtterRuntimeError `
+            -Message 'The credential vault needs an operating-system credential store, and this platform does not have one Otter supports yet.' `
+            -Line $Line)
+    }
+    Initialize-OtterCredentialApi
+}
+
 # D107/D108 helpers -------------------------------------------------
 function Get-OtterNetPort {
     param([object]$Value, [int]$Line, [switch]$AllowZero)
@@ -4270,6 +4466,46 @@ function Get-OtterValue {
             return (Test-OtterConstantTimeEqual -Left ([byte[]]$left.Value) -Right ([byte[]]$right.Value))
         }
 
+        # secret "api-token"                                            (D111)
+        'SecretRead' {
+            Assert-OtterVaultAvailable -Line $Expression.Line
+            $nameValue = Get-OtterValue -Expression $Expression.Name -Environment $Environment
+            $target = Get-OtterSecretTarget -Name $nameValue -Line $Expression.Line
+            $kind = $null
+            $blob = $null
+            try {
+                $found = [OtterCredentialApi]::Read($target, [ref]$kind, [ref]$blob)
+            } catch {
+                throw (New-OtterRuntimeError `
+                    -Message "I could not read the secret: $($_.Exception.GetBaseException().Message)" `
+                    -Line $Expression.Line)
+            }
+            # A missing secret is an error, never an empty string pretending to exist.
+            if (-not $found) {
+                throw (New-OtterRuntimeError `
+                    -Message "There is no secret called ""$nameValue""." `
+                    -Line $Expression.Line `
+                    -Suggestion 'if secret "name" exists ...')
+            }
+            if ($kind -eq 'otter-bytes') { return [OtterBytes]::new([byte[]]$blob) }
+            return [System.Text.Encoding]::UTF8.GetString([byte[]]$blob)
+        }
+
+        # secret "api-token" exists                                     (D111)
+        'SecretExists' {
+            Assert-OtterVaultAvailable -Line $Expression.Line
+            $target = Get-OtterSecretTarget -Name (Get-OtterValue -Expression $Expression.Name -Environment $Environment) -Line $Expression.Line
+            $kind = $null
+            $blob = $null
+            try {
+                return [bool][OtterCredentialApi]::Read($target, [ref]$kind, [ref]$blob)
+            } catch {
+                throw (New-OtterRuntimeError `
+                    -Message "I could not check for the secret: $($_.Exception.GetBaseException().Message)" `
+                    -Line $Expression.Line)
+            }
+        }
+
         'NetContext' {
             $netKey = switch ($Expression.Field) {
                 'data' { 'Data' }
@@ -4864,4 +5100,4 @@ Export-ModuleMember -Function `
     Invoke-OtterProgram, Invoke-OtterStatements, Invoke-OtterStatement, `
     Get-OtterValue, Invoke-OtterCall, New-OtterEnvironment, Get-OtterTypeName, `
     Set-OtterOutputWriter, Set-OtterDiagnosticWriter, Write-OtterLine, Get-OtterText, Get-OtterPathArgument, Set-OtterTarget, `
-    Set-OtterStatementHook, Get-OtterCallStackSnapshot
+    Set-OtterStatementHook, Get-OtterCallStackSnapshot, Set-OtterApplicationId
