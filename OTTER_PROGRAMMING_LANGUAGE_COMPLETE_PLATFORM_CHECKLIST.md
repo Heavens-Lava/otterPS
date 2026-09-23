@@ -1140,8 +1140,8 @@ creation.
     each row needs its own `execute`)
 -   [ ] Async database operations (real gap - every database statement is
     synchronous/blocking, no async/await integration)
--   [ ] ORM/query-builder only if justified (real gap, deliberately -
-    matches D99 - Otter Query Language (OQL) now implemented: `get`, `where`, `order by`, `limit`/`offset`, aggregates; tests/Query.Tests.ps1; raw SQL via `execute`/`query` remains too
+-   [x] ORM/query-builder (D99 OQL implemented:
+    `get`, `where`, `order by`, `limit`/`offset`, aggregates; tests/Query.Tests.ps1; raw SQL via `execute`/`query` remains too)
 -   [ ] NoSQL provider interface (real gap - the provider architecture is
     SQL-shaped throughout (connections, parameterized SQL text,
     transactions); a NoSQL provider would need its own interface design,
