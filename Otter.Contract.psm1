@@ -234,6 +234,13 @@ enum TokenKind {
                         # precedent), so "console" stays an ordinary,
                         # unreserved identifier everywhere else.
 
+    # --- general wait, seeded random, timers, date parsing (D101) -----
+    Millisecond         # wait 500 milliseconds (D101 - joins the existing
+                        # Year/Month/Day/Hour/Minute/Second time units)
+    ElapsedTime         # elapsed time of workTimer (D101, two-word OfOperation
+                        # token, same shape as AbsoluteValue/NaturalLog above)
+    ElapsedMilliseconds # elapsed milliseconds of workTimer (D101, same shape)
+
 
     # --- web servers & api routes (D51) -------------------------
     Respond         # respond with "..." as json and status 200
@@ -529,6 +536,13 @@ enum NodeKind {
     ConsoleInteractive      # console is interactive (an EXPRESSION - the
                              # TokenKind above is the combined phrase this
                              # parses from)
+
+    # --- general wait, seeded random, timers, date parsing (D101) --------------
+    WaitDelay                # wait 5 seconds / wait 500 milliseconds
+    SetRandomSeed            # set random seed to 42
+    StartTimer               # start timer workTimer
+    DateFromText             # date from "2024-01-15" [using "MM/dd/yyyy"] -
+                              # an EXPRESSION, usable directly after `is`
 }
 
 enum MathOp { Add; Subtract; Multiply; Divide; Percent; Power }   # D88
@@ -546,7 +560,7 @@ enum LogicalOp { And; Or }
 # Pretending every list literally carries a "length" property would make the
 # runtime object model strange to keep the grammar tidy. They share surface
 # syntax and nothing else.
-enum OfOperation { Length; Uppercase; Lowercase; First; Last; AbsoluteValue; SquareRoot; Round; RoundUp; RoundDown; Sine; Cosine; Tangent; LogTen; NaturalLog }   # D89 added AbsoluteValue..RoundDown, D90 added Sine..NaturalLog
+enum OfOperation { Length; Uppercase; Lowercase; First; Last; AbsoluteValue; SquareRoot; Round; RoundUp; RoundDown; Sine; Cosine; Tangent; LogTen; NaturalLog; ElapsedTime; ElapsedMilliseconds }   # D89 added AbsoluteValue..RoundDown, D90 added Sine..NaturalLog, D101 added Elapsed*
 
 # if name starts with "J"   /   if name ends with "Macy"
 enum TextMatch { StartsWith; EndsWith }
@@ -559,7 +573,7 @@ enum ClockKind { Today; Now }
 # D32: the unit in "add 7 days to date". Carried in the AST as an enum, so
 # the parser never needs to know what kind of value the target holds - it
 # reads the unit word and the shape is decided.
-enum TimeUnit { Year; Month; Day; Hour; Minute; Second }
+enum TimeUnit { Year; Month; Day; Hour; Minute; Second; Millisecond }   # D101 added Millisecond
 
 # D31: log / warn / error are DIAGNOSTIC output, separate from "say".
 # "say" is what the program tells its user; these are what it tells its
@@ -2615,6 +2629,66 @@ class ShowProgressStmt : Node {
 # "console" remains an ordinary, unreserved identifier everywhere else.
 class ConsoleInteractiveExpr : Node {
     ConsoleInteractiveExpr([int]$line) : base([NodeKind]::ConsoleInteractive, $line) {
+    }
+}
+
+
+# ===============================================================
+# GENERAL WAIT, SEEDED RANDOM, NAMED TIMERS, DATE PARSING (D101)
+# ===============================================================
+
+# wait 5 seconds / wait 500 milliseconds / wait 2 minutes / wait delay seconds
+# Distinct from the existing WaitForProcessStmt ("wait for process p up to
+# N seconds") - that one always starts with the literal word "for"
+# immediately after `wait`, so the two are trivially distinguishable by
+# the parser with one token of lookahead.
+class WaitDelayStmt : Node {
+    [Node]$Duration
+    [TimeUnit]$Unit
+    WaitDelayStmt([Node]$duration, [TimeUnit]$unit, [int]$line) : base([NodeKind]::WaitDelay, $line) {
+        $this.Duration = $duration
+        $this.Unit = $unit
+    }
+}
+
+# set random seed to 42
+# Makes subsequent `random number from X to Y`/`random item from L`
+# results deterministic. Deliberately does NOT affect the separate,
+# cryptographically secure random path (D92's key/salt/IV generation) -
+# a seeded PRNG is by definition predictable, which is exactly wrong for
+# anything security-sensitive.
+class SetRandomSeedStmt : Node {
+    [Node]$Seed
+    SetRandomSeedStmt([Node]$seed, [int]$line) : base([NodeKind]::SetRandomSeed, $line) {
+        $this.Seed = $seed
+    }
+}
+
+# start timer workTimer
+# Creates AND starts a new named timer resource bound to Target in one
+# step (matching D44's create-a-resource convention), not a statement
+# that starts a PRE-EXISTING resource the way `start server`/`start api`
+# already do - "timer" is checked as plain identifier text immediately
+# after the existing, already-generic Start dispatch, so this never
+# collides with or changes that existing behavior.
+class StartTimerStmt : Node {
+    [string]$Target
+    StartTimerStmt([string]$target, [int]$line) : base([NodeKind]::StartTimer, $line) {
+        $this.Target = $target
+    }
+}
+
+# date from "2024-01-15" [using "MM/dd/yyyy"]
+# An EXPRESSION (usable directly after `is`, same as `today`/`now`), not
+# a statement - Format is $null for the no-`using`-clause form, which
+# means "parse with a culture-invariant general date/time parse" at the
+# interpreter level, not "no format restriction at all".
+class DateFromTextExpr : Node {
+    [Node]$Source
+    [Node]$Format
+    DateFromTextExpr([Node]$source, [Node]$format, [int]$line) : base([NodeKind]::DateFromText, $line) {
+        $this.Source = $source
+        $this.Format = $format
     }
 }
 

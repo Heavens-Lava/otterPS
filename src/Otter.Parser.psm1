@@ -202,7 +202,8 @@ function Read-OtterValue {
     }
     if ($token.Kind -in @([TokenKind]::Length, [TokenKind]::Uppercase, [TokenKind]::Lowercase, [TokenKind]::First, [TokenKind]::Last,
                           [TokenKind]::AbsoluteValue, [TokenKind]::SquareRoot, [TokenKind]::Round, [TokenKind]::RoundUp, [TokenKind]::RoundDown,
-                          [TokenKind]::Sine, [TokenKind]::Cosine, [TokenKind]::Tangent, [TokenKind]::LogTen, [TokenKind]::NaturalLog)) {
+                          [TokenKind]::Sine, [TokenKind]::Cosine, [TokenKind]::Tangent, [TokenKind]::LogTen, [TokenKind]::NaturalLog,
+                          [TokenKind]::ElapsedTime, [TokenKind]::ElapsedMilliseconds)) {
         [void](Read-OtterToken)
         [void](Assert-OtterTokenKind ([TokenKind]::Of) 'I expected "of" after this operation.')
         $operation = switch ($token.Kind) {
@@ -221,6 +222,8 @@ function Read-OtterValue {
             ([TokenKind]::Tangent) { [OfOperation]::Tangent }             # D90: tangent of X (degrees)
             ([TokenKind]::LogTen) { [OfOperation]::LogTen }               # D90: log of X (base 10)
             ([TokenKind]::NaturalLog) { [OfOperation]::NaturalLog }       # D90: natural log of X (base e)
+            ([TokenKind]::ElapsedTime) { [OfOperation]::ElapsedTime }               # D101: elapsed time of workTimer
+            ([TokenKind]::ElapsedMilliseconds) { [OfOperation]::ElapsedMilliseconds } # D101: elapsed milliseconds of workTimer
         }
         return [OfOperationExpr]::new($operation, (Read-OtterValue -PropertyTarget), $token.Line)
     }
@@ -267,6 +270,24 @@ function Read-OtterValue {
         }
         [void](Assert-OtterTokenKind ([TokenKind]::Of) 'I expected "of" after this command result property.')
         return [PropertyAccessExpr]::new($propName, (Read-OtterValue -PropertyTarget), $first.Line)
+    }
+    # D101: date from "2024-01-15" [using "MM/dd/yyyy"] - "date" is checked
+    # by text ONLY when immediately followed by "from" (the already-
+    # reserved `From` token), so it stays a completely ordinary,
+    # unreserved identifier everywhere else - `date is "..."` and `say
+    # date` are both still just a plain variable named "date", unaffected.
+    if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -eq 'date' -and
+        ($script:Position + 1) -lt $script:Tokens.Count -and $script:Tokens[$script:Position + 1].Kind -eq [TokenKind]::From) {
+        [void](Read-OtterToken)
+        [void](Read-OtterToken)
+        $dateSource = Read-OtterValue
+        $dateFormat = $null
+        $maybeUsing = Get-OtterCurrentToken
+        if ($maybeUsing.Kind -eq [TokenKind]::Identifier -and $maybeUsing.Text -eq 'using') {
+            [void](Read-OtterToken)
+            $dateFormat = Read-OtterValue
+        }
+        return [DateFromTextExpr]::new($dateSource, $dateFormat, $token.Line)
     }
     if (Test-OtterIdentifierToken $token) {
         # A declared function is a real value-producing expression.  Its
@@ -1339,6 +1360,19 @@ function Read-OtterStatement {
         }
         ([TokenKind]::Start) {
             [void](Read-OtterToken)
+            # D101: start timer workTimer - CREATES and starts a new named
+            # timer resource bound to the target name, unlike the existing
+            # `start server`/`start api` below (which starts an ALREADY-
+            # EXISTING resource a prior statement created). "timer" is
+            # checked as plain identifier text first, so this never
+            # changes or collides with the existing generic Start parsing.
+            $maybeTimer = Get-OtterCurrentToken
+            if ($maybeTimer.Kind -eq [TokenKind]::Identifier -and $maybeTimer.Text -eq 'timer') {
+                [void](Read-OtterToken)
+                $timerTarget = Read-OtterVariableName 'I expected a timer name after "start timer".'
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the start timer statement to end here.')
+                return [StartTimerStmt]::new($timerTarget.Text, $start.Line)
+            }
             Read-OtterOptionalTheBeforeName
             $targetToken = Read-OtterVariableName 'I expected a server name after "start".'
             $target = [VariableExpr]::new($targetToken.Text, $targetToken.Line)
@@ -1754,6 +1788,24 @@ function Read-OtterStatement {
         }
         ([TokenKind]::Set) {
             [void](Read-OtterToken)
+            # D101: set random seed to 42 - "random" is only reserved at
+            # STATEMENT HEAD (D33 mechanism 2, $script:OtterStatementHeadKeywords),
+            # so here, as the SECOND token on the line, it already lexes
+            # as a plain identifier - safe to check by text, same
+            # convention as every other contextual word in this grammar.
+            $maybeRandomSeed = Get-OtterCurrentToken
+            if ($maybeRandomSeed.Kind -eq [TokenKind]::Identifier -and $maybeRandomSeed.Text -eq 'random') {
+                [void](Read-OtterToken)
+                $seedWord = Get-OtterCurrentToken
+                if ($seedWord.Kind -ne [TokenKind]::Identifier -or $seedWord.Text -ne 'seed') {
+                    throw (New-OtterParserError 'I expected "seed" after "random".' $seedWord 'set random seed to 42')
+                }
+                [void](Read-OtterToken)
+                [void](Assert-OtterTokenKind ([TokenKind]::To) 'I expected "to" after "seed".')
+                $seedExpr = Read-OtterValue
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the set random seed statement to end here.')
+                return [SetRandomSeedStmt]::new($seedExpr, $start.Line)
+            }
             # D100: set cursor to row 5 column 10 - "cursor"/"row"/"column"
             # are ordinary identifiers, checked by text, same convention as
             # "priority"/"current"/"environment" elsewhere in this grammar.
@@ -1984,6 +2036,51 @@ function Read-OtterStatement {
         ([TokenKind]::Wait) {
             [void](Read-OtterToken)
             $forWord = Get-OtterCurrentToken
+            # D101: `wait 5 seconds` / `wait delay seconds` - a general
+            # delay, distinguished from `wait for process ...` below by NOT
+            # starting with the literal word "for" immediately after
+            # "wait". One token of lookahead, no ambiguity.
+            if (-not ($forWord.Kind -eq [TokenKind]::Identifier -and $forWord.Text -eq 'for')) {
+                $durationExpr = Read-OtterValue
+                $unitTok = Get-OtterCurrentToken
+                # The lexer only combines a bare time-unit word into its
+                # reserved token (TokenKind::Second etc.) when it directly
+                # follows a NUMBER LITERAL (D32) - "wait delay seconds"
+                # has a variable there instead, so "seconds" arrives here
+                # still as a plain Identifier. Match by TEXT as a fallback
+                # rather than broadening the lexer's general combining
+                # rule (which risks changing behavior at every other call
+                # site that relies on it, for a benefit scoped to this one
+                # statement).
+                $unit = switch ($unitTok.Kind) {
+                    ([TokenKind]::Year) { [TimeUnit]::Year }
+                    ([TokenKind]::Month) { [TimeUnit]::Month }
+                    ([TokenKind]::Day) { [TimeUnit]::Day }
+                    ([TokenKind]::Hour) { [TimeUnit]::Hour }
+                    ([TokenKind]::Minute) { [TimeUnit]::Minute }
+                    ([TokenKind]::Second) { [TimeUnit]::Second }
+                    ([TokenKind]::Millisecond) { [TimeUnit]::Millisecond }
+                    default { $null }
+                }
+                if ($null -eq $unit -and $unitTok.Kind -eq [TokenKind]::Identifier) {
+                    $unit = switch ($unitTok.Text) {
+                        { $_ -in @('year', 'years') } { [TimeUnit]::Year }
+                        { $_ -in @('month', 'months') } { [TimeUnit]::Month }
+                        { $_ -in @('day', 'days') } { [TimeUnit]::Day }
+                        { $_ -in @('hour', 'hours') } { [TimeUnit]::Hour }
+                        { $_ -in @('minute', 'minutes') } { [TimeUnit]::Minute }
+                        { $_ -in @('second', 'seconds') } { [TimeUnit]::Second }
+                        { $_ -in @('millisecond', 'milliseconds') } { [TimeUnit]::Millisecond }
+                        default { $null }
+                    }
+                }
+                if ($null -eq $unit) {
+                    throw (New-OtterParserError 'I expected a time unit (seconds, minutes, milliseconds, ...) after the wait duration.' $unitTok 'wait 5 seconds')
+                }
+                [void](Read-OtterToken)
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the wait statement to end here.')
+                return [WaitDelayStmt]::new($durationExpr, $unit, $start.Line)
+            }
             if ($forWord.Kind -ne [TokenKind]::Identifier -or $forWord.Text -ne 'for') {
                 throw (New-OtterParserError 'I expected "for process" after "wait".' $forWord 'wait for process p up to 5 seconds')
             }

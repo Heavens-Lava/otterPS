@@ -131,6 +131,41 @@ $script:OtterJsToCsvFunc = @'
 }
 '@
 
+# D101: `date from "01/15/2024" using "MM/dd/yyyy"`. JS has no ParseExact,
+# so this walks the .NET-style format string token by token (yyyy/MM/dd/
+# HH/mm/ss, the same tokens the interpreter's own format strings use) and
+# reads matching-width digit runs out of the source text at the same
+# position - a strict, deliberately narrow parser, not a general one.
+$script:OtterJsParseExactDateFunc = @'
+(text, format) => {
+  let year = 1, month = 1, day = 1, hour = 0, minute = 0, second = 0;
+  let ti = 0;
+  const readDigits = (n) => {
+    const chunk = text.substr(ti, n);
+    if (!/^\d+$/.test(chunk) || chunk.length !== n) { throw new Error('I couldn\'t understand "' + text + '" as a date using the format "' + format + '".'); }
+    ti += n;
+    return parseInt(chunk, 10);
+  };
+  let fi = 0;
+  while (fi < format.length) {
+    if (format.startsWith('yyyy', fi)) { year = readDigits(4); fi += 4; }
+    else if (format.startsWith('MM', fi)) { month = readDigits(2); fi += 2; }
+    else if (format.startsWith('dd', fi)) { day = readDigits(2); fi += 2; }
+    else if (format.startsWith('HH', fi)) { hour = readDigits(2); fi += 2; }
+    else if (format.startsWith('mm', fi)) { minute = readDigits(2); fi += 2; }
+    else if (format.startsWith('ss', fi)) { second = readDigits(2); fi += 2; }
+    else {
+      if (text[ti] !== format[fi]) { throw new Error('I couldn\'t understand "' + text + '" as a date using the format "' + format + '".'); }
+      ti += 1; fi += 1;
+    }
+  }
+  if (ti !== text.length) { throw new Error('I couldn\'t understand "' + text + '" as a date using the format "' + format + '".'); }
+  const d = new Date(year, month - 1, day, hour, minute, second, 0);
+  if (isNaN(d.getTime())) { throw new Error('I couldn\'t understand "' + text + '" as a date using the format "' + format + '".'); }
+  return d;
+}
+'@
+
 # D60 Phase 1J. Builds the JS text for `.NET`'s DateTime.AddMonths/AddYears
 # clamping algorithm - verified this is what the interpreter's DateAdjust
 # case actually relies on (`$current.Value.AddMonths($whole)` /
@@ -473,6 +508,12 @@ function ConvertTo-OtterJsExpression {
                 'Tangent' { return "Math.tan(Number($subjectJs) * Math.PI / 180)" }
                 'LogTen' { return "Math.log10(Number($subjectJs))" }
                 'NaturalLog' { return "Math.log(Number($subjectJs))" }
+                # D101: elapsed time of workTimer / elapsed milliseconds of workTimer.
+                # StartTimer stores a plain number (performance.now(), ms) as the
+                # timer's value on the web target - matches the interpreter's use of
+                # a real monotonic clock (Stopwatch) rather than wall-clock `now`.
+                'ElapsedTime' { return "((_t) => { if (typeof _t !== 'number') throw new Error('I can only measure elapsed time of a timer, but this is something else.'); return (performance.now() - _t) / 1000; })($subjectJs)" }
+                'ElapsedMilliseconds' { return "((_t) => { if (typeof _t !== 'number') throw new Error('I can only measure elapsed time of a timer, but this is something else.'); return performance.now() - _t; })($subjectJs)" }
                 default { return "null" }
             }
         }
@@ -508,6 +549,36 @@ function ConvertTo-OtterJsExpression {
                 return (Get-OtterJsDateConstructor -DateExprJs $dateExpr -HasTimeJs 'false')
             }
             return (Get-OtterJsDateConstructor -DateExprJs 'new Date()' -HasTimeJs 'true')
+        }
+        ([NodeKind]::DateFromText) {
+            # D101: date from "2024-01-15" [using "MM/dd/yyyy"]. No format
+            # string means a plain `new Date(text)` parse (JS's own parser,
+            # not a strict-format one - matches the interpreter's fallback
+            # to [DateTime]::Parse with invariant culture as "best effort").
+            # A format string is honored via otterParseExactDate, a small
+            # manual token walk (JS has no ParseExact) covering the same
+            # yyyy/MM/dd/HH/mm/ss tokens the interpreter's .NET format
+            # strings use. Computed once inside a single IIFE (unlike
+            # Get-OtterJsDateConstructor's template, which would otherwise
+            # need the parse expression twice - once for `value`, once for
+            # `hasTime` - re-running it and its error path twice).
+            $sourceJs = ConvertTo-OtterJsExpression -Expr $Expr.Source
+            if ($null -ne $Expr.Format) {
+                $formatJs = ConvertTo-OtterJsExpression -Expr $Expr.Format
+                $parseJs = "($script:OtterJsParseExactDateFunc)(String($sourceJs), String($formatJs))"
+            } else {
+                # A bare yyyy-MM-dd string is built from LOCAL year/month/day
+                # components, not `new Date(text)` - JS treats a date-only
+                # ISO string as UTC midnight, which then reads back shifted
+                # by the local timezone offset (e.g. 2024-01-15 becoming
+                # "2024-01-14 17:00:00" and wrongly picking up a time-of-day)
+                # - confirmed by actually running the compiled output. This
+                # matches the interpreter's [DateTime]::Parse, which reads
+                # "2024-01-15" as local midnight with no time component.
+                $parseJs = "(() => { const _s = String($sourceJs); const _iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(_s); if (_iso) { return new Date(Number(_iso[1]), Number(_iso[2]) - 1, Number(_iso[3])); } const _d = new Date(_s); if (isNaN(_d.getTime())) { throw new Error('I could not understand ' + _s + ' as a date.'); } return _d; })()"
+            }
+            $toStringBody = "const y=this.value.getFullYear(); const mo=String(this.value.getMonth()+1).padStart(2,'0'); const da=String(this.value.getDate()).padStart(2,'0'); if (!this.hasTime) { return y+'-'+mo+'-'+da; } const h=String(this.value.getHours()).padStart(2,'0'); const mi=String(this.value.getMinutes()).padStart(2,'0'); const s=String(this.value.getSeconds()).padStart(2,'0'); return y+'-'+mo+'-'+da+' '+h+':'+mi+':'+s;"
+            return "((_d) => ({ __otterDate: true, hasTime: (_d.getHours() !== 0 || _d.getMinutes() !== 0 || _d.getSeconds() !== 0), value: _d, toString() { $toStringBody } }))($parseJs)"
         }
         ([NodeKind]::DateDifferenceValue) {
             # D60 Phase 1J (D42). The expression form of `days between X and
@@ -2631,6 +2702,28 @@ function ConvertTo-OtterJsStatement {
         }
         ([NodeKind]::ShowProgress) {
             throw [OtterError]::new('`show progress ...` is not supported on the web target yet.', $Stmt.Line, 'runtime')
+        }
+        # D101: `wait ...` needs real async/cancellation semantics Jeff has
+        # explicitly deferred (SPEC-DECISIONS.md), and `set random seed to`
+        # cannot make JS's Math.random (used by RandomNumber/RandomItem
+        # above) reproducible - rather than silently not-seed, this is a
+        # clean compile-time error like the D100 primitives above.
+        ([NodeKind]::WaitDelay) {
+            throw [OtterError]::new('`wait ...` is not supported on the web target yet.', $Stmt.Line, 'runtime')
+        }
+        ([NodeKind]::SetRandomSeed) {
+            throw [OtterError]::new('`set random seed to ...` is not supported on the web target yet.', $Stmt.Line, 'runtime')
+        }
+        # D101: `start timer x` - a plain performance.now() reading (ms)
+        # stored as the timer's value, read back by ElapsedTime/
+        # ElapsedMilliseconds above. No async/cancellation involved, so
+        # (unlike WaitDelay/SetRandomSeed) this one is implemented for real.
+        ([NodeKind]::StartTimer) {
+            $target = $Stmt.Target
+            if ($LocalNames -and $LocalNames.Contains($target)) {
+                return "${pad}$target = performance.now();"
+            }
+            return "${pad}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$target' in otterState)) { otterSetState('$target', performance.now()); } else { window.$target = performance.now(); }"
         }
         default {
             return ""

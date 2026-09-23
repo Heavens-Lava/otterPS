@@ -126,6 +126,7 @@ $script:OtterTimeUnitWords = @{
     'hour' = [TokenKind]::Hour; 'hours' = [TokenKind]::Hour
     'minute' = [TokenKind]::Minute; 'minutes' = [TokenKind]::Minute
     'second' = [TokenKind]::Second; 'seconds' = [TokenKind]::Second
+    'millisecond' = [TokenKind]::Millisecond; 'milliseconds' = [TokenKind]::Millisecond   # D101
 }
 
 function New-OtterToken {
@@ -428,6 +429,8 @@ function ConvertTo-OtterLineTokens {
                 'round up' { [TokenKind]::RoundUp }
                 'round down' { [TokenKind]::RoundDown }
                 'natural log' { [TokenKind]::NaturalLog }   # D90: `natural log of X`
+                'elapsed time' { [TokenKind]::ElapsedTime }               # D101
+                'elapsed milliseconds' { [TokenKind]::ElapsedMilliseconds } # D101
                 default { $null }
             }
             if ($null -ne $twoWordKind) {

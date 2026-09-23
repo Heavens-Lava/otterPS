@@ -851,10 +851,13 @@ creation.
     scope specifically, though Windows 10+ does support AF_UNIX)
 -   [x] Network diagnostics
 -   [ ] Rate limiting helpers (real gap - no built-in throttling)
--   [ ] Retry/backoff (real gap, and blocked on a smaller, separate one:
-    there is no general-purpose `wait 5 seconds` sleep/delay statement
-    to build a real backoff delay from - only D71's process-specific
-    `wait for process p up to N seconds` exists today)
+-   [ ] Retry/backoff (real gap - no dedicated retry/backoff helper exists
+    yet, though the blocking dependency noted here previously is now
+    resolved: D101 tier-1 added a general-purpose `wait 5 seconds` /
+    `wait delay seconds` sleep/delay statement, console-target only via
+    `Start-Sleep`, alongside D71's older process-specific `wait for
+    process p up to N seconds`. A real backoff helper could now be built
+    on top of it, but nothing has built one yet)
 -   [x] Connection pooling (decided: not applicable - HTTP keep-alive and
     connection reuse are already handled transparently by the browser's
     own `fetch()` implementation; there is nothing for a higher-level
@@ -926,24 +929,38 @@ creation.
 -   [ ] Time zones (real gap - confirmed zero timezone-related code
     anywhere; `today`/`now` are hardcoded to the local system zone with
     no way to read, convert, or specify a different one)
--   [ ] Date parsing (real gap - confirmed no `[datetime]::Parse`/
-    `ParseExact`-style code anywhere; a date can only come from `today`/
-    `now` or date arithmetic on one of those, never from parsing a
-    string a program received, e.g. from a file or an API response)
+-   [x] Date parsing (D101 tier-1: `date from "2024-01-15"` /
+    `date from "01/15/2024" using "MM/dd/yyyy"`. Interpreter uses
+    `[DateTime]::Parse`/`ParseExact` with invariant culture, wrapped in a
+    clean Otter runtime error on failure - never a raw .NET exception. JS
+    compiler parity via a hand-rolled ParseExact-equivalent token walker
+    (`otterParseExactDate`) plus a local-time-correct bare-ISO-date path
+    (a real bug was found and fixed here: `new Date("2024-01-15")` parses
+    as UTC midnight in JS, which then reads back shifted by the local
+    timezone offset when displayed - fixed by building the date from
+    local y/m/d components instead of the raw ISO string). 5 production
+    tests, `tests/TierOneRuntime.Tests.ps1`)
 -   [x] Date formatting
 -   [x] Date arithmetic
 -   [x] Durations
--   [ ] Monotonic time (real gap - confirmed no `Stopwatch` or equivalent
-    monotonic clock anywhere; timing something always means taking two
-    wall-clock `now` readings and subtracting, which is vulnerable to a
-    system clock change mid-measurement)
--   [ ] High-resolution timer (same real gap as Monotonic time - `now`'s
-    precision is whatever `[datetime]::Now` naturally gives, no
-    dedicated sub-millisecond timer exists)
+-   [x] Monotonic time (D101 tier-1: `start timer workTimer` stores a real
+    `[System.Diagnostics.Stopwatch]`, not a wall-clock `now` pair - immune
+    to a system clock change mid-measurement. Web target parity via
+    `performance.now()`)
+-   [x] High-resolution timer (D101 tier-1: `elapsed time of workTimer` /
+    `elapsed milliseconds of workTimer` read the same Stopwatch's
+    `.Elapsed.TotalSeconds`/`.TotalMilliseconds` - sub-millisecond
+    resolution. A non-timer subject is a clean Otter runtime error, not a
+    type-confusion crash. 3 production tests, `tests/TierOneRuntime.Tests.ps1`)
 -   [x] Random portable certification
--   [ ] Seeded deterministic random (verified absent - the parser only
-    accepts `random number from X to Y into Z` / `random item from L
-    into Z`, no seed parameter exists anywhere)
+-   [x] Seeded deterministic random (D101 tier-1: `set random seed to 42`
+    calls PowerShell's `Get-Random -SetSeed`, which the existing `random
+    number from X to Y`/`random item from L` statements already draw
+    from - confirmed reproducible (same seed -> same sequence) via a
+    real production test. Deliberately does NOT touch D92's separate
+    cryptographically-secure `RandomNumberGenerator` path. Web target:
+    cleanly rejected at compile time rather than silently failing to seed
+    JS's `Math.random`, which has no seeding API)
 -   [x] Cryptographically secure random provider (precise, not a false
     positive but worth being exact about: this refers to D92's real
     `RandomNumberGenerator`-backed key/salt/IV generation for encryption,

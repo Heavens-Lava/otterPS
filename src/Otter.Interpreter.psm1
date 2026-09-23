@@ -886,6 +886,44 @@ function Invoke-OtterStatement {
             return
         }
 
+        # wait 5 seconds  /  wait delay seconds                             (D101)
+        'WaitDelay' {
+            $amount = Assert-OtterNumber -Value (Get-OtterValue -Expression $Statement.Duration -Environment $Environment) -Line $Statement.Line -What 'a wait duration'
+            if ($amount -lt 0) {
+                throw (New-OtterRuntimeError `
+                    -Message "I can't wait a negative amount of time ($amount)." `
+                    -Line $Statement.Line)
+            }
+            $millis = switch ($Statement.Unit) {
+                ([TimeUnit]::Millisecond) { $amount }
+                ([TimeUnit]::Second)      { $amount * 1000 }
+                ([TimeUnit]::Minute)      { $amount * 60000 }
+                ([TimeUnit]::Hour)        { $amount * 3600000 }
+                ([TimeUnit]::Day)         { $amount * 86400000 }
+                ([TimeUnit]::Month)       { $amount * 2629746000 }
+                ([TimeUnit]::Year)        { $amount * 31556952000 }
+                default                   { $amount * 1000 }
+            }
+            Start-Sleep -Milliseconds ([Math]::Round($millis))
+            return
+        }
+
+        # set random seed to 42                                            (D101)
+        # Only affects the plain Get-Random path used by `random number`/
+        # `random item from` - D92's separate cryptographically-secure
+        # RandomNumberGenerator is untouched by design.
+        'SetRandomSeed' {
+            $seedValue = Assert-OtterNumber -Value (Get-OtterValue -Expression $Statement.Seed -Environment $Environment) -Line $Statement.Line -What 'a random seed'
+            Get-Random -SetSeed ([int]$seedValue) | Out-Null
+            return
+        }
+
+        # start timer workTimer                                            (D101)
+        'StartTimer' {
+            $Environment.Set($Statement.Target, [System.Diagnostics.Stopwatch]::StartNew())
+            return
+        }
+
         # run "notepad.exe"  /  run command "git status" into result
         'RunProgram' {
             $target = Get-OtterText -Expression $Statement.Target -Environment $Environment
@@ -2200,6 +2238,29 @@ function Get-OtterValue {
                     }
                     return [Math]::Log($n)
                 }
+
+                # elapsed time of workTimer / elapsed milliseconds of workTimer  (D101)
+                # A real monotonic clock (System.Diagnostics.Stopwatch),
+                # never wall-clock `now` subtraction - immune to a system
+                # clock change mid-measurement.
+                'ElapsedTime' {
+                    if ($subject -isnot [System.Diagnostics.Stopwatch]) {
+                        throw (New-OtterRuntimeError `
+                            -Message "I can only measure elapsed time of a timer, but this is $(Get-OtterTypeName $subject)." `
+                            -Line $Expression.Line `
+                            -Suggestion 'start timer workTimer')
+                    }
+                    return $subject.Elapsed.TotalSeconds
+                }
+                'ElapsedMilliseconds' {
+                    if ($subject -isnot [System.Diagnostics.Stopwatch]) {
+                        throw (New-OtterRuntimeError `
+                            -Message "I can only measure elapsed time of a timer, but this is $(Get-OtterTypeName $subject)." `
+                            -Line $Expression.Line `
+                            -Suggestion 'start timer workTimer')
+                    }
+                    return $subject.Elapsed.TotalMilliseconds
+                }
             }
             return $null
         }
@@ -2236,6 +2297,33 @@ function Get-OtterValue {
         # attached streams, which is exactly what gating on this is for.
         'ConsoleInteractive' {
             return (-not ([Console]::IsInputRedirected -or [Console]::IsOutputRedirected))
+        }
+
+        # date from "2024-01-15"  /  date from "01/15/2024" using "MM/dd/yyyy"   (D101)
+        # Failure produces a normal Otter runtime error, not special parsing
+        # syntax - matches the rest of the language's error model.
+        'DateFromText' {
+            $text = Get-OtterText -Expression $Expression.Source -Environment $Environment
+            if ($null -ne $Expression.Format) {
+                $formatText = Get-OtterText -Expression $Expression.Format -Environment $Environment
+                try {
+                    $parsed = [System.DateTime]::ParseExact($text, $formatText, [System.Globalization.CultureInfo]::InvariantCulture)
+                    return [OtterDate]::new($parsed, ($parsed.TimeOfDay -ne [TimeSpan]::Zero))
+                } catch {
+                    throw (New-OtterRuntimeError `
+                        -Message "I couldn't understand ""$text"" as a date using the format ""$formatText""." `
+                        -Line $Expression.Line)
+                }
+            }
+            try {
+                $parsed = [System.DateTime]::Parse($text, [System.Globalization.CultureInfo]::InvariantCulture)
+                return [OtterDate]::new($parsed, ($parsed.TimeOfDay -ne [TimeSpan]::Zero))
+            } catch {
+                throw (New-OtterRuntimeError `
+                    -Message "I couldn't understand ""$text"" as a date." `
+                    -Line $Expression.Line `
+                    -Suggestion 'date from "2024-01-15" using "yyyy-MM-dd"')
+            }
         }
 
         # days between startDate and endDate                            (D42)
