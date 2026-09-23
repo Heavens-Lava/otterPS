@@ -343,6 +343,69 @@ function Test-OtterWebSocket {
     return $Value -is [OtterWebSocket]
 }
 
+# D107: TCP client connection. A byte stream over a real
+# [System.Net.Sockets.TcpClient]; TCP has no message boundaries, so data
+# arrives as whatever chunk the OS hands over (always OtterBytes).
+class OtterTcp {
+    [System.Net.Sockets.TcpClient]$Client
+    [string]$RemoteHost
+    [int]$RemotePort
+    [string]$State
+    [string]$LastError
+    [object]$ConnectTask
+    [object]$ReadTask
+    [byte[]]$ReadBuffer
+    [bool]$ConnectFired
+    [bool]$CloseFired
+    [bool]$Disposed
+
+    OtterTcp([System.Net.Sockets.TcpClient]$client, [string]$remoteHost, [int]$remotePort) {
+        $this.Client = $client
+        $this.RemoteHost = $remoteHost
+        $this.RemotePort = $remotePort
+        $this.State = 'connecting'
+        $this.LastError = $null
+        $this.ConnectTask = $null
+        $this.ReadTask = $null
+        $this.ReadBuffer = [byte[]]::new(8192)
+        $this.ConnectFired = $false
+        $this.CloseFired = $false
+        $this.Disposed = $false
+    }
+}
+
+function Test-OtterTcp {
+    param([object]$Value)
+    return $Value -is [OtterTcp]
+}
+
+# D108: UDP socket. Datagram boundaries are preserved: each receive is
+# exactly one datagram.
+class OtterUdp {
+    [System.Net.Sockets.UdpClient]$Client
+    [int]$LocalPort
+    [string]$State
+    [string]$LastError
+    [object]$ReceiveTask
+    [bool]$CloseFired
+    [bool]$Disposed
+
+    OtterUdp([System.Net.Sockets.UdpClient]$client, [int]$localPort) {
+        $this.Client = $client
+        $this.LocalPort = $localPort
+        $this.State = 'open'
+        $this.LastError = $null
+        $this.ReceiveTask = $null
+        $this.CloseFired = $false
+        $this.Disposed = $false
+    }
+}
+
+function Test-OtterUdp {
+    param([object]$Value)
+    return $Value -is [OtterUdp]
+}
+
 function New-OtterToday {
     return [OtterDate]::new([datetime]::Now, $false)
 }
@@ -540,6 +603,8 @@ function Format-OtterValue {
 
     # D106: WebSockets
     if (Test-OtterWebSocket $Value) { return "a websocket" }
+    if (Test-OtterTcp $Value) { return "a tcp connection" }
+    if (Test-OtterUdp $Value) { return "a udp socket" }
 
     if (Test-OtterList $Value) {
         $parts = foreach ($item in $Value) { Format-OtterValue -Value $item }
@@ -757,4 +822,4 @@ Export-ModuleMember -Function `
     New-OtterList, Test-OtterList, Test-OtterObject, Test-OtterDate, `
     New-OtterToday, New-OtterNow, Format-OtterValue, Test-OtterTruthy, `
     Test-OtterNumeric, ConvertTo-OtterNumber, Test-OtterEqual, ConvertFrom-OtterInput, `
-    Test-OtterBytes, Test-OtterFileWatcher, Test-OtterXml, Test-OtterWebSocket
+    Test-OtterBytes, Test-OtterFileWatcher, Test-OtterXml, Test-OtterWebSocket, Test-OtterTcp, Test-OtterUdp

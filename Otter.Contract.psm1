@@ -618,6 +618,15 @@ enum NodeKind {
     CloseWasClean             # an EXPRESSION, ambient inside "on close of"
     WebSocketErrorValue       # an EXPRESSION, ambient inside "on error of"
 
+    # --- TCP / UDP (D107/D108) - console/desktop only; web reports unsupported. --
+    # Events ride WebSocketEvent (Connect/Data kinds), send-through rides
+    # WebSocketSend, states ride WebSocketIsState - dispatched on runtime type.
+    TcpConnect                # connect to tcp HOST on port N and call it X
+    UdpOpen                   # open udp [on port N] and call it X
+    UdpSend                   # send B through S to HOST on port N
+    NetClose                  # close tcp X / close udp X
+    NetContext                # EXPRESSION ambient in net events: received data / sender address / sender port / network error
+
     # --- query language (D99) -----------------------------------
     QueryStmt                # get [distinct] fields from table in db [as alias] [where ...] [order by ...] [take N] [skip N] into target
     QueryAggregateStmt       # count/sum/average/minimum/maximum from table in db ... into target
@@ -635,8 +644,8 @@ enum WatchEventKind { Change; Create; Delete; Rename }                 # D104
 enum XmlSourceKind { Text; File; Root }                                # D105
 enum XmlSelectKind { Element; Elements; Child; Children }              # D105
 
-enum WebSocketEventKind { Open; Message; Close; Error }                # D106
-enum WebSocketConnState { Connecting; Open; Closing; Closed }          # D106
+enum WebSocketEventKind { Open; Message; Close; Error; Connect; Data } # D106, D107/D108
+enum WebSocketConnState { Connecting; Open; Closing; Closed; Connected } # D106, D107
 
 # D11: boolean operators. Precedence, loosest last: not -> and -> or.
 enum LogicalOp { And; Or }
@@ -3219,6 +3228,63 @@ class CloseWasCleanExpr : Node {
 }
 class WebSocketErrorExpr : Node {
     WebSocketErrorExpr([int]$line) : base([NodeKind]::WebSocketErrorValue, $line) {}
+}
+
+# D107/D108: TCP and UDP. Distinct abstractions (TCP = byte stream, UDP =
+# datagrams) that share the D106 event/state/send node shapes.
+
+# connect to tcp "host" on port 8080 and call it connection
+class TcpConnectStmt : Node {
+    [Node]$HostExpr
+    [Node]$Port
+    [string]$Target
+    TcpConnectStmt([Node]$hostExpr, [Node]$port, [string]$target, [int]$line) : base([NodeKind]::TcpConnect, $line) {
+        $this.HostExpr = $hostExpr
+        $this.Port = $port
+        $this.Target = $target
+    }
+}
+
+# open udp [on port 9000] and call it socket   (Port may be $null)
+class UdpOpenStmt : Node {
+    [Node]$Port
+    [string]$Target
+    UdpOpenStmt([Node]$port, [string]$target, [int]$line) : base([NodeKind]::UdpOpen, $line) {
+        $this.Port = $port
+        $this.Target = $target
+    }
+}
+
+# send data through socket to "127.0.0.1" on port 9000
+class UdpSendStmt : Node {
+    [Node]$Data
+    [Node]$Socket
+    [Node]$HostExpr
+    [Node]$Port
+    UdpSendStmt([Node]$data, [Node]$socket, [Node]$hostExpr, [Node]$port, [int]$line) : base([NodeKind]::UdpSend, $line) {
+        $this.Data = $data
+        $this.Socket = $socket
+        $this.HostExpr = $hostExpr
+        $this.Port = $port
+    }
+}
+
+# close tcp connection / close udp socket   (Protocol is 'tcp' or 'udp')
+class NetCloseStmt : Node {
+    [string]$Protocol
+    [Node]$Socket
+    NetCloseStmt([string]$protocol, [Node]$socket, [int]$line) : base([NodeKind]::NetClose, $line) {
+        $this.Protocol = $protocol
+        $this.Socket = $socket
+    }
+}
+
+# received data / sender address / sender port / network error
+class NetContextExpr : Node {
+    [string]$Field
+    NetContextExpr([string]$field, [int]$line) : base([NodeKind]::NetContext, $line) {
+        $this.Field = $field
+    }
 }
 
 # D99: Otter Query Language (OQL)

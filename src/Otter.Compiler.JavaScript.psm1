@@ -911,6 +911,9 @@ function ConvertTo-OtterJsExpression {
             $prettyJs = if ($Expr.Pretty) { 'true' } else { 'false' }
             return "((_x) => { if (!_x || typeof _x !== 'object' || !_x.__otterXml) { throw new Error('I can only read text from xml, but this is something else.'); } return $prettyJs ? (($script:OtterJsXmlPrettyFunc)(_x.node, _x.node.nodeType === 9)) : new XMLSerializer().serializeToString(_x.node); })($xmlJs)"
         }
+        ([NodeKind]::NetContext) {
+            throw [OtterError]::new('TCP/UDP is not supported on the web target.', $Expr.Line, 'runtime')
+        }
         ([NodeKind]::WebSocketIsState) {
             $targetJs = ConvertTo-OtterJsExpression -Expr $Expr.Socket
             $stateStr = $Expr.ConnState.ToString().ToLowerInvariant()
@@ -3237,7 +3240,24 @@ function ConvertTo-OtterJsStatement {
             $reasonJs = if ($null -ne $Stmt.Reason) { ConvertTo-OtterJsExpression -Expr $Stmt.Reason } else { '""' }
             return "${pad}((_s, _c, _r) => { if (!_s || typeof _s !== 'object' || !_s.__otterWebSocket) { throw new Error('I can only close a websocket, but this is something else.'); } if (_s.ws.readyState <= 1) { _s.ws.close(_c, _r); } })($socketJs, $codeJs, $reasonJs);"
         }
+        # D107/D108: TCP and UDP are console/desktop only. A browser cannot
+        # open raw sockets, and Otter never emulates them over WebSockets.
+        ([NodeKind]::TcpConnect) {
+            throw [OtterError]::new('TCP is not supported on the web target. Browsers cannot open raw TCP sockets (use a websocket instead).', $Stmt.Line, 'runtime')
+        }
+        ([NodeKind]::UdpOpen) {
+            throw [OtterError]::new('UDP is not supported on the web target. Browsers cannot open raw UDP sockets.', $Stmt.Line, 'runtime')
+        }
+        ([NodeKind]::UdpSend) {
+            throw [OtterError]::new('UDP is not supported on the web target. Browsers cannot open raw UDP sockets.', $Stmt.Line, 'runtime')
+        }
+        ([NodeKind]::NetClose) {
+            throw [OtterError]::new("$($Stmt.Protocol.ToUpperInvariant()) is not supported on the web target. Browsers cannot open raw sockets.", $Stmt.Line, 'runtime')
+        }
         ([NodeKind]::WebSocketEvent) {
+            if ($Stmt.EventKind -in @([WebSocketEventKind]::Connect, [WebSocketEventKind]::Data)) {
+                throw [OtterError]::new('TCP/UDP events ("on connect of", "on data from") are not supported on the web target. Use a websocket ("on open of", "on message from").', $Stmt.Line, 'runtime')
+            }
             $socketJs = ConvertTo-OtterJsExpression -Expr $Stmt.Socket
             $eventKind = $Stmt.EventKind.ToString().ToLowerInvariant()
             $bodyLines = [System.Collections.Generic.List[string]]::new()

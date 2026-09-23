@@ -512,6 +512,29 @@ function Read-OtterValue {
         [void](Read-OtterToken) # error
         return [WebSocketErrorExpr]::new($token.Line)
     }
+    # D107/D108: TCP/UDP contextual expressions. All plain identifiers
+    # (D33 mechanism 1), matched by text in these exact word pairs only.
+    if ($token.Kind -eq [TokenKind]::Identifier -and ($script:Position + 1) -lt $script:Tokens.Count) {
+        $netNext = $script:Tokens[$script:Position + 1]
+        $netField = $null
+        if ($token.Text -eq 'received' -and $netNext.Text -eq 'data') { $netField = 'data' }
+        elseif ($token.Text -eq 'sender' -and $netNext.Text -eq 'address') { $netField = 'sender address' }
+        elseif ($token.Text -eq 'sender' -and $netNext.Text -eq 'port') { $netField = 'sender port' }
+        elseif ($token.Text -eq 'network' -and $netNext.Text -eq 'error') { $netField = 'network error' }
+        if ($null -ne $netField) {
+            [void](Read-OtterToken)
+            [void](Read-OtterToken)
+            return [NetContextExpr]::new($netField, $token.Line)
+        }
+        # remote address of X / remote port of X
+        if ($token.Text -eq 'remote' -and ($netNext.Text -eq 'address' -or $netNext.Text -eq 'port') -and
+            (Test-OtterTokenOffsetKind 2 ([TokenKind]::Of))) {
+            [void](Read-OtterToken)
+            [void](Read-OtterToken)
+            [void](Read-OtterToken)
+            return [PropertyAccessExpr]::new("remote $($netNext.Text)", (Read-OtterValue -PropertyTarget), $token.Line)
+        }
+    }
     # D105: XML. All leading words here (xml/pretty/element/elements/
     # child/children/attribute) are ordinary, unreserved identifiers
     # (D33 mechanism 1), checked by text only in these exact positions.
@@ -817,6 +840,7 @@ function Read-OtterConditionPrimary {
         if ($nextTok.Text -eq 'connecting') { $wsConnState = [WebSocketConnState]::Connecting }
         elseif ($nextTok.Kind -eq [TokenKind]::Open -or $nextTok.Text -eq 'open') { $wsConnState = [WebSocketConnState]::Open }
         elseif ($nextTok.Text -eq 'closing') { $wsConnState = [WebSocketConnState]::Closing }
+        elseif ($nextTok.Text -eq 'connected') { $wsConnState = [WebSocketConnState]::Connected }
         elseif ($nextTok.Text -eq 'closed') { $wsConnState = [WebSocketConnState]::Closed }
 
         if ($null -ne $wsConnState) {
@@ -1935,6 +1959,61 @@ function Read-OtterQueryAggregateStatement {
     return [QueryAggregateStmt]::new($funcName, $expr, $tableName, $connection, $alias, $where, $target, $start.Line)
 }
 
+# D107/D108: the optional trailing clauses of a networking statement -
+#   to <host>   on port <port>   and call it <name>
+# in any order, on the same line or as an indented continuation block
+# (the "core grammar" layout). Consumes the statement's terminating
+# Newline itself (and the closing Dedent of a continuation block), so
+# callers must NOT assert a Newline afterwards.
+function Read-OtterNetClauses {
+    param([string]$EndMessage = 'I expected this statement to end here.')
+    $result = @{ Host = $null; Port = $null; Target = $null }
+    $depth = 0
+    while ($true) {
+        $current = Get-OtterCurrentToken
+        if ($current.Kind -eq [TokenKind]::Newline) {
+            if ($depth -eq 0) {
+                if (Test-OtterTokenOffsetKind 1 ([TokenKind]::Indent)) {
+                    [void](Read-OtterToken)
+                    [void](Read-OtterToken)
+                    $depth = 1
+                    continue
+                }
+                [void](Read-OtterToken)
+                break
+            }
+            [void](Read-OtterToken)
+            if ((Get-OtterCurrentToken).Kind -eq [TokenKind]::Dedent) {
+                [void](Read-OtterToken)
+                break
+            }
+            continue
+        }
+        if ($current.Kind -eq [TokenKind]::To -and $null -eq $result.Host) {
+            [void](Read-OtterToken)
+            $result.Host = Read-OtterValue
+            continue
+        }
+        if ($current.Text -eq 'on' -and $null -eq $result.Port -and
+            ($script:Position + 1) -lt $script:Tokens.Count -and $script:Tokens[$script:Position + 1].Text -eq 'port') {
+            [void](Read-OtterToken)
+            [void](Read-OtterToken)
+            $result.Port = Read-OtterValue
+            continue
+        }
+        if ($current.Kind -eq [TokenKind]::And -and (Test-OtterTokenOffsetKind 1 ([TokenKind]::Call)) -and $null -eq $result.Target) {
+            [void](Read-OtterToken)
+            [void](Read-OtterToken)
+            [void](Assert-OtterTokenKind ([TokenKind]::It) 'I expected "it" after "call".')
+            $nameTok = Read-OtterVariableName 'I expected a name after "call it".'
+            $result.Target = $nameTok.Text
+            continue
+        }
+        throw (New-OtterParserError $EndMessage $current)
+    }
+    return $result
+}
+
 function Read-OtterStatement {
     $start = Get-OtterCurrentToken
 
@@ -2070,8 +2149,42 @@ function Read-OtterStatement {
         return [FileWatchStmt]::new($watchKind, $path, $recursive, $nameTok.Text, $start.Line)
     }
 
+    # D107/D108: `close tcp connection` / `close udp socket`
+    if ($start.Text -eq 'close' -and ($script:Position + 1) -lt $script:Tokens.Count -and
+        $script:Tokens[$script:Position + 1].Kind -eq [TokenKind]::Identifier -and
+        $script:Tokens[$script:Position + 1].Text -in @('tcp', 'udp') -and
+        -not (Test-OtterTokenOffsetKind 2 ([TokenKind]::Newline))) {
+        [void](Read-OtterToken) # close
+        $netProto = (Read-OtterToken).Text
+        $netSock = Read-OtterValue
+        [void](Assert-OtterTokenKind ([TokenKind]::Newline) "I expected the close $netProto statement to end here.")
+        return [NetCloseStmt]::new($netProto, $netSock, $start.Line)
+    }
+
+    # D107: `open udp [on port 9000] and call it socket`
+    if ($start.Text -eq 'open' -and ($script:Position + 1) -lt $script:Tokens.Count -and
+        $script:Tokens[$script:Position + 1].Kind -eq [TokenKind]::Identifier -and
+        $script:Tokens[$script:Position + 1].Text -eq 'udp') {
+        [void](Read-OtterToken) # open
+        [void](Read-OtterToken) # udp
+        $udpClauses = Read-OtterNetClauses 'I expected "and call it" and a name after "open udp".'
+        if ($null -eq $udpClauses.Target) {
+            throw (New-OtterParserError 'I expected "and call it" and a name after "open udp".' (Get-OtterCurrentToken) 'Write: open udp on port 9000 and call it socket')
+        }
+        if ($null -ne $udpClauses.Host) {
+            throw (New-OtterParserError '"open udp" takes only "on port" - use "to ..." when sending.' $start 'Write: open udp on port 9000 and call it socket')
+        }
+        return [UdpOpenStmt]::new($udpClauses.Port, $udpClauses.Target, $start.Line)
+    }
+
+    # D107: TCP servers are reserved grammar, not implemented yet.
+    if ($start.Text -eq 'listen' -and ($script:Position + 2) -lt $script:Tokens.Count -and
+        $script:Tokens[$script:Position + 1].Text -eq 'for' -and $script:Tokens[$script:Position + 2].Text -eq 'tcp') {
+        throw (New-OtterParserError '"listen for tcp" is reserved for TCP servers, which Otter does not support yet. TCP clients ("connect to tcp") are available.' $start 'Write: connect to tcp "localhost" on port 9000 and call it connection')
+    }
+
     # D106: `close websocket socket [with code 1000] [and reason "Done"]`
-    $isCloseWs = ($start.Text -eq 'close' -and $nextKind -notin @([TokenKind]::Is, [TokenKind]::Are, [TokenKind]::Of, [TokenKind]::IsNot) -and
+    $isCloseWs =($start.Text -eq 'close' -and $nextKind -notin @([TokenKind]::Is, [TokenKind]::Are, [TokenKind]::Of, [TokenKind]::IsNot) -and
         ($script:Position + 1) -lt $script:Tokens.Count -and $script:Tokens[$script:Position + 1].Kind -eq [TokenKind]::Identifier -and
         $script:Tokens[$script:Position + 1].Text -eq 'websocket')
     if ($isCloseWs) {
@@ -2109,7 +2222,14 @@ function Read-OtterStatement {
         }
         [void](Read-OtterToken) # through
         $wsSocket = Read-OtterValue
-        [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the send statement to end here.')
+        # D108: UDP sends carry "to <host> on port <port>" clauses.
+        $sendClauses = Read-OtterNetClauses 'I expected the send statement to end here.'
+        if ($null -ne $sendClauses.Host -or $null -ne $sendClauses.Port) {
+            if ($null -eq $sendClauses.Host -or $null -eq $sendClauses.Port) {
+                throw (New-OtterParserError 'A udp send needs both "to <host>" and "on port <port>".' $start 'Write: send data through socket to "127.0.0.1" on port 9000')
+            }
+            return [UdpSendStmt]::new($wsMessage, $wsSocket, $sendClauses.Host, $sendClauses.Port, $start.Line)
+        }
         return [WebSocketSendStmt]::new($wsMessage, $wsSocket, $start.Line)
     }
 
@@ -2224,6 +2344,20 @@ function Read-OtterStatement {
                 [void](Read-OtterToken) # of
                 $socket = Read-OtterValue
                 return [WebSocketEventStmt]::new([WebSocketEventKind]::Open, $socket, (Read-OtterBlock), $start.Line)
+            }
+            # D107: on connect of <connection>
+            if ($stageTok.Text -eq 'connect' -and (Test-OtterTokenOffsetKind 1 ([TokenKind]::Of))) {
+                [void](Read-OtterToken) # connect
+                [void](Read-OtterToken) # of
+                $socket = Read-OtterValue
+                return [WebSocketEventStmt]::new([WebSocketEventKind]::Connect, $socket, (Read-OtterBlock), $start.Line)
+            }
+            # D107/D108: on data from <connection or udp socket>
+            if ($stageTok.Text -eq 'data' -and (Test-OtterTokenOffsetKind 1 ([TokenKind]::From))) {
+                [void](Read-OtterToken) # data
+                [void](Read-OtterToken) # from
+                $socket = Read-OtterValue
+                return [WebSocketEventStmt]::new([WebSocketEventKind]::Data, $socket, (Read-OtterBlock), $start.Line)
             }
             # on message from <socket>
             if ($stageTok.Text -eq 'message' -and (Test-OtterTokenOffsetKind 1 ([TokenKind]::From))) {
@@ -3710,8 +3844,21 @@ function Read-OtterStatement {
             # reserved "to" token, so no backtracking is needed here.
             if ((Get-OtterCurrentToken).Kind -eq [TokenKind]::To) {
                 [void](Read-OtterToken)
+                # D107: connect to tcp <host> on port <port> and call it <name>
+                if ((Get-OtterCurrentToken).Kind -eq [TokenKind]::Identifier -and (Get-OtterCurrentToken).Text -eq 'tcp') {
+                    [void](Read-OtterToken)
+                    $tcpHost = Read-OtterValue
+                    $tcpClauses = Read-OtterNetClauses 'I expected "on port" and "and call it" in the connect statement.'
+                    if ($null -eq $tcpClauses.Port) {
+                        throw (New-OtterParserError 'I expected "on port <number>" in "connect to tcp".' $start 'Write: connect to tcp "localhost" on port 9000 and call it connection')
+                    }
+                    if ($null -eq $tcpClauses.Target) {
+                        throw (New-OtterParserError 'I expected "and call it" and a name in "connect to tcp".' $start 'Write: connect to tcp "localhost" on port 9000 and call it connection')
+                    }
+                    return [TcpConnectStmt]::new($tcpHost, $tcpClauses.Port, $tcpClauses.Target, $start.Line)
+                }
                 if (-not ((Get-OtterCurrentToken).Kind -eq [TokenKind]::Identifier -and (Get-OtterCurrentToken).Text -eq 'websocket')) {
-                    throw (New-OtterParserError 'I expected "websocket" after "connect to".' (Get-OtterCurrentToken) 'Write: connect to websocket "wss://example.com" and call it chat')
+                    throw (New-OtterParserError 'I expected "websocket" or "tcp" after "connect to".' (Get-OtterCurrentToken) 'Write: connect to websocket "wss://example.com" and call it chat')
                 }
                 [void](Read-OtterToken)
                 $wsUrl = Read-OtterValue
