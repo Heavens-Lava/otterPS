@@ -627,6 +627,15 @@ enum NodeKind {
     NetClose                  # close tcp X / close udp X
     NetContext                # EXPRESSION ambient in net events: received data / sender address / sender port / network error
 
+    # --- Cryptography (D109) - console/desktop only; web reports unsupported. --
+    SecureRandomBytes         # EXPRESSION: secure random bytes N
+    CryptoHash                # EXPRESSION: sha256/sha384/sha512 of DATA
+    CryptoHmac                # EXPRESSION: hmac sha256 of DATA using KEY
+    GenerateKey               # generate encryption key and call it K
+    CryptoCipher              # encrypt/decrypt DATA using KEY and call it R
+    HashPassword              # hash password P and call it H
+    PasswordMatches           # a CONDITION: password P matches hash H
+    SecurelyEquals            # a CONDITION: A securely equals B
     # --- query language (D99) -----------------------------------
     QueryStmt                # get [distinct] fields from table in db [as alias] [where ...] [order by ...] [take N] [skip N] into target
     QueryAggregateStmt       # count/sum/average/minimum/maximum from table in db ... into target
@@ -3284,6 +3293,91 @@ class NetContextExpr : Node {
     [string]$Field
     NetContextExpr([string]$field, [int]$line) : base([NodeKind]::NetContext, $line) {
         $this.Field = $field
+    }
+}
+
+# D109: cryptography. Everything works on D102 bytes; algorithms and
+# parameters are runtime policy, never chosen in Otter source.
+
+# secure random bytes 32
+class SecureRandomBytesExpr : Node {
+    [Node]$Count
+    SecureRandomBytesExpr([Node]$count, [int]$line) : base([NodeKind]::SecureRandomBytes, $line) {
+        $this.Count = $count
+    }
+}
+
+# sha256 of data   (Algorithm is 'sha256' | 'sha384' | 'sha512')
+class CryptoHashExpr : Node {
+    [string]$Algorithm
+    [Node]$Data
+    CryptoHashExpr([string]$algorithm, [Node]$data, [int]$line) : base([NodeKind]::CryptoHash, $line) {
+        $this.Algorithm = $algorithm
+        $this.Data = $data
+    }
+}
+
+# hmac sha256 of data using key
+class CryptoHmacExpr : Node {
+    [string]$Algorithm
+    [Node]$Data
+    [Node]$Key
+    CryptoHmacExpr([string]$algorithm, [Node]$data, [Node]$key, [int]$line) : base([NodeKind]::CryptoHmac, $line) {
+        $this.Algorithm = $algorithm
+        $this.Data = $data
+        $this.Key = $key
+    }
+}
+
+# generate encryption key and call it key
+class GenerateKeyStmt : Node {
+    [string]$Target
+    GenerateKeyStmt([string]$target, [int]$line) : base([NodeKind]::GenerateKey, $line) {
+        $this.Target = $target
+    }
+}
+
+# encrypt data using key and call it encrypted / decrypt encrypted using key and call it data
+class CryptoCipherStmt : Node {
+    [bool]$IsDecrypt
+    [Node]$Data
+    [Node]$Key
+    [string]$Target
+    CryptoCipherStmt([bool]$isDecrypt, [Node]$data, [Node]$key, [string]$target, [int]$line) : base([NodeKind]::CryptoCipher, $line) {
+        $this.IsDecrypt = $isDecrypt
+        $this.Data = $data
+        $this.Key = $key
+        $this.Target = $target
+    }
+}
+
+# hash password password and call it storedHash
+class HashPasswordStmt : Node {
+    [Node]$Password
+    [string]$Target
+    HashPasswordStmt([Node]$password, [string]$target, [int]$line) : base([NodeKind]::HashPassword, $line) {
+        $this.Password = $password
+        $this.Target = $target
+    }
+}
+
+# password password matches hash storedHash
+class PasswordMatchesExpr : Node {
+    [Node]$Password
+    [Node]$Hash
+    PasswordMatchesExpr([Node]$password, [Node]$hash, [int]$line) : base([NodeKind]::PasswordMatches, $line) {
+        $this.Password = $password
+        $this.Hash = $hash
+    }
+}
+
+# expected securely equals actual
+class SecurelyEqualsExpr : Node {
+    [Node]$Left
+    [Node]$Right
+    SecurelyEqualsExpr([Node]$left, [Node]$right, [int]$line) : base([NodeKind]::SecurelyEquals, $line) {
+        $this.Left = $left
+        $this.Right = $right
     }
 }
 

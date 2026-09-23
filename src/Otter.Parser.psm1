@@ -512,6 +512,39 @@ function Read-OtterValue {
         [void](Read-OtterToken) # error
         return [WebSocketErrorExpr]::new($token.Line)
     }
+    # D109: cryptography expressions. Plain identifiers (D33 mechanism 1),
+    # matched by text only in these exact shapes.
+    if ($token.Kind -eq [TokenKind]::Identifier -and ($script:Position + 1) -lt $script:Tokens.Count) {
+        $cryptoNext = $script:Tokens[$script:Position + 1]
+        # secure random bytes 32
+        if ($token.Text -eq 'secure' -and $cryptoNext.Text -eq 'random' -and
+            ($script:Position + 2) -lt $script:Tokens.Count -and $script:Tokens[$script:Position + 2].Text -eq 'bytes') {
+            [void](Read-OtterToken)
+            [void](Read-OtterToken)
+            [void](Read-OtterToken)
+            return [SecureRandomBytesExpr]::new((Read-OtterValue), $token.Line)
+        }
+        # sha256 of data
+        if ($token.Text -in @('sha256', 'sha384', 'sha512') -and $cryptoNext.Kind -eq [TokenKind]::Of) {
+            [void](Read-OtterToken)
+            [void](Read-OtterToken)
+            return [CryptoHashExpr]::new($token.Text, (Read-OtterValue), $token.Line)
+        }
+        # hmac sha256 of data using key
+        if ($token.Text -eq 'hmac' -and $cryptoNext.Text -in @('sha256', 'sha384', 'sha512') -and
+            (Test-OtterTokenOffsetKind 2 ([TokenKind]::Of))) {
+            [void](Read-OtterToken)
+            $hmacAlgorithm = (Read-OtterToken).Text
+            [void](Read-OtterToken) # of
+            $hmacData = Read-OtterValue
+            $usingTok = Get-OtterCurrentToken
+            if (-not ($usingTok.Kind -eq [TokenKind]::Identifier -and $usingTok.Text -eq 'using')) {
+                throw (New-OtterParserError 'I expected "using" and a key after the data to sign.' $usingTok 'signature is hmac sha256 of data using key')
+            }
+            [void](Read-OtterToken)
+            return [CryptoHmacExpr]::new($hmacAlgorithm, $hmacData, (Read-OtterValue), $token.Line)
+        }
+    }
     # D107/D108: TCP/UDP contextual expressions. All plain identifiers
     # (D33 mechanism 1), matched by text in these exact word pairs only.
     if ($token.Kind -eq [TokenKind]::Identifier -and ($script:Position + 1) -lt $script:Tokens.Count) {
@@ -820,7 +853,32 @@ function Read-OtterConditionPrimary {
         [void](Read-OtterToken)
         return [FileIsSymbolicLinkExpr]::new($path, $fileToken.Line)
     }
+    # D109: `password <text> matches hash <hash>`. "password" is an ordinary
+    # identifier, so this backtracks unless "matches hash" really follows.
+    if ((Get-OtterCurrentToken).Kind -eq [TokenKind]::Identifier -and (Get-OtterCurrentToken).Text -eq 'password' -and
+        -not (Test-OtterTokenOffsetKind 1 ([TokenKind]::Is)) -and -not (Test-OtterTokenOffsetKind 1 ([TokenKind]::Of))) {
+        $savedPasswordPosition = $script:Position
+        $passwordWord = Read-OtterToken
+        $passwordValue = $null
+        try { $passwordValue = Read-OtterValue } catch { $passwordValue = $null }
+        if ($null -ne $passwordValue -and (Get-OtterCurrentToken).Kind -eq [TokenKind]::Identifier -and (Get-OtterCurrentToken).Text -eq 'matches') {
+            [void](Read-OtterToken) # matches
+            if ((Get-OtterCurrentToken).Text -ne 'hash') {
+                throw (New-OtterParserError 'I expected "hash" after "matches".' (Get-OtterCurrentToken) 'password attempt matches hash storedHash')
+            }
+            [void](Read-OtterToken) # hash
+            return [PasswordMatchesExpr]::new($passwordValue, (Read-OtterValue), $passwordWord.Line)
+        }
+        $script:Position = $savedPasswordPosition
+    }
     $left = Read-OtterValue
+    # D109: `expected securely equals actual` - constant-time comparison of bytes.
+    if ((Get-OtterCurrentToken).Kind -eq [TokenKind]::Identifier -and (Get-OtterCurrentToken).Text -eq 'securely' -and
+        ($script:Position + 1) -lt $script:Tokens.Count -and $script:Tokens[$script:Position + 1].Text -eq 'equals') {
+        $securelyWord = Read-OtterToken
+        [void](Read-OtterToken) # equals
+        return [SecurelyEqualsExpr]::new($left, (Read-OtterValue), $securelyWord.Line)
+    }
     # D104: `dataWatcher is watching` - a watcher-state predicate, not a
     # general equality comparison ("watching" is not a value anything
     # else could ever legitimately compare equal to). "watching" is an
@@ -2014,6 +2072,21 @@ function Read-OtterNetClauses {
     return $result
 }
 
+# D109: the tail of `encrypt DATA using KEY and call it R` (and decrypt),
+# entered once "using" is the current token.
+function Read-OtterCryptoCipherRest {
+    param([bool]$IsDecrypt, [Node]$Data, [int]$Line)
+    [void](Read-OtterToken) # using
+    $cipherKey = Read-OtterValue
+    $verb = if ($IsDecrypt) { 'decrypt' } else { 'encrypt' }
+    [void](Assert-OtterTokenKind ([TokenKind]::And) "I expected ""and call it"" and a name after the key." "$verb data using key and call it result")
+    [void](Assert-OtterTokenKind ([TokenKind]::Call) 'I expected "call" after "and".')
+    [void](Assert-OtterTokenKind ([TokenKind]::It) 'I expected "it" after "call".')
+    $cipherTarget = Read-OtterVariableName 'I expected a name after "call it".'
+    [void](Assert-OtterTokenKind ([TokenKind]::Newline) "I expected the $verb statement to end here.")
+    return [CryptoCipherStmt]::new($IsDecrypt, $Data, $cipherKey, $cipherTarget.Text, $Line)
+}
+
 function Read-OtterStatement {
     $start = Get-OtterCurrentToken
 
@@ -2159,6 +2232,20 @@ function Read-OtterStatement {
         $netSock = Read-OtterValue
         [void](Assert-OtterTokenKind ([TokenKind]::Newline) "I expected the close $netProto statement to end here.")
         return [NetCloseStmt]::new($netProto, $netSock, $start.Line)
+    }
+
+    # D109: `generate encryption key and call it key`
+    if ($start.Text -eq 'generate' -and ($script:Position + 2) -lt $script:Tokens.Count -and
+        $script:Tokens[$script:Position + 1].Text -eq 'encryption' -and $script:Tokens[$script:Position + 2].Text -eq 'key') {
+        [void](Read-OtterToken) # generate
+        [void](Read-OtterToken) # encryption
+        [void](Read-OtterToken) # key
+        [void](Assert-OtterTokenKind ([TokenKind]::And) 'I expected "and call it" and a name.' 'generate encryption key and call it key')
+        [void](Assert-OtterTokenKind ([TokenKind]::Call) 'I expected "call" after "and".')
+        [void](Assert-OtterTokenKind ([TokenKind]::It) 'I expected "it" after "call".')
+        $keyTarget = Read-OtterVariableName 'I expected a name after "call it".'
+        [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the generate statement to end here.')
+        return [GenerateKeyStmt]::new($keyTarget.Text, $start.Line)
     }
 
     # D107: `open udp [on port 9000] and call it socket`
@@ -3445,6 +3532,20 @@ function Read-OtterStatement {
         # hash "text" as "sha256" [with key "secret"] into digest        (D91)
         ([TokenKind]::Hash) {
             [void](Read-OtterToken)
+            # D109: `hash password <text> and call it <name>` - distinguished from
+            # D91's `hash password as "sha256" ...` (a variable named password)
+            # by what follows the value.
+            if ((Get-OtterCurrentToken).Kind -eq [TokenKind]::Identifier -and (Get-OtterCurrentToken).Text -eq 'password' -and
+                -not (Test-OtterTokenOffsetKind 1 ([TokenKind]::As))) {
+                [void](Read-OtterToken) # password
+                $passwordExpr = Read-OtterValue
+                [void](Assert-OtterTokenKind ([TokenKind]::And) 'I expected "and call it" and a name.' 'hash password password and call it storedHash')
+                [void](Assert-OtterTokenKind ([TokenKind]::Call) 'I expected "call" after "and".')
+                [void](Assert-OtterTokenKind ([TokenKind]::It) 'I expected "it" after "call".')
+                $hashPwTarget = Read-OtterVariableName 'I expected a name after "call it".'
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the hash password statement to end here.')
+                return [HashPasswordStmt]::new($passwordExpr, $hashPwTarget.Text, $start.Line)
+            }
             $hashText = Read-OtterValue
             [void](Assert-OtterTokenKind ([TokenKind]::As) 'I expected "as" and an algorithm name.')
             $hashAlgorithm = Read-OtterValue
@@ -3467,6 +3568,9 @@ function Read-OtterStatement {
         ([TokenKind]::Encrypt) {
             [void](Read-OtterToken)
             $encryptText = Read-OtterValue
+            if ((Get-OtterCurrentToken).Kind -eq [TokenKind]::Identifier -and (Get-OtterCurrentToken).Text -eq 'using') {
+                return Read-OtterCryptoCipherRest -IsDecrypt $false -Data $encryptText -Line $start.Line
+            }
             [void](Assert-OtterTokenKind ([TokenKind]::With) 'I expected "with key" and a key.')
             $keyWord = Get-OtterCurrentToken
             if ($keyWord.Kind -ne [TokenKind]::Identifier -or $keyWord.Text -ne 'key') {
@@ -3483,6 +3587,9 @@ function Read-OtterStatement {
         ([TokenKind]::Decrypt) {
             [void](Read-OtterToken)
             $decryptCipher = Read-OtterValue
+            if ((Get-OtterCurrentToken).Kind -eq [TokenKind]::Identifier -and (Get-OtterCurrentToken).Text -eq 'using') {
+                return Read-OtterCryptoCipherRest -IsDecrypt $true -Data $decryptCipher -Line $start.Line
+            }
             [void](Assert-OtterTokenKind ([TokenKind]::With) 'I expected "with key" and a key.')
             $keyWord2 = Get-OtterCurrentToken
             if ($keyWord2.Kind -ne [TokenKind]::Identifier -or $keyWord2.Text -ne 'key') {

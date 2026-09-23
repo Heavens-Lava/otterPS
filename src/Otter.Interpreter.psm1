@@ -1939,6 +1939,45 @@ function Invoke-OtterStatement {
             return
         }
 
+        # generate encryption key and call it key                       (D109)
+        'GenerateKey' {
+            $Environment.Set($Statement.Target, [OtterBytes]::new((New-OtterSecureRandomByteArray -Count $script:OtterCryptoKeyLength)))
+            return
+        }
+
+        # encrypt data using key and call it encrypted / decrypt ...     (D109)
+        'CryptoCipher' {
+            $data = Get-OtterValue -Expression $Statement.Data -Environment $Environment
+            $key = Get-OtterValue -Expression $Statement.Key -Environment $Environment
+            $verb = if ($Statement.IsDecrypt) { 'decrypt' } else { 'encrypt' }
+            Assert-OtterCryptoBytes -Value $data -Line $Statement.Line -What "The data to $verb"
+            Assert-OtterEncryptionKey -Key $key -Line $Statement.Line
+            if ($Statement.IsDecrypt) {
+                $plain = Unprotect-OtterBytes -Payload ([byte[]]$data.Value) -Key ([byte[]]$key.Value)
+                if ($null -eq $plain) {
+                    throw (New-OtterRuntimeError `
+                        -Message 'I could not decrypt this data: it was changed, it is not encrypted data, or the key is wrong.' `
+                        -Line $Statement.Line)
+                }
+                $Environment.Set($Statement.Target, [OtterBytes]::new($plain))
+            } else {
+                $Environment.Set($Statement.Target, [OtterBytes]::new((Protect-OtterBytes -Data ([byte[]]$data.Value) -Key ([byte[]]$key.Value))))
+            }
+            return
+        }
+
+        # hash password password and call it storedHash                  (D109)
+        'HashPassword' {
+            $password = Get-OtterValue -Expression $Statement.Password -Environment $Environment
+            if ($password -isnot [string] -or $password.Length -eq 0) {
+                throw (New-OtterRuntimeError `
+                    -Message "I need a password as non-empty text, but this is $(Get-OtterTypeName -Value $password)." `
+                    -Line $Statement.Line)
+            }
+            $Environment.Set($Statement.Target, (New-OtterPasswordHash -Password $password))
+            return
+        }
+
         # connect to tcp "host" on port 8080 and call it connection     (D107)
         'TcpConnect' {
             $hostVal = Get-OtterValue -Expression $Statement.HostExpr -Environment $Environment
@@ -3253,6 +3292,186 @@ function Get-OtterDerivedValue {
     Get-OtterDerivedValue -Derived $Derived -Environment $Env
 }
 
+# ===============================================================
+# CRYPTOGRAPHY (D109) - console/desktop only
+# ===============================================================
+# High-level primitives over D102 bytes. Algorithms and parameters are
+# runtime policy: Otter source says "encrypt" / "hash password" / "secure
+# random", never "AES-CBC" or an iteration count.
+#
+# Encryption is authenticated (encrypt-then-MAC): AES-256-CBC for
+# confidentiality plus HMAC-SHA256 over version|iv|ciphertext, with the
+# two subkeys derived independently from the one 32-byte Otter key. The
+# payload carries its own version and IV, so programs never handle nonces:
+#     0x01 | iv(16) | ciphertext | tag(32)
+# The tag is verified in constant time BEFORE any decryption happens.
+# (.NET Framework 4.x, which Windows PowerShell 5.1 runs on, has no
+# AES-GCM, so this is the approved authenticated construction here.)
+
+$script:OtterCryptoKeyLength = 32
+$script:OtterPasswordIterations = 600000
+
+function Assert-OtterCryptoBytes {
+    param([object]$Value, [int]$Line, [string]$What)
+    if (-not (Test-OtterBytes $Value)) {
+        throw (New-OtterRuntimeError `
+            -Message "$What must be bytes, but this is $(Get-OtterTypeName -Value $Value). Otter never converts text to bytes silently." `
+            -Line $Line `
+            -Suggestion 'data is bytes from text "Hello"')
+    }
+}
+
+function New-OtterSecureRandomByteArray {
+    param([int]$Count)
+    $buffer = [byte[]]::new($Count)
+    $rng = [System.Security.Cryptography.RNGCryptoServiceProvider]::new()
+    try { $rng.GetBytes($buffer) } finally { $rng.Dispose() }
+    # A byte[] returned through the pipeline would unroll; callers wrap it.
+    Write-Output -NoEnumerate $buffer
+}
+
+function Get-OtterHmacBytes {
+    param([string]$Algorithm, [byte[]]$Key, [byte[]]$Data)
+    $hmac = switch ($Algorithm) {
+        'sha256' { [System.Security.Cryptography.HMACSHA256]::new($Key) }
+        'sha384' { [System.Security.Cryptography.HMACSHA384]::new($Key) }
+        'sha512' { [System.Security.Cryptography.HMACSHA512]::new($Key) }
+    }
+    try { $result = $hmac.ComputeHash($Data) } finally { $hmac.Dispose() }
+    Write-Output -NoEnumerate $result
+}
+
+function Get-OtterDigestBytes {
+    param([string]$Algorithm, [byte[]]$Data)
+    $hash = switch ($Algorithm) {
+        'sha256' { [System.Security.Cryptography.SHA256]::Create() }
+        'sha384' { [System.Security.Cryptography.SHA384]::Create() }
+        'sha512' { [System.Security.Cryptography.SHA512]::Create() }
+    }
+    try { $result = $hash.ComputeHash($Data) } finally { $hash.Dispose() }
+    Write-Output -NoEnumerate $result
+}
+
+# Compares without an early exit on the first differing byte, so timing
+# does not reveal how much of a secret matched. Length is not secret.
+function Test-OtterConstantTimeEqual {
+    param([byte[]]$Left, [byte[]]$Right)
+    if ($Left.Length -ne $Right.Length) { return $false }
+    $difference = 0
+    for ($i = 0; $i -lt $Left.Length; $i++) {
+        $difference = $difference -bor ($Left[$i] -bxor $Right[$i])
+    }
+    return ($difference -eq 0)
+}
+
+function Assert-OtterEncryptionKey {
+    param([object]$Key, [int]$Line)
+    Assert-OtterCryptoBytes -Value $Key -Line $Line -What 'An encryption key'
+    if ($Key.Value.Length -ne $script:OtterCryptoKeyLength) {
+        throw (New-OtterRuntimeError `
+            -Message "An encryption key must be exactly $($script:OtterCryptoKeyLength) bytes, but this one is $($Key.Value.Length)." `
+            -Line $Line `
+            -Suggestion 'generate encryption key and call it key')
+    }
+}
+
+function Protect-OtterBytes {
+    param([byte[]]$Data, [byte[]]$Key)
+    $encKey = Get-OtterHmacBytes -Algorithm 'sha256' -Key $Key -Data ([System.Text.Encoding]::ASCII.GetBytes('otter-aead-v1-enc'))
+    $macKey = Get-OtterHmacBytes -Algorithm 'sha256' -Key $Key -Data ([System.Text.Encoding]::ASCII.GetBytes('otter-aead-v1-mac'))
+    $iv = New-OtterSecureRandomByteArray -Count 16
+    $aes = [System.Security.Cryptography.Aes]::Create()
+    try {
+        $aes.KeySize = 256
+        $aes.Mode = [System.Security.Cryptography.CipherMode]::CBC
+        $aes.Padding = [System.Security.Cryptography.PaddingMode]::PKCS7
+        $aes.Key = $encKey
+        $aes.IV = $iv
+        $encryptor = $aes.CreateEncryptor()
+        try { $cipher = $encryptor.TransformFinalBlock($Data, 0, $Data.Length) } finally { $encryptor.Dispose() }
+    } finally { $aes.Dispose() }
+    $body = [byte[]]::new(1 + 16 + $cipher.Length)
+    $body[0] = 1
+    [System.Array]::Copy($iv, 0, $body, 1, 16)
+    [System.Array]::Copy($cipher, 0, $body, 17, $cipher.Length)
+    $tag = Get-OtterHmacBytes -Algorithm 'sha256' -Key $macKey -Data $body
+    $payload = [byte[]]::new($body.Length + 32)
+    [System.Array]::Copy($body, 0, $payload, 0, $body.Length)
+    [System.Array]::Copy($tag, 0, $payload, $body.Length, 32)
+    Write-Output -NoEnumerate $payload
+}
+
+# Returns the plaintext bytes, or $null when the payload is malformed,
+# altered, or was made with a different key. Callers report one message
+# for all three on purpose - telling them apart would help an attacker.
+function Unprotect-OtterBytes {
+    param([byte[]]$Payload, [byte[]]$Key)
+    # version(1) + iv(16) + at least one cipher block(16) + tag(32)
+    if ($Payload.Length -lt 65 -or $Payload[0] -ne 1) { return $null }
+    $encKey = Get-OtterHmacBytes -Algorithm 'sha256' -Key $Key -Data ([System.Text.Encoding]::ASCII.GetBytes('otter-aead-v1-enc'))
+    $macKey = Get-OtterHmacBytes -Algorithm 'sha256' -Key $Key -Data ([System.Text.Encoding]::ASCII.GetBytes('otter-aead-v1-mac'))
+    $bodyLength = $Payload.Length - 32
+    $body = [byte[]]::new($bodyLength)
+    [System.Array]::Copy($Payload, 0, $body, 0, $bodyLength)
+    $tag = [byte[]]::new(32)
+    [System.Array]::Copy($Payload, $bodyLength, $tag, 0, 32)
+    $expected = Get-OtterHmacBytes -Algorithm 'sha256' -Key $macKey -Data $body
+    if (-not (Test-OtterConstantTimeEqual -Left $expected -Right $tag)) { return $null }
+    $cipherLength = $bodyLength - 17
+    if (($cipherLength % 16) -ne 0) { return $null }
+    $iv = [byte[]]::new(16)
+    [System.Array]::Copy($body, 1, $iv, 0, 16)
+    $cipher = [byte[]]::new($cipherLength)
+    [System.Array]::Copy($body, 17, $cipher, 0, $cipherLength)
+    $aes = [System.Security.Cryptography.Aes]::Create()
+    try {
+        $aes.KeySize = 256
+        $aes.Mode = [System.Security.Cryptography.CipherMode]::CBC
+        $aes.Padding = [System.Security.Cryptography.PaddingMode]::PKCS7
+        $aes.Key = $encKey
+        $aes.IV = $iv
+        $decryptor = $aes.CreateDecryptor()
+        try { $plain = $decryptor.TransformFinalBlock($cipher, 0, $cipher.Length) } finally { $decryptor.Dispose() }
+    } catch {
+        return $null
+    } finally { $aes.Dispose() }
+    Write-Output -NoEnumerate $plain
+}
+
+function Get-OtterPasswordDerivedBytes {
+    param([string]$Password, [byte[]]$Salt, [int]$Iterations)
+    $derive = [System.Security.Cryptography.Rfc2898DeriveBytes]::new(
+        [System.Text.Encoding]::UTF8.GetBytes($Password), $Salt, $Iterations,
+        [System.Security.Cryptography.HashAlgorithmName]::SHA256)
+    try { $result = $derive.GetBytes(32) } finally { $derive.Dispose() }
+    Write-Output -NoEnumerate $result
+}
+
+# Stored form is text, so it can go straight into a database column or
+# file:  otter-pbkdf2-sha256$<iterations>$<salt base64>$<hash base64>
+function New-OtterPasswordHash {
+    param([string]$Password)
+    $salt = New-OtterSecureRandomByteArray -Count 16
+    $derived = Get-OtterPasswordDerivedBytes -Password $Password -Salt $salt -Iterations $script:OtterPasswordIterations
+    return "otter-pbkdf2-sha256`$$($script:OtterPasswordIterations)`$$([Convert]::ToBase64String($salt))`$$([Convert]::ToBase64String($derived))"
+}
+
+# Returns $true/$false, or $null when the text is not an Otter password hash.
+function Test-OtterPasswordHash {
+    param([string]$Password, [string]$StoredHash)
+    $parts = $StoredHash.Split('$')
+    if ($parts.Count -ne 4 -or $parts[0] -ne 'otter-pbkdf2-sha256') { return $null }
+    $iterations = 0
+    if (-not [int]::TryParse($parts[1], [ref]$iterations) -or $iterations -lt 1000) { return $null }
+    try {
+        $salt = [Convert]::FromBase64String($parts[2])
+        $expected = [Convert]::FromBase64String($parts[3])
+    } catch { return $null }
+    if ($salt.Length -lt 8 -or $expected.Length -ne 32) { return $null }
+    $derived = Get-OtterPasswordDerivedBytes -Password $Password -Salt $salt -Iterations $iterations
+    return (Test-OtterConstantTimeEqual -Left $derived -Right $expected)
+}
+
 # D107/D108 helpers -------------------------------------------------
 function Get-OtterNetPort {
     param([object]$Value, [int]$Line, [switch]$AllowZero)
@@ -3987,6 +4206,70 @@ function Get-OtterValue {
             }
             return $script:OtterCurrentWsContext.CloseWasClean
         }
+        # secure random bytes 32                                        (D109)
+        'SecureRandomBytes' {
+            $countVal = Get-OtterValue -Expression $Expression.Count -Environment $Environment
+            $isNumber = $countVal -is [double] -or $countVal -is [int] -or $countVal -is [long]
+            if (-not $isNumber -or $countVal -ne [Math]::Floor($countVal) -or $countVal -lt 1 -or $countVal -gt 1048576) {
+                throw (New-OtterRuntimeError `
+                    -Message "I need a whole number of random bytes between 1 and 1048576, but this is $(Format-OtterValue -Value $countVal)." `
+                    -Line $Expression.Line `
+                    -Suggestion 'data is secure random bytes 32')
+            }
+            return [OtterBytes]::new((New-OtterSecureRandomByteArray -Count ([int]$countVal)))
+        }
+
+        # sha256 of data                                                (D109)
+        'CryptoHash' {
+            $data = Get-OtterValue -Expression $Expression.Data -Environment $Environment
+            Assert-OtterCryptoBytes -Value $data -Line $Expression.Line -What "The data to hash with $($Expression.Algorithm)"
+            return [OtterBytes]::new((Get-OtterDigestBytes -Algorithm $Expression.Algorithm -Data ([byte[]]$data.Value)))
+        }
+
+        # hmac sha256 of data using key                                 (D109)
+        'CryptoHmac' {
+            $data = Get-OtterValue -Expression $Expression.Data -Environment $Environment
+            $key = Get-OtterValue -Expression $Expression.Key -Environment $Environment
+            Assert-OtterCryptoBytes -Value $data -Line $Expression.Line -What 'The data to sign'
+            Assert-OtterCryptoBytes -Value $key -Line $Expression.Line -What 'A signing key'
+            if ($key.Value.Length -eq 0) {
+                throw (New-OtterRuntimeError -Message 'A signing key cannot be empty.' -Line $Expression.Line)
+            }
+            return [OtterBytes]::new((Get-OtterHmacBytes -Algorithm $Expression.Algorithm -Key ([byte[]]$key.Value) -Data ([byte[]]$data.Value)))
+        }
+
+        # password attempt matches hash storedHash                      (D109)
+        'PasswordMatches' {
+            $password = Get-OtterValue -Expression $Expression.Password -Environment $Environment
+            $stored = Get-OtterValue -Expression $Expression.Hash -Environment $Environment
+            if ($password -isnot [string]) {
+                throw (New-OtterRuntimeError -Message "I need a password as text, but this is $(Get-OtterTypeName -Value $password)." -Line $Expression.Line)
+            }
+            if ($stored -isnot [string]) {
+                throw (New-OtterRuntimeError `
+                    -Message "I need a stored password hash as text, but this is $(Get-OtterTypeName -Value $stored)." `
+                    -Line $Expression.Line `
+                    -Suggestion 'hash password password and call it storedHash')
+            }
+            $verdict = Test-OtterPasswordHash -Password $password -StoredHash $stored
+            if ($null -eq $verdict) {
+                throw (New-OtterRuntimeError `
+                    -Message 'That text is not a password hash made by "hash password".' `
+                    -Line $Expression.Line `
+                    -Suggestion 'hash password password and call it storedHash')
+            }
+            return $verdict
+        }
+
+        # expected securely equals actual                               (D109)
+        'SecurelyEquals' {
+            $left = Get-OtterValue -Expression $Expression.Left -Environment $Environment
+            $right = Get-OtterValue -Expression $Expression.Right -Environment $Environment
+            Assert-OtterCryptoBytes -Value $left -Line $Expression.Line -What 'A secret compared with "securely equals"'
+            Assert-OtterCryptoBytes -Value $right -Line $Expression.Line -What 'A secret compared with "securely equals"'
+            return (Test-OtterConstantTimeEqual -Left ([byte[]]$left.Value) -Right ([byte[]]$right.Value))
+        }
+
         'NetContext' {
             $netKey = switch ($Expression.Field) {
                 'data' { 'Data' }
