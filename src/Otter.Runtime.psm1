@@ -259,6 +259,31 @@ function Test-OtterBytes {
     return $Value -is [OtterBytes]
 }
 
+# D104: file watching. Wraps a real [System.IO.FileSystemWatcher] plus
+# the bookkeeping (SourceIdPrefix) Otter.Interpreter.psm1 needs to find
+# and unregister this watcher's PowerShell event subscriptions later -
+# never exposed to Otter code directly, only through watch/stop
+# watching/on change/is watching.
+class OtterFileWatcher {
+    [System.IO.FileSystemWatcher]$Native
+    [string]$Path
+    [bool]$IsFolder
+    [bool]$Active
+    [string]$SourceIdPrefix
+    OtterFileWatcher([System.IO.FileSystemWatcher]$native, [string]$path, [bool]$isFolder, [string]$sourceIdPrefix) {
+        $this.Native = $native
+        $this.Path = $path
+        $this.IsFolder = $isFolder
+        $this.Active = $true
+        $this.SourceIdPrefix = $sourceIdPrefix
+    }
+}
+
+function Test-OtterFileWatcher {
+    param([object]$Value)
+    return $Value -is [OtterFileWatcher]
+}
+
 function New-OtterToday {
     return [OtterDate]::new([datetime]::Now, $false)
 }
@@ -665,4 +690,4 @@ Export-ModuleMember -Function `
     New-OtterList, Test-OtterList, Test-OtterObject, Test-OtterDate, `
     New-OtterToday, New-OtterNow, Format-OtterValue, Test-OtterTruthy, `
     Test-OtterNumeric, ConvertTo-OtterNumber, Test-OtterEqual, ConvertFrom-OtterInput, `
-    Test-OtterBytes
+    Test-OtterBytes, Test-OtterFileWatcher

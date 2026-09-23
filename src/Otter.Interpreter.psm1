@@ -90,6 +90,191 @@ function Complete-OtterProgressBarLine {
     }
 }
 
+# ===============================================================
+# FILE WATCHING (D104) - console/desktop only; the interpreter's own
+# default "I do not know how to run/work out a <kind> ... yet" errors
+# already make the web target fail loudly for these NodeKinds with zero
+# extra code (verified directly, same as D103's routing statements), so
+# there is nothing web-specific here at all.
+# ===============================================================
+
+# Every active watcher for the CURRENT Invoke-OtterProgram run. Reset at
+# the top of Invoke-OtterProgram (like $script:CallStack) so a REPL
+# session reusing this module never sees a stale watcher from an earlier
+# run's session state.
+$script:OtterActiveWatchers = [System.Collections.Generic.List[OtterFileWatcher]]::new()
+
+# Handlers registered via `on change of X` / `on create in X` / etc.
+# Keyed by the OtterFileWatcher INSTANCE itself (reference equality,
+# same as .NET's default), not by name - matches WhenStmt's own
+# established pattern of resolving the target to a real object at
+# registration time, not re-resolving a variable name later.
+$script:OtterWatcherHandlers = [System.Collections.Generic.Dictionary[object, System.Collections.Generic.List[hashtable]]]::new()
+
+# The ambient "changed path" / "changed file name" / "change kind" /
+# "old path" context - set immediately before a watch-event handler body
+# runs, cleared immediately after. $null whenever code is not currently
+# inside a watch-event handler (ChangedPath/etc throw a clean error in
+# that case, rather than silently returning gone).
+$script:OtterCurrentWatchEvent = $null
+
+# Coalesces duplicate OS-level notifications for the same logical change
+# (D104 section 15 - explicitly runtime behavior, not new syntax). Keyed
+# by "<watcher identity>|<event kind>|<path>"; an equivalent event within
+# this window is dropped rather than re-dispatched.
+$script:OtterWatchDebounceWindowMs = 150
+$script:OtterWatchLastEventAt = @{}
+
+function Test-OtterWatchEventShouldCoalesce {
+    param([string]$Key)
+    $now = [DateTime]::UtcNow
+    if ($script:OtterWatchLastEventAt.ContainsKey($Key)) {
+        $elapsed = ($now - $script:OtterWatchLastEventAt[$Key]).TotalMilliseconds
+        if ($elapsed -lt $script:OtterWatchDebounceWindowMs) {
+            $script:OtterWatchLastEventAt[$Key] = $now
+            return $true
+        }
+    }
+    $script:OtterWatchLastEventAt[$Key] = $now
+    return $false
+}
+
+function New-OtterFileWatcher {
+    param([string]$Path, [bool]$IsFolder, [bool]$Recursive, [int]$Line)
+
+    # D104 section 17/18: fail loudly on a missing file/folder rather
+    # than silently creating it or silently watching the parent instead.
+    if ($IsFolder) {
+        if (-not (Test-Path -LiteralPath $Path -PathType Container)) {
+            throw (New-OtterRuntimeError `
+                -Message "I can't watch a folder that doesn't exist: ""$Path""." `
+                -Line $Line `
+                -Suggestion 'Check the folder path, or create it first.')
+        }
+    } else {
+        if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+            throw (New-OtterRuntimeError `
+                -Message "I can't watch a file that doesn't exist: ""$Path""." `
+                -Line $Line `
+                -Suggestion 'Check the file path, or watch its folder instead to detect creation.')
+        }
+    }
+
+    $resolvedPath = (Resolve-Path -LiteralPath $Path).ProviderPath
+    $native = [System.IO.FileSystemWatcher]::new()
+    if ($IsFolder) {
+        $native.Path = $resolvedPath
+        $native.Filter = '*'
+        $native.IncludeSubdirectories = $Recursive
+    } else {
+        # D104 section 16: watching the file's FOLDER with a name filter
+        # (the standard .NET technique for "watch one file"), not the
+        # file handle itself - this is what lets watching survive the
+        # common editor save pattern of replace-via-temp-file-then-rename,
+        # since the filter still matches once the final name reappears.
+        $native.Path = Split-Path -Parent $resolvedPath
+        $native.Filter = Split-Path -Leaf $resolvedPath
+        $native.IncludeSubdirectories = $false
+    }
+    $native.NotifyFilter = [System.IO.NotifyFilters]'FileName, DirectoryName, LastWrite, CreationTime, Size'
+
+    $sourceIdPrefix = "OtterWatch_$([Guid]::NewGuid().ToString('N'))"
+    $otterWatcher = [OtterFileWatcher]::new($native, $resolvedPath, $IsFolder, $sourceIdPrefix)
+
+    Register-ObjectEvent -InputObject $native -EventName Changed -SourceIdentifier "${sourceIdPrefix}_Changed" -MessageData $otterWatcher | Out-Null
+    Register-ObjectEvent -InputObject $native -EventName Created -SourceIdentifier "${sourceIdPrefix}_Created" -MessageData $otterWatcher | Out-Null
+    Register-ObjectEvent -InputObject $native -EventName Deleted -SourceIdentifier "${sourceIdPrefix}_Deleted" -MessageData $otterWatcher | Out-Null
+    Register-ObjectEvent -InputObject $native -EventName Renamed -SourceIdentifier "${sourceIdPrefix}_Renamed" -MessageData $otterWatcher | Out-Null
+    Register-ObjectEvent -InputObject $native -EventName Error -SourceIdentifier "${sourceIdPrefix}_Error" -MessageData $otterWatcher | Out-Null
+
+    $native.EnableRaisingEvents = $true
+    $script:OtterActiveWatchers.Add($otterWatcher)
+    return $otterWatcher
+}
+
+function Stop-OtterFileWatcherInternal {
+    param([OtterFileWatcher]$Watcher)
+
+    if (-not $Watcher.Active) { return }
+    $Watcher.Active = $false
+    $Watcher.Native.EnableRaisingEvents = $false
+    Get-EventSubscriber -SourceIdentifier "$($Watcher.SourceIdPrefix)_*" -ErrorAction SilentlyContinue | Unregister-Event
+    $Watcher.Native.Dispose()
+    [void]$script:OtterActiveWatchers.Remove($Watcher)
+}
+
+# Runs after every top-level statement has executed (Invoke-OtterProgram
+# calls this unconditionally; it returns immediately when nothing is
+# watching). Real OS file-system events, not polling - the 1-second
+# Wait-Event timeout only re-checks "should this loop exit now", it is
+# not how changes are detected.
+function Invoke-OtterWatchEventLoop {
+    while ($script:OtterActiveWatchers.Count -gt 0) {
+        $evt = Wait-Event -Timeout 1
+        if ($null -eq $evt) { continue }
+        Remove-Event -EventIdentifier $evt.EventIdentifier -ErrorAction SilentlyContinue
+
+        $watcherObj = $evt.MessageData
+        if ($null -eq $watcherObj -or -not $watcherObj.Active) { continue }
+
+        $sourceId = $evt.SourceIdentifier
+        $kindWord = $sourceId.Substring($sourceId.LastIndexOf('_') + 1)
+
+        if ($kindWord -eq 'Error') {
+            # D104 section 22: surface a runtime diagnostic rather than
+            # silently going quiet - printed directly (there is no single
+            # "current statement" this background failure belongs to).
+            Write-OtterDiagnostic -Level 'error' -Text "A file watcher stopped working unexpectedly for ""$($watcherObj.Path)""."
+            Stop-OtterFileWatcherInternal -Watcher $watcherObj
+            continue
+        }
+
+        $eventKind = switch ($kindWord) {
+            'Changed' { [WatchEventKind]::Change }
+            'Created' { [WatchEventKind]::Create }
+            'Deleted' { [WatchEventKind]::Delete }
+            'Renamed' { [WatchEventKind]::Rename }
+            default { $null }
+        }
+        if ($null -eq $eventKind) { continue }
+
+        $evtArgs = $evt.SourceEventArgs
+        $path = $evtArgs.FullPath
+        $oldPath = if ($eventKind -eq [WatchEventKind]::Rename) { $evtArgs.OldFullPath } else { $null }
+
+        $debounceKey = "$($watcherObj.GetHashCode())|$kindWord|$path"
+        if (Test-OtterWatchEventShouldCoalesce -Key $debounceKey) { continue }
+
+        if (-not $script:OtterWatcherHandlers.ContainsKey($watcherObj)) { continue }
+        $handlers = $script:OtterWatcherHandlers[$watcherObj] | Where-Object { $_.EventKind -eq $eventKind }
+        if (-not $handlers) { continue }
+
+        $changeKindText = switch ($eventKind) {
+            ([WatchEventKind]::Change) { 'changed' }
+            ([WatchEventKind]::Create) { 'created' }
+            ([WatchEventKind]::Delete) { 'deleted' }
+            ([WatchEventKind]::Rename) { 'renamed' }
+        }
+        $previousContext = $script:OtterCurrentWatchEvent
+        $script:OtterCurrentWatchEvent = @{
+            Path = $path
+            FileName = Split-Path -Leaf $path
+            Kind = $changeKindText
+            OldPath = $oldPath
+        }
+        try {
+            # D104 section 24: handlers run one at a time, on this same
+            # thread, through the ordinary interpreter - never concurrently,
+            # never re-entering this loop mid-handler.
+            foreach ($h in $handlers) {
+                Invoke-OtterStatements -Statements $h.Body -Environment $h.Environment
+            }
+        } finally {
+            $script:OtterCurrentWatchEvent = $previousContext
+        }
+    }
+}
+
 function Write-OtterLine {
     param([string]$Text)
     Complete-OtterProgressBarLine
@@ -285,8 +470,22 @@ function Invoke-OtterProgram {
     $script:GlobalEnvironment = $Environment
     $script:CallStack.Clear()
 
+    # D104: reset per-run watcher state - a REPL session reusing this
+    # module across separate program runs must never see a watcher (or
+    # its handlers) left over from an earlier run.
+    $script:OtterActiveWatchers = [System.Collections.Generic.List[OtterFileWatcher]]::new()
+    $script:OtterWatcherHandlers = [System.Collections.Generic.Dictionary[object, System.Collections.Generic.List[hashtable]]]::new()
+    $script:OtterCurrentWatchEvent = $null
+    $script:OtterWatchLastEventAt = @{}
+
     try {
         Invoke-OtterStatements -Statements $Program.Statements -Environment $Environment
+        # D104: a program that registered a watcher and never stopped it
+        # stays alive here, dispatching real file-system events, until
+        # every watcher is stopped (explicitly, or the process exits).
+        # Returns immediately - no watchers, no behavior change at all -
+        # for every program that doesn't use D104.
+        Invoke-OtterWatchEventLoop
     }
     catch {
         # D37: "stop" (and a hypothetical top-level "return") both throw an
@@ -303,6 +502,9 @@ function Invoke-OtterProgram {
                 -Line $_.Exception.Line)
         }
         throw
+    }
+    finally {
+        foreach ($w in @($script:OtterActiveWatchers)) { Stop-OtterFileWatcherInternal -Watcher $w }
     }
 }
 
@@ -921,6 +1123,48 @@ function Invoke-OtterStatement {
         # start timer workTimer                                            (D101)
         'StartTimer' {
             $Environment.Set($Statement.Target, [System.Diagnostics.Stopwatch]::StartNew())
+            return
+        }
+
+        # watch file "settings.json" and call it settingsWatcher          (D104)
+        # watch folder "assets" [recursively] and call it assetsWatcher
+        'WatchDeclare' {
+            $path = Get-OtterText -Expression $Statement.Path -Environment $Environment
+            $isFolder = ($Statement.TargetKind -eq [WatchKind]::Folder)
+            $watcher = New-OtterFileWatcher -Path $path -IsFolder $isFolder -Recursive $Statement.Recursive -Line $Statement.Line
+            $Environment.Set($Statement.Target, $watcher)
+            return
+        }
+
+        # stop watching settingsWatcher                                    (D104)
+        'StopWatching' {
+            $watcher = Get-OtterValue -Expression $Statement.Watcher -Environment $Environment
+            if (-not (Test-OtterFileWatcher $watcher)) {
+                throw (New-OtterRuntimeError `
+                    -Message "I can only stop watching a file watcher, but this is $(Get-OtterTypeName -Value $watcher)." `
+                    -Line $Statement.Line)
+            }
+            Stop-OtterFileWatcherInternal -Watcher $watcher
+            return
+        }
+
+        # on change of X / on create in X / on delete in X / on rename in X  (D104)
+        # Registration only - matches WhenStmt's own established shape
+        # (D46's own comment: registering a handler here does not by
+        # itself make anything happen; Invoke-OtterWatchEventLoop is what
+        # actually calls it later, the same separation D47 draws for UI
+        # events).
+        'WatchEvent' {
+            $watcher = Get-OtterValue -Expression $Statement.Watcher -Environment $Environment
+            if (-not (Test-OtterFileWatcher $watcher)) {
+                throw (New-OtterRuntimeError `
+                    -Message "I can only listen for a watcher event on a file watcher, but this is $(Get-OtterTypeName -Value $watcher)." `
+                    -Line $Statement.Line)
+            }
+            if (-not $script:OtterWatcherHandlers.ContainsKey($watcher)) {
+                $script:OtterWatcherHandlers[$watcher] = [System.Collections.Generic.List[hashtable]]::new()
+            }
+            $script:OtterWatcherHandlers[$watcher].Add(@{ EventKind = $Statement.EventKind; Body = $Statement.Body; Environment = $Environment })
             return
         }
 
@@ -2405,6 +2649,61 @@ function Get-OtterValue {
             }
         }
 
+        # dataWatcher is watching                                         (D104)
+        'IsWatching' {
+            $watcher = Get-OtterValue -Expression $Expression.Watcher -Environment $Environment
+            if (-not (Test-OtterFileWatcher $watcher)) {
+                throw (New-OtterRuntimeError `
+                    -Message "I can only ask whether a file watcher is watching, but this is $(Get-OtterTypeName -Value $watcher)." `
+                    -Line $Expression.Line)
+            }
+            return $watcher.Active
+        }
+
+        # changed path / changed file name / change kind / old path        (D104)
+        # Ambient context, valid only inside a watch-event handler body -
+        # set/cleared by Invoke-OtterWatchEventLoop around each handler
+        # call. Accessing these outside that context is a clean error,
+        # not a silent `gone` (there is no sensible default: "the path of
+        # what?").
+        'ChangedPath' {
+            if ($null -eq $script:OtterCurrentWatchEvent) {
+                throw (New-OtterRuntimeError `
+                    -Message '"changed path" only means something inside a watch-event handler (on change/create/delete/rename).' `
+                    -Line $Expression.Line)
+            }
+            return $script:OtterCurrentWatchEvent.Path
+        }
+        'ChangedFileName' {
+            if ($null -eq $script:OtterCurrentWatchEvent) {
+                throw (New-OtterRuntimeError `
+                    -Message '"changed file name" only means something inside a watch-event handler (on change/create/delete/rename).' `
+                    -Line $Expression.Line)
+            }
+            return $script:OtterCurrentWatchEvent.FileName
+        }
+        'ChangeKind' {
+            if ($null -eq $script:OtterCurrentWatchEvent) {
+                throw (New-OtterRuntimeError `
+                    -Message '"change kind" only means something inside a watch-event handler (on change/create/delete/rename).' `
+                    -Line $Expression.Line)
+            }
+            return $script:OtterCurrentWatchEvent.Kind
+        }
+        'OldPath' {
+            if ($null -eq $script:OtterCurrentWatchEvent) {
+                throw (New-OtterRuntimeError `
+                    -Message '"old path" only means something inside a watch-event handler (on change/create/delete/rename).' `
+                    -Line $Expression.Line)
+            }
+            if ($null -eq $script:OtterCurrentWatchEvent.OldPath) {
+                throw (New-OtterRuntimeError `
+                    -Message '"old path" is only available inside "on rename in ..." - this is a different kind of watcher event.' `
+                    -Line $Expression.Line)
+            }
+            return $script:OtterCurrentWatchEvent.OldPath
+        }
+
         # days between startDate and endDate                            (D42)
         #
         # A genuine value, so it evaluates the same way Get-OtterValue
@@ -2761,6 +3060,7 @@ function Get-OtterTypeName {
     if (Test-OtterObject $Value) { return "a $($Value.TypeName)" }
     if ($Value -is [OtterType]) { return "the type $($Value.Name)" }
     if (Test-OtterBytes $Value) { return 'bytes' }
+    if (Test-OtterFileWatcher $Value) { return 'a file watcher' }
     if (Test-OtterList $Value) { return 'a list' }
     if ($Value -is [double] -or $Value -is [int] -or $Value -is [long]) { return 'a number' }
     if ($Value -is [string]) { return 'some text' }

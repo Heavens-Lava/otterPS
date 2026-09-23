@@ -561,11 +561,24 @@ enum NodeKind {
     CurrentRoute              # an EXPRESSION: current route
     RouteParameter            # an EXPRESSION: route parameter "id"
     QueryParameter            # an EXPRESSION: query parameter "search"
+
+    # --- file watching (D104) - console/desktop only; web fails loudly. --
+    WatchDeclare               # watch file/folder <path> [recursively] and call it X
+    StopWatching                # stop watching X
+    WatchEvent                  # on change of X / on create|delete|rename in X ... .
+    IsWatching                  # an EXPRESSION: X is watching
+    ChangedPath                 # an EXPRESSION: changed path
+    ChangedFileName              # an EXPRESSION: changed file name
+    ChangeKind                   # an EXPRESSION: change kind
+    OldPath                       # an EXPRESSION: old path
 }
 
 enum MathOp { Add; Subtract; Multiply; Divide; Percent; Power }   # D88
 
 enum CompareOp { Equal; NotEqual; AtLeast; AtMost; GreaterThan; LessThan }
+
+enum WatchKind { File; Folder }                                       # D104
+enum WatchEventKind { Change; Create; Delete; Rename }                 # D104
 
 # D11: boolean operators. Precedence, loosest last: not -> and -> or.
 enum LogicalOp { And; Or }
@@ -2850,6 +2863,75 @@ class QueryParameterExpr : Node {
     QueryParameterExpr([Node]$name, [int]$line) : base([NodeKind]::QueryParameter, $line) {
         $this.Name = $name
     }
+}
+
+# D104: file watching - console/desktop only (web fails loudly, see
+# Otter.Compiler.JavaScript.psm1's own rejection cases for this NodeKind
+# family).
+#
+# watch file "settings.json" and call it settingsWatcher
+# watch folder "assets" [recursively] and call it assetsWatcher
+# Named FileWatchStmt, not WatchStmt - that name is already taken by the
+# unrelated D56 reactive "when X changes" statement.
+class FileWatchStmt : Node {
+    # Named TargetKind, not Kind - every Node already has its own [NodeKind]
+    # $Kind from the base class, and reusing the name here silently shadows
+    # it (confirmed directly: assigning a WatchKind through it actually
+    # tried to coerce the NodeKind enum value into WatchKind and threw).
+    [WatchKind]$TargetKind
+    [Node]$Path
+    [bool]$Recursive
+    [string]$Target
+    FileWatchStmt([WatchKind]$targetKind, [Node]$path, [bool]$recursive, [string]$target, [int]$line) : base([NodeKind]::WatchDeclare, $line) {
+        $this.TargetKind = $targetKind
+        $this.Path = $path
+        $this.Recursive = $recursive
+        $this.Target = $target
+    }
+}
+
+# stop watching settingsWatcher
+class StopWatchingStmt : Node {
+    [Node]$Watcher
+    StopWatchingStmt([Node]$watcher, [int]$line) : base([NodeKind]::StopWatching, $line) {
+        $this.Watcher = $watcher
+    }
+}
+
+# on change of X / on create in X / on delete in X / on rename in X
+class WatchEventStmt : Node {
+    [WatchEventKind]$EventKind
+    [Node]$Watcher
+    [Node[]]$Body
+    WatchEventStmt([WatchEventKind]$eventKind, [Node]$watcher, [Node[]]$body, [int]$line) : base([NodeKind]::WatchEvent, $line) {
+        $this.EventKind = $eventKind
+        $this.Watcher = $watcher
+        $this.Body = $body
+    }
+}
+
+# dataWatcher is watching - a watcher-state predicate, not equality
+class IsWatchingExpr : Node {
+    [Node]$Watcher
+    IsWatchingExpr([Node]$watcher, [int]$line) : base([NodeKind]::IsWatching, $line) {
+        $this.Watcher = $watcher
+    }
+}
+
+# changed path / changed file name / change kind / old path - ambient
+# context available only inside a watch-event handler body; each is a
+# fixed, argument-free expression (no fields needed).
+class ChangedPathExpr : Node {
+    ChangedPathExpr([int]$line) : base([NodeKind]::ChangedPath, $line) {}
+}
+class ChangedFileNameExpr : Node {
+    ChangedFileNameExpr([int]$line) : base([NodeKind]::ChangedFileName, $line) {}
+}
+class ChangeKindExpr : Node {
+    ChangeKindExpr([int]$line) : base([NodeKind]::ChangeKind, $line) {}
+}
+class OldPathExpr : Node {
+    OldPathExpr([int]$line) : base([NodeKind]::OldPath, $line) {}
 }
 
 

@@ -752,6 +752,24 @@ function ConvertTo-OtterJsExpression {
             $nameJs = ConvertTo-OtterJsExpression -Expr $Expr.Name
             return "(window.otterRouter.queryParam(String($nameJs)))"
         }
+        # D104: file watching is console/desktop only - see the statement
+        # cases' own comment for why these are a real failure, not a
+        # silent no-op.
+        ([NodeKind]::IsWatching) {
+            throw [OtterError]::new('File/folder watching is not supported on the web target.', $Expr.Line, 'runtime')
+        }
+        ([NodeKind]::ChangedPath) {
+            throw [OtterError]::new('File/folder watching is not supported on the web target.', $Expr.Line, 'runtime')
+        }
+        ([NodeKind]::ChangedFileName) {
+            throw [OtterError]::new('File/folder watching is not supported on the web target.', $Expr.Line, 'runtime')
+        }
+        ([NodeKind]::ChangeKind) {
+            throw [OtterError]::new('File/folder watching is not supported on the web target.', $Expr.Line, 'runtime')
+        }
+        ([NodeKind]::OldPath) {
+            throw [OtterError]::new('File/folder watching is not supported on the web target.', $Expr.Line, 'runtime')
+        }
         ([NodeKind]::DateDifferenceValue) {
             # D60 Phase 1J (D42). The expression form of `days between X and
             # Y` - a genuine value, usable anywhere an expression is legal
@@ -2976,6 +2994,18 @@ function ConvertTo-OtterJsStatement {
             }
             $lines.Add("${pad}});")
             return ($lines -join "`n")
+        }
+        # D104: file watching is console/desktop only - the design spec's
+        # own platform rule (section 23) requires a real failure on web,
+        # never a silent no-op, same as D100's console-UX primitives.
+        ([NodeKind]::WatchDeclare) {
+            throw [OtterError]::new('File/folder watching is not supported on the web target.', $Stmt.Line, 'runtime')
+        }
+        ([NodeKind]::StopWatching) {
+            throw [OtterError]::new('File/folder watching is not supported on the web target.', $Stmt.Line, 'runtime')
+        }
+        ([NodeKind]::WatchEvent) {
+            throw [OtterError]::new('File/folder watching is not supported on the web target.', $Stmt.Line, 'runtime')
         }
         default {
             return ""

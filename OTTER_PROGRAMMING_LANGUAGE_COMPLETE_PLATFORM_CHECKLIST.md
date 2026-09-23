@@ -426,13 +426,29 @@ creation.
 -   [x] File locks (D72: `file "x" is locked` - a real exclusive-open
     check, verified against a file genuinely held open elsewhere via
     `FileShare.None` from outside Otter)
--   [ ] File watching (real gap: no FileSystemWatcher or equivalent
-    anywhere in the runtime. Would need a new event/callback mechanism -
-    likely modeled on D46's `when X is clicked` UI-event pattern, but for
-    filesystem changes - which is new grammar, not something to invent
-    unilaterally here)
--   [ ] Recursive watching (same gap as file watching, one level deeper -
-    blocked on it existing at all first)
+-   [x] File watching (D104: `watch file "settings.json" and call it
+    settingsWatcher` / `watch folder "assets" [recursively] and call it
+    assetsWatcher`, `on change of X` / `on create in X` / `on delete in
+    X` / `on rename in X`, `X is watching`, `stop watching X`, ambient
+    `changed path`/`changed file name`/`change kind`/`old path` inside a
+    handler. Console/desktop only - web fails loudly by design (the
+    spec's own platform rule). A real [System.IO.FileSystemWatcher] per
+    watcher, PowerShell's Register-ObjectEvent for thread-safe delivery
+    to the main thread, a genuine blocking event loop after the
+    program's top-level statements finish (zero added latency/cost for
+    any program that doesn't watch anything), and a small time-window
+    coalescing pass for duplicate OS notifications (spec section 15 -
+    deliberately runtime behavior, no new syntax for it). Verified with
+    REAL file/folder changes from a second process - not simulated -
+    including a real rename (old path vs new path), recursive vs
+    non-recursive folder scope, missing-file/missing-folder/wrong-type
+    errors all failing loudly rather than silently creating anything,
+    and debouncing measurably reducing 5 rapid writes to well under 5
+    handler firings. 11 production tests, `tests/FileWatching.Tests.ps1`)
+-   [x] Recursive watching (D104: `watch folder "assets" recursively and
+    call it X` - see File watching above; verified a non-recursive watch
+    genuinely does NOT see a nested-subfolder change while a recursive
+    one on the identical folder does, both with real filesystem events)
 -   [x] Temp files/folders
 -   [x] User/app data folders
 -   [x] Path combine/normalize

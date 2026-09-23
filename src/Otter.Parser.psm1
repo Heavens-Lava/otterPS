@@ -432,6 +432,40 @@ function Read-OtterValue {
         [void](Read-OtterToken) # parameter
         return [QueryParameterExpr]::new((Read-OtterValue), $token.Line)
     }
+    # D104: watch-event ambient context - "changed"/"kind"/"old" are all
+    # ordinary, unreserved identifiers (D33 mechanism 1); "path" likewise
+    # (never reserved anywhere in this grammar), "file" is the one
+    # already-reserved TokenKind among the three-word form's words.
+    if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -eq 'changed' -and
+        ($script:Position + 1) -lt $script:Tokens.Count -and $script:Tokens[$script:Position + 1].Kind -eq [TokenKind]::File -and
+        ($script:Position + 2) -lt $script:Tokens.Count -and $script:Tokens[$script:Position + 2].Kind -eq [TokenKind]::Identifier -and
+        $script:Tokens[$script:Position + 2].Text -eq 'name') {
+        [void](Read-OtterToken) # changed
+        [void](Read-OtterToken) # file
+        [void](Read-OtterToken) # name
+        return [ChangedFileNameExpr]::new($token.Line)
+    }
+    if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -eq 'changed' -and
+        ($script:Position + 1) -lt $script:Tokens.Count -and $script:Tokens[$script:Position + 1].Kind -eq [TokenKind]::Identifier -and
+        $script:Tokens[$script:Position + 1].Text -eq 'path') {
+        [void](Read-OtterToken) # changed
+        [void](Read-OtterToken) # path
+        return [ChangedPathExpr]::new($token.Line)
+    }
+    if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -eq 'change' -and
+        ($script:Position + 1) -lt $script:Tokens.Count -and $script:Tokens[$script:Position + 1].Kind -eq [TokenKind]::Identifier -and
+        $script:Tokens[$script:Position + 1].Text -eq 'kind') {
+        [void](Read-OtterToken) # change
+        [void](Read-OtterToken) # kind
+        return [ChangeKindExpr]::new($token.Line)
+    }
+    if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -eq 'old' -and
+        ($script:Position + 1) -lt $script:Tokens.Count -and $script:Tokens[$script:Position + 1].Kind -eq [TokenKind]::Identifier -and
+        $script:Tokens[$script:Position + 1].Text -eq 'path') {
+        [void](Read-OtterToken) # old
+        [void](Read-OtterToken) # path
+        return [OldPathExpr]::new($token.Line)
+    }
     if (Test-OtterIdentifierToken $token) {
         # A declared function is a real value-producing expression.  Its
         # arity tells us exactly how many following values belong to the
@@ -583,6 +617,18 @@ function Read-OtterConditionPrimary {
         return [FileIsSymbolicLinkExpr]::new($path, $fileToken.Line)
     }
     $left = Read-OtterValue
+    # D104: `dataWatcher is watching` - a watcher-state predicate, not a
+    # general equality comparison ("watching" is not a value anything
+    # else could ever legitimately compare equal to). "watching" is an
+    # ordinary, unreserved identifier (D33 mechanism 1) - checked by
+    # text only in this exact position, right after a plain "is".
+    if ((Get-OtterCurrentToken).Kind -eq [TokenKind]::Is -and
+        ($script:Position + 1) -lt $script:Tokens.Count -and $script:Tokens[$script:Position + 1].Kind -eq [TokenKind]::Identifier -and
+        $script:Tokens[$script:Position + 1].Text -eq 'watching') {
+        $isWord = Read-OtterToken
+        [void](Read-OtterToken)
+        return [IsWatchingExpr]::new($left, $isWord.Line)
+    }
     if (Test-OtterTokenKind ([TokenKind]::Contains)) {
         $operator = Read-OtterToken
         return [ContainsExpr]::new($left, (Read-OtterValue), $operator.Line)
@@ -1321,6 +1367,30 @@ function Read-OtterStatement {
         [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the go statement to end here.')
         return [GoToRouteStmt]::new($path, $start.Line)
     }
+    # D104: `watch file "..." and call it X` / `watch folder "..."
+    # [recursively] and call it X` - "watch" is an ordinary, unreserved
+    # identifier (D33 mechanism 1); the pre-existing NodeKind::Watch
+    # ("when X changes") is a completely different feature reached
+    # through a different word ("when"), so there is no collision here.
+    $isWatchDecl = ($start.Text -eq 'watch' -and $nextKind -notin @([TokenKind]::Is, [TokenKind]::Are, [TokenKind]::Of, [TokenKind]::IsNot) -and
+        ($nextKind -eq [TokenKind]::File -or $nextKind -eq [TokenKind]::Folder))
+    if ($isWatchDecl) {
+        [void](Read-OtterToken)
+        $kindTok = Read-OtterToken
+        $watchKind = if ($kindTok.Kind -eq [TokenKind]::File) { [WatchKind]::File } else { [WatchKind]::Folder }
+        $path = Read-OtterValue
+        $recursive = $false
+        if ($watchKind -eq [WatchKind]::Folder -and (Get-OtterCurrentToken).Kind -eq [TokenKind]::Identifier -and (Get-OtterCurrentToken).Text -eq 'recursively') {
+            [void](Read-OtterToken)
+            $recursive = $true
+        }
+        [void](Assert-OtterTokenKind ([TokenKind]::And) 'I expected "and call it" and a name after the watch path.' 'Write: watch file "settings.json" and call it settingsWatcher')
+        [void](Assert-OtterTokenKind ([TokenKind]::Call) 'I expected "call" after "and".')
+        [void](Assert-OtterTokenKind ([TokenKind]::It) 'I expected "it" after "call".')
+        $nameTok = Read-OtterVariableName 'I expected a name after "call it".'
+        [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the watch statement to end here.')
+        return [FileWatchStmt]::new($watchKind, $path, $recursive, $nameTok.Text, $start.Line)
+    }
 
     switch ($statementKind) {
         ([TokenKind]::Await) {
@@ -1395,6 +1465,36 @@ function Read-OtterStatement {
                 [void](Read-OtterToken) # route
                 [void](Read-OtterToken) # change
                 return [RouteChangeStmt]::new((Read-OtterBlock), $start.Line)
+            }
+            # D104: `on change of X` / `on create in X` / `on delete in X`
+            # / `on rename in X` - watcher event handlers. "create"/
+            # "delete" only lex as their own TokenKind at STATEMENT HEAD
+            # (D33 mechanism 2 - confirmed the same way "otherwise" did
+            # for D103), so one token after "on" they are plain
+            # Identifiers here and must be matched by TEXT.
+            if ($stageTok.Kind -eq [TokenKind]::Identifier -and $stageTok.Text -eq 'change' -and (Test-OtterTokenOffsetKind 1 ([TokenKind]::Of))) {
+                [void](Read-OtterToken) # change
+                [void](Read-OtterToken) # of
+                $watcher = Read-OtterValue
+                return [WatchEventStmt]::new([WatchEventKind]::Change, $watcher, (Read-OtterBlock), $start.Line)
+            }
+            if ($stageTok.Kind -eq [TokenKind]::Identifier -and $stageTok.Text -eq 'create' -and (Test-OtterTokenOffsetKind 1 ([TokenKind]::In))) {
+                [void](Read-OtterToken) # create
+                [void](Read-OtterToken) # in
+                $watcher = Read-OtterValue
+                return [WatchEventStmt]::new([WatchEventKind]::Create, $watcher, (Read-OtterBlock), $start.Line)
+            }
+            if ($stageTok.Kind -eq [TokenKind]::Identifier -and $stageTok.Text -eq 'delete' -and (Test-OtterTokenOffsetKind 1 ([TokenKind]::In))) {
+                [void](Read-OtterToken) # delete
+                [void](Read-OtterToken) # in
+                $watcher = Read-OtterValue
+                return [WatchEventStmt]::new([WatchEventKind]::Delete, $watcher, (Read-OtterBlock), $start.Line)
+            }
+            if ($stageTok.Kind -eq [TokenKind]::Identifier -and $stageTok.Text -eq 'rename' -and (Test-OtterTokenOffsetKind 1 ([TokenKind]::In))) {
+                [void](Read-OtterToken) # rename
+                [void](Read-OtterToken) # in
+                $watcher = Read-OtterValue
+                return [WatchEventStmt]::new([WatchEventKind]::Rename, $watcher, (Read-OtterBlock), $start.Line)
             }
             $stageTok = Read-OtterToken
             if ($stageTok.Text -notin @('start', 'close')) {
@@ -3082,6 +3182,16 @@ function Read-OtterStatement {
         }
         ([TokenKind]::Return) {
             [void](Read-OtterToken)
+            # D104: `stop watching X` - "stop" always lexes to
+            # TokenKind::Return (it doubles as the bare "stop" return
+            # signal), so this is disambiguated right here rather than
+            # via a pre-switch text check like watch/route/go above.
+            if ($start.Text -eq 'stop' -and (Get-OtterCurrentToken).Kind -eq [TokenKind]::Identifier -and (Get-OtterCurrentToken).Text -eq 'watching') {
+                [void](Read-OtterToken)
+                $watcher = Read-OtterValue
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the stop watching statement to end here.')
+                return [StopWatchingStmt]::new($watcher, $start.Line)
+            }
             if ($start.Text -eq 'stop') {
                 [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected stop to end here.')
                 return [ReturnStmt]::new($null, $start.Line)
