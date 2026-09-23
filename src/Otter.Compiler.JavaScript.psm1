@@ -1216,7 +1216,19 @@ function ConvertTo-OtterJsStatement {
             $lines.Add("${pad}{")
             $lines.Add("${inner}const _props = {};")
             $lines.Add("${inner}const _order = [];")
-            if ($typeName -ne 'thing') {
+            # A declared TypeDef name is always a single valid JS
+            # identifier (TypeDef parsing only accepts one word). A
+            # multi-word TypeName reaching here is always some OTHER kind
+            # of Otter thing this statement compiler doesn't otherwise
+            # know about - never a real declared type to look up - so
+            # this is skipped rather than interpolating it as a bare JS
+            # identifier, which is a hard SyntaxError the moment it
+            # contains a space (found via `primary button`/`text box`-
+            # style compound names actually reaching this path and
+            # breaking the entire compiled script - Otter.Web.psm1's own
+            # UI-kind diversion is the real fix for that specific case,
+            # this is the defensive backstop for any other one).
+            if ($typeName -ne 'thing' -and $typeName -match '^[A-Za-z_$][A-Za-z0-9_$]*$') {
                 $lines.Add("${inner}if (typeof $typeName !== 'undefined' && $typeName && typeof $typeName === 'object' && $typeName.__otterType) { for (const _f of $typeName.fieldNames) { if (!(_f in _props)) { _order.push(_f); } _props[_f] = null; } }")
             }
             foreach ($property in $Stmt.Properties) {

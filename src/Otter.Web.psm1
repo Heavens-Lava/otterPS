@@ -442,12 +442,33 @@ function ConvertTo-OtterWeb {
                 'progress', 'progress bar', 'toggle', 'switch', 'radio', 'radio button',
                 'dialog', 'modal'
             )
+            # `aboutButton is a primary button` - a variant-qualified kind
+            # (matches the `primary button`/`secondary card`/`danger
+            # panel`-style prefix the inline UI-element grammar already
+            # supports). Found as a real bug during D103 testing: unless
+            # the "primary " prefix is stripped here, "primary button"
+            # never matches $knownKinds, so it falls all the way through
+            # to ObjectDef's generic "thing" codegen - which then
+            # interpolates the two-word type name as a BARE JS
+            # IDENTIFIER (`typeof primary button !== 'undefined'`),
+            # producing a hard SyntaxError that breaks the entire
+            # compiled script, confirmed by actually compiling and
+            # running one in a browser.
+            $variant = $null
+            foreach ($v in @('primary', 'secondary', 'danger')) {
+                if ($kind.StartsWith("$v ")) {
+                    $variant = $v
+                    $kind = $kind.Substring($v.Length + 1)
+                    break
+                }
+            }
             if ($kind -in $knownKinds) {
                 $res = @{
                     Kind = $kind
                     Name = $stmt.Name
                     Properties = [ordered]@{}
                 }
+                if ($variant) { $res.Properties['variant'] = $variant }
                 if ($stmt.Properties) {
                     foreach ($p in $stmt.Properties) {
                         if ($p -is [AssignStmt]) {
@@ -701,7 +722,11 @@ function ConvertTo-OtterWeb {
             'button' {
                 $rawText = if ($props.Contains('text')) { [string]$props['text'] } else { "Button" }
                 $text = Escape-OtterHtmlAttr -Text $rawText
-                return "      <button id=`"$resName`" class=`"otter-button`"$styleAttr>$text</button>"
+                # `primary button`/`secondary button`/`danger button` -
+                # reuses the same otter-button-<variant> CSS classes the
+                # inline UI-element grammar's own renderer already defines.
+                $variantClass = if ($props.Contains('variant')) { " otter-button-$($props['variant'])" } else { "" }
+                return "      <button id=`"$resName`" class=`"otter-button$variantClass`"$styleAttr>$text</button>"
             }
             'text box' {
                 $rawVal = if ($props.Contains('text')) { [string]$props['text'] } elseif ($props.Contains('value')) { [string]$props['value'] } else { "" }

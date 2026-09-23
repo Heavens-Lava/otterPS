@@ -548,4 +548,53 @@ try {
 }
 Write-Output '  pass  "go to" fails loudly (not silently) on the console target, via a real otter.ps1 run (D103)'
 
+# Test 23: variant-qualified UI kinds ("primary button", "secondary
+# button", "danger button") compile to valid, correctly-styled JS -
+# regression test for a real bug found while verifying D103: this two-
+# word TypeName reached ObjectDef's generic "thing" codegen (which
+# interpolates the type name as a bare JS identifier to check for a
+# declared custom type), producing a hard SyntaxError that broke the
+# entire compiled script the moment the browser tried to parse it.
+$variantSource = @"
+app is a page
+    title is "Variant Check"
+.
+aboutButton is a primary button
+    text is "Primary"
+.
+dangerButton is a danger button
+    text is "Danger"
+.
+plainButton is a button
+    text is "Plain"
+.
+put aboutButton, dangerButton, plainButton in app
+show app
+"@
+$variantAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $variantSource)
+$variantHtml = ConvertTo-OtterWeb -Program $variantAst
+if ($variantHtml -notmatch 'class="otter-button otter-button-primary"') {
+    throw 'Expected "primary button" to compile to a button with the otter-button-primary class.'
+}
+if ($variantHtml -notmatch 'class="otter-button otter-button-danger"') {
+    throw 'Expected "danger button" to compile to a button with the otter-button-danger class.'
+}
+if ($variantHtml -notmatch '<button id="plainButton" class="otter-button">') {
+    throw 'Expected a plain (non-variant) button to be completely unaffected.'
+}
+if ($variantHtml -match 'typeof primary button') {
+    throw 'A two-word type name must never be interpolated as a bare JS identifier (the original bug).'
+}
+$variantScript = if ($variantHtml -match '(?s)<script>(.*)</script>') { $Matches[1] } else { $null }
+if (-not $variantScript) { throw 'Expected a <script> block in the compiled variant-button app.' }
+$variantScriptFile = Join-Path ([System.IO.Path]::GetTempPath()) ("otter_variant_$([Guid]::NewGuid().ToString('N')).js")
+Set-Content -LiteralPath $variantScriptFile -Value $variantScript
+try {
+    & node --check $variantScriptFile
+    if ($LASTEXITCODE -ne 0) { throw 'Compiled JS for variant buttons failed a real Node syntax check.' }
+} finally {
+    Remove-Item -LiteralPath $variantScriptFile -Force -ErrorAction SilentlyContinue
+}
+Write-Output '  pass  variant-qualified UI kinds (primary/secondary/danger button) compile to valid, correctly-styled JS'
+
 Write-Output 'Web compiler tests passed.'
