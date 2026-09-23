@@ -563,6 +563,22 @@ function Read-OtterValue {
             return [CryptoHmacExpr]::new($hmacAlgorithm, $hmacData, (Read-OtterValue), $token.Line)
         }
     }
+    # D110: drag/drop context. Plain identifiers, matched by text in these
+    # exact word pairs only (D33 mechanism 1).
+    if ($token.Kind -eq [TokenKind]::Identifier -and ($script:Position + 1) -lt $script:Tokens.Count) {
+        $dragNext = $script:Tokens[$script:Position + 1]
+        $dragField = $null
+        if ($token.Text -eq 'dragged' -and $dragNext.Text -eq 'item') { $dragField = 'dragged item' }
+        elseif ($token.Text -eq 'dropped' -and $dragNext.Text -eq 'files') { $dragField = 'dropped files' }
+        elseif ($token.Text -eq 'drag' -and $dragNext.Text -eq 'data') { $dragField = 'drag data' }
+        elseif ($token.Text -eq 'drop' -and $dragNext.Text -eq 'x') { $dragField = 'drop x' }
+        elseif ($token.Text -eq 'drop' -and $dragNext.Text -eq 'y') { $dragField = 'drop y' }
+        if ($null -ne $dragField) {
+            [void](Read-OtterToken)
+            [void](Read-OtterToken)
+            return [DragContextExpr]::new($dragField, $token.Line)
+        }
+    }
     # D107/D108: TCP/UDP contextual expressions. All plain identifiers
     # (D33 mechanism 1), matched by text in these exact word pairs only.
     if ($token.Kind -eq [TokenKind]::Identifier -and ($script:Position + 1) -lt $script:Tokens.Count) {
@@ -1091,6 +1107,12 @@ function Read-OtterObjectBlockProperties {
         }
 
         $property = Read-OtterVariableName 'I expected a property name.' -AllowReservedLiteral
+        # D110: `accepts drops` is a two-word property name.
+        $twoWordProperty = $null
+        if ($property.Text -eq 'accepts' -and (Get-OtterCurrentToken).Text -eq 'drops') {
+            [void](Read-OtterToken)
+            $twoWordProperty = 'accepts drops'
+        }
 
         # 'is' is optional: both "property value" and "property is value" are valid
         $hadIs = $false
@@ -1099,7 +1121,7 @@ function Read-OtterObjectBlockProperties {
             $hadIs = $true
         }
 
-        $propName = $property.Text
+        $propName = if ($null -ne $twoWordProperty) { $twoWordProperty } else { $property.Text }
         if (-not $hadIs -and (Get-OtterCurrentToken).Kind -in @([TokenKind]::Newline, [TokenKind]::EndOfFile, [TokenKind]::Dedent, [TokenKind]::BlockEnd)) {
             # D54: a bare property in a has block is boolean true.
             $value = [LiteralExpr]::new($true, $property.Line)
@@ -1163,6 +1185,12 @@ function Read-OtterInlineObjectProperties {
 
     while ($true) {
         $property = Read-OtterVariableName 'I expected a property name after "has", "with", or a comma.' -AllowReservedLiteral
+        # D110: `accepts drops` is a two-word property name.
+        $twoWordProperty = $null
+        if ($property.Text -eq 'accepts' -and (Get-OtterCurrentToken).Text -eq 'drops') {
+            [void](Read-OtterToken)
+            $twoWordProperty = 'accepts drops'
+        }
         # Inline has and with are comma-delimited configuration lists.  `is` is
         # optional independently for each property, so compact, explicit,
         # and mixed styles all produce the same assignment nodes.
@@ -1172,7 +1200,7 @@ function Read-OtterInlineObjectProperties {
             $hadIs = $true
         }
 
-        $propName = $property.Text
+        $propName = if ($null -ne $twoWordProperty) { $twoWordProperty } else { $property.Text }
         if (-not $hadIs -and ((Get-OtterCurrentToken).Text -eq ',' -or (Get-OtterCurrentToken).Kind -in @([TokenKind]::Newline, [TokenKind]::EndOfFile))) {
             # D54: a bare property in an inline has list is boolean true.
             $value = [LiteralExpr]::new($true, $property.Line)
@@ -2252,6 +2280,18 @@ function Read-OtterStatement {
         return [NetCloseStmt]::new($netProto, $netSock, $start.Line)
     }
 
+    # D110: `set drag data to <expression>`
+    if ($start.Text -eq 'set' -and ($script:Position + 2) -lt $script:Tokens.Count -and
+        $script:Tokens[$script:Position + 1].Text -eq 'drag' -and $script:Tokens[$script:Position + 2].Text -eq 'data') {
+        [void](Read-OtterToken) # set
+        [void](Read-OtterToken) # drag
+        [void](Read-OtterToken) # data
+        [void](Assert-OtterTokenKind ([TokenKind]::To) 'I expected "to" and the data to attach.' 'set drag data to cardId')
+        $dragValue = Read-OtterMathExpression
+        [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the set drag data statement to end here.')
+        return [SetDragDataStmt]::new($dragValue, $start.Line)
+    }
+
     # D111: `store secret "name" with value V` / `delete secret "name"`
     if (($start.Text -eq 'store' -or $start.Text -eq 'delete') -and ($script:Position + 1) -lt $script:Tokens.Count -and
         $script:Tokens[$script:Position + 1].Kind -eq [TokenKind]::Identifier -and $script:Tokens[$script:Position + 1].Text -eq 'secret' -and
@@ -2471,6 +2511,30 @@ function Read-OtterStatement {
                 [void](Read-OtterToken) # of
                 $socket = Read-OtterValue
                 return [WebSocketEventStmt]::new([WebSocketEventKind]::Open, $socket, (Read-OtterBlock), $start.Line)
+            }
+            # D110: drag and drop events, all ordinary WhenStmt nodes.
+            # on drag of <control>
+            if ($stageTok.Text -eq 'drag' -and (Test-OtterTokenOffsetKind 1 ([TokenKind]::Of))) {
+                [void](Read-OtterToken) # drag
+                [void](Read-OtterToken) # of
+                $dragTarget = Read-OtterValue
+                return [WhenStmt]::new($dragTarget, 'drag', (Read-OtterBlock), $start.Line)
+            }
+            # on drop on <control>
+            if ($stageTok.Text -eq 'drop' -and ($script:Position + 1) -lt $script:Tokens.Count -and $script:Tokens[$script:Position + 1].Text -eq 'on') {
+                [void](Read-OtterToken) # drop
+                [void](Read-OtterToken) # on
+                $dropTarget = Read-OtterValue
+                return [WhenStmt]::new($dropTarget, 'drop', (Read-OtterBlock), $start.Line)
+            }
+            # on files dropped on <control>
+            if ($stageTok.Text -eq 'files' -and ($script:Position + 2) -lt $script:Tokens.Count -and
+                $script:Tokens[$script:Position + 1].Text -eq 'dropped' -and $script:Tokens[$script:Position + 2].Text -eq 'on') {
+                [void](Read-OtterToken) # files
+                [void](Read-OtterToken) # dropped
+                [void](Read-OtterToken) # on
+                $filesTarget = Read-OtterValue
+                return [WhenStmt]::new($filesTarget, 'files dropped', (Read-OtterBlock), $start.Line)
             }
             # D107: on connect of <connection>
             if ($stageTok.Text -eq 'connect' -and (Test-OtterTokenOffsetKind 1 ([TokenKind]::Of))) {
@@ -4508,9 +4572,19 @@ function Read-OtterStatement {
             }
             if (Test-OtterTokenKind ([TokenKind]::Is)) {
                 [void](Read-OtterToken)
-                if (Test-OtterTokenKind ([TokenKind]::A)) {
-                    [void](Read-OtterToken)
-                    $typeName = Read-OtterObjectTypeName
+                # D110: `card is panel with draggable is true` - the article is
+                # optional, but ONLY for "panel ... with", so a plain variable
+                # named panel (`x is panel`) keeps meaning an assignment.
+                $isBarePanel = ((Get-OtterCurrentToken).Kind -eq [TokenKind]::Identifier -and (Get-OtterCurrentToken).Text -eq 'panel' -and
+                    (Test-OtterTokenOffsetKind 1 ([TokenKind]::With)))
+                if ((Test-OtterTokenKind ([TokenKind]::A)) -or $isBarePanel) {
+                    if ($isBarePanel) {
+                        [void](Read-OtterToken)
+                        $typeName = 'panel'
+                    } else {
+                        [void](Read-OtterToken)
+                        $typeName = Read-OtterObjectTypeName
+                    }
                     if (Test-OtterTokenKind ([TokenKind]::With)) {
                         [void](Read-OtterToken)
                         $properties = Read-OtterInlineObjectProperties -TypeName $typeName

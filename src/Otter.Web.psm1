@@ -440,7 +440,7 @@ function ConvertTo-OtterWeb {
                 'dropdown', 'drop down', 'select', 'slider', 'range',
                 'text area', 'textarea', 'badge', 'tag', 'canvas', 'table', 'scroll',
                 'progress', 'progress bar', 'toggle', 'switch', 'radio', 'radio button',
-                'dialog', 'modal'
+                'dialog', 'modal', 'panel'
             )
             # `aboutButton is a primary button` - a variant-qualified kind
             # (matches the `primary button`/`secondary card`/`danger
@@ -545,7 +545,7 @@ function ConvertTo-OtterWeb {
     $bodyClass = if ($isPage) { ' class="otter-has-page"' } else { '' }
 
     # HTML rendering helper
-    function Render-OtterElement([string]$resName, [bool]$Hidden = $false) {
+    function Render-OtterElementCore([string]$resName, [bool]$Hidden = $false) {
         if (-not $resources.Contains($resName)) { return "" }
         $r = $resources[$resName]
         $kind = $r.Kind
@@ -940,6 +940,28 @@ $optHtml
         }
     }
 
+    # D110: `draggable is true` and `accepts drops is true` become real DOM
+    # attributes on whatever element the resource rendered as - one place,
+    # so every resource kind gets them without each renderer knowing.
+    function Render-OtterElement([string]$resName, [bool]$Hidden = $false) {
+        $html = Render-OtterElementCore -resName $resName -Hidden $Hidden
+        if (-not $resources.Contains($resName)) { return $html }
+        $dragProps = $resources[$resName].Properties
+        $dragAttrs = ''
+        if ($dragProps.Contains('draggable') -and ($dragProps['draggable'] -eq $true -or "$($dragProps['draggable'])" -eq 'true')) {
+            $dragAttrs += ' draggable="true"'
+        }
+        if ($dragProps.Contains('accepts drops') -and ($dragProps['accepts drops'] -eq $true -or "$($dragProps['accepts drops'])" -eq 'true')) {
+            $dragAttrs += ' data-otter-accepts-drops="true"'
+        }
+        if ($dragAttrs) {
+            $idMarker = "id=`"$resName`""
+            $at = $html.IndexOf($idMarker)
+            if ($at -ge 0) { $html = $html.Insert($at + $idMarker.Length, $dragAttrs) }
+        }
+        return $html
+    }
+
     # D103: every page a `route` statement names must reach the DOM, not
     # just the usual single "first resource" root - the router decides
     # at runtime which one is visible, so all of them have to exist to
@@ -1077,6 +1099,31 @@ $wBodyJoined
     $jsHandlers = [System.Collections.Generic.List[string]]::new()
     foreach ($when in $whenHandlers) {
         $targetName = if ($when.Target -is [VariableExpr]) { $when.Target.Name } else { 'target' }
+        # D110: drag/drop events. Block-scoped, so one element can carry
+        # several of them (drag AND drop) without redeclaring a constant.
+        if ($when.EventName -in @('drag', 'drop', 'files dropped')) {
+            $dragBodyLines = [System.Collections.Generic.List[string]]::new()
+            foreach ($s in $when.Body) { $dragBodyLines.Add((ConvertTo-OtterJsStatement -Stmt $s -Indent 5)) }
+            $dragBody = $dragBodyLines -join "`n"
+            $domEvent = switch ($when.EventName) { 'drag' { 'dragstart' } default { 'drop' } }
+            $dragGuard = switch ($when.EventName) {
+                'drag' { '' }
+                'drop' { "        if (!otterIsItemDrop(event)) { return; }`n" }
+                'files dropped' { "        if (!otterIsFileDrop(event)) { return; }`n" }
+            }
+            $jsHandlers.Add(@"
+    {
+      const _dragEl = document.getElementById('$targetName');
+      if (_dragEl) {
+        _dragEl.addEventListener('$domEvent', async (event) => {
+$dragGuard        window.otterDragCtx = otterMakeDragCtx(event, _dragEl, '$($when.EventName)');
+$dragBody
+        });
+      }
+    }
+"@)
+            continue
+        }
         $eventName = switch ($when.EventName.ToLowerInvariant()) {
             'clicked' { 'click' }
             'changed' { 'input' }
@@ -1111,6 +1158,70 @@ $bodyJoined
     }
     $topLevelJoined = $topLevelJs -join "`n"
     $handlersJoined = $jsHandlers -join "`n"
+
+    # D110: the generic drag/drop plumbing (drop-target permission, the
+    # dragged-item tracker, context objects) - emitted only for programs
+    # that declare something draggable/droppable or handle those events.
+    $usesDragDrop = $false
+    foreach ($resValue in $resources.Values) {
+        foreach ($dragKey in @('draggable', 'accepts drops')) {
+            if ($resValue.Properties.Contains($dragKey) -and ($resValue.Properties[$dragKey] -eq $true -or "$($resValue.Properties[$dragKey])" -eq 'true')) { $usesDragDrop = $true }
+        }
+    }
+    foreach ($w in $whenHandlers) { if ($w.EventName -in @('drag', 'drop', 'files dropped')) { $usesDragDrop = $true } }
+    $dragDropRuntimeJs = ''
+    if ($usesDragDrop) {
+        $dragDropRuntimeJs = @'
+    const otterDragState = { draggedId: null };
+    window.otterDragCtx = null;
+    function otterClosest(t, selector) { return t && t.closest ? t.closest(selector) : null; }
+    document.addEventListener('dragstart', (e) => { const d = otterClosest(e.target, '[draggable="true"]'); otterDragState.draggedId = d ? d.id : null; }, true);
+    document.addEventListener('dragend', () => { otterDragState.draggedId = null; }, true);
+    // A drop only happens on elements whose dragover was cancelled: this is
+    // what `accepts drops is true` means. Files dropped elsewhere are left
+    // to the browser.
+    document.addEventListener('dragover', (e) => { if (otterClosest(e.target, '[data-otter-accepts-drops="true"]')) { e.preventDefault(); } });
+    document.addEventListener('drop', (e) => { if (otterClosest(e.target, '[data-otter-accepts-drops="true"]')) { e.preventDefault(); } });
+    function otterIsFileDrop(event) { return !!(event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files.length > 0); }
+    function otterIsItemDrop(event) {
+      const types = event.dataTransfer && event.dataTransfer.types ? Array.from(event.dataTransfer.types) : [];
+      return types.indexOf('application/x-otter') >= 0 || otterDragState.draggedId !== null;
+    }
+    function otterMakeDragCtx(event, el, kind) {
+      const rect = el.getBoundingClientRect();
+      let data = null;
+      try {
+        const raw = event.dataTransfer ? event.dataTransfer.getData('application/x-otter') : '';
+        if (raw) { data = JSON.parse(raw); }
+      } catch (err) { data = null; }
+      const files = [];
+      if (event.dataTransfer && event.dataTransfer.files) {
+        for (const f of Array.from(event.dataTransfer.files)) { files.push({ __otterThing: true, typeName: 'file', props: { name: f.name, size: f.size, type: f.type, modified: f.lastModified }, file: f }); }
+      }
+      return { kind: kind, event: event, x: event.clientX - rect.left, y: event.clientY - rect.top, data: data, draggedId: otterDragState.draggedId, files: files };
+    }
+    function otterDragField(field) {
+      const c = window.otterDragCtx;
+      const where = { 'dragged item': 'a drag or drop event', 'drag data': 'a drag or drop event', 'dropped files': '"on files dropped on ..." or "on drop on ..."', 'drop x': '"on drop on ..." or "on files dropped on ..."', 'drop y': '"on drop on ..." or "on files dropped on ..."' };
+      if (!c) { throw new Error('"' + field + '" is only available inside ' + where[field] + '.'); }
+      if ((field === 'drop x' || field === 'drop y') && c.kind === 'drag') { throw new Error('"' + field + '" is only available inside ' + where[field] + '.'); }
+      switch (field) {
+        case 'dragged item': return c.draggedId;
+        case 'dropped files': return c.files;
+        case 'drag data': return c.data;
+        case 'drop x': return c.x;
+        case 'drop y': return c.y;
+      }
+      throw new Error('Unknown drag field: ' + field);
+    }
+    function otterSetDragData(event, value) {
+      if (!event || event.type !== 'dragstart' || !event.dataTransfer) { throw new Error('"set drag data" only works inside "on drag of ...".'); }
+      if (window.otterDragCtx) { window.otterDragCtx.data = value; }
+      event.dataTransfer.setData('application/x-otter', JSON.stringify(value));
+      event.dataTransfer.setData('text/plain', String(value));
+    }
+'@
+    }
 
     $html = @"
 <!DOCTYPE html>
@@ -1524,6 +1635,7 @@ $elementsHtml
     const empty = "";
     const gone = null;
     function otterGetElement(id) { return document.getElementById(id); }
+$dragDropRuntimeJs
     function otterGetText(id) {
       const el = otterGetElement(id);
       if (!el) return '';

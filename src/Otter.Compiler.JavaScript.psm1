@@ -914,6 +914,11 @@ function ConvertTo-OtterJsExpression {
         # D109: cryptography is console/desktop only for now.
         ([NodeKind]::SecretRead) { throw [OtterError]::new('The credential vault (secret) is not supported on the web target. Browser storage is not a secure credential store.', $Expr.Line, 'runtime') }
         ([NodeKind]::SecretExists) { throw [OtterError]::new('The credential vault (secret exists) is not supported on the web target. Browser storage is not a secure credential store.', $Expr.Line, 'runtime') }
+        # D110: drag/drop context - reads the object the Web module's
+        # drag/drop runtime sets while a drag or drop handler runs.
+        ([NodeKind]::DragContext) {
+            return "otterDragField('$($Expr.Field)')"
+        }
         ([NodeKind]::SecureRandomBytes) { throw [OtterError]::new('Cryptography (secure random bytes) is not supported on the web target yet.', $Expr.Line, 'runtime') }
         ([NodeKind]::CryptoHash) { throw [OtterError]::new('Cryptography (sha256/sha384/sha512) is not supported on the web target yet.', $Expr.Line, 'runtime') }
         ([NodeKind]::CryptoHmac) { throw [OtterError]::new('Cryptography (hmac) is not supported on the web target yet.', $Expr.Line, 'runtime') }
@@ -3253,6 +3258,10 @@ function ConvertTo-OtterJsStatement {
         # D111: the credential vault is OS-backed and console-only.
         ([NodeKind]::StoreSecret) { throw [OtterError]::new('The credential vault (store secret) is not supported on the web target. Browser storage is not a secure credential store.', $Stmt.Line, 'runtime') }
         ([NodeKind]::DeleteSecret) { throw [OtterError]::new('The credential vault (delete secret) is not supported on the web target. Browser storage is not a secure credential store.', $Stmt.Line, 'runtime') }
+        ([NodeKind]::SetDragData) {
+            $dragValueJs = ConvertTo-OtterJsExpression -Expr $Stmt.Value
+            return "${pad}otterSetDragData(event, $dragValueJs);"
+        }
         ([NodeKind]::GenerateKey) { throw [OtterError]::new('Cryptography (generate encryption key) is not supported on the web target yet.', $Stmt.Line, 'runtime') }
         ([NodeKind]::CryptoCipher) {
             $cryptoVerb = if ($Stmt.IsDecrypt) { 'decrypt' } else { 'encrypt' }

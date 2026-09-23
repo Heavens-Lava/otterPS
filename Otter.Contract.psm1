@@ -641,7 +641,15 @@ enum NodeKind {
     StoreSecret               # store secret NAME with value V
     DeleteSecret              # delete secret NAME
     SecretRead                # EXPRESSION: secret NAME
-    SecretExists              # a CONDITION: secret NAME exists    # --- query language (D99) -----------------------------------
+    SecretExists              # a CONDITION: secret NAME exists
+
+    # --- Drag and drop (D110) - web/declarative UI only. Events ride WhenStmt
+    # (EventName 'drag' | 'drop' | 'files dropped'); properties ride the
+    # existing ObjectDef property list ('draggable', 'accepts drops').
+    DragContext               # EXPRESSION ambient in drag/drop events: dragged item / dropped files / drag data / drop x / drop y
+    SetDragData               # set drag data to V
+
+    # --- query language (D99) -----------------------------------
     QueryStmt                # get [distinct] fields from table in db [as alias] [where ...] [order by ...] [take N] [skip N] into target
     QueryAggregateStmt       # count/sum/average/minimum/maximum from table in db ... into target
     QueryBetweenExpr         # expr between low and high
@@ -3420,6 +3428,27 @@ class SecretExistsExpr : Node {
     [Node]$Name
     SecretExistsExpr([Node]$name, [int]$line) : base([NodeKind]::SecretExists, $line) {
         $this.Name = $name
+    }
+}
+
+# D110: drag and drop. `on drag of card` / `on drop on board` /
+# `on files dropped on canvas` are ordinary WhenStmt nodes (EventName
+# 'drag' / 'drop' / 'files dropped'); these two nodes are the ambient
+# context they read and write.
+
+# dragged item / dropped files / drag data / drop x / drop y
+class DragContextExpr : Node {
+    [string]$Field       # 'dragged item' | 'dropped files' | 'drag data' | 'drop x' | 'drop y'
+    DragContextExpr([string]$field, [int]$line) : base([NodeKind]::DragContext, $line) {
+        $this.Field = $field
+    }
+}
+
+# set drag data to cardId
+class SetDragDataStmt : Node {
+    [Node]$Value
+    SetDragDataStmt([Node]$value, [int]$line) : base([NodeKind]::SetDragData, $line) {
+        $this.Value = $value
     }
 }
 

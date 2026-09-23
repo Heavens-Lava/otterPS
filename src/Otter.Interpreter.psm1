@@ -1177,6 +1177,15 @@ function Invoke-OtterStatement {
         # not this statement's - registering a handler here does not by
         # itself make anything happen.
         'When' {
+            # D110: drag and drop belongs to the web/declarative UI. A WPF
+            # window says so plainly instead of registering a handler that
+            # could never fire.
+            if ($Statement.EventName -in @('drag', 'drop', 'files dropped')) {
+                throw (New-OtterRuntimeError `
+                    -Message 'Drag and drop ("on drag of", "on drop on", "on files dropped on") is not supported for windows yet. It works in web applications.' `
+                    -Line $Statement.Line `
+                    -Suggestion 'Compile the program with: otter web <file.ot>')
+            }
             $target = Get-OtterValue -Expression $Statement.Target -Environment $Environment
             if (-not (Test-OtterUiResource $target)) {
                 $shown = Get-OtterTypeName -Value $target
@@ -1994,6 +2003,13 @@ function Invoke-OtterStatement {
                     -Suggestion 'if secret "name" exists ...')
             }
             return
+        }
+
+        # set drag data to cardId                                       (D110)
+        'SetDragData' {
+            throw (New-OtterRuntimeError `
+                -Message '"set drag data" is only available in web applications, inside "on drag of ...".' `
+                -Line $Statement.Line)
         }
 
         # generate encryption key and call it key                       (D109)
@@ -4506,6 +4522,11 @@ function Get-OtterValue {
             }
         }
 
+        'DragContext' {
+            throw (New-OtterRuntimeError `
+                -Message """$($Expression.Field)"" is only available in web applications, inside a drag or drop event." `
+                -Line $Expression.Line)
+        }
         'NetContext' {
             $netKey = switch ($Expression.Field) {
                 'data' { 'Data' }

@@ -884,13 +884,13 @@ creation.
     receives a message`. Not attempted in this pass)
 -   [ ] WebSocket server (same gap, one level bigger - would extend
     D51's existing web-server-route infrastructure)
--   [ ] TCP (real gap, and notably NOT something the current web-only
+-   [x] TCP client (D107, console/desktop; servers reserved as `listen for tcp`; was: real gap, and notably NOT something the current web-only
     HTTP model could ever reach even if built - browsers cannot open raw
     TCP sockets at all, a fundamental JS security restriction. Raw
     sockets would need to be a console/desktop-target capability using
     real .NET sockets, an entirely separate, currently unaddressed
     surface from anything HTTP-related above)
--   [ ] UDP (same reasoning and same gap as TCP)
+-   [x] UDP (D108, console/desktop; was: same reasoning and same gap as TCP)
 -   [ ] Unix/domain sockets where supported (same reasoning as TCP/UDP;
     also questionable fit for this project's Windows PowerShell 5.1
     scope specifically, though Windows 10+ does support AF_UNIX)
@@ -1169,7 +1169,7 @@ creation.
 -   [ ] Certificate APIs (real gap, confirmed absent - no X.509
     certificate handling exposed anywhere)
 -   [x] Secure secret storage
--   [ ] Password hashing through proven libraries (real gap: D91's
+-   [x] Password hashing (D109 `hash password`, PBKDF2-SHA256; was: D109 pending) through proven libraries (real gap: D91's
     general-purpose `hash` statement covers md5/sha1/sha256/sha384/
     sha512, but none of those are appropriate for password storage -
     no dedicated slow/salted password-hashing function (bcrypt/PBKDF2/
@@ -1186,7 +1186,7 @@ creation.
 -   [ ] TLS provider (real gap, and notably blocked on the same missing
     raw-socket capability Section 13 already found TCP/UDP blocked on -
     nothing to wrap a TLS layer around exists yet)
--   [ ] Keychain/Credential Manager/libsecret providers (real gap,
+-   [x] Keychain (D111, Windows Credential Manager only; other OS providers pending)/Credential Manager/libsecret providers (real gap,
     genuinely distinct from the already-shipped D81 "Secure secret
     storage" above, not a duplicate: D81 is Otter's own private DPAPI-
     encrypted file vault under `%LOCALAPPDATA%\Otter\Credentials\`, never
@@ -1255,7 +1255,7 @@ creation.
 -   [ ] File upload/download (real gap for genuine file upload - blocked
     on the missing binary/byte type noted repeatedly elsewhere; D96's
     download statement covers file DOWNLOAD already, separately)
--   [ ] Drag/drop (real gap, confirmed zero drag/drop code anywhere)
+-   [x] Drag/drop (D110, web/declarative UI; WPF windows report unsupported; was: real gap, confirmed zero drag/drop code anywhere)
 -   [x] Clipboard
 -   [x] Browser notifications
 -   [x] Canvas
@@ -1326,7 +1326,7 @@ creation.
 -   [ ] Request limits
 -   [x] Logging
 -   [ ] Configuration
--   [ ] Secrets
+-   [x] Secrets (D111, console; web reports unsupported by design)
 -   [ ] Database integration
 -   [ ] Background jobs
 -   [ ] Email provider
