@@ -799,14 +799,17 @@ function ConvertTo-OtterJsExpression {
                 default { "(() => { throw new Error('This xml value has no property called `"$propOriginal`". Try name, root, text, or attributes.'); })()" }
             }
 
+            # D116B: HTTP request handle properties
+            $httpBranch = "if ('$propOriginal' === 'state') return _owner.state; if ('$propOriginal' === 'response') { if (_owner.state === 'pending') throw new Error('The HTTP request has not completed yet.'); if (_owner.state === 'cancelled') throw new Error('The HTTP request was cancelled.'); if (_owner.state === 'failed') throw new Error('The HTTP request failed: ' + _owner.error); return _owner.response; } if ('$propOriginal' === 'error') { return (_owner.state === 'failed' ? _owner.error : null); } if ('$propOriginal' === 'status') { if (_owner.state === 'pending') throw new Error('The HTTP request has not completed yet.'); return _owner.status; } throw new Error('This http request has no property called `"$propOriginal`". Try state, response, error, or status.');"
+
             # An inline IIFE, not a named runtime-helper call, to keep this
             # entirely self-contained in this module - same reasoning as
             # Phase 1D-B's `plus` fix (no shared helper added to
             # Otter.Web.psm1's boilerplate).
             if ($isVar) {
-                return "(otterGetElement('$targetName') ? ($uiBranch) : (() => { const _owner = $targetName; if (_owner && typeof _owner === 'object' && _owner.__otterXml) { return $xmlBranch; } if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return $dateBranch; } if (_owner && typeof _owner === 'object' && _owner.__otterWebSocket) { if ('$propOriginal' === 'state') return (_owner.ws.readyState === 0 ? 'connecting' : _owner.ws.readyState === 1 ? 'open' : _owner.ws.readyState === 2 ? 'closing' : 'closed'); if ('$propOriginal' === 'url') return _owner.url; if ('$propOriginal' === 'protocol') return _owner.ws.protocol || _owner.protocol || ''; throw new Error('A websocket has no property called `"$propOriginal`".'); } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('$propOriginal') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called `"$propOriginal`".'); } return _owner.props['$propOriginal']; })())"
+                return "(otterGetElement('$targetName') ? ($uiBranch) : (() => { const _owner = $targetName; if (_owner && typeof _owner === 'object' && _owner.__otterHttpRequest) { $httpBranch } if (_owner && typeof _owner === 'object' && _owner.__otterXml) { return $xmlBranch; } if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return $dateBranch; } if (_owner && typeof _owner === 'object' && _owner.__otterWebSocket) { if ('$propOriginal' === 'state') return (_owner.ws.readyState === 0 ? 'connecting' : _owner.ws.readyState === 1 ? 'open' : _owner.ws.readyState === 2 ? 'closing' : 'closed'); if ('$propOriginal' === 'url') return _owner.url; if ('$propOriginal' === 'protocol') return _owner.ws.protocol || _owner.protocol || ''; throw new Error('A websocket has no property called `"$propOriginal`".'); } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('$propOriginal') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called `"$propOriginal`".'); } return _owner.props['$propOriginal']; })())"
             } else {
-                return "((() => { const _owner = ($targetJs); if (_owner && typeof _owner === 'object' && _owner.__otterXml) { return $xmlBranch; } if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return $dateBranch; } if (_owner && typeof _owner === 'object' && _owner.__otterWebSocket) { if ('$propOriginal' === 'state') return (_owner.ws.readyState === 0 ? 'connecting' : _owner.ws.readyState === 1 ? 'open' : _owner.ws.readyState === 2 ? 'closing' : 'closed'); if ('$propOriginal' === 'url') return _owner.url; if ('$propOriginal' === 'protocol') return _owner.ws.protocol || _owner.protocol || ''; throw new Error('A websocket has no property called `"$propOriginal`".'); } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('$propOriginal') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called `"$propOriginal`".'); } return _owner.props['$propOriginal']; })())"
+                return "((() => { const _owner = ($targetJs); if (_owner && typeof _owner === 'object' && _owner.__otterHttpRequest) { $httpBranch } if (_owner && typeof _owner === 'object' && _owner.__otterXml) { return $xmlBranch; } if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return $dateBranch; } if (_owner && typeof _owner === 'object' && _owner.__otterWebSocket) { if ('$propOriginal' === 'state') return (_owner.ws.readyState === 0 ? 'connecting' : _owner.ws.readyState === 1 ? 'open' : _owner.ws.readyState === 2 ? 'closing' : 'closed'); if ('$propOriginal' === 'url') return _owner.url; if ('$propOriginal' === 'protocol') return _owner.ws.protocol || _owner.protocol || ''; throw new Error('A websocket has no property called `"$propOriginal`".'); } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('$propOriginal') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called `"$propOriginal`".'); } return _owner.props['$propOriginal']; })())"
             }
         }
         ([NodeKind]::Math) {
@@ -1247,6 +1250,9 @@ function ConvertTo-OtterJsExpression {
             return "otterSecurelyEquals($leftJs, $rightJs)"
         }
         ([NodeKind]::NetContext) {
+            if ($Expr.Field -eq 'response') {
+                return '((typeof _otterCurrentWsContext !== "undefined" && _otterCurrentWsContext && "response" in _otterCurrentWsContext) ? _otterCurrentWsContext.response : (() => { throw new Error("\"received response\" is only available inside \"on complete of ...\"."); })())'
+            }
             throw [OtterError]::new('TCP/UDP is not supported on the web target.', $Expr.Line, 'runtime')
         }
         ([NodeKind]::ConnectionIsSecure) {
@@ -1259,6 +1265,19 @@ function ConvertTo-OtterJsExpression {
             $targetJs = ConvertTo-OtterJsExpression -Expr $Expr.Socket
             $stateStr = $Expr.ConnState.ToString().ToLowerInvariant()
             return "((_s) => { if (!_s || typeof _s !== 'object' || !_s.__otterWebSocket) { throw new Error('I can only check the state of a websocket, but this is something else.'); } const _st = (_s.ws.readyState === 0 ? 'connecting' : _s.ws.readyState === 1 ? 'open' : _s.ws.readyState === 2 ? 'closing' : 'closed'); return _st === '$stateStr'; })($targetJs)"
+        }
+        ([NodeKind]::HttpRequestIsState) {
+            $targetJs = ConvertTo-OtterJsExpression -Expr $Expr.Request
+            $stateStr = switch ($Expr.ReqState) {
+                ([HttpRequestState]::Pending) { 'pending' }
+                ([HttpRequestState]::Completed) { 'completed' }
+                ([HttpRequestState]::Failed) { 'failed' }
+                ([HttpRequestState]::Cancelled) { 'cancelled' }
+            }
+            return "((_s) => { if (!_s || typeof _s !== 'object' || !_s.__otterHttpRequest) { throw new Error('I can only check the state of an HTTP request, but got ' + (typeof _s)); } return _s.state === '$stateStr'; })($targetJs)"
+        }
+        ([NodeKind]::ReceivedResponse) {
+            return '((typeof _otterCurrentWsContext !== "undefined" && _otterCurrentWsContext && "response" in _otterCurrentWsContext) ? _otterCurrentWsContext.response : (() => { throw new Error("\"received response\" is only available inside \"on complete of ...\"."); })())'
         }
         ([NodeKind]::ReceivedMessage) {
             return '((typeof _otterCurrentWsContext !== "undefined" && _otterCurrentWsContext && "message" in _otterCurrentWsContext) ? _otterCurrentWsContext.message : (() => { throw new Error("\"received message\" is only available inside \"on message from ...\"."); })())'
@@ -2872,6 +2891,72 @@ function ConvertTo-OtterJsStatement {
             $lines.Add("${pad}}")
             return ($lines -join "`n")
         }
+        ([NodeKind]::HttpStart) {
+            $url = ConvertTo-OtterJsExpression -Expr $Stmt.Url
+            $dataJs = if ($null -ne $Stmt.Data) { ConvertTo-OtterJsExpression -Expr $Stmt.Data } else { 'null' }
+            $asJsonJs = if ($Stmt.AsJson) { 'true' } else { 'false' }
+            $method = $Stmt.Method
+            $target = $Stmt.TargetName
+            $inner = '  ' * ($Indent + 1)
+            $opts = Get-OtterJsHttpOptionsSetup -Options $Stmt.Options -BaseOptsJs "{ method: '$method' }" -Inner $inner
+            $lines = [System.Collections.Generic.List[string]]::new()
+            $lines.Add("${pad}{")
+            $lines.AddRange($opts.SetupLines)
+            $optsArg = if ($opts.OptsVarJs) { $opts.OptsVarJs } else { "{ method: '$method' }" }
+            $lines.Add("${inner}const $target = ((_m, _u, _d, _j, _o) => {")
+            $lines.Add("${inner}  const _ctrl = new AbortController();")
+            $lines.Add("${inner}  const _req = {")
+            $lines.Add("${inner}    __otterHttpRequest: true, method: _m, url: _u, state: 'pending', response: null, error: null, status: 0,")
+            $lines.Add("${inner}    ctrl: _ctrl, handlers: [], retainedEvent: null, isTimeout: false,")
+            $lines.Add("${inner}    cancel() {")
+            $lines.Add("${inner}      if (this.state !== 'pending') return;")
+            $lines.Add("${inner}      this.state = 'cancelled';")
+            $lines.Add("${inner}      try { this.ctrl.abort(); } catch (_) {}")
+            $lines.Add("${inner}      this._emit('cancel', {});")
+            $lines.Add("${inner}    },")
+            $lines.Add("${inner}    _emit(kind, ctx) {")
+            $lines.Add("${inner}      this.retainedEvent = { kind, ctx };")
+            $lines.Add("${inner}      for (const h of this.handlers) { if (h.kind === kind && !h.fired) { h.fired = true; h.fn(ctx); } }")
+            $lines.Add("${inner}    },")
+            $lines.Add("${inner}    on(kind, fn) {")
+            $lines.Add("${inner}      const h = { kind, fn, fired: false };")
+            $lines.Add("${inner}      this.handlers.push(h);")
+            $lines.Add("${inner}      if (this.retainedEvent && this.retainedEvent.kind === kind) { h.fired = true; fn(this.retainedEvent.ctx); }")
+            $lines.Add("${inner}    }")
+            $lines.Add("${inner}  };")
+            $lines.Add("${inner}  const _fetchOpts = Object.assign({}, _o, { signal: _ctrl.signal });")
+            $lines.Add("${inner}  if (_m === 'POST' || _m === 'PUT') {")
+            $lines.Add("${inner}    if (_j || (_d && typeof _d === 'object')) {")
+            $lines.Add("${inner}      _fetchOpts.body = JSON.stringify(_d);")
+            $lines.Add("${inner}      if (!_fetchOpts.headers) _fetchOpts.headers = {};")
+            $lines.Add("${inner}      _fetchOpts.headers['Content-Type'] = 'application/json';")
+            $lines.Add("${inner}    } else {")
+            $lines.Add("${inner}      _fetchOpts.body = (_d != null ? String(_d) : '');")
+            $lines.Add("${inner}    }")
+            $lines.Add("${inner}  }")
+            $lines.Add("${inner}  fetch(_u, _fetchOpts).then(async (res) => {")
+            $lines.Add("${inner}    if (_req.state === 'cancelled') return;")
+            $lines.Add("${inner}    _req.status = res.status;")
+            $lines.Add("${inner}    let body = _j ? await res.json() : await res.text();")
+            $lines.Add("${inner}    _req.response = body;")
+            $lines.Add("${inner}    _req.state = 'completed';")
+            $lines.Add("${inner}    _req._emit('complete', { response: body });")
+            $lines.Add("${inner}  }).catch((err) => {")
+            $lines.Add("${inner}    if (_req.state === 'cancelled') return;")
+            $lines.Add("${inner}    _req.state = 'failed';")
+            $lines.Add("${inner}    const msg = (err && err.name === 'AbortError') ? 'The HTTP request timed out.' : ((err && err.message) ? err.message : String(err));")
+            $lines.Add("${inner}    _req.error = msg;")
+            $lines.Add("${inner}    _req._emit('error', { error: msg, netError: msg });")
+            $lines.Add("${inner}  });")
+            $lines.Add("${inner}  return _req;")
+            $lines.Add("${inner}})('$method', $url, $dataJs, $asJsonJs, $optsArg); window.$target = $target;")
+            $lines.Add("${pad}}")
+            return ($lines -join "`n")
+        }
+        ([NodeKind]::HttpCancel) {
+            $req = ConvertTo-OtterJsExpression -Expr $Stmt.Request
+            return "${pad}((_r) => { if (!_r || typeof _r !== 'object' || !_r.__otterHttpRequest) { throw new Error('cancel requires an HTTP request.'); } _r.cancel(); })($req);"
+        }
         ([NodeKind]::DateAdjust) {
             # D60 Phase 1J. `add <n> <unit> to <target>` / `remove <n>
             # <unit> from <target>` - matches the interpreter's DateAdjust
@@ -3716,8 +3801,14 @@ function ConvertTo-OtterJsStatement {
                 'close' {
                     return "${pad}((_s) => { if (!_s || typeof _s !== 'object' || !_s.__otterWebSocket) { throw new Error('I can only listen for a websocket event on a websocket, but this is something else.'); } _s.ws.addEventListener('close', async (_evt) => { const _prev = (typeof _otterCurrentWsContext !== 'undefined' ? _otterCurrentWsContext : null); _otterCurrentWsContext = { closeCode: _evt.code, closeReason: _evt.reason || '', closeWasClean: _evt.wasClean }; try {`n$bodyJs`n${pad}  } finally { _otterCurrentWsContext = _prev; } }); })($socketJs);"
                 }
+                'complete' {
+                    return "${pad}((_s) => { if (!_s || typeof _s !== 'object' || !_s.__otterHttpRequest) { throw new Error('I can only listen for complete on an HTTP request, but this is something else.'); } _s.on('complete', async (_ctx) => { const _prev = (typeof _otterCurrentWsContext !== 'undefined' ? _otterCurrentWsContext : null); _otterCurrentWsContext = _ctx; try {`n$bodyJs`n${pad}  } finally { _otterCurrentWsContext = _prev; } }); })($socketJs);"
+                }
+                'cancel' {
+                    return "${pad}((_s) => { if (!_s || typeof _s !== 'object' || !_s.__otterHttpRequest) { throw new Error('I can only listen for cancel on an HTTP request, but this is something else.'); } _s.on('cancel', async (_ctx) => { const _prev = (typeof _otterCurrentWsContext !== 'undefined' ? _otterCurrentWsContext : null); _otterCurrentWsContext = _ctx; try {`n$bodyJs`n${pad}  } finally { _otterCurrentWsContext = _prev; } }); })($socketJs);"
+                }
                 'error' {
-                    return "${pad}((_s) => { if (!_s || typeof _s !== 'object' || !_s.__otterWebSocket) { throw new Error('I can only listen for a websocket event on a websocket, but this is something else.'); } _s.ws.addEventListener('error', async (_evt) => { const _prev = (typeof _otterCurrentWsContext !== 'undefined' ? _otterCurrentWsContext : null); _otterCurrentWsContext = { error: 'WebSocket error' }; try {`n$bodyJs`n${pad}  } finally { _otterCurrentWsContext = _prev; } }); })($socketJs);"
+                    return "${pad}((_s) => { if (!_s || typeof _s !== 'object' || (!_s.__otterWebSocket && !_s.__otterHttpRequest)) { throw new Error('I can only listen for an error event on a websocket or http request, but this is something else.'); } if (_s.__otterHttpRequest) { _s.on('error', async (_ctx) => { const _prev = (typeof _otterCurrentWsContext !== 'undefined' ? _otterCurrentWsContext : null); _otterCurrentWsContext = _ctx; try {`n$bodyJs`n${pad}  } finally { _otterCurrentWsContext = _prev; } }); return; } _s.ws.addEventListener('error', async (_evt) => { const _prev = (typeof _otterCurrentWsContext !== 'undefined' ? _otterCurrentWsContext : null); _otterCurrentWsContext = { error: 'WebSocket error' }; try {`n$bodyJs`n${pad}  } finally { _otterCurrentWsContext = _prev; } }); })($socketJs);"
                 }
             }
         }
@@ -3785,6 +3876,9 @@ function Get-OtterJsBindingNames {
             }
             if ($s.Kind -eq [NodeKind]::ReadFile -or $s.Kind -eq [NodeKind]::HttpGet -or $s.Kind -eq [NodeKind]::HttpPost -or $s.Kind -eq [NodeKind]::HttpPut -or $s.Kind -eq [NodeKind]::HttpDelete) {
                 if ($s.Target) { [void]$setStyle.Add($s.Target) }
+            }
+            if ($s.Kind -eq [NodeKind]::HttpStart -and $s.TargetName) {
+                [void]$setStyle.Add($s.TargetName)
             }
             if ($s.Kind -eq [NodeKind]::RunProgram -and $s.ResultTarget) {
                 [void]$setStyle.Add($s.ResultTarget)

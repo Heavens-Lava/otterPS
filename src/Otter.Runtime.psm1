@@ -443,6 +443,52 @@ function Test-OtterTcpServer {
     return $Value -is [OtterTcpServer]
 }
 
+# D116B: Asynchronous HTTP request handle
+class OtterHttpRequest {
+    [string]$Id
+    [string]$Method
+    [string]$Url
+    [object]$Data
+    [bool]$AsJson
+    [string]$State
+    [object]$Response
+    [string]$Error
+    [int]$Status
+    [System.Threading.CancellationTokenSource]$Cts
+    [object]$Task
+    [System.Collections.Generic.List[hashtable]]$Handlers
+    [hashtable]$RetainedTerminalEvent
+    [bool]$TerminalEventFired
+    [object]$TimeoutSeconds
+    [bool]$IsTimeout
+    [bool]$Disposed
+
+    OtterHttpRequest([string]$method, [string]$url, [object]$data, [bool]$asJson, [string]$id) {
+        $this.Id = $id
+        $this.Method = $method
+        $this.Url = $url
+        $this.Data = $data
+        $this.AsJson = $asJson
+        $this.State = 'pending'
+        $this.Response = $null
+        $this.Error = $null
+        $this.Status = 0
+        $this.Cts = [System.Threading.CancellationTokenSource]::new()
+        $this.Task = $null
+        $this.Handlers = [System.Collections.Generic.List[hashtable]]::new()
+        $this.RetainedTerminalEvent = $null
+        $this.TerminalEventFired = $false
+        $this.TimeoutSeconds = $null
+        $this.IsTimeout = $false
+        $this.Disposed = $false
+    }
+}
+
+function Test-OtterHttpRequest {
+    param([object]$Value)
+    return $Value -is [OtterHttpRequest]
+}
+
 function New-OtterToday {
     return [OtterDate]::new([datetime]::Now, $false)
 }
@@ -659,6 +705,10 @@ function Format-OtterValue {
         return "the type $($Value.Name)"
     }
 
+    if (Test-OtterHttpRequest $Value) {
+        return "<an http request to $($Value.Url)>"
+    }
+
     # Printing a function is almost always a mistake - a forgotten argument,
     # or a call that never happened. Say something a beginner can act on
     # rather than leaking the PowerShell class name.
@@ -696,6 +746,8 @@ function Test-OtterTruthy {
 
     # A date exists, so it is true. There is no "zero date".
     if (Test-OtterDate $Value) { return $true }
+
+    if (Test-OtterHttpRequest $Value) { return $true }
 
     if ($Value -is [string]) { return $Value.Length -gt 0 }
 
@@ -859,4 +911,5 @@ Export-ModuleMember -Function `
     New-OtterList, Test-OtterList, Test-OtterObject, Test-OtterDate, `
     New-OtterToday, New-OtterNow, Format-OtterValue, Test-OtterTruthy, `
     Test-OtterNumeric, ConvertTo-OtterNumber, Test-OtterEqual, ConvertFrom-OtterInput, `
-    Test-OtterBytes, Test-OtterFileWatcher, Test-OtterXml, Test-OtterWebSocket, Test-OtterTcp, Test-OtterUdp, Test-OtterTcpServer
+    Test-OtterBytes, Test-OtterFileWatcher, Test-OtterXml, Test-OtterWebSocket, Test-OtterTcp, Test-OtterUdp, Test-OtterTcpServer, `
+    Test-OtterHttpRequest

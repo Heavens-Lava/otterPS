@@ -816,8 +816,7 @@ creation.
     `get`/`post`/`put`/`delete` still buffer the whole response, a real
     gap for large arbitrary HTTP responses)
 -   [x] Timeouts
--   [ ] Cancellation (real gap: no cancellation-token concept is exposed
-    for an in-flight HTTP call the way D71 gives process operations one)
+-   [x] Cancellation (D116B: explicit async HTTP request handles via 'start get/post/put/delete ... and call it <req>', explicit 'cancel <req>', request states 'pending'/'completed'/'failed'/'cancelled', 'state of req', 'response of req', 'error of req', 'status of req', 'on complete/error/cancel of req', 'received response', console and web target parity, tests/Http.Tests.ps1)
 -   [x] Redirect policy (D101: `following redirects` (the existing
     `fetch()` default, made explicit) / `without redirects`, which maps
     to `fetch`'s own `redirect: 'manual'` - returns an opaque response

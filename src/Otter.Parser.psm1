@@ -483,6 +483,14 @@ function Read-OtterValue {
         [void](Read-OtterToken) # message
         return [ReceivedMessageExpr]::new($token.Line)
     }
+    # D116B: received response (ambient in on complete of request)
+    if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -eq 'received' -and
+        ($script:Position + 1) -lt $script:Tokens.Count -and $script:Tokens[$script:Position + 1].Kind -eq [TokenKind]::Identifier -and
+        $script:Tokens[$script:Position + 1].Text -eq 'response') {
+        [void](Read-OtterToken) # received
+        [void](Read-OtterToken) # response
+        return [ReceivedResponseExpr]::new($token.Line)
+    }
     # close was clean (check before close code/reason because it has 3 words)
     if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -eq 'close' -and
         ($script:Position + 2) -lt $script:Tokens.Count -and
@@ -594,6 +602,7 @@ function Read-OtterValue {
         elseif ($token.Text -eq 'sender' -and $netNext.Text -eq 'port') { $netField = 'sender port' }
         elseif ($token.Text -eq 'network' -and $netNext.Text -eq 'error') { $netField = 'network error' }
         elseif ($token.Text -eq 'incoming' -and $netNext.Text -eq 'connection') { $netField = 'incoming connection' }
+        elseif ($token.Text -eq 'received' -and $netNext.Text -eq 'response') { $netField = 'response' }
         if ($null -ne $netField) {
             [void](Read-OtterToken)
             [void](Read-OtterToken)
@@ -982,6 +991,25 @@ function Read-OtterConditionPrimary {
             $isWord = Read-OtterToken
             [void](Read-OtterToken) # state word
             return [TcpServerIsStateExpr]::new($left, $srvState, $isWord.Line)
+        }
+    }
+    # D116B: `request is pending` / `completed` / `failed` / `cancelled` (and `is not`)
+    if ((Get-OtterCurrentToken).Kind -in @([TokenKind]::Is, [TokenKind]::IsNot) -and ($script:Position + 1) -lt $script:Tokens.Count -and
+        $script:Tokens[$script:Position + 1].Kind -eq [TokenKind]::Identifier) {
+        $httpStateText = $script:Tokens[$script:Position + 1].Text
+        $httpReqState = $null
+        if ($httpStateText -eq 'pending') { $httpReqState = [HttpRequestState]::Pending }
+        elseif ($httpStateText -eq 'completed') { $httpReqState = [HttpRequestState]::Completed }
+        elseif ($httpStateText -eq 'failed') { $httpReqState = [HttpRequestState]::Failed }
+        elseif ($httpStateText -eq 'cancelled') { $httpReqState = [HttpRequestState]::Cancelled }
+        if ($null -ne $httpReqState) {
+            $isWord = Read-OtterToken
+            [void](Read-OtterToken) # state word
+            $stateExpr = [HttpRequestIsStateExpr]::new($left, $httpReqState, $isWord.Line)
+            if ($isWord.Kind -eq [TokenKind]::IsNot) {
+                return [NotExpr]::new($stateExpr, $isWord.Line)
+            }
+            return $stateExpr
         }
     }
     # D105: `book has attribute "id"` - "has" is already a reserved
@@ -2406,6 +2434,14 @@ function Read-OtterStatement {
         return [TcpStopStmt]::new($server, $start.Line)
     }
 
+    # D116B: `cancel <request>`
+    if ($start.Text -eq 'cancel' -and $nextKind -notin @([TokenKind]::Is, [TokenKind]::Are, [TokenKind]::Of, [TokenKind]::IsNot)) {
+        [void](Read-OtterToken) # cancel
+        $requestExpr = Read-OtterValue
+        [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the cancel statement to end here.')
+        return [HttpCancelStmt]::new($requestExpr, $start.Line)
+    }
+
     # D110: `set drag data to <expression>`
     if ($start.Text -eq 'set' -and ($script:Position + 2) -lt $script:Tokens.Count -and
         $script:Tokens[$script:Position + 1].Text -eq 'drag' -and $script:Tokens[$script:Position + 2].Text -eq 'data') {
@@ -2724,6 +2760,20 @@ function Read-OtterStatement {
                 $socket = Read-OtterValue
                 return [NetworkEventStmt]::new([NetworkEventKind]::Error, $socket, (Read-OtterBlock), $start.Line)
             }
+            # D116B: on complete of <request>
+            if ($stageTok.Text -eq 'complete' -and (Test-OtterTokenOffsetKind 1 ([TokenKind]::Of))) {
+                [void](Read-OtterToken) # complete
+                [void](Read-OtterToken) # of
+                $target = Read-OtterValue
+                return [NetworkEventStmt]::new([NetworkEventKind]::Complete, $target, (Read-OtterBlock), $start.Line)
+            }
+            # D116B: on cancel of <request>
+            if ($stageTok.Text -eq 'cancel' -and (Test-OtterTokenOffsetKind 1 ([TokenKind]::Of))) {
+                [void](Read-OtterToken) # cancel
+                [void](Read-OtterToken) # of
+                $target = Read-OtterValue
+                return [NetworkEventStmt]::new([NetworkEventKind]::Cancel, $target, (Read-OtterBlock), $start.Line)
+            }
             $stageTok = Read-OtterToken
             if ($stageTok.Text -notin @('start', 'close')) {
                 throw (New-OtterParserError "I expected 'start' or 'close' after 'on', but got '$($stageTok.Text)'." $stageTok "Write 'on start' or 'on close'.")
@@ -2892,6 +2942,60 @@ function Read-OtterStatement {
             return [RespondStmt]::new($value, $status, $asJson, $start.Line)
         }
         ([TokenKind]::Start) {
+            # D116B: start get/post/put/delete ... and call it <target>
+            $curNext = if (($script:Position + 1) -lt $script:Tokens.Count) { $script:Tokens[$script:Position + 1] } else { $null }
+            if ($null -ne $curNext -and (
+                $curNext.Kind -in @([TokenKind]::Get, [TokenKind]::Post, [TokenKind]::Put, [TokenKind]::Delete) -or
+                $curNext.Text -in @('get', 'post', 'put', 'delete')
+            )) {
+                [void](Read-OtterToken) # start
+                $verbTok = Read-OtterToken # get/post/put/delete
+                $method = switch -Exact ($verbTok.Text.ToLowerInvariant()) {
+                    'get' { 'GET' }
+                    'post' { 'POST' }
+                    'put' { 'PUT' }
+                    'delete' { 'DELETE' }
+                }
+                $data = $null
+                $asJson = $false
+                $url = $null
+
+                if ($method -eq 'GET') {
+                    [void](Assert-OtterTokenKind ([TokenKind]::From) 'I expected "from" and a URL after "start get".')
+                    $url = Read-OtterValue
+                    if (Test-OtterTokenKind ([TokenKind]::As)) {
+                        [void](Read-OtterToken)
+                        [void](Assert-OtterTokenKind ([TokenKind]::Json) 'I expected "json" after "as".')
+                        $asJson = $true
+                    }
+                } elseif ($method -eq 'DELETE') {
+                    [void](Assert-OtterTokenKind ([TokenKind]::From) 'I expected "from" and a URL after "start delete".')
+                    $url = Read-OtterValue
+                } else {
+                    # POST or PUT
+                    $data = Read-OtterValue
+                    if (Test-OtterTokenKind ([TokenKind]::As)) {
+                        [void](Read-OtterToken)
+                        [void](Assert-OtterTokenKind ([TokenKind]::Json) 'I expected "json" after "as".')
+                        $asJson = $true
+                    }
+                    [void](Assert-OtterTokenKind ([TokenKind]::To) "I expected ""to"" and a URL after $method data.")
+                    $url = Read-OtterValue
+                }
+
+                [void](Assert-OtterTokenKind ([TokenKind]::And) 'I expected "and call it" and a variable name.')
+                [void](Assert-OtterTokenKind ([TokenKind]::Call) 'I expected "call" after "and".')
+                [void](Assert-OtterTokenKind ([TokenKind]::It) 'I expected "it" after "call".')
+                $targetTok = Read-OtterVariableName 'I expected a variable name after "call it".'
+
+                $options = Read-OtterHttpOptions
+                if ($null -eq $options) {
+                    [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the start statement to end here.')
+                }
+
+                return [HttpStartStmt]::new($method, $url, $data, $asJson, $targetTok.Text, $options, $start.Line)
+            }
+
             [void](Read-OtterToken)
             # D101: start timer workTimer - CREATES and starts a new named
             # timer resource bound to the target name, unlike the existing

@@ -246,6 +246,10 @@ function Invoke-OtterWebSocketHandlers {
     $script:OtterCurrentWsContext = $Context
     try {
         foreach ($h in $handlers) {
+            if (Test-OtterHttpRequest $Socket) {
+                if ($h.ContainsKey('Fired') -and $h.Fired) { continue }
+                $h.Fired = $true
+            }
             $execEnv = if ($EventKind.ToString() -eq 'Connection') {
                 [OtterEnvironment]::new($h.Environment)
             } else {
@@ -446,6 +450,7 @@ function Invoke-OtterWebSocketEventLoopStep {
 
 $script:OtterActiveNet = [System.Collections.Generic.List[object]]::new()
 $script:OtterActiveTcpServers = [System.Collections.Generic.List[OtterTcpServer]]::new()
+$script:OtterActiveHttpRequests = [System.Collections.Generic.List[OtterHttpRequest]]::new()
 
 function Stop-OtterTcpServerInternal {
     param([Parameter(Mandatory)][OtterTcpServer]$Server)
@@ -674,6 +679,108 @@ function Test-OtterNetActive {
     return $false
 }
 
+# D116B: Step active HTTP requests
+function Invoke-OtterHttpEventLoopStep {
+    $requests = @($script:OtterActiveHttpRequests)
+    foreach ($req in $requests) {
+        if ($req.State -ne 'pending') {
+            continue
+        }
+        if ($null -eq $req.Task -or -not $req.Task.IsCompleted) {
+            if ($null -ne $req.TimeoutSeconds -and $req.Cts.IsCancellationRequested -and -not $req.IsTimeout) {
+                $req.IsTimeout = $true
+            } else {
+                continue
+            }
+        }
+
+        if ($req.State -eq 'cancelled') {
+            continue
+        }
+
+        if ($req.IsTimeout -or ($null -ne $req.TimeoutSeconds -and $req.Cts.IsCancellationRequested)) {
+            $req.State = 'failed'
+            $errText = "The HTTP request timed out after $($req.TimeoutSeconds) seconds."
+            $req.Error = $errText
+            $context = @{ Error = $errText; NetError = $errText }
+            $req.RetainedTerminalEvent = @{ EventKind = [NetworkEventKind]::Error; Context = $context }
+            Invoke-OtterWebSocketHandlers -Socket $req -EventKind ([NetworkEventKind]::Error) -Context $context
+            try { $req.Cts.Dispose() } catch {}
+            $req.Disposed = $true
+            continue
+        }
+
+        if ($req.Task.IsFaulted) {
+            $req.State = 'failed'
+            $baseEx = if ($null -ne $req.Task.Exception) { $req.Task.Exception.GetBaseException() } else { $null }
+            $errText = if ($null -ne $baseEx) { $baseEx.Message } else { "Failed to send HTTP request to $($req.Url)" }
+            $req.Error = $errText
+            $context = @{ Error = $errText; NetError = $errText }
+            $req.RetainedTerminalEvent = @{ EventKind = [NetworkEventKind]::Error; Context = $context }
+            Invoke-OtterWebSocketHandlers -Socket $req -EventKind ([NetworkEventKind]::Error) -Context $context
+            try { $req.Cts.Dispose() } catch {}
+            $req.Disposed = $true
+            continue
+        }
+
+        if ($req.Task.IsCanceled) {
+            $req.State = 'cancelled'
+            $context = @{}
+            $req.RetainedTerminalEvent = @{ EventKind = [NetworkEventKind]::Cancel; Context = $context }
+            Invoke-OtterWebSocketHandlers -Socket $req -EventKind ([NetworkEventKind]::Cancel) -Context $context
+            try { $req.Cts.Dispose() } catch {}
+            $req.Disposed = $true
+            continue
+        }
+
+        $httpResponse = $req.Task.Result
+        $req.Status = [int]$httpResponse.StatusCode
+        $bodyText = $httpResponse.Content.ReadAsStringAsync().Result
+
+        if ($req.AsJson) {
+            try {
+                $parsed = ConvertFrom-OtterJsonText -Text $bodyText -Line 0
+                $req.Response = $parsed
+                $req.State = 'completed'
+                $context = @{ Response = $req.Response }
+                $req.RetainedTerminalEvent = @{ EventKind = [NetworkEventKind]::Complete; Context = $context }
+                Invoke-OtterWebSocketHandlers -Socket $req -EventKind ([NetworkEventKind]::Complete) -Context $context
+            } catch {
+                $req.State = 'failed'
+                $errText = "Failed to parse HTTP response as JSON: $($_.Exception.Message)"
+                $req.Error = $errText
+                $context = @{ Error = $errText; NetError = $errText }
+                $req.RetainedTerminalEvent = @{ EventKind = [NetworkEventKind]::Error; Context = $context }
+                Invoke-OtterWebSocketHandlers -Socket $req -EventKind ([NetworkEventKind]::Error) -Context $context
+            }
+        } else {
+            $req.Response = $bodyText
+            $req.State = 'completed'
+            $context = @{ Response = $req.Response }
+            $req.RetainedTerminalEvent = @{ EventKind = [NetworkEventKind]::Complete; Context = $context }
+            Invoke-OtterWebSocketHandlers -Socket $req -EventKind ([NetworkEventKind]::Complete) -Context $context
+        }
+
+        try { $httpResponse.Dispose() } catch {}
+        if (-not $req.Disposed) {
+            try { $req.Cts.Dispose() } catch {}
+            $req.Disposed = $true
+        }
+    }
+}
+
+# D116B: True while an HTTP request is pending and has registered handlers
+function Test-OtterHttpActive {
+    foreach ($req in $script:OtterActiveHttpRequests) {
+        if ($req.State -eq 'pending') {
+            if ($script:OtterWebSocketHandlers.ContainsKey($req) -and $script:OtterWebSocketHandlers[$req].Count -gt 0) {
+                return $true
+            }
+        }
+    }
+    return $false
+}
+
 function Invoke-OtterEventLoop {
     while ($true) {
         $hasWatchers = ($script:OtterActiveWatchers.Count -gt 0)
@@ -690,6 +797,9 @@ function Invoke-OtterEventLoop {
         $hasNet = Test-OtterNetActive
         if ($hasNet) { $hasSockets = $true }
 
+        $hasHttp = Test-OtterHttpActive
+        if ($hasHttp) { $hasSockets = $true }
+
         if (-not $hasWatchers -and -not $hasSockets) {
             break
         }
@@ -704,6 +814,7 @@ function Invoke-OtterEventLoop {
         if ($hasSockets) {
             Invoke-OtterWebSocketEventLoopStep
             Invoke-OtterNetEventLoopStep
+            Invoke-OtterHttpEventLoopStep
         }
     }
 }
@@ -987,6 +1098,7 @@ function Invoke-OtterProgram {
     $script:OtterCurrentWsContext = $null
     $script:OtterActiveNet = [System.Collections.Generic.List[object]]::new()
     $script:OtterActiveTcpServers = [System.Collections.Generic.List[OtterTcpServer]]::new()
+    $script:OtterActiveHttpRequests = [System.Collections.Generic.List[OtterHttpRequest]]::new()
 
     try {
         Invoke-OtterStatements -Statements $Program.Statements -Environment $Environment
@@ -1014,6 +1126,15 @@ function Invoke-OtterProgram {
         foreach ($ws in @($script:OtterActiveWebSockets)) { Close-OtterWebSocketInternal -Socket $ws }
         foreach ($net in @($script:OtterActiveNet)) { Close-OtterNetInternal -Socket $net }
         foreach ($srv in @($script:OtterActiveTcpServers)) { Stop-OtterTcpServerInternal -Server $srv }
+        foreach ($req in @($script:OtterActiveHttpRequests)) {
+            if ($req.State -eq 'pending') {
+                try { $req.State = 'cancelled'; $req.Cts.Cancel() } catch {}
+            }
+            if (-not $req.Disposed) {
+                try { $req.Cts.Dispose() } catch {}
+                $req.Disposed = $true
+            }
+        }
     }
 }
 
@@ -1661,6 +1782,50 @@ function Invoke-OtterStatement {
             return
         }
 
+        # start get/post/put/delete ... and call it <target>          (D116B)
+        'HttpStart' {
+            $url = Get-OtterText -Expression $Statement.Url -Environment $Environment
+            $data = $null
+            if ($null -ne $Statement.Data) {
+                $data = Get-OtterValue -Expression $Statement.Data -Environment $Environment
+            }
+            $optArgs = Get-OtterHttpOptionsArguments -Options $Statement.Options -Environment $Environment
+
+            $reqHandle = Start-OtterHttpRequest `
+                -Method $Statement.Method `
+                -Url $url `
+                -Data $data `
+                -AsJson $Statement.AsJson `
+                -Headers $optArgs.Headers `
+                -WithCookies $optArgs.WithCookies `
+                -FollowRedirects $optArgs.FollowRedirects `
+                -TimeoutSeconds $optArgs.TimeoutSeconds `
+                -Line $Statement.Line
+
+            $script:OtterActiveHttpRequests.Add($reqHandle)
+            $Environment.Set($Statement.TargetName, $reqHandle)
+            return
+        }
+
+        # cancel <request>                                            (D116B)
+        'HttpCancel' {
+            $req = Get-OtterValue -Expression $Statement.Request -Environment $Environment
+            if ($null -eq $req -or -not (Test-OtterHttpRequest $req)) {
+                throw (New-OtterRuntimeError `
+                    -Message 'cancel requires an HTTP request.' `
+                    -Line $Statement.Line)
+            }
+            if ($req.State -ne 'pending') {
+                return
+            }
+            $req.State = 'cancelled'
+            try { $req.Cts.Cancel() } catch {}
+            $context = @{}
+            $req.RetainedTerminalEvent = @{ EventKind = [NetworkEventKind]::Cancel; Context = $context }
+            Invoke-OtterWebSocketHandlers -Socket $req -EventKind ([NetworkEventKind]::Cancel) -Context $context
+            return
+        }
+
 
         # connect database into db                                     (D97)
         'ConnectDb' {
@@ -2026,7 +2191,17 @@ function Invoke-OtterStatement {
                 ([TimeUnit]::Year)        { $amount * 31556952000 }
                 default                   { $amount * 1000 }
             }
-            Start-Sleep -Milliseconds ([Math]::Round($millis))
+            $targetMs = [Math]::Round($millis)
+            $sw = [System.Diagnostics.Stopwatch]::StartNew()
+            while ($sw.ElapsedMilliseconds -lt $targetMs) {
+                Invoke-OtterHttpEventLoopStep
+                $remaining = $targetMs - $sw.ElapsedMilliseconds
+                if ($remaining -gt 0) {
+                    $sleepChunk = [Math]::Min([int]$remaining, 20)
+                    Start-Sleep -Milliseconds $sleepChunk
+                }
+            }
+            Invoke-OtterHttpEventLoopStep
             return
         }
 
@@ -2566,9 +2741,35 @@ function Invoke-OtterStatement {
         # on connection to                                             (D113)
         'WebSocketEvent' {
             $ws = Get-OtterValue -Expression $Statement.Socket -Environment $Environment
+            if (Test-OtterHttpRequest $ws) {
+                $evtKindStr = $Statement.EventKind.ToString()
+                if ($evtKindStr -notin @('Complete', 'Error', 'Cancel')) {
+                    throw (New-OtterRuntimeError `
+                        -Message "An http request only supports ""on complete of"", ""on error of"", or ""on cancel of""." `
+                        -Line $Statement.Line)
+                }
+                if (-not $script:OtterWebSocketHandlers.ContainsKey($ws)) {
+                    $script:OtterWebSocketHandlers[$ws] = [System.Collections.Generic.List[hashtable]]::new()
+                }
+                $handler = @{ EventKind = $Statement.EventKind; Body = $Statement.Body; Environment = $Environment; Fired = $false }
+                $script:OtterWebSocketHandlers[$ws].Add($handler)
+
+                # D116B Section 30: Retained terminal event delivery
+                if ($null -ne $ws.RetainedTerminalEvent -and $ws.RetainedTerminalEvent.EventKind.ToString() -eq $evtKindStr) {
+                    $handler.Fired = $true
+                    $prevContext = $script:OtterCurrentWsContext
+                    $script:OtterCurrentWsContext = $ws.RetainedTerminalEvent.Context
+                    try {
+                        Invoke-OtterStatements -Statements $Statement.Body -Environment $Environment
+                    } finally {
+                        $script:OtterCurrentWsContext = $prevContext
+                    }
+                }
+                return
+            }
             if (-not ((Test-OtterWebSocket $ws) -or (Test-OtterTcp $ws) -or (Test-OtterUdp $ws) -or (Test-OtterTcpServer $ws))) {
                 throw (New-OtterRuntimeError `
-                    -Message "I can only listen for a network event on a websocket, tcp connection, tcp server or udp socket, but this is $(Get-OtterTypeName -Value $ws)." `
+                    -Message "I can only listen for a network event on a websocket, tcp connection, tcp server, udp socket or http request, but this is $(Get-OtterTypeName -Value $ws)." `
                     -Line $Statement.Line)
             }
             if (Test-OtterTcpServer $ws) {
@@ -4246,6 +4447,55 @@ function Get-OtterValue {
                 }
             }
 
+            # D116B: state / response / error / status of an HTTP request
+            if (Test-OtterHttpRequest $target) {
+                switch ($Expression.Property) {
+                    'state' {
+                        return $target.State
+                    }
+                    'response' {
+                        if ($target.State -eq 'pending') {
+                            throw (New-OtterRuntimeError `
+                                -Message 'The HTTP request has not completed yet.' `
+                                -Line $Expression.Line)
+                        }
+                        if ($target.State -eq 'cancelled') {
+                            throw (New-OtterRuntimeError `
+                                -Message 'The HTTP request was cancelled.' `
+                                -Line $Expression.Line)
+                        }
+                        if ($target.State -eq 'failed') {
+                            throw (New-OtterRuntimeError `
+                                -Message "The HTTP request failed: $($target.Error)" `
+                                -Line $Expression.Line)
+                        }
+                        return $target.Response
+                    }
+                    'error' {
+                        if ($target.State -eq 'failed' -and $null -ne $target.Error) {
+                            return $target.Error
+                        }
+                        return $null
+                    }
+                    'status' {
+                        if ($target.Status -gt 0) {
+                            return [double]$target.Status
+                        }
+                        if ($target.State -eq 'pending') {
+                            throw (New-OtterRuntimeError `
+                                -Message 'The HTTP request has not completed yet.' `
+                                -Line $Expression.Line)
+                        }
+                        return [double]$target.Status
+                    }
+                    default {
+                        throw (New-OtterRuntimeError `
+                            -Message "This http request has no property called ""$($Expression.Property)"". Try state, response, error, or status." `
+                            -Line $Expression.Line)
+                    }
+                }
+            }
+
             # D107: count of data - the spec's own example measures received bytes this way
             # (length of remains the D102 spelling).
             if ((Test-OtterBytes $target) -and $Expression.Property -eq 'count') { return [double]$target.Value.Length }
@@ -4761,6 +5011,31 @@ function Get-OtterValue {
             }
             return ($srv.State -eq $targetState)
         }
+        # D116B: request is pending/completed/failed/cancelled
+        'HttpRequestIsState' {
+            $req = Get-OtterValue -Expression $Expression.Request -Environment $Environment
+            if (-not (Test-OtterHttpRequest $req)) {
+                throw (New-OtterRuntimeError `
+                    -Message "I can only check the state of an HTTP request, but got $(Get-OtterTypeName -Value $req)." `
+                    -Line $Expression.Line)
+            }
+            $targetState = switch ($Expression.ReqState) {
+                ([HttpRequestState]::Pending) { 'pending' }
+                ([HttpRequestState]::Completed) { 'completed' }
+                ([HttpRequestState]::Failed) { 'failed' }
+                ([HttpRequestState]::Cancelled) { 'cancelled' }
+            }
+            return ($req.State -eq $targetState)
+        }
+        # D116B: received response
+        'ReceivedResponse' {
+            if ($null -eq $script:OtterCurrentWsContext -or -not $script:OtterCurrentWsContext.ContainsKey('Response')) {
+                throw (New-OtterRuntimeError `
+                    -Message '"received response" is only available inside "on complete of ...".' `
+                    -Line $Expression.Line)
+            }
+            return $script:OtterCurrentWsContext.Response
+        }
         'ReceivedMessage' {
             if ($null -eq $script:OtterCurrentWsContext -or -not $script:OtterCurrentWsContext.ContainsKey('Message')) {
                 throw (New-OtterRuntimeError `
@@ -4919,6 +5194,7 @@ function Get-OtterValue {
                 'sender port' { 'SenderPort' }
                 'network error' { 'NetError' }
                 'incoming connection' { 'IncomingConnection' }
+                'response' { 'Response' }
             }
             $netWhere = switch ($Expression.Field) {
                 'data' { 'on data from ...' }
@@ -4926,10 +5202,11 @@ function Get-OtterValue {
                 'sender port' { 'a udp "on data from ..."' }
                 'network error' { 'on error of ...' }
                 'incoming connection' { 'on connection to ...' }
+                'response' { 'on complete of ...' }
             }
             if ($null -eq $script:OtterCurrentWsContext -or -not $script:OtterCurrentWsContext.ContainsKey($netKey)) {
                 throw (New-OtterRuntimeError `
-                    -Message """$(if ($Expression.Field -eq 'data') { 'received data' } else { $Expression.Field })"" is only available inside $netWhere." `
+                    -Message """$(if ($Expression.Field -eq 'data') { 'received data' } elseif ($Expression.Field -eq 'response') { 'received response' } else { $Expression.Field })"" is only available inside $netWhere." `
                     -Line $Expression.Line)
             }
             return $script:OtterCurrentWsContext[$netKey]
@@ -5485,6 +5762,7 @@ function Get-OtterTypeName {
     if (Test-OtterTcp $Value) { return 'a tcp connection' }
     if (Test-OtterUdp $Value) { return 'a udp socket' }
     if (Test-OtterTcpServer $Value) { return 'a tcp server' }
+    if (Test-OtterHttpRequest $Value) { return 'an http request' }
     if (Test-OtterList $Value) { return 'a list' }
     if ($Value -is [double] -or $Value -is [int] -or $Value -is [long]) { return 'a number' }
     if ($Value -is [string]) { return 'some text' }

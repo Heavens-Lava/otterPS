@@ -7224,6 +7224,103 @@ Otter 1.0 provides first-class whole-file binary I/O using the existing D102 `by
 | `BytesFromFileExpr` | `[Node]$Path, [int]$Line` | `BytesFromFile` |
 | `WriteBytesFileStmt` | `[Node]$Data, [Node]$Path, [bool]$Atomic, [int]$Line` | `WriteBytesFile` |
 
+---
+
+## D116. HTTP Client Parity & Request Lifecycle
+
+### D116A — HTTP Client Parity (Console & Web)
+
+**Authoritative spec:** Jeff's approved D116A specification.
+
+**Decision:**
+Otter 1.0 provides full cross-target parity for synchronous HTTP requests across console/.NET and web (browser) targets.
+
+1. **Syntax & Statements:**
+   - `get <url> into <target>`
+   - `get <url> as json into <target>`
+   - `get json from <url> into <target>`
+   - `post <data> to <url>`
+   - `post <data> to <url> into <target>`
+   - `post <data> as json to <url> into <target>`
+   - `put <data> to <url> into <target>`
+   - `put <data> as json to <url> into <target>`
+   - `delete from <url>`
+   - `delete from <url> into <target>`
+
+2. **Options Block:**
+   ```otter
+   get "https://api.example.com/data" into result
+       with header "Authorization" is "Bearer token"
+       with cookies
+       following redirects
+       with timeout 10 seconds
+   ```
+
+3. **Runtime Semantics:**
+   - Console runtime uses pooled `HttpClientHandler` with cookie jar and redirect management.
+   - Web target compiles to `fetch()` with `AbortController` timeout enforcement.
+   - Raw text, JSON, and D102 `bytes` bodies supported.
+
+---
+
+### D116B — HTTP Request Handles & Cancellation
+
+**Authoritative spec:** Jeff's approved D116B specification.
+
+**Decision:**
+Otter 1.0 provides explicit asynchronous HTTP request handles with lifecycle introspection and deterministic cancellation.
+
+1. **Syntax & Statements:**
+   - `start get <url> and call it <target>`
+   - `start post <data> to <url> and call it <target>`
+   - `start put <data> to <url> and call it <target>`
+   - `start delete from <url> and call it <target>`
+   - Optional indented options block:
+     - `with header <name> is <value>`
+     - `with cookies` / `without cookies`
+     - `following redirects` / `without redirects`
+     - `with timeout <seconds> seconds`
+   - Explicit cancellation:
+     - `cancel <target>`
+     - Non-request argument raises runtime diagnostic: `"cancel requires an HTTP request."`
+     - Double-cancel is an idempotent no-op.
+
+2. **Event Handlers:**
+   - `on complete of <target>`
+   - `on error of <target>`
+   - `on cancel of <target>`
+   - Ambient expression inside `on complete`: `received response`.
+
+3. **Lifecycle & State Machine:**
+   - Starts in state `'pending'`.
+   - Transitions to exactly ONE terminal state: `'completed'`, `'failed'`, or `'cancelled'`.
+   - Any HTTP status code received (including 4xx and 5xx) transitions to `'completed'` and fires `on complete`.
+   - Network drop, DNS failure, or connection error transitions to `'failed'` and fires `on error`.
+   - Timeout transitions to `'failed'`, sets error to `"Request timed out after N seconds."`, and fires `on error` (never `on cancel`).
+   - Explicit `cancel <req>` transitions to `'cancelled'` and fires `on cancel` (never `on error` or `on complete`).
+
+4. **Predicates and Properties:**
+   - `<target> is pending` / `<target> is not pending`
+   - `<target> is completed` / `<target> is not completed`
+   - `<target> is failed` / `<target> is not failed`
+   - `<target> is cancelled` / `<target> is not cancelled`
+   - `state of <target>`: `'pending'`, `'completed'`, `'failed'`, or `'cancelled'`
+   - `response of <target>`: string response body (or `gone` if not completed)
+   - `error of <target>`: string error message (or `gone` if not failed)
+   - `status of <target>`: integer status code (e.g. 200, 404, or `gone` if failed before response)
+
+5. **Retained Terminal Events:**
+   - If a request transitions to a terminal state before its event handler is registered, the handler executes immediately and deterministically upon registration or next event loop tick, without double firing.
+
+6. **Shared AST Contract:**
+   | AST Node | Parameters | NodeKind |
+   |---|---|---|
+   | `HttpStartStmt` | `[string]$Method, [Node]$Url, [Node]$Data, [bool]$AsJson, [System.Collections.Generic.List[HttpOptionNode]]$Options, [string]$Target, [int]$Line` | `HttpStart` |
+   | `HttpCancelStmt` | `[Node]$Target, [int]$Line` | `HttpCancel` |
+   | `HttpRequestIsStateExpr` | `[Node]$Target, [HttpRequestState]$State, [bool]$IsNot, [int]$Line` | `HttpRequestIsState` |
+   | `ReceivedResponseExpr` | `[int]$Line` | `ReceivedResponse` |
+
+
 
 
 

@@ -2612,6 +2612,141 @@ function Invoke-OtterHttpRequest {
     }
 }
 
+function Start-OtterHttpRequest {
+    param(
+        [Parameter(Mandatory)][string]$Method,
+        [Parameter(Mandatory)][string]$Url,
+        [object]$Data = $null,
+        [bool]$AsJson = $false,
+        [array]$Headers = @(),
+        [System.Nullable[bool]]$WithCookies = $null,
+        [System.Nullable[bool]]$FollowRedirects = $null,
+        [object]$TimeoutSeconds = $null,
+        [int]$Line = 0
+    )
+
+    # 1. URL validation
+    if ([string]::IsNullOrWhiteSpace($Url)) {
+        throw [OtterError]::new('I need a URL to send the HTTP request to.', $Line, 'runtime')
+    }
+
+    $uri = $null
+    try {
+        $uri = [System.Uri]::new($Url, [System.UriKind]::Absolute)
+    }
+    catch {
+        throw [OtterError]::new("`"$Url`" is not a valid URL.", $Line, 'runtime')
+    }
+
+    if ($uri.Scheme -ne 'http' -and $uri.Scheme -ne 'https') {
+        throw [OtterError]::new(
+            "I can only make HTTP requests using http or https, but this URL uses `"$($uri.Scheme)`".",
+            $Line, 'runtime')
+    }
+
+    # 2. Timeout validation
+    $timeoutSec = $null
+    if ($null -ne $TimeoutSeconds) {
+        if ($TimeoutSeconds -is [int] -or $TimeoutSeconds -is [long] -or $TimeoutSeconds -is [double] -or $TimeoutSeconds -is [decimal] -or
+            ($TimeoutSeconds -is [string] -and [double]::TryParse($TimeoutSeconds, [ref]$null))) {
+            $timeoutSec = [double]$TimeoutSeconds
+        } else {
+            throw [OtterError]::new("HTTP timeout must be a number of seconds, but got $(Get-OtterTypeName -Value $TimeoutSeconds).", $Line, 'runtime')
+        }
+        if ([double]::IsNaN($timeoutSec) -or [double]::IsInfinity($timeoutSec) -or $timeoutSec -le 0) {
+            throw [OtterError]::new("HTTP timeout must be a positive number of seconds, but got $timeoutSec.", $Line, 'runtime')
+        }
+    }
+
+    # 3. Client selection (cookies & redirects)
+    $useCookies = if ($null -ne $WithCookies) { [bool]$WithCookies } else { $true }
+    $allowRedirect = if ($null -ne $FollowRedirects) { [bool]$FollowRedirects } else { $true }
+
+    $client = Get-OtterHttpClient -UseCookies $useCookies -AllowAutoRedirect $allowRedirect
+
+    # 4. Request message & method
+    $httpMethod = switch ($Method.ToUpperInvariant()) {
+        'GET'    { [System.Net.Http.HttpMethod]::Get }
+        'POST'   { [System.Net.Http.HttpMethod]::Post }
+        'PUT'    { [System.Net.Http.HttpMethod]::Put }
+        'DELETE' { [System.Net.Http.HttpMethod]::Delete }
+        default  { [System.Net.Http.HttpMethod]::new($Method) }
+    }
+    $req = [System.Net.Http.HttpRequestMessage]::new($httpMethod, $uri)
+
+    # 5. Request body (POST / PUT)
+    if ($Method -eq 'POST' -or $Method -eq 'PUT') {
+        if ($AsJson) {
+            $jsonText = ConvertTo-OtterJsonText -Value $Data -Line $Line
+            $req.Content = [System.Net.Http.StringContent]::new($jsonText, [System.Text.Encoding]::UTF8, 'application/json')
+        } elseif ($Data -is [OtterObject] -or $Data -is [System.Collections.Generic.List[object]]) {
+            $jsonText = ConvertTo-OtterJsonText -Value $Data -Line $Line
+            $req.Content = [System.Net.Http.StringContent]::new($jsonText, [System.Text.Encoding]::UTF8, 'application/json')
+        } elseif ($Data -is [OtterBytes]) {
+            $rawBytes = $Data.Value
+            if ($null -eq $rawBytes) { $rawBytes = [byte[]]@() }
+            $req.Content = [System.Net.Http.ByteArrayContent]::new($rawBytes)
+            $req.Content.Headers.ContentType = [System.Net.Http.Headers.MediaTypeHeaderValue]::new('application/octet-stream')
+        } else {
+            $text = if ($null -eq $Data) { '' } else { Format-OtterValue -Value $Data }
+            $req.Content = [System.Net.Http.StringContent]::new($text, [System.Text.Encoding]::UTF8, 'text/plain')
+        }
+    }
+
+    # 6. Apply request headers
+    if ($null -ne $Headers) {
+        foreach ($h in $Headers) {
+            $hName = [string]$h.Name
+            $hVal = [string]$h.Value
+            if ([string]::IsNullOrWhiteSpace($hName)) {
+                throw [OtterError]::new('HTTP header name cannot be empty.', $Line, 'runtime')
+            }
+            $added = $req.Headers.TryAddWithoutValidation($hName, $hVal)
+            if (-not $added -and $null -ne $req.Content) {
+                if ($req.Content.Headers.Contains($hName)) {
+                    $req.Content.Headers.Remove($hName) | Out-Null
+                }
+                $added = $req.Content.Headers.TryAddWithoutValidation($hName, $hVal)
+            }
+            if (-not $added) {
+                try {
+                    $req.Headers.Add($hName, $hVal)
+                } catch {
+                    throw [OtterError]::new("Invalid HTTP header `"$hName`": $($_.Exception.Message)", $Line, 'runtime')
+                }
+            }
+        }
+    }
+
+    # 7. Create OtterHttpRequest handle
+    $reqId = [Guid]::NewGuid().ToString('N')
+    $handle = [OtterHttpRequest]::new($Method, $Url, $Data, $AsJson, $reqId)
+    $handle.TimeoutSeconds = $timeoutSec
+
+    if ($null -ne $timeoutSec) {
+        $handle.Cts.CancelAfter([System.TimeSpan]::FromSeconds($timeoutSec))
+    }
+
+    # 8. Start background SendAsync task
+    $handle.Task = $client.SendAsync($req, $handle.Cts.Token)
+
+    return $handle
+}
+
+function Stop-OtterHttpRequest {
+    param([object]$Request, [int]$Line = 0)
+    if ($null -eq $Request -or -not (Test-OtterHttpRequest $Request)) {
+        throw [OtterError]::new('cancel requires an HTTP request.', $Line, 'runtime')
+    }
+    if ($Request.State -ne 'pending') {
+        return
+    }
+    $Request.State = 'cancelled'
+    try {
+        $Request.Cts.Cancel()
+    } catch {}
+}
+
 # ===============================================================
 # FILE DOWNLOAD (D96)
 # ===============================================================
@@ -2876,4 +3011,4 @@ Export-ModuleMember -Function `
     Get-OtterHash, `
     Protect-OtterText, Unprotect-OtterText, `
     Read-OtterFileBytes, Write-OtterFileBytes, `
-    Invoke-OtterHttpRequest
+    Invoke-OtterHttpRequest, Start-OtterHttpRequest, Stop-OtterHttpRequest

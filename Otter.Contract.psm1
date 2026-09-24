@@ -662,6 +662,12 @@ enum NodeKind {
     # --- Binary File I/O (D115) ---------------------------------
     BytesFromFile             # EXPRESSION: bytes from file PATH
     WriteBytesFile            # write bytes DATA to file PATH [atomically]
+
+    # --- HTTP Request Handles & Cancellation (D116B) ------------
+    HttpStart                 # start get/post/put/delete ... and call it X
+    HttpCancel                # cancel X
+    HttpRequestIsState        # a CONDITION: X is pending/completed/failed/cancelled
+    ReceivedResponse          # an EXPRESSION: received response (ambient in on complete of HTTP request)
 }
 
 enum MathOp { Add; Subtract; Multiply; Divide; Percent; Power }   # D88
@@ -674,10 +680,11 @@ enum WatchEventKind { Change; Create; Delete; Rename }                 # D104
 enum XmlSourceKind { Text; File; Root }                                # D105
 enum XmlSelectKind { Element; Elements; Child; Children }              # D105
 
-enum NetworkEventKind { Open; Message; Close; Error; Connect; Data; Connection } # D106, D107/D108, D113
-enum WebSocketEventKind { Open; Message; Close; Error; Connect; Data; Connection } # backward compatibility
+enum NetworkEventKind { Open; Message; Close; Error; Connect; Data; Connection; Complete; Cancel } # D106, D107/D108, D113, D116B
+enum WebSocketEventKind { Open; Message; Close; Error; Connect; Data; Connection; Complete; Cancel } # backward compatibility
 enum WebSocketConnState { Connecting; Open; Closing; Closed; Connected } # D106, D107
 enum TcpServerState { Listening; Stopped } # D113
+enum HttpRequestState { Pending; Completed; Failed; Cancelled }       # D116B
 
 # D11: boolean operators. Precedence, loosest last: not -> and -> or.
 enum LogicalOp { And; Or }
@@ -2426,6 +2433,51 @@ class DownloadFileStmt : Node {
         $this.Url = $url
         $this.Path = $path
     }
+}
+
+# ===============================================================
+# ASYNCHRONOUS HTTP REQUESTS & CANCELLATION (D116B)
+# ===============================================================
+
+# start get/post/put/delete ... and call it <target>
+class HttpStartStmt : Node {
+    [string]$Method
+    [Node]$Url
+    [Node]$Data
+    [bool]$AsJson
+    [string]$TargetName
+    [HttpOptions]$Options
+    HttpStartStmt([string]$method, [Node]$url, [Node]$data, [bool]$asJson, [string]$targetName, [HttpOptions]$options, [int]$line) : base([NodeKind]::HttpStart, $line) {
+        $this.Method = $method
+        $this.Url = $url
+        $this.Data = $data
+        $this.AsJson = $asJson
+        $this.TargetName = $targetName
+        $this.Options = $options
+    }
+}
+
+# cancel <request>
+class HttpCancelStmt : Node {
+    [Node]$Request
+    HttpCancelStmt([Node]$request, [int]$line) : base([NodeKind]::HttpCancel, $line) {
+        $this.Request = $request
+    }
+}
+
+# request is pending / completed / failed / cancelled
+class HttpRequestIsStateExpr : Node {
+    [Node]$Request
+    [HttpRequestState]$ReqState
+    HttpRequestIsStateExpr([Node]$request, [HttpRequestState]$reqState, [int]$line) : base([NodeKind]::HttpRequestIsState, $line) {
+        $this.Request = $request
+        $this.ReqState = $reqState
+    }
+}
+
+# received response (ambient in on complete of request)
+class ReceivedResponseExpr : Node {
+    ReceivedResponseExpr([int]$line) : base([NodeKind]::ReceivedResponse, $line) {}
 }
 
 # ===============================================================

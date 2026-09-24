@@ -32,144 +32,155 @@ $tempTcp.Start()
 $serverPort = $tempTcp.LocalEndpoint.Port
 $tempTcp.Stop()
 
-# Start deterministic local HTTP test server
-$listener = [System.Net.HttpListener]::new()
-$listener.Prefixes.Add("http://localhost:$serverPort/")
-$listener.Start()
+# Start deterministic local concurrent HTTP test server
+$serverTypeDef = @'
+using System;
+using System.IO;
+using System.Net;
+using System.Text;
+using System.Threading;
 
-$runspace = [runspacefactory]::CreateRunspace()
-$runspace.Open()
-$runspace.SessionStateProxy.SetVariable("listener", $listener)
-$runspace.SessionStateProxy.SetVariable("serverPort", $serverPort)
+public class OtterHttpTestServer : IDisposable {
+    private HttpListener _listener;
+    private bool _running;
+    public int Port { get; private set; }
 
-$psServer = [powershell]::Create()
-$psServer.Runspace = $runspace
-[void]$psServer.AddScript({
-    while ($listener.IsListening) {
-        $context = $null
+    public OtterHttpTestServer(int port) {
+        Port = port;
+        _listener = new HttpListener();
+        _listener.Prefixes.Add("http://localhost:" + port + "/");
+        _listener.Start();
+        _running = true;
+        ThreadPool.QueueUserWorkItem((s) => {
+            while (_running && _listener.IsListening) {
+                try {
+                    var ctx = _listener.GetContext();
+                    ThreadPool.QueueUserWorkItem((state) => HandleRequest((HttpListenerContext)state), ctx);
+                } catch {
+                    break;
+                }
+            }
+        });
+    }
+
+    private void HandleRequest(HttpListenerContext ctx) {
+        var req = ctx.Request;
+        var resp = ctx.Response;
         try {
-            $context = $listener.GetContext()
-        } catch {
-            break
-        }
-        $req = $context.Request
-        $resp = $context.Response
-        try {
-            $path = $req.Url.AbsolutePath
-            switch -Wildcard ($path) {
-                '/text' {
-                    $resp.StatusCode = 200
-                    $resp.ContentType = 'text/plain; charset=utf-8'
-                    $buf = [System.Text.Encoding]::UTF8.GetBytes("Hello Otter 世界")
-                    $resp.ContentLength64 = $buf.Length
-                    $resp.OutputStream.Write($buf, 0, $buf.Length)
+            string path = req.Url.AbsolutePath;
+            if (path == "/text") {
+                resp.StatusCode = 200;
+                resp.ContentType = "text/plain; charset=utf-8";
+                byte[] buf = Encoding.UTF8.GetBytes("Hello Otter 世界");
+                resp.ContentLength64 = buf.Length;
+                resp.OutputStream.Write(buf, 0, buf.Length);
+            } else if (path == "/empty") {
+                resp.StatusCode = 200;
+                resp.ContentLength64 = 0;
+            } else if (path == "/json") {
+                resp.StatusCode = 200;
+                resp.ContentType = "application/json; charset=utf-8";
+                byte[] buf = Encoding.UTF8.GetBytes("{\"name\":\"Otter\",\"count\":42,\"items\":[1,2,3],\"active\":true,\"nested\":{\"k\":\"v\"}}");
+                resp.ContentLength64 = buf.Length;
+                resp.OutputStream.Write(buf, 0, buf.Length);
+            } else if (path == "/echo") {
+                using (var r = new StreamReader(req.InputStream, Encoding.UTF8)) {
+                    string body = r.ReadToEnd();
+                    resp.StatusCode = 200;
+                    resp.ContentType = string.IsNullOrEmpty(req.ContentType) ? "text/plain" : req.ContentType;
+                    byte[] buf = Encoding.UTF8.GetBytes(body);
+                    resp.ContentLength64 = buf.Length;
+                    resp.OutputStream.Write(buf, 0, buf.Length);
                 }
-                '/empty' {
-                    $resp.StatusCode = 200
-                    $resp.ContentLength64 = 0
+            } else if (path == "/status/404") {
+                resp.StatusCode = 404;
+                resp.ContentType = "text/plain; charset=utf-8";
+                byte[] buf = Encoding.UTF8.GetBytes("Page not found");
+                resp.ContentLength64 = buf.Length;
+                resp.OutputStream.Write(buf, 0, buf.Length);
+            } else if (path == "/status/500") {
+                resp.StatusCode = 500;
+                resp.ContentType = "text/plain; charset=utf-8";
+                byte[] buf = Encoding.UTF8.GetBytes("Server error");
+                resp.ContentLength64 = buf.Length;
+                resp.OutputStream.Write(buf, 0, buf.Length);
+            } else if (path == "/status/204") {
+                resp.StatusCode = 204;
+                resp.ContentLength64 = 0;
+            } else if (path == "/redirect") {
+                resp.StatusCode = 302;
+                resp.RedirectLocation = "http://localhost:" + Port + "/text";
+                resp.ContentLength64 = 0;
+            } else if (path == "/headers") {
+                var sb = new StringBuilder("{");
+                bool first = true;
+                foreach (string key in req.Headers.AllKeys) {
+                    if (!first) sb.Append(",");
+                    first = false;
+                    sb.Append("\"").Append(key).Append("\":\"").Append(req.Headers[key]).Append("\"");
                 }
-                '/json' {
-                    $resp.StatusCode = 200
-                    $resp.ContentType = 'application/json; charset=utf-8'
-                    $jsonStr = '{"name":"Otter","count":42,"items":[1,2,3],"active":true,"nested":{"k":"v"}}'
-                    $buf = [System.Text.Encoding]::UTF8.GetBytes($jsonStr)
-                    $resp.ContentLength64 = $buf.Length
-                    $resp.OutputStream.Write($buf, 0, $buf.Length)
-                }
-                '/echo' {
-                    $reader = [System.IO.StreamReader]::new($req.InputStream, [System.Text.Encoding]::UTF8)
-                    $body = $reader.ReadToEnd()
-                    $resp.StatusCode = 200
-                    $resp.ContentType = if ($req.ContentType) { $req.ContentType } else { 'text/plain' }
-                    $buf = [System.Text.Encoding]::UTF8.GetBytes($body)
-                    $resp.ContentLength64 = $buf.Length
-                    $resp.OutputStream.Write($buf, 0, $buf.Length)
-                }
-                '/status/404' {
-                    $resp.StatusCode = 404
-                    $resp.ContentType = 'text/plain; charset=utf-8'
-                    $buf = [System.Text.Encoding]::UTF8.GetBytes("Page not found")
-                    $resp.ContentLength64 = $buf.Length
-                    $resp.OutputStream.Write($buf, 0, $buf.Length)
-                }
-                '/status/500' {
-                    $resp.StatusCode = 500
-                    $resp.ContentType = 'text/plain; charset=utf-8'
-                    $buf = [System.Text.Encoding]::UTF8.GetBytes("Server error")
-                    $resp.ContentLength64 = $buf.Length
-                    $resp.OutputStream.Write($buf, 0, $buf.Length)
-                }
-                '/status/204' {
-                    $resp.StatusCode = 204
-                    $resp.ContentLength64 = 0
-                }
-                '/redirect' {
-                    $resp.StatusCode = 302
-                    $resp.RedirectLocation = "http://localhost:$serverPort/text"
-                    $resp.ContentLength64 = 0
-                }
-                '/headers' {
-                    $hMap = [ordered]@{}
-                    foreach ($key in $req.Headers.AllKeys) {
-                        $hMap[$key] = $req.Headers[$key]
-                    }
-                    $jsonStr = $hMap | ConvertTo-Json -Compress
-                    $resp.StatusCode = 200
-                    $resp.ContentType = 'application/json'
-                    $buf = [System.Text.Encoding]::UTF8.GetBytes($jsonStr)
-                    $resp.ContentLength64 = $buf.Length
-                    $resp.OutputStream.Write($buf, 0, $buf.Length)
-                }
-                '/cookie/set' {
-                    $cookie = [System.Net.Cookie]::new('session', 'otter-token-999', '/')
-                    $resp.Cookies.Add($cookie)
-                    $resp.StatusCode = 200
-                    $buf = [System.Text.Encoding]::UTF8.GetBytes("cookie-set-ok")
-                    $resp.ContentLength64 = $buf.Length
-                    $resp.OutputStream.Write($buf, 0, $buf.Length)
-                }
-                '/cookie/check' {
-                    $hasCookie = $false
-                    if ($req.Cookies['session'] -and $req.Cookies['session'].Value -eq 'otter-token-999') {
-                        $hasCookie = $true
-                    }
-                    $resp.StatusCode = 200
-                    $ans = if ($hasCookie) { "cookie:present" } else { "cookie:absent" }
-                    $buf = [System.Text.Encoding]::UTF8.GetBytes($ans)
-                    $resp.ContentLength64 = $buf.Length
-                    $resp.OutputStream.Write($buf, 0, $buf.Length)
-                }
-                '/delay/*' {
-                    $sec = 1
-                    if ($path -match '/delay/(\d+)') { $sec = [int]$Matches[1] }
-                    [System.Threading.Thread]::Sleep($sec * 1000)
-                    $resp.StatusCode = 200
-                    $buf = [System.Text.Encoding]::UTF8.GetBytes("delayed-response-ok")
-                    $resp.ContentLength64 = $buf.Length
-                    $resp.OutputStream.Write($buf, 0, $buf.Length)
-                }
-                '/malformed-json' {
-                    $resp.StatusCode = 200
-                    $resp.ContentType = 'application/json'
-                    $buf = [System.Text.Encoding]::UTF8.GetBytes("{ not valid json: 123")
-                    $resp.ContentLength64 = $buf.Length
-                    $resp.OutputStream.Write($buf, 0, $buf.Length)
-                }
-                default {
-                    $resp.StatusCode = 200
-                    $buf = [System.Text.Encoding]::UTF8.GetBytes("ok")
-                    $resp.ContentLength64 = $buf.Length
-                    $resp.OutputStream.Write($buf, 0, $buf.Length)
-                }
+                sb.Append("}");
+                byte[] buf = Encoding.UTF8.GetBytes(sb.ToString());
+                resp.StatusCode = 200;
+                resp.ContentType = "application/json";
+                resp.ContentLength64 = buf.Length;
+                resp.OutputStream.Write(buf, 0, buf.Length);
+            } else if (path == "/cookie/set") {
+                resp.Cookies.Add(new Cookie("session", "otter-token-999", "/"));
+                resp.StatusCode = 200;
+                byte[] buf = Encoding.UTF8.GetBytes("cookie-set-ok");
+                resp.ContentLength64 = buf.Length;
+                resp.OutputStream.Write(buf, 0, buf.Length);
+            } else if (path == "/cookie/check") {
+                bool hasCookie = req.Cookies["session"] != null && req.Cookies["session"].Value == "otter-token-999";
+                resp.StatusCode = 200;
+                byte[] buf = Encoding.UTF8.GetBytes(hasCookie ? "cookie:present" : "cookie:absent");
+                resp.ContentLength64 = buf.Length;
+                resp.OutputStream.Write(buf, 0, buf.Length);
+            } else if (path.StartsWith("/delay/")) {
+                int sec = 1;
+                int.TryParse(path.Substring(7), out sec);
+                Thread.Sleep(sec * 1000);
+                resp.StatusCode = 200;
+                byte[] buf = Encoding.UTF8.GetBytes("delayed-response-ok");
+                resp.ContentLength64 = buf.Length;
+                resp.OutputStream.Write(buf, 0, buf.Length);
+            } else if (path.StartsWith("/item/")) {
+                string id = path.Substring(6);
+                resp.StatusCode = 200;
+                byte[] buf = Encoding.UTF8.GetBytes("item-" + id);
+                resp.ContentLength64 = buf.Length;
+                resp.OutputStream.Write(buf, 0, buf.Length);
+            } else if (path == "/malformed-json") {
+                resp.StatusCode = 200;
+                resp.ContentType = "application/json";
+                byte[] buf = Encoding.UTF8.GetBytes("{ not valid json: 123");
+                resp.ContentLength64 = buf.Length;
+                resp.OutputStream.Write(buf, 0, buf.Length);
+            } else {
+                resp.StatusCode = 200;
+                byte[] buf = Encoding.UTF8.GetBytes("ok");
+                resp.ContentLength64 = buf.Length;
+                resp.OutputStream.Write(buf, 0, buf.Length);
             }
         } catch {
         } finally {
-            try { $resp.OutputStream.Close() } catch {}
+            try { resp.OutputStream.Close(); } catch {}
         }
     }
-})
-$asyncServer = $psServer.BeginInvoke()
-Start-Sleep -Milliseconds 150
+
+    public void Dispose() {
+        _running = false;
+        try { _listener.Stop(); } catch {}
+        try { _listener.Close(); } catch {}
+    }
+}
+'@
+
+if (-not ([System.Management.Automation.PSTypeName]'OtterHttpTestServer').Type) {
+    Add-Type -TypeDefinition $serverTypeDef
+}
+$testServer = [OtterHttpTestServer]::new($serverPort)
 
 function Run-OtterScript {
     param([string]$Source)
@@ -443,13 +454,369 @@ say res
         Assert-True ($rBad.Stdout -match 'is not a valid URL') 'expected invalid URL diagnostic'
     }
 
+    # ===============================================================
+    # D116B: ASYNCHRONOUS HTTP REQUEST HANDLES & CANCELLATION TESTS
+    # ===============================================================
+
+    # 18. Basic completion test (Section 35)
+    Test-Otter 'D116B Basic completion: start get, on complete, received response, state completed' {
+        $out = Run-OtterScript @"
+start get from "http://localhost:$serverPort/text" and call it req
+
+on complete of req
+    say received response
+    say state of req
+.
+"@
+        Assert-Lines -Expected @('Hello Otter 世界', 'completed') -Actual $out
+    }
+
+    # 19. JSON completion test (Section 36)
+    Test-Otter 'D116B JSON completion: start get as json, received response parsed Otter value, response of request' {
+        $out = Run-OtterScript @"
+start get from "http://localhost:$serverPort/json" as json and call it req
+
+on complete of req
+    data is received response
+    say name of data
+    say count of data
+    respData is response of req
+    say name of respData
+    say state of req
+.
+"@
+        Assert-Lines -Expected @('Otter', '42', 'Otter', 'completed') -Actual $out
+    }
+
+    # 20. POST, PUT, DELETE async requests (Section 3)
+    Test-Otter 'D116B POST, PUT, DELETE async requests with on complete' {
+        $out = Run-OtterScript @"
+start post "hello post async" to "http://localhost:$serverPort/echo" and call it postReq
+on complete of postReq
+    say received response
+.
+
+start put "hello put async" to "http://localhost:$serverPort/echo" and call it putReq
+on complete of putReq
+    say received response
+.
+
+start delete from "http://localhost:$serverPort/text" and call it delReq
+on complete of delReq
+    say state of delReq
+.
+"@
+        Assert-Lines -Expected @('hello post async', 'hello put async', 'completed') -Actual $out
+    }
+
+    # 21. HTTP options on async requests (Section 5)
+    Test-Otter 'D116B HTTP options: headers, timeout, cookies, redirects on async request' {
+        $out = Run-OtterScript @"
+start get from "http://localhost:$serverPort/headers" as json and call it req
+    with header "X-Test-Async" is "otter-async-42"
+    with timeout 10 seconds
+
+on complete of req
+    h is received response
+    get "X-Test-Async" from h into val
+    say val
+.
+"@
+        Assert-Lines -Expected @('otter-async-42') -Actual $out
+    }
+
+    # 22. Explicit cancellation (Section 37)
+    Test-Otter 'D116B Explicit cancellation: cancel pending request, on cancel fires once, complete and error do not fire, state cancelled' {
+        $out = Run-OtterScript @"
+start get from "http://localhost:$serverPort/delay/2" and call it req
+
+on complete of req
+    say "SHOULD NOT COMPLETE"
+.
+
+on error of req
+    say "SHOULD NOT ERROR"
+.
+
+on cancel of req
+    say "cancelled successfully"
+    say state of req
+.
+
+cancel req
+"@
+        Assert-Lines -Expected @('cancelled successfully', 'cancelled') -Actual $out
+    }
+
+    # 23. Double-cancel test (Section 38)
+    Test-Otter 'D116B Double-cancel is idempotent: repeated cancel does not error or re-dispatch' {
+        $out = Run-OtterScript @"
+start get from "http://localhost:$serverPort/delay/2" and call it req
+
+cancelCount is 0
+on cancel of req
+    add 1 to cancelCount
+    say "cancel event"
+.
+
+cancel req
+cancel req
+say state of req
+say cancelCount
+"@
+        Assert-Lines -Expected @('cancel event', 'cancelled', '1') -Actual $out
+    }
+
+    # 24. Cancel-after-complete is a no-op (Section 39)
+    Test-Otter 'D116B Cancel-after-complete is a no-op: state remains completed, cancel does not fire' {
+        $out = Run-OtterScript @"
+start get from "http://localhost:$serverPort/text" and call it req
+
+cancelledFired is false
+on cancel of req
+    cancelledFired is true
+.
+
+on complete of req
+    say "completed first"
+    cancel req
+    say state of req
+    if cancelledFired
+        say "cancel fired: true"
+    .
+    if not cancelledFired
+        say "cancel fired: false"
+    .
+.
+"@
+        Assert-Lines -Expected @('completed first', 'completed', 'cancel fired: false') -Actual $out
+    }
+
+    # 25. Timeout is distinct from cancellation (Section 40)
+    Test-Otter 'D116B Timeout is distinct from cancellation: with timeout triggers on error, cancel does not fire, state failed' {
+        $out = Run-OtterScript @"
+start get from "http://localhost:$serverPort/delay/3" and call it req
+    with timeout 1 seconds
+
+on complete of req
+    say "SHOULD NOT COMPLETE"
+.
+
+on cancel of req
+    say "SHOULD NOT CANCEL"
+.
+
+on error of req
+    say "error event fired"
+    st is state of req
+    say st
+    err is error of req
+    say err
+.
+"@
+        Assert-True ($out.Count -ge 2)
+        Assert-AreEqual -Expected 'error event fired' -Actual $out[0]
+        Assert-AreEqual -Expected 'failed' -Actual $out[1]
+        Assert-True ($out[2] -match 'timed out') 'expected timeout diagnostic in error of req'
+    }
+
+    # 26. Transport failure (Section 41)
+    Test-Otter 'D116B Transport failure: unreachable port triggers on error, complete/cancel do not fire, state failed' {
+        $closedPort = 59999
+        $out = Run-OtterScript @"
+start get from "http://localhost:$closedPort/nowhere" and call it req
+
+on complete of req
+    say "SHOULD NOT COMPLETE"
+.
+
+on cancel of req
+    say "SHOULD NOT CANCEL"
+.
+
+on error of req
+    say "transport error fired"
+    st is state of req
+    say st
+.
+"@
+        Assert-Lines -Expected @('transport error fired', 'failed') -Actual $out
+    }
+
+    # 27. Status code property (Section 42)
+    Test-Otter 'D116B HTTP status code property: status of request for 200, 404, 500' {
+        $out = Run-OtterScript @"
+start get from "http://localhost:$serverPort/text" and call it req200
+on complete of req200
+    say status of req200
+.
+
+start get from "http://localhost:$serverPort/status/404" and call it req404
+on complete of req404
+    say status of req404
+.
+
+start get from "http://localhost:$serverPort/status/500" and call it req500
+on complete of req500
+    say status of req500
+.
+"@
+        Assert-Lines -Expected @('200', '404', '500') -Actual $out
+    }
+
+    # 28. Fast-completion race test (Section 43)
+    Test-Otter 'D116B Fast-completion race: handler registered after request finishes still fires exactly once (retained terminal event)' {
+        $out = Run-OtterScript @"
+start get from "http://localhost:$serverPort/text" and call it req
+
+# Wait for request to finish before registering handler
+wait 100 milliseconds
+
+on complete of req
+    resp is received response
+    st is state of req
+    say "retained complete event fired: " plus resp
+    say "state: " plus st
+.
+"@
+        Assert-Lines -Expected @('retained complete event fired: Hello Otter 世界', 'state: completed') -Actual $out
+    }
+
+    # 29. Concurrency test: 20 concurrent requests (Section 44)
+    Test-Otter 'D116B Concurrency: 20 concurrent requests with unique responses reach terminal states without crosstalk' {
+        $scriptText = [System.Text.StringBuilder]::new()
+        for ($i = 1; $i -le 20; $i++) {
+            [void]$scriptText.AppendLine("start get from `"http://localhost:$serverPort/item/$i`" and call it req$i")
+            [void]$scriptText.AppendLine("on complete of req$i")
+            [void]$scriptText.AppendLine("    say received response")
+            [void]$scriptText.AppendLine(".")
+        }
+        $out = Run-OtterScript ($scriptText.ToString())
+        Assert-AreEqual -Expected 20 -Actual $out.Count
+        for ($i = 1; $i -le 20; $i++) {
+            Assert-True ($out -contains "item-$i") "expected response for item-$i"
+        }
+    }
+
+    # 30. Mixed concurrent states (Section 45)
+    Test-Otter 'D116B Mixed concurrent states: requests complete, fail, timeout, and cancel concurrently' {
+        $closedPort = 59998
+        $out = Run-OtterScript @"
+start get from "http://localhost:$serverPort/text" and call it rComplete
+on complete of rComplete
+    st1 is state of rComplete
+    say "success:" plus st1
+.
+
+start get from "http://localhost:$closedPort/unreachable" and call it rFail
+on error of rFail
+    st2 is state of rFail
+    say "failure:" plus st2
+.
+
+start get from "http://localhost:$serverPort/delay/3" and call it rTimeout
+    with timeout 1 seconds
+on error of rTimeout
+    st3 is state of rTimeout
+    say "timeout:" plus st3
+.
+
+start get from "http://localhost:$serverPort/delay/2" and call it rCancel
+on cancel of rCancel
+    st4 is state of rCancel
+    say "cancel:" plus st4
+.
+cancel rCancel
+"@
+        Assert-True ($out -contains "success:completed") "expected completed state"
+        Assert-True ($out -contains "failure:failed") "expected failed state"
+        Assert-True ($out -contains "timeout:failed") "expected timeout failed state"
+        Assert-True ($out -contains "cancel:cancelled") "expected cancelled state"
+    }
+
+    # 31. Soak test: 500 requests (Section 46)
+    Test-Otter 'D116B Soak test: 500 requests complete/cancel without resource leaks or socket exhaustion' {
+        $scriptText = [System.Text.StringBuilder]::new()
+        [void]$scriptText.AppendLine("completedCount is 0")
+        [void]$scriptText.AppendLine("cancelledCount is 0")
+        for ($i = 1; $i -le 500; $i++) {
+            if ($i % 2 -eq 0) {
+                [void]$scriptText.AppendLine("start get from `"http://localhost:$serverPort/empty`" and call it sReq$i")
+                [void]$scriptText.AppendLine("on complete of sReq$i")
+                [void]$scriptText.AppendLine("    add 1 to completedCount")
+                [void]$scriptText.AppendLine("    if completedCount is 250")
+                [void]$scriptText.AppendLine("        say `"completed: 250`"")
+                [void]$scriptText.AppendLine("    .")
+                [void]$scriptText.AppendLine(".")
+            } else {
+                [void]$scriptText.AppendLine("start get from `"http://localhost:$serverPort/delay/2`" and call it sReq$i")
+                [void]$scriptText.AppendLine("on cancel of sReq$i")
+                [void]$scriptText.AppendLine("    add 1 to cancelledCount")
+                [void]$scriptText.AppendLine("    if cancelledCount is 250")
+                [void]$scriptText.AppendLine("        say `"cancelled: 250`"")
+                [void]$scriptText.AppendLine("    .")
+                [void]$scriptText.AppendLine(".")
+                [void]$scriptText.AppendLine("cancel sReq$i")
+            }
+        }
+
+        $out = Run-OtterScript ($scriptText.ToString())
+        Assert-True ($out -contains "completed: 250") "expected 250 completed"
+        Assert-True ($out -contains "cancelled: 250") "expected 250 cancelled"
+    }
+
+    # 32. Request state predicates (Section 11)
+    Test-Otter 'D116B Request state predicates: request is pending / completed / failed / cancelled' {
+        $out = Run-OtterScript @"
+start get from "http://localhost:$serverPort/text" and call it req
+if req is pending
+    say "is pending: true"
+.
+on complete of req
+    if req is completed
+        say "is completed: true"
+    .
+    if req is not failed
+        say "is not failed: true"
+    .
+    if req is not cancelled
+        say "is not cancelled: true"
+    .
+.
+"@
+        Assert-Lines -Expected @('is pending: true', 'is completed: true', 'is not failed: true', 'is not cancelled: true') -Actual $out
+    }
+
+    # 33. Property guards and error validation (Sections 20 & 21)
+    Test-Otter 'D116B Property guards: response before completion, response after cancel, cancel non-request' {
+        # response before completion
+        $rPending = Run-OtterCli @"
+start get from "http://localhost:$serverPort/delay/2" and call it req
+say response of req
+"@
+        Assert-AreEqual -Expected 3 -Actual $rPending.ExitCode
+        Assert-True ($rPending.Stdout -match 'The HTTP request has not completed yet\.') 'expected not completed diagnostic'
+
+        # response after cancel
+        $rCancelled = Run-OtterCli @"
+start get from "http://localhost:$serverPort/delay/2" and call it req
+cancel req
+say response of req
+"@
+        Assert-AreEqual -Expected 3 -Actual $rCancelled.ExitCode
+        Assert-True ($rCancelled.Stdout -match 'The HTTP request was cancelled\.') 'expected cancelled diagnostic'
+
+        # cancel non-request
+        $rWrongType = Run-OtterCli @"
+x is "hello"
+cancel x
+"@
+        Assert-AreEqual -Expected 3 -Actual $rWrongType.ExitCode
+        Assert-True ($rWrongType.Stdout -match 'cancel requires an HTTP request\.') 'expected cancel type diagnostic'
+    }
+
 } finally {
-    try { $listener.Stop() } catch {}
-    try { $listener.Close() } catch {}
-    try { $psServer.Stop() } catch {}
-    try { $psServer.Dispose() } catch {}
-    try { $runspace.Close() } catch {}
-    try { $runspace.Dispose() } catch {}
+    try { $testServer.Dispose() } catch {}
 }
 
 Complete-OtterTests
