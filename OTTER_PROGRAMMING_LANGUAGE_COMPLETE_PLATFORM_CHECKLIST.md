@@ -766,36 +766,12 @@ creation.
 
 # 13. Networking
 
--   [x] HTTP GET reported (web target only - see the note below,
-    found while verifying D101's headers/options work: console/desktop
-    has NO HttpGet/Post/Put/Delete interpreter case at all. Confirmed by
-    actually running `otter run` against `get "url" into result`, which
-    throws "I do not know how to run a HttpGet statement yet." This is a
-    pre-existing gap, not introduced by D101, and D101 deliberately did
-    not attempt to close it - see Jeff's own scoping decision on it)
--   [x] HTTP POST reported (web target only, same gap as GET above)
--   [x] HTTP PUT reported (web target only, same gap as GET above)
--   [x] HTTP DELETE reported (web target only, same gap as GET above)
--   [ ] Console/desktop HTTP implementation (real gap, found during the
-    D101 headers/options audit: `Otter.Interpreter.psm1` has zero
-    HttpGet/HttpPost/HttpPut/HttpDelete cases - every one of the four
-    checkmarks above is real only for the web (browser `fetch()`)
-    target. A console/desktop program cannot make an HTTP request at
-    all today. Not attempted as part of D101 - Jeff scoped that batch to
-    "web-target headers/options only" specifically because building
-    real console HTTP from scratch (a `System.Net.Http.HttpClient`
-    integration, not an extension of something that already works) is a
-    substantially bigger task than adding options to an existing call)
--   [x] Headers (D101: `with header "Name" is Value` (repeatable),
-    `with`/`without cookies`, `following`/`without redirects`, `with
-    timeout N seconds` - a new optional indented options block on
-    get/post/put/delete. Web target only (see the note under Section 21
-    below: console/desktop has no HTTP implementation at all to attach
-    this to, confirmed by actually running `otter run` against a real
-    `get ... into result` - a pre-existing gap, not something this batch
-    introduced or fixed). Verified with a real local HTTP server: the
-    compiled JS's `Authorization` header genuinely reached the request.
-    2 production tests, `tests/Web.Tests.ps1`)
+-   [x] HTTP GET (Full console and web parity: `get <url> into <target>`, `get <url> as json into <target>`, `get json from <url> into <target>`. Certified on console/.NET and browser via D116A)
+-   [x] HTTP POST (Full console and web parity: `post <data> to <url>`, `post <data> to <url> into <target>`, `post <data> as json to <url> into <target>`. Certified on console/.NET and browser via D116A)
+-   [x] HTTP PUT (Full console and web parity: `put <data> to <url> into <target>`, `put <data> as json to <url> into <target>`. Certified on console/.NET and browser via D116A)
+-   [x] HTTP DELETE (Full console and web parity: `delete from <url>`, `delete from <url> into <target>`. Certified on console/.NET and browser via D116A)
+-   [x] Console/desktop HTTP implementation (Closed in D116A: `System.Net.Http.HttpClient` pooled handler runtime provider in `src/Otter.Library.psm1` with shared cookie container, auto-redirect toggling, per-request cancellation tokens for timeouts, header dispatching, raw/bytes/JSON body support, and statement handlers in `src/Otter.Interpreter.psm1`. 17 production tests in `tests/Http.Tests.ps1`)
+-   [x] Headers (D101 & D116A: `with header "Name" is Value` (repeatable), `with`/`without cookies`, `following`/`without redirects`, `with timeout N seconds`. Certified on both web target and console/.NET runtime)
 -   [x] Query parameters (already fully expressible with zero new syntax:
     a URL is just an ordinary expression, so `"https://api/search?q="
     and term` builds a query string exactly like any other string
@@ -804,14 +780,12 @@ creation.
 -   [x] JSON integration
 -   [ ] Form encoding (real gap - only JSON request bodies exist; no
     `application/x-www-form-urlencoded` encoding)
--   [ ] Multipart/form-data (real gap - still not implemented, though
-    D102's new `bytes` type resolves the byte-value blocker this used to
-    cite; what's missing now is the multipart-body-building/HTTP-request
-    integration itself, not a representable byte value to put in it)
--   [ ] File upload (same gap as multipart/form-data above - and also
-    still blocked on `bytes from file`, which D102 deliberately left as
-    reserved grammar rather than implementing, per the design spec's own
-    item 10)
+-   [ ] Multipart/form-data (real gap - still not implemented; D102/D115
+    provide the `bytes` type, but multipart-body-building/HTTP-request
+    integration itself remains for a future networking slice)
+-   [ ] File upload (same gap as multipart/form-data above; `bytes`
+    filesystem I/O completed in D115, multipart/stream upload integration
+    remaining for future slice)
 -   [x] File download (D96: `download file from <url> to <path>`. Complete byte-identical streaming, atomic same-directory promotion, CreateNew collision safety, truncation detection, failure cleanup, JS compiler & Desktop Bridge integration)
     -   [x] Specification
     -   [x] Contract

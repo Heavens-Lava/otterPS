@@ -130,11 +130,11 @@
       "targets": ["web"]
     },
     {
-      "name": "http-console-negative",
+      "name": "http-invalid-url-negative",
       "mode": "run",
-      "source": "conformance/http/http_web_target_only.ot",
+      "source": "conformance/http/http_invalid_url_negative.ot",
       "expectedExitCode": 3,
-      "expectedDiagnosticContains": "I do not know how to run a HttpGet statement yet",
+      "expectedDiagnosticContains": "is not a valid URL",
       "targets": ["console", "portable-core"]
     }
   ]

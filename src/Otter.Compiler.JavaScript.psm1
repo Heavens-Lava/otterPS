@@ -2755,8 +2755,19 @@ function ConvertTo-OtterJsStatement {
             $lines.Add("${pad}{")
             $lines.AddRange($opts.SetupLines)
             $fetchCall = if ($opts.OptsVarJs) { "fetch($url, $($opts.OptsVarJs))" } else { "fetch($url)" }
-            $lines.Add("${inner}const res = await $fetchCall;")
-            if ($opts.TeardownLine) { $lines.Add($opts.TeardownLine) }
+            if ($opts.TeardownLine) {
+                $lines.Add("${inner}let res;")
+                $lines.Add("${inner}try {")
+                $lines.Add("${inner}  res = await $fetchCall;")
+                $lines.Add("${inner}} catch (_err) {")
+                $lines.Add("${inner}  if (_err && _err.name === 'AbortError') { throw new Error('The HTTP request timed out.'); }")
+                $lines.Add("${inner}  throw _err;")
+                $lines.Add("${inner}} finally {")
+                $lines.Add("${inner}  $($opts.TeardownLine.Trim())")
+                $lines.Add("${inner}}")
+            } else {
+                $lines.Add("${inner}const res = await $fetchCall;")
+            }
             $lines.Add("${inner}const $target = await $readBody; window.$target = $target;")
             $lines.Add("${pad}}")
             return ($lines -join "`n")
@@ -2772,8 +2783,19 @@ function ConvertTo-OtterJsStatement {
             $lines = [System.Collections.Generic.List[string]]::new()
             $lines.Add("${pad}{")
             $lines.AddRange($opts.SetupLines)
-            $lines.Add("${inner}const res = await fetch($url, $($opts.OptsVarJs));")
-            if ($opts.TeardownLine) { $lines.Add($opts.TeardownLine) }
+            if ($opts.TeardownLine) {
+                $lines.Add("${inner}let res;")
+                $lines.Add("${inner}try {")
+                $lines.Add("${inner}  res = await fetch($url, $($opts.OptsVarJs));")
+                $lines.Add("${inner}} catch (_err) {")
+                $lines.Add("${inner}  if (_err && _err.name === 'AbortError') { throw new Error('The HTTP request timed out.'); }")
+                $lines.Add("${inner}  throw _err;")
+                $lines.Add("${inner}} finally {")
+                $lines.Add("${inner}  $($opts.TeardownLine.Trim())")
+                $lines.Add("${inner}}")
+            } else {
+                $lines.Add("${inner}const res = await fetch($url, $($opts.OptsVarJs));")
+            }
             if ($target) {
                 $lines.Add("${inner}const $target = await res.text(); window.$target = $target;")
             }
@@ -2798,8 +2820,19 @@ function ConvertTo-OtterJsStatement {
             $lines = [System.Collections.Generic.List[string]]::new()
             $lines.Add("${pad}{")
             $lines.AddRange($opts.SetupLines)
-            $lines.Add("${inner}const res = await fetch($url, $($opts.OptsVarJs));")
-            if ($opts.TeardownLine) { $lines.Add($opts.TeardownLine) }
+            if ($opts.TeardownLine) {
+                $lines.Add("${inner}let res;")
+                $lines.Add("${inner}try {")
+                $lines.Add("${inner}  res = await fetch($url, $($opts.OptsVarJs));")
+                $lines.Add("${inner}} catch (_err) {")
+                $lines.Add("${inner}  if (_err && _err.name === 'AbortError') { throw new Error('The HTTP request timed out.'); }")
+                $lines.Add("${inner}  throw _err;")
+                $lines.Add("${inner}} finally {")
+                $lines.Add("${inner}  $($opts.TeardownLine.Trim())")
+                $lines.Add("${inner}}")
+            } else {
+                $lines.Add("${inner}const res = await fetch($url, $($opts.OptsVarJs));")
+            }
             if ($target) {
                 $lines.Add("${inner}const $target = await res.text(); window.$target = $target;")
             }
@@ -2820,8 +2853,19 @@ function ConvertTo-OtterJsStatement {
             $lines = [System.Collections.Generic.List[string]]::new()
             $lines.Add("${pad}{")
             $lines.AddRange($opts.SetupLines)
-            $lines.Add("${inner}const res = await fetch($url, $($opts.OptsVarJs));")
-            if ($opts.TeardownLine) { $lines.Add($opts.TeardownLine) }
+            if ($opts.TeardownLine) {
+                $lines.Add("${inner}let res;")
+                $lines.Add("${inner}try {")
+                $lines.Add("${inner}  res = await fetch($url, $($opts.OptsVarJs));")
+                $lines.Add("${inner}} catch (_err) {")
+                $lines.Add("${inner}  if (_err && _err.name === 'AbortError') { throw new Error('The HTTP request timed out.'); }")
+                $lines.Add("${inner}  throw _err;")
+                $lines.Add("${inner}} finally {")
+                $lines.Add("${inner}  $($opts.TeardownLine.Trim())")
+                $lines.Add("${inner}}")
+            } else {
+                $lines.Add("${inner}const res = await fetch($url, $($opts.OptsVarJs));")
+            }
             if ($target) {
                 $lines.Add("${inner}const $target = await res.text(); window.$target = $target;")
             }

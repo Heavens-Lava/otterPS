@@ -1168,6 +1168,37 @@ function ConvertTo-OtterQuerySqlExpression {
     return "@$pName"
 }
 
+function Get-OtterHttpOptionsArguments {
+    param([HttpOptions]$Options, [OtterEnvironment]$Environment)
+
+    $headers = [System.Collections.Generic.List[object]]::new()
+    $withCookies = $null
+    $followRedirects = $null
+    $timeoutSec = $null
+
+    if ($null -ne $Options) {
+        if ($null -ne $Options.Headers) {
+            foreach ($h in $Options.Headers) {
+                $name = Get-OtterText -Expression $h.Name -Environment $Environment
+                $value = Get-OtterText -Expression $h.Value -Environment $Environment
+                $headers.Add([pscustomobject]@{ Name = $name; Value = $value })
+            }
+        }
+        $withCookies = $Options.WithCookies
+        $followRedirects = $Options.FollowRedirects
+        if ($null -ne $Options.TimeoutSeconds) {
+            $timeoutSec = Get-OtterValue -Expression $Options.TimeoutSeconds -Environment $Environment
+        }
+    }
+
+    return [pscustomobject]@{
+        Headers = $headers.ToArray()
+        WithCookies = $withCookies
+        FollowRedirects = $followRedirects
+        TimeoutSeconds = $timeoutSec
+    }
+}
+
 # ===============================================================
 # STATEMENTS
 # ===============================================================
@@ -1572,6 +1603,64 @@ function Invoke-OtterStatement {
             Receive-OtterFileDownload -Url $url -Path $path -Line $Statement.Line
             return
         }
+
+        # get <url> [as json] into <target>                         (D49, D116A)
+        # get json from <url> into <target>
+        'HttpGet' {
+            $url = Get-OtterText -Expression $Statement.Url -Environment $Environment
+            $optArgs = Get-OtterHttpOptionsArguments -Options $Statement.Options -Environment $Environment
+            $result = Invoke-OtterHttpRequest -Method 'GET' -Url $url -AsJson $Statement.AsJson `
+                -Headers $optArgs.Headers -WithCookies $optArgs.WithCookies `
+                -FollowRedirects $optArgs.FollowRedirects -TimeoutSeconds $optArgs.TimeoutSeconds `
+                -Line $Statement.Line
+            $Environment.Set($Statement.Target, $result)
+            return
+        }
+
+        # post <data> [as json] to <url> [into <target>]            (D49, D116A)
+        'HttpPost' {
+            $url = Get-OtterText -Expression $Statement.Url -Environment $Environment
+            $data = Get-OtterValue -Expression $Statement.Data -Environment $Environment
+            $optArgs = Get-OtterHttpOptionsArguments -Options $Statement.Options -Environment $Environment
+            $result = Invoke-OtterHttpRequest -Method 'POST' -Url $url -Data $data -AsJson $Statement.AsJson `
+                -Headers $optArgs.Headers -WithCookies $optArgs.WithCookies `
+                -FollowRedirects $optArgs.FollowRedirects -TimeoutSeconds $optArgs.TimeoutSeconds `
+                -Line $Statement.Line
+            if (-not [string]::IsNullOrEmpty($Statement.Target)) {
+                $Environment.Set($Statement.Target, $result)
+            }
+            return
+        }
+
+        # put <data> [as json] to <url> [into <target>]             (D49, D116A)
+        'HttpPut' {
+            $url = Get-OtterText -Expression $Statement.Url -Environment $Environment
+            $data = Get-OtterValue -Expression $Statement.Data -Environment $Environment
+            $optArgs = Get-OtterHttpOptionsArguments -Options $Statement.Options -Environment $Environment
+            $result = Invoke-OtterHttpRequest -Method 'PUT' -Url $url -Data $data -AsJson $Statement.AsJson `
+                -Headers $optArgs.Headers -WithCookies $optArgs.WithCookies `
+                -FollowRedirects $optArgs.FollowRedirects -TimeoutSeconds $optArgs.TimeoutSeconds `
+                -Line $Statement.Line
+            if (-not [string]::IsNullOrEmpty($Statement.Target)) {
+                $Environment.Set($Statement.Target, $result)
+            }
+            return
+        }
+
+        # delete from <url> [into <target>]                         (D49, D116A)
+        'HttpDelete' {
+            $url = Get-OtterText -Expression $Statement.Url -Environment $Environment
+            $optArgs = Get-OtterHttpOptionsArguments -Options $Statement.Options -Environment $Environment
+            $result = Invoke-OtterHttpRequest -Method 'DELETE' -Url $url `
+                -Headers $optArgs.Headers -WithCookies $optArgs.WithCookies `
+                -FollowRedirects $optArgs.FollowRedirects -TimeoutSeconds $optArgs.TimeoutSeconds `
+                -Line $Statement.Line
+            if (-not [string]::IsNullOrEmpty($Statement.Target)) {
+                $Environment.Set($Statement.Target, $result)
+            }
+            return
+        }
+
 
         # connect database into db                                     (D97)
         'ConnectDb' {
