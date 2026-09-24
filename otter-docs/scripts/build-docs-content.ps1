@@ -1,0 +1,127 @@
+# build-docs-content.ps1 - one-off migration: writes the docs sidebar module
+# (pages/_docs.ot) and turns the legacy Node documentation pages
+# (scripts/legacy-pages.json, from export-legacy-pages.mjs) into Otter-authored
+# pages in the new design. The generated .ot files are the source of truth.
+. (Join-Path $PSScriptRoot 'new-docs-page.ps1')
+$legacy = [System.IO.File]::ReadAllText((Join-Path $PSScriptRoot 'legacy-pages.json')) | ConvertFrom-Json
+
+# --- sidebar --------------------------------------------------------------
+$sections = @(
+    @('Getting Started', @(
+        @('home', 'Overview'), @('welcome', 'Introduction'), @('installation', 'Installation'),
+        @('first-program', 'Your first program'), @('hello', 'Hello, Otter!'), @('running-files', 'Running .ot files'),
+        @('repl', 'The REPL'), @('cli', 'Command line'))),
+    @('Language Guide', @(
+        @('values', 'Values and variables'), @('input-output', 'Input and output'), @('conditions', 'Conditions'),
+        @('loops', 'Loops'), @('lists', 'Lists'), @('functions', 'Functions'), @('objects', 'Objects and properties'),
+        @('files', 'Files and folders'), @('data', 'CSV and downloads'), @('error-handling', 'Error handling'))),
+    @('Language Reference', @(
+        @('gone', 'gone'), @('operators', 'Operators'), @('property-access', 'Property access'), @('strings', 'Strings'),
+        @('collections', 'Collections'), @('files-folders', 'Files'), @('folders', 'Folders'), @('try', 'try and otherwise'),
+        @('json', 'JSON'), @('random', 'Random'), @('dates', 'Dates and time'), @('scope', 'Scope'),
+        @('diagnostics', 'Diagnostic output'), @('reference', 'Reference index'))),
+    @('Platform', @(@('networking', 'Networking'), @('security', 'Cryptography and secrets'))),
+    @('Examples', @(
+        @('examples', 'All examples'), @('example-hello', 'Hello World'), @('example-input', 'User input'),
+        @('example-conditions', 'Conditions'), @('example-counting', 'Counting'), @('example-lists', 'Lists'),
+        @('example-discovery', 'File discovery'), @('example-organizer', 'File organizer'),
+        @('example-finding', 'Finding files'), @('example-errors', 'Handling errors'))),
+    @('Language Design', @(
+        @('design-readable', 'Readable like English'), @('structural-words', 'Structural words'),
+        @('properties-operations', 'Properties vs operations'), @('periods', 'Period and block rules'),
+        @('philosophy', 'Philosophy'))),
+    @('More', @(@('download', 'Download'), @('release', 'Release status'), @('studio', 'Studio preview')))
+)
+
+function Get-SideName([string]$slug) {
+    return 'side' + (($slug -split '-' | ForEach-Object { $_.Substring(0, 1).ToUpperInvariant() + $_.Substring(1) }) -join '')
+}
+function Q([string]$t) { '"' + $t.Replace('\', '\').Replace('"', '\"') + '"' }
+
+$linkStyle = 'padding: 8px 12px; border-left: 3px solid transparent; border-radius: 4px; display: block;'
+$out = [System.Collections.Generic.List[string]]::new()
+$out.Add('# _docs.ot - the documentation sidebar, shared by every docs page.')
+$out.Add('# Generated once by scripts/build-docs-content.ps1; edit here directly afterwards.')
+$out.Add('# A docs page marks itself as current by assigning that link''s customstyle.')
+$out.Add('')
+$groupNames = @()
+$g = 0
+foreach ($section in $sections) {
+    $g++
+    $headName = "sideGroupHead$g"
+    $firstSlug = $section[1][0][0]
+    $firstUrl = if ($firstSlug -eq 'home') { '/' } else { "/$firstSlug/" }
+    $out.Add("$headName is a link with text $(Q $section[0]), url $(Q $firstUrl), foreground ""#0f1f36"", size 13, weight 700, customstyle ""padding: 6px 12px; display: block;""")
+    $members = @($headName)
+    foreach ($entry in $section[1]) {
+        $name = if ($entry[0] -eq 'home') { 'sideHome' } else { Get-SideName $entry[0] }
+        $url = if ($entry[0] -eq 'home') { '/' } else { "/$($entry[0])/" }
+        $out.Add("$name is a link with text $(Q $entry[1]), url $(Q $url), foreground ""#4a5b75"", size 14, customstyle $(Q $linkStyle)")
+        $members += $name
+    }
+    $groupName = "sideGroup$g"
+    $out.Add("$groupName is a column with spacing 2")
+    $out.Add("put $($members -join ', ') in $groupName")
+    $out.Add('')
+    $groupNames += $groupName
+}
+$out.Add('helpTitle is a text with value "Need help?", size 14, weight 700, foreground "#0f1f36"')
+$out.Add('helpBody is a text with value "Ask a question or report a problem on GitHub.", size 13, foreground "#4a5b75", lineheight "1.45"')
+$out.Add('helpLink is a link with text "Open an issue", url "https://github.com/Heavens-Lava/otterPS/issues", foreground "#2563eb", size 13, weight 600')
+$out.Add('helpCard is a column with spacing 8, background "#f4f7fb", border "1px solid #e3e9f2", radius 12, padding 16')
+$out.Add('put helpTitle, helpBody, helpLink in helpCard')
+$out.Add('')
+$out.Add('docsSidebar is a column with spacing 22, background "#ffffff", padding "24px 12px 24px 20px", customstyle "box-sizing: border-box; width: 248px; flex: 0 0 248px; border-right: 1px solid #e3e9f2; position: sticky; top: 64px; align-self: flex-start; height: calc(100vh - 64px); overflow-y: auto;"')
+$out.Add("put $(($groupNames + 'helpCard') -join ', ') in docsSidebar")
+$sidebarPath = Join-Path $PSScriptRoot '..\pages\_docs.ot'
+[System.IO.File]::WriteAllText($sidebarPath, (($out -join "`n") + "`n"), (New-Object System.Text.UTF8Encoding($false)))
+Write-Host "Wrote $sidebarPath"
+
+# --- legacy pages ---------------------------------------------------------
+foreach ($prop in $legacy.pages.PSObject.Properties) {
+    $slug = $prop.Name
+    $page = $prop.Value
+    $items = [System.Collections.Generic.List[object]]::new()
+    $items.Add((Item h1 $page.title))
+    $hasLead = $false
+    foreach ($i in $page.items) {
+        if ($i.k -eq 'lead') { $hasLead = $true }
+        $items.Add((Item $i.k $i.t $(if ($i.u) { $i.u } else { '' })))
+    }
+    if (-not $hasLead) { $items.Insert(1, (Item lead "$($page.title) - a complete Otter example you can run and change.")) }
+    if ($slug -like 'example-*') { $items.Add((Item link 'All examples' '/examples/')) }
+    New-OtterDocsPage -Slug $slug -Title $page.title -Side (Get-SideName $slug) -Items $items
+}
+
+# --- collapse the sidebar groups a page is not in ------------------------
+# Only the current page's group is expanded, so the highlighted link is
+# always in view without any script. Idempotent: the block is marked.
+$marker = '# Sidebar: only the current group is expanded.'
+foreach ($page in Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot '..\pages') -Filter '*.ot' | Where-Object { -not $_.Name.StartsWith('_') }) {
+    $text = [System.IO.File]::ReadAllText($page.FullName)
+    if (-not $text.Contains('use "_docs.ot"')) { continue }
+    $lines = [System.Collections.Generic.List[string]]($text -split "`n")
+    # drop any earlier collapse block (marker line + its hide lines)
+    for ($i = $lines.Count - 1; $i -ge 0; $i--) {
+        if ($lines[$i] -eq $marker) {
+            $lines.RemoveAt($i)
+            while ($i -lt $lines.Count -and $lines[$i] -like 'customstyle of side* is "display: none;"') { $lines.RemoveAt($i) }
+        }
+    }
+    $activeIndex = -1
+    $activeName = $null
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        if ($lines[$i] -match '^customstyle of (side\w+) is "padding: 8px 12px; border-left: 3px solid #2563eb') { $activeIndex = $i; $activeName = $Matches[1]; break }
+    }
+    if ($activeIndex -lt 0) { continue }
+    $hide = [System.Collections.Generic.List[string]]::new()
+    foreach ($section in $sections) {
+        $names = @($section[1] | ForEach-Object { if ($_[0] -eq 'home') { 'sideHome' } else { Get-SideName $_[0] } })
+        if ($names -contains $activeName) { continue }
+        foreach ($n in $names) { $hide.Add("customstyle of $n is ""display: none;""") }
+    }
+    $block = @($marker) + $hide
+    $lines.InsertRange($activeIndex + 1, [string[]]$block)
+    [System.IO.File]::WriteAllText($page.FullName, ($lines -join "`n"), (New-Object System.Text.UTF8Encoding($false)))
+}
+Write-Host 'Collapsed non-current sidebar groups on every docs page.'

@@ -1,0 +1,74 @@
+# Otter website - CSV and downloads
+# Authored in Otter. Scaffolded by scripts/new-docs-page.ps1, now edited here directly.
+
+use "_shell.ot"
+use "_docs.ot"
+
+app is a page with title "CSV and downloads - Otter Documentation", hideheader true, scroll true, width full, background "#f4f7fb", foreground "#0f1f36", spacing 0, padding 0
+
+customstyle of navDocs is "padding: 22px 0; border-bottom: 2px solid #4d8dff; color: #ffffff;"
+customstyle of sideData is "padding: 8px 12px; border-left: 3px solid #2563eb; border-radius: 4px; display: block; background: #e6efff; color: #1d4ed8; font-weight: 600;"
+# Sidebar: only the current group is expanded.
+customstyle of sideHome is "display: none;"
+customstyle of sideWelcome is "display: none;"
+customstyle of sideInstallation is "display: none;"
+customstyle of sideFirstProgram is "display: none;"
+customstyle of sideHello is "display: none;"
+customstyle of sideRunningFiles is "display: none;"
+customstyle of sideRepl is "display: none;"
+customstyle of sideCli is "display: none;"
+customstyle of sideGone is "display: none;"
+customstyle of sideOperators is "display: none;"
+customstyle of sidePropertyAccess is "display: none;"
+customstyle of sideStrings is "display: none;"
+customstyle of sideCollections is "display: none;"
+customstyle of sideFilesFolders is "display: none;"
+customstyle of sideFolders is "display: none;"
+customstyle of sideTry is "display: none;"
+customstyle of sideJson is "display: none;"
+customstyle of sideRandom is "display: none;"
+customstyle of sideDates is "display: none;"
+customstyle of sideScope is "display: none;"
+customstyle of sideDiagnostics is "display: none;"
+customstyle of sideReference is "display: none;"
+customstyle of sideNetworking is "display: none;"
+customstyle of sideSecurity is "display: none;"
+customstyle of sideExamples is "display: none;"
+customstyle of sideExampleHello is "display: none;"
+customstyle of sideExampleInput is "display: none;"
+customstyle of sideExampleConditions is "display: none;"
+customstyle of sideExampleCounting is "display: none;"
+customstyle of sideExampleLists is "display: none;"
+customstyle of sideExampleDiscovery is "display: none;"
+customstyle of sideExampleOrganizer is "display: none;"
+customstyle of sideExampleFinding is "display: none;"
+customstyle of sideExampleErrors is "display: none;"
+customstyle of sideDesignReadable is "display: none;"
+customstyle of sideStructuralWords is "display: none;"
+customstyle of sidePropertiesOperations is "display: none;"
+customstyle of sidePeriods is "display: none;"
+customstyle of sidePhilosophy is "display: none;"
+customstyle of sideDownload is "display: none;"
+customstyle of sideRelease is "display: none;"
+customstyle of sideStudio is "display: none;"
+
+b1 is a text with value "CSV and downloads", size 40, weight 800, foreground "#0b1d36", letterspacing "-0.03em", lineheight "1.1"
+b2 is a text with value "Otter reads and writes RFC 4180 CSV natively. Each column header becomes a property of a row object.", size 18, foreground "#3a4d6b", lineheight "1.55"
+b3 is a text with value "rawCsv is \"id,city,temp\\n101,Seattle,68\\n102,Portland,72\\n103,Spokane,75\"\n\nconvert rawCsv from csv into records\n\nsay \"Loaded\" length of records \"weather records:\"\neach row in records\n    say \"  City:\" city of row \"High:\" temp of row\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b4 is a text with value "Loaded 3 weather records:\n  City: Seattle High: 68\n  City: Portland High: 72\n  City: Spokane High: 75", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto;"
+b5 is a text with value "Reading and writing CSV files", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b6 is a text with value "filePath is \"weather.csv\"\n\nwrite csv records to filePath\nread csv from filePath into loadedData\nsay \"Verified\" length of loadedData \"rows read from disk.\"\n\ndelete file filePath", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b7 is a text with value "Downloading files", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b8 is a text with value "download streams a file from an HTTP or HTTPS address to a local path:", size 16, foreground "#3a4d6b", lineheight "1.6"
+b9 is a text with value "url is \"https://httpbin.org/robots.txt\"\ndest is \"robots.txt\"\n\ndownload file from url to dest\n\nif file dest exists\n    read dest into text\n    say \"Downloaded\" length of text \"bytes.\"\n    delete file dest\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b10 is a text with value "Built-in download safety", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b11 is a text with value "Otter never silently overwrites an existing file - the download stops before making any network request. Data streams into a hidden temporary file and is renamed into place only after every byte arrives. If the connection drops or the transfer is truncated, the partial file is removed.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b12 is a link with text "Next: networking", url "/networking/", foreground "#2563eb", weight 600, size 15
+
+docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"
+put b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12 in docsMain
+docsBody is a row with align top, spacing 0, width full, customstyle "align-items: stretch;"
+put docsSidebar, docsMain in docsBody
+
+put topBar, docsBody, siteFooter in app
+show app

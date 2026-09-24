@@ -1,226 +1,88 @@
-# Otter Documentation - V1 Language Reference
+# Otter website - Reference
+# Authored in Otter. Scaffolded by scripts/new-docs-page.ps1, now edited here directly.
 
-app is a page
-    title is "Otter V1 Language Reference"
-    background is "#f8fafc"
-    spacing is 18
-    padding is 20
-.
+use "_shell.ot"
+use "_docs.ot"
 
-brand is a text
-    value is "Otter Docs"
-    size is 26
-    weight is "700"
-    foreground is "#0f172a"
-.
+app is a page with title "Reference - Otter Documentation", hideheader true, scroll true, width full, background "#f4f7fb", foreground "#0f1f36", spacing 0, padding 0
 
-docsLink is a link
-    text is "Docs"
-    url is "/"
-.
+customstyle of navReference is "padding: 22px 0; border-bottom: 2px solid #4d8dff; color: #ffffff;"
+customstyle of sideReference is "padding: 8px 12px; border-left: 3px solid #2563eb; border-radius: 4px; display: block; background: #e6efff; color: #1d4ed8; font-weight: 600;"
+# Sidebar: only the current group is expanded.
+customstyle of sideHome is "display: none;"
+customstyle of sideWelcome is "display: none;"
+customstyle of sideInstallation is "display: none;"
+customstyle of sideFirstProgram is "display: none;"
+customstyle of sideHello is "display: none;"
+customstyle of sideRunningFiles is "display: none;"
+customstyle of sideRepl is "display: none;"
+customstyle of sideCli is "display: none;"
+customstyle of sideValues is "display: none;"
+customstyle of sideInputOutput is "display: none;"
+customstyle of sideConditions is "display: none;"
+customstyle of sideLoops is "display: none;"
+customstyle of sideLists is "display: none;"
+customstyle of sideFunctions is "display: none;"
+customstyle of sideObjects is "display: none;"
+customstyle of sideFiles is "display: none;"
+customstyle of sideData is "display: none;"
+customstyle of sideErrorHandling is "display: none;"
+customstyle of sideNetworking is "display: none;"
+customstyle of sideSecurity is "display: none;"
+customstyle of sideExamples is "display: none;"
+customstyle of sideExampleHello is "display: none;"
+customstyle of sideExampleInput is "display: none;"
+customstyle of sideExampleConditions is "display: none;"
+customstyle of sideExampleCounting is "display: none;"
+customstyle of sideExampleLists is "display: none;"
+customstyle of sideExampleDiscovery is "display: none;"
+customstyle of sideExampleOrganizer is "display: none;"
+customstyle of sideExampleFinding is "display: none;"
+customstyle of sideExampleErrors is "display: none;"
+customstyle of sideDesignReadable is "display: none;"
+customstyle of sideStructuralWords is "display: none;"
+customstyle of sidePropertiesOperations is "display: none;"
+customstyle of sidePeriods is "display: none;"
+customstyle of sidePhilosophy is "display: none;"
+customstyle of sideDownload is "display: none;"
+customstyle of sideRelease is "display: none;"
+customstyle of sideStudio is "display: none;"
 
-examplesLink is a link
-    text is "Examples"
-    url is "/examples/"
-.
+b1 is a text with value "Otter language reference", size 40, weight 800, foreground "#0b1d36", letterspacing "-0.03em", lineheight "1.1"
+b2 is a text with value "An index of what Otter supports. Unsupported or experimental syntax is intentionally left out.", size 18, foreground "#3a4d6b", lineheight "1.55"
+b3 is a text with value "Values and variables", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b4 is a text with value "Text, numbers, booleans, lists, objects, bytes, and gone. Assignment with is; arithmetic with and, minus, times, divided by and make; add and remove.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b5 is a link with text "Read values and variables", url "/values/", foreground "#2563eb", weight 600, size 15
+b6 is a text with value "Conditions, loops, and functions", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b7 is a text with value "if, otherwise, while, repeat, count, each, to, return, and stop. Comparison words: is, is not, is greater than, is at least, is less than, is at most.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b8 is a link with text "Read conditions", url "/conditions/", foreground "#2563eb", weight 600, size 15
+b9 is a link with text "Read loops", url "/loops/", foreground "#2563eb", weight 600, size 15
+b10 is a link with text "Read functions", url "/functions/", foreground "#2563eb", weight 600, size 15
+b11 is a text with value "Lists, objects, files, and folders", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b12 is a text with value "Lists and collections, property access with of, objects with has, JSON, CSV, file discovery, and explicit file and folder operations.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b13 is a link with text "Read lists", url "/lists/", foreground "#2563eb", weight 600, size 15
+b14 is a link with text "Read objects and properties", url "/objects/", foreground "#2563eb", weight 600, size 15
+b15 is a link with text "Read files and folders", url "/files/", foreground "#2563eb", weight 600, size 15
+b16 is a link with text "Read CSV and downloads", url "/data/", foreground "#2563eb", weight 600, size 15
+b17 is a text with value "Networking, cryptography, and secrets", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b18 is a text with value "WebSockets, TCP, UDP and TLS; hashing, signing, authenticated encryption and password hashing; and the operating-system credential vault.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b19 is a link with text "Read networking", url "/networking/", foreground "#2563eb", weight 600, size 15
+b20 is a link with text "Read cryptography and secrets", url "/security/", foreground "#2563eb", weight 600, size 15
+b21 is a text with value "Desktop UI, events, and layout", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b22 is a text with value "Create windows and controls, configure them with has, put resources into windows and row or column containers, handle events with when, and show a window:", size 16, foreground "#3a4d6b", lineheight "1.6"
+b23 is a text with value "create button into saveButton\nwhen saveButton is clicked\n    say \"Saved\"\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b24 is a text with value "State, derived values, and watchers", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b25 is a text with value "Otter supports state, derive, and when a state value changes. Derivations update from their dependencies, and watchers run only when a value actually changes.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b26 is a text with value "Web applications", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b27 is a text with value "otter web compiles a program into a standalone HTML, CSS, and JavaScript application. Pages, rows, columns, cards, links, buttons, text, images and more are declared with is a, and drag and drop is available with draggable and accepts drops.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b28 is a text with value "Errors and diagnostics", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b29 is a text with value "Use try and otherwise for recoverable work. Otter also provides log, warn, and error for diagnostic output. Every error is a readable Otter message that names the line - never a raw stack trace.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b30 is a link with text "Read conditions and errors", url "/conditions/", foreground "#2563eb", weight 600, size 15
 
-downloadLink is a link
-    text is "Download"
-    url is "/download/"
-.
+docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"
+put b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15, b16, b17, b18, b19, b20, b21, b22, b23, b24, b25, b26, b27, b28, b29, b30 in docsMain
+docsBody is a row with align top, spacing 0, width full, customstyle "align-items: stretch;"
+put docsSidebar, docsMain in docsBody
 
-header is a row
-    spacing is 18
-    padding is 16
-    background is "#ffffff"
-    border is "1px solid #e2e8f0"
-    radius is 10
-.
-
-put brand, docsLink, examplesLink, downloadLink in header
-
-heading is a text
-    value is "Otter V1 language reference"
-    size is 34
-    weight is "700"
-    foreground is "#0f172a"
-.
-
-intro is a text
-    value is "This index covers the language and desktop UI surface certified for Otter V1. Unsupported experimental syntax is intentionally left out."
-    foreground is "#475569"
-.
-
-valuesTitle is a text
-    value is "Values and variables"
-    size is 21
-    weight is "700"
-    foreground is "#0f172a"
-.
-
-valuesBody is a text
-    value is "Text, numbers, booleans, lists, things, gone, and assignment with is."
-    foreground is "#475569"
-.
-
-valuesLink is a link
-    text is "Read values and types"
-    url is "/values/"
-.
-
-valuesCard is a card
-    background is "#ffffff"
-    padding is 16
-    spacing is 7
-    radius is 10
-.
-
-put valuesTitle, valuesBody, valuesLink in valuesCard
-
-logicTitle is a text
-    value is "Conditions, loops, and functions"
-    size is 21
-    weight is "700"
-    foreground is "#0f172a"
-.
-
-logicBody is a text
-    value is "if, otherwise, while, repeat, count, each, to, return, and stop."
-    foreground is "#475569"
-.
-
-conditionsLink is a link
-    text is "Read conditions"
-    url is "/conditions/"
-.
-
-loopsLink is a link
-    text is "Read loops"
-    url is "/loops/"
-.
-
-logicCard is a card
-    background is "#eff6ff"
-    padding is 16
-    spacing is 7
-    radius is 10
-.
-
-put logicTitle, logicBody, conditionsLink, loopsLink in logicCard
-
-dataTitle is a text
-    value is "Lists, objects, files, and folders"
-    size is 21
-    weight is "700"
-    foreground is "#0f172a"
-.
-
-dataBody is a text
-    value is "Lists and collections, property access, things, JSON, file discovery, and explicit file and folder operations."
-    foreground is "#475569"
-.
-
-objectsLink is a link
-    text is "Read objects and properties"
-    url is "/objects/"
-.
-
-filesLink is a link
-    text is "Read files and folders"
-    url is "/files/"
-.
-
-dataCard is a card
-    background is "#ecfdf5"
-    padding is 16
-    spacing is 7
-    radius is 10
-.
-
-put dataTitle, dataBody, objectsLink, filesLink in dataCard
-
-uiTitle is a text
-    value is "Desktop UI, events, and layout"
-    size is 21
-    weight is "700"
-    foreground is "#0f172a"
-.
-
-uiBody is a text
-    value is "Create windows and controls, configure them with has, put resources into windows and row or column containers, handle events, and show a window."
-    foreground is "#475569"
-.
-
-uiExample is a text
-    value is "create button into saveButton\nwhen saveButton is clicked\n    say \"Saved\"\n."
-    foreground is "#a7f3d0"
-    background is "#0f172a"
-    padding is 14
-    radius is 8
-.
-
-uiCard is a card
-    background is "#f5f3ff"
-    padding is 16
-    spacing is 8
-    radius is 10
-.
-
-put uiTitle, uiBody, uiExample in uiCard
-
-stateTitle is a text
-    value is "State, derived values, and watchers"
-    size is 21
-    weight is "700"
-    foreground is "#0f172a"
-.
-
-stateBody is a text
-    value is "V1 supports state, derive, and when a state value changes. Derivations update from their dependencies and watchers run only when a value actually changes."
-    foreground is "#475569"
-.
-
-stateCard is a card
-    background is "#fff7ed"
-    padding is 16
-    spacing is 8
-    radius is 10
-.
-
-put stateTitle, stateBody in stateCard
-
-errorsTitle is a text
-    value is "Errors and diagnostics"
-    size is 21
-    weight is "700"
-    foreground is "#0f172a"
-.
-
-errorsBody is a text
-    value is "Use try and otherwise for recoverable work. Otter also provides log, warn, and error for diagnostic output."
-    foreground is "#475569"
-.
-
-errorsCard is a card
-    background is "#fef2f2"
-    padding is 16
-    spacing is 8
-    radius is 10
-.
-
-put errorsTitle, errorsBody in errorsCard
-
-cards is a column
-    spacing is 12
-.
-
-put valuesCard, logicCard, dataCard, uiCard, stateCard, errorsCard in cards
-
-main is a column
-    spacing is 16
-    padding is 26
-.
-
-put heading, intro, cards in main
-put header, main in app
+put topBar, docsBody, siteFooter in app
 show app

@@ -1,268 +1,115 @@
-# Otter Documentation - Download
-# This page is authored in Otter and compiled with: otter web pages\download.ot
+# Otter website - Download
+# Authored in Otter and compiled with the site build (build-otter-pages.ps1).
+# Release facts come from release-data.json through the {{...}} tokens, so this
+# page can only say what is true: the installer is not published yet.
 
-app is a page
-    title is "Download Otter"
-    background is "#f8fafc"
-    spacing is 20
-    padding is 20
-.
+use "_shell.ot"
 
-mascot is a image
-    source is "/static/images/otter-explorer-icon.png"
-    alt is "Otter mascot"
-    width is 58
-    height is 58
-.
+app is a page with title "Download Otter", hideheader true, scroll true, width full, background "#f4f7fb", foreground "#0f1f36", spacing 0, padding 0
 
-brand is a text
-    value is "Otter"
-    size is 28
-    weight is "700"
-    foreground is "#0f172a"
-.
+customstyle of navDownload is "padding: 22px 0; border-bottom: 2px solid #4d8dff; color: #ffffff;"
 
-tagline is a text
-    value is "Simple. Powerful. Yours."
-    foreground is "#64748b"
-.
+# ==========================================
+# 1. HERO
+# ==========================================
 
-docsLink is a link
-    text is "Docs"
-    url is "/"
-.
+heroEyebrow is a text with value "{{RELEASE_CHANNEL}} {{RELEASE_VERSION}}", size 13, weight 700, foreground "#7fb0ff", letterspacing "0.08em"
+heroTitle is a text with value "Download Otter", size 60, weight 800, foreground "#ffffff", letterspacing "-0.03em", lineheight "1.05"
+heroLead is a text with value "Get Otter and start building today.", size 20, foreground "#dbe6f5"
+heroNote is a text with value "Free to use, on Windows, with the PowerShell that is already on your machine.", size 15, foreground "#b7c4d8"
+heroGetSource is a link with text "Get Otter from GitHub", url "https://github.com/Heavens-Lava/otterPS", foreground "#ffffff", weight 700, size 17, background "#2563eb", radius 12, customstyle "padding: 16px 28px; display: inline-block;"
+heroInstaller is a text with value "Windows installer: {{INSTALLER_STATUS}}", size 13, foreground "#f5c46b"
+heroActions is a row with spacing 18, align middle, margin "8px 0 0 0"
+put heroGetSource, heroInstaller in heroActions
+heroCopy is a column with spacing 14, flex 1
+put heroEyebrow, heroTitle, heroLead, heroNote, heroActions in heroCopy
+heroMascot is a image with source "/static/images/otter-explorer-mascot.png", alt "The Otter mascot", height 250
+heroBody is a row with spread, align middle, spacing 40, width full, padding "48px 56px 84px", customstyle "box-sizing: border-box; max-width: 1240px; margin: 0 auto;"
+put heroCopy, heroMascot in heroBody
+hero is a column with width full, background "linear-gradient(180deg, #0b1d36 0%, #10305a 100%)", spacing 0
+put topBar, heroBody in hero
 
-examplesLink is a link
-    text is "Examples"
-    url is "/examples/"
-.
+# ==========================================
+# 2. PLATFORM TABS
+# ==========================================
 
-header is a row
-    spacing is 18
-    padding is 16
-    background is "#ffffff"
-    border is "1px solid #e2e8f0"
-    radius is 10
-.
+tabWindows is a text with value "Windows", size 16, weight 700, foreground "#1d4ed8", background "#e6efff", radius 10, border "2px solid #4d8dff", flex 1, customstyle "text-align: center; padding: 14px;"
+tabMac is a text with value "macOS - not yet", size 16, weight 600, foreground "#8492a8", flex 1, customstyle "text-align: center; padding: 14px;"
+tabLinux is a text with value "Linux - not yet", size 16, weight 600, foreground "#8492a8", flex 1, customstyle "text-align: center; padding: 14px;"
+tabSource is a link with text "Source", url "https://github.com/Heavens-Lava/otterPS", foreground "#0f1f36", weight 600, size 16, flex 1, customstyle "text-align: center; padding: 14px;"
+tabs is a row with spacing 14, align middle, width full, background "#ffffff", border "1px solid #e3e9f2", radius 16, padding 10, shadow "0 8px 24px rgba(11,29,54,0.10)", customstyle "box-sizing: border-box; margin-top: -30px; position: relative;"
+put tabWindows, tabMac, tabLinux, tabSource in tabs
 
-put mascot, brand, tagline, docsLink, examplesLink in header
+# ==========================================
+# 3. WINDOWS DOWNLOAD + REQUIREMENTS
+# ==========================================
 
-eyebrow is a text
-    value is "GET STARTED WITH OTTER"
-    weight is "700"
-    foreground is "#2563eb"
-.
+dlTitle is a text with value "Windows download", size 26, weight 800, foreground "#0f1f36", letterspacing "-0.02em"
+dlStatus is a text with value "{{INSTALLER_STATUS}}", size 18, weight 700, foreground "#b45309"
+dlBody is a text with value "A signed installer will appear here when it is published. Until then, run Otter straight from the project folder - it needs nothing else installed.", size 15, foreground "#4a5b75", lineheight "1.55"
+dlGuide is a link with text "Read the installation guide", url "/installation/", foreground "#2563eb", weight 600, size 15
+dlRelease is a link with text "View release readiness", url "/release/", foreground "#2563eb", weight 600, size 15
+dlLinks is a row with spacing 24, align middle
+put dlGuide, dlRelease in dlLinks
+dlCard is a card with background "#ffffff", radius 16, border "1px solid #e3e9f2", padding 28, spacing 14, flex 1.55
+put dlTitle, dlStatus, dlBody, dlLinks in dlCard
 
-heading is a text
-    value is "Run your first Otter program"
-    size is 36
-    weight is "700"
-    foreground is "#0f172a"
-.
+reqTitle is a text with value "System requirements", size 26, weight 800, foreground "#0f1f36", letterspacing "-0.02em"
+reqOsLabel is a text with value "Operating system", size 13, weight 700, foreground "#0f1f36"
+reqOs is a text with value "Windows 10 or Windows 11, 64-bit", size 14, foreground "#4a5b75"
+reqShellLabel is a text with value "Shell", size 13, weight 700, foreground "#0f1f36"
+reqShell is a text with value "Windows PowerShell 5.1 (built into Windows)", size 14, foreground "#4a5b75"
+reqRightsLabel is a text with value "Privileges", size 13, weight 700, foreground "#0f1f36"
+reqRights is a text with value "A standard user account. No administrator rights.", size 14, foreground "#4a5b75"
+reqDepsLabel is a text with value "Additional software", size 13, weight 700, foreground "#0f1f36"
+reqDeps is a text with value "None. A browser is only needed for web applications.", size 14, foreground "#4a5b75"
+reqCard is a card with background "#ffffff", radius 16, border "1px solid #e3e9f2", padding 28, spacing 8, flex 1
+put reqTitle, reqOsLabel, reqOs, reqShellLabel, reqShell, reqRightsLabel, reqRights, reqDepsLabel, reqDeps in reqCard
 
-intro is a text
-    value is "Otter currently ships as a Windows-friendly project folder with its launcher, examples, tests, and editor support."
-    size is 18
-    foreground is "#475569"
-.
+topCards is a row with spacing 24, align top, width full
+put dlCard, reqCard in topCards
 
-releaseTitle is a text
-    value is "Current release: {{RELEASE_VERSION}}"
-    size is 22
-    weight is "700"
-    foreground is "#0f172a"
-.
+# ==========================================
+# 4. RELEASE DETAILS
+# ==========================================
 
-releaseBody is a text
-    value is "{{RELEASE_CHANNEL}}. {{WINDOWS_REQUIREMENTS}}"
-    foreground is "#475569"
-.
+relTitle is a text with value "Release details", size 26, weight 800, foreground "#0f1f36", letterspacing "-0.02em"
+relVersion is a text with value "Version: {{RELEASE_VERSION}} ({{RELEASE_CHANNEL}})", size 15, foreground "#4a5b75"
+relSize is a text with value "Installer size: {{INSTALLER_SIZE}}", size 15, foreground "#4a5b75"
+relDate is a text with value "Release date: {{RELEASE_DATE}}", size 15, foreground "#4a5b75"
+relSha is a text with value "SHA-256: {{SHA256}}", size 15, foreground "#4a5b75"
+relNotes is a text with value "Release notes: {{RELEASE_NOTES_STATUS}}", size 15, foreground "#4a5b75"
+relCard is a card with background "#ffffff", radius 16, border "1px solid #e3e9f2", padding 28, spacing 8, width full
+put relTitle, relVersion, relSize, relDate, relSha, relNotes in relCard
 
-releaseCard is a card
-    background is "#ecfdf5"
-    padding is 22
-    spacing is 8
-    radius is 12
-.
+# ==========================================
+# 5. RUN FROM THE PROJECT FOLDER
+# ==========================================
 
-put releaseTitle, releaseBody in releaseCard
+runTitle is a text with value "Run from the project folder", size 26, weight 800, foreground "#0f1f36", letterspacing "-0.02em"
+runBody is a text with value "Open Windows PowerShell in the folder that contains otter.cmd, then run an example:", size 15, foreground "#4a5b75"
+runCommand is a text with value ".\\otter.cmd examples\\hello.ot", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px;"
+runResult is a text with value "Hello, Otter!", size 14, foreground "#a5e3b5", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px;"
+runCard is a card with background "#ffffff", radius 16, border "1px solid #e3e9f2", padding 28, spacing 12, flex 1.55
+put runTitle, runBody, runCommand, runResult in runCard
 
-installerTitle is a text
-    value is "Windows installer"
-    size is 22
-    weight is "700"
-    foreground is "#0f172a"
-.
+nextTitle is a text with value "Next steps", size 26, weight 800, foreground "#0f1f36", letterspacing "-0.02em"
+nextOne is a link with text "1. Install Otter", url "/installation/", foreground "#2563eb", size 15
+nextTwo is a link with text "2. Write your first program", url "/first-program/", foreground "#2563eb", size 15
+nextThree is a link with text "3. Explore the documentation", url "/", foreground "#2563eb", size 15
+nextFour is a link with text "4. Try the examples", url "/examples/", foreground "#2563eb", size 15
+nextCard is a card with background "#ffffff", radius 16, border "1px solid #e3e9f2", padding 28, spacing 12, flex 1
+put nextTitle, nextOne, nextTwo, nextThree, nextFour in nextCard
 
-installerStatus is a text
-    value is "{{INSTALLER_STATUS}}"
-    weight is "700"
-    foreground is "#b45309"
-.
+bottomCards is a row with spacing 24, align top, width full
+put runCard, nextCard in bottomCards
 
-installerAction is a text
-    value is "A prominent download button will appear here when the signed installer is published."
-    foreground is "#475569"
-.
+# ==========================================
+# 6. PAGE
+# ==========================================
 
-installerCard is a card
-    background is "#fffbeb"
-    padding is 18
-    spacing is 8
-    radius is 10
-.
+content is a column with spacing 24, width full, padding "0 56px", customstyle "box-sizing: border-box; max-width: 1240px; margin: 0 auto;"
+put tabs, topCards, relCard, bottomCards in content
 
-put installerTitle, installerStatus, installerAction in installerCard
-
-detailsTitle is a text
-    value is "Release details"
-    size is 20
-    weight is "700"
-    foreground is "#0f172a"
-.
-
-requirementsDetail is a text
-    value is "Windows requirements: {{WINDOWS_REQUIREMENTS}}"
-    foreground is "#475569"
-.
-
-sizeDetail is a text
-    value is "Installer size: {{INSTALLER_SIZE}}"
-    foreground is "#475569"
-.
-
-dateDetail is a text
-    value is "Release date: {{RELEASE_DATE}}"
-    foreground is "#475569"
-.
-
-checksumDetail is a text
-    value is "SHA-256: {{SHA256}}"
-    foreground is "#475569"
-.
-
-notesDetail is a text
-    value is "Release notes: {{RELEASE_NOTES_STATUS}}"
-    foreground is "#475569"
-.
-
-releaseDetails is a card
-    background is "#ffffff"
-    padding is 18
-    spacing is 6
-    radius is 10
-.
-
-releaseLink is a link
-    text is "View release readiness"
-    url is "/release/"
-.
-
-put detailsTitle, requirementsDetail, sizeDetail, dateDetail, checksumDetail, notesDetail, releaseLink in releaseDetails
-
-stepOneTitle is a text
-    value is "1. Open the Otter folder"
-    size is 20
-    weight is "700"
-    foreground is "#0f172a"
-.
-
-stepOneBody is a text
-    value is "Use a PowerShell window in the folder containing otter.cmd."
-    foreground is "#475569"
-.
-
-stepOne is a card
-    background is "#ffffff"
-    padding is 18
-    spacing is 8
-    radius is 10
-.
-
-put stepOneTitle, stepOneBody in stepOne
-
-stepTwoTitle is a text
-    value is "2. Run an example"
-    size is 20
-    weight is "700"
-    foreground is "#0f172a"
-.
-
-runCommand is a text
-    value is ".\\otter.cmd examples\\hello.ot"
-    foreground is "#a7f3d0"
-    background is "#0f172a"
-    padding is 14
-    radius is 8
-.
-
-stepTwo is a card
-    background is "#ffffff"
-    padding is 18
-    spacing is 10
-    radius is 10
-.
-
-put stepTwoTitle, runCommand in stepTwo
-
-stepThreeTitle is a text
-    value is "3. Start building"
-    size is 20
-    weight is "700"
-    foreground is "#0f172a"
-.
-
-stepThreeBody is a text
-    value is "Change an included example or create a new .ot file. The documentation walks through the language step by step."
-    foreground is "#475569"
-.
-
-docsButton is a link
-    text is "Write your first program"
-    url is "/first-program/"
-.
-
-stepThree is a card
-    background is "#eff6ff"
-    padding is 18
-    spacing is 10
-    radius is 10
-.
-
-put stepThreeTitle, stepThreeBody, docsButton in stepThree
-
-steps is a column
-    spacing is 12
-.
-
-put stepOne, stepTwo, stepThree in steps
-
-noteTitle is a text
-    value is "About downloads"
-    size is 20
-    weight is "700"
-    foreground is "#0f172a"
-.
-
-noteBody is a text
-    value is "An official installer and public release-download link are not published yet. Until then, use the Otter project folder supplied with the current release."
-    foreground is "#475569"
-.
-
-noteCard is a card
-    background is "#fffbeb"
-    padding is 18
-    spacing is 8
-    radius is 10
-.
-
-put noteTitle, noteBody in noteCard
-
-main is a column
-    spacing is 18
-    padding is 26
-.
-
-put eyebrow, heading, intro, releaseCard, installerCard, releaseDetails, steps, noteCard in main
-put header, main in app
+put hero, content, siteFooter in app
 show app

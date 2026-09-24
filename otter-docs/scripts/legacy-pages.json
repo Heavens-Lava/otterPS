@@ -1,0 +1,937 @@
+{
+ "sections": [
+  [
+   "Getting Started",
+   [
+    [
+     "welcome",
+     "Welcome to Otter"
+    ],
+    [
+     "download",
+     "Download Otter"
+    ],
+    [
+     "installation",
+     "Installation"
+    ],
+    [
+     "hello",
+     "Hello, Otter!"
+    ],
+    [
+     "running-files",
+     "Running .ot Files"
+    ],
+    [
+     "repl",
+     "REPL"
+    ]
+   ]
+  ],
+  [
+   "Learn Otter",
+   [
+    [
+     "variables",
+     "Variables and Values"
+    ],
+    [
+     "input-output",
+     "Input and Output"
+    ],
+    [
+     "conditions",
+     "Conditions"
+    ],
+    [
+     "loops",
+     "Loops"
+    ],
+    [
+     "lists",
+     "Lists"
+    ],
+    [
+     "functions",
+     "Functions"
+    ],
+    [
+     "objects",
+     "Objects"
+    ],
+    [
+     "files-folders",
+     "Files and Folders"
+    ],
+    [
+     "error-handling",
+     "Error Handling"
+    ]
+   ]
+  ],
+  [
+   "Language Reference",
+   [
+    [
+     "values",
+     "Values and Types"
+    ],
+    [
+     "gone",
+     "gone"
+    ],
+    [
+     "operators",
+     "Operators"
+    ],
+    [
+     "property-access",
+     "Property Access"
+    ],
+    [
+     "strings",
+     "Strings"
+    ],
+    [
+     "collections",
+     "Collections"
+    ],
+    [
+     "files",
+     "Files"
+    ],
+    [
+     "folders",
+     "Folders"
+    ],
+    [
+     "try",
+     "try / otherwise"
+    ],
+    [
+     "json",
+     "JSON"
+    ],
+    [
+     "random",
+     "Random"
+    ],
+    [
+     "dates",
+     "Dates and Time"
+    ],
+    [
+     "scope",
+     "Scope"
+    ],
+    [
+     "diagnostics",
+     "Diagnostic Output"
+    ]
+   ]
+  ],
+  [
+   "Examples",
+   [
+    [
+     "example-hello",
+     "Hello World"
+    ],
+    [
+     "example-input",
+     "User Input"
+    ],
+    [
+     "example-conditions",
+     "Conditions"
+    ],
+    [
+     "example-counting",
+     "Counting"
+    ],
+    [
+     "example-lists",
+     "Lists"
+    ],
+    [
+     "example-discovery",
+     "File Discovery"
+    ],
+    [
+     "example-organizer",
+     "File Organizer"
+    ],
+    [
+     "example-finding",
+     "Finding Files"
+    ],
+    [
+     "example-errors",
+     "Error Handling"
+    ]
+   ]
+  ],
+  [
+   "Language Design",
+   [
+    [
+     "design-readable",
+     "Readable like English. Precise like code."
+    ],
+    [
+     "structural-words",
+     "Structural Words"
+    ],
+    [
+     "properties-operations",
+     "Properties vs Operations"
+    ],
+    [
+     "periods",
+     "Period / Block Rules"
+    ],
+    [
+     "philosophy",
+     "Design Philosophy"
+    ]
+   ]
+  ]
+ ],
+ "pages": {
+  "hello": {
+   "title": "Hello, Otter!",
+   "section": "Getting Started",
+   "items": [
+    {
+     "k": "lead",
+     "t": "Create hello.ot:"
+    },
+    {
+     "k": "code",
+     "t": "say \"Hello, Otter!\"",
+     "shell": false
+    },
+    {
+     "k": "p",
+     "t": "Run it with the Otter launcher."
+    }
+   ]
+  },
+  "running-files": {
+   "title": "Running .ot Files",
+   "section": "Getting Started",
+   "items": [
+    {
+     "k": "lead",
+     "t": "Pass an Otter source file to the launcher."
+    },
+    {
+     "k": "code",
+     "t": "otter hello.ot",
+     "shell": true
+    },
+    {
+     "k": "p",
+     "t": "Otter reports syntax and runtime errors with the line that needs attention."
+    },
+    {
+     "k": "p",
+     "t": "To check that a file is well formed without running it, add -ParseOnly. Nothing is printed, no file is written, and no program is launched."
+    },
+    {
+     "k": "code",
+     "t": "otter hello.ot -ParseOnly",
+     "shell": true
+    }
+   ]
+  },
+  "repl": {
+   "title": "REPL",
+   "section": "Getting Started",
+   "items": [
+    {
+     "k": "lead",
+     "t": "Run otter without a file to start the interactive prompt. Variables set on one line are still there on the next. Type exit to leave it."
+    },
+    {
+     "k": "code",
+     "t": "otter> name is \"Jeff\"\notter> say \"Hello\" name\nHello Jeff\notter> exit",
+     "shell": true
+    }
+   ]
+  },
+  "input-output": {
+   "title": "Input and Output",
+   "section": "Learn Otter",
+   "items": [
+    {
+     "k": "lead",
+     "t": "say prints values separated by one space. ask reads a value into a name."
+    },
+    {
+     "k": "code",
+     "t": "ask \"What is your name?\" and call it name\nsay \"Hello\" name",
+     "shell": false
+    }
+   ]
+  },
+  "files-folders": {
+   "title": "Files and Folders",
+   "section": "Learn Otter",
+   "items": [
+    {
+     "k": "lead",
+     "t": "Otter can work with text files and discover files or folders. File operations use explicit verbs."
+    },
+    {
+     "k": "code",
+     "t": "write \"Hello\" to \"note.txt\"\nread \"note.txt\" into note\nget files in \"Pictures\" into files",
+     "shell": false
+    }
+   ]
+  },
+  "error-handling": {
+   "title": "Error Handling",
+   "section": "Learn Otter",
+   "items": [
+    {
+     "k": "lead",
+     "t": "Use try with an optional otherwise for operations that may fail."
+    },
+    {
+     "k": "code",
+     "t": "try\n    read \"settings.json\" into settings\notherwise\n    say \"Could not load settings.\"\n.",
+     "shell": false
+    }
+   ]
+  },
+  "gone": {
+   "title": "gone",
+   "section": "Language Reference",
+   "items": [
+    {
+     "k": "lead",
+     "t": "gone is Otter’s single absence value. It is different from an empty string, zero, false, and an empty list."
+    },
+    {
+     "k": "code",
+     "t": "user is gone\n\nif user is gone\n    say \"No user found.\"",
+     "shell": false
+    }
+   ]
+  },
+  "operators": {
+   "title": "Operators",
+   "section": "Language Reference",
+   "items": [
+    {
+     "k": "lead",
+     "t": "Arithmetic reads naturally: and, minus, times, and divided by."
+    },
+    {
+     "k": "code",
+     "t": "5 and 5 make total\n10 minus 5 make difference",
+     "shell": false
+    }
+   ]
+  },
+  "property-access": {
+   "title": "Property Access",
+   "section": "Language Reference",
+   "items": [
+    {
+     "k": "lead",
+     "t": "Properties are written property-first: name of person. A period is not property access."
+    },
+    {
+     "k": "code",
+     "t": "say name of person",
+     "shell": false
+    },
+    {
+     "k": "p",
+     "t": "Property access nests, reading right to left. This is the city of the address of the user:"
+    },
+    {
+     "k": "code",
+     "t": "say city of address of user",
+     "shell": false
+    },
+    {
+     "k": "p",
+     "t": "A property can also be assigned:"
+    },
+    {
+     "k": "code",
+     "t": "age of person is 30",
+     "shell": false
+    },
+    {
+     "k": "note",
+     "t": "Write name of person, never person.name. Otter reserves the period for closing a block."
+    }
+   ]
+  },
+  "strings": {
+   "title": "Strings",
+   "section": "Language Reference",
+   "items": [
+    {
+     "k": "lead",
+     "t": "Derived text operations return new values. They do not alter the original text."
+    },
+    {
+     "k": "code",
+     "t": "say length of name\nsay uppercase of name\nif name starts with \"J\"\n    say \"Starts with J\"\n\nreplace \"Jeff\" with \"Jeffrey\" in name",
+     "shell": false
+    }
+   ]
+  },
+  "collections": {
+   "title": "Collections",
+   "section": "Language Reference",
+   "items": [
+    {
+     "k": "lead",
+     "t": "Lists support inspection, matching, ordering, splitting, joining, and finding one item."
+    },
+    {
+     "k": "code",
+     "t": "sort games\nreverse games\nsplit \"red,green\" by \",\" into colors\njoin colors with \" | \" into text\nfind game in games where game is \"Mario\" into result",
+     "shell": false
+    }
+   ]
+  },
+  "folders": {
+   "title": "Folders",
+   "section": "Language Reference",
+   "items": [
+    {
+     "k": "lead",
+     "t": "Discover folders with get folders. Discovery is not recursive unless and subfolders is written."
+    },
+    {
+     "k": "code",
+     "t": "get files in \"Pictures\" and subfolders into files\ncreate folder \"Backup\"\ndelete folder \"Backup\"",
+     "shell": false
+    }
+   ]
+  },
+  "try": {
+   "title": "try / otherwise",
+   "section": "Language Reference",
+   "items": [
+    {
+     "k": "lead",
+     "t": "otherwise runs when the try body fails. A return remains normal control flow."
+    },
+    {
+     "k": "code",
+     "t": "try\n    read \"settings.json\" into settings\notherwise\n    say \"Using defaults.\"\n.",
+     "shell": false
+    }
+   ]
+  },
+  "json": {
+   "title": "JSON",
+   "section": "Language Reference",
+   "items": [
+    {
+     "k": "lead",
+     "t": "Read JSON straight from a file:"
+    },
+    {
+     "k": "code",
+     "t": "read json from \"settings.json\" into settings\nsay theme of settings",
+     "shell": false
+    },
+    {
+     "k": "p",
+     "t": "There is no JSON navigation syntax. Once it is read, JSON is ordinary Otter data: an object is a thing, a list is a list, and JSON null is gone. Everything you already know about properties works on it."
+    },
+    {
+     "k": "code",
+     "t": "say city of address of user\n\nfor each tag in tags of user\n    say tag\n.\n\nif boss of user is gone\n    say \"No boss on record.\"\n.",
+     "shell": false
+    },
+    {
+     "k": "p",
+     "t": "Text can be converted in both directions:"
+    },
+    {
+     "k": "code",
+     "t": "convert user to json into text\nconvert text from json into again",
+     "shell": false
+    }
+   ]
+  },
+  "random": {
+   "title": "Random",
+   "section": "Language Reference",
+   "items": [
+    {
+     "k": "lead",
+     "t": "Pick a number, with both ends of the range included:"
+    },
+    {
+     "k": "code",
+     "t": "random number from 1 to 6 into roll\nsay \"You rolled\" roll",
+     "shell": false
+    },
+    {
+     "k": "p",
+     "t": "Or pick from a list:"
+    },
+    {
+     "k": "code",
+     "t": "random item from games into pick\nsay \"Tonight we play\" pick",
+     "shell": false
+    },
+    {
+     "k": "p",
+     "t": "Picking from an empty list gives gone rather than failing, so the empty case can be handled the same way as anywhere else."
+    },
+    {
+     "k": "code",
+     "t": "random item from shelf into nothing\n\nif nothing is gone\n    say \"The shelf is empty.\"\n.",
+     "shell": false
+    }
+   ]
+  },
+  "dates": {
+   "title": "Dates and Time",
+   "section": "Language Reference",
+   "items": [
+    {
+     "k": "lead",
+     "t": "A date is a real Otter value, not text. today gives the current date; now gives the current date and time."
+    },
+    {
+     "k": "code",
+     "t": "date is today\nstarted is now",
+     "shell": false
+    },
+    {
+     "k": "h2",
+     "t": "A date and a date-time are different"
+    },
+    {
+     "k": "p",
+     "t": "today has no time of day at all — it is not midnight, it simply does not carry a time. now carries both a date and a time. This is a meaningful distinction, not a technicality: a date with \"no time\" and a date at \"00:00:00\" are not the same idea, so Otter does not pretend one is the other."
+    },
+    {
+     "k": "p",
+     "t": "Because of that, asking a plain date for its hour, minute, or second is invalid rather than answering with a silent zero:"
+    },
+    {
+     "k": "code",
+     "t": "date is today\nsay hour of date",
+     "shell": false
+    },
+    {
+     "k": "p",
+     "t": "That fails when it runs, with an error explaining that this date has no time of day. Reach for now when you need a time as well as a date."
+    },
+    {
+     "k": "h2",
+     "t": "Reading the parts of a date"
+    },
+    {
+     "k": "p",
+     "t": "Date parts are read the same way any other property is read — with of, not with a period. Year, month, and day work on both a date and a date-time:"
+    },
+    {
+     "k": "code",
+     "t": "say year of date\nsay month of date\nsay day of date",
+     "shell": false
+    },
+    {
+     "k": "p",
+     "t": "month of date is always a number from 1 to 12, never a month name."
+    },
+    {
+     "k": "p",
+     "t": "Hour, minute, and second work on a date-time such as started:"
+    },
+    {
+     "k": "code",
+     "t": "say hour of started\nsay minute of started\nsay second of started",
+     "shell": false
+    },
+    {
+     "k": "h2",
+     "t": "Adjusting a date"
+    },
+    {
+     "k": "p",
+     "t": "Move a date forward with add, or backward with remove. Both the singular and plural spelling of a unit are accepted, so 1 day and 7 days both work:"
+    },
+    {
+     "k": "code",
+     "t": "add 7 days to date\nremove 1 month from date",
+     "shell": false
+    },
+    {
+     "k": "p",
+     "t": "The same words work on a date-time, down to the second:"
+    },
+    {
+     "k": "code",
+     "t": "add 1 hour to started\nadd 30 minutes to started",
+     "shell": false
+    },
+    {
+     "k": "h2",
+     "t": "Formatting"
+    },
+    {
+     "k": "p",
+     "t": "format ... as ... into ... produces text. It does not change the date it was given:"
+    },
+    {
+     "k": "code",
+     "t": "format date as \"MM/dd/yyyy\" into text\nsay text\nsay date",
+     "shell": false
+    },
+    {
+     "k": "p",
+     "t": "The second say still prints the original date, untouched."
+    },
+    {
+     "k": "h2",
+     "t": "The difference between two dates"
+    },
+    {
+     "k": "p",
+     "t": "days between is an expression, so assign it with the same is form used for every other value:"
+    },
+    {
+     "k": "code",
+     "t": "waiting is days between startDate and endDate\nsay waiting",
+     "shell": false
+    },
+    {
+     "k": "p",
+     "t": "The expression can also be used directly wherever a value is expected:"
+    },
+    {
+     "k": "code",
+     "t": "say days between startDate and endDate",
+     "shell": false
+    },
+    {
+     "k": "p",
+     "t": "The older days between ... make ... statement remains accepted for compatibility, but new programs should prefer the expression form."
+    },
+    {
+     "k": "p",
+     "t": "The result is signed, computed as end minus start:"
+    },
+    {
+     "k": "p",
+     "t": "- positive — endDate is later than startDate"
+    },
+    {
+     "k": "p",
+     "t": "- zero — the two are the same, at the precision asked for"
+    },
+    {
+     "k": "p",
+     "t": "- negative — endDate is earlier than startDate"
+    },
+    {
+     "k": "h2",
+     "t": "Comparing dates"
+    },
+    {
+     "k": "p",
+     "t": "Dates compare with the same words as any other value — there is no separate date-comparison syntax:"
+    },
+    {
+     "k": "code",
+     "t": "if endDate is greater than startDate\n    say \"The end date is later.\"\n.\n\nif date is not started\n    say \"These are different moments.\"\n.",
+     "shell": false
+    },
+    {
+     "k": "h2",
+     "t": "How a date prints"
+    },
+    {
+     "k": "p",
+     "t": "say prints a date-only value like this:"
+    },
+    {
+     "k": "code",
+     "t": "say today",
+     "shell": false
+    },
+    {
+     "k": "note",
+     "t": "Example output: 2026-09-09"
+    },
+    {
+     "k": "p",
+     "t": "and a date-time value like this:"
+    },
+    {
+     "k": "code",
+     "t": "say now",
+     "shell": false
+    },
+    {
+     "k": "note",
+     "t": "Example output: 2026-09-09 14:30:05"
+    },
+    {
+     "k": "h2",
+     "t": "Not part of this version"
+    },
+    {
+     "k": "p",
+     "t": "There is no timezone syntax — a date is always in local time. There is no month-name syntax; month of date is always a number."
+    }
+   ]
+  },
+  "scope": {
+   "title": "Scope",
+   "section": "Language Reference",
+   "items": [
+    {
+     "k": "lead",
+     "t": "Function parameters and local work do not overwrite names outside the function."
+    },
+    {
+     "k": "code",
+     "t": "name is \"Outside\"\nto greet name\n    say \"Hello\" name\ngreet \"Jeff\"\nsay name",
+     "shell": false
+    }
+   ]
+  },
+  "diagnostics": {
+   "title": "Diagnostic Output",
+   "section": "Language Reference",
+   "items": [
+    {
+     "k": "lead",
+     "t": "log, warn, and error send a message to Otter's diagnostic output rather than to the program's normal output."
+    },
+    {
+     "k": "code",
+     "t": "log \"Server started.\"\nwarn \"Connection is slow.\"\nerror \"Could not connect.\"",
+     "shell": false
+    },
+    {
+     "k": "note",
+     "t": "This page is about the log / warn / error statements. It is not about the messages Otter itself prints when a program has a syntax or runtime error — every reference page shows what those look like for the statement it covers."
+    },
+    {
+     "k": "h2",
+     "t": "Diagnostics are not say"
+    },
+    {
+     "k": "p",
+     "t": "say is what a program tells the person using it. log, warn, and error are what it tells whoever is running or operating it — a developer watching a console, a log file, a monitoring tool. Otter keeps the two separate on purpose:"
+    },
+    {
+     "k": "code",
+     "t": "say \"Welcome!\"\nlog \"Startup complete.\"",
+     "shell": false
+    },
+    {
+     "k": "p",
+     "t": "A host running Otter can send say output to a user interface while sending diagnostics somewhere else entirely, such as a log file or a monitoring service, without the program needing to know or care. They travel on separate channels."
+    },
+    {
+     "k": "h2",
+     "t": "Three levels"
+    },
+    {
+     "k": "p",
+     "t": "All three take the same kind of message as say — one or more values, joined with a space:"
+    },
+    {
+     "k": "code",
+     "t": "port is 8080\nlog \"Listening on port\" port",
+     "shell": false
+    },
+    {
+     "k": "p",
+     "t": "log records something that happened normally. warn flags something that is not wrong yet but is worth attention. error reports something that failed."
+    },
+    {
+     "k": "h2",
+     "t": "A realistic example"
+    },
+    {
+     "k": "code",
+     "t": "port is 8080\n\nsay \"Otter web server\"\n\nlog \"Starting up.\"\nlog \"Listening on port\" port\nwarn \"No configuration file found, using defaults.\"\nerror \"Could not reach the database.\"\n\nsay \"Ready.\"",
+     "shell": false
+    },
+    {
+     "k": "p",
+     "t": "Only the say lines are part of what the program is telling its user. The log, warn, and error lines went to the diagnostic channel."
+    }
+   ]
+  },
+  "example-hello": {
+   "title": "Hello World",
+   "section": "Examples",
+   "items": [
+    {
+     "k": "code",
+     "t": "say \"Hello world!\"",
+     "shell": false
+    }
+   ]
+  },
+  "example-input": {
+   "title": "User Input",
+   "section": "Examples",
+   "items": [
+    {
+     "k": "code",
+     "t": "ask \"What is your name?\" and call it name\nsay \"Hello\" name",
+     "shell": false
+    }
+   ]
+  },
+  "example-conditions": {
+   "title": "Conditions",
+   "section": "Examples",
+   "items": [
+    {
+     "k": "code",
+     "t": "if score is at least 90\n    say \"A\"\notherwise\n    say \"Keep going\"",
+     "shell": false
+    }
+   ]
+  },
+  "example-counting": {
+   "title": "Counting",
+   "section": "Examples",
+   "items": [
+    {
+     "k": "code",
+     "t": "count from 1 to 5 as number\n    say number",
+     "shell": false
+    }
+   ]
+  },
+  "example-lists": {
+   "title": "Lists",
+   "section": "Examples",
+   "items": [
+    {
+     "k": "code",
+     "t": "games are\n    \"Zelda\"\n    \"Mario\"\n.\n\nfor each game in games\n    say \"I like\" game",
+     "shell": false
+    }
+   ]
+  },
+  "example-discovery": {
+   "title": "File Discovery",
+   "section": "Examples",
+   "items": [
+    {
+     "k": "code",
+     "t": "get files in \"Pictures\" into files\nfor each file in files\n    say name of file",
+     "shell": false
+    }
+   ]
+  },
+  "example-organizer": {
+   "title": "File Organizer",
+   "section": "Examples",
+   "items": [
+    {
+     "k": "code",
+     "t": "get files in \"Downloads\" into files\nfor each file in files\n    if extension of file is \".txt\"\n        move file to \"Documents\"",
+     "shell": false
+    }
+   ]
+  },
+  "example-finding": {
+   "title": "Finding Files",
+   "section": "Examples",
+   "items": [
+    {
+     "k": "code",
+     "t": "find file in files where extension of file is \".pdf\" into result\nif result is gone\n    say \"No PDF found.\"\notherwise\n    say name of result",
+     "shell": false
+    }
+   ]
+  },
+  "example-errors": {
+   "title": "Error Handling",
+   "section": "Examples",
+   "items": [
+    {
+     "k": "code",
+     "t": "try\n    read \"settings.json\" into settings\notherwise\n    say \"Could not load settings.\"\n.",
+     "shell": false
+    }
+   ]
+  },
+  "design-readable": {
+   "title": "Readable like English. Precise like code.",
+   "section": "Language Design",
+   "items": [
+    {
+     "k": "lead",
+     "t": "Otter favors language that can be read aloud without hiding program structure."
+    },
+    {
+     "k": "code",
+     "t": "if age is at least 18\n    say \"Adult\"",
+     "shell": false
+    }
+   ]
+  },
+  "structural-words": {
+   "title": "Structural Words",
+   "section": "Language Design",
+   "items": [
+    {
+     "k": "lead",
+     "t": "Words such as of, to, from, in, and into carry grammar. They are not noise to remove."
+    }
+   ]
+  },
+  "properties-operations": {
+   "title": "Properties vs Operations",
+   "section": "Language Design",
+   "items": [
+    {
+     "k": "lead",
+     "t": "name of file reads a property. length of games applies an operation. The similar wording intentionally has different meanings."
+    }
+   ]
+  },
+  "periods": {
+   "title": "Period / Block Rules",
+   "section": "Language Design",
+   "items": [
+    {
+     "k": "lead",
+     "t": "Indentation defines blocks. A period on its own line can explicitly close one current block."
+    },
+    {
+     "k": "code",
+     "t": "if ready\n    say \"Starting\"\n.",
+     "shell": false
+    }
+   ]
+  },
+  "philosophy": {
+   "title": "Design Philosophy",
+   "section": "Language Design",
+   "items": [
+    {
+     "k": "lead",
+     "t": "Otter avoids unnecessary punctuation, but never at the expense of meaning. The language makes structure visible through words and indentation."
+    }
+   ]
+  }
+ }
+}

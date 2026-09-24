@@ -1,0 +1,30 @@
+# _shell.ot - the shared page chrome for the Otter website: top navigation and footer.
+# Every page pulls this in with `use "_shell.ot"`, puts `topBar` first and
+# `siteFooter` last, and marks its own link as current by assigning
+# `customstyle of nav<Page> is "padding: 22px 0; border-bottom: 2px solid #4d8dff; color: #ffffff;"`.
+
+brandMark is a image with source "/static/images/otter-explorer-icon.png", alt "Otter", width 34, height 34, radius 17
+brandName is a link with text "Otter", url "/", foreground "#ffffff", size 22, weight 700, letterspacing "-0.01em"
+brandGroup is a row with spacing 10, align middle
+put brandMark, brandName in brandGroup
+
+navDocs is a link with text "Documentation", url "/", foreground "#b7c4d8", size 14, weight 500, customstyle "padding: 22px 0; border-bottom: 2px solid transparent;"
+navReference is a link with text "Reference", url "/reference/", foreground "#b7c4d8", size 14, weight 500, customstyle "padding: 22px 0; border-bottom: 2px solid transparent;"
+navExamples is a link with text "Examples", url "/examples/", foreground "#b7c4d8", size 14, weight 500, customstyle "padding: 22px 0; border-bottom: 2px solid transparent;"
+navDownload is a link with text "Download", url "/download/", foreground "#b7c4d8", size 14, weight 500, customstyle "padding: 22px 0; border-bottom: 2px solid transparent;"
+navRelease is a link with text "Release", url "/release/", foreground "#b7c4d8", size 14, weight 500, customstyle "padding: 22px 0; border-bottom: 2px solid transparent;"
+navGitHub is a link with text "GitHub", url "https://github.com/Heavens-Lava/otterPS", foreground "#b7c4d8", size 14, weight 500, customstyle "padding: 22px 0; border-bottom: 2px solid transparent;"
+navLinks is a row with spacing 32, align middle
+put navDocs, navReference, navExamples, navDownload, navRelease, navGitHub in navLinks
+
+topBar is a row with spread, align middle, spacing 36, width full, background "#0b1d36", padding "0 40px", height 64, customstyle "box-sizing: border-box; position: sticky; top: 0; z-index: 50;"
+put brandGroup, navLinks in topBar
+
+
+footerNote is a text with value "Otter is free to download, use, and build commercial applications with. Created by Jeffrey Macy.", size 13, foreground "#8fa3c2"
+footerLicense is a link with text "License", url "https://github.com/Heavens-Lava/otterPS/blob/master/LICENSE", foreground "#b7c4d8", size 13
+footerSource is a link with text "Source", url "https://github.com/Heavens-Lava/otterPS", foreground "#b7c4d8", size 13
+footerLinks is a row with spacing 20, align middle
+put footerLicense, footerSource in footerLinks
+siteFooter is a row with spread, align middle, spacing 24, width full, background "#0b1d36", padding "26px 40px", customstyle "box-sizing: border-box; margin-top: 40px;"
+put footerNote, footerLinks in siteFooter

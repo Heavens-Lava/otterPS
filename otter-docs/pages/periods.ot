@@ -1,13 +1,13 @@
-# Otter website - Otter Studio
+# Otter website - Period / Block Rules
 # Authored in Otter. Scaffolded by scripts/new-docs-page.ps1, now edited here directly.
 
 use "_shell.ot"
 use "_docs.ot"
 
-app is a page with title "Otter Studio - Otter Documentation", hideheader true, scroll true, width full, background "#f4f7fb", foreground "#0f1f36", spacing 0, padding 0
+app is a page with title "Period / Block Rules - Otter Documentation", hideheader true, scroll true, width full, background "#f4f7fb", foreground "#0f1f36", spacing 0, padding 0
 
 customstyle of navDocs is "padding: 22px 0; border-bottom: 2px solid #4d8dff; color: #ffffff;"
-customstyle of sideStudio is "padding: 8px 12px; border-left: 3px solid #2563eb; border-radius: 4px; display: block; background: #e6efff; color: #1d4ed8; font-weight: 600;"
+customstyle of sidePeriods is "padding: 8px 12px; border-left: 3px solid #2563eb; border-radius: 4px; display: block; background: #e6efff; color: #1d4ed8; font-weight: 600;"
 # Sidebar: only the current group is expanded.
 customstyle of sideHome is "display: none;"
 customstyle of sideWelcome is "display: none;"
@@ -53,28 +53,16 @@ customstyle of sideExampleDiscovery is "display: none;"
 customstyle of sideExampleOrganizer is "display: none;"
 customstyle of sideExampleFinding is "display: none;"
 customstyle of sideExampleErrors is "display: none;"
-customstyle of sideDesignReadable is "display: none;"
-customstyle of sideStructuralWords is "display: none;"
-customstyle of sidePropertiesOperations is "display: none;"
-customstyle of sidePeriods is "display: none;"
-customstyle of sidePhilosophy is "display: none;"
+customstyle of sideDownload is "display: none;"
+customstyle of sideRelease is "display: none;"
+customstyle of sideStudio is "display: none;"
 
-b1 is a text with value "Otter Studio", size 40, weight 800, foreground "#0b1d36", letterspacing "-0.03em", lineheight "1.1"
-b2 is a text with value "Otter Studio is the planned beginner-friendly editor for writing, running, and understanding Otter programs.", size 18, foreground "#3a4d6b", lineheight "1.55"
-b3 is a text with value "Release status", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
-b4 is a text with value "{{STUDIO_STATUS}}", size 15, foreground "#1e3a6b", background "#eaf2ff", radius 12, border "1px solid #cfe0ff", lineheight "1.55", customstyle "padding: 14px 18px;"
-b5 is a text with value "Intended workflow", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
-b6 is a text with value "1. Install Otter", size 16, foreground "#3a4d6b", lineheight "1.6"
-b7 is a text with value "2. Open Studio", size 16, foreground "#3a4d6b", lineheight "1.6"
-b8 is a text with value "3. Create or open an .ot file", size 16, foreground "#3a4d6b", lineheight "1.6"
-b9 is a text with value "4. Run the program", size 16, foreground "#3a4d6b", lineheight "1.6"
-b10 is a text with value "5. Save your work", size 16, foreground "#3a4d6b", lineheight "1.6"
-b11 is a text with value "Edit Otter today", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
-b12 is a text with value "Until Studio completes its real end-to-end release gate, use the included VS Code Otter extension for syntax highlighting and editor assistance.", size 16, foreground "#3a4d6b", lineheight "1.6"
-b13 is a link with text "Install Otter", url "/installation/", foreground "#2563eb", weight 600, size 15
+b1 is a text with value "Period / Block Rules", size 40, weight 800, foreground "#0b1d36", letterspacing "-0.03em", lineheight "1.1"
+b2 is a text with value "Indentation defines blocks. A period on its own line can explicitly close one current block.", size 18, foreground "#3a4d6b", lineheight "1.55"
+b3 is a text with value "if ready\n    say \"Starting\"\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
 
 docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"
-put b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13 in docsMain
+put b1, b2, b3 in docsMain
 docsBody is a row with align top, spacing 0, width full, customstyle "align-items: stretch;"
 put docsSidebar, docsMain in docsBody
 

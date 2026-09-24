@@ -1,332 +1,146 @@
-# Otter Documentation home
-app is a page
-    title is "Otter - Documentation"
-    background is "#f8fafc"
-    spacing is 20
-.
+# Otter website - Documentation home
+# Authored in Otter and compiled with the site build (build-otter-pages.ps1).
 
-brand is a text
-    value is "Otter"
-    size is 28
-    weight is "700"
-    foreground is "#0f172a"
-.
+use "_shell.ot"
+use "_docs.ot"
 
-mascot is a image
-    source is "/static/images/otter-explorer-icon.png"
-    alt is "Otter Explorer mascot"
-    width is 72
-    height is 72
-.
+app is a page with title "Otter Documentation", hideheader true, scroll true, width full, background "#f4f7fb", foreground "#0f1f36", spacing 0, padding 0
 
-tagline is a text
-    value is "Simple. Powerful. Yours."
-    foreground is "#64748b"
-.
+customstyle of navDocs is "padding: 22px 0; border-bottom: 2px solid #4d8dff; color: #ffffff;"
+customstyle of sideHome is "padding: 8px 12px; border-left: 3px solid #2563eb; border-radius: 4px; display: block; background: #e6efff; color: #1d4ed8; font-weight: 600;"
+# Sidebar: only the current group is expanded.
+customstyle of sideValues is "display: none;"
+customstyle of sideInputOutput is "display: none;"
+customstyle of sideConditions is "display: none;"
+customstyle of sideLoops is "display: none;"
+customstyle of sideLists is "display: none;"
+customstyle of sideFunctions is "display: none;"
+customstyle of sideObjects is "display: none;"
+customstyle of sideFiles is "display: none;"
+customstyle of sideData is "display: none;"
+customstyle of sideErrorHandling is "display: none;"
+customstyle of sideGone is "display: none;"
+customstyle of sideOperators is "display: none;"
+customstyle of sidePropertyAccess is "display: none;"
+customstyle of sideStrings is "display: none;"
+customstyle of sideCollections is "display: none;"
+customstyle of sideFilesFolders is "display: none;"
+customstyle of sideFolders is "display: none;"
+customstyle of sideTry is "display: none;"
+customstyle of sideJson is "display: none;"
+customstyle of sideRandom is "display: none;"
+customstyle of sideDates is "display: none;"
+customstyle of sideScope is "display: none;"
+customstyle of sideDiagnostics is "display: none;"
+customstyle of sideReference is "display: none;"
+customstyle of sideNetworking is "display: none;"
+customstyle of sideSecurity is "display: none;"
+customstyle of sideExamples is "display: none;"
+customstyle of sideExampleHello is "display: none;"
+customstyle of sideExampleInput is "display: none;"
+customstyle of sideExampleConditions is "display: none;"
+customstyle of sideExampleCounting is "display: none;"
+customstyle of sideExampleLists is "display: none;"
+customstyle of sideExampleDiscovery is "display: none;"
+customstyle of sideExampleOrganizer is "display: none;"
+customstyle of sideExampleFinding is "display: none;"
+customstyle of sideExampleErrors is "display: none;"
+customstyle of sideDesignReadable is "display: none;"
+customstyle of sideStructuralWords is "display: none;"
+customstyle of sidePropertiesOperations is "display: none;"
+customstyle of sidePeriods is "display: none;"
+customstyle of sidePhilosophy is "display: none;"
+customstyle of sideDownload is "display: none;"
+customstyle of sideRelease is "display: none;"
+customstyle of sideStudio is "display: none;"
 
-docsLink is a link
-    text is "Docs"
-    url is "/"
-.
+# ==========================================
+# 1. HERO
+# ==========================================
 
-examplesLink is a link
-    text is "Examples"
-    url is "/examples/"
-.
+heroTitle is a text with value "Documentation", size 60, weight 800, foreground "#0b1d36", letterspacing "-0.03em", lineheight "1"
+heroLead is a text with value "Readable like English. Precise like code. Learn Otter from the ground up, on a runtime that needs nothing installed.", size 19, foreground "#3a4d6b", lineheight "1.5", customstyle "max-width: 520px;"
+heroCopy is a column with spacing 16, flex 1
+put heroTitle, heroLead in heroCopy
+heroMascot is a image with source "/static/images/otter-explorer-mascot.png", alt "The Otter mascot", height 210
+hero is a row with spread, align middle, spacing 32, width full, background "#e4edf9", padding "28px 56px", customstyle "box-sizing: border-box;"
+put heroCopy, heroMascot in hero
 
-downloadLink is a link
-    text is "Download"
-    url is "/download/"
-.
+# ==========================================
+# 2. ENTRY CARDS
+# ==========================================
 
-referenceLink is a link
-    text is "Reference"
-    url is "/reference/"
-.
+cardOneTitle is a link with text "Get Started", url "/installation/", foreground "#0f1f36", size 17, weight 700
+cardOneBody is a text with value "Install Otter and run your first program.", size 14, foreground "#4a5b75", lineheight "1.45"
+cardOne is a card with background "#ffffff", radius 16, border "1px solid #e3e9f2", padding 22, spacing 10, flex 1
+put cardOneTitle, cardOneBody in cardOne
 
-identity is a row
-    spacing is 14
-    padding is 16
-.
+cardTwoTitle is a link with text "Language Guide", url "/values/", foreground "#0f1f36", size 17, weight 700
+cardTwoBody is a text with value "Learn the core ideas, one at a time.", size 14, foreground "#4a5b75", lineheight "1.45"
+cardTwo is a card with background "#ffffff", radius 16, border "1px solid #e3e9f2", padding 22, spacing 10, flex 1
+put cardTwoTitle, cardTwoBody in cardTwo
 
-put mascot, brand, tagline in identity
+cardThreeTitle is a link with text "Reference", url "/reference/", foreground "#0f1f36", size 17, weight 700
+cardThreeBody is a text with value "What Otter V1 supports, in one index.", size 14, foreground "#4a5b75", lineheight "1.45"
+cardThree is a card with background "#ffffff", radius 16, border "1px solid #e3e9f2", padding 22, spacing 10, flex 1
+put cardThreeTitle, cardThreeBody in cardThree
 
-navigation is a row
-    spacing is 18
-    padding is 16
-.
+cardFourTitle is a link with text "Examples", url "/examples/", foreground "#0f1f36", size 17, weight 700
+cardFourBody is a text with value "Real programs to open, change, and run.", size 14, foreground "#4a5b75", lineheight "1.45"
+cardFour is a card with background "#ffffff", radius 16, border "1px solid #e3e9f2", padding 22, spacing 10, flex 1
+put cardFourTitle, cardFourBody in cardFour
 
-put docsLink, referenceLink, examplesLink, downloadLink in navigation
+entryCards is a row with spacing 20, align top, width full
+put cardOne, cardTwo, cardThree, cardFour in entryCards
 
-header is a column
-    spacing is 4
-    background is "#ffffff"
-    border is "1px solid #e2e8f0"
-    radius is 10
-.
+# ==========================================
+# 3. YOUR FIRST PROGRAM
+# ==========================================
 
-put identity, navigation in header
+firstTitle is a text with value "Your first program", size 30, weight 800, foreground "#0b1d36", letterspacing "-0.02em"
+firstBody is a text with value "Create a file called hello.ot and add one line:", size 16, foreground "#3a4d6b"
+firstCode is a text with value "# Your first Otter program\nsay \"Hello, Otter!\"", size 15, foreground "#e5edf8", background "#0f1b2e", radius 14, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 20px 22px; line-height: 1.7;"
+firstRunBody is a text with value "Run it from PowerShell:", size 16, foreground "#3a4d6b"
+firstRun is a text with value "otter run hello.ot", size 15, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px;"
+firstOutBody is a text with value "You should see:", size 16, foreground "#3a4d6b"
+firstOut is a text with value "Hello, Otter!", size 15, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px;"
+firstMore is a link with text "Follow the full walkthrough", url "/first-program/", foreground "#2563eb", size 15, weight 600
+firstSection is a column with spacing 14
+put firstTitle, firstBody, firstCode, firstRunBody, firstRun, firstOutBody, firstOut, firstMore in firstSection
 
-gettingStarted is a text
-    value is "GETTING STARTED"
-    weight is "700"
-    foreground is "#2563eb"
-.
+# ==========================================
+# 4. WHAT'S NEXT
+# ==========================================
 
-introduction is a link
-    text is "Introduction"
-    url is "../welcome/"
-.
+nextTitle is a text with value "What's next?", size 30, weight 800, foreground "#0b1d36", letterspacing "-0.02em"
+nextBody is a text with value "Explore the rest of the documentation to learn more about the language and its features.", size 16, foreground "#3a4d6b"
+nextOneTitle is a link with text "Language concepts", url "/values/", foreground "#0f1f36", size 16, weight 700
+nextOneBody is a text with value "Values, conditions, loops, lists, functions, and objects.", size 14, foreground "#4a5b75", lineheight "1.45"
+nextOne is a card with background "#ffffff", radius 14, border "1px solid #e3e9f2", padding 20, spacing 6, flex 1
+put nextOneTitle, nextOneBody in nextOne
+nextTwoTitle is a link with text "Files, data and the network", url "/files/", foreground "#0f1f36", size 16, weight 700
+nextTwoBody is a text with value "Files and folders, CSV, downloads, TCP, UDP, and TLS.", size 14, foreground "#4a5b75", lineheight "1.45"
+nextTwo is a card with background "#ffffff", radius 14, border "1px solid #e3e9f2", padding 20, spacing 6, flex 1
+put nextTwoTitle, nextTwoBody in nextTwo
+nextThreeTitle is a link with text "Build something", url "/examples/", foreground "#0f1f36", size 16, weight 700
+nextThreeBody is a text with value "Open a complete example and change it to make it yours.", size 14, foreground "#4a5b75", lineheight "1.45"
+nextThree is a card with background "#ffffff", radius 14, border "1px solid #e3e9f2", padding 20, spacing 6, flex 1
+put nextThreeTitle, nextThreeBody in nextThree
+nextCards is a row with spacing 20, align top, width full
+put nextOne, nextTwo, nextThree in nextCards
+nextSection is a column with spacing 14
+put nextTitle, nextBody, nextCards in nextSection
 
-installation is a link
-    text is "Installation"
-    url is "../installation/"
-.
+# ==========================================
+# 5. PAGE
+# ==========================================
 
-firstProgram is a link
-    text is "Your First Program"
-    url is "/first-program/"
-.
+homeBody is a column with spacing 40, width full, padding "32px 56px 24px", flex 1, customstyle "box-sizing: border-box; min-width: 0;"
+put entryCards, firstSection, nextSection in homeBody
+homeMain is a column with spacing 0, flex 1, customstyle "min-width: 0;"
+put hero, homeBody in homeMain
+docsBody is a row with align top, spacing 0, width full, customstyle "align-items: stretch;"
+put docsSidebar, homeMain in docsBody
 
-languageGuide is a text
-    value is "LANGUAGE GUIDE"
-    weight is "700"
-    foreground is "#2563eb"
-.
-
-referenceIndex is a link
-    text is "Language Reference"
-    url is "/reference/"
-.
-
-values is a link
-    text is "Values and Types"
-    url is "../values/"
-.
-
-conditions is a link
-    text is "Conditions"
-    url is "../conditions/"
-.
-
-loops is a link
-    text is "Loops"
-    url is "../loops/"
-.
-
-objects is a link
-    text is "Objects"
-    url is "../objects/"
-.
-
-files is a link
-    text is "Files and Folders"
-    url is "../files/"
-.
-
-sidebar is a column
-    spacing is 10
-    padding is 18
-    width is "full"
-    background is "#ffffff"
-    border is "1px solid #e2e8f0"
-    radius is 10
-.
-
-put gettingStarted, introduction, installation, firstProgram, languageGuide, referenceIndex, values, conditions, loops, objects, files in sidebar
-
-eyebrow is a text
-    value is "A MODERN, HUMAN-FRIENDLY PROGRAMMING LANGUAGE"
-    weight is "700"
-    foreground is "#93c5fd"
-.
-
-heroTitle is a text
-    value is "Build Real Applications with Otter"
-    size is 34
-    weight is "700"
-    foreground is "#ffffff"
-.
-
-heroBody is a text
-    value is "Clean, natural syntax for desktop apps, web development, and real file-system work."
-    size is 18
-    foreground is "#dbeafe"
-.
-
-getStarted is a link
-    text is "Get Started"
-    url is "/first-program/"
-    background is "#1683ff"
-    foreground is "#ffffff"
-    width is 150
-    padding is 12
-    radius is 8
-.
-
-hero is a card
-    background is "#0f3557"
-    padding is 30
-    spacing is 14
-    radius is 12
-.
-
-put eyebrow, heroTitle, heroBody, getStarted in hero
-
-desktopCard is a card
-    background is "#eff6ff"
-    spacing is 8
-    padding is 18
-    radius is 10
-.
-
-webCard is a card
-    background is "#ecfdf5"
-    spacing is 8
-    padding is 18
-    radius is 10
-.
-
-filesCard is a card
-    background is "#fffbeb"
-    spacing is 8
-    padding is 18
-    radius is 10
-.
-
-desktopText is a text
-    value is "Create native Windows applications with a readable syntax."
-    foreground is "#334155"
-.
-
-desktopHeading is a text
-    value is "Desktop Applications"
-    size is 20
-    weight is "700"
-    foreground is "#0f172a"
-.
-
-webText is a text
-    value is "Build responsive interfaces using the same Otter concepts."
-    foreground is "#334155"
-.
-
-webHeading is a text
-    value is "Web Development"
-    size is 20
-    weight is "700"
-    foreground is "#0f172a"
-.
-
-filesText is a text
-    value is "Read, write, and organize files and folders directly."
-    foreground is "#334155"
-.
-
-filesHeading is a text
-    value is "Work with Real Files"
-    size is 20
-    weight is "700"
-    foreground is "#0f172a"
-.
-
-put desktopHeading, desktopText in desktopCard
-put webHeading, webText in webCard
-put filesHeading, filesText in filesCard
-
-featureRow is a column
-    spacing is 12
-.
-
-put desktopCard, webCard, filesCard in featureRow
-
-popular is a text
-    value is "Popular Examples"
-    size is 24
-    weight is "700"
-    foreground is "#0f172a"
-.
-
-exampleText is a text
-    value is "person has\n    name is \"Jeff\"\n.\n\nsay name of person"
-    foreground is "#0f172a"
-    background is "#f1f5f9"
-    padding is 16
-    radius is 8
-.
-
-main is a column
-    spacing is 18
-    padding is 20
-.
-
-put hero, featureRow, popular, exampleText in main
-
-body is a column
-    spacing is 18
-    padding is 20
-.
-
-put sidebar, main in body
-
-searchBox is a text box
-    placeholder is "Search documentation..."
-    width is 360
-.
-
-searchResult is a text
-    value is "Type a topic to search: welcome, installation, values, conditions, or loops."
-    foreground is "#475569"
-.
-
-searchLink is a link
-    text is "Open matching page"
-    url is "./"
-.
-
-when searchBox is changed
-    query is text of searchBox
-    if query contains "welcome"
-        text of searchResult is "Result: Welcome to Otter"
-        text of searchLink is "Open Welcome to Otter"
-        url of searchLink is "../welcome/"
-    otherwise if query contains "installation"
-        text of searchResult is "Result: Installation"
-        text of searchLink is "Open Installation"
-        url of searchLink is "../installation/"
-    otherwise if query contains "values"
-        text of searchResult is "Result: Values and Types"
-        text of searchLink is "Open Values and Types"
-        url of searchLink is "../values/"
-    otherwise if query contains "condition"
-        text of searchResult is "Result: Conditions"
-        text of searchLink is "Open Conditions"
-        url of searchLink is "../conditions/"
-    otherwise if query contains "loop"
-        text of searchResult is "Result: Loops"
-        text of searchLink is "Open Loops"
-        url of searchLink is "../loops/"
-    otherwise if query contains "object"
-        text of searchResult is "Result: Objects (see the Language Reference)"
-    otherwise if query contains "function"
-        text of searchResult is "Result: Functions (see the Language Reference)"
-    otherwise if query contains "file"
-        text of searchResult is "Result: Files and Folders (see the Language Reference)"
-    otherwise if query contains "string"
-        text of searchResult is "Result: Strings (see the Language Reference)"
-    otherwise if query contains "collection"
-        text of searchResult is "Result: Collections (see the Language Reference)"
-    otherwise if query contains "web"
-        text of searchResult is "Result: Web Development (see the Examples)"
-        text of searchLink is "Open Web Development"
-        url of searchLink is "../welcome/"
-    otherwise
-        text of searchResult is "No matching topic yet."
-        text of searchLink is "Open documentation home"
-        url of searchLink is "./"
-    .
-.
-
-put searchBox, searchResult, searchLink in main
-put header, body in app
+put topBar, docsBody, siteFooter in app
 show app

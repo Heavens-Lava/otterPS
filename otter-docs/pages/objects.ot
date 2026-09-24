@@ -1,74 +1,75 @@
-app is a page
-    title is "Objects"
-    width is 900
-    background is "#0f172a"
-    spacing is 16
-.
+# Otter website - Objects and properties
+# Authored in Otter. Scaffolded by scripts/new-docs-page.ps1, now edited here directly.
 
-siteBrand is a text
-    value is "Otter Docs"
-    weight is "700"
-    foreground is "#f8fafc"
-.
+use "_shell.ot"
+use "_docs.ot"
 
-siteDocs is a link
-    text is "Docs"
-    url is "/"
-.
+app is a page with title "Objects and properties - Otter Documentation", hideheader true, scroll true, width full, background "#f4f7fb", foreground "#0f1f36", spacing 0, padding 0
 
-siteExamples is a link
-    text is "Examples"
-    url is "/examples/"
-.
+customstyle of navDocs is "padding: 22px 0; border-bottom: 2px solid #4d8dff; color: #ffffff;"
+customstyle of sideObjects is "padding: 8px 12px; border-left: 3px solid #2563eb; border-radius: 4px; display: block; background: #e6efff; color: #1d4ed8; font-weight: 600;"
+# Sidebar: only the current group is expanded.
+customstyle of sideHome is "display: none;"
+customstyle of sideWelcome is "display: none;"
+customstyle of sideInstallation is "display: none;"
+customstyle of sideFirstProgram is "display: none;"
+customstyle of sideHello is "display: none;"
+customstyle of sideRunningFiles is "display: none;"
+customstyle of sideRepl is "display: none;"
+customstyle of sideCli is "display: none;"
+customstyle of sideGone is "display: none;"
+customstyle of sideOperators is "display: none;"
+customstyle of sidePropertyAccess is "display: none;"
+customstyle of sideStrings is "display: none;"
+customstyle of sideCollections is "display: none;"
+customstyle of sideFilesFolders is "display: none;"
+customstyle of sideFolders is "display: none;"
+customstyle of sideTry is "display: none;"
+customstyle of sideJson is "display: none;"
+customstyle of sideRandom is "display: none;"
+customstyle of sideDates is "display: none;"
+customstyle of sideScope is "display: none;"
+customstyle of sideDiagnostics is "display: none;"
+customstyle of sideReference is "display: none;"
+customstyle of sideNetworking is "display: none;"
+customstyle of sideSecurity is "display: none;"
+customstyle of sideExamples is "display: none;"
+customstyle of sideExampleHello is "display: none;"
+customstyle of sideExampleInput is "display: none;"
+customstyle of sideExampleConditions is "display: none;"
+customstyle of sideExampleCounting is "display: none;"
+customstyle of sideExampleLists is "display: none;"
+customstyle of sideExampleDiscovery is "display: none;"
+customstyle of sideExampleOrganizer is "display: none;"
+customstyle of sideExampleFinding is "display: none;"
+customstyle of sideExampleErrors is "display: none;"
+customstyle of sideDesignReadable is "display: none;"
+customstyle of sideStructuralWords is "display: none;"
+customstyle of sidePropertiesOperations is "display: none;"
+customstyle of sidePeriods is "display: none;"
+customstyle of sidePhilosophy is "display: none;"
+customstyle of sideDownload is "display: none;"
+customstyle of sideRelease is "display: none;"
+customstyle of sideStudio is "display: none;"
 
-siteDownload is a link
-    text is "Download"
-    url is "/download/"
-.
+b1 is a text with value "Objects and properties", size 40, weight 800, foreground "#0b1d36", letterspacing "-0.03em", lineheight "1.1"
+b2 is a text with value "An object groups named values. Create one with has, and read its properties with the everyday word of.", size 18, foreground "#3a4d6b", lineheight "1.55"
+b3 is a text with value "developer has\n    name is \"Alice\"\n    role is \"Architect\"\n    level is 3\n.\n\nsay \"Developer:\" name of developer\nsay \"Role:\" role of developer\nsay \"Level:\" level of developer", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b4 is a text with value "Developer: Alice\nRole: Architect\nLevel: 3", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto;"
+b5 is a text with value "Why of instead of a dot? In many languages the dot means decimals, method calls, namespaces, and property access all at once. In Otter the period has one meaning - finish a block - and properties are always property of object.", size 15, foreground "#1e3a6b", background "#eaf2ff", radius 12, border "1px solid #cfe0ff", lineheight "1.55", customstyle "padding: 14px 18px;"
+b6 is a text with value "Changing a property", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b7 is a text with value "level of developer is 4\nsay \"Updated level:\" level of developer", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b8 is a text with value "Updated level: 4", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto;"
+b9 is a text with value "Custom types", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b10 is a text with value "Declare a type once with has, then create values of it:", size 16, foreground "#3a4d6b", lineheight "1.6"
+b11 is a text with value "a Person has\n    name\n    age\n.\n\njeff is a Person with name \"Jeff\", age 29\nsay name of jeff", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b12 is a text with value "developer is a thing remains supported for older programs; has is the canonical form.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b13 is a link with text "Next: files and folders", url "/files/", foreground "#2563eb", weight 600, size 15
 
-siteNav is a row
-    spacing is 16
-    padding is 14
-    background is "#172554"
-    radius is 10
-.
+docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"
+put b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13 in docsMain
+docsBody is a row with align top, spacing 0, width full, customstyle "align-items: stretch;"
+put docsSidebar, docsMain in docsBody
 
-put siteBrand, siteDocs, siteExamples, siteDownload in siteNav
-
-heading is a text
-    value is "Objects and Properties"
-    size is 30
-    weight is "700"
-    foreground is "#f8fafc"
-.
-
-body is a text
-    value is "Use has to construct a thing, then read its properties with of. Properties can be nested."
-    foreground is "#cbd5e1"
-.
-
-example is a text
-    value is "person has\n    name is \"Jeff\"\n    age is 29\n.\n\nsay name of person"
-    foreground is "#a7f3d0"
-    background is "#172554"
-    padding is 18
-    radius is 8
-.
-
-home is a link
-    text is "Documentation home"
-    url is "../home/"
-.
-
-values is a link
-    text is "Values and Types"
-    url is "../values/"
-.
-
-files is a link
-    text is "Files and Folders"
-    url is "../files/"
-.
-
-put siteNav, heading, body, example, home, values, files in app
+put topBar, docsBody, siteFooter in app
 show app

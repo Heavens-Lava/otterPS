@@ -44,7 +44,7 @@ if (Test-Path -LiteralPath $imageSource) {
     Get-ChildItem -LiteralPath $imageSource -File | Copy-Item -Destination $imageDestination -Force
 }
 
-foreach ($source in Get-ChildItem -LiteralPath $pagesRoot -Filter '*.ot' | Sort-Object Name) {
+foreach ($source in Get-ChildItem -LiteralPath $pagesRoot -Filter '*.ot' | Where-Object { -not $_.Name.StartsWith('_') -and -not $_.Name.StartsWith('.') } | Sort-Object Name) {
     $slug = [IO.Path]::GetFileNameWithoutExtension($source.Name)
     $destinationDir = Join-Path $OutputRoot $slug
     New-Item -ItemType Directory -Force -Path $destinationDir | Out-Null
@@ -53,7 +53,8 @@ foreach ($source in Get-ChildItem -LiteralPath $pagesRoot -Filter '*.ot' | Sort-
     $sourcePath = $source.FullName
     $temporarySource = $null
     if ($sourceText.Contains('{{')) {
-        $temporarySource = Join-Path ([IO.Path]::GetTempPath()) ("otter-docs-$([guid]::NewGuid().ToString('N')).ot")
+        # Beside the real source, so `use "shell.ot"` still resolves relative to the pages folder.
+        $temporarySource = Join-Path $source.DirectoryName (".build-$([guid]::NewGuid().ToString('N')).ot")
         Set-Content -LiteralPath $temporarySource -Value (Expand-OtterReleaseTokens $sourceText) -Encoding UTF8
         $sourcePath = $temporarySource
     }

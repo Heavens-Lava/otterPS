@@ -1026,6 +1026,16 @@ foreach ($prog in $binaryFilePrograms) {
 }
 Write-Output '  pass  Binary file access rejected on web target for BytesFromFile and WriteBytesFile (D115)'
 
+# Test 30: `scroll true` makes a page scroll like a document (website pages)
+$scrollSource = "app is a page with title `"Long`", scroll true`nt is a text with value `"hello`"`nput t in app`nshow app`n"
+$plainSource = $scrollSource.Replace(', scroll true', '')
+$scrollHtml = ConvertTo-OtterWeb -Program (ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $scrollSource))
+$plainHtml = ConvertTo-OtterWeb -Program (ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $plainSource))
+if ($scrollHtml -notmatch '<body class="otter-has-page otter-doc-scroll"') { throw 'Expected scroll true to mark the body as a scrolling document.' }
+if ($plainHtml -match 'otter-doc-scroll"') { throw 'A page without scroll true must keep the app-shell (fit-the-window) behavior.' }
+if ($scrollHtml -notmatch 'body\.otter-has-page\.otter-doc-scroll\s*\{[^}]*overflow-y:\s*auto') { throw 'Expected the scrolling-document CSS to allow vertical scrolling.' }
+Write-Output '  pass  scroll true makes a page scroll like a document; other pages keep app-shell behavior'
+
 Write-Output 'Web compiler tests passed.'
 
 

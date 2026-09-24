@@ -542,7 +542,11 @@ function ConvertTo-OtterWeb {
     }
 
     $isPage = ($null -ne $rootName -and $resources[$rootName].Kind -eq 'page')
-    $bodyClass = if ($isPage) { ' class="otter-has-page"' } else { '' }
+    # `scroll true` on the page: it scrolls like an ordinary document (a
+    # website) instead of filling the window like an app shell.
+    $pageScrolls = ($isPage -and $resources[$rootName].Properties.Contains('scroll') -and
+        ($resources[$rootName].Properties['scroll'] -eq $true -or "$($resources[$rootName].Properties['scroll'])" -eq 'true'))
+    $bodyClass = if ($pageScrolls) { ' class="otter-has-page otter-doc-scroll"' } elseif ($isPage) { ' class="otter-has-page"' } else { '' }
 
     # HTML rendering helper
     function Render-OtterElementCore([string]$resName, [bool]$Hidden = $false) {
@@ -1271,6 +1275,12 @@ $bodyJoined
       max-height: 100vh;
       box-sizing: border-box;
       overflow: hidden;
+    }
+    body.otter-has-page.otter-doc-scroll {
+      height: auto;
+      max-height: none;
+      overflow-x: hidden;
+      overflow-y: auto;
     }
     .otter-row {
       display: flex;

@@ -1,113 +1,87 @@
-app is a page
-    title is "Installation"
-    width is 900
-    background is "#0f172a"
-    spacing is 16
-.
+# Otter website - Installation
+# Authored in Otter. Scaffolded by scripts/new-docs-page.ps1, now edited here directly.
 
-siteBrand is a text
-    value is "Otter Docs"
-    weight is "700"
-    foreground is "#f8fafc"
-.
+use "_shell.ot"
+use "_docs.ot"
 
-siteDocs is a link
-    text is "Docs"
-    url is "/"
-.
+app is a page with title "Installation - Otter Documentation", hideheader true, scroll true, width full, background "#f4f7fb", foreground "#0f1f36", spacing 0, padding 0
 
-siteExamples is a link
-    text is "Examples"
-    url is "/examples/"
-.
+customstyle of navDocs is "padding: 22px 0; border-bottom: 2px solid #4d8dff; color: #ffffff;"
+customstyle of sideInstallation is "padding: 8px 12px; border-left: 3px solid #2563eb; border-radius: 4px; display: block; background: #e6efff; color: #1d4ed8; font-weight: 600;"
+# Sidebar: only the current group is expanded.
+customstyle of sideValues is "display: none;"
+customstyle of sideInputOutput is "display: none;"
+customstyle of sideConditions is "display: none;"
+customstyle of sideLoops is "display: none;"
+customstyle of sideLists is "display: none;"
+customstyle of sideFunctions is "display: none;"
+customstyle of sideObjects is "display: none;"
+customstyle of sideFiles is "display: none;"
+customstyle of sideData is "display: none;"
+customstyle of sideErrorHandling is "display: none;"
+customstyle of sideGone is "display: none;"
+customstyle of sideOperators is "display: none;"
+customstyle of sidePropertyAccess is "display: none;"
+customstyle of sideStrings is "display: none;"
+customstyle of sideCollections is "display: none;"
+customstyle of sideFilesFolders is "display: none;"
+customstyle of sideFolders is "display: none;"
+customstyle of sideTry is "display: none;"
+customstyle of sideJson is "display: none;"
+customstyle of sideRandom is "display: none;"
+customstyle of sideDates is "display: none;"
+customstyle of sideScope is "display: none;"
+customstyle of sideDiagnostics is "display: none;"
+customstyle of sideReference is "display: none;"
+customstyle of sideNetworking is "display: none;"
+customstyle of sideSecurity is "display: none;"
+customstyle of sideExamples is "display: none;"
+customstyle of sideExampleHello is "display: none;"
+customstyle of sideExampleInput is "display: none;"
+customstyle of sideExampleConditions is "display: none;"
+customstyle of sideExampleCounting is "display: none;"
+customstyle of sideExampleLists is "display: none;"
+customstyle of sideExampleDiscovery is "display: none;"
+customstyle of sideExampleOrganizer is "display: none;"
+customstyle of sideExampleFinding is "display: none;"
+customstyle of sideExampleErrors is "display: none;"
+customstyle of sideDesignReadable is "display: none;"
+customstyle of sideStructuralWords is "display: none;"
+customstyle of sidePropertiesOperations is "display: none;"
+customstyle of sidePeriods is "display: none;"
+customstyle of sidePhilosophy is "display: none;"
+customstyle of sideDownload is "display: none;"
+customstyle of sideRelease is "display: none;"
+customstyle of sideStudio is "display: none;"
 
-siteDownload is a link
-    text is "Download"
-    url is "/download/"
-.
+b1 is a text with value "Installation", size 40, weight 800, foreground "#0b1d36", letterspacing "-0.03em", lineheight "1.1"
+b2 is a text with value "Otter needs Windows PowerShell 5.1 and nothing else. There are no administrator rights, services, or registry changes.", size 18, foreground "#3a4d6b", lineheight "1.55"
+b3 is a text with value "Release status: {{RELEASE_CHANNEL}} {{RELEASE_VERSION}}. Windows installer: {{INSTALLER_STATUS}}. Until an installer is published, run Otter from the project folder (below).", size 15, foreground "#1e3a6b", background "#eaf2ff", radius 12, border "1px solid #cfe0ff", lineheight "1.55", customstyle "padding: 14px 18px;"
+b4 is a text with value "System requirements", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b5 is a text with value "Windows 10 or Windows 11 (64-bit) with Windows PowerShell 5.1 (powershell.exe, built into Windows). A standard user account is enough. A web browser is only needed for web applications. Otter runs on Windows PowerShell 5.1; the otter.cmd launcher finds it for you, so you can start Otter from Command Prompt, Windows Terminal, or PowerShell 7 alike.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b6 is a text with value "Run from the project folder", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b7 is a text with value "Get the Otter project folder from GitHub, open Windows PowerShell in it, and run a program with otter.cmd:", size 16, foreground "#3a4d6b", lineheight "1.6"
+b8 is a text with value "git clone https://github.com/Heavens-Lava/otterPS.git\ncd otterPS\n.\\otter.cmd --version\n.\\otter.cmd examples\\hello.ot", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b9 is a text with value "No registry changes, environment variables, or background services are created. Add the folder to your PATH if you would like to type otter instead of .\\otter.cmd.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b10 is a text with value "Install from a release archive", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b11 is a text with value "When a versioned archive is published, extract it, open Windows PowerShell in the extracted folder, and run the per-user installer. It copies Otter to %LOCALAPPDATA%\\Otter, adds it to your user PATH, and runs a health check:", size 16, foreground "#3a4d6b", lineheight "1.6"
+b12 is a text with value "Set-ExecutionPolicy -Scope Process Bypass\n.\\Install-Otter.ps1 -AddToUserPath", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b13 is a text with value "Open a new terminal so the updated PATH takes effect, then verify:", size 16, foreground "#3a4d6b", lineheight "1.6"
+b14 is a text with value "otter --version", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b15 is a text with value "Otter 1.0.0-rc.1 (Windows PowerShell 5.1)", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto;"
+b16 is a text with value "Verify your installation", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b17 is a text with value "otter                  # starts the interactive REPL (type exit to leave)\notter check hello.ot   # validates a program without running it", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b18 is a text with value "Troubleshooting", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b19 is a text with value "\"Running scripts is disabled on this system\": allow scripts for the current terminal only with Set-ExecutionPolicy -Scope Process Bypass. It expires when you close the window.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b20 is a text with value "\"otter is not recognized\": open a fresh terminal so the new PATH is picked up, and confirm the install folder is in your user PATH.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b21 is a text with value "Uninstall", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b22 is a text with value "Set-ExecutionPolicy -Scope Process Bypass\n& \"$env:LOCALAPPDATA\\Otter\\1.0.0-rc.1\\Uninstall-Otter.ps1\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b23 is a link with text "Next: write your first program", url "/first-program/", foreground "#2563eb", weight 600, size 15
 
-siteNav is a row
-    spacing is 16
-    padding is 14
-    background is "#172554"
-    radius is 10
-.
+docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"
+put b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15, b16, b17, b18, b19, b20, b21, b22, b23 in docsMain
+docsBody is a row with align top, spacing 0, width full, customstyle "align-items: stretch;"
+put docsSidebar, docsMain in docsBody
 
-put siteBrand, siteDocs, siteExamples, siteDownload in siteNav
-
-heading is a text
-    value is "Installation"
-    foreground is "#f8fafc"
-.
-
-body is a text
-    value is "Download Otter for Windows, then run an .ot file from PowerShell with .\\otter.cmd your-program.ot."
-    foreground is "#cbd5e1"
-.
-
-example is a text
-    value is ".\\otter.cmd examples\\hello.ot"
-    foreground is "#a7f3d0"
-.
-
-home is a link
-    text is "Documentation home"
-    url is "../"
-.
-
-welcome is a link
-    text is "Welcome to Otter"
-    url is "../welcome/"
-.
-
-conditions is a link
-    text is "Conditions"
-    url is "../conditions/"
-.
-
-firstProgram is a link
-    text is "Write your first program"
-    url is "/first-program/"
-.
-
-put siteNav, heading, body, example, firstProgram, home, welcome, conditions in app
-
-searchBox is a text box
-    placeholder is "Search documentation..."
-    width is 360
-.
-
-searchResult is a text
-    value is "Search topics: welcome, conditions, values, or loops."
-    foreground is "#475569"
-.
-
-when searchBox is changed
-    query is text of searchBox
-    if query contains "welcome"
-        text of searchResult is "Result: Welcome to Otter"
-    otherwise if query contains "condition"
-        text of searchResult is "Result: Conditions"
-    otherwise if query contains "value"
-        text of searchResult is "Result: Values and Types"
-    otherwise if query contains "loop"
-        text of searchResult is "Result: Loops"
-    otherwise if query contains "object"
-        text of searchResult is "Result: Objects (Language Reference)"
-    otherwise if query contains "function"
-        text of searchResult is "Result: Functions (Language Reference)"
-    otherwise if query contains "file"
-        text of searchResult is "Result: Files and Folders (Language Reference)"
-    otherwise if query contains "string"
-        text of searchResult is "Result: Strings (Language Reference)"
-    otherwise if query contains "collection"
-        text of searchResult is "Result: Collections (Language Reference)"
-    otherwise if query contains "web"
-        text of searchResult is "Result: Web Development (Examples)"
-    otherwise
-        text of searchResult is "No matching topic yet."
-    .
-.
-
-put searchBox, searchResult in app
+put topBar, docsBody, siteFooter in app
 show app

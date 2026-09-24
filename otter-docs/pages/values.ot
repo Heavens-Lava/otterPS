@@ -1,74 +1,83 @@
-app is a page
-    title is "Values and Types"
-    width is 900
-    background is "#0f172a"
-    spacing is 16
-.
+# Otter website - Values and variables
+# Authored in Otter. Scaffolded by scripts/new-docs-page.ps1, now edited here directly.
 
-siteBrand is a text
-    value is "Otter Docs"
-    weight is "700"
-    foreground is "#f8fafc"
-.
+use "_shell.ot"
+use "_docs.ot"
 
-siteDocs is a link
-    text is "Docs"
-    url is "/"
-.
+app is a page with title "Values and variables - Otter Documentation", hideheader true, scroll true, width full, background "#f4f7fb", foreground "#0f1f36", spacing 0, padding 0
 
-siteExamples is a link
-    text is "Examples"
-    url is "/examples/"
-.
+customstyle of navDocs is "padding: 22px 0; border-bottom: 2px solid #4d8dff; color: #ffffff;"
+customstyle of sideValues is "padding: 8px 12px; border-left: 3px solid #2563eb; border-radius: 4px; display: block; background: #e6efff; color: #1d4ed8; font-weight: 600;"
+# Sidebar: only the current group is expanded.
+customstyle of sideHome is "display: none;"
+customstyle of sideWelcome is "display: none;"
+customstyle of sideInstallation is "display: none;"
+customstyle of sideFirstProgram is "display: none;"
+customstyle of sideHello is "display: none;"
+customstyle of sideRunningFiles is "display: none;"
+customstyle of sideRepl is "display: none;"
+customstyle of sideCli is "display: none;"
+customstyle of sideGone is "display: none;"
+customstyle of sideOperators is "display: none;"
+customstyle of sidePropertyAccess is "display: none;"
+customstyle of sideStrings is "display: none;"
+customstyle of sideCollections is "display: none;"
+customstyle of sideFilesFolders is "display: none;"
+customstyle of sideFolders is "display: none;"
+customstyle of sideTry is "display: none;"
+customstyle of sideJson is "display: none;"
+customstyle of sideRandom is "display: none;"
+customstyle of sideDates is "display: none;"
+customstyle of sideScope is "display: none;"
+customstyle of sideDiagnostics is "display: none;"
+customstyle of sideReference is "display: none;"
+customstyle of sideNetworking is "display: none;"
+customstyle of sideSecurity is "display: none;"
+customstyle of sideExamples is "display: none;"
+customstyle of sideExampleHello is "display: none;"
+customstyle of sideExampleInput is "display: none;"
+customstyle of sideExampleConditions is "display: none;"
+customstyle of sideExampleCounting is "display: none;"
+customstyle of sideExampleLists is "display: none;"
+customstyle of sideExampleDiscovery is "display: none;"
+customstyle of sideExampleOrganizer is "display: none;"
+customstyle of sideExampleFinding is "display: none;"
+customstyle of sideExampleErrors is "display: none;"
+customstyle of sideDesignReadable is "display: none;"
+customstyle of sideStructuralWords is "display: none;"
+customstyle of sidePropertiesOperations is "display: none;"
+customstyle of sidePeriods is "display: none;"
+customstyle of sidePhilosophy is "display: none;"
+customstyle of sideDownload is "display: none;"
+customstyle of sideRelease is "display: none;"
+customstyle of sideStudio is "display: none;"
 
-siteDownload is a link
-    text is "Download"
-    url is "/download/"
-.
+b1 is a text with value "Values and variables", size 40, weight 800, foreground "#0b1d36", letterspacing "-0.03em", lineheight "1.1"
+b2 is a text with value "Otter works with text, numbers, booleans, lists, objects, and gone. Use is to give a value a name.", size 18, foreground "#3a4d6b", lineheight "1.55"
+b3 is a text with value "name is \"Alice\"\nage is 29\nratio is 3.14\nactive is true\nmissing is gone", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b4 is a text with value "Variable names start with a lowercase letter and use camelCase (totalRevenue, userEmail). Names are case-sensitive. Text uses double quotes. Types are determined automatically.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b5 is a text with value "Saying values", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b6 is a text with value "say prints its values on one line, separated by single spaces. Numbers print without trailing zeros and booleans as true or false.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b7 is a text with value "name is \"Jeff\"\nage is 29\nsay name \"is\" age \"years old.\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b8 is a text with value "Jeff is 29 years old.", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto;"
+b9 is a text with value "Arithmetic", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b10 is a text with value "Calculations use everyday words. make stores the result:", size 16, foreground "#3a4d6b", lineheight "1.6"
+b11 is a text with value "number1 is 10\nnumber2 is 5\n\nnumber1 and number2 make total\nnumber1 minus number2 make difference\nnumber1 times number2 make product\nnumber1 divided by number2 make quotient\n\nsay \"Total:\" total\nsay \"Difference:\" difference\nsay \"Product:\" product\nsay \"Quotient:\" quotient", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b12 is a text with value "Total: 15\nDifference: 5\nProduct: 50\nQuotient: 2", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto;"
+b13 is a text with value "Dividing by zero is a readable Otter error, never a crash.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b14 is a text with value "Changing a number in place", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b15 is a text with value "score is 100\n\nadd 15 to score\nremove 30 from score\n\nsay \"Final score:\" score", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b16 is a text with value "Final score: 85", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto;"
+b17 is a text with value "Input", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b18 is a text with value "ask converts what was typed: 42 becomes the number 42, true becomes a boolean, and everything else stays text.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b19 is a text with value "ask \"Enter your age: \" and call it age\nage and 5 make futureAge\nsay \"In 5 years you will be:\" futureAge", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b20 is a text with value "Using a variable that was never defined is an error, not false and not empty. Otter tells you which name it could not find.", size 15, foreground "#1e3a6b", background "#eaf2ff", radius 12, border "1px solid #cfe0ff", lineheight "1.55", customstyle "padding: 14px 18px;"
+b21 is a link with text "Next: conditions", url "/conditions/", foreground "#2563eb", weight 600, size 15
 
-siteNav is a row
-    spacing is 16
-    padding is 14
-    background is "#172554"
-    radius is 10
-.
+docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"
+put b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15, b16, b17, b18, b19, b20, b21 in docsMain
+docsBody is a row with align top, spacing 0, width full, customstyle "align-items: stretch;"
+put docsSidebar, docsMain in docsBody
 
-put siteBrand, siteDocs, siteExamples, siteDownload in siteNav
-
-heading is a text
-    value is "Values and Types"
-    size is 30
-    weight is "700"
-    foreground is "#f8fafc"
-.
-
-body is a text
-    value is "Otter works with text, numbers, booleans, lists, objects, and gone. Use is to assign a value."
-    foreground is "#cbd5e1"
-.
-
-example is a text
-    value is "name is \"Jeff\"\nage is 29\nready is true\nmissing is gone"
-    foreground is "#a7f3d0"
-    background is "#172554"
-    padding is 18
-    radius is 8
-.
-
-home is a link
-    text is "Documentation home"
-    url is "../home/"
-.
-
-conditions is a link
-    text is "Conditions"
-    url is "../conditions/"
-.
-
-loops is a link
-    text is "Loops"
-    url is "../loops/"
-.
-
-put siteNav, heading, body, example, home, conditions, loops in app
+put topBar, docsBody, siteFooter in app
 show app

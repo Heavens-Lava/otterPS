@@ -1,97 +1,83 @@
-# Otter Documentation - First Program
+# Otter website - Your first program
+# Authored in Otter. Scaffolded by scripts/new-docs-page.ps1, now edited here directly.
 
-app is a page
-    title is "Your First Otter Program"
-    background is "#f8fafc"
-    spacing is 18
-    padding is 20
-.
+use "_shell.ot"
+use "_docs.ot"
 
-brand is a text
-    value is "Otter Docs"
-    size is 26
-    weight is "700"
-    foreground is "#0f172a"
-.
+app is a page with title "Your first program - Otter Documentation", hideheader true, scroll true, width full, background "#f4f7fb", foreground "#0f1f36", spacing 0, padding 0
 
-docsLink is a link
-    text is "Docs"
-    url is "/"
-.
+customstyle of navDocs is "padding: 22px 0; border-bottom: 2px solid #4d8dff; color: #ffffff;"
+customstyle of sideFirstProgram is "padding: 8px 12px; border-left: 3px solid #2563eb; border-radius: 4px; display: block; background: #e6efff; color: #1d4ed8; font-weight: 600;"
+# Sidebar: only the current group is expanded.
+customstyle of sideValues is "display: none;"
+customstyle of sideInputOutput is "display: none;"
+customstyle of sideConditions is "display: none;"
+customstyle of sideLoops is "display: none;"
+customstyle of sideLists is "display: none;"
+customstyle of sideFunctions is "display: none;"
+customstyle of sideObjects is "display: none;"
+customstyle of sideFiles is "display: none;"
+customstyle of sideData is "display: none;"
+customstyle of sideErrorHandling is "display: none;"
+customstyle of sideGone is "display: none;"
+customstyle of sideOperators is "display: none;"
+customstyle of sidePropertyAccess is "display: none;"
+customstyle of sideStrings is "display: none;"
+customstyle of sideCollections is "display: none;"
+customstyle of sideFilesFolders is "display: none;"
+customstyle of sideFolders is "display: none;"
+customstyle of sideTry is "display: none;"
+customstyle of sideJson is "display: none;"
+customstyle of sideRandom is "display: none;"
+customstyle of sideDates is "display: none;"
+customstyle of sideScope is "display: none;"
+customstyle of sideDiagnostics is "display: none;"
+customstyle of sideReference is "display: none;"
+customstyle of sideNetworking is "display: none;"
+customstyle of sideSecurity is "display: none;"
+customstyle of sideExamples is "display: none;"
+customstyle of sideExampleHello is "display: none;"
+customstyle of sideExampleInput is "display: none;"
+customstyle of sideExampleConditions is "display: none;"
+customstyle of sideExampleCounting is "display: none;"
+customstyle of sideExampleLists is "display: none;"
+customstyle of sideExampleDiscovery is "display: none;"
+customstyle of sideExampleOrganizer is "display: none;"
+customstyle of sideExampleFinding is "display: none;"
+customstyle of sideExampleErrors is "display: none;"
+customstyle of sideDesignReadable is "display: none;"
+customstyle of sideStructuralWords is "display: none;"
+customstyle of sidePropertiesOperations is "display: none;"
+customstyle of sidePeriods is "display: none;"
+customstyle of sidePhilosophy is "display: none;"
+customstyle of sideDownload is "display: none;"
+customstyle of sideRelease is "display: none;"
+customstyle of sideStudio is "display: none;"
 
-examplesLink is a link
-    text is "Examples"
-    url is "/examples/"
-.
+b1 is a text with value "Your first Otter program", size 40, weight 800, foreground "#0b1d36", letterspacing "-0.03em", lineheight "1.1"
+b2 is a text with value "Three steps take you from an empty file to a program that says hello.", size 18, foreground "#3a4d6b", lineheight "1.55"
+b3 is a text with value "1. Create hello.ot", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b4 is a text with value "In any text editor, create a file named hello.ot containing:", size 16, foreground "#3a4d6b", lineheight "1.6"
+b5 is a text with value "# Your first Otter program\nsay \"Hello, Otter!\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b6 is a text with value "2. Run it", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b7 is a text with value "In PowerShell, in the folder that holds the file:", size 16, foreground "#3a4d6b", lineheight "1.6"
+b8 is a text with value "otter run hello.ot", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b9 is a text with value "Running from the project folder without installing? Use .\\otter.cmd hello.ot instead. The shorthand otter hello.ot works too.", size 15, foreground "#1e3a6b", background "#eaf2ff", radius 12, border "1px solid #cfe0ff", lineheight "1.55", customstyle "padding: 14px 18px;"
+b10 is a text with value "3. See the output", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b11 is a text with value "Hello, Otter!", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto;"
+b12 is a text with value "Make it yours", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b13 is a text with value "Put a value in a variable and say it beside some text. say separates each part with a single space:", size 16, foreground "#3a4d6b", lineheight "1.6"
+b14 is a text with value "name is \"Otter Explorer\"\nsay \"Hello,\" name", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b15 is a text with value "Hello, Otter Explorer", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto;"
+b16 is a text with value "Ask the person running the program for input. Numbers and true/false are recognised automatically:", size 16, foreground "#3a4d6b", lineheight "1.6"
+b17 is a text with value "ask \"What is your name? \" and call it userName\nsay \"Hello\" userName", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b18 is a link with text "Next: values and variables", url "/values/", foreground "#2563eb", weight 600, size 15
+b19 is a link with text "Or try the interactive REPL: run otter with no arguments", url "/cli/", foreground "#2563eb", weight 600, size 15
 
-downloadLink is a link
-    text is "Download"
-    url is "/download/"
-.
+docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"
+put b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15, b16, b17, b18, b19 in docsMain
+docsBody is a row with align top, spacing 0, width full, customstyle "align-items: stretch;"
+put docsSidebar, docsMain in docsBody
 
-header is a row
-    spacing is 18
-    padding is 16
-    background is "#ffffff"
-    border is "1px solid #e2e8f0"
-    radius is 10
-.
-
-put brand, docsLink, examplesLink, downloadLink in header
-
-heading is a text
-    value is "Your first Otter program"
-    size is 34
-    weight is "700"
-    foreground is "#0f172a"
-.
-
-intro is a text
-    value is "These Windows-focused steps take you from the Otter folder to a program that says hello."
-    foreground is "#475569"
-.
-
-stepOne is a text
-    value is "1. In the Otter folder, create a file named hello.ot."
-    foreground is "#334155"
-.
-
-programText is a text
-    value is "say \"Hello, Otter!\""
-    foreground is "#a7f3d0"
-    background is "#0f172a"
-    padding is 16
-    radius is 8
-.
-
-stepTwo is a text
-    value is "2. Put this line in hello.ot, then save the file."
-    foreground is "#334155"
-.
-
-runText is a text
-    value is ".\\otter.cmd hello.ot"
-    foreground is "#a7f3d0"
-    background is "#0f172a"
-    padding is 16
-    radius is 8
-.
-
-stepThree is a text
-    value is "3. In PowerShell, run this command. Otter prints Hello, Otter!"
-    foreground is "#334155"
-.
-
-nextLink is a link
-    text is "Continue to Variables and Values"
-    url is "/values/"
-.
-
-main is a column
-    spacing is 14
-    padding is 26
-.
-
-put heading, intro, stepOne, stepTwo, programText, stepThree, runText, nextLink in main
-put header, main in app
+put topBar, docsBody, siteFooter in app
 show app

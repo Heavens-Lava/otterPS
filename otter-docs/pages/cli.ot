@@ -1,0 +1,79 @@
+# Otter website - Command line
+# Authored in Otter. Scaffolded by scripts/new-docs-page.ps1, now edited here directly.
+
+use "_shell.ot"
+use "_docs.ot"
+
+app is a page with title "Command line - Otter Documentation", hideheader true, scroll true, width full, background "#f4f7fb", foreground "#0f1f36", spacing 0, padding 0
+
+customstyle of navDocs is "padding: 22px 0; border-bottom: 2px solid #4d8dff; color: #ffffff;"
+customstyle of sideCli is "padding: 8px 12px; border-left: 3px solid #2563eb; border-radius: 4px; display: block; background: #e6efff; color: #1d4ed8; font-weight: 600;"
+# Sidebar: only the current group is expanded.
+customstyle of sideValues is "display: none;"
+customstyle of sideInputOutput is "display: none;"
+customstyle of sideConditions is "display: none;"
+customstyle of sideLoops is "display: none;"
+customstyle of sideLists is "display: none;"
+customstyle of sideFunctions is "display: none;"
+customstyle of sideObjects is "display: none;"
+customstyle of sideFiles is "display: none;"
+customstyle of sideData is "display: none;"
+customstyle of sideErrorHandling is "display: none;"
+customstyle of sideGone is "display: none;"
+customstyle of sideOperators is "display: none;"
+customstyle of sidePropertyAccess is "display: none;"
+customstyle of sideStrings is "display: none;"
+customstyle of sideCollections is "display: none;"
+customstyle of sideFilesFolders is "display: none;"
+customstyle of sideFolders is "display: none;"
+customstyle of sideTry is "display: none;"
+customstyle of sideJson is "display: none;"
+customstyle of sideRandom is "display: none;"
+customstyle of sideDates is "display: none;"
+customstyle of sideScope is "display: none;"
+customstyle of sideDiagnostics is "display: none;"
+customstyle of sideReference is "display: none;"
+customstyle of sideNetworking is "display: none;"
+customstyle of sideSecurity is "display: none;"
+customstyle of sideExamples is "display: none;"
+customstyle of sideExampleHello is "display: none;"
+customstyle of sideExampleInput is "display: none;"
+customstyle of sideExampleConditions is "display: none;"
+customstyle of sideExampleCounting is "display: none;"
+customstyle of sideExampleLists is "display: none;"
+customstyle of sideExampleDiscovery is "display: none;"
+customstyle of sideExampleOrganizer is "display: none;"
+customstyle of sideExampleFinding is "display: none;"
+customstyle of sideExampleErrors is "display: none;"
+customstyle of sideDesignReadable is "display: none;"
+customstyle of sideStructuralWords is "display: none;"
+customstyle of sidePropertiesOperations is "display: none;"
+customstyle of sidePeriods is "display: none;"
+customstyle of sidePhilosophy is "display: none;"
+customstyle of sideDownload is "display: none;"
+customstyle of sideRelease is "display: none;"
+customstyle of sideStudio is "display: none;"
+
+b1 is a text with value "The otter command", size 40, weight 800, foreground "#0b1d36", letterspacing "-0.03em", lineheight "1.1"
+b2 is a text with value "One launcher runs programs, checks them, starts the REPL, and compiles web applications.", size 18, foreground "#3a4d6b", lineheight "1.55"
+b3 is a text with value "Commands", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b4 is a text with value "otter                          # interactive REPL (exit or quit to leave)\notter program.ot [args...]     # run a program (shorthand)\notter run program.ot [args...] # run a program explicitly\notter check program.ot         # validate syntax without running it\notter web app.ot               # compile to a web application and open it\notter web app.ot -NoOpen       # compile without opening the browser\notter --version                # version and runtime information\notter --help                   # the built-in help", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b5 is a text with value "otter check parses a program and exits with code 0 when it is valid. Nothing is executed, so it is safe on any file.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b6 is a text with value "Command-line arguments", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b7 is a text with value "Anything after the program name arrives in the built-in arguments list:", size 16, foreground "#3a4d6b", lineheight "1.6"
+b8 is a text with value "say \"Arguments received:\" length of arguments\n\neach arg in arguments\n    say \"  Arg:\" arg\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b9 is a text with value "Running otter run script.ot deploy staging preview prints:", size 16, foreground "#3a4d6b", lineheight "1.6"
+b10 is a text with value "Arguments received: 3\n  Arg: deploy\n  Arg: staging\n  Arg: preview", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto;"
+b11 is a text with value "Working directory and environment", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b12 is a text with value "get current directory into cwd\nsay \"Running inside:\" cwd\n\nset environment variable \"APP_ENV\" to \"production\"\nget environment variable \"APP_ENV\" into currentEnv\nsay \"Environment setting:\" currentEnv", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b13 is a text with value "Running commands", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b14 is a text with value "run command captures the standard output, standard error, and exit code of another program in a structured result.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b15 is a link with text "Next: values and variables", url "/values/", foreground "#2563eb", weight 600, size 15
+
+docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"
+put b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15 in docsMain
+docsBody is a row with align top, spacing 0, width full, customstyle "align-items: stretch;"
+put docsSidebar, docsMain in docsBody
+
+put topBar, docsBody, siteFooter in app
+show app

@@ -92,3 +92,32 @@ not when the runtime supports it. Several features are implemented in the
 interpreter but have no parser grammar yet, so no Otter program can use them.
 Those pages say plainly that the feature is not available rather than showing
 code that will not run.
+
+## The new design (Otter-authored pages)
+
+Every route under `pages/` uses one shared design, written in Otter:
+
+- `pages/_shell.ot` - the top bar and footer. `use`d by every page.
+- `pages/_docs.ot` - the docs sidebar. `use`d by every docs page. Only the
+  current page's group is expanded, so the highlighted link is always visible
+  without scripting.
+- Files starting with `_` are modules, not routes; the build skips them.
+- `scroll true` on a page makes it scroll like a document (a website) instead
+  of filling the window like an app shell.
+
+### Adding or moving pages
+
+`scripts/new-docs-page.ps1` scaffolds a docs page from a short content list.
+The generated `pages/<slug>.ot` is then the source of truth - edit it directly.
+`scripts/build-docs-content.ps1` regenerated the sidebar and migrated the old
+Node pages (`scripts/export-legacy-pages.mjs` -> `scripts/legacy-pages.json`);
+it is a migration tool, not part of the site build.
+
+### Checking the samples
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\check-otter-page-examples.ps1
+```
+
+parse-checks every Otter code sample on the Otter-authored pages with the real
+parser (`otter check`), skipping shell commands and program output.

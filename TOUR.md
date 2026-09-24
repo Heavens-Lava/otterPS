@@ -68,7 +68,7 @@ In Otter, `is` is the universal assignment operator at the statement level. Vari
 ```otter
 name is "Alice"
 age is 29
-pi is 3.14
+ratio is 3.14
 active is true
 ```
 

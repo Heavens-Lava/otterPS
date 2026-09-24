@@ -1,261 +1,102 @@
-# Otter Documentation - Examples
+# Otter website - Examples
+# Authored in Otter. Scaffolded by scripts/new-docs-page.ps1, now edited here directly.
 
-app is a page
-    title is "Otter Examples"
-    background is "#f8fafc"
-    spacing is 20
-    padding is 20
-.
+use "_shell.ot"
+use "_docs.ot"
 
-brand is a text
-    value is "Otter"
-    size is 28
-    weight is "700"
-    foreground is "#0f172a"
-.
+app is a page with title "Examples - Otter Documentation", hideheader true, scroll true, width full, background "#f4f7fb", foreground "#0f1f36", spacing 0, padding 0
 
-docsLink is a link
-    text is "Docs"
-    url is "/"
-.
+customstyle of navExamples is "padding: 22px 0; border-bottom: 2px solid #4d8dff; color: #ffffff;"
+customstyle of sideExamples is "padding: 8px 12px; border-left: 3px solid #2563eb; border-radius: 4px; display: block; background: #e6efff; color: #1d4ed8; font-weight: 600;"
+# Sidebar: only the current group is expanded.
+customstyle of sideHome is "display: none;"
+customstyle of sideWelcome is "display: none;"
+customstyle of sideInstallation is "display: none;"
+customstyle of sideFirstProgram is "display: none;"
+customstyle of sideHello is "display: none;"
+customstyle of sideRunningFiles is "display: none;"
+customstyle of sideRepl is "display: none;"
+customstyle of sideCli is "display: none;"
+customstyle of sideValues is "display: none;"
+customstyle of sideInputOutput is "display: none;"
+customstyle of sideConditions is "display: none;"
+customstyle of sideLoops is "display: none;"
+customstyle of sideLists is "display: none;"
+customstyle of sideFunctions is "display: none;"
+customstyle of sideObjects is "display: none;"
+customstyle of sideFiles is "display: none;"
+customstyle of sideData is "display: none;"
+customstyle of sideErrorHandling is "display: none;"
+customstyle of sideGone is "display: none;"
+customstyle of sideOperators is "display: none;"
+customstyle of sidePropertyAccess is "display: none;"
+customstyle of sideStrings is "display: none;"
+customstyle of sideCollections is "display: none;"
+customstyle of sideFilesFolders is "display: none;"
+customstyle of sideFolders is "display: none;"
+customstyle of sideTry is "display: none;"
+customstyle of sideJson is "display: none;"
+customstyle of sideRandom is "display: none;"
+customstyle of sideDates is "display: none;"
+customstyle of sideScope is "display: none;"
+customstyle of sideDiagnostics is "display: none;"
+customstyle of sideReference is "display: none;"
+customstyle of sideNetworking is "display: none;"
+customstyle of sideSecurity is "display: none;"
+customstyle of sideDesignReadable is "display: none;"
+customstyle of sideStructuralWords is "display: none;"
+customstyle of sidePropertiesOperations is "display: none;"
+customstyle of sidePeriods is "display: none;"
+customstyle of sidePhilosophy is "display: none;"
+customstyle of sideDownload is "display: none;"
+customstyle of sideRelease is "display: none;"
+customstyle of sideStudio is "display: none;"
 
-downloadLink is a link
-    text is "Download"
-    url is "/download/"
-.
+b1 is a text with value "Otter examples", size 40, weight 800, foreground "#0b1d36", letterspacing "-0.03em", lineheight "1.1"
+b2 is a text with value "Learn by changing real programs. Each example is a real .ot file from the Otter project - open one, change it, and run it.", size 18, foreground "#3a4d6b", lineheight "1.55"
+b3 is a text with value "Hello, Otter!", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b4 is a text with value "The smallest useful Otter program.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b5 is a text with value "say \"Hello, Otter!\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b6 is a link with text "View hello.ot source", url "https://github.com/Heavens-Lava/otterPS/blob/master/examples/hello.ot", foreground "#2563eb", weight 600, size 15
+b7 is a link with text "Read the tutorial", url "/first-program/", foreground "#2563eb", weight 600, size 15
+b8 is a text with value "Calculator", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b9 is a text with value "A native UI app with text boxes, a button, and error handling.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b10 is a link with text "View calculator.ot source", url "https://github.com/Heavens-Lava/otterPS/blob/master/examples/calculator.ot", foreground "#2563eb", weight 600, size 15
+b11 is a text with value "Files and folders", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b12 is a text with value "Discover and inspect files with straightforward Otter statements.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b13 is a link with text "View files.ot source", url "https://github.com/Heavens-Lava/otterPS/blob/master/examples/files.ot", foreground "#2563eb", weight 600, size 15
+b14 is a link with text "Read file documentation", url "/files/", foreground "#2563eb", weight 600, size 15
+b15 is a text with value "CSV", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b16 is a text with value "Parse tabular data into objects and write it back out.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b17 is a link with text "View csv.ot source", url "https://github.com/Heavens-Lava/otterPS/blob/master/examples/csv.ot", foreground "#2563eb", weight 600, size 15
+b18 is a link with text "Read CSV documentation", url "/data/", foreground "#2563eb", weight 600, size 15
+b19 is a text with value "Database tasks", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b20 is a text with value "Work with a real database from Otter.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b21 is a link with text "View database-tasks.ot source", url "https://github.com/Heavens-Lava/otterPS/blob/master/examples/database-tasks.ot", foreground "#2563eb", weight 600, size 15
+b22 is a text with value "API server", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b23 is a text with value "Answer web requests with Otter routes.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b24 is a link with text "View api-server.ot source", url "https://github.com/Heavens-Lava/otterPS/blob/master/examples/api-server.ot", foreground "#2563eb", weight 600, size 15
+b25 is a text with value "Web showcase", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b26 is a text with value "An interactive web application compiled with otter web.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b27 is a link with text "View showcase.ot source", url "https://github.com/Heavens-Lava/otterPS/blob/master/examples/showcase.ot", foreground "#2563eb", weight 600, size 15
+b28 is a text with value "Step-by-step walkthroughs", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b29 is a link with text "Hello World", url "/example-hello/", foreground "#2563eb", weight 600, size 15
+b30 is a link with text "User input", url "/example-input/", foreground "#2563eb", weight 600, size 15
+b31 is a link with text "Conditions", url "/example-conditions/", foreground "#2563eb", weight 600, size 15
+b32 is a link with text "Counting", url "/example-counting/", foreground "#2563eb", weight 600, size 15
+b33 is a link with text "Lists", url "/example-lists/", foreground "#2563eb", weight 600, size 15
+b34 is a link with text "File discovery", url "/example-discovery/", foreground "#2563eb", weight 600, size 15
+b35 is a link with text "File organizer", url "/example-organizer/", foreground "#2563eb", weight 600, size 15
+b36 is a link with text "Finding files", url "/example-finding/", foreground "#2563eb", weight 600, size 15
+b37 is a link with text "Handling errors", url "/example-errors/", foreground "#2563eb", weight 600, size 15
+b38 is a text with value "Otter Studio", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b39 is a text with value "Development preview only. Studio is not yet a certified Otter V1 command.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b40 is a link with text "Read about Studio status", url "/studio/", foreground "#2563eb", weight 600, size 15
 
-header is a row
-    spacing is 20
-    padding is 16
-    background is "#ffffff"
-    border is "1px solid #e2e8f0"
-    radius is 10
-.
+docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"
+put b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15, b16, b17, b18, b19, b20, b21, b22, b23, b24, b25, b26, b27, b28, b29, b30, b31, b32, b33, b34, b35, b36, b37, b38, b39, b40 in docsMain
+docsBody is a row with align top, spacing 0, width full, customstyle "align-items: stretch;"
+put docsSidebar, docsMain in docsBody
 
-put brand, docsLink, downloadLink in header
-
-eyebrow is a text
-    value is "LEARN BY CHANGING REAL PROGRAMS"
-    weight is "700"
-    foreground is "#2563eb"
-.
-
-heading is a text
-    value is "Otter examples"
-    size is 36
-    weight is "700"
-    foreground is "#0f172a"
-.
-
-intro is a text
-    value is "Each example is a real .ot program from the Otter project. Open one, change it, and run it."
-    size is 18
-    foreground is "#475569"
-.
-
-helloTitle is a text
-    value is "Hello, Otter!"
-    size is 21
-    weight is "700"
-    foreground is "#0f172a"
-.
-
-helloBody is a text
-    value is "The smallest useful Otter program."
-    foreground is "#475569"
-.
-
-helloSource is a link
-    text is "View hello.ot source"
-    url is "https://github.com/Heavens-Lava/otterPS/blob/master/examples/hello.ot"
-.
-
-helloDocs is a link
-    text is "Read the tutorial"
-    url is "/welcome/"
-.
-
-helloCard is a card
-    background is "#ffffff"
-    padding is 18
-    spacing is 9
-    radius is 10
-.
-
-put helloTitle, helloBody, helloSource, helloDocs in helloCard
-
-calculatorTitle is a text
-    value is "Calculator"
-    size is 21
-    weight is "700"
-    foreground is "#0f172a"
-.
-
-calculatorBody is a text
-    value is "A native UI app with text boxes, a button, and error handling."
-    foreground is "#475569"
-.
-
-calculatorSource is a link
-    text is "View calculator.ot source"
-    url is "https://github.com/Heavens-Lava/otterPS/blob/master/examples/calculator.ot"
-.
-
-calculatorCard is a card
-    background is "#eff6ff"
-    padding is 18
-    spacing is 9
-    radius is 10
-.
-
-put calculatorTitle, calculatorBody, calculatorSource in calculatorCard
-
-filesTitle is a text
-    value is "Files and folders"
-    size is 21
-    weight is "700"
-    foreground is "#0f172a"
-.
-
-filesBody is a text
-    value is "Discover and inspect files with straightforward Otter statements."
-    foreground is "#475569"
-.
-
-filesSource is a link
-    text is "View files.ot source"
-    url is "https://github.com/Heavens-Lava/otterPS/blob/master/examples/files.ot"
-.
-
-filesDocs is a link
-    text is "Read file documentation"
-    url is "/files/"
-.
-
-filesCard is a card
-    background is "#ecfdf5"
-    padding is 18
-    spacing is 9
-    radius is 10
-.
-
-put filesTitle, filesBody, filesSource, filesDocs in filesCard
-
-tasksTitle is a text
-    value is "Task List"
-    size is 21
-    weight is "700"
-    foreground is "#0f172a"
-.
-
-tasksBody is a text
-    value is "An official V1 dogfood desktop app for creating and managing tasks."
-    foreground is "#475569"
-.
-
-tasksSource is a link
-    text is "View tasks.ot source"
-    url is "https://github.com/Heavens-Lava/otterPS/blob/master/examples/v1/tasks.ot"
-.
-
-tasksCard is a card
-    background is "#f5f3ff"
-    padding is 18
-    spacing is 9
-    radius is 10
-.
-
-put tasksTitle, tasksBody, tasksSource in tasksCard
-
-browserTitle is a text
-    value is "File Browser"
-    size is 21
-    weight is "700"
-    foreground is "#0f172a"
-.
-
-browserBody is a text
-    value is "An official V1 dogfood desktop app that works with real folders and files."
-    foreground is "#475569"
-.
-
-browserSource is a link
-    text is "View file-browser.ot source"
-    url is "https://github.com/Heavens-Lava/otterPS/blob/master/examples/v1/file-browser.ot"
-.
-
-browserCard is a card
-    background is "#ecfdf5"
-    padding is 18
-    spacing is 9
-    radius is 10
-.
-
-put browserTitle, browserBody, browserSource in browserCard
-
-contactsTitle is a text
-    value is "Contact Manager"
-    size is 21
-    weight is "700"
-    foreground is "#0f172a"
-.
-
-contactsBody is a text
-    value is "An official V1 dogfood desktop app for structured contact information."
-    foreground is "#475569"
-.
-
-contactsSource is a link
-    text is "View contacts.ot source"
-    url is "https://github.com/Heavens-Lava/otterPS/blob/master/examples/v1/contacts.ot"
-.
-
-contactsCard is a card
-    background is "#fff7ed"
-    padding is 18
-    spacing is 9
-    radius is 10
-.
-
-put contactsTitle, contactsBody, contactsSource in contactsCard
-
-studioTitle is a text
-    value is "Otter Studio"
-    size is 21
-    weight is "700"
-    foreground is "#0f172a"
-.
-
-studioBody is a text
-    value is "Development preview only. Studio is not yet a certified Otter V1 command."
-    foreground is "#92400e"
-.
-
-studioLink is a link
-    text is "Read about Studio status"
-    url is "/studio/"
-.
-
-studioCard is a card
-    background is "#fffbeb"
-    padding is 18
-    spacing is 9
-    radius is 10
-.
-
-put studioTitle, studioBody, studioLink in studioCard
-
-cards is a column
-    spacing is 14
-.
-
-put helloCard, calculatorCard, filesCard, tasksCard, browserCard, contactsCard, studioCard in cards
-
-main is a column
-    spacing is 18
-    padding is 26
-.
-
-put eyebrow, heading, intro, cards in main
-put header, main in app
+put topBar, docsBody, siteFooter in app
 show app
