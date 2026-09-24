@@ -671,4 +671,259 @@ if ($docCollisionJs -notmatch 'window\.document\s*=') {
 }
 Write-Output '  pass  (documented, not fixed) a variable named "document" still overwrites the browser global - known trap, not new'
 
+# Test 26: D114 Browser-side Cryptography (Web Crypto)
+# Full suite: deterministic vectors (SHA-256/384/512, HMAC), console <-> browser
+# encryption and password interop, tampered ciphertext rejection, random chunking,
+# securely equals, secure-context diagnostic, and sections 29 & 30 acceptance programs.
+$interpMod = Import-Module (Join-Path $PSScriptRoot '..\src\Otter.Interpreter.psm1') -PassThru -Global -Force
+$cryptoRuntime = Get-OtterJsCryptoRuntime
+
+# Fixed known vectors
+$keyHex = "4a656665" # "Jefe"
+$dataHex = "7768617420646f2079612077616e7420666f72206e6f7468696e673f" # "what do ya want for nothing?"
+$expectedHmac = "5BDCC146BF60754E6A042426089575C75A003F089D2739839DEC58B964EC3843"
+
+# Console -> Browser encryption
+$testKey = [byte[]](1..32)
+$testMsg = [System.Text.Encoding]::UTF8.GetBytes("Cross runtime payload from .NET to WebCrypto!")
+$consoleEncrypted = & $interpMod { Protect-OtterBytes -Data $args[0] -Key $args[1] } $testMsg $testKey
+$consoleEncHex = -join ($consoleEncrypted | ForEach-Object { $_.ToString('X2') })
+$testKeyHex = -join ($testKey | ForEach-Object { $_.ToString('X2') })
+
+# Console password hash
+$consoleHash = & $interpMod { New-OtterPasswordHash -Password "secret-phrase-42" }
+
+# Compile Section 29 Acceptance Program to HTML:
+$sec29Source = @"
+message is bytes from text "Hello from Otter"
+digest is sha256 of message
+generate encryption key and call it key
+encrypt message using key and call it encrypted
+decrypt encrypted using key and call it decrypted
+say text from bytes decrypted
+"@
+$sec29Html = ConvertTo-OtterWeb -Program (ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $sec29Source))
+$sec29Js = if ($sec29Html -match '(?s)<script>(.*?)</script>') { $Matches[1] } else { throw 'Failed to extract script from Sec 29 HTML' }
+
+# Compile Section 30 Password Acceptance Program to HTML:
+$sec30Source = @"
+password is "correct horse battery staple"
+hash password password and call it stored
+if password password matches hash stored
+    say "Password verified"
+.
+"@
+$sec30Html = ConvertTo-OtterWeb -Program (ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $sec30Source))
+$sec30Js = if ($sec30Html -match '(?s)<script>(.*?)</script>') { $Matches[1] } else { throw 'Failed to extract script from Sec 30 HTML' }
+
+$nodeD114Runner = @"
+const { TextEncoder, TextDecoder } = require('util');
+globalThis.TextEncoder = TextEncoder;
+globalThis.TextDecoder = TextDecoder;
+globalThis.window = globalThis;
+globalThis.addEventListener = () => {};
+globalThis.location = { pathname: '/' };
+globalThis.document = { getElementById: () => null, querySelectorAll: () => [], addEventListener: () => {}, title: '' };
+
+let logged = [];
+const origLog = console.log;
+console.log = (msg) => logged.push(String(msg));
+
+$cryptoRuntime
+
+function hexToBytes(h) {
+  const b = new Uint8Array(h.length / 2);
+  for (let i = 0; i < b.length; i++) b[i] = parseInt(h.substr(i*2, 2), 16);
+  return { __otterBytes: true, value: b, toString() { return '<' + b.length + ' bytes>'; } };
+}
+
+function bytesToHex(ob) {
+  let s = '';
+  for (let i = 0; i < ob.value.length; i++) s += ob.value[i].toString(16).toUpperCase().padStart(2, '0');
+  return s;
+}
+
+(async function() {
+  try {
+    // 1. Deterministic FIPS Vectors
+    const abc = { __otterBytes: true, value: new TextEncoder().encode('abc'), toString() { return '<3 bytes>'; } };
+    const sha256 = bytesToHex(await otterCryptoHash('sha256', abc));
+    if (sha256 !== 'BA7816BF8F01CFEA414140DE5DAE2223B00361A396177A9CB410FF61F20015AD') {
+      throw new Error('SHA-256 vector mismatch: ' + sha256);
+    }
+    const sha384 = bytesToHex(await otterCryptoHash('sha384', abc));
+    if (sha384 !== 'CB00753F45A35E8BB5A03D699AC65007272C32AB0EDED1631A8B605A43FF5BED8086072BA1E7CC2358BAECA134C825A7') {
+      throw new Error('SHA-384 vector mismatch: ' + sha384);
+    }
+    const sha512 = bytesToHex(await otterCryptoHash('sha512', abc));
+    if (sha512 !== 'DDAF35A193617ABACC417349AE20413112E6FA4E89A97EA20A9EEEE64B55D39A2192992A274FC1A836BA3C23A3FEEBBD454D4423643CE80E2A9AC94FA54CA49F') {
+      throw new Error('SHA-512 vector mismatch: ' + sha512);
+    }
+
+    // 2. Deterministic RFC 4231 HMAC-SHA256 Vector
+    const hmacKey = hexToBytes('$keyHex');
+    const hmacData = hexToBytes('$dataHex');
+    const hmac = bytesToHex(await otterCryptoHmac('sha256', hmacData, hmacKey));
+    if (hmac !== '$expectedHmac') {
+      throw new Error('HMAC-SHA256 vector mismatch: ' + hmac);
+    }
+
+    // 3. Console -> Browser Decryption
+    const k = hexToBytes('$testKeyHex');
+    const consoleEnc = hexToBytes('$consoleEncHex');
+    const decryptedFromConsole = await otterDecryptBytes(consoleEnc, k);
+    const plainText = new TextDecoder().decode(decryptedFromConsole.value);
+    if (plainText !== 'Cross runtime payload from .NET to WebCrypto!') {
+      throw new Error('Console -> Browser decryption mismatch: ' + plainText);
+    }
+
+    // 4. Browser -> Console Encryption
+    const browserMsg = { __otterBytes: true, value: new TextEncoder().encode('Hello from Browser to Console!'), toString() { return ''; } };
+    const browserEnc = await otterEncryptBytes(browserMsg, k);
+    const browserEncHex = bytesToHex(browserEnc);
+
+    // 5. Tampered Ciphertext Rejection
+    const tamperedPayload = new Uint8Array(browserEnc.value);
+    tamperedPayload[20] ^= 0x42;
+    let tamperedFailed = false;
+    try {
+      await otterDecryptBytes({ __otterBytes: true, value: tamperedPayload }, k);
+    } catch (e) {
+      if (e.message.includes('I could not decrypt this data')) {
+        tamperedFailed = true;
+      }
+    }
+    if (!tamperedFailed) {
+      throw new Error('Tampered ciphertext was NOT rejected!');
+    }
+
+    // 6. Console -> Browser Password Verification
+    const passOk = await otterPasswordMatches('secret-phrase-42', '$consoleHash');
+    if (!passOk) throw new Error('Console password hash failed verification in browser!');
+    const passWrong = await otterPasswordMatches('wrong-password', '$consoleHash');
+    if (passWrong) throw new Error('Wrong password succeeded verification in browser!');
+
+    // 7. Browser -> Console Password Hash
+    const browserHash = await otterHashPassword('browser-password-99');
+
+    // 8. Secure Random Chunking (>65536)
+    const largeRandom = otterSecureRandomBytes(70000);
+    if (largeRandom.value.length !== 70000) {
+      throw new Error('Chunked random bytes length mismatch: ' + largeRandom.value.length);
+    }
+
+    // 9. Securely Equals
+    const b1 = hexToBytes('AABBCCDD');
+    const b2 = hexToBytes('AABBCCDD');
+    const b3 = hexToBytes('AABBCCEE');
+    if (!otterSecurelyEquals(b1, b2)) throw new Error('Securely equals failed on equal bytes');
+    if (otterSecurelyEquals(b1, b3)) throw new Error('Securely equals returned true on different bytes');
+
+    // 10. Secure Context Failure Diagnostic
+    const savedCrypto = globalThis.crypto;
+    Object.defineProperty(globalThis, 'crypto', { value: { getRandomValues: (b) => savedCrypto.getRandomValues(b) }, configurable: true, writable: true });
+    let diagCaught = false;
+    try {
+      await otterCryptoHash('sha256', abc);
+    } catch (e) {
+      if (e.message.includes('Cryptography in the browser requires Web Crypto in a secure context')) {
+        diagCaught = true;
+      }
+    }
+    Object.defineProperty(globalThis, 'crypto', { value: savedCrypto, configurable: true, writable: true });
+    if (!diagCaught) throw new Error('Secure context diagnostic not thrown when subtle missing!');
+
+    origLog(JSON.stringify({
+      status: 'OK',
+      browserEncHex: browserEncHex,
+      browserHash: browserHash
+    }));
+  } catch (err) {
+    console.error(err);
+    process.exit(1);
+  }
+})();
+"@
+
+$tmpD114Js = Join-Path ([System.IO.Path]::GetTempPath()) "otter_d114_web_tests_$([Guid]::NewGuid().ToString('N')).js"
+Set-Content -LiteralPath $tmpD114Js -Value $nodeD114Runner
+try {
+    $nodeOut = & node $tmpD114Js
+    if ($LASTEXITCODE -ne 0) {
+        throw "Node test runner for D114 exited with code $LASTEXITCODE. Output: $nodeOut"
+    }
+    $res = $nodeOut | ConvertFrom-Json
+    if ($res.status -ne 'OK') {
+        throw "Node test runner for D114 reported failure: $nodeOut"
+    }
+
+    # Verify Browser -> Console encryption in .NET
+    $browserEncBytes = [byte[]]::new($res.browserEncHex.Length / 2)
+    for ($i = 0; $i -lt $browserEncBytes.Length; $i++) {
+        $browserEncBytes[$i] = [Convert]::ToByte($res.browserEncHex.Substring($i * 2, 2), 16)
+    }
+    $plainFromBrowser = & $interpMod { Unprotect-OtterBytes -Payload $args[0] -Key $args[1] } $browserEncBytes $testKey
+    $textFromBrowser = [System.Text.Encoding]::UTF8.GetString($plainFromBrowser)
+    if ($textFromBrowser -ne 'Hello from Browser to Console!') {
+        throw "Browser -> Console decryption mismatch in .NET: $textFromBrowser"
+    }
+
+    # Verify Browser -> Console password hash in .NET
+    $verifyBrowserHash = & $interpMod { Test-OtterPasswordHash -Password 'browser-password-99' -StoredHash $args[0] } $res.browserHash
+    if (-not $verifyBrowserHash) {
+        throw "Browser-generated password hash failed verification in .NET console runtime!"
+    }
+    $verifyBrowserWrong = & $interpMod { Test-OtterPasswordHash -Password 'wrong-password' -StoredHash $args[0] } $res.browserHash
+    if ($verifyBrowserWrong) {
+        throw "Wrong password verified as true against browser hash in .NET console runtime!"
+    }
+} finally {
+    Remove-Item -LiteralPath $tmpD114Js -Force -ErrorAction SilentlyContinue
+}
+
+# Run Section 29 and Section 30 Acceptance Programs in Node
+$nodeAcceptanceScript = @"
+const { TextEncoder, TextDecoder } = require('util');
+globalThis.TextEncoder = TextEncoder;
+globalThis.TextDecoder = TextDecoder;
+globalThis.window = globalThis;
+globalThis.addEventListener = () => {};
+globalThis.location = { pathname: '/' };
+globalThis.document = { getElementById: () => null, querySelectorAll: () => [], addEventListener: () => {}, title: '' };
+
+let logged = [];
+console.log = (msg) => logged.push(String(msg));
+
+$sec29Js
+
+setTimeout(async () => {
+  if (!logged.some(l => l.includes('Hello from Otter'))) {
+    console.error('Section 29 failed. Logged: ' + logged.join(' | '));
+    process.exit(1);
+  }
+  logged = [];
+  $sec30Js
+  setTimeout(() => {
+    if (!logged.some(l => l.includes('Password verified'))) {
+      console.error('Section 30 failed. Logged: ' + logged.join(' | '));
+      process.exit(1);
+    }
+    process.stdout.write('ACCEPTANCE_OK');
+  }, 500);
+}, 100);
+"@
+
+$tmpAccJs = Join-Path ([System.IO.Path]::GetTempPath()) "otter_d114_acceptance_$([Guid]::NewGuid().ToString('N')).js"
+Set-Content -LiteralPath $tmpAccJs -Value $nodeAcceptanceScript
+try {
+    $accOut = & node $tmpAccJs
+    if ($LASTEXITCODE -ne 0 -or $accOut -ne 'ACCEPTANCE_OK') {
+        throw "D114 acceptance programs failed in Node: $accOut"
+    }
+} finally {
+    Remove-Item -LiteralPath $tmpAccJs -Force -ErrorAction SilentlyContinue
+}
+
+Write-Output '  pass  Browser-side Crypto (D114) Web Crypto subtle/random, cross-runtime encryption/password parity, vectors, acceptance programs'
+
 Write-Output 'Web compiler tests passed.'

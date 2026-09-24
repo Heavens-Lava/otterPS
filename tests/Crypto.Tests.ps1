@@ -301,17 +301,22 @@ say text from bytes message2
     Assert-Lines -Expected @('81', 'Hello from Otter') -Actual $r.Lines
 }
 
-# --- 7. Web target: unsupported, clearly -------------------------------------------
+# --- 7. Web target: D109 supported via D114, unrelated features rejected -----------
 
 foreach ($case in @(
-    @{ Name = 'sha256'; Source = "data is bytes from text `"x`"`nd is sha256 of data"; Match = 'not supported on the web target' },
-    @{ Name = 'generate encryption key'; Source = 'generate encryption key and call it key'; Match = 'not supported on the web target' },
-    @{ Name = 'hash password'; Source = "p is `"x`"`nhash password p and call it h"; Match = 'not supported on the web target' }
+    @{ Name = 'sha256'; Source = "data is bytes from text `"x`"`nd is sha256 of data" },
+    @{ Name = 'generate encryption key'; Source = 'generate encryption key and call it key' },
+    @{ Name = 'hash password'; Source = "p is `"x`"`nhash password p and call it h" }
 )) {
-    Test-Otter "$($case.Name) is rejected on the web target with a clean compile-time error" {
+    Test-Otter "$($case.Name) compiles cleanly for the web target (D114)" {
         $r = Invoke-OtterCrypto -Source $case.Source -Mode 'web'
-        Assert-True ($r.Stdout -match $case.Match) "expected rejection but got: $($r.Stdout)"
+        Assert-True ($r.Stdout -notmatch 'not supported on the web target') "expected web support but got: $($r.Stdout)"
     }
+}
+
+Test-Otter "unrelated non-web features (vault secret) remain rejected on the web target" {
+    $r = Invoke-OtterCrypto -Source 's is secret "api"' -Mode 'web'
+    Assert-True ($r.Stdout -match 'not supported on the web target') "expected rejection for secret but got: $($r.Stdout)"
 }
 
 Complete-OtterTests

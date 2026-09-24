@@ -419,6 +419,303 @@
     const empty = "";
     const gone = null;
     function otterGetElement(id) { return document.getElementById(id); }
+
+// Otter D114: Browser-side Cryptography (Web Crypto) Runtime Helpers
+
+function _otterAssertWebCryptoSubtle() {
+  if (typeof globalThis === 'undefined' || !globalThis.crypto || !globalThis.crypto.subtle) {
+    throw new Error('Cryptography in the browser requires Web Crypto in a secure context (HTTPS or localhost).');
+  }
+}
+
+function _otterAssertWebCryptoRandom() {
+  if (typeof globalThis === 'undefined' || !globalThis.crypto || typeof globalThis.crypto.getRandomValues !== 'function') {
+    throw new Error('Cryptography in the browser requires Web Crypto in a secure context (HTTPS or localhost).');
+  }
+}
+
+function _otterCryptoFormatVal(v) {
+  if (v === null || v === undefined) return 'empty';
+  if (typeof v === 'string') return '"' + v + '"';
+  if (typeof v === 'number') return String(v);
+  if (typeof v === 'boolean') return v ? 'true' : 'false';
+  if (typeof v === 'object' && v.__otterBytes) return '<' + v.value.length + ' bytes>';
+  return String(v);
+}
+
+function _otterCryptoTypeName(v) {
+  if (v === null || v === undefined) return 'empty';
+  if (typeof v === 'string') return 'text';
+  if (typeof v === 'number') return 'a number';
+  if (typeof v === 'boolean') return 'a yes/no';
+  if (typeof v === 'object' && v.__otterBytes) return 'bytes';
+  if (typeof v === 'object' && v.__otterDate) return 'a date';
+  if (typeof v === 'object' && v.__otterXml) return 'xml';
+  if (Array.isArray(v)) return 'a list';
+  if (typeof v === 'object' && v.__otterThing) return 'a thing';
+  return typeof v;
+}
+
+function _otterAssertCryptoBytes(val, what) {
+  if (!val || typeof val !== 'object' || !val.__otterBytes || !(val.value instanceof Uint8Array)) {
+    throw new Error(what + ' must be bytes, but this is ' + _otterCryptoTypeName(val) + '. Otter never converts text to bytes silently.');
+  }
+}
+
+function _otterAssertEncryptionKey(key) {
+  _otterAssertCryptoBytes(key, 'An encryption key');
+  if (key.value.length !== 32) {
+    throw new Error('An encryption key must be exactly 32 bytes, but this one is ' + key.value.length + '.');
+  }
+}
+
+function otterSecureRandomBytes(count) {
+  _otterAssertWebCryptoRandom();
+  if (typeof count !== 'number' || !Number.isFinite(count) || Math.floor(count) !== count || count < 1 || count > 1048576) {
+    throw new Error('I need a whole number of random bytes between 1 and 1048576, but this is ' + _otterCryptoFormatVal(count) + '.');
+  }
+  const result = new Uint8Array(count);
+  const CHUNK_SIZE = 65536;
+  for (let offset = 0; offset < count; offset += CHUNK_SIZE) {
+    const chunkLength = Math.min(CHUNK_SIZE, count - offset);
+    const sub = result.subarray(offset, offset + chunkLength);
+    globalThis.crypto.getRandomValues(sub);
+  }
+  return { __otterBytes: true, value: result, toString() { return '<' + this.value.length + ' bytes>'; } };
+}
+
+function otterGenerateEncryptionKey() {
+  _otterAssertWebCryptoRandom();
+  const raw = new Uint8Array(32);
+  globalThis.crypto.getRandomValues(raw);
+  return { __otterBytes: true, value: raw, toString() { return '<' + this.value.length + ' bytes>'; } };
+}
+
+function otterSecurelyEquals(left, right) {
+  _otterAssertCryptoBytes(left, 'A secret compared with "securely equals"');
+  _otterAssertCryptoBytes(right, 'A secret compared with "securely equals"');
+  const a = left.value;
+  const b = right.value;
+  if (a.length !== b.length) {
+    return false;
+  }
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) {
+    diff |= (a[i] ^ b[i]);
+  }
+  return diff === 0;
+}
+
+async function otterCryptoHash(algo, data) {
+  _otterAssertWebCryptoSubtle();
+  _otterAssertCryptoBytes(data, 'The data to hash with ' + algo);
+  const subtleAlgo = algo.toUpperCase().replace('SHA', 'SHA-');
+  const digestBuffer = await globalThis.crypto.subtle.digest(subtleAlgo, data.value);
+  return { __otterBytes: true, value: new Uint8Array(digestBuffer), toString() { return '<' + this.value.length + ' bytes>'; } };
+}
+
+async function otterCryptoHmac(algo, data, key) {
+  _otterAssertWebCryptoSubtle();
+  _otterAssertCryptoBytes(data, 'The data to sign');
+  _otterAssertCryptoBytes(key, 'A signing key');
+  if (key.value.length === 0) {
+    throw new Error('A signing key cannot be empty.');
+  }
+  const subtleHash = algo.toUpperCase().replace('SHA', 'SHA-');
+  const cryptoKey = await globalThis.crypto.subtle.importKey(
+    'raw',
+    key.value,
+    { name: 'HMAC', hash: { name: subtleHash } },
+    false,
+    ['sign']
+  );
+  const sigBuffer = await globalThis.crypto.subtle.sign('HMAC', cryptoKey, data.value);
+  return { __otterBytes: true, value: new Uint8Array(sigBuffer), toString() { return '<' + this.value.length + ' bytes>'; } };
+}
+
+async function _otterDeriveSubkeys(rawKey) {
+  const encLabel = new TextEncoder().encode('otter-aead-v1-enc');
+  const macLabel = new TextEncoder().encode('otter-aead-v1-mac');
+  const hmacKey = await globalThis.crypto.subtle.importKey(
+    'raw',
+    rawKey,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const encKeyBytes = new Uint8Array(await globalThis.crypto.subtle.sign('HMAC', hmacKey, encLabel));
+  const macKeyBytes = new Uint8Array(await globalThis.crypto.subtle.sign('HMAC', hmacKey, macLabel));
+  return { encKeyBytes, macKeyBytes };
+}
+
+async function otterEncryptBytes(data, key) {
+  _otterAssertWebCryptoSubtle();
+  _otterAssertCryptoBytes(data, 'The data to encrypt');
+  _otterAssertEncryptionKey(key);
+  const { encKeyBytes, macKeyBytes } = await _otterDeriveSubkeys(key.value);
+  const iv = new Uint8Array(16);
+  globalThis.crypto.getRandomValues(iv);
+  const aesKey = await globalThis.crypto.subtle.importKey(
+    'raw',
+    encKeyBytes,
+    { name: 'AES-CBC' },
+    false,
+    ['encrypt']
+  );
+  const cipherBuffer = await globalThis.crypto.subtle.encrypt(
+    { name: 'AES-CBC', iv: iv },
+    aesKey,
+    data.value
+  );
+  const cipherBytes = new Uint8Array(cipherBuffer);
+  const body = new Uint8Array(1 + 16 + cipherBytes.length);
+  body[0] = 1;
+  body.set(iv, 1);
+  body.set(cipherBytes, 17);
+  const macKey = await globalThis.crypto.subtle.importKey(
+    'raw',
+    macKeyBytes,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const tagBuffer = await globalThis.crypto.subtle.sign('HMAC', macKey, body);
+  const tagBytes = new Uint8Array(tagBuffer);
+  const payload = new Uint8Array(body.length + 32);
+  payload.set(body, 0);
+  payload.set(tagBytes, body.length);
+  return { __otterBytes: true, value: payload, toString() { return '<' + this.value.length + ' bytes>'; } };
+}
+
+async function otterDecryptBytes(data, key) {
+  _otterAssertWebCryptoSubtle();
+  _otterAssertCryptoBytes(data, 'The data to decrypt');
+  _otterAssertEncryptionKey(key);
+  const payload = data.value;
+  if (payload.length < 65 || payload[0] !== 1) {
+    throw new Error('I could not decrypt this data: it was changed, it is not encrypted data, or the key is wrong.');
+  }
+  const bodyLength = payload.length - 32;
+  const body = payload.subarray(0, bodyLength);
+  const tag = payload.subarray(bodyLength, payload.length);
+  const { encKeyBytes, macKeyBytes } = await _otterDeriveSubkeys(key.value);
+  const macKey = await globalThis.crypto.subtle.importKey(
+    'raw',
+    macKeyBytes,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const expectedTagBuffer = await globalThis.crypto.subtle.sign('HMAC', macKey, body);
+  const expectedTag = new Uint8Array(expectedTagBuffer);
+  let tagDiff = 0;
+  for (let i = 0; i < 32; i++) {
+    tagDiff |= (expectedTag[i] ^ tag[i]);
+  }
+  if (tagDiff !== 0) {
+    throw new Error('I could not decrypt this data: it was changed, it is not encrypted data, or the key is wrong.');
+  }
+  const cipherLength = bodyLength - 17;
+  if (cipherLength % 16 !== 0) {
+    throw new Error('I could not decrypt this data: it was changed, it is not encrypted data, or the key is wrong.');
+  }
+  const iv = body.subarray(1, 17);
+  const cipherBytes = body.subarray(17, bodyLength);
+  let plainBuffer;
+  try {
+    const aesKey = await globalThis.crypto.subtle.importKey(
+      'raw',
+      encKeyBytes,
+      { name: 'AES-CBC' },
+      false,
+      ['decrypt']
+    );
+    plainBuffer = await globalThis.crypto.subtle.decrypt(
+      { name: 'AES-CBC', iv: iv },
+      aesKey,
+      cipherBytes
+    );
+  } catch (e) {
+    throw new Error('I could not decrypt this data: it was changed, it is not encrypted data, or the key is wrong.');
+  }
+  return { __otterBytes: true, value: new Uint8Array(plainBuffer), toString() { return '<' + this.value.length + ' bytes>'; } };
+}
+
+async function _otterPbkdf2Derive(password, saltBytes, iterations) {
+  const enc = new TextEncoder();
+  const pwdKey = await globalThis.crypto.subtle.importKey(
+    'raw',
+    enc.encode(password),
+    'PBKDF2',
+    false,
+    ['deriveBits']
+  );
+  const derivedBits = await globalThis.crypto.subtle.deriveBits(
+    {
+      name: 'PBKDF2',
+      salt: saltBytes,
+      iterations: iterations,
+      hash: 'SHA-256'
+    },
+    pwdKey,
+    256
+  );
+  return new Uint8Array(derivedBits);
+}
+
+async function otterHashPassword(password) {
+  _otterAssertWebCryptoSubtle();
+  if (typeof password !== 'string' || password.length === 0) {
+    throw new Error('I need a password as non-empty text, but this is ' + _otterCryptoTypeName(password) + '.');
+  }
+  const salt = new Uint8Array(16);
+  globalThis.crypto.getRandomValues(salt);
+  const iterations = 600000;
+  const derived = await _otterPbkdf2Derive(password, salt, iterations);
+  let saltBin = '';
+  for (let i = 0; i < salt.length; i++) saltBin += String.fromCharCode(salt[i]);
+  let derBin = '';
+  for (let i = 0; i < derived.length; i++) derBin += String.fromCharCode(derived[i]);
+  return 'otter-pbkdf2-sha256$' + iterations + '$' + btoa(saltBin) + '$' + btoa(derBin);
+}
+
+async function otterPasswordMatches(password, stored) {
+  _otterAssertWebCryptoSubtle();
+  if (typeof password !== 'string') {
+    throw new Error('I need a password as text, but this is ' + _otterCryptoTypeName(password) + '.');
+  }
+  if (typeof stored !== 'string') {
+    throw new Error('I need a stored password hash as text, but this is ' + _otterCryptoTypeName(stored) + '.');
+  }
+  const parts = stored.split('$');
+  if (parts.length !== 4 || parts[0] !== 'otter-pbkdf2-sha256') {
+    throw new Error('That text is not a password hash made by "hash password".');
+  }
+  const iterations = parseInt(parts[1], 10);
+  if (isNaN(iterations) || iterations < 1000 || String(iterations) !== parts[1]) {
+    throw new Error('That text is not a password hash made by "hash password".');
+  }
+  let saltBytes, expectedBytes;
+  try {
+    const saltBin = atob(parts[2]);
+    saltBytes = new Uint8Array(saltBin.length);
+    for (let i = 0; i < saltBin.length; i++) saltBytes[i] = saltBin.charCodeAt(i);
+    const expBin = atob(parts[3]);
+    expectedBytes = new Uint8Array(expBin.length);
+    for (let i = 0; i < expBin.length; i++) expectedBytes[i] = expBin.charCodeAt(i);
+  } catch (e) {
+    throw new Error('That text is not a password hash made by "hash password".');
+  }
+  if (saltBytes.length < 8 || expectedBytes.length !== 32) {
+    throw new Error('That text is not a password hash made by "hash password".');
+  }
+  const derived = await _otterPbkdf2Derive(password, saltBytes, iterations);
+  let diff = 0;
+  for (let i = 0; i < 32; i++) {
+    diff |= (derived[i] ^ expectedBytes[i]);
+  }
+  return diff === 0;
+}
     function otterGetText(id) {
       const el = otterGetElement(id);
       if (!el) return '';

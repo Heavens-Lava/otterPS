@@ -1170,6 +1170,7 @@ $bodyJoined
     }
     foreach ($w in $whenHandlers) { if ($w.EventName -in @('drag', 'drop', 'files dropped')) { $usesDragDrop = $true } }
     $dragDropRuntimeJs = ''
+    $cryptoRuntimeJs = Get-OtterJsCryptoRuntime
     if ($usesDragDrop) {
         $dragDropRuntimeJs = @'
     const otterDragState = { draggedId: null };
@@ -1636,6 +1637,7 @@ $elementsHtml
     const gone = null;
     function otterGetElement(id) { return document.getElementById(id); }
 $dragDropRuntimeJs
+$cryptoRuntimeJs
     function otterGetText(id) {
       const el = otterGetElement(id);
       if (!el) return '';
