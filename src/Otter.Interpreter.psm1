@@ -446,6 +446,7 @@ function Close-OtterNetInternal {
     if ($Socket.Disposed) { return }
     $Socket.Disposed = $true
     $Socket.State = 'closed'
+    if ((Test-OtterTcp $Socket) -and $null -ne $Socket.Stream) { try { $Socket.Stream.Dispose() } catch {} }
     try { $Socket.Client.Close() } catch {}
 }
 
@@ -478,9 +479,33 @@ function Step-OtterTcp {
                 $msg = "Could not connect to tcp $($Tcp.RemoteHost) on port $($Tcp.RemotePort): $($Tcp.ConnectTask.Exception.GetBaseException().Message)"
                 Close-OtterNetInternal -Socket $Tcp
                 Send-OtterNetError -Socket $Tcp -Message $msg
-            } else {
+            } elseif (-not $Tcp.IsSecure) {
+                $Tcp.Stream = $Tcp.Client.GetStream()
                 $Tcp.State = 'connected'
                 Invoke-OtterWebSocketHandlers -Socket $Tcp -EventKind ([WebSocketEventKind]::Connect) -Context @{}
+            } elseif ($null -eq $Tcp.HandshakeTask) {
+                # D112: TCP is up; start the TLS handshake. The certificate
+                # chain, expiry, revocation and host name (server name) are all
+                # validated by the system - there is no way to turn that off.
+                try {
+                    $ssl = [System.Net.Security.SslStream]::new($Tcp.Client.GetStream(), $false)
+                    $Tcp.Stream = $ssl
+                    $Tcp.HandshakeTask = $ssl.AuthenticateAsClientAsync(
+                        $Tcp.ServerName, $null, [System.Security.Authentication.SslProtocols]::None, $true)
+                } catch {
+                    $msg = "Could not start TLS with $($Tcp.RemoteHost): $($_.Exception.GetBaseException().Message)"
+                    Close-OtterNetInternal -Socket $Tcp
+                    Send-OtterNetError -Socket $Tcp -Message $msg
+                }
+            } elseif ($Tcp.HandshakeTask.IsCompleted) {
+                if ($Tcp.HandshakeTask.IsFaulted -or $Tcp.HandshakeTask.IsCanceled) {
+                    $msg = "The TLS handshake with $($Tcp.RemoteHost) failed: $($Tcp.HandshakeTask.Exception.GetBaseException().Message)"
+                    Close-OtterNetInternal -Socket $Tcp
+                    Send-OtterNetError -Socket $Tcp -Message $msg
+                } else {
+                    $Tcp.State = 'connected'
+                    Invoke-OtterWebSocketHandlers -Socket $Tcp -EventKind ([WebSocketEventKind]::Connect) -Context @{}
+                }
             }
         }
     }
@@ -491,7 +516,7 @@ function Step-OtterTcp {
             -not (Test-OtterNetHasHandler -Socket $Tcp -EventKind ([WebSocketEventKind]::Close))) { return }
         try {
             if ($null -eq $Tcp.ReadTask) {
-                $Tcp.ReadTask = $Tcp.Client.GetStream().ReadAsync($Tcp.ReadBuffer, 0, $Tcp.ReadBuffer.Length)
+                $Tcp.ReadTask = $Tcp.Stream.ReadAsync($Tcp.ReadBuffer, 0, $Tcp.ReadBuffer.Length)
             }
             elseif ($Tcp.ReadTask.IsCompleted) {
                 $task = $Tcp.ReadTask
@@ -2062,8 +2087,48 @@ function Invoke-OtterStatement {
                     -Suggestion 'connect to tcp "localhost" on port 9000 and call it connection')
             }
             $portNum = Get-OtterNetPort -Value $portVal -Line $Statement.Line
+            # D112: TLS options. Checked before any socket exists, so a bad
+            # request never leaves a half-open connection behind.
+            $serverName = $hostVal
+            if (-not $Statement.IsSecure -and ($null -ne $Statement.ServerName -or $null -ne $Statement.Protocols)) {
+                throw (New-OtterRuntimeError `
+                    -Message '"for server" and "using protocol" only apply to a secure connection.' `
+                    -Line $Statement.Line `
+                    -Suggestion 'connect securely to tcp "example.com" on port 443 and call it connection')
+            }
+            if ($null -ne $Statement.ServerName) {
+                $serverName = Get-OtterValue -Expression $Statement.ServerName -Environment $Environment
+                if ($serverName -isnot [string] -or [string]::IsNullOrWhiteSpace($serverName)) {
+                    throw (New-OtterRuntimeError `
+                        -Message "I need text for the tls server name, but this is $(Get-OtterTypeName -Value $serverName)." `
+                        -Line $Statement.Line)
+                }
+            }
+            if ($null -ne $Statement.Protocols) {
+                $requestedProtocols = Get-OtterValue -Expression $Statement.Protocols -Environment $Environment
+                $protocolList = if (Test-OtterList $requestedProtocols) { @($requestedProtocols) } else { @($requestedProtocols) }
+                foreach ($p in $protocolList) {
+                    if ($p -isnot [string] -or [string]::IsNullOrWhiteSpace($p)) {
+                        throw (New-OtterRuntimeError `
+                            -Message "Each tls protocol must be text such as ""h2"" or ""http/1.1"", but this is $(Get-OtterTypeName -Value $p)." `
+                            -Line $Statement.Line)
+                    }
+                }
+                # ALPN needs SslClientAuthenticationOptions, which the .NET
+                # Framework runtime under Windows PowerShell 5.1 does not have.
+                # Failing here is deliberate: silently connecting WITHOUT the
+                # requested protocol would be a lie.
+                if (-not ('System.Net.Security.SslClientAuthenticationOptions' -as [type])) {
+                    throw (New-OtterRuntimeError `
+                        -Message 'Protocol negotiation ("using protocol") is not available on this Otter runtime (Windows PowerShell 5.1 has no ALPN support).' `
+                        -Line $Statement.Line `
+                        -Suggestion 'Remove "using protocol" to connect with TLS only.')
+                }
+            }
             $client = [System.Net.Sockets.TcpClient]::new([System.Net.Sockets.AddressFamily]::InterNetwork)
             $tcp = [OtterTcp]::new($client, $hostVal, $portNum)
+            $tcp.IsSecure = [bool]$Statement.IsSecure
+            $tcp.ServerName = $serverName
             $script:OtterActiveNet.Add($tcp)
             $Environment.Set($Statement.Target, $tcp)
             try {
@@ -2161,7 +2226,7 @@ function Invoke-OtterStatement {
                 Assert-OtterNetBytes -Value $tcpData -Line $Statement.Line -Where 'a tcp connection'
                 try {
                     $tcpBytes = [byte[]]$tcpData.Value
-                    $tcpStream = $ws.Client.GetStream()
+                    $tcpStream = $ws.Stream
                     $tcpStream.Write($tcpBytes, 0, $tcpBytes.Length)
                     $tcpStream.Flush()
                 } catch {
@@ -3950,9 +4015,28 @@ function Get-OtterValue {
                         return $target.RemoteHost
                     }
                     'remote port' { return [double]$target.RemotePort }
+                    'tls version' {
+                        if (-not $target.IsSecure -or $target.State -ne 'connected') {
+                            throw (New-OtterRuntimeError `
+                                -Message 'This connection is not secure (or not connected yet), so it has no TLS version.' `
+                                -Line $Expression.Line `
+                                -Suggestion 'connect securely to tcp "example.com" on port 443 and call it connection')
+                        }
+                        $protocolName = [string]$target.Stream.SslProtocol
+                        return (($protocolName -replace '^Tls(\d)(\d)$', 'TLS $1.$2') -replace '^Tls$', 'TLS 1.0')
+                    }
+                    'tls protocol' {
+                        # No ALPN on this runtime, so no application protocol is ever negotiated.
+                        if (-not $target.IsSecure -or $target.State -ne 'connected') {
+                            throw (New-OtterRuntimeError `
+                                -Message 'This connection is not secure (or not connected yet), so it has no negotiated protocol.' `
+                                -Line $Expression.Line)
+                        }
+                        return ''
+                    }
                     default {
                         throw (New-OtterRuntimeError `
-                            -Message "A tcp connection has no property called ""$($Expression.Property)"". Try state, remote address, or remote port." `
+                            -Message "A tcp connection has no property called ""$($Expression.Property)"". Try state, remote address, remote port, tls version, or tls protocol." `
                             -Line $Expression.Line)
                     }
                 }
@@ -4522,6 +4606,16 @@ function Get-OtterValue {
             }
         }
 
+        # connection is secure                                          (D112)
+        'ConnectionIsSecure' {
+            $conn = Get-OtterValue -Expression $Expression.Connection -Environment $Environment
+            if (-not (Test-OtterTcp $conn)) {
+                throw (New-OtterRuntimeError `
+                    -Message "I can only ask whether a tcp connection is secure, but this is $(Get-OtterTypeName -Value $conn)." `
+                    -Line $Expression.Line)
+            }
+            return ($conn.IsSecure -and $conn.State -eq 'connected')
+        }
         'DragContext' {
             throw (New-OtterRuntimeError `
                 -Message """$($Expression.Field)"" is only available in web applications, inside a drag or drop event." `

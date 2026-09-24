@@ -358,6 +358,12 @@ class OtterTcp {
     [bool]$ConnectFired
     [bool]$CloseFired
     [bool]$Disposed
+    # D112: TLS. Stream is what every read/write goes through - the raw
+    # NetworkStream for plain tcp, an SslStream for a secure connection.
+    [bool]$IsSecure
+    [string]$ServerName
+    [System.IO.Stream]$Stream
+    [object]$HandshakeTask
 
     OtterTcp([System.Net.Sockets.TcpClient]$client, [string]$remoteHost, [int]$remotePort) {
         $this.Client = $client
@@ -371,6 +377,10 @@ class OtterTcp {
         $this.ConnectFired = $false
         $this.CloseFired = $false
         $this.Disposed = $false
+        $this.IsSecure = $false
+        $this.ServerName = $remoteHost
+        $this.Stream = $null
+        $this.HandshakeTask = $null
     }
 }
 

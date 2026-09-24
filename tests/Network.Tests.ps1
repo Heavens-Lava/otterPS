@@ -304,4 +304,133 @@ foreach ($case in @(
     }
 }
 
+# --- 9. TLS over TCP (D112) --------------------------------------------------
+
+function Test-PublicTlsReachable {
+    try {
+        $c = [System.Net.Sockets.TcpClient]::new([System.Net.Sockets.AddressFamily]::InterNetwork)
+        $t = $c.ConnectAsync('example.com', 443)
+        $ok = $t.Wait(8000) -and $c.Connected
+        $c.Close()
+        return $ok
+    } catch { return $false }
+}
+
+Test-Otter 'connect securely to a real public TLS server: handshake succeeds, is secure, tls version reported, data flows' {
+    if (-not (Test-PublicTlsReachable)) {
+        Write-Host '        (skipped: example.com:443 is not reachable from this machine)' -ForegroundColor DarkYellow
+        return
+    }
+    $h = Start-OtterNetProcess -Source @"
+connect securely to tcp "example.com" on port 443 and call it connection
+on connect of connection
+    if connection is secure
+        say "secure"
+    .
+    say tls version of connection
+    request is bytes from hex "484541442F20485454502F312E300D0A0D0A"
+    send request through connection
+.
+on data from connection
+    say "got data"
+    close tcp connection
+.
+on error of connection
+    say network error
+.
+on close of connection
+    say "closed"
+.
+"@
+    $r = Complete-OtterNetProcess $h -TimeoutMs 60000
+    Assert-False $r.TimedOut 'expected the program to finish'
+    Assert-AreEqual -Expected 'secure' -Actual $r.Lines[0]
+    Assert-True ($r.Lines[1] -match '^TLS 1\.[0-3]$') "unexpected tls version: $($r.Lines[1])"
+    Assert-AreEqual -Expected 'got data' -Actual $r.Lines[2]
+    Assert-AreEqual -Expected 'closed' -Actual $r.Lines[3]
+}
+
+Test-Otter 'a server with an untrusted (self-signed) certificate is REJECTED - certificate validation cannot be bypassed' {
+    $rsa = [System.Security.Cryptography.RSA]::Create(2048)
+    $req = [System.Security.Cryptography.X509Certificates.CertificateRequest]::new(
+        'CN=localhost', $rsa, [System.Security.Cryptography.HashAlgorithmName]::SHA256,
+        [System.Security.Cryptography.RSASignaturePadding]::Pkcs1)
+    $cert = $req.CreateSelfSigned([DateTimeOffset]::UtcNow.AddDays(-1), [DateTimeOffset]::UtcNow.AddDays(1))
+    $pfx = $cert.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Pfx, 'pw')
+    $serverCert = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new(
+        $pfx, 'pw', ([System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable -bor [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::UserKeySet))
+    $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
+    $listener.Start()
+    $port = $listener.LocalEndpoint.Port
+    try {
+        $h = Start-OtterNetProcess -Source @"
+connect securely to tcp "localhost" on port $port and call it connection
+on connect of connection
+    say "CONNECTED (must not happen)"
+.
+on error of connection
+    say "rejected"
+    say network error
+.
+on close of connection
+    say "closed"
+.
+"@
+        $accept = $listener.AcceptTcpClientAsync()
+        Assert-True $accept.Wait(30000) 'expected the Otter program to open the TCP connection'
+        try {
+            $ssl = [System.Net.Security.SslStream]::new($accept.Result.GetStream(), $false)
+            $ssl.AuthenticateAsServer($serverCert)   # the client will abort this handshake
+        } catch { }
+        $r = Complete-OtterNetProcess $h
+        Assert-False $r.TimedOut 'expected the program to finish'
+        Assert-False ($r.Stdout -match 'CONNECTED') 'an untrusted certificate must never yield a connected connection'
+        Assert-AreEqual -Expected 'rejected' -Actual $r.Lines[0]
+        Assert-True ($r.Lines[1] -match 'TLS handshake with localhost failed') "expected a clear handshake failure, got: $($r.Lines[1])"
+        Assert-AreEqual -Expected 'closed' -Actual $r.Lines[2]
+    } finally {
+        $listener.Stop()
+        try { $serverCert.PrivateKey | Out-Null } catch {}
+    }
+}
+
+Test-Otter 'a plain tcp connection is not secure, and asking for its tls version is a clear error' {
+    $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
+    $listener.Start()
+    $port = $listener.LocalEndpoint.Port
+    try {
+        $h = Start-OtterNetProcess -Source @"
+connect to tcp "127.0.0.1" on port $port and call it connection
+on connect of connection
+    if connection is secure
+        say "WRONG"
+    otherwise
+        say "plain"
+    .
+    say tls version of connection
+.
+"@
+        $accept = $listener.AcceptTcpClientAsync()
+        Assert-True $accept.Wait(30000) 'expected the Otter program to connect'
+        $r = Complete-OtterNetProcess $h
+        Assert-AreEqual -Expected 'plain' -Actual $r.Lines[0]
+        Assert-True ($r.Stdout -match 'not secure .* so it has no TLS version') 'expected the not-secure diagnostic'
+    } finally { $listener.Stop() }
+}
+
+Test-Otter 'for server / using protocol are refused clearly (plain connection, or no ALPN on this runtime)' {
+    $h = Start-OtterNetProcess -Source 'connect to tcp "localhost" for server "x.example" on port 9 and call it c'
+    $r = Complete-OtterNetProcess $h
+    Assert-True ($r.Stdout -match 'only apply to a secure connection') "expected the secure-only diagnostic, got: $($r.Stdout)"
+    $h2 = Start-OtterNetProcess -Source 'connect securely to tcp "localhost" on port 9 using protocol "h2" and call it c'
+    $r2 = Complete-OtterNetProcess $h2
+    Assert-True ($r2.Stdout -match 'not available on this Otter runtime') "expected the ALPN diagnostic, got: $($r2.Stdout)"
+}
+
+Test-Otter 'connect securely is rejected on the web target' {
+    $h = Start-OtterNetProcess -Source 'connect securely to tcp "example.com" on port 443 and call it c' -Mode 'web'
+    $r = Complete-OtterNetProcess $h
+    Assert-True ($r.Stdout -match 'TCP is not supported on the web target') "got: $($r.Stdout)"
+}
+
 Complete-OtterTests
