@@ -2416,19 +2416,28 @@ function Export-OtterWebApplication {
         if ($PassThruExceptions) { throw }
         # Remap combined line number back to originating file & line if source map exists
         $err = $_.Exception
-        if ($resolvedProgram -and $err.Line -gt 0) {
-            $origin = $resolvedProgram.FindOrigin($err.Line)
-            if ($origin) {
-                $err.Line = $origin.LocalLine
-                $relFile = [System.IO.Path]::GetFileName($origin.FilePath)
-                Write-Host ''
-                Write-Host "In $($relFile):" -ForegroundColor DarkGray
+        if ($resolvedProgram) {
+            if ($err -is [OtterMultipleErrorsException]) {
+                foreach ($diag in $err.Diagnostics) {
+                    if ($diag.Line -gt 0) {
+                        $origin = $resolvedProgram.FindOrigin($diag.Line)
+                        if ($origin) { $diag.Line = $origin.LocalLine }
+                    }
+                }
+            } elseif ($err.Line -gt 0) {
+                $origin = $resolvedProgram.FindOrigin($err.Line)
+                if ($origin) {
+                    $err.Line = $origin.LocalLine
+                    $relFile = [System.IO.Path]::GetFileName($origin.FilePath)
+                    Write-Host ''
+                    Write-Host "In $($relFile):" -ForegroundColor DarkGray
+                }
             }
         }
         Write-Host ''
         Write-Host $err.FormatDetailed() -ForegroundColor Red
         Write-Host ''
-        exit 1
+        [Environment]::Exit(2)
     }
     catch {
         if ($PassThruExceptions) { throw }

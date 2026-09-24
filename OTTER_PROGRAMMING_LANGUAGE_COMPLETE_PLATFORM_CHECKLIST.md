@@ -267,12 +267,14 @@ creation.
 -   [x] Source diagnostics exist
 -   [x] Stable diagnostic codes
 -   [x] Exact file/line/column ranges
--   [ ] Multiple diagnostics per parse where safe (real gap: the parser
-    throws and stops at the first syntax error; continuing past it to
-    report several in one pass would be a parser-architecture change -
-    src/Otter.Parser.psm1 is Codex's file, not verified or built here)
--   [ ] Parser recovery (same real gap and same ownership boundary as
-    above - no error-synchronization/recovery points exist in the parser)
+-   [x] Multiple diagnostics per parse where safe (D117: Resilient parser
+    collects independent syntax diagnostics in source order up to defensive
+    ceiling of 100 errors, with precise line/column locations, trimmed source
+    snippets, and column-aligned caret pointers)
+-   [x] Parser recovery (D117: Statement-level and block-level synchronization
+    anchored on newline, dedent, statement starters, options clauses, and block
+    terminator dot (.) preservation; AST partial safety prevents partial execution
+    or compilation)
 -   [x] Stack traces expressed in Otter terms
 -   [x] Nested/cause errors (the underlying host/.NET exception's own
     message is folded directly into the OtterError's message text at

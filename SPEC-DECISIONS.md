@@ -7320,9 +7320,29 @@ Otter 1.0 provides explicit asynchronous HTTP request handles with lifecycle int
    | `HttpRequestIsStateExpr` | `[Node]$Target, [HttpRequestState]$State, [bool]$IsNot, [int]$Line` | `HttpRequestIsState` |
    | `ReceivedResponseExpr` | `[int]$Line` | `ReceivedResponse` |
 
+---
 
+### D117 — Parser Recovery & Multiple Diagnostics
 
+**Authoritative spec:** Jeff's approved D117 specification.
 
+**Decision:**
+Otter parsing transitions from primarily fail-fast behavior into resilient multi-diagnostic parsing without altering valid grammar, valid AST shapes, or valid program semantics.
 
+1. **Primary Guarantees:**
+   - Valid Otter source before D117 parses to identical AST, executes identically, and compiles identically.
+   - Parser recovery activates only after a syntax error is encountered.
+   - Zero execution or compilation on partial AST: when `Diagnostics.Count >= 1`, interpreter execution (`otter run`) and JavaScript compilation (`otter web`) immediately halt with exit code 2 without running side effects or emitting output bundles.
 
+2. **Diagnostic Representation:**
+   - Diagnostics are instances of `[OtterError]` carrying source line, column, trimmed source snippet, column-aligned caret pointer (`^`), stable category code (`[string]$Code`), and deterministic grammar-aware suggestions.
+   - Multiple diagnostics are aggregated in `[OtterMultipleErrorsException] : OtterError` and `[OtterParseResult]`, maintaining 100% polymorphic backward compatibility with existing single-error catch sites.
+   - Diagnostics are preserved and rendered strictly in source order.
 
+3. **Synchronization Strategy:**
+   - Statement recovery synchronizes to safe statement boundaries: newlines at the current logical block depth, outer dedents, or grammar-derived statement starters (`say`, `if`, `while`, `repeat`, `for`, `set`, `make`, `write`, `get`, `post`, `put`, `delete`, `start`, `cancel`, `return`, `on`, `to`).
+   - Anti-cascade dot preservation: recovery respects logical nesting depth and never consumes an enclosing block's terminating `.` (`BlockEnd`).
+   - Indentation errors produce one primary diagnostic and recover to outer indentation depth without cascading.
+   - HTTP option block recovery isolates clause-level syntax errors (e.g. malformed `with header`) while preserving valid sibling clauses (e.g. `with timeout`).
+   - Token progress guarantee (Rule 42) ensures every recovery step advances token position, preventing infinite loops.
+   - Defensive ceiling: recovery strictly bounds diagnostics at 100 errors, terminating with a final `TooManyErrors` diagnostic.

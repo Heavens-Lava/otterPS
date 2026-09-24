@@ -3708,6 +3708,7 @@ class OtterError : System.Exception {
     [int]$Column          # 0 when unknown
     [string]$SourceLine   # the offending line of source, if known
     [string]$Suggestion   # "Try: ..." text, if we can offer one
+    [string]$Code         # optional stable diagnostic code (D117)
 
     # Original 3-argument form. KEPT so existing front-end code keeps working.
     OtterError([string]$message, [int]$line, [string]$stage) : base($message) {
@@ -3716,6 +3717,7 @@ class OtterError : System.Exception {
         $this.Column = 0
         $this.SourceLine = $null
         $this.Suggestion = $null
+        $this.Code = $null
     }
 
     # Richer form for beginner-friendly messages.
@@ -3725,6 +3727,17 @@ class OtterError : System.Exception {
         $this.Column = $column
         $this.SourceLine = $sourceLine
         $this.Suggestion = $suggestion
+        $this.Code = $null
+    }
+
+    # Form with stable diagnostic code (D117).
+    OtterError([string]$message, [int]$line, [string]$stage, [int]$column, [string]$sourceLine, [string]$suggestion, [string]$code) : base($message) {
+        $this.Line = $line
+        $this.Stage = $stage
+        $this.Column = $column
+        $this.SourceLine = $sourceLine
+        $this.Suggestion = $suggestion
+        $this.Code = $code
     }
 
     # Short one-line form, used by the REPL.
@@ -3751,7 +3764,13 @@ class OtterError : System.Exception {
         if ($this.Line -gt 0) {
             [void]$out.AppendLine("Line $($this.Line):")
             if ($this.SourceLine) {
-                [void]$out.AppendLine("    $($this.SourceLine.Trim())")
+                $trimmed = $this.SourceLine.TrimStart()
+                $leadingWhitespace = $this.SourceLine.Length - $trimmed.Length
+                $adjustedCol = [Math]::Max(0, $this.Column - 1 - $leadingWhitespace)
+                [void]$out.AppendLine("    $($trimmed.TrimEnd())")
+                if ($this.Column -gt 0) {
+                    [void]$out.AppendLine((' ' * (4 + $adjustedCol)) + '^')
+                }
             }
             [void]$out.AppendLine('')
         }
@@ -3767,3 +3786,58 @@ class OtterError : System.Exception {
         return $out.ToString().TrimEnd()
     }
 }
+
+# ===============================================================
+# PARSER RECOVERY & MULTI-DIAGNOSTIC RESULT (D117)
+# ===============================================================
+
+class OtterParseResult {
+    [ProgramNode]$Program
+    [System.Collections.Generic.List[OtterError]]$Diagnostics
+
+    OtterParseResult([ProgramNode]$program, [System.Collections.Generic.List[OtterError]]$diagnostics) {
+        $this.Program = $program
+        $this.Diagnostics = $diagnostics
+    }
+}
+
+class OtterMultipleErrorsException : OtterError {
+    [OtterError[]]$Diagnostics
+
+    OtterMultipleErrorsException([OtterError[]]$diagnostics) : base(
+        $diagnostics[0].Message,
+        $diagnostics[0].Line,
+        $diagnostics[0].Stage,
+        $diagnostics[0].Column,
+        $diagnostics[0].SourceLine,
+        $diagnostics[0].Suggestion,
+        $diagnostics[0].Code
+    ) {
+        $this.Diagnostics = $diagnostics
+    }
+
+    [string] Format() {
+        if ($null -eq $this.Diagnostics -or $this.Diagnostics.Length -le 1) {
+            return ([OtterError]$this).Format()
+        }
+        $lines = [System.Collections.Generic.List[string]]::new()
+        foreach ($d in $this.Diagnostics) {
+            $lines.Add($d.Format())
+        }
+        $lines.Add("Found $($this.Diagnostics.Length) errors in source.")
+        return $lines -join "`n"
+    }
+
+    [string] FormatDetailed() {
+        if ($null -eq $this.Diagnostics -or $this.Diagnostics.Length -le 1) {
+            return ([OtterError]$this).FormatDetailed()
+        }
+        $blocks = [System.Collections.Generic.List[string]]::new()
+        foreach ($d in $this.Diagnostics) {
+            $blocks.Add($d.FormatDetailed())
+        }
+        $blocks.Add("Found $($this.Diagnostics.Length) errors in source.")
+        return $blocks -join "`n`n"
+    }
+}
+

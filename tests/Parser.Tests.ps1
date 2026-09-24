@@ -1803,5 +1803,197 @@ if ($d115Ast.Statements[1].Data.Name -ne 'b' -or $d115Ast.Statements[1].Path.Val
 if ($d115Ast.Statements[2].Kind -ne [NodeKind]::WriteBytesFile) { throw 'Expected WriteBytesFileStmt.' }
 if ($d115Ast.Statements[2].Atomic -ne $true) { throw 'Expected Atomic = true on atomic write bytes.' }
 
+# ===============================================================
+# D117: Parser Recovery & Multiple Diagnostics Certification Suite
+# ===============================================================
+
+# 1. Section 36: Multiple Independent Errors (5 independent syntax errors)
+$d117MultiCode = @"
+score is
+say "first valid"
+add 5 to
+say "second valid"
+repeat times
+say "third valid"
+if x is greater than
+say "fourth valid"
+download file from
+say "fifth valid"
+"@
+$multiRes = ConvertTo-OtterParseResult (ConvertTo-OtterTokens $d117MultiCode)
+if ($multiRes.Diagnostics.Count -ne 5) {
+    throw "Expected exactly 5 diagnostics in D117 multi-error test, got $($multiRes.Diagnostics.Count)."
+}
+if ($multiRes.Program.Statements.Count -ne 5) {
+    throw "Expected 5 valid statements recovered in D117 multi-error test, got $($multiRes.Program.Statements.Count)."
+}
+$expectedLines = @(1, 3, 5, 7, 9)
+for ($i = 0; $i -lt 5; $i++) {
+    if ($multiRes.Diagnostics[$i].Line -ne $expectedLines[$i]) {
+        throw "Expected diagnostic $i to be on line $($expectedLines[$i]), got $($multiRes.Diagnostics[$i].Line)."
+    }
+}
+
+# 2. Section 35: Nested Block Test
+$d117NestedCode = @"
+if x is 10
+    if y is 20
+        score is
+    .
+    say "valid inner sibling"
+.
+say "valid top-level statement"
+"@
+$nestedRes = ConvertTo-OtterParseResult (ConvertTo-OtterTokens $d117NestedCode)
+if ($nestedRes.Diagnostics.Count -ne 1) {
+    throw "Expected exactly 1 diagnostic in nested block test, got $($nestedRes.Diagnostics.Count)."
+}
+if ($nestedRes.Diagnostics[0].Line -ne 3) {
+    throw "Expected diagnostic on line 3, got $($nestedRes.Diagnostics[0].Line)."
+}
+if ($nestedRes.Program.Statements.Count -ne 2) {
+    throw "Expected 2 top-level statements, got $($nestedRes.Program.Statements.Count)."
+}
+$outerIf = $nestedRes.Program.Statements[0]
+if ($outerIf.Kind -ne [NodeKind]::If) { throw "Expected top-level statement 0 to be If." }
+$outerSibling = $outerIf.Branches[0].Body[1]
+if ($outerSibling.Kind -ne [NodeKind]::Say) { throw "Expected outer sibling to be Say statement." }
+$topLevelSay = $nestedRes.Program.Statements[1]
+if ($topLevelSay.Kind -ne [NodeKind]::Say) { throw "Expected top-level statement 1 to be Say statement." }
+
+# 3. Section 39: Dot Cascade Test
+$d117DotCode = @"
+if ready
+    score is
+.
+say "still valid"
+"@
+$dotRes = ConvertTo-OtterParseResult (ConvertTo-OtterTokens $d117DotCode)
+if ($dotRes.Diagnostics.Count -ne 1) {
+    throw "Expected exactly 1 diagnostic in dot cascade test, got $($dotRes.Diagnostics.Count)."
+}
+if ($dotRes.Diagnostics[0].Line -ne 2) {
+    throw "Expected diagnostic on line 2, got $($dotRes.Diagnostics[0].Line)."
+}
+if ($dotRes.Program.Statements.Count -ne 2) {
+    throw "Expected 2 statements in dot cascade test, got $($dotRes.Program.Statements.Count)."
+}
+if ($dotRes.Program.Statements[1].Kind -ne [NodeKind]::Say) {
+    throw "Expected statement 1 to be Say."
+}
+
+# 4. Section 40: Indent Cascade Test
+$d117IndentCode = @"
+say "start"
+    say "bad indent"
+say "middle"
+say "end"
+"@
+$indentTokens = ConvertTo-OtterTokens $d117IndentCode
+$indentRes = ConvertTo-OtterParseResult $indentTokens
+if ($indentRes.Diagnostics.Count -ne 1) {
+    throw "Expected exactly 1 diagnostic for unexpected indent, got $($indentRes.Diagnostics.Count)."
+}
+if ($indentRes.Diagnostics[0].Line -ne 2) {
+    throw "Expected diagnostic on line 2, got $($indentRes.Diagnostics[0].Line)."
+}
+if ($indentRes.Program.Statements.Count -lt 2) {
+    throw "Expected valid outer statements to be preserved, got $($indentRes.Program.Statements.Count)."
+}
+
+# 5. Section 41 & 42: EOF Recovery & Progress Guarantee
+$d117EofCode = @"
+say "valid"
+score is
+"@
+$eofRes = ConvertTo-OtterParseResult (ConvertTo-OtterTokens $d117EofCode)
+if ($eofRes.Diagnostics.Count -ne 1) {
+    throw "Expected 1 diagnostic at EOF error, got $($eofRes.Diagnostics.Count)."
+}
+if ($eofRes.Program.Statements.Count -ne 1) {
+    throw "Expected 1 valid statement recovered before EOF, got $($eofRes.Program.Statements.Count)."
+}
+
+# 6. Section 49: Diagnostic Cap Test (100 error ceiling + 1 final TooManyErrors)
+$manyErrorsLines = [System.Collections.Generic.List[string]]::new()
+for ($i = 0; $i -lt 105; $i++) {
+    $manyErrorsLines.Add("score is")
+    $manyErrorsLines.Add("say `"ok`"")
+}
+$capRes = ConvertTo-OtterParseResult (ConvertTo-OtterTokens ($manyErrorsLines -join "`n"))
+if ($capRes.Diagnostics.Count -ne 101) {
+    throw "Expected exactly 101 diagnostics (100 max + 1 limit message), got $($capRes.Diagnostics.Count)."
+}
+if ($capRes.Diagnostics[100].Code -ne 'TooManyErrors') {
+    throw "Expected final diagnostic code to be 'TooManyErrors', got '$($capRes.Diagnostics[100].Code)'."
+}
+
+# 7. Section 32: Option Block Recovery
+$d117OptionCode = @"
+get "http://localhost/test" into res
+    with header
+    with timeout 5 seconds
+say "after options"
+"@
+$optionRes = ConvertTo-OtterParseResult (ConvertTo-OtterTokens $d117OptionCode)
+if ($optionRes.Diagnostics.Count -ne 1) {
+    throw "Expected 1 diagnostic for malformed option clause, got $($optionRes.Diagnostics.Count)."
+}
+if ($optionRes.Program.Statements.Count -ne 2) {
+    throw "Expected 2 statements (HttpGet and Say), got $($optionRes.Program.Statements.Count)."
+}
+if ($optionRes.Program.Statements[0].Kind -ne [NodeKind]::HttpGet) {
+    throw "Expected statement 0 to be HttpGet."
+}
+if ($optionRes.Program.Statements[1].Kind -ne [NodeKind]::Say) {
+    throw "Expected statement 1 to be Say."
+}
+
+# 8. Section 33 & 34: Event & Function Block Recovery
+$d117FuncCode = @"
+to brokenFunction
+    score is
+.
+to validFunction
+    say "valid body"
+.
+"@
+$funcRes = ConvertTo-OtterParseResult (ConvertTo-OtterTokens $d117FuncCode)
+if ($funcRes.Diagnostics.Count -ne 1) {
+    throw "Expected 1 diagnostic for brokenFunction body, got $($funcRes.Diagnostics.Count)."
+}
+if ($funcRes.Program.Statements.Count -ne 2) {
+    throw "Expected 2 function definitions recovered, got $($funcRes.Program.Statements.Count)."
+}
+
+# 9. Section 43: Fuzz Hardening / Pathological Input
+$fuzzInputs = @(
+    "if",
+    "while",
+    "repeat",
+    ". . .",
+    "to",
+    "make",
+    "set",
+    "write",
+    "download file from",
+    "if if if . . .",
+    "say 1 + + + 2",
+    "is is is",
+    "get into into into",
+    "`n`n`n. . . .`n`n`n",
+    "to f a b c`n    .`n."
+)
+foreach ($fuzz in $fuzzInputs) {
+    try {
+        $t = ConvertTo-OtterTokens $fuzz
+        $fuzzRes = ConvertTo-OtterParseResult $t
+        if ($null -eq $fuzzRes) { throw "Expected non-null parse result for fuzz input: '$fuzz'." }
+        if ($fuzzRes.Diagnostics.Count -gt 101) { throw "Diagnostics exceeded cap on fuzz input: '$fuzz'." }
+    } catch [OtterError] {
+        # Clean OtterError (e.g. from lexer) is acceptable
+    }
+}
+
 Write-Output 'Parser tests passed.'
 

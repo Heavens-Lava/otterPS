@@ -54,6 +54,132 @@ function Initialize-OtterParser {
     $script:KnownFunctions = @{}
     $script:KnownTypes = @{}
     $script:OtterBlockDepth = 0
+    $script:Diagnostics = [System.Collections.Generic.List[OtterError]]::new()
+    $script:InRecoveryMode = $false
+    $script:MaxDiagnostics = 100
+    $script:HitMaxDiagnostics = $false
+}
+
+$script:OtterStatementStarterKinds = @(
+    [TokenKind]::Say, [TokenKind]::If, [TokenKind]::While, [TokenKind]::Repeat,
+    [TokenKind]::Count, [TokenKind]::ForEach, [TokenKind]::Set, [TokenKind]::Make,
+    [TokenKind]::Write, [TokenKind]::Get, [TokenKind]::Post, [TokenKind]::Put,
+    [TokenKind]::Delete, [TokenKind]::Start, [TokenKind]::Cancel, [TokenKind]::Return,
+    [TokenKind]::On, [TokenKind]::To, [TokenKind]::Use, [TokenKind]::Try,
+    [TokenKind]::Log, [TokenKind]::Warn, [TokenKind]::Problem, [TokenKind]::Connect,
+    [TokenKind]::Disconnect, [TokenKind]::Query, [TokenKind]::Execute,
+    [TokenKind]::BeginTransaction, [TokenKind]::Commit, [TokenKind]::Rollback,
+    [TokenKind]::Notify, [TokenKind]::Choose, [TokenKind]::Download,
+    [TokenKind]::State, [TokenKind]::Derive, [TokenKind]::Await, [TokenKind]::A,
+    [TokenKind]::Number
+)
+
+$script:OtterStatementStarterTexts = @(
+    'say', 'if', 'while', 'repeat', 'count', 'for', 'each', 'set', 'make',
+    'write', 'get', 'post', 'put', 'delete', 'start', 'cancel', 'return',
+    'stop', 'on', 'to', 'use', 'try', 'log', 'warn', 'problem', 'connect',
+    'disconnect', 'query', 'execute', 'begin', 'commit', 'rollback',
+    'notify', 'choose', 'download', 'state', 'derive', 'await', 'listen',
+    'watch', 'lock', 'unlock', 'open', 'route', 'go', 'replace', 'remove', 'add',
+    'window', 'page', 'card', 'heading', 'text', 'button', 'panel', 'section',
+    'sidebar', 'main', 'link', 'image', 'input', 'grid', 'primary', 'secondary', 'danger'
+)
+
+function Test-OtterStatementStarter {
+    param([Token]$Token)
+    if ($null -eq $Token) { return $false }
+    if ($Token.Kind -in $script:OtterStatementStarterKinds) { return $true }
+    if ($Token.Text -and $script:OtterStatementStarterTexts -contains $Token.Text.ToLowerInvariant()) { return $true }
+    return $false
+}
+
+function Record-OtterParserError {
+    param([OtterError]$Error)
+    if ($script:HitMaxDiagnostics) { return }
+    if ($script:Diagnostics.Count -ge $script:MaxDiagnostics) {
+        $script:HitMaxDiagnostics = $true
+        $limitErr = [OtterError]::new(
+            'Too many syntax errors; parsing stopped.',
+            $Error.Line,
+            'parser',
+            $Error.Column,
+            (Get-OtterSourceLine $Error.Line),
+            'Fix the reported errors and run check again.',
+            'TooManyErrors'
+        )
+        $script:Diagnostics.Add($limitErr)
+        return
+    }
+    if (-not $script:InRecoveryMode) {
+        $script:Diagnostics.Add($Error)
+        $script:InRecoveryMode = $true
+    }
+}
+
+function Synchronize-OtterStatement {
+    param([int]$FailedPosition)
+
+    $nestedDepth = 0
+    while ($script:Position -lt $script:Tokens.Count) {
+        $tok = Get-OtterCurrentToken
+        if ($tok.Kind -eq [TokenKind]::EndOfFile) { break }
+
+        if ($tok.Kind -eq [TokenKind]::Indent) {
+            $nestedDepth++
+            [void](Read-OtterToken)
+            continue
+        }
+        if ($tok.Kind -eq [TokenKind]::Dedent) {
+            if ($nestedDepth -gt 0) {
+                $nestedDepth--
+                [void](Read-OtterToken)
+                continue
+            }
+            # Outer block dedent: DO NOT CONSUME. Stop here so outer block closes!
+            break
+        }
+        if ($tok.Kind -eq [TokenKind]::BlockEnd -and $nestedDepth -eq 0) {
+            # Outer block terminator ('.'): DO NOT CONSUME. Stop here per Section 11!
+            break
+        }
+        if ($tok.Kind -eq [TokenKind]::Newline) {
+            if ($nestedDepth -eq 0) {
+                # End of damaged line reached
+                [void](Read-OtterToken)
+                break
+            } else {
+                [void](Read-OtterToken)
+                continue
+            }
+        }
+
+        # If on a new line and next token is a recognized statement starter, stop
+        if ($nestedDepth -eq 0 -and $script:Position -gt $FailedPosition -and (Test-OtterStatementStarter $tok)) {
+            break
+        }
+
+        [void](Read-OtterToken)
+    }
+
+    # If following token is an unexpected Indent block associated with the failed statement head,
+    # balance through its matching Dedent and optional BlockEnd so its contents do not cascade.
+    if (Test-OtterTokenKind ([TokenKind]::Indent)) {
+        [void](Read-OtterToken)
+        $blockDepth = 1
+        while ($blockDepth -gt 0 -and -not (Test-OtterTokenKind ([TokenKind]::EndOfFile))) {
+            $t = Read-OtterToken
+            if ($t.Kind -eq [TokenKind]::Indent) { $blockDepth++ }
+            elseif ($t.Kind -eq [TokenKind]::Dedent) { $blockDepth-- }
+        }
+        if (Test-OtterTokenKind ([TokenKind]::BlockEnd)) {
+            [void](Read-OtterToken)
+        }
+    }
+
+    # Rule 42 progress guarantee: must advance if stuck
+    if ($script:Position -le $FailedPosition -and -not (Test-OtterTokenKind ([TokenKind]::EndOfFile))) {
+        [void](Read-OtterToken)
+    }
 }
 
 function Get-OtterCurrentToken { return $script:Tokens[$script:Position] }
@@ -78,19 +204,20 @@ function Get-OtterSourceLine {
     return $parts -join ' '
 }
 function New-OtterParserError {
-    param([string]$Message, [Token]$Token, [string]$Suggestion = $null)
-    return [OtterError]::new($Message, $Token.Line, 'parser', $Token.Column, (Get-OtterSourceLine $Token.Line), $Suggestion)
+    param([string]$Message, [Token]$Token, [string]$Suggestion = $null, [string]$Code = $null)
+    return [OtterError]::new($Message, $Token.Line, 'parser', $Token.Column, (Get-OtterSourceLine $Token.Line), $Suggestion, $Code)
 }
 function Assert-OtterTokenKind {
     param(
         [TokenKind]$Kind, 
         [string]$Message,
-        [string]$Suggestion = 'Check the expected word and try again.'
+        [string]$Suggestion = 'Check the expected word and try again.',
+        [string]$Code = $null
     )
     $token = Get-OtterCurrentToken
     if ($token.Kind -ne $Kind) {
         $found = if ($token.Kind -eq [TokenKind]::EndOfFile) { 'end of file' } else { "'$($token.Text)'" }
-        throw (New-OtterParserError "$Message I found $found instead." $token $Suggestion)
+        throw (New-OtterParserError "$Message I found $found instead." $token $Suggestion $Code)
     }
     return Read-OtterToken
 }
@@ -129,60 +256,77 @@ function Read-OtterHttpOptions {
     $options = [HttpOptions]::new()
     $headers = [System.Collections.Generic.List[HttpHeaderClause]]::new()
 
-    while (-not (Test-OtterTokenKind ([TokenKind]::Dedent))) {
-        $clauseStart = Get-OtterCurrentToken
-        if ($clauseStart.Kind -eq [TokenKind]::With) {
-            [void](Read-OtterToken)
-            $word = Get-OtterCurrentToken
-            if ($word.Kind -eq [TokenKind]::Identifier -and $word.Text -eq 'header') {
+    while (-not (Test-OtterTokenKind ([TokenKind]::Dedent)) -and -not (Test-OtterTokenKind ([TokenKind]::EndOfFile))) {
+        $posBefore = $script:Position
+        try {
+            $clauseStart = Get-OtterCurrentToken
+            if ($clauseStart.Kind -eq [TokenKind]::With) {
                 [void](Read-OtterToken)
-                $name = Read-OtterValue
-                [void](Assert-OtterTokenKind ([TokenKind]::Is) 'I expected "is" and a header value after the header name.' 'Write: with header "Accept" is "application/json"')
-                $value = Read-OtterValue
-                $headers.Add([HttpHeaderClause]::new($name, $value))
-            } elseif ($word.Kind -eq [TokenKind]::Identifier -and $word.Text -eq 'cookies') {
-                [void](Read-OtterToken)
-                $options.WithCookies = $true
-            } elseif ($word.Kind -eq [TokenKind]::Identifier -and $word.Text -eq 'timeout') {
-                [void](Read-OtterToken)
-                $options.TimeoutSeconds = Read-OtterValue
-                $unitTok = Get-OtterCurrentToken
-                if ($unitTok.Kind -eq [TokenKind]::Second -or
-                    ($unitTok.Kind -eq [TokenKind]::Identifier -and $unitTok.Text -in @('second', 'seconds'))) {
+                $word = Get-OtterCurrentToken
+                if ($word.Kind -eq [TokenKind]::Identifier -and $word.Text -eq 'header') {
                     [void](Read-OtterToken)
+                    $name = Read-OtterValue
+                    [void](Assert-OtterTokenKind ([TokenKind]::Is) 'I expected "is" and a header value after the header name.' 'Write: with header "Accept" is "application/json"' 'ExpectedIs')
+                    $value = Read-OtterValue
+                    $headers.Add([HttpHeaderClause]::new($name, $value))
+                } elseif ($word.Kind -eq [TokenKind]::Identifier -and $word.Text -eq 'cookies') {
+                    [void](Read-OtterToken)
+                    $options.WithCookies = $true
+                } elseif ($word.Kind -eq [TokenKind]::Identifier -and $word.Text -eq 'timeout') {
+                    [void](Read-OtterToken)
+                    $options.TimeoutSeconds = Read-OtterValue
+                    $unitTok = Get-OtterCurrentToken
+                    if ($unitTok.Kind -eq [TokenKind]::Second -or
+                        ($unitTok.Kind -eq [TokenKind]::Identifier -and $unitTok.Text -in @('second', 'seconds'))) {
+                        [void](Read-OtterToken)
+                    } else {
+                        throw (New-OtterParserError 'I expected "seconds" after the timeout value.' $unitTok 'Write: with timeout 30 seconds' 'ExpectedSeconds')
+                    }
                 } else {
-                    throw (New-OtterParserError 'I expected "seconds" after the timeout value.' $unitTok 'Write: with timeout 30 seconds')
+                    throw (New-OtterParserError "I don't recognize the HTTP option ""with $($word.Text)""." $word 'Write: with header "X" is Y, with cookies, or with timeout N seconds.' 'UnknownHttpOption')
+                }
+            } elseif ($clauseStart.Kind -eq [TokenKind]::Identifier -and $clauseStart.Text -eq 'without') {
+                [void](Read-OtterToken)
+                $word = Get-OtterCurrentToken
+                if ($word.Kind -eq [TokenKind]::Identifier -and $word.Text -eq 'cookies') {
+                    [void](Read-OtterToken)
+                    $options.WithCookies = $false
+                } elseif ($word.Kind -eq [TokenKind]::Identifier -and $word.Text -eq 'redirects') {
+                    [void](Read-OtterToken)
+                    $options.FollowRedirects = $false
+                } else {
+                    throw (New-OtterParserError "I don't recognize the HTTP option ""without $($word.Text)""." $word 'Write: without cookies, or without redirects.' 'UnknownHttpOption')
+                }
+            } elseif ($clauseStart.Kind -eq [TokenKind]::Identifier -and $clauseStart.Text -eq 'following') {
+                [void](Read-OtterToken)
+                $word = Get-OtterCurrentToken
+                if ($word.Kind -eq [TokenKind]::Identifier -and $word.Text -eq 'redirects') {
+                    [void](Read-OtterToken)
+                    $options.FollowRedirects = $true
+                } else {
+                    throw (New-OtterParserError 'I expected "redirects" after "following".' $word 'Write: following redirects' 'ExpectedRedirects')
                 }
             } else {
-                throw (New-OtterParserError "I don't recognize the HTTP option ""with $($word.Text)""." $word 'Write: with header "X" is Y, with cookies, or with timeout N seconds.')
+                throw (New-OtterParserError "I don't recognize ""$($clauseStart.Text)"" as an HTTP option." $clauseStart 'Write: with header "X" is Y, with cookies, without cookies, following redirects, without redirects, or with timeout N seconds.' 'UnknownHttpOption')
             }
-        } elseif ($clauseStart.Kind -eq [TokenKind]::Identifier -and $clauseStart.Text -eq 'without') {
-            [void](Read-OtterToken)
-            $word = Get-OtterCurrentToken
-            if ($word.Kind -eq [TokenKind]::Identifier -and $word.Text -eq 'cookies') {
-                [void](Read-OtterToken)
-                $options.WithCookies = $false
-            } elseif ($word.Kind -eq [TokenKind]::Identifier -and $word.Text -eq 'redirects') {
-                [void](Read-OtterToken)
-                $options.FollowRedirects = $false
-            } else {
-                throw (New-OtterParserError "I don't recognize the HTTP option ""without $($word.Text)""." $word 'Write: without cookies, or without redirects.')
-            }
-        } elseif ($clauseStart.Kind -eq [TokenKind]::Identifier -and $clauseStart.Text -eq 'following') {
-            [void](Read-OtterToken)
-            $word = Get-OtterCurrentToken
-            if ($word.Kind -eq [TokenKind]::Identifier -and $word.Text -eq 'redirects') {
-                [void](Read-OtterToken)
-                $options.FollowRedirects = $true
-            } else {
-                throw (New-OtterParserError 'I expected "redirects" after "following".' $word 'Write: following redirects')
-            }
-        } else {
-            throw (New-OtterParserError "I don't recognize ""$($clauseStart.Text)"" as an HTTP option." $clauseStart 'Write: with header "X" is Y, with cookies, without cookies, following redirects, without redirects, or with timeout N seconds.')
+            [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the HTTP option to end here.' 'ExpectedNewline' 'ExpectedNewline')
         }
-        [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the HTTP option to end here.')
+        catch [OtterError] {
+            Record-OtterParserError $_.Exception
+            while (-not (Test-OtterTokenKind ([TokenKind]::Newline)) -and -not (Test-OtterTokenKind ([TokenKind]::Dedent)) -and -not (Test-OtterTokenKind ([TokenKind]::EndOfFile))) {
+                [void](Read-OtterToken)
+            }
+            if (Test-OtterTokenKind ([TokenKind]::Newline)) {
+                [void](Read-OtterToken)
+            }
+            if ($script:Position -le $posBefore -and -not (Test-OtterTokenKind ([TokenKind]::EndOfFile))) {
+                [void](Read-OtterToken)
+            }
+        }
     }
-    [void](Read-OtterToken) # Dedent
+    if (Test-OtterTokenKind ([TokenKind]::Dedent)) {
+        [void](Read-OtterToken) # Dedent
+    }
     $options.Headers = $headers.ToArray()
     return $options
 }
@@ -4949,26 +5093,56 @@ function Read-OtterStatements {
     $statements = [System.Collections.Generic.List[Node]]::new()
     Skip-OtterNewlines
     while (-not (Test-OtterTokenKind ([TokenKind]::Dedent)) -and -not (Test-OtterTokenKind ([TokenKind]::EndOfFile)) -and -not (Test-OtterTokenKind ([TokenKind]::BlockEnd))) {
-        $parsed = Read-OtterStatement
-        if ($parsed -is [System.Array]) { foreach ($statement in $parsed) { $statements.Add($statement) } }
-        else { $statements.Add($parsed) }
+        if ($script:HitMaxDiagnostics) { break }
+        $posBefore = $script:Position
+        try {
+            $script:InRecoveryMode = $false
+            $parsed = Read-OtterStatement
+            if ($parsed -is [System.Array]) { foreach ($statement in $parsed) { $statements.Add($statement) } }
+            elseif ($null -ne $parsed) { $statements.Add($parsed) }
+        }
+        catch [OtterError] {
+            Record-OtterParserError $_.Exception
+            Synchronize-OtterStatement -FailedPosition $posBefore
+        }
+        catch {
+            $tok = Get-OtterCurrentToken
+            $err = New-OtterParserError "Syntax error: $($_.Exception.Message)" $tok
+            Record-OtterParserError $err
+            Synchronize-OtterStatement -FailedPosition $posBefore
+        }
         Skip-OtterNewlines
     }
     return $statements.ToArray()
 }
 
-function ConvertTo-OtterAst {
-    [OutputType([ProgramNode])]
+function ConvertTo-OtterParseResult {
     param([Parameter(Mandatory)][Token[]]$Tokens)
 
     Initialize-OtterParser $Tokens
     $statements = Read-OtterStatements
     if (Test-OtterTokenKind ([TokenKind]::BlockEnd)) {
         $token = Read-OtterToken
-        throw (New-OtterParserError 'There is no open block for this period to close.' $token 'Remove this period or place it after an indented block.')
+        Record-OtterParserError (New-OtterParserError 'There is no open block for this period to close.' $token 'Remove this period or place it after an indented block.' 'UnexpectedPeriod')
     }
-    [void](Assert-OtterTokenKind ([TokenKind]::EndOfFile) 'I expected the program to end here.')
-    return [ProgramNode]::new($statements)
+    if (-not (Test-OtterTokenKind ([TokenKind]::EndOfFile))) {
+        $token = Get-OtterCurrentToken
+        Record-OtterParserError (New-OtterParserError "Unexpected input at end of program: '$($token.Text)'." $token 'Make sure all statements and blocks are valid.' 'TrailingInput')
+    }
+
+    $program = [ProgramNode]::new($statements)
+    return [OtterParseResult]::new($program, $script:Diagnostics)
 }
 
-Export-ModuleMember -Function ConvertTo-OtterAst
+function ConvertTo-OtterAst {
+    [OutputType([ProgramNode])]
+    param([Parameter(Mandatory)][Token[]]$Tokens)
+
+    $result = ConvertTo-OtterParseResult -Tokens $Tokens
+    if ($result.Diagnostics.Count -gt 0) {
+        throw [OtterMultipleErrorsException]::new($result.Diagnostics.ToArray())
+    }
+    return $result.Program
+}
+
+Export-ModuleMember -Function ConvertTo-OtterAst, ConvertTo-OtterParseResult
