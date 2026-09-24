@@ -1,0 +1,1204 @@
+{
+ "gone": {
+  "title": "gone: the absence of a value",
+  "lead": "gone means no value exists. It is not the same as empty text, zero, an empty list, or false.",
+  "items": [
+   {
+    "k": "h2",
+    "t": "Gone — Absence of a Value"
+   },
+   {
+    "k": "p",
+    "t": "Otter uses:"
+   },
+   {
+    "k": "out",
+    "t": "gone"
+   },
+   {
+    "k": "p",
+    "t": "to represent the absence of a value."
+   },
+   {
+    "k": "p",
+    "t": "gone is Otter's equivalent of concepts such as null, nil, or None in other programming languages."
+   },
+   {
+    "k": "p",
+    "t": "Example:"
+   },
+   {
+    "k": "code",
+    "t": "user is gone"
+   },
+   {
+    "k": "p",
+    "t": "Check for an absent value:"
+   },
+   {
+    "k": "code",
+    "t": "if user is gone\n    say \"User was not found.\"\n."
+   },
+   {
+    "k": "p",
+    "t": "Check that a value exists:"
+   },
+   {
+    "k": "code",
+    "t": "if user is not gone\n    say \"Welcome\" name of user\n."
+   },
+   {
+    "k": "p",
+    "t": "gone is a literal value."
+   },
+   {
+    "k": "p",
+    "t": "It does not require special assignment syntax."
+   },
+   {
+    "k": "code",
+    "t": "user is gone"
+   },
+   {
+    "k": "p",
+    "t": "uses the same assignment rules as:"
+   },
+   {
+    "k": "code",
+    "t": "user is \"Jeff\""
+   },
+   {
+    "k": "h2",
+    "t": "Gone Is Different From Empty and False"
+   },
+   {
+    "k": "p",
+    "t": "These values are not equivalent:"
+   },
+   {
+    "k": "code",
+    "t": "user is gone\nname is \"\"\nscore is 0\ngames are empty\nready is false"
+   },
+   {
+    "k": "p",
+    "t": "They mean:"
+   },
+   {
+    "k": "out",
+    "t": "gone       no value exists\n\"\"         a string exists but contains no characters\n0          a number exists and is zero\nempty      a collection exists but contains no items\nfalse      a boolean exists and is false"
+   },
+   {
+    "k": "p",
+    "t": "Otter must not automatically treat these values as interchangeable."
+   },
+   {
+    "k": "h2",
+    "t": "Gone Is the Only Absence Keyword"
+   },
+   {
+    "k": "p",
+    "t": "Otter uses only:"
+   },
+   {
+    "k": "out",
+    "t": "gone"
+   },
+   {
+    "k": "p",
+    "t": "for absence."
+   },
+   {
+    "k": "p",
+    "t": "Do not introduce aliases such as:"
+   },
+   {
+    "k": "out",
+    "t": "null\nnil\nNone\nnothing\nNA"
+   },
+   {
+    "k": "p",
+    "t": "This keeps the language consistent and prevents multiple words from representing the same concept."
+   }
+  ]
+ },
+ "discovery": {
+  "title": "Finding files and folders",
+  "lead": "Discover the files and folders inside a folder, with explicit control over whether subfolders are included.",
+  "items": [
+   {
+    "k": "h2",
+    "t": "File Discovery"
+   },
+   {
+    "k": "p",
+    "t": "Files can be discovered from a folder:"
+   },
+   {
+    "k": "code",
+    "t": "get files in \"Pictures\" into files"
+   },
+   {
+    "k": "p",
+    "t": "The result is a list of file objects."
+   },
+   {
+    "k": "p",
+    "t": "Example:"
+   },
+   {
+    "k": "code",
+    "t": "get files in \"Documents\" into files\n\nfor each file in files\n    say name of file\n."
+   },
+   {
+    "k": "h2",
+    "t": "Folder Discovery"
+   },
+   {
+    "k": "p",
+    "t": "Folders can be discovered the same way:"
+   },
+   {
+    "k": "code",
+    "t": "get folders in \"Documents\" into folders"
+   },
+   {
+    "k": "p",
+    "t": "Example:"
+   },
+   {
+    "k": "code",
+    "t": "for each folder in folders\n    say name of folder\n."
+   },
+   {
+    "k": "h2",
+    "t": "Discovery Does Not Recurse By Default"
+   },
+   {
+    "k": "p",
+    "t": "This:"
+   },
+   {
+    "k": "code",
+    "t": "get files in \"Pictures\" into files"
+   },
+   {
+    "k": "p",
+    "t": "only retrieves files directly inside Pictures."
+   },
+   {
+    "k": "p",
+    "t": "It does not automatically search subfolders."
+   },
+   {
+    "k": "p",
+    "t": "Recursive discovery must be requested explicitly:"
+   },
+   {
+    "k": "code",
+    "t": "get files in \"Pictures\" and subfolders into files"
+   },
+   {
+    "k": "p",
+    "t": "Likewise:"
+   },
+   {
+    "k": "code",
+    "t": "get folders in \"Documents\" and subfolders into folders"
+   },
+   {
+    "k": "p",
+    "t": "The phrase:"
+   },
+   {
+    "k": "out",
+    "t": "and subfolders"
+   },
+   {
+    "k": "p",
+    "t": "is the only recursion switch for discovery."
+   }
+  ]
+ },
+ "file-objects": {
+  "title": "File and folder objects",
+  "lead": "A discovered file or folder is an object with properties you read with of.",
+  "items": [
+   {
+    "k": "h2",
+    "t": "File Objects"
+   },
+   {
+    "k": "p",
+    "t": "A discovered file is an object."
+   },
+   {
+    "k": "p",
+    "t": "Common file properties include:"
+   },
+   {
+    "k": "code",
+    "t": "say name of file\nsay path of file\nsay extension of file\nsay size of file\nsay created of file\nsay modified of file"
+   },
+   {
+    "k": "p",
+    "t": "Example:"
+   },
+   {
+    "k": "code",
+    "t": "get files in \"Pictures\" into files\n\nfor each file in files\n    say name of file\n    say extension of file\n    say size of file\n."
+   },
+   {
+    "k": "p",
+    "t": "File operations may accept either a path or a file object."
+   },
+   {
+    "k": "p",
+    "t": "Path:"
+   },
+   {
+    "k": "code",
+    "t": "move \"photo.jpg\" to \"Pictures\""
+   },
+   {
+    "k": "p",
+    "t": "Object:"
+   },
+   {
+    "k": "code",
+    "t": "move file to \"Pictures\""
+   },
+   {
+    "k": "h2",
+    "t": "Folder Objects"
+   },
+   {
+    "k": "p",
+    "t": "A discovered folder is also an object."
+   },
+   {
+    "k": "p",
+    "t": "Folder properties include:"
+   },
+   {
+    "k": "code",
+    "t": "say name of folder\nsay path of folder\nsay created of folder\nsay modified of folder"
+   },
+   {
+    "k": "p",
+    "t": "A folder does not expose:"
+   },
+   {
+    "k": "code",
+    "t": "say size of folder"
+   },
+   {
+    "k": "p",
+    "t": "as a normal property."
+   },
+   {
+    "k": "p",
+    "t": "Determining the total size of a folder may require recursively examining many files and subfolders."
+   },
+   {
+    "k": "p",
+    "t": "Otter should not hide an expensive operation behind a property that appears inexpensive."
+   }
+  ]
+ },
+ "try": {
+  "title": "try and otherwise",
+  "lead": "try runs a block; if something in it fails, otherwise handles it.",
+  "items": [
+   {
+    "k": "h2",
+    "t": "Try and Otherwise"
+   },
+   {
+    "k": "p",
+    "t": "Otter uses:"
+   },
+   {
+    "k": "out",
+    "t": "try\n    ...\notherwise\n    ...\n."
+   },
+   {
+    "k": "p",
+    "t": "for error handling."
+   },
+   {
+    "k": "p",
+    "t": "Example:"
+   },
+   {
+    "k": "code",
+    "t": "try\n    read \"settings.json\" into settings\notherwise\n    say \"Could not load settings.\"\n."
+   },
+   {
+    "k": "p",
+    "t": "If the try body completes normally, the otherwise body does not run."
+   },
+   {
+    "k": "p",
+    "t": "If an operation in the try body fails, Otter runs the otherwise body."
+   },
+   {
+    "k": "h2",
+    "t": "Otherwise Is Optional for Try"
+   },
+   {
+    "k": "p",
+    "t": "A try block may exist without an otherwise body when the runtime or surrounding code handles the failure."
+   },
+   {
+    "k": "code",
+    "t": "try\n    read \"settings.json\" into settings\n."
+   },
+   {
+    "k": "p",
+    "t": "The exact propagation behavior should follow Otter's runtime error rules."
+   },
+   {
+    "k": "h2",
+    "t": "Normal Control Flow Is Not Failure"
+   },
+   {
+    "k": "p",
+    "t": "Statements such as:"
+   },
+   {
+    "k": "out",
+    "t": "return"
+   },
+   {
+    "k": "p",
+    "t": "must pass through try normally."
+   },
+   {
+    "k": "p",
+    "t": "Example:"
+   },
+   {
+    "k": "code",
+    "t": "to find user\n    try\n        return user\n    otherwise\n        say \"Could not find user.\"\n    .\n."
+   },
+   {
+    "k": "p",
+    "t": "If return user executes successfully, the function returns user."
+   },
+   {
+    "k": "p",
+    "t": "The otherwise body must not run."
+   },
+   {
+    "k": "p",
+    "t": "Normal control-flow changes are not runtime errors."
+   },
+   {
+    "k": "p",
+    "t": "This rule should also apply to future control-flow features such as:"
+   },
+   {
+    "k": "out",
+    "t": "break\ncontinue"
+   }
+  ]
+ },
+ "strings": {
+  "title": "Working with text",
+  "lead": "Measure, change, search, split, and join text with plain words.",
+  "items": [
+   {
+    "k": "h2",
+    "t": "String Length"
+   },
+   {
+    "k": "code",
+    "t": "say length of name"
+   },
+   {
+    "k": "p",
+    "t": "Example:"
+   },
+   {
+    "k": "code",
+    "t": "name is \"Jeff\"\n\nsay length of name"
+   },
+   {
+    "k": "p",
+    "t": "Output:"
+   },
+   {
+    "k": "out",
+    "t": "4"
+   },
+   {
+    "k": "h2",
+    "t": "Uppercase and Lowercase"
+   },
+   {
+    "k": "code",
+    "t": "say uppercase of name\nsay lowercase of name"
+   },
+   {
+    "k": "p",
+    "t": "Example:"
+   },
+   {
+    "k": "code",
+    "t": "name is \"Jeff\"\n\nsay uppercase of name\nsay lowercase of name"
+   },
+   {
+    "k": "p",
+    "t": "Output:"
+   },
+   {
+    "k": "out",
+    "t": "JEFF\njeff"
+   },
+   {
+    "k": "p",
+    "t": "These operations return new values."
+   },
+   {
+    "k": "p",
+    "t": "They do not automatically modify the original variable."
+   },
+   {
+    "k": "h2",
+    "t": "Contains"
+   },
+   {
+    "k": "p",
+    "t": "Strings can be checked for text:"
+   },
+   {
+    "k": "code",
+    "t": "if name contains \"Jeff\"\n    say \"Found Jeff.\"\n."
+   },
+   {
+    "k": "p",
+    "t": "Collections can be checked for an item:"
+   },
+   {
+    "k": "code",
+    "t": "if games contains \"Zelda\"\n    say \"Zelda is in the list.\"\n."
+   },
+   {
+    "k": "p",
+    "t": "The parser/runtime determines whether the target is text or a collection."
+   },
+   {
+    "k": "h2",
+    "t": "Starts With"
+   },
+   {
+    "k": "code",
+    "t": "if name starts with \"J\"\n    say \"Starts with J.\"\n."
+   },
+   {
+    "k": "h2",
+    "t": "Ends With"
+   },
+   {
+    "k": "code",
+    "t": "if name ends with \"rey\"\n    say \"Ends with rey.\"\n."
+   },
+   {
+    "k": "h2",
+    "t": "Split Text"
+   },
+   {
+    "k": "code",
+    "t": "split \"red,green,blue\" by \",\" into colors"
+   },
+   {
+    "k": "p",
+    "t": "This creates a list."
+   },
+   {
+    "k": "p",
+    "t": "Equivalent example using a variable:"
+   },
+   {
+    "k": "code",
+    "t": "text is \"red,green,blue\"\n\nsplit text by \",\" into colors"
+   },
+   {
+    "k": "h2",
+    "t": "Join Text"
+   },
+   {
+    "k": "code",
+    "t": "join colors with \", \" into text"
+   },
+   {
+    "k": "p",
+    "t": "Example:"
+   },
+   {
+    "k": "code",
+    "t": "colors are\n    \"red\"\n    \"green\"\n    \"blue\"\n.\n\njoin colors with \" | \" into text\n\nsay text"
+   },
+   {
+    "k": "p",
+    "t": "Output:"
+   },
+   {
+    "k": "out",
+    "t": "red | green | blue"
+   }
+  ]
+ },
+ "collections": {
+  "title": "Working with collections",
+  "lead": "Measure, order, search, and pick items from lists.",
+  "items": [
+   {
+    "k": "h2",
+    "t": "Collection Length"
+   },
+   {
+    "k": "p",
+    "t": "The same readable syntax works with collections:"
+   },
+   {
+    "k": "code",
+    "t": "say length of games"
+   },
+   {
+    "k": "p",
+    "t": "Example:"
+   },
+   {
+    "k": "code",
+    "t": "games are\n    \"Zelda\"\n    \"Mario\"\n    \"Pokemon\"\n.\n\nsay length of games"
+   },
+   {
+    "k": "p",
+    "t": "Output:"
+   },
+   {
+    "k": "out",
+    "t": "3"
+   },
+   {
+    "k": "h2",
+    "t": "First and Last"
+   },
+   {
+    "k": "code",
+    "t": "say first of games\nsay last of games"
+   },
+   {
+    "k": "p",
+    "t": "Example:"
+   },
+   {
+    "k": "code",
+    "t": "say first of games\nsay last of games"
+   },
+   {
+    "k": "p",
+    "t": "If the collection is empty:"
+   },
+   {
+    "k": "code",
+    "t": "say first of games"
+   },
+   {
+    "k": "p",
+    "t": "returns:"
+   },
+   {
+    "k": "out",
+    "t": "gone"
+   },
+   {
+    "k": "p",
+    "t": "The same applies to:"
+   },
+   {
+    "k": "code",
+    "t": "say last of games"
+   },
+   {
+    "k": "h2",
+    "t": "Reverse Collections"
+   },
+   {
+    "k": "code",
+    "t": "reverse games"
+   },
+   {
+    "k": "p",
+    "t": "This reverses the current order of the collection."
+   },
+   {
+    "k": "h2",
+    "t": "Find One Item"
+   },
+   {
+    "k": "p",
+    "t": "Otter uses find when the programmer wants one matching item."
+   },
+   {
+    "k": "code",
+    "t": "find game in games where game is \"Mario\" into result"
+   },
+   {
+    "k": "p",
+    "t": "The first matching item is placed into result."
+   },
+   {
+    "k": "p",
+    "t": "If nothing matches:"
+   },
+   {
+    "k": "code",
+    "t": "result is gone"
+   },
+   {
+    "k": "p",
+    "t": "This allows:"
+   },
+   {
+    "k": "code",
+    "t": "find game in games where game is \"Mario\" into result\n\nif result is gone\n    say \"Mario was not found.\"\notherwise\n    say \"Found\" result\n."
+   },
+   {
+    "k": "h2",
+    "t": "Find With Object Properties"
+   },
+   {
+    "k": "p",
+    "t": "find becomes especially useful with objects:"
+   },
+   {
+    "k": "code",
+    "t": "find file in files where extension of file is \".pdf\" into result"
+   },
+   {
+    "k": "p",
+    "t": "Then:"
+   },
+   {
+    "k": "code",
+    "t": "if result is gone\n    say \"No PDF found.\"\notherwise\n    say \"Found\" name of result\n."
+   },
+   {
+    "k": "h2",
+    "t": "Derived Operations and Object Properties"
+   },
+   {
+    "k": "p",
+    "t": "Not every expression using of represents a stored property."
+   },
+   {
+    "k": "p",
+    "t": "These are object properties:"
+   },
+   {
+    "k": "code",
+    "t": "say name of file\nsay extension of file\nsay age of person"
+   },
+   {
+    "k": "p",
+    "t": "These are operations:"
+   },
+   {
+    "k": "code",
+    "t": "say length of games\nsay uppercase of name\nsay first of games"
+   },
+   {
+    "k": "p",
+    "t": "They share readable surface grammar, but the parser may represent them differently internally."
+   },
+   {
+    "k": "p",
+    "t": "The runtime object model should not pretend every derived operation is a stored property."
+   }
+  ]
+ },
+ "json": {
+  "title": "JSON",
+  "lead": "JSON converts to ordinary Otter objects and lists, read with the same of you use everywhere else.",
+  "items": [
+   {
+    "k": "h2",
+    "t": "JSON Objects Use Ordinary Property Access"
+   },
+   {
+    "k": "p",
+    "t": "After JSON is converted into an Otter object:"
+   },
+   {
+    "k": "code",
+    "t": "say name of user\nsay email of user"
+   },
+   {
+    "k": "p",
+    "t": "Nested JSON works naturally:"
+   },
+   {
+    "k": "code",
+    "t": "say city of address of user"
+   },
+   {
+    "k": "p",
+    "t": "Otter should not require separate JSON-navigation syntax."
+   }
+  ]
+ },
+ "scope": {
+  "title": "Scope",
+  "lead": "Where a variable can be seen: everywhere, inside one function, or inside one block.",
+  "items": [
+   {
+    "k": "h2",
+    "t": "Variable Scope"
+   },
+   {
+    "k": "p",
+    "t": "Otter must define where variables can be accessed."
+   },
+   {
+    "k": "p",
+    "t": "Example:"
+   },
+   {
+    "k": "code",
+    "t": "name is \"Jeff\"\n\nto greet\n    message is \"Hello\"\n    say name\n."
+   },
+   {
+    "k": "p",
+    "t": "The language must specify:"
+   },
+   {
+    "k": "p",
+    "t": "- whether functions can read variables outside themselves"
+   },
+   {
+    "k": "p",
+    "t": "- whether local variables disappear when the function ends"
+   },
+   {
+    "k": "p",
+    "t": "- whether nested blocks create new scopes"
+   },
+   {
+    "k": "p",
+    "t": "- how outer variables are changed deliberately"
+   },
+   {
+    "k": "p",
+    "t": "The preferred rule is:"
+   },
+   {
+    "k": "note",
+    "t": "Variables created inside a function belong to that function unless explicitly exposed."
+   },
+   {
+    "k": "h2",
+    "t": "Function Local Variables"
+   },
+   {
+    "k": "p",
+    "t": "Example:"
+   },
+   {
+    "k": "code",
+    "t": "to greet name\n    message is \"Hello\"\n    say message name\n."
+   },
+   {
+    "k": "p",
+    "t": "message exists only while greet is running."
+   },
+   {
+    "k": "p",
+    "t": "After the function finishes, message should no longer be available outside that function."
+   },
+   {
+    "k": "h2",
+    "t": "Block Scope"
+   },
+   {
+    "k": "p",
+    "t": "Simple control-flow blocks should not automatically hide ordinary variables unless Otter later chooses strict lexical block scope."
+   },
+   {
+    "k": "p",
+    "t": "Example:"
+   },
+   {
+    "k": "code",
+    "t": "if ready\n    message is \"Starting\"\n.\n\nsay message"
+   },
+   {
+    "k": "p",
+    "t": "This behavior needs one consistent rule across:"
+   },
+   {
+    "k": "out",
+    "t": "if\nwhile\nfor each\ncount\ntry"
+   },
+   {
+    "k": "p",
+    "t": "The exact rule should be frozen before more advanced closures or concurrency are added."
+   }
+  ]
+ },
+ "modules": {
+  "title": "Modules",
+  "lead": "Split a program across files and reuse them with use.",
+  "items": [
+   {
+    "k": "h2",
+    "t": "Modules"
+   },
+   {
+    "k": "p",
+    "t": "Large programs need multiple source files."
+   },
+   {
+    "k": "p",
+    "t": "Otter should use a simple keyword:"
+   },
+   {
+    "k": "out",
+    "t": "use"
+   },
+   {
+    "k": "p",
+    "t": "Example:"
+   },
+   {
+    "k": "code",
+    "t": "use \"helpers.ot\""
+   },
+   {
+    "k": "p",
+    "t": "Built-in or installed libraries may use:"
+   },
+   {
+    "k": "code",
+    "t": "use web\nuse database\nuse json"
+   }
+  ]
+ },
+ "random": {
+  "title": "Random values",
+  "lead": "Random numbers and random items from a collection.",
+  "items": [
+   {
+    "k": "h2",
+    "t": "Random Numbers"
+   },
+   {
+    "k": "code",
+    "t": "random number from 1 to 10 into number"
+   },
+   {
+    "k": "h2",
+    "t": "Random Collection Items"
+   },
+   {
+    "k": "code",
+    "t": "random item from games into game"
+   },
+   {
+    "k": "p",
+    "t": "If the collection is empty, the result should be:"
+   },
+   {
+    "k": "out",
+    "t": "gone"
+   }
+  ]
+ },
+ "logging-debugging": {
+  "title": "Logging and debugging",
+  "lead": "Write diagnostic output that is separate from what your program says.",
+  "items": [
+   {
+    "k": "h2",
+    "t": "Logging"
+   },
+   {
+    "k": "p",
+    "t": "Application logging should be distinct from ordinary user output."
+   },
+   {
+    "k": "code",
+    "t": "log \"Server started.\""
+   },
+   {
+    "k": "p",
+    "t": "Warnings:"
+   },
+   {
+    "k": "code",
+    "t": "warn \"Connection is slow.\""
+   },
+   {
+    "k": "p",
+    "t": "Errors:"
+   },
+   {
+    "k": "code",
+    "t": "error \"Could not connect.\""
+   },
+   {
+    "k": "p",
+    "t": "log, warn, and error should represent diagnostic output rather than normal application-facing output."
+   },
+   {
+    "k": "h2",
+    "t": "Debugging"
+   },
+   {
+    "k": "p",
+    "t": "A debug operation may display detailed runtime information:"
+   },
+   {
+    "k": "code",
+    "t": "debug user"
+   },
+   {
+    "k": "p",
+    "t": "Otter's command-line runtime may later support:"
+   },
+   {
+    "k": "out",
+    "t": "otter run app.ot --debug"
+   },
+   {
+    "k": "p",
+    "t": "Debug mode may expose:"
+   },
+   {
+    "k": "p",
+    "t": "- tokens"
+   },
+   {
+    "k": "p",
+    "t": "- parsed syntax"
+   },
+   {
+    "k": "p",
+    "t": "- AST"
+   },
+   {
+    "k": "p",
+    "t": "- variable values"
+   },
+   {
+    "k": "p",
+    "t": "- runtime errors"
+   },
+   {
+    "k": "p",
+    "t": "- stack information"
+   },
+   {
+    "k": "p",
+    "t": "Normal users should not receive raw PowerShell or host-language stack traces unless debug mode is enabled."
+   }
+  ]
+ },
+ "environment": {
+  "title": "Arguments and environment",
+  "lead": "Read command-line arguments and environment values.",
+  "items": [
+   {
+    "k": "h2",
+    "t": "Command-Line Arguments"
+   },
+   {
+    "k": "p",
+    "t": "Programs should be able to access command-line arguments."
+   },
+   {
+    "k": "p",
+    "t": "Possible simple syntax:"
+   },
+   {
+    "k": "code",
+    "t": "arguments become args"
+   },
+   {
+    "k": "p",
+    "t": "Then:"
+   },
+   {
+    "k": "code",
+    "t": "say first of args"
+   },
+   {
+    "k": "p",
+    "t": "A more descriptive argument system may be added later for named arguments and required values."
+   }
+  ]
+ },
+ "math": {
+  "title": "Math",
+  "lead": "Arithmetic in everyday words: and, minus, times, divided by, and make.",
+  "items": [
+   {
+    "k": "p",
+    "t": "Addition:"
+   },
+   {
+    "k": "code",
+    "t": "number1 is 5\nnumber2 is 5\n\nnumber1 and number2 make total\n\nsay total"
+   },
+   {
+    "k": "p",
+    "t": "Output:"
+   },
+   {
+    "k": "out",
+    "t": "10"
+   },
+   {
+    "k": "p",
+    "t": "Subtraction:"
+   },
+   {
+    "k": "code",
+    "t": "10 minus 5 make answer"
+   },
+   {
+    "k": "p",
+    "t": "Multiplication:"
+   },
+   {
+    "k": "code",
+    "t": "10 times 5 make answer"
+   },
+   {
+    "k": "p",
+    "t": "Division:"
+   },
+   {
+    "k": "code",
+    "t": "10 divided by 5 make answer"
+   },
+   {
+    "k": "p",
+    "t": "Modify an existing variable:"
+   },
+   {
+    "k": "code",
+    "t": "score is 10\n\nadd 5 to score\nremove 2 from score\n\nsay score"
+   },
+   {
+    "k": "p",
+    "t": "Output:"
+   },
+   {
+    "k": "out",
+    "t": "13"
+   }
+  ]
+ },
+ "nested-conditions": {
+  "title": "Nested conditions",
+  "lead": "Conditions inside conditions, and how the period keeps them unambiguous.",
+  "items": [
+   {
+    "k": "h2",
+    "t": "Period Block Ending"
+   },
+   {
+    "k": "p",
+    "t": "A period can explicitly finish a block:"
+   },
+   {
+    "k": "code",
+    "t": "if age is at least 18\n    say \"You are an adult.\"\n."
+   },
+   {
+    "k": "p",
+    "t": "This becomes useful when code gets more complicated."
+   },
+   {
+    "k": "p",
+    "t": "Both forms are valid:"
+   },
+   {
+    "k": "code",
+    "t": "if score is greater than 100\n    say \"High score!\"\n\nsay \"Finished.\""
+   },
+   {
+    "k": "p",
+    "t": "and:"
+   },
+   {
+    "k": "code",
+    "t": "if score is greater than 100\n    say \"High score!\"\n.\n\nsay \"Finished.\""
+   },
+   {
+    "k": "p",
+    "t": "The period has one structural meaning outside quoted strings:"
+   },
+   {
+    "k": "note",
+    "t": "Finish the current block or process."
+   },
+   {
+    "k": "p",
+    "t": "It is never used for accessing properties."
+   },
+   {
+    "k": "h2",
+    "t": "Nested Conditions"
+   },
+   {
+    "k": "p",
+    "t": "Indentation makes the relationship clear:"
+   },
+   {
+    "k": "code",
+    "t": "if loggedIn\n    say \"Welcome!\"\n\n    if admin\n        say \"Administrator controls enabled.\"\n\n    say \"Login successful.\"\n\nsay \"Program finished.\""
+   },
+   {
+    "k": "p",
+    "t": "The indentation tells Otter exactly which statements belong to which condition."
+   },
+   {
+    "k": "p",
+    "t": "The same program with explicit periods:"
+   },
+   {
+    "k": "code",
+    "t": "if loggedIn\n    say \"Welcome!\"\n\n    if admin\n        say \"Administrator controls enabled.\"\n    .\n\n    say \"Login successful.\"\n.\n\nsay \"Program finished.\""
+   }
+  ]
+ },
+ "running-programs": {
+  "title": "Running programs",
+  "lead": "Run other programs and capture what they print.",
+  "items": [
+   {
+    "k": "code",
+    "t": "run \"notepad.exe\""
+   },
+   {
+    "k": "p",
+    "t": "Run commands:"
+   },
+   {
+    "k": "code",
+    "t": "run command \"git status\""
+   },
+   {
+    "k": "p",
+    "t": "Capture output:"
+   },
+   {
+    "k": "code",
+    "t": "run command \"git status\" into result\n\nsay result"
+   }
+  ]
+ }
+}

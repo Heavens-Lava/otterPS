@@ -5,14 +5,17 @@
 #
 # The blocks are found by their code-block styling (background #0f1b2e), so it
 # checks exactly what a reader sees as a code sample.
+param([string[]]$Only = @())
+$Only = @($Only | ForEach-Object { $_ -split "," } | Where-Object { $_ })   # -File passes "a,b" as one string
+
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $otter = Join-Path $repoRoot 'otter.ps1'
-$skipStarts = '^(otter\b|otter>|git\b|cd\b|\.\\|Set-ExecutionPolicy|&|PS |is\s{2,})'
+$skipStarts = '^(otter\b|otter>|git\b|cd\b|\.\\|Set-ExecutionPolicy|&|PS |use "|is\s{2,})'   # use "x.ot" needs the other file
 $blockPattern = '^\w+ is a text with value "((?:[^"\\]|\\.)*)".*background "#0f1b2e"'
 $failed = 0
 $checked = 0
 $pages = Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot '..\pages') -Filter '*.ot' |
-    Where-Object { -not $_.Name.StartsWith('_') }
+    Where-Object { -not $_.Name.StartsWith('_') -and ($Only.Count -eq 0 -or $Only -contains [System.IO.Path]::GetFileNameWithoutExtension($_.Name)) }
 foreach ($page in $pages) {
     foreach ($line in [System.IO.File]::ReadAllLines($page.FullName)) {
         $match = [regex]::Match($line, $blockPattern)

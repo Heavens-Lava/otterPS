@@ -14,13 +14,17 @@ $sections = @(
     @('Language Guide', @(
         @('values', 'Values and variables'), @('input-output', 'Input and output'), @('conditions', 'Conditions'),
         @('loops', 'Loops'), @('lists', 'Lists'), @('functions', 'Functions'), @('objects', 'Objects and properties'),
-        @('files', 'Files and folders'), @('data', 'CSV and downloads'), @('error-handling', 'Error handling'))),
+        @('files', 'Files and folders'), @('data', 'CSV and downloads'), @('error-handling', 'Error handling'),
+        @('math', 'Math'), @('nested-conditions', 'Nested conditions'), @('modules', 'Modules'), @('running-programs', 'Running programs'), @('logging-debugging', 'Logging and debugging'), @('environment', 'Arguments and environment'))),
     @('Language Reference', @(
-        @('gone', 'gone'), @('operators', 'Operators'), @('property-access', 'Property access'), @('strings', 'Strings'),
-        @('collections', 'Collections'), @('files-folders', 'Files'), @('folders', 'Folders'), @('try', 'try and otherwise'),
+        @('gone', 'gone'), @('operators', 'Operators'), @('property-access', 'Property access'), @('strings', 'Text'),
+        @('collections', 'Collections'), @('discovery', 'Finding files and folders'), @('file-objects', 'File and folder objects'), @('files-folders', 'Files'), @('folders', 'Folders'), @('try', 'try and otherwise'),
         @('json', 'JSON'), @('random', 'Random'), @('dates', 'Dates and time'), @('scope', 'Scope'),
         @('diagnostics', 'Diagnostic output'), @('reference', 'Reference index'))),
-    @('Platform', @(@('networking', 'Networking'), @('security', 'Cryptography and secrets'))),
+    @('Platform', @(
+        @('databases', 'Databases'), @('queries', 'The query language'), @('http', 'HTTP requests'), @('web-server', 'Web servers'), @('xml', 'XML'),
+        @('web-apps', 'Web applications'), @('reactivity', 'State and reactivity'), @('windows-apps', 'Windows applications'),
+        @('networking', 'Networking'), @('security', 'Cryptography and secrets'))),
     @('Examples', @(
         @('examples', 'All examples'), @('example-hello', 'Hello World'), @('example-input', 'User input'),
         @('example-conditions', 'Conditions'), @('example-counting', 'Counting'), @('example-lists', 'Lists'),
@@ -30,7 +34,7 @@ $sections = @(
         @('design-readable', 'Readable like English'), @('structural-words', 'Structural words'),
         @('properties-operations', 'Properties vs operations'), @('periods', 'Period and block rules'),
         @('philosophy', 'Philosophy'))),
-    @('More', @(@('download', 'Download'), @('release', 'Release status'), @('studio', 'Studio preview')))
+    @('More', @(@('topics', 'All topics'), @('download', 'Download'), @('release', 'Release status'), @('studio', 'Studio preview')))
 )
 
 function Get-SideName([string]$slug) {
@@ -92,6 +96,35 @@ foreach ($prop in $legacy.pages.PSObject.Properties) {
     if ($slug -like 'example-*') { $items.Add((Item link 'All examples' '/examples/')) }
     New-OtterDocsPage -Slug $slug -Title $page.title -Side (Get-SideName $slug) -Items $items
 }
+
+# --- language-rules pages (scripts/import-rules.mjs -> rules-pages.json) ---
+$rulesPath = Join-Path $PSScriptRoot 'rules-pages.json'
+if (Test-Path -LiteralPath $rulesPath) {
+    $rules = [System.IO.File]::ReadAllText($rulesPath) | ConvertFrom-Json
+    foreach ($prop in $rules.PSObject.Properties) {
+        $slug = $prop.Name
+        $page = $prop.Value
+        $items = [System.Collections.Generic.List[object]]::new()
+        $items.Add((Item h1 $page.title))
+        $items.Add((Item lead $page.lead))
+        foreach ($i in $page.items) { $items.Add((Item $i.k $i.t '')) }
+        New-OtterDocsPage -Slug $slug -Title $page.title -Side (Get-SideName $slug) -Items $items
+    }
+}
+
+# --- all topics: one page listing every page, by section ------------------
+$topicItems = [System.Collections.Generic.List[object]]::new()
+$topicItems.Add((Item h1 'All topics'))
+$topicItems.Add((Item lead 'Every page in the documentation, grouped by section.'))
+foreach ($section in $sections) {
+    if ($section[0] -eq 'More') { continue }
+    $topicItems.Add((Item h2 $section[0]))
+    foreach ($entry in $section[1]) {
+        $url = if ($entry[0] -eq 'home') { '/' } else { "/$($entry[0])/" }
+        $topicItems.Add((Item link $entry[1] $url))
+    }
+}
+New-OtterDocsPage -Slug 'topics' -Title 'All topics' -Side 'sideTopics' -Items $topicItems
 
 # --- collapse the sidebar groups a page is not in ------------------------
 # Only the current page's group is expanded, so the highlighted link is

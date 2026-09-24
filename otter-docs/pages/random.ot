@@ -1,10 +1,10 @@
-# Otter website - Random
+# Otter website - Random values
 # Authored in Otter. Scaffolded by scripts/new-docs-page.ps1, now edited here directly.
 
 use "_shell.ot"
 use "_docs.ot"
 
-app is a page with title "Random - Otter Documentation", hideheader true, scroll true, width full, background "#f4f7fb", foreground "#0f1f36", spacing 0, padding 0
+app is a page with title "Random values - Otter Documentation", hideheader true, scroll true, width full, background "#f4f7fb", foreground "#0f1f36", spacing 0, padding 0
 
 customstyle of navDocs is "padding: 22px 0; border-bottom: 2px solid #4d8dff; color: #ffffff;"
 customstyle of sideRandom is "padding: 8px 12px; border-left: 3px solid #2563eb; border-radius: 4px; display: block; background: #e6efff; color: #1d4ed8; font-weight: 600;"
@@ -27,6 +27,20 @@ customstyle of sideObjects is "display: none;"
 customstyle of sideFiles is "display: none;"
 customstyle of sideData is "display: none;"
 customstyle of sideErrorHandling is "display: none;"
+customstyle of sideMath is "display: none;"
+customstyle of sideNestedConditions is "display: none;"
+customstyle of sideModules is "display: none;"
+customstyle of sideRunningPrograms is "display: none;"
+customstyle of sideLoggingDebugging is "display: none;"
+customstyle of sideEnvironment is "display: none;"
+customstyle of sideDatabases is "display: none;"
+customstyle of sideQueries is "display: none;"
+customstyle of sideHttp is "display: none;"
+customstyle of sideWebServer is "display: none;"
+customstyle of sideXml is "display: none;"
+customstyle of sideWebApps is "display: none;"
+customstyle of sideReactivity is "display: none;"
+customstyle of sideWindowsApps is "display: none;"
 customstyle of sideNetworking is "display: none;"
 customstyle of sideSecurity is "display: none;"
 customstyle of sideExamples is "display: none;"
@@ -44,20 +58,22 @@ customstyle of sideStructuralWords is "display: none;"
 customstyle of sidePropertiesOperations is "display: none;"
 customstyle of sidePeriods is "display: none;"
 customstyle of sidePhilosophy is "display: none;"
+customstyle of sideTopics is "display: none;"
 customstyle of sideDownload is "display: none;"
 customstyle of sideRelease is "display: none;"
 customstyle of sideStudio is "display: none;"
 
-b1 is a text with value "Random", size 40, weight 800, foreground "#0b1d36", letterspacing "-0.03em", lineheight "1.1"
-b2 is a text with value "Pick a number, with both ends of the range included:", size 18, foreground "#3a4d6b", lineheight "1.55"
-b3 is a text with value "random number from 1 to 6 into roll\nsay \"You rolled\" roll", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
-b4 is a text with value "Or pick from a list:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b5 is a text with value "random item from games into pick\nsay \"Tonight we play\" pick", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
-b6 is a text with value "Picking from an empty list gives gone rather than failing, so the empty case can be handled the same way as anywhere else.", size 16, foreground "#3a4d6b", lineheight "1.6"
-b7 is a text with value "random item from shelf into nothing\n\nif nothing is gone\n    say \"The shelf is empty.\"\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b1 is a text with value "Random values", size 40, weight 800, foreground "#0b1d36", letterspacing "-0.03em", lineheight "1.1"
+b2 is a text with value "Random numbers and random items from a collection.", size 18, foreground "#3a4d6b", lineheight "1.55"
+b3 is a text with value "Random Numbers", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b4 is a text with value "random number from 1 to 10 into number", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b5 is a text with value "Random Collection Items", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b6 is a text with value "random item from games into game", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b7 is a text with value "If the collection is empty, the result should be:", size 16, foreground "#3a4d6b", lineheight "1.6"
+b8 is a text with value "gone", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto;"
 
 docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"
-put b1, b2, b3, b4, b5, b6, b7 in docsMain
+put b1, b2, b3, b4, b5, b6, b7, b8 in docsMain
 docsBody is a row with align top, spacing 0, width full, customstyle "align-items: stretch;"
 put docsSidebar, docsMain in docsBody
 

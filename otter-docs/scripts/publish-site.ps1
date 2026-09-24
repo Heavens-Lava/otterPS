@@ -9,13 +9,14 @@
 #
 #   powershell -NoProfile -ExecutionPolicy Bypass -File .\otter-docs\scripts\publish-site.ps1
 param(
-    [string]$PublishRepo = (Join-Path $PSScriptRoot '..\..\otter-site-publish')
+    [string]$PublishRepo = (Join-Path $PSScriptRoot '..\..\otter-site-publish'),
+    [switch]$SkipBuild   # reuse the existing generated\ output
 )
 
 $ErrorActionPreference = 'Stop'
 $generated = Join-Path $PSScriptRoot '..\generated'
 
-& (Join-Path $PSScriptRoot 'build-otter-pages.ps1') | Out-Null
+if (-not $SkipBuild) { & (Join-Path $PSScriptRoot 'build-otter-pages.ps1') | Out-Null }
 & (Join-Path $PSScriptRoot 'audit-otter-routes.ps1')
 
 $PublishRepo = (Resolve-Path -LiteralPath $PublishRepo).Path
