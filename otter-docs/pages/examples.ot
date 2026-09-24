@@ -73,7 +73,7 @@ b1 is a text with value "Otter examples", size 40, weight 800, foreground "#0b1d
 b2 is a text with value "Learn by changing real programs. Each example is a real .ot file from the Otter project - open one, change it, and run it.", size 18, foreground "#3a4d6b", lineheight "1.55"
 b3 is a text with value "Hello, Otter!", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b4 is a text with value "The smallest useful Otter program.", size 16, foreground "#3a4d6b", lineheight "1.6"
-b5 is a text with value "say \"Hello, Otter!\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b5 is a text with value "say \"Hello, Otter!\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
 b6 is a link with text "View hello.ot source", url "https://github.com/Heavens-Lava/otterPS/blob/master/examples/hello.ot", foreground "#2563eb", weight 600, size 15
 b7 is a link with text "Read the tutorial", url "/first-program/", foreground "#2563eb", weight 600, size 15
 b8 is a text with value "Calculator", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"

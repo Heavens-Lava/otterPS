@@ -126,6 +126,21 @@ foreach ($section in $sections) {
 }
 New-OtterDocsPage -Slug 'topics' -Title 'All topics' -Side 'sideTopics' -Items $topicItems
 
+# --- live code samples ------------------------------------------------------
+# Every code block gets `runnable true`. The web compiler decides at build time
+# whether it can actually run in a browser: samples that need files, sockets or
+# a shell get no Run button (see Get-OtterRunnableJs in Otter.Web.psm1).
+foreach ($page in Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot '..\pages') -Filter '*.ot' | Where-Object { -not $_.Name.StartsWith('_') }) {
+    $lines = [System.IO.File]::ReadAllLines($page.FullName)
+    $changed = $false
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        if ($lines[$i] -match '^\w+ is a text with value ".*background "#0f1b2e"' -and $lines[$i] -notmatch 'runnable true') {
+            $lines[$i] = $lines[$i] + ', runnable true'
+            $changed = $true
+        }
+    }
+    if ($changed) { [System.IO.File]::WriteAllText($page.FullName, (($lines -join "`n") + "`n"), (New-Object System.Text.UTF8Encoding($false))) }
+}
 # --- collapse the sidebar groups a page is not in ------------------------
 # Only the current page's group is expanded, so the highlighted link is
 # always in view without any script. Idempotent: the block is marked.

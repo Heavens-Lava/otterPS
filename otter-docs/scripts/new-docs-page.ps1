@@ -44,7 +44,7 @@ function New-OtterDocsPage {
             'lead' { $lines.Add("$name is a text with value $text, size 18, foreground ""#3a4d6b"", lineheight ""1.55""") }
             'h2'   { $lines.Add("$name is a text with value $text, size 26, weight 800, foreground ""#0b1d36"", letterspacing ""-0.02em"", margin ""14px 0 0 0""") }
             'p'    { $lines.Add("$name is a text with value $text, size 16, foreground ""#3a4d6b"", lineheight ""1.6""") }
-            'code' { $lines.Add("$name is a text with value $text, size 14, foreground ""#e5edf8"", background ""#0f1b2e"", radius 12, $mono, customstyle ""padding: 18px 22px; line-height: 1.7; overflow-x: auto;""") }
+            'code' { $lines.Add("$name is a text with value $text, size 14, foreground ""#e5edf8"", background ""#0f1b2e"", radius 12, $mono, customstyle ""padding: 18px 22px; line-height: 1.7; overflow-x: auto;"", runnable true") }
             'out'  { $lines.Add("$name is a text with value $text, size 14, foreground ""#0f1f36"", background ""#e8eef7"", radius 12, $mono, customstyle ""padding: 16px 22px; line-height: 1.7; overflow-x: auto;""") }
             'note' { $lines.Add("$name is a text with value $text, size 15, foreground ""#1e3a6b"", background ""#eaf2ff"", radius 12, border ""1px solid #cfe0ff"", lineheight ""1.55"", customstyle ""padding: 14px 18px;""") }
             'link' { $lines.Add("$name is a link with text $text, url $(ConvertTo-OtterString $item[2]), foreground ""#2563eb"", weight 600, size 15") }

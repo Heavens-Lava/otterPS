@@ -67,11 +67,11 @@ b1 is a text with value "Logging and debugging", size 40, weight 800, foreground
 b2 is a text with value "Write diagnostic output that is separate from what your program says.", size 18, foreground "#3a4d6b", lineheight "1.55"
 b3 is a text with value "Logging", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b4 is a text with value "Application logging should be distinct from ordinary user output.", size 16, foreground "#3a4d6b", lineheight "1.6"
-b5 is a text with value "log \"Server started.\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b5 is a text with value "log \"Server started.\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
 b6 is a text with value "Warnings:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b7 is a text with value "warn \"Connection is slow.\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b7 is a text with value "warn \"Connection is slow.\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
 b8 is a text with value "Errors:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b9 is a text with value "error \"Could not connect.\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b9 is a text with value "error \"Could not connect.\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
 b10 is a text with value "log, warn, and error should represent diagnostic output rather than normal application-facing output.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b11 is a text with value "Debugging", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b12 is a text with value "A debug operation may display detailed runtime information:", size 16, foreground "#3a4d6b", lineheight "1.6"

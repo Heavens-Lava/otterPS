@@ -368,6 +368,39 @@ $bodyCode
     }
 }
 
+# `runnable true` on a text resource turns its value into a live code sample:
+# the text is parsed and compiled by the Otter web compiler when the page is
+# built, and a Run button executes it in the browser, with `say` output shown
+# under the sample. A sample the web target cannot run (files, sockets, other
+# operating-system features, or `ask`) simply gets no Run button - never a
+# button that would fail. Returns the JS function source, or $null.
+function Get-OtterRunnableJs {
+    param([Parameter(Mandatory)][string]$Source)
+    if ($Source -match '(?m)^\s*ask\s') { return $null }
+    try {
+        $sampleAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $Source)
+        $sampleStatements = @($sampleAst.Statements)
+        if ($sampleStatements.Count -eq 0) { return $null }
+        $sampleGlobals = (Get-OtterJsTopLevelGlobalNames -TopLevelStatements $sampleStatements).Names
+        $sampleJs = foreach ($sampleStatement in $sampleStatements) {
+            ConvertTo-OtterJsStatement -Stmt $sampleStatement -Indent 2 -KnownGlobals $sampleGlobals
+        }
+        $sampleCode = $sampleJs -join "`n"
+        # Samples that need the operating system (through the desktop bridge) or
+        # the network cannot run honestly in a browser: no Run button for them.
+        if ($sampleCode -match '\botter[A-Za-z]*(File|Folder|Command|Registry|Clipboard|Environment)[A-Za-z]*\s*\(|__OTTER_DESKTOP_BRIDGE__|\bfetch\(') { return $null }
+        # Each run starts from a clean slate: the variables a sample creates are
+        # tracked so the page can remove them again (the compiled code keeps
+        # program variables on window).
+        $sampleVars = @([regex]::Matches($sampleCode, 'window\.([A-Za-z_]\w*)\s*=') | ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique)
+        $varsJson = ConvertTo-Json -InputObject $sampleVars -Compress
+        if ($sampleVars.Count -eq 0) { $varsJson = '[]' }
+        return "{ vars: $varsJson, run: async (otterSay) => {`n$sampleCode`n} }"
+    } catch {
+        return $null
+    }
+}
+
 function ConvertTo-OtterWeb {
     param(
         [Parameter(Mandatory)][ProgramNode]$Program,
@@ -378,6 +411,7 @@ function ConvertTo-OtterWeb {
     $resources = [ordered]@{}
     $containers = [ordered]@{} # parent -> children list
     $whenHandlers = [System.Collections.Generic.List[WhenStmt]]::new()
+    $runnableSamples = [System.Collections.Generic.List[hashtable]]::new()
     $topLevelStatements = [System.Collections.Generic.List[Node]]::new()
     $declarativeRoots = [System.Collections.Generic.List[UiElementStmt]]::new()
     $stateDefs = [ordered]@{}
@@ -741,6 +775,19 @@ function ConvertTo-OtterWeb {
             'text' {
                 $rawVal = if ($props.Contains('text')) { [string]$props['text'] } elseif ($props.Contains('value')) { [string]$props['value'] } else { "" }
                 $val = Escape-OtterHtmlAttr -Text $rawVal
+                if ($props.Contains('runnable') -and ($props['runnable'] -eq $true -or "$($props['runnable'])" -eq 'true')) {
+                    $sampleJs = Get-OtterRunnableJs -Source $rawVal
+                    if ($null -ne $sampleJs) {
+                        $runnableSamples.Add(@{ Id = $resName; Js = $sampleJs })
+                        return @"
+      <div class="otter-runnable">
+        <div id="$resName" class="otter-text"$styleAttr>$val</div>
+        <div class="otter-run-bar"><button type="button" class="otter-run-btn" data-otter-run="$resName">&#9654; Run</button></div>
+        <pre id="$resName-output" class="otter-run-output" hidden></pre>
+      </div>
+"@
+                    }
+                }
                 return "      <div id=`"$resName`" class=`"otter-text`"$styleAttr>$val</div>"
             }
             'image' {
@@ -1173,6 +1220,70 @@ $bodyJoined
         }
     }
     foreach ($w in $whenHandlers) { if ($w.EventName -in @('drag', 'drop', 'files dropped')) { $usesDragDrop = $true } }
+    $runnableRuntimeJs = ''
+    $runnableCss = ''
+    if ($runnableSamples.Count -gt 0) {
+        $runnableCss = @'
+    .otter-runnable { display: flex; flex-direction: column; gap: 0; min-width: 0; }
+    .otter-runnable > .otter-text { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+    .otter-run-bar { display: flex; justify-content: flex-end; padding: 8px 12px; background: #16263f; border-radius: 0 0 12px 12px; }
+    .otter-run-btn { font: inherit; font-size: 13px; font-weight: 700; color: #ffffff; background: #2563eb; border: 0; border-radius: 8px; padding: 6px 16px; cursor: pointer; }
+    .otter-run-btn:hover { background: #1d4ed8; }
+    .otter-run-btn:disabled { opacity: 0.6; cursor: progress; }
+    .otter-run-output { margin: 8px 0 0; padding: 14px 18px; background: #e8eef7; color: #0f1f36; border-radius: 12px; font-family: 'JetBrains Mono', Consolas, monospace; font-size: 14px; line-height: 1.7; white-space: pre-wrap; overflow-x: auto; }
+    .otter-run-output.otter-run-error { background: #fdecec; color: #8a1c1c; }
+'@
+        $sampleRegistry = ($runnableSamples | ForEach-Object { "    window.otterRunnables[$(ConvertTo-Json -InputObject $_.Id -Compress)] = $($_.Js);" }) -join "`n"
+        $orderIds = @($runnableSamples | ForEach-Object { $_.Id })
+        $orderJson = '[' + (($orderIds | ForEach-Object { ConvertTo-Json -InputObject $_ -Compress }) -join ',') + ']'
+        $runnableRuntimeJs = (@'
+    window.otterRunnables = {};
+    window.otterRunOrder = @@ORDER@@;
+    function otterFormatSaid(value) {
+      if (value === null || value === undefined) { return 'gone'; }
+      if (Array.isArray(value)) { return value.map(otterFormatSaid).join(', '); }
+      if (typeof value === 'object' && value.__otterThing) { return 'a ' + (value.typeName || 'thing'); }
+      return String(value);
+    }
+    document.addEventListener('click', async (e) => {
+      const button = e.target && e.target.closest ? e.target.closest('[data-otter-run]') : null;
+      if (!button || button.disabled) { return; }
+      const id = button.getAttribute('data-otter-run');
+      const output = document.getElementById(id + '-output');
+      if (!output || !window.otterRunnables[id]) { return; }
+      // A page's samples read as one story ("games are ..." then "each game in games"),
+      // so a sample runs after the samples above it - silently - and only its own
+      // output is shown. Every run starts and ends with no variables left behind.
+      const chain = window.otterRunOrder.slice(0, window.otterRunOrder.indexOf(id) + 1);
+      const touched = new Set();
+      for (const step of chain) { for (const v of window.otterRunnables[step].vars) { touched.add(v); } }
+      const saved = Array.from(touched).map((v) => [v, Object.getOwnPropertyDescriptor(window, v)]);
+      const clean = () => { for (const v of touched) { try { delete window[v]; } catch (err) { /* keep going */ } if (v === 'name') { window.name = ''; } } };
+      const lines = [];
+      output.hidden = false;
+      output.classList.remove('otter-run-error');
+      output.textContent = '';
+      button.disabled = true;
+      clean();
+      try {
+        for (const step of chain.slice(0, -1)) {
+          try { await window.otterRunnables[step].run(() => {}); } catch (err) { /* an earlier sample that cannot run is skipped */ }
+        }
+        const say = (...parts) => { lines.push(parts.map(otterFormatSaid).join(' ')); output.textContent = lines.join('\n'); };
+        await window.otterRunnables[id].run(say);
+        if (lines.length === 0) { output.textContent = '(nothing to show - this sample only sets things up for the ones below)'; }
+      } catch (err) {
+        output.classList.add('otter-run-error');
+        lines.push('Otter stopped: ' + (err && err.message ? err.message : String(err)));
+        output.textContent = lines.join('\n');
+      } finally {
+        clean();
+        for (const [v, descriptor] of saved) { if (descriptor) { try { Object.defineProperty(window, v, descriptor); } catch (err) { /* keep going */ } } }
+        button.disabled = false;
+      }
+    });
+'@).Replace('@@ORDER@@', $orderJson) + "`n" + $sampleRegistry
+    }
     $dragDropRuntimeJs = ''
     $cryptoRuntimeJs = Get-OtterJsCryptoRuntime
     if ($usesDragDrop) {
@@ -1276,6 +1387,7 @@ $bodyJoined
       box-sizing: border-box;
       overflow: hidden;
     }
+$runnableCss
     body.otter-has-page.otter-doc-scroll {
       height: auto;
       max-height: none;
@@ -1647,6 +1759,7 @@ $elementsHtml
     const gone = null;
     function otterGetElement(id) { return document.getElementById(id); }
 $dragDropRuntimeJs
+$runnableRuntimeJs
 $cryptoRuntimeJs
     function otterGetText(id) {
       const el = otterGetElement(id);
@@ -2414,25 +2527,9 @@ function Export-OtterWebApplication {
     }
     catch [OtterError] {
         if ($PassThruExceptions) { throw }
-        # Remap combined line number back to originating file & line if source map exists
         $err = $_.Exception
         if ($resolvedProgram) {
-            if ($err -is [OtterMultipleErrorsException]) {
-                foreach ($diag in $err.Diagnostics) {
-                    if ($diag.Line -gt 0) {
-                        $origin = $resolvedProgram.FindOrigin($diag.Line)
-                        if ($origin) { $diag.Line = $origin.LocalLine }
-                    }
-                }
-            } elseif ($err.Line -gt 0) {
-                $origin = $resolvedProgram.FindOrigin($err.Line)
-                if ($origin) {
-                    $err.Line = $origin.LocalLine
-                    $relFile = [System.IO.Path]::GetFileName($origin.FilePath)
-                    Write-Host ''
-                    Write-Host "In $($relFile):" -ForegroundColor DarkGray
-                }
-            }
+            $err = ConvertTo-OtterRemappedDiagnostics -Error $err -ResolvedProgram $resolvedProgram -RootFile $primarySource
         }
         Write-Host ''
         Write-Host $err.FormatDetailed() -ForegroundColor Red

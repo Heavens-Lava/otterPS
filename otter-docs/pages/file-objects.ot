@@ -70,12 +70,12 @@ b4 is a text with value "A discovered file is an object.", size 16, foreground "
 b5 is a text with value "Common file properties include:", size 16, foreground "#3a4d6b", lineheight "1.6"
 b6 is a text with value "say name of file\nsay path of file\nsay extension of file\nsay size of file\nsay created of file\nsay modified of file", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
 b7 is a text with value "Example:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b8 is a text with value "get files in \"Pictures\" into files\n\nfor each file in files\n    say name of file\n    say extension of file\n    say size of file\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b8 is a text with value "get files in \"Pictures\" into files\n\nfor each file in files\n    say name of file\n    say extension of file\n    say size of file\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
 b9 is a text with value "File operations may accept either a path or a file object.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b10 is a text with value "Path:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b11 is a text with value "move \"photo.jpg\" to \"Pictures\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b11 is a text with value "move \"photo.jpg\" to \"Pictures\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
 b12 is a text with value "Object:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b13 is a text with value "move file to \"Pictures\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b13 is a text with value "move file to \"Pictures\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
 b14 is a text with value "Folder Objects", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b15 is a text with value "A discovered folder is also an object.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b16 is a text with value "Folder properties include:", size 16, foreground "#3a4d6b", lineheight "1.6"

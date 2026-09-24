@@ -65,11 +65,11 @@ customstyle of sideStudio is "display: none;"
 
 b1 is a text with value "Property Access", size 40, weight 800, foreground "#0b1d36", letterspacing "-0.03em", lineheight "1.1"
 b2 is a text with value "Properties are written property-first: name of person. A period is not property access.", size 18, foreground "#3a4d6b", lineheight "1.55"
-b3 is a text with value "say name of person", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b3 is a text with value "person has\n    name is \"Ada\"\n.\nsay name of person", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
 b4 is a text with value "Property access nests, reading right to left. This is the city of the address of the user:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b5 is a text with value "say city of address of user", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b5 is a text with value "address has\n    city is \"London\"\n.\nuser has\n    address is address\n.\nsay city of address of user", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
 b6 is a text with value "A property can also be assigned:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b7 is a text with value "age of person is 30", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b7 is a text with value "person has\n    age is 29\n.\nage of person is 30\nsay age of person", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
 b8 is a text with value "Write name of person, never person.name. Otter reserves the period for closing a block.", size 15, foreground "#1e3a6b", background "#eaf2ff", radius 12, border "1px solid #cfe0ff", lineheight "1.55", customstyle "padding: 14px 18px;"
 
 docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"

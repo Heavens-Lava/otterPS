@@ -71,7 +71,7 @@ customstyle of sideStudio is "display: none;"
 
 b1 is a text with value "State and reactivity", size 40, weight 800, foreground "#0b1d36", letterspacing "-0.03em", lineheight "1.1"
 b2 is a text with value "Keep values that change in state, describe what is derived from them, and react when they change.", size 18, foreground "#3a4d6b", lineheight "1.55"
-b3 is a text with value "state count is 0\nderive doubled is count * 2\n\nwhen count changes\n    say count\n.\n\non start\n    say \"Starting\"\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b3 is a text with value "state count is 0\nderive doubled is count * 2\n\nwhen count changes\n    say count\n.\n\non start\n    say \"Starting\"\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
 b4 is a text with value "state declares a value. derive defines a value computed from other values and updates when they do. when X changes runs only when the value actually changes. on start runs when the program begins, and on close when it ends.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b5 is a text with value "memo names a computed result that is worked out once and reused until its inputs change.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b6 is a link with text "Next: Windows applications", url "/windows-apps/", foreground "#2563eb", weight 600, size 15

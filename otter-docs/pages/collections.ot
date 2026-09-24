@@ -69,30 +69,30 @@ b3 is a text with value "Collection Length", size 26, weight 800, foreground "#0
 b4 is a text with value "The same readable syntax works with collections:", size 16, foreground "#3a4d6b", lineheight "1.6"
 b5 is a text with value "say length of games", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
 b6 is a text with value "Example:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b7 is a text with value "games are\n    \"Zelda\"\n    \"Mario\"\n    \"Pokemon\"\n.\n\nsay length of games", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b7 is a text with value "games are\n    \"Zelda\"\n    \"Mario\"\n    \"Pokemon\"\n.\n\nsay length of games", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
 b8 is a text with value "Output:", size 16, foreground "#3a4d6b", lineheight "1.6"
 b9 is a text with value "3", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto;"
 b10 is a text with value "First and Last", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
-b11 is a text with value "say first of games\nsay last of games", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b11 is a text with value "say first of games\nsay last of games", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
 b12 is a text with value "Example:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b13 is a text with value "say first of games\nsay last of games", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b13 is a text with value "say first of games\nsay last of games", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
 b14 is a text with value "If the collection is empty:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b15 is a text with value "say first of games", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b15 is a text with value "say first of games", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
 b16 is a text with value "returns:", size 16, foreground "#3a4d6b", lineheight "1.6"
 b17 is a text with value "gone", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto;"
 b18 is a text with value "The same applies to:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b19 is a text with value "say last of games", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b19 is a text with value "say last of games", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
 b20 is a text with value "Reverse Collections", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
-b21 is a text with value "reverse games", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b21 is a text with value "reverse games", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
 b22 is a text with value "This reverses the current order of the collection.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b23 is a text with value "Find One Item", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b24 is a text with value "Otter uses find when the programmer wants one matching item.", size 16, foreground "#3a4d6b", lineheight "1.6"
-b25 is a text with value "find game in games where game is \"Mario\" into result", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b25 is a text with value "find game in games where game is \"Mario\" into result", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
 b26 is a text with value "The first matching item is placed into result.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b27 is a text with value "If nothing matches:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b28 is a text with value "result is gone", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b28 is a text with value "result is gone", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
 b29 is a text with value "This allows:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b30 is a text with value "find game in games where game is \"Mario\" into result\n\nif result is gone\n    say \"Mario was not found.\"\notherwise\n    say \"Found\" result\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b30 is a text with value "find game in games where game is \"Mario\" into result\n\nif result is gone\n    say \"Mario was not found.\"\notherwise\n    say \"Found\" result\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
 b31 is a text with value "Find With Object Properties", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b32 is a text with value "find becomes especially useful with objects:", size 16, foreground "#3a4d6b", lineheight "1.6"
 b33 is a text with value "find file in files where extension of file is \".pdf\" into result", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
@@ -103,7 +103,7 @@ b37 is a text with value "Not every expression using of represents a stored prop
 b38 is a text with value "These are object properties:", size 16, foreground "#3a4d6b", lineheight "1.6"
 b39 is a text with value "say name of file\nsay extension of file\nsay age of person", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
 b40 is a text with value "These are operations:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b41 is a text with value "say length of games\nsay uppercase of name\nsay first of games", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b41 is a text with value "say length of games\nsay uppercase of name\nsay first of games", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
 b42 is a text with value "They share readable surface grammar, but the parser may represent them differently internally.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b43 is a text with value "The runtime object model should not pretend every derived operation is a stored property.", size 16, foreground "#3a4d6b", lineheight "1.6"
 

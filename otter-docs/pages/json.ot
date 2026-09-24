@@ -67,9 +67,9 @@ b1 is a text with value "JSON", size 40, weight 800, foreground "#0b1d36", lette
 b2 is a text with value "JSON converts to ordinary Otter objects and lists, read with the same of you use everywhere else.", size 18, foreground "#3a4d6b", lineheight "1.55"
 b3 is a text with value "JSON Objects Use Ordinary Property Access", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b4 is a text with value "After JSON is converted into an Otter object:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b5 is a text with value "say name of user\nsay email of user", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b5 is a text with value "user has\n    name is \"Ada\"\n    email is \"ada@example.com\"\n.\nsay name of user\nsay email of user", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
 b6 is a text with value "Nested JSON works naturally:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b7 is a text with value "say city of address of user", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b7 is a text with value "address has\n    city is \"London\"\n.\nuser has\n    address is address\n.\nsay city of address of user", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
 b8 is a text with value "Otter should not require separate JSON-navigation syntax.", size 16, foreground "#3a4d6b", lineheight "1.6"
 
 docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"

@@ -85,7 +85,7 @@ b19 is a link with text "Read networking", url "/networking/", foreground "#2563
 b20 is a link with text "Read cryptography and secrets", url "/security/", foreground "#2563eb", weight 600, size 15
 b21 is a text with value "Desktop UI, events, and layout", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b22 is a text with value "Create windows and controls, configure them with has, put resources into windows and row or column containers, handle events with when, and show a window:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b23 is a text with value "create button into saveButton\nwhen saveButton is clicked\n    say \"Saved\"\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b23 is a text with value "create button into saveButton\nwhen saveButton is clicked\n    say \"Saved\"\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
 b24 is a text with value "State, derived values, and watchers", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b25 is a text with value "Otter supports state, derive, and when a state value changes. Derivations update from their dependencies, and watchers run only when a value actually changes.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b26 is a text with value "Web applications", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"

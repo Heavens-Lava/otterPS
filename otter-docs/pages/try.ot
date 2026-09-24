@@ -70,19 +70,19 @@ b4 is a text with value "Otter uses:", size 16, foreground "#3a4d6b", lineheight
 b5 is a text with value "try\n    ...\notherwise\n    ...\n.", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto;"
 b6 is a text with value "for error handling.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b7 is a text with value "Example:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b8 is a text with value "try\n    read \"settings.json\" into settings\notherwise\n    say \"Could not load settings.\"\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b8 is a text with value "try\n    read \"settings.json\" into settings\notherwise\n    say \"Could not load settings.\"\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
 b9 is a text with value "If the try body completes normally, the otherwise body does not run.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b10 is a text with value "If an operation in the try body fails, Otter runs the otherwise body.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b11 is a text with value "Otherwise Is Optional for Try", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b12 is a text with value "A try block may exist without an otherwise body when the runtime or surrounding code handles the failure.", size 16, foreground "#3a4d6b", lineheight "1.6"
-b13 is a text with value "try\n    read \"settings.json\" into settings\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b13 is a text with value "try\n    read \"settings.json\" into settings\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
 b14 is a text with value "The exact propagation behavior should follow Otter's runtime error rules.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b15 is a text with value "Normal Control Flow Is Not Failure", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b16 is a text with value "Statements such as:", size 16, foreground "#3a4d6b", lineheight "1.6"
 b17 is a text with value "return", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto;"
 b18 is a text with value "must pass through try normally.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b19 is a text with value "Example:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b20 is a text with value "to find user\n    try\n        return user\n    otherwise\n        say \"Could not find user.\"\n    .\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b20 is a text with value "to find user\n    try\n        return user\n    otherwise\n        say \"Could not find user.\"\n    .\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
 b21 is a text with value "If return user executes successfully, the function returns user.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b22 is a text with value "The otherwise body must not run.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b23 is a text with value "Normal control-flow changes are not runtime errors.", size 16, foreground "#3a4d6b", lineheight "1.6"

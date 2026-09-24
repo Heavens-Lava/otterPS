@@ -67,24 +67,24 @@ b1 is a text with value "Finding files and folders", size 40, weight 800, foregr
 b2 is a text with value "Discover the files and folders inside a folder, with explicit control over whether subfolders are included.", size 18, foreground "#3a4d6b", lineheight "1.55"
 b3 is a text with value "File Discovery", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b4 is a text with value "Files can be discovered from a folder:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b5 is a text with value "get files in \"Pictures\" into files", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b5 is a text with value "get files in \"Pictures\" into files", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
 b6 is a text with value "The result is a list of file objects.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b7 is a text with value "Example:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b8 is a text with value "get files in \"Documents\" into files\n\nfor each file in files\n    say name of file\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b8 is a text with value "get files in \"Documents\" into files\n\nfor each file in files\n    say name of file\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
 b9 is a text with value "Folder Discovery", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b10 is a text with value "Folders can be discovered the same way:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b11 is a text with value "get folders in \"Documents\" into folders", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b11 is a text with value "get folders in \"Documents\" into folders", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
 b12 is a text with value "Example:", size 16, foreground "#3a4d6b", lineheight "1.6"
 b13 is a text with value "for each folder in folders\n    say name of folder\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
 b14 is a text with value "Discovery Does Not Recurse By Default", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b15 is a text with value "This:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b16 is a text with value "get files in \"Pictures\" into files", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b16 is a text with value "get files in \"Pictures\" into files", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
 b17 is a text with value "only retrieves files directly inside Pictures.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b18 is a text with value "It does not automatically search subfolders.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b19 is a text with value "Recursive discovery must be requested explicitly:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b20 is a text with value "get files in \"Pictures\" and subfolders into files", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b20 is a text with value "get files in \"Pictures\" and subfolders into files", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
 b21 is a text with value "Likewise:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b22 is a text with value "get folders in \"Documents\" and subfolders into folders", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b22 is a text with value "get folders in \"Documents\" and subfolders into folders", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
 b23 is a text with value "The phrase:", size 16, foreground "#3a4d6b", lineheight "1.6"
 b24 is a text with value "and subfolders", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto;"
 b25 is a text with value "is the only recursion switch for discovery.", size 16, foreground "#3a4d6b", lineheight "1.6"

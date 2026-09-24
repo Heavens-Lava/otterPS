@@ -88,8 +88,8 @@ put relTitle, relVersion, relSize, relDate, relSha, relNotes in relCard
 
 runTitle is a text with value "Run from the project folder", size 26, weight 800, foreground "#0f1f36", letterspacing "-0.02em"
 runBody is a text with value "Open Windows PowerShell in the folder that contains otter.cmd, then run an example:", size 15, foreground "#4a5b75"
-runCommand is a text with value ".\\otter.cmd examples\\hello.ot", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px;"
-runResult is a text with value "Hello, Otter!", size 14, foreground "#a5e3b5", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px;"
+runCommand is a text with value ".\\otter.cmd examples\\hello.ot", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px;", runnable true
+runResult is a text with value "Hello, Otter!", size 14, foreground "#a5e3b5", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px;", runnable true
 runCard is a card with background "#ffffff", radius 16, border "1px solid #e3e9f2", padding 28, spacing 12, flex 1.55
 put runTitle, runBody, runCommand, runResult in runCard
 

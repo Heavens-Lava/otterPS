@@ -70,9 +70,9 @@ b4 is a text with value "Large programs need multiple source files.", size 16, f
 b5 is a text with value "Otter should use a simple keyword:", size 16, foreground "#3a4d6b", lineheight "1.6"
 b6 is a text with value "use", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto;"
 b7 is a text with value "Example:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b8 is a text with value "use \"helpers.ot\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b8 is a text with value "use \"helpers.ot\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
 b9 is a text with value "Built-in or installed libraries may use:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b10 is a text with value "use web\nuse database\nuse json", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b10 is a text with value "use web\nuse database\nuse json", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
 
 docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"
 put b1, b2, b3, b4, b5, b6, b7, b8, b9, b10 in docsMain

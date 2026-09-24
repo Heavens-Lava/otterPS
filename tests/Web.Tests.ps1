@@ -1036,6 +1036,35 @@ if ($plainHtml -match 'otter-doc-scroll"') { throw 'A page without scroll true m
 if ($scrollHtml -notmatch 'body\.otter-has-page\.otter-doc-scroll\s*\{[^}]*overflow-y:\s*auto') { throw 'Expected the scrolling-document CSS to allow vertical scrolling.' }
 Write-Output '  pass  scroll true makes a page scroll like a document; other pages keep app-shell behavior'
 
+# Test 31: `runnable true` text resources become live code samples (documentation site)
+$runnableSource = @"
+app is a page with title "Samples"
+good is a text with value "name is \"World\"\nsay \"Hello\" name\nitems are\n    1\n    2\n.\nsay items", runnable true
+diskSample is a text with value "read \"x.txt\" into content\nsay content", runnable true
+shellSample is a text with value "otter run hello.ot", runnable true
+plain is a text with value "say \"not runnable\""
+put good, diskSample, shellSample, plain in app
+show app
+"@
+$runnableHtml = ConvertTo-OtterWeb -Program (ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $runnableSource))
+if ($runnableHtml -notmatch 'data-otter-run="good"') { throw 'Expected a runnable sample to get a Run button.' }
+if ($runnableHtml -match 'data-otter-run="diskSample"') { throw 'A sample that needs the file system must not get a Run button in a browser.' }
+if ($runnableHtml -match 'data-otter-run="shellSample"') { throw 'Text that is not an Otter program must not get a Run button.' }
+if ($runnableHtml -match 'data-otter-run="plain"') { throw 'A text resource without runnable true must not get a Run button.' }
+$registryMatch = [regex]::Match($runnableHtml, '(?s)window\.otterRunnables\["good"\] = (\{ vars: .*?\n\} \});')
+if (-not $registryMatch.Success) { throw 'Expected the runnable sample to be registered with its compiled code.' }
+$nodeHarness = "global.window = globalThis; window.otterRunnables = {};`nconst sample = $($registryMatch.Groups[1].Value);`nconst said = []; sample.run((...a) => said.push(a.map((x) => Array.isArray(x) ? x.join(', ') : String(x)).join(' '))).then(() => console.log(JSON.stringify({ said, vars: sample.vars })));"
+$nodeFile = Join-Path ([System.IO.Path]::GetTempPath()) "otter_runnable_$([Guid]::NewGuid().ToString('N')).js"
+try {
+    [System.IO.File]::WriteAllText($nodeFile, $nodeHarness)
+    $nodeOut = & node $nodeFile 2>&1
+    if ($LASTEXITCODE -ne 0) { throw "The compiled sample failed to run in Node: $nodeOut" }
+    $ran = ($nodeOut | Select-Object -Last 1) | ConvertFrom-Json
+} finally { Remove-Item -LiteralPath $nodeFile -Force -ErrorAction SilentlyContinue }
+if (($ran.said -join '|') -ne 'Hello World|1, 2') { throw "Expected the sample to say 'Hello World' and '1, 2', got: $($ran.said -join '|')" }
+if (($ran.vars -join ',') -ne 'name,items') { throw "Expected the sample's variables to be tracked for cleanup, got: $($ran.vars -join ',')" }
+Write-Output '  pass  runnable true: live samples compile, run for real, and skip what a browser cannot run'
+
 Write-Output 'Web compiler tests passed.'
 
 

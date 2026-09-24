@@ -65,11 +65,11 @@ customstyle of sideStudio is "display: none;"
 
 b1 is a text with value "Running programs", size 40, weight 800, foreground "#0b1d36", letterspacing "-0.03em", lineheight "1.1"
 b2 is a text with value "Run other programs and capture what they print.", size 18, foreground "#3a4d6b", lineheight "1.55"
-b3 is a text with value "run \"notepad.exe\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b3 is a text with value "run \"notepad.exe\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
 b4 is a text with value "Run commands:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b5 is a text with value "run command \"git status\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b5 is a text with value "run command \"git status\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
 b6 is a text with value "Capture output:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b7 is a text with value "run command \"git status\" into result\n\nsay result", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b7 is a text with value "run command \"git status\" into result\n\nsay result", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
 
 docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"
 put b1, b2, b3, b4, b5, b6, b7 in docsMain

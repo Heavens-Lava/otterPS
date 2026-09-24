@@ -66,9 +66,9 @@ customstyle of sideStudio is "display: none;"
 b1 is a text with value "Random values", size 40, weight 800, foreground "#0b1d36", letterspacing "-0.03em", lineheight "1.1"
 b2 is a text with value "Random numbers and random items from a collection.", size 18, foreground "#3a4d6b", lineheight "1.55"
 b3 is a text with value "Random Numbers", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
-b4 is a text with value "random number from 1 to 10 into number", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b4 is a text with value "random number from 1 to 10 into number", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
 b5 is a text with value "Random Collection Items", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
-b6 is a text with value "random item from games into game", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b6 is a text with value "games are\n    \"Zelda\"\n    \"Metroid\"\n    \"Mario\"\n.\nrandom item from games into game\nsay game", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
 b7 is a text with value "If the collection is empty, the result should be:", size 16, foreground "#3a4d6b", lineheight "1.6"
 b8 is a text with value "gone", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto;"
 

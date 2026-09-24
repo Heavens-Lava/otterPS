@@ -116,7 +116,7 @@ put cardOne, cardTwo, cardThree, cardFour in entryCards
 
 firstTitle is a text with value "Your first program", size 30, weight 800, foreground "#0b1d36", letterspacing "-0.02em"
 firstBody is a text with value "Create a file called hello.ot and add one line:", size 16, foreground "#3a4d6b"
-firstCode is a text with value "# Your first Otter program\nsay \"Hello, Otter!\"", size 15, foreground "#e5edf8", background "#0f1b2e", radius 14, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 20px 22px; line-height: 1.7;"
+firstCode is a text with value "# Your first Otter program\nsay \"Hello, Otter!\"", size 15, foreground "#e5edf8", background "#0f1b2e", radius 14, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 20px 22px; line-height: 1.7;", runnable true
 firstRunBody is a text with value "Run it from PowerShell:", size 16, foreground "#3a4d6b"
 firstRun is a text with value "otter run hello.ot", size 15, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px;"
 firstOutBody is a text with value "You should see:", size 16, foreground "#3a4d6b"

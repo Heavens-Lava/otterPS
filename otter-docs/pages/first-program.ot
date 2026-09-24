@@ -75,19 +75,19 @@ b1 is a text with value "Your first Otter program", size 40, weight 800, foregro
 b2 is a text with value "Three steps take you from an empty file to a program that says hello.", size 18, foreground "#3a4d6b", lineheight "1.55"
 b3 is a text with value "1. Create hello.ot", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b4 is a text with value "In any text editor, create a file named hello.ot containing:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b5 is a text with value "# Your first Otter program\nsay \"Hello, Otter!\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b5 is a text with value "# Your first Otter program\nsay \"Hello, Otter!\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
 b6 is a text with value "2. Run it", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b7 is a text with value "In PowerShell, in the folder that holds the file:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b8 is a text with value "otter run hello.ot", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b8 is a text with value "otter run hello.ot", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
 b9 is a text with value "Running from the project folder without installing? Use .\\otter.cmd hello.ot instead. The shorthand otter hello.ot works too.", size 15, foreground "#1e3a6b", background "#eaf2ff", radius 12, border "1px solid #cfe0ff", lineheight "1.55", customstyle "padding: 14px 18px;"
 b10 is a text with value "3. See the output", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b11 is a text with value "Hello, Otter!", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto;"
 b12 is a text with value "Make it yours", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b13 is a text with value "Put a value in a variable and say it beside some text. say separates each part with a single space:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b14 is a text with value "name is \"Otter Explorer\"\nsay \"Hello,\" name", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b14 is a text with value "name is \"Otter Explorer\"\nsay \"Hello,\" name", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
 b15 is a text with value "Hello, Otter Explorer", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto;"
 b16 is a text with value "Ask the person running the program for input. Numbers and true/false are recognised automatically:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b17 is a text with value "ask \"What is your name? \" and call it userName\nsay \"Hello\" userName", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b17 is a text with value "ask \"What is your name? \" and call it userName\nsay \"Hello\" userName", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
 b18 is a link with text "Next: values and variables", url "/values/", foreground "#2563eb", weight 600, size 15
 b19 is a link with text "Or try the interactive REPL: run otter with no arguments", url "/cli/", foreground "#2563eb", weight 600, size 15
 

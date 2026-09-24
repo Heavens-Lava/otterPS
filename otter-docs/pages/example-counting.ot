@@ -71,7 +71,7 @@ customstyle of sideStudio is "display: none;"
 
 b1 is a text with value "Counting", size 40, weight 800, foreground "#0b1d36", letterspacing "-0.03em", lineheight "1.1"
 b2 is a text with value "Counting - a complete Otter example you can run and change.", size 18, foreground "#3a4d6b", lineheight "1.55"
-b3 is a text with value "count from 1 to 5 as number\n    say number", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b3 is a text with value "count from 1 to 5 as number\n    say number", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
 b4 is a link with text "All examples", url "/examples/", foreground "#2563eb", weight 600, size 15
 
 docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"
