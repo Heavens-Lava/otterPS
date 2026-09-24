@@ -588,6 +588,7 @@ function Read-OtterValue {
         elseif ($token.Text -eq 'sender' -and $netNext.Text -eq 'address') { $netField = 'sender address' }
         elseif ($token.Text -eq 'sender' -and $netNext.Text -eq 'port') { $netField = 'sender port' }
         elseif ($token.Text -eq 'network' -and $netNext.Text -eq 'error') { $netField = 'network error' }
+        elseif ($token.Text -eq 'incoming' -and $netNext.Text -eq 'connection') { $netField = 'incoming connection' }
         if ($null -ne $netField) {
             [void](Read-OtterToken)
             [void](Read-OtterToken)
@@ -608,6 +609,14 @@ function Read-OtterValue {
             [void](Read-OtterToken)
             [void](Read-OtterToken)
             return [PropertyAccessExpr]::new("tls $($netNext.Text)", (Read-OtterValue -PropertyTarget), $token.Line)
+        }
+        # D113: local address of X / local port of X
+        if ($token.Text -eq 'local' -and ($netNext.Text -eq 'address' -or $netNext.Text -eq 'port') -and
+            (Test-OtterTokenOffsetKind 2 ([TokenKind]::Of))) {
+            [void](Read-OtterToken)
+            [void](Read-OtterToken)
+            [void](Read-OtterToken)
+            return [PropertyAccessExpr]::new("local $($netNext.Text)", (Read-OtterValue -PropertyTarget), $token.Line)
         }
     }
     # D105: XML. All leading words here (xml/pretty/element/elements/
@@ -956,6 +965,19 @@ function Read-OtterConditionPrimary {
         $isWord = Read-OtterToken
         [void](Read-OtterToken) # secure
         return [ConnectionIsSecureExpr]::new($left, $isWord.Line)
+    }
+    # D113: `server is listening` / `server is stopped`
+    if ((Get-OtterCurrentToken).Kind -eq [TokenKind]::Is -and ($script:Position + 1) -lt $script:Tokens.Count -and
+        $script:Tokens[$script:Position + 1].Kind -eq [TokenKind]::Identifier) {
+        $srvText = $script:Tokens[$script:Position + 1].Text
+        $srvState = $null
+        if ($srvText -eq 'listening') { $srvState = [TcpServerState]::Listening }
+        elseif ($srvText -eq 'stopped') { $srvState = [TcpServerState]::Stopped }
+        if ($null -ne $srvState) {
+            $isWord = Read-OtterToken
+            [void](Read-OtterToken) # state word
+            return [TcpServerIsStateExpr]::new($left, $srvState, $isWord.Line)
+        }
     }
     # D105: `book has attribute "id"` - "has" is already a reserved
     # TokenKind (used elsewhere for thing-property declarations), so
@@ -2151,6 +2173,60 @@ function Read-OtterNetClauses {
     return $result
 }
 
+# D113: the optional trailing clauses of `listen for tcp` -
+#   [on <address>]   on port <port>   and call it <name>
+# in any order, on the same line or as an indented continuation block.
+function Read-OtterListenClauses {
+    param([string]$EndMessage = 'I expected this statement to end here.')
+    $result = @{ Address = $null; Port = $null; Target = $null }
+    $depth = 0
+    while ($true) {
+        $current = Get-OtterCurrentToken
+        if ($current.Kind -eq [TokenKind]::Newline) {
+            if ($depth -eq 0) {
+                if (Test-OtterTokenOffsetKind 1 ([TokenKind]::Indent)) {
+                    [void](Read-OtterToken)
+                    [void](Read-OtterToken)
+                    $depth = 1
+                    continue
+                }
+                [void](Read-OtterToken)
+                break
+            }
+            [void](Read-OtterToken)
+            if ((Get-OtterCurrentToken).Kind -eq [TokenKind]::Dedent) {
+                [void](Read-OtterToken)
+                break
+            }
+            continue
+        }
+        # on port <port> vs on <address>
+        if ($current.Text -eq 'on') {
+            if (($script:Position + 1) -lt $script:Tokens.Count -and $script:Tokens[$script:Position + 1].Text -eq 'port' -and $null -eq $result.Port) {
+                [void](Read-OtterToken) # on
+                [void](Read-OtterToken) # port
+                $result.Port = Read-OtterValue
+                continue
+            }
+            if ($null -eq $result.Address) {
+                [void](Read-OtterToken) # on
+                $result.Address = Read-OtterValue
+                continue
+            }
+        }
+        if ($current.Kind -eq [TokenKind]::And -and (Test-OtterTokenOffsetKind 1 ([TokenKind]::Call)) -and $null -eq $result.Target) {
+            [void](Read-OtterToken) # and
+            [void](Read-OtterToken) # call
+            [void](Assert-OtterTokenKind ([TokenKind]::It) 'I expected "it" after "call".')
+            $nameTok = Read-OtterVariableName 'I expected a name after "call it".'
+            $result.Target = $nameTok.Text
+            continue
+        }
+        throw (New-OtterParserError $EndMessage $current)
+    }
+    return $result
+}
+
 # D109: the tail of `encrypt DATA using KEY and call it R` (and decrypt),
 # entered once "using" is the current token.
 function Read-OtterCryptoCipherRest {
@@ -2313,6 +2389,18 @@ function Read-OtterStatement {
         return [NetCloseStmt]::new($netProto, $netSock, $start.Line)
     }
 
+    # D113: `stop tcp <server>`
+    if ($start.Text -eq 'stop' -and ($script:Position + 1) -lt $script:Tokens.Count -and
+        $script:Tokens[$script:Position + 1].Kind -eq [TokenKind]::Identifier -and
+        $script:Tokens[$script:Position + 1].Text -eq 'tcp' -and
+        -not (Test-OtterTokenOffsetKind 2 ([TokenKind]::Newline))) {
+        [void](Read-OtterToken) # stop
+        [void](Read-OtterToken) # tcp
+        $server = Read-OtterValue
+        [void](Assert-OtterTokenKind ([TokenKind]::Newline) "I expected the stop tcp statement to end here.")
+        return [TcpStopStmt]::new($server, $start.Line)
+    }
+
     # D110: `set drag data to <expression>`
     if ($start.Text -eq 'set' -and ($script:Position + 2) -lt $script:Tokens.Count -and
         $script:Tokens[$script:Position + 1].Text -eq 'drag' -and $script:Tokens[$script:Position + 2].Text -eq 'data') {
@@ -2377,10 +2465,30 @@ function Read-OtterStatement {
         return [UdpOpenStmt]::new($udpClauses.Port, $udpClauses.Target, $start.Line)
     }
 
-    # D107: TCP servers are reserved grammar, not implemented yet.
-    if ($start.Text -eq 'listen' -and ($script:Position + 2) -lt $script:Tokens.Count -and
-        $script:Tokens[$script:Position + 1].Text -eq 'for' -and $script:Tokens[$script:Position + 2].Text -eq 'tcp') {
-        throw (New-OtterParserError '"listen for tcp" is reserved for TCP servers, which Otter does not support yet. TCP clients ("connect to tcp") are available.' $start 'Write: connect to tcp "localhost" on port 9000 and call it connection')
+    # D113: `listen for tcp [on <address>] on port <port> and call it <name>`
+    if ($start.Text -eq 'listen') {
+        # Section 21: Reserve "listen securely for tcp"
+        if (($script:Position + 3) -lt $script:Tokens.Count -and
+            $script:Tokens[$script:Position + 1].Text -eq 'securely' -and
+            $script:Tokens[$script:Position + 2].Text -eq 'for' -and
+            $script:Tokens[$script:Position + 3].Text -eq 'tcp') {
+            throw (New-OtterParserError '"listen securely for tcp" is reserved for TLS servers, which Otter does not support yet.' $start 'Write: listen for tcp on port 8080 and call it server')
+        }
+        if (($script:Position + 2) -lt $script:Tokens.Count -and
+            $script:Tokens[$script:Position + 1].Text -eq 'for' -and
+            $script:Tokens[$script:Position + 2].Text -eq 'tcp') {
+            [void](Read-OtterToken) # listen
+            [void](Read-OtterToken) # for
+            [void](Read-OtterToken) # tcp
+            $listenClauses = Read-OtterListenClauses 'I expected "on port" and "and call it" in the listen statement.'
+            if ($null -eq $listenClauses.Port) {
+                throw (New-OtterParserError 'I expected "on port <number>" in "listen for tcp".' $start 'Write: listen for tcp on port 8080 and call it server')
+            }
+            if ($null -eq $listenClauses.Target) {
+                throw (New-OtterParserError 'I expected "and call it" and a name in "listen for tcp".' $start 'Write: listen for tcp on port 8080 and call it server')
+            }
+            return [TcpListenStmt]::new($listenClauses.Address, $listenClauses.Port, $listenClauses.Target, $start.Line)
+        }
     }
 
     # D106: `close websocket socket [with code 1000] [and reason "Done"]`
@@ -2537,13 +2645,13 @@ function Read-OtterStatement {
                 $watcher = Read-OtterValue
                 return [WatchEventStmt]::new([WatchEventKind]::Rename, $watcher, (Read-OtterBlock), $start.Line)
             }
-            # D106: WebSockets event handlers
+            # D106, D107/D108, D113: Network event handlers
             # on open of <socket>
             if (($stageTok.Kind -eq [TokenKind]::Open -or $stageTok.Text -eq 'open') -and (Test-OtterTokenOffsetKind 1 ([TokenKind]::Of))) {
                 [void](Read-OtterToken) # open
                 [void](Read-OtterToken) # of
                 $socket = Read-OtterValue
-                return [WebSocketEventStmt]::new([WebSocketEventKind]::Open, $socket, (Read-OtterBlock), $start.Line)
+                return [NetworkEventStmt]::new([NetworkEventKind]::Open, $socket, (Read-OtterBlock), $start.Line)
             }
             # D110: drag and drop events, all ordinary WhenStmt nodes.
             # on drag of <control>
@@ -2569,40 +2677,47 @@ function Read-OtterStatement {
                 $filesTarget = Read-OtterValue
                 return [WhenStmt]::new($filesTarget, 'files dropped', (Read-OtterBlock), $start.Line)
             }
+            # D113: on connection to <server>
+            if ($stageTok.Text -eq 'connection' -and (Test-OtterTokenOffsetKind 1 ([TokenKind]::To))) {
+                [void](Read-OtterToken) # connection
+                [void](Read-OtterToken) # to
+                $server = Read-OtterValue
+                return [NetworkEventStmt]::new([NetworkEventKind]::Connection, $server, (Read-OtterBlock), $start.Line)
+            }
             # D107: on connect of <connection>
             if ($stageTok.Text -eq 'connect' -and (Test-OtterTokenOffsetKind 1 ([TokenKind]::Of))) {
                 [void](Read-OtterToken) # connect
                 [void](Read-OtterToken) # of
                 $socket = Read-OtterValue
-                return [WebSocketEventStmt]::new([WebSocketEventKind]::Connect, $socket, (Read-OtterBlock), $start.Line)
+                return [NetworkEventStmt]::new([NetworkEventKind]::Connect, $socket, (Read-OtterBlock), $start.Line)
             }
             # D107/D108: on data from <connection or udp socket>
             if ($stageTok.Text -eq 'data' -and (Test-OtterTokenOffsetKind 1 ([TokenKind]::From))) {
                 [void](Read-OtterToken) # data
                 [void](Read-OtterToken) # from
                 $socket = Read-OtterValue
-                return [WebSocketEventStmt]::new([WebSocketEventKind]::Data, $socket, (Read-OtterBlock), $start.Line)
+                return [NetworkEventStmt]::new([NetworkEventKind]::Data, $socket, (Read-OtterBlock), $start.Line)
             }
             # on message from <socket>
             if ($stageTok.Text -eq 'message' -and (Test-OtterTokenOffsetKind 1 ([TokenKind]::From))) {
                 [void](Read-OtterToken) # message
                 [void](Read-OtterToken) # from
                 $socket = Read-OtterValue
-                return [WebSocketEventStmt]::new([WebSocketEventKind]::Message, $socket, (Read-OtterBlock), $start.Line)
+                return [NetworkEventStmt]::new([NetworkEventKind]::Message, $socket, (Read-OtterBlock), $start.Line)
             }
             # on close of <socket>
             if ($stageTok.Text -eq 'close' -and (Test-OtterTokenOffsetKind 1 ([TokenKind]::Of))) {
                 [void](Read-OtterToken) # close
                 [void](Read-OtterToken) # of
                 $socket = Read-OtterValue
-                return [WebSocketEventStmt]::new([WebSocketEventKind]::Close, $socket, (Read-OtterBlock), $start.Line)
+                return [NetworkEventStmt]::new([NetworkEventKind]::Close, $socket, (Read-OtterBlock), $start.Line)
             }
             # on error of <socket>
             if (($stageTok.Kind -eq [TokenKind]::Problem -or $stageTok.Text -eq 'error') -and (Test-OtterTokenOffsetKind 1 ([TokenKind]::Of))) {
                 [void](Read-OtterToken) # error
                 [void](Read-OtterToken) # of
                 $socket = Read-OtterValue
-                return [WebSocketEventStmt]::new([WebSocketEventKind]::Error, $socket, (Read-OtterBlock), $start.Line)
+                return [NetworkEventStmt]::new([NetworkEventKind]::Error, $socket, (Read-OtterBlock), $start.Line)
             }
             $stageTok = Read-OtterToken
             if ($stageTok.Text -notin @('start', 'close')) {

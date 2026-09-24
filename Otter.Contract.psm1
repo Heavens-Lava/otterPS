@@ -627,6 +627,9 @@ enum NodeKind {
     NetClose                  # close tcp X / close udp X
     NetContext                # EXPRESSION ambient in net events: received data / sender address / sender port / network error
     ConnectionIsSecure        # a CONDITION: connection is secure (D112)
+    TcpListen                 # listen for tcp [on ADDR] on port N and call it S (D113)
+    TcpStop                   # stop tcp S (D113)
+    TcpServerIsState          # a CONDITION: server is listening / stopped (D113)
 
     # --- Cryptography (D109) - console/desktop only; web reports unsupported. --
     SecureRandomBytes         # EXPRESSION: secure random bytes N
@@ -667,8 +670,10 @@ enum WatchEventKind { Change; Create; Delete; Rename }                 # D104
 enum XmlSourceKind { Text; File; Root }                                # D105
 enum XmlSelectKind { Element; Elements; Child; Children }              # D105
 
-enum WebSocketEventKind { Open; Message; Close; Error; Connect; Data } # D106, D107/D108
+enum NetworkEventKind { Open; Message; Close; Error; Connect; Data; Connection } # D106, D107/D108, D113
+enum WebSocketEventKind { Open; Message; Close; Error; Connect; Data; Connection } # backward compatibility
 enum WebSocketConnState { Connecting; Open; Closing; Closed; Connected } # D106, D107
+enum TcpServerState { Listening; Stopped } # D113
 
 # D11: boolean operators. Precedence, loosest last: not -> and -> or.
 enum LogicalOp { And; Or }
@@ -3213,16 +3218,21 @@ class WebSocketCloseStmt : Node {
     }
 }
 
-# on open of X / on message from X / on close of X / on error of X
-class WebSocketEventStmt : Node {
-    [WebSocketEventKind]$EventKind
+# on open of X / on message from X / on close of X / on error of X / on connect of X / on data from X / on connection to X
+class NetworkEventStmt : Node {
+    [NetworkEventKind]$EventKind
     [Node]$Socket
     [Node[]]$Body
-    WebSocketEventStmt([WebSocketEventKind]$eventKind, [Node]$socket, [Node[]]$body, [int]$line) : base([NodeKind]::WebSocketEvent, $line) {
+    NetworkEventStmt([NetworkEventKind]$eventKind, [Node]$socket, [Node[]]$body, [int]$line) : base([NodeKind]::WebSocketEvent, $line) {
         $this.EventKind = $eventKind
         $this.Socket = $socket
         $this.Body = $body
     }
+}
+
+class WebSocketEventStmt : NetworkEventStmt {
+    WebSocketEventStmt([WebSocketEventKind]$eventKind, [Node]$socket, [Node[]]$body, [int]$line) : base([NetworkEventKind][int]$eventKind, $socket, $body, $line) {}
+    WebSocketEventStmt([NetworkEventKind]$eventKind, [Node]$socket, [Node[]]$body, [int]$line) : base($eventKind, $socket, $body, $line) {}
 }
 
 # socket is connecting / socket is open / socket is closing / socket is closed
@@ -3333,6 +3343,38 @@ class NetContextExpr : Node {
     [string]$Field
     NetContextExpr([string]$field, [int]$line) : base([NodeKind]::NetContext, $line) {
         $this.Field = $field
+    }
+}
+
+# D113: TCP servers (listeners)
+
+# listen for tcp [on "127.0.0.1"] on port 8080 and call it server
+class TcpListenStmt : Node {
+    [Node]$AddressExpr        # optional, $null = loopback default
+    [Node]$Port
+    [string]$Target
+    TcpListenStmt([Node]$addressExpr, [Node]$port, [string]$target, [int]$line) : base([NodeKind]::TcpListen, $line) {
+        $this.AddressExpr = $addressExpr
+        $this.Port = $port
+        $this.Target = $target
+    }
+}
+
+# stop tcp server
+class TcpStopStmt : Node {
+    [Node]$Server
+    TcpStopStmt([Node]$server, [int]$line) : base([NodeKind]::TcpStop, $line) {
+        $this.Server = $server
+    }
+}
+
+# server is listening / server is stopped
+class TcpServerIsStateExpr : Node {
+    [Node]$Server
+    [TcpServerState]$ServerState
+    TcpServerIsStateExpr([Node]$server, [TcpServerState]$serverState, [int]$line) : base([NodeKind]::TcpServerIsState, $line) {
+        $this.Server = $server
+        $this.ServerState = $serverState
     }
 }
 

@@ -930,6 +930,9 @@ function ConvertTo-OtterJsExpression {
         ([NodeKind]::ConnectionIsSecure) {
             throw [OtterError]::new('TCP/TLS is not supported on the web target. Browsers cannot open raw TCP or TLS sockets.', $Expr.Line, 'runtime')
         }
+        ([NodeKind]::TcpServerIsState) {
+            throw [OtterError]::new('TCP servers are not supported on the web target.', $Expr.Line, 'runtime')
+        }
         ([NodeKind]::WebSocketIsState) {
             $targetJs = ConvertTo-OtterJsExpression -Expr $Expr.Socket
             $stateStr = $Expr.ConnState.ToString().ToLowerInvariant()
@@ -3274,6 +3277,12 @@ function ConvertTo-OtterJsStatement {
         ([NodeKind]::TcpConnect) {
             throw [OtterError]::new('TCP is not supported on the web target. Browsers cannot open raw TCP sockets (use a websocket instead).', $Stmt.Line, 'runtime')
         }
+        ([NodeKind]::TcpListen) {
+            throw [OtterError]::new('TCP servers are not supported on the web target. Browsers cannot listen on TCP ports.', $Stmt.Line, 'runtime')
+        }
+        ([NodeKind]::TcpStop) {
+            throw [OtterError]::new('TCP servers are not supported on the web target.', $Stmt.Line, 'runtime')
+        }
         ([NodeKind]::UdpOpen) {
             throw [OtterError]::new('UDP is not supported on the web target. Browsers cannot open raw UDP sockets.', $Stmt.Line, 'runtime')
         }
@@ -3284,8 +3293,8 @@ function ConvertTo-OtterJsStatement {
             throw [OtterError]::new("$($Stmt.Protocol.ToUpperInvariant()) is not supported on the web target. Browsers cannot open raw sockets.", $Stmt.Line, 'runtime')
         }
         ([NodeKind]::WebSocketEvent) {
-            if ($Stmt.EventKind -in @([WebSocketEventKind]::Connect, [WebSocketEventKind]::Data)) {
-                throw [OtterError]::new('TCP/UDP events ("on connect of", "on data from") are not supported on the web target. Use a websocket ("on open of", "on message from").', $Stmt.Line, 'runtime')
+            if ($Stmt.EventKind.ToString() -in @('Connect', 'Data', 'Connection')) {
+                throw [OtterError]::new('TCP/UDP events ("on connect of", "on data from", "on connection to") are not supported on the web target. Use a websocket ("on open of", "on message from").', $Stmt.Line, 'runtime')
             }
             $socketJs = ConvertTo-OtterJsExpression -Expr $Stmt.Socket
             $eventKind = $Stmt.EventKind.ToString().ToLowerInvariant()

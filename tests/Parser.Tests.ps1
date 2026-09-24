@@ -1595,5 +1595,133 @@ try {
 }
 if (-not $errPassed) { throw 'Expected error for connect securely without to tcp.' }
 
+# --- D113: TCP Servers (Listeners) ------------------------------------------------
+
+$d113Code = @"
+listen for tcp on port 8080 and call it server1
+listen for tcp on "0.0.0.0" on port 9000 and call it server2
+listen for tcp and call it server3 on port 7000
+listen for tcp
+    on "127.0.0.1"
+    on port 6000
+    and call it server4
+stop tcp server1
+on connection to server1
+    client is incoming connection
+.
+if server1 is listening
+    say "server is running"
+.
+if server1 is stopped
+    say "server is stopped"
+.
+addr is local address of server1
+p is local port of server1
+st is state of server1
+"@
+
+$d113Ast = ConvertTo-OtterAst (ConvertTo-OtterTokens $d113Code)
+if ($d113Ast.Statements.Count -ne 11) { throw "Expected 11 statements in d113Ast, got $($d113Ast.Statements.Count)." }
+
+# 0: canonical listen (loopback default)
+$stmt0 = $d113Ast.Statements[0]
+if ($stmt0.Kind -ne [NodeKind]::TcpListen) { throw 'Expected TcpListen node for stmt 0.' }
+if ($null -ne $stmt0.AddressExpr) { throw 'Expected AddressExpr null for default loopback.' }
+if ($stmt0.Port.Value -ne 8080) { throw 'Expected Port 8080 for stmt 0.' }
+if ($stmt0.Target -ne 'server1') { throw 'Expected Target server1 for stmt 0.' }
+
+# 1: explicit address listen
+$stmt1 = $d113Ast.Statements[1]
+if ($stmt1.Kind -ne [NodeKind]::TcpListen) { throw 'Expected TcpListen node for stmt 1.' }
+if ($stmt1.AddressExpr.Value -ne '0.0.0.0') { throw 'Expected AddressExpr 0.0.0.0 for stmt 1.' }
+if ($stmt1.Port.Value -ne 9000) { throw 'Expected Port 9000 for stmt 1.' }
+if ($stmt1.Target -ne 'server2') { throw 'Expected Target server2 for stmt 1.' }
+
+# 2: out of order clauses
+$stmt2 = $d113Ast.Statements[2]
+if ($stmt2.Kind -ne [NodeKind]::TcpListen) { throw 'Expected TcpListen node for stmt 2.' }
+if ($stmt2.Target -ne 'server3') { throw 'Expected Target server3 for stmt 2.' }
+if ($stmt2.Port.Value -ne 7000) { throw 'Expected Port 7000 for stmt 2.' }
+
+# 3: multiline indented clauses
+$stmt3 = $d113Ast.Statements[3]
+if ($stmt3.Kind -ne [NodeKind]::TcpListen) { throw 'Expected TcpListen node for stmt 3.' }
+if ($stmt3.AddressExpr.Value -ne '127.0.0.1') { throw 'Expected AddressExpr 127.0.0.1 for stmt 3.' }
+if ($stmt3.Port.Value -ne 6000) { throw 'Expected Port 6000 for stmt 3.' }
+if ($stmt3.Target -ne 'server4') { throw 'Expected Target server4 for stmt 3.' }
+
+# 4: stop tcp
+$stmt4 = $d113Ast.Statements[4]
+if ($stmt4.Kind -ne [NodeKind]::TcpStop) { throw 'Expected TcpStop node for stmt 4.' }
+if ($stmt4.Server.Name -ne 'server1') { throw 'Expected Server server1 for stmt 4.' }
+
+# 5: on connection to
+$stmt5 = $d113Ast.Statements[5]
+if ($stmt5.Kind -ne [NodeKind]::WebSocketEvent) { throw 'Expected WebSocketEvent/NetworkEvent node for stmt 5.' }
+if ($stmt5.EventKind.ToString() -ne 'Connection') { throw 'Expected EventKind Connection for stmt 5.' }
+if ($stmt5.Socket.Name -ne 'server1') { throw 'Expected Socket server1 for stmt 5.' }
+if ($stmt5.Body.Count -ne 1) { throw 'Expected 1 body stmt for stmt 5.' }
+$assignStmt = $stmt5.Body[0]
+if ($assignStmt.Target.Name -ne 'client') { throw 'Expected Target client.' }
+if ($assignStmt.Value.Kind -ne [NodeKind]::NetContext) { throw 'Expected NetContext for incoming connection.' }
+if ($assignStmt.Value.Field -ne 'incoming connection') { throw 'Expected Field incoming connection.' }
+
+# 6: server is listening
+$stmt6 = $d113Ast.Statements[6]
+$cond6 = $stmt6.Branches[0].Condition
+if ($cond6.Kind -ne [NodeKind]::TcpServerIsState) { throw 'Expected TcpServerIsState node for stmt 6.' }
+if ($cond6.ServerState -ne [TcpServerState]::Listening) { throw 'Expected Listening state.' }
+if ($cond6.Server.Name -ne 'server1') { throw 'Expected Server server1.' }
+
+# 7: server is stopped
+$stmt7 = $d113Ast.Statements[7]
+$cond7 = $stmt7.Branches[0].Condition
+if ($cond7.Kind -ne [NodeKind]::TcpServerIsState) { throw 'Expected TcpServerIsState node for stmt 7.' }
+if ($cond7.ServerState -ne [TcpServerState]::Stopped) { throw 'Expected Stopped state.' }
+if ($cond7.Server.Name -ne 'server1') { throw 'Expected Server server1.' }
+
+# 8: local address of
+$stmt8 = $d113Ast.Statements[8]
+if ($stmt8.Value.Kind -ne [NodeKind]::PropertyAccess) { throw 'Expected PropertyAccess for local address.' }
+if ($stmt8.Value.Property -ne 'local address') { throw 'Expected Property local address.' }
+if ($stmt8.Value.Target.Name -ne 'server1') { throw 'Expected Target server1 for local address.' }
+
+# 9: local port of
+$stmt9 = $d113Ast.Statements[9]
+if ($stmt9.Value.Kind -ne [NodeKind]::PropertyAccess) { throw 'Expected PropertyAccess for local port.' }
+if ($stmt9.Value.Property -ne 'local port') { throw 'Expected Property local port.' }
+if ($stmt9.Value.Target.Name -ne 'server1') { throw 'Expected Target server1 for local port.' }
+
+# 10: state of
+$stmt10 = $d113Ast.Statements[10]
+if ($stmt10.Value.Kind -ne [NodeKind]::PropertyAccess) { throw 'Expected PropertyAccess for state.' }
+if ($stmt10.Value.Property -ne 'state') { throw 'Expected Property state.' }
+if ($stmt10.Value.Target.Name -ne 'server1') { throw 'Expected Target server1 for state.' }
+
+# D113 Error cases
+$errPassed = $false
+try {
+    ConvertTo-OtterAst (ConvertTo-OtterTokens 'listen for tcp and call it s')
+} catch {
+    if ($_.Exception.Message -match 'on port') { $errPassed = $true }
+}
+if (-not $errPassed) { throw 'Expected error for missing port in listen for tcp.' }
+
+$errPassed = $false
+try {
+    ConvertTo-OtterAst (ConvertTo-OtterTokens 'listen for tcp on port 8080')
+} catch {
+    if ($_.Exception.Message -match 'and call it') { $errPassed = $true }
+}
+if (-not $errPassed) { throw 'Expected error for missing and call it in listen for tcp.' }
+
+$errPassed = $false
+try {
+    ConvertTo-OtterAst (ConvertTo-OtterTokens 'listen securely for tcp on port 8443 and call it s')
+} catch {
+    if ($_.Exception.Message -match 'reserved for TLS servers') { $errPassed = $true }
+}
+if (-not $errPassed) { throw 'Expected error for reserved listen securely for tcp.' }
+
 Write-Output 'Parser tests passed.'
 
