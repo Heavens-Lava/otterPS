@@ -416,6 +416,33 @@ function Test-OtterUdp {
     return $Value -is [OtterUdp]
 }
 
+# D113: TCP server listener. Accepts incoming connections, each of which
+# becomes an ordinary OtterTcp instance.
+class OtterTcpServer {
+    [System.Net.Sockets.TcpListener]$Listener
+    [string]$BoundAddress
+    [int]$BoundPort
+    [string]$State
+    [string]$LastError
+    [object]$AcceptTask
+    [bool]$Disposed
+
+    OtterTcpServer([System.Net.Sockets.TcpListener]$listener, [string]$boundAddress, [int]$boundPort) {
+        $this.Listener = $listener
+        $this.BoundAddress = $boundAddress
+        $this.BoundPort = $boundPort
+        $this.State = 'listening'
+        $this.LastError = $null
+        $this.AcceptTask = $null
+        $this.Disposed = $false
+    }
+}
+
+function Test-OtterTcpServer {
+    param([object]$Value)
+    return $Value -is [OtterTcpServer]
+}
+
 function New-OtterToday {
     return [OtterDate]::new([datetime]::Now, $false)
 }
@@ -832,4 +859,4 @@ Export-ModuleMember -Function `
     New-OtterList, Test-OtterList, Test-OtterObject, Test-OtterDate, `
     New-OtterToday, New-OtterNow, Format-OtterValue, Test-OtterTruthy, `
     Test-OtterNumeric, ConvertTo-OtterNumber, Test-OtterEqual, ConvertFrom-OtterInput, `
-    Test-OtterBytes, Test-OtterFileWatcher, Test-OtterXml, Test-OtterWebSocket, Test-OtterTcp, Test-OtterUdp
+    Test-OtterBytes, Test-OtterFileWatcher, Test-OtterXml, Test-OtterWebSocket, Test-OtterTcp, Test-OtterUdp, Test-OtterTcpServer

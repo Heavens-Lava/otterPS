@@ -279,10 +279,10 @@ send data through socket
     Assert-True ($r.Stdout -match 'A udp send needs a destination') 'expected the destination diagnostic'
 }
 
-Test-Otter 'listen for tcp is reserved and reports that servers are not implemented' {
-    $h = Start-OtterNetProcess -Source 'listen for tcp on port 8080 and call it server'
+Test-Otter 'listen securely for tcp is reserved for TLS servers' {
+    $h = Start-OtterNetProcess -Source 'listen securely for tcp on port 8443 and call it server'
     $r = Complete-OtterNetProcess $h
-    Assert-True ($r.Stdout -match 'reserved for TCP servers') 'expected the reserved-grammar diagnostic'
+    Assert-True ($r.Stdout -match 'reserved for TLS servers') 'expected the reserved-grammar diagnostic'
 }
 
 Test-Otter 'received data outside a data event is a clean Otter error' {
@@ -295,6 +295,7 @@ Test-Otter 'received data outside a data event is a clean Otter error' {
 
 foreach ($case in @(
     @{ Name = 'tcp connect'; Source = 'connect to tcp "localhost" on port 9000 and call it c'; Match = 'TCP is not supported on the web target' },
+    @{ Name = 'tcp listen'; Source = 'listen for tcp on port 8080 and call it s'; Match = 'TCP servers are not supported on the web target' },
     @{ Name = 'udp open'; Source = 'open udp and call it s'; Match = 'UDP is not supported on the web target' }
 )) {
     Test-Otter "$($case.Name) is rejected on the web target with a clean compile-time error" {
@@ -431,6 +432,185 @@ Test-Otter 'connect securely is rejected on the web target' {
     $h = Start-OtterNetProcess -Source 'connect securely to tcp "example.com" on port 443 and call it c' -Mode 'web'
     $r = Complete-OtterNetProcess $h
     Assert-True ($r.Stdout -match 'TCP is not supported on the web target') "got: $($r.Stdout)"
+}
+
+# --- 10. TCP Servers (D113) --------------------------------------------------
+
+Test-Otter 'D113: state, port 0, and stop' {
+    $h = Start-OtterNetProcess -Source @'
+listen for tcp on port 0 and call it server
+say local address of server
+p is local port of server
+say "PORT_SET"
+if server is listening
+    say "listening"
+.
+stop tcp server
+if server is stopped
+    say "stopped"
+.
+say state of server
+'@
+    $r = Complete-OtterNetProcess $h
+    Assert-True ($r.Lines.Count -ge 5) "Expected at least 5 lines, got $($r.Lines.Count): $($r.Stdout)"
+    Assert-AreEqual -Expected '127.0.0.1' -Actual $r.Lines[0] -Message 'expected local address 127.0.0.1'
+    Assert-AreEqual -Expected 'PORT_SET' -Actual $r.Lines[1] -Message 'expected port'
+    Assert-AreEqual -Expected 'listening' -Actual $r.Lines[2] -Message 'expected server is listening'
+    Assert-AreEqual -Expected 'stopped' -Actual $r.Lines[3] -Message 'expected server is stopped'
+    Assert-AreEqual -Expected 'stopped' -Actual $r.Lines[4] -Message 'expected state of server == stopped'
+}
+
+Test-Otter 'D113: echo test on server' {
+    $port = Get-FreeTcpPort
+    $h = Start-OtterNetProcess -Source @"
+listen for tcp on port $port and call it server
+
+on connection to server
+    client is incoming connection
+    on data from client
+        msg is text from bytes received data
+        if msg is "done"
+            doneBytes is bytes from text "done"
+            send doneBytes through client
+            stop tcp server
+        otherwise
+            send received data through client
+        .
+    .
+.
+"@
+    Start-Sleep -Milliseconds 600
+
+    $client = [System.Net.Sockets.TcpClient]::new()
+    $client.Connect('127.0.0.1', $port)
+    $stream = $client.GetStream()
+
+    $sendBytes = [System.Text.Encoding]::UTF8.GetBytes("hello echo")
+    $stream.Write($sendBytes, 0, $sendBytes.Length)
+
+    $buf = [byte[]]::new(1024)
+    $read = $stream.Read($buf, 0, $buf.Length)
+    $resp = [System.Text.Encoding]::UTF8.GetString($buf, 0, $read)
+    Assert-AreEqual -Expected "hello echo" -Actual $resp -Message "Expected echo of sent bytes"
+
+    $doneBytes = [System.Text.Encoding]::UTF8.GetBytes("done")
+    $stream.Write($doneBytes, 0, $doneBytes.Length)
+    $readDone = $stream.Read($buf, 0, $buf.Length)
+    $client.Close()
+
+    $r = Complete-OtterNetProcess $h
+    Assert-True (-not $r.TimedOut) "Server should stop and exit cleanly after stop tcp server"
+}
+
+Test-Otter 'D113: multi-client context isolation' {
+    $port = Get-FreeTcpPort
+    $h = Start-OtterNetProcess -Source @"
+listen for tcp on port $port and call it server
+
+on connection to server
+    client is incoming connection
+    on data from client
+        msg is text from bytes received data
+        if msg is "done"
+            doneBytes is bytes from text "done"
+            send doneBytes through client
+            stop tcp server
+        otherwise
+            send received data through client
+        .
+    .
+.
+"@
+    Start-Sleep -Milliseconds 600
+
+    $clientA = [System.Net.Sockets.TcpClient]::new()
+    $clientA.Connect('127.0.0.1', $port)
+    $streamA = $clientA.GetStream()
+
+    $clientB = [System.Net.Sockets.TcpClient]::new()
+    $clientB.Connect('127.0.0.1', $port)
+    $streamB = $clientB.GetStream()
+
+    $bytesA = [System.Text.Encoding]::UTF8.GetBytes("alpha")
+    $streamA.Write($bytesA, 0, $bytesA.Length)
+
+    $bytesB = [System.Text.Encoding]::UTF8.GetBytes("beta")
+    $streamB.Write($bytesB, 0, $bytesB.Length)
+
+    $bufA = [byte[]]::new(1024)
+    $readA = $streamA.Read($bufA, 0, $bufA.Length)
+    $respA = [System.Text.Encoding]::UTF8.GetString($bufA, 0, $readA)
+
+    $bufB = [byte[]]::new(1024)
+    $readB = $streamB.Read($bufB, 0, $bufB.Length)
+    $respB = [System.Text.Encoding]::UTF8.GetString($bufB, 0, $readB)
+
+    Assert-AreEqual -Expected "alpha" -Actual $respA -Message "Client A must receive alpha"
+    Assert-AreEqual -Expected "beta" -Actual $respB -Message "Client B must receive beta"
+
+    $doneBytes = [System.Text.Encoding]::UTF8.GetBytes("done")
+    $streamA.Write($doneBytes, 0, $doneBytes.Length)
+    Start-Sleep -Milliseconds 200
+
+    $clientA.Close()
+    $clientB.Close()
+
+    $r = Complete-OtterNetProcess $h
+    Assert-True (-not $r.TimedOut) "Server process should exit cleanly"
+}
+
+Test-Otter 'D113: stop server preserves existing client and refuses new client' {
+    $port = Get-FreeTcpPort
+    $h = Start-OtterNetProcess -Source @"
+listen for tcp on port $port and call it server
+
+on connection to server
+    client is incoming connection
+    on data from client
+        msg is text from bytes received data
+        if msg is "stop"
+            stop tcp server
+            stoppedBytes is bytes from text "stopped"
+            send stoppedBytes through client
+        otherwise
+            send received data through client
+        .
+    .
+.
+"@
+    Start-Sleep -Milliseconds 600
+
+    $clientA = [System.Net.Sockets.TcpClient]::new()
+    $clientA.Connect('127.0.0.1', $port)
+    $streamA = $clientA.GetStream()
+
+    $stopBytes = [System.Text.Encoding]::UTF8.GetBytes("stop")
+    $streamA.Write($stopBytes, 0, $stopBytes.Length)
+
+    $buf = [byte[]]::new(1024)
+    $read = $streamA.Read($buf, 0, $buf.Length)
+    $resp = [System.Text.Encoding]::UTF8.GetString($buf, 0, $read)
+    Assert-AreEqual -Expected "stopped" -Actual $resp -Message "Expected stopped response"
+
+    $refused = $false
+    try {
+        $clientB = [System.Net.Sockets.TcpClient]::new()
+        $clientB.Connect('127.0.0.1', $port)
+        $clientB.Close()
+    } catch {
+        $refused = $true
+    }
+    Assert-True $refused "Expected new connection to be refused after server stopped"
+
+    $dataBytes = [System.Text.Encoding]::UTF8.GetBytes("still alive")
+    $streamA.Write($dataBytes, 0, $dataBytes.Length)
+    $read2 = $streamA.Read($buf, 0, $buf.Length)
+    $resp2 = [System.Text.Encoding]::UTF8.GetString($buf, 0, $read2)
+    Assert-AreEqual -Expected "still alive" -Actual $resp2 -Message "Expected existing Client A to remain usable after server stopped"
+
+    $clientA.Close()
+    $r = Complete-OtterNetProcess $h
+    Assert-True (-not $r.TimedOut) "Server process should exit cleanly"
 }
 
 Complete-OtterTests

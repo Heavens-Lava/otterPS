@@ -234,19 +234,24 @@ function Close-OtterWebSocketInternal {
 function Invoke-OtterWebSocketHandlers {
     param(
         [Parameter(Mandatory)][object]$Socket,
-        [Parameter(Mandatory)][WebSocketEventKind]$EventKind,
+        [Parameter(Mandatory)][object]$EventKind,
         [Parameter(Mandatory)][hashtable]$Context
     )
 
     if (-not $script:OtterWebSocketHandlers.ContainsKey($Socket)) { return }
-    $handlers = $script:OtterWebSocketHandlers[$Socket] | Where-Object { $_.EventKind -eq $EventKind }
+    $handlers = $script:OtterWebSocketHandlers[$Socket] | Where-Object { $_.EventKind.ToString() -eq $EventKind.ToString() }
     if (-not $handlers) { return }
 
     $prevContext = $script:OtterCurrentWsContext
     $script:OtterCurrentWsContext = $Context
     try {
         foreach ($h in $handlers) {
-            Invoke-OtterStatements -Statements $h.Body -Environment $h.Environment
+            $execEnv = if ($EventKind.ToString() -eq 'Connection') {
+                [OtterEnvironment]::new($h.Environment)
+            } else {
+                $h.Environment
+            }
+            Invoke-OtterStatements -Statements $h.Body -Environment $execEnv
         }
     } finally {
         $script:OtterCurrentWsContext = $prevContext
@@ -440,6 +445,17 @@ function Invoke-OtterWebSocketEventLoopStep {
 # blocking, then fires the same on-handlers a websocket would.
 
 $script:OtterActiveNet = [System.Collections.Generic.List[object]]::new()
+$script:OtterActiveTcpServers = [System.Collections.Generic.List[OtterTcpServer]]::new()
+
+function Stop-OtterTcpServerInternal {
+    param([Parameter(Mandatory)][OtterTcpServer]$Server)
+    if ($Server.Disposed -or $Server.State -eq 'stopped') { return }
+    $Server.State = 'stopped'
+    $Server.Disposed = $true
+    try {
+        $Server.Listener.Stop()
+    } catch {}
+}
 
 function Close-OtterNetInternal {
     param([Parameter(Mandatory)][object]$Socket)
@@ -468,6 +484,51 @@ function Send-OtterNetError {
         Invoke-OtterWebSocketHandlers -Socket $Socket -EventKind ([WebSocketEventKind]::Error) -Context @{ NetError = $Message }
     } else {
         throw (New-OtterRuntimeError -Message $Message -Line 0 -Suggestion 'Add "on error of <name>" to handle network errors.')
+    }
+}
+
+function Step-OtterTcpServer {
+    param([OtterTcpServer]$Server)
+    if ($Server.State -ne 'listening') { return }
+    try {
+        if ($null -eq $Server.AcceptTask) {
+            $Server.AcceptTask = $Server.Listener.AcceptTcpClientAsync()
+        }
+        if ($Server.AcceptTask.IsCompleted) {
+            $task = $Server.AcceptTask
+            $Server.AcceptTask = $null
+            if ($Server.State -ne 'listening') { return }
+
+            if ($task.IsFaulted -or $task.IsCanceled) {
+                if ($Server.State -ne 'listening' -or $Server.Disposed) { return }
+                $err = $task.Exception.GetBaseException()
+                $msg = "The tcp server on port $($Server.BoundPort) failed: $($err.Message)"
+                Send-OtterNetError -Socket $Server -Message $msg
+            } else {
+                $rawClient = $task.Result
+                $remoteEp = $rawClient.Client.RemoteEndPoint -as [System.Net.IPEndPoint]
+                $remoteHost = if ($null -ne $remoteEp) { $remoteEp.Address.ToString() } else { '' }
+                $remotePort = if ($null -ne $remoteEp) { $remoteEp.Port } else { 0 }
+
+                $clientTcp = [OtterTcp]::new($rawClient, $remoteHost, $remotePort)
+                $clientTcp.State = 'connected'
+                $clientTcp.Stream = $rawClient.GetStream()
+                $clientTcp.ConnectFired = $true
+
+                $script:OtterActiveNet.Add($clientTcp)
+
+                Invoke-OtterWebSocketHandlers -Socket $Server -EventKind ([NetworkEventKind]::Connection) -Context @{
+                    IncomingConnection = $clientTcp
+                }
+            }
+        }
+    } catch [OtterError] {
+        throw
+    } catch {
+        if ($Server.State -eq 'listening') {
+            $msg = "The tcp server on port $($Server.BoundPort) failed: $($_.Exception.GetBaseException().Message)"
+            Send-OtterNetError -Socket $Server -Message $msg
+        }
     }
 }
 
@@ -588,6 +649,9 @@ function Step-OtterUdp {
 }
 
 function Invoke-OtterNetEventLoopStep {
+    foreach ($srv in @($script:OtterActiveTcpServers)) {
+        Step-OtterTcpServer -Server $srv
+    }
     foreach ($n in @($script:OtterActiveNet)) {
         if (Test-OtterTcp $n) { Step-OtterTcp -Tcp $n } else { Step-OtterUdp -Udp $n }
     }
@@ -595,6 +659,13 @@ function Invoke-OtterNetEventLoopStep {
 
 # True while some net object could still produce an event a handler cares about.
 function Test-OtterNetActive {
+    foreach ($srv in $script:OtterActiveTcpServers) {
+        if ($srv.State -eq 'listening') {
+            if ($script:OtterWebSocketHandlers.ContainsKey($srv) -and $script:OtterWebSocketHandlers[$srv].Count -gt 0) {
+                return $true
+            }
+        }
+    }
     foreach ($n in $script:OtterActiveNet) {
         if (-not $script:OtterWebSocketHandlers.ContainsKey($n)) { continue }
         if ($script:OtterWebSocketHandlers[$n].Count -eq 0) { continue }
@@ -915,6 +986,7 @@ function Invoke-OtterProgram {
     $script:OtterWebSocketHandlers = [System.Collections.Generic.Dictionary[object, System.Collections.Generic.List[hashtable]]]::new()
     $script:OtterCurrentWsContext = $null
     $script:OtterActiveNet = [System.Collections.Generic.List[object]]::new()
+    $script:OtterActiveTcpServers = [System.Collections.Generic.List[OtterTcpServer]]::new()
 
     try {
         Invoke-OtterStatements -Statements $Program.Statements -Environment $Environment
@@ -941,6 +1013,7 @@ function Invoke-OtterProgram {
         foreach ($w in @($script:OtterActiveWatchers)) { Stop-OtterFileWatcherInternal -Watcher $w }
         foreach ($ws in @($script:OtterActiveWebSockets)) { Close-OtterWebSocketInternal -Socket $ws }
         foreach ($net in @($script:OtterActiveNet)) { Close-OtterNetInternal -Socket $net }
+        foreach ($srv in @($script:OtterActiveTcpServers)) { Stop-OtterTcpServerInternal -Server $srv }
     }
 }
 
@@ -2211,6 +2284,69 @@ function Invoke-OtterStatement {
             return
         }
 
+        # listen for tcp [on "127.0.0.1"] on port 8080 and call it server (D113)
+        'TcpListen' {
+            $addrVal = '127.0.0.1'
+            if ($null -ne $Statement.AddressExpr) {
+                $rawAddr = Get-OtterValue -Expression $Statement.AddressExpr -Environment $Environment
+                if ($rawAddr -isnot [string] -or [string]::IsNullOrWhiteSpace($rawAddr)) {
+                    throw (New-OtterRuntimeError `
+                        -Message "I need text for a tcp bind address, but this is $(Get-OtterTypeName -Value $rawAddr)." `
+                        -Line $Statement.Line `
+                        -Suggestion 'listen for tcp on "127.0.0.1" on port 8080 and call it server')
+                }
+                $addrVal = $rawAddr.Trim()
+            }
+            $portVal = Get-OtterValue -Expression $Statement.Port -Environment $Environment
+            $portNum = Get-OtterNetPort -Value $portVal -Line $Statement.Line -AllowZero
+
+            $ip = $null
+            if (-not [System.Net.IPAddress]::TryParse($addrVal, [ref]$ip)) {
+                try {
+                    $addrs = [System.Net.Dns]::GetHostAddresses($addrVal) | Where-Object { $_.AddressFamily -eq [System.Net.Sockets.AddressFamily]::InterNetwork }
+                    if ($addrs.Count -gt 0) {
+                        $ip = $addrs[0]
+                    }
+                } catch {}
+                if ($null -eq $ip) {
+                    throw (New-OtterRuntimeError `
+                        -Message "I could not resolve the bind address ""$addrVal""." `
+                        -Line $Statement.Line)
+                }
+            }
+
+            try {
+                $listener = [System.Net.Sockets.TcpListener]::new($ip, $portNum)
+                $listener.Start()
+            } catch {
+                throw (New-OtterRuntimeError `
+                    -Message "I could not start a tcp server on ${addrVal} port ${portNum}: $($_.Exception.GetBaseException().Message)" `
+                    -Line $Statement.Line)
+            }
+
+            $actualEp = $listener.LocalEndpoint -as [System.Net.IPEndPoint]
+            $actualPort = $actualEp.Port
+            $actualAddr = $actualEp.Address.ToString()
+
+            $srv = [OtterTcpServer]::new($listener, $actualAddr, $actualPort)
+            $script:OtterActiveTcpServers.Add($srv)
+            $Environment.Set($Statement.Target, $srv)
+            return
+        }
+
+        # stop tcp server                                              (D113)
+        'TcpStop' {
+            $srv = Get-OtterValue -Expression $Statement.Server -Environment $Environment
+            if (-not (Test-OtterTcpServer $srv)) {
+                throw (New-OtterRuntimeError `
+                    -Message "I can only stop a tcp server, but this is $(Get-OtterTypeName -Value $srv)." `
+                    -Line $Statement.Line `
+                    -Suggestion 'stop tcp server')
+            }
+            Stop-OtterTcpServerInternal -Server $srv
+            return
+        }
+
         # send "Hello" through socket                                  (D106)
         'WebSocketSend' {
             $ws = Get-OtterValue -Expression $Statement.Socket -Environment $Environment
@@ -2329,11 +2465,24 @@ function Invoke-OtterStatement {
         }
 
         # on open/message/close/error of socket                        (D106)
+        # on connect of / on data from                                 (D107, D108)
+        # on connection to                                             (D113)
         'WebSocketEvent' {
             $ws = Get-OtterValue -Expression $Statement.Socket -Environment $Environment
-            if (-not ((Test-OtterWebSocket $ws) -or (Test-OtterTcp $ws) -or (Test-OtterUdp $ws))) {
+            if (-not ((Test-OtterWebSocket $ws) -or (Test-OtterTcp $ws) -or (Test-OtterUdp $ws) -or (Test-OtterTcpServer $ws))) {
                 throw (New-OtterRuntimeError `
-                    -Message "I can only listen for a network event on a websocket, tcp connection or udp socket, but this is $(Get-OtterTypeName -Value $ws)." `
+                    -Message "I can only listen for a network event on a websocket, tcp connection, tcp server or udp socket, but this is $(Get-OtterTypeName -Value $ws)." `
+                    -Line $Statement.Line)
+            }
+            if (Test-OtterTcpServer $ws) {
+                if ($Statement.EventKind.ToString() -notin @('Connection', 'Error')) {
+                    throw (New-OtterRuntimeError `
+                        -Message "A tcp server only supports ""on connection to"" or ""on error of""." `
+                        -Line $Statement.Line)
+                }
+            } elseif ($Statement.EventKind.ToString() -eq 'Connection') {
+                throw (New-OtterRuntimeError `
+                    -Message """on connection to"" is only valid for a tcp server, but this is $(Get-OtterTypeName -Value $ws)." `
                     -Line $Statement.Line)
             }
             if (-not $script:OtterWebSocketHandlers.ContainsKey($ws)) {
@@ -4015,6 +4164,18 @@ function Get-OtterValue {
                         return $target.RemoteHost
                     }
                     'remote port' { return [double]$target.RemotePort }
+                    'local address' {
+                        if ($target.State -eq 'connected' -and $null -ne $target.Client.Client.LocalEndPoint) {
+                            return ([System.Net.IPEndPoint]$target.Client.Client.LocalEndPoint).Address.ToString()
+                        }
+                        return '127.0.0.1'
+                    }
+                    'local port' {
+                        if ($target.State -eq 'connected' -and $null -ne $target.Client.Client.LocalEndPoint) {
+                            return [double]([System.Net.IPEndPoint]$target.Client.Client.LocalEndPoint).Port
+                        }
+                        return 0.0
+                    }
                     'tls version' {
                         if (-not $target.IsSecure -or $target.State -ne 'connected') {
                             throw (New-OtterRuntimeError `
@@ -4036,7 +4197,20 @@ function Get-OtterValue {
                     }
                     default {
                         throw (New-OtterRuntimeError `
-                            -Message "A tcp connection has no property called ""$($Expression.Property)"". Try state, remote address, remote port, tls version, or tls protocol." `
+                            -Message "A tcp connection has no property called ""$($Expression.Property)"". Try state, remote address, remote port, local address, local port, tls version, or tls protocol." `
+                            -Line $Expression.Line)
+                    }
+                }
+            }
+            # D113: state / local address / local port of a tcp server
+            if (Test-OtterTcpServer $target) {
+                switch ($Expression.Property) {
+                    'state' { return $target.State }
+                    'local address' { return $target.BoundAddress }
+                    'local port' { return [double]$target.BoundPort }
+                    default {
+                        throw (New-OtterRuntimeError `
+                            -Message "A tcp server has no property called ""$($Expression.Property)"". Try state, local address, or local port." `
                             -Line $Expression.Line)
                     }
                 }
@@ -4470,6 +4644,20 @@ function Get-OtterValue {
             }
             return ($ws.State -eq $targetState)
         }
+        # D113: server is listening / server is stopped
+        'TcpServerIsState' {
+            $srv = Get-OtterValue -Expression $Expression.Server -Environment $Environment
+            if (-not (Test-OtterTcpServer $srv)) {
+                throw (New-OtterRuntimeError `
+                    -Message "I can only ask about the state of a tcp server, but this is $(Get-OtterTypeName -Value $srv)." `
+                    -Line $Expression.Line)
+            }
+            $targetState = switch ($Expression.ServerState) {
+                ([TcpServerState]::Listening) { 'listening' }
+                ([TcpServerState]::Stopped) { 'stopped' }
+            }
+            return ($srv.State -eq $targetState)
+        }
         'ReceivedMessage' {
             if ($null -eq $script:OtterCurrentWsContext -or -not $script:OtterCurrentWsContext.ContainsKey('Message')) {
                 throw (New-OtterRuntimeError `
@@ -4627,12 +4815,14 @@ function Get-OtterValue {
                 'sender address' { 'SenderAddress' }
                 'sender port' { 'SenderPort' }
                 'network error' { 'NetError' }
+                'incoming connection' { 'IncomingConnection' }
             }
             $netWhere = switch ($Expression.Field) {
                 'data' { 'on data from ...' }
                 'sender address' { 'a udp "on data from ..."' }
                 'sender port' { 'a udp "on data from ..."' }
                 'network error' { 'on error of ...' }
+                'incoming connection' { 'on connection to ...' }
             }
             if ($null -eq $script:OtterCurrentWsContext -or -not $script:OtterCurrentWsContext.ContainsKey($netKey)) {
                 throw (New-OtterRuntimeError `
@@ -5191,6 +5381,7 @@ function Get-OtterTypeName {
     if (Test-OtterWebSocket $Value) { return 'a websocket' }
     if (Test-OtterTcp $Value) { return 'a tcp connection' }
     if (Test-OtterUdp $Value) { return 'a udp socket' }
+    if (Test-OtterTcpServer $Value) { return 'a tcp server' }
     if (Test-OtterList $Value) { return 'a list' }
     if ($Value -is [double] -or $Value -is [int] -or $Value -is [long]) { return 'a number' }
     if ($Value -is [string]) { return 'some text' }
