@@ -162,11 +162,8 @@ creation.
 -   [x] Decimal/money-safe numeric strategy
 -   [x] Unicode string semantics
 -   [x] Grapheme-safe string operations
--   [ ] Binary/byte data (real gap: no byte-array/binary value type exists
-    anywhere in the runtime - would need a genuinely new Contract-level
-    value type and syntax decision, not something to add unilaterally)
--   [ ] Buffers (same gap as binary/byte data - buffers presuppose bytes,
-    which do not exist yet)
+-   [x] Binary/byte data (D102: `bytes` value type introduced with explicit representation boundaries; text/hex/base64 conversions; empty bytes; byte indexing; mutable assignment; constant-time comparison in D109/D114; certified on console and web targets via tests/Bytes.Tests.ps1)
+-   [x] Buffers (D102: OtterBytes backed by byte[] in PowerShell/.NET runtime and Uint8Array in JavaScript target; integrated across D109 cryptography and D114 Web Crypto)
 -   [x] Streams
 -   [x] Immutable/read-only values if demonstrated necessary (decided: not
     needed - no real dogfooding case across this project has demonstrated
@@ -404,10 +401,7 @@ creation.
     see SPEC-DECISIONS.md D72)
 -   [x] Safe overwrite
 -   [x] Text encodings
--   [ ] Binary read/write (real gap, blocked on the same missing
-    binary/byte value type noted in Section 3 - `read`/`write` only ever
-    handle text (`Read-OtterFile` is a UTF-8 `ReadAllText`); no path
-    reads/writes raw bytes today)
+-   [ ] Binary read/write (real gap: while the D102 `bytes` value type now exists in the runtime, dedicated binary file I/O syntax such as `read bytes from <path>` has not been designed or added; `read`/`write` handle UTF-8 text)
 -   [ ] Random-access file IO (real gap: confirmed no `.Seek`/random-
     access file API anywhere Otter code can reach - `read`/`write` are
     always whole-file operations)
@@ -884,7 +878,7 @@ creation.
     receives a message`. Not attempted in this pass)
 -   [ ] WebSocket server (same gap, one level bigger - would extend
     D51's existing web-server-route infrastructure)
--   [x] TCP client (D107, console/desktop; servers reserved as `listen for tcp`; was: real gap, and notably NOT something the current web-only
+-   [x] TCP client (D107, console/desktop; tests/Tcp.Tests.ps1; D113 added TCP server via `listen for tcp on port N and call it server`, tests/TcpServer.Tests.ps1; was: real gap, and notably NOT something the current web-only
     HTTP model could ever reach even if built - browsers cannot open raw
     TCP sockets at all, a fundamental JS security restriction. Raw
     sockets would need to be a console/desktop-target capability using
@@ -1174,18 +1168,8 @@ creation.
     sha512, but none of those are appropriate for password storage -
     no dedicated slow/salted password-hashing function (bcrypt/PBKDF2/
     Argon2-style) is exposed as its own statement)
--   [ ] Constant-time primitives (fixed a real checkbox/note
-    inconsistency - this was marked [x] while its own note said "leaving
-    this unchecked rather than overclaiming". D92's tag comparison IS
-    constant-time, but hand-implemented rather than delegated to a
-    vetted library, because `System.Security.Cryptography.
-    CryptographicOperations.FixedTimeEquals` does not exist on this
-    project's .NET Framework 4.8 runtime - there is no vetted library to
-    delegate to here, so honestly this stays unchecked as originally
-    intended)
--   [ ] TLS provider (real gap, and notably blocked on the same missing
-    raw-socket capability Section 13 already found TCP/UDP blocked on -
-    nothing to wrap a TLS layer around exists yet)
+-   [x] Constant-time primitives (D109/D114: `expected securely equals actual` provides full-length bitwise XOR comparison without short-circuiting across both interpreter and Web Crypto/JS targets; certified in tests/Crypto.Tests.ps1 and tests/Web.Tests.ps1)
+-   [x] TLS provider (D112: TLS client over TCP implemented via SslStream on console/desktop target; syntax: `connect to tcp "host" on port 443 securely and call it socket`, `connection is secure`, `certificate host of socket`; certified in tests/Tls.Tests.ps1)
 -   [x] Keychain (D111, Windows Credential Manager only; other OS providers pending)/Credential Manager/libsecret providers (real gap,
     genuinely distinct from the already-shipped D81 "Secure secret
     storage" above, not a duplicate: D81 is Otter's own private DPAPI-

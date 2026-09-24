@@ -65,7 +65,8 @@ function Get-OtterJsHttpOptionsSetup {
     $needsOptsVar = ($Options.Headers.Count -gt 0) -or ($null -ne $Options.WithCookies) -or ($null -ne $Options.FollowRedirects) -or ($null -ne $Options.TimeoutSeconds)
     if (-not $needsOptsVar) { return $result }
 
-    $result.SetupLines.Add("${Inner}const _opts = Object.assign({}, $BaseOptsJs);")
+    $init = if ($BaseOptsJs) { $BaseOptsJs } else { '{}' }
+    $result.SetupLines.Add("${Inner}const _opts = Object.assign({}, $init);")
     if ($Options.Headers.Count -gt 0) {
         $headerEntries = @(foreach ($h in $Options.Headers) {
             $nameJs = ConvertTo-OtterJsExpression -Expr $h.Name
@@ -1326,6 +1327,12 @@ function ConvertTo-OtterJsExpression {
             # a desktop bridge only has one on Windows specifically.
             $keyPathJs = ConvertTo-OtterJsExpression -Expr $Expr.KeyPath
             return "(await otterRegistryKeyExists($keyPathJs))"
+        }
+        ([NodeKind]::QueryBetweenExpr) {
+            throw [OtterError]::new('Database queries are not supported on the web target.', $Expr.Line, 'runtime')
+        }
+        ([NodeKind]::QueryInExpr) {
+            throw [OtterError]::new('Database queries are not supported on the web target.', $Expr.Line, 'runtime')
         }
         default {
             return "null"
@@ -2740,11 +2747,12 @@ function ConvertTo-OtterJsStatement {
             $target = $Stmt.Target
             $readBody = if ($Stmt.AsJson) { 'res.json()' } else { 'res.text()' }
             $inner = '  ' * ($Indent + 1)
-            $opts = Get-OtterJsHttpOptionsSetup -Options $Stmt.Options -BaseOptsJs '{}' -Inner $inner
+            $opts = Get-OtterJsHttpOptionsSetup -Options $Stmt.Options -BaseOptsJs '' -Inner $inner
             $lines = [System.Collections.Generic.List[string]]::new()
             $lines.Add("${pad}{")
             $lines.AddRange($opts.SetupLines)
-            $lines.Add("${inner}const res = await fetch($url, $($opts.OptsVarJs));")
+            $fetchCall = if ($opts.OptsVarJs) { "fetch($url, $($opts.OptsVarJs))" } else { "fetch($url)" }
+            $lines.Add("${inner}const res = await $fetchCall;")
             if ($opts.TeardownLine) { $lines.Add($opts.TeardownLine) }
             $lines.Add("${inner}const $target = await $readBody; window.$target = $target;")
             $lines.Add("${pad}}")
@@ -3666,6 +3674,17 @@ function ConvertTo-OtterJsStatement {
                 }
             }
         }
+        ([NodeKind]::ConnectDb) { throw [OtterError]::new('Database providers are not supported on the web target. Browsers cannot connect directly to databases.', $Stmt.Line, 'runtime') }
+        ([NodeKind]::DisconnectDb) { throw [OtterError]::new('Database providers are not supported on the web target. Browsers cannot connect directly to databases.', $Stmt.Line, 'runtime') }
+        ([NodeKind]::DbQuery) { throw [OtterError]::new('Database providers are not supported on the web target. Browsers cannot connect directly to databases.', $Stmt.Line, 'runtime') }
+        ([NodeKind]::DbExecute) { throw [OtterError]::new('Database providers are not supported on the web target. Browsers cannot connect directly to databases.', $Stmt.Line, 'runtime') }
+        ([NodeKind]::BeginTransaction) { throw [OtterError]::new('Database providers are not supported on the web target. Browsers cannot connect directly to databases.', $Stmt.Line, 'runtime') }
+        ([NodeKind]::CommitTransaction) { throw [OtterError]::new('Database providers are not supported on the web target. Browsers cannot connect directly to databases.', $Stmt.Line, 'runtime') }
+        ([NodeKind]::RollbackTransaction) { throw [OtterError]::new('Database providers are not supported on the web target. Browsers cannot connect directly to databases.', $Stmt.Line, 'runtime') }
+        ([NodeKind]::GetTables) { throw [OtterError]::new('Database providers are not supported on the web target. Browsers cannot connect directly to databases.', $Stmt.Line, 'runtime') }
+        ([NodeKind]::GetColumns) { throw [OtterError]::new('Database providers are not supported on the web target. Browsers cannot connect directly to databases.', $Stmt.Line, 'runtime') }
+        ([NodeKind]::QueryStmt) { throw [OtterError]::new('Database providers are not supported on the web target. Browsers cannot connect directly to databases.', $Stmt.Line, 'runtime') }
+        ([NodeKind]::QueryAggregateStmt) { throw [OtterError]::new('Database providers are not supported on the web target. Browsers cannot connect directly to databases.', $Stmt.Line, 'runtime') }
         default {
             return ""
         }
@@ -3895,6 +3914,13 @@ function Test-OtterJsExpressionNeedsAsync {
         ([NodeKind]::PropertyAccess) { return (Test-OtterJsExpressionNeedsAsync $Expression.Target) }
         ([NodeKind]::DateDifferenceValue) { return (Test-OtterJsExpressionNeedsAsync $Expression.Start) -or (Test-OtterJsExpressionNeedsAsync $Expression.End) }
         ([NodeKind]::XmlFrom) { return $Expression.Source -eq [XmlSourceKind]::File }
+        ([NodeKind]::XmlTextOfNameIn) { return (Test-OtterJsExpressionNeedsAsync $Expression.Xml) }
+        ([NodeKind]::XmlAttribute) { return (Test-OtterJsExpressionNeedsAsync $Expression.Target) }
+        ([NodeKind]::XmlSelect) { return (Test-OtterJsExpressionNeedsAsync $Expression.Xml) }
+        ([NodeKind]::XmlElementExists) { return (Test-OtterJsExpressionNeedsAsync $Expression.Xml) }
+        ([NodeKind]::XmlHasAttribute) { return (Test-OtterJsExpressionNeedsAsync $Expression.Xml) }
+        ([NodeKind]::XmlToText) { return (Test-OtterJsExpressionNeedsAsync $Expression.Source) }
+        ([NodeKind]::DateFromText) { return (Test-OtterJsExpressionNeedsAsync $Expression.Text) -or (Test-OtterJsExpressionNeedsAsync $Expression.Format) }
         ([NodeKind]::Call) {
             foreach ($argument in $Expression.Arguments) {
                 if (Test-OtterJsExpressionNeedsAsync $argument) { return $true }
@@ -3938,6 +3964,27 @@ function Test-OtterJsBodyNeedsAsync {
         if ($s.Kind -eq [NodeKind]::Assign -and (Test-OtterJsExpressionNeedsAsync $s.Value)) { return $true }
         if ($s.Kind -eq [NodeKind]::MathInto -and (Test-OtterJsExpressionNeedsAsync $s.Expression)) { return $true }
         if ($s.Kind -eq [NodeKind]::Return -and (Test-OtterJsExpressionNeedsAsync $s.Value)) { return $true }
+        if ($s.Kind -eq [NodeKind]::AddTo -and (Test-OtterJsExpressionNeedsAsync $s.Amount)) { return $true }
+        if ($s.Kind -eq [NodeKind]::RemoveFrom -and (Test-OtterJsExpressionNeedsAsync $s.Amount)) { return $true }
+        if ($s.Kind -eq [NodeKind]::SetKey -and ((Test-OtterJsExpressionNeedsAsync $s.Key) -or (Test-OtterJsExpressionNeedsAsync $s.Value))) { return $true }
+        if ($s.Kind -eq [NodeKind]::ListDef) {
+            foreach ($item in $s.Items) { if (Test-OtterJsExpressionNeedsAsync $item) { return $true } }
+        }
+        if ($s.Kind -eq [NodeKind]::ObjectDef) {
+            foreach ($p in $s.Properties) { if (Test-OtterJsExpressionNeedsAsync $p.Value) { return $true } }
+        }
+        if ($s.Kind -eq [NodeKind]::FormatDate -and ((Test-OtterJsExpressionNeedsAsync $s.Date) -or (Test-OtterJsExpressionNeedsAsync $s.Format))) { return $true }
+        if ($s.Kind -eq [NodeKind]::DateAdjust -and (Test-OtterJsExpressionNeedsAsync $s.Amount)) { return $true }
+        if ($s.Kind -eq [NodeKind]::DateDifference -and ((Test-OtterJsExpressionNeedsAsync $s.Start) -or (Test-OtterJsExpressionNeedsAsync $s.End))) { return $true }
+        if ($s.Kind -eq [NodeKind]::Split -and ((Test-OtterJsExpressionNeedsAsync $s.Source) -or (Test-OtterJsExpressionNeedsAsync $s.Delimiter))) { return $true }
+        if ($s.Kind -eq [NodeKind]::Join -and ((Test-OtterJsExpressionNeedsAsync $s.Source) -or (Test-OtterJsExpressionNeedsAsync $s.Delimiter))) { return $true }
+        if ($s.Kind -eq [NodeKind]::Replace -and ((Test-OtterJsExpressionNeedsAsync $s.Find) -or (Test-OtterJsExpressionNeedsAsync $s.ReplaceWith))) { return $true }
+        if ($s.Kind -eq [NodeKind]::Find -and ((Test-OtterJsExpressionNeedsAsync $s.Collection) -or (Test-OtterJsExpressionNeedsAsync $s.Condition))) { return $true }
+        if (($s.Kind -in @([NodeKind]::ConvertToJson, [NodeKind]::ConvertFromJson, [NodeKind]::ConvertToCsv, [NodeKind]::ConvertFromCsv)) -and (Test-OtterJsExpressionNeedsAsync $s.Source)) { return $true }
+        if ($s.Kind -eq [NodeKind]::Fail -and (Test-OtterJsExpressionNeedsAsync $s.Message)) { return $true }
+        if ($s.Kind -eq [NodeKind]::XmlSetText -and ((Test-OtterJsExpressionNeedsAsync $s.Target) -or (Test-OtterJsExpressionNeedsAsync $s.Value))) { return $true }
+        if ($s.Kind -eq [NodeKind]::XmlSetAttribute -and ((Test-OtterJsExpressionNeedsAsync $s.Target) -or (Test-OtterJsExpressionNeedsAsync $s.Value))) { return $true }
+        if ($s.Kind -eq [NodeKind]::XmlAddElement -and ((Test-OtterJsExpressionNeedsAsync $s.Target) -or (Test-OtterJsExpressionNeedsAsync $s.Text))) { return $true }
         if ($s.Kind -eq [NodeKind]::Say) {
             # SayStmt's real field is Parts, not Values - a `say (file "x"
             # exists)`-style async subexpression inside a function body
@@ -3947,6 +3994,9 @@ function Test-OtterJsBodyNeedsAsync {
             # always-empty, check - found by direct testing, not assumed).
             foreach ($value in $s.Parts) { if (Test-OtterJsExpressionNeedsAsync $value) { return $true } }
         }
+        if ($s.Kind -eq [NodeKind]::Diagnostic) {
+            foreach ($p in $s.Parts) { if (Test-OtterJsExpressionNeedsAsync $p) { return $true } }
+        }
         if ($s.Kind -eq [NodeKind]::If) {
             foreach ($branch in $s.Branches) {
                 if (Test-OtterJsExpressionNeedsAsync $branch.Condition) { return $true }
@@ -3955,6 +4005,9 @@ function Test-OtterJsBodyNeedsAsync {
             if ($s.ElseBody -and (Test-OtterJsBodyNeedsAsync -Statements $s.ElseBody)) { return $true }
         }
         if ($s.Kind -eq [NodeKind]::While -and (Test-OtterJsExpressionNeedsAsync $s.Condition)) { return $true }
+        if ($s.Kind -eq [NodeKind]::Repeat -and (Test-OtterJsExpressionNeedsAsync $s.Count)) { return $true }
+        if ($s.Kind -eq [NodeKind]::CountLoop -and ((Test-OtterJsExpressionNeedsAsync $s.Start) -or (Test-OtterJsExpressionNeedsAsync $s.End))) { return $true }
+        if ($s.Kind -eq [NodeKind]::ForEach -and (Test-OtterJsExpressionNeedsAsync $s.Collection)) { return $true }
         if (($s.Kind -eq [NodeKind]::While -or $s.Kind -eq [NodeKind]::Repeat -or `
              $s.Kind -eq [NodeKind]::CountLoop -or $s.Kind -eq [NodeKind]::ForEach) -and `
             (Test-OtterJsBodyNeedsAsync -Statements $s.Body)) {

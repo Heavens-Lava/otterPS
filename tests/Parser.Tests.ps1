@@ -1723,5 +1723,68 @@ try {
 }
 if (-not $errPassed) { throw 'Expected error for reserved listen securely for tcp.' }
 
-Write-Output 'Parser tests passed.'
+# D102: bytes AST nodes
+$d102Code = @"
+b1 is bytes from text "hello"
+b2 is bytes from hex "deadbeef"
+b3 is bytes from base64 "aGVsbG8="
+b4 is empty bytes
+s1 is text from bytes b1
+s2 is hex from bytes b1
+s3 is base64 from bytes b1
+"@
+$d102Ast = ConvertTo-OtterAst (ConvertTo-OtterTokens $d102Code)
+if ($d102Ast.Statements.Count -ne 7) { throw "Expected 7 statements in d102Ast, got $($d102Ast.Statements.Count)." }
+if ($d102Ast.Statements[0].Value.Kind -ne [NodeKind]::Bytes -or $d102Ast.Statements[0].Value.Op -ne [BytesOp]::FromText) { throw 'Expected BytesExpr FromText.' }
+if ($d102Ast.Statements[1].Value.Kind -ne [NodeKind]::Bytes -or $d102Ast.Statements[1].Value.Op -ne [BytesOp]::FromHex) { throw 'Expected BytesExpr FromHex.' }
+if ($d102Ast.Statements[2].Value.Kind -ne [NodeKind]::Bytes -or $d102Ast.Statements[2].Value.Op -ne [BytesOp]::FromBase64) { throw 'Expected BytesExpr FromBase64.' }
+if ($d102Ast.Statements[3].Value.Kind -ne [NodeKind]::Bytes -or $d102Ast.Statements[3].Value.Op -ne [BytesOp]::Empty) { throw 'Expected BytesExpr Empty.' }
+if ($d102Ast.Statements[4].Value.Kind -ne [NodeKind]::Bytes -or $d102Ast.Statements[4].Value.Op -ne [BytesOp]::ToText) { throw 'Expected BytesExpr ToText.' }
+if ($d102Ast.Statements[5].Value.Kind -ne [NodeKind]::Bytes -or $d102Ast.Statements[5].Value.Op -ne [BytesOp]::ToHex) { throw 'Expected BytesExpr ToHex.' }
+if ($d102Ast.Statements[6].Value.Kind -ne [NodeKind]::Bytes -or $d102Ast.Statements[6].Value.Op -ne [BytesOp]::ToBase64) { throw 'Expected BytesExpr ToBase64.' }
 
+# D109: cryptography AST nodes
+$d109Code = @"
+r is secure random bytes 32
+h is sha256 of b1
+m is hmac sha256 of b1 using b2
+generate encryption key and call it k
+encrypt b1 using k and call it ct
+decrypt ct using k and call it pt
+hash password "pass" and call it hashed
+if password "pass" matches hash hashed
+    say "match"
+.
+if b1 securely equals b2
+    say "equal"
+.
+"@
+$d109Ast = ConvertTo-OtterAst (ConvertTo-OtterTokens $d109Code)
+if ($d109Ast.Statements.Count -ne 9) { throw "Expected 9 statements in d109Ast, got $($d109Ast.Statements.Count)." }
+if ($d109Ast.Statements[0].Value.Kind -ne [NodeKind]::SecureRandomBytes) { throw 'Expected SecureRandomBytesExpr.' }
+if ($d109Ast.Statements[1].Value.Kind -ne [NodeKind]::CryptoHash -or $d109Ast.Statements[1].Value.Algorithm -ne 'sha256') { throw 'Expected CryptoHashExpr sha256.' }
+if ($d109Ast.Statements[2].Value.Kind -ne [NodeKind]::CryptoHmac -or $d109Ast.Statements[2].Value.Algorithm -ne 'sha256') { throw 'Expected CryptoHmacExpr sha256.' }
+if ($d109Ast.Statements[3].Kind -ne [NodeKind]::GenerateKey -or $d109Ast.Statements[3].Target -ne 'k') { throw 'Expected GenerateKeyStmt.' }
+if ($d109Ast.Statements[4].Kind -ne [NodeKind]::CryptoCipher -or $d109Ast.Statements[4].IsDecrypt -ne $false) { throw 'Expected CryptoCipherStmt encrypt.' }
+if ($d109Ast.Statements[5].Kind -ne [NodeKind]::CryptoCipher -or $d109Ast.Statements[5].IsDecrypt -ne $true) { throw 'Expected CryptoCipherStmt decrypt.' }
+if ($d109Ast.Statements[6].Kind -ne [NodeKind]::HashPassword -or $d109Ast.Statements[6].Target -ne 'hashed') { throw 'Expected HashPasswordStmt.' }
+if ($d109Ast.Statements[7].Branches[0].Condition.Kind -ne [NodeKind]::PasswordMatches) { throw 'Expected PasswordMatchesExpr.' }
+if ($d109Ast.Statements[8].Branches[0].Condition.Kind -ne [NodeKind]::SecurelyEquals) { throw 'Expected SecurelyEqualsExpr.' }
+
+# D111: vault AST nodes
+$d111Code = @"
+store secret "tok" with value "val"
+delete secret "tok"
+t is secret "tok"
+if secret "tok" exists
+    say "exists"
+.
+"@
+$d111Ast = ConvertTo-OtterAst (ConvertTo-OtterTokens $d111Code)
+if ($d111Ast.Statements.Count -ne 4) { throw "Expected 4 statements in d111Ast, got $($d111Ast.Statements.Count)." }
+if ($d111Ast.Statements[0].Kind -ne [NodeKind]::StoreSecret) { throw 'Expected StoreSecretStmt.' }
+if ($d111Ast.Statements[1].Kind -ne [NodeKind]::DeleteSecret) { throw 'Expected DeleteSecretStmt.' }
+if ($d111Ast.Statements[2].Value.Kind -ne [NodeKind]::SecretRead) { throw 'Expected SecretReadExpr.' }
+if ($d111Ast.Statements[3].Branches[0].Condition.Kind -ne [NodeKind]::SecretExists) { throw 'Expected SecretExistsExpr.' }
+
+Write-Output 'Parser tests passed.'

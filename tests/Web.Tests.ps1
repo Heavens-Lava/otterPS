@@ -347,8 +347,8 @@ $httpPlainJs = $httpPlainJsLines -join "`n"
 if ($httpPlainJs -match '_opts') {
     throw 'A plain get with no options block should not emit an _opts variable at all.'
 }
-if ($httpPlainJs -notmatch 'await fetch\("https://api\.example\.com/data", \{\}\);') {
-    throw 'Expected a plain get to still call fetch with an empty options object.'
+if ($httpPlainJs -notmatch 'await fetch\("https://api\.example\.com/data"\);') {
+    throw 'Expected a plain get to call fetch without an options object.'
 }
 Write-Output '  pass  get/post/put/delete with no options block is unaffected (D101)'
 
@@ -926,4 +926,80 @@ try {
 
 Write-Output '  pass  Browser-side Crypto (D114) Web Crypto subtle/random, cross-runtime encryption/password parity, vectors, acceptance programs'
 
+# Test 27: Async compiler propagation through mutation, collections, and nested statements (D114.5 audit)
+$asyncPropSource = @"
+to buildCryptoList
+    items are empty
+    add sha256 of "abc" to items
+    return items
+.
+"@
+$asyncPropAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $asyncPropSource)
+$asyncPropJs = ConvertTo-OtterJsStatement -Stmt $asyncPropAst.Statements[0] -Indent 0
+if ($asyncPropJs -notmatch 'const buildCryptoList = async function') {
+    throw 'Expected function with async AddTo statement to be compiled as an async function.'
+}
+Write-Output '  pass  Async compiler propagation through mutation and collections (D114.5)'
+
+# Test 28: Database statement and query expression rejections on web target (D114.5 audit)
+$dbPrograms = @{
+    "ConnectDb" = "connect database into db"
+    "DisconnectDb" = "disconnect db"
+    "DbQuery" = 'query db with "select 1" into rows'
+    "DbExecute" = 'execute db with "delete from tasks" into res'
+    "BeginTransaction" = "begin transaction on db into tx"
+    "CommitTransaction" = "commit tx"
+    "RollbackTransaction" = "rollback tx"
+    "GetTables" = "get tables from db into tables"
+    "GetColumns" = 'get columns from "tasks" in db into cols'
+    "QueryStmt" = "get all from items in db into allItems"
+    "QueryAggregateStmt" = "count all from scores in db into allCount"
+    "QueryBetweenExpr" = "get all from items in db with`n    where score between 10 and 20`ninto res"
+    "QueryInExpr" = "get all from items in db with`n    where id is in allowed`ninto res"
+}
+
+foreach ($entry in $dbPrograms.GetEnumerator()) {
+    $kind = $entry.Key
+    $source = $entry.Value
+    $caught = $false
+    try {
+        $tokens = ConvertTo-OtterTokens -Source $source
+        $ast = ConvertTo-OtterAst -Tokens $tokens
+        $html = ConvertTo-OtterWeb -Program $ast
+    } catch {
+        if ($_.Exception.Message -match 'Database (providers|queries) are not supported on the web target') {
+            $caught = $true
+        } else {
+            throw "Expected DB rejection diagnostic for $kind, but got: $($_.Exception.Message)"
+        }
+    }
+    if (-not $caught) {
+        throw "Expected DB statement $kind to be rejected on web target, but compilation succeeded."
+    }
+}
+
+# Standalone query expression rejections
+try {
+    $eb = [QueryBetweenExpr]::new([VariableExpr]::new('x', 1), [LiteralExpr]::new(1, 1), [LiteralExpr]::new(10, 1), 1)
+    ConvertTo-OtterJsExpression -Expr $eb | Out-Null
+    throw "Expected QueryBetweenExpr to be rejected on web target."
+} catch {
+    if ($_.Exception.Message -notmatch 'Database queries are not supported on the web target') {
+        throw "Unexpected error for QueryBetweenExpr: $($_.Exception.Message)"
+    }
+}
+
+try {
+    $ei = [QueryInExpr]::new([VariableExpr]::new('x', 1), [VariableExpr]::new('list', 1), $false, 1)
+    ConvertTo-OtterJsExpression -Expr $ei | Out-Null
+    throw "Expected QueryInExpr to be rejected on web target."
+} catch {
+    if ($_.Exception.Message -notmatch 'Database queries are not supported on the web target') {
+        throw "Unexpected error for QueryInExpr: $($_.Exception.Message)"
+    }
+}
+
+Write-Output '  pass  Database provider and query rejections on web target for all 13 DB NodeKinds (D114.5)'
+
 Write-Output 'Web compiler tests passed.'
+
