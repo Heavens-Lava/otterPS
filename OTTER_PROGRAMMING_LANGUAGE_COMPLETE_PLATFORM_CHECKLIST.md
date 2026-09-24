@@ -400,8 +400,7 @@ creation.
     a real .NET Framework `File.Replace(...,null)` bug along the way -
     see SPEC-DECISIONS.md D72)
 -   [x] Safe overwrite
--   [x] Text encodings
--   [ ] Binary read/write (real gap: while the D102 `bytes` value type now exists in the runtime, dedicated binary file I/O syntax such as `read bytes from <path>` has not been designed or added; `read`/`write` handle UTF-8 text)
+-   [x] Binary read/write (D115: whole-file binary I/O using D102 bytes; `data is bytes from file <path>` expression, `write bytes <data> to file <path> [atomically]` statement; whole-file replacement/truncation; atomic temp-file replace/move preserving existing destination on failure; console/desktop supported, web target rejected with clean diagnostic; certified in tests/Bytes.Tests.ps1)
 -   [ ] Random-access file IO (real gap: confirmed no `.Seek`/random-
     access file API anywhere Otter code can reach - `read`/`write` are
     always whole-file operations)

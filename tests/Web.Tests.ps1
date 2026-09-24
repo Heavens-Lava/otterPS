@@ -1001,5 +1001,31 @@ try {
 
 Write-Output '  pass  Database provider and query rejections on web target for all 13 DB NodeKinds (D114.5)'
 
+# Test 29: Binary file I/O rejections on web target (D115)
+$binaryFilePrograms = @(
+    'data is bytes from file "photo.png"'
+    'write bytes data to file "copy.png"'
+    'write bytes data to file "copy.png" atomically'
+)
+foreach ($prog in $binaryFilePrograms) {
+    $caught = $false
+    try {
+        $tokens = ConvertTo-OtterTokens -Source $prog
+        $ast = ConvertTo-OtterAst -Tokens $tokens
+        $html = ConvertTo-OtterWeb -Program $ast
+    } catch {
+        if ($_.Exception.Message -match 'Binary file access is not supported on the web target') {
+            $caught = $true
+        } else {
+            throw "Expected binary file rejection diagnostic, but got: $($_.Exception.Message)"
+        }
+    }
+    if (-not $caught) {
+        throw "Expected '$prog' to be rejected on web target, but compilation succeeded."
+    }
+}
+Write-Output '  pass  Binary file access rejected on web target for BytesFromFile and WriteBytesFile (D115)'
+
 Write-Output 'Web compiler tests passed.'
+
 

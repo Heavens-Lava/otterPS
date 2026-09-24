@@ -1787,4 +1787,21 @@ if ($d111Ast.Statements[1].Kind -ne [NodeKind]::DeleteSecret) { throw 'Expected 
 if ($d111Ast.Statements[2].Value.Kind -ne [NodeKind]::SecretRead) { throw 'Expected SecretReadExpr.' }
 if ($d111Ast.Statements[3].Branches[0].Condition.Kind -ne [NodeKind]::SecretExists) { throw 'Expected SecretExistsExpr.' }
 
+# D115: binary file I/O AST nodes
+$d115Code = @"
+b is bytes from file "photo.png"
+write bytes b to file "copy.png"
+write bytes b to file "copy.png" atomically
+"@
+$d115Ast = ConvertTo-OtterAst (ConvertTo-OtterTokens $d115Code)
+if ($d115Ast.Statements.Count -ne 3) { throw "Expected 3 statements in d115Ast, got $($d115Ast.Statements.Count)." }
+if ($d115Ast.Statements[0].Value.Kind -ne [NodeKind]::BytesFromFile) { throw 'Expected BytesFromFileExpr.' }
+if ($d115Ast.Statements[0].Value.Path.Value -ne 'photo.png') { throw 'Expected photo.png path in BytesFromFileExpr.' }
+if ($d115Ast.Statements[1].Kind -ne [NodeKind]::WriteBytesFile) { throw 'Expected WriteBytesFileStmt.' }
+if ($d115Ast.Statements[1].Atomic -ne $false) { throw 'Expected Atomic = false on plain write bytes.' }
+if ($d115Ast.Statements[1].Data.Name -ne 'b' -or $d115Ast.Statements[1].Path.Value -ne 'copy.png') { throw 'Expected data and path on WriteBytesFileStmt.' }
+if ($d115Ast.Statements[2].Kind -ne [NodeKind]::WriteBytesFile) { throw 'Expected WriteBytesFileStmt.' }
+if ($d115Ast.Statements[2].Atomic -ne $true) { throw 'Expected Atomic = true on atomic write bytes.' }
+
 Write-Output 'Parser tests passed.'
+

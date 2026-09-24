@@ -658,6 +658,10 @@ enum NodeKind {
     QueryAggregateStmt       # count/sum/average/minimum/maximum from table in db ... into target
     QueryBetweenExpr         # expr between low and high
     QueryInExpr              # expr is in / is not in collection
+
+    # --- Binary File I/O (D115) ---------------------------------
+    BytesFromFile             # EXPRESSION: bytes from file PATH
+    WriteBytesFile            # write bytes DATA to file PATH [atomically]
 }
 
 enum MathOp { Add; Subtract; Multiply; Divide; Percent; Power }   # D88
@@ -3601,6 +3605,29 @@ class QueryInExpr : Node {
         $this.IsNot = $isNot
     }
 }
+
+# D115: Binary File I/O
+
+# bytes from file "photo.png"
+class BytesFromFileExpr : Node {
+    [Node]$Path
+    BytesFromFileExpr([Node]$path, [int]$line) : base([NodeKind]::BytesFromFile, $line) {
+        $this.Path = $path
+    }
+}
+
+# write bytes data to file "copy.png" [atomically]
+class WriteBytesFileStmt : Node {
+    [Node]$Data
+    [Node]$Path
+    [bool]$Atomic
+    WriteBytesFileStmt([Node]$data, [Node]$path, [bool]$atomic, [int]$line) : base([NodeKind]::WriteBytesFile, $line) {
+        $this.Data = $data
+        $this.Path = $path
+        $this.Atomic = $atomic
+    }
+}
+
 
 
 

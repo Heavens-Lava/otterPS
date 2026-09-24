@@ -7181,6 +7181,50 @@ Otter 1.1 provides universal, provider-independent schema introspection capabili
 | `GetTablesStmt` | `[Node]$Connection, [string]$Target, [int]$Line` | `GetTables` |
 | `GetColumnsStmt` | `[Node]$Table, [Node]$Connection, [string]$Target, [int]$Line` | `GetColumns` |
 
+---
+
+## D115. Binary File I/O (`bytes from file`, `write bytes ... to file [atomically]`)
+
+**Authoritative spec:** Jeff's approved D115 specification.
+
+**Decision:**
+Otter 1.0 provides first-class whole-file binary I/O using the existing D102 `bytes` type. Text file I/O remains text file I/O; binary file I/O remains byte file I/O, with zero implicit conversion between text, bytes, lists, or numbers.
+
+### Syntax & Grammar
+
+1. **Read Expression:**
+   ```otter
+   data is bytes from file "photo.png"
+   ```
+   - An expression: `bytes from file <path-expression>`.
+   - Reads the entire file exactly as stored without text decoding, BOM processing, or newline conversion.
+   - Zero-length file returns `empty bytes` (count 0).
+   - Nonexistent file or directory fails with a clean Otter runtime error.
+
+2. **Write Statement:**
+   ```otter
+   write bytes data to file "copy.png"
+   write bytes data to file "settings.bin" atomically
+   ```
+   - General form: `write bytes <bytes-expression> to file <path-expression> [atomically]`.
+   - The data expression MUST evaluate to D102 `bytes`; non-bytes values fail with a clean Otter diagnostic (`"Binary file writes require bytes."`).
+   - Non-atomic write replaces/truncates the destination file.
+   - Atomic write writes bytes to a temporary file in the same directory (`.otter-tmp-<guid>`), then replaces/moves onto the destination using host atomic replacement (`File.Replace` / `File.Move`).
+   - If atomic replacement fails, the previous destination remains intact and all temporary artifacts are cleaned.
+
+### Target Support
+
+- **Console / Desktop Target:** Fully supported via native host binary filesystem APIs (`[System.IO.File]::ReadAllBytes` / `WriteAllBytes`).
+- **Web Target:** Unsupported in D115. `bytes from file` and `write bytes` fail during web compilation with: `"Binary file access is not supported on the web target."`
+
+### Shared AST Contract
+
+| AST Node | Parameters | NodeKind |
+|---|---|---|
+| `BytesFromFileExpr` | `[Node]$Path, [int]$Line` | `BytesFromFile` |
+| `WriteBytesFileStmt` | `[Node]$Data, [Node]$Path, [bool]$Atomic, [int]$Line` | `WriteBytesFile` |
+
+
 
 
 

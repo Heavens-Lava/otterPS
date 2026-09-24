@@ -232,6 +232,81 @@ function Write-OtterFile {
     }
 }
 
+# bytes from file "photo.png"                                     (D115)
+function Read-OtterFileBytes {
+    param([string]$Path, [int]$Line)
+
+    $full = Resolve-OtterPath -Path $Path -Line $Line
+
+    if (Test-Path -LiteralPath $full -PathType Container) {
+        throw [OtterError]::new("`"$Path`" is a folder, not a file.", $Line, 'runtime')
+    }
+
+    if (-not (Test-Path -LiteralPath $full -PathType Leaf)) {
+        throw [OtterError]::new(
+            "I could not find a file called `"$Path`".",
+            $Line, 'runtime', 0, $null,
+            "if file `"$Path`" exists")
+    }
+
+    try {
+        $bytes = [System.IO.File]::ReadAllBytes($full)
+        if ($null -eq $bytes) { $bytes = [byte[]]@() }
+        return [OtterBytes]::new($bytes)
+    }
+    catch {
+        throw [OtterError]::new("I could not read bytes from `"$Path`". $($_.Exception.Message)", $Line, 'runtime')
+    }
+}
+
+# write bytes data to file "copy.png" [atomically]                (D115)
+function Write-OtterFileBytes {
+    param([string]$Path, [object]$Bytes, [int]$Line, [bool]$Atomic = $false)
+
+    if (-not (Test-OtterBytes $Bytes)) {
+        throw [OtterError]::new("Binary file writes require bytes, but this is $(Get-OtterTypeName -Value $Bytes).", $Line, 'runtime')
+    }
+
+    $full = Resolve-OtterPath -Path $Path -Line $Line
+    Initialize-OtterParentFolder -FullPath $full -Line $Line
+
+    if (Test-Path -LiteralPath $full -PathType Container) {
+        throw [OtterError]::new("`"$Path`" is a folder, not a file.", $Line, 'runtime')
+    }
+
+    $rawBytes = $Bytes.Value
+    if ($null -eq $rawBytes) { $rawBytes = [byte[]]@() }
+
+    if (-not $Atomic) {
+        try {
+            [System.IO.File]::WriteAllBytes($full, $rawBytes)
+        }
+        catch {
+            throw [OtterError]::new("I could not write bytes to `"$Path`". $($_.Exception.Message)", $Line, 'runtime')
+        }
+        return
+    }
+
+    $tempPath = $full + '.otter-tmp-' + [Guid]::NewGuid().ToString('N').Substring(0, 8)
+    $backupPath = $full + '.otter-bak-' + [Guid]::NewGuid().ToString('N').Substring(0, 8)
+    try {
+        [System.IO.File]::WriteAllBytes($tempPath, $rawBytes)
+        if (Test-Path -LiteralPath $full -PathType Leaf) {
+            [System.IO.File]::Replace($tempPath, $full, $backupPath)
+            Remove-Item -LiteralPath $backupPath -Force -ErrorAction SilentlyContinue
+        } else {
+            [System.IO.File]::Move($tempPath, $full)
+        }
+    }
+    catch {
+        if (Test-Path -LiteralPath $tempPath) {
+            Remove-Item -LiteralPath $tempPath -Force -ErrorAction SilentlyContinue
+        }
+        throw [OtterError]::new("I could not write bytes to `"$Path`". $($_.Exception.Message)", $Line, 'runtime')
+    }
+}
+
+
 # append "line one" to "log.txt"                                  (D61)
 function Add-OtterFileContent {
     param([string]$Path, [string]$Content, [int]$Line)
@@ -2612,4 +2687,5 @@ Export-ModuleMember -Function `
     Invoke-OtterRemoteCommand, Invoke-OtterSshCommand, `
     New-OtterZipArchive, Expand-OtterZipArchive, `
     Get-OtterHash, `
-    Protect-OtterText, Unprotect-OtterText
+    Protect-OtterText, Unprotect-OtterText, `
+    Read-OtterFileBytes, Write-OtterFileBytes

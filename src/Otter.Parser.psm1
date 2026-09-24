@@ -381,12 +381,17 @@ function Read-OtterValue {
         [void](Read-OtterToken) # bytes
         [void](Read-OtterToken) # from
         $encWord = Get-OtterCurrentToken
+        if ($encWord.Kind -eq [TokenKind]::File -or ($encWord.Kind -eq [TokenKind]::Identifier -and $encWord.Text -eq 'file')) {
+            [void](Read-OtterToken)
+            $filePath = Read-OtterValue
+            return [BytesFromFileExpr]::new($filePath, $token.Line)
+        }
         $op = if ($encWord.Kind -eq [TokenKind]::Identifier -and $encWord.Text -eq 'text') { [BytesOp]::FromText }
               elseif ($encWord.Kind -eq [TokenKind]::Identifier -and $encWord.Text -eq 'hex') { [BytesOp]::FromHex }
               elseif ($encWord.Kind -eq [TokenKind]::Identifier -and $encWord.Text -eq 'base64') { [BytesOp]::FromBase64 }
               else { $null }
         if ($null -eq $op) {
-            throw (New-OtterParserError "I expected ""text"", ""hex"", or ""base64"" after ""bytes from""." $encWord 'Write: bytes from text "Hello", bytes from hex "48656C6C6F", or bytes from base64 "SGVsbG8="')
+            throw (New-OtterParserError "I expected ""file"", ""text"", ""hex"", or ""base64"" after ""bytes from""." $encWord 'Write: bytes from file "photo.png", bytes from text "Hello", bytes from hex "48656C6C6F", or bytes from base64 "SGVsbG8="')
         }
         [void](Read-OtterToken)
         return [BytesExpr]::new($op, (Read-OtterValue), $token.Line)
@@ -4065,6 +4070,22 @@ function Read-OtterStatement {
                 $xmlPath = Read-OtterValue
                 [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the write xml statement to end here.')
                 return [XmlWriteFileStmt]::new($xmlExpr, $xmlPath, $start.Line)
+            }
+            # write bytes data to file "copy.png" [atomically]      (D115)
+            if ((Get-OtterCurrentToken).Kind -eq [TokenKind]::Identifier -and (Get-OtterCurrentToken).Text -eq 'bytes') {
+                [void](Read-OtterToken)
+                $dataExpr = Read-OtterValue -PropertyTarget
+                [void](Assert-OtterTokenKind ([TokenKind]::To) 'I expected "to" and a file path.' 'Write: write bytes data to file "copy.png"')
+                [void](Assert-OtterTokenKind ([TokenKind]::File) 'I expected "file" and a path.' 'Write: write bytes data to file "copy.png"')
+                $filePath = Read-OtterValue
+                $atomic = $false
+                $atomicWord = Get-OtterCurrentToken
+                if ($atomicWord.Kind -eq [TokenKind]::Identifier -and $atomicWord.Text -eq 'atomically') {
+                    [void](Read-OtterToken)
+                    $atomic = $true
+                }
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the write bytes statement to end here.')
+                return [WriteBytesFileStmt]::new($dataExpr, $filePath, $atomic, $start.Line)
             }
             $content = Read-OtterValue
             [void](Assert-OtterTokenKind ([TokenKind]::To) 'I expected "to" and a file path.')

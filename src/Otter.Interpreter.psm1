@@ -1526,6 +1526,14 @@ function Invoke-OtterStatement {
             return
         }
 
+        # write bytes data to file "copy.png" [atomically]          (D115)
+        'WriteBytesFile' {
+            $bytes = Get-OtterValue -Expression $Statement.Data -Environment $Environment
+            $path = Get-OtterPathArgument -Expression $Statement.Path -Environment $Environment
+            Write-OtterFileBytes -Path $path -Bytes $bytes -Line $Statement.Line -Atomic $Statement.Atomic
+            return
+        }
+
         # append "line one" to "log.txt"                            (D61)
         'AppendFile' {
             $content = Get-OtterText -Expression $Statement.Content -Environment $Environment
@@ -4570,6 +4578,12 @@ function Get-OtterValue {
                     return [System.Convert]::ToBase64String($bytesValue.Value)
                 }
             }
+        }
+
+        # D115: bytes from file <path>
+        'BytesFromFile' {
+            $path = Get-OtterPathArgument -Expression $Expression.Path -Environment $Environment
+            return (Read-OtterFileBytes -Path $path -Line $Expression.Line)
         }
 
         # dataWatcher is watching                                         (D104)

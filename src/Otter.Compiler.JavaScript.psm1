@@ -1334,6 +1334,9 @@ function ConvertTo-OtterJsExpression {
         ([NodeKind]::QueryInExpr) {
             throw [OtterError]::new('Database queries are not supported on the web target.', $Expr.Line, 'runtime')
         }
+        ([NodeKind]::BytesFromFile) {
+            throw [OtterError]::new('Binary file access is not supported on the web target.', $Expr.Line, 'runtime')
+        }
         default {
             return "null"
         }
@@ -3685,6 +3688,7 @@ function ConvertTo-OtterJsStatement {
         ([NodeKind]::GetColumns) { throw [OtterError]::new('Database providers are not supported on the web target. Browsers cannot connect directly to databases.', $Stmt.Line, 'runtime') }
         ([NodeKind]::QueryStmt) { throw [OtterError]::new('Database providers are not supported on the web target. Browsers cannot connect directly to databases.', $Stmt.Line, 'runtime') }
         ([NodeKind]::QueryAggregateStmt) { throw [OtterError]::new('Database providers are not supported on the web target. Browsers cannot connect directly to databases.', $Stmt.Line, 'runtime') }
+        ([NodeKind]::WriteBytesFile) { throw [OtterError]::new('Binary file access is not supported on the web target.', $Stmt.Line, 'runtime') }
         default {
             return ""
         }
