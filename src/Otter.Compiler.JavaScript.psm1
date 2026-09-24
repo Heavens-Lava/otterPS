@@ -927,6 +927,9 @@ function ConvertTo-OtterJsExpression {
         ([NodeKind]::NetContext) {
             throw [OtterError]::new('TCP/UDP is not supported on the web target.', $Expr.Line, 'runtime')
         }
+        ([NodeKind]::ConnectionIsSecure) {
+            throw [OtterError]::new('TCP/TLS is not supported on the web target. Browsers cannot open raw TCP or TLS sockets.', $Expr.Line, 'runtime')
+        }
         ([NodeKind]::WebSocketIsState) {
             $targetJs = ConvertTo-OtterJsExpression -Expr $Expr.Socket
             $stateStr = $Expr.ConnState.ToString().ToLowerInvariant()

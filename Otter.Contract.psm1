@@ -621,11 +621,12 @@ enum NodeKind {
     # --- TCP / UDP (D107/D108) - console/desktop only; web reports unsupported. --
     # Events ride WebSocketEvent (Connect/Data kinds), send-through rides
     # WebSocketSend, states ride WebSocketIsState - dispatched on runtime type.
-    TcpConnect                # connect to tcp HOST on port N and call it X
+    TcpConnect                # connect to tcp HOST on port N and call it X (D107, D112)
     UdpOpen                   # open udp [on port N] and call it X
     UdpSend                   # send B through S to HOST on port N
     NetClose                  # close tcp X / close udp X
     NetContext                # EXPRESSION ambient in net events: received data / sender address / sender port / network error
+    ConnectionIsSecure        # a CONDITION: connection is secure (D112)
 
     # --- Cryptography (D109) - console/desktop only; web reports unsupported. --
     SecureRandomBytes         # EXPRESSION: secure random bytes N
@@ -3256,14 +3257,40 @@ class WebSocketErrorExpr : Node {
 # datagrams) that share the D106 event/state/send node shapes.
 
 # connect to tcp "host" on port 8080 and call it connection
+# connect securely to tcp "host" on port 443 [for server S] [using protocol[s] P] and call it connection
 class TcpConnectStmt : Node {
     [Node]$HostExpr
     [Node]$Port
     [string]$Target
+    [bool]$IsSecure
+    [Node]$ServerName
+    [Node]$Protocols
+
+    TcpConnectStmt([Node]$hostExpr, [Node]$port, [string]$target, [bool]$isSecure, [Node]$serverName, [Node]$protocols, [int]$line) : base([NodeKind]::TcpConnect, $line) {
+        $this.HostExpr = $hostExpr
+        $this.Port = $port
+        $this.Target = $target
+        $this.IsSecure = $isSecure
+        $this.ServerName = $serverName
+        $this.Protocols = $protocols
+    }
+
+    # Backward-compatible D107 constructor for plain TCP
     TcpConnectStmt([Node]$hostExpr, [Node]$port, [string]$target, [int]$line) : base([NodeKind]::TcpConnect, $line) {
         $this.HostExpr = $hostExpr
         $this.Port = $port
         $this.Target = $target
+        $this.IsSecure = $false
+        $this.ServerName = $null
+        $this.Protocols = $null
+    }
+}
+
+# connection is secure (D112)
+class ConnectionIsSecureExpr : Node {
+    [Node]$Connection
+    ConnectionIsSecureExpr([Node]$connection, [int]$line) : base([NodeKind]::ConnectionIsSecure, $line) {
+        $this.Connection = $connection
     }
 }
 

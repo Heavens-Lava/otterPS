@@ -1480,5 +1480,120 @@ if ($wsAst.Statements[10].Branches[0].Condition.Kind -ne [NodeKind]::WebSocketIs
 if ($wsAst.Statements[11].Branches[0].Condition.Kind -ne [NodeKind]::WebSocketIsState -or $wsAst.Statements[11].Branches[0].Condition.ConnState -ne [WebSocketConnState]::Closing) { throw 'Expected is closing state.' }
 if ($wsAst.Statements[12].Branches[0].Condition.Kind -ne [NodeKind]::WebSocketIsState -or $wsAst.Statements[12].Branches[0].Condition.ConnState -ne [WebSocketConnState]::Closed) { throw 'Expected is closed state.' }
 
+# --- D112: TLS over TCP -----------------------------------------------------
+
+$tlsCode = @"
+connect to tcp "127.0.0.1" on port 8080 and call it plainConn
+connect securely to tcp "example.com" on port 443 and call it secConn
+connect securely to tcp "192.0.2.10"
+    on port 443
+    for server "api.example.com"
+    and call it sniConn
+connect securely to tcp host
+    on port 443
+    using protocol "http/1.1"
+    and call it alpnSingle
+connect securely to tcp host
+    on port 443
+    using protocols protoList
+    and call it alpnMulti
+connect securely to tcp "10.0.0.1"
+    for server "vault.example.com"
+    using protocol "h2"
+    on port 8443
+    and call it combinedConn
+if secConn is secure
+    say "encrypted"
+.
+ver is tls version of secConn
+proto is tls protocol of secConn
+"@
+
+$tlsAst = ConvertTo-OtterAst (ConvertTo-OtterTokens $tlsCode)
+if ($tlsAst.Statements.Count -ne 9) { throw "Expected 9 statements in tlsAst, got $($tlsAst.Statements.Count)." }
+
+# 0: plain D107 TCP
+$plainStmt = $tlsAst.Statements[0]
+if ($plainStmt.Kind -ne [NodeKind]::TcpConnect) { throw 'Expected TcpConnect node for stmt 0.' }
+if ($plainStmt.IsSecure -ne $false) { throw 'Expected IsSecure false for plain TCP.' }
+if ($plainStmt.Target -ne 'plainConn') { throw 'Expected target plainConn.' }
+if ($null -ne $plainStmt.ServerName) { throw 'Expected ServerName null for plain TCP.' }
+if ($null -ne $plainStmt.Protocols) { throw 'Expected Protocols null for plain TCP.' }
+
+# 1: canonical secure TCP
+$secStmt = $tlsAst.Statements[1]
+if ($secStmt.Kind -ne [NodeKind]::TcpConnect) { throw 'Expected TcpConnect node for stmt 1.' }
+if ($secStmt.IsSecure -ne $true) { throw 'Expected IsSecure true for secure TCP.' }
+if ($secStmt.Target -ne 'secConn') { throw 'Expected target secConn.' }
+if ($null -ne $secStmt.ServerName) { throw 'Expected ServerName null for stmt 1.' }
+if ($null -ne $secStmt.Protocols) { throw 'Expected Protocols null for stmt 1.' }
+
+# 2: SNI override
+$sniStmt = $tlsAst.Statements[2]
+if ($sniStmt.Kind -ne [NodeKind]::TcpConnect) { throw 'Expected TcpConnect node for stmt 2.' }
+if ($sniStmt.IsSecure -ne $true) { throw 'Expected IsSecure true for stmt 2.' }
+if ($null -eq $sniStmt.ServerName -or $sniStmt.ServerName.Value -ne 'api.example.com') { throw 'Expected ServerName api.example.com for stmt 2.' }
+
+# 3: ALPN single protocol
+$alpnStmt = $tlsAst.Statements[3]
+if ($alpnStmt.Kind -ne [NodeKind]::TcpConnect) { throw 'Expected TcpConnect node for stmt 3.' }
+if ($null -eq $alpnStmt.Protocols -or $alpnStmt.Protocols.Value -ne 'http/1.1') { throw 'Expected Protocols http/1.1 for stmt 3.' }
+
+# 4: ALPN multiple protocols
+$alpnMultiStmt = $tlsAst.Statements[4]
+if ($alpnMultiStmt.Kind -ne [NodeKind]::TcpConnect) { throw 'Expected TcpConnect node for stmt 4.' }
+if ($null -eq $alpnMultiStmt.Protocols -or $alpnMultiStmt.Protocols.Name -ne 'protoList') { throw 'Expected Protocols protoList for stmt 4.' }
+
+# 5: combined clauses with out-of-order layout
+$combStmt = $tlsAst.Statements[5]
+if ($combStmt.Kind -ne [NodeKind]::TcpConnect) { throw 'Expected TcpConnect node for stmt 5.' }
+if ($combStmt.IsSecure -ne $true) { throw 'Expected IsSecure true for stmt 5.' }
+if ($combStmt.ServerName.Value -ne 'vault.example.com') { throw 'Expected ServerName vault.example.com for stmt 5.' }
+if ($combStmt.Protocols.Value -ne 'h2') { throw 'Expected Protocols h2 for stmt 5.' }
+if ($combStmt.Port.Value -ne 8443) { throw 'Expected Port 8443 for stmt 5.' }
+if ($combStmt.Target -ne 'combinedConn') { throw 'Expected Target combinedConn for stmt 5.' }
+
+# 6: connection is secure condition
+$ifStmt = $tlsAst.Statements[6]
+if ($ifStmt.Branches[0].Condition.Kind -ne [NodeKind]::ConnectionIsSecure) { throw 'Expected ConnectionIsSecure node.' }
+if ($ifStmt.Branches[0].Condition.Connection.Name -ne 'secConn') { throw 'Expected Connection name secConn.' }
+
+# 7: tls version of
+$verStmt = $tlsAst.Statements[7]
+if ($verStmt.Value.Kind -ne [NodeKind]::PropertyAccess) { throw 'Expected PropertyAccess for tls version.' }
+if ($verStmt.Value.Property -ne 'tls version') { throw 'Expected Property tls version.' }
+if ($verStmt.Value.Target.Name -ne 'secConn') { throw 'Expected Target secConn for tls version.' }
+
+# 8: tls protocol of
+$protoStmt = $tlsAst.Statements[8]
+if ($protoStmt.Value.Kind -ne [NodeKind]::PropertyAccess) { throw 'Expected PropertyAccess for tls protocol.' }
+if ($protoStmt.Value.Property -ne 'tls protocol') { throw 'Expected Property tls protocol.' }
+if ($protoStmt.Value.Target.Name -ne 'secConn') { throw 'Expected Target secConn for tls protocol.' }
+
+# Error cases
+$errPassed = $false
+try {
+    ConvertTo-OtterAst (ConvertTo-OtterTokens 'connect securely to tcp "example.com" and call it c')
+} catch {
+    if ($_.Exception.Message -match 'on port') { $errPassed = $true }
+}
+if (-not $errPassed) { throw 'Expected error for missing port in connect securely to tcp.' }
+
+$errPassed = $false
+try {
+    ConvertTo-OtterAst (ConvertTo-OtterTokens 'connect securely to websocket "wss://example.com" and call it c')
+} catch {
+    if ($_.Exception.Message -match 'tcp') { $errPassed = $true }
+}
+if (-not $errPassed) { throw 'Expected error for connect securely to websocket.' }
+
+$errPassed = $false
+try {
+    ConvertTo-OtterAst (ConvertTo-OtterTokens 'connect securely "example.com" on port 443 and call it c')
+} catch {
+    if ($_.Exception.Message -match 'to tcp') { $errPassed = $true }
+}
+if (-not $errPassed) { throw 'Expected error for connect securely without to tcp.' }
+
 Write-Output 'Parser tests passed.'
 

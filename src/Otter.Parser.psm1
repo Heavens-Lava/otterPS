@@ -601,6 +601,14 @@ function Read-OtterValue {
             [void](Read-OtterToken)
             return [PropertyAccessExpr]::new("remote $($netNext.Text)", (Read-OtterValue -PropertyTarget), $token.Line)
         }
+        # D112: tls version of X / tls protocol of X
+        if ($token.Text -eq 'tls' -and ($netNext.Text -eq 'version' -or $netNext.Text -eq 'protocol') -and
+            (Test-OtterTokenOffsetKind 2 ([TokenKind]::Of))) {
+            [void](Read-OtterToken)
+            [void](Read-OtterToken)
+            [void](Read-OtterToken)
+            return [PropertyAccessExpr]::new("tls $($netNext.Text)", (Read-OtterValue -PropertyTarget), $token.Line)
+        }
     }
     # D105: XML. All leading words here (xml/pretty/element/elements/
     # child/children/attribute) are ordinary, unreserved identifiers
@@ -940,6 +948,14 @@ function Read-OtterConditionPrimary {
             [void](Read-OtterToken) # state word
             return [WebSocketIsStateExpr]::new($left, $wsConnState, $isWord.Line)
         }
+    }
+    # D112: `connection is secure`
+    if ((Get-OtterCurrentToken).Kind -eq [TokenKind]::Is -and ($script:Position + 1) -lt $script:Tokens.Count -and
+        $script:Tokens[$script:Position + 1].Kind -eq [TokenKind]::Identifier -and
+        $script:Tokens[$script:Position + 1].Text -eq 'secure') {
+        $isWord = Read-OtterToken
+        [void](Read-OtterToken) # secure
+        return [ConnectionIsSecureExpr]::new($left, $isWord.Line)
     }
     # D105: `book has attribute "id"` - "has" is already a reserved
     # TokenKind (used elsewhere for thing-property declarations), so
@@ -2071,7 +2087,7 @@ function Read-OtterQueryAggregateStatement {
 # callers must NOT assert a Newline afterwards.
 function Read-OtterNetClauses {
     param([string]$EndMessage = 'I expected this statement to end here.')
-    $result = @{ Host = $null; Port = $null; Target = $null }
+    $result = @{ Host = $null; Port = $null; Target = $null; ServerName = $null; Protocols = $null }
     $depth = 0
     while ($true) {
         $current = Get-OtterCurrentToken
@@ -2103,6 +2119,23 @@ function Read-OtterNetClauses {
             [void](Read-OtterToken)
             [void](Read-OtterToken)
             $result.Port = Read-OtterValue
+            continue
+        }
+        # D112: for server <server-name-expression>
+        if ($current.Text -eq 'for' -and $null -eq $result.ServerName -and
+            ($script:Position + 1) -lt $script:Tokens.Count -and $script:Tokens[$script:Position + 1].Text -eq 'server') {
+            [void](Read-OtterToken)
+            [void](Read-OtterToken)
+            $result.ServerName = Read-OtterValue
+            continue
+        }
+        # D112: using protocol <protocol-expression> / using protocols <protocols-expression>
+        if ($current.Text -eq 'using' -and $null -eq $result.Protocols -and
+            ($script:Position + 1) -lt $script:Tokens.Count -and
+            ($script:Tokens[$script:Position + 1].Text -eq 'protocol' -or $script:Tokens[$script:Position + 1].Text -eq 'protocols')) {
+            [void](Read-OtterToken)
+            [void](Read-OtterToken)
+            $result.Protocols = Read-OtterValue
             continue
         }
         if ($current.Kind -eq [TokenKind]::And -and (Test-OtterTokenOffsetKind 1 ([TokenKind]::Call)) -and $null -eq $result.Target) {
@@ -4048,25 +4081,39 @@ function Read-OtterStatement {
         }
         # connect database into db                                     (D97)
         # connect to websocket "wss://..." [using protocol P] and call it X  (D106)
+        # connect to tcp "host" on port P and call it X                     (D107)
+        # connect securely to tcp "host" on port P [for server S] [using protocol[s] P] and call it X (D112)
         ([TokenKind]::Connect) {
             [void](Read-OtterToken)
+            $isSecure = $false
+            if ((Get-OtterCurrentToken).Kind -eq [TokenKind]::Identifier -and (Get-OtterCurrentToken).Text -eq 'securely') {
+                [void](Read-OtterToken)
+                $isSecure = $true
+                if ((Get-OtterCurrentToken).Kind -ne [TokenKind]::To) {
+                    throw (New-OtterParserError 'I expected "to tcp" after "connect securely".' (Get-OtterCurrentToken) 'Write: connect securely to tcp "example.com" on port 443 and call it connection')
+                }
+            }
             # D106: "to" right after "connect" is unambiguous - D97's own
             # config expression never legitimately starts with the
             # reserved "to" token, so no backtracking is needed here.
             if ((Get-OtterCurrentToken).Kind -eq [TokenKind]::To) {
                 [void](Read-OtterToken)
-                # D107: connect to tcp <host> on port <port> and call it <name>
+                # D107, D112: connect [securely] to tcp <host> on port <port> and call it <name>
                 if ((Get-OtterCurrentToken).Kind -eq [TokenKind]::Identifier -and (Get-OtterCurrentToken).Text -eq 'tcp') {
                     [void](Read-OtterToken)
                     $tcpHost = Read-OtterValue
-                    $tcpClauses = Read-OtterNetClauses 'I expected "on port" and "and call it" in the connect statement.'
+                    $verbPrefix = if ($isSecure) { 'connect securely to tcp' } else { 'connect to tcp' }
+                    $tcpClauses = Read-OtterNetClauses "I expected `"on port`" and `"and call it`" in the $verbPrefix statement."
                     if ($null -eq $tcpClauses.Port) {
-                        throw (New-OtterParserError 'I expected "on port <number>" in "connect to tcp".' $start 'Write: connect to tcp "localhost" on port 9000 and call it connection')
+                        throw (New-OtterParserError "I expected `"on port <number>`" in `"$verbPrefix`"." $start "Write: $verbPrefix `"localhost`" on port 9000 and call it connection")
                     }
                     if ($null -eq $tcpClauses.Target) {
-                        throw (New-OtterParserError 'I expected "and call it" and a name in "connect to tcp".' $start 'Write: connect to tcp "localhost" on port 9000 and call it connection')
+                        throw (New-OtterParserError "I expected `"and call it`" and a name in `"$verbPrefix`"." $start "Write: $verbPrefix `"localhost`" on port 9000 and call it connection")
                     }
-                    return [TcpConnectStmt]::new($tcpHost, $tcpClauses.Port, $tcpClauses.Target, $start.Line)
+                    return [TcpConnectStmt]::new($tcpHost, $tcpClauses.Port, $tcpClauses.Target, $isSecure, $tcpClauses.ServerName, $tcpClauses.Protocols, $start.Line)
+                }
+                if ($isSecure) {
+                    throw (New-OtterParserError 'I expected "tcp" after "connect securely to".' (Get-OtterCurrentToken) 'Write: connect securely to tcp "example.com" on port 443 and call it connection')
                 }
                 if (-not ((Get-OtterCurrentToken).Kind -eq [TokenKind]::Identifier -and (Get-OtterCurrentToken).Text -eq 'websocket')) {
                     throw (New-OtterParserError 'I expected "websocket" or "tcp" after "connect to".' (Get-OtterCurrentToken) 'Write: connect to websocket "wss://example.com" and call it chat')
