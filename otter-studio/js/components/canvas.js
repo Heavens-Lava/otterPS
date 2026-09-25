@@ -2,11 +2,16 @@
 // Keeps Otter's structured UI model as single source of truth; relies on real browser CSS/Flex/Grid layout engine.
 
 import { ComponentSchema } from '../model/schema.js';
+import { generateOtterSource } from '../compiler/otter-generator.js';
+import { fetchRealRender, applyRealRender } from './real-style.js';
 
 export function renderCanvas(containerEl, uiModel, cssAstManager) {
   let currentDraggedComponentId = null;
   let currentHit = null;
   let isInteractMode = false;
+  let realRender = null;
+  let realRenderTimer = null;
+  let realRenderSerial = 0;
 
   function update() {
     const root = uiModel.getRoot();
@@ -152,11 +157,39 @@ export function renderCanvas(containerEl, uiModel, cssAstManager) {
       contentArea.appendChild(promptEl);
     }
 
+    // Look like the real program: reuse the last real render right away so the
+    // canvas never flashes its own approximation, then refresh it from the
+    // production compiler for the current source.
+    if (realRender) applyRealRender(contentArea, realRender);
+    scheduleRealRender();
+
     // Attach designer interaction layer to viewport (only in Design mode)
     if (!isInteractMode) {
       setupDesignerInteraction(viewportEl, contentArea, root);
       updateOverlay();
     }
+  }
+
+  function scheduleRealRender() {
+    clearTimeout(realRenderTimer);
+    realRenderTimer = setTimeout(async () => {
+      const serial = ++realRenderSerial;
+      try {
+        const code = generateOtterSource(uiModel);
+        const css = cssAstManager ? cssAstManager.generateCss() : '';
+        const real = await fetchRealRender(code, css);
+        if (serial !== realRenderSerial) return;
+        realRender = real;
+        const root = uiModel.getRoot();
+        const area = root && containerEl.querySelector(`#${root.name}`);
+        if (area) {
+          applyRealRender(area, realRender);
+          updateOverlay();
+        }
+      } catch (err) {
+        console.warn('Otter Studio: real render unavailable, showing approximate canvas.', err);
+      }
+    }, 300);
   }
 
   function updateOverlay() {
@@ -413,7 +446,11 @@ export function renderCanvas(containerEl, uiModel, cssAstManager) {
     const schema = ComponentSchema[comp.kind] || {};
     const props = comp.properties || {};
 
-    const el = document.createElement('div');
+    // Real programs render buttons as <button>, which has its own font, box
+    // model and line-height; a <div> would measure differently.
+    const isButtonKind = ['button', 'primary button', 'danger button'].includes(comp.kind);
+    const el = document.createElement(isButtonKind ? 'button' : 'div');
+    if (isButtonKind) el.type = 'button';
     el.id = comp.name; // ID matches CSS selector #compName
     el.className = `canvas-element ${schema.isContainer ? 'is-container' : 'is-control'} ${isInteractMode ? 'is-interactive-mode' : ''}`;
     el.setAttribute('data-id', comp.id);

@@ -1,13 +1,13 @@
 // preview.js - Interactive live runtime preview running the compiled Otter application + CSS
 
-import { compileToHtmlDocument } from '../compiler/web-compiler.js';
+import { generateOtterSource } from '../compiler/otter-generator.js';
 
 export function renderPreview(containerEl, uiModel, cssAstManager) {
   containerEl.innerHTML = `
     <div class="preview-header">
       <div class="preview-controls">
         <span class="preview-status-indicator">●</span>
-        <span class="panel-title">Live Preview (HTML + CSS Engine)</span>
+        <span class="panel-title">Live Preview (real Otter compiler)</span>
         <div class="viewport-toggles">
           <button class="viewport-btn is-active" data-view="desktop" title="Desktop Window">Desktop</button>
           <button class="viewport-btn" data-view="tablet" title="Tablet (768px)">Tablet</button>
@@ -48,9 +48,51 @@ export function renderPreview(containerEl, uiModel, cssAstManager) {
   const logEntriesEl = containerEl.querySelector('#previewLogEntries');
   const clearLogBtn = containerEl.querySelector('#clearLogBtn');
 
+  // The preview is the output of the production compiler (`otter web`), served
+  // by Studio's /api/render - not a Studio-side approximation. Renders are
+  // debounced, and a slower response for older source never overwrites a newer one.
+  let renderTimer = null;
+  let renderSerial = 0;
+  let lastHtml = null;
+
+  async function renderReal() {
+    const serial = ++renderSerial;
+    const code = generateOtterSource(uiModel);
+    const css = cssAstManager ? cssAstManager.generateCss() : '';
+    setStatus('rendering');
+    try {
+      const res = await fetch('/api/render', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, css })
+      });
+      const result = await res.json();
+      if (serial !== renderSerial) return;
+      if (result.ok) {
+        lastHtml = result.html;
+        iframe.srcdoc = result.html;
+        setStatus('ok');
+      } else {
+        setStatus('error', result.message);
+      }
+    } catch (err) {
+      if (serial === renderSerial) setStatus('error', err.message);
+    }
+  }
+
+  function setStatus(state, message) {
+    const dot = containerEl.querySelector('.preview-status-indicator');
+    if (dot) {
+      dot.dataset.state = state;
+      dot.style.color = state === 'ok' ? '#22c55e' : state === 'error' ? '#ef4444' : '#f59e0b';
+      dot.title = state === 'error' ? message : state;
+    }
+    if (state === 'error') addLog(`Render failed: ${message}`);
+  }
+
   function updatePreview() {
-    const docHtml = compileToHtmlDocument(uiModel, cssAstManager);
-    iframe.srcdoc = docHtml;
+    clearTimeout(renderTimer);
+    renderTimer = setTimeout(renderReal, 350);
   }
 
   updatePreview();
@@ -74,7 +116,8 @@ export function renderPreview(containerEl, uiModel, cssAstManager) {
   });
 
   exportBtn.addEventListener('click', () => {
-    const docHtml = compileToHtmlDocument(uiModel, cssAstManager);
+    if (!lastHtml) return;
+    const docHtml = lastHtml;
     const blob = new Blob([docHtml], { type: 'text/html;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');

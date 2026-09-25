@@ -1,6 +1,7 @@
 // serve.mjs - Local web server & real development backend for Otter Studio
 import http from 'node:http';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
@@ -170,6 +171,44 @@ function collectWorkspaceTextFiles(dirPath) {
     else if (entry.isFile() && extensions.has(path.extname(entry.name).toLowerCase())) files.push(fullPath);
   }
   return files;
+}
+
+// Real render: compile Otter source with the production web compiler
+// (`otter.ps1 web`) so Studio previews exactly what a user's program produces.
+// Results are cached by content hash; renders run one at a time.
+const renderCache = new Map();
+let renderQueue = Promise.resolve();
+
+function renderOtterSource(code, css) {
+  const key = crypto.createHash('sha256').update(code + '\u0000' + css).digest('hex').slice(0, 24);
+  if (renderCache.has(key)) return Promise.resolve(renderCache.get(key));
+  const job = renderQueue.then(() => new Promise(resolve => {
+    const dir = path.join(os.tmpdir(), 'otter-studio-render');
+    fs.mkdirSync(dir, { recursive: true });
+    const sourcePath = path.join(dir, `${key}.ot`);
+    const htmlPath = path.join(dir, `${key}.html`);
+    fs.writeFileSync(sourcePath, code, 'utf8');
+    const cssPath = path.join(dir, `${key}.css`);
+    if (css) fs.writeFileSync(cssPath, css, 'utf8'); else fs.rmSync(cssPath, { force: true });
+    execFile('powershell.exe', [
+      '-NoProfile', '-ExecutionPolicy', 'Bypass',
+      '-File', path.join(REPO_ROOT, 'otter.ps1'), 'web', sourcePath, '-NoOpen'
+    ], { cwd: REPO_ROOT, windowsHide: true, timeout: 30000 }, (error, stdout, stderr) => {
+      let result;
+      if (!error && fs.existsSync(htmlPath)) {
+        result = { ok: true, html: fs.readFileSync(htmlPath, 'utf8').replace(/^\uFEFF/, '') };
+        if (renderCache.size > 50) renderCache.delete(renderCache.keys().next().value);
+        renderCache.set(key, result);
+      } else {
+        const text = String(stdout || stderr || (error && error.message) || 'Render failed.').trim();
+        result = { ok: false, message: text };
+      }
+      for (const f of [sourcePath, htmlPath, cssPath]) fs.rmSync(f, { force: true });
+      resolve(result);
+    });
+  }));
+  renderQueue = job;
+  return job;
 }
 
 function analyzeOtterSource(source) {
@@ -603,6 +642,17 @@ const server = http.createServer(async (req, res) => {
       });
     } catch (err) {
       sendJson(res, { error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/render' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const result = await renderOtterSource(String(body.code || ''), String(body.css || ''));
+      sendJson(res, result, result.ok ? 200 : 422);
+    } catch (err) {
+      sendJson(res, { ok: false, message: err.message }, 500);
     }
     return;
   }

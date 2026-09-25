@@ -415,17 +415,7 @@
   position: relative;
 }
 
-.otter-row {
-  display: flex;
-  flex-direction: row;
-  min-height: 38px;
-}
-
-.otter-column {
-  display: flex;
-  flex-direction: column;
-  min-height: 38px;
-}
+/* .otter-row / .otter-column look comes from the real compiler stylesheet (real-style.js). */
 
 .otter-card {
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
