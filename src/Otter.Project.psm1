@@ -197,4 +197,357 @@ function Get-OtterProject {
     return $project
 }
 
-Export-ModuleMember -Function Find-OtterProjectManifest, Get-OtterProject
+function New-OtterProject {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Archetype,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Name,
+
+        [Parameter(Mandatory = $false)]
+        [string]$Path = '.'
+    )
+
+    $validArchetypes = @('console', 'desktop', 'web', 'automation', 'game')
+    $arch = $Archetype.Trim().ToLowerInvariant()
+    if ($validArchetypes -notcontains $arch) {
+        throw [OtterError]::new("Otter: archetype `"$Archetype`" is not supported. Supported archetypes: console, desktop, web, automation, game.", 0, 'check')
+    }
+
+    $cleanName = $Name.Trim()
+    if ([string]::IsNullOrWhiteSpace($cleanName) -or $cleanName -match '[<>:"/\\|?*]') {
+        throw [OtterError]::new("Otter: `"$Name`" is not a valid project name.", 0, 'check')
+    }
+
+    $projectDir = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($Path, $cleanName))
+    if (Test-Path -LiteralPath $projectDir) {
+        $children = @(Get-ChildItem -LiteralPath $projectDir -Force)
+        if ($children.Count -gt 0) {
+            throw [OtterError]::new("Otter: destination folder `"$cleanName`" already exists and is not empty.", 0, 'check')
+        }
+    } else {
+        New-Item -ItemType Directory -Path $projectDir -Force | Out-Null
+    }
+
+    # Folders: src/, tests/, assets/
+    $srcDir = Join-Path $projectDir 'src'
+    $testsDir = Join-Path $projectDir 'tests'
+    $assetsDir = Join-Path $projectDir 'assets'
+    New-Item -ItemType Directory -Path $srcDir -Force | Out-Null
+    New-Item -ItemType Directory -Path $testsDir -Force | Out-Null
+    New-Item -ItemType Directory -Path $assetsDir -Force | Out-Null
+
+    # Template code per archetype
+    $mainCode = ''
+    $targetName = 'console'
+    $assetList = @()
+
+    switch ($arch) {
+        'console' {
+            $targetName = 'console'
+            $mainCode = @"
+# $cleanName - Console Application
+
+say "Hello from $cleanName!"
+"@
+        }
+        'desktop' {
+            $targetName = 'desktop'
+            $assetList = @('assets/styles.css')
+            $mainCode = @"
+# $cleanName - Desktop Application
+
+create window into app
+title of app is "$cleanName"
+
+create button into btn
+text of btn is "Click Me"
+
+put btn in app
+show app
+"@
+            $cssContent = "/* Stylesheet for $cleanName */`nbody { margin: 0; padding: 16px; }`n"
+            Set-Content -LiteralPath (Join-Path $assetsDir 'styles.css') -Value $cssContent -Encoding UTF8
+        }
+        'web' {
+            $targetName = 'web'
+            $assetList = @('assets/styles.css')
+            $mainCode = @"
+# $cleanName - Web Application
+
+app is a page
+    title is "$cleanName"
+.
+
+welcomeText is a text
+    value is "Welcome to $cleanName!"
+.
+
+put welcomeText in app
+show app
+"@
+            $cssContent = "/* Stylesheet for $cleanName */`nbody { margin: 0; font-family: sans-serif; }`n"
+            Set-Content -LiteralPath (Join-Path $assetsDir 'styles.css') -Value $cssContent -Encoding UTF8
+        }
+        'automation' {
+            $targetName = 'console'
+            $mainCode = @"
+# $cleanName - Automation Task
+
+get current directory into cwd
+say "Running automation task in:" cwd
+
+get files in "." into projectFiles
+say "Found" length of projectFiles "files."
+"@
+        }
+        'game' {
+            $targetName = 'game'
+            $assetList = @('assets/styles.css')
+            $mainCode = @"
+# $cleanName - 2D Game
+
+app is a page
+    title is "$cleanName"
+.
+
+gameCanvas is a canvas
+    width is 640
+    height is 480
+    mode is "2d"
+.
+
+put gameCanvas in app
+show app
+"@
+            $cssContent = "/* Stylesheet for $cleanName */`nbody { margin: 0; background: #000; }`n"
+            Set-Content -LiteralPath (Join-Path $assetsDir 'styles.css') -Value $cssContent -Encoding UTF8
+        }
+    }
+
+    # Write main.ot
+    Set-Content -LiteralPath (Join-Path $projectDir 'main.ot') -Value $mainCode -Encoding UTF8
+
+    # Write tests/app_test.ot
+    $testCode = @"
+# Tests for $cleanName
+
+score is 100
+
+if score is not 100
+    fail with "Expected score to be 100."
+.
+
+say "All checks passed"
+"@
+    Set-Content -LiteralPath (Join-Path $testsDir 'app_test.ot') -Value $testCode -Encoding UTF8
+
+    # Write canonical otter.json
+    $assetsJson = if ($assetList.Count -gt 0) {
+        "`n    " + (($assetList | ForEach-Object { ConvertTo-Json -InputObject $_ -Compress }) -join ",`n    ") + "`n  "
+    } else { "" }
+
+    $manifestJson = @"
+{
+  "`$schema": "https://otter-lang.org/schema/project-v1.json",
+  "name": "$cleanName",
+  "version": "0.1.0",
+  "archetype": "$arch",
+  "target": "$targetName",
+  "entryPoint": "main.ot",
+  "assets": [$assetsJson],
+  "build": {
+    "outputDir": "dist",
+    "clean": true
+  },
+  "scripts": {
+    "start": "otter run .",
+    "test": "otter test .",
+    "check": "otter check ."
+  }
+}
+"@
+    Set-Content -LiteralPath (Join-Path $projectDir 'otter.json') -Value $manifestJson -Encoding UTF8
+
+    return Get-OtterProject -Path $projectDir
+}
+
+function Get-OtterProjectTestFiles {
+    param(
+        [Parameter(Mandatory = $false)]
+        [string]$Target
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Target)) {
+        $Target = '.'
+    }
+
+    $trimmed = $Target.Trim()
+
+    # Case 1: Target is directly an existing .ot test file
+    if ($trimmed.ToLowerInvariant().EndsWith('.ot')) {
+        $resolvedFile = Resolve-Path -LiteralPath $trimmed -ErrorAction SilentlyContinue
+        if ($resolvedFile -and (Test-Path -LiteralPath $resolvedFile.Path -PathType Leaf)) {
+            return @($resolvedFile.Path)
+        }
+        throw [OtterError]::new("Otter: I cannot find test file `"$Target`".", 0, 'check')
+    }
+
+    # Case 2: Target is a project directory or '.'
+    $projectRoot = $null
+    $manifestInfo = Find-OtterProjectManifest -Path $trimmed
+    if ($manifestInfo) {
+        $projectRoot = $manifestInfo.RootDirectory
+    } else {
+        # Check if $trimmed is an existing directory
+        $resolvedDir = Resolve-Path -LiteralPath $trimmed -ErrorAction SilentlyContinue
+        if ($resolvedDir -and (Test-Path -LiteralPath $resolvedDir.Path -PathType Container)) {
+            $projectRoot = $resolvedDir.Path
+        } else {
+            throw [OtterError]::new("Otter: I cannot find project or test directory `"$Target`".", 0, 'check')
+        }
+    }
+
+    # Search in <projectRoot>/tests
+    $testsDir = Join-Path $projectRoot 'tests'
+    if (-not (Test-Path -LiteralPath $testsDir -PathType Container)) {
+        if ($trimmed -ne '.' -and (Split-Path -Leaf $projectRoot).ToLowerInvariant() -eq 'tests') {
+            $testsDir = $projectRoot
+        } else {
+            return @()
+        }
+    }
+
+    # Discover *_test.ot and test_*.ot
+    $files = @(Get-ChildItem -LiteralPath $testsDir -Filter '*.ot' -Recurse -File | Where-Object {
+        $name = $_.Name.ToLowerInvariant()
+        $name.EndsWith('_test.ot') -or $name.StartsWith('test_')
+    } | Sort-Object FullName)
+
+    return @($files | ForEach-Object { $_.FullName })
+}
+
+function Invoke-OtterProjectTests {
+    param(
+        [Parameter(Mandatory = $false)]
+        [string]$Target,
+
+        [Parameter(Mandatory = $false)]
+        [string]$OtterPs1Path
+    )
+
+    if (-not $OtterPs1Path) {
+        $OtterPs1Path = Join-Path (Split-Path -Parent $PSScriptRoot) 'otter.ps1'
+    }
+
+    $testFiles = Get-OtterProjectTestFiles -Target $Target
+    if ($testFiles.Count -eq 0) {
+        Write-Host "No tests found." -ForegroundColor Yellow
+        return 0
+    }
+
+    $count = $testFiles.Count
+    $label = if ($count -eq 1) { "1 Otter test" } else { "$count Otter tests" }
+    Write-Host "Running $label..."
+    Write-Host ""
+
+    $passed = 0
+    $failed = 0
+    $syntaxErrors = 0
+    $failureDetails = [System.Collections.Generic.List[string]]::new()
+
+    foreach ($file in $testFiles) {
+        $relPath = if ($Target -and (Test-Path -LiteralPath $Target -PathType Container)) {
+            $resolvedTarget = (Resolve-Path -LiteralPath $Target).Path
+            if ($file.StartsWith($resolvedTarget, [System.StringComparison]::OrdinalIgnoreCase)) {
+                $file.Substring($resolvedTarget.Length).TrimStart('\', '/')
+            } else {
+                Split-Path -Leaf $file
+            }
+        } else {
+            $leaf = Split-Path -Leaf $file
+            $parent = Split-Path -Leaf (Split-Path -Parent $file)
+            if ($parent -and $parent.ToLowerInvariant() -eq 'tests') {
+                "tests/$leaf"
+            } else {
+                $leaf
+            }
+        }
+        $relPath = $relPath -replace '\\', '/'
+
+        # Execute test in isolated PowerShell process
+        $psExe = if ($PSHOME -and (Test-Path -LiteralPath (Join-Path $PSHOME 'powershell.exe') -PathType Leaf)) {
+            Join-Path $PSHOME 'powershell.exe'
+        } else {
+            'powershell.exe'
+        }
+        $output = & $psExe -NoProfile -ExecutionPolicy Bypass -File $OtterPs1Path run $file 2>&1
+        $code = $LASTEXITCODE
+
+        if ($code -eq 0) {
+            Write-Host "PASS $relPath" -ForegroundColor Green
+            $passed++
+        }
+        elseif ($code -eq 2) {
+            Write-Host "FAIL $relPath (syntax error)" -ForegroundColor Red
+            $syntaxErrors++
+            $diagLines = @($output | ForEach-Object { $_.ToString().Trim() } | Where-Object { $_ -ne '' })
+            $detail = "FAIL $relPath (syntax error)`n" + ($diagLines -join "`n")
+            $failureDetails.Add($detail)
+        }
+        else {
+            Write-Host "FAIL $relPath" -ForegroundColor Red
+            $failed++
+
+            $rawLines = @($output | ForEach-Object { $_.ToString() })
+            $errLine = $null
+            $errMsg = $null
+            for ($i = 0; $i -lt $rawLines.Count; $i++) {
+                if ($rawLines[$i] -match '^Line\s+(\d+):') {
+                    $errLine = $matches[1]
+                }
+            }
+
+            # Filter out runtime header and line block to isolate message
+            $filtered = @($rawLines | Where-Object {
+                $t = $_.Trim()
+                $t -ne '' -and $t -notmatch '^(Otter Runtime Error|Line \d+:)' -and $t -notmatch '^\s*fail with\b'
+            })
+            if ($filtered.Count -gt 0) {
+                $errMsg = $filtered[-1].Trim()
+            } else {
+                $errMsg = "Test assertion failed."
+            }
+
+            $loc = if ($errLine) { "${relPath}:${errLine}" } else { $relPath }
+            $detail = "FAIL $loc`n  $errMsg"
+            $failureDetails.Add($detail)
+        }
+    }
+
+    if ($failureDetails.Count -gt 0) {
+        Write-Host ""
+        foreach ($d in $failureDetails) {
+            Write-Host $d -ForegroundColor Red
+            Write-Host ""
+        }
+    }
+
+    Write-Host ""
+    if ($failed -eq 0 -and $syntaxErrors -eq 0) {
+        Write-Host "$passed passed" -ForegroundColor Green
+        return 0
+    }
+
+    $summaryParts = @()
+    if ($passed -gt 0) { $summaryParts += "$passed passed" }
+    $totalFails = $failed + $syntaxErrors
+    $summaryParts += "$totalFails failed"
+    Write-Host ($summaryParts -join ', ') -ForegroundColor Red
+
+    if ($syntaxErrors -gt 0) { return 2 }
+    return 3
+}
+
+Export-ModuleMember -Function Find-OtterProjectManifest, Get-OtterProject, New-OtterProject, Get-OtterProjectTestFiles, Invoke-OtterProjectTests

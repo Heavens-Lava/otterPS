@@ -521,9 +521,11 @@ function Show-OtterHelp {
     Write-Host ''
     Write-Host 'Usage:'
     Write-Host '  otter <file.ot>        Run an Otter program (shortest form)'
-    Write-Host '  otter run <file.ot>    Run an Otter program (explicit form)'
+    Write-Host '  otter run <file.ot>    Run an Otter program or project'
+    Write-Host '  otter check <file.ot>  Validate a program or project without running it'
+    Write-Host '  otter new <type> <name> Create a new Otter project (console, desktop, web, automation, game)'
+    Write-Host '  otter test [target]    Run tests in an Otter project or test file'
     Write-Host '  otter web <file.ot>    Compile an Otter web application to HTML/JS'
-    Write-Host '  otter check <file.ot>  Validate a program without running it'
     Write-Host '  otter desktop <file.ot> Run an Otter Desktop app with system bridge'
     Write-Host '  otter studio           Launch Otter Studio IDE & UI Designer'
     Write-Host '  otter help             Show this help'
@@ -543,6 +545,76 @@ if ($VersionFlag -or $Path -eq '--version') {
 if ($HelpFlag -or $Path -eq 'help' -or $Path -eq '--help') {
     Show-OtterHelp
     exit $script:ExitSuccess
+}
+
+if ($Path -eq 'new') {
+    $supportedArchetypes = @('console', 'desktop', 'web', 'automation', 'game')
+    if (-not $Target) {
+        Write-Host 'Usage: otter new <archetype> <name>' -ForegroundColor Red
+        Write-Host 'Supported archetypes: console, desktop, web, automation, game.' -ForegroundColor Red
+        [Environment]::Exit($script:ExitUsageError)
+    }
+
+    if ($supportedArchetypes -notcontains $Target.ToLowerInvariant()) {
+        Write-Host "Otter: Unknown archetype `"$Target`"." -ForegroundColor Red
+        Write-Host 'Usage: otter new <archetype> <name>' -ForegroundColor Red
+        Write-Host 'Supported archetypes: console, desktop, web, automation, game.' -ForegroundColor Red
+        [Environment]::Exit($script:ExitUsageError)
+    }
+
+    $archetype = $Target.ToLowerInvariant()
+    $rawArgs = Get-OtterRawTrailingArguments -SkipCount 2
+    $projectName = if ($rawArgs -and $rawArgs.Count -gt 0) { $rawArgs[0] } elseif ($Arguments -and $Arguments.Count -gt 0) { $Arguments[0] } else { $null }
+
+    if (-not $projectName) {
+        Write-Host "Usage: otter new $archetype <name>" -ForegroundColor Red
+        [Environment]::Exit($script:ExitUsageError)
+    }
+
+    try {
+        $createdProject = New-OtterProject -Archetype $archetype -Name $projectName -Path (Get-Location).Path
+        Write-Host "Created new Otter $archetype project in `"$($createdProject.RootDirectory)`"." -ForegroundColor Green
+        Write-Host ''
+        Write-Host 'To get started:'
+        Write-Host "  cd $projectName"
+        Write-Host '  otter check .'
+        Write-Host '  otter test .'
+        Write-Host '  otter run .'
+        Write-Host ''
+        [Environment]::Exit($script:ExitSuccess)
+    }
+    catch [OtterError] {
+        Write-Host ''
+        Write-Host $_.Exception.Message -ForegroundColor Red
+        Write-Host ''
+        [Environment]::Exit($script:ExitUsageError)
+    }
+    catch {
+        Write-Host ''
+        Write-Host $_.Exception.Message -ForegroundColor Red
+        Write-Host ''
+        [Environment]::Exit($script:ExitUsageError)
+    }
+}
+
+if ($Path -eq 'test') {
+    $testTarget = if ($Target) { $Target } else { '.' }
+    try {
+        $testCode = Invoke-OtterProjectTests -Target $testTarget -OtterPs1Path $PSCommandPath
+        [Environment]::Exit($testCode)
+    }
+    catch [OtterError] {
+        Write-Host ''
+        Write-Host $_.Exception.Message -ForegroundColor Red
+        Write-Host ''
+        [Environment]::Exit($script:ExitUsageError)
+    }
+    catch {
+        Write-Host ''
+        Write-Host $_.Exception.Message -ForegroundColor Red
+        Write-Host ''
+        [Environment]::Exit($script:ExitUsageError)
+    }
 }
 
 if ($Path -eq 'run' -or $Path -eq 'check') {
