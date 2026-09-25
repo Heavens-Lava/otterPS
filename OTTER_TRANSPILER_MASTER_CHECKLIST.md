@@ -8,8 +8,8 @@
 - [x] Otter has a real parser and AST: `src/Otter.Parser.psm1`
 - [x] Otter already has a provider-agnostic AST -> JavaScript emitter: `src/Otter.Compiler.JavaScript.psm1`
 - [x] Web compilation already consumes the shared JavaScript emitter rather than maintaining a second copy
-- [ ] Provide one public source -> JavaScript transpiler facade
-- [ ] Give the transpiler its own focused tests
+- [x] Provide one public source -> JavaScript transpiler facade
+- [x] Give the transpiler its own focused tests
 - [ ] Expose transpilation through the CLI without coupling callers to web compilation
 - [ ] Expose the same capability to Otter Studio
 - [ ] Expose the same capability to the Otter website through a backend/API or future portable package
@@ -21,15 +21,15 @@
 
 - [x] Keep `Otter.Compiler.JavaScript.psm1` as the universal AST -> JavaScript emitter
 - [x] Keep browser/Desktop/Electron/host concerns out of the universal emitter
-- [ ] Add `src/Otter.Transpiler.psm1` as the public orchestration layer
-- [ ] Add `ConvertTo-OtterJavaScript -Source <text>`
-- [ ] Add `ConvertTo-OtterJavaScriptProgram -Program <ProgramNode>`
-- [ ] Ensure both APIs use the existing lexer/parser/compiler pipeline
-- [ ] Never implement transpilation through string replacement
-- [ ] Preserve Otter diagnostics when lexing/parsing fails
-- [ ] Return deterministic JavaScript for identical Otter input
-- [ ] Define newline policy for generated JavaScript
-- [ ] Define whether output includes a trailing newline
+- [x] Add `src/Otter.Transpiler.psm1` as the public orchestration layer
+- [x] Add `ConvertTo-OtterJavaScript -Source <text>`
+- [x] Add `ConvertTo-OtterJavaScriptProgram -Program <ProgramNode>`
+- [x] Ensure both APIs use the existing lexer/parser/compiler pipeline
+- [x] Never implement transpilation through string replacement
+- [x] Preserve Otter diagnostics when lexing/parsing fails
+- [x] Return deterministic JavaScript for identical Otter input
+- [x] Define newline policy for generated JavaScript (LF)
+- [x] Define whether output includes a trailing newline (core API: no)
 - [ ] Define source-file/module resolution behavior separately from raw-source behavior
 
 ### Public pipeline
@@ -248,8 +248,8 @@ Source
 
 ## 10. Testing strategy
 
-- [ ] Add `tests/Transpiler.Tests.ps1`
-- [ ] Smoke test: `say "Hello"`
+- [x] Add `tests/Transpiler.Tests.ps1`
+- [x] Smoke test: `say "Hello"`
 - [ ] Variable assignment test
 - [ ] Arithmetic test
 - [ ] If test
@@ -260,9 +260,9 @@ Source
 - [ ] Date test
 - [ ] JSON test
 - [ ] Async test
-- [ ] Invalid-source diagnostic test
-- [ ] Deterministic-output test
-- [ ] AST-direct transpilation test
+- [x] Invalid-source diagnostic test
+- [x] Deterministic-output test
+- [x] AST-direct transpilation test
 - [ ] Compare selected generated programs against interpreter behavior
 - [ ] Where Node.js is available, syntax-check generated output
 - [ ] Where Node.js is available, execute host-neutral output and compare observable results
@@ -315,13 +315,13 @@ Source
 
 The first dedicated transpiler milestone is complete when:
 
-- [ ] `ConvertTo-OtterJavaScript -Source` is public and tested
-- [ ] It uses the real Otter lexer/parser/AST
-- [ ] It delegates emission to `Otter.Compiler.JavaScript.psm1`
-- [ ] No second JavaScript compiler exists
+- [x] `ConvertTo-OtterJavaScript -Source` is public and has dedicated tests
+- [x] It uses the real Otter lexer/parser/AST
+- [x] It delegates emission to `Otter.Compiler.JavaScript.psm1`
+- [x] No second JavaScript compiler exists
 - [ ] Basic variables, math, conditions, loops, functions, lists, and `say` transpile correctly
 - [ ] Invalid source produces normal Otter diagnostics
-- [ ] Generated JavaScript is deterministic
+- [x] Generated JavaScript is deterministic by construction and regression test
 - [ ] The API is suitable for CLI, Studio, and a website compiler service
 - [ ] Known host-dependent features are documented
 - [ ] The full test suite still passes
