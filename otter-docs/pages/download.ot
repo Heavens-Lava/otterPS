@@ -93,7 +93,7 @@ put relTitle, relVersion, relSize, relDate, relSha, relNotes in relCard
 
 runTitle is a text with value "Run from the project folder", size 26, weight 800, foreground "#0f1f36", letterspacing "-0.02em"
 runBody is a text with value "Open Windows PowerShell in the folder that contains otter.cmd, then run an example:", size 15, foreground "#4a5b75"
-runCommand is a text with value ".\\otter.cmd examples\\hello.ot", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; border-top-left-radius: 0; border-top-right-radius: 0;"
+runCommand is a text with value ".\\otter.cmd examples\\hello.ot", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; border-top-left-radius: 0; border-top-right-radius: 0;", runnable false
 runCommandlabel is a text with value "PowerShell", size 12, weight 600, foreground "#b7c4d8"
 runCommandcopy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
 runCommandhead is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"

@@ -29,13 +29,20 @@ $sections = @(
         @('diagnostics', 'Diagnostic output'), @('reference', 'Reference index'))),
     @('Platform', @(
         @('databases', 'Databases'), @('queries', 'The query language'), @('http', 'HTTP requests'), @('web-server', 'Web servers'), @('xml', 'XML'),
-        @('web-apps', 'Web applications'), @('reactivity', 'State and reactivity'), @('windows-apps', 'Windows applications'),
+        @('web-apps', 'Web applications'), @('reactivity', 'State and reactivity'),
         @('networking', 'Networking'), @('security', 'Cryptography and secrets'))),
+    @('Console', @(@('console', 'Console programming'), @('console-input', 'Console input'), @('console-app', 'A complete console program'))),
+    @('Desktop Apps', @(
+        @('windows-apps', 'Windows applications'), @('controls', 'Controls'), @('control-window', 'window'), @('control-button', 'button'),
+        @('control-text', 'text'), @('control-text-box', 'text box'), @('control-heading', 'heading'), @('control-card', 'card'),
+        @('control-row', 'row'), @('control-column', 'column'), @('control-panel', 'panel'), @('control-grid', 'grid'),
+        @('control-scroll', 'scroll'), @('desktop-layout', 'Layout'), @('events', 'Events'))),
     @('Examples', @(
         @('examples', 'All examples'), @('example-hello', 'Hello World'), @('example-input', 'User input'),
         @('example-conditions', 'Conditions'), @('example-counting', 'Counting'), @('example-lists', 'Lists'),
         @('example-discovery', 'File discovery'), @('example-organizer', 'File organizer'),
         @('example-finding', 'Finding files'), @('example-errors', 'Handling errors'))),
+    @('Tutorials', @(@('task-manager', 'Build a Task Manager'), @('file-browser', 'Build a File Browser'))),
     @('Language Design', @(
         @('design-readable', 'Readable like English'), @('structural-words', 'Structural words'),
         @('properties-operations', 'Properties vs operations'), @('periods', 'Period and block rules'),

@@ -388,7 +388,7 @@ function Get-OtterRunnableJs {
         $sampleCode = $sampleJs -join "`n"
         # Samples that need the operating system (through the desktop bridge) or
         # the network cannot run honestly in a browser: no Run button for them.
-        if ($sampleCode -match '\botter[A-Za-z]*(File|Folder|Command|Registry|Clipboard|Environment)[A-Za-z]*\s*\(|__OTTER_DESKTOP_BRIDGE__|\bfetch\(') { return $null }
+        if ($sampleCode -match '\botter[A-Za-z]*(File|Folder|Directory|Command|Registry|Clipboard|Environment)[A-Za-z]*\s*\(|__OTTER_DESKTOP_BRIDGE__|\bfetch\(') { return $null }
         # Each run starts from a clean slate: the variables a sample creates are
         # tracked so the page can remove them again (the compiled code keeps
         # program variables on window).

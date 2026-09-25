@@ -208,15 +208,15 @@ to greet person
 
 -   [x] `say`
 -   [x] User input
--   [ ] Secret input
--   [ ] Console colors
--   [ ] Cursor positioning
--   [ ] Menus
--   [ ] Progress indicators
--   [ ] Interactive-console detection
--   [ ] Noninteractive environments
--   [ ] Console examples
--   [ ] Building complete CLI programs
+-   [x] Secret input
+-   [x] Console colors
+-   [x] Cursor positioning
+-   [x] Menus
+-   [x] Progress indicators
+-   [x] Interactive-console detection
+-   [x] Noninteractive environments
+-   [x] Console examples
+-   [x] Building complete CLI programs
 
 Examples:
 
@@ -242,22 +242,22 @@ show progress 50 percent
 
 ### Fundamentals
 
--   [ ] Creating a window
--   [ ] Window properties
--   [ ] Layouts
--   [ ] Controls
--   [ ] Properties
--   [ ] Events
+-   [x] Creating a window
+-   [x] Window properties
+-   [x] Layouts
+-   [x] Controls
+-   [x] Properties
+-   [x] Events
 -   [ ] Application lifecycle
 
 ### Controls
 
 Create an individual documentation page for every supported control:
 
--   [ ] Button
--   [ ] Text
--   [ ] Text box
--   [ ] Label
+-   [x] Button
+-   [x] Text
+-   [x] Text box
+-   [x] Label *(the `text` control)*
 -   [ ] Checkbox
 -   [ ] Radio button
 -   [ ] Dropdown
@@ -275,27 +275,27 @@ Create an individual documentation page for every supported control:
 
 Every control page should contain:
 
--   [ ] Description
--   [ ] Syntax
+-   [x] Description
+-   [x] Syntax
 -   [ ] Properties
 -   [ ] Events
--   [ ] Examples
--   [ ] Expected result
--   [ ] Related features
+-   [x] Examples
+-   [x] Expected result
+-   [x] Related features
 
 ------------------------------------------------------------------------
 
 ## ⚡ 7. Events
 
--   [ ] What events are
--   [ ] Click
--   [ ] Change
--   [ ] Input
+-   [x] What events are
+-   [x] Click
+-   [x] Change
+-   [x] Input *(text boxes report `changed`)*
 -   [ ] Keyboard events
--   [ ] Window events
--   [ ] File events, if applicable
--   [ ] Multiple controls
--   [ ] Event examples
+-   [x] Window events
+-   [x] File events, if applicable *(file watching, see Files and folders)*
+-   [x] Multiple controls
+-   [x] Event examples
 
 Example:
 
@@ -309,22 +309,22 @@ on click of saveButton
 
 ## 📁 8. Files & Data
 
--   [ ] Reading files
--   [ ] Writing files
--   [ ] Appending files
--   [ ] Checking whether files exist
--   [ ] Creating folders
--   [ ] Listing files
--   [ ] Copying files
--   [ ] Moving files
--   [ ] Deleting files
+-   [x] Reading files
+-   [x] Writing files
+-   [x] Appending files
+-   [x] Checking whether files exist
+-   [x] Creating folders
+-   [x] Listing files
+-   [x] Copying files
+-   [x] Moving files
+-   [x] Deleting files
 -   [ ] Paths
 -   [ ] User directories
--   [ ] JSON
--   [ ] CSV
--   [ ] Structured data
--   [ ] Databases eventually
--   [ ] SQL eventually
+-   [x] JSON
+-   [x] CSV
+-   [x] Structured data
+-   [x] Databases eventually
+-   [x] SQL eventually
 
 ------------------------------------------------------------------------
 
@@ -399,7 +399,7 @@ Link related features such as:
 ### Full Application Tutorials
 
 -   [x] **Build a Complete Task Manager**
--   [ ] **Build a File Browser**
+-   [x] **Build a File Browser** *(source: examples/v1/file-browser.ot)*
 -   [ ] **Build a Contact Manager**
 -   [ ] **Build a Personal Finance Tracker**
 -   [ ] **Build a Desktop Dashboard**
@@ -922,11 +922,11 @@ Do **not** wait for every section in this checklist before launching.
 ## Phase 2 --- Learn
 
 -   [ ] Expanded Learn section
--   [ ] Task Manager tutorial
--   [ ] File Browser tutorial
+-   [x] Task Manager tutorial
+-   [x] File Browser tutorial
 -   [ ] Examples library
--   [ ] Desktop application documentation
--   [ ] Console programming documentation
+-   [x] Desktop application documentation
+-   [x] Console programming documentation
 
 ## Phase 3 --- Complete Documentation Platform
 

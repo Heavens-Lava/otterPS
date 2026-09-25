@@ -80,7 +80,7 @@ put whyTitle, whyLead, whyCards in whySection
 syntaxTitle is a text with value "English-like syntax", size 34, weight 800, foreground "#0b1d36", letterspacing "-0.02em"
 syntaxLead is a text with value "The same idea in three languages. Otter keeps only the words.", size 17, foreground "#3a4d6b"
 
-cmpOtter is a text with value "age is 29\n\nif age is at least 18\n    say \"Adult\"\n.\n\nto greet person\n    say \"Hello, \" + person\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 20px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;"
+cmpOtter is a text with value "age is 29\n\nif age is at least 18\n    say \"Adult\"\n.\n\nto greet person\n    say \"Hello, \" + person\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 20px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
 cmpOtterLabel is a text with value "Otter", size 12, weight 700, foreground "#7fb0ff"
 cmpOtterHead is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
 put cmpOtterLabel in cmpOtterHead

@@ -1,0 +1,196 @@
+# Otter website - Console programming
+# Authored in Otter. Scaffolded by scripts/new-docs-page.ps1, now edited here directly.
+
+use "_shell.ot"
+use "_docs.ot"
+
+app is a page with title "Console programming - Otter Documentation", hideheader true, scroll true, width full, background "#f4f7fb", foreground "#0f1f36", spacing 0, padding 0
+
+customstyle of navDocs is "padding: 22px 0; border-bottom: 2px solid #4d8dff; color: #ffffff;"
+customstyle of sideConsole is "padding: 8px 12px; border-left: 3px solid #2563eb; border-radius: 4px; display: block; background: #e6efff; color: #1d4ed8; font-weight: 600;"
+# Sidebar: only the current group is expanded.
+customstyle of sideDocs is "display: none;"
+customstyle of sideWelcome is "display: none;"
+customstyle of sideWhatIsOtter is "display: none;"
+customstyle of sideWhoIsOtterFor is "display: none;"
+customstyle of sideWhatCanYouBuild is "display: none;"
+customstyle of sideInstallation is "display: none;"
+customstyle of sideVerify is "display: none;"
+customstyle of sideFirstProgram is "display: none;"
+customstyle of sideHello is "display: none;"
+customstyle of sideRepl is "display: none;"
+customstyle of sideRunningFiles is "display: none;"
+customstyle of sideTinyApp is "display: none;"
+customstyle of sideCli is "display: none;"
+customstyle of sideProjects is "display: none;"
+customstyle of sideTroubleshooting is "display: none;"
+customstyle of sideValues is "display: none;"
+customstyle of sideInputOutput is "display: none;"
+customstyle of sideConditions is "display: none;"
+customstyle of sideLoops is "display: none;"
+customstyle of sideLists is "display: none;"
+customstyle of sideFunctions is "display: none;"
+customstyle of sideObjects is "display: none;"
+customstyle of sideFiles is "display: none;"
+customstyle of sideData is "display: none;"
+customstyle of sideErrorHandling is "display: none;"
+customstyle of sideMath is "display: none;"
+customstyle of sideNestedConditions is "display: none;"
+customstyle of sideModules is "display: none;"
+customstyle of sideRunningPrograms is "display: none;"
+customstyle of sideLoggingDebugging is "display: none;"
+customstyle of sideEnvironment is "display: none;"
+customstyle of sideGone is "display: none;"
+customstyle of sideOperators is "display: none;"
+customstyle of sidePropertyAccess is "display: none;"
+customstyle of sideStrings is "display: none;"
+customstyle of sideCollections is "display: none;"
+customstyle of sideDiscovery is "display: none;"
+customstyle of sideFileObjects is "display: none;"
+customstyle of sideFilesFolders is "display: none;"
+customstyle of sideFolders is "display: none;"
+customstyle of sideTry is "display: none;"
+customstyle of sideJson is "display: none;"
+customstyle of sideRandom is "display: none;"
+customstyle of sideDates is "display: none;"
+customstyle of sideScope is "display: none;"
+customstyle of sideDiagnostics is "display: none;"
+customstyle of sideReference is "display: none;"
+customstyle of sideDatabases is "display: none;"
+customstyle of sideQueries is "display: none;"
+customstyle of sideHttp is "display: none;"
+customstyle of sideWebServer is "display: none;"
+customstyle of sideXml is "display: none;"
+customstyle of sideWebApps is "display: none;"
+customstyle of sideReactivity is "display: none;"
+customstyle of sideNetworking is "display: none;"
+customstyle of sideSecurity is "display: none;"
+customstyle of sideWindowsApps is "display: none;"
+customstyle of sideControls is "display: none;"
+customstyle of sideControlWindow is "display: none;"
+customstyle of sideControlButton is "display: none;"
+customstyle of sideControlText is "display: none;"
+customstyle of sideControlTextBox is "display: none;"
+customstyle of sideControlHeading is "display: none;"
+customstyle of sideControlCard is "display: none;"
+customstyle of sideControlRow is "display: none;"
+customstyle of sideControlColumn is "display: none;"
+customstyle of sideControlPanel is "display: none;"
+customstyle of sideControlGrid is "display: none;"
+customstyle of sideControlScroll is "display: none;"
+customstyle of sideDesktopLayout is "display: none;"
+customstyle of sideEvents is "display: none;"
+customstyle of sideExamples is "display: none;"
+customstyle of sideExampleHello is "display: none;"
+customstyle of sideExampleInput is "display: none;"
+customstyle of sideExampleConditions is "display: none;"
+customstyle of sideExampleCounting is "display: none;"
+customstyle of sideExampleLists is "display: none;"
+customstyle of sideExampleDiscovery is "display: none;"
+customstyle of sideExampleOrganizer is "display: none;"
+customstyle of sideExampleFinding is "display: none;"
+customstyle of sideExampleErrors is "display: none;"
+customstyle of sideTaskManager is "display: none;"
+customstyle of sideFileBrowser is "display: none;"
+customstyle of sideDesignReadable is "display: none;"
+customstyle of sideStructuralWords is "display: none;"
+customstyle of sidePropertiesOperations is "display: none;"
+customstyle of sidePeriods is "display: none;"
+customstyle of sidePhilosophy is "display: none;"
+customstyle of sideTopics is "display: none;"
+customstyle of sideDownload is "display: none;"
+customstyle of sideRelease is "display: none;"
+customstyle of sideStudio is "display: none;"
+customstyle of sideSupport is "display: none;"
+customstyle of sideAbout is "display: none;"
+customstyle of sideLicense is "display: none;"
+
+b1 is a text with value "Console programming", size 40, weight 800, foreground "#0b1d36", letterspacing "-0.03em", lineheight "1.1"
+b2 is a text with value "A console program talks to the person through a terminal: it prints, asks, and can use colors, menus and progress bars. Everything here works when you run a program with otter run.", size 18, foreground "#3a4d6b", lineheight "1.55"
+b3 is a text with value "Colors, cursor positioning, menus, progress bars and secret input are console features. The web and Windows targets report them as unsupported instead of silently doing something different.", size 15, foreground "#1e3a6b", background "#eaf2ff", radius 12, border "1px solid #cfe0ff", lineheight "1.55", customstyle "padding: 14px 18px;"
+b4 is a text with value "Saying things", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b5 is a text with value "say \"Hello\"\nsay \"Total:\" 42 \"items\"\nsay", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b5label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b5copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b5head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b5label, b5copy in b5head
+b5block is a column with spacing 0, width full
+put b5head, b5 in b5block
+when b5copy is clicked
+    copy text of b5 to clipboard
+    text of b5copy is "Copied"
+.
+b6 is a text with value "say prints its values on one line with single spaces between them. With nothing after it, it prints a blank line.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b7 is a text with value "Color", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b8 is a text with value "say \"Error!\" in color \"red\"\nsay \"Success\" in color \"green\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b8label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b8copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b8head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b8label, b8copy in b8head
+b8block is a column with spacing 0, width full
+put b8head, b8 in b8block
+when b8copy is clicked
+    copy text of b8 to clipboard
+    text of b8copy is "Copied"
+.
+b9 is a text with value "The colors are red, green, yellow, blue, cyan, magenta, white, gray, darkgray, darkred, darkgreen, darkyellow, darkblue, darkcyan, darkmagenta and black. An unknown color name is an error that lists the valid ones - it never quietly prints in the default color.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b10 is a text with value "Progress", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b11 is a text with value "show progress 25 percent\nshow progress 50 percent\nshow progress 100 percent", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b11label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b11copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b11head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b11label, b11copy in b11head
+b11block is a column with spacing 0, width full
+put b11head, b11 in b11block
+when b11copy is clicked
+    copy text of b11 to clipboard
+    text of b11copy is "Copied"
+.
+b12 is a text with value "[##########----------] 50%", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;"
+b12label is a text with value "Output", size 12, weight 600, foreground "#4a5b75"
+b12copy is a button with text "Copy", size 12, weight 600, background "#c9d6e8", foreground "#0f1f36", radius 6, padding "4px 12px"
+b12head is a row with spread, align middle, width full, background "#dde6f2", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b12label, b12copy in b12head
+b12block is a column with spacing 0, width full
+put b12head, b12 in b12block
+when b12copy is clicked
+    copy text of b12 to clipboard
+    text of b12copy is "Copied"
+.
+b13 is a text with value "Each call redraws the bar on the same line. The value must be between 0 and 100; anything else is an error rather than being clamped. A say after a progress bar starts on a fresh line.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b14 is a text with value "Cursor", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b15 is a text with value "set cursor to row 5 column 10", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b15label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b15copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b15head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b15label, b15copy in b15head
+b15block is a column with spacing 0, width full
+put b15head, b15 in b15block
+when b15copy is clicked
+    copy text of b15 to clipboard
+    text of b15copy is "Copied"
+.
+b16 is a text with value "Rows and columns count from 1. Moving the cursor only makes sense in a real terminal.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b17 is a text with value "Are we in a real terminal?", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b18 is a text with value "if console is interactive\n    say \"Running in a real terminal.\"\notherwise\n    say \"Running noninteractively - skipping the progress bar.\"\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b18label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b18copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b18head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b18label, b18copy in b18head
+b18block is a column with spacing 0, width full
+put b18head, b18 in b18block
+when b18copy is clicked
+    copy text of b18 to clipboard
+    text of b18copy is "Copied"
+.
+b19 is a text with value "console is interactive is false when input or output is redirected - for example when the program runs in a scheduled task or its output goes to a file. Check it before using colors, menus or progress bars in a program that others may automate. if not console is interactive covers noninteractive environments.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b20 is a link with text "Console input", url "/console-input/", foreground "#2563eb", weight 600, size 15
+b21 is a link with text "A complete console program", url "/console-app/", foreground "#2563eb", weight 600, size 15
+
+docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"
+put b1, b2, b3, b4, b5block, b6, b7, b8block, b9, b10, b11block, b12block, b13, b14, b15block, b16, b17, b18block, b19, b20, b21 in docsMain
+docsBody is a row with align top, spacing 0, width full, customstyle "align-items: stretch;"
+put docsSidebar, docsMain in docsBody
+
+put topBar, docsBody, siteFooter in app
+show app

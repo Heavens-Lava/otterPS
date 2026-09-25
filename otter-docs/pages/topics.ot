@@ -63,9 +63,26 @@ customstyle of sideWebServer is "display: none;"
 customstyle of sideXml is "display: none;"
 customstyle of sideWebApps is "display: none;"
 customstyle of sideReactivity is "display: none;"
-customstyle of sideWindowsApps is "display: none;"
 customstyle of sideNetworking is "display: none;"
 customstyle of sideSecurity is "display: none;"
+customstyle of sideConsole is "display: none;"
+customstyle of sideConsoleInput is "display: none;"
+customstyle of sideConsoleApp is "display: none;"
+customstyle of sideWindowsApps is "display: none;"
+customstyle of sideControls is "display: none;"
+customstyle of sideControlWindow is "display: none;"
+customstyle of sideControlButton is "display: none;"
+customstyle of sideControlText is "display: none;"
+customstyle of sideControlTextBox is "display: none;"
+customstyle of sideControlHeading is "display: none;"
+customstyle of sideControlCard is "display: none;"
+customstyle of sideControlRow is "display: none;"
+customstyle of sideControlColumn is "display: none;"
+customstyle of sideControlPanel is "display: none;"
+customstyle of sideControlGrid is "display: none;"
+customstyle of sideControlScroll is "display: none;"
+customstyle of sideDesktopLayout is "display: none;"
+customstyle of sideEvents is "display: none;"
 customstyle of sideExamples is "display: none;"
 customstyle of sideExampleHello is "display: none;"
 customstyle of sideExampleInput is "display: none;"
@@ -76,6 +93,8 @@ customstyle of sideExampleDiscovery is "display: none;"
 customstyle of sideExampleOrganizer is "display: none;"
 customstyle of sideExampleFinding is "display: none;"
 customstyle of sideExampleErrors is "display: none;"
+customstyle of sideTaskManager is "display: none;"
+customstyle of sideFileBrowser is "display: none;"
 customstyle of sideDesignReadable is "display: none;"
 customstyle of sideStructuralWords is "display: none;"
 customstyle of sidePropertiesOperations is "display: none;"
@@ -143,29 +162,51 @@ b58 is a link with text "Web servers", url "/web-server/", foreground "#2563eb",
 b59 is a link with text "XML", url "/xml/", foreground "#2563eb", weight 600, size 15
 b60 is a link with text "Web applications", url "/web-apps/", foreground "#2563eb", weight 600, size 15
 b61 is a link with text "State and reactivity", url "/reactivity/", foreground "#2563eb", weight 600, size 15
-b62 is a link with text "Windows applications", url "/windows-apps/", foreground "#2563eb", weight 600, size 15
-b63 is a link with text "Networking", url "/networking/", foreground "#2563eb", weight 600, size 15
-b64 is a link with text "Cryptography and secrets", url "/security/", foreground "#2563eb", weight 600, size 15
-b65 is a text with value "Examples", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
-b66 is a link with text "All examples", url "/examples/", foreground "#2563eb", weight 600, size 15
-b67 is a link with text "Hello World", url "/example-hello/", foreground "#2563eb", weight 600, size 15
-b68 is a link with text "User input", url "/example-input/", foreground "#2563eb", weight 600, size 15
-b69 is a link with text "Conditions", url "/example-conditions/", foreground "#2563eb", weight 600, size 15
-b70 is a link with text "Counting", url "/example-counting/", foreground "#2563eb", weight 600, size 15
-b71 is a link with text "Lists", url "/example-lists/", foreground "#2563eb", weight 600, size 15
-b72 is a link with text "File discovery", url "/example-discovery/", foreground "#2563eb", weight 600, size 15
-b73 is a link with text "File organizer", url "/example-organizer/", foreground "#2563eb", weight 600, size 15
-b74 is a link with text "Finding files", url "/example-finding/", foreground "#2563eb", weight 600, size 15
-b75 is a link with text "Handling errors", url "/example-errors/", foreground "#2563eb", weight 600, size 15
-b76 is a text with value "Language Design", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
-b77 is a link with text "Readable like English", url "/design-readable/", foreground "#2563eb", weight 600, size 15
-b78 is a link with text "Structural words", url "/structural-words/", foreground "#2563eb", weight 600, size 15
-b79 is a link with text "Properties vs operations", url "/properties-operations/", foreground "#2563eb", weight 600, size 15
-b80 is a link with text "Period and block rules", url "/periods/", foreground "#2563eb", weight 600, size 15
-b81 is a link with text "Philosophy", url "/philosophy/", foreground "#2563eb", weight 600, size 15
+b62 is a link with text "Networking", url "/networking/", foreground "#2563eb", weight 600, size 15
+b63 is a link with text "Cryptography and secrets", url "/security/", foreground "#2563eb", weight 600, size 15
+b64 is a text with value "Console", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b65 is a link with text "Console programming", url "/console/", foreground "#2563eb", weight 600, size 15
+b66 is a link with text "Console input", url "/console-input/", foreground "#2563eb", weight 600, size 15
+b67 is a link with text "A complete console program", url "/console-app/", foreground "#2563eb", weight 600, size 15
+b68 is a text with value "Desktop Apps", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b69 is a link with text "Windows applications", url "/windows-apps/", foreground "#2563eb", weight 600, size 15
+b70 is a link with text "Controls", url "/controls/", foreground "#2563eb", weight 600, size 15
+b71 is a link with text "window", url "/control-window/", foreground "#2563eb", weight 600, size 15
+b72 is a link with text "button", url "/control-button/", foreground "#2563eb", weight 600, size 15
+b73 is a link with text "text", url "/control-text/", foreground "#2563eb", weight 600, size 15
+b74 is a link with text "text box", url "/control-text-box/", foreground "#2563eb", weight 600, size 15
+b75 is a link with text "heading", url "/control-heading/", foreground "#2563eb", weight 600, size 15
+b76 is a link with text "card", url "/control-card/", foreground "#2563eb", weight 600, size 15
+b77 is a link with text "row", url "/control-row/", foreground "#2563eb", weight 600, size 15
+b78 is a link with text "column", url "/control-column/", foreground "#2563eb", weight 600, size 15
+b79 is a link with text "panel", url "/control-panel/", foreground "#2563eb", weight 600, size 15
+b80 is a link with text "grid", url "/control-grid/", foreground "#2563eb", weight 600, size 15
+b81 is a link with text "scroll", url "/control-scroll/", foreground "#2563eb", weight 600, size 15
+b82 is a link with text "Layout", url "/desktop-layout/", foreground "#2563eb", weight 600, size 15
+b83 is a link with text "Events", url "/events/", foreground "#2563eb", weight 600, size 15
+b84 is a text with value "Examples", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b85 is a link with text "All examples", url "/examples/", foreground "#2563eb", weight 600, size 15
+b86 is a link with text "Hello World", url "/example-hello/", foreground "#2563eb", weight 600, size 15
+b87 is a link with text "User input", url "/example-input/", foreground "#2563eb", weight 600, size 15
+b88 is a link with text "Conditions", url "/example-conditions/", foreground "#2563eb", weight 600, size 15
+b89 is a link with text "Counting", url "/example-counting/", foreground "#2563eb", weight 600, size 15
+b90 is a link with text "Lists", url "/example-lists/", foreground "#2563eb", weight 600, size 15
+b91 is a link with text "File discovery", url "/example-discovery/", foreground "#2563eb", weight 600, size 15
+b92 is a link with text "File organizer", url "/example-organizer/", foreground "#2563eb", weight 600, size 15
+b93 is a link with text "Finding files", url "/example-finding/", foreground "#2563eb", weight 600, size 15
+b94 is a link with text "Handling errors", url "/example-errors/", foreground "#2563eb", weight 600, size 15
+b95 is a text with value "Tutorials", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b96 is a link with text "Build a Task Manager", url "/task-manager/", foreground "#2563eb", weight 600, size 15
+b97 is a link with text "Build a File Browser", url "/file-browser/", foreground "#2563eb", weight 600, size 15
+b98 is a text with value "Language Design", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b99 is a link with text "Readable like English", url "/design-readable/", foreground "#2563eb", weight 600, size 15
+b100 is a link with text "Structural words", url "/structural-words/", foreground "#2563eb", weight 600, size 15
+b101 is a link with text "Properties vs operations", url "/properties-operations/", foreground "#2563eb", weight 600, size 15
+b102 is a link with text "Period and block rules", url "/periods/", foreground "#2563eb", weight 600, size 15
+b103 is a link with text "Philosophy", url "/philosophy/", foreground "#2563eb", weight 600, size 15
 
 docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"
-put b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15, b16, b17, b18, b19, b20, b21, b22, b23, b24, b25, b26, b27, b28, b29, b30, b31, b32, b33, b34, b35, b36, b37, b38, b39, b40, b41, b42, b43, b44, b45, b46, b47, b48, b49, b50, b51, b52, b53, b54, b55, b56, b57, b58, b59, b60, b61, b62, b63, b64, b65, b66, b67, b68, b69, b70, b71, b72, b73, b74, b75, b76, b77, b78, b79, b80, b81 in docsMain
+put b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15, b16, b17, b18, b19, b20, b21, b22, b23, b24, b25, b26, b27, b28, b29, b30, b31, b32, b33, b34, b35, b36, b37, b38, b39, b40, b41, b42, b43, b44, b45, b46, b47, b48, b49, b50, b51, b52, b53, b54, b55, b56, b57, b58, b59, b60, b61, b62, b63, b64, b65, b66, b67, b68, b69, b70, b71, b72, b73, b74, b75, b76, b77, b78, b79, b80, b81, b82, b83, b84, b85, b86, b87, b88, b89, b90, b91, b92, b93, b94, b95, b96, b97, b98, b99, b100, b101, b102, b103 in docsMain
 docsBody is a row with align top, spacing 0, width full, customstyle "align-items: stretch;"
 put docsSidebar, docsMain in docsBody
 

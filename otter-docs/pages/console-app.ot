@@ -1,0 +1,150 @@
+# Otter website - A complete console program
+# Authored in Otter. Scaffolded by scripts/new-docs-page.ps1, now edited here directly.
+
+use "_shell.ot"
+use "_docs.ot"
+
+app is a page with title "A complete console program - Otter Documentation", hideheader true, scroll true, width full, background "#f4f7fb", foreground "#0f1f36", spacing 0, padding 0
+
+customstyle of navDocs is "padding: 22px 0; border-bottom: 2px solid #4d8dff; color: #ffffff;"
+customstyle of sideConsoleApp is "padding: 8px 12px; border-left: 3px solid #2563eb; border-radius: 4px; display: block; background: #e6efff; color: #1d4ed8; font-weight: 600;"
+# Sidebar: only the current group is expanded.
+customstyle of sideDocs is "display: none;"
+customstyle of sideWelcome is "display: none;"
+customstyle of sideWhatIsOtter is "display: none;"
+customstyle of sideWhoIsOtterFor is "display: none;"
+customstyle of sideWhatCanYouBuild is "display: none;"
+customstyle of sideInstallation is "display: none;"
+customstyle of sideVerify is "display: none;"
+customstyle of sideFirstProgram is "display: none;"
+customstyle of sideHello is "display: none;"
+customstyle of sideRepl is "display: none;"
+customstyle of sideRunningFiles is "display: none;"
+customstyle of sideTinyApp is "display: none;"
+customstyle of sideCli is "display: none;"
+customstyle of sideProjects is "display: none;"
+customstyle of sideTroubleshooting is "display: none;"
+customstyle of sideValues is "display: none;"
+customstyle of sideInputOutput is "display: none;"
+customstyle of sideConditions is "display: none;"
+customstyle of sideLoops is "display: none;"
+customstyle of sideLists is "display: none;"
+customstyle of sideFunctions is "display: none;"
+customstyle of sideObjects is "display: none;"
+customstyle of sideFiles is "display: none;"
+customstyle of sideData is "display: none;"
+customstyle of sideErrorHandling is "display: none;"
+customstyle of sideMath is "display: none;"
+customstyle of sideNestedConditions is "display: none;"
+customstyle of sideModules is "display: none;"
+customstyle of sideRunningPrograms is "display: none;"
+customstyle of sideLoggingDebugging is "display: none;"
+customstyle of sideEnvironment is "display: none;"
+customstyle of sideGone is "display: none;"
+customstyle of sideOperators is "display: none;"
+customstyle of sidePropertyAccess is "display: none;"
+customstyle of sideStrings is "display: none;"
+customstyle of sideCollections is "display: none;"
+customstyle of sideDiscovery is "display: none;"
+customstyle of sideFileObjects is "display: none;"
+customstyle of sideFilesFolders is "display: none;"
+customstyle of sideFolders is "display: none;"
+customstyle of sideTry is "display: none;"
+customstyle of sideJson is "display: none;"
+customstyle of sideRandom is "display: none;"
+customstyle of sideDates is "display: none;"
+customstyle of sideScope is "display: none;"
+customstyle of sideDiagnostics is "display: none;"
+customstyle of sideReference is "display: none;"
+customstyle of sideDatabases is "display: none;"
+customstyle of sideQueries is "display: none;"
+customstyle of sideHttp is "display: none;"
+customstyle of sideWebServer is "display: none;"
+customstyle of sideXml is "display: none;"
+customstyle of sideWebApps is "display: none;"
+customstyle of sideReactivity is "display: none;"
+customstyle of sideNetworking is "display: none;"
+customstyle of sideSecurity is "display: none;"
+customstyle of sideWindowsApps is "display: none;"
+customstyle of sideControls is "display: none;"
+customstyle of sideControlWindow is "display: none;"
+customstyle of sideControlButton is "display: none;"
+customstyle of sideControlText is "display: none;"
+customstyle of sideControlTextBox is "display: none;"
+customstyle of sideControlHeading is "display: none;"
+customstyle of sideControlCard is "display: none;"
+customstyle of sideControlRow is "display: none;"
+customstyle of sideControlColumn is "display: none;"
+customstyle of sideControlPanel is "display: none;"
+customstyle of sideControlGrid is "display: none;"
+customstyle of sideControlScroll is "display: none;"
+customstyle of sideDesktopLayout is "display: none;"
+customstyle of sideEvents is "display: none;"
+customstyle of sideExamples is "display: none;"
+customstyle of sideExampleHello is "display: none;"
+customstyle of sideExampleInput is "display: none;"
+customstyle of sideExampleConditions is "display: none;"
+customstyle of sideExampleCounting is "display: none;"
+customstyle of sideExampleLists is "display: none;"
+customstyle of sideExampleDiscovery is "display: none;"
+customstyle of sideExampleOrganizer is "display: none;"
+customstyle of sideExampleFinding is "display: none;"
+customstyle of sideExampleErrors is "display: none;"
+customstyle of sideTaskManager is "display: none;"
+customstyle of sideFileBrowser is "display: none;"
+customstyle of sideDesignReadable is "display: none;"
+customstyle of sideStructuralWords is "display: none;"
+customstyle of sidePropertiesOperations is "display: none;"
+customstyle of sidePeriods is "display: none;"
+customstyle of sidePhilosophy is "display: none;"
+customstyle of sideTopics is "display: none;"
+customstyle of sideDownload is "display: none;"
+customstyle of sideRelease is "display: none;"
+customstyle of sideStudio is "display: none;"
+customstyle of sideSupport is "display: none;"
+customstyle of sideAbout is "display: none;"
+customstyle of sideLicense is "display: none;"
+
+b1 is a text with value "A complete console program", size 40, weight 800, foreground "#0b1d36", letterspacing "-0.03em", lineheight "1.1"
+b2 is a text with value "A small task helper that puts the pieces together: a menu, input, colors, a list, and a loop that runs until you quit.", size 18, foreground "#3a4d6b", lineheight "1.55"
+b3 is a text with value "say \"Task helper\" in color \"cyan\"\n\ntasks are empty\nrunning is true\n\nwhile running\n    actions are\n        \"Add a task\"\n        \"Show tasks\"\n        \"Quit\"\n    .\n    choose from actions into action\n\n    if action is \"Add a task\"\n        ask \"Task name: \" and call it title\n        add title to tasks\n        say \"Added:\" title in color \"green\"\n    otherwise if action is \"Show tasks\"\n        if length of tasks is 0\n            say \"No tasks yet.\" in color \"yellow\"\n        otherwise\n            each task in tasks\n                say \"-\" task\n            .\n        .\n    otherwise\n        running is false\n    .\n.\n\nsay \"Goodbye\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b3label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b3copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b3head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b3label, b3copy in b3head
+b3block is a column with spacing 0, width full
+put b3head, b3 in b3block
+when b3copy is clicked
+    copy text of b3 to clipboard
+    text of b3copy is "Copied"
+.
+b4 is a text with value "Save it as tasks.ot and run otter tasks.ot. Choosing 2, then 1 and typing Write docs, then 2, then 3 prints:", size 16, foreground "#3a4d6b", lineheight "1.6"
+b5 is a text with value "Task helper\n  1. Add a task\n  2. Show tasks\n  3. Quit\nChoose a number: 2\nNo tasks yet.\n  1. Add a task\n  2. Show tasks\n  3. Quit\nChoose a number: 1\nTask name:  Write docs\nAdded: Write docs\n  1. Add a task\n  2. Show tasks\n  3. Quit\nChoose a number: 2\n- Write docs\n  1. Add a task\n  2. Show tasks\n  3. Quit\nChoose a number: 3\nGoodbye", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;"
+b5label is a text with value "Output", size 12, weight 600, foreground "#4a5b75"
+b5copy is a button with text "Copy", size 12, weight 600, background "#c9d6e8", foreground "#0f1f36", radius 6, padding "4px 12px"
+b5head is a row with spread, align middle, width full, background "#dde6f2", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b5label, b5copy in b5head
+b5block is a column with spacing 0, width full
+put b5head, b5 in b5block
+when b5copy is clicked
+    copy text of b5 to clipboard
+    text of b5copy is "Copied"
+.
+b6 is a text with value "What to notice", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b7 is a text with value "- running is true and while running keep the loop going until Quit sets it to false.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b8 is a text with value "- choose from returns the item you picked, so the if compares words, not numbers.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b9 is a text with value "- length of tasks is 0 checks for an empty list.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b10 is a text with value "Challenges", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b11 is a text with value "- Add a Remove a task choice using remove title from tasks.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b12 is a text with value "- Show progress with show progress N percent while you count the tasks.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b13 is a text with value "- Save the tasks to a file with write, and read them back at the start.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b14 is a link with text "Console programming", url "/console/", foreground "#2563eb", weight 600, size 15
+b15 is a link with text "Files and folders", url "/files/", foreground "#2563eb", weight 600, size 15
+
+docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"
+put b1, b2, b3block, b4, b5block, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15 in docsMain
+docsBody is a row with align top, spacing 0, width full, customstyle "align-items: stretch;"
+put docsSidebar, docsMain in docsBody
+
+put topBar, docsBody, siteFooter in app
+show app

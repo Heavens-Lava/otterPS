@@ -47,9 +47,26 @@ customstyle of sideWebServer is "display: none;"
 customstyle of sideXml is "display: none;"
 customstyle of sideWebApps is "display: none;"
 customstyle of sideReactivity is "display: none;"
-customstyle of sideWindowsApps is "display: none;"
 customstyle of sideNetworking is "display: none;"
 customstyle of sideSecurity is "display: none;"
+customstyle of sideConsole is "display: none;"
+customstyle of sideConsoleInput is "display: none;"
+customstyle of sideConsoleApp is "display: none;"
+customstyle of sideWindowsApps is "display: none;"
+customstyle of sideControls is "display: none;"
+customstyle of sideControlWindow is "display: none;"
+customstyle of sideControlButton is "display: none;"
+customstyle of sideControlText is "display: none;"
+customstyle of sideControlTextBox is "display: none;"
+customstyle of sideControlHeading is "display: none;"
+customstyle of sideControlCard is "display: none;"
+customstyle of sideControlRow is "display: none;"
+customstyle of sideControlColumn is "display: none;"
+customstyle of sideControlPanel is "display: none;"
+customstyle of sideControlGrid is "display: none;"
+customstyle of sideControlScroll is "display: none;"
+customstyle of sideDesktopLayout is "display: none;"
+customstyle of sideEvents is "display: none;"
 customstyle of sideExamples is "display: none;"
 customstyle of sideExampleHello is "display: none;"
 customstyle of sideExampleInput is "display: none;"
@@ -60,6 +77,8 @@ customstyle of sideExampleDiscovery is "display: none;"
 customstyle of sideExampleOrganizer is "display: none;"
 customstyle of sideExampleFinding is "display: none;"
 customstyle of sideExampleErrors is "display: none;"
+customstyle of sideTaskManager is "display: none;"
+customstyle of sideFileBrowser is "display: none;"
 customstyle of sideDesignReadable is "display: none;"
 customstyle of sideStructuralWords is "display: none;"
 customstyle of sidePropertiesOperations is "display: none;"
@@ -113,8 +132,60 @@ when b7copy is clicked
 b8 is a text with value "watch folder \"reports\" recursively and call it w also reports on change of, on create in, on delete in, and on rename in events with the path that changed. File watching is for console programs; the web target reports it as unsupported.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b9 is a link with text "Next: CSV and downloads", url "/data/", foreground "#2563eb", weight 600, size 15
 
+fmore1 is a text with value "Appending, copying and moving", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+fmore2 is a text with value "write replaces a file's contents. append adds to the end. copy and move take a source and a destination.", size 16, foreground "#3a4d6b", lineheight "1.6"
+fmore3 is a text with value "write \"one\" to \"log.txt\"\nappend \"two\" to \"log.txt\"\nread \"log.txt\" into text\nsay text\n\ncopy \"log.txt\" to \"backup.txt\"\nmove \"backup.txt\" to \"archive.txt\"\ndelete file \"archive.txt\"\ndelete file \"log.txt\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+fmore3label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+fmore3copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+fmore3head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put fmore3label, fmore3copy in fmore3head
+fmore3block is a column with spacing 0, width full
+put fmore3head, fmore3 in fmore3block
+when fmore3copy is clicked
+    copy text of fmore3 to clipboard
+    text of fmore3copy is "Copied"
+.
+fmore4 is a text with value "onetwo", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;"
+fmore4label is a text with value "Output", size 12, weight 600, foreground "#4a5b75"
+fmore4copy is a button with text "Copy", size 12, weight 600, background "#c9d6e8", foreground "#0f1f36", radius 6, padding "4px 12px"
+fmore4head is a row with spread, align middle, width full, background "#dde6f2", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put fmore4label, fmore4copy in fmore4head
+fmore4block is a column with spacing 0, width full
+put fmore4head, fmore4 in fmore4block
+when fmore4copy is clicked
+    copy text of fmore4 to clipboard
+    text of fmore4copy is "Copied"
+.
+fmore5 is a text with value "append adds exactly what you give it, with no line break of its own. Put a line break in the text if you want one.", size 15, foreground "#1e3a6b", background "#eaf2ff", radius 12, border "1px solid #cfe0ff", lineheight "1.55", customstyle "padding: 14px 18px;"
+fmore6 is a text with value "Listing files", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+fmore7 is a text with value "get files in \".\" into found\nsay \"Files here:\" length of found\n\neach item in found\n    say name of item\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+fmore7label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+fmore7copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+fmore7head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put fmore7label, fmore7copy in fmore7head
+fmore7block is a column with spacing 0, width full
+put fmore7head, fmore7 in fmore7block
+when fmore7copy is clicked
+    copy text of fmore7 to clipboard
+    text of fmore7copy is "Copied"
+.
+fmore8 is a text with value "Each entry is an object with properties such as name, path, extension, size and modified, read with of. Add and subfolders to look inside folders below as well.", size 16, foreground "#3a4d6b", lineheight "1.6"
+fmore9 is a text with value "Where am I?", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+fmore10 is a text with value "get current directory into here\nsay \"Running from:\" here", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable false
+fmore10label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+fmore10copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+fmore10head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put fmore10label, fmore10copy in fmore10head
+fmore10block is a column with spacing 0, width full
+put fmore10head, fmore10 in fmore10block
+when fmore10copy is clicked
+    copy text of fmore10 to clipboard
+    text of fmore10copy is "Copied"
+.
+fmore11 is a text with value "Relative paths are relative to this folder - the folder you ran otter from.", size 16, foreground "#3a4d6b", lineheight "1.6"
+
 docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"
-put b1, b2, b3block, b4block, b5, b6, b7block, b8, b9 in docsMain
+put b1, b2, b3block, b4block, b5, b6, b7block, b8, fmore1, fmore2, fmore3block, fmore4block, fmore5, fmore6, fmore7block, fmore8, fmore9, fmore10block, fmore11, b9 in docsMain
 docsBody is a row with align top, spacing 0, width full, customstyle "align-items: stretch;"
 put docsSidebar, docsMain in docsBody
 

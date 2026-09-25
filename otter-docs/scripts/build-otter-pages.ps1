@@ -10,7 +10,7 @@ Import-Module $webModule -Force
 
 $pagesRoot = Join-Path $PSScriptRoot '..\pages'
 $releaseDataPath = Join-Path $PSScriptRoot '..\release-data.json'
-$releaseData = Get-Content -LiteralPath $releaseDataPath -Raw | ConvertFrom-Json
+$releaseData = [System.IO.File]::ReadAllText($releaseDataPath, [System.Text.Encoding]::UTF8) | ConvertFrom-Json
 $versionPath = Join-Path $repoRoot 'VERSION'
 $repositoryVersion = (Get-Content -LiteralPath $versionPath -Raw).Trim()
 if ($releaseData.version -ne $repositoryVersion) {
@@ -55,7 +55,7 @@ if (Test-Path -LiteralPath $staticSource) {
 # The search index is deliberately generated from the Otter-authored page
 # sources. It stays in sync with the content and needs no server or package.
 $searchPages = foreach ($page in Get-ChildItem -LiteralPath $pagesRoot -Filter '*.ot' | Where-Object { -not $_.Name.StartsWith('_') }) {
-    $sourceText = Get-Content -LiteralPath $page.FullName -Raw
+    $sourceText = [System.IO.File]::ReadAllText($page.FullName, [System.Text.Encoding]::UTF8)
     $titleMatch = [regex]::Match($sourceText, 'title\s+"((?:[^"\\]|\\.)*)"')
     $title = if ($titleMatch.Success) { $titleMatch.Groups[1].Value -replace '\\"', '"' } else { [IO.Path]::GetFileNameWithoutExtension($page.Name) }
     $title = $title -replace '\s+-\s+Otter Documentation$', ''
@@ -75,7 +75,7 @@ foreach ($source in Get-ChildItem -LiteralPath $pagesRoot -Filter '*.ot' | Where
     $destinationDir = Join-Path $OutputRoot $slug
     New-Item -ItemType Directory -Force -Path $destinationDir | Out-Null
     $destination = Join-Path $destinationDir 'index.html'
-    $sourceText = Get-Content -LiteralPath $source.FullName -Raw
+    $sourceText = [System.IO.File]::ReadAllText($source.FullName, [System.Text.Encoding]::UTF8)
     $sourcePath = $source.FullName
     $temporarySource = $null
     if ($sourceText.Contains('{{')) {
