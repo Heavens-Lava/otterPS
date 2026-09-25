@@ -817,7 +817,7 @@ function Get-OtterVersionString {
             } catch {}
         }
     }
-    return '1.0.0-rc.1'
+    return '0.9.0'
 }
 
 function New-OtterDeterministicZip {
