@@ -5,6 +5,7 @@ using module .\src\Otter.Parser.psm1
 using module .\src\Otter.Database.psm1
 using module .\src\Otter.Interpreter.psm1
 using module .\src\Otter.Module.psm1
+using module .\src\Otter.Project.psm1
 
 # otter.ps1 - the Otter interpreter
 # Author: Jeffrey Macy
@@ -365,7 +366,8 @@ function Invoke-OtterFile {
         # Studio can always tell "still running/paused" apart from "done".
         [switch]$DebugSession,
 
-        [string[]]$Arguments = @()
+        [string[]]$Arguments = @(),
+        [string]$DisplayTarget = $null
     )
 
     if (-not $ScriptPath.ToLowerInvariant().EndsWith('.ot')) {
@@ -425,7 +427,8 @@ function Invoke-OtterFile {
     if ($DebugSession) { Complete-OtterDebugSession }
 
     if ($CheckOnly) {
-        Write-Host "Otter: $ScriptPath is valid." -ForegroundColor Green
+        $msgTarget = if ($DisplayTarget) { $DisplayTarget } else { $ScriptPath }
+        Write-Host "Otter: $msgTarget is valid." -ForegroundColor Green
     }
     elseif ($ParseOnly) {
         # Legacy developer flag: -ParseOnly on any run still just checks.
@@ -550,6 +553,36 @@ if ($Path -eq 'run' -or $Path -eq 'check') {
     # SkipCount 2: raw trailing tokens are [run|check, <target>, ...program args]
     $rawArgs = Get-OtterRawTrailingArguments -SkipCount 2
     $effectiveArguments = if ($null -ne $rawArgs) { $rawArgs } else { $Arguments }
+
+    # D118B: Project vs script resolution
+    $isOtFile = $Target.ToLowerInvariant().EndsWith('.ot')
+    if (-not $isOtFile) {
+        $projManifest = Find-OtterProjectManifest -Path $Target
+        if ($projManifest) {
+            $project = $null
+            try {
+                $project = Get-OtterProject -Path $Target
+            } catch [OtterError] {
+                Write-Host ''
+                Write-Host $_.Exception.Message -ForegroundColor Red
+                Write-Host ''
+                [Environment]::Exit($script:ExitCheckError)
+            }
+            Invoke-OtterFile -ScriptPath $project.ResolvedEntryPoint -CheckOnly:($Path -eq 'check') -Arguments $effectiveArguments -DisplayTarget $Target
+        }
+
+        # If not a manifest, check if Target is an existing directory or '.' with no manifest
+        $resolvedDir = Resolve-Path -LiteralPath $Target -ErrorAction SilentlyContinue
+        if (($resolvedDir -and (Test-Path -LiteralPath $resolvedDir.Path -PathType Container)) -or $Target -eq '.') {
+            Write-Host "Otter: I cannot find an otter.json manifest in `"$Target`"." -ForegroundColor Red
+            [Environment]::Exit($script:ExitUsageError)
+        }
+
+        # Otherwise not a valid .ot file
+        Write-Host "Otter: `"$Target`" is not an Otter file - expected a .ot file." -ForegroundColor Red
+        [Environment]::Exit($script:ExitUsageError)
+    }
+
     Invoke-OtterFile -ScriptPath $Target -CheckOnly:($Path -eq 'check') -Arguments $effectiveArguments
     # Invoke-OtterFile always exits itself.
 }
@@ -584,6 +617,18 @@ if ($Path -in @('web', 'browse', 'serve', 'desktop', 'studio')) {
     if (-not $scriptFile) {
         Write-Host "Usage: otter $Path <script.ot>"
         exit 1
+    }
+    $projManifest = Find-OtterProjectManifest -Path $scriptFile
+    if ($projManifest) {
+        try {
+            $proj = Get-OtterProject -Path $scriptFile
+            $scriptFile = $proj.ResolvedEntryPoint
+        } catch [OtterError] {
+            Write-Host ''
+            Write-Host $_.Exception.Message -ForegroundColor Red
+            Write-Host ''
+            [Environment]::Exit($script:ExitCheckError)
+        }
     }
     if ($Path -eq 'desktop') {
         Import-Module (Join-Path $PSScriptRoot 'src\Otter.Desktop.psm1') -Force
@@ -636,10 +681,40 @@ if ($Path -in @('web', 'browse', 'serve', 'desktop', 'studio')) {
 }
 
 if ($Path) {
+    # D118B: Check if $Path is a project directory or manifest
+    $projManifest = Find-OtterProjectManifest -Path $Path
+    if ($projManifest) {
+        $rawArgs = Get-OtterRawTrailingArguments -SkipCount 1
+        $scriptArgs = if ($null -ne $rawArgs) {
+            $rawArgs
+        } else {
+            $fallback = @()
+            if ($Target) { $fallback += $Target }
+            if ($Arguments) { $fallback += $Arguments }
+            $fallback
+        }
+        $project = $null
+        try {
+            $project = Get-OtterProject -Path $Path
+        } catch [OtterError] {
+            Write-Host ''
+            Write-Host $_.Exception.Message -ForegroundColor Red
+            Write-Host ''
+            [Environment]::Exit($script:ExitCheckError)
+        }
+        Invoke-OtterFile -ScriptPath $project.ResolvedEntryPoint -Arguments $scriptArgs -DisplayTarget $Path
+    }
+
     # Canonical shortest form: otter <file.ot>. Anything that is not a
     # recognized command and does not look like a .ot file is a usage error,
     # not a silent attempt to read a nonexistent file.
     if (-not $Path.ToLowerInvariant().EndsWith('.ot')) {
+        $resolvedDir = Resolve-Path -LiteralPath $Path -ErrorAction SilentlyContinue
+        if (($resolvedDir -and (Test-Path -LiteralPath $resolvedDir.Path -PathType Container)) -or $Path -eq '.') {
+            Write-Host "Otter: I cannot find an otter.json manifest in `"$Path`"." -ForegroundColor Red
+            [Environment]::Exit($script:ExitUsageError)
+        }
+
         Write-Host "Otter: I do not recognize the command `"$Path`"." -ForegroundColor Red
         Write-Host "Run 'otter help' to see the available commands." -ForegroundColor Red
         [Environment]::Exit($script:ExitUsageError)
