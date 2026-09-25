@@ -87,7 +87,7 @@ foreach ($source in Get-ChildItem -LiteralPath $pagesRoot -Filter '*.ot' | Where
 
     try {
         Export-OtterWebApplication -SourcePath $sourcePath -OutputPath $destination | Out-Null
-        $enhancement = '<link rel="stylesheet" href="/static/docs-enhancements.css">' + "`n" + '<script defer src="/static/docs-enhancements.js"></script>' + "`n"
+        $enhancement = '<link rel="icon" href="/static/images/otter-site-icon.png" type="image/png">' + "`n" + '<link rel="apple-touch-icon" href="/static/images/otter-site-icon.png">' + "`n" + '<link rel="stylesheet" href="/static/docs-enhancements.css">' + "`n" + '<script defer src="/static/docs-enhancements.js"></script>' + "`n"
         $html = Get-Content -LiteralPath $destination -Raw
         $html = $html -replace '(?i)</head>', ($enhancement + '</head>')
         Set-Content -LiteralPath $destination -Value $html -Encoding UTF8
