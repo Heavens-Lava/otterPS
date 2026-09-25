@@ -10,6 +10,10 @@ class OtterProjectBuild {
     [bool]$Minify = $false
 }
 
+class OtterProjectPublish {
+    [string]$OutputDir = "publish"
+}
+
 class OtterProject {
     [string]$RootDirectory
     [string]$ManifestPath
@@ -22,6 +26,7 @@ class OtterProject {
     [string]$ResolvedEntryPoint
     [string[]]$Assets = @()
     [OtterProjectBuild]$Build = [OtterProjectBuild]::new()
+    [OtterProjectPublish]$Publish = [OtterProjectPublish]::new()
     [hashtable]$Scripts = @{}
 
     OtterProject() {}
@@ -141,7 +146,7 @@ function Get-OtterProject {
         $target = [string]$parsed.archetype
     }
 
-    $supportedTargets = @('console', 'desktop', 'web', 'game', 'server')
+    $supportedTargets = @('console', 'desktop', 'web', 'game', 'server', 'automation')
     if ($supportedTargets -notcontains $target.ToLowerInvariant()) {
         throw [OtterError]::new("${manifestName}: target `"$target`" is not supported.", 0, 'check')
     }
@@ -167,6 +172,17 @@ function Get-OtterProject {
         if ($b.PSObject.Properties['minify']) { $buildObj.Minify = [bool]$b.minify }
     }
 
+    $publishObj = [OtterProjectPublish]::new()
+    if ($parsed.PSObject.Properties['publish']) {
+        $p = $parsed.publish
+        if ($p.PSObject.Properties['outputDir']) {
+            $pOut = [string]$p.outputDir
+            if (-not [string]::IsNullOrWhiteSpace($pOut)) {
+                $publishObj.OutputDir = $pOut.Trim()
+            }
+        }
+    }
+
     # 4. Construct OtterProject instance
     $project = [OtterProject]::new()
     $project.RootDirectory = $rootDir
@@ -179,6 +195,7 @@ function Get-OtterProject {
     $project.Name = if ($parsed.PSObject.Properties['name'] -and -not [string]::IsNullOrWhiteSpace($parsed.name)) { [string]$parsed.name } else { [System.IO.Path]::GetFileName($rootDir) }
     $project.Version = if ($parsed.PSObject.Properties['version'] -and -not [string]::IsNullOrWhiteSpace($parsed.version)) { [string]$parsed.version } else { '0.1.0' }
     $project.Build = $buildObj
+    $project.Publish = $publishObj
 
     # Assets
     if ($parsed.PSObject.Properties['assets'] -and $parsed.assets -is [System.Collections.IEnumerable]) {
@@ -553,7 +570,8 @@ function Invoke-OtterProjectTests {
 function Invoke-OtterProjectBuild {
     param(
         [Parameter(Mandatory = $false)]
-        [string]$Target
+        [string]$Target,
+        [switch]$Quiet
     )
 
     if (-not (Get-Command ConvertTo-OtterTokens -ErrorAction SilentlyContinue)) {
@@ -583,12 +601,14 @@ function Invoke-OtterProjectBuild {
         throw [OtterError]::new("otter.json: build.outputDir must stay inside the project directory and cannot be the project root itself.", 0, 'check')
     }
 
-    Write-Host "Building $($project.Name)..."
-    Write-Host "Target: $($project.Target)"
-    Write-Host ""
+    if (-not $Quiet) {
+        Write-Host "Building $($project.Name)..."
+        Write-Host "Target: $($project.Target)"
+        Write-Host ""
+        Write-Host "Checking project..."
+    }
 
     # 2. Syntax & Module checking before touching any output
-    Write-Host "Checking project..."
     $resolvedProgram = $null
     try {
         $resolvedProgram = Resolve-OtterModuleSource -FilePath $project.ResolvedEntryPoint
@@ -647,7 +667,9 @@ function Invoke-OtterProjectBuild {
     New-Item -ItemType Directory -Path $stagingDir -Force | Out-Null
 
     try {
-        Write-Host "Building application..."
+        if (-not $Quiet) {
+            Write-Host "Building application..."
+        }
         $targetLower = $project.Target.ToLowerInvariant()
 
         switch ($targetLower) {
@@ -693,7 +715,9 @@ function Invoke-OtterProjectBuild {
 
         # 5. Copy declared assets
         if ($project.Assets.Count -gt 0) {
-            Write-Host "Copying assets..."
+            if (-not $Quiet) {
+                Write-Host "Copying assets..."
+            }
             foreach ($asset in $project.Assets) {
                 if ([string]::IsNullOrWhiteSpace($asset)) { continue }
                 $trimmedAsset = $asset.Trim()
@@ -743,16 +767,353 @@ function Invoke-OtterProjectBuild {
         }
     }
 
-    Write-Host ""
-    Write-Host "Build succeeded." -ForegroundColor Green
-    $relOutput = if ($resolvedOutDir.StartsWith($rootDir, [System.StringComparison]::OrdinalIgnoreCase)) {
-        $resolvedOutDir.Substring($rootDir.Length).TrimStart('\', '/')
-    } else {
-        $outDir
+    if (-not $Quiet) {
+        Write-Host ""
+        Write-Host "Build succeeded." -ForegroundColor Green
+        $relOutput = if ($resolvedOutDir.StartsWith($rootDir, [System.StringComparison]::OrdinalIgnoreCase)) {
+            $resolvedOutDir.Substring($rootDir.Length).TrimStart('\', '/')
+        } else {
+            $outDir
+        }
+        $relOutput = ($relOutput -replace '\\', '/') + '/'
+        Write-Host "Output: $relOutput"
     }
-    $relOutput = ($relOutput -replace '\\', '/') + '/'
-    Write-Host "Output: $relOutput"
     return 0
 }
 
-Export-ModuleMember -Function Find-OtterProjectManifest, Get-OtterProject, New-OtterProject, Get-OtterProjectTestFiles, Invoke-OtterProjectTests, Invoke-OtterProjectBuild
+function Get-OtterSafeFileName {
+    param(
+        [Parameter(Mandatory = $false)]
+        [string]$Name
+    )
+    if ([string]::IsNullOrWhiteSpace($Name)) { return 'app' }
+    $invalid = [System.IO.Path]::GetInvalidFileNameChars()
+    $sb = [System.Text.StringBuilder]::new()
+    foreach ($ch in $Name.ToCharArray()) {
+        if ($invalid -contains $ch -or [char]::IsWhiteSpace($ch)) {
+            [void]$sb.Append('-')
+        } else {
+            [void]$sb.Append($ch)
+        }
+    }
+    $sanitized = [System.Text.RegularExpressions.Regex]::Replace($sb.ToString(), '-+', '-').Trim('-')
+    if ([string]::IsNullOrWhiteSpace($sanitized)) { return 'app' }
+    return $sanitized
+}
+
+function Get-OtterVersionString {
+    $candidates = @(
+        (Join-Path (Split-Path -Parent $PSScriptRoot) 'VERSION'),
+        (Join-Path (Get-Location).Path 'VERSION'),
+        (Join-Path $PSScriptRoot 'VERSION')
+    )
+    foreach ($cand in $candidates) {
+        if (Test-Path -LiteralPath $cand -PathType Leaf) {
+            try {
+                $ver = (Get-Content -LiteralPath $cand -Raw).Trim()
+                if (-not [string]::IsNullOrWhiteSpace($ver)) {
+                    return $ver
+                }
+            } catch {}
+        }
+    }
+    return '1.0.0-rc.1'
+}
+
+function New-OtterDeterministicZip {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$SourceDir,
+        [Parameter(Mandatory = $true)]
+        [string]$ZipPath
+    )
+    Add-Type -AssemblyName System.IO.Compression
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+
+    if (Test-Path -LiteralPath $ZipPath) {
+        Remove-Item -LiteralPath $ZipPath -Force
+    }
+
+    $sourceFull = [System.IO.Path]::GetFullPath($SourceDir)
+    $files = @(Get-ChildItem -LiteralPath $sourceFull -Recurse -File | Sort-Object FullName)
+    $fixedDate = [DateTimeOffset]::new(2026, 1, 1, 0, 0, 0, [TimeSpan]::Zero)
+
+    $zipStream = [System.IO.File]::Create($ZipPath)
+    $archive = [System.IO.Compression.ZipArchive]::new($zipStream, [System.IO.Compression.ZipArchiveMode]::Create)
+    try {
+        foreach ($file in $files) {
+            $rel = $file.FullName.Substring($sourceFull.Length).TrimStart('\', '/') -replace '\\', '/'
+            if ($rel.Contains('..') -or $rel.StartsWith('/') -or $rel -match '^[a-zA-Z]:') {
+                throw [OtterError]::new("Forbidden path in package archive: $rel", 0, 'publish')
+            }
+            $entry = $archive.CreateEntry($rel, [System.IO.Compression.CompressionLevel]::Optimal)
+            $entry.LastWriteTime = $fixedDate
+            $entryStream = $entry.Open()
+            $fileStream = [System.IO.File]::OpenRead($file.FullName)
+            try {
+                $fileStream.CopyTo($entryStream)
+            } finally {
+                $fileStream.Dispose()
+                $entryStream.Dispose()
+            }
+        }
+    } finally {
+        $archive.Dispose()
+        $zipStream.Dispose()
+    }
+}
+
+function Expand-OtterDeterministicArchive {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ZipPath,
+        [Parameter(Mandatory = $true)]
+        [string]$DestinationDir
+    )
+    Add-Type -AssemblyName System.IO.Compression
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+
+    $destFull = [System.IO.Path]::GetFullPath($DestinationDir)
+    if (-not (Test-Path -LiteralPath $destFull)) {
+        New-Item -ItemType Directory -Path $destFull -Force | Out-Null
+    }
+    $destWithSep = $destFull.TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
+
+    $zipStream = [System.IO.File]::OpenRead($ZipPath)
+    $archive = [System.IO.Compression.ZipArchive]::new($zipStream, [System.IO.Compression.ZipArchiveMode]::Read)
+    try {
+        foreach ($entry in $archive.Entries) {
+            $normName = $entry.FullName -replace '\\', '/'
+            if ($normName.Contains('..')) {
+                throw [OtterError]::new("Archive entry contains forbidden path traversal: $normName", 0, 'publish')
+            }
+            if ($normName.StartsWith('/') -or $normName -match '^[a-zA-Z]:') {
+                throw [OtterError]::new("Archive entry cannot be an absolute path: $normName", 0, 'publish')
+            }
+            $targetPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($destFull, $normName.Replace('/', [System.IO.Path]::DirectorySeparatorChar)))
+            if (-not $targetPath.StartsWith($destWithSep, [System.StringComparison]::OrdinalIgnoreCase)) {
+                throw [OtterError]::new("Archive entry escapes extraction destination: $normName", 0, 'publish')
+            }
+            if ($normName.EndsWith('/')) {
+                if (-not (Test-Path -LiteralPath $targetPath)) {
+                    New-Item -ItemType Directory -Path $targetPath -Force | Out-Null
+                }
+            } else {
+                $targetParent = Split-Path -Parent $targetPath
+                if (-not (Test-Path -LiteralPath $targetParent)) {
+                    New-Item -ItemType Directory -Path $targetParent -Force | Out-Null
+                }
+                [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $targetPath, $true)
+            }
+        }
+    } finally {
+        $archive.Dispose()
+        $zipStream.Dispose()
+    }
+}
+
+function Invoke-OtterProjectPublish {
+    param(
+        [Parameter(Mandatory = $false)]
+        [string]$Target,
+        [Parameter(Mandatory = $false)]
+        [string]$OutputDir
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Target)) {
+        $Target = '.'
+    }
+
+    $project = Get-OtterProject -Path $Target
+    $rootDir = $project.RootDirectory
+
+    # 1. Manifest properties validation
+    $manifestRaw = Get-Content -LiteralPath $project.ManifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    if (-not $manifestRaw.PSObject.Properties['name'] -or [string]::IsNullOrWhiteSpace($manifestRaw.name)) {
+        throw [OtterError]::new("otter.json: property `"name`" is required for publish.", 0, 'check')
+    }
+    if (-not $manifestRaw.PSObject.Properties['version'] -or [string]::IsNullOrWhiteSpace($manifestRaw.version)) {
+        throw [OtterError]::new("otter.json: property `"version`" is required for publish.", 0, 'check')
+    }
+    if ([string]::IsNullOrWhiteSpace($project.Target)) {
+        throw [OtterError]::new("otter.json: property `"target`" is required for publish.", 0, 'check')
+    }
+    if ([string]::IsNullOrWhiteSpace($project.EntryPoint)) {
+        throw [OtterError]::new("otter.json: property `"entryPoint`" is required for publish.", 0, 'check')
+    }
+
+    # 2. Output directory containment validation
+    $outDirName = if (-not [string]::IsNullOrWhiteSpace($OutputDir)) {
+        $OutputDir.Trim()
+    } elseif ($project.Publish -and -not [string]::IsNullOrWhiteSpace($project.Publish.OutputDir)) {
+        $project.Publish.OutputDir.Trim()
+    } else {
+        'publish'
+    }
+
+    if ($outDirName.StartsWith('/') -or $outDirName.StartsWith('\') -or $outDirName -match '^[a-zA-Z]:') {
+        throw [OtterError]::new("publish.outputDir cannot be an absolute path: $outDirName", 0, 'check')
+    }
+    $resolvedPublishDir = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($rootDir, $outDirName))
+    $rootWithSep = $rootDir.TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
+    if ($resolvedPublishDir -eq $rootDir -or (-not $resolvedPublishDir.StartsWith($rootWithSep, [System.StringComparison]::OrdinalIgnoreCase))) {
+        throw [OtterError]::new("publish.outputDir must stay inside the project directory and cannot be the project root itself.", 0, 'check')
+    }
+
+    $safeName = Get-OtterSafeFileName -Name $project.Name
+    $version = $project.Version.Trim()
+    $packageFolder = "$safeName-$version"
+    $zipName = "$safeName-$version.zip"
+    $sha256Name = "$safeName-$version.zip.sha256"
+
+    Write-Host "Publishing $($project.Name) $version..."
+    Write-Host "Target: $($project.Target)"
+    Write-Host ""
+
+    # 3. Build project first using the certified build system
+    Write-Host "Building project..."
+    $buildExitCode = Invoke-OtterProjectBuild -Target $rootDir -Quiet
+    if ($buildExitCode -ne 0) {
+        Write-Host "Publish failed." -ForegroundColor Red
+        return $buildExitCode
+    }
+
+    # 4. Staging directory for atomic packaging & promotion
+    $stagingDir = Join-Path $rootDir (".otter_publish_staging_" + [Guid]::NewGuid().ToString('N'))
+    New-Item -ItemType Directory -Path $stagingDir -Force | Out-Null
+
+    try {
+        Write-Host "Packaging files..."
+        $stagedPkgDir = Join-Path $stagingDir $packageFolder
+        New-Item -ItemType Directory -Path $stagedPkgDir -Force | Out-Null
+
+        $resolvedBuildOutDir = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($rootDir, $project.Build.OutputDir))
+        if (-not (Test-Path -LiteralPath $resolvedBuildOutDir -PathType Container)) {
+            Write-Host "Publish failed." -ForegroundColor Red
+            Write-Host ""
+            Write-Host "Build output directory does not exist: $resolvedBuildOutDir" -ForegroundColor Red
+            Write-Host ""
+            return 1
+        }
+
+        # Copy build output files to package folder
+        Get-ChildItem -LiteralPath $resolvedBuildOutDir -Force | ForEach-Object {
+            Copy-Item -LiteralPath $_.FullName -Destination $stagedPkgDir -Recurse -Force
+        }
+
+        # Collect included files list
+        $includedFiles = @(Get-ChildItem -LiteralPath $stagedPkgDir -Recurse -File | ForEach-Object {
+            $_.FullName.Substring($stagedPkgDir.Length).TrimStart('\', '/') -replace '\\', '/'
+        } | Sort-Object)
+
+        # Create deterministic ZIP archive
+        $stagedZipPath = Join-Path $stagingDir $zipName
+        New-OtterDeterministicZip -SourceDir $stagedPkgDir -ZipPath $stagedZipPath
+
+        # Compute SHA-256
+        Write-Host "Computing SHA-256..."
+        $fileHash = (Get-FileHash -LiteralPath $stagedZipPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        $stagedSha256Path = Join-Path $stagingDir $sha256Name
+        $sha256Content = "$fileHash  $zipName`r`n"
+        Set-Content -LiteralPath $stagedSha256Path -Value $sha256Content -Encoding ASCII
+
+        # Generate publish metadata (otter.publish.json)
+        $runtimeReq = switch ($project.Target.ToLowerInvariant()) {
+            'web' { 'Modern web browser with JavaScript enabled.' }
+            'game' { 'Modern web browser with HTML5 Canvas / WebGL enabled.' }
+            'desktop' { 'Requires Otter runtime (otter in PATH) to run desktop application shell.' }
+            { $_ -in @('console', 'automation') } { 'Requires Otter runtime (otter in PATH) to execute application.' }
+            default { 'Standard execution environment.' }
+        }
+
+        $entryRel = if ($project.Target.ToLowerInvariant() -in @('web', 'desktop', 'game')) { 'index.html' } else { Split-Path -Leaf $project.ResolvedEntryPoint }
+        $otterVer = Get-OtterVersionString
+
+        $publishMetaObj = [ordered]@{
+            name                = $project.Name
+            version             = $version
+            target              = $project.Target
+            archetype           = $project.Archetype
+            entryPoint          = $entryRel
+            otterVersion        = $otterVer
+            includedFiles       = $includedFiles
+            assetManifest       = $project.Assets
+            artifactFilename    = $zipName
+            sha256              = $fileHash
+            runtimeRequirements = $runtimeReq
+        }
+        $publishMetaJson = ConvertTo-Json -InputObject $publishMetaObj -Depth 5
+
+        # Place otter.publish.json in staging root and package directory
+        Set-Content -LiteralPath (Join-Path $stagingDir 'otter.publish.json') -Value $publishMetaJson -Encoding UTF8
+        Set-Content -LiteralPath (Join-Path $stagedPkgDir 'otter.publish.json') -Value $publishMetaJson -Encoding UTF8
+
+        # Verify package
+        Write-Host "Verifying package..."
+        $testArchive = [System.IO.Compression.ZipFile]::OpenRead($stagedZipPath)
+        try {
+            if ($testArchive.Entries.Count -eq 0) {
+                throw [OtterError]::new("Generated archive has zero entries.", 0, 'publish')
+            }
+            $entryNames = @($testArchive.Entries | ForEach-Object { $_.FullName })
+            if ($entryNames -notcontains $entryRel) {
+                throw [OtterError]::new("Generated archive is missing entry point $entryRel.", 0, 'publish')
+            }
+        } finally {
+            $testArchive.Dispose()
+        }
+
+        # Checksum verification
+        $verifyHash = (Get-FileHash -LiteralPath $stagedZipPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        if ($verifyHash -ne $fileHash) {
+            throw [OtterError]::new("Checksum verification mismatch for $zipName.", 0, 'publish')
+        }
+
+        # 5. Atomic promotion to publishDir
+        if (Test-Path -LiteralPath $resolvedPublishDir) {
+            Remove-Item -LiteralPath $resolvedPublishDir -Recurse -Force
+        }
+        New-Item -ItemType Directory -Path $resolvedPublishDir -Force | Out-Null
+
+        Get-ChildItem -LiteralPath $stagingDir -Force | ForEach-Object {
+            Copy-Item -LiteralPath $_.FullName -Destination $resolvedPublishDir -Recurse -Force
+        }
+    }
+    catch [OtterError] {
+        Write-Host "Publish failed." -ForegroundColor Red
+        Write-Host ""
+        Write-Host $_.Exception.Message -ForegroundColor Red
+        Write-Host ""
+        return 1
+    }
+    catch {
+        Write-Host "Publish failed." -ForegroundColor Red
+        Write-Host ""
+        Write-Host "Otter hit a problem while publishing: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host ""
+        return 1
+    }
+    finally {
+        if (Test-Path -LiteralPath $stagingDir) {
+            Remove-Item -LiteralPath $stagingDir -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    Write-Host ""
+    Write-Host "Publish succeeded." -ForegroundColor Green
+    Write-Host ""
+    Write-Host "Artifact:"
+    $relOutput = if ($resolvedPublishDir.StartsWith($rootDir, [System.StringComparison]::OrdinalIgnoreCase)) {
+        $resolvedPublishDir.Substring($rootDir.Length).TrimStart('\', '/')
+    } else {
+        $outDirName
+    }
+    $relZip = ($relOutput -replace '\\', '/') + "/$zipName"
+    Write-Host "  $relZip"
+    Write-Host ""
+    Write-Host "SHA-256:"
+    Write-Host "  $fileHash"
+    return 0
+}
+
+Export-ModuleMember -Function Find-OtterProjectManifest, Get-OtterProject, New-OtterProject, Get-OtterProjectTestFiles, Invoke-OtterProjectTests, Invoke-OtterProjectBuild, Invoke-OtterProjectPublish, Get-OtterSafeFileName, New-OtterDeterministicZip, Expand-OtterDeterministicArchive
