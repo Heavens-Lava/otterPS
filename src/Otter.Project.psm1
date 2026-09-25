@@ -550,4 +550,209 @@ function Invoke-OtterProjectTests {
     return 3
 }
 
-Export-ModuleMember -Function Find-OtterProjectManifest, Get-OtterProject, New-OtterProject, Get-OtterProjectTestFiles, Invoke-OtterProjectTests
+function Invoke-OtterProjectBuild {
+    param(
+        [Parameter(Mandatory = $false)]
+        [string]$Target
+    )
+
+    if (-not (Get-Command ConvertTo-OtterTokens -ErrorAction SilentlyContinue)) {
+        Import-Module (Join-Path $PSScriptRoot 'Otter.Lexer.psm1') -Global
+    }
+    if (-not (Get-Command ConvertTo-OtterAst -ErrorAction SilentlyContinue)) {
+        Import-Module (Join-Path $PSScriptRoot 'Otter.Parser.psm1') -Global
+    }
+    if (-not (Get-Command Resolve-OtterModuleSource -ErrorAction SilentlyContinue)) {
+        Import-Module (Join-Path $PSScriptRoot 'Otter.Module.psm1') -Global
+    }
+    if (-not (Get-Command Export-OtterWebApplication -ErrorAction SilentlyContinue)) {
+        Import-Module (Join-Path $PSScriptRoot 'Otter.Web.psm1') -Global
+    }
+
+    if ([string]::IsNullOrWhiteSpace($Target)) {
+        $Target = '.'
+    }
+
+    $project = Get-OtterProject -Path $Target
+    $rootDir = $project.RootDirectory
+    $outDir = $project.Build.OutputDir
+
+    # 1. Output directory containment validation
+    $resolvedOutDir = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($rootDir, $outDir))
+    if ($resolvedOutDir -eq $rootDir -or (-not $resolvedOutDir.StartsWith($rootDir + [System.IO.Path]::DirectorySeparatorChar))) {
+        throw [OtterError]::new("otter.json: build.outputDir must stay inside the project directory and cannot be the project root itself.", 0, 'check')
+    }
+
+    Write-Host "Building $($project.Name)..."
+    Write-Host "Target: $($project.Target)"
+    Write-Host ""
+
+    # 2. Syntax & Module checking before touching any output
+    Write-Host "Checking project..."
+    $resolvedProgram = $null
+    try {
+        $resolvedProgram = Resolve-OtterModuleSource -FilePath $project.ResolvedEntryPoint
+        $tokens = ConvertTo-OtterTokens -Source $resolvedProgram.CombinedSource
+        $ast = ConvertTo-OtterAst -Tokens $tokens
+    }
+    catch [OtterError] {
+        $err = $_.Exception
+        if ($resolvedProgram) {
+            $err = ConvertTo-OtterRemappedDiagnostics -Error $err -ResolvedProgram $resolvedProgram -RootFile $project.ResolvedEntryPoint
+        }
+        Write-Host "Build failed." -ForegroundColor Red
+        Write-Host ""
+        Write-Host $err.FormatDetailed() -ForegroundColor Red
+        Write-Host ""
+        return 2
+    }
+    catch {
+        Write-Host "Build failed." -ForegroundColor Red
+        Write-Host ""
+        Write-Host "Otter hit a problem inside itself: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host ""
+        return 1
+    }
+
+    # 3. Asset validation before staging
+    foreach ($asset in $project.Assets) {
+        if ([string]::IsNullOrWhiteSpace($asset)) { continue }
+        $trimmedAsset = $asset.Trim()
+        if ($trimmedAsset.StartsWith('/') -or $trimmedAsset.StartsWith('\') -or $trimmedAsset -match '^[a-zA-Z]:') {
+            Write-Host "Build failed." -ForegroundColor Red
+            Write-Host ""
+            Write-Host "otter.json: asset `"$asset`" cannot be an absolute path." -ForegroundColor Red
+            Write-Host ""
+            return 1
+        }
+        $resolvedAsset = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($rootDir, $trimmedAsset))
+        if (-not $resolvedAsset.StartsWith($rootDir + [System.IO.Path]::DirectorySeparatorChar)) {
+            Write-Host "Build failed." -ForegroundColor Red
+            Write-Host ""
+            Write-Host "otter.json: asset `"$asset`" escapes the project directory." -ForegroundColor Red
+            Write-Host ""
+            return 1
+        }
+        if (-not (Test-Path -LiteralPath $resolvedAsset -PathType Leaf)) {
+            Write-Host "Build failed." -ForegroundColor Red
+            Write-Host ""
+            Write-Host "otter.json: declared asset `"$asset`" does not exist." -ForegroundColor Red
+            Write-Host ""
+            return 1
+        }
+    }
+
+    # 4. Staging directory for atomic promotion & safety
+    $stagingDir = Join-Path $rootDir (".otter_build_staging_" + [Guid]::NewGuid().ToString('N'))
+    New-Item -ItemType Directory -Path $stagingDir -Force | Out-Null
+
+    try {
+        Write-Host "Building application..."
+        $targetLower = $project.Target.ToLowerInvariant()
+
+        switch ($targetLower) {
+            { $_ -in @('web', 'desktop', 'game') } {
+                $htmlOutput = Join-Path $stagingDir 'index.html'
+                Export-OtterWebApplication -SourcePath $project.ResolvedEntryPoint -OutputPath $htmlOutput -PassThruExceptions | Out-Null
+
+                if ($targetLower -eq 'desktop') {
+                    $launcherCmd = "@echo off`r`notter desktop %~dp0index.html %*`r`n"
+                    Set-Content -LiteralPath (Join-Path $stagingDir 'run-desktop.cmd') -Value $launcherCmd -Encoding ASCII
+                }
+            }
+            { $_ -in @('console', 'automation') } {
+                $entryLeaf = Split-Path -Leaf $project.ResolvedEntryPoint
+                $destEntry = Join-Path $stagingDir $entryLeaf
+                Set-Content -LiteralPath $destEntry -Value $resolvedProgram.CombinedSource -Encoding UTF8
+
+                # Runnable project manifest inside build artifact
+                $builtManifest = @"
+{
+  "`$schema": "https://otter-lang.org/schema/project-v1.json",
+  "name": "$($project.Name)",
+  "version": "$($project.Version)",
+  "archetype": "$($project.Archetype)",
+  "target": "$($project.Target)",
+  "entryPoint": "$entryLeaf"
+}
+"@
+                Set-Content -LiteralPath (Join-Path $stagingDir 'otter.json') -Value $builtManifest -Encoding UTF8
+
+                # Runnable launcher script
+                $launcherCmd = "@echo off`r`notter run %~dp0$entryLeaf %*`r`n"
+                Set-Content -LiteralPath (Join-Path $stagingDir 'run.cmd') -Value $launcherCmd -Encoding ASCII
+            }
+            default {
+                Write-Host "Build failed." -ForegroundColor Red
+                Write-Host ""
+                Write-Host "Otter: target `"$($project.Target)`" is not supported for build." -ForegroundColor Red
+                Write-Host ""
+                return 1
+            }
+        }
+
+        # 5. Copy declared assets
+        if ($project.Assets.Count -gt 0) {
+            Write-Host "Copying assets..."
+            foreach ($asset in $project.Assets) {
+                if ([string]::IsNullOrWhiteSpace($asset)) { continue }
+                $trimmedAsset = $asset.Trim()
+                $srcPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($rootDir, $trimmedAsset))
+                $destPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($stagingDir, $trimmedAsset))
+                $destParent = Split-Path -Parent $destPath
+                if (-not (Test-Path -LiteralPath $destParent -PathType Container)) {
+                    New-Item -ItemType Directory -Path $destParent -Force | Out-Null
+                }
+                Copy-Item -LiteralPath $srcPath -Destination $destPath -Force
+            }
+        }
+
+        # 6. Emit deterministic build metadata
+        $entryRel = if ($targetLower -in @('web', 'desktop', 'game')) { 'index.html' } else { Split-Path -Leaf $project.ResolvedEntryPoint }
+        $assetsJsonArray = if ($project.Assets.Count -gt 0) {
+            "`n    " + (($project.Assets | ForEach-Object { ConvertTo-Json -InputObject $_ -Compress }) -join ",`n    ") + "`n  "
+        } else { "" }
+
+        $buildMeta = @"
+{
+  "name": "$($project.Name)",
+  "version": "$($project.Version)",
+  "target": "$($project.Target)",
+  "entryPoint": "$entryRel",
+  "assets": [$assetsJsonArray]
+}
+"@
+        Set-Content -LiteralPath (Join-Path $stagingDir 'otter.build.json') -Value $buildMeta -Encoding UTF8
+
+        # 7. Atomic promotion to outputDir
+        if ($project.Build.Clean -and (Test-Path -LiteralPath $resolvedOutDir)) {
+            Remove-Item -LiteralPath $resolvedOutDir -Recurse -Force
+        }
+
+        if (-not (Test-Path -LiteralPath $resolvedOutDir)) {
+            New-Item -ItemType Directory -Path $resolvedOutDir -Force | Out-Null
+        }
+
+        Get-ChildItem -LiteralPath $stagingDir -Force | ForEach-Object {
+            Copy-Item -LiteralPath $_.FullName -Destination $resolvedOutDir -Recurse -Force
+        }
+    }
+    finally {
+        if (Test-Path -LiteralPath $stagingDir) {
+            Remove-Item -LiteralPath $stagingDir -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    Write-Host ""
+    Write-Host "Build succeeded." -ForegroundColor Green
+    $relOutput = if ($resolvedOutDir.StartsWith($rootDir, [System.StringComparison]::OrdinalIgnoreCase)) {
+        $resolvedOutDir.Substring($rootDir.Length).TrimStart('\', '/')
+    } else {
+        $outDir
+    }
+    $relOutput = ($relOutput -replace '\\', '/') + '/'
+    Write-Host "Output: $relOutput"
+    return 0
+}
+
+Export-ModuleMember -Function Find-OtterProjectManifest, Get-OtterProject, New-OtterProject, Get-OtterProjectTestFiles, Invoke-OtterProjectTests, Invoke-OtterProjectBuild

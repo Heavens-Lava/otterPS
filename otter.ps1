@@ -523,6 +523,7 @@ function Show-OtterHelp {
     Write-Host '  otter <file.ot>        Run an Otter program (shortest form)'
     Write-Host '  otter run <file.ot>    Run an Otter program or project'
     Write-Host '  otter check <file.ot>  Validate a program or project without running it'
+    Write-Host '  otter build [target]   Build an Otter project into its output directory (dist/)'
     Write-Host '  otter new <type> <name> Create a new Otter project (console, desktop, web, automation, game)'
     Write-Host '  otter test [target]    Run tests in an Otter project or test file'
     Write-Host '  otter web <file.ot>    Compile an Otter web application to HTML/JS'
@@ -602,6 +603,26 @@ if ($Path -eq 'test') {
     try {
         $testCode = Invoke-OtterProjectTests -Target $testTarget -OtterPs1Path $PSCommandPath
         [Environment]::Exit($testCode)
+    }
+    catch [OtterError] {
+        Write-Host ''
+        Write-Host $_.Exception.Message -ForegroundColor Red
+        Write-Host ''
+        [Environment]::Exit($script:ExitUsageError)
+    }
+    catch {
+        Write-Host ''
+        Write-Host $_.Exception.Message -ForegroundColor Red
+        Write-Host ''
+        [Environment]::Exit($script:ExitUsageError)
+    }
+}
+
+if ($Path -eq 'build') {
+    $buildTarget = if ($Target) { $Target } else { '.' }
+    try {
+        $exitCode = Invoke-OtterProjectBuild -Target $buildTarget
+        [Environment]::Exit($exitCode)
     }
     catch [OtterError] {
         Write-Host ''
