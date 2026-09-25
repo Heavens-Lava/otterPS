@@ -1779,23 +1779,47 @@ function Split-OtterCommandLine {
     $current = [System.Text.StringBuilder]::new()
     $inQuotes = $false
     $any = $false
+    $len = $CommandLine.Length
+    $i = 0
 
-    foreach ($character in $CommandLine.ToCharArray()) {
-        if ($character -eq '"') {
-            $inQuotes = -not $inQuotes
+    while ($i -lt $len) {
+        $ch = $CommandLine[$i]
+
+        if ($ch -eq '\' -and ($i + 1) -lt $len -and $CommandLine[$i + 1] -eq '"') {
+            # Escaped quote \" -> literal "
+            [void]$current.Append('"')
             $any = $true
+            $i += 2
             continue
         }
-        if ([char]::IsWhiteSpace($character) -and -not $inQuotes) {
+
+        if ($ch -eq '"') {
+            if ($inQuotes -and ($i + 1) -lt $len -and $CommandLine[$i + 1] -eq '"') {
+                # Doubled quote "" inside quotes -> literal "
+                [void]$current.Append('"')
+                $any = $true
+                $i += 2
+                continue
+            }
+            $inQuotes = -not $inQuotes
+            $any = $true
+            $i++
+            continue
+        }
+
+        if ([char]::IsWhiteSpace($ch) -and -not $inQuotes) {
             if ($any) {
                 [void]$parts.Add($current.ToString())
                 [void]$current.Clear()
                 $any = $false
             }
+            $i++
             continue
         }
-        [void]$current.Append($character)
+
+        [void]$current.Append($ch)
         $any = $true
+        $i++
     }
 
     if ($inQuotes) {
@@ -1988,9 +2012,45 @@ function ConvertTo-OtterProcessArgument {
     # ProcessStartInfo.Arguments is one command-line string on .NET Framework.
     # Quote only as much as Windows' command-line parser requires, retaining
     # the argument boundaries already established by Split-OtterCommandLine.
-    $escaped = [regex]::Replace($Argument, '(\\*)"', '$1$1\\"')
+    $escaped = [regex]::Replace($Argument, '(\\*)"', '$1$1\"')
     $escaped = [regex]::Replace($escaped, '(\\+)$', '$1$1')
     return '"' + $escaped + '"'
+}
+
+function Get-OtterPowerShellHost {
+    [CmdletBinding()]
+    param()
+
+    try {
+        $proc = [System.Diagnostics.Process]::GetCurrentProcess()
+        if ($proc.MainModule -and $proc.MainModule.FileName) {
+            $fn = $proc.MainModule.FileName
+            if ($fn -match '(?i)powershell(\.exe)?$' -or $fn -match '(?i)pwsh(\.exe)?$') {
+                return $fn
+            }
+        }
+    } catch {}
+
+    if ($PSHOME) {
+        $candidates = @('powershell.exe', 'pwsh.exe', 'pwsh')
+        foreach ($c in $candidates) {
+            $p = Join-Path $PSHOME $c
+            if (Test-Path -LiteralPath $p -PathType Leaf) {
+                return $p
+            }
+        }
+    }
+
+    $cmd = Get-Command -Name 'pwsh', 'powershell.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($cmd -and $cmd.Path) {
+        return $cmd.Path
+    }
+
+    if ($PSVersionTable.PSEdition -eq 'Core') {
+        return 'pwsh'
+    }
+
+    return 'powershell.exe'
 }
 
 # run command "git status"              - waits, prints nothing
@@ -2002,26 +2062,66 @@ function Invoke-OtterCommand {
     $program = $parts[0]
     $arguments = @($parts | Select-Object -Skip 1)
 
-    $resolved = Get-Command -Name $program -ErrorAction SilentlyContinue
-    if (-not $resolved) {
+    $resolvedPath = $null
+    if (Test-Path -LiteralPath $program -PathType Leaf) {
+        $resolvedPath = (Resolve-Path -LiteralPath $program).Path
+    } else {
+        $resolved = Get-Command -Name $program -ErrorAction SilentlyContinue
+        if ($resolved) {
+            $resolvedPath = if ($resolved.Path) { $resolved.Path } elseif ($resolved.Source) { $resolved.Source } else { $program }
+        } else {
+            # Check for script extensions in current directory if bare name was specified
+            $extCandidates = @('.exe', '.cmd', '.bat', '.ps1')
+            foreach ($ec in $extCandidates) {
+                $cand = $program + $ec
+                if (Test-Path -LiteralPath $cand -PathType Leaf) {
+                    $resolvedPath = (Resolve-Path -LiteralPath $cand).Path
+                    break
+                }
+            }
+        }
+    }
+
+    if (-not $resolvedPath -and -not $resolved) {
         throw [OtterError]::new(
             "I could not find a program called `"$program`".",
             $Line, 'runtime')
     }
+
+    $ext = [System.IO.Path]::GetExtension($resolvedPath).ToLowerInvariant()
 
     try {
         # Use Process directly rather than PowerShell's native-command
         # pipeline. Windows PowerShell turns native stderr into ErrorRecords;
         # Process preserves the child's two streams exactly as Otter promises.
         $info = [System.Diagnostics.ProcessStartInfo]::new()
-        $info.FileName = if ($resolved.Path) { $resolved.Path } else { $program }
-        $info.Arguments = (@($arguments | ForEach-Object { ConvertTo-OtterProcessArgument $_ }) -join ' ')
         $info.UseShellExecute = $false
         $info.RedirectStandardOutput = $true
         $info.RedirectStandardError = $true
         $info.CreateNoWindow = $true
         $info.StandardOutputEncoding = [System.Text.Encoding]::UTF8
         $info.StandardErrorEncoding = [System.Text.Encoding]::UTF8
+
+        if ($ext -eq '.ps1') {
+            # D119-R1: PowerShell script dispatch via active PowerShell host
+            $info.FileName = Get-OtterPowerShellHost
+            $allArgs = @('-NoProfile', '-File', $resolvedPath) + $arguments
+            $info.Arguments = (@($allArgs | ForEach-Object { ConvertTo-OtterProcessArgument $_ }) -join ' ')
+        }
+        elseif ($ext -in @('.cmd', '.bat') -and [System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT) {
+            # D119-R1: Windows CMD/BAT script dispatch via cmd.exe /d /s /c
+            $cmdExe = if ([string]::IsNullOrWhiteSpace($env:ComSpec)) { 'cmd.exe' } else { $env:ComSpec }
+            $cmdTarget = ConvertTo-OtterProcessArgument $resolvedPath
+            $formattedArgs = @($arguments | ForEach-Object { ConvertTo-OtterProcessArgument $_ }) -join ' '
+            $innerCmd = if ($formattedArgs.Length -gt 0) { "$cmdTarget $formattedArgs" } else { $cmdTarget }
+            $info.FileName = $cmdExe
+            $info.Arguments = "/d /s /c `"$innerCmd`""
+        }
+        else {
+            # Direct native executable launch
+            $info.FileName = $resolvedPath
+            $info.Arguments = (@($arguments | ForEach-Object { ConvertTo-OtterProcessArgument $_ }) -join ' ')
+        }
 
         $process = [System.Diagnostics.Process]::Start($info)
         if ($null -eq $process) { throw 'The program process did not start.' }
@@ -2990,7 +3090,8 @@ function Receive-OtterFileDownload {
 Export-ModuleMember -Function `
     Resolve-OtterPath, Read-OtterFile, Write-OtterFile, Add-OtterFileContent, Copy-OtterFile, `
     Move-OtterFile, Remove-OtterFile, Test-OtterFileExists, Test-OtterFileLocked, `
-    Split-OtterCommandLine, Start-OtterProgram, Invoke-OtterCommand, `
+    Split-OtterCommandLine, Start-OtterProgram, Invoke-OtterCommand, Get-OtterPowerShellHost, `
+    ConvertTo-OtterProcessArgument, `
     New-OtterFileObject, Resolve-OtterFileArgument, New-OtterFolderObject, `
     Get-OtterFilesIn, Get-OtterFoldersIn, New-OtterFolder, Remove-OtterFolder, `
     Copy-OtterFolder, Move-OtterFolder, `
