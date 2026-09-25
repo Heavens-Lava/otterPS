@@ -9,14 +9,21 @@ app is a page with title "Lists - Otter Documentation", hideheader true, scroll 
 customstyle of navDocs is "padding: 22px 0; border-bottom: 2px solid #4d8dff; color: #ffffff;"
 customstyle of sideLists is "padding: 8px 12px; border-left: 3px solid #2563eb; border-radius: 4px; display: block; background: #e6efff; color: #1d4ed8; font-weight: 600;"
 # Sidebar: only the current group is expanded.
-customstyle of sideHome is "display: none;"
+customstyle of sideDocs is "display: none;"
 customstyle of sideWelcome is "display: none;"
+customstyle of sideWhatIsOtter is "display: none;"
+customstyle of sideWhoIsOtterFor is "display: none;"
+customstyle of sideWhatCanYouBuild is "display: none;"
 customstyle of sideInstallation is "display: none;"
+customstyle of sideVerify is "display: none;"
 customstyle of sideFirstProgram is "display: none;"
 customstyle of sideHello is "display: none;"
-customstyle of sideRunningFiles is "display: none;"
 customstyle of sideRepl is "display: none;"
+customstyle of sideRunningFiles is "display: none;"
+customstyle of sideTinyApp is "display: none;"
 customstyle of sideCli is "display: none;"
+customstyle of sideProjects is "display: none;"
+customstyle of sideTroubleshooting is "display: none;"
 customstyle of sideGone is "display: none;"
 customstyle of sideOperators is "display: none;"
 customstyle of sidePropertyAccess is "display: none;"
@@ -62,22 +69,55 @@ customstyle of sideTopics is "display: none;"
 customstyle of sideDownload is "display: none;"
 customstyle of sideRelease is "display: none;"
 customstyle of sideStudio is "display: none;"
+customstyle of sideSupport is "display: none;"
+customstyle of sideAbout is "display: none;"
+customstyle of sideLicense is "display: none;"
 
 b1 is a text with value "Lists", size 40, weight 800, foreground "#0b1d36", letterspacing "-0.03em", lineheight "1.1"
 b2 is a text with value "A list is an ordered collection of values. A multi-line list begins with are and ends with a period.", size 18, foreground "#3a4d6b", lineheight "1.55"
-b3 is a text with value "games are\n    \"Zelda\"\n    \"Metroid\"\n    \"Mario\"\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
+b3 is a text with value "games are\n    \"Zelda\"\n    \"Metroid\"\n    \"Mario\"\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b3label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b3copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b3head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b3label, b3copy in b3head
+b3block is a column with spacing 0, width full
+put b3head, b3 in b3block
+when b3copy is clicked
+    copy text of b3 to clipboard
+    text of b3copy is "Copied"
+.
 b4 is a text with value "An empty list is written games are empty.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b5 is a text with value "Working with a list", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
-b6 is a text with value "say \"Total games:\" length of games\n\nif games contains \"Zelda\"\n    say \"Found Zelda in collection!\"\n.\n\nadd \"Pokemon\" to games\nsay \"After add, count is:\" length of games\n\nremove \"Metroid\" from games\nsay \"After remove, count is:\" length of games", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
+b6 is a text with value "say \"Total games:\" length of games\n\nif games contains \"Zelda\"\n    say \"Found Zelda in collection!\"\n.\n\nadd \"Pokemon\" to games\nsay \"After add, count is:\" length of games\n\nremove \"Metroid\" from games\nsay \"After remove, count is:\" length of games", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b6label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b6copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b6head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b6label, b6copy in b6head
+b6block is a column with spacing 0, width full
+put b6head, b6 in b6block
+when b6copy is clicked
+    copy text of b6 to clipboard
+    text of b6copy is "Copied"
+.
 b7 is a text with value "add and remove work on numbers as well as lists: on a number they do arithmetic, on a list they append and remove items.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b8 is a text with value "Looking at items", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
-b9 is a text with value "say \"First:\" first of games\nsay \"Last:\" last of games", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
+b9 is a text with value "say \"First:\" first of games\nsay \"Last:\" last of games", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b9label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b9copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b9head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b9label, b9copy in b9head
+b9block is a column with spacing 0, width full
+put b9head, b9 in b9block
+when b9copy is clicked
+    copy text of b9 to clipboard
+    text of b9copy is "Copied"
+.
 b10 is a text with value "Walking a list", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b11 is a text with value "each visits every item in order. See Loops.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b12 is a link with text "Next: functions", url "/functions/", foreground "#2563eb", weight 600, size 15
 
 docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"
-put b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12 in docsMain
+put b1, b2, b3block, b4, b5, b6block, b7, b8, b9block, b10, b11, b12 in docsMain
 docsBody is a row with align top, spacing 0, width full, customstyle "align-items: stretch;"
 put docsSidebar, docsMain in docsBody
 

@@ -9,14 +9,21 @@ app is a page with title "JSON - Otter Documentation", hideheader true, scroll t
 customstyle of navDocs is "padding: 22px 0; border-bottom: 2px solid #4d8dff; color: #ffffff;"
 customstyle of sideJson is "padding: 8px 12px; border-left: 3px solid #2563eb; border-radius: 4px; display: block; background: #e6efff; color: #1d4ed8; font-weight: 600;"
 # Sidebar: only the current group is expanded.
-customstyle of sideHome is "display: none;"
+customstyle of sideDocs is "display: none;"
 customstyle of sideWelcome is "display: none;"
+customstyle of sideWhatIsOtter is "display: none;"
+customstyle of sideWhoIsOtterFor is "display: none;"
+customstyle of sideWhatCanYouBuild is "display: none;"
 customstyle of sideInstallation is "display: none;"
+customstyle of sideVerify is "display: none;"
 customstyle of sideFirstProgram is "display: none;"
 customstyle of sideHello is "display: none;"
-customstyle of sideRunningFiles is "display: none;"
 customstyle of sideRepl is "display: none;"
+customstyle of sideRunningFiles is "display: none;"
+customstyle of sideTinyApp is "display: none;"
 customstyle of sideCli is "display: none;"
+customstyle of sideProjects is "display: none;"
+customstyle of sideTroubleshooting is "display: none;"
 customstyle of sideValues is "display: none;"
 customstyle of sideInputOutput is "display: none;"
 customstyle of sideConditions is "display: none;"
@@ -62,18 +69,41 @@ customstyle of sideTopics is "display: none;"
 customstyle of sideDownload is "display: none;"
 customstyle of sideRelease is "display: none;"
 customstyle of sideStudio is "display: none;"
+customstyle of sideSupport is "display: none;"
+customstyle of sideAbout is "display: none;"
+customstyle of sideLicense is "display: none;"
 
 b1 is a text with value "JSON", size 40, weight 800, foreground "#0b1d36", letterspacing "-0.03em", lineheight "1.1"
 b2 is a text with value "JSON converts to ordinary Otter objects and lists, read with the same of you use everywhere else.", size 18, foreground "#3a4d6b", lineheight "1.55"
 b3 is a text with value "JSON Objects Use Ordinary Property Access", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b4 is a text with value "After JSON is converted into an Otter object:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b5 is a text with value "user has\n    name is \"Ada\"\n    email is \"ada@example.com\"\n.\nsay name of user\nsay email of user", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
+b5 is a text with value "user has\n    name is \"Ada\"\n    email is \"ada@example.com\"\n.\nsay name of user\nsay email of user", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b5label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b5copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b5head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b5label, b5copy in b5head
+b5block is a column with spacing 0, width full
+put b5head, b5 in b5block
+when b5copy is clicked
+    copy text of b5 to clipboard
+    text of b5copy is "Copied"
+.
 b6 is a text with value "Nested JSON works naturally:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b7 is a text with value "address has\n    city is \"London\"\n.\nuser has\n    address is address\n.\nsay city of address of user", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
+b7 is a text with value "address has\n    city is \"London\"\n.\nuser has\n    address is address\n.\nsay city of address of user", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b7label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b7copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b7head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b7label, b7copy in b7head
+b7block is a column with spacing 0, width full
+put b7head, b7 in b7block
+when b7copy is clicked
+    copy text of b7 to clipboard
+    text of b7copy is "Copied"
+.
 b8 is a text with value "Otter should not require separate JSON-navigation syntax.", size 16, foreground "#3a4d6b", lineheight "1.6"
 
 docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"
-put b1, b2, b3, b4, b5, b6, b7, b8 in docsMain
+put b1, b2, b3, b4, b5block, b6, b7block, b8 in docsMain
 docsBody is a row with align top, spacing 0, width full, customstyle "align-items: stretch;"
 put docsSidebar, docsMain in docsBody
 

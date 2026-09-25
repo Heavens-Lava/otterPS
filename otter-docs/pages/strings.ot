@@ -9,14 +9,21 @@ app is a page with title "Working with text - Otter Documentation", hideheader t
 customstyle of navDocs is "padding: 22px 0; border-bottom: 2px solid #4d8dff; color: #ffffff;"
 customstyle of sideStrings is "padding: 8px 12px; border-left: 3px solid #2563eb; border-radius: 4px; display: block; background: #e6efff; color: #1d4ed8; font-weight: 600;"
 # Sidebar: only the current group is expanded.
-customstyle of sideHome is "display: none;"
+customstyle of sideDocs is "display: none;"
 customstyle of sideWelcome is "display: none;"
+customstyle of sideWhatIsOtter is "display: none;"
+customstyle of sideWhoIsOtterFor is "display: none;"
+customstyle of sideWhatCanYouBuild is "display: none;"
 customstyle of sideInstallation is "display: none;"
+customstyle of sideVerify is "display: none;"
 customstyle of sideFirstProgram is "display: none;"
 customstyle of sideHello is "display: none;"
-customstyle of sideRunningFiles is "display: none;"
 customstyle of sideRepl is "display: none;"
+customstyle of sideRunningFiles is "display: none;"
+customstyle of sideTinyApp is "display: none;"
 customstyle of sideCli is "display: none;"
+customstyle of sideProjects is "display: none;"
+customstyle of sideTroubleshooting is "display: none;"
 customstyle of sideValues is "display: none;"
 customstyle of sideInputOutput is "display: none;"
 customstyle of sideConditions is "display: none;"
@@ -62,47 +69,200 @@ customstyle of sideTopics is "display: none;"
 customstyle of sideDownload is "display: none;"
 customstyle of sideRelease is "display: none;"
 customstyle of sideStudio is "display: none;"
+customstyle of sideSupport is "display: none;"
+customstyle of sideAbout is "display: none;"
+customstyle of sideLicense is "display: none;"
 
 b1 is a text with value "Working with text", size 40, weight 800, foreground "#0b1d36", letterspacing "-0.03em", lineheight "1.1"
 b2 is a text with value "Measure, change, search, split, and join text with plain words.", size 18, foreground "#3a4d6b", lineheight "1.55"
 b3 is a text with value "String Length", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
-b4 is a text with value "say length of name", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
+b4 is a text with value "say length of name", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b4label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b4copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b4head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b4label, b4copy in b4head
+b4block is a column with spacing 0, width full
+put b4head, b4 in b4block
+when b4copy is clicked
+    copy text of b4 to clipboard
+    text of b4copy is "Copied"
+.
 b5 is a text with value "Example:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b6 is a text with value "name is \"Jeff\"\n\nsay length of name", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
+b6 is a text with value "name is \"Jeff\"\n\nsay length of name", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b6label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b6copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b6head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b6label, b6copy in b6head
+b6block is a column with spacing 0, width full
+put b6head, b6 in b6block
+when b6copy is clicked
+    copy text of b6 to clipboard
+    text of b6copy is "Copied"
+.
 b7 is a text with value "Output:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b8 is a text with value "4", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto;"
+b8 is a text with value "4", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;"
+b8label is a text with value "Output", size 12, weight 600, foreground "#4a5b75"
+b8copy is a button with text "Copy", size 12, weight 600, background "#c9d6e8", foreground "#0f1f36", radius 6, padding "4px 12px"
+b8head is a row with spread, align middle, width full, background "#dde6f2", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b8label, b8copy in b8head
+b8block is a column with spacing 0, width full
+put b8head, b8 in b8block
+when b8copy is clicked
+    copy text of b8 to clipboard
+    text of b8copy is "Copied"
+.
 b9 is a text with value "Uppercase and Lowercase", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
-b10 is a text with value "say uppercase of name\nsay lowercase of name", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
+b10 is a text with value "say uppercase of name\nsay lowercase of name", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b10label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b10copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b10head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b10label, b10copy in b10head
+b10block is a column with spacing 0, width full
+put b10head, b10 in b10block
+when b10copy is clicked
+    copy text of b10 to clipboard
+    text of b10copy is "Copied"
+.
 b11 is a text with value "Example:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b12 is a text with value "name is \"Jeff\"\n\nsay uppercase of name\nsay lowercase of name", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
+b12 is a text with value "name is \"Jeff\"\n\nsay uppercase of name\nsay lowercase of name", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b12label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b12copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b12head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b12label, b12copy in b12head
+b12block is a column with spacing 0, width full
+put b12head, b12 in b12block
+when b12copy is clicked
+    copy text of b12 to clipboard
+    text of b12copy is "Copied"
+.
 b13 is a text with value "Output:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b14 is a text with value "JEFF\njeff", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto;"
+b14 is a text with value "JEFF\njeff", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;"
+b14label is a text with value "Output", size 12, weight 600, foreground "#4a5b75"
+b14copy is a button with text "Copy", size 12, weight 600, background "#c9d6e8", foreground "#0f1f36", radius 6, padding "4px 12px"
+b14head is a row with spread, align middle, width full, background "#dde6f2", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b14label, b14copy in b14head
+b14block is a column with spacing 0, width full
+put b14head, b14 in b14block
+when b14copy is clicked
+    copy text of b14 to clipboard
+    text of b14copy is "Copied"
+.
 b15 is a text with value "These operations return new values.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b16 is a text with value "They do not automatically modify the original variable.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b17 is a text with value "Contains", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b18 is a text with value "Strings can be checked for text:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b19 is a text with value "if name contains \"Jeff\"\n    say \"Found Jeff.\"\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
+b19 is a text with value "if name contains \"Jeff\"\n    say \"Found Jeff.\"\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b19label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b19copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b19head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b19label, b19copy in b19head
+b19block is a column with spacing 0, width full
+put b19head, b19 in b19block
+when b19copy is clicked
+    copy text of b19 to clipboard
+    text of b19copy is "Copied"
+.
 b20 is a text with value "Collections can be checked for an item:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b21 is a text with value "games are\n    \"Zelda\"\n    \"Metroid\"\n    \"Mario\"\n.\nif games contains \"Zelda\"\n    say \"Zelda is in the list.\"\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
+b21 is a text with value "games are\n    \"Zelda\"\n    \"Metroid\"\n    \"Mario\"\n.\nif games contains \"Zelda\"\n    say \"Zelda is in the list.\"\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b21label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b21copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b21head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b21label, b21copy in b21head
+b21block is a column with spacing 0, width full
+put b21head, b21 in b21block
+when b21copy is clicked
+    copy text of b21 to clipboard
+    text of b21copy is "Copied"
+.
 b22 is a text with value "The parser/runtime determines whether the target is text or a collection.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b23 is a text with value "Starts With", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
-b24 is a text with value "if name starts with \"J\"\n    say \"Starts with J.\"\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
+b24 is a text with value "if name starts with \"J\"\n    say \"Starts with J.\"\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b24label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b24copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b24head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b24label, b24copy in b24head
+b24block is a column with spacing 0, width full
+put b24head, b24 in b24block
+when b24copy is clicked
+    copy text of b24 to clipboard
+    text of b24copy is "Copied"
+.
 b25 is a text with value "Ends With", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
-b26 is a text with value "if name ends with \"rey\"\n    say \"Ends with rey.\"\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
+b26 is a text with value "if name ends with \"rey\"\n    say \"Ends with rey.\"\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b26label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b26copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b26head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b26label, b26copy in b26head
+b26block is a column with spacing 0, width full
+put b26head, b26 in b26block
+when b26copy is clicked
+    copy text of b26 to clipboard
+    text of b26copy is "Copied"
+.
 b27 is a text with value "Split Text", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
-b28 is a text with value "split \"red,green,blue\" by \",\" into colors", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
+b28 is a text with value "split \"red,green,blue\" by \",\" into colors", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b28label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b28copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b28head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b28label, b28copy in b28head
+b28block is a column with spacing 0, width full
+put b28head, b28 in b28block
+when b28copy is clicked
+    copy text of b28 to clipboard
+    text of b28copy is "Copied"
+.
 b29 is a text with value "This creates a list.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b30 is a text with value "Equivalent example using a variable:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b31 is a text with value "text is \"red,green,blue\"\n\nsplit text by \",\" into colors", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
+b31 is a text with value "text is \"red,green,blue\"\n\nsplit text by \",\" into colors", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b31label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b31copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b31head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b31label, b31copy in b31head
+b31block is a column with spacing 0, width full
+put b31head, b31 in b31block
+when b31copy is clicked
+    copy text of b31 to clipboard
+    text of b31copy is "Copied"
+.
 b32 is a text with value "Join Text", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
-b33 is a text with value "join colors with \", \" into text", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
+b33 is a text with value "join colors with \", \" into text", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b33label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b33copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b33head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b33label, b33copy in b33head
+b33block is a column with spacing 0, width full
+put b33head, b33 in b33block
+when b33copy is clicked
+    copy text of b33 to clipboard
+    text of b33copy is "Copied"
+.
 b34 is a text with value "Example:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b35 is a text with value "colors are\n    \"red\"\n    \"green\"\n    \"blue\"\n.\n\njoin colors with \" | \" into text\n\nsay text", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
+b35 is a text with value "colors are\n    \"red\"\n    \"green\"\n    \"blue\"\n.\n\njoin colors with \" | \" into text\n\nsay text", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b35label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b35copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b35head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b35label, b35copy in b35head
+b35block is a column with spacing 0, width full
+put b35head, b35 in b35block
+when b35copy is clicked
+    copy text of b35 to clipboard
+    text of b35copy is "Copied"
+.
 b36 is a text with value "Output:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b37 is a text with value "red | green | blue", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto;"
+b37 is a text with value "red | green | blue", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;"
+b37label is a text with value "Output", size 12, weight 600, foreground "#4a5b75"
+b37copy is a button with text "Copy", size 12, weight 600, background "#c9d6e8", foreground "#0f1f36", radius 6, padding "4px 12px"
+b37head is a row with spread, align middle, width full, background "#dde6f2", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b37label, b37copy in b37head
+b37block is a column with spacing 0, width full
+put b37head, b37 in b37block
+when b37copy is clicked
+    copy text of b37 to clipboard
+    text of b37copy is "Copied"
+.
 
 docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"
-put b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15, b16, b17, b18, b19, b20, b21, b22, b23, b24, b25, b26, b27, b28, b29, b30, b31, b32, b33, b34, b35, b36, b37 in docsMain
+put b1, b2, b3, b4block, b5, b6block, b7, b8block, b9, b10block, b11, b12block, b13, b14block, b15, b16, b17, b18, b19block, b20, b21block, b22, b23, b24block, b25, b26block, b27, b28block, b29, b30, b31block, b32, b33block, b34, b35block, b36, b37block in docsMain
 docsBody is a row with align top, spacing 0, width full, customstyle "align-items: stretch;"
 put docsSidebar, docsMain in docsBody
 

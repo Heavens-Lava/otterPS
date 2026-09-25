@@ -376,7 +376,7 @@ $bodyCode
 # button that would fail. Returns the JS function source, or $null.
 function Get-OtterRunnableJs {
     param([Parameter(Mandatory)][string]$Source)
-    if ($Source -match '(?m)^\s*ask\s') { return $null }
+    if ($Source -match '(?m)^\s*ask\s' -or $Source -match '\barguments\b') { return $null }   # ask and the console arguments list need a console
     try {
         $sampleAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $Source)
         $sampleStatements = @($sampleAst.Statements)

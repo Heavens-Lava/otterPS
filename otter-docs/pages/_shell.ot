@@ -8,7 +8,7 @@ brandName is a link with text "Otter", url "/", foreground "#ffffff", size 22, w
 brandGroup is a row with spacing 10, align middle
 put brandMark, brandName in brandGroup
 
-navDocs is a link with text "Documentation", url "/", foreground "#b7c4d8", size 14, weight 500, customstyle "padding: 22px 0; border-bottom: 2px solid transparent;"
+navDocs is a link with text "Documentation", url "/docs/", foreground "#b7c4d8", size 14, weight 500, customstyle "padding: 22px 0; border-bottom: 2px solid transparent;"
 navReference is a link with text "Reference", url "/reference/", foreground "#b7c4d8", size 14, weight 500, customstyle "padding: 22px 0; border-bottom: 2px solid transparent;"
 navExamples is a link with text "Examples", url "/examples/", foreground "#b7c4d8", size 14, weight 500, customstyle "padding: 22px 0; border-bottom: 2px solid transparent;"
 navDownload is a link with text "Download", url "/download/", foreground "#b7c4d8", size 14, weight 500, customstyle "padding: 22px 0; border-bottom: 2px solid transparent;"
@@ -21,10 +21,14 @@ topBar is a row with spread, align middle, spacing 36, width full, background "#
 put brandGroup, navLinks in topBar
 
 
-footerNote is a text with value "Otter is free to download, use, and build commercial applications with. Created by Jeffrey Macy.", size 13, foreground "#8fa3c2"
-footerLicense is a link with text "License", url "https://github.com/Heavens-Lava/otterPS/blob/master/LICENSE", foreground "#b7c4d8", size 13
-footerSource is a link with text "Source", url "https://github.com/Heavens-Lava/otterPS", foreground "#b7c4d8", size 13
+footerNote is a text with value "Otter is free to use, including for commercial software. Created by Jeffrey Macy.", size 13, foreground "#8fa3c2"
+footerDocsLink is a link with text "Docs", url "/docs/", foreground "#b7c4d8", size 13
+footerDownloadLink is a link with text "Download", url "/download/", foreground "#b7c4d8", size 13
+footerLicense is a link with text "License", url "/license/", foreground "#b7c4d8", size 13
+footerAbout is a link with text "About", url "/about/", foreground "#b7c4d8", size 13
+footerContact is a link with text "Contact", url "/support/", foreground "#b7c4d8", size 13
+footerSource is a link with text "GitHub", url "https://github.com/Heavens-Lava/otterPS", foreground "#b7c4d8", size 13
 footerLinks is a row with spacing 20, align middle
-put footerLicense, footerSource in footerLinks
+put footerDocsLink, footerDownloadLink, footerLicense, footerAbout, footerContact, footerSource in footerLinks
 siteFooter is a row with spread, align middle, spacing 24, width full, background "#0b1d36", padding "26px 40px", customstyle "box-sizing: border-box; margin-top: 40px;"
 put footerNote, footerLinks in siteFooter

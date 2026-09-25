@@ -1,0 +1,144 @@
+# Otter website - Build a tiny application
+# Authored in Otter. Scaffolded by scripts/new-docs-page.ps1, now edited here directly.
+
+use "_shell.ot"
+use "_docs.ot"
+
+app is a page with title "Build a tiny application - Otter Documentation", hideheader true, scroll true, width full, background "#f4f7fb", foreground "#0f1f36", spacing 0, padding 0
+
+customstyle of navDocs is "padding: 22px 0; border-bottom: 2px solid #4d8dff; color: #ffffff;"
+customstyle of sideTinyApp is "padding: 8px 12px; border-left: 3px solid #2563eb; border-radius: 4px; display: block; background: #e6efff; color: #1d4ed8; font-weight: 600;"
+# Sidebar: only the current group is expanded.
+customstyle of sideCli is "display: none;"
+customstyle of sideProjects is "display: none;"
+customstyle of sideTroubleshooting is "display: none;"
+customstyle of sideValues is "display: none;"
+customstyle of sideInputOutput is "display: none;"
+customstyle of sideConditions is "display: none;"
+customstyle of sideLoops is "display: none;"
+customstyle of sideLists is "display: none;"
+customstyle of sideFunctions is "display: none;"
+customstyle of sideObjects is "display: none;"
+customstyle of sideFiles is "display: none;"
+customstyle of sideData is "display: none;"
+customstyle of sideErrorHandling is "display: none;"
+customstyle of sideMath is "display: none;"
+customstyle of sideNestedConditions is "display: none;"
+customstyle of sideModules is "display: none;"
+customstyle of sideRunningPrograms is "display: none;"
+customstyle of sideLoggingDebugging is "display: none;"
+customstyle of sideEnvironment is "display: none;"
+customstyle of sideGone is "display: none;"
+customstyle of sideOperators is "display: none;"
+customstyle of sidePropertyAccess is "display: none;"
+customstyle of sideStrings is "display: none;"
+customstyle of sideCollections is "display: none;"
+customstyle of sideDiscovery is "display: none;"
+customstyle of sideFileObjects is "display: none;"
+customstyle of sideFilesFolders is "display: none;"
+customstyle of sideFolders is "display: none;"
+customstyle of sideTry is "display: none;"
+customstyle of sideJson is "display: none;"
+customstyle of sideRandom is "display: none;"
+customstyle of sideDates is "display: none;"
+customstyle of sideScope is "display: none;"
+customstyle of sideDiagnostics is "display: none;"
+customstyle of sideReference is "display: none;"
+customstyle of sideDatabases is "display: none;"
+customstyle of sideQueries is "display: none;"
+customstyle of sideHttp is "display: none;"
+customstyle of sideWebServer is "display: none;"
+customstyle of sideXml is "display: none;"
+customstyle of sideWebApps is "display: none;"
+customstyle of sideReactivity is "display: none;"
+customstyle of sideWindowsApps is "display: none;"
+customstyle of sideNetworking is "display: none;"
+customstyle of sideSecurity is "display: none;"
+customstyle of sideExamples is "display: none;"
+customstyle of sideExampleHello is "display: none;"
+customstyle of sideExampleInput is "display: none;"
+customstyle of sideExampleConditions is "display: none;"
+customstyle of sideExampleCounting is "display: none;"
+customstyle of sideExampleLists is "display: none;"
+customstyle of sideExampleDiscovery is "display: none;"
+customstyle of sideExampleOrganizer is "display: none;"
+customstyle of sideExampleFinding is "display: none;"
+customstyle of sideExampleErrors is "display: none;"
+customstyle of sideDesignReadable is "display: none;"
+customstyle of sideStructuralWords is "display: none;"
+customstyle of sidePropertiesOperations is "display: none;"
+customstyle of sidePeriods is "display: none;"
+customstyle of sidePhilosophy is "display: none;"
+customstyle of sideTopics is "display: none;"
+customstyle of sideDownload is "display: none;"
+customstyle of sideRelease is "display: none;"
+customstyle of sideStudio is "display: none;"
+customstyle of sideSupport is "display: none;"
+customstyle of sideAbout is "display: none;"
+customstyle of sideLicense is "display: none;"
+
+b1 is a text with value "Build a tiny application", size 40, weight 800, foreground "#0b1d36", letterspacing "-0.03em", lineheight "1.1"
+b2 is a text with value "Two small programs that use everything from the first lessons: a console tip calculator and a small web page.", size 18, foreground "#3a4d6b", lineheight "1.55"
+b3 is a text with value "A tip calculator", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b4 is a text with value "ask asks the person running the program. Whatever they type is turned into a number when it looks like one.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b5 is a text with value "ask \"Bill amount: \" and call it bill\nask \"Tip rate (percent): \" and call it rate\n\nbill times rate make product\nproduct divided by 100 make tip\nbill and tip make total\n\nsay \"Tip:\" tip\nsay \"Total:\" total", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b5label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b5copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b5head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b5label, b5copy in b5head
+b5block is a column with spacing 0, width full
+put b5head, b5 in b5block
+when b5copy is clicked
+    copy text of b5 to clipboard
+    text of b5copy is "Copied"
+.
+b6 is a text with value "Save it as tip.ot and run otter tip.ot. With 50 and 20 typed in, it prints:", size 16, foreground "#3a4d6b", lineheight "1.6"
+b7 is a text with value "Tip: 10\nTotal: 60", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;"
+b7label is a text with value "Output", size 12, weight 600, foreground "#4a5b75"
+b7copy is a button with text "Copy", size 12, weight 600, background "#c9d6e8", foreground "#0f1f36", radius 6, padding "4px 12px"
+b7head is a row with spread, align middle, width full, background "#dde6f2", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b7label, b7copy in b7head
+b7block is a column with spacing 0, width full
+put b7head, b7 in b7block
+when b7copy is clicked
+    copy text of b7 to clipboard
+    text of b7copy is "Copied"
+.
+b8 is a text with value "Each statement does one thing, so a longer calculation is several short lines. That is what keeps Otter readable.", size 15, foreground "#1e3a6b", background "#eaf2ff", radius 12, border "1px solid #cfe0ff", lineheight "1.55", customstyle "padding: 14px 18px;"
+b9 is a text with value "Checking guesses", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b10 is a text with value "Conditions and loops turn the same ideas into a game:", size 16, foreground "#3a4d6b", lineheight "1.6"
+b11 is a text with value "secret is 7\nguesses are\n    3\n    9\n    7\n.\n\neach guess in guesses\n    if guess is less than secret\n        say guess \"is too low\"\n    otherwise if guess is greater than secret\n        say guess \"is too high\"\n    otherwise\n        say guess \"is correct!\"\n    .\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b11label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b11copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b11head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b11label, b11copy in b11head
+b11block is a column with spacing 0, width full
+put b11head, b11 in b11block
+when b11copy is clicked
+    copy text of b11 to clipboard
+    text of b11copy is "Copied"
+.
+b12 is a text with value "A small web page", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b13 is a text with value "The same language describes a web page. Save this as greeter.ot and run otter web greeter.ot:", size 16, foreground "#3a4d6b", lineheight "1.6"
+b14 is a text with value "app is a page with title \"Greeter\", width 560, spacing 14\n\nnameBox is a text box with placeholder \"Your name\"\nhelloButton is a button with text \"Say hello\"\nmessage is a text with value \"Waiting...\"\n\nwhen helloButton is clicked\n    text of message is text of nameBox\n.\n\nput nameBox, helloButton, message in app\nshow app", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b14label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b14copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b14head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b14label, b14copy in b14head
+b14block is a column with spacing 0, width full
+put b14head, b14 in b14block
+when b14copy is clicked
+    copy text of b14 to clipboard
+    text of b14copy is "Copied"
+.
+b15 is a text with value "Otter writes a single HTML file you can open in any browser. Change the words, add a second button, and run it again.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b16 is a link with text "Web applications", url "/web-apps/", foreground "#2563eb", weight 600, size 15
+b17 is a link with text "Where to go next", url "/docs/", foreground "#2563eb", weight 600, size 15
+
+docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"
+put b1, b2, b3, b4, b5block, b6, b7block, b8, b9, b10, b11block, b12, b13, b14block, b15, b16, b17 in docsMain
+docsBody is a row with align top, spacing 0, width full, customstyle "align-items: stretch;"
+put docsSidebar, docsMain in docsBody
+
+put topBar, docsBody, siteFooter in app
+show app

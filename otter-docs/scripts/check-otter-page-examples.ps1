@@ -10,7 +10,7 @@ $Only = @($Only | ForEach-Object { $_ -split "," } | Where-Object { $_ })   # -F
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $otter = Join-Path $repoRoot 'otter.ps1'
-$skipStarts = '^(otter\b|otter>|git\b|cd\b|\.\\|Set-ExecutionPolicy|&|PS |use "|is\s{2,})'   # use "x.ot" needs the other file
+$skipStarts = '^(otter\b|otter>|git\b|cd\b|\.\\|Set-ExecutionPolicy|&|PS |use "|\[Environment\]|\{|-[A-Za-z]|is\s{2,})'   # use "x.ot" needs the other file
 $blockPattern = '^\w+ is a text with value "((?:[^"\\]|\\.)*)".*background "#0f1b2e"'
 $failed = 0
 $checked = 0

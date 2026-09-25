@@ -9,14 +9,21 @@ app is a page with title "Nested conditions - Otter Documentation", hideheader t
 customstyle of navDocs is "padding: 22px 0; border-bottom: 2px solid #4d8dff; color: #ffffff;"
 customstyle of sideNestedConditions is "padding: 8px 12px; border-left: 3px solid #2563eb; border-radius: 4px; display: block; background: #e6efff; color: #1d4ed8; font-weight: 600;"
 # Sidebar: only the current group is expanded.
-customstyle of sideHome is "display: none;"
+customstyle of sideDocs is "display: none;"
 customstyle of sideWelcome is "display: none;"
+customstyle of sideWhatIsOtter is "display: none;"
+customstyle of sideWhoIsOtterFor is "display: none;"
+customstyle of sideWhatCanYouBuild is "display: none;"
 customstyle of sideInstallation is "display: none;"
+customstyle of sideVerify is "display: none;"
 customstyle of sideFirstProgram is "display: none;"
 customstyle of sideHello is "display: none;"
-customstyle of sideRunningFiles is "display: none;"
 customstyle of sideRepl is "display: none;"
+customstyle of sideRunningFiles is "display: none;"
+customstyle of sideTinyApp is "display: none;"
 customstyle of sideCli is "display: none;"
+customstyle of sideProjects is "display: none;"
+customstyle of sideTroubleshooting is "display: none;"
 customstyle of sideGone is "display: none;"
 customstyle of sideOperators is "display: none;"
 customstyle of sidePropertyAccess is "display: none;"
@@ -62,29 +69,82 @@ customstyle of sideTopics is "display: none;"
 customstyle of sideDownload is "display: none;"
 customstyle of sideRelease is "display: none;"
 customstyle of sideStudio is "display: none;"
+customstyle of sideSupport is "display: none;"
+customstyle of sideAbout is "display: none;"
+customstyle of sideLicense is "display: none;"
 
 b1 is a text with value "Nested conditions", size 40, weight 800, foreground "#0b1d36", letterspacing "-0.03em", lineheight "1.1"
 b2 is a text with value "Conditions inside conditions, and how the period keeps them unambiguous.", size 18, foreground "#3a4d6b", lineheight "1.55"
 b3 is a text with value "Period Block Ending", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b4 is a text with value "A period can explicitly finish a block:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b5 is a text with value "age is 20\nif age is at least 18\n    say \"You are an adult.\"\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
+b5 is a text with value "age is 20\nif age is at least 18\n    say \"You are an adult.\"\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b5label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b5copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b5head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b5label, b5copy in b5head
+b5block is a column with spacing 0, width full
+put b5head, b5 in b5block
+when b5copy is clicked
+    copy text of b5 to clipboard
+    text of b5copy is "Copied"
+.
 b6 is a text with value "This becomes useful when code gets more complicated.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b7 is a text with value "Both forms are valid:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b8 is a text with value "score is 120\nif score is greater than 100\n    say \"High score!\"\n\nsay \"Finished.\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
+b8 is a text with value "score is 120\nif score is greater than 100\n    say \"High score!\"\n\nsay \"Finished.\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b8label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b8copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b8head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b8label, b8copy in b8head
+b8block is a column with spacing 0, width full
+put b8head, b8 in b8block
+when b8copy is clicked
+    copy text of b8 to clipboard
+    text of b8copy is "Copied"
+.
 b9 is a text with value "and:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b10 is a text with value "score is 120\nif score is greater than 100\n    say \"High score!\"\n.\n\nsay \"Finished.\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
+b10 is a text with value "score is 120\nif score is greater than 100\n    say \"High score!\"\n.\n\nsay \"Finished.\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b10label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b10copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b10head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b10label, b10copy in b10head
+b10block is a column with spacing 0, width full
+put b10head, b10 in b10block
+when b10copy is clicked
+    copy text of b10 to clipboard
+    text of b10copy is "Copied"
+.
 b11 is a text with value "The period has one structural meaning outside quoted strings:", size 16, foreground "#3a4d6b", lineheight "1.6"
 b12 is a text with value "Finish the current block or process.", size 15, foreground "#1e3a6b", background "#eaf2ff", radius 12, border "1px solid #cfe0ff", lineheight "1.55", customstyle "padding: 14px 18px;"
 b13 is a text with value "It is never used for accessing properties.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b14 is a text with value "Nested Conditions", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b15 is a text with value "Indentation makes the relationship clear:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b16 is a text with value "loggedIn is true\nadmin is true\nif loggedIn\n    say \"Welcome!\"\n\n    if admin\n        say \"Administrator controls enabled.\"\n\n    say \"Login successful.\"\n\nsay \"Program finished.\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
+b16 is a text with value "loggedIn is true\nadmin is true\nif loggedIn\n    say \"Welcome!\"\n\n    if admin\n        say \"Administrator controls enabled.\"\n\n    say \"Login successful.\"\n\nsay \"Program finished.\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b16label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b16copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b16head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b16label, b16copy in b16head
+b16block is a column with spacing 0, width full
+put b16head, b16 in b16block
+when b16copy is clicked
+    copy text of b16 to clipboard
+    text of b16copy is "Copied"
+.
 b17 is a text with value "The indentation tells Otter exactly which statements belong to which condition.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b18 is a text with value "The same program with explicit periods:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b19 is a text with value "loggedIn is true\nadmin is true\nif loggedIn\n    say \"Welcome!\"\n\n    if admin\n        say \"Administrator controls enabled.\"\n    .\n\n    say \"Login successful.\"\n.\n\nsay \"Program finished.\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
+b19 is a text with value "loggedIn is true\nadmin is true\nif loggedIn\n    say \"Welcome!\"\n\n    if admin\n        say \"Administrator controls enabled.\"\n    .\n\n    say \"Login successful.\"\n.\n\nsay \"Program finished.\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b19label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b19copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b19head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b19label, b19copy in b19head
+b19block is a column with spacing 0, width full
+put b19head, b19 in b19block
+when b19copy is clicked
+    copy text of b19 to clipboard
+    text of b19copy is "Copied"
+.
 
 docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"
-put b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15, b16, b17, b18, b19 in docsMain
+put b1, b2, b3, b4, b5block, b6, b7, b8block, b9, b10block, b11, b12, b13, b14, b15, b16block, b17, b18, b19block in docsMain
 docsBody is a row with align top, spacing 0, width full, customstyle "align-items: stretch;"
 put docsSidebar, docsMain in docsBody
 

@@ -9,14 +9,21 @@ app is a page with title "The query language - Otter Documentation", hideheader 
 customstyle of navDocs is "padding: 22px 0; border-bottom: 2px solid #4d8dff; color: #ffffff;"
 customstyle of sideQueries is "padding: 8px 12px; border-left: 3px solid #2563eb; border-radius: 4px; display: block; background: #e6efff; color: #1d4ed8; font-weight: 600;"
 # Sidebar: only the current group is expanded.
-customstyle of sideHome is "display: none;"
+customstyle of sideDocs is "display: none;"
 customstyle of sideWelcome is "display: none;"
+customstyle of sideWhatIsOtter is "display: none;"
+customstyle of sideWhoIsOtterFor is "display: none;"
+customstyle of sideWhatCanYouBuild is "display: none;"
 customstyle of sideInstallation is "display: none;"
+customstyle of sideVerify is "display: none;"
 customstyle of sideFirstProgram is "display: none;"
 customstyle of sideHello is "display: none;"
-customstyle of sideRunningFiles is "display: none;"
 customstyle of sideRepl is "display: none;"
+customstyle of sideRunningFiles is "display: none;"
+customstyle of sideTinyApp is "display: none;"
 customstyle of sideCli is "display: none;"
+customstyle of sideProjects is "display: none;"
+customstyle of sideTroubleshooting is "display: none;"
 customstyle of sideValues is "display: none;"
 customstyle of sideInputOutput is "display: none;"
 customstyle of sideConditions is "display: none;"
@@ -68,23 +75,66 @@ customstyle of sideTopics is "display: none;"
 customstyle of sideDownload is "display: none;"
 customstyle of sideRelease is "display: none;"
 customstyle of sideStudio is "display: none;"
+customstyle of sideSupport is "display: none;"
+customstyle of sideAbout is "display: none;"
+customstyle of sideLicense is "display: none;"
 
 b1 is a text with value "The query language", size 40, weight 800, foreground "#0b1d36", letterspacing "-0.03em", lineheight "1.1"
 b2 is a text with value "For everyday reading of data you do not need to write SQL. get, where, order by and the aggregate words read like the question you are asking.", size 18, foreground "#3a4d6b", lineheight "1.55"
-b3 is a text with value "Availability: this feature was added after the {{RELEASE_VERSION}} feature freeze. It is in the current source tree, not in the release-candidate archive.", size 15, foreground "#1e3a6b", background "#eaf2ff", radius 12, border "1px solid #cfe0ff", lineheight "1.55", customstyle "padding: 14px 18px;"
+b3 is a text with value "Availability: this feature is in the current source tree and is not part of a published release yet.", size 15, foreground "#1e3a6b", background "#eaf2ff", radius 12, border "1px solid #cfe0ff", lineheight "1.55", customstyle "padding: 14px 18px;"
 b4 is a text with value "Getting rows", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
-b5 is a text with value "get all from items in db into allItems\nsay \"Count:\" length of allItems\n\nget name and price from items in db with\n    order by price descending\ninto sortedItems", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
+b5 is a text with value "get all from items in db into allItems\nsay \"Count:\" length of allItems\n\nget name and price from items in db with\n    order by price descending\ninto sortedItems", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b5label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b5copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b5head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b5label, b5copy in b5head
+b5block is a column with spacing 0, width full
+put b5head, b5 in b5block
+when b5copy is clicked
+    copy text of b5 to clipboard
+    text of b5copy is "Copied"
+.
 b6 is a text with value "Filtering with where", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b7 is a text with value "Conditions use the same words as if: is, is not, is at least, is less than, and, or, not, contains, is in, is between, and is gone for missing values. Values are always passed to the database as parameters, so text from a user cannot change the meaning of the query.", size 16, foreground "#3a4d6b", lineheight "1.6"
-b8 is a text with value "minAge is 18\nget all from users in db with\n    where age is at least minAge and active is 1\ninto adultActives\n\nterm is \"Apple\"\nget all from products in db with\n    where name contains term\n    order by sku ascending\ninto appleProducts\n\ntargetCats are\n    \"Snacks\"\n    \"Bakery\"\n.\n\nget all from products in db with\n    where category is in targetCats\ninto catProducts\n\nget all from tasks in db with\n    where due_date is gone\ninto unscheduled", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
+b8 is a text with value "minAge is 18\nget all from users in db with\n    where age is at least minAge and active is 1\ninto adultActives\n\nterm is \"Apple\"\nget all from products in db with\n    where name contains term\n    order by sku ascending\ninto appleProducts\n\ntargetCats are\n    \"Snacks\"\n    \"Bakery\"\n.\n\nget all from products in db with\n    where category is in targetCats\ninto catProducts\n\nget all from tasks in db with\n    where due_date is gone\ninto unscheduled", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b8label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b8copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b8head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b8label, b8copy in b8head
+b8block is a column with spacing 0, width full
+put b8head, b8 in b8block
+when b8copy is clicked
+    copy text of b8 to clipboard
+    text of b8copy is "Copied"
+.
 b9 is a text with value "Paging", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
-b10 is a text with value "pageSize is 3\npageOffset is 3\n\nget all from num_seq in db with\n    order by val ascending\n    limit pageSize\n    offset pageOffset\ninto page2", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
+b10 is a text with value "pageSize is 3\npageOffset is 3\n\nget all from num_seq in db with\n    order by val ascending\n    limit pageSize\n    offset pageOffset\ninto page2", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b10label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b10copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b10head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b10label, b10copy in b10head
+b10block is a column with spacing 0, width full
+put b10head, b10 in b10block
+when b10copy is clicked
+    copy text of b10 to clipboard
+    text of b10copy is "Copied"
+.
 b11 is a text with value "Counting and totals", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
-b12 is a text with value "count all from scores in db into allCount\ncount of student from scores in db into studentCount\nsum of score from scores in db into sumScores\naverage of score from scores in db into avgScores\nminimum of score from scores in db into minScore\nmaximum of score from scores in db into maxScore\n\nsum of score from scores in db with\n    where pass is 1\ninto passingSum", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
+b12 is a text with value "count all from scores in db into allCount\ncount of student from scores in db into studentCount\nsum of score from scores in db into sumScores\naverage of score from scores in db into avgScores\nminimum of score from scores in db into minScore\nmaximum of score from scores in db into maxScore\n\nsum of score from scores in db with\n    where pass is 1\ninto passingSum", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b12label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b12copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b12head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b12label, b12copy in b12head
+b12block is a column with spacing 0, width full
+put b12head, b12 in b12block
+when b12copy is clicked
+    copy text of b12 to clipboard
+    text of b12copy is "Copied"
+.
 b13 is a link with text "Back to databases", url "/databases/", foreground "#2563eb", weight 600, size 15
 
 docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"
-put b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13 in docsMain
+put b1, b2, b3, b4, b5block, b6, b7, b8block, b9, b10block, b11, b12block, b13 in docsMain
 docsBody is a row with align top, spacing 0, width full, customstyle "align-items: stretch;"
 put docsSidebar, docsMain in docsBody
 

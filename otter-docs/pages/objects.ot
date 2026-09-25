@@ -9,14 +9,21 @@ app is a page with title "Objects and properties - Otter Documentation", hidehea
 customstyle of navDocs is "padding: 22px 0; border-bottom: 2px solid #4d8dff; color: #ffffff;"
 customstyle of sideObjects is "padding: 8px 12px; border-left: 3px solid #2563eb; border-radius: 4px; display: block; background: #e6efff; color: #1d4ed8; font-weight: 600;"
 # Sidebar: only the current group is expanded.
-customstyle of sideHome is "display: none;"
+customstyle of sideDocs is "display: none;"
 customstyle of sideWelcome is "display: none;"
+customstyle of sideWhatIsOtter is "display: none;"
+customstyle of sideWhoIsOtterFor is "display: none;"
+customstyle of sideWhatCanYouBuild is "display: none;"
 customstyle of sideInstallation is "display: none;"
+customstyle of sideVerify is "display: none;"
 customstyle of sideFirstProgram is "display: none;"
 customstyle of sideHello is "display: none;"
-customstyle of sideRunningFiles is "display: none;"
 customstyle of sideRepl is "display: none;"
+customstyle of sideRunningFiles is "display: none;"
+customstyle of sideTinyApp is "display: none;"
 customstyle of sideCli is "display: none;"
+customstyle of sideProjects is "display: none;"
+customstyle of sideTroubleshooting is "display: none;"
 customstyle of sideGone is "display: none;"
 customstyle of sideOperators is "display: none;"
 customstyle of sidePropertyAccess is "display: none;"
@@ -62,23 +69,76 @@ customstyle of sideTopics is "display: none;"
 customstyle of sideDownload is "display: none;"
 customstyle of sideRelease is "display: none;"
 customstyle of sideStudio is "display: none;"
+customstyle of sideSupport is "display: none;"
+customstyle of sideAbout is "display: none;"
+customstyle of sideLicense is "display: none;"
 
 b1 is a text with value "Objects and properties", size 40, weight 800, foreground "#0b1d36", letterspacing "-0.03em", lineheight "1.1"
 b2 is a text with value "An object groups named values. Create one with has, and read its properties with the everyday word of.", size 18, foreground "#3a4d6b", lineheight "1.55"
-b3 is a text with value "developer has\n    name is \"Alice\"\n    role is \"Architect\"\n    level is 3\n.\n\nsay \"Developer:\" name of developer\nsay \"Role:\" role of developer\nsay \"Level:\" level of developer", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
-b4 is a text with value "Developer: Alice\nRole: Architect\nLevel: 3", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto;"
+b3 is a text with value "developer has\n    name is \"Alice\"\n    role is \"Architect\"\n    level is 3\n.\n\nsay \"Developer:\" name of developer\nsay \"Role:\" role of developer\nsay \"Level:\" level of developer", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b3label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b3copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b3head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b3label, b3copy in b3head
+b3block is a column with spacing 0, width full
+put b3head, b3 in b3block
+when b3copy is clicked
+    copy text of b3 to clipboard
+    text of b3copy is "Copied"
+.
+b4 is a text with value "Developer: Alice\nRole: Architect\nLevel: 3", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;"
+b4label is a text with value "Output", size 12, weight 600, foreground "#4a5b75"
+b4copy is a button with text "Copy", size 12, weight 600, background "#c9d6e8", foreground "#0f1f36", radius 6, padding "4px 12px"
+b4head is a row with spread, align middle, width full, background "#dde6f2", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b4label, b4copy in b4head
+b4block is a column with spacing 0, width full
+put b4head, b4 in b4block
+when b4copy is clicked
+    copy text of b4 to clipboard
+    text of b4copy is "Copied"
+.
 b5 is a text with value "Why of instead of a dot? In many languages the dot means decimals, method calls, namespaces, and property access all at once. In Otter the period has one meaning - finish a block - and properties are always property of object.", size 15, foreground "#1e3a6b", background "#eaf2ff", radius 12, border "1px solid #cfe0ff", lineheight "1.55", customstyle "padding: 14px 18px;"
 b6 is a text with value "Changing a property", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
-b7 is a text with value "level of developer is 4\nsay \"Updated level:\" level of developer", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
-b8 is a text with value "Updated level: 4", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto;"
+b7 is a text with value "level of developer is 4\nsay \"Updated level:\" level of developer", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b7label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b7copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b7head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b7label, b7copy in b7head
+b7block is a column with spacing 0, width full
+put b7head, b7 in b7block
+when b7copy is clicked
+    copy text of b7 to clipboard
+    text of b7copy is "Copied"
+.
+b8 is a text with value "Updated level: 4", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;"
+b8label is a text with value "Output", size 12, weight 600, foreground "#4a5b75"
+b8copy is a button with text "Copy", size 12, weight 600, background "#c9d6e8", foreground "#0f1f36", radius 6, padding "4px 12px"
+b8head is a row with spread, align middle, width full, background "#dde6f2", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b8label, b8copy in b8head
+b8block is a column with spacing 0, width full
+put b8head, b8 in b8block
+when b8copy is clicked
+    copy text of b8 to clipboard
+    text of b8copy is "Copied"
+.
 b9 is a text with value "Custom types", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b10 is a text with value "Declare a type once with has, then create values of it:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b11 is a text with value "a Person has\n    name\n    age\n.\n\njeff is a Person with name \"Jeff\", age 29\nsay name of jeff", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
+b11 is a text with value "a Person has\n    name\n    age\n.\n\njeff is a Person with name \"Jeff\", age 29\nsay name of jeff", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b11label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b11copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b11head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b11label, b11copy in b11head
+b11block is a column with spacing 0, width full
+put b11head, b11 in b11block
+when b11copy is clicked
+    copy text of b11 to clipboard
+    text of b11copy is "Copied"
+.
 b12 is a text with value "developer is a thing remains supported for older programs; has is the canonical form.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b13 is a link with text "Next: files and folders", url "/files/", foreground "#2563eb", weight 600, size 15
 
 docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"
-put b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13 in docsMain
+put b1, b2, b3block, b4block, b5, b6, b7block, b8block, b9, b10, b11block, b12, b13 in docsMain
 docsBody is a row with align top, spacing 0, width full, customstyle "align-items: stretch;"
 put docsSidebar, docsMain in docsBody
 

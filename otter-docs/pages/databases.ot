@@ -9,14 +9,21 @@ app is a page with title "Databases - Otter Documentation", hideheader true, scr
 customstyle of navDocs is "padding: 22px 0; border-bottom: 2px solid #4d8dff; color: #ffffff;"
 customstyle of sideDatabases is "padding: 8px 12px; border-left: 3px solid #2563eb; border-radius: 4px; display: block; background: #e6efff; color: #1d4ed8; font-weight: 600;"
 # Sidebar: only the current group is expanded.
-customstyle of sideHome is "display: none;"
+customstyle of sideDocs is "display: none;"
 customstyle of sideWelcome is "display: none;"
+customstyle of sideWhatIsOtter is "display: none;"
+customstyle of sideWhoIsOtterFor is "display: none;"
+customstyle of sideWhatCanYouBuild is "display: none;"
 customstyle of sideInstallation is "display: none;"
+customstyle of sideVerify is "display: none;"
 customstyle of sideFirstProgram is "display: none;"
 customstyle of sideHello is "display: none;"
-customstyle of sideRunningFiles is "display: none;"
 customstyle of sideRepl is "display: none;"
+customstyle of sideRunningFiles is "display: none;"
+customstyle of sideTinyApp is "display: none;"
 customstyle of sideCli is "display: none;"
+customstyle of sideProjects is "display: none;"
+customstyle of sideTroubleshooting is "display: none;"
 customstyle of sideValues is "display: none;"
 customstyle of sideInputOutput is "display: none;"
 customstyle of sideConditions is "display: none;"
@@ -68,26 +75,69 @@ customstyle of sideTopics is "display: none;"
 customstyle of sideDownload is "display: none;"
 customstyle of sideRelease is "display: none;"
 customstyle of sideStudio is "display: none;"
+customstyle of sideSupport is "display: none;"
+customstyle of sideAbout is "display: none;"
+customstyle of sideLicense is "display: none;"
 
 b1 is a text with value "Databases", size 40, weight 800, foreground "#0b1d36", letterspacing "-0.03em", lineheight "1.1"
 b2 is a text with value "Describe a connection with has, connect to it, then run SQL with execute and query. Values are passed as named parameters, never pasted into the SQL text.", size 18, foreground "#3a4d6b", lineheight "1.55"
 b3 is a text with value "Connecting", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
-b4 is a text with value "database has\n    provider is \"sqlite\"\n    connection is \":memory:\"\n.\n\nconnect database into db", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
+b4 is a text with value "database has\n    provider is \"sqlite\"\n    connection is \":memory:\"\n.\n\nconnect database into db", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b4label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b4copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b4head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b4label, b4copy in b4head
+b4block is a column with spacing 0, width full
+put b4head, b4 in b4block
+when b4copy is clicked
+    copy text of b4 to clipboard
+    text of b4copy is "Copied"
+.
 b5 is a text with value "A connection is a value like any other. disconnect db closes it. Using a connection after it is closed, or naming a table that does not exist, produces a readable Otter error.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b6 is a text with value "Changing data", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b7 is a text with value "execute runs a statement that changes data. parameter \"name\" is value supplies @name in the SQL safely; into stores a result you can inspect.", size 16, foreground "#3a4d6b", lineheight "1.6"
-b8 is a text with value "execute db with\n    \"create table if not exists tasks (id integer primary key autoincrement, title text, completed integer, priority text)\"\n\nexecute db with\n    \"insert into tasks (title, completed, priority) values (@title, @completed, @priority)\"\n    parameter \"title\" is \"Buy groceries\"\n    parameter \"completed\" is 0\n    parameter \"priority\" is \"high\"\ninto insertResult\n\nsay \"Rows affected:\" rows affected of insertResult\nsay \"New id:\" last inserted id of insertResult", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
+b8 is a text with value "execute db with\n    \"create table if not exists tasks (id integer primary key autoincrement, title text, completed integer, priority text)\"\n\nexecute db with\n    \"insert into tasks (title, completed, priority) values (@title, @completed, @priority)\"\n    parameter \"title\" is \"Buy groceries\"\n    parameter \"completed\" is 0\n    parameter \"priority\" is \"high\"\ninto insertResult\n\nsay \"Rows affected:\" rows affected of insertResult\nsay \"New id:\" last inserted id of insertResult", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b8label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b8copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b8head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b8label, b8copy in b8head
+b8block is a column with spacing 0, width full
+put b8head, b8 in b8block
+when b8copy is clicked
+    copy text of b8 to clipboard
+    text of b8copy is "Copied"
+.
 b9 is a text with value "A parameter can be gone, which is stored as a database NULL.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b10 is a text with value "Reading data", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b11 is a text with value "query returns a list of row objects. Each column is a property of a row.", size 16, foreground "#3a4d6b", lineheight "1.6"
-b12 is a text with value "query db with\n    \"select id, title, completed, priority from tasks\"\ninto allTasks\n\neach task in allTasks\n    say title of task\n    if priority of task is gone\n        say \"Priority: none\"\n    otherwise\n        say priority of task\n    .\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
+b12 is a text with value "query db with\n    \"select id, title, completed, priority from tasks\"\ninto allTasks\n\neach task in allTasks\n    say title of task\n    if priority of task is gone\n        say \"Priority: none\"\n    otherwise\n        say priority of task\n    .\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b12label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b12copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b12head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b12label, b12copy in b12head
+b12block is a column with spacing 0, width full
+put b12head, b12 in b12block
+when b12copy is clicked
+    copy text of b12 to clipboard
+    text of b12copy is "Copied"
+.
 b13 is a text with value "Looking at the schema", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
-b14 is a text with value "get tables from db into tables\n\neach table in tables\n    say kind of table\n    say name of table\n\n    get columns from table in db into columns\n    each column in columns\n        say name of column\n        say type of column\n    .\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
+b14 is a text with value "get tables from db into tables\n\neach table in tables\n    say kind of table\n    say name of table\n\n    get columns from table in db into columns\n    each column in columns\n        say name of column\n        say type of column\n    .\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b14label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b14copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b14head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b14label, b14copy in b14head
+b14block is a column with spacing 0, width full
+put b14head, b14 in b14block
+when b14copy is clicked
+    copy text of b14 to clipboard
+    text of b14copy is "Copied"
+.
 b15 is a text with value "Databases are a console and desktop feature. The web target reports database statements as unsupported.", size 15, foreground "#1e3a6b", background "#eaf2ff", radius 12, border "1px solid #cfe0ff", lineheight "1.55", customstyle "padding: 14px 18px;"
 b16 is a link with text "Next: the query language", url "/queries/", foreground "#2563eb", weight 600, size 15
 
 docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"
-put b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15, b16 in docsMain
+put b1, b2, b3, b4block, b5, b6, b7, b8block, b9, b10, b11, b12block, b13, b14block, b15, b16 in docsMain
 docsBody is a row with align top, spacing 0, width full, customstyle "align-items: stretch;"
 put docsSidebar, docsMain in docsBody
 

@@ -23,7 +23,7 @@ heroActions is a row with spacing 18, align middle, margin "8px 0 0 0"
 put heroGetSource, heroInstaller in heroActions
 heroCopy is a column with spacing 14, flex 1
 put heroEyebrow, heroTitle, heroLead, heroNote, heroActions in heroCopy
-heroMascot is a image with source "/static/images/otter-explorer-mascot.png", alt "The Otter mascot", height 250
+heroMascot is a image with source "/static/images/otter-download-hero-mascot.png", alt "The Otter mascot standing on a rock", height 300
 heroBody is a row with spread, align middle, spacing 40, width full, padding "48px 56px 84px", customstyle "box-sizing: border-box; max-width: 1240px; margin: 0 auto;"
 put heroCopy, heroMascot in heroBody
 hero is a column with width full, background "linear-gradient(180deg, #0b1d36 0%, #10305a 100%)", spacing 0
@@ -52,7 +52,12 @@ dlRelease is a link with text "View release readiness", url "/release/", foregro
 dlLinks is a row with spacing 24, align middle
 put dlGuide, dlRelease in dlLinks
 dlCard is a card with background "#ffffff", radius 16, border "1px solid #e3e9f2", padding 28, spacing 14, flex 1.55
-put dlTitle, dlStatus, dlBody, dlLinks in dlCard
+dlText is a column with spacing 14, flex 1
+put dlTitle, dlStatus, dlBody, dlLinks in dlText
+winMascot is a image with source "/static/images/otter-windows-download-mascot.png", alt "The Otter mascot holding a Windows logo", height 170
+dlRow is a row with spread, align middle, spacing 24, width full
+put dlText, winMascot in dlRow
+put dlRow in dlCard
 
 reqTitle is a text with value "System requirements", size 26, weight 800, foreground "#0f1f36", letterspacing "-0.02em"
 reqOsLabel is a text with value "Operating system", size 13, weight 700, foreground "#0f1f36"
@@ -88,10 +93,30 @@ put relTitle, relVersion, relSize, relDate, relSha, relNotes in relCard
 
 runTitle is a text with value "Run from the project folder", size 26, weight 800, foreground "#0f1f36", letterspacing "-0.02em"
 runBody is a text with value "Open Windows PowerShell in the folder that contains otter.cmd, then run an example:", size 15, foreground "#4a5b75"
-runCommand is a text with value ".\\otter.cmd examples\\hello.ot", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px;", runnable true
-runResult is a text with value "Hello, Otter!", size 14, foreground "#a5e3b5", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px;", runnable true
+runCommand is a text with value ".\\otter.cmd examples\\hello.ot", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; border-top-left-radius: 0; border-top-right-radius: 0;"
+runCommandlabel is a text with value "PowerShell", size 12, weight 600, foreground "#b7c4d8"
+runCommandcopy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+runCommandhead is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put runCommandlabel, runCommandcopy in runCommandhead
+runCommandblock is a column with spacing 0, width full
+put runCommandhead, runCommand in runCommandblock
+when runCommandcopy is clicked
+    copy text of runCommand to clipboard
+    text of runCommandcopy is "Copied"
+.
+runResult is a text with value "Hello, Otter!", size 14, foreground "#a5e3b5", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+runResultlabel is a text with value "Output", size 12, weight 600, foreground "#b7c4d8"
+runResultcopy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+runResulthead is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put runResultlabel, runResultcopy in runResulthead
+runResultblock is a column with spacing 0, width full
+put runResulthead, runResult in runResultblock
+when runResultcopy is clicked
+    copy text of runResult to clipboard
+    text of runResultcopy is "Copied"
+.
 runCard is a card with background "#ffffff", radius 16, border "1px solid #e3e9f2", padding 28, spacing 12, flex 1.55
-put runTitle, runBody, runCommand, runResult in runCard
+put runTitle, runBody, runCommandblock, runResultblock in runCard
 
 nextTitle is a text with value "Next steps", size 26, weight 800, foreground "#0f1f36", letterspacing "-0.02em"
 nextOne is a link with text "1. Install Otter", url "/installation/", foreground "#2563eb", size 15

@@ -1,163 +1,178 @@
-# Otter website - Documentation home
+# Otter website - Home
 # Authored in Otter and compiled with the site build (build-otter-pages.ps1).
+# Version and installer status come from release-data.json via the {{...}} tokens.
 
 use "_shell.ot"
-use "_docs.ot"
 
-app is a page with title "Otter Documentation", hideheader true, scroll true, width full, background "#f4f7fb", foreground "#0f1f36", spacing 0, padding 0
-
-customstyle of navDocs is "padding: 22px 0; border-bottom: 2px solid #4d8dff; color: #ffffff;"
-customstyle of sideHome is "padding: 8px 12px; border-left: 3px solid #2563eb; border-radius: 4px; display: block; background: #e6efff; color: #1d4ed8; font-weight: 600;"
-# Sidebar: only the current group is expanded.
-customstyle of sideValues is "display: none;"
-customstyle of sideInputOutput is "display: none;"
-customstyle of sideConditions is "display: none;"
-customstyle of sideLoops is "display: none;"
-customstyle of sideLists is "display: none;"
-customstyle of sideFunctions is "display: none;"
-customstyle of sideObjects is "display: none;"
-customstyle of sideFiles is "display: none;"
-customstyle of sideData is "display: none;"
-customstyle of sideErrorHandling is "display: none;"
-customstyle of sideMath is "display: none;"
-customstyle of sideNestedConditions is "display: none;"
-customstyle of sideModules is "display: none;"
-customstyle of sideRunningPrograms is "display: none;"
-customstyle of sideLoggingDebugging is "display: none;"
-customstyle of sideEnvironment is "display: none;"
-customstyle of sideGone is "display: none;"
-customstyle of sideOperators is "display: none;"
-customstyle of sidePropertyAccess is "display: none;"
-customstyle of sideStrings is "display: none;"
-customstyle of sideCollections is "display: none;"
-customstyle of sideDiscovery is "display: none;"
-customstyle of sideFileObjects is "display: none;"
-customstyle of sideFilesFolders is "display: none;"
-customstyle of sideFolders is "display: none;"
-customstyle of sideTry is "display: none;"
-customstyle of sideJson is "display: none;"
-customstyle of sideRandom is "display: none;"
-customstyle of sideDates is "display: none;"
-customstyle of sideScope is "display: none;"
-customstyle of sideDiagnostics is "display: none;"
-customstyle of sideReference is "display: none;"
-customstyle of sideDatabases is "display: none;"
-customstyle of sideQueries is "display: none;"
-customstyle of sideHttp is "display: none;"
-customstyle of sideWebServer is "display: none;"
-customstyle of sideXml is "display: none;"
-customstyle of sideWebApps is "display: none;"
-customstyle of sideReactivity is "display: none;"
-customstyle of sideWindowsApps is "display: none;"
-customstyle of sideNetworking is "display: none;"
-customstyle of sideSecurity is "display: none;"
-customstyle of sideExamples is "display: none;"
-customstyle of sideExampleHello is "display: none;"
-customstyle of sideExampleInput is "display: none;"
-customstyle of sideExampleConditions is "display: none;"
-customstyle of sideExampleCounting is "display: none;"
-customstyle of sideExampleLists is "display: none;"
-customstyle of sideExampleDiscovery is "display: none;"
-customstyle of sideExampleOrganizer is "display: none;"
-customstyle of sideExampleFinding is "display: none;"
-customstyle of sideExampleErrors is "display: none;"
-customstyle of sideDesignReadable is "display: none;"
-customstyle of sideStructuralWords is "display: none;"
-customstyle of sidePropertiesOperations is "display: none;"
-customstyle of sidePeriods is "display: none;"
-customstyle of sidePhilosophy is "display: none;"
-customstyle of sideTopics is "display: none;"
-customstyle of sideDownload is "display: none;"
-customstyle of sideRelease is "display: none;"
-customstyle of sideStudio is "display: none;"
+app is a page with title "Otter - Programming that reads like English", hideheader true, scroll true, width full, background "#f4f7fb", foreground "#0f1f36", spacing 0, padding 0
 
 # ==========================================
 # 1. HERO
 # ==========================================
 
-heroTitle is a text with value "Documentation", size 60, weight 800, foreground "#0b1d36", letterspacing "-0.03em", lineheight "1"
-heroLead is a text with value "Readable like English. Precise like code. Learn Otter from the ground up, on a runtime that needs nothing installed.", size 19, foreground "#3a4d6b", lineheight "1.5", customstyle "max-width: 520px;"
+heroEyebrow is a text with value "{{RELEASE_CHANNEL}} {{RELEASE_VERSION}} - for Windows", size 13, weight 700, foreground "#7fb0ff", letterspacing "0.08em"
+heroTitle is a text with value "Programming that reads like English.", size 56, weight 800, foreground "#ffffff", letterspacing "-0.03em", lineheight "1.05"
+heroLead is a text with value "Otter is a programming language you can read aloud. Write scripts, desktop apps and web apps in plain words, with nothing extra to install.", size 19, foreground "#dbe6f5", lineheight "1.5", customstyle "max-width: 560px;"
+
+heroCode is a text with value "name is \"Otter\"\nsay \"Hello, \" + name\n\nto greet person\n    say \"Welcome, \" + person\n.\n\ngreet \"Ada\"", size 15, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border: 1px solid #27406a; max-width: 560px; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+heroCodelabel is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+heroCodecopy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+heroCodehead is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put heroCodelabel, heroCodecopy in heroCodehead
+heroCodeblock is a column with spacing 0, width full, customstyle "max-width: 560px;"
+put heroCodehead, heroCode in heroCodeblock
+when heroCodecopy is clicked
+    copy text of heroCode to clipboard
+    text of heroCodecopy is "Copied"
+.
+
+heroDownload is a link with text "Download Otter", url "/download/", foreground "#ffffff", weight 700, size 16, background "#2563eb", radius 12, customstyle "padding: 14px 26px; display: inline-block;"
+heroStart is a link with text "Get Started", url "/what-is-otter/", foreground "#ffffff", weight 700, size 16, radius 12, border "2px solid #4d8dff", customstyle "padding: 12px 24px; display: inline-block;"
+heroDocs is a link with text "Read the Docs", url "/docs/", foreground "#b7d3ff", weight 700, size 16, customstyle "padding: 14px 8px; display: inline-block;"
+heroActions is a row with spacing 14, align middle, margin "8px 0 0 0"
+put heroDownload, heroStart, heroDocs in heroActions
+heroVersion is a text with value "Version {{RELEASE_VERSION}} - Windows installer: {{INSTALLER_STATUS}}", size 13, foreground "#f5c46b"
+
 heroCopy is a column with spacing 16, flex 1
-put heroTitle, heroLead in heroCopy
-heroMascot is a image with source "/static/images/otter-explorer-mascot.png", alt "The Otter mascot", height 210
-hero is a row with spread, align middle, spacing 32, width full, background "#e4edf9", padding "28px 56px", customstyle "box-sizing: border-box;"
-put heroCopy, heroMascot in hero
+put heroEyebrow, heroTitle, heroLead, heroCodeblock, heroActions, heroVersion in heroCopy
+heroMascot is a image with source "/static/images/otter-docs-hero-mascot.png", alt "The Otter mascot sitting on a rock", height 340
+heroBody is a row with spread, align middle, spacing 40, width full, padding "40px 56px 72px", customstyle "box-sizing: border-box; max-width: 1240px; margin: 0 auto;"
+put heroCopy, heroMascot in heroBody
+hero is a column with width full, background "linear-gradient(180deg, #0b1d36 0%, #10305a 100%)", spacing 0
+put topBar, heroBody in hero
 
 # ==========================================
-# 2. ENTRY CARDS
+# 2. WHY OTTER
 # ==========================================
 
-cardOneTitle is a link with text "Get Started", url "/installation/", foreground "#0f1f36", size 17, weight 700
-cardOneBody is a text with value "Install Otter and run your first program.", size 14, foreground "#4a5b75", lineheight "1.45"
-cardOne is a card with background "#ffffff", radius 16, border "1px solid #e3e9f2", padding 22, spacing 10, flex 1
-put cardOneTitle, cardOneBody in cardOne
+whyTitle is a text with value "Why Otter?", size 34, weight 800, foreground "#0b1d36", letterspacing "-0.02em"
+whyLead is a text with value "Programs should be understandable when read aloud. Otter is built around that one idea.", size 17, foreground "#3a4d6b"
 
-cardTwoTitle is a link with text "Language Guide", url "/values/", foreground "#0f1f36", size 17, weight 700
-cardTwoBody is a text with value "Learn the core ideas, one at a time.", size 14, foreground "#4a5b75", lineheight "1.45"
-cardTwo is a card with background "#ffffff", radius 16, border "1px solid #e3e9f2", padding 22, spacing 10, flex 1
-put cardTwoTitle, cardTwoBody in cardTwo
+why1Title is a text with value "Reads like English", size 18, weight 700
+why1Body is a text with value "age is 29. say \"Hello\". add 5 to score. Words do the work that symbols do elsewhere, so a program reads like a description of itself.", size 14, foreground "#4a5b75", lineheight "1.55"
+why1 is a card with background "#ffffff", radius 16, border "1px solid #e3e9f2", padding 22, spacing 8, flex 1
+put why1Title, why1Body in why1
 
-cardThreeTitle is a link with text "Reference", url "/reference/", foreground "#0f1f36", size 17, weight 700
-cardThreeBody is a text with value "What Otter V1 supports, in one index.", size 14, foreground "#4a5b75", lineheight "1.45"
-cardThree is a card with background "#ffffff", radius 16, border "1px solid #e3e9f2", padding 22, spacing 10, flex 1
-put cardThreeTitle, cardThreeBody in cardThree
+why2Title is a text with value "Errors that help", size 18, weight 700
+why2Body is a text with value "Every message names the line, says what went wrong in plain words and suggests a fix. Raw stack traces never reach you.", size 14, foreground "#4a5b75", lineheight "1.55"
+why2 is a card with background "#ffffff", radius 16, border "1px solid #e3e9f2", padding 22, spacing 8, flex 1
+put why2Title, why2Body in why2
 
-cardFourTitle is a link with text "Examples", url "/examples/", foreground "#0f1f36", size 17, weight 700
-cardFourBody is a text with value "Real programs to open, change, and run.", size 14, foreground "#4a5b75", lineheight "1.45"
-cardFour is a card with background "#ffffff", radius 16, border "1px solid #e3e9f2", padding 22, spacing 10, flex 1
-put cardFourTitle, cardFourBody in cardFour
+why3Title is a text with value "One language, many targets", size 18, weight 700
+why3Body is a text with value "The same statements build console tools, desktop windows, web pages, API servers, data processing and network clients.", size 14, foreground "#4a5b75", lineheight "1.55"
+why3 is a card with background "#ffffff", radius 16, border "1px solid #e3e9f2", padding 22, spacing 8, flex 1
+put why3Title, why3Body in why3
 
-entryCards is a row with spacing 20, align top, width full
-put cardOne, cardTwo, cardThree, cardFour in entryCards
+why4Title is a text with value "Nothing to install", size 18, weight 700
+why4Body is a text with value "Otter runs on the Windows PowerShell already on Windows 10 and 11. No runtime, no package manager, no administrator rights.", size 14, foreground "#4a5b75", lineheight "1.55"
+why4 is a card with background "#ffffff", radius 16, border "1px solid #e3e9f2", padding 22, spacing 8, flex 1
+put why4Title, why4Body in why4
 
-# ==========================================
-# 3. YOUR FIRST PROGRAM
-# ==========================================
-
-firstTitle is a text with value "Your first program", size 30, weight 800, foreground "#0b1d36", letterspacing "-0.02em"
-firstBody is a text with value "Create a file called hello.ot and add one line:", size 16, foreground "#3a4d6b"
-firstCode is a text with value "# Your first Otter program\nsay \"Hello, Otter!\"", size 15, foreground "#e5edf8", background "#0f1b2e", radius 14, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 20px 22px; line-height: 1.7;", runnable true
-firstRunBody is a text with value "Run it from PowerShell:", size 16, foreground "#3a4d6b"
-firstRun is a text with value "otter run hello.ot", size 15, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px;"
-firstOutBody is a text with value "You should see:", size 16, foreground "#3a4d6b"
-firstOut is a text with value "Hello, Otter!", size 15, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px;"
-firstMore is a link with text "Follow the full walkthrough", url "/first-program/", foreground "#2563eb", size 15, weight 600
-firstSection is a column with spacing 14
-put firstTitle, firstBody, firstCode, firstRunBody, firstRun, firstOutBody, firstOut, firstMore in firstSection
+whyCards is a row with spacing 20, align top, width full
+put why1, why2, why3, why4 in whyCards
+whySection is a column with spacing 16, width full
+put whyTitle, whyLead, whyCards in whySection
 
 # ==========================================
-# 4. WHAT'S NEXT
+# 3. ENGLISH-LIKE SYNTAX
 # ==========================================
 
-nextTitle is a text with value "What's next?", size 30, weight 800, foreground "#0b1d36", letterspacing "-0.02em"
-nextBody is a text with value "Explore the rest of the documentation to learn more about the language and its features.", size 16, foreground "#3a4d6b"
-nextOneTitle is a link with text "Language concepts", url "/values/", foreground "#0f1f36", size 16, weight 700
-nextOneBody is a text with value "Values, conditions, loops, lists, functions, and objects.", size 14, foreground "#4a5b75", lineheight "1.45"
-nextOne is a card with background "#ffffff", radius 14, border "1px solid #e3e9f2", padding 20, spacing 6, flex 1
-put nextOneTitle, nextOneBody in nextOne
-nextTwoTitle is a link with text "Files, data and the network", url "/files/", foreground "#0f1f36", size 16, weight 700
-nextTwoBody is a text with value "Files and folders, CSV, downloads, TCP, UDP, and TLS.", size 14, foreground "#4a5b75", lineheight "1.45"
-nextTwo is a card with background "#ffffff", radius 14, border "1px solid #e3e9f2", padding 20, spacing 6, flex 1
-put nextTwoTitle, nextTwoBody in nextTwo
-nextThreeTitle is a link with text "Build something", url "/examples/", foreground "#0f1f36", size 16, weight 700
-nextThreeBody is a text with value "Open a complete example and change it to make it yours.", size 14, foreground "#4a5b75", lineheight "1.45"
-nextThree is a card with background "#ffffff", radius 14, border "1px solid #e3e9f2", padding 20, spacing 6, flex 1
-put nextThreeTitle, nextThreeBody in nextThree
-nextCards is a row with spacing 20, align top, width full
-put nextOne, nextTwo, nextThree in nextCards
-nextSection is a column with spacing 14
-put nextTitle, nextBody, nextCards in nextSection
+syntaxTitle is a text with value "English-like syntax", size 34, weight 800, foreground "#0b1d36", letterspacing "-0.02em"
+syntaxLead is a text with value "The same idea in three languages. Otter keeps only the words.", size 17, foreground "#3a4d6b"
+
+cmpOtter is a text with value "age is 29\n\nif age is at least 18\n    say \"Adult\"\n.\n\nto greet person\n    say \"Hello, \" + person\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 20px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;"
+cmpOtterLabel is a text with value "Otter", size 12, weight 700, foreground "#7fb0ff"
+cmpOtterHead is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put cmpOtterLabel in cmpOtterHead
+cmpOtterblock is a column with spacing 0, flex 1
+put cmpOtterHead, cmpOtter in cmpOtterblock
+
+cmpJs is a text with value "let age = 29;\n\nif (age >= 18) {\n  console.log(\"Adult\");\n}\n\nfunction greet(person) {\n  console.log(\"Hello, \" + person);\n}", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 20px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;"
+cmpJsLabel is a text with value "JavaScript", size 12, weight 700, foreground "#4a5b75"
+cmpJsHead is a row with spread, align middle, width full, background "#dde6f2", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put cmpJsLabel in cmpJsHead
+cmpJsblock is a column with spacing 0, flex 1
+put cmpJsHead, cmpJs in cmpJsblock
+
+cmpPy is a text with value "age = 29\n\nif age >= 18:\n    print(\"Adult\")\n\n\ndef greet(person):\n    print(\"Hello, \" + person)", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 20px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;"
+cmpPyLabel is a text with value "Python", size 12, weight 700, foreground "#4a5b75"
+cmpPyHead is a row with spread, align middle, width full, background "#dde6f2", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put cmpPyLabel in cmpPyHead
+cmpPyblock is a column with spacing 0, flex 1
+put cmpPyHead, cmpPy in cmpPyblock
+
+cmpRow is a row with spacing 20, align top, width full
+put cmpOtterblock, cmpJsblock, cmpPyblock in cmpRow
+syntaxMore is a link with text "Why Otter uses these conventions", url "/design-readable/", foreground "#2563eb", weight 600, size 15
+syntaxSection is a column with spacing 16, width full
+put syntaxTitle, syntaxLead, cmpRow, syntaxMore in syntaxSection
 
 # ==========================================
-# 5. PAGE
+# 4. WHAT YOU CAN BUILD
 # ==========================================
 
-homeBody is a column with spacing 40, width full, padding "32px 56px 24px", flex 1, customstyle "box-sizing: border-box; min-width: 0;"
-put entryCards, firstSection, nextSection in homeBody
-homeMain is a column with spacing 0, flex 1, customstyle "min-width: 0;"
-put hero, homeBody in homeMain
-docsBody is a row with align top, spacing 0, width full, customstyle "align-items: stretch;"
-put docsSidebar, homeMain in docsBody
+buildTitle is a text with value "What you can build", size 34, weight 800, foreground "#0b1d36", letterspacing "-0.02em"
+build1Link is a link with text "Console tools and automation", url "/files/", foreground "#0f1f36", size 17, weight 700
+build1Body is a text with value "Files, folders, CSV, other programs, and things that watch for change.", size 14, foreground "#4a5b75", lineheight "1.5"
+build1 is a card with background "#ffffff", radius 16, border "1px solid #e3e9f2", padding 22, spacing 8, flex 1
+put build1Link, build1Body in build1
+build2Link is a link with text "Desktop applications", url "/windows-apps/", foreground "#0f1f36", size 17, weight 700
+build2Body is a text with value "Windows, buttons, text boxes and events, in a few readable lines.", size 14, foreground "#4a5b75", lineheight "1.5"
+build2 is a card with background "#ffffff", radius 16, border "1px solid #e3e9f2", padding 22, spacing 8, flex 1
+put build2Link, build2Body in build2
+build3Link is a link with text "Web applications", url "/web-apps/", foreground "#0f1f36", size 17, weight 700
+build3Body is a text with value "otter web turns a program into a standalone web page.", size 14, foreground "#4a5b75", lineheight "1.5"
+build3 is a card with background "#ffffff", radius 16, border "1px solid #e3e9f2", padding 22, spacing 8, flex 1
+put build3Link, build3Body in build3
+build4Link is a link with text "Data, servers and networking", url "/what-can-you-build/", foreground "#0f1f36", size 17, weight 700
+build4Body is a text with value "Databases, APIs, WebSockets, TCP, TLS and encryption.", size 14, foreground "#4a5b75", lineheight "1.5"
+build4 is a card with background "#ffffff", radius 16, border "1px solid #e3e9f2", padding 22, spacing 8, flex 1
+put build4Link, build4Body in build4
+buildCards is a row with spacing 20, align top, width full
+put build1, build2, build3, build4 in buildCards
+buildSection is a column with spacing 16, width full
+put buildTitle, buildCards in buildSection
 
-put topBar, docsBody, siteFooter in app
+# ==========================================
+# 5. SEE IT WORK
+# ==========================================
+
+shotsTitle is a text with value "See it work", size 34, weight 800, foreground "#0b1d36", letterspacing "-0.02em"
+shotsLead is a text with value "These are real web applications written in Otter and built with otter web.", size 17, foreground "#3a4d6b"
+shot1 is a image with source "/static/images/screenshot-greeter.png", alt "A greeter web application: a text box, a button and a greeting", width 520, radius 12, border "1px solid #e3e9f2", shadow "0 8px 24px rgba(11,29,54,0.10)"
+shot1Caption is a link with text "The greeter: build it step by step", url "/tiny-app/", foreground "#2563eb", weight 600, size 15
+shot1Col is a column with spacing 10, flex 1
+put shot1, shot1Caption in shot1Col
+shot2 is a image with source "/static/images/screenshot-showcase.png", alt "The Otter web showcase application", width 520, radius 12, border "1px solid #e3e9f2", shadow "0 8px 24px rgba(11,29,54,0.10)"
+shot2Caption is a link with text "The web showcase example", url "/web-apps/", foreground "#2563eb", weight 600, size 15
+shot2Col is a column with spacing 10, flex 1
+put shot2, shot2Caption in shot2Col
+shotsRow is a row with spacing 24, align top, width full
+put shot1Col, shot2Col in shotsRow
+shotsSection is a column with spacing 16, width full
+put shotsTitle, shotsLead, shotsRow in shotsSection
+
+# ==========================================
+# 6. NEXT STEPS
+# ==========================================
+
+nextTitle is a text with value "Start here", size 34, weight 800, foreground "#0b1d36", letterspacing "-0.02em"
+next1 is a link with text "1. Download or install Otter", url "/installation/", foreground "#2563eb", size 16, weight 600
+next2 is a link with text "2. Run your first program", url "/first-program/", foreground "#2563eb", size 16, weight 600
+next3 is a link with text "3. Learn the basics", url "/values/", foreground "#2563eb", size 16, weight 600
+next4 is a link with text "4. Build a tiny application", url "/tiny-app/", foreground "#2563eb", size 16, weight 600
+next5 is a link with text "5. Explore the reference and examples", url "/reference/", foreground "#2563eb", size 16, weight 600
+nextCard is a card with background "#ffffff", radius 16, border "1px solid #e3e9f2", padding 26, spacing 12, width full
+put next1, next2, next3, next4, next5 in nextCard
+nextSection is a column with spacing 16, width full
+put nextTitle, nextCard in nextSection
+
+# ==========================================
+# 7. PAGE
+# ==========================================
+
+homeContent is a column with spacing 64, width full, padding "56px 56px 24px", customstyle "box-sizing: border-box; max-width: 1240px; margin: 0 auto;"
+put whySection, syntaxSection, buildSection, shotsSection, nextSection in homeContent
+
+put hero, homeContent, siteFooter in app
 show app

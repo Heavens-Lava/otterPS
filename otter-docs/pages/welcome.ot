@@ -9,6 +9,9 @@ app is a page with title "Introduction - Otter Documentation", hideheader true, 
 customstyle of navDocs is "padding: 22px 0; border-bottom: 2px solid #4d8dff; color: #ffffff;"
 customstyle of sideWelcome is "padding: 8px 12px; border-left: 3px solid #2563eb; border-radius: 4px; display: block; background: #e6efff; color: #1d4ed8; font-weight: 600;"
 # Sidebar: only the current group is expanded.
+customstyle of sideCli is "display: none;"
+customstyle of sideProjects is "display: none;"
+customstyle of sideTroubleshooting is "display: none;"
 customstyle of sideValues is "display: none;"
 customstyle of sideInputOutput is "display: none;"
 customstyle of sideConditions is "display: none;"
@@ -70,15 +73,48 @@ customstyle of sideTopics is "display: none;"
 customstyle of sideDownload is "display: none;"
 customstyle of sideRelease is "display: none;"
 customstyle of sideStudio is "display: none;"
+customstyle of sideSupport is "display: none;"
+customstyle of sideAbout is "display: none;"
+customstyle of sideLicense is "display: none;"
 
 b1 is a text with value "Welcome to Otter", size 40, weight 800, foreground "#0b1d36", letterspacing "-0.03em", lineheight "1.1"
 b2 is a text with value "Otter is a readable programming language for useful programs, from small scripts to interactive web applications. Readable like English. Precise like code.", size 18, foreground "#3a4d6b", lineheight "1.55"
 b3 is a text with value "Otter programs use everyday words and indentation instead of punctuation-heavy syntax, without giving up deterministic programming-language behavior.", size 16, foreground "#3a4d6b", lineheight "1.6"
-b4 is a text with value "name is \"World\"\nsay \"Hello\" name", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
-b5 is a text with value "Hello World", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto;"
+b4 is a text with value "name is \"World\"\nsay \"Hello\" name", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b4label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b4copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b4head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b4label, b4copy in b4head
+b4block is a column with spacing 0, width full
+put b4head, b4 in b4block
+when b4copy is clicked
+    copy text of b4 to clipboard
+    text of b4copy is "Copied"
+.
+b5 is a text with value "Hello World", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;"
+b5label is a text with value "Output", size 12, weight 600, foreground "#4a5b75"
+b5copy is a button with text "Copy", size 12, weight 600, background "#c9d6e8", foreground "#0f1f36", radius 6, padding "4px 12px"
+b5head is a row with spread, align middle, width full, background "#dde6f2", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b5label, b5copy in b5head
+b5block is a column with spacing 0, width full
+put b5head, b5 in b5block
+when b5copy is clicked
+    copy text of b5 to clipboard
+    text of b5copy is "Copied"
+.
 b6 is a text with value "Programs you can read aloud", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b7 is a text with value "Words express meaning directly: and, minus, times, divided by, is at least, is greater than. Blocks are finished with a period. Properties are read with everyday prepositions, such as name of developer.", size 16, foreground "#3a4d6b", lineheight "1.6"
-b8 is a text with value "age is 20\nif age is at least 18\n    say \"Adult\"\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
+b8 is a text with value "age is 20\nif age is at least 18\n    say \"Adult\"\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b8label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b8copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b8head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b8label, b8copy in b8head
+b8block is a column with spacing 0, width full
+put b8head, b8 in b8block
+when b8copy is clicked
+    copy text of b8 to clipboard
+    text of b8copy is "Copied"
+.
 b9 is a text with value "The period has exactly one structural meaning in Otter: it finishes a block or process. It is never used for property access.", size 15, foreground "#1e3a6b", background "#eaf2ff", radius 12, border "1px solid #cfe0ff", lineheight "1.55", customstyle "padding: 14px 18px;"
 b10 is a text with value "What Otter does today", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b11 is a text with value "Variables and readable arithmetic, conditions and loops, lists, functions, objects, sandboxed file operations, CSV and JSON, command-line arguments, safe web downloads, a query language for databases, TCP/UDP/TLS networking, cryptography, and compilation of programs into standalone web applications.", size 16, foreground "#3a4d6b", lineheight "1.6"
@@ -89,7 +125,7 @@ b15 is a link with text "Write your first program", url "/first-program/", foreg
 b16 is a link with text "Learn the language: values and variables", url "/values/", foreground "#2563eb", weight 600, size 15
 
 docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"
-put b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15, b16 in docsMain
+put b1, b2, b3, b4block, b5block, b6, b7, b8block, b9, b10, b11, b12, b13, b14, b15, b16 in docsMain
 docsBody is a row with align top, spacing 0, width full, customstyle "align-items: stretch;"
 put docsSidebar, docsMain in docsBody
 

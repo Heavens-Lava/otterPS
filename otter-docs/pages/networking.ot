@@ -9,14 +9,21 @@ app is a page with title "Networking - Otter Documentation", hideheader true, sc
 customstyle of navDocs is "padding: 22px 0; border-bottom: 2px solid #4d8dff; color: #ffffff;"
 customstyle of sideNetworking is "padding: 8px 12px; border-left: 3px solid #2563eb; border-radius: 4px; display: block; background: #e6efff; color: #1d4ed8; font-weight: 600;"
 # Sidebar: only the current group is expanded.
-customstyle of sideHome is "display: none;"
+customstyle of sideDocs is "display: none;"
 customstyle of sideWelcome is "display: none;"
+customstyle of sideWhatIsOtter is "display: none;"
+customstyle of sideWhoIsOtterFor is "display: none;"
+customstyle of sideWhatCanYouBuild is "display: none;"
 customstyle of sideInstallation is "display: none;"
+customstyle of sideVerify is "display: none;"
 customstyle of sideFirstProgram is "display: none;"
 customstyle of sideHello is "display: none;"
-customstyle of sideRunningFiles is "display: none;"
 customstyle of sideRepl is "display: none;"
+customstyle of sideRunningFiles is "display: none;"
+customstyle of sideTinyApp is "display: none;"
 customstyle of sideCli is "display: none;"
+customstyle of sideProjects is "display: none;"
+customstyle of sideTroubleshooting is "display: none;"
 customstyle of sideValues is "display: none;"
 customstyle of sideInputOutput is "display: none;"
 customstyle of sideConditions is "display: none;"
@@ -68,33 +75,76 @@ customstyle of sideTopics is "display: none;"
 customstyle of sideDownload is "display: none;"
 customstyle of sideRelease is "display: none;"
 customstyle of sideStudio is "display: none;"
+customstyle of sideSupport is "display: none;"
+customstyle of sideAbout is "display: none;"
+customstyle of sideLicense is "display: none;"
 
 b1 is a text with value "Networking", size 40, weight 800, foreground "#0b1d36", letterspacing "-0.03em", lineheight "1.1"
 b2 is a text with value "WebSockets, TCP, UDP and TLS are ordinary Otter statements. Connections are named values, and things that happen to them are events you handle with on.", size 18, foreground "#3a4d6b", lineheight "1.55"
-b3 is a text with value "Availability: this feature was added after the {{RELEASE_VERSION}} feature freeze. It is in the current source tree, not in the release-candidate archive.", size 15, foreground "#1e3a6b", background "#eaf2ff", radius 12, border "1px solid #cfe0ff", lineheight "1.55", customstyle "padding: 14px 18px;"
+b3 is a text with value "Availability: this feature is in the current source tree and is not part of a published release yet.", size 15, foreground "#1e3a6b", background "#eaf2ff", radius 12, border "1px solid #cfe0ff", lineheight "1.55", customstyle "padding: 14px 18px;"
 b4 is a text with value "WebSockets", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b5 is a text with value "A WebSocket delivers whole messages. It works in console programs and in web applications.", size 16, foreground "#3a4d6b", lineheight "1.6"
-b6 is a text with value "connect to websocket \"wss://echo.example.com\" and call it chat\n\non open of chat\n    send \"Hello\" through chat\n.\n\non message from chat\n    say \"Got:\" received message\n    close websocket chat\n.\n\non error of chat\n    say \"Problem:\" websocket error\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
+b6 is a text with value "connect to websocket \"wss://echo.example.com\" and call it chat\n\non open of chat\n    send \"Hello\" through chat\n.\n\non message from chat\n    say \"Got:\" received message\n    close websocket chat\n.\n\non error of chat\n    say \"Problem:\" websocket error\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b6label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b6copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b6head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b6label, b6copy in b6head
+b6block is a column with spacing 0, width full
+put b6head, b6 in b6block
+when b6copy is clicked
+    copy text of b6 to clipboard
+    text of b6copy is "Copied"
+.
 b7 is a text with value "chat is connecting, open, closing, or closed - check it with chat is open, or read state of chat.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b8 is a text with value "TCP", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b9 is a text with value "TCP is a stream of bytes, not messages, so its event is on data from and what arrives is always bytes. Otter never converts between text and bytes silently: turn text into bytes yourself before sending it.", size 16, foreground "#3a4d6b", lineheight "1.6"
-b10 is a text with value "connect to tcp \"localhost\" on port 9000 and call it connection\n\non connect of connection\n    message is bytes from text \"Hello from Otter\"\n    send message through connection\n.\n\non data from connection\n    data is received data\n    say text from bytes data\n    close tcp connection\n.\n\non error of connection\n    say network error\n.\n\non close of connection\n    say \"Disconnected\"\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
+b10 is a text with value "connect to tcp \"localhost\" on port 9000 and call it connection\n\non connect of connection\n    message is bytes from text \"Hello from Otter\"\n    send message through connection\n.\n\non data from connection\n    data is received data\n    say text from bytes data\n    close tcp connection\n.\n\non error of connection\n    say network error\n.\n\non close of connection\n    say \"Disconnected\"\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b10label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b10copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b10head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b10label, b10copy in b10head
+b10block is a column with spacing 0, width full
+put b10head, b10 in b10block
+when b10copy is clicked
+    copy text of b10 to clipboard
+    text of b10copy is "Copied"
+.
 b11 is a text with value "Ask a connection about itself with state of connection (connecting, connected, closed), remote address of connection and remote port of connection. A connection that cannot be made goes to on error, then on close - or, with no on error handler, stops the program with a readable message.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b12 is a text with value "TCP servers (listen for tcp) are reserved grammar and are not available yet. TCP clients are.", size 15, foreground "#1e3a6b", background "#eaf2ff", radius 12, border "1px solid #cfe0ff", lineheight "1.55", customstyle "padding: 14px 18px;"
 b13 is a text with value "TLS", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b14 is a text with value "Add securely to make the same connection over TLS. The system checks the certificate chain, expiry, revocation, and that the certificate matches the server name. There is no way to turn that off: an untrusted certificate simply fails the connection.", size 16, foreground "#3a4d6b", lineheight "1.6"
-b15 is a text with value "connect securely to tcp \"example.com\" on port 443 and call it connection\n\non connect of connection\n    if connection is secure\n        say \"secure\"\n    .\n    say tls version of connection\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
+b15 is a text with value "connect securely to tcp \"example.com\" on port 443 and call it connection\n\non connect of connection\n    if connection is secure\n        say \"secure\"\n    .\n    say tls version of connection\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b15label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b15copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b15head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b15label, b15copy in b15head
+b15block is a column with spacing 0, width full
+put b15head, b15 in b15block
+when b15copy is clicked
+    copy text of b15 to clipboard
+    text of b15copy is "Copied"
+.
 b16 is a text with value "for server \"name\" checks the certificate against a different name than the address you connect to. On this runtime (Windows PowerShell 5.1) protocol negotiation is not available, so using protocol stops with a clear message rather than connecting without it.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b17 is a text with value "UDP", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b18 is a text with value "UDP sends independent datagrams. Open a socket, listen for data, and send to an address and port.", size 16, foreground "#3a4d6b", lineheight "1.6"
-b19 is a text with value "open udp on port 9000 and call it socket\n\non data from socket\n    say \"Received from\" sender address\n    response is bytes from text \"Hello\"\n    send response through socket\n        to sender address\n        on port sender port\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
+b19 is a text with value "open udp on port 9000 and call it socket\n\non data from socket\n    say \"Received from\" sender address\n    response is bytes from text \"Hello\"\n    send response through socket\n        to sender address\n        on port sender port\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b19label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b19copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b19head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b19label, b19copy in b19head
+b19block is a column with spacing 0, width full
+put b19head, b19 in b19block
+when b19copy is clicked
+    copy text of b19 to clipboard
+    text of b19copy is "Copied"
+.
 b20 is a text with value "open udp and call it socket picks a free port for you. close udp socket closes it.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b21 is a text with value "Where these run", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b22 is a text with value "TCP, UDP and TLS are for console and desktop programs. A browser cannot open raw sockets, so the web target reports them as unsupported instead of imitating them. WebSockets work on both.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b23 is a link with text "Next: cryptography and secrets", url "/security/", foreground "#2563eb", weight 600, size 15
 
 docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"
-put b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15, b16, b17, b18, b19, b20, b21, b22, b23 in docsMain
+put b1, b2, b3, b4, b5, b6block, b7, b8, b9, b10block, b11, b12, b13, b14, b15block, b16, b17, b18, b19block, b20, b21, b22, b23 in docsMain
 docsBody is a row with align top, spacing 0, width full, customstyle "align-items: stretch;"
 put docsSidebar, docsMain in docsBody
 

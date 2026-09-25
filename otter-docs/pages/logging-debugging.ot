@@ -9,14 +9,21 @@ app is a page with title "Logging and debugging - Otter Documentation", hidehead
 customstyle of navDocs is "padding: 22px 0; border-bottom: 2px solid #4d8dff; color: #ffffff;"
 customstyle of sideLoggingDebugging is "padding: 8px 12px; border-left: 3px solid #2563eb; border-radius: 4px; display: block; background: #e6efff; color: #1d4ed8; font-weight: 600;"
 # Sidebar: only the current group is expanded.
-customstyle of sideHome is "display: none;"
+customstyle of sideDocs is "display: none;"
 customstyle of sideWelcome is "display: none;"
+customstyle of sideWhatIsOtter is "display: none;"
+customstyle of sideWhoIsOtterFor is "display: none;"
+customstyle of sideWhatCanYouBuild is "display: none;"
 customstyle of sideInstallation is "display: none;"
+customstyle of sideVerify is "display: none;"
 customstyle of sideFirstProgram is "display: none;"
 customstyle of sideHello is "display: none;"
-customstyle of sideRunningFiles is "display: none;"
 customstyle of sideRepl is "display: none;"
+customstyle of sideRunningFiles is "display: none;"
+customstyle of sideTinyApp is "display: none;"
 customstyle of sideCli is "display: none;"
+customstyle of sideProjects is "display: none;"
+customstyle of sideTroubleshooting is "display: none;"
 customstyle of sideGone is "display: none;"
 customstyle of sideOperators is "display: none;"
 customstyle of sidePropertyAccess is "display: none;"
@@ -62,22 +69,75 @@ customstyle of sideTopics is "display: none;"
 customstyle of sideDownload is "display: none;"
 customstyle of sideRelease is "display: none;"
 customstyle of sideStudio is "display: none;"
+customstyle of sideSupport is "display: none;"
+customstyle of sideAbout is "display: none;"
+customstyle of sideLicense is "display: none;"
 
 b1 is a text with value "Logging and debugging", size 40, weight 800, foreground "#0b1d36", letterspacing "-0.03em", lineheight "1.1"
 b2 is a text with value "Write diagnostic output that is separate from what your program says.", size 18, foreground "#3a4d6b", lineheight "1.55"
 b3 is a text with value "Logging", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b4 is a text with value "Application logging should be distinct from ordinary user output.", size 16, foreground "#3a4d6b", lineheight "1.6"
-b5 is a text with value "log \"Server started.\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
+b5 is a text with value "log \"Server started.\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b5label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b5copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b5head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b5label, b5copy in b5head
+b5block is a column with spacing 0, width full
+put b5head, b5 in b5block
+when b5copy is clicked
+    copy text of b5 to clipboard
+    text of b5copy is "Copied"
+.
 b6 is a text with value "Warnings:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b7 is a text with value "warn \"Connection is slow.\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
+b7 is a text with value "warn \"Connection is slow.\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b7label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b7copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b7head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b7label, b7copy in b7head
+b7block is a column with spacing 0, width full
+put b7head, b7 in b7block
+when b7copy is clicked
+    copy text of b7 to clipboard
+    text of b7copy is "Copied"
+.
 b8 is a text with value "Errors:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b9 is a text with value "error \"Could not connect.\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
+b9 is a text with value "error \"Could not connect.\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b9label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b9copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b9head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b9label, b9copy in b9head
+b9block is a column with spacing 0, width full
+put b9head, b9 in b9block
+when b9copy is clicked
+    copy text of b9 to clipboard
+    text of b9copy is "Copied"
+.
 b10 is a text with value "log, warn, and error should represent diagnostic output rather than normal application-facing output.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b11 is a text with value "Debugging", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b12 is a text with value "A debug operation may display detailed runtime information:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b13 is a text with value "debug user", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;"
+b13 is a text with value "debug user", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable false
+b13label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b13copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b13head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b13label, b13copy in b13head
+b13block is a column with spacing 0, width full
+put b13head, b13 in b13block
+when b13copy is clicked
+    copy text of b13 to clipboard
+    text of b13copy is "Copied"
+.
 b14 is a text with value "Otter's command-line runtime may later support:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b15 is a text with value "otter run app.ot --debug", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto;"
+b15 is a text with value "otter run app.ot --debug", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;"
+b15label is a text with value "Terminal", size 12, weight 600, foreground "#4a5b75"
+b15copy is a button with text "Copy", size 12, weight 600, background "#c9d6e8", foreground "#0f1f36", radius 6, padding "4px 12px"
+b15head is a row with spread, align middle, width full, background "#dde6f2", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b15label, b15copy in b15head
+b15block is a column with spacing 0, width full
+put b15head, b15 in b15block
+when b15copy is clicked
+    copy text of b15 to clipboard
+    text of b15copy is "Copied"
+.
 b16 is a text with value "Debug mode may expose:", size 16, foreground "#3a4d6b", lineheight "1.6"
 b17 is a text with value "- tokens", size 16, foreground "#3a4d6b", lineheight "1.6"
 b18 is a text with value "- parsed syntax", size 16, foreground "#3a4d6b", lineheight "1.6"
@@ -88,7 +148,7 @@ b22 is a text with value "- stack information", size 16, foreground "#3a4d6b", l
 b23 is a text with value "Normal users should not receive raw PowerShell or host-language stack traces unless debug mode is enabled.", size 16, foreground "#3a4d6b", lineheight "1.6"
 
 docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"
-put b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15, b16, b17, b18, b19, b20, b21, b22, b23 in docsMain
+put b1, b2, b3, b4, b5block, b6, b7block, b8, b9block, b10, b11, b12, b13block, b14, b15block, b16, b17, b18, b19, b20, b21, b22, b23 in docsMain
 docsBody is a row with align top, spacing 0, width full, customstyle "align-items: stretch;"
 put docsSidebar, docsMain in docsBody
 

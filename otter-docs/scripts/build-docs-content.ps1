@@ -2,15 +2,21 @@
 # (pages/_docs.ot) and turns the legacy Node documentation pages
 # (scripts/legacy-pages.json, from export-legacy-pages.mjs) into Otter-authored
 # pages in the new design. The generated .ot files are the source of truth.
+# By default only the sidebar and the all-topics page are (re)written - the pages under
+# pages/ are the source of truth and carry hand edits. -RegeneratePages rebuilds the
+# migrated legacy/rules pages from their JSON (overwriting any edits made since).
+param([switch]$RegeneratePages)
 . (Join-Path $PSScriptRoot 'new-docs-page.ps1')
 $legacy = [System.IO.File]::ReadAllText((Join-Path $PSScriptRoot 'legacy-pages.json')) | ConvertFrom-Json
 
 # --- sidebar --------------------------------------------------------------
 $sections = @(
     @('Getting Started', @(
-        @('home', 'Overview'), @('welcome', 'Introduction'), @('installation', 'Installation'),
-        @('first-program', 'Your first program'), @('hello', 'Hello, Otter!'), @('running-files', 'Running .ot files'),
-        @('repl', 'The REPL'), @('cli', 'Command line'))),
+        @('docs', 'Overview'), @('welcome', 'Introduction'), @('what-is-otter', 'What is Otter?'), @('who-is-otter-for', 'Who is Otter for?'),
+        @('what-can-you-build', 'What can you build?'), @('installation', 'Installation'), @('verify', 'Verify your installation'),
+        @('first-program', 'Your first program'), @('hello', 'Hello, Otter!'), @('repl', 'The REPL'), @('running-files', 'Running .ot files'),
+        @('tiny-app', 'Build a tiny application'))),
+    @('Tools', @(@('cli', 'The otter command'), @('projects', 'Projects'), @('troubleshooting', 'Troubleshooting'))),
     @('Language Guide', @(
         @('values', 'Values and variables'), @('input-output', 'Input and output'), @('conditions', 'Conditions'),
         @('loops', 'Loops'), @('lists', 'Lists'), @('functions', 'Functions'), @('objects', 'Objects and properties'),
@@ -34,7 +40,7 @@ $sections = @(
         @('design-readable', 'Readable like English'), @('structural-words', 'Structural words'),
         @('properties-operations', 'Properties vs operations'), @('periods', 'Period and block rules'),
         @('philosophy', 'Philosophy'))),
-    @('More', @(@('topics', 'All topics'), @('download', 'Download'), @('release', 'Release status'), @('studio', 'Studio preview')))
+    @('More', @(@('topics', 'All topics'), @('download', 'Download'), @('release', 'Release status'), @('studio', 'Studio preview'), @('support', 'Support'), @('about', 'About Otter'), @('license', 'License')))
 )
 
 function Get-SideName([string]$slug) {
@@ -54,12 +60,12 @@ foreach ($section in $sections) {
     $g++
     $headName = "sideGroupHead$g"
     $firstSlug = $section[1][0][0]
-    $firstUrl = if ($firstSlug -eq 'home') { '/' } else { "/$firstSlug/" }
+    $firstUrl = "/$firstSlug/"
     $out.Add("$headName is a link with text $(Q $section[0]), url $(Q $firstUrl), foreground ""#0f1f36"", size 13, weight 700, customstyle ""padding: 6px 12px; display: block;""")
     $members = @($headName)
     foreach ($entry in $section[1]) {
-        $name = if ($entry[0] -eq 'home') { 'sideHome' } else { Get-SideName $entry[0] }
-        $url = if ($entry[0] -eq 'home') { '/' } else { "/$($entry[0])/" }
+        $name = Get-SideName $entry[0]
+        $url = "/$($entry[0])/"
         $out.Add("$name is a link with text $(Q $entry[1]), url $(Q $url), foreground ""#4a5b75"", size 14, customstyle $(Q $linkStyle)")
         $members += $name
     }
@@ -82,7 +88,7 @@ $sidebarPath = Join-Path $PSScriptRoot '..\pages\_docs.ot'
 Write-Host "Wrote $sidebarPath"
 
 # --- legacy pages ---------------------------------------------------------
-foreach ($prop in $legacy.pages.PSObject.Properties) {
+foreach ($prop in $(if ($RegeneratePages) { $legacy.pages.PSObject.Properties } else { @() })) {
     $slug = $prop.Name
     $page = $prop.Value
     $items = [System.Collections.Generic.List[object]]::new()
@@ -99,7 +105,7 @@ foreach ($prop in $legacy.pages.PSObject.Properties) {
 
 # --- language-rules pages (scripts/import-rules.mjs -> rules-pages.json) ---
 $rulesPath = Join-Path $PSScriptRoot 'rules-pages.json'
-if (Test-Path -LiteralPath $rulesPath) {
+if ($RegeneratePages -and (Test-Path -LiteralPath $rulesPath)) {
     $rules = [System.IO.File]::ReadAllText($rulesPath) | ConvertFrom-Json
     foreach ($prop in $rules.PSObject.Properties) {
         $slug = $prop.Name
@@ -120,7 +126,7 @@ foreach ($section in $sections) {
     if ($section[0] -eq 'More') { continue }
     $topicItems.Add((Item h2 $section[0]))
     foreach ($entry in $section[1]) {
-        $url = if ($entry[0] -eq 'home') { '/' } else { "/$($entry[0])/" }
+        $url = "/$($entry[0])/"
         $topicItems.Add((Item link $entry[1] $url))
     }
 }
@@ -134,7 +140,7 @@ foreach ($page in Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot '..\pages'
     $lines = [System.IO.File]::ReadAllLines($page.FullName)
     $changed = $false
     for ($i = 0; $i -lt $lines.Count; $i++) {
-        if ($lines[$i] -match '^\w+ is a text with value ".*background "#0f1b2e"' -and $lines[$i] -notmatch 'runnable true') {
+        if ($lines[$i] -match '^\w+ is a text with value ".*background "#0f1b2e"' -and $lines[$i] -notmatch 'runnable (true|false)') {
             $lines[$i] = $lines[$i] + ', runnable true'
             $changed = $true
         }
@@ -164,7 +170,7 @@ foreach ($page in Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot '..\pages'
     if ($activeIndex -lt 0) { continue }
     $hide = [System.Collections.Generic.List[string]]::new()
     foreach ($section in $sections) {
-        $names = @($section[1] | ForEach-Object { if ($_[0] -eq 'home') { 'sideHome' } else { Get-SideName $_[0] } })
+        $names = @($section[1] | ForEach-Object { Get-SideName $_[0] })
         if ($names -contains $activeName) { continue }
         foreach ($n in $names) { $hide.Add("customstyle of $n is ""display: none;""") }
     }

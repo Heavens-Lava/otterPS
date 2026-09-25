@@ -9,14 +9,21 @@ app is a page with title "XML - Otter Documentation", hideheader true, scroll tr
 customstyle of navDocs is "padding: 22px 0; border-bottom: 2px solid #4d8dff; color: #ffffff;"
 customstyle of sideXml is "padding: 8px 12px; border-left: 3px solid #2563eb; border-radius: 4px; display: block; background: #e6efff; color: #1d4ed8; font-weight: 600;"
 # Sidebar: only the current group is expanded.
-customstyle of sideHome is "display: none;"
+customstyle of sideDocs is "display: none;"
 customstyle of sideWelcome is "display: none;"
+customstyle of sideWhatIsOtter is "display: none;"
+customstyle of sideWhoIsOtterFor is "display: none;"
+customstyle of sideWhatCanYouBuild is "display: none;"
 customstyle of sideInstallation is "display: none;"
+customstyle of sideVerify is "display: none;"
 customstyle of sideFirstProgram is "display: none;"
 customstyle of sideHello is "display: none;"
-customstyle of sideRunningFiles is "display: none;"
 customstyle of sideRepl is "display: none;"
+customstyle of sideRunningFiles is "display: none;"
+customstyle of sideTinyApp is "display: none;"
 customstyle of sideCli is "display: none;"
+customstyle of sideProjects is "display: none;"
+customstyle of sideTroubleshooting is "display: none;"
 customstyle of sideValues is "display: none;"
 customstyle of sideInputOutput is "display: none;"
 customstyle of sideConditions is "display: none;"
@@ -68,20 +75,53 @@ customstyle of sideTopics is "display: none;"
 customstyle of sideDownload is "display: none;"
 customstyle of sideRelease is "display: none;"
 customstyle of sideStudio is "display: none;"
+customstyle of sideSupport is "display: none;"
+customstyle of sideAbout is "display: none;"
+customstyle of sideLicense is "display: none;"
 
 b1 is a text with value "XML", size 40, weight 800, foreground "#0b1d36", letterspacing "-0.03em", lineheight "1.1"
 b2 is a text with value "XML is a value of its own, not text. You move between the two explicitly: xml from text going in, text from xml coming out.", size 18, foreground "#3a4d6b", lineheight "1.55"
-b3 is a text with value "Availability: this feature was added after the {{RELEASE_VERSION}} feature freeze. It is in the current source tree, not in the release-candidate archive.", size 15, foreground "#1e3a6b", background "#eaf2ff", radius 12, border "1px solid #cfe0ff", lineheight "1.55", customstyle "padding: 14px 18px;"
+b3 is a text with value "Availability: this feature is in the current source tree and is not part of a published release yet.", size 15, foreground "#1e3a6b", background "#eaf2ff", radius 12, border "1px solid #cfe0ff", lineheight "1.55", customstyle "padding: 14px 18px;"
 b4 is a text with value "Building a document", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
-b5 is a text with value "catalog is xml with root \"library\"\nlibrary is root of catalog\nadd element \"book\" to library and call it book\nset attribute \"id\" of book to \"42\"\nadd element \"title\" with text \"Learning Otter\" to book\n\nsay pretty text from xml catalog", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
-b6 is a text with value "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<library>\n  <book id=\"42\">\n    <title>Learning Otter</title>\n  </book>\n</library>", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto;"
+b5 is a text with value "catalog is xml with root \"library\"\nlibrary is root of catalog\nadd element \"book\" to library and call it book\nset attribute \"id\" of book to \"42\"\nadd element \"title\" with text \"Learning Otter\" to book\n\nsay pretty text from xml catalog", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b5label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b5copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b5head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b5label, b5copy in b5head
+b5block is a column with spacing 0, width full
+put b5head, b5 in b5block
+when b5copy is clicked
+    copy text of b5 to clipboard
+    text of b5copy is "Copied"
+.
+b6 is a text with value "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<library>\n  <book id=\"42\">\n    <title>Learning Otter</title>\n  </book>\n</library>", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;"
+b6label is a text with value "Output", size 12, weight 600, foreground "#4a5b75"
+b6copy is a button with text "Copy", size 12, weight 600, background "#c9d6e8", foreground "#0f1f36", radius 6, padding "4px 12px"
+b6head is a row with spread, align middle, width full, background "#dde6f2", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b6label, b6copy in b6head
+b6block is a column with spacing 0, width full
+put b6head, b6 in b6block
+when b6copy is clicked
+    copy text of b6 to clipboard
+    text of b6copy is "Copied"
+.
 b7 is a text with value "Reading a document", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
-b8 is a text with value "books is elements \"book\" in library\nsay length of books\n\neach b in books\n    t is text of \"title\" in b\n    i is attribute \"id\" of b\n    say t\n    say i\n.\n\nfirst is child 0 in library\nsay name of first", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
+b8 is a text with value "books is elements \"book\" in library\nsay length of books\n\neach b in books\n    t is text of \"title\" in b\n    i is attribute \"id\" of b\n    say t\n    say i\n.\n\nfirst is child 0 in library\nsay name of first", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b8label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b8copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b8head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b8label, b8copy in b8head
+b8block is a column with spacing 0, width full
+put b8head, b8 in b8block
+when b8copy is clicked
+    copy text of b8 to clipboard
+    text of b8copy is "Copied"
+.
 b9 is a text with value "element finds one direct child by tag name, elements finds all of them, and child N in picks by position. Files: xml from file \"books.xml\" reads a document and write xml document to file \"books.xml\" saves one. XML works in console programs and in web applications.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b10 is a link with text "Back to the reference", url "/reference/", foreground "#2563eb", weight 600, size 15
 
 docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"
-put b1, b2, b3, b4, b5, b6, b7, b8, b9, b10 in docsMain
+put b1, b2, b3, b4, b5block, b6block, b7, b8block, b9, b10 in docsMain
 docsBody is a row with align top, spacing 0, width full, customstyle "align-items: stretch;"
 put docsSidebar, docsMain in docsBody
 

@@ -1,6 +1,8 @@
 param(
-    [string]$OutputRoot = (Join-Path $PSScriptRoot '..\generated')
+    [string]$OutputRoot = (Join-Path $PSScriptRoot '..\generated'),
+    [string[]]$Only = @()   # build just these page slugs (fast iteration)
 )
+$Only = @($Only | ForEach-Object { $_ -split ',' } | Where-Object { $_ })
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $webModule = Join-Path $repoRoot 'src\Otter.Web.psm1'
@@ -44,7 +46,7 @@ if (Test-Path -LiteralPath $imageSource) {
     Get-ChildItem -LiteralPath $imageSource -File | Copy-Item -Destination $imageDestination -Force
 }
 
-foreach ($source in Get-ChildItem -LiteralPath $pagesRoot -Filter '*.ot' | Where-Object { -not $_.Name.StartsWith('_') -and -not $_.Name.StartsWith('.') } | Sort-Object Name) {
+foreach ($source in Get-ChildItem -LiteralPath $pagesRoot -Filter '*.ot' | Where-Object { -not $_.Name.StartsWith('_') -and -not $_.Name.StartsWith('.') -and ($Only.Count -eq 0 -or $Only -contains [IO.Path]::GetFileNameWithoutExtension($_.Name)) } | Sort-Object Name) {
     $slug = [IO.Path]::GetFileNameWithoutExtension($source.Name)
     $destinationDir = Join-Path $OutputRoot $slug
     New-Item -ItemType Directory -Force -Path $destinationDir | Out-Null

@@ -9,14 +9,21 @@ app is a page with title "Scope - Otter Documentation", hideheader true, scroll 
 customstyle of navDocs is "padding: 22px 0; border-bottom: 2px solid #4d8dff; color: #ffffff;"
 customstyle of sideScope is "padding: 8px 12px; border-left: 3px solid #2563eb; border-radius: 4px; display: block; background: #e6efff; color: #1d4ed8; font-weight: 600;"
 # Sidebar: only the current group is expanded.
-customstyle of sideHome is "display: none;"
+customstyle of sideDocs is "display: none;"
 customstyle of sideWelcome is "display: none;"
+customstyle of sideWhatIsOtter is "display: none;"
+customstyle of sideWhoIsOtterFor is "display: none;"
+customstyle of sideWhatCanYouBuild is "display: none;"
 customstyle of sideInstallation is "display: none;"
+customstyle of sideVerify is "display: none;"
 customstyle of sideFirstProgram is "display: none;"
 customstyle of sideHello is "display: none;"
-customstyle of sideRunningFiles is "display: none;"
 customstyle of sideRepl is "display: none;"
+customstyle of sideRunningFiles is "display: none;"
+customstyle of sideTinyApp is "display: none;"
 customstyle of sideCli is "display: none;"
+customstyle of sideProjects is "display: none;"
+customstyle of sideTroubleshooting is "display: none;"
 customstyle of sideValues is "display: none;"
 customstyle of sideInputOutput is "display: none;"
 customstyle of sideConditions is "display: none;"
@@ -62,13 +69,26 @@ customstyle of sideTopics is "display: none;"
 customstyle of sideDownload is "display: none;"
 customstyle of sideRelease is "display: none;"
 customstyle of sideStudio is "display: none;"
+customstyle of sideSupport is "display: none;"
+customstyle of sideAbout is "display: none;"
+customstyle of sideLicense is "display: none;"
 
 b1 is a text with value "Scope", size 40, weight 800, foreground "#0b1d36", letterspacing "-0.03em", lineheight "1.1"
 b2 is a text with value "Where a variable can be seen: everywhere, inside one function, or inside one block.", size 18, foreground "#3a4d6b", lineheight "1.55"
 b3 is a text with value "Variable Scope", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b4 is a text with value "Otter must define where variables can be accessed.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b5 is a text with value "Example:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b6 is a text with value "name is \"Jeff\"\n\nto greet\n    message is \"Hello\"\n    say name\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
+b6 is a text with value "name is \"Jeff\"\n\nto greet\n    message is \"Hello\"\n    say name\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b6label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b6copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b6head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b6label, b6copy in b6head
+b6block is a column with spacing 0, width full
+put b6head, b6 in b6block
+when b6copy is clicked
+    copy text of b6 to clipboard
+    text of b6copy is "Copied"
+.
 b7 is a text with value "The language must specify:", size 16, foreground "#3a4d6b", lineheight "1.6"
 b8 is a text with value "- whether functions can read variables outside themselves", size 16, foreground "#3a4d6b", lineheight "1.6"
 b9 is a text with value "- whether local variables disappear when the function ends", size 16, foreground "#3a4d6b", lineheight "1.6"
@@ -78,19 +98,49 @@ b12 is a text with value "The preferred rule is:", size 16, foreground "#3a4d6b"
 b13 is a text with value "Variables created inside a function belong to that function unless explicitly exposed.", size 15, foreground "#1e3a6b", background "#eaf2ff", radius 12, border "1px solid #cfe0ff", lineheight "1.55", customstyle "padding: 14px 18px;"
 b14 is a text with value "Function Local Variables", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b15 is a text with value "Example:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b16 is a text with value "to greet name\n    message is \"Hello\"\n    say message name\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
+b16 is a text with value "to greet name\n    message is \"Hello\"\n    say message name\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b16label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b16copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b16head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b16label, b16copy in b16head
+b16block is a column with spacing 0, width full
+put b16head, b16 in b16block
+when b16copy is clicked
+    copy text of b16 to clipboard
+    text of b16copy is "Copied"
+.
 b17 is a text with value "message exists only while greet is running.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b18 is a text with value "After the function finishes, message should no longer be available outside that function.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b19 is a text with value "Block Scope", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b20 is a text with value "Simple control-flow blocks should not automatically hide ordinary variables unless Otter later chooses strict lexical block scope.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b21 is a text with value "Example:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b22 is a text with value "ready is true\nif ready\n    message is \"Starting\"\n.\n\nsay message", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto;", runnable true
+b22 is a text with value "ready is true\nif ready\n    message is \"Starting\"\n.\n\nsay message", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b22label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b22copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b22head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b22label, b22copy in b22head
+b22block is a column with spacing 0, width full
+put b22head, b22 in b22block
+when b22copy is clicked
+    copy text of b22 to clipboard
+    text of b22copy is "Copied"
+.
 b23 is a text with value "This behavior needs one consistent rule across:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b24 is a text with value "if\nwhile\nfor each\ncount\ntry", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto;"
+b24 is a text with value "if\nwhile\nfor each\ncount\ntry", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;"
+b24label is a text with value "Output", size 12, weight 600, foreground "#4a5b75"
+b24copy is a button with text "Copy", size 12, weight 600, background "#c9d6e8", foreground "#0f1f36", radius 6, padding "4px 12px"
+b24head is a row with spread, align middle, width full, background "#dde6f2", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b24label, b24copy in b24head
+b24block is a column with spacing 0, width full
+put b24head, b24 in b24block
+when b24copy is clicked
+    copy text of b24 to clipboard
+    text of b24copy is "Copied"
+.
 b25 is a text with value "The exact rule should be frozen before more advanced closures or concurrency are added.", size 16, foreground "#3a4d6b", lineheight "1.6"
 
 docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"
-put b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15, b16, b17, b18, b19, b20, b21, b22, b23, b24, b25 in docsMain
+put b1, b2, b3, b4, b5, b6block, b7, b8, b9, b10, b11, b12, b13, b14, b15, b16block, b17, b18, b19, b20, b21, b22block, b23, b24block, b25 in docsMain
 docsBody is a row with align top, spacing 0, width full, customstyle "align-items: stretch;"
 put docsSidebar, docsMain in docsBody
 
