@@ -2,7 +2,43 @@
 
 import { ComponentSchema } from '../model/schema.js';
 
+// Properties that the Otter source itself can set (`padding 28`, `background "#fff"`).
+// A value in the source is applied inline by the compiler and beats the same
+// property in styles.css, so the panel must show - and edit - the source value,
+// or an edit would silently have no effect.
+const SOURCE_BACKED_CSS = {
+  width: 'width',
+  height: 'height',
+  padding: 'padding',
+  gap: 'spacing',
+  background: 'background',
+  color: 'foreground'
+};
+const PIXEL_CSS_PROPS = new Set(['width', 'height', 'padding', 'gap']);
+
+function sourceValueToCss(cssProp, value) {
+  if (typeof value === 'number' && PIXEL_CSS_PROPS.has(cssProp)) return `${value}px`;
+  if (value === 'full') return '100%';
+  return String(value);
+}
+
+function cssValueToSource(cssProp, text) {
+  if (text === '') return undefined;
+  if (text === '100%' && (cssProp === 'width' || cssProp === 'height')) return 'full';
+  const px = text.match(/^(-?\d+(?:\.\d+)?)(?:px)?$/);
+  if (px && PIXEL_CSS_PROPS.has(cssProp)) return Number(px[1]);
+  return text;
+}
+
 export function renderProperties(containerEl, uiModel, cssAstManager) {
+  // Set while this panel is itself writing a property, so it does not rebuild
+  // (and steal focus from / close) the control the user is still using.
+  let writingProperty = false;
+  function writeSourceProperty(id, key, value) {
+    writingProperty = true;
+    try { uiModel.setProperty(id, key, value); } finally { writingProperty = false; }
+  }
+
   function update() {
     const selected = uiModel.getComponent(uiModel.selectedId);
     if (!selected) {
@@ -14,8 +50,14 @@ export function renderProperties(containerEl, uiModel, cssAstManager) {
     }
 
     const selector = `#${selected.name}`;
-    const cssDecls = cssAstManager ? cssAstManager.getRuleDeclarations(selector) : {};
     const props = selected.properties || {};
+    const cssDecls = { ...(cssAstManager ? cssAstManager.getRuleDeclarations(selector) : {}) };
+    for (const [cssProp, sourceKey] of Object.entries(SOURCE_BACKED_CSS)) {
+      if (props[sourceKey] !== undefined && props[sourceKey] !== null && props[sourceKey] !== '') {
+        cssDecls[cssProp] = sourceValueToCss(cssProp, props[sourceKey]);
+        if (cssProp === 'background') delete cssDecls['background-color'];
+      }
+    }
 
     const count = uiModel.selectedIds.size;
     const badgeText = count > 1 ? `${selected.kind} (${count} selected)` : selected.kind;
@@ -358,6 +400,11 @@ export function renderProperties(containerEl, uiModel, cssAstManager) {
       input.addEventListener('change', (e) => {
         const prop = e.target.getAttribute('data-css-prop');
         const val = e.target.value.trim();
+        const sourceKey = SOURCE_BACKED_CSS[prop];
+        if (sourceKey && selected.properties[sourceKey] !== undefined) {
+          writeSourceProperty(selected.id, sourceKey, cssValueToSource(prop, val));
+          return;
+        }
         cssAstManager.setProperty(selector, prop, val || null);
         window.dispatchEvent(new CustomEvent('css-updated', { detail: { selector, prop, val, source: 'properties' } }));
       });
@@ -371,6 +418,11 @@ export function renderProperties(containerEl, uiModel, cssAstManager) {
         const color = e.target.value;
         textInput.value = color;
         const prop = textInput.getAttribute('data-css-prop');
+        const sourceKey = SOURCE_BACKED_CSS[prop];
+        if (sourceKey && selected.properties[sourceKey] !== undefined) {
+          writeSourceProperty(selected.id, sourceKey, color);
+          return;
+        }
         cssAstManager.setProperty(selector, prop, color);
         window.dispatchEvent(new CustomEvent('css-updated', { detail: { selector, prop, val: color, source: 'properties' } }));
       });
@@ -423,7 +475,8 @@ export function renderProperties(containerEl, uiModel, cssAstManager) {
   update();
 
   uiModel.subscribe((type) => {
-    if (type === 'select' || type === 'property' || type === 'rename' || type === 'template' || type === 'undo' || type === 'redo' || type === 'add' || type === 'remove' || type === 'move') {
+    if (type === 'property' && writingProperty) return;
+    if (type === 'select' || type === 'property' || type === 'rename' || type === 'template' || type === 'undo' || type === 'redo' || type === 'add' || type === 'remove' || type === 'move' || type === 'parse' || type === 'source-clear') {
       update();
     }
   });

@@ -135,16 +135,22 @@ export class OtterUiModel {
 
   // --- Identifier & Variable Generation ---
 
+  // New controls get a numbered name (button1, button2, ...). A bare kind such
+  // as `button` or `text` is a keyword in Otter, so it is a poor variable name,
+  // and it could collide with a name already present in the source.
   generateVariableName(kind) {
     const words = kind.split(/\s+/);
     const camel = words.map((w, i) => i === 0 ? w.toLowerCase() : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join('');
+    const taken = new Set(Array.from(this.components.values()).map(c => c.name));
 
-    if (!this.nameCounters[camel]) {
-      this.nameCounters[camel] = 1;
-      return camel;
-    }
-    this.nameCounters[camel]++;
-    return `${camel}${this.nameCounters[camel]}`;
+    let n = this.nameCounters[camel] || 0;
+    let candidate;
+    do {
+      n += 1;
+      candidate = `${camel}${n}`;
+    } while (taken.has(candidate));
+    this.nameCounters[camel] = n;
+    return candidate;
   }
 
   // --- Component Creation & Management ---
