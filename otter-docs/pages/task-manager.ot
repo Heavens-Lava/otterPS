@@ -1,0 +1,75 @@
+# Otter website - Build a Task Manager
+# The complete example is examples/v1/tasks.ot.
+
+use "_shell.ot"
+use "_docs.ot"
+
+app is a page with title "Build a Task Manager - Otter Documentation", hideheader true, scroll true, width full, background "#f4f7fb", foreground "#0f1f36", spacing 0, padding 0
+
+customstyle of navExamples is "padding: 22px 0; border-bottom: 2px solid #4d8dff; color: #ffffff;"
+customstyle of sideTaskManager is "padding: 8px 12px; border-left: 3px solid #2563eb; border-radius: 4px; display: block; background: #e6efff; color: #1d4ed8; font-weight: 600;"
+
+b1 is a text with value "Build a Task Manager", size 40, weight 800, foreground "#0b1d36", letterspacing "-0.03em", lineheight "1.1"
+b2 is a text with value "Build a small Windows task manager that accepts a task, adds it to a live list, and clears the box for the next one.", size 18, foreground "#3a4d6b", lineheight "1.55"
+b3 is a text with value "What you will learn", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b4 is a text with value "You will create a window, lay out rows and a column, configure a text box and button, handle a click, and create a new text control at runtime.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b5 is a text with value "Before you start", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b6 is a text with value "You need Otter on Windows and a folder where you can save a .ot file. This is a native Windows application, so run it with otter tasks.ot rather than the browser Run button.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b7 is a link with text "Verify your installation", url "/verify/", foreground "#2563eb", weight 600, size 15
+
+b8 is a text with value "1. Create the window and the input area", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b9 is a text with value "Start a new file named tasks.ot. A window holds the whole application. The header and input rows keep related controls together. The empty column below them becomes the live task list.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b10 is a text with value "create window into app\napp has title \"Otter Tasks\"\napp has width 420\napp has height 520\npadding of app is 20\nspacing of app is 12\n\ncreate row into header\nheader has width full\ncreate text into titleText\ntitleText has text \"My Tasks\"\nput titleText in header\nput header in app\n\ncreate row into inputRow\ninputRow has width full\ninputRow has spacing 8\n\ncreate text box into taskInput\nplaceholder of taskInput is \"What needs to be done?\"\ntaskInput has width 280\n\ncreate button into addButton\naddButton has text \"Add\"\n\nput taskInput in inputRow\nput addButton in inputRow\nput inputRow in app\n\ncreate column into taskList\ntaskList has width full\ntaskList has spacing 8\nput taskList in app", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable false
+b10label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b10copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b10head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b10label, b10copy in b10head
+b10block is a column with spacing 0, width full
+put b10head, b10 in b10block
+when b10copy is clicked
+    copy text of b10 to clipboard
+    text of b10copy is "Copied"
+.
+
+b11 is a text with value "2. Add a task when the button is clicked", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b12 is a text with value "The event reads the text box. It ignores an empty submission. For a real task, it creates a text control, places it in the list, and clears the input ready for another task.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b13 is a text with value "when addButton clicked\n    task is text of taskInput\n    if task is not \"\"\n        create text into item\n        item has text task\n        put item in taskList\n        text of taskInput is \"\"\n    .\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable false
+b13label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b13copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b13head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b13label, b13copy in b13head
+b13block is a column with spacing 0, width full
+put b13head, b13 in b13block
+when b13copy is clicked
+    copy text of b13 to clipboard
+    text of b13copy is "Copied"
+.
+
+b14 is a text with value "3. Show the window", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b15 is a text with value "Finish with show app. Save the file, open PowerShell in that folder, and run otter tasks.ot. Type a task and select Add; a new line should appear in the list.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b16 is a text with value "show app", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable false
+b16label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b16copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b16head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b16label, b16copy in b16head
+b16block is a column with spacing 0, width full
+put b16head, b16 in b16block
+when b16copy is clicked
+    copy text of b16 to clipboard
+    text of b16copy is "Copied"
+.
+
+b17 is a text with value "Common problems", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b18 is a text with value "If Otter cannot find tasks.ot, use cd to move PowerShell into the folder containing the file. If no task appears, make sure the event starts with when addButton clicked and the two periods close the if block and the event.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b19 is a text with value "Try next", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b20 is a text with value "Add a second heading, change the button text, or give each new task a prefix such as - . Once that feels comfortable, try a counter or another input example.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b21 is a link with text "Download the complete tasks.ot source", url "https://github.com/Heavens-Lava/otterPS/blob/master/examples/v1/tasks.ot", foreground "#2563eb", weight 600, size 15
+b22 is a link with text "Explore more examples", url "/examples/", foreground "#2563eb", weight 600, size 15
+
+docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"
+put b1, b2, b3, b4, b5, b6, b7, b8, b9, b10block, b11, b12, b13block, b14, b15, b16block, b17, b18, b19, b20, b21, b22 in docsMain
+docsBody is a row with align top, spacing 0, width full, customstyle "align-items: stretch;"
+put docsSidebar, docsMain in docsBody
+
+put topBar, docsBody, siteFooter in app
+show app

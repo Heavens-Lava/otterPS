@@ -93,16 +93,21 @@ sideExampleErrors is a link with text "Handling errors", url "/example-errors/",
 sideGroup6 is a column with spacing 2
 put sideGroupHead6, sideExamples, sideExampleHello, sideExampleInput, sideExampleConditions, sideExampleCounting, sideExampleLists, sideExampleDiscovery, sideExampleOrganizer, sideExampleFinding, sideExampleErrors in sideGroup6
 
-sideGroupHead7 is a link with text "Language Design", url "/design-readable/", foreground "#0f1f36", size 13, weight 700, customstyle "padding: 6px 12px; display: block;"
+sideGroupHead7 is a link with text "Tutorials", url "/task-manager/", foreground "#0f1f36", size 13, weight 700, customstyle "padding: 6px 12px; display: block;"
+sideTaskManager is a link with text "Build a Task Manager", url "/task-manager/", foreground "#4a5b75", size 14, customstyle "padding: 8px 12px; border-left: 3px solid transparent; border-radius: 4px; display: block;"
+sideGroup7 is a column with spacing 2
+put sideGroupHead7, sideTaskManager in sideGroup7
+
+sideGroupHead8 is a link with text "Language Design", url "/design-readable/", foreground "#0f1f36", size 13, weight 700, customstyle "padding: 6px 12px; display: block;"
 sideDesignReadable is a link with text "Readable like English", url "/design-readable/", foreground "#4a5b75", size 14, customstyle "padding: 8px 12px; border-left: 3px solid transparent; border-radius: 4px; display: block;"
 sideStructuralWords is a link with text "Structural words", url "/structural-words/", foreground "#4a5b75", size 14, customstyle "padding: 8px 12px; border-left: 3px solid transparent; border-radius: 4px; display: block;"
 sidePropertiesOperations is a link with text "Properties vs operations", url "/properties-operations/", foreground "#4a5b75", size 14, customstyle "padding: 8px 12px; border-left: 3px solid transparent; border-radius: 4px; display: block;"
 sidePeriods is a link with text "Period and block rules", url "/periods/", foreground "#4a5b75", size 14, customstyle "padding: 8px 12px; border-left: 3px solid transparent; border-radius: 4px; display: block;"
 sidePhilosophy is a link with text "Philosophy", url "/philosophy/", foreground "#4a5b75", size 14, customstyle "padding: 8px 12px; border-left: 3px solid transparent; border-radius: 4px; display: block;"
-sideGroup7 is a column with spacing 2
-put sideGroupHead7, sideDesignReadable, sideStructuralWords, sidePropertiesOperations, sidePeriods, sidePhilosophy in sideGroup7
+sideGroup8 is a column with spacing 2
+put sideGroupHead8, sideDesignReadable, sideStructuralWords, sidePropertiesOperations, sidePeriods, sidePhilosophy in sideGroup8
 
-sideGroupHead8 is a link with text "More", url "/topics/", foreground "#0f1f36", size 13, weight 700, customstyle "padding: 6px 12px; display: block;"
+sideGroupHead9 is a link with text "More", url "/topics/", foreground "#0f1f36", size 13, weight 700, customstyle "padding: 6px 12px; display: block;"
 sideTopics is a link with text "All topics", url "/topics/", foreground "#4a5b75", size 14, customstyle "padding: 8px 12px; border-left: 3px solid transparent; border-radius: 4px; display: block;"
 sideDownload is a link with text "Download", url "/download/", foreground "#4a5b75", size 14, customstyle "padding: 8px 12px; border-left: 3px solid transparent; border-radius: 4px; display: block;"
 sideRelease is a link with text "Release status", url "/release/", foreground "#4a5b75", size 14, customstyle "padding: 8px 12px; border-left: 3px solid transparent; border-radius: 4px; display: block;"
@@ -110,8 +115,8 @@ sideStudio is a link with text "Studio preview", url "/studio/", foreground "#4a
 sideSupport is a link with text "Support", url "/support/", foreground "#4a5b75", size 14, customstyle "padding: 8px 12px; border-left: 3px solid transparent; border-radius: 4px; display: block;"
 sideAbout is a link with text "About Otter", url "/about/", foreground "#4a5b75", size 14, customstyle "padding: 8px 12px; border-left: 3px solid transparent; border-radius: 4px; display: block;"
 sideLicense is a link with text "License", url "/license/", foreground "#4a5b75", size 14, customstyle "padding: 8px 12px; border-left: 3px solid transparent; border-radius: 4px; display: block;"
-sideGroup8 is a column with spacing 2
-put sideGroupHead8, sideTopics, sideDownload, sideRelease, sideStudio, sideSupport, sideAbout, sideLicense in sideGroup8
+sideGroup9 is a column with spacing 2
+put sideGroupHead9, sideTopics, sideDownload, sideRelease, sideStudio, sideSupport, sideAbout, sideLicense in sideGroup9
 
 helpTitle is a text with value "Need help?", size 14, weight 700, foreground "#0f1f36"
 helpBody is a text with value "Ask a question or report a problem on GitHub.", size 13, foreground "#4a5b75", lineheight "1.45"
@@ -120,4 +125,4 @@ helpCard is a column with spacing 8, background "#f4f7fb", border "1px solid #e3
 put helpTitle, helpBody, helpLink in helpCard
 
 docsSidebar is a column with spacing 22, background "#ffffff", padding "24px 12px 24px 20px", customstyle "box-sizing: border-box; width: 248px; flex: 0 0 248px; border-right: 1px solid #e3e9f2; position: sticky; top: 64px; align-self: flex-start; height: calc(100vh - 64px); overflow-y: auto;"
-put sideGroup1, sideGroup2, sideGroup3, sideGroup4, sideGroup5, sideGroup6, sideGroup7, sideGroup8, helpCard in docsSidebar
+put sideGroup1, sideGroup2, sideGroup3, sideGroup4, sideGroup5, sideGroup6, sideGroup7, sideGroup8, sideGroup9, helpCard in docsSidebar

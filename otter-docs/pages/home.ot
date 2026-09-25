@@ -161,7 +161,7 @@ next1 is a link with text "1. Download or install Otter", url "/installation/", 
 next2 is a link with text "2. Run your first program", url "/first-program/", foreground "#2563eb", size 16, weight 600
 next3 is a link with text "3. Learn the basics", url "/values/", foreground "#2563eb", size 16, weight 600
 next4 is a link with text "4. Build a tiny application", url "/tiny-app/", foreground "#2563eb", size 16, weight 600
-next5 is a link with text "5. Explore the reference and examples", url "/reference/", foreground "#2563eb", size 16, weight 600
+next5 is a link with text "5. Explore examples and tutorials", url "/examples/", foreground "#2563eb", size 16, weight 600
 nextCard is a card with background "#ffffff", radius 16, border "1px solid #e3e9f2", padding 26, spacing 12, width full
 put next1, next2, next3, next4, next5 in nextCard
 nextSection is a column with spacing 16, width full

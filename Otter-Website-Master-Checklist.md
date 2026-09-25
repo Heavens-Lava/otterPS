@@ -35,8 +35,8 @@ Please use "Otter Website documentation reference.png"
 -   [x] English-like syntax explanation
 -   [x] Feature highlights
 -   [x] Screenshots of Otter applications *(real web apps built with otter web; desktop screenshots still to do)*
--   [ ] Example programs
--   [ ] Link to tutorials
+-   [x] Example programs
+-   [x] Link to tutorials
 -   [x] Link to documentation
 -   [x] Link to downloads
 -   [x] GitHub/project links where appropriate
@@ -381,7 +381,7 @@ Link related features such as:
 -   [ ] Hello World
 -   [ ] Number guessing game
 -   [ ] Calculator
--   [ ] To-do list
+-   [x] To-do list
 -   [ ] Notes app
 -   [ ] Simple contact book
 
@@ -398,7 +398,7 @@ Link related features such as:
 
 ### Full Application Tutorials
 
--   [ ] **Build a Complete Task Manager**
+-   [x] **Build a Complete Task Manager**
 -   [ ] **Build a File Browser**
 -   [ ] **Build a Contact Manager**
 -   [ ] **Build a Personal Finance Tracker**
@@ -408,17 +408,17 @@ Link related features such as:
 
 Every substantial tutorial should include:
 
--   [ ] What the learner will build
+-   [x] What the learner will build
 -   [ ] Screenshot of finished application
--   [ ] Prerequisites
--   [ ] Concepts learned
--   [ ] Step-by-step instructions
--   [ ] Complete code snippets
--   [ ] Explanation of important lines
+-   [x] Prerequisites
+-   [x] Concepts learned
+-   [x] Step-by-step instructions
+-   [x] Complete code snippets
+-   [x] Explanation of important lines
 -   [ ] Expected output after major steps
--   [ ] Common errors
--   [ ] Challenges/extensions
--   [ ] Complete downloadable `.ot` source
+-   [x] Common errors
+-   [x] Challenges/extensions
+-   [x] Complete downloadable `.ot` source
 
 **Recommendation:** Make the Task Manager the canonical first full Otter
 application.
