@@ -16,7 +16,13 @@ foreach ($page in Get-ChildItem -LiteralPath $root -Recurse -Filter 'index.html'
         if ($href -match '^(?i)https?://' -or $href.StartsWith('#')) { continue }
 
         $targetPath = ([Uri]::new($baseUri, $href)).AbsolutePath.Trim('/')
-        $target = if ([string]::IsNullOrWhiteSpace($targetPath)) {
+        # Static files (stylesheets, scripts, images) are copied alongside the
+        # generated routes. Audit those exact files instead of assuming every
+        # href is a directory URL.
+        $target = if ($targetPath -match '\.[a-zA-Z0-9]{1,8}$') {
+            Join-Path $root ($targetPath.Replace('/', '\'))
+        }
+        elseif ([string]::IsNullOrWhiteSpace($targetPath)) {
             Join-Path $root 'home\index.html'
         }
         else {

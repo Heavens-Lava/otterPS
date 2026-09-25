@@ -12,7 +12,7 @@
 
 > **Status (2026-09-25).** Live at <https://heavens-lava.github.io/> (source: `otter-docs/pages/*.ot`, written in Otter; published from `otter-site-publish/`).
 > Ticked items are built and verified: every code sample parses with the real parser, and every Run button was exercised in a real browser.
-> Not yet: the installer/release details (no installer is published), search (Ctrl+K), breadcrumbs / previous-next / on-page contents, dark mode, mobile navigation,
+> Not yet: the installer/release details (no installer is published), dark mode,
 > control reference pages, tutorials beyond the tiny app, migration guides, error reference, roadmap and release archive.
 > **Deviation:** some example code in this checklist is aspirational and does not parse in Otter today (`saveButton is primary button with text is "Save"`, `on click of saveButton`).
 > The site shows what runs: `saveButton is a primary button with text "Save"` and `when saveButton is clicked`.
@@ -710,20 +710,20 @@ Also maintain:
 
 -   [x] Persistent left documentation sidebar
 -   [ ] Expandable sections
--   [ ] Breadcrumbs
--   [ ] Previous / Next article
--   [ ] On-page table of contents
--   [ ] Heading anchors
--   [ ] Mobile navigation
+-   [x] Breadcrumbs
+-   [x] Previous / Next article
+-   [x] On-page table of contents
+-   [x] Heading anchors
+-   [x] Mobile navigation
 
 ### Search
 
--   [ ] Global documentation search
--   [ ] `Ctrl + K` quick search
--   [ ] Search language keywords
--   [ ] Search error messages
+-   [x] Global documentation search
+-   [x] `Ctrl + K` quick search
+-   [x] Search language keywords
+-   [x] Search error messages
 -   [ ] Search tutorial content
--   [ ] Search CLI commands
+-   [x] Search CLI commands
 
 ### Code
 
@@ -738,8 +738,8 @@ Also maintain:
 
 -   [ ] Dark mode
 -   [ ] Light mode
--   [ ] Responsive design
--   [ ] Accessible keyboard navigation
+-   [x] Responsive design
+-   [x] Accessible keyboard navigation
 -   [ ] Screen-reader accessibility
 -   [ ] Good contrast
 -   [ ] Fast loading

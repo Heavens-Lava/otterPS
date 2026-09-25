@@ -14,8 +14,9 @@ navExamples is a link with text "Examples", url "/examples/", foreground "#b7c4d
 navDownload is a link with text "Download", url "/download/", foreground "#b7c4d8", size 14, weight 500, customstyle "padding: 22px 0; border-bottom: 2px solid transparent;"
 navRelease is a link with text "Release", url "/release/", foreground "#b7c4d8", size 14, weight 500, customstyle "padding: 22px 0; border-bottom: 2px solid transparent;"
 navGitHub is a link with text "GitHub", url "https://github.com/Heavens-Lava/otterPS", foreground "#b7c4d8", size 14, weight 500, customstyle "padding: 22px 0; border-bottom: 2px solid transparent;"
-navLinks is a row with spacing 32, align middle
-put navDocs, navReference, navExamples, navDownload, navRelease, navGitHub in navLinks
+docsSearchButton is a button with text "Search", size 13, weight 600, background "#173252", foreground "#dbeafe", radius 7, padding "7px 11px", customstyle "border: 1px solid #315377;"
+navLinks is a row with spacing 24, align middle
+put navDocs, navReference, navExamples, navDownload, navRelease, navGitHub, docsSearchButton in navLinks
 
 topBar is a row with spread, align middle, spacing 36, width full, background "#0b1d36", padding "0 40px", height 64, customstyle "box-sizing: border-box; position: sticky; top: 0; z-index: 50;"
 put brandGroup, navLinks in topBar

@@ -45,6 +45,30 @@ if (Test-Path -LiteralPath $imageSource) {
     New-Item -ItemType Directory -Force -Path $imageDestination | Out-Null
     Get-ChildItem -LiteralPath $imageSource -File | Copy-Item -Destination $imageDestination -Force
 }
+$staticSource = Join-Path $PSScriptRoot '..\static'
+$staticDestination = Join-Path $OutputRoot 'static'
+if (Test-Path -LiteralPath $staticSource) {
+    New-Item -ItemType Directory -Force -Path $staticDestination | Out-Null
+    Get-ChildItem -LiteralPath $staticSource -File | Copy-Item -Destination $staticDestination -Force
+}
+
+# The search index is deliberately generated from the Otter-authored page
+# sources. It stays in sync with the content and needs no server or package.
+$searchPages = foreach ($page in Get-ChildItem -LiteralPath $pagesRoot -Filter '*.ot' | Where-Object { -not $_.Name.StartsWith('_') }) {
+    $sourceText = Get-Content -LiteralPath $page.FullName -Raw
+    $titleMatch = [regex]::Match($sourceText, 'title\s+"((?:[^"\\]|\\.)*)"')
+    $title = if ($titleMatch.Success) { $titleMatch.Groups[1].Value -replace '\\"', '"' } else { [IO.Path]::GetFileNameWithoutExtension($page.Name) }
+    $title = $title -replace '\s+-\s+Otter Documentation$', ''
+    $parts = foreach ($match in [regex]::Matches($sourceText, '(?:value|text)\s+"((?:[^"\\]|\\.)*)"')) {
+        $match.Groups[1].Value.Replace('\\n', ' ').Replace('\\"', '"')
+    }
+    [pscustomobject]@{
+        title = $title
+        url = '/' + [IO.Path]::GetFileNameWithoutExtension($page.Name) + '/'
+        text = ($parts -join ' ')
+    }
+}
+$searchPages | ConvertTo-Json -Depth 3 | Set-Content -LiteralPath (Join-Path $staticDestination 'docs-index.json') -Encoding UTF8
 
 foreach ($source in Get-ChildItem -LiteralPath $pagesRoot -Filter '*.ot' | Where-Object { -not $_.Name.StartsWith('_') -and -not $_.Name.StartsWith('.') -and ($Only.Count -eq 0 -or $Only -contains [IO.Path]::GetFileNameWithoutExtension($_.Name)) } | Sort-Object Name) {
     $slug = [IO.Path]::GetFileNameWithoutExtension($source.Name)
@@ -63,6 +87,10 @@ foreach ($source in Get-ChildItem -LiteralPath $pagesRoot -Filter '*.ot' | Where
 
     try {
         Export-OtterWebApplication -SourcePath $sourcePath -OutputPath $destination | Out-Null
+        $enhancement = '<link rel="stylesheet" href="/static/docs-enhancements.css">' + "`n" + '<script defer src="/static/docs-enhancements.js"></script>' + "`n"
+        $html = Get-Content -LiteralPath $destination -Raw
+        $html = $html -replace '(?i)</head>', ($enhancement + '</head>')
+        Set-Content -LiteralPath $destination -Value $html -Encoding UTF8
     }
     finally {
         if ($temporarySource -and (Test-Path -LiteralPath $temporarySource)) {

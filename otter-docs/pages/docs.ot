@@ -81,12 +81,12 @@ customstyle of sideLicense is "display: none;"
 # 1. HERO
 # ==========================================
 
-heroTitle is a text with value "Documentation", size 60, weight 800, foreground "#0b1d36", letterspacing "-0.03em", lineheight "1"
+heroTitle is a text with value "Documentation", size 46, weight 800, foreground "#0b1d36", letterspacing "-0.03em", lineheight "1"
 heroLead is a text with value "Readable like English. Precise like code. Learn Otter from the ground up, on a runtime that needs nothing installed.", size 19, foreground "#3a4d6b", lineheight "1.5", customstyle "max-width: 520px;"
 heroCopy is a column with spacing 16, flex 1
 put heroTitle, heroLead in heroCopy
 heroMascot is a image with source "/static/images/otter-docs-hero-mascot.png", alt "The Otter mascot sitting on a rock", height 230
-hero is a row with spread, align middle, spacing 32, width full, background "#e4edf9", padding "28px 56px", customstyle "box-sizing: border-box;"
+hero is a row with spread, align middle, spacing 32, width full, background "#e4edf9", padding "24px 48px", customstyle "box-sizing: border-box; background-image: linear-gradient(90deg, rgba(244,249,255,.94) 0%, rgba(244,249,255,.80) 48%, rgba(244,249,255,.12) 100%), url('/static/images/otter-docs-mountain-backdrop.png'); background-size: cover; background-position: center; overflow: hidden;"
 put heroCopy, heroMascot in hero
 
 # ==========================================
@@ -188,7 +188,7 @@ put nextTitle, nextBody, nextCards in nextSection
 # 5. PAGE
 # ==========================================
 
-homeBody is a column with spacing 40, width full, padding "32px 56px 24px", flex 1, customstyle "box-sizing: border-box; min-width: 0;"
+homeBody is a column with spacing 32, width full, padding "28px 48px 24px", flex 1, customstyle "box-sizing: border-box; min-width: 0;"
 put entryCards, firstSection, nextSection in homeBody
 homeMain is a column with spacing 0, flex 1, customstyle "min-width: 0;"
 put hero, homeBody in homeMain

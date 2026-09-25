@@ -14,7 +14,7 @@ customstyle of navDownload is "padding: 22px 0; border-bottom: 2px solid #4d8dff
 # ==========================================
 
 heroEyebrow is a text with value "{{RELEASE_CHANNEL}} {{RELEASE_VERSION}}", size 13, weight 700, foreground "#7fb0ff", letterspacing "0.08em"
-heroTitle is a text with value "Download Otter", size 60, weight 800, foreground "#ffffff", letterspacing "-0.03em", lineheight "1.05"
+heroTitle is a text with value "Download Otter", size 48, weight 800, foreground "#ffffff", letterspacing "-0.03em", lineheight "1.05"
 heroLead is a text with value "Get Otter and start building today.", size 20, foreground "#dbe6f5"
 heroNote is a text with value "Free to use, on Windows, with the PowerShell that is already on your machine.", size 15, foreground "#b7c4d8"
 heroGetSource is a link with text "Get Otter from GitHub", url "https://github.com/Heavens-Lava/otterPS", foreground "#ffffff", weight 700, size 17, background "#2563eb", radius 12, customstyle "padding: 16px 28px; display: inline-block;"
@@ -24,9 +24,9 @@ put heroGetSource, heroInstaller in heroActions
 heroCopy is a column with spacing 14, flex 1
 put heroEyebrow, heroTitle, heroLead, heroNote, heroActions in heroCopy
 heroMascot is a image with source "/static/images/otter-download-hero-mascot.png", alt "The Otter mascot standing on a rock", height 300
-heroBody is a row with spread, align middle, spacing 40, width full, padding "48px 56px 84px", customstyle "box-sizing: border-box; max-width: 1240px; margin: 0 auto;"
+heroBody is a row with spread, align middle, spacing 40, width full, padding "42px 48px 78px", customstyle "box-sizing: border-box; max-width: 1240px; margin: 0 auto;"
 put heroCopy, heroMascot in heroBody
-hero is a column with width full, background "linear-gradient(180deg, #0b1d36 0%, #10305a 100%)", spacing 0
+hero is a column with width full, background "#0b1d36", spacing 0, customstyle "background-image: linear-gradient(90deg, rgba(7,24,50,.94) 0%, rgba(7,24,50,.70) 48%, rgba(7,24,50,.12) 100%), url('/static/images/otter-download-mountain-backdrop.png'); background-size: cover; background-position: center; overflow: hidden;"
 put topBar, heroBody in hero
 
 # ==========================================
