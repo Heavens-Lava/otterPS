@@ -21,10 +21,10 @@ heroGetSource is a link with text "Get Otter from GitHub", url "https://github.c
 heroInstaller is a text with value "Windows installer: {{INSTALLER_STATUS}}", size 13, foreground "#f5c46b"
 heroActions is a row with spacing 18, align middle, margin "8px 0 0 0"
 put heroGetSource, heroInstaller in heroActions
-heroCopy is a column with spacing 14, flex 1
+heroCopy is a column with spacing 14, flex 1, customstyle "padding-bottom: 88px;"
 put heroEyebrow, heroTitle, heroLead, heroNote, heroActions in heroCopy
-heroMascot is a image with source "/static/images/otter-download-hero-mascot.png", alt "The Otter mascot standing on a rock", height 340
-heroBody is a row with spread, align middle, spacing 40, width full, padding "48px 48px 88px", customstyle "box-sizing: border-box; max-width: 1240px; margin: 0 auto;"
+heroMascot is a image with source "/static/images/otter-download-hero-mascot.png", alt "The Otter mascot standing on a rock", height 340, customstyle "display: block; margin-bottom: -30px;"
+heroBody is a row with spread, align middle, spacing 40, width full, padding "48px 48px 0", customstyle "box-sizing: border-box; align-items: flex-end; max-width: 1240px; margin: 0 auto;"
 put heroCopy, heroMascot in heroBody
 hero is a column with width full, background "#0b1d36", spacing 0, customstyle "background-image: linear-gradient(90deg, rgba(7,24,50,.94) 0%, rgba(7,24,50,.70) 48%, rgba(7,24,50,.12) 100%), url('/static/images/otter-download-mountain-backdrop.png'); background-size: cover; background-position: center; overflow: hidden;"
 put topBar, heroBody in hero

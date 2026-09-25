@@ -12,7 +12,7 @@ body { background: #f4f7fb; color: var(--docs-ink); font-family: Inter, ui-sans-
 #app > #hero::after { background: linear-gradient(0deg, rgba(4,23,52,.18), transparent 42%); content: ''; inset: 0; pointer-events: none; position: absolute; }
 #app > #hero > * { position: relative; z-index: 1; }
 #app > #hero #heroTitle { text-shadow: 0 2px 18px rgba(0,0,0,.16); }
-#app > #hero #heroMascot { margin-bottom: -10px; }
+
 #docsBody #hero { min-height: 232px; position: relative; }
 #docsBody #hero::after { background: linear-gradient(90deg, rgba(255,255,255,.12), transparent 55%); content: ''; inset: 0; pointer-events: none; position: absolute; }
 #docsBody #hero > * { position: relative; z-index: 1; }

@@ -102,10 +102,10 @@ customstyle of sideLicense is "display: none;"
 
 heroTitle is a text with value "Documentation", size 48, weight 800, foreground "#0b1d36", letterspacing "-0.035em", lineheight "1"
 heroLead is a text with value "Learn Otter from the ground up. Simple, powerful, and built for real projects.", size 18, foreground "#31496b", lineheight "1.5", customstyle "max-width: 500px;"
-heroCopy is a column with spacing 16, flex 1
+heroCopy is a column with spacing 16, flex 1, customstyle "padding-bottom: 28px;"
 put heroTitle, heroLead in heroCopy
-heroMascot is a image with source "/static/images/otter-docs-hero-mascot.png", alt "The Otter mascot sitting on a rock", height 258
-hero is a row with spread, align middle, spacing 32, width full, background "#e4edf9", padding "32px 48px 28px", customstyle "box-sizing: border-box; background-image: linear-gradient(90deg, rgba(248,251,255,.97) 0%, rgba(248,251,255,.84) 47%, rgba(248,251,255,.08) 100%), url('/static/images/otter-docs-mountain-backdrop.png'); background-size: cover; background-position: center right; overflow: hidden;"
+heroMascot is a image with source "/static/images/otter-docs-hero-mascot.png", alt "The Otter mascot sitting on a rock", height 258, customstyle "display: block; margin-bottom: -22px;"
+hero is a row with spread, align middle, spacing 32, width full, background "#e4edf9", padding "32px 48px 0", customstyle "box-sizing: border-box; align-items: flex-end; background-image: linear-gradient(90deg, rgba(248,251,255,.97) 0%, rgba(248,251,255,.84) 47%, rgba(248,251,255,.08) 100%), url('/static/images/otter-docs-mountain-backdrop.png'); background-size: cover; background-position: center right; overflow: hidden;"
 put heroCopy, heroMascot in hero
 
 # ==========================================
