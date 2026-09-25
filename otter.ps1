@@ -243,32 +243,11 @@ function Get-OtterRemappedError {
     )
 
     $exception = $ErrorRecord.Exception
-    if ($exception -isnot [OtterError] -or $exception.Line -le 0) {
+    if ($exception -isnot [OtterError]) {
         return $ErrorRecord
     }
 
-    $origin = Get-OtterSourceLocation -Program $ResolvedProgram -CombinedLine $exception.Line
-    if ($null -eq $origin) {
-        return $ErrorRecord
-    }
-
-    $message = $exception.Message
-    if ($origin.FilePath -ne $RootFile) {
-        $message = "In `"$([System.IO.Path]::GetFileName($origin.FilePath))`": $message"
-    }
-
-    $sourceLine = $exception.SourceLine
-    try {
-        $originLines = [System.IO.File]::ReadAllLines($origin.FilePath)
-        if ($origin.LocalLine -ge 1 -and $origin.LocalLine -le $originLines.Count) {
-            $sourceLine = $originLines[$origin.LocalLine - 1]
-        }
-    } catch {
-        # Fall back to whatever source line the original exception already
-        # carried rather than failing the whole remap over this.
-    }
-
-    $remapped = [OtterError]::new($message, $origin.LocalLine, $exception.Stage, $exception.Column, $sourceLine, $exception.Suggestion)
+    $remapped = ConvertTo-OtterRemappedDiagnostics -Error $exception -ResolvedProgram $ResolvedProgram -RootFile $RootFile
     return [System.Management.Automation.ErrorRecord]::new(
         $remapped, $ErrorRecord.FullyQualifiedErrorId, $ErrorRecord.CategoryInfo.Category, $ErrorRecord.TargetObject)
 }
@@ -623,8 +602,26 @@ if ($Path -in @('web', 'browse', 'serve', 'desktop', 'studio')) {
     }
     if ($Path -eq 'serve') {
         Import-Module (Join-Path $PSScriptRoot 'src\Otter.Server.psm1') -Force
-        $tokens = ConvertTo-OtterTokens -Source (Get-Content -LiteralPath $scriptFile -Raw)
-        $ast = ConvertTo-OtterAst -Tokens $tokens
+        $resolved = Resolve-Path -LiteralPath $scriptFile -ErrorAction SilentlyContinue
+        if (-not $resolved) {
+            Write-Host "Otter: I cannot find a file called `"$scriptFile`"." -ForegroundColor Red
+            [Environment]::Exit($script:ExitUsageError)
+        }
+        $resolvedProgram = $null
+        try {
+            $resolvedProgram = Resolve-OtterModuleSource -FilePath $resolved.Path
+            $tokens = ConvertTo-OtterTokens -Source $resolvedProgram.CombinedSource
+            $ast = ConvertTo-OtterAst -Tokens $tokens
+        } catch [OtterError] {
+            $err = $_.Exception
+            if ($resolvedProgram) {
+                $err = ConvertTo-OtterRemappedDiagnostics -Error $err -ResolvedProgram $resolvedProgram -RootFile $resolved.Path
+            }
+            Write-Host ''
+            Write-Host $err.FormatDetailed() -ForegroundColor Red
+            Write-Host ''
+            [Environment]::Exit($script:ExitCheckError)
+        }
         $session = Start-OtterServer -Program $ast -Port $Port
         Write-Host "Otter Web Server running on port $($session.Port). Press Ctrl+C to stop."
         try {

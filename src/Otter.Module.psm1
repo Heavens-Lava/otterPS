@@ -53,11 +53,31 @@ class OtterModuleContext {
     [int]$GlobalLineCounter
 
     OtterModuleContext() {
-        $this.LoadedFiles = [System.Collections.Generic.HashSet[string]]::new()
+        $this.LoadedFiles = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
         $this.CallStack = [System.Collections.Generic.List[string]]::new()
         $this.SourceMap = [System.Collections.Generic.List[OtterSourceLocation]]::new()
         $this.GlobalLineCounter = 1
     }
+}
+
+function Get-OtterCanonicalPath {
+    param([Parameter(Mandatory)][string]$Path)
+    $resolved = Resolve-Path -LiteralPath $Path -ErrorAction SilentlyContinue
+    $p = if ($resolved) { $resolved.Path } else { [System.IO.Path]::GetFullPath($Path) }
+    return [System.IO.Path]::GetFullPath($p).TrimEnd('\', '/')
+}
+
+function Test-OtterCallStackContains {
+    param(
+        [System.Collections.Generic.List[string]]$CallStack,
+        [string]$Path
+    )
+    foreach ($entry in $CallStack) {
+        if ([string]::Equals($entry, $Path, [System.StringComparison]::OrdinalIgnoreCase)) {
+            return $true
+        }
+    }
+    return $false
 }
 
 function Resolve-OtterModuleSourceInternal {
@@ -66,30 +86,29 @@ function Resolve-OtterModuleSourceInternal {
         [Parameter(Mandatory)][OtterModuleContext]$Context
     )
 
-    $resolved = Resolve-Path -LiteralPath $FilePath -ErrorAction SilentlyContinue
-    if (-not $resolved) {
+    $canonicalPath = Get-OtterCanonicalPath -Path $FilePath
+    if (-not (Test-Path -LiteralPath $canonicalPath)) {
         throw [OtterError]::new("Cannot find Otter source file `"$FilePath`".", 0, 'parser')
     }
-    $fullPath = $resolved.Path
 
-    # Check for circular import in active call stack
-    if ($Context.CallStack.Contains($fullPath)) {
+    # Check for circular import in active call stack (case-insensitive & canonicalized)
+    if (Test-OtterCallStackContains -CallStack $Context.CallStack -Path $canonicalPath) {
         $cycleList = [System.Collections.Generic.List[string]]::new($Context.CallStack)
-        $cycleList.Add($fullPath)
+        $cycleList.Add($canonicalPath)
         $cycleNames = $cycleList | ForEach-Object { [System.IO.Path]::GetFileName($_) }
         $cycleChain = $cycleNames -join ' -> '
         throw [OtterError]::new("Circular import detected: $cycleChain", 0, 'parser')
     }
 
-    # If already loaded in an earlier sibling/branch, do not re-emit
-    if ($Context.LoadedFiles.Contains($fullPath)) {
+    # If already loaded in an earlier sibling/branch, do not re-emit (case-insensitive & canonicalized)
+    if ($Context.LoadedFiles.Contains($canonicalPath)) {
         return ""
     }
-    $Context.LoadedFiles.Add($fullPath) | Out-Null
-    $Context.CallStack.Add($fullPath)
+    $Context.LoadedFiles.Add($canonicalPath) | Out-Null
+    $Context.CallStack.Add($canonicalPath)
 
-    $dir = [System.IO.Path]::GetDirectoryName($fullPath)
-    $lines = @(Get-Content -LiteralPath $fullPath -Encoding UTF8)
+    $dir = [System.IO.Path]::GetDirectoryName($canonicalPath)
+    $lines = @(Get-Content -LiteralPath $canonicalPath -Encoding UTF8)
     $expandedLines = [System.Collections.Generic.List[string]]::new()
 
     for ($i = 0; $i -lt $lines.Length; $i++) {
@@ -99,19 +118,20 @@ function Resolve-OtterModuleSourceInternal {
         if ($line -match '^\s*use\s+"([^"]+)"\s*$') {
             $importRel = $Matches[1]
             $importTarget = [System.IO.Path]::Combine($dir, $importRel)
+            $canonicalImportTarget = Get-OtterCanonicalPath -Path $importTarget
 
-            if (-not (Test-Path -LiteralPath $importTarget)) {
+            if (-not (Test-Path -LiteralPath $canonicalImportTarget)) {
                 throw [OtterError]::new("Cannot find imported Otter file `"$importRel`" at `"$importTarget`".", $localLineNum, 'parser', 1, $line, "Check that `"$importRel`" exists in `"$dir`".")
             }
 
             # Emit comment header for import
             $importHeader = "# --- imported from $importRel ---"
             $expandedLines.Add($importHeader)
-            $Context.SourceMap.Add([OtterSourceLocation]::new($Context.GlobalLineCounter, $fullPath, $localLineNum))
+            $Context.SourceMap.Add([OtterSourceLocation]::new($Context.GlobalLineCounter, $canonicalPath, $localLineNum))
             $Context.GlobalLineCounter = $Context.GlobalLineCounter + 1
 
             $imported = Resolve-OtterModuleSourceInternal `
-                -FilePath $importTarget `
+                -FilePath $canonicalImportTarget `
                 -Context $Context
 
             if ($imported.Length -gt 0) {
@@ -120,11 +140,11 @@ function Resolve-OtterModuleSourceInternal {
 
             $importFooter = "# --- end import $importRel ---"
             $expandedLines.Add($importFooter)
-            $Context.SourceMap.Add([OtterSourceLocation]::new($Context.GlobalLineCounter, $fullPath, $localLineNum))
+            $Context.SourceMap.Add([OtterSourceLocation]::new($Context.GlobalLineCounter, $canonicalPath, $localLineNum))
             $Context.GlobalLineCounter = $Context.GlobalLineCounter + 1
         } else {
             $expandedLines.Add($line)
-            $Context.SourceMap.Add([OtterSourceLocation]::new($Context.GlobalLineCounter, $fullPath, $localLineNum))
+            $Context.SourceMap.Add([OtterSourceLocation]::new($Context.GlobalLineCounter, $canonicalPath, $localLineNum))
             $Context.GlobalLineCounter = $Context.GlobalLineCounter + 1
         }
     }
@@ -157,4 +177,75 @@ function Get-OtterSourceLocation {
     return $Program.FindOrigin($CombinedLine)
 }
 
-Export-ModuleMember -Function Resolve-OtterModuleSource, Get-OtterSourceLocation
+function Remap-OtterSingleError {
+    param(
+        [Parameter(Mandatory)][OtterError]$Error,
+        [Parameter(Mandatory)][OtterResolvedProgram]$ResolvedProgram,
+        [Parameter(Mandatory)][string]$CanonicalRoot
+    )
+
+    if ($Error.Line -le 0) {
+        return $Error
+    }
+
+    $origin = $ResolvedProgram.FindOrigin($Error.Line)
+    if ($null -eq $origin) {
+        return $Error
+    }
+
+    $message = $Error.Message
+    $canonicalOrigin = Get-OtterCanonicalPath -Path $origin.FilePath
+    if (-not [string]::Equals($canonicalOrigin, $CanonicalRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+        $fileName = [System.IO.Path]::GetFileName($origin.FilePath)
+        $prefix = "In `"$fileName`": "
+        if (-not $message.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+            $message = "$prefix$message"
+        }
+    }
+
+    $sourceLine = $Error.SourceLine
+    try {
+        if (Test-Path -LiteralPath $origin.FilePath) {
+            $originLines = [System.IO.File]::ReadAllLines($origin.FilePath)
+            if ($origin.LocalLine -ge 1 -and $origin.LocalLine -le $originLines.Count) {
+                $sourceLine = $originLines[$origin.LocalLine - 1]
+            }
+        }
+    } catch {
+        # Fall back to existing source line
+    }
+
+    return [OtterError]::new(
+        $message,
+        $origin.LocalLine,
+        $Error.Stage,
+        $Error.Column,
+        $sourceLine,
+        $Error.Suggestion,
+        $Error.Code
+    )
+}
+
+function ConvertTo-OtterRemappedDiagnostics {
+    param(
+        [Parameter(Mandatory)][OtterError]$Error,
+        [Parameter(Mandatory)][OtterResolvedProgram]$ResolvedProgram,
+        [Parameter(Mandatory)][string]$RootFile
+    )
+
+    $canonicalRoot = Get-OtterCanonicalPath -Path $RootFile
+
+    if ($Error -is [OtterMultipleErrorsException]) {
+        $remappedList = [System.Collections.Generic.List[OtterError]]::new()
+        foreach ($diag in $Error.Diagnostics) {
+            $remappedDiag = Remap-OtterSingleError -Error $diag -ResolvedProgram $ResolvedProgram -CanonicalRoot $canonicalRoot
+            $remappedList.Add($remappedDiag)
+        }
+        return [OtterMultipleErrorsException]::new($remappedList.ToArray())
+    }
+
+    return Remap-OtterSingleError -Error $Error -ResolvedProgram $ResolvedProgram -CanonicalRoot $canonicalRoot
+}
+
+Export-ModuleMember -Function Resolve-OtterModuleSource, Get-OtterSourceLocation, Get-OtterCanonicalPath, ConvertTo-OtterRemappedDiagnostics
+

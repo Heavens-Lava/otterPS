@@ -139,6 +139,152 @@ use "nonexistent.ot"
     }
     Write-Output '  pass  resolved multi-file source produces valid AST'
 
+    # Test 7: Path normalization: ./utils.ot vs sub/../utils.ot deduplication
+    $subDir = Join-Path $tempDir 'sub'
+    New-Item -ItemType Directory -Path $subDir -Force | Out-Null
+    $fileUtils = Join-Path $tempDir 'utils.ot'
+    $fileNormA = Join-Path $tempDir 'normA.ot'
+    $fileNormB = Join-Path $tempDir 'normB.ot'
+    $fileNormMain = Join-Path $tempDir 'normMain.ot'
+
+    @'
+utilFlag is true
+'@ | Set-Content -LiteralPath $fileUtils -Encoding UTF8
+
+    @'
+use "./utils.ot"
+'@ | Set-Content -LiteralPath $fileNormA -Encoding UTF8
+
+    @'
+use "sub/../utils.ot"
+'@ | Set-Content -LiteralPath $fileNormB -Encoding UTF8
+
+    @'
+use "normA.ot"
+use "normB.ot"
+say utilFlag
+'@ | Set-Content -LiteralPath $fileNormMain -Encoding UTF8
+
+    $resolvedNorm = Resolve-OtterModuleSource -FilePath $fileNormMain
+    $matchesUtil = [regex]::Matches($resolvedNorm.CombinedSource, 'utilFlag is true')
+    if ($matchesUtil.Count -ne 1) {
+        throw "Expected utilFlag to be imported exactly once despite relative path variations, got $($matchesUtil.Count)"
+    }
+    Write-Output '  pass  path normalization resolves ./utils.ot and sub/../utils.ot to the same module'
+
+    # Test 8: Case-insensitive path deduplication
+    $fileCaseA = Join-Path $tempDir 'caseA.ot'
+    $fileCaseB = Join-Path $tempDir 'caseB.ot'
+    $fileCaseMain = Join-Path $tempDir 'caseMain.ot'
+
+    @'
+use "Utils.ot"
+'@ | Set-Content -LiteralPath $fileCaseA -Encoding UTF8
+
+    @'
+use "utils.ot"
+'@ | Set-Content -LiteralPath $fileCaseB -Encoding UTF8
+
+    @'
+use "caseA.ot"
+use "caseB.ot"
+'@ | Set-Content -LiteralPath $fileCaseMain -Encoding UTF8
+
+    $resolvedCase = Resolve-OtterModuleSource -FilePath $fileCaseMain
+    $matchesCase = [regex]::Matches($resolvedCase.CombinedSource, 'utilFlag is true')
+    if ($matchesCase.Count -ne 1) {
+        throw "Expected utilFlag to be imported once despite case differences, got $($matchesCase.Count)"
+    }
+    Write-Output '  pass  casing variations resolve to identical module identity'
+
+    # Test 9: Circular dependency detection across normalized relative paths
+    $fileRelCycle1 = Join-Path $tempDir 'relCycle1.ot'
+    $fileRelCycle2 = Join-Path $subDir 'relCycle2.ot'
+
+    @'
+use "sub/relCycle2.ot"
+'@ | Set-Content -LiteralPath $fileRelCycle1 -Encoding UTF8
+
+    @'
+use "../relCycle1.ot"
+'@ | Set-Content -LiteralPath $fileRelCycle2 -Encoding UTF8
+
+    $caughtRelCycle = $false
+    try {
+        Resolve-OtterModuleSource -FilePath $fileRelCycle1 | Out-Null
+    } catch [OtterError] {
+        if ($_.Exception.Message -match 'Circular import detected') {
+            $caughtRelCycle = $true
+        }
+    }
+    if (-not $caughtRelCycle) {
+        throw "Expected circular import error across normalized relative paths."
+    }
+    Write-Output '  pass  circular dependency detected across relative path traversal'
+
+    # Test 10: Multi-diagnostic remapping across multiple modules
+    $fileDiagA = Join-Path $tempDir 'diagA.ot'
+    $fileDiagB = Join-Path $tempDir 'diagB.ot'
+    $fileDiagMain = Join-Path $tempDir 'diagMain.ot'
+
+    @'
+score is
+say "valid in A"
+repeat times
+'@ | Set-Content -LiteralPath $fileDiagA -Encoding UTF8
+
+    @'
+count is
+say "valid in B"
+write "data" to
+'@ | Set-Content -LiteralPath $fileDiagB -Encoding UTF8
+
+    @'
+use "diagA.ot"
+use "diagB.ot"
+score2 is
+'@ | Set-Content -LiteralPath $fileDiagMain -Encoding UTF8
+
+    $resolvedDiags = Resolve-OtterModuleSource -FilePath $fileDiagMain
+    $parseErr = $null
+    try {
+        $tokens = ConvertTo-OtterTokens -Source $resolvedDiags.CombinedSource
+        ConvertTo-OtterAst -Tokens $tokens | Out-Null
+    } catch [OtterError] {
+        $parseErr = $_.Exception
+    }
+
+    if ($null -eq $parseErr -or $parseErr -isnot [OtterMultipleErrorsException]) {
+        throw "Expected OtterMultipleErrorsException from multi-error source."
+    }
+
+    $remapped = ConvertTo-OtterRemappedDiagnostics -Error $parseErr -ResolvedProgram $resolvedDiags -RootFile $fileDiagMain
+    if ($remapped.Diagnostics.Length -lt 5) {
+        throw "Expected at least 5 recovered diagnostics, got $($remapped.Diagnostics.Length)"
+    }
+
+    # Verify attribution to original files
+    $diagA_Errors = $remapped.Diagnostics | Where-Object { $_.Message -match 'In "diagA\.ot":' }
+    $diagB_Errors = $remapped.Diagnostics | Where-Object { $_.Message -match 'In "diagB\.ot":' }
+    $main_Errors = $remapped.Diagnostics | Where-Object { $_.Message -notmatch 'In "' }
+
+    if ($diagA_Errors.Count -lt 2) { throw "Expected at least 2 errors attributed to diagA.ot, got $($diagA_Errors.Count)" }
+    if ($diagB_Errors.Count -lt 2) { throw "Expected at least 2 errors attributed to diagB.ot, got $($diagB_Errors.Count)" }
+    if ($main_Errors.Count -lt 1) { throw "Expected at least 1 error attributed to root diagMain.ot, got $($main_Errors.Count)" }
+
+    # Verify line numbers mapped to local files
+    if ($diagA_Errors[0].Line -ne 1) { throw "Expected diagA first error at local line 1, got $($diagA_Errors[0].Line)" }
+    if ($diagA_Errors[1].Line -ne 3) { throw "Expected diagA second error at local line 3, got $($diagA_Errors[1].Line)" }
+    if ($diagB_Errors[0].Line -ne 1) { throw "Expected diagB first error at local line 1, got $($diagB_Errors[0].Line)" }
+    if ($diagB_Errors[1].Line -ne 3) { throw "Expected diagB second error at local line 3, got $($diagB_Errors[1].Line)" }
+    if ($main_Errors[0].Line -ne 3) { throw "Expected root error at local line 3, got $($main_Errors[0].Line)" }
+
+    # Verify source snippets and carets
+    if ($diagA_Errors[0].SourceLine.Trim() -ne 'score is') { throw "Expected diagA source line 'score is', got $($diagA_Errors[0].SourceLine)" }
+    if ($diagB_Errors[0].SourceLine.Trim() -ne 'count is') { throw "Expected diagB source line 'count is', got $($diagB_Errors[0].SourceLine)" }
+
+    Write-Output '  pass  multi-diagnostics across multiple imported files are correctly attributed and line-mapped'
+
 } finally {
     Remove-Item -Path $tempDir -Recurse -Force -ErrorAction SilentlyContinue
 }

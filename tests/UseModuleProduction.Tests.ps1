@@ -32,11 +32,12 @@ function New-OtterTempDir {
 }
 
 function Invoke-OtterCli {
-    param([string]$Command, [string]$TargetPath, [string]$WorkingDirectory)
+    param([string]$Command, [string]$TargetPath, [string]$WorkingDirectory, [string]$ExtraArgs = '')
 
     $psi = [System.Diagnostics.ProcessStartInfo]::new()
     $psi.FileName = 'powershell.exe'
-    $psi.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$script:OtterPs1`" $Command `"$TargetPath`""
+    $extra = if ($ExtraArgs) { " $ExtraArgs" } else { "" }
+    $psi.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$script:OtterPs1`" $Command `"$TargetPath`"$extra"
     $psi.WorkingDirectory = $WorkingDirectory
     $psi.RedirectStandardOutput = $true
     $psi.RedirectStandardError = $true
@@ -140,6 +141,120 @@ Test-Otter 'otter check also resolves modules (validates without running)' {
         Assert-AreEqual -Expected 0 -Actual $result.ExitCode
         Assert-True ($result.Stdout -match 'is valid') 'expected otter check to report the imported program as valid'
     } finally {
+        Remove-Item -LiteralPath $dir -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+
+Test-Otter 'production diamond import with ./rel and sub/../rel paths deduplicates cleanly' {
+    $dir = New-OtterTempDir
+    $subDir = Join-Path $dir 'sub'
+    New-Item -ItemType Directory -Path $subDir -Force | Out-Null
+    try {
+        Set-Content -LiteralPath (Join-Path $dir 'shared.ot') -Value 'sharedFlag is "OK"' -Encoding utf8
+        Set-Content -LiteralPath (Join-Path $dir 'left.ot') -Value 'use "./shared.ot"' -Encoding utf8
+        Set-Content -LiteralPath (Join-Path $dir 'right.ot') -Value 'use "sub/../shared.ot"' -Encoding utf8
+        Set-Content -LiteralPath (Join-Path $dir 'main.ot') -Value @(
+            'use "left.ot"',
+            'use "right.ot"',
+            'say sharedFlag'
+        ) -Encoding utf8
+
+        $result = Invoke-OtterCli -Command 'run' -TargetPath 'main.ot' -WorkingDirectory $dir
+        Assert-AreEqual -Expected 0 -Actual $result.ExitCode
+        Assert-AreEqual -Expected 'OK' -Actual ($result.Stdout.Trim())
+    } finally {
+        Remove-Item -LiteralPath $dir -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+
+Test-Otter 'production otter check maps multiple diagnostics across multiple imported files' {
+    $dir = New-OtterTempDir
+    try {
+        Set-Content -LiteralPath (Join-Path $dir 'math.ot') -Value @(
+            'score is',
+            'say "valid in math"',
+            'repeat times'
+        ) -Encoding utf8
+        Set-Content -LiteralPath (Join-Path $dir 'str.ot') -Value @(
+            'count is',
+            'say "valid in str"',
+            'write "data" to'
+        ) -Encoding utf8
+        Set-Content -LiteralPath (Join-Path $dir 'main.ot') -Value @(
+            'use "math.ot"',
+            'use "str.ot"',
+            'finalScore is'
+        ) -Encoding utf8
+
+        $result = Invoke-OtterCli -Command 'check' -TargetPath 'main.ot' -WorkingDirectory $dir
+        Assert-AreEqual -Expected 2 -Actual $result.ExitCode
+
+        # Verify attribution
+        Assert-True ($result.Stdout -match 'In "math\.ot":') 'expected errors attributed to math.ot'
+        Assert-True ($result.Stdout -match 'In "str\.ot":') 'expected errors attributed to str.ot'
+        Assert-True ($result.Stdout -match 'Found 5 errors in source\.') 'expected 5 errors summary'
+
+        # Verify caret pointers and source lines
+        Assert-True ($result.Stdout -match '\^') 'expected caret pointer in diagnostic output'
+        Assert-True ($result.Stdout -match 'score is') 'expected snippet from math.ot'
+        Assert-True ($result.Stdout -match 'count is') 'expected snippet from str.ot'
+        Assert-True ($result.Stdout -match 'finalScore is') 'expected snippet from main.ot'
+    } finally {
+        Remove-Item -LiteralPath $dir -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+
+Test-Otter 'production otter serve resolves imported module routes' {
+    $dir = New-OtterTempDir
+    $serverProcess = $null
+    try {
+        Set-Content -LiteralPath (Join-Path $dir 'routes.ot') -Value @(
+            'when api receives GET at "/api/ping"',
+            '    respond with "pong"',
+            '.'
+        ) -Encoding utf8
+        Set-Content -LiteralPath (Join-Path $dir 'server.ot') -Value @(
+            'api is a web server',
+            '    port is 19876',
+            '    host is "localhost"',
+            '.',
+            'use "routes.ot"',
+            'start api'
+        ) -Encoding utf8
+
+        # Verify that otter check validates server.ot with imported routes
+        $checkResult = Invoke-OtterCli -Command 'check' -TargetPath 'server.ot' -WorkingDirectory $dir
+        Assert-AreEqual -Expected 0 -Actual $checkResult.ExitCode
+        Assert-True ($checkResult.Stdout -match 'is valid') 'expected otter check on multi-file server to succeed'
+
+        # Launch otter serve in background
+        $psi = [System.Diagnostics.ProcessStartInfo]::new()
+        $psi.FileName = 'powershell.exe'
+        $psi.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$script:OtterPs1`" serve server.ot -Port 19876"
+        $psi.WorkingDirectory = $dir
+        $psi.UseShellExecute = $false
+        $serverProcess = [System.Diagnostics.Process]::Start($psi)
+
+        # Wait briefly for listener and query
+        $resp = $null
+        for ($retry = 0; $retry -lt 15; $retry++) {
+            Start-Sleep -Milliseconds 200
+            try {
+                $client = [System.Net.HttpWebRequest]::Create('http://localhost:19876/api/ping')
+                $client.Timeout = 1000
+                $webResp = $client.GetResponse()
+                $reader = [System.IO.StreamReader]::new($webResp.GetResponseStream())
+                $resp = $reader.ReadToEnd()
+                $webResp.Close()
+                if ($resp) { break }
+            } catch {}
+        }
+        Assert-AreEqual -Expected 'pong' -Actual $resp
+    } finally {
+        if ($serverProcess -and -not $serverProcess.HasExited) {
+            $serverProcess.Kill()
+            $serverProcess.WaitForExit(2000) | Out-Null
+        }
         Remove-Item -LiteralPath $dir -Recurse -Force -ErrorAction SilentlyContinue
     }
 }
