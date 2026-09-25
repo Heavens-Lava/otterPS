@@ -8,6 +8,22 @@ body { background: #f4f7fb; color: var(--docs-ink); font-family: Inter, ui-sans-
 #docsMain .otter-card { box-shadow: 0 5px 16px rgba(23,46,82,.045); }
 #hero { min-height: 230px; }
 #hero img { align-self: flex-end; filter: drop-shadow(0 12px 12px rgba(12,43,72,.18)); position: relative; z-index: 1; }
+#app > #hero { min-height: 364px; position: relative; }
+#app > #hero::after { background: linear-gradient(0deg, rgba(4,23,52,.18), transparent 42%); content: ''; inset: 0; pointer-events: none; position: absolute; }
+#app > #hero > * { position: relative; z-index: 1; }
+#app > #hero #heroTitle { text-shadow: 0 2px 18px rgba(0,0,0,.16); }
+#app > #hero #heroMascot { margin-bottom: -10px; }
+#docsBody #hero { min-height: 232px; position: relative; }
+#docsBody #hero::after { background: linear-gradient(90deg, rgba(255,255,255,.12), transparent 55%); content: ''; inset: 0; pointer-events: none; position: absolute; }
+#docsBody #hero > * { position: relative; z-index: 1; }
+#docsSidebar { flex-basis: 198px !important; padding: 24px 10px 24px 20px !important; width: 198px !important; }
+#docsSidebar .otter-link { font-size: 13px !important; }
+#docsBody #homeBody { padding: 0 26px 32px !important; }
+#docsBody #entryCards { margin-top: -24px; position: relative; z-index: 3; }
+#docsBody #entryCards .otter-card { border-radius: 13px !important; min-height: 132px; padding: 18px !important; }
+#docsBody #firstSection { max-width: 760px; padding: 4px 0 0; }
+#docsBody #nextCards .otter-card { border-radius: 13px !important; }
+#docsBody #firstCodeblock, #docsBody #firstRunblock, #docsBody #firstOutblock { box-shadow: 0 8px 22px rgba(14,38,70,.08); }
 #entryCards .otter-card, #nextCards .otter-card { transition: border-color .14s ease, box-shadow .14s ease, transform .14s ease; }
 #entryCards .otter-card:hover, #nextCards .otter-card:hover { border-color: #b9d2f6 !important; box-shadow: 0 10px 24px rgba(23,70,135,.10) !important; transform: translateY(-2px); }
 .docs-crumbs { color: #667995; font-size: .86rem; margin: 0 0 18px; }

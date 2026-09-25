@@ -15,16 +15,16 @@ customstyle of navDownload is "padding: 22px 0; border-bottom: 2px solid #4d8dff
 
 heroEyebrow is a text with value "{{RELEASE_CHANNEL}} {{RELEASE_VERSION}}", size 13, weight 700, foreground "#7fb0ff", letterspacing "0.08em"
 heroTitle is a text with value "Download Otter", size 48, weight 800, foreground "#ffffff", letterspacing "-0.03em", lineheight "1.05"
-heroLead is a text with value "Get Otter and start building today.", size 20, foreground "#dbe6f5"
-heroNote is a text with value "Free to use, on Windows, with the PowerShell that is already on your machine.", size 15, foreground "#b7c4d8"
-heroGetSource is a link with text "Get Otter from GitHub", url "https://github.com/Heavens-Lava/otterPS", foreground "#ffffff", weight 700, size 17, background "#2563eb", radius 12, customstyle "padding: 16px 28px; display: inline-block;"
+heroLead is a text with value "Get the latest version of Otter and start building today.", size 20, foreground "#f1f6ff"
+heroNote is a text with value "Otter is free, open source, and runs on Windows with the PowerShell already on your machine.", size 15, foreground "#d2e1f5"
+heroGetSource is a link with text "Get Otter from GitHub", url "https://github.com/Heavens-Lava/otterPS", foreground "#ffffff", weight 700, size 17, background "#2675ed", radius 12, customstyle "padding: 17px 30px; display: inline-block; box-shadow: 0 10px 22px rgba(0,89,230,.28);"
 heroInstaller is a text with value "Windows installer: {{INSTALLER_STATUS}}", size 13, foreground "#f5c46b"
 heroActions is a row with spacing 18, align middle, margin "8px 0 0 0"
 put heroGetSource, heroInstaller in heroActions
 heroCopy is a column with spacing 14, flex 1
 put heroEyebrow, heroTitle, heroLead, heroNote, heroActions in heroCopy
-heroMascot is a image with source "/static/images/otter-download-hero-mascot.png", alt "The Otter mascot standing on a rock", height 300
-heroBody is a row with spread, align middle, spacing 40, width full, padding "42px 48px 78px", customstyle "box-sizing: border-box; max-width: 1240px; margin: 0 auto;"
+heroMascot is a image with source "/static/images/otter-download-hero-mascot.png", alt "The Otter mascot standing on a rock", height 340
+heroBody is a row with spread, align middle, spacing 40, width full, padding "48px 48px 88px", customstyle "box-sizing: border-box; max-width: 1240px; margin: 0 auto;"
 put heroCopy, heroMascot in heroBody
 hero is a column with width full, background "#0b1d36", spacing 0, customstyle "background-image: linear-gradient(90deg, rgba(7,24,50,.94) 0%, rgba(7,24,50,.70) 48%, rgba(7,24,50,.12) 100%), url('/static/images/otter-download-mountain-backdrop.png'); background-size: cover; background-position: center; overflow: hidden;"
 put topBar, heroBody in hero
@@ -33,9 +33,9 @@ put topBar, heroBody in hero
 # 2. PLATFORM TABS
 # ==========================================
 
-tabWindows is a text with value "Windows", size 16, weight 700, foreground "#1d4ed8", background "#e6efff", radius 10, border "2px solid #4d8dff", flex 1, customstyle "text-align: center; padding: 14px;"
-tabMac is a text with value "macOS - not yet", size 16, weight 600, foreground "#8492a8", flex 1, customstyle "text-align: center; padding: 14px;"
-tabLinux is a text with value "Linux - not yet", size 16, weight 600, foreground "#8492a8", flex 1, customstyle "text-align: center; padding: 14px;"
+tabWindows is a text with value "▣  Windows", size 16, weight 700, foreground "#1d70ea", background "#f8fbff", radius 10, border "2px solid #b9d7ff", flex 1, customstyle "text-align: center; padding: 14px;"
+tabMac is a text with value "●  macOS - not yet", size 16, weight 600, foreground "#687994", flex 1, customstyle "text-align: center; padding: 14px;"
+tabLinux is a text with value "♙  Linux - not yet", size 16, weight 600, foreground "#687994", flex 1, customstyle "text-align: center; padding: 14px;"
 tabSource is a link with text "Source", url "https://github.com/Heavens-Lava/otterPS", foreground "#0f1f36", weight 600, size 16, flex 1, customstyle "text-align: center; padding: 14px;"
 tabs is a row with spacing 14, align middle, width full, background "#ffffff", border "1px solid #e3e9f2", radius 16, padding 10, shadow "0 8px 24px rgba(11,29,54,0.10)", customstyle "box-sizing: border-box; margin-top: -30px; position: relative;"
 put tabWindows, tabMac, tabLinux, tabSource in tabs

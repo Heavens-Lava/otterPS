@@ -81,37 +81,41 @@ customstyle of sideLicense is "display: none;"
 # 1. HERO
 # ==========================================
 
-heroTitle is a text with value "Documentation", size 46, weight 800, foreground "#0b1d36", letterspacing "-0.03em", lineheight "1"
-heroLead is a text with value "Readable like English. Precise like code. Learn Otter from the ground up, on a runtime that needs nothing installed.", size 19, foreground "#3a4d6b", lineheight "1.5", customstyle "max-width: 520px;"
+heroTitle is a text with value "Documentation", size 48, weight 800, foreground "#0b1d36", letterspacing "-0.035em", lineheight "1"
+heroLead is a text with value "Learn Otter from the ground up. Simple, powerful, and built for real projects.", size 18, foreground "#31496b", lineheight "1.5", customstyle "max-width: 500px;"
 heroCopy is a column with spacing 16, flex 1
 put heroTitle, heroLead in heroCopy
-heroMascot is a image with source "/static/images/otter-docs-hero-mascot.png", alt "The Otter mascot sitting on a rock", height 230
-hero is a row with spread, align middle, spacing 32, width full, background "#e4edf9", padding "24px 48px", customstyle "box-sizing: border-box; background-image: linear-gradient(90deg, rgba(244,249,255,.94) 0%, rgba(244,249,255,.80) 48%, rgba(244,249,255,.12) 100%), url('/static/images/otter-docs-mountain-backdrop.png'); background-size: cover; background-position: center; overflow: hidden;"
+heroMascot is a image with source "/static/images/otter-docs-hero-mascot.png", alt "The Otter mascot sitting on a rock", height 258
+hero is a row with spread, align middle, spacing 32, width full, background "#e4edf9", padding "32px 48px 28px", customstyle "box-sizing: border-box; background-image: linear-gradient(90deg, rgba(248,251,255,.97) 0%, rgba(248,251,255,.84) 47%, rgba(248,251,255,.08) 100%), url('/static/images/otter-docs-mountain-backdrop.png'); background-size: cover; background-position: center right; overflow: hidden;"
 put heroCopy, heroMascot in hero
 
 # ==========================================
 # 2. ENTRY CARDS
 # ==========================================
 
+cardOneIcon is a text with value "▣", size 25, weight 700, foreground "#2563eb", background "#e6efff", radius 10, customstyle "width: 42px; height: 42px; text-align: center; line-height: 42px;"
 cardOneTitle is a link with text "Get Started", url "/installation/", foreground "#0f1f36", size 17, weight 700
 cardOneBody is a text with value "Install Otter and run your first program.", size 14, foreground "#4a5b75", lineheight "1.45"
 cardOne is a card with background "#ffffff", radius 16, border "1px solid #e3e9f2", padding 22, spacing 10, flex 1
-put cardOneTitle, cardOneBody in cardOne
+put cardOneIcon, cardOneTitle, cardOneBody in cardOne
 
+cardTwoIcon is a text with value "</>", size 16, weight 800, foreground "#047857", background "#dff7ee", radius 10, customstyle "width: 42px; height: 42px; text-align: center; line-height: 42px;"
 cardTwoTitle is a link with text "Language Guide", url "/values/", foreground "#0f1f36", size 17, weight 700
 cardTwoBody is a text with value "Learn the core ideas, one at a time.", size 14, foreground "#4a5b75", lineheight "1.45"
 cardTwo is a card with background "#ffffff", radius 16, border "1px solid #e3e9f2", padding 22, spacing 10, flex 1
-put cardTwoTitle, cardTwoBody in cardTwo
+put cardTwoIcon, cardTwoTitle, cardTwoBody in cardTwo
 
+cardThreeIcon is a text with value "◇", size 28, weight 700, foreground "#7c3aed", background "#ede4ff", radius 10, customstyle "width: 42px; height: 42px; text-align: center; line-height: 42px;"
 cardThreeTitle is a link with text "Reference", url "/reference/", foreground "#0f1f36", size 17, weight 700
 cardThreeBody is a text with value "What Otter V1 supports, in one index.", size 14, foreground "#4a5b75", lineheight "1.45"
 cardThree is a card with background "#ffffff", radius 16, border "1px solid #e3e9f2", padding 22, spacing 10, flex 1
-put cardThreeTitle, cardThreeBody in cardThree
+put cardThreeIcon, cardThreeTitle, cardThreeBody in cardThree
 
+cardFourIcon is a text with value "▤", size 23, weight 700, foreground "#b45309", background "#fff0d8", radius 10, customstyle "width: 42px; height: 42px; text-align: center; line-height: 42px;"
 cardFourTitle is a link with text "Examples", url "/examples/", foreground "#0f1f36", size 17, weight 700
 cardFourBody is a text with value "Real programs to open, change, and run.", size 14, foreground "#4a5b75", lineheight "1.45"
 cardFour is a card with background "#ffffff", radius 16, border "1px solid #e3e9f2", padding 22, spacing 10, flex 1
-put cardFourTitle, cardFourBody in cardFour
+put cardFourIcon, cardFourTitle, cardFourBody in cardFour
 
 entryCards is a row with spacing 20, align top, width full
 put cardOne, cardTwo, cardThree, cardFour in entryCards
