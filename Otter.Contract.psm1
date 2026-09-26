@@ -668,6 +668,10 @@ enum NodeKind {
     HttpCancel                # cancel X
     HttpRequestIsState        # a CONDITION: X is pending/completed/failed/cancelled
     ReceivedResponse          # an EXPRESSION: received response (ambient in on complete of HTTP request)
+
+    # --- Asynchronous Process Execution (D119-R2) ---------------
+    StartCommand              # start command CMD and call it X
+    JobContext                # an EXPRESSION: received output / received error output
 }
 
 enum MathOp { Add; Subtract; Multiply; Divide; Percent; Power }   # D88
@@ -2478,6 +2482,28 @@ class HttpRequestIsStateExpr : Node {
 # received response (ambient in on complete of request)
 class ReceivedResponseExpr : Node {
     ReceivedResponseExpr([int]$line) : base([NodeKind]::ReceivedResponse, $line) {}
+}
+
+# ===============================================================
+# ASYNCHRONOUS PROCESS EXECUTION (D119-R2)
+# ===============================================================
+
+# start command "..." and call it <target>
+class StartCommandStmt : Node {
+    [Node]$CommandLine
+    [string]$Target
+    StartCommandStmt([Node]$commandLine, [string]$target, [int]$line) : base([NodeKind]::StartCommand, $line) {
+        $this.CommandLine = $commandLine
+        $this.Target = $target
+    }
+}
+
+# received output / received error output
+class JobContextExpr : Node {
+    [string]$Field
+    JobContextExpr([string]$field, [int]$line) : base([NodeKind]::JobContext, $line) {
+        $this.Field = $field
+    }
 }
 
 # ===============================================================

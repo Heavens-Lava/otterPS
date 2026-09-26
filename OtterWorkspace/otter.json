@@ -1,0 +1,20 @@
+﻿{
+  "$schema": "https://otter-lang.org/schema/project-v1.json",
+  "name": "OtterWorkspace",
+  "version": "0.1.0",
+  "archetype": "desktop",
+  "target": "desktop",
+  "entryPoint": "main.ot",
+  "assets": [
+    "assets/styles.css"
+  ],
+  "build": {
+    "outputDir": "dist",
+    "clean": true
+  },
+  "scripts": {
+    "start": "otter run .",
+    "test": "otter test .",
+    "check": "otter check ."
+  }
+}

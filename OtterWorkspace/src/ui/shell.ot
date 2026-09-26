@@ -1,0 +1,791 @@
+# src/ui/shell.ot - Main workspace shell UI with Project Management, Task Runner & Project Explorer
+
+use "../workspace/project.ot"
+use "../workspace/project_store.ot"
+use "../workspace/project_service.ot"
+use "../workspace/project_task.ot"
+use "../workspace/explorer_service.ot"
+use "project_list.ot"
+
+to formatFileList files
+    if length of files is 0
+        return "(No files discovered)"
+    .
+    out is ""
+    for each f in files
+        cat is category of f
+        icon is "📄"
+        if cat is "config"
+            icon is "⚙️"
+        .
+        if cat is "style"
+            icon is "🎨"
+        .
+        if cat is "doc"
+            icon is "📝"
+        .
+        if cat is "asset"
+            icon is "🖼️"
+        .
+        if cat is "archive"
+            icon is "📦"
+        .
+        nameStr is name of f
+        out is out and icon and " [" and cat and "] " and nameStr and "\n"
+    .
+    return out
+.
+
+to formatSearchResults results
+    if length of results is 0
+        return "(No matching files found)"
+    .
+    out is "Matches found:\n"
+    for each r in results
+        rName is name of r
+        rSnippet is snippet of r
+        out is out and "• " and rName and "\n"
+    .
+    return out
+.
+
+to launchShell
+    storePath is "recent_projects.json"
+    recents is getRecentProjects storePath
+    selectedProject is gone
+    activeTask is gone
+    activeJob is gone
+    activeWatcher is gone
+
+    # Main application window
+    create window into app
+    app has title "Otter Workspace", width 920, height 880, background "#0f172a", spacing 10, padding 14
+
+    # 1. Header
+    create heading into headerText
+    headerText has text "Otter Workspace", foreground "#f8fafc"
+
+    # 2. Main Action Toolbar (Open, New, and Task Actions)
+    create row into mainToolbar
+    mainToolbar has spacing 8
+
+    create primary button into openBtn
+    openBtn has text "Open Project..."
+
+    create secondary button into newBtn
+    newBtn has text "New Project..."
+
+    create secondary button into runBtn
+    runBtn has text "Run"
+
+    create secondary button into checkBtn
+    checkBtn has text "Check"
+
+    create secondary button into testBtn
+    testBtn has text "Test"
+
+    create secondary button into buildBtn
+    buildBtn has text "Build"
+
+    create secondary button into publishBtn
+    publishBtn has text "Publish"
+
+    create danger button into cancelBtn
+    cancelBtn has text "Cancel Task"
+
+    create secondary button into clearBtn
+    clearBtn has text "Clear Output"
+
+    put openBtn, newBtn, runBtn, checkBtn, testBtn, buildBtn, publishBtn, cancelBtn, clearBtn in mainToolbar
+
+    # 3. Status text
+    create text into statusText
+    statusText has text "Ready. Open or create an Otter project to begin.", foreground "#94a3b8"
+
+    # 4. Project Settings / Details Card
+    create card into settingsCard
+    settingsCard has width 890
+
+    create heading into settingsHeading
+    settingsHeading has text "Project Settings & Manifest", foreground "#f1f5f9"
+
+    create text into pathDisplay
+    pathDisplay has text "Location: (No project selected)", foreground "#94a3b8"
+
+    create row into formRow1
+    formRow1 has spacing 12
+
+    create text into nameLabel
+    nameLabel has text "Name:", foreground "#cbd5e1"
+    create text box into nameBox
+    nameBox has width 260
+
+    create text into versionLabel
+    versionLabel has text "Version:", foreground "#cbd5e1"
+    create text box into versionBox
+    versionBox has width 120
+
+    put nameLabel, nameBox, versionLabel, versionBox in formRow1
+
+    create row into formRow2
+    formRow2 has spacing 12
+
+    create text into targetLabel
+    targetLabel has text "Target:", foreground "#cbd5e1"
+    create text box into targetBox
+    targetBox has width 140
+
+    create text into archLabel
+    archLabel has text "Archetype:", foreground "#cbd5e1"
+    create text box into archBox
+    archBox has width 140
+
+    create text into entryLabel
+    entryLabel has text "Entry Point:", foreground "#cbd5e1"
+    create text box into entryBox
+    entryBox has width 160
+
+    put targetLabel, targetBox, archLabel, archBox, entryLabel, entryBox in formRow2
+
+    create row into saveRow
+    saveRow has spacing 8
+
+    create primary button into saveSettingsBtn
+    saveSettingsBtn has text "Save Settings"
+
+    create text into saveStatusText
+    saveStatusText has text "", foreground "#38bdf8"
+
+    put saveSettingsBtn, saveStatusText in saveRow
+
+    put settingsHeading, pathDisplay, formRow1, formRow2, saveRow in settingsCard
+
+    # 5. Project Explorer & Search Card
+    create card into explorerCard
+    explorerCard has width 890
+
+    create heading into explorerHeading
+    explorerHeading has text "Project Explorer & File Inspector", foreground "#f1f5f9"
+
+    create row into searchRow
+    searchRow has spacing 8
+
+    create text box into searchInput
+    searchInput has width 320
+
+    create secondary button into searchBtn
+    searchBtn has text "Search in Project"
+
+    create secondary button into refreshFilesBtn
+    refreshFilesBtn has text "Refresh Explorer"
+
+    create text into explorerStatus
+    explorerStatus has text "Explorer ready", foreground "#94a3b8"
+
+    put searchInput, searchBtn, refreshFilesBtn, explorerStatus in searchRow
+
+    create row into explorerContentRow
+    explorerContentRow has spacing 12
+
+    create column into filesListCol
+    filesListCol has spacing 4, width 380
+
+    create text into filesListLabel
+    filesListLabel has text "Project Files (Filtered):", foreground "#cbd5e1"
+
+    create scroll into filesScroll
+    filesScroll has width 380, height 130
+
+    create text into filesDisplayText
+    filesDisplayText has text "(No project selected)", foreground "#94a3b8"
+
+    put filesDisplayText in filesScroll
+    put filesListLabel, filesScroll in filesListCol
+
+    create column into previewCol
+    previewCol has spacing 4, width 480
+
+    create text into previewLabel
+    previewLabel has text "File Content / Search Results Inspector:", foreground "#cbd5e1"
+
+    create scroll into previewScroll
+    previewScroll has width 480, height 130
+
+    create text into previewText
+    previewText has text "(Select a file or perform a search to inspect contents)", foreground "#94a3b8"
+
+    put previewText in previewScroll
+    put previewLabel, previewScroll in previewCol
+
+    put filesListCol, previewCol in explorerContentRow
+    put explorerHeading, searchRow, explorerContentRow in explorerCard
+
+    # 6. New Project Creation Card
+    create card into newProjectCard
+    newProjectCard has width 890
+
+    create heading into newProjHeading
+    newProjHeading has text "Create New Otter Project", foreground "#f1f5f9"
+
+    create row into newFormRow1
+    newFormRow1 has spacing 12
+
+    create text into newNameLabel
+    newNameLabel has text "Project Name:", foreground "#cbd5e1"
+    create text box into newNameInput
+    newNameInput has width 220, text "MyNewApp"
+
+    create text into newArchLabel
+    newArchLabel has text "Archetype (console, desktop, web, automation, game):", foreground "#cbd5e1"
+    create text box into newArchInput
+    newArchInput has width 140, text "console"
+
+    put newNameLabel, newNameInput, newArchLabel, newArchInput in newFormRow1
+
+    create row into newFormRow2
+    newFormRow2 has spacing 12
+
+    create text into newLocLabel
+    newLocLabel has text "Folder Location:", foreground "#cbd5e1"
+    create text box into newLocInput
+    newLocInput has width 360, text "."
+
+    create secondary button into browseLocBtn
+    browseLocBtn has text "Browse..."
+
+    create primary button into createSubmitBtn
+    createSubmitBtn has text "Create Project"
+
+    put newLocLabel, newLocInput, browseLocBtn, createSubmitBtn in newFormRow2
+
+    put newProjHeading, newFormRow1, newFormRow2 in newProjectCard
+
+    # 7. Recent Projects Section with Interactive Cards
+    create column into recentsCol
+    recentsCol has spacing 4
+
+    create text into recentsHeading
+    recentsHeading has text "Recent Projects (click to switch):", foreground "#e2e8f0"
+
+    create scroll into recentsScroll
+    recentsScroll has width 890, height 85
+
+    create row into recentsContainer
+    recentsContainer has spacing 8
+
+    # Populate initial recents buttons
+    for each p in recents
+        create secondary button into pBtn
+        pName is name of p
+        pTarget is target of p
+        pVer is version of p
+        pBtn has text pName and " (" and pTarget and ", v" and pVer and ")"
+        put pBtn in recentsContainer
+    .
+
+    put recentsContainer in recentsScroll
+    put recentsHeading, recentsScroll in recentsCol
+
+    # If recent projects exist, select the first one by default
+    if length of recents is greater than 0
+        firstProj is first of recents
+        firstPath is path of firstProj
+        manifestProj is loadProjectManifest firstPath
+        if manifestProj is not gone
+            selectedProject is manifestProj
+        otherwise
+            selectedProject is firstProj
+        .
+        text of pathDisplay is "Location: " and path of selectedProject
+        text of nameBox is name of selectedProject
+        text of versionBox is version of selectedProject
+        text of targetBox is target of selectedProject
+        text of archBox is archetype of selectedProject
+        text of entryBox is entryPoint of selectedProject
+        text of statusText is "Loaded project: " and name of selectedProject
+
+        # Populate initial explorer items
+        curPath is path of selectedProject
+        projFiles is getProjectFiles curPath
+        text of filesDisplayText is formatFileList projFiles
+        cnt is length of projFiles
+        convert cnt to json into cntStr
+        text of explorerStatus is cntStr and " files discovered"
+    .
+
+    # 8. Live Streaming Task Output Area
+    create column into outputCol
+    outputCol has spacing 4
+
+    create text into outputHeading
+    outputHeading has text "Task Output:", foreground "#e2e8f0"
+
+    create scroll into outputScroll
+    outputScroll has width 890, height 140
+
+    create text into outputText
+    outputText has text "(No task running. Click Run, Check, Test, Build, or Publish to execute.)", foreground "#94a3b8"
+
+    put outputText in outputScroll
+    put outputHeading, outputScroll in outputCol
+
+    # Assemble main layout in window
+    put headerText, mainToolbar, statusText, settingsCard, explorerCard, newProjectCard, recentsCol, outputCol in app
+
+    # Event handlers
+    when openBtn is clicked
+        choose folder into chosenPath
+        if chosenPath is not gone
+            loadedProj is loadProjectManifest chosenPath
+            if loadedProj is gone
+                text of statusText is "Failed to open project: no otter.json found in folder."
+            otherwise
+                selectedProject is loadedProj
+                text of pathDisplay is "Location: " and path of loadedProj
+                text of nameBox is name of loadedProj
+                text of versionBox is version of loadedProj
+                text of targetBox is target of loadedProj
+                text of archBox is archetype of loadedProj
+                text of entryBox is entryPoint of loadedProj
+                text of statusText is "Opened project: " and name of loadedProj
+                text of saveStatusText is ""
+
+                recents is addRecentProject loadedProj and recents
+                saveRecentProjects recents and storePath
+
+                # Refresh explorer
+                loadedPath is path of loadedProj
+                projFiles is getProjectFiles loadedPath
+                text of filesDisplayText is formatFileList projFiles
+                cnt is length of projFiles
+                convert cnt to json into cntStr
+                text of explorerStatus is cntStr and " files discovered"
+                manifestFile is loadedPath and "/otter.json"
+                text of previewText is inspectProjectFile manifestFile
+
+                text of outputText is "(Project loaded. Ready for task execution.)"
+            .
+        .
+    .
+
+    when refreshFilesBtn is clicked
+        if selectedProject is gone
+            text of explorerStatus is "No project selected."
+        otherwise
+            curPath is path of selectedProject
+            projFiles is getProjectFiles curPath
+            text of filesDisplayText is formatFileList projFiles
+            cnt is length of projFiles
+            convert cnt to json into cntStr
+            text of explorerStatus is cntStr and " files discovered"
+        .
+    .
+
+    when searchBtn is clicked
+        if selectedProject is gone
+            text of explorerStatus is "No project selected."
+        otherwise
+            q is text of searchInput
+            if q is ""
+                text of explorerStatus is "Please enter a search term."
+            otherwise
+                curPath is path of selectedProject
+                searchResults is searchInProject curPath and q
+                cnt is length of searchResults
+                convert cnt to json into cntStr
+                text of explorerStatus is "Found " and cntStr and " matching files"
+                text of previewText is formatSearchResults searchResults
+            .
+        .
+    .
+
+    when browseLocBtn is clicked
+        choose folder into chosenLoc
+        if chosenLoc is not gone
+            text of newLocInput is chosenLoc
+        .
+    .
+
+    when createSubmitBtn is clicked
+        pName is text of newNameInput
+        pLoc is text of newLocInput
+        pArch is text of newArchInput
+
+        validationErr is validateNewProjectForm pName and pLoc and pArch
+        if validationErr is not gone
+            text of statusText is "Validation Error: " and validationErr
+        otherwise
+            text of statusText is "Creating " and pArch and " project '" and pName and "'..."
+            cmd is formatNewProjectCommand pArch and pName
+            text of outputText is "==> " and cmd and " (in " and pLoc and ")\n"
+
+            # Execute creation via CLI
+            start command cmd and call it createJob
+            activeJob is createJob
+
+            on output from createJob
+                chunk is received output
+                curr is text of outputText
+                text of outputText is curr and chunk and "\n"
+            .
+
+            on error output from createJob
+                chunk is received error output
+                curr is text of outputText
+                text of outputText is curr and "[stderr] " and chunk and "\n"
+            .
+
+            on exit of createJob
+                code is exit code of createJob
+                if code is 0
+                    text of statusText is "Project '" and pName and "' created successfully."
+                    createdPath is pName
+                    if pLoc is not "."
+                        createdPath is pLoc and "/" and pName
+                    .
+                    newProj is loadProjectManifest createdPath
+                    if newProj is not gone
+                        selectedProject is newProj
+                        text of pathDisplay is "Location: " and path of newProj
+                        text of nameBox is name of newProj
+                        text of versionBox is version of newProj
+                        text of targetBox is target of newProj
+                        text of archBox is archetype of newProj
+                        text of entryBox is entryPoint of newProj
+
+                        recents is addRecentProject newProj and recents
+                        saveRecentProjects recents and storePath
+
+                        newProjPath is path of newProj
+                        projFiles is getProjectFiles newProjPath
+                        text of filesDisplayText is formatFileList projFiles
+                        cnt is length of projFiles
+                        convert cnt to json into cntStr
+                        text of explorerStatus is cntStr and " files discovered"
+                    .
+                otherwise
+                    text of statusText is "Project creation failed (exit code " and code and ")."
+                .
+            .
+        .
+    .
+
+    when saveSettingsBtn is clicked
+        if selectedProject is gone
+            text of statusText is "No project selected to save."
+        otherwise
+            newName is text of nameBox
+            newVersion is text of versionBox
+            newTarget is text of targetBox
+            newArch is text of archBox
+            newEntry is text of entryBox
+
+            saveProjectSettings selectedProject and newName and newVersion and newTarget and newArch and newEntry
+            text of saveStatusText is "Settings saved atomically."
+            text of statusText is "Saved settings for " and newName and ". Validating with otter check..."
+
+            # Validate after save
+            projPath is path of selectedProject
+            checkTask is createProjectTask "check" and projPath
+            startTask checkTask
+            activeTask is checkTask
+            cmd is commandText of checkTask
+            text of outputText is "==> " and cmd and " [Validation Post-Save]\n"
+
+            start command cmd and call it validJob
+            activeJob is validJob
+
+            on output from validJob
+                chunk is received output
+                recordTaskOutput activeTask and chunk
+                curr is text of outputText
+                text of outputText is curr and chunk and "\n"
+            .
+
+            on error output from validJob
+                chunk is received error output
+                recordTaskError activeTask and chunk
+                curr is text of outputText
+                text of outputText is curr and "[stderr] " and chunk and "\n"
+            .
+
+            on exit of validJob
+                code is exit code of validJob
+                finishTask activeTask and code
+                if code is 0
+                    text of statusText is "Settings saved and validated successfully (check PASSED)."
+                otherwise
+                    text of statusText is "Settings saved but validation FAILED with exit code " and code and "."
+                .
+            .
+        .
+    .
+
+    when runBtn is clicked
+        if selectedProject is gone
+            text of statusText is "No project selected. Open a project first."
+        otherwise
+            if isTaskRunning activeTask
+                text of statusText is "Cannot start task: another task is currently running. Please wait or click Cancel."
+            otherwise
+                projPath is path of selectedProject
+                task is createProjectTask "run" and projPath
+                startTask task
+                activeTask is task
+                text of statusText is formatTaskStatus task
+                cmd is commandText of task
+                text of outputText is "==> " and cmd and "\n"
+
+                start command cmd and call it job
+                activeJob is job
+
+                on output from job
+                    chunk is received output
+                    recordTaskOutput activeTask and chunk
+                    curr is text of outputText
+                    text of outputText is curr and chunk and "\n"
+                .
+
+                on error output from job
+                    chunk is received error output
+                    recordTaskError activeTask and chunk
+                    curr is text of outputText
+                    text of outputText is curr and "[stderr] " and chunk and "\n"
+                .
+
+                on exit of job
+                    code is exit code of job
+                    finishTask activeTask and code
+                    text of statusText is formatTaskStatus activeTask
+                .
+
+                on cancel of job
+                    cancelTask activeTask
+                    text of statusText is formatTaskStatus activeTask
+                    curr is text of outputText
+                    text of outputText is curr and "\n[Task Cancelled by User]\n"
+                .
+            .
+        .
+    .
+
+    when checkBtn is clicked
+        if selectedProject is gone
+            text of statusText is "No project selected. Open a project first."
+        otherwise
+            if isTaskRunning activeTask
+                text of statusText is "Cannot start task: another task is currently running. Please wait or click Cancel."
+            otherwise
+                projPath is path of selectedProject
+                task is createProjectTask "check" and projPath
+                startTask task
+                activeTask is task
+                text of statusText is formatTaskStatus task
+                cmd is commandText of task
+                text of outputText is "==> " and cmd and "\n"
+
+                start command cmd and call it job
+                activeJob is job
+
+                on output from job
+                    chunk is received output
+                    recordTaskOutput activeTask and chunk
+                    curr is text of outputText
+                    text of outputText is curr and chunk and "\n"
+                .
+
+                on error output from job
+                    chunk is received error output
+                    recordTaskError activeTask and chunk
+                    curr is text of outputText
+                    text of outputText is curr and "[stderr] " and chunk and "\n"
+                .
+
+                on exit of job
+                    code is exit code of job
+                    finishTask activeTask and code
+                    text of statusText is formatTaskStatus activeTask
+                .
+
+                on cancel of job
+                    cancelTask activeTask
+                    text of statusText is formatTaskStatus activeTask
+                    curr is text of outputText
+                    text of outputText is curr and "\n[Task Cancelled by User]\n"
+                .
+            .
+        .
+    .
+
+    when testBtn is clicked
+        if selectedProject is gone
+            text of statusText is "No project selected. Open a project first."
+        otherwise
+            if isTaskRunning activeTask
+                text of statusText is "Cannot start task: another task is currently running. Please wait or click Cancel."
+            otherwise
+                projPath is path of selectedProject
+                task is createProjectTask "test" and projPath
+                startTask task
+                activeTask is task
+                text of statusText is formatTaskStatus task
+                cmd is commandText of task
+                text of outputText is "==> " and cmd and "\n"
+
+                start command cmd and call it job
+                activeJob is job
+
+                on output from job
+                    chunk is received output
+                    recordTaskOutput activeTask and chunk
+                    curr is text of outputText
+                    text of outputText is curr and chunk and "\n"
+                .
+
+                on error output from job
+                    chunk is received error output
+                    recordTaskError activeTask and chunk
+                    curr is text of outputText
+                    text of outputText is curr and "[stderr] " and chunk and "\n"
+                .
+
+                on exit of job
+                    code is exit code of job
+                    finishTask activeTask and code
+                    text of statusText is formatTaskStatus activeTask
+                .
+
+                on cancel of job
+                    cancelTask activeTask
+                    text of statusText is formatTaskStatus activeTask
+                    curr is text of outputText
+                    text of outputText is curr and "\n[Task Cancelled by User]\n"
+                .
+            .
+        .
+    .
+
+    when buildBtn is clicked
+        if selectedProject is gone
+            text of statusText is "No project selected. Open a project first."
+        otherwise
+            if isTaskRunning activeTask
+                text of statusText is "Cannot start task: another task is currently running. Please wait or click Cancel."
+            otherwise
+                projPath is path of selectedProject
+                task is createProjectTask "build" and projPath
+                startTask task
+                activeTask is task
+                text of statusText is formatTaskStatus task
+                cmd is commandText of task
+                text of outputText is "==> " and cmd and "\n"
+
+                start command cmd and call it job
+                activeJob is job
+
+                on output from job
+                    chunk is received output
+                    recordTaskOutput activeTask and chunk
+                    curr is text of outputText
+                    text of outputText is curr and chunk and "\n"
+                .
+
+                on error output from job
+                    chunk is received error output
+                    recordTaskError activeTask and chunk
+                    curr is text of outputText
+                    text of outputText is curr and "[stderr] " and chunk and "\n"
+                .
+
+                on exit of job
+                    code is exit code of job
+                    finishTask activeTask and code
+                    text of statusText is formatTaskStatus activeTask
+                .
+
+                on cancel of job
+                    cancelTask activeTask
+                    text of statusText is formatTaskStatus activeTask
+                    curr is text of outputText
+                    text of outputText is curr and "\n[Task Cancelled by User]\n"
+                .
+            .
+        .
+    .
+
+    when publishBtn is clicked
+        if selectedProject is gone
+            text of statusText is "No project selected. Open a project first."
+        otherwise
+            if isTaskRunning activeTask
+                text of statusText is "Cannot start task: another task is currently running. Please wait or click Cancel."
+            otherwise
+                projPath is path of selectedProject
+                task is createProjectTask "publish" and projPath
+                startTask task
+                activeTask is task
+                text of statusText is formatTaskStatus task
+                cmd is commandText of task
+                text of outputText is "==> " and cmd and "\n"
+
+                start command cmd and call it job
+                activeJob is job
+
+                on output from job
+                    chunk is received output
+                    recordTaskOutput activeTask and chunk
+                    curr is text of outputText
+                    text of outputText is curr and chunk and "\n"
+                .
+
+                on error output from job
+                    chunk is received error output
+                    recordTaskError activeTask and chunk
+                    curr is text of outputText
+                    text of outputText is curr and "[stderr] " and chunk and "\n"
+                .
+
+                on exit of job
+                    code is exit code of job
+                    finishTask activeTask and code
+                    text of statusText is formatTaskStatus activeTask
+                .
+
+                on cancel of job
+                    cancelTask activeTask
+                    text of statusText is formatTaskStatus activeTask
+                    curr is text of outputText
+                    text of outputText is curr and "\n[Task Cancelled by User]\n"
+                .
+            .
+        .
+    .
+
+    when cancelBtn is clicked
+        if isTaskRunning activeTask
+            if activeJob is not gone
+                if activeJob is running
+                    cancel activeJob
+                otherwise
+                    text of statusText is "No active task is currently running."
+                .
+            otherwise
+                text of statusText is "No active task is currently running."
+            .
+        otherwise
+            text of statusText is "No active task is currently running."
+        .
+    .
+
+    when clearBtn is clicked
+        text of outputText is "(Output cleared.)"
+        if activeTask is not gone
+            if not isTaskRunning activeTask
+                output of activeTask is ""
+                errorOutput of activeTask is ""
+            .
+        .
+    .
+
+    show app
+.

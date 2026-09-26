@@ -1,0 +1,109 @@
+# src/workspace/project_task.ot - Project Task model and lifecycle management
+
+use "project.ot"
+
+a ProjectTask has
+    taskName
+    action
+    projectPath
+    commandText
+    status
+    output
+    errorOutput
+    exitCode
+.
+
+to formatTaskCommand action and projectPath
+    targetPath is projectPath
+    if projectPath is "."
+        if not file "otter.json" exists
+            if file "OtterWorkspace/otter.json" exists
+                targetPath is "OtterWorkspace"
+            .
+        .
+    .
+    cmd is "otter " and action and " \"" and targetPath and "\""
+    return cmd
+.
+
+to createProjectTask action and projectPath
+    cmd is formatTaskCommand action and projectPath
+    tName is action and " " and projectPath
+    t is a ProjectTask with taskName tName, action action, projectPath projectPath, commandText cmd, status "idle", output "", errorOutput "", exitCode gone
+    return t
+.
+
+to startTask task
+    status of task is "running"
+    output of task is ""
+    errorOutput of task is ""
+    exitCode of task is gone
+.
+
+to recordTaskOutput task and chunk
+    curr is output of task
+    if curr is gone
+        curr is ""
+    .
+    out is curr and chunk and "\n"
+    output of task is out
+.
+
+to recordTaskError task and chunk
+    curr is errorOutput of task
+    if curr is gone
+        curr is ""
+    .
+    err is curr and chunk and "\n"
+    errorOutput of task is err
+.
+
+to finishTask task and code
+    exitCode of task is code
+    if code is 0
+        status of task is "succeeded"
+    otherwise
+        status of task is "failed"
+    .
+.
+
+to cancelTask task
+    status of task is "cancelled"
+.
+
+to isTaskRunning task
+    if task is gone
+        return false
+    .
+    st is status of task
+    if st is "running"
+        return true
+    .
+    return false
+.
+
+to formatTaskStatus task
+    if task is gone
+        return "Idle (no task)"
+    .
+    act is action of task
+    st is status of task
+    code is exitCode of task
+    if st is "succeeded"
+        return "Task " and act and " SUCCEEDED (exit code 0)"
+    .
+    if st is "failed"
+        if code is not gone
+            convert code to json into codeStr
+            return "Task " and act and " FAILED (exit code " and codeStr and ")"
+        .
+        return "Task " and act and " FAILED"
+    .
+    if st is "cancelled"
+        return "Task " and act and " CANCELLED"
+    .
+    if st is "running"
+        return "Running: " and act and "..."
+    .
+    return "Task " and act and " (idle)"
+.

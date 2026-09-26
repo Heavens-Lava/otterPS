@@ -1,0 +1,30 @@
+# src/workspace/project_store.ot - Recent projects persistence store
+
+use "project.ot"
+
+to getRecentProjects storePath
+    if not file storePath exists
+        emptyList are empty
+        return emptyList
+    .
+    read json from storePath into loaded
+    return loaded
+.
+
+to saveRecentProjects projects and storePath
+    convert projects to json into jsonText
+    write jsonText to storePath
+.
+
+to addRecentProject newProject and existingList
+    updated are empty
+    add newProject to updated
+    targetPath is path of newProject
+    for each item in existingList
+        itemPath is path of item
+        if itemPath is not targetPath
+            add item to updated
+        .
+    .
+    return updated
+.

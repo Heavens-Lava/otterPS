@@ -1,0 +1,217 @@
+# src/workspace/explorer_service.ot - Project Explorer file tree, search, metadata, and text/binary inspection
+
+use "project.ot"
+
+a ProjectItem has
+    name
+    relativePath
+    fullPath
+    isFolder
+    isText
+    fileSize
+    category
+.
+
+a SearchResult has
+    name
+    relativePath
+    fullPath
+    matchCount
+    snippet
+.
+
+to createProjectItem name and relPath and fullPath and isFolder and isText and fileSize and category
+    item is a ProjectItem with name name, relativePath relPath, fullPath fullPath, isFolder isFolder, isText isText, fileSize fileSize, category category
+    return item
+.
+
+to createSearchResult name and relPath and fullPath and matchCount and snippet
+    res is a SearchResult with name name, relativePath relPath, fullPath fullPath, matchCount matchCount, snippet snippet
+    return res
+.
+
+to isTextExtension ext
+    if ext is ".ot"
+        return true
+    .
+    if ext is ".json"
+        return true
+    .
+    if ext is ".txt"
+        return true
+    .
+    if ext is ".md"
+        return true
+    .
+    if ext is ".css"
+        return true
+    .
+    if ext is ".html"
+        return true
+    .
+    if ext is ".xml"
+        return true
+    .
+    if ext is ".csv"
+        return true
+    .
+    if ext is ".js"
+        return true
+    .
+    if ext is ".ps1"
+        return true
+    .
+    if ext is ".cmd"
+        return true
+    .
+    if ext is ".bat"
+        return true
+    .
+    return false
+.
+
+to getFileCategory ext
+    if ext is ".ot"
+        return "source"
+    .
+    if ext is ".json"
+        return "config"
+    .
+    if ext is ".css"
+        return "style"
+    .
+    if ext is ".md"
+        return "doc"
+    .
+    if ext is ".txt"
+        return "doc"
+    .
+    if ext is ".png"
+        return "asset"
+    .
+    if ext is ".jpg"
+        return "asset"
+    .
+    if ext is ".ico"
+        return "asset"
+    .
+    if ext is ".zip"
+        return "archive"
+    .
+    return "file"
+.
+
+to isIgnoredPath path
+    if path contains "/dist/"
+        return true
+    .
+    if path contains "\\dist\\"
+        return true
+    .
+    if path contains "/publish/"
+        return true
+    .
+    if path contains "\\publish\\"
+        return true
+    .
+    if path contains "/.git/"
+        return true
+    .
+    if path contains "\\.git\\"
+        return true
+    .
+    return false
+.
+
+to getProjectFiles projectRoot
+    filesList are empty
+    try
+        get files in projectRoot and subfolders into rawFiles
+        for each f in rawFiles
+            fPath is path of f
+            if not isIgnoredPath fPath
+                fName is name of f
+                fExt is extension of f
+                fSize is size of f
+                textStatus is isTextExtension fExt
+                cat is getFileCategory fExt
+                
+                item is createProjectItem fName and fPath and fPath and false and textStatus and fSize and cat
+                add item to filesList
+            .
+        .
+    otherwise
+        ignored is true
+    .
+    return filesList
+.
+
+to searchInProject projectRoot and query
+    results are empty
+    if query is ""
+        return results
+    .
+    if query is gone
+        return results
+    .
+
+    files is getProjectFiles projectRoot
+    for each f in files
+        if isText of f
+            fPath is fullPath of f
+            try
+                read fPath into content
+                if content contains query
+                    fName is name of f
+                    res is createSearchResult fName and fPath and fPath and 1 and content
+                    add res to results
+                .
+            otherwise
+                # Ignore unreadable or locked files
+                ignored is true
+            .
+        .
+    .
+    return results
+.
+
+to inspectProjectFile fullPath
+    # Check extension for text vs binary
+    isText is false
+    if fullPath ends with ".ot"
+        isText is true
+    .
+    if fullPath ends with ".json"
+        isText is true
+    .
+    if fullPath ends with ".txt"
+        isText is true
+    .
+    if fullPath ends with ".md"
+        isText is true
+    .
+    if fullPath ends with ".css"
+        isText is true
+    .
+    if fullPath ends with ".html"
+        isText is true
+    .
+    if fullPath ends with ".xml"
+        isText is true
+    .
+    if fullPath ends with ".csv"
+        isText is true
+    .
+
+    if isText
+        try
+            read fullPath into content
+            return content
+        otherwise into err
+            return "Could not read file: " and err
+        .
+    .
+
+    # Binary file
+    return "[Binary File - Preview Not Available]"
+.

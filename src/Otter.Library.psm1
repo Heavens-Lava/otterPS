@@ -2053,9 +2053,8 @@ function Get-OtterPowerShellHost {
     return 'powershell.exe'
 }
 
-# run command "git status"              - waits, prints nothing
-# run command "git status" into result  - waits, hands back a command result
-function Invoke-OtterCommand {
+# Helper to resolve process launch info and arguments (shared across sync and async commands)
+function New-OtterProcessStartInfo {
     param([string]$CommandLine, [int]$Line)
 
     $parts = Split-OtterCommandLine -CommandLine $CommandLine -Line $Line
@@ -2090,39 +2089,52 @@ function Invoke-OtterCommand {
 
     $ext = [System.IO.Path]::GetExtension($resolvedPath).ToLowerInvariant()
 
+    $info = [System.Diagnostics.ProcessStartInfo]::new()
+    $info.UseShellExecute = $false
+    $info.RedirectStandardOutput = $true
+    $info.RedirectStandardError = $true
+    $info.CreateNoWindow = $true
+    $info.StandardOutputEncoding = [System.Text.Encoding]::UTF8
+    $info.StandardErrorEncoding = [System.Text.Encoding]::UTF8
+
+    if ($ext -eq '.ps1') {
+        # D119-R1: PowerShell script dispatch via active PowerShell host
+        $info.FileName = Get-OtterPowerShellHost
+        $allArgs = @('-NoProfile', '-File', $resolvedPath) + $arguments
+        $info.Arguments = (@($allArgs | ForEach-Object { ConvertTo-OtterProcessArgument $_ }) -join ' ')
+    }
+    elseif ($ext -in @('.cmd', '.bat') -and [System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT) {
+        # D119-R1: Windows CMD/BAT script dispatch via cmd.exe /d /s /c
+        $cmdExe = if ([string]::IsNullOrWhiteSpace($env:ComSpec)) { 'cmd.exe' } else { $env:ComSpec }
+        $cmdTarget = ConvertTo-OtterProcessArgument $resolvedPath
+        $formattedArgs = @($arguments | ForEach-Object { ConvertTo-OtterProcessArgument $_ }) -join ' '
+        $innerCmd = if ($formattedArgs.Length -gt 0) { "$cmdTarget $formattedArgs" } else { $cmdTarget }
+        $info.FileName = $cmdExe
+        $info.Arguments = "/d /s /c `"$innerCmd`""
+    }
+    else {
+        # Direct native executable launch
+        $info.FileName = $resolvedPath
+        $info.Arguments = (@($arguments | ForEach-Object { ConvertTo-OtterProcessArgument $_ }) -join ' ')
+    }
+
+    return @{
+        StartInfo = $info
+        Program = $program
+        ResolvedPath = $resolvedPath
+    }
+}
+
+# run command "git status"              - waits, prints nothing
+# run command "git status" into result  - waits, hands back a command result
+function Invoke-OtterCommand {
+    param([string]$CommandLine, [int]$Line)
+
+    $resolved = New-OtterProcessStartInfo -CommandLine $CommandLine -Line $Line
+    $info = $resolved.StartInfo
+    $program = $resolved.Program
+
     try {
-        # Use Process directly rather than PowerShell's native-command
-        # pipeline. Windows PowerShell turns native stderr into ErrorRecords;
-        # Process preserves the child's two streams exactly as Otter promises.
-        $info = [System.Diagnostics.ProcessStartInfo]::new()
-        $info.UseShellExecute = $false
-        $info.RedirectStandardOutput = $true
-        $info.RedirectStandardError = $true
-        $info.CreateNoWindow = $true
-        $info.StandardOutputEncoding = [System.Text.Encoding]::UTF8
-        $info.StandardErrorEncoding = [System.Text.Encoding]::UTF8
-
-        if ($ext -eq '.ps1') {
-            # D119-R1: PowerShell script dispatch via active PowerShell host
-            $info.FileName = Get-OtterPowerShellHost
-            $allArgs = @('-NoProfile', '-File', $resolvedPath) + $arguments
-            $info.Arguments = (@($allArgs | ForEach-Object { ConvertTo-OtterProcessArgument $_ }) -join ' ')
-        }
-        elseif ($ext -in @('.cmd', '.bat') -and [System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT) {
-            # D119-R1: Windows CMD/BAT script dispatch via cmd.exe /d /s /c
-            $cmdExe = if ([string]::IsNullOrWhiteSpace($env:ComSpec)) { 'cmd.exe' } else { $env:ComSpec }
-            $cmdTarget = ConvertTo-OtterProcessArgument $resolvedPath
-            $formattedArgs = @($arguments | ForEach-Object { ConvertTo-OtterProcessArgument $_ }) -join ' '
-            $innerCmd = if ($formattedArgs.Length -gt 0) { "$cmdTarget $formattedArgs" } else { $cmdTarget }
-            $info.FileName = $cmdExe
-            $info.Arguments = "/d /s /c `"$innerCmd`""
-        }
-        else {
-            # Direct native executable launch
-            $info.FileName = $resolvedPath
-            $info.Arguments = (@($arguments | ForEach-Object { ConvertTo-OtterProcessArgument $_ }) -join ' ')
-        }
-
         $process = [System.Diagnostics.Process]::Start($info)
         if ($null -eq $process) { throw 'The program process did not start.' }
         $stdoutTask = $process.StandardOutput.ReadToEndAsync()
@@ -2146,6 +2158,127 @@ function Invoke-OtterCommand {
     $result.WriteProperty('exit code', $exitCode)
     return $result
 }
+
+# D119-R2: Asynchronous process execution
+function Invoke-OtterJobEvent {
+    param([OtterCommandJob]$Job, [hashtable]$EventItem)
+
+    [System.Threading.Monitor]::Enter($Job.LockObj)
+    try {
+        $matching = @($Job.Handlers | Where-Object { $_.EventName -eq $EventItem.EventKind })
+    } finally {
+        [System.Threading.Monitor]::Exit($Job.LockObj)
+    }
+
+    if ($matching.Count -eq 0) {
+        return
+    }
+
+    $action = {
+        foreach ($h in $matching) {
+            if ($EventItem.EventKind -in @('exit', 'complete', 'cancel')) {
+                if ($h.ContainsKey('Fired') -and $h.Fired) { continue }
+                $h.Fired = $true
+            }
+            $prevContext = $script:OtterCurrentJobContext
+            $script:OtterCurrentJobContext = $EventItem.Context
+            try {
+                Invoke-OtterStatements -Statements $h.Body -Environment $h.Environment
+            } catch {
+            } finally {
+                $script:OtterCurrentJobContext = $prevContext
+            }
+        }
+    }
+
+    # If running inside a WPF Desktop UI application with active dispatcher
+    $dispatcher = Get-OtterUiDispatcher
+    if ($null -eq $dispatcher) {
+        try {
+            if ([System.Windows.Application]::Current -and [System.Windows.Application]::Current.Dispatcher) {
+                $dispatcher = [System.Windows.Application]::Current.Dispatcher
+            }
+        } catch {}
+    }
+
+    if ($null -ne $dispatcher -and -not $dispatcher.CheckAccess()) {
+        try {
+            [void]$dispatcher.BeginInvoke([Action]$action)
+            return
+        } catch {}
+    }
+
+    if ($null -ne $dispatcher -and $dispatcher.CheckAccess()) {
+        & $action
+    }
+}
+
+function Start-OtterCommandJob {
+    param([string]$CommandLine, [int]$Line)
+
+    $jobId = [Guid]::NewGuid().ToString('N')
+    $job = [OtterCommandJob]::new($CommandLine, $jobId)
+
+    try {
+        $resolved = New-OtterProcessStartInfo -CommandLine $CommandLine -Line $Line
+        $info = $resolved.StartInfo
+        $program = $resolved.Program
+    } catch {
+        # Process launch failure before process start (e.g. unknown command)
+        $job.State = 'failed'
+        $job.ExitCode = [double]-1
+        $errMsg = $_.Exception.Message
+        [void]$job.ErrorBuffer.Append($errMsg)
+        $job.RetainedTerminalEvent = @{ EventKind = 'exit'; Context = @{ ExitCode = [double]-1; ErrorOutput = $errMsg } }
+        return $job
+    }
+
+    try {
+        $tracker = [OtterProcessTracker]::new()
+        $tracker.Start($info)
+        $job.Tracker = $tracker
+        $job.Process = $tracker.Process
+    }
+    catch {
+        $job.State = 'failed'
+        $job.ExitCode = [double]-1
+        $errMsg = if ($null -ne $_.Exception) { $_.Exception.Message } else { [string]$_ }
+        [void]$job.ErrorBuffer.Append($errMsg)
+        $job.RetainedTerminalEvent = @{ EventKind = 'exit'; Context = @{ ExitCode = [double]-1; ErrorOutput = $errMsg } }
+    }
+
+    return $job
+}
+
+function Stop-OtterCommandJob {
+    param([object]$Job, [int]$Line = 0)
+
+    if ($null -eq $Job -or -not (Test-OtterCommandJob $Job)) {
+        throw [OtterError]::new('cancel requires a command job.', $Line, 'runtime')
+    }
+
+    [System.Threading.Monitor]::Enter($Job.LockObj)
+    try {
+        if ($Job.State -eq 'cancelled' -or $Job.State -in @('completed', 'failed')) {
+            return
+        }
+        $Job.State = 'cancelled'
+
+        if ($null -ne $Job.Process -and -not $Job.Process.HasExited) {
+            try {
+                Stop-OtterProcess -ProcessId $Job.Process.Id -IncludeChildren $true -Line $Line
+            } catch {}
+        }
+
+        $cancelEvt = @{ EventKind = 'cancel'; Context = @{} }
+        $Job.RetainedTerminalEvent = $cancelEvt
+        $Job.EventQueue.Enqueue($cancelEvt)
+        Invoke-OtterJobEvent -Job $Job -EventItem $cancelEvt
+    } finally {
+        [System.Threading.Monitor]::Exit($Job.LockObj)
+    }
+}
+
 
 
 # ===============================================================
@@ -3112,4 +3245,5 @@ Export-ModuleMember -Function `
     Get-OtterHash, `
     Protect-OtterText, Unprotect-OtterText, `
     Read-OtterFileBytes, Write-OtterFileBytes, `
-    Invoke-OtterHttpRequest, Start-OtterHttpRequest, Stop-OtterHttpRequest
+    Invoke-OtterHttpRequest, Start-OtterHttpRequest, Stop-OtterHttpRequest, `
+    New-OtterProcessStartInfo, Start-OtterCommandJob, Stop-OtterCommandJob, Invoke-OtterJobEvent

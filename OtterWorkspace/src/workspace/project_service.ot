@@ -1,0 +1,86 @@
+# src/workspace/project_service.ot - Project operations, creation and task services
+
+use "project.ot"
+use "project_task.ot"
+
+a CheckResult has
+    success
+    exitCode
+    output
+    errorOutput
+.
+
+to formatProjectCommand action and projectPath
+    return formatTaskCommand action and projectPath
+.
+
+to runProjectCheck projectPath
+    targetPath is projectPath
+    if projectPath is "."
+        if not file "otter.json" exists
+            if file "OtterWorkspace/otter.json" exists
+                targetPath is "OtterWorkspace"
+            .
+        .
+    .
+    cmd is formatTaskCommand "check" and targetPath
+    run command cmd into res
+    code is exit code of res
+    outText is output of res
+    errText is error output of res
+    isSuccess is false
+    if code is 0
+        isSuccess is true
+    .
+    result is a CheckResult with success isSuccess, exitCode code, output outText, errorOutput errText
+    return result
+.
+
+to validateNewProjectForm name and location and archetype
+    if name is gone
+        return "Project name cannot be empty."
+    .
+    if name is ""
+        return "Project name cannot be empty."
+    .
+    if location is gone
+        return "Project location must be selected."
+    .
+    if location is ""
+        return "Project location must be selected."
+    .
+    if archetype is gone
+        return "Project archetype must be selected."
+    .
+    if archetype is ""
+        return "Project archetype must be selected."
+    .
+
+    # Supported archetypes: console, desktop, web, automation, game
+    isArchetypeValid is false
+    if archetype is "console"
+        isArchetypeValid is true
+    .
+    if archetype is "desktop"
+        isArchetypeValid is true
+    .
+    if archetype is "web"
+        isArchetypeValid is true
+    .
+    if archetype is "automation"
+        isArchetypeValid is true
+    .
+    if archetype is "game"
+        isArchetypeValid is true
+    .
+    if not isArchetypeValid
+        return "Unsupported archetype: " and archetype and ". Supported: console, desktop, web, automation, game."
+    .
+
+    return gone
+.
+
+to formatNewProjectCommand archetype and name
+    cmd is "otter new " and archetype and " \"" and name and "\""
+    return cmd
+.

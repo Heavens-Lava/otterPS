@@ -8,3 +8,7 @@ debug.log
 otter-site-publish/
 examples/file-organizer/output/
 
+# OtterWorkspace release output and temporary project-manifest fixtures.
+OtterWorkspace/publish/
+OtterWorkspace/test_manifest_project/
+test_manifest_project/

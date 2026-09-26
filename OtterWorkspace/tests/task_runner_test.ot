@@ -1,0 +1,213 @@
+# tests/task_runner_test.ot - Comprehensive Project Task Runner test suite
+
+use "../src/workspace/project.ot"
+use "../src/workspace/project_task.ot"
+
+# ==============================================================================
+# 1. Command construction for all 5 actions: run, check, test, build, publish
+# ==============================================================================
+
+cmdRun is formatTaskCommand "run" and "my_project"
+if cmdRun is not "otter run \"my_project\""
+    fail with "Expected formatted run command."
+.
+
+cmdCheck is formatTaskCommand "check" and "my_project"
+if cmdCheck is not "otter check \"my_project\""
+    fail with "Expected formatted check command."
+.
+
+cmdTest is formatTaskCommand "test" and "my_project"
+if cmdTest is not "otter test \"my_project\""
+    fail with "Expected formatted test command."
+.
+
+cmdBuild is formatTaskCommand "build" and "my_project"
+if cmdBuild is not "otter build \"my_project\""
+    fail with "Expected formatted build command."
+.
+
+cmdPublish is formatTaskCommand "publish" and "my_project"
+if cmdPublish is not "otter publish \"my_project\""
+    fail with "Expected formatted publish command."
+.
+
+# ==============================================================================
+# 2. Task model creation, initial state, and state transitions
+# ==============================================================================
+
+task is createProjectTask "test" and "my_project"
+if taskName of task is not "test my_project"
+    fail with "Expected task name to be 'test my_project'."
+.
+if action of task is not "test"
+    fail with "Expected task action to be 'test'."
+.
+if status of task is not "idle"
+    fail with "Expected initial task status to be 'idle'."
+.
+if isTaskRunning task
+    fail with "Expected idle task not to be running."
+.
+
+# Transition: idle -> running
+startTask task
+if status of task is not "running"
+    fail with "Expected task status to transition to 'running'."
+.
+if not isTaskRunning task
+    fail with "Expected isTaskRunning to return true for running task."
+.
+
+# ==============================================================================
+# 3. Output and error output accumulation
+# ==============================================================================
+
+recordTaskOutput task and "Line 1: starting test"
+recordTaskOutput task and "Line 2: 3 passed"
+out is output of task
+if out is not "Line 1: starting test\nLine 2: 3 passed\n"
+    fail with "Expected accumulated task stdout output."
+.
+
+recordTaskError task and "Warning: non-critical notice"
+err is errorOutput of task
+if err is not "Warning: non-critical notice\n"
+    fail with "Expected accumulated task stderr error output."
+.
+
+# ==============================================================================
+# 4. State transition: running -> succeeded (exit code 0)
+# ==============================================================================
+
+finishTask task and 0
+if status of task is not "succeeded"
+    fail with "Expected task status to transition to 'succeeded' on exit code 0."
+.
+if exitCode of task is not 0
+    fail with "Expected task exitCode 0."
+.
+if isTaskRunning task
+    fail with "Expected finished task not to be running."
+.
+
+statusSucceeded is formatTaskStatus task
+if statusSucceeded is not "Task test SUCCEEDED (exit code 0)"
+    fail with "Expected formatted succeeded status text."
+.
+
+# ==============================================================================
+# 5. State transition: running -> failed (nonzero exit code)
+# ==============================================================================
+
+failTask is createProjectTask "build" and "my_project"
+startTask failTask
+finishTask failTask and 2
+if status of failTask is not "failed"
+    fail with "Expected task status to transition to 'failed' on exit code 2."
+.
+if exitCode of failTask is not 2
+    fail with "Expected task exitCode 2."
+.
+
+statusFailed is formatTaskStatus failTask
+if statusFailed is not "Task build FAILED (exit code 2)"
+    fail with "Expected formatted failed status text."
+.
+
+# ==============================================================================
+# 6. State transition: running -> cancelled
+# ==============================================================================
+
+cancelableTask is createProjectTask "run" and "my_project"
+startTask cancelableTask
+cancelTask cancelableTask
+if status of cancelableTask is not "cancelled"
+    fail with "Expected task status to transition to 'cancelled'."
+.
+
+statusCancelled is formatTaskStatus cancelableTask
+if statusCancelled is not "Task run CANCELLED"
+    fail with "Expected formatted cancelled status text."
+.
+
+# ==============================================================================
+# 7. Prevention of simultaneous tasks logic verification
+# ==============================================================================
+
+activeTask is createProjectTask "check" and "my_project"
+startTask activeTask
+
+# Attempting to start another task while activeTask is running should be detected
+canStartSecond is true
+if isTaskRunning activeTask
+    canStartSecond is false
+.
+
+if canStartSecond
+    fail with "Expected prevention of simultaneous tasks while activeTask is running."
+.
+
+# Once active task finishes, next task can start
+finishTask activeTask and 0
+canStartAfterFinish is false
+if not isTaskRunning activeTask
+    canStartAfterFinish is true
+.
+
+if not canStartAfterFinish
+    fail with "Expected next task to be allowed after active task completes."
+.
+
+# ==============================================================================
+# 8. Real async project check task execution
+# ==============================================================================
+
+realTask is createProjectTask "check" and "."
+startTask realTask
+realCmd is commandText of realTask
+start command realCmd and call it checkJob
+
+on output from checkJob
+    chunk is received output
+    recordTaskOutput realTask and chunk
+.
+
+on error output from checkJob
+    chunk is received error output
+    recordTaskError realTask and chunk
+.
+
+on exit of checkJob
+    code is exit code of checkJob
+    finishTask realTask and code
+.
+
+# Wait for checkJob to finish
+realJobFinished is false
+repeat 200 times
+    if not realJobFinished
+        if realTask is not gone
+            st is status of realTask
+            if st is "succeeded"
+                realJobFinished is true
+            .
+            if st is "failed"
+                realJobFinished is true
+            .
+        .
+        if not realJobFinished
+            wait 50 milliseconds
+        .
+    .
+.
+
+if status of realTask is not "succeeded"
+    fail with "Expected real project check task to succeed."
+.
+
+if exitCode of realTask is not 0
+    fail with "Expected exit code 0 for check task on valid workspace."
+.
+
+say "task_runner_test: all tests passed."

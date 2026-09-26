@@ -1,0 +1,96 @@
+# src/workspace/project.ot - Project model and manifest parser/editor
+
+a Project has
+    path
+    name
+    version
+    target
+    archetype
+    entryPoint
+    rawManifest
+.
+
+to createProject projPath and projName and projVersion and projTarget and projArchetype
+    p is a Project with path projPath, name projName, version projVersion, target projTarget, archetype projArchetype, entryPoint "main.ot", rawManifest gone
+    return p
+.
+
+to createProjectFull projPath and projName and projVersion and projTarget and projArchetype and projEntryPoint and raw
+    p is a Project with path projPath, name projName, version projVersion, target projTarget, archetype projArchetype, entryPoint projEntryPoint, rawManifest raw
+    return p
+.
+
+to loadProjectManifest projectDir
+    manifestPath is projectDir and "/otter.json"
+    if projectDir ends with "/"
+        manifestPath is projectDir and "otter.json"
+    .
+    if projectDir ends with "\\"
+        manifestPath is projectDir and "otter.json"
+    .
+    if not file manifestPath exists
+        altPath is "OtterWorkspace/" and manifestPath
+        if file altPath exists
+            manifestPath is altPath
+        .
+        if not file manifestPath exists
+            return gone
+        .
+    .
+    read json from manifestPath into data
+
+    get "name" from data into projName
+    if projName is gone
+        projName is "Unnamed Project"
+    .
+    get "version" from data into projVersion
+    if projVersion is gone
+        projVersion is "0.0.0"
+    .
+    get "target" from data into projTarget
+    if projTarget is gone
+        projTarget is "desktop"
+    .
+    get "archetype" from data into projArchetype
+    if projArchetype is gone
+        projArchetype is projTarget
+    .
+    get "entryPoint" from data into projEntry
+    if projEntry is gone
+        projEntry is "main.ot"
+    .
+
+    proj is createProjectFull projectDir and projName and projVersion and projTarget and projArchetype and projEntry and data
+    return proj
+.
+
+to saveProjectSettings project and newName and newVersion and newTarget and newArchetype and newEntryPoint
+    raw is rawManifest of project
+    if raw is gone
+        raw is a thing with name newName, version newVersion, target newTarget, archetype newArchetype, entryPoint newEntryPoint
+        rawManifest of project is raw
+    otherwise
+        set "name" to newName in raw
+        set "version" to newVersion in raw
+        set "target" to newTarget in raw
+        set "archetype" to newArchetype in raw
+        set "entryPoint" to newEntryPoint in raw
+    .
+
+    name of project is newName
+    version of project is newVersion
+    target of project is newTarget
+    archetype of project is newArchetype
+    entryPoint of project is newEntryPoint
+
+    convert raw to json into jsonText
+    projDir is path of project
+    manifestPath is projDir and "/otter.json"
+    if projDir ends with "/"
+        manifestPath is projDir and "otter.json"
+    .
+    if projDir ends with "\\"
+        manifestPath is projDir and "otter.json"
+    .
+    write jsonText to manifestPath atomically
+.

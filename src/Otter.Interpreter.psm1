@@ -451,6 +451,8 @@ function Invoke-OtterWebSocketEventLoopStep {
 $script:OtterActiveNet = [System.Collections.Generic.List[object]]::new()
 $script:OtterActiveTcpServers = [System.Collections.Generic.List[OtterTcpServer]]::new()
 $script:OtterActiveHttpRequests = [System.Collections.Generic.List[OtterHttpRequest]]::new()
+$script:OtterActiveCommandJobs = [System.Collections.Generic.List[OtterCommandJob]]::new()
+$script:OtterCurrentJobContext = $null
 
 function Stop-OtterTcpServerInternal {
     param([Parameter(Mandatory)][OtterTcpServer]$Server)
@@ -781,6 +783,110 @@ function Test-OtterHttpActive {
     return $false
 }
 
+# D119-R2: True while a command job is running or has unhandled events
+function Test-OtterJobsActive {
+    foreach ($job in $script:OtterActiveCommandJobs) {
+        if ($null -ne $job.Tracker -and $job.Tracker.Queue.Count -gt 0) {
+            return $true
+        }
+        if ($job.EventQueue.Count -gt 0) {
+            return $true
+        }
+        if ($job.State -eq 'running' -and $job.Handlers.Count -gt 0) {
+            return $true
+        }
+    }
+    return $false
+}
+
+function Invoke-OtterJobEventLoopStep {
+    foreach ($job in @($script:OtterActiveCommandJobs)) {
+        if ($null -ne $job.Tracker) {
+            $item = $null
+            while ($job.Tracker.Queue.TryDequeue([ref]$item)) {
+                $evtKind = $item.Kind
+                $ctx = @{}
+                if ($evtKind -eq 'output') {
+                    $ctx = @{ Output = $item.Data }
+                } elseif ($evtKind -eq 'error output') {
+                    $ctx = @{ ErrorOutput = $item.Data }
+                } elseif ($evtKind -eq 'exit' -or $evtKind -eq 'complete') {
+                    $ec = [double]$item.ExitCode
+                    $ctx = @{ ExitCode = $ec }
+                    [System.Threading.Monitor]::Enter($job.LockObj)
+                    try {
+                        if ($job.State -ne 'cancelled') {
+                            $job.ExitCode = $ec
+                            if ($ec -eq 0) {
+                                $job.State = 'completed'
+                            } else {
+                                $job.State = 'failed'
+                            }
+                        }
+                    } finally {
+                        [System.Threading.Monitor]::Exit($job.LockObj)
+                    }
+                    if ($evtKind -eq 'exit') {
+                        $job.RetainedTerminalEvent = @{ EventKind = 'exit'; Context = $ctx }
+                    }
+                }
+
+                $matching = $null
+                [System.Threading.Monitor]::Enter($job.LockObj)
+                try {
+                    $matching = @($job.Handlers | Where-Object { $_.EventName -eq $evtKind })
+                } finally {
+                    [System.Threading.Monitor]::Exit($job.LockObj)
+                }
+
+                if ($null -ne $matching -and $matching.Count -gt 0) {
+                    foreach ($h in $matching) {
+                        if ($evtKind -in @('exit', 'complete', 'cancel')) {
+                            if ($h.ContainsKey('Fired') -and $h.Fired) { continue }
+                            $h.Fired = $true
+                        }
+                        $prevContext = $script:OtterCurrentJobContext
+                        $script:OtterCurrentJobContext = $ctx
+                        try {
+                            Invoke-OtterStatements -Statements $h.Body -Environment $h.Environment
+                        } finally {
+                            $script:OtterCurrentJobContext = $prevContext
+                        }
+                    }
+                }
+            }
+        }
+
+        $evt = $null
+        while ($job.EventQueue.TryDequeue([ref]$evt)) {
+            $eventKind = $evt.EventKind
+            $context = $evt.Context
+            $matching = $null
+            [System.Threading.Monitor]::Enter($job.LockObj)
+            try {
+                $matching = @($job.Handlers | Where-Object { $_.EventName -eq $eventKind })
+            } finally {
+                [System.Threading.Monitor]::Exit($job.LockObj)
+            }
+            if ($null -ne $matching -and $matching.Count -gt 0) {
+                foreach ($h in $matching) {
+                    if ($eventKind -in @('exit', 'complete', 'cancel')) {
+                        if ($h.ContainsKey('Fired') -and $h.Fired) { continue }
+                        $h.Fired = $true
+                    }
+                    $prevContext = $script:OtterCurrentJobContext
+                    $script:OtterCurrentJobContext = $context
+                    try {
+                        Invoke-OtterStatements -Statements $h.Body -Environment $h.Environment
+                    } finally {
+                        $script:OtterCurrentJobContext = $prevContext
+                    }
+                }
+            }
+        }
+    }
+}
+
 function Invoke-OtterEventLoop {
     while ($true) {
         $hasWatchers = ($script:OtterActiveWatchers.Count -gt 0)
@@ -800,6 +906,9 @@ function Invoke-OtterEventLoop {
         $hasHttp = Test-OtterHttpActive
         if ($hasHttp) { $hasSockets = $true }
 
+        $hasJobs = Test-OtterJobsActive
+        if ($hasJobs) { $hasSockets = $true }
+
         if (-not $hasWatchers -and -not $hasSockets) {
             break
         }
@@ -815,6 +924,7 @@ function Invoke-OtterEventLoop {
             Invoke-OtterWebSocketEventLoopStep
             Invoke-OtterNetEventLoopStep
             Invoke-OtterHttpEventLoopStep
+            Invoke-OtterJobEventLoopStep
         }
     }
 }
@@ -1099,6 +1209,8 @@ function Invoke-OtterProgram {
     $script:OtterActiveNet = [System.Collections.Generic.List[object]]::new()
     $script:OtterActiveTcpServers = [System.Collections.Generic.List[OtterTcpServer]]::new()
     $script:OtterActiveHttpRequests = [System.Collections.Generic.List[OtterHttpRequest]]::new()
+    $script:OtterActiveCommandJobs = [System.Collections.Generic.List[OtterCommandJob]]::new()
+    $script:OtterCurrentJobContext = $null
 
     try {
         Invoke-OtterStatements -Statements $Program.Statements -Environment $Environment
@@ -1133,6 +1245,11 @@ function Invoke-OtterProgram {
             if (-not $req.Disposed) {
                 try { $req.Cts.Dispose() } catch {}
                 $req.Disposed = $true
+            }
+        }
+        foreach ($job in @($script:OtterActiveCommandJobs)) {
+            if ($job.State -eq 'running') {
+                try { Stop-OtterCommandJob -Job $job } catch {}
             }
         }
     }
@@ -1437,10 +1554,43 @@ function Invoke-OtterStatement {
                     -Suggestion 'Compile the program with: otter web <file.ot>')
             }
             $target = Get-OtterValue -Expression $Statement.Target -Environment $Environment
+            if (Test-OtterCommandJob $target) {
+                $evtName = $Statement.EventName.ToLowerInvariant()
+                if ($evtName -notin @('output', 'error output', 'exit')) {
+                    throw (New-OtterRuntimeError `
+                        -Message "A command job only supports ""on output from"", ""on error output from"", or ""on exit of""." `
+                        -Line $Statement.Line)
+                }
+                $handler = @{
+                    EventName = $evtName
+                    Body = $Statement.Body
+                    Environment = $Environment
+                    Fired = $false
+                }
+                [System.Threading.Monitor]::Enter($target.LockObj)
+                try {
+                    $target.Handlers.Add($handler)
+                } finally {
+                    [System.Threading.Monitor]::Exit($target.LockObj)
+                }
+
+                # Retained terminal event delivery
+                if ($evtName -eq 'exit' -and $null -ne $target.RetainedTerminalEvent -and $target.RetainedTerminalEvent.EventKind -eq 'exit') {
+                    $handler.Fired = $true
+                    $prevContext = $script:OtterCurrentJobContext
+                    $script:OtterCurrentJobContext = $target.RetainedTerminalEvent.Context
+                    try {
+                        Invoke-OtterStatements -Statements $Statement.Body -Environment $Environment
+                    } finally {
+                        $script:OtterCurrentJobContext = $prevContext
+                    }
+                }
+                return
+            }
             if (-not (Test-OtterUiResource $target)) {
                 $shown = Get-OtterTypeName -Value $target
                 throw (New-OtterRuntimeError `
-                    -Message "I can only listen for an event on a UI resource, but this is $shown." `
+                    -Message "I can only listen for an event on a UI resource or command job, but this is $shown." `
                     -Line $Statement.Line)
             }
 
@@ -1807,9 +1957,13 @@ function Invoke-OtterStatement {
             return
         }
 
-        # cancel <request>                                            (D116B)
+        # cancel <request> or <job>                                   (D116B, D119-R2)
         'HttpCancel' {
             $req = Get-OtterValue -Expression $Statement.Request -Environment $Environment
+            if (Test-OtterCommandJob $req) {
+                Stop-OtterCommandJob -Job $req -Line $Statement.Line
+                return
+            }
             if ($null -eq $req -or -not (Test-OtterHttpRequest $req)) {
                 throw (New-OtterRuntimeError `
                     -Message 'cancel requires an HTTP request.' `
@@ -2195,6 +2349,7 @@ function Invoke-OtterStatement {
             $sw = [System.Diagnostics.Stopwatch]::StartNew()
             while ($sw.ElapsedMilliseconds -lt $targetMs) {
                 Invoke-OtterHttpEventLoopStep
+                Invoke-OtterJobEventLoopStep
                 $remaining = $targetMs - $sw.ElapsedMilliseconds
                 if ($remaining -gt 0) {
                     $sleepChunk = [Math]::Min([int]$remaining, 20)
@@ -2202,6 +2357,7 @@ function Invoke-OtterStatement {
                 }
             }
             Invoke-OtterHttpEventLoopStep
+            Invoke-OtterJobEventLoopStep
             return
         }
 
@@ -2741,6 +2897,45 @@ function Invoke-OtterStatement {
         # on connection to                                             (D113)
         'WebSocketEvent' {
             $ws = Get-OtterValue -Expression $Statement.Socket -Environment $Environment
+            if (Test-OtterCommandJob $ws) {
+                $evtKindStr = $Statement.EventKind.ToString()
+                $evtName = switch ($evtKindStr) {
+                    'Complete' { 'complete' }
+                    'Cancel'   { 'cancel' }
+                    'Error'    { 'error' }
+                    default    { $null }
+                }
+                if ($null -eq $evtName) {
+                    throw (New-OtterRuntimeError `
+                        -Message "A command job only supports ""on complete of"" or ""on cancel of""." `
+                        -Line $Statement.Line)
+                }
+                $handler = @{
+                    EventName = $evtName
+                    Body = $Statement.Body
+                    Environment = $Environment
+                    Fired = $false
+                }
+                [System.Threading.Monitor]::Enter($ws.LockObj)
+                try {
+                    $ws.Handlers.Add($handler)
+                } finally {
+                    [System.Threading.Monitor]::Exit($ws.LockObj)
+                }
+
+                # Retained terminal event delivery
+                if ($null -ne $ws.RetainedTerminalEvent -and ($ws.RetainedTerminalEvent.EventKind -eq $evtName -or ($evtName -eq 'complete' -and $ws.RetainedTerminalEvent.EventKind -eq 'exit'))) {
+                    $handler.Fired = $true
+                    $prevContext = $script:OtterCurrentJobContext
+                    $script:OtterCurrentJobContext = $ws.RetainedTerminalEvent.Context
+                    try {
+                        Invoke-OtterStatements -Statements $Statement.Body -Environment $Environment
+                    } finally {
+                        $script:OtterCurrentJobContext = $prevContext
+                    }
+                }
+                return
+            }
             if (Test-OtterHttpRequest $ws) {
                 $evtKindStr = $Statement.EventKind.ToString()
                 if ($evtKindStr -notin @('Complete', 'Error', 'Cancel')) {
@@ -2769,7 +2964,7 @@ function Invoke-OtterStatement {
             }
             if (-not ((Test-OtterWebSocket $ws) -or (Test-OtterTcp $ws) -or (Test-OtterUdp $ws) -or (Test-OtterTcpServer $ws))) {
                 throw (New-OtterRuntimeError `
-                    -Message "I can only listen for a network event on a websocket, tcp connection, tcp server, udp socket or http request, but this is $(Get-OtterTypeName -Value $ws)." `
+                    -Message "I can only listen for a network event on a websocket, tcp connection, tcp server, udp socket, http request or command job, but this is $(Get-OtterTypeName -Value $ws)." `
                     -Line $Statement.Line)
             }
             if (Test-OtterTcpServer $ws) {
@@ -2931,6 +3126,20 @@ function Invoke-OtterStatement {
             if ($Statement.ResultTarget) {
                 $Environment.Set($Statement.ResultTarget, $output)
             }
+            return
+        }
+
+        # start command <cmd> and call it <target>                      (D119-R2)
+        'StartCommand' {
+            $cmd = Get-OtterValue -Expression $Statement.CommandLine -Environment $Environment
+            if ($cmd -isnot [string]) {
+                throw (New-OtterRuntimeError `
+                    -Message "I need text for a command line to start, but this is $(Get-OtterTypeName -Value $cmd)." `
+                    -Line $Statement.Line)
+            }
+            $job = Start-OtterCommandJob -CommandLine $cmd -Line $Statement.Line
+            $script:OtterActiveCommandJobs.Add($job)
+            $Environment.Set($Statement.Target, $job)
             return
         }
 
@@ -4447,6 +4656,28 @@ function Get-OtterValue {
                 }
             }
 
+            # D119-R2: command job properties: state / exit code / output / error output / id / command
+            if (Test-OtterCommandJob $target) {
+                switch ($Expression.Property) {
+                    'state' { return $target.State }
+                    'exit code' {
+                        if ($null -ne $target.ExitCode) {
+                            return [double]$target.ExitCode
+                        }
+                        return $null
+                    }
+                    'output' { return $target.GetOutput() }
+                    'error output' { return $target.GetErrorOutput() }
+                    'id' { return $target.Id }
+                    'command' { return $target.CommandLine }
+                    default {
+                        throw (New-OtterRuntimeError `
+                            -Message "This command job has no property called ""$($Expression.Property)"". Try state, exit code, output, error output, id, or command." `
+                            -Line $Expression.Line)
+                    }
+                }
+            }
+
             # D116B: state / response / error / status of an HTTP request
             if (Test-OtterHttpRequest $target) {
                 switch ($Expression.Property) {
@@ -5011,12 +5242,21 @@ function Get-OtterValue {
             }
             return ($srv.State -eq $targetState)
         }
-        # D116B: request is pending/completed/failed/cancelled
+        # D116B: request is pending/completed/failed/cancelled; D119-R2: job is running/completed/failed/cancelled
         'HttpRequestIsState' {
             $req = Get-OtterValue -Expression $Expression.Request -Environment $Environment
+            if (Test-OtterCommandJob $req) {
+                $targetState = switch ($Expression.ReqState) {
+                    ([HttpRequestState]::Pending) { 'running' }
+                    ([HttpRequestState]::Completed) { 'completed' }
+                    ([HttpRequestState]::Failed) { 'failed' }
+                    ([HttpRequestState]::Cancelled) { 'cancelled' }
+                }
+                return ($req.State -eq $targetState)
+            }
             if (-not (Test-OtterHttpRequest $req)) {
                 throw (New-OtterRuntimeError `
-                    -Message "I can only check the state of an HTTP request, but got $(Get-OtterTypeName -Value $req)." `
+                    -Message "I can only check the state of an HTTP request or command job, but got $(Get-OtterTypeName -Value $req)." `
                     -Line $Expression.Line)
             }
             $targetState = switch ($Expression.ReqState) {
@@ -5026,6 +5266,28 @@ function Get-OtterValue {
                 ([HttpRequestState]::Cancelled) { 'cancelled' }
             }
             return ($req.State -eq $targetState)
+        }
+        # D119-R2: received output / received error output
+        'JobContext' {
+            if ($Expression.Field -eq 'output') {
+                if ($null -eq $script:OtterCurrentJobContext -or -not $script:OtterCurrentJobContext.ContainsKey('Output')) {
+                    throw (New-OtterRuntimeError `
+                        -Message '"received output" is only available inside "on output from ...".' `
+                        -Line $Expression.Line)
+                }
+                return $script:OtterCurrentJobContext.Output
+            }
+            if ($Expression.Field -eq 'error output') {
+                if ($null -eq $script:OtterCurrentJobContext -or -not $script:OtterCurrentJobContext.ContainsKey('ErrorOutput')) {
+                    throw (New-OtterRuntimeError `
+                        -Message '"received error output" is only available inside "on error output from ...".' `
+                        -Line $Expression.Line)
+                }
+                return $script:OtterCurrentJobContext.ErrorOutput
+            }
+            throw (New-OtterRuntimeError `
+                -Message "Unknown job context field '$($Expression.Field)'." `
+                -Line $Expression.Line)
         }
         # D116B: received response
         'ReceivedResponse' {
@@ -5763,6 +6025,7 @@ function Get-OtterTypeName {
     if (Test-OtterUdp $Value) { return 'a udp socket' }
     if (Test-OtterTcpServer $Value) { return 'a tcp server' }
     if (Test-OtterHttpRequest $Value) { return 'an http request' }
+    if (Test-OtterCommandJob $Value) { return 'a command job' }
     if (Test-OtterList $Value) { return 'a list' }
     if ($Value -is [double] -or $Value -is [int] -or $Value -is [long]) { return 'a number' }
     if ($Value -is [string]) { return 'some text' }

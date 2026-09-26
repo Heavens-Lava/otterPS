@@ -35,8 +35,8 @@ function Invoke-OtterWatchProgram {
         [string]$Source,
         [string]$SandboxDir,
         [scriptblock]$TriggerAction,
-        [int]$RegisterDelayMs = 1200,
-        [int]$TimeoutMs = 10000
+        [int]$RegisterDelayMs = 2500,
+        [int]$TimeoutMs = 12000
     )
 
     $otFile = Join-Path $SandboxDir 'program.ot'

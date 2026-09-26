@@ -1,0 +1,162 @@
+# tests/project_management_test.ot - Phase 3 Project Management test suite
+
+use "../src/workspace/project.ot"
+use "../src/workspace/project_store.ot"
+use "../src/workspace/project_service.ot"
+
+# ==============================================================================
+# 1. Project Manifest Loading and Field Inspection
+# ==============================================================================
+
+proj is loadProjectManifest "."
+if proj is gone
+    fail with "Expected loadProjectManifest to succeed on current workspace."
+.
+
+if name of proj is not "OtterWorkspace"
+    fail with "Expected name to be OtterWorkspace."
+.
+if target of proj is not "desktop"
+    fail with "Expected target to be desktop."
+.
+if archetype of proj is not "desktop"
+    fail with "Expected archetype to be desktop."
+.
+if entryPoint of proj is not "main.ot"
+    fail with "Expected entryPoint to be main.ot."
+.
+if rawManifest of proj is gone
+    fail with "Expected rawManifest to be preserved on loaded project."
+.
+
+# ==============================================================================
+# 2. Manifest Modification and Preservation of Unknown Fields
+# ==============================================================================
+
+testDir is "test_manifest_project"
+if file testDir exists
+    delete file testDir
+.
+
+# Create dummy manifest with known and unknown fields
+customManifestJson is "{\n  \"name\": \"CustomApp\",\n  \"version\": \"1.0.0\",\n  \"target\": \"console\",\n  \"archetype\": \"console\",\n  \"entryPoint\": \"main.ot\",\n  \"customKey\": \"customValue123\",\n  \"assets\": [\"assets/styles.css\"],\n  \"build\": {\"minify\": true}\n}"
+
+if not file testDir exists
+    create folder testDir
+.
+manifestFile is testDir and "/otter.json"
+write customManifestJson to manifestFile atomically
+
+# Load project
+customProj is loadProjectManifest testDir
+if customProj is gone
+    fail with "Expected custom project to load."
+.
+
+# Verify custom field exists in rawManifest
+rawBefore is rawManifest of customProj
+get "customKey" from rawBefore into customVal
+if customVal is not "customValue123"
+    fail with "Expected unknown customKey field to be preserved."
+.
+
+# Edit project settings and save atomically
+saveProjectSettings customProj and "CustomApp-Renamed" and "2.0.0" and "console" and "console" and "app.ot"
+
+# Reload and verify modifications + unknown field preservation
+reloadedProj is loadProjectManifest testDir
+if name of reloadedProj is not "CustomApp-Renamed"
+    fail with "Expected modified name to persist."
+.
+if version of reloadedProj is not "2.0.0"
+    fail with "Expected modified version to persist."
+.
+if entryPoint of reloadedProj is not "app.ot"
+    fail with "Expected modified entryPoint to persist."
+.
+
+rawAfter is rawManifest of reloadedProj
+get "customKey" from rawAfter into customValAfter
+if customValAfter is not "customValue123"
+    fail with "Expected unknown customKey to survive manifest modification and atomic save."
+.
+get "assets" from rawAfter into assetsAfter
+if length of assetsAfter is not 1
+    fail with "Expected unknown assets array to survive manifest save."
+.
+
+# Clean up test dir
+if file testDir exists
+    delete folder testDir
+.
+
+# ==============================================================================
+# 3. New Project Form Validation
+# ==============================================================================
+
+# Empty name rejection
+err1 is validateNewProjectForm "" and "c:/projects" and "console"
+if err1 is not "Project name cannot be empty."
+    fail with "Expected empty name to be rejected."
+.
+
+# Empty location rejection
+err2 is validateNewProjectForm "MyApp" and "" and "console"
+if err2 is not "Project location must be selected."
+    fail with "Expected empty location to be rejected."
+.
+
+# Unsupported archetype rejection
+err3 is validateNewProjectForm "MyApp" and "c:/projects" and "quantum"
+if err3 is not "Unsupported archetype: quantum. Supported: console, desktop, web, automation, game."
+    fail with "Expected unsupported archetype to be rejected."
+.
+
+# Valid archetypes accepted
+errConsole is validateNewProjectForm "MyApp" and "c:/projects" and "console"
+if errConsole is not gone
+    fail with "Expected console archetype to be valid."
+.
+errDesktop is validateNewProjectForm "MyApp" and "c:/projects" and "desktop"
+if errDesktop is not gone
+    fail with "Expected desktop archetype to be valid."
+.
+errWeb is validateNewProjectForm "MyApp" and "c:/projects" and "web"
+if errWeb is not gone
+    fail with "Expected web archetype to be valid."
+.
+errAuto is validateNewProjectForm "MyApp" and "c:/projects" and "automation"
+if errAuto is not gone
+    fail with "Expected automation archetype to be valid."
+.
+errGame is validateNewProjectForm "MyApp" and "c:/projects" and "game"
+if errGame is not gone
+    fail with "Expected game archetype to be valid."
+.
+
+# ==============================================================================
+# 4. New Project Command Construction
+# ==============================================================================
+
+cmdNew is formatNewProjectCommand "console" and "SampleApp"
+if cmdNew is not "otter new console \"SampleApp\""
+    fail with "Expected formatted new project command."
+.
+
+# ==============================================================================
+# 5. Recent Project Ordering and Selection
+# ==============================================================================
+
+recentsList are empty
+p1 is createProjectFull "path/p1" and "P1" and "1.0.0" and "console" and "console" and "main.ot" and gone
+p2 is createProjectFull "path/p2" and "P2" and "1.0.0" and "desktop" and "desktop" and "main.ot" and gone
+
+recentsList is addRecentProject p1 and recentsList
+recentsList is addRecentProject p2 and recentsList
+
+firstItem is first of recentsList
+if name of firstItem is not "P2"
+    fail with "Expected most recently added project to be at top of recents."
+.
+
+say "project_management_test: all tests passed."

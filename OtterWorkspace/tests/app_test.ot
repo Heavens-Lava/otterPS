@@ -1,0 +1,9 @@
+﻿# Tests for OtterWorkspace
+
+score is 100
+
+if score is not 100
+    fail with "Expected score to be 100."
+.
+
+say "All checks passed"

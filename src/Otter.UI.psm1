@@ -165,7 +165,11 @@ function Initialize-OtterWpfProvider {
 # own proving set is deliberately small - means adding one line here, not
 # redesigning anything.
 $script:OtterWpfKinds = @{
-    'window'   = { [System.Windows.Window]::new() }
+    'window'   = {
+        $win = [System.Windows.Window]::new()
+        Set-OtterUiDispatcher -Dispatcher $win.Dispatcher
+        $win
+    }
     # Controls default to content-sized widths in Otter.  WPF's default
     # Stretch behavior makes a simple button or label fill its parent, which
     # is surprising for beginner-facing programs; explicit width still wins.
@@ -1284,6 +1288,7 @@ function Show-OtterUiResource {
     }
 
     try {
+        Set-OtterUiDispatcher -Dispatcher $Resource.Native.Dispatcher
         [void]$Resource.Native.ShowDialog()
     }
     catch {

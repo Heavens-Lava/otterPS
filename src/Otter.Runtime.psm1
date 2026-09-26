@@ -489,6 +489,153 @@ function Test-OtterHttpRequest {
     return $Value -is [OtterHttpRequest]
 }
 
+if (-not ([System.Management.Automation.PSTypeName]'OtterJobEventItem').Type) {
+    Add-Type -TypeDefinition @'
+using System;
+using System.Diagnostics;
+using System.Collections.Concurrent;
+using System.Text;
+
+public class OtterJobEventItem {
+    public string Kind;
+    public string Data;
+    public double ExitCode;
+    public OtterJobEventItem(string kind, string data, double exitCode) {
+        Kind = kind;
+        Data = data;
+        ExitCode = exitCode;
+    }
+}
+
+public class OtterProcessTracker {
+    public Process Process;
+    public ConcurrentQueue<OtterJobEventItem> Queue = new ConcurrentQueue<OtterJobEventItem>();
+    public StringBuilder OutputBuffer = new StringBuilder();
+    public StringBuilder ErrorBuffer = new StringBuilder();
+    public object LockObj = new object();
+    public bool Exited = false;
+    public double ExitCode = 0;
+
+    public void Start(ProcessStartInfo info) {
+        Process = new Process();
+        Process.StartInfo = info;
+        Process.EnableRaisingEvents = true;
+
+        Process.OutputDataReceived += (s, e) => {
+            if (e.Data != null) {
+                lock (LockObj) {
+                    OutputBuffer.AppendLine(e.Data);
+                }
+                Queue.Enqueue(new OtterJobEventItem("output", e.Data, 0));
+            }
+        };
+
+        Process.ErrorDataReceived += (s, e) => {
+            if (e.Data != null) {
+                lock (LockObj) {
+                    ErrorBuffer.AppendLine(e.Data);
+                }
+                Queue.Enqueue(new OtterJobEventItem("error output", e.Data, 0));
+            }
+        };
+
+        Process.Exited += (s, e) => {
+            double ec = 0;
+            try {
+                Process.WaitForExit();
+                ec = (double)Process.ExitCode;
+            } catch {}
+            lock (LockObj) {
+                Exited = true;
+                ExitCode = ec;
+            }
+            Queue.Enqueue(new OtterJobEventItem("exit", null, ec));
+            if (ec == 0) {
+                Queue.Enqueue(new OtterJobEventItem("complete", null, ec));
+            }
+        };
+
+        Process.Start();
+        Process.BeginOutputReadLine();
+        Process.BeginErrorReadLine();
+    }
+
+    public string GetOutput() {
+        lock (LockObj) {
+            return OutputBuffer.ToString().TrimEnd();
+        }
+    }
+
+    public string GetErrorOutput() {
+        lock (LockObj) {
+            return ErrorBuffer.ToString().TrimEnd();
+        }
+    }
+}
+'@
+}
+
+# D119-R2: Asynchronous process command job handle
+class OtterCommandJob {
+    [string]$Id
+    [string]$CommandLine
+    [string]$State                # 'running', 'completed', 'failed', 'cancelled'
+    [object]$ExitCode             # double or $null
+    [System.Text.StringBuilder]$OutputBuffer
+    [System.Text.StringBuilder]$ErrorBuffer
+    [System.Diagnostics.Process]$Process
+    [object]$Tracker
+    [System.Collections.Generic.List[hashtable]]$Handlers
+    [System.Collections.Concurrent.ConcurrentQueue[hashtable]]$EventQueue
+    [hashtable]$RetainedTerminalEvent
+    [bool]$TerminalEventFired
+    [bool]$Disposed
+    [object]$LockObj
+
+    OtterCommandJob([string]$commandLine, [string]$id) {
+        $this.Id = $id
+        $this.CommandLine = $commandLine
+        $this.State = 'running'
+        $this.ExitCode = $null
+        $this.OutputBuffer = [System.Text.StringBuilder]::new()
+        $this.ErrorBuffer = [System.Text.StringBuilder]::new()
+        $this.Process = $null
+        $this.Tracker = $null
+        $this.Handlers = [System.Collections.Generic.List[hashtable]]::new()
+        $this.EventQueue = [System.Collections.Concurrent.ConcurrentQueue[hashtable]]::new()
+        $this.RetainedTerminalEvent = $null
+        $this.TerminalEventFired = $false
+        $this.Disposed = $false
+        $this.LockObj = [object]::new()
+    }
+
+    [string] GetOutput() {
+        if ($null -ne $this.Tracker) { return $this.Tracker.GetOutput() }
+        return $this.OutputBuffer.ToString().TrimEnd()
+    }
+
+    [string] GetErrorOutput() {
+        if ($null -ne $this.Tracker) { return $this.Tracker.GetErrorOutput() }
+        return $this.ErrorBuffer.ToString().TrimEnd()
+    }
+}
+
+function Test-OtterCommandJob {
+    param([object]$Value)
+    return $Value -is [OtterCommandJob]
+}
+
+$script:OtterUiDispatcher = $null
+
+function Set-OtterUiDispatcher {
+    param([object]$Dispatcher)
+    $script:OtterUiDispatcher = $Dispatcher
+}
+
+function Get-OtterUiDispatcher {
+    return $script:OtterUiDispatcher
+}
+
 function New-OtterToday {
     return [OtterDate]::new([datetime]::Now, $false)
 }
@@ -709,6 +856,10 @@ function Format-OtterValue {
         return "<an http request to $($Value.Url)>"
     }
 
+    if (Test-OtterCommandJob $Value) {
+        return "<a command job: $($Value.CommandLine)>"
+    }
+
     # Printing a function is almost always a mistake - a forgotten argument,
     # or a call that never happened. Say something a beginner can act on
     # rather than leaking the PowerShell class name.
@@ -912,4 +1063,4 @@ Export-ModuleMember -Function `
     New-OtterToday, New-OtterNow, Format-OtterValue, Test-OtterTruthy, `
     Test-OtterNumeric, ConvertTo-OtterNumber, Test-OtterEqual, ConvertFrom-OtterInput, `
     Test-OtterBytes, Test-OtterFileWatcher, Test-OtterXml, Test-OtterWebSocket, Test-OtterTcp, Test-OtterUdp, Test-OtterTcpServer, `
-    Test-OtterHttpRequest
+    Test-OtterHttpRequest, Test-OtterCommandJob, Set-OtterUiDispatcher, Get-OtterUiDispatcher

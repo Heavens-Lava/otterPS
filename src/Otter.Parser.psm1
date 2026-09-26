@@ -635,6 +635,23 @@ function Read-OtterValue {
         [void](Read-OtterToken) # response
         return [ReceivedResponseExpr]::new($token.Line)
     }
+    # D119-R2: received output / received error output
+    if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -eq 'received' -and
+        ($script:Position + 1) -lt $script:Tokens.Count -and $script:Tokens[$script:Position + 1].Kind -eq [TokenKind]::Identifier -and
+        $script:Tokens[$script:Position + 1].Text -eq 'output') {
+        [void](Read-OtterToken) # received
+        [void](Read-OtterToken) # output
+        return [JobContextExpr]::new('output', $token.Line)
+    }
+    if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -eq 'received' -and
+        ($script:Position + 2) -lt $script:Tokens.Count -and
+        ($script:Tokens[$script:Position + 1].Kind -eq [TokenKind]::Problem -or $script:Tokens[$script:Position + 1].Text -eq 'error') -and
+        $script:Tokens[$script:Position + 2].Kind -eq [TokenKind]::Identifier -and $script:Tokens[$script:Position + 2].Text -eq 'output') {
+        [void](Read-OtterToken) # received
+        [void](Read-OtterToken) # error
+        [void](Read-OtterToken) # output
+        return [JobContextExpr]::new('error output', $token.Line)
+    }
     # close was clean (check before close code/reason because it has 3 words)
     if ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -eq 'close' -and
         ($script:Position + 2) -lt $script:Tokens.Count -and
@@ -1142,7 +1159,7 @@ function Read-OtterConditionPrimary {
         $script:Tokens[$script:Position + 1].Kind -eq [TokenKind]::Identifier) {
         $httpStateText = $script:Tokens[$script:Position + 1].Text
         $httpReqState = $null
-        if ($httpStateText -eq 'pending') { $httpReqState = [HttpRequestState]::Pending }
+        if ($httpStateText -in @('pending', 'running')) { $httpReqState = [HttpRequestState]::Pending }
         elseif ($httpStateText -eq 'completed') { $httpReqState = [HttpRequestState]::Completed }
         elseif ($httpStateText -eq 'failed') { $httpReqState = [HttpRequestState]::Failed }
         elseif ($httpStateText -eq 'cancelled') { $httpReqState = [HttpRequestState]::Cancelled }
@@ -2876,6 +2893,30 @@ function Read-OtterStatement {
                 $socket = Read-OtterValue
                 return [NetworkEventStmt]::new([NetworkEventKind]::Connect, $socket, (Read-OtterBlock), $start.Line)
             }
+            # D119-R2: on output from <job>
+            if ($stageTok.Text -eq 'output' -and (Test-OtterTokenOffsetKind 1 ([TokenKind]::From))) {
+                [void](Read-OtterToken) # output
+                [void](Read-OtterToken) # from
+                $job = Read-OtterValue
+                return [WhenStmt]::new($job, 'output', (Read-OtterBlock), $start.Line)
+            }
+            # D119-R2: on error output from <job>
+            if (($stageTok.Kind -eq [TokenKind]::Problem -or $stageTok.Text -eq 'error') -and
+                ($script:Position + 1) -lt $script:Tokens.Count -and $script:Tokens[$script:Position + 1].Text -eq 'output' -and
+                ($script:Position + 2) -lt $script:Tokens.Count -and $script:Tokens[$script:Position + 2].Kind -eq [TokenKind]::From) {
+                [void](Read-OtterToken) # error
+                [void](Read-OtterToken) # output
+                [void](Read-OtterToken) # from
+                $job = Read-OtterValue
+                return [WhenStmt]::new($job, 'error output', (Read-OtterBlock), $start.Line)
+            }
+            # D119-R2: on exit of <job>
+            if ($stageTok.Text -eq 'exit' -and (Test-OtterTokenOffsetKind 1 ([TokenKind]::Of))) {
+                [void](Read-OtterToken) # exit
+                [void](Read-OtterToken) # of
+                $job = Read-OtterValue
+                return [WhenStmt]::new($job, 'exit', (Read-OtterBlock), $start.Line)
+            }
             # D107/D108: on data from <connection or udp socket>
             if ($stageTok.Text -eq 'data' -and (Test-OtterTokenOffsetKind 1 ([TokenKind]::From))) {
                 [void](Read-OtterToken) # data
@@ -3141,6 +3182,18 @@ function Read-OtterStatement {
             }
 
             [void](Read-OtterToken)
+            # D119-R2: start command <expr> and call it <target>
+            $maybeCommand = Get-OtterCurrentToken
+            if ($maybeCommand.Kind -eq [TokenKind]::Command -or ($maybeCommand.Kind -eq [TokenKind]::Identifier -and $maybeCommand.Text -eq 'command')) {
+                [void](Read-OtterToken)
+                $cmdExpr = Read-OtterValue
+                [void](Assert-OtterTokenKind ([TokenKind]::And) 'I expected "and call it" and a variable name.')
+                [void](Assert-OtterTokenKind ([TokenKind]::Call) 'I expected "call" after "and".')
+                [void](Assert-OtterTokenKind ([TokenKind]::It) 'I expected "it" after "call".')
+                $targetTok = Read-OtterVariableName 'I expected a variable name after "call it".'
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the start command statement to end here.')
+                return [StartCommandStmt]::new($cmdExpr, $targetTok.Text, $start.Line)
+            }
             # D101: start timer workTimer - CREATES and starts a new named
             # timer resource bound to the target name, unlike the existing
             # `start server`/`start api` below (which starts an ALREADY-

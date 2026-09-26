@@ -1,0 +1,148 @@
+# tests/explorer_test.ot - Project Explorer file discovery, filtering, metadata, search, and text/binary inspection
+
+use "../src/workspace/explorer_service.ot"
+
+# 1. Extension & Category Classification
+if not isTextExtension ".ot"
+    fail with "Expected .ot to be recognized as text extension."
+.
+if not isTextExtension ".json"
+    fail with "Expected .json to be recognized as text extension."
+.
+if isTextExtension ".png"
+    fail with "Expected .png to not be recognized as text extension."
+.
+if isTextExtension ".exe"
+    fail with "Expected .exe to not be recognized as text extension."
+.
+
+if getFileCategory ".ot" is not "source"
+    fail with "Expected .ot category to be source."
+.
+if getFileCategory ".json" is not "config"
+    fail with "Expected .json category to be config."
+.
+if getFileCategory ".css" is not "style"
+    fail with "Expected .css category to be style."
+.
+if getFileCategory ".png" is not "asset"
+    fail with "Expected .png category to be asset."
+.
+if getFileCategory ".zip" is not "archive"
+    fail with "Expected .zip category to be archive."
+.
+
+# 2. Ignored Path Filtering
+if not isIgnoredPath "c:/app/dist/main.js"
+    fail with "Expected dist path with forward slash to be ignored."
+.
+if not isIgnoredPath "c:\\app\\dist\\main.js"
+    fail with "Expected dist path with backslash to be ignored."
+.
+if not isIgnoredPath "c:/app/publish/app.exe"
+    fail with "Expected publish path to be ignored."
+.
+if not isIgnoredPath "c:/app/.git/HEAD"
+    fail with "Expected .git path to be ignored."
+.
+if isIgnoredPath "c:/app/src/main.ot"
+    fail with "Expected src/main.ot to not be ignored."
+.
+
+# 3. Project File Enumeration
+targetDir is "."
+sampleFiles is getProjectFiles "OtterWorkspace"
+if length of sampleFiles is not 0
+    targetDir is "OtterWorkspace"
+.
+
+items is getProjectFiles targetDir
+if length of items is 0
+    fail with "Expected getProjectFiles to return files for current workspace."
+.
+
+hasMain is false
+hasOtterJson is false
+hasDistFile is false
+
+for each itm in items
+    itemName is name of itm
+    if itemName is "main.ot"
+        hasMain is true
+        if not isText of itm
+            fail with "Expected main.ot to be marked as text."
+        .
+        if category of itm is not "source"
+            fail with "Expected main.ot category to be source."
+        .
+    .
+    if itemName is "otter.json"
+        hasOtterJson is true
+        if category of itm is not "config"
+            fail with "Expected otter.json category to be config."
+        .
+    .
+    itemPath is fullPath of itm
+    if itemPath contains "/dist/"
+        hasDistFile is true
+    .
+    if itemPath contains "\\dist\\"
+        hasDistFile is true
+    .
+.
+
+if not hasMain
+    fail with "Expected main.ot to be discovered in project items."
+.
+if not hasOtterJson
+    fail with "Expected otter.json to be discovered in project items."
+.
+if hasDistFile
+    fail with "Expected files in dist/ to be filtered out."
+.
+
+# 4. Search in Project
+searchRes is searchInProject targetDir and "explorer_service"
+if length of searchRes is 0
+    fail with "Expected searchInProject to find explorer_service in workspace."
+.
+
+firstRes is first of searchRes
+if name of firstRes is gone
+    fail with "Expected SearchResult to have a name."
+.
+if snippet of firstRes is gone
+    fail with "Expected SearchResult to have a snippet."
+.
+
+# Empty search query
+emptyRes is searchInProject targetDir and ""
+if length of emptyRes is not 0
+    fail with "Expected empty query to return 0 search results."
+.
+
+# Query not present in project
+partA is "zzz_unmatched_"
+partB is "needle_12345"
+fullQuery is partA and partB
+noRes is searchInProject targetDir and fullQuery
+if length of noRes is not 0
+    fail with "Expected non-existent query to return 0 search results."
+.
+
+# 5. Inspect File Content
+otterJsonPath is "otter.json"
+if targetDir is "OtterWorkspace"
+    otterJsonPath is "OtterWorkspace/otter.json"
+.
+otterJsonContent is inspectProjectFile otterJsonPath
+if not otterJsonContent contains "OtterWorkspace"
+    fail with "Expected inspectProjectFile for otter.json to contain OtterWorkspace."
+.
+
+missingContent is inspectProjectFile "non_existent_file_abc.txt"
+if not missingContent contains "Could not read file"
+    fail with "Expected inspectProjectFile to report missing file error."
+.
+
+say "explorer_test: all tests passed."

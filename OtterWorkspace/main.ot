@@ -1,0 +1,5 @@
+# main.ot - OtterWorkspace Application Entry Point
+
+use "src/ui/shell.ot"
+
+launchShell

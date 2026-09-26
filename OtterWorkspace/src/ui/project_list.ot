@@ -1,0 +1,25 @@
+# src/ui/project_list.ot - Project formatting and display helpers
+
+use "../workspace/project.ot"
+
+to formatProjectSummary proj
+    s is name of proj and " (v" and version of proj and ", " and target of proj and ")"
+    return s
+.
+
+to formatProjectDetails proj
+    d is "Name: " and name of proj and "\nVersion: " and version of proj and "\nTarget: " and target of proj and "\nArchetype: " and archetype of proj and "\nPath: " and path of proj
+    return d
+.
+
+to formatRecentList projects
+    if length of projects is 0
+        return "(No recent projects)"
+    .
+    res is ""
+    for each p in projects
+        entry is "• " and name of p and " (" and target of p and ") - " and path of p and "\n"
+        res is res and entry
+    .
+    return res
+.

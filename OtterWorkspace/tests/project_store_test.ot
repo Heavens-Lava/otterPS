@@ -1,0 +1,65 @@
+# tests/project_store_test.ot - Recent project store tests
+
+use "../src/workspace/project.ot"
+use "../src/workspace/project_store.ot"
+
+testStorePath is "test_recents.json"
+
+# Clean up before testing if left over
+if file testStorePath exists
+    delete file testStorePath
+.
+
+# 1. Missing store returns empty list
+recents is getRecentProjects testStorePath
+if length of recents is not 0
+    fail with "Expected missing store to return empty list."
+.
+
+# 2. Save and load round trip
+p1 is createProject "c:/test/proj1" and "ProjOne" and "1.0.0" and "desktop" and "desktop"
+p2 is createProject "c:/test/proj2" and "ProjTwo" and "2.0.0" and "console" and "console"
+
+toSave are empty
+toSave is addRecentProject p1 and toSave
+toSave is addRecentProject p2 and toSave
+
+if length of toSave is not 2
+    fail with "Expected 2 projects in list."
+.
+
+saveRecentProjects toSave and testStorePath
+
+if not file testStorePath exists
+    fail with "Expected store file to be created."
+.
+
+loaded is getRecentProjects testStorePath
+if length of loaded is not 2
+    fail with "Expected 2 projects loaded from store."
+.
+
+firstLoaded is first of loaded
+if name of firstLoaded is not "ProjTwo"
+    fail with "Expected ProjTwo to be first in loaded recents."
+.
+
+# 3. Duplicate recent project handling
+p1Updated is createProject "c:/test/proj1" and "ProjOne-Updated" and "1.0.1" and "desktop" and "desktop"
+deduped is addRecentProject p1Updated and loaded
+
+if length of deduped is not 2
+    fail with "Expected deduped list to still have 2 items."
+.
+
+topItem is first of deduped
+if name of topItem is not "ProjOne-Updated"
+    fail with "Expected updated project to be promoted to top of recents."
+.
+
+# Clean up
+if file testStorePath exists
+    delete file testStorePath
+.
+
+say "project_store_test: all tests passed."

@@ -1,0 +1,72 @@
+# tests/project_service_test.ot - Project service and manifest tests
+
+use "../src/workspace/project.ot"
+use "../src/workspace/project_service.ot"
+
+# 1. Load valid project manifest
+proj is loadProjectManifest "."
+if proj is gone
+    fail with "Expected loadProjectManifest to succeed on current workspace directory."
+.
+
+if name of proj is not "OtterWorkspace"
+    fail with "Expected project name to be OtterWorkspace."
+.
+
+if target of proj is not "desktop"
+    fail with "Expected project target to be desktop."
+.
+
+# 2. Reject missing manifest
+missingProj is loadProjectManifest "non_existent_folder_xyz_123"
+if missingProj is not gone
+    fail with "Expected loadProjectManifest to return gone for non-existent path."
+.
+
+# 3. Check service success
+checkSuccess is runProjectCheck "."
+if not success of checkSuccess
+    fail with "Expected check to succeed on valid project."
+.
+
+if exitCode of checkSuccess is not 0
+    fail with "Expected exit code 0 for valid project."
+.
+
+# 4. Check service failure on invalid target
+checkFail is runProjectCheck "non_existent_folder_xyz_123"
+if success of checkFail
+    fail with "Expected check to fail on invalid directory."
+.
+
+if exitCode of checkFail is 0
+    fail with "Expected non-zero exit code for invalid directory."
+.
+
+# 5. UI Project list formatting helpers
+use "../src/ui/project_list.ot"
+
+summaryText is formatProjectSummary proj
+if summaryText is not "OtterWorkspace (v0.1.0, desktop)"
+    fail with "Expected formatted project summary."
+.
+
+detailsText is formatProjectDetails proj
+if detailsText is not "Name: OtterWorkspace\nVersion: 0.1.0\nTarget: desktop\nArchetype: desktop\nPath: ."
+    fail with "Expected formatted project details."
+.
+
+emptyRecents are empty
+recentsTextEmpty is formatRecentList emptyRecents
+if recentsTextEmpty is not "(No recent projects)"
+    fail with "Expected empty recent projects label."
+.
+
+recentsList are empty
+add proj to recentsList
+recentsTextPopulated is formatRecentList recentsList
+if length of recentsTextPopulated is 0
+    fail with "Expected non-empty formatted recent projects list."
+.
+
+say "project_service_test: all tests passed."
