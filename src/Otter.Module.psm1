@@ -187,10 +187,14 @@ function Resolve-OtterModuleSourceInternal {
             $importTarget = [System.IO.Path]::Combine($dir, $importRel)
             $canonicalImportTarget = Get-OtterCanonicalPath -Path $importTarget
 
+            # Case first: a name that differs only in case must give the same
+            # diagnostic on every host. On Linux such a file does not exist at
+            # all, so the generic "cannot find" check below would otherwise
+            # answer differently than on Windows and macOS.
+            Assert-OtterModulePathCase -BaseDirectory $dir -ImportPath $importRel -Line $localLineNum -SourceLine $line
             if (-not (Test-Path -LiteralPath $canonicalImportTarget)) {
                 throw [OtterError]::new("Cannot find imported Otter file `"$importRel`" at `"$importTarget`".", $localLineNum, 'parser', 1, $line, "Check that `"$importRel`" exists in `"$dir`".")
             }
-            Assert-OtterModulePathCase -BaseDirectory $dir -ImportPath $importRel -Line $localLineNum -SourceLine $line
 
             # Emit comment header for import
             $importHeader = "# --- imported from $importRel ---"
