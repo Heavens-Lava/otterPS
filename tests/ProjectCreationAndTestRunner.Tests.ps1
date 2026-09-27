@@ -258,8 +258,21 @@ result is
     if (($noTestOut -join "`n") -notmatch 'No tests found') { throw "Test 16 failed: Expected 'No tests found'. Output: $noTestOut" }
     Write-Output '  pass  CLI: project with no tests reports `No tests found.` and exits 0'
 
+
+    # Test 17: the test runner launches tests with the PowerShell that is running
+    # Otter (never a hard-coded powershell.exe, which exists only on Windows).
+    $projectModule = Get-Module -Name 'Otter.Project'
+    $testHost = & $projectModule { Get-OtterProjectPowerShellHost }
+    if (-not (Test-Path -LiteralPath $testHost -PathType Leaf)) { throw "Test 17 failed: test host '$testHost' does not exist." }
+    $currentHost = (Get-Process -Id $PID).Path
+    if ($testHost -ne $currentHost) { throw "Test 17 failed: expected the running host '$currentHost', got '$testHost'." }
+    $onWindows = & $projectModule { Test-OtterProjectWindowsHost }
+    $expectWindows = ($PSVersionTable.PSEdition -ne 'Core') -or [bool](Get-Variable -Name IsWindows -ValueOnly -ErrorAction SilentlyContinue)
+    if ($onWindows -ne $expectWindows) { throw "Test 17 failed: Windows detection disagrees with the platform." }
+    Write-Output '  pass  test runner launches tests with the running PowerShell host, not a hard-coded powershell.exe'
+
 } finally {
     Remove-Item -LiteralPath $testTmp -Recurse -Force -ErrorAction SilentlyContinue
 }
 
-Write-Output "`nAll Otter project creation and test runner tests passed (16/16)."
+Write-Output "`nAll Otter project creation and test runner tests passed (17/17)."

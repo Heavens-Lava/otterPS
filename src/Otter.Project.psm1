@@ -445,6 +445,32 @@ function Get-OtterProjectTestFiles {
     return @($files | ForEach-Object { $_.FullName })
 }
 
+
+# Tests run in a child process of the same PowerShell that is running Otter, so
+# `otter test` behaves the same on Windows PowerShell 5.1 and on PowerShell 7 on
+# Windows, Linux and macOS. `powershell.exe` exists only on Windows.
+function Test-OtterProjectWindowsHost {
+    if ($PSVersionTable.PSEdition -ne 'Core') { return $true }
+    return [bool](Get-Variable -Name IsWindows -ValueOnly -ErrorAction SilentlyContinue)
+}
+
+function Get-OtterProjectPowerShellHost {
+    $current = (Get-Process -Id $PID -ErrorAction SilentlyContinue).Path
+    if ($current -and (Test-Path -LiteralPath $current -PathType Leaf) -and ([System.IO.Path]::GetFileNameWithoutExtension($current) -match '^(powershell|pwsh)$')) {
+        return $current
+    }
+    if ($PSHOME) {
+        foreach ($name in @('powershell.exe', 'pwsh.exe', 'pwsh')) {
+            $candidate = Join-Path $PSHOME $name
+            if (Test-Path -LiteralPath $candidate -PathType Leaf) { return $candidate }
+        }
+    }
+    $found = Get-Command -Name 'pwsh', 'powershell' -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($found -and $found.Path) { return $found.Path }
+    if (Test-OtterProjectWindowsHost) { return 'powershell.exe' }
+    return 'pwsh'
+}
+
 function Invoke-OtterProjectTests {
     param(
         [Parameter(Mandatory = $false)]
@@ -494,12 +520,10 @@ function Invoke-OtterProjectTests {
         $relPath = $relPath -replace '\\', '/'
 
         # Execute test in isolated PowerShell process
-        $psExe = if ($PSHOME -and (Test-Path -LiteralPath (Join-Path $PSHOME 'powershell.exe') -PathType Leaf)) {
-            Join-Path $PSHOME 'powershell.exe'
-        } else {
-            'powershell.exe'
-        }
-        $output = & $psExe -NoProfile -ExecutionPolicy Bypass -File $OtterPs1Path run $file 2>&1
+        $psExe = Get-OtterProjectPowerShellHost
+        $hostArguments = @('-NoProfile')
+        if (Test-OtterProjectWindowsHost) { $hostArguments += @('-ExecutionPolicy', 'Bypass') }
+        $output = & $psExe @hostArguments -File $OtterPs1Path run $file 2>&1
         $code = $LASTEXITCODE
 
         if ($code -eq 0) {
