@@ -64,7 +64,7 @@ $script:OtterStatementStarterKinds = @(
     [TokenKind]::Say, [TokenKind]::If, [TokenKind]::While, [TokenKind]::Repeat,
     [TokenKind]::Count, [TokenKind]::ForEach, [TokenKind]::Set, [TokenKind]::Make,
     [TokenKind]::Write, [TokenKind]::Get, [TokenKind]::Post, [TokenKind]::Put,
-    [TokenKind]::Delete, [TokenKind]::Start, [TokenKind]::Cancel, [TokenKind]::Return,
+    [TokenKind]::Delete, [TokenKind]::Start, [TokenKind]::Return,
     [TokenKind]::On, [TokenKind]::To, [TokenKind]::Use, [TokenKind]::Try,
     [TokenKind]::Log, [TokenKind]::Warn, [TokenKind]::Problem, [TokenKind]::Connect,
     [TokenKind]::Disconnect, [TokenKind]::Query, [TokenKind]::Execute,
