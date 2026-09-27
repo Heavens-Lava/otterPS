@@ -1,0 +1,24 @@
+# Benchmark: event dispatch
+# Workload: one program sends 100 UDP datagrams to itself over loopback and
+# counts the "on data" handler calls until all have arrived. Measures the event
+# loop's dispatch path (poll, receive, run handler). Uses loopback port 47391.
+
+open udp on port 47391 and call it receiver
+open udp and call it sender
+received is 0
+total is 100
+data is bytes from text "x"
+count from 1 to total as n
+    send data through sender
+        to "127.0.0.1"
+        on port 47391
+.
+
+on data from receiver
+    received is received plus 1
+    if received is total
+        say "event dispatch received" received
+        close udp receiver
+        close udp sender
+    .
+.

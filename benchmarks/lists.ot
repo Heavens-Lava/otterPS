@@ -1,0 +1,28 @@
+# Benchmark: lists
+# Workload: build a list of 300 numbers, search it, remove from it, sort and
+# reverse it, and total it with for each. Measures list operations.
+
+numbers are empty
+count from 1 to 300 as n
+    add n to numbers
+.
+
+found is 0
+count from 1 to 100 as n
+    if numbers contains n
+        found is found plus 1
+    .
+.
+
+count from 1 to 50 as n
+    remove n from numbers
+.
+
+sort numbers
+reverse numbers
+
+sum is 0
+for each value in numbers
+    sum is sum plus value
+.
+say "lists" length of numbers found sum

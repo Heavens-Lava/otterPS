@@ -1,0 +1,16 @@
+# Benchmark: strings
+# Workload: 100 rounds of building, changing case, replacing, splitting and
+# joining text. Measures text operations.
+
+message is "Hello Otter benchmark"
+built is ""
+count from 1 to 100 as n
+    upper is uppercase of message
+    lower is lowercase of message
+    replaced is message
+    replace "Otter" with "World" in replaced
+    split replaced by " " into parts
+    join parts with "-" into joined
+    built is joined
+.
+say "strings" built length of built

@@ -1,0 +1,12 @@
+# Benchmark: json
+# Workload: 60 round trips of an object through JSON text - convert to json,
+# then parse it back and read fields. Measures JSON encode and decode.
+
+person has name "Jeff", age 40, city "Sydney"
+checksum is 0
+count from 1 to 60 as n
+    convert person to json into jsonText
+    convert jsonText from json into rebuilt
+    checksum is checksum plus age of rebuilt
+.
+say "json" checksum

@@ -1,0 +1,20 @@
+# Benchmark: objects
+# Workload: one instance of a custom type and one plain thing, each read and
+# written 300 times. Measures property access and property assignment.
+# (A typed thing cannot be re-declared under the same name, so the workload
+# reuses one instance rather than creating instances in a loop.)
+
+a Person has
+    name
+    age
+
+jeff is a Person with name "Jeff", age 0
+thing has counter 0, label "bench"
+
+count from 1 to 300 as n
+    current is age of jeff
+    age of jeff is current plus 1
+    other is counter of thing
+    counter of thing is other plus 2
+.
+say "objects" age of jeff counter of thing

@@ -1,0 +1,13 @@
+# Benchmark: arithmetic
+# Workload: 400 rounds of chained arithmetic (plus, minus, times, divided by)
+# on numbers. Measures expression evaluation and assignment, nothing else.
+
+total is 0
+count from 1 to 400 as n
+    a1 is n plus 7
+    a2 is a1 times 3
+    a3 is a2 minus n
+    a4 is a3 divided by 2
+    total is total plus a4
+.
+say "arithmetic total" total

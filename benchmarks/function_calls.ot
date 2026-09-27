@@ -1,0 +1,25 @@
+# Benchmark: function calls
+# Workload: 300 calls each of three function shapes - a function that returns
+# a value, one with two parameters, and one that returns nothing.
+# Measures call setup, scope creation and return.
+
+to double number
+    return number times 2
+.
+
+to combine first and second
+    return first plus second
+.
+
+to touch value
+    scratch is value plus 1
+.
+
+total is 0
+count from 1 to 300 as n
+    double n make d
+    combine n and d make c
+    touch c
+    total is total plus c
+.
+say "function calls total" total

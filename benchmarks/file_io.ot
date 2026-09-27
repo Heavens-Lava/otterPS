@@ -1,0 +1,17 @@
+# Benchmark: file io
+# Workload: 60 rounds of write, append, read, exists check and delete on one
+# small file in the current folder (the benchmark runner uses a temporary
+# folder). Measures the file provider, not disk throughput.
+
+path is "otter_benchmark_io.txt"
+seen is 0
+count from 1 to 60 as n
+    write "line one" to path
+    append " and two" to path
+    read path into contents
+    if file path exists
+        seen is seen plus length of contents
+    .
+    delete file path
+.
+say "file io" seen

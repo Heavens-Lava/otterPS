@@ -1,0 +1,27 @@
+# Benchmark: recursion
+# Workload: naive Fibonacci of 12 (about 465 calls) and a recursive sum to a
+# depth of 100 (Otter's call depth limit is 250). Measures call depth handling.
+
+to fib n
+    if n is less than 2
+        return n
+    .
+    n minus 1 make left
+    n minus 2 make right
+    fib left make a1
+    fib right make a2
+    return a1 plus a2
+.
+
+to sumTo n
+    if n is less than 1
+        return 0
+    .
+    n minus 1 make smaller
+    sumTo smaller make rest
+    return n plus rest
+.
+
+fib 12 make result
+sumTo 100 make summed
+say "recursion" result summed
