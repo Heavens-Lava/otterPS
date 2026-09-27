@@ -30,7 +30,17 @@ PowerShell 7 hosts (P1 below).
 Disposition needed: the evidence record should cite run 36293298178 and state
 its scope.
 
-## P1. PowerShell 7 portability (release blocker)
+## P1. PowerShell 7 portability — RESOLVED
+
+**RESOLVED — the portable suite passes on all four certified host configurations**
+at master `639112f25d2007fcb25c2c0cd9b3ddc2b101caf0`:
+[D120 run 36327608764](https://github.com/Heavens-Lava/otterPS/actions/runs/36327608764)
+(Windows PowerShell 5.1, PowerShell 7 on Windows, Linux and macOS; 20 portable
+suites plus the project workflow). The same commit passed every local release
+gate from a clean checkout:
+[OTTER_1_0_CERTIFICATION_RUN_639112f.md](OTTER_1_0_CERTIFICATION_RUN_639112f.md).
+
+History:
 
 The D120 portable language suite failed on PowerShell 7 on Windows, Linux and
 macOS at the candidate. The failures are present at every commit tested back
@@ -44,11 +54,9 @@ optimization pass, which reduced them.
 | Published artifact names used the host's invalid-filename list, so the same project got a different file name off Windows. | Otter semantics differed by host | fixed character set (`7b8065a`) |
 | 11 suites hard-coded `powershell.exe`, `cmd` or `$env:TEMP`; one test waited only 3 s for `otter serve`. | Test harness assumed Windows | `98e8232`, `962828e` |
 
-Four-host result with the fixes (CI run 36299552381, diagnostic branch):
-Windows PowerShell 5.1, PowerShell 7 on Windows and PowerShell 7 on macOS pass
-the whole portable suite. PowerShell 7 on Linux fails only `Module.Tests.ps1`,
-at M1 below; because that test throws, the module tests after it do not run on
-Linux.
+Interim result (CI run 36299552381, temporary diagnostic branch, since
+deleted): three hosts passed; PowerShell 7 on Linux failed only
+`Module.Tests.ps1` at M1. After M1 (`78b9793`, `639112f`) all four pass.
 
 ## Contract questions needing disposition
 
@@ -62,7 +70,7 @@ Linux.
 | EV5 | May TCP/UDP callbacks be delayed by polling cadence? | Yes (about 31 events/s). | same |
 | EV6 | Is the event loop cooperative rather than real-time? | Cooperative; handlers are never preempted. | same |
 | EV7 | Are the scheduling limits documented as part of 1.0? | Only in the event-loop review. | same |
-| M1 | Is a `use "file.ot"` path matched case-insensitively? **Blocks the Linux portable suite.** | Windows and macOS (case-insensitive file systems) resolve `use "Utils.ot"` to `utils.ot`; Linux does not. `tests/Module.Tests.ps1` test 8 asserts the Windows behavior, so it fails on Linux. Otter's module identity currently depends on the host file system. | `tests/Module.Tests.ps1` lines 174-197 |
+| M1 | **RESOLVED — module paths require exact case on all supported hosts.** A `use` path must spell every file and folder name exactly as on disk; a case-only mismatch is rejected with the same diagnostic on every host (no case-insensitive fallback). Module identity is the exact on-disk path. | Decided 2026-09-27. Implemented in `src/Otter.Module.psm1` (`78b9793`, `639112f`). | `tests/Module.Tests.ps1` test 8; `tests/HostPortability.Tests.ps1` (file and folder cases, production entry point); D120 run 36327608764 |
 
 ## Other cross-document conflicts
 
