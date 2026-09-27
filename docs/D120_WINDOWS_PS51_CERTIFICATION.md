@@ -25,17 +25,24 @@
 |---|---|---|---|
 | Async command regression | `powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests/AsyncCommand.Tests.ps1` | PASS | 13 of 13 assertions passed. |
 | Full platform test suite | `powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests/Run-Tests.ps1` | PENDING RE-RUN | The earlier process finished without a captured exit code or final summary. |
-| PowerShell 7 / Windows | `pwsh -File tests/Run-Tests.ps1` | BLOCKED | `pwsh` is not installed on this host. |
-| PowerShell 7 / Linux | CI runner required | BLOCKED | No Linux runner is available in this workspace. |
-| PowerShell 7 / macOS | CI runner required | BLOCKED | No macOS runner is available in this workspace. |
+| PowerShell 7 / Windows | D120 CI production CLI smoke | SMOKE PASS | GitHub Actions `windows-2025`, PowerShell 7.6.6, x64: `--version`, `run`, and `check` passed. Full host suite and project commands remain unverified. |
+| PowerShell 7 / Linux | D120 CI production CLI smoke | SMOKE PASS | GitHub Actions `ubuntu-24.04`, PowerShell 7.6.6, x64: `--version`, `run`, and `check` passed. Full host suite and project commands remain unverified. |
+| PowerShell 7 / macOS | D120 CI production CLI smoke | SMOKE PASS | GitHub Actions `macos-15`, PowerShell 7.6.5, arm64: `--version`, `run`, and `check` passed. Full host suite and project commands remain unverified. |
 | Browser runtime | `powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools/Test-OtterReleaseConformance.ps1` | PASS ON THIS HOST | 15/15 fixtures passed on 2026-09-26, including both web fixtures in headless Edge, when run outside the restricted sandbox. Inside the sandbox Edge's GPU process crashed and the same harness failed 2/15; that failure is an environment constraint, not a web fixture pass. |
+
+The four-job [D120 host smoke run](https://github.com/Heavens-Lava/otterPS/actions/runs/36282483112)
+completed successfully on commit `bbafb89527e4cd6f62549acbcd2ffbdec231dabd`.
+Its Windows PowerShell 5.1 job ran on Windows NT 10.0.26100.0, x64 with
+PowerShell 5.1.26100.33438. The local Windows host still lacks `pwsh`; the CI
+results supply the PowerShell 7 host evidence above.
 
 ## Scope and interpretation
 
 This record is D120 evidence, not a cross-platform certification. Windows
 PowerShell 5.1 is Otter's primary engine and can be certified on this host
-after the full suite exits successfully. PowerShell 7, Linux, and macOS
-require their respective runners. The Edge result verifies this Windows host;
+after the full suite exits successfully. The four-host CI smoke verifies the
+production CLI's version, run, and check paths only. It is not yet the full
+D120 command or test matrix. The Edge result verifies this Windows host;
 it does not establish browser parity elsewhere.
 
 The checkout contains unrelated uncommitted documentation, generated
@@ -47,7 +54,8 @@ from a clean checkout of the candidate SHA.
 
 1. Capture the exit code and final summary from a fresh Windows PowerShell
    suite run; update this record only with its observed result.
-2. Add or provision Windows, Ubuntu, and macOS PowerShell 7 runners and run a
-   host-neutral certification command on each.
+2. Expand the successful four-host CI smoke to `new`, `test`, `build`, and
+   `publish` against temporary projects, and run the relevant platform
+   regression suites under each intended host.
 3. Repeat the browser fixtures on a clean release candidate checkout and on
    the other advertised host/browser combinations.
