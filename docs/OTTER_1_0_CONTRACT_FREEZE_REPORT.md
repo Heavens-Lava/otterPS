@@ -1,8 +1,10 @@
 # Otter 1.0 Contract Freeze Report
 
-**Status: IN PROGRESS — not a language freeze approval.**
+**Status: CERTIFIED — Gate 1 language-contract freeze.**
 
-This report is the evidence ledger for release-checklist Gate 1. It separates
+This report is certified as the language-contract evidence ledger for
+release-checklist Gate 1. It does not certify every runtime target or mark
+Otter 1.0 itself released. It separates
 the frozen contract from implementation and documentation observations. A
 finding is not silently resolved by changing one side of the language.
 
@@ -10,8 +12,8 @@ finding is not silently resolved by changing one side of the language.
 
 | Field | Value |
 |---|---|
-| Candidate commit | `b97f944` |
-| Candidate subject | `docs: Otter 1.0 event loop review (investigation only, no behavior change)` |
+| Candidate commit | `a5146971fa6c0a4c2d33dee283897e640e38fae5` |
+| Candidate subject | `release: add contract coverage evidence and D120 resolution` |
 | Contract file | `Otter.Contract.psm1` |
 | Front-end implementation | `src/Otter.Lexer.psm1`, `src/Otter.Parser.psm1` |
 | Runtime implementation | `src/Otter.Interpreter.psm1`, `src/Otter.Runtime.psm1`, `src/Otter.Library.psm1` |
@@ -42,15 +44,20 @@ need. The stale parser reference was removed while retaining the contextual
 grammar. `tests/AsyncCommand.Tests.ps1` passed 13/13 and
 `tests/Parser.Tests.ps1` passed after the change.
 
-## Required decisions before certification
+## Certification evidence
 
-1. Run all checks on a clean checkout of the nominated candidate and record
-   their exact exit codes. The previously started full Windows suite exited
-   without recoverable console output, so it is not counted as passing evidence.
+The detached clean-checkout run at the nominated SHA completed the structural
+audit, complete suite, and release conformance harness with exit code 0. Its
+exact commands and outcomes—including **55 of 55** test files and **15**
+release fixtures—are recorded in
+[the clean-checkout evidence record](OTTER_1_0_CLEAN_CHECKOUT_EVIDENCE_2026-09-27.md).
 
-## Next implementation-safe action
+No frozen contract file, grammar rule, specification decision, or AST shape
+was changed to obtain this certification.
 
-Run the structural audit, full suite, release conformance, and distribution
-verification from a clean checkout of the nominated candidate. Then append the
-exact commands, candidate SHA, and exit codes before changing this report to a
-freeze approval.
+## Remaining release work outside Gate 1
+
+Continue with D120 target-specific certification, Gate 3 hardening/soak
+evidence, Gate 4 release packaging across advertised platforms, and the
+documentation/release-note gate. The event-loop starvation finding remains a
+documented release decision, not a silently changed runtime behavior.
