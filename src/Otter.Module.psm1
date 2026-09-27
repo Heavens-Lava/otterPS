@@ -53,7 +53,10 @@ class OtterModuleContext {
     [int]$GlobalLineCounter
 
     OtterModuleContext() {
-        $this.LoadedFiles = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+        # Ordinal: module identity is the file's exact on-disk path (M1). Two
+        # files whose names differ only in case are two modules on hosts that
+        # allow both to exist.
+        $this.LoadedFiles = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
         $this.CallStack = [System.Collections.Generic.List[string]]::new()
         $this.SourceMap = [System.Collections.Generic.List[OtterSourceLocation]]::new()
         $this.GlobalLineCounter = 1
@@ -67,13 +70,76 @@ function Get-OtterCanonicalPath {
     return [System.IO.Path]::GetFullPath($p).TrimEnd('\', '/')
 }
 
+# M1: module paths are case-sensitive on every host. A `use` path must spell
+# every folder and file name exactly as it exists on disk. Windows and macOS
+# file systems would otherwise accept "utils.ot" for a file named "Utils.ot",
+# so a program could work on one machine and fail after being copied to Linux.
+# Each name in the path is compared, ordinally, with the real directory entries;
+# "." and ".." are navigation, not names, and are not checked. There is no
+# case-insensitive fallback.
+function Assert-OtterModulePathCase {
+    param(
+        [Parameter(Mandatory)][string]$BaseDirectory,
+        [Parameter(Mandatory)][string]$ImportPath,
+        [int]$Line,
+        [string]$SourceLine
+    )
+    $current = $BaseDirectory
+    $segments = @($ImportPath -split '[\\/]' | Where-Object { $_ -ne '' })
+    $written = New-Object System.Collections.Generic.List[string]
+    for ($i = 0; $i -lt $segments.Count; $i++) {
+        $segment = $segments[$i]
+        if ($segment -eq '.') { $written.Add($segment); continue }
+        if ($segment -eq '..') { $written.Add($segment); $current = [System.IO.Path]::GetDirectoryName($current); continue }
+        $names = @()
+        try { $names = @([System.IO.Directory]::GetFileSystemEntries($current) | ForEach-Object { [System.IO.Path]::GetFileName($_) }) } catch { $names = @() }
+        if ($names -ccontains $segment) {
+            $written.Add($segment)
+            $current = [System.IO.Path]::Combine($current, $segment)
+            continue
+        }
+        $actual = @($names | Where-Object { [string]::Equals($_, $segment, [System.StringComparison]::OrdinalIgnoreCase) })
+        if ($actual.Count -gt 0) {
+            $isLast = ($i -eq $segments.Count - 1)
+            $kind = if ($isLast) { 'file' } else { 'folder' }
+            $corrected = @($written) + @($actual[0]) + @($segments | Select-Object -Skip ($i + 1))
+            throw [OtterError]::new(
+                "The $kind is named `"$($actual[0])`", but this use says `"$segment`". Module paths must match file and folder names exactly, including capital letters.",
+                $Line, 'parser', 1, $SourceLine,
+                "use `"$($corrected -join '/')`"")
+        }
+        return   # not found at all: the caller's existing "Cannot find" diagnostic applies
+    }
+}
+
+# The file's path with every name spelled as it is on disk. Module identity
+# (duplicate loads, cycle detection) compares these ordinally.
+function Get-OtterOnDiskPath {
+    param([Parameter(Mandatory)][string]$FullPath)
+    $full = [System.IO.Path]::GetFullPath($FullPath).TrimEnd([char]92, [char]47)
+    $root = [System.IO.Path]::GetPathRoot($full)
+    $rest = $full.Substring($root.Length)
+    $current = $root
+    foreach ($segment in @($rest -split '[\\/]' | Where-Object { $_ -ne '' })) {
+        $match = $null
+        try {
+            $names = @([System.IO.Directory]::GetFileSystemEntries($current) | ForEach-Object { [System.IO.Path]::GetFileName($_) })
+            if ($names -ccontains $segment) { $match = $segment }
+            else { $match = @($names | Where-Object { [string]::Equals($_, $segment, [System.StringComparison]::OrdinalIgnoreCase) }) | Select-Object -First 1 }
+        } catch { $match = $null }
+        if (-not $match) { $match = $segment }
+        $current = [System.IO.Path]::Combine($current, $match)
+    }
+    return $current
+}
+
 function Test-OtterCallStackContains {
     param(
         [System.Collections.Generic.List[string]]$CallStack,
         [string]$Path
     )
     foreach ($entry in $CallStack) {
-        if ([string]::Equals($entry, $Path, [System.StringComparison]::OrdinalIgnoreCase)) {
+        if ([string]::Equals($entry, $Path, [System.StringComparison]::Ordinal)) {
             return $true
         }
     }
@@ -90,8 +156,9 @@ function Resolve-OtterModuleSourceInternal {
     if (-not (Test-Path -LiteralPath $canonicalPath)) {
         throw [OtterError]::new("Cannot find Otter source file `"$FilePath`".", 0, 'parser')
     }
+    $canonicalPath = Get-OtterOnDiskPath -FullPath $canonicalPath
 
-    # Check for circular import in active call stack (case-insensitive & canonicalized)
+    # Check for circular import in active call stack (exact on-disk path)
     if (Test-OtterCallStackContains -CallStack $Context.CallStack -Path $canonicalPath) {
         $cycleList = [System.Collections.Generic.List[string]]::new($Context.CallStack)
         $cycleList.Add($canonicalPath)
@@ -100,7 +167,7 @@ function Resolve-OtterModuleSourceInternal {
         throw [OtterError]::new("Circular import detected: $cycleChain", 0, 'parser')
     }
 
-    # If already loaded in an earlier sibling/branch, do not re-emit (case-insensitive & canonicalized)
+    # If already loaded in an earlier sibling/branch, do not re-emit (exact on-disk path)
     if ($Context.LoadedFiles.Contains($canonicalPath)) {
         return ""
     }
@@ -123,6 +190,7 @@ function Resolve-OtterModuleSourceInternal {
             if (-not (Test-Path -LiteralPath $canonicalImportTarget)) {
                 throw [OtterError]::new("Cannot find imported Otter file `"$importRel`" at `"$importTarget`".", $localLineNum, 'parser', 1, $line, "Check that `"$importRel`" exists in `"$dir`".")
             }
+            Assert-OtterModulePathCase -BaseDirectory $dir -ImportPath $importRel -Line $localLineNum -SourceLine $line
 
             # Emit comment header for import
             $importHeader = "# --- imported from $importRel ---"

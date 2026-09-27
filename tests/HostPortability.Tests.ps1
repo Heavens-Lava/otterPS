@@ -131,6 +131,40 @@ to identity value
         Assert-AreEqual -Expected 'a-b-c-d' -Actual (Get-OtterSafeFileName ('a/b' + [char]92 + 'c<d>'))
     }
 
+    # M1: module paths are case-sensitive on every host, including Windows and
+    # macOS whose file systems would otherwise accept a mismatch.
+    $moduleDir = Join-Path $script:Tmp 'modcase'
+    New-Item -ItemType Directory -Path (Join-Path $moduleDir 'Helpers') -Force | Out-Null
+    [System.IO.File]::WriteAllText((Join-Path $moduleDir 'Utils.ot'), "say `"from Utils`"`n")
+    [System.IO.File]::WriteAllText((Join-Path $moduleDir 'Helpers/Tool.ot'), "say `"from Tool`"`n")
+
+    function Invoke-OtterModuleRun {
+        param([string]$Name, [string]$Source)
+        $path = Join-Path $moduleDir $Name
+        [System.IO.File]::WriteAllText($path, $Source, [System.Text.UTF8Encoding]::new($false))
+        $output = & $script:HostExe -NoProfile -File $script:OtterPs1 run $path 2>&1
+        return [pscustomobject]@{ ExitCode = $LASTEXITCODE; Text = (($output | ForEach-Object { $_.ToString() }) -join "`n") }
+    }
+
+    Test-Otter 'use "Utils.ot" succeeds when the file is Utils.ot' {
+        $r = Invoke-OtterModuleRun 'exact.ot' "use `"Utils.ot`"`nuse `"Helpers/Tool.ot`"`n"
+        Assert-AreEqual -Expected 0 -Actual $r.ExitCode
+        Assert-True ($r.Text -match 'from Utils' -and $r.Text -match 'from Tool') "expected both imports to run, got: $($r.Text)"
+    }
+
+    Test-Otter 'use "utils.ot" fails when only Utils.ot exists, on every host' {
+        $r = Invoke-OtterModuleRun 'wrongfile.ot' "use `"utils.ot`"`n"
+        Assert-AreEqual -Expected 2 -Actual $r.ExitCode
+        Assert-True ($r.Text -match 'The file is named "Utils.ot", but this use says "utils.ot"') "expected the case diagnostic, got: $($r.Text)"
+        Assert-False ($r.Text -match 'from Utils') 'the mismatched import must not run'
+    }
+
+    Test-Otter 'use "helpers/Tool.ot" fails when the folder is Helpers, on every host' {
+        $r = Invoke-OtterModuleRun 'wrongdir.ot' "use `"helpers/Tool.ot`"`n"
+        Assert-AreEqual -Expected 2 -Actual $r.ExitCode
+        Assert-True ($r.Text -match 'The folder is named "Helpers", but this use says "helpers"') "expected the folder case diagnostic, got: $($r.Text)"
+    }
+
     Test-Otter 'the runtime modules never return a value with Write-Output -NoEnumerate' {
         $offenders = @()
         foreach ($file in Get-ChildItem -LiteralPath (Join-Path $script:RepoRoot 'src') -Filter '*.psm1') {

@@ -172,30 +172,44 @@ say utilFlag
     }
     Write-Output '  pass  path normalization resolves ./utils.ot and sub/../utils.ot to the same module'
 
-    # Test 8: Case-insensitive path deduplication
-    $fileCaseA = Join-Path $tempDir 'caseA.ot'
-    $fileCaseB = Join-Path $tempDir 'caseB.ot'
-    $fileCaseMain = Join-Path $tempDir 'caseMain.ot'
-
+    # Test 8: Module paths are case-sensitive on every host (M1).
+    # utils.ot exists (from Test 7). A `use` spelled with different case must
+    # be rejected even on Windows/macOS, whose file systems would accept it.
+    $fileCaseWrong = Join-Path $tempDir 'caseWrong.ot'
     @'
 use "Utils.ot"
-'@ | Set-Content -LiteralPath $fileCaseA -Encoding UTF8
+'@ | Set-Content -LiteralPath $fileCaseWrong -Encoding UTF8
+    $caseError = $null
+    try { Resolve-OtterModuleSource -FilePath $fileCaseWrong | Out-Null } catch { $caseError = $_.Exception }
+    if ($null -eq $caseError) { throw 'Test 8 failed: use "Utils.ot" must not resolve a file named utils.ot' }
+    if ($caseError.Message -notmatch 'The file is named "utils.ot", but this use says "Utils.ot"') { throw "Test 8 failed: unexpected diagnostic: $($caseError.Message)" }
+    if ($caseError.Line -ne 1) { throw "Test 8 failed: expected the error on line 1, got $($caseError.Line)" }
 
+    $fileCaseRight = Join-Path $tempDir 'caseRight.ot'
     @'
 use "utils.ot"
-'@ | Set-Content -LiteralPath $fileCaseB -Encoding UTF8
+'@ | Set-Content -LiteralPath $fileCaseRight -Encoding UTF8
+    $resolvedCase = Resolve-OtterModuleSource -FilePath $fileCaseRight
+    if ([regex]::Matches($resolvedCase.CombinedSource, 'utilFlag is true').Count -ne 1) { throw 'Test 8 failed: exact-case use "utils.ot" must resolve' }
 
+    # Folder names are checked too.
+    $helpersDir = Join-Path $tempDir 'Helpers'
+    New-Item -ItemType Directory -Path $helpersDir -Force | Out-Null
+    'helperFlag is true' | Set-Content -LiteralPath (Join-Path $helpersDir 'Tool.ot') -Encoding UTF8
+    $fileDirWrong = Join-Path $tempDir 'dirWrong.ot'
     @'
-use "caseA.ot"
-use "caseB.ot"
-'@ | Set-Content -LiteralPath $fileCaseMain -Encoding UTF8
-
-    $resolvedCase = Resolve-OtterModuleSource -FilePath $fileCaseMain
-    $matchesCase = [regex]::Matches($resolvedCase.CombinedSource, 'utilFlag is true')
-    if ($matchesCase.Count -ne 1) {
-        throw "Expected utilFlag to be imported once despite case differences, got $($matchesCase.Count)"
-    }
-    Write-Output '  pass  casing variations resolve to identical module identity'
+use "helpers/Tool.ot"
+'@ | Set-Content -LiteralPath $fileDirWrong -Encoding UTF8
+    $dirError = $null
+    try { Resolve-OtterModuleSource -FilePath $fileDirWrong | Out-Null } catch { $dirError = $_.Exception }
+    if ($null -eq $dirError -or $dirError.Message -notmatch 'The folder is named "Helpers", but this use says "helpers"') { throw "Test 8 failed: use `"helpers/Tool.ot`" must not resolve folder Helpers. Got: $($dirError.Message)" }
+    $fileDirRight = Join-Path $tempDir 'dirRight.ot'
+    @'
+use "Helpers/Tool.ot"
+'@ | Set-Content -LiteralPath $fileDirRight -Encoding UTF8
+    $resolvedDir = Resolve-OtterModuleSource -FilePath $fileDirRight
+    if ($resolvedDir.CombinedSource -notmatch 'helperFlag is true') { throw 'Test 8 failed: exact-case use "Helpers/Tool.ot" must resolve' }
+    Write-Output '  pass  module paths are case-sensitive: exact case resolves, a case mismatch in a file or folder name is rejected'
 
     # Test 9: Circular dependency detection across normalized relative paths
     $fileRelCycle1 = Join-Path $tempDir 'relCycle1.ot'
