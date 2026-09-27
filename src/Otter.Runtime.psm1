@@ -959,6 +959,18 @@ function ConvertTo-OtterNumber {
 function Test-OtterEqual {
     param([object]$Left, [object]$Right)
 
+    # Fast path: two plain numbers. This is exactly what the generic route below
+    # ends up doing for them - neither is nothing, a bool, a date or text, so it
+    # reaches the numeric branch, which converts both to double and compares -
+    # minus about eight helper calls (roughly 150 us per comparison, which
+    # dominated `contains`, `remove` and `find` on number lists). Anything else,
+    # including numeric-looking TEXT ("5" equals 5, "5.0" equals "5") and
+    # decimals, still takes the generic route unchanged.
+    if (($Left -is [double] -or $Left -is [int] -or $Left -is [long]) -and
+        ($Right -is [double] -or $Right -is [int] -or $Right -is [long])) {
+        return ([double]$Left) -eq ([double]$Right)
+    }
+
     if ($null -eq $Left -and $null -eq $Right) { return $true }
     if ($null -eq $Left -or $null -eq $Right) { return $false }
 

@@ -1133,6 +1133,12 @@ function New-OtterRuntimeError {
 function Assert-OtterNumber {
     param([object]$Value, [int]$Line, [string]$What)
 
+    # Fast path: a value that is already a plain number. For these the generic
+    # route below returns exactly the same thing (the double itself, or the int
+    # or long converted to double) after two more helper calls.
+    if ($Value -is [double]) { return $Value }
+    if ($Value -is [int] -or $Value -is [long]) { return [double]$Value }
+
     if (Test-OtterNumeric $Value) { return (ConvertTo-OtterNumber $Value) }
 
     $shown = Format-OtterValue -Value $Value
@@ -4444,10 +4450,19 @@ function Get-OtterValue {
                     -Line $Expression.Line `
                     -Suggestion "$name is 0")
             }
+            $variableValue = $Environment.Get($name)
+            # Plain numbers, text and booleans can never be unrolled by the
+            # pipeline, so they skip the wrapper (about 40 us per read).
+            if ($variableValue -is [double] -or $variableValue -is [string] -or
+                $variableValue -is [bool] -or $variableValue -is [int] -or $variableValue -is [long]) {
+                return $variableValue
+            }
             # -NoEnumerate matters: a PowerShell function RETURNING a List
             # unrolls it into separate pipeline items, so an Otter list would
             # arrive at the caller as a loose object[] and stop being a list.
-            Write-Output -NoEnumerate ($Environment.Get($name))
+            # Everything that is not one of the plain scalars above (lists,
+            # things, bytes, nothing, ...) keeps taking this path unchanged.
+            Write-Output -NoEnumerate $variableValue
             return
         }
 
@@ -4479,8 +4494,10 @@ function Get-OtterValue {
                     -Suggestion 'if condition1 and condition2')
             }
 
-            $left = Assert-OtterNumber -Value $leftRaw -Line $Expression.Line -What 'the left side of this calculation'
-            $right = Assert-OtterNumber -Value $rightRaw -Line $Expression.Line -What 'the right side of this calculation'
+            # A plain double needs no validation or conversion, so skip the call
+            # entirely; anything else goes through Assert-OtterNumber as before.
+            $left = if ($leftRaw -is [double]) { $leftRaw } else { Assert-OtterNumber -Value $leftRaw -Line $Expression.Line -What 'the left side of this calculation' }
+            $right = if ($rightRaw -is [double]) { $rightRaw } else { Assert-OtterNumber -Value $rightRaw -Line $Expression.Line -What 'the right side of this calculation' }
 
             switch ($Expression.Op.ToString()) {
                 'Add' { return $left + $right }
@@ -4525,8 +4542,8 @@ function Get-OtterValue {
             }
 
             # The four ordering comparisons need real numbers on both sides.
-            $l = Assert-OtterNumber -Value $left -Line $Expression.Line -What 'the left side of this comparison'
-            $r = Assert-OtterNumber -Value $right -Line $Expression.Line -What 'the right side of this comparison'
+            $l = if ($left -is [double]) { $left } else { Assert-OtterNumber -Value $left -Line $Expression.Line -What 'the left side of this comparison' }
+            $r = if ($right -is [double]) { $right } else { Assert-OtterNumber -Value $right -Line $Expression.Line -What 'the right side of this comparison' }
 
             switch ($Expression.Op.ToString()) {
                 'AtLeast' { return ($l -ge $r) }
