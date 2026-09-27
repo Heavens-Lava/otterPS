@@ -1987,7 +1987,10 @@ creation.
 -   [ ] 3D modeling utility
 -   [ ] Package/library
 -   [ ] Multi-module large application
--   [x] Otter Studio substantially implemented in Otter
+-   [ ] Otter Studio substantially implemented in Otter
+    Current state: the production Studio is a JavaScript implementation
+    (otter-studio/). examples/studio.ot demonstrates a 492-line Otter UI
+    prototype. A full self-hosted Otter Studio is post-1.0 work.
 -   [x] Every advertised standard-library feature used by real `.ot`
     code
 
