@@ -207,6 +207,43 @@ next section, not to a benchmark tweak.
 7. **What is the idle CPU target?** Today: polling, about 7% to 16% of a core with a
    socket open and nothing arriving.
 
+## Release disposition (decided; no runtime change until the freeze audit completes)
+
+The review is accepted as release evidence. **No event-loop behavior is changed at this
+time**: no Option A, no cap on job events, no sleep-timing change, no wider `wait`
+dispatch. Scheduling semantics change only after the contract-freeze audit says what
+the contract is.
+
+| # | Finding | Classification |
+|---|---|---|
+| 1 | UDP/TCP throughput (about 31 events/s: two passes per event plus a 16 ms sleep) | **Documented performance limitation**, not yet a 1.0 blocker |
+| 2 | Command-job starvation (one source drains an unbounded queue while others get one event per pass) | **Potential 1.0 scheduling concern. Requires an explicit fairness decision** before release |
+| 3 | `wait` dispatches only HTTP and job events | **Semantic inconsistency. Needs contract review before freeze** |
+| 4 | UI events | **Outside this event loop.** Document separately; UI responsiveness is not equivalent to socket/event-loop throughput |
+
+## Event contract questions for 1.0
+
+To be answered by the contract freeze. If the frozen contract says something like
+"ordering is guaranteed within a source, cross-source ordering is unspecified, event
+handling is cooperative and best-effort, and `wait` dispatches all active
+asynchronous sources", the implementation must then be made to match it (smallest
+semantic-preserving change, all release gates re-run). If the contract instead says
+`wait` services only certain operations, that must be stated explicitly.
+
+- [ ] Is cross-source fairness guaranteed or best-effort?
+- [ ] May one event source drain an unbounded queue before others run?
+- [ ] Which event sources are dispatched during `wait`?
+- [ ] Is event ordering guaranteed only within a source?
+- [ ] Are TCP/UDP receive callbacks allowed to be delayed by polling cadence?
+- [ ] Is the event loop cooperative rather than real-time?
+- [ ] Are the current scheduling limits documented as part of 1.0?
+
+Facts the answers rest on (sections 5, 7 and 10 above): ordering is FIFO within a
+source and unspecified across sources; jobs drain fully while every other source
+handles at most one event per pass; sockets are delayed by the polling cadence (about
+16 ms per pass, two passes per UDP/TCP event); the loop is cooperative and never
+preempts a handler; `wait` pumps HTTP and jobs only.
+
 ## Recommendation for 1.0
 
 * **Document the current guarantees and limits** (section 5, the 30 events per second
