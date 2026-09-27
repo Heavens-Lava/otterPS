@@ -12,3 +12,7 @@ examples/file-organizer/output/
 OtterWorkspace/publish/
 OtterWorkspace/test_manifest_project/
 test_manifest_project/
+
+# Release-certification run records (tools/Invoke-OtterReleaseCertification.ps1).
+# A record that certifies a candidate is copied into docs/ deliberately.
+release/certification/
