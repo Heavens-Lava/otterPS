@@ -108,6 +108,7 @@ jobs:
           # suites (WPF, registry, DPAPI, printers, etc.) remain separately
           # classified as target-specific in the release scope matrix.
           $suiteNames = @(
+            'HostPortability.Tests.ps1',
             'Lexer.Tests.ps1',
             'Parser.Tests.ps1',
             'Grammar.Tests.ps1',
