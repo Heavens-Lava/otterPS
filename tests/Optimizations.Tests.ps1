@@ -431,7 +431,7 @@ Test-Otter 'OPT-1: numeric equality still handles the cases the fast path must n
     Assert-False (Test-OtterEqual -Left $null -Right 0) 'nothing is not zero'
     Assert-False (Test-OtterEqual -Left $true -Right 1) 'true is not 1'
     Assert-False (Test-OtterEqual -Left ([double]::NaN) -Right ([double]::NaN)) 'NaN is not equal to NaN'
-    Assert-False (Test-OtterEqual -Left ([long]9007199254740993) -Right ([long]9007199254740992)) 'long values beyond 2^53 still compare as doubles, as before'
+    Assert-True (Test-OtterEqual -Left ([long]9007199254740993) -Right ([long]9007199254740992)) 'long values beyond 2^53 compare equal because both convert to double, exactly as before'
 }
 
 Test-Otter 'OPT-2: Assert-OtterNumber returns the same value, type and error text for every value in the grid' {
@@ -443,13 +443,15 @@ Test-Otter 'OPT-2: Assert-OtterNumber returns the same value, type and error tex
     }
 }
 
-foreach ($name in $script:Programs.Keys) {
-    $key = 'PROGRAM ' + $name
-    Test-Otter "programs: '$name' produces the same output and errors as before" {
-        $expected = ($golden[$key] -join "`n").TrimEnd("`r", "`n")
-        $actual = (Invoke-OtterSourceCaptured -Source $script:Programs[$name]).TrimEnd("`r", "`n")
+foreach ($programName in @($script:Programs.Keys)) {
+    $programKey = 'PROGRAM ' + $programName
+    $programSource = $script:Programs[$programName]
+    # (Not named $name: Test-Otter has its own $Name parameter that would shadow it.)
+    Test-Otter "programs: '$programName' produces the same output and errors as before" ({
+        $expected = ($golden[$programKey] -join "`n").TrimEnd("`r", "`n")
+        $actual = (Invoke-OtterSourceCaptured -Source $programSource).TrimEnd("`r", "`n")
         Assert-AreEqual -Expected $expected -Actual $actual
-    }
+    }.GetNewClosure())
 }
 
 Complete-OtterTests
