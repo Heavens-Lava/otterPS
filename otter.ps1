@@ -531,12 +531,14 @@ function Show-OtterHelp {
     Write-Host '  otter run <file.ot>    Run an Otter program or project'
     Write-Host '  otter check <file.ot>  Validate a program or project without running it'
     Write-Host '  otter build [target]   Build an Otter project into its output directory (dist/)'
+    Write-Host '        --target electron  Build the project as an Electron desktop application'
     Write-Host '  otter publish [target] Publish an Otter project into a distributable archive (publish/)'
     Write-Host '  otter new <type> <name> Create a new Otter project (console, desktop, web, automation, game)'
     Write-Host '  otter test [target]    Run tests in an Otter project or test file'
     Write-Host '  otter profile <file.ot> Run a program and report which functions and lines took the time'
     Write-Host '  otter web <file.ot>    Compile an Otter web application to HTML/JS'
     Write-Host '  otter desktop <file.ot> Run an Otter Desktop app with system bridge'
+    Write-Host '        --electron [--output <folder>]  Write it as an Electron application instead'
     Write-Host '  otter studio           Launch Otter Studio IDE & UI Designer'
     Write-Host '  otter help             Show this help'
     Write-Host '  otter --help           Show this help'
@@ -628,9 +630,28 @@ if ($Path -eq 'test') {
 }
 
 if ($Path -eq 'build') {
-    $buildTarget = if ($Target) { $Target } else { '.' }
+    # `--target electron` collides with this script's own -Target parameter
+    # (PowerShell binds `--target x` as `-Target x`, dropping the path), so
+    # the build arguments are read back from the raw command line.
+    $buildRaw = Get-OtterRawTrailingArguments -SkipCount 1
+    $buildTarget = $null
+    $buildTargetOverride = $null
+    if ($null -ne $buildRaw) {
+        for ($i = 0; $i -lt $buildRaw.Count; $i++) {
+            $token = [string]$buildRaw[$i]
+            if ($token -in @('--target', '-target', '-Target') -and ($i + 1) -lt $buildRaw.Count) {
+                $buildTargetOverride = [string]$buildRaw[$i + 1]
+                $i++
+            } elseif (-not $buildTarget -and -not $token.StartsWith('-')) {
+                $buildTarget = $token
+            }
+        }
+    } elseif ($Target) {
+        $buildTarget = $Target
+    }
+    if (-not $buildTarget) { $buildTarget = '.' }
     try {
-        $exitCode = Invoke-OtterProjectBuild -Target $buildTarget
+        $exitCode = Invoke-OtterProjectBuild -Target $buildTarget -TargetOverride $buildTargetOverride
         [Environment]::Exit($exitCode)
     }
     catch [OtterError] {
@@ -780,6 +801,47 @@ if ($Path -in @('web', 'browse', 'serve', 'desktop', 'studio')) {
         }
     }
     if ($Path -eq 'desktop') {
+        # `otter desktop app.ot --electron [--output <folder>]` writes a
+        # self-contained Electron application instead of launching the
+        # PowerShell-hosted desktop window.
+        $desktopArgs = Get-OtterRawTrailingArguments -SkipCount 2
+        if ($null -eq $desktopArgs) { $desktopArgs = @($Arguments) }
+        $wantsElectron = $false
+        $electronOutput = $null
+        for ($i = 0; $i -lt $desktopArgs.Count; $i++) {
+            $token = [string]$desktopArgs[$i]
+            if ($token -in @('--electron', '-electron', '-Electron')) {
+                $wantsElectron = $true
+            } elseif ($token -in @('--output', '-output', '-Output') -and ($i + 1) -lt $desktopArgs.Count) {
+                $electronOutput = [string]$desktopArgs[$i + 1]
+                $i++
+            }
+        }
+        if ($wantsElectron) {
+            Import-Module (Join-Path $PSScriptRoot 'src\Otter.Electron.psm1') -Force
+            $entryFull = (Resolve-Path -LiteralPath $scriptFile -ErrorAction SilentlyContinue).Path
+            if (-not $entryFull) {
+                Write-Host "Otter: I cannot find a file called `"$scriptFile`"." -ForegroundColor Red
+                [Environment]::Exit($script:ExitUsageError)
+            }
+            $baseDir = if ($projManifest) { $proj.RootDirectory } else { Split-Path -Parent $entryFull }
+            if (-not $electronOutput) {
+                $electronOutput = Join-Path $baseDir 'dist-electron'
+            } elseif (-not [System.IO.Path]::IsPathRooted($electronOutput)) {
+                $electronOutput = Join-Path (Get-Location).Path $electronOutput
+            }
+            $exportParams = @{ SourcePath = $entryFull; OutputDir = $electronOutput }
+            if ($projManifest) {
+                $exportParams.Name = $proj.Name
+                $exportParams.Version = $proj.Version
+                $exportParams.Assets = @($proj.Assets)
+                $exportParams.AssetRoot = $proj.RootDirectory
+            }
+            $exported = Export-OtterElectronApplication @exportParams
+            Write-Host "Otter Electron application written to: $($exported.OutputDir)"
+            Write-Host "Run it with Electron installed:  npm install  then  npm start  (inside that folder)"
+            exit 0
+        }
         Import-Module (Join-Path $PSScriptRoot 'src\Otter.Desktop.psm1') -Force
         Start-OtterDesktopApplication -SourcePath $scriptFile
         exit 0

@@ -12,6 +12,7 @@ import { renderEvents } from './components/events.js';
 import { renderEditor } from './components/editor.js';
 import { renderPreview } from './components/preview.js';
 import { OtterStudioIde } from './ide.js';
+import { StyleController } from './designer/style-context.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
   const themeToggle = document.getElementById('btnThemeToggle');
@@ -67,10 +68,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   const editorEl = document.getElementById('editorContainer');
   const previewEl = document.getElementById('previewContainer');
 
+  // One stylesheet belongs to the design: undo/redo snapshots include it, and
+  // one StyleController routes every style edit (canvas and panel alike) to
+  // the right place in the Otter source or styles.css.
+  uiModel.attachStylesheet(cssAstManager);
+  const styleController = new StyleController(uiModel, cssAstManager);
+  window.otterStyles = styleController;
+
   renderToolbox(toolboxEl, uiModel);
   renderHierarchy(hierarchyEl, uiModel, cssAstManager);
-  renderCanvas(canvasEl, uiModel, cssAstManager);
-  renderProperties(propertiesEl, uiModel, cssAstManager);
+  renderCanvas(canvasEl, uiModel, cssAstManager, styleController);
+  renderProperties(propertiesEl, uiModel, cssAstManager, styleController);
   renderEvents(eventsEl, uiModel);
   renderEditor(editorEl, uiModel, cssAstManager);
   renderPreview(previewEl, uiModel, cssAstManager);
@@ -220,6 +228,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     } else if (!file || file.endsWith('.ot')) {
       syncUiFromSource(source);
     }
+  });
+
+  // A style edit made in the designer is unsaved work: mark the active file
+  // dirty, and keep any open styles.css tab in step so switching to it (which
+  // re-reads the tab into the CSS engine) never discards designer edits.
+  const DESIGNER_CSS_SOURCES = new Set(['style', 'properties', 'resize', 'drop', 'rename']);
+  window.addEventListener('css-updated', (event) => {
+    if (!DESIGNER_CSS_SOURCES.has(event.detail?.source)) return;
+    const css = cssAstManager.generateCss();
+    let touched = false;
+    for (const tab of ide.openTabs) {
+      if (tab.path && tab.path.endsWith('.css') && tab.path !== ide.currentFile && tab.content !== css) {
+        tab.content = css;
+        tab.isDirty = true;
+        touched = true;
+      }
+    }
+    const active = ide.openTabs.find(tab => tab.path === ide.currentFile);
+    if (active && !active.isDirty) {
+      active.isDirty = true;
+      touched = true;
+    }
+    if (touched) ide.renderTabs();
   });
 
   uiModel.subscribe((changeType) => {

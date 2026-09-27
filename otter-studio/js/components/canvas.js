@@ -1,173 +1,300 @@
-// canvas.js - Visual Designer Canvas with GrapesJS-style decoupled interaction overlay, resize handles, and shortcuts
-// Keeps Otter's structured UI model as single source of truth; relies on real browser CSS/Flex/Grid layout engine.
+// canvas.js - Visual Designer Canvas.
+//
+// The canvas renders the Otter UI model as real DOM, styled by the real
+// compiler's stylesheet (see real-style.js) plus the live styles.css. A
+// separate overlay layer draws everything the designer adds on top: selection
+// boxes, resize handles, spacing handles, drop markers, grid tracks, smart
+// guides and the marquee. The application DOM never contains designer chrome.
+//
+// Layout is structural: dropping reorders or reparents in the model, and flow
+// elements are never given hidden left/top. Free positioning happens only for
+// elements whose CSS says position: absolute/fixed.
 
 import { ComponentSchema } from '../model/schema.js';
 import { generateOtterSource } from '../compiler/otter-generator.js';
-import { fetchRealRender, applyRealRender } from './real-style.js';
+import { fetchRealRender, applyRealRender, prepareUserCss } from './real-style.js';
+import { BREAKPOINTS, StyleController } from '../designer/style-context.js';
+import { collapseBox, SIDES, formatNumber } from '../designer/css-values.js';
 
-export function renderCanvas(containerEl, uiModel, cssAstManager) {
+const ZOOM_STEPS = [0.25, 0.33, 0.5, 0.67, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 2, 3];
+const DESKTOP_WIDTH = 1280;
+const SNAP_PX = 6;
+
+export function renderCanvas(containerEl, uiModel, cssAstManager, styleController = null) {
+  const styles = styleController || new StyleController(uiModel, cssAstManager);
+
   let currentDraggedComponentId = null;
   let currentHit = null;
   let isInteractMode = false;
   let realRender = null;
   let realRenderTimer = null;
   let realRenderSerial = 0;
+  let zoom = 1;
+  let spaceHeld = false;
+  let copiedStyles = null;
+  let gestureActive = false; // resize / spacing drag / free move in progress
 
-  function update() {
-    const root = uiModel.getRoot();
-    if (!root) {
-      containerEl.innerHTML = '<div class="empty-state">No active window</div>';
-      return;
-    }
+  // Elements created once in mount().
+  let viewportEl, stageEl, overlayEl, selectionLayer, guidesLayer, gridLayer, hoverBox, hoverBadge,
+    targetBox, targetBadge, insertionLine, cellBox, marqueeEl, userStyleEl, topbarEl;
 
-    // Inject active user CSS stylesheet dynamically into the canvas container
-    const userCss = cssAstManager ? cssAstManager.generateCss() : '';
+  // ---------------------------------------------------------------------------
+  // Mounting (once)
+  // ---------------------------------------------------------------------------
 
+  function mount() {
     containerEl.innerHTML = `
-      <style id="canvasUserCss">
-        ${userCss}
-      </style>
-      <div class="canvas-topbar">
+      <style id="canvasUserCss"></style>
+      <div class="canvas-topbar" id="canvasTopbar">
         <div class="canvas-breadcrumbs" id="canvasBreadcrumbs"></div>
         <div class="canvas-actions">
-          <div class="canvas-mode-toggle">
-            <button class="canvas-toggle-btn ${!isInteractMode ? 'is-active' : ''}" id="btnCanvasDesignMode" title="Visual Designer & Layout Manipulation Mode">🎨 Design</button>
-            <button class="canvas-toggle-btn ${isInteractMode ? 'is-active' : ''}" id="btnCanvasInteractMode" title="Test User Interaction & Event Handlers directly on canvas">⚡ Live Interact</button>
+          <div class="canvas-device-toggle" role="group" aria-label="Device width">
+            ${BREAKPOINTS.map(b => `<button class="canvas-device-btn" data-device="${b.id}" title="${b.label} — ${b.hint}${b.width ? ` (previewed at ${b.width}px)` : ''}">${b.label}</button>`).join('')}
           </div>
-          <button class="icon-btn" id="canvasUndoBtn" title="Undo (Ctrl+Z)" ${!uiModel.canUndo() || isInteractMode ? 'disabled style="opacity:0.35;cursor:not-allowed;"' : ''}>
+          <div class="canvas-zoom" role="group" aria-label="Zoom">
+            <button class="icon-btn" data-zoom="out" title="Zoom out (Ctrl -)">−</button>
+            <button class="canvas-zoom-label" data-zoom="reset" id="canvasZoomLabel" title="Reset to 100% (Ctrl 0)">100%</button>
+            <button class="icon-btn" data-zoom="in" title="Zoom in (Ctrl +)">+</button>
+            <button class="canvas-zoom-fit" data-zoom="fit" title="Fit to view (Shift 1)">Fit</button>
+          </div>
+          <div class="canvas-mode-toggle">
+            <button class="canvas-toggle-btn" id="btnCanvasDesignMode" title="Design: select, drag, resize and style">Design</button>
+            <button class="canvas-toggle-btn" id="btnCanvasInteractMode" title="Interact: click buttons and type like a user">Interact</button>
+          </div>
+          <button class="icon-btn" id="canvasUndoBtn" title="Undo (Ctrl+Z)">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
           </button>
-          <button class="icon-btn" id="canvasRedoBtn" title="Redo (Ctrl+Y)" ${!uiModel.canRedo() || isInteractMode ? 'disabled style="opacity:0.35;cursor:not-allowed;"' : ''}>
+          <button class="icon-btn" id="canvasRedoBtn" title="Redo (Ctrl+Y)">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/></svg>
           </button>
-          <span class="canvas-zoom-label">100% (CSS/Flex Engine)</span>
         </div>
       </div>
-      <div class="canvas-viewport" id="canvasViewport">
-        <div class="canvas-window-wrapper otter-window ${uiModel.isSelected(root.id) && !isInteractMode ? 'is-selected-window' : ''}" id="canvasWindowWrapper">
-          <div class="window-titlebar">
-            <div class="window-dots">
-              <span class="dot dot-red"></span>
-              <span class="dot dot-yellow"></span>
-              <span class="dot dot-green"></span>
-            </div>
-            <span class="window-title-text" id="canvasWindowTitleText">${escapeHtml(root.properties.title || 'Otter Application')}</span>
-            <span class="window-dimension-badge">${cssAstManager ? (cssAstManager.getProperty('#' + root.name, 'width') || '740px') : '740px'}</span>
-          </div>
-          <div class="window-content-area" id="${root.name}" data-id="${root.id}"></div>
-        </div>
-
-        <!-- Decoupled Designer Overlay -->
-        <div class="designer-canvas-overlay" id="designerOverlay" style="${isInteractMode ? 'display: none;' : ''}">
+      <div class="canvas-viewport" id="canvasViewport" tabindex="-1">
+        <div class="canvas-stage" id="canvasStage"></div>
+        <div class="designer-canvas-overlay" id="designerOverlay">
+          <div class="designer-grid-layer" id="designerGridLayer"></div>
           <div id="designerSelectionContainer"></div>
-          <div class="designer-hover-box" id="designerHoverBox" style="display: none;">
+          <div class="designer-guides-layer" id="designerGuidesLayer"></div>
+          <div class="designer-hover-box" id="designerHoverBox" hidden>
             <span class="designer-hover-badge" id="designerHoverBadge"></span>
           </div>
-          <div class="designer-target-box" id="designerTargetBox" style="display: none;">
+          <div class="designer-target-box" id="designerTargetBox" hidden>
             <span class="designer-target-badge" id="designerTargetBadge"></span>
           </div>
-          <div class="designer-insertion-line" id="designerInsertionLine" style="display: none;">
+          <div class="designer-cell-box" id="designerCellBox" hidden></div>
+          <div class="designer-insertion-line" id="designerInsertionLine" hidden>
             <div class="line-dot dot-start"></div>
             <div class="line-dot dot-end"></div>
           </div>
+          <div class="designer-marquee" id="designerMarquee" hidden></div>
         </div>
       </div>
     `;
 
-    // Canvas Mode Switcher listeners
-    containerEl.querySelector('#btnCanvasDesignMode')?.addEventListener('click', () => {
-      if (isInteractMode) {
-        isInteractMode = false;
-        update();
-      }
+    userStyleEl = containerEl.querySelector('#canvasUserCss');
+    topbarEl = containerEl.querySelector('#canvasTopbar');
+    viewportEl = containerEl.querySelector('#canvasViewport');
+    stageEl = containerEl.querySelector('#canvasStage');
+    overlayEl = containerEl.querySelector('#designerOverlay');
+    selectionLayer = containerEl.querySelector('#designerSelectionContainer');
+    guidesLayer = containerEl.querySelector('#designerGuidesLayer');
+    gridLayer = containerEl.querySelector('#designerGridLayer');
+    hoverBox = containerEl.querySelector('#designerHoverBox');
+    hoverBadge = containerEl.querySelector('#designerHoverBadge');
+    targetBox = containerEl.querySelector('#designerTargetBox');
+    targetBadge = containerEl.querySelector('#designerTargetBadge');
+    insertionLine = containerEl.querySelector('#designerInsertionLine');
+    cellBox = containerEl.querySelector('#designerCellBox');
+    marqueeEl = containerEl.querySelector('#designerMarquee');
+
+    bindTopbar();
+    bindViewport();
+    bindKeyboard();
+  }
+
+  function bindTopbar() {
+    topbarEl.querySelectorAll('[data-device]').forEach(btn => btn.addEventListener('click', () => {
+      styles.setContext({ breakpoint: btn.getAttribute('data-device') });
+    }));
+    topbarEl.querySelectorAll('[data-zoom]').forEach(btn => btn.addEventListener('click', () => {
+      const action = btn.getAttribute('data-zoom');
+      if (action === 'in') zoomBy(1);
+      else if (action === 'out') zoomBy(-1);
+      else if (action === 'reset') setZoom(1);
+      else zoomToFit();
+    }));
+    topbarEl.querySelector('#btnCanvasDesignMode').addEventListener('click', () => {
+      if (isInteractMode) { isInteractMode = false; update(); }
     });
-    containerEl.querySelector('#btnCanvasInteractMode')?.addEventListener('click', () => {
-      if (!isInteractMode) {
-        isInteractMode = true;
-        update();
-      }
+    topbarEl.querySelector('#btnCanvasInteractMode').addEventListener('click', () => {
+      if (!isInteractMode) { isInteractMode = true; update(); }
     });
+    topbarEl.querySelector('#canvasUndoBtn').addEventListener('click', () => uiModel.undo());
+    topbarEl.querySelector('#canvasRedoBtn').addEventListener('click', () => uiModel.redo());
+  }
 
-    renderBreadcrumbs(containerEl.querySelector('#canvasBreadcrumbs'));
-    const contentArea = containerEl.querySelector(`#${root.name}`);
-    const viewportEl = containerEl.querySelector('#canvasViewport');
-    const windowWrapper = containerEl.querySelector('#canvasWindowWrapper');
+  // ---------------------------------------------------------------------------
+  // Rendering
+  // ---------------------------------------------------------------------------
 
-    // Undo / Redo button listeners
-    const undoBtn = containerEl.querySelector('#canvasUndoBtn');
-    if (undoBtn) {
-      undoBtn.addEventListener('click', () => uiModel.undo());
+  function deviceWidth() {
+    return styles.breakpoint.width || DESKTOP_WIDTH;
+  }
+
+  function update() {
+    const root = uiModel.getRoot();
+    importantCache = new Map();
+    renderTopbarState();
+    if (!root) {
+      stageEl.innerHTML = '<div class="empty-state">No active window</div>';
+      clearOverlay();
+      return;
     }
-    const redoBtn = containerEl.querySelector('#canvasRedoBtn');
-    if (redoBtn) {
-      redoBtn.addEventListener('click', () => uiModel.redo());
-    }
 
-    // Root title inline edit
-    const titleTextEl = containerEl.querySelector('#canvasWindowTitleText');
-    if (titleTextEl && !isInteractMode) {
+    const bp = styles.breakpoint;
+    stageEl.style.zoom = String(zoom);
+    stageEl.innerHTML = `
+      <div class="canvas-window-wrapper otter-window ${bp.width ? 'is-device' : ''} ${uiModel.isSelected(root.id) && !isInteractMode ? 'is-selected-window' : ''}"
+        id="canvasWindowWrapper" ${bp.width ? `style="width:${bp.width}px"` : ''} data-device="${bp.id}">
+        <div class="window-titlebar">
+          <div class="window-dots">
+            <span class="dot dot-red"></span>
+            <span class="dot dot-yellow"></span>
+            <span class="dot dot-green"></span>
+          </div>
+          <span class="window-title-text" id="canvasWindowTitleText">${escapeHtml(root.properties.title || 'Otter Application')}</span>
+          <span class="window-dimension-badge" id="canvasDimensionBadge"></span>
+        </div>
+        <div class="window-content-area" id="${escapeHtml(root.name)}" data-id="${root.id}"></div>
+      </div>
+    `;
+
+    const wrapper = stageEl.querySelector('#canvasWindowWrapper');
+    const contentArea = wrapper.querySelector('.window-content-area');
+    const titleTextEl = wrapper.querySelector('#canvasWindowTitleText');
+
+    if (!isInteractMode) {
       titleTextEl.style.cursor = 'text';
       titleTextEl.title = 'Double-click to edit title';
       titleTextEl.addEventListener('dblclick', (e) => {
         e.stopPropagation();
         startInlineEdit(titleTextEl, root, 'title');
       });
-    }
-
-    // Viewport background click deselects
-    viewportEl.addEventListener('click', (e) => {
-      if (!isInteractMode && e.target === viewportEl) {
-        uiModel.select(null);
-      }
-    });
-
-    // Root click selects window if in design mode
-    contentArea.addEventListener('click', (e) => {
-      if (!isInteractMode && e.target === contentArea) {
-        uiModel.select(root.id);
-      }
-    });
-
-    const titlebarEl = containerEl.querySelector('.window-titlebar');
-    if (titlebarEl) {
-      titlebarEl.addEventListener('click', (e) => {
-        if (!isInteractMode && e.target !== titleTextEl) {
-          uiModel.select(root.id);
-        }
+      wrapper.querySelector('.window-titlebar').addEventListener('click', (e) => {
+        if (e.target !== titleTextEl) uiModel.select(root.id, e.ctrlKey || e.metaKey || e.shiftKey);
       });
     }
 
-    // Recursively render child components into contentArea
     if (root.children && root.children.length > 0) {
-      for (let i = 0; i < root.children.length; i++) {
-        const childId = root.children[i];
+      root.children.forEach((childId, i) => {
         const child = uiModel.getComponent(childId);
-        if (child) {
-          contentArea.appendChild(renderCanvasComponent(child, root.id, i));
-        }
-      }
+        if (child) contentArea.appendChild(renderCanvasComponent(child, root.id, i));
+      });
     } else {
       const promptEl = document.createElement('div');
       promptEl.className = 'empty-canvas-prompt';
       promptEl.innerHTML = `
-        <span class="prompt-icon">🎨</span>
-        <span class="prompt-title">Drag components from the Toolbox</span>
-        <span class="prompt-desc">Drop rows, columns, cards, buttons, or inputs here to start designing your application.</span>
+        <span class="prompt-title">Drag components here from the Toolbox</span>
+        <span class="prompt-desc">Rows and columns arrange things; cards group them. Everything you drop becomes Otter code.</span>
       `;
       contentArea.appendChild(promptEl);
     }
 
-    // Look like the real program: reuse the last real render right away so the
-    // canvas never flashes its own approximation, then refresh it from the
-    // production compiler for the current source.
-    if (realRender) applyRealRender(contentArea, realRender);
+    // Reuse the last real render right away so the canvas never flashes its
+    // own approximation, then refresh it from the production compiler.
+    if (realRender) applyRealRenderNow(contentArea);
+    refreshUserStyles();
+    applyForcedState();
     scheduleRealRender();
+    renderBreadcrumbs();
+    updateOverlay();
+  }
 
-    // Attach designer interaction layer to viewport (only in Design mode)
-    if (!isInteractMode) {
-      setupDesignerInteraction(viewportEl, contentArea, root);
-      updateOverlay();
+  function renderTopbarState() {
+    const bp = styles.breakpoint;
+    topbarEl.querySelectorAll('[data-device]').forEach(btn => {
+      btn.classList.toggle('is-active', btn.getAttribute('data-device') === bp.id);
+    });
+    topbarEl.querySelector('#canvasZoomLabel').textContent = `${Math.round(zoom * 100)}%`;
+    topbarEl.querySelector('#btnCanvasDesignMode').classList.toggle('is-active', !isInteractMode);
+    topbarEl.querySelector('#btnCanvasInteractMode').classList.toggle('is-active', isInteractMode);
+    const undo = topbarEl.querySelector('#canvasUndoBtn');
+    const redo = topbarEl.querySelector('#canvasRedoBtn');
+    undo.disabled = !uiModel.canUndo() || isInteractMode;
+    redo.disabled = !uiModel.canRedo() || isInteractMode;
+    overlayEl.hidden = isInteractMode;
+    viewportEl.classList.toggle('is-interact-mode', isInteractMode);
+  }
+
+  // The live styles.css, scoped to the canvas and evaluated for the device width.
+  function refreshUserStyles() {
+    const userCss = cssAstManager ? cssAstManager.generateCss() : '';
+    userStyleEl.textContent = prepareUserCss(userCss, '#canvasWindowWrapper', deviceWidth());
+    updateDimensionBadge();
+  }
+
+  function applyRealRenderNow(contentArea) {
+    applyRealRender(contentArea, realRender, deviceWidth());
+    // The real render reflects the source as it was when it was compiled. Otter
+    // source values (padding 28, size 24) are applied inline by the compiler,
+    // so bring them up to date now instead of waiting for the next render:
+    // set the current ones, and drop ones that have since left the source
+    // (moved to styles.css), which would otherwise mask the new rule.
+    const renderedWith = realRender.sourceInline || new Map();
+    for (const comp of uiModel.getAllComponents()) {
+      const el = comp.id === uiModel.rootId ? contentArea : contentArea.querySelector(`[data-id="${cssEscape(comp.id)}"]`);
+      if (!el) continue;
+      const now = styles.sourceInline(comp);
+      for (const prop of renderedWith.get(comp.name) || []) {
+        if (!(prop in now)) el.style.removeProperty(prop);
+      }
+      for (const [prop, value] of Object.entries(now)) el.style.setProperty(prop, value);
     }
+  }
+
+  // Does the compiler's own stylesheet set `cssProp` on this component with
+  // !important? Then a styles.css rule needs !important too, or it would
+  // never show in the compiled app (e.g. a primary button's background).
+  const LONGHANDS = {
+    background: ['background-color', 'background-image'],
+    border: ['border-top-width', 'border-top-style', 'border-top-color'],
+    'border-radius': ['border-top-left-radius'],
+    padding: ['padding-top', 'padding-left'],
+    margin: ['margin-top', 'margin-left'],
+    gap: ['row-gap', 'column-gap']
+  };
+  let importantCache = new Map();
+  function compilerForcesImportant(comp, cssProp) {
+    const cacheKey = `${comp.id}|${cssProp}`;
+    if (importantCache.has(cacheKey)) return importantCache.get(cacheKey);
+    let result = false;
+    const el = elementFor(comp.id);
+    const sheet = document.getElementById('otterRealCanvasCss')?.sheet;
+    if (el && sheet) {
+      const props = [cssProp, ...(LONGHANDS[cssProp] || [])];
+      const visit = (rules) => {
+        for (const rule of rules) {
+          if (result) return;
+          if (rule.cssRules && !rule.selectorText) visit(rule.cssRules);
+          else if (rule.selectorText && props.some(p => rule.style.getPropertyPriority(p) === 'important')) {
+            // Ignore state pseudo-classes: test the element's own selector.
+            const selector = rule.selectorText.replace(/:(hover|active|focus|focus-visible)\b/g, '');
+            try { if (el.matches(selector)) result = true; } catch { /* unsupported selector */ }
+          }
+        }
+      };
+      try { visit(sheet.cssRules); } catch { /* sheet not readable yet */ }
+    }
+    importantCache.set(cacheKey, result);
+    return result;
+  }
+  styles.importantProbe = compilerForcesImportant;
+
+  // Which inline source values each component has, for the render in flight.
+  function snapshotSourceInline() {
+    const map = new Map();
+    for (const comp of uiModel.getAllComponents()) map.set(comp.name, Object.keys(styles.sourceInline(comp)));
+    return map;
   }
 
   function scheduleRealRender() {
@@ -177,14 +304,18 @@ export function renderCanvas(containerEl, uiModel, cssAstManager) {
       try {
         const code = generateOtterSource(uiModel);
         const css = cssAstManager ? cssAstManager.generateCss() : '';
+        const sourceInline = snapshotSourceInline();
         const real = await fetchRealRender(code, css);
         if (serial !== realRenderSerial) return;
+        real.sourceInline = sourceInline;
         realRender = real;
-        const root = uiModel.getRoot();
-        const area = root && containerEl.querySelector(`#${root.name}`);
-        if (area) {
-          applyRealRender(area, realRender);
+        importantCache = new Map();
+        const area = contentAreaEl();
+        if (area && !gestureActive) {
+          applyRealRenderNow(area);
+          applyForcedState();
           updateOverlay();
+          window.dispatchEvent(new CustomEvent('otter:canvas-rendered'));
         }
       } catch (err) {
         console.warn('Otter Studio: real render unavailable, showing approximate canvas.', err);
@@ -192,94 +323,556 @@ export function renderCanvas(containerEl, uiModel, cssAstManager) {
     }, 300);
   }
 
+  // While designing :hover/:active/:focus, show that state on the selection.
+  function applyForcedState() {
+    const state = styles.context.state.replace(':', '');
+    stageEl.querySelectorAll('[data-force-state]').forEach(el => el.removeAttribute('data-force-state'));
+    if (!state || isInteractMode) return;
+    for (const id of uiModel.selectedIds) {
+      const el = elementFor(id);
+      if (el) el.setAttribute('data-force-state', state);
+    }
+  }
+
+  function updateDimensionBadge() {
+    const badge = stageEl.querySelector('#canvasDimensionBadge');
+    const area = contentAreaEl();
+    if (!badge || !area) return;
+    const bp = styles.breakpoint;
+    const rect = area.getBoundingClientRect();
+    badge.textContent = bp.width
+      ? `${bp.label} · ${bp.width}px screen`
+      : `${bp.label} · ${Math.round(rect.width / zoom)} × ${Math.round(rect.height / zoom)}`;
+  }
+
+  function contentAreaEl() {
+    return stageEl.querySelector('.window-content-area');
+  }
+
+  function elementFor(id) {
+    if (id === uiModel.rootId) return contentAreaEl();
+    return stageEl.querySelector(`[data-id="${cssEscape(id)}"]`);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Overlay: selection, handles, spacing, grid tracks
+  // ---------------------------------------------------------------------------
+
+  function toOverlay(rect) {
+    const vp = viewportEl.getBoundingClientRect();
+    return {
+      left: rect.left - vp.left + viewportEl.scrollLeft,
+      top: rect.top - vp.top + viewportEl.scrollTop,
+      width: rect.width,
+      height: rect.height
+    };
+  }
+
+  function place(el, rect) {
+    el.style.left = `${rect.left}px`;
+    el.style.top = `${rect.top}px`;
+    el.style.width = `${rect.width}px`;
+    el.style.height = `${rect.height}px`;
+  }
+
+  function clearOverlay() {
+    selectionLayer.innerHTML = '';
+    gridLayer.innerHTML = '';
+    guidesLayer.innerHTML = '';
+  }
+
   function updateOverlay() {
     if (isInteractMode) return;
-    const viewportEl = containerEl.querySelector('#canvasViewport');
-    const overlayEl = containerEl.querySelector('#designerOverlay');
-    const selectionContainer = containerEl.querySelector('#designerSelectionContainer');
-    const windowWrapper = containerEl.querySelector('#canvasWindowWrapper');
     const root = uiModel.getRoot();
-    if (!viewportEl || !overlayEl || !selectionContainer || !root) return;
-
-    selectionContainer.innerHTML = '';
-    const vpRect = viewportEl.getBoundingClientRect();
-    const scrollLeft = viewportEl.scrollLeft;
-    const scrollTop = viewportEl.scrollTop;
+    clearOverlay();
+    if (!root) return;
+    // Overlay covers the whole scrollable area.
+    overlayEl.style.width = `${viewportEl.scrollWidth}px`;
+    overlayEl.style.height = `${viewportEl.scrollHeight}px`;
+    updateDimensionBadge();
 
     for (const selectedId of uiModel.selectedIds) {
-      let targetEl = null;
-      if (selectedId === root.id) {
-        targetEl = windowWrapper;
-      } else {
-        targetEl = containerEl.querySelector(`[data-id="${selectedId}"]`);
-      }
-      if (!targetEl) continue;
-
       const comp = uiModel.getComponent(selectedId);
-      if (!comp) continue;
+      const targetEl = selectedId === root.id ? stageEl.querySelector('#canvasWindowWrapper') : elementFor(selectedId);
+      if (!comp || !targetEl) continue;
 
-      const elRect = targetEl.getBoundingClientRect();
-      const left = elRect.left - vpRect.left + scrollLeft;
-      const top = elRect.top - vpRect.top + scrollTop;
-      const width = elRect.width;
-      const height = elRect.height;
-
-      const isPrimary = (selectedId === uiModel.selectedId);
-
+      const rect = toOverlay(targetEl.getBoundingClientRect());
+      const isPrimary = selectedId === uiModel.selectedId;
       const box = document.createElement('div');
       box.className = `designer-selection-box ${isPrimary ? 'is-primary' : 'is-multi'}`;
       box.setAttribute('data-selection-id', selectedId);
-      box.style.left = `${left}px`;
-      box.style.top = `${top}px`;
-      box.style.width = `${width}px`;
-      box.style.height = `${height}px`;
+      place(box, rect);
+      selectionLayer.appendChild(box);
 
-      if (isPrimary) {
-        // Floating Selection Badge on Overlay
-        const badge = document.createElement('div');
-        badge.className = 'designer-selection-badge';
-        badge.innerHTML = `
-          <span class="badge-name">${escapeHtml(comp.name)}</span>
-          <span class="badge-kind">${escapeHtml(comp.kind)}</span>
-          <div class="badge-actions">
-            ${comp.id !== root.id ? `
-              <button class="badge-btn badge-dup" title="Duplicate (Ctrl+D)">⎘</button>
-              <button class="badge-btn badge-del" title="Delete (Del)">×</button>
-            ` : ''}
-          </div>
-        `;
-        badge.querySelector('.badge-dup')?.addEventListener('click', (e) => {
-          e.stopPropagation();
-          uiModel.duplicateComponent(comp.id, cssAstManager);
-        });
-        badge.querySelector('.badge-del')?.addEventListener('click', (e) => {
-          e.stopPropagation();
-          uiModel.removeComponent(comp.id);
-        });
-        box.appendChild(badge);
+      if (!isPrimary) continue;
 
-        // Attach Overlay Resize Handles (E, S, SE)
-        ['handle-e', 'handle-s', 'handle-se'].forEach(handleClass => {
-          const handle = document.createElement('div');
-          handle.className = `designer-resize-handle ${handleClass}`;
-          attachOverlayResize(handle, handleClass, targetEl, comp, viewportEl, box);
-          box.appendChild(handle);
+      box.appendChild(selectionBadge(comp, root));
+      if (comp.id === root.id) continue;
+
+      const el = elementFor(comp.id);
+      const cs = getComputedStyle(el);
+      const isFree = cs.position === 'absolute' || cs.position === 'fixed';
+      box.classList.toggle('is-free', isFree);
+      drawSpacing(box, comp, el, cs);
+      for (const handle of ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw']) {
+        const h = document.createElement('div');
+        h.className = `designer-resize-handle handle-${handle}`;
+        h.title = 'Drag to resize. Shift keeps proportions, Alt turns off snapping.';
+        h.addEventListener('pointerdown', (e) => startResize(e, handle, comp));
+        box.appendChild(h);
+      }
+      if (isFree) {
+        box.classList.add('is-movable');
+        box.addEventListener('pointerdown', (e) => {
+          if (e.target === box) startFreeMove(e, comp);
         });
       }
+    }
 
-      selectionContainer.appendChild(box);
+    // Grid tracks for a selected grid container.
+    const primary = uiModel.getComponent(uiModel.selectedId);
+    const primaryEl = primary && elementFor(primary.id);
+    if (primaryEl && getComputedStyle(primaryEl).display.includes('grid')) {
+      drawGridTracks(primaryEl);
     }
   }
+
+  function selectionBadge(comp, root) {
+    const badge = document.createElement('div');
+    badge.className = 'designer-selection-badge';
+    const context = styles.isBaseContext() ? '' : `<span class="badge-context">${escapeHtml(styles.breakpoint.id !== 'base' ? styles.breakpoint.label : '')}${escapeHtml(styles.state.id ? ' ' + styles.state.label : '')}</span>`;
+    badge.innerHTML = `
+      <span class="badge-name">${escapeHtml(comp.name)}</span>
+      <span class="badge-kind">${escapeHtml(comp.kind)}</span>
+      ${context}
+      <div class="badge-actions">
+        ${comp.parentId ? '<button class="badge-btn badge-parent" title="Select parent (Esc)">↑</button>' : ''}
+        ${comp.id !== root.id ? `
+          <button class="badge-btn badge-dup" title="Duplicate (Ctrl+D)">⎘</button>
+          <button class="badge-btn badge-del" title="Delete (Del)">×</button>` : ''}
+      </div>
+    `;
+    badge.addEventListener('pointerdown', (e) => e.stopPropagation());
+    badge.querySelector('.badge-parent')?.addEventListener('click', (e) => { e.stopPropagation(); uiModel.select(comp.parentId); });
+    badge.querySelector('.badge-dup')?.addEventListener('click', (e) => { e.stopPropagation(); uiModel.duplicateComponent(comp.id, cssAstManager); });
+    badge.querySelector('.badge-del')?.addEventListener('click', (e) => { e.stopPropagation(); uiModel.removeComponent(comp.id); });
+    return badge;
+  }
+
+  // Padding (inside), margin (outside) and gap (between children) are drawn as
+  // bands that can be dragged to change the value.
+  function drawSpacing(box, comp, el, cs) {
+    const px = (v) => (parseFloat(v) || 0) * zoom;
+    const pad = SIDES.map(s => px(cs.getPropertyValue(`padding-${s}`)));
+    const mar = SIDES.map(s => px(cs.getPropertyValue(`margin-${s}`)));
+    const border = SIDES.map(s => px(cs.getPropertyValue(`border-${s}-width`)));
+    const w = parseFloat(box.style.width);
+    const h = parseFloat(box.style.height);
+
+    const band = (kind, sideIndex, rect, value) => {
+      const b = document.createElement('div');
+      b.className = `designer-space-band is-${kind} side-${SIDES[sideIndex]}`;
+      place(b, rect);
+      b.title = `${kind}-${SIDES[sideIndex]}: ${formatNumber(value / zoom)}px — drag to change (Alt: both sides, Shift: all sides)`;
+      const label = document.createElement('span');
+      label.className = 'designer-space-label';
+      label.textContent = formatNumber(value / zoom);
+      b.appendChild(label);
+      // Only a small grip is interactive, so the rest of the padding area
+      // still selects and drags the element itself.
+      const grip = document.createElement('div');
+      grip.className = 'designer-space-grip';
+      grip.title = b.title;
+      grip.addEventListener('pointerdown', (e) => startSpacingDrag(e, comp, kind, sideIndex));
+      b.appendChild(grip);
+      box.appendChild(b);
+    };
+
+    const MIN = 6; // keep zero-size bands grabbable
+    // Padding bands sit inside the border.
+    band('padding', 0, { left: border[3], top: border[0], width: w - border[1] - border[3], height: Math.max(MIN, pad[0]) }, pad[0]);
+    band('padding', 2, { left: border[3], top: h - border[2] - Math.max(MIN, pad[2]), width: w - border[1] - border[3], height: Math.max(MIN, pad[2]) }, pad[2]);
+    band('padding', 3, { left: border[3], top: border[0], width: Math.max(MIN, pad[3]), height: h - border[0] - border[2] }, pad[3]);
+    band('padding', 1, { left: w - border[1] - Math.max(MIN, pad[1]), top: border[0], width: Math.max(MIN, pad[1]), height: h - border[0] - border[2] }, pad[1]);
+    // Margin bands sit outside the box.
+    if (mar[0] > 0) band('margin', 0, { left: 0, top: -mar[0], width: w, height: mar[0] }, mar[0]);
+    if (mar[2] > 0) band('margin', 2, { left: 0, top: h, width: w, height: mar[2] }, mar[2]);
+    if (mar[3] > 0) band('margin', 3, { left: -mar[3], top: 0, width: mar[3], height: h }, mar[3]);
+    if (mar[1] > 0) band('margin', 1, { left: w, top: 0, width: mar[1], height: h }, mar[1]);
+
+    // Gap bands between consecutive children of a flex/grid container.
+    if (!/flex|grid/.test(cs.display)) return;
+    const kids = Array.from(el.children).filter(k => k.hasAttribute('data-id') && getComputedStyle(k).display !== 'none');
+    const boxRect = el.getBoundingClientRect();
+    const isRow = cs.display.includes('flex') ? cs.flexDirection.startsWith('row') : true;
+    for (let i = 0; i < kids.length - 1; i++) {
+      const a = kids[i].getBoundingClientRect();
+      const b = kids[i + 1].getBoundingClientRect();
+      let rect;
+      if (isRow && b.left >= a.right - 1) {
+        rect = { left: a.right - boxRect.left, top: Math.min(a.top, b.top) - boxRect.top, width: Math.max(MIN, b.left - a.right), height: Math.max(a.height, b.height) };
+      } else if (b.top >= a.bottom - 1) {
+        rect = { left: Math.min(a.left, b.left) - boxRect.left, top: a.bottom - boxRect.top, width: Math.max(a.width, b.width), height: Math.max(MIN, b.top - a.bottom) };
+      } else {
+        continue;
+      }
+      const g = document.createElement('div');
+      g.className = `designer-gap-band ${isRow && b.left >= a.right - 1 ? 'is-vertical' : 'is-horizontal'}`;
+      place(g, rect);
+      g.title = 'Gap between children — drag to change';
+      const grip = document.createElement('div');
+      grip.className = 'designer-space-grip';
+      grip.title = g.title;
+      grip.addEventListener('pointerdown', (e) => startGapDrag(e, comp, g.classList.contains('is-vertical')));
+      g.appendChild(grip);
+      box.appendChild(g);
+    }
+  }
+
+  function drawGridTracks(el) {
+    const tracks = gridTracks(el);
+    if (!tracks) return;
+    const frame = toOverlay(tracks.content);
+    const layer = document.createElement('div');
+    layer.className = 'designer-grid-tracks';
+    place(layer, frame);
+    tracks.columns.forEach((col, i) => {
+      tracks.rows.forEach((row, j) => {
+        const cell = document.createElement('div');
+        cell.className = 'designer-grid-cell';
+        place(cell, { left: col.start - tracks.content.left, top: row.start - tracks.content.top, width: col.end - col.start, height: row.end - row.start });
+        cell.setAttribute('data-cell', `${i + 1},${j + 1}`);
+        layer.appendChild(cell);
+      });
+    });
+    gridLayer.appendChild(layer);
+  }
+
+  // Track boundaries of a grid container, in client coordinates.
+  function gridTracks(el) {
+    const cs = getComputedStyle(el);
+    const colSizes = cs.gridTemplateColumns.split(/\s+/).map(parseFloat).filter(n => !Number.isNaN(n));
+    const rowSizes = cs.gridTemplateRows.split(/\s+/).map(parseFloat).filter(n => !Number.isNaN(n));
+    if (colSizes.length === 0) return null;
+    const rect = el.getBoundingClientRect();
+    const scale = zoom;
+    const padL = (parseFloat(cs.paddingLeft) + parseFloat(cs.borderLeftWidth)) * scale;
+    const padT = (parseFloat(cs.paddingTop) + parseFloat(cs.borderTopWidth)) * scale;
+    const colGap = (parseFloat(cs.columnGap) || 0) * scale;
+    const rowGap = (parseFloat(cs.rowGap) || 0) * scale;
+    const build = (sizes, origin, gap) => {
+      const out = [];
+      let pos = origin;
+      for (const size of sizes) {
+        out.push({ start: pos, end: pos + size * scale });
+        pos += size * scale + gap;
+      }
+      return out;
+    };
+    const columns = build(colSizes, rect.left + padL, colGap);
+    const rows = rowSizes.length ? build(rowSizes, rect.top + padT, rowGap) : [{ start: rect.top + padT, end: rect.bottom }];
+    const content = {
+      left: columns[0].start, top: rows[0].start,
+      right: columns[columns.length - 1].end, bottom: rows[rows.length - 1].end
+    };
+    content.width = content.right - content.left;
+    content.height = content.bottom - content.top;
+    return { columns, rows, content, colSizes };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Gestures: resize with smart guides, spacing drags, free move
+  // ---------------------------------------------------------------------------
+
+  // Common pointer-drag plumbing: pointer capture, Escape to cancel (undoes
+  // the whole gesture), and a single undo step for the whole drag.
+  function beginGesture(e, { onMove, onEnd, cursor }) {
+    e.preventDefault();
+    e.stopPropagation();
+    gestureActive = true;
+    const undoDepth = uiModel.undoStack.length;
+    document.body.classList.add('designer-is-dragging');
+    if (cursor) document.body.style.cursor = cursor;
+    const tooltip = document.createElement('div');
+    tooltip.className = 'resize-dimension-tooltip';
+    overlayEl.appendChild(tooltip);
+    let cancelled = false;
+
+    const move = (ev) => {
+      if (cancelled) return;
+      const text = onMove(ev);
+      if (text) {
+        tooltip.textContent = text;
+        const vp = viewportEl.getBoundingClientRect();
+        tooltip.style.left = `${ev.clientX - vp.left + viewportEl.scrollLeft + 14}px`;
+        tooltip.style.top = `${ev.clientY - vp.top + viewportEl.scrollTop + 14}px`;
+      }
+    };
+    const finish = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', finish);
+      window.removeEventListener('keydown', key, true);
+      document.body.classList.remove('designer-is-dragging');
+      document.body.style.cursor = '';
+      tooltip.remove();
+      guidesLayer.innerHTML = '';
+      gestureActive = false;
+      onEnd?.(cancelled);
+      update();
+    };
+    const key = (ev) => {
+      if (ev.key !== 'Escape') return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      cancelled = true;
+      // Roll back every snapshot this gesture made.
+      while (uiModel.undoStack.length > undoDepth) uiModel.undo();
+      uiModel.redoStack = [];
+      finish();
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', finish);
+    window.addEventListener('keydown', key, true);
+  }
+
+  function startResize(e, handle, comp) {
+    const el = elementFor(comp.id);
+    if (!el) return;
+    const startRect = el.getBoundingClientRect();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const cs = getComputedStyle(el);
+    const isFree = cs.position === 'absolute' || cs.position === 'fixed';
+    const startLeft = parseFloat(cs.left) || 0;
+    const startTop = parseFloat(cs.top) || 0;
+    const ratio = startRect.width / Math.max(1, startRect.height);
+    const parentEl = el.parentElement;
+    const parentCs = parentEl ? getComputedStyle(parentEl) : null;
+    const parentInner = parentEl ? {
+      width: (parentEl.clientWidth - parseFloat(parentCs.paddingLeft) - parseFloat(parentCs.paddingRight)),
+      height: (parentEl.clientHeight - parseFloat(parentCs.paddingTop) - parseFloat(parentCs.paddingBottom))
+    } : null;
+    const siblings = parentEl ? Array.from(parentEl.children).filter(k => k !== el && k.hasAttribute('data-id')) : [];
+    const key = `resize:${comp.id}`;
+    const cursor = getComputedStyle(e.target).cursor;
+
+    beginGesture(e, {
+      cursor,
+      onMove: (ev) => {
+        const dx = (ev.clientX - startX) / zoom;
+        const dy = (ev.clientY - startY) / zoom;
+        let w = startRect.width / zoom;
+        let h = startRect.height / zoom;
+        if (handle.includes('e')) w += dx;
+        if (handle.includes('w')) w -= dx;
+        if (handle.includes('s')) h += dy;
+        if (handle.includes('n')) h -= dy;
+        if (ev.shiftKey && handle.length === 2) h = w / ratio;
+        w = Math.max(8, w);
+        h = Math.max(8, h);
+
+        // Smart snapping: parent width (becomes 100%), sibling sizes, 8px grid.
+        const notes = [];
+        let widthValue = null;
+        let heightValue = null;
+        const guides = [];
+        if (!ev.altKey) {
+          if (handle.includes('e') || handle.includes('w')) {
+            if (parentInner && Math.abs(w - parentInner.width) <= SNAP_PX) {
+              w = parentInner.width; widthValue = '100%'; notes.push('fills parent');
+            } else {
+              const match = siblings.find(s => Math.abs(s.getBoundingClientRect().width / zoom - w) <= SNAP_PX);
+              if (match) {
+                w = match.getBoundingClientRect().width / zoom;
+                notes.push(`= ${match.id} width`);
+                guides.push({ el: match, axis: 'x' });
+              } else {
+                w = Math.round(w / 8) * 8 || 8;
+              }
+            }
+          }
+          if (handle.includes('n') || handle.includes('s')) {
+            const match = siblings.find(s => Math.abs(s.getBoundingClientRect().height / zoom - h) <= SNAP_PX);
+            if (match) {
+              h = match.getBoundingClientRect().height / zoom;
+              notes.push(`= ${match.id} height`);
+              guides.push({ el: match, axis: 'y' });
+            } else {
+              h = Math.round(h / 8) * 8 || 8;
+            }
+          }
+        }
+
+        const values = {};
+        if (handle.includes('e') || handle.includes('w')) values.width = widthValue || `${Math.round(w)}px`;
+        if (handle.includes('n') || handle.includes('s') || (ev.shiftKey && handle.length === 2)) values.height = heightValue || `${Math.round(h)}px`;
+        if (isFree && handle.includes('w')) values.left = `${Math.round(startLeft + (startRect.width / zoom - w))}px`;
+        if (isFree && handle.includes('n')) values.top = `${Math.round(startTop + (startRect.height / zoom - h))}px`;
+
+        styles.write(comp, values, { key });
+        drawSizeGuides(comp, guides);
+        return `${Math.round(w)} × ${Math.round(h)}${notes.length ? '  ·  ' + notes.join(', ') : ''}`;
+      }
+    });
+  }
+
+  // Dashed lines from the resized element to the sibling it matches.
+  function drawSizeGuides(comp, guides) {
+    guidesLayer.innerHTML = '';
+    const el = elementFor(comp.id);
+    if (!el) return;
+    const own = toOverlay(el.getBoundingClientRect());
+    for (const g of guides) {
+      const other = toOverlay(g.el.getBoundingClientRect());
+      for (const r of [own, other]) {
+        const line = document.createElement('div');
+        line.className = `designer-guide ${g.axis === 'x' ? 'is-measure-x' : 'is-measure-y'}`;
+        if (g.axis === 'x') place(line, { left: r.left, top: r.top + r.height + 3, width: r.width, height: 1 });
+        else place(line, { left: r.left + r.width + 3, top: r.top, width: 1, height: r.height });
+        guidesLayer.appendChild(line);
+      }
+    }
+  }
+
+  function startSpacingDrag(e, comp, kind, sideIndex) {
+    const el = elementFor(comp.id);
+    if (!el) return;
+    const cs = getComputedStyle(el);
+    const start = SIDES.map(s => parseFloat(cs.getPropertyValue(`${kind}-${s}`)) || 0);
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const key = `space:${comp.id}:${kind}`;
+    // Dragging outward (away from the content) increases the value.
+    const direction = { 0: [0, -1], 1: [1, 0], 2: [0, 1], 3: [-1, 0] }[sideIndex];
+    const sign = kind === 'padding' ? -1 : 1;
+
+    beginGesture(e, {
+      cursor: sideIndex % 2 === 0 ? 'ns-resize' : 'ew-resize',
+      onMove: (ev) => {
+        const delta = (((ev.clientX - startX) * direction[0]) + ((ev.clientY - startY) * direction[1])) / zoom * sign;
+        let value = start[sideIndex] + delta;
+        if (kind === 'padding') value = Math.max(0, value);
+        value = ev.altKey && ev.shiftKey ? value : Math.round(value / (ev.ctrlKey ? 1 : 4)) * (ev.ctrlKey ? 1 : 4);
+        const sides = start.map(v => `${formatNumber(v)}px`);
+        const indexes = ev.shiftKey ? [0, 1, 2, 3] : ev.altKey ? [sideIndex, (sideIndex + 2) % 4] : [sideIndex];
+        for (const i of indexes) sides[i] = `${formatNumber(value)}px`;
+        const values = { [kind]: collapseBox(sides.map(s => s === '0px' ? '0' : s)) };
+        for (const s of SIDES) values[`${kind}-${s}`] = null;
+        styles.write(comp, values, { key });
+        return `${kind} ${indexes.length === 4 ? 'all' : indexes.map(i => SIDES[i]).join(' + ')}: ${formatNumber(value)}px`;
+      }
+    });
+  }
+
+  function startGapDrag(e, comp, vertical) {
+    const el = elementFor(comp.id);
+    if (!el) return;
+    const cs = getComputedStyle(el);
+    const start = parseFloat(vertical ? cs.columnGap : cs.rowGap) || 0;
+    const startPos = vertical ? e.clientX : e.clientY;
+    beginGesture(e, {
+      cursor: vertical ? 'ew-resize' : 'ns-resize',
+      onMove: (ev) => {
+        let value = Math.max(0, start + ((vertical ? ev.clientX : ev.clientY) - startPos) / zoom);
+        value = ev.ctrlKey ? Math.round(value) : Math.round(value / 4) * 4;
+        styles.write(comp, { gap: `${value}px` }, { key: `gap:${comp.id}` });
+        return `gap: ${value}px`;
+      }
+    });
+  }
+
+  // Free movement for absolute/fixed elements, with snapping to the parent's
+  // edges and centre and to siblings' edges and centres.
+  function startFreeMove(e, comp) {
+    const el = elementFor(comp.id);
+    if (!el) return;
+    const cs = getComputedStyle(el);
+    const startLeft = parseFloat(cs.left) || 0;
+    const startTop = parseFloat(cs.top) || 0;
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const parentEl = el.offsetParent || el.parentElement;
+    const key = `move:${comp.id}`;
+    uiModel.select(comp.id);
+
+    beginGesture(e, {
+      cursor: 'move',
+      onMove: (ev) => {
+        let left = startLeft + (ev.clientX - startX) / zoom;
+        let top = startTop + (ev.clientY - startY) / zoom;
+        guidesLayer.innerHTML = '';
+        if (!ev.altKey && parentEl) {
+          const snap = snapPosition(el, parentEl, left - startLeft, top - startTop);
+          left += snap.dx;
+          top += snap.dy;
+          drawSnapLines(snap.lines);
+        }
+        left = Math.round(left);
+        top = Math.round(top);
+        styles.write(comp, { left: `${left}px`, top: `${top}px`, right: null, bottom: null }, { key });
+        return `x ${left}  y ${top}`;
+      }
+    });
+  }
+
+  // Given a proposed move (dx, dy in CSS px), find the nearest edge/centre
+  // alignment with the parent or a sibling.
+  function snapPosition(el, parentEl, dx, dy) {
+    const rect = el.getBoundingClientRect();
+    const moved = {
+      left: rect.left + dx * zoom, right: rect.right + dx * zoom,
+      top: rect.top + dy * zoom, bottom: rect.bottom + dy * zoom
+    };
+    moved.cx = (moved.left + moved.right) / 2;
+    moved.cy = (moved.top + moved.bottom) / 2;
+    const targets = [parentEl, ...Array.from(parentEl.children).filter(k => k !== el && k.hasAttribute('data-id'))];
+    let bestX = null;
+    let bestY = null;
+    for (const t of targets) {
+      const r = t.getBoundingClientRect();
+      const xs = [r.left, (r.left + r.right) / 2, r.right];
+      const ys = [r.top, (r.top + r.bottom) / 2, r.bottom];
+      for (const [mine, value] of [['left', moved.left], ['cx', moved.cx], ['right', moved.right]]) {
+        for (const x of xs) {
+          const d = x - value;
+          if (Math.abs(d) <= SNAP_PX * zoom && (!bestX || Math.abs(d) < Math.abs(bestX.d))) bestX = { d, x, r, mine };
+        }
+      }
+      for (const [mine, value] of [['top', moved.top], ['cy', moved.cy], ['bottom', moved.bottom]]) {
+        for (const y of ys) {
+          const d = y - value;
+          if (Math.abs(d) <= SNAP_PX * zoom && (!bestY || Math.abs(d) < Math.abs(bestY.d))) bestY = { d, y, r, mine };
+        }
+      }
+    }
+    const lines = [];
+    if (bestX) lines.push({ axis: 'x', at: bestX.x, from: Math.min(moved.top, bestX.r.top), to: Math.max(moved.bottom, bestX.r.bottom) });
+    if (bestY) lines.push({ axis: 'y', at: bestY.y, from: Math.min(moved.left, bestY.r.left), to: Math.max(moved.right, bestY.r.right) });
+    return { dx: bestX ? bestX.d / zoom : 0, dy: bestY ? bestY.d / zoom : 0, lines };
+  }
+
+  function drawSnapLines(lines) {
+    const vp = viewportEl.getBoundingClientRect();
+    for (const l of lines) {
+      const line = document.createElement('div');
+      line.className = 'designer-guide is-snap';
+      if (l.axis === 'x') place(line, { left: l.at - vp.left + viewportEl.scrollLeft, top: l.from - vp.top + viewportEl.scrollTop, width: 1, height: l.to - l.from });
+      else place(line, { left: l.from - vp.left + viewportEl.scrollLeft, top: l.at - vp.top + viewportEl.scrollTop, width: l.to - l.from, height: 1 });
+      guidesLayer.appendChild(line);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Components
+  // ---------------------------------------------------------------------------
 
   function startInlineEdit(targetEl, comp, propKey = 'text') {
     if (isInteractMode) return;
     const initialText = comp.properties[propKey] || '';
-
     const input = document.createElement('input');
     input.type = 'text';
     input.className = 'canvas-inline-editor';
     input.value = initialText;
-
     targetEl.innerHTML = '';
     targetEl.appendChild(input);
     input.focus();
@@ -289,10 +882,8 @@ export function renderCanvas(containerEl, uiModel, cssAstManager) {
     function commit() {
       if (committed) return;
       committed = true;
-      const newText = input.value.trim();
-      uiModel.setProperty(comp.id, propKey, newText);
+      uiModel.setProperty(comp.id, propKey, input.value.trim());
     }
-
     input.addEventListener('keydown', (e) => {
       e.stopPropagation();
       if (e.key === 'Enter') {
@@ -304,10 +895,7 @@ export function renderCanvas(containerEl, uiModel, cssAstManager) {
         update();
       }
     });
-
-    input.addEventListener('blur', () => {
-      commit();
-    });
+    input.addEventListener('blur', commit);
   }
 
   function triggerOtterEvent(comp, eventKind) {
@@ -319,7 +907,7 @@ export function renderCanvas(containerEl, uiModel, cssAstManager) {
       if (outBody) {
         const line = document.createElement('div');
         line.className = 'log-line';
-        line.innerHTML = `<span style="color:#60a5fa">[${comp.name}.${eventKind}]</span> ${escapeHtml(msg)}`;
+        line.innerHTML = `<span style="color:#60a5fa">[${escapeHtml(comp.name)}.${eventKind}]</span> ${escapeHtml(msg)}`;
         outBody.appendChild(line);
         outBody.scrollTop = outBody.scrollHeight;
       }
@@ -328,7 +916,7 @@ export function renderCanvas(containerEl, uiModel, cssAstManager) {
         const time = new Date().toLocaleTimeString();
         const entry = document.createElement('div');
         entry.className = 'log-entry';
-        entry.innerHTML = `<span class="log-time">[${time}]</span> <span style="color:#60a5fa">[${comp.name}]</span> ${escapeHtml(msg)}`;
+        entry.innerHTML = `<span class="log-time">[${time}]</span> <span style="color:#60a5fa">[${escapeHtml(comp.name)}]</span> ${escapeHtml(msg)}`;
         previewLog.appendChild(entry);
         previewLog.scrollTop = previewLog.scrollHeight;
       }
@@ -340,57 +928,32 @@ export function renderCanvas(containerEl, uiModel, cssAstManager) {
       return;
     }
 
-    const lines = handler.split('\n');
-    for (const raw of lines) {
+    for (const raw of handler.split('\n')) {
       const line = raw.trim();
       if (!line || line.startsWith('#')) continue;
 
       if (line.startsWith('say ')) {
-        const expr = line.slice(4).trim().replace(/^"(.*)"$/, '$1');
-        logToStudio(`say: ${expr}`);
+        logToStudio(`say: ${line.slice(4).trim().replace(/^"(.*)"$/, '$1')}`);
         continue;
       }
 
       const addMatch = line.match(/^add\s+(\d+)\s+to\s+([a-zA-Z0-9_]+)$/i);
-      if (addMatch) {
-        const amt = parseInt(addMatch[1], 10);
-        const targetName = addMatch[2];
-        const allComps = uiModel.getAllComponents();
-        const target = allComps.find(c => c.name === targetName);
+      const subMatch = line.match(/^(?:remove|subtract)\s+(\d+)\s+from\s+([a-zA-Z0-9_]+)$/i);
+      if (addMatch || subMatch) {
+        const amt = parseInt((addMatch || subMatch)[1], 10) * (addMatch ? 1 : -1);
+        const targetName = (addMatch || subMatch)[2];
+        const target = uiModel.getAllComponents().find(c => c.name === targetName);
         if (target) {
           if (typeof target.properties.value === 'number') {
-            target.properties.value += amt;
+            target.properties.value = Math.max(0, target.properties.value + amt);
             uiModel.notify('property', { id: target.id });
-            logToStudio(`Added ${amt} to ${targetName}. New value: ${target.properties.value}`);
+            logToStudio(`${targetName} is now ${target.properties.value}`);
           } else {
             const num = parseInt(target.properties.text, 10);
             if (!isNaN(num)) {
               target.properties.text = String(num + amt);
               uiModel.notify('property', { id: target.id });
-              logToStudio(`Added ${amt} to ${targetName}. New text: ${target.properties.text}`);
-            }
-          }
-        }
-        continue;
-      }
-
-      const subMatch = line.match(/^(?:remove|subtract)\s+(\d+)\s+from\s+([a-zA-Z0-9_]+)$/i);
-      if (subMatch) {
-        const amt = parseInt(subMatch[1], 10);
-        const targetName = subMatch[2];
-        const allComps = uiModel.getAllComponents();
-        const target = allComps.find(c => c.name === targetName);
-        if (target) {
-          if (typeof target.properties.value === 'number') {
-            target.properties.value = Math.max(0, target.properties.value - amt);
-            uiModel.notify('property', { id: target.id });
-            logToStudio(`Subtracted ${amt} from ${targetName}. New value: ${target.properties.value}`);
-          } else {
-            const num = parseInt(target.properties.text, 10);
-            if (!isNaN(num)) {
-              target.properties.text = String(num - amt);
-              uiModel.notify('property', { id: target.id });
-              logToStudio(`Subtracted ${amt} from ${targetName}. New text: ${target.properties.text}`);
+              logToStudio(`${targetName} text is now ${target.properties.text}`);
             }
           }
         }
@@ -399,13 +962,11 @@ export function renderCanvas(containerEl, uiModel, cssAstManager) {
 
       const textMatch = line.match(/^([a-zA-Z0-9_]+)\s+has\s+text\s+(.+)$/i);
       if (textMatch) {
-        const targetName = textMatch[1];
-        const val = textMatch[2].trim().replace(/^"(.*)"$/, '$1');
-        const target = uiModel.getAllComponents().find(c => c.name === targetName);
+        const target = uiModel.getAllComponents().find(c => c.name === textMatch[1]);
         if (target) {
-          target.properties.text = val;
+          target.properties.text = textMatch[2].trim().replace(/^"(.*)"$/, '$1');
           uiModel.notify('property', { id: target.id });
-          logToStudio(`${targetName} has text "${val}"`);
+          logToStudio(`${textMatch[1]} has text "${target.properties.text}"`);
         }
         continue;
       }
@@ -414,35 +975,41 @@ export function renderCanvas(containerEl, uiModel, cssAstManager) {
     }
   }
 
-  function renderBreadcrumbs(crumbsEl) {
-    if (!crumbsEl) return;
+  function renderBreadcrumbs() {
+    const crumbsEl = topbarEl.querySelector('#canvasBreadcrumbs');
     crumbsEl.innerHTML = '';
     const selected = uiModel.getComponent(uiModel.selectedId);
     if (!selected) return;
-
     const path = [];
     let curr = selected;
     while (curr) {
       path.unshift(curr);
       curr = curr.parentId ? uiModel.getComponent(curr.parentId) : null;
     }
-
     path.forEach((node, idx) => {
       if (idx > 0) {
         const sep = document.createElement('span');
         sep.className = 'crumb-sep';
-        sep.innerText = '›';
+        sep.textContent = '›';
         crumbsEl.appendChild(sep);
       }
       const crumb = document.createElement('span');
       crumb.className = `crumb-item ${node.id === selected.id ? 'is-active' : ''}`;
-      crumb.innerText = `${node.name} (${node.kind})`;
+      crumb.textContent = `${node.name} (${node.kind})`;
       crumb.addEventListener('click', () => uiModel.select(node.id));
+      crumb.addEventListener('mouseenter', () => showHover(node.id));
+      crumb.addEventListener('mouseleave', () => { hoverBox.hidden = true; });
       crumbsEl.appendChild(crumb);
     });
+    if (uiModel.selectedIds.size > 1) {
+      const more = document.createElement('span');
+      more.className = 'crumb-multi';
+      more.textContent = `+${uiModel.selectedIds.size - 1} more`;
+      crumbsEl.appendChild(more);
+    }
   }
 
-  function renderCanvasComponent(comp, parentId, indexInParent) {
+  function renderCanvasComponent(comp) {
     const schema = ComponentSchema[comp.kind] || {};
     const props = comp.properties || {};
 
@@ -456,20 +1023,11 @@ export function renderCanvas(containerEl, uiModel, cssAstManager) {
     el.setAttribute('data-id', comp.id);
     el.setAttribute('data-kind', comp.kind);
 
-    // Component-specific content with canonical Otter runtime classes
     switch (comp.kind) {
-      case 'row':
-        el.classList.add('canvas-row', 'otter-row');
-        break;
-      case 'column':
-        el.classList.add('canvas-column', 'otter-column');
-        break;
-      case 'card':
-        el.classList.add('canvas-card', 'otter-card', 'task-item');
-        break;
-      case 'scroll':
-        el.classList.add('canvas-scroll', 'otter-scroll');
-        break;
+      case 'row': el.classList.add('canvas-row', 'otter-row'); break;
+      case 'column': el.classList.add('canvas-column', 'otter-column'); break;
+      case 'card': el.classList.add('canvas-card', 'otter-card', 'task-item'); break;
+      case 'scroll': el.classList.add('canvas-scroll', 'otter-scroll'); break;
       case 'heading':
         el.classList.add('canvas-heading', 'otter-heading');
         el.innerText = props.text || 'Heading';
@@ -500,455 +1058,443 @@ export function renderCanvas(containerEl, uiModel, cssAstManager) {
         break;
       case 'slider':
         el.classList.add('canvas-slider', 'otter-slider');
-        el.innerHTML = `
-          <div class="slider-track"><div class="slider-thumb" style="left: ${props.value || 50}%;"></div></div>
-        `;
+        el.innerHTML = `<div class="slider-track"><div class="slider-thumb" style="left: ${Number(props.value) || 50}%;"></div></div>`;
         break;
       case 'dropdown':
         el.classList.add('canvas-dropdown', 'otter-dropdown', 'otter-select');
         el.innerHTML = `<span>${escapeHtml(props.placeholder || 'Select option...')}</span><span class="arrow">▾</span>`;
         break;
-      case 'progress bar':
+      case 'progress bar': {
         el.classList.add('canvas-progress', 'otter-progress');
         const pct = Math.min(100, Math.max(0, ((props.value || 0) / (props.maximum || 100)) * 100));
-        el.innerHTML = `<div class="progress-bar-fill" style="width:${pct}%;background:${props.foreground || '#3b82f6'};"></div>`;
+        el.innerHTML = `<div class="progress-bar-fill" style="width:${pct}%;background:${escapeHtml(props.foreground || '#3b82f6')};"></div>`;
         break;
+      }
       case 'image':
         el.classList.add('canvas-image', 'otter-image');
         el.innerHTML = `<img src="${escapeHtml(props.source || '')}" alt="" style="width:100%;height:100%;object-fit:cover;pointer-events:none;" />`;
         break;
     }
 
-    // --- INTERACTIVE MODE BEHAVIORS ---
     if (isInteractMode) {
-      if (['button', 'primary button', 'danger button'].includes(comp.kind)) {
-        el.style.cursor = 'pointer';
-        el.addEventListener('click', (e) => {
-          e.stopPropagation();
-          el.classList.add('btn-clicked');
-          setTimeout(() => el.classList.remove('btn-clicked'), 150);
-          triggerOtterEvent(comp, 'clicked');
-        });
-      } else if (comp.kind === 'checkbox') {
-        const chk = el.querySelector('input[type="checkbox"]');
-        if (chk) {
-          chk.addEventListener('change', (e) => {
-            e.stopPropagation();
-            comp.properties.checked = chk.checked;
-            triggerOtterEvent(comp, 'clicked');
-          });
-        }
-      } else if (comp.kind === 'slider') {
-        el.style.cursor = 'pointer';
-        el.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const rect = el.getBoundingClientRect();
-          const clickPct = Math.max(0, Math.min(100, Math.round(((e.clientX - rect.left) / rect.width) * 100)));
-          comp.properties.value = clickPct;
-          const thumb = el.querySelector('.slider-thumb');
-          if (thumb) thumb.style.left = `${clickPct}%`;
-          triggerOtterEvent(comp, 'changed');
-        });
-      } else if (comp.kind === 'text box') {
-        el.contentEditable = true;
-        el.style.cursor = 'text';
-        el.addEventListener('input', () => {
-          comp.properties.text = el.innerText;
-          triggerOtterEvent(comp, 'changed');
-        });
-      }
+      bindInteractBehaviors(el, comp);
     } else {
-      // --- DESIGN MODE BEHAVIORS (Selection, Drag, Inline Edit) ---
-      // Note: Application DOM remains pure. Zero designer badges or handles are inserted here.
-      if (['heading', 'text', 'button', 'primary button', 'danger button'].includes(comp.kind)) {
-        el.title = 'Double-click to edit text';
-        el.addEventListener('dblclick', (e) => {
-          e.stopPropagation();
-          startInlineEdit(el, comp, 'text');
-        });
-      } else if (comp.kind === 'checkbox') {
-        const span = el.querySelector('span');
-        if (span) {
-          span.title = 'Double-click to edit label';
-          span.addEventListener('dblclick', (e) => {
-            e.stopPropagation();
-            startInlineEdit(span, comp, 'text');
-          });
-        }
-      }
+      bindDesignBehaviors(el, comp);
+    }
 
-      // Draggable element handling
-      if (comp.id !== uiModel.rootId) {
-        el.draggable = true;
-        el.addEventListener('dragstart', (e) => {
-          e.stopPropagation();
-          currentDraggedComponentId = comp.id;
-          el.classList.add('is-dragging');
-          e.dataTransfer.effectAllowed = 'move';
-          e.dataTransfer.setData('application/json', JSON.stringify({
-            type: 'move-component',
-            componentId: comp.id,
-            parentId: comp.parentId
-          }));
-        });
-
-        el.addEventListener('dragend', (e) => {
-          e.stopPropagation();
-          currentDraggedComponentId = null;
-          el.classList.remove('is-dragging');
-          hideDropOverlay();
-        });
-      }
-
-      // Click to select (Single click or Ctrl+Click multi-select)
-      el.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const multi = e.ctrlKey || e.metaKey;
-        uiModel.select(comp.id, multi);
+    if (schema.isContainer && comp.children) {
+      comp.children.forEach((childId, i) => {
+        const child = uiModel.getComponent(childId);
+        if (child) el.appendChild(renderCanvasComponent(child, comp.id, i));
       });
     }
-
-    // If it's a container, render children
-    if (schema.isContainer && comp.children) {
-      for (let i = 0; i < comp.children.length; i++) {
-        const childId = comp.children[i];
-        const child = uiModel.getComponent(childId);
-        if (child) {
-          el.appendChild(renderCanvasComponent(child, comp.id, i));
-        }
-      }
-    }
-
     return el;
   }
 
-  // =========================================================================
-  // Decoupled Overlay Resize Handling (Mutates Supported Model/CSS Properties)
-  // =========================================================================
+  function bindInteractBehaviors(el, comp) {
+    if (['button', 'primary button', 'danger button'].includes(comp.kind)) {
+      el.style.cursor = 'pointer';
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        el.classList.add('btn-clicked');
+        setTimeout(() => el.classList.remove('btn-clicked'), 150);
+        triggerOtterEvent(comp, 'clicked');
+      });
+    } else if (comp.kind === 'checkbox') {
+      el.querySelector('input[type="checkbox"]')?.addEventListener('change', (e) => {
+        e.stopPropagation();
+        comp.properties.checked = e.target.checked;
+        triggerOtterEvent(comp, 'clicked');
+      });
+    } else if (comp.kind === 'slider') {
+      el.style.cursor = 'pointer';
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const rect = el.getBoundingClientRect();
+        const clickPct = Math.max(0, Math.min(100, Math.round(((e.clientX - rect.left) / rect.width) * 100)));
+        comp.properties.value = clickPct;
+        const thumb = el.querySelector('.slider-thumb');
+        if (thumb) thumb.style.left = `${clickPct}%`;
+        triggerOtterEvent(comp, 'changed');
+      });
+    } else if (comp.kind === 'text box') {
+      el.contentEditable = true;
+      el.style.cursor = 'text';
+      el.addEventListener('input', () => {
+        comp.properties.text = el.innerText;
+        triggerOtterEvent(comp, 'changed');
+      });
+    }
+  }
 
-  function attachOverlayResize(handleEl, handleClass, targetEl, comp, viewportEl, boxEl) {
-    handleEl.addEventListener('mousedown', (e) => {
+  function bindDesignBehaviors(el, comp) {
+    if (['heading', 'text', 'button', 'primary button', 'danger button'].includes(comp.kind)) {
+      el.title = 'Double-click to edit text';
+      el.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        startInlineEdit(el, comp, 'text');
+      });
+    } else if (comp.kind === 'checkbox') {
+      const span = el.querySelector('span');
+      span?.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        startInlineEdit(span, comp, 'text');
+      });
+    }
+
+    el.draggable = true;
+    el.addEventListener('dragstart', (e) => {
       e.stopPropagation();
+      // Absolute elements move freely with the pointer instead.
+      const pos = getComputedStyle(el).position;
+      if (pos === 'absolute' || pos === 'fixed') {
+        e.preventDefault();
+        return;
+      }
+      currentDraggedComponentId = comp.id;
+      // Dragging one of several selected components moves just that one.
+      el.classList.add('is-dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('application/json', JSON.stringify({
+        type: 'move-component',
+        componentId: comp.id,
+        parentId: comp.parentId
+      }));
+    });
+    el.addEventListener('dragend', (e) => {
+      e.stopPropagation();
+      currentDraggedComponentId = null;
+      el.classList.remove('is-dragging');
+      hideDropMarkers();
+    });
+
+    el.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      const pos = getComputedStyle(el).position;
+      if ((pos === 'absolute' || pos === 'fixed') && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
+        e.stopPropagation();
+        startFreeMove(e, comp);
+      }
+    });
+
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (suppressClick) return;
+      uiModel.select(comp.id, e.ctrlKey || e.metaKey || e.shiftKey);
+    });
+
+    el.addEventListener('contextmenu', (e) => {
       e.preventDefault();
-
-      const startX = e.clientX;
-      const startY = e.clientY;
-      const startRect = targetEl.getBoundingClientRect();
-      const selector = `#${comp.name}`;
-      const initialWidth = comp.properties.width !== undefined ? comp.properties.width : (cssAstManager ? cssAstManager.getProperty(selector, 'width') : null);
-      const initialHeight = comp.properties.height !== undefined ? comp.properties.height : (cssAstManager ? cssAstManager.getProperty(selector, 'height') : null);
-
-      const tooltip = document.createElement('div');
-      tooltip.className = 'resize-dimension-tooltip';
-      viewportEl.appendChild(tooltip);
-
-      let isCancelled = false;
-
-      function onMouseMove(moveEvent) {
-        if (isCancelled) return;
-        moveEvent.preventDefault();
-        const deltaX = moveEvent.clientX - startX;
-        const deltaY = moveEvent.clientY - startY;
-
-        const newW = Math.max(32, Math.round((startRect.width + deltaX) / 8) * 8);
-        const newH = Math.max(28, Math.round((startRect.height + deltaY) / 8) * 8);
-
-        if (handleClass === 'handle-e') {
-          if (cssAstManager) cssAstManager.setProperty(selector, 'width', `${newW}px`);
-          comp.properties.width = `${newW}px`;
-          tooltip.textContent = `W: ${newW}px`;
-          boxEl.style.width = `${newW}px`;
-          targetEl.style.width = `${newW}px`;
-        } else if (handleClass === 'handle-s') {
-          if (cssAstManager) cssAstManager.setProperty(selector, 'height', `${newH}px`);
-          comp.properties.height = `${newH}px`;
-          tooltip.textContent = `H: ${newH}px`;
-          boxEl.style.height = `${newH}px`;
-          targetEl.style.height = `${newH}px`;
-        } else {
-          if (cssAstManager) {
-            cssAstManager.setProperty(selector, 'width', `${newW}px`);
-            cssAstManager.setProperty(selector, 'height', `${newH}px`);
-          }
-          comp.properties.width = `${newW}px`;
-          comp.properties.height = `${newH}px`;
-          tooltip.textContent = `${newW}px × ${newH}px`;
-          boxEl.style.width = `${newW}px`;
-          boxEl.style.height = `${newH}px`;
-          targetEl.style.width = `${newW}px`;
-          targetEl.style.height = `${newH}px`;
-        }
-
-        const vpRect = viewportEl.getBoundingClientRect();
-        tooltip.style.left = `${moveEvent.clientX - vpRect.left + viewportEl.scrollLeft + 12}px`;
-        tooltip.style.top = `${moveEvent.clientY - vpRect.top + viewportEl.scrollTop - 28}px`;
-
-        window.dispatchEvent(new CustomEvent('css-updated', { detail: { selector, source: 'resize' } }));
-      }
-
-      function onKeyDown(keyEvent) {
-        if (keyEvent.key === 'Escape') {
-          keyEvent.preventDefault();
-          keyEvent.stopPropagation();
-          isCancelled = true;
-          if (initialWidth !== null && initialWidth !== undefined) {
-            if (cssAstManager) cssAstManager.setProperty(selector, 'width', initialWidth);
-            comp.properties.width = initialWidth;
-            targetEl.style.width = initialWidth;
-          } else {
-            if (cssAstManager) cssAstManager.removeProperty(selector, 'width');
-            delete comp.properties.width;
-            targetEl.style.width = '';
-          }
-          if (initialHeight !== null && initialHeight !== undefined) {
-            if (cssAstManager) cssAstManager.setProperty(selector, 'height', initialHeight);
-            comp.properties.height = initialHeight;
-            targetEl.style.height = initialHeight;
-          } else {
-            if (cssAstManager) cssAstManager.removeProperty(selector, 'height');
-            delete comp.properties.height;
-            targetEl.style.height = '';
-          }
-          cleanup();
-          updateOverlay();
-        }
-      }
-
-      function cleanup() {
-        window.removeEventListener('mousemove', onMouseMove);
-        window.removeEventListener('mouseup', onMouseUp);
-        window.removeEventListener('keydown', onKeyDown);
-        if (tooltip.parentNode) {
-          tooltip.parentNode.removeChild(tooltip);
-        }
-      }
-
-      function onMouseUp() {
-        cleanup();
-        if (!isCancelled) {
-          uiModel.saveSnapshot();
-          uiModel.notify('property', { id: comp.id, prop: 'dimensions' });
-          updateOverlay();
-        }
-      }
-
-      window.addEventListener('mousemove', onMouseMove);
-      window.addEventListener('mouseup', onMouseUp);
-      window.addEventListener('keydown', onKeyDown);
+      e.stopPropagation();
+      if (!uiModel.isSelected(comp.id)) uiModel.select(comp.id);
+      openContextMenu(e.clientX, e.clientY, comp);
     });
   }
 
-  // =========================================================================
-  // GrapesJS-Style Interaction Layer: Hit Testing & Decoupled Visual Overlay
-  // =========================================================================
+  // ---------------------------------------------------------------------------
+  // Viewport: drop targets, hover, marquee, zoom, pan, auto-scroll
+  // ---------------------------------------------------------------------------
 
-  function setupDesignerInteraction(viewportEl, contentArea, root) {
-    const overlayEl = viewportEl.querySelector('#designerOverlay');
-    const targetBoxEl = viewportEl.querySelector('#designerTargetBox');
-    const targetBadgeEl = viewportEl.querySelector('#designerTargetBadge');
-    const insertionLineEl = viewportEl.querySelector('#designerInsertionLine');
+  let suppressClick = false;
 
-    function showOverlay(hit) {
-      if (!overlayEl || !targetBoxEl || !insertionLineEl) return;
-
-      const viewportRect = viewportEl.getBoundingClientRect();
-      const scrollLeft = viewportEl.scrollLeft;
-      const scrollTop = viewportEl.scrollTop;
-
-      // Position container target box
-      const cRect = hit.containerRect;
-      targetBoxEl.style.left = `${cRect.left - viewportRect.left + scrollLeft}px`;
-      targetBoxEl.style.top = `${cRect.top - viewportRect.top + scrollTop}px`;
-      targetBoxEl.style.width = `${cRect.width}px`;
-      targetBoxEl.style.height = `${cRect.height}px`;
-
-      const kindName = hit.targetComp.kind || (hit.targetComp.id === root.id ? 'window' : 'container');
-      targetBadgeEl.textContent = `${hit.targetComp.name} [${kindName}]`;
-
-      // Position insertion line with endpoint dots
-      const geo = hit.lineGeometry;
-      if (hit.isRow) {
-        insertionLineEl.className = 'designer-insertion-line is-vertical';
-        insertionLineEl.style.left = `${geo.x - viewportRect.left + scrollLeft}px`;
-        insertionLineEl.style.top = `${geo.y - viewportRect.top + scrollTop}px`;
-        insertionLineEl.style.width = '3px';
-        insertionLineEl.style.height = `${geo.height}px`;
-      } else {
-        insertionLineEl.className = 'designer-insertion-line is-horizontal';
-        insertionLineEl.style.left = `${geo.x - viewportRect.left + scrollLeft}px`;
-        insertionLineEl.style.top = `${geo.y - viewportRect.top + scrollTop}px`;
-        insertionLineEl.style.width = `${geo.width}px`;
-        insertionLineEl.style.height = '3px';
-      }
-
-      overlayEl.style.display = 'block';
-    }
-
-    function hideOverlay() {
-      if (overlayEl) {
-        overlayEl.style.display = 'none';
-      }
-    }
-
+  function bindViewport() {
     viewportEl.addEventListener('dragover', (e) => {
       e.preventDefault();
+      if (isInteractMode) return;
       e.dataTransfer.dropEffect = currentDraggedComponentId ? 'move' : 'copy';
-
-      const hit = performHitTest(e.clientX, e.clientY, currentDraggedComponentId, contentArea, root);
-      if (!hit) {
-        hideOverlay();
-        currentHit = null;
-        return;
-      }
-
-      currentHit = hit;
-      showOverlay(hit);
+      autoScroll(e.clientX, e.clientY);
+      const root = uiModel.getRoot();
+      const hit = root && performHitTest(e.clientX, e.clientY, currentDraggedComponentId, contentAreaEl(), root);
+      currentHit = hit || null;
+      if (hit) showDropMarkers(hit); else hideDropMarkers();
     });
 
     viewportEl.addEventListener('dragleave', (e) => {
       if (!viewportEl.contains(e.relatedTarget)) {
-        hideOverlay();
+        hideDropMarkers();
         currentHit = null;
       }
     });
 
     viewportEl.addEventListener('drop', (e) => {
       e.preventDefault();
-      hideOverlay();
-
-      const hit = currentHit || performHitTest(e.clientX, e.clientY, currentDraggedComponentId, contentArea, root);
+      hideDropMarkers();
+      if (isInteractMode) return;
+      const root = uiModel.getRoot();
+      const hit = currentHit || (root && performHitTest(e.clientX, e.clientY, currentDraggedComponentId, contentAreaEl(), root));
       currentHit = null;
       const draggedId = currentDraggedComponentId;
       currentDraggedComponentId = null;
-
       if (!hit) return;
 
       let dragData = null;
       try {
         const jsonStr = e.dataTransfer.getData('application/json');
         if (jsonStr) dragData = JSON.parse(jsonStr);
-      } catch (err) {}
-
+      } catch { /* not ours */ }
       if (!dragData) {
         const otterKind = e.dataTransfer.getData('text/otter-kind');
-        if (otterKind) {
-          dragData = { type: 'new-component', kind: otterKind };
-        }
+        if (otterKind) dragData = { type: 'new-component', kind: otterKind };
       }
-
       if (!dragData) return;
 
+      let placedId = null;
       if (dragData.type === 'new-component') {
         const child = uiModel.addChild(hit.targetComp.id, dragData.kind, {}, hit.insertIndex);
-        if (child && cssAstManager) {
-          if (child.kind === 'row' || child.kind === 'column' || child.kind === 'card') {
-            cssAstManager.setProperty(`#${child.name}`, 'padding', '12px');
-          }
+        if (child && cssAstManager && ['row', 'column', 'card'].includes(child.kind)) {
+          cssAstManager.setProperty(`#${child.name}`, 'padding', '12px');
         }
+        placedId = child?.id;
       } else if (dragData.type === 'move-component') {
         const compId = dragData.componentId || draggedId;
-        if (compId) {
-          uiModel.moveChild(compId, hit.targetComp.id, hit.insertIndex);
-        }
+        if (compId && uiModel.moveChild(compId, hit.targetComp.id, hit.insertIndex)) placedId = compId;
       }
+
+      // A drop onto a grid cell places the component in that cell explicitly.
+      if (placedId && hit.gridCell) {
+        const placed = uiModel.getComponent(placedId);
+        const saveContext = { ...styles.context };
+        styles.context = { breakpoint: styles.context.breakpoint, state: '' };
+        styles.write(placed, {
+          'grid-column': `${hit.gridCell.col} / span 1`,
+          'grid-row': `${hit.gridCell.row} / span 1`
+        }, { key: `grid-drop:${placedId}` });
+        styles.context = saveContext;
+      }
+      window.dispatchEvent(new CustomEvent('css-updated', { detail: { source: 'drop' } }));
     });
 
-    // Mouse hover tracking for decoupled overlay outline
+    // Hover outline
     viewportEl.addEventListener('mousemove', (e) => {
-      if (isInteractMode || currentDraggedComponentId) return;
-      const hoverBox = containerEl.querySelector('#designerHoverBox');
-      const hoverBadge = containerEl.querySelector('#designerHoverBadge');
-      if (!hoverBox || !hoverBadge) return;
-
-      const target = e.target.closest('[data-id]');
-      if (!target || target === contentArea || target.getAttribute('data-id') === root.id) {
-        hoverBox.style.display = 'none';
+      if (isInteractMode || currentDraggedComponentId || gestureActive) return;
+      // Reveal the spacing handles while the pointer is over the selection.
+      const primaryBox = selectionLayer.querySelector('.designer-selection-box.is-primary');
+      if (primaryBox) {
+        const r = primaryBox.getBoundingClientRect();
+        const pad = 12;
+        const inside = e.clientX >= r.left - pad && e.clientX <= r.right + pad && e.clientY >= r.top - pad && e.clientY <= r.bottom + pad;
+        primaryBox.classList.toggle('is-hovered', inside);
+      }
+      const target = e.target.closest?.('[data-id]');
+      const root = uiModel.getRoot();
+      if (!target || !root || target.getAttribute('data-id') === root.id || !stageEl.contains(target)) {
+        hoverBox.hidden = true;
         return;
       }
+      showHover(target.getAttribute('data-id'));
+    });
+    viewportEl.addEventListener('mouseleave', () => { hoverBox.hidden = true; });
 
-      const hoverId = target.getAttribute('data-id');
-      if (uiModel.isSelected(hoverId)) {
-        hoverBox.style.display = 'none';
-        return;
-      }
-
-      const comp = uiModel.getComponent(hoverId);
-      if (!comp) {
-        hoverBox.style.display = 'none';
-        return;
-      }
-
-      const elRect = target.getBoundingClientRect();
-      const vpRect = viewportEl.getBoundingClientRect();
-      hoverBox.style.left = `${elRect.left - vpRect.left + viewportEl.scrollLeft}px`;
-      hoverBox.style.top = `${elRect.top - vpRect.top + viewportEl.scrollTop}px`;
-      hoverBox.style.width = `${elRect.width}px`;
-      hoverBox.style.height = `${elRect.height}px`;
-      hoverBadge.textContent = `${comp.name} (${comp.kind})`;
-      hoverBox.style.display = 'block';
+    // Background click deselects; drag on background draws a marquee.
+    viewportEl.addEventListener('pointerdown', (e) => {
+      if (isInteractMode) return;
+      if (spaceHeld || e.button === 1) return startPan(e);
+      if (e.button !== 0) return;
+      const root = uiModel.getRoot();
+      const area = contentAreaEl();
+      const onBackground = e.target === viewportEl || e.target === stageEl || e.target === overlayEl;
+      const onRootArea = e.target === area;
+      if (onBackground || onRootArea) startMarquee(e, onRootArea ? root : null);
     });
 
-    viewportEl.addEventListener('mouseleave', () => {
-      const hoverBox = containerEl.querySelector('#designerHoverBox');
-      if (hoverBox) hoverBox.style.display = 'none';
-    });
+    // Ctrl + wheel zooms around the pointer.
+    viewportEl.addEventListener('wheel', (e) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      e.preventDefault();
+      const factor = Math.exp(-e.deltaY * 0.0015);
+      setZoom(zoom * factor, { clientX: e.clientX, clientY: e.clientY });
+    }, { passive: false });
 
-    // Viewport scroll and window resize keep overlay aligned
     viewportEl.addEventListener('scroll', () => {
-      updateOverlay();
+      if (!gestureActive) updateOverlay();
     });
-    window.addEventListener('resize', () => {
-      updateOverlay();
-    });
+    new ResizeObserver(() => { if (!gestureActive) updateOverlay(); }).observe(viewportEl);
 
-    // External hover events (e.g. from component tree)
     window.addEventListener('otter:highlight-component', (e) => {
       if (isInteractMode) return;
-      const hoverBox = containerEl.querySelector('#designerHoverBox');
-      const hoverBadge = containerEl.querySelector('#designerHoverBadge');
-      if (!hoverBox || !hoverBadge) return;
-
       const compId = e.detail?.id;
-      if (!compId) {
-        hoverBox.style.display = 'none';
-        return;
-      }
-      const target = containerEl.querySelector(`[data-id="${compId}"]`);
-      if (!target || uiModel.isSelected(compId)) {
-        hoverBox.style.display = 'none';
-        return;
-      }
-      const comp = uiModel.getComponent(compId);
-      if (!comp) {
-        hoverBox.style.display = 'none';
-        return;
-      }
-      const elRect = target.getBoundingClientRect();
-      const vpRect = viewportEl.getBoundingClientRect();
-      hoverBox.style.left = `${elRect.left - vpRect.left + viewportEl.scrollLeft}px`;
-      hoverBox.style.top = `${elRect.top - vpRect.top + viewportEl.scrollTop}px`;
-      hoverBox.style.width = `${elRect.width}px`;
-      hoverBox.style.height = `${elRect.height}px`;
-      hoverBadge.textContent = `${comp.name} (${comp.kind})`;
-      hoverBox.style.display = 'block';
+      if (!compId || uiModel.isSelected(compId)) { hoverBox.hidden = true; return; }
+      showHover(compId);
     });
   }
 
-  function hideDropOverlay() {
-    const overlay = containerEl.querySelector('#designerOverlay');
-    if (overlay) overlay.style.display = 'none';
+  function showHover(compId) {
+    const el = elementFor(compId);
+    const comp = uiModel.getComponent(compId);
+    if (!el || !comp || uiModel.isSelected(compId)) {
+      hoverBox.hidden = true;
+      return;
+    }
+    place(hoverBox, toOverlay(el.getBoundingClientRect()));
+    hoverBadge.textContent = `${comp.name} (${comp.kind})`;
+    hoverBox.hidden = false;
   }
 
-  // Hit-testing algorithm based on real DOM bounding boxes and computed layout
+  function startMarquee(e, rootComp) {
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const additive = e.ctrlKey || e.metaKey || e.shiftKey;
+    const before = additive ? Array.from(uiModel.selectedIds) : [];
+    let active = false;
+
+    const move = (ev) => {
+      const dx = ev.clientX - startX;
+      const dy = ev.clientY - startY;
+      if (!active && Math.hypot(dx, dy) < 5) return;
+      active = true;
+      const box = {
+        left: Math.min(startX, ev.clientX), top: Math.min(startY, ev.clientY),
+        right: Math.max(startX, ev.clientX), bottom: Math.max(startY, ev.clientY)
+      };
+      place(marqueeEl, toOverlay({ left: box.left, top: box.top, width: box.right - box.left, height: box.bottom - box.top }));
+      marqueeEl.hidden = false;
+      const hits = [];
+      for (const el of stageEl.querySelectorAll('.canvas-element[data-id]')) {
+        const r = el.getBoundingClientRect();
+        if (r.left >= box.left && r.right <= box.right && r.top >= box.top && r.bottom <= box.bottom) {
+          // Only the outermost contained components, not every descendant.
+          const parentHit = el.parentElement?.closest('.canvas-element[data-id]');
+          const pr = parentHit?.getBoundingClientRect();
+          if (pr && pr.left >= box.left && pr.right <= box.right && pr.top >= box.top && pr.bottom <= box.bottom) continue;
+          hits.push(el.getAttribute('data-id'));
+        }
+      }
+      stageEl.querySelectorAll('.is-marquee-hit').forEach(el => el.classList.remove('is-marquee-hit'));
+      hits.forEach(id => elementFor(id)?.classList.add('is-marquee-hit'));
+      marqueeEl.dataset.hits = hits.join(',');
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      marqueeEl.hidden = true;
+      stageEl.querySelectorAll('.is-marquee-hit').forEach(el => el.classList.remove('is-marquee-hit'));
+      if (active) {
+        const hits = (marqueeEl.dataset.hits || '').split(',').filter(Boolean);
+        uiModel.selectMany([...new Set([...before, ...hits])]);
+        // The click that follows a marquee must not reselect the root.
+        suppressClick = true;
+        setTimeout(() => { suppressClick = false; }, 0);
+      } else if (rootComp) {
+        uiModel.select(rootComp.id, additive);
+      } else if (!additive) {
+        uiModel.select(null);
+      }
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  }
+
+  function startPan(e) {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const startLeft = viewportEl.scrollLeft;
+    const startTop = viewportEl.scrollTop;
+    viewportEl.classList.add('is-panning');
+    const move = (ev) => {
+      viewportEl.scrollLeft = startLeft - (ev.clientX - startX);
+      viewportEl.scrollTop = startTop - (ev.clientY - startY);
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      viewportEl.classList.remove('is-panning');
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  }
+
+  let autoScrollFrame = null;
+  function autoScroll(clientX, clientY) {
+    const rect = viewportEl.getBoundingClientRect();
+    const edge = 48;
+    const speed = (d) => Math.ceil((edge - d) / 3);
+    let dx = 0;
+    let dy = 0;
+    if (clientY - rect.top < edge) dy = -speed(clientY - rect.top);
+    else if (rect.bottom - clientY < edge) dy = speed(rect.bottom - clientY);
+    if (clientX - rect.left < edge) dx = -speed(clientX - rect.left);
+    else if (rect.right - clientX < edge) dx = speed(rect.right - clientX);
+    if (!dx && !dy) return;
+    cancelAnimationFrame(autoScrollFrame);
+    autoScrollFrame = requestAnimationFrame(() => {
+      viewportEl.scrollLeft += dx;
+      viewportEl.scrollTop += dy;
+    });
+  }
+
+  function setZoom(next, anchor = null) {
+    const clamped = Math.min(4, Math.max(0.2, next));
+    if (Math.abs(clamped - zoom) < 0.001) return;
+    const rect = viewportEl.getBoundingClientRect();
+    const ax = anchor ? anchor.clientX - rect.left : rect.width / 2;
+    const ay = anchor ? anchor.clientY - rect.top : rect.height / 2;
+    const contentX = (viewportEl.scrollLeft + ax) / zoom;
+    const contentY = (viewportEl.scrollTop + ay) / zoom;
+    zoom = clamped;
+    stageEl.style.zoom = String(zoom);
+    viewportEl.scrollLeft = contentX * zoom - ax;
+    viewportEl.scrollTop = contentY * zoom - ay;
+    renderTopbarState();
+    updateOverlay();
+  }
+
+  function zoomBy(direction) {
+    const next = direction > 0
+      ? ZOOM_STEPS.find(z => z > zoom + 0.001) ?? ZOOM_STEPS[ZOOM_STEPS.length - 1]
+      : [...ZOOM_STEPS].reverse().find(z => z < zoom - 0.001) ?? ZOOM_STEPS[0];
+    setZoom(next);
+  }
+
+  function zoomToFit() {
+    const wrapper = stageEl.querySelector('#canvasWindowWrapper');
+    if (!wrapper) return;
+    const r = wrapper.getBoundingClientRect();
+    const naturalW = r.width / zoom;
+    const naturalH = r.height / zoom;
+    const fit = Math.min((viewportEl.clientWidth - 80) / naturalW, (viewportEl.clientHeight - 80) / naturalH, 2);
+    setZoom(fit);
+    viewportEl.scrollTop = 0;
+  }
+
+  function showDropMarkers(hit) {
+    place(targetBox, toOverlay(hit.containerRect));
+    const kindName = hit.targetComp.kind || 'container';
+    targetBadge.textContent = hit.gridCell
+      ? `${hit.targetComp.name} · column ${hit.gridCell.col}, row ${hit.gridCell.row}`
+      : `${hit.targetComp.name} [${kindName}]`;
+    targetBox.hidden = false;
+
+    if (hit.gridCell) {
+      place(cellBox, toOverlay(hit.gridCell.rect));
+      cellBox.hidden = false;
+      insertionLine.hidden = true;
+      return;
+    }
+    cellBox.hidden = true;
+    const geo = hit.lineGeometry;
+    const pos = toOverlay({ left: geo.x, top: geo.y, width: 0, height: 0 });
+    insertionLine.className = `designer-insertion-line ${hit.isRow ? 'is-vertical' : 'is-horizontal'}`;
+    place(insertionLine, { left: pos.left, top: pos.top, width: hit.isRow ? 3 : geo.width, height: hit.isRow ? geo.height : 3 });
+    insertionLine.hidden = false;
+  }
+
+  function hideDropMarkers() {
+    targetBox.hidden = true;
+    insertionLine.hidden = true;
+    cellBox.hidden = true;
+  }
+
+  // Hit testing on real DOM bounding boxes and computed layout.
   function performHitTest(clientX, clientY, draggedId, contentArea, root) {
     const elements = document.elementsFromPoint(clientX, clientY);
-    if (!elements || elements.length === 0) return null;
+    if (!elements || elements.length === 0 || !contentArea) return null;
 
     let targetEl = null;
     let targetComp = null;
-
     for (const el of elements) {
-      if (el === contentArea || el.id === root.name || el.getAttribute('data-id') === root.id) {
+      if (!stageEl.contains(el)) continue;
+      if (el === contentArea || el.getAttribute('data-id') === root.id) {
         targetEl = contentArea;
         targetComp = root;
         break;
@@ -963,77 +1509,85 @@ export function renderCanvas(containerEl, uiModel, cssAstManager) {
         }
       }
     }
-
+    if (!targetEl && elements.some(el => el.closest?.('#canvasWindowWrapper'))) {
+      targetEl = contentArea;
+      targetComp = root;
+    }
     if (!targetEl || !targetComp) return null;
 
-    // Prevent dropping onto self or descendants
-    if (draggedId) {
-      if (targetComp.id === draggedId || uiModel.isDescendantOf(targetComp.id, draggedId)) {
-        let ancestor = targetComp.parentId ? uiModel.getComponent(targetComp.parentId) : null;
-        while (ancestor && (ancestor.id === draggedId || uiModel.isDescendantOf(ancestor.id, draggedId))) {
-          ancestor = ancestor.parentId ? uiModel.getComponent(ancestor.parentId) : null;
-        }
-        if (!ancestor) return null;
-        targetComp = ancestor;
-        targetEl = targetComp.id === root.id ? contentArea : containerEl.querySelector(`[data-id="${targetComp.id}"]`);
-        if (!targetEl) return null;
+    // Never drop onto itself or into its own descendants.
+    if (draggedId && (targetComp.id === draggedId || uiModel.isDescendantOf(targetComp.id, draggedId))) {
+      let ancestor = targetComp.parentId ? uiModel.getComponent(targetComp.parentId) : null;
+      while (ancestor && (ancestor.id === draggedId || uiModel.isDescendantOf(ancestor.id, draggedId))) {
+        ancestor = ancestor.parentId ? uiModel.getComponent(ancestor.parentId) : null;
       }
+      if (!ancestor) return null;
+      targetComp = ancestor;
+      targetEl = elementFor(targetComp.id);
+      if (!targetEl) return null;
     }
 
-    // If target is a leaf control, resolve to parent container and determine relative insertion
+    // A leaf control resolves to its parent container, before or after itself.
     const schema = ComponentSchema[targetComp.kind] || {};
     let dropBeforeEl = null;
     let dropAfterEl = null;
-
     if (!schema.isContainer && targetComp.id !== root.id) {
       const parentComp = targetComp.parentId ? uiModel.getComponent(targetComp.parentId) : root;
-      const parentEl = parentComp.id === root.id ? contentArea : containerEl.querySelector(`[data-id="${parentComp.id}"]`);
+      const parentEl = elementFor(parentComp.id);
       if (!parentEl) return null;
-
       const leafEl = targetEl;
       targetComp = parentComp;
       targetEl = parentEl;
-
       const leafRect = leafEl.getBoundingClientRect();
-      const parentStyle = window.getComputedStyle(targetEl);
-      const isParentRow = (targetComp.kind === 'row') || (parentStyle.display.includes('flex') && parentStyle.flexDirection.includes('row'));
-
-      if (isParentRow) {
-        const midX = leafRect.left + leafRect.width / 2;
-        if (clientX < midX) {
-          dropBeforeEl = leafEl;
-        } else {
-          dropAfterEl = leafEl;
-        }
-      } else {
-        const midY = leafRect.top + leafRect.height / 2;
-        if (clientY < midY) {
-          dropBeforeEl = leafEl;
-        } else {
-          dropAfterEl = leafEl;
-        }
-      }
+      const parentStyle = getComputedStyle(targetEl);
+      const isParentRow = targetComp.kind === 'row' || (parentStyle.display.includes('flex') && parentStyle.flexDirection.startsWith('row'));
+      const before = isParentRow ? clientX < leafRect.left + leafRect.width / 2 : clientY < leafRect.top + leafRect.height / 2;
+      if (before) dropBeforeEl = leafEl; else dropAfterEl = leafEl;
     }
 
-    const computed = window.getComputedStyle(targetEl);
-    const isRow = (targetComp.kind === 'row') || (computed.display.includes('flex') && computed.flexDirection.includes('row'));
-
-    // Direct rendered children
+    const computed = getComputedStyle(targetEl);
+    const containerRect = targetEl.getBoundingClientRect();
     const directChildren = Array.from(targetEl.children).filter(c => {
       const cid = c.getAttribute('data-id');
       return cid && cid !== draggedId && !c.classList.contains('is-dragging');
     });
 
+    // Grid containers: target a cell.
+    if (computed.display.includes('grid')) {
+      const tracks = gridTracks(targetEl);
+      if (tracks) {
+        const col = tracks.columns.findIndex(c => clientX >= c.start && clientX <= c.end + 1);
+        const row = tracks.rows.findIndex(r => clientY >= r.start && clientY <= r.end + 1);
+        const c = tracks.columns[col];
+        const r = tracks.rows[row];
+        // Only an empty cell is a placement target; over a child, fall back
+        // to ordinary before/after insertion.
+        const occupied = c && r && directChildren.some(child => {
+          const cr = child.getBoundingClientRect();
+          const cx = cr.left + cr.width / 2;
+          const cy = cr.top + cr.height / 2;
+          return cx >= c.start && cx <= c.end && cy >= r.start && cy <= r.end;
+        });
+        if (col >= 0 && row >= 0 && !occupied) {
+          return {
+            targetEl, targetComp, containerRect,
+            isRow: true,
+            insertIndex: directChildren.length,
+            gridCell: { col: col + 1, row: row + 1, rect: { left: c.start, top: r.start, width: c.end - c.start, height: r.end - r.start } },
+            lineGeometry: { x: 0, y: 0, width: 0, height: 0 }
+          };
+        }
+      }
+    }
+
+    const isRow = targetComp.kind === 'row' || (computed.display.includes('flex') && computed.flexDirection.startsWith('row'));
     let insertIndex = 0;
     let lineX = 0;
     let lineY = 0;
     let lineWidth = 0;
     let lineHeight = 0;
 
-    const containerRect = targetEl.getBoundingClientRect();
-
     if (directChildren.length === 0) {
-      insertIndex = 0;
       if (isRow) {
         lineX = containerRect.left + 16;
         lineY = containerRect.top + 10;
@@ -1048,185 +1602,344 @@ export function renderCanvas(containerEl, uiModel, cssAstManager) {
     } else if (dropBeforeEl || dropAfterEl) {
       const refEl = dropBeforeEl || dropAfterEl;
       const refIdx = directChildren.indexOf(refEl);
-      if (dropBeforeEl) {
-        insertIndex = refIdx >= 0 ? refIdx : 0;
-      } else {
-        insertIndex = refIdx >= 0 ? refIdx + 1 : directChildren.length;
-      }
-
+      insertIndex = dropBeforeEl ? Math.max(0, refIdx) : (refIdx >= 0 ? refIdx + 1 : directChildren.length);
       const refRect = refEl.getBoundingClientRect();
       if (isRow) {
         lineY = refRect.top;
         lineHeight = refRect.height;
         lineWidth = 3;
-        lineX = dropBeforeEl ? (refRect.left - 2) : (refRect.right + 2);
+        lineX = dropBeforeEl ? refRect.left - 2 : refRect.right + 2;
       } else {
         lineX = containerRect.left + 8;
         lineWidth = Math.max(40, containerRect.width - 16);
         lineHeight = 3;
-        lineY = dropBeforeEl ? (refRect.top - 2) : (refRect.bottom + 2);
+        lineY = dropBeforeEl ? refRect.top - 2 : refRect.bottom + 2;
       }
     } else {
-      if (isRow) {
-        insertIndex = directChildren.length;
-        for (let i = 0; i < directChildren.length; i++) {
-          const cRect = directChildren[i].getBoundingClientRect();
-          const midX = cRect.left + cRect.width / 2;
-          if (clientX < midX) {
-            insertIndex = i;
-            break;
-          }
+      insertIndex = directChildren.length;
+      for (let i = 0; i < directChildren.length; i++) {
+        const cRect = directChildren[i].getBoundingClientRect();
+        if (isRow ? clientX < cRect.left + cRect.width / 2 : clientY < cRect.top + cRect.height / 2) {
+          insertIndex = i;
+          break;
         }
-
+      }
+      const first = directChildren[0].getBoundingClientRect();
+      const last = directChildren[directChildren.length - 1].getBoundingClientRect();
+      if (isRow) {
         lineWidth = 3;
         if (insertIndex === 0) {
-          const firstRect = directChildren[0].getBoundingClientRect();
-          lineX = firstRect.left - 3;
-          lineY = firstRect.top;
-          lineHeight = firstRect.height;
+          lineX = first.left - 3; lineY = first.top; lineHeight = first.height;
         } else if (insertIndex === directChildren.length) {
-          const lastRect = directChildren[directChildren.length - 1].getBoundingClientRect();
-          lineX = lastRect.right + 3;
-          lineY = lastRect.top;
-          lineHeight = lastRect.height;
+          lineX = last.right + 3; lineY = last.top; lineHeight = last.height;
         } else {
-          const prevRect = directChildren[insertIndex - 1].getBoundingClientRect();
-          const nextRect = directChildren[insertIndex].getBoundingClientRect();
-          lineX = (prevRect.right + nextRect.left) / 2;
-          lineY = Math.min(prevRect.top, nextRect.top);
-          lineHeight = Math.max(prevRect.height, nextRect.height);
+          const prev = directChildren[insertIndex - 1].getBoundingClientRect();
+          const next = directChildren[insertIndex].getBoundingClientRect();
+          lineX = (prev.right + next.left) / 2;
+          lineY = Math.min(prev.top, next.top);
+          lineHeight = Math.max(prev.height, next.height);
         }
       } else {
-        insertIndex = directChildren.length;
-        for (let i = 0; i < directChildren.length; i++) {
-          const cRect = directChildren[i].getBoundingClientRect();
-          const midY = cRect.top + cRect.height / 2;
-          if (clientY < midY) {
-            insertIndex = i;
-            break;
-          }
-        }
-
         lineX = containerRect.left + 8;
         lineWidth = Math.max(40, containerRect.width - 16);
         lineHeight = 3;
-
-        if (insertIndex === 0) {
-          const firstRect = directChildren[0].getBoundingClientRect();
-          lineY = firstRect.top - 3;
-        } else if (insertIndex === directChildren.length) {
-          const lastRect = directChildren[directChildren.length - 1].getBoundingClientRect();
-          lineY = lastRect.bottom + 3;
-        } else {
-          const prevRect = directChildren[insertIndex - 1].getBoundingClientRect();
-          const nextRect = directChildren[insertIndex].getBoundingClientRect();
-          lineY = (prevRect.bottom + nextRect.top) / 2;
+        if (insertIndex === 0) lineY = first.top - 3;
+        else if (insertIndex === directChildren.length) lineY = last.bottom + 3;
+        else {
+          const prev = directChildren[insertIndex - 1].getBoundingClientRect();
+          const next = directChildren[insertIndex].getBoundingClientRect();
+          lineY = (prev.bottom + next.top) / 2;
         }
       }
     }
 
     return {
-      targetEl,
-      targetComp,
-      containerRect,
-      isRow,
-      insertIndex,
-      lineGeometry: {
-        x: lineX,
-        y: lineY,
-        width: lineWidth,
-        height: lineHeight
-      }
+      targetEl, targetComp, containerRect, isRow, insertIndex,
+      lineGeometry: { x: lineX, y: lineY, width: lineWidth, height: lineHeight }
     };
   }
 
-  // =========================================================================
-  // Global Studio Keyboard Shortcuts
-  // =========================================================================
+  // ---------------------------------------------------------------------------
+  // Context menu
+  // ---------------------------------------------------------------------------
 
-  function setupKeyboardShortcuts() {
+  function openContextMenu(x, y, comp) {
+    closeContextMenu();
+    const selected = uiModel.getSelectedComponents().filter(c => c.id !== uiModel.rootId);
+    const schema = ComponentSchema[comp.kind] || {};
+    const sameParent = selected.length > 0 && selected.every(c => c.parentId === selected[0].parentId);
+    const items = [
+      comp.parentId && { label: 'Select parent', hint: 'Esc', run: () => uiModel.select(comp.parentId) },
+      '-',
+      sameParent && { label: 'Wrap in row', hint: '', run: () => uiModel.wrapComponents(selected.map(c => c.id), 'row') },
+      sameParent && { label: 'Wrap in column', hint: 'Ctrl+G', run: () => uiModel.wrapComponents(selected.map(c => c.id), 'column') },
+      sameParent && { label: 'Wrap in card', hint: '', run: () => uiModel.wrapComponents(selected.map(c => c.id), 'card') },
+      schema.isContainer && comp.id !== uiModel.rootId && { label: 'Unwrap (keep children)', hint: '', run: () => uiModel.unwrapComponent(comp.id) },
+      '-',
+      { label: 'Copy styles', hint: '', run: () => { copiedStyles = { ...styles.resolve(comp).own }; } },
+      copiedStyles && { label: `Paste styles (${Object.keys(copiedStyles).length})`, hint: '', run: () => styles.write(uiModel.getSelectedComponents(), copiedStyles, { key: 'paste-styles' }) },
+      { label: 'Clear styles here', hint: styles.isBaseContext() ? '' : styles.breakpoint.label, run: () => styles.clear(uiModel.getSelectedComponents()) },
+      '-',
+      comp.id !== uiModel.rootId && { label: 'Duplicate', hint: 'Ctrl+D', run: () => duplicateSelection() },
+      comp.id !== uiModel.rootId && { label: 'Delete', hint: 'Del', danger: true, run: () => deleteSelection() }
+    ].filter(Boolean);
+
+    // Drop leading/trailing/double separators.
+    const cleaned = items.filter((item, i, arr) => item !== '-' || (i > 0 && i < arr.length - 1 && arr[i - 1] !== '-'));
+    const menu = document.createElement('div');
+    menu.className = 'designer-context-menu';
+    menu.setAttribute('role', 'menu');
+    for (const item of cleaned) {
+      if (item === '-') {
+        menu.appendChild(Object.assign(document.createElement('div'), { className: 'designer-menu-sep' }));
+        continue;
+      }
+      const btn = document.createElement('button');
+      btn.className = `designer-menu-item ${item.danger ? 'is-danger' : ''}`;
+      btn.setAttribute('role', 'menuitem');
+      btn.innerHTML = `<span>${escapeHtml(item.label)}</span><span class="designer-menu-hint">${escapeHtml(item.hint || '')}</span>`;
+      btn.addEventListener('click', () => {
+        closeContextMenu();
+        item.run();
+      });
+      menu.appendChild(btn);
+    }
+    document.body.appendChild(menu);
+    menu.style.left = `${Math.min(x, window.innerWidth - menu.offsetWidth - 8)}px`;
+    menu.style.top = `${Math.min(y, window.innerHeight - menu.offsetHeight - 8)}px`;
+    menu.querySelector('button')?.focus();
+    setTimeout(() => {
+      document.addEventListener('pointerdown', onOutside, true);
+      document.addEventListener('keydown', onMenuKey, true);
+    }, 0);
+  }
+
+  function onOutside(e) {
+    if (!e.target.closest('.designer-context-menu')) closeContextMenu();
+  }
+
+  function onMenuKey(e) {
+    const menu = document.querySelector('.designer-context-menu');
+    if (!menu) return;
+    const items = Array.from(menu.querySelectorAll('.designer-menu-item'));
+    const idx = items.indexOf(document.activeElement);
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeContextMenu(); }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); items[(idx + 1) % items.length]?.focus(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); items[(idx - 1 + items.length) % items.length]?.focus(); }
+  }
+
+  function closeContextMenu() {
+    document.querySelector('.designer-context-menu')?.remove();
+    document.removeEventListener('pointerdown', onOutside, true);
+    document.removeEventListener('keydown', onMenuKey, true);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Keyboard
+  // ---------------------------------------------------------------------------
+
+  function selectionForEdit() {
+    return uiModel.getSelectedComponents().filter(c => c.id !== uiModel.rootId);
+  }
+
+  // One undo step for the whole multi-selection.
+  function deleteSelection() {
+    const comps = selectionForEdit();
+    if (comps.length === 0) return;
+    uiModel.saveSnapshot();
+    const depth = uiModel.undoStack.length;
+    for (const comp of comps) {
+      if (uiModel.getComponent(comp.id)) uiModel.removeComponent(comp.id);
+    }
+    uiModel.undoStack.length = depth;
+  }
+
+  function duplicateSelection() {
+    const comps = selectionForEdit();
+    if (comps.length === 0) return;
+    uiModel.saveSnapshot();
+    const depth = uiModel.undoStack.length;
+    const copies = comps.map(c => uiModel.duplicateComponent(c.id, cssAstManager)).filter(Boolean);
+    uiModel.undoStack.length = depth;
+    uiModel.selectMany(copies.map(c => c.id));
+  }
+
+  function isDesignerVisible() {
+    return containerEl.offsetParent !== null && !isInteractMode;
+  }
+
+  function bindKeyboard() {
+    window.addEventListener('keyup', (e) => {
+      if (e.code === 'Space') {
+        spaceHeld = false;
+        viewportEl.classList.remove('is-pan-ready');
+      }
+    });
+
     window.addEventListener('keydown', (e) => {
-      const activeTag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
-      if (['input', 'textarea', 'select'].includes(activeTag) || document.activeElement?.isContentEditable) {
-        return;
-      }
-      if (isInteractMode) {
-        return;
-      }
+      const active = document.activeElement;
+      const activeTag = active ? active.tagName.toLowerCase() : '';
+      if (['input', 'textarea', 'select'].includes(activeTag) || active?.isContentEditable) return;
+      if (!isDesignerVisible()) return;
+      // Only when the pointer or focus is in the designer area, so shortcuts
+      // never fire while working in another panel.
+      const inDesigner = containerEl.matches(':hover') || containerEl.contains(active) || active === document.body;
+      if (!inDesigner) return;
 
-      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const isMac = navigator.platform.toUpperCase().includes('MAC');
       const mod = isMac ? e.metaKey : e.ctrlKey;
+      const k = e.key.toLowerCase();
 
-      // Undo: Ctrl+Z
-      if (mod && !e.shiftKey && e.key.toLowerCase() === 'z') {
+      if (e.code === 'Space' && !e.repeat) {
+        spaceHeld = true;
+        viewportEl.classList.add('is-pan-ready');
         e.preventDefault();
-        uiModel.undo();
         return;
       }
-
-      // Redo: Ctrl+Y or Ctrl+Shift+Z
-      if ((mod && e.key.toLowerCase() === 'y') || (mod && e.shiftKey && e.key.toLowerCase() === 'z')) {
+      if (mod && !e.shiftKey && k === 'z') { e.preventDefault(); uiModel.undo(); return; }
+      if ((mod && k === 'y') || (mod && e.shiftKey && k === 'z')) { e.preventDefault(); uiModel.redo(); return; }
+      if (mod && k === 'd') { e.preventDefault(); duplicateSelection(); return; }
+      if (mod && k === 'g') {
         e.preventDefault();
-        uiModel.redo();
+        const ids = selectionForEdit().map(c => c.id);
+        if (ids.length) uiModel.wrapComponents(ids, e.shiftKey ? 'row' : 'column');
         return;
       }
-
-      // Duplicate: Ctrl+D
-      if (mod && e.key.toLowerCase() === 'd') {
+      if (mod && (k === '=' || k === '+')) { e.preventDefault(); zoomBy(1); return; }
+      if (mod && k === '-') { e.preventDefault(); zoomBy(-1); return; }
+      if (mod && k === '0') { e.preventDefault(); setZoom(1); return; }
+      if (e.shiftKey && e.key === '!') { e.preventDefault(); zoomToFit(); return; }
+      if (mod && k === 'a') {
         e.preventDefault();
-        if (uiModel.selectedId && uiModel.selectedId !== uiModel.rootId) {
-          uiModel.duplicateComponent(uiModel.selectedId, cssAstManager);
-        }
+        const primary = uiModel.getComponent(uiModel.selectedId);
+        const parent = primary && primary.parentId ? uiModel.getComponent(primary.parentId) : uiModel.getRoot();
+        if (parent) uiModel.selectMany(parent.children);
         return;
       }
-
-      // Delete: Delete or Backspace
       if (e.key === 'Delete' || e.key === 'Backspace') {
-        if (uiModel.selectedId && uiModel.selectedId !== uiModel.rootId) {
+        if (selectionForEdit().length) {
           e.preventDefault();
-          uiModel.removeComponent(uiModel.selectedId);
+          deleteSelection();
+        }
+        return;
+      }
+      if (e.key === 'Escape') {
+        const primary = uiModel.getComponent(uiModel.selectedId);
+        if (primary && primary.parentId) {
+          e.preventDefault();
+          uiModel.select(primary.parentId);
         }
         return;
       }
 
-      // Reorder with Alt+Arrow keys
-      if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
-        const selected = uiModel.getComponent(uiModel.selectedId);
-        if (selected && selected.parentId) {
-          const parent = uiModel.getComponent(selected.parentId);
-          if (parent && parent.children) {
-            const idx = parent.children.indexOf(selected.id);
-            if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
-              if (idx > 0) {
-                e.preventDefault();
-                uiModel.moveChild(selected.id, parent.id, idx - 1);
-              }
-            } else {
-              if (idx < parent.children.length - 1) {
-                e.preventDefault();
-                uiModel.moveChild(selected.id, parent.id, idx + 1);
-              }
-            }
-          }
+      // Enter selects the first child; Tab / Shift+Tab walks siblings.
+      if (e.key === 'Enter') {
+        const primary = uiModel.getComponent(uiModel.selectedId);
+        if (primary?.children?.length) { e.preventDefault(); uiModel.select(primary.children[0]); }
+        return;
+      }
+      if (e.key === 'Tab') {
+        const primary = uiModel.getComponent(uiModel.selectedId);
+        const parent = primary?.parentId ? uiModel.getComponent(primary.parentId) : null;
+        if (parent) {
+          e.preventDefault();
+          const idx = parent.children.indexOf(primary.id);
+          const next = (idx + (e.shiftKey ? -1 : 1) + parent.children.length) % parent.children.length;
+          uiModel.select(parent.children[next]);
+        }
+        return;
+      }
+
+      const arrows = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
+      if (!arrows.includes(e.key)) return;
+      const selected = uiModel.getComponent(uiModel.selectedId);
+      if (!selected || selected.id === uiModel.rootId) return;
+      const el = elementFor(selected.id);
+      const pos = el ? getComputedStyle(el).position : 'static';
+
+      // Absolute elements: arrows nudge the position.
+      if ((pos === 'absolute' || pos === 'fixed') && !e.altKey) {
+        e.preventDefault();
+        const step = e.shiftKey ? 10 : 1;
+        const cs = getComputedStyle(el);
+        const values = {};
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') values.left = `${Math.round((parseFloat(cs.left) || 0) + (e.key === 'ArrowRight' ? step : -step))}px`;
+        else values.top = `${Math.round((parseFloat(cs.top) || 0) + (e.key === 'ArrowDown' ? step : -step))}px`;
+        styles.write(selectionForEdit(), values, { key: `nudge:${selected.id}` });
+        return;
+      }
+
+      // Flow elements: Alt+arrows reorder within the parent.
+      if (e.altKey && selected.parentId) {
+        const parent = uiModel.getComponent(selected.parentId);
+        const idx = parent.children.indexOf(selected.id);
+        const back = e.key === 'ArrowUp' || e.key === 'ArrowLeft';
+        const target = back ? idx - 1 : idx + 1;
+        if (target >= 0 && target < parent.children.length) {
+          e.preventDefault();
+          uiModel.moveChild(selected.id, parent.id, target);
         }
       }
     });
   }
 
-  setupKeyboardShortcuts();
+  // ---------------------------------------------------------------------------
+  // Wiring
+  // ---------------------------------------------------------------------------
+
+  mount();
   update();
 
   uiModel.subscribe((type) => {
+    if (type === 'select') {
+      // Selection does not change the DOM, so keep the elements (a rebuild
+      // between the two clicks of a double-click would lose the double-click).
+      const root = uiModel.getRoot();
+      stageEl.querySelector('#canvasWindowWrapper')?.classList.toggle('is-selected-window', !!root && uiModel.isSelected(root.id) && !isInteractMode);
+      renderTopbarState();
+      renderBreadcrumbs();
+      applyForcedState();
+      updateOverlay();
+      return;
+    }
+    if (gestureActive && type === 'property') {
+      // During a drag, source-backed writes (width 240) are applied inline
+      // immediately; a full rebuild would destroy the element being dragged.
+      const area = contentAreaEl();
+      if (area && realRender) applyRealRenderNow(area);
+      updateOverlay();
+      return;
+    }
     update();
   });
 
-  window.addEventListener('css-updated', () => {
-    update();
+  window.addEventListener('css-updated', (e) => {
+    // Style changes do not change the component tree: refresh the styles and
+    // the overlay only, and let the real render catch up in the background.
+    if (e.detail?.source === 'rename') return update();
+    refreshUserStyles();
+    applyForcedState();
+    if (!gestureActive) updateOverlay();
+    scheduleRealRender();
   });
+
+  window.addEventListener('otter:source-synced', (e) => {
+    if (e.detail?.file && e.detail.file.endsWith('.css')) {
+      refreshUserStyles();
+      updateOverlay();
+      scheduleRealRender();
+    }
+  });
+
+  window.addEventListener('otter:style-context', () => update());
+}
+
+function cssEscape(value) {
+  return window.CSS && CSS.escape ? CSS.escape(value) : String(value).replace(/"/g, '\\"');
 }
 
 function escapeHtml(str) {
-  return String(str)
+  return String(str ?? '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')

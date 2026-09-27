@@ -1813,7 +1813,19 @@ $cryptoRuntimeJs
         out.textContent = args.join(' ');
       }
     }
+    // A desktop shell can provide these operations natively as
+    // window.otterNative (the Electron export does, from its preload
+    // script). When it is present it is used before the loopback bridge
+    // and the browser fallbacks, so the same compiled page runs in a
+    // browser tab, under the PowerShell desktop bridge, or in Electron.
+    function otterNativeMethod(group, name) {
+      const native = window.otterNative;
+      const members = native ? native[group] : null;
+      return (members && typeof members[name] === 'function') ? members[name] : null;
+    }
     async function otterReadFile(filePath) {
+      const nativeRead = otterNativeMethod('files', 'read');
+      if (nativeRead) return String(await nativeRead(filePath));
       const bridge = window.__OTTER_DESKTOP_BRIDGE__;
       if (!bridge || !bridge.port || !bridge.token) {
         console.warn('Desktop Bridge is not available to read "' + filePath + '".');
@@ -1833,7 +1845,10 @@ $cryptoRuntimeJs
       const data = await resp.json();
       return data.content || '';
     }
+    window.otterReadFile = otterReadFile;
     async function otterWriteFile(filePath, content) {
+      const nativeWrite = otterNativeMethod('files', 'write');
+      if (nativeWrite) return await nativeWrite(filePath, content);
       const bridge = window.__OTTER_DESKTOP_BRIDGE__;
       if (!bridge || !bridge.port || !bridge.token) {
         console.warn('Desktop Bridge is not available to write "' + filePath + '".');
@@ -1855,6 +1870,8 @@ $cryptoRuntimeJs
     window.otterWriteFile = otterWriteFile;
 
     async function otterDownloadFile(url, filePath) {
+      const nativeDownload = otterNativeMethod('files', 'download');
+      if (nativeDownload) return await nativeDownload(url, filePath);
       const bridge = window.__OTTER_DESKTOP_BRIDGE__;
       if (!bridge || !bridge.port || !bridge.token) {
         throw new Error('Desktop Bridge is not available for file download in this browser.');
@@ -1876,22 +1893,28 @@ $cryptoRuntimeJs
     window.otterDownloadFile = otterDownloadFile;
 
     async function otterRunCommand(command) {
-      const bridge = window.__OTTER_DESKTOP_BRIDGE__;
-      if (!bridge || !bridge.port || !bridge.token) {
-        throw new Error('Desktop Bridge is not available to run "' + command + '".');
+      let data;
+      const nativeRun = otterNativeMethod('commands', 'exec');
+      if (nativeRun) {
+        data = await nativeRun(command);
+      } else {
+        const bridge = window.__OTTER_DESKTOP_BRIDGE__;
+        if (!bridge || !bridge.port || !bridge.token) {
+          throw new Error('Desktop Bridge is not available to run "' + command + '".');
+        }
+        const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/terminal/exec', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Otter-Token': bridge.token
+          },
+          body: JSON.stringify({ command: command })
+        });
+        if (!resp.ok) {
+          throw new Error('Could not execute command "' + command + '": HTTP ' + resp.status);
+        }
+        data = await resp.json();
       }
-      const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/terminal/exec', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Otter-Token': bridge.token
-        },
-        body: JSON.stringify({ command: command })
-      });
-      if (!resp.ok) {
-        throw new Error('Could not execute command "' + command + '": HTTP ' + resp.status);
-      }
-      const data = await resp.json();
       const stdout = data.stdout || '';
       const stderr = data.stderr || '';
       return {
@@ -1908,6 +1931,8 @@ $cryptoRuntimeJs
     window.otterRunCommand = otterRunCommand;
 
     async function otterGetFiles(folderPath, includeSubfolders = false) {
+      const nativeFiles = otterNativeMethod('files', 'list');
+      if (nativeFiles) return await nativeFiles(folderPath, includeSubfolders);
       const bridge = window.__OTTER_DESKTOP_BRIDGE__;
       if (!bridge || !bridge.port || !bridge.token) {
         console.warn('Desktop Bridge is not available to get files in "' + folderPath + '".');
@@ -1929,6 +1954,8 @@ $cryptoRuntimeJs
     window.otterGetFiles = otterGetFiles;
 
     async function otterGetFolders(folderPath, includeSubfolders = false) {
+      const nativeFolders = otterNativeMethod('folders', 'list');
+      if (nativeFolders) return await nativeFolders(folderPath, includeSubfolders);
       const bridge = window.__OTTER_DESKTOP_BRIDGE__;
       if (!bridge || !bridge.port || !bridge.token) {
         console.warn('Desktop Bridge is not available to get folders in "' + folderPath + '".');
@@ -1950,6 +1977,8 @@ $cryptoRuntimeJs
     window.otterGetFolders = otterGetFolders;
 
     async function otterFileOperation(operation, payload) {
+      const nativeOperation = otterNativeMethod('files', 'operate');
+      if (nativeOperation) return await nativeOperation(operation, payload || {});
       const bridge = window.__OTTER_DESKTOP_BRIDGE__;
       if (!bridge || !bridge.port || !bridge.token) {
         throw new Error('Desktop Bridge is not available for file operations.');
@@ -2019,6 +2048,8 @@ $cryptoRuntimeJs
     }
     window.otterClipboard = {
       copy: async function(text) {
+        const nativeCopy = otterNativeMethod('clipboard', 'write');
+        if (nativeCopy) return await nativeCopy(text);
         const bridge = getDesktopBridge();
         if (bridge) {
           const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/system/clipboard', {
@@ -2035,6 +2066,8 @@ $cryptoRuntimeJs
         return { completed: false };
       },
       paste: async function() {
+        const nativePaste = otterNativeMethod('clipboard', 'read');
+        if (nativePaste) return String((await nativePaste()) || '');
         const bridge = getDesktopBridge();
         if (bridge) {
           const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/system/clipboard', {
@@ -2051,8 +2084,10 @@ $cryptoRuntimeJs
       }
     };
     window.otterNotify = async function(title, message) {
+      const nativeNotify = otterNativeMethod('system', 'notification');
+      if (nativeNotify) { nativeNotify(title, message).catch(() => {}); }
       const bridge = getDesktopBridge();
-      if (bridge) {
+      if (bridge && !nativeNotify) {
         fetch('http://127.0.0.1:' + bridge.port + '/api/system/notify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-Otter-Token': bridge.token },
@@ -2083,6 +2118,8 @@ $cryptoRuntimeJs
       return { completed: true };
     };
     window.otterGetEnv = async function(name) {
+      const nativeEnv = otterNativeMethod('system', 'env');
+      if (nativeEnv) return await nativeEnv(name);
       const bridge = getDesktopBridge();
       if (bridge) {
         const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/system/env', {
@@ -2096,6 +2133,8 @@ $cryptoRuntimeJs
       return null;
     };
     window.otterGetSystemPaths = async function() {
+      const nativePaths = otterNativeMethod('system', 'paths');
+      if (nativePaths) return await nativePaths();
       const bridge = getDesktopBridge();
       if (bridge) {
         const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/system/env', {
@@ -2107,6 +2146,8 @@ $cryptoRuntimeJs
       return {};
     };
     window.otterChooseFile = async function() {
+      const nativeChoose = otterNativeMethod('dialogs', 'openFile');
+      if (nativeChoose) return String((await nativeChoose()) || '');
       const bridge = getDesktopBridge();
       if (bridge) {
         const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/dialog/open-file', {
@@ -2119,6 +2160,8 @@ $cryptoRuntimeJs
       return '';
     };
     window.otterChooseFolder = async function() {
+      const nativeChoose = otterNativeMethod('dialogs', 'openFolder');
+      if (nativeChoose) return String((await nativeChoose()) || '');
       const bridge = getDesktopBridge();
       if (bridge) {
         const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/dialog/folder', {
@@ -2131,6 +2174,8 @@ $cryptoRuntimeJs
       return '';
     };
     window.otterSaveFileDialog = async function() {
+      const nativeSave = otterNativeMethod('dialogs', 'save');
+      if (nativeSave) return String((await nativeSave()) || '');
       const bridge = getDesktopBridge();
       if (bridge) {
         const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/dialog/save-file', {
@@ -2481,6 +2526,55 @@ $declarativeListenersJoined
     return $html
 }
 
+# Which stylesheet belongs to a program. Every web-producing command
+# (otter web, otter build, otter desktop) goes through Export-OtterWebApplication,
+# so they all resolve it the same way:
+#   1. a stylesheet named after the entry file:   main.ot -> main.css
+#   2. otherwise styles.css beside the entry file (Otter Studio's project stylesheet)
+#   3. otherwise styles.css in the project root - the nearest folder above the
+#      entry that holds otter.json or project.json - for entries kept in src/
+# The search never leaves the project. No stylesheet is not an error.
+function Resolve-OtterProjectStylesheet {
+    param([Parameter(Mandatory)][string]$SourcePath)
+
+    $entry = [System.IO.Path]::GetFullPath($SourcePath)
+    $named = [System.IO.Path]::ChangeExtension($entry, '.css')
+    if (Test-Path -LiteralPath $named -PathType Leaf) { return $named }
+
+    $entryDir = [System.IO.Path]::GetDirectoryName($entry)
+    $besideEntry = Join-Path $entryDir 'styles.css'
+    if (Test-Path -LiteralPath $besideEntry -PathType Leaf) { return $besideEntry }
+
+    $dir = $entryDir
+    while ($dir) {
+        $isProjectRoot = (Test-Path -LiteralPath (Join-Path $dir 'otter.json') -PathType Leaf) -or
+            (Test-Path -LiteralPath (Join-Path $dir 'project.json') -PathType Leaf)
+        if ($isProjectRoot) {
+            $atRoot = Join-Path $dir 'styles.css'
+            if (Test-Path -LiteralPath $atRoot -PathType Leaf) { return $atRoot }
+            return $null
+        }
+        $parent = [System.IO.Path]::GetDirectoryName($dir)
+        if ($parent -eq $dir) { break }
+        $dir = $parent
+    }
+    return $null
+}
+
+# Embed the program's stylesheet once, just before the first </head>. A plain
+# string insert, not -replace, so `$` sequences in the CSS stay as written.
+function Add-OtterProjectStylesheet {
+    param(
+        [Parameter(Mandatory)][string]$Html,
+        [Parameter(Mandatory)][string]$StylesheetPath
+    )
+    $cssContent = [System.IO.File]::ReadAllText($StylesheetPath, [System.Text.Encoding]::UTF8).TrimStart([char]0xFEFF)
+    $headEnd = $Html.IndexOf('</head>', [System.StringComparison]::OrdinalIgnoreCase)
+    if ($headEnd -lt 0) { return $Html }
+    $block = "<style id=`"otter-sidecar-style`">`n$cssContent`n</style>`n"
+    return $Html.Insert($headEnd, $block)
+}
+
 function Export-OtterWebApplication {
     param(
         [Parameter(Mandatory)][string[]]$SourcePath,
@@ -2517,12 +2611,9 @@ function Export-OtterWebApplication {
         $defaultTitle = [System.IO.Path]::GetFileNameWithoutExtension($primarySource)
         $html = ConvertTo-OtterWeb -Program $ast -Title $defaultTitle
 
-        $sidecarCss = [System.IO.Path]::ChangeExtension($primarySource, '.css')
-        if (Test-Path -LiteralPath $sidecarCss) {
-            $cssContent = [System.IO.File]::ReadAllText($sidecarCss, [System.Text.Encoding]::UTF8)
-            if ($html -match '(?i)</head>') {
-                $html = $html -replace '(?i)</head>', "<style id=`"otter-sidecar-style`">`n$cssContent`n</style>`n</head>"
-            }
+        $stylesheet = Resolve-OtterProjectStylesheet -SourcePath $primarySource
+        if ($stylesheet) {
+            $html = Add-OtterProjectStylesheet -Html $html -StylesheetPath $stylesheet
         }
     }
     catch [OtterError] {
@@ -2554,4 +2645,4 @@ function Export-OtterWebApplication {
     return $OutputPath
 }
 
-Export-ModuleMember -Function ConvertTo-OtterWeb, Export-OtterWebApplication
+Export-ModuleMember -Function ConvertTo-OtterWeb, Export-OtterWebApplication, Resolve-OtterProjectStylesheet

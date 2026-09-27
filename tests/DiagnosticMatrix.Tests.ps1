@@ -7,11 +7,10 @@
 $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $otterCmd = Join-Path $repoRoot 'otter.cmd'
-$scratchDir = Join-Path $repoRoot 'scratch\diag_tests'
-
-if (Test-Path -LiteralPath $scratchDir) {
-    Remove-Item -LiteralPath $scratchDir -Recurse -Force
-}
+# A private scratch folder per run. A fixed folder inside the repo collided
+# with other processes (an editor, a second test run) holding it open, which
+# made the whole suite abort before running a single case.
+$scratchDir = Join-Path ([System.IO.Path]::GetTempPath()) ('otter_diag_tests_' + [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $scratchDir -Force | Out-Null
 
 $script:passCount = 0

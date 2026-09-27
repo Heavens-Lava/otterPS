@@ -146,7 +146,7 @@ function Get-OtterProject {
         $target = [string]$parsed.archetype
     }
 
-    $supportedTargets = @('console', 'desktop', 'web', 'game', 'server', 'automation')
+    $supportedTargets = @('console', 'desktop', 'web', 'game', 'server', 'automation', 'electron')
     if ($supportedTargets -notcontains $target.ToLowerInvariant()) {
         throw [OtterError]::new("${manifestName}: target `"$target`" is not supported.", 0, 'check')
     }
@@ -595,6 +595,10 @@ function Invoke-OtterProjectBuild {
     param(
         [Parameter(Mandatory = $false)]
         [string]$Target,
+        # `otter build --target electron`: build for a target other than the
+        # manifest's. Today that is how a web or desktop project becomes an
+        # Electron application; the manifest itself is not changed.
+        [string]$TargetOverride,
         [switch]$Quiet
     )
 
@@ -619,6 +623,18 @@ function Invoke-OtterProjectBuild {
     $rootDir = $project.RootDirectory
     $outDir = $project.Build.OutputDir
 
+    $buildTarget = $project.Target
+    if (-not [string]::IsNullOrWhiteSpace($TargetOverride)) {
+        $overrideLower = $TargetOverride.Trim().ToLowerInvariant()
+        if ($overrideLower -notin @('web', 'desktop', 'game', 'electron')) {
+            throw [OtterError]::new("otter build: --target `"$TargetOverride`" is not a build target I know. Use web, desktop, game or electron.", 0, 'check')
+        }
+        if ($project.Target.ToLowerInvariant() -in @('console', 'automation', 'server')) {
+            throw [OtterError]::new("otter build: a $($project.Target) project has no user interface to build for `"$TargetOverride`".", 0, 'check')
+        }
+        $buildTarget = $overrideLower
+    }
+
     # 1. Output directory containment validation
     $resolvedOutDir = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($rootDir, $outDir))
     if ($resolvedOutDir -eq $rootDir -or (-not $resolvedOutDir.StartsWith($rootDir + [System.IO.Path]::DirectorySeparatorChar))) {
@@ -627,7 +643,7 @@ function Invoke-OtterProjectBuild {
 
     if (-not $Quiet) {
         Write-Host "Building $($project.Name)..."
-        Write-Host "Target: $($project.Target)"
+        Write-Host "Target: $buildTarget"
         Write-Host ""
         Write-Host "Checking project..."
     }
@@ -694,9 +710,18 @@ function Invoke-OtterProjectBuild {
         if (-not $Quiet) {
             Write-Host "Building application..."
         }
-        $targetLower = $project.Target.ToLowerInvariant()
+        $targetLower = $buildTarget.ToLowerInvariant()
 
         switch ($targetLower) {
+            'electron' {
+                # The same compiled page as the web target, inside an Electron
+                # shell. See Otter.Electron.psm1.
+                if (-not (Get-Command Export-OtterElectronApplication -ErrorAction SilentlyContinue)) {
+                    Import-Module (Join-Path $PSScriptRoot 'Otter.Electron.psm1') -Global
+                }
+                Export-OtterElectronApplication -SourcePath $project.ResolvedEntryPoint -OutputDir $stagingDir `
+                    -Name $project.Name -Version $project.Version -PassThruExceptions | Out-Null
+            }
             { $_ -in @('web', 'desktop', 'game') } {
                 $htmlOutput = Join-Path $stagingDir 'index.html'
                 Export-OtterWebApplication -SourcePath $project.ResolvedEntryPoint -OutputPath $htmlOutput -PassThruExceptions | Out-Null
@@ -742,11 +767,13 @@ function Invoke-OtterProjectBuild {
             if (-not $Quiet) {
                 Write-Host "Copying assets..."
             }
+            # An Electron build keeps the page and its assets together in app/.
+            $assetStageDir = if ($targetLower -eq 'electron') { Join-Path $stagingDir 'app' } else { $stagingDir }
             foreach ($asset in $project.Assets) {
                 if ([string]::IsNullOrWhiteSpace($asset)) { continue }
                 $trimmedAsset = $asset.Trim()
                 $srcPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($rootDir, $trimmedAsset))
-                $destPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($stagingDir, $trimmedAsset))
+                $destPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($assetStageDir, $trimmedAsset))
                 $destParent = Split-Path -Parent $destPath
                 if (-not (Test-Path -LiteralPath $destParent -PathType Container)) {
                     New-Item -ItemType Directory -Path $destParent -Force | Out-Null
@@ -756,7 +783,9 @@ function Invoke-OtterProjectBuild {
         }
 
         # 6. Emit deterministic build metadata
-        $entryRel = if ($targetLower -in @('web', 'desktop', 'game')) { 'index.html' } else { Split-Path -Leaf $project.ResolvedEntryPoint }
+        $entryRel = if ($targetLower -eq 'electron') { 'app/index.html' }
+            elseif ($targetLower -in @('web', 'desktop', 'game')) { 'index.html' }
+            else { Split-Path -Leaf $project.ResolvedEntryPoint }
         $assetsJsonArray = if ($project.Assets.Count -gt 0) {
             "`n    " + (($project.Assets | ForEach-Object { ConvertTo-Json -InputObject $_ -Compress }) -join ",`n    ") + "`n  "
         } else { "" }
@@ -765,7 +794,7 @@ function Invoke-OtterProjectBuild {
 {
   "name": "$($project.Name)",
   "version": "$($project.Version)",
-  "target": "$($project.Target)",
+  "target": "$targetLower",
   "entryPoint": "$entryRel",
   "assets": [$assetsJsonArray]
 }

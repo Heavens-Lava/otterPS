@@ -16,6 +16,11 @@ export class OtterUiModel {
     this.redoStack = [];
     this.maxHistory = 50;
 
+    // The stylesheet (a CssAstManager) that belongs to this design. When one
+    // is attached, undo/redo snapshots include the CSS text, so a style edit
+    // is undone together with the structure it belongs to.
+    this.stylesheet = null;
+
     this.initDefault();
   }
 
@@ -44,8 +49,13 @@ export class OtterUiModel {
 
   // --- Snapshot & History (Undo / Redo) ---
 
+  attachStylesheet(cssAstManager) {
+    this.stylesheet = cssAstManager || null;
+  }
+
   serializeSnapshot() {
     return {
+      css: this.stylesheet ? this.stylesheet.generateCss() : null,
       components: Array.from(this.components.entries()).map(([k, v]) => [k, {
         ...v,
         children: [...v.children],
@@ -70,6 +80,9 @@ export class OtterUiModel {
     this.selectedIds = new Set(snap.selectedIds || (snap.selectedId ? [snap.selectedId] : []));
     this.events = new Map(snap.events.map(([k, v]) => [k, { ...v }]));
     this.nameCounters = { ...snap.nameCounters };
+    if (this.stylesheet && typeof snap.css === 'string') {
+      this.stylesheet.parse(snap.css);
+    }
   }
 
   saveSnapshot() {
@@ -220,6 +233,65 @@ export class OtterUiModel {
     this.notify('select', { id: this.selectedId, selectedIds: Array.from(this.selectedIds) });
   }
 
+  // Replace the selection with `ids` (the last one becomes primary).
+  selectMany(ids) {
+    const valid = ids.filter(id => this.components.has(id));
+    if (valid.length === 0) return this.select(null);
+    this.selectedIds = new Set(valid);
+    this.selectedId = valid[valid.length - 1];
+    this.notify('select', { id: this.selectedId, selectedIds: valid });
+  }
+
+  // Put the given siblings into a new container of `kind`, at the position of
+  // the first of them. Components with different parents are not wrapped.
+  wrapComponents(ids, kind = 'column') {
+    const comps = ids.map(id => this.components.get(id)).filter(c => c && c.id !== this.rootId);
+    if (comps.length === 0) return null;
+    const parentId = comps[0].parentId;
+    if (!comps.every(c => c.parentId === parentId)) return null;
+    const parent = this.components.get(parentId);
+    if (!parent) return null;
+
+    this.saveSnapshot();
+    const ordered = comps.slice().sort((a, b) => parent.children.indexOf(a.id) - parent.children.indexOf(b.id));
+    const at = parent.children.indexOf(ordered[0].id);
+    const wrapper = this.createComponent(kind, { parentId });
+    parent.children = parent.children.filter(id => !ordered.some(c => c.id === id));
+    parent.children.splice(at, 0, wrapper.id);
+    for (const comp of ordered) {
+      comp.parentId = wrapper.id;
+      wrapper.children.push(comp.id);
+    }
+    this.selectedIds = new Set([wrapper.id]);
+    this.selectedId = wrapper.id;
+    this.notify('add', { parentId, childId: wrapper.id });
+    return wrapper;
+  }
+
+  // Replace a container with its children.
+  unwrapComponent(id) {
+    const comp = this.components.get(id);
+    if (!comp || id === this.rootId || !comp.parentId) return false;
+    const parent = this.components.get(comp.parentId);
+    if (!parent) return false;
+
+    this.saveSnapshot();
+    const at = parent.children.indexOf(id);
+    parent.children.splice(at, 1, ...comp.children);
+    for (const childId of comp.children) {
+      const child = this.components.get(childId);
+      if (child) child.parentId = parent.id;
+    }
+    this.components.delete(id);
+    this.events.delete(id);
+    if (this.stylesheet) this.stylesheet.removeSelectorFamily(comp.name);
+    const next = comp.children.length ? comp.children : [parent.id];
+    this.selectedIds = new Set(next);
+    this.selectedId = next[next.length - 1];
+    this.notify('remove', { id });
+    return true;
+  }
+
   isSelected(id) {
     return this.selectedIds.has(id);
   }
@@ -304,13 +376,9 @@ export class OtterUiModel {
         this.events.set(newId, JSON.parse(JSON.stringify(this.events.get(comp.id))));
       }
 
-      // Clone CSS AST rules if available
-      if (cssAstManager) {
-        const decls = cssAstManager.getRuleDeclarations(`#${comp.name}`);
-        for (const [prop, val] of Object.entries(decls)) {
-          cssAstManager.setProperty(`#${newName}`, prop, val);
-        }
-      }
+      // Clone the component's CSS, states and breakpoints included
+      const sheet = cssAstManager || this.stylesheet;
+      if (sheet) sheet.copySelectorFamily(comp.name, newName);
 
       // Recurse children
       if (comp.children && comp.children.length > 0) {
@@ -377,6 +445,8 @@ export class OtterUiModel {
     }
 
     for (const removeId of toRemove) {
+      const removed = this.components.get(removeId);
+      if (removed && this.stylesheet) this.stylesheet.removeSelectorFamily(removed.name);
       this.components.delete(removeId);
       this.events.delete(removeId);
       this.selectedIds.delete(removeId);
@@ -418,6 +488,7 @@ export class OtterUiModel {
 
     const oldName = comp.name;
     comp.name = newName;
+    if (this.stylesheet) this.stylesheet.renameSelectorFamily(oldName, newName);
     this.notify('rename', { id, oldName, newName });
   }
 

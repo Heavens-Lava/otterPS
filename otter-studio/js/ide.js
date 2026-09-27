@@ -1708,6 +1708,8 @@ export class OtterStudioIde {
         if (styleTag) {
           styleTag.textContent = window.otterCssAstManager.generateCss();
         }
+        // Let the designer re-scope the stylesheet for its canvas.
+        window.dispatchEvent(new CustomEvent('css-updated', { detail: { source: 'css-file' } }));
       } catch (err) {
         console.warn('CSS AST sync on tab activate:', err);
       }
