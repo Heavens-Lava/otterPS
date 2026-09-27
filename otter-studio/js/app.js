@@ -13,6 +13,7 @@ import { renderEditor } from './components/editor.js';
 import { renderPreview } from './components/preview.js';
 import { OtterStudioIde } from './ide.js';
 import { StyleController } from './designer/style-context.js';
+import { mountStudioShell } from './shell/studio-shell.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
   const themeToggle = document.getElementById('btnThemeToggle');
@@ -678,12 +679,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  // Auto-open modal on fresh startup if no folder/project/file is set and no previous session restored
+  // A fresh start (no folder, project or file, and no restored session)
+  // shows the Welcome page; it offers the same New Project wizard as a card.
   const hasSpecificTarget = urlParams.get('folder') || urlParams.get('project') || urlParams.get('file');
   const hasRestoredSession = ide.currentProjectFolder || (ide.openTabs.length > 0 && ide.openTabs[0].path !== 'untitled.ot');
-  if (!hasSpecificTarget && !hasRestoredSession) {
-    openNewProjectModal();
-  }
+  mountStudioShell({
+    ide,
+    setMode,
+    openNewProjectModal,
+    showWelcome: !hasSpecificTarget && !hasRestoredSession
+  });
 });
 
 function capitalize(str) {
