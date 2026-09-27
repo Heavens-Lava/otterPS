@@ -1,6 +1,7 @@
 using module ..\Otter.Contract.psm1
 using module ..\src\Otter.Runtime.psm1
 using module ..\src\Otter.Project.psm1
+. "$PSScriptRoot\TestHost.ps1"
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
@@ -26,7 +27,7 @@ try {
     if (-not (Test-Path -LiteralPath (Join-Path $cDir 'tests/app_test.ot') -PathType Leaf)) { throw "Test 1 failed: Missing tests/app_test.ot" }
     if (-not (Test-Path -LiteralPath (Join-Path $cDir 'otter.json') -PathType Leaf)) { throw "Test 1 failed: Missing otter.json" }
 
-    $cCheck = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'otter.ps1') check $cDir 2>&1
+    $cCheck = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') check $cDir 2>&1
     if ($LASTEXITCODE -ne 0) { throw "Test 1 failed: otter check ConsoleApp exited with $LASTEXITCODE. Output: $cCheck" }
     Write-Output '  pass  New-OtterProject generates valid console archetype passing `otter check`'
 
@@ -35,7 +36,7 @@ try {
     $dDir = $dProj.RootDirectory
     if ($dProj.Target -ne 'desktop') { throw "Test 2 failed: Expected Target desktop, got $($dProj.Target)" }
     if (-not (Test-Path -LiteralPath (Join-Path $dDir 'assets/styles.css') -PathType Leaf)) { throw "Test 2 failed: Missing assets/styles.css" }
-    $dCheck = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'otter.ps1') check $dDir 2>&1
+    $dCheck = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') check $dDir 2>&1
     if ($LASTEXITCODE -ne 0) { throw "Test 2 failed: otter check DesktopApp exited with $LASTEXITCODE. Output: $dCheck" }
     Write-Output '  pass  New-OtterProject generates valid desktop archetype passing `otter check`'
 
@@ -44,14 +45,14 @@ try {
     $wDir = $wProj.RootDirectory
     if ($wProj.Target -ne 'web') { throw "Test 3 failed: Expected Target web, got $($wProj.Target)" }
     if (-not (Test-Path -LiteralPath (Join-Path $wDir 'assets/styles.css') -PathType Leaf)) { throw "Test 3 failed: Missing assets/styles.css" }
-    $wCheck = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'otter.ps1') check $wDir 2>&1
+    $wCheck = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') check $wDir 2>&1
     if ($LASTEXITCODE -ne 0) { throw "Test 3 failed: otter check WebApp exited with $LASTEXITCODE. Output: $wCheck" }
     Write-Output '  pass  New-OtterProject generates valid web archetype passing `otter check`'
 
     # Test 4: New-OtterProject generates automation archetype with valid code
     $aProj = New-OtterProject -Archetype 'automation' -Name 'AutoApp' -Path $testTmp
     $aDir = $aProj.RootDirectory
-    $aCheck = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'otter.ps1') check $aDir 2>&1
+    $aCheck = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') check $aDir 2>&1
     if ($LASTEXITCODE -ne 0) { throw "Test 4 failed: otter check AutoApp exited with $LASTEXITCODE. Output: $aCheck" }
     Write-Output '  pass  New-OtterProject generates valid automation archetype passing `otter check`'
 
@@ -59,7 +60,7 @@ try {
     $gProj = New-OtterProject -Archetype 'game' -Name 'GameApp' -Path $testTmp
     $gDir = $gProj.RootDirectory
     if ($gProj.Target -ne 'game') { throw "Test 5 failed: Expected Target game, got $($gProj.Target)" }
-    $gCheck = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'otter.ps1') check $gDir 2>&1
+    $gCheck = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') check $gDir 2>&1
     if ($LASTEXITCODE -ne 0) { throw "Test 5 failed: otter check GameApp exited with $LASTEXITCODE. Output: $gCheck" }
     Write-Output '  pass  New-OtterProject generates valid game archetype passing `otter check`'
 
@@ -105,7 +106,7 @@ try {
     $prevCwd = (Get-Location).Path
     try {
         Set-Location -LiteralPath $testTmp
-        $newCliOut = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'otter.ps1') new console CliApp 2>&1
+        $newCliOut = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') new console CliApp 2>&1
         if ($LASTEXITCODE -ne 0) { throw "Test 7 failed: otter new console CliApp exited with $LASTEXITCODE. Output: $newCliOut" }
         if (($newCliOut -join "`n") -notmatch 'Created new Otter console project') {
             throw "Test 7 failed: Output missing success message: $newCliOut"
@@ -119,15 +120,15 @@ try {
     Write-Output '  pass  CLI: `otter new console <name>` creates project and displays getting started tips'
 
     # Test 8: CLI `otter new` usage errors
-    $errNew1 = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'otter.ps1') new 2>&1
+    $errNew1 = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') new 2>&1
     if ($LASTEXITCODE -ne 1) { throw "Test 8a failed: Expected exit code 1 for otter new without args, got $LASTEXITCODE" }
     if (($errNew1 -join "`n") -notmatch 'Usage: otter new') { throw "Test 8a failed: Expected usage message" }
 
-    $errNew2 = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'otter.ps1') new invalid Foo 2>&1
+    $errNew2 = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') new invalid Foo 2>&1
     if ($LASTEXITCODE -ne 1) { throw "Test 8b failed: Expected exit code 1 for unknown archetype, got $LASTEXITCODE" }
     if (($errNew2 -join "`n") -notmatch 'Unknown archetype') { throw "Test 8b failed: Expected unknown archetype message" }
 
-    $errNew3 = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'otter.ps1') new console 2>&1
+    $errNew3 = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') new console 2>&1
     if ($LASTEXITCODE -ne 1) { throw "Test 8c failed: Expected exit code 1 for missing project name, got $LASTEXITCODE" }
     Write-Output '  pass  CLI: `otter new` usage errors report exit code 1 with clear guidance'
 
@@ -157,7 +158,7 @@ try {
     Write-Output '  pass  Get-OtterProjectTestFiles recursively discovers `*_test.ot` and `test_*.ot`'
 
     # Test 10: Generated projects pass `otter test` out of the box
-    $testRunOut = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'otter.ps1') test $cDir 2>&1
+    $testRunOut = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') test $cDir 2>&1
     if ($LASTEXITCODE -ne 0) { throw "Test 10 failed: otter test ConsoleApp exited with $LASTEXITCODE. Output: $testRunOut" }
     if (($testRunOut -join "`n") -notmatch 'PASS tests/app_test\.ot') { throw "Test 10 failed: Expected PASS tests/app_test.ot. Output: $testRunOut" }
     if (($testRunOut -join "`n") -notmatch '1 passed') { throw "Test 10 failed: Expected summary '1 passed'. Output: $testRunOut" }
@@ -167,11 +168,11 @@ try {
     $prevCwd = (Get-Location).Path
     try {
         Set-Location -LiteralPath $cDir
-        $dotTestOut = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'otter.ps1') test . 2>&1
+        $dotTestOut = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') test . 2>&1
         if ($LASTEXITCODE -ne 0) { throw "Test 11a failed: otter test . exited with $LASTEXITCODE. Output: $dotTestOut" }
         if (($dotTestOut -join "`n") -notmatch 'PASS tests/app_test\.ot') { throw "Test 11a failed: Output: $dotTestOut" }
 
-        $bareTestOut = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'otter.ps1') test 2>&1
+        $bareTestOut = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') test 2>&1
         if ($LASTEXITCODE -ne 0) { throw "Test 11b failed: bare otter test exited with $LASTEXITCODE. Output: $bareTestOut" }
         if (($bareTestOut -join "`n") -notmatch 'PASS tests/app_test\.ot') { throw "Test 11b failed: Output: $bareTestOut" }
     } finally {
@@ -181,7 +182,7 @@ try {
 
     # Test 12: `otter test` with single test file
     $singleTestFile = Join-Path $cDir 'tests/app_test.ot'
-    $singleTestOut = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'otter.ps1') test $singleTestFile 2>&1
+    $singleTestOut = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') test $singleTestFile 2>&1
     if ($LASTEXITCODE -ne 0) { throw "Test 12 failed: otter test <file> exited with $LASTEXITCODE. Output: $singleTestOut" }
     if (($singleTestOut -join "`n") -notmatch 'PASS') { throw "Test 12 failed: Expected PASS for single file test. Output: $singleTestOut" }
     Write-Output '  pass  CLI: `otter test <file.ot>` executes single test file in isolation'
@@ -200,7 +201,7 @@ if result is not 5
 "@
     Set-Content -LiteralPath $fTestFile -Value $fTestCode -Encoding UTF8
 
-    $failTestOut = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'otter.ps1') test $failProjDir 2>&1
+    $failTestOut = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') test $failProjDir 2>&1
     if ($LASTEXITCODE -ne 3) { throw "Test 13 failed: Expected exit code 3 for test failure, got $LASTEXITCODE. Output: $failTestOut" }
     $failJoined = $failTestOut -join "`n"
     if ($failJoined -notmatch 'FAIL tests/app_test\.ot') { throw "Test 13 failed: Expected FAIL indicator. Output: $failJoined" }
@@ -218,7 +219,7 @@ result is
 "@
     Set-Content -LiteralPath $sTestFile -Value $sTestCode -Encoding UTF8
 
-    $synTestOut = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'otter.ps1') test $synProjDir 2>&1
+    $synTestOut = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') test $synProjDir 2>&1
     if ($LASTEXITCODE -ne 2) { throw "Test 14 failed: Expected exit code 2 for test syntax error, got $LASTEXITCODE. Output: $synTestOut" }
     $synJoined = $synTestOut -join "`n"
     if ($synJoined -notmatch 'FAIL tests/app_test\.ot \(syntax error\)') { throw "Test 14 failed: Expected syntax error header. Output: $synJoined" }
@@ -239,7 +240,7 @@ result is
     # Remove initial app_test.ot to keep exactly 3 tests
     Remove-Item -LiteralPath (Join-Path $mTestsDir 'app_test.ot') -Force
 
-    $multiTestOut = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'otter.ps1') test $multiProjDir 2>&1
+    $multiTestOut = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') test $multiProjDir 2>&1
     if ($LASTEXITCODE -ne 3) { throw "Test 15 failed: Expected exit code 3 for mixed test results, got $LASTEXITCODE. Output: $multiTestOut" }
     $multiJoined = $multiTestOut -join "`n"
     if ($multiJoined -notmatch 'PASS tests/01_pass_test\.ot') { throw "Test 15 failed: Expected 01_pass_test.ot to PASS" }
@@ -253,7 +254,7 @@ result is
     $emptyProjDir = Join-Path $testTmp 'EmptyApp'
     $eProj = New-OtterProject -Archetype 'console' -Name 'EmptyApp' -Path $testTmp
     Remove-Item -LiteralPath (Join-Path $emptyProjDir 'tests/app_test.ot') -Force
-    $noTestOut = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'otter.ps1') test $emptyProjDir 2>&1
+    $noTestOut = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') test $emptyProjDir 2>&1
     if ($LASTEXITCODE -ne 0) { throw "Test 16 failed: Expected exit code 0 when no tests found, got $LASTEXITCODE. Output: $noTestOut" }
     if (($noTestOut -join "`n") -notmatch 'No tests found') { throw "Test 16 failed: Expected 'No tests found'. Output: $noTestOut" }
     Write-Output '  pass  CLI: project with no tests reports `No tests found.` and exits 0'

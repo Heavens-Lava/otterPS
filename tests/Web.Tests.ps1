@@ -1,4 +1,5 @@
 using module ..\Otter.Contract.psm1
+. "$PSScriptRoot\TestHost.ps1"
 Import-Module (Join-Path $PSScriptRoot '..\src\Otter.Lexer.psm1') -Global -Force
 Import-Module (Join-Path $PSScriptRoot '..\src\Otter.Parser.psm1') -Global -Force
 Import-Module (Join-Path $PSScriptRoot '..\src\Otter.Web.psm1') -Global -Force
@@ -527,8 +528,8 @@ $goToConsoleFile = Join-Path ([System.IO.Path]::GetTempPath()) ("otter_d103_cons
 try {
     $otterPs1Path = Join-Path (Split-Path -Parent $PSScriptRoot) 'otter.ps1'
     $consolePsi = [System.Diagnostics.ProcessStartInfo]::new()
-    $consolePsi.FileName = 'powershell.exe'
-    $consolePsi.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$otterPs1Path`" run `"$goToConsoleFile`""
+    $consolePsi.FileName = $script:OtterHostExe
+    $consolePsi.Arguments = "$script:OtterHostArgString -File `"$otterPs1Path`" run `"$goToConsoleFile`""
     $consolePsi.RedirectStandardOutput = $true
     $consolePsi.RedirectStandardError = $true
     $consolePsi.UseShellExecute = $false

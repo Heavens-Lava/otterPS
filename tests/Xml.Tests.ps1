@@ -1,3 +1,4 @@
+. "$PSScriptRoot\TestHost.ps1"
 # tests/Xml.Tests.ps1
 #
 # Production-entry-point certification for D105 (XML) on the CONSOLE
@@ -26,8 +27,8 @@ function Invoke-OtterXmlProgram {
     [System.IO.File]::WriteAllText($tmpFile, $Source, [System.Text.UTF8Encoding]::new($false))
     try {
         $psi = [System.Diagnostics.ProcessStartInfo]::new()
-        $psi.FileName = 'powershell.exe'
-        $psi.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$script:OtterPs1`" run `"$tmpFile`""
+        $psi.FileName = $script:OtterHostExe
+        $psi.Arguments = "$script:OtterHostArgString -File `"$script:OtterPs1`" run `"$tmpFile`""
         $psi.WorkingDirectory = if ($WorkingDir) { $WorkingDir } else { $script:RepoRoot }
         $psi.RedirectStandardOutput = $true
         $psi.RedirectStandardError = $true

@@ -1,6 +1,7 @@
 using module ..\Otter.Contract.psm1
 using module ..\src\Otter.Runtime.psm1
 using module ..\src\Otter.Project.psm1
+. "$PSScriptRoot\TestHost.ps1"
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
@@ -151,13 +152,13 @@ try {
     New-Item -ItemType Directory -Path $appDir -Force | Out-Null
     Set-Content -LiteralPath (Join-Path $appDir 'main.ot') -Value 'say "MyApp Running"' -Encoding UTF8
     Set-Content -LiteralPath (Join-Path $appDir 'otter.json') -Value '{"name":"MyApp","entryPoint":"main.ot"}' -Encoding UTF8
-    $cliOut = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'otter.ps1') run $appDir 2>&1
+    $cliOut = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') run $appDir 2>&1
     if ($LASTEXITCODE -ne 0) { throw "Test 9 failed: CLI exited with code $LASTEXITCODE. Output: $cliOut" }
     if (($cliOut -join "`n") -notmatch 'MyApp Running') { throw "Test 9 failed: Stdout did not contain 'MyApp Running'" }
     Write-Output '  pass  CLI: `otter run ./MyApp` discovers otter.json, resolves entry point, and runs program'
 
     # Test 10: CLI execution: otter check ./MyApp
-    $checkOut = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'otter.ps1') check $appDir 2>&1
+    $checkOut = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') check $appDir 2>&1
     if ($LASTEXITCODE -ne 0) { throw "Test 10 failed: CLI exited with code $LASTEXITCODE. Output: $checkOut" }
     if (($checkOut -join "`n") -notmatch 'is valid') { throw "Test 10 failed: Output did not contain 'is valid': $checkOut" }
     Write-Output '  pass  CLI: `otter check ./MyApp` validates project entry point and modules without running'
@@ -166,11 +167,11 @@ try {
     $prevCwd = Get-Location
     try {
         Set-Location -LiteralPath $appDir
-        $dotRunOut = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'otter.ps1') run . 2>&1
+        $dotRunOut = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') run . 2>&1
         if ($LASTEXITCODE -ne 0) { throw "Test 11a failed: otter run . exited with code $LASTEXITCODE. Output: $dotRunOut" }
         if (($dotRunOut -join "`n") -notmatch 'MyApp Running') { throw "Test 11a failed: otter run . did not execute MyApp: $dotRunOut" }
 
-        $dotCheckOut = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'otter.ps1') check . 2>&1
+        $dotCheckOut = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') check . 2>&1
         if ($LASTEXITCODE -ne 0) { throw "Test 11b failed: otter check . exited with code $LASTEXITCODE. Output: $dotCheckOut" }
         if (($dotCheckOut -join "`n") -notmatch 'is valid') { throw "Test 11b failed: otter check . did not report valid: $dotCheckOut" }
     } finally {
@@ -182,7 +183,7 @@ try {
     $badManifestDir = Join-Path $testTmp 'BadManifest'
     New-Item -ItemType Directory -Path $badManifestDir -Force | Out-Null
     Set-Content -LiteralPath (Join-Path $badManifestDir 'otter.json') -Value '{"name":"bad","entryPoint":"missing.ot"}' -Encoding UTF8
-    $badOut = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'otter.ps1') check $badManifestDir 2>&1
+    $badOut = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') check $badManifestDir 2>&1
     if ($LASTEXITCODE -ne 2) { throw "Test 12 failed: Expected exit code 2 for invalid manifest, got $LASTEXITCODE. Output: $badOut" }
     if (($badOut -join "`n") -notmatch 'otter\.json: entry point "missing\.ot" does not exist\.') {
         throw "Test 12 failed: Output did not match expected diagnostic: $badOut"
@@ -192,7 +193,7 @@ try {
     # Test 13: CLI directory without manifest produces clean diagnostic and exit code 1
     $noManifestDir = Join-Path $testTmp 'EmptyDir'
     New-Item -ItemType Directory -Path $noManifestDir -Force | Out-Null
-    $noManOut = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'otter.ps1') run $noManifestDir 2>&1
+    $noManOut = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') run $noManifestDir 2>&1
     if ($LASTEXITCODE -ne 1) { throw "Test 13 failed: Expected exit code 1 for missing manifest in directory, got $LASTEXITCODE. Output: $noManOut" }
     if (($noManOut -join "`n") -notmatch 'cannot find an otter\.json manifest') {
         throw "Test 13 failed: Expected cannot find otter.json manifest, got: $noManOut"
@@ -206,7 +207,7 @@ try {
     Set-Content -LiteralPath (Join-Path $modSrc 'helpers.ot') -Value 'greeting is "Hello from module"' -Encoding UTF8
     Set-Content -LiteralPath (Join-Path $modSrc 'main.ot') -Value "use `"helpers.ot`"`nsay greeting" -Encoding UTF8
     Set-Content -LiteralPath (Join-Path $modAppDir 'otter.json') -Value '{"name":"ModApp","entryPoint":"src/main.ot"}' -Encoding UTF8
-    $modRunOut = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'otter.ps1') run $modAppDir 2>&1
+    $modRunOut = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') run $modAppDir 2>&1
     if ($LASTEXITCODE -ne 0) { throw "Test 14 failed: otter run $modAppDir exited with code $LASTEXITCODE. Output: $modRunOut" }
     if (($modRunOut -join "`n") -notmatch 'Hello from module') { throw "Test 14 failed: Expected 'Hello from module', got: $modRunOut" }
     Write-Output '  pass  CLI: project entryPoint with imported modules resolves relative to source files'

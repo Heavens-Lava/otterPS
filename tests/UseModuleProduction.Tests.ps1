@@ -1,3 +1,4 @@
+. "$PSScriptRoot\TestHost.ps1"
 # tests/UseModuleProduction.Tests.ps1
 #
 # Production-entry-point certification for `use "file.ot"` (D60/D94-follow-on).
@@ -35,9 +36,9 @@ function Invoke-OtterCli {
     param([string]$Command, [string]$TargetPath, [string]$WorkingDirectory, [string]$ExtraArgs = '')
 
     $psi = [System.Diagnostics.ProcessStartInfo]::new()
-    $psi.FileName = 'powershell.exe'
+    $psi.FileName = $script:OtterHostExe
     $extra = if ($ExtraArgs) { " $ExtraArgs" } else { "" }
-    $psi.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$script:OtterPs1`" $Command `"$TargetPath`"$extra"
+    $psi.Arguments = "$script:OtterHostArgString -File `"$script:OtterPs1`" $Command `"$TargetPath`"$extra"
     $psi.WorkingDirectory = $WorkingDirectory
     $psi.RedirectStandardOutput = $true
     $psi.RedirectStandardError = $true
@@ -229,8 +230,8 @@ Test-Otter 'production otter serve resolves imported module routes' {
 
         # Launch otter serve in background
         $psi = [System.Diagnostics.ProcessStartInfo]::new()
-        $psi.FileName = 'powershell.exe'
-        $psi.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$script:OtterPs1`" serve server.ot -Port 19876"
+        $psi.FileName = $script:OtterHostExe
+        $psi.Arguments = "$script:OtterHostArgString -File `"$script:OtterPs1`" serve server.ot -Port 19876"
         $psi.WorkingDirectory = $dir
         $psi.UseShellExecute = $false
         $serverProcess = [System.Diagnostics.Process]::Start($psi)

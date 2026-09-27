@@ -1,4 +1,5 @@
 using module ..\Otter.Contract.psm1
+. "$PSScriptRoot\TestHost.ps1"
 
 # tests/Conformance.Tests.ps1
 # Cross-Runtime Differential Conformance Test Suite (P1)
@@ -86,7 +87,20 @@ function Run-NodeWithStdout {
     # function the first time Node actually throws instead of exiting 0.
     # Every test here before the V1 audit's error-case coverage happened to
     # only exercise Node's SUCCESS path, so this never surfaced until now.
-    $nodeOut = cmd /c "node `"$tempJs`" 2>&1"
+    # Merge Node's stderr into its output through .NET rather than cmd.exe,
+    # which exists only on Windows (the D120 PowerShell 7 hosts include Linux
+    # and macOS). ReadToEnd on both streams avoids the pipe-buffer deadlock.
+    $psi = [System.Diagnostics.ProcessStartInfo]::new()
+    $psi.FileName = 'node'
+    $psi.Arguments = "`"$tempJs`""
+    $psi.UseShellExecute = $false
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
+    $proc = [System.Diagnostics.Process]::Start($psi)
+    $stderrTask = $proc.StandardError.ReadToEndAsync()
+    $stdoutText = $proc.StandardOutput.ReadToEnd()
+    $proc.WaitForExit()
+    $nodeOut = @($stdoutText, $stderrTask.Result) | Where-Object { $_ }
     return ($nodeOut -join "`n").Trim()
 }
 
@@ -257,11 +271,15 @@ otherwise
     Write-Output "  pass  file creation, existence checks, and deletion match across runtimes"
 
     # 10. Native Command Execution & Structured Result Parity (D65)
-    $cmdSrc = @'
-run command "cmd /c echo cross-platform-test" into cmdRes
+    # `run command` launches the program directly (no shell), so the echo
+    # program differs by host: cmd's built-in on Windows, /bin/echo elsewhere.
+    # What is tested - interpreter/Node parity of output and exit code - is not.
+    $echoCommand = if ($script:OtterHostIsWindows) { 'cmd /c echo cross-platform-test' } else { 'echo cross-platform-test' }
+    $cmdSrc = @"
+run command "$echoCommand" into cmdRes
 say output of cmdRes
 say exit code of cmdRes
-'@
+"@
     $intOut = Run-InterpreterWithStdout -Source $cmdSrc
     $nodeOut = Run-NodeWithStdout -Source $cmdSrc
     if ($intOut -ne $nodeOut) {

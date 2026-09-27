@@ -13,7 +13,7 @@ using module ..\src\Otter.Interpreter.psm1
 
 . "$PSScriptRoot\TestHelpers.ps1"
 
-$sandbox = Join-Path $env:TEMP ("otter-data-" + [Guid]::NewGuid().ToString('N').Substring(0, 8))
+$sandbox = Join-Path ([System.IO.Path]::GetTempPath()) ("otter-data-" + [Guid]::NewGuid().ToString('N').Substring(0, 8))
 [void](New-Item -ItemType Directory -Path $sandbox -Force)
 $originalLocation = (Get-Location).Path
 Set-Location $sandbox

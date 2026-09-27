@@ -1,6 +1,7 @@
 using module ..\Otter.Contract.psm1
 using module ..\src\Otter.Runtime.psm1
 using module ..\src\Otter.Project.psm1
+. "$PSScriptRoot\TestHost.ps1"
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent $PSScriptRoot
@@ -14,7 +15,7 @@ try {
     # Test 1: Web publish produces package folder, zip, checksum, and metadata
     $wProj = New-OtterProject -Archetype 'web' -Name 'WebPubApp' -Path $testTmp
     $wDir = $wProj.RootDirectory
-    $wPubOut = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'otter.ps1') publish $wDir 2>&1
+    $wPubOut = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') publish $wDir 2>&1
     if ($LASTEXITCODE -ne 0) { throw "Test 1 failed: otter publish WebPubApp exited with $LASTEXITCODE. Output: $wPubOut" }
     if (($wPubOut -join "`n") -notmatch 'Publish succeeded') { throw "Test 1 failed: Missing 'Publish succeeded'. Output: $wPubOut" }
     if (-not (Test-Path -LiteralPath (Join-Path $wDir 'dist/index.html') -PathType Leaf)) { throw "Test 1 failed: Missing dist/index.html (build first)" }
@@ -28,7 +29,7 @@ try {
     # Test 2: Console publish packages runnable source, manifest, and launcher
     $cProj = New-OtterProject -Archetype 'console' -Name 'ConsolePubApp' -Path $testTmp
     $cDir = $cProj.RootDirectory
-    $cPubOut = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'otter.ps1') publish $cDir 2>&1
+    $cPubOut = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') publish $cDir 2>&1
     if ($LASTEXITCODE -ne 0) { throw "Test 2 failed: otter publish ConsolePubApp exited with $LASTEXITCODE. Output: $cPubOut" }
     if (-not (Test-Path -LiteralPath (Join-Path $cDir 'publish/ConsolePubApp-0.1.0/main.ot') -PathType Leaf)) { throw "Test 2 failed: Missing main.ot in console package" }
     if (-not (Test-Path -LiteralPath (Join-Path $cDir 'publish/ConsolePubApp-0.1.0/otter.json') -PathType Leaf)) { throw "Test 2 failed: Missing otter.json in console package" }
@@ -40,7 +41,7 @@ try {
     # Test 3: Desktop publish packages web bundle and desktop runner
     $dProj = New-OtterProject -Archetype 'desktop' -Name 'DesktopPubApp' -Path $testTmp
     $dDir = $dProj.RootDirectory
-    $dPubOut = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'otter.ps1') publish $dDir 2>&1
+    $dPubOut = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') publish $dDir 2>&1
     if ($LASTEXITCODE -ne 0) { throw "Test 3 failed: otter publish DesktopPubApp exited with $LASTEXITCODE. Output: $dPubOut" }
     if (-not (Test-Path -LiteralPath (Join-Path $dDir 'publish/DesktopPubApp-0.1.0/index.html') -PathType Leaf)) { throw "Test 3 failed: Missing index.html in desktop package" }
     if (-not (Test-Path -LiteralPath (Join-Path $dDir 'publish/DesktopPubApp-0.1.0/run-desktop.cmd') -PathType Leaf)) { throw "Test 3 failed: Missing run-desktop.cmd in desktop package" }
@@ -49,7 +50,7 @@ try {
     # Test 4: Game publish packages canvas runtime bundle and assets
     $gProj = New-OtterProject -Archetype 'game' -Name 'GamePubApp' -Path $testTmp
     $gDir = $gProj.RootDirectory
-    $gPubOut = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'otter.ps1') publish $gDir 2>&1
+    $gPubOut = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') publish $gDir 2>&1
     if ($LASTEXITCODE -ne 0) { throw "Test 4 failed: otter publish GamePubApp exited with $LASTEXITCODE. Output: $gPubOut" }
     if (-not (Test-Path -LiteralPath (Join-Path $gDir 'publish/GamePubApp-0.1.0/index.html') -PathType Leaf)) { throw "Test 4 failed: Missing index.html in game package" }
     if (-not (Test-Path -LiteralPath (Join-Path $gDir 'publish/GamePubApp-0.1.0/assets/styles.css') -PathType Leaf)) { throw "Test 4 failed: Missing assets/styles.css in game package" }
@@ -58,7 +59,7 @@ try {
     # Test 5: Automation publish maps to runnable task artifact
     $aProj = New-OtterProject -Archetype 'automation' -Name 'AutoPubApp' -Path $testTmp
     $aDir = $aProj.RootDirectory
-    $aPubOut = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'otter.ps1') publish $aDir 2>&1
+    $aPubOut = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') publish $aDir 2>&1
     if ($LASTEXITCODE -ne 0) { throw "Test 5 failed: otter publish AutoPubApp exited with $LASTEXITCODE. Output: $aPubOut" }
     if (-not (Test-Path -LiteralPath (Join-Path $aDir 'publish/AutoPubApp-0.1.0/main.ot') -PathType Leaf)) { throw "Test 5 failed: Missing main.ot in auto package" }
     if (-not (Test-Path -LiteralPath (Join-Path $aDir 'publish/AutoPubApp-0.1.0/run.cmd') -PathType Leaf)) { throw "Test 5 failed: Missing run.cmd in auto package" }
@@ -78,7 +79,7 @@ try {
 }
 "@
     Set-Content -LiteralPath (Join-Path $vProjDir 'otter.json') -Value $vManifest -Encoding UTF8
-    $vPubOut = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'otter.ps1') publish $vProjDir 2>&1
+    $vPubOut = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') publish $vProjDir 2>&1
     if ($LASTEXITCODE -ne 0) { throw "Test 6 failed: Publish exited with $LASTEXITCODE. Output: $vPubOut" }
     if (-not (Test-Path -LiteralPath (Join-Path $vProjDir 'publish/CustomVerApp-2.3.4.zip') -PathType Leaf)) { throw "Test 6 failed: Missing CustomVerApp-2.3.4.zip" }
     if (-not (Test-Path -LiteralPath (Join-Path $vProjDir 'publish/CustomVerApp-2.3.4.zip.sha256') -PathType Leaf)) { throw "Test 6 failed: Missing CustomVerApp-2.3.4.zip.sha256" }
@@ -114,7 +115,7 @@ try {
 }
 "@
     Set-Content -LiteralPath (Join-Path $nestDir 'otter.json') -Value $nestManifest -Encoding UTF8
-    $nestPubOut = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'otter.ps1') publish $nestDir 2>&1
+    $nestPubOut = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') publish $nestDir 2>&1
     if ($LASTEXITCODE -ne 0) { throw "Test 8 failed: Publish exited with $LASTEXITCODE. Output: $nestPubOut" }
     if (-not (Test-Path -LiteralPath (Join-Path $nestDir 'publish/NestApp-1.0.0/assets/images/icons/logo.png') -PathType Leaf)) {
         throw "Test 8 failed: Missing nested asset in package folder"
@@ -165,7 +166,7 @@ try {
 }
 "@
     Set-Content -LiteralPath (Join-Path $invDir 'otter.json') -Value $invManifest -Encoding UTF8
-    $invPubOut = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'otter.ps1') publish $invDir 2>&1
+    $invPubOut = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') publish $invDir 2>&1
     if ($LASTEXITCODE -eq 0) { throw "Test 11 failed: Expected failure for empty name/version, got exit code 0" }
     if (($invPubOut -join "`n") -notmatch 'property "name" is required for publish') {
         throw "Test 11 failed: Unexpected output: $invPubOut"
@@ -187,7 +188,7 @@ try {
 }
 "@
     Set-Content -LiteralPath (Join-Path $failDir 'otter.json') -Value $failManifest -Encoding UTF8
-    $failPubOut = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'otter.ps1') publish $failDir 2>&1
+    $failPubOut = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') publish $failDir 2>&1
     if ($LASTEXITCODE -ne 2) { throw "Test 12 failed: Expected syntax error exit 2, got $LASTEXITCODE. Output: $failPubOut" }
     if (Test-Path -LiteralPath (Join-Path $failDir 'publish')) { throw "Test 12 failed: publish folder should not exist after build failure" }
     Write-Output '  pass  build failure prevents publish and aborts without publishing'
@@ -206,14 +207,14 @@ try {
 }
 "@
     Set-Content -LiteralPath (Join-Path $presDir 'otter.json') -Value $presManifest -Encoding UTF8
-    $presPub1 = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'otter.ps1') publish $presDir 2>&1
+    $presPub1 = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') publish $presDir 2>&1
     if ($LASTEXITCODE -ne 0) { throw "Test 13 failed: Initial publish failed: $presPub1" }
     $presZipPath = Join-Path $presDir 'publish/PreserveApp-1.0.0.zip'
     $initialHash = (Get-FileHash -LiteralPath $presZipPath -Algorithm SHA256).Hash
 
     # Break project
     Set-Content -LiteralPath (Join-Path $presDir 'main.ot') -Value "val1 is 10 +`n" -Encoding UTF8
-    $presPub2 = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'otter.ps1') publish $presDir 2>&1
+    $presPub2 = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') publish $presDir 2>&1
     if ($LASTEXITCODE -eq 0) { throw "Test 13 failed: Broken build was supposed to fail publish" }
 
     # Verify previous publish files are STILL intact
@@ -239,7 +240,7 @@ try {
 }
 "@
     Set-Content -LiteralPath (Join-Path $badOutDir 'otter.json') -Value $badOutManifest -Encoding UTF8
-    $badOutRes = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'otter.ps1') publish $badOutDir 2>&1
+    $badOutRes = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') publish $badOutDir 2>&1
     if ($LASTEXITCODE -eq 0) { throw "Test 14 failed: Escaping outputDir should fail, but got exit 0" }
     if (($badOutRes -join "`n") -notmatch 'publish.outputDir must stay inside the project directory') {
         throw "Test 14 failed: Missing containment error. Output: $badOutRes"
@@ -269,14 +270,14 @@ try {
     # Test 15: Repeated publish runs are deterministic and produce byte-identical archives
     $detProj = New-OtterProject -Archetype 'web' -Name 'DetPubApp' -Path $testTmp
     $detDir = $detProj.RootDirectory
-    $detRes1 = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'otter.ps1') publish $detDir 2>&1
+    $detRes1 = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') publish $detDir 2>&1
     if ($LASTEXITCODE -ne 0) { throw "Test 15 failed: Publish 1 failed: $detRes1" }
     $detZip = Join-Path $detDir 'publish/DetPubApp-0.1.0.zip'
     $hash1 = (Get-FileHash -LiteralPath $detZip -Algorithm SHA256).Hash
 
     Start-Sleep -Seconds 1
 
-    $detRes2 = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'otter.ps1') publish $detDir 2>&1
+    $detRes2 = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') publish $detDir 2>&1
     if ($LASTEXITCODE -ne 0) { throw "Test 15 failed: Publish 2 failed: $detRes2" }
     $hash2 = (Get-FileHash -LiteralPath $detZip -Algorithm SHA256).Hash
 
@@ -299,7 +300,7 @@ try {
 }
 "@
     Set-Content -LiteralPath (Join-Path $sanDir 'otter.json') -Value $sanManifest -Encoding UTF8
-    $sanPubOut = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'otter.ps1') publish $sanDir 2>&1
+    $sanPubOut = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') publish $sanDir 2>&1
     if ($LASTEXITCODE -ne 0) { throw "Test 16 failed: Publish exited with $LASTEXITCODE. Output: $sanPubOut" }
     if (-not (Test-Path -LiteralPath (Join-Path $sanDir 'publish/My-Special-App-2026-1.0.0.zip') -PathType Leaf)) {
         throw "Test 16 failed: Expected My-Special-App-2026-1.0.0.zip. Found files: $((Get-ChildItem (Join-Path $sanDir 'publish') | Select-Object -ExpandProperty Name) -join ', ')"
@@ -320,14 +321,14 @@ try {
     # Test 18: Existing build and single-file behaviors remain completely unchanged
     $bApp = New-OtterProject -Archetype 'console' -Name 'OnlyBuildApp' -Path $testTmp
     $bDir = $bApp.RootDirectory
-    $bOut = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'otter.ps1') build $bDir 2>&1
+    $bOut = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') build $bDir 2>&1
     if ($LASTEXITCODE -ne 0) { throw "Test 18 failed: otter build failed: $bOut" }
     if (-not (Test-Path -LiteralPath (Join-Path $bDir 'dist') -PathType Container)) { throw "Test 18 failed: dist/ was not created by build" }
     if (Test-Path -LiteralPath (Join-Path $bDir 'publish')) { throw "Test 18 failed: otter build should not create publish/" }
 
     $singleScript = Join-Path $testTmp 'single_standalone.ot'
     Set-Content -LiteralPath $singleScript -Value 'say "standalone ok"' -Encoding UTF8
-    $runStandalone = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'otter.ps1') run $singleScript 2>&1
+    $runStandalone = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') run $singleScript 2>&1
     if ($LASTEXITCODE -ne 0) { throw "Test 18 failed: otter run single_standalone.ot failed: $runStandalone" }
     if (($runStandalone -join "`n") -notmatch 'standalone ok') { throw "Test 18 failed: Unexpected output from standalone run: $runStandalone" }
     Write-Output '  pass  existing build and single-file behaviors remain completely unchanged'

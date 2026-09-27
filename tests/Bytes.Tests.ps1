@@ -1,3 +1,4 @@
+. "$PSScriptRoot\TestHost.ps1"
 # tests/Bytes.Tests.ps1
 #
 # Production-entry-point certification for D102 (the bytes type) - see
@@ -22,8 +23,8 @@ function Invoke-OtterProgram {
     [System.IO.File]::WriteAllText($tmpFile, $Source, [System.Text.UTF8Encoding]::new($false))
     try {
         $psi = [System.Diagnostics.ProcessStartInfo]::new()
-        $psi.FileName = 'powershell.exe'
-        $psi.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$script:OtterPs1`" $Mode `"$tmpFile`" -NoOpen"
+        $psi.FileName = $script:OtterHostExe
+        $psi.Arguments = "$script:OtterHostArgString -File `"$script:OtterPs1`" $Mode `"$tmpFile`" -NoOpen"
         $psi.WorkingDirectory = $script:RepoRoot
         $psi.RedirectStandardInput = $true
         $psi.RedirectStandardOutput = $true
