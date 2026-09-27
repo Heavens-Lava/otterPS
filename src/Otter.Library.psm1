@@ -516,7 +516,7 @@ function Get-OtterFilesIn {
     foreach ($item in $found) {
         $list.Add((New-OtterFileObject -Path $item.FullName -Line $Line))
     }
-    Write-Output -NoEnumerate $list
+    return , $list
 }
 
 # get folders in "Documents" [and subfolders] into folders
@@ -536,7 +536,7 @@ function Get-OtterFoldersIn {
     foreach ($item in $found) {
         $list.Add((New-OtterFolderObject -Path $item.FullName -Line $Line))
     }
-    Write-Output -NoEnumerate $list
+    return , $list
 }
 
 # create folder "Backup"
@@ -722,8 +722,7 @@ function Get-OtterEventLogEntries {
         $events = Get-WinEvent -LogName $LogName -MaxEvents ([int]$MaxEntries) -ErrorAction Stop
     } catch {
         if ($_.Exception.Message -match 'No events were found') {
-            Write-Output -NoEnumerate $list
-            return
+            return , $list
         }
         throw [OtterError]::new(
             "I could not read the event log `"$LogName`". $($_.Exception.Message)",
@@ -739,7 +738,7 @@ function Get-OtterEventLogEntries {
         $entry.WriteProperty('message', $message)
         $list.Add($entry)
     }
-    Write-Output -NoEnumerate $list
+    return , $list
 }
 
 # Where D81's credential vault lives - one file per credential name,
@@ -1475,8 +1474,7 @@ function ConvertFrom-OtterJsonValue {
         foreach ($item in $Value) {
             $list.Add((ConvertFrom-OtterJsonValue -Value $item -Line $Line))
         }
-        Write-Output -NoEnumerate $list
-        return
+        return , $list
     }
 
     if ($Value -is [bool]) { return $Value }
@@ -1503,7 +1501,7 @@ function ConvertFrom-OtterJsonText {
             $Line, 'runtime')
     }
 
-    Write-Output -NoEnumerate (ConvertFrom-OtterJsonValue -Value $parsed -Line $Line)
+    return , (ConvertFrom-OtterJsonValue -Value $parsed -Line $Line)
 }
 
 # Otter value -> something ConvertTo-Json understands.
@@ -1554,7 +1552,7 @@ function Read-OtterJsonFile {
     param([string]$Path, [int]$Line)
 
     $text = Read-OtterFile -Path $Path -Line $Line
-    Write-Output -NoEnumerate (ConvertFrom-OtterJsonText -Text $text -Line $Line)
+    return , (ConvertFrom-OtterJsonText -Text $text -Line $Line)
 }
 
 
@@ -1664,7 +1662,7 @@ function ConvertFrom-OtterCsvText {
         $resultList.Add($thing)
     }
 
-    Write-Output -NoEnumerate $resultList
+    return , $resultList
 }
 
 function ConvertTo-OtterCsvCell {
@@ -1743,7 +1741,7 @@ function Read-OtterCsvFile {
     param([string]$Path, [int]$Line)
 
     $text = Read-OtterFile -Path $Path -Line $Line
-    Write-Output -NoEnumerate (ConvertFrom-OtterCsvText -Text $text -Line $Line)
+    return , (ConvertFrom-OtterCsvText -Text $text -Line $Line)
 }
 
 function Write-OtterCsvFile {
@@ -1904,7 +1902,7 @@ function Get-OtterProcessList {
     foreach ($proc in (Get-Process -ErrorAction SilentlyContinue)) {
         $list.Add((New-OtterProcessObject -Process $proc))
     }
-    Write-Output -NoEnumerate $list
+    return , $list
 }
 
 # kill process p                    - a single process, by its real PID
@@ -2465,8 +2463,7 @@ function Get-OtterSystemInfoValue {
             } catch {
                 # leave $list empty rather than crash on a locked-down host
             }
-            Write-Output -NoEnumerate $list
-            return
+            return , $list
         }
         # get system information "user" into u                          (D76)
         'user' {
@@ -2507,8 +2504,7 @@ function Get-OtterSystemInfoValue {
             } catch {
                 # leave $list empty rather than crash on a locked-down host
             }
-            Write-Output -NoEnumerate $list
-            return
+            return , $list
         }
         # get system information "software" into list                   (D77)
         # A list of "software" things (name/version/publisher) read from
@@ -2545,8 +2541,7 @@ function Get-OtterSystemInfoValue {
                     # move on to the next one rather than failing the list
                 }
             }
-            Write-Output -NoEnumerate $list
-            return
+            return , $list
         }
         # get system information "tasks" into list                       (D80)
         # A list of "scheduled task" things (name/state/lastRunTime/
@@ -2562,8 +2557,7 @@ function Get-OtterSystemInfoValue {
             try {
                 $tasks = Get-ScheduledTask -ErrorAction Stop
             } catch {
-                Write-Output -NoEnumerate $list
-                return
+                return , $list
             }
             foreach ($task in $tasks) {
                 $entry = [OtterObject]::new('scheduled task')
@@ -2583,8 +2577,7 @@ function Get-OtterSystemInfoValue {
                 $entry.WriteProperty('nextRunTime', $nextRun)
                 $list.Add($entry)
             }
-            Write-Output -NoEnumerate $list
-            return
+            return , $list
         }
         # get system information "printers" into list                   (D83)
         # Win32_Printer, not Get-Printer: its .Default is a plain boolean
@@ -2596,8 +2589,7 @@ function Get-OtterSystemInfoValue {
             try {
                 $printers = Get-CimInstance -ClassName Win32_Printer -ErrorAction Stop
             } catch {
-                Write-Output -NoEnumerate $list
-                return
+                return , $list
             }
             # Win32_Printer.PrinterStatus is a raw WMI value-mapped code
             # (confirmed directly via Get-CimClass's ValueMap qualifier),
@@ -2616,8 +2608,7 @@ function Get-OtterSystemInfoValue {
                 $entry.WriteProperty('isDefault', [bool]$printer.Default)
                 $list.Add($entry)
             }
-            Write-Output -NoEnumerate $list
-            return
+            return , $list
         }
         # get system information "services" into list                   (D86)
         # A list of "service" things (name/displayName/status/startType)
@@ -2633,8 +2624,7 @@ function Get-OtterSystemInfoValue {
             try {
                 $services = Get-Service -ErrorAction Stop
             } catch {
-                Write-Output -NoEnumerate $list
-                return
+                return , $list
             }
             foreach ($svc in $services) {
                 $entry = [OtterObject]::new('service')
@@ -2646,8 +2636,7 @@ function Get-OtterSystemInfoValue {
                 $entry.WriteProperty('startType', $startType)
                 $list.Add($entry)
             }
-            Write-Output -NoEnumerate $list
-            return
+            return , $list
         }
         default {
             throw [OtterError]::new(

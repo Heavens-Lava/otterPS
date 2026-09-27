@@ -964,13 +964,13 @@ function Get-OtterXmlChildElements {
             if ($child -is [System.Xml.XmlElement]) { $matches.Add($child) }
         }
     }
-    # -NoEnumerate matters even for a plain array return: PowerShell
+    # The unary comma (`return , value`) matters even for a plain array return: PowerShell
     # unwraps a SINGLE-item array/pipeline result back into a bare
     # scalar on return (confirmed directly - a one-element `return @(x)`
     # arrived at the caller as `x` itself, not `@(x)`, making
     # `$found.Count` silently $null instead of 1 and corrupting every
     # caller downstream of it).
-    Write-Output -NoEnumerate $matches
+    return , $matches
 }
 
 function Find-OtterXmlChildElementsByName {
@@ -980,7 +980,7 @@ function Find-OtterXmlChildElementsByName {
     foreach ($e in $all) {
         if ($e.Name -eq $Name) { $matches.Add($e) }
     }
-    Write-Output -NoEnumerate $matches
+    return , $matches
 }
 
 function Assert-OtterXmlElement {
@@ -4127,7 +4127,7 @@ function New-OtterSecureRandomByteArray {
     $rng = [System.Security.Cryptography.RNGCryptoServiceProvider]::new()
     try { $rng.GetBytes($buffer) } finally { $rng.Dispose() }
     # A byte[] returned through the pipeline would unroll; callers wrap it.
-    Write-Output -NoEnumerate $buffer
+    return , $buffer
 }
 
 function Get-OtterHmacBytes {
@@ -4138,7 +4138,7 @@ function Get-OtterHmacBytes {
         'sha512' { [System.Security.Cryptography.HMACSHA512]::new($Key) }
     }
     try { $result = $hmac.ComputeHash($Data) } finally { $hmac.Dispose() }
-    Write-Output -NoEnumerate $result
+    return , $result
 }
 
 function Get-OtterDigestBytes {
@@ -4149,7 +4149,7 @@ function Get-OtterDigestBytes {
         'sha512' { [System.Security.Cryptography.SHA512]::Create() }
     }
     try { $result = $hash.ComputeHash($Data) } finally { $hash.Dispose() }
-    Write-Output -NoEnumerate $result
+    return , $result
 }
 
 # Compares without an early exit on the first differing byte, so timing
@@ -4198,7 +4198,7 @@ function Protect-OtterBytes {
     $payload = [byte[]]::new($body.Length + 32)
     [System.Array]::Copy($body, 0, $payload, 0, $body.Length)
     [System.Array]::Copy($tag, 0, $payload, $body.Length, 32)
-    Write-Output -NoEnumerate $payload
+    return , $payload
 }
 
 # Returns the plaintext bytes, or $null when the payload is malformed,
@@ -4235,7 +4235,7 @@ function Unprotect-OtterBytes {
     } catch {
         return $null
     } finally { $aes.Dispose() }
-    Write-Output -NoEnumerate $plain
+    return , $plain
 }
 
 function Get-OtterPasswordDerivedBytes {
@@ -4244,7 +4244,7 @@ function Get-OtterPasswordDerivedBytes {
         [System.Text.Encoding]::UTF8.GetBytes($Password), $Salt, $Iterations,
         [System.Security.Cryptography.HashAlgorithmName]::SHA256)
     try { $result = $derive.GetBytes(32) } finally { $derive.Dispose() }
-    Write-Output -NoEnumerate $result
+    return , $result
 }
 
 # Stored form is text, so it can go straight into a database column or
@@ -4457,13 +4457,12 @@ function Get-OtterValue {
                 $variableValue -is [bool] -or $variableValue -is [int] -or $variableValue -is [long]) {
                 return $variableValue
             }
-            # -NoEnumerate matters: a PowerShell function RETURNING a List
+            # The unary comma (`return , value`) matters: a PowerShell function RETURNING a List
             # unrolls it into separate pipeline items, so an Otter list would
             # arrive at the caller as a loose object[] and stop being a list.
             # Everything that is not one of the plain scalars above (lists,
             # things, bytes, nothing, ...) keeps taking this path unchanged.
-            Write-Output -NoEnumerate $variableValue
-            return
+            return , $variableValue
         }
 
         # 5 and 5   /   10 minus 5   /   10 times 5   /   10 divided by 5
@@ -4601,9 +4600,8 @@ function Get-OtterValue {
         }
 
         'Call' {
-            # -NoEnumerate for the same reason: a function may return a list.
-            Write-Output -NoEnumerate (Invoke-OtterCall -Call $Expression -Environment $Environment)
-            return
+            # The unary comma (`return , value`) for the same reason: a function may return a list.
+            return , (Invoke-OtterCall -Call $Expression -Environment $Environment)
         }
 
         # name of person   /   city of address of user   /   year of date
@@ -4624,9 +4622,7 @@ function Get-OtterValue {
             # "text" means WPF Content for a button but Text for a text
             # box. The interpreter never touches System.Windows.* itself.
             if (Test-OtterUiResource $target) {
-                Write-Output -NoEnumerate (
-                    Get-OtterUiProperty -Resource $target -Property $Expression.Property -Line $Expression.Line)
-                return
+                return , (Get-OtterUiProperty -Resource $target -Property $Expression.Property -Line $Expression.Line)
             }
 
             # name of book / root of document / text of book / attributes
@@ -4656,14 +4652,13 @@ function Get-OtterValue {
                         Assert-OtterXmlElement -Xml $target -Line $Expression.Line -What 'read the attributes of'
                         $list = New-OtterList
                         foreach ($a in $target.Node.Attributes) { [void]$list.Add($a.Name) }
-                        # -NoEnumerate matters: a bare `return $list` unrolls
+                        # The unary comma (`return , value`) matters: a bare `return $list` unrolls
                         # it into separate pipeline items (confirmed
                         # directly - it arrives at the caller as a plain
                         # object[], which then fails every Test-Otter* type
                         # check), the same reason every other list-shaped
                         # return in this file goes through Write-Output.
-                        Write-Output -NoEnumerate $list
-                        return
+                        return , $list
                     }
                     default {
                         throw (New-OtterRuntimeError `
@@ -4852,8 +4847,7 @@ function Get-OtterValue {
                     -Suggestion $suggestion)
             }
 
-            Write-Output -NoEnumerate ($target.ReadProperty($Expression.Property))
-            return
+            return , ($target.ReadProperty($Expression.Property))
         }
 
         # if file "hello.txt" exists
@@ -4914,8 +4908,7 @@ function Get-OtterValue {
                             -Line $Expression.Line)
                     }
                     if ($subject.Count -eq 0) { return $null }
-                    Write-Output -NoEnumerate $subject[0]
-                    return
+                    return , $subject[0]
                 }
 
                 'Last' {
@@ -4925,8 +4918,7 @@ function Get-OtterValue {
                             -Line $Expression.Line)
                     }
                     if ($subject.Count -eq 0) { return $null }
-                    Write-Output -NoEnumerate $subject[$subject.Count - 1]
-                    return
+                    return , $subject[$subject.Count - 1]
                 }
 
                 # absolute value of X / square root of X / round of X /
@@ -5563,12 +5555,11 @@ function Get-OtterValue {
                     $found = Find-OtterXmlChildElementsByName -Node $xml.Node -Name $name
                     $list = New-OtterList
                     foreach ($f in $found) { [void]$list.Add([OtterXml]::new($f)) }
-                    # -NoEnumerate matters here too - see the "attributes"
+                    # The unary comma (`return , value`) matters here too - see the "attributes"
                     # property case's own comment above for why a bare
                     # `return $list` is a real, confirmed bug for this
                     # exact list-of-OtterXml shape.
-                    Write-Output -NoEnumerate $list
-                    return
+                    return , $list
                 }
                 ([XmlSelectKind]::Child) {
                     $index = Assert-OtterNumber -Value (Get-OtterValue -Expression $Expression.Selector -Environment $Environment) -Line $Expression.Line -What 'a child index'
@@ -5581,8 +5572,7 @@ function Get-OtterValue {
                     $children = Get-OtterXmlChildElements -Node $xml.Node
                     $list = New-OtterList
                     foreach ($c in $children) { [void]$list.Add([OtterXml]::new($c)) }
-                    Write-Output -NoEnumerate $list
-                    return
+                    return , $list
                 }
             }
         }
@@ -5802,8 +5792,7 @@ function Invoke-OtterCall {
                     if ($null -ne $bodyStatement.Value) {
                         $returned = Get-OtterValue -Expression $bodyStatement.Value -Environment $local
                     }
-                    Write-Output -NoEnumerate $returned
-                    return
+                    return , $returned
                 }
                 Invoke-OtterStatement -Statement $bodyStatement -Environment $local
             }
@@ -5811,8 +5800,7 @@ function Invoke-OtterCall {
         catch {
             # "return" is control flow wearing an exception's clothes.
             if ($_.Exception -is [OtterReturnSignal]) {
-                Write-Output -NoEnumerate $_.Exception.Value
-                return
+                return , $_.Exception.Value
             }
             throw
         }
@@ -5926,9 +5914,9 @@ function Get-OtterMutableList {
             -Line $Line)
     }
 
-    # -NoEnumerate again: returning a List from a PowerShell function unrolls
+    # The unary comma (`return , value`) again: returning a List from a PowerShell function unrolls
     # it, so the caller would get the first ITEM instead of the list itself.
-    Write-Output -NoEnumerate $value
+    return , $value
 }
 
 # File operations accept a path the programmer typed OR a file object with a

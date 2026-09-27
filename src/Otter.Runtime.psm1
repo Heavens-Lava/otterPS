@@ -755,11 +755,14 @@ function New-OtterList {
     param([object[]]$Items = @())
     $list = [System.Collections.Generic.List[object]]::new()
     foreach ($item in $Items) { $list.Add($item) }
-    # -NoEnumerate, not `return , $list`: the comma wraps the list in an
-    # object[], which PowerShell unwraps on assignment but NOT when the value
-    # is passed straight into a .NET method call. That mismatch made lists
-    # stop being lists the moment they were stored in an environment.
-    Write-Output -NoEnumerate $list
+    # `return , $list`, not `Write-Output -NoEnumerate $list`. Both hand the
+    # caller the List itself on Windows PowerShell 5.1, but on PowerShell 7
+    # Write-Output -NoEnumerate wraps a single emitted value in a List[object],
+    # so every value returned that way arrived one list-level too deep. The
+    # unary comma behaves the same on both hosts, including when the result is
+    # passed straight into a .NET method call such as $Environment.Set(...).
+    # See tests/HostPortability.Tests.ps1.
+    return , $list
 }
 
 function Test-OtterList {
