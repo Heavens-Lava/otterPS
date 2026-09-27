@@ -234,12 +234,21 @@ Test-Otter 'production otter serve resolves imported module routes' {
         $psi.Arguments = "$script:OtterHostArgString -File `"$script:OtterPs1`" serve server.ot -Port 19876"
         $psi.WorkingDirectory = $dir
         $psi.UseShellExecute = $false
+        # Capture the server's own output so a failure reports why it did not answer.
+        $serverLog = Join-Path $dir 'server-output.log'
+        $psi.RedirectStandardOutput = $true
+        $psi.RedirectStandardError = $true
         $serverProcess = [System.Diagnostics.Process]::Start($psi)
+        $serverOut = $serverProcess.StandardOutput.ReadToEndAsync()
+        $serverErr = $serverProcess.StandardError.ReadToEndAsync()
 
-        # Wait briefly for listener and query
+        # Wait for the listener. A cold PowerShell 7 start on a CI runner can take
+        # several seconds before the server is listening, so poll up to a deadline
+        # rather than for a fixed three seconds.
         $resp = $null
-        for ($retry = 0; $retry -lt 15; $retry++) {
-            Start-Sleep -Milliseconds 200
+        $deadline = [DateTime]::UtcNow.AddSeconds(30)
+        while ([DateTime]::UtcNow -lt $deadline -and -not $serverProcess.HasExited) {
+            Start-Sleep -Milliseconds 250
             try {
                 $client = [System.Net.HttpWebRequest]::Create('http://localhost:19876/api/ping')
                 $client.Timeout = 1000
@@ -249,6 +258,11 @@ Test-Otter 'production otter serve resolves imported module routes' {
                 $webResp.Close()
                 if ($resp) { break }
             } catch {}
+        }
+        if ($resp -ne 'pong') {
+            if (-not $serverProcess.HasExited) { $serverProcess.Kill(); $serverProcess.WaitForExit(2000) | Out-Null }
+            $detail = "server exited: $($serverProcess.HasExited); output: $($serverOut.Result) $($serverErr.Result)"
+            throw "expected [pong] but got [$resp]. $detail"
         }
         Assert-AreEqual -Expected 'pong' -Actual $resp
     } finally {
