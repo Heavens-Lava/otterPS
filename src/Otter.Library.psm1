@@ -170,6 +170,18 @@ function Read-OtterFile {
     }
 }
 
+# An atomic write replaces the target by renaming a temp file over it. Windows
+# refuses to replace a read-only file; Linux and macOS allow it (rename needs
+# only folder permission), so without this check `atomically` would overwrite a
+# read-only file on one host and fail on another. A non-atomic write already
+# fails on every host, so failing here keeps both forms and all hosts the same.
+function Assert-OtterAtomicTargetWritable {
+    param([string]$FullPath, [string]$Path, [int]$Line, [string]$What)
+    if ((Test-Path -LiteralPath $FullPath -PathType Leaf) -and ([System.IO.FileInfo]::new($FullPath)).IsReadOnly) {
+        throw [OtterError]::new("I could not write $What`"$Path`". The file is read-only.", $Line, 'runtime')
+    }
+}
+
 # write "Hello!" to "hello.txt"    - replaces whatever was there
 function Write-OtterFile {
     param([string]$Path, [string]$Content, [int]$Line, [bool]$Atomic = $false)
@@ -213,6 +225,7 @@ function Write-OtterFile {
     # combination, a real, reproducible quirk, not a hypothetical one. A
     # second temp suffix is used as a throwaway backup path and deleted
     # immediately after.
+    Assert-OtterAtomicTargetWritable -FullPath $full -Path $Path -Line $Line -What 'to '
     $tempPath = $full + '.otter-tmp-' + [Guid]::NewGuid().ToString('N').Substring(0, 8)
     $backupPath = $full + '.otter-bak-' + [Guid]::NewGuid().ToString('N').Substring(0, 8)
     try {
@@ -287,6 +300,7 @@ function Write-OtterFileBytes {
         return
     }
 
+    Assert-OtterAtomicTargetWritable -FullPath $full -Path $Path -Line $Line -What 'bytes to '
     $tempPath = $full + '.otter-tmp-' + [Guid]::NewGuid().ToString('N').Substring(0, 8)
     $backupPath = $full + '.otter-bak-' + [Guid]::NewGuid().ToString('N').Substring(0, 8)
     try {

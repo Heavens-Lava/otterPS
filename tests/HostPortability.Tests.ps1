@@ -111,6 +111,26 @@ to identity value
         }.GetNewClosure())
     }
 
+    Test-Otter 'an atomic write to a read-only file fails the same way on every host' {
+        # Windows refuses to replace a read-only file; Linux/macOS rename would allow it.
+        $target = Join-Path $script:Tmp 'locked.txt'
+        [System.IO.File]::WriteAllText($target, 'original')
+        $info = [System.IO.FileInfo]::new($target); $info.IsReadOnly = $true
+        try {
+            $otterPath = $target.Replace([string][char]92, '/')
+            $r = Invoke-OtterFileRun "write `"changed`" to `"$otterPath`" atomically`nsay `"should not print`"`n"
+            Assert-AreEqual -Expected 3 -Actual $r.ExitCode
+            Assert-True (($r.Lines -join ' ') -match 'The file is read-only') "expected the read-only diagnostic, got: $($r.Lines -join ' | ')"
+        } finally { $info.IsReadOnly = $false }
+        Assert-AreEqual -Expected 'original' -Actual ([System.IO.File]::ReadAllText($target))
+    }
+
+    Test-Otter 'published artifact names are sanitized identically on every host' {
+        Import-Module (Join-Path $script:RepoRoot 'src/Otter.Project.psm1') -Force
+        Assert-AreEqual -Expected 'My-Special-App-2026' -Actual (Get-OtterSafeFileName 'My-Special:App-*2026*')
+        Assert-AreEqual -Expected 'a-b-c-d' -Actual (Get-OtterSafeFileName ('a/b' + [char]92 + 'c<d>'))
+    }
+
     Test-Otter 'the runtime modules never return a value with Write-Output -NoEnumerate' {
         $offenders = @()
         foreach ($file in Get-ChildItem -LiteralPath (Join-Path $script:RepoRoot 'src') -Filter '*.psm1') {

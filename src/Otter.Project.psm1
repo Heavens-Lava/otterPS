@@ -811,7 +811,12 @@ function Get-OtterSafeFileName {
         [string]$Name
     )
     if ([string]::IsNullOrWhiteSpace($Name)) { return 'app' }
-    $invalid = [System.IO.Path]::GetInvalidFileNameChars()
+    # A fixed set, not [System.IO.Path]::GetInvalidFileNameChars(): that list
+    # is per host (Windows forbids < > : " / \ | ? * and control characters;
+    # Linux and macOS forbid only / and NUL), so the same project published a
+    # differently named artifact on each host. This is the Windows set, which
+    # is also a safe name on every other host.
+    $invalid = [char[]]@([char]'<', [char]'>', [char]':', [char]'"', [char]'/', [char]92, [char]'|', [char]'?', [char]'*') + [char[]](0..31 | ForEach-Object { [char]$_ })
     $sb = [System.Text.StringBuilder]::new()
     foreach ($ch in $Name.ToCharArray()) {
         if ($invalid -contains $ch -or [char]::IsWhiteSpace($ch)) {
