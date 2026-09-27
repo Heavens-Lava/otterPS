@@ -1983,7 +1983,7 @@ creation.
 -   [ ] Full-stack web application
 -   [ ] Database application
 -   [x] 2D game
--   [x] 3D game/demo
+-   [ ] 3D game/demo (reopened: see P6 - only a fixed spinning wireframe cube exists, not a 3D game)
 -   [ ] 3D modeling utility
 -   [ ] Package/library
 -   [ ] Multi-module large application
@@ -2152,7 +2152,7 @@ ordinary application" class.
 
 ## P5 --- Games
 
--   [x] Graphics/input/audio foundation.
+-   [ ] Graphics/input/audio foundation. (reopened: graphics and input foundations exist; section 29 Audio is 0 of 15 done)
 -   [ ] 2D engine. [DUPLICATE ROLL-UP: Section 25, Line 989]
 -   [ ] Physics/scenes/assets. [DUPLICATE ROLL-UP: Section 25, Lines 988, 1000]
 -   [x] Web/Desktop game export.
@@ -2160,12 +2160,12 @@ ordinary application" class.
 
 ## P6 --- 3D
 
--   [x] Vector/matrix/quaternion math.
+-   [ ] Vector/matrix/quaternion math. (reopened: no Vector3/Matrix/Quaternion exists in any Otter module; section 24/26 detail items are open, and the detailed items win over a roll-up)
 -   [ ] GPU rendering abstraction. [DUPLICATE ROLL-UP: Section 24, Line 968]
 -   [ ] Mesh/material/shader pipeline. [DUPLICATE ROLL-UP: Section 26, Lines 1027, 1037]
 -   [ ] Cameras/lights/animation/physics. [DUPLICATE ROLL-UP: Section 26 & Section 28]
 -   [ ] Scene graph. [DUPLICATE ROLL-UP: Section 27, Line 1060]
--   [x] 3D game demo.
+-   [ ] 3D game demo. (reopened: the only 3D today is a fixed spinning wireframe cube in the web runtime's canvas animation, not a game or an Otter-programmable 3D scene)
 -   [ ] Modeling mesh-edit operations. [DUPLICATE ROLL-UP: Section 27, Line 1068]
 -   [ ] Import/export. [DUPLICATE ROLL-UP: Section 27, Lines 1106-1111]
 -   [ ] Node/procedural system. [DUPLICATE ROLL-UP: Section 27, Line 1094]
