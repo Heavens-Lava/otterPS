@@ -1,0 +1,180 @@
+
+Optimization semantic preservation
+### GOLDEN-EQUALITY
+int 0|100000001100000000000000000010000000000000000000
+int 1|010000000000000000000000000000000000000000000000
+int -1|001000000000000000000000000000000000000000000000
+int 5|000101000000000000110111000000000000000000000000
+int 42|000010000000000000000000000000000000000000000000
+double 5.0|000101000000000000110111000000000000000000000000
+double 5.5|000000100000000000001000100000000000000000000000
+double -5.5|000000010000000000000000000000000000000000000000
+double 0.0|100000001100000000000000000010000000000000000000
+double -0.0|100000001100000000000000000010000000000000000000
+double 0.1+0.2|000000000010000000000000000000000000000000000000
+double 0.3|000000000001000000000000000000000000000000000000
+double 1e308|000000000000100000000000000000000000000000000000
+double NaN|000000000000000000000000000000000000000000000000
+double +Inf|000000000000001000000000000000000000000000000000
+long 2^53|000000000000000111000000000000000000000000000000
+long 2^53+1|000000000000000111000000000000000000000000000000
+double 2^53|000000000000000111000000000000000000000000000000
+long 5|000101000000000000110111000000000000000000000000
+decimal 5|000101000000000000110111000000000000000000000000
+decimal 5.5|000000100000000000001000100000000000000000000000
+text "5"|000101000000000000110111000000000000000000000000
+text "5.0"|000101000000000000110111000000000000000000000000
+text " 5"|000101000000000000110111000000000000000000000000
+text "5.5"|000000100000000000001000100000000000000000000000
+text "abc"|000000000000000000000000010000000000000000000000
+text upper ABC|000000000000000000000000001000000000000000000000
+text ""|000000000000000000000000000100000000110000000000
+text "0"|100000001100000000000000000010000000000000000000
+text "5abc"|000000000000000000000000000001000000000000000000
+bool true|000000000000000000000000000000100000000000000000
+bool false|000000000000000000000000000000010000000000000000
+nothing|000000000000000000000000000000001000000000000000
+list [1,2]|000000000000000000000000000000000110000000000000
+list [1,2] (b)|000000000000000000000000000000000110000000000000
+list [1,3]|000000000000000000000000000000000001000000000000
+list []|000000000000000000000000000100000000110000000000
+list [] (b)|000000000000000000000000000100000000110000000000
+list [[1,2]]|000000000000000000000000000000000000001100000000
+list [[1,2]] (b)|000000000000000000000000000000000000001100000000
+thing A|000000000000000000000000000000000000000010000000
+thing B|000000000000000000000000000000000000000001000000
+bytes 1,2,3|000000000000000000000000000000000000000000110000
+bytes 1,2,3 (b)|000000000000000000000000000000000000000000110000
+bytes 1,2,4|000000000000000000000000000000000000000000001000
+date 2026-01-02|000000000000000000000000000000000000000000000110
+date 2026-01-02 (b)|000000000000000000000000000000000000000000000110
+date 2026-03-04|000000000000000000000000000000000000000000000001
+### GOLDEN-ASSERT
+int 0|ok|Double|0
+int 1|ok|Double|1
+int -1|ok|Double|-1
+int 5|ok|Double|5
+int 42|ok|Double|42
+double 5.0|ok|Double|5
+double 5.5|ok|Double|5.5
+double -5.5|ok|Double|-5.5
+double 0.0|ok|Double|0
+double -0.0|ok|Double|0
+double 0.1+0.2|ok|Double|0.3
+double 0.3|ok|Double|0.3
+double 1e308|ok|Double|1E+308
+double NaN|ok|Double|NaN
+double +Inf|ok|Double|Infinity
+long 2^53|ok|Double|9.00719925474099E+15
+long 2^53+1|ok|Double|9.00719925474099E+15
+double 2^53|ok|Double|9.00719925474099E+15
+long 5|ok|Double|5
+decimal 5|ok|Double|5
+decimal 5.5|ok|Double|5.5
+text "5"|ok|Double|5
+text "5.0"|ok|Double|5
+text " 5"|ok|Double|5
+text "5.5"|ok|Double|5.5
+text "abc"|error|I expected a number for the left side of this calculation but got "abc".
+text upper ABC|error|I expected a number for the left side of this calculation but got "ABC".
+text ""|error|I expected a number for the left side of this calculation but got "".
+text "0"|ok|Double|0
+text "5abc"|error|I expected a number for the left side of this calculation but got "5abc".
+bool true|error|I expected a number for the left side of this calculation but got true.
+bool false|error|I expected a number for the left side of this calculation but got false.
+nothing|error|I expected a number for the left side of this calculation but got gone.
+list [1,2]|error|I expected a number for the left side of this calculation but got 1, 2.
+list [1,2] (b)|error|I expected a number for the left side of this calculation but got 1, 2.
+list [1,3]|error|I expected a number for the left side of this calculation but got 1, 3.
+list []|error|I expected a number for the left side of this calculation but got .
+list [] (b)|error|I expected a number for the left side of this calculation but got .
+list [[1,2]]|error|I expected a number for the left side of this calculation but got 1, 2.
+list [[1,2]] (b)|error|I expected a number for the left side of this calculation but got 1, 2.
+thing A|error|I expected a number for the left side of this calculation but got a thing.
+thing B|error|I expected a number for the left side of this calculation but got a thing.
+bytes 1,2,3|error|I expected a number for the left side of this calculation but got <3 bytes>.
+bytes 1,2,3 (b)|error|I expected a number for the left side of this calculation but got <3 bytes>.
+bytes 1,2,4|error|I expected a number for the left side of this calculation but got <3 bytes>.
+date 2026-01-02|error|I expected a number for the left side of this calculation but got 2026-01-02.
+date 2026-01-02 (b)|error|I expected a number for the left side of this calculation but got 2026-01-02.
+date 2026-03-04|error|I expected a number for the left side of this calculation but got 2026-03-04.
+### GOLDEN-PROGRAM equality: numbers and numeric text
+int equals int
+int differs from int
+number equals numeric text
+numeric text equals numeric text
+5 equals 5.0
+text 5 equals 5.0
+negative equal
+zero equals 0.0
+text equals text
+text is case sensitive
+[finished]
+### GOLDEN-PROGRAM equality: booleans, lists, things, nothing
+true is true
+true is not false
+true is not 1
+equal lists equal
+different lists differ
+list contains 2
+does not contain 9
+distinct things differ
+a thing equals itself
+[finished]
+### GOLDEN-PROGRAM contains, remove and find on numbers and text
+contains 30
+contains 40 (text 40 matches number 40)
+no 99
+10, 30, 40
+30
+[finished]
+### GOLDEN-PROGRAM arithmetic and comparison: values and errors
+9
+5
+14
+3.5
+7
+2.5
+greater
+less
+at least
+at most
+0.3
+25
+9007199254740990
+[finished]
+### GOLDEN-PROGRAM arithmetic error: text on the left
+[error line 2] I expected a number for the left side of this calculation but got "Jeff".
+### GOLDEN-PROGRAM arithmetic error: text on the right
+[error line 2] I expected a number for the right side of this calculation but got "abc".
+### GOLDEN-PROGRAM arithmetic error: boolean
+[error line 2] A true/false value cannot be combined with "and" here. Boolean "and"/"or" only work inside an if or while condition.
+### GOLDEN-PROGRAM comparison error: text
+[error line 2] I expected a number for the left side of this comparison but got "abc".
+### GOLDEN-PROGRAM division by zero
+[error line 1] I cannot divide by zero.
+### GOLDEN-PROGRAM variable reads: scalars and lists
+42 hello true 0
+solo
+1
+0
+a, b
+a, b
+2
+42 hello a, b
+2
+solo
+1
+0
+a
+a, b
+3
+2
+[finished]
+### GOLDEN-PROGRAM variable reads: undefined variable
+[error line 1] Otter could not find the variable "missingVariable". It has not been given a value yet.
+### GOLDEN-PROGRAM variable reads inside loops and conditions
+6
+12
+7
+[finished]
