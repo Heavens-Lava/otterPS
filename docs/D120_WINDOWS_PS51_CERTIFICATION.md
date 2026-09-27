@@ -36,6 +36,19 @@ Its Windows PowerShell 5.1 job ran on Windows NT 10.0.26100.0, x64 with
 PowerShell 5.1.26100.33438. The local Windows host still lacks `pwsh`; the CI
 results supply the PowerShell 7 host evidence above.
 
+The [first expanded project workflow run](https://github.com/Heavens-Lava/otterPS/actions/runs/36282641423)
+used commit `d20a38c` and found a real portability defect: `new`, `check`,
+`run`, `build`, and `publish` passed everywhere, but `test` failed on Linux
+and macOS because `Invoke-OtterProjectTests` launched `powershell.exe`.
+
+Commit `1aa08b0` changed that child launch to use the running PowerShell host.
+The [resolution run](https://github.com/Heavens-Lava/otterPS/actions/runs/36286141126)
+at commit `aea1d9c` passed all four hosts. Each host completed `--version`,
+`run`, `check`, and a fresh-project `new`, `check`, `test`, `run`, `build`,
+and `publish` workflow with exit code 0. This closes the specific D120
+host-selection defect; it does not by itself certify every target-specific
+runtime facility.
+
 ## Scope and interpretation
 
 This record is D120 evidence, not a cross-platform certification. Windows
@@ -52,10 +65,9 @@ from a clean checkout of the candidate SHA.
 
 ## Next actions
 
-1. Capture the exit code and final summary from a fresh Windows PowerShell
-   suite run; update this record only with its observed result.
-2. Expand the successful four-host CI smoke to `new`, `test`, `build`, and
-   `publish` against temporary projects, and run the relevant platform
-   regression suites under each intended host.
+1. Run the complete suite from a clean checkout of the nominated candidate
+   and record its exact exit code and final summary.
+2. Run the relevant platform regression suites under each intended host
+   beyond the portable CLI/project workflow proven above.
 3. Repeat the browser fixtures on a clean release candidate checkout and on
    the other advertised host/browser combinations.
