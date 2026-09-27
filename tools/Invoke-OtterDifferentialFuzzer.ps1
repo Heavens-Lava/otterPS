@@ -407,7 +407,14 @@ if ($Mode -in @('All', 'MutationFuzz')) {
 # =============================================================
 Write-Host "`n===================================================="
 if ($issues.Count -eq 0) {
-    Write-Host "GAUNTLET CERTIFIED: 0 disagreements across 10,000 differential programs, 0 raw host exceptions across 10,000 mutations." -ForegroundColor Green
+    $summary = @()
+    if ($Mode -in @('All', 'Differential')) {
+        $summary += "$diffPassed of $Iterations differential programs agreed ($diffDisagreements disagreements)"
+    }
+    if ($Mode -in @('All', 'MutationFuzz')) {
+        $summary += "$fuzzHandledSafely of $Iterations mutations handled safely ($fuzzRawCrashes raw host crashes)"
+    }
+    Write-Host "GAUNTLET PASSED: $($summary -join '; ')." -ForegroundColor Green
     exit 0
 } else {
     Write-Host "DEFECTS IDENTIFIED: $($issues.Count)" -ForegroundColor Red
