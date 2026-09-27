@@ -98,3 +98,47 @@ jobs:
             throw "D120 project workflow failed: $($failures -join '; ')"
           }
           Write-Output 'D120 project workflow passed: new, check, test, run, build, publish.'
+      - name: Verify portable language and module suite
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $engine = '${{ matrix.host }}'
+          # These suites cover the language and console/project surface that
+          # Otter advertises across PS 5.1 and pwsh. Windows-only integration
+          # suites (WPF, registry, DPAPI, printers, etc.) remain separately
+          # classified as target-specific in the release scope matrix.
+          $suiteNames = @(
+            'Lexer.Tests.ps1',
+            'Parser.Tests.ps1',
+            'Grammar.Tests.ps1',
+            'Collections.Tests.ps1',
+            'Objects.Tests.ps1',
+            'Data.Tests.ps1',
+            'Dates.Tests.ps1',
+            'Bytes.Tests.ps1',
+            'Csv.Tests.ps1',
+            'Xml.Tests.ps1',
+            'Interpreter.Tests.ps1',
+            'Conformance.Tests.ps1',
+            'Module.Tests.ps1',
+            'UseModuleProduction.Tests.ps1',
+            'Project.Tests.ps1',
+            'ProjectBuild.Tests.ps1',
+            'ProjectCreationAndTestRunner.Tests.ps1',
+            'ProjectPublish.Tests.ps1',
+            'Web.Tests.ps1'
+          )
+          $failures = @()
+          foreach ($suiteName in $suiteNames) {
+            $suitePath = Join-Path $env:GITHUB_WORKSPACE (Join-Path 'tests' $suiteName)
+            $output = & $engine -NoProfile -File $suitePath 2>&1
+            $code = $LASTEXITCODE
+            Write-Output "$suiteName: exit $code"
+            if ($code -ne 0) {
+              $failures += "$suiteName: $($output -join ' | ')"
+            }
+          }
+          if ($failures.Count -gt 0) {
+            throw "D120 portable suite failed: $($failures -join '; ')"
+          }
+          Write-Output "D120 portable language suite passed ($($suiteNames.Count) suites)."
