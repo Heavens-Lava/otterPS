@@ -17,30 +17,28 @@ jobs:
         include:
           - name: Windows PowerShell 5.1
             runner: windows-2025
-            shell: powershell
             host: powershell.exe
           - name: PowerShell 7 on Windows
             runner: windows-2025
-            shell: pwsh
             host: pwsh
           - name: PowerShell 7 on Linux
             runner: ubuntu-24.04
-            shell: pwsh
             host: pwsh
           - name: PowerShell 7 on macOS
             runner: macos-15
-            shell: pwsh
             host: pwsh
     steps:
       - uses: actions/checkout@v7
       - name: Record host and verify production CLI
-        shell: ${{ matrix.shell }}
+        shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           $engine = '${{ matrix.host }}'
           Write-Output "OS: $([System.Environment]::OSVersion.VersionString)"
           Write-Output "Architecture: $([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)"
-          Write-Output "PowerShell: $($PSVersionTable.PSVersion) ($($PSVersionTable.PSEdition))"
+          $hostVersion = & $engine -NoProfile -Command '$PSVersionTable.PSVersion.ToString()'
+          if ($LASTEXITCODE -ne 0) { throw "Could not start $engine" }
+          Write-Output "Test host PowerShell: $hostVersion"
           Write-Output "Commit: $env:GITHUB_SHA"
 
           $version = (Get-Content VERSION -Raw).Trim()
