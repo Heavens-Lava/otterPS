@@ -1,0 +1,233 @@
+{
+  "Host": {
+    "OtterVersion": "0.9.0",
+    "PowerShellVersion": "5.1.26100.8115",
+    "PowerShellEdition": "Desktop",
+    "OperatingSystem": "Microsoft Windows NT 10.0.26200.0",
+    "Processor": "Intel(R) Core(TM) i9-14900",
+    "LogicalCores": 32,
+    "MeasuredRuns": 5,
+    "WarmupRuns": 1,
+    "Date": "2026-09-26 20:06"
+  },
+  "Benchmarks": [
+    {
+      "Benchmark": "arithmetic",
+      "MedianMs": 508.91,
+      "MinMs": 502.11,
+      "MaxMs": 513.09,
+      "RunsMs": [
+        513.09,
+        508.91,
+        505.73,
+        502.11,
+        511.46
+      ],
+      "Statements": 2003,
+      "FunctionCalls": 0,
+      "StatementsPerSec": 3936,
+      "CallsPerSec": 0
+    },
+    {
+      "Benchmark": "contains_300",
+      "MedianMs": 235.29,
+      "MinMs": 230.59,
+      "MaxMs": 240.12,
+      "RunsMs": [
+        234.82,
+        240.12,
+        230.59,
+        236.36,
+        235.29
+      ],
+      "Statements": 345,
+      "FunctionCalls": 0,
+      "StatementsPerSec": 1466,
+      "CallsPerSec": 0
+    },
+    {
+      "Benchmark": "contains_5000",
+      "MedianMs": 1400.02,
+      "MinMs": 1395.95,
+      "MaxMs": 1416.57,
+      "RunsMs": [
+        1405.83,
+        1397.71,
+        1416.57,
+        1395.95,
+        1400.02
+      ],
+      "Statements": 5009,
+      "FunctionCalls": 0,
+      "StatementsPerSec": 3578,
+      "CallsPerSec": 0
+    },
+    {
+      "Benchmark": "event_dispatch",
+      "MedianMs": 3198.07,
+      "MinMs": 3183.91,
+      "MaxMs": 3507.25,
+      "RunsMs": [
+        3184.71,
+        3198.07,
+        3254.74,
+        3183.91,
+        3507.25
+      ],
+      "Statements": 310,
+      "FunctionCalls": 0,
+      "StatementsPerSec": 97,
+      "CallsPerSec": 0
+    },
+    {
+      "Benchmark": "file_io",
+      "MedianMs": 443.74,
+      "MinMs": 436.52,
+      "MaxMs": 458.77,
+      "RunsMs": [
+        444.19,
+        436.52,
+        442.49,
+        443.74,
+        458.77
+      ],
+      "Statements": 364,
+      "FunctionCalls": 0,
+      "StatementsPerSec": 820,
+      "CallsPerSec": 0
+    },
+    {
+      "Benchmark": "function_calls",
+      "MedianMs": 513.66,
+      "MinMs": 512.46,
+      "MaxMs": 515.28,
+      "RunsMs": [
+        513.17,
+        515.28,
+        515.16,
+        512.46,
+        513.66
+      ],
+      "Statements": 2106,
+      "FunctionCalls": 900,
+      "StatementsPerSec": 4100,
+      "CallsPerSec": 1752
+    },
+    {
+      "Benchmark": "json",
+      "MedianMs": 129.25,
+      "MinMs": 128.17,
+      "MaxMs": 133.88,
+      "RunsMs": [
+        128.17,
+        131.19,
+        133.88,
+        129.25,
+        129.21
+      ],
+      "Statements": 184,
+      "FunctionCalls": 0,
+      "StatementsPerSec": 1424,
+      "CallsPerSec": 0
+    },
+    {
+      "Benchmark": "lists",
+      "MedianMs": 613.93,
+      "MinMs": 612.48,
+      "MaxMs": 618.86,
+      "RunsMs": [
+        612.48,
+        614.44,
+        613.32,
+        618.86,
+        613.93
+      ],
+      "Statements": 810,
+      "FunctionCalls": 0,
+      "StatementsPerSec": 1319,
+      "CallsPerSec": 0
+    },
+    {
+      "Benchmark": "loops",
+      "MedianMs": 511.38,
+      "MinMs": 508.45,
+      "MaxMs": 516.82,
+      "RunsMs": [
+        511.38,
+        508.45,
+        513.14,
+        510.77,
+        516.82
+      ],
+      "Statements": 1538,
+      "FunctionCalls": 0,
+      "StatementsPerSec": 3008,
+      "CallsPerSec": 0
+    },
+    {
+      "Benchmark": "objects",
+      "MedianMs": 639.27,
+      "MinMs": 629.72,
+      "MaxMs": 651.3,
+      "RunsMs": [
+        651.3,
+        639.27,
+        631.17,
+        650,
+        629.72
+      ],
+      "Statements": 1205,
+      "FunctionCalls": 0,
+      "StatementsPerSec": 1885,
+      "CallsPerSec": 0
+    },
+    {
+      "Benchmark": "recursion",
+      "MedianMs": 819.51,
+      "MinMs": 814.69,
+      "MaxMs": 824.54,
+      "RunsMs": [
+        820.07,
+        819.51,
+        815.86,
+        824.54,
+        814.69
+      ],
+      "Statements": 2265,
+      "FunctionCalls": 566,
+      "StatementsPerSec": 2764,
+      "CallsPerSec": 691
+    },
+    {
+      "Benchmark": "strings",
+      "MedianMs": 450.98,
+      "MinMs": 448.99,
+      "MaxMs": 459.07,
+      "RunsMs": [
+        459.07,
+        451.75,
+        450.98,
+        449.38,
+        448.99
+      ],
+      "Statements": 704,
+      "FunctionCalls": 0,
+      "StatementsPerSec": 1561,
+      "CallsPerSec": 0
+    }
+  ],
+  "Startup": {
+    "otter --version": {
+      "MedianMs": 788,
+      "MinMs": 767,
+      "MaxMs": 789,
+      "Runs": 5
+    },
+    "otter run hello.ot": {
+      "MedianMs": 1179,
+      "MinMs": 1159,
+      "MaxMs": 1239,
+      "Runs": 5
+    }
+  }
+}

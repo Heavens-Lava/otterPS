@@ -1,10 +1,15 @@
 # Otter 1.0 Performance Baseline
 
-Status: **baseline only. No optimization has been made** (apart from the
-`return` fast path that predates this work, described below).
+Status: **baseline recorded, then the approved low-risk optimization pass
+(items 1 to 3) applied and re-measured.** The baseline sections below describe
+the code as it was *before* that pass; the pass and its results are in
+[Post-optimization results](#post-optimization-results-items-1-to-3). Items 4 to
+7 have not been implemented.
 
 Measured with `tools\Invoke-OtterBenchmarks.ps1` on the programs in `benchmarks\`.
-Raw data: `benchmarks\results\baseline-0.9.0.json`.
+Raw data: `benchmarks\results\baseline-0.9.0.json` (before the pass),
+`benchmarks\results\before-contains.json` (the two `contains` benchmarks, also
+before the pass) and `benchmarks\results\optimized-0.9.0.json` (after).
 
 ## Host
 
@@ -134,15 +139,15 @@ architectural redesign to fix (see below).
 
 ## Optimization candidates, ranked by measured impact
 
-None of these has been implemented. Each must, before merging, preserve
+Items 1 to 3 have since been implemented (see the next section); items 4 to 7 have not. Each must, before merging, preserve
 interpreter behavior, keep JS differential parity, and pass the full regression
 suite, the 15 conformance fixtures, and the differential fuzzer.
 
 | # | Candidate | Evidence | Expected effect | Risk |
 |---|---|---|---|---|
-| 1 | **Fast path in `Test-OtterEqual` for two numbers** (and other cheap same-type cases) before the chain of type helpers | 164 us per comparison, dominating `contains`/`is` | `contains` on 300 items from about 60 ms to well under 10 ms; every `if x is y` about 150 us cheaper | **Low** for `[double]`/`[int]` pairs. **Not** safe for strings without a numeric check: `"5"` equals `5` today, and `"5.0"` equals `"5"` |
-| 2 | **Inline `[double]` fast path for `Assert-OtterNumber`** in math and ordering comparisons | 84 us x2 inside a 364 us expression | about 40% off each arithmetic/comparison expression; arithmetic benchmark about 25-30% faster | **Low** - the fast path returns exactly what the helpers return for a `[double]` |
-| 3 | **Skip `Write-Output -NoEnumerate` for non-collection values** on variable reads | 62 us vs 22 us on every variable read | about 40 us per variable read (one to three per statement) | **Low-medium** - lists must still not unroll; the check must be by type, and any missed collection type becomes a bug |
+| 1 | **DONE.** **Fast path in `Test-OtterEqual` for two numbers** (and other cheap same-type cases) before the chain of type helpers | 164 us per comparison, dominating `contains`/`is` | `contains` on 300 items from about 60 ms to well under 10 ms; every `if x is y` about 150 us cheaper | **Low** for `[double]`/`[int]` pairs. **Not** safe for strings without a numeric check: `"5"` equals `5` today, and `"5.0"` equals `"5"` |
+| 2 | **DONE.** **Inline `[double]` fast path for `Assert-OtterNumber`** in math and ordering comparisons | 84 us x2 inside a 364 us expression | about 40% off each arithmetic/comparison expression; arithmetic benchmark about 25-30% faster | **Low** - the fast path returns exactly what the helpers return for a `[double]` |
+| 3 | **DONE.** **Skip `Write-Output -NoEnumerate` for non-collection values** on variable reads | 62 us vs 22 us on every variable read | about 40 us per variable read (one to three per statement) | **Low-medium** - lists must still not unroll; the check must be by type, and any missed collection type becomes a bug |
 | 4 | **Event loop: do not sleep when a pass made progress; drain queued events** | 35 ms per event vs 10 ms sleep floor | queued-event throughput 5x to 20x | **Medium** - changes event ordering/timing between providers and could spin CPU; needs the async-job and watcher tests to prove no starvation |
 | 5 | **Trim per-call overhead** (`Invoke-OtterCall`: typed call-frame instead of `[pscustomobject]`, fewer lookups) | about 1 ms per call end to end | about 10-15% on call-heavy code | **Medium** - the call frame is what the debugger and profiler read |
 | 6 | **Reduce `Invoke-OtterStatement` dispatch overhead** (statement-hook check, `Kind.ToString()` switch) | 85 us statement overhead above the value evaluation | about 5-10% overall | **Medium** - a large `switch`; a table dispatch is a bigger change |
@@ -152,6 +157,123 @@ Candidates 1 to 3 are small, local, and behavior-preserving, and together should
 remove roughly 30 to 40% of typical statement cost. They do not require
 restructuring the interpreter. Candidates 4 to 7 are worth doing only after 1 to 3
 are measured again.
+
+## Post-optimization results (items 1 to 3)
+
+Approved scope: items 1, 2 and 3 only. Items 4 to 7 (event loop, call frame,
+statement dispatch, lazy loading) were **not** implemented.
+
+### What changed
+
+* **OPT-1, `Test-OtterEqual`** (`src/Otter.Runtime.psm1`): when both operands are
+  a `[double]`, `[int]` or `[long]`, compare them as doubles immediately. That is
+  what the generic route already did for such values, minus about eight helper
+  calls. Text (including numeric-looking text such as `"5"` and `"5.0"`),
+  decimals, booleans, nothing, dates, bytes, lists and things all still take the
+  original generic route, unchanged.
+* **OPT-2, `Assert-OtterNumber`** (`src/Otter.Interpreter.psm1`): returns
+  immediately for a `[double]` (or converts an `[int]`/`[long]`), and the two hot
+  call sites (arithmetic and ordering comparisons) skip the call when the operand
+  is already a `[double]`. Error text, error type and line numbers are untouched:
+  anything that is not a plain number reaches the original code.
+* **OPT-3, variable reads** (`Get-OtterValue`, `Variable` case): a value that is
+  a `[double]`, `[string]`, `[bool]`, `[int]` or `[long]` is returned directly.
+  Everything else (lists, nested lists, things, bytes, nothing) still goes
+  through `Write-Output -NoEnumerate` exactly as before. The list-protection
+  mechanism is not removed or weakened.
+
+### Proving semantics did not change
+
+`tests/Optimizations.Tests.ps1` holds **golden results captured from the
+un-optimized interpreter before any of the three changes were made** (committed
+first, `c64d77d`): equality for every pair in a 46-value grid (integers, doubles,
+negatives, zero, negative zero, NaN, infinity, longs beyond 2^53, decimals,
+numeric and non-numeric text, empty text, booleans, nothing, equal and unequal
+lists, nested and empty lists, things, bytes, dates); `Assert-OtterNumber`
+results, types and exact error text for the same grid; and 12 Otter programs
+(equality, `contains`/`remove`/`find`, arithmetic, comparison errors, division by
+zero, undefined variables, and variable reads of scalars, lists, empty lists,
+single-item lists, function parameters and returns, and things holding lists),
+compared on output *and* error message *and* error line. All 15 tests pass
+unchanged against the optimized code.
+
+| Gate | Result |
+|---|---|
+| Focused golden tests | 15 of 15 pass |
+| Full platform regression | **55 of 55** test files pass |
+| Release conformance | **15 of 15** fixtures pass |
+| Differential fuzzer (interpreter vs JavaScript) | **1,000 of 1,000** programs agree, 0 disagreements (seed 20260929) |
+| Malformed-input safety fuzzing | **1,000 of 1,000** handled safely, 0 raw host crashes |
+| Profiler validation (function_calls, recursion) | call counts unchanged: 300/300/300 and 465/101; statement counts unchanged: 2,106 and 2,265 |
+
+No optimization produced a semantic difference, so none was reverted.
+
+### Before and after
+
+Same methodology as the baseline: 1 warmup run, 5 measured runs, same
+workloads, profiler off, in-process. "Baseline" is the code before this pass.
+
+| benchmark | baseline median ms | optimized median ms | change | baseline stmts/s | optimized stmts/s |
+|---|---:|---:|---:|---:|---:|
+| arithmetic | 1,123.9 | 508.9 | **-55%** | 1,782 | 3,936 |
+| loops | 996.1 | 511.4 | **-49%** | 1,544 | 3,008 |
+| function_calls | 897.8 | 513.7 | **-43%** | 2,346 | 4,100 |
+| recursion | 1,451.8 | 819.5 | **-44%** | 1,560 | 2,764 |
+| lists | 1,484.8 | 613.9 | **-59%** | 546 | 1,319 |
+| objects | 828.4 | 639.3 | -23% | 1,455 | 1,885 |
+| strings | 502.1 | 451.0 | -10% | 1,402 | 1,561 |
+| json | 143.4 | 129.2 | -10% | 1,283 | 1,424 |
+| file_io | 482.2 | 443.7 | -8% | 755 | 820 |
+| event_dispatch | 3,503.1 | 3,198.1 | -9% | 88 | 97 |
+| contains_300 (new) | 1,191.7 | 235.3 | **-80%** | 289 | 1,466 |
+| contains_5000 (new) | 3,140.5 | 1,400.0 | **-55%** | 1,595 | 3,578 |
+
+Function calls per second: `function_calls` 1,002 to 1,752; `recursion` 390 to 691.
+Startup is unchanged (`otter --version` 788 ms, `otter run hello.ot` 1,179 ms).
+
+`event_dispatch` improved only about 9% because it is dominated by the event
+loop's 10 ms sleep (item 4, not implemented); `strings`, `json` and `file_io`
+spend most of their time in library calls that these three changes do not touch.
+
+### The user-visible defect: `contains`
+
+`contains_300` does 20 lookups of the last item (worst case: every element
+compared) on a 300-item list; `contains_5000` does 2 lookups on a 5,000-item list.
+Both include building the list, so the build cost was measured separately with the
+same runner (temporary build-only programs, not kept): 300 items 83.3 ms before
+and 70.9 ms after; 5,000 items 1,382 ms before and 1,137 ms after. Subtracting it:
+
+| | before, per lookup | after, per lookup | speedup |
+|---|---:|---:|---:|
+| `contains` on 300 numeric items | 55.4 ms | 8.2 ms | 6.7x |
+| `contains` on 5,000 numeric items | 879 ms | 131.6 ms | 6.7x |
+
+That is a real improvement, but a 5,000-item search is still about 130 ms. The
+remaining cost, roughly 26 us per element, is one PowerShell function call to
+`Test-OtterEqual` per element plus the loop that makes it. Getting a 5,000-item
+`contains` under about 20 ms would need the list scan itself to compare inline,
+or a hashed collection: both are larger changes than this pass approved and are
+left for a decision.
+
+Equality on **text** is unchanged and still slow (about 200 us per comparison):
+the fast path deliberately does not cover strings, because `"5"` equals `5` and
+`"5.0"` equals `"5"` today. A safe text fast path would have to first prove that
+neither string parses as a number. That is a candidate for the next round, not
+part of this one.
+
+### Profiler overhead after the pass
+
+The profiler adds a roughly fixed cost per statement, and the interpreter is now
+faster, so its relative overhead is larger: `function_calls` 1,912 ms profiled vs
+514 ms plain (3.7x), `recursion` 2,633 ms vs 820 ms (3.2x). Function and line
+accounting still agree with the runner's independent counts.
+
+### Where the time goes now (not yet addressed)
+
+Remaining large costs are exactly the ones deliberately left alone: per-statement
+dispatch and call setup (items 5 and 6), the event loop's fixed sleep (item 4),
+process startup (item 7), and text equality. Decision on whether any of these
+belong in 1.0 is pending.
 
 ## Recommendation for 1.0
 

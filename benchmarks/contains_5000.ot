@@ -1,0 +1,18 @@
+# Benchmark: contains on 5,000 numeric items
+# Workload: build a list of 5,000 numbers, then 2 lookups of the LAST item (the
+# worst case: every element is compared). Measures equality-driven list scans on
+# a list large enough to feel slow. The list build is included; see
+# docs/OTTER_1_0_PERFORMANCE_BASELINE.md for the build-only cost.
+
+numbers are empty
+count from 1 to 5000 as n
+    add n to numbers
+.
+
+hits is 0
+repeat 2 times
+    if numbers contains 5000
+        hits is hits plus 1
+    .
+.
+say "contains 5000" hits

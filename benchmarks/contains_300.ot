@@ -1,0 +1,18 @@
+# Benchmark: contains on 300 numeric items
+# Workload: build a list of 300 numbers, then 20 lookups of the LAST item (the
+# worst case: every element is compared). Measures equality-driven list scans.
+# The list build is included; see docs/OTTER_1_0_PERFORMANCE_BASELINE.md for the
+# build-only cost.
+
+numbers are empty
+count from 1 to 300 as n
+    add n to numbers
+.
+
+hits is 0
+repeat 20 times
+    if numbers contains 300
+        hits is hits plus 1
+    .
+.
+say "contains 300" hits

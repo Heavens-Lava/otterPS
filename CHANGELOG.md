@@ -8,6 +8,7 @@ All notable changes to the Otter Programming Language platform are documented in
 - **`otter profile <file.ot>`** (`src/Otter.Profiler.psm1`): runs a program normally, then reports which Otter functions ran (calls, total and self time) and which Otter source lines were hottest, in Otter terms only. Built on the interpreter's existing statement hook, so a normal `otter run` never loads it and pays nothing.
 
 ### Changed
+- Low-risk interpreter optimization pass (measured: 43% to 59% faster on arithmetic, loops, calls, recursion and list work; `contains` on a number list about 6.7x faster). Three local fast paths, none changing behavior: `Test-OtterEqual` for two plain numbers, `Assert-OtterNumber` for plain numbers, and variable reads of numbers, text and booleans skipping the list-protection wrapper. Verified against golden results captured before the change (`tests/Optimizations.Tests.ps1`), the full regression suite, all 15 conformance fixtures, and 1,000-program differential and malformed-input fuzzing. See `docs/OTTER_1_0_PERFORMANCE_BASELINE.md`.
 - A `return` written directly in a function body now ends the call without throwing an exception (the profiler showed the exception was the single most expensive step per call). A `return` nested inside `if` or a loop behaves exactly as before.
 
 ### Fixed

@@ -109,6 +109,8 @@ Write-Host "$Runs measured runs after $Warmup warmup run(s); median / min / max 
 Write-Host ('=' * 78) -ForegroundColor Cyan
 
 $files = Get-ChildItem -LiteralPath $benchDir -Filter '*.ot' | Sort-Object Name
+# `-File` passes `a,b` as ONE string, so accept comma-separated names too.
+$Only = @($Only | ForEach-Object { $_ -split ',' } | Where-Object { $_ })
 if ($Only.Count -gt 0) { $files = $files | Where-Object { $Only -contains $_.BaseName } }
 if ($files.Count -eq 0) { throw "No benchmark programs matched in $benchDir." }
 

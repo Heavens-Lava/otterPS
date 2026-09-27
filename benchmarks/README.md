@@ -44,6 +44,8 @@ printed and stored in the JSON output.
 | `strings.ot` | case, replace, split, join |
 | `json.ot` | JSON encode/decode round trips |
 | `file_io.ot` | write/append/read/exists/delete (runs in a temp folder) |
+| `contains_300.ot` | `contains` scans: 20 worst-case lookups on a 300-item number list |
+| `contains_5000.ot` | `contains` scans: 2 worst-case lookups on a 5,000-item number list |
 | `event_dispatch.ot` | event loop: 100 loopback UDP datagrams to an `on data` handler (uses port 47391) |
 
 Workloads are deliberately small (hundreds to a few thousand statements) because
@@ -52,6 +54,9 @@ compared as ratios between builds, not against other languages.
 
 ## Results
 
-`benchmarks/results/baseline-0.9.0.json` is the recorded baseline. The analysis is
+`benchmarks/results/baseline-0.9.0.json` is the recorded baseline (before the
+low-risk optimization pass), `before-contains.json` holds the two `contains`
+benchmarks measured at the same point, and `optimized-0.9.0.json` is the result
+after the pass. The analysis is
 in [`docs/OTTER_1_0_PERFORMANCE_BASELINE.md`](../docs/OTTER_1_0_PERFORMANCE_BASELINE.md).
 Compare a new run against it on the same machine; do not compare across machines.
