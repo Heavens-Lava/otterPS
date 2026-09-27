@@ -366,6 +366,11 @@ function Invoke-OtterFile {
         # Studio can always tell "still running/paused" apart from "done".
         [switch]$DebugSession,
 
+        # otter profile: src/Otter.Profiler.psm1 was already wired into the
+        # interpreter. This flag prints its report once the program stops,
+        # however it stops - normally or on error.
+        [switch]$ProfileSession,
+
         [string[]]$Arguments = @(),
         [string]$DisplayTarget = $null
     )
@@ -412,6 +417,7 @@ function Invoke-OtterFile {
     }
     catch {
         if ($DebugSession) { Complete-OtterDebugSession }
+        if ($ProfileSession) { Write-OtterProfileReport -SourceLines ($source -split "`r?`n") }
         # Remap the combined-source line the error actually fired on back to
         # the real imported file it came from - otherwise every diagnostic
         # inside an imported module quotes the WRONG line (a position in the
@@ -425,6 +431,7 @@ function Invoke-OtterFile {
     }
 
     if ($DebugSession) { Complete-OtterDebugSession }
+    if ($ProfileSession) { Write-OtterProfileReport -SourceLines ($source -split "`r?`n") }
 
     if ($CheckOnly) {
         $msgTarget = if ($DisplayTarget) { $DisplayTarget } else { $ScriptPath }
@@ -527,6 +534,7 @@ function Show-OtterHelp {
     Write-Host '  otter publish [target] Publish an Otter project into a distributable archive (publish/)'
     Write-Host '  otter new <type> <name> Create a new Otter project (console, desktop, web, automation, game)'
     Write-Host '  otter test [target]    Run tests in an Otter project or test file'
+    Write-Host '  otter profile <file.ot> Run a program and report which functions and lines took the time'
     Write-Host '  otter web <file.ot>    Compile an Otter web application to HTML/JS'
     Write-Host '  otter desktop <file.ot> Run an Otter Desktop app with system bridge'
     Write-Host '  otter studio           Launch Otter Studio IDE & UI Designer'
@@ -714,10 +722,24 @@ if ($Path -eq 'run' -or $Path -eq 'check') {
     # Invoke-OtterFile always exits itself.
 }
 
+if ($Path -eq 'profile') {
+    if (-not $Target) {
+        Write-Host 'Usage: otter profile <file.ot>' -ForegroundColor Red
+        [Environment]::Exit($script:ExitUsageError)
+    }
+    Import-Module (Join-Path $PSScriptRoot 'src\Otter.Profiler.psm1') -Force
+    Start-OtterProfile
+    # SkipCount 2: raw trailing tokens are [profile, <target>, ...program args]
+    $rawArgs = Get-OtterRawTrailingArguments -SkipCount 2
+    $effectiveArguments = if ($null -ne $rawArgs) { $rawArgs } else { $Arguments }
+    Invoke-OtterFile -ScriptPath $Target -ProfileSession -Arguments $effectiveArguments
+    # Invoke-OtterFile always exits itself.
+}
+
 if ($Path -eq 'debug') {
     if (-not $Target) {
         Write-Host 'Usage: otter debug <file.ot> -Breakpoints "5,12"' -ForegroundColor Red
-        exit $script:ExitUsageError
+        [Environment]::Exit($script:ExitUsageError)
     }
     $breakpointLines = @()
     if ($Breakpoints) {

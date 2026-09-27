@@ -2,6 +2,18 @@
 
 All notable changes to the Otter Programming Language platform are documented in this file.
 
+## [Unreleased]
+
+### Added
+- **`otter profile <file.ot>`** (`src/Otter.Profiler.psm1`): runs a program normally, then reports which Otter functions ran (calls, total and self time) and which Otter source lines were hottest, in Otter terms only. Built on the interpreter's existing statement hook, so a normal `otter run` never loads it and pays nothing.
+
+### Changed
+- A `return` written directly in a function body now ends the call without throwing an exception (the profiler showed the exception was the single most expensive step per call). A `return` nested inside `if` or a loop behaves exactly as before.
+
+### Fixed
+- `otter debug` and `otter profile` with no file now exit with the usage-error code instead of 0.
+- `otter test` launches tests with the PowerShell host that is running Otter instead of a hard-coded `powershell.exe`, so it works on Linux and macOS (found by the D120 CI matrix).
+
 ## [1.0.0-rc.1] - 2026-09-17
 
 ### Added

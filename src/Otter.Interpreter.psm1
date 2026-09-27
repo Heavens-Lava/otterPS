@@ -5771,7 +5771,25 @@ function Invoke-OtterCall {
     [void]$script:CallStack.Add($frame)
     try {
         try {
-            Invoke-OtterStatements -Statements $target.Body -Environment $local
+            # Fast path: a `return` written directly in the function body (the
+            # overwhelmingly common shape) ends the call right here. Only a
+            # `return` nested inside an if/loop needs to unwind through
+            # OtterReturnSignal, and throwing an exception is by far the most
+            # expensive thing this interpreter does per call.
+            foreach ($bodyStatement in $target.Body) {
+                if ($bodyStatement.Kind -eq [NodeKind]::Return) {
+                    if ($null -ne $script:StatementHook) {
+                        & $script:StatementHook -Statement $bodyStatement -Environment $local -CallStack $script:CallStack
+                    }
+                    $returned = $null
+                    if ($null -ne $bodyStatement.Value) {
+                        $returned = Get-OtterValue -Expression $bodyStatement.Value -Environment $local
+                    }
+                    Write-Output -NoEnumerate $returned
+                    return
+                }
+                Invoke-OtterStatement -Statement $bodyStatement -Environment $local
+            }
         }
         catch {
             # "return" is control flow wearing an exception's clothes.

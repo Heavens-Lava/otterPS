@@ -1776,7 +1776,7 @@ creation.
 -   [ ] UI benchmark
 -   [ ] Game-loop benchmark
 -   [ ] 3D render benchmark
--   [ ] Profiling hooks
+-   [x] Profiling hooks (`otter profile <file.ot>`, src/Otter.Profiler.psm1: per-function calls/total/self time and hottest Otter source lines via the interpreter statement hook; tests/Profiler.Tests.ps1)
 -   [ ] CPU profiler integration
 -   [ ] Memory profiler integration
 -   [ ] Allocation tracking
