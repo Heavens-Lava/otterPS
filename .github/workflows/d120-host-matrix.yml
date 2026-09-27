@@ -133,9 +133,9 @@ jobs:
             $suitePath = Join-Path $env:GITHUB_WORKSPACE (Join-Path 'tests' $suiteName)
             $output = & $engine -NoProfile -File $suitePath 2>&1
             $code = $LASTEXITCODE
-            Write-Output "$suiteName: exit $code"
+            Write-Output "${suiteName}: exit $code"
             if ($code -ne 0) {
-              $failures += "$suiteName: $($output -join ' | ')"
+              $failures += "${suiteName}: $($output -join ' | ')"
             }
           }
           if ($failures.Count -gt 0) {
