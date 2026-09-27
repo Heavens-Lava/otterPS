@@ -27,7 +27,7 @@ does not establish that every grammar path has behavioural coverage.
 |---|---|---|
 | Lexer keyword mapping | Canonical keywords are mapped in `src/Otter.Lexer.psm1`; aliases such as `increase`/`decrease` and singular/plural time units are intentional surface choices requiring documentation confirmation. | IN REVIEW |
 | Parser token reference | A stale `[TokenKind]::Cancel` reference was removed from `src/Otter.Parser.psm1`. `Cancel` is not declared by the frozen token enum and `cancel` remains intentionally parsed contextually by text for HTTP and command-job cancellation. | RESOLVED — no contract addition was made. |
-| Module system | `UseModule` exists in the current AST contract and `use` is lexed and parsed. `docs/GRAMMAR.md` still labels `UseStmt` as deferred to 1.1+. | DOCUMENTATION CONFLICT — resolve before freeze. |
+| File modules | `UseModule` exists in the AST contract. The later `docs/OTTER_1_0_MODULE_STATUS.md` and production-entry tests certify file imports for the console target. The formal grammar and scope matrix now distinguish file imports from deferred package imports. `tests/UseModuleProduction.Tests.ps1` passed 10/10 on 2026-09-26, including the imported serve route. | DOCUMENTATION CONFLICT RESOLVED; full cross-target certification remains. |
 | Standard library scope | `docs/STANDARD_LIBRARY.md` is a concise subset while `docs/STANDARD_LIBRARY_REACHABILITY.md` records 31 certified capabilities. The public-reference scope and target-specific availability must be reconciled. | DOCUMENTATION CONFLICT — resolve before freeze. |
 | D119 async jobs | `StartCommand` and `JobContext` are present in the current AST contract and have a dedicated 13-case regression suite. | IMPLEMENTED; PUBLIC-SURFACE REVIEW REQUIRED |
 
@@ -43,23 +43,18 @@ grammar. `tests/AsyncCommand.Tests.ps1` passed 13/13 and
 
 ## Required decisions before certification
 
-1. Approve the module system (`use "..."`) as 1.0 public syntax, or explicitly
-   defer it and remove it from the candidate. Documentation cannot retain the
-   current contradictory state.
-2. Define the public standard-library boundary from the tested reachability
+1. Define the public standard-library boundary from the tested reachability
    matrix, including host-specific operations such as Windows UI and clipboard
    APIs.
-3. Complete source-level coverage of each declared token, node kind, and
+2. Complete source-level coverage of each declared token, node kind, and
    diagnostic path with an auditable manifest rather than relying on name
    matching.
-4. Run all checks on a clean checkout of the nominated candidate and record
+3. Run all checks on a clean checkout of the nominated candidate and record
    their exact exit codes. The previously started full Windows suite exited
    without recoverable console output, so it is not counted as passing
    evidence.
 
 ## Next implementation-safe action
 
-Reconcile the formal grammar's `UseStmt` entry with the implemented module
-system, after the owner confirms that modules are part of the 1.0 public
-language surface. This documentation change must not be used to make an
-unapproved scope decision.
+Certify file-import behavior through the remaining advertised targets and
+reconcile the public standard-library reference with the reachability matrix.

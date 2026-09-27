@@ -20,7 +20,8 @@ Every capability in the Otter platform is assigned exactly one status:
 | **Otter CLI Contract (`otter`)** | **SUPPORTED** | Public CLI (`otter`, `run`, `web`, `check`, `help`, `--version`). Deterministic exit codes (0, 1, 2, 3), zero raw host stack traces, directory independence. |
 | **Otter Studio (IDE)** | **EXPERIMENTAL** | Browser-based development environment and visual editor (`otter studio` / `studio.cmd`). Operates independently from core language 1.0 gate. |
 | **Desktop Native Target (WPF/WebView2)** | **EXPERIMENTAL** | Host bridge runtime (`Otter.Desktop.psm1`) for desktop windows, controls, and local webviews. |
-| **Modules / Packaging (`use`)** | **DEFERRED** | File and package module system (`use "math.ot"`). Keywords are reserved in lexer; execution is deferred to 1.1+. |
+| **File modules (`use "math.ot"`)** | **TARGET-SPECIFIC** | Certified through the console production entry points (`otter run`, `otter check`, `otter debug`); file imports resolve relative to the importing file. The web compiler has a separate resolver path; web/desktop/serve parity remains a target certification item. |
+| **Package modules / registry imports** | **DEFERRED** | Package names, registry lookup, and package distribution are outside the 1.0 file-import contract. |
 | **Concurrency / Multithreading** | **DEFERRED** | `do at the same time`, background worker threads, and shared memory concurrency are deferred to 1.1+. |
 | **Database / SQL Integration** | **DEFERRED** | `get ... from database`, table schemas, and SQL drivers are deferred to 1.2+. |
 

@@ -122,8 +122,7 @@ TypeDefStmt     = ( "a" | "an" ) , Identifier , "has" , Newline , Indent , { Ide
 
 TryCatchStmt    = "try" , Newline , IndentedBlock , "otherwise" , Newline , IndentedBlock ;
 
-(* Modules / use is deferred to 1.1+ *)
-UseStmt         = (* DEFERRED TO 1.1+ *) "use" , StringLiteral ;
+UseStmt         = "use" , StringLiteral ;
 
 RunStmt         = "run" , [ "command" ] , Expression , [ "into" , Identifier ] ;
 
@@ -133,6 +132,12 @@ LogStmt         = ( "log" | "warn" | "error" ) , Expression ;
 
 IndentedBlock   = Indent , { StatementLine } , Dedent , [ BlockEnd ] ;
 ```
+
+`use "relative/path.ot"` imports an Otter source file relative to the file
+containing the statement. The console production entry point resolves file
+imports before lexing. Imports are expanded in source order, duplicate files
+are included once, and circular imports produce a diagnostic. Package-name
+imports and a package registry are outside the 1.0 file-import grammar.
 
 
 ### 2.4 Expressions & Operator Precedence

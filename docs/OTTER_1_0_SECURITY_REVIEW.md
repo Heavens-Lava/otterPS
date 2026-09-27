@@ -1,8 +1,10 @@
 # Otter 1.0 RC focused security review
 
-**Scope:** console interpreter, file/process providers, generated web output,
-local listeners, credentials, temporary files, and the deferred module
-resolver. This review does not change language semantics.
+**Scope at the original review:** console interpreter, file/process providers,
+generated web output, local listeners, credentials, temporary files, and the
+module resolver. This review does not change language semantics. File imports
+were subsequently enabled through production entry points; their security
+review must be repeated against the current release candidate.
 
 ## Findings
 
@@ -12,7 +14,7 @@ resolver. This review does not change language semantics.
 | HIGH | None found in the reviewed RC paths. | — |
 | MEDIUM | Generated web notification UI uses `innerHTML` with runtime title/message values. | RESOLVED / CLOSED: Hardened in `Otter.Web.psm1` to create DOM elements with `textContent` instead of markup parsing. |
 | LOW | Otter intentionally exposes local file deletion, process execution, registry, credential, and power actions to trusted console scripts. | Documented host-capability boundary; not a sandbox. |
-| HARDENING | Module resolver accepts local paths but is deferred and not reached by `otter run`; preserve that boundary until a module policy is designed. | Deferred. |
+| HARDENING | File imports are now reached by `otter run`, `otter check`, and `otter serve`; validate path, cycle, and diagnostic behavior against the current candidate. | FOLLOW-UP REQUIRED; this historical review predates production wiring. |
 | HARDENING | Desktop/server and terminal bridges depend on local listeners. Their exposure and origin/token controls need a supported-host review. | Not certified in this RC. |
 
 ## Reviewed controls
