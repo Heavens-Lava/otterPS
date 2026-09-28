@@ -351,6 +351,38 @@ function Show-OtterAst {
 # FILE MODE
 # ===============================================================
 
+# RC3 B12: every command that reads one .ot file checks it here first, so an
+# ordinary file mistake gets an Otter sentence and exit code 1 (the "file not
+# found / bad invocation" code) instead of PowerShell's own text
+# ("Resolve-Path: Cannot find path ...", "Get-Content: ... Please use
+# 'Get-ChildItem'") or, worse, the "this is a bug in Otter" message with the
+# syntax-error exit code 2. It checks, in order: the path exists, it is a file
+# and not a folder, and this user may open it for reading (opening proves
+# more than a permissions lookup would, and works the same on Windows ACLs
+# and Unix modes). Returns the resolved path; on failure it exits the process.
+function Assert-OtterSourceFileReadable {
+    param([Parameter(Mandatory)][string]$ScriptPath)
+
+    $resolved = Resolve-Path -LiteralPath $ScriptPath -ErrorAction SilentlyContinue
+    if (-not $resolved) {
+        Write-Host "Otter: I cannot find a file called `"$ScriptPath`"." -ForegroundColor Red
+        [Environment]::Exit($script:ExitUsageError)
+    }
+    if (Test-Path -LiteralPath $resolved.Path -PathType Container) {
+        Write-Host "Otter: `"$ScriptPath`" is a folder, not an Otter file." -ForegroundColor Red
+        [Environment]::Exit($script:ExitUsageError)
+    }
+    try {
+        $probe = [System.IO.File]::OpenRead($resolved.Path)
+        $probe.Dispose()
+    }
+    catch {
+        Write-Host "Otter: I could not read `"$ScriptPath`": $(Get-OtterFileAccessReason -ErrorRecord $_)." -ForegroundColor Red
+        [Environment]::Exit($script:ExitUsageError)
+    }
+    return $resolved
+}
+
 function Invoke-OtterFile {
     param(
         [string]$ScriptPath,
@@ -380,11 +412,7 @@ function Invoke-OtterFile {
         [Environment]::Exit($script:ExitUsageError)
     }
 
-    $resolved = Resolve-Path -LiteralPath $ScriptPath -ErrorAction SilentlyContinue
-    if (-not $resolved) {
-        Write-Host "Otter: I cannot find a file called `"$ScriptPath`"." -ForegroundColor Red
-        [Environment]::Exit($script:ExitUsageError)
-    }
+    $resolved = Assert-OtterSourceFileReadable -ScriptPath $ScriptPath
 
     # D94-follow-on (module resolution, console targets): `use "file.ot"`
     # is resolved at the SOURCE TEXT level, before anything is lexed -
@@ -523,6 +551,10 @@ function Start-OtterRepl {
 # MAIN
 # ===============================================================
 
+# RC3 B14: `otter studio` is deliberately not listed. Otter Studio is a
+# post-1.0 preview that the release zip (tools/New-OtterDistribution.ps1)
+# does not ship, so advertising it sent installed users straight into a
+# failure. The command still works from a source checkout (see below).
 function Show-OtterHelp {
     Write-Host $OtterVersion
     Write-Host ''
@@ -537,7 +569,6 @@ function Show-OtterHelp {
     Write-Host '  otter profile <file.ot> Run a program and report which functions and lines took the time'
     Write-Host '  otter web <file.ot>    Compile an Otter web application to HTML/JS'
     Write-Host '  otter desktop <file.ot> Run an Otter Desktop app with system bridge'
-    Write-Host '  otter studio           Launch Otter Studio IDE & UI Designer'
     Write-Host '  otter help             Show this help'
     Write-Host '  otter --help           Show this help'
     Write-Host '  otter --version        Show the Otter version'
@@ -758,6 +789,16 @@ if ($Path -eq 'debug') {
 
 if ($Path -in @('web', 'browse', 'serve', 'desktop', 'studio')) {
     if ($Path -eq 'studio') {
+        # RC3 B14: Otter Studio lives in otter-studio/, which is not part of
+        # the Otter 1.0 distribution. From an installed copy, Start-OtterStudio
+        # used to fail with a raw .NET exception about otter-studio\serve.mjs.
+        # Say so in one sentence instead. [Environment]::Exit, not `exit`, so
+        # the code is really 1 when otter.ps1 runs under -File.
+        if (-not (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'otter-studio') -PathType Container)) {
+            Write-Host 'Otter Studio is not part of this Otter release.' -ForegroundColor Red
+            [Environment]::Exit($script:ExitUsageError)
+        }
+        Write-Host 'Otter Studio is a preview and is not part of Otter 1.0.' -ForegroundColor DarkGray
         Import-Module (Join-Path $PSScriptRoot 'src\Otter.Desktop.psm1') -Force
         Start-OtterStudio
         exit 0
@@ -779,6 +820,15 @@ if ($Path -in @('web', 'browse', 'serve', 'desktop', 'studio')) {
             [Environment]::Exit($script:ExitCheckError)
         }
     }
+    elseif (Test-Path -LiteralPath $scriptFile -PathType Container) {
+        # RC3 B12: a folder with no otter.json - same message `otter run` gives.
+        Write-Host "Otter: I cannot find an otter.json manifest in `"$scriptFile`"." -ForegroundColor Red
+        [Environment]::Exit($script:ExitUsageError)
+    }
+    # RC3 B12: web, browse, desktop and serve read the file themselves (via
+    # Resolve-Path/Get-Content inside their modules), so check it up front
+    # here; see Assert-OtterSourceFileReadable.
+    $scriptFile = (Assert-OtterSourceFileReadable -ScriptPath $scriptFile).Path
     if ($Path -eq 'desktop') {
         Import-Module (Join-Path $PSScriptRoot 'src\Otter.Desktop.psm1') -Force
         Start-OtterDesktopApplication -SourcePath $scriptFile
@@ -786,21 +836,43 @@ if ($Path -in @('web', 'browse', 'serve', 'desktop', 'studio')) {
     }
     if ($Path -eq 'web' -or $Path -eq 'browse') {
         Import-Module (Join-Path $PSScriptRoot 'src\Otter.Web.psm1') -Force
-        $htmlPath = Export-OtterWebApplication -SourcePath $scriptFile
+        # RC3 B12: module resolution runs before Export-OtterWebApplication's
+        # own error handling, so an unreadable or missing imported module
+        # (an OtterError) and a failure writing the .html next to the source
+        # (a file-access exception) escaped as raw PowerShell errors.
+        try {
+            $htmlPath = Export-OtterWebApplication -SourcePath $scriptFile
+        }
+        catch [OtterError] {
+            Write-Host ''
+            Write-Host $_.Exception.FormatDetailed() -ForegroundColor Red
+            Write-Host ''
+            [Environment]::Exit($script:ExitCheckError)
+        }
+        catch [System.UnauthorizedAccessException], [System.IO.IOException] {
+            Write-Host "Otter: I could not write the web page for `"$Target`": $(Get-OtterFileAccessReason -ErrorRecord $_)." -ForegroundColor Red
+            [Environment]::Exit($script:ExitUsageError)
+        }
         Write-Host "Otter Web application compiled to: $htmlPath"
         if (-not $NoOpen) {
-            Start-Process $htmlPath
-            Write-Host "Opened in your default browser."
+            # RC3 B12: with no browser (or no desktop session) Start-Process
+            # failed with a PowerShell source excerpt of this line. The page is
+            # already built; say where it is and how to skip opening it.
+            try {
+                Start-Process $htmlPath
+                Write-Host "Opened in your default browser."
+            }
+            catch {
+                Write-Host "Otter: I could not open a browser. The page is at $htmlPath - open it yourself, or use -NoOpen to skip this step." -ForegroundColor Red
+                [Environment]::Exit($script:ExitUsageError)
+            }
         }
         exit 0
     }
     if ($Path -eq 'serve') {
         Import-Module (Join-Path $PSScriptRoot 'src\Otter.Server.psm1') -Force
-        $resolved = Resolve-Path -LiteralPath $scriptFile -ErrorAction SilentlyContinue
-        if (-not $resolved) {
-            Write-Host "Otter: I cannot find a file called `"$scriptFile`"." -ForegroundColor Red
-            [Environment]::Exit($script:ExitUsageError)
-        }
+        # Existence, folder and readability were checked above.
+        $resolved = Resolve-Path -LiteralPath $scriptFile
         $resolvedProgram = $null
         try {
             $resolvedProgram = Resolve-OtterModuleSource -FilePath $resolved.Path

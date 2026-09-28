@@ -165,6 +165,25 @@ function Get-OtterOnDiskPath {
     return $current
 }
 
+# RC3 B12: a short, plain reason for a failed file read ("permission
+# denied"), instead of .NET's own wrapper text ("Exception calling
+# "ReadAllText" with "2" argument(s): ..."). Walks to the innermost
+# exception, because PowerShell wraps .NET failures in its own types. Any
+# UnauthorizedAccessException in the chain means "permission denied" (on
+# Unix .NET wraps the OS error in one, whose inner IOException only says
+# "Permission denied").
+function Get-OtterFileAccessReason {
+    param([Parameter(Mandatory)]$ErrorRecord)
+    $exception = $ErrorRecord.Exception
+    if ($exception -is [System.UnauthorizedAccessException]) { return 'permission denied' }
+    while ($null -ne $exception.InnerException) {
+        $exception = $exception.InnerException
+        if ($exception -is [System.UnauthorizedAccessException]) { return 'permission denied' }
+    }
+    if ($exception -is [System.IO.FileNotFoundException] -or $exception -is [System.IO.DirectoryNotFoundException]) { return 'the file does not exist' }
+    return $exception.Message.TrimEnd('.')
+}
+
 function Test-OtterCallStackContains {
     param(
         [System.Collections.Generic.List[string]]$CallStack,
@@ -207,7 +226,21 @@ function Resolve-OtterModuleSourceInternal {
     $Context.CallStack.Add($canonicalPath)
 
     $dir = [System.IO.Path]::GetDirectoryName($canonicalPath)
-    $lines = @(Get-Content -LiteralPath $canonicalPath -Encoding UTF8)
+    # RC3 B12: a folder, or a file the user may not read, is an ordinary
+    # file mistake, not a bug in Otter. Without these guards Get-Content's own
+    # exception escaped as a non-Otter error, which every entry point reports
+    # as "Otter hit a problem inside itself ... a bug in Otter" plus raw .NET
+    # text. Turning it into an OtterError here covers the root file and every
+    # imported module, from every entry point that resolves `use` lines.
+    if (Test-Path -LiteralPath $canonicalPath -PathType Container) {
+        throw [OtterError]::new("`"$FilePath`" is a folder, not an Otter file.", 0, 'parser')
+    }
+    try {
+        $lines = @(Get-Content -LiteralPath $canonicalPath -Encoding UTF8 -ErrorAction Stop)
+    }
+    catch {
+        throw [OtterError]::new("I could not read `"$FilePath`": $(Get-OtterFileAccessReason -ErrorRecord $_).", 0, 'parser')
+    }
     $expandedLines = [System.Collections.Generic.List[string]]::new()
 
     for ($i = 0; $i -lt $lines.Length; $i++) {
@@ -351,5 +384,5 @@ function ConvertTo-OtterRemappedDiagnostics {
     return Remap-OtterSingleError -Error $Error -ResolvedProgram $ResolvedProgram -CanonicalRoot $canonicalRoot
 }
 
-Export-ModuleMember -Function Resolve-OtterModuleSource, Get-OtterSourceLocation, Get-OtterCanonicalPath, ConvertTo-OtterRemappedDiagnostics
+Export-ModuleMember -Function Resolve-OtterModuleSource, Get-OtterSourceLocation, Get-OtterCanonicalPath, ConvertTo-OtterRemappedDiagnostics, Get-OtterFileAccessReason
 

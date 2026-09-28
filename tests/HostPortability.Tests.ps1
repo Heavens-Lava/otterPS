@@ -232,6 +232,204 @@ to identity value
         }
     }
 
+    # ---------------------------------------------------------------
+    # RC3 CLI robustness (B11, B12, B14). All run the real otter.ps1 in a
+    # child process, from a scratch folder under $script:Tmp.
+    # ---------------------------------------------------------------
+
+    # Text that means a raw PowerShell error or an internal failure reached
+    # the user instead of an Otter sentence.
+    $script:RawErrorMarkers = @('Resolve-Path:', 'Get-Content:', 'Set-Content:', 'Start-Process:', 'bug in Otter', 'Exception calling', 'Line |')
+
+    function Invoke-OtterCli {
+        param([string[]]$Arguments, [string]$Otter = $script:OtterPs1)
+        Push-Location -LiteralPath $script:CliWork
+        try { $output = & $script:HostExe -NoProfile -File $Otter @Arguments 2>&1 }
+        finally { Pop-Location }
+        return [pscustomobject]@{ ExitCode = $LASTEXITCODE; Text = (@($output | ForEach-Object { $_.ToString() }) -join "`n") }
+    }
+
+    function Assert-OtterCleanUsageFailure {
+        param($Result, [string]$Expected, [string]$Label)
+        Assert-AreEqual -Expected 1 -Actual $Result.ExitCode -Message "$Label exit code (output: $($Result.Text))"
+        foreach ($marker in $script:RawErrorMarkers) {
+            Assert-False ($Result.Text.Contains($marker)) "$Label printed raw error text '$marker': $($Result.Text)"
+        }
+        if ($Expected) { Assert-True ($Result.Text.Contains($Expected)) "$Label should say '$Expected', got: $($Result.Text)" }
+    }
+
+    # Starts otter.ps1 as a background process with redirected output.
+    function Start-OtterCliProcess {
+        param([string[]]$Arguments, [string]$Otter = $script:OtterPs1, [string]$Name)
+        $quoted = @('-NoProfile', '-File', $Otter) + $Arguments | ForEach-Object { if ($_ -match '\s') { '"' + $_ + '"' } else { $_ } }
+        $out = Join-Path $script:CliWork "$Name.out.txt"
+        $err = Join-Path $script:CliWork "$Name.err.txt"
+        $process = Start-Process -FilePath $script:HostExe -ArgumentList $quoted -WorkingDirectory $script:CliWork -PassThru -RedirectStandardOutput $out -RedirectStandardError $err
+        return [pscustomobject]@{ Process = $process; Out = $out; Err = $err }
+    }
+
+    function Get-OtterProcessText {
+        param($Started)
+        $text = ''
+        foreach ($file in @($Started.Out, $Started.Err)) {
+            if (Test-Path -LiteralPath $file) { $text += [System.IO.File]::ReadAllText($file) }
+        }
+        return $text
+    }
+
+    $script:CliWork = Join-Path $script:Tmp 'cli'
+    New-Item -ItemType Directory -Path $script:CliWork -Force | Out-Null
+    [System.IO.File]::WriteAllText((Join-Path $script:CliWork 'hello.ot'), "say `"hi`"`n", [System.Text.UTF8Encoding]::new($false))
+    New-Item -ItemType Directory -Path (Join-Path $script:CliWork 'folder.ot') -Force | Out-Null
+    New-Item -ItemType Directory -Path (Join-Path $script:CliWork 'emptydir') -Force | Out-Null
+
+    Test-Otter 'B12: a missing file is an Otter message and exit 1 for every command that reads one' {
+        foreach ($argv in @(@('missing.ot'), @('run', 'missing.ot'), @('check', 'missing.ot'), @('web', 'missing.ot', '-NoOpen'), @('browse', 'missing.ot', '-NoOpen'), @('desktop', 'missing.ot'), @('serve', 'missing.ot'))) {
+            $r = Invoke-OtterCli -Arguments $argv
+            Assert-OtterCleanUsageFailure -Result $r -Expected 'I cannot find a file called "missing.ot"' -Label ($argv -join ' ')
+        }
+    }
+
+    Test-Otter 'B12: a folder where a .ot file is expected is an Otter message and exit 1' {
+        foreach ($argv in @(@('folder.ot'), @('run', 'folder.ot'), @('check', 'folder.ot'))) {
+            $r = Invoke-OtterCli -Arguments $argv
+            Assert-OtterCleanUsageFailure -Result $r -Expected '"folder.ot" is a folder, not an Otter file' -Label ($argv -join ' ')
+        }
+        foreach ($argv in @(@('web', 'emptydir', '-NoOpen'), @('web', 'folder.ot', '-NoOpen'), @('serve', 'folder.ot'))) {
+            $r = Invoke-OtterCli -Arguments $argv
+            Assert-OtterCleanUsageFailure -Result $r -Expected 'I cannot find an otter.json manifest' -Label ($argv -join ' ')
+        }
+    }
+
+    Test-Otter 'B12: an unreadable .ot file is "I could not read", exit 1, for run, check and web' {
+        $locked = Join-Path $script:CliWork 'locked.ot'
+        [System.IO.File]::WriteAllText($locked, "say `"secret`"`n", [System.Text.UTF8Encoding]::new($false))
+        $isWindowsHost = ($PSVersionTable.PSVersion.Major -lt 6) -or $IsWindows
+        $lock = $null
+        try {
+            if ($isWindowsHost) {
+                # Windows: hold the file open with no sharing, so no other
+                # process may read it (the same "cannot read" path as an ACL).
+                $lock = [System.IO.File]::Open($locked, 'Open', 'ReadWrite', 'None')
+                $expected = 'I could not read "locked.ot"'
+            }
+            else {
+                if ((& id -u) -eq '0') {
+                    Write-Host '        skip  unreadable-file case: running as root, which ignores file permissions' -ForegroundColor DarkYellow
+                    return
+                }
+                & chmod 000 $locked
+                $expected = 'I could not read "locked.ot": permission denied.'
+            }
+            foreach ($argv in @(@('run', 'locked.ot'), @('check', 'locked.ot'), @('locked.ot'), @('web', 'locked.ot', '-NoOpen'))) {
+                $r = Invoke-OtterCli -Arguments $argv
+                Assert-OtterCleanUsageFailure -Result $r -Expected $expected -Label ($argv -join ' ')
+                Assert-False ($r.Text.Contains('secret')) "$($argv -join ' ') must not run the program"
+            }
+        }
+        finally {
+            if ($lock) { $lock.Dispose() }
+            if (-not $isWindowsHost) { & chmod 644 $locked }
+        }
+    }
+
+    Test-Otter 'B12: web says plainly when no browser can be opened (Linux only: no xdg-open on PATH)' {
+        if (-not $IsLinux) {
+            Write-Host '        skip  browser-failure case: only reproducible on Linux, where hiding xdg-open makes Start-Process fail' -ForegroundColor DarkYellow
+            return
+        }
+        $emptyBin = Join-Path $script:Tmp 'emptybin'
+        New-Item -ItemType Directory -Path $emptyBin -Force | Out-Null
+        $savedPath = $env:PATH
+        try {
+            $env:PATH = $emptyBin
+            $r = Invoke-OtterCli -Arguments @('web', 'hello.ot')
+        }
+        finally { $env:PATH = $savedPath }
+        Assert-OtterCleanUsageFailure -Result $r -Expected 'I could not open a browser' -Label 'web hello.ot'
+        Assert-True ($r.Text.Contains('compiled to:')) "the page should still be compiled: $($r.Text)"
+    }
+
+    Test-Otter 'B14: otter help does not advertise Otter Studio' {
+        $r = Invoke-OtterCli -Arguments @('help')
+        Assert-AreEqual -Expected 0 -Actual $r.ExitCode
+        Assert-False ($r.Text -match '(?i)studio') "help must not mention studio: $($r.Text)"
+    }
+
+    Test-Otter 'B14: otter studio without otter-studio/ (the release layout) prints one sentence and exits 1' {
+        # The distribution layout (tools/New-OtterDistribution.ps1): no otter-studio/.
+        $dist = Join-Path $script:Tmp 'dist'
+        New-Item -ItemType Directory -Path $dist -Force | Out-Null
+        foreach ($item in @('otter.ps1', 'Otter.Contract.psm1', 'VERSION')) {
+            Copy-Item -LiteralPath (Join-Path $script:RepoRoot $item) -Destination $dist
+        }
+        Copy-Item -LiteralPath (Join-Path $script:RepoRoot 'src') -Destination $dist -Recurse
+        $started = Start-OtterCliProcess -Arguments @('studio') -Otter (Join-Path $dist 'otter.ps1') -Name 'studio'
+        if (-not $started.Process.WaitForExit(60000)) {
+            try { $started.Process.Kill() } catch { }
+            throw "otter studio did not exit within 60 seconds: $(Get-OtterProcessText $started)"
+        }
+        $started.Process.WaitForExit()
+        $r = [pscustomobject]@{ ExitCode = $started.Process.ExitCode; Text = (Get-OtterProcessText $started) }
+        Assert-OtterCleanUsageFailure -Result $r -Expected 'Otter Studio is not part of this Otter release.' -Label 'studio'
+        Assert-False ($r.Text.Contains('Exception')) "studio printed an exception: $($r.Text)"
+    }
+
+    Test-Otter 'B11: otter serve survives an aborted request, refuses an oversized body, and keeps serving' {
+        $serverSource = "api is a web server`n    port is 8080`n    host is `"localhost`"`n.`n`nwhen api receives GET at `"/health`"`n    respond with `"OK`"`n.`n`nwhen api receives POST at `"/health`"`n    respond with `"posted`"`n.`n`nstart api`n"
+        [System.IO.File]::WriteAllText((Join-Path $script:CliWork 'server.ot'), $serverSource, [System.Text.UTF8Encoding]::new($false))
+        $probe = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
+        $probe.Start(); $port = $probe.LocalEndpoint.Port; $probe.Stop()
+
+        $started = Start-OtterCliProcess -Arguments @('serve', 'server.ot', '-Port', [string]$port) -Name 'serve'
+        try {
+            $deadline = (Get-Date).AddSeconds(60)
+            $up = $false
+            while (-not $up -and (Get-Date) -lt $deadline -and -not $started.Process.HasExited) {
+                try { $c = [System.Net.Sockets.TcpClient]::new('localhost', $port); $c.Close(); $up = $true }
+                catch { Start-Sleep -Milliseconds 250 }
+            }
+            Assert-True $up "the server never started listening: $(Get-OtterProcessText $started)"
+
+            # 1. Declare a 100000-byte body, send 3 bytes, disconnect.
+            $client = [System.Net.Sockets.TcpClient]::new('localhost', $port)
+            $stream = $client.GetStream()
+            $bytes = [System.Text.Encoding]::ASCII.GetBytes("POST /health HTTP/1.1`r`nHost: localhost`r`nContent-Length: 100000`r`n`r`nabc")
+            $stream.Write($bytes, 0, $bytes.Length); $stream.Flush()
+            Start-Sleep -Milliseconds 300
+            $client.Close()
+            Start-Sleep -Milliseconds 700
+
+            # 2. A normal request still succeeds.
+            $web = [System.Net.WebClient]::new()
+            $body = $null
+            try { $body = $web.DownloadString("http://localhost:$port/health") }
+            catch { throw "the server stopped after an aborted request: $($_.Exception.Message) / $(Get-OtterProcessText $started)" }
+            Assert-AreEqual -Expected 'OK' -Actual $body
+
+            # 3. A body over the 10 MB limit is refused with 413, unread.
+            $client = [System.Net.Sockets.TcpClient]::new('localhost', $port)
+            $stream = $client.GetStream()
+            $bytes = [System.Text.Encoding]::ASCII.GetBytes("POST /health HTTP/1.1`r`nHost: localhost`r`nContent-Length: 20000000`r`n`r`n")
+            $stream.Write($bytes, 0, $bytes.Length); $stream.Flush()
+            $stream.ReadTimeout = 10000
+            $statusLine = [System.IO.StreamReader]::new($stream).ReadLine()
+            $client.Close()
+            Assert-True ($statusLine -match '^HTTP/1\.[01] 413') "expected 413 for an oversized body, got: $statusLine"
+
+            # 4. And the server is still up afterwards.
+            Assert-AreEqual -Expected 'OK' -Actual $web.DownloadString("http://localhost:$port/health")
+            Assert-False $started.Process.HasExited "the server exited: $(Get-OtterProcessText $started)"
+        }
+        finally {
+            if (-not $started.Process.HasExited) { try { $started.Process.Kill() } catch { } }
+            $started.Process.WaitForExit(10000) | Out-Null
+        }
+        $text = Get-OtterProcessText $started
+        Assert-True ($text.Contains('could not be completed and was skipped')) "expected one Otter log line for the aborted request: $text"
+        Assert-False ($text.Contains('Exception calling')) "raw exception text in server output: $text"
+    }
+
     Test-Otter 'the runtime modules never return a value with Write-Output -NoEnumerate' {
         $offenders = @()
         foreach ($file in Get-ChildItem -LiteralPath (Join-Path $script:RepoRoot 'src') -Filter '*.psm1') {
