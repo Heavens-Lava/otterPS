@@ -651,7 +651,18 @@ body.designer-is-dragging .designer-gap-band {
   padding-right: 2px;
 }
 
-/* Status dot: blue = set here, amber = inherited, empty = default */
+/* Style provenance (StyleController.explain). The dot and the label share a
+   color: green = Otter source, blue = styles.css in this context, orange =
+   cascades from elsewhere, red = set here but losing, violet = the compiler's
+   own value, hollow = browser default. */
+.sp-panel, .sp-body, .sp-prov-card {
+  --prov-otter: #22c55e;
+  --prov-css: #3b8bff;
+  --prov-inherited: #f59e0b;
+  --prov-overridden: #f43f5e;
+  --prov-compiler: #a78bfa;
+}
+
 .sp-dot {
   width: 7px;
   height: 7px;
@@ -661,25 +672,167 @@ body.designer-is-dragging .designer-gap-band {
   background: transparent;
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--text-faint) 45%, transparent);
   display: inline-block;
+  flex: none;
 }
 
-.sp-dot.is-set {
-  background: var(--accent-blue);
-  box-shadow: none;
+button.sp-dot {
   cursor: pointer;
 }
 
-.sp-dot.is-set.is-otter {
-  background: var(--accent-green);
+.sp-dot.prov-set { background: var(--prov-css); box-shadow: none; }
+.sp-dot.prov-set.is-otter { background: var(--prov-otter); }
+.sp-dot.prov-inherited { background: var(--prov-inherited); box-shadow: none; }
+.sp-dot.prov-compiler { background: transparent; box-shadow: inset 0 0 0 2px var(--prov-compiler); }
+.sp-dot.prov-overridden {
+  background: var(--prov-overridden);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--prov-overridden) 30%, transparent);
 }
 
-.sp-dot.is-set:hover {
-  background: #ef4444;
+button.sp-dot:hover,
+button.sp-dot:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--text-main) 60%, transparent);
+  outline-offset: 1px;
 }
 
-.sp-dot.is-inherited {
-  background: #f59e0b;
-  box-shadow: none;
+.sp-field.prov-set > .sp-label { color: var(--prov-css); }
+.sp-field.prov-set.is-otter > .sp-label { color: var(--prov-otter); }
+.sp-field.prov-inherited > .sp-label { color: var(--prov-inherited); }
+.sp-field.prov-compiler > .sp-label { color: var(--prov-compiler); }
+.sp-field.prov-overridden > .sp-label {
+  color: var(--prov-overridden);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
+.sp-label[data-prov] {
+  cursor: help;
+}
+
+.sp-label.sp-scrub[data-prov] {
+  cursor: ew-resize;
+}
+
+.sp-prov-card {
+  position: fixed;
+  z-index: 3000;
+  width: 300px;
+  max-width: calc(100vw - 16px);
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #22344f;
+  background: #0d1a2b;
+  color: #d7e2f2;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45);
+  font: 12px/1.45 var(--font-ui, system-ui, sans-serif);
+}
+
+.sp-prov-card[hidden] {
+  display: none;
+}
+
+.sp-prov-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: #f2f6fc;
+}
+
+.sp-prov-prop code,
+.sp-prov-chain code {
+  font-family: var(--font-code, 'JetBrains Mono', Consolas, monospace);
+  font-size: 11px;
+}
+
+.sp-prov-prop {
+  margin-top: 6px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  background: #081322;
+  color: #9fc2ff;
+  overflow-wrap: anywhere;
+}
+
+.sp-prov-reason {
+  margin: 8px 0 0;
+  color: #b4c3d8;
+}
+
+.sp-prov-hint {
+  margin-top: 6px;
+  color: #7f93ad;
+  font-size: 11px;
+}
+
+.sp-prov-chain {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.sp-prov-chain li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 8px;
+  align-items: baseline;
+  padding: 4px 6px;
+  border-radius: 4px;
+  background: #0a1524;
+}
+
+.sp-prov-chain li.loses {
+  opacity: 0.62;
+}
+
+.sp-prov-chain li.loses code {
+  text-decoration: line-through;
+}
+
+.sp-prov-chain .sp-prov-where {
+  grid-column: 1 / -1;
+  color: #7f93ad;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.sp-prov-src {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sp-prov-src.src-otter { color: var(--prov-otter); }
+.sp-prov-src.src-css { color: var(--prov-css); }
+.sp-prov-src.src-compiler { color: var(--prov-compiler); }
+.sp-prov-src.src-parent { color: var(--prov-inherited); }
+
+.sp-prov-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.sp-prov-btn {
+  padding: 4px 10px;
+  border-radius: 5px;
+  border: 1px solid #2f7cf6;
+  background: #2f7cf6;
+  color: #fff;
+  font: 600 11.5px var(--font-ui, system-ui, sans-serif);
+  cursor: pointer;
+}
+
+.sp-prov-btn.is-quiet {
+  background: transparent;
+  border-color: #2a3d59;
+  color: #c9d6e8;
+}
+
+.sp-prov-btn:hover {
+  filter: brightness(1.12);
 }
 
 .sp-seg {

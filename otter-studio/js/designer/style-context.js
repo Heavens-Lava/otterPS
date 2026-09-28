@@ -471,7 +471,10 @@ export class StyleController {
           return true;
         }
         const sourceValue = cssValueToSource(cssProp, value);
-        if (sourceValue !== undefined) {
+        // An !important compiler rule beats any inline source value (a primary
+        // button's background), so the value must live in styles.css to show.
+        const compilerWins = this.importantProbe ? this.importantProbe(comp, cssProp) : false;
+        if (sourceValue !== undefined && !compilerWins) {
           if (sourceKey === 'round') {
             delete comp.properties.round;
             comp.properties.radius = sourceValue;
@@ -480,8 +483,9 @@ export class StyleController {
           }
           return true;
         }
-        // Too rich for Otter source (calc(), several sides, a gradient):
-        // move it to styles.css.
+        // Too rich for Otter source (calc(), several sides, a gradient), or
+        // hidden by the compiler: move it to styles.css.
+        if (sourceKey === 'round') delete comp.properties.round;
         delete comp.properties[sourceKey];
         this.css.setProperty(this.selector(comp), cssProp, this.cssValue(comp, cssProp, value));
         return true;

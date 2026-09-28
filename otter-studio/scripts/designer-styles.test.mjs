@@ -279,7 +279,16 @@ assert.ok(events.length > 0 && events.every(e => e.source === 'style'));
   assert.equal(hidden.status, 'overridden');
   assert.equal(hidden.mine.source, 'otter');
   assert.equal(hidden.overriddenBy.source, 'compiler');
-  delete btn.properties.background;
+  // Editing it moves it to styles.css with !important, where it does show.
+  styles.importantProbe = (comp, prop) => comp.kind === 'primary button' && prop === 'background';
+  styles.write(btn, { background: '#16a34a' });
+  assert.equal(btn.properties.background, undefined, 'left the source');
+  assert.equal(sheet.getProperty(`#${btn.name}`, 'background'), '#16a34a !important');
+  const fixedBg = styles.explain(btn, 'background');
+  assert.equal(fixedBg.status, 'set');
+  assert.equal(fixedBg.value, '#16a34a');
+  sheet.removeProperty(`#${btn.name}`, 'background');
+  styles.importantProbe = null;
   const bg = styles.explain(btn, 'background');
   assert.equal(bg.status, 'compiler');
   assert.equal(bg.location.selector, '.otter-button.primary');

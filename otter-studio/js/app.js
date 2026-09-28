@@ -168,10 +168,24 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
       }
 
+      // Re-reading the source rebuilds every component with a new id; keep
+      // the selection by name so typing in the code pane or switching files
+      // does not throw the designer back to the window.
+      const selectedNames = [...uiModel.selectedIds]
+        .filter(id => id !== uiModel.selectedId)
+        .concat(uiModel.selectedId ? [uiModel.selectedId] : [])
+        .map(id => uiModel.getComponent(id)?.name)
+        .filter(Boolean);
+
       // The browser-side UI reader only mutates the model after it has found
       // a complete window declaration, so incomplete edits keep the last
       // valid visual tree while the user is typing.
       if (parseOtterSource(source, uiModel)) {
+        if (selectedNames.length) {
+          const byName = new Map(uiModel.getAllComponents().map(c => [c.name, c.id]));
+          const ids = selectedNames.map(n => byName.get(n)).filter(Boolean);
+          if (ids.length && !(ids.length === 1 && ids[0] === uiModel.selectedId)) uiModel.selectMany(ids);
+        }
         window.dispatchEvent(new CustomEvent('otter:source-synced', {
           detail: { source }
         }));
@@ -253,6 +267,93 @@ document.addEventListener('DOMContentLoaded', async () => {
       touched = true;
     }
     if (touched) ide.renderTabs();
+  });
+
+  // Opening the project's styles.css must not throw away designer style edits
+  // that are not saved yet: the CSS engine holds them, the disk does not. A
+  // styles.css tab that is already open is kept in step by the css-updated
+  // handler above; this covers opening it for the first time.
+  const loadFileFromDisk = ide.loadFile.bind(ide);
+  ide.loadFile = async function (filePath) {
+    const sidecar = ide.currentProjectFolder && filePath === `${ide.currentProjectFolder}/styles.css`;
+    if (sidecar && !ide.openTabs.some(t => t.path === filePath)) {
+      try {
+        const res = await fetch(`/api/file?path=${encodeURIComponent(filePath)}`);
+        const data = await res.json();
+        const engineCss = cssAstManager.generateCss();
+        if (typeof data.content === 'string' && data.content !== engineCss) {
+          ide.openTabs.push({
+            path: filePath, name: 'styles.css', content: engineCss, isDirty: true, icon: '🎨',
+            diskRevision: data.revision || null, externalRevision: null, externalContent: null,
+            externalDeleted: false, selectionStart: 0, selectionEnd: 0, scrollTop: 0, scrollLeft: 0
+          });
+        }
+      } catch { /* fall back to the plain load */ }
+    }
+    return loadFileFromDisk(filePath);
+  };
+
+  // Style provenance "Go to source": open the .ot file at the component's
+  // declaration, or styles.css at the rule (inside the right @media block),
+  // with the cursor on the property when it can be found.
+  let designFile = ide.currentFile && ide.currentFile.endsWith('.ot') ? ide.currentFile : null;
+  window.addEventListener('otter:source-synced', (e) => {
+    const f = e.detail?.file;
+    if (f && f.endsWith('.ot')) designFile = f;
+  });
+  window.addEventListener('otter:reveal-style-source', async (event) => {
+    const { location, prop } = event.detail || {};
+    if (!location) return;
+    const escapeRe = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    if (ide.currentFile && ide.currentFile.endsWith('.ot')) designFile = ide.currentFile;
+    // Show code beside the designer first; switching layout later would
+    // reset the editor's scroll position.
+    if (!centerWorkArea.classList.contains('is-split')) setMode('split');
+    if (location.file === 'source') {
+      const path = designFile || ide.openTabs.find(t => t.path?.endsWith('.ot'))?.path;
+      if (!path) return;
+      await ide.loadFile(path);
+      const lines = ide.currentCode.split('\n');
+      const decl = new RegExp(`^\\s*${escapeRe(location.component)}\\s+is\\s+an?\\s`);
+      const index = lines.findIndex(l => decl.test(l));
+      if (index < 0) return;
+      const keyMatch = location.key ? lines[index].match(new RegExp(`\\b${escapeRe(location.key)}\\b`)) : null;
+      await ide.navigateToLocation({ path, line: index + 1, column: keyMatch ? keyMatch.index : 0 });
+    } else if (location.file === 'styles.css' && ide.currentProjectFolder) {
+      const path = `${ide.currentProjectFolder}/styles.css`;
+      await ide.loadFile(path);
+      const lines = ide.currentCode.split('\n');
+      let start = 0;
+      let end = lines.length;
+      if (location.media) {
+        const norm = (s) => s.replace(/\s+/g, '');
+        const m = lines.findIndex(l => /^\s*@media\b/.test(l) && norm(l).includes(norm(location.media)));
+        if (m >= 0) {
+          start = m + 1;
+          let depth = 0;
+          for (let i = m; i < lines.length; i++) {
+            depth += (lines[i].match(/\{/g) || []).length - (lines[i].match(/\}/g) || []).length;
+            if (depth <= 0 && i > m) { end = i; break; }
+          }
+        }
+      }
+      const ruleRe = new RegExp(`(^|[\\s,])${escapeRe(location.selector)}\\s*(,|\\{|$)`);
+      let line = -1;
+      for (let i = start; i < end; i++) {
+        if (ruleRe.test(lines[i])) { line = i; break; }
+      }
+      if (line < 0) return ide.navigateToLocation({ path, line: 1, column: 0 });
+      let column = 0;
+      if (prop) {
+        const propRe = new RegExp(`(^|[\\s;{])${escapeRe(prop)}\\s*:`);
+        for (let i = line; i < end; i++) {
+          const hit = lines[i].match(propRe);
+          if (hit) { line = i; column = hit.index + hit[1].length; break; }
+          if (i > line && /\}/.test(lines[i])) break;
+        }
+      }
+      await ide.navigateToLocation({ path, line: line + 1, column });
+    }
   });
 
   uiModel.subscribe((changeType) => {
@@ -586,10 +687,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Offer a name that is not taken yet whenever the archetype changes.
   async function suggestProjectName(base) {
+    const asked = inputProjectName?.value;
     try {
       const res = await fetch(`/api/suggest-project-name?name=${encodeURIComponent(base)}`);
       const data = await res.json();
-      if (data.name && inputProjectName) inputProjectName.value = data.name;
+      // Never replace a name the user typed while the answer was on its way.
+      if (data.name && inputProjectName && inputProjectName.value === asked) inputProjectName.value = data.name;
     } catch { /* keep the typed name */ }
   }
 

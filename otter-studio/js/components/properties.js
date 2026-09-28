@@ -64,6 +64,7 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
   let scrubbing = false;
   let refreshQueued = false;
   let collapsed = loadCollapsed();
+  let lastCtx = null;
 
   // ---------------------------------------------------------------------------
   // Helpers
@@ -127,7 +128,13 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
     const count = uiModel.selectedIds.size;
     const resolved = styles.resolve(selected);
     const computed = computedFor(selected);
-    const ctx = { selected, resolved, computed, parentLayout: parentLayoutOf(selected) };
+    const explained = new Map();
+    const explain = (prop) => {
+      if (!explained.has(prop)) explained.set(prop, styles.explain(selected, prop));
+      return explained.get(prop);
+    };
+    const ctx = { selected, resolved, computed, explain, parentLayout: parentLayoutOf(selected) };
+    lastCtx = ctx;
 
     containerEl.innerHTML = `
       <div class="properties-header">
@@ -272,20 +279,51 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
     return props.filter(p => ctx.resolved.own[p] !== undefined).length;
   }
 
-  // Status dot + label for one property row.
+  // --- Provenance -------------------------------------------------------------
+  //
+  // Every property row says where its value comes from (StyleController.
+  // explain): the dot and label are colored by status, and hovering either
+  // opens a card with the whole cascade and a way to the source.
+
+  const STATUS_RANK = { overridden: 5, set: 4, inherited: 3, compiler: 2, default: 1 };
+
+  // The most telling explanation among a row's properties.
+  function provenance(ctx, props) {
+    const list = Array.isArray(props) ? props : [props];
+    let best = null;
+    for (const p of list) {
+      const e = ctx.explain(p);
+      if (!best || STATUS_RANK[e.status] > STATUS_RANK[best.status]) best = e;
+    }
+    return best;
+  }
+
+  function provClasses(e) {
+    if (!e || e.status === 'default') return '';
+    const where = e.status === 'set' && e.source === 'otter' ? ' is-otter' : '';
+    return ` prov-${e.status}${where}`;
+  }
+
+  // Status dot for one property row. Set values reset on click.
   function dot(ctx, props) {
     const list = Array.isArray(props) ? props : [props];
-    const own = list.find(p => ctx.resolved.own[p] !== undefined);
-    const inherited = list.find(p => ctx.resolved.inherited[p] !== undefined);
-    if (own) {
-      const fromOtter = ctx.resolved.origin[own] === 'otter';
-      return `<button class="sp-dot is-set ${fromOtter ? 'is-otter' : ''}" data-reset="${list.join(',')}"
-        title="${fromOtter ? 'Set in the Otter source' : 'Set in styles.css'} for this context. Click to reset."></button>`;
+    const e = provenance(ctx, list);
+    const attrs = `data-prov="${list.join(',')}" aria-label="${escapeHtml(provSummary(e))}"`;
+    const resettable = e && (e.status === 'set' || (e.status === 'overridden' && e.mine));
+    if (resettable) return `<button class="sp-dot${provClasses(e)}" data-reset="${list.join(',')}" ${attrs}></button>`;
+    return `<span class="sp-dot${provClasses(e)}" ${attrs}></span>`;
+  }
+
+  // One line for screen readers and the card heading.
+  function provSummary(e) {
+    if (!e) return '';
+    switch (e.status) {
+      case 'set': return e.source === 'otter' ? 'Set in the Otter source' : 'Set in styles.css for this context';
+      case 'overridden': return 'Set here, but something else wins';
+      case 'inherited': return e.source === 'parent' ? `Inherited from ${e.from}` : `Comes from ${e.from}`;
+      case 'compiler': return `Otter's default for every ${e.from.replace(/^every /, '')}`;
+      default: return 'Not set: browser default';
     }
-    if (inherited) {
-      return `<span class="sp-dot is-inherited" title="Inherited from ${escapeHtml(ctx.resolved.inheritedFrom[inherited])}"></span>`;
-    }
-    return '<span class="sp-dot"></span>';
   }
 
   function valueOf(ctx, prop) {
@@ -304,9 +342,9 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
       ? `data-scrub="${prop}" data-unit="${scrub.unit ?? 'px'}" data-step="${scrub.step ?? 1}" data-min="${scrub.min ?? ''}"`
       : '';
     return `
-      <div class="sp-field ${wide ? 'is-wide' : ''}" data-search="${escapeHtml((prop + ' ' + label + ' ' + search).toLowerCase())}">
+      <div class="sp-field ${wide ? 'is-wide' : ''}${provClasses(provenance(ctx, prop))}" data-search="${escapeHtml((prop + ' ' + label + ' ' + search).toLowerCase())}">
         ${dot(ctx, prop)}
-        <label class="sp-label ${scrub ? 'sp-scrub' : ''}" ${scrubAttrs} title="${scrub ? 'Drag left/right to change. Shift = ×10' : escapeHtml(prop)}">${escapeHtml(label)}</label>
+        <label class="sp-label ${scrub ? 'sp-scrub' : ''}" ${scrubAttrs} data-prov="${prop}">${escapeHtml(label)}</label>
         <div class="sp-control">${control}</div>
       </div>
     `;
@@ -1218,6 +1256,142 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
   }
 
   // ---------------------------------------------------------------------------
+  // Provenance card: hover a property's dot or label
+  // ---------------------------------------------------------------------------
+
+  const SOURCE_NAMES = { otter: 'Otter source', 'styles.css': 'styles.css', compiler: 'Otter compiler', parent: 'Parent', browser: 'Browser' };
+  let card = null;
+  let cardFor = null;
+  let hideTimer = null;
+
+  function describeLocation(loc) {
+    if (!loc) return '';
+    if (loc.file === 'source') return `${loc.component}${loc.key ? ` · ${loc.key}` : ''}`;
+    if (loc.file === 'styles.css') return `${loc.selector}${loc.media ? ` @media ${loc.media}` : ''}`;
+    return loc.selector || '';
+  }
+
+  // Why the winning value wins, in words.
+  function provReason(e) {
+    const kind = lastCtx?.selected?.kind || 'component';
+    if (e.status === 'overridden') {
+      const w = e.overriddenBy;
+      const mine = e.mine ? `Your ${e.mine.value} (${SOURCE_NAMES[e.mine.source]}${e.mine.from ? `, ${e.mine.from}` : ''}) is not used. ` : '';
+      if (w.source === 'compiler' && w.important) return `${mine}Otter's compiler rule ${w.location.selector} is !important and wins. Set the value here again and Studio will write it so it wins.`;
+      if (w.source === 'otter') return `${mine}The Otter source sets it inline, which beats a plain styles.css rule.`;
+      if (w.source === 'compiler') return `${mine}Otter's compiler sets it for every ${kind}. Set the value here again and Studio will write it so it wins.`;
+      return `${mine}${w.from} wins: ${describeLocation(w.location)}.`;
+    }
+    if (e.status === 'set') return e.source === 'otter'
+      ? 'Stored in the Otter program itself, so it is part of the code.'
+      : `Stored in styles.css for ${styles.breakpoint.label}${styles.state.id ? ` · ${styles.state.label}` : ''}.`;
+    if (e.status === 'inherited') return e.source === 'parent'
+      ? `Nothing sets it on this ${kind}, so it inherits from ${e.from.replace(/^parent /, '')}.`
+      : `Not set for ${styles.breakpoint.label}${styles.state.id ? ` · ${styles.state.label}` : ''}; it cascades from ${e.from}. Set a value to override it here.`;
+    if (e.status === 'compiler') return e.forced
+      ? `Otter's compiler always sets this on every ${kind}. A value you set is written with !important so it wins.`
+      : `Otter's built-in look for every ${kind}.`;
+    return 'Nothing sets it; the browser default applies.';
+  }
+
+  function renderCard(anchor) {
+    const props = anchor.getAttribute('data-prov').split(',');
+    if (!lastCtx) return;
+    const e = provenance(lastCtx, props);
+    if (!e) return;
+    if (!card) {
+      card = document.createElement('div');
+      card.className = 'sp-prov-card';
+      card.setAttribute('role', 'tooltip');
+      card.addEventListener('mouseenter', () => clearTimeout(hideTimer));
+      card.addEventListener('mouseleave', scheduleHide);
+      card.addEventListener('click', onCardClick);
+      document.body.appendChild(card);
+    }
+    const computed = lastCtx.computed[e.prop];
+    const shownValue = e.value ?? (typeof computed === 'string' && computed ? computed : '—');
+    const chain = e.chain.length > 1 ? `
+      <ol class="sp-prov-chain">
+        ${e.chain.map(c => `
+          <li class="${c.wins ? 'wins' : 'loses'}">
+            <span class="sp-prov-src src-${c.source === 'styles.css' ? 'css' : c.source}">${escapeHtml(SOURCE_NAMES[c.source])}</span>
+            <code>${escapeHtml(shorten(c.value))}${c.important ? ' !important' : ''}</code>
+            <span class="sp-prov-where">${escapeHtml(describeLocation(c.location))}</span>
+          </li>`).join('')}
+      </ol>` : '';
+    const loc = e.status === 'overridden' && e.mine ? e.mine.location : e.location;
+    const canReveal = loc && (loc.file === 'source' || loc.file === 'styles.css');
+    const canReset = e.status === 'set' || (e.status === 'overridden' && e.mine);
+    const scrubHint = anchor.classList.contains('sp-scrub') ? '<div class="sp-prov-hint">Drag the label left or right to change it (Shift = ×10).</div>' : '';
+    card.innerHTML = `
+      <div class="sp-prov-head">
+        <span class="sp-dot${provClasses(e)}"></span>
+        <strong>${escapeHtml(provSummary(e))}</strong>
+      </div>
+      <div class="sp-prov-prop"><code>${escapeHtml(e.prop)}: ${escapeHtml(shorten(shownValue))}</code></div>
+      <p class="sp-prov-reason">${escapeHtml(provReason(e))}</p>
+      ${chain}
+      ${scrubHint}
+      ${canReveal || canReset ? `<div class="sp-prov-actions">
+        ${canReveal ? `<button class="sp-prov-btn" data-prov-reveal>Go to ${loc.file === 'source' ? 'Otter source' : 'styles.css'}</button>` : ''}
+        ${canReset ? `<button class="sp-prov-btn is-quiet" data-prov-reset="${props.join(',')}">Reset</button>` : ''}
+      </div>` : ''}
+    `;
+    cardFor = { props, location: loc, prop: e.prop };
+    const r = anchor.getBoundingClientRect();
+    card.hidden = false;
+    const w = card.offsetWidth;
+    const h = card.offsetHeight;
+    // To the left of the inspector, level with the row; flip inside if needed.
+    let left = containerEl.getBoundingClientRect().left - w - 8;
+    if (left < 8) left = Math.min(r.right + 8, window.innerWidth - w - 8);
+    const top = Math.max(8, Math.min(r.top - 8, window.innerHeight - h - 8));
+    card.style.left = `${left}px`;
+    card.style.top = `${top}px`;
+  }
+
+  function scheduleHide() {
+    clearTimeout(hideTimer);
+    hideTimer = setTimeout(() => { if (card) card.hidden = true; }, 180);
+  }
+
+  function onCardClick(event) {
+    if (!cardFor) return;
+    if (event.target.closest('[data-prov-reveal]')) {
+      window.dispatchEvent(new CustomEvent('otter:reveal-style-source', { detail: { location: cardFor.location, prop: cardFor.prop } }));
+      card.hidden = true;
+    } else if (event.target.closest('[data-prov-reset]')) {
+      const values = {};
+      for (const p of cardFor.props) values[p] = null;
+      write(values, `reset:${cardFor.props.join(',')}`);
+      card.hidden = true;
+    }
+  }
+
+  let showTimer = null;
+  containerEl.addEventListener('mouseover', (event) => {
+    const anchor = event.target.closest('[data-prov]');
+    if (!anchor || scrubbing) return;
+    clearTimeout(hideTimer);
+    clearTimeout(showTimer);
+    showTimer = setTimeout(() => renderCard(anchor), 350);
+  });
+  containerEl.addEventListener('mouseout', (event) => {
+    const anchor = event.target.closest('[data-prov]');
+    if (!anchor || anchor.contains(event.relatedTarget)) return;
+    clearTimeout(showTimer);
+    scheduleHide();
+  });
+  // Keyboard users: focusing a dot shows its card too.
+  containerEl.addEventListener('focusin', (event) => {
+    const anchor = event.target.closest('button[data-prov]');
+    if (anchor) renderCard(anchor);
+  });
+  containerEl.addEventListener('focusout', (event) => {
+    if (event.target.closest('button[data-prov]')) scheduleHide();
+  });
+
+  // ---------------------------------------------------------------------------
   // Wiring
   // ---------------------------------------------------------------------------
 
@@ -1236,7 +1410,7 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
     // Style edits from this panel refresh through queueRefresh already.
     if (e.detail?.source !== 'style') queueRefresh();
   });
-  window.addEventListener('otter:style-context', () => update());
+  window.addEventListener('otter:style-context', () => { if (card) card.hidden = true; update(); });
   // The canvas re-renders asynchronously; computed placeholders follow it.
   window.addEventListener('otter:canvas-rendered', () => { if (!scrubbing && !containerEl.contains(document.activeElement)) queueRefresh(); });
 
