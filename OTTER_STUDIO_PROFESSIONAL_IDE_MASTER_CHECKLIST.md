@@ -873,7 +873,7 @@ architecture reference. Listed in the recommended implementation order.
 
 -   [ ] Global/workspace/project settings
 -   [x] Settings UI (File > Settings, Ctrl+,; generated from one field list; persisted; `settings.test.mjs`)
--   [ ] Keybinding editor
+-   [x] Keybinding editor (`e1a0430`; Help > Keyboard Shortcuts: record, reset, remove, conflicts; Studio and designer commands)
 -   [ ] Themes/fonts
 -   [ ] Editor/terminal/designer/autosave/update/privacy settings
 -   [ ]
@@ -886,7 +886,7 @@ architecture reference. Listed in the recommended implementation order.
 -   [ ] Multi-window
 -   [ ] Restore/reset layout
 -   [x] Central command registry (`js/shell/commands.js`: 38 commands, unique ids and shortcuts enforced by `commands.test.mjs`)
--   [ ] Context-sensitive shortcuts
+-   [x] Context-sensitive shortcuts (`e1a0430`; designer keys only while the designer has focus, bare keys never while typing, editor keys in the editor)
 -   [x] Discoverable shortcut UI (Help > Keyboard Shortcuts, generated from the registry, filterable; shortcuts also shown in the palette)
 -   [ ] Platform shortcut mapping
 -   [ ] Settings sync across machines and named settings profiles
