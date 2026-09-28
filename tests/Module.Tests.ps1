@@ -299,6 +299,39 @@ score2 is
 
     Write-Output '  pass  multi-diagnostics across multiple imported files are correctly attributed and line-mapped'
 
+    # Test 11 (RC3 B13): the D122 exact-case rule also applies to ABSOLUTE
+    # use paths. The case walk used to start at the importing file's folder,
+    # found nothing for an absolute path and returned silently, so a
+    # wrong-case absolute path loaded on Windows/macOS and was a generic
+    # "Cannot find" on Linux. Same D122 diagnostic on every host now.
+    $absDir = Join-Path $tempDir 'AbsCase'
+    New-Item -ItemType Directory -Path $absDir -Force | Out-Null
+    $absTarget = Join-Path $absDir 'absLib.ot'
+    'absFlag is true' | Set-Content -LiteralPath $absTarget -Encoding UTF8
+    $absTargetFull = (Resolve-Path -LiteralPath $absTarget).Path
+
+    $wrongFileCase = Join-Path (Split-Path -Parent $absTargetFull) 'AbsLib.ot'
+    $fileAbsWrong = Join-Path $tempDir 'absWrong.ot'
+    "use `"$wrongFileCase`"" | Set-Content -LiteralPath $fileAbsWrong -Encoding UTF8
+    $absError = $null
+    try { Resolve-OtterModuleSource -FilePath $fileAbsWrong | Out-Null } catch { $absError = $_.Exception }
+    if ($null -eq $absError -or $absError.Message -notmatch 'The file is named "absLib.ot", but this use says "AbsLib.ot"') { throw "Test 11 failed: a wrong-case absolute file name must give the D122 diagnostic. Got: $($absError.Message)" }
+    if ($absError.Line -ne 1) { throw "Test 11 failed: expected the error on line 1, got $($absError.Line)" }
+    if ($absError.Suggestion -notmatch 'absLib\.ot"$') { throw "Test 11 failed: the suggestion should spell the real name: $($absError.Suggestion)" }
+
+    $wrongFolderCase = Join-Path (Join-Path (Split-Path -Parent (Split-Path -Parent $absTargetFull)) 'abscase') 'absLib.ot'
+    $fileAbsWrongDir = Join-Path $tempDir 'absWrongDir.ot'
+    "use `"$wrongFolderCase`"" | Set-Content -LiteralPath $fileAbsWrongDir -Encoding UTF8
+    $absDirError = $null
+    try { Resolve-OtterModuleSource -FilePath $fileAbsWrongDir | Out-Null } catch { $absDirError = $_.Exception }
+    if ($null -eq $absDirError -or $absDirError.Message -notmatch 'The folder is named "AbsCase", but this use says "abscase"') { throw "Test 11 failed: a wrong-case absolute folder name must give the D122 diagnostic. Got: $($absDirError.Message)" }
+
+    $fileAbsRight = Join-Path $tempDir 'absRight.ot'
+    "use `"$absTargetFull`"" | Set-Content -LiteralPath $fileAbsRight -Encoding UTF8
+    $resolvedAbs = Resolve-OtterModuleSource -FilePath $fileAbsRight
+    if ([regex]::Matches($resolvedAbs.CombinedSource, 'absFlag is true').Count -ne 1) { throw 'Test 11 failed: an exact-case absolute use path must still load' }
+    Write-Output '  pass  absolute use paths get the same exact-case check (D122) and still load when spelled exactly'
+
 } finally {
     Remove-Item -Path $tempDir -Recurse -Force -ErrorAction SilentlyContinue
 }

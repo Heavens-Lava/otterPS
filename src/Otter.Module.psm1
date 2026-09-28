@@ -85,7 +85,28 @@ function Assert-OtterModulePathCase {
         [string]$SourceLine
     )
     $current = $BaseDirectory
-    $segments = @($ImportPath -split '[\\/]' | Where-Object { $_ -ne '' })
+    $walkPath = $ImportPath
+    $rootPrefix = ''
+    # D122 / RC3 B13: an absolute use path ("/home/me/lib/Utils.ot",
+    # "C:\lib\Utils.ot") has nothing to do with the importing file's folder.
+    # Walking its segments from $BaseDirectory found no match for the first
+    # one ("home", "C:") and returned silently, so absolute paths skipped the
+    # exact-case check entirely: a wrong-case absolute path loaded on Windows
+    # and macOS but was "Cannot find" on Linux. Start the walk at the path's
+    # own root instead, so every name after the root is checked the same way.
+    # The root itself (a drive letter, "/", a UNC share) is not a name in any
+    # directory listing and is not compared.
+    if ([System.IO.Path]::IsPathRooted($ImportPath)) {
+        $pathRoot = [System.IO.Path]::GetPathRoot($ImportPath)
+        if ($pathRoot) {
+            $current = $pathRoot
+            $walkPath = $ImportPath.Substring($pathRoot.Length)
+            # Kept only to spell the corrected path in the suggestion.
+            $rootPrefix = $pathRoot.Replace([char]92, [char]47)
+            if (-not $rootPrefix.EndsWith('/')) { $rootPrefix += '/' }
+        }
+    }
+    $segments = @($walkPath -split '[\\/]' | Where-Object { $_ -ne '' })
     $written = New-Object System.Collections.Generic.List[string]
     for ($i = 0; $i -lt $segments.Count; $i++) {
         $segment = $segments[$i]
@@ -106,7 +127,18 @@ function Assert-OtterModulePathCase {
             throw [OtterError]::new(
                 "The $kind is named `"$($actual[0])`", but this use says `"$segment`". Module paths must match file and folder names exactly, including capital letters.",
                 $Line, 'parser', 1, $SourceLine,
-                "use `"$($corrected -join '/')`"")
+                "use `"$rootPrefix$($corrected -join '/')`"")
+        }
+        # Not in the listing under any case, yet it exists: a Windows 8.3
+        # short name such as "RUNNER~1" (common in absolute temp and profile
+        # paths). A short name has no "real" spelling to compare, so accept
+        # it and keep checking the names after it; stopping here would skip
+        # the case check for the rest of the path, which is what B13 fixes.
+        $shortNameTarget = [System.IO.Path]::Combine($current, $segment)
+        if (Test-Path -LiteralPath $shortNameTarget) {
+            $written.Add($segment)
+            $current = $shortNameTarget
+            continue
         }
         return   # not found at all: the caller's existing "Cannot find" diagnostic applies
     }
