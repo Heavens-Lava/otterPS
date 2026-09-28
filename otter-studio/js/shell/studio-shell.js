@@ -41,7 +41,6 @@ export function mountStudioShell({ ide, setMode, openNewProjectModal, showWelcom
             <h1 class="welcome-title">Otter<span class="accent">Studio</span></h1>
             <p class="welcome-lead">Readable like English. Precise like code. Build console tools, desktop apps and websites from one language.</p>
           </div>
-          <div class="welcome-hero-art"><img src="img/otter-cheer.svg" alt="" /></div>
         </section>
 
         <section class="welcome-cards">

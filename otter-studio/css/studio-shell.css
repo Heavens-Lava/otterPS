@@ -568,22 +568,21 @@ body.theme-light {
   align-items: center;
   justify-content: space-between;
   gap: 24px;
-  min-height: 230px;
-  padding: 34px 40px;
+  min-height: 300px;
+  padding: 40px 44px;
   border-radius: 18px;
   overflow: hidden;
+  /* The alpine-lake backdrop, with a dark fade on the left so the text reads. */
   background:
-    radial-gradient(900px 260px at 110% 120%, rgba(47, 124, 246, 0.35), transparent 60%),
-    radial-gradient(500px 220px at 0% 0%, rgba(11, 68, 147, 0.55), transparent 65%),
-    linear-gradient(160deg, #0f2140 0%, #0a1830 45%, #08122a 100%);
+    linear-gradient(90deg, rgba(5, 14, 26, 0.92) 0%, rgba(5, 14, 26, 0.78) 36%, rgba(5, 14, 26, 0.25) 62%, rgba(5, 14, 26, 0.05) 100%),
+    url("../img/welcome-alpine-lake.png") center / cover no-repeat #08122a;
   border: 1px solid rgba(47, 124, 246, 0.25);
   color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
 }
 
-.theme-light .welcome-hero {
-  background:
-    radial-gradient(900px 260px at 110% 120%, rgba(37, 99, 235, 0.35), transparent 60%),
-    linear-gradient(160deg, #1e3a8a 0%, #1d4ed8 60%, #2563eb 100%);
+.welcome-hero > div {
+  max-width: 560px;
 }
 
 .welcome-kicker {
@@ -609,24 +608,6 @@ body.theme-light {
   font-size: 15px;
   color: #c4d3ea;
   margin: 0;
-}
-
-.welcome-hero-art {
-  flex-shrink: 0;
-  width: 190px;
-  height: 190px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: radial-gradient(circle at 40% 35%, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.03) 70%);
-}
-
-.welcome-hero-art img {
-  width: 150px;
-  height: 150px;
-  object-fit: contain;
-  filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.35));
 }
 
 .welcome-cards {
@@ -827,5 +808,4 @@ body.theme-light {
 @media (max-width: 1100px) {
   .welcome-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .welcome-title { font-size: 42px; }
-  .welcome-hero-art { display: none; }
 }
