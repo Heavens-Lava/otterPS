@@ -10,10 +10,17 @@ import {
   serializeManifest,
   VALID_ARCHETYPES
 } from '../js/project/project-manifest.js';
+import { createScratchFolder } from './test-scratch.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
+
+// The API tests create test-rich-manifest in a temporary, git-ignored folder
+// (deleted on exit) so the run never rewrites tracked fixtures under
+// projects/. See test-scratch.mjs.
+const scratch = createScratchFolder(REPO_ROOT, 'project-manifest');
+const richFolder = `${scratch.rel}/test-rich-manifest`;
 const PORT = Number(process.env.OTTER_STUDIO_PORT || 4200);
 const baseUrl = `http://127.0.0.1:${PORT}`;
 
@@ -156,6 +163,7 @@ async function runTests() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name: 'test-rich-manifest',
+        baseDir: scratch.rel,
         archetype: 'web',
         fileName: 'web-app.ot',
         code: 'say "Web app started"\n'
@@ -164,7 +172,7 @@ async function runTests() {
     assert.equal(createRes.status, 200);
     assert.equal(createRes.json.ok, true);
 
-    const manifestDiskPath = path.join(REPO_ROOT, 'projects', 'test-rich-manifest', 'project.json');
+    const manifestDiskPath = path.join(scratch.abs, 'test-rich-manifest', 'project.json');
     assert.ok(fs.existsSync(manifestDiskPath), 'project.json must exist on disk');
 
     const diskContent = JSON.parse(fs.readFileSync(manifestDiskPath, 'utf8'));
@@ -177,7 +185,7 @@ async function runTests() {
   });
 
   await testAsync('GET /api/project-manifest returns normalized manifest and validation', async () => {
-    const getRes = await request('/api/project-manifest?folder=projects/test-rich-manifest');
+    const getRes = await request(`/api/project-manifest?folder=${richFolder}`);
     assert.equal(getRes.status, 200);
     assert.equal(getRes.json.ok, true);
     assert.equal(getRes.json.manifest.name, 'test-rich-manifest');
@@ -197,7 +205,7 @@ async function runTests() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        folder: 'projects/test-rich-manifest',
+        folder: richFolder,
         manifest: updated
       })
     });
@@ -207,7 +215,7 @@ async function runTests() {
     assert.equal(postRes.json.manifest.author, 'Otter Team');
 
     // Verify written to disk
-    const manifestDiskPath = path.join(REPO_ROOT, 'projects', 'test-rich-manifest', 'project.json');
+    const manifestDiskPath = path.join(scratch.abs, 'test-rich-manifest', 'project.json');
     const diskContent = JSON.parse(fs.readFileSync(manifestDiskPath, 'utf8'));
     assert.equal(diskContent.version, '1.2.3');
     assert.equal(diskContent.description, 'Updated description for certification test');

@@ -17,6 +17,10 @@ const temporaryPath = path.join(repoRoot, temporaryRelativePath);
 const symbolWorkspaceRelativePath = `scratch/studio-symbols-${process.pid}`;
 const symbolWorkspacePath = path.join(repoRoot, symbolWorkspaceRelativePath);
 
+// scratch/ is git-ignored, so a fresh clone does not have it; create it
+// before the server is asked to save a file there.
+await fs.mkdir(path.join(repoRoot, 'scratch'), { recursive: true });
+
 function wait(milliseconds) {
   return new Promise(resolve => setTimeout(resolve, milliseconds));
 }

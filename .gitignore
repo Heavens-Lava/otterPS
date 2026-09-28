@@ -16,3 +16,6 @@ test_manifest_project/
 # Release-certification run records (tools/Invoke-OtterReleaseCertification.ps1).
 # A record that certifies a candidate is copied into docs/ deliberately.
 release/certification/
+
+# Temporary projects created by otter-studio tests (otter-studio/scripts/test-scratch.mjs).
+projects/.studio-test-tmp/

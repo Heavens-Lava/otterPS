@@ -10,10 +10,18 @@ import {
   serializeSolution,
   isWorkspaceTrusted
 } from '../js/project/workspace-solution.js';
+import { createScratchFolder } from './test-scratch.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
+
+// The API tests write the solution file into a temporary, git-ignored folder
+// (deleted on exit) so the run never rewrites tracked fixtures under
+// projects/. Its folders still point at the tracked test-certified-* projects,
+// which are only read. See test-scratch.mjs.
+const scratch = createScratchFolder(REPO_ROOT, 'workspace-solution');
+const solutionRel = `${scratch.rel}/test-suite.solution.json`;
 const PORT = Number(process.env.OTTER_STUDIO_PORT || 4200);
 const baseUrl = `http://127.0.0.1:${PORT}`;
 
@@ -139,7 +147,7 @@ async function runTests() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name: 'test-suite',
-        path: 'projects/test-suite.solution.json',
+        path: solutionRel,
         folders: [
           { name: 'Console App', path: 'projects/test-certified-console' },
           { name: 'Web App', path: 'projects/test-certified-web' }
@@ -149,12 +157,12 @@ async function runTests() {
     assert.equal(res.status, 200);
     assert.equal(res.json.ok, true);
 
-    const solDiskPath = path.join(REPO_ROOT, 'projects', 'test-suite.solution.json');
+    const solDiskPath = path.join(scratch.abs, 'test-suite.solution.json');
     assert.ok(fs.existsSync(solDiskPath), 'Solution file must exist on disk');
   });
 
   await testAsync('GET /api/workspace scans multiple project roots', async () => {
-    const res = await request('/api/workspace?path=projects/test-suite.solution.json');
+    const res = await request(`/api/workspace?path=${solutionRel}`);
     assert.equal(res.status, 200);
     assert.equal(res.json.ok, true);
     assert.equal(res.json.solution.name, 'test-suite');
@@ -185,7 +193,7 @@ async function runTests() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        path: 'projects/test-suite.solution.json',
+        path: solutionRel,
         solution: updated
       })
     });
@@ -195,7 +203,7 @@ async function runTests() {
     assert.equal(res.json.solution.settings['editor.tabSize'], 2);
 
     // Verify written to disk
-    const solDiskPath = path.join(REPO_ROOT, 'projects', 'test-suite.solution.json');
+    const solDiskPath = path.join(scratch.abs, 'test-suite.solution.json');
     const onDisk = JSON.parse(fs.readFileSync(solDiskPath, 'utf8'));
     assert.equal(onDisk.folders.length, 3);
     assert.equal(onDisk.settings['editor.tabSize'], 2);

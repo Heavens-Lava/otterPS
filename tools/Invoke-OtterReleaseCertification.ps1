@@ -18,6 +18,17 @@
       release-surface-audit  tools/Test-OtterReleaseSurface.ps1
       distribution-smoke     tools/Test-OtterDistribution.ps1
 
+    After the gates, one more check runs, always:
+
+      repository-clean       git status --porcelain --untracked-files=all
+                             must be the same after the gates as before them.
+                             A gate that rewrites a tracked file or leaves an
+                             untracked one behind fails the run. Release
+                             invariant: clean checkout -> full certification
+                             -> git status still clean. Ignored paths (the
+                             default record directory release/certification/,
+                             scratch/, test scratch projects) are not counted.
+
     A run only counts as release certification when it is made from a CLEAN
     checkout (no modified or untracked files) whose HEAD is the nominated
     candidate SHA. Pass that SHA with -CandidateSha; the record states whether
@@ -152,7 +163,42 @@ foreach ($gate in $gates) {
     })
 }
 
-$allPassed = (@($records | Where-Object { -not $_.passed }).Count -eq 0) -and $records.Count -gt 0
+# --- repository-clean: the gates must not change the working tree -----------
+# Compare `git status` after the gates with the snapshot taken before them. On
+# a clean certification checkout this means "still clean"; on a development
+# run with local edits it means "the gates added nothing to those edits".
+# Paths are compared as whole porcelain lines, so a file that was already
+# modified before the run and is modified again by a gate goes unnoticed on a
+# development run; a certification run starts clean, so it catches that case.
+$cleanStart = (Get-Date).ToUniversalTime()
+$porcelainAfter = @(Invoke-Git @('status', '--porcelain', '--untracked-files=all'))
+$porcelainAfter = @($porcelainAfter | Where-Object { $_ })
+$dirtiedPaths = @($porcelainAfter | Where-Object { $porcelain -notcontains $_ })
+$cleanedPaths = @($porcelain | Where-Object { $porcelainAfter -notcontains $_ })
+$cleanPassed = ($dirtiedPaths.Count -eq 0) -and ($cleanedPaths.Count -eq 0)
+$cleanLog = Join-Path $OutputDirectory 'repository-clean.log'
+$cleanLines = @("git status --porcelain --untracked-files=all: $($porcelain.Count) path(s) before the gates, $($porcelainAfter.Count) after.")
+if ($dirtiedPaths.Count -gt 0) { $cleanLines += 'Changed by the gates:'; $cleanLines += @($dirtiedPaths | ForEach-Object { "  $_" }) }
+if ($cleanedPaths.Count -gt 0) { $cleanLines += 'Changed back or removed by the gates:'; $cleanLines += @($cleanedPaths | ForEach-Object { "  $_" }) }
+if ($cleanPassed) { $cleanLines += 'The gates left the working tree exactly as they found it.' }
+[System.IO.File]::WriteAllLines($cleanLog, [string[]]$cleanLines, [System.Text.UTF8Encoding]::new($false))
+$cleanEnd = (Get-Date).ToUniversalTime()
+Write-Host ("[{0}] repository-clean ... {1} path(s) changed by the gates {2}" -f $cleanStart.ToString('HH:mm:ss'), ($dirtiedPaths.Count + $cleanedPaths.Count), $(if ($cleanPassed) { 'PASS' } else { 'FAIL' })) -ForegroundColor $(if ($cleanPassed) { 'Green' } else { 'Red' })
+if (-not $cleanPassed) { foreach ($p in @($dirtiedPaths + $cleanedPaths) | Select-Object -First 20) { Write-Host "    $p" -ForegroundColor Red } }
+$records.Add([ordered]@{
+    gate = 'repository-clean'
+    command = 'git status --porcelain --untracked-files=all (after the gates, compared with before)'
+    startUtc = $cleanStart.ToString('o')
+    endUtc = $cleanEnd.ToString('o')
+    seconds = [Math]::Round(($cleanEnd - $cleanStart).TotalSeconds, 1)
+    exitCode = if ($cleanPassed) { 0 } else { 1 }
+    passed = $cleanPassed
+    failure = if ($cleanPassed) { $null } else { "the gates changed $($dirtiedPaths.Count + $cleanedPaths.Count) path(s); see repository-clean.log" }
+    log = 'repository-clean.log'
+    lastLines = @($cleanLines | Select-Object -Last 3)
+})
+
+$allPassed = (@($records | Where-Object { -not $_.passed }).Count -eq 0) -and $records.Count -gt 1
 $record = [ordered]@{
     kind = if ($isCertification) { 'release-certification' } else { 'development-run' }
     commit = $sha
@@ -161,6 +207,8 @@ $record = [ordered]@{
     headMatchesCandidate = $matchesCandidate
     cleanCheckout = $clean
     uncleanPaths = @($porcelain | Select-Object -First 50)
+    cleanAfterGates = $cleanPassed
+    pathsChangedByGates = @(@($dirtiedPaths + $cleanedPaths) | Select-Object -First 50)
     host = [ordered]@{
         os = [System.Environment]::OSVersion.VersionString
         powershellVersion = $PSVersionTable.PSVersion.ToString()
@@ -184,6 +232,7 @@ $md = New-Object System.Text.StringBuilder
 [void]$md.AppendLine("| Commit | ``$sha`` $subject |")
 [void]$md.AppendLine("| Candidate SHA | $(if ($CandidateSha) { "``$CandidateSha`` (HEAD matches: $matchesCandidate)" } else { 'not given' }) |")
 [void]$md.AppendLine("| Clean checkout | $clean |")
+[void]$md.AppendLine("| Tree unchanged by the gates | $cleanPassed |")
 [void]$md.AppendLine("| Host | PowerShell $($record.host.powershellVersion) ($($record.host.powershellEdition)), $($record.host.os) |")
 [void]$md.AppendLine("| Fuzz | $FuzzIterations programs per fuzz gate, seed $FuzzSeed |")
 [void]$md.AppendLine("| Result | **$(if ($allPassed) { 'all gates passed' } else { 'FAILED' })** |")

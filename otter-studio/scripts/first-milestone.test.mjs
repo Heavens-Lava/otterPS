@@ -10,6 +10,12 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const studioRoot = path.resolve(scriptDir, '..');
 const repoRoot = path.resolve(studioRoot, '..');
 
+// Work in a temporary, git-ignored project folder (deleted on exit) so the run
+// never rewrites tracked fixtures under projects/. See test-scratch.mjs.
+const { createScratchFolder } = await import(pathToFileURL(path.join(scriptDir, 'test-scratch.mjs')).href);
+const scratch = createScratchFolder(repoRoot, 'first-milestone');
+const milestoneMain = `${scratch.rel}/milestone-app/main.ot`;
+
 const { OtterUiModel } = await import(pathToFileURL(path.join(studioRoot, 'js', 'model', 'ui-model.js')).href);
 const { parseOtterSource } = await import(pathToFileURL(path.join(studioRoot, 'js', 'compiler', 'otter-parser.js')).href);
 const { generateOtterSource } = await import(pathToFileURL(path.join(studioRoot, 'js', 'compiler', 'otter-generator.js')).href);
@@ -48,7 +54,7 @@ const createRes = await fetch(`${SERVER_BASE}/api/create-project`, {
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
     name: 'milestone-app',
-    baseDir: 'projects',
+    baseDir: scratch.rel,
     fileName: 'main.ot',
     code: initialOtSource,
     archetype: 'web'
@@ -57,7 +63,7 @@ const createRes = await fetch(`${SERVER_BASE}/api/create-project`, {
 assert.ok(createRes.ok, 'Failed to create project via Studio API');
 
 // Fetch file through normal Studio entry point (GET /api/file)
-const fileRes = await fetch(`${SERVER_BASE}/api/file?path=projects/milestone-app/main.ot`);
+const fileRes = await fetch(`${SERVER_BASE}/api/file?path=${milestoneMain}`);
 assert.ok(fileRes.ok, 'Failed to load file via Studio /api/file');
 const fileData = await fileRes.json();
 assert.equal(typeof fileData.content, 'string');
@@ -213,7 +219,7 @@ const saveRes = await fetch(`${SERVER_BASE}/api/file`, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
-    path: 'projects/milestone-app/main.ot',
+    path: milestoneMain,
     content: canonicalSource,
     expectedRevision: fileData.revision
   })
@@ -224,7 +230,7 @@ assert.equal(saveResult.ok, true);
 console.log('  -> File saved to disk. New revision:', saveResult.revision);
 
 // Verify disk content directly
-const diskContent = await fs.readFile(path.join(repoRoot, 'projects', 'milestone-app', 'main.ot'), 'utf8');
+const diskContent = await fs.readFile(path.join(scratch.abs, 'milestone-app', 'main.ot'), 'utf8');
 assert.equal(diskContent, canonicalSource);
 console.log('  -> Disk file contents verified matching canonical source exactly');
 
@@ -233,7 +239,7 @@ console.log('  -> Disk file contents verified matching canonical source exactly'
 // -------------------------------------------------------------------------
 console.log('\n[Steps 12 & 13] Reloading project from disk and confirming preservation...');
 
-const reloadRes = await fetch(`${SERVER_BASE}/api/file?path=projects/milestone-app/main.ot`);
+const reloadRes = await fetch(`${SERVER_BASE}/api/file?path=${milestoneMain}`);
 assert.ok(reloadRes.ok);
 const reloadedFileData = await reloadRes.json();
 
