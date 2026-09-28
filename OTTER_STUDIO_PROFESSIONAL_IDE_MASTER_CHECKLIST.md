@@ -253,7 +253,7 @@ platform.
 -   [x] Explorer move by drag and drop between folders (`bc955d1`)
 -   [ ] Explorer copy (Ctrl+drag / copy-paste of files)
 -   [x] Reveal in OS file manager / copy path / copy relative path (`bc955d1`)
--   [ ] Per-file local history (timeline) independent of Git, with restore
+-   [x] Per-file local history (timeline) independent of Git, with restore (d409eda; File > Local History, Explorer menu, compare + restore)
 -   [ ] `.editorconfig` support and auto-detect indentation per file
 -   [ ] Workspace-recommended settings and extensions
 
