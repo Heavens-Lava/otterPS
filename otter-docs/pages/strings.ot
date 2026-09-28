@@ -280,8 +280,35 @@ when b37copy is clicked
     text of b37copy is "Copied"
 .
 
+b38 is a text with value "Special characters in text", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b39 is a text with value "Text goes between double quotes on one line. A backslash starts an escape, and Otter understands exactly four: \\n is a new line, \\t is a tab, \\\\ is one backslash, and \\\" is a double quote inside the text. There is no \\r. Any other backslash is kept as it is written, so \\q stays \\q.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b40 is a text with value "say \"one\\ttwo\"\nsay \"line one\\nline two\"\nsay \"She said \\\"hi\\\"\"\nsay \"a backslash: \\\\\"\nsay \"C:\\\\new\\\\table\"\nsay \"C:/new/table\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b40label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b40copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b40head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b40label, b40copy in b40head
+b40block is a column with spacing 0, width full
+put b40head, b40 in b40block
+when b40copy is clicked
+    copy text of b40 to clipboard
+    text of b40copy is "Copied"
+.
+b41 is a text with value "Output:", size 16, foreground "#3a4d6b", lineheight "1.6"
+b42 is a text with value "one\ttwo\nline one\nline two\nShe said \"hi\"\na backslash: \\\nC:\\new\\table\nC:/new/table", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;"
+b42label is a text with value "Output", size 12, weight 600, foreground "#4a5b75"
+b42copy is a button with text "Copy", size 12, weight 600, background "#c9d6e8", foreground "#0f1f36", radius 6, padding "4px 12px"
+b42head is a row with spread, align middle, width full, background "#dde6f2", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b42label, b42copy in b42head
+b42block is a column with spacing 0, width full
+put b42head, b42 in b42block
+when b42copy is clicked
+    copy text of b42 to clipboard
+    text of b42copy is "Copied"
+.
+b43 is a text with value "Windows paths: a single backslash before n or t becomes a new line or a tab, so \"C:\\new\\table\" is really C:, a new line, ew, a tab and able. Write \"C:\\\\new\\\\table\" with doubled backslashes, or use forward slashes, \"C:/new/table\", which Windows also accepts.", size 15, foreground "#1e3a6b", background "#eaf2ff", radius 12, border "1px solid #cfe0ff", lineheight "1.55", customstyle "padding: 14px 18px;"
+
 docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"
-put b1, b2, b3, b4block, b5, b6block, b7, b8block, b9, b10block, b11, b12block, b13, b14block, b15, b16, b17, b18, b19block, b20, b21block, b22, b23, b24block, b25, b26block, b27, b28block, b29, b30, b31block, b32, b33block, b34, b35block, b36, b37block in docsMain
+put b1, b2, b3, b4block, b5, b6block, b7, b8block, b9, b10block, b11, b12block, b13, b14block, b15, b16, b17, b18, b19block, b20, b21block, b22, b23, b24block, b25, b26block, b27, b28block, b29, b30, b31block, b32, b33block, b34, b35block, b36, b37block, b38, b39, b40block, b41, b42block, b43 in docsMain
 docsBody is a row with align top, spacing 0, width full, customstyle "align-items: stretch;"
 put docsSidebar, docsMain in docsBody
 

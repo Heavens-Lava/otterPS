@@ -163,11 +163,35 @@ when b11copy is clicked
     copy text of b11 to clipboard
     text of b11copy is "Copied"
 .
+b11a is a text with value "Arguments are single values", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b11b is a text with value "Each argument is one value: a number, a piece of text, a variable or a property. A call takes exactly as many values as the function has parameters, so factorial n minus 1 means (factorial n) minus 1, not the factorial of n minus 1, and that call would never end. Put a calculation in a variable first, then pass the variable. A function must also be defined above the line that calls it.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b11c is a text with value "to factorial n\n    if n is at most 1\n        return 1\n    .\n    m is n minus 1\n    rest is factorial m\n    return n times rest\n.\n\nsay factorial 5", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b11clabel is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+b11ccopy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b11chead is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b11clabel, b11ccopy in b11chead
+b11cblock is a column with spacing 0, width full
+put b11chead, b11c in b11cblock
+when b11ccopy is clicked
+    copy text of b11c to clipboard
+    text of b11ccopy is "Copied"
+.
+b11d is a text with value "120", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;"
+b11dlabel is a text with value "Output", size 12, weight 600, foreground "#4a5b75"
+b11dcopy is a button with text "Copy", size 12, weight 600, background "#c9d6e8", foreground "#0f1f36", radius 6, padding "4px 12px"
+b11dhead is a row with spread, align middle, width full, background "#dde6f2", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b11dlabel, b11dcopy in b11dhead
+b11dblock is a column with spacing 0, width full
+put b11dhead, b11d in b11dblock
+when b11dcopy is clicked
+    copy text of b11d to clipboard
+    text of b11dcopy is "Copied"
+.
 b12 is a text with value "stop ends a function early. Larger programs can be split across files with use \"other.ot\".", size 16, foreground "#3a4d6b", lineheight "1.6"
 b13 is a link with text "Next: objects and properties", url "/objects/", foreground "#2563eb", weight 600, size 15
 
 docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"
-put b1, b2, b3block, b4block, b5, b6block, b7block, b8, b9, b10block, b11block, b12, b13 in docsMain
+put b1, b2, b3block, b4block, b5, b6block, b7block, b8, b9, b10block, b11block, b11a, b11b, b11cblock, b11dblock, b12, b13 in docsMain
 docsBody is a row with align top, spacing 0, width full, customstyle "align-items: stretch;"
 put docsSidebar, docsMain in docsBody
 

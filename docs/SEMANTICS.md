@@ -58,7 +58,7 @@ Logical expressions strictly short-circuit left-to-right:
 1. **Property Access**: `property of target` evaluates right-recursively. For example, `city of address of user` parses as `city of (address of user)`.
 2. **Missing Properties**: Reading an undefined property on a thing raises a runtime `OtterError` explaining that the property does not exist.
 3. **Property Assignment**: `name of person is "Alice"` updates the property on the referenced object in place. If the property did not exist, it is created.
-4. **Custom Types**: Types are declared via `a Person has name and age`. Instantiating `p is a Person` pre-allocates declared properties.
+4. **Custom Types**: Types are declared with `a Person has` followed by one indented property name per line (the one-line form `a Person has name and age` is not accepted). Instantiating `p is a Person` pre-allocates the declared properties as `gone`; `p is a Person with name "Ada", age 36` sets them.
 
 ---
 
@@ -68,13 +68,14 @@ Logical expressions strictly short-circuit left-to-right:
 2. **Return / Stop**:
    - `return <expression>` terminates function execution and yields a value.
    - `stop` terminates execution with value `gone`.
-3. **Call Syntax**: Calls are invoked by name followed by space-delimited arguments. Results are captured using `make <target>` (e.g., `addNumbers 5 and 10 make sum`).
+3. **Call Syntax**: Calls are invoked by name followed by their arguments. Results are captured using `make <target>` (e.g., `addNumbers 5 and 10 make sum`) or in an assignment (`sum is addNumbers 5 and 10`). Each argument is one value, so `fact n minus 1` means `(fact n) minus 1`; compute a calculated argument into a variable first (`m is n minus 1`, then `fact m`).
+4. **Definition Order**: A function must be defined before the line that calls it.
 
 ---
 
 ## 7. Error Handling (`try` / `otherwise`)
 
-1. If an unhandled exception occurs inside a `try` block, execution immediately jumps to the `otherwise` block.
+1. If an unhandled exception occurs inside a `try` block, execution immediately jumps to the `otherwise` block. `otherwise into reason` stores the error message in `reason`. `otherwise` is optional: without it, the failure is swallowed and execution continues after the `try` block.
 2. If execution completes without error in `try`, the `otherwise` block is bypassed.
 3. Errors are normalized into `OtterError` objects with phase, line, column, source line, and helpful suggestions.
 
@@ -83,7 +84,7 @@ Logical expressions strictly short-circuit left-to-right:
 ## 8. Control Flow & Language Decisions
 
 1. **Contextual Keywords**: All contextual keywords (`is`, `as`, `into`, `are`, `has`, `of`, `and`, `to`, `make`) are disambiguated deterministically by statement-head and syntactic position per `rules.md` and `SPEC-DECISIONS.md`.
-2. **Recursion & Call Stack**: Functions support full recursion. Otter relies on the standard call stack of the host runtime; unbounded recursion terminates via runtime stack limits.
+2. **Recursion & Call Stack**: Functions support recursion. On the console, unbounded recursion stops with the Otter runtime error "Call depth limit exceeded (possible infinite recursion)." On the web target it ends with the browser's own stack-limit error.
 3. **Generators & Yield**: Deferred. Otter sequences are eagerly represented as `List` collections or iterative `count from ... to ...` loops.
 4. **Pattern Matching**: Branching uses deterministic `if` / `otherwise if` cascades with boolean and text-matching operators. Pattern matching is deferred until post-1.0 dogfooding.
 
@@ -145,7 +146,7 @@ Logical expressions strictly short-circuit left-to-right:
 1. **Large Integers**: Safe integer precision is exact within `[-9,007,199,254,740,991, 9,007,199,254,740,991]` (IEEE 754 safe integer limit). Calculations beyond this range gracefully approximate without throwing numeric overflow exceptions.
 2. **Decimal & Currency Strategy**: Floating-point decimals are formatted deterministically via standard library formatters (`Format-OtterValue`), suppressing scientific notation for everyday quantities and preventing rounding artifacts.
 3. **Set Semantics**: Sets are represented as unique-element `List` collections, queried using readable `contains` expressions (`if items contains "apple"`).
-4. **Tuples and Records**: Otter rejects positional tuple syntax (`(a, b)`) in favor of readable named things (`thing with x is 10 and y is 20`) or declared types (`a Coordinate has x and y`). This ensures every field has an explicit semantic name.
+4. **Tuples and Records**: Otter rejects positional tuple syntax (`(a, b)`) in favor of readable named things (`point has x 10, y 20`) or declared types (`a Coordinate has` followed by the indented property names `x` and `y`). This ensures every field has an explicit semantic name.
 5. **Enums & Constants**: Distinct states are expressed using self-describing text literals (`"active"`, `"paused"`, `"completed"`) rather than artificial numeric enum mappings, aligning with Otter's natural-language design philosophy.
 6. **Type Reflection & Introspection**: Every object exposes runtime type metadata through its `TypeName`, `PropertyNames()`, and property lookup mechanisms, enabling dynamic serialization, debugging, and inspector interfaces.
 7. **Polymorphism & Generics**: Otter uses dynamic structural typing (duck typing) for collections and functions. Functions operate generically on any value providing the required properties without requiring complex generic type parameters.

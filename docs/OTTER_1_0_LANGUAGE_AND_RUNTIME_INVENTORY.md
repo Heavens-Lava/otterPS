@@ -70,8 +70,9 @@ The rejection is verified through `otter check` using
 | `a power b` | exponentiation (D88) | PRODUCTION VERIFIED |
 
 **All arithmetic is flat, strictly left-to-right - there is no operator
-precedence** (a frozen, deliberate design decision, D7). `2 plus 3 times
-4` is `(2+3)*4 = 20`, not `14`.
+precedence**, and there are no parentheses. This is the implemented and
+tested 1.0 rule (it is not D7, which is the indentation decision). `2 plus 3
+times 4` is `(2+3)*4 = 20`, not `14`.
 
 `and` remains a deliberate synonym for addition and text concatenation in
 ordinary arithmetic expressions, including (but not limited to) the

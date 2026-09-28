@@ -2,6 +2,13 @@
 
 This document specifies the formal grammar for the **Otter Programming Language** in Extended Backus-Naur Form (EBNF).
 
+It covers the core language: values, variables, arithmetic, conditions,
+loops, functions, lists, objects and error handling. Library statements
+(files, HTTP, processes, dates, data formats, UI and so on) are described on
+their own documentation pages and are not all listed here. Many words are
+reserved and cannot be used as ordinary names; see
+[OTTER_1_0_RESERVED_WORDS.md](OTTER_1_0_RESERVED_WORDS.md).
+
 ---
 
 ## 1. Lexical Grammar
@@ -24,22 +31,38 @@ BlockEnd = "." ;
 
 ### 1.3 Literals
 ```ebnf
-Letter          = "a" .. "z" | "A" .. "Z" | "_" ;
+Letter          = ? any Unicode letter ? | "_" ;
 Digit           = "0" .. "9" ;
 Digits          = Digit , { Digit } ;
 
-NumberLiteral   = [ "-" ] , Digits , [ "." , Digits ] ;
-StringLiteral   = '"' , { ? any character except '"' or Newline ? | '\"' } , '"' ;
+NumberLiteral   = Digits , [ "." , Digits ] ;
+StringLiteral   = '"' , { StringChar | Escape } , '"' ;
+StringChar      = ? any character except '"', '\' or Newline ? ;
+Escape          = '\n' | '\t' | '\\' | '\"' | '\' , ? any other character ? ;
 BooleanLiteral  = "true" | "false" ;
 GoneLiteral     = "gone" ;
 
 Literal         = NumberLiteral | StringLiteral | BooleanLiteral | GoneLiteral ;
 ```
 
+A number literal has no sign, exponent, leading or trailing `.`, or digit
+grouping. `-5` is a syntax error; write a negative number as a subtraction,
+for example `x is 0 minus 5`.
+
+Text uses double quotes and stays on one line. The escapes are `\n`
+(newline), `\t` (tab), `\\` (one backslash) and `\"` (a quote). There is no
+`\r`. Any other backslash sequence is kept exactly as written (`\q` stays
+`\q`). A Windows path therefore needs doubled backslashes, `"C:\\new\\table"`,
+or forward slashes, `"C:/new/table"`; `"C:\new\table"` would contain a
+newline and a tab.
+
 ### 1.4 Identifiers
 ```ebnf
 Identifier      = Letter , { Letter | Digit } ;
 ```
+
+Identifiers are case-sensitive. Reserved words cannot be used as
+identifiers; see [OTTER_1_0_RESERVED_WORDS.md](OTTER_1_0_RESERVED_WORDS.md).
 
 ---
 
@@ -65,6 +88,7 @@ Statement       = AssignStmt
                 | CountLoopStmt
                 | ForEachStmt
                 | FunctionDefStmt
+                | CallStmt
                 | ReturnStmt
                 | StopStmt
                 | TypeDefStmt
@@ -101,7 +125,7 @@ IfStmt          = "if" , Condition , Newline , IndentedBlock
 
 WhileStmt       = "while" , Condition , Newline , IndentedBlock ;
 
-RepeatStmt      = "repeat" , Expression , "times" , Newline , IndentedBlock ;
+RepeatStmt      = "repeat" , PrimaryExpr , "times" , Newline , IndentedBlock ;
 
 CountLoopStmt   = "count" , "from" , Expression , "to" , Expression , "as" , Identifier , Newline , IndentedBlock ;
 
@@ -118,9 +142,10 @@ ListDefStmt     = Identifier , "are" , "empty"
 ObjectDefStmt   = Identifier , "has" , PropertyList
                 | Identifier , "is" , "a" , Identifier ;
 
-TypeDefStmt     = ( "a" | "an" ) , Identifier , "has" , Newline , Indent , { Identifier , Newline } , Dedent , [ BlockEnd ] ;
+TypeDefStmt     = "a" , Identifier , "has" , Newline , Indent , { Identifier , Newline } , Dedent , [ BlockEnd ] ;
 
-TryCatchStmt    = "try" , Newline , IndentedBlock , "otherwise" , Newline , IndentedBlock ;
+TryCatchStmt    = "try" , Newline , IndentedBlock
+                , [ "otherwise" , [ "into" , Identifier ] , Newline , IndentedBlock ] ;
 
 UseStmt         = "use" , StringLiteral ;
 
@@ -131,6 +156,23 @@ FormatDateStmt  = "format" , Expression , "as" , Expression , "into" , Identifie
 LogStmt         = ( "log" | "warn" | "error" ) , Expression ;
 
 IndentedBlock   = Indent , { StatementLine } , Dedent , [ BlockEnd ] ;
+
+CallStmt        = Identifier , { Argument } , [ "make" , Identifier ] ;
+CallExpr        = Identifier , Argument , { "and" , Argument } ;
+Argument        = PrimaryExpr ;
+```
+
+`otherwise` is optional in `try`. Without it, a failure inside the `try`
+block is swallowed and the program continues after the block.
+
+A function call takes exactly as many arguments as the function declares,
+and each argument is **one value**: a literal, a variable or a property
+chain, not a calculation. `fact n minus 1` therefore means
+`(fact n) minus 1`. Compute the argument into a variable first:
+
+```otter
+m is n minus 1
+r is fact m
 ```
 
 `use "relative/path.ot"` imports an Otter source file relative to the file
@@ -140,35 +182,55 @@ are included once, and circular imports produce a diagnostic. Package-name
 imports and a package registry are outside the 1.0 file-import grammar.
 
 
-### 2.4 Expressions & Operator Precedence
+### 2.4 Expressions and evaluation order
 
-Precedence (from tightest to loosest):
-1. Primary expressions, literals, variables, clock (`today`, `now`)
-2. `of` property and operation chains (right-recursive)
-3. Multiplicative: `times`, `divided by`
-4. Additive: `plus`, `minus` (and `and` in `make` math context)
-5. Comparisons: `is`, `is not`, `is greater than`, `is less than`, `is at least`, `is at most`, `contains`, `starts with`, `ends with`
-6. Logical `not`
-7. Logical `and`
-8. Logical `or`
+Arithmetic has **no operator precedence**. An arithmetic expression is
+evaluated strictly from left to right, so `2 plus 3 times 4` is `20`
+(`(2 plus 3) times 4`), and `10 - 4 / 2` is `3`. There are no parentheses:
+`(` is not part of the language. To control the order, compute a part into a
+variable first.
+
+Arithmetic operators, all at the same level:
+
+| Operation | Words | Symbol |
+|---|---|---|
+| add (and join two texts) | `plus`, `and` | `+` |
+| subtract | `minus` | `-` |
+| multiply | `times` | `*` |
+| divide | `divided by` | `/` |
+| percentage | `percent of` | |
+| power | `power` | |
+
+Comparisons and logic exist only inside conditions (`if`, `otherwise if`,
+`while`). They are not values: `say x is 5` and `return age is at least 18`
+are syntax errors. Each side of a comparison is a **single value**. Put a
+calculation in a variable before comparing it:
+
+```otter
+total is price plus tax
+if total is at least 100
+    say "free shipping"
+```
+
+Inside a condition, `not` binds tighter than `and`, which binds tighter than
+`or`, and `and` and `or` short-circuit from left to right.
 
 ```ebnf
-Expression      = LogicalOrExpr ;
+Expression      = Term , { ArithOp , Term } ;
+ArithOp         = "plus" | "and" | "+" | "minus" | "-" | "times" | "*"
+                | "divided" , "by" | "/" | "percent" , "of" | "power" ;
+Term            = PrimaryExpr | CallExpr ;
 
-LogicalOrExpr   = LogicalAndExpr , { "or" , LogicalAndExpr } ;
-LogicalAndExpr  = LogicalNotExpr , { "and" , LogicalNotExpr } ;
-LogicalNotExpr  = [ "not" ] , ComparisonExpr ;
+Condition       = OrCondition ;
+OrCondition     = AndCondition , { "or" , AndCondition } ;
+AndCondition    = NotCondition , { "and" , NotCondition } ;
+NotCondition    = [ "not" ] , Comparison ;
 
-ComparisonExpr  = AdditiveExpr , [ CompareOp , AdditiveExpr ] ;
+Comparison      = PrimaryExpr , [ CompareOp , PrimaryExpr ] ;
 CompareOp       = "is" | "is not"
                 | "is greater than" | "is less than"
                 | "is at least" | "is at most"
                 | "contains" | "starts with" | "ends with" ;
-
-AdditiveExpr    = MultiplicativeExpr , { ( "plus" | "minus" ) , MultiplicativeExpr } ;
-MultiplicativeExpr = UnaryExpr , { ( "times" | "divided by" ) , UnaryExpr } ;
-
-UnaryExpr       = PrimaryExpr ;
 
 PrimaryExpr     = Literal
                 | Identifier
@@ -176,8 +238,7 @@ PrimaryExpr     = Literal
                 | DateDiffExpr
                 | FileExistsExpr
                 | OfOperationExpr
-                | PropertyChain
-                | "(" , Expression , ")" ;
+                | PropertyChain ;
 
 ClockExpr       = "today" | "now" ;
 DateDiffExpr    = TimeUnit , "between" , Expression , "and" , Expression ;

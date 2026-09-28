@@ -128,6 +128,7 @@ when b6copy is clicked
     copy text of b6 to clipboard
     text of b6copy is "Copied"
 .
+b6a is a text with value "Each side of a comparison is one value. To compare a calculation, put it in a variable first: total is price plus tax, then if total is at least 100.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b7 is a text with value "Chaining conditions", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b8 is a text with value "Test several branches with otherwise if:", size 16, foreground "#3a4d6b", lineheight "1.6"
 b9 is a text with value "score is 85\n\nif score is at least 90\n    say \"Grade: A\"\notherwise if score is at least 80\n    say \"Grade: B\"\notherwise\n    say \"Grade: C\"\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
@@ -155,12 +156,12 @@ when b10copy is clicked
 b11 is a text with value "Truthiness", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b12 is a text with value "A condition can also be a plain value. Text and lists are true when they are not empty, numbers are true when they are not zero, and gone is false. A variable that does not exist is an error - never silently false.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b13 is a text with value "Recovering from errors", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
-b14 is a text with value "try runs a block; if something in it fails, the otherwise block runs instead of stopping the program.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b14 is a text with value "try runs a block; if something in it fails, the otherwise block runs instead of stopping the program. otherwise is optional: without it, the failure is ignored and the program continues after the try block.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b15 is a text with value "The period after a block is optional where indentation is already unambiguous, and it makes nested code explicit. It is never used for property access.", size 15, foreground "#1e3a6b", background "#eaf2ff", radius 12, border "1px solid #cfe0ff", lineheight "1.55", customstyle "padding: 14px 18px;"
 b16 is a link with text "Next: loops", url "/loops/", foreground "#2563eb", weight 600, size 15
 
 docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"
-put b1, b2, b3block, b4block, b5, b6block, b7, b8, b9block, b10block, b11, b12, b13, b14, b15, b16 in docsMain
+put b1, b2, b3block, b4block, b5, b6block, b6a, b7, b8, b9block, b10block, b11, b12, b13, b14, b15, b16 in docsMain
 docsBody is a row with align top, spacing 0, width full, customstyle "align-items: stretch;"
 put docsSidebar, docsMain in docsBody
 
