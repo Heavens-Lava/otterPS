@@ -142,7 +142,8 @@ export function formatShortcut(shortcut) {
 // nothing here implements behaviour, it only names and routes it.
 export function defaultCommands(deps) {
   const { ide, setMode, openNewProjectModal, openSettings, openPackageDialog, openShortcuts, showWelcome, toggleTheme, byId,
-    toggleZen = () => {}, toggleFullScreen = () => {}, toggleWhitespace = () => {} } = deps;
+    toggleZen = () => {}, toggleFullScreen = () => {}, toggleWhitespace = () => {},
+    openDocs = () => {}, reportIssue = () => {} } = deps;
   const hasFile = () => Boolean(ide.currentFile);
   const click = (id) => () => byId(id)?.click();
   const hasProject = () => Boolean(ide.currentProjectFolder);
@@ -153,6 +154,9 @@ export function defaultCommands(deps) {
     { id: 'file.openFolder', title: 'Open Folder...', category: 'File', shortcut: 'Ctrl+O', run: () => ide.promptOpenFolder() },
     { id: 'file.save', title: 'Save', category: 'File', shortcut: 'Ctrl+S', run: () => ide.saveCurrentFile() },
     { id: 'file.saveAll', title: 'Save All', category: 'File', run: () => ide.saveAllFiles() },
+    { id: 'file.compareSaved', title: 'Compare with Saved', category: 'File', when: hasFile, run: () => ide.compareWithSaved() },
+    { id: 'file.compareHead', title: 'Compare with Git HEAD', category: 'File', when: hasFile, run: () => ide.compareWithHead() },
+    { id: 'file.compareFile', title: 'Compare with File...', category: 'File', when: hasFile, run: () => ide.compareWithFile() },
     { id: 'file.projectSettings', title: 'Project Settings...', category: 'File', when: hasProject, run: () => ide.openProjectSettings() },
     { id: 'file.settings', title: 'Settings...', category: 'File', shortcut: 'Ctrl+,', run: openSettings },
     // Go
@@ -209,6 +213,10 @@ export function defaultCommands(deps) {
     // Help
     { id: 'help.shortcuts', title: 'Keyboard Shortcuts', category: 'Help', run: openShortcuts },
     { id: 'help.commands', title: 'Show All Commands', category: 'Help', shortcut: 'F1', run: () => ide.openNavigationPalette('commands') },
-    { id: 'help.documentation', title: 'Otter Documentation (open the docs project)', category: 'Help', run: () => ide.loadProjectTree('otter-docs') }
+    { id: 'help.guide', title: 'Otter Guide (language, standard library, grammar)', category: 'Help', run: () => openDocs('rules.md') },
+    { id: 'help.standardLibrary', title: 'Standard Library Reference', category: 'Help', run: () => openDocs('docs/STANDARD_LIBRARY.md') },
+    { id: 'help.releaseNotes', title: 'Release Notes', category: 'Help', run: () => openDocs('CHANGELOG.md') },
+    { id: 'help.reportIssue', title: 'Report an Issue...', category: 'Help', run: reportIssue },
+    { id: 'help.documentation', title: 'Open the Documentation Site Project', category: 'Help', run: () => ide.loadProjectTree('otter-docs') }
   ];
 }

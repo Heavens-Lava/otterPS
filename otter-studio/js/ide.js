@@ -14,6 +14,8 @@ import { getSignatureHelp } from './navigation/signature-provider.js';
 import { autoClosePair, backspacePair, enterKey, prepareForSave, renderIndentGuides } from './editor/editing-assist.js';
 import { markWhitespace, findLinkAt, resolveSourcePath, createBookmarks } from './editor/editor-extras.js';
 import { askText } from './shell/ask.js';
+import { buildFindRegex, findAll, replacementFor, replaceMatches } from './editor/find.js';
+import { showDiff } from './components/diff-view.js';
 import { otterLanguageService } from './language/otter-language-service.js';
 import {
   getLanguageForFile,
@@ -84,6 +86,8 @@ export class OtterStudioIde {
     this.autocompleteIndex = 0;
     this.openTabs = []; // [{ path, name, content, isDirty, icon }]
     this.findMatches = [];
+    this.findOptions = { caseSensitive: false, wholeWord: false, regex: false, inSelection: false, preserveCase: false };
+    this.findRange = null; // { start, end } while "Find in Selection" is on
     this.currentMatchIndex = -1;
     this.errorLine = null;
     this.warningLine = null;
@@ -243,6 +247,9 @@ export class OtterStudioIde {
     window.__otterIde = this;
     this.bindDomElements();
     this.bindEvents();
+    // The find/replace widget and the editor toolbar's Find, Format and New Tab
+    // buttons: this was never called, so none of them responded.
+    this.bindFindReplace();
 
     // Check if a project or file was requested via URL
     const urlParams = new URLSearchParams(window.location.search);
@@ -1239,6 +1246,68 @@ export class OtterStudioIde {
     await this.navigateToLocation({ path: item.path || this.currentFile, line: item.line, column: item.column });
   }
 
+  // --- Compare (File > Compare...) -----------------------------------------------
+
+  // The editor's text against the file as it is on disk.
+  async compareWithSaved() {
+    if (!this.currentFile) return false;
+    const res = await fetch(`/api/file?path=${encodeURIComponent(this.currentFile)}`);
+    const data = await res.json().catch(() => ({}));
+    if (typeof data.content !== 'string') {
+      this.setProblemsStatus(false, `${this.currentFile} is not saved yet.`, 'Compare with Saved');
+      return false;
+    }
+    const name = this.currentFile.split('/').pop();
+    showDiff({ title: `${name}: saved ↔ editor`, leftLabel: `${name} (saved)`, rightLabel: `${name} (editor, unsaved changes)`, left: data.content, right: this.currentCode });
+    return true;
+  }
+
+  // The editor's text against the last commit.
+  async compareWithHead() {
+    if (!this.currentFile) return false;
+    const folder = this.currentFile.split('/').slice(0, -1).join('/') || '.';
+    try {
+      const status = await (await fetch(`/api/git/status?folder=${encodeURIComponent(folder)}`)).json();
+      if (!status.isRepo) throw new Error('This file is not in a Git repository.');
+      const rootPrefix = status.root && status.root !== '.' ? `${status.root}/` : '';
+      const repoPath = rootPrefix && this.currentFile.startsWith(rootPrefix) ? this.currentFile.slice(rootPrefix.length) : this.currentFile;
+      const res = await fetch(`/api/git/diff?folder=${encodeURIComponent(folder)}&path=${encodeURIComponent(repoPath)}&staged=1`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      const name = this.currentFile.split('/').pop();
+      showDiff({ title: `${name}: HEAD ↔ editor`, leftLabel: `${name} (last commit)`, rightLabel: `${name} (editor)`, left: data.original, right: this.currentCode });
+      return true;
+    } catch (err) {
+      this.setProblemsStatus(false, err.message, 'Compare with Git HEAD');
+      return false;
+    }
+  }
+
+  // The editor's text against another file in the workspace.
+  async compareWithFile(otherPath = null) {
+    if (!this.currentFile) return false;
+    const known = new Set(this.workspaceFiles.map(f => f.path));
+    const path = otherPath || await askText({
+      title: 'Compare with File', message: 'A file in the workspace, for example projects/app/old-main.ot.', okLabel: 'Compare',
+      value: this.currentFile,
+      validate: (v) => (known.size === 0 || known.has(v.trim()) ? null : 'No such file in the open project.')
+    });
+    if (!path) return false;
+    const other = path.trim();
+    const open = this.openTabs.find(t => t.path === other);
+    let text = open?.content;
+    if (text === undefined) {
+      const data = await (await fetch(`/api/file?path=${encodeURIComponent(other)}`)).json().catch(() => ({}));
+      text = data.content;
+    }
+    if (typeof text !== 'string') {
+      this.setProblemsStatus(false, `Could not read ${other}.`, 'Compare with File');
+      return false;
+    }
+    showDiff({ title: `${other.split('/').pop()} ↔ ${this.currentFile.split('/').pop()}`, leftLabel: other, rightLabel: `${this.currentFile} (editor)`, left: text, right: this.currentCode });
+    return true;
+  }
+
   // --- Bookmarks (Ctrl+Alt+K toggle, Ctrl+Alt+L next, Ctrl+Alt+J previous) ---
 
   toggleBookmark() {
@@ -1497,10 +1566,20 @@ export class OtterStudioIde {
     const textarea = document.getElementById('hiddenEditorInput');
     let viaUndoStack = false;
     if (textarea) {
+      // Replace only the part that changed, so the caret and the view stay
+      // where the edit is instead of jumping to the end of the file.
+      const old = textarea.value;
+      let start = 0;
+      while (start < old.length && start < newCode.length && old[start] === newCode[start]) start++;
+      let endOld = old.length;
+      let endNew = newCode.length;
+      while (endOld > start && endNew > start && old[endOld - 1] === newCode[endNew - 1]) { endOld--; endNew--; }
+      const scrollTop = textarea.scrollTop;
       textarea.focus({ preventScroll: true });
-      textarea.select();
-      try { viaUndoStack = document.execCommand('insertText', false, newCode); } catch { viaUndoStack = false; }
+      textarea.setSelectionRange(start, endOld);
+      try { viaUndoStack = document.execCommand('insertText', false, newCode.slice(start, endNew)); } catch { viaUndoStack = false; }
       if (!viaUndoStack || textarea.value !== newCode) textarea.value = newCode;
+      textarea.scrollTop = scrollTop;
     }
     this.currentCode = newCode;
     this.markCurrentTabDirty(true);
@@ -2457,6 +2536,17 @@ export class OtterStudioIde {
       this.performFind(this.findInput.value);
     });
 
+    // Option toggles (and Alt+C / W / R / L / P while the widget has focus).
+    this.findReplaceWidget?.querySelectorAll('[data-find-opt]').forEach(btn => {
+      btn.addEventListener('mousedown', (e) => e.preventDefault()); // keep the selection
+      btn.addEventListener('click', () => this.toggleFindOption(btn.getAttribute('data-find-opt')));
+    });
+    this.findReplaceWidget?.addEventListener('keydown', (e) => {
+      if (!e.altKey || e.ctrlKey) return;
+      const opt = { c: 'caseSensitive', w: 'wholeWord', r: 'regex', l: 'inSelection', p: 'preserveCase' }[(e.code || '').replace(/^Key/, '').toLowerCase()];
+      if (opt) { e.preventDefault(); this.toggleFindOption(opt); }
+    });
+
     this.findInput?.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
@@ -2506,6 +2596,27 @@ export class OtterStudioIde {
     if (textarea) textarea.focus();
   }
 
+  toggleFindOption(name) {
+    if (!(name in this.findOptions)) return;
+    const on = !this.findOptions[name];
+    if (name === 'inSelection') {
+      const textarea = document.getElementById('hiddenEditorInput');
+      const start = textarea?.selectionStart ?? 0;
+      const end = textarea?.selectionEnd ?? 0;
+      // With nothing selected, "in selection" has nothing to search.
+      this.findRange = on && end > start ? { start, end } : null;
+      this.findOptions.inSelection = Boolean(this.findRange);
+    } else {
+      this.findOptions[name] = on;
+    }
+    this.findReplaceWidget?.querySelectorAll('[data-find-opt]').forEach(btn => {
+      const active = Boolean(this.findOptions[btn.getAttribute('data-find-opt')]);
+      btn.classList.toggle('is-on', active);
+      btn.setAttribute('aria-pressed', String(active));
+    });
+    this.performFind(this.findInput?.value || '');
+  }
+
   performFind(query) {
     if (!query) {
       this.findMatches = [];
@@ -2515,15 +2626,15 @@ export class OtterStudioIde {
       return;
     }
 
-    const regex = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-    const matches = [];
-    let match;
-    while ((match = regex.exec(this.currentCode)) !== null) {
-      matches.push({
-        index: match.index,
-        length: match[0].length
-      });
+    const regex = buildFindRegex(query, this.findOptions);
+    if (!(regex instanceof RegExp)) {
+      this.findMatches = [];
+      this.currentMatchIndex = -1;
+      if (this.findCount) this.findCount.textContent = regex.error || 'No results';
+      this.renderEditorCode(this.currentCode);
+      return;
     }
+    const matches = findAll(this.currentCode, regex, this.findOptions.inSelection ? this.findRange : null);
 
     this.findMatches = matches;
     this.currentMatchIndex = matches.length > 0 ? 0 : -1;
@@ -2554,15 +2665,15 @@ export class OtterStudioIde {
     this.highlightMatchesInEditor(this.findInput?.value || '');
   }
 
+  // Replacing is one undo step; the "in selection" range follows the edit.
   replaceOne() {
     if (this.currentMatchIndex < 0 || this.findMatches.length === 0) return;
     const match = this.findMatches[this.currentMatchIndex];
-    const replacement = this.replaceInput?.value || '';
-
-    this.currentCode = this.currentCode.substring(0, match.index) + replacement + this.currentCode.substring(match.index + match.length);
-    const textarea = document.getElementById('hiddenEditorInput');
-    if (textarea) textarea.value = this.currentCode;
-    this.markCurrentTabDirty(true);
+    const text = replacementFor(match, this.replaceInput?.value || '', this.findOptions);
+    const next = this.currentCode.substring(0, match.index) + text + this.currentCode.substring(match.index + match.length);
+    if (this.findRange) this.findRange.end += text.length - match.length;
+    this.replaceDocumentText(next);
+    this.findInput?.focus();
     this.performFind(this.findInput?.value || '');
   }
 
@@ -2570,14 +2681,13 @@ export class OtterStudioIde {
     const query = this.findInput?.value;
     if (!query || this.findMatches.length === 0) return;
     const replacement = this.replaceInput?.value || '';
-
-    const regex = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
-    this.currentCode = this.currentCode.replace(regex, replacement);
-
-    const textarea = document.getElementById('hiddenEditorInput');
-    if (textarea) textarea.value = this.currentCode;
-    this.markCurrentTabDirty(true);
+    const next = replaceMatches(this.currentCode, this.findMatches, replacement, this.findOptions);
+    if (this.findRange) this.findRange.end += next.length - this.currentCode.length;
+    const count = this.findMatches.length;
+    this.replaceDocumentText(next);
+    this.findInput?.focus();
     this.performFind(query);
+    this.setProblemsStatus(true, `Replaced ${count} occurrence${count === 1 ? '' : 's'}.`, 'Replace All');
   }
 
   highlightMatchesInEditor(query) {
@@ -4651,8 +4761,9 @@ export class OtterStudioIde {
       this.problemSubtitle.innerHTML = subHtml;
     }
 
-    if (this.cheerHeadline) this.cheerHeadline.innerText = cheerH;
-    if (this.cheerTagline) this.cheerTagline.innerText = cheerT;
+    // Callers that pass only a title and subtitle get the mascot's usual lines.
+    if (this.cheerHeadline) this.cheerHeadline.innerText = cheerH ?? (ok ? 'Great job!' : 'Almost there');
+    if (this.cheerTagline) this.cheerTagline.innerText = cheerT ?? (ok ? 'Keep going!' : 'Take a look at the message.');
 
     if (this.statusCheckCircle) {
       if (ok) {

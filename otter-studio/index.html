@@ -22,6 +22,7 @@
   <link rel="stylesheet" href="css/package-dialog.css">
   <link rel="stylesheet" href="css/settings.css">
   <link rel="stylesheet" href="css/editor-extras.css">
+  <link rel="stylesheet" href="css/docs.css">
   <link rel="stylesheet" href="css/scm.css">
   <link rel="stylesheet" href="css/tests.css">
 </head>
@@ -116,9 +117,22 @@
                 <span class="dropdown-icon">🏠</span>
                 <span>Welcome</span>
               </div>
+              <div class="dropdown-item" id="menuItemHelpGuide">
+                <span class="dropdown-icon">📘</span>
+                <span>Otter Guide</span>
+              </div>
+              <div class="dropdown-item" id="menuItemHelpReleaseNotes">
+                <span class="dropdown-icon">📰</span>
+                <span>Release Notes</span>
+              </div>
               <div class="dropdown-item" id="menuItemHelpDocs">
                 <span class="dropdown-icon">📖</span>
-                <span>Otter Documentation</span>
+                <span>Documentation Site Project</span>
+              </div>
+              <div class="dropdown-divider"></div>
+              <div class="dropdown-item" id="menuItemHelpIssue">
+                <span class="dropdown-icon">🐞</span>
+                <span>Report an Issue...</span>
               </div>
             </div>
           </div>
@@ -435,12 +449,17 @@
                   <input type="text" class="find-input" id="findInput" placeholder="Find..." />
                   <span class="find-count" id="findCount">No results</span>
                 </div>
+                <button class="find-opt" data-find-opt="caseSensitive" title="Match Case (Alt+C)" aria-pressed="false">Aa</button>
+                <button class="find-opt" data-find-opt="wholeWord" title="Match Whole Word (Alt+W)" aria-pressed="false"><u>ab</u></button>
+                <button class="find-opt" data-find-opt="regex" title="Use Regular Expression (Alt+R); \n matches a line break" aria-pressed="false">.*</button>
+                <button class="find-opt" data-find-opt="inSelection" title="Find in Selection (Alt+L)" aria-pressed="false">≡</button>
                 <button class="find-action-btn" id="btnFindPrev" title="Previous Match (Shift+Enter)">↑</button>
                 <button class="find-action-btn" id="btnFindNext" title="Next Match (Enter)">↓</button>
                 <button class="find-action-btn find-close" id="btnFindClose" title="Close (Esc)">✕</button>
               </div>
               <div class="replace-row" id="replaceRow" style="display: none;">
                 <input type="text" class="find-input" id="replaceInput" placeholder="Replace..." />
+                <button class="find-opt" data-find-opt="preserveCase" title="Preserve Case (Alt+P)" aria-pressed="false">AB</button>
                 <button class="find-action-btn" id="btnReplaceOne" title="Replace (Enter)">Replace</button>
                 <button class="find-action-btn" id="btnReplaceAll" title="Replace All">All</button>
               </div>

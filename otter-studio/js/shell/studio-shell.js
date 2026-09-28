@@ -7,6 +7,7 @@
 import { mountPackageDialog } from './package-dialog.js';
 import { createSettings, applySettingsToDocument, mountSettingsDialog } from './settings.js';
 import { installKeymap } from './commands.js';
+import { mountDocsViewer, issueUrl } from '../docs/docs-viewer.js';
 import { createCommandRegistry, defaultCommands } from './commands.js';
 import { mountShortcutsDialog } from './shortcuts-dialog.js';
 
@@ -284,6 +285,7 @@ export function mountStudioShell({ ide, setMode, openNewProjectModal, showWelcom
     else document.documentElement.requestFullscreen?.().catch(() => {});
   }
 
+  const docsViewer = mountDocsViewer({ ide });
   const commands = createCommandRegistry();
   const shortcutsDialog = mountShortcutsDialog(commands, settings);
   commands.registerAll(defaultCommands({
@@ -298,7 +300,9 @@ export function mountStudioShell({ ide, setMode, openNewProjectModal, showWelcom
     byId: (id) => document.getElementById(id),
     toggleZen,
     toggleFullScreen,
-    toggleWhitespace: () => settings.set('editor.renderWhitespace', !settings.get('editor.renderWhitespace'))
+    toggleWhitespace: () => settings.set('editor.renderWhitespace', !settings.get('editor.renderWhitespace')),
+    openDocs: (path) => docsViewer.open(path),
+    reportIssue: () => window.open(issueUrl({ version: '1.0', platform: navigator.platform, userAgent: navigator.userAgent }), '_blank', 'noopener')
   }));
   window.otterCommands = commands;
   commands.setKeybindings(settings.get('keybindings'));
@@ -323,7 +327,7 @@ export function mountStudioShell({ ide, setMode, openNewProjectModal, showWelcom
     menuHelp.classList.toggle('is-open');
   });
   document.addEventListener('click', () => menuHelp?.classList.remove('is-open'));
-  for (const [id, commandId] of [['menuItemHelpCommands', 'help.commands'], ['menuItemHelpShortcuts', 'help.shortcuts'], ['menuItemHelpWelcome', 'view.welcome'], ['menuItemHelpDocs', 'help.documentation']]) {
+  for (const [id, commandId] of [['menuItemHelpCommands', 'help.commands'], ['menuItemHelpShortcuts', 'help.shortcuts'], ['menuItemHelpWelcome', 'view.welcome'], ['menuItemHelpDocs', 'help.documentation'], ['menuItemHelpGuide', 'help.guide'], ['menuItemHelpReleaseNotes', 'help.releaseNotes'], ['menuItemHelpIssue', 'help.reportIssue']]) {
     document.getElementById(id)?.addEventListener('click', () => {
       menuHelp?.classList.remove('is-open');
       commands.run(commandId);
