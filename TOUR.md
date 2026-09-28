@@ -429,7 +429,7 @@ Updated level: 4
 
 ## 11. Files & Folders
 
-Otter provides native, sandboxed file operations:
+Otter provides native file operations that are safe by default (folder deletes are never recursive and refuse a folder that is not empty). They are not a sandbox: a program can read and write any path the user running it can.
 
 ```otter
 notePath is "status.txt"
@@ -487,6 +487,10 @@ Arguments received: 3
   Arg: staging
   Arg: preview
 ```
+
+A few flags, such as `-Port`, `-NoOpen`, `-h` and `--version`, belong to Otter
+itself and never reach the program; the [Installation Guide](INSTALL.md#arguments-and-otters-own-flags)
+lists them.
 
 ### Current Working Directory & Environment Variables
 

@@ -97,7 +97,7 @@ customstyle of sideAbout is "display: none;"
 customstyle of sideLicense is "display: none;"
 
 b1 is a text with value "Installation", size 40, weight 800, foreground "#0b1d36", letterspacing "-0.03em", lineheight "1.1"
-b2 is a text with value "Otter needs Windows PowerShell 5.1 and nothing else. There are no administrator rights, services, or registry changes.", size 18, foreground "#3a4d6b", lineheight "1.55"
+b2 is a text with value "On Windows, Otter needs Windows PowerShell 5.1 and nothing else. There are no administrator rights, services, or registry changes. On Linux and macOS it runs on PowerShell 7.", size 18, foreground "#3a4d6b", lineheight "1.55"
 b3 is a text with value "Release status: {{RELEASE_CHANNEL}} {{RELEASE_VERSION}}. Windows installer: {{INSTALLER_STATUS}}. Until an installer is published, run Otter from the project folder (below).", size 15, foreground "#1e3a6b", background "#eaf2ff", radius 12, border "1px solid #cfe0ff", lineheight "1.55", customstyle "padding: 14px 18px;"
 b4 is a text with value "System requirements", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b5 is a text with value "Windows 10 or Windows 11 (64-bit) with Windows PowerShell 5.1 (powershell.exe, built into Windows). A standard user account is enough. A web browser is only needed for web applications. Otter runs on Windows PowerShell 5.1; the otter.cmd launcher finds it for you, so you can start Otter from Command Prompt, Windows Terminal, or PowerShell 7 alike.", size 16, foreground "#3a4d6b", lineheight "1.6"
@@ -151,6 +151,8 @@ when b15copy is clicked
     copy text of b15 to clipboard
     text of b15copy is "Copied"
 .
+b15x is a text with value "Linux and macOS", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b15y is a text with value "The Otter engine is certified on PowerShell 7 (pwsh) on Linux and macOS. There is no installer there and no otter command on your PATH. Install PowerShell 7, extract the release archive (or clone the project folder) to a folder such as ~/otter, and run otter.ps1 with pwsh from any folder: pwsh -NoProfile -File ~/otter/otter.ps1 run hello.ot. Everything after otter.ps1 is the same as after otter on Windows. To type just otter, add alias otter='pwsh -NoProfile -File ~/otter/otter.ps1' to your shell profile. otter.cmd and the installer scripts are for Windows only, and desktop applications need Windows.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b16 is a text with value "Verify your installation", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b17 is a text with value "otter                  # starts the interactive REPL (type exit to leave)\notter check hello.ot   # validates a program without running it", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable false
 b17label is a text with value "PowerShell", size 12, weight 600, foreground "#b7c4d8"
@@ -181,7 +183,7 @@ when b22copy is clicked
 b23 is a link with text "Next: write your first program", url "/first-program/", foreground "#2563eb", weight 600, size 15
 
 docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"
-put b1, b2, b3, b4, b5, b6, b7, b8block, b9, b10, b11, b12block, b13, b14block, b15block, b16, b17block, b18, b19, b20, b21, b22block, b23 in docsMain
+put b1, b2, b3, b4, b5, b6, b7, b8block, b9, b10, b11, b12block, b13, b14block, b15block, b15x, b15y, b16, b17block, b18, b19, b20, b21, b22block, b23 in docsMain
 docsBody is a row with align top, spacing 0, width full, customstyle "align-items: stretch;"
 put docsSidebar, docsMain in docsBody
 

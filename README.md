@@ -89,7 +89,7 @@ Hello Jeff
 - **Loops & Iteration**: Multi-line lists (`are`), collection traversal (`each ... in`), numeric ranges (`count from ... to ... as`), fixed repetition (`repeat`), and condition loops (`while`).
 - **Functions & Closures**: Defined with `to`, taking readable arguments, with first-class `return` values.
 - **Objects & Properties**: Structured objects declared canonically with `has`, properties accessed with `of`, and dynamic key access.
-- **Native Filesystem**: Sandboxed file operations (`write ... to`, `read ... into`, `copy ... to`, `delete file`, `if file ... exists`).
+- **Native Filesystem**: File operations that are safe by default (`write ... to`, `write ... to ... atomically`, `read ... into`, `copy ... to`, `delete file`, `if file ... exists`): deleting a folder is never recursive and refuses a folder that still has things in it. This is not a sandbox: a program can read and write any path the user running it can.
 - **RFC 4180 CSV**: Native conversion between CSV text, files, and structured objects (`convert ... from csv into`, `read csv`, `write csv`).
 - **Command-Line Arguments**: Automatic parameter binding via the built-in `arguments` list.
 - **Environment & Directory**: Working directory inspection (`get current directory into`) and environment variable management (`get/set environment variable`).
@@ -97,6 +97,7 @@ Hello Jeff
 - **Safe Web Downloads**: Streaming, non-overwriting file downloads with atomic promotion and guaranteed cleanup (`download file from ... to`).
 - **Web Application Target**: Direct compilation into standalone, reactive HTML/CSS/JavaScript web applications (`otter web`).
 - **Interactive REPL**: Immediate feedback loop for learning and testing statements (`otter`).
+- **Reserved Words**: Many words have a meaning in Otter and cannot be used as variable or function names; see the [Otter 1.0 reserved words](docs/OTTER_1_0_RESERVED_WORDS.md).
 
 ---
 
@@ -106,6 +107,7 @@ Otter 1.0 is built and verified for:
 - **Operating System**: 64-bit Windows 10 and Windows 11
 - **PowerShell Host**: Windows PowerShell 5.1 (`powershell.exe`, built into Windows)
 - **Runtime Dependencies**: Zero external dependencies. Uses .NET Framework 4.5+ base class libraries included with Windows.
+- **Linux and macOS**: The Otter engine is also certified on PowerShell 7 (`pwsh`) on Windows, Linux and macOS. There is no installer for Linux or macOS: run `pwsh -NoProfile -File otter.ps1 <command>` from an extracted copy (see the [Installation Guide](INSTALL.md#linux-and-macos-powershell-7)).
 
 ---
 
@@ -155,6 +157,7 @@ otter check program.ot
 otter run program.ot
 
 # Execute an Otter program with arguments
+# (flags Otter uses itself, such as -Port or --help, are not passed on; see INSTALL.md)
 otter run program.ot arg1 arg2 arg3
 
 # Shorthand execution

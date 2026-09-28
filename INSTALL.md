@@ -11,6 +11,7 @@ Welcome to the Otter programming language! This guide covers everything you need
 3. [Alternative Installation Options](#3-alternative-installation-options)
    - [Custom Installation Directory](#custom-installation-directory)
    - [Portable / Zero-Install Usage](#portable--zero-install-usage)
+   - [Linux and macOS (PowerShell 7)](#linux-and-macos-powershell-7)
    - [Developer Setup (From Source)](#developer-setup-from-source)
 4. [Verifying Your Installation](#4-verifying-your-installation)
 5. [Running Your First Program](#5-running-your-first-program)
@@ -33,7 +34,7 @@ Otter 1.0 is engineered specifically for the Windows platform:
 
 > [!IMPORTANT]
 > **Windows PowerShell 5.1 vs. PowerShell 7 (pwsh):**
-> This Windows package runs Otter on native **Windows PowerShell 5.1** (`powershell.exe`): the `otter.cmd` launcher always delegates to it, so you do not need to manage this manually. The Otter engine is also certified on PowerShell 7 (`pwsh`) on Windows, Linux and macOS, where it runs as `pwsh -NoProfile -File otter.ps1 <command> ...`; a packaged installer for Linux and macOS is not part of this release candidate.
+> This Windows package runs Otter on native **Windows PowerShell 5.1** (`powershell.exe`): the `otter.cmd` launcher always delegates to it, so you do not need to manage this manually. The Otter engine is also certified on PowerShell 7 (`pwsh`) on Windows, Linux and macOS, where it runs as `pwsh -NoProfile -File otter.ps1 <command> ...`. There is no installer for Linux or macOS; see [Linux and macOS (PowerShell 7)](#linux-and-macos-powershell-7).
 
 ---
 
@@ -112,6 +113,30 @@ Otter requires no separate runtime installation beyond the Windows PowerShell 5.
 ```
 
 No registry changes, environment variables, or background services are created.
+
+---
+
+### Linux and macOS (PowerShell 7)
+
+The Otter engine is certified on PowerShell 7 (`pwsh`) on Linux and macOS.
+There is no installer there, and no `otter` command is added to your `PATH`.
+Install PowerShell 7, extract the release ZIP to a folder of your choice (for
+example `~/otter`), and run `otter.ps1` with `pwsh` from any folder:
+
+```sh
+pwsh -NoProfile -File ~/otter/otter.ps1 --version
+pwsh -NoProfile -File ~/otter/otter.ps1 run hello.ot
+```
+
+Everything after `otter.ps1` is the same as after `otter` on Windows. To type
+just `otter`, add an alias to your shell profile:
+
+```sh
+alias otter='pwsh -NoProfile -File ~/otter/otter.ps1'
+```
+
+The `otter.cmd` launcher and the installer scripts in the ZIP are for Windows
+only. Desktop applications (`otter desktop`) need Windows.
 
 ---
 
@@ -211,14 +236,56 @@ The `otter` launcher supports the following commands and arguments:
 
 | Command | Description |
 |---|---|
-| `otter` | Starts the interactive REPL. Type `exit` or `quit` to leave. |
-| `otter <script.ot> [args...]` | Runs an Otter script (shorthand form). Trailing arguments are passed to the script's `arguments` list. |
+| `otter` | Starts the interactive REPL. Type `exit` to leave (`quit` is not a command). |
+| `otter <script.ot> [args...]` | Runs an Otter script (shorthand form). The words after the file name are passed to the script's `arguments` list, except the flags Otter itself uses (see below). |
 | `otter run <script.ot> [args...]` | Runs an Otter script explicitly. |
 | `otter check <script.ot>` | Validates syntax and parses the script without executing it. Returns exit code `0` on success. |
 | `otter web <script.ot>` | Compiles an Otter script into a standalone HTML/JS web application and opens it in your default browser. |
 | `otter web <script.ot> -NoOpen` | Compiles an Otter script into HTML/JS without launching the browser. |
-| `otter --version` or `otter -v` | Displays version and runtime information. |
+| `otter --version` or `otter -v` | Displays the Otter version. |
 | `otter help` or `otter --help` | Displays the built-in help guide. |
+
+Project commands (`otter new`, `otter test`, `otter build`, `otter publish`)
+and `otter serve` for web server programs are described on the documentation
+site's Command line and Projects pages.
+
+### Arguments and Otter's own flags
+
+Otter reads its own flags before your program sees its arguments, so these
+never reach the `arguments` list: `-Port`, `-NoOpen`, `-Open`, `-ParseOnly`,
+`-DebugTokens`, `-DebugAst`, `-DebugErrors`, `-Breakpoints`, `-h`, `-help`,
+`--help`, `-v`, `-version` and `--version`. For example,
+`otter run tool.ot --help` prints Otter's help instead of running `tool.ot`.
+Short flags that could be the start of more than one PowerShell parameter
+name, such as `-p`, `-e`, `-i`, `-w`, `-D` and `-Out`, stop with an error that
+the parameter name is ambiguous. `--` is not an escape and stops with the same
+error. Plain words and double-dash options such as `--name=bob` or
+`--port 8080` are passed through unchanged.
+
+### Using the REPL
+
+The REPL runs one line at a time and keeps your variables and functions until
+you leave. `reset` clears them, and `exit` leaves.
+
+A line that starts with `if`, `otherwise`, `while`, `repeat`, `count`, `for` or
+`to`, or that ends with `are`, starts a block: the prompt changes to `.....`
+and keeps collecting lines until you enter a **blank line**, which runs the
+whole block. Indent the body as you would in a file, and type `otherwise`
+lines before the blank line:
+
+```text
+otter> x is 5
+otter> if x is 4
+.....     say "four"
+..... otherwise
+.....     say "not four"
+.....
+not four
+```
+
+Other blocks do not continue onto the next line in the REPL: write
+`for each ... in` instead of `each ... in`, and put `try` blocks and indented
+`has` blocks in a `.ot` file and run it with `otter run`.
 
 ---
 

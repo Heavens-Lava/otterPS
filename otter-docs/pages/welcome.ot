@@ -136,7 +136,7 @@ when b8copy is clicked
 .
 b9 is a text with value "The period has exactly one structural meaning in Otter: it finishes a block or process. It is never used for property access.", size 15, foreground "#1e3a6b", background "#eaf2ff", radius 12, border "1px solid #cfe0ff", lineheight "1.55", customstyle "padding: 14px 18px;"
 b10 is a text with value "What Otter does today", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
-b11 is a text with value "Variables and readable arithmetic, conditions and loops, lists, functions, objects, sandboxed file operations, CSV and JSON, command-line arguments, safe web downloads, TCP/UDP/TLS networking, cryptography, and compilation of programs into standalone web applications.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b11 is a text with value "Variables and readable arithmetic, conditions and loops, lists, functions, objects, file operations that are safe by default, CSV and JSON, command-line arguments, safe web downloads, TCP/UDP/TLS networking, cryptography, and compilation of programs into standalone web applications.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b12 is a text with value "Otter runs on 64-bit Windows 10 and Windows 11 using Windows PowerShell 5.1, which is already installed. There is nothing else to set up.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b13 is a text with value "Where to go next", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b14 is a link with text "Install Otter", url "/installation/", foreground "#2563eb", weight 600, size 15

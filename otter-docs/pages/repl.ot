@@ -109,9 +109,24 @@ when b3copy is clicked
     copy text of b3 to clipboard
     text of b3copy is "Copied"
 .
+b4 is a text with value "Only exit leaves the REPL; quit is not a command. reset clears every variable and function and keeps the REPL open.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b5 is a text with value "Blocks in the REPL", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+b6 is a text with value "A line that starts with if, otherwise, while, repeat, count, for or to, or that ends with are, starts a block. The prompt changes to ..... and keeps collecting lines until you enter a blank line, which runs the whole block. Indent the body as you would in a file, and type otherwise lines before the blank line:", size 16, foreground "#3a4d6b", lineheight "1.6"
+b7 is a text with value "otter> x is 5\notter> if x is 4\n.....     say \"four\"\n..... otherwise\n.....     say \"not four\"\n.....\nnot four", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable false
+b7label is a text with value "PowerShell", size 12, weight 600, foreground "#b7c4d8"
+b7copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+b7head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put b7label, b7copy in b7head
+b7block is a column with spacing 0, width full
+put b7head, b7 in b7block
+when b7copy is clicked
+    copy text of b7 to clipboard
+    text of b7copy is "Copied"
+.
+b8 is a text with value "Other blocks do not continue onto the next line in the REPL. Write for each ... in instead of each ... in, and put try blocks and indented has blocks in a .ot file and run it with otter run.", size 16, foreground "#3a4d6b", lineheight "1.6"
 
 docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"
-put b1, b2, b3block in docsMain
+put b1, b2, b3block, b4, b5, b6, b7block, b8 in docsMain
 docsBody is a row with align top, spacing 0, width full, customstyle "align-items: stretch;"
 put docsSidebar, docsMain in docsBody
 

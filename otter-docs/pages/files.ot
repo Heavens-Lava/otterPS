@@ -93,7 +93,7 @@ customstyle of sideAbout is "display: none;"
 customstyle of sideLicense is "display: none;"
 
 b1 is a text with value "Files and folders", size 40, weight 800, foreground "#0b1d36", letterspacing "-0.03em", lineheight "1.1"
-b2 is a text with value "Otter has native, sandboxed file operations written as plain statements.", size 18, foreground "#3a4d6b", lineheight "1.55"
+b2 is a text with value "Otter has native file operations written as plain statements. They are safe by default: deleting a folder is never recursive and refuses a folder that still has things in it, and write ... atomically replaces a file in one step. They are not a sandbox: a program can read and write any path the user running it can.", size 18, foreground "#3a4d6b", lineheight "1.55"
 b3 is a text with value "notePath is \"status.txt\"\n\n# Writing text to a file\nwrite \"Otter system: online and verified.\" to notePath\n\n# Checking file existence\nif file notePath exists\n    say \"Note file exists on disk.\"\n.\n\n# Reading file contents\nread notePath into content\nsay \"File content:\" content\n\n# Copying and deleting files\nbackupPath is \"status-backup.txt\"\ncopy notePath to backupPath\n\ndelete file notePath\ndelete file backupPath\nsay \"Temporary files cleaned up.\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
 b3label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
 b3copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
