@@ -400,10 +400,10 @@ platform.
 -   [x] Study/adapt GrapesJS interaction techniques without replacing Otter model/compiler
 -   [x] Review third-party licenses
 -   [x] Layers tree for the canvas: select, Ctrl multi-select, drag reorder/re-nest, double-click rename (`hierarchy.js`, sidebar pane shown in Design/Split mode)
--   [ ] Layers panel named "Layers" in Design mode (today it shares the "Outline" tab with source symbols)
+-   [x] Layers panel named "Layers" in Design mode (the tab reads Layers wherever the designer shows, Outline in Code mode)
 -   [x] Structure keys: Ctrl+Up/Down among siblings, Ctrl+Left out of parent, Ctrl+Right into previous container (`6c7e949`, designer/actions.js; verified in the real UI, `put` lines follow)
--   [ ] Layers: Shift range select in the tree
--   [ ] Lock and hide elements on canvas
+-   [x] Layers: Shift range select in the tree (in tree order, from the last clicked row)
+-   [x] Lock and hide elements on canvas (`837be26`; Layers eye/lock buttons, Ctrl+Shift+H/L; designer-only state per design file, never written to the program; locked elements pass clicks to their parent and are skipped by marquee)
 -   [ ] Keyboard nudging (arrow keys, Shift for 10px) and snap to grid (nudging done for absolute elements; 8px snapping on resize; a user-visible grid and snap-to-grid toggle remain)
 -   [x] Style editor for `styles.css` with live preview (full CSS inspector per component, states and breakpoints, raw declarations, lossless CSS AST; `designer-css`/`designer-styles` suites) - shared class rules remain open
 -   [x] State variants: hover/pressed/focused preview on canvas (`data-force-state`); verified hover in the compiled app - disabled state remains open
