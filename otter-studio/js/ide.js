@@ -2376,6 +2376,8 @@ export class OtterStudioIde {
   goToLine(lineNum, column = 0) {
     const textarea = document.getElementById('hiddenEditorInput');
     if (!textarea) return;
+    this.caretMoves = (this.caretMoves || 0) + 1;
+    textarea.dataset.caretMoves = String(this.caretMoves);
     const lines = textarea.value.split('\n');
     const targetLine = Math.min(Math.max(1, lineNum), lines.length);
     let charOffset = 0;
@@ -2387,10 +2389,15 @@ export class OtterStudioIde {
     textarea.selectionStart = textarea.selectionEnd = charOffset;
     this.updateCursorPos(textarea);
 
-    const targetLineEl = this.codeAreaEl?.querySelector(`[data-line="${targetLine}"]`);
-    if (targetLineEl) {
-      targetLineEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
-    }
+    // The textarea owns the scroll position (the code view and gutter mirror
+    // it), so scroll it and let the mirrors follow; scrolling the code view
+    // alone was undone by the next sync. Center the line.
+    const lineHeight = DEFAULT_LINE_HEIGHT || 22;
+    const targetScrollTop = Math.max(0, (targetLine - 1) * lineHeight - textarea.clientHeight / 2 + lineHeight / 2);
+    textarea.scrollTop = targetScrollTop;
+    if (this.codeAreaEl) this.codeAreaEl.scrollTop = textarea.scrollTop;
+    if (this.gutterEl) this.gutterEl.scrollTop = textarea.scrollTop;
+    if (this.isLargeFileMode) this.handleVirtualizedScroll(textarea);
   }
 
   checkBlockMatching(lineNum) {
@@ -2610,7 +2617,11 @@ export class OtterStudioIde {
         const limit = this.currentCode.length;
         const start = Math.min(editorState.start, limit);
         const end = Math.min(editorState.end, limit);
+        const caretMoves = this.caretMoves || 0;
         requestAnimationFrame(() => {
+          // A deliberate move since the redraw (goToLine: definitions,
+          // problems, style provenance) wins over the stale saved position.
+          if ((this.caretMoves || 0) !== caretMoves) return;
           textarea.focus({ preventScroll: true });
           textarea.setSelectionRange(start, end);
           textarea.scrollTop = editorState.scrollTop;

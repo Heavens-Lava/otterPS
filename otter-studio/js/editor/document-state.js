@@ -16,8 +16,12 @@ export function restoreTabState(tab, textarea, codeAreaEl = null, gutterEl = nul
   const len = typeof tab.content === 'string' ? tab.content.length : textarea.value.length;
   const start = typeof tab.selectionStart === 'number' ? Math.min(tab.selectionStart, len) : len;
   const end = typeof tab.selectionEnd === 'number' ? Math.min(tab.selectionEnd, len) : len;
+  // Code that moves the caret on purpose (goToLine) bumps this counter; a
+  // move made after the tab switch wins over the tab's saved position.
+  const caretMoves = textarea.dataset.caretMoves;
 
   requestAnimationFrame(() => {
+    if (textarea.dataset.caretMoves !== caretMoves) return;
     try {
       textarea.focus({ preventScroll: true });
       textarea.setSelectionRange(start, end);
