@@ -354,10 +354,9 @@ export function mountPackageDialog({ ide, openNewProjectModal }) {
   }
 
   window.addEventListener('keydown', (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'b') {
-      e.preventDefault();
-      open();
-    } else if (e.key === 'Escape' && isOpen()) {
+    // Ctrl+Shift+B is Build (launch profiles); this dialog opens from the
+    // Build menu and the command palette.
+    if (e.key === 'Escape' && isOpen()) {
       close();
     }
   });

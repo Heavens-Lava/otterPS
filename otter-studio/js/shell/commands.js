@@ -122,7 +122,7 @@ export function defaultCommands(deps) {
     { id: 'run.debug', title: 'Debug', category: 'Run', run: click('btnDebugProgram') },
     { id: 'run.stop', title: 'Stop', category: 'Run', shortcut: 'Shift+F5', run: click('btnStopProgram') },
     // Build
-    { id: 'build.desktopApp', title: 'Build Desktop App (Windows)...', category: 'Build', shortcut: 'Ctrl+Shift+B', run: openPackageDialog },
+    { id: 'build.desktopApp', title: 'Build Desktop App (Windows)...', category: 'Build', run: openPackageDialog },
     // Help
     { id: 'help.shortcuts', title: 'Keyboard Shortcuts', category: 'Help', run: openShortcuts },
     { id: 'help.commands', title: 'Show All Commands', category: 'Help', shortcut: 'F1', run: () => ide.openNavigationPalette('commands') },
