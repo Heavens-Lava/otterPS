@@ -33,10 +33,23 @@ const SMOKE_REPORT = process.env.OTTER_ELECTRON_SMOKE || '';
 // -----------------------------------------------------------------------------
 
 // Relative paths in the program resolve against the app's working folder:
-// next to the executable once packaged, the app folder while developing.
+//   - the folder the portable .exe sits in (electron-builder sets
+//     PORTABLE_EXECUTABLE_DIR; the exe itself runs from a temp folder),
+//   - Documents\<App Name> for an installed app (Program Files is read-only),
+//   - the app folder while developing.
+let workingFolderCache = null;
 function workingFolder() {
   if (process.env.OTTER_APP_CWD) return path.resolve(process.env.OTTER_APP_CWD);
-  return app.isPackaged ? path.dirname(process.execPath) : path.resolve(__dirname);
+  if (workingFolderCache) return workingFolderCache;
+  if (process.env.PORTABLE_EXECUTABLE_DIR) {
+    workingFolderCache = path.resolve(process.env.PORTABLE_EXECUTABLE_DIR);
+  } else if (app.isPackaged) {
+    workingFolderCache = path.join(app.getPath('documents'), app.getName());
+    try { fs.mkdirSync(workingFolderCache, { recursive: true }); } catch { /* read-only documents: keep going */ }
+  } else {
+    workingFolderCache = path.resolve(__dirname);
+  }
+  return workingFolderCache;
 }
 
 function requireText(value, what) {

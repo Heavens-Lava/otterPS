@@ -31,6 +31,8 @@ function Export-OtterElectronApplication {
         [Parameter(Mandatory)][string]$OutputDir,
         [string]$Name,
         [string]$Version = '1.0.0',
+        [string]$Description,
+        [string]$Author,
         [string[]]$Assets = @(),
         [string]$AssetRoot,
         [switch]$PassThruExceptions
@@ -75,7 +77,8 @@ function Export-OtterElectronApplication {
         name            = $packageName
         productName     = $displayName
         version         = $safeVersion
-        description     = "$displayName - an Otter desktop application"
+        description     = if ([string]::IsNullOrWhiteSpace($Description)) { "$displayName - an Otter desktop application" } else { $Description }
+        author          = if ([string]::IsNullOrWhiteSpace($Author)) { 'Otter' } else { $Author }
         main            = 'main.js'
         private         = $true
         scripts         = [ordered]@{ start = 'electron .' }

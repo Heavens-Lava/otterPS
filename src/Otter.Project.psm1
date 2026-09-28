@@ -25,6 +25,10 @@ class OtterProject {
     [string]$EntryPoint
     [string]$ResolvedEntryPoint
     [string[]]$Assets = @()
+    # Optional: shown by desktop packaging (installer metadata, window icon).
+    [string]$Description = ""
+    [string]$Author = ""
+    [string]$Icon = ""
     [OtterProjectBuild]$Build = [OtterProjectBuild]::new()
     [OtterProjectPublish]$Publish = [OtterProjectPublish]::new()
     [hashtable]$Scripts = @{}
@@ -194,6 +198,11 @@ function Get-OtterProject {
     $project.Archetype = if ($parsed.PSObject.Properties['archetype'] -and -not [string]::IsNullOrWhiteSpace($parsed.archetype)) { [string]$parsed.archetype } else { $project.Target }
     $project.Name = if ($parsed.PSObject.Properties['name'] -and -not [string]::IsNullOrWhiteSpace($parsed.name)) { [string]$parsed.name } else { [System.IO.Path]::GetFileName($rootDir) }
     $project.Version = if ($parsed.PSObject.Properties['version'] -and -not [string]::IsNullOrWhiteSpace($parsed.version)) { [string]$parsed.version } else { '0.1.0' }
+    foreach ($optional in @('description', 'author', 'icon')) {
+        if ($parsed.PSObject.Properties[$optional] -and -not [string]::IsNullOrWhiteSpace($parsed.$optional)) {
+            $project.($optional.Substring(0, 1).ToUpperInvariant() + $optional.Substring(1)) = [string]$parsed.$optional
+        }
+    }
     $project.Build = $buildObj
     $project.Publish = $publishObj
 
@@ -720,7 +729,8 @@ function Invoke-OtterProjectBuild {
                     Import-Module (Join-Path $PSScriptRoot 'Otter.Electron.psm1') -Global
                 }
                 Export-OtterElectronApplication -SourcePath $project.ResolvedEntryPoint -OutputDir $stagingDir `
-                    -Name $project.Name -Version $project.Version -PassThruExceptions | Out-Null
+                    -Name $project.Name -Version $project.Version -Description $project.Description -Author $project.Author `
+                    -PassThruExceptions | Out-Null
             }
             { $_ -in @('web', 'desktop', 'game') } {
                 $htmlOutput = Join-Path $stagingDir 'index.html'

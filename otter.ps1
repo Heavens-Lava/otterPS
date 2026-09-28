@@ -532,6 +532,8 @@ function Show-OtterHelp {
     Write-Host '  otter check <file.ot>  Validate a program or project without running it'
     Write-Host '  otter build [target]   Build an Otter project into its output directory (dist/)'
     Write-Host '        --target electron  Build the project as an Electron desktop application'
+    Write-Host '  otter package [path] --target windows [--installer] [--portable] [--output <dir>]'
+    Write-Host '                         Package the Electron build as a Windows installer and portable .exe'
     Write-Host '  otter publish [target] Publish an Otter project into a distributable archive (publish/)'
     Write-Host '  otter new <type> <name> Create a new Otter project (console, desktop, web, automation, game)'
     Write-Host '  otter test [target]    Run tests in an Otter project or test file'
@@ -652,6 +654,47 @@ if ($Path -eq 'build') {
     if (-not $buildTarget) { $buildTarget = '.' }
     try {
         $exitCode = Invoke-OtterProjectBuild -Target $buildTarget -TargetOverride $buildTargetOverride
+        [Environment]::Exit($exitCode)
+    }
+    catch [OtterError] {
+        Write-Host ''
+        Write-Host $_.Exception.Message -ForegroundColor Red
+        Write-Host ''
+        [Environment]::Exit($script:ExitUsageError)
+    }
+    catch {
+        Write-Host ''
+        Write-Host $_.Exception.Message -ForegroundColor Red
+        Write-Host ''
+        [Environment]::Exit($script:ExitUsageError)
+    }
+}
+
+if ($Path -eq 'package') {
+    # otter package [path] --target windows [--installer] [--portable] [--output <dir>] [--dry-run]
+    # Read from the raw command line: `--target` collides with -Target (see build).
+    $packageRaw = Get-OtterRawTrailingArguments -SkipCount 1
+    if ($null -eq $packageRaw) { $packageRaw = @() ; if ($Target) { $packageRaw += $Target }; $packageRaw += @($Arguments) }
+    $packagePath = $null
+    $packagePlatform = 'windows'
+    $packageKinds = @()
+    $packageOutput = $null
+    $packageDryRun = $false
+    for ($i = 0; $i -lt $packageRaw.Count; $i++) {
+        $token = [string]$packageRaw[$i]
+        if ($token -in @('--target', '-target', '-Target') -and ($i + 1) -lt $packageRaw.Count) { $packagePlatform = [string]$packageRaw[$i + 1]; $i++ }
+        elseif ($token -in @('--output', '-output', '-Output') -and ($i + 1) -lt $packageRaw.Count) { $packageOutput = [string]$packageRaw[$i + 1]; $i++ }
+        elseif ($token -in @('--installer', '-installer')) { $packageKinds += 'installer' }
+        elseif ($token -in @('--portable', '-portable')) { $packageKinds += 'portable' }
+        elseif ($token -in @('--dry-run', '-dry-run', '-DryRun')) { $packageDryRun = $true }
+        elseif (-not $packagePath -and -not $token.StartsWith('-')) { $packagePath = $token }
+    }
+    if (-not $packagePath) { $packagePath = '.' }
+    if ($packageKinds.Count -eq 0) { $packageKinds = @('installer', 'portable') }
+    Import-Module (Join-Path $PSScriptRoot 'src\Otter.Project.psm1') -Force
+    Import-Module (Join-Path $PSScriptRoot 'src\Otter.Package.psm1') -Force
+    try {
+        $exitCode = Invoke-OtterProjectPackage -Target $packagePath -Platform $packagePlatform -Kinds $packageKinds -OutputDir $packageOutput -DryRun:$packageDryRun
         [Environment]::Exit($exitCode)
     }
     catch [OtterError] {
