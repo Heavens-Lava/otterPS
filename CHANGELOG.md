@@ -4,7 +4,25 @@ All notable changes to the Otter Programming Language platform are documented in
 
 ## [Unreleased]
 
+## [1.0.0-rc.2] - 2026-09-28
+
+Second Otter 1.0 release candidate. The 1.0 language contract is frozen and
+every 1.0 contract decision is recorded in `SPEC-DECISIONS.md`; no contract
+question remains open. (`v1.0.0-rc.1`, tagged 2026-09-11, was a baseline
+checkpoint taken before the 1.0 scope was widened.) From this candidate to
+1.0.0, only release-blocking fixes are accepted.
+
+### Decided
+- **Event contract (D121):** cross-source fairness is best-effort with eventual progress; no source may do unbounded work while another is ready; ordering is guaranteed within a source only; the loop is cooperative (one handler at a time, run to completion). Measured limits are runtime characteristics, documented in `docs/OTTER_1_0_EVENT_MODEL.md`.
+- **Console HTTP is part of Otter 1.0 (DC1):** the HTTP client (D116A/D116B) is supported on console and web.
+- **Module paths are case-sensitive on every host (D122 / M1):** a `use` path must match the on-disk name exactly; a case-only mismatch gives the same diagnostic on Windows, Linux and macOS.
+- **The query language (D99) is deferred to Otter 1.1.** It is not part of Otter 1.0; the implementation remains in the source tree as an experimental preview, unchanged. Use `query` and `execute` with parameterized SQL.
+- The decision ledger now records D99-D114 and D119, reconstructed from their approved specifications, commits and tests.
+
 ### Added
+- **Four-host support:** Windows PowerShell 5.1, and PowerShell 7 on Windows, Linux and macOS, all pass the portable language suite (D120 CI matrix).
+- **Release certification runner** (`tools/Invoke-OtterReleaseCertification.ps1`): runs every release gate from a clean checkout of a nominated SHA and records the outcome of each. A final `repository-clean` check fails the run if any gate changes the working tree.
+- Release-surface evidence manifest (`release/otter-1.0-surface.json`) with a read-only auditor, and contract coverage evidence.
 - **`otter profile <file.ot>`** (`src/Otter.Profiler.psm1`): runs a program normally, then reports which Otter functions ran (calls, total and self time) and which Otter source lines were hottest, in Otter terms only. Built on the interpreter's existing statement hook, so a normal `otter run` never loads it and pays nothing.
 
 ### Changed
@@ -13,6 +31,10 @@ All notable changes to the Otter Programming Language platform are documented in
 
 ### Fixed
 - `otter debug` and `otter profile` with no file now exit with the usage-error code instead of 0.
+- PowerShell 7 hosts: values, atomic writes and publish names now behave the same as on Windows PowerShell 5.1 (PowerShell 7 previously failed 15 suites).
+- `wait` now services every event source; a program polling a socket inside `wait` could previously wait forever (D121, EV3).
+- A busy command job can no longer starve other event sources (D121, EV2).
+- The test suites no longer modify tracked files: Studio and web-compiler tests use temporary projects and output folders.
 - `otter test` launches tests with the PowerShell host that is running Otter instead of a hard-coded `powershell.exe`, so it works on Linux and macOS (found by the D120 CI matrix).
 
 ## [1.0.0-rc.1] - 2026-09-17

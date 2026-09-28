@@ -11,6 +11,29 @@ No item may be marked **CERTIFIED** unless it was run against a clean,
 immutable revision and its evidence is recorded below. A passing run against a
 dirty working tree is useful diagnostic evidence, but is **PROVISIONAL**.
 
+## Release order (decided by Jeff, 2026-09-28)
+
+The release candidate is **1.0.0-rc.2** (`VERSION`), tagged `v1.0.0-rc.2`.
+The name `v1.0.0-rc.1` is taken: it is the 2026-09-11 baseline checkpoint,
+tagged before the 1.0 scope was widened, and it stays as history.
+
+1. **Before the RC tag:** the candidate SHA passes (a) release certification
+   (`tools/Invoke-OtterReleaseCertification.ps1`) from a clean checkout on
+   Windows PowerShell 5.1 with all 8 checks passing, including
+   `repository-clean`, and (b) the D120 four-host workflow on the same SHA.
+2. **During RC stabilization, before 1.0.0:** clean-machine install, installer
+   and uninstaller, the full public CLI workflow from the installed payload,
+   console/web/desktop smoke apps built from the RC distribution, a literal
+   walkthrough of the installation and Getting Started docs, and the final
+   security/data-loss review. Rows marked **BEFORE 1.0.0** below are these
+   gates; they are deliberately not preconditions for the RC tag.
+3. **1.0.0:** final certification of the production SHA, release artifacts
+   and checksums from that SHA, then the `v1.0.0` tag.
+
+A commit cannot record its own SHA. Rows marked **RC.2 CERTIFICATION** are
+proven by the certification record and CI run of the candidate SHA; their
+evidence is added here after those runs, without changing the tagged commit.
+
 ## D119 — Dogfooding freeze
 
 **Status: COMPLETE AS THE FROZEN D119 REFERENCE APPLICATION.**
@@ -33,17 +56,17 @@ Primary evidence: `docs/D119_DOGFOOD_LOG.md`.
 
 | Check | Status | Evidence / action |
 |---|---|---|
-| Immutable release candidate revision | BLOCKED | The checkout contains uncommitted edits to the frozen contract, parser, interpreter, runtime, UI/library modules, tests, project manifests, examples, and `OtterWorkspace`. The owner must commit or otherwise preserve this work and nominate its commit SHA before final certification. |
-| Frozen language contract | BLOCKED | Do not edit `Otter.Contract.psm1`, `rules.md`, or `SPEC-DECISIONS.md` as part of a release gate. Record their committed SHA after the baseline is clean. |
-| Existing scope reconciliation | REVIEW REQUIRED | `docs/OTTER_1_0_RELEASE_SCOPE_MATRIX.md` and `docs/OTTER_1_0_RELEASE_GATE_CERTIFICATION.md` currently classify modules as deferred and packaging as implemented but not production-certified. Those classifications conflict with broader claims in the D119 handoff and must be explicitly reconciled by Jeff before 1.0 scope is frozen. |
+| Immutable release candidate revision | RC.2 CERTIFICATION | All work is committed; the candidate is the commit that sets `VERSION` to 1.0.0-rc.2. The certification record names its exact SHA and requires a clean checkout. |
+| Frozen language contract | RESOLVED | Every 1.0 contract decision is recorded in `SPEC-DECISIONS.md` (DC1, D121, D122 approved 2026-09-27; D99 deferred to 1.1 on 2026-09-28). No contract question remains open: `docs/OTTER_1_0_FREEZE_FOLLOWUPS.md`. |
+| Existing scope reconciliation | BEFORE 1.0.0 | DC1 (console HTTP) is resolved. DC2-DC5 are documentation conflicts, not contract questions: `docs/OTTER_1_0_SURFACE_RECONCILIATION.md` section 8. |
 
 ## Gate 1 — Final language and standard-library contract freeze
 
 | Requirement | Status | Evidence / next action |
 |---|---|---|
-| Freeze language surface | BLOCKED | First create a clean release-candidate commit; then record the SHAs for `rules.md`, `SPEC-DECISIONS.md`, and `Otter.Contract.psm1`. |
-| No unmapped diagnostics | PENDING | Run `powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests/Run-Tests.ps1` from the clean candidate and archive the result. |
-| Documented public keywords and target boundaries | PENDING | Reconcile public docs against the frozen rules and scope matrix; target-specific features must be labelled at point of use. |
+| Freeze language surface | RC.2 CERTIFICATION | Gates `contract-structural` and `release-surface-audit`. Prior clean-checkout evidence: `docs/OTTER_1_0_CERTIFICATION_RUN_639112f.md`. |
+| No unmapped diagnostics | RC.2 CERTIFICATION | Gate `platform-regression` (`tests/Run-Tests.ps1`). |
+| Documented public keywords and target boundaries | BEFORE 1.0.0 | Reconcile public docs against the frozen rules and scope matrix (DC2-DC5); target-specific features labelled at point of use. |
 
 ## Gate 2 — D120 cross-platform and runtime certification
 
@@ -51,11 +74,11 @@ Primary evidence: `docs/D119_DOGFOOD_LOG.md`.
 
 | Host / target | Status | Evidence |
 |---|---|---|
-| Windows PowerShell 5.1 | PROVISIONAL PASS | This host is Windows PowerShell **5.1.26100.8115** on Windows NT 10.0.26200.0. The distribution smoke test passed on 2026-09-25; see Gate 4. The result is provisional because the baseline is dirty. |
-| PowerShell 7 on Windows | BLOCKED | `pwsh` is not installed on this host. Install PowerShell 7, then run the release conformance manifest and full suite from the nominated clean SHA. |
-| PowerShell 7 on Linux | BLOCKED | No Linux host is available in this environment. Run the same immutable release candidate on a supported Linux CI runner. |
-| PowerShell 7 on macOS | BLOCKED | No macOS host is available in this environment. Run the same immutable release candidate on a supported macOS CI runner. |
-| Headless Web target | PROVISIONAL PASS | The release conformance manifest exercises generated web fixtures and finds a local headless Edge/Chromium executable when available. Record the completed manifest result against the clean candidate. |
+| Windows PowerShell 5.1 | RC.2 CERTIFICATION | The full certification run, plus the D120 workflow's Windows PowerShell 5.1 job. |
+| PowerShell 7 on Windows | RC.2 CERTIFICATION | D120 workflow (`.github/workflows/d120-host-matrix.yml`) on the candidate SHA. Prior evidence: run 36374374754 passed on `2dbcb4b`. |
+| PowerShell 7 on Linux | RC.2 CERTIFICATION | D120 workflow on the candidate SHA. |
+| PowerShell 7 on macOS | RC.2 CERTIFICATION | D120 workflow on the candidate SHA. |
+| Headless Web target | RC.2 CERTIFICATION | Gate `conformance` (`tools/Test-OtterReleaseConformance.ps1`). |
 
 ### Minimum D120 evidence per host
 
@@ -71,30 +94,30 @@ Primary evidence: `docs/D119_DOGFOOD_LOG.md`.
 
 | Requirement | Status | Next command / evidence |
 |---|---|---|
-| Production-entry conformance manifest | IN PROGRESS | `tools/Test-OtterReleaseConformance.ps1` was started on 2026-09-25 against the dirty workspace. Do not call it a pass until its process exits successfully and the clean-candidate run is archived. |
-| Lexer/parser malformed-input coverage | PENDING | Preserve and run the parser fuzz assertions in `tests/Parser.Tests.ps1`; run the differential fuzzer on the clean candidate. |
-| Differential fuzzing | PENDING | `powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools/Invoke-OtterDifferentialFuzzer.ps1` with a recorded seed and iteration count. |
-| Resource/memory soak | PENDING | `powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools/Test-ResourceSoak.ps1`; archive the generated report and ensure it is reviewed. |
-| Full platform regression suite | PENDING | `powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests/Run-Tests.ps1` from the clean candidate. |
+| Production-entry conformance manifest | RC.2 CERTIFICATION | Gate `conformance`. |
+| Lexer/parser malformed-input coverage | RC.2 CERTIFICATION | Gate `malformed-input-fuzz` (1,000 programs, recorded seed). |
+| Differential fuzzing | RC.2 CERTIFICATION | Gate `differential-fuzz` (1,000 programs, recorded seed). |
+| Resource/memory soak | BEFORE 1.0.0 | `tools/Test-ResourceSoak.ps1` is not a certification gate; run it on the RC and archive the reviewed report. |
+| Full platform regression suite | RC.2 CERTIFICATION | Gate `platform-regression`; gate `repository-clean` proves the suite leaves the checkout unchanged. |
 
 ## Gate 4 — Fresh-install and packaging verification
 
 | Requirement | Status | Evidence |
 |---|---|---|
-| Distribution build and temporary install | PROVISIONAL PASS | On 2026-09-25, `tools/Test-OtterDistribution.ps1` built `otter-0.9.0-windows-powershell`, installed it into a fresh temp directory, and passed `--version`, `run` fixtures, and `web -NoOpen`. The test cleans up its temporary install. |
-| Clean-machine validation | PENDING | Repeat on a VM or CI host with no source checkout, no inherited PATH entries, and no developer dependencies. |
-| Per-user installer / uninstaller | PENDING | Exercise `distribution/Install-Otter.ps1` and `distribution/Uninstall-Otter.ps1` on the clean machine, including upgrade and PATH behavior. |
-| Full public CLI workflow | PENDING | Prove `--version`, `new`, `check`, `test`, `run`, `build`, and `publish` from the installed payload. |
+| Distribution build and temporary install | RC.2 CERTIFICATION | Gate `distribution-smoke` (`tools/Test-OtterDistribution.ps1`) builds `otter-1.0.0-rc.2-windows-powershell`, installs it into a fresh temp directory and runs `--version`, `run` fixtures and `web -NoOpen`. Earlier provisional pass: 2026-09-25 (0.9.0, dirty tree). |
+| Clean-machine validation | BEFORE 1.0.0 | Repeat on a VM or CI host with no source checkout, no inherited PATH entries, and no developer dependencies. |
+| Per-user installer / uninstaller | BEFORE 1.0.0 | Exercise `distribution/Install-Otter.ps1` and `distribution/Uninstall-Otter.ps1` on the clean machine, including upgrade and PATH behavior. |
+| Full public CLI workflow | BEFORE 1.0.0 | Prove `--version`, `new`, `check`, `test`, `run`, `build`, and `publish` from the installed payload. |
 
 ## Gate 5 — Documentation and release freeze
 
 | Requirement | Status | Next action |
 |---|---|---|
-| Language and standard-library reference | PENDING | Reconcile documentation with the approved frozen scope. |
-| CLI and project-system guide | PENDING | Validate each documented command against the installed release payload. |
-| Target-specific boundaries | PENDING | Mark web-only, Windows-only, experimental, and deferred capabilities clearly. |
-| Changelog and release notes | PENDING | Finalize `CHANGELOG.md` only after the release-candidate SHA and scope are approved. |
-| RC change freeze | PENDING | After all gates pass, tag `1.0.0-rc.1`; permit bug fixes only, each with a regression test and release-ledger update. |
+| Language and standard-library reference | BEFORE 1.0.0 | Reconcile documentation with the approved frozen scope. |
+| CLI and project-system guide | BEFORE 1.0.0 | Validate each documented command against the installed release payload. |
+| Target-specific boundaries | BEFORE 1.0.0 | Mark web-only, Windows-only, experimental, and deferred capabilities clearly. The query language (D99) is already labelled "not part of Otter 1.0" on the docs site. |
+| Changelog and release notes | IN PROGRESS | `CHANGELOG.md` has the `[1.0.0-rc.2]` section; final 1.0.0 release notes are written from the production SHA. |
+| RC change freeze | PENDING | After the two pre-RC checks in "Release order" pass, tag `v1.0.0-rc.2` on the certified SHA; then permit release-blocking fixes only, each with a regression test and release-ledger update. |
 
 ## Resume protocol
 
@@ -106,5 +129,6 @@ Primary evidence: `docs/D119_DOGFOOD_LOG.md`.
 3. Run Gates 1–5 in order; update only evidence actually reproduced on that
    SHA.
 4. Run D120 on Windows PowerShell 5.1, PowerShell 7/Windows, Linux, and macOS.
-5. Do not tag an RC or 1.0.0 until every required row is **CERTIFIED** or
-   explicitly deferred by Jeff with a public scope note.
+5. Do not tag an RC until the two pre-RC checks in "Release order" pass on
+   the exact candidate SHA. Do not tag 1.0.0 until every row is **CERTIFIED**
+   or explicitly deferred by Jeff with a public scope note.

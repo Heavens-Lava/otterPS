@@ -1,6 +1,6 @@
 {
-  "version": "0.9.0",
-  "channel": "Pre-release",
+  "version": "1.0.0-rc.2",
+  "channel": "Release candidate",
   "windowsRequirements": "Windows 10 or Windows 11 with Windows PowerShell 5.1.",
   "installerStatus": "Installer not published yet",
   "installerSize": "Published with the installer",

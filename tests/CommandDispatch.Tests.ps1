@@ -141,11 +141,20 @@ try {
     $code6 = 'run command "otter --version" into res' + "`n" +
              'say "EXIT:" exit code of res' + "`n" +
              'say "OUT:" output of res'
-    $res6 = Run-OtterScript $code6
+    # `run command "otter ..."` resolves `otter` through PATH. Put THIS
+    # checkout first on PATH for the child process, so the test exercises the
+    # Otter under test (otter.cmd at the repo root) and not whichever Otter
+    # happens to be installed on the machine. The expected version is read
+    # from the VERSION file (D57: the one version source), not hard-coded.
+    $expectedVersion = (Get-Content -LiteralPath (Join-Path $repoRoot 'VERSION') -Raw).Trim()
+    $savedPath = $env:PATH
+    $env:PATH = $repoRoot + [System.IO.Path]::PathSeparator + $env:PATH
+    try { $res6 = Run-OtterScript $code6 }
+    finally { $env:PATH = $savedPath }
     if ($res6.ExitCode -ne 0) { throw "Test 6 failed with exit code $($res6.ExitCode): $($res6.Output)" }
     if ($res6.Output -notmatch 'EXIT:\s*0') { throw "Test 6 failed: Expected exit code 0. Got: $($res6.Output)" }
-    if ($res6.Output -notmatch 'Otter 0\.9\.0') { throw "Test 6 failed: Expected 'Otter 0.9.0' in output. Got: $($res6.Output)" }
-    Write-Output '  pass  otter self-hosting: otter --version executes cleanly and reports 0.9.0'
+    if ($res6.Output -notmatch ('Otter ' + [regex]::Escape($expectedVersion))) { throw "Test 6 failed: Expected 'Otter $expectedVersion' in output. Got: $($res6.Output)" }
+    Write-Output "  pass  otter self-hosting: otter --version executes cleanly and reports $expectedVersion"
 
     # -------------------------------------------------------------
     # 7. Otter self-hosting: otter check <valid-project>
