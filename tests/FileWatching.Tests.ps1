@@ -36,7 +36,11 @@ function Invoke-OtterWatchProgram {
         [string]$SandboxDir,
         [scriptblock]$TriggerAction,
         [int]$RegisterDelayMs = 2500,
-        [int]$TimeoutMs = 12000
+        [int]$TimeoutMs = 12000,
+        # When given, wait until the program prints this line (it says so right
+        # after its watcher is registered) instead of guessing a fixed delay.
+        # Otter's own startup takes over a second, so a fixed delay races it.
+        [string]$ReadyLine = ''
     )
 
     $otFile = Join-Path $SandboxDir 'program.ot'
@@ -53,14 +57,29 @@ function Invoke-OtterWatchProgram {
     $process.StartInfo = $psi
     [void]$process.Start()
 
-    Start-Sleep -Milliseconds $RegisterDelayMs
+    $earlyOutput = New-Object System.Text.StringBuilder
+    if ($ReadyLine) {
+        $readyDeadline = [DateTime]::UtcNow.AddSeconds(30)
+        $lineTask = $null   # at most one read may be pending on the stream
+        while ([DateTime]::UtcNow -lt $readyDeadline) {
+            if ($null -eq $lineTask) { $lineTask = $process.StandardOutput.ReadLineAsync() }
+            if (-not $lineTask.Wait(1000)) { continue }
+            $line = $lineTask.Result
+            $lineTask = $null
+            if ($null -eq $line) { break }
+            [void]$earlyOutput.AppendLine($line)
+            if ($line.Trim() -eq $ReadyLine) { break }
+        }
+    } else {
+        Start-Sleep -Milliseconds $RegisterDelayMs
+    }
     if ($TriggerAction) { & $TriggerAction }
 
     $exited = $process.WaitForExit($TimeoutMs)
     if (-not $exited) {
         try { $process.Kill() } catch {}
     }
-    $stdout = $process.StandardOutput.ReadToEnd()
+    $stdout = $earlyOutput.ToString() + $process.StandardOutput.ReadToEnd()
     $exitCode = $null
     if ($exited) { $exitCode = $process.ExitCode }
     return [pscustomobject]@{ Stdout = $stdout; ExitCode = $exitCode; TimedOut = (-not $exited) }
@@ -108,6 +127,7 @@ on rename in dirWatcher
     say "renamed:" old path "->" changed path
     stop watching dirWatcher
 .
+say "watching"
 "@
         $r = Invoke-OtterWatchProgram -Source $source -SandboxDir $dir -TriggerAction {
             $a = Join-Path $dir 'a.txt'
@@ -115,7 +135,7 @@ on rename in dirWatcher
             Set-Content -LiteralPath $a -Value 'hi' -NoNewline
             Start-Sleep -Milliseconds 500
             Rename-Item -LiteralPath $a -NewName 'b.txt'
-        } -RegisterDelayMs 1500 -TimeoutMs 12000
+        } -ReadyLine 'watching' -TimeoutMs 12000
         Assert-False $r.TimedOut 'expected create then rename to both be observed'
         Assert-True ($r.Stdout -match 'created: a\.txt') 'expected a create event naming a.txt'
         Assert-True ($r.Stdout -match 'renamed:.*a\.txt.*->.*b\.txt') 'expected a rename event with old path ending a.txt and new path ending b.txt'
