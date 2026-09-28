@@ -2133,16 +2133,26 @@ export class OtterStudioIde {
       const tab = this.openTabs.find(t => t.path === this.currentFile);
       if (this.currentFile) {
         this.applySaveSettings();
-        const res = await fetch('/api/file', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            path: this.currentFile,
-            content: withLineEnding(this.currentCode, tab?.eol || this.fileEol),
-            expectedRevision: tab?.diskRevision || undefined
-          })
-        });
-        const data = await res.json();
+        // While the save is out, the file on disk is already new but the tab
+        // still has the old revision: the external-change check skips it.
+        if (tab) tab.saveInFlight = true;
+        let res;
+        let data;
+        try {
+          res = await fetch('/api/file', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              path: this.currentFile,
+              content: withLineEnding(this.currentCode, tab?.eol || this.fileEol),
+              expectedRevision: tab?.diskRevision || undefined
+            })
+          });
+          data = await res.json();
+          if (tab && res.ok) tab.diskRevision = data.revision || null;
+        } finally {
+          if (tab) tab.saveInFlight = false;
+        }
         if (res.status === 409 && data.conflict) {
           this.setExternalConflict(tab, data);
           return false;
@@ -2287,8 +2297,9 @@ export class OtterStudioIde {
     this.externalCheckInFlight = true;
     try {
       for (const tab of tabs) {
+        if (tab.saveInFlight) continue;
         const res = await fetch(`/api/file-status?path=${encodeURIComponent(tab.path)}`);
-        if (!res.ok) continue;
+        if (!res.ok || tab.saveInFlight) continue;
         const status = await res.json();
         if (!status.exists) {
           tab.externalDeleted = true;
@@ -2300,6 +2311,9 @@ export class OtterStudioIde {
         const latestRes = await fetch(`/api/file?path=${encodeURIComponent(tab.path)}`);
         if (!latestRes.ok) continue;
         const latest = await latestRes.json();
+        // A save of this tab that started or finished meanwhile is not an
+        // outside change.
+        if (tab.saveInFlight || latest.revision === tab.diskRevision) continue;
         if (tab.isDirty) {
           this.setExternalConflict(tab, latest);
         } else {
@@ -3583,16 +3597,10 @@ export class OtterStudioIde {
           this.extractFunction();
           return;
         }
-        if (e.ctrlKey && !e.shiftKey && (e.key === 't' || e.key === 'T')) {
-          e.preventDefault();
-          this.openNavigationPalette('workspace-symbols');
-          return;
-        }
-        if (e.ctrlKey && e.key === 's') {
-          e.preventDefault();
-          this.saveCurrentFile();
-          return;
-        }
+        // Ctrl+S (save) and Ctrl+T (workspace symbols) are handled once, by
+        // the window keydown handler this event bubbles to. Handling them
+        // here too saved twice: the second save carried the old revision,
+        // got a 409 and raised a false "changed outside Otter Studio" banner.
 
         // Smart Enter: keep the indentation, open a block's body and, when the
         // block is new, write its closing period (editor.autoCloseBlocks).
@@ -3990,13 +3998,15 @@ export class OtterStudioIde {
         ok = (await this.saveCurrentFile()) && ok;
         continue;
       }
+      tab.saveInFlight = true;
       try {
         const res = await fetch('/api/file', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ path: tab.path, content: withLineEnding(tab.content, tab.eol || this.fileEol), expectedRevision: tab.diskRevision || undefined })
-        });
+        }).finally(() => { tab.saveInFlight = false; });
         const data = await res.json();
+        if (res.ok) tab.diskRevision = data.revision || tab.diskRevision;
         if (res.status === 409 && data.conflict) { this.setExternalConflict(tab, data); ok = false; continue; }
         if (!res.ok) { ok = false; continue; }
         tab.diskRevision = data.revision || null;

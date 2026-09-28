@@ -58,7 +58,7 @@ assert.match(shellJs, /window\.otterSettings = settings/, 'the shell must publis
 assert.match(ideJs, /this\.setting\('editor\.autoClosePairs'/, 'the editor must consult the auto-close setting');
 assert.match(ideJs, /this\.setting\('files\.formatOnSave'/, 'saving must consult format-on-save');
 assert.match(ideJs, /this\.setting\('editor\.indentGuides'/, 'rendering must consult indent guides');
-assert.match(ideJs, /this\.applySaveSettings\(\);\s*\n\s*const res = await fetch\('\/api\/file'/, 'save settings must be applied before the file is written');
+assert.match(ideJs, /this\.applySaveSettings\(\);[^]{0,600}?res = await fetch\('\/api\/file'/, 'save settings must be applied before the file is written');
 console.log('  pass  Settings dialog is reachable from File and the editor reads the settings it exposes');
 
 console.log('Settings certification passed (3 checks).');

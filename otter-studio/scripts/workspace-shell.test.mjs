@@ -46,6 +46,8 @@ assert.match(ide, /handleEditorHover/, 'Editor must support hover information lo
 assert.match(ide, /checkSignatureHelp/, 'Editor must support real-time parameter signature help');
 assert.match(ide, /splitLineEnding\(fileContent\)/, 'Editor must detect a file\'s CRLF/LF line ending when it opens');
 assert.match(ide, /withLineEnding\(this\.currentCode/, 'Save must write the file\'s own line ending');
+assert.equal((ide.match(/e\.ctrlKey && e\.key === 's'/g) || []).length, 1, 'Ctrl+S must be handled once (twice saved twice and raised a false conflict)');
+assert.match(ide, /if \(tab\.saveInFlight\) continue;/, 'The external-change check must skip a tab whose save is in flight');
 assert.match(ide, /problemStatusBanner\?\.addEventListener\('click'/, 'Clicking problem banner must navigate to source');
 assert.match(html, /id="workspaceReplaceInput"/, 'Workspace search pane must expose a replace input');
 assert.match(html, /id="btnWorkspaceReplaceAll"/, 'Workspace search pane must expose a Replace All button');
