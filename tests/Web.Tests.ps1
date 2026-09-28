@@ -1310,6 +1310,88 @@ for ($i = 0; $i -lt $sayRows.Count; $i++) {
 if ($sayMismatches.Count -gt 0) { throw "Web say must match the console (D8):`n  $($sayMismatches -join "`n  ")" }
 Write-Output "  pass  web say prints $($sayRows.Count) kinds of value exactly like the console (D-4, D8)"
 
+# Test 36 (RC3 B4): `<entry>.css` that is a symbolic link to a file outside
+# the entry's folder is refused and nothing is written; a normal sidecar,
+# and a link that stays inside the folder, are still inlined.
+$cssRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("otter_rc3_css_$([Guid]::NewGuid().ToString('N'))")
+$cssProj = Join-Path $cssRoot 'proj'
+$cssOutside = Join-Path $cssRoot 'outside'
+New-Item -ItemType Directory -Path $cssProj, $cssOutside, (Join-Path $cssProj 'styles') -Force | Out-Null
+try {
+    $cssEntry = Join-Path $cssProj 'app.ot'
+    [System.IO.File]::WriteAllText($cssEntry, "say `"hi`"`n", [System.Text.UTF8Encoding]::new($false))
+    [System.IO.File]::WriteAllText((Join-Path $cssOutside 'evil.css'), '/*TOP-SECRET-OUTSIDE*/', [System.Text.UTF8Encoding]::new($false))
+    [System.IO.File]::WriteAllText((Join-Path $cssProj 'styles/real.css'), '/*INSIDE-LINKED*/', [System.Text.UTF8Encoding]::new($false))
+    $cssLink = Join-Path $cssProj 'app.css'
+    $cssOut = Join-Path $cssProj 'app.html'
+
+    # Plain file first: still inlined.
+    [System.IO.File]::WriteAllText($cssLink, 'body{color:rgb(1,2,3)}/*PLAIN*/', [System.Text.UTF8Encoding]::new($false))
+    $null = Export-OtterWebApplication -SourcePath $cssEntry -PassThruExceptions
+    if ((Get-Content -LiteralPath $cssOut -Raw) -notmatch '/\*PLAIN\*/') { throw 'Expected a normal <entry>.css to be inlined.' }
+    Remove-Item -LiteralPath $cssLink, $cssOut -Force
+
+    $linkMade = $false
+    try {
+        New-Item -ItemType SymbolicLink -Path $cssLink -Target (Join-Path $cssOutside 'evil.css') -ErrorAction Stop | Out-Null
+        $linkMade = $true
+    } catch {
+        Write-Output "  skip  symlinked <entry>.css containment (RC3 B4): could not create a symbolic link here - $($_.Exception.Message)"
+    }
+    if ($linkMade) {
+        $refused = $null
+        try { $null = Export-OtterWebApplication -SourcePath $cssEntry -PassThruExceptions } catch { $refused = $_.Exception }
+        if ($null -eq $refused -or $refused -isnot [OtterError]) { throw "Expected an Otter error for a sidecar css linked outside the entry's folder, got: $refused" }
+        if ($refused.Message -notmatch 'outside the folder') { throw "Expected the refusal to say the stylesheet is outside the folder, got: $($refused.Message)" }
+        if (Test-Path -LiteralPath $cssOut) { throw 'Nothing may be written when the sidecar css is refused.' }
+
+        # The same through the real CLI: non-zero exit, no page written.
+        $otterPs1Path = Join-Path (Split-Path -Parent $PSScriptRoot) 'otter.ps1'
+        $cliOut = & $script:OtterHostExe @script:OtterHostArgs -File $otterPs1Path web $cssEntry -NoOpen 2>&1
+        if ($LASTEXITCODE -eq 0) { throw "Expected 'otter web' to fail for a sidecar css linked outside the folder. Output: $($cliOut -join ' ')" }
+        if (Test-Path -LiteralPath $cssOut) { throw "'otter web' wrote a page even though the sidecar css was refused." }
+        if (($cliOut -join ' ') -match 'TOP-SECRET-OUTSIDE') { throw 'The outside file content leaked into the output.' }
+
+        # A link that stays inside the entry's folder is still fine.
+        Remove-Item -LiteralPath $cssLink -Force
+        New-Item -ItemType SymbolicLink -Path $cssLink -Target (Join-Path $cssProj 'styles/real.css') -ErrorAction Stop | Out-Null
+        $null = Export-OtterWebApplication -SourcePath $cssEntry -PassThruExceptions
+        if ((Get-Content -LiteralPath $cssOut -Raw) -notmatch '/\*INSIDE-LINKED\*/') { throw 'Expected a sidecar css linked to a file inside the folder to be inlined.' }
+        Remove-Item -LiteralPath $cssOut -Force
+
+        # Reaching the project through a linked folder: the css is a plain
+        # file inside the (linked) entry folder, so it is still allowed.
+        Remove-Item -LiteralPath $cssLink -Force
+        [System.IO.File]::WriteAllText($cssLink, '/*VIA-LINKED-DIR*/', [System.Text.UTF8Encoding]::new($false))
+        $projLink = Join-Path $cssRoot 'projlink'
+        New-Item -ItemType SymbolicLink -Path $projLink -Target $cssProj -ErrorAction Stop | Out-Null
+        $viaLinkOut = Join-Path $cssOutside 'via.html'
+        $null = Export-OtterWebApplication -SourcePath (Join-Path $projLink 'app.ot') -OutputPath $viaLinkOut -PassThruExceptions
+        if ((Get-Content -LiteralPath $viaLinkOut -Raw) -notmatch '/\*VIA-LINKED-DIR\*/') { throw 'Expected a plain sidecar css to be inlined when the project folder is reached through a link.' }
+        Write-Output '  pass  a sidecar <entry>.css linked outside the entry folder is refused with nothing written; inside links still work (RC3 B4)'
+    }
+} finally {
+    Remove-Item -LiteralPath $cssRoot -Recurse -Force -ErrorAction SilentlyContinue
+}
+
+# Test 37 (RC3, web.md W9): the sidecar css is inserted literally. It used
+# to be the replacement string of a PowerShell -replace, so `$_` pasted the
+# whole page into the style block and `$1`/`$&`/`$$` were rewritten.
+$dollarDir = Join-Path ([System.IO.Path]::GetTempPath()) ("otter_rc3_dollar_$([Guid]::NewGuid().ToString('N'))")
+New-Item -ItemType Directory -Path $dollarDir -Force | Out-Null
+try {
+    $dollarEntry = Join-Path $dollarDir 'app.ot'
+    [System.IO.File]::WriteAllText($dollarEntry, "say `"hi`"`n", [System.Text.UTF8Encoding]::new($false))
+    $dollarCss = '.money::after { content: "$& and $1 and $_ and $$ and ${x}"; }'
+    [System.IO.File]::WriteAllText((Join-Path $dollarDir 'app.css'), $dollarCss, [System.Text.UTF8Encoding]::new($false))
+    $dollarHtml = Get-Content -LiteralPath (Export-OtterWebApplication -SourcePath $dollarEntry -PassThruExceptions) -Raw
+    if (-not $dollarHtml.Contains("<style id=`"otter-sidecar-style`">`n$dollarCss`n</style>")) { throw 'Expected the sidecar css (with $_ and $1 in it) to appear verbatim.' }
+    if (([regex]::Matches($dollarHtml, '<!DOCTYPE html>')).Count -ne 1) { throw 'The page was duplicated into the style block.' }
+    if (([regex]::Matches($dollarHtml, 'otter-sidecar-style')).Count -ne 1) { throw 'Expected exactly one sidecar style block.' }
+} finally {
+    Remove-Item -LiteralPath $dollarDir -Recurse -Force -ErrorAction SilentlyContinue
+}
+Write-Output '  pass  sidecar css containing $_ and $1 is inlined verbatim, once (RC3)'
 
 Write-Output 'Web compiler tests passed.'
 

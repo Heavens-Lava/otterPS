@@ -2569,6 +2569,60 @@ $declarativeListenersJoined
     return $html
 }
 
+# RC3 B4: the real location of a path, with every symbolic link or
+# junction along it followed (the file itself AND any linked folder on the
+# way). Uses Get-Item's LinkType/Target, which both Windows PowerShell 5.1
+# and PowerShell 7 provide. Hard links are not followed - they have no
+# "real" location other than this one. A path that does not exist yet is
+# returned as far as it could be resolved.
+function Resolve-OtterRealPath {
+    param([Parameter(Mandatory)][string]$Path)
+
+    $full = [System.IO.Path]::GetFullPath($Path)
+    $hops = 0
+    while ($true) {
+        $root = [System.IO.Path]::GetPathRoot($full)
+        $parts = @($full.Substring($root.Length) -split '[\\/]' | Where-Object { $_ -ne '' })
+        $current = $root
+        $relinked = $false
+        for ($i = 0; $i -lt $parts.Count; $i++) {
+            $next = [System.IO.Path]::Combine($current, $parts[$i])
+            $item = Get-Item -LiteralPath $next -Force -ErrorAction SilentlyContinue
+            if ($item -and ($item.LinkType -eq 'SymbolicLink' -or $item.LinkType -eq 'Junction')) {
+                $target = @($item.Target)[0]
+                if ($target) {
+                    $hops++
+                    if ($hops -gt 40) {
+                        throw [OtterError]::new("The path '$Path' has too many links to follow (a link loop?).", 0, 'build')
+                    }
+                    # A relative target is relative to the link's own folder;
+                    # Combine returns an absolute target unchanged.
+                    $resolvedTarget = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($current, $target))
+                    $rest = @($parts | Select-Object -Skip ($i + 1))
+                    $full = $resolvedTarget
+                    foreach ($r in $rest) { $full = [System.IO.Path]::Combine($full, $r) }
+                    $full = [System.IO.Path]::GetFullPath($full)
+                    $relinked = $true
+                    break
+                }
+            }
+            $current = $next
+        }
+        if (-not $relinked) { return $current }
+    }
+}
+
+# True when $Path is $Folder itself or somewhere beneath it. Both should
+# already be real paths (Resolve-OtterRealPath). Case-insensitive on
+# Windows, where the file system is.
+function Test-OtterPathInside {
+    param([string]$Path, [string]$Folder)
+    $onWindows = ($PSVersionTable.PSEdition -ne 'Core') -or [bool](Get-Variable -Name IsWindows -ValueOnly -ErrorAction SilentlyContinue)
+    $comparison = if ($onWindows) { [System.StringComparison]::OrdinalIgnoreCase } else { [System.StringComparison]::Ordinal }
+    $folderWithSep = $Folder.TrimEnd('\', '/') + [System.IO.Path]::DirectorySeparatorChar
+    return $Path.Equals($Folder.TrimEnd('\', '/'), $comparison) -or $Path.StartsWith($folderWithSep, $comparison)
+}
+
 function Export-OtterWebApplication {
     param(
         [Parameter(Mandatory)][string[]]$SourcePath,
@@ -2607,9 +2661,26 @@ function Export-OtterWebApplication {
 
         $sidecarCss = [System.IO.Path]::ChangeExtension($primarySource, '.css')
         if (Test-Path -LiteralPath $sidecarCss) {
-            $cssContent = [System.IO.File]::ReadAllText($sidecarCss, [System.Text.Encoding]::UTF8)
-            if ($html -match '(?i)</head>') {
-                $html = $html -replace '(?i)</head>', "<style id=`"otter-sidecar-style`">`n$cssContent`n</style>`n</head>"
+            # RC3 B4: containment. `<entry>.css` may be a symbolic link (git
+            # keeps them), and the lexical path says nothing about where
+            # the bytes really live - a link to ~/.ssh/id_rsa or any file
+            # outside the project was inlined into the page and shipped by
+            # build/publish. Resolve every link on the way to the real file
+            # and refuse, before anything is written, unless it still lies
+            # inside the (equally resolved) folder that holds the entry.
+            $entryDirReal = Resolve-OtterRealPath -Path ([System.IO.Path]::GetDirectoryName($primarySource))
+            $sidecarReal = Resolve-OtterRealPath -Path $sidecarCss
+            if (-not (Test-OtterPathInside -Path $sidecarReal -Folder $entryDirReal)) {
+                throw [OtterError]::new("The stylesheet '$([System.IO.Path]::GetFileName($sidecarCss))' is a link to '$sidecarReal', which is outside the folder that holds '$([System.IO.Path]::GetFileName($primarySource))'. Otter only includes files from inside that folder, so nothing was written.", 0, 'build')
+            }
+            $cssContent = [System.IO.File]::ReadAllText($sidecarReal, [System.Text.Encoding]::UTF8)
+            # A literal insert before the first </head>, not `-replace`: the
+            # CSS was the regex REPLACEMENT string, so `$_`, `$&`, `$1` and
+            # `$$` in a stylesheet were expanded (`$_` pasted the whole page
+            # into the style block) and every </head> was rewritten.
+            $headClose = $html.IndexOf('</head>', [System.StringComparison]::OrdinalIgnoreCase)
+            if ($headClose -ge 0) {
+                $html = $html.Insert($headClose, "<style id=`"otter-sidecar-style`">`n$cssContent`n</style>`n")
             }
         }
     }
