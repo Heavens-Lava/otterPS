@@ -10,7 +10,8 @@ export const DEFAULT_SETTINGS = {
     autoClosePairs: true,      // "" () []
     autoCloseBlocks: true,     // Enter after `if x` writes the closing period
     indentGuides: true,
-    renderWhitespace: false     // a dot for every space
+    renderWhitespace: false,    // a dot for every space
+    inlineBlame: true           // who last changed the cursor's line (Git)
   },
   files: {
     formatOnSave: false,       // run the Otter formatter when saving .ot files
@@ -31,6 +32,7 @@ const FIELDS = [
   { section: 'Editor', path: 'editor.autoCloseBlocks', label: 'Close blocks with a period', type: 'checkbox', hint: 'Enter after "if x is 1" writes the body line and the closing "."' },
   { section: 'Editor', path: 'editor.indentGuides', label: 'Indent guides', type: 'checkbox', hint: 'A faint line for each indentation level' },
   { section: 'Editor', path: 'editor.renderWhitespace', label: 'Show whitespace', type: 'checkbox', hint: 'A faint dot for every space' },
+  { section: 'Editor', path: 'editor.inlineBlame', label: 'Inline blame', type: 'checkbox', hint: 'Who last changed the line the cursor is on, and when (Git)' },
   { section: 'Files', path: 'files.formatOnSave', label: 'Format on save', type: 'checkbox', hint: 'Re-indent .ot files with the Otter formatter when saving' },
   { section: 'Files', path: 'files.trimTrailingWhitespace', label: 'Trim trailing whitespace', type: 'checkbox', hint: 'Remove spaces at the end of lines when saving' },
   { section: 'Files', path: 'files.insertFinalNewline', label: 'End files with a newline', type: 'checkbox' },

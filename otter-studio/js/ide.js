@@ -2,6 +2,7 @@
 
 import { openLaunchProfilesEditor } from './components/launch-profiles.js';
 import { createGitGutter } from './scm/gutter-changes.js';
+import { createInlineBlame } from './scm/inline-blame.js';
 import { resolveEditorConfig, indentationFor, indentUnit, DEFAULT_INDENT } from './editor/indentation.js';
 import { openLocalHistory } from './components/local-history.js';
 import {
@@ -110,6 +111,7 @@ export class OtterStudioIde {
     this.workspaceSymbols = [];
     this.bookmarks = createBookmarks();
     this.gitGutter = createGitGutter(this);
+    this.inlineBlame = createInlineBlame(this);
     this.templatesCollapsed = false;
     this.navigationMode = null;
     this.navigationItems = [];
@@ -3039,6 +3041,7 @@ export class OtterStudioIde {
 
     this.renderCursorOverlays();
     this.updateEditorChrome();
+    this.inlineBlame.decorate();
 
     // Attach inline editor handlers
     this.setupInlineEditor();
@@ -3773,6 +3776,7 @@ export class OtterStudioIde {
 
   updateCursorPos(textarea) {
     if (!textarea) return;
+    this.inlineBlame?.decorate();
     const textBefore = textarea.value.substring(0, textarea.selectionStart);
     const lines = textBefore.split('\n');
     const lineNum = lines.length;

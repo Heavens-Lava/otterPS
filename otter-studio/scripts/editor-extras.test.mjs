@@ -60,6 +60,21 @@ assert.equal(revertHunk(edited, hunks[0]), 'a\nb\nc\nnew\ne\nend\n');
 assert.equal(revertHunk(edited, hunks[2]), 'a\nB\nc\nnew\ne\n');
 assert.equal(revertHunk('a\r\nb\r\ne\r\n', changeHunks(base, 'a\nb\ne\n')[0]), 'a\r\nb\r\nc\r\nd\r\ne\r\n');
 
+// Inline blame: the buffer is matched to the blamed text, so edits above a
+// line do not shift its answer, and new lines read "Uncommitted change".
+const { mapBufferToBlame, annotationFor } = await import('../js/scm/inline-blame.js');
+const blame = [
+  { line: 1, text: 'say 1', hash: 'a'.repeat(40), author: 'Ana', date: '2026-01-01T10:00:00Z', summary: 'first' },
+  { line: 2, text: 'say 2', hash: 'b'.repeat(40), author: 'Ben', date: '2026-01-05T10:00:00Z', summary: 'second' }
+];
+const map = mapBufferToBlame(blame, 'say 0\nsay 1\nsay 2\n');
+assert.equal(map.get(1), undefined, 'a new line has no blame');
+assert.equal(map.get(2).author, 'Ana');
+assert.equal(map.get(3).author, 'Ben', 'shifted by the new line above');
+assert.equal(annotationFor(null).text, 'Uncommitted change');
+assert.equal(annotationFor(map.get(3), Date.parse('2026-01-07T10:00:00Z')).text, 'Ben, 2 days ago · second');
+assert.equal(annotationFor({ ...blame[0], uncommitted: true }).text, 'Uncommitted change');
+
 // Keys: chords from events, display and parsing.
 assert.equal(chordOf({ ctrlKey: true, altKey: true, key: 'k', code: 'KeyK' }), 'ctrl+alt+k');
 assert.equal(chordOf({ altKey: true, key: '˚', code: 'KeyK' }), 'alt+k', 'Alt letters use the key cap');
@@ -69,4 +84,4 @@ assert.equal(parseChord('Ctrl + Shift + Up'), 'ctrl+shift+arrowup');
 assert.equal(parseChord('Shift+Ctrl+G'), 'ctrl+shift+g', 'modifiers in a fixed order');
 assert.equal(parseChord('Ctrl+'), null);
 
-console.log('Editor extras tests passed (6 groups).');
+console.log('Editor extras tests passed (7 groups).');

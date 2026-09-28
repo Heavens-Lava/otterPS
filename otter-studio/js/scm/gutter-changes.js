@@ -78,6 +78,19 @@ export function revertHunk(current, hunk) {
 }
 
 /**
+ * Where a workspace file sits in its Git repository: { folder, repoPath },
+ * or null when it is not in one. (Also used by inline-blame.js.)
+ */
+export async function locateInRepo(path) {
+  const folder = path.split('/').slice(0, -1).join('/') || '.';
+  const status = await (await fetch(`/api/git/status?folder=${encodeURIComponent(folder)}`)).json();
+  if (!status.isRepo) return null;
+  const rootPrefix = status.root && status.root !== '.' ? `${status.root}/` : '';
+  if (rootPrefix && !path.startsWith(rootPrefix)) return null;
+  return { folder, repoPath: rootPrefix ? path.slice(rootPrefix.length) : path };
+}
+
+/**
  * The editor side: fetches each file's base from /api/git/diff, keeps the
  * hunks current for the open file, and answers the gutter and the
  * next/previous/revert change commands.
@@ -90,13 +103,10 @@ export function createGitGutter(ide) {
   let markers = new Map();
 
   async function fetchBase(path) {
-    const folder = path.split('/').slice(0, -1).join('/') || '.';
     try {
-      const status = await (await fetch(`/api/git/status?folder=${encodeURIComponent(folder)}`)).json();
-      if (!status.isRepo) return null;
-      const rootPrefix = status.root && status.root !== '.' ? `${status.root}/` : '';
-      if (rootPrefix && !path.startsWith(rootPrefix)) return null;
-      const repoPath = rootPrefix ? path.slice(rootPrefix.length) : path;
+      const where = await locateInRepo(path);
+      if (!where) return null;
+      const { folder, repoPath } = where;
       const res = await fetch(`/api/git/diff?folder=${encodeURIComponent(folder)}&path=${encodeURIComponent(repoPath)}`);
       if (!res.ok) return null;
       const data = await res.json();
