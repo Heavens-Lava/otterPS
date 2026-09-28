@@ -424,7 +424,7 @@ architecture reference. Listed in the recommended implementation order.
 -   [x] Keyboard and context menu out of `canvas.js` into designer/actions.js, commands.js, context-menu.js (`6c7e949`)
 -   [ ] Render / overlay / gestures still share `canvas.js`; split them when next reworked
 -   [x] Designer shortcuts registered in the command registry (visible in F1 and the Shortcuts dialog) (`6c7e949`; `designer-commands` suite; F1 lists "Zoom to Selection · Shift+2" in the real UI)
--   [ ] Spacing drag modifiers: Shift = opposite sides, Alt = all sides; box-model numbers scrubbable
+-   [x] Spacing modifiers, Webstudio's convention (Shift = all sides, Alt = this side and its opposite) on the canvas grips and the inspector's box-model numbers, which drag-scrub and take Shift+Enter / Alt+Enter (`8fd2e5f`; verified in the real UI)
 -   [ ] Flex child and Grid child inspector sections shown by parent layout (grow, shrink, basis, align-self, order, select-parent link)
 -   [ ] Outline (focus ring) controls
 -   [ ] Per-side border controls
