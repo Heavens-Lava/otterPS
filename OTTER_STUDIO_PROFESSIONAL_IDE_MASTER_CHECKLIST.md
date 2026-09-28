@@ -1,6 +1,6 @@
 # Otter Studio --- Professional IDE Master Requirements & Certification Checklist
 
-**Status date:** September 14, 2026\
+**Status date:** September 27, 2026\
 **North star:** **Otter builds Otter Studio. Otter Studio builds Otter
 applications. The language stays simple; the platform carries the
 complexity.**
@@ -146,6 +146,7 @@ platform.
 -   [ ] App/user-data directories
 -   [ ] Permissions API where supported
 -   [ ] Archive ZIP support if dogfooding requires it
+-   [ ] Recycle-bin/trash delete instead of permanent delete where the OS supports it
 
 # 4. Processes, shell, terminal
 
@@ -246,6 +247,12 @@ platform.
 -   [x] Multi-root workspaces (Multi-root tree explorer with Solution header and multiple project roots, unified cross-project search and symbol index)
 -   [x] Restore session (localStorage session recovery)
 -   [x] Large-repo performance (Bounded scanDir with exclusion of .git, node_modules, dist, max depth and node limits guaranteeing sub-second response)
+-   [ ] Explorer file management: new file, new folder, rename, delete to recycle bin
+-   [ ] Explorer move/copy by drag and drop between folders
+-   [ ] Reveal in OS file manager / copy path / copy relative path
+-   [ ] Per-file local history (timeline) independent of Git, with restore
+-   [ ] `.editorconfig` support and auto-detect indentation per file
+-   [ ] Workspace-recommended settings and extensions
 
 # 8. Professional source editor
 
@@ -283,6 +290,26 @@ platform.
     dirty-buffer conflict UI, and stale-write rejection (`661f9c9`)
 -   [x] Autosave (session snapshot in localStorage)
 -   [x] Crash recovery (auto-restore on browser restart)
+-   [ ] Code folding for blocks, functions, and comment regions
+-   [ ] Minimap
+-   [x] Indent guides (Settings > Editor; `editing-assist.test.mjs`)
+-   [ ] Render-whitespace toggle
+-   [ ] Sticky scroll (current block header pinned while scrolling)
+-   [x] Auto-closing quotes/parentheses and auto-insert of the block-terminating period (wrap selection, step over closers, delete pairs; Enter after a block opener writes the body line and `.`; `editing-assist.test.mjs`, verified by typing in the real editor)
+-   [ ] User-defined snippets with a snippet editor and tab stops
+-   [ ] Standalone diff editor: compare two files, compare with saved, compare with Git HEAD
+-   [x] Format on save, trim trailing whitespace, insert final newline (Settings > Files; applied before the file is written; verified through the real Save path)
+-   [ ] Formatter style settings
+-   [ ] Bookmarks with next/previous navigation
+-   [ ] TODO/FIXME comment scanner panel
+-   [ ] Link detection: Ctrl+Click URLs and file paths in source
+-   [ ] Inlay hints (parameter names, inferred values)
+-   [ ] Code lens (reference counts, run/debug test above functions)
+-   [ ] Editor groups: drag tab to split, grid layouts, pinned tabs, preview tabs, Open Editors list
+-   [ ] Search in selection, preserve case on replace, multi-line search
+-   [ ] Search include/exclude globs that honor `.gitignore`
+-   [ ] Drag-and-drop text editing
+-   [x] Editor font size (Settings > Editor, 12-15 px; code layer, input and gutter stay aligned)
 
 # 9. Otter language service
 
@@ -306,6 +333,10 @@ platform.
 -   [ ] Cross-file/module resolution
 -   [ ] LSP support if beneficial
 -   [ ] Stable language-service plugin API
+-   [ ] Otter doc-comment syntax so user functions show documentation on hover
+-   [ ] Call hierarchy (incoming/outgoing)
+-   [ ] Diagnostic suppression comments and per-rule severity configuration
+-   [ ] Workspace symbol search including standard-library and package symbols
 
 # 10. Diagnostics experience
 
@@ -340,32 +371,38 @@ platform.
 -   [x] Live source→designer and designer→source synchronization
 -   [x] Reliable real-DOM hit testing (elementsFromPoint + computed flex direction)
 -   [x] Selection/hover overlays
--   [ ] Multi-selection
+-   [x] Multi-selection (Ctrl/Shift+click, marquee drag, Ctrl+A siblings; style edits apply to all selected; `34b7c3b`)
 -   [x] Resize handles (handle-e, handle-s, handle-se with 8px snapping & tooltip)
--   [ ] Alignment/spacing guides
+-   [x] Alignment/spacing guides (resize snaps to sibling sizes and parent width with guide lines; free-move snaps to parent/sibling edges and centres; draggable padding/margin/gap grips)
 -   [x] Margin/padding visualization
 -   [x] Insertion markers (GrapesJS-style line with dot endpoints)
 -   [x] Nested drop targets
--   [ ] Zoom/pan
+-   [x] Zoom/pan (Ctrl+wheel around the pointer, zoom menu, Fit; Space/middle-drag pan)
 -   [x] Viewport presets (desktop/tablet/mobile/full)
--   [ ] Responsive breakpoints
+-   [x] Responsive breakpoints (Desktop/Tablet/Mobile contexts write `@media` rules widest-first; canvas previews at 768/375 px; verified in the compiled app at 1280/768/375)
 -   [x] Copy/paste/duplicate/delete controls (Ctrl+D duplicate, Del delete, badge buttons)
 -   [x] Designer undo/redo (Ctrl+Z / Ctrl+Y with snapshot stack)
 -   [x] Flex row/column insertion
--   [ ] Grid placement
+-   [x] Grid placement (grid track overlay; drops into an empty cell write `grid-column`/`grid-row`; column stepper and span controls)
 -   [x] Reparenting
 -   [x] Empty-container drop
 -   [x] Direct inline text editing on canvas (double-click to edit headings, text, buttons, labels)
 -   [x] Live user interaction mode on canvas ([🎨 Design] vs [⚡ Live Interact])
--   [ ] Auto-scroll while dragging
+-   [x] Auto-scroll while dragging
 -   [ ] Pointer capture/touch/high-DPI
 -   [x] No stale bounds
 -   [x] No direct DOM-only mutation
 -   [x] No hidden left/top in flow mode
--   [ ] Explicit free-position mode only
+-   [x] Explicit free-position mode only (free dragging only for `position: absolute/fixed`; flow elements reorder structurally)
 -   [x] Production round-trip regression test
 -   [x] Study/adapt GrapesJS interaction techniques without replacing Otter model/compiler
 -   [x] Review third-party licenses
+-   [ ] Layers/hierarchy panel for the canvas (component tree with select/reorder)
+-   [ ] Lock and hide elements on canvas
+-   [ ] Keyboard nudging (arrow keys, Shift for 10px) and snap to grid (nudging done for absolute elements; 8px snapping on resize; a user-visible grid and snap-to-grid toggle remain)
+-   [x] Style editor for `styles.css` with live preview (full CSS inspector per component, states and breakpoints, raw declarations, lossless CSS AST; `designer-css`/`designer-styles` suites) - shared class rules remain open
+-   [x] State variants: hover/pressed/focused preview on canvas (`data-force-state`); verified hover in the compiled app - disabled state remains open
+-   [ ] Sample data binding so lists/tables render realistic content on canvas
 
 # 12. UI components/properties/events
 
@@ -399,13 +436,13 @@ platform.
 -   [ ] Canvas/game surface
 -   [ ] Custom components
 -   [ ] Accessibility semantics
--   [ ] Property inspector
--   [ ] Property search/categories
+-   [x] Property inspector (layout, spacing, size, position, typography, background, border, effects, all CSS)
+-   [x] Property search/categories (collapsible sections, search box, status dots for set/inherited values)
 -   [ ] Binding/state editor
 -   [ ] Events panel
 -   [ ] Create/navigate handler
 -   [ ] Safe component rename
--   [ ] Responsive properties
+-   [x] Responsive properties (every style field edits the active breakpoint/state; inherited values shown as placeholders)
 -   [ ] Asset/color/font/icon pickers
 -   [ ] Dynamic create/insert/remove certification
 -   [ ] Focus/show/hide
@@ -449,20 +486,20 @@ platform.
 -   [x] Desktop host architecture
 -   [x] Ephemeral loopback/token/origin hardening reported
 -   [ ] Final Windows-host acceptance
--   [ ] In-process IPC strategy for consumer apps where appropriate
--   [ ] Windows packaging
--   [ ] macOS packaging
--   [ ] Linux packaging
+-   [x] In-process IPC strategy for consumer apps where appropriate (Electron target: preload `contextBridge` exposes `window.otterNative.{files,folders,commands,clipboard,system,dialogs}`, Node main process implements them; no PowerShell at run time; `34b7c3b`, `ElectronExport.Tests.ps1` live launch)
+-   [x] Windows packaging (`otter package --target windows`: NSIS installer + portable .exe from the Electron export; portable exe verified running outside the repo with PATH reduced to System32; `b88e173`)
+-   [ ] macOS packaging (refused explicitly until run and tested on macOS)
+-   [ ] Linux packaging (refused explicitly until run and tested on Linux)
 -   [ ] Multiple windows
--   [ ] Native menus/dialogs
+-   [ ] Native menus/dialogs (open-file / open-folder / save dialogs done through Electron `dialog`; native app menus open)
 -   [ ] Tray/menu bar
--   [ ] Notifications
+-   [ ] Notifications (Electron `Notification` wired through `otterNative.system.notification`; not yet certified by a live test)
 -   [ ] File associations
 -   [ ] Protocol handlers
 -   [ ] Single-instance apps
 -   [ ] Auto-update
--   [ ] Installer/uninstaller
--   [ ] Code signing
+-   [x] Installer/uninstaller (NSIS per-user installer with choosable folder, desktop shortcut and uninstaller; `b88e173`)
+-   [ ] Code signing (unsigned today; SmartScreen warns on other PCs; needs a certificate or Azure Trusted Signing)
 -   [ ] macOS notarization
 -   [ ] Linux packages
 -   [ ] Crash dumps/logs
@@ -506,6 +543,7 @@ platform.
 -   [ ] Health checks
 -   [ ] Production deployment
 -   [ ] Containers/cloud guides
+-   [ ] In-Studio REST client for testing endpoints (request builder, history, saved collections)
 
 # 17. 2D game target
 
@@ -556,6 +594,9 @@ platform.
 -   [ ] Run without debug
 -   [ ] Run with debug
 -   [ ] Persist launch settings
+-   [ ] Task runner for arbitrary pre-build/post-build/custom tasks
+-   [ ] Problem matchers that map external tool output into the Problems panel
+-   [ ] Pre-launch tasks attached to launch profiles
 
 # 19. Debugger
 
@@ -579,6 +620,10 @@ platform.
 -   [ ] Attach
 -   [ ] Remote debug if justified
 -   [ ] DAP support if beneficial
+-   [ ] Run to cursor / set next statement
+-   [ ] Inline variable values and hover-to-evaluate while paused
+-   [ ] Exception settings panel (break on thrown/uncaught by category)
+-   [ ] Debug toolbar and multi-session debugging
 
 # 20. Testing platform
 
@@ -641,6 +686,10 @@ platform.
 -   [ ] Tags
 -   [ ] Remote/auth management
 -   [ ] Source-control extension API
+-   [ ] Gutter change indicators (added/modified/deleted) in the editor
+-   [ ] Inline blame annotations
+-   [ ] Pull request and issue integration (GitHub/GitLab providers)
+-   [ ] `.gitignore` template generator on project creation
 
 # 23. Refactoring
 
@@ -790,23 +839,29 @@ platform.
 # 31. Settings/workbench/commands
 
 -   [ ] Global/workspace/project settings
--   [ ] Settings UI
+-   [x] Settings UI (File > Settings, Ctrl+,; generated from one field list; persisted; `settings.test.mjs`)
 -   [ ] Keybinding editor
 -   [ ] Themes/fonts
 -   [ ] Editor/terminal/designer/autosave/update/privacy settings
 -   [ ]
     Explorer/Search/SCM/Run-Debug/Extensions/Problems/Output/Terminal/Tests/Properties/Toolbox/Designer/Live
     App views
--   [ ] Command Palette
--   [ ] Quick Open
--   [ ] Status bar
+-   [x] Command Palette (F1, Ctrl+Shift+P, or `>` in Quick Open / Ctrl+K; runs registry commands; verified in the real UI)
+-   [x] Quick Open (Ctrl+P and Ctrl+K with fuzzy file matching)
+-   [x] Status bar (run/debug, problems, Studio service status, cursor, EOL, encoding, trust)
 -   [ ] Dockable/resizable/persistent panels
 -   [ ] Multi-window
 -   [ ] Restore/reset layout
--   [ ] Central command registry
+-   [x] Central command registry (`js/shell/commands.js`: 38 commands, unique ids and shortcuts enforced by `commands.test.mjs`)
 -   [ ] Context-sensitive shortcuts
--   [ ] Discoverable shortcut UI
+-   [x] Discoverable shortcut UI (Help > Keyboard Shortcuts, generated from the registry, filterable; shortcuts also shown in the palette)
 -   [ ] Platform shortcut mapping
+-   [ ] Settings sync across machines and named settings profiles
+-   [ ] Notifications center with history
+-   [ ] Zen/distraction-free mode and full screen
+-   [ ] Help menu: report issue, release notes, keyboard reference, in-IDE documentation viewer
+-   [ ] Standard-library / API browser panel (object-browser style)
+-   [ ] Interactive first-run walkthroughs and guided tutorials
 
 # 32. Reliability/performance
 
