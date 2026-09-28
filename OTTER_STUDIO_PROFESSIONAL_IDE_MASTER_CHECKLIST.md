@@ -701,20 +701,20 @@ architecture reference. Listed in the recommended implementation order.
 
 # 22. Git/source control
 
--   [ ] Repository detection
--   [ ] Explorer status
--   [ ] Diff viewer
--   [ ] Stage/unstage
--   [ ] Commit/amend
--   [ ] Branches
--   [ ] Fetch/pull/push
--   [ ] Merge
--   [ ] Conflict editor
--   [ ] History/file history
--   [ ] Blame
--   [ ] Stash
--   [ ] Tags
--   [ ] Remote/auth management
+-   [x] Repository detection (git rev-parse from the open project; Initialize Repository when none) (otter-studio/scripts/git.test.mjs, real git CLI)
+-   [x] Explorer status (M/A/U/D/R/! decorations on Explorer entries, refreshed on save/focus) (otter-studio/scripts/git.test.mjs, real git CLI)
+-   [x] Diff viewer (side-by-side, Myers line diff, staged and working-tree sides) (otter-studio/scripts/git.test.mjs, real git CLI)
+-   [x] Stage/unstage (per file and all) (otter-studio/scripts/git.test.mjs, real git CLI)
+-   [x] Commit/amend (message via stdin, Ctrl+Enter; warns about unsaved tabs and amending pushed commits) (otter-studio/scripts/git.test.mjs, real git CLI)
+-   [x] Branches (switch, create, delete, remote tracking) (otter-studio/scripts/git.test.mjs, real git CLI)
+-   [x] Fetch/pull/push (first push publishes and sets upstream; never prompts for passwords) (otter-studio/scripts/git.test.mjs, real git CLI)
+-   [x] Merge (merge into current, abort) (otter-studio/scripts/git.test.mjs, real git CLI)
+-   [x] Conflict editor (accept ours/theirs/both per block; saves with revision check, then marks resolved) (otter-studio/scripts/git.test.mjs, real git CLI)
+-   [x] History/file history (commit details with files and patch) (otter-studio/scripts/git.test.mjs, real git CLI)
+-   [x] Blame (otter-studio/scripts/git.test.mjs, real git CLI)
+-   [x] Stash (push incl. untracked, pop, apply, drop) (otter-studio/scripts/git.test.mjs, real git CLI)
+-   [x] Tags (lightweight/annotated create, delete) (otter-studio/scripts/git.test.mjs, real git CLI)
+-   [ ] Remote/auth management (add/remove remotes and redacted URLs done; sign-in is delegated to the user's credential helper/SSH agent, no in-Studio account management)
 -   [ ] Source-control extension API
 -   [ ] Gutter change indicators (added/modified/deleted) in the editor
 -   [ ] Inline blame annotations

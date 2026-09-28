@@ -709,3 +709,11 @@ body.theme-dark {
   .theme-toggle-label { display: none; }
   .theme-toggle-btn { min-width: 32px; width: 32px; }
 }
+
+/* Dialog header/footer bands in the dark theme (the light theme uses #f8fafc). */
+.theme-dark .modal-header,
+.theme-dark .modal-footer {
+  background: #0b1724;
+  border-color: #22364a;
+}
+.theme-dark .modal-title { color: var(--text-main); }

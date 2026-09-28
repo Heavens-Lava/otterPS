@@ -21,6 +21,7 @@
   <link rel="stylesheet" href="css/studio-shell.css">
   <link rel="stylesheet" href="css/package-dialog.css">
   <link rel="stylesheet" href="css/settings.css">
+  <link rel="stylesheet" href="css/scm.css">
 </head>
 <body class="theme-dark">
   <div class="studio-shell">
@@ -218,6 +219,10 @@
             <span class="tab-btn-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.5-4.5"/></svg></span>
             <span>Search</span>
           </button>
+          <button class="sidebar-switch-btn" id="btnPaneScm" data-pane="scm" title="Source Control (Ctrl+Shift+G)">
+            <span class="tab-btn-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="6" cy="5" r="2"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="8" r="2"/><path d="M6 7v10M18 10c0 4-6 3-11 7"/></svg></span>
+            <span>Git</span>
+          </button>
         </div>
 
         <!-- Pane 1: Project Files & Templates -->
@@ -330,6 +335,16 @@
             </form>
             <div class="workspace-search-summary" id="workspaceSearchSummary">Enter text to search the current workspace.</div>
             <div class="workspace-search-results" id="workspaceSearchResults"></div>
+          </div>
+        </div>
+
+        <!-- Pane 5: Source Control (js/components/source-control.js) -->
+        <div class="sidebar-pane" id="paneScm" style="display: none;">
+          <div class="panel-card scm-card" style="flex: 1; min-height: 0;">
+            <div class="panel-card-header">
+              <span class="panel-card-title">Source Control</span>
+            </div>
+            <div class="scm-root" id="scmRoot"></div>
           </div>
         </div>
       </aside>
