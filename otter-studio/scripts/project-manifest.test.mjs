@@ -156,6 +156,7 @@ async function runTests() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name: 'test-rich-manifest',
+        overwrite: true, // the fixture is re-created on every run
         archetype: 'web',
         fileName: 'web-app.ot',
         code: 'say "Web app started"\n'
@@ -174,6 +175,26 @@ async function runTests() {
     assert.ok(diskContent.build && diskContent.build.outputDir === 'dist');
     assert.ok(diskContent.permissions && diskContent.permissions.filesystem === true);
     assert.ok(diskContent.dependencies && diskContent.dependencies.core);
+  });
+
+  await testAsync('POST /api/create-project refuses to replace an existing project', async () => {
+    const manifestDiskPath = path.join(REPO_ROOT, 'projects', 'test-rich-manifest', 'project.json');
+    const before = fs.readFileSync(manifestDiskPath, 'utf8');
+    const againRes = await request('/api/create-project', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'test-rich-manifest', archetype: 'console', fileName: 'other.ot', code: 'say "x"\n' })
+    });
+    assert.equal(againRes.status, 409);
+    assert.equal(againRes.json.exists, true);
+    assert.equal(againRes.json.folder, 'projects/test-rich-manifest');
+    assert.equal(fs.readFileSync(manifestDiskPath, 'utf8'), before, 'project.json must be untouched');
+    assert.ok(!fs.existsSync(path.join(REPO_ROOT, 'projects', 'test-rich-manifest', 'other.ot')));
+
+    const suggestRes = await request('/api/suggest-project-name?name=test-rich-manifest');
+    assert.equal(suggestRes.status, 200);
+    assert.notEqual(suggestRes.json.name, 'test-rich-manifest');
+    assert.ok(!fs.existsSync(path.join(REPO_ROOT, 'projects', suggestRes.json.name)));
   });
 
   await testAsync('GET /api/project-manifest returns normalized manifest and validation', async () => {

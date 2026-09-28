@@ -14,6 +14,7 @@ import { renderPreview } from './components/preview.js';
 import { OtterStudioIde } from './ide.js';
 import { StyleController } from './designer/style-context.js';
 import { mountStudioShell } from './shell/studio-shell.js';
+import { setWorkspaceTrust } from './project/workspace-solution.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
   const themeToggle = document.getElementById('btnThemeToggle');
@@ -528,6 +529,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   function openNewProjectModal() {
     if (newProjectModal) {
       newProjectModal.style.display = 'flex';
+      showCreateError('');
+      suggestProjectName(defaultNames[selectedArchetype] || inputProjectName?.value || 'my-app');
       setTimeout(() => inputProjectName?.focus(), 60);
     }
   }
@@ -553,11 +556,43 @@ document.addEventListener('DOMContentLoaded', async () => {
       selectedArchetype = card.getAttribute('data-archetype') || 'console';
       if (inputProjectName && defaultNames[selectedArchetype]) {
         inputProjectName.value = defaultNames[selectedArchetype];
+        showCreateError('');
+        suggestProjectName(defaultNames[selectedArchetype]);
       }
     });
   });
 
   // Create Project action
+  // Problems creating a project show inside the dialog, next to the name.
+  function showCreateError(message, existingFolder = null) {
+    let box = document.getElementById('newProjectError');
+    if (!box) {
+      box = document.createElement('div');
+      box.id = 'newProjectError';
+      box.className = 'new-project-error';
+      box.setAttribute('role', 'alert');
+      document.querySelector('.project-config-section')?.after(box);
+    }
+    box.hidden = !message;
+    box.innerHTML = message
+      ? `<span>${message.replace(/</g, '&lt;')}</span>${existingFolder ? ' <button type="button" class="btn-modal-link" id="btnOpenExistingProject">Open it instead</button>' : ''}`
+      : '';
+    box.querySelector('#btnOpenExistingProject')?.addEventListener('click', async () => {
+      closeNewProjectModal();
+      await ide.loadProjectTree(existingFolder);
+    });
+    if (message) inputProjectName?.focus();
+  }
+
+  // Offer a name that is not taken yet whenever the archetype changes.
+  async function suggestProjectName(base) {
+    try {
+      const res = await fetch(`/api/suggest-project-name?name=${encodeURIComponent(base)}`);
+      const data = await res.json();
+      if (data.name && inputProjectName) inputProjectName.value = data.name;
+    } catch { /* keep the typed name */ }
+  }
+
   async function handleCreateProject() {
     try {
       const projName = (inputProjectName?.value || '').trim() || defaultNames[selectedArchetype] || 'my-app';
@@ -587,7 +622,11 @@ document.addEventListener('DOMContentLoaded', async () => {
           { name: 'project.json', path: 'project.json', isDir: false }
         ];
 
-        // Call backend API to create real project directory and files on disk!
+        // Create the project on disk. A name that is taken is reported in the
+        // dialog; nothing is overwritten.
+        showCreateError('');
+        btnConfirmCreateProject.disabled = true;
+        let created;
         try {
           const res = await fetch('/api/create-project', {
             method: 'POST',
@@ -600,14 +639,21 @@ document.addEventListener('DOMContentLoaded', async () => {
               css: initialCss
             })
           });
-          const data = await res.json();
-          if (data.ok) {
-            projectFolder = data.folder;
-            projectTree = data.tree;
+          created = await res.json();
+          if (!res.ok || !created.ok) {
+            showCreateError(created.error || `The project could not be created (HTTP ${res.status}).`, created.exists ? created.folder : null);
+            return;
           }
         } catch (apiErr) {
-          console.warn('Backend create-project failed, using local in-memory:', apiErr);
+          showCreateError(`The Studio service could not be reached: ${apiErr.message}`);
+          return;
+        } finally {
+          btnConfirmCreateProject.disabled = false;
         }
+        projectFolder = created.folder;
+        projectTree = created.tree;
+        // Studio wrote every file in it from its own template: nothing to distrust.
+        setWorkspaceTrust(projectFolder, true);
 
         const filePath = `${projectFolder}/${fileName}`;
         ide.currentProjectFolder = projectFolder;
@@ -642,6 +688,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         ide.renderEditorCode(initialCode);
         ide.lintCurrentCode();
         syncCodeFromUiModel();
+
+        closeNewProjectModal();
+
+        // Open it exactly like File > Open: the tree, the project chip,
+        // Recent Projects, and the Welcome page all follow from this path.
+        await ide.loadProjectTree(projectFolder);
+        await ide.navigateToLocation({ path: filePath, line: 1, column: 0 });
 
         // Ensure left sidebar shows the Files tab so project files are immediately visible!
         switchSidebarPane('files');

@@ -49,6 +49,7 @@ const createRes = await fetch(`${SERVER_BASE}/api/create-project`, {
   body: JSON.stringify({
     name: 'milestone-app',
     baseDir: 'projects',
+    overwrite: true, // the fixture is re-created on every run
     fileName: 'main.ot',
     code: initialOtSource,
     archetype: 'web'

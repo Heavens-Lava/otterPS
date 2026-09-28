@@ -392,6 +392,15 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // A project name that is not taken yet: my-app, my-app-2, my-app-3...
+  if (pathname === '/api/suggest-project-name' && req.method === 'GET') {
+    const base = String(urlObj.searchParams.get('name') || 'my-app').trim().replace(/[^a-zA-Z0-9_\-\.]/g, '-') || 'my-app';
+    const projectsDir = path.join(REPO_ROOT, 'projects');
+    let candidate = base;
+    for (let n = 2; fs.existsSync(path.join(projectsDir, candidate)) && n < 1000; n++) candidate = `${base}-${n}`;
+    return sendJson(res, { name: candidate });
+  }
+
   if (pathname === '/api/create-project' && req.method === 'POST') {
     try {
       const body = await readBody(req);
@@ -405,6 +414,15 @@ const server = http.createServer(async (req, res) => {
       const projectDir = path.join(targetBase, projName);
       if (!projectDir.startsWith(REPO_ROOT)) {
         return sendJson(res, { error: 'Forbidden' }, 403);
+      }
+      // Never write over an existing project: creating "my-app" twice used to
+      // silently replace the first one's files.
+      if (fs.existsSync(projectDir) && fs.readdirSync(projectDir).length > 0 && body.overwrite !== true) {
+        return sendJson(res, {
+          error: `A project named "${projName}" already exists.`,
+          exists: true,
+          folder: path.relative(REPO_ROOT, projectDir).replace(/\\/g, '/')
+        }, 409);
       }
       if (!fs.existsSync(projectDir)) {
         fs.mkdirSync(projectDir, { recursive: true });
