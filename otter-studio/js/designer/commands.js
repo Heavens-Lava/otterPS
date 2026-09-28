@@ -9,6 +9,8 @@
 // is shown as the shortcut. A command whose action returns false (nothing to
 // do) leaves the key alone, so e.g. arrows still scroll when nothing moves.
 
+import { chordOf, displayChord, isMacPlatform } from '../shell/keys.js';
+
 export function designerCommands(actions) {
   const a = actions;
   return [
@@ -58,32 +60,14 @@ export function designerCommands(actions) {
   ];
 }
 
-// "ctrl+shift+arrowup" for a keydown event. Digits come from the physical key
-// so Shift+1 is "shift+1", not "!".
-export function chordOf(event, isMac = false) {
-  const parts = [];
-  if (isMac ? event.metaKey : event.ctrlKey) parts.push('ctrl');
-  if (event.altKey) parts.push('alt');
-  if (event.shiftKey) parts.push('shift');
-  let key = String(event.key || '').toLowerCase();
-  const digit = /^Digit(\d)$/.exec(event.code || '');
-  if (digit) key = digit[1];
-  if (key === ' ') key = 'space';
-  if (!['control', 'alt', 'shift', 'meta'].includes(key)) parts.push(key);
-  return parts.join('+');
-}
-
-// "ctrl+shift+arrowup" -> "Ctrl+Shift+Up" for display.
-export function displayChord(chord) {
-  const names = { arrowup: 'Up', arrowdown: 'Down', arrowleft: 'Left', arrowright: 'Right', escape: 'Esc', delete: 'Del', backspace: 'Backspace', enter: 'Enter', tab: 'Tab', '=': '=', '-': '-', '+': '+' };
-  return chord.split('+').filter(Boolean).map(p => names[p] || (p.length === 1 ? p.toUpperCase() : p.charAt(0).toUpperCase() + p.slice(1))).join('+');
-}
+// Chords are shared with the rest of Studio (shell/keys.js).
+export { chordOf, displayChord } from '../shell/keys.js';
 
 // Route keydown events to designer commands. `isActive()` decides whether the
 // designer owns the keyboard right now (visible, pointer or focus inside, not
 // typing in a field).
 export function installDesignerKeyboard(commands, { isActive, target = window }) {
-  const isMac = typeof navigator !== 'undefined' && /mac/i.test(navigator.platform || '');
+  const isMac = isMacPlatform();
   const byChord = new Map();
   for (const command of commands) {
     for (const key of command.keys) byChord.set(key, command);

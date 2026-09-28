@@ -17,6 +17,7 @@ import { StyleController } from './designer/style-context.js';
 import { mountStudioShell } from './shell/studio-shell.js';
 import { toRegistryCommands } from './designer/commands.js';
 import { createViewState } from './designer/view-state.js';
+import { TasksPanel } from './components/tasks-panel.js';
 import { setWorkspaceTrust } from './project/workspace-solution.js';
 import { SourceControlPanel } from './components/source-control.js';
 import { TestExplorer } from './components/test-explorer.js';
@@ -184,6 +185,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       sourceControl.refresh();
     }
   }
+
+  // Tasks tab: TODO / FIXME comments in the project.
+  const tasksPanel = new TasksPanel(ide, document.getElementById('panelTasks'));
+  tasksPanel.init();
+  window.otterTasks = tasksPanel;
 
   // Tests tab in the bottom drawer, backed by `otter test`.
   const testExplorer = new TestExplorer(ide, document.getElementById('panelTests'));
@@ -522,6 +528,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       const panelTerm = document.getElementById('panelTerminal');
       const panelLive = document.getElementById('panelLiveCode');
       const panelTests = document.getElementById('panelTests');
+      const panelTasks = document.getElementById('panelTasks');
+      if (panelTasks) {
+        panelTasks.style.display = tabName === 'tasks' ? 'flex' : 'none';
+        if (tabName === 'tasks') tasksPanel.refresh();
+      }
 
       if (panelTests) {
         panelTests.style.display = tabName === 'tests' ? 'flex' : 'none';

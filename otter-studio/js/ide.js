@@ -12,6 +12,7 @@ import {
 import { getHoverInfo, getWordAtOffset } from './navigation/hover-provider.js';
 import { getSignatureHelp } from './navigation/signature-provider.js';
 import { autoClosePair, backspacePair, enterKey, prepareForSave, renderIndentGuides } from './editor/editing-assist.js';
+import { markWhitespace, findLinkAt, resolveSourcePath, createBookmarks } from './editor/editor-extras.js';
 import { otterLanguageService } from './language/otter-language-service.js';
 import {
   getLanguageForFile,
@@ -99,6 +100,7 @@ export class OtterStudioIde {
     this.externalCheckIntervalMs = 2000;
     this.workspaceFiles = [];
     this.workspaceSymbols = [];
+    this.bookmarks = createBookmarks();
     this.templatesCollapsed = false;
     this.navigationMode = null;
     this.navigationItems = [];
@@ -1235,6 +1237,48 @@ export class OtterStudioIde {
     await this.navigateToLocation({ path: item.path || this.currentFile, line: item.line, column: item.column });
   }
 
+  // --- Bookmarks (Ctrl+Alt+K toggle, Ctrl+Alt+L next, Ctrl+Alt+J previous) ---
+
+  toggleBookmark() {
+    const here = this.currentEditorLocation();
+    if (!here) return false;
+    this.bookmarks.toggle(here.path, here.line);
+    this.renderGutter(this.currentCode.split('\n').length);
+    return true;
+  }
+
+  goToBookmark(direction = 1) {
+    const here = this.currentEditorLocation();
+    if (!here) return false;
+    const line = this.bookmarks.next(here.path, here.line, direction);
+    if (line === null) return false;
+    this.goToLine(line, 0);
+    return true;
+  }
+
+  // --- Links: Ctrl+Click a URL (opens in the browser) or a quoted file path
+  // in the workspace (opens it here). Returns false when there is none.
+  openLinkAtCursor() {
+    const here = this.currentEditorLocation();
+    if (!here) return false;
+    const line = this.currentCode.split('\n')[here.line - 1] || '';
+    const link = findLinkAt(line, here.column);
+    if (!link) return false;
+    if (link.type === 'url') {
+      window.open(link.target, '_blank', 'noopener');
+      return true;
+    }
+    const candidates = [resolveSourcePath(this.currentFile, link.target)];
+    if (this.currentProjectFolder && !/\.(json|otter-workspace)$/i.test(this.currentProjectFolder)) {
+      candidates.push(`${this.currentProjectFolder}/${link.target.replace(/^\.\//, '')}`);
+    }
+    const known = new Set(this.workspaceFiles.map(f => f.path));
+    const target = candidates.find(p => p && known.has(p));
+    if (!target) return false;
+    this.navigateToLocation({ path: target, line: 1, column: 0 });
+    return true;
+  }
+
   currentEditorLocation() {
     const textarea = document.getElementById('hiddenEditorInput');
     if (!textarea || !this.currentFile) return null;
@@ -1724,6 +1768,15 @@ export class OtterStudioIde {
         const textarea = document.getElementById('hiddenEditorInput');
         snapshotTabState(prevTab, textarea);
       }
+    }
+
+    // The previous file's diagnostics must not be drawn on this one (they
+    // were: a data file opened from main.ot showed main.ot's squiggles).
+    // Linting below fills them in again for this file.
+    if (this.currentFile !== tab.path) {
+      this.activeDiagnostics = [];
+      this.errorLine = null;
+      this.warningLine = null;
     }
 
     this.currentFile = tab.path;
@@ -3039,6 +3092,7 @@ export class OtterStudioIde {
       else if (this.warningLine === i) classes.push('gutter-warn');
       if (this.debugBreakpoints && this.debugBreakpoints.has(i)) classes.push('gutter-breakpoint');
       if (this.debugPausedLine === i) classes.push('gutter-debug-pause');
+      if (this.currentFile && this.bookmarks.has(this.currentFile, i)) classes.push('gutter-bookmark');
       const classAttr = classes.length ? ` class="${classes.join(' ')}"` : '';
       spans += `<span${classAttr} data-line="${i}">${i}</span>`;
     }
@@ -3070,10 +3124,10 @@ export class OtterStudioIde {
   // One line of the highlighted layer: syntax colours plus indent guides
   // when the setting is on (the text content is identical either way).
   renderLineHtml(line) {
-    if (this.setting('editor.indentGuides', true) && this.isOtterFile()) {
-      return renderIndentGuides(line, (rest) => this.syntaxHighlightLine(rest));
-    }
-    return this.syntaxHighlightLine(line);
+    const html = this.setting('editor.indentGuides', true) && this.isOtterFile()
+      ? renderIndentGuides(line, (rest) => this.syntaxHighlightLine(rest))
+      : this.syntaxHighlightLine(line);
+    return this.setting('editor.renderWhitespace', false) ? markWhitespace(html) : html;
   }
 
   syntaxHighlightLine(line) {
@@ -3166,6 +3220,7 @@ export class OtterStudioIde {
         if (e.ctrlKey || e.metaKey) {
           e.preventDefault();
           this.updateCursorPos(textarea);
+          if (this.openLinkAtCursor()) return;
           this.goToDefinition();
         } else if (e.altKey) {
           const clickPos = textarea.selectionStart;

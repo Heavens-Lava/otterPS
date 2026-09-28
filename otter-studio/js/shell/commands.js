@@ -5,6 +5,12 @@
 // (Ctrl+Shift+P / F1, or ">" in the header box) lists them, the Keyboard
 // Shortcuts dialog documents them, and menus and buttons keep calling the
 // same functions, so the three never disagree.
+//
+// A command's key: `shortcut` only labels a key some other part of Studio
+// binds (the editor, the designer); `keys` (["ctrl+alt+k"]) is bound by
+// installKeymap below and can be changed in the keybinding editor.
+
+import { chordOf, displayChord, isMacPlatform } from './keys.js';
 
 export function createCommandRegistry() {
   const commands = new Map();
@@ -18,7 +24,8 @@ export function createCommandRegistry() {
       id: command.id,
       title: command.title || command.id,
       category: command.category || 'General',
-      shortcut: command.shortcut || '',
+      keys: Array.isArray(command.keys) ? [...command.keys] : [],
+      shortcut: command.shortcut || (Array.isArray(command.keys) && command.keys[0] ? displayChord(command.keys[0]) : ''),
       when: typeof command.when === 'function' ? command.when : null,
       run: command.run
     });
@@ -61,7 +68,51 @@ export function createCommandRegistry() {
     }));
   }
 
-  return { register, registerAll, list, get, run, toPaletteItems, size: () => commands.size };
+  // User keybindings: { commandId: "ctrl+alt+k" } ('' removes the key).
+  // Only commands with `keys` can be rebound.
+  let overrides = {};
+  function setKeybindings(map) {
+    overrides = { ...(map || {}) };
+    for (const command of commands.values()) {
+      if (!command.defaultKeys) command.defaultKeys = command.keys;
+      const custom = overrides[command.id];
+      command.keys = custom === undefined ? command.defaultKeys : (custom ? [custom] : []);
+      if (command.defaultKeys.length || custom) command.shortcut = command.keys[0] ? displayChord(command.keys[0]) : '';
+    }
+  }
+
+  function bindable() {
+    return list({ includeUnavailable: true }).filter(c => (c.defaultKeys || c.keys).length || overrides[c.id]);
+  }
+
+  // The command bound to a chord, if any.
+  function commandForChord(chord) {
+    for (const command of commands.values()) {
+      if (command.keys.includes(chord)) return command;
+    }
+    return null;
+  }
+
+  return { register, registerAll, list, get, run, toPaletteItems, setKeybindings, bindable, commandForChord, size: () => commands.size };
+}
+
+// Bind every command's `keys`. Chords with Ctrl or Alt, and function keys,
+// work while typing; a bare key only outside text fields.
+export function installKeymap(registry, target = window) {
+  const isMac = isMacPlatform();
+  const onKey = (event) => {
+    if (event.defaultPrevented) return;
+    const chord = chordOf(event, isMac);
+    const command = registry.commandForChord(chord);
+    if (!command) return;
+    const typing = /^(input|textarea|select)$/i.test(document.activeElement?.tagName || '') || document.activeElement?.isContentEditable;
+    if (typing && !/(^|\+)(ctrl|alt)\+/.test(chord) && !/^f\d+$/.test(chord)) return;
+    if (command.when && command.when() === false) return;
+    event.preventDefault();
+    registry.run(command.id);
+  };
+  target.addEventListener('keydown', onKey);
+  return () => target.removeEventListener('keydown', onKey);
 }
 
 // Normalise a shortcut for display: "ctrl+shift+p" -> "Ctrl+Shift+P".
@@ -78,7 +129,9 @@ export function formatShortcut(shortcut) {
 // The commands Studio ships with. `deps` are the existing IDE entry points;
 // nothing here implements behaviour, it only names and routes it.
 export function defaultCommands(deps) {
-  const { ide, setMode, openNewProjectModal, openSettings, openPackageDialog, openShortcuts, showWelcome, toggleTheme, byId } = deps;
+  const { ide, setMode, openNewProjectModal, openSettings, openPackageDialog, openShortcuts, showWelcome, toggleTheme, byId,
+    toggleZen = () => {}, toggleFullScreen = () => {}, toggleWhitespace = () => {} } = deps;
+  const hasFile = () => Boolean(ide.currentFile);
   const click = (id) => () => byId(id)?.click();
   const hasProject = () => Boolean(ide.currentProjectFolder);
   return [
@@ -107,6 +160,10 @@ export function defaultCommands(deps) {
     { id: 'edit.rename', title: 'Rename Symbol', category: 'Edit', shortcut: 'F2', run: () => ide.promptRename() },
     { id: 'edit.extractFunction', title: 'Extract Function', category: 'Edit', shortcut: 'Ctrl+Shift+R', run: () => ide.extractFunction() },
     { id: 'edit.wordWrap', title: 'Toggle Word Wrap', category: 'Edit', shortcut: 'Alt+Z', run: () => ide.setWordWrap(!ide.wordWrap) },
+    { id: 'edit.toggleBookmark', title: 'Toggle Bookmark', category: 'Edit', keys: ['ctrl+alt+k'], when: hasFile, run: () => ide.toggleBookmark() },
+    { id: 'edit.nextBookmark', title: 'Next Bookmark', category: 'Edit', keys: ['ctrl+alt+l'], when: hasFile, run: () => ide.goToBookmark(1) },
+    { id: 'edit.previousBookmark', title: 'Previous Bookmark', category: 'Edit', keys: ['ctrl+alt+j'], when: hasFile, run: () => ide.goToBookmark(-1) },
+    { id: 'edit.openLink', title: 'Open Link or File at Cursor', category: 'Edit', keys: ['alt+enter'], when: hasFile, run: () => ide.openLinkAtCursor() },
     // View
     { id: 'view.code', title: 'Show Code', category: 'View', run: () => setMode('code') },
     { id: 'view.designer', title: 'Show Designer', category: 'View', run: () => setMode('designer') },
@@ -115,6 +172,10 @@ export function defaultCommands(deps) {
     { id: 'view.preview', title: 'Show Live App', category: 'View', run: () => setMode('preview') },
     { id: 'view.welcome', title: 'Welcome', category: 'View', run: showWelcome },
     { id: 'view.toggleTheme', title: 'Toggle Light/Dark Theme', category: 'View', run: toggleTheme },
+    { id: 'view.zenMode', title: 'Toggle Zen Mode (editor or designer only)', category: 'View', keys: ['ctrl+alt+z'], run: toggleZen },
+    { id: 'view.fullScreen', title: 'Toggle Full Screen', category: 'View', keys: ['f11'], run: toggleFullScreen },
+    { id: 'view.renderWhitespace', title: 'Toggle Render Whitespace', category: 'View', run: toggleWhitespace },
+    { id: 'view.tasks', title: 'Show Tasks (TODO / FIXME)', category: 'View', run: () => document.querySelector('.drawer-tab[data-drawer-tab="tasks"]')?.click() },
     { id: 'view.filesPane', title: 'Show Files', category: 'View', run: click('btnPaneFiles') },
     { id: 'view.toolboxPane', title: 'Show Toolbox', category: 'View', run: click('btnPaneToolbox') },
     { id: 'view.searchPane', title: 'Search in Files', category: 'View', shortcut: 'Ctrl+Shift+F', run: click('btnPaneSearch') },

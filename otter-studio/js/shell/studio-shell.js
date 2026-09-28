@@ -6,6 +6,7 @@
 
 import { mountPackageDialog } from './package-dialog.js';
 import { createSettings, applySettingsToDocument, mountSettingsDialog } from './settings.js';
+import { installKeymap } from './commands.js';
 import { createCommandRegistry, defaultCommands } from './commands.js';
 import { mountShortcutsDialog } from './shortcuts-dialog.js';
 
@@ -266,6 +267,23 @@ export function mountStudioShell({ ide, setMode, openNewProjectModal, showWelcom
 
   // --- Commands, palette, Help menu ---------------------------------------------
 
+  // Zen mode: only the editor or designer, no header, sidebars, drawer or
+  // status bar. Esc or the same command brings them back.
+  function toggleZen(force) {
+    const on = typeof force === 'boolean' ? force : !document.body.classList.contains('zen-mode');
+    document.body.classList.toggle('zen-mode', on);
+    window.dispatchEvent(new Event('resize'));
+  }
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && document.body.classList.contains('zen-mode') && !e.defaultPrevented) toggleZen(false);
+  });
+
+  // Full screen for the whole Studio window (browser or desktop app).
+  function toggleFullScreen() {
+    if (document.fullscreenElement) document.exitFullscreen?.();
+    else document.documentElement.requestFullscreen?.().catch(() => {});
+  }
+
   const commands = createCommandRegistry();
   const shortcutsDialog = mountShortcutsDialog(commands);
   commands.registerAll(defaultCommands({
@@ -277,9 +295,13 @@ export function mountStudioShell({ ide, setMode, openNewProjectModal, showWelcom
     openShortcuts: () => shortcutsDialog.open(),
     showWelcome: showWelcomePage,
     toggleTheme: () => document.getElementById('btnThemeToggle')?.click(),
-    byId: (id) => document.getElementById(id)
+    byId: (id) => document.getElementById(id),
+    toggleZen,
+    toggleFullScreen,
+    toggleWhitespace: () => settings.set('editor.renderWhitespace', !settings.get('editor.renderWhitespace'))
   }));
   window.otterCommands = commands;
+  installKeymap(commands);
 
   window.addEventListener('keydown', (e) => {
     const inField = /^(input|textarea|select)$/i.test(document.activeElement?.tagName || '') || document.activeElement?.isContentEditable;
