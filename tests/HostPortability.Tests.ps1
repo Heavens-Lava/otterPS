@@ -165,6 +165,73 @@ to identity value
         Assert-True ($r.Text -match 'The folder is named "Helpers", but this use says "helpers"') "expected the folder case diagnostic, got: $($r.Text)"
     }
 
+    # cmd.exe argument injection ("BatBadBut", CVE-2024-24576 class). A .cmd or
+    # .bat script runs as `cmd.exe /d /v:off /s /c "<script> <args>"`, and cmd
+    # parses that line itself. ConvertTo-OtterCmdArgument is a pure function,
+    # so its quoting is checked here on every host; the real cmd.exe round
+    # trip is in CommandDispatch.Tests.ps1 (Windows only).
+    $script:Library = Get-Module Otter.Library | Select-Object -First 1
+    if ($null -eq $script:Library) { $script:Library = Import-Module (Join-Path $script:RepoRoot 'src/Otter.Library.psm1') -PassThru }
+
+    Test-Otter 'cmd arguments: plain values stay as they are, special ones are quoted' {
+        $cases = @(
+            @{ In = 'first'; Out = 'first' }
+            @{ In = 'C:\tools\build.cmd'; Out = 'C:\tools\build.cmd' }
+            @{ In = ''; Out = '""' }
+            @{ In = 'foo&echo INJECTED'; Out = '"foo&echo INJECTED"' }
+            @{ In = 'foo&calc'; Out = '"foo&calc"' }
+            @{ In = 'a|b'; Out = '"a|b"' }
+            @{ In = 'a<b'; Out = '"a<b"' }
+            @{ In = 'a>b'; Out = '"a>b"' }
+            @{ In = 'a^b'; Out = '"a^b"' }
+            @{ In = '(x)'; Out = '"(x)"' }
+            @{ In = 'a,b'; Out = '"a,b"' }
+            @{ In = 'a;b'; Out = '"a;b"' }
+            @{ In = 'a=b'; Out = '"a=b"' }
+            @{ In = 'hi!'; Out = '"hi!"' }
+            @{ In = 'two words'; Out = '"two words"' }
+            @{ In = ("tab" + [char]9 + "here"); Out = ('"tab' + [char]9 + 'here"') }
+            @{ In = 'C:\R&D\x.cmd'; Out = '"C:\R&D\x.cmd"' }
+            @{ In = 'C:\Program Files (x86)\x.cmd'; Out = '"C:\Program Files (x86)\x.cmd"' }
+        )
+        foreach ($case in $cases) {
+            $caseIn = $case.In
+            $actual = & $script:Library { param($a) ConvertTo-OtterCmdArgument -Argument $a -Line 1 } $caseIn
+            Assert-AreEqual -Expected $case.Out -Actual $actual -Message "input [$caseIn]"
+        }
+    }
+
+    Test-Otter 'cmd arguments: quote, percent, CR, LF and NUL are refused' {
+        $refused = @('a"b', '"', '100%', '%PATH%', ('a' + [char]13 + 'b'), ('a' + [char]10 + 'echo x'), ('a' + [char]0 + 'b'))
+        foreach ($value in $refused) {
+            $caseValue = $value
+            Assert-OtterFails -Containing 'safely to a .cmd or .bat script' -Body {
+                & $script:Library { param($a) ConvertTo-OtterCmdArgument -Argument $a -Line 1 } $caseValue
+            }
+        }
+    }
+
+    # ssh option injection: `run command "..." over ssh to "<host>"` builds an
+    # ssh command line, so a host starting with '-' would be read by ssh as an
+    # option (-oProxyCommand runs a LOCAL command). The refusal happens before
+    # any ssh process is looked up or started, so no ssh is needed here.
+    Test-Otter 'ssh: a host starting with - is refused before ssh runs' {
+        $r = Invoke-OtterFileRun "try`n    run command `"whoami`" over ssh to `"-oProxyCommand=echo`" into res`n    say `"UNEXPECTED_SUCCESS`"`notherwise into err`n    say `"CAUGHT:`" err`n.`n"
+        Assert-AreEqual -Expected 0 -Actual $r.ExitCode
+        $text = $r.Lines -join ' '
+        Assert-True ($text -match 'CAUGHT:.*cannot use "-oProxyCommand=echo" as an ssh host') "expected the ssh host refusal, got: $text"
+        Assert-False ($text -match 'UNEXPECTED_SUCCESS') 'the ssh command must not run'
+    }
+
+    Test-Otter 'ssh: a host with whitespace, quotes or control characters is refused' {
+        foreach ($badHost in @('-oProxyCommand=calc.exe user@example', 'user@example -oProxyCommand=x', "user'@example", 'user"@example', ('user@example' + [char]10), '')) {
+            $caseHost = $badHost
+            Assert-OtterFails -Containing 'as an ssh host' -Body {
+                & $script:Library { param($h) Invoke-OtterSshCommand -Command 'whoami' -HostName $h -Line 1 } $caseHost
+            }
+        }
+    }
+
     Test-Otter 'the runtime modules never return a value with Write-Output -NoEnumerate' {
         $offenders = @()
         foreach ($file in Get-ChildItem -LiteralPath (Join-Path $script:RepoRoot 'src') -Filter '*.psm1') {

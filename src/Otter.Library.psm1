@@ -1024,8 +1024,25 @@ function Invoke-OtterSshCommand {
         'ssh.exe'
     }
 
+    # Refuse a host that ssh could read as something other than a
+    # destination. The command line below is split back into arguments by
+    # Split-OtterCommandLine, so a host containing whitespace or quotes
+    # would become several arguments, and a host starting with '-' (e.g.
+    # "-oProxyCommand=calc.exe") would be read by ssh as an OPTION - one
+    # that runs a local command. Control characters have no place in a
+    # host name either. With these refused, the host is exactly one
+    # argument, and '--' before it ends ssh's option parsing so neither the
+    # host nor the remote command after it can be taken as an ssh option.
+    if ([string]::IsNullOrEmpty($HostName) -or $HostName.StartsWith('-') -or
+        $HostName -match '[\s"''\p{Cc}]') {
+        $shown = [regex]::Replace([string]$HostName, '\p{Cc}', ' ')
+        throw [OtterError]::new(
+            "I cannot use `"$shown`" as an ssh host. A host cannot be empty, start with '-', or contain spaces, quotes or control characters.",
+            $Line, 'runtime')
+    }
+
     try {
-        $commandLine = "$sshPath -o BatchMode=yes -o StrictHostKeyChecking=accept-new $HostName $Command"
+        $commandLine = "$sshPath -o BatchMode=yes -o StrictHostKeyChecking=accept-new -- $HostName $Command"
         # Invoke-OtterCommand returns an OtterObject (the same "command
         # result" thing D65's plain local `run command` already produces)
         # - read via ReadProperty, not dot-notation, which this class does
@@ -2029,6 +2046,45 @@ function ConvertTo-OtterProcessArgument {
     return '"' + $escaped + '"'
 }
 
+# Quotes one argument (or the script path itself) for a .cmd/.bat script
+# launched as `cmd.exe /d /v:off /s /c "<script> <args>"`.
+#
+# ConvertTo-OtterProcessArgument above follows the MSVCRT rules that native
+# programs use, but cmd.exe does not: it reads the whole line itself, so an
+# unquoted & | < > ^ ( ) would chain or redirect a second command, and a \"
+# does not protect a quote - cmd just toggles its "inside quotes" state on the
+# bare ", after which the same characters are live again. That is how
+# `run command "build.cmd foo&calc"` used to start calc (the "BatBadBut"
+# class, CVE-2024-24576).
+#
+# The two guards below close that:
+#   1. Refuse what cmd.exe cannot be made to take literally. A double quote
+#      would end our quoting early. A percent sign is expanded as %VAR% even
+#      inside double quotes (there is no reliable escape for it on a /c line).
+#      CR, LF and NUL would end the command line. None of these can be passed
+#      safely, so the program gets a clear Otter error instead of a guess.
+#   2. Wrap anything containing whitespace or a cmd.exe special character in
+#      double quotes. Inside quotes cmd treats & | < > ^ ( ) as plain text, and
+#      the batch file's own argument splitter keeps , ; = and spaces inside the
+#      one argument. ! is quoted too; delayed expansion (!VAR!) is also forced
+#      off with /v:off on the cmd.exe command line.
+# Plain arguments (e.g. `first`) stay unquoted, so a script reading %1 sees
+# exactly what it saw before.
+function ConvertTo-OtterCmdArgument {
+    param([string]$Argument, [int]$Line)
+
+    if ($Argument -match '["%\r\n\x00]') {
+        $shown = [regex]::Replace($Argument, '[\r\n\x00]', ' ')
+        throw [OtterError]::new(
+            "I cannot pass `"$shown`" safely to a .cmd or .bat script. cmd.exe would treat a double quote, a percent sign or a line break in it as part of the command, so arguments to a .cmd or .bat script cannot contain those characters.",
+            $Line, 'runtime')
+    }
+
+    if ($Argument.Length -eq 0) { return '""' }
+    if ($Argument -notmatch '[\s&|<>^(),;=!]') { return $Argument }
+    return '"' + $Argument + '"'
+}
+
 function Get-OtterPowerShellHost {
     [CmdletBinding()]
     param()
@@ -2116,13 +2172,19 @@ function New-OtterProcessStartInfo {
         $info.Arguments = (@($allArgs | ForEach-Object { ConvertTo-OtterProcessArgument $_ }) -join ' ')
     }
     elseif ($ext -in @('.cmd', '.bat') -and [System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT) {
-        # D119-R1: Windows CMD/BAT script dispatch via cmd.exe /d /s /c
+        # D119-R1: Windows CMD/BAT script dispatch via cmd.exe /d /v:off /s /c
+        # cmd.exe parses this line itself, so the script path and every
+        # argument go through ConvertTo-OtterCmdArgument (cmd.exe quoting
+        # rules, refusing " % CR LF NUL), not the MSVCRT-style
+        # ConvertTo-OtterProcessArgument - that is what stops an argument
+        # like `foo&calc` from running a second command. /v:off keeps
+        # delayed expansion (!VAR!) off even if the registry turns it on.
         $cmdExe = if ([string]::IsNullOrWhiteSpace($env:ComSpec)) { 'cmd.exe' } else { $env:ComSpec }
-        $cmdTarget = ConvertTo-OtterProcessArgument $resolvedPath
-        $formattedArgs = @($arguments | ForEach-Object { ConvertTo-OtterProcessArgument $_ }) -join ' '
+        $cmdTarget = ConvertTo-OtterCmdArgument -Argument $resolvedPath -Line $Line
+        $formattedArgs = @(foreach ($a in $arguments) { ConvertTo-OtterCmdArgument -Argument $a -Line $Line }) -join ' '
         $innerCmd = if ($formattedArgs.Length -gt 0) { "$cmdTarget $formattedArgs" } else { $cmdTarget }
         $info.FileName = $cmdExe
-        $info.Arguments = "/d /s /c `"$innerCmd`""
+        $info.Arguments = "/d /v:off /s /c `"$innerCmd`""
     }
     else {
         # Direct native executable launch
@@ -2697,6 +2759,29 @@ function Get-OtterHttpClient {
     return $client
 }
 
+# Checks one request header before it is added to an HttpRequestMessage.
+#
+# Headers are added with TryAddWithoutValidation (so Otter can send any
+# header a server expects), which also means .NET does not reject line
+# breaks: a value like "a<CR><LF>Injected: yes" was written to the wire as
+# a second, attacker-chosen header (header / request splitting). CR, LF and
+# NUL are therefore refused in both the name and the value. A name must
+# also be a single token: empty names, and names containing ':' or
+# whitespace, would change where the name ends and the value begins.
+function Assert-OtterHttpHeader {
+    param([string]$Name, [string]$Value, [int]$Line)
+
+    if ([string]::IsNullOrWhiteSpace($Name)) {
+        throw [OtterError]::new('HTTP header name cannot be empty.', $Line, 'runtime')
+    }
+    if ($Name -match '[\r\n\x00]' -or $Value -match '[\r\n\x00]') {
+        throw [OtterError]::new('HTTP header names and values cannot contain line breaks (CR or LF) or NUL characters.', $Line, 'runtime')
+    }
+    if ($Name -match '[:\s]') {
+        throw [OtterError]::new("HTTP header name `"$Name`" cannot contain a colon or whitespace.", $Line, 'runtime')
+    }
+}
+
 function Invoke-OtterHttpRequest {
     param(
         [Parameter(Mandatory)][string]$Method,
@@ -2783,9 +2868,9 @@ function Invoke-OtterHttpRequest {
         foreach ($h in $Headers) {
             $hName = [string]$h.Name
             $hVal = [string]$h.Value
-            if ([string]::IsNullOrWhiteSpace($hName)) {
-                throw [OtterError]::new('HTTP header name cannot be empty.', $Line, 'runtime')
-            }
+            # Refuse CR/LF/NUL (header injection) and malformed names before
+            # TryAddWithoutValidation, which would otherwise accept them.
+            Assert-OtterHttpHeader -Name $hName -Value $hVal -Line $Line
             $added = $req.Headers.TryAddWithoutValidation($hName, $hVal)
             if (-not $added -and $null -ne $req.Content) {
                 if ($req.Content.Headers.Contains($hName)) {
@@ -2934,9 +3019,9 @@ function Start-OtterHttpRequest {
         foreach ($h in $Headers) {
             $hName = [string]$h.Name
             $hVal = [string]$h.Value
-            if ([string]::IsNullOrWhiteSpace($hName)) {
-                throw [OtterError]::new('HTTP header name cannot be empty.', $Line, 'runtime')
-            }
+            # Refuse CR/LF/NUL (header injection) and malformed names before
+            # TryAddWithoutValidation, which would otherwise accept them.
+            Assert-OtterHttpHeader -Name $hName -Value $hVal -Line $Line
             $added = $req.Headers.TryAddWithoutValidation($hName, $hVal)
             if (-not $added -and $null -ne $req.Content) {
                 if ($req.Content.Headers.Contains($hName)) {

@@ -231,9 +231,59 @@ try {
         throw "Test 10 failed: Host '$psHost' does not match powershell/pwsh"
     }
     Write-Output "  pass  host detection returns active host: $psHost"
+
+    # -------------------------------------------------------------
+    # 11. cmd.exe argument injection (BatBadBut, CVE-2024-24576 class)
+    # -------------------------------------------------------------
+    # The fixture reads %1/%2/%3 (NOT %~1), so each argument reaches the
+    # batch file's own echo line exactly as cmd.exe received it. Quoted
+    # correctly, & and | stay inside the argument; unquoted, cmd.exe would
+    # run `echo.INJECTED` (or pipe into a program called b) as a second command.
+    $metaFixture = Join-Path $testTmp 'echo_meta.cmd'
+    $metaContent = "@echo off`necho ARG0=%1`necho ARG1=%2`necho ARG2=%3`nexit /b 0`n"
+    Set-Content -LiteralPath $metaFixture -Value $metaContent -Encoding ASCII
+
+    $fixPathMeta = $metaFixture.Replace('\', '/')
+    $metaInfo = New-OtterProcessStartInfo -CommandLine ('"' + $fixPathMeta + '" first') -Line 1
+    if (-not $metaInfo.StartInfo.Arguments.StartsWith('/d /v:off /s /c ')) {
+        throw "Test 11 failed: Expected cmd.exe to be started with /d /v:off /s /c. Got: $($metaInfo.StartInfo.Arguments)"
+    }
+    if ($metaInfo.StartInfo.Arguments -notmatch ' first"$') {
+        throw "Test 11 failed: Expected a plain argument to stay unquoted. Got: $($metaInfo.StartInfo.Arguments)"
+    }
+
+    $code11 = 'run command "' + $fixPathMeta + ' \"foo&echo INJECTED\" a|b bar&echo.INJECTED" into res' + "`n" +
+              'say "EXIT:" exit code of res' + "`n" +
+              'say output of res'
+    $res11 = Run-OtterScript $code11
+    if ($res11.ExitCode -ne 0) { throw "Test 11 failed with exit code $($res11.ExitCode): $($res11.Output)" }
+    if ($res11.Output -notmatch 'EXIT:\s*0') { throw "Test 11 failed: Expected exit code 0. Got: $($res11.Output)" }
+    if ($res11.Output -notmatch [regex]::Escape('ARG0="foo&echo INJECTED"')) { throw "Test 11 failed: ARG0 was not passed as one quoted argument. Got: $($res11.Output)" }
+    if ($res11.Output -notmatch [regex]::Escape('ARG1="a|b"')) { throw "Test 11 failed: ARG1 was not passed as one quoted argument. Got: $($res11.Output)" }
+    if ($res11.Output -notmatch [regex]::Escape('ARG2="bar&echo.INJECTED"')) { throw "Test 11 failed: ARG2 was not passed as one quoted argument. Got: $($res11.Output)" }
+    $injectedLines = @(($res11.Output -split "`n") | Where-Object { $_.Trim() -eq 'INJECTED' })
+    if ($injectedLines.Count -ne 0) { throw "Test 11 failed: cmd.exe ran an injected command. Got: $($res11.Output)" }
+    Write-Output '  pass  .cmd arguments with & and | reach the script quoted and never run a second command'
+
+    # -------------------------------------------------------------
+    # 12. cmd.exe cannot be given a % safely, so it is refused
+    # -------------------------------------------------------------
+    $code12 = 'try' + "`n" +
+              '    run command "' + $fixPathMeta + ' 100%" into res' + "`n" +
+              '    say "UNEXPECTED_SUCCESS"' + "`n" +
+              'otherwise into err' + "`n" +
+              '    say "CAUGHT:" err' + "`n" +
+              '.'
+    $res12 = Run-OtterScript $code12
+    if ($res12.ExitCode -ne 0) { throw "Test 12 failed: $($res12.Output)" }
+    if ($res12.Output -notmatch 'CAUGHT:.*cannot pass "100%" safely to a \.cmd or \.bat script') {
+        throw "Test 12 failed: Expected the .cmd argument refusal. Got: $($res12.Output)"
+    }
+    if ($res12.Output -match 'UNEXPECTED_SUCCESS') { throw "Test 12 failed: the script ran. Got: $($res12.Output)" }
+    Write-Output '  pass  a .cmd argument containing % is refused with a clear Otter error'
 }
 finally {
     Remove-Item -LiteralPath $testTmp -Recurse -Force -ErrorAction SilentlyContinue
 }
 
-Write-Host "`nAll Otter command dispatch tests passed (10/10).`n" -ForegroundColor Green
+Write-Host "`nAll Otter command dispatch tests passed (12/12).`n" -ForegroundColor Green

@@ -350,6 +350,45 @@ say envVal
         Assert-Lines -Expected @('Bearer secret-xyz', 'production') -Actual $out
     }
 
+    # 11b. Header injection: a line break in a header must never reach the wire.
+    # Headers are added with TryAddWithoutValidation, which used to accept
+    # "safe\nInjected: yes" and send "Injected: yes" as a second header.
+    Test-Otter 'Header injection: a header value with a line break is refused, sync and async' {
+        Assert-OtterFails -Containing 'cannot contain line breaks' -Body {
+            Run-OtterScript @"
+get "http://localhost:$serverPort/headers" as json into h
+    with header "X-Otter-Auth" is "safe\nInjected: yes"
+say "SHOULD NOT SEND"
+"@
+        }
+        Assert-OtterFails -Containing 'cannot contain line breaks' -Body {
+            Run-OtterScript @"
+start get from "http://localhost:$serverPort/headers" as json and call it req
+    with header "X-Otter-Auth" is "safe\nInjected: yes"
+say "SHOULD NOT SEND"
+"@
+        }
+        # CR, NUL and a malformed name are refused by the same guard (Otter
+        # strings have no \r escape, so call the module-private check directly).
+        $library = Get-Module Otter.Library | Select-Object -First 1
+        if ($null -eq $library) { $library = Import-Module (Join-Path $PSScriptRoot '../src/Otter.Library.psm1') -PassThru }
+        Assert-OtterFails -Containing 'cannot contain line breaks' -Body { & $library { Assert-OtterHttpHeader -Name 'X-A' -Value ("a" + [char]13 + "Injected: yes") -Line 1 } }
+        Assert-OtterFails -Containing 'cannot contain line breaks' -Body { & $library { Assert-OtterHttpHeader -Name 'X-A' -Value ("a" + [char]0 + "b") -Line 1 } }
+        Assert-OtterFails -Containing 'cannot contain line breaks' -Body { & $library { Assert-OtterHttpHeader -Name ("X-A" + [char]10 + "Injected") -Value 'v' -Line 1 } }
+        Assert-OtterFails -Containing 'cannot contain a colon or whitespace' -Body { & $library { Assert-OtterHttpHeader -Name 'X-A: b' -Value 'v' -Line 1 } }
+        Assert-OtterFails -Containing 'cannot be empty' -Body { & $library { Assert-OtterHttpHeader -Name '' -Value 'v' -Line 1 } }
+    }
+
+    Test-Otter 'Header injection guard still sends an ordinary header' {
+        $out = Run-OtterScript @"
+get "http://localhost:$serverPort/headers" as json into h
+    with header "X-Otter-Plain" is "value with spaces: and a colon"
+get "X-Otter-Plain" from h into plainVal
+say plainVal
+"@
+        Assert-Lines -Expected @('value with spaces: and a colon') -Actual $out
+    }
+
     # 12. Cookies (with cookies vs without cookies)
     Test-Otter 'D116A Cookies: with cookies sends jar, without cookies omits jar' {
         $out = Run-OtterScript @"
