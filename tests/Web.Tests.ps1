@@ -1194,6 +1194,33 @@ $ran = Invoke-Rc3WebPage -Source $declarativeEvents -Actions 'otter_el_1:click,o
 if (($ran.Said -join '|') -ne 'one|two') { throw "Expected both declarative event blocks on one button to fire, got: $($ran.Said -join '|')" }
 Write-Output '  pass  several when-handlers on one control (and on two controls) compile to valid JS and all fire (RC3 B2)'
 
+# Test 33 (RC3 B9): the page title is HTML-escaped in <title> and the header.
+$titleSource = @'
+app is a window
+    title is "A & B < C \"q\" 'x' </title><script>window.PWN_TITLE=1</script>"
+.
+t is a text
+    text is "hi"
+.
+put t in app
+show app
+'@
+$titleHtml = (Invoke-Rc3WebPage -Source $titleSource).Html
+$escapedTitle = 'A &amp; B &lt; C &quot;q&quot; &#39;x&#39; &lt;/title&gt;&lt;script&gt;window.PWN_TITLE=1&lt;/script&gt;'
+if ($titleHtml -notmatch [regex]::Escape("<title>$escapedTitle</title>")) { throw 'Expected the <title> text to be HTML-escaped.' }
+if ($titleHtml -notmatch [regex]::Escape("<h1 class=`"otter-title`">$escapedTitle</h1>")) { throw 'Expected the header <h1> title to be HTML-escaped.' }
+if ($titleHtml -match 'PWN_TITLE=1</script>') { throw 'A title must never be able to close <title> and inject a <script>.' }
+if (([regex]::Matches($titleHtml, '(?i)<script')).Count -ne 1) { throw 'Expected exactly one <script> element (the app itself) - the title injected another.' }
+$pageTitleSource = "app is a page`n    title is `"x </h1><img src=q onerror=alert(1)>`"`n.`nshow app`n"
+$pageTitleHtml = (Invoke-Rc3WebPage -Source $pageTitleSource).Html
+if ($pageTitleHtml -match '<img src=q') { throw 'A page header title must not inject markup.' }
+if ($pageTitleHtml -notmatch [regex]::Escape('<h1 class="otter-title">x &lt;/h1&gt;&lt;img src=q onerror=alert(1)&gt;</h1>')) { throw 'Expected the page header title to be escaped.' }
+# The default title comes from the entry file's name (characters legal in
+# file names on Windows too).
+$fileTitleHtml = (Invoke-Rc3WebPage -Source "say `"hi`"`n" -FileName "Tom & Jerry's.ot").Html
+if ($fileTitleHtml -notmatch [regex]::Escape('<title>Tom &amp; Jerry&#39;s</title>')) { throw 'Expected the default title from the file name to be HTML-escaped.' }
+Write-Output '  pass  page title is HTML-escaped in <title> and the header, including the file-name default (RC3 B9)'
+
 
 Write-Output 'Web compiler tests passed.'
 

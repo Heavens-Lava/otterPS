@@ -18,6 +18,16 @@ function Escape-OtterHtmlAttr {
     return $Text -replace '&', '&amp;' -replace '"', '&quot;' -replace '<', '&lt;' -replace '>', '&gt;'
 }
 
+# RC3 B9: HTML-escape text placed between tags (the page <title> and the
+# header <h1>). The title comes straight from `title is "..."` or from the
+# entry file's name, and was written raw: a title such as
+# `</title><script>...</script>` closed the element and ran as script.
+# Escaping & < > " ' makes it render as the literal text the author typed.
+function Escape-OtterHtmlText {
+    param([string]$Text)
+    return (Escape-OtterHtmlAttr -Text $Text) -replace "'", '&#39;'
+}
+
 function ConvertTo-OtterCssEasing {
     param([string]$Easing)
     switch ($Easing) {
@@ -735,7 +745,7 @@ function ConvertTo-OtterWeb {
                 $styleAttr = if ($styles.Count -gt 0) { " style=`"$($styles -join ' ')`"" } else { "" }
                 return @"
     <div id="$resName" class="otter-window"$styleAttr>
-      <header class="otter-window-header"><h1 class="otter-title">$appTitle</h1></header>
+      <header class="otter-window-header"><h1 class="otter-title">$(Escape-OtterHtmlText -Text $appTitle)</h1></header>
       <div class="otter-window-content" style="display: flex; flex-direction: column; gap: ${spacing}px; min-width: 0;">$childHtml</div>
     </div>
 "@
@@ -745,7 +755,7 @@ function ConvertTo-OtterWeb {
                 if (-not $props.Contains('gap')) { $styles.Add("gap: ${spacing}px;") }
                 $styleAttr = if ($styles.Count -gt 0) { " style=`"$($styles -join ' ')`"" } else { "" }
                 $showHeader = (-not ($props.Contains('hideheader') -and $props['hideheader']))
-                $headerHtml = if ($showHeader -and $appTitle) { "<header class=`"otter-page-header`"><h1 class=`"otter-title`">$appTitle</h1></header>" } else { "" }
+                $headerHtml = if ($showHeader -and $appTitle) { "<header class=`"otter-page-header`"><h1 class=`"otter-title`">$(Escape-OtterHtmlText -Text $appTitle)</h1></header>" } else { "" }
                 return @"
     <main id="$resName" class="otter-page"$styleAttr>
       $headerHtml
@@ -1360,7 +1370,7 @@ $bodyJoined
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>$appTitle</title>
+  <title>$(Escape-OtterHtmlText -Text $appTitle)</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,600;1,700&family=Playfair+Display:ital,wght@1,500;1,600;1,700&family=Newsreader:ital,opsz,wght@1,6..72,500;1,6..72,600;1,6..72,700&display=swap" rel="stylesheet">
