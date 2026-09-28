@@ -33,7 +33,7 @@ Otter 1.0 is engineered specifically for the Windows platform:
 
 > [!IMPORTANT]
 > **Windows PowerShell 5.1 vs. PowerShell 7 (pwsh):**
-> Otter 1.0 executes on native **Windows PowerShell 5.1** (`powershell.exe`). It does not run on cross-platform PowerShell Core (`pwsh.exe`). The `otter.cmd` launcher automatically delegates to Windows PowerShell 5.1, so you do not need to manage this manually.
+> This Windows package runs Otter on native **Windows PowerShell 5.1** (`powershell.exe`): the `otter.cmd` launcher always delegates to it, so you do not need to manage this manually. The Otter engine is also certified on PowerShell 7 (`pwsh`) on Windows, Linux and macOS, where it runs as `pwsh -NoProfile -File otter.ps1 <command> ...`; a packaged installer for Linux and macOS is not part of this release candidate.
 
 ---
 
@@ -44,7 +44,7 @@ The easiest way to install Otter is using the automated per-user installer.
 ### Step 1: Download & Extract
 
 Download the latest versioned release archive:
-`otter-1.0.0-rc.1-windows-powershell.zip`
+`otter-1.0.0-rc.2-windows-powershell.zip`
 
 Extract the ZIP contents into a temporary directory or your Downloads folder.
 
@@ -58,7 +58,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 ```
 
 #### What the installer does:
-- Copies the complete Otter runtime, modules, and `otter.cmd` launcher to `%LOCALAPPDATA%\Otter\1.0.0-rc.1\`.
+- Copies the complete Otter runtime, modules, and `otter.cmd` launcher to `%LOCALAPPDATA%\Otter\1.0.0-rc.2\`.
 - Adds that directory to your User `PATH` environment variable.
 - Runs an automated health check (`otter.cmd --version`) to confirm successful installation.
 - Requires zero administrative rights and will not alter system-wide configurations.
@@ -75,7 +75,7 @@ otter --version
 
 Expected output:
 ```text
-Otter 1.0.0-rc.1 (Windows PowerShell 5.1)
+Otter 1.0.0-rc.2
 ```
 
 ---
@@ -149,7 +149,7 @@ otter --version
 ```
 Expected output:
 ```text
-Otter 1.0.0-rc.1 (Windows PowerShell 5.1)
+Otter 1.0.0-rc.2
 ```
 
 ### Check 2: Interactive REPL
@@ -232,7 +232,7 @@ Run `Uninstall-Otter.ps1` from your installation directory:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
-& "$env:LOCALAPPDATA\Otter\1.0.0-rc.1\Uninstall-Otter.ps1"
+& "$env:LOCALAPPDATA\Otter\1.0.0-rc.2\Uninstall-Otter.ps1"
 ```
 
 The uninstaller will:
@@ -276,7 +276,7 @@ This per-process bypass applies strictly to the current terminal window and auto
 
 ### Issue: Can I run Otter under PowerShell 7 (`pwsh`)?
 
-**Answer**: Yes! Although the Otter engine itself executes on Windows PowerShell 5.1, the `otter.cmd` launcher is a Windows command script that automatically launches the correct `powershell.exe` runtime. You can invoke `otter run app.ot` directly from PowerShell 7, Command Prompt (`cmd.exe`), Git Bash, or Windows Terminal without any manual switching.
+**Answer**: Yes. When you use the installed `otter` command, the `otter.cmd` launcher is a Windows command script that automatically launches the correct `powershell.exe` runtime. You can invoke `otter run app.ot` directly from PowerShell 7, Command Prompt (`cmd.exe`), Git Bash, or Windows Terminal without any manual switching.
 
 ---
 

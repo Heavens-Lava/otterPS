@@ -91,3 +91,52 @@ reachability matrix's 31-versus-34 row count; "Processes" versus "Process";
 53-versus-55 suite counts) are recorded with evidence in
 `release/otter-1.0-surface.json` (`documentConflicts`) and
 `docs/OTTER_1_0_SURFACE_RECONCILIATION.md` section 8.
+
+## RC2 stabilization reviews (2026-09-28)
+
+Three read-only reviews ran against the frozen candidate before the RC tag:
+security and data loss (files and paths), security (networking and secrets),
+and a literal walkthrough of the installation and Getting Started docs. The
+release-blocking findings were fixed before the RC tag, each with a regression
+test (see `CHANGELOG.md`, 1.0.0-rc.2, "Security"). Everything below was
+triaged as **not** blocking the RC and is tracked here.
+
+### Before 1.0.0
+
+| Id | Finding | Where |
+|---|---|---|
+| S6 | Docs call file operations "sandboxed"; they are not a sandbox (absolute paths, `..`, links all work). Reword. | `README.md`, `otter-docs/pages/files.ot`, `otter-docs/pages/welcome.ot` |
+| S7 | `use` accepts absolute and `../` paths and non-`.ot` files; an absolute path skips the D122 case check, so a wrong-case absolute path loads on Windows/macOS. | `src/Otter.Module.psm1` |
+| N4 | One aborted request (short body) ends `otter serve`; request bodies are read unbounded. | `src/Otter.Server.psm1`, `otter.ps1` serve loop |
+| N5 | `download file` has no deadline on the response body (a slow server hangs the program). | `src/Otter.Library.psm1` |
+| N6 | Console HTTP has no default timeout or response-size cap; error messages repeat the full URL (credentials in `user:pass@` or query strings). | `src/Otter.Library.psm1` |
+| D1 | No documented install path for PowerShell 7 on Linux/macOS (the engine is certified there; the installer is Windows-only). Decide what 1.0 promises and document it. | `INSTALL.md`, docs site installation page |
+| D3 | REPL: `quit` is documented but only `exit` works. | `INSTALL.md` section 6 |
+| D4 | REPL treats only some block starters as blocks (`each ... in` and `has` fail); block end rule undocumented. | REPL, docs `repl` page |
+| D5 | `otter check .` reports a project valid while an unimported project file has a syntax error; docs say it validates the whole project. | `otter check`, docs `cli`/`projects` pages |
+| DC2-DC5 | Documentation conflicts listed below. | |
+
+### Post-1.0 (minor)
+
+S8 symlink cycles in `use` give a confusing error; `copy folder` into its own
+subfolder recurses; `otter web` overwrites an existing `.html` silently; the
+distribution builder deletes an existing zip without `-Force`. S5 (remainder)
+the uninstaller's PATH cleanup can throw on unusual PATH entries and rewrites
+REG_EXPAND_SZ as REG_SZ. N7 UDP listens on all interfaces (TCP defaults to
+loopback). N8 desktop bridge token: case-insensitive, non-constant-time check,
+accepted in the query string, written into the app folder. N9 runtime
+`url`/`src` accept `javascript:` URLs. N10 no cap on stored password-hash
+iterations. D6-D12 docs wording: `-ParseOnly` output, versioned install folder
+wording, "no registry changes", argument pass-through exceptions, undocumented
+`serve`/`profile`/`debug`/`browse`, the `hello` page stub, mislabelled code
+blocks.
+
+### Otter Studio (out of scope for the language release)
+
+Studio is a development preview, not in the 1.0 distribution. Its dev server
+(`otter-studio/serve.mjs`) listens on all interfaces with no authentication,
+allows any origin, runs shell commands (`/api/terminal`), writes files outside
+the workspace (`/api/run`, `/api/create-project`), and its `startsWith` path
+checks accept sibling folders. Jeff's decision (2026-09-28): Studio is done
+after the Otter language; fix these before Studio is released. Until then, do
+not run `otter studio` on an untrusted network.

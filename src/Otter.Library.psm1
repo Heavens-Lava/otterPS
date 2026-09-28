@@ -1877,6 +1877,23 @@ function Start-OtterProgram {
     $program = $parts[0]
     $arguments = @($parts | Select-Object -Skip 1)
 
+    # `run "x.cmd a b"` (start without waiting) goes through Start-Process,
+    # which joins -ArgumentList with plain spaces and has Windows start a
+    # .cmd/.bat through cmd.exe - so an argument like `foo&calc` would run a
+    # second command, exactly as `run command` did before
+    # ConvertTo-OtterCmdArgument. When the target resolves to a .cmd/.bat
+    # script (directly, or via PATH/PATHEXT such as `npm` -> npm.cmd), the
+    # script path and every argument get the same cmd.exe treatment: refuse
+    # " % CR LF NUL, quote anything containing whitespace or & | < > ^ ( ) , ; = !.
+    if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT) {
+        $resolvedProgram = Get-Command -Name $program -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+        $programExt = if ($resolvedProgram) { [System.IO.Path]::GetExtension($resolvedProgram.Source) } else { [System.IO.Path]::GetExtension($program) }
+        if ($programExt -in @('.cmd', '.bat')) {
+            [void](ConvertTo-OtterCmdArgument -Argument $program -Line $Line)
+            $arguments = @(foreach ($a in $arguments) { ConvertTo-OtterCmdArgument -Argument $a -Line $Line })
+        }
+    }
+
     try {
         $started = if ($arguments.Count -gt 0) {
             Start-Process -FilePath $program -ArgumentList $arguments -PassThru -ErrorAction Stop

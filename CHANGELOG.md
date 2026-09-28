@@ -19,6 +19,17 @@ checkpoint taken before the 1.0 scope was widened.) From this candidate to
 - **The query language (D99) is deferred to Otter 1.1.** It is not part of Otter 1.0; the implementation remains in the source tree as an experimental preview, unchanged. Use `query` and `execute` with parameterized SQL.
 - The decision ledger now records D99-D114 and D119, reconstructed from their approved specifications, commits and tests.
 
+### Security
+Found by the pre-release security and data-loss review; each fix has a regression test.
+- **`otter publish`** refuses a manifest `version` that is not a plain version string (letters, digits, `.`, `+`, `-`). A crafted version such as `1/../../x` could make publish write files outside the project.
+- **`otter build` and `otter publish`** only delete and replace an output folder that is empty or that Otter created (it holds `otter.build.json` / `otter.publish.json`), and never one containing the entry point, the manifest or `.git`. Before, `"outputDir": "src"` deleted the project's sources.
+- **`Install-Otter.ps1 -Force`** only replaces a folder it recognises as an Otter installation (new `.otter-install` marker, or the full file set of an earlier install). It refuses non-empty folders that are not installs, the user profile and special folders, filesystem roots, relative and drive-relative paths, and any folder that contains or is inside the extracted package. Before, `-Force` deleted whatever folder it was given.
+- **`Uninstall-Otter.ps1`** uses the same recognition and never deletes an unrecognised folder, even with `-Force`. Before, a source checkout (which has `otter.cmd` at its root) was treated as an installation.
+- **`run command` and `run` on `.cmd`/`.bat` scripts** quote arguments by cmd.exe's own rules and refuse `"`, `%` and line breaks, which cmd.exe cannot take literally. Before, an argument such as `foo&calc` ran a second command (the "BatBadBut" class, CVE-2024-24576).
+- **HTTP requests** refuse line breaks and NUL in header names and values. Before, a header value containing CR/LF injected extra headers.
+- **`run command ... over ssh`** refuses a host that is empty, starts with `-`, or contains spaces, quotes or control characters, and passes `--` before the host. Before, a host such as `-oProxyCommand=...` was read as an ssh option that runs a local command.
+- Known, not yet fixed: the Otter Studio development server (not part of the 1.0 distribution) is not safe on an untrusted network; see `docs/OTTER_1_0_FREEZE_FOLLOWUPS.md`.
+
 ### Added
 - **Four-host support:** Windows PowerShell 5.1, and PowerShell 7 on Windows, Linux and macOS, all pass the portable language suite (D120 CI matrix).
 - **Release certification runner** (`tools/Invoke-OtterReleaseCertification.ps1`): runs every release gate from a clean checkout of a nominated SHA and records the outcome of each. A final `repository-clean` check fails the run if any gate changes the working tree.

@@ -281,9 +281,28 @@ try {
     }
     if ($res12.Output -match 'UNEXPECTED_SUCCESS') { throw "Test 12 failed: the script ran. Got: $($res12.Output)" }
     Write-Output '  pass  a .cmd argument containing % is refused with a clear Otter error'
+
+    # -------------------------------------------------------------
+    # 13. `run` without waiting (Start-Process) applies the same cmd.exe rules
+    # -------------------------------------------------------------
+    # Start-Process joins arguments with plain spaces and Windows starts a
+    # .cmd through cmd.exe, so this path needs the same guard as `run command`.
+    $code13 = 'try' + "`n" +
+              '    run "' + $fixPathMeta + ' 100%" into p' + "`n" +
+              '    say "UNEXPECTED_SUCCESS"' + "`n" +
+              'otherwise into err' + "`n" +
+              '    say "CAUGHT:" err' + "`n" +
+              '.'
+    $res13 = Run-OtterScript $code13
+    if ($res13.ExitCode -ne 0) { throw "Test 13 failed: $($res13.Output)" }
+    if ($res13.Output -notmatch 'CAUGHT:.*cannot pass "100%" safely to a \.cmd or \.bat script') {
+        throw "Test 13 failed: Expected the .cmd argument refusal from run. Got: $($res13.Output)"
+    }
+    if ($res13.Output -match 'UNEXPECTED_SUCCESS') { throw "Test 13 failed: the script was started. Got: $($res13.Output)" }
+    Write-Output '  pass  run (without waiting) refuses a .cmd argument containing % the same way'
 }
 finally {
     Remove-Item -LiteralPath $testTmp -Recurse -Force -ErrorAction SilentlyContinue
 }
 
-Write-Host "`nAll Otter command dispatch tests passed (12/12).`n" -ForegroundColor Green
+Write-Host "`nAll Otter command dispatch tests passed (13/13).`n" -ForegroundColor Green
