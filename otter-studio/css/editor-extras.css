@@ -264,3 +264,20 @@ body.zen-mode .studio-statusbar {
   padding: 24px;
   color: #94a3b8;
 }
+
+/* Explorer: the row a keyboard action applies to, and drop targets. */
+.project-file-item.is-explorer-selected,
+.project-folder-item.is-explorer-selected {
+  outline: 1px solid rgba(59, 130, 246, 0.6);
+  outline-offset: -1px;
+}
+
+.project-folder-item.is-drop-target,
+.project-folder-root.is-drop-target,
+.project-file-item.is-drop-target {
+  background: rgba(59, 130, 246, 0.22) !important;
+}
+
+.project-tree:focus {
+  outline: none;
+}

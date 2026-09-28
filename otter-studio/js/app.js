@@ -18,6 +18,7 @@ import { mountStudioShell } from './shell/studio-shell.js';
 import { toRegistryCommands } from './designer/commands.js';
 import { createViewState } from './designer/view-state.js';
 import { TasksPanel } from './components/tasks-panel.js';
+import { installExplorerActions } from './components/explorer-actions.js';
 import { setWorkspaceTrust } from './project/workspace-solution.js';
 import { SourceControlPanel } from './components/source-control.js';
 import { TestExplorer } from './components/test-explorer.js';
@@ -185,6 +186,16 @@ document.addEventListener('DOMContentLoaded', async () => {
       sourceControl.refresh();
     }
   }
+
+  // Explorer: right-click menu, F2, Delete, drag to move (server/fs-ops.mjs).
+  window.otterExplorer = installExplorerActions(ide);
+  // A renamed or moved design file (or stylesheet) stays bound.
+  window.addEventListener('otter:file-moved', (e) => {
+    const { from, to } = e.detail || {};
+    const follow = (p) => (p && (p === from || p.startsWith(`${from}/`)) ? to + p.slice(from.length) : p);
+    designBinding.file = follow(designBinding.file);
+    cssAstManager.sourcePath = follow(cssAstManager.sourcePath);
+  });
 
   // Tasks tab: TODO / FIXME comments in the project.
   const tasksPanel = new TasksPanel(ide, document.getElementById('panelTasks'));

@@ -7,6 +7,7 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { exec, execFile, spawn } from 'node:child_process';
 import { handleLaunchRoutes } from './server/launch.mjs';
+import { handleFsRoutes } from './server/fs-ops.mjs';
 import { handleGitRoutes } from './server/git.mjs';
 import { handleTestRoutes } from './server/tests.mjs';
 import { checkRequest, readJsonBody, isInside, LOOPBACK_HOST } from './server/security.mjs';
@@ -310,6 +311,9 @@ async function handleRequest(req, res) {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   res.setHeader('Referrer-Policy', 'no-referrer');
+
+  // Explorer: new file/folder, rename, move, delete, reveal (server/fs-ops.mjs).
+  if (await handleFsRoutes(req, res, pathname, { repoRoot: REPO_ROOT, isInsideRepo, readBody, sendJson })) return;
 
   // Run, launch profiles, build and clean (server/launch.mjs).
   if (await handleLaunchRoutes(req, res, pathname, urlObj, {
@@ -1009,7 +1013,7 @@ async function handleRequest(req, res) {
     try {
       const body = await readBody(req);
       const target = path.resolve(REPO_ROOT, String(body.path || ''));
-      if (!body.path || !target.startsWith(REPO_ROOT) || !fs.existsSync(target)) {
+      if (!body.path || !isInsideRepo(target) || !fs.existsSync(target)) {
         return sendJson(res, { error: 'Forbidden' }, 403);
       }
       const opener = process.platform === 'win32' ? ['explorer.exe', [target]]

@@ -80,3 +80,50 @@ export function askText({ title = 'Otter Studio', message = '', value = '', plac
     setTimeout(() => { input.focus(); input.select(); }, 20);
   });
 }
+
+// A yes/no question in the same style: resolves true (confirmed) or false.
+export function askConfirm({ title = 'Otter Studio', message = '', okLabel = 'OK', danger = false } = {}) {
+  if (open) open.cancel();
+  return new Promise((resolve) => {
+    const backdrop = document.createElement('div');
+    backdrop.className = 'modal-backdrop ask-backdrop';
+    backdrop.style.display = 'flex';
+    backdrop.innerHTML = `
+      <form class="modal-dialog ask-dialog" role="alertdialog" aria-modal="true" aria-labelledby="askTitle" novalidate>
+        <div class="modal-header">
+          <div class="modal-title-wrap">
+            <h2 class="modal-title" id="askTitle"></h2>
+            <p class="modal-subtitle ask-message"></p>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <div class="modal-footer-left"></div>
+          <div class="modal-footer-right">
+            <button type="button" class="btn-modal-cancel" data-ask-cancel>Cancel</button>
+            <button type="submit" class="btn-modal-primary${danger ? ' is-danger' : ''}"></button>
+          </div>
+        </div>
+      </form>`;
+    backdrop.querySelector('#askTitle').textContent = title;
+    backdrop.querySelector('.ask-message').textContent = message;
+    backdrop.querySelector('.btn-modal-primary').textContent = okLabel;
+    document.body.appendChild(backdrop);
+    const previousFocus = document.activeElement;
+    const finish = (result) => {
+      backdrop.remove();
+      document.removeEventListener('keydown', onKey, true);
+      open = null;
+      previousFocus?.focus?.({ preventScroll: true });
+      resolve(result);
+    };
+    const onKey = (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); finish(false); }
+    };
+    backdrop.querySelector('form').addEventListener('submit', (e) => { e.preventDefault(); finish(true); });
+    backdrop.querySelector('[data-ask-cancel]').addEventListener('click', () => finish(false));
+    backdrop.addEventListener('mousedown', (e) => { if (e.target === backdrop) finish(false); });
+    document.addEventListener('keydown', onKey, true);
+    open = { cancel: () => finish(false) };
+    setTimeout(() => backdrop.querySelector('.btn-modal-primary').focus(), 20);
+  });
+}
