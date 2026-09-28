@@ -6,6 +6,23 @@ measurement below came from an instrumented *copy* of the interpreter under
 Raw results: `benchmarks/results/event-loop-0.9.0.json`. Reproduce with
 `tools/event-loop-review/` (see its README).
 
+## Update 2026-09-27: decisions taken and a correction
+
+* **Decided.** EV1-EV7 were decided and recorded as **D121** in
+  `SPEC-DECISIONS.md`; user-facing description in `docs/OTTER_1_0_EVENT_MODEL.md`.
+  Two runtime changes followed (commit `6451f68`): `wait` now services every
+  event source (EV3; previously HTTP and jobs only), and a command job handles
+  at most 256 queued events per turn (EV2). Scheduling timing (the sleep) was not
+  changed. The measurements below describe the runtime **before** those two
+  changes.
+* **Correction.** Section 2 says the loop "waits" with `Wait-Event 0.5 s` (watchers
+  only) and `Wait-Event 0.02 s` (watchers plus sockets). `Wait-Event -Timeout`
+  takes whole seconds, so both values round to 0, and a 0 timeout was measured to
+  block for about **200 ms**. With watchers only the loop therefore waits about
+  200 ms per pass (not 0.5 s); with watchers and sockets it waits about 200 ms per
+  pass (not 20 ms), which makes socket events slower still in that combination.
+  The watcher-only CPU note in section 8 ("not measured separately") stands.
+
 ## Short answer
 
 The ~30 events per second in the `event_dispatch` benchmark is **not a property of
