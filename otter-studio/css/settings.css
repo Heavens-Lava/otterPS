@@ -195,3 +195,24 @@
   color: var(--accent-blue, #3b82f6);
   font-size: 9px;
 }
+
+/* Text input dialog (js/shell/ask.js), in place of window.prompt(). */
+.ask-dialog {
+  width: min(460px, calc(100vw - 32px));
+}
+
+.ask-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ask-input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.ask-error {
+  font-size: 12px;
+  color: #f87171;
+}

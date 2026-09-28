@@ -21,6 +21,7 @@
 
 import { diffLines, sideBySide, diffStats } from '../scm/line-diff.js';
 import { parseConflicts, resolveConflict } from '../scm/conflicts.js';
+import { askText } from '../shell/ask.js';
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 
@@ -393,7 +394,7 @@ export class SourceControlPanel {
       case 'resolve-editor': return this.openConflictEditor(filePath);
       case 'branches': return this.openBranchPicker();
       case 'stash-push': {
-        const message = prompt('Stash message (optional):', '');
+        const message = await askText({ title: 'Stash Changes', message: 'An optional message to recognise this stash by.', okLabel: 'Stash' });
         if (message === null) return;
         return this.run('Stash', () => this.api('POST', 'stash', { op: 'push', message }));
       }
@@ -406,9 +407,10 @@ export class SourceControlPanel {
         return this.run(`Stash ${op}`, () => this.api('POST', 'stash', { op, ref }));
       }
       case 'tag-create': {
-        const name = prompt('Tag name (for example v1.0.0):', '');
+        const name = await askText({ title: 'Create Tag', message: 'For example v1.0.0.', okLabel: 'Next',
+          validate: (v) => (v.trim() && !/\s/.test(v.trim()) ? null : 'A tag name has no spaces.') });
         if (!name) return;
-        const message = prompt('Tag message (leave empty for a lightweight tag):', '');
+        const message = await askText({ title: `Tag ${name.trim()}`, message: 'A message makes an annotated tag; leave it empty for a lightweight one.', okLabel: 'Create tag' });
         if (message === null) return;
         return this.run('Create tag', () => this.api('POST', 'tag', { name: name.trim(), message }));
       }
@@ -418,9 +420,9 @@ export class SourceControlPanel {
         return this.run('Delete tag', () => this.api('POST', 'tag', { name, delete: true }));
       }
       case 'remote-add': {
-        const name = prompt('Remote name:', 'origin');
+        const name = await askText({ title: 'Add Remote', message: 'A short name for the remote repository.', value: 'origin', okLabel: 'Next' });
         if (!name) return;
-        const url = prompt('Remote URL (https://, ssh:// or git@host:owner/repo.git):', '');
+        const url = await askText({ title: `Remote ${name.trim()}`, message: 'https://, ssh:// or git@host:owner/repo.git', okLabel: 'Add remote' });
         if (!url) return;
         return this.run('Add remote', () => this.api('POST', 'remote', { name: name.trim(), url }));
       }

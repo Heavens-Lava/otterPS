@@ -13,6 +13,7 @@ import { getHoverInfo, getWordAtOffset } from './navigation/hover-provider.js';
 import { getSignatureHelp } from './navigation/signature-provider.js';
 import { autoClosePair, backspacePair, enterKey, prepareForSave, renderIndentGuides } from './editor/editing-assist.js';
 import { markWhitespace, findLinkAt, resolveSourcePath, createBookmarks } from './editor/editor-extras.js';
+import { askText } from './shell/ask.js';
 import { otterLanguageService } from './language/otter-language-service.js';
 import {
   getLanguageForFile,
@@ -708,7 +709,7 @@ export class OtterStudioIde {
   }
 
   async promptOpenFolder() {
-    const folder = prompt('Enter folder path to open in workspace (e.g. examples/file-organizer or examples):', 'examples/file-organizer');
+    const folder = await askText({ title: 'Open Folder', message: 'A folder inside the Otter repository, for example examples/file-organizer.', value: 'examples/file-organizer', okLabel: 'Open' });
     if (!folder) return;
     await this.loadProjectTree(folder);
   }
@@ -880,7 +881,8 @@ export class OtterStudioIde {
   }
 
   async promptNewSolution() {
-    const name = prompt('Enter solution name (e.g. MySuite):', 'MySuite');
+    const name = await askText({ title: 'New Solution', message: 'A solution groups several projects.', value: 'MySuite', okLabel: 'Create',
+      validate: (v) => (/^[A-Za-z0-9_. -]+$/.test(v.trim()) ? null : 'Use letters, digits, spaces, dots, dashes or underscores.') });
     if (!name) return;
     const folders = [];
     if (this.currentProjectFolder && !this.isMultiRoot) {
@@ -1443,7 +1445,7 @@ export class OtterStudioIde {
     }
   }
 
-  promptRename() {
+  async promptRename() {
     const word = this.wordAtCursor();
     const location = this.currentEditorLocation();
     if (!word || !location) {
@@ -1451,6 +1453,9 @@ export class OtterStudioIde {
       return;
     }
     this.currentRenameSymbol = word;
+    // Only the references in the symbol's own scope: renaming a function's
+    // parameter must not rename a global of the same name (or the reverse).
+    this.currentRenameRefs = this.isOtterFile() ? await this.scopedReferencesAt(word, location) : null;
     if (this.modalRenameSymbol && this.inputRenameNewName) {
       this.modalRenameSymbol.style.display = 'flex';
       this.inputRenameNewName.value = word;
@@ -1458,6 +1463,48 @@ export class OtterStudioIde {
       this.inputRenameNewName.select();
       this.updateRenamePreview();
     }
+  }
+
+  // References to `name` in the scope of the occurrence at `location`, from
+  // the real analyzer (tools/vscode-otter/scripts/analyze.ps1). The analyzer
+  // says which lines belong to that scope; every occurrence on those lines
+  // is found lexically (it skips strings and comments). null when the
+  // analyzer cannot place the name (the rename then falls back to every
+  // occurrence in the file, as before).
+  async scopedReferencesAt(name, location) {
+    try {
+      const res = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: this.currentCode })
+      });
+      const data = await res.json();
+      const refs = (data.References || []).filter(r => r.Name === name);
+      const here = refs.find(r => Number(r.Line) === location.line);
+      if (!here) return null;
+      const lines = new Set(refs.filter(r => r.ScopeId === here.ScopeId).map(r => Number(r.Line)));
+      return otterLanguageService.lexicalReferences(this.currentCode, name, this.currentFile)
+        .filter(o => lines.has(o.line))
+        .map(o => ({ Name: name, Line: o.line, Column: o.column, IsDeclaration: false }));
+    } catch {
+      return null;
+    }
+  }
+
+  // Replace the whole document as one undo step: Ctrl+Z undoes a rename,
+  // format or quick fix in one go instead of losing the undo history.
+  replaceDocumentText(newCode) {
+    const textarea = document.getElementById('hiddenEditorInput');
+    let viaUndoStack = false;
+    if (textarea) {
+      textarea.focus({ preventScroll: true });
+      textarea.select();
+      try { viaUndoStack = document.execCommand('insertText', false, newCode); } catch { viaUndoStack = false; }
+      if (!viaUndoStack || textarea.value !== newCode) textarea.value = newCode;
+    }
+    this.currentCode = newCode;
+    this.markCurrentTabDirty(true);
+    this.renderEditorCode(this.currentCode);
   }
 
   closeRenameModal() {
@@ -1475,7 +1522,8 @@ export class OtterStudioIde {
       newName,
       this.currentFile,
       this.currentCode,
-      this.workspaceSymbols
+      this.workspaceSymbols,
+      this.currentRenameRefs || []
     );
     this.currentRenamePlan = plan;
 
@@ -1518,11 +1566,7 @@ export class OtterStudioIde {
       plan.edits
     );
 
-    this.currentCode = newCode;
-    const textarea = document.getElementById('hiddenEditorInput');
-    if (textarea) textarea.value = newCode;
-    this.markCurrentTabDirty(true);
-    this.renderEditorCode(this.currentCode);
+    this.replaceDocumentText(newCode);
     this.closeRenameModal();
     await this.refreshWorkspaceSymbols();
     this.debouncedLint();
@@ -1548,32 +1592,32 @@ export class OtterStudioIde {
     }
   }
 
-  extractFunction() {
+  // Extract the selected lines into a function (whole lines; a selection
+  // ending at the start of a line does not include that line).
+  async extractFunction() {
     const textarea = document.getElementById('hiddenEditorInput');
     if (!textarea) return;
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
-    const selectedText = (start !== end) ? textarea.value.substring(start, end) : '';
-    if (!selectedText.trim()) {
-      alert('Please select the code statements you wish to extract into a function.');
+    if (start === end || !textarea.value.substring(start, end).trim()) {
+      this.setProblemsStatus(false, 'Select the statements to extract into a function.', 'Extract Function', 'Refactor', 'Select whole lines first.');
       return;
     }
+    const lineAt = (offset) => textarea.value.substring(0, offset).split('\n').length;
+    const startLine = lineAt(start);
+    let endLine = lineAt(end);
+    if (end > start && textarea.value[end - 1] === '\n') endLine--;
 
-    const fnName = prompt('Enter new function name for extracted code:', 'extractedAction');
+    const fnName = await askText({ title: 'Extract Function', message: `Lines ${startLine}-${endLine} become a function with this name.`, value: 'extractedAction', okLabel: 'Extract',
+      validate: (v) => (/^[A-Za-z_][A-Za-z0-9_]*$/.test(v.trim()) ? null : 'A function name starts with a letter and has only letters, digits and _.') });
     if (!fnName) return;
 
-    const beforeSel = textarea.value.substring(0, start);
-    const cursorLine = beforeSel.split('\n').length;
-    const result = otterLanguageService.prepareExtractFunction(selectedText, fnName, this.currentCode, cursorLine);
+    const result = otterLanguageService.prepareExtractLines(this.currentCode, startLine, endLine, fnName);
     if (!result.ok) {
-      alert(result.error);
+      this.setProblemsStatus(false, result.error, 'Extract Function', 'Refactor', result.error);
       return;
     }
-
-    this.currentCode = result.newCode;
-    this.markCurrentTabDirty(true);
-    this.renderEditorCode(this.currentCode);
-    if (textarea) textarea.value = this.currentCode;
+    this.replaceDocumentText(result.newCode);
     this.debouncedLint();
     this.setProblemsStatus(true, `Extracted function '${result.fnName}'.`, 'Code refactored successfully.');
   }
@@ -1673,7 +1717,8 @@ export class OtterStudioIde {
   }
 
   async promptNewFile() {
-    const name = prompt('Enter new Otter file name (e.g. main.ot or script.ot):', 'script.ot');
+    const name = await askText({ title: 'New File', message: 'The file is created in the open project.', value: 'script.ot', okLabel: 'Create',
+      validate: (v) => (/^[\w.-]+(\/[\w.-]+)*\.[A-Za-z0-9]+$/.test(v.trim()) ? null : 'Give a file name with an extension, for example script.ot or data/items.csv.') });
     if (!name) return;
 
     const initialContent = `# ${name}\n\nsay "Hello from ${name}!"\n`;
@@ -2582,8 +2627,10 @@ export class OtterStudioIde {
     this.saveSessionState();
   }
 
-  promptGoToLine() {
-    const input = prompt('Go to Line number:');
+  async promptGoToLine() {
+    const lineCount = this.currentCode.split('\n').length;
+    const input = await askText({ title: 'Go to Line', message: `Line 1 to ${lineCount}`, placeholder: 'Line number', okLabel: 'Go',
+      validate: (v) => (/^\d+$/.test(v.trim()) && Number(v) >= 1 ? null : 'Type a line number.') });
     if (!input) return;
     const lineNum = parseInt(input, 10);
     if (!isNaN(lineNum) && lineNum > 0) {

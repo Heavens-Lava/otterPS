@@ -482,6 +482,98 @@ export class OtterLanguageService {
     };
   }
 
+  // Extract whole lines startLine..endLine (1-based) into `to fnName`. The
+  // body keeps its relative indentation (nested blocks stay nested), the
+  // call replaces the lines at their indentation, and the definition goes
+  // before the top-level statement that contains the call (Otter functions
+  // must be defined before they run).
+  prepareExtractLines(code, startLine, endLine, fnName) {
+    const name = (fnName || '').trim();
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
+      return { ok: false, error: `'${name}' is not a valid Otter identifier.` };
+    }
+    const eol = String(code).includes('\r\n') ? '\r\n' : '\n';
+    const lines = String(code).split(/\r?\n/);
+    const first = Math.max(1, Math.min(startLine, endLine));
+    const last = Math.min(lines.length, Math.max(startLine, endLine));
+    const selected = lines.slice(first - 1, last);
+    if (!selected.some(l => l.trim())) {
+      return { ok: false, error: 'Select one or more statements to extract.' };
+    }
+    const indentOf = (l) => l.match(/^\s*/)[0].length;
+    const base = Math.min(...selected.filter(l => l.trim()).map(indentOf));
+    // Otter blocks are indentation (a period may close one explicitly).
+    // Only whole statements can move: the selection must start at its own
+    // outermost level, must not start with the tail of an earlier block, and
+    // must not leave the body of a selected block behind.
+    const firstLine = selected.find(l => l.trim());
+    if (indentOf(firstLine) !== base) {
+      return { ok: false, error: 'The selection starts inside a block. Select whole statements.' };
+    }
+    if (/^(\.|otherwise\b)/.test(firstLine.trim())) {
+      return { ok: false, error: 'The selection starts with the end of an earlier block. Select whole statements.' };
+    }
+    const nextLine = lines.slice(last).find(l => l.trim());
+    if (nextLine !== undefined && indentOf(nextLine) > base) {
+      return { ok: false, error: 'The selection leaves part of a block behind. Select the whole block.' };
+    }
+
+    // Inside a function, its parameters and earlier locals are not visible to
+    // a new function (Otter functions have their own scope): pass the ones
+    // the lines use as parameters. Assigning to one could not flow back, so
+    // that is refused.
+    const params = [];
+    let minIndent = base;
+    for (let i = first - 2; i >= 0 && minIndent > 0; i--) {
+      const l = lines[i];
+      if (!l.trim() || indentOf(l) >= minIndent) continue;
+      minIndent = indentOf(l);
+      const fn = l.trim().match(/^to\s+[A-Za-z_]\w*\s*(.*)$/);
+      if (!fn) continue;
+      const visible = new Set(fn[1].split(/\s+and\s+/).map(p => p.trim()).filter(p => /^[A-Za-z_]\w*$/.test(p)));
+      for (let j = i + 1; j < first - 1; j++) {
+        const assigned = lines[j].match(/^\s*([A-Za-z_]\w*)\s+is\b/) || lines[j].match(/\bmake\s+([A-Za-z_]\w*)\s*$/);
+        if (assigned) visible.add(assigned[1]);
+      }
+      const code = selected.map(l => l.replace(/"[^"]*"/g, '""').replace(/#.*$/, '')).join('\n');
+      for (const v of visible) {
+        if (new RegExp(`\\b${v}\\b`).test(code)) params.push(v);
+      }
+      const reassigned = params.find(p => selected.some(l => new RegExp(`^\\s*${p}\\s+is\\b|\\bmake\\s+${p}\\s*$`).test(l)));
+      if (reassigned) {
+        return { ok: false, error: `The selection changes '${reassigned}', which belongs to the function around it; a new function could not change it there.` };
+      }
+      break;
+    }
+
+    // A variable the lines create is local to the new function: code after
+    // the selection could no longer see it.
+    const created = new Set();
+    for (const l of selected) {
+      const m = l.match(/^\s*([A-Za-z_]\w*)\s+is\b/) || l.match(/\bmake\s+([A-Za-z_]\w*)\s*$/);
+      if (m) created.add(m[1]);
+    }
+    const after = lines.slice(last).map(l => l.replace(/"[^"]*"/g, '""').replace(/#.*$/, '')).join('\n');
+    const leaked = [...created].find(v => new RegExp(`\\b${v}\\b`).test(after));
+    if (leaked) {
+      return { ok: false, error: `'${leaked}' is set in the selection and used after it; inside a new function it would no longer be visible there.` };
+    }
+
+    const body = selected.map(l => (l.trim() ? '    ' + l.slice(base) : ''));
+    const args = params.length ? ' ' + params.join(' and ') : '';
+    const call = ' '.repeat(base) + name + args;
+    const out = [...lines.slice(0, first - 1), call, ...lines.slice(last)];
+
+    // The top-level statement containing the call: scan up for column 0.
+    let insertAt = first - 1;
+    for (let i = first - 1; i >= 0; i--) {
+      const l = out[i];
+      if (l && indentOf(l) === 0 && l.trim() && !l.trim().startsWith('#') && l.trim() !== '.') { insertAt = i; break; }
+    }
+    out.splice(insertAt, 0, `to ${name}${args}`, ...body, '.', '');
+    return { ok: true, fnName: name, parameters: params, newCode: out.join(eol) };
+  }
+
   // --- 10. Code Actions & Quick Fixes ---
   getQuickFixes(diagnostic, sourceCode) {
     const fixes = [];
