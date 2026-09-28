@@ -169,6 +169,13 @@ class OtterServerSession {
     [WebRouteStmt[]]$Routes
     [bool]$IsRunning
 
+    # RC3 B11: the largest request body the server will read, in bytes
+    # (10 MB). A bigger declared Content-Length is refused with 413 before
+    # any of it is read; a body with no declared length (chunked) is read
+    # only up to this limit and then refused the same way. Without the cap,
+    # one request could make the server buffer an arbitrary amount of memory.
+    static [long]$MaxRequestBodyBytes = 10485760
+
     OtterServerSession([int]$port, [string]$hostName, [WebRouteStmt[]]$routes) {
         $this.Port = $port
         $this.Host = $hostName
@@ -198,19 +205,67 @@ class OtterServerSession {
         $request = $context.Request
         $response = $context.Response
 
-        $reqBody = ''
-        if ($request.HasEntityBody) {
-            $reader = [System.IO.StreamReader]::new($request.InputStream, $request.ContentEncoding)
-            $reqBody = $reader.ReadToEnd()
-            $reader.Close()
+        # RC3 B11: one bad request must never stop the server. Before this
+        # guard, a client that declared a body and then disconnected (for
+        # example Content-Length 100000 followed by 3 bytes and a close) made
+        # ReadToEnd throw; nothing caught it, so `otter serve` printed
+        # "Exception calling ReadToEnd ..." and exited 1 for every user. Any
+        # failure while handling this one request is now caught here: the
+        # client gets a generic 500 (no internal details), the console gets
+        # one Otter line, and the caller's loop goes on to the next request.
+        try {
+            $reqBody = ''
+            if ($request.HasEntityBody) {
+                $maxBytes = [OtterServerSession]::MaxRequestBodyBytes
+                if ($request.ContentLength64 -gt $maxBytes) {
+                    $this.SendText($response, 413, 'Request body too large.')
+                    return
+                }
+                # Read raw bytes, one more than the limit at most, so a body
+                # without a declared length cannot grow past the cap either.
+                $buffer = New-Object byte[] 65536
+                $bodyStream = [System.IO.MemoryStream]::new()
+                while ($true) {
+                    $read = $request.InputStream.Read($buffer, 0, $buffer.Length)
+                    if ($read -le 0) { break }
+                    $bodyStream.Write($buffer, 0, $read)
+                    if ($bodyStream.Length -gt $maxBytes) { break }
+                }
+                if ($bodyStream.Length -gt $maxBytes) {
+                    $this.SendText($response, 413, 'Request body too large.')
+                    return
+                }
+                $encoding = if ($null -ne $request.ContentEncoding) { $request.ContentEncoding } else { [System.Text.Encoding]::UTF8 }
+                $reqBody = $encoding.GetString($bodyStream.ToArray())
+            }
+
+            $result = Invoke-OtterServerRoute -Routes $this.Routes -Method $request.HttpMethod -Path $request.Url.AbsolutePath -Body $reqBody
+
+            $response.StatusCode = $result.StatusCode
+            $response.ContentType = $result.ContentType
+
+            $bytes = [System.Text.Encoding]::UTF8.GetBytes([string]$result.Content)
+            $response.ContentLength64 = $bytes.Length
+            $response.OutputStream.Write($bytes, 0, $bytes.Length)
+            $response.OutputStream.Close()
         }
+        catch {
+            Write-Host "Otter: a $($request.HttpMethod) request to $($request.Url.AbsolutePath) could not be completed and was skipped. The server is still running." -ForegroundColor DarkYellow
+            # The client may already be gone, so the 500 itself can fail;
+            # then drop the connection instead.
+            try { $this.SendText($response, 500, 'Internal Server Error') }
+            catch { try { $response.Abort() } catch { } }
+        }
+    }
 
-        $result = Invoke-OtterServerRoute -Routes $this.Routes -Method $request.HttpMethod -Path $request.Url.AbsolutePath -Body $reqBody
-
-        $response.StatusCode = $result.StatusCode
-        $response.ContentType = $result.ContentType
-
-        $bytes = [System.Text.Encoding]::UTF8.GetBytes([string]$result.Content)
+    # Sends a short plain-text response and closes it.
+    # Used only for refusals and failures, so the connection is closed
+    # afterwards: an unread request body must not be parsed as the next request.
+    hidden [void] SendText([System.Net.HttpListenerResponse]$response, [int]$statusCode, [string]$text) {
+        $response.KeepAlive = $false
+        $response.StatusCode = $statusCode
+        $response.ContentType = 'text/plain; charset=utf-8'
+        $bytes = [System.Text.Encoding]::UTF8.GetBytes($text)
         $response.ContentLength64 = $bytes.Length
         $response.OutputStream.Write($bytes, 0, $bytes.Length)
         $response.OutputStream.Close()
