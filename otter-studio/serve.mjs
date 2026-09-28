@@ -6,6 +6,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { exec, execFile, spawn } from 'node:child_process';
+import { handleLaunchRoutes } from './server/launch.mjs';
 import {
   createDefaultManifest,
   normalizeManifest,
@@ -35,7 +36,8 @@ function isInsideRepo(target) {
 const PORT = Number(process.env.OTTER_STUDIO_PORT || 4200);
 const ANALYZER_PATH = path.join(REPO_ROOT, 'tools', 'vscode-otter', 'scripts', 'analyze.ps1');
 const workspaceSymbolCache = new Map();
-let activeRunProcess = null;
+// The one program started with Run (see server/launch.mjs).
+const runState = { process: null, lastLaunch: null };
 
 // Debugger (first slice): sessionId -> { child, events: [], output: [],
 // finished: bool, exitCode: number|null, buffer: string }. Each session is a
@@ -280,6 +282,11 @@ const server = http.createServer(async (req, res) => {
     res.end();
     return;
   }
+
+  // Run, launch profiles, build and clean (server/launch.mjs).
+  if (await handleLaunchRoutes(req, res, pathname, urlObj, {
+    repoRoot: REPO_ROOT, isInsideRepo, readBody, sendJson, readFileSnapshot, runState
+  })) return;
 
   // --- Real Folder & File APIs ---
   if (pathname === '/api/project' && req.method === 'GET') {
@@ -892,67 +899,6 @@ const server = http.createServer(async (req, res) => {
   }
 
   // --- Execution & Otter Runner API ---
-  if (pathname === '/api/run' && req.method === 'POST') {
-    try {
-      const body = await readBody(req);
-      const relPath = body.path || 'examples/file-organizer/main.ot';
-      const safePath = path.resolve(REPO_ROOT, relPath);
-
-      // Save content first if provided
-      if (typeof body.content === 'string') {
-        fs.writeFileSync(safePath, body.content, 'utf8');
-      }
-
-      const runDir = path.dirname(safePath);
-      const scriptName = path.basename(safePath);
-      // Run exactly what otter.cmd runs (powershell -NoProfile
-      // -ExecutionPolicy Bypass -File otter.ps1 ...), but pass the arguments
-      // as an array. Building a shell command string put the file name
-      // inside cmd.exe quoting, where a name containing `"` or `&` could run
-      // other commands.
-      const otterPs1 = path.join(REPO_ROOT, 'otter.ps1');
-      const runArgs = ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', otterPs1, 'run', scriptName];
-      const startTime = Date.now();
-
-      if (activeRunProcess) {
-        try {
-          if (process.platform === 'win32') exec(`taskkill /pid ${activeRunProcess.pid} /f /t`, () => {});
-          else activeRunProcess.kill('SIGTERM');
-        } catch {}
-        activeRunProcess = null;
-      }
-
-      const child = execFile('powershell.exe', runArgs, { cwd: runDir, timeout: 30000 }, (error, stdout, stderr) => {
-        activeRunProcess = null;
-        const durationMs = Date.now() - startTime;
-        sendJson(res, {
-          exitCode: error ? (error.code || 1) : 0,
-          stdout: stdout ? stdout.toString() : '',
-          stderr: stderr ? stderr.toString() : '',
-          durationMs,
-          error: error ? error.message : null
-        });
-      });
-      activeRunProcess = child;
-    } catch (err) {
-      sendJson(res, { error: err.message }, 500);
-    }
-    return;
-  }
-
-  // --- Stop Running Process API ---
-  if (pathname === '/api/stop' && req.method === 'POST') {
-    if (activeRunProcess) {
-      try {
-        if (process.platform === 'win32') exec(`taskkill /pid ${activeRunProcess.pid} /f /t`, () => {});
-        else activeRunProcess.kill('SIGTERM');
-      } catch {}
-      activeRunProcess = null;
-      return sendJson(res, { stopped: true });
-    }
-    return sendJson(res, { stopped: false, message: 'No process currently running' });
-  }
-
   // --- Debugger (first slice): start/poll/continue/stop a real otter.ps1
   // debug session. See src/Otter.Debugger.psm1 for the protocol and
   // src/Otter.Interpreter.psm1's Set-OtterStatementHook for how the

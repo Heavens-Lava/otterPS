@@ -236,7 +236,7 @@ platform.
 -   [x] Generate real on-disk project structure (via /api/create-project)
 -   [x] Reopen generated project after restart (via /api/project and ide.loadProjectTree)
 -   [x] Compile/run every archetype (Certified via test-archetypes.mjs: Console runs exit 0, Desktop/Web/Game generated)
--   [x] Validate names and overwrite safety (sanitizing names and directory bounds)
+-   [x] Validate names and overwrite safety (sanitizing names and directory bounds; creating over an existing project is refused with 409 since `ede1a52`, certified by source-preservation.test.mjs)
 -   [x] Recent/pinned projects (session & localStorage tracking)
 -   [x] Freeze project manifest (project.json metadata)
 -   [x] Project version/entry point/target/dependencies/assets/build
@@ -334,9 +334,9 @@ platform.
 -   [x] Freeze canonical UI source format
 -   [ ] Freeze frontend/logic separation
 -   [x] UI model as source of truth
--   [x] No direct source-string surgery
+-   [x] Designer writes are minimal splices derived from the UI model (js/compiler/source-splice.js): selection never writes, a property edit rewrites one phrase, and code the model does not represent is preserved (`ede1a52`, source-preservation.test.mjs)
 -   [x] Source ↔ model ↔ designer round trip
--   [x] Save/close/reopen fidelity (main.ot + styles.css)
+-   [x] Save/close/reopen fidelity (main.ot + styles.css; the stylesheet is read from disk, written only when the designer changed it, and saved with its revision - `ede1a52`)
 -   [x] Live source→designer and designer→source synchronization
 -   [x] Reliable real-DOM hit testing (elementsFromPoint + computed flex direction)
 -   [x] Selection/hover overlays
@@ -535,27 +535,27 @@ platform.
 -   [ ] Incremental builds
 -   [ ] Dependency tracking
 -   [ ] Debug/release configs
--   [ ] Clean/rebuild
--   [ ] Build project/workspace
+-   [x] Clean/rebuild (Run ▾ > Rebuild / Clean Build Output; clean only deletes output `otter build` created, marked by otter.build.json) (certified via otter-studio/scripts/launch.test.mjs)
+-   [ ] Build project/workspace (project build done via Ctrl+Shift+B / Run ▾ > Build Project; multi-project solution build pending)
 -   [ ] Target selection
 -   [ ] Parallel builds
 -   [ ] Build cache
 -   [ ] Reproducible builds
--   [ ] Build logs/diagnostics
--   [ ] Artifact directory
+-   [x] Build logs/diagnostics (Output tab log with exit code/duration; failures shown in Problems) (certified via otter-studio/scripts/launch.test.mjs)
+-   [x] Artifact directory (manifest build.outputDir; build summary lists artifacts) (certified via otter-studio/scripts/launch.test.mjs)
 -   [ ] Resource processing
 -   [ ] Version stamping
 -   [ ] CI build command
--   [ ] Run current file
--   [ ] Run project
+-   [x] Run current file (`otter run <file>` via argument array, no shell) (certified via otter-studio/scripts/launch.test.mjs)
+-   [x] Run project (`otter run <project folder>` through the manifest) (certified via otter-studio/scripts/launch.test.mjs)
 -   [ ] Startup project
--   [ ] Launch profiles
--   [ ] Arguments/working dir/env vars
+-   [x] Launch profiles (<project>/.otter-studio/launch.json, editor under Run ▾ > Edit Launch Profiles…, per-project startup profile) (certified via otter-studio/scripts/launch.test.mjs)
+-   [x] Arguments/working dir/env vars (one argument per line; PATH-style variables protected; paths contained to the workspace) (certified via otter-studio/scripts/launch.test.mjs)
 -   [ ] Web/Desktop/Console/Game/Server profiles
--   [ ] Stop/restart
--   [ ] Run without debug
+-   [x] Stop/restart (Shift+F5 / Ctrl+Shift+F5; kills the process tree; per-profile timeout) (certified via otter-studio/scripts/launch.test.mjs)
+-   [x] Run without debug (certified via otter-studio/scripts/launch.test.mjs)
 -   [ ] Run with debug
--   [ ] Persist launch settings
+-   [x] Persist launch settings (launch.json saved atomically with revision checks; selection remembered per project) (certified via otter-studio/scripts/launch.test.mjs)
 
 # 19. Debugger
 
@@ -1015,8 +1015,8 @@ platform.
 
 -   [ ] Freeze project manifest.
 -   [ ] `otter build`.
--   [ ] Run Current File/project.
--   [ ] Launch profiles.
+-   [x] Run Current File/project. (certified via otter-studio/scripts/launch.test.mjs)
+-   [x] Launch profiles. (certified via otter-studio/scripts/launch.test.mjs)
 -   [ ] Persistent PTY terminal.
 -   [ ] Debugger with breakpoints, stepping, stack, variables, watches.
 

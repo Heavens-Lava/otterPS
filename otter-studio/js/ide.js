@@ -1,5 +1,6 @@
 // ide.js - Interactive Code Editor, Real Project Tree, Terminal, and Execution Engine for Otter Studio
 
+import { openLaunchProfilesEditor } from './components/launch-profiles.js';
 import {
   filterNavigationItems,
   flattenProjectFiles,
@@ -554,16 +555,29 @@ export class OtterStudioIde {
     });
     document.addEventListener('click', () => this.closeLaunchProfileMenu());
 
-    this.launchProfileMenu?.querySelectorAll('.launch-profile-item').forEach(item => {
-      item.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const profile = item.dataset.profile;
-        if (profile) this.setLaunchProfile(profile);
-      });
+    // The menu is rebuilt from the project's launch.json (renderLaunchMenu),
+    // so one delegated listener handles every item.
+    this.launchProfileMenu?.addEventListener('click', (e) => {
+      const item = e.target.closest('[data-profile], [data-launch-action]');
+      if (!item) return;
+      e.stopPropagation();
+      if (item.dataset.profile) this.setLaunchProfile(item.dataset.profile);
+      else this.runLaunchAction(item.dataset.launchAction);
     });
+    this.renderLaunchMenu();
 
     // Keyboard Shortcuts: F5 / Ctrl+Enter to Run
     window.addEventListener('keydown', (e) => {
+      if (e.key === 'F5' && e.ctrlKey && e.shiftKey) {
+        e.preventDefault();
+        this.restartProgram();
+        return;
+      }
+      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'b') {
+        e.preventDefault();
+        this.buildProject();
+        return;
+      }
       if (e.key === 'F5' || (e.ctrlKey && e.key === 'Enter')) {
         e.preventDefault();
         if (e.shiftKey) {
@@ -722,6 +736,7 @@ export class OtterStudioIde {
         this.checkWorkspaceTrust();
         this.refreshWorkspaceSymbols();
         await this.loadDesignerStylesheet();
+        await this.loadLaunchConfig();
       } else {
         alert(data.error || 'Folder is empty or could not be loaded.');
       }
@@ -3484,28 +3499,237 @@ export class OtterStudioIde {
   }
 
   // --- Real Program Execution ---
+  //
+  // What Run does is chosen in the Run ▾ menu:
+  //   current            otter run <current file>
+  //   project            otter run <project folder>   (uses otter.json)
+  //   terminal           types the run command into the integrated terminal
+  //   custom:<name>      a profile from <project>/.otter-studio/launch.json
+  // The choice is remembered per project; a project's "startup" profile is
+  // the default. The server (server/launch.mjs) turns a profile into the
+  // exact otter.ps1 invocation.
+
+  builtInProfile(id) {
+    if (id === 'project') return { name: 'Run Project', kind: 'project', args: [], cwd: '.', env: {}, timeoutSeconds: 30 };
+    return { name: 'Run Current File', kind: 'file', program: '${currentFile}', args: [], cwd: '${fileDir}', env: {}, timeoutSeconds: 30 };
+  }
+
+  resolveLaunchProfile(id = this.launchProfile) {
+    if (id && id.startsWith('custom:')) {
+      const name = id.slice('custom:'.length);
+      const found = this.launchConfig?.profiles?.find(p => p.name === name);
+      if (found) return found;
+    }
+    return this.builtInProfile(id === 'project' ? 'project' : 'current');
+  }
+
+  launchProfileLabel(id = this.launchProfile) {
+    if (id === 'project') return 'Run Project';
+    if (id === 'terminal') return 'Run (Term)';
+    if (id && id.startsWith('custom:')) return `Run: ${id.slice('custom:'.length)}`;
+    return 'Run';
+  }
+
+  updateRunButtonLabel() {
+    if (this.runBtnLabel) this.runBtnLabel.innerText = this.launchProfileLabel();
+  }
+
   async runActiveProfile() {
-    if (this.launchProfile === 'project') {
-      await this.runProject();
-    } else if (this.launchProfile === 'terminal') {
+    if (this.launchProfile === 'terminal') {
       await this.runInTerminal();
     } else {
-      await this.runCurrentProgram();
+      await this.runCurrentProgram(this.resolveLaunchProfile());
     }
   }
 
   async runProject() {
-    let entry = 'main.ot';
-    if (this.currentProjectFolder) {
-      const openMain = this.openTabs.find(t => t.path.endsWith('main.ot') || t.path.endsWith('organizer.ot'));
-      if (openMain) {
-        entry = openMain.path;
-      } else {
-        entry = `${this.currentProjectFolder}/main.ot`;
+    await this.runCurrentProgram(this.builtInProfile('project'));
+  }
+
+  // Stop whatever is running, then run the same profile again.
+  async restartProgram() {
+    try { await fetch('/api/stop', { method: 'POST' }); } catch {}
+    await this.runActiveProfile();
+  }
+
+  // Read <project>/.otter-studio/launch.json (or the defaults) and rebuild
+  // the Run menu from it.
+  async loadLaunchConfig() {
+    this.launchConfig = null;
+    this.launchConfigRevision = null;
+    this.launchConfigErrors = [];
+    const folder = this.projectStylesheetPath() ? this.currentProjectFolder : null;
+    if (folder) {
+      try {
+        const res = await fetch(`/api/launch-config?folder=${encodeURIComponent(folder)}`);
+        const data = await res.json();
+        if (res.ok) {
+          this.launchConfig = data.config;
+          this.launchConfigRevision = data.revision;
+          this.launchConfigErrors = data.errors || [];
+        }
+      } catch (err) {
+        console.warn('Could not read launch profiles:', err);
       }
     }
-    await this.loadFile(entry);
-    await this.runCurrentProgram();
+    // Per-project remembered choice, else the project's startup profile.
+    let remembered = null;
+    try { remembered = localStorage.getItem(`otter-studio-launch-profile:${folder || ''}`); } catch {}
+    const exists = id => !id?.startsWith('custom:') || this.launchConfig?.profiles?.some(p => `custom:${p.name}` === id);
+    if (remembered && exists(remembered)) {
+      this.launchProfile = remembered;
+    } else if (this.launchConfig?.startup) {
+      const startup = this.launchConfig.startup;
+      this.launchProfile = startup === 'Run Project' ? 'project' : (startup === 'Run Current File' ? 'current' : `custom:${startup}`);
+      if (!exists(this.launchProfile)) this.launchProfile = 'current';
+    }
+    this.renderLaunchMenu();
+    this.updateRunButtonLabel();
+  }
+
+  renderLaunchMenu() {
+    if (!this.launchProfileMenu) return;
+    const esc = v => this.escapeHtml(String(v));
+    const item = (id, icon, title, shortcut = '') => `
+      <button type="button" class="launch-profile-item${this.launchProfile === id ? ' is-active' : ''}" data-profile="${esc(id)}" role="menuitemradio" aria-checked="${this.launchProfile === id}">
+        <span class="profile-icon">${icon}</span><span class="profile-title">${esc(title)}</span><span class="profile-shortcut">${shortcut}</span>
+      </button>`;
+    const action = (id, icon, title, shortcut = '') => `
+      <button type="button" class="launch-profile-item" data-launch-action="${id}" role="menuitem">
+        <span class="profile-icon">${icon}</span><span class="profile-title">${title}</span><span class="profile-shortcut">${shortcut}</span>
+      </button>`;
+    // Built-in profiles are the defaults; a launch.json profile with the same
+    // name is shown only once (as the built-in).
+    const custom = (this.launchConfig?.profiles || []).filter(p => p.name !== 'Run Project' && p.name !== 'Run Current File');
+    this.launchProfileMenu.setAttribute('role', 'menu');
+    this.launchProfileMenu.innerHTML = `
+      <div class="launch-profile-header">Launch Profiles</div>
+      ${item('current', '▶', 'Run Current File', 'F5')}
+      ${item('project', '🚀', 'Run Project', 'Ctrl+F5')}
+      ${item('terminal', '💻', 'Run in Terminal', 'Alt+F5')}
+      ${custom.map(p => item(`custom:${p.name}`, '⚙', p.name)).join('')}
+      ${this.launchConfigErrors?.length ? `<div class="launch-profile-header" style="color: #ef4444;">launch.json: ${esc(this.launchConfigErrors[0])}</div>` : ''}
+      <div class="launch-profile-header">Actions</div>
+      ${action('restart', '↻', 'Restart', 'Ctrl+Shift+F5')}
+      ${action('edit', '✎', 'Edit Launch Profiles…')}
+      ${action('build', '🔨', 'Build Project', 'Ctrl+Shift+B')}
+      ${action('rebuild', '♻', 'Rebuild Project')}
+      ${action('clean', '🧹', 'Clean Build Output')}`;
+  }
+
+  runLaunchAction(action) {
+    this.closeLaunchProfileMenu();
+    if (action === 'edit') openLaunchProfilesEditor(this);
+    else if (action === 'restart') this.restartProgram();
+    else if (action === 'build') this.buildProject();
+    else if (action === 'rebuild') this.buildProject({ clean: true });
+    else if (action === 'clean') this.cleanProject();
+  }
+
+  // Save every edited tab (each with its own disk revision). Returns false
+  // if any save failed or hit a conflict, so Run/Build can stop.
+  async saveAllFiles() {
+    let ok = true;
+    for (const tab of this.openTabs.filter(t => t.isDirty && t.path !== 'untitled.ot')) {
+      if (tab.path === this.currentFile) {
+        ok = (await this.saveCurrentFile()) && ok;
+        continue;
+      }
+      try {
+        const res = await fetch('/api/file', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: tab.path, content: tab.content, expectedRevision: tab.diskRevision || undefined })
+        });
+        const data = await res.json();
+        if (res.status === 409 && data.conflict) { this.setExternalConflict(tab, data); ok = false; continue; }
+        if (!res.ok) { ok = false; continue; }
+        tab.diskRevision = data.revision || null;
+        tab.isDirty = false;
+      } catch {
+        ok = false;
+      }
+    }
+    if (!this.currentFile || !this.openTabs.some(t => t.path === this.currentFile && t.isDirty)) {
+      ok = (await this.saveDesignerStylesheet()) && ok;
+    }
+    this.renderTabs();
+    this.saveSessionState();
+    return ok;
+  }
+
+  showOutputDrawer() {
+    const tab = Array.from(this.drawerTabs || []).find(t => t.getAttribute('data-drawer-tab') === 'output');
+    tab?.click();
+  }
+
+  appendBuildLog(title, text, ok) {
+    const outputTabLog = document.getElementById('outputTabLog');
+    if (!outputTabLog) return;
+    const timestamp = new Date().toLocaleTimeString();
+    outputTabLog.innerHTML += `
+      <div class="log-run-entry">
+        <div class="log-run-meta" style="color: ${ok ? 'inherit' : '#ef4444'};">[${timestamp}] ${this.escapeHtml(title)}</div>
+        <pre class="log-run-text">${this.escapeHtml(text || '')}</pre>
+      </div>`;
+    outputTabLog.scrollTop = outputTabLog.scrollHeight;
+  }
+
+  // otter build <project>. `clean: true` first deletes the previous output
+  // (only a folder otter build created). Output goes to the Output tab;
+  // a failure is also shown in Problems.
+  async buildProject({ clean = false } = {}) {
+    const folder = this.projectStylesheetPath() ? this.currentProjectFolder : null;
+    if (!folder) { alert('Open a project folder to build it.'); return null; }
+    if (!(await this.saveAllFiles())) {
+      this.appendBuildLog('Build cancelled: some files could not be saved.', '', false);
+      return null;
+    }
+    this.showOutputDrawer();
+    this.appendBuildLog(`${clean ? 'Rebuilding' : 'Building'} ${folder}…`, '', true);
+    let data;
+    try {
+      const res = await fetch('/api/build', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folder, clean })
+      });
+      data = await res.json();
+      if (!res.ok && !('exitCode' in data)) throw new Error(data.error || `status ${res.status}`);
+    } catch (err) {
+      this.appendBuildLog(`Build could not start: ${err.message}`, '', false);
+      return null;
+    }
+    const cleanNote = data.cleaned ? (data.cleaned.removed ? `Cleaned ${data.cleaned.outputDir}/.\n` : `${data.cleaned.reason}\n`) : '';
+    const artifacts = (data.artifacts || []).map(a => `  ${data.outputDir}/${a.path}  (${a.size} bytes)`).join('\n');
+    this.appendBuildLog(
+      data.ok ? `Build succeeded in ${data.durationMs} ms` : `Build failed (exit code ${data.exitCode}) after ${data.durationMs} ms`,
+      `${cleanNote}${data.output || ''}${artifacts ? `\nArtifacts:\n${artifacts}` : ''}`,
+      data.ok
+    );
+    if (data.ok) {
+      this.setProblemsStatus(true, 'Build succeeded.', `Output: ${data.outputDir}/`, 'Build', 'Ready to publish. 📦');
+    } else {
+      const firstError = (data.output || '').split('\n').map(l => l.trim()).filter(l => l && !/^(Building|Target:|Checking project|Build failed\.)/.test(l))[0] || 'Build failed.';
+      this.setProblemsStatus(false, firstError, `Build of ${folder} failed with exit code ${data.exitCode}. See the Output tab.`, 'Build Error', 'Check the build output! 🔍');
+    }
+    await this.loadProjectTree(this.currentProjectFolder);
+    return data;
+  }
+
+  async cleanProject() {
+    const folder = this.projectStylesheetPath() ? this.currentProjectFolder : null;
+    if (!folder) { alert('Open a project folder first.'); return null; }
+    const res = await fetch('/api/clean', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ folder })
+    });
+    const data = await res.json().catch(() => ({}));
+    this.showOutputDrawer();
+    this.appendBuildLog(data.removed ? `Cleaned ${data.outputDir}/` : 'Nothing cleaned', data.reason || data.error || '', res.ok);
+    await this.loadProjectTree(this.currentProjectFolder);
+    return data;
   }
 
   async runInTerminal() {
@@ -3541,7 +3765,7 @@ export class OtterStudioIde {
     if (this.mainRunBtn) {
       this.mainRunBtn.style.display = 'inline-flex';
       this.mainRunBtn.classList.remove('is-running');
-      if (this.runBtnLabel) this.runBtnLabel.innerText = this.launchProfile === 'project' ? 'Run Project' : (this.launchProfile === 'terminal' ? 'Run (Term)' : 'Run');
+      this.updateRunButtonLabel();
     }
   }
 
@@ -3549,17 +3773,10 @@ export class OtterStudioIde {
     this.launchProfile = profile;
     try {
       localStorage.setItem('otter-studio-launch-profile', profile);
+      localStorage.setItem(`otter-studio-launch-profile:${this.currentProjectFolder || ''}`, profile);
     } catch {}
-    if (this.launchProfileMenu) {
-      this.launchProfileMenu.querySelectorAll('.launch-profile-item').forEach(item => {
-        item.classList.toggle('is-active', item.dataset.profile === profile);
-      });
-    }
-    if (this.runBtnLabel) {
-      if (profile === 'project') this.runBtnLabel.innerText = 'Run Project';
-      else if (profile === 'terminal') this.runBtnLabel.innerText = 'Run (Term)';
-      else this.runBtnLabel.innerText = 'Run';
-    }
+    this.renderLaunchMenu();
+    this.updateRunButtonLabel();
     this.closeLaunchProfileMenu();
   }
 
@@ -3579,7 +3796,7 @@ export class OtterStudioIde {
     }
   }
 
-  async runCurrentProgram() {
+  async runCurrentProgram(profile = this.builtInProfile('current')) {
     if (!this.mainRunBtn) return;
 
     if (!this.isTrusted) {
@@ -3595,12 +3812,13 @@ export class OtterStudioIde {
 
     // Save first. A disk conflict must be resolved before execution so the
     // runner never receives a version the user has not chosen explicitly.
-    const saved = await this.saveCurrentFile();
+    // A project run may use any file, so every edited tab is saved.
+    const saved = profile.kind === 'project' ? await this.saveAllFiles() : await this.saveCurrentFile();
     if (!saved) {
       if (this.btnStopProgram) this.btnStopProgram.style.display = 'none';
       this.mainRunBtn.style.display = 'inline-flex';
       this.mainRunBtn.classList.remove('is-running');
-      if (this.runBtnLabel) this.runBtnLabel.innerText = 'Run';
+      this.updateRunButtonLabel();
       return;
     }
 
@@ -3613,9 +3831,18 @@ export class OtterStudioIde {
       const res = await fetch('/api/run', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: this.currentFile, content: this.currentCode })
+        // The file was saved above; the server runs what is on disk.
+        body: JSON.stringify({
+          path: this.currentFile,
+          folder: this.projectStylesheetPath() ? this.currentProjectFolder : undefined,
+          profile
+        })
       });
       const data = await res.json();
+      if (!res.ok && !('exitCode' in data)) {
+        throw new Error(data.error || `The run could not start (${res.status}).`);
+      }
+      if (data.timedOut) data.stderr = `${data.stderr || ''}\nStopped: the program ran longer than ${profile.timeoutSeconds || 30} seconds (the profile's timeout).`.trim();
 
       // Render into Program Sidebar
       if (this.programOutputBody) {
@@ -3639,7 +3866,7 @@ export class OtterStudioIde {
         const timestamp = new Date().toLocaleTimeString();
         outputTabLog.innerHTML += `
           <div class="log-run-entry">
-            <div class="log-run-meta">[${timestamp}] Finished in ${data.durationMs}ms with exit code ${data.exitCode}</div>
+            <div class="log-run-meta">[${timestamp}] ${this.escapeHtml(data.command || '')} — finished in ${data.durationMs}ms with exit code ${data.exitCode}${data.stopped ? ' (stopped)' : ''}</div>
             <pre class="log-run-text">${this.escapeHtml(data.stdout || data.stderr || 'No output')}</pre>
           </div>
         `;
@@ -3692,9 +3919,7 @@ export class OtterStudioIde {
       if (this.btnStopProgram) this.btnStopProgram.style.display = 'none';
       this.mainRunBtn.style.display = 'inline-flex';
       this.mainRunBtn.classList.remove('is-running');
-      if (this.runBtnLabel) {
-        this.runBtnLabel.innerText = this.launchProfile === 'project' ? 'Run Project' : (this.launchProfile === 'terminal' ? 'Run (Term)' : 'Run');
-      }
+      this.updateRunButtonLabel();
     }
   }
 
