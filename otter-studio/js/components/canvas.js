@@ -13,7 +13,7 @@
 import { ComponentSchema } from '../model/schema.js';
 import { generateOtterSource } from '../compiler/otter-generator.js';
 import { fetchRealRender, applyRealRender, prepareUserCss } from './real-style.js';
-import { BREAKPOINTS, StyleController } from '../designer/style-context.js';
+import { StyleController } from '../designer/style-context.js';
 import { collapseBox, SIDES, formatNumber } from '../designer/css-values.js';
 
 const ZOOM_STEPS = [0.25, 0.33, 0.5, 0.67, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 2, 3];
@@ -48,9 +48,7 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
       <div class="canvas-topbar" id="canvasTopbar">
         <div class="canvas-breadcrumbs" id="canvasBreadcrumbs"></div>
         <div class="canvas-actions">
-          <div class="canvas-device-toggle" role="group" aria-label="Device width">
-            ${BREAKPOINTS.map(b => `<button class="canvas-device-btn" data-device="${b.id}" title="${b.label} — ${b.hint}${b.width ? ` (previewed at ${b.width}px)` : ''}">${b.label}</button>`).join('')}
-          </div>
+          <div class="canvas-device-toggle" role="group" aria-label="Breakpoint" id="canvasDeviceToggle">${deviceButtonsHtml()}</div>
           <div class="canvas-zoom" role="group" aria-label="Zoom">
             <button class="icon-btn" data-zoom="out" title="Zoom out (Ctrl -)">−</button>
             <button class="canvas-zoom-label" data-zoom="reset" id="canvasZoomLabel" title="Reset to 100% (Ctrl 0)">100%</button>
@@ -113,9 +111,15 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
   }
 
   function bindTopbar() {
-    topbarEl.querySelectorAll('[data-device]').forEach(btn => btn.addEventListener('click', () => {
-      styles.setContext({ breakpoint: btn.getAttribute('data-device') });
-    }));
+    // Delegated: the buttons are rebuilt when the project's breakpoints change.
+    topbarEl.querySelector('#canvasDeviceToggle').addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-device]');
+      if (btn) styles.setContext({ breakpoint: btn.getAttribute('data-device') });
+    });
+    window.addEventListener('otter:breakpoints', () => {
+      topbarEl.querySelector('#canvasDeviceToggle').innerHTML = deviceButtonsHtml();
+      renderTopbarState();
+    });
     topbarEl.querySelectorAll('[data-zoom]').forEach(btn => btn.addEventListener('click', () => {
       const action = btn.getAttribute('data-zoom');
       if (action === 'in') zoomBy(1);
@@ -137,8 +141,16 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
   // Rendering
   // ---------------------------------------------------------------------------
 
-  function deviceWidth() {
-    return styles.breakpoint.width || DESKTOP_WIDTH;
+  // One button per breakpoint (styles.breakpoints: the project's own or the defaults).
+  function deviceButtonsHtml() {
+    return styles.breakpoints.map(b => `<button class="canvas-device-btn" data-device="${escapeHtml(b.id)}" title="${escapeHtml(`${b.label} — ${b.hint}${b.width ? ` (previewed at ${b.width}px)` : ''}`)}">${escapeHtml(b.label)}</button>`).join('');
+  }
+
+  // The environment the canvas previews: width plus media features such as
+  // a dark color scheme, so @media rules follow the design, not Studio's window.
+  function deviceEnv() {
+    styles.desktopWidth = DESKTOP_WIDTH;
+    return styles.envFor(styles.breakpoint);
   }
 
   function update() {
@@ -229,12 +241,12 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
   // The live styles.css, scoped to the canvas and evaluated for the device width.
   function refreshUserStyles() {
     const userCss = cssAstManager ? cssAstManager.generateCss() : '';
-    userStyleEl.textContent = prepareUserCss(userCss, '#canvasWindowWrapper', deviceWidth());
+    userStyleEl.textContent = prepareUserCss(userCss, '#canvasWindowWrapper', deviceEnv());
     updateDimensionBadge();
   }
 
   function applyRealRenderNow(contentArea) {
-    applyRealRender(contentArea, realRender, deviceWidth());
+    applyRealRender(contentArea, realRender, deviceEnv());
     // The real render reflects the source as it was when it was compiled. Otter
     // source values (padding 28, size 24) are applied inline by the compiler,
     // so bring them up to date now instead of waiting for the next render:

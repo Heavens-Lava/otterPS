@@ -7,7 +7,7 @@
 // never touches the stylesheet directly.
 
 import { ComponentSchema } from '../model/schema.js';
-import { BREAKPOINTS, STATES, StyleController } from '../designer/style-context.js';
+import { STATES, StyleController } from '../designer/style-context.js';
 import {
   parseLength, stepLength, normalizeLengthInput, formatNumber,
   readBoxSides, collapseBox, SIDES, readCorners, CORNERS, splitTopLevel, toHexColor
@@ -189,10 +189,10 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
     return `
       <div class="sp-context">
         <div class="sp-bp-tabs" role="tablist" aria-label="Breakpoint">
-          ${BREAKPOINTS.map(b => `
+          ${styles.breakpoints.map(b => `
             <button class="sp-bp-btn ${b.id === bp.id ? 'is-active' : ''}" data-breakpoint="${b.id}"
               title="${escapeHtml(b.label)}: ${escapeHtml(b.hint)}" role="tab" aria-selected="${b.id === bp.id}">
-              ${breakpointIcon(b.id)}<span>${escapeHtml(b.label)}</span>
+              ${breakpointIcon(b)}<span>${escapeHtml(b.label)}</span>
             </button>`).join('')}
         </div>
         <div class="sp-context-row">
@@ -1467,7 +1467,12 @@ function shorten(text) {
   return s.length > 22 ? s.slice(0, 21) + '…' : s;
 }
 
-function breakpointIcon(id) {
+// An icon for a breakpoint: a moon for a dark color scheme, otherwise a
+// phone, tablet or screen by its preview width.
+function breakpointIcon(bp) {
+  const media = String(bp.media || '').toLowerCase();
+  if (/prefers-color-scheme\s*:\s*dark/.test(media)) return '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>';
+  const id = !bp.width ? 'screen' : bp.width < 600 ? 'mobile' : bp.width < 1024 ? 'tablet' : 'screen';
   if (id === 'mobile') return '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg>';
   if (id === 'tablet') return '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M11 18h2"/></svg>';
   return '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>';

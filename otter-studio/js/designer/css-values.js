@@ -104,21 +104,93 @@ export function readCorners(decls) {
 // Media conditions
 // -----------------------------------------------------------------------------
 
-// Does `query` match a viewport `width` px wide? Returns true / false, or null
-// when the condition depends on something other than width (orientation,
-// hover, prefers-color-scheme ...) and cannot be decided here.
-export function evaluateMediaForWidth(query, width) {
+// The environment a design is previewed in: a desktop screen in light mode
+// with a mouse, unless a breakpoint says otherwise. Studio's own window and
+// the OS theme never leak into the canvas.
+export const DEFAULT_MEDIA_ENV = Object.freeze({
+  width: 1280,
+  height: 800,
+  colorScheme: 'light',       // prefers-color-scheme
+  reducedMotion: 'no-preference', // prefers-reduced-motion
+  contrast: 'no-preference',  // prefers-contrast
+  hover: 'hover',             // hover / any-hover
+  pointer: 'fine',            // pointer / any-pointer
+  displayMode: 'browser'      // display-mode
+});
+
+// A full environment from a partial one, or from a bare width.
+export function mediaEnv(partial) {
+  if (typeof partial === 'number') return { ...DEFAULT_MEDIA_ENV, width: partial };
+  return { ...DEFAULT_MEDIA_ENV, ...(partial || {}) };
+}
+
+// Does `query` match the environment `env` (see DEFAULT_MEDIA_ENV; a number
+// means a width)? Returns true / false, or null when the query uses a feature
+// this does not model, which the caller should then leave to the browser.
+export function evaluateMedia(query, env) {
+  const e = mediaEnv(env);
   const alternatives = String(query || '').split(',');
   let sawUnknown = false;
   for (const alternative of alternatives) {
-    const result = evaluateMediaPart(alternative, width);
+    const result = evaluateMediaPart(alternative, e);
     if (result === true) return true;
     if (result === null) sawUnknown = true;
   }
   return sawUnknown ? null : false;
 }
 
-function evaluateMediaPart(part, width) {
+// Kept for callers that only know a width.
+export function evaluateMediaForWidth(query, width) {
+  return evaluateMedia(query, { width });
+}
+
+const KEYWORD_FEATURES = {
+  'prefers-color-scheme': 'colorScheme',
+  'prefers-reduced-motion': 'reducedMotion',
+  'prefers-contrast': 'contrast',
+  hover: 'hover',
+  'any-hover': 'hover',
+  pointer: 'pointer',
+  'any-pointer': 'pointer',
+  'display-mode': 'displayMode'
+};
+
+function evaluateCondition(condition, env) {
+  const inner = condition.slice(1, -1).trim();
+  const length = inner.match(/^(min|max)-(width|height)\s*:\s*(-?\d*\.?\d+)(px|em|rem)?$/);
+  if (length) {
+    const px = Number(length[3]) * (length[4] === 'em' || length[4] === 'rem' ? 16 : 1);
+    const actual = env[length[2]];
+    return length[1] === 'max' ? actual <= px : actual >= px;
+  }
+  const orientation = inner.match(/^orientation\s*:\s*(portrait|landscape)$/);
+  if (orientation) return (env.height >= env.width ? 'portrait' : 'landscape') === orientation[1];
+  const keyword = inner.match(/^([a-z-]+)\s*:\s*([a-z-]+)$/);
+  if (keyword && KEYWORD_FEATURES[keyword[1]]) return env[KEYWORD_FEATURES[keyword[1]]] === keyword[2];
+  return null;
+}
+
+// The environment `env` adjusted so the non-width features `media` names are
+// true in it: (prefers-color-scheme: dark) -> colorScheme 'dark',
+// (orientation: portrait) -> taller than wide. Widths come from the
+// breakpoint's own preview width, not from here.
+export function envSatisfying(media, env) {
+  const out = mediaEnv(env);
+  for (const condition of String(media || '').toLowerCase().match(/\([^)]*\)/g) || []) {
+    const inner = condition.slice(1, -1).trim();
+    const orientation = inner.match(/^orientation\s*:\s*(portrait|landscape)$/);
+    if (orientation) {
+      // A 16:10 screen in the requested orientation, keeping the width.
+      out.height = Math.round(out.width * (orientation[1] === 'portrait' ? 1.6 : 0.625));
+      continue;
+    }
+    const keyword = inner.match(/^([a-z-]+)\s*:\s*([a-z-]+)$/);
+    if (keyword && KEYWORD_FEATURES[keyword[1]]) out[KEYWORD_FEATURES[keyword[1]]] = keyword[2];
+  }
+  return out;
+}
+
+function evaluateMediaPart(part, env) {
   let text = part.trim().toLowerCase();
   if (!text) return null;
   let negate = false;
@@ -133,11 +205,9 @@ function evaluateMediaPart(part, width) {
   if (conditions.length === 0) return negate ? false : true;
   let result = true;
   for (const condition of conditions) {
-    const m = condition.match(/^\(\s*(min|max)-width\s*:\s*(-?\d*\.?\d+)(px|em|rem)?\s*\)$/);
-    if (!m) return null;
-    const px = Number(m[2]) * (m[3] === 'em' || m[3] === 'rem' ? 16 : 1);
-    if (m[1] === 'max' && !(width <= px)) result = false;
-    if (m[1] === 'min' && !(width >= px)) result = false;
+    const verdict = evaluateCondition(condition, env);
+    if (verdict === null) return null;
+    if (!verdict) result = false;
   }
   return negate ? !result : result;
 }

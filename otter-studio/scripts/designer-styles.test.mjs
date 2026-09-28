@@ -11,7 +11,8 @@ window.addEventListener('css-updated', (e) => events.push(e.detail));
 
 const { OtterUiModel } = await import('../js/model/ui-model.js');
 const { CssAstManager } = await import('../js/compiler/css-ast.js');
-const { StyleController } = await import('../js/designer/style-context.js');
+const { StyleController, DEFAULT_BREAKPOINTS } = await import('../js/designer/style-context.js');
+const { evaluateMedia, envSatisfying } = await import('../js/designer/css-values.js');
 const { generateOtterSource } = await import('../js/compiler/otter-generator.js');
 
 function setup(css = '') {
@@ -324,4 +325,60 @@ assert.ok(events.length > 0 && events.every(e => e.source === 'style'));
   styles.compilerProbe = null;
 }
 
-console.log('Designer style routing certification passed (17 checks).');
+// 18. Breakpoints are data. A mobile-first project (min-width) cascades
+// upward: designing Wide sees Tablet's value; designing Tablet does not
+// see Wide's. New @media blocks go narrowest first so the wider one wins.
+{
+  const { model, sheet, styles, root } = setup();
+  styles.setBreakpoints([
+    { id: 'base', label: 'Phone', media: '', width: 375 },
+    { id: 'tablet', label: 'Tablet', media: '(min-width: 768px)', width: 900 },
+    { id: 'wide', label: 'Wide', media: '(min-width: 1200px)', width: 1400 }
+  ]);
+  assert.deepEqual(styles.breakpoints.map(b => b.id), ['base', 'tablet', 'wide']);
+  const card = model.addChild(root.id, 'card', {});
+  styles.setContext({ breakpoint: 'wide' });
+  styles.write(card, { opacity: '0.9' });
+  styles.setContext({ breakpoint: 'tablet' });
+  styles.write(card, { 'letter-spacing': '2px' });
+  assert.deepEqual(sheet.getMediaQueries(), ['(min-width: 768px)', '(min-width: 1200px)'], 'narrowest min-width first');
+  assert.equal(styles.explain(card, 'opacity').status, 'default', 'Wide does not apply on a tablet');
+  styles.setContext({ breakpoint: 'wide' });
+  const ls = styles.explain(card, 'letter-spacing');
+  assert.equal(ls.status, 'inherited');
+  assert.equal(ls.from, 'Tablet');
+  assert.equal(styles.resolve(card).inheritedFrom['letter-spacing'], 'Tablet');
+  styles.setBreakpoints(null);
+  assert.deepEqual(styles.breakpoints.map(b => b.id), ['base', 'tablet', 'mobile'], 'null restores the defaults');
+  assert.equal(styles.context.breakpoint, 'base', 'an unknown breakpoint falls back to the base');
+}
+
+// 19. A condition breakpoint (dark mode) is previewed in its own
+// environment: dark, desktop width. A Mobile rule does not apply there, and
+// the dark rule does not apply on Mobile.
+{
+  const { model, sheet, styles, root } = setup();
+  styles.setBreakpoints([
+    ...DEFAULT_BREAKPOINTS,
+    { id: 'dark', label: 'Dark', media: '(prefers-color-scheme: dark)' }
+  ]);
+  const env = styles.envFor(styles.breakpoints.find(b => b.id === 'dark'));
+  assert.equal(env.colorScheme, 'dark');
+  assert.equal(env.width, 1280);
+  const text = model.addChild(root.id, 'text', { text: 'Hi' });
+  sheet.setProperty(`#${text.name}`, 'opacity', '0.5', '(max-width: 600px)');
+  sheet.setProperty(`#${text.name}`, 'letter-spacing', '1px', '(prefers-color-scheme: dark)');
+  styles.setContext({ breakpoint: 'dark' });
+  assert.equal(styles.explain(text, 'opacity').status, 'default');
+  assert.equal(styles.explain(text, 'letter-spacing').status, 'set');
+  styles.setContext({ breakpoint: 'mobile' });
+  assert.equal(styles.explain(text, 'letter-spacing').status, 'default', 'Mobile previews light mode');
+  assert.equal(styles.explain(text, 'opacity').status, 'set');
+  assert.equal(evaluateMedia('(prefers-color-scheme: dark) and (max-width: 600px)', { width: 375, colorScheme: 'dark' }), true);
+  assert.equal(evaluateMedia('(orientation: portrait)', envSatisfying('(orientation: portrait)', { width: 800 })), true);
+  assert.equal(evaluateMedia('(hover: hover)', {}), true, 'desktop default has a mouse');
+  assert.equal(evaluateMedia('(scripting: none)', {}), null, 'an unmodelled feature is left to the browser');
+  styles.setBreakpoints(null);
+}
+
+console.log('Designer style routing certification passed (19 checks).');

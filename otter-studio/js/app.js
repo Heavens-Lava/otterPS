@@ -85,6 +85,30 @@ document.addEventListener('DOMContentLoaded', async () => {
   const styleController = new StyleController(uiModel, cssAstManager);
   window.otterStyles = styleController;
 
+  // A project can define its own breakpoints in project.json:
+  //   "designer": { "breakpoints": [ { "id": "base", "label": "Desktop", "media": "" },
+  //     { "id": "dark", "label": "Dark", "media": "(prefers-color-scheme: dark)" }, ... ] }
+  // Without them the designer uses Desktop / Tablet / Mobile.
+  async function applyProjectBreakpoints() {
+    let list = null;
+    const folder = ide.currentProjectFolder;
+    if (folder && !/\.(json|otter-workspace)$/i.test(folder)) {
+      try {
+        const res = await fetch(`/api/project-manifest?folder=${encodeURIComponent(folder)}`);
+        if (res.ok) list = (await res.json()).manifest?.designer?.breakpoints || null;
+      } catch { /* no manifest: defaults */ }
+    }
+    styleController.setBreakpoints(list);
+  }
+  const loadProjectTreeWithBreakpoints = ide.loadProjectTree.bind(ide);
+  ide.loadProjectTree = async function (folder) {
+    const result = await loadProjectTreeWithBreakpoints(folder);
+    await applyProjectBreakpoints();
+    return result;
+  };
+  // A restored session opened its project before this hook existed.
+  if (ide.currentProjectFolder) applyProjectBreakpoints();
+
   renderToolbox(toolboxEl, uiModel);
   renderHierarchy(hierarchyEl, uiModel, cssAstManager);
   renderCanvas(canvasEl, uiModel, cssAstManager, styleController);

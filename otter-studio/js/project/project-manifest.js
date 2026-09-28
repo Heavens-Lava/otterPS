@@ -79,8 +79,22 @@ export function normalizeManifest(raw) {
     },
     dependencies: (raw.dependencies && typeof raw.dependencies === 'object') ? { ...raw.dependencies } : {},
     assets: Array.isArray(raw.assets) ? [...raw.assets] : [],
-    scripts: (raw.scripts && typeof raw.scripts === 'object') ? { ...raw.scripts } : {}
+    scripts: (raw.scripts && typeof raw.scripts === 'object') ? { ...raw.scripts } : {},
+    // Fields this schema does not know (the packager's `icon`, Studio's
+    // `designer` settings...) belong to someone else: keep them.
+    ...unknownFields(raw)
   };
+}
+
+const KNOWN_FIELDS = new Set(['$schema', 'name', 'version', 'description', 'archetype', 'target', 'entryPoint', 'main',
+  'author', 'license', 'created', 'build', 'permissions', 'dependencies', 'assets', 'scripts']);
+
+function unknownFields(raw) {
+  const out = {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (!KNOWN_FIELDS.has(key) && value !== undefined) out[key] = JSON.parse(JSON.stringify(value));
+  }
+  return out;
 }
 
 export function validateManifest(manifest, projectFiles = []) {

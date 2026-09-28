@@ -103,6 +103,18 @@ async function runTests() {
     assert.equal(fallback.version, '1.0.0');
   });
 
+  test('Keeps fields owned by other tools (icon, designer breakpoints)', () => {
+    const raw = {
+      name: 'app', icon: 'assets/app.png',
+      designer: { breakpoints: [{ id: 'base', label: 'Desktop', media: '' }, { id: 'dark', label: 'Dark', media: '(prefers-color-scheme: dark)' }] }
+    };
+    const normalized = normalizeManifest(raw);
+    assert.equal(normalized.icon, 'assets/app.png');
+    assert.deepEqual(normalized.designer, raw.designer);
+    normalized.designer.breakpoints.pop();
+    assert.equal(raw.designer.breakpoints.length, 2, 'a copy, not the same object');
+  });
+
   // 3. Validation Logic
   console.log('\n--- 3. Validation Rules & Diagnostics ---');
   test('Validates complete manifest without errors or warnings', () => {

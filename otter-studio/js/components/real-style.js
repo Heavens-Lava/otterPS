@@ -9,7 +9,7 @@
 // The canvas keeps its own DOM (data-id, drag handles, overlays) - only the
 // look comes from the real output.
 
-import { evaluateMediaForWidth } from '../designer/css-values.js';
+import { evaluateMedia } from '../designer/css-values.js';
 
 const SCOPE_STYLE_ID = 'otterRealCanvasCss';
 
@@ -17,8 +17,9 @@ const SCOPE_STYLE_ID = 'otterRealCanvasCss';
 // width of Studio, not of the design. Rules are flattened instead: a media
 // block that matches the canvas device width is applied, one that does not is
 // dropped, and one that depends on something else is kept as written.
-function walkMedia(rule, deviceWidth, walkInner, into) {
-  const verdict = deviceWidth ? evaluateMediaForWidth(rule.conditionText || rule.media.mediaText, deviceWidth) : null;
+// `device` is the preview environment (see DEFAULT_MEDIA_ENV) or a bare width.
+function walkMedia(rule, device, walkInner, into) {
+  const verdict = device ? evaluateMedia(rule.conditionText || rule.media.mediaText, device) : null;
   if (verdict === false) return;
   const inner = [];
   walkInner(rule.cssRules, inner);
@@ -40,7 +41,7 @@ function withForcedStates(selector) {
 
 // The live user stylesheet (styles.css), scoped to the canvas window and
 // evaluated for the device width being designed.
-export function prepareUserCss(cssText, scope, deviceWidth) {
+export function prepareUserCss(cssText, scope, device) {
   const sheet = new CSSStyleSheet();
   try {
     sheet.replaceSync(cssText || '');
@@ -67,7 +68,7 @@ export function prepareUserCss(cssText, scope, deviceWidth) {
         }
         if (selectors.length && rule.style.cssText.trim()) into.push(`${selectors.join(', ')} { ${rule.style.cssText} }`);
       } else if (rule.type === CSSRule.MEDIA_RULE) {
-        walkMedia(rule, deviceWidth, walk, into);
+        walkMedia(rule, device, walk, into);
       } else {
         into.push(rule.cssText);
       }
@@ -115,7 +116,7 @@ export function parseRealRender(html) {
 // Prefix every rule of the compiler stylesheet with `scope` (a selector for the
 // canvas root). Rules that target the page itself (body/html) are dropped: the
 // canvas is not the page. `:root` variables move onto the scope element.
-export function scopeCss(cssText, scope, deviceWidth = null) {
+export function scopeCss(cssText, scope, device = null) {
   const sheet = new CSSStyleSheet();
   sheet.replaceSync(cssText);
   // Studio's own chrome sets line-height, weight, etc. on ancestors of the
@@ -151,7 +152,7 @@ export function scopeCss(cssText, scope, deviceWidth = null) {
           : rule.style.cssText;
         if (selectors.length && declarations.trim()) into.push(`${selectors.join(', ')} { ${declarations} }`);
       } else if (rule.type === CSSRule.MEDIA_RULE) {
-        walkMedia(rule, deviceWidth, walk, into);
+        walkMedia(rule, device, walk, into);
       } else if (rule.type === CSSRule.KEYFRAMES_RULE) {
         into.push(rule.cssText);
       }
@@ -165,7 +166,7 @@ export function scopeCss(cssText, scope, deviceWidth = null) {
 
 // Apply the real look to the canvas. `root` is the canvas content area (whose
 // id is the window's name); canvas elements are found by id.
-export function applyRealRender(root, real, deviceWidth = null) {
+export function applyRealRender(root, real, device = null) {
   if (!root || !real) return;
   const scope = `#${CSS.escape(root.id)}`;
 
@@ -187,7 +188,7 @@ export function applyRealRender(root, real, deviceWidth = null) {
     styleEl.id = SCOPE_STYLE_ID;
     document.head.appendChild(styleEl);
   }
-  styleEl.textContent = scopeCss(real.css, scope, deviceWidth);
+  styleEl.textContent = scopeCss(real.css, scope, device);
 
   const rootInfo = real.elements.get(root.id);
   if (rootInfo) {

@@ -22,13 +22,51 @@
 //     align-items...). A stylesheet rule for those must be !important to take
 //     effect in the compiled app, so the controller writes it that way.
 
-import { expandBox } from './css-values.js';
+import { expandBox, evaluateMedia, mediaEnv, envSatisfying } from './css-values.js';
 
-export const BREAKPOINTS = [
-  { id: 'base', label: 'Desktop', media: '', width: null, hint: 'All screen sizes' },
-  { id: 'tablet', label: 'Tablet', media: '(max-width: 900px)', width: 768, hint: '900px and below' },
-  { id: 'mobile', label: 'Mobile', media: '(max-width: 600px)', width: 375, hint: '600px and below' }
-];
+// Breakpoints are data: { id, label, media, width, hint, env }.
+//   media  the CSS media condition its rules live under ('' = the base).
+//   width  preview width on the canvas (null = desktop).
+//   env    optional extra preview environment (see DEFAULT_MEDIA_ENV), for
+//          conditions such as (prefers-color-scheme: dark); features named
+//          in `media` are applied automatically.
+// A project can replace this list (project.json `designer.breakpoints`);
+// nothing below assumes it is ordered, width-based, or three entries long.
+export const DEFAULT_BREAKPOINTS = Object.freeze([
+  Object.freeze({ id: 'base', label: 'Desktop', media: '', width: null, hint: 'All screen sizes' }),
+  Object.freeze({ id: 'tablet', label: 'Tablet', media: '(max-width: 900px)', width: 768, hint: '900px and below' }),
+  Object.freeze({ id: 'mobile', label: 'Mobile', media: '(max-width: 600px)', width: 375, hint: '600px and below' })
+]);
+
+// Kept for callers that want the defaults; the live list is `styles.breakpoints`.
+export const BREAKPOINTS = DEFAULT_BREAKPOINTS;
+
+const compactMedia = (media) => String(media || '').toLowerCase().replace(/\s+/g, '');
+
+// A clean breakpoint list: valid entries only, unique ids, the base first.
+export function normalizeBreakpoints(list) {
+  const out = [];
+  const seen = new Set();
+  for (const raw of Array.isArray(list) ? list : []) {
+    if (!raw || typeof raw !== 'object') continue;
+    const id = String(raw.id || '').trim();
+    if (!id || seen.has(id)) continue;
+    const media = typeof raw.media === 'string' ? raw.media.trim() : '';
+    const width = Number.isFinite(Number(raw.width)) && Number(raw.width) > 0 ? Number(raw.width) : null;
+    seen.add(id);
+    out.push({
+      id,
+      label: String(raw.label || id),
+      media,
+      width,
+      hint: String(raw.hint || (media ? media : 'All screen sizes')),
+      env: raw.env && typeof raw.env === 'object' ? { ...raw.env } : null
+    });
+  }
+  let base = out.find(b => b.media === '');
+  if (!base) base = { ...DEFAULT_BREAKPOINTS[0], env: null };
+  return [base, ...out.filter(b => b !== base && b.media !== '')];
+}
 
 export const STATES = [
   { id: '', label: 'Normal' },
@@ -148,6 +186,8 @@ export class StyleController {
     this.uiModel = uiModel;
     this.css = css;
     this.context = { breakpoint: 'base', state: '' };
+    this.breakpoints = normalizeBreakpoints(DEFAULT_BREAKPOINTS);
+    this.desktopWidth = 1280;
     this.lastEditKey = null;
     this.lastEditAt = 0;
     // (comp, cssProp) => true when the compiler's stylesheet sets cssProp on
@@ -171,16 +211,55 @@ export class StyleController {
     window.dispatchEvent(new CustomEvent('otter:style-context', { detail: { ...this.context } }));
   }
 
+  // Replace the breakpoint list (a project's own; null or [] = the defaults).
+  setBreakpoints(list) {
+    this.breakpoints = normalizeBreakpoints(list && list.length ? list : DEFAULT_BREAKPOINTS);
+    if (!this.breakpoints.some(b => b.id === this.context.breakpoint)) {
+      this.context = { ...this.context, breakpoint: this.breakpoints[0].id };
+    }
+    this.lastEditKey = null;
+    window.dispatchEvent(new CustomEvent('otter:breakpoints', { detail: { breakpoints: this.breakpoints } }));
+    window.dispatchEvent(new CustomEvent('otter:style-context', { detail: { ...this.context } }));
+  }
+
   get breakpoint() {
-    return BREAKPOINTS.find(b => b.id === this.context.breakpoint) || BREAKPOINTS[0];
+    return this.breakpoints.find(b => b.id === this.context.breakpoint) || this.breakpoints[0];
   }
 
   get state() {
     return STATES.find(s => s.id === this.context.state) || STATES[0];
   }
 
+  // The environment a breakpoint is previewed in: its width, the features
+  // its media condition names ((prefers-color-scheme: dark) -> dark), and
+  // any explicit env it carries.
+  envFor(bp = this.breakpoint) {
+    const env = envSatisfying(bp.media, mediaEnv({ width: bp.width || this.desktopWidth }));
+    return bp.env ? { ...env, ...bp.env } : env;
+  }
+
+  // The breakpoints whose rules apply while designing `bp`, lowest priority
+  // first. Which ones apply: each media condition evaluated in bp's preview
+  // environment. Their priority: order in styles.css (later wins), base first.
+  cascadeFor(bp = this.breakpoint) {
+    const env = this.envFor(bp);
+    const order = this.css.getMediaQueries().map(compactMedia);
+    const position = (b) => {
+      if (b.media === '') return -1;
+      const at = order.indexOf(compactMedia(b.media));
+      return at === -1 ? order.length + this.breakpoints.indexOf(b) : at;
+    };
+    return this.breakpoints
+      .filter(b => b.media === '' || b.id === bp.id || evaluateMedia(b.media, env) === true)
+      .sort((a, b) => position(a) - position(b));
+  }
+
+  isBaseBreakpoint() {
+    return this.breakpoint.media === '';
+  }
+
   isBaseContext() {
-    return this.context.breakpoint === 'base' && this.context.state === '';
+    return this.isBaseBreakpoint() && this.context.state === '';
   }
 
   media() {
@@ -247,18 +326,19 @@ export class StyleController {
     // Cascade chain from most to least specific, excluding the current
     // context. A state rule (#a:hover) outranks every plain #a rule whatever
     // its breakpoint, because it is more specific; within each group the
-    // narrower breakpoint wins because it comes later in the stylesheet.
+    // breakpoint later in the stylesheet wins.
     const chain = [];
-    const bpIndex = BREAKPOINTS.findIndex(b => b.id === this.context.breakpoint);
+    const current = this.breakpoint;
+    const applicable = this.cascadeFor(current);
     for (const st of state ? [state, ''] : ['']) {
-      for (let i = bpIndex; i >= 0; i--) {
-        if (i === bpIndex && st === state) continue;
-        chain.push({ bp: BREAKPOINTS[i], state: st });
+      for (let i = applicable.length - 1; i >= 0; i--) {
+        if (applicable[i] === current && st === state) continue;
+        chain.push({ bp: applicable[i], state: st });
       }
     }
     for (const { bp, state: st } of chain) {
       const decls = clean(this.css.getRuleDeclarations(this.selector(comp, st), bp.media));
-      if (bp.id === 'base' && st === '') Object.assign(decls, this.sourceInline(comp));
+      if (bp.media === '' && st === '') Object.assign(decls, this.sourceInline(comp));
       for (const [prop, value] of Object.entries(decls)) {
         if (own[prop] === undefined && inherited[prop] === undefined) {
           inherited[prop] = value;
@@ -310,7 +390,8 @@ export class StyleController {
     if (!comp) return empty;
 
     const state = this.context.state;
-    const bpIndex = Math.max(0, BREAKPOINTS.findIndex(b => b.id === this.context.breakpoint));
+    const current = this.breakpoint;
+    const applicable = this.cascadeFor(current);
     const stateLabel = (st) => STATES.find(s => s.id === st)?.label || st;
     const candidates = [];
 
@@ -318,8 +399,8 @@ export class StyleController {
     // source position, so the highest order wins within the same group.
     const states = state ? ['', state] : [''];
     states.forEach((st, stIndex) => {
-      for (let i = 0; i <= bpIndex; i++) {
-        const bp = BREAKPOINTS[i];
+      for (let i = 0; i < applicable.length; i++) {
+        const bp = applicable[i];
         const selector = this.selector(comp, st);
         const raw = this.css.getRuleDeclarations(selector, bp.media)[prop];
         if (raw === undefined) continue;
@@ -328,7 +409,7 @@ export class StyleController {
           value: stripImportant(raw),
           important: IMPORTANT.test(raw),
           order: stIndex * 100 + i,
-          here: i === bpIndex && st === state,
+          here: bp === current && st === state,
           from: `${bp.label}${st ? ' · ' + stateLabel(st) : ''}`,
           location: { file: 'styles.css', selector, media: bp.media }
         });
@@ -341,7 +422,7 @@ export class StyleController {
     if (sourceValue !== null) {
       candidates.push({
         source: 'otter', value: sourceValue, important: false, inline: true,
-        here: this.isBaseContext(), from: 'Desktop',
+        here: this.isBaseContext(), from: this.breakpoints[0].label,
         location: { file: 'source', component: comp.name, key: sourceKeyFor(comp, prop) }
       });
     } else if (probe?.inline) {
