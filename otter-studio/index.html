@@ -18,6 +18,8 @@
   <link rel="stylesheet" href="css/studio-dark.css">
   <link rel="stylesheet" href="css/designer.css">
   <link rel="stylesheet" href="css/studio-shell.css">
+  <link rel="stylesheet" href="css/package-dialog.css">
+  <link rel="stylesheet" href="css/settings.css">
 </head>
 <body class="theme-dark">
   <div class="studio-shell">
@@ -69,12 +71,54 @@
                 <span class="dropdown-icon">📦</span>
                 <span>New Solution...</span>
               </div>
+              <div class="dropdown-divider"></div>
+              <div class="dropdown-item" id="menuItemSettings">
+                <span class="dropdown-icon">⚙</span>
+                <span>Settings...</span>
+                <span class="dropdown-shortcut">Ctrl+,</span>
+              </div>
             </div>
           </div>
           <div class="menu-item" data-menu="edit">Edit <span class="menu-arrow">▾</span></div>
           <div class="menu-item" data-menu="run">Run <span class="menu-arrow">▾</span></div>
+          <div class="menu-item" data-menu="build" id="menuBuild">
+            Build <span class="menu-arrow">▾</span>
+            <div class="dropdown-menu" id="dropdownBuild">
+              <div class="dropdown-item" id="menuItemBuildDesktop">
+                <span class="dropdown-icon">🪟</span>
+                <span>Desktop App (Windows)...</span>
+                <span class="dropdown-shortcut">Ctrl+Shift+B</span>
+              </div>
+              <div class="dropdown-item" id="menuItemBuildReveal">
+                <span class="dropdown-icon">📂</span>
+                <span>Open Packages Folder</span>
+              </div>
+            </div>
+          </div>
           <div class="menu-item" data-menu="view">View <span class="menu-arrow">▾</span></div>
-          <div class="menu-item" data-menu="help">Help <span class="menu-arrow">▾</span></div>
+          <div class="menu-item" data-menu="help" id="menuHelp">
+            Help <span class="menu-arrow">▾</span>
+            <div class="dropdown-menu" id="dropdownHelp">
+              <div class="dropdown-item" id="menuItemHelpCommands">
+                <span class="dropdown-icon">›</span>
+                <span>Show All Commands</span>
+                <span class="dropdown-shortcut">F1</span>
+              </div>
+              <div class="dropdown-item" id="menuItemHelpShortcuts">
+                <span class="dropdown-icon">⌨</span>
+                <span>Keyboard Shortcuts</span>
+              </div>
+              <div class="dropdown-divider"></div>
+              <div class="dropdown-item" id="menuItemHelpWelcome">
+                <span class="dropdown-icon">🏠</span>
+                <span>Welcome</span>
+              </div>
+              <div class="dropdown-item" id="menuItemHelpDocs">
+                <span class="dropdown-icon">📖</span>
+                <span>Otter Documentation</span>
+              </div>
+            </div>
+          </div>
         </nav>
       </div>
 

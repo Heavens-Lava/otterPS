@@ -10,6 +10,7 @@ import {
 } from './navigation/symbol-index.js';
 import { getHoverInfo, getWordAtOffset } from './navigation/hover-provider.js';
 import { getSignatureHelp } from './navigation/signature-provider.js';
+import { autoClosePair, backspacePair, enterKey, prepareForSave, renderIndentGuides } from './editor/editing-assist.js';
 import { otterLanguageService } from './language/otter-language-service.js';
 import {
   getLanguageForFile,
@@ -1103,6 +1104,11 @@ export class OtterStudioIde {
       this.navigationPaletteTitle.textContent = 'Workspace Symbols';
       this.navigationPaletteInput.placeholder = 'Type a symbol name across workspace…';
       this.navigationItems = otterLanguageService.searchWorkspaceSymbols(this.workspaceSymbols, '');
+    } else if (mode === 'commands') {
+      // Every Studio action, from the shared registry (js/shell/commands.js).
+      this.navigationPaletteTitle.textContent = 'Commands';
+      this.navigationPaletteInput.placeholder = 'Type a command…';
+      this.navigationItems = window.otterCommands ? window.otterCommands.toPaletteItems() : [];
     }
     this.navigationPaletteInput.value = '';
     this.filteredNavigationItems = this.navigationItems;
@@ -1118,7 +1124,17 @@ export class OtterStudioIde {
 
   filterNavigationPalette() {
     const rawVal = this.navigationPaletteInput?.value || '';
-    if (rawVal.startsWith('#')) {
+    if (rawVal.startsWith('>')) {
+      // ">" turns any palette into the command palette, as in most editors.
+      this.navigationMode = 'commands';
+      this.navigationPaletteTitle.textContent = 'Commands';
+      const query = rawVal.slice(1).trim();
+      const commands = window.otterCommands ? window.otterCommands.toPaletteItems() : [];
+      this.filteredNavigationItems = query ? filterNavigationItems(commands, query) : commands;
+    } else if (this.navigationMode === 'commands') {
+      const commands = window.otterCommands ? window.otterCommands.toPaletteItems() : [];
+      this.filteredNavigationItems = rawVal.trim() ? filterNavigationItems(commands, rawVal) : commands;
+    } else if (rawVal.startsWith('#')) {
       this.navigationMode = 'workspace-symbols';
       this.navigationPaletteTitle.textContent = 'Workspace Symbols';
       const query = rawVal.slice(1).trim();
@@ -1145,7 +1161,7 @@ export class OtterStudioIde {
           <span class="navigation-item-label">${this.escapeHtml(item.label)}</span>
           <span class="navigation-item-detail">${this.escapeHtml(item.detail)}</span>
         </span>
-        <span class="navigation-item-meta">${item.type === 'symbol' || item.type === 'occurrence' ? `Line ${item.line}` : ''}</span>
+        <span class="navigation-item-meta">${item.type === 'command' ? this.escapeHtml(item.shortcut || '') : (item.type === 'symbol' || item.type === 'occurrence' ? `Line ${item.line}` : '')}</span>
       </button>
     `).join('');
     this.navigationPaletteList.querySelectorAll('[data-navigation-index]').forEach(button => {
@@ -1178,6 +1194,10 @@ export class OtterStudioIde {
     const item = this.filteredNavigationItems[index];
     if (!item) return;
     this.closeNavigationPalette();
+    if (item.type === 'command') {
+      await item.run();
+      return;
+    }
     if (item.type === 'file') {
       await this.navigateToLocation({ path: item.path, line: 1, column: 0 });
       return;
@@ -1875,6 +1895,7 @@ export class OtterStudioIde {
     try {
       const tab = this.openTabs.find(t => t.path === this.currentFile);
       if (this.currentFile) {
+        this.applySaveSettings();
         const res = await fetch('/api/file', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -2059,6 +2080,53 @@ export class OtterStudioIde {
   }
 
   // --- Document Formatter Engine ---
+  // A Studio setting, read through the shared store when it is mounted.
+  setting(path, fallback) {
+    const value = window.otterSettings ? window.otterSettings.get(path) : undefined;
+    return value === undefined ? fallback : value;
+  }
+
+  isOtterFile() {
+    return !this.currentFile || this.currentFile.endsWith('.ot');
+  }
+
+  // Apply an edit produced by js/editor/editing-assist.js and refresh
+  // everything that follows a keystroke.
+  applyAssistedEdit(textarea, edit) {
+    textarea.value = edit.text;
+    textarea.selectionStart = edit.start;
+    textarea.selectionEnd = edit.end;
+    this.currentCode = textarea.value;
+    this.markCurrentTabDirty(true);
+    this.renderEditorCode(this.currentCode);
+    this.updateCursorPos(textarea);
+    this.saveSessionState();
+    this.debouncedLint();
+    this.emitSourceChanged();
+  }
+
+  // What the file settings do to a buffer before it is written.
+  applySaveSettings() {
+    let content = this.currentCode;
+    if (this.isOtterFile() && this.setting('files.formatOnSave', false)) {
+      content = this.formatOtterCode(content);
+    }
+    content = prepareForSave(content, {
+      trimTrailingWhitespace: this.setting('files.trimTrailingWhitespace', true),
+      insertFinalNewline: this.setting('files.insertFinalNewline', true)
+    });
+    if (content !== this.currentCode) {
+      this.currentCode = content;
+      const textarea = document.getElementById('hiddenEditorInput');
+      if (textarea) {
+        const at = Math.min(textarea.selectionStart, content.length);
+        textarea.value = content;
+        textarea.selectionStart = textarea.selectionEnd = at;
+      }
+      this.renderEditorCode(this.currentCode);
+    }
+  }
+
   formatCurrentDocument() {
     const formatted = this.formatOtterCode(this.currentCode);
     if (formatted !== this.currentCode) {
@@ -2504,7 +2572,7 @@ export class OtterStudioIde {
         range.endIndex,
         range.topSpacerHeight,
         range.bottomSpacerHeight,
-        (line) => this.syntaxHighlightLine(line),
+        (line) => this.renderLineHtml(line),
         this.errorLine
       );
       this.codeAreaEl.innerHTML = linesHtml;
@@ -2514,7 +2582,7 @@ export class OtterStudioIde {
       let html = '';
       lines.forEach((line, idx) => {
         const lineNum = idx + 1;
-        let renderedLine = this.syntaxHighlightLine(line);
+        let renderedLine = this.renderLineHtml(line);
         const indentClass = line.startsWith('        ') ? ' ind-2' : (line.startsWith('    ') ? ' ind-1' : '');
         const errClass = (this.errorLine === lineNum) ? ' has-error' : ((this.warningLine === lineNum) ? ' has-warning' : '');
         const pauseClass = (this.debugPausedLine === lineNum) ? ' has-debug-pause' : '';
@@ -2823,6 +2891,15 @@ export class OtterStudioIde {
     return highlightJsonLine(line);
   }
 
+  // One line of the highlighted layer: syntax colours plus indent guides
+  // when the setting is on (the text content is identical either way).
+  renderLineHtml(line) {
+    if (this.setting('editor.indentGuides', true) && this.isOtterFile()) {
+      return renderIndentGuides(line, (rest) => this.syntaxHighlightLine(rest));
+    }
+    return this.syntaxHighlightLine(line);
+  }
+
   syntaxHighlightLine(line) {
     if (this.currentFile?.endsWith('.css')) {
       return this.syntaxHighlightCssLine(line);
@@ -2858,7 +2935,7 @@ export class OtterStudioIde {
     textarea.style.outline = 'none';
     textarea.style.resize = 'none';
     textarea.style.fontFamily = 'var(--font-code, "JetBrains Mono", Consolas, monospace)';
-    textarea.style.fontSize = '13px';
+    textarea.style.fontSize = 'var(--editor-font-size, 13px)'; // Settings > Editor > Font size
     textarea.style.lineHeight = '22px';
     textarea.style.letterSpacing = '0px';
     textarea.style.tabSize = '4';
@@ -3120,34 +3197,26 @@ export class OtterStudioIde {
           return;
         }
 
-        // Smart Auto-indent on Enter
+        // Smart Enter: keep the indentation, open a block's body and, when the
+        // block is new, write its closing period (editor.autoCloseBlocks).
         if (e.key === 'Enter') {
           e.preventDefault();
-          const start = textarea.selectionStart;
-          const end = textarea.selectionEnd;
-          const val = textarea.value;
-          const lineStart = val.lastIndexOf('\n', start - 1) + 1;
-          const curLine = val.substring(lineStart, start);
-          const indentMatch = curLine.match(/^(\s*)/);
-          let indent = indentMatch ? indentMatch[1] : '';
-
-          const trimmed = curLine.trim();
-          const startsBlock = /^(?:when\s+\w+\s+(?:is\s+)?\w+|for\s+each\b|if\b|otherwise\b|repeat\b|while\b|\w+\s+has$|game\b|on\s+(?:tick|key)|function\b)/i.test(trimmed);
-          if (startsBlock) {
-            indent += '    ';
-          }
-
-          const insertText = '\n' + indent;
-          textarea.value = val.substring(0, start) + insertText + val.substring(end);
-          textarea.selectionStart = textarea.selectionEnd = start + insertText.length;
-          this.currentCode = textarea.value;
-          this.markCurrentTabDirty(true);
-          this.renderEditorCode(this.currentCode);
-          this.updateCursorPos(textarea);
-          this.saveSessionState();
-          this.debouncedLint();
-          this.emitSourceChanged();
+          const edit = enterKey(textarea.value, textarea.selectionStart, textarea.selectionEnd, {
+            autoCloseBlocks: this.isOtterFile() && this.setting('editor.autoCloseBlocks', true)
+          });
+          this.applyAssistedEdit(textarea, edit);
           return;
+        }
+
+        // Auto-closing quotes and brackets (editor.autoClosePairs).
+        if (this.setting('editor.autoClosePairs', true) && !e.ctrlKey && !e.metaKey && !e.altKey) {
+          if (e.key === 'Backspace') {
+            const edit = backspacePair(textarea.value, textarea.selectionStart, textarea.selectionEnd);
+            if (edit) { e.preventDefault(); this.applyAssistedEdit(textarea, edit); return; }
+          } else if (e.key.length === 1) {
+            const edit = autoClosePair(textarea.value, textarea.selectionStart, textarea.selectionEnd, e.key);
+            if (edit) { e.preventDefault(); this.applyAssistedEdit(textarea, edit); return; }
+          }
         }
 
         // Tab and Shift+Tab multi-line indent/un-indent

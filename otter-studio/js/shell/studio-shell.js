@@ -4,6 +4,11 @@
 // capabilities to new places; nothing here changes how files or projects
 // behave.
 
+import { mountPackageDialog } from './package-dialog.js';
+import { createSettings, applySettingsToDocument, mountSettingsDialog } from './settings.js';
+import { createCommandRegistry, defaultCommands } from './commands.js';
+import { mountShortcutsDialog } from './shortcuts-dialog.js';
+
 const ICONS = {
   newProject: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="M12 12v6M9 15h6"/></svg>',
   openFolder: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>',
@@ -202,9 +207,93 @@ export function mountStudioShell({ ide, setMode, openNewProjectModal, showWelcom
   checkService();
   setInterval(checkService, 30000);
 
-  if (showWelcome) showWelcomePage();
+  // --- Settings -----------------------------------------------------------------
 
-  return { showWelcomePage, hideWelcomePage, updateProjectChip };
+  const settings = createSettings();
+  window.otterSettings = settings;
+  applySettingsToDocument(settings);
+  // The editor rendered before the settings existed; draw it once with them.
+  if (ide.currentCode !== undefined) ide.renderEditorCode(ide.currentCode);
+  settings.subscribe((path) => {
+    applySettingsToDocument(settings);
+    if (path === '*' || path.startsWith('editor.')) ide.renderEditorCode(ide.currentCode);
+  });
+  const settingsDialog = mountSettingsDialog(settings);
+  document.getElementById('menuItemSettings')?.addEventListener('click', () => {
+    document.getElementById('menuFile')?.classList.remove('is-open');
+    settingsDialog.open();
+  });
+
+  // --- Build menu -------------------------------------------------------------
+
+  const packageDialog = mountPackageDialog({ ide, openNewProjectModal });
+  const menuBuild = document.getElementById('menuBuild');
+  menuBuild?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    document.getElementById('menuFile')?.classList.remove('is-open');
+    menuBuild.classList.toggle('is-open');
+  });
+  document.addEventListener('click', () => menuBuild?.classList.remove('is-open'));
+  document.getElementById('menuItemBuildDesktop')?.addEventListener('click', () => {
+    menuBuild?.classList.remove('is-open');
+    packageDialog.open();
+  });
+  document.getElementById('menuItemBuildReveal')?.addEventListener('click', () => {
+    menuBuild?.classList.remove('is-open');
+    if (!ide.currentProjectFolder) { packageDialog.open(); return; }
+    fetch('/api/reveal', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: `${ide.currentProjectFolder}/packages` })
+    }).then(res => { if (!res.ok) packageDialog.open(); }).catch(() => packageDialog.open());
+  });
+
+  // --- Commands, palette, Help menu ---------------------------------------------
+
+  const commands = createCommandRegistry();
+  const shortcutsDialog = mountShortcutsDialog(commands);
+  commands.registerAll(defaultCommands({
+    ide,
+    setMode,
+    openNewProjectModal,
+    openSettings: () => settingsDialog.open(),
+    openPackageDialog: () => packageDialog.open(),
+    openShortcuts: () => shortcutsDialog.open(),
+    showWelcome: showWelcomePage,
+    toggleTheme: () => document.getElementById('btnThemeToggle')?.click(),
+    byId: (id) => document.getElementById(id)
+  }));
+  window.otterCommands = commands;
+
+  window.addEventListener('keydown', (e) => {
+    const inField = /^(input|textarea|select)$/i.test(document.activeElement?.tagName || '') || document.activeElement?.isContentEditable;
+    if (e.key === 'F1' || ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'p')) {
+      e.preventDefault();
+      ide.openNavigationPalette('commands');
+    } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'f' && !inField) {
+      e.preventDefault();
+      commands.run('view.searchPane');
+    }
+  });
+
+  const menuHelp = document.getElementById('menuHelp');
+  menuHelp?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    document.getElementById('menuFile')?.classList.remove('is-open');
+    menuBuild?.classList.remove('is-open');
+    menuHelp.classList.toggle('is-open');
+  });
+  document.addEventListener('click', () => menuHelp?.classList.remove('is-open'));
+  for (const [id, commandId] of [['menuItemHelpCommands', 'help.commands'], ['menuItemHelpShortcuts', 'help.shortcuts'], ['menuItemHelpWelcome', 'view.welcome'], ['menuItemHelpDocs', 'help.documentation']]) {
+    document.getElementById(id)?.addEventListener('click', () => {
+      menuHelp?.classList.remove('is-open');
+      commands.run(commandId);
+    });
+  }
+
+  if (showWelcome && settings.get('workbench.showWelcomeOnStart') !== false) showWelcomePage();
+
+  return { showWelcomePage, hideWelcomePage, updateProjectChip, packageDialog, settingsDialog, settings, commands, shortcutsDialog };
 }
 
 function escapeHtml(str) {

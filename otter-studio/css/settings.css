@@ -1,0 +1,147 @@
+/* settings.css - the Settings dialog, plus the editor presentation that
+   settings control (font size variable, indent guides). */
+
+.settings-dialog {
+  width: min(640px, calc(100vw - 40px));
+}
+
+.settings-body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  max-height: 65vh;
+  overflow: auto;
+}
+
+.settings-section-title {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.settings-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 8px 6px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.settings-row:hover {
+  background: var(--bg-hover);
+}
+
+.settings-row.is-select {
+  align-items: center;
+  justify-content: space-between;
+  cursor: default;
+}
+
+.settings-row input[type="checkbox"] {
+  margin-top: 3px;
+  accent-color: var(--accent-blue);
+}
+
+.settings-row-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.settings-row-label {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.settings-row-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.settings-select {
+  width: 120px;
+}
+
+/* Keyboard Shortcuts dialog */
+.shortcuts-dialog {
+  width: min(680px, calc(100vw - 40px));
+}
+
+.shortcuts-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: 65vh;
+  overflow: auto;
+}
+
+.shortcuts-filter {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.shortcuts-category {
+  margin: 6px 0 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.shortcuts-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.shortcuts-table td {
+  padding: 6px 8px;
+  border-top: 1px solid var(--border-subtle);
+  font-size: 13px;
+}
+
+.shortcuts-table tr:hover td {
+  background: var(--bg-hover);
+}
+
+.shortcuts-keys {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.shortcuts-keys kbd {
+  display: inline-block;
+  padding: 2px 7px;
+  border: 1px solid var(--border-card);
+  border-bottom-width: 2px;
+  border-radius: 6px;
+  background: var(--bg-app);
+  font: 600 11px var(--font-ui);
+  color: var(--text-main);
+}
+
+.shortcuts-none {
+  color: var(--text-faint);
+}
+
+.shortcuts-empty {
+  padding: 18px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* Indent guides: each wrapped indent level draws a hairline on its left. */
+.editor-indent-guides .indent-guide {
+  background: linear-gradient(to right, rgba(148, 163, 184, 0.35) 1px, transparent 1px);
+}
+
+.theme-dark.editor-indent-guides .indent-guide {
+  background: linear-gradient(to right, rgba(148, 163, 184, 0.22) 1px, transparent 1px);
+}
