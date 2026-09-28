@@ -278,13 +278,21 @@ function Render-OtterDeclarativeElementWeb {
             }
             $bodyCode = $bodyStatements -join "`n"
 
+            # Each listener's setup is wrapped in its own `{ }` block so the
+            # `const el_<id>` lookup is block-scoped. All listeners land in
+            # one script scope, and without the block a second event on the
+            # same element redeclared the constant - a SyntaxError that
+            # stopped the whole page script from running (RC3 B2). Same
+            # pattern the D110 drag/drop handlers already use.
             $JsListeners.Add(@"
+    {
     const el_$id = document.getElementById('$id');
     if (el_$id) {
       el_$id.addEventListener('$evtName', async (event) => {
 $bodyCode
         if (typeof otterUpdateReactivity === 'function') otterUpdateReactivity();
       });
+    }
     }
 "@)
         }
@@ -1185,12 +1193,19 @@ $dragBody
             $bodyJs.Add((ConvertTo-OtterJsStatement -Stmt $s -Indent 3))
         }
         $bodyJoined = $bodyJs -join "`n"
+        # RC3 B2: block-scoped like the drag/drop handlers above. Two `when`
+        # handlers on one control (`when b is clicked` plus another event
+        # on b) each emitted a top-level `const el_b`, and the duplicate
+        # declaration was a SyntaxError that killed the entire page script.
+        # The `{ }` gives every handler its own scope for that constant.
         $jsHandlers.Add(@"
+    {
     const el_$targetName = document.getElementById('$targetName');
     if (el_$targetName) {
       el_$targetName.addEventListener('$eventName', async (event) => {
 $bodyJoined
       });
+    }
     }
 "@)
     }

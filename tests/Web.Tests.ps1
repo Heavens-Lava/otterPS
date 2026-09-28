@@ -1073,6 +1073,128 @@ if (($ran.said -join '|') -ne 'Hello World|1, 2') { throw "Expected the sample t
 if (($ran.vars -join ',') -ne 'name,items') { throw "Expected the sample's variables to be tracked for cleanup, got: $($ran.vars -join ',')" }
 Write-Output '  pass  runnable true: live samples compile, run for real, and skip what a browser cannot run'
 
+# --- RC3 release-blocker regressions (B2, B9, B10/D-5, D-4, B4, sidecar CSS) ---
+#
+# Shared harness: the production page script (extracted from HTML that the
+# real Export-OtterWebApplication entry point wrote) is syntax-checked with
+# `node --check` and then executed in Node against a tiny DOM stub. The stub
+# hands out one element per id, records event listeners, and lets a test
+# fire events on them; console.log (which otterSay writes to) is captured.
+# Node has no network at all, so a page that mounts here needs none.
+$script:rc3DomHarness = @'
+const fs = require('fs');
+const script = fs.readFileSync(process.argv[2], 'utf8');
+const actions = (process.argv[3] || '').split(',').filter(Boolean);
+const els = {};
+function mk(id) {
+  const listeners = {};
+  return { id: id, style: {}, dataset: {}, textContent: '', value: '', children: [],
+    classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
+    addEventListener(t, f) { (listeners[t] = listeners[t] || []).push(f); },
+    removeEventListener() {}, setAttribute() {}, getAttribute() { return null; }, removeAttribute() {},
+    appendChild(c) { return c; }, querySelector() { return null; }, querySelectorAll() { return []; },
+    closest() { return null; }, focus() {}, blur() {},
+    async fire(t) { for (const f of listeners[t] || []) { await f({ type: t, target: this, preventDefault() {} }); } } };
+}
+global.window = globalThis;
+global.document = { title: '', readyState: 'complete', body: mk('body'), documentElement: mk('html'),
+  getElementById(id) { return els[id] || (els[id] = mk(id)); },
+  querySelector() { return null; }, querySelectorAll() { return []; }, addEventListener() {}, createElement() { return mk(''); } };
+global.location = { pathname: '/', search: '', hash: '' };
+global.history = { pushState() {}, replaceState() {}, back() {}, forward() {} };
+global.addEventListener = () => {};
+global.matchMedia = () => ({ matches: false, addEventListener() {} });
+global.localStorage = { getItem() { return null; }, setItem() {}, removeItem() {} };
+const said = [];
+const realLog = console.log;
+console.log = (...a) => said.push(a.join(' '));
+let failure = null;
+process.on('unhandledRejection', (e) => { failure = 'unhandled rejection: ' + e; });
+try { (0, eval)(script); } catch (e) { failure = 'page script threw: ' + e; }
+setTimeout(async () => {
+  try {
+    for (const act of actions) { const bits = act.split(':'); await document.getElementById(bits[0]).fire(bits[1]); }
+  } catch (e) { failure = 'event failed: ' + e; }
+  realLog(JSON.stringify({ failure: failure, said: said }));
+}, 50);
+'@
+
+# Compiles $Source through the real Export-OtterWebApplication entry point,
+# node --check's the page script, runs it in the DOM stub, fires $Actions
+# ("id:event,id:event") and returns { Html; Said[] }.
+function Invoke-Rc3WebPage {
+    param([string]$Source, [string]$Actions = '', [string]$FileName = 'app.ot')
+    $dir = Join-Path ([System.IO.Path]::GetTempPath()) ("otter_rc3_$([Guid]::NewGuid().ToString('N'))")
+    New-Item -ItemType Directory -Path $dir -Force | Out-Null
+    try {
+        $otFile = Join-Path $dir $FileName
+        [System.IO.File]::WriteAllText($otFile, $Source, [System.Text.UTF8Encoding]::new($false))
+        $htmlPath = Export-OtterWebApplication -SourcePath $otFile -OutputPath (Join-Path $dir 'out.html') -PassThruExceptions
+        $html = Get-Content -LiteralPath $htmlPath -Raw
+        if ($html -notmatch '(?s)<script>(.*)</script>') { throw 'Expected a <script> block in the compiled page.' }
+        $jsFile = Join-Path $dir 'page.js'
+        $harnessFile = Join-Path $dir 'harness.js'
+        [System.IO.File]::WriteAllText($jsFile, $Matches[1], [System.Text.UTF8Encoding]::new($false))
+        [System.IO.File]::WriteAllText($harnessFile, $script:rc3DomHarness, [System.Text.UTF8Encoding]::new($false))
+        $checkOut = & node --check $jsFile 2>&1
+        if ($LASTEXITCODE -ne 0) { throw "The compiled page script is not valid JavaScript (node --check): $($checkOut -join ' ')" }
+        $runOut = & node $harnessFile $jsFile $Actions 2>&1
+        if ($LASTEXITCODE -ne 0) { throw "Node could not run the compiled page: $($runOut -join ' ')" }
+        $result = ($runOut | Select-Object -Last 1) | ConvertFrom-Json
+        if ($result.failure) { throw "The compiled page failed in Node: $($result.failure)" }
+        return [pscustomobject]@{ Html = $html; Said = @($result.said) }
+    } finally {
+        Remove-Item -LiteralPath $dir -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+
+# Test 32 (RC3 B2): several `when` handlers on one control. Each handler
+# used to emit its own top-level `const el_<id>`, so a second handler on the
+# same control was a SyntaxError and NOTHING on the page ran.
+$twoHandlers = @"
+app is a page
+    title is "Two"
+.
+b is a button
+    text is "Go"
+.
+box is a textbox
+    placeholder is "type"
+.
+when b is clicked
+    say "first"
+.
+when b is clicked
+    say "second"
+.
+put b, box in app
+show app
+"@
+$ran = Invoke-Rc3WebPage -Source $twoHandlers -Actions 'b:click'
+if (($ran.Said -join '|') -ne 'first|second') { throw "Expected both click handlers on b to fire, got: $($ran.Said -join '|')" }
+
+$threeHandlers = $twoHandlers.Replace("put b, box in app", "when b is changed`n    say `"third`"`n.`nput b, box in app")
+$ran = Invoke-Rc3WebPage -Source $threeHandlers -Actions 'b:click,b:input'
+if (($ran.Said -join '|') -ne 'first|second|third') { throw "Expected all three handlers on b to fire, got: $($ran.Said -join '|')" }
+
+$twoControls = $twoHandlers.Replace("put b, box in app", "when box is changed`n    say `"box one`"`n.`nwhen box is changed`n    say `"box two`"`n.`nput b, box in app")
+$ran = Invoke-Rc3WebPage -Source $twoControls -Actions 'box:input,b:click'
+if (($ran.Said -join '|') -ne 'box one|box two|first|second') { throw "Expected two handlers on each of two controls to fire, got: $($ran.Said -join '|')" }
+
+# `hovered` is not mapped to a DOM event today, but the page must still be
+# valid JavaScript (Invoke-Rc3WebPage node --check's it) and the other
+# handler on the same control must keep working.
+$hoverPlusClick = $twoHandlers.Replace("when b is clicked`n    say `"second`"", "when b is hovered`n    say `"second`"")
+$ran = Invoke-Rc3WebPage -Source $hoverPlusClick -Actions 'b:click'
+if (($ran.Said -join '|') -ne 'first') { throw "Expected the click handler to still fire next to a hover handler, got: $($ran.Said -join '|')" }
+
+# The declarative element form (per-element event blocks) shares the fix.
+$declarativeEvents = "page `"El`"`n    button `"Go`"`n        click`n            say `"one`"`n        .`n        focus`n            say `"two`"`n        .`n    .`n.`n"
+$ran = Invoke-Rc3WebPage -Source $declarativeEvents -Actions 'otter_el_1:click,otter_el_1:focus'
+if (($ran.Said -join '|') -ne 'one|two') { throw "Expected both declarative event blocks on one button to fire, got: $($ran.Said -join '|')" }
+Write-Output '  pass  several when-handlers on one control (and on two controls) compile to valid JS and all fire (RC3 B2)'
+
+
 Write-Output 'Web compiler tests passed.'
 
 Remove-Item -LiteralPath $webExportDir -Recurse -Force -ErrorAction SilentlyContinue
