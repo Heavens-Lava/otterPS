@@ -41,6 +41,29 @@ const TRANSITION_PRESETS = [
   ['all 0.5s cubic-bezier(0.22, 1, 0.36, 1)', 'Springy']
 ];
 
+const TEXT_SHADOW_PRESETS = [
+  ['none', 'None'],
+  ['0 1px 2px rgba(15, 23, 42, 0.25)', 'Soft'],
+  ['0 2px 8px rgba(15, 23, 42, 0.35)', 'Strong'],
+  ['0 0 12px rgba(59, 130, 246, 0.7)', 'Glow']
+];
+
+const OUTLINE_PRESETS = [
+  ['none', 'None'],
+  ['2px solid #3b82f6', 'Focus ring'],
+  ['2px dashed #94a3b8', 'Dashed']
+];
+
+const TRANSITION_PROPERTIES = [
+  ['all', 'All properties'], ['opacity', 'Opacity'], ['transform', 'Transform'], ['background-color', 'Background'],
+  ['color', 'Text color'], ['box-shadow', 'Shadow'], ['border-color', 'Border color'], ['width', 'Width'], ['height', 'Height']
+];
+
+const TRANSITION_EASINGS = [
+  ['ease', 'Ease'], ['ease-in', 'Ease in'], ['ease-out', 'Ease out'], ['ease-in-out', 'Ease in-out'], ['linear', 'Linear'],
+  ['cubic-bezier(0.22, 1, 0.36, 1)', 'Springy']
+];
+
 const COMMON_CSS_PROPERTIES = [
   'align-content', 'align-items', 'align-self', 'animation', 'aspect-ratio', 'backdrop-filter',
   'background', 'background-color', 'background-image', 'background-position', 'background-size',
@@ -146,6 +169,7 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
         ${renderIdentityGroup(selected, count)}
         ${renderContentGroup(selected, selected.properties || {})}
         ${renderLayoutSection(ctx)}
+        ${renderChildSection(ctx)}
         ${renderSpacingSection(ctx)}
         ${renderSizeSection(ctx)}
         ${renderPositionSection(ctx)}
@@ -472,21 +496,47 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
       body += '<div class="sp-note">Set Display to Flex or Grid to lay out children.</div>';
     }
 
+    return section('layout', 'Layout', body, {
+      setCount: countSet(ctx, ['display', 'flex-direction', 'justify-content', 'align-items', 'flex-wrap', 'gap',
+        'grid-template-columns', 'grid-template-rows', 'justify-items']),
+      search: 'flex grid align justify'
+    });
+  }
+
+  // --- Flex child / Grid child ------------------------------------------------
+  // How this component sits inside its parent. Shown only when the parent
+  // lays out its children with flex or grid (as in Webstudio), with a link to
+  // select that parent.
+
+  function parentLink(ctx) {
+    const parent = uiModel.getComponent(ctx.selected.parentId);
+    return parent
+      ? `<button class="sp-parent-link" data-select-parent="${escapeHtml(parent.id)}" title="Select the parent">↑ ${escapeHtml(parent.name)} (${ctx.parentLayout})</button>`
+      : '';
+  }
+
+  function renderChildSection(ctx) {
     if (ctx.parentLayout === 'flex') {
-      body += `<div class="sp-subhead">Inside a flex parent</div>`;
+      let body = parentLink(ctx);
       body += field(ctx, 'flex', 'Sizing', segmented(ctx, 'flex', [
         ['0 0 auto', 'Fixed', "Don't grow or shrink"],
         ['0 1 auto', 'Fit', 'Shrink if needed'],
         ['1 1 0%', 'Fill', 'Grow to fill space']
       ]), { search: 'grow shrink flex child', wide: true });
+      body += field(ctx, 'flex-grow', 'Grow', lengthInput(ctx, 'flex-grow', { unit: '', placeholder: '0' }), { scrub: { unit: '', step: 1, min: 0 }, search: 'flex child grow' });
+      body += field(ctx, 'flex-shrink', 'Shrink', lengthInput(ctx, 'flex-shrink', { unit: '', placeholder: '1' }), { scrub: { unit: '', step: 1, min: 0 }, search: 'flex child shrink' });
+      body += field(ctx, 'flex-basis', 'Basis', lengthInput(ctx, 'flex-basis', { placeholder: 'auto' }), { scrub: { min: 0 }, search: 'flex child basis size' });
       body += field(ctx, 'align-self', 'Align self', segmented(ctx, 'align-self', [
         ['flex-start', 'Start'], ['center', 'Center'], ['flex-end', 'End'], ['stretch', 'Fill']
-      ]), { search: 'flex child' });
+      ]), { search: 'flex child', wide: true });
       body += field(ctx, 'order', 'Order', lengthInput(ctx, 'order', { unit: '' }), { scrub: { unit: '', step: 1 }, search: 'flex child' });
+      return section('flexchild', 'Flex child', body, {
+        setCount: countSet(ctx, ['flex', 'flex-grow', 'flex-shrink', 'flex-basis', 'align-self', 'order']),
+        search: 'flex child grow shrink basis order'
+      });
     }
-
     if (ctx.parentLayout === 'grid') {
-      body += `<div class="sp-subhead">Inside a grid parent</div>`;
+      let body = parentLink(ctx);
       body += field(ctx, 'grid-column', 'Column', textInput(ctx, 'grid-column', 'auto / span 1'), { search: 'grid child span', wide: true });
       body += field(ctx, 'grid-row', 'Row', textInput(ctx, 'grid-row', 'auto / span 1'), { search: 'grid child span', wide: true });
       body += `
@@ -498,13 +548,19 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
             <button class="sp-seg-btn" data-grid-span="full" title="Span every column">Full</button>
           </div>
         </div>`;
+      body += field(ctx, 'justify-self', 'Cell X', segmented(ctx, 'justify-self', [
+        ['start', 'Start'], ['center', 'Center'], ['end', 'End'], ['stretch', 'Fill']
+      ]), { search: 'grid child align horizontal', wide: true });
+      body += field(ctx, 'align-self', 'Cell Y', segmented(ctx, 'align-self', [
+        ['start', 'Top'], ['center', 'Middle'], ['end', 'Bottom'], ['stretch', 'Fill']
+      ]), { search: 'grid child align vertical', wide: true });
+      body += field(ctx, 'order', 'Order', lengthInput(ctx, 'order', { unit: '' }), { scrub: { unit: '', step: 1 }, search: 'grid child' });
+      return section('gridchild', 'Grid child', body, {
+        setCount: countSet(ctx, ['grid-column', 'grid-row', 'justify-self', 'align-self', 'order']),
+        search: 'grid child span cell order'
+      });
     }
-
-    return section('layout', 'Layout', body, {
-      setCount: countSet(ctx, ['display', 'flex-direction', 'justify-content', 'align-items', 'flex-wrap', 'gap',
-        'grid-template-columns', 'grid-template-rows', 'justify-items', 'flex', 'align-self', 'order', 'grid-column', 'grid-row']),
-      search: 'flex grid align justify'
-    });
+    return '';
   }
 
   function renderAlignMatrix(ctx, direction) {
@@ -687,9 +743,17 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
       ${field(ctx, 'text-decoration', 'Line', segmented(ctx, 'text-decoration', [
         ['none', '—', 'None'], ['underline', '<u>U</u>', 'Underline'], ['line-through', '<s>S</s>', 'Strikethrough']
       ]), { search: 'underline strikethrough decoration' })}
+      <div class="sp-field is-wide" data-search="text shadow glow">
+        ${dot(ctx, 'text-shadow')}
+        <label class="sp-label">Shadow</label>
+        <div class="sp-control sp-chip-row">
+          ${TEXT_SHADOW_PRESETS.map(([v, label]) => `<button class="sp-chip ${valueOf(ctx, 'text-shadow') === v ? 'is-active' : ''}" data-set="text-shadow" data-value="${escapeHtml(v)}" title="${escapeHtml(v)}">${label}</button>`).join('')}
+        </div>
+      </div>
+      ${field(ctx, 'text-shadow', 'Text shadow', textInput(ctx, 'text-shadow', '0 1px 2px rgba(0,0,0,.3)'), { wide: true, search: 'text shadow' })}
     `;
     return section('typography', 'Typography', body, {
-      setCount: countSet(ctx, ['font-family', 'font-size', 'font-weight', 'line-height', 'letter-spacing', 'color', 'text-align', 'text-transform', 'font-style', 'text-decoration']),
+      setCount: countSet(ctx, ['font-family', 'font-size', 'font-weight', 'line-height', 'letter-spacing', 'color', 'text-align', 'text-transform', 'font-style', 'text-decoration', 'text-shadow']),
       search: 'font text color'
     });
   }
@@ -763,9 +827,21 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
           </label>
         </div>
       </div>
+      <div class="sp-subhead" data-search="border sides top right bottom left">Sides</div>
+      ${SIDES.map(side => field(ctx, `border-${side}`, capitalizeWord(side), textInput(ctx, `border-${side}`, '1px solid #cbd5e1'), { wide: true, search: `border side ${side}` })).join('')}
+      <div class="sp-subhead" data-search="outline focus ring">Outline</div>
+      <div class="sp-field is-wide" data-search="outline focus ring accessibility">
+        ${dot(ctx, ['outline', 'outline-offset'])}
+        <label class="sp-label">Preset</label>
+        <div class="sp-control sp-chip-row">
+          ${OUTLINE_PRESETS.map(([v, label]) => `<button class="sp-chip ${valueOf(ctx, 'outline') === v ? 'is-active' : ''}" data-set="outline" data-value="${escapeHtml(v)}" title="${escapeHtml(v)}">${label}</button>`).join('')}
+        </div>
+      </div>
+      ${field(ctx, 'outline', 'Outline', textInput(ctx, 'outline', '2px solid #3b82f6'), { wide: true, search: 'outline focus ring' })}
+      ${field(ctx, 'outline-offset', 'Offset', lengthInput(ctx, 'outline-offset'), { scrub: {}, search: 'outline offset' })}
     `;
     return section('border', 'Border', body, {
-      setCount: countSet(ctx, ['border', 'border-radius', 'border-width', 'border-style', 'border-color']),
+      setCount: countSet(ctx, ['border', 'border-radius', 'border-width', 'border-style', 'border-color', ...SIDES.map(s => `border-${s}`), 'outline', 'outline-offset']),
       search: 'border radius corners'
     });
   }
@@ -793,6 +869,7 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
           ${SHADOW_PRESETS.map(([v, label]) => `<button class="sp-chip ${shadow === v ? 'is-active' : ''}" data-set="box-shadow" data-value="${escapeHtml(v)}" title="${escapeHtml(v)}">${label}</button>`).join('')}
         </div>
       </div>
+      ${renderShadowLayers(ctx, shadow)}
       ${field(ctx, 'box-shadow', 'Custom', textInput(ctx, 'box-shadow', '0 4px 12px rgba(0,0,0,.1)'), { wide: true, search: 'shadow' })}
       <div class="sp-field is-wide" data-search="transition animation hover motion">
         ${dot(ctx, 'transition')}
@@ -801,6 +878,7 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
           ${TRANSITION_PRESETS.map(([v, label]) => `<button class="sp-chip ${transition === v && v ? 'is-active' : ''}" data-set="transition" data-value="${escapeHtml(v)}" title="${escapeHtml(v || 'none')}">${label}</button>`).join('')}
         </div>
       </div>
+      ${renderTransitionEditor(ctx, transition)}
       ${field(ctx, 'transform', 'Transform', textInput(ctx, 'transform', 'translateY(-2px) scale(1.02)'), { wide: true, search: 'rotate scale translate move' })}
       ${field(ctx, 'cursor', 'Cursor', selectInput(ctx, 'cursor', [
         ['default', 'Default'], ['pointer', 'Pointer (hand)'], ['text', 'Text'], ['move', 'Move'], ['not-allowed', 'Not allowed'], ['grab', 'Grab']
@@ -813,6 +891,91 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
       setCount: countSet(ctx, ['opacity', 'box-shadow', 'transition', 'transform', 'cursor', 'backdrop-filter']),
       search: 'opacity shadow transition transform cursor'
     });
+  }
+
+  // A row per box-shadow layer: inset, x, y, blur, spread, color.
+  function renderShadowLayers(ctx, shadow) {
+    const layers = parseShadowLayers(shadow);
+    if (layers === null) return '<div class="sp-note">This shadow is too complex for the layer editor; edit it as text below.</div>';
+    const rows = layers.map((l, i) => `
+      <div class="sp-shadow-layer" data-shadow-layer="${i}" data-color="${escapeHtml(l.color)}">
+        <label class="sp-shadow-inset" title="Inner shadow"><input type="checkbox" data-shadow-part="inset" ${l.inset ? 'checked' : ''} /> in</label>
+        ${['x', 'y', 'blur', 'spread'].map(p => `<input type="text" class="sp-input sp-shadow-num" data-shadow-part="${p}" value="${escapeHtml(l[p])}" title="${p}" placeholder="${p}" spellcheck="false" />`).join('')}
+        <label class="sp-swatch" style="--swatch:${escapeHtml(l.color)}" title="Shadow color"><input type="color" data-shadow-part="color" value="${toHexColor(l.color, '#000000')}" /></label>
+        <button class="sp-icon-btn" data-shadow-remove="${i}" title="Remove this layer">×</button>
+      </div>`).join('');
+    return `
+      <div class="sp-field is-wide is-stacked sp-shadow-editor" data-search="shadow layers box-shadow inset blur spread">
+        <span class="sp-dot"></span>
+        <label class="sp-label">Layers</label>
+        <div class="sp-control sp-shadow-list">
+          ${rows}
+          <button class="sp-chip" data-shadow-add title="Add a shadow layer">+ Layer</button>
+        </div>
+      </div>`;
+  }
+
+  // Property, duration, easing and delay for a single transition.
+  function renderTransitionEditor(ctx, transition) {
+    const layers = transition ? splitCommas(transition) : [];
+    if (layers.length > 1) return `<div class="sp-note">${layers.length} transitions; edit them as text in All declarations.</div>`;
+    const t = parseTransition(layers[0] || '');
+    const select = (part, options, current) => `
+      <select class="sp-select" data-transition-part="${part}">
+        ${options.map(([v, label]) => `<option value="${v}" ${v === current ? 'selected' : ''}>${label}</option>`).join('')}
+      </select>`;
+    return `
+      <div class="sp-field is-wide is-stacked sp-transition-editor" data-search="transition duration easing delay animation">
+        <span class="sp-dot"></span>
+        <label class="sp-label">Animate</label>
+        <div class="sp-control sp-transition-grid">
+          ${select('property', TRANSITION_PROPERTIES, t.property)}
+          <input type="text" class="sp-input" data-transition-part="duration" value="${escapeHtml(transition ? t.duration : '')}" placeholder="0.2s" title="Duration" spellcheck="false" />
+          ${select('easing', TRANSITION_EASINGS, t.easing)}
+          <input type="text" class="sp-input" data-transition-part="delay" value="${escapeHtml(t.delay === '0s' ? '' : t.delay)}" placeholder="delay" title="Delay" spellcheck="false" />
+        </div>
+      </div>`;
+  }
+
+  function bindShadowEditor() {
+    const editor = containerEl.querySelector('.sp-shadow-editor');
+    if (!editor) return;
+    const read = () => Array.from(editor.querySelectorAll('[data-shadow-layer]')).map(row => ({
+      inset: row.querySelector('[data-shadow-part="inset"]').checked,
+      x: row.querySelector('[data-shadow-part="x"]').value || '0',
+      y: row.querySelector('[data-shadow-part="y"]').value || '0',
+      blur: row.querySelector('[data-shadow-part="blur"]').value || '0',
+      spread: row.querySelector('[data-shadow-part="spread"]').value || '0',
+      // The color picker has no alpha: keep the layer's own color text
+      // (rgba(), #rrggbbaa) until the picker is actually used.
+      color: row.dataset.color || row.querySelector('[data-shadow-part="color"]').value
+    }));
+    const commit = (layers) => { write({ 'box-shadow': layers.length ? formatShadowLayers(layers) : null }, 'shadow-layers'); };
+    editor.querySelectorAll('[data-shadow-part]').forEach(input => input.addEventListener('change', () => {
+      if (input.getAttribute('data-shadow-part') === 'color') input.closest('[data-shadow-layer]').dataset.color = input.value;
+      commit(read());
+    }));
+    editor.querySelector('[data-shadow-add]')?.addEventListener('click', () => {
+      commit([...read(), { inset: false, x: '0', y: '4px', blur: '12px', spread: '0', color: '#0f172a26' }]);
+    });
+    editor.querySelectorAll('[data-shadow-remove]').forEach(btn => btn.addEventListener('click', () => {
+      commit(read().filter((_, i) => i !== Number(btn.getAttribute('data-shadow-remove'))));
+    }));
+  }
+
+  function bindTransitionEditor() {
+    const editor = containerEl.querySelector('.sp-transition-editor');
+    if (!editor) return;
+    const part = (p) => editor.querySelector(`[data-transition-part="${p}"]`).value.trim();
+    editor.querySelectorAll('[data-transition-part]').forEach(input => input.addEventListener('change', () => {
+      // Clearing the duration removes the transition; choosing a property or
+      // an easing first starts one with a default duration.
+      let duration = normalizeTime(part('duration'));
+      if (!duration && input.getAttribute('data-transition-part') === 'duration') { write({ transition: null }, 'transition'); return; }
+      if (!duration) duration = '0.2s';
+      const delay = normalizeTime(part('delay'));
+      write({ transition: [part('property') || 'all', duration, part('easing') || 'ease', delay && delay !== '0s' ? delay : ''].filter(Boolean).join(' ') }, 'transition');
+    }));
   }
 
   // --- All declarations ---------------------------------------------------------
@@ -954,6 +1117,11 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
       const current = gridTrackCount(ctx.own['grid-template-columns'] || ctx.inherited['grid-template-columns'] || '') || 1;
       const next = Math.max(1, current + Number(btn.getAttribute('data-grid-cols')));
       write({ 'grid-template-columns': `repeat(${next}, 1fr)` }, 'grid-cols');
+    }));
+    bindShadowEditor();
+    bindTransitionEditor();
+    qa('[data-select-parent]').forEach(btn => btn.addEventListener('click', () => {
+      uiModel.select(btn.getAttribute('data-select-parent'));
     }));
     qa('[data-grid-span]').forEach(btn => btn.addEventListener('click', () => {
       const span = btn.getAttribute('data-grid-span');
@@ -1435,6 +1603,83 @@ function loadCollapsed() {
 
 function saveCollapsed(state) {
   try { localStorage.setItem(SECTION_STORE_KEY, JSON.stringify(state)); } catch { /* storage unavailable */ }
+}
+
+// Split on commas outside parentheses: layers of box-shadow / transition.
+function splitCommas(value) {
+  const out = [];
+  let depth = 0;
+  let current = '';
+  for (const ch of String(value || '')) {
+    if (ch === '(') depth++;
+    if (ch === ')') depth = Math.max(0, depth - 1);
+    if (ch === ',' && depth === 0) { out.push(current.trim()); current = ''; } else current += ch;
+  }
+  if (current.trim()) out.push(current.trim());
+  return out;
+}
+
+function capitalizeWord(word) {
+  return word.charAt(0).toUpperCase() + word.slice(1);
+}
+
+// "inset 0 4px 12px 0 rgba(0,0,0,.1), 0 1px 2px #000" -> layers, or null when
+// a layer has something the editor cannot show (it then stays a text field).
+export function parseShadowLayers(value) {
+  const text = String(value || '').trim();
+  if (!text || text === 'none') return [];
+  const layers = [];
+  for (const layer of splitCommas(text)) {
+    const parts = layer.trim().match(/(?:[a-z-]+\([^)]*\)|[^\s()]+)/gi) || [];
+    const out = { inset: false, x: '0', y: '0', blur: '0', spread: '0', color: '#000000' };
+    const lengths = [];
+    let color = null;
+    for (const p of parts) {
+      if (/^inset$/i.test(p)) out.inset = true;
+      else if (/^-?\d*\.?\d+(px|em|rem)?$/i.test(p)) lengths.push(p);
+      else if (color === null) color = p;
+      else return null;
+    }
+    if (lengths.length < 2 || lengths.length > 4) return null;
+    [out.x, out.y, out.blur = '0', out.spread = '0'] = lengths;
+    if (color) out.color = color;
+    layers.push(out);
+  }
+  return layers;
+}
+
+export function formatShadowLayers(layers) {
+  return layers.map(l => [l.inset ? 'inset' : '', withPx(l.x), withPx(l.y), withPx(l.blur), withPx(l.spread), l.color].filter(Boolean).join(' ')).join(', ');
+}
+
+function withPx(v) {
+  const text = String(v ?? '').trim() || '0';
+  return /^-?\d*\.?\d+$/.test(text) && Number(text) !== 0 ? `${text}px` : text;
+}
+
+// "opacity 0.3s ease-out 0.1s" -> parts, with defaults.
+export function parseTransition(value) {
+  const out = { property: 'all', duration: '0.2s', easing: 'ease', delay: '0s' };
+  const parts = String(value || '').trim().match(/(?:[a-z-]+\([^)]*\)|[^\s()]+)/gi) || [];
+  const times = [];
+  for (const p of parts) {
+    if (/^-?\d*\.?\d+m?s$/i.test(p)) times.push(p);
+    else if (/^(ease|ease-in|ease-out|ease-in-out|linear|step-start|step-end)$/i.test(p) || /^(cubic-bezier|steps)\(/i.test(p)) out.easing = p;
+    else out.property = p;
+  }
+  if (times[0]) out.duration = times[0];
+  if (times[1]) out.delay = times[1];
+  return out;
+}
+
+// "300" -> "300ms", ".2" -> "0.2s", "0.2s" stays.
+function normalizeTime(text) {
+  const t = String(text || '').trim();
+  if (!t) return '';
+  if (/^-?\d*\.?\d+m?s$/i.test(t)) return t;
+  const n = Number(t);
+  if (!Number.isFinite(n)) return t;
+  return n >= 10 ? `${n}ms` : `${n}s`;
 }
 
 function gridTrackCount(template) {

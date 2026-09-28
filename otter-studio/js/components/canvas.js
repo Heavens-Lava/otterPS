@@ -318,7 +318,7 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
           if (rule.cssRules && !rule.selectorText) visit(rule.cssRules);
           else if (rule.selectorText && props.some(p => rule.style.getPropertyPriority(p) === 'important')) {
             // Ignore state pseudo-classes: test the element's own selector.
-            const selector = rule.selectorText.replace(/:(hover|active|focus|focus-visible)\b/g, '');
+            const selector = rule.selectorText.replace(/::?(hover|active|focus|focus-visible|disabled|placeholder)\b/g, '');
             try { if (el.matches(selector)) result = true; } catch { /* unsupported selector */ }
           }
         }
@@ -335,7 +335,7 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
   // source does not set it, and every rule in its stylesheet that sets the
   // property on this element in the current state.
   const SCOPE_RESET = /^#[\w-]+$/; // real-style.js's own reset rule on the canvas root
-  const STATE_PSEUDO = /:(hover|active|focus|focus-visible)\b/g;
+  const STATE_PSEUDO = /::?(hover|active|focus|focus-visible|disabled|placeholder)\b/g;
   function compilerStyleFor(comp, cssProp, state) {
     const el = elementFor(comp.id);
     const sheet = document.getElementById('otterRealCanvasCss')?.sheet;
@@ -355,7 +355,7 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
     }
 
     const rules = [];
-    const wanted = (state || '').replace(':', '');
+    const wanted = (state || '').replace(/^:+/, '');
     const visit = (list) => {
       for (const rule of list) {
         if (rule.cssRules && !rule.selectorText) { visit(rule.cssRules); continue; }
@@ -420,9 +420,10 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
 
   // While designing :hover/:active/:focus, show that state on the selection.
   function applyForcedState() {
-    const state = styles.context.state.replace(':', '');
+    // ::placeholder needs no forcing: an empty text box always shows it.
+    const state = styles.context.state.replace(/^:+/, '');
     stageEl.querySelectorAll('[data-force-state]').forEach(el => el.removeAttribute('data-force-state'));
-    if (!state || isInteractMode) return;
+    if (!state || state === 'placeholder' || isInteractMode) return;
     for (const id of uiModel.selectedIds) {
       const el = elementFor(id);
       if (el) el.setAttribute('data-force-state', state);

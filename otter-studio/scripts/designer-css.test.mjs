@@ -132,4 +132,10 @@ lossless.markSaved('rev-2');
 assert.equal(lossless.dirty, false);
 assert.equal(lossless.revision, 'rev-2');
 
-console.log('Designer CSS engine certification passed (12 checks).');
+// 13. Several new declarations in a new rule: one per line.
+const fresh = new CssAstManager('');
+fresh.setProperty('#go', 'flex-grow', '2');
+fresh.setProperty('#go', 'color', 'red');
+assert.equal(fresh.generateCss(), '#go {\n    flex-grow: 2;\n    color: red;\n}\n');
+
+console.log('Designer CSS engine certification passed (13 checks).');

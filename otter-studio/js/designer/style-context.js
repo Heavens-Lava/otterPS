@@ -72,7 +72,10 @@ export const STATES = [
   { id: '', label: 'Normal' },
   { id: ':hover', label: 'Hover' },
   { id: ':active', label: 'Pressed' },
-  { id: ':focus', label: 'Focused' }
+  { id: ':focus', label: 'Focused' },
+  { id: ':disabled', label: 'Disabled' },
+  // A text box's hint text; the canvas shows it whenever the box is empty.
+  { id: '::placeholder', label: 'Placeholder' }
 ];
 
 // CSS property -> the Otter source properties the compiler inlines for it

@@ -485,7 +485,8 @@ function addDeclaration(rule, property, value) {
 
   let lead;
   if (lastDecl) {
-    lead = lastDecl.raw.match(/^\s*/)[0];
+    // A declaration added in this session has no raw text yet: reuse its lead.
+    lead = lastDecl.raw ? lastDecl.raw.match(/^\s*/)[0] : (lastDecl.lead ?? ' ');
     if (!multiLine) lead = ' ';
   } else if (multiLine) {
     lead = `\n${(rule.indent ?? (tail ? tail.raw.replace(/^[\s\S]*\n/, '') : '')) + INDENT}`;

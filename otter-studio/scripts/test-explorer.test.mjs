@@ -77,7 +77,8 @@ const server = spawn(process.execPath, ['serve.mjs'], { cwd: studioRoot, env: { 
 process.on('exit', () => server.kill());
 for (let attempt = 0; ; attempt++) {
   try { if ((await fetch(`${baseUrl}/`)).ok) break; } catch {}
-  if (attempt > 50) throw new Error('Studio server did not start');
+  // 15 s: a cold Node start on Windows after the launch tests can take several seconds.
+  if (attempt > 150) throw new Error('Studio server did not start');
   await new Promise(r => setTimeout(r, 100));
 }
 const run = async testPath => {

@@ -565,6 +565,94 @@ body.designer-is-dragging .designer-gap-band {
   padding: 2px 12px 12px;
 }
 
+/* Editors too wide for the label column: label on top, control below. */
+.sp-field.is-stacked {
+  grid-template-columns: 8px minmax(0, 1fr);
+}
+
+.sp-field.is-stacked > .sp-control {
+  grid-column: 1 / -1;
+}
+
+/* Shadow layers: inset, x, y, blur, spread, color, remove - one row each. */
+.sp-control.sp-shadow-list {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  min-width: 0;
+}
+
+.sp-shadow-list > .sp-chip {
+  align-self: flex-start;
+}
+
+.sp-shadow-layer {
+  display: grid;
+  grid-template-columns: auto repeat(4, minmax(0, 1fr)) auto auto;
+  gap: 3px;
+  align-items: center;
+}
+
+.sp-shadow-num {
+  min-width: 0;
+  padding-left: 4px;
+  padding-right: 4px;
+  text-align: center;
+}
+
+.sp-shadow-inset {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.sp-icon-btn {
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0 4px;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.sp-icon-btn:hover {
+  color: #f87171;
+}
+
+/* Transition: property, duration, easing, delay. */
+.sp-control.sp-transition-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px;
+  min-width: 0;
+}
+
+.sp-transition-grid > * {
+  min-width: 0;
+}
+
+/* Flex child / Grid child: jump to the parent that lays this out. */
+.sp-parent-link {
+  align-self: flex-start;
+  margin-bottom: 2px;
+  padding: 2px 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-muted);
+  font: 500 11px var(--font-ui);
+  cursor: pointer;
+}
+
+.sp-parent-link:hover {
+  color: var(--text-main);
+  border-color: var(--accent-blue);
+}
+
 .sp-subhead {
   margin-top: 4px;
   font-size: 10px;

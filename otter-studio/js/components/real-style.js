@@ -30,7 +30,7 @@ function walkMedia(rule, device, walkInner, into) {
 
 // While a state is being designed, its rules also apply to elements marked
 // with data-force-state, so the canvas can show :hover without a mouse.
-const FORCEABLE_STATES = ['hover', 'active', 'focus'];
+const FORCEABLE_STATES = ['hover', 'active', 'focus', 'disabled'];
 function withForcedStates(selector) {
   let forced = selector;
   for (const state of FORCEABLE_STATES) {
