@@ -466,8 +466,44 @@ try {
     Write-Output '  pass  build/publish refuse inputs outside the project (symlinked asset, linked folder, ../ and absolute entryPoint); normal assets still work'
     # RC3-B4 end
 
+    # Test 20 (RC3 B6): dist/otter.json and otter.build.json are real JSON
+    # for any name/version. They were pasted into here-strings, so a " or \
+    # produced invalid JSON (or a different value) while build exited 0.
+    # RC3-B6 begin
+    # "cafe" with e-acute is spelled with [char]0xE9 so the test file stays ASCII (Windows
+    # PowerShell 5.1 reads a BOM-less .ps1 as ANSI).
+    $b6Names = @('my "quoted" app', 'back\slash', "caf$([char]0xE9)")
+    $b6Index = 0
+    foreach ($b6Name in $b6Names) {
+        foreach ($b6Target in @('console', 'web')) {
+            $b6Dir = Join-Path $testTmp "B6App$b6Index$b6Target"
+            New-Item -ItemType Directory -Path $b6Dir -Force | Out-Null
+            Set-Content -LiteralPath (Join-Path $b6Dir 'main.ot') -Value 'say "b6"' -Encoding UTF8
+            $b6Version = '1.0"' + $b6Index + '\x'
+            $b6Manifest = ConvertTo-Json -InputObject ([ordered]@{ name = $b6Name; version = $b6Version; target = $b6Target; entryPoint = 'main.ot' })
+            [System.IO.File]::WriteAllText((Join-Path $b6Dir 'otter.json'), $b6Manifest, [System.Text.UTF8Encoding]::new($false))
+            $b6Out = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') build $b6Dir 2>&1
+            if ($LASTEXITCODE -ne 0) { throw "Test 20 failed: build of '$b6Name' ($b6Target) exited $LASTEXITCODE. Output: $b6Out" }
+            $b6Files = @('dist/otter.build.json')
+            if ($b6Target -eq 'console') { $b6Files += 'dist/otter.json' }
+            foreach ($b6File in $b6Files) {
+                $b6Raw = [System.IO.File]::ReadAllText((Join-Path $b6Dir $b6File), [System.Text.Encoding]::UTF8)
+                try {
+                    $b6Parsed = $b6Raw | ConvertFrom-Json
+                } catch {
+                    throw "Test 20 failed: $b6File for name '$b6Name' is not valid JSON: $b6Raw"
+                }
+                if ($b6Parsed.name -cne $b6Name) { throw "Test 20 failed: $b6File name round-tripped as '$($b6Parsed.name)', expected '$b6Name'" }
+                if ($b6Parsed.version -cne $b6Version) { throw "Test 20 failed: $b6File version round-tripped as '$($b6Parsed.version)', expected '$b6Version'" }
+            }
+        }
+        $b6Index++
+    }
+    Write-Output '  pass  build metadata is valid JSON and round-trips names/versions with ", \ and non-ASCII characters'
+    # RC3-B6 end
+
 } finally {
     Remove-Item -LiteralPath $testTmp -Recurse -Force -ErrorAction SilentlyContinue
 }
 
-Write-Output "`nAll Otter project build system tests passed (19/19)."
+Write-Output "`nAll Otter project build system tests passed (20/20)."

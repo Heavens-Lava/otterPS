@@ -823,7 +823,13 @@ function Invoke-OtterProjectBuild {
     param(
         [Parameter(Mandatory = $false)]
         [string]$Target,
-        [switch]$Quiet
+        [switch]$Quiet,
+        # B8: publish passes this so the build it packages always starts from
+        # an empty output folder. With "build": { "clean": false } an overlay
+        # build kept deleted assets, old entry points, and even an earlier
+        # publish folder inside dist/, and all of it shipped in the zip.
+        # A plain `otter build` keeps the documented clean:false overlay.
+        [switch]$ForceClean
     )
 
     if (-not (Get-Command ConvertTo-OtterTokens -ErrorAction SilentlyContinue)) {
@@ -846,6 +852,7 @@ function Invoke-OtterProjectBuild {
     $project = Get-OtterProject -Path $Target
     $rootDir = $project.RootDirectory
     $outDir = $project.Build.OutputDir
+    $cleanOutput = $project.Build.Clean -or $ForceClean
 
     # 1. Output directory containment validation
     $resolvedOutDir = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($rootDir, $outDir))
@@ -857,7 +864,7 @@ function Invoke-OtterProjectBuild {
     # on. Refuse, before anything is written, a folder Otter did not create
     # (no otter.build.json and not empty) or one holding the entry point,
     # the manifest, or .git, so "outputDir": "src" can no longer wipe sources.
-    Assert-OtterReplaceableOutputDir -Project $project -ResolvedDir $resolvedOutDir -MarkerFileName 'otter.build.json' -SettingName 'otter.json: build.outputDir' -WillDelete:($project.Build.Clean)
+    Assert-OtterReplaceableOutputDir -Project $project -ResolvedDir $resolvedOutDir -MarkerFileName 'otter.build.json' -SettingName 'otter.json: build.outputDir' -WillDelete:$cleanOutput
 
     if (-not $Quiet) {
         Write-Host "Building $($project.Name)..."
@@ -979,17 +986,18 @@ function Invoke-OtterProjectBuild {
                 $destEntry = Join-Path $stagingDir $entryLeaf
                 Set-Content -LiteralPath $destEntry -Value $resolvedProgram.CombinedSource -Encoding UTF8
 
-                # Runnable project manifest inside build artifact
-                $builtManifest = @"
-{
-  "`$schema": "https://otter-lang.org/schema/project-v1.json",
-  "name": "$($project.Name)",
-  "version": "$($project.Version)",
-  "archetype": "$($project.Archetype)",
-  "target": "$($project.Target)",
-  "entryPoint": "$entryLeaf"
-}
-"@
+                # Runnable project manifest inside build artifact.
+                # B6: serialized with ConvertTo-Json, not pasted into a
+                # here-string, so a " or \ in the name or version is escaped
+                # instead of producing invalid JSON that still built with exit 0.
+                $builtManifest = ConvertTo-Json -Depth 5 -InputObject ([ordered]@{
+                    '$schema'  = 'https://otter-lang.org/schema/project-v1.json'
+                    name       = $project.Name
+                    version    = $project.Version
+                    archetype  = $project.Archetype
+                    target     = $project.Target
+                    entryPoint = $entryLeaf
+                })
                 Set-Content -LiteralPath (Join-Path $stagingDir 'otter.json') -Value $builtManifest -Encoding UTF8
 
                 # Runnable launcher script
@@ -1025,23 +1033,20 @@ function Invoke-OtterProjectBuild {
 
         # 6. Emit deterministic build metadata
         $entryRel = if ($targetLower -in @('web', 'desktop', 'game')) { 'index.html' } else { Split-Path -Leaf $project.ResolvedEntryPoint }
-        $assetsJsonArray = if ($project.Assets.Count -gt 0) {
-            "`n    " + (($project.Assets | ForEach-Object { ConvertTo-Json -InputObject $_ -Compress }) -join ",`n    ") + "`n  "
-        } else { "" }
-
-        $buildMeta = @"
-{
-  "name": "$($project.Name)",
-  "version": "$($project.Version)",
-  "target": "$($project.Target)",
-  "entryPoint": "$entryRel",
-  "assets": [$assetsJsonArray]
-}
-"@
+        # B6: ConvertTo-Json escapes the name and version (a " or \ used to
+        # make this file invalid JSON). -InputObject keeps "assets" a list
+        # even when it has zero or one entries.
+        $buildMeta = ConvertTo-Json -Depth 5 -InputObject ([ordered]@{
+            name       = $project.Name
+            version    = $project.Version
+            target     = $project.Target
+            entryPoint = $entryRel
+            assets     = [string[]]@($project.Assets)
+        })
         Set-Content -LiteralPath (Join-Path $stagingDir 'otter.build.json') -Value $buildMeta -Encoding UTF8
 
         # 7. Atomic promotion to outputDir
-        if ($project.Build.Clean -and (Test-Path -LiteralPath $resolvedOutDir)) {
+        if ($cleanOutput -and (Test-Path -LiteralPath $resolvedOutDir)) {
             Remove-Item -LiteralPath $resolvedOutDir -Recurse -Force
         }
 
@@ -1358,7 +1363,9 @@ function Invoke-OtterProjectPublish {
 
     # 3. Build project first using the certified build system
     Write-Host "Building project..."
-    $buildExitCode = Invoke-OtterProjectBuild -Target $rootDir -Quiet
+    # -ForceClean (B8): the package must contain exactly what this build
+    # produces, never files left in the output folder by earlier builds.
+    $buildExitCode = Invoke-OtterProjectBuild -Target $rootDir -Quiet -ForceClean
     if ($buildExitCode -ne 0) {
         Write-Host "Publish failed." -ForegroundColor Red
         return $buildExitCode
@@ -1412,7 +1419,12 @@ function Invoke-OtterProjectPublish {
         $fileHash = (Get-FileHash -LiteralPath $stagedZipPath -Algorithm SHA256).Hash.ToLowerInvariant()
         $stagedSha256Path = Join-Path $stagingDir $sha256Name
         $sha256Content = "$fileHash  $zipName`r`n"
-        Set-Content -LiteralPath $stagedSha256Path -Value $sha256Content -Encoding ASCII
+        # B7: written as UTF-8 without a BOM. -Encoding ASCII turned every
+        # non-ASCII character of the zip name into "?" (so `sha256sum -c`
+        # could not find "caf?-0.1.0.zip"), and Set-Content -Encoding UTF8 on
+        # Windows PowerShell 5.1 would add a BOM in front of the hash.
+        # WriteAllText also avoids Set-Content's extra platform newline.
+        [System.IO.File]::WriteAllText($stagedSha256Path, $sha256Content, [System.Text.UTF8Encoding]::new($false))
 
         # Generate publish metadata (otter.publish.json)
         $runtimeReq = switch ($project.Target.ToLowerInvariant()) {

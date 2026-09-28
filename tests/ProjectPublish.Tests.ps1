@@ -395,8 +395,73 @@ try {
     if (-not (Test-Path -LiteralPath (Join-Path $ownDir 'publish/OwnOutApp-0.1.0.zip') -PathType Leaf)) { throw "Test 22 failed: Missing OwnOutApp-0.1.0.zip after republish" }
     Write-Output '  pass  republish still replaces the Otter-created publish/ and dist/ folders'
 
+    # Test 23 (RC3 B7): the .sha256 file is UTF-8 (no BOM), so a non-ASCII
+    # project name is written as-is. It was written as ASCII, which turned
+    # "cafe" with e-acute into "caf?" and broke `sha256sum -c`.
+    # RC3-B7 begin
+    $b7Name = "caf$([char]0xE9)"
+    $b7Dir = Join-Path $testTmp 'B7App'
+    New-Item -ItemType Directory -Path $b7Dir -Force | Out-Null
+    Set-Content -LiteralPath (Join-Path $b7Dir 'main.ot') -Value 'say "b7"' -Encoding UTF8
+    $b7Manifest = ConvertTo-Json -InputObject ([ordered]@{ name = $b7Name; version = '1.0.0'; target = 'console'; entryPoint = 'main.ot' })
+    [System.IO.File]::WriteAllText((Join-Path $b7Dir 'otter.json'), $b7Manifest, [System.Text.UTF8Encoding]::new($false))
+    $b7Out = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') publish $b7Dir 2>&1
+    if ($LASTEXITCODE -ne 0) { throw "Test 23 failed: publish of '$b7Name' exited $LASTEXITCODE. Output: $b7Out" }
+    $b7Zip = Join-Path $b7Dir "publish/$b7Name-1.0.0.zip"
+    if (-not (Test-Path -LiteralPath $b7Zip -PathType Leaf)) { throw "Test 23 failed: missing $b7Zip" }
+    $b7ShaBytes = [System.IO.File]::ReadAllBytes("$b7Zip.sha256")
+    if ($b7ShaBytes.Length -ge 3 -and $b7ShaBytes[0] -eq 0xEF -and $b7ShaBytes[1] -eq 0xBB -and $b7ShaBytes[2] -eq 0xBF) { throw "Test 23 failed: .sha256 starts with a UTF-8 BOM" }
+    $b7ShaLine = [System.Text.UTF8Encoding]::new($false, $true).GetString($b7ShaBytes).Trim()
+    $b7Hash = (Get-FileHash -LiteralPath $b7Zip -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($b7ShaLine -cne "$b7Hash  $b7Name-1.0.0.zip") { throw "Test 23 failed: .sha256 line is '$b7ShaLine', expected '$b7Hash  $b7Name-1.0.0.zip'" }
+    Write-Output '  pass  .sha256 is UTF-8 without BOM and names a non-ASCII zip exactly, with a matching hash'
+    # RC3-B7 end
+
+    # Test 24 (RC3 B8): publish always packages a clean build. With
+    # "clean": false an overlay build kept deleted assets (and an earlier
+    # publish folder inside the build folder), and all of it shipped.
+    # RC3-B8 begin
+    $b8Dir = Join-Path $testTmp 'B8App'
+    New-Item -ItemType Directory -Path (Join-Path $b8Dir 'assets') -Force | Out-Null
+    Set-Content -LiteralPath (Join-Path $b8Dir 'main.ot') -Value 'say "b8"' -Encoding UTF8
+    Set-Content -LiteralPath (Join-Path $b8Dir 'assets/keep.txt') -Value 'keep' -Encoding UTF8
+    Set-Content -LiteralPath (Join-Path $b8Dir 'assets/extra.txt') -Value 'extra' -Encoding UTF8
+    $b8Write = {
+        param([string[]]$Assets)
+        $b8Obj = [ordered]@{ name = 'B8App'; version = '1.0.0'; target = 'console'; entryPoint = 'main.ot'; assets = [string[]]@($Assets); build = [ordered]@{ outputDir = 'dist'; clean = $false }; publish = [ordered]@{ outputDir = 'dist/pub' } }
+        Set-Content -LiteralPath (Join-Path $b8Dir 'otter.json') -Value (ConvertTo-Json -InputObject $b8Obj -Depth 5) -Encoding UTF8
+    }
+    & $b8Write @('assets/keep.txt', 'assets/extra.txt')
+    $b8Pub1 = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') publish $b8Dir 2>&1
+    if ($LASTEXITCODE -ne 0) { throw "Test 24 failed: first publish exited $LASTEXITCODE. Output: $b8Pub1" }
+
+    # The user deletes an asset from disk and from the manifest.
+    Remove-Item -LiteralPath (Join-Path $b8Dir 'assets/extra.txt') -Force
+    & $b8Write @('assets/keep.txt')
+
+    # A plain build keeps the documented clean:false overlay behavior.
+    $b8Build = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') build $b8Dir 2>&1
+    if ($LASTEXITCODE -ne 0) { throw "Test 24 failed: overlay build exited $LASTEXITCODE. Output: $b8Build" }
+    if (-not (Test-Path -LiteralPath (Join-Path $b8Dir 'dist/assets/extra.txt'))) { throw "Test 24 failed: clean:false build no longer overlays dist/" }
+
+    $b8Pub2 = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') publish $b8Dir 2>&1
+    if ($LASTEXITCODE -ne 0) { throw "Test 24 failed: second publish exited $LASTEXITCODE. Output: $b8Pub2" }
+    $b8Zip = [System.IO.Compression.ZipFile]::OpenRead((Join-Path $b8Dir 'dist/pub/B8App-1.0.0.zip'))
+    try {
+        $b8Entries = @($b8Zip.Entries | ForEach-Object { $_.FullName })
+    } finally {
+        $b8Zip.Dispose()
+    }
+    if ($b8Entries -contains 'assets/extra.txt') { throw "Test 24 failed: deleted asset still shipped in the zip: $($b8Entries -join ', ')" }
+    if ($b8Entries -notcontains 'assets/keep.txt') { throw "Test 24 failed: declared asset missing from the zip: $($b8Entries -join ', ')" }
+    if (@($b8Entries | Where-Object { $_ -like 'pub/*' }).Count -gt 0) { throw "Test 24 failed: an earlier publish folder was nested into the zip: $($b8Entries -join ', ')" }
+    $b8Meta = Get-Content -LiteralPath (Join-Path $b8Dir 'dist/pub/otter.publish.json') -Raw | ConvertFrom-Json
+    if (@($b8Meta.includedFiles) -contains 'assets/extra.txt') { throw "Test 24 failed: includedFiles still lists the deleted asset" }
+    Write-Output '  pass  publish packages a clean build even with build.clean:false (no deleted assets, no nested publish output)'
+    # RC3-B8 end
+
     Write-Host ""
-    Write-Host "All Otter project publishing tests passed (22/22)." -ForegroundColor Green
+    Write-Host "All Otter project publishing tests passed (24/24)." -ForegroundColor Green
     exit 0
 }
 finally {
