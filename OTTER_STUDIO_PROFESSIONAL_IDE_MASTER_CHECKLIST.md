@@ -720,10 +720,10 @@ architecture reference. Listed in the recommended implementation order.
 -   [x] Tags (lightweight/annotated create, delete) (otter-studio/scripts/git.test.mjs, real git CLI)
 -   [ ] Remote/auth management (add/remove remotes and redacted URLs done; sign-in is delegated to the user's credential helper/SSH agent, no in-Studio account management)
 -   [ ] Source-control extension API
--   [ ] Gutter change indicators (added/modified/deleted) in the editor
+-   [x] Gutter change indicators (added/modified/deleted) in the editor (3ff8d4b; Alt+F3 next change, Revert Change at Cursor)
 -   [ ] Inline blame annotations
 -   [ ] Pull request and issue integration (GitHub/GitLab providers)
--   [ ] `.gitignore` template generator on project creation
+-   [x] `.gitignore` template generator on project creation (3ff8d4b; New Project checkbox, honors build.outputDir)
 
 # 23. Refactoring
 
