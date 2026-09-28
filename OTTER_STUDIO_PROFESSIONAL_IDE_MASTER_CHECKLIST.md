@@ -415,8 +415,9 @@ Source: `docs/studio/DESIGNER_GAP_ANALYSIS.md`. Webstudio (AGPL) and Penpot
 architecture reference. Listed in the recommended implementation order.
 
 -   [x] Gap analysis written before implementation (`docs/studio/DESIGNER_GAP_ANALYSIS.md`)
--   [ ] Provenance model: `StyleController.explain(comp, prop)` gives source kind (Otter source, styles.css, breakpoint, state, parent, compiler-forced, compiler default, browser default), exact location, and what overrides it; unit-tested
--   [ ] Provenance UI: colored property labels, red for "set here but overridden", hover card with the cascade chain, Go to source (main.ot line or styles.css rule), compiler-forced values explained in words
+-   [x] Provenance model: `StyleController.explain(comp, prop)` gives source kind (Otter source, styles.css, breakpoint, state, parent, compiler-forced, compiler default, browser default), exact location, and what overrides it; unit-tested (`24dc2ce`; `designer-styles` checks 13-17; verified against the real compiler render)
+-   [x] Provenance UI: colored property labels, red for "set here but overridden", hover card with the cascade chain, Go to source (main.ot line or styles.css rule), compiler-forced values explained in words (`c330f6e`; verified through the real inspector: primary button background shown overridden by `.otter-button-primary !important`, fixed by setting it again, Go to source lands on the styles.css line)
+-   [ ] Compiler: a primary/secondary/danger button's source `background`/`foreground` is ignored because the compiler's `.otter-button-*` rules are `!important` (Studio now routes designer edits around it; hand-written source still hits it)
 -   [ ] Breakpoints as data (`{id, label, media, previewWidth}`, default Desktop/Tablet/Mobile) with no index-order cascade assumption
 -   [ ] Canvas simulates non-width media conditions (color scheme, reduced motion, orientation) instead of following Studio's window
 -   [ ] `canvas.js` split into render / overlay / gestures / keyboard / context-menu modules, behavior unchanged
