@@ -8,7 +8,7 @@
   "entryPoint": "web-app.ot",
   "author": "Otter Team",
   "license": "MIT",
-  "created": "2026-09-18T15:10:25.804Z",
+  "created": "2026-09-28T03:21:35.129Z",
   "build": {
     "outputDir": "dist",
     "minify": false,
