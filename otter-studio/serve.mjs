@@ -7,6 +7,7 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { exec, execFile, spawn } from 'node:child_process';
 import { handleLaunchRoutes } from './server/launch.mjs';
+import { checkRequest, readJsonBody, isInside, LOOPBACK_HOST } from './server/security.mjs';
 import {
   createDefaultManifest,
   normalizeManifest,
@@ -25,12 +26,33 @@ const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.resolve(__dirname, '..');
 
 // True when `target` (an absolute path) is the repository root or inside it.
-// A bare startsWith(REPO_ROOT) also accepted sibling folders whose names start
-// with the repository's name (C:\src\otterPS-backup when the root is
-// C:\src\otterPS), letting the API read and write outside the workspace.
+// Two checks:
+//  - by path text (path.relative, not startsWith: a bare startsWith(REPO_ROOT)
+//    also accepted sibling folders such as C:\src\otterPS-backup);
+//  - by where the path really leads on disk, so a symbolic link or junction
+//    inside the workspace that points elsewhere cannot be used to read or
+//    write outside it. For a path that does not exist yet (a new file), the
+//    nearest existing parent folder is resolved.
+const REPO_ROOT_REAL = fs.realpathSync(REPO_ROOT);
+
+function realPathOfNearest(target) {
+  const missing = [];
+  let current = target;
+  while (!fs.existsSync(current)) {
+    const parent = path.dirname(current);
+    if (parent === current) break;
+    missing.unshift(path.basename(current));
+    current = parent;
+  }
+  try {
+    return path.join(fs.realpathSync(current), ...missing);
+  } catch {
+    return target;
+  }
+}
+
 function isInsideRepo(target) {
-  const relative = path.relative(REPO_ROOT, target);
-  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+  return isInside(REPO_ROOT, target, path) && isInside(REPO_ROOT_REAL, realPathOfNearest(target), path);
 }
 
 const PORT = Number(process.env.OTTER_STUDIO_PORT || 4200);
@@ -82,19 +104,10 @@ const MIME_TYPES = {
   '.ot': 'text/plain; charset=utf-8'
 };
 
+// JSON body with a size limit (server/security.mjs). A body over the limit
+// rejects with err.status 413, which the request handler turns into a reply.
 function readBody(req) {
-  return new Promise((resolve, reject) => {
-    let body = '';
-    req.on('data', chunk => body += chunk);
-    req.on('end', () => {
-      try {
-        resolve(body ? JSON.parse(body) : {});
-      } catch (e) {
-        resolve({ raw: body });
-      }
-    });
-    req.on('error', reject);
-  });
+  return readJsonBody(req);
 }
 
 function sendJson(res, data, status = 200) {
@@ -270,18 +283,31 @@ async function analyzeOtterFile(filePath) {
 }
 
 const server = http.createServer(async (req, res) => {
+  try {
+    await handleRequest(req, res);
+  } catch (err) {
+    // A body over the size limit (413) or any unexpected failure: answer
+    // instead of leaving the connection hanging.
+    if (!res.headersSent) sendJson(res, { error: err.message }, err.status || 500);
+    else res.end();
+  }
+});
+
+async function handleRequest(req, res) {
+  // Only Studio's own page on this computer may use the server; see
+  // server/security.mjs. No CORS headers are sent, so other web pages can
+  // neither call the API nor read its answers.
+  const refusal = checkRequest(req.headers, PORT);
+  if (refusal) return sendJson(res, { error: refusal.error }, refusal.status);
+
   const urlObj = new URL(req.url, `http://localhost:${PORT}`);
   const pathname = urlObj.pathname;
 
-  // CORS headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  if (req.method === 'OPTIONS') {
-    res.writeHead(204);
-    res.end();
-    return;
-  }
+  // Hardening headers on every reply: no MIME sniffing, no framing of
+  // Studio by other sites, and no referrer leaking workspace paths.
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('Referrer-Policy', 'no-referrer');
 
   // Run, launch profiles, build and clean (server/launch.mjs).
   if (await handleLaunchRoutes(req, res, pathname, urlObj, {
@@ -306,7 +332,7 @@ const server = http.createServer(async (req, res) => {
         tree
       });
     } catch (err) {
-      sendJson(res, { error: err.message }, 500);
+      sendJson(res, { error: err.message }, err.status || 500);
     }
     return;
   }
@@ -327,7 +353,7 @@ const server = http.createServer(async (req, res) => {
       const snapshot = readFileSnapshot(safePath);
       sendJson(res, { path: relPath, ...snapshot });
     } catch (err) {
-      sendJson(res, { error: err.message }, 500);
+      sendJson(res, { error: err.message }, err.status || 500);
     }
     return;
   }
@@ -354,7 +380,7 @@ const server = http.createServer(async (req, res) => {
         size: snapshot.size
       });
     } catch (err) {
-      sendJson(res, { error: err.message }, 500);
+      sendJson(res, { error: err.message }, err.status || 500);
     }
     return;
   }
@@ -394,7 +420,7 @@ const server = http.createServer(async (req, res) => {
       const saved = readFileSnapshot(safePath);
       sendJson(res, { ok: true, path: relPath, ...saved });
     } catch (err) {
-      sendJson(res, { error: err.message }, 500);
+      sendJson(res, { error: err.message }, err.status || 500);
     }
     return;
   }
@@ -415,7 +441,7 @@ const server = http.createServer(async (req, res) => {
       const relPath = path.relative(REPO_ROOT, safePath).replace(/\\/g, '/');
       sendJson(res, { ok: true, path: relPath, name: fileName });
     } catch (err) {
-      sendJson(res, { error: err.message }, 500);
+      sendJson(res, { error: err.message }, err.status || 500);
     }
     return;
   }
@@ -475,7 +501,7 @@ const server = http.createServer(async (req, res) => {
         manifest
       });
     } catch (err) {
-      sendJson(res, { error: err.message }, 500);
+      sendJson(res, { error: err.message }, err.status || 500);
     }
     return;
   }
@@ -515,7 +541,7 @@ const server = http.createServer(async (req, res) => {
         validation
       });
     } catch (err) {
-      sendJson(res, { error: err.message }, 500);
+      sendJson(res, { error: err.message }, err.status || 500);
     }
     return;
   }
@@ -568,7 +594,7 @@ const server = http.createServer(async (req, res) => {
         validation
       });
     } catch (err) {
-      sendJson(res, { error: err.message }, 500);
+      sendJson(res, { error: err.message }, err.status || 500);
     }
     return;
   }
@@ -614,7 +640,7 @@ const server = http.createServer(async (req, res) => {
         roots
       });
     } catch (err) {
-      sendJson(res, { error: err.message }, 500);
+      sendJson(res, { error: err.message }, err.status || 500);
     }
     return;
   }
@@ -649,7 +675,7 @@ const server = http.createServer(async (req, res) => {
         validation
       });
     } catch (err) {
-      sendJson(res, { error: err.message }, 500);
+      sendJson(res, { error: err.message }, err.status || 500);
     }
     return;
   }
@@ -675,7 +701,7 @@ const server = http.createServer(async (req, res) => {
         solution
       });
     } catch (err) {
-      sendJson(res, { error: err.message }, 500);
+      sendJson(res, { error: err.message }, err.status || 500);
     }
     return;
   }
@@ -739,7 +765,7 @@ const server = http.createServer(async (req, res) => {
         diagnostics
       });
     } catch (err) {
-      sendJson(res, { error: err.message }, 500);
+      sendJson(res, { error: err.message }, err.status || 500);
     }
     return;
   }
@@ -813,7 +839,7 @@ const server = http.createServer(async (req, res) => {
         truncated: results.length >= maxResults
       });
     } catch (err) {
-      sendJson(res, { error: err.message }, 500);
+      sendJson(res, { error: err.message }, err.status || 500);
     }
     return;
   }
@@ -893,7 +919,7 @@ const server = http.createServer(async (req, res) => {
         totalReplacements
       });
     } catch (err) {
-      sendJson(res, { error: err.message }, 500);
+      sendJson(res, { error: err.message }, err.status || 500);
     }
     return;
   }
@@ -945,7 +971,7 @@ const server = http.createServer(async (req, res) => {
 
       sendJson(res, { sessionId });
     } catch (err) {
-      sendJson(res, { error: err.message }, 500);
+      sendJson(res, { error: err.message }, err.status || 500);
     }
     return;
   }
@@ -979,7 +1005,7 @@ const server = http.createServer(async (req, res) => {
       session.child.stdin.write('continue\n');
       sendJson(res, { ok: true });
     } catch (err) {
-      sendJson(res, { error: err.message }, 500);
+      sendJson(res, { error: err.message }, err.status || 500);
     }
     return;
   }
@@ -998,7 +1024,7 @@ const server = http.createServer(async (req, res) => {
       debugSessions.delete(body.sessionId);
       sendJson(res, { stopped: true });
     } catch (err) {
-      sendJson(res, { error: err.message }, 500);
+      sendJson(res, { error: err.message }, err.status || 500);
     }
     return;
   }
@@ -1022,7 +1048,7 @@ const server = http.createServer(async (req, res) => {
         });
       });
     } catch (err) {
-      sendJson(res, { error: err.message }, 500);
+      sendJson(res, { error: err.message }, err.status || 500);
     }
     return;
   }
@@ -1098,7 +1124,15 @@ const server = http.createServer(async (req, res) => {
   let reqPath = pathname;
   if (reqPath === '/' || reqPath === '') reqPath = '/index.html';
 
-  const filePath = path.join(__dirname, reqPath);
+  // Serve Studio's own files only: never anything outside otter-studio/,
+  // and never the server's source or tests.
+  const filePath = path.resolve(__dirname, '.' + decodeURIComponent(reqPath));
+  const relativeStatic = path.relative(__dirname, filePath).replace(/\\/g, '/');
+  if (!isInside(__dirname, filePath, path) || /^(server|scripts|node_modules)\//.test(relativeStatic) || relativeStatic === 'serve.mjs' || relativeStatic.split('/').some(part => part.startsWith('.'))) {
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    res.end('404 Not Found');
+    return;
+  }
 
   fs.stat(filePath, (err, stats) => {
     if (err || !stats.isFile()) {
@@ -1113,8 +1147,9 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(200, { 'Content-Type': contentType });
     fs.createReadStream(filePath).pipe(res);
   });
-});
+}
 
-server.listen(PORT, () => {
+// Loopback only: other computers on the network cannot connect.
+server.listen(PORT, LOOPBACK_HOST, () => {
   console.log(`Otter Studio running with Full Interaction Engine at: http://localhost:${PORT}`);
 });

@@ -744,16 +744,16 @@ platform.
 # 29. Security
 
 -   [x] Loopback-only/ephemeral port/session token/origin validation
-    reported
+    reported (for desktop apps). Studio's own server: loopback-only bind, Host and Origin validation, no wildcard CORS since this batch (otter-studio/scripts/security.test.mjs)
 -   [ ] Independent threat model/review
 -   [ ] Prove preview cannot access native bridge
 -   [ ] Prove external page cannot access native bridge
 -   [ ] XSS/CSP hardening
--   [ ] Path containment/traversal tests
--   [ ] Command injection tests
--   [ ] Symlink escape tests
--   [ ] CSRF/origin tests
--   [ ] DoS/request-size limits
+-   [x] Path containment/traversal tests (file API and static server) (otter-studio/scripts/security.test.mjs)
+-   [x] Command injection tests (Run/Build pass argument arrays, never a shell string; launch.test.mjs). The integrated terminal runs shell commands by design.
+-   [x] Symlink escape tests (containment checks the real path, not just the text) (otter-studio/scripts/security.test.mjs)
+-   [x] CSRF/origin tests (cross-site Origin and DNS-rebinding Host refused) (otter-studio/scripts/security.test.mjs)
+-   [ ] DoS/request-size limits (32 MB request-body limit done (otter-studio/scripts/security.test.mjs); rate limiting not done)
 -   [ ] Workspace trust
 -   [ ] Warn before running untrusted code/build hooks
 -   [ ] Secrets storage/redaction
