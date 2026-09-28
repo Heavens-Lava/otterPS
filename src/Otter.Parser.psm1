@@ -1004,6 +1004,75 @@ function Read-OtterMathExpression {
     return $left
 }
 
+# ---------------------------------------------------------------------------
+# D-1 (Otter 1.0, RC3) - PROPOSAL FOR CODEX REVIEW
+#
+# "Silent incorrect arithmetic in conditions is forbidden."
+#
+# Before this change every comparison operand in a condition was a SINGLE
+# value (Read-OtterValue). Because D34 lexes `plus` and `+` to the same
+# TokenKind::And as the logical `and`, a condition such as
+#
+#     if x plus 1 is 5
+#
+# was silently parsed as `x and (1 is 5)` and took the wrong branch, while
+# `minus`, `times`, `divided by`, `-`, `*`, `/`, `percent of` and `power`
+# failed with "I expected the statement to end here".
+#
+# The fix reuses the grammar assignments already have: an operand is a flat,
+# strictly left-to-right arithmetic chain, exactly like Read-OtterMathExpression
+# (so `if 2 plus 3 times 4 is 20` is true, as `say 2 plus 3 times 4` prints 20).
+# The one difference is how TokenKind::And is resolved, and it is decided by
+# the token's SOURCE TEXT, which the lexer keeps:
+#
+#     `plus`, `+`  -> arithmetic addition inside the operand
+#     `and`        -> still the logical connective between two conditions
+#
+# so `if a and b is 3` keeps meaning `a and (b is 3)`, and `if x is 4 and y is
+# 5` is unchanged. Only the two comparison sides (`is`, `is not`, `is at
+# least`, `is at most`, `is greater than`, `is less than`), the bare-value
+# condition, and the right side of `contains` / `starts with` / `ends with`
+# use the arithmetic operand; every special condition form (`file ... exists`,
+# `x is completed`, `password ... matches hash`, ...) is untouched.
+# ---------------------------------------------------------------------------
+function Test-OtterConditionArithmeticOperator {
+    $token = Get-OtterCurrentToken
+    switch ($token.Kind) {
+        ([TokenKind]::Minus) { return $true }
+        ([TokenKind]::Times) { return $true }
+        ([TokenKind]::DividedBy) { return $true }
+        ([TokenKind]::Percent) { return $true }
+        ([TokenKind]::Power) { return $true }
+        # D34: `plus` and `+` share TokenKind::And with the logical `and`.
+        # Only the spelled-out `and` stays logical inside a condition.
+        ([TokenKind]::And) { return ($token.Text -in @('plus', '+')) }
+    }
+    return $false
+}
+
+function Read-OtterConditionOperand {
+    $left = Read-OtterValue
+    while (Test-OtterConditionArithmeticOperator) {
+        $operator = Read-OtterToken
+        # D88: `X percent of Y` - the same one extra word as in
+        # Read-OtterMathExpression.
+        if ($operator.Kind -eq [TokenKind]::Percent) {
+            [void](Assert-OtterTokenKind ([TokenKind]::Of) 'I expected "of" after "percent".')
+        }
+        $right = Read-OtterValue
+        $mathOp = switch ($operator.Kind) {
+            ([TokenKind]::And) { [MathOp]::Add }
+            ([TokenKind]::Minus) { [MathOp]::Subtract }
+            ([TokenKind]::Times) { [MathOp]::Multiply }
+            ([TokenKind]::DividedBy) { [MathOp]::Divide }
+            ([TokenKind]::Percent) { [MathOp]::Percent }
+            ([TokenKind]::Power) { [MathOp]::Power }
+        }
+        $left = [MathExpr]::new($left, $mathOp, $right, $operator.Line)
+    }
+    return $left
+}
+
 function Read-OtterConditionPrimary {
     if (Test-OtterTokenKind ([TokenKind]::Not)) {
         $token = Read-OtterToken
@@ -1097,7 +1166,8 @@ function Read-OtterConditionPrimary {
         }
         $script:Position = $savedPasswordPosition
     }
-    $left = Read-OtterValue
+    # D-1: the left side may be arithmetic (`x plus 1 is 5`).
+    $left = Read-OtterConditionOperand
     # D109: `expected securely equals actual` - constant-time comparison of bytes.
     if ((Get-OtterCurrentToken).Kind -eq [TokenKind]::Identifier -and (Get-OtterCurrentToken).Text -eq 'securely' -and
         ($script:Position + 1) -lt $script:Tokens.Count -and $script:Tokens[$script:Position + 1].Text -eq 'equals') {
@@ -1185,12 +1255,13 @@ function Read-OtterConditionPrimary {
     }
     if (Test-OtterTokenKind ([TokenKind]::Contains)) {
         $operator = Read-OtterToken
-        return [ContainsExpr]::new($left, (Read-OtterValue), $operator.Line)
+        # D-1: `name contains "a" plus "b"` concatenates, never a logical and.
+        return [ContainsExpr]::new($left, (Read-OtterConditionOperand), $operator.Line)
     }
     if ((Test-OtterTokenKind ([TokenKind]::StartsWith)) -or (Test-OtterTokenKind ([TokenKind]::EndsWith))) {
         $operator = Read-OtterToken
         $match = if ($operator.Kind -eq [TokenKind]::StartsWith) { [TextMatch]::StartsWith } else { [TextMatch]::EndsWith }
-        return [TextMatchExpr]::new($left, $match, (Read-OtterValue), $operator.Line)
+        return [TextMatchExpr]::new($left, $match, (Read-OtterConditionOperand), $operator.Line)
     }
     $operator = Get-OtterCurrentToken
     $comparison = switch ($operator.Kind) {
@@ -1204,7 +1275,8 @@ function Read-OtterConditionPrimary {
     }
     if ($null -eq $comparison) { return $left }
     [void](Read-OtterToken)
-    return [ComparisonExpr]::new($left, $comparison, (Read-OtterValue), $operator.Line)
+    # D-1: the right side may be arithmetic too (`5 is x plus 1`).
+    return [ComparisonExpr]::new($left, $comparison, (Read-OtterConditionOperand), $operator.Line)
 }
 
 function Read-OtterConditionContinuation {
