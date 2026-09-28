@@ -154,8 +154,10 @@ when b9copy is clicked
     copy text of b9 to clipboard
     text of b9copy is "Copied"
 .
+b9a is a text with value "otter.json is the Otter 1.0 manifest. An older project.json is read only when a folder has no otter.json; when both exist, otter.json wins. entryPoint and every asset must stay inside the project folder, and publishing needs a name and a plain version string such as 1.2.0. The project manifest specification lists every field, its type and default, and which commands use it.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b9b is a link with text "Project manifest specification", url "https://github.com/Heavens-Lava/otterPS/blob/master/docs/OTTER_1_0_PROJECT_MANIFEST.md", foreground "#2563eb", weight 600, size 15
 b10 is a text with value "Work with it", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
-b11 is a text with value "otter check .      # validate the whole project without running it\notter test .       # run every test under tests/\notter run .        # run the entry point\notter build .      # build into dist/\notter publish .    # package into publish/ as a zip with a SHA-256 checksum", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable false
+b11 is a text with value "otter check .      # validate the entry point and the files it uses\notter test .       # run every test under tests/\notter run .        # run the entry point\notter build .      # build into dist/\notter publish .    # package into publish/ as a zip with a SHA-256 checksum", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable false
 b11label is a text with value "PowerShell", size 12, weight 600, foreground "#b7c4d8"
 b11copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
 b11head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
@@ -177,6 +179,8 @@ when b12copy is clicked
     copy text of b12 to clipboard
     text of b12copy is "Copied"
 .
+b12a is a text with value "otter check . checks the entry point and every file it imports with use. Other .ot files in the project, including the tests, are not checked; otter test . runs the tests.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b12b is a text with value "Web and game projects run in a browser: use otter web . for them, and otter run . for console and automation projects. Keep a web project's entry point at the project root, because relative paths to images and other assets break after otter build when the entry point is in a subfolder (to be fixed after 1.0). The one stylesheet rule is a .css file named after the entry point, beside it: main.css for main.ot. otter web, otter build and otter publish include it in the page.", size 15, foreground "#1e3a6b", background "#eaf2ff", radius 12, border "1px solid #cfe0ff", lineheight "1.55", customstyle "padding: 14px 18px;"
 b13 is a text with value "Writing a test", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b14 is a text with value "A test is an ordinary Otter file. It passes when it finishes and fails when it calls fail with:", size 16, foreground "#3a4d6b", lineheight "1.6"
 b15 is a text with value "score is 100\n\nif score is not 100\n    fail with \"Expected score to be 100.\"\n.\n\nsay \"All checks passed\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
@@ -196,7 +200,7 @@ b18 is a link with text "The otter command", url "/cli/", foreground "#2563eb", 
 b19 is a link with text "Modules", url "/modules/", foreground "#2563eb", weight 600, size 15
 
 docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"
-put b1, b2, b3, b4block, b5block, b6, b7block, b8, b9block, b10, b11block, b12block, b13, b14, b15block, b16, b17, b18, b19 in docsMain
+put b1, b2, b3, b4block, b5block, b6, b7block, b8, b9block, b9a, b9b, b10, b11block, b12block, b12a, b12b, b13, b14, b15block, b16, b17, b18, b19 in docsMain
 docsBody is a row with align top, spacing 0, width full, customstyle "align-items: stretch;"
 put docsSidebar, docsMain in docsBody
 
