@@ -181,8 +181,11 @@ export class OtterUiModel {
 
     const id = overrides.id || `node_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
     const name = overrides.name || this.generateVariableName(kind);
+    // New components start from the schema defaults, which then become
+    // part of their source. A component read from source (defaults: false)
+    // has exactly the properties the source states.
     const properties = {
-      ...(schema.defaultProperties || {}),
+      ...(overrides.defaults === false ? {} : (schema.defaultProperties || {})),
       ...(overrides.properties || {})
     };
 

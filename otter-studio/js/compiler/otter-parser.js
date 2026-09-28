@@ -259,10 +259,12 @@ export function scanOtterSource(source) {
     if (showMatch) showLines.push({ line: i, name: showMatch[1] });
   }
 
-  // Properties as the model sees them: schema defaults, then every written
-  // site in file order (a later site wins, as it does when the program runs).
+  // Properties as the program has them: every written site in file order (a
+  // later site wins, as it does when the program runs). No schema defaults:
+  // the compiler never applies them, so a model holding them would show - and
+  // attribute to the source - values the running app does not have.
   for (const comp of components.values()) {
-    comp.properties = { ...(ComponentSchema[comp.kind]?.defaultProperties || {}) };
+    comp.properties = {};
     const inFileOrder = [...comp.sites].sort((a, b) => a.line - b.line);
     for (const site of inFileOrder) comp.properties[site.key] = site.value;
   }
@@ -303,7 +305,9 @@ export function parseOtterSource(source, targetModel) {
   // Create root window
   const root = targetModel.createComponent('window', {
     name: rootComp.name,
-    properties: rootComp.properties
+    properties: rootComp.properties,
+    // The model mirrors the source: no schema defaults it does not state.
+    defaults: false
   });
   targetModel.rootId = root.id;
   targetModel.selectedId = root.id;
@@ -316,7 +320,8 @@ export function parseOtterSource(source, targetModel) {
     if (name === rootComp.name) continue;
     const newComp = targetModel.createComponent(comp.kind, {
       name: comp.name,
-      properties: comp.properties
+      properties: comp.properties,
+      defaults: false
     });
     nameToId.set(name, newComp.id);
   }
