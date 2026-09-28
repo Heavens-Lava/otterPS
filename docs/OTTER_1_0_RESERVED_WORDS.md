@@ -43,13 +43,11 @@ A **function name** (`to NAME`) is reserved when a line starting with `NAME`
 (with or without arguments) is read as some other statement, so the call can
 never reach the function.
 
-A **variable or parameter name** is reserved when either
-
-1. an ordinary use of the variable is accepted by the parser with a
-   different meaning: the *state words* on the right of `is` in a condition
-   (`if status is completed` is a state check, not a comparison); or
-2. the variable can never be assigned: a line starting with the word is
-   always read as that word's statement, so `zip is ...` never assigns.
+A **variable or parameter name** is reserved only when an ordinary use of the
+variable is accepted by the parser with a different meaning - silent
+misbehaviour. That is exactly the *state words* on the right of `is` in a
+condition (`if status is completed` is a state check, not a comparison with a
+variable named `completed`).
 
 Every declaration form is checked: `name is ...`, `to f name`, `for each name
 in`, `count from 1 to 3 as name`, `into name`, `make name`, `and call it name`,
@@ -194,41 +192,39 @@ parsing), each entry proven with a program on RC2 (`708ef2e`).
 | `connecting` | variable | socket state word (variable) | in a condition, `x is connecting` is read as a check of a websocket's, TCP connection's or UDP socket's state, not a comparison with a variable named `connecting` | `connecting is "x"` … `if v is connecting` → runtime error: "I can only ask about the state of a websocket, tcp connection or udp socket, but this is some text." |
 | `secure` | variable | TLS state word (variable) | in a condition, `x is secure` is read as a check of whether a TCP connection uses TLS, not a comparison with a variable named `secure` | `secure is "x"` … `if v is secure` → runtime error: "I can only ask whether a tcp connection is secure, but this is some text." |
 | `watching` | variable | watcher state word (variable) | in a condition, `x is watching` is read as a check of whether a file watcher is running, not a comparison with a variable named `watching` | `watching is "x"` … `if v is watching` → runtime error: "I can only ask whether a file watcher is watching, but this is some text." |
-| `animate` | variable | statement word (variable) | a line starting with `animate` is read as the `animate` statement, so `animate is ...` can never assign a variable named `animate` | `to f animate` … `animate is 1` → syntax error: "I don't understand 'animate'." |
-| `decrease` | variable | statement word (variable) | a line starting with `decrease` is read as the `decrease` statement, so `decrease is ...` can never assign a variable named `decrease` | `to f decrease` … `decrease is 1` → syntax error: "I expected a variable name after "decrease"." |
-| `decrypt` | variable | statement word (variable) | a line starting with `decrypt` is read as the `decrypt` statement, so `decrypt is ...` can never assign a variable named `decrypt` | `to f decrypt` … `decrypt is 1` → syntax error: "I expected a value here." |
-| `derive` | variable | statement word (variable) | a line starting with `derive` is read as the `derive` statement, so `derive is ...` can never assign a variable named `derive` | `to f derive` … `derive is 1` → syntax error: "I expected a variable name after "derive"." |
-| `encrypt` | variable | statement word (variable) | a line starting with `encrypt` is read as the `encrypt` statement, so `encrypt is ...` can never assign a variable named `encrypt` | `to f encrypt` … `encrypt is 1` → syntax error: "I expected a value here." |
-| `fail` | variable | statement word (variable) | a line starting with `fail` is read as the `fail` statement, so `fail is ...` can never assign a variable named `fail` | `to f fail` … `fail is 1` → syntax error: "I expected "with" and a message. I found 'is' instead." |
-| `focus` | variable | statement word (variable) | a line starting with `focus` is read as the `focus` statement, so `focus is ...` can never assign a variable named `focus` | `to f focus` … `focus is 1` → syntax error: "I expected a value here." |
-| `gap` | variable | statement word (variable) | a line starting with `gap` is read as the `gap` statement, so `gap is ...` can never assign a variable named `gap` | `to f gap` … `gap is 1` → syntax error: "I don't understand 'gap'." |
-| `hash` | variable | statement word (variable) | a line starting with `hash` is read as the `hash` statement, so `hash is ...` can never assign a variable named `hash` | `to f hash` … `hash is 1` → syntax error: "I expected a value here." |
-| `hide` | variable | statement word (variable) | a line starting with `hide` is read as the `hide` statement, so `hide is ...` can never assign a variable named `hide` | `to f hide` … `hide is 1` → syntax error: "I expected a value here." |
-| `increase` | variable | statement word (variable) | a line starting with `increase` is read as the `increase` statement, so `increase is ...` can never assign a variable named `increase` | `to f increase` … `increase is 1` → syntax error: "I expected a variable name after "increase"." |
-| `kill` | variable | statement word (variable) | a line starting with `kill` is read as the `kill` statement, so `kill is ...` can never assign a variable named `kill` | `to f kill` … `kill is 1` → syntax error: "I expected "process" after "kill"." |
-| `layout` | variable | statement word (variable) | a line starting with `layout` is read as the `layout` statement, so `layout is ...` can never assign a variable named `layout` | `to f layout` … `layout is 1` → syntax error: "I expected the layout statement to end here. I found '2' instead." |
-| `listen` | variable | statement word (variable) | a line starting with `listen` is read as the `listen` statement, so `listen is ...` can never assign a variable named `listen` | `to f listen` … `listen is 1` → syntax error: "I expected "on port <number>" or a server name after "listen"." |
-| `lock` | variable | statement word (variable) | a line starting with `lock` is read as the `lock` statement, so `lock is ...` can never assign a variable named `lock` | `to f lock` … `lock is 1` → syntax error: "I expected "the computer" after "lock"." |
-| `memo` | variable | statement word (variable) | a line starting with `memo` is read as the `memo` statement, so `memo is ...` can never assign a variable named `memo` | `to f memo` … `memo is 1` → syntax error: "I expected a memo name after "memo"." |
-| `motion` | variable | statement word (variable) | a line starting with `motion` is read as the `motion` statement, so `motion is ...` can never assign a variable named `motion` | `to f motion` … `motion is 1` → syntax error: "I don't understand 'motion'." |
-| `on` | variable | statement word (variable) | a line starting with `on` is read as the `on` statement, so `on is ...` can never assign a variable named `on` | `to f on` … `on is 1` → syntax error: "I expected 'start' or 'close' after 'on', but got 'is'." |
-| `post` | variable | statement word (variable) | a line starting with `post` is read as the `post` statement, so `post is ...` can never assign a variable named `post` | `to f post` … `post is 1` → syntax error: "I expected a value here." |
-| `print` | variable | statement word (variable) | a line starting with `print` is read as the `print` statement, so `print is ...` can never assign a variable named `print` | `to f print` … `print is 1` → syntax error: "I expected a value here." |
-| `respond` | variable | statement word (variable) | a line starting with `respond` is read as the `respond` statement, so `respond is ...` can never assign a variable named `respond` | `to f respond` … `respond is 1` → syntax error: "I expected "with" after "respond". I found 'is' instead." |
-| `restart` | variable | statement word (variable) | a line starting with `restart` is read as the `restart` statement, so `restart is ...` can never assign a variable named `restart` | `to f restart` … `restart is 1` → syntax error: "I expected "the computer" after "restart"." |
-| `shared` | variable | statement word (variable) | a line starting with `shared` is read as the `shared` statement, so `shared is ...` can never assign a variable named `shared` | `to f shared` … `shared is 1` → syntax error: "I expected a variable name after "shared"." |
-| `shut` | variable | statement word (variable) | a line starting with `shut` is read as the `shut` statement, so `shut is ...` can never assign a variable named `shut` | `to f shut` … `shut is 1` → syntax error: "I expected "down" after "shut"." |
-| `sign` | variable | statement word (variable) | a line starting with `sign` is read as the `sign` statement, so `sign is ...` can never assign a variable named `sign` | `to f sign` … `sign is 1` → syntax error: "I expected "out" after "sign"." |
-| `start` | variable | statement word (variable) | a line starting with `start` is read as the `start` statement, so `start is ...` can never assign a variable named `start` | `to f start` … `start is 1` → syntax error: "I expected a server name after "start"." |
-| `state` | variable | statement word (variable) | a line starting with `state` is read as the `state` statement, so `state is ...` can never assign a variable named `state` | `to f state` … `state is 1` → syntax error: "I expected a variable name after "state"." |
-| `stop` | variable | statement word (variable) | a line starting with `stop` is read as the `stop` statement, so `stop is ...` can never assign a variable named `stop` | `to f stop` … `stop is 1` → syntax error: "I expected stop to end here. I found 'is' instead." |
-| `unzip` | variable | statement word (variable) | a line starting with `unzip` is read as the `unzip` statement, so `unzip is ...` can never assign a variable named `unzip` | `to f unzip` … `unzip is 1` → syntax error: "I expected a value here." |
-| `use` | variable | statement word (variable) | a line starting with `use` is read as the `use` statement, so `use is ...` can never assign a variable named `use` | `to f use` … `use is 1` → syntax error: "I expected the use statement to end here. I found '2' instead." |
-| `wait` | variable | statement word (variable) | a line starting with `wait` is read as the `wait` statement, so `wait is ...` can never assign a variable named `wait` | `to f wait` … `wait is 1` → syntax error: "I expected a value here." |
-| `zip` | variable | statement word (variable) | a line starting with `zip` is read as the `zip` statement, so `zip is ...` can never assign a variable named `zip` | `to f zip` … `zip is 1` → syntax error: "I expected "folder" after "zip". I found 'is' instead." |
 
-Totals: 102 reserved function names, 45 reserved variable/parameter names
-(32 statement words + 13 condition state words).
+Totals: 102 reserved function names and 13 reserved variable/parameter names
+(the condition state words) - 115 entries.
+
+D-2 supersedes the D33 statement that the statement-head words (`copy`,
+`sort`, `log`, `start`, ...) are valid *function* names: they still parse
+after `to`, but a function with such a name could never be called, so the
+validator now rejects the declaration. (`tests/Keywords.Tests.ps1` is
+parse-only and is unchanged; it still passes.)
+
+## Not reserved: reassignment fails loudly at parse time
+
+These statement words are **not** reserved as variable or parameter names:
+
+`animate`, `decrease`, `decrypt`, `derive`, `encrypt`, `fail`, `focus`, `gap`,
+`hash`, `hide`, `increase`, `kill`, `layout`, `listen`, `lock`, `memo`,
+`motion`, `on`, `post`, `print`, `respond`, `restart`, `shared`, `shut`,
+`sign`, `start`, `state`, `stop`, `unzip`, `use`, `wait`, `zip`.
+
+A parameter, loop variable or `into` target with one of these names reads
+correctly in every value position - `say start`, `start plus 1`,
+`if start is 3`, `3 is start`, `twice start`, `return start` - so it is usable
+in its declared role:
+
+```otter
+to range start finish
+    say start "to" finish     # works
+```
+
+Only reassigning it at the start of a line (`start is start plus 1`) fails,
+and that is a syntax error reported by `otter check`, never a silent
+misreading. (Their *function* names are still reserved: a function called
+`start` could never be called.)
 
 ## Words that are already keywords everywhere
 

@@ -47,7 +47,6 @@ $script:OtterReservedReasons = @{
     'fn-builtin' = '`{0}` is a built-in value, so a function named `{0}` could never be called'
 
     # --- variable and parameter names ----------------------------
-    'var-statement' = 'a line starting with `{0}` is read as the `{0}` statement, so `{0} is ...` can never assign a variable named `{0}`'
     'var-state-http' = 'in a condition, `x is {0}` is read as a check of an HTTP request''s or command job''s state, not a comparison with a variable named `{0}`'
     'var-state-socket' = 'in a condition, `x is {0}` is read as a check of a websocket''s, TCP connection''s or UDP socket''s state, not a comparison with a variable named `{0}`'
     'var-state-server' = 'in a condition, `x is {0}` is read as a check of a TCP server''s state, not a comparison with a variable named `{0}`'
@@ -104,28 +103,20 @@ foreach ($word in @('today', 'now', 'pi')) {
 # ===============================================================
 #
 # A variable must be readable as a value (including on either side of `is`
-# in a condition) and assignable with `name is ...` at the start of a line.
-# A word is reserved here when either
-#   (a) an ordinary use of the variable is ACCEPTED by the parser with a
-#       different meaning (the state words: `if x is completed` parses as a
-#       state check, then misbehaves at run time), or
-#   (b) the variable can never be assigned: `zip is ...` is read as the zip
-#       statement in every position, so the name can be bound (`into zip`)
-#       but never updated.
-# Words whose only conflict is ONE position that the parser already rejects
-# loudly at check time are contextual, not reserved: `count` (only a
-# top-level `count is ...`; the D56 canonical example relies on
-# `state count is 0`), `between` (only `x is between`), and `file`,
-# `element`, `registry` (only as the left side of a condition). Those need a
-# parser fix, not a smaller language.
-
+# in a condition). A word is reserved here only when an ordinary use of the
+# variable is ACCEPTED by the parser with a DIFFERENT meaning - silent
+# misbehaviour. That is exactly the condition state words: `if x is
+# completed` parses as a state check, not a comparison with the variable.
+#
+# Deliberately NOT here (see docs/OTTER_1_0_RESERVED_WORDS.md):
+#   - statement words such as `start`, `zip`, `print`, `wait`: a parameter,
+#     loop variable or into-target with one of these names reads correctly in
+#     every value position; only a reassignment `start is ...` fails, and it
+#     fails LOUDLY at parse time, so nothing is silently misread;
+#   - `count` (top-level `count is ...` only), `between` (only `x is
+#     between`), `file`, `element`, `registry` (only as the left side of a
+#     condition): each is one position the parser already rejects loudly.
 $script:OtterReservedVariableNames = @{}
-foreach ($word in @('animate', 'decrease', 'decrypt', 'derive', 'encrypt', 'fail', 'focus', 'gap',
-                    'hash', 'hide', 'increase', 'kill', 'layout', 'listen', 'lock', 'memo',
-                    'motion', 'on', 'post', 'print', 'respond', 'restart', 'shared', 'shut',
-                    'sign', 'start', 'state', 'stop', 'unzip', 'use', 'wait', 'zip')) {
-    $script:OtterReservedVariableNames[$word] = 'var-statement'
-}
 foreach ($word in @('pending', 'running', 'completed', 'failed', 'cancelled')) {
     $script:OtterReservedVariableNames[$word] = 'var-state-http'
 }

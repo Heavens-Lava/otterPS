@@ -17,7 +17,7 @@ using module ..\src\Otter.Validation.psm1
 #          word must leave the list - the set stays as small as the parser
 #          requires);
 #        - ordinary English identifiers stay usable in every role;
-#        - one negative case per category, with the diagnostic and proof
+#        - one negative case per remaining category, with the diagnostic and proof
 #          that nothing runs, end to end through `otter check` / `otter run`.
 #
 # D-1  Silent incorrect arithmetic in conditions is forbidden. `if x plus 1
@@ -173,7 +173,7 @@ Test-Otter 'D-2 drift guard: every reserved function name is accepted by `to` bu
     Assert-True ($problems.Count -eq 0) ($problems -join '; ')
 }
 
-Test-Otter 'D-2 drift guard: every reserved variable name is accepted as a parameter but unusable in its role' {
+Test-Otter 'D-2 drift guard: every reserved variable name is accepted as a parameter but silently misread after `is`' {
     $problems = [System.Collections.Generic.List[string]]::new()
     foreach ($row in @($script:Reserved | Where-Object { $_.Role -eq 'variable' })) {
         $w = $row.Word
@@ -181,24 +181,14 @@ Test-Otter 'D-2 drift guard: every reserved variable name is accepted as a param
         if (-not ($decl.Ok -and $decl.Statements[0].Parameters -ccontains $w)) {
             $problems.Add("$w - the parser no longer accepts it as a parameter; drop it"); continue
         }
-        if ($row.Category -like 'var-state-*') {
-            # Right side of `is` in a condition must NOT be a comparison with the variable.
-            $parsed = Get-ParseResult "to f $w$($script:NL)    if 5 is $w$($script:NL)        say 1"
-            $condition = if ($parsed.Ok) { $parsed.Statements[0].Body[0].Branches[0].Condition } else { $null }
-            if ($parsed.Ok -and $condition -is [ComparisonExpr] -and (Test-IsVariable $condition.Right $w)) {
-                $problems.Add("$w - 'x is $w' is now an ordinary comparison; drop it")
-            }
+        if ($row.Category -notlike 'var-state-*') {
+            $problems.Add("$w - unexpected variable category $($row.Category): only silently misread state words are reserved"); continue
         }
-        else {
-            # `WORD is 1` must not be an assignment, at the top level or in a block.
-            foreach ($src in @("$w is 1", "to f p$($script:NL)    $w is 1")) {
-                $parsed = Get-ParseResult $src
-                $statement = if ($parsed.Ok) { $parsed.Statements[0] } else { $null }
-                if ($statement -is [FunctionDefStmt]) { $statement = $statement.Body[0] }
-                if ($parsed.Ok -and $statement -is [AssignStmt] -and (Test-IsVariable $statement.Target $w)) {
-                    $problems.Add("$w - '$w is 1' is now an assignment; drop it")
-                }
-            }
+        # Right side of `is` in a condition must NOT be a comparison with the variable.
+        $parsed = Get-ParseResult "to f $w$($script:NL)    if 5 is $w$($script:NL)        say 1"
+        $condition = if ($parsed.Ok) { $parsed.Statements[0].Body[0].Branches[0].Condition } else { $null }
+        if ($parsed.Ok -and $condition -is [ComparisonExpr] -and (Test-IsVariable $condition.Right $w)) {
+            $problems.Add("$w - 'x is $w' is now an ordinary comparison; drop it")
         }
     }
     Assert-True ($problems.Count -eq 0) ($problems -join '; ')
@@ -306,6 +296,54 @@ Test-Otter 'D-2 positive: contextual words that are NOT reserved stay usable' {
     Assert-Lines -Expected @('2', 'a.txt', '4', 'contains ok') -Actual $out
 }
 
+$script:StatementWords = @('animate', 'decrease', 'decrypt', 'derive', 'encrypt', 'fail', 'focus', 'gap',
+                           'hash', 'hide', 'increase', 'kill', 'layout', 'listen', 'lock', 'memo',
+                           'motion', 'on', 'post', 'print', 'respond', 'restart', 'shared', 'shut',
+                           'sign', 'start', 'state', 'stop', 'unzip', 'use', 'wait', 'zip')
+
+Test-Otter 'D-2 positive: `to range start finish` reads its parameter `start`' {
+    $out = Invoke-Source (@('to range start finish', '    say start "to" finish', '    return finish minus start', 'r is range 2 and 9', 'say r') -join $script:NL)
+    Assert-Lines -Expected @('2 to 9', '7') -Actual $out
+}
+
+Test-Otter 'D-2 positive: statement words are NOT reserved as variables - parameters, loop variables and into-targets read correctly everywhere' {
+    foreach ($w in $script:StatementWords) {
+        Assert-True ($null -eq (Get-OtterReservedWordReason -Word $w -Role 'variable')) "$w must not be a reserved variable name"
+        $source = @(
+            "to twice n"
+            "    return n times 2"
+            "to probe $w"
+            "    say $w"
+            "    say `"v`" $w"
+            "    y is $w plus 1"
+            "    say y"
+            "    say twice $w"
+            "    if $w is 3 and 3 is $w"
+            "        say `"cmp`""
+            "    if $w is greater than 2"
+            "        say `"gt`""
+            "    return $w"
+            "r is probe 3"
+            "say r"
+            "xs are"
+            "    5"
+            "for each $w in xs"
+            "    say `"loop`" $w"
+            "split `"a-b`" by `"-`" into $w"
+            "say length of $w"
+        ) -join $script:NL
+        Assert-AreEqual -Expected 0 -Actual (Get-Diagnostics $source).Count -Message "$w must pass validation"
+        $out = Invoke-Source $source
+        Assert-Lines -Expected @('3', 'v 3', '4', '6', 'cmp', 'gt', '3', 'loop 5', '2') -Actual $out -Message $w
+    }
+}
+
+Test-Otter 'D-2 positive: reassigning a statement-word variable fails LOUDLY at parse time (never silently)' {
+    foreach ($w in @('start', 'zip', 'print', 'wait', 'state')) {
+        Assert-OtterFails -Body { Parse "to f $w$($script:NL)    $w is $w plus 1" }
+    }
+}
+
 Test-Otter 'D-2 positive: the shipped examples have no reserved-word declarations' {
     $offenders = [System.Collections.Generic.List[string]]::new()
     foreach ($file in (Get-ChildItem -LiteralPath (Join-Path $script:RepoRoot 'examples') -Filter '*.ot' -File)) {
@@ -332,8 +370,6 @@ $script:NegativeCases = @(
        Source = "to otherwise$($script:NL)    say `"ran`"$($script:NL)say `"ran`"" }
     @{ Category = 'fn-builtin'; Word = 'today'; Line = 1; Reason = 'built-in value'
        Source = "to today$($script:NL)    say `"ran`"$($script:NL)say `"ran`"" }
-    @{ Category = 'var-statement'; Word = 'zip'; Line = 2; Reason = 'read as the `zip` statement'
-       Source = "say `"ran`"$($script:NL)split `"a-b`" by `"-`" into zip" }
     @{ Category = 'var-state-http'; Word = 'completed'; Line = 2; Reason = 'HTTP request''s or command job''s state'
        Source = "say `"ran`"$($script:NL)completed is `"done`"$($script:NL)status is `"done`"$($script:NL)if status is completed$($script:NL)    say `"same`"" }
     @{ Category = 'var-state-socket'; Word = 'closed'; Line = 2; Reason = 'websocket''s, TCP connection''s or UDP socket''s state'
@@ -414,7 +450,7 @@ Test-Otter 'D-2 end to end: otter check rejects `to main` with exit 2 and names 
 
 Test-Otter 'D-2 end to end: otter run rejects before anything runs (no output from the program, exit 2)' {
     Assert-Entry
-    foreach ($case in @($script:NegativeCases | Where-Object { $_.Category -in @('fn-ui', 'var-state-http', 'var-statement') })) {
+    foreach ($case in @($script:NegativeCases | Where-Object { $_.Category -in @('fn-ui', 'fn-statement', 'var-state-http') })) {
         $result = Invoke-OtterCli -EntryPoint $script:Entry -Command 'run' -Source ($case.Source + $script:NL)
         Assert-AreEqual -Expected 2 -Actual $result.Exit -Message "$($case.Word): $($result.Output)"
         Assert-False ($result.Output -match '(?m)^ran') "$($case.Word): the program ran: $($result.Output)"
