@@ -333,8 +333,70 @@ try {
     if (($runStandalone -join "`n") -notmatch 'standalone ok') { throw "Test 18 failed: Unexpected output from standalone run: $runStandalone" }
     Write-Output '  pass  existing build and single-file behaviors remain completely unchanged'
 
+    # Test 19: A version that forms a path is refused before anything is written
+    # (regression: "1/../../../escape" made publish write outside the project)
+    $escRoot = Join-Path $testTmp 'EscapeHost'
+    $escDir = Join-Path $escRoot 'EscApp'
+    New-Item -ItemType Directory -Path $escDir -Force | Out-Null
+    Set-Content -LiteralPath (Join-Path $escDir 'main.ot') -Value 'say "escape"' -Encoding UTF8
+    foreach ($badVersion in @('1/../../../escape', '1/../../escape', '1\..\..\..\escape', '..', '1..2', ' ', '-1')) {
+        $escManifest = [ordered]@{ name = 'EscApp'; version = $badVersion; target = 'console'; entryPoint = 'main.ot' }
+        Set-Content -LiteralPath (Join-Path $escDir 'otter.json') -Value (ConvertTo-Json -InputObject $escManifest) -Encoding UTF8
+        $escRes = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') publish $escDir 2>&1
+        if ($LASTEXITCODE -eq 0) { throw "Test 19 failed: version '$badVersion' should be refused. Output: $escRes" }
+        if (($escRes -join "`n") -notmatch 'property "version"') { throw "Test 19 failed: Missing version diagnostic for '$badVersion'. Output: $escRes" }
+        foreach ($escapeTarget in @((Join-Path $escRoot 'escape'), (Join-Path $escDir 'escape'), (Join-Path $escDir 'publish'), (Join-Path $escDir 'dist'))) {
+            if (Test-Path -LiteralPath $escapeTarget) { throw "Test 19 failed: version '$badVersion' created $escapeTarget" }
+        }
+        $escLeftovers = @(Get-ChildItem -LiteralPath $escRoot -Force | Where-Object { $_.Name -ne 'EscApp' })
+        if ($escLeftovers.Count -gt 0) { throw "Test 19 failed: version '$badVersion' wrote outside the project: $($escLeftovers.Name -join ', ')" }
+    }
+    Write-Output '  pass  unsafe manifest versions are refused and nothing is written outside the project'
+
+    # Test 20: Ordinary release and prerelease versions still publish
+    foreach ($goodVersion in @('1.2.3', '1.0.0-rc.2')) {
+        $goodDir = Join-Path $testTmp ("GoodVer-" + $goodVersion)
+        New-Item -ItemType Directory -Path $goodDir -Force | Out-Null
+        Set-Content -LiteralPath (Join-Path $goodDir 'main.ot') -Value 'say "good"' -Encoding UTF8
+        $goodManifest = [ordered]@{ name = 'GoodVerApp'; version = $goodVersion; target = 'console'; entryPoint = 'main.ot' }
+        Set-Content -LiteralPath (Join-Path $goodDir 'otter.json') -Value (ConvertTo-Json -InputObject $goodManifest) -Encoding UTF8
+        $goodRes = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') publish $goodDir 2>&1
+        if ($LASTEXITCODE -ne 0) { throw "Test 20 failed: version '$goodVersion' publish exited with $LASTEXITCODE. Output: $goodRes" }
+        if (-not (Test-Path -LiteralPath (Join-Path $goodDir "publish/GoodVerApp-$goodVersion.zip") -PathType Leaf)) { throw "Test 20 failed: Missing GoodVerApp-$goodVersion.zip" }
+        if (-not (Test-Path -LiteralPath (Join-Path $goodDir "publish/GoodVerApp-$goodVersion/main.ot") -PathType Leaf)) { throw "Test 20 failed: Missing GoodVerApp-$goodVersion/main.ot" }
+    }
+    Write-Output '  pass  ordinary release and prerelease versions (1.2.3, 1.0.0-rc.2) still publish'
+
+    # Test 21: Publish refuses to replace a folder Otter did not create
+    # (regression: `otter publish --output tests` deleted the project's tests)
+    $ownProj = New-OtterProject -Archetype 'console' -Name 'OwnOutApp' -Path $testTmp
+    $ownDir = $ownProj.RootDirectory
+    $ownTestFile = Join-Path $ownDir 'tests/app_test.ot'
+    $ownTestBefore = Get-Content -LiteralPath $ownTestFile -Raw
+    $ownRes = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') publish $ownDir --output tests 2>&1
+    if ($LASTEXITCODE -eq 0) { throw "Test 21 failed: publish --output tests should be refused. Output: $ownRes" }
+    if (($ownRes -join "`n") -notmatch 'was not created by Otter') { throw "Test 21 failed: Missing refusal diagnostic. Output: $ownRes" }
+    if (-not (Test-Path -LiteralPath $ownTestFile -PathType Leaf)) { throw "Test 21 failed: tests/app_test.ot was deleted" }
+    if ((Get-Content -LiteralPath $ownTestFile -Raw) -ne $ownTestBefore) { throw "Test 21 failed: tests/app_test.ot was changed" }
+    Set-Content -LiteralPath (Join-Path $ownDir 'src/keep.ot') -Value 'say "keep"' -Encoding UTF8
+    $ownSrcRes = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') publish $ownDir --output src 2>&1
+    if ($LASTEXITCODE -eq 0) { throw "Test 21 failed: publish --output src should be refused. Output: $ownSrcRes" }
+    if (-not (Test-Path -LiteralPath (Join-Path $ownDir 'src/keep.ot') -PathType Leaf)) { throw "Test 21 failed: src/keep.ot was deleted" }
+    Write-Output '  pass  publish refuses to replace folders Otter did not create and leaves their files intact'
+
+    # Test 22: Republishing into the Otter-created publish/ folder still replaces it
+    $repRes1 = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') publish $ownDir 2>&1
+    if ($LASTEXITCODE -ne 0) { throw "Test 22 failed: first publish failed: $repRes1" }
+    $repStale = Join-Path $ownDir 'publish/stale.txt'
+    Set-Content -LiteralPath $repStale -Value 'stale' -Encoding UTF8
+    $repRes2 = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') publish $ownDir 2>&1
+    if ($LASTEXITCODE -ne 0) { throw "Test 22 failed: republish into Otter-created publish/ failed: $repRes2" }
+    if (Test-Path -LiteralPath $repStale) { throw "Test 22 failed: republish did not replace publish/" }
+    if (-not (Test-Path -LiteralPath (Join-Path $ownDir 'publish/OwnOutApp-0.1.0.zip') -PathType Leaf)) { throw "Test 22 failed: Missing OwnOutApp-0.1.0.zip after republish" }
+    Write-Output '  pass  republish still replaces the Otter-created publish/ and dist/ folders'
+
     Write-Host ""
-    Write-Host "All Otter project publishing tests passed (18/18)." -ForegroundColor Green
+    Write-Host "All Otter project publishing tests passed (22/22)." -ForegroundColor Green
     exit 0
 }
 finally {

@@ -306,8 +306,56 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "Test 16 failed: otter check <file.ot> failed: $singleCheck" }
     Write-Output '  pass  existing single-file commands (otter run file.ot, otter check file.ot) completely preserved'
 
+    # Test 17: clean build refuses to replace a folder Otter did not create
+    # (regression: "outputDir": "src" used to delete the project's sources)
+    $srcOutProj = New-OtterProject -Archetype 'console' -Name 'SrcOutApp' -Path $testTmp
+    $srcOutDir = $srcOutProj.RootDirectory
+    $srcKeep = Join-Path $srcOutDir 'src/keep.ot'
+    Set-Content -LiteralPath $srcKeep -Value 'say "keep me"' -Encoding UTF8
+    $srcOutManifestPath = Join-Path $srcOutDir 'otter.json'
+    $srcOutManifest = Get-Content -LiteralPath $srcOutManifestPath -Raw | ConvertFrom-Json
+    $srcOutManifest.build.outputDir = 'src'
+    $srcOutManifest.build.clean = $true
+    Set-Content -LiteralPath $srcOutManifestPath -Value (ConvertTo-Json -InputObject $srcOutManifest -Depth 5) -Encoding UTF8
+    $srcOutRes = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') build $srcOutDir 2>&1
+    if ($LASTEXITCODE -eq 0) { throw "Test 17 failed: build into non-Otter folder src/ should be refused. Output: $srcOutRes" }
+    if (($srcOutRes -join "`n") -notmatch 'was not created by Otter') { throw "Test 17 failed: Missing refusal diagnostic. Output: $srcOutRes" }
+    if (-not (Test-Path -LiteralPath $srcKeep -PathType Leaf)) { throw "Test 17 failed: src/keep.ot was deleted" }
+    if (Test-Path -LiteralPath (Join-Path $srcOutDir 'src/otter.build.json')) { throw "Test 17 failed: build wrote into refused folder src/" }
+
+    # An outputDir holding the entry point is refused even with clean off.
+    $srcOutManifest.build.outputDir = 'tests'
+    $srcOutManifest.build.clean = $false
+    $srcOutManifest.entryPoint = 'tests/app_test.ot'
+    Set-Content -LiteralPath $srcOutManifestPath -Value (ConvertTo-Json -InputObject $srcOutManifest -Depth 5) -Encoding UTF8
+    $entryOutRes = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') build $srcOutDir 2>&1
+    if ($LASTEXITCODE -eq 0) { throw "Test 17 failed: outputDir containing the entry point should be refused. Output: $entryOutRes" }
+    if (($entryOutRes -join "`n") -notmatch "contains the project's own file") { throw "Test 17 failed: Missing entry-point refusal diagnostic. Output: $entryOutRes" }
+    Write-Output '  pass  clean build refuses to replace folders Otter did not create and leaves their files intact'
+
+    # Test 18: rebuild into the Otter-created dist/ (and into an empty folder) still replaces it
+    $reProj = New-OtterProject -Archetype 'console' -Name 'RebuildApp' -Path $testTmp
+    $reDir = $reProj.RootDirectory
+    $reOut1 = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') build $reDir 2>&1
+    if ($LASTEXITCODE -ne 0) { throw "Test 18 failed: first build failed: $reOut1" }
+    $reStale = Join-Path $reDir 'dist/stale.txt'
+    Set-Content -LiteralPath $reStale -Value 'stale' -Encoding UTF8
+    $reOut2 = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') build $reDir 2>&1
+    if ($LASTEXITCODE -ne 0) { throw "Test 18 failed: rebuild into Otter-created dist/ failed: $reOut2" }
+    if (Test-Path -LiteralPath $reStale) { throw "Test 18 failed: rebuild did not replace dist/" }
+    if (-not (Test-Path -LiteralPath (Join-Path $reDir 'dist/otter.build.json') -PathType Leaf)) { throw "Test 18 failed: dist/otter.build.json missing after rebuild" }
+    $reManifestPath = Join-Path $reDir 'otter.json'
+    $reManifest = Get-Content -LiteralPath $reManifestPath -Raw | ConvertFrom-Json
+    $reManifest.build.outputDir = 'emptyout'
+    Set-Content -LiteralPath $reManifestPath -Value (ConvertTo-Json -InputObject $reManifest -Depth 5) -Encoding UTF8
+    New-Item -ItemType Directory -Path (Join-Path $reDir 'emptyout') -Force | Out-Null
+    $reOut3 = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') build $reDir 2>&1
+    if ($LASTEXITCODE -ne 0) { throw "Test 18 failed: build into an existing empty folder failed: $reOut3" }
+    if (-not (Test-Path -LiteralPath (Join-Path $reDir 'emptyout/otter.build.json') -PathType Leaf)) { throw "Test 18 failed: emptyout/otter.build.json missing" }
+    Write-Output '  pass  rebuild still replaces Otter-created dist/ and fills an empty output folder'
+
 } finally {
     Remove-Item -LiteralPath $testTmp -Recurse -Force -ErrorAction SilentlyContinue
 }
 
-Write-Output "`nAll Otter project build system tests passed (16/16)."
+Write-Output "`nAll Otter project build system tests passed (18/18)."

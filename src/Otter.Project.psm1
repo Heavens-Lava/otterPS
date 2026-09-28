@@ -625,6 +625,12 @@ function Invoke-OtterProjectBuild {
         throw [OtterError]::new("otter.json: build.outputDir must stay inside the project directory and cannot be the project root itself.", 0, 'check')
     }
 
+    # 1b. Replacement safety: step 7 deletes the output folder when clean is
+    # on. Refuse, before anything is written, a folder Otter did not create
+    # (no otter.build.json and not empty) or one holding the entry point,
+    # the manifest, or .git, so "outputDir": "src" can no longer wipe sources.
+    Assert-OtterReplaceableOutputDir -Project $project -ResolvedDir $resolvedOutDir -MarkerFileName 'otter.build.json' -SettingName 'otter.json: build.outputDir' -WillDelete:($project.Build.Clean)
+
     if (-not $Quiet) {
         Write-Host "Building $($project.Name)..."
         Write-Host "Target: $($project.Target)"
@@ -830,6 +836,76 @@ function Get-OtterSafeFileName {
     return $sanitized
 }
 
+# Guards an output folder that build or publish is about to delete and
+# replace. Before this check existed, containment alone decided what could be
+# removed, so "build": { "outputDir": "src" } (with clean:true, the `otter new`
+# default) wiped the project's sources, and `otter publish --output tests`
+# wiped its tests. Now a folder is only replaced when Otter can tell it owns
+# it:
+#   - it never contains the project's entry point or manifest, and is never a
+#     .git folder (or inside one), whatever else is true;
+#   - it does not exist yet, is empty, or holds the marker file Otter writes
+#     into every output it produces (otter.build.json for build,
+#     otter.publish.json for publish).
+# Anything else is refused with a message telling the user how to proceed,
+# BEFORE anything is written, so a refused run leaves the project untouched.
+function Assert-OtterReplaceableOutputDir {
+    param(
+        [Parameter(Mandatory = $true)]
+        $Project,
+        [Parameter(Mandatory = $true)]
+        [string]$ResolvedDir,
+        [Parameter(Mandatory = $true)]
+        [string]$MarkerFileName,
+        [Parameter(Mandatory = $true)]
+        [string]$SettingName,
+        # Set when the folder will be deleted and recreated (build clean:true,
+        # every publish). When clear, only the hard refusals below apply,
+        # because the run merely copies files into the existing folder.
+        [switch]$WillDelete
+    )
+
+    $sep = [System.IO.Path]::DirectorySeparatorChar
+    $dirWithSep = $ResolvedDir.TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar) + $sep
+    $ic = [System.StringComparison]::OrdinalIgnoreCase
+
+    # Hard refusal 1: a .git segment anywhere in the path relative to the
+    # project root means the output would delete or overwrite version-control
+    # data.
+    $rootDir = $Project.RootDirectory.TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar)
+    $relative = $ResolvedDir.Substring([Math]::Min($rootDir.Length, $ResolvedDir.Length))
+    foreach ($segment in $relative.Split([char[]]@([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar), [System.StringSplitOptions]::RemoveEmptyEntries)) {
+        if ($segment -ieq '.git') {
+            throw [OtterError]::new("${SettingName} cannot be a .git folder or inside one: $ResolvedDir. Choose a different output folder.", 0, 'check')
+        }
+    }
+
+    # Hard refusal 2: the folder holds the project's entry point or manifest,
+    # so replacing (or overwriting into) it would destroy the program itself.
+    foreach ($protected in @($Project.ResolvedEntryPoint, $Project.ManifestPath)) {
+        if ([string]::IsNullOrWhiteSpace($protected)) { continue }
+        $protectedFull = [System.IO.Path]::GetFullPath($protected)
+        if ($protectedFull.StartsWith($dirWithSep, $ic)) {
+            throw [OtterError]::new("${SettingName} `"$ResolvedDir`" contains the project's own file `"$protectedFull`". Choose an empty output folder such as `"dist`" or `"publish`".", 0, 'check')
+        }
+    }
+
+    if (-not $WillDelete) { return }
+    if (-not (Test-Path -LiteralPath $ResolvedDir)) { return }
+
+    # A plain file with the output folder's name was never produced by Otter.
+    if (-not (Test-Path -LiteralPath $ResolvedDir -PathType Container)) {
+        throw [OtterError]::new("${SettingName} `"$ResolvedDir`" is a file, not a folder. Otter will not delete it; choose a different output folder or remove the file yourself.", 0, 'check')
+    }
+
+    # Safe to replace: empty, or carries the marker from an earlier Otter run.
+    $firstEntry = Get-ChildItem -LiteralPath $ResolvedDir -Force | Select-Object -First 1
+    if ($null -eq $firstEntry) { return }
+    if (Test-Path -LiteralPath (Join-Path $ResolvedDir $MarkerFileName) -PathType Leaf) { return }
+
+    throw [OtterError]::new("${SettingName} `"$ResolvedDir`" already exists and was not created by Otter (it has no $MarkerFileName), so Otter will not delete it. Choose an empty or new output folder, or delete that folder yourself if you no longer need its contents.", 0, 'check')
+}
+
 function Get-OtterVersionString {
     $candidates = @(
         (Join-Path (Split-Path -Parent $PSScriptRoot) 'VERSION'),
@@ -989,8 +1065,27 @@ function Invoke-OtterProjectPublish {
         throw [OtterError]::new("publish.outputDir must stay inside the project directory and cannot be the project root itself.", 0, 'check')
     }
 
+    # Replacement safety: step 5 always deletes the publish folder. Refuse,
+    # before the build or anything else writes, a folder Otter did not create
+    # (no otter.publish.json and not empty) or one holding the entry point,
+    # the manifest, or .git, so `otter publish --output tests` cannot wipe
+    # the project's tests.
+    Assert-OtterReplaceableOutputDir -Project $project -ResolvedDir $resolvedPublishDir -MarkerFileName 'otter.publish.json' -SettingName 'publish.outputDir' -WillDelete
+
     $safeName = Get-OtterSafeFileName -Name $project.Name
     $version = $project.Version.Trim()
+    # The version becomes part of folder and file names below
+    # ("<name>-<version>", "<name>-<version>.zip"). Unlike the name it is not
+    # sanitized, so a version such as "1/../../../victim/Startup" made publish
+    # create folders and copy the entry point, assets and launcher outside the
+    # project. Only accept a plain version string (letters, digits, and
+    # . + - after a leading letter or digit, no ".."): it can never contain a
+    # path separator, a drive colon, or a parent-folder step. Checked before
+    # anything is built, staged, or written. \z (not $) so a trailing newline
+    # cannot slip past the anchor.
+    if ([string]::IsNullOrEmpty($version) -or $version -notmatch '^[0-9A-Za-z][0-9A-Za-z.+-]*\z' -or $version.Contains('..')) {
+        throw [OtterError]::new("otter.json: property `"version`" must be a plain version such as `"1.2.3`" or `"1.0.0-rc.2`" (letters, digits, '.', '+', '-'; no '..' or path separators) to publish. Got: `"$version`".", 0, 'check')
+    }
     $packageFolder = "$safeName-$version"
     $zipName = "$safeName-$version.zip"
     $sha256Name = "$safeName-$version.zip.sha256"
@@ -1014,6 +1109,17 @@ function Invoke-OtterProjectPublish {
     try {
         Write-Host "Packaging files..."
         $stagedPkgDir = Join-Path $stagingDir $packageFolder
+        # Defense in depth behind the version check above: the package folder
+        # and zip are built from manifest text, so confirm both resolve to
+        # paths inside the staging folder before creating or copying
+        # anything. If a future change lets a separator or ".." through, this
+        # stops publish from writing outside the project instead of trusting it.
+        $stagingWithSep = [System.IO.Path]::GetFullPath($stagingDir).TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
+        foreach ($stagedCandidate in @($stagedPkgDir, (Join-Path $stagingDir $zipName))) {
+            if (-not [System.IO.Path]::GetFullPath($stagedCandidate).StartsWith($stagingWithSep, [System.StringComparison]::OrdinalIgnoreCase)) {
+                throw [OtterError]::new("otter.json: name and version must not form a path outside the publish staging folder: $stagedCandidate", 0, 'check')
+            }
+        }
         New-Item -ItemType Directory -Path $stagedPkgDir -Force | Out-Null
 
         $resolvedBuildOutDir = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($rootDir, $project.Build.OutputDir))
