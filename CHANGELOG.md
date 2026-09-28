@@ -4,6 +4,45 @@ All notable changes to the Otter Programming Language platform are documented in
 
 ## [Unreleased]
 
+## [1.0.0-rc.3] - 2026-09-28
+
+Third Otter 1.0 release candidate, from the production-readiness audit of
+rc.2 (CLI, manifest and build, language, diagnostics, web and Studio audits;
+`docs/OTTER_1_0_FREEZE_FOLLOWUPS.md`). Every behavioural fix has a regression
+test that fails on rc.2.
+
+### Decided
+- **D123 (D-1):** arithmetic in a condition means what it says: `if x plus 1 is 5` compares `x plus 1` with 5. On rc.2 it was silently read as `x and (1 is 5)`. The parser change is prepared for Codex review and is **not yet in this candidate** unless noted in the release record.
+- **D124 (D-2):** a declaration the grammar would silently misread is refused before anything runs. Examples: `to main` (a line starting with `main` is read as a UI element and never calls the function), and a variable named `completed` (read as a job-state check in comparisons). See `docs/OTTER_1_0_RESERVED_WORDS.md`.
+- **D125 (D-3):** the only web stylesheet rule is `<entry>.css` beside the entry file; `otter new web` creates `main.css`.
+- **D126 (D-4):** web `say` output uses the console's formatting (D8).
+- **D127 (D-5):** generated web applications load nothing from other hosts and work offline (system fonts; no Google Fonts).
+
+### Fixed
+- `otter new web` / `otter new game` suggested `otter run .`, which failed on the fresh project; they now suggest and record `otter web .`.
+- A control with two `when` handlers compiled to a page whose script never ran (duplicate declaration); each handler is now scoped.
+- The web scaffold's stylesheet was copied into `dist/` but never applied; the scaffold now uses `main.css`, which is inlined.
+- A bad manifest (for example `"build": null`) crashed with a raw PowerShell error; every manifest field is type-checked with a message naming the field. Manifests that were silently accepted before are now refused: a number for `name` or `version`, a single string for `assets`, `"clean": "false"`.
+- `otter.build.json` was invalid JSON when the project name contained a quote; build metadata is now written as JSON. Its indentation now comes from the PowerShell host.
+- The `.sha256` file broke for non-ASCII project names; it is now UTF-8 without BOM, without the trailing blank line.
+- `otter publish` could package files deleted from the project when `build.clean` was false; publish always packages a clean build.
+- `otter serve` stopped after one aborted request; each request is now handled separately, and request bodies are capped at 10 MB (413 above it).
+- Missing, folder or unreadable source files gave "a bug in Otter" or raw PowerShell errors; they now give an Otter message and exit 1.
+- An absolute `use` path skipped the D122 exact-case check.
+- Web `$` sequences in a stylesheet (`$_`, `$1`) corrupted the generated page.
+
+### Security
+- **Build and publish inputs stay inside the project.** The entry point, every asset and the web `<entry>.css` must resolve, following symbolic links and junctions, inside the project (for `<entry>.css`, the entry's folder). On rc.2 a symlinked asset or an `entryPoint` of `../x.ot` put files from outside the project into the published zip.
+- The web page title is HTML-escaped; a title containing `</title><script>` ran script.
+
+### Removed
+- `otter studio` is no longer listed in `otter help`. Otter Studio is a separate preview and is not part of Otter 1.0. Without the Studio folder, `otter studio` says so and exits 1.
+
+### Documentation
+- Corrected the grammar reference (flat left-to-right arithmetic, no parentheses, `otherwise` optional), string escapes (`\n \t \\ \"`; no `\r`), one value per function argument, program arguments Otter itself consumes, Linux/macOS use with `pwsh`, REPL behaviour, and `otter check .` scope.
+- New `docs/OTTER_1_0_PROJECT_MANIFEST.md` (the `otter.json` specification) and `docs/OTTER_1_0_RESERVED_WORDS.md`.
+- Removed examples of syntax that is not part of 1.0; labelled database support as outside the certified 1.0 surface; removed the "sandboxed file operations" and "100% parity" claims; reconciled DC2–DC5.
+
 ## [1.0.0-rc.2] - 2026-09-28
 
 Second Otter 1.0 release candidate. The 1.0 language contract is frozen and

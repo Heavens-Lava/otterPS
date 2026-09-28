@@ -7721,3 +7721,77 @@ A name that differs only in case is rejected with the same diagnostic on every
 host; there is no case-insensitive fallback. Module identity for duplicate loads
 and cycle detection is the exact on-disk path. Evidence: `tests/Module.Tests.ps1`
 test 8, `tests/HostPortability.Tests.ps1`.
+
+---
+
+# Otter 1.0 RC3 decisions (approved by Jeff, 2026-09-28)
+
+Made after the RC2 production-readiness audit
+(`docs/OTTER_1_0_FREEZE_FOLLOWUPS.md`), each to stop an accidental behaviour
+from becoming part of the permanent 1.0 contract.
+
+## D123. Arithmetic inside conditions (D-1)
+
+Silent wrong answers are forbidden. On RC2, `if x plus 1 is 5` was read as
+`x and (1 is 5)`, because D34 made `plus` a second spelling of the `and` token,
+and the condition parser treated it as logical AND. Other arithmetic words in
+a condition (`minus`, `times`, `divided by`, ...) were already loud syntax
+errors.
+
+**Decision:** in 1.0 a comparison operand may be an arithmetic expression with
+the same flat left-to-right meaning as in assignments: `if x plus 1 is 5`
+means `(x plus 1) is 5`. The word `and` between conditions stays logical, so
+`if a and b is 3` and `if x is 4 and y is 5` keep their meaning. The fix is
+small because the lexer keeps each token's source text (`plus`, `+`, `and`).
+
+**Status:** decided. The implementation changes `src/Otter.Parser.psm1`,
+which `CLAUDE.md` assigns to Codex; it is prepared as a single proposal commit
+(`src/Otter.Parser.psm1` and `tests/ConditionArithmetic.Tests.ps1`) for Codex
+to make or review before it joins the release candidate.
+
+## D124. Reserved identifiers (D-2)
+
+**Contract:** if Otter accepts an identifier declaration, the identifier must be
+usable in its declared role. A declaration the grammar would silently misread
+is refused at check time, before anything runs, with a message naming the word,
+the reason, and a suggested rename. The reserved set is only as large as the
+parser requires:
+
+* **Function names (102):** words whose line-start form the parser reads as
+  other syntax, so a function with that name can never be called: UI element
+  words (`main`, `text`, `button`, ...), statement words (`send`, `log`, `run`,
+  `start`, ...), grammar keywords, and `today`, `now`, `pi`.
+* **Variable and parameter names (13):** the state words a comparison reads as a
+  state check (`pending`, `running`, `completed`, `failed`, `cancelled`,
+  `connecting`, `closing`, `connected`, `closed`, `listening`, `stopped`,
+  `secure`, `watching`).
+
+Words whose only conflict is a loud syntax error (for example reassigning a
+parameter named `start`) are not reserved. Ordinary English identifiers stay
+usable. The full list, with the conflict each word causes, is
+`docs/OTTER_1_0_RESERVED_WORDS.md`; the check is `src/Otter.Validation.psm1`,
+run by `otter check`, `run`, `test`, `serve`, `web` and `build`. This supersedes
+D33's statement that statement words are valid function names: they parse, but
+could never be called.
+
+## D125. Web stylesheet discovery (D-3)
+
+The only 1.0 rule: a web program `<entry>.ot` automatically uses `<entry>.css`
+from the same folder (`main.ot` uses `main.css`). There is no `styles.css`
+precedence. `otter new web` and `otter new game` create `main.css`. The
+stylesheet must resolve (following symbolic links) inside the folder of the
+entry file.
+
+## D126. Web `say` formatting follows D8 (D-4)
+
+The web target formats values for `say` with the same rules as the console
+(D8): lists joined with `, `, `gone` printed as `gone`, things as the console
+prints them, and numbers with the console's rounding (`0.1 plus 0.2` prints
+`0.3`). One formatter in the web runtime implements this. Remaining known
+console/web differences are listed in `docs/OTTER_1_0_RELEASE_SCOPE_MATRIX.md`.
+
+## D127. No external resources in generated web applications (D-5)
+
+A generated Otter 1.0 web application has no mandatory external dependency: it
+uses a system font stack, loads nothing from another host, and starts and renders
+offline. Developers may add external resources deliberately.

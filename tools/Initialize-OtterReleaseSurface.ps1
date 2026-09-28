@@ -134,7 +134,9 @@ $caseForRow = @{
     'System Information' = 'system information'; 'Clipboard' = 'clipboard'; 'Environment' = 'environment variable'
 }
 # Reachability-matrix area -> the -Area label the test file actually uses, where they differ.
-$testAreaForRowArea = @{ 'Processes' = 'Process' }
+# DC4 resolved in RC3: tests/StandardLibrary.Tests.ps1 now labels this area "Processes",
+# matching the reachability matrix, so no area-name translation is needed.
+$testAreaForRowArea = @{}
 # Which reachability areas each STANDARD_LIBRARY.md row is compared against (curated).
 $areasForStdRow = @{
     'Math' = @('Math'); 'Text' = @('Text'); 'Collections and things' = @('Collections', 'Objects'); 'Data' = @('JSON')
@@ -483,7 +485,7 @@ $documentConflicts = @(
         )
         evidence = @('tests/UseModuleProduction.Tests.ps1')
         observation = 'Codex reconciled GRAMMAR.md and the scope matrix (553bf33) but docs/OTTER_1_0_CAPABILITY_MATRIX.md still carries the older DEFERRED row.'
-        decision = $null
+        decision = 'Resolved in the RC3 documentation pass (2026-09-28): the capability matrix now matches the code. `use "file.ot"` is certified for the console production entry points; package imports remain DEFERRED.'
     }
     [ordered]@{
         id = 'DC3'; topic = 'Size of the reachability matrix'
@@ -492,7 +494,7 @@ $documentConflicts = @(
         )
         evidence = @('docs/STANDARD_LIBRARY_REACHABILITY.md', 'tests/StandardLibrary.Tests.ps1')
         observation = 'The matrix table has 34 rows; the suite has 31 cases. Lists/Mutation share one case, as do Object Definition/Property Read-Write. The per-row mapping is in this manifest (tests.cases).'
-        decision = $null
+        decision = 'Resolved in the RC3 documentation pass (2026-09-28): the document now says 34 rows certified by 31 passing test cases, and explains the shared cases.'
     }
     [ordered]@{
         id = 'DC4'; topic = 'Area naming between the reachability matrix and its suite'
@@ -502,7 +504,7 @@ $documentConflicts = @(
         )
         evidence = @('docs/STANDARD_LIBRARY_REACHABILITY.md', 'tests/StandardLibrary.Tests.ps1')
         observation = 'Cosmetic, but it breaks mechanical matching between the document and its certification suite.'
-        decision = $null
+        decision = 'Resolved in RC3 (2026-09-28): the suite now labels the area "Processes", matching the reachability matrix and docs/STANDARD_LIBRARY.md.'
     }
     [ordered]@{
         id = 'DC5'; topic = 'Full-suite evidence counts'
@@ -512,7 +514,7 @@ $documentConflicts = @(
         )
         evidence = @('tests/Run-Tests.ps1')
         observation = 'Both may be true at their own commits (test files were added in between: Profiler, Optimizations). Neither is a clean-checkout run; the certification record must name the candidate SHA it ran against.'
-        decision = $null
+        decision = 'Resolved in the RC3 documentation pass (2026-09-28): both documents now say their count is the suite at that time; certification records name the candidate SHA and its test-file count.'
     }
 )
 

@@ -2,6 +2,8 @@ using module .\Otter.Contract.psm1
 using module .\src\Otter.Runtime.psm1
 using module .\src\Otter.Lexer.psm1
 using module .\src\Otter.Parser.psm1
+# D-2 (RC3): reserved-identifier check that runs on the parsed program.
+using module .\src\Otter.Validation.psm1
 using module .\src\Otter.Database.psm1
 using module .\src\Otter.Interpreter.psm1
 using module .\src\Otter.Module.psm1
@@ -286,6 +288,11 @@ function Invoke-OtterSource {
         }
 
         $program = ConvertTo-OtterAst -Tokens $tokens
+        # D-2 (RC3): refuse declarations the grammar would silently misread
+        # (e.g. `to main`, which a line starting with `main` never calls), as a
+        # check-stage error before anything runs. Covers check, run, the REPL
+        # and `otter test`, which runs each test file through `otter run`.
+        Assert-OtterLanguageContract -Program $program -SourceLines $sourceLines
     }
     catch {
         # D57: tag this as a check-stage failure so the caller can map it to
@@ -620,7 +627,10 @@ if ($Path -eq 'new') {
         Write-Host "  cd $projectName"
         Write-Host '  otter check .'
         Write-Host '  otter test .'
-        Write-Host '  otter run .'
+        # B1 (RC3): print the start command the scaffold wrote into
+        # otter.json scripts.start (`otter web .` for web and game projects,
+        # `otter run .` otherwise), so the suggested next step always works.
+        Write-Host "  $($createdProject.Scripts['start'])"
         Write-Host ''
         [Environment]::Exit($script:ExitSuccess)
     }
@@ -878,6 +888,8 @@ if ($Path -in @('web', 'browse', 'serve', 'desktop', 'studio')) {
             $resolvedProgram = Resolve-OtterModuleSource -FilePath $resolved.Path
             $tokens = ConvertTo-OtterTokens -Source $resolvedProgram.CombinedSource
             $ast = ConvertTo-OtterAst -Tokens $tokens
+            # D-2 (RC3): the same reserved-identifier check as run/check.
+            Assert-OtterLanguageContract -Program $ast -SourceLines ($resolvedProgram.CombinedSource -split "`r?`n")
         } catch [OtterError] {
             $err = $_.Exception
             if ($resolvedProgram) {

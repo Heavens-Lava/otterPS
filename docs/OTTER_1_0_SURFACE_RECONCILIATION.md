@@ -13,7 +13,7 @@ Regenerate rather than edit. Audit with `tools/Test-OtterReleaseSurface.ps1`.
 
 | | |
 |---|---|
-| Manifest seeded from commit | `4727f1fb10274433fc39fab222b893df4171c313` |
+| Manifest seeded from commit | `3431d172ca682e3641b1f1f681e8f133462e4659` |
 | Gate 1 candidate SHA (nominated by Codex) | `a5146971fa6c0a4c2d33dee283897e640e38fae5` - Recorded, not chosen here: the Gate 1 candidate Codex nominated. It contains the optimization pass and the event-loop review. The earlier candidate 344db09b is superseded. The public boundary in this manifest is still unresolved. |
 | Contract SHA-256 | `0343bec8051dbc3e45aefe82b48c6363b9dfa0bd2d0d4868764f00f6e28238f5` |
 
@@ -25,8 +25,8 @@ Regenerate rather than edit. Audit with `tools/Test-OtterReleaseSurface.ps1`.
 | ... from the reachability matrix | 34 |
 | ... from STANDARD_LIBRARY.md only | 67 |
 | ... from the contract only (in neither document) | 165 |
-| Fully evidenced (reachable, tested, documented, contract-linked, exercised on WinPS 5.1, no conflicts) | 16 |
-| With at least one documentation or evidence conflict | 248 |
+| Fully evidenced (reachable, tested, documented, contract-linked, exercised on WinPS 5.1, no conflicts) | 17 |
+| With at least one documentation or evidence conflict | 247 |
 | Without production-reachability evidence (reachable = null) | 232 |
 | Boundary decided | 15 (the HTTP capabilities, public by DC1; the query-language capabilities, deferred by D99) |
 
@@ -50,7 +50,7 @@ certification: no capability can be `certified` until its boundary is decided.
 | `R-math-power` | Power | Math | - | Math :: power |
 | `R-math-rounding` | Rounding | Math | OfOperation | Math :: rounding |
 | `R-math-square-root` | Square Root | Math | OfOperation | Math :: square root |
-| `R-processes-run-capture` | Run & Capture | Processes | RunProgram | Process :: run command into |
+| `R-processes-run-capture` | Run & Capture | Processes | RunProgram | Processes :: run command into |
 | `R-random-number-item` | Number & Item | Random | RandomNumber, RandomItem | Random :: random number and item |
 | `R-text-contains` | Contains | Text | Contains | Text :: contains |
 | `R-text-in-place-replace` | In-place Replace | Text | Replace | Text :: replace |
@@ -294,14 +294,14 @@ Verified by hand; each cites its evidence. Recorded, not resolved.
 * `docs/OTTER_1_0_MODULE_STATUS.md`: file imports certified for the console production entry point
 * Evidence: `tests/UseModuleProduction.Tests.ps1`
 * Observation: Codex reconciled GRAMMAR.md and the scope matrix (553bf33) but docs/OTTER_1_0_CAPABILITY_MATRIX.md still carries the older DEFERRED row.
-* Decision: Resolved in the RC3 documentation pass: the capability matrix now matches the code. `use "file.ot"` is certified for the console production entry points; package imports remain DEFERRED.
+* Decision: Resolved in the RC3 documentation pass (2026-09-28): the capability matrix now matches the code. `use "file.ot"` is certified for the console production entry points; package imports remain DEFERRED.
 
 ### DC3. Size of the reachability matrix
 
 * `docs/STANDARD_LIBRARY_REACHABILITY.md`: "31 / 31 capabilities certified"
 * Evidence: `docs/STANDARD_LIBRARY_REACHABILITY.md`, `tests/StandardLibrary.Tests.ps1`
 * Observation: The matrix table has 34 rows; the suite has 31 cases. Lists/Mutation share one case, as do Object Definition/Property Read-Write. The per-row mapping is in this manifest (tests.cases).
-* Decision: Resolved in the RC3 documentation pass: the document now says 34 rows certified by 31 passing test cases, and explains the shared cases.
+* Decision: Resolved in the RC3 documentation pass (2026-09-28): the document now says 34 rows certified by 31 passing test cases, and explains the shared cases.
 
 ### DC4. Area naming between the reachability matrix and its suite
 
@@ -309,7 +309,7 @@ Verified by hand; each cites its evidence. Recorded, not resolved.
 * `tests/StandardLibrary.Tests.ps1`: area "Process"
 * Evidence: `docs/STANDARD_LIBRARY_REACHABILITY.md`, `tests/StandardLibrary.Tests.ps1`
 * Observation: Cosmetic, but it breaks mechanical matching between the document and its certification suite.
-* Decision: Resolved in the RC3 documentation pass: the document uses "Process", as the suite does.
+* Decision: Resolved in RC3 (2026-09-28): the suite now labels the area "Processes", matching the reachability matrix and docs/STANDARD_LIBRARY.md.
 
 ### DC5. Full-suite evidence counts
 
@@ -317,7 +317,7 @@ Verified by hand; each cites its evidence. Recorded, not resolved.
 * `docs/OTTER_1_0_PERFORMANCE_BASELINE.md`: "55 of 55" test files pass (post-optimization validation)
 * Evidence: `tests/Run-Tests.ps1`
 * Observation: Both may be true at their own commits (test files were added in between: Profiler, Optimizations). Neither is a clean-checkout run; the certification record must name the candidate SHA it ran against.
-* Decision: Resolved in the RC3 documentation pass: both documents now say their count is the suite at that time, and that the rc.2 candidate `708ef2e` has 59 test files.
+* Decision: Resolved in the RC3 documentation pass (2026-09-28): both documents now say their count is the suite at that time; certification records name the candidate SHA and its test-file count.
 
 ## 9. Token, AST and diagnostic coverage
 

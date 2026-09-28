@@ -42,8 +42,8 @@ Result: **all 31 test cases pass**. The matrix below has 34 rows because some ro
 | **Random** | Number & Item | `random number from 1 to 10 into n` / `random item from l into i` | `RandomNumberStmt` / `RandomItemStmt` | CERTIFIED |
 | **Filesystem** | File I/O | `write "a" to p` / `read p into c` / `append "b" to p` / `delete file p` | `WriteFileStmt` / `ReadFileStmt` / `AppendFileStmt` / `DeleteFileStmt` | CERTIFIED |
 | **Filesystem** | File Exists | `if file path exists` | `FileExistsExpr` | CERTIFIED |
-| **Process** | Run & Capture | `run command "cmd.exe /c echo hi" into res` | `RunStmt` (`output of res`, `exit code of res`) | CERTIFIED |
-| **Process** | Process List | `get processes into procList` | `GetProcessesStmt` | CERTIFIED |
+| **Processes** | Run & Capture | `run command "cmd.exe /c echo hi" into res` | `RunStmt` (`output of res`, `exit code of res`) | CERTIFIED |
+| **Processes** | Process List | `get processes into procList` | `GetProcessesStmt` | CERTIFIED |
 | **System** | System Information | `get system information "os" into osInfo` | `GetSystemInfoStmt` | CERTIFIED |
 | **System** | Clipboard | `copy "text" to clipboard` / `get clipboard into clip` | `CopyToClipboardStmt` / `GetClipboardStmt` | CERTIFIED |
 | **System** | Environment | `get environment variable "TEMP" into t` | `GetEnvironmentVariableStmt` | CERTIFIED |

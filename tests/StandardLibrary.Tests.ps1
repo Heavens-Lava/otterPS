@@ -274,13 +274,13 @@ if not file path exists
     # -------------------------------------------------------------
     # 9. COMMANDS & PROCESSES
     # -------------------------------------------------------------
-    Assert-Reachability -Area "Process" -Capability "run command into" -Source @"
+    Assert-Reachability -Area "Processes" -Capability "run command into" -Source @"
 run command "cmd.exe /c echo reached" into res
 say output of res
 say exit code of res
 "@ -ExpectedOutput "reached`n0"
 
-    Assert-Reachability -Area "Process" -Capability "get processes" -Source @"
+    Assert-Reachability -Area "Processes" -Capability "get processes" -Source @"
 get processes into procList
 if length of procList is at least 1
     say "processes_listed"

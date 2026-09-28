@@ -13,7 +13,9 @@ dirty working tree is useful diagnostic evidence, but is **PROVISIONAL**.
 
 ## Release order (decided by Jeff, 2026-09-28)
 
-The release candidate is **1.0.0-rc.2** (`VERSION`), tagged `v1.0.0-rc.2`.
+The release candidate is **1.0.0-rc.3** (`VERSION`), to be tagged `v1.0.0-rc.3`.
+RC2 (`708ef2e`) was superseded before its certification by the blockers the
+production-readiness audit found; it is not tagged.
 The name `v1.0.0-rc.1` is taken: it is the 2026-09-11 baseline checkpoint,
 tagged before the 1.0 scope was widened, and it stays as history.
 
@@ -30,7 +32,7 @@ tagged before the 1.0 scope was widened, and it stays as history.
 3. **1.0.0:** final certification of the production SHA, release artifacts
    and checksums from that SHA, then the `v1.0.0` tag.
 
-A commit cannot record its own SHA. Rows marked **RC.2 CERTIFICATION** are
+A commit cannot record its own SHA. Rows marked **RC CERTIFICATION** are
 proven by the certification record and CI run of the candidate SHA; their
 evidence is added here after those runs, without changing the tagged commit.
 
@@ -56,7 +58,7 @@ Primary evidence: `docs/D119_DOGFOOD_LOG.md`.
 
 | Check | Status | Evidence / action |
 |---|---|---|
-| Immutable release candidate revision | RC.2 CERTIFICATION | All work is committed; the candidate is the commit that sets `VERSION` to 1.0.0-rc.2. The certification record names its exact SHA and requires a clean checkout. |
+| Immutable release candidate revision | RC CERTIFICATION | All work is committed; the candidate is the rc.3 commit (`VERSION` 1.0.0-rc.3). The certification record names its exact SHA and requires a clean checkout. |
 | Frozen language contract | RESOLVED | Every 1.0 contract decision is recorded in `SPEC-DECISIONS.md` (DC1, D121, D122 approved 2026-09-27; D99 deferred to 1.1 on 2026-09-28). No contract question remains open: `docs/OTTER_1_0_FREEZE_FOLLOWUPS.md`. |
 | Existing scope reconciliation | BEFORE 1.0.0 | DC1 (console HTTP) is resolved. DC2-DC5 are documentation conflicts, not contract questions: `docs/OTTER_1_0_SURFACE_RECONCILIATION.md` section 8. |
 
@@ -64,8 +66,8 @@ Primary evidence: `docs/D119_DOGFOOD_LOG.md`.
 
 | Requirement | Status | Evidence / next action |
 |---|---|---|
-| Freeze language surface | RC.2 CERTIFICATION | Gates `contract-structural` and `release-surface-audit`. Prior clean-checkout evidence: `docs/OTTER_1_0_CERTIFICATION_RUN_639112f.md`. |
-| No unmapped diagnostics | RC.2 CERTIFICATION | Gate `platform-regression` (`tests/Run-Tests.ps1`). |
+| Freeze language surface | RC CERTIFICATION | Gates `contract-structural` and `release-surface-audit`. Prior clean-checkout evidence: `docs/OTTER_1_0_CERTIFICATION_RUN_639112f.md`. |
+| No unmapped diagnostics | RC CERTIFICATION | Gate `platform-regression` (`tests/Run-Tests.ps1`). |
 | Documented public keywords and target boundaries | BEFORE 1.0.0 | Reconcile public docs against the frozen rules and scope matrix (DC2-DC5); target-specific features labelled at point of use. |
 
 ## Gate 2 — D120 cross-platform and runtime certification
@@ -74,11 +76,11 @@ Primary evidence: `docs/D119_DOGFOOD_LOG.md`.
 
 | Host / target | Status | Evidence |
 |---|---|---|
-| Windows PowerShell 5.1 | RC.2 CERTIFICATION | The full certification run, plus the D120 workflow's Windows PowerShell 5.1 job. |
-| PowerShell 7 on Windows | RC.2 CERTIFICATION | D120 workflow (`.github/workflows/d120-host-matrix.yml`) on the candidate SHA. Prior evidence: run 36374374754 passed on `2dbcb4b`. |
-| PowerShell 7 on Linux | RC.2 CERTIFICATION | D120 workflow on the candidate SHA. |
-| PowerShell 7 on macOS | RC.2 CERTIFICATION | D120 workflow on the candidate SHA. |
-| Headless Web target | RC.2 CERTIFICATION | Gate `conformance` (`tools/Test-OtterReleaseConformance.ps1`). |
+| Windows PowerShell 5.1 | RC CERTIFICATION | The full certification run, plus the D120 workflow's Windows PowerShell 5.1 job. |
+| PowerShell 7 on Windows | RC CERTIFICATION | D120 workflow (`.github/workflows/d120-host-matrix.yml`) on the candidate SHA. Prior evidence: run 36374374754 passed on `2dbcb4b`. |
+| PowerShell 7 on Linux | RC CERTIFICATION | D120 workflow on the candidate SHA. |
+| PowerShell 7 on macOS | RC CERTIFICATION | D120 workflow on the candidate SHA. |
+| Headless Web target | RC CERTIFICATION | Gate `conformance` (`tools/Test-OtterReleaseConformance.ps1`). |
 
 ### Minimum D120 evidence per host
 
@@ -94,17 +96,17 @@ Primary evidence: `docs/D119_DOGFOOD_LOG.md`.
 
 | Requirement | Status | Next command / evidence |
 |---|---|---|
-| Production-entry conformance manifest | RC.2 CERTIFICATION | Gate `conformance`. |
-| Lexer/parser malformed-input coverage | RC.2 CERTIFICATION | Gate `malformed-input-fuzz` (1,000 programs, recorded seed). |
-| Differential fuzzing | RC.2 CERTIFICATION | Gate `differential-fuzz` (1,000 programs, recorded seed). |
+| Production-entry conformance manifest | RC CERTIFICATION | Gate `conformance`. |
+| Lexer/parser malformed-input coverage | RC CERTIFICATION | Gate `malformed-input-fuzz` (1,000 programs, recorded seed). |
+| Differential fuzzing | RC CERTIFICATION | Gate `differential-fuzz` (1,000 programs, recorded seed). |
 | Resource/memory soak | BEFORE 1.0.0 | `tools/Test-ResourceSoak.ps1` is not a certification gate; run it on the RC and archive the reviewed report. |
-| Full platform regression suite | RC.2 CERTIFICATION | Gate `platform-regression`; gate `repository-clean` proves the suite leaves the checkout unchanged. |
+| Full platform regression suite | RC CERTIFICATION | Gate `platform-regression`; gate `repository-clean` proves the suite leaves the checkout unchanged. |
 
 ## Gate 4 — Fresh-install and packaging verification
 
 | Requirement | Status | Evidence |
 |---|---|---|
-| Distribution build and temporary install | RC.2 CERTIFICATION | Gate `distribution-smoke` (`tools/Test-OtterDistribution.ps1`) builds `otter-1.0.0-rc.2-windows-powershell`, installs it into a fresh temp directory and runs `--version`, `run` fixtures and `web -NoOpen`. Earlier provisional pass: 2026-09-25 (0.9.0, dirty tree). |
+| Distribution build and temporary install | RC CERTIFICATION | Gate `distribution-smoke` (`tools/Test-OtterDistribution.ps1`) builds `otter-1.0.0-rc.3-windows-powershell`, installs it into a fresh temp directory and runs `--version`, `run` fixtures and `web -NoOpen`. Earlier provisional pass: 2026-09-25 (0.9.0, dirty tree). |
 | Clean-machine validation | BEFORE 1.0.0 | Repeat on a VM or CI host with no source checkout, no inherited PATH entries, and no developer dependencies. |
 | Per-user installer / uninstaller | BEFORE 1.0.0 | Exercise `distribution/Install-Otter.ps1` and `distribution/Uninstall-Otter.ps1` on the clean machine, including upgrade and PATH behavior. |
 | Full public CLI workflow | BEFORE 1.0.0 | Prove `--version`, `new`, `check`, `test`, `run`, `build`, and `publish` from the installed payload. |
@@ -116,8 +118,8 @@ Primary evidence: `docs/D119_DOGFOOD_LOG.md`.
 | Language and standard-library reference | BEFORE 1.0.0 | Reconcile documentation with the approved frozen scope. |
 | CLI and project-system guide | BEFORE 1.0.0 | Validate each documented command against the installed release payload. |
 | Target-specific boundaries | BEFORE 1.0.0 | Mark web-only, Windows-only, experimental, and deferred capabilities clearly. The query language (D99) is already labelled "not part of Otter 1.0" on the docs site. |
-| Changelog and release notes | IN PROGRESS | `CHANGELOG.md` has the `[1.0.0-rc.2]` section; final 1.0.0 release notes are written from the production SHA. |
-| RC change freeze | PENDING | After the two pre-RC checks in "Release order" pass, tag `v1.0.0-rc.2` on the certified SHA; then permit release-blocking fixes only, each with a regression test and release-ledger update. |
+| Changelog and release notes | IN PROGRESS | `CHANGELOG.md` has the `[1.0.0-rc.3]` section; final 1.0.0 release notes are written from the production SHA. |
+| RC change freeze | PENDING | After the two pre-RC checks in "Release order" pass, tag `v1.0.0-rc.3` on the certified SHA; then permit release-blocking fixes only, each with a regression test and release-ledger update. |
 
 ## Resume protocol
 

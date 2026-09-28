@@ -841,6 +841,10 @@ function Invoke-OtterProjectBuild {
     if (-not (Get-Command Resolve-OtterModuleSource -ErrorAction SilentlyContinue)) {
         Import-Module (Join-Path $PSScriptRoot 'Otter.Module.psm1') -Global
     }
+    if (-not (Get-Command Assert-OtterLanguageContract -ErrorAction SilentlyContinue)) {
+        # D-2 (RC3): reserved-identifier check, same as otter run/check.
+        Import-Module (Join-Path $PSScriptRoot 'Otter.Validation.psm1') -Global
+    }
     if (-not (Get-Command Export-OtterWebApplication -ErrorAction SilentlyContinue)) {
         Import-Module (Join-Path $PSScriptRoot 'Otter.Web.psm1') -Global
     }
@@ -879,6 +883,7 @@ function Invoke-OtterProjectBuild {
         $resolvedProgram = Resolve-OtterModuleSource -FilePath $project.ResolvedEntryPoint
         $tokens = ConvertTo-OtterTokens -Source $resolvedProgram.CombinedSource
         $ast = ConvertTo-OtterAst -Tokens $tokens
+        Assert-OtterLanguageContract -Program $ast -SourceLines ($resolvedProgram.CombinedSource -split "`r?`n")
     }
     catch [OtterError] {
         $err = $_.Exception

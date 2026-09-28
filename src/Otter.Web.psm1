@@ -2639,6 +2639,10 @@ function Export-OtterWebApplication {
     if (-not (Get-Command Resolve-OtterModuleSource -ErrorAction SilentlyContinue)) {
         Import-Module (Join-Path $PSScriptRoot 'Otter.Module.psm1') -Global
     }
+    if (-not (Get-Command Assert-OtterLanguageContract -ErrorAction SilentlyContinue)) {
+        # D-2 (RC3): reserved-identifier check, same as otter run/check.
+        Import-Module (Join-Path $PSScriptRoot 'Otter.Validation.psm1') -Global
+    }
 
     $sourceParts = [System.Collections.Generic.List[string]]::new()
     $primarySource = $null
@@ -2655,6 +2659,7 @@ function Export-OtterWebApplication {
     try {
         $tokens = ConvertTo-OtterTokens -Source $sourceText
         $ast = ConvertTo-OtterAst -Tokens $tokens
+        Assert-OtterLanguageContract -Program $ast -SourceLines ($sourceText -split "`r?`n")
 
         $defaultTitle = [System.IO.Path]::GetFileNameWithoutExtension($primarySource)
         $html = ConvertTo-OtterWeb -Program $ast -Title $defaultTitle

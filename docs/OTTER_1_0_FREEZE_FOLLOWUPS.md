@@ -141,3 +141,29 @@ the workspace (`/api/run`, `/api/create-project`), and its `startsWith` path
 checks accept sibling folders. Jeff's decision (2026-09-28): Studio is done
 after the Otter language; fix these before Studio is released. Until then, do
 not run `otter studio` on an untrusted network.
+
+## RC3 (2026-09-28)
+
+The production-readiness audit of RC2 (`708ef2e`) found release blockers, so
+RC2 was superseded without certification or a tag. RC3 resolves the approved
+blocker set B1-B14 and decisions D124-D127, each with a regression test that
+fails on RC2 (see `CHANGELOG.md` 1.0.0-rc.3). The DC2-DC5 documentation
+conflicts are reconciled.
+
+**Pending:** D123 (D-1, arithmetic in conditions) changes `src/Otter.Parser.psm1`,
+which `CLAUDE.md` assigns to Codex. It is prepared as one proposal commit
+(parser plus `tests/ConditionArithmetic.Tests.ps1`) for Codex to make or review.
+
+**Found while fixing, not in RC3:**
+
+| Finding | Class |
+|---|---|
+| `when b is hovered` compiles to a `hovered` DOM event that never fires; `hovered` is not a known event on desktop either | post-1.0 (mapping it is a new feature) |
+| `use "../x.ot"` bundles an `.ot` file from outside the project into build output; it is the author's explicit import (S7) | before 1.0.0: decide whether `use` may leave the project |
+| `otter test` does not read the manifest entry point, so it is not covered by the build-input containment check | before 1.0.0 |
+| `tools/Build-OtterRelease.ps1` has a stale module list (8 modules missing) and is referenced by nothing; `tools/New-OtterDistribution.ps1` is the release path | post-1.0: remove or fix |
+| `otter-docs/scripts/rules-pages.json` and `rules3.md` still hold old page text; `build-docs-content.ps1 -RegeneratePages` would overwrite the corrected pages | before 1.0.0: do not regenerate until updated |
+| `otter web .` on Linux cannot open a browser and says so (use `-NoOpen`) | documented |
+| Text set on UI elements (`text of x is value`) does not use the D126 formatter | post-1.0 |
+| `log`/`warn`/`error` and fuzzer stand-ins join values with JavaScript's default joining | post-1.0 |
+| Negative zero prints `-0` on the PowerShell 7 console and `0` on web (the console itself differs by host) | documented |

@@ -3,7 +3,7 @@
     "manifest":  {
                      "purpose":  "Evidence manifest for the Otter 1.0 candidate surface. It records what exists, what is documented, what is tested and where they disagree. It does NOT decide what is public.",
                      "authority":  "Codex owns the public-boundary decision. Every capability is seeded status=candidate, boundaryStatus=unresolved.",
-                     "seededFromCommit":  "4727f1fb10274433fc39fab222b893df4171c313",
+                     "seededFromCommit":  "3431d172ca682e3641b1f1f681e8f133462e4659",
                      "candidateSha":  "a5146971fa6c0a4c2d33dee283897e640e38fae5",
                      "candidateShaSource":  "docs/OTTER_1_0_CONTRACT_FREEZE_REPORT.md (Gate 1, certified by Codex) and docs/OTTER_1_0_CLEAN_CHECKOUT_EVIDENCE_2026-09-27.md",
                      "candidateShaNote":  "Recorded, not chosen here: the Gate 1 candidate Codex nominated. It contains the optimization pass and the event-loop review. The earlier candidate 344db09b is superseded. The public boundary in this manifest is still unresolved.",
@@ -162,7 +162,7 @@
                                                    "tests/UseModuleProduction.Tests.ps1"
                                                ],
                                   "observation":  "Codex reconciled GRAMMAR.md and the scope matrix (553bf33) but docs/OTTER_1_0_CAPABILITY_MATRIX.md still carries the older DEFERRED row.",
-                                  "decision":  null
+                                  "decision":  "Resolved in the RC3 documentation pass (2026-09-28): the capability matrix now matches the code. `use \"file.ot\"` is certified for the console production entry points; package imports remain DEFERRED."
                               },
                               {
                                   "id":  "DC3",
@@ -178,7 +178,7 @@
                                                    "tests/StandardLibrary.Tests.ps1"
                                                ],
                                   "observation":  "The matrix table has 34 rows; the suite has 31 cases. Lists/Mutation share one case, as do Object Definition/Property Read-Write. The per-row mapping is in this manifest (tests.cases).",
-                                  "decision":  null
+                                  "decision":  "Resolved in the RC3 documentation pass (2026-09-28): the document now says 34 rows certified by 31 passing test cases, and explains the shared cases."
                               },
                               {
                                   "id":  "DC4",
@@ -198,7 +198,7 @@
                                                    "tests/StandardLibrary.Tests.ps1"
                                                ],
                                   "observation":  "Cosmetic, but it breaks mechanical matching between the document and its certification suite.",
-                                  "decision":  null
+                                  "decision":  "Resolved in RC3 (2026-09-28): the suite now labels the area \"Processes\", matching the reachability matrix and docs/STANDARD_LIBRARY.md."
                               },
                               {
                                   "id":  "DC5",
@@ -217,7 +217,7 @@
                                                    "tests/Run-Tests.ps1"
                                                ],
                                   "observation":  "Both may be true at their own commits (test files were added in between: Profiler, Optimizations). Neither is a clean-checkout run; the certification record must name the candidate SHA it ran against.",
-                                  "decision":  null
+                                  "decision":  "Resolved in the RC3 documentation pass (2026-09-28): both documents now say their count is the suite at that time; certification records name the candidate SHA and its test-file count."
                               }
                           ],
     "capabilities":  [
@@ -22961,10 +22961,6 @@
                                                {
                                                    "code":  "REACHABILITY_ONLY",
                                                    "detail":  "Listed in STANDARD_LIBRARY_REACHABILITY.md; no phrase in STANDARD_LIBRARY.md was matched to it within its area."
-                                               },
-                                               {
-                                                   "code":  "AREA_NAME_MISMATCH",
-                                                   "detail":  "The reachability matrix names this area \u0027Processes\u0027 but tests/StandardLibrary.Tests.ps1 labels its case area \u0027Process\u0027."
                                                }
                                            ],
                              "contract":  {
@@ -23025,7 +23021,7 @@
                                                          "tests/StandardLibrary.Tests.ps1"
                                                      ],
                                            "cases":  [
-                                                         "Process :: get processes"
+                                                         "Processes :: get processes"
                                                      ],
                                            "derivation":  "curated: StandardLibrary.Tests.ps1 case name, plus test files whose programs parse to a linked node"
                                        },
@@ -23063,7 +23059,7 @@
                                                             "reachable":  true,
                                                             "evidence":  [
                                                                              "docs/STANDARD_LIBRARY_REACHABILITY.md row \u0027Processes / Process List\u0027 marked CERTIFIED",
-                                                                             "tests/StandardLibrary.Tests.ps1 case \u0027Process :: get processes\u0027 runs canonical syntax through otter.cmd run"
+                                                                             "tests/StandardLibrary.Tests.ps1 case \u0027Processes :: get processes\u0027 runs canonical syntax through otter.cmd run"
                                                                          ]
                                                         }
                          },
@@ -23082,10 +23078,7 @@
 
                                        ],
                              "conflicts":  [
-                                               {
-                                                   "code":  "AREA_NAME_MISMATCH",
-                                                   "detail":  "The reachability matrix names this area \u0027Processes\u0027 but tests/StandardLibrary.Tests.ps1 labels its case area \u0027Process\u0027."
-                                               }
+
                                            ],
                              "contract":  {
                                               "tokenKinds":  [
@@ -23154,7 +23147,7 @@
                                                          "tests/ProcessAdversarial.Tests.ps1"
                                                      ],
                                            "cases":  [
-                                                         "Process :: run command into"
+                                                         "Processes :: run command into"
                                                      ],
                                            "derivation":  "curated: StandardLibrary.Tests.ps1 case name, plus test files whose programs parse to a linked node"
                                        },
@@ -23193,7 +23186,7 @@
                                                             "reachable":  true,
                                                             "evidence":  [
                                                                              "docs/STANDARD_LIBRARY_REACHABILITY.md row \u0027Processes / Run \u0026 Capture\u0027 marked CERTIFIED",
-                                                                             "tests/StandardLibrary.Tests.ps1 case \u0027Process :: run command into\u0027 runs canonical syntax through otter.cmd run"
+                                                                             "tests/StandardLibrary.Tests.ps1 case \u0027Processes :: run command into\u0027 runs canonical syntax through otter.cmd run"
                                                                          ]
                                                         }
                          },
