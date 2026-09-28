@@ -561,7 +561,7 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
       const placeholder = inh[i] || shortPx(comp[i]) || '0';
       return `<input type="text" class="sp-box-input sp-box-${side}" data-box="${prop}" data-side="${i}"
         data-focus-key="box-${prop}-${i}" value="${escapeHtml(value)}" placeholder="${escapeHtml(placeholder)}"
-        title="${prop}-${side}. Drag to change. Alt: both opposite sides. Shift: all sides." spellcheck="false" />`;
+        title="${prop}-${side}. Drag or type to change. Shift: all sides (Shift+Enter). Alt: this side and its opposite (Alt+Enter)." spellcheck="false" />`;
     };
 
     const body = `
@@ -1101,7 +1101,17 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
       writeBoxSide(selected, prop, side, normalizeLengthInput(input.value) || '0', 'one', `box:${prop}`);
       queueRefresh();
     });
+    // Modifiers as on the canvas and in Webstudio: Shift = all four sides,
+    // Alt = this side and its opposite. Enter applies a typed value that way.
+    const modeOf = (ev) => ev.shiftKey ? 'all' : ev.altKey ? 'pair' : 'one';
     input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && (e.shiftKey || e.altKey)) {
+        e.preventDefault();
+        writeBoxSide(selected, prop, side, normalizeLengthInput(input.value) || '0', modeOf(e), `box:${prop}`);
+        input.blur();
+        queueRefresh();
+        return;
+      }
       if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
       e.preventDefault();
       const next = stepLength(input.value || input.placeholder, (e.shiftKey ? 10 : 1) * (e.key === 'ArrowUp' ? 1 : -1));
@@ -1125,13 +1135,11 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
           input.setPointerCapture?.(e.pointerId);
           document.body.classList.add('sp-is-scrubbing');
         }
-        const factor = ev.shiftKey ? 10 : 1;
-        let num = start.num + Math.round(delta / 2) * factor;
+        let num = start.num + Math.round(delta / 2);
         if (prop === 'padding') num = Math.max(0, num);
         const value = `${formatNumber(num)}${num === 0 ? '' : (start.unit || 'px')}`;
         input.value = value;
-        const mode = ev.shiftKey && ev.altKey ? 'all' : ev.altKey ? 'pair' : 'one';
-        writeBoxSide(selected, prop, side, value, mode, `box-drag:${prop}`);
+        writeBoxSide(selected, prop, side, value, modeOf(ev), `box-drag:${prop}`);
       };
       const up = () => {
         window.removeEventListener('pointermove', move);
