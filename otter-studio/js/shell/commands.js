@@ -87,6 +87,7 @@ export function defaultCommands(deps) {
     { id: 'file.newFile', title: 'New File', category: 'File', shortcut: 'Ctrl+N', run: () => ide.promptNewFile() },
     { id: 'file.openFolder', title: 'Open Folder...', category: 'File', shortcut: 'Ctrl+O', run: () => ide.promptOpenFolder() },
     { id: 'file.save', title: 'Save', category: 'File', shortcut: 'Ctrl+S', run: () => ide.saveCurrentFile() },
+    { id: 'file.saveAll', title: 'Save All', category: 'File', run: () => ide.saveAllFiles() },
     { id: 'file.projectSettings', title: 'Project Settings...', category: 'File', when: hasProject, run: () => ide.openProjectSettings() },
     { id: 'file.settings', title: 'Settings...', category: 'File', shortcut: 'Ctrl+,', run: openSettings },
     // Go
@@ -119,10 +120,19 @@ export function defaultCommands(deps) {
     { id: 'view.searchPane', title: 'Search in Files', category: 'View', shortcut: 'Ctrl+Shift+F', run: click('btnPaneSearch') },
     // Run
     { id: 'run.run', title: 'Run', category: 'Run', shortcut: 'F5', run: click('mainRunBtn') },
+    { id: 'run.project', title: 'Run Project', category: 'Run', when: hasProject, run: () => ide.runProject() },
     { id: 'run.debug', title: 'Debug', category: 'Run', run: click('btnDebugProgram') },
     { id: 'run.stop', title: 'Stop', category: 'Run', shortcut: 'Shift+F5', run: click('btnStopProgram') },
+    { id: 'run.restart', title: 'Restart', category: 'Run', shortcut: 'Ctrl+Shift+F5', run: () => ide.restartProgram() },
+    { id: 'run.launchProfiles', title: 'Edit Launch Profiles...', category: 'Run', when: hasProject, run: () => ide.runLaunchAction('edit') },
+    { id: 'run.tests', title: 'Show Tests', category: 'Run', run: () => document.querySelector('.drawer-tab[data-drawer-tab="tests"]')?.click() },
     // Build
+    { id: 'build.build', title: 'Build Project', category: 'Build', shortcut: 'Ctrl+Shift+B', when: hasProject, run: () => ide.buildProject() },
+    { id: 'build.rebuild', title: 'Rebuild Project', category: 'Build', when: hasProject, run: () => ide.buildProject({ clean: true }) },
+    { id: 'build.clean', title: 'Clean Build Output', category: 'Build', when: hasProject, run: () => ide.cleanProject() },
     { id: 'build.desktopApp', title: 'Build Desktop App (Windows)...', category: 'Build', run: openPackageDialog },
+    // Source control
+    { id: 'git.show', title: 'Show Source Control', category: 'Git', shortcut: 'Ctrl+Shift+G', run: click('btnPaneScm') },
     // Help
     { id: 'help.shortcuts', title: 'Keyboard Shortcuts', category: 'Help', run: openShortcuts },
     { id: 'help.commands', title: 'Show All Commands', category: 'Help', shortcut: 'F1', run: () => ide.openNavigationPalette('commands') },

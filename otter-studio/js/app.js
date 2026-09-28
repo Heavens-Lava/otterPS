@@ -15,6 +15,7 @@ import { renderPreview } from './components/preview.js';
 import { OtterStudioIde } from './ide.js';
 import { StyleController } from './designer/style-context.js';
 import { mountStudioShell } from './shell/studio-shell.js';
+import { toRegistryCommands } from './designer/commands.js';
 import { setWorkspaceTrust } from './project/workspace-solution.js';
 import { SourceControlPanel } from './components/source-control.js';
 import { TestExplorer } from './components/test-explorer.js';
@@ -111,7 +112,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   renderToolbox(toolboxEl, uiModel);
   renderHierarchy(hierarchyEl, uiModel, cssAstManager);
-  renderCanvas(canvasEl, uiModel, cssAstManager, styleController);
+  const designer = renderCanvas(canvasEl, uiModel, cssAstManager, styleController);
   renderProperties(propertiesEl, uiModel, cssAstManager, styleController);
   renderEvents(eventsEl, uiModel);
   renderEditor(editorEl, uiModel, cssAstManager);
@@ -961,6 +962,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     openNewProjectModal,
     showWelcome: !hasSpecificTarget && !hasRestoredSession
   });
+  // Designer commands (keyboard, context menu) also appear in the command
+  // palette and the Keyboard Shortcuts dialog while the designer is showing.
+  window.otterCommands?.registerAll(toRegistryCommands(designer.commands, () => designer.isDesignerVisible()));
 });
 
 function capitalize(str) {

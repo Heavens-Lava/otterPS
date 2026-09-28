@@ -15,6 +15,9 @@ import { generateOtterSource } from '../compiler/otter-generator.js';
 import { fetchRealRender, applyRealRender, prepareUserCss } from './real-style.js';
 import { StyleController } from '../designer/style-context.js';
 import { collapseBox, SIDES, formatNumber } from '../designer/css-values.js';
+import { createDesignerActions } from '../designer/actions.js';
+import { designerCommands, installDesignerKeyboard } from '../designer/commands.js';
+import { createDesignerContextMenu } from '../designer/context-menu.js';
 
 const ZOOM_STEPS = [0.25, 0.33, 0.5, 0.67, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 2, 3];
 const DESKTOP_WIDTH = 1280;
@@ -31,7 +34,6 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
   let realRenderSerial = 0;
   let zoom = 1;
   let spaceHeld = false;
-  let copiedStyles = null;
   let gestureActive = false; // resize / spacing drag / free move in progress
 
   // Elements created once in mount().
@@ -1524,6 +1526,31 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
     viewportEl.scrollTop = 0;
   }
 
+  // Fit the selected components in view (Penpot's Shift+2).
+  function zoomToSelection() {
+    const els = uiModel.getSelectedComponents().map(c => elementFor(c.id)).filter(Boolean);
+    if (els.length === 0) return false;
+    const rects = els.map(el => el.getBoundingClientRect());
+    const left = Math.min(...rects.map(r => r.left));
+    const top = Math.min(...rects.map(r => r.top));
+    const right = Math.max(...rects.map(r => r.right));
+    const bottom = Math.max(...rects.map(r => r.bottom));
+    const vp = viewportEl.getBoundingClientRect();
+    // Content coordinates (unzoomed) of the selection box.
+    const cx = (viewportEl.scrollLeft + (left + right) / 2 - vp.left) / zoom;
+    const cy = (viewportEl.scrollTop + (top + bottom) / 2 - vp.top) / zoom;
+    const w = Math.max(1, (right - left) / zoom);
+    const h = Math.max(1, (bottom - top) / zoom);
+    const next = Math.min(2, Math.max(0.2, Math.min((viewportEl.clientWidth - 120) / w, (viewportEl.clientHeight - 120) / h)));
+    zoom = next;
+    stageEl.style.zoom = String(zoom);
+    viewportEl.scrollLeft = cx * zoom - viewportEl.clientWidth / 2;
+    viewportEl.scrollTop = cy * zoom - viewportEl.clientHeight / 2;
+    renderTopbarState();
+    updateOverlay();
+    return true;
+  }
+
   function showDropMarkers(hit) {
     place(targetBox, toOverlay(hit.containerRect));
     const kindName = hit.targetComp.kind || 'container';
@@ -1727,227 +1754,51 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
   }
 
   // ---------------------------------------------------------------------------
-  // Context menu
+  // Commands, keyboard and context menu (designer/actions.js, commands.js,
+  // context-menu.js). The canvas supplies the DOM-dependent parts.
   // ---------------------------------------------------------------------------
+
+  const actions = createDesignerActions({
+    uiModel, styles, cssAstManager,
+    canvas: { elementFor, zoomBy, setZoom, zoomToFit, zoomToSelection }
+  });
+  const commands = designerCommands(actions);
+  const contextMenu = createDesignerContextMenu({ uiModel, styles, actions, commands });
 
   function openContextMenu(x, y, comp) {
-    closeContextMenu();
-    const selected = uiModel.getSelectedComponents().filter(c => c.id !== uiModel.rootId);
-    const schema = ComponentSchema[comp.kind] || {};
-    const sameParent = selected.length > 0 && selected.every(c => c.parentId === selected[0].parentId);
-    const items = [
-      comp.parentId && { label: 'Select parent', hint: 'Esc', run: () => uiModel.select(comp.parentId) },
-      '-',
-      sameParent && { label: 'Wrap in row', hint: '', run: () => uiModel.wrapComponents(selected.map(c => c.id), 'row') },
-      sameParent && { label: 'Wrap in column', hint: 'Ctrl+G', run: () => uiModel.wrapComponents(selected.map(c => c.id), 'column') },
-      sameParent && { label: 'Wrap in card', hint: '', run: () => uiModel.wrapComponents(selected.map(c => c.id), 'card') },
-      schema.isContainer && comp.id !== uiModel.rootId && { label: 'Unwrap (keep children)', hint: '', run: () => uiModel.unwrapComponent(comp.id) },
-      '-',
-      { label: 'Copy styles', hint: '', run: () => { copiedStyles = { ...styles.resolve(comp).own }; } },
-      copiedStyles && { label: `Paste styles (${Object.keys(copiedStyles).length})`, hint: '', run: () => styles.write(uiModel.getSelectedComponents(), copiedStyles, { key: 'paste-styles' }) },
-      { label: 'Clear styles here', hint: styles.isBaseContext() ? '' : styles.breakpoint.label, run: () => styles.clear(uiModel.getSelectedComponents()) },
-      '-',
-      comp.id !== uiModel.rootId && { label: 'Duplicate', hint: 'Ctrl+D', run: () => duplicateSelection() },
-      comp.id !== uiModel.rootId && { label: 'Delete', hint: 'Del', danger: true, run: () => deleteSelection() }
-    ].filter(Boolean);
-
-    // Drop leading/trailing/double separators.
-    const cleaned = items.filter((item, i, arr) => item !== '-' || (i > 0 && i < arr.length - 1 && arr[i - 1] !== '-'));
-    const menu = document.createElement('div');
-    menu.className = 'designer-context-menu';
-    menu.setAttribute('role', 'menu');
-    for (const item of cleaned) {
-      if (item === '-') {
-        menu.appendChild(Object.assign(document.createElement('div'), { className: 'designer-menu-sep' }));
-        continue;
-      }
-      const btn = document.createElement('button');
-      btn.className = `designer-menu-item ${item.danger ? 'is-danger' : ''}`;
-      btn.setAttribute('role', 'menuitem');
-      btn.innerHTML = `<span>${escapeHtml(item.label)}</span><span class="designer-menu-hint">${escapeHtml(item.hint || '')}</span>`;
-      btn.addEventListener('click', () => {
-        closeContextMenu();
-        item.run();
-      });
-      menu.appendChild(btn);
-    }
-    document.body.appendChild(menu);
-    menu.style.left = `${Math.min(x, window.innerWidth - menu.offsetWidth - 8)}px`;
-    menu.style.top = `${Math.min(y, window.innerHeight - menu.offsetHeight - 8)}px`;
-    menu.querySelector('button')?.focus();
-    setTimeout(() => {
-      document.addEventListener('pointerdown', onOutside, true);
-      document.addEventListener('keydown', onMenuKey, true);
-    }, 0);
-  }
-
-  function onOutside(e) {
-    if (!e.target.closest('.designer-context-menu')) closeContextMenu();
-  }
-
-  function onMenuKey(e) {
-    const menu = document.querySelector('.designer-context-menu');
-    if (!menu) return;
-    const items = Array.from(menu.querySelectorAll('.designer-menu-item'));
-    const idx = items.indexOf(document.activeElement);
-    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeContextMenu(); }
-    else if (e.key === 'ArrowDown') { e.preventDefault(); items[(idx + 1) % items.length]?.focus(); }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); items[(idx - 1 + items.length) % items.length]?.focus(); }
-  }
-
-  function closeContextMenu() {
-    document.querySelector('.designer-context-menu')?.remove();
-    document.removeEventListener('pointerdown', onOutside, true);
-    document.removeEventListener('keydown', onMenuKey, true);
-  }
-
-  // ---------------------------------------------------------------------------
-  // Keyboard
-  // ---------------------------------------------------------------------------
-
-  function selectionForEdit() {
-    return uiModel.getSelectedComponents().filter(c => c.id !== uiModel.rootId);
-  }
-
-  // One undo step for the whole multi-selection.
-  function deleteSelection() {
-    const comps = selectionForEdit();
-    if (comps.length === 0) return;
-    uiModel.saveSnapshot();
-    const depth = uiModel.undoStack.length;
-    for (const comp of comps) {
-      if (uiModel.getComponent(comp.id)) uiModel.removeComponent(comp.id);
-    }
-    uiModel.undoStack.length = depth;
-  }
-
-  function duplicateSelection() {
-    const comps = selectionForEdit();
-    if (comps.length === 0) return;
-    uiModel.saveSnapshot();
-    const depth = uiModel.undoStack.length;
-    const copies = comps.map(c => uiModel.duplicateComponent(c.id, cssAstManager)).filter(Boolean);
-    uiModel.undoStack.length = depth;
-    uiModel.selectMany(copies.map(c => c.id));
+    contextMenu.open(x, y, comp);
   }
 
   function isDesignerVisible() {
     return containerEl.offsetParent !== null && !isInteractMode;
   }
 
+  // The designer owns the keyboard while it is visible and the pointer or
+  // focus is in it - never while typing in a field or working in another panel.
+  function designerHasKeyboard() {
+    const active = document.activeElement;
+    const tag = active ? active.tagName.toLowerCase() : '';
+    if (['input', 'textarea', 'select'].includes(tag) || active?.isContentEditable) return false;
+    if (!isDesignerVisible()) return false;
+    return containerEl.matches(':hover') || containerEl.contains(active) || active === document.body;
+  }
+
   function bindKeyboard() {
+    // Space held: drag to pan.
     window.addEventListener('keyup', (e) => {
       if (e.code === 'Space') {
         spaceHeld = false;
         viewportEl.classList.remove('is-pan-ready');
       }
     });
-
     window.addEventListener('keydown', (e) => {
-      const active = document.activeElement;
-      const activeTag = active ? active.tagName.toLowerCase() : '';
-      if (['input', 'textarea', 'select'].includes(activeTag) || active?.isContentEditable) return;
-      if (!isDesignerVisible()) return;
-      // Only when the pointer or focus is in the designer area, so shortcuts
-      // never fire while working in another panel.
-      const inDesigner = containerEl.matches(':hover') || containerEl.contains(active) || active === document.body;
-      if (!inDesigner) return;
-
-      const isMac = navigator.platform.toUpperCase().includes('MAC');
-      const mod = isMac ? e.metaKey : e.ctrlKey;
-      const k = e.key.toLowerCase();
-
-      if (e.code === 'Space' && !e.repeat) {
+      if (e.code === 'Space' && !e.repeat && designerHasKeyboard()) {
         spaceHeld = true;
         viewportEl.classList.add('is-pan-ready');
         e.preventDefault();
-        return;
-      }
-      if (mod && !e.shiftKey && k === 'z') { e.preventDefault(); uiModel.undo(); return; }
-      if ((mod && k === 'y') || (mod && e.shiftKey && k === 'z')) { e.preventDefault(); uiModel.redo(); return; }
-      if (mod && k === 'd') { e.preventDefault(); duplicateSelection(); return; }
-      if (mod && k === 'g') {
-        e.preventDefault();
-        const ids = selectionForEdit().map(c => c.id);
-        if (ids.length) uiModel.wrapComponents(ids, e.shiftKey ? 'row' : 'column');
-        return;
-      }
-      if (mod && (k === '=' || k === '+')) { e.preventDefault(); zoomBy(1); return; }
-      if (mod && k === '-') { e.preventDefault(); zoomBy(-1); return; }
-      if (mod && k === '0') { e.preventDefault(); setZoom(1); return; }
-      if (e.shiftKey && e.key === '!') { e.preventDefault(); zoomToFit(); return; }
-      if (mod && k === 'a') {
-        e.preventDefault();
-        const primary = uiModel.getComponent(uiModel.selectedId);
-        const parent = primary && primary.parentId ? uiModel.getComponent(primary.parentId) : uiModel.getRoot();
-        if (parent) uiModel.selectMany(parent.children);
-        return;
-      }
-      if (e.key === 'Delete' || e.key === 'Backspace') {
-        if (selectionForEdit().length) {
-          e.preventDefault();
-          deleteSelection();
-        }
-        return;
-      }
-      if (e.key === 'Escape') {
-        const primary = uiModel.getComponent(uiModel.selectedId);
-        if (primary && primary.parentId) {
-          e.preventDefault();
-          uiModel.select(primary.parentId);
-        }
-        return;
-      }
-
-      // Enter selects the first child; Tab / Shift+Tab walks siblings.
-      if (e.key === 'Enter') {
-        const primary = uiModel.getComponent(uiModel.selectedId);
-        if (primary?.children?.length) { e.preventDefault(); uiModel.select(primary.children[0]); }
-        return;
-      }
-      if (e.key === 'Tab') {
-        const primary = uiModel.getComponent(uiModel.selectedId);
-        const parent = primary?.parentId ? uiModel.getComponent(primary.parentId) : null;
-        if (parent) {
-          e.preventDefault();
-          const idx = parent.children.indexOf(primary.id);
-          const next = (idx + (e.shiftKey ? -1 : 1) + parent.children.length) % parent.children.length;
-          uiModel.select(parent.children[next]);
-        }
-        return;
-      }
-
-      const arrows = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
-      if (!arrows.includes(e.key)) return;
-      const selected = uiModel.getComponent(uiModel.selectedId);
-      if (!selected || selected.id === uiModel.rootId) return;
-      const el = elementFor(selected.id);
-      const pos = el ? getComputedStyle(el).position : 'static';
-
-      // Absolute elements: arrows nudge the position.
-      if ((pos === 'absolute' || pos === 'fixed') && !e.altKey) {
-        e.preventDefault();
-        const step = e.shiftKey ? 10 : 1;
-        const cs = getComputedStyle(el);
-        const values = {};
-        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') values.left = `${Math.round((parseFloat(cs.left) || 0) + (e.key === 'ArrowRight' ? step : -step))}px`;
-        else values.top = `${Math.round((parseFloat(cs.top) || 0) + (e.key === 'ArrowDown' ? step : -step))}px`;
-        styles.write(selectionForEdit(), values, { key: `nudge:${selected.id}` });
-        return;
-      }
-
-      // Flow elements: Alt+arrows reorder within the parent.
-      if (e.altKey && selected.parentId) {
-        const parent = uiModel.getComponent(selected.parentId);
-        const idx = parent.children.indexOf(selected.id);
-        const back = e.key === 'ArrowUp' || e.key === 'ArrowLeft';
-        const target = back ? idx - 1 : idx + 1;
-        if (target >= 0 && target < parent.children.length) {
-          e.preventDefault();
-          uiModel.moveChild(selected.id, parent.id, target);
-        }
       }
     });
+    installDesignerKeyboard(commands, { isActive: designerHasKeyboard });
   }
 
   // ---------------------------------------------------------------------------
@@ -1999,6 +1850,8 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
   });
 
   window.addEventListener('otter:style-context', () => update());
+
+  return { actions, commands, isDesignerVisible };
 }
 
 function cssEscape(value) {
