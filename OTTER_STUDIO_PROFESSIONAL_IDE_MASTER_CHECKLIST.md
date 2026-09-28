@@ -227,6 +227,8 @@ platform.
 # 7. Project/workspace system
 
 -   [x] New Project/Startup Wizard reported
+-   [x] New Project opens the created project like File > Open (Welcome closes, chip and Recent Projects update, template projects trusted) and never overwrites an existing project: 409 with "Open it instead", free name suggested (`3dc9f8a`; verified through the real dialog)
+-   [ ] New Project location picker (create outside the repo's `projects/` folder)
 -   [x] Console archetype reported
 -   [x] Desktop archetype reported
 -   [x] Web archetype reported
@@ -397,12 +399,39 @@ platform.
 -   [x] Production round-trip regression test
 -   [x] Study/adapt GrapesJS interaction techniques without replacing Otter model/compiler
 -   [x] Review third-party licenses
--   [ ] Layers/hierarchy panel for the canvas (component tree with select/reorder)
+-   [x] Layers tree for the canvas: select, Ctrl multi-select, drag reorder/re-nest, double-click rename (`hierarchy.js`, sidebar pane shown in Design/Split mode)
+-   [ ] Layers panel named "Layers" in Design mode (today it shares the "Outline" tab with source symbols)
+-   [ ] Layers: Shift range select; Ctrl+Up/Down among siblings, Ctrl+Left out of parent, Ctrl+Right into previous sibling
 -   [ ] Lock and hide elements on canvas
 -   [ ] Keyboard nudging (arrow keys, Shift for 10px) and snap to grid (nudging done for absolute elements; 8px snapping on resize; a user-visible grid and snap-to-grid toggle remain)
 -   [x] Style editor for `styles.css` with live preview (full CSS inspector per component, states and breakpoints, raw declarations, lossless CSS AST; `designer-css`/`designer-styles` suites) - shared class rules remain open
 -   [x] State variants: hover/pressed/focused preview on canvas (`data-force-state`); verified hover in the compiled app - disabled state remains open
 -   [ ] Sample data binding so lists/tables render realistic content on canvas
+
+## 11a. Designer polish from the Webstudio / GrapesJS / Penpot review
+
+Source: `docs/studio/DESIGNER_GAP_ANALYSIS.md`. Webstudio (AGPL) and Penpot
+(MPL) are UX references only; copy no code. GrapesJS (BSD-3) is an
+architecture reference. Listed in the recommended implementation order.
+
+-   [x] Gap analysis written before implementation (`docs/studio/DESIGNER_GAP_ANALYSIS.md`)
+-   [ ] Provenance model: `StyleController.explain(comp, prop)` gives source kind (Otter source, styles.css, breakpoint, state, parent, compiler-forced, compiler default, browser default), exact location, and what overrides it; unit-tested
+-   [ ] Provenance UI: colored property labels, red for "set here but overridden", hover card with the cascade chain, Go to source (main.ot line or styles.css rule), compiler-forced values explained in words
+-   [ ] Breakpoints as data (`{id, label, media, previewWidth}`, default Desktop/Tablet/Mobile) with no index-order cascade assumption
+-   [ ] Canvas simulates non-width media conditions (color scheme, reduced motion, orientation) instead of following Studio's window
+-   [ ] `canvas.js` split into render / overlay / gestures / keyboard / context-menu modules, behavior unchanged
+-   [ ] Designer shortcuts registered in the command registry (visible in F1 and the Shortcuts dialog)
+-   [ ] Spacing drag modifiers: Shift = opposite sides, Alt = all sides; box-model numbers scrubbable
+-   [ ] Flex child and Grid child inspector sections shown by parent layout (grow, shrink, basis, align-self, order, select-parent link)
+-   [ ] Outline (focus ring) controls
+-   [ ] Per-side border controls
+-   [ ] Layered box-shadow editor (x, y, blur, spread, color, inset)
+-   [ ] Transition editor (property, duration, easing, delay)
+-   [ ] `text-shadow` control
+-   [ ] `disabled` state and `::placeholder` styling
+-   [ ] Zoom to selection (Shift+2); resize modifiers (Shift proportional, Alt from center)
+-   [ ] Later: custom breakpoints UI (min/max width and media conditions), design tokens / shared classes, asset manager, grid generator presets, Hide UI mode
+-   [ ] Dialogs (New Project, Build, Settings, Shortcuts) restyled to the dark workbench theme
 
 # 12. UI components/properties/events
 
