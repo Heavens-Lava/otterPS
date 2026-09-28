@@ -1234,6 +1234,82 @@ $ran = Invoke-Rc3WebPage -Source $twoHandlers -Actions 'b:click'
 if (($ran.Said -join '|') -ne 'first|second') { throw 'Expected the page to mount and handle events with no network available.' }
 Write-Output '  pass  generated pages load nothing from external hosts and mount with no network (RC3 B10, D-5)'
 
+# Test 35 (D-4, D8): web `say` prints every value exactly like the console.
+# Table-driven: each row is one `say` line; the SAME program runs through
+# the real console entry point (otter.ps1 run) and the real web entry point
+# (compiled page executed in Node), and both must match the expected text.
+$sayRows = @(
+    @{ Name = 'list';            Line = 'say games';                 Expected = 'Zelda, Mario' },
+    @{ Name = 'nested list';     Line = 'say outer';                 Expected = '1, 2, 3' },
+    @{ Name = 'gone';            Line = 'say nothing';               Expected = 'gone' },
+    @{ Name = 'gone in parts';   Line = 'say "x is" nothing';        Expected = 'x is gone' },
+    @{ Name = 'thing';           Line = 'say person';                Expected = 'a thing' },
+    @{ Name = 'typed thing';     Line = 'say spot';                  Expected = 'a Point' },
+    @{ Name = '0.1 plus 0.2';    Line = 'say 0.1 plus 0.2';          Expected = '0.3' },
+    @{ Name = '10 divided by 4'; Line = 'say 10 divided by 4';       Expected = '2.5' },
+    @{ Name = '10 divided by 3'; Line = 'say 10 divided by 3';       Expected = '3.3333333333' },
+    @{ Name = '2 divided by 3';  Line = 'say 2 divided by 3';        Expected = '0.6666666667' },
+    @{ Name = 'large number';    Line = 'say 1000000 times 1000000 times 1000000 times 1000'; Expected = '1000000000000000000000' },
+    @{ Name = 'past 15 digits';  Line = 'say 1000000 times 1000000 times 1000 plus 1'; Expected = '1000000000000000' },
+    @{ Name = 'thousand';        Line = 'say 10 times 100';          Expected = '1000' },
+    @{ Name = 'negative';        Line = 'say 0 minus 5';             Expected = '-5' },
+    @{ Name = 'negative frac';   Line = 'say 0 minus 2.5';           Expected = '-2.5' },
+    @{ Name = 'true';            Line = 'say true';                  Expected = 'true' },
+    @{ Name = 'false';           Line = 'say false';                 Expected = 'false' },
+    @{ Name = 'booleans list';   Line = 'say flags';                 Expected = 'true, false' },
+    @{ Name = 'text';            Line = 'say "hello there"';         Expected = 'hello there' },
+    @{ Name = 'mixed parts';     Line = 'say "Score:" 5 "points" true'; Expected = 'Score: 5 points true' },
+    @{ Name = 'blank say';       Line = 'say';                       Expected = '' }
+)
+$sayPrelude = @"
+games are
+    "Zelda"
+    "Mario"
+.
+inner are
+    1
+    2
+.
+outer are
+    inner
+    3
+.
+flags are
+    true
+    false
+.
+nothing is gone
+person has name "Ada", age 36
+a Point has
+    x
+    y
+.
+spot is a Point with x 1, y 2
+"@
+$sayProgram = $sayPrelude + "`n" + (($sayRows | ForEach-Object { $_.Line }) -join "`n") + "`n"
+$sayDir = Join-Path ([System.IO.Path]::GetTempPath()) ("otter_rc3_say_$([Guid]::NewGuid().ToString('N'))")
+New-Item -ItemType Directory -Path $sayDir -Force | Out-Null
+try {
+    $sayFile = Join-Path $sayDir 'say.ot'
+    [System.IO.File]::WriteAllText($sayFile, $sayProgram, [System.Text.UTF8Encoding]::new($false))
+    $otterPs1Path = Join-Path (Split-Path -Parent $PSScriptRoot) 'otter.ps1'
+    $consoleLines = @(& $script:OtterHostExe @script:OtterHostArgs -File $otterPs1Path run $sayFile)
+    if ($LASTEXITCODE -ne 0) { throw "The console run of the say table failed: $($consoleLines -join ' | ')" }
+} finally {
+    Remove-Item -LiteralPath $sayDir -Recurse -Force -ErrorAction SilentlyContinue
+}
+$webLines = (Invoke-Rc3WebPage -Source $sayProgram).Said
+if ($consoleLines.Count -ne $sayRows.Count) { throw "Expected $($sayRows.Count) console lines, got $($consoleLines.Count): $($consoleLines -join ' | ')" }
+if ($webLines.Count -ne $sayRows.Count) { throw "Expected $($sayRows.Count) web lines, got $($webLines.Count): $($webLines -join ' | ')" }
+$sayMismatches = [System.Collections.Generic.List[string]]::new()
+for ($i = 0; $i -lt $sayRows.Count; $i++) {
+    $row = $sayRows[$i]
+    if ($consoleLines[$i] -ne $row.Expected) { $sayMismatches.Add("$($row.Name): console printed '$($consoleLines[$i])', expected '$($row.Expected)'") }
+    if ($webLines[$i] -ne $consoleLines[$i]) { $sayMismatches.Add("$($row.Name): web printed '$($webLines[$i])', console printed '$($consoleLines[$i])'") }
+}
+if ($sayMismatches.Count -gt 0) { throw "Web say must match the console (D8):`n  $($sayMismatches -join "`n  ")" }
+Write-Output "  pass  web say prints $($sayRows.Count) kinds of value exactly like the console (D-4, D8)"
+
 
 Write-Output 'Web compiler tests passed.'
 

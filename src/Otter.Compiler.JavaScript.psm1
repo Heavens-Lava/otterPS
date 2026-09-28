@@ -1500,8 +1500,13 @@ function ConvertTo-OtterJsStatement {
             if ($null -ne $Stmt.ColorExpr) {
                 throw [OtterError]::new('`say ... in color` is not supported on the web target yet.', $Stmt.Line, 'runtime')
             }
+            # D-4 / D8: pass each part as its own argument. Joining them here
+            # with JS `+` turned every value into JS's own text first (a list
+            # became "a,b", gone "null", a thing "[object Object]") before
+            # the runtime could format it; otterSay formats each part the
+            # console way and joins them with one space.
             $parts = foreach ($p in $Stmt.Parts) { ConvertTo-OtterJsExpression -Expr $p }
-            $joined = $parts -join ' + " " + '
+            $joined = $parts -join ', '
             return "${pad}otterSay($joined);"
         }
         ([NodeKind]::Ask) {

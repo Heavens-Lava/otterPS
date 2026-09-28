@@ -1264,12 +1264,8 @@ $bodyJoined
         $runnableRuntimeJs = (@'
     window.otterRunnables = {};
     window.otterRunOrder = @@ORDER@@;
-    function otterFormatSaid(value) {
-      if (value === null || value === undefined) { return 'gone'; }
-      if (Array.isArray(value)) { return value.map(otterFormatSaid).join(', '); }
-      if (typeof value === 'object' && value.__otterThing) { return 'a ' + (value.typeName || 'thing'); }
-      return String(value);
-    }
+    // Runnable samples print through the same D8 formatter as `say`.
+    function otterFormatSaid(value) { return otterFormatValue(value); }
     document.addEventListener('click', async (e) => {
       const button = e.target && e.target.closest ? e.target.closest('[data-otter-run]') : null;
       if (!button || button.disabled) { return; }
@@ -1834,13 +1830,76 @@ $cryptoRuntimeJs
       const el = otterGetElement(id);
       return el ? el[prop] : '';
     }
+    // D-4 / D8: `say` compiles to otterSay(part, part, ...) and every part
+    // goes through otterFormatValue, the one web formatter that mirrors the
+    // console's Format-OtterValue (Otter.Runtime.psm1). Before, the parts
+    // were glued with JS `+`, so a list printed "a,b", gone printed an empty
+    // string or "null", a thing printed "[object Object]" and 0.1 plus 0.2
+    // printed 0.30000000000000004 - all different from the console.
     function otterSay(...args) {
-      console.log(...args);
+      const line = args.map(otterFormatValue).join(' ');
+      console.log(line);
       const out = document.getElementById('otter-live-output');
       if (out) {
         out.style.display = 'block';
-        out.textContent = args.join(' ');
+        out.textContent = line;
       }
+    }
+    // Numbers exactly as .NET's `ToString('0.##########')` prints a double,
+    // which is what the console uses: first 15 significant digits, then at
+    // most 10 decimals (rounded half away from zero, on those digits),
+    // trailing zeros dropped, never an exponent. So 0.1 plus 0.2 is 0.3,
+    // 10 divided by 3 is 3.3333333333 and 1e20 is written out in full.
+    function otterFormatNumber(n) {
+      if (Number.isNaN(n)) { return 'NaN'; }
+      if (n === Infinity) { return 'Infinity'; }
+      if (n === -Infinity) { return '-Infinity'; }
+      const parts = Math.abs(n).toPrecision(15).split('e');
+      const mantissa = parts[0];
+      const exponent = parts.length > 1 ? parseInt(parts[1], 10) : 0;
+      const dot = mantissa.indexOf('.');
+      let digits = mantissa.replace('.', '');
+      let intLength = (dot === -1 ? mantissa.length : dot) + exponent;
+      if (intLength <= 0) { digits = '0'.repeat(1 - intLength) + digits; intLength = 1; }
+      if (intLength > digits.length) { digits = digits + '0'.repeat(intLength - digits.length); }
+      let whole = digits.slice(0, intLength);
+      let fraction = digits.slice(intLength);
+      if (fraction.length > 10) {
+        const roundUp = fraction.charAt(10) >= '5';
+        fraction = fraction.slice(0, 10);
+        if (roundUp) {
+          const all = (whole + fraction).split('');
+          let i = all.length - 1;
+          while (i >= 0 && all[i] === '9') { all[i] = '0'; i--; }
+          if (i >= 0) { all[i] = String(Number(all[i]) + 1); } else { all.unshift('1'); }
+          whole = all.slice(0, all.length - 10).join('');
+          fraction = all.slice(all.length - 10).join('');
+        }
+      }
+      fraction = fraction.replace(/0+$/, '');
+      whole = whole.replace(/^0+(?=\d)/, '');
+      const text = fraction ? whole + '.' + fraction : whole;
+      // Like .NET, a negative value keeps its sign even when it rounds to
+      // zero (0 minus 0.00000000001 prints -0). A true negative zero prints
+      // 0, as Windows PowerShell 5.1 does (PowerShell 7 prints -0 there).
+      return n < 0 ? '-' + text : text;
+    }
+    function otterFormatValue(value) {
+      if (value === null || value === undefined) { return 'gone'; }
+      if (typeof value === 'boolean') { return value ? 'true' : 'false'; }
+      if (typeof value === 'number') { return otterFormatNumber(value); }
+      if (typeof value === 'string') { return value; }
+      if (Array.isArray(value)) { return value.map(otterFormatValue).join(', '); }
+      if (typeof value === 'function') { return '<' + (value.name || 'function') + ', something Otter can do>'; }
+      if (typeof value === 'object') {
+        if (value.__otterThing) { return 'a ' + (value.typeName || 'thing'); }
+        if (value.__otterType) { return 'the type ' + value.typeName; }
+        if (value.__otterHttpRequest) { return '<an http request to ' + value.url + '>'; }
+        // Dates, bytes, xml and websockets carry their own console-shaped
+        // toString(); any other plain object is a thing to Otter.
+        if (Object.getPrototypeOf(value) === Object.prototype && value.toString === Object.prototype.toString) { return 'a thing'; }
+      }
+      return String(value);
     }
     async function otterReadFile(filePath) {
       const bridge = window.__OTTER_DESKTOP_BRIDGE__;
