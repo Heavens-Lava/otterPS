@@ -249,9 +249,10 @@ platform.
 -   [x] Multi-root workspaces (Multi-root tree explorer with Solution header and multiple project roots, unified cross-project search and symbol index)
 -   [x] Restore session (localStorage session recovery)
 -   [x] Large-repo performance (Bounded scanDir with exclusion of .git, node_modules, dist, max depth and node limits guaranteeing sub-second response)
--   [ ] Explorer file management: new file, new folder, rename, delete to recycle bin
--   [ ] Explorer move/copy by drag and drop between folders
--   [ ] Reveal in OS file manager / copy path / copy relative path
+-   [x] Explorer file management: new file, new folder, rename, delete to recycle bin (`bc955d1`; right-click, F2, Del; open tabs follow)
+-   [x] Explorer move by drag and drop between folders (`bc955d1`)
+-   [ ] Explorer copy (Ctrl+drag / copy-paste of files)
+-   [x] Reveal in OS file manager / copy path / copy relative path (`bc955d1`)
 -   [ ] Per-file local history (timeline) independent of Git, with restore
 -   [ ] `.editorconfig` support and auto-detect indentation per file
 -   [ ] Workspace-recommended settings and extensions
