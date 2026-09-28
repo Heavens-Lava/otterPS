@@ -9,6 +9,7 @@ import { exec, execFile, spawn } from 'node:child_process';
 import { handleLaunchRoutes } from './server/launch.mjs';
 import { handleFsRoutes } from './server/fs-ops.mjs';
 import { handleHistoryRoutes, recordVersion } from './server/local-history.mjs';
+import { handleEditorConfigRoute } from './server/editorconfig.mjs';
 import { handleGitRoutes } from './server/git.mjs';
 import { handleTestRoutes } from './server/tests.mjs';
 import { checkRequest, readJsonBody, isInside, LOOPBACK_HOST } from './server/security.mjs';
@@ -316,6 +317,7 @@ async function handleRequest(req, res) {
   // Explorer: new file/folder, rename, move, delete, reveal (server/fs-ops.mjs).
   if (await handleFsRoutes(req, res, pathname, { repoRoot: REPO_ROOT, isInsideRepo, readBody, sendJson })) return;
   if (handleHistoryRoutes(req, res, pathname, urlObj, { repoRoot: REPO_ROOT, isInsideRepo, sendJson })) return;
+  if (handleEditorConfigRoute(req, res, pathname, urlObj, { repoRoot: REPO_ROOT, isInsideRepo, sendJson })) return;
 
   // Run, launch profiles, build and clean (server/launch.mjs).
   if (await handleLaunchRoutes(req, res, pathname, urlObj, {

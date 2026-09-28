@@ -1425,8 +1425,8 @@ body {
   font-size: var(--editor-font-size, 13px);
   line-height: 22px;
   letter-spacing: 0px;
-  tab-size: 4;
-  -moz-tab-size: 4;
+  tab-size: var(--editor-tab-size, 4);
+  -moz-tab-size: var(--editor-tab-size, 4);
   font-variant-ligatures: none;
   color: #1e293b;
   overflow: hidden;
@@ -1440,8 +1440,8 @@ body {
   box-sizing: border-box;
   letter-spacing: 0px;
   font-variant-ligatures: none;
-  tab-size: 4;
-  -moz-tab-size: 4;
+  tab-size: var(--editor-tab-size, 4);
+  -moz-tab-size: var(--editor-tab-size, 4);
 }
 
 .code-editor-input,
@@ -1461,8 +1461,8 @@ body {
   font-size: var(--editor-font-size, 13px);
   line-height: 22px;
   letter-spacing: 0px;
-  tab-size: 4;
-  -moz-tab-size: 4;
+  tab-size: var(--editor-tab-size, 4);
+  -moz-tab-size: var(--editor-tab-size, 4);
   font-variant-ligatures: none;
   white-space: pre;
   word-wrap: normal;

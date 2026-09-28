@@ -73,7 +73,7 @@ export function backspacePair(text, start, end) {
 // Enter: keep the indentation; after a block opener indent one level and,
 // when the block has no body yet, write its closing `.` on the line below
 // with the caret in between. Returns { text, start, end }.
-export function enterKey(text, start, end, { autoCloseBlocks = true } = {}) {
+export function enterKey(text, start, end, { autoCloseBlocks = true, indentUnit = INDENT } = {}) {
   const lineStart = lineStartOf(text, start);
   const current = text.slice(lineStart, start);
   const indent = indentOf(current);
@@ -86,7 +86,7 @@ export function enterKey(text, start, end, { autoCloseBlocks = true } = {}) {
     return { text: text.slice(0, start) + insert + text.slice(end), start: start + insert.length, end: start + insert.length };
   }
 
-  const bodyIndent = indent + INDENT;
+  const bodyIndent = indent + indentUnit;
   let insert = '\n' + bodyIndent;
   if (autoCloseBlocks) {
     // Look at the next non-blank line: a body or a closer already there means
@@ -126,17 +126,18 @@ export function prepareForSave(text, { trimTrailingWhitespace = true, insertFina
   return out;
 }
 
-// Indent guides: the leading indentation is wrapped in spans (one per four
-// spaces) that draw a hairline via CSS. The spaces stay inside the spans so
-// the highlighted layer keeps exactly the textarea's character positions.
-export function renderIndentGuides(line, highlightRest) {
+// Indent guides: the leading indentation is wrapped in spans (one per
+// indentation unit - the file's spaces or a tab) that draw a hairline via
+// CSS. The whitespace stays inside the spans so the highlighted layer keeps
+// exactly the textarea's character positions.
+export function renderIndentGuides(line, highlightRest, unit = INDENT) {
   const indent = indentOf(line);
-  const spaces = indent.replace(/\t/g, INDENT);
-  if (spaces.length < INDENT.length || indent !== spaces) return highlightRest(line);
-  const levels = Math.floor(spaces.length / INDENT.length);
-  const remainder = spaces.length - levels * INDENT.length;
+  const tabs = unit === '\t';
+  if (!indent || (tabs ? /[^\t]/.test(indent) : indent.includes('\t')) || indent.length < unit.length) return highlightRest(line);
+  const levels = Math.floor(indent.length / unit.length);
+  const remainder = indent.length - levels * unit.length;
   let html = '';
-  for (let i = 0; i < levels; i++) html += `<span class="indent-guide">${INDENT}</span>`;
+  for (let i = 0; i < levels; i++) html += `<span class="indent-guide">${unit}</span>`;
   html += ' '.repeat(remainder);
   return html + highlightRest(line.slice(indent.length));
 }

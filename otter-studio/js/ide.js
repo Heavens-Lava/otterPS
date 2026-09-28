@@ -2,6 +2,7 @@
 
 import { openLaunchProfilesEditor } from './components/launch-profiles.js';
 import { createGitGutter } from './scm/gutter-changes.js';
+import { resolveEditorConfig, indentationFor, indentUnit, DEFAULT_INDENT } from './editor/indentation.js';
 import { openLocalHistory } from './components/local-history.js';
 import {
   filterNavigationItems,
@@ -542,6 +543,7 @@ export class OtterStudioIde {
     });
 
     this.btnEolSelector?.addEventListener('click', () => this.toggleEol());
+    document.getElementById('btnIndentSelector')?.addEventListener('click', (e) => this.openIndentMenu(e.currentTarget));
     this.btnEncodingSelector?.addEventListener('click', () => this.toggleEncoding());
 
     // Bottom Drawer Tab switching
@@ -1933,10 +1935,15 @@ export class OtterStudioIde {
     }
 
     this.normalizeTabLineEndings(tab);
+    if (!tab.indent) {
+      tab.indent = indentationFor(tab.content);
+      this.loadFileSettings(tab);
+    }
     this.currentFile = tab.path;
     this.currentCode = tab.content;
     this.fileEol = tab.eol;
     this.updateEolIndicator();
+    this.applyIndentToEditor({ redraw: false }); // the tab is drawn below
 
     if (this.multiCursor) {
       this.multiCursor.setPrimaryCursor(0, 0);
@@ -2190,6 +2197,9 @@ export class OtterStudioIde {
           tab.externalDeleted = false;
         }
 
+        if (this.currentFile && /(^|\/)\.editorconfig$/.test(this.currentFile)) {
+          for (const t of this.openTabs) this.loadFileSettings(t);
+        }
         if (this.currentFile && this.currentFile.endsWith('project.json')) {
           try {
             const parsed = JSON.parse(this.currentCode);
@@ -2501,9 +2511,10 @@ export class OtterStudioIde {
     if (this.isOtterFile() && this.setting('files.formatOnSave', false)) {
       content = this.formatOtterCode(content);
     }
+    const editorConfig = this.openTabs.find(t => t.path === this.currentFile)?.editorConfig || {};
     content = prepareForSave(content, {
-      trimTrailingWhitespace: this.setting('files.trimTrailingWhitespace', true),
-      insertFinalNewline: this.setting('files.insertFinalNewline', true)
+      trimTrailingWhitespace: editorConfig.trimTrailingWhitespace ?? this.setting('files.trimTrailingWhitespace', true),
+      insertFinalNewline: editorConfig.insertFinalNewline ?? this.setting('files.insertFinalNewline', true)
     });
     if (content !== this.currentCode) {
       this.currentCode = content;
@@ -2545,7 +2556,7 @@ export class OtterStudioIde {
 
       if (line === '.') {
         indentLevel = Math.max(0, indentLevel - 1);
-        formatted.push('    '.repeat(indentLevel) + '.');
+        formatted.push(this.indentText().repeat(indentLevel) + '.');
         continue;
       }
 
@@ -2553,11 +2564,11 @@ export class OtterStudioIde {
 
       if (/^otherwise\b/i.test(line)) {
         const tempIndent = Math.max(0, indentLevel - 1);
-        formatted.push('    '.repeat(tempIndent) + line);
+        formatted.push(this.indentText().repeat(tempIndent) + line);
         continue;
       }
 
-      formatted.push('    '.repeat(indentLevel) + line);
+      formatted.push(this.indentText().repeat(indentLevel) + line);
 
       if (startsBlock) {
         indentLevel++;
@@ -3330,7 +3341,7 @@ export class OtterStudioIde {
   // when the setting is on (the text content is identical either way).
   renderLineHtml(line) {
     const html = this.setting('editor.indentGuides', true) && this.isOtterFile()
-      ? renderIndentGuides(line, (rest) => this.syntaxHighlightLine(rest))
+      ? renderIndentGuides(line, (rest) => this.syntaxHighlightLine(rest), this.indentText())
       : this.syntaxHighlightLine(line);
     return this.setting('editor.renderWhitespace', false) ? markWhitespace(html) : html;
   }
@@ -3373,7 +3384,7 @@ export class OtterStudioIde {
     textarea.style.fontSize = 'var(--editor-font-size, 13px)'; // Settings > Editor > Font size
     textarea.style.lineHeight = '22px';
     textarea.style.letterSpacing = '0px';
-    textarea.style.tabSize = '4';
+    textarea.style.tabSize = 'var(--editor-tab-size, 4)';
     textarea.style.fontVariantLigatures = 'none';
     textarea.style.whiteSpace = this.wordWrap ? 'pre-wrap' : 'pre';
     textarea.style.wordBreak = this.wordWrap ? 'break-all' : 'normal';
@@ -3633,7 +3644,8 @@ export class OtterStudioIde {
         if (e.key === 'Enter') {
           e.preventDefault();
           const edit = enterKey(textarea.value, textarea.selectionStart, textarea.selectionEnd, {
-            autoCloseBlocks: this.isOtterFile() && this.setting('editor.autoCloseBlocks', true)
+            autoCloseBlocks: this.isOtterFile() && this.setting('editor.autoCloseBlocks', true),
+            indentUnit: this.indentText()
           });
           this.applyAssistedEdit(textarea, edit);
           return;
@@ -3653,6 +3665,7 @@ export class OtterStudioIde {
         // Tab and Shift+Tab multi-line indent/un-indent
         if (e.key === 'Tab') {
           e.preventDefault();
+          const unit = this.indentText();
           const start = textarea.selectionStart;
           const end = textarea.selectionEnd;
           const val = textarea.value;
@@ -3665,9 +3678,9 @@ export class OtterStudioIde {
             const lines = block.split('\n');
             let modified;
             if (e.shiftKey) {
-              modified = lines.map(l => l.startsWith('    ') ? l.substring(4) : (l.startsWith('\t') ? l.substring(1) : l)).join('\n');
+              modified = lines.map(l => l.slice(this.outdentWidth(l))).join('\n');
             } else {
-              modified = lines.map(l => '    ' + l).join('\n');
+              modified = lines.map(l => (l.trim() ? unit + l : l)).join('\n');
             }
             this.setEditorValue(textarea, val.substring(0, lineStart) + modified + val.substring(fullBlockEnd));
             textarea.selectionStart = lineStart;
@@ -3675,13 +3688,14 @@ export class OtterStudioIde {
           } else {
             if (e.shiftKey) {
               const lineStart = val.lastIndexOf('\n', start - 1) + 1;
-              if (val.substring(lineStart, lineStart + 4) === '    ') {
-                this.setEditorValue(textarea, val.substring(0, lineStart) + val.substring(lineStart + 4));
-                textarea.selectionStart = textarea.selectionEnd = Math.max(lineStart, start - 4);
+              const width = this.outdentWidth(val.slice(lineStart, val.indexOf('\n', lineStart) === -1 ? val.length : val.indexOf('\n', lineStart)));
+              if (width) {
+                this.setEditorValue(textarea, val.substring(0, lineStart) + val.substring(lineStart + width));
+                textarea.selectionStart = textarea.selectionEnd = Math.max(lineStart, start - width);
               }
             } else {
-              this.setEditorValue(textarea, val.substring(0, start) + '    ' + val.substring(end));
-              textarea.selectionStart = textarea.selectionEnd = start + 4;
+              this.setEditorValue(textarea, val.substring(0, start) + unit + val.substring(end));
+              textarea.selectionStart = textarea.selectionEnd = start + unit.length;
             }
           }
           this.currentCode = textarea.value;
@@ -4906,6 +4920,110 @@ export class OtterStudioIde {
     if (this.editorHoverTooltipEl) {
       this.editorHoverTooltipEl.style.display = 'none';
     }
+  }
+
+  // --- Indentation (js/editor/indentation.js) ---------------------------------
+
+  // How this file is indented and saved: .editorconfig when one applies,
+  // otherwise what its text shows (set when the tab opened). A choice made
+  // from the status bar (tab.indentOverride) stays until the tab closes.
+  async loadFileSettings(tab) {
+    let editorConfig = {};
+    try {
+      const res = await fetch(`/api/editorconfig?path=${encodeURIComponent(tab.path)}`);
+      if (res.ok) editorConfig = resolveEditorConfig(tab.path, (await res.json()).configs || []);
+    } catch { /* no .editorconfig: the text decides */ }
+    tab.editorConfig = editorConfig;
+    if (!tab.indentOverride) tab.indent = indentationFor(tab.content, editorConfig);
+    if (editorConfig.endOfLine) tab.eol = editorConfig.endOfLine.toUpperCase();
+    if (tab.path === this.currentFile) {
+      this.fileEol = tab.eol;
+      this.updateEolIndicator();
+      this.applyIndentToEditor();
+    }
+  }
+
+  currentIndent() {
+    return this.openTabs.find(t => t.path === this.currentFile)?.indent || { ...DEFAULT_INDENT, tabWidth: 4, source: 'default' };
+  }
+
+  // One level of indentation for the current file: spaces or a tab.
+  indentText() {
+    return indentUnit(this.currentIndent());
+  }
+
+  // How much Shift+Tab removes from the start of a line: one tab, or up to
+  // one level of spaces.
+  outdentWidth(line) {
+    if (line.startsWith('\t')) return 1;
+    const size = this.currentIndent().insertSpaces ? this.currentIndent().size : this.currentIndent().tabWidth || 4;
+    return Math.min(line.match(/^ */)[0].length, size);
+  }
+
+  applyIndentToEditor({ redraw = true } = {}) {
+    const indent = this.currentIndent();
+    document.documentElement.style.setProperty('--editor-tab-size', String(indent.tabWidth || indent.size || 4));
+    const label = document.getElementById('btnIndentSelector');
+    if (label) {
+      label.textContent = indent.insertSpaces ? `Spaces: ${indent.size}` : `Tab Size: ${indent.tabWidth || indent.size}`;
+      const from = { editorconfig: 'from .editorconfig', detected: 'detected from the file', default: 'default', manual: 'chosen here' }[indent.source] || '';
+      label.title = `Indentation (${from}). Click to change.`;
+    }
+    if (redraw && this.currentCode !== undefined && this.codeAreaEl) this.renderEditorCode(this.currentCode);
+  }
+
+  // Status bar: choose spaces (2 / 4 / 8) or tabs for this file, or go back
+  // to what .editorconfig or the file's text says.
+  openIndentMenu(anchor) {
+    const tab = this.openTabs.find(t => t.path === this.currentFile);
+    if (!tab) return;
+    document.querySelector('.indent-menu')?.remove();
+    const current = this.currentIndent();
+    const choices = [
+      ...[2, 4, 8].map(size => ({ label: `Indent Using Spaces: ${size}`, on: current.insertSpaces && current.size === size, indent: { insertSpaces: true, size, tabWidth: size } })),
+      { label: 'Indent Using Tabs', on: !current.insertSpaces, indent: { insertSpaces: false, size: current.tabWidth || 4, tabWidth: current.tabWidth || 4 } },
+      { label: tab.editorConfig && (tab.editorConfig.indentStyle || tab.editorConfig.indentSize) ? 'Use .editorconfig' : 'Detect from Content', reset: true }
+    ];
+    const menu = document.createElement('div');
+    menu.className = 'designer-context-menu indent-menu';
+    menu.setAttribute('role', 'menu');
+    for (const choice of choices) {
+      const btn = document.createElement('button');
+      btn.className = `designer-menu-item${choice.on ? ' is-checked' : ''}`;
+      btn.setAttribute('role', 'menuitemradio');
+      btn.setAttribute('aria-checked', String(Boolean(choice.on)));
+      btn.innerHTML = '<span></span><span class="designer-menu-hint"></span>';
+      btn.firstChild.textContent = choice.label;
+      btn.lastChild.textContent = choice.on ? '✓' : '';
+      btn.addEventListener('click', () => {
+        menu.remove();
+        if (choice.reset) {
+          tab.indentOverride = false;
+          tab.indent = indentationFor(tab.content, tab.editorConfig || {});
+        } else {
+          tab.indentOverride = true;
+          tab.indent = { ...choice.indent, source: 'manual' };
+        }
+        this.applyIndentToEditor();
+      });
+      menu.appendChild(btn);
+    }
+    document.body.appendChild(menu);
+    const rect = anchor.getBoundingClientRect();
+    menu.style.left = `${Math.min(rect.left, window.innerWidth - menu.offsetWidth - 8)}px`;
+    menu.style.top = `${rect.top - menu.offsetHeight - 6}px`;
+    menu.querySelector('button')?.focus();
+    const away = (e) => {
+      if (e.type === 'keydown' ? e.key === 'Escape' : !menu.contains(e.target)) {
+        menu.remove();
+        document.removeEventListener('pointerdown', away, true);
+        document.removeEventListener('keydown', away, true);
+      }
+    };
+    setTimeout(() => {
+      document.addEventListener('pointerdown', away, true);
+      document.addEventListener('keydown', away, true);
+    }, 0);
   }
 
   // The text stays LF in the editor; the tab's EOL is what Save writes.
