@@ -1170,6 +1170,9 @@ when b is clicked
 put b, box in app
 show app
 "@
+# A Windows checkout gives this file CRLF line endings; the variants below
+# search for "`n", so use LF regardless of how the file was checked out.
+$twoHandlers = $twoHandlers.Replace("`r`n", "`n")
 $ran = Invoke-Rc3WebPage -Source $twoHandlers -Actions 'b:click'
 if (($ran.Said -join '|') -ne 'first|second') { throw "Expected both click handlers on b to fire, got: $($ran.Said -join '|')" }
 
