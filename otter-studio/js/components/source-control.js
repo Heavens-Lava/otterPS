@@ -367,6 +367,11 @@ export class SourceControlPanel {
     const filePath = fileEl?.dataset.path;
     const s = this.status;
 
+    // Git runs the repository's hooks on these (pre-commit, post-checkout,
+    // post-merge...), which is running workspace code.
+    const runsHooks = ['commit', 'amend', 'pull', 'push', 'branches', 'stash-pop', 'stash-apply'];
+    if (runsHooks.includes(action) && typeof this.ide.ensureTrusted === 'function' && !(await this.ide.ensureTrusted('This Git action'))) return;
+
     switch (action) {
       case 'init': return this.run('Initialize repository', () => this.api('POST', 'init'));
       case 'refresh': return this.refresh();

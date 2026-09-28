@@ -22,6 +22,7 @@
   <link rel="stylesheet" href="css/package-dialog.css">
   <link rel="stylesheet" href="css/settings.css">
   <link rel="stylesheet" href="css/scm.css">
+  <link rel="stylesheet" href="css/tests.css">
 </head>
 <body class="theme-dark">
   <div class="studio-shell">
@@ -598,6 +599,7 @@
           <button class="drawer-tab is-active" data-drawer-tab="problems">Problems</button>
           <button class="drawer-tab" data-drawer-tab="output">Output</button>
           <button class="drawer-tab" data-drawer-tab="terminal">Terminal</button>
+          <button class="drawer-tab" data-drawer-tab="tests">Tests</button>
           <button class="drawer-tab" data-drawer-tab="livecode">⚡ Otter Code</button>
         </div>
       </div>
@@ -631,6 +633,9 @@
             <div class="log-run-entry" style="color: var(--text-muted); font-style: italic;">Program execution logs will appear here. Click ▶ Run to execute your Otter code.</div>
           </div>
         </div>
+
+        <!-- Tests (js/components/test-explorer.js) -->
+        <div class="drawer-panel" id="panelTests" style="display: none; width: 100%; height: 100%; flex-direction: column; min-height: 0;"></div>
 
         <!-- Tab 3: Interactive Terminal -->
         <div class="drawer-panel" id="panelTerminal" style="display: none; width: 100%; height: 100%; flex-direction: column;">

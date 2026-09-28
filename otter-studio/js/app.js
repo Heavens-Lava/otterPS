@@ -17,6 +17,7 @@ import { StyleController } from './designer/style-context.js';
 import { mountStudioShell } from './shell/studio-shell.js';
 import { setWorkspaceTrust } from './project/workspace-solution.js';
 import { SourceControlPanel } from './components/source-control.js';
+import { TestExplorer } from './components/test-explorer.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
   const themeToggle = document.getElementById('btnThemeToggle');
@@ -145,6 +146,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       sourceControl.refresh();
     }
   }
+
+  // Tests tab in the bottom drawer, backed by `otter test`.
+  const testExplorer = new TestExplorer(ide, document.getElementById('panelTests'));
+  testExplorer.init();
+  window.otterTestExplorer = testExplorer;
+  window.addEventListener('otter:project-loaded', () => testExplorer.discover());
+  // A project opened during ide.init() loaded before this listener existed.
+  if (ide.currentProjectFolder) testExplorer.discover();
 
   // Source Control pane (Git), backed by the git command line.
   const sourceControl = new SourceControlPanel(ide, document.getElementById('scmRoot'));
@@ -473,7 +482,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       const panelOut = document.getElementById('panelOutput');
       const panelTerm = document.getElementById('panelTerminal');
       const panelLive = document.getElementById('panelLiveCode');
+      const panelTests = document.getElementById('panelTests');
 
+      if (panelTests) {
+        panelTests.style.display = tabName === 'tests' ? 'flex' : 'none';
+        if (tabName === 'tests' && testExplorer.tests.length === 0) testExplorer.discover();
+      }
       if (panelProb) panelProb.style.display = tabName === 'problems' ? 'flex' : 'none';
       if (panelOut) panelOut.style.display = tabName === 'output' ? 'block' : 'none';
       if (panelTerm) panelTerm.style.display = tabName === 'terminal' ? 'flex' : 'none';

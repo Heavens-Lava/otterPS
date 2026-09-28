@@ -1,0 +1,24 @@
+/* tests.css - Test Explorer (bottom drawer "Tests" tab). Buttons and inputs
+   reuse the .scm-btn / .config-input styles; states pair an icon and a word
+   with colour. */
+.test-toolbar { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-bottom: 1px solid var(--border-subtle); flex-wrap: wrap; font-size: 12px; }
+.test-filter { width: auto; padding: 3px 6px; font-size: 12px; }
+.test-summary { margin-left: auto; color: var(--text-muted); }
+.test-body { display: grid; grid-template-columns: minmax(240px, 40%) 1fr; flex: 1; min-height: 0; }
+.test-list { list-style: none; margin: 0; padding: 4px; overflow-y: auto; border-right: 1px solid var(--border-subtle); font-size: 12px; }
+.test-row { display: grid; grid-template-columns: 16px 1fr auto auto auto; gap: 6px; align-items: center; padding: 3px 6px; border-radius: 4px; cursor: pointer; color: var(--text-main); }
+.test-row:hover { background: var(--bg-hover); }
+.test-row.is-selected { background: var(--bg-selected); }
+.test-row:focus-visible { outline: 2px solid var(--accent-blue); outline-offset: -2px; }
+.test-icon { font-weight: 700; text-align: center; }
+.test-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.test-state, .test-duration { color: var(--text-muted); font-size: 11px; }
+.test-passed .test-icon { color: var(--accent-green); }
+.test-failed .test-icon, .test-error .test-icon { color: #dc2626; }
+.test-running .test-icon { color: var(--accent-blue); display: inline-block; animation: test-spin 1s linear infinite; }
+@keyframes test-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .test-running .test-icon { animation: none; } }
+.test-details { padding: 6px 10px; overflow: auto; font-size: 12px; color: var(--text-main); }
+.test-details-head { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
+.test-message { color: #dc2626; margin-bottom: 6px; }
+.test-output { font-family: var(--font-code); white-space: pre-wrap; margin: 0; background: var(--bg-hover); padding: 6px; border-radius: 4px; }
