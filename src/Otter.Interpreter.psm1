@@ -263,9 +263,12 @@ function Invoke-OtterWebSocketHandlers {
 }
 
 function Invoke-OtterWatchEventLoopStep {
-    param([double]$Timeout = 0.05)
+    param([double]$Timeout = 0.05, [switch]$NoWait)
     if ($script:OtterActiveWatchers.Count -eq 0) { return }
-    $evt = Wait-Event -Timeout $Timeout
+    # -NoWait takes the oldest queued event without blocking. It is used by
+    # `wait`, which does its own timing: Wait-Event's timeout is whole seconds
+    # and even a 0 timeout blocks for about 200 ms.
+    $evt = if ($NoWait) { Get-Event | Select-Object -First 1 } else { Wait-Event -Timeout $Timeout }
     if ($null -eq $evt) { return }
     Remove-Event -EventIdentifier $evt.EventIdentifier -ErrorAction SilentlyContinue
 
@@ -799,11 +802,20 @@ function Test-OtterJobsActive {
     return $false
 }
 
+# EV2 (Otter 1.0 event contract): one event source may not do unbounded work
+# while another ready source is waiting. A job's queue can grow as fast as its
+# process prints, so each call handles at most this many of a job's events and
+# leaves the rest for the next turn; the order within the job is unchanged.
+# The number is an implementation detail, not part of the language contract.
+$script:OtterJobEventsPerTurn = 256
+
 function Invoke-OtterJobEventLoopStep {
     foreach ($job in @($script:OtterActiveCommandJobs)) {
+        $handledThisTurn = 0
         if ($null -ne $job.Tracker) {
             $item = $null
-            while ($job.Tracker.Queue.TryDequeue([ref]$item)) {
+            while ($handledThisTurn -lt $script:OtterJobEventsPerTurn -and $job.Tracker.Queue.TryDequeue([ref]$item)) {
+                $handledThisTurn++
                 $evtKind = $item.Kind
                 $ctx = @{}
                 if ($evtKind -eq 'output') {
@@ -858,7 +870,8 @@ function Invoke-OtterJobEventLoopStep {
         }
 
         $evt = $null
-        while ($job.EventQueue.TryDequeue([ref]$evt)) {
+        while ($handledThisTurn -lt $script:OtterJobEventsPerTurn -and $job.EventQueue.TryDequeue([ref]$evt)) {
+            $handledThisTurn++
             $eventKind = $evt.EventKind
             $context = $evt.Context
             $matching = $null
@@ -885,6 +898,16 @@ function Invoke-OtterJobEventLoopStep {
             }
         }
     }
+}
+
+# One pass over every event source, without the event loop's own waiting.
+# Used by `wait` (EV3).
+function Invoke-OtterWaitServiceStep {
+    Invoke-OtterWatchEventLoopStep -NoWait
+    Invoke-OtterWebSocketEventLoopStep
+    Invoke-OtterNetEventLoopStep
+    Invoke-OtterHttpEventLoopStep
+    Invoke-OtterJobEventLoopStep
 }
 
 function Invoke-OtterEventLoop {
@@ -2351,19 +2374,21 @@ function Invoke-OtterStatement {
                 ([TimeUnit]::Year)        { $amount * 31556952000 }
                 default                   { $amount * 1000 }
             }
+            # EV3 (Otter 1.0 event contract): `wait` lets every active event
+            # source be serviced - the same steps the event loop runs - so a
+            # program can wait for a socket, watcher, request or job to change
+            # state. Handlers still run one at a time, to completion.
             $targetMs = [Math]::Round($millis)
             $sw = [System.Diagnostics.Stopwatch]::StartNew()
             while ($sw.ElapsedMilliseconds -lt $targetMs) {
-                Invoke-OtterHttpEventLoopStep
-                Invoke-OtterJobEventLoopStep
+                Invoke-OtterWaitServiceStep
                 $remaining = $targetMs - $sw.ElapsedMilliseconds
                 if ($remaining -gt 0) {
                     $sleepChunk = [Math]::Min([int]$remaining, 20)
                     Start-Sleep -Milliseconds $sleepChunk
                 }
             }
-            Invoke-OtterHttpEventLoopStep
-            Invoke-OtterJobEventLoopStep
+            Invoke-OtterWaitServiceStep
             return
         }
 
