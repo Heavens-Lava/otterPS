@@ -107,12 +107,29 @@ order.setProperty('#a', 'color', 'blue', '(max-width: 900px)');
 assert.deepEqual(order.getMediaQueries(), ['(max-width: 900px)', '(max-width: 600px)']);
 assert.ok(order.generateCss().indexOf('900px') < order.generateCss().indexOf('600px'));
 
-// 11. A new plain rule is written above the @media blocks, so a breakpoint
-// written earlier still overrides it.
+// 11. A new plain rule for a selector a breakpoint already styles is written
+// above that @media block, so the breakpoint still overrides it. Any other
+// new rule is appended, leaving existing text where it was.
 const late = new CssAstManager('#a { color: red; }\n');
-late.setProperty('#a', 'color', 'green', '(max-width: 600px)');
+late.setProperty('#b', 'color', 'green', '(max-width: 600px)');
 late.setProperty('#b', 'color', 'blue');
+late.setProperty('#c', 'color', 'black');
 const lateCss = late.generateCss();
-assert.ok(lateCss.indexOf('#b {') < lateCss.indexOf('@media'), 'plain rule precedes @media');
+assert.ok(lateCss.indexOf('#b {') < lateCss.indexOf('@media'), 'base #b precedes the @media block that overrides it');
+assert.ok(lateCss.startsWith('#a { color: red; }\n'), 'existing text untouched');
+assert.ok(lateCss.indexOf('#c {') > lateCss.indexOf('@media'), 'unrelated rule appended');
 
-console.log('Designer CSS engine certification passed (11 checks).');
+// 12. Lossless: unedited text comes back byte for byte, and an edit inside
+// an @media block rewrites only that declaration.
+const lossText = '/* keep */\n#a{color:red}\n\n@media (max-width: 900px) {\n  #a { color: blue; margin:0 }\n  #z{top:1px}\n}\n';
+const lossless = new CssAstManager(lossText);
+assert.equal(lossless.generateCss(), lossText);
+assert.equal(lossless.dirty, false);
+lossless.setProperty('#a', 'color', 'green', '(max-width: 900px)');
+assert.equal(lossless.generateCss(), lossText.replace('color: blue', 'color: green'));
+assert.equal(lossless.dirty, true);
+lossless.markSaved('rev-2');
+assert.equal(lossless.dirty, false);
+assert.equal(lossless.revision, 'rev-2');
+
+console.log('Designer CSS engine certification passed (12 checks).');

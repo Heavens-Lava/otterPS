@@ -1,20 +1,47 @@
 // css-ast.js - Lossless CSS AST parser and surgical manipulator
 //
-// Keeps comments, rule order, custom properties (--var) and unknown rules.
 // Understands the parts of CSS the designer writes:
 //   - plain rules            #card { ... }
 //   - state rules            #card:hover { ... }
 //   - @media blocks          @media (max-width: 900px) { #card { ... } }
 // Any other at-rule (@keyframes, @font-face, @supports, @import ...) is kept
-// verbatim, so a hand-written stylesheet survives a designer edit unchanged.
+// verbatim.
 //
-// Every method takes an optional `media` argument: '' (or omitted) means the
-// top level, otherwise the exact media condition text, e.g. '(max-width: 900px)'.
+// Every lookup and edit method takes an optional `media` argument: '' (or
+// omitted) means the top level, otherwise the media condition text, e.g.
+// '(max-width: 900px)'.
+//
+// "Lossless" is a promise the save path depends on: generateCss() gives back
+// the stylesheet exactly as it was read unless the designer changed
+// something, and a change only touches the declaration it is about.
+//
+// How it stays lossless:
+//   * Every item (whitespace, comment, rule, @media block, other at-rule)
+//     keeps its original text in `raw`. An item is only regenerated when it
+//     was edited (`modified`), and an edited @media block regenerates only
+//     its edited rules.
+//   * A rule's body is kept as its original `;`-separated segments. Editing
+//     `color` rewrites only the `color` segment; the others keep their own
+//     spacing, comments and formatting.
+//   * Scanning skips strings, comments and parentheses, so a `;` or `}`
+//     inside `url("data:...;base64,...")` or `content: "}"` is not mistaken
+//     for the end of a declaration or rule.
+//
+// `dirty` becomes true on the first real edit and tells the IDE there is
+// something to write back; the IDE clears it (markSaved) after a save.
+
+const INDENT = '    ';
 
 export class CssAstManager {
   constructor(cssText = '') {
-    this.rawText = cssText;
+    this.rawText = '';
     this.rules = [];
+    this.dirty = false;
+    // Where this stylesheet lives on disk and the revision it was read at.
+    // Set by the IDE; a save sends the revision so a newer file on disk is
+    // reported instead of overwritten.
+    this.sourcePath = null;
+    this.revision = null;
     this.parse(cssText);
   }
 
@@ -24,40 +51,53 @@ export class CssAstManager {
 
   parse(cssText) {
     this.rawText = cssText || '';
-    this.rules = parseBlockItems(this.rawText);
+    this.rules = parseItems(this.rawText);
+    this.dirty = false;
   }
 
   parseDeclarations(bodyText) {
-    return parseDeclarations(bodyText);
+    return parseSegments(bodyText).filter(s => s.type === 'declaration')
+      .map(s => ({ type: 'declaration', property: s.property, value: s.value }));
+  }
+
+  // The save path wrote this text to disk (at `revision`).
+  markSaved(revision = null) {
+    this.dirty = false;
+    this.revision = revision;
   }
 
   // ---------------------------------------------------------------------------
   // Lookup
   // ---------------------------------------------------------------------------
 
+  mediaBlock(media) {
+    const query = normalizeMedia(media);
+    if (!query) return null;
+    return this.rules.find(r => r.type === 'media' && normalizeMedia(r.query) === query) || null;
+  }
+
   // The list of items a selector lives in: the top level or one @media block.
   itemsFor(media = '', create = false) {
     const query = normalizeMedia(media);
     if (!query) return this.rules;
-    let block = this.rules.find(r => r.type === 'media' && normalizeMedia(r.query) === query);
+    let block = this.mediaBlock(query);
     if (!block && create) {
-      block = { type: 'media', query, rules: [] };
-      // Keep max-width breakpoints widest first. When both match (a phone
-      // matches 900px and 600px), the narrower one must come later to win.
-      const width = maxWidthOf(query);
-      const before = width === null ? -1 : this.rules.findIndex(r =>
-        r.type === 'media' && maxWidthOf(r.query) !== null && maxWidthOf(r.query) < width);
-      if (before === -1) this.rules.push(block);
-      else this.rules.splice(before, 0, block);
+      block = newMediaBlock(String(media).trim().replace(/^@media\s+/i, ''));
+      placeMediaBlock(this.rules, block);
     }
-    return block ? block.rules : null;
+    return block ? block.items : null;
   }
 
   findRule(selector, media = '') {
     const items = this.itemsFor(media);
     if (!items) return null;
     const wanted = normalizeSelector(selector);
-    return items.find(r => r.type === 'rule' && normalizeSelector(r.selector) === wanted) || null;
+    // The last matching rule is the one that wins in the cascade.
+    for (let i = items.length - 1; i >= 0; i--) {
+      const r = items[i];
+      if (r.type === 'rule' && normalizeSelector(r.selector) === wanted) return r;
+    }
+    return null;
   }
 
   getProperty(selector, property, media = '') {
@@ -65,9 +105,9 @@ export class CssAstManager {
     if (!rule) return null;
     const wanted = property.toLowerCase();
     // The last declaration wins in CSS, so search from the end.
-    for (let i = rule.declarations.length - 1; i >= 0; i--) {
-      const d = rule.declarations[i];
-      if (d.type === 'declaration' && d.property.toLowerCase() === wanted) return d.value;
+    const decls = declarationsOf(rule);
+    for (let i = decls.length - 1; i >= 0; i--) {
+      if (decls[i].property.toLowerCase() === wanted) return decls[i].value;
     }
     return null;
   }
@@ -76,9 +116,7 @@ export class CssAstManager {
     const rule = this.findRule(selector, media);
     if (!rule) return {};
     const map = {};
-    for (const d of rule.declarations) {
-      if (d.type === 'declaration') map[d.property.toLowerCase()] = d.value;
-    }
+    for (const d of declarationsOf(rule)) map[d.property.toLowerCase()] = d.value;
     return map;
   }
 
@@ -101,15 +139,14 @@ export class CssAstManager {
     const visit = (items) => {
       for (const item of items) {
         if (item.type === 'rule') {
-          for (const d of item.declarations) {
-            if (d.type !== 'declaration') continue;
+          for (const d of declarationsOf(item)) {
             for (const match of d.value.match(colorPattern) || []) {
               const key = match.replace(/\s+/g, ' ').toLowerCase();
               counts.set(key, (counts.get(key) || 0) + 1);
             }
           }
         } else if (item.type === 'media') {
-          visit(item.rules);
+          visit(item.items);
         }
       }
     };
@@ -127,30 +164,37 @@ export class CssAstManager {
   // Set, update or (with null / undefined / '') remove a property.
   setProperty(selector, property, value, media = '') {
     const remove = value === null || value === undefined || value === '';
+    const block = this.mediaBlock(media);
     const items = this.itemsFor(media, !remove);
     if (!items) return;
 
-    const wanted = normalizeSelector(selector);
-    let rule = items.find(r => r.type === 'rule' && normalizeSelector(r.selector) === wanted);
+    let rule = this.findRule(selector, media);
     if (!rule) {
       if (remove) return;
-      rule = { type: 'rule', selector: selector.trim(), declarations: [] };
-      insertRule(items, rule);
+      rule = newRule(selector.trim(), ruleIndentFor(items, block || this.mediaBlock(media)));
+      insertRule(items, rule, !!normalizeMedia(media));
     }
 
     const propLower = property.toLowerCase();
-    const existing = rule.declarations.filter(d => d.type === 'declaration' && d.property.toLowerCase() === propLower);
+    const matches = rule.segments.filter(s => s.type === 'declaration' && s.property.toLowerCase() === propLower);
+    const text = remove ? null : String(value);
 
     if (remove) {
-      rule.declarations = rule.declarations.filter(d => !existing.includes(d));
-    } else if (existing.length > 0) {
-      // Keep the first occurrence in place, drop duplicates that would override it.
-      existing[0].value = String(value);
-      rule.declarations = rule.declarations.filter(d => d === existing[0] || !existing.includes(d));
+      if (matches.length === 0) return;
+      rule.segments = rule.segments.filter(s => !matches.includes(s));
+    } else if (matches.length > 0) {
+      const keep = matches[matches.length - 1];
+      if (matches.length === 1 && keep.value === text) return; // no change
+      // Rewrite the winning occurrence in place; drop earlier duplicates.
+      keep.value = text;
+      keep.modified = true;
+      rule.segments = rule.segments.filter(s => s === keep || !matches.includes(s));
     } else {
-      rule.declarations.push({ type: 'declaration', property, value: String(value) });
+      addDeclaration(rule, property, text);
     }
 
+    rule.modified = true;
+    this.touch(media);
     this.pruneEmpty(items, rule, media);
   }
 
@@ -158,36 +202,44 @@ export class CssAstManager {
     this.setProperty(selector, property, null, media);
   }
 
+  // Mark an edit: the @media block (if any) must regenerate its body.
+  touch(media) {
+    const block = this.mediaBlock(media);
+    if (block) block.modified = true;
+    this.dirty = true;
+  }
+
   // Drop a rule that has no declarations left, and an @media block with no
   // rules left, so the designer never leaves empty `#x { }` litter behind.
   pruneEmpty(items, rule, media) {
-    if (rule && rule.declarations.length === 0) {
-      const idx = items.indexOf(rule);
-      if (idx >= 0) items.splice(idx, 1);
+    if (rule && !rule.segments.some(s => s.type === 'declaration' || s.type === 'comment' || /\S/.test(s.raw))) {
+      removeItem(items, rule);
     }
-    const query = normalizeMedia(media);
-    if (query) {
-      const block = this.rules.find(r => r.type === 'media' && normalizeMedia(r.query) === query);
-      if (block && !block.rules.some(r => r.type === 'rule' || r.type === 'at')) {
-        this.rules.splice(this.rules.indexOf(block), 1);
-      }
+    const block = this.mediaBlock(media);
+    if (block && !block.items.some(r => r.type === 'rule' || r.type === 'at' || r.type === 'comment')) {
+      removeItem(this.rules, block);
     }
   }
 
   // Remove every rule (at any level) whose selector targets `#id`, including
   // its states (`#id:hover`). Used when a component is deleted.
   removeSelectorFamily(id) {
-    const visit = (items) => {
+    let changed = false;
+    const visit = (items, block) => {
       for (let i = items.length - 1; i >= 0; i--) {
         const item = items[i];
-        if (item.type === 'rule' && selectorTargetsId(item.selector, id)) items.splice(i, 1);
-        else if (item.type === 'media') {
-          visit(item.rules);
-          if (!item.rules.some(r => r.type === 'rule' || r.type === 'at')) items.splice(i, 1);
+        if (item.type === 'rule' && selectorTargetsId(item.selector, id)) {
+          removeItem(items, item);
+          changed = true;
+          if (block) block.modified = true;
+        } else if (item.type === 'media') {
+          visit(item.items, item);
+          if (!item.items.some(r => r.type === 'rule' || r.type === 'at' || r.type === 'comment')) removeItem(items, item);
         }
       }
     };
-    visit(this.rules);
+    visit(this.rules, null);
+    if (changed) this.dirty = true;
   }
 
   // Copy every rule for `#fromId` (states and breakpoints included) onto `#toId`.
@@ -196,59 +248,66 @@ export class CssAstManager {
     const visit = (items, media) => {
       for (const item of items) {
         if (item.type === 'rule' && selectorTargetsId(item.selector, fromId)) {
-          copies.push({ media, selector: replaceId(item.selector, fromId, toId), declarations: item.declarations });
+          copies.push({ media, selector: replaceId(item.selector, fromId, toId), declarations: declarationsOf(item) });
         } else if (item.type === 'media') {
-          visit(item.rules, item.query);
+          visit(item.items, item.query);
         }
       }
     };
     visit(this.rules, '');
     for (const copy of copies) {
-      for (const d of copy.declarations) {
-        if (d.type === 'declaration') this.setProperty(copy.selector, d.property, d.value, copy.media);
-      }
+      for (const d of copy.declarations) this.setProperty(copy.selector, d.property, d.value, copy.media);
     }
   }
 
   // Rename `#oldId` to `#newId` in every selector, in place.
   renameSelectorFamily(oldId, newId) {
-    const visit = (items) => {
+    const visit = (items, block) => {
       for (const item of items) {
         if (item.type === 'rule' && selectorTargetsId(item.selector, oldId)) {
-          item.selector = replaceId(item.selector, oldId, newId);
+          const next = replaceId(item.selector, oldId, newId);
+          item.selectorRaw = item.selectorRaw.replace(item.selector, next);
+          item.selector = next;
+          item.modified = true;
+          if (block) block.modified = true;
+          this.dirty = true;
         } else if (item.type === 'media') {
-          visit(item.rules);
+          visit(item.items, item);
         }
       }
     };
-    visit(this.rules);
+    visit(this.rules, null);
   }
 
   // ---------------------------------------------------------------------------
   // Output
   // ---------------------------------------------------------------------------
 
-  // One blank line between top-level items; comments and unknown rules kept.
-  // The output is stable: parse(generateCss()) then generateCss() is identical.
+  // The stylesheet text: unedited items exactly as they were read.
   generateCss() {
-    const out = emitItems(this.rules, '');
-    return out.trim() ? out.trim() + '\n' : '';
+    return emitItems(this.rules);
   }
 }
 
 // -----------------------------------------------------------------------------
-// Parser helpers
+// Parsing
 // -----------------------------------------------------------------------------
 
-function parseBlockItems(text) {
+// Items of one level (the stylesheet, or an @media body), with whitespace kept
+// as items so that joining every `raw` gives the text back.
+function parseItems(text) {
   const items = [];
-  let i = 0;
   const len = text.length;
+  let i = 0;
 
   while (i < len) {
-    const ch = text[i];
-
-    if (/\s/.test(ch)) { i++; continue; }
+    if (/\s/.test(text[i])) {
+      let j = i;
+      while (j < len && /\s/.test(text[j])) j++;
+      items.push({ type: 'whitespace', raw: text.slice(i, j) });
+      i = j;
+      continue;
+    }
 
     if (text.startsWith('/*', i)) {
       const end = text.indexOf('*/', i + 2);
@@ -258,39 +317,37 @@ function parseBlockItems(text) {
       continue;
     }
 
-    // A statement at-rule with no block: @import url(x); @charset "utf-8";
-    if (ch === '@') {
-      const semi = findTopLevel(text, i, ';');
-      const brace = findTopLevel(text, i, '{');
-      if (semi !== -1 && (brace === -1 || semi < brace)) {
-        items.push({ type: 'at', raw: text.slice(i, semi + 1).trim() });
-        i = semi + 1;
-        continue;
-      }
-    }
-
-    const open = findTopLevel(text, i, '{');
-    if (open === -1) {
-      const remainder = text.slice(i).trim();
-      if (remainder) items.push({ type: 'raw', raw: remainder });
+    // A prelude runs to the first top-level `{` (a block) or `;` (a
+    // statement such as `@import url(x);`).
+    const stop = scanUntil(text, i, ch => ch === '{' || ch === ';');
+    if (stop >= len) {
+      items.push({ type: 'raw', raw: text.slice(i) });
       break;
     }
-    const close = findMatchingBrace(text, open);
+    if (text[stop] === ';') {
+      items.push({ type: 'at', raw: text.slice(i, stop + 1) });
+      i = stop + 1;
+      continue;
+    }
+
+    const close = matchingBrace(text, stop);
     if (close === -1) {
-      items.push({ type: 'raw', raw: text.slice(i).trim() });
+      items.push({ type: 'raw', raw: text.slice(i) });
       break;
     }
 
-    const prelude = text.slice(i, open).trim();
-    const body = text.slice(open + 1, close);
+    const preludeRaw = text.slice(i, stop);
+    const prelude = preludeRaw.trim();
+    const raw = text.slice(i, close + 1);
+    const body = text.slice(stop + 1, close);
 
     const mediaMatch = prelude.match(/^@media\s+([\s\S]+)$/i);
     if (mediaMatch) {
-      items.push({ type: 'media', query: mediaMatch[1].trim(), rules: parseBlockItems(body) });
+      items.push({ type: 'media', raw, preludeRaw, query: mediaMatch[1].trim(), items: parseItems(body), modified: false });
     } else if (prelude.startsWith('@')) {
-      items.push({ type: 'at', raw: text.slice(i, close + 1).trim() });
+      items.push({ type: 'at', raw });
     } else {
-      items.push({ type: 'rule', selector: prelude, declarations: parseDeclarations(body) });
+      items.push({ type: 'rule', raw, selectorRaw: preludeRaw, selector: prelude, segments: parseSegments(body), modified: false });
     }
     i = close + 1;
   }
@@ -298,67 +355,49 @@ function parseBlockItems(text) {
   return items;
 }
 
-// Split a declaration block on top-level `;`, ignoring semicolons inside
-// strings, parentheses (url(data:...;base64,...)) and comments.
-function parseDeclarations(bodyText) {
-  const decls = [];
-  const text = bodyText || '';
+// A rule body as its `;`-separated segments. Joining every segment's `raw`
+// with ';' gives the body back exactly.
+function parseSegments(body) {
+  const text = body || '';
+  const segments = [];
   let start = 0;
   let i = 0;
-  let depth = 0;
-  let quote = null;
-
-  const flush = (end) => {
-    const part = text.slice(start, end).trim();
-    start = end + 1;
-    if (!part) return;
-    // Standalone comments become their own entries; a comment glued to a
-    // declaration stays with it.
-    let rest = part;
-    while (rest.startsWith('/*')) {
-      const endComment = rest.indexOf('*/');
-      if (endComment === -1) break;
-      decls.push({ type: 'comment', raw: rest.slice(0, endComment + 2) });
-      rest = rest.slice(endComment + 2).trim();
-    }
-    if (!rest) return;
-    const colon = rest.indexOf(':');
-    if (colon === -1) {
-      decls.push({ type: 'raw', raw: rest });
-      return;
-    }
-    decls.push({
-      type: 'declaration',
-      property: rest.slice(0, colon).trim(),
-      value: rest.slice(colon + 1).trim()
-    });
-  };
-
+  const push = (end) => segments.push(makeSegment(text.slice(start, end)));
   while (i < text.length) {
-    const ch = text[i];
-    if (quote) {
-      if (ch === '\\') { i += 2; continue; }
-      if (ch === quote) quote = null;
-    } else if (text.startsWith('/*', i)) {
-      const end = text.indexOf('*/', i + 2);
-      i = end === -1 ? text.length : end + 2;
-      continue;
-    } else if (ch === '"' || ch === "'") {
-      quote = ch;
-    } else if (ch === '(') {
-      depth++;
-    } else if (ch === ')') {
-      depth = Math.max(0, depth - 1);
-    } else if (ch === ';' && depth === 0) {
-      flush(i);
-    }
-    i++;
+    const next = scanUntil(text, i, ch => ch === ';');
+    if (next >= text.length) break;
+    push(next);
+    start = next + 1;
+    i = start;
   }
-  flush(text.length);
-  return decls;
+  push(text.length);
+  return segments;
 }
 
-function findTopLevel(text, from, target) {
+function makeSegment(raw) {
+  // Leading comments stay part of the segment's raw text; the declaration is
+  // what follows them.
+  let rest = raw;
+  let lead = '';
+  for (;;) {
+    const m = rest.match(/^(\s*\/\*[\s\S]*?\*\/)/);
+    if (!m) break;
+    lead += m[1];
+    rest = rest.slice(m[1].length);
+  }
+  const colon = scanUntil(rest, 0, ch => ch === ':');
+  if (!rest.trim() || colon >= rest.length) {
+    return { type: lead && !rest.trim() ? 'comment' : 'other', raw };
+  }
+  const property = rest.slice(0, colon).trim();
+  const value = rest.slice(colon + 1).trim();
+  if (!property || /\s/.test(property)) return { type: 'other', raw };
+  return { type: 'declaration', raw, property, value, modified: false };
+}
+
+// Index of the first top-level character matching `test`, skipping strings,
+// comments and parentheses; text.length when there is none.
+function scanUntil(text, from, test) {
   let quote = null;
   let depth = 0;
   for (let i = from; i < text.length; i++) {
@@ -370,19 +409,19 @@ function findTopLevel(text, from, target) {
     }
     if (text.startsWith('/*', i)) {
       const end = text.indexOf('*/', i + 2);
-      if (end === -1) return -1;
+      if (end === -1) return text.length;
       i = end + 1;
       continue;
     }
     if (ch === '"' || ch === "'") quote = ch;
     else if (ch === '(') depth++;
     else if (ch === ')') depth = Math.max(0, depth - 1);
-    else if (ch === target && depth === 0) return i;
+    else if (depth === 0 && test(ch)) return i;
   }
-  return -1;
+  return text.length;
 }
 
-function findMatchingBrace(text, open) {
+function matchingBrace(text, open) {
   let depth = 0;
   let quote = null;
   for (let i = open; i < text.length; i++) {
@@ -409,48 +448,176 @@ function findMatchingBrace(text, open) {
 }
 
 // -----------------------------------------------------------------------------
-// Output and selector helpers
+// Editing helpers
 // -----------------------------------------------------------------------------
 
-function emitItems(items, indent) {
-  const blocks = [];
-  for (const item of items) {
-    if (item.type === 'comment' || item.type === 'raw' || item.type === 'at') {
-      blocks.push(indentText(item.raw, indent));
-    } else if (item.type === 'rule') {
-      const inner = indent + '    ';
-      const lines = [`${indent}${item.selector} {`];
-      for (const d of item.declarations) {
-        if (d.type === 'declaration') lines.push(`${inner}${d.property}: ${d.value};`);
-        else if (d.type === 'comment') lines.push(`${inner}${d.raw}`);
-        else if (d.type === 'raw') lines.push(`${inner}${d.raw};`);
-      }
-      lines.push(`${indent}}`);
-      blocks.push(lines.join('\n'));
-    } else if (item.type === 'media') {
-      const body = emitItems(item.rules, indent + '    ').replace(/\n+$/, '');
-      blocks.push(`${indent}@media ${item.query} {\n${body}\n${indent}}`);
+function declarationsOf(rule) {
+  return rule.segments.filter(s => s.type === 'declaration');
+}
+
+function newRule(selector, indent) {
+  return {
+    type: 'rule',
+    raw: '',
+    selectorRaw: `${indent}${selector} `,
+    selector,
+    // Body "\n<indent>    " + declarations + "\n<indent>": the trailing
+    // segment carries the closing line's indentation.
+    segments: [{ type: 'other', raw: `\n${indent}` }],
+    indent,
+    modified: true,
+    fresh: true
+  };
+}
+
+function newMediaBlock(query) {
+  return { type: 'media', raw: '', preludeRaw: `@media ${query} `, query, items: [{ type: 'whitespace', raw: '\n' }], modified: true, fresh: true };
+}
+
+// Append a declaration, in the rule's own style: one per line with the
+// indentation of its existing declarations, or inline for one-line rules.
+function addDeclaration(rule, property, value) {
+  const segs = rule.segments;
+  const lastDecl = [...segs].reverse().find(s => s.type === 'declaration');
+  const tail = segs[segs.length - 1];
+  const tailIsTrailing = tail && tail.type !== 'declaration' && !/\S/.test(tail.raw);
+  const multiLine = segs.some(s => s.raw.includes('\n')) || rule.fresh;
+
+  let lead;
+  if (lastDecl) {
+    lead = lastDecl.raw.match(/^\s*/)[0];
+    if (!multiLine) lead = ' ';
+  } else if (multiLine) {
+    lead = `\n${(rule.indent ?? (tail ? tail.raw.replace(/^[\s\S]*\n/, '') : '')) + INDENT}`;
+  } else {
+    lead = ' ';
+  }
+  const decl = { type: 'declaration', raw: '', property, value, modified: true, lead };
+
+  if (tailIsTrailing) {
+    segs.splice(segs.length - 1, 0, decl);
+  } else {
+    // The body did not end with `;` (e.g. `color:white}`): the new
+    // declaration follows the last one, and closes the same way.
+    segs.push(decl);
+  }
+}
+
+// Where a new rule goes: at the end, so existing text is untouched - except
+// at the top level when an @media block already styles the same selector.
+// Then it goes before that block: a plain rule after a breakpoint would
+// override it (same specificity, later wins).
+function insertRule(items, rule, inMedia) {
+  let at = items.length;
+  if (!inMedia) {
+    const wanted = normalizeSelector(rule.selector);
+    const firstOverride = items.findIndex(r => r.type === 'media' &&
+      r.items.some(x => x.type === 'rule' && normalizeSelector(x.selector) === wanted));
+    if (firstOverride !== -1) at = firstOverride;
+  }
+  // Keep trailing whitespace after the new rule.
+  while (at > 0 && items[at - 1].type === 'whitespace') at--;
+  const before = at === 0 ? (inMedia ? '\n' : '') : '\n\n';
+  const hasFollowing = at < items.length;
+  const insert = [];
+  if (before) insert.push({ type: 'whitespace', raw: before });
+  insert.push(rule);
+  if (hasFollowing && items[at].type !== 'whitespace') insert.push({ type: 'whitespace', raw: '\n\n' });
+  if (!hasFollowing) insert.push({ type: 'whitespace', raw: '\n' });
+  items.splice(at, 0, ...insert);
+}
+
+// New @media blocks keep max-width breakpoints widest first and min-width
+// breakpoints narrowest first: when two match, the more specific one must
+// come later to win. Anything else goes at the end.
+function placeMediaBlock(items, block) {
+  const max = maxWidthOf(block.query);
+  const min = minWidthOf(block.query);
+  let at = items.length;
+  if (max !== null) {
+    const i = items.findIndex(r => r.type === 'media' && maxWidthOf(r.query) !== null && maxWidthOf(r.query) < max);
+    if (i !== -1) at = i;
+  } else if (min !== null) {
+    const i = items.findIndex(r => r.type === 'media' && minWidthOf(r.query) !== null && minWidthOf(r.query) > min);
+    if (i !== -1) at = i;
+  }
+  while (at > 0 && at === items.length && items[at - 1].type === 'whitespace') at--;
+  const insert = [];
+  if (at > 0) insert.push({ type: 'whitespace', raw: '\n\n' });
+  insert.push(block);
+  if (at < items.length && items[at].type !== 'whitespace') insert.push({ type: 'whitespace', raw: '\n\n' });
+  if (at >= items.length) insert.push({ type: 'whitespace', raw: '\n' });
+  items.splice(at, 0, ...insert);
+}
+
+// Remove an item and the separator in front of it, so no blank-line litter
+// is left behind.
+function removeItem(items, item) {
+  const i = items.indexOf(item);
+  if (i === -1) return;
+  const prev = items[i - 1];
+  const next = items[i + 1];
+  if (prev && prev.type === 'whitespace' && (!next || next.type === 'whitespace')) items.splice(i - 1, 2);
+  else items.splice(i, 1);
+}
+
+// Indentation for a new rule at this level: that of an existing rule, else
+// one level inside an @media block.
+function ruleIndentFor(items, block) {
+  for (let i = 0; i < items.length; i++) {
+    if (items[i].type === 'rule') {
+      // Indentation is the end of the whitespace before the rule plus any
+      // spaces at the start of its own selector text.
+      const own = items[i].selectorRaw.match(/^[ \t]*/)[0];
+      const prev = items[i - 1];
+      const fromWhitespace = prev && prev.type === 'whitespace' && prev.raw.includes('\n')
+        ? prev.raw.replace(/^[\s\S]*\n/, '') : '';
+      return fromWhitespace + own;
     }
   }
-  return blocks.join('\n\n') + (blocks.length ? '\n' : '');
+  return block ? INDENT : '';
 }
 
-function indentText(text, indent) {
-  if (!indent) return text;
-  return text.split('\n').map(line => indent + line.replace(/^\s+/, '')).join('\n');
+// -----------------------------------------------------------------------------
+// Output
+// -----------------------------------------------------------------------------
+
+function emitItems(items) {
+  let out = '';
+  for (const item of items) {
+    if (item.type === 'rule') out += item.modified ? emitRule(item) : item.raw;
+    else if (item.type === 'media') out += item.modified ? `${item.preludeRaw}{${emitItems(item.items)}}` : item.raw;
+    else out += item.raw;
+  }
+  return out;
 }
 
-// New rules go after the last existing rule, keeping trailing comments last.
-// At the top level they go before the first @media block: a plain rule that
-// came after a breakpoint would override it (same specificity, later wins).
-function insertRule(items, rule) {
-  const firstMedia = items.findIndex(r => r.type === 'media');
-  let idx = firstMedia === -1 ? items.length : firstMedia;
-  while (idx > 0 && items[idx - 1].type === 'comment') idx--;
-  // A leading file comment (idx 0) should stay above rules.
-  if (idx === 0 && items.length > 0 && firstMedia === -1) idx = items.length;
-  items.splice(idx, 0, rule);
+function emitRule(rule) {
+  const body = rule.segments.map(seg => {
+    if (seg.type !== 'declaration' || !seg.modified) return seg.raw;
+    // Rewritten declaration: keep the original leading whitespace (and any
+    // leading comment) and trailing whitespace.
+    if (seg.raw) {
+      const lead = seg.raw.match(/^(\s*(?:\/\*[\s\S]*?\*\/\s*)*)/)[1];
+      const trail = seg.raw.match(/\s*$/)[0];
+      return `${lead}${seg.property}: ${seg.value}${trail}`;
+    }
+    return `${seg.lead ?? ' '}${seg.property}: ${seg.value}`;
+  });
+  // New declarations are always followed by `;`: join adds it between
+  // segments; a new last declaration (body had no trailing `;`) gets none,
+  // matching how the rule was written.
+  let text = body.join(';');
+  if (rule.fresh) {
+    // A new rule: "{\n    a: b;\n}" - the trailing segment is "\n<indent>".
+    text = rule.segments.length > 1 ? body.slice(0, -1).join(';') + ';' + body[body.length - 1] : body.join(';');
+  }
+  return `${rule.selectorRaw}{${text}}`;
 }
+
+// -----------------------------------------------------------------------------
+// Selector and media helpers
+// -----------------------------------------------------------------------------
 
 function normalizeSelector(selector) {
   return String(selector || '').trim().replace(/\s+/g, ' ').replace(/\s*([>+~,])\s*/g, '$1');
@@ -460,12 +627,15 @@ function normalizeMedia(media) {
   return String(media || '').trim().replace(/^@media\s+/i, '').replace(/\s+/g, ' ').replace(/\(\s+/g, '(').replace(/\s+\)/g, ')').replace(/\s*:\s*/g, ': ');
 }
 
-// The px value of a plain `(max-width: N)` condition, else null.
-function maxWidthOf(query) {
-  const m = String(query).match(/^\(\s*max-width\s*:\s*(\d*\.?\d+)(px|em|rem)?\s*\)$/i);
+function widthOf(query, kind) {
+  const m = String(query).match(new RegExp(`^\\(\\s*${kind}-width\\s*:\\s*(\\d*\\.?\\d+)(px|em|rem)?\\s*\\)$`, 'i'));
   if (!m) return null;
   return Number(m[1]) * (m[2] && m[2].toLowerCase() !== 'px' ? 16 : 1);
 }
+
+// The px value of a plain `(max-width: N)` / `(min-width: N)` condition, else null.
+function maxWidthOf(query) { return widthOf(query, 'max'); }
+function minWidthOf(query) { return widthOf(query, 'min'); }
 
 function escapeRegex(text) {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

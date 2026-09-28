@@ -3,6 +3,7 @@ import { CssAstManager } from './compiler/css-ast.js';
 import { StarterTemplates } from './templates/starter-templates.js';
 import { generateOtterSource } from './compiler/otter-generator.js';
 import { parseOtterSource } from './compiler/otter-parser.js';
+import { snapshotDesign, spliceDesignIntoSource, designMatchesBaseline } from './compiler/source-splice.js';
 
 import { renderToolbox } from './components/toolbox.js';
 import { renderHierarchy } from './components/hierarchy.js';
@@ -59,6 +60,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   window.otterUiModel = uiModel;
   window.otterCssAstManager = cssAstManager;
   window.otterIde = ide;
+
+  // The CSS model starts with the blank template's CSS and no file. Bind it
+  // to the restored project's real stylesheet (ide.init ran before the
+  // manager existed, so it could not do this itself).
+  await ide.loadDesignerStylesheet();
 
   // Mount components
   const toolboxEl = document.getElementById('toolboxPanel');
@@ -138,24 +144,92 @@ document.addEventListener('DOMContentLoaded', async () => {
   btnPaneSearch?.addEventListener('click', () => switchSidebarPane('search'));
   window.addEventListener('otter:sidebar-pane', event => switchSidebarPane(event.detail));
 
-  // Live Code Synchronizer from UI Model -> Code Editors
-  function syncCodeFromUiModel() {
-    if (!uiModel.getRoot()) return;
-    const generatedCode = generateOtterSource(uiModel);
-    ide.currentCode = generatedCode;
-    if (ide.codeAreaEl) {
-      ide.renderEditorCode(generatedCode);
-    }
-    const liveCodeArea = document.getElementById('drawerGeneratedCodeArea');
-    if (liveCodeArea) {
-      liveCodeArea.textContent = generatedCode;
-    }
+  // ---------------------------------------------------------------
+  // Designer <-> source binding
+  // ---------------------------------------------------------------
+  // The designer model always belongs to exactly one .ot file: the one it
+  // was last read from. `baseline` is a snapshot of the model as that file
+  // describes it. A designer change is written back by splicing the
+  // difference (baseline -> model) into that file's text, so only the
+  // statements the change affects are rewritten. See source-splice.js.
+  //
+  // Invariant: the designer never writes to any file except `designBinding.file`.
+  const designBinding = { file: null, baseline: null };
+
+  function bindDesign(file) {
+    designBinding.file = file || null;
+    designBinding.baseline = uiModel.getRoot() ? snapshotDesign(uiModel) : null;
   }
+
+  function writeDesignToSource() {
+    const file = designBinding.file;
+    if (!file || !file.endsWith('.ot')) return;
+    if (designMatchesBaseline(designBinding.baseline, uiModel)) return;
+
+    const isActive = ide.currentFile === file;
+    const tab = ide.openTabs.find(t => t.path === file);
+    if (!isActive && !tab) return; // the bound file was closed: nothing to write to
+
+    const source = isActive ? ide.currentCode : tab.content;
+    const next = spliceDesignIntoSource(source, designBinding.baseline, uiModel);
+    designBinding.baseline = snapshotDesign(uiModel);
+    if (next === source) return;
+
+    if (isActive) {
+      ide.currentCode = next;
+      const textarea = document.getElementById('hiddenEditorInput');
+      if (textarea) textarea.value = next;
+      if (ide.codeAreaEl) ide.renderEditorCode(next);
+      ide.markCurrentTabDirty(true);
+    } else {
+      tab.content = next;
+      tab.isDirty = true;
+      ide.renderTabs();
+    }
+    ide.saveSessionState();
+    showLiveCode();
+  }
+
+  // The "Live Code" drawer shows the bound file's real text.
+  function showLiveCode() {
+    const liveCodeArea = document.getElementById('drawerGeneratedCodeArea');
+    if (!liveCodeArea) return;
+    const file = designBinding.file;
+    const tab = ide.openTabs.find(t => t.path === file);
+    liveCodeArea.textContent = file === ide.currentFile ? ide.currentCode : (tab ? tab.content : generateOtterSource(uiModel));
+  }
+
+  // Designer style edits (properties panel, canvas resize) change the CSS
+  // model. When the project's stylesheet is open in a tab, hand the new text
+  // to that tab as an unsaved edit; otherwise saveDesignerStylesheet writes
+  // it (with its revision) on the next save.
+  window.addEventListener('css-updated', event => {
+    const origin = event.detail?.source;
+    if (origin === 'editor' || origin === 'disk') return;
+    const sheetPath = cssAstManager.sourcePath;
+    if (!sheetPath || !cssAstManager.dirty) return;
+    const tab = ide.openTabs.find(t => t.path === sheetPath);
+    if (!tab) return;
+    const css = cssAstManager.generateCss();
+    if (ide.currentFile === sheetPath) {
+      ide.currentCode = css;
+      const textarea = document.getElementById('hiddenEditorInput');
+      if (textarea) textarea.value = css;
+      if (ide.codeAreaEl) ide.renderEditorCode(css);
+      ide.markCurrentTabDirty(true);
+    } else {
+      tab.content = css;
+      tab.isDirty = true;
+      ide.renderTabs();
+    }
+    cssAstManager.dirty = false; // the tab owns the unsaved text now
+    ide.saveSessionState();
+  });
 
   let sourceSyncTimer = null;
   let sourceSyncRevision = 0;
 
-  async function syncUiFromSource(source, immediate = false) {
+  async function syncUiFromSource(source, immediate = false, file = ide.currentFile) {
     const revision = ++sourceSyncRevision;
     if (sourceSyncTimer) clearTimeout(sourceSyncTimer);
 
@@ -165,6 +239,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       // Empty source is a valid empty design, not a reason to retain stale UI.
       if (!source || !source.trim()) {
         parseOtterSource('', uiModel);
+        bindDesign(file);
         return;
       }
 
@@ -181,6 +256,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       // a complete window declaration, so incomplete edits keep the last
       // valid visual tree while the user is typing.
       if (parseOtterSource(source, uiModel)) {
+        bindDesign(file);
         if (selectedNames.length) {
           const byName = new Map(uiModel.getAllComponents().map(c => [c.name, c.id]));
           const ids = selectedNames.map(n => byName.get(n)).filter(Boolean);
@@ -189,6 +265,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.dispatchEvent(new CustomEvent('otter:source-synced', {
           detail: { source }
         }));
+        return;
+      }
+
+      // Not (yet) a UI. If the model still shows a different file's design,
+      // unbind it now so no designer click can write that design here.
+      if (designBinding.file !== file) {
+        uiModel.clearFromSource();
+        bindDesign(file);
         return;
       }
 
@@ -203,6 +287,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const result = await response.json();
         if (revision === sourceSyncRevision && result.ok) {
           uiModel.clearFromSource();
+          bindDesign(file);
         }
       } catch (error) {
         console.warn('Could not validate source for visual synchronization:', error);
@@ -220,6 +305,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const source = event.detail?.source ?? '';
     const file = event.detail?.file ?? ide.currentFile;
     if (event.detail?.origin === 'component-editor') {
+      // That editor only edits Otter source; never let it overwrite a
+      // stylesheet or JSON file that happens to be the active tab.
+      if (ide.currentFile && !ide.currentFile.endsWith('.ot')) return;
       ide.currentCode = source;
       const activeTab = ide.openTabs.find(tab => tab.path === ide.currentFile);
       if (activeTab) {
@@ -229,7 +317,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       ide.saveSessionState();
     }
     if (file && file.endsWith('.css')) {
-      if (cssAstManager) {
+      // Only the designer's own stylesheet may replace its CSS model.
+      if (cssAstManager && file === cssAstManager.sourcePath) {
         try {
           cssAstManager.parse(source);
           const styleTag = document.getElementById('canvasUserCss');
@@ -242,7 +331,16 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
       window.dispatchEvent(new CustomEvent('otter:source-synced', { detail: { source, file } }));
     } else if (!file || file.endsWith('.ot')) {
-      syncUiFromSource(source);
+      syncUiFromSource(source, false, file);
+    }
+  });
+
+  // A different tab became active. A .ot tab becomes the designer's file;
+  // for other files the designer stays bound to its .ot file.
+  window.addEventListener('otter:active-file-changed', event => {
+    const file = event.detail?.file;
+    if (file && file.endsWith('.ot') && file !== designBinding.file) {
+      syncUiFromSource(event.detail.source ?? '', true, file);
     }
   });
 
@@ -269,48 +367,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (touched) ide.renderTabs();
   });
 
-  // Opening the project's styles.css must not throw away designer style edits
-  // that are not saved yet: the CSS engine holds them, the disk does not. A
-  // styles.css tab that is already open is kept in step by the css-updated
-  // handler above; this covers opening it for the first time.
-  const loadFileFromDisk = ide.loadFile.bind(ide);
-  ide.loadFile = async function (filePath) {
-    const sidecar = ide.currentProjectFolder && filePath === `${ide.currentProjectFolder}/styles.css`;
-    if (sidecar && !ide.openTabs.some(t => t.path === filePath)) {
-      try {
-        const res = await fetch(`/api/file?path=${encodeURIComponent(filePath)}`);
-        const data = await res.json();
-        const engineCss = cssAstManager.generateCss();
-        if (typeof data.content === 'string' && data.content !== engineCss) {
-          ide.openTabs.push({
-            path: filePath, name: 'styles.css', content: engineCss, isDirty: true, icon: '🎨',
-            diskRevision: data.revision || null, externalRevision: null, externalContent: null,
-            externalDeleted: false, selectionStart: 0, selectionEnd: 0, scrollTop: 0, scrollLeft: 0
-          });
-        }
-      } catch { /* fall back to the plain load */ }
-    }
-    return loadFileFromDisk(filePath);
-  };
-
   // Style provenance "Go to source": open the .ot file at the component's
   // declaration, or styles.css at the rule (inside the right @media block),
   // with the cursor on the property when it can be found.
-  let designFile = ide.currentFile && ide.currentFile.endsWith('.ot') ? ide.currentFile : null;
-  window.addEventListener('otter:source-synced', (e) => {
-    const f = e.detail?.file;
-    if (f && f.endsWith('.ot')) designFile = f;
-  });
   window.addEventListener('otter:reveal-style-source', async (event) => {
     const { location, prop } = event.detail || {};
     if (!location) return;
     const escapeRe = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    if (ide.currentFile && ide.currentFile.endsWith('.ot')) designFile = ide.currentFile;
     // Show code beside the designer first; switching layout later would
     // reset the editor's scroll position.
     if (!centerWorkArea.classList.contains('is-split')) setMode('split');
     if (location.file === 'source') {
-      const path = designFile || ide.openTabs.find(t => t.path?.endsWith('.ot'))?.path;
+      const path = designBinding.file; // the one .ot file the designer shows
       if (!path) return;
       await ide.loadFile(path);
       const lines = ide.currentCode.split('\n');
@@ -319,8 +387,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (index < 0) return;
       const keyMatch = location.key ? lines[index].match(new RegExp(`\\b${escapeRe(location.key)}\\b`)) : null;
       await ide.navigateToLocation({ path, line: index + 1, column: keyMatch ? keyMatch.index : 0 });
-    } else if (location.file === 'styles.css' && ide.currentProjectFolder) {
-      const path = `${ide.currentProjectFolder}/styles.css`;
+    } else if (location.file === 'styles.css' && cssAstManager.sourcePath) {
+      const path = cssAstManager.sourcePath;
       await ide.loadFile(path);
       const lines = ide.currentCode.split('\n');
       let start = 0;
@@ -358,18 +426,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   uiModel.subscribe((changeType) => {
     if (changeType === 'parse' || changeType === 'source-clear') {
-      const liveCodeArea = document.getElementById('drawerGeneratedCodeArea');
-      if (liveCodeArea) liveCodeArea.textContent = ide.currentCode;
+      showLiveCode();
       return;
     }
-    if (!ide.currentFile || ide.currentFile.endsWith('.ot')) {
-      syncCodeFromUiModel();
-    }
+    // Selecting a control never changes the file. Everything else goes
+    // through the splicer, which writes nothing if the design is unchanged.
+    if (changeType === 'select') return;
+    writeDesignToSource();
   });
 
   // Reconcile the file loaded during IDE initialization. This listener is
   // installed after init, so the initial source needs one explicit pass.
-  syncUiFromSource(ide.currentCode, true);
+  syncUiFromSource(ide.currentCode, true, ide.currentFile);
 
   // Bottom Drawer Tabs
   const drawerTabs = document.querySelectorAll('.drawer-tab');
@@ -389,7 +457,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (panelLive) {
         panelLive.style.display = tabName === 'livecode' ? 'block' : 'none';
         if (tabName === 'livecode') {
-          syncCodeFromUiModel();
+          showLiveCode();
         }
       }
     });
@@ -441,7 +509,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       bottomDrawer.style.display = 'flex';
 
       if (!ide.currentFile || ide.currentFile.endsWith('.ot')) {
-        syncUiFromSource(ide.currentCode, true);
+        syncUiFromSource(ide.currentCode, true, ide.currentFile);
       }
     } else if (mode === 'split') {
       setOutlineContext('designer');
@@ -455,7 +523,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       bottomDrawer.style.display = 'none';
 
       if (!ide.currentFile || ide.currentFile.endsWith('.ot')) {
-        syncUiFromSource(ide.currentCode, true);
+        syncUiFromSource(ide.currentCode, true, ide.currentFile);
       }
     } else if (mode === 'workbench') {
       setOutlineContext('designer');
@@ -469,7 +537,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       bottomDrawer.style.display = 'flex';
 
       if (!ide.currentFile || ide.currentFile.endsWith('.ot')) {
-        syncUiFromSource(ide.currentCode, true);
+        syncUiFromSource(ide.currentCode, true, ide.currentFile);
       }
     } else if (mode === 'preview') {
       setOutlineContext('designer');
@@ -702,31 +770,34 @@ document.addEventListener('DOMContentLoaded', async () => {
       const isMinimal = selectProjectTemplate?.value === 'minimal';
       const templateDef = StarterTemplates[selectedArchetype] || StarterTemplates['blank'];
 
+      // Opening the new project replaces the open tabs; never drop unsaved
+      // work without asking.
+      const unsaved = ide.openTabs.filter(t => t.isDirty);
+      if (unsaved.length > 0 && !confirm(`These tabs have unsaved changes and will be closed: ${unsaved.map(t => t.name).join(', ')}.\n\nDiscard the changes and create the project?`)) {
+        return;
+      }
+
       if (templateDef) {
+        // Build the template in a throwaway model. Loading it into the live
+        // model would notify the designer, which is still bound to the file
+        // that is open now, and splice the template into that file. The live
+        // model and CSS model are re-read from the new files below.
+        const templateModel = new OtterUiModel();
         if (templateDef.load) {
-          templateDef.load(uiModel);
-        }
-        if (cssAstManager && templateDef.css !== undefined) {
-          cssAstManager.parse(templateDef.css);
+          templateDef.load(templateModel);
         }
 
         const fileName = isMinimal ? 'main.ot' : (templateDef.defaultFileName || 'main.ot');
         let initialCode = isMinimal ? `# ${projName}\n\nsay "Hello from ${projName}!"\n` : templateDef.code;
         let initialCss = isMinimal ? '/* Otter Stylesheet */\n' : (templateDef.css || '');
 
-        if (templateDef.load && uiModel.getRoot()) {
-          initialCode = generateOtterSource(uiModel);
+        if (templateDef.load && templateModel.getRoot()) {
+          initialCode = generateOtterSource(templateModel);
         }
 
-        let projectFolder = `projects/${projName}`;
-        let projectTree = [
-          { name: fileName, path: fileName, isDir: false },
-          { name: 'styles.css', path: 'styles.css', isDir: false },
-          { name: 'project.json', path: 'project.json', isDir: false }
-        ];
-
         // Create the project on disk. A name that is taken is reported in the
-        // dialog; nothing is overwritten.
+        // dialog; nothing is overwritten, and nothing continues with an
+        // in-memory copy whose first save could replace another project.
         showCreateError('');
         btnConfirmCreateProject.disabled = true;
         let created;
@@ -742,7 +813,7 @@ document.addEventListener('DOMContentLoaded', async () => {
               css: initialCss
             })
           });
-          created = await res.json();
+          created = await res.json().catch(() => ({}));
           if (!res.ok || !created.ok) {
             showCreateError(created.error || `The project could not be created (HTTP ${res.status}).`, created.exists ? created.folder : null);
             return;
@@ -753,44 +824,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         } finally {
           btnConfirmCreateProject.disabled = false;
         }
-        projectFolder = created.folder;
-        projectTree = created.tree;
+        const data = created;
         // Studio wrote every file in it from its own template: nothing to distrust.
-        setWorkspaceTrust(projectFolder, true);
+        setWorkspaceTrust(data.folder, true);
 
+        const projectFolder = data.folder;
         const filePath = `${projectFolder}/${fileName}`;
         ide.currentProjectFolder = projectFolder;
         ide.currentProjectName = projName;
-        ide.currentFile = filePath;
-        ide.currentCode = initialCode;
-
-        ide.openTabs = [{
-          path: filePath,
-          name: fileName,
-          content: initialCode,
-          isDirty: false,
-          icon: fileName.endsWith('.ot') ? '📄' : (fileName.endsWith('.css') ? '🎨' : '📝')
-        }];
+        ide.openTabs = [];
+        ide.currentFile = null;
 
         // Render real project tree in sidebar explorer!
-        ide.renderProjectTree(projectTree, projName, projectFolder);
+        ide.renderProjectTree(data.tree, projName, projectFolder);
 
         // Update header title in project card
         const projTitleEl = document.getElementById('projectCardTitle');
         if (projTitleEl) projTitleEl.textContent = `Project: ${projName}`;
 
-        if (initialCss && cssAstManager) {
-          try {
-            cssAstManager.parse(initialCss);
-          } catch (cssErr) {
-            console.warn('Initial CSS parse error:', cssErr);
-          }
-        }
-
-        ide.renderTabs();
-        ide.renderEditorCode(initialCode);
-        ide.lintCurrentCode();
-        syncCodeFromUiModel();
+        // Open the files through the normal path so each carries its disk
+        // revision; loading the .ot also binds the designer to it.
+        await ide.loadFile(filePath);
+        await ide.loadDesignerStylesheet();
 
         closeNewProjectModal();
 

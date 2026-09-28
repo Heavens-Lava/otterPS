@@ -59,7 +59,10 @@ export function renderEditor(containerEl, uiModel, cssAstManager) {
       tabOtter.classList.add('is-active');
       tabCss.classList.remove('is-active');
       fileTypeStatus.innerText = 'Otter 1.0 (Logic & Structure)';
-      const src = generateOtterSource(uiModel);
+      // Show the real file text, never a regenerated copy: typing here is
+      // sent back as the file's source, so a generated copy would replace
+      // everything the model does not represent.
+      const src = realOtterSource();
       textarea.value = src;
       highlightOtter(src);
     } else {
@@ -73,6 +76,12 @@ export function renderEditor(containerEl, uiModel, cssAstManager) {
 
     statusText.innerText = 'Synchronized with Designer';
     statusText.style.color = '#94a3b8';
+  }
+
+  function realOtterSource() {
+    const ide = window.otterIde;
+    if (ide && (!ide.currentFile || ide.currentFile.endsWith('.ot'))) return ide.currentCode || '';
+    return generateOtterSource(uiModel);
   }
 
   function highlightOtter(source) {
