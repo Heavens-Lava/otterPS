@@ -327,7 +327,7 @@ export function mountStudioShell({ ide, setMode, openNewProjectModal, showWelcom
     menuHelp.classList.toggle('is-open');
   });
   document.addEventListener('click', () => menuHelp?.classList.remove('is-open'));
-  for (const [id, commandId] of [['menuItemHelpCommands', 'help.commands'], ['menuItemHelpShortcuts', 'help.shortcuts'], ['menuItemHelpWelcome', 'view.welcome'], ['menuItemHelpDocs', 'help.documentation'], ['menuItemHelpGuide', 'help.guide'], ['menuItemHelpReleaseNotes', 'help.releaseNotes'], ['menuItemHelpIssue', 'help.reportIssue']]) {
+  for (const [id, commandId] of [['menuItemLocalHistory', 'file.localHistory'], ['menuItemHelpCommands', 'help.commands'], ['menuItemHelpShortcuts', 'help.shortcuts'], ['menuItemHelpWelcome', 'view.welcome'], ['menuItemHelpDocs', 'help.documentation'], ['menuItemHelpGuide', 'help.guide'], ['menuItemHelpReleaseNotes', 'help.releaseNotes'], ['menuItemHelpIssue', 'help.reportIssue']]) {
     document.getElementById(id)?.addEventListener('click', () => {
       menuHelp?.classList.remove('is-open');
       commands.run(commandId);

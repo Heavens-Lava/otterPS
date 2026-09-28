@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { exec, execFile, spawn } from 'node:child_process';
 import { handleLaunchRoutes } from './server/launch.mjs';
 import { handleFsRoutes } from './server/fs-ops.mjs';
+import { handleHistoryRoutes, recordVersion } from './server/local-history.mjs';
 import { handleGitRoutes } from './server/git.mjs';
 import { handleTestRoutes } from './server/tests.mjs';
 import { checkRequest, readJsonBody, isInside, LOOPBACK_HOST } from './server/security.mjs';
@@ -314,6 +315,7 @@ async function handleRequest(req, res) {
 
   // Explorer: new file/folder, rename, move, delete, reveal (server/fs-ops.mjs).
   if (await handleFsRoutes(req, res, pathname, { repoRoot: REPO_ROOT, isInsideRepo, readBody, sendJson })) return;
+  if (handleHistoryRoutes(req, res, pathname, urlObj, { repoRoot: REPO_ROOT, isInsideRepo, sendJson })) return;
 
   // Run, launch profiles, build and clean (server/launch.mjs).
   if (await handleLaunchRoutes(req, res, pathname, urlObj, {
@@ -432,7 +434,14 @@ async function handleRequest(req, res) {
           }, 409);
         }
       }
+      // Local History: what was on disk (if it was never recorded, e.g. an
+      // edit made outside Studio) and what is saved now.
+      const historyRel = path.relative(REPO_ROOT, safePath).split(path.sep).join('/');
+      if (fs.existsSync(safePath) && fs.statSync(safePath).isFile()) {
+        recordVersion(safePath, historyRel, fs.readFileSync(safePath, 'utf8'), 'before save');
+      }
       fs.writeFileSync(safePath, body.content || '', 'utf8');
+      recordVersion(safePath, historyRel, body.content || '', 'save');
       const saved = readFileSnapshot(safePath);
       sendJson(res, { ok: true, path: relPath, ...saved });
     } catch (err) {

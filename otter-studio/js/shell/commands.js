@@ -156,6 +156,7 @@ export function defaultCommands(deps) {
     { id: 'file.saveAll', title: 'Save All', category: 'File', run: () => ide.saveAllFiles() },
     { id: 'file.compareSaved', title: 'Compare with Saved', category: 'File', when: hasFile, run: () => ide.compareWithSaved() },
     { id: 'file.compareHead', title: 'Compare with Git HEAD', category: 'File', when: hasFile, run: () => ide.compareWithHead() },
+    { id: 'file.localHistory', title: 'Local History...', category: 'File', when: hasFile, run: () => ide.openLocalHistory() },
     { id: 'file.compareFile', title: 'Compare with File...', category: 'File', when: hasFile, run: () => ide.compareWithFile() },
     { id: 'file.projectSettings', title: 'Project Settings...', category: 'File', when: hasProject, run: () => ide.openProjectSettings() },
     { id: 'file.settings', title: 'Settings...', category: 'File', shortcut: 'Ctrl+,', run: openSettings },

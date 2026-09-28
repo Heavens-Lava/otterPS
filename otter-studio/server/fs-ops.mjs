@@ -10,6 +10,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFile, spawn } from 'node:child_process';
+import { moveHistory, recordVersion } from './local-history.mjs';
 
 const PROTECTED = /(^|[\\/])\.git([\\/]|$)/;
 
@@ -99,6 +100,7 @@ export async function handleFsRoutes(req, res, pathname, ctx) {
         // A case-only rename on Windows is the same file: allow it.
         if (fs.existsSync(to) && to.toLowerCase() !== from.toLowerCase()) throw new FsError(`${body.name} already exists here.`, 409);
         fs.renameSync(from, to);
+        moveHistory(from, to, rel(ctx, to));
         return sendJson(res, { ok: true, from: rel(ctx, from), path: rel(ctx, to) }), true;
       }
       case '/api/fs/move': {
@@ -111,10 +113,13 @@ export async function handleFsRoutes(req, res, pathname, ctx) {
         if (to === from) return sendJson(res, { ok: true, path: rel(ctx, to) }), true;
         if (fs.existsSync(to)) throw new FsError(`${path.basename(from)} already exists in that folder.`, 409);
         fs.renameSync(from, to);
+        moveHistory(from, to, rel(ctx, to));
         return sendJson(res, { ok: true, from: rel(ctx, from), path: rel(ctx, to) }), true;
       }
       case '/api/fs/delete': {
         const abs = resolveInWorkspace(ctx, body.path, { mustExist: true, forChange: true });
+        // A deleted file's last text stays in Local History too.
+        if (fs.statSync(abs).isFile()) recordVersion(abs, rel(ctx, abs), fs.readFileSync(abs, 'utf8'), 'before delete');
         await moveToTrash(abs);
         return sendJson(res, { ok: true, path: rel(ctx, abs), trashed: true }), true;
       }

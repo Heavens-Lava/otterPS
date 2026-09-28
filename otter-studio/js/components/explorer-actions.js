@@ -137,6 +137,7 @@ export function installExplorerActions(ide) {
       { label: 'New Folder...', run: () => newItem('folder', folder) },
       '-',
       !target.isDir && { label: 'Open', run: () => ide.navigateToLocation({ path: target.path, line: 1, column: 0 }) },
+      !target.isDir && { label: 'Local History...', run: () => ide.openLocalHistory(target.path) },
       { label: 'Reveal in File Explorer', run: () => post('reveal', { path: target.path }).catch(err => report(err, 'Could not reveal')) },
       { label: 'Copy Path', run: () => copyText(target.path) },
       { label: 'Copy Relative Path', run: () => copyText(relative) },

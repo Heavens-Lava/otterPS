@@ -7,7 +7,10 @@
 
 import { diffLines, sideBySide, diffStats } from '../scm/line-diff.js';
 
-export function showDiff({ title, leftLabel, rightLabel, left, right }) {
+// `actions`: extra header buttons, [{ label, title, primary, run }]; a
+// button's run() returning true closes the view (Local History: Restore).
+// `onClose` runs when the view closes, however it was closed.
+export function showDiff({ title, leftLabel, rightLabel, left, right, actions = [], onClose = null }) {
   document.querySelector('.diff-view-backdrop')?.remove();
   const ops = diffLines(left ?? '', right ?? '');
   const rows = sideBySide(ops);
@@ -38,6 +41,7 @@ export function showDiff({ title, leftLabel, rightLabel, left, right }) {
           <span class="diff-view-changes">${changeStarts.length} change${changeStarts.length === 1 ? '' : 's'}</span>
         </div>
         <div class="diff-view-actions">
+          ${actions.map((a, i) => `<button class="${a.primary ? 'btn-modal-primary' : 'btn-modal-cancel'} diff-view-action" data-diff-action="${i}" title="${escapeHtml(a.title || '')}">${escapeHtml(a.label)}</button>`).join('')}
           <button class="find-action-btn" data-diff-prev title="Previous change (Alt+Up)" ${changeStarts.length ? '' : 'disabled'}>↑</button>
           <button class="find-action-btn" data-diff-next title="Next change (Alt+Down)" ${changeStarts.length ? '' : 'disabled'}>↓</button>
           <button class="modal-close-btn" data-diff-close title="Close (Esc)">✕</button>
@@ -59,14 +63,19 @@ export function showDiff({ title, leftLabel, rightLabel, left, right }) {
     row?.scrollIntoView({ block: 'center' });
   };
   const close = () => {
+    if (!backdrop.isConnected) return;
     backdrop.remove();
     document.removeEventListener('keydown', onKey, true);
+    onClose?.();
   };
   const onKey = (e) => {
     if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); }
     else if (e.altKey && e.key === 'ArrowDown') { e.preventDefault(); goTo(1); }
     else if (e.altKey && e.key === 'ArrowUp') { e.preventDefault(); goTo(-1); }
   };
+  backdrop.querySelectorAll('[data-diff-action]').forEach(btn => btn.addEventListener('click', async () => {
+    if (await actions[Number(btn.dataset.diffAction)].run()) close();
+  }));
   backdrop.querySelector('[data-diff-close]').addEventListener('click', close);
   backdrop.querySelector('[data-diff-next]').addEventListener('click', () => goTo(1));
   backdrop.querySelector('[data-diff-prev]').addEventListener('click', () => goTo(-1));

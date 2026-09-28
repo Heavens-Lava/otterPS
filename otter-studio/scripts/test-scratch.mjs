@@ -40,6 +40,9 @@ export function createScratchFolder(repoRoot, label) {
   // A leftover from an earlier, killed run with the same pid: start empty.
   fs.rmSync(abs, { recursive: true, force: true });
   fs.mkdirSync(abs, { recursive: true });
+  // A server this test starts keeps its Local History here, not in the
+  // user's ~/.otter-studio/history (server/local-history.mjs).
+  process.env.OTTER_STUDIO_HISTORY_DIR ??= path.join(abs, '.local-history');
 
   const cleanup = () => {
     try {

@@ -2,6 +2,7 @@
 
 import { openLaunchProfilesEditor } from './components/launch-profiles.js';
 import { createGitGutter } from './scm/gutter-changes.js';
+import { openLocalHistory } from './components/local-history.js';
 import {
   filterNavigationItems,
   flattenProjectFiles,
@@ -1262,6 +1263,11 @@ export class OtterStudioIde {
     const name = this.currentFile.split('/').pop();
     showDiff({ title: `${name}: saved ↔ editor`, leftLabel: `${name} (saved)`, rightLabel: `${name} (editor, unsaved changes)`, left: data.content, right: this.currentCode });
     return true;
+  }
+
+  // Every version Studio saved of a file (File > Local History).
+  openLocalHistory(filePath = this.currentFile) {
+    return openLocalHistory(this, filePath);
   }
 
   // The editor's text against the last commit.
