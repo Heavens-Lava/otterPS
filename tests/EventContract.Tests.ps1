@@ -22,9 +22,12 @@ $script:OtterPs1 = Join-Path $script:RepoRoot 'otter.ps1'
 $script:Tmp = Join-Path ([System.IO.Path]::GetTempPath()) ('otter_events_' + [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $script:Tmp -Force | Out-Null
 
-# The running PowerShell, as a command an Otter program can start. Quoted only
-# if the path has spaces.
-$script:HostCommand = if ($script:OtterHostExe -match '\s') { "`"$($script:OtterHostExe)`"" } else { $script:OtterHostExe }
+# The running PowerShell, written so it can sit inside an Otter string literal:
+# forward slashes (a backslash would start an Otter escape) and, when the path
+# has spaces (C:/Program Files/PowerShell/7/pwsh.exe on Windows runners), quotes
+# escaped as \" so the command splitter keeps the path as one argument.
+$hostPath = $script:OtterHostExe.Replace([string][char]92, '/')
+$script:HostCommand = if ($hostPath -match '\s') { '\"' + $hostPath + '\"' } else { $hostPath }
 
 function Invoke-OtterEventProgram {
     param([string]$Source, [int]$TimeoutSeconds = 60)
