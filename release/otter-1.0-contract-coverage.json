@@ -2,13 +2,13 @@
     "schemaVersion":  1,
     "purpose":  "Derived evidence for every declared TokenKind, NodeKind and diagnostic call site. Evidence only: nothing here decides what is public.",
     "derivedFrom":  {
-                        "commit":  "315abe025303bbc456a6dced8dd15bdbdc696dd2",
+                        "commit":  "4727f1fb10274433fc39fab222b893df4171c313",
                         "contractSha256":  "0343bec8051dbc3e45aefe82b48c6363b9dfa0bd2d0d4868764f00f6e28238f5",
                         "lexerSha256":  "86a4add5bf4673a9ce635890cf789a717cc79dd601ff52c1688ddd72307d4c4c",
                         "parserSha256":  "e6fefffccb42ceaf241393bd43c38dc6ec654d826d2c4d7dfb8f8215f3bca41b",
                         "corpus":  {
-                                       "snippets":  703,
-                                       "parsedPrograms":  644,
+                                       "snippets":  711,
+                                       "parsedPrograms":  652,
                                        "lexedButNotParsed":  31,
                                        "failedToLex":  28
                                    },
@@ -30,9 +30,9 @@
                                   "problems":  0
                               },
                     "diagnostics":  {
-                                        "callSites":  625,
+                                        "callSites":  627,
                                         "messageTextFoundInTests":  64,
-                                        "messageTextNotFound":  535,
+                                        "messageTextNotFound":  537,
                                         "dynamicMessage":  14,
                                         "tooShortToMatch":  12
                                     }
@@ -50,7 +50,7 @@
                                          "parserReferences":  223
                                      },
                        "corpus":  {
-                                      "programs":  210,
+                                      "programs":  212,
                                       "origins":  [
                                                       "benchmarks/arithmetic.ot",
                                                       "benchmarks/contains_300.ot",
@@ -90,7 +90,7 @@
                                          "parserReferences":  7
                                      },
                        "corpus":  {
-                                      "programs":  184,
+                                      "programs":  186,
                                       "origins":  [
                                                       "benchmarks/arithmetic.ot",
                                                       "benchmarks/contains_300.ot",
@@ -130,7 +130,7 @@
                                          "parserReferences":  13
                                      },
                        "corpus":  {
-                                      "programs":  207,
+                                      "programs":  209,
                                       "origins":  [
                                                       "benchmarks/arithmetic.ot",
                                                       "benchmarks/contains_300.ot",
@@ -168,7 +168,7 @@
                                          "parserReferences":  2
                                      },
                        "corpus":  {
-                                      "programs":  122,
+                                      "programs":  123,
                                       "origins":  [
                                                       "conformance/core/variables_math_control_flow.ot",
                                                       "conformance/negative/boolean_operators_outside_conditions.ot",
@@ -208,7 +208,7 @@
                                          "parserReferences":  2
                                      },
                        "corpus":  {
-                                      "programs":  40,
+                                      "programs":  41,
                                       "origins":  [
                                                       "conformance/core/variables_math_control_flow.ot",
                                                       "examples/experimental/counter.ot",
@@ -247,7 +247,7 @@
                                          "parserReferences":  32
                                      },
                        "corpus":  {
-                                      "programs":  194,
+                                      "programs":  195,
                                       "origins":  [
                                                       "benchmarks/arithmetic.ot",
                                                       "benchmarks/contains_300.ot",
@@ -292,7 +292,7 @@
                                          "parserReferences":  13
                                      },
                        "corpus":  {
-                                      "programs":  13,
+                                      "programs":  14,
                                       "origins":  [
                                                       "examples/database-schema.ot",
                                                       "examples/experimental/counter.ot",
@@ -300,12 +300,12 @@
                                                       "examples/v1/tasks.ot",
                                                       "tests/AsyncCommand.Tests.ps1",
                                                       "tests/Database.Tests.ps1",
+                                                      "tests/EventContract.Tests.ps1",
                                                       "tests/Http.Tests.ps1",
                                                       "tests/Optimizations.Tests.ps1",
                                                       "tests/Parser.Tests.ps1",
                                                       "tests/ProcessAdversarial.Tests.ps1",
-                                                      "tests/ProjectCreationAndTestRunner.Tests.ps1",
-                                                      "tests/Query.Tests.ps1"
+                                                      "tests/ProjectCreationAndTestRunner.Tests.ps1"
                                                   ]
                                   },
                        "documentation":  {
@@ -435,12 +435,13 @@
                                          "parserReferences":  2
                                      },
                        "corpus":  {
-                                      "programs":  9,
+                                      "programs":  10,
                                       "origins":  [
                                                       "benchmarks/loops.ot",
                                                       "benchmarks/recursion.ot",
                                                       "conformance/core/variables_math_control_flow.ot",
                                                       "examples/conditions.ot",
+                                                      "tests/EventContract.Tests.ps1",
                                                       "tests/Optimizations.Tests.ps1",
                                                       "tests/Parser.Tests.ps1",
                                                       "tests/Profiler.Tests.ps1",
@@ -473,7 +474,7 @@
                                          "parserReferences":  30
                                      },
                        "corpus":  {
-                                      "programs":  50,
+                                      "programs":  51,
                                       "origins":  [
                                                       "benchmarks/arithmetic.ot",
                                                       "benchmarks/contains_300.ot",
@@ -686,6 +687,7 @@
                                                            "SPEC-DECISIONS.md#D11",
                                                            "docs/SEMANTICS.md",
                                                            "docs/GRAMMAR.md",
+                                                           "docs/STANDARD_LIBRARY_REACHABILITY.md",
                                                            "rules.md",
                                                            "docs/STANDARD_LIBRARY.md"
                                                        ],
@@ -835,7 +837,7 @@
                                          "parserReferences":  49
                                      },
                        "corpus":  {
-                                      "programs":  150,
+                                      "programs":  152,
                                       "origins":  [
                                                       "benchmarks/arithmetic.ot",
                                                       "benchmarks/contains_300.ot",
@@ -877,7 +879,7 @@
                                          "parserReferences":  40
                                      },
                        "corpus":  {
-                                      "programs":  49,
+                                      "programs":  50,
                                       "origins":  [
                                                       "benchmarks/arithmetic.ot",
                                                       "benchmarks/contains_300.ot",
@@ -919,7 +921,7 @@
                                          "parserReferences":  3
                                      },
                        "corpus":  {
-                                      "programs":  87,
+                                      "programs":  88,
                                       "origins":  [
                                                       "benchmarks/arithmetic.ot",
                                                       "benchmarks/contains_300.ot",
@@ -992,20 +994,20 @@
                                          "parserReferences":  11
                                      },
                        "corpus":  {
-                                      "programs":  12,
+                                      "programs":  13,
                                       "origins":  [
                                                       "benchmarks/event_dispatch.ot",
                                                       "examples/file-organizer/organizer.ot",
                                                       "selfhost/project-inspector.ot",
                                                       "tests/AsyncCommand.Tests.ps1",
                                                       "tests/Crypto.Tests.ps1",
+                                                      "tests/EventContract.Tests.ps1",
                                                       "tests/FileWatching.Tests.ps1",
                                                       "tests/Http.Tests.ps1",
                                                       "tests/Network.Tests.ps1",
                                                       "tests/Parser.Tests.ps1",
                                                       "tests/Web.Tests.ps1",
-                                                      "tests/WebSocket.Tests.ps1",
-                                                      "tests/Xml.Tests.ps1"
+                                                      "tests/WebSocket.Tests.ps1"
                                                   ]
                                   },
                        "documentation":  {
@@ -1032,20 +1034,20 @@
                                          "parserReferences":  11
                                      },
                        "corpus":  {
-                                      "programs":  12,
+                                      "programs":  13,
                                       "origins":  [
                                                       "benchmarks/event_dispatch.ot",
                                                       "examples/file-organizer/organizer.ot",
                                                       "selfhost/project-inspector.ot",
                                                       "tests/AsyncCommand.Tests.ps1",
                                                       "tests/Crypto.Tests.ps1",
+                                                      "tests/EventContract.Tests.ps1",
                                                       "tests/FileWatching.Tests.ps1",
                                                       "tests/Http.Tests.ps1",
                                                       "tests/Network.Tests.ps1",
                                                       "tests/Parser.Tests.ps1",
                                                       "tests/Web.Tests.ps1",
-                                                      "tests/WebSocket.Tests.ps1",
-                                                      "tests/Xml.Tests.ps1"
+                                                      "tests/WebSocket.Tests.ps1"
                                                   ]
                                   },
                        "documentation":  {
@@ -1070,7 +1072,7 @@
                                          "parserReferences":  4
                                      },
                        "corpus":  {
-                                      "programs":  59,
+                                      "programs":  60,
                                       "origins":  [
                                                       "benchmarks/contains_300.ot",
                                                       "benchmarks/contains_5000.ot",
@@ -1152,11 +1154,12 @@
                                          "parserReferences":  3
                                      },
                        "corpus":  {
-                                      "programs":  5,
+                                      "programs":  6,
                                       "origins":  [
                                                       "benchmarks/loops.ot",
                                                       "conformance/core/variables_math_control_flow.ot",
                                                       "examples/conditions.ot",
+                                                      "tests/EventContract.Tests.ps1",
                                                       "tests/Optimizations.Tests.ps1",
                                                       "tests/Parser.Tests.ps1"
                                                   ]
@@ -1165,7 +1168,9 @@
                                              "files":  [
                                                            "docs/SEMANTICS.md",
                                                            "docs/GRAMMAR.md",
-                                                           "rules.md"
+                                                           "docs/STANDARD_LIBRARY_REACHABILITY.md",
+                                                           "rules.md",
+                                                           "docs/STANDARD_LIBRARY.md"
                                                        ],
                                              "decisionRefs":  [
 
@@ -1280,7 +1285,9 @@
                                              "files":  [
                                                            "docs/SEMANTICS.md",
                                                            "docs/GRAMMAR.md",
-                                                           "rules.md"
+                                                           "docs/STANDARD_LIBRARY_REACHABILITY.md",
+                                                           "rules.md",
+                                                           "docs/STANDARD_LIBRARY.md"
                                                        ],
                                              "decisionRefs":  [
 
@@ -1342,7 +1349,7 @@
                                          "parserReferences":  23
                                      },
                        "corpus":  {
-                                      "programs":  151,
+                                      "programs":  152,
                                       "origins":  [
                                                       "benchmarks/lists.ot",
                                                       "benchmarks/loops.ot",
@@ -1387,7 +1394,7 @@
                                          "parserReferences":  3
                                      },
                        "corpus":  {
-                                      "programs":  16,
+                                      "programs":  18,
                                       "origins":  [
                                                       "benchmarks/function_calls.ot",
                                                       "benchmarks/recursion.ot",
@@ -1398,9 +1405,9 @@
                                                       "examples/module-lib.ot",
                                                       "examples/v1/contacts.ot",
                                                       "tests/Conformance.Tests.ps1",
+                                                      "tests/EventContract.Tests.ps1",
                                                       "tests/FileWatching.Tests.ps1",
-                                                      "tests/Network.Tests.ps1",
-                                                      "tests/Optimizations.Tests.ps1"
+                                                      "tests/HostPortability.Tests.ps1"
                                                   ]
                                   },
                        "documentation":  {
@@ -1427,7 +1434,7 @@
                                          "parserReferences":  9
                                      },
                        "corpus":  {
-                                      "programs":  23,
+                                      "programs":  24,
                                       "origins":  [
                                                       "benchmarks/contains_300.ot",
                                                       "benchmarks/contains_5000.ot",
@@ -1471,7 +1478,7 @@
                                          "parserReferences":  1
                                      },
                        "corpus":  {
-                                      "programs":  14,
+                                      "programs":  15,
                                       "origins":  [
                                                       "benchmarks/contains_300.ot",
                                                       "benchmarks/contains_5000.ot",
@@ -1482,9 +1489,9 @@
                                                       "selfhost/project-inspector.ot",
                                                       "tests/Bytes.Tests.ps1",
                                                       "tests/Csv.Tests.ps1",
+                                                      "tests/HostPortability.Tests.ps1",
                                                       "tests/Optimizations.Tests.ps1",
-                                                      "tests/Parser.Tests.ps1",
-                                                      "tests/RedTeam.Tests.ps1"
+                                                      "tests/Parser.Tests.ps1"
                                                   ]
                                   },
                        "documentation":  {
@@ -1591,7 +1598,7 @@
                                       "programs":  21,
                                       "origins":  [
                                                       "conformance/http/http_invalid_url_negative.ot",
-                                                      "conformance/http/http_web_target_only.ot",
+                                                      "conformance/http/http_web_fetch.ot",
                                                       "conformance/objects/things_and_dynamic_keys.ot",
                                                       "conformance/system_integration/clipboard_env_notify.ot",
                                                       "examples/cli-arguments.ot",
@@ -1696,7 +1703,7 @@
                                          "parserReferences":  11
                                      },
                        "corpus":  {
-                                      "programs":  10,
+                                      "programs":  11,
                                       "origins":  [
                                                       "conformance/system_integration/clipboard_env_notify.ot",
                                                       "examples/cli-arguments.ot",
@@ -1705,6 +1712,7 @@
                                                       "selfhost/project-inspector.ot",
                                                       "tests/Batch1CliArgumentsAndEnvironment.Tests.ps1",
                                                       "tests/Download.Tests.ps1",
+                                                      "tests/EventContract.Tests.ps1",
                                                       "tests/FilesystemAdversarial.Tests.ps1",
                                                       "tests/FileWatching.Tests.ps1",
                                                       "tests/Parser.Tests.ps1"
@@ -1944,9 +1952,10 @@
                                          "parserReferences":  1
                                      },
                        "corpus":  {
-                                      "programs":  4,
+                                      "programs":  5,
                                       "origins":  [
                                                       "tests/AsyncCommand.Tests.ps1",
+                                                      "tests/EventContract.Tests.ps1",
                                                       "tests/FileWatching.Tests.ps1",
                                                       "tests/Http.Tests.ps1",
                                                       "tests/TierOneRuntime.Tests.ps1"
@@ -1955,7 +1964,9 @@
                        "documentation":  {
                                              "files":  [
                                                            "SPEC-DECISIONS.md#D70",
-                                                           "SPEC-DECISIONS.md#D71"
+                                                           "SPEC-DECISIONS.md#D71",
+                                                           "docs/STANDARD_LIBRARY_REACHABILITY.md",
+                                                           "docs/STANDARD_LIBRARY.md"
                                                        ],
                                              "decisionRefs":  [
                                                                   "D70",
@@ -2671,7 +2682,7 @@
                                                       "benchmarks/file_io.ot",
                                                       "benchmarks/lists.ot",
                                                       "benchmarks/strings.ot",
-                                                      "conformance/http/http_web_target_only.ot",
+                                                      "conformance/http/http_web_fetch.ot",
                                                       "conformance/strings/collections_and_text.ot",
                                                       "conformance/system_integration/clipboard_env_notify.ot",
                                                       "examples/cli-arguments.ot",
@@ -3880,7 +3891,8 @@
                                   },
                        "documentation":  {
                                              "files":  [
-                                                           "docs/GRAMMAR.md"
+                                                           "docs/GRAMMAR.md",
+                                                           "docs/STANDARD_LIBRARY.md"
                                                        ],
                                              "decisionRefs":  [
 
@@ -3971,7 +3983,7 @@
                                          "parserReferences":  5
                                      },
                        "corpus":  {
-                                      "programs":  26,
+                                      "programs":  27,
                                       "origins":  [
                                                       "benchmarks/json.ot",
                                                       "benchmarks/objects.ot",
@@ -4054,7 +4066,7 @@
                                          "parserReferences":  3
                                      },
                        "corpus":  {
-                                      "programs":  19,
+                                      "programs":  20,
                                       "origins":  [
                                                       "benchmarks/file_io.ot",
                                                       "conformance/misc/file_exists_run_command_json_roundtrip.ot",
@@ -4198,7 +4210,7 @@
                                       "programs":  12,
                                       "origins":  [
                                                       "benchmarks/file_io.ot",
-                                                      "conformance/http/http_web_target_only.ot",
+                                                      "conformance/http/http_web_fetch.ot",
                                                       "conformance/release/file_json_command.ot",
                                                       "examples/csv.ot",
                                                       "examples/download.ot",
@@ -4369,7 +4381,7 @@
                                          "parserReferences":  65
                                      },
                        "corpus":  {
-                                      "programs":  59,
+                                      "programs":  60,
                                       "origins":  [
                                                       "benchmarks/file_io.ot",
                                                       "benchmarks/json.ot",
@@ -4377,7 +4389,7 @@
                                                       "conformance/dates/dates_and_time.ot",
                                                       "conformance/errors/try_fail.ot",
                                                       "conformance/http/http_invalid_url_negative.ot",
-                                                      "conformance/http/http_web_target_only.ot",
+                                                      "conformance/http/http_web_fetch.ot",
                                                       "conformance/json_random_diagnostics/json_random_diagnostics.ot",
                                                       "conformance/misc/file_exists_run_command_json_roundtrip.ot",
                                                       "conformance/objects/things_and_dynamic_keys.ot",
@@ -4410,7 +4422,7 @@
                                          "parserReferences":  2
                                      },
                        "corpus":  {
-                                      "programs":  13,
+                                      "programs":  14,
                                       "origins":  [
                                                       "conformance/misc/file_exists_run_command_json_roundtrip.ot",
                                                       "conformance/release/file_json_command.ot",
@@ -4421,9 +4433,9 @@
                                                       "tests/Batch1CliArgumentsAndEnvironment.Tests.ps1",
                                                       "tests/Conformance.Tests.ps1",
                                                       "tests/DiagnosticMatrix.Tests.ps1",
+                                                      "tests/EventContract.Tests.ps1",
                                                       "tests/Parser.Tests.ps1",
-                                                      "tests/ProcessAdversarial.Tests.ps1",
-                                                      "tests/RedTeam.Tests.ps1"
+                                                      "tests/ProcessAdversarial.Tests.ps1"
                                                   ]
                                   },
                        "documentation":  {
@@ -4452,7 +4464,7 @@
                                          "parserReferences":  2
                                      },
                        "corpus":  {
-                                      "programs":  12,
+                                      "programs":  13,
                                       "origins":  [
                                                       "conformance/misc/file_exists_run_command_json_roundtrip.ot",
                                                       "conformance/release/file_json_command.ot",
@@ -4462,10 +4474,10 @@
                                                       "tests/AsyncCommand.Tests.ps1",
                                                       "tests/Batch1CliArgumentsAndEnvironment.Tests.ps1",
                                                       "tests/Conformance.Tests.ps1",
+                                                      "tests/EventContract.Tests.ps1",
                                                       "tests/Parser.Tests.ps1",
                                                       "tests/ProcessAdversarial.Tests.ps1",
-                                                      "tests/RedTeam.Tests.ps1",
-                                                      "tests/StandardLibrary.Tests.ps1"
+                                                      "tests/RedTeam.Tests.ps1"
                                                   ]
                                   },
                        "documentation":  {
@@ -4494,9 +4506,10 @@
                                          "parserReferences":  2
                                      },
                        "corpus":  {
-                                      "programs":  4,
+                                      "programs":  5,
                                       "origins":  [
                                                       "benchmarks/event_dispatch.ot",
+                                                      "tests/EventContract.Tests.ps1",
                                                       "tests/Network.Tests.ps1",
                                                       "tests/Parser.Tests.ps1",
                                                       "tests/WebSocket.Tests.ps1"
@@ -4524,7 +4537,7 @@
                                          "parserReferences":  42
                                      },
                        "corpus":  {
-                                      "programs":  164,
+                                      "programs":  165,
                                       "origins":  [
                                                       "benchmarks/file_io.ot",
                                                       "benchmarks/json.ot",
@@ -4532,7 +4545,7 @@
                                                       "benchmarks/objects.ot",
                                                       "benchmarks/strings.ot",
                                                       "conformance/dates/dates_and_time.ot",
-                                                      "conformance/http/http_web_target_only.ot",
+                                                      "conformance/http/http_web_fetch.ot",
                                                       "conformance/json_random_diagnostics/json_random_diagnostics.ot",
                                                       "conformance/misc/file_exists_run_command_json_roundtrip.ot",
                                                       "conformance/objects/things_and_dynamic_keys.ot",
@@ -4609,7 +4622,7 @@
                        "corpus":  {
                                       "programs":  124,
                                       "origins":  [
-                                                      "conformance/http/http_web_target_only.ot",
+                                                      "conformance/http/http_web_fetch.ot",
                                                       "conformance/release/web_hello.ot",
                                                       "examples/calculator.ot",
                                                       "examples/explorer.ot",
@@ -4686,7 +4699,7 @@
                        "corpus":  {
                                       "programs":  4,
                                       "origins":  [
-                                                      "conformance/http/http_web_target_only.ot",
+                                                      "conformance/http/http_web_fetch.ot",
                                                       "tests/Http.Tests.ps1",
                                                       "tests/Parser.Tests.ps1",
                                                       "tests/Web.Tests.ps1"
@@ -4697,6 +4710,7 @@
                                                            "SPEC-DECISIONS.md#D49",
                                                            "SPEC-DECISIONS.md#D96",
                                                            "docs/SEMANTICS.md",
+                                                           "docs/STANDARD_LIBRARY_REACHABILITY.md",
                                                            "docs/STANDARD_LIBRARY.md"
                                                        ],
                                              "decisionRefs":  [
@@ -4728,7 +4742,8 @@
                        "documentation":  {
                                              "files":  [
                                                            "SPEC-DECISIONS.md#D49",
-                                                           "SPEC-DECISIONS.md#D96"
+                                                           "SPEC-DECISIONS.md#D96",
+                                                           "docs/STANDARD_LIBRARY.md"
                                                        ],
                                              "decisionRefs":  [
                                                                   "D49",
@@ -4749,11 +4764,12 @@
                                          "parserReferences":  3
                                      },
                        "corpus":  {
-                                      "programs":  7,
+                                      "programs":  8,
                                       "origins":  [
                                                       "examples/database-schema.ot",
                                                       "examples/database-tasks.ot",
                                                       "tests/Database.Tests.ps1",
+                                                      "tests/EventContract.Tests.ps1",
                                                       "tests/Network.Tests.ps1",
                                                       "tests/Parser.Tests.ps1",
                                                       "tests/Query.Tests.ps1",
@@ -5002,7 +5018,7 @@
                                   },
                        "documentation":  {
                                              "files":  [
-
+                                                           "SPEC-DECISIONS.md#D99"
                                                        ],
                                              "decisionRefs":  [
                                                                   "D99"
@@ -5029,6 +5045,7 @@
                                   },
                        "documentation":  {
                                              "files":  [
+                                                           "SPEC-DECISIONS.md#D99",
                                                            "rules.md"
                                                        ],
                                              "decisionRefs":  [
@@ -5056,6 +5073,7 @@
                                   },
                        "documentation":  {
                                              "files":  [
+                                                           "SPEC-DECISIONS.md#D99",
                                                            "docs/SEMANTICS.md"
                                                        ],
                                              "decisionRefs":  [
@@ -5083,7 +5101,7 @@
                                   },
                        "documentation":  {
                                              "files":  [
-
+                                                           "SPEC-DECISIONS.md#D99"
                                                        ],
                                              "decisionRefs":  [
                                                                   "D99"
@@ -5110,7 +5128,7 @@
                                   },
                        "documentation":  {
                                              "files":  [
-
+                                                           "SPEC-DECISIONS.md#D99"
                                                        ],
                                              "decisionRefs":  [
                                                                   "D99"
@@ -5139,7 +5157,7 @@
                                   },
                        "documentation":  {
                                              "files":  [
-
+                                                           "SPEC-DECISIONS.md#D99"
                                                        ],
                                              "decisionRefs":  [
                                                                   "D99"
@@ -5168,7 +5186,7 @@
                                   },
                        "documentation":  {
                                              "files":  [
-
+                                                           "SPEC-DECISIONS.md#D99"
                                                        ],
                                              "decisionRefs":  [
                                                                   "D99"
@@ -5197,7 +5215,7 @@
                                   },
                        "documentation":  {
                                              "files":  [
-
+                                                           "SPEC-DECISIONS.md#D99"
                                                        ],
                                              "decisionRefs":  [
                                                                   "D99"
@@ -5227,6 +5245,7 @@
                                   },
                        "documentation":  {
                                              "files":  [
+                                                           "SPEC-DECISIONS.md#D99",
                                                            "docs/SEMANTICS.md"
                                                        ],
                                              "decisionRefs":  [
@@ -5255,7 +5274,7 @@
                                   },
                        "documentation":  {
                                              "files":  [
-
+                                                           "SPEC-DECISIONS.md#D99"
                                                        ],
                                              "decisionRefs":  [
                                                                   "D99"
@@ -5282,7 +5301,7 @@
                                   },
                        "documentation":  {
                                              "files":  [
-
+                                                           "SPEC-DECISIONS.md#D99"
                                                        ],
                                              "decisionRefs":  [
                                                                   "D99"
@@ -5309,7 +5328,7 @@
                                   },
                        "documentation":  {
                                              "files":  [
-
+                                                           "SPEC-DECISIONS.md#D99"
                                                        ],
                                              "decisionRefs":  [
                                                                   "D99"
@@ -5338,7 +5357,7 @@
                                   },
                        "documentation":  {
                                              "files":  [
-
+                                                           "SPEC-DECISIONS.md#D100"
                                                        ],
                                              "decisionRefs":  [
                                                                   "D100"
@@ -5361,15 +5380,17 @@
                                          "parserReferences":  1
                                      },
                        "corpus":  {
-                                      "programs":  2,
+                                      "programs":  3,
                                       "origins":  [
                                                       "tests/AsyncCommand.Tests.ps1",
+                                                      "tests/EventContract.Tests.ps1",
                                                       "tests/Http.Tests.ps1"
                                                   ]
                                   },
                        "documentation":  {
                                              "files":  [
-
+                                                           "SPEC-DECISIONS.md#D101",
+                                                           "docs/STANDARD_LIBRARY_REACHABILITY.md"
                                                        ],
                                              "decisionRefs":  [
                                                                   "D101"
@@ -5398,7 +5419,7 @@
                                   },
                        "documentation":  {
                                              "files":  [
-
+                                                           "SPEC-DECISIONS.md#D101"
                                                        ],
                                              "decisionRefs":  [
                                                                   "D101"
@@ -5427,7 +5448,7 @@
                                   },
                        "documentation":  {
                                              "files":  [
-
+                                                           "SPEC-DECISIONS.md#D101"
                                                        ],
                                              "decisionRefs":  [
                                                                   "D101"
@@ -5536,10 +5557,11 @@
                                          "parserReferences":  2
                                      },
                        "corpus":  {
-                                      "programs":  5,
+                                      "programs":  6,
                                       "origins":  [
                                                       "examples/api-server.ot",
                                                       "tests/AsyncCommand.Tests.ps1",
+                                                      "tests/EventContract.Tests.ps1",
                                                       "tests/Http.Tests.ps1",
                                                       "tests/Parser.Tests.ps1",
                                                       "tests/TierOneRuntime.Tests.ps1"
@@ -5549,7 +5571,9 @@
                                              "files":  [
                                                            "SPEC-DECISIONS.md#D51",
                                                            "docs/SEMANTICS.md",
-                                                           "rules.md"
+                                                           "docs/STANDARD_LIBRARY_REACHABILITY.md",
+                                                           "rules.md",
+                                                           "docs/STANDARD_LIBRARY.md"
                                                        ],
                                              "decisionRefs":  [
                                                                   "D51"
@@ -5737,12 +5761,13 @@
                                          "parserReferences":  3
                                      },
                        "corpus":  {
-                                      "programs":  10,
+                                      "programs":  11,
                                       "origins":  [
                                                       "benchmarks/event_dispatch.ot",
                                                       "projects/test-certified-game/game.ot",
                                                       "tests/AsyncCommand.Tests.ps1",
                                                       "tests/DragDrop.Tests.ps1",
+                                                      "tests/EventContract.Tests.ps1",
                                                       "tests/FileWatching.Tests.ps1",
                                                       "tests/Http.Tests.ps1",
                                                       "tests/Network.Tests.ps1",
@@ -5986,7 +6011,7 @@
                                          "parserReferences":  56
                                      },
                        "corpus":  {
-                                      "programs":  180,
+                                      "programs":  182,
                                       "origins":  [
                                                       "benchmarks/arithmetic.ot",
                                                       "benchmarks/contains_300.ot",
@@ -6026,7 +6051,7 @@
                                          "parserReferences":  48
                                      },
                        "corpus":  {
-                                      "programs":  180,
+                                      "programs":  182,
                                       "origins":  [
                                                       "benchmarks/arithmetic.ot",
                                                       "benchmarks/contains_300.ot",
@@ -6066,7 +6091,7 @@
                                          "parserReferences":  259
                                      },
                        "corpus":  {
-                                      "programs":  215,
+                                      "programs":  217,
                                       "origins":  [
                                                       "benchmarks/arithmetic.ot",
                                                       "benchmarks/contains_300.ot",
@@ -6106,7 +6131,7 @@
                                          "parserReferences":  23
                                      },
                        "corpus":  {
-                                      "programs":  169,
+                                      "programs":  171,
                                       "origins":  [
                                                       "benchmarks/arithmetic.ot",
                                                       "benchmarks/contains_300.ot",
@@ -6146,7 +6171,7 @@
                                          "parserReferences":  33
                                      },
                        "corpus":  {
-                                      "programs":  215,
+                                      "programs":  217,
                                       "origins":  [
                                                       "benchmarks/arithmetic.ot",
                                                       "benchmarks/contains_300.ot",
@@ -6192,7 +6217,7 @@
                                         "provider":  true
                                     },
                       "corpus":  {
-                                     "programs":  208,
+                                     "programs":  210,
                                      "origins":  [
                                                      "benchmarks/arithmetic.ot",
                                                      "benchmarks/contains_300.ot",
@@ -6236,7 +6261,7 @@
                                         "provider":  true
                                     },
                       "corpus":  {
-                                     "programs":  208,
+                                     "programs":  210,
                                      "origins":  [
                                                      "benchmarks/arithmetic.ot",
                                                      "benchmarks/contains_300.ot",
@@ -6280,7 +6305,7 @@
                                         "provider":  true
                                     },
                       "corpus":  {
-                                     "programs":  202,
+                                     "programs":  204,
                                      "origins":  [
                                                      "benchmarks/arithmetic.ot",
                                                      "benchmarks/contains_300.ot",
@@ -6324,7 +6349,7 @@
                                         "provider":  false
                                     },
                       "corpus":  {
-                                     "programs":  38,
+                                     "programs":  39,
                                      "origins":  [
                                                      "benchmarks/arithmetic.ot",
                                                      "benchmarks/contains_300.ot",
@@ -6368,7 +6393,7 @@
                                         "provider":  false
                                     },
                       "corpus":  {
-                                     "programs":  45,
+                                     "programs":  46,
                                      "origins":  [
                                                      "benchmarks/event_dispatch.ot",
                                                      "benchmarks/loops.ot",
@@ -6577,7 +6602,7 @@
                                         "provider":  false
                                     },
                       "corpus":  {
-                                     "programs":  151,
+                                     "programs":  152,
                                      "origins":  [
                                                      "benchmarks/json.ot",
                                                      "benchmarks/objects.ot",
@@ -6621,7 +6646,7 @@
                                         "provider":  false
                                     },
                       "corpus":  {
-                                     "programs":  84,
+                                     "programs":  85,
                                      "origins":  [
                                                      "benchmarks/arithmetic.ot",
                                                      "benchmarks/contains_300.ot",
@@ -6665,7 +6690,7 @@
                                         "provider":  true
                                     },
                       "corpus":  {
-                                     "programs":  189,
+                                     "programs":  191,
                                      "origins":  [
                                                      "benchmarks/arithmetic.ot",
                                                      "benchmarks/contains_300.ot",
@@ -6865,7 +6890,7 @@
                                         "provider":  false
                                     },
                       "corpus":  {
-                                     "programs":  57,
+                                     "programs":  58,
                                      "origins":  [
                                                      "benchmarks/contains_300.ot",
                                                      "benchmarks/contains_5000.ot",
@@ -6909,11 +6934,12 @@
                                         "provider":  false
                                     },
                       "corpus":  {
-                                     "programs":  5,
+                                     "programs":  6,
                                      "origins":  [
                                                      "benchmarks/loops.ot",
                                                      "conformance/core/variables_math_control_flow.ot",
                                                      "examples/conditions.ot",
+                                                     "tests/EventContract.Tests.ps1",
                                                      "tests/Optimizations.Tests.ps1",
                                                      "tests/Parser.Tests.ps1"
                                                  ]
@@ -7072,7 +7098,7 @@
                                         "provider":  false
                                     },
                       "corpus":  {
-                                     "programs":  23,
+                                     "programs":  24,
                                      "origins":  [
                                                      "benchmarks/contains_300.ot",
                                                      "benchmarks/contains_5000.ot",
@@ -7116,7 +7142,7 @@
                                         "provider":  false
                                     },
                       "corpus":  {
-                                     "programs":  18,
+                                     "programs":  19,
                                      "origins":  [
                                                      "benchmarks/function_calls.ot",
                                                      "benchmarks/recursion.ot",
@@ -7204,7 +7230,7 @@
                                         "provider":  true
                                     },
                       "corpus":  {
-                                     "programs":  14,
+                                     "programs":  15,
                                      "origins":  [
                                                      "benchmarks/function_calls.ot",
                                                      "benchmarks/recursion.ot",
@@ -7215,9 +7241,9 @@
                                                      "examples/module-lib.ot",
                                                      "examples/v1/contacts.ot",
                                                      "tests/Conformance.Tests.ps1",
+                                                     "tests/HostPortability.Tests.ps1",
                                                      "tests/Optimizations.Tests.ps1",
-                                                     "tests/Parser.Tests.ps1",
-                                                     "tests/Profiler.Tests.ps1"
+                                                     "tests/Parser.Tests.ps1"
                                                  ]
                                  },
                       "documentation":  {
@@ -7248,7 +7274,7 @@
                                         "provider":  true
                                     },
                       "corpus":  {
-                                     "programs":  140,
+                                     "programs":  141,
                                      "origins":  [
                                                      "benchmarks/json.ot",
                                                      "benchmarks/objects.ot",
@@ -7442,7 +7468,7 @@
                                         "provider":  false
                                     },
                       "corpus":  {
-                                     "programs":  111,
+                                     "programs":  112,
                                      "origins":  [
                                                      "conformance/release/web_hello.ot",
                                                      "examples/calculator.ot",
@@ -7616,7 +7642,7 @@
                                         "provider":  false
                                     },
                       "corpus":  {
-                                     "programs":  13,
+                                     "programs":  14,
                                      "origins":  [
                                                      "benchmarks/file_io.ot",
                                                      "conformance/misc/file_exists_run_command_json_roundtrip.ot",
@@ -7627,9 +7653,9 @@
                                                      "examples/v1/contacts.ot",
                                                      "tests/Conformance.Tests.ps1",
                                                      "tests/DiagnosticMatrix.Tests.ps1",
+                                                     "tests/EventContract.Tests.ps1",
                                                      "tests/FilesystemAdversarial.Tests.ps1",
-                                                     "tests/Parser.Tests.ps1",
-                                                     "tests/RedTeam.Tests.ps1"
+                                                     "tests/Parser.Tests.ps1"
                                                  ]
                                  },
                       "documentation":  {
@@ -7881,7 +7907,7 @@
                                         "provider":  false
                                     },
                       "corpus":  {
-                                     "programs":  13,
+                                     "programs":  14,
                                      "origins":  [
                                                      "conformance/misc/file_exists_run_command_json_roundtrip.ot",
                                                      "conformance/release/file_json_command.ot",
@@ -7892,9 +7918,9 @@
                                                      "tests/Batch1CliArgumentsAndEnvironment.Tests.ps1",
                                                      "tests/Conformance.Tests.ps1",
                                                      "tests/DiagnosticMatrix.Tests.ps1",
+                                                     "tests/EventContract.Tests.ps1",
                                                      "tests/Parser.Tests.ps1",
-                                                     "tests/ProcessAdversarial.Tests.ps1",
-                                                     "tests/RedTeam.Tests.ps1"
+                                                     "tests/ProcessAdversarial.Tests.ps1"
                                                  ]
                                  },
                       "documentation":  {
@@ -8228,7 +8254,7 @@
                                                      "benchmarks/file_io.ot",
                                                      "benchmarks/lists.ot",
                                                      "benchmarks/strings.ot",
-                                                     "conformance/http/http_web_target_only.ot",
+                                                     "conformance/http/http_web_fetch.ot",
                                                      "conformance/strings/collections_and_text.ot",
                                                      "conformance/system_integration/clipboard_env_notify.ot",
                                                      "examples/cli-arguments.ot",
@@ -9158,7 +9184,7 @@
                                      "programs":  5,
                                      "origins":  [
                                                      "conformance/http/http_invalid_url_negative.ot",
-                                                     "conformance/http/http_web_target_only.ot",
+                                                     "conformance/http/http_web_fetch.ot",
                                                      "tests/Http.Tests.ps1",
                                                      "tests/Parser.Tests.ps1",
                                                      "tests/Web.Tests.ps1"
@@ -9196,7 +9222,7 @@
                       "corpus":  {
                                      "programs":  4,
                                      "origins":  [
-                                                     "conformance/http/http_web_target_only.ot",
+                                                     "conformance/http/http_web_fetch.ot",
                                                      "tests/Http.Tests.ps1",
                                                      "tests/Parser.Tests.ps1",
                                                      "tests/Web.Tests.ps1"
@@ -9234,7 +9260,7 @@
                       "corpus":  {
                                      "programs":  3,
                                      "origins":  [
-                                                     "conformance/http/http_web_target_only.ot",
+                                                     "conformance/http/http_web_fetch.ot",
                                                      "tests/Http.Tests.ps1",
                                                      "tests/Parser.Tests.ps1"
                                                  ]
@@ -9271,7 +9297,7 @@
                       "corpus":  {
                                      "programs":  3,
                                      "origins":  [
-                                                     "conformance/http/http_web_target_only.ot",
+                                                     "conformance/http/http_web_fetch.ot",
                                                      "tests/Http.Tests.ps1",
                                                      "tests/Parser.Tests.ps1"
                                                  ]
@@ -11569,7 +11595,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D100"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D100"
@@ -11602,7 +11628,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D100"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D100"
@@ -11635,7 +11661,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D100"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D100"
@@ -11668,7 +11694,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D100"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D100"
@@ -11694,9 +11720,10 @@
                                         "provider":  false
                                     },
                       "corpus":  {
-                                     "programs":  4,
+                                     "programs":  5,
                                      "origins":  [
                                                      "tests/AsyncCommand.Tests.ps1",
+                                                     "tests/EventContract.Tests.ps1",
                                                      "tests/FileWatching.Tests.ps1",
                                                      "tests/Http.Tests.ps1",
                                                      "tests/TierOneRuntime.Tests.ps1"
@@ -11704,7 +11731,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D101"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D101"
@@ -11737,7 +11764,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D101"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D101"
@@ -11770,7 +11797,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D101"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D101"
@@ -11803,7 +11830,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D101"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D101"
@@ -11829,11 +11856,12 @@
                                         "provider":  true
                                     },
                       "corpus":  {
-                                     "programs":  9,
+                                     "programs":  10,
                                      "origins":  [
                                                      "benchmarks/event_dispatch.ot",
                                                      "tests/Bytes.Tests.ps1",
                                                      "tests/Crypto.Tests.ps1",
+                                                     "tests/EventContract.Tests.ps1",
                                                      "tests/Http.Tests.ps1",
                                                      "tests/Network.Tests.ps1",
                                                      "tests/Parser.Tests.ps1",
@@ -11844,7 +11872,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D102"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D102"
@@ -11877,7 +11905,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D103"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D103"
@@ -11910,7 +11938,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D103"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D103"
@@ -11943,7 +11971,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D103"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D103"
@@ -11976,7 +12004,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D103"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D103"
@@ -12009,7 +12037,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D103"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D103"
@@ -12042,7 +12070,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D103"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D103"
@@ -12075,7 +12103,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D103"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D103"
@@ -12108,7 +12136,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D103"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D103"
@@ -12134,14 +12162,15 @@
                                         "provider":  false
                                     },
                       "corpus":  {
-                                     "programs":  1,
+                                     "programs":  2,
                                      "origins":  [
+                                                     "tests/EventContract.Tests.ps1",
                                                      "tests/FileWatching.Tests.ps1"
                                                  ]
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D104"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D104"
@@ -12167,14 +12196,15 @@
                                         "provider":  false
                                     },
                       "corpus":  {
-                                     "programs":  1,
+                                     "programs":  2,
                                      "origins":  [
+                                                     "tests/EventContract.Tests.ps1",
                                                      "tests/FileWatching.Tests.ps1"
                                                  ]
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D104"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D104"
@@ -12200,14 +12230,15 @@
                                         "provider":  false
                                     },
                       "corpus":  {
-                                     "programs":  1,
+                                     "programs":  2,
                                      "origins":  [
+                                                     "tests/EventContract.Tests.ps1",
                                                      "tests/FileWatching.Tests.ps1"
                                                  ]
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D104"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D104"
@@ -12240,7 +12271,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D104"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D104"
@@ -12273,7 +12304,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D104"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D104"
@@ -12306,7 +12337,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D104"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D104"
@@ -12339,7 +12370,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D104"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D104"
@@ -12372,7 +12403,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D104"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D104"
@@ -12406,7 +12437,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D105"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D105"
@@ -12440,7 +12471,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D105"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D105"
@@ -12473,7 +12504,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D105"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D105"
@@ -12506,7 +12537,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D105"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D105"
@@ -12540,7 +12571,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D105"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D105"
@@ -12574,7 +12605,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D105"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D105"
@@ -12608,7 +12639,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D105"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D105"
@@ -12641,7 +12672,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D105"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D105"
@@ -12675,7 +12706,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D105"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D105"
@@ -12709,7 +12740,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D105"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D105"
@@ -12743,7 +12774,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D105"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D105"
@@ -12777,7 +12808,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D105"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D105"
@@ -12810,7 +12841,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D105"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D105"
@@ -12844,7 +12875,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D106"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D106"
@@ -12879,7 +12910,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D106"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D106"
@@ -12913,7 +12944,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D106"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D106"
@@ -12939,10 +12970,11 @@
                                         "provider":  false
                                     },
                       "corpus":  {
-                                     "programs":  6,
+                                     "programs":  7,
                                      "origins":  [
                                                      "benchmarks/event_dispatch.ot",
                                                      "tests/AsyncCommand.Tests.ps1",
+                                                     "tests/EventContract.Tests.ps1",
                                                      "tests/Http.Tests.ps1",
                                                      "tests/Network.Tests.ps1",
                                                      "tests/Parser.Tests.ps1",
@@ -12951,7 +12983,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D106"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D106"
@@ -12977,8 +13009,9 @@
                                         "provider":  false
                                     },
                       "corpus":  {
-                                     "programs":  3,
+                                     "programs":  4,
                                      "origins":  [
+                                                     "tests/EventContract.Tests.ps1",
                                                      "tests/Network.Tests.ps1",
                                                      "tests/Parser.Tests.ps1",
                                                      "tests/WebSocket.Tests.ps1"
@@ -12986,7 +13019,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D106"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D106"
@@ -13020,7 +13053,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D106"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D106"
@@ -13054,7 +13087,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D106"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D106"
@@ -13088,7 +13121,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D106"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D106"
@@ -13122,7 +13155,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D106"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D106"
@@ -13155,7 +13188,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D106"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D106"
@@ -13181,15 +13214,18 @@
                                         "provider":  false
                                     },
                       "corpus":  {
-                                     "programs":  2,
+                                     "programs":  3,
                                      "origins":  [
+                                                     "tests/EventContract.Tests.ps1",
                                                      "tests/Network.Tests.ps1",
                                                      "tests/Parser.Tests.ps1"
                                                  ]
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D107",
+                                                          "SPEC-DECISIONS.md#D108",
+                                                          "SPEC-DECISIONS.md#D112"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D107",
@@ -13217,15 +13253,17 @@
                                         "provider":  false
                                     },
                       "corpus":  {
-                                     "programs":  2,
+                                     "programs":  3,
                                      "origins":  [
                                                      "benchmarks/event_dispatch.ot",
+                                                     "tests/EventContract.Tests.ps1",
                                                      "tests/Network.Tests.ps1"
                                                  ]
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D107",
+                                                          "SPEC-DECISIONS.md#D108"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D107",
@@ -13252,15 +13290,17 @@
                                         "provider":  false
                                     },
                       "corpus":  {
-                                     "programs":  2,
+                                     "programs":  3,
                                      "origins":  [
                                                      "benchmarks/event_dispatch.ot",
+                                                     "tests/EventContract.Tests.ps1",
                                                      "tests/Network.Tests.ps1"
                                                  ]
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D107",
+                                                          "SPEC-DECISIONS.md#D108"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D107",
@@ -13287,15 +13327,17 @@
                                         "provider":  false
                                     },
                       "corpus":  {
-                                     "programs":  2,
+                                     "programs":  3,
                                      "origins":  [
                                                      "benchmarks/event_dispatch.ot",
+                                                     "tests/EventContract.Tests.ps1",
                                                      "tests/Network.Tests.ps1"
                                                  ]
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D107",
+                                                          "SPEC-DECISIONS.md#D108"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D107",
@@ -13330,7 +13372,8 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D107",
+                                                          "SPEC-DECISIONS.md#D108"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D107",
@@ -13365,7 +13408,9 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D107",
+                                                          "SPEC-DECISIONS.md#D108",
+                                                          "SPEC-DECISIONS.md#D112"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D107",
@@ -13401,7 +13446,9 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D107",
+                                                          "SPEC-DECISIONS.md#D108",
+                                                          "SPEC-DECISIONS.md#D113"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D107",
@@ -13437,7 +13484,9 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D107",
+                                                          "SPEC-DECISIONS.md#D108",
+                                                          "SPEC-DECISIONS.md#D113"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D107",
@@ -13473,7 +13522,9 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D107",
+                                                          "SPEC-DECISIONS.md#D108",
+                                                          "SPEC-DECISIONS.md#D113"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D107",
@@ -13509,7 +13560,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D109"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D109"
@@ -13544,7 +13595,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D109"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D109"
@@ -13578,7 +13629,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D109"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D109"
@@ -13613,7 +13664,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D109"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D109"
@@ -13648,7 +13699,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D109"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D109"
@@ -13683,7 +13734,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D109"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D109"
@@ -13718,7 +13769,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D109"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D109"
@@ -13753,7 +13804,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D109"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D109"
@@ -13787,7 +13838,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D111"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D111"
@@ -13821,7 +13872,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D111"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D111"
@@ -13855,7 +13906,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D111"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D111"
@@ -13889,7 +13940,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D111"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D111"
@@ -13922,7 +13973,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D110"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D110"
@@ -13955,7 +14006,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D110"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D110"
@@ -13988,7 +14039,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D99"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D99"
@@ -14021,7 +14072,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D99"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D99"
@@ -14054,7 +14105,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D99"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D99"
@@ -14087,7 +14138,7 @@
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D99"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D99"
@@ -14181,8 +14232,9 @@
                                         "provider":  false
                                     },
                       "corpus":  {
-                                     "programs":  1,
+                                     "programs":  2,
                                      "origins":  [
+                                                     "tests/EventContract.Tests.ps1",
                                                      "tests/Http.Tests.ps1"
                                                  ]
                                  },
@@ -14315,14 +14367,15 @@
                                         "provider":  false
                                     },
                       "corpus":  {
-                                     "programs":  1,
+                                     "programs":  2,
                                      "origins":  [
-                                                     "tests/AsyncCommand.Tests.ps1"
+                                                     "tests/AsyncCommand.Tests.ps1",
+                                                     "tests/EventContract.Tests.ps1"
                                                  ]
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D119"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D119"
@@ -14348,14 +14401,15 @@
                                         "provider":  false
                                     },
                       "corpus":  {
-                                     "programs":  1,
+                                     "programs":  2,
                                      "origins":  [
-                                                     "tests/AsyncCommand.Tests.ps1"
+                                                     "tests/AsyncCommand.Tests.ps1",
+                                                     "tests/EventContract.Tests.ps1"
                                                  ]
                                  },
                       "documentation":  {
                                             "files":  [
-
+                                                          "SPEC-DECISIONS.md#D119"
                                                       ],
                                             "decisionRefs":  [
                                                                  "D119"
@@ -18948,6 +19002,19 @@
                                          }
                         },
                         {
+                            "id":  "Otter.Library.psm1#Assert-OtterAtomicTargetWritable#1",
+                            "module":  "src/Otter.Library.psm1",
+                            "family":  "runtime",
+                            "function":  "Assert-OtterAtomicTargetWritable",
+                            "messageFragment":  "\". The file is read-only.",
+                            "evidence":  {
+                                             "kind":  "message-text-not-found",
+                                             "files":  [
+
+                                                       ]
+                                         }
+                        },
+                        {
                             "id":  "Otter.Library.psm1#Write-OtterFile#1",
                             "module":  "src/Otter.Library.psm1",
                             "family":  "runtime",
@@ -21722,6 +21789,19 @@
                             "family":  "runtime",
                             "function":  "Get-OtterDatabaseColumns",
                             "messageFragment":  "provider does not support schema introspection.",
+                            "evidence":  {
+                                             "kind":  "message-text-not-found",
+                                             "files":  [
+
+                                                       ]
+                                         }
+                        },
+                        {
+                            "id":  "Otter.Module.psm1#Assert-OtterModulePathCase#1",
+                            "module":  "src/Otter.Module.psm1",
+                            "family":  "runtime",
+                            "function":  "Assert-OtterModulePathCase",
+                            "messageFragment":  "\". Module paths must match file and folder names exactly, including capital letters.",
                             "evidence":  {
                                              "kind":  "message-text-not-found",
                                              "files":  [

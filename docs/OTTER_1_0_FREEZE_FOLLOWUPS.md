@@ -62,15 +62,24 @@ deleted): three hosts passed; PowerShell 7 on Linux failed only
 
 | Id | Question | Current behavior | Evidence |
 |---|---|---|---|
-| DC1 | Is the HTTP client part of the **console** public surface? | The console interpreter implements `get`/`post`/`put`/`delete` and they are tested; `STANDARD_LIBRARY.md`, the capability matrix and the scope matrix all say console HTTP is unsupported. | `tests/Http.Tests.ps1`; `release/otter-1.0-surface.json` `documentConflicts` |
-| EV1 | Is cross-source event fairness guaranteed or best-effort? | Fixed per-pass order; command jobs win under load. | `docs/OTTER_1_0_EVENT_LOOP_REVIEW.md` |
-| EV2 | May one event source drain an unbounded queue before others run? | Yes for command jobs (measured 1.5 s starvation of a UDP handler). | same |
-| EV3 | Which event sources are dispatched during `wait`? | Only HTTP and command jobs. | same |
-| EV4 | Is event ordering guaranteed only within a source? | FIFO within a source; unspecified across sources. | same |
-| EV5 | May TCP/UDP callbacks be delayed by polling cadence? | Yes (about 31 events/s). | same |
-| EV6 | Is the event loop cooperative rather than real-time? | Cooperative; handlers are never preempted. | same |
-| EV7 | Are the scheduling limits documented as part of 1.0? | Only in the event-loop review. | same |
+| DC1 | **RESOLVED — console HTTP is part of Otter 1.0** (approved 2026-09-27; D116A/D116B affirmed in `SPEC-DECISIONS.md`). Stale documents corrected; `http-web-target-only` fixture renamed `http-web-fetch`. | `tests/Http.Tests.ps1` made host-portable and passing on all four D120 hosts (run 36373295822). | `docs/OTTER_1_0_CONTRACT_DECISIONS_DC1_EV.md` |
+| EV1 | **RESOLVED — see D121** (approved 2026-09-27). Documentation only. | | `SPEC-DECISIONS.md` D121; `docs/OTTER_1_0_EVENT_MODEL.md`; `tests/EventContract.Tests.ps1` |
+| EV2 | **RESOLVED — see D121** (approved 2026-09-27). Implemented: bounded job events per turn (`6451f68`). | | `SPEC-DECISIONS.md` D121; `docs/OTTER_1_0_EVENT_MODEL.md`; `tests/EventContract.Tests.ps1` |
+| EV3 | **RESOLVED — see D121** (approved 2026-09-27). Implemented: `wait` services every event source (`6451f68`). | | `SPEC-DECISIONS.md` D121; `docs/OTTER_1_0_EVENT_MODEL.md`; `tests/EventContract.Tests.ps1` |
+| EV4 | **RESOLVED — see D121** (approved 2026-09-27). Documentation only. | | `SPEC-DECISIONS.md` D121; `docs/OTTER_1_0_EVENT_MODEL.md`; `tests/EventContract.Tests.ps1` |
+| EV5 | **RESOLVED — see D121** (approved 2026-09-27). Documentation only. | | `SPEC-DECISIONS.md` D121; `docs/OTTER_1_0_EVENT_MODEL.md`; `tests/EventContract.Tests.ps1` |
+| EV6 | **RESOLVED — see D121** (approved 2026-09-27). Documentation only. | | `SPEC-DECISIONS.md` D121; `docs/OTTER_1_0_EVENT_MODEL.md`; `tests/EventContract.Tests.ps1` |
+| EV7 | **RESOLVED — see D121** (approved 2026-09-27). Documentation only. | | `SPEC-DECISIONS.md` D121; `docs/OTTER_1_0_EVENT_MODEL.md`; `tests/EventContract.Tests.ps1` |
 | M1 | **RESOLVED — module paths require exact case on all supported hosts.** A `use` path must spell every file and folder name exactly as on disk; a case-only mismatch is rejected with the same diagnostic on every host (no case-insensitive fallback). Module identity is the exact on-disk path. | Decided 2026-09-27. Implemented in `src/Otter.Module.psm1` (`78b9793`, `639112f`). | `tests/Module.Tests.ps1` test 8; `tests/HostPortability.Tests.ps1` (file and folder cases, production entry point); D120 run 36327608764 |
+
+## Ledger reconstruction (2026-09-27)
+
+`SPEC-DECISIONS.md` now records D100-D114 and D119, reconstructed from the
+approved specifications (including `docs/design/D107-D111-SPECIFICATION.md`),
+the implementing commits and the tests. **D99 (Otter Query Language) is recorded
+as UNRESOLVED:** its only design record says "Target: Otter 1.1+ ... Not approved
+yet", yet it is implemented and in the contract. Whether OQL is part of Otter 1.0
+needs a decision.
 
 ## Other cross-document conflicts
 

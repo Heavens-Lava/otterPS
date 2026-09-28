@@ -242,8 +242,16 @@ function Get-NodeDocFiles {
     return @($files | Sort-Object)
 }
 
+# D109 nodes: the contract comment "web reports unsupported" predates D114,
+# which added browser-side cryptography. Recorded explicitly instead of trusting
+# the stale comment.
+$d114CryptoNodes = @('SecureRandomBytes', 'CryptoHash', 'CryptoHmac', 'GenerateKey', 'CryptoCipher', 'HashPassword', 'PasswordMatches', 'SecurelyEquals')
+
 function Get-BrowserState {
     param([string[]]$NodeNames, [string]$ExtraText = '')
+    if (@($NodeNames | Where-Object { $d114CryptoNodes -contains $_ }).Count -gt 0) {
+        return @('unverified', 'supported on the web by D114 (Web Crypto); tests/Web.Tests.ps1 test 26 runs the compiled JavaScript in Node, not in a browser. The contract comment "web reports unsupported" predates D114.')
+    }
     $text = $ExtraText
     foreach ($n in $NodeNames) { if ($nodeByName.ContainsKey($n)) { $text += ' ' + $nodeByName[$n].Section + ' ' + $nodeByName[$n].Comment } }
     if ($text -match '(?i)web (target )?(reports unsupported|fails loudly)|console/desktop only|console only|windows console only|not supported on the web') {
@@ -260,7 +268,7 @@ function Get-Hints {
     param([string]$Section, [string]$Comment, [string]$StdSection)
     $hints = New-Object System.Collections.Generic.List[string]
     $text = "$Section $Comment"
-    if ($text -match '(?i)console/desktop only|console only|windows console only|windows only') { $hints.Add('host-specific: the contract comment limits this to console/desktop or Windows') }
+    if ($text -match '(?i)console/desktop only|console only|windows console only|windows only' -and $Section -notmatch 'Cryptography \(D109\)') { $hints.Add('host-specific: the contract comment limits this to console/desktop or Windows') }
     if ($StdSection -match 'Target-specific') { $hints.Add('host-specific: listed under "Target-specific library" in STANDARD_LIBRARY.md') }
     if ($text -match '(?i)internal|reserved|legacy|deprecated') { $hints.Add('possibly-internal-or-legacy: the contract comment says internal, reserved, legacy or deprecated') }
     return $hints.ToArray()
@@ -438,16 +446,17 @@ foreach ($cap in $capabilities) {
 
 $eventContract = [ordered]@{
     reference = 'docs/OTTER_1_0_EVENT_LOOP_REVIEW.md'
-    status = 'pending-contract-decision'
-    note = 'The answers below are NOT chosen here. Each records the CURRENT measured behavior so the contract decision can be made against facts; decision stays null until the contract freeze records it.'
+    status = 'decided'
+    decidedIn = 'SPEC-DECISIONS.md D121 (approved 2026-09-27)'
+    note = 'currentBehavior is the behavior measured BEFORE the decision (docs/OTTER_1_0_EVENT_LOOP_REVIEW.md); decision is the approved contract text. EV2 and EV3 required runtime changes (commit 6451f68).'
     questions = @(
-        [ordered]@{ id = 'EV1'; question = 'Is cross-source fairness guaranteed or best-effort?'; currentBehavior = 'Fixed per-pass order (watcher, WebSocket, TCP/UDP, HTTP, jobs). No fairness guarantee; command jobs win under load.'; decision = $null }
-        [ordered]@{ id = 'EV2'; question = 'May one event source drain an unbounded queue before others run?'; currentBehavior = 'Yes for command jobs (while TryDequeue). No for sockets, WebSockets and watchers (one event per source per pass).'; decision = $null }
-        [ordered]@{ id = 'EV3'; question = 'Which event sources are dispatched during wait?'; currentBehavior = 'Only HTTP and command jobs. Socket, WebSocket and watcher events are held until the main program ends.'; decision = $null }
-        [ordered]@{ id = 'EV4'; question = 'Is event ordering guaranteed only within a source?'; currentBehavior = 'FIFO within a source; unspecified across sources.'; decision = $null }
-        [ordered]@{ id = 'EV5'; question = 'Are TCP/UDP receive callbacks allowed to be delayed by polling cadence?'; currentBehavior = 'Yes: two loop passes per UDP/TCP event and a 10 ms sleep that lasts about 16 ms on Windows (about 31 events/s).'; decision = $null }
-        [ordered]@{ id = 'EV6'; question = 'Is the event loop cooperative rather than real-time?'; currentBehavior = 'Cooperative: handlers run to completion on one thread and are never preempted.'; decision = $null }
-        [ordered]@{ id = 'EV7'; question = 'Are the current scheduling limits documented as part of 1.0?'; currentBehavior = 'Documented in docs/OTTER_1_0_EVENT_LOOP_REVIEW.md only; not in the user documentation.'; decision = $null }
+        [ordered]@{ id = 'EV1'; question = 'Is cross-source fairness guaranteed or best-effort?'; currentBehavior = 'Fixed per-pass order (watcher, WebSocket, TCP/UDP, HTTP, jobs). No fairness guarantee; command jobs win under load.'; decision = 'Best-effort with eventual progress for ready sources. No equal-share, round-robin, maximum-latency or quantitative fairness guarantee.' }
+        [ordered]@{ id = 'EV2'; question = 'May one event source drain an unbounded queue before others run?'; currentBehavior = 'Yes for command jobs (while TryDequeue). No for sockets, WebSockets and watchers (one event per source per pass).'; decision = 'No. A source may not do unbounded work while another ready source is waiting; bounded work per turn. The bound is an implementation detail, not language.' }
+        [ordered]@{ id = 'EV3'; question = 'Which event sources are dispatched during wait?'; currentBehavior = 'Only HTTP and command jobs. Socket, WebSocket and watcher events are held until the main program ends.'; decision = 'Where a target supports wait, wait services every active event source supported by that runtime. Web does not support wait in 1.0 (D101).' }
+        [ordered]@{ id = 'EV4'; question = 'Is event ordering guaranteed only within a source?'; currentBehavior = 'FIFO within a source; unspecified across sources.'; decision = 'Ordered within a source; cross-source order unspecified.' }
+        [ordered]@{ id = 'EV5'; question = 'Are TCP/UDP receive callbacks allowed to be delayed by polling cadence?'; currentBehavior = 'Yes: two loop passes per UDP/TCP event and a 10 ms sleep that lasts about 16 ms on Windows (about 31 events/s).'; decision = 'Yes. Polling and scheduling delay are permitted; measured latency and throughput are runtime characteristics, not language semantics.' }
+        [ordered]@{ id = 'EV6'; question = 'Is the event loop cooperative rather than real-time?'; currentBehavior = 'Cooperative: handlers run to completion on one thread and are never preempted.'; decision = 'Yes. Cooperative: one handler at a time, run to completion, never preempting running Otter code; no real-time guarantee.' }
+        [ordered]@{ id = 'EV7'; question = 'Are the current scheduling limits documented as part of 1.0?'; currentBehavior = 'Documented in docs/OTTER_1_0_EVENT_LOOP_REVIEW.md only; not in the user documentation.'; decision = 'Measured limits are documented as runtime characteristics (docs/OTTER_1_0_EVENT_MODEL.md), not as the language contract.' }
     )
 }
 
@@ -462,8 +471,8 @@ $documentConflicts = @(
             [ordered]@{ file = 'docs/OTTER_1_0_RELEASE_SCOPE_MATRIX.md'; says = 'HTTP Client: "Not supported on headless Console runtime"' }
         )
         evidence = @('src/Otter.Interpreter.psm1', 'tests/Http.Tests.ps1')
-        observation = 'The console interpreter implements HttpGet/HttpPost/HttpPut/HttpDelete (Invoke-OtterHttpRequest, D116A) and tests/Http.Tests.ps1 exercises them against a local server, in-process and through otter.ps1. The three documents understate the implementation.'
-        decision = $null
+        observation = 'The console interpreter implements HttpGet/HttpPost/HttpPut/HttpDelete (Invoke-OtterHttpRequest, D116A) and tests/Http.Tests.ps1 exercises them against a local server, in-process and through otter.ps1. The three documents understated the implementation.'
+        decision = 'Approved 2026-09-27 (option A): console HTTP is part of Otter 1.0; D116A/D116B affirmed. The three documents were corrected and docs/OTTER_1_0_HTTP_TARGET_PARITY.md marked superseded; tests/Http.Tests.ps1 joined the D120 four-host suite.'
     }
     [ordered]@{
         id = 'DC2'; topic = 'use "file.ot" modules'
@@ -506,6 +515,16 @@ $documentConflicts = @(
         decision = $null
     }
 )
+
+# --- 5c. boundary decisions recorded so far ---------------------------------
+
+$httpNodes = @('HttpGet', 'HttpPost', 'HttpPut', 'HttpDelete', 'DownloadFile', 'HttpStart', 'HttpCancel', 'HttpRequestIsState', 'ReceivedResponse')
+foreach ($cap in $capabilities) {
+    $isHttp = @($cap.contract.nodeKinds | Where-Object { $httpNodes -contains $_ }).Count -gt 0
+    if (-not $isHttp -and $cap.category -notmatch '^HTTP') { continue }
+    $cap['boundaryStatus'] = 'decided-public'
+    $cap['boundaryDecision'] = 'DC1 approved 2026-09-27: the HTTP client is part of Otter 1.0 on console and web (D116A/D116B affirmed in SPEC-DECISIONS.md). Status stays candidate until the capability is certified.'
+}
 
 # --- 6. write ---------------------------------------------------------------
 
