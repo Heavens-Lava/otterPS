@@ -2,7 +2,7 @@
 // on Enter, save-time cleanup and indent guides - the pure rules the editor
 // applies while typing.
 import assert from 'node:assert/strict';
-import { autoClosePair, backspacePair, enterKey, prepareForSave, renderIndentGuides } from '../js/editor/editing-assist.js';
+import { autoClosePair, backspacePair, enterKey, prepareForSave, renderIndentGuides, splitLineEnding, withLineEnding } from '../js/editor/editing-assist.js';
 
 // 1. Pairs.
 let r = autoClosePair('say ', 4, 4, '"');
@@ -50,6 +50,15 @@ console.log('  pass  Enter after a block opener indents and writes the closing p
 
 // 3. Save cleanup.
 assert.equal(prepareForSave('say "a"   \n  \nsay "b"'), 'say "a"\n\nsay "b"\n');
+
+// Line endings: the editor holds LF text; the file's EOL comes back on save.
+assert.deepEqual(splitLineEnding('a\r\nb\r\n'), { text: 'a\nb\n', eol: 'CRLF' });
+assert.deepEqual(splitLineEnding('a\nb\n'), { text: 'a\nb\n', eol: 'LF' });
+assert.deepEqual(splitLineEnding('\n'), { text: '\n', eol: 'LF' });
+assert.deepEqual(splitLineEnding(''), { text: '', eol: 'CRLF' }, 'new files default to CRLF');
+assert.equal(withLineEnding('a\nb\n', 'CRLF'), 'a\r\nb\r\n');
+assert.equal(withLineEnding('a\r\nb', 'LF'), 'a\nb');
+assert.equal(withLineEnding(splitLineEnding('x\r\ny\r\n').text, 'CRLF'), 'x\r\ny\r\n', 'round trip');
 assert.equal(prepareForSave('say "a"  ', { trimTrailingWhitespace: false, insertFinalNewline: false }), 'say "a"  ');
 assert.equal(prepareForSave(''), '', 'an empty file stays empty');
 console.log('  pass  save cleanup trims trailing whitespace and ends the file with a newline, per setting');

@@ -101,6 +101,23 @@ export function enterKey(text, start, end, { autoCloseBlocks = true } = {}) {
   return { text: text.slice(0, start) + insert + text.slice(end), start: caret, end: caret };
 }
 
+// Line endings. The editor works on LF text (a textarea turns CRLF into LF
+// anyway, which used to make the buffer switch from CRLF to LF on the first
+// keystroke, reset the undo history of whole-document edits and save CRLF
+// files as LF). A file's line ending is read when it opens, kept on its tab,
+// and put back when it is saved. Empty and new files use CRLF, as before.
+export function splitLineEnding(text) {
+  const raw = String(text ?? '');
+  const crlf = (raw.match(/\r\n/g) || []).length;
+  const lf = (raw.match(/(^|[^\r])\n/g) || []).length;
+  return { text: raw.replace(/\r\n/g, '\n'), eol: lf > crlf ? 'LF' : 'CRLF' };
+}
+
+export function withLineEnding(text, eol) {
+  const lf = String(text ?? '').replace(/\r\n/g, '\n');
+  return eol === 'CRLF' ? lf.replace(/\n/g, '\r\n') : lf;
+}
+
 // What is written to disk, according to the file settings.
 export function prepareForSave(text, { trimTrailingWhitespace = true, insertFinalNewline = true } = {}) {
   let out = text;

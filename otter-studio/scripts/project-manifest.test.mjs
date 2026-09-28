@@ -10,6 +10,7 @@ import {
   serializeManifest,
   VALID_ARCHETYPES
 } from '../js/project/project-manifest.js';
+import { createScratchFolder } from './test-scratch.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -169,6 +170,7 @@ async function runTests() {
       body: JSON.stringify({
         name: 'test-rich-manifest',
         overwrite: true, // the fixture is re-created on every run
+        gitignore: false, // a tracked fixture: no new file in it
         archetype: 'web',
         fileName: 'web-app.ot',
         code: 'say "Web app started"\n'
@@ -207,6 +209,21 @@ async function runTests() {
     assert.equal(suggestRes.status, 200);
     assert.notEqual(suggestRes.json.name, 'test-rich-manifest');
     assert.ok(!fs.existsSync(path.join(REPO_ROOT, 'projects', suggestRes.json.name)));
+  });
+
+  await testAsync('POST /api/create-project adds a .gitignore for the build output (unless unticked)', async () => {
+    const scratch = createScratchFolder(REPO_ROOT, 'gitignore');
+    const make = (name, extra = {}) => request('/api/create-project', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, baseDir: scratch.rel, archetype: 'console', code: 'say "hi"\n', ...extra })
+    });
+    assert.equal((await make('with-ignore')).status, 200);
+    const ignore = fs.readFileSync(path.join(scratch.abs, 'with-ignore', '.gitignore'), 'utf8');
+    assert.match(ignore, /^\/dist\/$/m, 'the build output folder');
+    assert.match(ignore, /^node_modules\/$/m);
+    assert.equal((await make('without-ignore', { gitignore: false })).status, 200);
+    assert.equal(fs.existsSync(path.join(scratch.abs, 'without-ignore', '.gitignore')), false);
   });
 
   await testAsync('GET /api/project-manifest returns normalized manifest and validation', async () => {

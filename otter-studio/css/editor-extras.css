@@ -281,3 +281,23 @@ body.zen-mode .studio-statusbar {
 .project-tree:focus {
   outline: none;
 }
+
+/* Git change markers (js/scm/gutter-changes.js): a bar on the gutter's
+   right edge for added (green) and modified (blue) lines, and a red wedge
+   where lines were deleted. Drawn with box-shadow and a background so they
+   sit alongside the bookmark, error and breakpoint marks (::before/::after). */
+.line-numbers-gutter span.gutter-git-added {
+  box-shadow: inset -3px 0 0 #22c55e;
+}
+
+.line-numbers-gutter span.gutter-git-modified {
+  box-shadow: inset -3px 0 0 #3b82f6;
+}
+
+.line-numbers-gutter span.gutter-git-deleted {
+  background: linear-gradient(225deg, #ef4444 50%, transparent 50%) no-repeat right bottom / 6px 6px;
+}
+
+.line-numbers-gutter span.gutter-git-deleted-above {
+  background: linear-gradient(315deg, #ef4444 50%, transparent 50%) no-repeat right top / 6px 6px;
+}

@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 
 const { markWhitespace, findLinkAt, resolveSourcePath, createBookmarks, tasksFromSearch } = await import('../js/editor/editor-extras.js');
 const { chordOf, displayChord, parseChord } = await import('../js/shell/keys.js');
+const { changeHunks, markersFromHunks, revertHunk } = await import('../js/scm/gutter-changes.js');
 
 // Whitespace: spaces in text get a dot span; tags and attributes are untouched.
 assert.equal(markWhitespace('<span class="k">say</span> "a b"'),
@@ -43,6 +44,22 @@ assert.deepEqual(tasks.map(t => [t.tag, t.text]), [
   ['FIXME', 'crashes on empty input'], ['TODO', 'load the real data'], ['NOTE', 'brand colors']
 ]);
 
+// Git gutter: added, modified and deleted regions against the base text.
+const base = 'a\nb\nc\nd\ne\n';
+const edited = 'a\nB\nc\nnew\ne\nend\n'; // b changed, d replaced, "end" added
+const hunks = changeHunks(base, edited);
+assert.deepEqual(hunks.map(h => [h.kind, h.start, h.end]), [['modified', 2, 2], ['modified', 4, 4], ['added', 6, 6]]);
+assert.deepEqual(changeHunks(base, 'a\nb\ne\n').map(h => [h.kind, h.start, h.original]), [['deleted', 2, ['c', 'd']]]);
+assert.deepEqual(changeHunks(base, 'b\nc\nd\ne\n').map(h => [h.kind, h.start]), [['deleted', 0]], 'deleted at the top');
+const markers = markersFromHunks(changeHunks(base, 'b\nc\nd\nx\n'));
+assert.equal(markers.get(1), 'gutter-git-deleted-above');
+assert.equal(markers.get(4), 'gutter-git-modified');
+assert.equal(changeHunks(base, base).length, 0, 'unchanged');
+// Reverting a hunk puts the base lines back, keeping CRLF.
+assert.equal(revertHunk(edited, hunks[0]), 'a\nb\nc\nnew\ne\nend\n');
+assert.equal(revertHunk(edited, hunks[2]), 'a\nB\nc\nnew\ne\n');
+assert.equal(revertHunk('a\r\nb\r\ne\r\n', changeHunks(base, 'a\nb\ne\n')[0]), 'a\r\nb\r\nc\r\nd\r\ne\r\n');
+
 // Keys: chords from events, display and parsing.
 assert.equal(chordOf({ ctrlKey: true, altKey: true, key: 'k', code: 'KeyK' }), 'ctrl+alt+k');
 assert.equal(chordOf({ altKey: true, key: '˚', code: 'KeyK' }), 'alt+k', 'Alt letters use the key cap');
@@ -52,4 +69,4 @@ assert.equal(parseChord('Ctrl + Shift + Up'), 'ctrl+shift+arrowup');
 assert.equal(parseChord('Shift+Ctrl+G'), 'ctrl+shift+g', 'modifiers in a fixed order');
 assert.equal(parseChord('Ctrl+'), null);
 
-console.log('Editor extras tests passed (5 groups).');
+console.log('Editor extras tests passed (6 groups).');

@@ -472,6 +472,31 @@ async function handleRequest(req, res) {
   }
 
   if (pathname === '/api/create-project' && req.method === 'POST') {
+    // What a new project keeps out of Git: its build output (build.outputDir,
+    // "dist" by default), dependencies, and OS/editor files.
+    const projectGitignore = (manifest) => {
+      const out = String(manifest?.build?.outputDir || 'dist').replace(/\\/g, '/').replace(/^\.?\/+|\/+$/g, '') || 'dist';
+      return [
+        '# Build output (project.json build.outputDir)',
+        `/${out}/`,
+        '',
+        '# Dependencies',
+        'node_modules/',
+        '',
+        '# Logs and temporary files',
+        '*.log',
+        '*.tmp',
+        '',
+        '# Operating system and editor files',
+        '.DS_Store',
+        'Thumbs.db',
+        'desktop.ini',
+        '.vscode/',
+        '.vs/',
+        '*.swp',
+        ''
+      ].join('\n');
+    };
     try {
       const body = await readBody(req);
       const rawName = (body.name || 'my-app').trim();
@@ -516,6 +541,13 @@ async function handleRequest(req, res) {
       });
       manifest.main = fileName;
       fs.writeFileSync(path.join(projectDir, 'project.json'), serializeManifest(manifest), 'utf8');
+
+      // 4. A .gitignore for the build output and editor clutter (unless the
+      // user unticked it, or the folder already has one).
+      const gitignorePath = path.join(projectDir, '.gitignore');
+      if (body.gitignore !== false && !fs.existsSync(gitignorePath)) {
+        fs.writeFileSync(gitignorePath, projectGitignore(manifest), 'utf8');
+      }
 
       const relFolder = path.relative(REPO_ROOT, projectDir).replace(/\\/g, '/');
       const tree = scanDir(projectDir, projectDir);

@@ -245,8 +245,8 @@ async function diffSides(repoRoot, file, staged) {
   const index = await readBlob(repoRoot, `:${rel}`);
   const work = fs.existsSync(abs) && fs.statSync(abs).isFile() ? fs.readFileSync(abs, 'utf8') : null;
   return staged
-    ? { path: rel, original: head ?? '', modified: index ?? '', originalLabel: 'HEAD', modifiedLabel: 'Staged' }
-    : { path: rel, original: index ?? head ?? '', modified: work ?? '', originalLabel: index !== null ? 'Staged' : 'HEAD', modifiedLabel: 'Working tree' };
+    ? { path: rel, tracked: head !== null || index !== null, original: head ?? '', modified: index ?? '', originalLabel: 'HEAD', modifiedLabel: 'Staged' }
+    : { path: rel, tracked: head !== null || index !== null, original: index ?? head ?? '', modified: work ?? '', originalLabel: index !== null ? 'Staged' : 'HEAD', modifiedLabel: 'Working tree' };
 }
 
 /**

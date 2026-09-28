@@ -74,7 +74,7 @@ export function renderVirtualizedLines(lines, startIndex, endIndex, topSpacerHei
   return html;
 }
 
-export function renderVirtualizedGutter(startIndex, endIndex, topSpacerHeight, bottomSpacerHeight, errorLine = null, warningLine = null) {
+export function renderVirtualizedGutter(startIndex, endIndex, topSpacerHeight, bottomSpacerHeight, errorLine = null, warningLine = null, lineClass = null) {
   let html = '';
 
   if (topSpacerHeight > 0) {
@@ -83,10 +83,12 @@ export function renderVirtualizedGutter(startIndex, endIndex, topSpacerHeight, b
 
   for (let idx = startIndex; idx < endIndex; idx++) {
     const i = idx + 1;
-    let markerClass = '';
-    if (errorLine === i) markerClass = ' class="gutter-err"';
-    else if (warningLine === i) markerClass = ' class="gutter-warn"';
-    html += `<span${markerClass}>${i}</span>`;
+    const classes = [];
+    if (errorLine === i) classes.push('gutter-err');
+    else if (warningLine === i) classes.push('gutter-warn');
+    const extra = lineClass ? lineClass(i) : '';
+    if (extra) classes.push(extra);
+    html += `<span${classes.length ? ` class="${classes.join(' ')}"` : ''}>${i}</span>`;
   }
 
   if (bottomSpacerHeight > 0) {

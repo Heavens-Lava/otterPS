@@ -44,7 +44,8 @@ assert.match(html, /id="btnEncodingSelector"/, 'Status bar must expose an encodi
 assert.match(html, /id="problemStatusBanner"/, 'Problems drawer must expose a clickable status banner');
 assert.match(ide, /handleEditorHover/, 'Editor must support hover information lookup');
 assert.match(ide, /checkSignatureHelp/, 'Editor must support real-time parameter signature help');
-assert.match(ide, /detectFileEol/, 'Editor must automatically detect CRLF/LF line endings');
+assert.match(ide, /splitLineEnding\(fileContent\)/, 'Editor must detect a file\'s CRLF/LF line ending when it opens');
+assert.match(ide, /withLineEnding\(this\.currentCode/, 'Save must write the file\'s own line ending');
 assert.match(ide, /problemStatusBanner\?\.addEventListener\('click'/, 'Clicking problem banner must navigate to source');
 assert.match(html, /id="workspaceReplaceInput"/, 'Workspace search pane must expose a replace input');
 assert.match(html, /id="btnWorkspaceReplaceAll"/, 'Workspace search pane must expose a Replace All button');

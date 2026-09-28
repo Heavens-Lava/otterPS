@@ -123,6 +123,7 @@ export class SourceControlPanel {
     try {
       this.status = await this.api('GET', 'status');
       this.error = null;
+      window.dispatchEvent(new CustomEvent('otter:git-status', { detail: this.status }));
     } catch (err) {
       this.status = null;
       this.error = err.message;

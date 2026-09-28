@@ -908,7 +908,8 @@ document.addEventListener('DOMContentLoaded', async () => {
               archetype: selectedArchetype,
               fileName,
               code: initialCode,
-              css: initialCss
+              css: initialCss,
+              gitignore: document.getElementById('chkProjectGitignore')?.checked !== false
             })
           });
           created = await res.json().catch(() => ({}));

@@ -1,6 +1,7 @@
 // ide.js - Interactive Code Editor, Real Project Tree, Terminal, and Execution Engine for Otter Studio
 
 import { openLaunchProfilesEditor } from './components/launch-profiles.js';
+import { createGitGutter } from './scm/gutter-changes.js';
 import {
   filterNavigationItems,
   flattenProjectFiles,
@@ -11,7 +12,7 @@ import {
 } from './navigation/symbol-index.js';
 import { getHoverInfo, getWordAtOffset } from './navigation/hover-provider.js';
 import { getSignatureHelp } from './navigation/signature-provider.js';
-import { autoClosePair, backspacePair, enterKey, prepareForSave, renderIndentGuides } from './editor/editing-assist.js';
+import { autoClosePair, backspacePair, enterKey, prepareForSave, renderIndentGuides, splitLineEnding, withLineEnding } from './editor/editing-assist.js';
 import { markWhitespace, findLinkAt, resolveSourcePath, createBookmarks } from './editor/editor-extras.js';
 import { askText } from './shell/ask.js';
 import { buildFindRegex, findAll, replacementFor, replaceMatches } from './editor/find.js';
@@ -106,6 +107,7 @@ export class OtterStudioIde {
     this.workspaceFiles = [];
     this.workspaceSymbols = [];
     this.bookmarks = createBookmarks();
+    this.gitGutter = createGitGutter(this);
     this.templatesCollapsed = false;
     this.navigationMode = null;
     this.navigationItems = [];
@@ -1865,7 +1867,7 @@ export class OtterStudioIde {
     const newTab = {
       path: filePath,
       name: fileName,
-      content: fileContent,
+      ...(({ text, eol }) => ({ content: text, eol }))(splitLineEnding(fileContent)),
       isDirty: false,
       icon,
       diskRevision: fileRevision,
@@ -1884,6 +1886,8 @@ export class OtterStudioIde {
   activateTab(filePath) {
     const tab = this.openTabs.find(t => t.path === filePath);
     if (!tab) return;
+    // Git change markers: (re)read this file's staged/committed copy.
+    this.gitGutter.refresh(filePath);
 
     // Snapshot departing tab's unsaved text, caret selection, and scroll offsets
     if (this.currentFile && this.currentFile !== filePath) {
@@ -1903,9 +1907,11 @@ export class OtterStudioIde {
       this.warningLine = null;
     }
 
+    this.normalizeTabLineEndings(tab);
     this.currentFile = tab.path;
     this.currentCode = tab.content;
-    this.detectFileEol(this.currentCode);
+    this.fileEol = tab.eol;
+    this.updateEolIndicator();
 
     if (this.multiCursor) {
       this.multiCursor.setPrimaryCursor(0, 0);
@@ -2132,7 +2138,7 @@ export class OtterStudioIde {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             path: this.currentFile,
-            content: this.currentCode,
+            content: withLineEnding(this.currentCode, tab?.eol || this.fileEol),
             expectedRevision: tab?.diskRevision || undefined
           })
         });
@@ -2316,7 +2322,10 @@ export class OtterStudioIde {
   }
 
   applyExternalSnapshot(tab, snapshot) {
-    tab.content = snapshot.content;
+    const { text, eol } = splitLineEnding(snapshot.content);
+    tab.content = text;
+    tab.eol = eol;
+    if (tab.path === this.currentFile) { this.fileEol = eol; this.updateEolIndicator(); }
     tab.diskRevision = snapshot.revision;
     tab.externalRevision = null;
     tab.externalContent = null;
@@ -2840,6 +2849,7 @@ export class OtterStudioIde {
           path: t.path,
           name: t.name,
           content: t.content,
+          eol: t.eol,
           isDirty: t.isDirty,
           icon: t.icon,
           diskRevision: t.diskRevision || null,
@@ -2860,6 +2870,7 @@ export class OtterStudioIde {
       const session = JSON.parse(saved);
       if (session && session.openTabs && session.openTabs.length > 0) {
         this.openTabs = session.openTabs;
+        this.openTabs.forEach(t => this.normalizeTabLineEndings(t));
         this.currentProjectFolder = session.currentFolder || null;
         this.currentSolutionPath = session.currentSolutionPath || null;
         this.isMultiRoot = Boolean(session.isMultiRoot);
@@ -2941,7 +2952,7 @@ export class OtterStudioIde {
       const range = computeVisibleRange(scrollTop, viewportHeight, lines.length, DEFAULT_LINE_HEIGHT, 40);
       this.currentVirtualRange = range;
 
-      const gutterHtml = renderVirtualizedGutter(range.startIndex, range.endIndex, range.topSpacerHeight, range.bottomSpacerHeight, this.errorLine, this.warningLine);
+      const gutterHtml = renderVirtualizedGutter(range.startIndex, range.endIndex, range.topSpacerHeight, range.bottomSpacerHeight, this.errorLine, this.warningLine, (line) => this.gitGutter.classFor(line));
       if (this.gutterEl) this.gutterEl.innerHTML = gutterHtml;
 
       const linesHtml = renderVirtualizedLines(
@@ -3181,7 +3192,7 @@ export class OtterStudioIde {
 
     this.currentVirtualRange = range;
     if (this.gutterEl) {
-      this.gutterEl.innerHTML = renderVirtualizedGutter(range.startIndex, range.endIndex, range.topSpacerHeight, range.bottomSpacerHeight, this.errorLine, this.warningLine);
+      this.gutterEl.innerHTML = renderVirtualizedGutter(range.startIndex, range.endIndex, range.topSpacerHeight, range.bottomSpacerHeight, this.errorLine, this.warningLine, (line) => this.gitGutter.classFor(line));
     }
     if (this.codeAreaEl) {
       const linesHtml = renderVirtualizedLines(
@@ -3246,6 +3257,8 @@ export class OtterStudioIde {
       if (this.debugBreakpoints && this.debugBreakpoints.has(i)) classes.push('gutter-breakpoint');
       if (this.debugPausedLine === i) classes.push('gutter-debug-pause');
       if (this.currentFile && this.bookmarks.has(this.currentFile, i)) classes.push('gutter-bookmark');
+      const change = this.gitGutter.classFor(i);
+      if (change) classes.push(change);
       const classAttr = classes.length ? ` class="${classes.join(' ')}"` : '';
       spans += `<span${classAttr} data-line="${i}">${i}</span>`;
     }
@@ -3981,7 +3994,7 @@ export class OtterStudioIde {
         const res = await fetch('/api/file', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ path: tab.path, content: tab.content, expectedRevision: tab.diskRevision || undefined })
+          body: JSON.stringify({ path: tab.path, content: withLineEnding(tab.content, tab.eol || this.fileEol), expectedRevision: tab.diskRevision || undefined })
         });
         const data = await res.json();
         if (res.status === 409 && data.conflict) { this.setExternalConflict(tab, data); ok = false; continue; }
@@ -4859,28 +4872,25 @@ export class OtterStudioIde {
     }
   }
 
-  detectFileEol(content) {
-    if (!content) return 'CRLF';
-    const crlfCount = (content.match(/\r\n/g) || []).length;
-    const lfCount = (content.match(/[^\r]\n/g) || []).length;
-    this.fileEol = (lfCount > crlfCount) ? 'LF' : 'CRLF';
-    this.updateEolIndicator();
-    return this.fileEol;
-  }
-
+  // The text stays LF in the editor; the tab's EOL is what Save writes.
   toggleEol() {
     this.fileEol = (this.fileEol === 'CRLF') ? 'LF' : 'CRLF';
-    if (this.currentCode) {
-      if (this.fileEol === 'CRLF') {
-        this.currentCode = this.currentCode.replace(/\r?\n/g, '\r\n');
-      } else {
-        this.currentCode = this.currentCode.replace(/\r\n/g, '\n');
-      }
-      const textarea = document.getElementById('hiddenEditorInput');
-      if (textarea) textarea.value = this.currentCode;
+    const tab = this.openTabs.find(t => t.path === this.currentFile);
+    if (tab) {
+      tab.eol = this.fileEol;
       this.markCurrentTabDirty(true);
     }
     this.updateEolIndicator();
+  }
+
+  // A tab holds LF text and its file's line ending in tab.eol.
+  normalizeTabLineEndings(tab) {
+    if (!tab || typeof tab.content !== 'string') return;
+    if (!tab.eol || tab.content.includes('\r\n')) {
+      const { text, eol } = splitLineEnding(tab.content);
+      tab.content = text;
+      tab.eol = tab.eol || eol;
+    }
   }
 
   updateEolIndicator() {

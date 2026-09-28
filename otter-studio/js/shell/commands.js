@@ -179,6 +179,9 @@ export function defaultCommands(deps) {
     { id: 'edit.toggleBookmark', title: 'Toggle Bookmark', category: 'Edit', keys: ['ctrl+alt+k'], when: hasFile, run: () => ide.toggleBookmark() },
     { id: 'edit.nextBookmark', title: 'Next Bookmark', category: 'Edit', keys: ['ctrl+alt+l'], when: hasFile, run: () => ide.goToBookmark(1) },
     { id: 'edit.previousBookmark', title: 'Previous Bookmark', category: 'Edit', keys: ['ctrl+alt+j'], when: hasFile, run: () => ide.goToBookmark(-1) },
+    { id: 'edit.nextChange', title: 'Go to Next Change (Git)', category: 'Edit', keys: ['alt+f3'], when: hasFile, run: () => ide.gitGutter.nextChange() },
+    { id: 'edit.previousChange', title: 'Go to Previous Change (Git)', category: 'Edit', keys: ['shift+alt+f3'], when: hasFile, run: () => ide.gitGutter.previousChange() },
+    { id: 'edit.revertChange', title: 'Revert Change at Cursor (Git)', category: 'Edit', when: hasFile, run: () => ide.gitGutter.revertAtCursor() },
     { id: 'edit.openLink', title: 'Open Link or File at Cursor', category: 'Edit', keys: ['alt+enter'], when: hasFile, run: () => ide.openLinkAtCursor() },
     // View
     { id: 'view.code', title: 'Show Code', category: 'View', run: () => setMode('code') },

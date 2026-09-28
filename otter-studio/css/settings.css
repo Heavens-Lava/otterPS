@@ -221,3 +221,20 @@
   background: #dc2626;
   border-color: #dc2626;
 }
+
+/* A labelled checkbox in a dialog form (New Project: "Add a .gitignore"). */
+.config-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-secondary, #cbd5e1);
+  cursor: pointer;
+  user-select: none;
+}
+
+.config-check input {
+  margin: 0;
+  accent-color: var(--accent, #3b82f6);
+}
