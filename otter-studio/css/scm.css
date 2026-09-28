@@ -1,0 +1,97 @@
+/* scm.css - Source Control pane, diff viewer, blame and conflict editor.
+   Colours come from the theme variables (studio.css / studio-dark.css), so
+   light and dark themes both work. Added/removed colours are paired with
+   +/- signs and status letters, so meaning never depends on colour alone. */
+
+.scm-root { display: flex; flex-direction: column; gap: 8px; min-height: 0; overflow-y: auto; font-size: 12px; color: var(--text-main); }
+.scm-root.is-busy { opacity: .6; pointer-events: none; }
+.scm-empty { padding: 12px; color: var(--text-muted); display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.scm-visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.scm-note { font-size: 11px; color: var(--text-muted); margin: 6px 0; }
+
+.scm-header { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.scm-branch { background: var(--bg-hover); border: 1px solid var(--border-subtle); color: var(--text-main); border-radius: var(--radius-sm); padding: 3px 8px; font: inherit; font-weight: 600; cursor: pointer; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.scm-sync { color: var(--text-muted); font-size: 11px; }
+.scm-actions { margin-left: auto; display: flex; gap: 2px; }
+
+.scm-btn { background: var(--bg-hover); border: 1px solid var(--border-subtle); color: var(--text-main); border-radius: var(--radius-sm); padding: 3px 8px; font: inherit; font-size: 11px; cursor: pointer; }
+.scm-btn:hover { background: var(--bg-active); }
+.scm-btn:disabled { opacity: .5; cursor: not-allowed; }
+.scm-btn-primary { background: var(--accent-blue); border-color: var(--accent-blue); color: #fff; }
+.scm-btn-primary:hover { filter: brightness(1.1); background: var(--accent-blue); }
+.scm-icon-btn { background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 13px; line-height: 1; padding: 2px 4px; border-radius: 4px; }
+.scm-icon-btn:hover, .scm-icon-btn:focus-visible { background: var(--bg-active); color: var(--text-main); }
+.scm-btn:focus-visible, .scm-branch:focus-visible, .scm-file:focus-visible, .scm-commit-row:focus-visible { outline: 2px solid var(--accent-blue); outline-offset: 1px; }
+
+.scm-merge-banner { background: var(--tag-cream); border: 1px solid var(--tag-cream-border); color: var(--tag-cream-text); padding: 6px 8px; border-radius: var(--radius-sm); display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+
+.scm-commit { display: flex; flex-direction: column; gap: 6px; }
+.scm-message { width: 100%; box-sizing: border-box; resize: vertical; font: inherit; font-size: 12px; padding: 6px; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle); background: var(--bg-card); color: var(--text-main); }
+.scm-commit-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.scm-group-title { display: flex; justify-content: space-between; align-items: center; font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: .03em; color: var(--text-muted); padding: 4px 2px; }
+.scm-count { background: var(--bg-active); border-radius: 8px; padding: 0 6px; font-weight: 600; }
+.scm-file-list, .scm-commit-list, .scm-plain-list { list-style: none; margin: 0; padding: 0; }
+.scm-file { display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 6px; padding: 3px 4px; border-radius: 4px; cursor: pointer; }
+.scm-file:hover { background: var(--bg-hover); }
+.scm-file-name { font-weight: 600; white-space: nowrap; }
+.scm-file-name.is-deleted { text-decoration: line-through; }
+.scm-file-dir { color: var(--text-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 11px; }
+.scm-file-actions { display: none; }
+.scm-file:hover .scm-file-actions, .scm-file:focus-within .scm-file-actions { display: inline-flex; }
+.scm-none { color: var(--text-faint); padding: 3px 4px; font-style: italic; }
+
+.scm-letter { font-family: var(--font-code); font-weight: 700; font-size: 11px; width: 14px; text-align: center; }
+.scm-letter-M, .scm-letter-R, .scm-letter-C, .scm-letter-T { color: #d97706; }
+.scm-letter-A, .scm-letter-U { color: var(--accent-green); }
+.scm-letter-D { color: #dc2626; }
+.scm-letter-conflict { color: #dc2626; }
+
+.scm-tools { display: flex; gap: 6px; flex-wrap: wrap; }
+.scm-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--border-subtle); }
+.scm-tab { background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--text-muted); font: inherit; font-size: 11px; font-weight: 600; padding: 4px 6px; cursor: pointer; }
+.scm-tab.is-active { color: var(--text-main); border-bottom-color: var(--accent-blue); }
+.scm-tab-body { min-height: 60px; }
+.scm-filter, .scm-inline-form { display: flex; gap: 6px; align-items: center; margin: 6px 0; }
+
+.scm-commit-row, .scm-branch-row { display: flex; flex-direction: column; gap: 2px; padding: 5px 4px; border-radius: 4px; cursor: pointer; border-bottom: 1px solid var(--border-subtle); }
+.scm-commit-row:hover, .scm-branch-row:hover { background: var(--bg-hover); }
+.scm-branch-row.is-current .scm-commit-subject { color: var(--accent-blue); }
+.scm-commit-subject { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.scm-commit-meta { color: var(--text-muted); font-size: 11px; }
+.scm-row-actions { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 2px; }
+.scm-refs { display: flex; gap: 3px; flex-wrap: wrap; }
+.scm-ref { background: var(--bg-selected); color: var(--accent-blue); border-radius: 3px; padding: 0 4px; font-size: 10px; }
+
+/* Explorer decorations */
+.project-file-item .scm-decoration { margin-left: auto; font-family: var(--font-code); font-size: 10px; font-weight: 700; padding-left: 6px; }
+.project-file-item.scm-modified .file-name, .project-file-item.scm-modified .scm-decoration { color: #d97706; }
+.project-file-item.scm-added .file-name, .project-file-item.scm-added .scm-decoration,
+.project-file-item.scm-untracked .file-name, .project-file-item.scm-untracked .scm-decoration { color: var(--accent-green); }
+.project-file-item.scm-deleted .file-name, .project-file-item.scm-conflict .file-name,
+.project-file-item.scm-deleted .scm-decoration, .project-file-item.scm-conflict .scm-decoration { color: #dc2626; }
+
+/* Dialogs: diff, commit details, blame, conflicts */
+.scm-dialog-body { font-size: 12px; }
+.scm-h3 { font-size: 12px; margin: 12px 0 4px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .03em; }
+.scm-diff { width: 100%; border-collapse: collapse; font-family: var(--font-code); font-size: 12px; table-layout: fixed; }
+.scm-diff th { text-align: left; padding: 4px 8px; background: var(--bg-hover); color: var(--text-muted); font-family: var(--font-ui); font-weight: 600; }
+.scm-diff td { padding: 0 6px; vertical-align: top; }
+.scm-diff .scm-ln { width: 44px; text-align: right; color: var(--text-faint); user-select: none; }
+.scm-diff .scm-code { white-space: pre-wrap; word-break: break-word; }
+.scm-diff .scm-add, .scm-conflict .scm-add { background: rgba(22, 163, 74, .16); }
+.scm-diff .scm-del, .scm-conflict .scm-del { background: rgba(220, 38, 38, .14); }
+.scm-diff .scm-add::before { content: '+ '; color: var(--accent-green); }
+.scm-diff .scm-del::before { content: '− '; color: #dc2626; }
+.scm-diff .scm-blank { background: var(--bg-hover); }
+.scm-diff-skip td { text-align: center; color: var(--text-faint); background: var(--bg-hover); font-family: var(--font-ui); }
+.scm-diff-summary { margin-bottom: 6px; font-weight: 700; }
+.scm-add-text { color: var(--accent-green); }
+.scm-del-text { color: #dc2626; }
+.scm-patch, .scm-commit-body { font-family: var(--font-code); font-size: 12px; white-space: pre-wrap; background: var(--bg-hover); padding: 8px; border-radius: var(--radius-sm); max-height: 50vh; overflow: auto; }
+.scm-blame .scm-blame-who { width: 260px; color: var(--text-muted); font-family: var(--font-ui); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.scm-blame tr.scm-blame-start td { border-top: 1px solid var(--border-subtle); }
+.scm-conflict { border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); padding: 8px; margin-bottom: 8px; }
+.scm-conflict-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.scm-conflict-cols pre { margin: 0; padding: 6px; font-family: var(--font-code); white-space: pre-wrap; border-radius: 4px; min-height: 1.5em; }
+.scm-conflict-label { font-weight: 700; font-size: 11px; color: var(--text-muted); margin-bottom: 2px; }

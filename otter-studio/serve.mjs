@@ -7,6 +7,7 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { exec, execFile, spawn } from 'node:child_process';
 import { handleLaunchRoutes } from './server/launch.mjs';
+import { handleGitRoutes } from './server/git.mjs';
 import { checkRequest, readJsonBody, isInside, LOOPBACK_HOST } from './server/security.mjs';
 import {
   createDefaultManifest,
@@ -312,6 +313,11 @@ async function handleRequest(req, res) {
   // Run, launch profiles, build and clean (server/launch.mjs).
   if (await handleLaunchRoutes(req, res, pathname, urlObj, {
     repoRoot: REPO_ROOT, isInsideRepo, readBody, sendJson, readFileSnapshot, runState
+  })) return;
+
+  // Source control (server/git.mjs), backed by the git command line.
+  if (await handleGitRoutes(req, res, pathname, urlObj, {
+    repoRoot: REPO_ROOT, isInsideRepo, readBody, sendJson
   })) return;
 
   // --- Real Folder & File APIs ---

@@ -1960,6 +1960,7 @@ export class OtterStudioIde {
         tab.content = this.currentCode;
         this.renderTabs();
       }
+      window.dispatchEvent(new CustomEvent('otter:file-saved', { detail: { path: this.currentFile } }));
       this.renderExternalChangeBanner();
       this.saveSessionState();
       return true;
@@ -2114,8 +2115,42 @@ export class OtterStudioIde {
       this.renderEditorCode(this.currentCode);
       this.lintCurrentCode();
       this.renderExternalChangeBanner('Reloaded the latest version from disk.');
+      // The designer re-reads the new text too, so it never shows (or
+      // writes back) the design of the old version.
+      this.emitSourceChanged();
     }
     this.saveSessionState();
+  }
+
+  // Re-read one open tab from disk after something outside the editor
+  // changed the file (Git discard, merge, branch switch, conflict editor).
+  // A tab with unsaved edits is not overwritten: it gets the usual
+  // "changed on disk" conflict banner so the user chooses.
+  async reloadTabFromDisk(filePath) {
+    const tab = this.openTabs.find(t => t.path === filePath);
+    if (!tab) return;
+    try {
+      const res = await fetch(`/api/file?path=${encodeURIComponent(filePath)}`);
+      if (res.status === 404) {
+        tab.externalDeleted = true;
+      } else {
+        const snapshot = await res.json();
+        if (!res.ok || typeof snapshot.content !== 'string') return;
+        if (snapshot.revision === tab.diskRevision) return;
+        if (tab.isDirty) this.setExternalConflict(tab, snapshot);
+        else this.applyExternalSnapshot(tab, snapshot);
+      }
+    } catch (err) {
+      console.warn('Could not reload from disk:', err);
+    }
+    this.renderTabs();
+    if (tab.path === this.currentFile) this.renderExternalChangeBanner();
+  }
+
+  async reloadCleanTabsFromDisk() {
+    for (const tab of this.openTabs.filter(t => t.path !== 'untitled.ot')) {
+      await this.reloadTabFromDisk(tab.path);
+    }
   }
 
   reloadExternalFile() {

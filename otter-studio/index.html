@@ -16,6 +16,7 @@
   <link rel="stylesheet" href="css/canvas.css">
   <link rel="stylesheet" href="css/components.css">
   <link rel="stylesheet" href="css/studio-dark.css">
+  <link rel="stylesheet" href="css/scm.css">
 </head>
 <body class="theme-dark">
   <div class="studio-shell">
@@ -119,6 +120,10 @@
           <button class="sidebar-switch-btn" id="btnPaneSearch" data-pane="search">
             <span class="tab-btn-icon">⌕</span>
             <span>Search</span>
+          </button>
+          <button class="sidebar-switch-btn" id="btnPaneScm" data-pane="scm" title="Source Control (Ctrl+Shift+G)">
+            <span class="tab-btn-icon">⎇</span>
+            <span>Git</span>
           </button>
         </div>
 
@@ -232,6 +237,16 @@
             </form>
             <div class="workspace-search-summary" id="workspaceSearchSummary">Enter text to search the current workspace.</div>
             <div class="workspace-search-results" id="workspaceSearchResults"></div>
+          </div>
+        </div>
+
+        <!-- Pane 5: Source Control (js/components/source-control.js) -->
+        <div class="sidebar-pane" id="paneScm" style="display: none;">
+          <div class="panel-card scm-card" style="flex: 1; min-height: 0;">
+            <div class="panel-card-header">
+              <span class="panel-card-title">Source Control</span>
+            </div>
+            <div class="scm-root" id="scmRoot"></div>
           </div>
         </div>
       </aside>

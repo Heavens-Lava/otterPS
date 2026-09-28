@@ -13,6 +13,7 @@ import { renderEvents } from './components/events.js';
 import { renderEditor } from './components/editor.js';
 import { renderPreview } from './components/preview.js';
 import { OtterStudioIde } from './ide.js';
+import { SourceControlPanel } from './components/source-control.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
   const themeToggle = document.getElementById('btnThemeToggle');
@@ -92,6 +93,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnPaneToolbox = document.getElementById('btnPaneToolbox');
   const btnPaneHierarchy = document.getElementById('btnPaneHierarchy');
   const btnPaneSearch = document.getElementById('btnPaneSearch');
+  const btnPaneScm = document.getElementById('btnPaneScm');
+  const paneScm = document.getElementById('paneScm');
   const paneFiles = document.getElementById('paneFiles');
   const paneToolbox = document.getElementById('paneToolbox');
   const paneHierarchy = document.getElementById('paneHierarchy');
@@ -106,7 +109,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function switchSidebarPane(pane) {
-    [btnPaneFiles, btnPaneToolbox, btnPaneHierarchy, btnPaneSearch].forEach(b => b?.classList.remove('is-active'));
+    [btnPaneFiles, btnPaneToolbox, btnPaneHierarchy, btnPaneSearch, btnPaneScm].forEach(b => b?.classList.remove('is-active'));
+    if (paneScm) paneScm.style.display = 'none';
     if (paneFiles) paneFiles.style.display = 'none';
     if (paneToolbox) paneToolbox.style.display = 'none';
     if (paneHierarchy) paneHierarchy.style.display = 'none';
@@ -125,13 +129,29 @@ document.addEventListener('DOMContentLoaded', async () => {
       btnPaneSearch?.classList.add('is-active');
       if (paneSearch) paneSearch.style.display = 'flex';
       setTimeout(() => document.getElementById('workspaceSearchInput')?.focus(), 0);
+    } else if (pane === 'scm') {
+      btnPaneScm?.classList.add('is-active');
+      if (paneScm) paneScm.style.display = 'flex';
+      sourceControl.refresh();
     }
   }
+
+  // Source Control pane (Git), backed by the git command line.
+  const sourceControl = new SourceControlPanel(ide, document.getElementById('scmRoot'));
+  sourceControl.init();
+  window.otterSourceControl = sourceControl;
+  window.addEventListener('keydown', e => {
+    if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'g') {
+      e.preventDefault();
+      switchSidebarPane('scm');
+    }
+  });
 
   btnPaneFiles?.addEventListener('click', () => switchSidebarPane('files'));
   btnPaneToolbox?.addEventListener('click', () => switchSidebarPane('toolbox'));
   btnPaneHierarchy?.addEventListener('click', () => switchSidebarPane('hierarchy'));
   btnPaneSearch?.addEventListener('click', () => switchSidebarPane('search'));
+  btnPaneScm?.addEventListener('click', () => switchSidebarPane('scm'));
   window.addEventListener('otter:sidebar-pane', event => switchSidebarPane(event.detail));
 
   // ---------------------------------------------------------------
