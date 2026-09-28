@@ -16,6 +16,7 @@ import { OtterStudioIde } from './ide.js';
 import { StyleController } from './designer/style-context.js';
 import { mountStudioShell } from './shell/studio-shell.js';
 import { toRegistryCommands } from './designer/commands.js';
+import { createViewState } from './designer/view-state.js';
 import { setWorkspaceTrust } from './project/workspace-solution.js';
 import { SourceControlPanel } from './components/source-control.js';
 import { TestExplorer } from './components/test-explorer.js';
@@ -86,6 +87,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   const styleController = new StyleController(uiModel, cssAstManager);
   window.otterStyles = styleController;
 
+  // Designer-only hide/lock (Layers panel); never written to the program.
+  const viewState = createViewState();
+  window.otterViewState = viewState;
+  uiModel.subscribe((type, detail) => {
+    if (type === 'rename' && detail?.oldName) viewState.rename(detail.oldName, detail.newName);
+  });
+
   // A project can define its own breakpoints in project.json:
   //   "designer": { "breakpoints": [ { "id": "base", "label": "Desktop", "media": "" },
   //     { "id": "dark", "label": "Dark", "media": "(prefers-color-scheme: dark)" }, ... ] }
@@ -111,8 +119,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (ide.currentProjectFolder) applyProjectBreakpoints();
 
   renderToolbox(toolboxEl, uiModel);
-  renderHierarchy(hierarchyEl, uiModel, cssAstManager);
-  const designer = renderCanvas(canvasEl, uiModel, cssAstManager, styleController);
+  renderHierarchy(hierarchyEl, uiModel, cssAstManager, viewState);
+  const designer = renderCanvas(canvasEl, uiModel, cssAstManager, styleController, viewState);
   renderProperties(propertiesEl, uiModel, cssAstManager, styleController);
   renderEvents(eventsEl, uiModel);
   renderEditor(editorEl, uiModel, cssAstManager);
@@ -140,6 +148,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function setOutlineContext(mode) {
     const sourceMode = mode === 'code';
+    // One sidebar tab: code symbols (Outline) in Code mode, the designer's
+    // component tree (Layers) wherever the designer shows.
+    const tabLabel = btnPaneHierarchy?.querySelector('span:last-child');
+    if (tabLabel) tabLabel.textContent = sourceMode ? 'Outline' : 'Layers';
+    if (btnPaneHierarchy) btnPaneHierarchy.title = sourceMode ? 'Outline (symbols in this file)' : 'Layers (components of the design)';
     if (sourceOutlinePanel) sourceOutlinePanel.style.display = sourceMode ? 'flex' : 'none';
     if (designerHierarchyPanel) designerHierarchyPanel.style.display = sourceMode ? 'none' : 'flex';
   }
@@ -215,6 +228,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function bindDesign(file) {
     designBinding.file = file || null;
+    viewState.setScope(designBinding.file);
     designBinding.baseline = uiModel.getRoot() ? snapshotDesign(uiModel) : null;
   }
 

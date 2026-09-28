@@ -12,7 +12,7 @@
 
 import { ComponentSchema } from '../model/schema.js';
 
-export function createDesignerActions({ uiModel, styles, cssAstManager, canvas }) {
+export function createDesignerActions({ uiModel, styles, cssAstManager, canvas, viewState = null }) {
   // The selection that edits apply to: never the window itself.
   function selection() {
     return uiModel.getSelectedComponents().filter(c => c.id !== uiModel.rootId);
@@ -154,6 +154,18 @@ export function createDesignerActions({ uiModel, styles, cssAstManager, canvas }
     return true;
   }
 
+  // --- Hide / lock (designer only, see view-state.js) -------------------------
+
+  function toggleHidden() {
+    const comps = selection();
+    return Boolean(viewState && comps.length && viewState.toggleHidden(comps.map(c => c.name)));
+  }
+
+  function toggleLocked() {
+    const comps = selection();
+    return Boolean(viewState && comps.length && viewState.toggleLocked(comps.map(c => c.name)));
+  }
+
   // --- Styles ---------------------------------------------------------------
 
   let copiedStyles = null;
@@ -184,6 +196,9 @@ export function createDesignerActions({ uiModel, styles, cssAstManager, canvas }
     selectParent, selectFirstChild, selectSibling, selectAllSiblings,
     moveAmongSiblings, moveOutOfParent, moveIntoPrevious,
     nudge,
+    toggleHidden, toggleLocked,
+    showAll: () => Boolean(viewState && viewState.showAll()),
+    unlockAll: () => Boolean(viewState && viewState.unlockAll()),
     copyStyles, pasteStyles, clearStyles, copiedStyleCount: () => (copiedStyles ? Object.keys(copiedStyles).length : 0),
     undo: () => { uiModel.undo(); return true; },
     redo: () => { uiModel.redo(); return true; },

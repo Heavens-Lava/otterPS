@@ -23,7 +23,7 @@ const ZOOM_STEPS = [0.25, 0.33, 0.5, 0.67, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 2, 3];
 const DESKTOP_WIDTH = 1280;
 const SNAP_PX = 6;
 
-export function renderCanvas(containerEl, uiModel, cssAstManager, styleController = null) {
+export function renderCanvas(containerEl, uiModel, cssAstManager, styleController = null, viewState = null) {
   const styles = styleController || new StyleController(uiModel, cssAstManager);
 
   let currentDraggedComponentId = null;
@@ -220,6 +220,7 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
     refreshUserStyles();
     applyForcedState();
     scheduleRealRender();
+    applyViewState();
     renderBreadcrumbs();
     updateOverlay();
   }
@@ -263,6 +264,31 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
         if (!(prop in now)) el.style.removeProperty(prop);
       }
       for (const [prop, value] of Object.entries(now)) el.style.setProperty(prop, value);
+    }
+    applyViewState();
+  }
+
+  // Layers panel hide/lock (designer/view-state.js): classes on canvas elements only.
+  function isLocked(comp) {
+    return Boolean(viewState && comp && viewState.isLocked(comp.name));
+  }
+
+  // A click on a locked component goes to its nearest unlocked ancestor.
+  function unlockedAncestor(comp) {
+    let current = comp;
+    while (current && current.id !== uiModel.rootId && isLocked(current)) current = uiModel.getComponent(current.parentId);
+    return current || uiModel.getRoot();
+  }
+
+  function applyViewState() {
+    if (!viewState) return;
+    for (const comp of uiModel.getAllComponents()) {
+      if (comp.id === uiModel.rootId) continue;
+      const el = elementFor(comp.id);
+      if (!el) continue;
+      el.classList.toggle('is-designer-hidden', viewState.isHidden(comp.name));
+      el.classList.toggle('is-designer-locked', viewState.isLocked(comp.name));
+      el.draggable = !viewState.isLocked(comp.name);
     }
   }
 
@@ -1200,6 +1226,7 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
     if (['heading', 'text', 'button', 'primary button', 'danger button'].includes(comp.kind)) {
       el.title = 'Double-click to edit text';
       el.addEventListener('dblclick', (e) => {
+        if (isLocked(comp)) return;
         e.stopPropagation();
         startInlineEdit(el, comp, 'text');
       });
@@ -1211,9 +1238,10 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
       });
     }
 
-    el.draggable = true;
+    el.draggable = !isLocked(comp);
     el.addEventListener('dragstart', (e) => {
       e.stopPropagation();
+      if (isLocked(comp)) { e.preventDefault(); return; }
       // Absolute elements move freely with the pointer instead.
       const pos = getComputedStyle(el).position;
       if (pos === 'absolute' || pos === 'fixed') {
@@ -1238,7 +1266,7 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
     });
 
     el.addEventListener('pointerdown', (e) => {
-      if (e.button !== 0) return;
+      if (e.button !== 0 || isLocked(comp)) return;
       const pos = getComputedStyle(el).position;
       if ((pos === 'absolute' || pos === 'fixed') && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
         e.stopPropagation();
@@ -1249,14 +1277,15 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
     el.addEventListener('click', (e) => {
       e.stopPropagation();
       if (suppressClick) return;
-      uiModel.select(comp.id, e.ctrlKey || e.metaKey || e.shiftKey);
+      uiModel.select(unlockedAncestor(comp).id, e.ctrlKey || e.metaKey || e.shiftKey);
     });
 
     el.addEventListener('contextmenu', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      if (!uiModel.isSelected(comp.id)) uiModel.select(comp.id);
-      openContextMenu(e.clientX, e.clientY, comp);
+      const target = unlockedAncestor(comp);
+      if (!uiModel.isSelected(target.id)) uiModel.select(target.id);
+      openContextMenu(e.clientX, e.clientY, target);
     });
   }
 
@@ -1419,6 +1448,8 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
       marqueeEl.hidden = false;
       const hits = [];
       for (const el of stageEl.querySelectorAll('.canvas-element[data-id]')) {
+        // Locked and hidden layers are not picked up by a marquee.
+        if (el.classList.contains('is-designer-locked') || el.classList.contains('is-designer-hidden')) continue;
         const r = el.getBoundingClientRect();
         if (r.left >= box.left && r.right <= box.right && r.top >= box.top && r.bottom <= box.bottom) {
           // Only the outermost contained components, not every descendant.
@@ -1759,7 +1790,7 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
   // ---------------------------------------------------------------------------
 
   const actions = createDesignerActions({
-    uiModel, styles, cssAstManager,
+    uiModel, styles, cssAstManager, viewState,
     canvas: { elementFor, zoomBy, setZoom, zoomToFit, zoomToSelection }
   });
   const commands = designerCommands(actions);
@@ -1850,6 +1881,7 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
   });
 
   window.addEventListener('otter:style-context', () => update());
+  window.addEventListener('otter:view-state', () => { applyViewState(); updateOverlay(); });
 
   return { actions, commands, isDesignerVisible };
 }

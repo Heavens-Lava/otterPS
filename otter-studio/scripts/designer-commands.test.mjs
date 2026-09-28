@@ -10,6 +10,7 @@ const { StyleController } = await import('../js/designer/style-context.js');
 const { createDesignerActions } = await import('../js/designer/actions.js');
 const { designerCommands, chordOf, displayChord, installDesignerKeyboard, toRegistryCommands } = await import('../js/designer/commands.js');
 const { createCommandRegistry } = await import('../js/shell/commands.js');
+const { createViewState } = await import('../js/designer/view-state.js');
 
 let passed = 0;
 function test(name, fn) {
@@ -161,6 +162,34 @@ test('registry: designer commands appear with shortcuts, only while the designer
   assert.equal(wrapRow.shortcut, 'Ctrl+Shift+G');
   assert.equal(wrapRow.category, 'Designer');
   assert.equal(registry.get('designer.zoomSelection').shortcut, 'Shift+2');
+});
+
+test('hide and lock: designer-only state keyed by name, kept per design, follows renames', () => {
+  const memory = new Map();
+  globalThis.localStorage = { getItem: k => memory.get(k) ?? null, setItem: (k, v) => memory.set(k, String(v)), removeItem: k => memory.delete(k) };
+  const view = createViewState();
+  const { model, styles, css, a, b } = setup();
+  const actions = createDesignerActions({ uiModel: model, styles, cssAstManager: css, viewState: view, canvas: { elementFor: () => null } });
+  let events = 0;
+  window.addEventListener('otter:view-state', () => events++);
+  view.setScope('projects/x/main.ot');
+  model.selectMany([a.id, b.id]);
+  assert.equal(actions.toggleHidden(), true);
+  assert.equal(view.isHidden(a.name) && view.isHidden(b.name), true);
+  actions.toggleHidden();
+  assert.equal(view.isHidden(a.name), false, 'second toggle shows both');
+  model.select(a.id);
+  actions.toggleLocked();
+  assert.equal(view.isLocked(a.name), true);
+  view.rename(a.name, 'hero');
+  assert.equal(view.isLocked('hero'), true);
+  view.setScope('projects/y/main.ot');
+  assert.equal(view.isLocked('hero'), false, 'another design has its own state');
+  view.setScope('projects/x/main.ot');
+  assert.equal(view.isLocked('hero'), true, 'state comes back with the design');
+  assert.equal(view.unlockAll(), true);
+  assert.ok(events > 0);
+  assert.equal(Object.keys(model.getComponent(a.id).properties).some(k => /hidden|lock/i.test(k)), false, 'nothing written to the model');
 });
 
 console.log(`\nDesigner command tests passed: ${passed}.`);

@@ -29,6 +29,11 @@ export function designerCommands(actions) {
     { id: 'designer.moveDown', title: 'Move After Next Sibling', keys: ['ctrl+arrowdown', 'alt+arrowdown', 'alt+arrowright'], run: () => a.moveAmongSiblings(1) },
     { id: 'designer.moveOut', title: 'Move Out of Parent', keys: ['ctrl+arrowleft'], run: a.moveOutOfParent },
     { id: 'designer.moveIn', title: 'Move Into Previous Container', keys: ['ctrl+arrowright'], run: a.moveIntoPrevious },
+    // Layers (designer only: never written to the program)
+    { id: 'designer.toggleHidden', title: 'Hide / Show on Canvas', keys: ['ctrl+shift+h'], run: a.toggleHidden },
+    { id: 'designer.toggleLocked', title: 'Lock / Unlock on Canvas', keys: ['ctrl+shift+l'], run: a.toggleLocked },
+    { id: 'designer.showAll', title: 'Show All Hidden Components', keys: [], run: a.showAll },
+    { id: 'designer.unlockAll', title: 'Unlock All Components', keys: [], run: a.unlockAll },
     // Selection
     { id: 'designer.selectAll', title: 'Select All Siblings', keys: ['ctrl+a'], run: a.selectAllSiblings },
     { id: 'designer.selectParent', title: 'Select Parent', keys: ['escape', 'shift+enter'], run: a.selectParent },

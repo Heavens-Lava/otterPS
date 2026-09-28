@@ -243,6 +243,45 @@
   background: rgba(239, 68, 68, 0.35);
 }
 
+.node-action-btn svg {
+  display: block;
+}
+
+/* Layers hide/lock (designer only). A row that is hidden or locked keeps
+   that icon visible; the other buttons appear on hover. */
+.tree-node.is-layer-hidden .node-actions,
+.tree-node.is-layer-locked .node-actions {
+  display: flex;
+}
+
+.tree-node:not(:hover) .node-action-btn:not(.is-on) {
+  display: none;
+}
+
+.node-action-btn.is-on {
+  color: var(--accent-blue, #3b82f6);
+}
+
+.tree-node.is-layer-hidden .node-name,
+.tree-node.is-layer-hidden .node-icon,
+.tree-node.is-layer-hidden .node-kind {
+  opacity: 0.45;
+}
+
+.tree-node.is-layer-hidden .node-name {
+  font-style: italic;
+}
+
+/* On the canvas: hidden layers take no space; locked ones pass clicks to
+   their parent. The compiled app is not affected. */
+#canvasContainer .is-designer-hidden {
+  display: none !important;
+}
+
+#canvasContainer .is-designer-locked {
+  cursor: default;
+}
+
 /* Tree Drag-and-Drop Highlights */
 .tree-node[draggable="true"] {
   cursor: grab;
