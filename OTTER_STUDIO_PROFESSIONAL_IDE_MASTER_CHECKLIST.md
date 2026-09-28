@@ -401,7 +401,8 @@ platform.
 -   [x] Review third-party licenses
 -   [x] Layers tree for the canvas: select, Ctrl multi-select, drag reorder/re-nest, double-click rename (`hierarchy.js`, sidebar pane shown in Design/Split mode)
 -   [ ] Layers panel named "Layers" in Design mode (today it shares the "Outline" tab with source symbols)
--   [ ] Layers: Shift range select; Ctrl+Up/Down among siblings, Ctrl+Left out of parent, Ctrl+Right into previous sibling
+-   [x] Structure keys: Ctrl+Up/Down among siblings, Ctrl+Left out of parent, Ctrl+Right into previous container (`6c7e949`, designer/actions.js; verified in the real UI, `put` lines follow)
+-   [ ] Layers: Shift range select in the tree
 -   [ ] Lock and hide elements on canvas
 -   [ ] Keyboard nudging (arrow keys, Shift for 10px) and snap to grid (nudging done for absolute elements; 8px snapping on resize; a user-visible grid and snap-to-grid toggle remain)
 -   [x] Style editor for `styles.css` with live preview (full CSS inspector per component, states and breakpoints, raw declarations, lossless CSS AST; `designer-css`/`designer-styles` suites) - shared class rules remain open
@@ -420,8 +421,9 @@ architecture reference. Listed in the recommended implementation order.
 -   [ ] Compiler: a primary/secondary/danger button's source `background`/`foreground` is ignored because the compiler's `.otter-button-*` rules are `!important` (Studio now routes designer edits around it; hand-written source still hits it)
 -   [x] Breakpoints as data (`{id, label, media, previewWidth}`, default Desktop/Tablet/Mobile) with no index-order cascade assumption (`3e7262b`; project.json `designer.breakpoints`; min-width and condition breakpoints cascade by media evaluation + stylesheet order; `designer-styles` checks 18-19)
 -   [x] Canvas simulates non-width media conditions (color scheme, reduced motion, orientation) instead of following Studio's window (`3e7262b`; verified in the real UI with Studio itself in dark mode: Desktop stays light, a Dark breakpoint previews the dark rule)
--   [ ] `canvas.js` split into render / overlay / gestures / keyboard / context-menu modules, behavior unchanged
--   [ ] Designer shortcuts registered in the command registry (visible in F1 and the Shortcuts dialog)
+-   [x] Keyboard and context menu out of `canvas.js` into designer/actions.js, commands.js, context-menu.js (`6c7e949`)
+-   [ ] Render / overlay / gestures still share `canvas.js`; split them when next reworked
+-   [x] Designer shortcuts registered in the command registry (visible in F1 and the Shortcuts dialog) (`6c7e949`; `designer-commands` suite; F1 lists "Zoom to Selection · Shift+2" in the real UI)
 -   [ ] Spacing drag modifiers: Shift = opposite sides, Alt = all sides; box-model numbers scrubbable
 -   [ ] Flex child and Grid child inspector sections shown by parent layout (grow, shrink, basis, align-self, order, select-parent link)
 -   [ ] Outline (focus ring) controls
@@ -430,7 +432,8 @@ architecture reference. Listed in the recommended implementation order.
 -   [ ] Transition editor (property, duration, easing, delay)
 -   [ ] `text-shadow` control
 -   [ ] `disabled` state and `::placeholder` styling
--   [ ] Zoom to selection (Shift+2); resize modifiers (Shift proportional, Alt from center)
+-   [x] Zoom to selection (Shift+2) (`6c7e949`)
+-   [ ] Resize modifiers (Shift proportional, Alt from center)
 -   [ ] Later: custom breakpoints UI (min/max width and media conditions), design tokens / shared classes, asset manager, grid generator presets, Hide UI mode
 -   [ ] Dialogs (New Project, Build, Settings, Shortcuts) restyled to the dark workbench theme
 
