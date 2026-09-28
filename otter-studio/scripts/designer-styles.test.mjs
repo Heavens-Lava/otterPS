@@ -188,4 +188,131 @@ function setup(css = '') {
 // 12. Every write announces itself for the canvas and the file-dirty tracker.
 assert.ok(events.length > 0 && events.every(e => e.source === 'style'));
 
-console.log('Designer style routing certification passed (12 checks).');
+// 13. Provenance: a value in the Otter source, and one in styles.css.
+{
+  const { model, sheet, styles, root } = setup();
+  const card = model.addChild(root.id, 'card', { padding: 12 });
+  sheet.setProperty(`#${card.name}`, 'opacity', '0.8');
+  const pad = styles.explain(card, 'padding');
+  assert.equal(pad.status, 'set');
+  assert.equal(pad.source, 'otter');
+  assert.equal(pad.value, '12px');
+  assert.deepEqual(pad.location, { file: 'source', component: card.name, key: 'padding' });
+  const op = styles.explain(card, 'opacity');
+  assert.equal(op.status, 'set');
+  assert.equal(op.source, 'styles.css');
+  assert.deepEqual(op.location, { file: 'styles.css', selector: `#${card.name}`, media: '' });
+  const none = styles.explain(card, 'z-index');
+  assert.equal(none.status, 'default');
+  assert.equal(none.value, null);
+}
+
+// 14. Provenance: cascading from a wider breakpoint and from the normal state.
+{
+  const { model, sheet, styles, root } = setup();
+  const btn = model.addChild(root.id, 'button', { text: 'Go', padding: 8 });
+  const n = btn.name;
+  sheet.setProperty(`#${n}`, 'opacity', '0.5', '(max-width: 900px)');
+  sheet.setProperty(`#${n}:hover`, 'color', 'blue');
+  styles.setContext({ breakpoint: 'mobile', state: ':hover' });
+  const op = styles.explain(btn, 'opacity');
+  assert.equal(op.status, 'inherited');
+  assert.equal(op.from, 'Tablet');
+  assert.equal(op.location.media, '(max-width: 900px)');
+  const color = styles.explain(btn, 'color');
+  assert.equal(color.status, 'inherited');
+  assert.equal(color.from, 'Desktop · Hover');
+  const pad = styles.explain(btn, 'padding');
+  assert.equal(pad.status, 'inherited', 'the source value applies at every breakpoint');
+  assert.equal(pad.source, 'otter');
+  styles.setContext({ breakpoint: 'base', state: '' });
+}
+
+// 15. Provenance: a value set here that loses. An inline source value beats a
+// plain Tablet rule someone wrote by hand; the rule is reported as overridden
+// and the chain says by what.
+{
+  const { model, sheet, styles, root } = setup();
+  const title = model.addChild(root.id, 'heading', { text: 'Hi', size: 24 });
+  sheet.setProperty(`#${title.name}`, 'font-size', '18px', '(max-width: 900px)');
+  styles.setContext({ breakpoint: 'tablet' });
+  const fs = styles.explain(title, 'font-size');
+  assert.equal(fs.status, 'overridden');
+  assert.equal(fs.value, '24px', 'what the app really shows');
+  assert.equal(fs.overriddenBy.source, 'otter');
+  assert.equal(fs.mine.value, '18px');
+  assert.equal(fs.chain.length, 2);
+  // The same rule written through the controller would have worked:
+  styles.write(title, { 'font-size': '18px' });
+  const fixed = styles.explain(title, 'font-size');
+  assert.equal(fixed.status, 'set');
+  assert.equal(fixed.value, '18px');
+  styles.setContext({ breakpoint: 'base' });
+}
+
+// 16. Provenance: compiler-forced layout. A row always gets inline
+// align-items; with no user value that is what shows, and a plain rule
+// loses to it while the !important one the controller writes wins.
+{
+  const { model, sheet, styles, root } = setup();
+  const row = model.addChild(root.id, 'row', {});
+  styles.compilerProbe = (comp, prop) => (comp.kind === 'row' && prop === 'align-items')
+    ? { inline: 'center', rules: [] }
+    : (comp.kind === 'primary button' && prop === 'background'
+      ? { inline: null, rules: [{ selector: '.otter-button.primary', value: '#2563eb', important: true }] }
+      : null);
+  const ai = styles.explain(row, 'align-items');
+  assert.equal(ai.status, 'compiler');
+  assert.equal(ai.forced, true);
+  assert.equal(ai.value, 'center');
+  sheet.setProperty(`#${row.name}`, 'align-items', 'flex-start');
+  assert.equal(styles.explain(row, 'align-items').status, 'overridden', 'a hand-written plain rule loses');
+  styles.write(row, { 'align-items': 'flex-end' });
+  const won = styles.explain(row, 'align-items');
+  assert.equal(won.status, 'set');
+  assert.equal(won.value, 'flex-end');
+
+  // A primary button's source `background` (the schema default) never shows:
+  // the compiler's .otter-button-primary rule is !important. Say so.
+  const btn = model.addChild(root.id, 'primary button', { text: 'Go' });
+  const hidden = styles.explain(btn, 'background');
+  assert.equal(hidden.status, 'overridden');
+  assert.equal(hidden.mine.source, 'otter');
+  assert.equal(hidden.overriddenBy.source, 'compiler');
+  delete btn.properties.background;
+  const bg = styles.explain(btn, 'background');
+  assert.equal(bg.status, 'compiler');
+  assert.equal(bg.location.selector, '.otter-button.primary');
+  sheet.setProperty(`#${btn.name}`, 'background', 'red');
+  assert.equal(styles.explain(btn, 'background').status, 'overridden', 'compiler !important beats a plain #id rule');
+  sheet.setProperty(`#${btn.name}`, 'background', 'red !important');
+  assert.equal(styles.explain(btn, 'background').status, 'set');
+  styles.compilerProbe = null;
+}
+
+// 17. Provenance: inheritable properties come from the nearest ancestor.
+{
+  const { model, sheet, styles, root } = setup();
+  const card = model.addChild(root.id, 'card', { foreground: '#ffffff' });
+  const row = model.addChild(card.id, 'row', {});
+  const text = model.addChild(row.id, 'text', { text: 'Hi' });
+  delete text.properties.foreground; // schema default; this check is about the parent
+  const color = styles.explain(text, 'color');
+  assert.equal(color.status, 'inherited');
+  assert.equal(color.source, 'parent');
+  assert.equal(color.from, `parent ${card.name}`);
+  assert.equal(color.value, '#ffffff');
+  assert.equal(color.location.component, card.name);
+  sheet.setProperty(`#${root.name}`, 'padding', '4px');
+  assert.equal(styles.explain(text, 'padding').status, 'default', 'padding is not inherited');
+  // The compiler's `.otter-heading { color: inherit }` defers to the parent too.
+  const heading = model.addChild(row.id, 'heading', { text: 'Title' });
+  delete heading.properties.foreground;
+  styles.compilerProbe = (comp, prop) => (comp.kind === 'heading' && prop === 'color')
+    ? { inline: null, rules: [{ selector: '.otter-heading', value: 'inherit', important: false }] } : null;
+  assert.equal(styles.explain(heading, 'color').value, '#ffffff');
+  assert.equal(styles.explain(heading, 'color').source, 'parent');
+  styles.compilerProbe = null;
+}
+
+console.log('Designer style routing certification passed (17 checks).');

@@ -290,6 +290,61 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
   }
   styles.importantProbe = compilerForcesImportant;
 
+  // What the compiler itself applies to a component, for style provenance
+  // (StyleController.explain): its inline value for `cssProp` when the Otter
+  // source does not set it, and every rule in its stylesheet that sets the
+  // property on this element in the current state.
+  const SCOPE_RESET = /^#[\w-]+$/; // real-style.js's own reset rule on the canvas root
+  const STATE_PSEUDO = /:(hover|active|focus|focus-visible)\b/g;
+  function compilerStyleFor(comp, cssProp, state) {
+    const el = elementFor(comp.id);
+    const sheet = document.getElementById('otterRealCanvasCss')?.sheet;
+    if (!el || !realRender) return null;
+    const props = [cssProp, ...(LONGHANDS[cssProp] || [])];
+
+    let inline = null;
+    const info = realRender.elements.get(el.id);
+    const renderedFromSource = (realRender.sourceInline?.get(comp.name) || []).includes(cssProp);
+    if (info?.style && !renderedFromSource && styles.sourceValue(comp, cssProp) === null) {
+      const probe = document.createElement('div');
+      probe.style.cssText = info.style;
+      for (const p of props) {
+        const value = probe.style.getPropertyValue(p);
+        if (value) { inline = value; break; }
+      }
+    }
+
+    const rules = [];
+    const wanted = (state || '').replace(':', '');
+    const visit = (list) => {
+      for (const rule of list) {
+        if (rule.cssRules && !rule.selectorText) { visit(rule.cssRules); continue; }
+        if (!rule.selectorText || !rule.style) continue;
+        const prop = props.find(p => rule.style.getPropertyValue(p));
+        if (!prop) continue;
+        for (const part of rule.selectorText.split(',')) {
+          const selector = part.trim();
+          if (SCOPE_RESET.test(selector)) continue;
+          const states = [...selector.matchAll(STATE_PSEUDO)].map(m => m[1]);
+          if (states.length && !states.every(s => s === wanted || (wanted === 'focus' && s === 'focus-visible'))) continue;
+          let matches = false;
+          try { matches = el.matches(selector.replace(STATE_PSEUDO, '')); } catch { /* unsupported selector */ }
+          if (!matches) continue;
+          rules.push({
+            // Show the selector as the compiler wrote it, without the canvas scope.
+            selector: selector.replace(/^#[\w-]+\s+/, ''),
+            value: rule.style.getPropertyValue(prop),
+            important: rule.style.getPropertyPriority(prop) === 'important'
+          });
+          break;
+        }
+      }
+    };
+    try { if (sheet) visit(sheet.cssRules); } catch { /* sheet not readable yet */ }
+    return inline || rules.length ? { inline, rules } : null;
+  }
+  styles.compilerProbe = compilerStyleFor;
+
   // Which inline source values each component has, for the render in flight.
   function snapshotSourceInline() {
     const map = new Map();

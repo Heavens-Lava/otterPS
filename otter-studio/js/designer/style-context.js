@@ -86,6 +86,14 @@ const FORCED_INLINE = {
   scroll: ['display', 'flex-direction', 'overflow-x', 'overflow-y']
 };
 
+// CSS properties a component inherits from its parent when nothing sets them.
+const INHERITED_PROPS = new Set([
+  'color', 'font', 'font-family', 'font-size', 'font-style', 'font-weight', 'font-variant',
+  'line-height', 'letter-spacing', 'word-spacing', 'text-align', 'text-indent',
+  'text-transform', 'text-shadow', 'white-space', 'direction', 'cursor', 'visibility',
+  'list-style', 'list-style-type', 'list-style-position', 'quotes', 'hyphens'
+]);
+
 // Containers whose child spacing is Otter's `spacing` property.
 const SPACING_KINDS = new Set(['window', 'card', 'row', 'column']);
 
@@ -145,6 +153,8 @@ export class StyleController {
     // (comp, cssProp) => true when the compiler's stylesheet sets cssProp on
     // this component with !important. Installed by the canvas.
     this.importantProbe = null;
+    // (comp, cssProp, state) => what the compiler itself applies; see explain().
+    this.compilerProbe = null;
     // A new selection always starts a new undo step.
     uiModel.subscribe((type) => {
       if (type === 'select' || type === 'undo' || type === 'redo') this.lastEditKey = null;
@@ -257,6 +267,148 @@ export class StyleController {
       }
     }
     return { own, inherited, inheritedFrom, origin };
+  }
+
+  // --- Provenance -----------------------------------------------------------
+
+  // Where the value of `cssProp` on `comp` comes from in the current context,
+  // ranked the way the compiled app's cascade ranks it:
+  //
+  //   1. !important styles.css rules (#card beats the compiler's class rules)
+  //   2. !important compiler rules
+  //   3. inline styles: the Otter source value, else a compiler-forced default
+  //   4. plain styles.css rules
+  //   5. plain compiler rules
+  //   6. inherited from a parent component (inheritable properties only)
+  //   7. browser default
+  //
+  // Within the styles.css groups, a state rule outranks a plain one, and a
+  // narrower breakpoint outranks a wider one (it comes later in the file).
+  //
+  // Returns {
+  //   prop, value,            the winning value (null = browser default)
+  //   status,                 'set' | 'inherited' | 'overridden' | 'compiler' | 'default'
+  //   source,                 where the winning value lives:
+  //                           'otter' | 'styles.css' | 'compiler' | 'parent' | 'browser'
+  //   from,                   human label: 'Desktop', 'Tablet · Hover', 'parent card1'
+  //   location,               { file: 'source', component } or
+  //                           { file: 'styles.css', selector, media } or
+  //                           { file: 'compiler', selector } or null
+  //   forced,                 the compiler always sets this for the kind, so
+  //                           Studio writes styles.css values as !important
+  //   overriddenBy,           status 'overridden' only: the candidate that wins
+  //   chain                   every candidate, winner first
+  // }
+  //
+  // `compilerProbe(comp, cssProp, state)`, installed by the canvas, reports
+  // what the compiler itself applies: { inline, rules: [{ selector, value,
+  // important }] }. Without it (tests, no render yet) compiler candidates are
+  // simply absent.
+  explain(comp, cssProp, { depth = 0 } = {}) {
+    const prop = String(cssProp).toLowerCase();
+    const empty = { prop, value: null, status: 'default', source: 'browser', from: null, location: null, forced: false, overriddenBy: null, chain: [] };
+    if (!comp) return empty;
+
+    const state = this.context.state;
+    const bpIndex = Math.max(0, BREAKPOINTS.findIndex(b => b.id === this.context.breakpoint));
+    const stateLabel = (st) => STATES.find(s => s.id === st)?.label || st;
+    const candidates = [];
+
+    // styles.css rules that apply here. `order` grows with specificity and
+    // source position, so the highest order wins within the same group.
+    const states = state ? ['', state] : [''];
+    states.forEach((st, stIndex) => {
+      for (let i = 0; i <= bpIndex; i++) {
+        const bp = BREAKPOINTS[i];
+        const selector = this.selector(comp, st);
+        const raw = this.css.getRuleDeclarations(selector, bp.media)[prop];
+        if (raw === undefined) continue;
+        candidates.push({
+          source: 'styles.css',
+          value: stripImportant(raw),
+          important: IMPORTANT.test(raw),
+          order: stIndex * 100 + i,
+          here: i === bpIndex && st === state,
+          from: `${bp.label}${st ? ' · ' + stateLabel(st) : ''}`,
+          location: { file: 'styles.css', selector, media: bp.media }
+        });
+      }
+    });
+
+    const sourceValue = this.sourceValue(comp, prop);
+    const probe = this.compilerProbe ? this.compilerProbe(comp, prop, state) : null;
+    const forced = this.isForcedInline(comp, prop);
+    if (sourceValue !== null) {
+      candidates.push({
+        source: 'otter', value: sourceValue, important: false, inline: true,
+        here: this.isBaseContext(), from: 'Desktop',
+        location: { file: 'source', component: comp.name, key: sourceKeyFor(comp, prop) }
+      });
+    } else if (probe?.inline) {
+      candidates.push({
+        source: 'compiler', value: stripImportant(probe.inline), important: false, inline: true,
+        here: false, from: `every ${comp.kind}`, location: { file: 'compiler', selector: 'inline style' }
+      });
+    }
+    (probe?.rules || []).forEach((rule, index) => {
+      candidates.push({
+        source: 'compiler', value: stripImportant(rule.value), important: !!rule.important, order: index,
+        here: false, from: `every ${comp.kind}`, location: { file: 'compiler', selector: rule.selector }
+      });
+    });
+
+    const rank = (c) => {
+      if (c.source === 'styles.css') return c.important ? 600 + c.order : 300 + c.order;
+      if (c.inline) return 400;
+      if (c.source === 'compiler') return c.important ? 500 + c.order : 200 + c.order;
+      return 0;
+    };
+    candidates.sort((a, b) => rank(b) - rank(a));
+
+    // Nothing on the component itself (or only `inherit`, which the compiler
+    // uses for headings): an inheritable property comes from the nearest
+    // ancestor that has it.
+    const defers = candidates.length === 0 ? INHERITED_PROPS.has(prop) : candidates[0].value === 'inherit';
+    if (defers && comp.parentId && depth < 64) {
+      const parent = this.uiModel.getComponent(comp.parentId);
+      const fromParent = parent ? this.explain(parent, prop, { depth: depth + 1 }) : null;
+      if (fromParent && fromParent.value !== null) {
+        const via = fromParent.source === 'parent' ? fromParent.from : `parent ${parent.name}`;
+        return {
+          prop, value: fromParent.value, status: 'inherited', source: 'parent', from: via,
+          location: fromParent.location, forced: false, overriddenBy: null,
+          chain: [{ source: 'parent', value: fromParent.value, from: via, location: fromParent.location, here: false, wins: true }]
+        };
+      }
+    }
+
+    if (candidates.length === 0) return { ...empty, forced };
+
+    const winner = candidates[0];
+    const mine = candidates.find(c => c.here);
+    const chain = candidates.map(c => ({
+      source: c.source, value: c.value, important: c.important, from: c.from,
+      location: c.location, here: c.here, wins: c === winner
+    }));
+
+    let status;
+    if (mine && mine !== winner) status = 'overridden';
+    else if (winner.here) status = 'set';
+    else if (winner.source === 'compiler') status = 'compiler';
+    else status = 'inherited';
+
+    return {
+      prop,
+      value: winner.value,
+      status,
+      source: winner.source,
+      from: winner.from,
+      location: winner.location,
+      forced,
+      overriddenBy: status === 'overridden' ? chain[0] : null,
+      mine: mine ? chain[candidates.indexOf(mine)] : null,
+      chain
+    };
   }
 
   // --- Writing --------------------------------------------------------------
@@ -374,4 +526,4 @@ export class StyleController {
 }
 
 // Exposed for tests.
-export const _internal = { SOURCE_PROPS, FORCED_INLINE, expandBox };
+export const _internal = { SOURCE_PROPS, FORCED_INLINE, INHERITED_PROPS, expandBox };
