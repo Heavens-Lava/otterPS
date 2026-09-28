@@ -737,6 +737,7 @@ export class OtterStudioIde {
         this.refreshWorkspaceSymbols();
         await this.loadDesignerStylesheet();
         await this.loadLaunchConfig();
+        window.dispatchEvent(new CustomEvent('otter:project-loaded', { detail: { folder: this.currentProjectFolder } }));
       } else {
         alert(data.error || 'Folder is empty or could not be loaded.');
       }
@@ -910,6 +911,18 @@ export class OtterStudioIde {
       this.btnWorkspaceTrustStatus.className = `statusbar-btn trust-status-btn ${this.isTrusted ? 'is-trusted' : 'is-untrusted'}`;
       this.btnWorkspaceTrustStatus.title = this.isTrusted ? 'Workspace is trusted. Execution permitted.' : 'Workspace is in Restricted Mode. Click to manage trust.';
     }
+  }
+
+  // One gate for every action that executes code from the workspace: Run,
+  // Debug, Build, tests, and Git actions that can run repository hooks
+  // (commit, merge, switching branches). In Restricted Mode the user must
+  // agree first; agreeing trusts the workspace, as Run always did.
+  async ensureTrusted(action) {
+    if (this.isTrusted) return true;
+    const proceed = confirm(`Restricted Mode: this workspace is not trusted.\n\n${action} can run code from this workspace.\n\nTrust this workspace and continue?`);
+    if (!proceed) return false;
+    this.grantWorkspaceTrust();
+    return true;
   }
 
   grantWorkspaceTrust() {
@@ -3716,6 +3729,7 @@ export class OtterStudioIde {
   async buildProject({ clean = false } = {}) {
     const folder = this.projectStylesheetPath() ? this.currentProjectFolder : null;
     if (!folder) { alert('Open a project folder to build it.'); return null; }
+    if (!(await this.ensureTrusted('Building'))) return null;
     if (!(await this.saveAllFiles())) {
       this.appendBuildLog('Build cancelled: some files could not be saved.', '', false);
       return null;

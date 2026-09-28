@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { exec, execFile, spawn } from 'node:child_process';
 import { handleLaunchRoutes } from './server/launch.mjs';
 import { handleGitRoutes } from './server/git.mjs';
+import { handleTestRoutes } from './server/tests.mjs';
 import { checkRequest, readJsonBody, isInside, LOOPBACK_HOST } from './server/security.mjs';
 import {
   createDefaultManifest,
@@ -313,6 +314,11 @@ async function handleRequest(req, res) {
   // Run, launch profiles, build and clean (server/launch.mjs).
   if (await handleLaunchRoutes(req, res, pathname, urlObj, {
     repoRoot: REPO_ROOT, isInsideRepo, readBody, sendJson, readFileSnapshot, runState
+  })) return;
+
+  // Test Explorer (server/tests.mjs): discovery and `otter test <file>`.
+  if (await handleTestRoutes(req, res, pathname, urlObj, {
+    repoRoot: REPO_ROOT, isInsideRepo, readBody, sendJson
   })) return;
 
   // Source control (server/git.mjs), backed by the git command line.

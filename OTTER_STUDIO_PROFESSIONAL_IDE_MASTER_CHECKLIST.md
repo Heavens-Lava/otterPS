@@ -587,11 +587,11 @@ platform.
 -   [ ] Setup/teardown
 -   [ ] Parameterized/async/expected-error tests
 -   [ ] Mocks/fakes strategy
--   [ ] Discovery
--   [ ] Test Explorer
--   [ ] Run selected/all
+-   [x] Discovery (Studio lists exactly the files `otter test` runs, same order; parity asserted) (otter-studio/scripts/test-explorer.test.mjs, through `otter test`)
+-   [x] Test Explorer (bottom drawer Tests tab: state icons + words, message and line, output, open at failure) (otter-studio/scripts/test-explorer.test.mjs, through `otter test`)
+-   [x] Run selected/all (Run All, Run Failed, per test; Stop skips the rest) (otter-studio/scripts/test-explorer.test.mjs, through `otter test`)
 -   [ ] Debug test
--   [ ] Filtering/output/duration
+-   [x] Filtering/output/duration (otter-studio/scripts/test-explorer.test.mjs, through `otter test`)
 -   [ ] Coverage and visualization
 -   [ ] UI/browser/desktop tests
 -   [ ] Cross-platform tests
@@ -755,7 +755,7 @@ platform.
 -   [x] CSRF/origin tests (cross-site Origin and DNS-rebinding Host refused) (otter-studio/scripts/security.test.mjs)
 -   [ ] DoS/request-size limits (32 MB request-body limit done (otter-studio/scripts/security.test.mjs); rate limiting not done)
 -   [ ] Workspace trust
--   [ ] Warn before running untrusted code/build hooks
+-   [x] Warn before running untrusted code/build hooks (one Restricted Mode gate for Run, Debug, Build, tests and Git actions that run repository hooks)
 -   [ ] Secrets storage/redaction
 -   [ ] Extension permissions
 -   [ ] Preview sandbox
@@ -1022,7 +1022,7 @@ platform.
 
 ## P6 --- Tests/packages/Git/extensions
 
--   [ ] Otter test framework and Test Explorer.
+-   [ ] Otter test framework and Test Explorer. (Test Explorer done over the existing file-per-test `otter test` model; a richer framework - named cases, assertions, setup - is language work)
 -   [ ] Coverage.
 -   [ ] Package manager/registry.
 -   [ ] Git workflow.
