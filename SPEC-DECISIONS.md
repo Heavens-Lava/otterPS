@@ -7359,30 +7359,54 @@ redesign them or add semantics. Each is reconstructed only from evidence in the
 repository (the approved specification where one exists, the implementing
 commits, the contract, and the tests) and states that evidence. Where the
 evidence is not enough to record a decision without making a new one, the entry
-says so and is marked **UNRESOLVED**.
+says so and is marked **UNRESOLVED**. (D99, the only such entry, was decided on
+2026-09-28: deferred from Otter 1.0.)
 
 Target labels: *console* = the interpreter (`otter run`); *web* = the
 JavaScript compiler (`otter web`); *desktop* = the desktop host.
 
-## D99. Otter Query Language (OQL) — **UNRESOLVED**
+## D99. Otter Query Language (OQL) — **DEFERRED from Otter 1.0 (target: Otter 1.1+)**
+
+**Decision (approved 2026-09-28):** OQL is **not part of Otter 1.0**. It is
+deferred to Otter 1.1 or later. The existing implementation stays in the source
+tree, unchanged, as **experimental, non-1.0 surface**.
+
+* Target: Otter 1.1+.
+* The implementation is not deleted and its behavior is not changed.
+* It is not advertised as a 1.0 feature: the release surface manifest records
+  its four capabilities as `status: deferred`, `boundaryStatus:
+  decided-not-public`; the documentation site labels its page a 1.1 preview and
+  drops it from the 1.0 feature list.
+* Its declarations in `Otter.Contract.psm1` remain (the contract is frozen and
+  this decision does not edit it); they are not part of the Otter 1.0 public
+  surface. Promoting OQL into a release requires a new decision.
+* Otter 1.0 programs that need a database use the D97 `query`/`execute`
+  statements with parameterized SQL.
+
+**Reason:** the authoritative design record already says "Target: Otter 1.1+ ...
+Not approved yet"; OQL is not required by any Otter 1.0 core release gate; and
+the frozen 1.0 language surface is not enlarged at this stage. Query syntax is a
+large semantic surface (filtering, ordering, result shape, errors, provider
+behavior) that has not been dogfooded and certified to the 1.0 standard.
 
 **Evidence:** `docs/D99-QUERY-LANGUAGE-DESIGN.md`; commit `c32767d`;
 `QueryStmt`, `QueryAggregateStmt`, `QueryBetweenExpr`, `QueryInExpr` in the
-contract; `tests/Query.Tests.ps1`.
+contract; `tests/Query.Tests.ps1` (still run; it covers the experimental
+implementation).
 
-**What exists:** `get [distinct] fields from TABLE in DB [as alias] [where ...]
+**What exists (experimental):** `get [distinct] fields from TABLE in DB [as alias] [where ...]
 [order by ...] [take N] [skip N] into TARGET`; `count/sum/average/minimum/maximum
 from TABLE in DB ... into TARGET`; `X between A and B`; `X is in` / `is not in`
 a collection. The console interpreter translates these to parameterized SQL
 through the D97 database provider.
 
-**Why unresolved:** the only design record, `docs/D99-QUERY-LANGUAGE-DESIGN.md`,
-is headed "Status: Design Proposal & Feasibility Research — Target: Otter 1.1+ —
-Implementation: Not approved yet (Exploratory / RFC)". The implementation
-landed anyway (`c32767d`) and is in the frozen contract, and
+**History:** recorded UNRESOLVED on 2026-09-27 during the ledger reconstruction,
+because the only design record, `docs/D99-QUERY-LANGUAGE-DESIGN.md`, is headed
+"Status: Design Proposal & Feasibility Research — Target: Otter 1.1+ —
+Implementation: Not approved yet (Exploratory / RFC)", while the implementation
+had landed (`c32767d`) and was in the frozen contract, and
 `docs/OTTER_1_0_RELEASE_SCOPE_MATRIX.md` classifies database/SQL integration as
-DEFERRED to 1.2+. Recording OQL as part of Otter 1.0 — or as deferred/internal —
-is a new decision. **Needs: is OQL in Otter 1.0?**
+DEFERRED to 1.2+. Resolved by the decision above.
 
 ## D100. Console UX primitives
 

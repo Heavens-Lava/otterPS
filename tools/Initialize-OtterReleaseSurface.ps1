@@ -526,6 +526,17 @@ foreach ($cap in $capabilities) {
     $cap['boundaryDecision'] = 'DC1 approved 2026-09-27: the HTTP client is part of Otter 1.0 on console and web (D116A/D116B affirmed in SPEC-DECISIONS.md). Status stays candidate until the capability is certified.'
 }
 
+# D99 (approved 2026-09-28): the Otter Query Language is deferred from Otter 1.0
+# (target 1.1+). Its capabilities stay in the manifest as evidence, but are not
+# 1.0 public surface: status deferred requires boundary decided-not-public
+# (tools/Test-OtterReleaseSurface.ps1). The implementation is unchanged.
+foreach ($cap in $capabilities) {
+    if ($cap.category -ne 'query language (D99)') { continue }
+    $cap['boundaryStatus'] = 'decided-not-public'
+    $cap['status'] = 'deferred'
+    $cap['boundaryDecision'] = 'D99 approved 2026-09-28: the query language is deferred from Otter 1.0 (target 1.1+). The implementation stays in the source tree unchanged as experimental, non-1.0 surface and is not advertised as a 1.0 feature.'
+}
+
 # --- 6. write ---------------------------------------------------------------
 
 $sorted = @($capabilities | Sort-Object { $_['id'] })

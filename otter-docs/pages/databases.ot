@@ -154,7 +154,7 @@ when b14copy is clicked
     text of b14copy is "Copied"
 .
 b15 is a text with value "Databases are a console and desktop feature. The web target reports database statements as unsupported.", size 15, foreground "#1e3a6b", background "#eaf2ff", radius 12, border "1px solid #cfe0ff", lineheight "1.55", customstyle "padding: 14px 18px;"
-b16 is a link with text "Next: the query language", url "/queries/", foreground "#2563eb", weight 600, size 15
+b16 is a link with text "Next: the query language (1.1 preview)", url "/queries/", foreground "#2563eb", weight 600, size 15
 
 docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"
 put b1, b2, b3, b4block, b5, b6, b7, b8block, b9, b10, b11, b12block, b13, b14block, b15, b16 in docsMain

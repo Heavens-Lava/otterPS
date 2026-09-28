@@ -71,15 +71,18 @@ deleted): three hosts passed; PowerShell 7 on Linux failed only
 | EV6 | **RESOLVED — see D121** (approved 2026-09-27). Documentation only. | | `SPEC-DECISIONS.md` D121; `docs/OTTER_1_0_EVENT_MODEL.md`; `tests/EventContract.Tests.ps1` |
 | EV7 | **RESOLVED — see D121** (approved 2026-09-27). Documentation only. | | `SPEC-DECISIONS.md` D121; `docs/OTTER_1_0_EVENT_MODEL.md`; `tests/EventContract.Tests.ps1` |
 | M1 | **RESOLVED — module paths require exact case on all supported hosts.** A `use` path must spell every file and folder name exactly as on disk; a case-only mismatch is rejected with the same diagnostic on every host (no case-insensitive fallback). Module identity is the exact on-disk path. | Decided 2026-09-27. Implemented in `src/Otter.Module.psm1` (`78b9793`, `639112f`). | `tests/Module.Tests.ps1` test 8; `tests/HostPortability.Tests.ps1` (file and folder cases, production entry point); D120 run 36327608764 |
+| D99 | **RESOLVED — DEFERRED from Otter 1.0; target Otter 1.1+** (approved 2026-09-28). The query language stays in the source tree unchanged as experimental, non-1.0 surface; it is not advertised as a 1.0 feature. | Implemented (`c32767d`) and in the frozen contract, but its only design record said "Target: Otter 1.1+ ... Not approved yet". | `SPEC-DECISIONS.md` D99; `release/otter-1.0-surface.json` (`status: deferred`); `otter-docs/pages/queries.ot` |
 
 ## Ledger reconstruction (2026-09-27)
 
 `SPEC-DECISIONS.md` now records D100-D114 and D119, reconstructed from the
 approved specifications (including `docs/design/D107-D111-SPECIFICATION.md`),
-the implementing commits and the tests. **D99 (Otter Query Language) is recorded
-as UNRESOLVED:** its only design record says "Target: Otter 1.1+ ... Not approved
-yet", yet it is implemented and in the contract. Whether OQL is part of Otter 1.0
-needs a decision.
+the implementing commits and the tests. D99 (Otter Query Language) was recorded
+as UNRESOLVED on 2026-09-27 and decided on 2026-09-28: **deferred from Otter 1.0,
+target 1.1+** (see the D99 row above). With that, no Otter 1.0 contract decision
+remains unresolved in the ledger. (Older entries once marked open were settled
+later: D32.7 by D42, D38 by D38A/D38B.) DC2 to DC5 below are documentation
+conflicts, not contract questions.
 
 ## Other cross-document conflicts
 

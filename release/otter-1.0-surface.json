@@ -11032,8 +11032,8 @@
                                              "contract"
                                          ],
                              "surfaceKind":  "library-operation",
-                             "boundaryStatus":  "unresolved",
-                             "status":  "candidate",
+                             "boundaryStatus":  "decided-not-public",
+                             "status":  "deferred",
                              "hints":  [
 
                                        ],
@@ -11140,7 +11140,8 @@
                                                             "evidence":  [
                                                                              "not in the reachability matrix; production reachability is not established by the manifest evidence"
                                                                          ]
-                                                        }
+                                                        },
+                             "boundaryDecision":  "D99 approved 2026-09-28: the query language is deferred from Otter 1.0 (target 1.1+). The implementation stays in the source tree unchanged as experimental, non-1.0 surface and is not advertised as a 1.0 feature."
                          },
                          {
                              "id":  "N-QueryBetweenExpr",
@@ -11151,8 +11152,8 @@
                                              "contract"
                                          ],
                              "surfaceKind":  "library-operation",
-                             "boundaryStatus":  "unresolved",
-                             "status":  "candidate",
+                             "boundaryStatus":  "decided-not-public",
+                             "status":  "deferred",
                              "hints":  [
 
                                        ],
@@ -11263,7 +11264,8 @@
                                                             "evidence":  [
                                                                              "not in the reachability matrix; production reachability is not established by the manifest evidence"
                                                                          ]
-                                                        }
+                                                        },
+                             "boundaryDecision":  "D99 approved 2026-09-28: the query language is deferred from Otter 1.0 (target 1.1+). The implementation stays in the source tree unchanged as experimental, non-1.0 surface and is not advertised as a 1.0 feature."
                          },
                          {
                              "id":  "N-QueryInExpr",
@@ -11274,8 +11276,8 @@
                                              "contract"
                                          ],
                              "surfaceKind":  "library-operation",
-                             "boundaryStatus":  "unresolved",
-                             "status":  "candidate",
+                             "boundaryStatus":  "decided-not-public",
+                             "status":  "deferred",
                              "hints":  [
 
                                        ],
@@ -11382,7 +11384,8 @@
                                                             "evidence":  [
                                                                              "not in the reachability matrix; production reachability is not established by the manifest evidence"
                                                                          ]
-                                                        }
+                                                        },
+                             "boundaryDecision":  "D99 approved 2026-09-28: the query language is deferred from Otter 1.0 (target 1.1+). The implementation stays in the source tree unchanged as experimental, non-1.0 surface and is not advertised as a 1.0 feature."
                          },
                          {
                              "id":  "N-QueryParameter",
@@ -11516,8 +11519,8 @@
                                              "contract"
                                          ],
                              "surfaceKind":  "library-operation",
-                             "boundaryStatus":  "unresolved",
-                             "status":  "candidate",
+                             "boundaryStatus":  "decided-not-public",
+                             "status":  "deferred",
                              "hints":  [
 
                                        ],
@@ -11624,7 +11627,8 @@
                                                             "evidence":  [
                                                                              "not in the reachability matrix; production reachability is not established by the manifest evidence"
                                                                          ]
-                                                        }
+                                                        },
+                             "boundaryDecision":  "D99 approved 2026-09-28: the query language is deferred from Otter 1.0 (target 1.1+). The implementation stays in the source tree unchanged as experimental, non-1.0 surface and is not advertised as a 1.0 feature."
                          },
                          {
                              "id":  "N-ReadCsv",

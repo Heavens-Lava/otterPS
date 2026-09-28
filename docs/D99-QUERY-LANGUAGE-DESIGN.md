@@ -1,6 +1,7 @@
 # D99: Otter Query Language Design (OQL)
 
 **Status:** Design Proposal & Feasibility Research  
+**Decision (2026-09-28):** Deferred from Otter 1.0 (`SPEC-DECISIONS.md` D99). The implementation in the source tree is experimental, non-1.0 surface.  
 **Target:** Otter 1.1+  
 **Implementation:** Not approved yet (Exploratory / RFC)  
 **Author:** Pair programming research (Jeff & Antigravity)  

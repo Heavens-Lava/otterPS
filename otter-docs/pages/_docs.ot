@@ -67,7 +67,7 @@ put sideGroupHead4, sideGone, sideOperators, sidePropertyAccess, sideStrings, si
 
 sideGroupHead5 is a link with text "Platform", url "/databases/", foreground "#0f1f36", size 13, weight 700, customstyle "padding: 6px 12px; display: block;"
 sideDatabases is a link with text "Databases", url "/databases/", foreground "#4a5b75", size 14, customstyle "padding: 8px 12px; border-left: 3px solid transparent; border-radius: 4px; display: block;"
-sideQueries is a link with text "The query language", url "/queries/", foreground "#4a5b75", size 14, customstyle "padding: 8px 12px; border-left: 3px solid transparent; border-radius: 4px; display: block;"
+sideQueries is a link with text "The query language (1.1 preview)", url "/queries/", foreground "#4a5b75", size 14, customstyle "padding: 8px 12px; border-left: 3px solid transparent; border-radius: 4px; display: block;"
 sideHttp is a link with text "HTTP requests", url "/http/", foreground "#4a5b75", size 14, customstyle "padding: 8px 12px; border-left: 3px solid transparent; border-radius: 4px; display: block;"
 sideWebServer is a link with text "Web servers", url "/web-server/", foreground "#4a5b75", size 14, customstyle "padding: 8px 12px; border-left: 3px solid transparent; border-radius: 4px; display: block;"
 sideXml is a link with text "XML", url "/xml/", foreground "#4a5b75", size 14, customstyle "padding: 8px 12px; border-left: 3px solid transparent; border-radius: 4px; display: block;"

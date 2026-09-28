@@ -116,7 +116,7 @@ b17 is a text with value "Data", size 26, weight 800, foreground "#0b1d36", lett
 b18 is a text with value "Read and write CSV, JSON and XML; talk to a database and ask questions of it in plain words.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b19 is a link with text "CSV and downloads", url "/data/", foreground "#2563eb", weight 600, size 15
 b20 is a link with text "Databases", url "/databases/", foreground "#2563eb", weight 600, size 15
-b21 is a link with text "The query language", url "/queries/", foreground "#2563eb", weight 600, size 15
+b21 is a link with text "The query language (1.1 preview)", url "/queries/", foreground "#2563eb", weight 600, size 15
 b22 is a text with value "Networking and security", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b23 is a text with value "WebSockets, TCP, UDP and TLS connections; hashing, authenticated encryption, password hashing, and a credential vault for secrets.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b24 is a link with text "Networking", url "/networking/", foreground "#2563eb", weight 600, size 15

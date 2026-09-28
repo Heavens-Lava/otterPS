@@ -156,7 +156,7 @@ b52 is a link with text "Diagnostic output", url "/diagnostics/", foreground "#2
 b53 is a link with text "Reference index", url "/reference/", foreground "#2563eb", weight 600, size 15
 b54 is a text with value "Platform", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b55 is a link with text "Databases", url "/databases/", foreground "#2563eb", weight 600, size 15
-b56 is a link with text "The query language", url "/queries/", foreground "#2563eb", weight 600, size 15
+b56 is a link with text "The query language (1.1 preview)", url "/queries/", foreground "#2563eb", weight 600, size 15
 b57 is a link with text "HTTP requests", url "/http/", foreground "#2563eb", weight 600, size 15
 b58 is a link with text "Web servers", url "/web-server/", foreground "#2563eb", weight 600, size 15
 b59 is a link with text "XML", url "/xml/", foreground "#2563eb", weight 600, size 15

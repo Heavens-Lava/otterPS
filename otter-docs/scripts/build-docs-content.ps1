@@ -28,7 +28,7 @@ $sections = @(
         @('json', 'JSON'), @('random', 'Random'), @('dates', 'Dates and time'), @('scope', 'Scope'),
         @('diagnostics', 'Diagnostic output'), @('reference', 'Reference index'))),
     @('Platform', @(
-        @('databases', 'Databases'), @('queries', 'The query language'), @('http', 'HTTP requests'), @('web-server', 'Web servers'), @('xml', 'XML'),
+        @('databases', 'Databases'), @('queries', 'The query language (1.1 preview)'), @('http', 'HTTP requests'), @('web-server', 'Web servers'), @('xml', 'XML'),
         @('web-apps', 'Web applications'), @('reactivity', 'State and reactivity'),
         @('networking', 'Networking'), @('security', 'Cryptography and secrets'))),
     @('Console', @(@('console', 'Console programming'), @('console-input', 'Console input'), @('console-app', 'A complete console program'))),
