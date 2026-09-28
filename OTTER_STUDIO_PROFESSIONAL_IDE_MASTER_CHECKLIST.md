@@ -721,7 +721,7 @@ architecture reference. Listed in the recommended implementation order.
 -   [ ] Remote/auth management (add/remove remotes and redacted URLs done; sign-in is delegated to the user's credential helper/SSH agent, no in-Studio account management)
 -   [ ] Source-control extension API
 -   [x] Gutter change indicators (added/modified/deleted) in the editor (3ff8d4b; Alt+F3 next change, Revert Change at Cursor)
--   [ ] Inline blame annotations
+-   [x] Inline blame annotations (69c8dae; cursor line, Settings > Editor > Inline blame)
 -   [ ] Pull request and issue integration (GitHub/GitLab providers)
 -   [x] `.gitignore` template generator on project creation (3ff8d4b; New Project checkbox, honors build.outputDir)
 
