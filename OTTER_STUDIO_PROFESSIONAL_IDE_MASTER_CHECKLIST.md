@@ -726,15 +726,17 @@ architecture reference. Listed in the recommended implementation order.
 
 # 23. Refactoring
 
--   [ ] Rename local/function/component/file/module
--   [ ] Update references
--   [ ] Extract function/variable
+-   [x] Rename local/function (scope-aware within a file: the analyzer places the symbol, parameters and globals stay separate; preview before applying) (`61a6e0d`)
+-   [ ] Rename file/module and across files
+-   [x] Update references (every reference in the symbol's scope, in the rename preview) (`61a6e0d`)
+-   [x] Extract function (whole lines, nested blocks kept, parameters passed, refused when it would change the program) (`61a6e0d`; same interpreter output before/after)
+-   [ ] Extract variable
 -   [ ] Inline variable
 -   [ ] Move symbol/module
 -   [ ] Safe delete
 -   [ ] Organize modules
--   [ ] Preview changes
--   [ ] Atomic undo
+-   [x] Preview changes (rename lists every changed line, old and new, before applying) (`61a6e0d`)
+-   [x] Atomic undo (rename, extract and other whole-document edits are one Ctrl+Z) (`61a6e0d`)
 -   [ ] Cross-project refactoring
 
 # 24. Integrated terminal and REPL
