@@ -265,6 +265,9 @@ to identity value
         $out = Join-Path $script:CliWork "$Name.out.txt"
         $err = Join-Path $script:CliWork "$Name.err.txt"
         $process = Start-Process -FilePath $script:HostExe -ArgumentList $quoted -WorkingDirectory $script:CliWork -PassThru -RedirectStandardOutput $out -RedirectStandardError $err
+        # Windows PowerShell 5.1: a Start-Process -PassThru object reports an
+        # empty ExitCode unless its handle was opened while the process ran.
+        $null = $process.Handle
         return [pscustomobject]@{ Process = $process; Out = $out; Err = $err }
     }
 
@@ -272,7 +275,11 @@ to identity value
         param($Started)
         $text = ''
         foreach ($file in @($Started.Out, $Started.Err)) {
-            if (Test-Path -LiteralPath $file) { $text += [System.IO.File]::ReadAllText($file) }
+            if (-not (Test-Path -LiteralPath $file)) { continue }
+            # Share the file: on Windows the redirect target can still be held
+            # open briefly after the process is killed; Linux never locks it.
+            $stream = [System.IO.FileStream]::new($file, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete)
+            try { $text += [System.IO.StreamReader]::new($stream).ReadToEnd() } finally { $stream.Dispose() }
         }
         return $text
     }
