@@ -299,7 +299,7 @@ platform.
 -   [ ] Sticky scroll (current block header pinned while scrolling)
 -   [x] Auto-closing quotes/parentheses and auto-insert of the block-terminating period (wrap selection, step over closers, delete pairs; Enter after a block opener writes the body line and `.`; `editing-assist.test.mjs`, verified by typing in the real editor)
 -   [ ] User-defined snippets with a snippet editor and tab stops
--   [ ] Standalone diff editor: compare two files, compare with saved, compare with Git HEAD
+-   [x] Standalone diff editor: compare two files, compare with saved, compare with Git HEAD (`645e3d3`; side by side, next/previous change)
 -   [x] Format on save, trim trailing whitespace, insert final newline (Settings > Files; applied before the file is written; verified through the real Save path)
 -   [ ] Formatter style settings
 -   [x] Bookmarks with next/previous navigation (`91b8ee2`; Ctrl+Alt+K / L / J, gutter marks, per file)
@@ -308,7 +308,7 @@ platform.
 -   [ ] Inlay hints (parameter names, inferred values)
 -   [ ] Code lens (reference counts, run/debug test above functions)
 -   [ ] Editor groups: drag tab to split, grid layouts, pinned tabs, preview tabs, Open Editors list
--   [ ] Search in selection, preserve case on replace, multi-line search
+-   [x] Search in selection, preserve case on replace, multi-line search (`645e3d3`; plus match case, whole word, regex groups; find widget wired up for the first time)
 -   [ ] Search include/exclude globs that honor `.gitignore`
 -   [ ] Drag-and-drop text editing
 -   [x] Editor font size (Settings > Editor, 12-15 px; code layer, input and gutter stay aligned)
@@ -894,7 +894,7 @@ architecture reference. Listed in the recommended implementation order.
 -   [ ] Settings sync across machines and named settings profiles
 -   [ ] Notifications center with history
 -   [x] Zen/distraction-free mode and full screen (`91b8ee2`; Ctrl+Alt+Z / Esc, F11)
--   [ ] Help menu: report issue, release notes, keyboard reference, in-IDE documentation viewer
+-   [x] Help menu: report issue, release notes, keyboard reference, in-IDE documentation viewer (`645e3d3`; guide, standard library, grammar, semantics, changelog with outline and find-in-page)
 -   [ ] Standard-library / API browser panel (object-browser style)
 -   [ ] Interactive first-run walkthroughs and guided tutorials
 
