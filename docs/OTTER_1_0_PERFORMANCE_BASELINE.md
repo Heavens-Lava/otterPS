@@ -200,7 +200,7 @@ unchanged against the optimized code.
 | Gate | Result |
 |---|---|
 | Focused golden tests | 15 of 15 pass |
-| Full platform regression | **55 of 55** test files pass |
+| Full platform regression | **55 of 55** test files pass (the suite at that commit; earlier records report 53 of 53 and the rc.2 candidate `708ef2e` has 59 test files) |
 | Release conformance | **15 of 15** fixtures pass |
 | Differential fuzzer (interpreter vs JavaScript) | **1,000 of 1,000** programs agree, 0 disagreements (seed 20260929) |
 | Malformed-input safety fuzzing | **1,000 of 1,000** handled safely, 0 raw host crashes |

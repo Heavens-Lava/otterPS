@@ -260,7 +260,7 @@
 - **Scaled Differential Execution (10,000 Programs)**:
   - 10,000 / 10,000 programs evaluated identically between Console Interpreter and Node.js VM sandbox.
   - Features exercised simultaneously: functions, nested function calls, returns, conditions, count loops, each loops, lists, list mutations, objects, nested property access, dynamic keys, strings, gone, math, comparisons, and text operations.
-  - **Disagreements: 0 (100% agreement)**.
+  - **Disagreements: 0 (100% agreement on the generated programs)**. The generated programs do not print lists, `gone`, things or JSON text, so this is not a claim of full console/web parity; see the known differences in `docs/OTTER_1_0_RELEASE_SCOPE_MATRIX.md`.
 - **Scaled Grammar-Aware Mutation Fuzzing (10,000 Mutations)**:
   - 10,000 / 10,000 mutated programs handled cleanly without unhandled host exceptions.
   - Attack classes exercised: token deletion, token duplication, operator substitution, keyword substitution (`if` -> `while`, `to` -> `fn`), block terminator removal/addition, indentation corruption, malformed strings, malformed numbers, malformed property chains, malformed function calls, bare words in blocks, CRLF/LF variations, and comments at structural boundaries.

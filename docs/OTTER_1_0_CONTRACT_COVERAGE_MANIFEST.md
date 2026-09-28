@@ -57,6 +57,10 @@ suites are production-path tests, not mocks of lexer/parser output.
 
 On 2026-09-27, `tests/Run-Tests.ps1` completed with exit code 0 and reported
 **53 of 53 test files passed** on the Windows PowerShell 5.1 development host.
+That count is the suite as it stood on that date; test files were added
+afterwards (for example the profiler and optimization suites), so later records
+report 55 of 55, and the rc.2 candidate `708ef2e` has 59 test files. A count is
+only meaningful together with the candidate SHA it ran against.
 This is behavioural evidence only; the clean-checkout reproduction remains a
 separate Gate 1 record. The release conformance harness and differential
 fuzzer evidence are recorded in

@@ -5,7 +5,7 @@ This document records the standard-library and runtime reachability audit for Ot
 Every capability claimed for the 1.0 runtime must be reachable through canonical `.ot` syntax and the production CLI entry point (`otter.cmd run`), executed by the real parser and interpreter runtime, and certified with automated tests.
 
 Certification test suite: [tests/StandardLibrary.Tests.ps1](file:///c:/Users/jmacy/projects/otterPS/tests/StandardLibrary.Tests.ps1)
-Result: **31 / 31 capabilities certified (100% PASS)**
+Result: **all 31 test cases pass**. The matrix below has 34 rows because some rows share one test case (for example, Lists and Mutation share `definition and mutation`, and Object Definition and Property Read/Write share `thing has and of`).
 
 ---
 
@@ -20,7 +20,7 @@ Result: **31 / 31 capabilities certified (100% PASS)**
 | **Text** | Split | `split t by "," into parts` | `SplitStmt` | CERTIFIED |
 | **Text** | Contains | `if t contains "otter"` | `ContainsExpr` | CERTIFIED |
 | **Text** | Length | `say length of t` | `OfOperationExpr (Length)` | CERTIFIED |
-| **Math** | Arithmetic | `x is 10 plus 5 times 2 minus 6 divided by 2` | `MathExpr` / precedence tree | CERTIFIED |
+| **Math** | Arithmetic | `x is 10 plus 5 times 2 minus 6 divided by 2` | `MathExpr` / flat left-to-right chain (no precedence) | CERTIFIED |
 | **Math** | Percent Of | `say 20 percent of 150` | `PercentOp` | CERTIFIED |
 | **Math** | Power | `say 2 power 8` | `PowerOp` | CERTIFIED |
 | **Math** | Rounding | `say round of 3.7` / `round up of 3.2` | `OfOperationExpr (Round/RoundUp/RoundDown)` | CERTIFIED |
@@ -42,8 +42,8 @@ Result: **31 / 31 capabilities certified (100% PASS)**
 | **Random** | Number & Item | `random number from 1 to 10 into n` / `random item from l into i` | `RandomNumberStmt` / `RandomItemStmt` | CERTIFIED |
 | **Filesystem** | File I/O | `write "a" to p` / `read p into c` / `append "b" to p` / `delete file p` | `WriteFileStmt` / `ReadFileStmt` / `AppendFileStmt` / `DeleteFileStmt` | CERTIFIED |
 | **Filesystem** | File Exists | `if file path exists` | `FileExistsExpr` | CERTIFIED |
-| **Processes** | Run & Capture | `run command "cmd.exe /c echo hi" into res` | `RunStmt` (`output of res`, `exit code of res`) | CERTIFIED |
-| **Processes** | Process List | `get processes into procList` | `GetProcessesStmt` | CERTIFIED |
+| **Process** | Run & Capture | `run command "cmd.exe /c echo hi" into res` | `RunStmt` (`output of res`, `exit code of res`) | CERTIFIED |
+| **Process** | Process List | `get processes into procList` | `GetProcessesStmt` | CERTIFIED |
 | **System** | System Information | `get system information "os" into osInfo` | `GetSystemInfoStmt` | CERTIFIED |
 | **System** | Clipboard | `copy "text" to clipboard` / `get clipboard into clip` | `CopyToClipboardStmt` / `GetClipboardStmt` | CERTIFIED |
 | **System** | Environment | `get environment variable "TEMP" into t` | `GetEnvironmentVariableStmt` | CERTIFIED |
@@ -51,7 +51,7 @@ Result: **31 / 31 capabilities certified (100% PASS)**
 
 ## Capabilities certified by focused production-entry suites
 
-These are outside the 31-case smoke matrix above. Each is exercised through the
+These are outside the 31-case matrix above. Each is exercised through the
 production CLI (`otter.ps1 run`) by its own suite, which is part of the D120
 four-host portable suite (Windows PowerShell 5.1; PowerShell 7 on Windows, Linux
 and macOS).

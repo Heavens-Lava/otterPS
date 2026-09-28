@@ -294,14 +294,14 @@ Verified by hand; each cites its evidence. Recorded, not resolved.
 * `docs/OTTER_1_0_MODULE_STATUS.md`: file imports certified for the console production entry point
 * Evidence: `tests/UseModuleProduction.Tests.ps1`
 * Observation: Codex reconciled GRAMMAR.md and the scope matrix (553bf33) but docs/OTTER_1_0_CAPABILITY_MATRIX.md still carries the older DEFERRED row.
-* Decision: **pending**
+* Decision: Resolved in the RC3 documentation pass: the capability matrix now matches the code. `use "file.ot"` is certified for the console production entry points; package imports remain DEFERRED.
 
 ### DC3. Size of the reachability matrix
 
 * `docs/STANDARD_LIBRARY_REACHABILITY.md`: "31 / 31 capabilities certified"
 * Evidence: `docs/STANDARD_LIBRARY_REACHABILITY.md`, `tests/StandardLibrary.Tests.ps1`
 * Observation: The matrix table has 34 rows; the suite has 31 cases. Lists/Mutation share one case, as do Object Definition/Property Read-Write. The per-row mapping is in this manifest (tests.cases).
-* Decision: **pending**
+* Decision: Resolved in the RC3 documentation pass: the document now says 34 rows certified by 31 passing test cases, and explains the shared cases.
 
 ### DC4. Area naming between the reachability matrix and its suite
 
@@ -309,7 +309,7 @@ Verified by hand; each cites its evidence. Recorded, not resolved.
 * `tests/StandardLibrary.Tests.ps1`: area "Process"
 * Evidence: `docs/STANDARD_LIBRARY_REACHABILITY.md`, `tests/StandardLibrary.Tests.ps1`
 * Observation: Cosmetic, but it breaks mechanical matching between the document and its certification suite.
-* Decision: **pending**
+* Decision: Resolved in the RC3 documentation pass: the document uses "Process", as the suite does.
 
 ### DC5. Full-suite evidence counts
 
@@ -317,7 +317,7 @@ Verified by hand; each cites its evidence. Recorded, not resolved.
 * `docs/OTTER_1_0_PERFORMANCE_BASELINE.md`: "55 of 55" test files pass (post-optimization validation)
 * Evidence: `tests/Run-Tests.ps1`
 * Observation: Both may be true at their own commits (test files were added in between: Profiler, Optimizations). Neither is a clean-checkout run; the certification record must name the candidate SHA it ran against.
-* Decision: **pending**
+* Decision: Resolved in the RC3 documentation pass: both documents now say their count is the suite at that time, and that the rc.2 candidate `708ef2e` has 59 test files.
 
 ## 9. Token, AST and diagnostic coverage
 

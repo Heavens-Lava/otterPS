@@ -10,7 +10,8 @@ is intentionally not part of Otter 1.0.
 | Files, JSON, deterministic date math | Yes | Bridge-dependent | Not certified here | Yes for console | CERTIFIED for console |
 | Local command execution | Yes | Bridge-dependent | Not certified here | Yes for console | IMPLEMENTED BUT NOT PRODUCTION-CERTIFIED across hosts |
 | HTTP GET/POST/PUT/DELETE and request handles (D116A/B) | Yes | Yes (`fetch`) | No claim | Yes (console and web) | CERTIFIED on console (four D120 hosts, `tests/Http.Tests.ps1`) and web |
-| `use` modules | No — explicit diagnostic | Resolver groundwork only | No claim | No | DEFERRED FROM 1.0 |
+| `use "file.ot"` file modules | Yes | Separate resolver path; works, not certified | No claim | No | CERTIFIED for the console production entry points (`otter run`, `otter check`, `otter debug`; `tests/UseModuleProduction.Tests.ps1`); web/desktop/serve parity is a target certification item |
+| Package imports (`use web`, `use json`, registries) | No — explicit diagnostic | No | No claim | No | DEFERRED FROM 1.0 |
 | Browser UI compilation | No | Yes | No claim | No | CERTIFIED in browser runtime (Edge/Chromium headless DOM mounting) |
 | Desktop/server listener hosting | No | No | Host-dependent | No | BLOCKED BY ENVIRONMENT in this pass |
 | Packaging / installer | Per-user script | N/A | N/A | N/A | IMPLEMENTED BUT NOT PRODUCTION-CERTIFIED on a clean machine |

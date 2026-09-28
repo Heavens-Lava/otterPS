@@ -397,7 +397,7 @@ The table below documents every single `NodeKind` in `Otter.Contract.psm1`, its 
 
 ### 6.3. Differential Hardening Gauntlet (`tools/Invoke-OtterDifferentialHardening.ps1`)
 - **Workloads**: 100 differential test programs executed simultaneously against PowerShell interpreter (`otter run`) and Node.js (`otter web`).
-- **Disagreements**: 0 disagreements (100% cross-runtime semantic parity).
+- **Disagreements**: 0 disagreements on the generated programs. This does not establish full console/web parity; see the known differences in [OTTER_1_0_RELEASE_SCOPE_MATRIX.md](OTTER_1_0_RELEASE_SCOPE_MATRIX.md#known-consoleweb-differences).
 - **Status**: PASS.
 
 ### 6.4. Resource Soak Stability Suite (`tools/Test-ResourceSoak.ps1`)
@@ -409,7 +409,7 @@ The table below documents every single `NodeKind` in `Otter.Contract.psm1`, its 
 
 ## 7. Conclusion & Recommendations
 
-The Otter programming language platform at HEAD after D114 exhibits exceptional semantic consistency, robust cross-runtime parity, and complete adherence to its design principles and contract boundaries. All identified bugs have been fixed and covered with regression tests, stale checklist items have been reconciled, and the full test and conformance matrix is 100% green.
+The Otter programming language platform at HEAD after D114 exhibits exceptional semantic consistency, shared console/web semantics for the portable core (with the known differences listed in the release scope matrix), and complete adherence to its design principles and contract boundaries. All identified bugs have been fixed and covered with regression tests, stale checklist items have been reconciled, and the full test and conformance matrix is 100% green.
 
 ### Recommended Next Steps for Post-1.0 Planning
 1. In a future contract revision, formally deprecate the unused `NodeKind::UiLayout` enum member according to Otter's compatibility policy.

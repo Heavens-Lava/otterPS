@@ -421,7 +421,18 @@ Below is the comprehensive summary of D2 items grouped across the **25 subsystem
 
 ### 5.6 Build System (14 items)
 
-**Scope & Rationale:** Covers project manifests (\otter.json\ or \Project.ot\), entry point resolution, target definitions, asset compilation, debug/release configurations, clean/rebuild commands, version stamping, and the official \otter build\ CLI. Waiting for 1.1 ensures the project model is designed in tandem with the module system.
+**Correction (RC3):** this section is partly superseded. Otter 1.0 ships the
+project workflow: the `otter.json` manifest (see
+[OTTER_1_0_PROJECT_MANIFEST.md](OTTER_1_0_PROJECT_MANIFEST.md)), entry point,
+target, declared assets, `build.clean`, and the `otter new`, `otter check`,
+`otter test`, `otter build` and `otter publish` commands with documented exit
+codes. The manifest version is copied into the build and publish metadata.
+Still deferred past 1.0: dependencies, debug/release configurations, a separate
+rebuild command, source maps (`build.sourceMaps` is read but unused), and
+builds that are byte-identical across hosts (builds are reproducible on one
+host only).
+
+**Scope & Rationale (original triage):** Covers project manifests (\otter.json\ or \Project.ot\), entry point resolution, target definitions, asset compilation, debug/release configurations, clean/rebuild commands, version stamping, and the official \otter build\ CLI. Waiting for 1.1 ensures the project model is designed in tandem with the module system.
 
 **Checklist Items:**
 - [Line 1228] Project manifest

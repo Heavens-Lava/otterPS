@@ -90,7 +90,8 @@ DC2 to DC5 (capability matrix still lists `use` modules as deferred; the
 reachability matrix's 31-versus-34 row count; "Processes" versus "Process";
 53-versus-55 suite counts) are recorded with evidence in
 `release/otter-1.0-surface.json` (`documentConflicts`) and
-`docs/OTTER_1_0_SURFACE_RECONCILIATION.md` section 8.
+`docs/OTTER_1_0_SURFACE_RECONCILIATION.md` section 8. The RC3 documentation
+pass corrected the stale documents; section 8 records how each was resolved.
 
 ## RC2 stabilization reviews (2026-09-28)
 

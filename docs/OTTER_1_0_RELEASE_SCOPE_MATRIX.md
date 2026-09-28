@@ -31,12 +31,12 @@ Every capability in the Otter platform is assigned exactly one status:
 
 | Capability | Status | Target Details & Reachability |
 |---|---|---|
-| **Variables & Primitives** (Number, Text, Boolean, `gone`) | **SUPPORTED** | Fully portable across Console and Web targets. |
-| **Math & Arithmetic** (Basic, power, percent, round, sqrt, trig, log) | **SUPPORTED** | Fully portable across Console and Web targets. |
-| **String Operations** (length, upper/lower, split, replace, contains, starts/ends) | **SUPPORTED** | Fully portable across Console and Web targets. |
-| **Lists & Collections** (literals, add/remove, sort, reverse, for-each iteration) | **SUPPORTED** | Fully portable across Console and Web targets. |
-| **Objects & Things** (`is a thing`, `property of`, dynamic keys `get`/`set`) | **SUPPORTED** | Fully portable across Console and Web targets. |
-| **Custom Types** (`a Person has`, instantiation, field assignment) | **SUPPORTED** | Fully portable across Console and Web targets. |
+| **Variables & Primitives** (Number, Text, Boolean, `gone`) | **SUPPORTED** | Portable across Console and Web targets (see the known differences below). |
+| **Math & Arithmetic** (Basic, power, percent, round, sqrt, trig, log) | **SUPPORTED** | Portable across Console and Web targets (see the known differences below). |
+| **String Operations** (length, upper/lower, split, replace, contains, starts/ends) | **SUPPORTED** | Portable across Console and Web targets (see the known differences below). |
+| **Lists & Collections** (literals, add/remove, sort, reverse, for-each iteration) | **SUPPORTED** | Portable across Console and Web targets (see the known differences below). |
+| **Objects & Things** (`is a thing`, `property of`, dynamic keys `get`/`set`) | **SUPPORTED** | Portable across Console and Web targets (see the known differences below). |
+| **Custom Types** (`a Person has`, instantiation, field assignment) | **SUPPORTED** | Portable across Console and Web targets (see the known differences below). |
 | **JSON Serialization** (`convert to/from json`, `read json`) | **SUPPORTED** | Portable across Console and Web targets. |
 | **Dates & Times** (`today`, `now`, part extraction, arithmetic, format) | **SUPPORTED** | Portable across Console and Web targets. |
 | **Randomization** (`random number`, `random item`) | **SUPPORTED** | Portable across Console and Web targets. |
@@ -55,3 +55,24 @@ Every capability in the Otter platform is assigned exactly one status:
 | **Zip / Unzip Compression** (`zip folder`, `unzip archive`) | **SUPPORTED** | Supported on Console runtime (.NET ZipArchive). |
 | **Dot Member Access (`person.name`)** | **UNSUPPORTED** | Prohibited by language design. Must use `name of person`. Produces syntax error with suggestion. |
 | **Implicit Variable Declaration** | **UNSUPPORTED** | Undefined variables produce clean runtime errors, not implicit null/false. |
+
+### Known Console/Web differences
+
+Console and web share the same semantics for the portable core, and from RC3
+`say` formats values the same way on both targets (D8: lists joined with
+`, `, `gone`, things and numbers). These known differences remain in Otter 1.0:
+
+| Case | Console (`otter run`) | Web (`otter web`) |
+|---|---|---|
+| Comparing two lists with `is` | Equal when they hold the same items | Equal only when they are the same list |
+| `convert ... to json` text | 2-space indentation; some whole numbers written as `36.0` | 4-space indentation; `36` |
+| A list of numbers `contains` the same digits as text (`contains "2"`) | true | false |
+| Ordering text (`"b" is greater than "a"`) | Runtime error | Compares the text |
+| `repeat` with a fractional count (`repeat 2.7 times`) | Runs 2 times | Runs 3 times |
+| `when x changes` | Runs only when the value actually changes | Also runs when the same value is assigned again, and does not run for a plain (non-`state`) variable |
+| `if x is empty` (outside `xs are empty`) | Runtime error: no variable called `empty` | Works for text; always false for a list |
+| `stop` at the top level of a program | Runtime error | Program stops silently |
+| Error text for some mistakes (wrong number of arguments, runaway recursion, calling a function above its definition) | Readable Otter error | A different, less specific message |
+
+Statements that exist only on one target are listed as TARGET-SPECIFIC in the
+table above; they are not differences in shared semantics.
