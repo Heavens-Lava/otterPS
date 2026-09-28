@@ -4054,6 +4054,7 @@ export class OtterStudioIde {
       this.setProblemsStatus(true, 'Build succeeded.', `Output: ${data.outputDir}/`, 'Build', 'Ready to publish. 📦');
     } else {
       const firstError = (data.output || '').split('\n').map(l => l.trim()).filter(l => l && !/^(Building|Target:|Checking project|Build failed\.)/.test(l))[0] || 'Build failed.';
+      this.populateBuildDiagnostics('project', { ok: false, error: firstError, stderr: data.output || '' });
       this.setProblemsStatus(false, firstError, `Build of ${folder} failed with exit code ${data.exitCode}. See the Output tab.`, 'Build Error', 'Check the build output! 🔍');
     }
     await this.loadProjectTree(this.currentProjectFolder);
@@ -5060,6 +5061,42 @@ export class OtterStudioIde {
   }
 
 
+  // A failed build as a structured diagnostic in Problems (source "build").
+  populateBuildDiagnostics(target, buildResult) {
+    if (!buildResult) return;
+    const isOk = buildResult.ok !== false && !buildResult.error;
+    if (isOk) {
+      this.diagnosticCollection.clear(`build-${target}`);
+      this.setProblemsStatus(true, `Build Succeeded (${target})`, `Target ${target} compiled cleanly.`, 'Build Ready', 'Ready to run or deploy! 🚀');
+      return;
+    }
+
+    const rawError = buildResult.error || buildResult.stderr || 'Build failed';
+    const translated = translateHostError(rawError, { file: this.currentFile, isBuild: true, target });
+    const diag = normalizeDiagnostic({
+      ...(translated || {}),
+      code: DiagnosticCodes.TARGET_COMPILATION_ERROR,
+      message: translated?.message || `Target compilation failed for ${target}`,
+      target,
+      source: 'build',
+      category: 'build',
+      hostDetails: buildResult.stderr || buildResult.stdout || rawError
+    }, this.currentCode, this.currentFile);
+
+    this.diagnosticCollection.set(`build-${target}`, [diag]);
+    this.activeDiagnostics = [diag];
+    this.currentDiagnostic = diag;
+    this.setProblemsStatus(
+      false,
+      `[${target.toUpperCase()} Build] ${diag.code}  ${diag.message}`,
+      `Build target: ${target} — Target Compiler Check`,
+      'Build Issue',
+      'Review build error details. ⚙',
+      false,
+      diag
+    );
+    this.updateErrorSquiggles();
+  }
   checkDiagnosticAtCursor(textarea) {
     if (!textarea || !this.activeDiagnostics || this.activeDiagnostics.length === 0) return;
     const offset = textarea.selectionStart;
