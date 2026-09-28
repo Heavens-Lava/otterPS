@@ -680,6 +680,7 @@ if ($Path -eq 'package') {
     $packageKinds = @()
     $packageOutput = $null
     $packageDryRun = $false
+    $packageProgress = $false
     for ($i = 0; $i -lt $packageRaw.Count; $i++) {
         $token = [string]$packageRaw[$i]
         if ($token -in @('--target', '-target', '-Target') -and ($i + 1) -lt $packageRaw.Count) { $packagePlatform = [string]$packageRaw[$i + 1]; $i++ }
@@ -687,6 +688,7 @@ if ($Path -eq 'package') {
         elseif ($token -in @('--installer', '-installer')) { $packageKinds += 'installer' }
         elseif ($token -in @('--portable', '-portable')) { $packageKinds += 'portable' }
         elseif ($token -in @('--dry-run', '-dry-run', '-DryRun')) { $packageDryRun = $true }
+        elseif ($token -in @('--progress', '-progress', '-Progress')) { $packageProgress = $true }
         elseif (-not $packagePath -and -not $token.StartsWith('-')) { $packagePath = $token }
     }
     if (-not $packagePath) { $packagePath = '.' }
@@ -694,7 +696,7 @@ if ($Path -eq 'package') {
     Import-Module (Join-Path $PSScriptRoot 'src\Otter.Project.psm1') -Force
     Import-Module (Join-Path $PSScriptRoot 'src\Otter.Package.psm1') -Force
     try {
-        $exitCode = Invoke-OtterProjectPackage -Target $packagePath -Platform $packagePlatform -Kinds $packageKinds -OutputDir $packageOutput -DryRun:$packageDryRun
+        $exitCode = Invoke-OtterProjectPackage -Target $packagePath -Platform $packagePlatform -Kinds $packageKinds -OutputDir $packageOutput -DryRun:$packageDryRun -Progress:$packageProgress
         [Environment]::Exit($exitCode)
     }
     catch [OtterError] {

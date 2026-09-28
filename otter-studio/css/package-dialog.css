@@ -1,0 +1,211 @@
+/* package-dialog.css - Build -> Desktop App dialog and its progress view. */
+
+.package-dialog {
+  width: min(680px, calc(100vw - 40px));
+}
+
+.package-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.package-grid {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 10px 14px;
+  align-items: center;
+}
+
+.package-grid .config-label {
+  margin: 0;
+  text-align: right;
+}
+
+.package-grid .config-input[readonly] {
+  opacity: 0.8;
+}
+
+.package-grid .config-input.is-invalid {
+  border-color: #ef4444;
+}
+
+.package-kinds {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+
+.package-kinds label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+}
+
+.package-icon-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.package-hint {
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.package-note {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-app);
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.package-empty {
+  padding: 18px 6px;
+  font-size: 13.5px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.package-empty code {
+  font-family: var(--font-code);
+  color: var(--text-main);
+}
+
+/* Progress */
+.package-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.package-progress-title {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.package-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.package-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.package-step-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 2px solid var(--border-card);
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.package-step.is-running { color: var(--text-main); }
+.package-step.is-running .package-step-icon {
+  border-color: var(--accent-blue);
+  border-top-color: transparent;
+  animation: package-spin 0.8s linear infinite;
+}
+
+.package-step.is-done { color: var(--text-main); }
+.package-step.is-done .package-step-icon {
+  background: #16a34a;
+  border-color: #16a34a;
+  color: #fff;
+}
+.package-step.is-done .package-step-icon::before { content: '✓'; }
+
+.package-step.is-skipped .package-step-icon { border-style: dashed; }
+.package-step.is-skipped .package-step-icon::before { content: '–'; color: var(--text-faint); }
+
+.package-step.is-failed { color: #ef4444; }
+.package-step.is-failed .package-step-icon {
+  background: #ef4444;
+  border-color: #ef4444;
+  color: #fff;
+}
+.package-step.is-failed .package-step-icon::before { content: '✕'; }
+
+@keyframes package-spin { to { transform: rotate(360deg); } }
+
+.package-artifacts {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.package-artifacts td {
+  padding: 7px 8px;
+  border-top: 1px solid var(--border-subtle);
+  font-family: var(--font-code);
+}
+
+.package-size {
+  text-align: right;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.package-result-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.package-error {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.08);
+  color: #fca5a5;
+  font: 12px var(--font-code);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.theme-light .package-error {
+  color: #b91c1c;
+}
+
+.package-log-wrap summary {
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.package-log {
+  margin: 8px 0 0;
+  max-height: 180px;
+  overflow: auto;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--bg-app);
+  border: 1px solid var(--border-subtle);
+  font: 11px var(--font-code);
+  color: var(--text-muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+}

@@ -194,6 +194,17 @@ function Get-OtterPngSize {
 # Packaging
 # -----------------------------------------------------------------------------
 
+# Structured progress for tools that drive `otter package` (Otter Studio's
+# Build -> Desktop App). One line per event, prefixed so it can never be
+# mistaken for ordinary output:
+#   @otter-progress {"step":"export","status":"done","label":"..."}
+# Steps, in order: check, export, styles, configure, runtime, portable,
+# installer, done (or failed). Only emitted with -Progress.
+function Write-OtterPackageProgress {
+    param([Parameter(Mandatory)][hashtable]$Event)
+    Write-Host ('@otter-progress ' + (ConvertTo-Json -InputObject $Event -Compress -Depth 4))
+}
+
 function Invoke-OtterProjectPackage {
     param(
         [string]$Target = '.',
@@ -202,8 +213,15 @@ function Invoke-OtterProjectPackage {
         [string]$OutputDir,
         # Build the export and write the configuration, but do not run electron-builder.
         [switch]$DryRun,
-        [switch]$Quiet
+        [switch]$Quiet,
+        # Emit @otter-progress lines (see Write-OtterPackageProgress).
+        [switch]$Progress
     )
+
+    $emit = {
+        param([hashtable]$Event)
+        if ($Progress) { Write-OtterPackageProgress -Event $Event }
+    }
 
     if (-not (Get-Command Get-OtterProject -ErrorAction SilentlyContinue)) {
         Import-Module (Join-Path $PSScriptRoot 'Otter.Project.psm1') -Global
@@ -244,13 +262,26 @@ function Invoke-OtterProjectPackage {
     $config = New-OtterElectronBuilderConfig -Project $project -Platform $Platform -Kinds $Kinds -OutputDir $packagesDir `
         -ElectronVersion $(if ($toolchain) { $toolchain.ElectronVersion } else { $null }) -IconFile $iconFile
 
+    & $emit @{ step = 'check'; status = 'done'; label = "Checked $($project.Name) and its packaging settings" }
+
     # 1. The Electron export (the same one `otter build --target electron` makes).
     if (-not $Quiet) { Write-Host "Packaging $($project.Name) for $($Platform.ToLowerInvariant())..." }
+    & $emit @{ step = 'export'; status = 'running'; label = 'Compiling Otter source and creating the Electron application' }
     $buildExit = Invoke-OtterProjectBuild -Target $rootDir -TargetOverride 'electron' -Quiet
-    if ($buildExit -ne 0) { return $buildExit }
+    if ($buildExit -ne 0) {
+        & $emit @{ step = 'export'; status = 'failed'; label = 'The Otter program did not compile' }
+        return $buildExit
+    }
     $exportDir = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($rootDir, $project.Build.OutputDir))
     if (-not (Test-Path -LiteralPath (Join-Path $exportDir 'main.js') -PathType Leaf)) {
         throw [OtterError]::new("The Electron export was not found in $exportDir after the build.", 0, 'runtime')
+    }
+    & $emit @{ step = 'export'; status = 'done'; label = 'Compiled Otter source and created the Electron application' }
+    $stylesheet = if (Get-Command Resolve-OtterProjectStylesheet -ErrorAction SilentlyContinue) { Resolve-OtterProjectStylesheet -SourcePath $project.ResolvedEntryPoint } else { $null }
+    if ($stylesheet) {
+        & $emit @{ step = 'styles'; status = 'done'; label = "Embedded $(Split-Path -Leaf $stylesheet)" }
+    } else {
+        & $emit @{ step = 'styles'; status = 'skipped'; label = 'No project stylesheet to embed' }
     }
 
     # 2. Icon and configuration next to the export.
@@ -262,12 +293,14 @@ function Invoke-OtterProjectPackage {
     $configPath = Join-Path $exportDir 'electron-builder.json'
     $configJson = ConvertTo-Json -InputObject $config -Depth 6
     [System.IO.File]::WriteAllText($configPath, $configJson + "`n", (New-Object System.Text.UTF8Encoding($false)))
+    & $emit @{ step = 'configure'; status = 'done'; label = 'Wrote the packaging configuration' }
 
     if ($DryRun) {
         if (-not $Quiet) {
             Write-Host "Dry run: the Electron export and electron-builder.json are ready in $exportDir."
             if (-not $toolchain) { Write-Host "No packaging toolchain was found; a real run would install one into $(Get-OtterSharedToolchainRoot)." }
         }
+        & $emit @{ step = 'done'; status = 'done'; label = 'Dry run complete'; dryRun = $true; outputDir = $packagesDir; exportDir = $exportDir; artifacts = @() }
         return 0
     }
 
@@ -289,13 +322,35 @@ function Invoke-OtterProjectPackage {
     }
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
     $previousLocation = Get-Location
+    $builderOutput = [System.Collections.Generic.List[string]]::new()
+    & $emit @{ step = 'runtime'; status = 'running'; label = "Preparing the Electron $($toolchain.ElectronVersion) runtime" }
+    $runtimeReported = $false
+    $activeKind = $null
     try {
         Set-Location -LiteralPath $exportDir
         # Editors that embed Node set this; inherited, it would break electron-builder's own Electron launches.
         $savedRunAsNode = $env:ELECTRON_RUN_AS_NODE
         Remove-Item Env:ELECTRON_RUN_AS_NODE -ErrorAction SilentlyContinue
         $env:CSC_IDENTITY_AUTO_DISCOVERY = 'false'
-        $builderOutput = & $node.Source @builderArgs 2>&1
+        # Streamed line by line so each target's start shows up as it happens.
+        & $node.Source @builderArgs 2>&1 | ForEach-Object {
+            $line = [string]$_
+            $builderOutput.Add($line)
+            if ($Progress -and $line -match 'building\s+target=(portable|nsis)') {
+                $kind = if ($Matches[1] -eq 'nsis') { 'installer' } else { 'portable' }
+                if (-not $runtimeReported) {
+                    & $emit @{ step = 'runtime'; status = 'done'; label = "Prepared the Electron $($toolchain.ElectronVersion) runtime" }
+                    $runtimeReported = $true
+                }
+                if ($activeKind -and $activeKind -ne $kind) {
+                    & $emit @{ step = $activeKind; status = 'done'; label = $(if ($activeKind -eq 'installer') { 'Built the Windows installer' } else { 'Built the portable executable' }) }
+                }
+                if ($activeKind -ne $kind) {
+                    $activeKind = $kind
+                    & $emit @{ step = $kind; status = 'running'; label = $(if ($kind -eq 'installer') { 'Building the Windows installer' } else { 'Building the portable executable' }) }
+                }
+            }
+        }
         $builderExit = $LASTEXITCODE
         if ($null -ne $savedRunAsNode) { $env:ELECTRON_RUN_AS_NODE = $savedRunAsNode }
     }
@@ -305,11 +360,21 @@ function Invoke-OtterProjectPackage {
     $stopwatch.Stop()
 
     if ($builderExit -ne 0) {
+        $tail = ($builderOutput | Select-Object -Last 40) -join "`n"
+        & $emit @{ step = 'failed'; status = 'failed'; label = 'electron-builder reported an error'; detail = (($builderOutput | Where-Object { $_ -match '⨯|Error|error' } | Select-Object -Last 5) -join "`n") }
         Write-Host "Packaging failed." -ForegroundColor Red
         Write-Host ''
-        Write-Host (($builderOutput | Select-Object -Last 40) -join "`n") -ForegroundColor DarkGray
+        Write-Host $tail -ForegroundColor DarkGray
         Write-Host ''
         return 1
+    }
+    if (-not $runtimeReported) {
+        & $emit @{ step = 'runtime'; status = 'done'; label = "Prepared the Electron $($toolchain.ElectronVersion) runtime" }
+    }
+    foreach ($kind in @('portable', 'installer')) {
+        if ($kind -in @($config.win.target | ForEach-Object { if ($_ -eq 'nsis') { 'installer' } else { $_ } })) {
+            & $emit @{ step = $kind; status = 'done'; label = $(if ($kind -eq 'installer') { 'Built the Windows installer' } else { 'Built the portable executable' }) }
+        }
     }
 
     # 4. Keep packages/ to the distributables: the unpacked app (hundreds of MB),
@@ -322,6 +387,11 @@ function Invoke-OtterProjectPackage {
     # 5. Report.
     $artifacts = @(Get-ChildItem -LiteralPath $packagesDir -File -ErrorAction SilentlyContinue |
         Where-Object { $_.Extension -in @('.exe', '.msi', '.zip', '.dmg', '.AppImage', '.deb', '.rpm') })
+    & $emit @{
+        step = 'done'; status = 'done'; label = "Build complete in $([Math]::Round($stopwatch.Elapsed.TotalSeconds, 1)) s"
+        seconds = [Math]::Round($stopwatch.Elapsed.TotalSeconds, 1); outputDir = $packagesDir; dryRun = $false
+        artifacts = @($artifacts | ForEach-Object { @{ name = $_.Name; path = $_.FullName; sizeBytes = $_.Length } })
+    }
     if (-not $Quiet) {
         Write-Host ''
         Write-Host "Packaging succeeded in $([Math]::Round($stopwatch.Elapsed.TotalSeconds, 1)) s." -ForegroundColor Green

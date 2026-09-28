@@ -134,6 +134,22 @@ try {
     Write-Output '  pass  otter package --dry-run builds the Electron export, copies the icon and writes electron-builder.json'
     Write-Output '  pass  project metadata reaches package.json and the configuration; styles.css survives the pipeline'
 
+    # --progress: one JSON event per step, for Otter Studio's Build -> Desktop App view.
+    $progress = Invoke-Otter @('package', $projDir, '--target', 'windows', '--dry-run', '--progress')
+    if ($progress.ExitCode -ne 0) { throw "Test 2b: --progress dry run exited with $($progress.ExitCode). Output: $($progress.Output)" }
+    $events = @($progress.Output -split "`n" | Where-Object { $_.StartsWith('@otter-progress ') } | ForEach-Object { ($_.Substring(16).Trim()) | ConvertFrom-Json })
+    $stepsSeen = @($events | ForEach-Object { $_.step })
+    foreach ($expected in @('check', 'export', 'styles', 'configure', 'done')) {
+        if ($expected -notin $stepsSeen) { throw "Test 2b: --progress should report '$expected'; saw: $($stepsSeen -join ',')" }
+    }
+    $stylesEvent = $events | Where-Object { $_.step -eq 'styles' } | Select-Object -First 1
+    if ($stylesEvent.label -notmatch 'styles\.css') { throw "Test 2b: the styles step should name the stylesheet, got '$($stylesEvent.label)'" }
+    $doneEvent = $events | Where-Object { $_.step -eq 'done' } | Select-Object -First 1
+    if (-not $doneEvent.dryRun -or $doneEvent.outputDir -ne (Join-Path $projDir 'packages')) { throw "Test 2b: the done event should describe the dry run and output folder, got $($doneEvent | ConvertTo-Json -Compress)" }
+    $plainRun = Invoke-Otter @('package', $projDir, '--target', 'windows', '--dry-run')
+    if ($plainRun.Output -match '@otter-progress') { throw 'Test 2b: without --progress no progress lines may appear' }
+    Write-Output '  pass  --progress emits one JSON event per step (check, export, styles, configure, done) and nothing without it'
+
     # Optional metadata absent, portable only, custom output.
     $plainDir = Join-Path $testTmp 'plain'
     New-Item -ItemType Directory -Path $plainDir -Force | Out-Null

@@ -908,6 +908,78 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // --- Build -> Desktop App: runs `otter package --progress` and streams its
+  // progress events and output as newline-delimited JSON. ---
+  if (pathname === '/api/package' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const folder = String(body.folder || '');
+      const projectDir = path.resolve(REPO_ROOT, folder);
+      if (!folder || !projectDir.startsWith(REPO_ROOT) || !fs.existsSync(projectDir)) {
+        return sendJson(res, { error: 'Project folder not found' }, 404);
+      }
+      const kinds = Array.isArray(body.kinds) ? body.kinds.filter(k => k === 'installer' || k === 'portable') : [];
+      const args = ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(REPO_ROOT, 'otter.ps1'),
+        'package', projectDir, '--target', String(body.target || 'windows'), '--progress'];
+      for (const kind of kinds) args.push('--' + kind);
+      if (body.output) {
+        // Studio shows repository-relative paths; the CLI resolves relative
+        // paths against the folder it runs in, so hand it an absolute one.
+        const outputDir = path.resolve(REPO_ROOT, String(body.output));
+        if (!outputDir.startsWith(REPO_ROOT)) return sendJson(res, { error: 'The output folder must stay inside the repository' }, 400);
+        args.push('--output', outputDir);
+      }
+      if (body.dryRun) args.push('--dry-run');
+
+      res.writeHead(200, { 'Content-Type': 'application/x-ndjson; charset=utf-8', 'Cache-Control': 'no-cache', 'X-Content-Type-Options': 'nosniff' });
+      const send = (event) => res.write(JSON.stringify(event) + '\n');
+      const env = { ...process.env };
+      delete env.ELECTRON_RUN_AS_NODE; // an editor host's setting; it would turn Electron into plain Node
+      const child = spawn('powershell.exe', args, { cwd: projectDir, windowsHide: true, env });
+      let pending = '';
+      const emitLine = (line) => {
+        if (!line.trim()) return;
+        if (line.startsWith('@otter-progress ')) {
+          try { send({ type: 'progress', ...JSON.parse(line.slice('@otter-progress '.length)) }); return; } catch { /* fall through as a log line */ }
+        }
+        send({ type: 'log', text: line });
+      };
+      const onChunk = (chunk) => {
+        pending += chunk.toString();
+        let index;
+        while ((index = pending.indexOf('\n')) >= 0) {
+          emitLine(pending.slice(0, index).replace(/\r$/, ''));
+          pending = pending.slice(index + 1);
+        }
+      };
+      child.stdout.on('data', onChunk);
+      child.stderr.on('data', onChunk);
+      child.on('error', (err) => { send({ type: 'log', text: err.message }); send({ type: 'exit', code: 1 }); res.end(); });
+      child.on('close', (code) => { if (pending.trim()) emitLine(pending); send({ type: 'exit', code: code === null ? 1 : code }); res.end(); });
+      req.on('close', () => { if (child.exitCode === null) { try { exec(`taskkill /pid ${child.pid} /f /t`, () => {}); } catch {} } });
+    } catch (err) {
+      sendJson(res, { error: err.message }, 500);
+    }
+    return;
+  }
+
+  // --- Show a folder inside the repository in the system file manager ---
+  if (pathname === '/api/reveal' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const target = path.resolve(REPO_ROOT, String(body.path || ''));
+      if (!body.path || !target.startsWith(REPO_ROOT) || !fs.existsSync(target)) {
+        return sendJson(res, { error: 'Forbidden' }, 403);
+      }
+      const opener = process.platform === 'win32' ? ['explorer.exe', [target]]
+        : process.platform === 'darwin' ? ['open', [target]] : ['xdg-open', [target]];
+      spawn(opener[0], opener[1], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
+      return sendJson(res, { revealed: true });
+    } catch (err) {
+      return sendJson(res, { error: err.message }, 500);
+    }
+  }
+
   // --- Stop Running Process API ---
   if (pathname === '/api/stop' && req.method === 'POST') {
     if (activeRunProcess) {
