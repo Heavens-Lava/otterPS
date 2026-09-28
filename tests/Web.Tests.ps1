@@ -1221,6 +1221,19 @@ $fileTitleHtml = (Invoke-Rc3WebPage -Source "say `"hi`"`n" -FileName "Tom & Jerr
 if ($fileTitleHtml -notmatch [regex]::Escape('<title>Tom &amp; Jerry&#39;s</title>')) { throw 'Expected the default title from the file name to be HTML-escaped.' }
 Write-Output '  pass  page title is HTML-escaped in <title> and the header, including the file-name default (RC3 B9)'
 
+# Test 34 (RC3 B10, D-5): no external font service or any other external
+# resource; the page mounts and runs with no network at all (Node).
+foreach ($offlineSource in @($basicSource, $twoHandlers, $runnableSource)) {
+    $ran = Invoke-Rc3WebPage -Source $offlineSource
+    if ($ran.Html -match '(?i)fonts\.googleapis\.com|fonts\.gstatic\.com') { throw 'Generated HTML must not reference Google Fonts (D-5).' }
+    if ($ran.Html -match '(?i)<(link|script|img|iframe)\b[^>]*\b(href|src)\s*=\s*["'']?(https?:)?//') { throw 'Generated HTML must not load any resource from an external host (D-5).' }
+    if ($ran.Html -match '(?i)@import') { throw 'Generated HTML must not @import external stylesheets (D-5).' }
+    if ($ran.Html -notmatch 'font-family: "Segoe UI", system-ui') { throw 'Expected the body to use the system font stack.' }
+}
+$ran = Invoke-Rc3WebPage -Source $twoHandlers -Actions 'b:click'
+if (($ran.Said -join '|') -ne 'first|second') { throw 'Expected the page to mount and handle events with no network available.' }
+Write-Output '  pass  generated pages load nothing from external hosts and mount with no network (RC3 B10, D-5)'
+
 
 Write-Output 'Web compiler tests passed.'
 

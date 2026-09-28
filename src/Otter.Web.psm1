@@ -1364,6 +1364,13 @@ $bodyJoined
 '@
     }
 
+    # D-5 (RC3 B10): no external font service. The page used to load a
+    # render-blocking Google Fonts stylesheet (plus preconnects), so an
+    # offline or filtered network left the app script stalled behind the
+    # pending request and sent every visitor's IP to a third party. The
+    # body now uses a system font stack and the page needs no network at
+    # all to start and render. Author-supplied `family` values still pass
+    # through unchanged and fall back to whatever the system provides.
     $html = @"
 <!DOCTYPE html>
 <html lang="en">
@@ -1371,9 +1378,6 @@ $bodyJoined
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>$(Escape-OtterHtmlText -Text $appTitle)</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,600;1,700&family=Playfair+Display:ital,wght@1,500;1,600;1,700&family=Newsreader:ital,opsz,wght@1,6..72,500;1,6..72,600;1,6..72,700&display=swap" rel="stylesheet">
   <style>
     :root {
       --otter-bg: $rootBg;
@@ -1388,7 +1392,7 @@ $bodyJoined
     *, *::before, *::after { box-sizing: border-box; }
     * { margin: 0; padding: 0; }
     body {
-      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", Arial, sans-serif;
       background: $rootBg;
       color: $rootFg;
       min-height: 100vh;
