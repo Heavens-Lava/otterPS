@@ -23,6 +23,15 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.resolve(__dirname, '..');
 
+// True when `target` (an absolute path) is the repository root or inside it.
+// A bare startsWith(REPO_ROOT) also accepted sibling folders whose names start
+// with the repository's name (C:\src\otterPS-backup when the root is
+// C:\src\otterPS), letting the API read and write outside the workspace.
+function isInsideRepo(target) {
+  const relative = path.relative(REPO_ROOT, target);
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+}
+
 const PORT = Number(process.env.OTTER_STUDIO_PORT || 4200);
 const ANALYZER_PATH = path.join(REPO_ROOT, 'tools', 'vscode-otter', 'scripts', 'analyze.ps1');
 const workspaceSymbolCache = new Map();
@@ -280,7 +289,7 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, { name: null, rootPath: null, tree: [] });
       }
       const projectRoot = path.resolve(REPO_ROOT, folderParam);
-      if (!projectRoot.startsWith(REPO_ROOT) || !fs.existsSync(projectRoot)) {
+      if (!isInsideRepo(projectRoot) || !fs.existsSync(projectRoot)) {
         return sendJson(res, { error: 'Folder not found' }, 404);
       }
       const tree = scanDir(projectRoot, projectRoot);
@@ -302,7 +311,7 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, { error: 'Path parameter required' }, 400);
       }
       const safePath = path.resolve(REPO_ROOT, relPath);
-      if (!safePath.startsWith(REPO_ROOT)) {
+      if (!isInsideRepo(safePath)) {
         return sendJson(res, { error: 'Forbidden' }, 403);
       }
       if (!fs.existsSync(safePath)) {
@@ -323,7 +332,7 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, { error: 'Path parameter required' }, 400);
       }
       const safePath = path.resolve(REPO_ROOT, relPath);
-      if (!safePath.startsWith(REPO_ROOT)) {
+      if (!isInsideRepo(safePath)) {
         return sendJson(res, { error: 'Forbidden' }, 403);
       }
       if (!fs.existsSync(safePath)) {
@@ -346,16 +355,28 @@ const server = http.createServer(async (req, res) => {
   if (pathname === '/api/file' && req.method === 'POST') {
     try {
       const body = await readBody(req);
-      const relPath = body.path || 'examples/file-organizer/main.ot';
+      // A save must name its file. This used to default to
+      // examples/file-organizer/main.ot, so a request that lost its path
+      // overwrote a shipped example.
+      const relPath = typeof body.path === 'string' ? body.path.trim() : '';
+      if (!relPath) {
+        return sendJson(res, { error: 'A file path is required.' }, 400);
+      }
       const safePath = path.resolve(REPO_ROOT, relPath);
-      if (!safePath.startsWith(REPO_ROOT)) {
+      if (!isInsideRepo(safePath) || safePath === REPO_ROOT) {
         return sendJson(res, { error: 'Forbidden' }, 403);
       }
-      if (body.expectedRevision && fs.existsSync(safePath)) {
+      // Overwriting an existing file requires the revision the editor read
+      // it at. A save without one (a buffer that never came from disk) could
+      // only replace the file blindly, so it is reported as a conflict, like
+      // a stale revision. `force: true` is the explicit "overwrite anyway".
+      if (fs.existsSync(safePath) && body.force !== true) {
         const current = readFileSnapshot(safePath);
-        if (current.revision !== body.expectedRevision && body.force !== true) {
+        if (current.revision !== body.expectedRevision) {
           return sendJson(res, {
-            error: 'The file changed on disk after it was opened.',
+            error: body.expectedRevision
+              ? 'The file changed on disk after it was opened.'
+              : 'The file already exists on disk, and this copy was not opened from it.',
             conflict: true,
             path: relPath,
             ...current
@@ -377,7 +398,7 @@ const server = http.createServer(async (req, res) => {
       const fileName = body.name || 'untitled.ot';
       const targetDir = path.resolve(REPO_ROOT, body.folder || 'examples/file-organizer');
       const safePath = path.join(targetDir, fileName);
-      if (!safePath.startsWith(REPO_ROOT)) {
+      if (!isInsideRepo(safePath)) {
         return sendJson(res, { error: 'Forbidden' }, 403);
       }
       if (fs.existsSync(safePath)) {
@@ -403,8 +424,14 @@ const server = http.createServer(async (req, res) => {
         fs.mkdirSync(targetBase, { recursive: true });
       }
       const projectDir = path.join(targetBase, projName);
-      if (!projectDir.startsWith(REPO_ROOT)) {
+      if (!isInsideRepo(projectDir) || !isInsideRepo(targetBase)) {
         return sendJson(res, { error: 'Forbidden' }, 403);
+      }
+      // Never create a project on top of an existing one. This endpoint
+      // writes main.ot, styles.css and project.json unconditionally, so
+      // reusing a name used to replace that project's source.
+      if (fs.existsSync(projectDir) && fs.readdirSync(projectDir).length > 0) {
+        return sendJson(res, { error: `A folder named "${projName}" already exists and is not empty. Choose another name.`, exists: true }, 409);
       }
       if (!fs.existsSync(projectDir)) {
         fs.mkdirSync(projectDir, { recursive: true });
@@ -463,7 +490,7 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, { error: 'Folder or path parameter is required' }, 400);
       }
 
-      if (!targetFile.startsWith(REPO_ROOT) || !fs.existsSync(targetFile)) {
+      if (!isInsideRepo(targetFile) || !fs.existsSync(targetFile)) {
         return sendJson(res, { error: 'project.json not found' }, 404);
       }
 
@@ -504,7 +531,7 @@ const server = http.createServer(async (req, res) => {
         return sendJson(res, { error: 'Folder or path parameter is required' }, 400);
       }
 
-      if (!targetFile.startsWith(REPO_ROOT)) {
+      if (!isInsideRepo(targetFile)) {
         return sendJson(res, { error: 'Forbidden' }, 403);
       }
 
@@ -543,7 +570,7 @@ const server = http.createServer(async (req, res) => {
     try {
       const solutionPath = urlObj.searchParams.get('path') || 'solution.json';
       const targetFile = path.resolve(REPO_ROOT, solutionPath);
-      if (!targetFile.startsWith(REPO_ROOT) || !fs.existsSync(targetFile)) {
+      if (!isInsideRepo(targetFile) || !fs.existsSync(targetFile)) {
         return sendJson(res, { error: 'Solution file not found' }, 404);
       }
 
@@ -555,7 +582,7 @@ const server = http.createServer(async (req, res) => {
       const roots = [];
       for (const folder of normalized.folders) {
         const rootPath = path.resolve(REPO_ROOT, folder.path);
-        if (rootPath.startsWith(REPO_ROOT) && fs.existsSync(rootPath)) {
+        if (isInsideRepo(rootPath) && fs.existsSync(rootPath)) {
           let manifest = null;
           const projJson = path.join(rootPath, 'project.json');
           if (fs.existsSync(projJson)) {
@@ -590,7 +617,7 @@ const server = http.createServer(async (req, res) => {
       const body = await readBody(req);
       const solutionPath = body.path || 'solution.json';
       const targetFile = path.resolve(REPO_ROOT, solutionPath);
-      if (!targetFile.startsWith(REPO_ROOT)) {
+      if (!isInsideRepo(targetFile)) {
         return sendJson(res, { error: 'Forbidden' }, 403);
       }
 
@@ -626,7 +653,7 @@ const server = http.createServer(async (req, res) => {
       const solName = (body.name || 'my-solution').trim();
       const solPath = body.path || `${solName}.solution.json`;
       const targetFile = path.resolve(REPO_ROOT, solPath);
-      if (!targetFile.startsWith(REPO_ROOT)) {
+      if (!isInsideRepo(targetFile)) {
         return sendJson(res, { error: 'Forbidden' }, 403);
       }
 
@@ -673,7 +700,7 @@ const server = http.createServer(async (req, res) => {
       const folderParam = urlObj.searchParams.get('folder');
       if (!folderParam) return sendJson(res, { files: [], symbols: [], diagnostics: [] });
       const workspaceRoot = path.resolve(REPO_ROOT, folderParam);
-      if (!workspaceRoot.startsWith(REPO_ROOT) || !fs.existsSync(workspaceRoot)) {
+      if (!isInsideRepo(workspaceRoot) || !fs.existsSync(workspaceRoot)) {
         return sendJson(res, { error: 'Workspace folder not found' }, 404);
       }
       const otterFiles = collectOtterFiles(workspaceRoot).slice(0, 500);
@@ -718,7 +745,7 @@ const server = http.createServer(async (req, res) => {
       const folderParam = body.folder;
       if (!folderParam) return sendJson(res, { error: 'Workspace folder required' }, 400);
       const workspaceRoot = path.resolve(REPO_ROOT, folderParam);
-      if (!workspaceRoot.startsWith(REPO_ROOT) || !fs.existsSync(workspaceRoot)) {
+      if (!isInsideRepo(workspaceRoot) || !fs.existsSync(workspaceRoot)) {
         return sendJson(res, { error: 'Workspace folder not found' }, 404);
       }
 
@@ -793,7 +820,7 @@ const server = http.createServer(async (req, res) => {
       const folderParam = body.folder;
       if (!folderParam) return sendJson(res, { error: 'Workspace folder required' }, 400);
       const workspaceRoot = path.resolve(REPO_ROOT, folderParam);
-      if (!workspaceRoot.startsWith(REPO_ROOT) || !fs.existsSync(workspaceRoot)) {
+      if (!isInsideRepo(workspaceRoot) || !fs.existsSync(workspaceRoot)) {
         return sendJson(res, { error: 'Workspace folder not found' }, 404);
       }
 
@@ -878,8 +905,13 @@ const server = http.createServer(async (req, res) => {
 
       const runDir = path.dirname(safePath);
       const scriptName = path.basename(safePath);
-      const otterCmd = path.join(REPO_ROOT, 'otter.cmd');
-      const cmd = `"${otterCmd}" run "${scriptName}"`;
+      // Run exactly what otter.cmd runs (powershell -NoProfile
+      // -ExecutionPolicy Bypass -File otter.ps1 ...), but pass the arguments
+      // as an array. Building a shell command string put the file name
+      // inside cmd.exe quoting, where a name containing `"` or `&` could run
+      // other commands.
+      const otterPs1 = path.join(REPO_ROOT, 'otter.ps1');
+      const runArgs = ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', otterPs1, 'run', scriptName];
       const startTime = Date.now();
 
       if (activeRunProcess) {
@@ -890,7 +922,7 @@ const server = http.createServer(async (req, res) => {
         activeRunProcess = null;
       }
 
-      const child = exec(cmd, { cwd: runDir, timeout: 30000 }, (error, stdout, stderr) => {
+      const child = execFile('powershell.exe', runArgs, { cwd: runDir, timeout: 30000 }, (error, stdout, stderr) => {
         activeRunProcess = null;
         const durationMs = Date.now() - startTime;
         sendJson(res, {
@@ -931,7 +963,7 @@ const server = http.createServer(async (req, res) => {
       const body = await readBody(req);
       const relPath = body.path || 'examples/file-organizer/main.ot';
       const safePath = path.resolve(REPO_ROOT, relPath);
-      if (!safePath.startsWith(REPO_ROOT)) {
+      if (!isInsideRepo(safePath)) {
         return sendJson(res, { error: 'Forbidden' }, 403);
       }
 

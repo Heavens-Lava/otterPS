@@ -721,6 +721,7 @@ export class OtterStudioIde {
         this.renderProjectTree(data.tree, this.currentProjectName, this.currentProjectFolder);
         this.checkWorkspaceTrust();
         this.refreshWorkspaceSymbols();
+        await this.loadDesignerStylesheet();
       } else {
         alert(data.error || 'Folder is empty or could not be loaded.');
       }
@@ -754,6 +755,7 @@ export class OtterStudioIde {
       this.renderMultiRootProjectTree(data.solution, data.roots);
       this.checkWorkspaceTrust();
       this.refreshWorkspaceSymbols();
+      await this.loadDesignerStylesheet();
       this.saveSessionState();
     } catch (err) {
       console.warn('Error loading solution:', err);
@@ -1624,17 +1626,22 @@ export class OtterStudioIde {
       this.openTabs = [];
     }
 
-    let fileContent = this.getDefaultCode();
-    let fileRevision = null;
+    // A file that cannot be read must not open. This used to fall back to
+    // the "Hello from Otter" starter text with no disk revision, so pressing
+    // Save replaced the real file with the starter program.
+    let fileContent;
+    let fileRevision;
     try {
       const res = await fetch(`/api/file?path=${encodeURIComponent(filePath)}`);
       const data = await res.json();
-      if (data && typeof data.content === 'string') {
-        fileContent = data.content;
-        fileRevision = data.revision || null;
+      if (!res.ok || !data || typeof data.content !== 'string') {
+        throw new Error(data?.error || `The server returned ${res.status}.`);
       }
-    } catch {
-      fileContent = this.getDefaultCode();
+      fileContent = data.content;
+      fileRevision = data.revision || null;
+    } catch (err) {
+      alert(`Could not open ${filePath}: ${err.message}`);
+      return;
     }
 
     const fileName = filePath.split('/').pop();
@@ -1701,9 +1708,22 @@ export class OtterStudioIde {
       });
     }
 
-    if (filePath.endsWith('.css') && window.otterCssAstManager) {
+    // Only the stylesheet the designer writes to may replace its CSS model.
+    // Opening any other .css file used to load that file's text into the
+    // model, and the next save wrote it over styles.css.
+    if (filePath.endsWith('.css') && window.otterCssAstManager && filePath === window.otterCssAstManager.sourcePath) {
       try {
-        window.otterCssAstManager.parse(this.currentCode);
+        const css = window.otterCssAstManager;
+        if (css.dirty && !tab.isDirty) {
+          // Designer style edits not saved yet: the tab takes them over as
+          // unsaved text instead of the disk copy silently discarding them.
+          this.currentCode = css.generateCss();
+          if (textarea) textarea.value = this.currentCode;
+          this.renderEditorCode(this.currentCode);
+          this.markCurrentTabDirty(true);
+          css.dirty = false;
+        }
+        css.parse(this.currentCode);
         const styleTag = document.getElementById('canvasUserCss');
         if (styleTag) {
           styleTag.textContent = window.otterCssAstManager.generateCss();
@@ -1751,6 +1771,12 @@ export class OtterStudioIde {
 
     this.saveSessionState();
     window.dispatchEvent(new CustomEvent('otter:ensure-editor-visible', { detail: { path: filePath } }));
+    // The designer re-reads its model from the newly active .ot file. Before
+    // this, the model kept the previous file's UI, and the next designer
+    // click wrote that UI into this file.
+    window.dispatchEvent(new CustomEvent('otter:active-file-changed', {
+      detail: { file: filePath, source: this.currentCode }
+    }));
   }
 
   async openProjectSettings() {
@@ -1909,15 +1935,9 @@ export class OtterStudioIde {
         }
       }
 
-      if (this.currentProjectFolder && window.otterCssAstManager) {
-        const cssPath = `${this.currentProjectFolder}/styles.css`;
-        const cssContent = window.otterCssAstManager.generateCss();
-        await fetch('/api/file', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ path: cssPath, content: cssContent })
-        });
-      }
+      // Designer style edits are written only when there are some, and
+      // with the revision they were based on (see saveDesignerStylesheet).
+      await this.saveDesignerStylesheet();
 
       // Clear dirty state on tab
       if (tab) {
@@ -1932,6 +1952,88 @@ export class OtterStudioIde {
       console.warn('Save file error:', err);
       return false;
     }
+  }
+
+  // The stylesheet the designer's style edits belong to.
+  // Seam with the language release: Otter 1.0 (D-3) makes `<entry>.css`
+  // the rule for a program's stylesheet. When Studio adopts it, this is the
+  // one place to change.
+  projectStylesheetPath() {
+    const folder = this.currentProjectFolder;
+    if (!folder || /\.(json|otter-workspace)$/i.test(folder)) return null; // solutions have no single stylesheet
+    return `${folder}/styles.css`;
+  }
+
+  // Read the project's stylesheet into the designer's CSS model, remembering
+  // its path and revision. Until this has run, the model is not bound to a
+  // file and nothing is ever written for it.
+  async loadDesignerStylesheet() {
+    const css = window.otterCssAstManager;
+    if (!css) return;
+    const sheetPath = this.projectStylesheetPath();
+    css.sourcePath = null;
+    css.revision = null;
+    if (!sheetPath) return;
+
+    // An open, edited tab is newer than the disk copy.
+    const tab = this.openTabs.find(t => t.path === sheetPath);
+    try {
+      if (tab) {
+        css.parse(tab.content);
+        css.revision = tab.diskRevision || null;
+      } else {
+        const res = await fetch(`/api/file?path=${encodeURIComponent(sheetPath)}`);
+        if (res.status === 404) {
+          css.parse('');
+        } else {
+          const data = await res.json();
+          if (!res.ok || typeof data.content !== 'string') throw new Error(data.error || `status ${res.status}`);
+          css.parse(data.content);
+          css.revision = data.revision || null;
+        }
+      }
+      css.sourcePath = sheetPath;
+    } catch (err) {
+      // Unknown state: leave the model unbound so it can never be written.
+      console.warn('Could not read the project stylesheet:', err);
+      return;
+    }
+
+    const styleTag = document.getElementById('canvasUserCss');
+    if (styleTag) styleTag.textContent = css.generateCss();
+    window.dispatchEvent(new CustomEvent('css-updated', { detail: { source: 'disk' } }));
+  }
+
+  // Write designer style edits to the project's stylesheet, if there are any
+  // and the stylesheet is not open in a tab (an open tab receives the edits
+  // as unsaved text and is saved like any other file). The save carries the
+  // revision the edits were based on, so a newer file on disk is reported as
+  // a conflict instead of being overwritten.
+  async saveDesignerStylesheet() {
+    const css = window.otterCssAstManager;
+    if (!css || !css.dirty || !css.sourcePath) return true;
+    if (this.openTabs.some(t => t.path === css.sourcePath)) return true;
+
+    const res = await fetch('/api/file', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        path: css.sourcePath,
+        content: css.generateCss(),
+        expectedRevision: css.revision || undefined
+      })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 409 && data.conflict) {
+      alert(`${css.sourcePath} changed on disk, so your designer style changes were not saved over it. Open the stylesheet to compare and merge.`);
+      return false;
+    }
+    if (!res.ok) {
+      alert(`Could not save ${css.sourcePath}: ${data.error || res.status}`);
+      return false;
+    }
+    css.markSaved(data.revision || null);
+    return true;
   }
 
   startExternalChangeMonitor() {

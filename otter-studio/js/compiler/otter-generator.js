@@ -98,14 +98,14 @@ export function generateOtterSource(uiModel) {
   return lines.join('\n');
 }
 
-function declareComponent(name, kind, propertyParts) {
+export function declareComponent(name, kind, propertyParts) {
   const prefix = `${name} is a ${kind}`;
   return propertyParts.length > 0
     ? `${prefix} with ${propertyParts.join(', ')}`
     : prefix;
 }
 
-function formatProperties(props, schema) {
+export function formatProperties(props, schema) {
   const result = [];
   if (!props) return result;
 
@@ -126,42 +126,41 @@ function formatProperties(props, schema) {
   });
 
   for (const key of keys) {
-    const val = props[key];
-    if (val === undefined || val === null || val === '') continue;
-
-    // Format value according to Otter syntax rules
-    if (typeof val === 'string') {
-      if (key === 'width' && val === 'full') {
-        result.push('width full');
-      } else if (key === 'height' && val === 'full') {
-        result.push('height full');
-      } else if (key === 'spread' && val === true) {
-        result.push('spread');
-      } else if (key === 'align') {
-        result.push(`align "${val}"`);
-      } else {
-        result.push(`${key} "${val}"`);
-      }
-    } else if (typeof val === 'boolean') {
-      if (key === 'spread') {
-        if (val) result.push('spread');
-      } else if (key === 'bold') {
-        if (val) result.push('bold true');
-      } else if (key === 'italic') {
-        if (val) result.push('italic true');
-      } else if (key === 'checked') {
-        result.push(`checked ${val}`);
-      } else if (key === 'round') {
-        if (val) result.push('round');
-      }
-    } else if (typeof val === 'number') {
-      if (key === 'round') {
-        result.push('round');
-      } else {
-        result.push(`${key} ${val}`);
-      }
-    }
+    const part = formatProperty(key, props[key]);
+    if (part !== null) result.push(part);
   }
 
   return result;
+}
+
+/**
+ * Format one property as Otter source (`text "Save"`, `width 400`, `spread`).
+ * Returns null when the value means "not set" and nothing should be written
+ * (empty values, and flags such as `spread` or `bold` that are false).
+ * Shared by the full generator and the surgical splicer in source-splice.js,
+ * so a designer edit writes a property exactly as a fresh file would.
+ */
+export function formatProperty(key, val) {
+  if (val === undefined || val === null || val === '') return null;
+
+  // Format value according to Otter syntax rules
+  if (typeof val === 'string') {
+    if (key === 'width' && val === 'full') return 'width full';
+    if (key === 'height' && val === 'full') return 'height full';
+    if (key === 'align') return `align "${val}"`;
+    return `${key} "${val}"`;
+  }
+  if (typeof val === 'boolean') {
+    if (key === 'spread') return val ? 'spread' : null;
+    if (key === 'bold') return val ? 'bold true' : null;
+    if (key === 'italic') return val ? 'italic true' : null;
+    if (key === 'checked') return `checked ${val}`;
+    if (key === 'round') return val ? 'round' : null;
+    return null;
+  }
+  if (typeof val === 'number') {
+    if (key === 'round') return 'round';
+    return `${key} ${val}`;
+  }
+  return null;
 }
