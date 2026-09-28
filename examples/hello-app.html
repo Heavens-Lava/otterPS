@@ -45,6 +45,7 @@
       box-sizing: border-box;
       overflow: hidden;
     }
+
     body.otter-has-page.otter-doc-scroll {
       height: auto;
       max-height: none;
@@ -422,6 +423,7 @@
     const gone = null;
     function otterGetElement(id) { return document.getElementById(id); }
 
+
 // Otter D114: Browser-side Cryptography (Web Crypto) Runtime Helpers
 
 function _otterAssertWebCryptoSubtle() {
@@ -770,7 +772,19 @@ async function otterPasswordMatches(password, stored) {
         out.textContent = args.join(' ');
       }
     }
+    // A desktop shell can provide these operations natively as
+    // window.otterNative (the Electron export does, from its preload
+    // script). When it is present it is used before the loopback bridge
+    // and the browser fallbacks, so the same compiled page runs in a
+    // browser tab, under the PowerShell desktop bridge, or in Electron.
+    function otterNativeMethod(group, name) {
+      const native = window.otterNative;
+      const members = native ? native[group] : null;
+      return (members && typeof members[name] === 'function') ? members[name] : null;
+    }
     async function otterReadFile(filePath) {
+      const nativeRead = otterNativeMethod('files', 'read');
+      if (nativeRead) return String(await nativeRead(filePath));
       const bridge = window.__OTTER_DESKTOP_BRIDGE__;
       if (!bridge || !bridge.port || !bridge.token) {
         console.warn('Desktop Bridge is not available to read "' + filePath + '".');
@@ -790,7 +804,10 @@ async function otterPasswordMatches(password, stored) {
       const data = await resp.json();
       return data.content || '';
     }
+    window.otterReadFile = otterReadFile;
     async function otterWriteFile(filePath, content) {
+      const nativeWrite = otterNativeMethod('files', 'write');
+      if (nativeWrite) return await nativeWrite(filePath, content);
       const bridge = window.__OTTER_DESKTOP_BRIDGE__;
       if (!bridge || !bridge.port || !bridge.token) {
         console.warn('Desktop Bridge is not available to write "' + filePath + '".');
@@ -812,6 +829,8 @@ async function otterPasswordMatches(password, stored) {
     window.otterWriteFile = otterWriteFile;
 
     async function otterDownloadFile(url, filePath) {
+      const nativeDownload = otterNativeMethod('files', 'download');
+      if (nativeDownload) return await nativeDownload(url, filePath);
       const bridge = window.__OTTER_DESKTOP_BRIDGE__;
       if (!bridge || !bridge.port || !bridge.token) {
         throw new Error('Desktop Bridge is not available for file download in this browser.');
@@ -833,22 +852,28 @@ async function otterPasswordMatches(password, stored) {
     window.otterDownloadFile = otterDownloadFile;
 
     async function otterRunCommand(command) {
-      const bridge = window.__OTTER_DESKTOP_BRIDGE__;
-      if (!bridge || !bridge.port || !bridge.token) {
-        throw new Error('Desktop Bridge is not available to run "' + command + '".');
+      let data;
+      const nativeRun = otterNativeMethod('commands', 'exec');
+      if (nativeRun) {
+        data = await nativeRun(command);
+      } else {
+        const bridge = window.__OTTER_DESKTOP_BRIDGE__;
+        if (!bridge || !bridge.port || !bridge.token) {
+          throw new Error('Desktop Bridge is not available to run "' + command + '".');
+        }
+        const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/terminal/exec', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Otter-Token': bridge.token
+          },
+          body: JSON.stringify({ command: command })
+        });
+        if (!resp.ok) {
+          throw new Error('Could not execute command "' + command + '": HTTP ' + resp.status);
+        }
+        data = await resp.json();
       }
-      const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/terminal/exec', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Otter-Token': bridge.token
-        },
-        body: JSON.stringify({ command: command })
-      });
-      if (!resp.ok) {
-        throw new Error('Could not execute command "' + command + '": HTTP ' + resp.status);
-      }
-      const data = await resp.json();
       const stdout = data.stdout || '';
       const stderr = data.stderr || '';
       return {
@@ -865,6 +890,8 @@ async function otterPasswordMatches(password, stored) {
     window.otterRunCommand = otterRunCommand;
 
     async function otterGetFiles(folderPath, includeSubfolders = false) {
+      const nativeFiles = otterNativeMethod('files', 'list');
+      if (nativeFiles) return await nativeFiles(folderPath, includeSubfolders);
       const bridge = window.__OTTER_DESKTOP_BRIDGE__;
       if (!bridge || !bridge.port || !bridge.token) {
         console.warn('Desktop Bridge is not available to get files in "' + folderPath + '".');
@@ -886,6 +913,8 @@ async function otterPasswordMatches(password, stored) {
     window.otterGetFiles = otterGetFiles;
 
     async function otterGetFolders(folderPath, includeSubfolders = false) {
+      const nativeFolders = otterNativeMethod('folders', 'list');
+      if (nativeFolders) return await nativeFolders(folderPath, includeSubfolders);
       const bridge = window.__OTTER_DESKTOP_BRIDGE__;
       if (!bridge || !bridge.port || !bridge.token) {
         console.warn('Desktop Bridge is not available to get folders in "' + folderPath + '".');
@@ -907,6 +936,8 @@ async function otterPasswordMatches(password, stored) {
     window.otterGetFolders = otterGetFolders;
 
     async function otterFileOperation(operation, payload) {
+      const nativeOperation = otterNativeMethod('files', 'operate');
+      if (nativeOperation) return await nativeOperation(operation, payload || {});
       const bridge = window.__OTTER_DESKTOP_BRIDGE__;
       if (!bridge || !bridge.port || !bridge.token) {
         throw new Error('Desktop Bridge is not available for file operations.');
@@ -976,6 +1007,8 @@ async function otterPasswordMatches(password, stored) {
     }
     window.otterClipboard = {
       copy: async function(text) {
+        const nativeCopy = otterNativeMethod('clipboard', 'write');
+        if (nativeCopy) return await nativeCopy(text);
         const bridge = getDesktopBridge();
         if (bridge) {
           const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/system/clipboard', {
@@ -992,6 +1025,8 @@ async function otterPasswordMatches(password, stored) {
         return { completed: false };
       },
       paste: async function() {
+        const nativePaste = otterNativeMethod('clipboard', 'read');
+        if (nativePaste) return String((await nativePaste()) || '');
         const bridge = getDesktopBridge();
         if (bridge) {
           const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/system/clipboard', {
@@ -1008,8 +1043,10 @@ async function otterPasswordMatches(password, stored) {
       }
     };
     window.otterNotify = async function(title, message) {
+      const nativeNotify = otterNativeMethod('system', 'notification');
+      if (nativeNotify) { nativeNotify(title, message).catch(() => {}); }
       const bridge = getDesktopBridge();
-      if (bridge) {
+      if (bridge && !nativeNotify) {
         fetch('http://127.0.0.1:' + bridge.port + '/api/system/notify', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-Otter-Token': bridge.token },
@@ -1040,6 +1077,8 @@ async function otterPasswordMatches(password, stored) {
       return { completed: true };
     };
     window.otterGetEnv = async function(name) {
+      const nativeEnv = otterNativeMethod('system', 'env');
+      if (nativeEnv) return await nativeEnv(name);
       const bridge = getDesktopBridge();
       if (bridge) {
         const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/system/env', {
@@ -1053,6 +1092,8 @@ async function otterPasswordMatches(password, stored) {
       return null;
     };
     window.otterGetSystemPaths = async function() {
+      const nativePaths = otterNativeMethod('system', 'paths');
+      if (nativePaths) return await nativePaths();
       const bridge = getDesktopBridge();
       if (bridge) {
         const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/system/env', {
@@ -1064,6 +1105,8 @@ async function otterPasswordMatches(password, stored) {
       return {};
     };
     window.otterChooseFile = async function() {
+      const nativeChoose = otterNativeMethod('dialogs', 'openFile');
+      if (nativeChoose) return String((await nativeChoose()) || '');
       const bridge = getDesktopBridge();
       if (bridge) {
         const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/dialog/open-file', {
@@ -1076,6 +1119,8 @@ async function otterPasswordMatches(password, stored) {
       return '';
     };
     window.otterChooseFolder = async function() {
+      const nativeChoose = otterNativeMethod('dialogs', 'openFolder');
+      if (nativeChoose) return String((await nativeChoose()) || '');
       const bridge = getDesktopBridge();
       if (bridge) {
         const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/dialog/folder', {
@@ -1088,6 +1133,8 @@ async function otterPasswordMatches(password, stored) {
       return '';
     };
     window.otterSaveFileDialog = async function() {
+      const nativeSave = otterNativeMethod('dialogs', 'save');
+      if (nativeSave) return String((await nativeSave()) || '');
       const bridge = getDesktopBridge();
       if (bridge) {
         const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/dialog/save-file', {
