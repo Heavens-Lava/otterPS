@@ -2903,10 +2903,6 @@ export class OtterStudioIde {
     }
   }
 
-  getDefaultCode() {
-    return `# untitled.ot\n\nsay "Hello from Otter!"\n`;
-  }
-
   emitSourceChanged() {
     window.dispatchEvent(new CustomEvent('otter:source-changed', {
       detail: {
@@ -3730,6 +3726,10 @@ export class OtterStudioIde {
 
     // Dynamic Block matching
     this.checkBlockMatching(lineNum);
+
+    // The caret on a squiggle shows that problem in the Problems area (this
+    // was never called before).
+    this.checkDiagnosticAtCursor(textarea);
 
     // Context-aware Autocomplete popup
     const curLine = lines[lines.length - 1];
@@ -5032,13 +5032,12 @@ export class OtterStudioIde {
     return output;
   }
 
-  navigateToDiagnostic(diag) {
+  async navigateToDiagnostic(diag) {
     if (!diag) return;
-    if (diag.file && diag.file !== this.currentFile) {
-      const tab = this.openTabs.find(t => t.path === diag.file);
-      if (tab) {
-        this.switchTab(diag.file);
-      }
+    // A problem in another file opens (or switches to) that file first. This
+    // called a switchTab() that does not exist, so it threw instead.
+    if (diag.file && diag.file !== this.currentFile && !/^(build|studio)-/.test(diag.file)) {
+      await this.loadFile(diag.file);
     }
 
     const textarea = document.getElementById('hiddenEditorInput');
@@ -5060,19 +5059,6 @@ export class OtterStudioIde {
     this.renderCursorOverlays();
   }
 
-  navigateToPosition(file, line, column = 1) {
-    if (file && file !== this.currentFile) {
-      this.switchTab(file);
-    }
-    const diag = {
-      file: file || this.currentFile,
-      startLine: line,
-      startColumn: column,
-      endLine: line,
-      endColumn: column + 1
-    };
-    this.navigateToDiagnostic(diag);
-  }
 
   checkDiagnosticAtCursor(textarea) {
     if (!textarea || !this.activeDiagnostics || this.activeDiagnostics.length === 0) return;
@@ -5158,41 +5144,6 @@ export class OtterStudioIde {
     return offset;
   }
 
-  populateBuildDiagnostics(target, buildResult) {
-    if (!buildResult) return;
-    const isOk = buildResult.ok !== false && !buildResult.error;
-    if (isOk) {
-      this.diagnosticCollection.clear(`build-${target}`);
-      this.setProblemsStatus(true, `Build Succeeded (${target})`, `Target ${target} compiled cleanly.`, 'Build Ready', 'Ready to run or deploy! 🚀');
-      return;
-    }
-
-    const rawError = buildResult.error || buildResult.stderr || 'Build failed';
-    const translated = translateHostError(rawError, { file: this.currentFile, isBuild: true, target });
-    const diag = normalizeDiagnostic({
-      ...(translated || {}),
-      code: DiagnosticCodes.TARGET_COMPILATION_ERROR,
-      message: translated?.message || `Target compilation failed for ${target}`,
-      target,
-      source: 'build',
-      category: 'build',
-      hostDetails: buildResult.stderr || buildResult.stdout || rawError
-    }, this.currentCode, this.currentFile);
-
-    this.diagnosticCollection.set(`build-${target}`, [diag]);
-    this.activeDiagnostics = [diag];
-    this.currentDiagnostic = diag;
-    this.setProblemsStatus(
-      false,
-      `[${target.toUpperCase()} Build] ${diag.code}  ${diag.message}`,
-      `Build target: ${target} — Target Compiler Check`,
-      'Build Issue',
-      'Review build error details. ⚙',
-      false,
-      diag
-    );
-    this.updateErrorSquiggles();
-  }
 
   escapeHtml(str) {
     if (!str) return '';
