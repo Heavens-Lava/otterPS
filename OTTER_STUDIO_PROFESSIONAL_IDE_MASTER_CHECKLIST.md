@@ -406,7 +406,7 @@ platform.
 -   [x] Lock and hide elements on canvas (`837be26`; Layers eye/lock buttons, Ctrl+Shift+H/L; designer-only state per design file, never written to the program; locked elements pass clicks to their parent and are skipped by marquee)
 -   [ ] Keyboard nudging (arrow keys, Shift for 10px) and snap to grid (nudging done for absolute elements; 8px snapping on resize; a user-visible grid and snap-to-grid toggle remain)
 -   [x] Style editor for `styles.css` with live preview (full CSS inspector per component, states and breakpoints, raw declarations, lossless CSS AST; `designer-css`/`designer-styles` suites) - shared class rules remain open
--   [x] State variants: hover/pressed/focused preview on canvas (`data-force-state`); verified hover in the compiled app - disabled state remains open
+-   [x] State variants: hover/pressed/focused preview on canvas (`data-force-state`); verified hover in the compiled app; Disabled previewed the same way (`1f436a2`)
 -   [ ] Sample data binding so lists/tables render realistic content on canvas
 
 ## 11a. Designer polish from the Webstudio / GrapesJS / Penpot review
@@ -425,13 +425,13 @@ architecture reference. Listed in the recommended implementation order.
 -   [ ] Render / overlay / gestures still share `canvas.js`; split them when next reworked
 -   [x] Designer shortcuts registered in the command registry (visible in F1 and the Shortcuts dialog) (`6c7e949`; `designer-commands` suite; F1 lists "Zoom to Selection · Shift+2" in the real UI)
 -   [x] Spacing modifiers, Webstudio's convention (Shift = all sides, Alt = this side and its opposite) on the canvas grips and the inspector's box-model numbers, which drag-scrub and take Shift+Enter / Alt+Enter (`8fd2e5f`; verified in the real UI)
--   [ ] Flex child and Grid child inspector sections shown by parent layout (grow, shrink, basis, align-self, order, select-parent link)
--   [ ] Outline (focus ring) controls
--   [ ] Per-side border controls
--   [ ] Layered box-shadow editor (x, y, blur, spread, color, inset)
--   [ ] Transition editor (property, duration, easing, delay)
--   [ ] `text-shadow` control
--   [ ] `disabled` state and `::placeholder` styling
+-   [x] Flex child and Grid child inspector sections shown by parent layout (grow, shrink, basis, align-self, order, select-parent link) (`1f436a2`; verified in the real UI)
+-   [x] Outline (focus ring) controls (`1f436a2`; verified in the real UI)
+-   [x] Per-side border controls (`1f436a2`; verified in the real UI)
+-   [x] Layered box-shadow editor (x, y, blur, spread, color, inset) (`1f436a2`; verified in the real UI)
+-   [x] Transition editor (property, duration, easing, delay) (`1f436a2`; verified in the real UI)
+-   [x] `text-shadow` control (`1f436a2`; verified in the real UI)
+-   [x] `disabled` state and `::placeholder` styling (`1f436a2`; verified in the real UI)
 -   [x] Zoom to selection (Shift+2) (`6c7e949`)
 -   [ ] Resize modifiers (Shift proportional, Alt from center)
 -   [ ] Later: custom breakpoints UI (min/max width and media conditions), design tokens / shared classes, asset manager, grid generator presets, Hide UI mode
