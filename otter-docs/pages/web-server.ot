@@ -112,7 +112,7 @@ when b3copy is clicked
     copy text of b3 to clipboard
     text of b3copy is "Copied"
 .
-b4 is a text with value "Each when api receives METHOD at \"path\" block is a route. into req names the incoming request. respond with sends the reply; as json encodes it, and and status sets the status code.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b4 is a text with value "Each when api receives METHOD at \"path\" block is a route. into req names the incoming request. respond with sends the reply; as json encodes it, and and status sets the status code. Run a server program with otter serve server.ot, not otter run: it listens on the port the program declares (8080 here), -Port overrides it (otter serve server.ot -Port 9000), and Ctrl+C stops it. Under otter run, the first route stops the program with an error.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b5 is a link with text "Next: web applications", url "/web-apps/", foreground "#2563eb", weight 600, size 15
 
 docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"

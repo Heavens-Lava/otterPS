@@ -96,7 +96,7 @@ b1 is a text with value "Modules", size 40, weight 800, foreground "#0b1d36", le
 b2 is a text with value "Split a program across files and reuse them with use.", size 18, foreground "#3a4d6b", lineheight "1.55"
 b3 is a text with value "Modules", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b4 is a text with value "Large programs need multiple source files.", size 16, foreground "#3a4d6b", lineheight "1.6"
-b5 is a text with value "Otter should use a simple keyword:", size 16, foreground "#3a4d6b", lineheight "1.6"
+b5 is a text with value "Otter uses one keyword:", size 16, foreground "#3a4d6b", lineheight "1.6"
 b6 is a text with value "use", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;"
 b6label is a text with value "Output", size 12, weight 600, foreground "#4a5b75"
 b6copy is a button with text "Copy", size 12, weight 600, background "#c9d6e8", foreground "#0f1f36", radius 6, padding "4px 12px"
@@ -108,8 +108,8 @@ when b6copy is clicked
     copy text of b6 to clipboard
     text of b6copy is "Copied"
 .
-b7 is a text with value "Example:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b8 is a text with value "use \"helpers.ot\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b7 is a text with value "Put use and a file path in quotes at the top of a file. The path is relative to the file that contains use. Everything the other file defines, such as its functions, is then available:", size 16, foreground "#3a4d6b", lineheight "1.6"
+b8 is a text with value "use \"helpers.ot\"\n\ngreet \"Ada\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
 b8label is a text with value "PowerShell", size 12, weight 600, foreground "#b7c4d8"
 b8copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
 b8head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
@@ -120,8 +120,8 @@ when b8copy is clicked
     copy text of b8 to clipboard
     text of b8copy is "Copied"
 .
-b9 is a text with value "Built-in or installed libraries may use:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b10 is a text with value "use web\nuse database\nuse json", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b9 is a text with value "Here helpers.ot, in the same folder, defines greet, and the program prints Hello, Ada. A file is loaded only once, even when several files use it, and files that use each other in a circle are reported as an error. Package names such as use web, use database or use json are not part of Otter 1.0: they stop the program with the error 'use' is not supported in Otter 1.0.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b10 is a text with value "# helpers.ot\nto greet name\n    say \"Hello,\" name", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
 b10label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
 b10copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
 b10head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"

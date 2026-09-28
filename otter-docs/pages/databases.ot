@@ -101,6 +101,7 @@ customstyle of sideLicense is "display: none;"
 
 b1 is a text with value "Databases", size 40, weight 800, foreground "#0b1d36", letterspacing "-0.03em", lineheight "1.1"
 b2 is a text with value "Describe a connection with has, connect to it, then run SQL with execute and query. Values are passed as named parameters, never pasted into the SQL text.", size 18, foreground "#3a4d6b", lineheight "1.55"
+b2a is a text with value "Not part of the certified Otter 1.0 surface. Database and SQL support is deferred to Otter 1.2 or later (see the release scope matrix). It is in the current source tree as an experimental preview: its syntax and behavior may change, and it does not work on every platform.", size 15, foreground "#1e3a6b", background "#eaf2ff", radius 12, border "1px solid #cfe0ff", lineheight "1.55", customstyle "padding: 14px 18px;"
 b3 is a text with value "Connecting", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b4 is a text with value "database has\n    provider is \"sqlite\"\n    connection is \":memory:\"\n.\n\nconnect database into db", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
 b4label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
@@ -157,7 +158,7 @@ b15 is a text with value "Databases are a console and desktop feature. The web t
 b16 is a link with text "Next: the query language (1.1 preview)", url "/queries/", foreground "#2563eb", weight 600, size 15
 
 docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"
-put b1, b2, b3, b4block, b5, b6, b7, b8block, b9, b10, b11, b12block, b13, b14block, b15, b16 in docsMain
+put b1, b2, b2a, b3, b4block, b5, b6, b7, b8block, b9, b10, b11, b12block, b13, b14block, b15, b16 in docsMain
 docsBody is a row with align top, spacing 0, width full, customstyle "align-items: stretch;"
 put docsSidebar, docsMain in docsBody
 

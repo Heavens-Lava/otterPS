@@ -102,7 +102,7 @@ customstyle of sidePeriods is "display: none;"
 customstyle of sidePhilosophy is "display: none;"
 
 b1 is a text with value "Otter Studio", size 40, weight 800, foreground "#0b1d36", letterspacing "-0.03em", lineheight "1.1"
-b2 is a text with value "Otter Studio is the planned beginner-friendly editor for writing, running, and understanding Otter programs.", size 18, foreground "#3a4d6b", lineheight "1.55"
+b2 is a text with value "Otter Studio is the planned beginner-friendly editor for writing, running, and understanding Otter programs. It is a separate preview and not part of Otter 1.0.", size 18, foreground "#3a4d6b", lineheight "1.55"
 b3 is a text with value "Release status", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b4 is a text with value "{{STUDIO_STATUS}}", size 15, foreground "#1e3a6b", background "#eaf2ff", radius 12, border "1px solid #cfe0ff", lineheight "1.55", customstyle "padding: 14px 18px;"
 b5 is a text with value "Intended workflow", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"

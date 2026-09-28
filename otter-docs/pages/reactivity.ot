@@ -101,7 +101,7 @@ customstyle of sideLicense is "display: none;"
 
 b1 is a text with value "State and reactivity", size 40, weight 800, foreground "#0b1d36", letterspacing "-0.03em", lineheight "1.1"
 b2 is a text with value "Keep values that change in state, describe what is derived from them, and react when they change.", size 18, foreground "#3a4d6b", lineheight "1.55"
-b3 is a text with value "state count is 0\nderive doubled is count * 2\n\nwhen count changes\n    say count\n.\n\non start\n    say \"Starting\"\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b3 is a text with value "state clicks is 0\nderive doubled is clicks * 2\n\nwhen clicks changes\n    say \"clicks is now\" clicks\n.\n\nclicks is 1\nclicks is 1\nclicks is 2\nsay \"doubled:\" doubled", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
 b3label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
 b3copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
 b3head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
@@ -112,8 +112,8 @@ when b3copy is clicked
     copy text of b3 to clipboard
     text of b3copy is "Copied"
 .
-b4 is a text with value "state declares a value. derive defines a value computed from other values and updates when they do. when X changes runs only when the value actually changes. on start runs when the program begins, and on close when it ends.", size 16, foreground "#3a4d6b", lineheight "1.6"
-b5 is a text with value "memo names a computed result that is worked out once and reused until its inputs change.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b4 is a text with value "state declares a value. derive defines a value computed from other values and updates when they do. when X changes runs only when the value actually changes, so in the console this prints clicks is now 1, clicks is now 2 and doubled: 4. A program's first lines already run when it starts, so no separate start block is needed.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b5 is a text with value "on start, on close and memo are not part of Otter 1.0. on start and on close stop the program with an error saying they are not supported in Otter 1.0, and memo is not accepted at all.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b6 is a link with text "Next: Windows applications", url "/windows-apps/", foreground "#2563eb", weight 600, size 15
 
 docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"

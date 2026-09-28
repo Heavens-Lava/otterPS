@@ -95,9 +95,9 @@ customstyle of sideLicense is "display: none;"
 b1 is a text with value "Arguments and environment", size 40, weight 800, foreground "#0b1d36", letterspacing "-0.03em", lineheight "1.1"
 b2 is a text with value "Read command-line arguments and environment values.", size 18, foreground "#3a4d6b", lineheight "1.55"
 b3 is a text with value "Command-Line Arguments", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
-b4 is a text with value "Programs should be able to access command-line arguments.", size 16, foreground "#3a4d6b", lineheight "1.6"
-b5 is a text with value "Possible simple syntax:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b6 is a text with value "arguments become args", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b4 is a text with value "The words after the file name in otter run greet.ot Ada are the program's arguments. They are in the built-in list arguments, and get arguments into a name copies them into a variable of your own.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b5 is a text with value "For example, otter run greet.ot Ada prints Hello, Ada, and otter run greet.ot with no arguments prints Hello, stranger:", size 16, foreground "#3a4d6b", lineheight "1.6"
+b6 is a text with value "get arguments into args\nif length of args is 0\n    say \"Hello, stranger\"\notherwise\n    say \"Hello,\" first of args\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
 b6label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
 b6copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
 b6head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
@@ -108,8 +108,8 @@ when b6copy is clicked
     copy text of b6 to clipboard
     text of b6copy is "Copied"
 .
-b7 is a text with value "Then:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b8 is a text with value "say first of args", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable false
+b7 is a text with value "Environment variables and the current folder are read the same way. A variable that is not set is gone:", size 16, foreground "#3a4d6b", lineheight "1.6"
+b8 is a text with value "set environment variable \"GREETING\" to \"hi\"\nget environment variable \"GREETING\" into greeting\nsay greeting\n\nget current directory into here\nsay \"Running in\" here", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable false
 b8label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
 b8copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
 b8head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
@@ -120,7 +120,7 @@ when b8copy is clicked
     copy text of b8 to clipboard
     text of b8copy is "Copied"
 .
-b9 is a text with value "A more descriptive argument system may be added later for named arguments and required values.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b9 is a text with value "Otter keeps some flags for itself, such as -Port, -NoOpen, -h and --version, so they never reach the program. The Command line page lists them.", size 16, foreground "#3a4d6b", lineheight "1.6"
 
 docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"
 put b1, b2, b3, b4, b5, b6block, b7, b8block, b9 in docsMain

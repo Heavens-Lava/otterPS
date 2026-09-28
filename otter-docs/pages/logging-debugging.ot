@@ -133,8 +133,8 @@ when b9copy is clicked
 .
 b10 is a text with value "log, warn, and error should represent diagnostic output rather than normal application-facing output.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b11 is a text with value "Debugging", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
-b12 is a text with value "A debug operation may display detailed runtime information:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b13 is a text with value "debug user", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable false
+b12 is a text with value "Otter 1.0 has no debug statement. To see a value while a program runs, log it:", size 16, foreground "#3a4d6b", lineheight "1.6"
+b13 is a text with value "user has name \"Ada\", age 36\nlog \"user:\" name of user age of user", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable false
 b13label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
 b13copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
 b13head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
@@ -145,8 +145,8 @@ when b13copy is clicked
     copy text of b13 to clipboard
     text of b13copy is "Copied"
 .
-b14 is a text with value "Otter's command-line runtime may later support:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b15 is a text with value "otter run app.ot --debug", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;"
+b14 is a text with value "To look inside Otter itself, otter run accepts developer flags:", size 16, foreground "#3a4d6b", lineheight "1.6"
+b15 is a text with value "otter run app.ot -DebugTokens\notter run app.ot -DebugAst\notter run app.ot -DebugErrors", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;"
 b15label is a text with value "Terminal", size 12, weight 600, foreground "#4a5b75"
 b15copy is a button with text "Copy", size 12, weight 600, background "#c9d6e8", foreground "#0f1f36", radius 6, padding "4px 12px"
 b15head is a row with spread, align middle, width full, background "#dde6f2", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
@@ -157,17 +157,14 @@ when b15copy is clicked
     copy text of b15 to clipboard
     text of b15copy is "Copied"
 .
-b16 is a text with value "Debug mode may expose:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b17 is a text with value "- tokens", size 16, foreground "#3a4d6b", lineheight "1.6"
-b18 is a text with value "- parsed syntax", size 16, foreground "#3a4d6b", lineheight "1.6"
-b19 is a text with value "- AST", size 16, foreground "#3a4d6b", lineheight "1.6"
-b20 is a text with value "- variable values", size 16, foreground "#3a4d6b", lineheight "1.6"
-b21 is a text with value "- runtime errors", size 16, foreground "#3a4d6b", lineheight "1.6"
-b22 is a text with value "- stack information", size 16, foreground "#3a4d6b", lineheight "1.6"
-b23 is a text with value "Normal users should not receive raw PowerShell or host-language stack traces unless debug mode is enabled.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b16 is a text with value "What they show:", size 16, foreground "#3a4d6b", lineheight "1.6"
+b17 is a text with value "- -DebugTokens: the tokens the lexer produced, before the program runs", size 16, foreground "#3a4d6b", lineheight "1.6"
+b18 is a text with value "- -DebugAst: the syntax tree the parser produced, before the program runs", size 16, foreground "#3a4d6b", lineheight "1.6"
+b19 is a text with value "- -DebugErrors: where the problem is inside Otter, when Otter reports a bug in itself", size 16, foreground "#3a4d6b", lineheight "1.6"
+b23 is a text with value "Without -DebugErrors, errors are shown as readable Otter messages that name the line, never as raw PowerShell stack traces.", size 16, foreground "#3a4d6b", lineheight "1.6"
 
 docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"
-put b1, b2, b3, b4, b5block, b6, b7block, b8, b9block, b10, b11, b12, b13block, b14, b15block, b16, b17, b18, b19, b20, b21, b22, b23 in docsMain
+put b1, b2, b3, b4, b5block, b6, b7block, b8, b9block, b10, b11, b12, b13block, b14, b15block, b16, b17, b18, b19, b23 in docsMain
 docsBody is a row with align top, spacing 0, width full, customstyle "align-items: stretch;"
 put docsSidebar, docsMain in docsBody
 
