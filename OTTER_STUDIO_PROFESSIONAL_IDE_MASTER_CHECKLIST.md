@@ -254,7 +254,7 @@ platform.
 -   [ ] Explorer copy (Ctrl+drag / copy-paste of files)
 -   [x] Reveal in OS file manager / copy path / copy relative path (`bc955d1`)
 -   [x] Per-file local history (timeline) independent of Git, with restore (d409eda; File > Local History, Explorer menu, compare + restore)
--   [ ] `.editorconfig` support and auto-detect indentation per file
+-   [x] `.editorconfig` support and auto-detect indentation per file (3f46d74; status-bar indentation menu)
 -   [ ] Workspace-recommended settings and extensions
 
 # 8. Professional source editor
