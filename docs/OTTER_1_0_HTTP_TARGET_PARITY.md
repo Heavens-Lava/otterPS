@@ -1,5 +1,11 @@
 # Otter 1.0 HTTP target parity
 
+> **Superseded.** This page was written on 2026-09-17, before D116A/D116B added
+> the console HTTP client. Its classification ("web-target-only", "the interpreter
+> has no statement cases for any HTTP node") is no longer true. Console and web
+> HTTP are both part of Otter 1.0; see D116A/D116B and the D116 affirmation in
+> `SPEC-DECISIONS.md`. Kept for history.
+
 ## Current surface syntax
 
 The parser accepts these statement families:

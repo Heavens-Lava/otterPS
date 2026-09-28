@@ -45,7 +45,8 @@ must retain its target diagnostic when unavailable:
 
 | Capability | Supported target / qualification |
 |---|---|
-| HTTP client (`get`, `post`, `put`, `delete`) | Web target via browser `fetch`; not the headless console interpreter |
+| HTTP client (`get`, `post`, `put`, `delete`, `get ... as json`, `download`, and `start ... and call it` request handles with `cancel`) | Console and web (D116A/D116B, affirmed 2026-09-27). Console uses .NET `HttpClient`; web compiles to `fetch`. Certified by `tests/Http.Tests.ps1` on the four D120 hosts |
+| `wait N seconds` (and other units) | Console and desktop. Not supported on the web target in 1.0 (D101); while waiting, every active event source is serviced (D121) |
 | Clipboard | Windows console implementation and browser Clipboard API; browser availability also depends on permission/security context |
 | Registry, DPAPI credentials, print spooler, session power actions | Windows console only |
 | File I/O in a browser app | Requires the web bridge/selected browser capability; it is not ambient browser filesystem access |

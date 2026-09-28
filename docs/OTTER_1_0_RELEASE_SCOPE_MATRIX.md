@@ -45,7 +45,7 @@ Every capability in the Otter platform is assigned exactly one status:
 | **Process Management** (`run command`, output capture, exit code, `get processes`, `kill process`) | **SUPPORTED** | Supported on Console runtime. |
 | **Diagnostics** (`log`, `warn`, `error`, line number tracking) | **SUPPORTED** | Portable across Console and Web targets. |
 | **Error Model** (`try` / `otherwise`, `fail with`) | **SUPPORTED** | Portable across Console and Web targets. |
-| **HTTP Client (`get`, `post`, `put`, `delete`)** | **TARGET-SPECIFIC** | Supported on Web target via standard browser `fetch`. Not supported on headless Console runtime. |
+| **HTTP Client (`get`, `post`, `put`, `delete`, request handles)** | **SUPPORTED** | Console (.NET `HttpClient`) and Web (browser `fetch`), per D116A/D116B (affirmed 2026-09-27). Console certified on the four D120 hosts by `tests/Http.Tests.ps1`. |
 | **Clipboard Integration** (`copy "..." to clipboard`, `get clipboard`) | **TARGET-SPECIFIC** | Supported on Console (Windows API) and Web target (Clipboard API). |
 | **System Info & Environment** (`get environment variable`, `get system info`) | **TARGET-SPECIFIC** | Supported on Console target. |
 | **Windows Registry Integration** (`get/set/delete registry value`) | **TARGET-SPECIFIC** | Supported on Windows Console target only. |

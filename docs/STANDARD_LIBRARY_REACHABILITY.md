@@ -48,6 +48,20 @@ Result: **31 / 31 capabilities certified (100% PASS)**
 | **System** | Clipboard | `copy "text" to clipboard` / `get clipboard into clip` | `CopyToClipboardStmt` / `GetClipboardStmt` | CERTIFIED |
 | **System** | Environment | `get environment variable "TEMP" into t` | `GetEnvironmentVariableStmt` | CERTIFIED |
 
+
+## Capabilities certified by focused production-entry suites
+
+These are outside the 31-case smoke matrix above. Each is exercised through the
+production CLI (`otter.ps1 run`) by its own suite, which is part of the D120
+four-host portable suite (Windows PowerShell 5.1; PowerShell 7 on Windows, Linux
+and macOS).
+
+| Area | Capability | Canonical Otter Syntax Example | Suite | Status |
+|---|---|---|---|---|
+| **HTTP** | Synchronous requests (D116A) | `get "https://example.test/items" as json into data` / `post payload as json to url into response` | `tests/Http.Tests.ps1` | CERTIFIED (console and web) |
+| **HTTP** | Request handles and cancellation (D116B) | `start get from url and call it req` / `on complete of req` / `cancel req` | `tests/Http.Tests.ps1` | CERTIFIED (console and web) |
+| **Events** | Event sources serviced during `wait` (D121) | `wait 100 milliseconds` while a TCP, UDP, job, watcher or request event is pending | `tests/EventContract.Tests.ps1` | CERTIFIED (console) |
+
 ---
 
 ## Notes on Surface Grammar Discrepancies
