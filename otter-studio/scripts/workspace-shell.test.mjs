@@ -48,6 +48,11 @@ assert.match(ide, /splitLineEnding\(fileContent\)/, 'Editor must detect a file\'
 assert.match(ide, /withLineEnding\(this\.currentCode/, 'Save must write the file\'s own line ending');
 assert.equal((ide.match(/e\.ctrlKey && e\.key === 's'/g) || []).length, 1, 'Ctrl+S must be handled once (twice saved twice and raised a false conflict)');
 assert.match(ide, /if \(tab\.saveInFlight\) continue;/, 'The external-change check must skip a tab whose save is in flight');
+// Assigning textarea.value clears the undo history; in-editor edits go
+// through setEditorValue (execCommand insertText). Only tab switches,
+// reloads, designer sync and the redraw fallback may assign it.
+assert.match(ide, /applyAssistedEdit\(textarea, edit\) \{\s*this\.setEditorValue\(textarea, edit\.text\)/, 'Enter / auto-close must be undoable');
+assert.ok((ide.match(/textarea\.value = /g) || []).length <= 6, 'a new direct textarea.value assignment would break Ctrl+Z; use setEditorValue');
 assert.match(ide, /problemStatusBanner\?\.addEventListener\('click'/, 'Clicking problem banner must navigate to source');
 assert.match(html, /id="workspaceReplaceInput"/, 'Workspace search pane must expose a replace input');
 assert.match(html, /id="btnWorkspaceReplaceAll"/, 'Workspace search pane must expose a Replace All button');

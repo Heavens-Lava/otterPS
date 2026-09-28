@@ -1572,26 +1572,45 @@ export class OtterStudioIde {
   // format or quick fix in one go instead of losing the undo history.
   replaceDocumentText(newCode) {
     const textarea = document.getElementById('hiddenEditorInput');
-    let viaUndoStack = false;
-    if (textarea) {
-      // Replace only the part that changed, so the caret and the view stay
-      // where the edit is instead of jumping to the end of the file.
-      const old = textarea.value;
-      let start = 0;
-      while (start < old.length && start < newCode.length && old[start] === newCode[start]) start++;
-      let endOld = old.length;
-      let endNew = newCode.length;
-      while (endOld > start && endNew > start && old[endOld - 1] === newCode[endNew - 1]) { endOld--; endNew--; }
-      const scrollTop = textarea.scrollTop;
-      textarea.focus({ preventScroll: true });
-      textarea.setSelectionRange(start, endOld);
-      try { viaUndoStack = document.execCommand('insertText', false, newCode.slice(start, endNew)); } catch { viaUndoStack = false; }
-      if (!viaUndoStack || textarea.value !== newCode) textarea.value = newCode;
-      textarea.scrollTop = scrollTop;
-    }
+    if (textarea) this.setEditorValue(textarea, newCode);
     this.currentCode = newCode;
     this.markCurrentTabDirty(true);
     this.renderEditorCode(this.currentCode);
+  }
+
+  // Change the editor's text as an undoable edit. Assigning textarea.value
+  // clears the browser's undo history: Ctrl+Z did nothing after Tab, Enter,
+  // an auto-closed bracket, a completion, a comment toggle or Format. This
+  // replaces only the span that changed through execCommand('insertText'),
+  // which the browser records as one undo step and which keeps the caret
+  // and scroll position where the edit is. The textarea's own input handler
+  // is muted meanwhile: callers update the rest of the editor themselves.
+  // (Update the textarea BEFORE renderEditorCode: the redraw resets a
+  // textarea that differs from currentCode, which also clears the history.)
+  setEditorValue(textarea, newText) {
+    const old = textarea.value;
+    if (old === newText) return;
+    let start = 0;
+    while (start < old.length && start < newText.length && old[start] === newText[start]) start++;
+    let endOld = old.length;
+    let endNew = newText.length;
+    while (endOld > start && endNew > start && old[endOld - 1] === newText[endNew - 1]) { endOld--; endNew--; }
+    const { scrollTop, scrollLeft } = textarea;
+    const inserted = newText.slice(start, endNew);
+    let ok = false;
+    this.muteEditorInput = true;
+    try {
+      textarea.focus({ preventScroll: true });
+      textarea.setSelectionRange(start, endOld);
+      ok = inserted ? document.execCommand('insertText', false, inserted) : document.execCommand('delete');
+    } catch {
+      ok = false;
+    } finally {
+      this.muteEditorInput = false;
+    }
+    if (!ok || textarea.value !== newText) textarea.value = newText;
+    textarea.scrollTop = scrollTop;
+    textarea.scrollLeft = scrollLeft;
   }
 
   closeRenameModal() {
@@ -1670,11 +1689,11 @@ export class OtterStudioIde {
     const fix = this.availableQuickFixes[0];
     const newCode = fix.apply();
     if (typeof newCode === 'string' && newCode !== this.currentCode) {
+      const textarea = document.getElementById('hiddenEditorInput');
+      if (textarea) this.setEditorValue(textarea, newCode);
       this.currentCode = newCode;
       this.markCurrentTabDirty(true);
       this.renderEditorCode(this.currentCode);
-      const textarea = document.getElementById('hiddenEditorInput');
-      if (textarea) textarea.value = this.currentCode;
       this.debouncedLint();
     }
   }
@@ -2464,7 +2483,7 @@ export class OtterStudioIde {
   // Apply an edit produced by js/editor/editing-assist.js and refresh
   // everything that follows a keystroke.
   applyAssistedEdit(textarea, edit) {
-    textarea.value = edit.text;
+    this.setEditorValue(textarea, edit.text);
     textarea.selectionStart = edit.start;
     textarea.selectionEnd = edit.end;
     this.currentCode = textarea.value;
@@ -2491,7 +2510,7 @@ export class OtterStudioIde {
       const textarea = document.getElementById('hiddenEditorInput');
       if (textarea) {
         const at = Math.min(textarea.selectionStart, content.length);
-        textarea.value = content;
+        this.setEditorValue(textarea, content);
         textarea.selectionStart = textarea.selectionEnd = at;
       }
       this.renderEditorCode(this.currentCode);
@@ -2501,9 +2520,9 @@ export class OtterStudioIde {
   formatCurrentDocument() {
     const formatted = this.formatOtterCode(this.currentCode);
     if (formatted !== this.currentCode) {
-      this.currentCode = formatted;
       const textarea = document.getElementById('hiddenEditorInput');
-      if (textarea) textarea.value = this.currentCode;
+      if (textarea) this.setEditorValue(textarea, formatted);
+      this.currentCode = formatted;
       this.markCurrentTabDirty(true);
       this.renderEditorCode(this.currentCode);
       this.debouncedLint();
@@ -2756,7 +2775,7 @@ export class OtterStudioIde {
       }
     });
     const modified = modifiedLines.join('\n');
-    textarea.value = val.substring(0, lineStart) + modified + val.substring(lineEnd);
+    this.setEditorValue(textarea, val.substring(0, lineStart) + modified + val.substring(lineEnd));
     textarea.selectionStart = lineStart;
     textarea.selectionEnd = lineStart + modified.length;
     this.currentCode = textarea.value;
@@ -3422,6 +3441,7 @@ export class OtterStudioIde {
       });
 
       textarea.addEventListener('input', () => {
+        if (this.muteEditorInput) return; // setEditorValue: the caller updates the editor
         this.hideHoverTooltip();
         this.checkSignatureHelp();
         this.currentCode = textarea.value;
@@ -3482,8 +3502,8 @@ export class OtterStudioIde {
             e.preventDefault();
             const res = this.multiCursor.applyEdit(this.currentCode, '', true, false);
             if (res) {
+              this.setEditorValue(textarea, res.code);
               this.currentCode = res.code;
-              textarea.value = res.code;
               textarea.selectionStart = this.multiCursor.primary.start;
               textarea.selectionEnd = this.multiCursor.primary.end;
               this.markCurrentTabDirty(true);
@@ -3499,8 +3519,8 @@ export class OtterStudioIde {
             e.preventDefault();
             const res = this.multiCursor.applyEdit(this.currentCode, '', false, true);
             if (res) {
+              this.setEditorValue(textarea, res.code);
               this.currentCode = res.code;
-              textarea.value = res.code;
               textarea.selectionStart = this.multiCursor.primary.start;
               textarea.selectionEnd = this.multiCursor.primary.end;
               this.markCurrentTabDirty(true);
@@ -3516,8 +3536,8 @@ export class OtterStudioIde {
             e.preventDefault();
             const res = this.multiCursor.applyEdit(this.currentCode, '\n', false, false);
             if (res) {
+              this.setEditorValue(textarea, res.code);
               this.currentCode = res.code;
-              textarea.value = res.code;
               textarea.selectionStart = this.multiCursor.primary.start;
               textarea.selectionEnd = this.multiCursor.primary.end;
               this.markCurrentTabDirty(true);
@@ -3533,8 +3553,8 @@ export class OtterStudioIde {
             e.preventDefault();
             const res = this.multiCursor.applyEdit(this.currentCode, e.key, false, false);
             if (res) {
+              this.setEditorValue(textarea, res.code);
               this.currentCode = res.code;
-              textarea.value = res.code;
               textarea.selectionStart = this.multiCursor.primary.start;
               textarea.selectionEnd = this.multiCursor.primary.end;
               this.markCurrentTabDirty(true);
@@ -3649,18 +3669,18 @@ export class OtterStudioIde {
             } else {
               modified = lines.map(l => '    ' + l).join('\n');
             }
-            textarea.value = val.substring(0, lineStart) + modified + val.substring(fullBlockEnd);
+            this.setEditorValue(textarea, val.substring(0, lineStart) + modified + val.substring(fullBlockEnd));
             textarea.selectionStart = lineStart;
             textarea.selectionEnd = lineStart + modified.length;
           } else {
             if (e.shiftKey) {
               const lineStart = val.lastIndexOf('\n', start - 1) + 1;
               if (val.substring(lineStart, lineStart + 4) === '    ') {
-                textarea.value = val.substring(0, lineStart) + val.substring(lineStart + 4);
+                this.setEditorValue(textarea, val.substring(0, lineStart) + val.substring(lineStart + 4));
                 textarea.selectionStart = textarea.selectionEnd = Math.max(lineStart, start - 4);
               }
             } else {
-              textarea.value = val.substring(0, start) + '    ' + val.substring(end);
+              this.setEditorValue(textarea, val.substring(0, start) + '    ' + val.substring(end));
               textarea.selectionStart = textarea.selectionEnd = start + 4;
             }
           }
@@ -3855,7 +3875,7 @@ export class OtterStudioIde {
       const prefix = lastWordMatch ? lastWordMatch[0] : '';
       const replaceStart = pos - prefix.length;
 
-      textarea.value = val.substring(0, replaceStart) + suggestion.insert + val.substring(pos);
+      this.setEditorValue(textarea, val.substring(0, replaceStart) + suggestion.insert + val.substring(pos));
       textarea.selectionStart = textarea.selectionEnd = replaceStart + suggestion.insert.length;
       this.currentCode = textarea.value;
       this.markCurrentTabDirty(true);
@@ -5176,9 +5196,7 @@ export class OtterStudioIde {
     }
 
     const textarea = document.getElementById('hiddenEditorInput');
-    if (textarea) {
-      textarea.value = this.currentCode;
-    }
+    if (textarea) this.setEditorValue(textarea, this.currentCode);
     this.renderEditorCode(this.currentCode);
     this.saveSessionState();
     this.debouncedLint();
