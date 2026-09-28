@@ -207,6 +207,22 @@ export function mountStudioShell({ ide, setMode, openNewProjectModal, showWelcom
   checkService();
   setInterval(checkService, 30000);
 
+  // --- Desktop app window ----------------------------------------------------------
+  // In the Otter Studio desktop app (otter-studio/desktop) the window is
+  // frameless: the header is the title bar and its buttons drive the window.
+  // In a browser those buttons have nothing to control, so they are hidden.
+  const nativeWindow = window.otterStudioWindow;
+  document.body.classList.toggle('is-desktop-app', Boolean(nativeWindow));
+  if (nativeWindow) {
+    document.querySelector('.win-min')?.addEventListener('click', () => nativeWindow.minimize());
+    document.querySelector('.win-max')?.addEventListener('click', () => nativeWindow.toggleMaximize());
+    document.querySelector('.win-close')?.addEventListener('click', () => nativeWindow.close());
+    document.querySelector('.studio-header')?.addEventListener('dblclick', (e) => {
+      if (!e.target.closest('button, input, .menu-item, .header-search-wrap')) nativeWindow.toggleMaximize();
+    });
+    nativeWindow.onStateChange?.((state) => document.body.classList.toggle('is-window-maximized', Boolean(state.maximized)));
+  }
+
   // --- Settings -----------------------------------------------------------------
 
   const settings = createSettings();

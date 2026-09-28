@@ -1,0 +1,12 @@
+{
+  "name": "otter-studio-desktop",
+  "productName": "Otter Studio",
+  "version": "0.1.0",
+  "description": "Otter Studio - the Otter IDE and visual designer",
+  "author": "Jeffrey Macy",
+  "main": "main.js",
+  "private": true,
+  "otterStudio": {
+    "root": ""
+  }
+}

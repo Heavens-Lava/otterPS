@@ -75,6 +75,12 @@ body.theme-light {
 .brand-subtitle {
   font-size: 10.5px;
   letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+/* The tagline makes way for the menus on narrower windows. */
+@media (max-width: 1560px) {
+  .brand-subtitle { display: none; }
 }
 
 .studio-menu-bar .menu-item {
@@ -129,6 +135,44 @@ body.theme-light {
 .theme-toggle-btn {
   height: 34px;
   border-radius: 8px;
+}
+
+/* Window controls exist only in the desktop app (otter-studio/desktop). */
+body:not(.is-desktop-app) .window-controls {
+  display: none;
+}
+
+/* In the desktop app the header is the title bar: drag it to move the window. */
+.is-desktop-app .studio-header {
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+.is-desktop-app .studio-header button,
+.is-desktop-app .studio-header input,
+.is-desktop-app .studio-header .menu-item,
+.is-desktop-app .studio-header .dropdown-menu,
+.is-desktop-app .studio-header .header-search-wrap,
+.is-desktop-app .studio-header .brand-badge {
+  -webkit-app-region: no-drag;
+}
+
+.is-desktop-app .window-controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 6px;
+}
+
+.is-desktop-app .win-btn {
+  width: 40px;
+  height: 32px;
+  border-radius: 6px;
+}
+
+.is-desktop-app .win-close:hover {
+  background: #e81123;
+  color: #fff;
 }
 
 /* ------------------------------------------------------------------------ */
@@ -612,7 +656,8 @@ body.theme-light {
 
 .welcome-cards {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  /* Four across when there is room, two by two when the editor is narrow. */
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
   gap: 14px;
 }
 
@@ -691,6 +736,7 @@ body.theme-light {
 }
 
 .welcome-card kbd {
+  white-space: nowrap;
   margin-top: 6px;
   align-self: flex-start;
   padding: 2px 8px;
