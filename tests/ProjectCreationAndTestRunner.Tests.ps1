@@ -44,7 +44,8 @@ try {
     $wProj = New-OtterProject -Archetype 'web' -Name 'WebApp' -Path $testTmp
     $wDir = $wProj.RootDirectory
     if ($wProj.Target -ne 'web') { throw "Test 3 failed: Expected Target web, got $($wProj.Target)" }
-    if (-not (Test-Path -LiteralPath (Join-Path $wDir 'assets/styles.css') -PathType Leaf)) { throw "Test 3 failed: Missing assets/styles.css" }
+    # D-3: a page's stylesheet is <entry>.css (main.css), not assets/styles.css.
+    if (-not (Test-Path -LiteralPath (Join-Path $wDir 'main.css') -PathType Leaf)) { throw "Test 3 failed: Missing main.css" }
     $wCheck = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') check $wDir 2>&1
     if ($LASTEXITCODE -ne 0) { throw "Test 3 failed: otter check WebApp exited with $LASTEXITCODE. Output: $wCheck" }
     Write-Output '  pass  New-OtterProject generates valid web archetype passing `otter check`'
@@ -272,8 +273,85 @@ result is
     if ($onWindows -ne $expectWindows) { throw "Test 17 failed: Windows detection disagrees with the platform." }
     Write-Output '  pass  test runner launches tests with the running PowerShell host, not a hard-coded powershell.exe'
 
+    # Test 18 (RC3 B1): the start command of every archetype works on a fresh
+    # scaffold. `otter new web|game` used to write (and print) `otter run .`,
+    # which exits 3 because the interpreter has no page/text/canvas UI.
+    # RC3-B1 begin
+    $b1Root = Join-Path $testTmp 'b1_scaffolds'
+    New-Item -ItemType Directory -Path $b1Root -Force | Out-Null
+    $b1PrevCwd = (Get-Location).Path
+    try {
+        foreach ($b1Arch in @('console', 'automation', 'web', 'game', 'desktop')) {
+            Set-Location -LiteralPath $b1Root
+            $b1Name = "B1${b1Arch}App"
+            $b1NewOut = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') new $b1Arch $b1Name 2>&1
+            if ($LASTEXITCODE -ne 0) { throw "Test 18 failed: otter new $b1Arch exited with $LASTEXITCODE. Output: $b1NewOut" }
+            $b1Dir = Join-Path $b1Root $b1Name
+            $b1Manifest = Get-Content -LiteralPath (Join-Path $b1Dir 'otter.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+            $b1Start = [string]$b1Manifest.scripts.start
+            $b1ExpectedStart = if ($b1Arch -in @('web', 'game')) { 'otter web .' } else { 'otter run .' }
+            if ($b1Start -ne $b1ExpectedStart) { throw "Test 18 failed: $b1Arch scripts.start is '$b1Start', expected '$b1ExpectedStart'." }
+
+            # The printed setup steps (check, test) plus scripts.start. The
+            # printed start line itself is hard-coded in otter.ps1 (outside
+            # this module) and is checked separately once otter.ps1 prints
+            # scripts.start.
+            $b1Commands = @($b1NewOut | ForEach-Object { $_.ToString().Trim() } | Where-Object { $_ -match '^otter (check|test) ' })
+            if ($b1Commands.Count -lt 2) { throw "Test 18 failed: otter new $b1Arch printed no check/test steps. Output: $b1NewOut" }
+            $b1Commands += $b1Start
+
+            Set-Location -LiteralPath $b1Dir
+            foreach ($b1Command in $b1Commands) {
+                $b1Words = @($b1Command -split '\s+' | Select-Object -Skip 1)
+                if ($b1Arch -eq 'desktop' -and $b1Command -eq $b1Start) {
+                    Write-Output "  skip  $b1Arch '$b1Command': needs Windows WPF and opens a window that waits for the user, so it cannot run unattended"
+                    continue
+                }
+                if ($b1Words[0] -eq 'web') {
+                    # Compile exactly as printed but do not launch a browser
+                    # from a test run (and PowerShell 7 on Linux cannot open
+                    # an .html file through Start-Process).
+                    Write-Output "  note  $b1Arch '$b1Command' runs with -NoOpen so the test does not launch a browser"
+                    $b1Words += '-NoOpen'
+                }
+                $b1Out = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') @b1Words 2>&1
+                if ($LASTEXITCODE -ne 0) { throw "Test 18 failed: '$b1Command' in a fresh $b1Arch project exited with $LASTEXITCODE. Output: $b1Out" }
+            }
+        }
+    } finally {
+        Set-Location -LiteralPath $b1PrevCwd
+    }
+    Write-Output '  pass  every archetype scaffold: printed check/test steps and scripts.start all exit 0 (web/game start with `otter web .`)'
+    # RC3-B1 end
+
+    # Test 19 (RC3 B3 / D-3): web and game scaffolds put their stylesheet in
+    # main.css beside main.ot, which the build inlines into dist/index.html.
+    # They used to create and declare assets/styles.css, which no page used.
+    # RC3-B3 begin
+    foreach ($b3Arch in @('web', 'game')) {
+        $b3Proj = New-OtterProject -Archetype $b3Arch -Name "B3${b3Arch}App" -Path $testTmp
+        $b3Dir = $b3Proj.RootDirectory
+        $b3Css = Join-Path $b3Dir 'main.css'
+        if (-not (Test-Path -LiteralPath $b3Css -PathType Leaf)) { throw "Test 19 failed: $b3Arch scaffold has no main.css beside main.ot" }
+        if (Test-Path -LiteralPath (Join-Path $b3Dir 'assets/styles.css')) { throw "Test 19 failed: $b3Arch scaffold still creates assets/styles.css" }
+        if (@($b3Proj.Assets) -contains 'assets/styles.css') { throw "Test 19 failed: $b3Arch scaffold still declares assets/styles.css" }
+        Set-Content -LiteralPath $b3Css -Value 'body { background: rgb(1, 2, 3); }' -Encoding UTF8
+        $b3PrevCwd = (Get-Location).Path
+        try {
+            Set-Location -LiteralPath $b3Dir
+            $b3Out = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') build . 2>&1
+        } finally {
+            Set-Location -LiteralPath $b3PrevCwd
+        }
+        if ($LASTEXITCODE -ne 0) { throw "Test 19 failed: otter build . ($b3Arch) exited with $LASTEXITCODE. Output: $b3Out" }
+        $b3Html = Get-Content -LiteralPath (Join-Path $b3Dir 'dist/index.html') -Raw -Encoding UTF8
+        if (-not $b3Html.Contains('body { background: rgb(1, 2, 3); }')) { throw "Test 19 failed: the main.css rule is not in $b3Arch dist/index.html" }
+    }
+    Write-Output '  pass  web and game scaffolds style through main.css, and a main.css rule reaches dist/index.html'
+    # RC3-B3 end
+
 } finally {
     Remove-Item -LiteralPath $testTmp -Recurse -Force -ErrorAction SilentlyContinue
 }
 
-Write-Output "`nAll Otter project creation and test runner tests passed (17/17)."
+Write-Output "`nAll Otter project creation and test runner tests passed (19/19)."

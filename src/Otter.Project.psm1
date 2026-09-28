@@ -259,6 +259,14 @@ function New-OtterProject {
     $mainCode = ''
     $targetName = 'console'
     $assetList = @()
+    # B1: the command `otter new` prints as the last "To get started" step
+    # and writes as scripts.start. `otter run .` interprets the program, and
+    # the interpreter has no page/text/canvas UI, so for web and game
+    # projects it failed with exit 3 ("I can only put a UI resource
+    # somewhere, but this is a text"). Those archetypes start with
+    # `otter web .`, which compiles the page and opens it. Desktop keeps
+    # `otter run .` (it needs Windows WPF).
+    $startCommand = 'otter run .'
 
     switch ($arch) {
         'console' {
@@ -289,7 +297,7 @@ show app
         }
         'web' {
             $targetName = 'web'
-            $assetList = @('assets/styles.css')
+            $startCommand = 'otter web .'
             $mainCode = @"
 # $cleanName - Web Application
 
@@ -305,7 +313,11 @@ put welcomeText in app
 show app
 "@
             $cssContent = "/* Stylesheet for $cleanName */`nbody { margin: 0; font-family: sans-serif; }`n"
-            Set-Content -LiteralPath (Join-Path $assetsDir 'styles.css') -Value $cssContent -Encoding UTF8
+            # B3 / D-3: Otter 1.0 finds a page's stylesheet only as <entry>.css
+            # (main.ot -> main.css), which the web compiler inlines into
+            # index.html. The old assets/styles.css was copied to dist/ but
+            # never linked, so edits to it had no effect.
+            Set-Content -LiteralPath (Join-Path $projectDir 'main.css') -Value $cssContent -Encoding UTF8
         }
         'automation' {
             $targetName = 'console'
@@ -321,7 +333,7 @@ say "Found" length of projectFiles "files."
         }
         'game' {
             $targetName = 'game'
-            $assetList = @('assets/styles.css')
+            $startCommand = 'otter web .'
             $mainCode = @"
 # $cleanName - 2D Game
 
@@ -339,7 +351,9 @@ put gameCanvas in app
 show app
 "@
             $cssContent = "/* Stylesheet for $cleanName */`nbody { margin: 0; background: #000; }`n"
-            Set-Content -LiteralPath (Join-Path $assetsDir 'styles.css') -Value $cssContent -Encoding UTF8
+            # B3 / D-3: main.css beside main.ot, the only stylesheet the web
+            # compiler picks up (see the web archetype above).
+            Set-Content -LiteralPath (Join-Path $projectDir 'main.css') -Value $cssContent -Encoding UTF8
         }
     }
 
@@ -379,7 +393,7 @@ say "All checks passed"
     "clean": true
   },
   "scripts": {
-    "start": "otter run .",
+    "start": "$startCommand",
     "test": "otter test .",
     "check": "otter check ."
   }

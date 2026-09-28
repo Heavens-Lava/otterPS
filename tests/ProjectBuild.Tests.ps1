@@ -19,7 +19,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "Test 1 failed: otter build WebBuildApp exited with $LASTEXITCODE. Output: $wBuildOut" }
     if (($wBuildOut -join "`n") -notmatch 'Build succeeded') { throw "Test 1 failed: Missing 'Build succeeded'. Output: $wBuildOut" }
     if (-not (Test-Path -LiteralPath (Join-Path $wDir 'dist/index.html') -PathType Leaf)) { throw "Test 1 failed: Missing dist/index.html" }
-    if (-not (Test-Path -LiteralPath (Join-Path $wDir 'dist/assets/styles.css') -PathType Leaf)) { throw "Test 1 failed: Missing dist/assets/styles.css" }
+    # D-3: the web scaffold styles through main.css, which is inlined into index.html.
+    if ((Get-Content -LiteralPath (Join-Path $wDir 'dist/index.html') -Raw -Encoding UTF8) -notmatch 'otter-sidecar-style') { throw "Test 1 failed: main.css was not inlined into dist/index.html" }
     if (-not (Test-Path -LiteralPath (Join-Path $wDir 'dist/otter.build.json') -PathType Leaf)) { throw "Test 1 failed: Missing dist/otter.build.json" }
 
     $wMeta = Get-Content -LiteralPath (Join-Path $wDir 'dist/otter.build.json') -Raw | ConvertFrom-Json

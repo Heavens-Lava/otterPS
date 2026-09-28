@@ -20,7 +20,8 @@ try {
     if (($wPubOut -join "`n") -notmatch 'Publish succeeded') { throw "Test 1 failed: Missing 'Publish succeeded'. Output: $wPubOut" }
     if (-not (Test-Path -LiteralPath (Join-Path $wDir 'dist/index.html') -PathType Leaf)) { throw "Test 1 failed: Missing dist/index.html (build first)" }
     if (-not (Test-Path -LiteralPath (Join-Path $wDir 'publish/WebPubApp-0.1.0/index.html') -PathType Leaf)) { throw "Test 1 failed: Missing publish/WebPubApp-0.1.0/index.html" }
-    if (-not (Test-Path -LiteralPath (Join-Path $wDir 'publish/WebPubApp-0.1.0/assets/styles.css') -PathType Leaf)) { throw "Test 1 failed: Missing publish/WebPubApp-0.1.0/assets/styles.css" }
+    # D-3: the web scaffold's stylesheet is main.css, inlined into index.html.
+    if ((Get-Content -LiteralPath (Join-Path $wDir 'publish/WebPubApp-0.1.0/index.html') -Raw -Encoding UTF8) -notmatch 'otter-sidecar-style') { throw "Test 1 failed: main.css not inlined into the packaged index.html" }
     if (-not (Test-Path -LiteralPath (Join-Path $wDir 'publish/WebPubApp-0.1.0.zip') -PathType Leaf)) { throw "Test 1 failed: Missing publish/WebPubApp-0.1.0.zip" }
     if (-not (Test-Path -LiteralPath (Join-Path $wDir 'publish/WebPubApp-0.1.0.zip.sha256') -PathType Leaf)) { throw "Test 1 failed: Missing publish/WebPubApp-0.1.0.zip.sha256" }
     if (-not (Test-Path -LiteralPath (Join-Path $wDir 'publish/otter.publish.json') -PathType Leaf)) { throw "Test 1 failed: Missing publish/otter.publish.json" }
@@ -53,7 +54,7 @@ try {
     $gPubOut = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') publish $gDir 2>&1
     if ($LASTEXITCODE -ne 0) { throw "Test 4 failed: otter publish GamePubApp exited with $LASTEXITCODE. Output: $gPubOut" }
     if (-not (Test-Path -LiteralPath (Join-Path $gDir 'publish/GamePubApp-0.1.0/index.html') -PathType Leaf)) { throw "Test 4 failed: Missing index.html in game package" }
-    if (-not (Test-Path -LiteralPath (Join-Path $gDir 'publish/GamePubApp-0.1.0/assets/styles.css') -PathType Leaf)) { throw "Test 4 failed: Missing assets/styles.css in game package" }
+    if ((Get-Content -LiteralPath (Join-Path $gDir 'publish/GamePubApp-0.1.0/index.html') -Raw -Encoding UTF8) -notmatch 'otter-sidecar-style') { throw "Test 4 failed: main.css not inlined into the packaged game index.html" }
     Write-Output '  pass  game publish packages canvas runtime bundle and assets'
 
     # Test 5: Automation publish maps to runnable task artifact
@@ -92,7 +93,7 @@ try {
     try {
         $entryNames = @($archive.Entries | ForEach-Object { $_.FullName })
         if ($entryNames -notcontains 'index.html') { throw "Test 7 failed: Archive missing index.html. Entries: $($entryNames -join ', ')" }
-        if ($entryNames -notcontains 'assets/styles.css') { throw "Test 7 failed: Archive missing assets/styles.css. Entries: $($entryNames -join ', ')" }
+        if ($entryNames -contains 'assets/styles.css') { throw "Test 7 failed: Archive still ships the unused assets/styles.css. Entries: $($entryNames -join ', ')" }
         if ($entryNames -notcontains 'otter.build.json') { throw "Test 7 failed: Archive missing otter.build.json. Entries: $($entryNames -join ', ')" }
     } finally {
         $archive.Dispose()
@@ -311,7 +312,6 @@ try {
     $extractCleanDir = Join-Path $testTmp 'clean_extracted'
     Expand-OtterDeterministicArchive -ZipPath $zipPath -DestinationDir $extractCleanDir
     if (-not (Test-Path -LiteralPath (Join-Path $extractCleanDir 'index.html') -PathType Leaf)) { throw "Test 17 failed: Extracted archive missing index.html" }
-    if (-not (Test-Path -LiteralPath (Join-Path $extractCleanDir 'assets/styles.css') -PathType Leaf)) { throw "Test 17 failed: Extracted archive missing assets/styles.css" }
     if (-not (Test-Path -LiteralPath (Join-Path $extractCleanDir 'otter.build.json') -PathType Leaf)) { throw "Test 17 failed: Extracted archive missing otter.build.json" }
     $origHtml = Get-Content -LiteralPath (Join-Path $wDir 'dist/index.html') -Raw
     $extrHtml = Get-Content -LiteralPath (Join-Path $extractCleanDir 'index.html') -Raw
