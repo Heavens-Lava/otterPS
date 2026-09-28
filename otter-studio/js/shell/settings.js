@@ -19,7 +19,9 @@ export const DEFAULT_SETTINGS = {
   },
   workbench: {
     showWelcomeOnStart: true
-  }
+  },
+  // Custom keys from the Keyboard Shortcuts editor: { commandId: "ctrl+alt+k" }.
+  keybindings: {}
 };
 
 // The dialog is generated from this description, so a new setting is one line.

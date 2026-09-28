@@ -14,6 +14,14 @@ import { chordOf, displayChord, isMacPlatform } from './keys.js';
 
 export function createCommandRegistry() {
   const commands = new Map();
+  // User keybindings: { commandId: "ctrl+alt+k" } ('' removes the key).
+  let overrides = {};
+
+  function applyOverride(command) {
+    const custom = overrides[command.id];
+    command.keys = custom === undefined ? [...command.defaultKeys] : (custom ? [custom] : []);
+    if (command.defaultKeys.length || custom !== undefined) command.shortcut = command.keys[0] ? displayChord(command.keys[0]) : '';
+  }
 
   function register(command) {
     if (!command || !command.id || typeof command.run !== 'function') {
@@ -25,10 +33,15 @@ export function createCommandRegistry() {
       title: command.title || command.id,
       category: command.category || 'General',
       keys: Array.isArray(command.keys) ? [...command.keys] : [],
+      defaultKeys: Array.isArray(command.keys) ? [...command.keys] : [],
+      // 'designer': bound by the designer's own keyboard (only while it has focus).
+      scope: command.scope || 'global',
+      rebindable: Boolean(command.rebindable),
       shortcut: command.shortcut || (Array.isArray(command.keys) && command.keys[0] ? displayChord(command.keys[0]) : ''),
       when: typeof command.when === 'function' ? command.when : null,
       run: command.run
     });
+    applyOverride(commands.get(command.id));
     return command.id;
   }
 
@@ -68,32 +81,31 @@ export function createCommandRegistry() {
     }));
   }
 
-  // User keybindings: { commandId: "ctrl+alt+k" } ('' removes the key).
-  // Only commands with `keys` can be rebound.
-  let overrides = {};
+  // Only commands registered with `keys` can be rebound; a `shortcut` alone
+  // labels a key the editor handles itself.
   function setKeybindings(map) {
     overrides = { ...(map || {}) };
-    for (const command of commands.values()) {
-      if (!command.defaultKeys) command.defaultKeys = command.keys;
-      const custom = overrides[command.id];
-      command.keys = custom === undefined ? command.defaultKeys : (custom ? [custom] : []);
-      if (command.defaultKeys.length || custom) command.shortcut = command.keys[0] ? displayChord(command.keys[0]) : '';
-    }
+    for (const command of commands.values()) applyOverride(command);
   }
 
-  function bindable() {
-    return list({ includeUnavailable: true }).filter(c => (c.defaultKeys || c.keys).length || overrides[c.id]);
+  function isRebindable(command) {
+    return Boolean(command && (command.defaultKeys.length || overrides[command.id] !== undefined || command.rebindable));
   }
 
-  // The command bound to a chord, if any.
-  function commandForChord(chord) {
-    for (const command of commands.values()) {
-      if (command.keys.includes(chord)) return command;
-    }
-    return null;
+  function isCustomized(command) {
+    return Boolean(command && overrides[command.id] !== undefined);
   }
 
-  return { register, registerAll, list, get, run, toPaletteItems, setKeybindings, bindable, commandForChord, size: () => commands.size };
+  // Commands bound to a chord (optionally only in one scope).
+  function commandsForChord(chord, scope = null) {
+    return [...commands.values()].filter(c => c.keys.includes(chord) && (!scope || c.scope === scope));
+  }
+
+  function commandForChord(chord, scope = 'global') {
+    return commandsForChord(chord, scope)[0] || null;
+  }
+
+  return { register, registerAll, list, get, run, toPaletteItems, setKeybindings, isRebindable, isCustomized, commandsForChord, commandForChord, size: () => commands.size };
 }
 
 // Bind every command's `keys`. Chords with Ctrl or Alt, and function keys,
@@ -103,7 +115,7 @@ export function installKeymap(registry, target = window) {
   const onKey = (event) => {
     if (event.defaultPrevented) return;
     const chord = chordOf(event, isMac);
-    const command = registry.commandForChord(chord);
+    const command = registry.commandForChord(chord, 'global');
     if (!command) return;
     const typing = /^(input|textarea|select)$/i.test(document.activeElement?.tagName || '') || document.activeElement?.isContentEditable;
     if (typing && !/(^|\+)(ctrl|alt)\+/.test(chord) && !/^f\d+$/.test(chord)) return;

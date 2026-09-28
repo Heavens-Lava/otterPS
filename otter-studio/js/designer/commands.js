@@ -66,15 +66,15 @@ export { chordOf, displayChord } from '../shell/keys.js';
 // Route keydown events to designer commands. `isActive()` decides whether the
 // designer owns the keyboard right now (visible, pointer or focus inside, not
 // typing in a field).
-export function installDesignerKeyboard(commands, { isActive, target = window }) {
+export function installDesignerKeyboard(commands, { isActive, target = window, keysOf = null }) {
   const isMac = isMacPlatform();
-  const byChord = new Map();
-  for (const command of commands) {
-    for (const key of command.keys) byChord.set(key, command);
-  }
+  // Keys are looked up at key time, so the keybinding editor's changes
+  // (Studio's command registry) apply at once.
+  const liveKeys = keysOf || ((command) => (typeof window !== 'undefined' && window.otterCommands?.get(command.id)?.keys) || command.keys);
   const onKey = (event) => {
     if (event.defaultPrevented || !isActive(event)) return;
-    const command = byChord.get(chordOf(event, isMac));
+    const chord = chordOf(event, isMac);
+    const command = commands.find(c => liveKeys(c).includes(chord));
     if (!command) return;
     if (command.run() !== false) event.preventDefault();
   };
@@ -88,7 +88,9 @@ export function toRegistryCommands(commands, isAvailable) {
     id: command.id,
     title: command.title,
     category: 'Designer',
-    shortcut: command.keys.length ? displayChord(command.keys[0]) : '',
+    keys: command.keys,
+    scope: 'designer',
+    rebindable: true,
     when: isAvailable,
     run: command.run
   }));

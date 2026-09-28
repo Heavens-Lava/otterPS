@@ -285,7 +285,7 @@ export function mountStudioShell({ ide, setMode, openNewProjectModal, showWelcom
   }
 
   const commands = createCommandRegistry();
-  const shortcutsDialog = mountShortcutsDialog(commands);
+  const shortcutsDialog = mountShortcutsDialog(commands, settings);
   commands.registerAll(defaultCommands({
     ide,
     setMode,
@@ -301,6 +301,7 @@ export function mountStudioShell({ ide, setMode, openNewProjectModal, showWelcom
     toggleWhitespace: () => settings.set('editor.renderWhitespace', !settings.get('editor.renderWhitespace'))
   }));
   window.otterCommands = commands;
+  commands.setKeybindings(settings.get('keybindings'));
   installKeymap(commands);
 
   window.addEventListener('keydown', (e) => {

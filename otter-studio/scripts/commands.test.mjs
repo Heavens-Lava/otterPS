@@ -70,4 +70,31 @@ assert.match(ideJs, /rawVal\.startsWith\('>'\)/, '">" in the palette switches to
 assert.match(shellJs, /window\.otterCommands = /, 'the shell must publish the registry');
 console.log('  pass  the palette lists commands and ">" reaches them');
 
-console.log('Command registry certification passed (4 checks).');
+// 5. Keybindings: commands with `keys` can be rebound, removed and reset;
+// a `shortcut` alone (a key the editor handles) cannot. Overrides apply to
+// commands registered later too, and designer keys stay in their scope.
+{
+  const keys = createCommandRegistry();
+  keys.register({ id: 'k.mark', title: 'Mark', keys: ['ctrl+alt+k'], run() {} });
+  keys.register({ id: 'k.save', title: 'Save', shortcut: 'Ctrl+S', run() {} });
+  assert.equal(keys.get('k.mark').shortcut, 'Ctrl+Alt+K');
+  assert.equal(keys.isRebindable(keys.get('k.mark')), true);
+  assert.equal(keys.isRebindable(keys.get('k.save')), false);
+  keys.setKeybindings({ 'k.mark': 'ctrl+shift+m', 'k.late': 'ctrl+alt+9' });
+  assert.deepEqual(keys.get('k.mark').keys, ['ctrl+shift+m']);
+  assert.equal(keys.get('k.mark').shortcut, 'Ctrl+Shift+M');
+  assert.equal(keys.commandForChord('ctrl+shift+m')?.id, 'k.mark');
+  assert.equal(keys.commandForChord('ctrl+alt+k'), null, 'the old key is free');
+  keys.register({ id: 'k.late', title: 'Late', scope: 'designer', rebindable: true, keys: [], run() {} });
+  assert.deepEqual(keys.get('k.late').keys, ['ctrl+alt+9'], 'late registration gets its override');
+  assert.equal(keys.commandForChord('ctrl+alt+9'), null, 'designer keys are not global');
+  assert.equal(keys.commandForChord('ctrl+alt+9', 'designer')?.id, 'k.late');
+  keys.setKeybindings({ 'k.mark': '' });
+  assert.deepEqual(keys.get('k.mark').keys, [], 'removed');
+  assert.equal(keys.get('k.mark').shortcut, '');
+  keys.setKeybindings({});
+  assert.deepEqual(keys.get('k.mark').keys, ['ctrl+alt+k'], 'reset to the default');
+  console.log('  pass  keybindings: rebind, remove, reset, scopes');
+}
+
+console.log('Command registry certification passed (5 checks).');
