@@ -295,16 +295,16 @@ platform.
 -   [ ] Code folding for blocks, functions, and comment regions
 -   [ ] Minimap
 -   [x] Indent guides (Settings > Editor; `editing-assist.test.mjs`)
--   [ ] Render-whitespace toggle
+-   [x] Render-whitespace toggle (`91b8ee2`; Settings > Editor and the palette)
 -   [ ] Sticky scroll (current block header pinned while scrolling)
 -   [x] Auto-closing quotes/parentheses and auto-insert of the block-terminating period (wrap selection, step over closers, delete pairs; Enter after a block opener writes the body line and `.`; `editing-assist.test.mjs`, verified by typing in the real editor)
 -   [ ] User-defined snippets with a snippet editor and tab stops
 -   [ ] Standalone diff editor: compare two files, compare with saved, compare with Git HEAD
 -   [x] Format on save, trim trailing whitespace, insert final newline (Settings > Files; applied before the file is written; verified through the real Save path)
 -   [ ] Formatter style settings
--   [ ] Bookmarks with next/previous navigation
--   [ ] TODO/FIXME comment scanner panel
--   [ ] Link detection: Ctrl+Click URLs and file paths in source
+-   [x] Bookmarks with next/previous navigation (`91b8ee2`; Ctrl+Alt+K / L / J, gutter marks, per file)
+-   [x] TODO/FIXME comment scanner panel (`91b8ee2`; Tasks tab: TODO, FIXME, BUG, HACK, NOTE, most urgent first)
+-   [x] Link detection: Ctrl+Click URLs and file paths in source (`91b8ee2`; URLs open in the browser, quoted workspace paths open in the editor)
 -   [ ] Inlay hints (parameter names, inferred values)
 -   [ ] Code lens (reference counts, run/debug test above functions)
 -   [ ] Editor groups: drag tab to split, grid layouts, pinned tabs, preview tabs, Open Editors list
@@ -891,7 +891,7 @@ architecture reference. Listed in the recommended implementation order.
 -   [ ] Platform shortcut mapping
 -   [ ] Settings sync across machines and named settings profiles
 -   [ ] Notifications center with history
--   [ ] Zen/distraction-free mode and full screen
+-   [x] Zen/distraction-free mode and full screen (`91b8ee2`; Ctrl+Alt+Z / Esc, F11)
 -   [ ] Help menu: report issue, release notes, keyboard reference, in-IDE documentation viewer
 -   [ ] Standard-library / API browser panel (object-browser style)
 -   [ ] Interactive first-run walkthroughs and guided tutorials
