@@ -64,5 +64,5 @@ Run any of them directly:
 
 ```
 otter run conformance/core/variables_math_control_flow.ot
-otter check conformance/http/http_web_target_only.ot
+otter check conformance/http/http_web_fetch.ot
 ```

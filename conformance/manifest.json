@@ -122,9 +122,9 @@
       "targets": ["console", "portable-core"]
     },
     {
-      "name": "http-web-target-only",
+      "name": "http-web-fetch",
       "mode": "web",
-      "source": "conformance/http/http_web_target_only.ot",
+      "source": "conformance/http/http_web_fetch.ot",
       "expectedExitCode": 0,
       "expectedHtmlContains": ["fetch(\"https://httpbin.org/get\")", "method: 'POST'", "method: 'PUT'", "method: 'DELETE'"],
       "targets": ["web"]

@@ -4,6 +4,7 @@ using module ..\src\Otter.Library.psm1
 using module ..\src\Otter.Interpreter.psm1
 using module ..\src\Otter.Lexer.psm1
 using module ..\src\Otter.Parser.psm1
+. "$PSScriptRoot\TestHost.ps1"
 
 # tests/Http.Tests.ps1
 #
@@ -205,8 +206,8 @@ function Run-OtterCli {
     try {
         [System.IO.File]::WriteAllText($tmpFile, $Source, [System.Text.Encoding]::UTF8)
         $psi = [System.Diagnostics.ProcessStartInfo]::new()
-        $psi.FileName = (Get-Command powershell.exe -ErrorAction Stop).Source
-        $psi.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$otterCli`" run `"$tmpFile`""
+        $psi.FileName = $script:OtterHostExe
+        $psi.Arguments = "$script:OtterHostArgString -File `"$otterCli`" run `"$tmpFile`""
         $psi.RedirectStandardOutput = $true
         $psi.RedirectStandardError = $true
         $psi.UseShellExecute = $false
