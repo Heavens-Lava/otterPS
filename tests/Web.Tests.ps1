@@ -7,6 +7,13 @@ Import-Module (Join-Path $PSScriptRoot '..\src\Otter.Compiler.JavaScript.psm1') 
 
 Write-Output 'Otter Web Compiler (D50)'
 
+# The example exports below write to a temporary folder, not next to the
+# tracked examples/*.ot sources: compiling in place rewrote the committed
+# examples/*.html on every run (and differently per host - BOM, line endings),
+# leaving the checkout dirty. Removed at the end of this file.
+$webExportDir = Join-Path ([System.IO.Path]::GetTempPath()) ("otter_web_exports_$([Guid]::NewGuid().ToString('N'))")
+New-Item -ItemType Directory -Path $webExportDir -Force | Out-Null
+
 # Test 1: Compile basic page with button and text
 $basicSource = @"
 app is a page
@@ -68,7 +75,7 @@ if ($layoutHtml -notmatch 'display: flex; flex-direction: column;') { throw 'Exp
 Write-Output '  pass  layout rows and columns compile to responsive flexbox structures'
 
 # Test 3: Export hello-app.ot and calculator.ot
-$helloHtmlPath = Export-OtterWebApplication -SourcePath (Join-Path $PSScriptRoot '..\examples\hello-app.ot')
+$helloHtmlPath = Export-OtterWebApplication -SourcePath (Join-Path $PSScriptRoot '..\examples\hello-app.ot') -OutputPath (Join-Path $webExportDir 'hello-app.html')
 if (-not (Test-Path $helloHtmlPath)) { throw 'Expected hello-app.html to exist.' }
 $helloContent = Get-Content -LiteralPath $helloHtmlPath -Raw
 if ($helloContent -notmatch 'id="helloButton"' -or $helloContent -notmatch 'id="nameBox"') {
@@ -76,7 +83,7 @@ if ($helloContent -notmatch 'id="helloButton"' -or $helloContent -notmatch 'id="
 }
 Write-Output '  pass  hello-app.ot exports to standalone HTML'
 
-$calcHtmlPath = Export-OtterWebApplication -SourcePath (Join-Path $PSScriptRoot '..\examples\calculator.ot')
+$calcHtmlPath = Export-OtterWebApplication -SourcePath (Join-Path $PSScriptRoot '..\examples\calculator.ot') -OutputPath (Join-Path $webExportDir 'calculator.html')
 if (-not (Test-Path $calcHtmlPath)) { throw 'Expected calculator.html to exist.' }
 $calcContent = Get-Content -LiteralPath $calcHtmlPath -Raw
 if ($calcContent -notmatch 'id="addButton"' -or $calcContent -notmatch 'id="resultLabel"') {
@@ -88,7 +95,7 @@ if ($calcContent -notmatch 'Number\(_l\)' -and $calcContent -notmatch 'Number\(n
 Write-Output '  pass  calculator.ot exports to standalone HTML with full math and try/catch'
 
 # Test 4: Export portal.ot with rich components (cards, 3d canvas, dropdown, checkbox, slider, badge, link)
-$portalHtmlPath = Export-OtterWebApplication -SourcePath (Join-Path $PSScriptRoot '..\examples\portal.ot')
+$portalHtmlPath = Export-OtterWebApplication -SourcePath (Join-Path $PSScriptRoot '..\examples\portal.ot') -OutputPath (Join-Path $webExportDir 'portal.html')
 if (-not (Test-Path $portalHtmlPath)) { throw 'Expected portal.html to exist.' }
 $portalContent = Get-Content -LiteralPath $portalHtmlPath -Raw
 if ($portalContent -notmatch 'class="otter-card"' -or
@@ -124,7 +131,7 @@ if ($linkHtml -notmatch 'href="https://example.com"[^>]*target="_blank"' -or $li
 Write-Output '  pass  internal links stay in place while external links open safely'
 
 # Test 6: Export jeffreymacy.ot (high-end responsive showcase recreating www.jeffreymacy.com)
-$jmHtmlPath = Export-OtterWebApplication -SourcePath (Join-Path $PSScriptRoot '..\examples\jeffreymacy.ot')
+$jmHtmlPath = Export-OtterWebApplication -SourcePath (Join-Path $PSScriptRoot '..\examples\jeffreymacy.ot') -OutputPath (Join-Path $webExportDir 'jeffreymacy.html')
 if (-not (Test-Path $jmHtmlPath)) { throw 'Expected jeffreymacy.html to exist.' }
 $jmContent = Get-Content -LiteralPath $jmHtmlPath -Raw
 if ($jmContent -notmatch 'Jeffrey Macy' -or
@@ -1068,4 +1075,4 @@ Write-Output '  pass  runnable true: live samples compile, run for real, and ski
 
 Write-Output 'Web compiler tests passed.'
 
-
+Remove-Item -LiteralPath $webExportDir -Recurse -Force -ErrorAction SilentlyContinue
