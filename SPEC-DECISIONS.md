@@ -7346,3 +7346,354 @@ Otter parsing transitions from primarily fail-fast behavior into resilient multi
    - HTTP option block recovery isolates clause-level syntax errors (e.g. malformed `with header`) while preserving valid sibling clauses (e.g. `with timeout`).
    - Token progress guarantee (Rule 42) ensures every recovery step advances token position, preventing infinite loops.
    - Defensive ceiling: recovery strictly bounds diagnostics at 100 errors, terminating with a final `TooManyErrors` diagnostic.
+
+
+---
+
+# Ledger reconstruction: D99–D114 and D119 (recorded 2026-09-27)
+
+These decisions were made, approved and implemented between 2026-09-22 and
+2026-09-25, and are cited by `Otter.Contract.psm1` and the runtime, but were
+never entered in this ledger. The entries below **record** them; they do not
+redesign them or add semantics. Each is reconstructed only from evidence in the
+repository (the approved specification where one exists, the implementing
+commits, the contract, and the tests) and states that evidence. Where the
+evidence is not enough to record a decision without making a new one, the entry
+says so and is marked **UNRESOLVED**.
+
+Target labels: *console* = the interpreter (`otter run`); *web* = the
+JavaScript compiler (`otter web`); *desktop* = the desktop host.
+
+## D99. Otter Query Language (OQL) — **UNRESOLVED**
+
+**Evidence:** `docs/D99-QUERY-LANGUAGE-DESIGN.md`; commit `c32767d`;
+`QueryStmt`, `QueryAggregateStmt`, `QueryBetweenExpr`, `QueryInExpr` in the
+contract; `tests/Query.Tests.ps1`.
+
+**What exists:** `get [distinct] fields from TABLE in DB [as alias] [where ...]
+[order by ...] [take N] [skip N] into TARGET`; `count/sum/average/minimum/maximum
+from TABLE in DB ... into TARGET`; `X between A and B`; `X is in` / `is not in`
+a collection. The console interpreter translates these to parameterized SQL
+through the D97 database provider.
+
+**Why unresolved:** the only design record, `docs/D99-QUERY-LANGUAGE-DESIGN.md`,
+is headed "Status: Design Proposal & Feasibility Research — Target: Otter 1.1+ —
+Implementation: Not approved yet (Exploratory / RFC)". The implementation
+landed anyway (`c32767d`) and is in the frozen contract, and
+`docs/OTTER_1_0_RELEASE_SCOPE_MATRIX.md` classifies database/SQL integration as
+DEFERRED to 1.2+. Recording OQL as part of Otter 1.0 — or as deferred/internal —
+is a new decision. **Needs: is OQL in Otter 1.0?**
+
+## D100. Console UX primitives
+
+**Source:** `docs/D100-CONSOLE-UX-PRIMITIVES-DESIGN.md` (Jeff's in-session
+sign-off); commit `bdfb428`; `tests/ConsoleUxPrimitives.Tests.ps1` (18).
+
+**Decision (as implemented):** `say ... in color "NAME"`; `set cursor to row R
+column C`; `choose from LIST into TARGET`; `show progress N percent`;
+`ask secretly "PROMPT" and call it NAME`; `console is interactive` (a condition).
+Invalid values (row/column below 1, percent outside 0-100, unknown colors) are
+Otter diagnostics, never clamped. `color`, `cursor`, `row`, `column`,
+`progress`, `secretly` and `console` remain ordinary identifiers outside these
+phrases. **Targets:** console. Web and desktop report "not supported" at compile
+time. **Reconstruction:** complete.
+
+## D101. General wait, seeded random, timers, date parsing
+
+**Source:** "Jeff's ChatGPT-assisted syntax design batch" (commit `419d5aa`);
+`tests/TierOneRuntime.Tests.ps1` (14).
+
+**Decision (as implemented):** `wait N milliseconds|seconds|minutes|hours|...`
+(a negative duration is an Otter error); `set random seed to N` (makes
+`random number` / `random item` reproducible; does not affect the D92 secure
+generator); `start timer NAME`, `elapsed time of NAME`, `elapsed milliseconds of
+NAME` (a monotonic stopwatch); `date from TEXT [using FORMAT]` (an expression
+producing the existing date type). **Targets:** console for all four. Web
+supports timers and date parsing; `wait` and `set random seed` are compile-time
+"not supported on the web target": `wait` because it needs an async/cancellation
+model that was explicitly deferred (commit `419d5aa`), seeded random because
+JavaScript's `Math.random` cannot be seeded. What `wait` services while it
+waits is defined by D121 (EV3). **Reconstruction:** complete.
+
+## D102. The `bytes` type
+
+**Source:** "Jeff/ChatGPT's design spec" (commit `f8b75da`);
+`tests/Bytes.Tests.ps1`.
+
+**Decision (as implemented):** a first-class `bytes` value, distinct from text
+and from lists. `empty bytes`; `bytes from text|hex|base64 X`;
+`text|hex|base64 from bytes X`; `length of` bytes; equality compares content.
+Malformed hex, malformed base64 and invalid UTF-8 are Otter errors, never
+silently substituted. Text, bytes, hex and base64 are never implicitly converted
+into each other. **Targets:** console and web. **Reconstruction:** complete.
+(File and HTTP integration came later: D115, D116A.)
+
+## D103. SPA routing
+
+**Source:** "Jeff/ChatGPT's design spec" (commit `b441e01`); `tests/Web.Tests.ps1`.
+
+**Decision (as implemented):** `route "/path" shows PAGE` (including `:param`
+segments) and `route otherwise shows PAGE`; `go to "/path"`, `go back`,
+`go forward`, `replace route with "/path"`; `current route`,
+`route parameter "id"`, `query parameter "name"` (expressions); `on route change`
+handler. Static routes win over parameterized routes at the same depth; browser
+Back/Forward work without a reload; duplicate routes, duplicate parameter names
+and paths not starting with "/" are errors at registration. **Targets:** web
+only; the console and desktop fail with an Otter error rather than doing
+nothing. **Reconstruction:** complete.
+
+## D104. File and folder watching
+
+**Source:** "Jeff/ChatGPT's design spec" (commit `ef72d88`);
+`tests/FileWatching.Tests.ps1` (11).
+
+**Decision (as implemented):** `watch file|folder PATH [recursively] and call
+it NAME`; `on change of NAME`; `on create in` / `on delete in` / `on rename in
+NAME`; `changed path`, `changed file name`, `change kind`, `old path` (ambient
+in the handler); `NAME is watching`; `stop watching NAME`. Duplicate operating
+system notifications for one logical change are coalesced (runtime behavior, no
+syntax). Watching a path that does not exist, and stopping a non-watcher, are
+Otter errors; a watcher that fails in the background reports a diagnostic.
+Handlers run one at a time on the main thread. **Targets:** console and desktop;
+web fails at compile time. Scheduling is governed by D121. **Reconstruction:**
+complete.
+
+## D105. XML
+
+**Source:** "Jeff/ChatGPT's revised design spec" (commit `73571e1`);
+`tests/Xml.Tests.ps1` (22).
+
+**Decision (as implemented):** `xml from text X` / `xml from file P` /
+`xml with root "NAME"`; `element|elements NAME in X` (direct children by tag),
+`child|children N in X` (by position); `attribute "A" of X`; `text of`, `name
+of`, `root of`, `attributes of` a value (the existing property grammar);
+`element "X" exists in Y` and `Y has attribute "A"` (conditions); `set text of
+X to V`, `set attribute "A" of X to V`, `remove attribute "A" from X`,
+`add element "X" [with text T] to Y [and call it Z]`, `remove element X`;
+`text from xml X`, `pretty text from xml X`; `write xml X to file P`. Malformed
+XML is an Otter error on both targets. **Targets:** console and web; on the web
+the file forms use the web file bridge, like other file I/O on that target. **Reconstruction:** complete.
+
+## D106. WebSockets
+
+**Source:** the D106 specification implemented by Gemini (commit `c32767d`);
+the contract; `tests/WebSocket.Tests.ps1` (9) and the web tests.
+
+**Decision (as implemented):** `connect to websocket URL [using protocol P] and
+call it NAME`; `send VALUE through NAME` (text or bytes); `close websocket NAME
+[with code N] [and reason R]`; handlers `on open of`, `on message from`,
+`on close of`, `on error of NAME`; `received message`, `close code`,
+`close reason`, `close was clean` and the error value (ambient in handlers);
+`NAME is connecting|open|closing|closed`; `state|url|protocol of NAME`.
+**Targets:** console, desktop and web. Scheduling is governed by D121.
+**Reconstruction:** complete for syntax and target support. The original
+D106 specification document is not in the repository; this entry is
+reconstructed from the contract, the implementation and the tests.
+
+## D107. TCP (client)
+
+**Source:** `docs/design/D107-D111-SPECIFICATION.md` (Jeff, 2026-09-23);
+commit `f8d1423`; `tests/Network.Tests.ps1`.
+
+**Decision:** as specified. `connect to tcp HOST on port N and call it NAME`;
+`on connect of`, `on data from` (TCP is a byte stream, so data, not messages),
+`on close of`, `on error of NAME`; `received data` (bytes), `network error`;
+`send BYTES through NAME` — **bytes only**, text must be converted explicitly
+(`bytes from text`); `close tcp NAME`; `NAME is connecting|connected|closed`;
+remote address/port properties. **Targets:** console and desktop; web reports
+unsupported. **Deviations from the specification:** none known. TLS (spec
+section 11: "can receive its own design later") is D112; the TCP server grammar
+reserved in section 12 is D113. **Reconstruction:** complete.
+
+## D108. UDP
+
+**Source:** `docs/design/D107-D111-SPECIFICATION.md`; commit `f8d1423`;
+`tests/Network.Tests.ps1`.
+
+**Decision:** as specified. `open udp [on port N] and call it NAME` (no
+connection); `on data from NAME`; `received data`, `sender address`,
+`sender port`; `send BYTES through NAME to HOST on port N` (bytes only; a
+destination is required); `close udp NAME`; error and state as for D107.
+**Targets:** console and desktop; web reports unsupported. **Reconstruction:**
+complete.
+
+## D109. Cryptography
+
+**Source:** `docs/design/D107-D111-SPECIFICATION.md`; commit `aead414`;
+`tests/Crypto.Tests.ps1`.
+
+**Decision:** `secure random bytes N`; `sha256|sha384|sha512 of DATA`;
+`hmac sha256 of DATA using KEY`; `generate encryption key and call it KEY`;
+`encrypt DATA using KEY and call it R`, `decrypt DATA using KEY and call it R`;
+`hash password P and call it H`, `password P matches hash H`;
+`A securely equals B` (constant-time). All inputs and outputs are bytes (password
+hashes are text). **Implementation choice recorded:** the specification requires
+"an approved authenticated encryption construction" and no ECB/CBC-style
+convenience API. The runtime uses AES-256-CBC with HMAC-SHA256 in
+encrypt-then-MAC form (a versioned payload carrying the IV and tag), because
+.NET Framework 4.x under Windows PowerShell 5.1 has no AES-GCM. It is an
+authenticated construction and no raw CBC operation is exposed; nonce/IV
+handling is internal, as specified. Password hashing is PBKDF2-SHA256 with 600,000
+iterations and a per-hash salt. The earlier D91/D92 forms are unchanged.
+**Targets:** console and desktop; **web via D114** (the contract comment
+"web reports unsupported" predates D114). **Reconstruction:** complete.
+
+## D110. Drag and drop
+
+**Source:** `docs/design/D107-D111-SPECIFICATION.md`; commit `abcace4`;
+`tests/DragDrop.Tests.ps1` (8).
+
+**Decision:** `draggable` and `accepts drops` properties (inline `with ...` and
+block forms); `on drag of X`, `on drop on X`, `on files dropped on X`;
+`dragged item`, `dropped files`, `drag data`, `drop x`, `drop y` (ambient);
+`set drag data to V`. Choices Jeff made during implementation: both the inline
+and block property forms; web/declarative UI only. **Targets:** web; a desktop
+(WPF) window reports unsupported. **Reconstruction:** complete.
+
+## D111. Credential vault
+
+**Source:** `docs/design/D107-D111-SPECIFICATION.md`; commit `33e3687`;
+`tests/Vault.Tests.ps1` (11).
+
+**Decision:** `store secret "NAME" with value V` (text or bytes; storing again
+replaces); `secret "NAME"` (an expression); `secret "NAME" exists` (a
+condition); `delete secret "NAME"`. Secrets are stored in the operating system's
+credential store and scoped to the application (derived from the program's
+path), so two programs using the same name do not see each other's secrets. Text
+and bytes secrets come back as stored. Reading or deleting a missing secret is an
+Otter error, never an empty value. Secret values are never written to the
+program directory and are not echoed in error messages; the specification's
+wider display rule (section 8: not in logs, diagnostics, debugger previews,
+serialization, crash reports "when the runtime can reasonably prevent it") is
+met for error messages and files only — `say` of a secret prints it. No named
+vaults (section 7). **Targets:** console on Windows (Windows Credential
+Manager); web reports unsupported. **Reconstruction:** complete, with the
+display-rule scope noted.
+
+## D112. TLS over TCP
+
+**Source:** the D112 specification implemented by the front-end agent (commit
+`ef134fa`) and back end (commit `e705b33`); `tests/Network.Tests.ps1`. The D107
+specification deferred TLS "to its own design".
+
+**Decision (as implemented):** `connect securely to tcp HOST on port N and call
+it X`, with optional clauses `for server NAME` and `using protocol P` /
+`using protocols LIST` (clauses may appear in any order before `and call it`;
+`for server` on a non-secure connection is refused); `X is secure` (a condition);
+`tls version of X`, `tls protocol of X`. Certificate chain, expiry, revocation
+and host name are always validated by the system; there is no way to disable
+validation. `for server` sets the name used for validation (SNI). Handshake
+failures go to `on error of` then `on close of`. **Host limitation:** ALPN is
+unavailable on .NET Framework, so `using protocol` fails with a clear error
+rather than connecting without it, and `tls protocol of` is empty.
+**Targets:** console and desktop. **Reconstruction:** complete for behavior; the
+original D112 specification document is not in the repository.
+
+## D113. TCP servers
+
+**Source:** the grammar reserved in D107 section 12, implemented in commits
+`194995c` and `cb77c46`; `tests/Network.Tests.ps1`.
+
+**Decision (as implemented):** `listen for tcp [on ADDRESS] on port N and call it
+SERVER`; `on connection to SERVER` with `incoming connection` (a D107
+connection); `stop tcp SERVER`; `SERVER is listening|stopped`. Each accepted
+client is an independent connection. **Targets:** console and desktop; web
+reports unsupported. **Reconstruction:** complete; the original D113
+specification document is not in the repository.
+
+## D114. Browser-side cryptography
+
+**Source:** commit `3c757cd`; `tests/Web.Tests.ps1` test 26;
+`tests/Crypto.Tests.ps1` section 7.
+
+**Decision (as implemented):** the web target supports the D109 operations
+through the browser's Web Crypto API (`crypto.subtle`, `getRandomValues`), with
+payloads interoperable with the console implementation (tested across runtimes).
+**Consequence recorded here:** the contract's D109 comment ("console/desktop
+only; web reports unsupported") is out of date. **Reconstruction:** complete.
+
+## D119. Asynchronous command jobs and script dispatch
+
+**Source:** `docs/D119_DOGFOOD_LOG.md` (refinements D119-R1 and D119-R2);
+commits `e7f0f99`, `072fe4f`; `tests/AsyncCommand.Tests.ps1` (13),
+`tests/CommandDispatch.Tests.ps1`.
+
+**Decision (as implemented):**
+* **D119-R1, script-aware dispatch:** `run command` and `start command` run a
+  `.ps1` script with the PowerShell host running Otter, and a `.cmd`/`.bat`
+  script through `cmd.exe` on Windows; arguments are quoted safely (spaces, empty
+  strings, quotes, Unicode, metacharacters); stdout and stderr are drained
+  concurrently.
+* **D119-R2, command jobs:** `start command CMD and call it JOB`; handlers
+  `on output from JOB` (`received output`), `on error output from JOB`
+  (`received error output`), `on exit of JOB`, `on complete of JOB` (exit code
+  0), `on cancel of JOB`; `cancel JOB` (terminates the process tree; repeated
+  cancel is a no-op and the handler fires once); `JOB is running|completed|failed`;
+  `id`, `exit code`, `state`, `output`, `error output`, `command` of a job. A
+  terminal event whose handler is registered after the job ended fires once
+  (retained terminal event). `received output` outside its handler is an error.
+  The synchronous `run command ... into` form is unchanged.
+**Targets:** console and desktop. Scheduling is governed by D121.
+**Reconstruction:** complete.
+
+---
+
+# Decisions approved 2026-09-27
+
+## D116 affirmation (DC1). Console HTTP is part of Otter 1.0
+
+D116A and D116B stand as recorded: the HTTP client, both the synchronous
+statements and request handles, is supported on the **console and web** targets.
+Documents written before D116 that said otherwise
+(`docs/STANDARD_LIBRARY.md`, `docs/OTTER_1_0_CAPABILITY_MATRIX.md`,
+`docs/OTTER_1_0_RELEASE_SCOPE_MATRIX.md`, `docs/OTTER_1_0_HTTP_TARGET_PARITY.md`)
+are corrected. Certification requires the HTTP suite to pass on all four D120
+hosts.
+
+## D121. The Otter 1.0 event contract
+
+Applies to every event source (D104 watchers, D106 WebSockets, D107/D108/D113
+sockets, D116B requests, D119 jobs, UI events).
+
+1. **Cooperative execution.** Handlers execute one at a time and run to
+   completion. A handler never preempts running Otter code. There is no
+   real-time guarantee.
+2. **Scheduling (EV1, EV2).** Scheduling is best-effort, with eventual progress:
+   every source whose events are ready for dispatch is eventually serviced, and
+   no source may do unbounded work while another ready source is waiting. Otter
+   does **not** promise equal shares, round-robin order, a maximum latency or any
+   quantitative fairness. The amount of work a source may do per turn is an
+   implementation detail.
+3. **Ordering (EV4).** Events from one source are dispatched in the order they
+   became ready. The order between different sources is unspecified.
+4. **`wait` (EV3).** Where a target supports `wait`, a `wait` lets every active
+   event source supported by that runtime be serviced; handlers may therefore run
+   during a `wait`. For Otter 1.0, `wait` is supported on the console and desktop
+   targets and not on the web target (D101).
+5. **Timing (EV5, EV7).** Polling and scheduling delay is permitted. Measured
+   latency, throughput and polling cadence are characteristics of a particular
+   runtime, documented in runtime documentation, and are not language semantics.
+6. **Scope of the guarantee.** These rules govern how Otter dispatches events
+   that have become ready for dispatch. They do not promise that every external
+   occurrence produces an event: network, file-system and operating-system
+   sources keep their own semantics (for example, TCP may combine several writes
+   into one `on data`, and a file system may coalesce or drop notifications).
+7. **Host execution model.** When handlers run relative to the main program
+   depends on the host and is not identical across targets. Console and desktop:
+   handlers run at defined event-loop opportunities, which are after the main
+   program's last statement and during `wait`. Web: the browser's scheduling may
+   run a handler while the main program is suspended at an asynchronous operation
+   (for example an HTTP request). Rules 1 to 6 hold on every target.
+
+Evidence: `docs/OTTER_1_0_CONTRACT_DECISIONS_DC1_EV.md` (analysis),
+`docs/OTTER_1_0_EVENT_LOOP_REVIEW.md` (measurements),
+`tests/EventContract.Tests.ps1`.
+
+## D122. Module paths are case-sensitive (M1)
+
+A `use "..."` path must spell every folder and file name exactly as it exists on
+disk, on every host, including Windows and macOS whose file systems ignore case.
+A name that differs only in case is rejected with the same diagnostic on every
+host; there is no case-insensitive fallback. Module identity for duplicate loads
+and cycle detection is the exact on-disk path. Evidence: `tests/Module.Tests.ps1`
+test 8, `tests/HostPortability.Tests.ps1`.
