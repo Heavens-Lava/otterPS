@@ -355,8 +355,119 @@ try {
     if (-not (Test-Path -LiteralPath (Join-Path $reDir 'emptyout/otter.build.json') -PathType Leaf)) { throw "Test 18 failed: emptyout/otter.build.json missing" }
     Write-Output '  pass  rebuild still replaces Otter-created dist/ and fills an empty output folder'
 
+    # Test 19 (RC3 B4): every file build/publish includes must resolve inside
+    # the project root. Containment used to be lexical only: an asset that is
+    # a symbolic link (or sits under a linked folder) shipped the outside
+    # file's content, and an entryPoint of "../x.ot" or an absolute path ran
+    # and was packaged.
+    # RC3-B4 begin
+    $b4Outside = Join-Path $testTmp 'b4_outside'
+    New-Item -ItemType Directory -Path (Join-Path $b4Outside 'dir') -Force | Out-Null
+    Set-Content -LiteralPath (Join-Path $b4Outside 'secret.txt') -Value 'OUTSIDE SECRET' -Encoding UTF8
+    Set-Content -LiteralPath (Join-Path $b4Outside 'dir/inner.txt') -Value 'OUTSIDE INNER' -Encoding UTF8
+    Set-Content -LiteralPath (Join-Path $b4Outside 'style.css') -Value 'body { color: rgb(9, 9, 9); }' -Encoding UTF8
+    Set-Content -LiteralPath (Join-Path $b4Outside 'x.ot') -Value 'say "OUTSIDE PROJECT CODE RAN"' -Encoding UTF8
+    $b4Dir = Join-Path $testTmp 'B4App'
+    New-Item -ItemType Directory -Path (Join-Path $b4Dir 'assets/deep/nested') -Force | Out-Null
+    Set-Content -LiteralPath (Join-Path $b4Dir 'main.ot') -Value 'say "inside"' -Encoding UTF8
+    Set-Content -LiteralPath (Join-Path $b4Dir 'assets/ok.txt') -Value 'ok' -Encoding UTF8
+    Set-Content -LiteralPath (Join-Path $b4Dir 'assets/deep/nested/ok2.txt') -Value 'ok2' -Encoding UTF8
+    $b4Otter = Join-Path $repoRoot 'otter.ps1'
+    $b4SetManifest = {
+        param([string]$EntryPoint, [string[]]$Assets, [string]$Target = 'console')
+        $b4Obj = [ordered]@{ name = 'B4App'; version = '1.0.0'; target = $Target; entryPoint = $EntryPoint; assets = [string[]]@($Assets) }
+        Set-Content -LiteralPath (Join-Path $b4Dir 'otter.json') -Value (ConvertTo-Json -InputObject $b4Obj -Depth 5) -Encoding UTF8
+    }
+    # Symbolic links need privilege (or Developer Mode) on Windows; a folder
+    # junction does not, so Windows uses junctions for linked folders.
+    $b4NewLink = {
+        param([string]$Path, [string]$Target, [switch]$Folder)
+        try {
+            if ($Folder -and $script:OtterHostIsWindows) {
+                New-Item -ItemType Junction -Path $Path -Target $Target -ErrorAction Stop | Out-Null
+            } else {
+                New-Item -ItemType SymbolicLink -Path $Path -Target $Target -ErrorAction Stop | Out-Null
+            }
+            return $null
+        } catch {
+            return $_.Exception.Message
+        }
+    }
+    $b4AssertRefused = {
+        param([string]$Label, [string]$Pattern, [string[]]$Commands = @('build', 'publish'))
+        foreach ($b4Command in $Commands) {
+            $b4Out = & $script:OtterHostExe @script:OtterHostArgs -File $b4Otter $b4Command $b4Dir 2>&1
+            $b4Code = $LASTEXITCODE
+            $b4Text = $b4Out -join "`n"
+            if ($b4Code -eq 0) { throw "Test 19 failed: $Label was accepted by otter $b4Command. Output: $b4Text" }
+            if ($b4Text -notmatch $Pattern) { throw "Test 19 failed: $Label - otter $b4Command did not name the field. Output: $b4Text" }
+            if ($b4Text -match 'OUTSIDE PROJECT CODE RAN') { throw "Test 19 failed: $Label - otter $b4Command ran outside code" }
+        }
+        foreach ($b4Written in @('dist', 'publish')) {
+            if (Test-Path -LiteralPath (Join-Path $b4Dir $b4Written)) { throw "Test 19 failed: $Label - $b4Written/ was written" }
+        }
+        if (@(Get-ChildItem -LiteralPath $b4Dir -Force -Filter '.otter_*_staging_*').Count -gt 0) { throw "Test 19 failed: $Label - a staging folder was left behind" }
+    }
+
+    # Normal and nested assets still build and publish.
+    & $b4SetManifest 'main.ot' @('assets/ok.txt', 'assets/deep/nested/ok2.txt')
+    $b4Ok = & $script:OtterHostExe @script:OtterHostArgs -File $b4Otter publish $b4Dir 2>&1
+    if ($LASTEXITCODE -ne 0) { throw "Test 19 failed: normal assets no longer publish. Output: $b4Ok" }
+    if (-not (Test-Path -LiteralPath (Join-Path $b4Dir 'dist/assets/deep/nested/ok2.txt') -PathType Leaf)) { throw "Test 19 failed: nested asset missing from dist/" }
+    Remove-Item -LiteralPath (Join-Path $b4Dir 'dist'), (Join-Path $b4Dir 'publish') -Recurse -Force
+
+    # entryPoint "../x.ot" and an absolute entryPoint outside the project:
+    # refused by every command that reads the manifest.
+    & $b4SetManifest '../b4_outside/x.ot' @()
+    & $b4AssertRefused 'entryPoint "../b4_outside/x.ot"' 'otter\.json: entryPoint "\.\./b4_outside/x\.ot" escapes the project directory' @('run', 'check', 'build', 'publish')
+    $b4AbsEntry = Join-Path $b4Outside 'x.ot'
+    & $b4SetManifest $b4AbsEntry @()
+    & $b4AssertRefused 'absolute entryPoint' 'otter\.json: entryPoint ".*x\.ot" escapes the project directory' @('run', 'check', 'build', 'publish')
+
+    # A symlinked asset file.
+    $b4LinkErr = & $b4NewLink (Join-Path $b4Dir 'assets/link.txt') (Join-Path $b4Outside 'secret.txt')
+    if ($b4LinkErr) {
+        Write-Output "  skip  symlinked asset file: could not create a symbolic link on this host ($b4LinkErr)"
+    } else {
+        & $b4SetManifest 'main.ot' @('assets/ok.txt', 'assets/link.txt')
+        & $b4AssertRefused 'symlinked asset file' 'otter\.json: asset "assets/link\.txt" escapes the project directory'
+    }
+
+    # An asset inside a symlinked (junction on Windows) folder.
+    $b4DirLinkErr = & $b4NewLink (Join-Path $b4Dir 'linked') (Join-Path $b4Outside 'dir') -Folder
+    if ($b4DirLinkErr) {
+        Write-Output "  skip  asset under a linked folder: could not create a folder link on this host ($b4DirLinkErr)"
+    } else {
+        & $b4SetManifest 'main.ot' @('assets/ok.txt', 'linked/inner.txt')
+        & $b4AssertRefused 'asset under a linked folder' 'otter\.json: asset "linked/inner\.txt" escapes the project directory'
+    }
+
+    # The <entry>.css stylesheet the web build inlines, as a symbolic link.
+    $b4CssLinkErr = & $b4NewLink (Join-Path $b4Dir 'main.css') (Join-Path $b4Outside 'style.css')
+    if ($b4CssLinkErr) {
+        Write-Output "  skip  symlinked main.css: could not create a symbolic link on this host ($b4CssLinkErr)"
+    } else {
+        & $b4SetManifest 'main.ot' @() 'web'
+        & $b4AssertRefused 'symlinked main.css' 'otter\.json: stylesheet "main\.css" \(beside entryPoint "main\.ot"\) escapes the project directory'
+    }
+
+    # Remove the links themselves (never their targets) before the final
+    # recursive cleanup: Windows PowerShell 5.1's Remove-Item -Recurse can
+    # walk into a junction. Directory.Delete (non-recursive) removes a
+    # Windows junction; File.Delete unlinks a file link or a Unix folder link.
+    foreach ($b4Link in @('assets/link.txt', 'main.css')) {
+        $b4LinkPath = Join-Path $b4Dir $b4Link
+        if (Test-Path -LiteralPath $b4LinkPath) { [System.IO.File]::Delete($b4LinkPath) }
+    }
+    $b4FolderLink = Join-Path $b4Dir 'linked'
+    if (Test-Path -LiteralPath $b4FolderLink) {
+        if ($script:OtterHostIsWindows) { [System.IO.Directory]::Delete($b4FolderLink) } else { [System.IO.File]::Delete($b4FolderLink) }
+    }
+    Write-Output '  pass  build/publish refuse inputs outside the project (symlinked asset, linked folder, ../ and absolute entryPoint); normal assets still work'
+    # RC3-B4 end
+
 } finally {
     Remove-Item -LiteralPath $testTmp -Recurse -Force -ErrorAction SilentlyContinue
 }
 
-Write-Output "`nAll Otter project build system tests passed (18/18)."
+Write-Output "`nAll Otter project build system tests passed (19/19)."

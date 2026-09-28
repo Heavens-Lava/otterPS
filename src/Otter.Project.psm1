@@ -88,6 +88,162 @@ function Find-OtterProjectManifest {
     return $null
 }
 
+# Returns the real, fully resolved path of $Path: every symbolic link or
+# junction along the way (the file itself AND each ancestor folder) is
+# replaced by the place it points to. Lexical checks such as GetFullPath plus
+# StartsWith only look at the spelling, so "assets/link.txt" pointing at
+# /etc/secret, or "assets/" being a link to C:\Users\me, looked like it was
+# inside the project and was copied into dist/ and the publish zip.
+# Components that do not exist yet are appended as spelled. Link targets are
+# read with FileSystemInfo.LinkTarget on PowerShell 7 (.NET 6+) and with the
+# LinkType/Target properties Windows PowerShell 5.1 adds to Get-Item output.
+# Hard links are not redirects (they have no target path) and are left alone.
+function Get-OtterRealPath {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    $separators = [char[]]@([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar)
+    $full = [System.IO.Path]::GetFullPath($Path)
+    $current = [System.IO.Path]::GetPathRoot($full)
+    $pending = [System.Collections.Generic.List[string]]::new()
+    foreach ($segment in $full.Substring($current.Length).Split($separators, [System.StringSplitOptions]::RemoveEmptyEntries)) {
+        $pending.Add($segment)
+    }
+
+    # A link cycle (a -> b -> a) would otherwise loop forever.
+    $linkHops = 0
+    while ($pending.Count -gt 0) {
+        $segment = $pending[0]
+        $pending.RemoveAt(0)
+        if ($segment -eq '.') { continue }
+        if ($segment -eq '..') {
+            # $current is already real here, so its parent is the real parent.
+            $parent = [System.IO.Path]::GetDirectoryName($current)
+            if ($parent) { $current = $parent }
+            continue
+        }
+
+        $candidate = [System.IO.Path]::Combine($current, $segment)
+        $item = Get-Item -LiteralPath $candidate -Force -ErrorAction SilentlyContinue
+        $linkTarget = $null
+        if ($item -and $item.PSObject.Properties['LinkType'] -and ($item.LinkType -eq 'SymbolicLink' -or $item.LinkType -eq 'Junction')) {
+            if ($item.PSObject.Properties['LinkTarget'] -and $item.LinkTarget) {
+                $linkTarget = [string]$item.LinkTarget
+            } elseif ($item.PSObject.Properties['Target']) {
+                $linkTarget = [string](@($item.Target) | Select-Object -First 1)
+            }
+        }
+
+        if ([string]::IsNullOrEmpty($linkTarget)) {
+            $current = $candidate
+            continue
+        }
+
+        $linkHops++
+        if ($linkHops -gt 64) {
+            throw [OtterError]::new("Otter: too many symbolic links or junctions while resolving `"$Path`".", 0, 'check')
+        }
+        # Windows can report a junction target in NT form (\??\C:\dir).
+        if ($linkTarget.StartsWith('\??\')) { $linkTarget = $linkTarget.Substring(4) }
+        if (-not [System.IO.Path]::IsPathRooted($linkTarget)) {
+            # A relative link target is relative to the folder holding the link.
+            $linkTarget = [System.IO.Path]::Combine($current, $linkTarget)
+        }
+        # Restart from the target's root and walk the target's own segments
+        # first, so links inside the target are resolved too.
+        $targetFull = [System.IO.Path]::GetFullPath($linkTarget)
+        $current = [System.IO.Path]::GetPathRoot($targetFull)
+        $targetSegments = $targetFull.Substring($current.Length).Split($separators, [System.StringSplitOptions]::RemoveEmptyEntries)
+        $pending.InsertRange(0, [string[]]$targetSegments)
+    }
+
+    return $current
+}
+
+# The single containment gate for project inputs. Invariant (Otter 1.0 RC3):
+# every file build or publish includes (the entry point, its <entry>.css
+# stylesheet, every declared asset) must resolve inside the project root,
+# because Otter has no explicit external-file feature. Both sides are
+# compared as REAL paths (Get-OtterRealPath), so a symbolic link or junction
+# anywhere in the path cannot smuggle an outside file in, and an entryPoint of
+# "../x.ot" or an absolute path elsewhere is refused. The prefix check ends in
+# a separator ("/proj/" never matches "/project2/...") and ignores case on
+# Windows, where the file system does. Returns the real path of the input;
+# throws an OtterError naming the manifest field otherwise.
+function Resolve-OtterProjectInputPath {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$RootDirectory,
+        [Parameter(Mandatory = $true)]
+        [string]$InputPath,
+        # How the error names the input, e.g. 'otter.json: entryPoint "../x.ot"'.
+        [Parameter(Mandatory = $true)]
+        [string]$FieldDescription
+    )
+
+    $realRoot = Get-OtterRealPath -Path $RootDirectory
+    $realInput = Get-OtterRealPath -Path ([System.IO.Path]::Combine($RootDirectory, $InputPath))
+
+    $rootWithSep = $realRoot.TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
+    $comparison = if (Test-OtterProjectWindowsHost) { [System.StringComparison]::OrdinalIgnoreCase } else { [System.StringComparison]::Ordinal }
+    if (-not $realInput.StartsWith($rootWithSep, $comparison)) {
+        throw [OtterError]::new("${FieldDescription} escapes the project directory: it resolves to `"$realInput`", which is outside `"$realRoot`". Every file Otter builds or publishes must be inside the project folder (symbolic links and junctions are followed).", 0, 'check')
+    }
+    return $realInput
+}
+
+# Names a ConvertFrom-Json value's type in the words the manifest errors use.
+function Get-OtterManifestValueKind {
+    param($Value)
+    if ($null -eq $Value) { return 'null' }
+    if ($Value -is [string]) { return 'text' }
+    if ($Value -is [bool]) { return 'true/false' }
+    if ($Value -is [System.Management.Automation.PSCustomObject]) { return 'an object' }
+    if ($Value -is [System.Array] -or $Value -is [System.Collections.IList]) { return 'a list' }
+    if ($Value -is [int] -or $Value -is [long] -or $Value -is [double] -or $Value -is [decimal] -or $Value -is [System.Numerics.BigInteger]) { return 'a number' }
+    return $Value.GetType().Name
+}
+
+# Wrong-typed manifest values used to reach code that dereferences them
+# ("build": null crashed with "Cannot index into a null array." plus the
+# script path), or were silently coerced ("clean": "false" became $true,
+# "assets": 5 was ignored). Get-OtterProject calls this for every field it
+# reads, so a bad manifest ends in one OtterError that names the field and
+# the expected type. An absent field is still fine; a present one must have
+# the right type (a JSON null is not "absent").
+function Assert-OtterManifestFieldType {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ManifestName,
+        [Parameter(Mandatory = $true)]
+        [string]$Field,
+        [AllowNull()]
+        $Value,
+        [Parameter(Mandatory = $true)]
+        [ValidateSet('string', 'object', 'list', 'boolean')]
+        [string]$Expected
+    )
+
+    $ok = switch ($Expected) {
+        'string'  { $Value -is [string] }
+        'object'  { $Value -is [System.Management.Automation.PSCustomObject] }
+        'list'    { $Value -is [System.Array] -or $Value -is [System.Collections.IList] }
+        'boolean' { $Value -is [bool] }
+    }
+    if ($ok) { return }
+
+    $expectedText = switch ($Expected) {
+        'string'  { 'text (a JSON string)' }
+        'object'  { 'an object ({ ... })' }
+        'list'    { 'a list of text ([ ... ])' }
+        'boolean' { 'true or false' }
+    }
+    $kind = Get-OtterManifestValueKind -Value $Value
+    throw [OtterError]::new("${ManifestName}: property `"$Field`" must be $expectedText, but it is $kind.", 0, 'check')
+}
+
 function Get-OtterProject {
     param(
         [Parameter(Mandatory = $true)]
@@ -121,25 +277,56 @@ function Get-OtterProject {
         throw [OtterError]::new("${manifestName}: manifest is empty.", 0, 'check')
     }
 
+    # B5: every field below is read through $parsed.<name>, so a manifest
+    # that is a list or plain text (["a"], "hello") must stop here with a
+    # clear message instead of failing later on a missing property.
+    if ($parsed -isnot [System.Management.Automation.PSCustomObject]) {
+        throw [OtterError]::new("${manifestName}: the manifest must be a JSON object ({ ... }), but it is $(Get-OtterManifestValueKind -Value $parsed).", 0, 'check')
+    }
+
     # 1. Entry point validation
     $entryPoint = $null
-    if ($parsed.PSObject.Properties['entryPoint'] -and -not [string]::IsNullOrWhiteSpace($parsed.entryPoint)) {
-        $entryPoint = [string]$parsed.entryPoint
-    } elseif ($manifestName -eq 'project.json' -and $parsed.PSObject.Properties['main'] -and -not [string]::IsNullOrWhiteSpace($parsed.main)) {
-        $entryPoint = [string]$parsed.main
+    $entryField = 'entryPoint'
+    if ($parsed.PSObject.Properties['entryPoint']) {
+        Assert-OtterManifestFieldType -ManifestName $manifestName -Field 'entryPoint' -Value $parsed.entryPoint -Expected 'string'
+        if (-not [string]::IsNullOrWhiteSpace($parsed.entryPoint)) { $entryPoint = [string]$parsed.entryPoint }
+    } elseif ($manifestName -eq 'project.json' -and $parsed.PSObject.Properties['main']) {
+        Assert-OtterManifestFieldType -ManifestName $manifestName -Field 'main' -Value $parsed.main -Expected 'string'
+        if (-not [string]::IsNullOrWhiteSpace($parsed.main)) { $entryPoint = [string]$parsed.main }
+        $entryField = 'main'
     }
 
     if ([string]::IsNullOrWhiteSpace($entryPoint)) {
         throw [OtterError]::new("${manifestName}: property `"entryPoint`" is required.", 0, 'check')
     }
 
-    $resolvedEntry = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($rootDir, $entryPoint))
+    # Characters the host cannot use in a path (NUL everywhere; | < > " on
+    # Windows PowerShell 5.1) make GetFullPath throw a raw .NET exception.
+    $resolvedEntry = $null
+    try {
+        $resolvedEntry = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($rootDir, $entryPoint))
+    } catch {
+        throw [OtterError]::new("${manifestName}: entry point `"$entryPoint`" is not a valid file path.", 0, 'check')
+    }
     if (-not (Test-Path -LiteralPath $resolvedEntry -PathType Leaf)) {
         throw [OtterError]::new("${manifestName}: entry point `"$entryPoint`" does not exist.", 0, 'check')
     }
 
+    # B4: the entry point must really live inside the project (no "../x.ot",
+    # no absolute path elsewhere, no symlink or junction leading out). Every
+    # command that reads the manifest (run, check, build, publish, web,
+    # desktop) comes through here, so it is refused before any of them reads
+    # or copies the file.
+    $null = Resolve-OtterProjectInputPath -RootDirectory $rootDir -InputPath $entryPoint -FieldDescription "${manifestName}: $entryField `"$entryPoint`""
+
     # 2. Target validation
     $target = 'console'
+    if ($parsed.PSObject.Properties['target']) {
+        Assert-OtterManifestFieldType -ManifestName $manifestName -Field 'target' -Value $parsed.target -Expected 'string'
+    }
+    if ($parsed.PSObject.Properties['archetype']) {
+        Assert-OtterManifestFieldType -ManifestName $manifestName -Field 'archetype' -Value $parsed.archetype -Expected 'string'
+    }
     if ($parsed.PSObject.Properties['target'] -and -not [string]::IsNullOrWhiteSpace($parsed.target)) {
         $target = [string]$parsed.target
     } elseif ($parsed.PSObject.Properties['archetype'] -and -not [string]::IsNullOrWhiteSpace($parsed.archetype)) {
@@ -151,11 +338,21 @@ function Get-OtterProject {
         throw [OtterError]::new("${manifestName}: target `"$target`" is not supported.", 0, 'check')
     }
 
+    # B5: name and version end up in file names and JSON metadata; a number
+    # or object used to be stringified silently (1.10 became "1.1").
+    foreach ($textField in @('name', 'version')) {
+        if ($parsed.PSObject.Properties[$textField]) {
+            Assert-OtterManifestFieldType -ManifestName $manifestName -Field $textField -Value $parsed.$textField -Expected 'string'
+        }
+    }
+
     # 3. Output directory containment validation
     $buildObj = [OtterProjectBuild]::new()
     if ($parsed.PSObject.Properties['build']) {
         $b = $parsed.build
+        Assert-OtterManifestFieldType -ManifestName $manifestName -Field 'build' -Value $b -Expected 'object'
         if ($b.PSObject.Properties['outputDir']) {
+            Assert-OtterManifestFieldType -ManifestName $manifestName -Field 'build.outputDir' -Value $b.outputDir -Expected 'string'
             $outDir = [string]$b.outputDir
             if ([string]::IsNullOrWhiteSpace($outDir)) {
                 throw [OtterError]::new("${manifestName}: build.outputDir must stay inside the project directory.", 0, 'check')
@@ -167,6 +364,12 @@ function Get-OtterProject {
             }
             $buildObj.OutputDir = $outDir
         }
+        # [bool]"false" is $true, so the flags must be real JSON booleans.
+        foreach ($flag in @('clean', 'sourceMaps', 'minify')) {
+            if ($b.PSObject.Properties[$flag]) {
+                Assert-OtterManifestFieldType -ManifestName $manifestName -Field "build.$flag" -Value $b.$flag -Expected 'boolean'
+            }
+        }
         if ($b.PSObject.Properties['clean']) { $buildObj.Clean = [bool]$b.clean }
         if ($b.PSObject.Properties['sourceMaps']) { $buildObj.SourceMaps = [bool]$b.sourceMaps }
         if ($b.PSObject.Properties['minify']) { $buildObj.Minify = [bool]$b.minify }
@@ -175,7 +378,9 @@ function Get-OtterProject {
     $publishObj = [OtterProjectPublish]::new()
     if ($parsed.PSObject.Properties['publish']) {
         $p = $parsed.publish
+        Assert-OtterManifestFieldType -ManifestName $manifestName -Field 'publish' -Value $p -Expected 'object'
         if ($p.PSObject.Properties['outputDir']) {
+            Assert-OtterManifestFieldType -ManifestName $manifestName -Field 'publish.outputDir' -Value $p.outputDir -Expected 'string'
             $pOut = [string]$p.outputDir
             if (-not [string]::IsNullOrWhiteSpace($pOut)) {
                 $publishObj.OutputDir = $pOut.Trim()
@@ -197,15 +402,24 @@ function Get-OtterProject {
     $project.Build = $buildObj
     $project.Publish = $publishObj
 
-    # Assets
-    if ($parsed.PSObject.Properties['assets'] -and $parsed.assets -is [System.Collections.IEnumerable]) {
+    # Assets: a list of relative file paths. A single string, a number or an
+    # object used to be accepted or silently ignored (B5).
+    if ($parsed.PSObject.Properties['assets']) {
+        Assert-OtterManifestFieldType -ManifestName $manifestName -Field 'assets' -Value $parsed.assets -Expected 'list'
+        $assetIndex = 0
+        foreach ($assetValue in @($parsed.assets)) {
+            Assert-OtterManifestFieldType -ManifestName $manifestName -Field "assets[$assetIndex]" -Value $assetValue -Expected 'string'
+            $assetIndex++
+        }
         $project.Assets = @($parsed.assets | ForEach-Object { [string]$_ })
     }
 
-    # Scripts
+    # Scripts: an object whose values are command lines.
     if ($parsed.PSObject.Properties['scripts']) {
+        Assert-OtterManifestFieldType -ManifestName $manifestName -Field 'scripts' -Value $parsed.scripts -Expected 'object'
         $scriptsTable = @{}
         foreach ($p in $parsed.scripts.PSObject.Properties) {
+            Assert-OtterManifestFieldType -ManifestName $manifestName -Field "scripts.$($p.Name)" -Value $p.Value -Expected 'string'
             $scriptsTable[$p.Name] = [string]$p.Value
         }
         $project.Scripts = $scriptsTable
@@ -679,6 +893,9 @@ function Invoke-OtterProjectBuild {
     }
 
     # 3. Asset validation before staging
+    # Real (link-resolved) source path of each asset, filled by the B4 check
+    # below; step 5 copies from these so what is copied is what was checked.
+    $realAssetPaths = @{}
     foreach ($asset in $project.Assets) {
         if ([string]::IsNullOrWhiteSpace($asset)) { continue }
         $trimmedAsset = $asset.Trim()
@@ -703,6 +920,37 @@ function Invoke-OtterProjectBuild {
             Write-Host "otter.json: declared asset `"$asset`" does not exist." -ForegroundColor Red
             Write-Host ""
             return 1
+        }
+        # B4: the lexical check above cannot see symbolic links or junctions;
+        # a link inside the project (or an asset under a linked folder) used
+        # to ship the outside file's content in dist/ and the publish zip.
+        # Refused here, before the staging folder or dist/ is written.
+        try {
+            $realAssetPaths[$trimmedAsset] = Resolve-OtterProjectInputPath -RootDirectory $rootDir -InputPath $trimmedAsset -FieldDescription "otter.json: asset `"$asset`""
+        } catch [OtterError] {
+            Write-Host "Build failed." -ForegroundColor Red
+            Write-Host ""
+            Write-Host $_.Exception.Message -ForegroundColor Red
+            Write-Host ""
+            return 1
+        }
+    }
+
+    # B4: the web compiler inlines <entry>.css (main.ot -> main.css) into
+    # index.html, so that stylesheet is a build input too and must pass the
+    # same containment gate before anything is written.
+    if ($project.Target.ToLowerInvariant() -in @('web', 'desktop', 'game')) {
+        $sidecarCss = [System.IO.Path]::ChangeExtension($project.ResolvedEntryPoint, '.css')
+        if (Test-Path -LiteralPath $sidecarCss) {
+            try {
+                $null = Resolve-OtterProjectInputPath -RootDirectory $rootDir -InputPath $sidecarCss -FieldDescription "otter.json: stylesheet `"$([System.IO.Path]::GetFileName($sidecarCss))`" (beside entryPoint `"$($project.EntryPoint)`")"
+            } catch [OtterError] {
+                Write-Host "Build failed." -ForegroundColor Red
+                Write-Host ""
+                Write-Host $_.Exception.Message -ForegroundColor Red
+                Write-Host ""
+                return 1
+            }
         }
     }
 
@@ -765,7 +1013,7 @@ function Invoke-OtterProjectBuild {
             foreach ($asset in $project.Assets) {
                 if ([string]::IsNullOrWhiteSpace($asset)) { continue }
                 $trimmedAsset = $asset.Trim()
-                $srcPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($rootDir, $trimmedAsset))
+                $srcPath = $realAssetPaths[$trimmedAsset]
                 $destPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($stagingDir, $trimmedAsset))
                 $destParent = Split-Path -Parent $destPath
                 if (-not (Test-Path -LiteralPath $destParent -PathType Container)) {

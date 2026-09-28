@@ -212,8 +212,70 @@ try {
     if (($modRunOut -join "`n") -notmatch 'Hello from module') { throw "Test 14 failed: Expected 'Hello from module', got: $modRunOut" }
     Write-Output '  pass  CLI: project entryPoint with imported modules resolves relative to source files'
 
+    # Test 15 (RC3 B5): wrong-typed manifest fields are OtterErrors naming the
+    # field and the expected type. "build": null used to crash with the raw
+    # PowerShell error "Cannot index into a null array." (plus otter.ps1's
+    # path and source line); other wrong types were silently coerced/ignored.
+    # RC3-B5 begin
+    $b5Dir = Join-Path $testTmp 'B5App'
+    New-Item -ItemType Directory -Path $b5Dir -Force | Out-Null
+    Set-Content -LiteralPath (Join-Path $b5Dir 'main.ot') -Value 'say "b5"' -Encoding UTF8
+    $b5Cases = @(
+        @{ Json = '{"name":"b5","entryPoint":"main.ot","build":null}';              Field = 'build';       Kind = 'null' }
+        @{ Json = '{"name":"b5","entryPoint":"main.ot","build":"dist"}';            Field = 'build';       Kind = 'text' }
+        @{ Json = '{"name":"b5","entryPoint":"main.ot","build":{"clean":"false"}}'; Field = 'build.clean'; Kind = 'text' }
+        @{ Json = '{"name":"b5","entryPoint":"main.ot","publish":null}';            Field = 'publish';     Kind = 'null' }
+        @{ Json = '{"name":"b5","entryPoint":"main.ot","publish":["x"]}';           Field = 'publish';     Kind = 'a list' }
+        @{ Json = '{"name":"b5","entryPoint":"main.ot","assets":null}';             Field = 'assets';      Kind = 'null' }
+        @{ Json = '{"name":"b5","entryPoint":"main.ot","assets":5}';                Field = 'assets';      Kind = 'a number' }
+        @{ Json = '{"name":"b5","entryPoint":"main.ot","assets":"main.ot"}';        Field = 'assets';      Kind = 'text' }
+        @{ Json = '{"name":"b5","entryPoint":"main.ot","assets":[{"a":1}]}';        Field = 'assets[0]';   Kind = 'an object' }
+        @{ Json = '{"name":"b5","entryPoint":null}';                                Field = 'entryPoint';  Kind = 'null' }
+        @{ Json = '{"name":"b5","entryPoint":5}';                                   Field = 'entryPoint';  Kind = 'a number' }
+        @{ Json = '{"name":"b5","entryPoint":["main.ot"]}';                         Field = 'entryPoint';  Kind = 'a list' }
+        @{ Json = '{"name":null,"entryPoint":"main.ot"}';                           Field = 'name';        Kind = 'null' }
+        @{ Json = '{"name":42,"entryPoint":"main.ot"}';                             Field = 'name';        Kind = 'a number' }
+        @{ Json = '{"name":{"x":1},"entryPoint":"main.ot"}';                        Field = 'name';        Kind = 'an object' }
+        @{ Json = '{"name":"b5","version":1.10,"entryPoint":"main.ot"}';            Field = 'version';     Kind = 'a number' }
+        @{ Json = '{"name":"b5","entryPoint":"main.ot","scripts":["a"]}';           Field = 'scripts';     Kind = 'a list' }
+    )
+    foreach ($b5Case in $b5Cases) {
+        Set-Content -LiteralPath (Join-Path $b5Dir 'otter.json') -Value $b5Case.Json -Encoding UTF8
+        $b5Threw = $false
+        try {
+            Get-OtterProject -Path $b5Dir | Out-Null
+        } catch [OtterError] {
+            $b5Threw = $true
+            $b5Expected = 'otter.json: property "' + $b5Case.Field + '" must be '
+            if (-not $_.Exception.Message.StartsWith($b5Expected) -or -not $_.Exception.Message.EndsWith("but it is $($b5Case.Kind).")) {
+                throw "Test 15 failed: $($b5Case.Json) gave an unexpected message: $($_.Exception.Message)"
+            }
+        } catch {
+            throw "Test 15 failed: $($b5Case.Json) raised a raw PowerShell error instead of an OtterError: $($_.Exception.Message)"
+        }
+        if (-not $b5Threw) { throw "Test 15 failed: $($b5Case.Json) was accepted" }
+    }
+
+    # Through the CLI: build/publish exit 1 and run/check exit 2 with the
+    # Otter message, never a PowerShell error record, and nothing is written.
+    Set-Content -LiteralPath (Join-Path $b5Dir 'otter.json') -Value '{"name":"b5","version":"1.0.0","entryPoint":"main.ot","build":null}' -Encoding UTF8
+    foreach ($b5Command in @('build', 'publish', 'run', 'check')) {
+        $b5Out = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') $b5Command $b5Dir 2>&1
+        $b5Code = $LASTEXITCODE
+        $b5Text = $b5Out -join "`n"
+        $b5ExpectedCode = if ($b5Command -in @('build', 'publish')) { 1 } else { 2 }
+        if ($b5Code -ne $b5ExpectedCode) { throw "Test 15 failed: otter $b5Command with build:null exited $b5Code, expected $b5ExpectedCode. Output: $b5Text" }
+        if ($b5Text -notmatch 'otter\.json: property "build" must be an object') { throw "Test 15 failed: otter $b5Command did not name the field. Output: $b5Text" }
+        if ($b5Text -match 'Cannot index|otter\.ps1:\d+|Get-OtterProject:') { throw "Test 15 failed: otter $b5Command leaked a PowerShell error. Output: $b5Text" }
+    }
+    foreach ($b5Written in @('dist', 'publish')) {
+        if (Test-Path -LiteralPath (Join-Path $b5Dir $b5Written)) { throw "Test 15 failed: a bad manifest still wrote $b5Written/" }
+    }
+    Write-Output '  pass  wrong-typed build, publish, assets, entryPoint, name, version, scripts give an OtterError naming the field'
+    # RC3-B5 end
+
 } finally {
     Remove-Item -LiteralPath $testTmp -Recurse -Force -ErrorAction SilentlyContinue
 }
 
-Write-Output "`nAll Otter project system tests passed (14/14)."
+Write-Output "`nAll Otter project system tests passed (15/15)."
