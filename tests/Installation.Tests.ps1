@@ -166,6 +166,87 @@ btn is a button
         if (-not $failed) { throw "Expected installer to refuse 'C:\' destination!" }
     }
 
+    # 8a. -Force must never delete a folder that is not an Otter installation
+    # (regression: -Force used to Remove-Item -Recurse any existing destination)
+    $userFolder = Join-Path $testRoot 'user_documents'
+    New-Item -ItemType Directory -Path $userFolder | Out-Null
+    $userFile = Join-Path $userFolder 'thesis.txt'
+    Set-Content -LiteralPath $userFile -Value 'irreplaceable user data' -Encoding UTF8
+    Assert-Test "Forced install into a non-Otter folder is refused and user data survives" {
+        $failed = $false
+        try {
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installer -Destination $userFolder -Force 2>&1 | Out-Null
+            if ($LASTEXITCODE -ne 0) { $failed = $true }
+        } catch { $failed = $true }
+        if (-not $failed) { throw "Expected forced install into a non-Otter folder to be refused!" }
+        if (-not (Test-Path -LiteralPath $userFile)) { throw "User file $userFile was deleted by the installer!" }
+    }
+
+    # 8b. An existing EMPTY folder is a valid destination
+    $emptyFolder = Join-Path $testRoot 'empty_folder'
+    New-Item -ItemType Directory -Path $emptyFolder | Out-Null
+    Assert-Test "Installation into an existing empty folder succeeds" {
+        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installer -Destination $emptyFolder | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "Install into empty folder exited with code $LASTEXITCODE" }
+        if (-not (Test-Path -LiteralPath (Join-Path $emptyFolder '.otter-install'))) { throw ".otter-install marker not written" }
+    }
+
+    # 8c. -Force upgrades a real previous install, including one made by an
+    # earlier installer that did not write the .otter-install marker
+    $legacyInstall = Join-Path $testRoot 'legacy_install'
+    Assert-Test "Forced install upgrades a previous (pre-marker) Otter installation" {
+        Copy-Item -LiteralPath $installDir1 -Destination $legacyInstall -Recurse
+        Remove-Item -LiteralPath (Join-Path $legacyInstall '.otter-install') -Force
+        Set-Content -LiteralPath (Join-Path $legacyInstall 'stale-from-old-version.txt') -Value 'old' -Encoding UTF8
+        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installer -Destination $legacyInstall -Force | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "Forced upgrade exited with code $LASTEXITCODE" }
+        if (Test-Path -LiteralPath (Join-Path $legacyInstall 'stale-from-old-version.txt')) { throw "Old installation was not replaced" }
+        if (-not (Test-Path -LiteralPath (Join-Path $legacyInstall '.otter-install'))) { throw ".otter-install marker not written on upgrade" }
+        if (-not (Test-Path -LiteralPath (Join-Path $legacyInstall 'otter.cmd'))) { throw "otter.cmd missing after upgrade" }
+    }
+
+    # 8d. A destination that contains the extracted package must be refused
+    # (regression: -Force used to delete the package mid-install)
+    Assert-Test "Forced install into an ancestor of the package is refused and the package survives" {
+        $failed = $false
+        try {
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $installer -Destination $payloadDir -Force 2>&1 | Out-Null
+            if ($LASTEXITCODE -ne 0) { $failed = $true }
+        } catch { $failed = $true }
+        if (-not $failed) { throw "Expected install into an ancestor of the package to be refused!" }
+        if (-not (Test-Path -LiteralPath $installer)) { throw "Extracted package was deleted by the installer!" }
+    }
+
+    # 8e. The uninstaller must never delete a source checkout or a random
+    # folder, even with -Force (regression: otter.cmd alone was its marker,
+    # and -Force skipped even that)
+    $fakeCheckout = Join-Path $testRoot 'source_checkout'
+    New-Item -ItemType Directory -Path $fakeCheckout | Out-Null
+    foreach ($file in @('otter.cmd', 'otter.ps1', 'Otter.Contract.psm1', 'VERSION')) {
+        Copy-Item -LiteralPath (Join-Path $package $file) -Destination $fakeCheckout
+    }
+    Copy-Item -LiteralPath (Join-Path $package 'src') -Destination $fakeCheckout -Recurse
+    New-Item -ItemType Directory -Path (Join-Path $fakeCheckout '.git') | Out-Null
+    New-Item -ItemType Directory -Path (Join-Path $fakeCheckout 'tests') | Out-Null
+    Assert-Test "Uninstaller refuses a source checkout and a random folder even with -Force" {
+        foreach ($target in @($fakeCheckout, $userFolder)) {
+            $failed = $false
+            try {
+                & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $uninstaller -Destination $target -Force 2>&1 | Out-Null
+                if ($LASTEXITCODE -ne 0) { $failed = $true }
+            } catch { $failed = $true }
+            if (-not $failed) { throw "Expected uninstaller to refuse $target!" }
+        }
+        if (-not (Test-Path -LiteralPath (Join-Path $fakeCheckout 'otter.cmd'))) { throw "Source checkout was deleted by the uninstaller!" }
+        if (-not (Test-Path -LiteralPath $userFile)) { throw "User file $userFile was deleted by the uninstaller!" }
+    }
+
+    Assert-Test "Uninstaller still removes a real installation" {
+        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $uninstaller -Destination $emptyFolder -Force | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "Uninstall-Otter exited with code $LASTEXITCODE" }
+        if (Test-Path -LiteralPath $emptyFolder) { throw "Installation directory $emptyFolder was not removed!" }
+    }
+
     # 9. Test corrupted distribution rejection
     $corruptPackage = Join-Path $testRoot 'corrupt_package'
     New-Item -ItemType Directory -Path $corruptPackage | Out-Null
