@@ -271,9 +271,9 @@ assert.doesNotMatch(dogfoodHtml, /resize-handle/);
   const heading = model.addChild(root.id, 'heading', { text: 'Dashboard' });
   const source = generateOtterSource(model);
   const line = source.split('\n').find(l => l.startsWith(`${heading.name} is a`));
-  assert.match(line, / is a text with text "Dashboard", size \d+, bold true/, `a heading is written as text: ${line}`);
+  assert.match(line, / is a text with text "Dashboard", size \d+, weight 700/, `a heading is written as text: ${line}`);
   assert.doesNotMatch(source, / is a heading/);
-  console.log('  ✓ a Heading is written as the large bold text Otter 1.0 renders');
+  console.log('  ✓ a Heading is written as the large bold text Otter 1.0 renders (weight 700, which compiles)');
 }
 
 console.log('All Visual UI Designer production round-trip tests passed cleanly!');

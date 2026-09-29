@@ -117,9 +117,9 @@ export function formatProperties(props, schema) {
 
   // Ordered priority for readable configuration
   const priority = [
-    'title', 'text', 'placeholder', 'size', 'bold', 'italic',
+    'title', 'text', 'placeholder', 'size', 'weight', 'bold', 'italic',
     'width', 'height', 'spread', 'align', 'spacing', 'padding',
-    'background', 'foreground', 'round', 'opacity', 'checked', 'value', 'source'
+    'background', 'foreground', 'round', 'radius', 'opacity', 'checked', 'value', 'source'
   ];
 
   const keys = Object.keys(props).sort((a, b) => {
@@ -165,7 +165,8 @@ export function formatProperty(key, val) {
     return null;
   }
   if (typeof val === 'number') {
-    if (key === 'round') return 'round';
+    // A bare `round` is a pill (9999px); a number is kept as written. New
+    // controls use `radius N` for ordinary rounded corners.
     return `${key} ${val}`;
   }
   return null;

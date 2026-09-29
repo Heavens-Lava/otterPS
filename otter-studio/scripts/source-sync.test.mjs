@@ -40,7 +40,7 @@ assert.equal(model.getRoot().properties.title, 'Declarative Studio');
 const declarativeButton = model.getComponent(model.getRoot().children[0]);
 assert.equal(declarativeButton.name, 'saveButton');
 assert.equal(declarativeButton.properties.padding, 8);
-assert.equal(declarativeButton.properties.round, 8);
+assert.equal(declarativeButton.properties.round, true, 'a bare round is a flag (a pill when compiled)');
 
 const regeneratedDeclarativeSource = generateOtterSource(model);
 assert.match(regeneratedDeclarativeSource, /^app is a window with /m, 'Studio must emit modern declarative UI declarations');

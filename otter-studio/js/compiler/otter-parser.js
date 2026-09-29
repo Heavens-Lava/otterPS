@@ -63,7 +63,8 @@ export function readPropertyPhrase(text, kind = '') {
   const trimmed = text.trim();
   const lower = trimmed.toLowerCase();
   if (lower === 'spread') return { key: 'spread', rawKey: trimmed, value: true, usesIs: false };
-  if (lower === 'round') return { key: 'round', rawKey: trimmed, value: 8, usesIs: false };
+  // A bare `round` is a flag: the compiler draws the control as a pill.
+  if (lower === 'round') return { key: 'round', rawKey: trimmed, value: true, usesIs: false };
 
   const match = trimmed.match(/^([a-zA-Z0-9_]+)\s+(is\s+)?(.+)$/);
   if (!match) return null;

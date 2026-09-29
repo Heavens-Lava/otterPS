@@ -123,14 +123,14 @@ function setup(css = '') {
 // an explicit `radius`, and undo brings `round` back.
 {
   const { model, styles, root } = setup();
-  const card = model.addChild(root.id, 'card', { round: 8 });
+  const card = model.addChild(root.id, 'card', { round: true });
   assert.equal(styles.sourceValue(card, 'border-radius'), '9999px', 'bare round is a pill');
   styles.write(card, { 'border-radius': '12px' });
   assert.equal(card.properties.round, undefined);
   assert.equal(card.properties.radius, 12);
   assert.match(generateOtterSource(model), /radius 12/);
   model.undo();
-  assert.equal(model.getComponent(card.id).properties.round, 8);
+  assert.equal(model.getComponent(card.id).properties.round, true);
 }
 
 // 9. Inheritance: mobile hover sees base hover before base normal.

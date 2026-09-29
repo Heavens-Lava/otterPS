@@ -41,7 +41,7 @@ export const ComponentSchema = {
       spread: false,
       align: 'middle'
     },
-    allowedProperties: ['width', 'height', 'background', 'spacing', 'padding', 'spread', 'align', 'round', 'opacity'],
+    allowedProperties: ['width', 'height', 'background', 'spacing', 'padding', 'spread', 'align', 'radius', 'round', 'opacity'],
     events: []
   },
 
@@ -57,7 +57,7 @@ export const ComponentSchema = {
       padding: 0,
       align: 'left'
     },
-    allowedProperties: ['width', 'height', 'background', 'spacing', 'padding', 'spread', 'align', 'round', 'opacity'],
+    allowedProperties: ['width', 'height', 'background', 'spacing', 'padding', 'spread', 'align', 'radius', 'round', 'opacity'],
     events: []
   },
 
@@ -73,7 +73,7 @@ export const ComponentSchema = {
       padding: 16,
       spacing: 8
     },
-    allowedProperties: ['width', 'height', 'background', 'spacing', 'padding', 'round', 'spread', 'align', 'opacity'],
+    allowedProperties: ['width', 'height', 'background', 'spacing', 'padding', 'radius', 'round', 'spread', 'align', 'opacity'],
     events: []
   },
 
@@ -103,9 +103,9 @@ export const ComponentSchema = {
       text: 'Heading Title',
       size: 22,
       foreground: '#f8fafc',
-      bold: true
+      weight: 700
     },
-    allowedProperties: ['text', 'size', 'foreground', 'background', 'bold', 'align', 'opacity'],
+    allowedProperties: ['text', 'size', 'foreground', 'background', 'weight', 'align', 'opacity'],
     events: []
   },
 
@@ -120,7 +120,7 @@ export const ComponentSchema = {
       size: 14,
       foreground: '#cbd5e1'
     },
-    allowedProperties: ['text', 'size', 'foreground', 'background', 'bold', 'align', 'opacity'],
+    allowedProperties: ['text', 'size', 'foreground', 'background', 'weight', 'align', 'opacity'],
     events: []
   },
 
@@ -134,10 +134,10 @@ export const ComponentSchema = {
       text: 'Button',
       background: '#334155',
       foreground: '#ffffff',
-      round: 6,
+      radius: 6,
       padding: 8
     },
-    allowedProperties: ['text', 'width', 'height', 'background', 'foreground', 'round', 'align', 'opacity', 'enabled'],
+    allowedProperties: ['text', 'width', 'height', 'background', 'foreground', 'radius', 'round', 'align', 'opacity', 'enabled'],
     events: ['clicked']
   },
 
@@ -151,11 +151,11 @@ export const ComponentSchema = {
       text: 'Save Changes',
       background: '#2563eb',
       foreground: '#ffffff',
-      round: 6,
+      radius: 6,
       padding: 8,
-      bold: true
+      weight: 700
     },
-    allowedProperties: ['text', 'width', 'height', 'background', 'foreground', 'round', 'align', 'opacity', 'enabled'],
+    allowedProperties: ['text', 'width', 'height', 'background', 'foreground', 'radius', 'round', 'align', 'opacity', 'enabled'],
     events: ['clicked']
   },
 
@@ -169,10 +169,10 @@ export const ComponentSchema = {
       text: 'Delete Item',
       background: '#dc2626',
       foreground: '#ffffff',
-      round: 6,
+      radius: 6,
       padding: 8
     },
-    allowedProperties: ['text', 'width', 'height', 'background', 'foreground', 'round', 'align', 'opacity', 'enabled'],
+    allowedProperties: ['text', 'width', 'height', 'background', 'foreground', 'radius', 'round', 'align', 'opacity', 'enabled'],
     events: ['clicked']
   },
 
@@ -189,9 +189,9 @@ export const ComponentSchema = {
       height: 38,
       background: '#1e293b',
       foreground: '#f8fafc',
-      round: 6
+      radius: 6
     },
-    allowedProperties: ['text', 'placeholder', 'width', 'height', 'background', 'foreground', 'round', 'align', 'opacity', 'enabled'],
+    allowedProperties: ['text', 'placeholder', 'width', 'height', 'background', 'foreground', 'radius', 'round', 'align', 'opacity', 'enabled'],
     events: ['changed', 'clicked']
   },
 
@@ -237,9 +237,9 @@ export const ComponentSchema = {
       width: 'full',
       background: '#1e293b',
       foreground: '#f8fafc',
-      round: 6
+      radius: 6
     },
-    allowedProperties: ['placeholder', 'width', 'height', 'background', 'foreground', 'round', 'enabled', 'opacity'],
+    allowedProperties: ['placeholder', 'width', 'height', 'background', 'foreground', 'radius', 'round', 'enabled', 'opacity'],
     events: ['changed']
   },
 
@@ -256,9 +256,9 @@ export const ComponentSchema = {
       height: 10,
       background: '#1e293b',
       foreground: '#3b82f6',
-      round: 4
+      radius: 4
     },
-    allowedProperties: ['value', 'maximum', 'width', 'height', 'background', 'foreground', 'round', 'opacity'],
+    allowedProperties: ['value', 'maximum', 'width', 'height', 'background', 'foreground', 'radius', 'round', 'opacity'],
     events: []
   },
 
@@ -272,9 +272,9 @@ export const ComponentSchema = {
       source: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=500&auto=format&fit=crop&q=60',
       width: 200,
       height: 140,
-      round: 6
+      radius: 6
     },
-    allowedProperties: ['source', 'width', 'height', 'round', 'opacity'],
+    allowedProperties: ['source', 'width', 'height', 'radius', 'round', 'opacity'],
     events: ['clicked']
   }
 };
