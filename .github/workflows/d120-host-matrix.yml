@@ -129,7 +129,8 @@ jobs:
             'ProjectBuild.Tests.ps1',
             'ProjectCreationAndTestRunner.Tests.ps1',
             'ProjectPublish.Tests.ps1',
-            'Web.Tests.ps1'
+            'Web.Tests.ps1',
+            'WebRuntimeUi.Tests.ps1'
           )
           $failures = @()
           foreach ($suiteName in $suiteNames) {
