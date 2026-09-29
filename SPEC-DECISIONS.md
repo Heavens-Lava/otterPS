@@ -7830,3 +7830,19 @@ say so; any other statement without a web compilation is an error rather than
 being skipped.
 
 Evidence: `tests/WebRuntimeUi.Tests.ps1` (headless Chromium).
+
+## D56 affirmation (2026-09-29). UI actions stay out of 1.0; planned for 1.1
+
+**Decided 2026-09-29 (Jeff).** The OtterBoard dogfood application needs to hide
+and show parts of the page (switching pages, closing dialogs) and to clear a
+container before redrawing a list. D56 excludes those UI actions from Otter 1.0,
+and the console refuses them ("'hide' is not supported in Otter 1.0."); since
+rc.4 the web target refuses them the same way (D128).
+
+**Decision:** D56 stands for 1.0 unchanged, on every target. `hide`, `show` as a
+UI action, `focus` and `clear` are planned for Otter 1.1, where they must be
+implemented and certified on the console (WPF) and web targets together, with
+OtterBoard as the 1.1 flagship application. The syntax proposals made alongside
+OtterBoard (phrase functions, `each`/`into`/`its`, `style`) are likewise not part
+of 1.0 and need their own decisions, with Codex, before they are implemented on
+the release line.
