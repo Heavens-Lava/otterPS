@@ -1168,6 +1168,17 @@ function Start-OtterDesktopApplication {
     $htmlPath = Export-OtterWebApplication -SourcePath $resolved.Path
     $resolvedHtml = (Resolve-Path $htmlPath).Path
 
+    # The page declares its own window size (<meta name="otter-window">);
+    # an explicit -Width/-Height still wins.
+    $metaMatch = [regex]::Match((Get-Content -LiteralPath $resolvedHtml -Raw -Encoding UTF8), '<meta name="otter-window" content="([^"]*)"')
+    if ($metaMatch.Success) {
+        try {
+            $declared = ConvertFrom-Json -InputObject ([System.Net.WebUtility]::HtmlDecode($metaMatch.Groups[1].Value))
+            if (-not $PSBoundParameters.ContainsKey('Width') -and $declared.width) { $Width = [int]$declared.width }
+            if (-not $PSBoundParameters.ContainsKey('Height') -and $declared.height) { $Height = [int]$declared.height }
+        } catch { }
+    }
+
     # 3. Create session-specific runtime instance HTML with injected bridge credentials
     $rawHtml = Get-Content -LiteralPath $resolvedHtml -Raw -Encoding UTF8
     $injectionScript = @"

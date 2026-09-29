@@ -200,7 +200,10 @@ function Test-OtterCallStackContains {
 function Resolve-OtterModuleSourceInternal {
     param(
         [Parameter(Mandatory)][string]$FilePath,
-        [Parameter(Mandatory)][OtterModuleContext]$Context
+        [Parameter(Mandatory)][OtterModuleContext]$Context,
+        # Where this file's own `use` paths are resolved from, when that is
+        # not the folder the file is in (see Resolve-OtterModuleSource).
+        [string]$ImportDirectory = ''
     )
 
     $canonicalPath = Get-OtterCanonicalPath -Path $FilePath
@@ -225,7 +228,7 @@ function Resolve-OtterModuleSourceInternal {
     $Context.LoadedFiles.Add($canonicalPath) | Out-Null
     $Context.CallStack.Add($canonicalPath)
 
-    $dir = [System.IO.Path]::GetDirectoryName($canonicalPath)
+    $dir = if ($ImportDirectory) { [System.IO.Path]::GetFullPath($ImportDirectory) } else { [System.IO.Path]::GetDirectoryName($canonicalPath) }
     # RC3 B12: a folder, or a file the user may not read, is an ordinary
     # file mistake, not a bug in Otter. Without these guards Get-Content's own
     # exception escaped as a non-Otter error, which every entry point reports
@@ -294,11 +297,17 @@ function Resolve-OtterModuleSourceInternal {
 
 function Resolve-OtterModuleSource {
     param(
-        [Parameter(Mandatory)][string]$FilePath
+        [Parameter(Mandatory)][string]$FilePath,
+        # The root file's `use` paths resolve from this folder instead of
+        # its own. An editor compiling an unsaved copy of a project file
+        # (written somewhere temporary) passes the real file's folder, so
+        # `use "components/cards.ot"` finds the project's files. Imported
+        # files always resolve from their own folders.
+        [string]$ImportDirectory = ''
     )
 
     $context = [OtterModuleContext]::new()
-    $combined = Resolve-OtterModuleSourceInternal -FilePath $FilePath -Context $context
+    $combined = Resolve-OtterModuleSourceInternal -FilePath $FilePath -Context $context -ImportDirectory $ImportDirectory
 
     $loadedArray = [string[]]::new($context.LoadedFiles.Count)
     $context.LoadedFiles.CopyTo($loadedArray)

@@ -47,6 +47,10 @@ param(
     [switch]$Open,
     [switch]$NoOpen,
     [int]$Port = 0,
+    # otter web copy.ot -SourceDir <folder>: compile as though the file lived
+    # in <folder> (its `use` imports, stylesheet and icons are found there).
+    # Otter Studio uses it to render an unsaved buffer of a project file.
+    [string]$SourceDir,
 
     # Developer views. These are for people working on Otter itself;
     # ordinary Otter output stays clean.
@@ -131,7 +135,7 @@ $OtterVersion = "Otter $OtterVersionNumber"
 # real, raw command line (which is never touched by parameter binding) and
 # strip out only otter.ps1's own known flags ourselves.
 $script:OtterOwnSwitchFlags = @('-DebugTokens', '-DebugAst', '-ParseOnly', '-DebugErrors', '-Open', '-NoOpen', '-version', '-help')
-$script:OtterOwnValueFlags = @('-Breakpoints', '-Port')
+$script:OtterOwnValueFlags = @('-Breakpoints', '-Port', '-SourceDir')
 
 function Get-OtterRawTrailingArguments {
     param([int]$SkipCount)
@@ -851,7 +855,7 @@ if ($Path -in @('web', 'browse', 'serve', 'desktop', 'studio')) {
         # (an OtterError) and a failure writing the .html next to the source
         # (a file-access exception) escaped as raw PowerShell errors.
         try {
-            $htmlPath = Export-OtterWebApplication -SourcePath $scriptFile
+            $htmlPath = if ($SourceDir) { Export-OtterWebApplication -SourcePath $scriptFile -SourceDirectory $SourceDir } else { Export-OtterWebApplication -SourcePath $scriptFile }
         }
         catch [OtterError] {
             Write-Host ''

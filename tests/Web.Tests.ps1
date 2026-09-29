@@ -1404,6 +1404,31 @@ try {
 }
 Write-Output '  pass  sidecar css containing $_ and $1 is inlined verbatim, once (RC3)'
 
+# -SourceDirectory (otter web copy.ot -SourceDir <folder>): an editor compiles
+# an unsaved copy of a project file as the file of that name in the project -
+# its `use` imports, its <entry>.css and the page's window settings come from
+# there. Without it the copy's imports cannot resolve.
+$sdProject = Join-Path ([System.IO.Path]::GetTempPath()) ("otter_sourcedir_$([Guid]::NewGuid().ToString('N'))")
+$sdElsewhere = Join-Path ([System.IO.Path]::GetTempPath()) ("otter_sourcedir_copy_$([Guid]::NewGuid().ToString('N'))")
+New-Item -ItemType Directory -Path (Join-Path $sdProject 'parts'), $sdElsewhere -Force | Out-Null
+try {
+    [System.IO.File]::WriteAllText((Join-Path $sdProject 'parts\label.ot'), "to makeLabel words`n    label is a text with value words, style `"made-label`"`n    return label`n.`n", [System.Text.UTF8Encoding]::new($false))
+    [System.IO.File]::WriteAllText((Join-Path $sdProject 'main.css'), '/*PROJECT-CSS*/', [System.Text.UTF8Encoding]::new($false))
+    $sdSource = "use `"parts/label.ot`"`napp is a page with title `"SD`", width 900, height 600, background `"#102030`"`nmakeLabel `"hi`" into first`nput first in app`n"
+    $sdCopy = Join-Path $sdElsewhere 'main.ot'
+    [System.IO.File]::WriteAllText($sdCopy, $sdSource, [System.Text.UTF8Encoding]::new($false))
+    $sdFailed = $false
+    try { $null = Export-OtterWebApplication -SourcePath $sdCopy -OutputPath (Join-Path $sdElsewhere 'no.html') -PassThruExceptions } catch { $sdFailed = $true }
+    if (-not $sdFailed) { throw 'Expected the copy alone not to resolve its import.' }
+    $sdHtml = Get-Content -LiteralPath (Export-OtterWebApplication -SourcePath $sdCopy -OutputPath (Join-Path $sdElsewhere 'out.html') -SourceDirectory $sdProject -PassThruExceptions) -Raw
+    if ($sdHtml -notmatch 'made-label') { throw 'Expected the import to resolve from the source directory.' }
+    if ($sdHtml -notmatch '/\*PROJECT-CSS\*/') { throw 'Expected <entry>.css from the source directory.' }
+    if ($sdHtml -notmatch '<meta name="otter-window" content="[^"]*&quot;width&quot;:900[^"]*&quot;background&quot;:&quot;#102030&quot;') { throw 'Expected the page''s window settings in <meta name="otter-window">.' }
+} finally {
+    Remove-Item -LiteralPath $sdProject, $sdElsewhere -Recurse -Force -ErrorAction SilentlyContinue
+}
+Write-Output '  pass  -SourceDirectory resolves imports and <entry>.css from the project; the page''s window settings reach <meta name="otter-window">'
+
 Write-Output 'Web compiler tests passed.'
 
 Remove-Item -LiteralPath $webExportDir -Recurse -Force -ErrorAction SilentlyContinue
