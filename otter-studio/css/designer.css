@@ -1635,3 +1635,34 @@ body.designer-is-moving .designer-space-label {
   pointer-events: none;
   z-index: 5;
 }
+
+/* Design time only (the canvas stage, never the running app, never
+   Preview): a container shows where it is - a column or row with no
+   background is otherwise invisible - and an empty one keeps room to drop
+   into (an empty row in a card is 0px tall in the real layout). */
+#canvasStage .canvas-element.is-container {
+  outline: 1px dashed rgba(148, 163, 184, 0.3);
+  outline-offset: -1px;
+}
+
+#canvasStage .canvas-element.is-container:not(:has(> .canvas-element)) {
+  min-height: 56px;
+  min-width: 120px;
+}
+
+#canvasStage .canvas-element.is-container:not(:has(> .canvas-element))::after {
+  content: 'Drop controls here';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(148, 163, 184, 0.55);
+  font: 500 11px/1 var(--font-ui, sans-serif);
+  pointer-events: none;
+}
+
+#canvasStage .canvas-element.is-revealed-hidden {
+  outline: 1px dashed rgba(250, 204, 21, 0.8);
+  outline-offset: 2px;
+}

@@ -87,6 +87,9 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
   let scrubbing = false;
   let refreshQueued = false;
   let collapsed = loadCollapsed();
+  // The component the panel was last drawn for (a draft only carries over
+  // a redraw of the same one).
+  let lastRenderedId = null;
   // Sections most controls never need start closed (until opened once).
   const CLOSED_BY_DEFAULT = new Set(['position', 'effects', 'raw']);
   const isSectionCollapsed = (id) => collapsed[id] ?? CLOSED_BY_DEFAULT.has(id);
@@ -143,6 +146,14 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
     const scrollTop = bodyBefore ? bodyBefore.scrollTop : 0;
     const focusKey = document.activeElement && containerEl.contains(document.activeElement)
       ? document.activeElement.getAttribute('data-focus-key') : null;
+    // Typing not yet committed (Enter / leaving the field) survives a redraw
+    // that happens meanwhile - a render finishing, say - for the same
+    // selection; otherwise the field came back with the old value.
+    const active = focusKey ? document.activeElement : null;
+    const draft = active && 'value' in active && active.type !== 'checkbox' && active.value !== active.defaultValue && lastRenderedId === uiModel.selectedId
+      ? { value: active.value, start: active.selectionStart, end: active.selectionEnd }
+      : null;
+    lastRenderedId = uiModel.selectedId;
 
     if (!selected) {
       containerEl.innerHTML = `
@@ -203,7 +214,13 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
     if (bodyAfter) bodyAfter.scrollTop = scrollTop;
     if (focusKey) {
       const again = containerEl.querySelector(`[data-focus-key="${cssEscape(focusKey)}"]`);
-      if (again) again.focus();
+      if (again) {
+        again.focus();
+        if (draft && 'value' in again) {
+          again.value = draft.value;
+          try { again.setSelectionRange(draft.start, draft.end); } catch { /* not a text field */ }
+        }
+      }
     }
   }
 
