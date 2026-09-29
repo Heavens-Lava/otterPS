@@ -56,8 +56,32 @@ canvas: sidebar with logo and full-width navigation, heading, search,
 action button, three equal stat cards, and a content panel whose table
 columns line up.
 
+## Pass 2 - 2026-09-29: a settings form
+
+A Visual Studio-style form in a Free window: three labels in a column,
+two text boxes and a dropdown beside them, two checkboxes, Cancel / Save
+bottom right. Fields dropped 3 px off the one above snapped into line;
+Align Right Edges lined the labels up; the checkbox's Checked box works.
+
+| # | Friction | Kind | Fix |
+|---|---|---|---|
+| 11 | A placed checkbox came apart in the compiled app: the box where it was put, its words at the window's top-left; on the canvas its words wrapped one per line | fight positioning; canvas and app differ | the compiler puts a checkbox's id on its label (the control as seen), the input is `<name>-box`, and the runtime reads / sets checked through the input (a33f3fc) |
+| 12 | A dropdown's choices could not be set in the inspector | switch to source | an Options field (comma separated; Otter's `options "..."`) |
+| 13 | A dropdown arrived 200 x 43 beside 220 x 38 text boxes | fight sizing | a dropdown arrives at a text box's size |
+
+After the fixes the form builds with no failed step and Preview matches
+the canvas: checkboxes with their words beside them, the dropdown offering
+its languages.
+
+### Found by OtterBoard (a multi-file app, 17 files)
+
+| # | Friction | Fix |
+|---|---|---|
+| 14 | The Designer assumed `<project>/styles.css`; OtterBoard's stylesheet is app.css beside app.ot (D125) | the Designer edits the stylesheet the compiler uses: `<entry>.css`, else styles.css beside the entry, else the root's |
+| 15 | Controls made inside a component function showed as page elements | only the program's top level is the design; a `when` keeps its nested `if ... .` |
+| 16 | A page file (shell.ot) never got its real render: compiled alone it lacks what the entry brings in | the canvas and Live App compile the entry from a private mirror of the project with the open file's text in place |
+
 ### Next pass
 
-Build a second, different application (a settings form with labelled
-inputs, checkboxes and a footer of buttons; then a responsive layout at
-Tablet and Mobile) to find the next set of friction.
+A responsive layout: the dashboard at Tablet and Mobile (Free layout
+positions are per breakpoint; does rearranging for a phone feel right?).
