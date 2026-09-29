@@ -18,6 +18,7 @@ import { collapseBox, SIDES, formatNumber } from '../designer/css-values.js';
 import { createDesignerActions, FREE_DEFAULT_SIZES } from '../designer/actions.js';
 import { designerCommands, installDesignerKeyboard } from '../designer/commands.js';
 import { createDesignerContextMenu } from '../designer/context-menu.js';
+import { snapMove } from '../designer/snapping.js';
 
 // --otter-layout: free marks a Free layout container. Custom properties
 // inherit, so without this every row, column and card inside a Free window
@@ -502,9 +503,19 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
   // read back from the computed style.
   function markLayoutModes() {
     for (const comp of uiModel.getAllComponents()) {
-      if (!(ComponentSchema[comp.kind]?.isContainer || comp.id === uiModel.rootId)) continue;
       const el = elementFor(comp.id);
-      if (el) el.classList.toggle('is-free-layout', getComputedStyle(el).getPropertyValue('--otter-layout').trim() === 'free');
+      if (!el) continue;
+      const cs = getComputedStyle(el);
+      if (ComponentSchema[comp.kind]?.isContainer || comp.id === uiModel.rootId) {
+        el.classList.toggle('is-free-layout', cs.getPropertyValue('--otter-layout').trim() === 'free');
+      }
+      // A control placed at x / y moves with the pointer (startFreeMove); the
+      // browser's own drag-and-drop (reordering in a row or column) would
+      // start instead and swallow the move.
+      if (comp.id !== uiModel.rootId) {
+        const placed = cs.position === 'absolute' || cs.position === 'fixed';
+        el.draggable = !placed && !isLocked(comp);
+      }
     }
   }
 
@@ -725,10 +736,21 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
 
   // Common pointer-drag plumbing: pointer capture, Escape to cancel (undoes
   // the whole gesture), and a single undo step for the whole drag.
+  // During a move or resize the selection box goes with the element (the
+  // full overlay is redrawn when the gesture ends).
+  function followSelection() {
+    const sel = uiModel.getComponent(uiModel.selectedId);
+    const box = selectionLayer.querySelector('.designer-selection-box.is-primary');
+    const target = sel && (sel.id === uiModel.rootId ? stageEl.querySelector('#canvasWindowWrapper') : elementFor(sel.id));
+    if (box && target) place(box, toOverlay(target.getBoundingClientRect()));
+  }
+
   function beginGesture(e, { onMove, onEnd, cursor }) {
     e.preventDefault();
     e.stopPropagation();
     gestureActive = true;
+    // The hover outline would stay where the gesture began.
+    if (hoverBox) hoverBox.hidden = true;
     const undoDepth = uiModel.undoStack.length;
     document.body.classList.add('designer-is-dragging');
     if (cursor) document.body.style.cursor = cursor;
@@ -740,6 +762,7 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
     const move = (ev) => {
       if (cancelled) return;
       const text = onMove(ev);
+      followSelection();
       if (text) {
         tooltip.textContent = text;
         const vp = viewportEl.getBoundingClientRect();
@@ -935,19 +958,26 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
     const parentEl = el.offsetParent || el.parentElement;
     const key = `move:${comp.id}`;
     uiModel.select(comp.id);
+    // Measured once: the element itself moves with every write.
+    const startRect = el.getBoundingClientRect();
+    const { siblings, parent } = snapContext(parentEl, el);
 
+    // While it moves, its padding / margin bands stay out of the way.
+    document.body.classList.add('designer-is-moving');
     beginGesture(e, {
       cursor: 'move',
+      onEnd: () => document.body.classList.remove('designer-is-moving'),
       onMove: (ev) => {
         let left = startLeft + (ev.clientX - startX) / zoom;
         let top = startTop + (ev.clientY - startY) / zoom;
         guidesLayer.innerHTML = '';
-        if (!ev.altKey && parentEl) {
-          const snap = snapPosition(el, parentEl, left - startLeft, top - startTop);
-          left += snap.dx;
-          top += snap.dy;
-          drawSnapLines(snap.lines);
-        }
+        const box = { left: startRect.left + (left - startLeft) * zoom, top: startRect.top + (top - startTop) * zoom, width: startRect.width, height: startRect.height };
+        // Alt: no snapping (the distances still show).
+        const snap = snapMove(box, siblings, parent, { threshold: ev.altKey ? 0 : SNAP_PX * zoom, zoom });
+        left += snap.dx / zoom;
+        top += snap.dy / zoom;
+        drawSnapLines(snap.lines);
+        drawSpacingGuides(snap.gaps, snap.measures);
         left = Math.round(left);
         top = Math.round(top);
         styles.write(comp, { left: `${left}px`, top: `${top}px`, right: null, bottom: null }, { key });
@@ -956,40 +986,43 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
     });
   }
 
-  // Given a proposed move (dx, dy in CSS px), find the nearest edge/centre
-  // alignment with the parent or a sibling.
-  function snapPosition(el, parentEl, dx, dy) {
-    const rect = el.getBoundingClientRect();
-    const moved = {
-      left: rect.left + dx * zoom, right: rect.right + dx * zoom,
-      top: rect.top + dy * zoom, bottom: rect.bottom + dy * zoom
+  // What a control moving in a container snaps to (designer/snapping.js):
+  // its siblings' boxes and the container's padding box, in screen px.
+  function snapContext(parentEl, el) {
+    if (!parentEl) return { siblings: [], parent: null };
+    const box = (r) => ({ left: r.left, top: r.top, width: r.width, height: r.height });
+    const siblings = Array.from(parentEl.children)
+      .filter(k => k !== el && k.hasAttribute('data-id') && !k.classList.contains('is-designer-hidden'))
+      .map(k => box(k.getBoundingClientRect()));
+    const pr = parentEl.getBoundingClientRect();
+    const pcs = getComputedStyle(parentEl);
+    const bl = (parseFloat(pcs.borderLeftWidth) || 0) * zoom;
+    const bt = (parseFloat(pcs.borderTopWidth) || 0) * zoom;
+    const br = (parseFloat(pcs.borderRightWidth) || 0) * zoom;
+    const bb = (parseFloat(pcs.borderBottomWidth) || 0) * zoom;
+    return { siblings, parent: { left: pr.left + bl, top: pr.top + bt, width: pr.width - bl - br, height: pr.height - bt - bb } };
+  }
+
+  // Equal gaps (pink bars with their size) and distances to the nearest
+  // neighbours / container edge (red lines with their size), in CSS px.
+  function drawSpacingGuides(gaps, measures) {
+    const vp = viewportEl.getBoundingClientRect();
+    const toLayer = (x, y) => ({ x: x - vp.left + viewportEl.scrollLeft, y: y - vp.top + viewportEl.scrollTop });
+    const draw = (g, cls) => {
+      if (Math.abs(g.to - g.from) < 1) return;
+      const line = document.createElement('div');
+      line.className = `designer-guide ${cls}`;
+      const a = g.axis === 'x' ? toLayer(g.from, g.at) : toLayer(g.at, g.from);
+      if (g.axis === 'x') place(line, { left: a.x, top: a.y, width: g.to - g.from, height: 1 });
+      else place(line, { left: a.x, top: a.y, width: 1, height: g.to - g.from });
+      const label = document.createElement('span');
+      label.className = 'designer-guide-label';
+      label.textContent = String(g.px);
+      line.appendChild(label);
+      guidesLayer.appendChild(line);
     };
-    moved.cx = (moved.left + moved.right) / 2;
-    moved.cy = (moved.top + moved.bottom) / 2;
-    const targets = [parentEl, ...Array.from(parentEl.children).filter(k => k !== el && k.hasAttribute('data-id'))];
-    let bestX = null;
-    let bestY = null;
-    for (const t of targets) {
-      const r = t.getBoundingClientRect();
-      const xs = [r.left, (r.left + r.right) / 2, r.right];
-      const ys = [r.top, (r.top + r.bottom) / 2, r.bottom];
-      for (const [mine, value] of [['left', moved.left], ['cx', moved.cx], ['right', moved.right]]) {
-        for (const x of xs) {
-          const d = x - value;
-          if (Math.abs(d) <= SNAP_PX * zoom && (!bestX || Math.abs(d) < Math.abs(bestX.d))) bestX = { d, x, r, mine };
-        }
-      }
-      for (const [mine, value] of [['top', moved.top], ['cy', moved.cy], ['bottom', moved.bottom]]) {
-        for (const y of ys) {
-          const d = y - value;
-          if (Math.abs(d) <= SNAP_PX * zoom && (!bestY || Math.abs(d) < Math.abs(bestY.d))) bestY = { d, y, r, mine };
-        }
-      }
-    }
-    const lines = [];
-    if (bestX) lines.push({ axis: 'x', at: bestX.x, from: Math.min(moved.top, bestX.r.top), to: Math.max(moved.bottom, bestX.r.bottom) });
-    if (bestY) lines.push({ axis: 'y', at: bestY.y, from: Math.min(moved.left, bestY.r.left), to: Math.max(moved.right, bestY.r.right) });
-    return { dx: bestX ? bestX.d / zoom : 0, dy: bestY ? bestY.d / zoom : 0, lines };
+    for (const g of gaps) draw(g, 'is-gap');
+    for (const m of measures) draw(m, m.toParent ? 'is-measure is-to-parent' : 'is-measure');
   }
 
   function drawSnapLines(lines) {
@@ -1345,6 +1378,8 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
   // Where the pointer held the element being dragged (CSS px), so a drop into
   // a Free layout container puts it exactly where it was let go.
   let dragGrab = { x: 0, y: 0 };
+  // How far the drop preview snapped (screen px); the drop applies it too.
+  let freeDropNudge = { dx: 0, dy: 0 };
   document.addEventListener('dragstart', (e) => {
     draggingNewKind = e.target?.closest?.('.toolbox-item')?.getAttribute('data-kind') || null;
   }, true);
@@ -1377,6 +1412,7 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
 
     viewportEl.addEventListener('drop', (e) => {
       e.preventDefault();
+      const dropNudge = freeDropNudge; // hideDropMarkers resets it
       hideDropMarkers();
       if (isInteractMode) return;
       const root = uiModel.getRoot();
@@ -1410,7 +1446,7 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
       // A drop into a Free layout container: exactly where it was let go.
       if (placedId && !hit.gridCell && actions.isFreeLayout(hit.targetComp)) {
         const grab = dragData.type === 'move-component' ? dragGrab : { x: 0, y: 0 };
-        actions.placeAt(uiModel.getComponent(placedId), hit.targetComp, e.clientX, e.clientY, grab, { isNew: dragData.type === 'new-component' });
+        actions.placeAt(uiModel.getComponent(placedId), hit.targetComp, e.clientX + dropNudge.dx, e.clientY + dropNudge.dy, grab, { isNew: dragData.type === 'new-component' });
       }
       dragGrab = { x: 0, y: 0 };
 
@@ -1683,6 +1719,8 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
     insertionLine.hidden = true;
     cellBox.hidden = true;
     if (freeGhost) freeGhost.hidden = true;
+    if (guidesLayer) guidesLayer.innerHTML = '';
+    freeDropNudge = { dx: 0, dy: 0 };
   }
 
   // Dragging over a Free layout container: a dashed outline exactly where the
@@ -1705,9 +1743,18 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
       width = size.width || size.minWidth || (['text', 'heading', 'checkbox'].includes(draggingNewKind) ? 90 : 100);
       height = size.height || (['heading'].includes(draggingNewKind) ? 32 : ['text', 'checkbox'].includes(draggingNewKind) ? 22 : 36);
     }
-    const pos = actions.positionFor(container, clientX, clientY, grab);
-    if (!pos) { freeGhost.hidden = true; return; }
     const containerEl = elementFor(container.id);
+    // Snap the preview like a move (alignment and equal spacing), and let the
+    // drop land exactly there.
+    const { siblings, parent } = snapContext(containerEl, movingEl || null);
+    const raw = { left: clientX - grab.x * zoom, top: clientY - grab.y * zoom, width: width * zoom, height: height * zoom };
+    const snap = snapMove(raw, siblings, parent, { threshold: SNAP_PX * zoom, zoom });
+    freeDropNudge = { dx: snap.dx, dy: snap.dy };
+    guidesLayer.innerHTML = '';
+    drawSnapLines(snap.lines);
+    drawSpacingGuides(snap.gaps, snap.measures);
+    const pos = actions.positionFor(container, clientX + snap.dx, clientY + snap.dy, grab);
+    if (!pos) { freeGhost.hidden = true; return; }
     const cRect = containerEl.getBoundingClientRect();
     const cs = getComputedStyle(containerEl);
     const left = cRect.left + ((parseFloat(cs.borderLeftWidth) || 0) + pos.left) * zoom;

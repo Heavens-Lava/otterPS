@@ -1554,3 +1554,53 @@ button.sp-dot:focus-visible {
   stroke-width: 1.4;
   stroke-linejoin: round;
 }
+
+/* Free layout spacing while moving (designer/snapping.js): distances to the
+   nearest neighbours (red) and equal gaps (pink), each with its size in
+   CSS px. A distance to the container edge is dashed. */
+.designer-guide.is-measure {
+  background: #ef4444;
+}
+
+.designer-guide.is-measure.is-to-parent {
+  background: none;
+  border-top: 1px dashed #ef4444;
+  border-left: 1px dashed #ef4444;
+}
+
+.designer-guide.is-gap {
+  background: #ec4899;
+  box-shadow: 0 0 0 1px rgba(236, 72, 153, 0.35);
+}
+
+.designer-guide-label {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -130%);
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: #ef4444;
+  color: #fff;
+  font: 600 10px/1.4 var(--font-ui);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.designer-guide.is-gap .designer-guide-label {
+  background: #ec4899;
+}
+
+/* On vertical lines the label sits beside the line. */
+.designer-guide[style*="width: 1px"] .designer-guide-label {
+  transform: translate(6px, -50%);
+  left: 0;
+}
+
+/* Moving a control: its padding / margin bands and handles stay hidden. */
+body.designer-is-moving .designer-space-band,
+body.designer-is-moving .designer-gap-band,
+body.designer-is-moving .designer-space-grip,
+body.designer-is-moving .designer-space-label {
+  display: none;
+}
