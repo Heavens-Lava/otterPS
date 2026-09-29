@@ -127,6 +127,19 @@ try {
   assert.equal(live.status, 200, JSON.stringify(live.body).slice(0, 600));
   assert.ok(live.body.html.includes('<title>Outside</title>'), 'the live run is the project, not the single file');
 
+  // --- 5. Run treats a page program as a window, not a 30-second script ----
+  const { declaresUiDocument, resolveLaunch } = await import(pathToFileURL(path.join(studioRoot, 'server', 'launch.mjs')).href);
+  assert.equal(declaresUiDocument(outside), true, 'the project entry declares a page');
+  assert.equal(declaresUiDocument(path.join(outside, 'parts', 'label.ot')), false, 'a component file alone is not a UI program');
+  const consoleFile = path.join(outside, 'hello.ot');
+  fs.writeFileSync(consoleFile, 'say "hello"\n');
+  assert.equal(declaresUiDocument(consoleFile), false);
+  const ctx = { repoRoot: studioRoot, projectDir: outside, currentFile: null, isInside: () => true };
+  const uiLaunch = resolveLaunch({ name: 'Run Project', kind: 'project' }, ctx);
+  assert.ok(uiLaunch.timeoutMs >= 60 * 60 * 1000, `a UI program is not stopped after seconds: ${uiLaunch.timeoutMs}`);
+  const consoleLaunch = resolveLaunch({ name: 'Run File', kind: 'file', program: consoleFile }, { ...ctx, currentFile: consoleFile });
+  assert.ok(consoleLaunch.timeoutMs <= 60 * 1000, 'a console program keeps the console limit');
+
   console.log('Workspace project tests passed.');
 } finally {
   server.kill();

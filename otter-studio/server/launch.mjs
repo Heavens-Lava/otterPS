@@ -129,6 +129,41 @@ export function validateLaunchConfig(raw) {
  * null), isInside(absPath) }. Throws an Error with a user-facing message.
  * Returns { file, args, cwd, env, timeoutMs, display }.
  */
+// Twelve hours: a working session, not forever.
+const UI_PROGRAM_TIMEOUT_SECONDS = 12 * 60 * 60;
+
+// Same rule as otter.ps1's run: a program whose root is `x is a page` or
+// `x is a window` (the unified UI backend) runs as a desktop window. For a
+// project folder the entry point from its manifest is read.
+export function declaresUiDocument(target) {
+  try {
+    let file = target;
+    if (fs.statSync(target).isDirectory()) {
+      file = null;
+      for (const name of ['otter.json', 'project.json']) {
+        const manifest = path.join(target, name);
+        if (!fs.existsSync(manifest)) continue;
+        const data = JSON.parse(fs.readFileSync(manifest, 'utf8'));
+        const entry = data.entryPoint || data.main;
+        if (typeof entry === 'string' && entry.trim()) file = path.resolve(target, entry.trim());
+        break;
+      }
+      if (!file) return false;
+    }
+    const source = fs.readFileSync(file, 'utf8');
+    if (/^[A-Za-z_][A-Za-z0-9_]*\s+is\s+an?\s+(page|window)\b/m.test(source)) return true;
+    // The root may be declared in an imported file (use "shell.ot").
+    const dir = path.dirname(file);
+    for (const match of source.matchAll(/^\s*use\s+"([^"]+)"\s*$/gm)) {
+      const imported = path.resolve(dir, match[1]);
+      if (fs.existsSync(imported) && /^[A-Za-z_][A-Za-z0-9_]*\s+is\s+an?\s+(page|window)\b/m.test(fs.readFileSync(imported, 'utf8'))) return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
 export function resolveLaunch(profile, ctx) {
   const otterPs1 = path.join(ctx.repoRoot, 'otter.ps1');
   const base = ctx.projectDir || (ctx.currentFile ? path.dirname(ctx.currentFile) : ctx.repoRoot);
@@ -155,13 +190,17 @@ export function resolveLaunch(profile, ctx) {
   if (!fs.existsSync(cwd) || !fs.statSync(cwd).isDirectory()) throw new Error(`The working folder ${path.relative(ctx.repoRoot, cwd)} does not exist.`);
 
   const programArgs = (profile.args || []).map(expand);
+  // A UI program (its root is a declared page or window) opens a window and
+  // runs until the user closes it; the console time limit would close it
+  // mid-use. Its explicit profile limit still applies.
+  const uiProgram = !profile.timeoutSeconds && declaresUiDocument(target);
   return {
     file: 'powershell.exe',
     // Same as otter.cmd: powershell -NoProfile -ExecutionPolicy Bypass -File otter.ps1 ...
     args: ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', otterPs1, 'run', target, ...programArgs],
     cwd,
     env: { ...process.env, ...(profile.env || {}) },
-    timeoutMs: (profile.timeoutSeconds || DEFAULT_TIMEOUT_SECONDS) * 1000,
+    timeoutMs: uiProgram ? UI_PROGRAM_TIMEOUT_SECONDS * 1000 : (profile.timeoutSeconds || DEFAULT_TIMEOUT_SECONDS) * 1000,
     display: ['otter', 'run', path.relative(cwd, target) || '.', ...programArgs].map(quoteForDisplay).join(' ')
   };
 }
