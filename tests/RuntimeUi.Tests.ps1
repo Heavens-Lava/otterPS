@@ -316,11 +316,25 @@ count from 1 to 4 as n
     put row in list
 .
 clear list
+names are
+    "a"
+    "b"
+.
+clear names
+status is a text with value "full"
+put status in app
+remaining is 0
+each name in names
+    add 1 to remaining
+.
+text of status is text of remaining
 '@ -Driver @'
   result.left = qa('.item').length;
+  result.status = q('#status').textContent;
 '@
     Assert-UiRan $run2
     Assert-AreEqual -Expected 0 -Actual $run2.Result.left
+    Assert-AreEqual -Expected '0' -Actual $run2.Result.status
 }
 
 Test-Otter '`clear` is only a statement for `clear <name>`; clear stays usable as a variable' {
@@ -333,7 +347,7 @@ Test-Otter '`clear` is only a statement for `clear <name>`; clear stays usable a
         Assert-True ($out -match '5 6') "expected 5 6, got: $out"
         [System.IO.File]::WriteAllText($f, "create window into app`ncreate column into list`nclear list", [System.Text.UTF8Encoding]::new($false))
         $out2 = (& powershell -NoProfile -ExecutionPolicy Bypass -File $script:OtterPs1 run $f 2>&1 | ForEach-Object { [string]$_ }) -join "`n"
-        Assert-True ($out2 -match "'clear' is not supported") "the WPF interpreter must refuse clear loudly, got: $out2"
+        Assert-True ($out2 -notmatch 'not supported') "the console clears a column too (D56 amendment), got: $out2"
     } finally { Remove-Item -LiteralPath $dir -Recurse -Force -ErrorAction SilentlyContinue }
 }
 
