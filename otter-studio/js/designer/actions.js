@@ -199,9 +199,7 @@ export function createDesignerActions({ uiModel, styles, cssAstManager, canvas, 
     const parent = comp?.parentId ? uiModel.getComponent(comp.parentId) : null;
     const grandparent = parent?.parentId ? uiModel.getComponent(parent.parentId) : null;
     if (!grandparent) return false;
-    const ok = uiModel.moveChild(comp.id, grandparent.id, grandparent.children.indexOf(parent.id) + 1);
-    if (ok) uiModel.select(comp.id);
-    return ok;
+    return moveInto(comp, grandparent, grandparent.children.indexOf(parent.id) + 1);
   }
 
   // Move the primary selection into the container just before it, at the end.
@@ -211,9 +209,68 @@ export function createDesignerActions({ uiModel, styles, cssAstManager, canvas, 
     if (!parent) return false;
     const previous = uiModel.getComponent(parent.children[parent.children.indexOf(comp.id) - 1]);
     if (!isContainer(previous)) return false;
-    const ok = uiModel.moveChild(comp.id, previous.id, null);
-    if (ok) uiModel.select(comp.id);
-    return ok;
+    return moveInto(comp, previous, null);
+  }
+
+  // Move controls into another container, the way a Visual Studio form's
+  // controls go into a panel: they take on that container's layout.
+  //   - Into Free layout each stays exactly where it is on screen (its box
+  //     becomes left / top there) - or, when it is nowhere near the container
+  //     (moved from the Layers panel), goes near its top-left corner. One that
+  //     was in a row or column keeps the width it had.
+  //   - Into a row, column, card or grid they join the flow at `index`, in
+  //     order, and their left / top go.
+  // rects: where each is on screen (client px), when the caller knows better
+  // than the canvas does right now. One undo step; the moved controls end up
+  // selected.
+  function moveInto(comps, container, index = null, { rects = null } = {}) {
+    const list = (Array.isArray(comps) ? comps : [comps]).filter(c =>
+      c && container && c.id !== uiModel.rootId && c.id !== container.id && !uiModel.isDescendantOf(container.id, c.id));
+    if (!list.length || !isContainer(container)) return false;
+    const zoom = canvas.getZoom?.() || 1;
+    // Measured before anything moves: every move re-renders.
+    const before = list.map((comp, i) => {
+      const el = canvas.elementFor(comp.id);
+      const cs = el && getComputedStyle(el);
+      return {
+        comp,
+        rect: rects?.[i] || el?.getBoundingClientRect() || null,
+        placed: Boolean(cs) && (cs.position === 'absolute' || cs.position === 'fixed')
+      };
+    });
+    const free = isFreeLayout(container);
+    return asOneStep(() => {
+      let at = index;
+      const moved = [];
+      for (const b of before) {
+        if (!uiModel.moveChild(b.comp.id, container.id, at)) continue;
+        moved.push(b);
+        if (at !== null) at++;
+      }
+      if (!moved.length) return false;
+      const containerEl = canvas.elementFor(container.id);
+      inBaseState(() => {
+        const box = containerEl?.getBoundingClientRect();
+        let cascade = 0;
+        for (const b of moved) {
+          const key = `move-into:${b.comp.id}`;
+          if (free && containerEl) {
+            const r = b.rect;
+            const inside = r && box && r.left < box.right && r.right > box.left && r.top < box.bottom && r.bottom > box.top;
+            const p = inside ? pointIn(containerEl, r.left, r.top) : { x: 16 + cascade * 16, y: 16 + cascade * 16 };
+            if (!inside) cascade++;
+            const values = { position: 'absolute', left: `${Math.max(0, Math.round(p.x))}px`, top: `${Math.max(0, Math.round(p.y))}px`, right: null, bottom: null };
+            // Out of a row or column it would shrink to its content.
+            if (!b.placed && r) values.width = `${Math.round(Math.min(r.width / zoom, containerEl.clientWidth))}px`;
+            styles.write(b.comp, values, { key });
+          } else if (b.placed) {
+            styles.write(b.comp, { position: null, left: null, top: null, right: null, bottom: null }, { key });
+          }
+        }
+      });
+      uiModel.selectMany(moved.map(b => b.comp.id));
+      return true;
+    });
   }
 
   // --- Position -------------------------------------------------------------
@@ -475,7 +532,7 @@ export function createDesignerActions({ uiModel, styles, cssAstManager, canvas, 
     selection, primary, isContainer,
     deleteSelection, duplicateSelection, wrap, unwrap,
     selectParent, selectFirstChild, selectSibling, selectAllSiblings,
-    moveAmongSiblings, moveOutOfParent, moveIntoPrevious,
+    moveAmongSiblings, moveOutOfParent, moveIntoPrevious, moveInto,
     nudge,
     isFreeLayout, setFreeLayout, toggleFreeLayout, placeAt, positionFor,
     copySelection, pasteSelection, align, distribute,

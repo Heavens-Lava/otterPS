@@ -121,7 +121,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (ide.currentProjectFolder) applyProjectBreakpoints();
 
   renderToolbox(toolboxEl, uiModel);
-  renderHierarchy(hierarchyEl, uiModel, cssAstManager, viewState);
+  // Layers moves controls between containers the way the canvas does.
+  renderHierarchy(hierarchyEl, uiModel, cssAstManager, viewState, () => designer.actions);
   const designer = renderCanvas(canvasEl, uiModel, cssAstManager, styleController, viewState);
   renderProperties(propertiesEl, uiModel, cssAstManager, styleController);
   renderEvents(eventsEl, uiModel);

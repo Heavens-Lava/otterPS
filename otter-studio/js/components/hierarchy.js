@@ -4,7 +4,9 @@
 
 import { ComponentSchema } from '../model/schema.js';
 
-export function renderHierarchy(containerEl, uiModel, cssAstManager = null, viewState = null) {
+// getActions: the designer's actions (designer/actions.js), so a control
+// moved into another container takes on its layout (moveInto).
+export function renderHierarchy(containerEl, uiModel, cssAstManager = null, viewState = null, getActions = () => null) {
   const collapsedNodes = new Set();
   let draggedTreeNodeId = null;
   // Where a Shift+click range starts.
@@ -257,9 +259,12 @@ export function renderHierarchy(containerEl, uiModel, cssAstManager = null, view
         const offsetY = e.clientY - rect.top;
         const ratio = offsetY / rect.height;
 
+        const moving = uiModel.getComponent(movingId);
+        const actions = getActions();
         if (schema.isContainer && ratio >= 0.25 && ratio <= 0.75) {
           // Drop inside this container at the end
-          uiModel.moveChild(movingId, comp.id);
+          if (actions && moving.parentId !== comp.id) actions.moveInto(moving, comp, null);
+          else uiModel.moveChild(movingId, comp.id);
           collapsedNodes.delete(comp.id); // auto-expand
         } else {
           // Drop before or after in parent container
@@ -274,7 +279,9 @@ export function renderHierarchy(containerEl, uiModel, cssAstManager = null, view
           const fromIndex = siblings.indexOf(movingId);
           if (fromIndex !== -1 && fromIndex < insertIndex) insertIndex--;
 
-          uiModel.moveChild(movingId, parentComp.id, insertIndex);
+          // Into another container: it takes on that container's layout.
+          if (actions && moving.parentId !== parentComp.id) actions.moveInto(moving, parentComp, insertIndex);
+          else uiModel.moveChild(movingId, parentComp.id, insertIndex);
         }
       });
 

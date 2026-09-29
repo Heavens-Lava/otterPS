@@ -57,16 +57,22 @@ function setupFree(zoom = 1) {
     [a.id]: { left: 100 + 16 * zoom, top: 50 + 16 * zoom, width: 200 * zoom, height: 30 * zoom },
     [b.id]: { left: 100 + 16 * zoom, top: 50 + 60 * zoom, width: 468 * zoom, height: 36 * zoom }
   };
-  const fake = (id) => ({ id, getBoundingClientRect: () => ({ ...boxes[id], right: boxes[id].left + boxes[id].width, bottom: boxes[id].top + boxes[id].height }) });
+  const fake = (id) => ({ id, clientWidth: boxes[id].width / zoom, getBoundingClientRect: () => ({ ...boxes[id], right: boxes[id].left + boxes[id].width, bottom: boxes[id].top + boxes[id].height }) });
   globalThis.getComputedStyle = (el) => ({
     borderLeftWidth: '0px', borderTopWidth: '0px', marginLeft: '0px', marginTop: '0px',
+    // Placed (absolute) when the stylesheet says so.
+    get position() {
+      const comp = model.getComponent(el.id);
+      const rule = comp && css.generateCss().match(new RegExp(`#${comp.name} \\{[^}]*\\}`));
+      return rule && /position: absolute/.test(rule[0]) ? 'absolute' : 'static';
+    },
     getPropertyValue: (p) => (p === '--otter-layout' && css.generateCss().includes('--otter-layout: free') && el.id === root.id ? 'free' : '')
   });
   const actions = createDesignerActions({
     uiModel: model, styles, cssAstManager: css,
     canvas: { elementFor: (id) => (boxes[id] ? fake(id) : null), getZoom: () => zoom, zoomBy() {}, setZoom() {}, zoomToFit() {}, zoomToSelection() {} }
   });
-  return { model, css, actions, root, a, b };
+  return { model, css, actions, root, a, b, boxes };
 }
 
 console.log('Designer commands:');
@@ -123,6 +129,40 @@ test('Free layout: turning it off returns the children to flow; one undo step ea
   model.undo();
   assert.match(css.generateCss(), /--otter-layout: free/, 'one undo brings Free back');
   assert.match(css.generateCss(), /#button1 \{[^}]*left: 16px;/);
+});
+
+test('moving into a container: into a flow card it drops its x / y; back into Free it stays put', () => {
+  const { model, css, actions, root, a, boxes } = setupFree();
+  const card = model.addChild(root.id, 'card', {});
+  boxes[card.id] = { left: 100 + 250, top: 50 + 200, width: 200, height: 150 };
+  actions.setFreeLayout(root, true);
+  const rule = () => (css.generateCss().match(/#button1 \{[^}]*\}/) || [''])[0];
+  assert.match(rule(), /position: absolute;/);
+  assert.equal(actions.moveInto(a, card, 0), true);
+  assert.equal(a.parentId, card.id);
+  assert.doesNotMatch(rule(), /position|left:|top:/, 'a card arranges it');
+  assert.match(rule(), /width: 200px;/, 'its width stays');
+  // Back into the window: on screen it is at (116, 66), so that is where it goes.
+  assert.equal(actions.moveInto(a, root, null), true);
+  assert.equal(a.parentId, root.id);
+  assert.match(rule(), /position: absolute;[^}]*left: 16px;[^}]*top: 16px;/);
+  model.undo();
+  assert.equal(model.getComponent(a.id).parentId, card.id, 'each move is one undo step');
+  assert.doesNotMatch(rule(), /position/);
+});
+
+test('moving into Free from somewhere else: near its top-left corner, keeping its width', () => {
+  const { model, css, actions, root, boxes } = setupFree();
+  actions.setFreeLayout(root, true);
+  const card = model.addChild(root.id, 'card', {});
+  const label = model.addChild(card.id, 'text', { text: 'Hi' });
+  // The card (a flow container) is off to the side; the label fills its width.
+  boxes[card.id] = { left: 900, top: 50, width: 300, height: 100 };
+  boxes[label.id] = { left: 900, top: 50, width: 300, height: 20 };
+  assert.equal(actions.moveInto(label, root, null), true);
+  assert.match(css.generateCss(), new RegExp(`#${label.name} \\{[^}]*position: absolute;[^}]*left: 16px;[^}]*top: 16px;[^}]*width: 300px;`));
+  assert.deepEqual([...model.selectedIds], [label.id], 'it ends up selected');
+  assert.equal(actions.moveInto(card, card, null), false, 'never into itself');
 });
 
 test('every command has a unique id and no key is bound twice', () => {
