@@ -192,6 +192,125 @@ if ($objectAst.Statements[5] -isnot [ObjectDefStmt] -or $objectAst.Statements[5]
 $nested = $objectAst.Statements[6].Parts[0]
 if ($nested.Property -ne 'city' -or $nested.Target.Property -ne 'address' -or $nested.Target.Target.Name -ne 'user') { throw 'Property access must nest right-to-left.' }
 
+# A declaration with no properties is complete on its own line, for every
+# kind - not only `thing` (Otter Studio writes `entry is a text box` for a
+# component with no properties). The next line is an ordinary statement.
+$bareDeclarationSource = @'
+entry is a text box
+out is a text with value "x"
+widget is a gadget
+say "ok"
+'@
+$bareAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $bareDeclarationSource)
+if ($bareAst.Statements.Count -ne 4) { throw "Expected 4 statements from bare declarations, got $($bareAst.Statements.Count)." }
+$propertyCount = { param($stmt) if ($null -eq $stmt.Properties) { 0 } else { @($stmt.Properties).Count } }
+if ($bareAst.Statements[0] -isnot [ObjectDefStmt] -or $bareAst.Statements[0].TypeName -ne 'text box' -or (& $propertyCount $bareAst.Statements[0]) -ne 0) { throw 'Expected an empty text box declaration.' }
+if ($bareAst.Statements[1] -isnot [ObjectDefStmt] -or (& $propertyCount $bareAst.Statements[1]) -ne 1) { throw 'Expected the inline declaration after a bare one.' }
+if ($bareAst.Statements[2] -isnot [ObjectDefStmt] -or $bareAst.Statements[2].TypeName -ne 'gadget' -or (& $propertyCount $bareAst.Statements[2]) -ne 0) { throw 'Expected an empty declaration of an unknown kind.' }
+if ($bareAst.Statements[3] -isnot [SayStmt]) { throw 'Expected the say after the declarations.' }
+
+# `its`, find without `into`, `return X in LIST where ...`, and `into` as
+# the result word of a call.
+$itsSource = @'
+to findProject wanted
+    find project in projects where its id is wanted
+    return project
+.
+to findTask wanted
+    return task in tasks where its id is wanted
+.
+each task in tasks
+    if its done
+        its status is "Done"
+    .
+.
+find task in tasks where done of task is true into finished
+findProject 3 into owner
+findProject 3 make legacyOwner
+its is 5
+'@
+$itsAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $itsSource)
+$findBody = $itsAst.Statements[0].Body
+if ($findBody[0] -isnot [FindStmt] -or $findBody[0].Target -ne 'project' -or $findBody[0].ItemName -ne 'project') { throw 'find without into must bind the match to the item name.' }
+$itsCondition = $findBody[0].Condition
+if ($itsCondition.Left -isnot [PropertyAccessExpr] -or $itsCondition.Left.Property -ne 'id' -or $itsCondition.Left.Target.Name -ne 'project') { throw 'its id must read as id of project.' }
+$returnBody = $itsAst.Statements[1].Body
+if ($returnBody.Count -ne 2 -or $returnBody[0] -isnot [FindStmt] -or $returnBody[0].Target -ne 'task' -or $returnBody[1] -isnot [ReturnStmt] -or $returnBody[1].Value.Name -ne 'task') { throw 'return X in LIST where ... must become a find followed by a return of X.' }
+$eachBody = $itsAst.Statements[2].Body
+if ($eachBody[0].Branches[0].Condition -isnot [PropertyAccessExpr] -or $eachBody[0].Branches[0].Condition.Target.Name -ne 'task') { throw 'its done inside each must read done of task.' }
+$itsAssign = $eachBody[0].Branches[0].Body[0]
+if ($itsAssign -isnot [AssignStmt] -or $itsAssign.Target -isnot [PropertyAccessExpr] -or $itsAssign.Target.Property -ne 'status') { throw 'its status is ... inside each must assign status of task.' }
+if ($itsAst.Statements[3] -isnot [FindStmt] -or $itsAst.Statements[3].Target -ne 'finished') { throw 'find ... into still names its own result.' }
+if ($itsAst.Statements[4] -isnot [CallStmt] -or $itsAst.Statements[4].ResultTarget -ne 'owner') { throw 'call ... into result must capture the result.' }
+if ($itsAst.Statements[5] -isnot [CallStmt] -or $itsAst.Statements[5].ResultTarget -ne 'legacyOwner') { throw 'call ... make result must still work.' }
+$itsTarget = $itsAst.Statements[6].Target
+$itsTargetName = if ($itsTarget -is [VariableExpr]) { $itsTarget.Name } else { [string]$itsTarget }
+if ($itsAst.Statements[6] -isnot [AssignStmt] -or $itsTargetName -ne 'its') { throw "its is an ordinary name outside a loop or find (got $($itsAst.Statements[6].GetType().Name) $itsTargetName)." }
+
+# An argument of a call may be a whole expression; `and` separates arguments.
+$argumentSource = @'
+to label words and amount
+    return words
+.
+label "Due " plus name and count times 2 into shown
+label "plain" and 3
+'@
+$argumentAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $argumentSource)
+$firstCall = $argumentAst.Statements[1].Call
+if ($firstCall.Arguments.Count -ne 2) { throw "Expected two arguments, got $($firstCall.Arguments.Count)." }
+if ($firstCall.Arguments[0] -isnot [MathExpr] -or $firstCall.Arguments[0].Op -ne [MathOp]::Add) { throw 'The first argument must be the sum "Due " plus name.' }
+if ($firstCall.Arguments[1] -isnot [MathExpr] -or $firstCall.Arguments[1].Op -ne [MathOp]::Multiply) { throw 'The second argument must be count times 2.' }
+if ($argumentAst.Statements[1].ResultTarget -ne 'shown') { throw 'The call must still capture its result.' }
+$secondCall = $argumentAst.Statements[2].Call
+if ($secondCall.Arguments.Count -ne 2 -or $secondCall.Arguments[0] -isnot [LiteralExpr] -or $secondCall.Arguments[1] -isnot [LiteralExpr]) { throw 'Plain arguments separated by and must stay two plain values.' }
+
+# A function is a phrase: prepositions may introduce parameters in the
+# declaration, and calls may use the same words - optional, but never a
+# different word.
+$phraseSource = @'
+to openNote with noteId
+    return noteId
+.
+to recordActivity kind and description for projectId
+    return kind
+.
+to shelve item to destination
+    return item
+.
+openNote with 12
+openNote 12
+recordActivity "created" and "a thing" for 4 into entry
+shelve "a.txt" to "b" into moved
+if openNote with 3 is 3
+    say "yes"
+.
+'@
+$phraseAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $phraseSource)
+if (@($phraseAst.Statements[0].Parameters).Count -ne 1 -or $phraseAst.Statements[0].Parameters[0] -ne 'noteId') { throw 'A phrase word is not a parameter.' }
+if (@($phraseAst.Statements[1].Parameters) -join ',' -ne 'kind,description,projectId') { throw 'Phrase declaration parameters.' }
+foreach ($index in 3, 4) { if ($phraseAst.Statements[$index].Call.Arguments.Count -ne 1) { throw "Call $index must have one argument." } }
+if ($phraseAst.Statements[5].Call.Arguments.Count -ne 3 -or $phraseAst.Statements[5].ResultTarget -ne 'entry') { throw 'Phrase call with three arguments and a result.' }
+if ($phraseAst.Statements[6].Call.Arguments.Count -ne 2 -or $phraseAst.Statements[6].ResultTarget -ne 'moved') { throw 'A user function may use to in its phrase.' }
+if ($phraseAst.Statements[7].Branches[0].Condition.Left -isnot [CallExpr]) { throw 'A phrase call works inside a condition.' }
+$wrongWordFailed = $false
+try { [void](ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source "to openNote with noteId`n    return noteId`n.`nopenNote for 12`n")) }
+catch { $wrongWordFailed = "$($_.Exception.Message)" -match "takes this value with ""with"", not ""for""" }
+if (-not $wrongWordFailed) { throw 'A call using a different phrase word must be an error.' }
+
+# A date moves by a computed amount, not only a literal one:
+# `add offset days to due` / `remove back hours from moment`.
+$adjustSource = @'
+add offset days to due
+remove back hours from moment
+add 3 days to due
+add offset to score
+'@
+$adjustAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $adjustSource)
+if ($adjustAst.Statements[0] -isnot [DateAdjustStmt] -or $adjustAst.Statements[0].Amount -isnot [VariableExpr] -or $adjustAst.Statements[0].Unit -ne [TimeUnit]::Day -or $adjustAst.Statements[0].Target -ne 'due') { throw 'Expected add <name> days to <date> to adjust the date.' }
+if ($adjustAst.Statements[1] -isnot [DateAdjustStmt] -or -not $adjustAst.Statements[1].IsRemoval -or $adjustAst.Statements[1].Unit -ne [TimeUnit]::Hour) { throw 'Expected remove <name> hours from <date> to adjust the date.' }
+if ($adjustAst.Statements[2] -isnot [DateAdjustStmt]) { throw 'A literal amount must still adjust the date.' }
+if ($adjustAst.Statements[3] -isnot [AddToStmt]) { throw 'add <name> to <name> without a unit is still plain addition.' }
+
 $fileSource = @'
 write "Hello" to "note.txt"
 append " world" to "note.txt"

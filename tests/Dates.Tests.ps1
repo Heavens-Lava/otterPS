@@ -465,5 +465,16 @@ Test-Otter 'a date never equals text that looks like one' {
     Assert-Lines -Expected @('false') -Actual $out
 }
 
+Test-Otter 'weekday of date is 1 for Monday through 7 for Sunday' {
+    # 2026-09-28 is a Monday; 2026-10-04 is the following Sunday.
+    $out = Invoke-TestProgram @(
+        [AssignStmt]::new('monday', (Lit (FixedDate '2026-09-28 00:00:00')), 1),
+        [AssignStmt]::new('sunday', (Lit (FixedDate '2026-10-04 00:00:00')), 2),
+        [AssignStmt]::new('thursday', (Lit (FixedDate '2026-10-01 00:00:00')), 3),
+        [SayStmt]::new(@((PropOf 'weekday' (Var 'monday')), (PropOf 'weekday' (Var 'thursday')), (PropOf 'weekday' (Var 'sunday'))), 4)
+    )
+    Assert-Lines -Expected @('1 4 7') -Actual $out
+}
+
 
 Complete-OtterTests

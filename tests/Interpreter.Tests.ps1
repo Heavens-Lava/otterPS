@@ -58,6 +58,18 @@ Test-Otter 'say prints a literal' {
     Assert-Lines -Expected @('Hello') -Actual $out
 }
 
+Test-Otter 'text of a number or true/false is the words say would print, joinable with plus' {
+    # label is "You have " plus text of count plus " tasks"
+    $out = Invoke-TestProgram @(
+        (AssignSt 'count' (Lit 12.0)),
+        (AssignSt 'flag' (Lit $true)),
+        (AssignSt 'label' (MathEx (MathEx (Lit 'You have ') 'Add' ([PropertyAccessExpr]::new('text', (Var 'count'), 3))) 'Add' (Lit ' tasks'))),
+        (SaySt @((Var 'label'))),
+        (SaySt @([PropertyAccessExpr]::new('text', (Var 'flag'), 5)))
+    )
+    Assert-Lines -Expected @('You have 12 tasks', 'true') -Actual $out
+}
+
 Test-Otter 'say prints a variable' {
     $out = Invoke-TestProgram @(
         (AssignSt 'name' (Lit 'Jeff')),

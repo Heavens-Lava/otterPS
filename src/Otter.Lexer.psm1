@@ -43,6 +43,9 @@ $script:OtterKeywords = @{
     # Reserved for later language versions. Lexing them now prevents a future
     # keyword from silently changing an existing program's meaning.
     'a' = [TokenKind]::A
+    # `an` is the same article: `home is an icon`, `an Item has`. The token
+    # keeps its own text, so error messages still say what was written.
+    'an' = [TokenKind]::A
     'has' = [TokenKind]::Has
     'file' = [TokenKind]::File
     'into' = [TokenKind]::Into
@@ -465,6 +468,7 @@ function ConvertTo-OtterLineTokens {
         # A time unit, but ONLY where a unit can appear (D32):
         #
         #   add 7 days to date          after a number
+        #   add offset days to date     after a name, before "to" / "from"
         #   days between a and b        before "between"
         #
         # Anywhere else these stay identifiers, so "year of book" keeps
@@ -473,8 +477,10 @@ function ConvertTo-OtterLineTokens {
             $previous = if ($combined.Count -gt 0) { $combined[$combined.Count - 1] } else { $null }
             $next = if (($tokenIndex + 1) -lt $tokens.Count) { $tokens[$tokenIndex + 1] } else { $null }
             $afterNumber = ($null -ne $previous -and $previous.Kind -eq [TokenKind]::Number)
+            $afterNameBeforeToFrom = ($null -ne $previous -and $previous.Kind -eq [TokenKind]::Identifier -and
+                $null -ne $next -and $next.Text -in @('to', 'from'))
             $beforeBetween = ($null -ne $next -and $next.Text -eq 'between')
-            if ($afterNumber -or $beforeBetween) {
+            if ($afterNumber -or $afterNameBeforeToFrom -or $beforeBetween) {
                 $combined.Add((New-OtterToken $script:OtterTimeUnitWords[$token.Text] $token.Text $null $token.Line $token.Column))
                 continue
             }
