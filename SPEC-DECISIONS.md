@@ -7795,3 +7795,30 @@ console/web differences are listed in `docs/OTTER_1_0_RELEASE_SCOPE_MATRIX.md`.
 A generated Otter 1.0 web application has no mandatory external dependency: it
 uses a system font stack, loads nothing from another host, and starts and renders
 offline. Developers may add external resources deliberately.
+
+## D128. Web UI created while the page runs
+
+**Decided 2026-09-29 (Jeff; found by the OtterBoard dogfood review of rc.3).**
+
+On the web and Electron target, `create`, `has`, property assignment, `put`,
+`show`, `hide`, `focus` and `when` inside an event handler, a function or a loop
+compiled to nothing: the page ran without an error and the UI never appeared
+(`examples/v1/tasks.ot`'s Add button did nothing). That is a silent wrong
+result, which Otter forbids.
+
+**Decision:** the web target follows the console's UI model. `create KIND into
+NAME` anywhere creates a new UI resource and binds it to `NAME`, so a handler
+that runs five times creates five resources. `put`, `show`, `hide`, `focus` and
+`when` act on the resource the variable holds when the statement runs, and
+`NAME has PROPERTY VALUE` / `PROPERTY of NAME is VALUE` set its properties with
+the same meaning as at the top level. `has` on a name that holds a UI resource
+sets properties rather than creating a thing (the console's rule), including for
+the page's top-level resources. Wrong values give the console's messages (for
+example "I can only put a UI resource somewhere, but this is a number.").
+
+Top-level `create`/`put` statements are still rendered to static HTML; only what
+cannot be known before the page runs is created at runtime, from templates made
+by the same renderer. Drag and drop handlers stay top-level only on the web and
+say so.
+
+Evidence: `tests/WebRuntimeUi.Tests.ps1` (headless Chromium).
