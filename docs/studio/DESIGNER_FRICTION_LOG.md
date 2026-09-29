@@ -41,11 +41,23 @@ navigation buttons, heading, search box, action button, three equal stat
 cards, a content panel with a three-row table) builds with no failed step,
 and Preview matches the canvas.
 
-### Friction still open
+### Fixed in the second round
 
-| # | Friction | Kind | Proposed |
-|---|---|---|---|
-| 7 | The table's cells hug their text ("Otter Studio  In progress  Sep 30"): no columns line up without setting each cell's width | fight sizing | a table is a Grid; offer "Table" as a grid card with header row, or equal-width cells in a row (Layout: equal widths). There is no table / list control in Otter 1.0 |
-| 8 | Navigation buttons in the sidebar column do not fill its width; the sidebar has no inner padding | fight sizing | a Column's default could stretch its children (align Fill) and have a little padding; today the user sets Align: Fill |
-| 9 | After making the window larger than the view, part of it is off screen until Zoom to Fit (Shift+1) | orientation | fit automatically when the window outgrows the view |
-| 10 | A row holding one line of text is ~20 px tall: a drop meant for it easily lands in the card around it (the target outline says so, which helps) | guess the drop target | a slightly larger hit area for thin flow containers while dragging |
+| # | Friction | Fix |
+|---|---|---|
+| 7 | Table cells hugged their text; columns did not line up | Layout -> Cells: Hug / Equal on a row (every selected row at once, one undo step): , ordinary CSS the compiler embeds; duplicating a row keeps it. Checked: the three rows' cells start at the same x on the canvas and in Preview |
+| 8 | Sidebar navigation did not fill the column; no inner padding | a new Column no longer writes  or  to the source (the compiled column stretches its children; the source  was overriding the designer's padding): buttons fill the sidebar, 12 px inside |
+| 9 | A window made larger than the view was partly off screen until Shift+1 | the view fits by itself when a window resize leaves it too big |
+| 10 | A one-line row was ~20 px tall and hard to drop into | a new Row gets 8 px padding (no  in the source): 34 px, an easy target, and a better-looking table line |
+
+After both rounds the dashboard builds through the Designer alone with no
+failed step and no fighting, and Preview (the compiled app) matches the
+canvas: sidebar with logo and full-width navigation, heading, search,
+action button, three equal stat cards, and a content panel whose table
+columns line up.
+
+### Next pass
+
+Build a second, different application (a settings form with labelled
+inputs, checkboxes and a footer of buttons; then a responsive layout at
+Tablet and Mobile) to find the next set of friction.

@@ -1046,7 +1046,20 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
         }
         return `${Math.round(w)} × ${Math.round(h)}${notes.length ? '  ·  ' + notes.join(', ') : ''}`;
       },
-      onEnd: () => document.body.classList.remove('designer-is-moving')
+      onEnd: (cancelled) => {
+        document.body.classList.remove('designer-is-moving');
+        // A window made larger than the view is fitted, so none of it is
+        // left off screen (after the canvas redraws at the new size).
+        if (isWindow && !cancelled) {
+          requestAnimationFrame(() => {
+            const wrapper = stageEl.querySelector('#canvasWindowWrapper');
+            if (!wrapper) return;
+            const r = wrapper.getBoundingClientRect();
+            const v = viewportEl.getBoundingClientRect();
+            if (r.right > v.right - 8 || r.bottom > v.bottom - 8 || r.left < v.left) zoomToFit();
+          });
+        }
+      }
     });
   }
 
@@ -1937,7 +1950,10 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
   // rounded corners - in the stylesheet, where they are easy to change.
   function styleNewContainer(child) {
     if (!child || !cssAstManager) return;
-    if (['row', 'column', 'card'].includes(child.kind)) cssAstManager.setProperty(`#${child.name}`, 'padding', '12px');
+    // Room inside a new container (a card has its own padding in the source).
+    // A row's is smaller: rows are table lines and toolbars.
+    if (child.kind === 'column') cssAstManager.setProperty(`#${child.name}`, 'padding', '12px');
+    if (child.kind === 'row') cssAstManager.setProperty(`#${child.name}`, 'padding', '8px');
     if (child.kind === 'card') cssAstManager.setProperty(`#${child.name}`, 'border-radius', '12px');
   }
 

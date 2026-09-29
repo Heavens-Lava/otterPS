@@ -488,6 +488,13 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
       ${free ? '<div class="sp-note">Drag children anywhere; they snap to edges, centres and each other (Alt turns snapping off). Arrow keys nudge.</div>' : ''}`;
   }
 
+  // Whether a row's cells share its width equally (`#row > * { flex: 1 1 0 }`).
+  function equalCells(comp) {
+    if (!cssAstManager || !comp) return false;
+    const flex = String(cssAstManager.getRuleDeclarations(`#${comp.name} > *`)?.flex || '').trim();
+    return /^1 1 0(px|%)?$/.test(flex);
+  }
+
   function renderLayoutSection(ctx) {
     const { selected } = ctx;
     const schema = ComponentSchema[selected.kind] || {};
@@ -530,6 +537,19 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
       body += field(ctx, 'flex-wrap', 'Wrap', segmented(ctx, 'flex-wrap', [
         ['nowrap', 'No wrap'], ['wrap', 'Wrap']
       ]));
+      if (direction.startsWith('row')) {
+        // A table line: equal cells make the columns of stacked rows line up.
+        const equal = equalCells(selected);
+        body += `
+          <div class="sp-field is-wide" data-search="cells equal width table columns">
+            <span class="sp-dot ${equal ? 'is-set' : ''}"></span>
+            <label class="sp-label" title="How the controls in this row share its width">Cells</label>
+            <div class="sp-seg">
+              <button class="sp-seg-btn ${equal ? '' : 'is-active'}" data-equal-cells="hug" title="Each as wide as its content">Hug</button>
+              <button class="sp-seg-btn ${equal ? 'is-active' : ''}" data-equal-cells="equal" title="The same width each, so the columns of rows below each other line up (a table)">Equal</button>
+            </div>
+          </div>`;
+      }
       body += field(ctx, 'gap', 'Gap', lengthInput(ctx, 'gap'), { scrub: { min: 0 }, search: 'spacing between' });
     }
 
@@ -1205,6 +1225,25 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
     }));
 
     // Grid column stepper and child span
+    // Cells: Equal / Hug for every selected row (one undo step).
+    qa('[data-equal-cells]').forEach(btn => btn.addEventListener('click', () => {
+      const equal = btn.getAttribute('data-equal-cells') === 'equal';
+      const rows = uiModel.getSelectedComponents().filter(c => ComponentSchema[c.kind]?.isContainer);
+      if (!rows.length || !cssAstManager) return;
+      uiModel.saveSnapshot();
+      for (const row of rows) {
+        const selector = `#${row.name} > *`;
+        if (equal) {
+          cssAstManager.setProperty(selector, 'flex', '1 1 0');
+          cssAstManager.setProperty(selector, 'min-width', '0');
+        } else {
+          cssAstManager.removeProperty(selector, 'flex');
+          cssAstManager.removeProperty(selector, 'min-width');
+        }
+      }
+      window.dispatchEvent(new CustomEvent('css-updated', { detail: { source: 'equal-cells' } }));
+      update();
+    }));
     qa('[data-grid-cols]').forEach(btn => btn.addEventListener('click', () => {
       const ctx = styles.resolve(selected);
       const current = gridTrackCount(ctx.own['grid-template-columns'] || ctx.inherited['grid-template-columns'] || '') || 1;
