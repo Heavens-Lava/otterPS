@@ -87,6 +87,17 @@ The page's `icons` sprite (an SVG file of `<symbol>`s) is embedded once, so
 icons work from a file, a server and inside Electron. A missing sprite is a
 compile error.
 
+**Stylesheets can change a row's or column's layout.** A row or column is
+written with only what the program says (`align`, `spread`, `spacing`, `wrap`,
+`justify`); its defaults - gap 8px, a row centered vertically, a column
+stretched across, both packed to the start - come from the page's base
+styles. So `tile is a column with style "tile"` with `.tile {
+justify-content: center; align-items: center; }` in the project's
+stylesheet centers its content, while `align top` written in the program
+still wins. Before, the defaults were written on every element and
+silently overrode the stylesheet (OtterBoard's icons sat at the top of
+their tiles and its progress rings' numbers at the top-left).
+
 While something is dragged over an element with `accepts drops true`, it
 carries the `otter-drop-over` class, so a stylesheet can show where a drop
 will land.

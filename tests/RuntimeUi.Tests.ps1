@@ -25,12 +25,14 @@ $script:Edge = @(
 ) | Where-Object { $_ -and (Test-Path -LiteralPath $_) } | Select-Object -First 1
 
 function Invoke-OtterUiProgram {
-    param([Parameter(Mandatory)][string]$Source, [string]$Driver = '')
+    param([Parameter(Mandatory)][string]$Source, [string]$Driver = '', [string]$Css = '')
     $dir = Join-Path ([System.IO.Path]::GetTempPath()) ("otter_rtui_$([Guid]::NewGuid().ToString('N'))")
     New-Item -ItemType Directory -Path $dir -Force | Out-Null
     try {
         $otFile = Join-Path $dir 'program.ot'
         [System.IO.File]::WriteAllText($otFile, $Source, [System.Text.UTF8Encoding]::new($false))
+        # The entry's own stylesheet (D125): program.ot uses program.css.
+        if ($Css) { [System.IO.File]::WriteAllText((Join-Path $dir 'program.css'), $Css, [System.Text.UTF8Encoding]::new($false)) }
         $output = & powershell -NoProfile -ExecutionPolicy Bypass -File $script:OtterPs1 web $otFile -NoOpen 2>&1
         $compileText = ($output | ForEach-Object { [string]$_ }) -join "`n"
         $htmlPath = Join-Path $dir 'program.html'
@@ -341,6 +343,42 @@ on drop on target
     Assert-True $run.Result.stillOverInside 'moving onto a child of the target keeps the mark'
     Assert-False $run.Result.afterMove 'dragging over something else takes the mark away'
     Assert-False $run.Result.afterDrop 'a drop takes the mark away'
+}
+
+Test-Otter 'a named style can change a row or column''s default layout; an explicit property still wins' {
+    $run = Invoke-OtterUiProgram -Source @'
+app is a page with title "T", hideheader true
+tile is a column with style "tile"
+dot is a text with value "x"
+put dot in tile
+pinned is a column with style "tile", align top
+bar is a row with style "tight"
+plain is a row
+put tile, pinned, bar, plain in app
+to makeTile
+    made is a column with style "tile"
+    return made
+.
+makeTile into built
+put built in app
+'@ -Css @'
+.tile { height: 80px; justify-content: center; align-items: center; }
+.tight { gap: 2px; flex-wrap: wrap; }
+'@ -Driver @'
+  const cs = (s) => getComputedStyle(q(s));
+  result.tile = cs('#tile').justifyContent + '/' + cs('#tile').alignItems;
+  result.pinned = cs('#pinned').justifyContent;
+  result.bar = cs('#bar').gap + '/' + cs('#bar').flexWrap;
+  result.plain = cs('#plain').gap + '/' + cs('#plain').alignItems + '/' + cs('#plain').justifyContent;
+  const made = qa('.tile').find(e => e.id.startsWith('otter-ui-'));
+  result.built = made ? getComputedStyle(made).justifyContent : 'none';
+'@
+    Assert-UiRan $run
+    Assert-AreEqual -Expected 'center/center' -Actual $run.Result.tile
+    Assert-AreEqual -Expected 'flex-start' -Actual $run.Result.pinned
+    Assert-AreEqual -Expected '2px/wrap' -Actual $run.Result.bar
+    Assert-AreEqual -Expected '8px/center/flex-start' -Actual $run.Result.plain
+    Assert-AreEqual -Expected 'center' -Actual $run.Result.built
 }
 
 Test-Otter 'clear empties a container; remove takes one element out' {

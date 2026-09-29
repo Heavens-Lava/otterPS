@@ -1734,8 +1734,13 @@ $optHtml
                 return "      <label class=`"otter-radio-label`"$styleAttr><input type=`"radio`" id=`"$resName`" name=`"$group`" class=`"otter-radio`"$checked /> <span>$text</span></label>"
             }
             'row' {
-                $spacing = if ($props.Contains('spacing')) { $props['spacing'] } else { 8 }
-                $wrap = if ($props.Contains('wrap') -and ($props['wrap'] -eq $true -or $props['wrap'] -eq 'true' -or $props['wrap'] -eq 'wrap')) { 'wrap' } else { 'nowrap' }
+                # Only what the program says is written on the element. The
+                # defaults (gap 8px, centered vertically, packed left, no
+                # wrapping) come from .otter-row in the page's base styles, so
+                # a named `style` from the project's stylesheet can change them
+                # while an explicit property here still wins.
+                $spacing = if ($props.Contains('spacing')) { $props['spacing'] } else { $null }
+                $wrap = if (-not $props.Contains('wrap')) { $null } elseif ($props['wrap'] -eq $true -or $props['wrap'] -eq 'true' -or $props['wrap'] -eq 'wrap') { 'wrap' } else { 'nowrap' }
                 
                 # D54: align is one property; its word selects the physical axis.
                 $direction = if ($props.Contains('align')) { [string]$props['align'] } else { $null }
@@ -1756,7 +1761,7 @@ $optHtml
                 } elseif ($props.Contains('justify')) {
                     $props['justify']
                 } else {
-                    'flex-start'
+                    $null
                 }
 
                 # Vertical placement (cross axis)
@@ -1772,21 +1777,23 @@ $optHtml
                 } elseif ($props.Contains('items')) {
                     $props['items']
                 } else {
-                    'center'
+                    $null
                 }
 
                 $styles.Add("display: flex; flex-direction: row;")
-                $styles.Add("gap: ${spacing}px;")
-                $styles.Add("align-items: $align;")
-                $styles.Add("justify-content: $justify;")
-                $styles.Add("flex-wrap: $wrap;")
+                if ($null -ne $spacing) { $styles.Add("gap: ${spacing}px;") }
+                if ($null -ne $align) { $styles.Add("align-items: $align;") }
+                if ($null -ne $justify) { $styles.Add("justify-content: $justify;") }
+                if ($null -ne $wrap) { $styles.Add("flex-wrap: $wrap;") }
                 $styleAttr = if ($styles.Count -gt 0) { " style=`"$($styles -join ' ')`"" } else { "" }
                 return @"
       <div id="$resName" class="otter-row"$styleAttr>$childHtml</div>
 "@
             }
             'column' {
-                $spacing = if ($props.Contains('spacing')) { $props['spacing'] } else { 8 }
+                # As for a row: explicit properties inline, defaults (gap 8px,
+                # stretched across, packed to the top) from .otter-column.
+                $spacing = if ($props.Contains('spacing')) { $props['spacing'] } else { $null }
 
                 # D54: align is one property; its word selects the physical axis.
                 $direction = if ($props.Contains('align')) { [string]$props['align'] } else { $null }
@@ -1807,7 +1814,7 @@ $optHtml
                 } elseif ($props.Contains('justify')) {
                     $props['justify']
                 } else {
-                    'flex-start'
+                    $null
                 }
 
                 # Horizontal placement (cross axis)
@@ -1823,13 +1830,13 @@ $optHtml
                 } elseif ($props.Contains('items')) {
                     $props['items']
                 } else {
-                    'stretch'
+                    $null
                 }
 
                 $styles.Add("display: flex; flex-direction: column;")
-                $styles.Add("gap: ${spacing}px;")
-                $styles.Add("align-items: $align;")
-                $styles.Add("justify-content: $justify;")
+                if ($null -ne $spacing) { $styles.Add("gap: ${spacing}px;") }
+                if ($null -ne $align) { $styles.Add("align-items: $align;") }
+                if ($null -ne $justify) { $styles.Add("justify-content: $justify;") }
                 $styleAttr = if ($styles.Count -gt 0) { " style=`"$($styles -join ' ')`"" } else { "" }
                 return @"
       <div id="$resName" class="otter-column"$styleAttr>$childHtml</div>
@@ -2315,14 +2322,17 @@ $runnableCss
     .otter-row {
       display: flex;
       flex-direction: row;
+      gap: 8px;
       align-items: center;
       justify-content: flex-start;
+      flex-wrap: nowrap;
       box-sizing: border-box;
       min-width: 0;
     }
     .otter-column {
       display: flex;
       flex-direction: column;
+      gap: 8px;
       align-items: stretch;
       justify-content: flex-start;
       box-sizing: border-box;
