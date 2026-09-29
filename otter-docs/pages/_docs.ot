@@ -15,8 +15,9 @@ sideHello is a link with text "Hello, Otter!", url "/hello/", foreground "#4a5b7
 sideRepl is a link with text "The REPL", url "/repl/", foreground "#4a5b75", size 14, customstyle "padding: 8px 12px; border-left: 3px solid transparent; border-radius: 4px; display: block;"
 sideRunningFiles is a link with text "Running .ot files", url "/running-files/", foreground "#4a5b75", size 14, customstyle "padding: 8px 12px; border-left: 3px solid transparent; border-radius: 4px; display: block;"
 sideTinyApp is a link with text "Build a tiny application", url "/tiny-app/", foreground "#4a5b75", size 14, customstyle "padding: 8px 12px; border-left: 3px solid transparent; border-radius: 4px; display: block;"
+sideFromPython is a link with text "Coming from Python", url "/from-python/", foreground "#4a5b75", size 14, customstyle "padding: 8px 12px; border-left: 3px solid transparent; border-radius: 4px; display: block;"
 sideGroup1 is a column with spacing 2
-put sideGroupHead1, sideDocs, sideWelcome, sideWhatIsOtter, sideWhoIsOtterFor, sideWhatCanYouBuild, sideInstallation, sideVerify, sideFirstProgram, sideHello, sideRepl, sideRunningFiles, sideTinyApp in sideGroup1
+put sideGroupHead1, sideDocs, sideWelcome, sideWhatIsOtter, sideWhoIsOtterFor, sideWhatCanYouBuild, sideInstallation, sideVerify, sideFirstProgram, sideHello, sideRepl, sideRunningFiles, sideTinyApp, sideFromPython in sideGroup1
 
 sideGroupHead2 is a link with text "Tools", url "/cli/", foreground "#0f1f36", size 13, weight 700, customstyle "padding: 6px 12px; display: block;"
 sideCli is a link with text "The otter command", url "/cli/", foreground "#4a5b75", size 14, customstyle "padding: 8px 12px; border-left: 3px solid transparent; border-radius: 4px; display: block;"

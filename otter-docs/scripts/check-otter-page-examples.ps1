@@ -26,6 +26,7 @@ foreach ($page in $pages) {
             if ($m.Groups[1].Value -eq 'n') { "`n" } else { $m.Groups[1].Value }
         })
         if ([regex]::IsMatch($code, $skipStarts) -or $line.Contains('foreground "#a5e3b5"')) { continue }   # shell commands and program output
+        if ($line -match '^py\d+ is a text') { continue }   # Python comparison samples (blocks named pyN)
         $tmp = Join-Path ([System.IO.Path]::GetTempPath()) ("otter-doc-check-$([guid]::NewGuid().ToString('N')).ot")
         [System.IO.File]::WriteAllText($tmp, $code + "`n", (New-Object System.Text.UTF8Encoding($false)))
         $output = & powershell -NoProfile -ExecutionPolicy Bypass -File $otter check $tmp 2>&1 | Out-String

@@ -26,6 +26,7 @@ foreach ($page in Get-ChildItem -LiteralPath $pagesDir -Filter '*.ot' | Where-Ob
         $sample = [regex]::Replace($match.Groups[2].Value, '\\(.)', { param($m) if ($m.Groups[1].Value -eq 'n') { "`n" } else { $m.Groups[1].Value } })
         $green = $rest.Contains('foreground "#a5e3b5"')
         if ($isOut -or $green) { $label = 'Output' }
+        elseif ($name -match '^py\d+$') { $label = 'Python' }   # comparison samples (Coming from Python)
         elseif ([regex]::IsMatch($sample, $shellStarts)) { $label = 'PowerShell' }
         else { $label = 'Otter' }
         $headBg = if ($isCode) { '#16263f' } else { '#dde6f2' }
