@@ -290,6 +290,10 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
     if (['text box', 'dropdown'].includes(selected.kind)) {
       fields.push(contentRow('Placeholder', 'placeholder', props.placeholder));
     }
+    if (selected.kind === 'dropdown') {
+      // The choices, comma separated (Otter's `options "English, Spanish"`).
+      fields.push(contentRow('Options', 'options', props.options));
+    }
     if (selected.kind === 'image') {
       fields.push(contentRow('Image source', 'source', props.source));
     }

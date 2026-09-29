@@ -239,7 +239,7 @@ export const ComponentSchema = {
       foreground: '#f8fafc',
       radius: 6
     },
-    allowedProperties: ['placeholder', 'width', 'height', 'background', 'foreground', 'radius', 'round', 'enabled', 'opacity'],
+    allowedProperties: ['placeholder', 'options', 'width', 'height', 'background', 'foreground', 'radius', 'round', 'enabled', 'opacity'],
     events: ['changed']
   },
 

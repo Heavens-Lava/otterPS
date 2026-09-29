@@ -22,7 +22,8 @@ export const FREE_DEFAULT_SIZES = {
   'primary button': { minWidth: 100 },
   'danger button': { minWidth: 100 },
   'text box': { width: 220 },
-  'dropdown': { width: 200 },
+  // The same as a text box, so a form's fields line up.
+  'dropdown': { width: 220, height: 38 },
   'slider': { width: 200 },
   'progress bar': { width: 220 },
   'image': { width: 200, height: 140 },
