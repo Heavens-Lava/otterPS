@@ -22,7 +22,7 @@ rc.2 (CLI, manifest and build, language, diagnostics, web and Studio audits;
 test that fails on rc.2.
 
 ### Decided
-- **D123 (D-1):** arithmetic in a condition means what it says: `if x plus 1 is 5` compares `x plus 1` with 5. On rc.2 it was silently read as `x and (1 is 5)`. The parser change is prepared for Codex review and is **not yet in this candidate** unless noted in the release record.
+- **D123 (D-1):** arithmetic in a condition means what it says: `if x plus 1 is 5` compares `x plus 1` with 5. On rc.2 it was silently read as `x and (1 is 5)`. The parser fix is implemented in the final RC3 candidate and covered by `tests/ConditionArithmetic.Tests.ps1`; final release certification remains required before tagging.
 - **D124 (D-2):** a declaration the grammar would silently misread is refused before anything runs. Examples: `to main` (a line starting with `main` is read as a UI element and never calls the function), and a variable named `completed` (read as a job-state check in comparisons). See `docs/OTTER_1_0_RESERVED_WORDS.md`.
 - **D125 (D-3):** the only web stylesheet rule is `<entry>.css` beside the entry file; `otter new web` creates `main.css`.
 - **D126 (D-4):** web `say` output uses the console's formatting (D8).

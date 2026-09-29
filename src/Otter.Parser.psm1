@@ -1005,7 +1005,7 @@ function Read-OtterMathExpression {
 }
 
 # ---------------------------------------------------------------------------
-# D-1 (Otter 1.0, RC3) - PROPOSAL FOR CODEX REVIEW
+# D-1 (Otter 1.0, RC3)
 #
 # "Silent incorrect arithmetic in conditions is forbidden."
 #
