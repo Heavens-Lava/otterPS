@@ -354,16 +354,40 @@ function registerBridge() {
 // Window
 // -----------------------------------------------------------------------------
 
+// The window the program declared (its page's title, width, height, minwidth,
+// minheight and background), copied into package.json by the Otter exporter.
+function windowSettings() {
+  try {
+    const manifest = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
+    return (manifest.otter && manifest.otter.window) || {};
+  } catch {
+    return {};
+  }
+}
+
+function cssColor(value) {
+  return typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value.trim()) ? value.trim() : null;
+}
+
 // The page was compiled for a browser tab; in its own window it fills it.
-const WINDOW_CSS = 'html, body { margin: 0; padding: 0; min-height: 100vh; background: #f0f4f9; }';
+function windowCss(background) {
+  return 'html, body { margin: 0; padding: 0; min-height: 100vh; background: ' + (background || '#f0f4f9') + '; }' +
+    ' body > .otter-page, body > .otter-window { width: 100%; max-width: none; min-height: 100vh; margin: 0; }';
+}
 
 function createWindow() {
+  const settings = windowSettings();
+  const size = (value, fallback) => (Number.isFinite(Number(value)) && Number(value) > 0 ? Math.round(Number(value)) : fallback);
+  const background = cssColor(settings.background) || '#f0f4f9';
   const win = new BrowserWindow({
-    width: 1200,
-    height: 800,
+    width: size(settings.width, 1200),
+    height: size(settings.height, 800),
+    minWidth: size(settings.minwidth, 0),
+    minHeight: size(settings.minheight, 0),
+    title: typeof settings.title === 'string' && settings.title ? settings.title : app.getName(),
     show: !SMOKE_REPORT,
     autoHideMenuBar: true,
-    backgroundColor: '#f0f4f9',
+    backgroundColor: background,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -385,7 +409,7 @@ function createWindow() {
     event.preventDefault();
     if (/^https?:/i.test(url)) shell.openExternal(url);
   });
-  win.webContents.on('dom-ready', () => { win.webContents.insertCSS(WINDOW_CSS).catch(() => {}); });
+  win.webContents.on('dom-ready', () => { win.webContents.insertCSS(windowCss(background)).catch(() => {}); });
 
   if (SMOKE_REPORT) {
     win.webContents.once('did-finish-load', () => { setTimeout(() => runSmoke(win), 400); });

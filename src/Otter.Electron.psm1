@@ -69,7 +69,12 @@ function Export-OtterElectronApplication {
         Copy-Item -LiteralPath $from -Destination $to -Force
     }
 
-    # 4. package.json - a valid npm name plus the human name for the window.
+    # 4. The window the program asked for: the compiled page carries a
+    #    <meta name="otter-window"> with the root's title, size, minimum size
+    #    and background. main.js reads it back from package.json.
+    $windowInfo = Get-OtterWindowMeta -HtmlPath $indexHtml
+
+    # 5. package.json - a valid npm name plus the human name for the window.
     $displayName = if ([string]::IsNullOrWhiteSpace($Name)) { [System.IO.Path]::GetFileNameWithoutExtension($resolvedSource) } else { $Name }
     $packageName = ConvertTo-OtterPackageName -Name $displayName
     $safeVersion = if ($Version -match '^\d+\.\d+\.\d+') { $Version } else { '1.0.0' }
@@ -83,7 +88,7 @@ function Export-OtterElectronApplication {
         private         = $true
         scripts         = [ordered]@{ start = 'electron .' }
         devDependencies = [ordered]@{ electron = '^32.0.0' }
-        otter           = [ordered]@{ target = 'electron'; entry = 'app/index.html' }
+        otter           = [ordered]@{ target = 'electron'; entry = 'app/index.html'; window = $windowInfo }
     }
     $json = ConvertTo-Json -InputObject $manifest -Depth 5
     [System.IO.File]::WriteAllText((Join-Path $outRoot 'package.json'), $json + "`n", (New-Object System.Text.UTF8Encoding($false)))
@@ -96,6 +101,25 @@ function Export-OtterElectronApplication {
     }
 }
 
+# The <meta name="otter-window" content="{...}"> the web compiler writes into
+# every page: title, width, height, minwidth, minheight, background (only
+# the ones the program declared). An older or hand-written page without the
+# meta gives an empty table.
+function Get-OtterWindowMeta {
+    param([Parameter(Mandatory)][string]$HtmlPath)
+    $result = [ordered]@{}
+    if (-not (Test-Path -LiteralPath $HtmlPath)) { return $result }
+    $head = [System.IO.File]::ReadAllText($HtmlPath, [System.Text.Encoding]::UTF8)
+    $m = [regex]::Match($head, '<meta name="otter-window" content="([^"]*)"')
+    if (-not $m.Success) { return $result }
+    $json = [System.Net.WebUtility]::HtmlDecode($m.Groups[1].Value)
+    try {
+        $parsed = ConvertFrom-Json -InputObject $json
+        foreach ($p in $parsed.PSObject.Properties) { $result[$p.Name] = $p.Value }
+    } catch { }
+    return $result
+}
+
 # npm package names: lowercase, URL-safe, no leading dot or underscore.
 function ConvertTo-OtterPackageName {
     param([Parameter(Mandatory)][string]$Name)
@@ -106,4 +130,4 @@ function ConvertTo-OtterPackageName {
     return $cleaned
 }
 
-Export-ModuleMember -Function Export-OtterElectronApplication
+Export-ModuleMember -Function Export-OtterElectronApplication, Get-OtterWindowMeta
