@@ -13,7 +13,9 @@ dirty working tree is useful diagnostic evidence, but is **PROVISIONAL**.
 
 ## Release order (decided by Jeff, 2026-09-28)
 
-The release candidate is **1.0.0-rc.3** (`VERSION`), to be tagged `v1.0.0-rc.3`.
+The release candidate is **1.0.0-rc.4** (`VERSION`), tagged `v1.0.0-rc.4`
+(rc.3 plus D128; `docs/OTTER_1_0_RC4_EVIDENCE.md`). `v1.0.0-rc.3` remains
+tagged on its own certified commit.
 RC2 (`708ef2e`) was superseded before its certification by the blockers the
 production-readiness audit found; it is not tagged.
 The name `v1.0.0-rc.1` is taken: it is the 2026-09-11 baseline checkpoint,
@@ -58,7 +60,7 @@ Primary evidence: `docs/D119_DOGFOOD_LOG.md`.
 
 | Check | Status | Evidence / action |
 |---|---|---|
-| Immutable release candidate revision | RC CERTIFICATION | All work is committed; the candidate is the rc.3 commit (`VERSION` 1.0.0-rc.3). The certification record names its exact SHA and requires a clean checkout. |
+| Immutable release candidate revision | RC CERTIFICATION | All work is committed; the candidate is the rc.4 commit (`VERSION` 1.0.0-rc.4). The certification record names its exact SHA and requires a clean checkout. |
 | Frozen language contract | RESOLVED | Every 1.0 contract decision is recorded in `SPEC-DECISIONS.md` (DC1, D121, D122 approved 2026-09-27; D99 deferred to 1.1 on 2026-09-28). No contract question remains open: `docs/OTTER_1_0_FREEZE_FOLLOWUPS.md`. |
 | Existing scope reconciliation | BEFORE 1.0.0 | DC1 (console HTTP) is resolved. DC2-DC5 are documentation conflicts, not contract questions: `docs/OTTER_1_0_SURFACE_RECONCILIATION.md` section 8. |
 
@@ -118,7 +120,7 @@ Primary evidence: `docs/D119_DOGFOOD_LOG.md`.
 | Language and standard-library reference | BEFORE 1.0.0 | Reconcile documentation with the approved frozen scope. |
 | CLI and project-system guide | BEFORE 1.0.0 | Validate each documented command against the installed release payload. |
 | Target-specific boundaries | BEFORE 1.0.0 | Mark web-only, Windows-only, experimental, and deferred capabilities clearly. The query language (D99) is already labelled "not part of Otter 1.0" on the docs site. |
-| Changelog and release notes | IN PROGRESS | `CHANGELOG.md` has the `[1.0.0-rc.3]` section; final 1.0.0 release notes are written from the production SHA. |
+| Changelog and release notes | IN PROGRESS | `CHANGELOG.md` has the `[1.0.0-rc.3]` and `[1.0.0-rc.4]` sections; final 1.0.0 release notes are written from the production SHA. |
 | RC change freeze | PENDING | After the two pre-RC checks in "Release order" pass, tag `v1.0.0-rc.3` on the certified SHA; then permit release-blocking fixes only, each with a regression test and release-ledger update. |
 
 ## Resume protocol

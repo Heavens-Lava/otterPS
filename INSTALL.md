@@ -45,7 +45,7 @@ The easiest way to install Otter is using the automated per-user installer.
 ### Step 1: Download & Extract
 
 Download the latest versioned release archive:
-`otter-1.0.0-rc.3-windows-powershell.zip`
+`otter-1.0.0-rc.4-windows-powershell.zip`
 
 Extract the ZIP contents into a temporary directory or your Downloads folder.
 
@@ -59,7 +59,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 ```
 
 #### What the installer does:
-- Copies the complete Otter runtime, modules, and `otter.cmd` launcher to `%LOCALAPPDATA%\Otter\1.0.0-rc.3\`.
+- Copies the complete Otter runtime, modules, and `otter.cmd` launcher to `%LOCALAPPDATA%\Otter\1.0.0-rc.4\`.
 - Adds that directory to your User `PATH` environment variable.
 - Runs an automated health check (`otter.cmd --version`) to confirm successful installation.
 - Requires zero administrative rights and will not alter system-wide configurations.
@@ -76,7 +76,7 @@ otter --version
 
 Expected output:
 ```text
-Otter 1.0.0-rc.3
+Otter 1.0.0-rc.4
 ```
 
 ---
@@ -174,7 +174,7 @@ otter --version
 ```
 Expected output:
 ```text
-Otter 1.0.0-rc.3
+Otter 1.0.0-rc.4
 ```
 
 ### Check 2: Interactive REPL
@@ -299,7 +299,7 @@ Run `Uninstall-Otter.ps1` from your installation directory:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
-& "$env:LOCALAPPDATA\Otter\1.0.0-rc.3\Uninstall-Otter.ps1"
+& "$env:LOCALAPPDATA\Otter\1.0.0-rc.4\Uninstall-Otter.ps1"
 ```
 
 The uninstaller will:

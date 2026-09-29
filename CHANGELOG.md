@@ -4,6 +4,11 @@ All notable changes to the Otter Programming Language platform are documented in
 
 ## [Unreleased]
 
+## [1.0.0-rc.4] - 2026-09-29
+
+Fourth Otter 1.0 release candidate: rc.3 plus D128. Evidence:
+`docs/OTTER_1_0_RC4_EVIDENCE.md`.
+
 ### Decided
 - **D128:** web UI created while the page runs. On rc.3, `create`, `has`, `put`, `show` and `when` inside an event handler, function or loop compiled to nothing on the web/Electron target, so the page silently did nothing (for example the Add button of `examples/v1/tasks.ot`). They now behave as on the console.
 

@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0-rc.3",
+  "version": "1.0.0-rc.4",
   "channel": "Release candidate",
   "windowsRequirements": "Windows 10 or Windows 11 with Windows PowerShell 5.1.",
   "installerStatus": "Installer not published yet",
