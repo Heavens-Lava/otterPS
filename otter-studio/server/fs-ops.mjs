@@ -77,7 +77,43 @@ function moveToTrash(abs) {
   });
 }
 
+// The folders inside one workspace folder, for the Open Folder browser.
+// Hidden folders and dependency/build folders are left out; a folder with a
+// project.json / otter.json is marked as a project, one with .ot files as
+// Otter code.
+const SKIP_DIRS = new Set(['node_modules', 'dist', 'build', 'bin', 'obj', 'backup', 'packages']);
+
+export function listDirs(ctx, folder) {
+  const abs = resolveInWorkspace(ctx, folder || '.', { mustExist: true });
+  if (!fs.statSync(abs).isDirectory()) throw new FsError('That is not a folder.');
+  const dirs = [];
+  for (const entry of fs.readdirSync(abs, { withFileTypes: true })) {
+    if (!entry.isDirectory() || entry.name.startsWith('.') || SKIP_DIRS.has(entry.name)) continue;
+    const childAbs = path.join(abs, entry.name);
+    let names = [];
+    try { names = fs.readdirSync(childAbs); } catch { continue; }
+    dirs.push({
+      name: entry.name,
+      path: rel(ctx, childAbs),
+      isProject: names.includes('project.json') || names.includes('otter.json'),
+      hasOtter: names.some(n => n.toLowerCase().endsWith('.ot')),
+      hasFolders: names.some(n => !n.startsWith('.') && !SKIP_DIRS.has(n) && (() => { try { return fs.statSync(path.join(childAbs, n)).isDirectory(); } catch { return false; } })())
+    });
+  }
+  dirs.sort((a, b) => (b.isProject - a.isProject) || a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+  const here = rel(ctx, abs) || '.';
+  return { path: here === '' ? '.' : here, dirs };
+}
+
 export async function handleFsRoutes(req, res, pathname, ctx) {
+  if (pathname === '/api/fs/dirs' && req.method === 'GET') {
+    try {
+      const url = new URL(req.url, 'http://localhost');
+      return ctx.sendJson(res, listDirs(ctx, url.searchParams.get('path') || '.')), true;
+    } catch (err) {
+      return ctx.sendJson(res, { error: err.message }, err.status || 500), true;
+    }
+  }
   if (!pathname.startsWith('/api/fs/') || req.method !== 'POST') return false;
   const { sendJson } = ctx;
   try {

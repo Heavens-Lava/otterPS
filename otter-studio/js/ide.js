@@ -3,6 +3,7 @@
 import { openLaunchProfilesEditor } from './components/launch-profiles.js';
 import { createGitGutter } from './scm/gutter-changes.js';
 import { createInlineBlame } from './scm/inline-blame.js';
+import { pickFolder } from './shell/folder-picker.js';
 import { resolveEditorConfig, indentationFor, indentUnit, DEFAULT_INDENT } from './editor/indentation.js';
 import { openLocalHistory } from './components/local-history.js';
 import {
@@ -770,8 +771,13 @@ export class OtterStudioIde {
     }
   }
 
+  // File > Open Folder: browse the workspace (js/shell/folder-picker.js),
+  // starting next to the project that is open.
   async promptOpenFolder() {
-    const folder = await askText({ title: 'Open Folder', message: 'A folder inside the Otter repository, for example examples/file-organizer.', value: 'examples/file-organizer', okLabel: 'Open' });
+    const start = this.currentProjectFolder && !/\.(json|otter-workspace)$/i.test(this.currentProjectFolder)
+      ? (this.currentProjectFolder.split('/').slice(0, -1).join('/') || '.')
+      : '.';
+    const folder = await pickFolder({ start });
     if (!folder) return;
     await this.loadProjectTree(folder);
   }

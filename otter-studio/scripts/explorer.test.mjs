@@ -83,6 +83,24 @@ try {
     assert.ok(fs.readdirSync(trash).some(n => n.endsWith('other.ot')), 'in the trash');
   });
 
+  await test('Open Folder lists folders: projects first and marked; hidden and build folders left out', async () => {
+    fs.mkdirSync(at('browse', 'zeta'), { recursive: true });
+    fs.mkdirSync(at('browse', 'app'), { recursive: true });
+    fs.writeFileSync(at('browse', 'app', 'project.json'), '{}');
+    fs.mkdirSync(at('browse', 'scripts-only'), { recursive: true });
+    fs.writeFileSync(at('browse', 'scripts-only', 'x.ot'), 'say 1\n');
+    fs.mkdirSync(at('browse', '.hidden'), { recursive: true });
+    fs.mkdirSync(at('browse', 'node_modules'), { recursive: true });
+    const r = await fetch(`${base}/api/fs/dirs?path=${encodeURIComponent(relOf('browse'))}`);
+    const data = await r.json();
+    assert.equal(data.path, relOf('browse'));
+    assert.deepEqual(data.dirs.map(d => d.name), ['app', 'scripts-only', 'zeta']);
+    assert.equal(data.dirs[0].isProject, true);
+    assert.equal(data.dirs[1].hasOtter, true);
+    assert.equal(data.dirs[0].path, relOf('browse', 'app'));
+    assert.equal((await fetch(`${base}/api/fs/dirs?path=..`)).status, 403);
+  });
+
   await test('outside the workspace, the root and .git are refused', async () => {
     assert.equal((await post('delete', { path: '../outside.ot' })).status, 403);
     assert.equal((await post('delete', { path: '.' })).status, 403);
