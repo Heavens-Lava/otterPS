@@ -10,13 +10,14 @@
 
 
 
-> **Status (2026-09-25).** Live at <https://heavens-lava.github.io/> (source: `otter-docs/pages/*.ot`, written in Otter; published from `otter-site-publish/`).
+> **Status (2026-09-29).** Live at <https://heavens-lava.github.io/> (source: `otter-docs/pages/*.ot`, written in Otter; published from `otter-site-publish/`).
 > Ticked items are built and verified: every code sample parses with the real parser, and every Run button was exercised in a real browser.
+> Updated for 1.0.0-rc.4: controls created while a program runs (D128) and how event handlers run (D121) on the Events page; the Windows application target marked experimental (release scope matrix); availability notes for networking, security and XML (their place in the 1.0 surface is not decided yet); reserved words on the Reference page (D124); release candidates on the Release page.
 > Not yet: the installer/release details (no installer is published), dark mode,
 > control reference pages, tutorials beyond the tiny app, migration guides, error reference, roadmap and release archive.
 > **Deviation:** some example code in this checklist is aspirational and does not parse in Otter today (`saveButton is primary button with text is "Save"`, `on click of saveButton`).
 > The site shows what runs: `saveButton is a primary button with text "Save"` and `when saveButton is clicked`.
-> Version shown: `{{RELEASE_VERSION}}` from `otter-docs/release-data.json`, which must match the repository `VERSION` file (currently 1.0.0-rc.3).
+> Version shown: `{{RELEASE_VERSION}}` from `otter-docs/release-data.json`, which must match the repository `VERSION` file (currently 1.0.0-rc.4).
 
 Please use "Otter Website documentation reference.png" 
 ------------------------------------------------------------------------

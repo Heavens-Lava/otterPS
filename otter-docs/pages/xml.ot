@@ -101,7 +101,7 @@ customstyle of sideLicense is "display: none;"
 
 b1 is a text with value "XML", size 40, weight 800, foreground "#0b1d36", letterspacing "-0.03em", lineheight "1.1"
 b2 is a text with value "XML is a value of its own, not text. You move between the two explicitly: xml from text going in, text from xml coming out.", size 18, foreground "#3a4d6b", lineheight "1.55"
-b3 is a text with value "Availability: this feature is in the current source tree and is not part of a published release yet.", size 15, foreground "#1e3a6b", background "#eaf2ff", radius 12, border "1px solid #cfe0ff", lineheight "1.55", customstyle "padding: 14px 18px;"
+b3 is a text with value "Availability: included in the current release candidate ({{RELEASE_VERSION}}). Whether it is part of the supported Otter 1.0 surface has not been decided yet, so details may change.", size 15, foreground "#1e3a6b", background "#eaf2ff", radius 12, border "1px solid #cfe0ff", lineheight "1.55", customstyle "padding: 14px 18px;"
 b4 is a text with value "Building a document", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b5 is a text with value "catalog is xml with root \"library\"\nlibrary is root of catalog\nadd element \"book\" to library and call it book\nset attribute \"id\" of book to \"42\"\nadd element \"title\" with text \"Learning Otter\" to book\n\nsay pretty text from xml catalog", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
 b5label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"

@@ -151,7 +151,7 @@ when b17copy is clicked
 .
 b18 is a text with value "must pass through try normally.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b19 is a text with value "Example:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b20 is a text with value "to find user\n    try\n        return user\n    otherwise\n        say \"Could not find user.\"\n    .\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b20 is a text with value "to findUser user\n    try\n        return user\n    otherwise\n        say \"Could not find user.\"\n    .\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
 b20label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
 b20copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
 b20head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"

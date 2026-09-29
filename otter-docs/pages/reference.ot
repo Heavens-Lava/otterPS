@@ -133,11 +133,14 @@ b28 is a text with value "Errors and diagnostics", size 26, weight 800, foregrou
 b29 is a text with value "Use try and otherwise for recoverable work. Otter also provides log, warn, and error for diagnostic output. Every error is a readable Otter message that names the line - never a raw stack trace.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b30 is a link with text "Read conditions and errors", url "/conditions/", foreground "#2563eb", weight 600, size 15
 b31 is a text with value "Reserved words", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
-b32 is a text with value "Many words have a meaning in Otter and cannot be used as the name of a variable or function, and some state words, such as completed, open and closed, change what a comparison means. The Otter 1.0 reserved-word list names them.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b32 is a text with value "A few words cannot be used as names, because Otter would read every use of the name as something else. otter check, otter run and otter test refuse such a name before anything runs, say why, and suggest another. Ordinary words such as name, total, status, result, value, data and done are not reserved.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b33 is a link with text "Read the Otter 1.0 reserved words", url "https://github.com/Heavens-Lava/otterPS/blob/master/docs/OTTER_1_0_RESERVED_WORDS.md", foreground "#2563eb", weight 600, size 15
 
 docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"
-put b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15, b16, b17, b18, b19, b20, b21, b22, b23block, b24, b25, b26, b27, b28, b29, b30, b31, b32, b33 in docsMain
+rw1 is a text with value "Variables and parameters: cancelled, completed, failed, pending, running, listening, stopped, closed, closing, connected, connecting, secure and watching. In a condition such as if job is completed, these words check a request, job, connection, server or watcher, so a variable with one of these names could never be compared.", size 16, foreground "#3a4d6b", lineheight "1.6"
+rw2 is a text with value "Functions: a function cannot be named after a statement word (such as create, find or delete) or a built-in value (such as now, today or pi), because a line that starts with that word is read as the statement, so the function could never be called.", size 16, foreground "#3a4d6b", lineheight "1.6"
+
+put b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15, b16, b17, b18, b19, b20, b21, b22, b23block, b24, b25, b26, b27, b28, b29, b30, b31, b32, rw1, rw2, b33 in docsMain
 docsBody is a row with align top, spacing 0, width full, customstyle "align-items: stretch;"
 put docsSidebar, docsMain in docsBody
 

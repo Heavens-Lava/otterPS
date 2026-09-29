@@ -101,7 +101,7 @@ customstyle of sideLicense is "display: none;"
 
 b1 is a text with value "Cryptography and secrets", size 40, weight 800, foreground "#0b1d36", letterspacing "-0.03em", lineheight "1.1"
 b2 is a text with value "Safe algorithms and parameters are the runtime's job. You say what you want - encrypt, hash a password, generate random bytes - not which cipher to use.", size 18, foreground "#3a4d6b", lineheight "1.55"
-b3 is a text with value "Availability: this feature is in the current source tree and is not part of a published release yet.", size 15, foreground "#1e3a6b", background "#eaf2ff", radius 12, border "1px solid #cfe0ff", lineheight "1.55", customstyle "padding: 14px 18px;"
+b3 is a text with value "Availability: included in the current release candidate ({{RELEASE_VERSION}}). Whether it is part of the supported Otter 1.0 surface has not been decided yet, so details may change.", size 15, foreground "#1e3a6b", background "#eaf2ff", radius 12, border "1px solid #cfe0ff", lineheight "1.55", customstyle "padding: 14px 18px;"
 b4 is a text with value "Bytes", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b5 is a text with value "Everything here works on bytes, Otter's binary type. Text and bytes are never converted silently; ask for the conversion you mean:", size 16, foreground "#3a4d6b", lineheight "1.6"
 b6 is a text with value "data is bytes from text \"Hello\"\nsay hex from bytes data\nsay base64 from bytes data\nsay text from bytes data\nsay length of data", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
@@ -181,7 +181,7 @@ when b20copy is clicked
 .
 b21 is a text with value "Comparing secrets", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b22 is a text with value "securely equals compares bytes in constant time, so timing does not leak how much of a secret matched:", size 16, foreground "#3a4d6b", lineheight "1.6"
-b23 is a text with value "if expected securely equals actual\n    say \"Valid\"\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b23 is a text with value "if expected securely equals actual\n    say \"Valid\"\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable false
 b23label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
 b23copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
 b23head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"

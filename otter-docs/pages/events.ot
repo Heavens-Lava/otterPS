@@ -140,7 +140,27 @@ b14 is a link with text "Controls", url "/controls/", foreground "#2563eb", weig
 b15 is a link with text "Web applications", url "/web-apps/", foreground "#2563eb", weight 600, size 15
 
 docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"
-put b1, b2, b3block, b4, b5, b6block, b7, b8block, b9, b10, b11, b12, b13, b14, b15 in docsMain
+rt1 is a text with value "Making controls while the program runs", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+rt2 is a text with value "A handler can create controls too. Each create makes a new control, so this list gets one more line every time the button is clicked. It works the same in Windows applications and in web applications.", size 16, foreground "#3a4d6b", lineheight "1.6"
+rt3 is a text with value "create window into app\ncreate text box into taskInput\ncreate button into addButton\ntext of addButton is \"Add\"\ncreate column into taskList\nput taskInput in app\nput addButton in app\nput taskList in app\n\nwhen addButton is clicked\n    task is text of taskInput\n    if task is not \"\"\n        create text into item\n        item has text task\n        put item in taskList\n        text of taskInput is \"\"\n    .\n.\n\nshow app", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable false
+rt3label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+rt3copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+rt3head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put rt3label, rt3copy in rt3head
+rt3block is a column with spacing 0, width full
+put rt3head, rt3 in rt3block
+when rt3copy is clicked
+    copy text of rt3 to clipboard
+    text of rt3copy is "Copied"
+.
+rt4 is a text with value "item names the newest line each time the handler runs; the lines added earlier stay where they were put. Putting something that is not a control, such as a number, stops the program with a message that says so.", size 16, foreground "#3a4d6b", lineheight "1.6"
+rt5 is a text with value "hide, focus and clear are not part of Otter 1.0. They are planned for Otter 1.1.", size 15, foreground "#1e3a6b", background "#eaf2ff", radius 12, border "1px solid #cfe0ff", lineheight "1.55", customstyle "padding: 14px 18px;"
+rt6 is a text with value "How handlers run", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+rt7 is a text with value "Handlers run one at a time. A handler finishes before the next one starts, and it never interrupts other Otter code, so handlers and the rest of the program can share variables safely.", size 16, foreground "#3a4d6b", lineheight "1.6"
+rt8 is a text with value "Events from one control or connection arrive in order: two clicks run the handler twice, in the order they happened. Events from different sources can be handled in any order.", size 16, foreground "#3a4d6b", lineheight "1.6"
+rt9 is a text with value "In a console or Windows program, handlers run once the program reaches its end, and during wait. In a web page, the browser runs them whenever the event happens, including while the program is waiting for something such as a web request.", size 16, foreground "#3a4d6b", lineheight "1.6"
+
+put b1, b2, b3block, b4, b5, b6block, b7, b8block, b9, b10, b11, b12, rt1, rt2, rt3block, rt4, rt5, rt6, rt7, rt8, rt9, b13, b14, b15 in docsMain
 docsBody is a row with align top, spacing 0, width full, customstyle "align-items: stretch;"
 put docsSidebar, docsMain in docsBody
 
