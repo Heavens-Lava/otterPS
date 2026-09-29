@@ -895,3 +895,187 @@
 .studio-modebar .theme-toggle-btn .theme-toggle-label {
   display: none;
 }
+
+/* ---------------------------------------------------------------------------
+   Components (the toolbox, js/components/toolbox.js): a search box, then
+   collapsible groups of tiles - an icon over a label - as in the reference.
+   --------------------------------------------------------------------------- */
+
+#toolboxPanel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+#toolboxPanel .toolbox-header {
+  height: 42px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: transparent;
+}
+
+#toolboxPanel .toolbox-header .panel-title {
+  font-size: var(--ui-font-size);
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+#toolboxPanel .toolbox-hint {
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+#toolboxPanel .toolbox-search {
+  position: relative;
+  padding: 10px 12px;
+  border-bottom: none;
+}
+
+#toolboxPanel .toolbox-search-icon {
+  position: absolute;
+  left: 22px;
+  top: 50%;
+  width: 15px;
+  height: 15px;
+  transform: translateY(-50%);
+  fill: none;
+  stroke: var(--text-faint);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  pointer-events: none;
+}
+
+#toolboxPanel .toolbox-search input {
+  height: 34px;
+  padding: 0 10px 0 34px;
+  background: var(--bg-app);
+  border: 1px solid var(--border-subtle);
+  border-radius: 7px;
+  color: var(--text-main);
+  font-size: var(--ui-font-small);
+}
+
+#toolboxPanel .toolbox-search input:focus {
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-blue) 20%, transparent);
+}
+
+#toolboxPanel .toolbox-categories {
+  padding: 2px 12px 14px;
+  gap: 6px;
+}
+
+#toolboxPanel .category-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  height: 30px;
+  padding: 0 2px;
+  border: none;
+  background: transparent;
+  color: var(--text-main);
+  font: 600 var(--ui-font-small) var(--font-ui);
+  letter-spacing: 0;
+  text-transform: none;
+  cursor: pointer;
+}
+
+#toolboxPanel .category-chevron {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: var(--text-muted);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 0.12s ease;
+}
+
+#toolboxPanel .is-collapsed .category-chevron {
+  transform: rotate(-90deg);
+}
+
+#toolboxPanel .category-name {
+  flex: 1;
+  text-align: left;
+}
+
+#toolboxPanel .category-count {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-faint);
+  background: none;
+}
+
+#toolboxPanel .is-collapsed .category-items {
+  display: none;
+}
+
+#toolboxPanel .category-items {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+  gap: 6px;
+}
+
+#toolboxPanel .toolbox-item {
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  height: 70px;
+  padding: 8px 3px 5px;
+  background: color-mix(in srgb, var(--bg-hover) 55%, transparent);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  text-align: center;
+}
+
+#toolboxPanel .toolbox-item:hover,
+#toolboxPanel .toolbox-item:focus-visible {
+  background: var(--bg-selected);
+  border-color: color-mix(in srgb, var(--accent-blue) 60%, transparent);
+  transform: none;
+  outline: none;
+}
+
+#toolboxPanel .item-icon {
+  color: var(--text-main);
+}
+
+#toolboxPanel .item-icon svg {
+  width: 24px;
+  height: 24px;
+  stroke-width: 1.5;
+}
+
+#toolboxPanel .item-label {
+  max-width: 100%;
+  white-space: normal;
+  line-height: 1.15;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  font-size: 10.5px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+#toolboxPanel .toolbox-item:hover .item-label {
+  color: var(--text-main);
+}
+
+#toolboxPanel .toolbox-empty {
+  padding: 16px 4px;
+  color: var(--text-faint);
+  font-size: var(--ui-font-small);
+}
+
+/* The header fits at 1536 px with the menu bar: tighter mode tabs, no
+   tagline, a narrower project chip. */
+@media (max-width: 1700px) {
+  .studio-header .brand-subtitle { display: none; }
+  .studio-header .mode-tabs .mode-pill { padding: 0 12px; gap: 6px; }
+  .studio-header .project-chip { max-width: 190px; }
+  .studio-menu-bar .mb-trigger { padding: 0 8px; }
+}
