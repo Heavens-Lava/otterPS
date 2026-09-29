@@ -397,6 +397,7 @@ platform.
 -   [x] No direct DOM-only mutation
 -   [x] No hidden left/top in flow mode
 -   [x] Explicit free-position mode only (free dragging only for `position: absolute/fixed`; flow elements reorder structurally)
+-   [x] Free layout containers: drop, drag and click-to-add place components exactly where released, like a Visual Studio form; Flow/Free switch keeps positions and sizes (006f0ae)
 -   [x] Production round-trip regression test
 -   [x] Study/adapt GrapesJS interaction techniques without replacing Otter model/compiler
 -   [x] Review third-party licenses
