@@ -86,8 +86,10 @@ export async function locateInRepo(path) {
   const status = await (await fetch(`/api/git/status?folder=${encodeURIComponent(folder)}`)).json();
   if (!status.isRepo) return null;
   const rootPrefix = status.root && status.root !== '.' ? `${status.root}/` : '';
-  if (rootPrefix && !path.startsWith(rootPrefix)) return null;
-  return { folder, repoPath: rootPrefix ? path.slice(rootPrefix.length) : path };
+  // file: the path as the workspace knows it; the server places it in the
+  // repository (which may be outside the Otter install: a project's own).
+  const repoPath = rootPrefix && path.startsWith(rootPrefix) ? path.slice(rootPrefix.length) : path;
+  return { folder, repoPath, file: path };
 }
 
 /**
@@ -106,8 +108,8 @@ export function createGitGutter(ide) {
     try {
       const where = await locateInRepo(path);
       if (!where) return null;
-      const { folder, repoPath } = where;
-      const res = await fetch(`/api/git/diff?folder=${encodeURIComponent(folder)}&path=${encodeURIComponent(repoPath)}`);
+      const { folder, file } = where;
+      const res = await fetch(`/api/git/diff?folder=${encodeURIComponent(folder)}&file=${encodeURIComponent(file)}`);
       if (!res.ok) return null;
       const data = await res.json();
       return data.tracked === false ? null : data.original;

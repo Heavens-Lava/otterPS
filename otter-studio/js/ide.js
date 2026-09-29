@@ -1344,9 +1344,9 @@ export class OtterStudioIde {
     try {
       const status = await (await fetch(`/api/git/status?folder=${encodeURIComponent(folder)}`)).json();
       if (!status.isRepo) throw new Error('This file is not in a Git repository.');
-      const rootPrefix = status.root && status.root !== '.' ? `${status.root}/` : '';
-      const repoPath = rootPrefix && this.currentFile.startsWith(rootPrefix) ? this.currentFile.slice(rootPrefix.length) : this.currentFile;
-      const res = await fetch(`/api/git/diff?folder=${encodeURIComponent(folder)}&path=${encodeURIComponent(repoPath)}&staged=1`);
+      // The server places the file in its repository (also a project's own
+      // repository outside the Otter install).
+      const res = await fetch(`/api/git/diff?folder=${encodeURIComponent(folder)}&file=${encodeURIComponent(this.currentFile)}&staged=1`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
       const name = this.currentFile.split('/').pop();

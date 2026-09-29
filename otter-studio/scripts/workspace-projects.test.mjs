@@ -127,6 +127,23 @@ try {
   assert.equal(live.status, 200, JSON.stringify(live.body).slice(0, 600));
   assert.ok(live.body.html.includes('<title>Outside</title>'), 'the live run is the project, not the single file');
 
+  // --- 5. Blame and diff in the project's own repository --------------------
+  const { execFileSync } = await import('node:child_process');
+  const gitIn = (...args) => execFileSync('git', ['-C', outside, '-c', 'user.name=Test', '-c', 'user.email=test@example.com', ...args], { stdio: 'pipe' });
+  gitIn('init', '-q');
+  gitIn('add', '-A');
+  gitIn('commit', '-q', '-m', 'first');
+  const gitQuery = `folder=${encodeURIComponent(project.rootPath)}&file=${encodeURIComponent(mainRel)}`;
+  const blame = await fetch(`${baseUrl}/api/git/blame?${gitQuery}`);
+  const blameBody = await blame.json();
+  assert.equal(blame.status, 200, JSON.stringify(blameBody));
+  assert.equal(blameBody.path, 'main.ot', 'placed in its own repository');
+  assert.equal(blameBody.lines.length, mainCode.split('\n').filter((l, i, a) => i < a.length - 1 || l).length);
+  const diff = await fetch(`${baseUrl}/api/git/diff?${gitQuery}`);
+  assert.equal(diff.status, 200, 'the gutter can diff it too');
+  const outsideFile = await fetch(`${baseUrl}/api/git/blame?${`folder=${encodeURIComponent(project.rootPath)}&file=${encodeURIComponent(path.join(elsewhere, 'secret.ot'))}`}`);
+  assert.equal(outsideFile.status, 404, 'a file outside the workspace is refused');
+
   console.log('Workspace project tests passed.');
 } finally {
   server.kill();

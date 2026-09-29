@@ -267,6 +267,16 @@ export async function handleGitRoutes(req, res, pathname, urlObj, ctx) {
     if (!isInsideRepo(folderAbs) || !fs.existsSync(folderAbs)) throw new GitError('Folder not found.', 404);
     const startDir = fs.statSync(folderAbs).isDirectory() ? folderAbs : path.dirname(folderAbs);
     const repoRoot = await findRepoRoot(startDir);
+    // The file as the editor knows it (`file`, a workspace path - also for a
+    // project outside the Otter install, in its own repository) or already
+    // as a path in the repository (`path`).
+    const fileInRepo = () => {
+      const file = param('file');
+      if (!file) return param('path');
+      const abs = path.resolve(ctx.repoRoot, file);
+      if (!isInsideRepo(abs)) throw new GitError('File not found.', 404);
+      return path.relative(repoRoot, abs);
+    };
 
     if (action === 'status' && req.method === 'GET') {
       if (!repoRoot) return sendJson(res, { isRepo: false }), true;
@@ -293,7 +303,7 @@ export async function handleGitRoutes(req, res, pathname, urlObj, ctx) {
 
     switch (`${req.method} ${action}`) {
       case 'GET diff': {
-        return sendJson(res, await diffSides(repoRoot, param('path'), param('staged') === '1' || param('staged') === true)), true;
+        return sendJson(res, await diffSides(repoRoot, fileInRepo(),param('staged') === '1' || param('staged') === true)), true;
       }
       case 'POST stage': {
         await gitOrThrow(repoRoot, ['add', '--', ...repoPaths(repoRoot, body.paths)]);
@@ -423,7 +433,7 @@ export async function handleGitRoutes(req, res, pathname, urlObj, ctx) {
         return sendJson(res, { ...meta, body: bodyText.trim(), files: changed, patch: patch.length > 400000 ? patch.slice(0, 400000) + '\n… (truncated)' : patch }), true;
       }
       case 'GET blame': {
-        const [rel] = repoPaths(repoRoot, [param('path')]);
+        const [rel] = repoPaths(repoRoot, [fileInRepo()]);
         const result = await runGit(repoRoot, ['blame', '--porcelain', '--', rel]);
         if (result.code !== 0) throw new GitError(result.stderr.trim() || 'Blame is only available for committed files.');
         return sendJson(res, { path: rel, lines: parseBlamePorcelain(result.stdout) }), true;

@@ -44,7 +44,7 @@ export function createInlineBlame(ide) {
         if (!ide.openTabs?.find(t => t.path === path)?.diskRevision) return null;
         const where = await locateInRepo(path);
         if (!where) return null;
-        const res = await fetch(`/api/git/blame?folder=${encodeURIComponent(where.folder)}&path=${encodeURIComponent(where.repoPath)}`);
+        const res = await fetch(`/api/git/blame?folder=${encodeURIComponent(where.folder)}&file=${encodeURIComponent(where.file)}`);
         if (!res.ok) return null; // e.g. not committed yet
         return (await res.json()).lines || null;
       } catch {
