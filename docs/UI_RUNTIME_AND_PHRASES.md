@@ -87,6 +87,20 @@ The page's `icons` sprite (an SVG file of `<symbol>`s) is embedded once, so
 icons work from a file, a server and inside Electron. A missing sprite is a
 compile error.
 
+**How an element gets its look - three levels, highest first:**
+
+1. **Said in Otter** (`tile is a column with style "icon-tile", align top`):
+   this element must behave this way, whatever any style says.
+2. **A named style** (`style "icon-tile"`, defined in the project's
+   stylesheet): every element sharing that style behaves this way.
+3. **Otter's defaults**: everything else.
+
+Say it in Otter when this particular element must behave that way. Put it
+in a style when elements sharing that style should behave that way.
+Otherwise, Otter supplies sensible defaults. The rule is the same for
+elements declared at the top level and elements a function builds and
+returns.
+
 **Stylesheets can change a row's or column's layout.** A row or column is
 written with only what the program says (`align`, `spread`, `spacing`, `wrap`,
 `justify`); its defaults - gap 8px, a row centered vertically, a column
