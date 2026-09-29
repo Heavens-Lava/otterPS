@@ -264,6 +264,10 @@ function New-OtterProject {
     New-Item -ItemType Directory -Path $testsDir -Force | Out-Null
     New-Item -ItemType Directory -Path $assetsDir -Force | Out-Null
 
+    # The project's stylesheet is styles.css beside main.ot: the place every
+    # web-producing command looks (Resolve-OtterProjectStylesheet in
+    # Otter.Web.psm1, which embeds it in the page), so it is not listed as an
+    # asset and there is no second stylesheet in assets/.
     # Template code per archetype
     $mainCode = ''
     $targetName = 'console'
@@ -280,7 +284,6 @@ say "Hello from $cleanName!"
         }
         'desktop' {
             $targetName = 'desktop'
-            $assetList = @('assets/styles.css')
             $mainCode = @"
 # $cleanName - Desktop Application
 
@@ -294,11 +297,10 @@ put btn in app
 show app
 "@
             $cssContent = "/* Stylesheet for $cleanName */`nbody { margin: 0; padding: 16px; }`n"
-            Set-Content -LiteralPath (Join-Path $assetsDir 'styles.css') -Value $cssContent -Encoding UTF8
+            Set-Content -LiteralPath (Join-Path $projectDir 'styles.css') -Value $cssContent -Encoding UTF8
         }
         'web' {
             $targetName = 'web'
-            $assetList = @('assets/styles.css')
             $mainCode = @"
 # $cleanName - Web Application
 
@@ -314,7 +316,7 @@ put welcomeText in app
 show app
 "@
             $cssContent = "/* Stylesheet for $cleanName */`nbody { margin: 0; font-family: sans-serif; }`n"
-            Set-Content -LiteralPath (Join-Path $assetsDir 'styles.css') -Value $cssContent -Encoding UTF8
+            Set-Content -LiteralPath (Join-Path $projectDir 'styles.css') -Value $cssContent -Encoding UTF8
         }
         'automation' {
             $targetName = 'console'
@@ -330,7 +332,6 @@ say "Found" length of projectFiles "files."
         }
         'game' {
             $targetName = 'game'
-            $assetList = @('assets/styles.css')
             $mainCode = @"
 # $cleanName - 2D Game
 
@@ -348,7 +349,7 @@ put gameCanvas in app
 show app
 "@
             $cssContent = "/* Stylesheet for $cleanName */`nbody { margin: 0; background: #000; }`n"
-            Set-Content -LiteralPath (Join-Path $assetsDir 'styles.css') -Value $cssContent -Encoding UTF8
+            Set-Content -LiteralPath (Join-Path $projectDir 'styles.css') -Value $cssContent -Encoding UTF8
         }
     }
 

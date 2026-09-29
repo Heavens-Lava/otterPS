@@ -19,7 +19,8 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "Test 1 failed: otter build WebBuildApp exited with $LASTEXITCODE. Output: $wBuildOut" }
     if (($wBuildOut -join "`n") -notmatch 'Build succeeded') { throw "Test 1 failed: Missing 'Build succeeded'. Output: $wBuildOut" }
     if (-not (Test-Path -LiteralPath (Join-Path $wDir 'dist/index.html') -PathType Leaf)) { throw "Test 1 failed: Missing dist/index.html" }
-    if (-not (Test-Path -LiteralPath (Join-Path $wDir 'dist/assets/styles.css') -PathType Leaf)) { throw "Test 1 failed: Missing dist/assets/styles.css" }
+    # The project stylesheet (styles.css beside main.ot) is embedded in the page.
+    if ((Get-Content -LiteralPath (Join-Path $wDir 'dist/index.html') -Raw) -notmatch 'Stylesheet for WebBuildApp') { throw "Test 1 failed: styles.css was not embedded in dist/index.html" }
     if (-not (Test-Path -LiteralPath (Join-Path $wDir 'dist/otter.build.json') -PathType Leaf)) { throw "Test 1 failed: Missing dist/otter.build.json" }
 
     $wMeta = Get-Content -LiteralPath (Join-Path $wDir 'dist/otter.build.json') -Raw | ConvertFrom-Json
@@ -49,7 +50,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "Test 3 failed: otter build DesktopBuildApp exited with $LASTEXITCODE. Output: $dBuildOut" }
     if (-not (Test-Path -LiteralPath (Join-Path $dDir 'dist/index.html') -PathType Leaf)) { throw "Test 3 failed: Missing dist/index.html in desktop build" }
     if (-not (Test-Path -LiteralPath (Join-Path $dDir 'dist/run-desktop.cmd') -PathType Leaf)) { throw "Test 3 failed: Missing dist/run-desktop.cmd" }
-    if (-not (Test-Path -LiteralPath (Join-Path $dDir 'dist/assets/styles.css') -PathType Leaf)) { throw "Test 3 failed: Missing desktop assets/styles.css" }
+    if ((Get-Content -LiteralPath (Join-Path $dDir 'dist/index.html') -Raw) -notmatch 'Stylesheet for DesktopBuildApp') { throw "Test 3 failed: styles.css was not embedded in the desktop page" }
     Write-Output '  pass  build desktop project produces web bundle and desktop runner script'
 
     # Test 4: Build game project produces canvas bundle and assets

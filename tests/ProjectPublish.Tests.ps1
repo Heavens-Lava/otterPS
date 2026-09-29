@@ -11,16 +11,30 @@ Write-Host "Otter Project Publishing & Packaging (D118E)" -ForegroundColor Cyan
 $testTmp = Join-Path ([System.IO.Path]::GetTempPath()) ("otter_d118e_tests_" + [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $testTmp -Force | Out-Null
 
+# New projects declare no assets (their stylesheet is embedded in the page),
+# so give a test project one, to check that publish carries assets along.
+function Add-TestDeclaredAsset {
+    param([string]$ProjectDir)
+    $imagesDir = Join-Path $ProjectDir 'assets/images'
+    New-Item -ItemType Directory -Path $imagesDir -Force | Out-Null
+    Set-Content -LiteralPath (Join-Path $imagesDir 'logo.svg') -Value '<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"/>' -Encoding UTF8
+    $manifestPath = Join-Path $ProjectDir 'otter.json'
+    $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+    $manifest.assets = @('assets/images/logo.svg')
+    Set-Content -LiteralPath $manifestPath -Value ($manifest | ConvertTo-Json -Depth 5) -Encoding UTF8
+}
+
 try {
     # Test 1: Web publish produces package folder, zip, checksum, and metadata
     $wProj = New-OtterProject -Archetype 'web' -Name 'WebPubApp' -Path $testTmp
     $wDir = $wProj.RootDirectory
+    Add-TestDeclaredAsset $wDir
     $wPubOut = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') publish $wDir 2>&1
     if ($LASTEXITCODE -ne 0) { throw "Test 1 failed: otter publish WebPubApp exited with $LASTEXITCODE. Output: $wPubOut" }
     if (($wPubOut -join "`n") -notmatch 'Publish succeeded') { throw "Test 1 failed: Missing 'Publish succeeded'. Output: $wPubOut" }
     if (-not (Test-Path -LiteralPath (Join-Path $wDir 'dist/index.html') -PathType Leaf)) { throw "Test 1 failed: Missing dist/index.html (build first)" }
     if (-not (Test-Path -LiteralPath (Join-Path $wDir 'publish/WebPubApp-0.1.0/index.html') -PathType Leaf)) { throw "Test 1 failed: Missing publish/WebPubApp-0.1.0/index.html" }
-    if (-not (Test-Path -LiteralPath (Join-Path $wDir 'publish/WebPubApp-0.1.0/assets/styles.css') -PathType Leaf)) { throw "Test 1 failed: Missing publish/WebPubApp-0.1.0/assets/styles.css" }
+    if (-not (Test-Path -LiteralPath (Join-Path $wDir 'publish/WebPubApp-0.1.0/assets/images/logo.svg') -PathType Leaf)) { throw "Test 1 failed: Missing publish/WebPubApp-0.1.0/assets/images/logo.svg" }
     if (-not (Test-Path -LiteralPath (Join-Path $wDir 'publish/WebPubApp-0.1.0.zip') -PathType Leaf)) { throw "Test 1 failed: Missing publish/WebPubApp-0.1.0.zip" }
     if (-not (Test-Path -LiteralPath (Join-Path $wDir 'publish/WebPubApp-0.1.0.zip.sha256') -PathType Leaf)) { throw "Test 1 failed: Missing publish/WebPubApp-0.1.0.zip.sha256" }
     if (-not (Test-Path -LiteralPath (Join-Path $wDir 'publish/otter.publish.json') -PathType Leaf)) { throw "Test 1 failed: Missing publish/otter.publish.json" }
@@ -50,10 +64,11 @@ try {
     # Test 4: Game publish packages canvas runtime bundle and assets
     $gProj = New-OtterProject -Archetype 'game' -Name 'GamePubApp' -Path $testTmp
     $gDir = $gProj.RootDirectory
+    Add-TestDeclaredAsset $gDir
     $gPubOut = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') publish $gDir 2>&1
     if ($LASTEXITCODE -ne 0) { throw "Test 4 failed: otter publish GamePubApp exited with $LASTEXITCODE. Output: $gPubOut" }
     if (-not (Test-Path -LiteralPath (Join-Path $gDir 'publish/GamePubApp-0.1.0/index.html') -PathType Leaf)) { throw "Test 4 failed: Missing index.html in game package" }
-    if (-not (Test-Path -LiteralPath (Join-Path $gDir 'publish/GamePubApp-0.1.0/assets/styles.css') -PathType Leaf)) { throw "Test 4 failed: Missing assets/styles.css in game package" }
+    if (-not (Test-Path -LiteralPath (Join-Path $gDir 'publish/GamePubApp-0.1.0/assets/images/logo.svg') -PathType Leaf)) { throw "Test 4 failed: Missing assets/images/logo.svg in game package" }
     Write-Output '  pass  game publish packages canvas runtime bundle and assets'
 
     # Test 5: Automation publish maps to runnable task artifact
@@ -92,7 +107,7 @@ try {
     try {
         $entryNames = @($archive.Entries | ForEach-Object { $_.FullName })
         if ($entryNames -notcontains 'index.html') { throw "Test 7 failed: Archive missing index.html. Entries: $($entryNames -join ', ')" }
-        if ($entryNames -notcontains 'assets/styles.css') { throw "Test 7 failed: Archive missing assets/styles.css. Entries: $($entryNames -join ', ')" }
+        if ($entryNames -notcontains 'assets/images/logo.svg') { throw "Test 7 failed: Archive missing assets/images/logo.svg. Entries: $($entryNames -join ', ')" }
         if ($entryNames -notcontains 'otter.build.json') { throw "Test 7 failed: Archive missing otter.build.json. Entries: $($entryNames -join ', ')" }
     } finally {
         $archive.Dispose()
@@ -311,7 +326,7 @@ try {
     $extractCleanDir = Join-Path $testTmp 'clean_extracted'
     Expand-OtterDeterministicArchive -ZipPath $zipPath -DestinationDir $extractCleanDir
     if (-not (Test-Path -LiteralPath (Join-Path $extractCleanDir 'index.html') -PathType Leaf)) { throw "Test 17 failed: Extracted archive missing index.html" }
-    if (-not (Test-Path -LiteralPath (Join-Path $extractCleanDir 'assets/styles.css') -PathType Leaf)) { throw "Test 17 failed: Extracted archive missing assets/styles.css" }
+    if (-not (Test-Path -LiteralPath (Join-Path $extractCleanDir 'assets/images/logo.svg') -PathType Leaf)) { throw "Test 17 failed: Extracted archive missing assets/images/logo.svg" }
     if (-not (Test-Path -LiteralPath (Join-Path $extractCleanDir 'otter.build.json') -PathType Leaf)) { throw "Test 17 failed: Extracted archive missing otter.build.json" }
     $origHtml = Get-Content -LiteralPath (Join-Path $wDir 'dist/index.html') -Raw
     $extrHtml = Get-Content -LiteralPath (Join-Path $extractCleanDir 'index.html') -Raw

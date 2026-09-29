@@ -35,7 +35,9 @@ try {
     $dProj = New-OtterProject -Archetype 'desktop' -Name 'DesktopApp' -Path $testTmp
     $dDir = $dProj.RootDirectory
     if ($dProj.Target -ne 'desktop') { throw "Test 2 failed: Expected Target desktop, got $($dProj.Target)" }
-    if (-not (Test-Path -LiteralPath (Join-Path $dDir 'assets/styles.css') -PathType Leaf)) { throw "Test 2 failed: Missing assets/styles.css" }
+    # One stylesheet, where the compiler looks for it (beside main.ot).
+    if (-not (Test-Path -LiteralPath (Join-Path $dDir 'styles.css') -PathType Leaf)) { throw "Test 2 failed: Missing styles.css beside main.ot" }
+    if (Test-Path -LiteralPath (Join-Path $dDir 'assets/styles.css')) { throw "Test 2 failed: a second stylesheet was created in assets/" }
     $dCheck = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') check $dDir 2>&1
     if ($LASTEXITCODE -ne 0) { throw "Test 2 failed: otter check DesktopApp exited with $LASTEXITCODE. Output: $dCheck" }
     Write-Output '  pass  New-OtterProject generates valid desktop archetype passing `otter check`'
@@ -44,7 +46,7 @@ try {
     $wProj = New-OtterProject -Archetype 'web' -Name 'WebApp' -Path $testTmp
     $wDir = $wProj.RootDirectory
     if ($wProj.Target -ne 'web') { throw "Test 3 failed: Expected Target web, got $($wProj.Target)" }
-    if (-not (Test-Path -LiteralPath (Join-Path $wDir 'assets/styles.css') -PathType Leaf)) { throw "Test 3 failed: Missing assets/styles.css" }
+    if (-not (Test-Path -LiteralPath (Join-Path $wDir 'styles.css') -PathType Leaf)) { throw "Test 3 failed: Missing styles.css beside main.ot" }
     $wCheck = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') check $wDir 2>&1
     if ($LASTEXITCODE -ne 0) { throw "Test 3 failed: otter check WebApp exited with $LASTEXITCODE. Output: $wCheck" }
     Write-Output '  pass  New-OtterProject generates valid web archetype passing `otter check`'
