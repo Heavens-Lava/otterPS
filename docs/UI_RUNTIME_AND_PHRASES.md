@@ -191,6 +191,7 @@ is an ordinary name.
 | `weekday of date` | 1 = Monday ... 7 = Sunday, web and interpreter |
 | `text of number` | `"You have " plus text of count plus " tasks"` |
 | two functions with one name | a compile error naming both lines (it used to break the page) |
+| `wait` on the web and desktop targets | `wait 300 milliseconds` pauses the program there, as in the console, while the page stays responsive (it was refused: "not supported on the web target yet") |
 
 ## P7. Fixes in the JavaScript compiler
 

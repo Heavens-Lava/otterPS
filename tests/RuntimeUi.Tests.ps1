@@ -381,6 +381,58 @@ put built in app
     Assert-AreEqual -Expected 'center' -Actual $run.Result.built
 }
 
+Test-Otter 'wait pauses the program on the web while the page stays responsive; a negative wait is an error' {
+    $run = Invoke-OtterUiProgram -Source @'
+app is a page with title "T", hideheader true
+status is a text with value "idle"
+go is a button with text "Go"
+other is a button with text "Other"
+tally is a text with value "0"
+problem is a text with value ""
+put status, go, other, tally, problem in app
+clicks is 0
+to slowWork
+    text of status is "working"
+    wait 300 milliseconds
+    text of status is "halfway"
+    wait 0.2 seconds
+.
+when go is clicked
+    slowWork
+    text of status is "done"
+.
+when other is clicked
+    add 1 to clicks
+    text of tally is text of clicks
+    try
+        backwards is 0 minus 1
+        wait backwards seconds
+    otherwise into reason
+        text of problem is reason
+    .
+.
+'@ -Driver @'
+  const pause = (ms) => new Promise(r => setTimeout(r, ms));
+  q('#go').click();
+  await pause(100);
+  result.early = q('#status').textContent;
+  q('#other').click();
+  await pause(50);
+  result.otherRan = q('#tally').textContent;
+  result.problem = q('#problem').textContent;
+  await pause(300);
+  result.middle = q('#status').textContent;
+  await pause(400);
+  result.late = q('#status').textContent;
+'@
+    Assert-UiRan $run
+    Assert-AreEqual -Expected 'working' -Actual $run.Result.early
+    Assert-AreEqual -Expected '1' -Actual $run.Result.otherRan
+    Assert-AreEqual -Expected "I can't wait a negative amount of time (-1)." -Actual $run.Result.problem
+    Assert-AreEqual -Expected 'halfway' -Actual $run.Result.middle
+    Assert-AreEqual -Expected 'done' -Actual $run.Result.late
+}
+
 Test-Otter 'clear empties a container; remove takes one element out' {
     $run = Invoke-OtterUiProgram -Source @'
 app is a page with title "T", hideheader true
