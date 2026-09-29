@@ -2147,7 +2147,18 @@ function New-OtterProcessStartInfo {
     $arguments = @($parts | Select-Object -Skip 1)
 
     $resolvedPath = $null
-    if (Test-Path -LiteralPath $program -PathType Leaf) {
+    # On Windows a file in the current folder is taken as the program only when
+    # Windows can run it (a PATHEXT extension, or .ps1). An extensionless file
+    # such as the `otter` shell launcher for macOS and Linux, which sits next to
+    # otter.cmd, is skipped so `otter` still finds otter.cmd.
+    $literalRunnable = Test-Path -LiteralPath $program -PathType Leaf
+    if ($literalRunnable -and [System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT) {
+        $literalExt = [System.IO.Path]::GetExtension($program).ToLowerInvariant()
+        $runnableExts = @('.ps1') + @(("$env:PATHEXT" -split ';') | Where-Object { $_ } | ForEach-Object { $_.ToLowerInvariant() })
+        if ($runnableExts.Count -eq 1) { $runnableExts += @('.com', '.exe', '.bat', '.cmd') }
+        $literalRunnable = $literalExt -in $runnableExts
+    }
+    if ($literalRunnable) {
         $resolvedPath = (Resolve-Path -LiteralPath $program).Path
     } else {
         $resolved = Get-Command -Name $program -ErrorAction SilentlyContinue
