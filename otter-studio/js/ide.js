@@ -270,15 +270,64 @@ export class OtterStudioIde {
     } else if (fileParam) {
       this.renderCleanProjectTree();
       await this.loadFile(fileParam);
-    } else {
+    } else if (this.startupRestoresSession()) {
       const restored = await this.restoreSessionState();
       if (!restored) {
         this.renderCleanProjectTree();
-        this.loadUntitledFile();
+        this.showEmptyEditor({ save: false });
       }
+    } else {
+      // The Start window (js/shell/start-window.js) decides what opens.
+      this.renderCleanProjectTree();
+      this.showEmptyEditor({ save: false });
     }
 
     this.startExternalChangeMonitor();
+  }
+
+  // Settings > Workbench: with the Start window off, Studio reopens the last
+  // session on launch (the Start window is on by default).
+  startupRestoresSession() {
+    try {
+      const stored = JSON.parse(localStorage.getItem('otter-studio-settings') || '{}');
+      return stored?.workbench?.showWelcomeOnStart === false;
+    } catch {
+      return false;
+    }
+  }
+
+  // No file open: the editor area shows a quiet page with the main
+  // shortcuts, like VS Code with no editors (body.has-no-editors).
+  // save: false at startup, so the last session stays for Open Recent.
+  showEmptyEditor({ save = true } = {}) {
+    this.openTabs = [];
+    this.currentFile = null;
+    this.currentCode = '';
+    this.activeDiagnostics = [];
+    this.errorLine = null;
+    this.warningLine = null;
+    const textarea = document.getElementById('hiddenEditorInput');
+    if (textarea) textarea.value = '';
+    document.body.classList.add('has-no-editors');
+    this.renderTabs();
+    if (this.codeAreaEl) this.codeAreaEl.innerHTML = '';
+    if (this.gutterEl) this.gutterEl.innerHTML = '';
+    if (this.breadcrumbsEl) this.breadcrumbsEl.innerHTML = '';
+    if (this.statusBarPos) this.statusBarPos.innerText = '';
+    if (save) this.saveSessionState?.();
+  }
+
+  // A recent project: its tabs come back when the last session was in it.
+  async openRecentProject(folder) {
+    try {
+      const session = JSON.parse(localStorage.getItem('otter_studio_session') || 'null');
+      if (session && session.currentFolder === folder && session.openTabs?.length) {
+        const restored = await this.restoreSessionState();
+        if (restored) return true;
+      }
+    } catch { /* fall through to a plain open */ }
+    await this.loadProjectTree(folder);
+    return true;
   }
 
   loadUntitledFile() {
@@ -1923,6 +1972,7 @@ export class OtterStudioIde {
   activateTab(filePath) {
     const tab = this.openTabs.find(t => t.path === filePath);
     if (!tab) return;
+    document.body.classList.remove('has-no-editors');
     // Git change markers: (re)read this file's staged/committed copy.
     this.gitGutter.refresh(filePath);
 
@@ -2109,6 +2159,8 @@ export class OtterStudioIde {
   }
 
   renderTabs() {
+    // The empty editor page shows exactly when no file is open.
+    document.body.classList.toggle('has-no-editors', this.openTabs.length === 0);
     if (!this.tabsScrollEl) return;
     this.tabsScrollEl.innerHTML = '';
 
@@ -2154,7 +2206,7 @@ export class OtterStudioIde {
         const nextTab = this.openTabs[Math.max(0, idx - 1)];
         this.activateTab(nextTab.path);
       } else {
-        this.loadUntitledFile();
+        this.showEmptyEditor();
       }
     } else {
       this.renderTabs();

@@ -143,7 +143,7 @@ export function formatShortcut(shortcut) {
 export function defaultCommands(deps) {
   const { ide, setMode, openNewProjectModal, openSettings, openPackageDialog, openShortcuts, showWelcome, toggleTheme, byId,
     toggleZen = () => {}, toggleFullScreen = () => {}, toggleWhitespace = () => {},
-    openDocs = () => {}, reportIssue = () => {}, openPackagesFolder = () => {} } = deps;
+    openDocs = () => {}, reportIssue = () => {}, openPackagesFolder = () => {}, showStartWindow = () => {} } = deps;
   // Undo / Redo act on the designer while it is in use, else on the editor.
   const designerOr = (designerId, editorAction) => () => {
     const designerCommand = globalThis.otterCommands?.get?.(designerId);
@@ -165,6 +165,7 @@ export function defaultCommands(deps) {
     { id: 'file.localHistory', title: 'Local History...', category: 'File', when: hasFile, run: () => ide.openLocalHistory() },
     { id: 'file.compareFile', title: 'Compare with File...', category: 'File', when: hasFile, run: () => ide.compareWithFile() },
     { id: 'file.projectSettings', title: 'Project Settings...', category: 'File', when: hasProject, run: () => ide.openProjectSettings() },
+    { id: 'file.startWindow', title: 'Start Window...', category: 'File', run: showStartWindow },
     { id: 'file.newSolution', title: 'New Solution...', category: 'File', run: () => ide.promptNewSolution() },
     { id: 'file.settings', title: 'Settings...', category: 'File', shortcut: 'Ctrl+,', run: openSettings },
     // Go

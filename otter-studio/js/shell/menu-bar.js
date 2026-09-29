@@ -13,7 +13,7 @@
 // A string is a command id; '-' a separator; { id, label } renames an item.
 export const MENUS = [
   { id: 'file', label: 'File', items: [
-    'file.newProject', 'file.newFile', 'file.openFolder', '-',
+    'file.newProject', 'file.newFile', 'file.openFolder', 'file.startWindow', '-',
     'file.save', 'file.saveAll', '-',
     'file.localHistory', { id: 'file.compareSaved', label: 'Compare with Saved' }, { id: 'file.compareHead', label: 'Compare with Last Commit' }, 'file.compareFile', '-',
     'file.projectSettings', 'file.newSolution', '-',
@@ -62,6 +62,7 @@ const ICONS = {
   'file.newProject': 'M3 2.5h6l3.5 3.5v7.5h-9.5zM9 2.5V6h3.5M7.75 8v4M5.75 10h4',
   'file.newFile': 'M4 2.5h5l3 3v8H4zM9 2.5v3h3',
   'file.openFolder': 'M2 4.5v8h10.5l1.5-5.5H4.5L3 12.5M2 4.5h4l1.2 1.2H12v1.3',
+  'file.startWindow': 'M2.5 3h11v10h-11zM2.5 6h11M6 8.5h5M6 10.5h3',
   'file.save': 'M3 2.5h8l2 2v9H3zM5.5 2.5v3h5v-3M5 13.5v-4h6v4',
   'file.saveAll': 'M4.5 4.5h7l1.5 1.5v7.5h-8.5zM2.5 11V2.5h7',
   'file.localHistory': 'M8 3a5 5 0 1 1-4.6 3M3 3v3h3M8 5.5V8l2 1.5',

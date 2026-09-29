@@ -36,7 +36,7 @@ const FIELDS = [
   { section: 'Files', path: 'files.formatOnSave', label: 'Format on save', type: 'checkbox', hint: 'Re-indent .ot files with the Otter formatter when saving' },
   { section: 'Files', path: 'files.trimTrailingWhitespace', label: 'Trim trailing whitespace', type: 'checkbox', hint: 'Remove spaces at the end of lines when saving' },
   { section: 'Files', path: 'files.insertFinalNewline', label: 'End files with a newline', type: 'checkbox' },
-  { section: 'Workbench', path: 'workbench.showWelcomeOnStart', label: 'Show the Welcome page on a fresh start', type: 'checkbox' }
+  { section: 'Workbench', path: 'workbench.showWelcomeOnStart', label: 'Show the Start window when Studio opens', type: 'checkbox', hint: 'Off: Studio reopens your last project and tabs instead' }
 ];
 
 function deepMerge(base, extra) {

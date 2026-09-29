@@ -1382,3 +1382,347 @@ body[data-studio-mode="designer"] .drawer-tab[data-drawer-tab="livecode"] {
   color: var(--text-faint);
   user-select: none;
 }
+
+/* ---------------------------------------------------------------------------
+   Start window (js/shell/start-window.js): what Studio shows when it opens,
+   like Visual Studio's - recent projects left, ways to start right, and
+   "Continue without code". A card over the dimmed mountain-lake art.
+   --------------------------------------------------------------------------- */
+
+.start-window {
+  position: fixed;
+  inset: 0;
+  z-index: 5000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background:
+    linear-gradient(180deg, rgba(3, 9, 17, 0.72), rgba(3, 9, 17, 0.9)),
+    url("../img/welcome-alpine-lake.png") center 40% / cover no-repeat,
+    #050c16;
+  animation: modalFadeIn 0.18s ease-out;
+}
+
+.start-card {
+  width: min(1040px, 100%);
+  max-height: min(680px, calc(100vh - 48px));
+  display: flex;
+  flex-direction: column;
+  background: rgba(10, 20, 33, 0.94);
+  border: 1px solid rgba(120, 150, 190, 0.22);
+  border-radius: 14px;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
+  color: #e4ecf7;
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+}
+
+.start-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 26px 32px 18px;
+}
+
+.start-logo {
+  width: 52px;
+  height: 52px;
+}
+
+.start-head h1 {
+  margin: 0;
+  font: 700 26px/1.1 var(--font-ui);
+  letter-spacing: -0.02em;
+}
+
+.start-head p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: #91a6bb;
+}
+
+.start-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 36px;
+  padding: 8px 32px 30px;
+  min-height: 0;
+  flex: 1;
+}
+
+.start-body h2 {
+  margin: 0 0 14px;
+  font: 600 17px var(--font-ui);
+  color: #e4ecf7;
+}
+
+.start-recent-col {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.start-search {
+  position: relative;
+  display: block;
+  margin-bottom: 10px;
+}
+
+.start-search svg {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  transform: translateY(-50%);
+  fill: none;
+  stroke: #657b91;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.start-search input {
+  width: 100%;
+  height: 36px;
+  padding: 0 12px 0 36px;
+  border: 1px solid #22364a;
+  border-radius: 8px;
+  background: #06101b;
+  color: #e4ecf7;
+  font: 13px var(--font-ui);
+  outline: none;
+}
+
+.start-search input:focus {
+  border-color: #2f7cf6;
+  box-shadow: 0 0 0 3px rgba(47, 124, 246, 0.2);
+}
+
+.start-recent-list {
+  flex: 1;
+  min-height: 160px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.start-recent {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.start-recent:hover,
+.start-recent:focus-visible {
+  background: rgba(47, 124, 246, 0.14);
+  border-color: rgba(47, 124, 246, 0.35);
+  outline: none;
+}
+
+.start-recent-icon {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  fill: #f5b83d;
+  stroke: #d99a1c;
+  stroke-width: 1;
+  stroke-linejoin: round;
+}
+
+.start-recent-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.start-recent-name {
+  font: 600 13.5px var(--font-ui);
+}
+
+.start-recent-path {
+  font-size: 12px;
+  color: #7f94ab;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.start-recent-when {
+  font-size: 12px;
+  color: #657b91;
+  white-space: nowrap;
+}
+
+.start-recent-empty {
+  padding: 18px 10px;
+  color: #7f94ab;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.start-actions-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.start-action {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  width: 100%;
+  padding: 16px 18px;
+  border: 1px solid #22364a;
+  border-radius: 10px;
+  background: rgba(20, 34, 52, 0.7);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.start-action:hover,
+.start-action:focus-visible {
+  background: rgba(47, 124, 246, 0.16);
+  border-color: rgba(47, 124, 246, 0.6);
+  outline: none;
+}
+
+.start-action-icon {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  fill: none;
+  stroke: #6aa8ff;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.start-action > span {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.start-action strong {
+  font: 600 15px var(--font-ui);
+}
+
+.start-action > span > span {
+  font-size: 12.5px;
+  color: #91a6bb;
+  line-height: 1.4;
+}
+
+.start-continue {
+  align-self: flex-end;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 6px 4px;
+  border: none;
+  background: none;
+  color: #6aa8ff;
+  font: 500 13.5px var(--font-ui);
+  cursor: pointer;
+}
+
+.start-continue svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.start-continue:hover,
+.start-continue:focus-visible {
+  text-decoration: underline;
+  outline: none;
+}
+
+@media (max-width: 820px) {
+  .start-body { grid-template-columns: 1fr; }
+}
+
+/* ---------------------------------------------------------------------------
+   No file open: the editor area shows the main shortcuts (VS Code style).
+   --------------------------------------------------------------------------- */
+
+.empty-editor-view {
+  display: none;
+}
+
+body.has-no-editors #codeEditorView > :not(.empty-editor-view):not(.workspace-trust-banner):not(.external-change-banner) {
+  display: none !important;
+}
+
+body.has-no-editors .empty-editor-view {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  user-select: none;
+}
+
+.empty-editor-logo {
+  width: 110px;
+  height: 110px;
+  opacity: 0.16;
+  filter: grayscale(0.4);
+}
+
+.empty-editor-keys {
+  margin: 0;
+  display: grid;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.empty-editor-keys > div {
+  display: grid;
+  grid-template-columns: 170px auto;
+  align-items: center;
+  gap: 16px;
+}
+
+.empty-editor-keys dt {
+  text-align: right;
+  color: var(--text-muted);
+}
+
+.empty-editor-keys dd {
+  margin: 0;
+  display: flex;
+  gap: 4px;
+}
+
+.empty-editor-keys kbd {
+  padding: 2px 7px;
+  border: 1px solid var(--border-card);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--bg-hover);
+  color: var(--text-main);
+  font: 500 11.5px var(--font-ui);
+}

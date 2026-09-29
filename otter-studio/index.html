@@ -363,6 +363,17 @@
 
         <!-- Code Editor Mode View -->
         <div class="code-editor-view" id="codeEditorView">
+          <!-- No file open (like VS Code with no editors): the main shortcuts. -->
+          <div class="empty-editor-view" id="emptyEditorView" aria-label="No file is open">
+            <img class="empty-editor-logo" src="img/otter-avatar.svg" alt="" />
+            <dl class="empty-editor-keys">
+              <div><dt>Show All Commands</dt><dd><kbd>F1</kbd></dd></div>
+              <div><dt>Go to File</dt><dd><kbd>Ctrl</kbd><kbd>P</kbd></dd></div>
+              <div><dt>New Project</dt><dd><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>N</kbd></dd></div>
+              <div><dt>Open Folder</dt><dd><kbd>Ctrl</kbd><kbd>O</kbd></dd></div>
+              <div><dt>New File</dt><dd><kbd>Ctrl</kbd><kbd>N</kbd></dd></div>
+            </dl>
+          </div>
           <div class="external-change-banner" id="externalChangeBanner" role="alert" style="display: none;">
             <div class="external-change-copy">
               <strong id="externalChangeTitle">This file changed on disk.</strong>

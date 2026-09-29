@@ -102,8 +102,10 @@ assert.match(ideSrc, /restoreSessionState\(\)/,
   'ide.js must implement restoreSessionState');
 assert.match(ideSrc, /const restored = await this\.restoreSessionState\(\);/,
   'ide.init must attempt to restore previous workspace session on startup');
-assert.match(appSrc, /const hasRestoredSession = ide\.currentProjectFolder/,
-  'app.js must check hasRestoredSession before popping new project wizard');
+assert.match(appSrc, /showStart: !hasSpecificTarget && !ide\.startupRestoresSession\(\)/,
+  'app.js must show the Start window only when nothing was asked for and the last session is not being restored');
+assert.match(ideSrc, /showEmptyEditor\(\{ save: false \}\)/,
+  'startup without a target must not overwrite the saved session (Open Recent restores it)');
 
 // 13. File-type guarded linting
 assert.match(ideSrc, /if \(this\.currentFile && !this\.currentFile\.endsWith\('\.ot'\)\)/,

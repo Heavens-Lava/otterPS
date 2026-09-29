@@ -12,6 +12,7 @@ import { createCommandRegistry, defaultCommands } from './commands.js';
 import { mountShortcutsDialog } from './shortcuts-dialog.js';
 import { installMoreMenu } from './more-menu.js';
 import { mountMenuBar } from './menu-bar.js';
+import { mountStartWindow } from './start-window.js';
 
 const ICONS = {
   newProject: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="M12 12v6M9 15h6"/></svg>',
@@ -21,7 +22,7 @@ const ICONS = {
   folder: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>'
 };
 
-export function mountStudioShell({ ide, setMode, openNewProjectModal, showWelcome }) {
+export function mountStudioShell({ ide, setMode, openNewProjectModal, showStart }) {
   const welcomeView = document.getElementById('welcomeView');
   const welcomeTab = document.getElementById('btnWelcomeTab');
 
@@ -69,13 +70,6 @@ export function mountStudioShell({ ide, setMode, openNewProjectModal, showWelcom
               <kbd>Ctrl + O</kbd>
             </span>
           </button>
-          <button class="welcome-card" data-welcome="examples">
-            <span class="welcome-card-icon">${ICONS.examples}</span>
-            <span class="welcome-card-body">
-              <span class="welcome-card-title">Browse Examples</span>
-              <span class="welcome-card-desc">Real programs to read, run and change</span>
-            </span>
-          </button>
           <button class="welcome-card" data-welcome="learn">
             <span class="welcome-card-icon">${ICONS.learn}</span>
             <span class="welcome-card-body">
@@ -109,7 +103,6 @@ export function mountStudioShell({ ide, setMode, openNewProjectModal, showWelcom
       const action = el.getAttribute('data-welcome');
       if (action === 'new') openNewProjectModal();
       else if (action === 'open') ide.promptOpenFolder();
-      else if (action === 'examples') ide.loadProjectTree('examples');
       else if (action === 'learn') ide.loadProjectTree('otter-docs');
       else if (action === 'recent') ide.loadProjectTree(el.getAttribute('data-folder'));
       else if (action === 'clear-recent') {
@@ -159,7 +152,7 @@ export function mountStudioShell({ ide, setMode, openNewProjectModal, showWelcom
   const chipName = document.getElementById('projectChipName');
   function updateProjectChip() {
     if (!chipName) return;
-    chipName.textContent = ide.currentProjectName || ide.currentSolution?.name || 'Untitled';
+    chipName.textContent = ide.currentProjectName || ide.currentSolution?.name || 'No folder open';
   }
   updateProjectChip();
   document.getElementById('projectChipBtn')?.addEventListener('click', () => {
@@ -230,6 +223,12 @@ export function mountStudioShell({ ide, setMode, openNewProjectModal, showWelcom
   // --- Settings -----------------------------------------------------------------
 
   const settings = createSettings();
+  // What Studio shows when it opens (see start-window.js).
+  const startWindow = mountStartWindow({
+    ide,
+    openNewProjectModal,
+    openLearn: () => commands.run('help.guide')
+  });
   window.otterSettings = settings;
   applySettingsToDocument(settings);
   // The editor rendered before the settings existed; draw it once with them.
@@ -290,6 +289,7 @@ export function mountStudioShell({ ide, setMode, openNewProjectModal, showWelcom
     toggleWhitespace: () => settings.set('editor.renderWhitespace', !settings.get('editor.renderWhitespace')),
     openDocs: (path) => docsViewer.open(path),
     openPackagesFolder,
+    showStartWindow: () => startWindow.show(),
     reportIssue: () => window.open(issueUrl({ version: '1.0', platform: navigator.platform, userAgent: navigator.userAgent }), '_blank', 'noopener')
   }));
   window.otterCommands = commands;
@@ -322,7 +322,7 @@ export function mountStudioShell({ ide, setMode, openNewProjectModal, showWelcom
   document.getElementById('btnModebarPreview')?.addEventListener('click', () => commands.run('view.preview'));
   document.getElementById('btnHeaderSettings')?.addEventListener('click', () => commands.run('file.settings'));
 
-  if (showWelcome && settings.get('workbench.showWelcomeOnStart') !== false) showWelcomePage();
+  if (showStart && settings.get('workbench.showWelcomeOnStart') !== false) startWindow.show();
 
   installMoreMenu(document.getElementById('btnEditorMore'), document.getElementById('editorMoreMenu'));
 

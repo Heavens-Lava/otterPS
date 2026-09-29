@@ -988,15 +988,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  // A fresh start (no folder, project or file, and no restored session)
-  // shows the Welcome page; it offers the same New Project wizard as a card.
+  // Opening Studio without a folder or file to open shows the Start window
+  // (recent projects, New Project, Open Folder, Continue without code), as
+  // Visual Studio does - unless Settings turn it off (then the last session
+  // was restored).
   const hasSpecificTarget = urlParams.get('folder') || urlParams.get('project') || urlParams.get('file');
-  const hasRestoredSession = ide.currentProjectFolder || (ide.openTabs.length > 0 && ide.openTabs[0].path !== 'untitled.ot');
   mountStudioShell({
     ide,
     setMode,
     openNewProjectModal,
-    showWelcome: !hasSpecificTarget && !hasRestoredSession
+    showStart: !hasSpecificTarget && !ide.startupRestoresSession()
   });
   // Designer commands (keyboard, context menu) also appear in the command
   // palette and the Keyboard Shortcuts dialog while the designer is showing.

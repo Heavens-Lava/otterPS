@@ -50,9 +50,10 @@ assert.equal((ide.match(/e\.ctrlKey && e\.key === 's'/g) || []).length, 1, 'Ctrl
 assert.match(ide, /if \(tab\.saveInFlight\) continue;/, 'The external-change check must skip a tab whose save is in flight');
 // Assigning textarea.value clears the undo history; in-editor edits go
 // through setEditorValue (execCommand insertText). Only tab switches,
-// reloads, designer sync and the redraw fallback may assign it.
+// reloads, designer sync, the redraw fallback and clearing the editor when
+// no file is open (showEmptyEditor) may assign it.
 assert.match(ide, /applyAssistedEdit\(textarea, edit\) \{\s*this\.setEditorValue\(textarea, edit\.text\)/, 'Enter / auto-close must be undoable');
-assert.ok((ide.match(/textarea\.value = /g) || []).length <= 6, 'a new direct textarea.value assignment would break Ctrl+Z; use setEditorValue');
+assert.ok((ide.match(/textarea\.value = /g) || []).length <= 7, 'a new direct textarea.value assignment would break Ctrl+Z; use setEditorValue');
 assert.match(ide, /problemStatusBanner\?\.addEventListener\('click'/, 'Clicking problem banner must navigate to source');
 assert.match(html, /id="workspaceReplaceInput"/, 'Workspace search pane must expose a replace input');
 assert.match(html, /id="btnWorkspaceReplaceAll"/, 'Workspace search pane must expose a Replace All button');
