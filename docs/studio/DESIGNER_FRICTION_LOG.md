@@ -81,6 +81,30 @@ its languages.
 | 15 | Controls made inside a component function showed as page elements | only the program's top level is the design; a `when` keeps its nested `if ... .` |
 | 16 | A page file (shell.ot) never got its real render: compiled alone it lacks what the entry brings in | the canvas and Live App compile the entry from a private mirror of the project with the open file's text in place |
 
+### OtterBoard's Phase 6 checks (on a copy, with the Otter 1.1 compiler)
+
+Run through the real UI against a copy of OtterBoard, never the real
+folder. Passed: property edits (text, font size, colours, background,
+gap, width, radius, rename) update the canvas, keep the source valid, and
+survive save and reopen; undo / redo; resize handles on flow children; a
+control typed in Code appears once in the Designer (no duplicates) and an
+inspector edit reaches the code; Split, Designer Right, Designer, Live App
+and Code keep an unsaved edit; Ctrl+S from Code mode saves it; a recent
+project reopens with its tabs.
+
+| # | Friction | Fix |
+|---|---|---|
+| 17 | Runtime-built pages (1.1) had almost no controls in the static HTML, so the canvas lost the real look | fewer than 60% of the design's ids found: the canvas reads the render from a hidden sandboxed run |
+| 18 | An icon-only button showed the word "Button" | an icon placeholder (the icon's name on hover) |
+| 19 | Ctrl+S sometimes waited many seconds | slow renders held all six browser connections; a newer render now aborts the older one and the server skips renders nobody waits for (save: 4 ms) |
+| 20 | `currentPage` flagged unused though a function assigns it | the analyzer treats an assignment to an outer variable as a write to it |
+| 21 | A project opened at launch (`?folder=`) never reached Recent Projects | recorded in loadProjectTree, whatever the way in |
+
+Not a Studio fix: `mystery is a hologram` (an unknown control type) is
+accepted by `otter check` and compiles to nothing. The Designer copes (it
+leaves it out and the design is unharmed), but nothing tells the user.
+That is for the compiler.
+
 ### Next pass
 
 A responsive layout: the dashboard at Tablet and Mobile (Free layout
