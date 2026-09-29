@@ -6,7 +6,7 @@ This document provides notices and acknowledgments for third-party materials ass
 
 ## 1. Core Distribution Software
 
-The official Otter 1.0 distribution (`otter-1.0.0-rc.1-windows-powershell.zip`) contains **no redistributed third-party binaries, libraries, packages, or asset files**.
+The official Otter 1.0 distribution (`otter-<version>.zip`, for Windows, Linux and macOS) contains **no redistributed third-party binaries, libraries, packages, or asset files**.
 
 All core execution components, including:
 - The Otter interpreter and runtime environment

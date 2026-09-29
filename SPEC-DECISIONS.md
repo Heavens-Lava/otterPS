@@ -7846,3 +7846,43 @@ OtterBoard as the 1.1 flagship application. The syntax proposals made alongside
 OtterBoard (phrase functions, `each`/`into`/`its`, `style`) are likewise not part
 of 1.0 and need their own decisions, with Codex, before they are implemented on
 the release line.
+
+## D129. Otter 1.0 installs and runs on macOS and Linux
+
+**Decided 2026-09-29 (Jeff).** The Otter engine was already certified on
+PowerShell 7 on Windows, Linux and macOS (D120), but the release shipped only a
+Windows package: no launcher or installer for macOS and Linux, and features
+built on Windows itself failed there with raw PowerShell errors, internal
+crashes, or silent wrong answers (reading the registry answered `gone`).
+
+**Decision:** Otter 1.0 is downloadable on macOS and Linux with PowerShell 7.
+
+- One release payload, `otter-<version>.zip`, for every platform. It carries
+  `otter.cmd` (Windows, Windows PowerShell 5.1) and `otter`, a POSIX shell
+  launcher that runs `otter.ps1` with `pwsh` and says how to install PowerShell
+  7 when `pwsh` is missing.
+- `Install-Otter.ps1` and `Uninstall-Otter.ps1` run on every platform. On macOS
+  and Linux the default destination is `$XDG_DATA_HOME/otter/<version>`
+  (`~/.local/share/otter/<version>`), and `-AddToUserPath` writes an `otter`
+  command to `~/.local/bin`, never overwriting a file it did not write, and
+  prints the `PATH` line to add when that folder is not on `PATH`. The
+  uninstaller removes that command only when it runs the installation being
+  removed.
+- Console programs and web applications (`run`, `check`, `web`, `serve`,
+  projects, tests) are supported on macOS and Linux.
+- Features built on Windows itself stop with an Otter runtime error naming the
+  feature, "... is only available on Windows, and this program is running on
+  macOS/Linux.": the registry (including `registry key ... exists`), the event
+  log, stored credentials, printing, notifications, file and folder dialogs,
+  file owners, and power actions. `otter desktop` refuses before loading
+  anything and suggests `otter web`. Windows behaviour is unchanged.
+- The clipboard works where PowerShell 7 finds a clipboard program and a
+  desktop session; otherwise copying or reading it is an Otter runtime error
+  rather than silence.
+- `run command` uses the platform's shell; Windows commands such as `cmd` do not
+  exist on macOS and Linux and fail as missing commands.
+
+Evidence: `tests/PlatformBoundaries.Tests.ps1` and the distribution
+build/install/uninstall step of the D120 host matrix
+(`.github/workflows/d120-host-matrix.yml`) on Windows PowerShell 5.1 and
+PowerShell 7 on Windows, Linux and macOS.

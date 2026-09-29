@@ -23,29 +23,32 @@ Welcome to the Otter programming language! This guide covers everything you need
 
 ## 1. System Requirements
 
-Otter 1.0 is engineered specifically for the Windows platform:
+Otter 1.0 runs on Windows, Linux and macOS. One release ZIP serves all three.
 
-| Requirement | Specification |
-|---|---|
-| **Operating System** | Windows 11 or Windows 10 (64-bit certified) |
-| **Runtime Engine** | **Windows PowerShell 5.1** (`powershell.exe`) — included out-of-the-box on modern Windows installations |
-| **Privileges** | Standard user account (Administrator rights are **not** required) |
-| **Web Browser (Optional)** | Microsoft Edge, Google Chrome, or Mozilla Firefox (for `otter web` applications) |
+| Requirement | Windows | Linux and macOS |
+|---|---|---|
+| **Operating System** | Windows 11 or Windows 10 (64-bit) | A current 64-bit Linux distribution, or macOS |
+| **Runtime Engine** | **Windows PowerShell 5.1** (`powershell.exe`), included with Windows | **PowerShell 7** (`pwsh`), installed from <https://aka.ms/install-powershell> |
+| **Launcher** | `otter.cmd` | `otter` |
+| **Privileges** | Standard user account (no administrator rights) | Standard user account (no `sudo`) |
+| **Web Browser (Optional)** | Edge, Chrome or Firefox, for `otter web` applications | Any current browser, for `otter web` applications |
 
 > [!IMPORTANT]
 > **Windows PowerShell 5.1 vs. PowerShell 7 (pwsh):**
-> This Windows package runs Otter on native **Windows PowerShell 5.1** (`powershell.exe`): the `otter.cmd` launcher always delegates to it, so you do not need to manage this manually. The Otter engine is also certified on PowerShell 7 (`pwsh`) on Windows, Linux and macOS, where it runs as `pwsh -NoProfile -File otter.ps1 <command> ...`. There is no installer for Linux or macOS; see [Linux and macOS (PowerShell 7)](#linux-and-macos-powershell-7).
+> On Windows, the `otter.cmd` launcher always runs Otter on **Windows PowerShell 5.1** (`powershell.exe`), so you do not need to manage this. On Linux and macOS, the `otter` launcher runs Otter on PowerShell 7 (`pwsh`). Desktop windows and other features built on Windows itself need Windows; see [Linux and macOS (PowerShell 7)](#linux-and-macos-powershell-7).
 
 ---
 
 ## 2. Quick Install (Recommended)
 
 The easiest way to install Otter is using the automated per-user installer.
+These steps are for Windows; for Linux and macOS see
+[Linux and macOS (PowerShell 7)](#linux-and-macos-powershell-7).
 
 ### Step 1: Download & Extract
 
 Download the latest versioned release archive:
-`otter-1.0.0-rc.5-windows-powershell.zip`
+`otter-1.0.0-rc.5.zip`
 
 Extract the ZIP contents into a temporary directory or your Downloads folder.
 
@@ -118,25 +121,58 @@ No registry changes, environment variables, or background services are created.
 
 ### Linux and macOS (PowerShell 7)
 
-The Otter engine is certified on PowerShell 7 (`pwsh`) on Linux and macOS.
-There is no installer there, and no `otter` command is added to your `PATH`.
-Install PowerShell 7, extract the release ZIP to a folder of your choice (for
-example `~/otter`), and run `otter.ps1` with `pwsh` from any folder:
+Otter runs on Linux and macOS with PowerShell 7 (`pwsh`). The release ZIP is
+the same one Windows uses: it carries an `otter` command for Linux and macOS
+next to `otter.cmd` for Windows.
+
+1. Install PowerShell 7: <https://aka.ms/install-powershell>.
+2. Extract the release ZIP and open a terminal in the extracted folder.
+3. Run the installer with `pwsh`:
 
 ```sh
-pwsh -NoProfile -File ~/otter/otter.ps1 --version
-pwsh -NoProfile -File ~/otter/otter.ps1 run hello.ot
+pwsh -NoProfile -File ./Install-Otter.ps1 -AddToUserPath
 ```
 
-Everything after `otter.ps1` is the same as after `otter` on Windows. To type
-just `otter`, add an alias to your shell profile:
+The installer copies Otter to `~/.local/share/otter/1.0.0-rc.5/` (or under
+`$XDG_DATA_HOME` when that is set) and, with `-AddToUserPath`, writes a small
+`otter` command to `~/.local/bin`. If `~/.local/bin` is not on your `PATH` yet,
+the installer prints the line to add to `~/.zshrc` or `~/.bashrc`:
 
 ```sh
-alias otter='pwsh -NoProfile -File ~/otter/otter.ps1'
+export PATH="$HOME/.local/bin:$PATH"
 ```
 
-The `otter.cmd` launcher and the installer scripts in the ZIP are for Windows
-only. Desktop applications (`otter desktop`) need Windows.
+Open a new terminal and check:
+
+```sh
+otter --version
+```
+
+To run Otter without installing it, call the `otter` command in the extracted
+folder directly: `./otter run hello.ot`.
+
+**What works on Linux and macOS:** console programs, files, folders, JSON, CSV,
+dates, text, HTTP requests, running commands, modules, projects and tests, and
+web applications (`otter web`, `otter serve`).
+
+**What needs Windows:** desktop windows (`otter desktop`), the registry, the
+event log, stored credentials, printing, notifications, file dialogs, file
+owners and power actions (lock, sign out, restart, shut down). On Linux and
+macOS these stop with a clear message, for example:
+
+```text
+Otter Runtime Error
+
+Line 1:
+    get registry value "Theme" from "HKCU:\Software\MyApp" into theme
+
+The registry is only available on Windows, and this program is running on Linux.
+```
+
+The clipboard needs a clipboard program (`pbcopy` on macOS; `xclip`, `xsel` or
+`wl-copy` on Linux) and a desktop session. Without one, copying stops with an
+error that says so. `run command` runs commands with the system shell, so a
+Windows command such as `cmd /c ...` does not exist there.
 
 ---
 
@@ -150,7 +186,8 @@ To run or contribute to Otter directly from the Git repository:
    cd otterPS
    ```
 
-2. Add the repository root directory to your User `PATH`, or invoke `.\otter.cmd` directly:
+2. Add the repository root directory to your User `PATH`, or invoke `.\otter.cmd` directly
+   (`./otter` on Linux and macOS):
    ```powershell
    .\otter.cmd --version
    ```
@@ -306,6 +343,13 @@ The uninstaller will:
 1. Safely remove all installed Otter files from the directory.
 2. Remove the empty parent folder if no other versions exist.
 3. Remove the Otter directory from your User `PATH`.
+
+On Linux and macOS, run the uninstaller with `pwsh`. It also removes the
+`otter` command from `~/.local/bin` when the installer wrote it:
+
+```sh
+pwsh -NoProfile -File ~/.local/share/otter/1.0.0-rc.5/Uninstall-Otter.ps1
+```
 
 ### Method 2: Manual Removal
 

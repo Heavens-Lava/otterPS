@@ -14,9 +14,9 @@ Every capability in the Otter platform is assigned exactly one status:
 
 | Area / Subsystem | Status | Scope & Platform Details |
 |---|---|---|
-| **Console Interpreter (`otter run`)** | **SUPPORTED** | Primary execution engine for Windows PowerShell 5.1 host. Full syntax support for scripts, control flow, functions, collections, objects, file I/O, processes. |
+| **Console Interpreter (`otter run`)** | **SUPPORTED** | Runs on Windows PowerShell 5.1 (Windows) and PowerShell 7 (Windows, Linux, macOS; D120, D129). Features built on Windows itself are Windows-only and refuse clearly elsewhere (D129). Full syntax support for scripts, control flow, functions, collections, objects, file I/O, processes. |
 | **JavaScript Compiler (`otter web`)** | **SUPPORTED** | Translates `.ot` programs into self-contained HTML/JS applications with reactive DOM binding, styles, and asset embedding. |
-| **Distribution & Per-User Installer** | **SUPPORTED** | Certified non-admin ZIP packaging, `Install-Otter.ps1`, `Uninstall-Otter.ps1`, PATH registration, upgrade path, and payload integrity checks. |
+| **Distribution & Per-User Installer** | **SUPPORTED** | Certified non-admin ZIP packaging (`otter-<version>.zip`, one payload for Windows, Linux and macOS; D129), `otter.cmd` and `otter` launchers, `Install-Otter.ps1`, `Uninstall-Otter.ps1`, PATH registration (user PATH on Windows, `~/.local/bin` on Linux and macOS), upgrade path, and payload integrity checks. |
 | **Otter CLI Contract (`otter`)** | **SUPPORTED** | Public CLI (`otter`, `run`, `web`, `check`, `help`, `--version`). Deterministic exit codes (0, 1, 2, 3), zero raw host stack traces, directory independence. |
 | **Otter Studio (IDE)** | **EXPERIMENTAL** | Browser-based development environment and visual editor (`otter studio` / `studio.cmd`). Operates independently from core language 1.0 gate. |
 | **Desktop Native Target (WPF/WebView2)** | **EXPERIMENTAL** | Host bridge runtime (`Otter.Desktop.psm1`) for desktop windows, controls, and local webviews. |
@@ -46,11 +46,11 @@ Every capability in the Otter platform is assigned exactly one status:
 | **Diagnostics** (`log`, `warn`, `error`, line number tracking) | **SUPPORTED** | Portable across Console and Web targets. |
 | **Error Model** (`try` / `otherwise`, `fail with`) | **SUPPORTED** | Portable across Console and Web targets. |
 | **HTTP Client (`get`, `post`, `put`, `delete`, request handles)** | **SUPPORTED** | Console (.NET `HttpClient`) and Web (browser `fetch`), per D116A/D116B (affirmed 2026-09-27). Console certified on the four D120 hosts by `tests/Http.Tests.ps1`. |
-| **Clipboard Integration** (`copy "..." to clipboard`, `get clipboard`) | **TARGET-SPECIFIC** | Supported on Console (Windows API) and Web target (Clipboard API). |
+| **Clipboard Integration** (`copy "..." to clipboard`, `get clipboard`) | **TARGET-SPECIFIC** | Supported on Console (Windows API; on Linux and macOS where a clipboard program and desktop session exist, otherwise a clear error, D129) and Web target (Clipboard API). |
 | **System Info & Environment** (`get environment variable`, `get system info`) | **TARGET-SPECIFIC** | Supported on Console target. |
-| **Windows Registry Integration** (`get/set/delete registry value`) | **TARGET-SPECIFIC** | Supported on Windows Console target only. |
-| **Windows DPAPI Credentials** (`set/get/delete credential`) | **TARGET-SPECIFIC** | Supported on Windows Console target only. |
-| **Print Spooler** (`print "..." to "Printer"`) | **TARGET-SPECIFIC** | Supported on Windows Console target only. |
+| **Windows Registry Integration** (`get/set/delete registry value`) | **TARGET-SPECIFIC** | Supported on Windows Console target only; a clear error on Linux and macOS (D129). The same applies to the event log, notifications, file dialogs, file owners and power actions. |
+| **Windows DPAPI Credentials** (`set/get/delete credential`) | **TARGET-SPECIFIC** | Supported on Windows Console target only; a clear error on Linux and macOS (D129). |
+| **Print Spooler** (`print "..." to "Printer"`) | **TARGET-SPECIFIC** | Supported on Windows Console target only; a clear error on Linux and macOS (D129). |
 | **Remote PowerShell / WinRM / SSH** (`run command on remote ...`) | **EXPERIMENTAL** | Windows remote execution subsystem. |
 | **Zip / Unzip Compression** (`zip folder`, `unzip archive`) | **SUPPORTED** | Supported on Console runtime (.NET ZipArchive). |
 | **Dot Member Access (`person.name`)** | **UNSUPPORTED** | Prohibited by language design. Must use `name of person`. Produces syntax error with suggestion. |

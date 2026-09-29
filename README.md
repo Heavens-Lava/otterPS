@@ -104,16 +104,14 @@ Hello Jeff
 ## Platform Support
 
 Otter 1.0 is built and verified for:
-- **Operating System**: 64-bit Windows 10 and Windows 11
-- **PowerShell Host**: Windows PowerShell 5.1 (`powershell.exe`, built into Windows)
-- **Runtime Dependencies**: Zero external dependencies. Uses .NET Framework 4.5+ base class libraries included with Windows.
-- **Linux and macOS**: The Otter engine is also certified on PowerShell 7 (`pwsh`) on Windows, Linux and macOS. There is no installer for Linux or macOS: run `pwsh -NoProfile -File otter.ps1 <command>` from an extracted copy (see the [Installation Guide](INSTALL.md#linux-and-macos-powershell-7)).
+- **Windows**: 64-bit Windows 10 and Windows 11, on Windows PowerShell 5.1 (`powershell.exe`, built into Windows). Zero external dependencies.
+- **Linux and macOS**: PowerShell 7 (`pwsh`). The same release ZIP installs there with `pwsh -NoProfile -File ./Install-Otter.ps1 -AddToUserPath`, which adds an `otter` command to `~/.local/bin`. Console programs and web applications work; desktop windows and other features built on Windows itself (the registry, the event log, stored credentials, printing, notifications, file dialogs) stop with a clear message. See the [Installation Guide](INSTALL.md#linux-and-macos-powershell-7).
 
 ---
 
 ## Installation Quick Start
 
-Download the latest Otter release archive (`otter-1.0.0-rc.5-windows-powershell.zip`), extract the ZIP, open Windows PowerShell in the extracted directory, and run:
+Download the latest Otter release archive (`otter-1.0.0-rc.5.zip`), extract the ZIP, open Windows PowerShell in the extracted directory, and run:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
@@ -135,6 +133,12 @@ To run without modifying your system or user `PATH`, invoke the batch entry poin
 
 ```powershell
 & "$env:LOCALAPPDATA\Otter\1.0.0-rc.5\otter.cmd" --version
+```
+
+On Linux and macOS, install PowerShell 7, then run this in the extracted directory and open a new terminal:
+
+```sh
+pwsh -NoProfile -File ./Install-Otter.ps1 -AddToUserPath
 ```
 
 For complete prerequisites, manual installation steps, and uninstallation instructions, see the [Installation Guide](INSTALL.md).
