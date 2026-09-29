@@ -423,7 +423,16 @@ finally {
 }
 
 # Test 13: Real Desktop Application Entry Point wiring (Start-OtterDesktopApplication)
-$studioOtPath = (Resolve-Path (Join-Path $repoRoot 'examples\studio.ot')).Path
+# Run a temporary copy: the desktop app writes <source>.html next to the
+# source, and that must not rewrite the tracked examples/studio.html (the
+# compiler's exact bytes differ by host, e.g. line endings on a Windows
+# checkout, so the tree would never stay clean).
+$studioCopyDir = Join-Path ([System.IO.Path]::GetTempPath()) ('otter_studio_' + [Guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $studioCopyDir -Force | Out-Null
+foreach ($studioFile in @('studio.ot', 'studio.css', 'terminal.ot')) {
+    Copy-Item -LiteralPath (Join-Path $repoRoot "examples\$studioFile") -Destination $studioCopyDir
+}
+$studioOtPath = Join-Path $studioCopyDir 'studio.ot'
 $app = Start-OtterDesktopApplication -SourcePath $studioOtPath -PassThru -NoWait
 try {
     if ($null -eq $app.Bridge -or -not $app.Bridge.IsRunning) {
@@ -499,6 +508,7 @@ finally {
         throw "Expected temporary instance HTML to be cleaned up after Stop()"
     }
     Write-Output '  pass  OtterDesktopAppSession cleanly tears down bridge and deletes session instance HTML'
+    Remove-Item -LiteralPath $studioCopyDir -Recurse -Force -ErrorAction SilentlyContinue
 }
 
 # Test 14: D62 - a real /api/session/heartbeat request sets
