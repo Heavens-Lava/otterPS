@@ -109,6 +109,7 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
     const parent = uiModel.getComponent(comp.parentId);
     const el = canvasElementFor(parent);
     if (!el) return '';
+    if (getComputedStyle(el).getPropertyValue('--otter-layout').trim() === 'free') return 'free';
     const display = getComputedStyle(el).display;
     if (display.includes('grid')) return 'grid';
     if (display.includes('flex')) return 'flex';
@@ -169,8 +170,8 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
       <div class="properties-body sp-body" id="propertiesBody">
         ${renderIdentityGroup(selected, count)}
         ${renderContentGroup(selected, selected.properties || {})}
-        ${renderLayoutSection(ctx)}
         ${renderChildSection(ctx)}
+        ${renderLayoutSection(ctx)}
         ${renderSpacingSection(ctx)}
         ${renderSizeSection(ctx)}
         ${renderPositionSection(ctx)}
@@ -243,6 +244,7 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
         </div>
         <div class="sp-name-error" id="propNameError" hidden></div>
         ${count > 1 ? `<div class="sp-note">Style edits apply to all ${count} selected components.</div>` : ''}
+        ${count > 1 && sameFreeParent() ? `<div class="sp-arrange" role="toolbar" aria-label="Arrange"><span class="sp-arrange-label">Arrange</span><button class="sp-arrange-btn" data-arrange="designer.alignLeft" title="Align left edges (Alt+A)"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2v12M6 4.5h7v3H6zM6 9.5h4v3H6z" /></svg></button><button class="sp-arrange-btn" data-arrange="designer.alignCenter" title="Align centres (Alt+H)"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2v12M4 4.5h8v3H4zM5.5 9.5h5v3h-5z" /></svg></button><button class="sp-arrange-btn" data-arrange="designer.alignRight" title="Align right edges (Alt+D)"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M13 2v12M3 4.5h7v3H3zM6 9.5h4v3H6z" /></svg></button><button class="sp-arrange-btn" data-arrange="designer.alignTop" title="Align top edges (Alt+W)"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3h12M4.5 6v7h3V6zM9.5 6v4h3V6z" /></svg></button><button class="sp-arrange-btn" data-arrange="designer.alignMiddle" title="Align middles (Alt+V)"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 8h12M4.5 4v8h3V4zM9.5 5.5v5h3v-5z" /></svg></button><button class="sp-arrange-btn" data-arrange="designer.alignBottom" title="Align bottom edges (Alt+S)"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 13h12M4.5 3v7h3V3zM9.5 6v4h3V6z" /></svg></button><button class="sp-arrange-btn" data-arrange="designer.distributeHorizontal" title="Distribute horizontally (Alt+Shift+H) - three or more"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 2v12M14 2v12M6 5h4v6H6z" /></svg></button><button class="sp-arrange-btn" data-arrange="designer.distributeVertical" title="Distribute vertically (Alt+Shift+V) - three or more"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 2h12M2 14h12M5 6h6v4H5z" /></svg></button></div>` : ''}
       </div>
     `;
   }
@@ -428,13 +430,24 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
 
   // Flow: children in order (the default). Free: each child stays where it
   // is dropped or dragged (designer/actions.js setFreeLayout).
-  function placementRow(comp) {
+  // All selected controls sit in the same Free container (Arrange applies).
+  function sameFreeParent() {
+    const list = targets();
+    if (list.length < 2 || !list.every(c => c.parentId && c.parentId === list[0].parentId)) return false;
+    return isFreeElement(uiModel.getComponent(list[0].parentId));
+  }
+
+  function isFreeElement(comp) {
     const el = canvasElementFor(comp);
-    const free = Boolean(el) && getComputedStyle(el).getPropertyValue('--otter-layout').trim() === 'free';
+    return Boolean(el) && getComputedStyle(el).getPropertyValue('--otter-layout').trim() === 'free';
+  }
+
+  function placementRow(comp) {
+    const free = isFreeElement(comp);
     return `
       <div class="sp-field is-wide sp-placement" data-search="placement free flow absolute position anywhere">
         <span class="sp-dot"></span>
-        <label class="sp-label">Placement</label>
+        <label class="sp-label">Arrange</label>
         <div class="sp-control">
           <div class="sp-seg">
             <button class="sp-seg-btn ${free ? '' : 'is-active'}" data-free-layout="off" title="Children follow each other in order">Flow</button>
@@ -453,6 +466,7 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
     // The compiled window stacks its children in its own content column, so
     // only the spacing between them can be designed here.
     if (selected.kind === 'window') {
+      if (isFreeElement(selected)) return section('layout', 'Layout', placementRow(selected), { search: 'placement free flow' });
       return section('layout', 'Layout',
         placementRow(selected) +
         field(ctx, 'gap', 'Spacing', lengthInput(ctx, 'gap'), { scrub: { min: 0 }, search: 'gap spacing between' }) +
@@ -536,7 +550,24 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
       : '';
   }
 
+  // Position: how this control sits in its parent. The title says which of
+  // the three it is - Free (x / y, like a form), a flex child (a row or
+  // column arranges it) or a grid child (a grid cell holds it).
   function renderChildSection(ctx) {
+    if (ctx.parentLayout === 'free') {
+      let body = parentLink(ctx);
+      body += `<div class="sp-grid-2 sp-free-box">
+        ${field(ctx, 'left', 'X', lengthInput(ctx, 'left'), { scrub: {}, search: 'x left position' })}
+        ${field(ctx, 'top', 'Y', lengthInput(ctx, 'top'), { scrub: {}, search: 'y top position' })}
+        ${field(ctx, 'width', 'Width', lengthInput(ctx, 'width'), { scrub: { min: 8 }, search: 'w size' })}
+        ${field(ctx, 'height', 'Height', lengthInput(ctx, 'height'), { scrub: { min: 8 }, search: 'h size' })}
+      </div>
+      <div class="sp-note">Drag it on the canvas to move it; the handles resize it. Arrow keys nudge 1 px (Shift: 10 px).</div>`;
+      return section('freechild', 'Position · Free', body, {
+        setCount: countSet(ctx, ['left', 'top', 'width', 'height']),
+        search: 'position free x y left top width height size'
+      });
+    }
     if (ctx.parentLayout === 'flex') {
       let body = parentLink(ctx);
       body += field(ctx, 'flex', 'Sizing', segmented(ctx, 'flex', [
@@ -551,7 +582,7 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
         ['flex-start', 'Start'], ['center', 'Center'], ['flex-end', 'End'], ['stretch', 'Fill']
       ]), { search: 'flex child', wide: true });
       body += field(ctx, 'order', 'Order', lengthInput(ctx, 'order', { unit: '' }), { scrub: { unit: '', step: 1 }, search: 'flex child' });
-      return section('flexchild', 'Flex child', body, {
+      return section('flexchild', 'Position · Flex child', body, {
         setCount: countSet(ctx, ['flex', 'flex-grow', 'flex-shrink', 'flex-basis', 'align-self', 'order']),
         search: 'flex child grow shrink basis order'
       });
@@ -576,7 +607,7 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
         ['start', 'Top'], ['center', 'Middle'], ['end', 'Bottom'], ['stretch', 'Fill']
       ]), { search: 'grid child align vertical', wide: true });
       body += field(ctx, 'order', 'Order', lengthInput(ctx, 'order', { unit: '' }), { scrub: { unit: '', step: 1 }, search: 'grid child' });
-      return section('gridchild', 'Grid child', body, {
+      return section('gridchild', 'Position · Grid child', body, {
         setCount: countSet(ctx, ['grid-column', 'grid-row', 'justify-self', 'align-self', 'order']),
         search: 'grid child span cell order'
       });
@@ -1107,6 +1138,11 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
     // Selects
     qa('.sp-select[data-prop]').forEach(sel => sel.addEventListener('change', () => {
       write({ [sel.getAttribute('data-prop')]: sel.value }, `select:${sel.getAttribute('data-prop')}`);
+    }));
+
+    // Arrange: align / distribute the selected Free controls.
+    qa('[data-arrange]').forEach(btn => btn.addEventListener('click', () => {
+      window.otterCommands?.run(btn.getAttribute('data-arrange'));
     }));
 
     // Placement: Flow / Free (the canvas does the work).

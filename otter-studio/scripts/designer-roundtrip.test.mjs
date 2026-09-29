@@ -263,4 +263,17 @@ assert.match(dogfoodHtml, /class="otter-btn"/);
 assert.doesNotMatch(dogfoodHtml, /selection-badge/);
 assert.doesNotMatch(dogfoodHtml, /resize-handle/);
 
+// A Heading from Components is written as a large bold text: Otter 1.0 has
+// no `heading` kind (D56), and `x is a heading` compiled to nothing visible.
+{
+  const model = new OtterUiModel();
+  const root = model.getRoot();
+  const heading = model.addChild(root.id, 'heading', { text: 'Dashboard' });
+  const source = generateOtterSource(model);
+  const line = source.split('\n').find(l => l.startsWith(`${heading.name} is a`));
+  assert.match(line, / is a text with text "Dashboard", size \d+, bold true/, `a heading is written as text: ${line}`);
+  assert.doesNotMatch(source, / is a heading/);
+  console.log('  ✓ a Heading is written as the large bold text Otter 1.0 renders');
+}
+
 console.log('All Visual UI Designer production round-trip tests passed cleanly!');

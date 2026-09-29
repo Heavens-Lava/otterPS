@@ -88,24 +88,38 @@ say "All tasks finished successfully! 🐾"
     defaultFileName: 'app.ot',
     defaultMode: 'designer',
     css: `/* Desktop Application Styles */
+
+/* Free layout: controls stay exactly where they are placed in the designer
+   (like a Visual Studio form). Rows, columns and cards inside it arrange
+   their own children. The window's title is its title bar. */
 #app {
+    --otter-layout: free;
+    position: relative;
     width: 720px;
     min-height: 480px;
     background: #ffffff;
     border-radius: 10px;
     padding: 24px;
-    gap: 16px;
-    display: flex;
-    flex-direction: column;
+}
+
+#app > .otter-window-header {
+    display: none;
 }
 
 #headerTitle {
+    position: absolute;
+    left: 24px;
+    top: 24px;
     font-size: 22px;
     font-weight: 700;
     color: #0f172a;
 }
 
 #actionCard {
+    position: absolute;
+    left: 24px;
+    top: 76px;
+    width: 460px;
     background: #f8fafc;
     border: 1px solid #e2e8f0;
     border-radius: 8px;

@@ -15,9 +15,19 @@ import { generateOtterSource } from '../compiler/otter-generator.js';
 import { fetchRealRender, applyRealRender, prepareUserCss } from './real-style.js';
 import { StyleController } from '../designer/style-context.js';
 import { collapseBox, SIDES, formatNumber } from '../designer/css-values.js';
-import { createDesignerActions } from '../designer/actions.js';
+import { createDesignerActions, FREE_DEFAULT_SIZES } from '../designer/actions.js';
 import { designerCommands, installDesignerKeyboard } from '../designer/commands.js';
 import { createDesignerContextMenu } from '../designer/context-menu.js';
+
+// --otter-layout: free marks a Free layout container. Custom properties
+// inherit, so without this every row, column and card inside a Free window
+// would read as Free too (and a button dropped into a column was placed at
+// x / y instead of taking its place in the column). Registered as not
+// inheriting, each container reports only its own layout. Compiled apps do
+// not read the marker, so only Studio needs this.
+try {
+  if (typeof CSS !== 'undefined' && CSS.registerProperty) CSS.registerProperty({ name: '--otter-layout', syntax: '*', inherits: false });
+} catch { /* already registered */ }
 
 const ZOOM_STEPS = [0.25, 0.33, 0.5, 0.67, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 2, 3];
 const DESKTOP_WIDTH = 1280;
@@ -38,7 +48,9 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
 
   // Elements created once in mount().
   let viewportEl, stageEl, overlayEl, selectionLayer, guidesLayer, gridLayer, hoverBox, hoverBadge,
-    targetBox, targetBadge, insertionLine, cellBox, marqueeEl, userStyleEl, topbarEl;
+    targetBox, targetBadge, insertionLine, cellBox, marqueeEl, userStyleEl, topbarEl, freeGhost, freeGhostLabel;
+  // The Components tile being dragged (its kind), for the Free drop preview.
+  let draggingNewKind = null;
 
   // ---------------------------------------------------------------------------
   // Mounting (once)
@@ -87,6 +99,7 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
             <div class="line-dot dot-end"></div>
           </div>
           <div class="designer-marquee" id="designerMarquee" hidden></div>
+          <div class="designer-free-ghost" id="designerFreeGhost" hidden><span class="designer-free-ghost-label" id="designerFreeGhostLabel"></span></div>
         </div>
       </div>
     `;
@@ -106,6 +119,8 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
     insertionLine = containerEl.querySelector('#designerInsertionLine');
     cellBox = containerEl.querySelector('#designerCellBox');
     marqueeEl = containerEl.querySelector('#designerMarquee');
+    freeGhost = containerEl.querySelector('#designerFreeGhost');
+    freeGhostLabel = containerEl.querySelector('#designerFreeGhostLabel');
 
     bindTopbar();
     bindViewport();
@@ -194,8 +209,11 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
         e.stopPropagation();
         startInlineEdit(titleTextEl, root, 'title');
       });
+      // A click anywhere on the title bar (the title too) selects the window;
+      // a double-click on the title renames it. Selecting does not rebuild the
+      // canvas, so the double-click still reaches the title.
       wrapper.querySelector('.window-titlebar').addEventListener('click', (e) => {
-        if (e.target !== titleTextEl) uiModel.select(root.id, e.ctrlKey || e.metaKey || e.shiftKey);
+        uiModel.select(root.id, e.ctrlKey || e.metaKey || e.shiftKey);
       });
     }
 
@@ -207,9 +225,11 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
     } else {
       const promptEl = document.createElement('div');
       promptEl.className = 'empty-canvas-prompt';
+      // Whether the window is in Free layout shows once its styles are on.
       promptEl.innerHTML = `
-        <span class="prompt-title">Drag components here from the Toolbox</span>
-        <span class="prompt-desc">Rows and columns arrange things; cards group them. Everything you drop becomes Otter code.</span>
+        <span class="prompt-title">Drag controls here from Components</span>
+        <span class="prompt-desc prompt-flow">They stack top to bottom. Rows and columns arrange things; cards group them.</span>
+        <span class="prompt-desc prompt-free">Drop them where you want them; drag to move, pull the handles to resize. Rows, columns and cards arrange what you put inside them.</span>
       `;
       contentArea.appendChild(promptEl);
     }
@@ -477,11 +497,23 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
     guidesLayer.innerHTML = '';
   }
 
+  // Free layout containers carry is-free-layout on the canvas (the dot grid,
+  // the empty-window hint); their layout comes from the stylesheet, so it is
+  // read back from the computed style.
+  function markLayoutModes() {
+    for (const comp of uiModel.getAllComponents()) {
+      if (!(ComponentSchema[comp.kind]?.isContainer || comp.id === uiModel.rootId)) continue;
+      const el = elementFor(comp.id);
+      if (el) el.classList.toggle('is-free-layout', getComputedStyle(el).getPropertyValue('--otter-layout').trim() === 'free');
+    }
+  }
+
   function updateOverlay() {
     if (isInteractMode) return;
     const root = uiModel.getRoot();
     clearOverlay();
     if (!root) return;
+    markLayoutModes();
     // Overlay covers the whole scrollable area.
     overlayEl.style.width = `${viewportEl.scrollWidth}px`;
     overlayEl.style.height = `${viewportEl.scrollHeight}px`;
@@ -503,7 +535,18 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
       if (!isPrimary) continue;
 
       box.appendChild(selectionBadge(comp, root));
-      if (comp.id === root.id) continue;
+      if (comp.id === root.id) {
+        // Size the window like a Visual Studio form: drag its right edge,
+        // bottom edge or corner. Its width / height go into the Otter source.
+        for (const handle of ['e', 's', 'se']) {
+          const h = document.createElement('div');
+          h.className = `designer-resize-handle handle-${handle} is-window-handle`;
+          h.title = 'Drag to resize the window. Alt turns off snapping to 8 px.';
+          h.addEventListener('pointerdown', (e) => startResize(e, handle, comp));
+          box.appendChild(h);
+        }
+        continue;
+      }
 
       const el = elementFor(comp.id);
       const cs = getComputedStyle(el);
@@ -742,7 +785,8 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
     const startLeft = parseFloat(cs.left) || 0;
     const startTop = parseFloat(cs.top) || 0;
     const ratio = startRect.width / Math.max(1, startRect.height);
-    const parentEl = el.parentElement;
+    const isWindow = comp.id === uiModel.rootId;
+    const parentEl = isWindow ? null : el.parentElement;
     const parentCs = parentEl ? getComputedStyle(parentEl) : null;
     const parentInner = parentEl ? {
       width: (parentEl.clientWidth - parseFloat(parentCs.paddingLeft) - parseFloat(parentCs.paddingRight)),
@@ -764,8 +808,8 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
         if (handle.includes('s')) h += dy;
         if (handle.includes('n')) h -= dy;
         if (ev.shiftKey && handle.length === 2) h = w / ratio;
-        w = Math.max(8, w);
-        h = Math.max(8, h);
+        w = Math.max(isWindow ? 160 : 8, w);
+        h = Math.max(isWindow ? 120 : 8, h);
 
         // Smart snapping: parent width (becomes 100%), sibling sizes, 8px grid.
         const notes = [];
@@ -802,6 +846,7 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
         const values = {};
         if (handle.includes('e') || handle.includes('w')) values.width = widthValue || `${Math.round(w)}px`;
         if (handle.includes('n') || handle.includes('s') || (ev.shiftKey && handle.length === 2)) values.height = heightValue || `${Math.round(h)}px`;
+        if (values.height && el.classList.contains('is-free-layout')) values['min-height'] = values.height;
         if (isFree && handle.includes('w')) values.left = `${Math.round(startLeft + (startRect.width / zoom - w))}px`;
         if (isFree && handle.includes('n')) values.top = `${Math.round(startTop + (startRect.height / zoom - h))}px`;
 
@@ -1300,6 +1345,10 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
   // Where the pointer held the element being dragged (CSS px), so a drop into
   // a Free layout container puts it exactly where it was let go.
   let dragGrab = { x: 0, y: 0 };
+  document.addEventListener('dragstart', (e) => {
+    draggingNewKind = e.target?.closest?.('.toolbox-item')?.getAttribute('data-kind') || null;
+  }, true);
+  document.addEventListener('dragend', () => { draggingNewKind = null; }, true);
 
   function bindViewport() {
     viewportEl.addEventListener('dragover', (e) => {
@@ -1311,7 +1360,12 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
       const hit = root && performHitTest(e.clientX, e.clientY, currentDraggedComponentId, contentAreaEl(), root);
       currentHit = hit || null;
       if (hit) showDropMarkers(hit); else hideDropMarkers();
-      if (hit && !hit.gridCell && actions.isFreeLayout(hit.targetComp)) insertionLine.hidden = true;
+      if (hit && !hit.gridCell && actions.isFreeLayout(hit.targetComp)) {
+        insertionLine.hidden = true;
+        showFreeGhost(hit.targetComp, e.clientX, e.clientY);
+      } else if (freeGhost) {
+        freeGhost.hidden = true;
+      }
     });
 
     viewportEl.addEventListener('dragleave', (e) => {
@@ -1346,9 +1400,7 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
       let placedId = null;
       if (dragData.type === 'new-component') {
         const child = uiModel.addChild(hit.targetComp.id, dragData.kind, {}, hit.insertIndex);
-        if (child && cssAstManager && ['row', 'column', 'card'].includes(child.kind)) {
-          cssAstManager.setProperty(`#${child.name}`, 'padding', '12px');
-        }
+        styleNewContainer(child);
         placedId = child?.id;
       } else if (dragData.type === 'move-component') {
         const compId = dragData.componentId || draggedId;
@@ -1358,7 +1410,7 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
       // A drop into a Free layout container: exactly where it was let go.
       if (placedId && !hit.gridCell && actions.isFreeLayout(hit.targetComp)) {
         const grab = dragData.type === 'move-component' ? dragGrab : { x: 0, y: 0 };
-        actions.placeAt(uiModel.getComponent(placedId), hit.targetComp, e.clientX, e.clientY, grab);
+        actions.placeAt(uiModel.getComponent(placedId), hit.targetComp, e.clientX, e.clientY, grab, { isNew: dragData.type === 'new-component' });
       }
       dragGrab = { x: 0, y: 0 };
 
@@ -1596,6 +1648,14 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
     return true;
   }
 
+  // A new row, column or card gets room inside (12px padding) and a card
+  // rounded corners - in the stylesheet, where they are easy to change.
+  function styleNewContainer(child) {
+    if (!child || !cssAstManager) return;
+    if (['row', 'column', 'card'].includes(child.kind)) cssAstManager.setProperty(`#${child.name}`, 'padding', '12px');
+    if (child.kind === 'card') cssAstManager.setProperty(`#${child.name}`, 'border-radius', '12px');
+  }
+
   function showDropMarkers(hit) {
     place(targetBox, toOverlay(hit.containerRect));
     const kindName = hit.targetComp.kind || 'container';
@@ -1622,6 +1682,40 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
     targetBox.hidden = true;
     insertionLine.hidden = true;
     cellBox.hidden = true;
+    if (freeGhost) freeGhost.hidden = true;
+  }
+
+  // Dragging over a Free layout container: a dashed outline exactly where the
+  // control will land, at the size it will have, with its x / y. A control
+  // being moved keeps its size and where it is held; a new one gets its
+  // default size (FREE_DEFAULT_SIZES; about 100 x 36 when it sizes itself).
+  function showFreeGhost(container, clientX, clientY) {
+    if (!freeGhost) return;
+    let width = 100;
+    let height = 36;
+    let grab = { x: 0, y: 0 };
+    const movingEl = currentDraggedComponentId && elementFor(currentDraggedComponentId);
+    if (movingEl) {
+      const r = movingEl.getBoundingClientRect();
+      width = r.width / zoom;
+      height = r.height / zoom;
+      grab = dragGrab;
+    } else if (draggingNewKind) {
+      const size = FREE_DEFAULT_SIZES[draggingNewKind] || {};
+      width = size.width || size.minWidth || (['text', 'heading', 'checkbox'].includes(draggingNewKind) ? 90 : 100);
+      height = size.height || (['heading'].includes(draggingNewKind) ? 32 : ['text', 'checkbox'].includes(draggingNewKind) ? 22 : 36);
+    }
+    const pos = actions.positionFor(container, clientX, clientY, grab);
+    if (!pos) { freeGhost.hidden = true; return; }
+    const containerEl = elementFor(container.id);
+    const cRect = containerEl.getBoundingClientRect();
+    const cs = getComputedStyle(containerEl);
+    const left = cRect.left + ((parseFloat(cs.borderLeftWidth) || 0) + pos.left) * zoom;
+    const top = cRect.top + ((parseFloat(cs.borderTopWidth) || 0) + pos.top) * zoom;
+    place(freeGhost, toOverlay({ left, top, width: width * zoom, height: height * zoom }));
+    freeGhostLabel.textContent = `x ${pos.left}  ·  y ${pos.top}`;
+    freeGhost.hidden = false;
+    targetBadge.textContent = `${container.name} · Free layout`;
   }
 
   // Hit testing on real DOM bounding boxes and computed layout.
@@ -1900,12 +1994,13 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
   window.addEventListener('otter:component-added', (e) => {
     const parent = uiModel.getComponent(e.detail?.parentId);
     const child = uiModel.getComponent(e.detail?.id);
+    styleNewContainer(child);
     if (!parent || !child || !actions.isFreeLayout(parent)) return;
     const parentEl = elementFor(parent.id);
     if (!parentEl) return;
     const step = ((parent.children || []).length - 1) % 10;
     const rect = parentEl.getBoundingClientRect();
-    actions.placeAt(child, parent, rect.left + (24 + step * 20) * zoom, rect.top + (24 + step * 20) * zoom);
+    actions.placeAt(child, parent, rect.left + (24 + step * 20) * zoom, rect.top + (24 + step * 20) * zoom, { x: 0, y: 0 }, { isNew: true });
   });
   window.addEventListener('otter:free-layout', (e) => {
     const comp = uiModel.getComponent(e.detail?.id);

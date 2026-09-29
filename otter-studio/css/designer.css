@@ -1468,3 +1468,89 @@ button.sp-dot:focus-visible {
   color: #ef4444;
   border-color: #ef4444;
 }
+
+/* Free layout drop preview (canvas.js showFreeGhost): where the control will
+   land, at its size, with its x / y. */
+.designer-free-ghost {
+  position: absolute;
+  pointer-events: none;
+  border: 1.5px dashed var(--accent-blue);
+  border-radius: 4px;
+  background: rgba(59, 130, 246, 0.12);
+  z-index: 585;
+}
+
+.designer-free-ghost-label {
+  position: absolute;
+  left: 0;
+  top: -22px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--accent-blue);
+  color: #fff;
+  font: 600 11px var(--font-ui);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The empty window hint follows its layout (Free / Flow). */
+.empty-canvas-prompt .prompt-free { display: none; }
+.is-free-layout > .empty-canvas-prompt .prompt-free { display: block; }
+.is-free-layout > .empty-canvas-prompt .prompt-flow { display: none; }
+
+/* Free layout containers show a faint dot grid while designing (Flow ones
+   do not), so the two layout models are told apart at a glance. */
+/* A layer behind the children (a background image would lose to the
+   container's own background shorthand). */
+.canvas-stage .is-free-layout::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: radial-gradient(circle, rgba(148, 163, 184, 0.28) 1px, transparent 1.3px);
+  background-size: 16px 16px;
+  border-radius: inherit;
+}
+
+/* Arrange: align / distribute a multi-selection of Free controls. */
+.sp-arrange {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin-top: 6px;
+}
+
+.sp-arrange-label {
+  width: 96px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.sp-arrange-btn {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-subtle);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.sp-arrange-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-main);
+  border-color: var(--accent-blue);
+}
+
+.sp-arrange-btn svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linejoin: round;
+}

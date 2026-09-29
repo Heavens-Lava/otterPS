@@ -92,6 +92,27 @@ test('Free layout: a drop lands where it was let go (zoom and grab point taken o
   assert.match(css.generateCss(), /#button2 \{[^}]*left: 0px;[^}]*top: 0px;/, 'never outside the top-left corner');
 });
 
+test('Free layout: the window hides its own title header (the title bar is the title)', () => {
+  const { css, actions, root } = setupFree();
+  actions.setFreeLayout(root, true);
+  assert.match(css.generateCss(), /#app > \.otter-window-header \{\s*display: none;/);
+  assert.match(css.generateCss(), /#app \{[^}]*min-height: 400px;/, 'the window keeps its height');
+  actions.setFreeLayout(root, false);
+  assert.doesNotMatch(css.generateCss(), /otter-window-header|min-height/);
+});
+
+test('Free layout: a new control arrives at a sensible size, not stretched', () => {
+  const { model, css, actions, root } = setupFree();
+  actions.setFreeLayout(root, true);
+  const box = model.addChild(root.id, 'text box', {});
+  const button = model.addChild(root.id, 'button', { text: 'OK' });
+  actions.placeAt(box, root, 300, 200, { x: 0, y: 0 }, { isNew: true });
+  actions.placeAt(button, root, 300, 260, { x: 0, y: 0 }, { isNew: true });
+  assert.equal(box.properties.width, 220, 'a text box is 220 wide (in the Otter source)');
+  assert.match(css.generateCss(), new RegExp(`#${button.name} \\{[^}]*min-width: 100px;`), 'a button is at least 100 wide');
+  assert.equal(button.properties.width, undefined, 'and otherwise sizes to its text');
+});
+
 test('Free layout: turning it off returns the children to flow; one undo step each way', () => {
   const { model, css, actions, root } = setupFree();
   actions.setFreeLayout(root, true);

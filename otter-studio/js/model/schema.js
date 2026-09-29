@@ -71,8 +71,7 @@ export const ComponentSchema = {
       width: 'full',
       background: '#1e293b',
       padding: 16,
-      spacing: 8,
-      round: 8
+      spacing: 8
     },
     allowedProperties: ['width', 'height', 'background', 'spacing', 'padding', 'round', 'spread', 'align', 'opacity'],
     events: []

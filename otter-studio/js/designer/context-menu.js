@@ -38,6 +38,15 @@ export function createDesignerContextMenu({ uiModel, styles, actions, commands }
       pasteCount && { label: `Paste styles (${pasteCount})`, hint: hint('designer.pasteStyles'), run: actions.pasteStyles },
       { label: 'Clear styles here', hint: styles.isBaseContext() ? '' : styles.breakpoint.label, run: actions.clearStyles },
       '-',
+      actions.canArrange(2) && { label: 'Align left edges', hint: hint('designer.alignLeft'), run: () => actions.align('left') },
+      actions.canArrange(2) && { label: 'Align centres', hint: hint('designer.alignCenter'), run: () => actions.align('center') },
+      actions.canArrange(2) && { label: 'Align top edges', hint: hint('designer.alignTop'), run: () => actions.align('top') },
+      actions.canArrange(2) && { label: 'Align middles', hint: hint('designer.alignMiddle'), run: () => actions.align('middle') },
+      actions.canArrange(3) && { label: 'Distribute horizontally', hint: hint('designer.distributeHorizontal'), run: () => actions.distribute('horizontal') },
+      actions.canArrange(3) && { label: 'Distribute vertically', hint: hint('designer.distributeVertical'), run: () => actions.distribute('vertical') },
+      '-',
+      notRoot && { label: 'Copy', hint: hint('designer.copy'), run: actions.copySelection },
+      { label: 'Paste', hint: hint('designer.paste'), run: actions.pasteSelection },
       notRoot && { label: 'Duplicate', hint: hint('designer.duplicate'), run: actions.duplicateSelection },
       notRoot && { label: 'Delete', hint: hint('designer.delete'), danger: true, run: actions.deleteSelection }
     ].filter(Boolean);

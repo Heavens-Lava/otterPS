@@ -98,8 +98,14 @@ export function generateOtterSource(uiModel) {
   return lines.join('\n');
 }
 
+// The Components panel's Heading is a large bold text: Otter 1.0 has no
+// `heading` kind (SPEC-DECISIONS D56 leaves it post-1.0), so `x is a heading`
+// compiled to nothing visible. It is written as the text it is (its size and
+// bold go with it) and reads back as one.
+const WRITTEN_KIND = { heading: 'text' };
+
 export function declareComponent(name, kind, propertyParts) {
-  const prefix = `${name} is a ${kind}`;
+  const prefix = `${name} is a ${WRITTEN_KIND[kind] || kind}`;
   return propertyParts.length > 0
     ? `${prefix} with ${propertyParts.join(', ')}`
     : prefix;

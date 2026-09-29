@@ -12,6 +12,26 @@
 
 import { ComponentSchema } from '../model/schema.js';
 
+// The size a control gets when it is placed in a Free layout container, so
+// nothing arrives stretched across the window or collapsed to nothing (like
+// a new control on a Visual Studio form). Numbers are px; width / height go
+// into the Otter source ("width 220"), minWidth into the stylesheet. Kinds
+// not listed (text, heading, checkbox) keep their natural size.
+export const FREE_DEFAULT_SIZES = {
+  'button': { minWidth: 100 },
+  'primary button': { minWidth: 100 },
+  'danger button': { minWidth: 100 },
+  'text box': { width: 220 },
+  'dropdown': { width: 200 },
+  'slider': { width: 200 },
+  'progress bar': { width: 220 },
+  'image': { width: 200, height: 140 },
+  'card': { width: 300, height: 200 },
+  'row': { width: 320, height: 120 },
+  'column': { width: 240, height: 240 },
+  'scroll': { width: 300, height: 240 }
+};
+
 export function createDesignerActions({ uiModel, styles, cssAstManager, canvas, viewState = null }) {
   // The selection that edits apply to: never the window itself.
   function selection() {
@@ -46,10 +66,69 @@ export function createDesignerActions({ uiModel, styles, cssAstManager, canvas, 
     return true;
   }
 
+  // A copy of a Free control would land exactly on the original (its left /
+  // top are copied too): it goes 16 px down and right, as in Visual Studio.
+  const COPY_OFFSET = 16;
+
   function duplicateSelection() {
     const comps = selection();
     if (comps.length === 0) return false;
-    const copies = asOneStep(() => comps.map(c => uiModel.duplicateComponent(c.id, cssAstManager)).filter(Boolean));
+    const boxes = new Map(comps.map(c => [c.id, freeBox(c)]));
+    const copies = asOneStep(() => comps.map(c => {
+      const copy = uiModel.duplicateComponent(c.id, cssAstManager);
+      const box = boxes.get(c.id);
+      if (copy && box) offsetCopy(copy, box, COPY_OFFSET);
+      return copy;
+    }).filter(Boolean));
+    uiModel.selectMany(copies.map(c => c.id));
+    return true;
+  }
+
+  function offsetCopy(copy, box, by) {
+    inBaseState(() => styles.write(copy, { left: `${Math.round(box.left + by)}px`, top: `${Math.round(box.top + by)}px` }, { key: `copy:${copy.id}` }));
+  }
+
+  // --- Copy / paste controls (Ctrl+C / Ctrl+V on the canvas) -----------------
+  //
+  // Paste puts copies of the copied controls into the selected container (or
+  // the selected control's container). Pasting again into the same place
+  // offsets each new copy a further 16 px.
+  let clipboard = [];
+  let pasteRun = { key: '', count: 0 };
+
+  function copySelection() {
+    const comps = selection();
+    if (!comps.length) return false;
+    clipboard = comps.map(c => c.id);
+    pasteRun = { key: '', count: 0 };
+    return true;
+  }
+
+  function pasteTarget() {
+    const comp = primary();
+    if (!comp) return uiModel.getRoot();
+    if (isContainer(comp) && !clipboard.includes(comp.id)) return comp;
+    return uiModel.getComponent(comp.parentId) || uiModel.getRoot();
+  }
+
+  function pasteSelection() {
+    const originals = clipboard.map(id => uiModel.getComponent(id)).filter(Boolean);
+    if (!originals.length) return false;
+    const target = pasteTarget();
+    if (!target) return false;
+    const runKey = `${target.id}:${clipboard.join(',')}`;
+    pasteRun = pasteRun.key === runKey ? { key: runKey, count: pasteRun.count + 1 } : { key: runKey, count: 1 };
+    const boxes = new Map(originals.map(o => [o.id, freeBox(o)]));
+    const copies = asOneStep(() => originals.map(original => {
+      if (uiModel.isDescendantOf(target.id, original.id) || target.id === original.id) return null;
+      const copy = uiModel.duplicateComponent(original.id, cssAstManager);
+      if (!copy) return null;
+      if (copy.parentId !== target.id) uiModel.moveChild(copy.id, target.id);
+      const box = boxes.get(original.id);
+      if (box && isFreeLayout(target)) offsetCopy(copy, box, original.parentId === target.id ? COPY_OFFSET * pasteRun.count : 0);
+      return copy;
+    }).filter(Boolean));
+    if (!copies.length) return false;
     uiModel.selectMany(copies.map(c => c.id));
     return true;
   }
@@ -249,10 +328,16 @@ export function createDesignerActions({ uiModel, styles, cssAstManager, canvas, 
           };
         }).filter(Boolean);
         const containerHeight = containerEl.getBoundingClientRect().height / zoom;
-        const values = { [FREE_MARK]: 'free', position: 'relative' };
         // Absolute children take no room: keep the container's height.
-        if (container.id !== uiModel.rootId) values['min-height'] = `${Math.round(containerHeight)}px`;
+        const values = { [FREE_MARK]: 'free', position: 'relative', 'min-height': `${Math.round(containerHeight)}px` };
         styles.write(container, values, { key });
+        if (container.id === uiModel.rootId && cssAstManager) {
+          // The window's title is its title bar (as the designer draws it); the
+          // compiled window's own title header would otherwise sit on top of
+          // the controls placed near the top, since #app is where they are
+          // measured from.
+          cssAstManager.setProperty(windowHeaderSelector(container), 'display', 'none');
+        }
         // An absolute element shrinks to its content; one that was stretched
         // across the container (a full-width button) keeps its width, so the
         // form looks exactly as it did.
@@ -264,9 +349,14 @@ export function createDesignerActions({ uiModel, styles, cssAstManager, canvas, 
           styles.write(child, { position: null, left: null, top: null, right: null, bottom: null }, { key });
         }
         styles.write(container, { [FREE_MARK]: null, position: null, 'min-height': null }, { key });
+        if (container.id === uiModel.rootId && cssAstManager) cssAstManager.removeProperty(windowHeaderSelector(container), 'display');
       }
       return true;
     });
+  }
+
+  function windowHeaderSelector(win) {
+    return `#${win.name} > .otter-window-header`;
   }
 
   function toggleFreeLayout(comp = primary()) {
@@ -277,14 +367,98 @@ export function createDesignerActions({ uiModel, styles, cssAstManager, canvas, 
 
   // Put a child of a Free container at a point: its top-left corner goes
   // where the pointer is, minus where the pointer held it (grab, CSS px).
-  function placeAt(comp, container, clientX, clientY, grab = { x: 0, y: 0 }) {
-    const containerEl = canvas.elementFor(container.id);
-    if (!comp || !containerEl) return false;
+  // isNew: a control just created (dragged or clicked in from Components)
+  // also gets its default size (FREE_DEFAULT_SIZES).
+  // Where a drop at a point would put a control's top-left corner (left /
+  // top in CSS px) - the same numbers the drop writes, for the drop preview.
+  function positionFor(container, clientX, clientY, grab = { x: 0, y: 0 }) {
+    const containerEl = container && canvas.elementFor(container.id);
+    if (!containerEl) return null;
     const at = pointIn(containerEl, clientX, clientY);
-    const left = Math.max(0, Math.round(at.x - grab.x));
-    const top = Math.max(0, Math.round(at.y - grab.y));
-    inBaseState(() => styles.write(comp, { position: 'absolute', left: `${left}px`, top: `${top}px`, right: null, bottom: null }, { key: `place:${comp.id}` }));
+    return { left: Math.max(0, Math.round(at.x - grab.x)), top: Math.max(0, Math.round(at.y - grab.y)) };
+  }
+
+  function placeAt(comp, container, clientX, clientY, grab = { x: 0, y: 0 }, { isNew = false } = {}) {
+    const pos = comp && positionFor(container, clientX, clientY, grab);
+    if (!pos) return false;
+    const { left, top } = pos;
+    const values = { position: 'absolute', left: `${left}px`, top: `${top}px`, right: null, bottom: null };
+    const size = isNew ? FREE_DEFAULT_SIZES[comp.kind] : null;
+    if (size?.width) values.width = `${size.width}px`;
+    if (size?.height) values.height = `${size.height}px`;
+    if (size?.minWidth) values['min-width'] = `${size.minWidth}px`;
+    inBaseState(() => styles.write(comp, values, { key: `place:${comp.id}` }));
     return true;
+  }
+
+  // --- Align and distribute (Free controls) ----------------------------------
+  //
+  // For two or more selected controls in the same Free container: line them
+  // up on the selection's left / centre / right / top / middle / bottom edge,
+  // or (three or more) spread them so the gaps between them are equal. Each
+  // is one undo step.
+
+  // Where a Free control is in its container, in CSS px (null otherwise).
+  function freeBox(comp) {
+    const el = comp && canvas.elementFor(comp.id);
+    if (!el) return null;
+    const cs = getComputedStyle(el);
+    if (cs.position !== 'absolute') return null;
+    const r = el.getBoundingClientRect();
+    const zoom = canvas.getZoom();
+    return { comp, left: parseFloat(cs.left) || 0, top: parseFloat(cs.top) || 0, width: r.width / zoom, height: r.height / zoom };
+  }
+
+  function freeSelection(min = 2) {
+    const comps = selection();
+    if (comps.length < min || !comps.every(c => c.parentId === comps[0].parentId)) return null;
+    const boxes = comps.map(freeBox);
+    return boxes.every(Boolean) ? boxes : null;
+  }
+
+  let arrangeCount = 0;
+  function writeBoxes(boxes, name) {
+    const key = `${name}:${++arrangeCount}`;
+    inBaseState(() => {
+      for (const b of boxes) styles.write(b.comp, { left: `${Math.round(b.left)}px`, top: `${Math.round(b.top)}px` }, { key });
+    });
+    return true;
+  }
+
+  function align(edge) {
+    const boxes = freeSelection(2);
+    if (!boxes) return false;
+    const left = Math.min(...boxes.map(b => b.left));
+    const right = Math.max(...boxes.map(b => b.left + b.width));
+    const top = Math.min(...boxes.map(b => b.top));
+    const bottom = Math.max(...boxes.map(b => b.top + b.height));
+    for (const b of boxes) {
+      if (edge === 'left') b.left = left;
+      else if (edge === 'right') b.left = right - b.width;
+      else if (edge === 'center') b.left = (left + right) / 2 - b.width / 2;
+      else if (edge === 'top') b.top = top;
+      else if (edge === 'bottom') b.top = bottom - b.height;
+      else if (edge === 'middle') b.top = (top + bottom) / 2 - b.height / 2;
+    }
+    return writeBoxes(boxes, `align-${edge}`);
+  }
+
+  function distribute(axis) {
+    const boxes = freeSelection(3);
+    if (!boxes) return false;
+    const pos = axis === 'horizontal' ? 'left' : 'top';
+    const size = axis === 'horizontal' ? 'width' : 'height';
+    boxes.sort((a, b) => a[pos] - b[pos]);
+    const first = boxes[0];
+    const last = boxes[boxes.length - 1];
+    const span = last[pos] + last[size] - first[pos];
+    const gap = (span - boxes.reduce((sum, b) => sum + b[size], 0)) / (boxes.length - 1);
+    let at = first[pos];
+    for (const b of boxes) {
+      b[pos] = at;
+      at += b[size] + gap;
+    }
+    return writeBoxes(boxes, `distribute-${axis}`);
   }
 
   function clearStyles() {
@@ -300,7 +474,9 @@ export function createDesignerActions({ uiModel, styles, cssAstManager, canvas, 
     selectParent, selectFirstChild, selectSibling, selectAllSiblings,
     moveAmongSiblings, moveOutOfParent, moveIntoPrevious,
     nudge,
-    isFreeLayout, setFreeLayout, toggleFreeLayout, placeAt,
+    isFreeLayout, setFreeLayout, toggleFreeLayout, placeAt, positionFor,
+    copySelection, pasteSelection, align, distribute,
+    canArrange: (min = 2) => Boolean(freeSelection(min)),
     toggleHidden, toggleLocked,
     showAll: () => Boolean(viewState && viewState.showAll()),
     unlockAll: () => Boolean(viewState && viewState.unlockAll()),

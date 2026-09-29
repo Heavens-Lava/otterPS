@@ -888,7 +888,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         let initialCode = isMinimal ? `# ${projName}\n\nsay "Hello from ${projName}!"\n` : templateDef.code;
         let initialCss = isMinimal ? '/* Otter Stylesheet */\n' : (templateDef.css || '');
 
-        if (templateDef.load && templateModel.getRoot()) {
+        // A blank desktop project is an empty window in Free layout, ready
+        // to drop controls onto.
+        const blankDesktop = isMinimal && selectedArchetype === 'desktop';
+        if (blankDesktop) {
+          initialCode = `app is a window with title "${projName.replace(/"/g, '')}", width 720, height 480\n\nshow app\n`;
+          initialCss = freeWindowCss('app');
+        } else if (templateDef.load && templateModel.getRoot()) {
           initialCode = generateOtterSource(templateModel);
         }
 
@@ -956,7 +962,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         switchSidebarPane('files');
 
         // Route to optimal mode: 'split' lets user see BOTH designer and code!
-        setMode(selectedArchetype === 'console' ? 'code' : 'split');
+        setMode(selectedArchetype === 'console' ? 'code' : selectedArchetype === 'desktop' ? 'designer' : 'split');
       }
 
       closeNewProjectModal();
@@ -1003,6 +1009,24 @@ document.addEventListener('DOMContentLoaded', async () => {
   // palette and the Keyboard Shortcuts dialog while the designer is showing.
   window.otterCommands?.registerAll(toRegistryCommands(designer.commands, () => designer.isDesignerVisible()));
 });
+
+// The stylesheet of a window in Free layout (designer/actions.js
+// setFreeLayout writes the same rules when you switch one on).
+function freeWindowCss(name) {
+  return `/* Free layout: controls stay exactly where they are placed in the
+   designer (like a Visual Studio form). Rows, columns and cards arrange
+   their own children. The window's title is its title bar. */
+#${name} {
+    --otter-layout: free;
+    position: relative;
+    min-height: 480px;
+}
+
+#${name} > .otter-window-header {
+    display: none;
+}
+`;
+}
 
 function capitalize(str) {
   return str.charAt(0).toUpperCase() + str.slice(1);
