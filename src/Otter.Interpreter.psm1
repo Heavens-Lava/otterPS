@@ -1136,6 +1136,20 @@ function Write-OtterDiagnostic {
 # ERRORS
 # ===============================================================
 
+# macOS and Linux (PowerShell 7): features built on Windows itself - the
+# registry, the event log, DPAPI credentials, printing, notifications, file
+# dialogs, power actions, file owners - stop with one clear Otter message
+# instead of a raw error, an internal crash, or a silent no-op (reading the
+# registry used to answer gone). Windows behaves exactly as before.
+$script:OtterOnWindows = ($PSVersionTable.PSEdition -ne 'Core') -or [bool](Get-Variable -Name IsWindows -ValueOnly -ErrorAction SilentlyContinue)
+
+function Assert-OtterWindowsFeature {
+    param([string]$Feature, [int]$Line)
+    if ($script:OtterOnWindows) { return }
+    $os = if ([bool](Get-Variable -Name IsMacOS -ValueOnly -ErrorAction SilentlyContinue)) { 'macOS' } else { 'Linux' }
+    throw (New-OtterRuntimeError -Message "$Feature is only available on Windows, and this program is running on $os." -Line $Line)
+}
+
 function New-OtterRuntimeError {
     param(
         [string]$Message,
@@ -3263,6 +3277,7 @@ function Invoke-OtterStatement {
 
         # get owner of "x" into owner                                    (D74)
         'GetFileOwner' {
+            Assert-OtterWindowsFeature -Feature "Reading a file's owner" -Line $Statement.Line
             $path = Get-OtterPathArgument -Expression $Statement.Path -Environment $Environment
             $owner = Get-OtterFileOwner -Path $path -Line $Statement.Line
             $Environment.Set($Statement.Target, $owner)
@@ -3278,6 +3293,7 @@ function Invoke-OtterStatement {
 
         # get registry value "n" from "path" into t                     (D78)
         'GetRegistryValue' {
+            Assert-OtterWindowsFeature -Feature "The registry" -Line $Statement.Line
             $valueName = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.ValueName -Environment $Environment)
             $keyPath = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.KeyPath -Environment $Environment)
             $value = Get-OtterRegistryValue -ValueName $valueName -KeyPath $keyPath -Line $Statement.Line
@@ -3287,6 +3303,7 @@ function Invoke-OtterStatement {
 
         # set registry value "n" to "d" in "path"                       (D78)
         'SetRegistryValue' {
+            Assert-OtterWindowsFeature -Feature "The registry" -Line $Statement.Line
             $valueName = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.ValueName -Environment $Environment)
             $value = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.Value -Environment $Environment)
             $keyPath = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.KeyPath -Environment $Environment)
@@ -3296,6 +3313,7 @@ function Invoke-OtterStatement {
 
         # delete registry value "n" from "path"                         (D78)
         'DeleteRegistryValue' {
+            Assert-OtterWindowsFeature -Feature "The registry" -Line $Statement.Line
             $valueName = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.ValueName -Environment $Environment)
             $keyPath = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.KeyPath -Environment $Environment)
             Remove-OtterRegistryValue -ValueName $valueName -KeyPath $keyPath -Line $Statement.Line
@@ -3304,6 +3322,7 @@ function Invoke-OtterStatement {
 
         # get event log entries from "System" up to 20 into entries      (D79)
         'GetEventLogEntries' {
+            Assert-OtterWindowsFeature -Feature "The event log" -Line $Statement.Line
             $logName = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.LogName -Environment $Environment)
             $maxEntries = Assert-OtterNumber -Value (Get-OtterValue -Expression $Statement.MaxEntries -Environment $Environment) -Line $Statement.Line -What 'a maximum number of entries'
             $entries = Get-OtterEventLogEntries -LogName $logName -MaxEntries $maxEntries -Line $Statement.Line
@@ -3313,6 +3332,7 @@ function Invoke-OtterStatement {
 
         # set credential "n" to "secret"                                 (D81)
         'SetCredential' {
+            Assert-OtterWindowsFeature -Feature "Stored credentials (set credential)" -Line $Statement.Line
             $name = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.Name -Environment $Environment)
             $secret = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.Secret -Environment $Environment)
             Set-OtterCredential -Name $name -Secret $secret -Line $Statement.Line
@@ -3321,6 +3341,7 @@ function Invoke-OtterStatement {
 
         # get credential "n" into secret                                 (D81)
         'GetCredential' {
+            Assert-OtterWindowsFeature -Feature "Stored credentials (get credential)" -Line $Statement.Line
             $name = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.Name -Environment $Environment)
             $secret = Get-OtterCredential -Name $name -Line $Statement.Line
             $Environment.Set($Statement.Target, $secret)
@@ -3329,6 +3350,7 @@ function Invoke-OtterStatement {
 
         # delete credential "n"                                          (D81)
         'DeleteCredential' {
+            Assert-OtterWindowsFeature -Feature "Stored credentials (delete credential)" -Line $Statement.Line
             $name = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.Name -Environment $Environment)
             Remove-OtterCredential -Name $name -Line $Statement.Line
             return
@@ -3337,12 +3359,14 @@ function Invoke-OtterStatement {
         # lock the computer / sign out / restart the computer /          (D82)
         # shut down the computer
         'PowerAction' {
+            Assert-OtterWindowsFeature -Feature "Locking, signing out, restarting or shutting down the computer" -Line $Statement.Line
             Invoke-OtterPowerAction -Action $Statement.Action -Line $Statement.Line
             return
         }
 
         # print "file.txt" to "PrinterName"                              (D83)
         'PrintFile' {
+            Assert-OtterWindowsFeature -Feature "Printing" -Line $Statement.Line
             $path = Get-OtterPathArgument -Expression $Statement.Path -Environment $Environment
             $printerName = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.PrinterName -Environment $Environment)
             Send-OtterFileToPrinter -Path $path -PrinterName $printerName -Line $Statement.Line
@@ -3444,20 +3468,32 @@ function Invoke-OtterStatement {
         # copy "text" to clipboard
         'CopyToClipboard' {
             $text = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.Text -Environment $Environment)
-            Set-Clipboard -Value $text
+            if ($script:OtterOnWindows) {
+                Set-Clipboard -Value $text
+            } else {
+                # macOS and Linux need a clipboard program (pbcopy, xclip, wl-copy)
+                # and a desktop session; without one this is a clear error.
+                try { Set-Clipboard -Value $text -ErrorAction Stop }
+                catch { throw (New-OtterRuntimeError -Message "I could not copy to the clipboard: $($_.Exception.Message)" -Line $Statement.Line) }
+            }
             return
         }
 
         # get clipboard into text          - gone if the clipboard holds no text
         'GetClipboard' {
             $value = $null
-            try { $value = Get-Clipboard -Raw -ErrorAction Stop } catch { $value = $null }
+            try { $value = Get-Clipboard -Raw -ErrorAction Stop }
+            catch {
+                if (-not $script:OtterOnWindows) { throw (New-OtterRuntimeError -Message "I could not read the clipboard: $($_.Exception.Message)" -Line $Statement.Line) }
+                $value = $null
+            }
             $Environment.Set($Statement.Target, $value)
             return
         }
 
         # notify "Title" with "Message"    - a real OS toast, not a fake one
         'Notify' {
+            Assert-OtterWindowsFeature -Feature "Notifications (notify)" -Line $Statement.Line
             $title = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.Title -Environment $Environment)
             $message = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.Message -Environment $Environment)
             Show-OtterNotification -Title $title -Message $message
@@ -3525,6 +3561,7 @@ function Invoke-OtterStatement {
 
         # choose file into path            - gone if the user cancels
         'ChooseFile' {
+            Assert-OtterWindowsFeature -Feature "File dialogs (choose file)" -Line $Statement.Line
             $path = Show-OtterFileDialog -Mode 'OpenFile'
             $Environment.Set($Statement.Target, $path)
             return
@@ -3532,6 +3569,7 @@ function Invoke-OtterStatement {
 
         # choose folder into path          - gone if the user cancels
         'ChooseFolder' {
+            Assert-OtterWindowsFeature -Feature "Folder dialogs (choose folder)" -Line $Statement.Line
             $path = Show-OtterFileDialog -Mode 'Folder'
             $Environment.Set($Statement.Target, $path)
             return
@@ -3539,6 +3577,7 @@ function Invoke-OtterStatement {
 
         # choose file to save into path    - gone if the user cancels
         'ChooseSaveFile' {
+            Assert-OtterWindowsFeature -Feature "File dialogs (choose file to save)" -Line $Statement.Line
             $path = Show-OtterFileDialog -Mode 'SaveFile'
             $Environment.Set($Statement.Target, $path)
             return
@@ -4901,6 +4940,7 @@ function Get-OtterValue {
 
         # if registry key "path" exists                                 (D78)
         'RegistryKeyExists' {
+            Assert-OtterWindowsFeature -Feature "The registry" -Line $Expression.Line
             $keyPath = Format-OtterValue -Value (Get-OtterValue -Expression $Expression.KeyPath -Environment $Environment)
             return (Test-OtterRegistryKeyExists -KeyPath $keyPath)
         }

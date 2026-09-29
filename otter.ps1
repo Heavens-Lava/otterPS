@@ -840,6 +840,11 @@ if ($Path -in @('web', 'browse', 'serve', 'desktop', 'studio')) {
     # here; see Assert-OtterSourceFileReadable.
     $scriptFile = (Assert-OtterSourceFileReadable -ScriptPath $scriptFile).Path
     if ($Path -eq 'desktop') {
+        $onWindows = ($PSVersionTable.PSEdition -ne 'Core') -or [bool](Get-Variable -Name IsWindows -ValueOnly -ErrorAction SilentlyContinue)
+        if (-not $onWindows) {
+            Write-Host 'Otter: desktop windows are only available on Windows. Build this program as a web application instead: otter web <file.ot>' -ForegroundColor Red
+            [Environment]::Exit(1)
+        }
         Import-Module (Join-Path $PSScriptRoot 'src\Otter.Desktop.psm1') -Force
         Start-OtterDesktopApplication -SourcePath $scriptFile
         exit 0

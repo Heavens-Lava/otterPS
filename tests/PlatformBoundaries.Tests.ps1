@@ -49,43 +49,59 @@ function Invoke-OtterPlatformProgram {
     return [pscustomobject]@{ Finished = $finished; ExitCode = $(if ($finished) { $proc.ExitCode } else { $null }); Text = ($outTask.Result + $errTask.Result).Trim() }
 }
 
-# Works (exit 0), or a clean Otter error: an Otter banner or Otter-worded
-# message, a non-zero exit, and none of the raw markers.
-function Assert-WorksOrCleanError {
-    param($Result, [string]$Label)
+# A clean Otter error: finished, non-zero exit, an Otter-worded message that
+# matches $Expect, none of the raw markers, and not Otter's own internal-error
+# message (which means a bug, not a clean refusal).
+function Assert-CleanError {
+    param($Result, [string]$Label, [string]$Expect)
     Assert-True $Result.Finished "$Label did not finish within 60 seconds"
+    Write-Output "        -> exit $($Result.ExitCode): $(($Result.Text -split "`n" | Where-Object { $_.Trim() } | Select-Object -First 4) -join ' | ')"
     foreach ($marker in $script:RawMarkers) {
         Assert-False ($Result.Text.Contains($marker)) "$Label printed raw error text '$marker': $($Result.Text)"
     }
-    if ($Result.ExitCode -ne 0) {
-        Assert-True ($Result.Text -match 'Otter (Runtime|Syntax) Error|^Otter[: ]|not supported|only (works|available|supported) on Windows|needs Windows') "$Label failed without a clean Otter message (exit $($Result.ExitCode)): $($Result.Text)"
-    }
-    Write-Output "        -> exit $($Result.ExitCode): $(($Result.Text -split "`n" | Where-Object { $_.Trim() } | Select-Object -First 3) -join ' | ')"
+    Assert-False ($Result.Text.Contains('Otter hit a problem inside itself')) "$Label crashed inside Otter: $($Result.Text)"
+    Assert-True ($Result.ExitCode -ne 0) "$Label should stop with an error on this platform, but exited 0: $($Result.Text)"
+    Assert-True ($Result.Text -match $Expect) "$Label should say '$Expect', got: $($Result.Text)"
 }
 
+$windowsOnly = 'only available on Windows'
 $cases = [ordered]@{
-    'a desktop window (otter run)'           = @{ Source = "create window into app`ncreate button into b`nput b in app`nshow app`n" }
-    'a desktop window (otter desktop)'       = @{ Source = "create window into app`nshow app`n"; Command = @('desktop') }
-    'reading the registry'                   = @{ Source = "get registry value `"n`" from `"HKCU:\Software\OtterPlatformTest`" into t`nsay t`n" }
-    'checking a registry key'                = @{ Source = "if registry key `"HKCU:\Software\OtterPlatformTest`" exists`n    say `"yes`"`n.`n" }
-    'writing the registry'                   = @{ Source = "set registry value `"n`" to `"d`" in `"HKCU:\Software\OtterPlatformTest`"`n" }
-    'a DPAPI credential'                     = @{ Source = "set credential `"otter-platform-test`" to `"secret`"`n" }
-    'the credential vault'                   = @{ Source = "store secret `"otter-platform-test`" with value `"v`"`n" }
-    'the event log'                          = @{ Source = "get event log entries from `"System`" up to 1 into entries`nsay length of entries`n" }
-    'the owner of a file'                    = @{ Source = "get owner of `"file.txt`" into owner`nsay owner`n" }
-    'copying to the clipboard'               = @{ Source = "copy `"otter`" to clipboard`n" }
-    'printing a file'                        = @{ Source = "print `"file.txt`" to `"Otter Test Printer`"`n" }
-    'running a Windows command (cmd)'        = @{ Source = "run command `"cmd /c echo hi`" into result`nsay output of result`n" }
+    'a desktop window (otter run)'           = @{ Source = "create window into app`ncreate button into b`nput b in app`nshow app`n"; Expect = 'Otter Runtime Error' }
+    'a desktop window (otter desktop)'       = @{ Source = "create window into app`nshow app`n"; Command = @('desktop'); Expect = $windowsOnly }
+    'reading the registry'                   = @{ Source = "get registry value `"n`" from `"HKCU:\Software\OtterPlatformTest`" into t`nsay t`n"; Expect = $windowsOnly }
+    'checking a registry key'                = @{ Source = "if registry key `"HKCU:\Software\OtterPlatformTest`" exists`n    say `"yes`"`n.`n"; Expect = $windowsOnly }
+    'writing the registry'                   = @{ Source = "set registry value `"n`" to `"d`" in `"HKCU:\Software\OtterPlatformTest`"`n"; Expect = $windowsOnly }
+    'a stored credential'                    = @{ Source = "set credential `"otter-platform-test`" to `"secret`"`n"; Expect = $windowsOnly }
+    'the credential vault'                   = @{ Source = "store secret `"otter-platform-test`" with value `"v`"`n"; Expect = 'Otter Runtime Error' }
+    'the event log'                          = @{ Source = "get event log entries from `"System`" up to 1 into entries`nsay length of entries`n"; Expect = $windowsOnly }
+    'the owner of a file'                    = @{ Source = "get owner of `"file.txt`" into owner`nsay owner`n"; Expect = $windowsOnly }
+    'printing a file'                        = @{ Source = "print `"file.txt`" to `"Otter Test Printer`"`n"; Expect = $windowsOnly }
+    'a notification'                         = @{ Source = "notify `"Otter`" with `"hello`"`n"; Expect = $windowsOnly }
+    'a file dialog'                          = @{ Source = "choose file into picked`nsay picked`n"; Expect = $windowsOnly }
+    'locking the computer'                   = @{ Source = "lock the computer`n"; Expect = $windowsOnly }
+    'running a Windows command (cmd)'        = @{ Source = "run command `"cmd /c echo hi`" into result`nsay output of result`n"; Expect = 'Otter Runtime Error' }
 }
 
 try {
     foreach ($name in $cases.Keys) {
         $case = $cases[$name]
         $command = if ($case.Command) { $case.Command } else { @('run') }
-        Test-Otter "on $($PSVersionTable.OS): $name works or stops with a clean Otter error" ({
+        Test-Otter "on $($PSVersionTable.OS): $name stops with a clean Otter error" ({
             $r = Invoke-OtterPlatformProgram -Source $case.Source -Command $command
-            Assert-WorksOrCleanError -Result $r -Label $name
+            Assert-CleanError -Result $r -Label $name -Expect $case.Expect
         }.GetNewClosure())
+    }
+
+    # The clipboard needs a clipboard program and a desktop session on macOS and
+    # Linux: copying either round-trips the text or says it cannot.
+    Test-Otter "on $($PSVersionTable.OS): the clipboard round-trips its text or says it cannot" {
+        $r = Invoke-OtterPlatformProgram -Source "copy `"otter-clip-test`" to clipboard`nget clipboard into pasted`nsay pasted`n"
+        if ($r.ExitCode -eq 0) {
+            Write-Output "        -> exit 0: $($r.Text)"
+            Assert-AreEqual -Expected 'otter-clip-test' -Actual $r.Text
+        } else {
+            Assert-CleanError -Result $r -Label 'the clipboard' -Expect 'clipboard'
+        }
     }
 }
 finally {
