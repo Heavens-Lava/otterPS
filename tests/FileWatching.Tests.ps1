@@ -322,19 +322,17 @@ Test-Otter 'file watching is rejected on the web target with a clean compile-tim
 
 # --- 8. Keyword narrowing (no regressions) --------------------------------
 
-Test-Otter 'watch/watching/change/changed/kind/old/recursively remain ordinary identifiers everywhere else' {
+Test-Otter 'watch/change/changed/kind/old/recursively remain ordinary identifiers everywhere else' {
     $dir = New-OtterWatchSandbox
     try {
         $source = @"
 watch is "hello"
-watching is 5
 change is "text"
 changed is 3
 kind is "sunny"
 old is true
 recursively is 7
 say watch
-say watching
 say change
 say changed
 say kind
@@ -344,7 +342,22 @@ say recursively
         $r = Invoke-OtterWatchProgram -Source $source -SandboxDir $dir -TriggerAction {} -RegisterDelayMs 300
         Assert-False $r.TimedOut 'expected a plain program with no watchers to finish immediately'
         Assert-AreEqual -Expected 0 -Actual $r.ExitCode
-        Assert-Lines -Expected @('hello', '5', 'text', '3', 'sunny', 'true', '7') -Actual (($r.Stdout -split "`r?`n") | Where-Object { $_ -ne '' })
+        Assert-Lines -Expected @('hello', 'text', '3', 'sunny', 'true', '7') -Actual (($r.Stdout -split "`r?`n") | Where-Object { $_ -ne '' })
+    } finally {
+        Remove-Item -LiteralPath $dir -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+
+# D124 (RC3) reserves `watching` as a variable name: in a condition,
+# `x is watching` is the watcher-state check, so a variable of that name could
+# never be compared. D104 originally left it an ordinary identifier.
+Test-Otter 'watching is refused as a variable name (D124), with the reason and a rename' {
+    $dir = New-OtterWatchSandbox
+    try {
+        $r = Invoke-OtterWatchProgram -Source "watching is 5`nsay watching`n" -SandboxDir $dir -TriggerAction {} -RegisterDelayMs 300
+        Assert-False $r.TimedOut 'expected the check to refuse the program at once'
+        Assert-AreEqual -Expected 2 -Actual $r.ExitCode
+        Assert-True ($r.Stdout -match '`watching` is a reserved word') "expected the D124 reserved-word diagnostic, got: $($r.Stdout)"
     } finally {
         Remove-Item -LiteralPath $dir -Recurse -Force -ErrorAction SilentlyContinue
     }
