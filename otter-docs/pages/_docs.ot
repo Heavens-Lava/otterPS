@@ -137,12 +137,13 @@ sideGroupHead11 is a link with text "More", url "/topics/", foreground "#0f1f36"
 sideTopics is a link with text "All topics", url "/topics/", foreground "#4a5b75", size 14, customstyle "padding: 8px 12px; border-left: 3px solid transparent; border-radius: 4px; display: block;"
 sideDownload is a link with text "Download", url "/download/", foreground "#4a5b75", size 14, customstyle "padding: 8px 12px; border-left: 3px solid transparent; border-radius: 4px; display: block;"
 sideRelease is a link with text "Release status", url "/release/", foreground "#4a5b75", size 14, customstyle "padding: 8px 12px; border-left: 3px solid transparent; border-radius: 4px; display: block;"
+sideRoadmap is a link with text "Roadmap", url "/roadmap/", foreground "#4a5b75", size 14, customstyle "padding: 8px 12px; border-left: 3px solid transparent; border-radius: 4px; display: block;"
 sideStudio is a link with text "Studio preview", url "/studio/", foreground "#4a5b75", size 14, customstyle "padding: 8px 12px; border-left: 3px solid transparent; border-radius: 4px; display: block;"
 sideSupport is a link with text "Support", url "/support/", foreground "#4a5b75", size 14, customstyle "padding: 8px 12px; border-left: 3px solid transparent; border-radius: 4px; display: block;"
 sideAbout is a link with text "About Otter", url "/about/", foreground "#4a5b75", size 14, customstyle "padding: 8px 12px; border-left: 3px solid transparent; border-radius: 4px; display: block;"
 sideLicense is a link with text "License", url "/license/", foreground "#4a5b75", size 14, customstyle "padding: 8px 12px; border-left: 3px solid transparent; border-radius: 4px; display: block;"
 sideGroup11 is a column with spacing 2
-put sideGroupHead11, sideTopics, sideDownload, sideRelease, sideStudio, sideSupport, sideAbout, sideLicense in sideGroup11
+put sideGroupHead11, sideTopics, sideDownload, sideRelease, sideRoadmap, sideStudio, sideSupport, sideAbout, sideLicense in sideGroup11
 
 helpTitle is a text with value "Need help?", size 14, weight 700, foreground "#0f1f36"
 helpBody is a text with value "Ask a question or report a problem on GitHub.", size 13, foreground "#4a5b75", lineheight "1.45"
