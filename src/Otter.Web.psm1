@@ -863,7 +863,13 @@ $optHtml
                 $h = if ($props.Contains('height')) { $props['height'] } else { 300 }
                 $anim = if ($props.Contains('animation')) { Escape-OtterHtmlAttr -Text ([string]$props['animation']) } else { "" }
                 $mode = if ($props.Contains('mode')) { Escape-OtterHtmlAttr -Text ([string]$props['mode']) } else { "2d" }
-                return "      <canvas id=`"$resName`" class=`"otter-canvas`" width=`"$w`" height=`"$h`" data-animation=`"$anim`" data-mode=`"$mode`"$styleAttr></canvas>"
+                # The animation's starting speed and colours; a program changes
+                # them while it runs with `speed of cube is ...` and so on.
+                $animAttrs = ''
+                foreach ($animProp in @('speed', 'color', 'glow')) {
+                    if ($props.Contains($animProp)) { $animAttrs += " data-$animProp=`"$(Escape-OtterHtmlAttr -Text ([string]$props[$animProp]))`"" }
+                }
+                return "      <canvas id=`"$resName`" class=`"otter-canvas`" width=`"$w`" height=`"$h`" data-animation=`"$anim`" data-mode=`"$mode`"$animAttrs$styleAttr></canvas>"
             }
             { $_ -in @('progress', 'progress bar') } {
                 $val = if ($props.Contains('value')) { $props['value'] } else { 0 }
@@ -2443,19 +2449,13 @@ $watcherInitJoined
         function render3D() {
           ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-          // Dynamic speed calculation from slider or canvas property
+          // The canvas's own speed (25 = normal), set when it is declared
+          // (speed 50) or while the program runs (speed of cube is 50).
           let spd = 1.0;
-          const liveSlider = document.getElementById('speedSlider') || document.querySelector('input[type="range"]');
           if (canvas.speed !== undefined && canvas.speed !== null && canvas.speed !== '') {
             spd = Number(canvas.speed) / 25;
           } else if (canvas.dataset.speed) {
             spd = Number(canvas.dataset.speed) / 25;
-          } else if (liveSlider) {
-            spd = Number(liveSlider.value) / 25;
-          }
-          const turbo = document.getElementById('agreeCheckbox');
-          if (turbo && turbo.checked) {
-            spd *= 2.0;
           }
           if (isNaN(spd) || spd < 0) spd = 0;
 
@@ -2475,16 +2475,8 @@ $watcherInitJoined
             const p = distance / (distance + z2);
             return [cx + x1 * scale * p, cy + y2 * scale * p];
           });
-          const themeSel = document.getElementById('themeDropdown');
-          let strokeCol = canvas.color || canvas.dataset.color || '#38bdf8';
-          let glowCol = canvas.glow || canvas.dataset.glow || '#0284c7';
-          if (themeSel) {
-            if (themeSel.value === 'Electric Indigo') {
-              strokeCol = '#c084fc'; glowCol = '#a855f7';
-            } else if (themeSel.value === 'Cyberpunk Emerald') {
-              strokeCol = '#34d399'; glowCol = '#059669';
-            }
-          }
+          const strokeCol = canvas.color || canvas.dataset.color || '#38bdf8';
+          const glowCol = canvas.glow || canvas.dataset.glow || '#0284c7';
           ctx.strokeStyle = strokeCol;
           ctx.lineWidth = 2.5;
           ctx.shadowColor = glowCol;
@@ -2498,18 +2490,6 @@ $watcherInitJoined
           requestAnimationFrame(render3D);
         }
         render3D();
-
-        const liveSlider = document.getElementById('speedSlider') || document.querySelector('input[type="range"]');
-        if (liveSlider) {
-          const updateSpeedLabel = () => {
-            const lbl = document.getElementById('speedLabel');
-            if (lbl) {
-              lbl.textContent = 'Animation Speed: ' + liveSlider.value + '%';
-            }
-          };
-          liveSlider.addEventListener('input', updateSpeedLabel);
-          updateSpeedLabel();
-        }
       }
     });
 

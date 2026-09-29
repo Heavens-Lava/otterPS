@@ -39,6 +39,7 @@ cube3d is a canvas
     height is 220
     mode is "3d"
     animation is "spin"
+    speed is 120
 .
 
 put cube3d in cubeCard
@@ -73,7 +74,7 @@ sliderRow is a row
 .
 
 speedLabel is a text
-    value is "Animation Speed:"
+    value is "Animation Speed: 60%"
     foreground is "#cbd5e1"
 .
 
@@ -123,13 +124,40 @@ when submitButton is clicked
     .
 .
 
+# How fast the cube spins: the slider (25 is normal speed), doubled in
+# Turbo Mode.
+to applySpeed
+    chosen is text of speedSlider
+    spin is chosen
+    if checked of agreeCheckbox
+        spin is chosen times 2
+    .
+    speed of cube3d is spin
+    text of speedLabel is "Animation Speed: " and chosen and "%"
+.
+
 when speedSlider is changed
-    val is text of speedSlider
-    speed of cube3d is val
+    applySpeed
 .
 
 when agreeCheckbox is changed
+    applySpeed
     text of statusMessage is "Turbo mode updated."
+.
+
+# The theme picks the cube's colours.
+when themeDropdown is changed
+    theme is text of themeDropdown
+    color of cube3d is "#38bdf8"
+    glow of cube3d is "#0284c7"
+    if theme is "Electric Indigo"
+        color of cube3d is "#c084fc"
+        glow of cube3d is "#a855f7"
+    .
+    if theme is "Cyberpunk Emerald"
+        color of cube3d is "#34d399"
+        glow of cube3d is "#059669"
+    .
 .
 
 put topRow, cubeCard, controlsCard in app

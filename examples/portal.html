@@ -418,7 +418,7 @@
       <div id="cubeCard" class="otter-card" style="background: #0f172a; border-radius: 12px; border: 1px solid #1e293b; gap: 12px;">
         <h3 class="otter-card-title">Interactive 3D Graphics</h3>
         
-      <canvas id="cube3d" class="otter-canvas" width="620" height="220" data-animation="spin" data-mode="3d" style="width: 620px; height: 220px;"></canvas>
+      <canvas id="cube3d" class="otter-canvas" width="620" height="220" data-animation="spin" data-mode="3d" data-speed="120" style="width: 620px; height: 220px;"></canvas>
 
       </div>
       <div id="controlsCard" class="otter-card" style="background: #0f172a; border-radius: 12px; border: 1px solid #1e293b; gap: 14px;">
@@ -430,10 +430,10 @@
         <option value="Electric Indigo">Electric Indigo</option>
         <option value="Cyberpunk Emerald">Cyberpunk Emerald</option>
       </select>
-      <label class="otter-checkbox-label"><input type="checkbox" id="agreeCheckbox" class="otter-checkbox" checked /> <span>Enable 60 FPS Turbo Mode</span></label>
+      <label id="agreeCheckbox" class="otter-checkbox-label"><input type="checkbox" id="agreeCheckbox-box" class="otter-checkbox" checked /> <span>Enable 60 FPS Turbo Mode</span></label>
 </div>
       <div id="sliderRow" class="otter-row" style="display: flex; flex-direction: row; gap: 12px; align-items: center; justify-content: flex-start; flex-wrap: nowrap;">
-      <div id="speedLabel" class="otter-text" style="color: #cbd5e1;">Animation Speed:</div>
+      <div id="speedLabel" class="otter-text" style="color: #cbd5e1;">Animation Speed: 60%</div>
       <input type="range" id="speedSlider" class="otter-slider" min="1" max="100" value="60" style="width: 280px;" />
 </div>
       <textarea id="notesArea" class="otter-text-area" rows="3" placeholder="Write your thoughts or notes in Otter..."></textarea>
@@ -453,6 +453,11 @@
     const empty = "";
     const gone = null;
     function otterGetElement(id) { return document.getElementById(id); }
+    // The element that holds a control's value: a checkbox's input inside its label.
+    function otterValueElement(id) {
+      const el = otterGetElement(id);
+      return el && el.classList && el.classList.contains('otter-checkbox-label') ? (el.querySelector('input.otter-checkbox') || el) : el;
+    }
 
 
 // Otter D114: Browser-side Cryptography (Web Crypto) Runtime Helpers
@@ -752,7 +757,7 @@ async function otterPasswordMatches(password, stored) {
   return diff === 0;
 }
     function otterGetText(id) {
-      const el = otterGetElement(id);
+      const el = otterValueElement(id);
       if (!el) return '';
       if (el.type === 'checkbox') return el.checked;
       const tag = el.tagName ? el.tagName.toUpperCase() : '';
@@ -762,7 +767,7 @@ async function otterPasswordMatches(password, stored) {
       return el.textContent || '';
     }
     function otterSetText(id, val) {
-      const el = otterGetElement(id);
+      const el = otterValueElement(id);
       if (!el) return;
       if (el.type === 'checkbox') { el.checked = Boolean(val); return; }
       const tag = el.tagName ? el.tagName.toUpperCase() : '';
@@ -783,8 +788,11 @@ async function otterPasswordMatches(password, stored) {
       const el = otterGetElement(id);
       return el ? el.style[prop] : '';
     }
+    // A checkbox's checked / enabled state is its input's; everything else
+    // (styles, visibility) is the labelled control's.
+    const otterInputProps = new Set(['checked', 'disabled', 'value']);
     function otterSetProperty(id, prop, val) {
-      const el = otterGetElement(id);
+      const el = otterInputProps.has(prop) ? otterValueElement(id) : otterGetElement(id);
       if (el) {
         if (prop === 'url' && el.tagName === 'A') { el.href = val; return; }
         el[prop] = val;
@@ -792,7 +800,7 @@ async function otterPasswordMatches(password, stored) {
       }
     }
     function otterGetProperty(id, prop) {
-      const el = otterGetElement(id);
+      const el = otterInputProps.has(prop) ? otterValueElement(id) : otterGetElement(id);
       return el ? el[prop] : '';
     }
     function otterSay(...args) {
@@ -1417,19 +1425,13 @@ async function otterPasswordMatches(password, stored) {
         function render3D() {
           ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-          // Dynamic speed calculation from slider or canvas property
+          // The canvas's own speed (25 = normal), set when it is declared
+          // (speed 50) or while the program runs (speed of cube is 50).
           let spd = 1.0;
-          const liveSlider = document.getElementById('speedSlider') || document.querySelector('input[type="range"]');
           if (canvas.speed !== undefined && canvas.speed !== null && canvas.speed !== '') {
             spd = Number(canvas.speed) / 25;
           } else if (canvas.dataset.speed) {
             spd = Number(canvas.dataset.speed) / 25;
-          } else if (liveSlider) {
-            spd = Number(liveSlider.value) / 25;
-          }
-          const turbo = document.getElementById('agreeCheckbox');
-          if (turbo && turbo.checked) {
-            spd *= 2.0;
           }
           if (isNaN(spd) || spd < 0) spd = 0;
 
@@ -1449,16 +1451,8 @@ async function otterPasswordMatches(password, stored) {
             const p = distance / (distance + z2);
             return [cx + x1 * scale * p, cy + y2 * scale * p];
           });
-          const themeSel = document.getElementById('themeDropdown');
-          let strokeCol = canvas.color || canvas.dataset.color || '#38bdf8';
-          let glowCol = canvas.glow || canvas.dataset.glow || '#0284c7';
-          if (themeSel) {
-            if (themeSel.value === 'Electric Indigo') {
-              strokeCol = '#c084fc'; glowCol = '#a855f7';
-            } else if (themeSel.value === 'Cyberpunk Emerald') {
-              strokeCol = '#34d399'; glowCol = '#059669';
-            }
-          }
+          const strokeCol = canvas.color || canvas.dataset.color || '#38bdf8';
+          const glowCol = canvas.glow || canvas.dataset.glow || '#0284c7';
           ctx.strokeStyle = strokeCol;
           ctx.lineWidth = 2.5;
           ctx.shadowColor = glowCol;
@@ -1472,24 +1466,41 @@ async function otterPasswordMatches(password, stored) {
           requestAnimationFrame(render3D);
         }
         render3D();
-
-        const liveSlider = document.getElementById('speedSlider') || document.querySelector('input[type="range"]');
-        if (liveSlider) {
-          const updateSpeedLabel = () => {
-            const lbl = document.getElementById('speedLabel');
-            if (lbl) {
-              lbl.textContent = 'Animation Speed: ' + liveSlider.value + '%';
-            }
-          };
-          liveSlider.addEventListener('input', updateSpeedLabel);
-          updateSpeedLabel();
-        }
       }
     });
 
     // Top-level application initialization
     (async function() {
-
+    const applySpeed = function() {
+      let chosen, spin;
+      chosen = (otterGetElement('speedSlider') ? (otterGetText('speedSlider')) : (() => { const _owner = speedSlider; if (_owner && typeof _owner === 'object' && _owner.__otterHttpRequest) { if ('text' === 'state') return _owner.state; if ('text' === 'response') { if (_owner.state === 'pending') throw new Error('The HTTP request has not completed yet.'); if (_owner.state === 'cancelled') throw new Error('The HTTP request was cancelled.'); if (_owner.state === 'failed') throw new Error('The HTTP request failed: ' + _owner.error); return _owner.response; } if ('text' === 'error') { return (_owner.state === 'failed' ? _owner.error : null); } if ('text' === 'status') { if (_owner.state === 'pending') throw new Error('The HTTP request has not completed yet.'); return _owner.status; } throw new Error('This http request has no property called "text". Try state, response, error, or status.'); } if (_owner && typeof _owner === 'object' && _owner.__otterXml) { return _owner.node.textContent; } if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return (() => { throw new Error('A date has no part called "text".'); })(); } if (_owner && typeof _owner === 'object' && _owner.__otterWebSocket) { if ('text' === 'state') return (_owner.ws.readyState === 0 ? 'connecting' : _owner.ws.readyState === 1 ? 'open' : _owner.ws.readyState === 2 ? 'closing' : 'closed'); if ('text' === 'url') return _owner.url; if ('text' === 'protocol') return _owner.ws.protocol || _owner.protocol || ''; throw new Error('A websocket has no property called "text".'); } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('text') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called "text".'); } return _owner.props['text']; })());
+      spin = chosen;
+      if ((otterGetElement('agreeCheckbox') ? (otterGetProperty('agreeCheckbox', 'checked')) : (() => { const _owner = agreeCheckbox; if (_owner && typeof _owner === 'object' && _owner.__otterHttpRequest) { if ('checked' === 'state') return _owner.state; if ('checked' === 'response') { if (_owner.state === 'pending') throw new Error('The HTTP request has not completed yet.'); if (_owner.state === 'cancelled') throw new Error('The HTTP request was cancelled.'); if (_owner.state === 'failed') throw new Error('The HTTP request failed: ' + _owner.error); return _owner.response; } if ('checked' === 'error') { return (_owner.state === 'failed' ? _owner.error : null); } if ('checked' === 'status') { if (_owner.state === 'pending') throw new Error('The HTTP request has not completed yet.'); return _owner.status; } throw new Error('This http request has no property called "checked". Try state, response, error, or status.'); } if (_owner && typeof _owner === 'object' && _owner.__otterXml) { return (() => { throw new Error('This xml value has no property called "checked". Try name, root, text, or attributes.'); })(); } if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return (() => { throw new Error('A date has no part called "checked".'); })(); } if (_owner && typeof _owner === 'object' && _owner.__otterWebSocket) { if ('checked' === 'state') return (_owner.ws.readyState === 0 ? 'connecting' : _owner.ws.readyState === 1 ? 'open' : _owner.ws.readyState === 2 ? 'closing' : 'closed'); if ('checked' === 'url') return _owner.url; if ('checked' === 'protocol') return _owner.ws.protocol || _owner.protocol || ''; throw new Error('A websocket has no property called "checked".'); } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('checked') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called "checked".'); } return _owner.props['checked']; })())) {
+        spin = (() => { const _l = chosen; const _r = 2; const _lOk = typeof _l === 'number' || (typeof _l === 'string' && _l.trim() !== '' && !Number.isNaN(Number(_l))); if (!_lOk) { throw new Error('I expected a number for the left side of this calculation but got ' + JSON.stringify(_l) + '.'); } const _rOk = typeof _r === 'number' || (typeof _r === 'string' && _r.trim() !== '' && !Number.isNaN(Number(_r))); if (!_rOk) { throw new Error('I expected a number for the right side of this calculation but got ' + JSON.stringify(_r) + '.'); } return Number(_l) * Number(_r); })();
+      }
+      {
+        const _el = otterGetElement('cube3d');
+        if (_el) { otterSetProperty('cube3d', 'speed', spin); }
+        else {
+          const _owner = cube3d;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('speed') in _owner.props)) { _owner.order.push('speed'); }
+          _owner.props['speed'] = spin;
+        }
+      }
+      {
+        const _el = otterGetElement('speedLabel');
+        if (_el) { otterSetText('speedLabel', (() => { const _l = (() => { const _l = "Animation Speed: "; const _r = chosen; if (typeof _l === 'string' && typeof _r === 'string') { return _l + _r; } if (typeof _l === 'boolean' || typeof _r === 'boolean') { throw new Error('A true/false value cannot be combined with "and" here. Boolean "and"/"or" only work inside an if or while condition.'); } const _lOk = typeof _l === 'number' || (typeof _l === 'string' && _l.trim() !== '' && !Number.isNaN(Number(_l))); if (!_lOk) { throw new Error('I expected a number for the left side of this calculation but got ' + JSON.stringify(_l) + '.'); } const _rOk = typeof _r === 'number' || (typeof _r === 'string' && _r.trim() !== '' && !Number.isNaN(Number(_r))); if (!_rOk) { throw new Error('I expected a number for the right side of this calculation but got ' + JSON.stringify(_r) + '.'); } return Number(_l) + Number(_r); })(); const _r = "%"; if (typeof _l === 'string' && typeof _r === 'string') { return _l + _r; } if (typeof _l === 'boolean' || typeof _r === 'boolean') { throw new Error('A true/false value cannot be combined with "and" here. Boolean "and"/"or" only work inside an if or while condition.'); } const _lOk = typeof _l === 'number' || (typeof _l === 'string' && _l.trim() !== '' && !Number.isNaN(Number(_l))); if (!_lOk) { throw new Error('I expected a number for the left side of this calculation but got ' + JSON.stringify(_l) + '.'); } const _rOk = typeof _r === 'number' || (typeof _r === 'string' && _r.trim() !== '' && !Number.isNaN(Number(_r))); if (!_rOk) { throw new Error('I expected a number for the right side of this calculation but got ' + JSON.stringify(_r) + '.'); } return Number(_l) + Number(_r); })()); }
+        else {
+          const _owner = speedLabel;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('text') in _owner.props)) { _owner.order.push('text'); }
+          _owner.props['text'] = (() => { const _l = (() => { const _l = "Animation Speed: "; const _r = chosen; if (typeof _l === 'string' && typeof _r === 'string') { return _l + _r; } if (typeof _l === 'boolean' || typeof _r === 'boolean') { throw new Error('A true/false value cannot be combined with "and" here. Boolean "and"/"or" only work inside an if or while condition.'); } const _lOk = typeof _l === 'number' || (typeof _l === 'string' && _l.trim() !== '' && !Number.isNaN(Number(_l))); if (!_lOk) { throw new Error('I expected a number for the left side of this calculation but got ' + JSON.stringify(_l) + '.'); } const _rOk = typeof _r === 'number' || (typeof _r === 'string' && _r.trim() !== '' && !Number.isNaN(Number(_r))); if (!_rOk) { throw new Error('I expected a number for the right side of this calculation but got ' + JSON.stringify(_r) + '.'); } return Number(_l) + Number(_r); })(); const _r = "%"; if (typeof _l === 'string' && typeof _r === 'string') { return _l + _r; } if (typeof _l === 'boolean' || typeof _r === 'boolean') { throw new Error('A true/false value cannot be combined with "and" here. Boolean "and"/"or" only work inside an if or while condition.'); } const _lOk = typeof _l === 'number' || (typeof _l === 'string' && _l.trim() !== '' && !Number.isNaN(Number(_l))); if (!_lOk) { throw new Error('I expected a number for the left side of this calculation but got ' + JSON.stringify(_l) + '.'); } const _rOk = typeof _r === 'number' || (typeof _r === 'string' && _r.trim() !== '' && !Number.isNaN(Number(_r))); if (!_rOk) { throw new Error('I expected a number for the right side of this calculation but got ' + JSON.stringify(_r) + '.'); } return Number(_l) + Number(_r); })();
+        }
+      }
+      return null;
+    };
+    if (typeof window !== 'undefined') { window.applySpeed = applySpeed; }
 
     // D103: show the page matching the URL the browser actually loaded -
     // the programmer never calls go-to at startup (design spec item
@@ -1533,22 +1544,13 @@ async function otterPasswordMatches(password, stored) {
     const el_speedSlider = document.getElementById('speedSlider');
     if (el_speedSlider) {
       el_speedSlider.addEventListener('input', async (event) => {
-      if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('val' in otterState)) { otterSetState('val', (otterGetElement('speedSlider') ? (otterGetText('speedSlider')) : (() => { const _owner = speedSlider; if (_owner && typeof _owner === 'object' && _owner.__otterHttpRequest) { if ('text' === 'state') return _owner.state; if ('text' === 'response') { if (_owner.state === 'pending') throw new Error('The HTTP request has not completed yet.'); if (_owner.state === 'cancelled') throw new Error('The HTTP request was cancelled.'); if (_owner.state === 'failed') throw new Error('The HTTP request failed: ' + _owner.error); return _owner.response; } if ('text' === 'error') { return (_owner.state === 'failed' ? _owner.error : null); } if ('text' === 'status') { if (_owner.state === 'pending') throw new Error('The HTTP request has not completed yet.'); return _owner.status; } throw new Error('This http request has no property called "text". Try state, response, error, or status.'); } if (_owner && typeof _owner === 'object' && _owner.__otterXml) { return _owner.node.textContent; } if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return (() => { throw new Error('A date has no part called "text".'); })(); } if (_owner && typeof _owner === 'object' && _owner.__otterWebSocket) { if ('text' === 'state') return (_owner.ws.readyState === 0 ? 'connecting' : _owner.ws.readyState === 1 ? 'open' : _owner.ws.readyState === 2 ? 'closing' : 'closed'); if ('text' === 'url') return _owner.url; if ('text' === 'protocol') return _owner.ws.protocol || _owner.protocol || ''; throw new Error('A websocket has no property called "text".'); } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('text') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called "text".'); } return _owner.props['text']; })())); } else { window.val = (otterGetElement('speedSlider') ? (otterGetText('speedSlider')) : (() => { const _owner = speedSlider; if (_owner && typeof _owner === 'object' && _owner.__otterHttpRequest) { if ('text' === 'state') return _owner.state; if ('text' === 'response') { if (_owner.state === 'pending') throw new Error('The HTTP request has not completed yet.'); if (_owner.state === 'cancelled') throw new Error('The HTTP request was cancelled.'); if (_owner.state === 'failed') throw new Error('The HTTP request failed: ' + _owner.error); return _owner.response; } if ('text' === 'error') { return (_owner.state === 'failed' ? _owner.error : null); } if ('text' === 'status') { if (_owner.state === 'pending') throw new Error('The HTTP request has not completed yet.'); return _owner.status; } throw new Error('This http request has no property called "text". Try state, response, error, or status.'); } if (_owner && typeof _owner === 'object' && _owner.__otterXml) { return _owner.node.textContent; } if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return (() => { throw new Error('A date has no part called "text".'); })(); } if (_owner && typeof _owner === 'object' && _owner.__otterWebSocket) { if ('text' === 'state') return (_owner.ws.readyState === 0 ? 'connecting' : _owner.ws.readyState === 1 ? 'open' : _owner.ws.readyState === 2 ? 'closing' : 'closed'); if ('text' === 'url') return _owner.url; if ('text' === 'protocol') return _owner.ws.protocol || _owner.protocol || ''; throw new Error('A websocket has no property called "text".'); } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('text') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called "text".'); } return _owner.props['text']; })()); }
-      {
-        const _el = otterGetElement('cube3d');
-        if (_el) { otterSetProperty('cube3d', 'speed', val); }
-        else {
-          const _owner = cube3d;
-          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
-          if (!(('speed') in _owner.props)) { _owner.order.push('speed'); }
-          _owner.props['speed'] = val;
-        }
-      }
+      applySpeed();
       });
     }
     const el_agreeCheckbox = document.getElementById('agreeCheckbox');
     if (el_agreeCheckbox) {
       el_agreeCheckbox.addEventListener('input', async (event) => {
+      applySpeed();
       {
         const _el = otterGetElement('statusMessage');
         if (_el) { otterSetText('statusMessage', "Turbo mode updated."); }
@@ -1557,6 +1559,76 @@ async function otterPasswordMatches(password, stored) {
           if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
           if (!(('text') in _owner.props)) { _owner.order.push('text'); }
           _owner.props['text'] = "Turbo mode updated.";
+        }
+      }
+      });
+    }
+    const el_themeDropdown = document.getElementById('themeDropdown');
+    if (el_themeDropdown) {
+      el_themeDropdown.addEventListener('input', async (event) => {
+      if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('theme' in otterState)) { otterSetState('theme', (otterGetElement('themeDropdown') ? (otterGetText('themeDropdown')) : (() => { const _owner = themeDropdown; if (_owner && typeof _owner === 'object' && _owner.__otterHttpRequest) { if ('text' === 'state') return _owner.state; if ('text' === 'response') { if (_owner.state === 'pending') throw new Error('The HTTP request has not completed yet.'); if (_owner.state === 'cancelled') throw new Error('The HTTP request was cancelled.'); if (_owner.state === 'failed') throw new Error('The HTTP request failed: ' + _owner.error); return _owner.response; } if ('text' === 'error') { return (_owner.state === 'failed' ? _owner.error : null); } if ('text' === 'status') { if (_owner.state === 'pending') throw new Error('The HTTP request has not completed yet.'); return _owner.status; } throw new Error('This http request has no property called "text". Try state, response, error, or status.'); } if (_owner && typeof _owner === 'object' && _owner.__otterXml) { return _owner.node.textContent; } if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return (() => { throw new Error('A date has no part called "text".'); })(); } if (_owner && typeof _owner === 'object' && _owner.__otterWebSocket) { if ('text' === 'state') return (_owner.ws.readyState === 0 ? 'connecting' : _owner.ws.readyState === 1 ? 'open' : _owner.ws.readyState === 2 ? 'closing' : 'closed'); if ('text' === 'url') return _owner.url; if ('text' === 'protocol') return _owner.ws.protocol || _owner.protocol || ''; throw new Error('A websocket has no property called "text".'); } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('text') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called "text".'); } return _owner.props['text']; })())); } else { window.theme = (otterGetElement('themeDropdown') ? (otterGetText('themeDropdown')) : (() => { const _owner = themeDropdown; if (_owner && typeof _owner === 'object' && _owner.__otterHttpRequest) { if ('text' === 'state') return _owner.state; if ('text' === 'response') { if (_owner.state === 'pending') throw new Error('The HTTP request has not completed yet.'); if (_owner.state === 'cancelled') throw new Error('The HTTP request was cancelled.'); if (_owner.state === 'failed') throw new Error('The HTTP request failed: ' + _owner.error); return _owner.response; } if ('text' === 'error') { return (_owner.state === 'failed' ? _owner.error : null); } if ('text' === 'status') { if (_owner.state === 'pending') throw new Error('The HTTP request has not completed yet.'); return _owner.status; } throw new Error('This http request has no property called "text". Try state, response, error, or status.'); } if (_owner && typeof _owner === 'object' && _owner.__otterXml) { return _owner.node.textContent; } if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return (() => { throw new Error('A date has no part called "text".'); })(); } if (_owner && typeof _owner === 'object' && _owner.__otterWebSocket) { if ('text' === 'state') return (_owner.ws.readyState === 0 ? 'connecting' : _owner.ws.readyState === 1 ? 'open' : _owner.ws.readyState === 2 ? 'closing' : 'closed'); if ('text' === 'url') return _owner.url; if ('text' === 'protocol') return _owner.ws.protocol || _owner.protocol || ''; throw new Error('A websocket has no property called "text".'); } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('text') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called "text".'); } return _owner.props['text']; })()); }
+      {
+        const _el = otterGetElement('cube3d');
+        if (_el) { otterSetProperty('cube3d', 'color', "#38bdf8"); }
+        else {
+          const _owner = cube3d;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('color') in _owner.props)) { _owner.order.push('color'); }
+          _owner.props['color'] = "#38bdf8";
+        }
+      }
+      {
+        const _el = otterGetElement('cube3d');
+        if (_el) { otterSetProperty('cube3d', 'glow', "#0284c7"); }
+        else {
+          const _owner = cube3d;
+          if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+          if (!(('glow') in _owner.props)) { _owner.order.push('glow'); }
+          _owner.props['glow'] = "#0284c7";
+        }
+      }
+      if ((() => { const _lD = theme !== null && typeof (theme) === 'object' && (theme).__otterDate === true; const _rD = "Electric Indigo" !== null && typeof ("Electric Indigo") === 'object' && ("Electric Indigo").__otterDate === true; const _lB = theme !== null && typeof (theme) === 'object' && (theme).__otterBytes === true; const _rB = "Electric Indigo" !== null && typeof ("Electric Indigo") === 'object' && ("Electric Indigo").__otterBytes === true; const _bytesEq = (a, b) => { if (a.length !== b.length) return false; for (let _i = 0; _i < a.length; _i++) { if (a[_i] !== b[_i]) return false; } return true; }; if (_lD || _rD) { return (_lD && _rD) ? ((theme).value.getTime() === ("Electric Indigo").value.getTime()) : false; } if (_lB || _rB) { return (_lB && _rB) ? _bytesEq((theme).value, ("Electric Indigo").value) : false; } return (theme === "Electric Indigo"); })()) {
+        {
+          const _el = otterGetElement('cube3d');
+          if (_el) { otterSetProperty('cube3d', 'color', "#c084fc"); }
+          else {
+            const _owner = cube3d;
+            if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+            if (!(('color') in _owner.props)) { _owner.order.push('color'); }
+            _owner.props['color'] = "#c084fc";
+          }
+        }
+        {
+          const _el = otterGetElement('cube3d');
+          if (_el) { otterSetProperty('cube3d', 'glow', "#a855f7"); }
+          else {
+            const _owner = cube3d;
+            if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+            if (!(('glow') in _owner.props)) { _owner.order.push('glow'); }
+            _owner.props['glow'] = "#a855f7";
+          }
+        }
+      }
+      if ((() => { const _lD = theme !== null && typeof (theme) === 'object' && (theme).__otterDate === true; const _rD = "Cyberpunk Emerald" !== null && typeof ("Cyberpunk Emerald") === 'object' && ("Cyberpunk Emerald").__otterDate === true; const _lB = theme !== null && typeof (theme) === 'object' && (theme).__otterBytes === true; const _rB = "Cyberpunk Emerald" !== null && typeof ("Cyberpunk Emerald") === 'object' && ("Cyberpunk Emerald").__otterBytes === true; const _bytesEq = (a, b) => { if (a.length !== b.length) return false; for (let _i = 0; _i < a.length; _i++) { if (a[_i] !== b[_i]) return false; } return true; }; if (_lD || _rD) { return (_lD && _rD) ? ((theme).value.getTime() === ("Cyberpunk Emerald").value.getTime()) : false; } if (_lB || _rB) { return (_lB && _rB) ? _bytesEq((theme).value, ("Cyberpunk Emerald").value) : false; } return (theme === "Cyberpunk Emerald"); })()) {
+        {
+          const _el = otterGetElement('cube3d');
+          if (_el) { otterSetProperty('cube3d', 'color', "#34d399"); }
+          else {
+            const _owner = cube3d;
+            if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+            if (!(('color') in _owner.props)) { _owner.order.push('color'); }
+            _owner.props['color'] = "#34d399";
+          }
+        }
+        {
+          const _el = otterGetElement('cube3d');
+          if (_el) { otterSetProperty('cube3d', 'glow', "#059669"); }
+          else {
+            const _owner = cube3d;
+            if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }
+            if (!(('glow') in _owner.props)) { _owner.order.push('glow'); }
+            _owner.props['glow'] = "#059669";
+          }
         }
       }
       });

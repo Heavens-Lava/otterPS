@@ -1094,6 +1094,21 @@ if ($checkboxHtml -notmatch "otterInputProps = new Set\(\['checked', 'disabled',
 }
 Write-Output '  pass  a checkbox is one control: id on the label, value on the input inside'
 
+# Test 33: the runtime is the same for every program - no element ids of a
+# particular app (examples/portal.ot's slider, checkbox, dropdown and label
+# were read by the 3D canvas runner; that behaviour is Otter code in
+# portal.ot now). A canvas declares its animation's speed and colours.
+$canvasSource = "app is a page with title `"C`"`ncube is a canvas with mode `"3d`", animation `"spin`", speed 50, color `"#34d399`", glow `"#059669`"`nput cube in app`nshow app`n"
+$canvasHtml = ConvertTo-OtterWeb -Program (ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $canvasSource))
+foreach ($appId in @('speedSlider', 'agreeCheckbox', 'themeDropdown', 'speedLabel')) {
+    if ($canvasHtml -match $appId) { throw "The web runtime must not refer to an app's element ($appId)." }
+}
+if ($canvasHtml -match "querySelector\('input\[type=`"range`"\]'\)") { throw 'The canvas runner must not follow whichever slider is on the page.' }
+if ($canvasHtml -notmatch '<canvas id="cube"[^>]*data-speed="50" data-color="#34d399" data-glow="#059669"') {
+    throw 'Expected a canvas to carry its declared speed and colours.'
+}
+Write-Output '  pass  the runtime refers to no app''s elements; a canvas declares its speed and colours'
+
 Write-Output 'Web compiler tests passed.'
 
 
