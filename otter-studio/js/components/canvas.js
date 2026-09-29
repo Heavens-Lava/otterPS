@@ -87,6 +87,12 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
           </button>
         </div>
       </div>
+      <div class="canvas-render-error" id="canvasRenderError" hidden>
+        <span class="canvas-render-error-title">The Otter compiler could not build this design.</span>
+        <span class="canvas-render-error-line" id="canvasRenderErrorLine"></span>
+        <span class="canvas-render-error-note">The canvas below is an approximation until it builds.</span>
+        <details><summary>Details</summary><pre id="canvasRenderErrorText"></pre></details>
+      </div>
       <div class="canvas-viewport" id="canvasViewport" tabindex="-1">
         <div class="canvas-stage" id="canvasStage"></div>
         <div class="designer-canvas-overlay" id="designerOverlay">
@@ -315,10 +321,19 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
     status.textContent = 'Compiling…';
     status.dataset.state = 'busy';
     try {
+      // The real program, as Live App runs it: the open document's text, or
+      // its project's entry point; only an untitled design uses the model.
+      const ide = window.otterIde;
+      const path = currentDocumentPath();
       const res = await fetch('/api/render', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: generateOtterSource(uiModel), css: cssAstManager ? cssAstManager.generateCss() : '' })
+        body: JSON.stringify({
+          code: path && ide ? ide.currentCode : generateOtterSource(uiModel),
+          css: cssAstManager ? cssAstManager.generateCss() : '',
+          path,
+          live: Boolean(path)
+        })
       });
       const result = await res.json();
       if (serial !== previewSerial) return;
@@ -494,6 +509,7 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
         const sourceInline = snapshotSourceInline();
         const real = await fetchRealRender(code, css);
         if (serial !== realRenderSerial) return;
+        showRenderError(null);
         real.sourceInline = sourceInline;
         realRender = real;
         importantCache = new Map();
@@ -505,9 +521,28 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
           window.dispatchEvent(new CustomEvent('otter:canvas-rendered'));
         }
       } catch (err) {
-        console.warn('Otter Studio: real render unavailable, showing approximate canvas.', err);
+        if (serial === realRenderSerial) showRenderError(err);
       }
     }, 300);
+  }
+
+  // A design the compiler cannot build says so where the designer is
+  // looking, with the compiler's own message - not only in the console.
+  function showRenderError(err) {
+    const box = containerEl.querySelector('#canvasRenderError');
+    if (!box) return;
+    box.hidden = !err;
+    if (!err) return;
+    const text = String(err.message || err).replace(/\r/g, '').trim();
+    // "Otter Syntax Error / Line 9: / <code> / ^ / I expected a value here."
+    // -> "Otter Syntax Error, line 9: I expected a value here."
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    const lineNo = (lines.find(l => /^Line \d+/.test(l)) || '').match(/\d+/)?.[0];
+    const caret = lines.findIndex(l => /^\^+$/.test(l));
+    const message = (caret >= 0 ? lines[caret + 1] : lines.find(l => /^In "/.test(l))) || '';
+    const kind = /error$/i.test(lines[0] || '') ? lines[0] : 'Error';
+    containerEl.querySelector('#canvasRenderErrorLine').textContent = `${kind}${lineNo ? `, line ${lineNo}` : ''}: ${message}`;
+    containerEl.querySelector('#canvasRenderErrorText').textContent = text;
   }
 
   // While designing :hover/:active/:focus, show that state on the selection.

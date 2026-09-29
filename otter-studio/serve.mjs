@@ -315,6 +315,13 @@ function renderOtterSource(code, css, sourceDir = '') {
       } else {
         const text = String(stdout || stderr || (error && error.message) || 'Render failed.').trim();
         result = { ok: false, message: text };
+        // A program the compiler rejects (exit 2) is rejected the same way
+        // next time: the designer re-renders often, and a large project takes
+        // seconds per compile. A crash or a timeout is not remembered.
+        if (error && error.code === 2) {
+          if (renderCache.size > 50) renderCache.delete(renderCache.keys().next().value);
+          renderCache.set(key, result);
+        }
       }
       for (const f of [sourcePath, htmlPath, cssPath]) fs.rmSync(f, { force: true });
       resolve(result);

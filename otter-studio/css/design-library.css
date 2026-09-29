@@ -338,3 +338,49 @@
   border: 0;
   background: #fff;
 }
+
+/* The compiler could not build the design (canvas.js showRenderError). */
+.canvas-render-error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  padding: 8px 16px;
+  background: rgba(239, 68, 68, 0.12);
+  border-bottom: 1px solid rgba(239, 68, 68, 0.4);
+  color: #fecaca;
+  font-size: var(--ui-font-small);
+}
+
+.canvas-render-error[hidden] {
+  display: none;
+}
+
+.canvas-render-error-title {
+  font-weight: 600;
+  color: #fca5a5;
+}
+
+.canvas-render-error-note {
+  color: var(--text-faint);
+}
+
+.canvas-render-error details {
+  flex-basis: 100%;
+}
+
+.canvas-render-error summary {
+  cursor: pointer;
+  color: var(--text-muted);
+}
+
+.canvas-render-error pre {
+  max-height: 180px;
+  overflow: auto;
+  margin: 6px 0 0;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 6px;
+  white-space: pre-wrap;
+  font: 12px/1.5 var(--font-mono, monospace);
+}
