@@ -40,4 +40,21 @@ to greet name
 '@ | powershell.exe -NoProfile -ExecutionPolicy Bypass -File $analyzer -Root $repo | ConvertFrom-Json
 if (@($earlyCall.References | Where-Object { $_.Name -eq 'greet' -and -not $_.IsDeclaration }).Count -ne 0) { throw 'Call before declaration should not resolve (Otter has no function hoisting).' }
 
+# Assignment updates the variable where it already lives: inside a function,
+# `currentPage is name` writes the top-level currentPage (OtterBoard's
+# showPage), so it is not a new, never-read local. A new name still is local.
+$globalWrite = @'
+currentPage is "home"
+to showPage name
+    currentPage is name
+    count is 1
+.
+showPage "notes"
+say currentPage
+'@ | powershell.exe -NoProfile -ExecutionPolicy Bypass -File $analyzer -Root $repo | ConvertFrom-Json
+if (@($globalWrite.Symbols | Where-Object { $_.Name -eq 'currentPage' }).Count -ne 1) { throw 'Writing a top-level variable inside a function must not declare a local one.' }
+$write = $globalWrite.References | Where-Object { $_.Name -eq 'currentPage' -and $_.Line -eq 3 }
+if (-not $write -or $write.ScopeId -ne 0) { throw 'The write inside the function must refer to the top-level variable.' }
+if (-not ($globalWrite.Symbols | Where-Object { $_.Name -eq 'count' -and $_.ScopeId -ne 0 })) { throw 'A new name assigned in a function is still local to it.' }
+
 Write-Output 'Semantic analyzer tests passed.'

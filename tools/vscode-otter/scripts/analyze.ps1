@@ -53,7 +53,24 @@ try {
                 $symbolScope = Resolve-SymbolScope $node.Name $scope
                 if ($symbolScope -ge 0) { $lineText = if ($node.Line -le $sourceLines.Count) { $sourceLines[$node.Line - 1] } else { '' }; $column = $lineText.IndexOf($node.Name); if ($column -lt 0) { $column = 0 }; $references.Add([pscustomobject]@{ Name = $node.Name; Line = $node.Line; Column = $column; ScopeId = $symbolScope; IsDeclaration = $false }) }
             }
-            'AssignStmt' { if ($node.Target.GetType().Name -eq 'VariableExpr') { $variables.Add($node.Target.Name); Add-Symbol $node.Target.Name 'variable' $node.Line $scope }; Visit $node.Value $scope }
+            'AssignStmt' {
+                if ($node.Target.GetType().Name -eq 'VariableExpr') {
+                    $variables.Add($node.Target.Name)
+                    # Assignment updates the variable where it already lives
+                    # (Environment.Set in Otter.Runtime.psm1): inside a
+                    # function, `currentPage is name` writes the top-level
+                    # currentPage - a write to it, not a new local.
+                    $outerScope = Resolve-SymbolScope $node.Target.Name $scope
+                    if ($outerScope -ge 0 -and $outerScope -ne $scope.Id) {
+                        $lineText = if ($node.Line -le $sourceLines.Count) { $sourceLines[$node.Line - 1] } else { '' }
+                        $column = $lineText.IndexOf($node.Target.Name); if ($column -lt 0) { $column = 0 }
+                        $references.Add([pscustomobject]@{ Name = $node.Target.Name; Line = $node.Line; Column = $column; ScopeId = $outerScope; IsDeclaration = $true })
+                    } else {
+                        Add-Symbol $node.Target.Name 'variable' $node.Line $scope
+                    }
+                }
+                Visit $node.Value $scope
+            }
             'ListDefStmt' { $variables.Add($node.Name); Add-Symbol $node.Name 'variable' $node.Line $scope; foreach ($item in $node.Items) { Visit $item $scope } }
             'AskStmt' { $variables.Add($node.Name); Add-Symbol $node.Name 'variable' $node.Line $scope; Visit $node.Prompt $scope }
             'FunctionDefStmt' {

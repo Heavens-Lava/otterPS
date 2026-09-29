@@ -134,10 +134,7 @@ export function mountStudioShell({ ide, setMode, openNewProjectModal, showStart 
   const originalLoadProjectTree = ide.loadProjectTree.bind(ide);
   ide.loadProjectTree = async function (folder) {
     const result = await originalLoadProjectTree(folder);
-    if (ide.currentProjectFolder) {
-      ide.saveRecentProject(ide.currentProjectFolder, ide.currentProjectName);
-      hideWelcomePage();
-    }
+    if (ide.currentProjectFolder) hideWelcomePage();
     updateProjectChip();
     return result;
   };

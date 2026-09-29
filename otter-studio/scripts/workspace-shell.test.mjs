@@ -21,6 +21,9 @@ assert.match(app, /classList\.toggle\('theme-dark'/, 'Theme switch must activate
 assert.match(app, /classList\.toggle\('theme-light'/, 'Theme switch must preserve light mode');
 assert.match(ide, /renderCleanProjectTree\(\)[\s\S]*setTemplatesCollapsed\(false\)/, 'Empty workspaces must show templates');
 assert.match(ide, /currentProjectName = data\.name[\s\S]*setTemplatesCollapsed\(true\)/, 'Open projects must collapse templates');
+// The Start window's shell wraps loadProjectTree only after startup, so a
+// project opened by ?folder= at launch was never added to Recent Projects.
+assert.match(ide, /currentProjectName = data\.name \|\| folder;\s*(\/\/.*\s*)*this\.saveRecentProject\(this\.currentProjectFolder/, 'Every project opened (including ?folder= at launch) must be recorded in Recent Projects');
 assert.match(ide, /caret, selection, and scroll/, 'Editor redraws must explicitly preserve typing context');
 assert.match(ide, /setSelectionRange\(start, end\)/, 'Editor redraws must restore the original selection');
 assert.match(ide, /textarea\.scrollTop = editorState\.scrollTop/, 'Editor redraws must restore the original scroll position');

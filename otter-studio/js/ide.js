@@ -802,6 +802,9 @@ export class OtterStudioIde {
         this.currentSolution = null;
         this.currentProjectFolder = data.rootPath || folder;
         this.currentProjectName = data.name || folder;
+        // Every way in (Open Folder, a recent project, ?folder= at launch)
+        // lands on the Start window's recent list.
+        this.saveRecentProject(this.currentProjectFolder, this.currentProjectName);
         this.setTemplatesCollapsed(true);
         this.workspaceFiles = flattenProjectFiles(data.tree, this.currentProjectFolder);
         this.renderProjectTree(data.tree, this.currentProjectName, this.currentProjectFolder);
@@ -830,6 +833,7 @@ export class OtterStudioIde {
       this.isMultiRoot = true;
       this.currentProjectName = data.solution.name;
       this.currentProjectFolder = data.path;
+      this.saveRecentProject(this.currentProjectFolder, this.currentProjectName);
 
       // Flatten files across all project roots
       const allFiles = [];
@@ -1145,6 +1149,10 @@ export class OtterStudioIde {
       this.workspaceSymbols = data.symbols || [];
       // file -> the names it mentions (see isNameUsedElsewhere).
       this.workspaceWords = new Map(Object.entries(data.words || {}).map(([file, list]) => [file, new Set(list)]));
+      // The open file was checked before the project was indexed (a large
+      // project takes a while): check it again, now that names used in its
+      // other files are known.
+      if (this.currentFile && /\.ot$/i.test(this.currentFile)) this.lintCurrentCode?.();
       if (Array.isArray(data.files) && data.files.length > 0) {
         const known = new Map(this.workspaceFiles.map(file => [file.path, file]));
         for (const filePath of data.files) {
