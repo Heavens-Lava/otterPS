@@ -4641,6 +4641,13 @@ function Get-OtterValue {
                 return (Get-OtterDatePart -Date $target -Part $Expression.Property -Line $Expression.Line)
             }
 
+            # text of count - a number or true/false as the words `say`
+            # would print, so it can be joined to other text with `plus`
+            # ("You have " plus text of count plus " tasks").
+            if (($target -is [double] -or $target -is [int] -or $target -is [long] -or $target -is [bool]) -and $Expression.Property -eq 'text') {
+                return (Format-OtterValue -Value $target)
+            }
+
             # text of helloButton                                    (D45)
             #
             # Routed through Otter.UI.psm1 - the only place that knows
@@ -5990,6 +5997,7 @@ function Get-OtterDatePart {
         'year' { return [double]$Date.Value.Year }
         'month' { return [double]$Date.Value.Month }   # 1-12, never a name
         'day' { return [double]$Date.Value.Day }
+        'weekday' { return [double]((([int]$Date.Value.DayOfWeek) + 6) % 7 + 1) }   # 1 = Monday ... 7 = Sunday
         'hour' {
             Assert-OtterUnitAllowed -Value $Date -Unit 'Hour' -Line $Line
             return [double]$Date.Value.Hour

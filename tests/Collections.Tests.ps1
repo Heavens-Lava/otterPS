@@ -279,6 +279,22 @@ Test-Otter 'the find item name does not leak into the program' {
     }
 }
 
+Test-Otter 'find without into binds the match to the item name itself' {
+    # find game in games where game starts with "Z"   ->   say game
+    $out = Invoke-TestProgram @(
+        (Games),
+        [FindStmt]::new('game', (Var 'games'),
+            [TextMatchExpr]::new((Var 'game'), [TextMatch]::StartsWith, (Lit 'Z'), 2),
+            'game', 2),
+        [SayStmt]::new(@((Var 'game')), 3),
+        [FindStmt]::new('game', (Var 'games'),
+            [TextMatchExpr]::new((Var 'game'), [TextMatch]::StartsWith, (Lit 'Q'), 4),
+            'game', 4),
+        [SayStmt]::new(@((Var 'game')), 5)
+    )
+    Assert-Lines -Expected @('Zelda', 'gone') -Actual $out
+}
+
 Test-Otter 'searching something that is not a list explains itself' {
     Assert-OtterFails -Containing 'I can only search a list' -Body {
         Invoke-TestProgram @(

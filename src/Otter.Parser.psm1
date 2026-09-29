@@ -52,8 +52,14 @@ function Initialize-OtterParser {
     $script:Tokens = $Tokens
     $script:Position = 0
     $script:KnownFunctions = @{}
+    # For each declared function, the word that introduces each parameter
+    # ('' for none): `to openNote with noteId` -> @('with').
+    $script:FunctionPhrases = @{}
     $script:KnownTypes = @{}
     $script:OtterBlockDepth = 0
+    # The items in hand for `its`: pushed by each-loop bodies and find
+    # conditions, innermost last (see Read-OtterItsProperty).
+    $script:OtterItemNames = [System.Collections.Generic.List[string]]::new()
     $script:Diagnostics = [System.Collections.Generic.List[OtterError]]::new()
     $script:InRecoveryMode = $false
     $script:MaxDiagnostics = 100
@@ -399,6 +405,9 @@ function Read-OtterValue {
         [void](Read-OtterToken)
         $operand = Read-OtterValue
         return [NotExpr]::new($operand, $token.Line)
+    }
+    if (Test-OtterItsAhead) {
+        return Read-OtterItsProperty
     }
     # Optional readability word for property grammar only. `the` is consumed
     # when it introduces a real `<property> of ...` sequence; elsewhere it is
@@ -959,8 +968,13 @@ function Read-OtterVariableName {
 }
 
 function Read-OtterMathExpression {
+    # -AsArgument: reading one argument of a function call, where the word
+    # `and` separates arguments (`add 5 and 10`) and so cannot also mean
+    # addition. `plus` shares `and`'s token kind but keeps its own text, so
+    # `"Due " plus label and color` is two arguments, the first a sum.
+    param([switch]$AsArgument)
     $left = Read-OtterValue
-    while ((Test-OtterTokenKind ([TokenKind]::And)) -or
+    while (((Test-OtterTokenKind ([TokenKind]::And)) -and -not ($AsArgument -and (Get-OtterCurrentToken).Text -eq 'and')) -or
            (Test-OtterTokenKind ([TokenKind]::Minus)) -or
            (Test-OtterTokenKind ([TokenKind]::Times)) -or
            (Test-OtterTokenKind ([TokenKind]::DividedBy)) -or
@@ -1660,11 +1674,46 @@ function Test-OtterTokenBeforeNewline {
     return $false
 }
 
+# The prepositions a function phrase may use (see the `to` statement):
+# with, for, to, from, in, on, at, by. `into` is not one of them - it names
+# where a call's result goes.
+function Test-OtterPhraseWord {
+    $token = Get-OtterCurrentToken
+    if ($token.Kind -in @([TokenKind]::With, [TokenKind]::To, [TokenKind]::From, [TokenKind]::In, [TokenKind]::On, [TokenKind]::At, [TokenKind]::By)) { return $true }
+    return ($token.Kind -eq [TokenKind]::Identifier -and $token.Text -eq 'for')
+}
+
+# At a call, a phrase word is optional, but one that is written must be the
+# word the declaration uses for that parameter: `openNote with 12` for
+# `to openNote with noteId`, never `openNote for 12`.
+function Assert-OtterPhraseWord {
+    param([string]$FunctionName, [int]$Index, [Token]$Word)
+    if (-not $script:FunctionPhrases.ContainsKey($FunctionName)) { return }
+    $phrase = @($script:FunctionPhrases[$FunctionName])
+    $expected = if ($Index -lt $phrase.Count) { $phrase[$Index] } else { '' }
+    $written = $Word.Text.ToLowerInvariant()
+    if ($expected -eq $written) { return }
+    $shape = for ($i = 0; $i -lt $phrase.Count; $i++) { if ($phrase[$i]) { "$($phrase[$i]) ..." } else { '...' } }
+    $suggestion = "'$FunctionName' is written: $FunctionName $($shape -join ' ')"
+    if ($expected) {
+        throw (New-OtterParserError "'$FunctionName' takes this value with `"$expected`", not `"$written`"." $Word $suggestion)
+    }
+    throw (New-OtterParserError "'$FunctionName' does not use `"$written`" here." $Word $suggestion)
+}
+
 function Read-OtterCallArguments {
+    param([string]$FunctionName = '')
     $arguments = [System.Collections.Generic.List[Node]]::new()
-    while (-not (Test-OtterTokenKind ([TokenKind]::Newline)) -and -not (Test-OtterTokenKind ([TokenKind]::Make))) {
+    while (-not (Test-OtterTokenKind ([TokenKind]::Newline)) -and -not (Test-OtterTokenKind ([TokenKind]::Make)) -and -not (Test-OtterTokenKind ([TokenKind]::Into))) {
         if (Test-OtterTokenKind ([TokenKind]::And)) { [void](Read-OtterToken); continue }
-        $arguments.Add((Read-OtterValue))
+        if (Test-OtterPhraseWord) {
+            $word = Read-OtterToken
+            if ($FunctionName) { Assert-OtterPhraseWord -FunctionName $FunctionName -Index $arguments.Count -Word $word }
+            continue
+        }
+        # An argument may be a whole expression ("Due " plus label, count
+        # times 2); `and` ends it and starts the next argument.
+        $arguments.Add((Read-OtterMathExpression -AsArgument))
     }
     return $arguments.ToArray()
 }
@@ -1690,6 +1739,14 @@ function Read-OtterFunctionCallExpression {
         if ($index -gt 0 -and (Test-OtterTokenKind ([TokenKind]::And))) {
             [void](Read-OtterToken)
         }
+        # Inside an expression only the declared phrase word is taken, so a
+        # surrounding statement keeps its own words (`add f x to total`).
+        if ($script:FunctionPhrases.ContainsKey($FunctionToken.Text) -and (Test-OtterPhraseWord)) {
+            $phrase = @($script:FunctionPhrases[$FunctionToken.Text])
+            if ($index -lt $phrase.Count -and $phrase[$index] -and (Get-OtterCurrentToken).Text.ToLowerInvariant() -eq $phrase[$index]) {
+                [void](Read-OtterToken)
+            }
+        }
         $current = Get-OtterCurrentToken
         if ($current.Kind -in @([TokenKind]::Newline, [TokenKind]::EndOfFile, [TokenKind]::Make, [TokenKind]::Into, [TokenKind]::Or)) {
             throw (New-OtterParserError "I expected argument $($index + 1) for '$($FunctionToken.Text)'." $current "Provide $arity argument(s) for '$($FunctionToken.Text)'.")
@@ -1707,10 +1764,45 @@ function Read-OtterFunctionName {
     return Read-OtterToken
 }
 
+# findProject projectId into project     - the result of a call
+# findProject projectId make project     - the older spelling, still accepted
+#
+# `into` is the word every other statement that produces a value uses
+# (read ... into, find ... into, split ... into), so it is the canonical
+# form; `make` stays for programs already written with it.
 function Read-OtterCallResultTarget {
+    if (Test-OtterTokenKind ([TokenKind]::Into)) {
+        [void](Read-OtterToken)
+        return (Read-OtterVariableName 'I expected a result variable after "into".').Text
+    }
     if (-not (Test-OtterTokenKind ([TokenKind]::Make))) { return $null }
     [void](Read-OtterToken)
     return (Read-OtterVariableName 'I expected a result variable after "make".').Text
+}
+
+# `its` names a property of the item in hand - the one a surrounding
+# `each` loop or `find ... where` is looking at:
+#
+#   each task in tasks
+#       if its done ...              ->  done of task
+#   find project in projects where its id is wanted
+#
+# Read only where an item is in scope; everywhere else `its` is an
+# ordinary name. A pure spelling: the parser produces the same
+# PropertyAccessExpr that `done of task` would.
+function Test-OtterItsAhead {
+    $token = Get-OtterCurrentToken
+    if ($token.Kind -ne [TokenKind]::Identifier -or $token.Text -ne 'its') { return $false }
+    if ($script:OtterItemNames.Count -eq 0) { return $false }
+    if (($script:Position + 1) -ge $script:Tokens.Count) { return $false }
+    return (Test-OtterIdentifierToken $script:Tokens[$script:Position + 1])
+}
+
+function Read-OtterItsProperty {
+    $its = Read-OtterToken
+    $property = Read-OtterToken
+    $itemName = $script:OtterItemNames[$script:OtterItemNames.Count - 1]
+    return [PropertyAccessExpr]::new($property.Text, [VariableExpr]::new($itemName, $its.Line), $its.Line)
 }
 
 # Shared by log / warn / error. Parts are read exactly like say (D8), so a
@@ -2593,6 +2685,33 @@ function Read-OtterStatement {
         return [AssignStmt]::new($target, $value, $start.Line)
     }
 
+    # its done is true    - assign a property of the item in hand (see
+    # Read-OtterItsProperty). Only inside an each loop or a find condition.
+    if ((Test-OtterItsAhead) -and ($script:Position + 2) -lt $script:Tokens.Count -and
+        $script:Tokens[$script:Position + 2].Kind -eq [TokenKind]::Is) {
+        $target = Read-OtterItsProperty
+        [void](Read-OtterToken)
+        $value = Read-OtterMathExpression
+        [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the property assignment to end here.')
+        return [AssignStmt]::new($target, $value, $start.Line)
+    }
+
+    # clear taskList      - remove everything that was put in a UI container.
+    # Contextual, like `hide`/`focus` but without reserving the word: only
+    # `clear` followed by a single name and the end of the line is this
+    # statement, so `clear is 5` or `clear of box` keep meaning a variable.
+    # Built-in grammar is tried before user function calls (D1), so a user
+    # function named `clear` called with one name reads as this statement.
+    if ($start.Kind -eq [TokenKind]::Identifier -and $start.Text -eq 'clear' -and
+        ($script:Position + 2) -lt $script:Tokens.Count -and
+        $script:Tokens[$script:Position + 1].Kind -in $script:OtterIdentifierKinds -and
+        $script:Tokens[$script:Position + 2].Kind -in @([TokenKind]::Newline, [TokenKind]::EndOfFile)) {
+        [void](Read-OtterToken)
+        $clearTarget = Read-OtterValue
+        [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the clear statement to end here.')
+        return [UiActionStmt]::new('clear', $clearTarget, $start.Line)
+    }
+
     $isVariant = ($start.Text -in @('primary', 'secondary', 'danger') -and ($script:Position + 1) -lt $script:Tokens.Count -and $script:Tokens[$script:Position + 1].Text.ToLowerInvariant() -in @('button', 'card', 'heading', 'text', 'panel', 'link', 'image', 'input'))
     $isUiTag = ($start.Text.ToLowerInvariant() -in @('window', 'page', 'card', 'heading', 'text', 'button', 'panel', 'section', 'sidebar', 'main', 'link', 'image', 'input', 'grid'))
     if ($isVariant -or ($isUiTag -and $nextKind -notin @([TokenKind]::Is, [TokenKind]::Are, [TokenKind]::Of, [TokenKind]::Has, [TokenKind]::Make, [TokenKind]::Into, [TokenKind]::IsNot))) {
@@ -3470,7 +3589,11 @@ function Read-OtterStatement {
             $name = Read-OtterVariableName 'I expected a loop variable after "for each".'
             [void](Assert-OtterTokenKind ([TokenKind]::In) 'I expected "in" after the loop variable.')
             $collection = Read-OtterValue
-            return [ForEachStmt]::new($name.Text, $collection, (Read-OtterBlock), $start.Line)
+            # The loop variable is "the item in hand" for `its` in the body.
+            $script:OtterItemNames.Add($name.Text)
+            try { $body = Read-OtterBlock }
+            finally { $script:OtterItemNames.RemoveAt($script:OtterItemNames.Count - 1) }
+            return [ForEachStmt]::new($name.Text, $collection, $body, $start.Line)
         }
         ([TokenKind]::Ask) {
             [void](Read-OtterToken)
@@ -4322,11 +4445,21 @@ function Read-OtterStatement {
             [void](Assert-OtterTokenKind ([TokenKind]::In) 'I expected "in" and a collection.')
             $collection = Read-OtterValue
             [void](Assert-OtterTokenKind ([TokenKind]::Where) 'I expected "where" and a condition.')
-            $condition = Read-OtterCondition
-            [void](Assert-OtterTokenKind ([TokenKind]::Into) 'I expected "into" and a result name.')
-            $target = Read-OtterVariableName 'I expected a result name after "into".'
+            # The item is "the item in hand" for `its` in the condition.
+            $script:OtterItemNames.Add($item.Text)
+            try { $condition = Read-OtterCondition }
+            finally { $script:OtterItemNames.RemoveAt($script:OtterItemNames.Count - 1) }
+            # find project in projects where its id is wanted into found
+            # find project in projects where its id is wanted
+            # Without `into`, the match (or gone) lands in the item's own
+            # name, so `return project` reads naturally after it.
+            $targetName = $item.Text
+            if (Test-OtterTokenKind ([TokenKind]::Into)) {
+                [void](Read-OtterToken)
+                $targetName = (Read-OtterVariableName 'I expected a result name after "into".').Text
+            }
             [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the find statement to end here.')
-            return [FindStmt]::new($item.Text, $collection, $condition, $target.Text, $start.Line)
+            return [FindStmt]::new($item.Text, $collection, $condition, $targetName, $start.Line)
         }
         # format date as "MM/dd/yyyy" into text                     (D32)
         ([TokenKind]::Format) {
@@ -4954,13 +5087,27 @@ function Read-OtterStatement {
             [void](Read-OtterToken)
             $name = Read-OtterFunctionName
             $parameters = [System.Collections.Generic.List[string]]::new()
+            # A function is a phrase: a preposition may introduce any
+            # parameter (`to openNote with noteId`, `to recordActivity kind
+            # and description for projectId`), and calls read the same way.
+            $phrase = [System.Collections.Generic.List[string]]::new()
+            $pendingWord = ''
             while (-not (Test-OtterTokenKind ([TokenKind]::Newline))) {
                 if (Test-OtterTokenKind ([TokenKind]::And)) { [void](Read-OtterToken); continue }
+                if (Test-OtterPhraseWord) {
+                    if ($pendingWord) { throw (New-OtterParserError "Two phrase words in a row: `"$pendingWord`" and `"$((Get-OtterCurrentToken).Text)`"." (Get-OtterCurrentToken) "Put a parameter name after `"$pendingWord`".") }
+                    $pendingWord = (Read-OtterToken).Text.ToLowerInvariant()
+                    continue
+                }
                 $parameters.Add((Read-OtterVariableName 'I expected a parameter name.').Text)
+                $phrase.Add($pendingWord)
+                $pendingWord = ''
             }
+            if ($pendingWord) { throw (New-OtterParserError "I expected a parameter name after `"$pendingWord`"." (Get-OtterCurrentToken) "Write the name of the value the word `"$pendingWord`" introduces.") }
             # Definitions are visible from their own body onward, which also
             # allows a function to call itself recursively.
             $script:KnownFunctions[$name.Text] = $parameters.Count
+            $script:FunctionPhrases[$name.Text] = $phrase.ToArray()
             return [FunctionDefStmt]::new($name.Text, $parameters.ToArray(), (Read-OtterBlock), $start.Line)
         }
         ([TokenKind]::Return) {
@@ -4979,7 +5126,37 @@ function Read-OtterStatement {
                 [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected stop to end here.')
                 return [ReturnStmt]::new($null, $start.Line)
             }
-            $value = Read-OtterMathExpression
+            # return project in projects where its id is wanted
+            # - a find whose match is returned straight away. Spelled out,
+            # it is `find project in projects where ...` then `return
+            # project`, and that is exactly what it becomes.
+            if ((Test-OtterIdentifierToken (Get-OtterCurrentToken)) -and
+                (Test-OtterTokenOffsetKind 1 ([TokenKind]::In)) -and
+                (Test-OtterTokenBeforeNewline ([TokenKind]::Where))) {
+                $returnedItem = Read-OtterVariableName 'I expected an item name after "return".'
+                [void](Read-OtterToken)
+                $returnedCollection = Read-OtterValue
+                [void](Assert-OtterTokenKind ([TokenKind]::Where) 'I expected "where" and a condition.')
+                $script:OtterItemNames.Add($returnedItem.Text)
+                try { $returnedCondition = Read-OtterCondition }
+                finally { $script:OtterItemNames.RemoveAt($script:OtterItemNames.Count - 1) }
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the return statement to end here.')
+                return @(
+                    [FindStmt]::new($returnedItem.Text, $returnedCollection, $returnedCondition, $returnedItem.Text, $start.Line),
+                    [ReturnStmt]::new([VariableExpr]::new($returnedItem.Text, $start.Line), $start.Line)
+                )
+            }
+            # A returned value may be a comparison (`return due of task is
+            # todayKey`, `return words contains needle`): `is` cannot mean
+            # assignment after `return`, so a comparison word on the line
+            # switches to the condition grammar; otherwise this is the
+            # ordinary value/arithmetic grammar (`return n times total`).
+            $comparisonWords = @([TokenKind]::Is, [TokenKind]::IsNot, [TokenKind]::IsAtLeast, [TokenKind]::IsAtMost, [TokenKind]::IsGreaterThan, [TokenKind]::IsLessThan, [TokenKind]::Contains, [TokenKind]::StartsWith, [TokenKind]::EndsWith)
+            $returnsComparison = $false
+            foreach ($comparisonWord in $comparisonWords) {
+                if (Test-OtterTokenBeforeNewline $comparisonWord) { $returnsComparison = $true; break }
+            }
+            $value = if ($returnsComparison) { Read-OtterCondition } else { Read-OtterMathExpression }
             [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the return statement to end here.')
             return [ReturnStmt]::new($value, $start.Line)
         }
@@ -5061,7 +5238,7 @@ function Read-OtterStatement {
                 [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the add statement to end here.')
                 return [AddToStmt]::new($amount, $name.Text, $start.Line)
             }
-            $call = [CallExpr]::new($start.Text, (Read-OtterCallArguments), $start.Line)
+            $call = [CallExpr]::new($start.Text, (Read-OtterCallArguments -FunctionName $start.Text), $start.Line)
             $target = Read-OtterCallResultTarget
             [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the function call to end here.')
             return [CallStmt]::new($call, $target, $start.Line)
@@ -5176,7 +5353,11 @@ function Read-OtterStatement {
                         [void](Read-OtterToken)
                         $properties = Read-OtterInlineObjectProperties -TypeName $typeName
                     } elseif ($typeName -eq 'thing' -or -not $script:KnownTypes.ContainsKey($typeName)) {
-                        $properties = Read-OtterObjectBlockProperties -AllowEmpty ($typeName -eq 'thing') -TypeName $typeName
+                        # The property block is optional for every kind, not
+                        # only `thing`: `entry is a text box` on its own line
+                        # is a complete declaration (Otter Studio writes
+                        # exactly that for a component with no properties).
+                        $properties = Read-OtterObjectBlockProperties -AllowEmpty $true -TypeName $typeName
                     } else {
                         [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the object definition to end here.')
                         if (Test-OtterTokenKind ([TokenKind]::Indent)) {
@@ -5210,7 +5391,7 @@ function Read-OtterStatement {
             # names: "double 5 make result" and "five make result" are
             # calls, while "number1 and number2 make total" is arithmetic.
             if ($script:KnownFunctions.ContainsKey($name.Text)) {
-                $call = [CallExpr]::new($name.Text, (Read-OtterCallArguments), $name.Line)
+                $call = [CallExpr]::new($name.Text, (Read-OtterCallArguments -FunctionName $name.Text), $name.Line)
                 $target = Read-OtterCallResultTarget
                 [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the function call to end here.')
                 return [CallStmt]::new($call, $target, $name.Line)
@@ -5224,9 +5405,12 @@ function Read-OtterStatement {
                 [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the math statement to end here.')
                 return [MathIntoStmt]::new($expression, $target.Text, $start.Line)
             }
-            $call = [CallExpr]::new($name.Text, (Read-OtterCallArguments), $name.Line)
+            $call = [CallExpr]::new($name.Text, (Read-OtterCallArguments -FunctionName $name.Text), $name.Line)
+            # A function defined later in the program (or in a module used
+            # later) can still capture its result with `into`.
+            $target = Read-OtterCallResultTarget
             [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the function call to end here.')
-            return [CallStmt]::new($call, $null, $name.Line)
+            return [CallStmt]::new($call, $target, $name.Line)
         }
         ([TokenKind]::Number) {
             $expression = Read-OtterMathExpression
