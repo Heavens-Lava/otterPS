@@ -123,7 +123,19 @@ export function scanOtterSource(source) {
     // Skip empty lines or top-level comments
     if (!line || (line.startsWith('#') && !block)) continue;
 
-    // Check for block terminator
+    // Only the program's own top level is the design: a line indented
+    // outside a block the designer reads is inside a function (`to
+    // makeCard ...`), an `if` or a loop - UI made there exists only when
+    // the program runs, and a `.` there closes that body, not ours.
+    const indent = rawLine.length - rawLine.trimStart().length;
+    if (!block && indent > 0) continue;
+
+    // Check for block terminator: the `.` at the block's own indentation
+    // (a nested `if ... .` inside a `when` belongs to its body).
+    if (line === '.' && block && indent > block.indent) {
+      if (block.type === 'when') block.lines.push(lines[i]);
+      continue;
+    }
     if (line === '.') {
       if (block) {
         if (block.type === 'object') {
@@ -184,7 +196,7 @@ export function scanOtterSource(source) {
           // Block form: properties follow on their own lines until `.`.
           // endLine stays on declLine until the terminator is seen.
           components.set(name, newComponent(name, kind, rawKind, i, 'block'));
-          block = { type: 'object', name, start: i };
+          block = { type: 'object', name, start: i, indent };
         } else {
           const comp = newComponent(name, kind, rawKind, i, 'inline');
           components.set(name, comp);
@@ -200,7 +212,7 @@ export function scanOtterSource(source) {
     // 2. "<name> has" (starts block) or "<name> has <key> <val>, ..."
     const hasBlockMatch = line.match(HAS_BLOCK_RE);
     if (hasBlockMatch) {
-      block = { type: 'has', name: hasBlockMatch[1], start: i };
+      block = { type: 'has', name: hasBlockMatch[1], start: i, indent };
       continue;
     }
 
@@ -247,6 +259,7 @@ export function scanOtterSource(source) {
     if (whenMatch) {
       block = {
         type: 'when',
+        indent,
         name: whenMatch[1],
         eventKind: whenMatch[2].toLowerCase(),
         start: i,

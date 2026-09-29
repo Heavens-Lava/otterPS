@@ -65,4 +65,36 @@ assert.match(componentEditorSource, /otter:source-changed/, 'the split editor mu
 assert.match(componentEditorSource, /otter:source-synced/, 'the split editor must display source opened in the primary editor');
 assert.match(appSource, /otter:source-synced/, 'the Studio shell must publish successful source reconciliation');
 
+// Only the program's top level is the design: UI made inside a function
+// (OtterBoard's `to makeProjectCard ... return card`) exists only when the
+// program runs; and a `when` holding an `if ... .` keeps its whole body.
+{
+  const { scanOtterSource } = await import(pathToFileURL(path.join(studioRoot, 'js', 'compiler', 'otter-parser.js')).href);
+  const scan = scanOtterSource([
+    'app is a page with title "T"',
+    'to makeCard name',
+    '    card is a card with width 200',
+    '    label is a text with text name',
+    '    put label in card',
+    '    return card',
+    '.',
+    'status is a text with text "off"',
+    'agree is a checkbox with text "Hi"',
+    'put status, agree in app',
+    'when agree is changed',
+    '    if checked of agree',
+    '        text of status is "on"',
+    '    otherwise',
+    '        text of status is "off"',
+    '    .',
+    '.',
+    'show app'
+  ].join('\n'));
+  assert.deepEqual([...scan.components.keys()], ['app', 'status', 'agree'], 'a function\'s controls are not page elements');
+  assert.deepEqual(scan.puts.map(p => p.container), ['app'], 'a function\'s `put` is not the page\'s');
+  assert.equal(scan.whens.length, 1);
+  assert.equal(scan.whens[0].end, 16, 'the handler ends at its own `.`, not the if\'s');
+  assert.match(scan.whens[0].body, /otherwise[\s\S]*"off"[\s\S]*\n\s+\./, 'the whole body, the if\'s `.` included');
+}
+
 console.log('Studio source synchronization tests passed: live split editor, UI source creation, and empty-source clearing.');
