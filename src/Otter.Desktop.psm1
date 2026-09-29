@@ -1710,6 +1710,12 @@ window.httpPost = window.otterPostJson;
     $uri = "file:///" + $instanceHtmlPath.Replace('\', '/')
     $proc = $null
 
+    # The startup grace covers launching the browser and loading the page,
+    # so it starts now - not when the bridge started, before compiling. A
+    # large program's compile used to use up the grace, and the window
+    # closed a few seconds after it opened.
+    $bridgeSession.LastHeartbeatUtc = [System.DateTime]::UtcNow
+
     if ($exePath) {
         $appArgs = @(
             "--app=$uri",

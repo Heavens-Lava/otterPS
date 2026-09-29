@@ -446,6 +446,26 @@ function Invoke-OtterFile {
     $source = $resolvedProgram.CombinedSource
     if ($null -eq $source) { $source = '' }
 
+    # A program whose root is a declared page or window (`app is a page
+    # with ...`) is written for the unified UI backend (D60): the console
+    # interpreter cannot show it and always stopped at its first `put`.
+    # Running it means opening it the way `otter desktop` does. Programs
+    # that build WPF windows with `create window into app` are unaffected.
+    if (-not $CheckOnly -and -not $DebugSession -and -not $ProfileSession -and -not $ParseOnly -and
+        $source -match '(?m)^[A-Za-z_][A-Za-z0-9_]*\s+is\s+an?\s+(page|window)\b') {
+        Import-Module (Join-Path $PSScriptRoot 'src\Otter.Desktop.psm1') -Force
+        $scriptDir = Split-Path -Parent $resolved.Path
+        $manifest = Find-OtterProjectManifest -Path $scriptDir
+        $workingFolder = if ($manifest) { $manifest.RootDirectory } else { $scriptDir }
+        try {
+            Start-OtterDesktopApplication -SourcePath $resolved.Path -Cwd $workingFolder
+        } catch [OtterError] {
+            Write-Host $_.Exception.Message -ForegroundColor Red
+            [Environment]::Exit($script:ExitRuntimeError)
+        }
+        exit $script:ExitSuccess
+    }
+
     # D111: secrets are scoped to this program's identity.
     Set-OtterApplicationId -Path $resolved.Path
 
