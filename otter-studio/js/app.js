@@ -279,13 +279,32 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // The "Live Code" drawer shows the bound file's real text.
+  // Numbered, highlighted lines; double-click one to open it in the editor.
   function showLiveCode() {
     const liveCodeArea = document.getElementById('drawerGeneratedCodeArea');
     if (!liveCodeArea) return;
     const file = designBinding.file;
     const tab = ide.openTabs.find(t => t.path === file);
-    liveCodeArea.textContent = file === ide.currentFile ? ide.currentCode : (tab ? tab.content : generateOtterSource(uiModel));
+    const text = file === ide.currentFile ? ide.currentCode : (tab ? tab.content : generateOtterSource(uiModel));
+    liveCodeArea.dataset.source = text || '';
+    liveCodeArea.innerHTML = String(text || '').replace(/\r\n/g, '\n').replace(/\n$/, '').split('\n').map((line, i) =>
+      `<div class="lc-line" data-line="${i + 1}"><span class="lc-num">${i + 1}</span><span class="lc-text">${ide.syntaxHighlightLine(line) || ' '}</span></div>`
+    ).join('');
+    const fileLabel = document.getElementById('liveCodeFile');
+    if (fileLabel) fileLabel.textContent = file ? file.split('/').pop() : 'Otter source';
   }
+
+  function openLiveCodeInEditor(line = 1) {
+    const file = designBinding.file;
+    if (!file) return;
+    setMode('code');
+    ide.navigateToLocation({ path: file, line, column: 0 });
+  }
+  document.getElementById('btnLiveCodeOpen')?.addEventListener('click', () => openLiveCodeInEditor(1));
+  document.getElementById('drawerGeneratedCodeArea')?.addEventListener('dblclick', (e) => {
+    const row = e.target.closest('.lc-line');
+    if (row) openLiveCodeInEditor(Number(row.dataset.line));
+  });
 
   // Designer style edits (properties panel, canvas resize) change the CSS
   // model. When the project's stylesheet is open in a tab, hand the new text
@@ -562,13 +581,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   document.getElementById('btnCopyLiveCode')?.addEventListener('click', () => {
-    const code = document.getElementById('drawerGeneratedCodeArea')?.textContent || '';
+    const code = document.getElementById('drawerGeneratedCodeArea')?.dataset.source || '';
     if (code) {
       navigator.clipboard.writeText(code);
       const btn = document.getElementById('btnCopyLiveCode');
       if (btn) {
         btn.textContent = 'Copied!';
-        setTimeout(() => btn.textContent = 'Copy Code', 1500);
+        setTimeout(() => btn.textContent = 'Copy', 1500);
       }
     }
   });
@@ -577,6 +596,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   const modePills = document.querySelectorAll('.mode-pill');
 
   function setMode(mode) {
+    document.body.dataset.studioMode = mode;
+    // Designer: the drawer's left half shows this source (css/polish.css).
+    if (mode === 'designer') {
+      showLiveCode();
+      const active = document.querySelector('.drawer-tab.is-active');
+      if (!active || active.getAttribute('data-drawer-tab') === 'livecode') {
+        document.querySelector('.drawer-tab[data-drawer-tab="output"]')?.click();
+      }
+    }
     centerWorkArea.classList.toggle('is-split', mode === 'split');
     centerWorkArea.classList.toggle('is-workbench', mode === 'workbench');
     modePills.forEach(p => p.classList.remove('is-active'));

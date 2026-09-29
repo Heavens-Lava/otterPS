@@ -1238,3 +1238,147 @@ body {
 #designerRightSidebar .sp-label {
   font-size: var(--ui-font-small);
 }
+
+/* ---------------------------------------------------------------------------
+   Designer: the bottom drawer splits, as in the reference - the designed
+   file's Otter source on the left (always visible), Output / Problems /
+   Terminal / Tests / Tasks on the right.
+   --------------------------------------------------------------------------- */
+
+/* !important: setMode() writes display: flex inline on the drawer. */
+body[data-studio-mode="designer"] #bottomDrawer {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 270px !important;
+  flex-shrink: 0;
+}
+
+body[data-studio-mode="designer"] #bottomDrawer > .drawer-header {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+body[data-studio-mode="designer"] #bottomDrawer > .drawer-content {
+  display: contents;
+}
+
+body[data-studio-mode="designer"] #bottomDrawer .drawer-panel {
+  grid-column: 2;
+  grid-row: 2;
+  min-height: 0;
+}
+
+body[data-studio-mode="designer"] #bottomDrawer #panelLiveCode.drawer-panel {
+  display: flex !important;
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  border-right: 1px solid var(--border-subtle);
+}
+
+body[data-studio-mode="designer"] .drawer-tab[data-drawer-tab="livecode"] {
+  display: none;
+}
+
+/* The Otter Code panel (also a tab in the other views). */
+.live-code-panel {
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  background: var(--bg-card);
+}
+
+.theme-dark .live-code-panel {
+  background: #08131f;
+}
+
+.live-code-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 38px;
+  padding: 0 8px 0 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--shell-tabbar);
+  flex-shrink: 0;
+}
+
+.live-code-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font: 600 var(--ui-font-small) var(--font-ui);
+  color: var(--text-main);
+}
+
+.live-code-title svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: var(--accent-blue);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.live-code-hint {
+  flex: 1;
+  font-size: 11px;
+  color: var(--text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.live-code-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.live-code-btn {
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-muted);
+  font: 500 11.5px var(--font-ui);
+  cursor: pointer;
+}
+
+.live-code-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-main);
+}
+
+.live-code-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 6px 0 10px;
+  font: 12.5px / 21px var(--font-code);
+  color: var(--text-main);
+}
+
+.live-code-body:focus-visible {
+  outline: 1px solid color-mix(in srgb, var(--accent-blue) 50%, transparent);
+  outline-offset: -1px;
+}
+
+.lc-line {
+  display: flex;
+  white-space: pre;
+}
+
+.lc-line:hover {
+  background: color-mix(in srgb, var(--bg-hover) 60%, transparent);
+}
+
+.lc-num {
+  flex: 0 0 44px;
+  padding-right: 14px;
+  text-align: right;
+  color: var(--text-faint);
+  user-select: none;
+}
