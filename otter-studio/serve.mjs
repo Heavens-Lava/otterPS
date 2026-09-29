@@ -12,6 +12,7 @@ import { handleHistoryRoutes, recordVersion } from './server/local-history.mjs';
 import { handleEditorConfigRoute } from './server/editorconfig.mjs';
 import { handleAssetRoutes } from './server/assets.mjs';
 import { handleTrustRoutes } from './server/trust.mjs';
+import { createRenderWorker } from './server/render-worker.mjs';
 import { handleGitRoutes } from './server/git.mjs';
 import { handleTestRoutes } from './server/tests.mjs';
 import { checkRequest, readJsonBody, isInside, LOOPBACK_HOST } from './server/security.mjs';
@@ -237,6 +238,9 @@ function collectWorkspaceTextFiles(dirPath) {
 // (`otter.ps1 web`) so Studio previews exactly what a user's program produces.
 // Results are cached by content hash; renders run one at a time.
 const renderCache = new Map();
+// One compiler process kept loaded for renders (server/render-worker.mjs).
+const renderWorker = createRenderWorker({ repoRoot: REPO_ROOT });
+process.on('exit', () => renderWorker.stop());
 let renderQueue = Promise.resolve();
 
 // A render of a document from a project folder depends on the files it
@@ -305,33 +309,41 @@ function renderOtterSource(code, css, sourceDir = '') {
     fs.writeFileSync(sourcePath, code, 'utf8');
     const cssPath = path.join(dir, `${key}.css`);
     if (css) fs.writeFileSync(cssPath, css, 'utf8'); else fs.rmSync(cssPath, { force: true });
-    const args = [
-      '-NoProfile', '-ExecutionPolicy', 'Bypass',
-      '-File', path.join(REPO_ROOT, 'otter.ps1'), 'web', sourcePath, '-NoOpen'
-    ];
-    if (sourceDir) args.push('-SourceDir', sourceDir);
-    // A multi-file application takes longer to compile than a one-screen form.
-    execFile('powershell.exe', args, { cwd: REPO_ROOT, windowsHide: true, timeout: 180000 }, (error, stdout, stderr) => {
+    // compiled: the page was written; code: the compiler's exit code.
+    const settle = (compiled, message, code) => {
       let result;
-      if (!error && fs.existsSync(htmlPath)) {
+      if (compiled && fs.existsSync(htmlPath)) {
         let html = fs.readFileSync(htmlPath, 'utf8').replace(/^\uFEFF/, '');
         if (sourceDir) html = html.replace(/<head>/i, `<head>\n  <base href="${workspaceFilesBase(sourceDir)}">`);
         result = { ok: true, html };
         if (renderCache.size > 50) renderCache.delete(renderCache.keys().next().value);
         renderCache.set(key, result);
       } else {
-        const text = String(stdout || stderr || (error && error.message) || 'Render failed.').trim();
-        result = { ok: false, message: text };
+        result = { ok: false, message: String(message || 'Render failed.').trim() };
         // A program the compiler rejects (exit 2) is rejected the same way
         // next time: the designer re-renders often, and a large project takes
         // seconds per compile. A crash or a timeout is not remembered.
-        if (error && error.code === 2) {
+        if (code === 2) {
           if (renderCache.size > 50) renderCache.delete(renderCache.keys().next().value);
           renderCache.set(key, result);
         }
       }
       for (const f of [sourcePath, htmlPath, cssPath]) fs.rmSync(f, { force: true });
       resolve(result);
+    };
+    // The compiler process Studio keeps loaded (server/render-worker.mjs);
+    // if it cannot be used, a fresh `otter web` process as before.
+    renderWorker.compile({ source: sourcePath, output: htmlPath, sourceDir }).then((reply) => {
+      if (reply) return settle(reply.ok, reply.message, reply.ok ? 0 : reply.code);
+      const args = [
+        '-NoProfile', '-ExecutionPolicy', 'Bypass',
+        '-File', path.join(REPO_ROOT, 'otter.ps1'), 'web', sourcePath, '-NoOpen'
+      ];
+      if (sourceDir) args.push('-SourceDir', sourceDir);
+      // A multi-file application takes longer to compile than a one-screen form.
+      execFile('powershell.exe', args, { cwd: REPO_ROOT, windowsHide: true, timeout: 180000 }, (error, stdout, stderr) => {
+        settle(!error, stdout || stderr || (error && error.message), error ? error.code : 0);
+      });
     });
   }));
   renderQueue = job;
