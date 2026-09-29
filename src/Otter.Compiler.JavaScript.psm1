@@ -769,19 +769,23 @@ function ConvertTo-OtterJsExpression {
             $isVar = $target -is [VariableExpr]
             $targetName = if ($isVar) { $target.Name } else { '' }
             $targetJs = ConvertTo-OtterJsExpression -Expr $target
-            $uiId = if ($isVar) { Get-OtterJsUiRef -Name $targetName } else { "'$targetName'" }
-            $uiBranch = switch ($prop) {
-                'text' { "otterGetText($uiId)" }
-                'value' { "otterGetText($uiId)" }
-                'title' { "otterGetTitle($uiId)" }
-                'width' { "otterGetStyle($uiId, 'width')" }
-                'height' { "otterGetStyle($uiId, 'height')" }
-                default { "otterGetProperty($uiId, '$prop')" }
+            # `_ui` is what the value refers to as UI (see Get-OtterJsUiOf):
+            # a handle when the page has the runtime UI code, otherwise the
+            # id of the element rendered under this name. text/value keep
+            # their own reader; other properties go through the runtime's
+            # one mapping when there is one.
+            $legacyBranch = switch ($prop) {
+                'title' { "otterGetTitle(_ui)" }
+                'width' { "otterGetStyle(_ui, 'width')" }
+                'height' { "otterGetStyle(_ui, 'height')" }
+                default { "otterGetProperty(_ui, '$prop')" }
             }
+            $uiBranch = if ($prop -in @('text', 'value')) { "otterGetText(_ui)" } else { "((typeof _ui === 'object' && typeof otterGetUiProp === 'function') ? otterGetUiProp(_ui, '$prop') : $legacyBranch)" }
             $dateBranch = switch ($prop) {
                 'year' { "_owner.value.getFullYear()" }
                 'month' { "(_owner.value.getMonth() + 1)" }
                 'day' { "_owner.value.getDate()" }
+                'weekday' { "((_owner.value.getDay() + 6) % 7 + 1)" }
                 'hour' { "(_owner.hasTime ? _owner.value.getHours() : (() => { throw new Error('This is a date with no time of day, so it has no hour.'); })())" }
                 'minute' { "(_owner.hasTime ? _owner.value.getMinutes() : (() => { throw new Error('This is a date with no time of day, so it has no minute.'); })())" }
                 'second' { "(_owner.hasTime ? _owner.value.getSeconds() : (() => { throw new Error('This is a date with no time of day, so it has no second.'); })())" }
@@ -807,10 +811,12 @@ function ConvertTo-OtterJsExpression {
             # entirely self-contained in this module - same reasoning as
             # Phase 1D-B's `plus` fix (no shared helper added to
             # Otter.Web.psm1's boilerplate).
+            # `text of 5` is "5", as in the interpreter.
+            $rest = "if ((typeof _owner === 'number' || typeof _owner === 'boolean') && '$prop' === 'text') { return String(_owner); } if (_owner && typeof _owner === 'object' && _owner.__otterHttpRequest) { $httpBranch } if (_owner && typeof _owner === 'object' && _owner.__otterXml) { return $xmlBranch; } if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return $dateBranch; } if (_owner && typeof _owner === 'object' && _owner.__otterWebSocket) { if ('$propOriginal' === 'state') return (_owner.ws.readyState === 0 ? 'connecting' : _owner.ws.readyState === 1 ? 'open' : _owner.ws.readyState === 2 ? 'closing' : 'closed'); if ('$propOriginal' === 'url') return _owner.url; if ('$propOriginal' === 'protocol') return _owner.ws.protocol || _owner.protocol || ''; throw new Error('A websocket has no property called `"$propOriginal`".'); } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('$propOriginal') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called `"$propOriginal`".'); } return _owner.props['$propOriginal'];"
             if ($isVar) {
-                return "(otterGetElement($uiId) ? ($uiBranch) : (() => { const _owner = $targetName; if (_owner && typeof _owner === 'object' && _owner.__otterHttpRequest) { $httpBranch } if (_owner && typeof _owner === 'object' && _owner.__otterXml) { return $xmlBranch; } if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return $dateBranch; } if (_owner && typeof _owner === 'object' && _owner.__otterWebSocket) { if ('$propOriginal' === 'state') return (_owner.ws.readyState === 0 ? 'connecting' : _owner.ws.readyState === 1 ? 'open' : _owner.ws.readyState === 2 ? 'closing' : 'closed'); if ('$propOriginal' === 'url') return _owner.url; if ('$propOriginal' === 'protocol') return _owner.ws.protocol || _owner.protocol || ''; throw new Error('A websocket has no property called `"$propOriginal`".'); } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('$propOriginal') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called `"$propOriginal`".'); } return _owner.props['$propOriginal']; })())"
+                return "((() => { const _owner = (typeof $targetName !== 'undefined') ? $targetName : undefined; const _ui = $(Get-OtterJsUiOf -ValueJs '_owner' -Name $targetName); if (_ui) { return ($uiBranch); } $rest })())"
             } else {
-                return "((() => { const _owner = ($targetJs); if (_owner && typeof _owner === 'object' && _owner.__otterHttpRequest) { $httpBranch } if (_owner && typeof _owner === 'object' && _owner.__otterXml) { return $xmlBranch; } if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return $dateBranch; } if (_owner && typeof _owner === 'object' && _owner.__otterWebSocket) { if ('$propOriginal' === 'state') return (_owner.ws.readyState === 0 ? 'connecting' : _owner.ws.readyState === 1 ? 'open' : _owner.ws.readyState === 2 ? 'closing' : 'closed'); if ('$propOriginal' === 'url') return _owner.url; if ('$propOriginal' === 'protocol') return _owner.ws.protocol || _owner.protocol || ''; throw new Error('A websocket has no property called `"$propOriginal`".'); } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('$propOriginal') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called `"$propOriginal`".'); } return _owner.props['$propOriginal']; })())"
+                return "((() => { const _owner = ($targetJs); const _ui = $(Get-OtterJsUiOf -ValueJs '_owner' -Name ''); if (_ui) { return ($uiBranch); } $rest })())"
             }
         }
         ([NodeKind]::Math) {
@@ -1313,6 +1319,7 @@ function ConvertTo-OtterJsExpression {
         }
         ([NodeKind]::Call) {
             $argsJs = @(foreach ($a in $Expr.Arguments) { ConvertTo-OtterJsExpression -Expr $a })
+            if (Test-OtterJsAsyncFunction -Name $Expr.Name) { return "(await $($Expr.Name)($($argsJs -join ', ')))" }
             return "$($Expr.Name)($($argsJs -join ', '))"
         }
         ([NodeKind]::FileExists) {
@@ -1363,18 +1370,18 @@ function ConvertTo-OtterJsExpression {
     }
 }
 
-# Runtime UI (web target). The page's top-level `create`/`put` statements
-# are rendered to static HTML by Otter.Web.psm1 and addressed by DOM id. A UI
-# resource created anywhere else - inside an event handler, a function or a
-# loop - is created while the page runs: its variable holds a handle
-# ({ __otterUi, kind, root, el, id }), like the interpreter's UI value, so each
-# `create` makes a new element. ConvertTo-OtterWeb records those names here
-# before compiling; for them, UI operations go through the handle.
+# Runtime UI (web target). The page's top-level UI is rendered to static HTML
+# by Otter.Web.psm1 and addressed by DOM id. UI made anywhere else - inside an
+# event handler, a function or a loop - is made while the page runs, and its
+# value is a handle ({ __otterUi, kind, root, el, id }), like the interpreter's
+# UI value. UI resources are values: a function can build one and return it
+# (a component), and a list or a parameter can hold one. So every UI operation
+# decides at run time what a name refers to: the handle it holds, or - for a
+# name the page rendered - that element (otterUiRef in the page runtime).
 $script:OtterJsRuntimeUiNames = [System.Collections.Generic.HashSet[string]]::new()
 
-# The page's top-level UI resources (rendered to static HTML). Needed so that
-# `status has text ...` inside a handler sets the element's properties, as on
-# the console, instead of creating an unrelated thing named `status`.
+# The page's rendered UI resources. A name in this set may refer to its
+# element by name alone (it holds no value of its own in the script).
 $script:OtterJsStaticUiNames = [System.Collections.Generic.HashSet[string]]::new()
 
 function Set-OtterJsRuntimeUiNames {
@@ -1385,28 +1392,105 @@ function Set-OtterJsRuntimeUiNames {
     foreach ($n in @($StaticNames)) { if ($n) { [void]$script:OtterJsStaticUiNames.Add($n) } }
 }
 
-# The JS expression that identifies a UI resource by variable name: the handle
-# the variable holds when it is a runtime-created resource, otherwise the DOM
-# id (the name), exactly as before. `typeof` keeps it valid when the variable
-# was never assigned.
-function Get-OtterJsUiRef {
-    param([string]$Name)
-    if ($script:OtterJsRuntimeUiNames.Contains($Name)) {
-        return "(typeof $Name !== 'undefined' && $Name && $Name.__otterUi ? $Name : '$Name')"
+# The UI kinds `x is a <kind> with ...` makes (the same list the web module
+# renders statically).
+$script:OtterJsUiKinds = @(
+    'window', 'page', 'button', 'text box', 'text', 'row', 'column',
+    'image', 'list', 'link', 'card', 'checkbox', 'check box',
+    'dropdown', 'drop down', 'select', 'slider', 'range',
+    'text area', 'textarea', 'badge', 'tag', 'canvas', 'table', 'scroll',
+    'progress', 'progress bar', 'toggle', 'switch', 'radio', 'radio button',
+    'dialog', 'modal', 'panel', 'icon'
+)
+
+# 'primary button' -> @{ Kind = 'button'; Variant = 'primary' }; not a UI kind -> $null
+function Get-OtterJsUiKind {
+    param([string]$TypeName)
+    if (-not $TypeName) { return $null }
+    $kind = $TypeName.ToLowerInvariant()
+    $variant = ''
+    foreach ($v in @('primary', 'secondary', 'danger')) {
+        if ($kind.StartsWith("$v ")) { $variant = $v; $kind = $kind.Substring($v.Length + 1); break }
     }
-    return "'$Name'"
+    if ($kind -in $script:OtterJsUiKinds) { return @{ Kind = $kind; Variant = $variant } }
+    return $null
 }
 
-# For put/show/hide/focus/when: a UI resource name gives its reference; any
-# other variable gives its value, so a wrong value reaches the runtime check
-# and is reported by type ("... but this is a number."), as on the console.
+function Get-OtterJsStaticNameJs {
+    param([string]$Name)
+    if ($script:OtterJsStaticUiNames.Contains($Name)) { return "'$Name'" }
+    return 'null'
+}
+
+# The JS for what a name refers to as UI, for put/show/hide/focus/clear/when:
+# its handle, or its rendered element, or - when it is neither - its value,
+# so the runtime can say what it got instead ("... but this is a number.").
+# `typeof` keeps it valid when the variable was never assigned.
+function Get-OtterJsUiRef {
+    param([string]$Name)
+    return "otterUiRef((typeof $Name !== 'undefined' ? $Name : undefined), $(Get-OtterJsStaticNameJs -Name $Name))"
+}
+
 function Get-OtterJsUiRefForNode {
     param([Node]$Node)
-    if ($Node -is [VariableExpr] -and ($script:OtterJsRuntimeUiNames.Contains($Node.Name) -or $script:OtterJsStaticUiNames.Contains($Node.Name))) {
-        return (Get-OtterJsUiRef -Name $Node.Name)
-    }
-    return (ConvertTo-OtterJsExpression -Expr $Node)
+    if ($Node -is [VariableExpr]) { return (Get-OtterJsUiRef -Name $Node.Name) }
+    return "otterUiRef($(ConvertTo-OtterJsExpression -Expr $Node), null)"
 }
+
+# For property reads and writes, given the JS of the value already in hand:
+# the handle or rendered element the value refers to as UI, or null (then the
+# value is a thing, a date, ...). A page without the runtime UI code keeps
+# its earlier rule: the element rendered under the name, by id.
+function Get-OtterJsUiOf {
+    param([string]$ValueJs, [string]$Name)
+    $static = if ($Name) { Get-OtterJsStaticNameJs -Name $Name } else { 'null' }
+    $fallback = if ($Name) { "(otterGetElement('$Name') ? '$Name' : null)" } else { 'null' }
+    return "(typeof otterUiOf === 'function' ? otterUiOf($ValueJs, $static) : $fallback)"
+}
+
+function Get-OtterJsUiGuard {
+    return "if (typeof otterCreateUi !== 'function') { throw new Error('User interface statements need a UI target (otter web or otter desktop).'); }"
+}
+
+# Write a value into an Otter variable with the same local/global rule every
+# other Set-style statement here uses.
+function Get-OtterJsBindingWrite {
+    param([string]$Name, [string]$ValueJs, [System.Collections.Generic.HashSet[string]]$LocalNames)
+    if ($LocalNames -and $LocalNames.Contains($Name)) { return "$Name = $ValueJs;" }
+    return "if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$Name' in otterState)) { otterSetState('$Name', $ValueJs); } else { window.$Name = $ValueJs; }"
+}
+
+# Per-iteration bindings for a loop body inside a function.
+#
+# A `when` handler registered in a loop body closes over the variables it
+# reads. Without this, every handler would see the LAST iteration's values
+# (`rowId is id of project` / `when row clicked` / `openProject rowId` would
+# open the same project from every row). Each function-local name assigned in
+# the body gets its own binding for the iteration, seeded from the function's
+# variable and copied back at the end of the iteration, so counters and "the
+# last value after the loop" behave as before, while each handler keeps its
+# own iteration's values.
+function Get-OtterJsIterationBindings {
+    param([Node[]]$Body, [string]$LoopVariable, [System.Collections.Generic.HashSet[string]]$LocalNames)
+    if (-not $LocalNames) { return @{ Before = ''; Open = ''; Close = '' } }
+    $bindings = Get-OtterJsBindingNames -Statements $Body
+    $names = [System.Collections.Generic.List[string]]::new()
+    foreach ($set in @($bindings.SetStyle, $bindings.AlwaysLocal)) {
+        foreach ($n in $set) {
+            if ($n -and $n -ne $LoopVariable -and $LocalNames.Contains($n) -and -not $names.Contains($n)) { $names.Add($n) }
+        }
+    }
+    $before = ''
+    $open = ''
+    $close = ''
+    foreach ($n in $names) {
+        $before += "const _seed_$n = $n; const _keep_$n = (_v) => { $n = _v; }; "
+        $open += " let $n = _seed_$n;"
+        $close += "_keep_$n($n); "
+    }
+    return @{ Before = $before; Open = $open; Close = $close }
+}
+
 
 function ConvertTo-OtterJsStatement {
     param(
@@ -1479,41 +1563,37 @@ function ConvertTo-OtterJsStatement {
                 $lines = [System.Collections.Generic.List[string]]::new()
                 $inner = '  ' * ($Indent + 1)
                 $lines.Add("${pad}{")
-                if ($isVar -and $script:OtterJsRuntimeUiNames.Contains($targetName)) {
-                    $uiRef = Get-OtterJsUiRef -Name $targetName
-                    $lines.Add("${inner}const _el = otterGetElement($uiRef);")
-                    $lines.Add("${inner}if (_el) { otterSetUiProp($uiRef, '$prop', $valExpr); }")
-                    $lines.Add("${inner}else {")
-                    $lines.Add("${inner}  const _owner = $targetName;")
-                    $lines.Add("${inner}  if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }")
-                    $lines.Add("${inner}  if (!(('$propOriginal') in _owner.props)) { _owner.order.push('$propOriginal'); }")
-                    $lines.Add("${inner}  _owner.props['$propOriginal'] = $valExpr;")
-                    $lines.Add("${inner}}")
-                } elseif ($isVar) {
-                    $uiBranch = switch ($prop) {
-                        'text' { "otterSetText('$targetName', $valExpr);" }
-                        'value' { "otterSetText('$targetName', $valExpr);" }
-                        'title' { "otterSetTitle('$targetName', $valExpr);" }
-                        'background' { "otterSetStyle('$targetName', 'backgroundColor', $valExpr);" }
-                        'foreground' { "otterSetStyle('$targetName', 'color', $valExpr);" }
-                        'width' { "otterSetStyle('$targetName', 'width', typeof ($valExpr) === 'number' ? ($valExpr + 'px') : $valExpr);" }
-                        'height' { "otterSetStyle('$targetName', 'height', typeof ($valExpr) === 'number' ? ($valExpr + 'px') : $valExpr);" }
-                        default { "otterSetProperty('$targetName', '$prop', $valExpr);" }
+                # The value is computed once. Then: a UI resource the value
+                # refers to (a handle, or the element rendered under this
+                # name - see Get-OtterJsUiOf) gets the property through the
+                # runtime's one mapping; a page without that code keeps its
+                # id-based setters; anything else must be a thing.
+                $lines.Add("${inner}const _val = $valExpr;")
+                if ($isVar) {
+                    $legacyBranch = switch ($prop) {
+                        'text' { "otterSetText('$targetName', _val);" }
+                        'value' { "otterSetText('$targetName', _val);" }
+                        'title' { "otterSetTitle('$targetName', _val);" }
+                        'background' { "otterSetStyle('$targetName', 'backgroundColor', _val);" }
+                        'foreground' { "otterSetStyle('$targetName', 'color', _val);" }
+                        'width' { "otterSetStyle('$targetName', 'width', typeof (_val) === 'number' ? (_val + 'px') : _val);" }
+                        'height' { "otterSetStyle('$targetName', 'height', typeof (_val) === 'number' ? (_val + 'px') : _val);" }
+                        default { "otterSetProperty('$targetName', '$prop', _val);" }
                     }
-                    $lines.Add("${inner}const _el = otterGetElement('$targetName');")
-                    $lines.Add("${inner}if (_el) { $uiBranch }")
-                    $lines.Add("${inner}else {")
-                    $lines.Add("${inner}  const _owner = $targetName;")
-                    $lines.Add("${inner}  if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }")
-                    $lines.Add("${inner}  if (!(('$propOriginal') in _owner.props)) { _owner.order.push('$propOriginal'); }")
-                    $lines.Add("${inner}  _owner.props['$propOriginal'] = $valExpr;")
-                    $lines.Add("${inner}}")
+                    $lines.Add("${inner}const _owner = (typeof $targetName !== 'undefined') ? $targetName : undefined;")
+                    $lines.Add("${inner}const _ui = $(Get-OtterJsUiOf -ValueJs '_owner' -Name $targetName);")
+                    $lines.Add("${inner}if (_ui && typeof _ui === 'object') { otterSetUiProp(_ui, '$prop', _val); }")
+                    $lines.Add("${inner}else if (_ui) { $legacyBranch }")
                 } else {
                     $lines.Add("${inner}const _owner = ($targetJs);")
-                    $lines.Add("${inner}if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }")
-                    $lines.Add("${inner}if (!(('$propOriginal') in _owner.props)) { _owner.order.push('$propOriginal'); }")
-                    $lines.Add("${inner}_owner.props['$propOriginal'] = $valExpr;")
+                    $lines.Add("${inner}const _ui = $(Get-OtterJsUiOf -ValueJs '_owner' -Name '');")
+                    $lines.Add("${inner}if (_ui) { otterSetUiProp(_ui, '$prop', _val); }")
                 }
+                $lines.Add("${inner}else {")
+                $lines.Add("${inner}  if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }")
+                $lines.Add("${inner}  if (!(('$propOriginal') in _owner.props)) { _owner.order.push('$propOriginal'); }")
+                $lines.Add("${inner}  _owner.props['$propOriginal'] = _val;")
+                $lines.Add("${inner}}")
                 $lines.Add("${pad}}")
                 return ($lines -join "`n")
             }
@@ -1693,9 +1773,16 @@ function ConvertTo-OtterJsStatement {
             } else {
                 $lines.Add("${bodyIndent}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$varName' in otterState)) { otterSetState('$varName', _n); } else { window.$varName = _n; }")
             }
+            # Per-iteration binding for handlers registered in the body -
+            # see ForEach for the reasoning.
+            $iteration = Get-OtterJsIterationBindings -Body $Stmt.Body -LoopVariable $varName -LocalNames $LocalNames
+            if ($iteration.Before) { $lines.Add("${bodyIndent}$($iteration.Before)") }
+            $lines.Add("${bodyIndent}{ let $varName = _n;$($iteration.Open)")
             foreach ($s in $Stmt.Body) {
                 $lines.Add((ConvertTo-OtterJsStatement -Stmt $s -Indent ($Indent + 2) -LocalNames $LocalNames))
             }
+            if ($iteration.Close) { $lines.Add("${bodyIndent}$($iteration.Close)") }
+            $lines.Add("${bodyIndent}}")
             $lines.Add("${inner}}")
             $lines.Add("${pad}}")
             return ($lines -join "`n")
@@ -1768,24 +1855,51 @@ function ConvertTo-OtterJsStatement {
             return "${pad}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$typeName' in otterState)) { otterSetState('$typeName', $typeObj); } else { window.$typeName = $typeObj; }"
         }
         ([NodeKind]::ObjectDef) {
-            # Runtime UI: `item has text task` after `create text into item`
-            # sets the resource's properties, as the interpreter does when the
-            # name already holds a UI resource; otherwise it is a thing.
-            if (-not $SkipRuntimeUi -and ($script:OtterJsRuntimeUiNames.Contains($Stmt.Name) -or $script:OtterJsStaticUiNames.Contains($Stmt.Name))) {
-                $uiRef = Get-OtterJsUiRef -Name $Stmt.Name
+            # Runtime UI. `card is a card with padding 12` running inside a
+            # function, a handler or a loop makes a new UI resource each time
+            # it runs (top-level declarations are rendered to static HTML by
+            # Otter.Web.psm1 and never reach here). A function that builds one
+            # and returns it is a component.
+            $uiKind = Get-OtterJsUiKind -TypeName $Stmt.TypeName
+            $uiPairs = [System.Collections.Generic.List[object]]::new()
+            $uiPlain = $true
+            foreach ($prop in @($Stmt.Properties)) {
+                if ($null -eq $prop) { continue }
+                if ($prop -isnot [AssignStmt] -or $prop.Target -isnot [VariableExpr]) { $uiPlain = $false; continue }
+                $uiPairs.Add(@($prop.Target.Name.ToLowerInvariant(), (ConvertTo-OtterJsExpression -Expr $prop.Value)))
+            }
+            if ($uiKind) {
+                if (-not $uiPlain) { throw [OtterError]::new('A UI resource property name must be a plain name.', $Stmt.Line, 'runtime') }
                 $inner = '  ' * ($Indent + 1)
                 $uiLines = [System.Collections.Generic.List[string]]::new()
-                $uiLines.Add("${pad}if (otterGetElement($uiRef)) {")
-                foreach ($prop in @($Stmt.Properties)) {
-                    if ($prop -isnot [AssignStmt] -or $prop.Target -isnot [VariableExpr]) {
-                        throw [OtterError]::new('A UI resource property name must be a plain name.', $prop.Line, 'runtime')
-                    }
-                    $pName = $prop.Target.Name.ToLowerInvariant()
-                    $pVal = ConvertTo-OtterJsExpression -Expr $prop.Value
-                    $uiLines.Add("${inner}otterSetUiProp($uiRef, '$pName', $pVal);")
+                $uiLines.Add("${pad}{")
+                $uiLines.Add("${inner}$(Get-OtterJsUiGuard)")
+                $uiLines.Add("${inner}const _ui = otterCreateUi('$($uiKind.Kind)', '$($uiKind.Variant)');")
+                # A button with an icon and no text is an icon button (as
+                # when rendered), not "Button" beside an icon.
+                $words = @($uiPairs | ForEach-Object { $_[0] })
+                if ($uiKind.Kind -eq 'button' -and $words -contains 'icon' -and $words -notcontains 'text') {
+                    $uiLines.Add("${inner}otterSetUiProp(_ui, 'text', '');")
                 }
-                $uiLines.Add("${pad}} else {")
-                $uiLines.Add((ConvertTo-OtterJsStatement -Stmt $Stmt -Indent ($Indent + 1) -LocalNames $LocalNames -KnownGlobals $KnownGlobals -SkipRuntimeUi))
+                foreach ($pair in $uiPairs) { $uiLines.Add("${inner}otterSetUiProp(_ui, '$($pair[0])', $($pair[1]));") }
+                $uiLines.Add("${inner}$(Get-OtterJsBindingWrite -Name $Stmt.Name -ValueJs '_ui' -LocalNames $LocalNames)")
+                $uiLines.Add("${pad}}")
+                return ($uiLines -join "`n")
+            }
+            # `item has text task` where item is a UI resource (a handle it
+            # holds, or the element rendered under its name) sets that
+            # resource's properties, as the interpreter does; otherwise it is
+            # a thing.
+            if (-not $SkipRuntimeUi -and $Stmt.TypeName -eq 'thing' -and $uiPlain -and $uiPairs.Count -gt 0) {
+                $inner = '  ' * ($Indent + 1)
+                $uiLines = [System.Collections.Generic.List[string]]::new()
+                $uiLines.Add("${pad}{")
+                $uiLines.Add("${inner}const _existing = $(Get-OtterJsUiOf -ValueJs "((typeof $($Stmt.Name) !== 'undefined') ? $($Stmt.Name) : undefined)" -Name $Stmt.Name);")
+                $uiLines.Add("${inner}if (_existing && typeof otterSetUiProp === 'function') {")
+                foreach ($pair in $uiPairs) { $uiLines.Add("${inner}  otterSetUiProp(_existing, '$($pair[0])', $($pair[1]));") }
+                $uiLines.Add("${inner}} else {")
+                $uiLines.Add((ConvertTo-OtterJsStatement -Stmt $Stmt -Indent ($Indent + 2) -LocalNames $LocalNames -KnownGlobals $KnownGlobals -SkipRuntimeUi))
+                $uiLines.Add("${inner}}")
                 $uiLines.Add("${pad}}")
                 return ($uiLines -join "`n")
             }
@@ -1957,7 +2071,11 @@ function ConvertTo-OtterJsStatement {
             $lines.Add("${inner}for (const $itemName of ($collJs || [])) {")
             $lines.Add("${inner}  if ($conditionJs) { _found = $itemName; break; }")
             $lines.Add("${inner}}")
-            $lines.Add("${inner}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$target' in otterState)) { otterSetState('$target', _found); } else { window.$target = _found; }")
+            # The result is a Set-style binding like Assign's (local inside a
+            # function when the name is the function's own) - see
+            # Get-OtterJsBindingNames. Without `into`, the target IS the
+            # item name, which the loop above only shadowed inside its block.
+            $lines.Add("${inner}$(Get-OtterJsBindingWrite -Name $target -ValueJs '_found' -LocalNames $LocalNames)")
             $lines.Add("${pad}}")
             return ($lines -join "`n")
         }
@@ -2003,6 +2121,14 @@ function ConvertTo-OtterJsStatement {
             $lines = [System.Collections.Generic.List[string]]::new()
             $inner = '  ' * ($Indent + 1)
             $lines.Add("${pad}{")
+            # Runtime UI: `remove card from grid`, where grid is a UI
+            # element, takes the card out of it (D12's dispatch on the
+            # target's runtime type, extended to containers).
+            $uiTargetJs = Get-OtterJsUiOf -ValueJs "((typeof $target !== 'undefined') ? $target : undefined)" -Name $target
+            $uiItemJs = Get-OtterJsUiRefForNode -Node $Stmt.Amount
+            $lines.Add("${inner}const _uiT = $uiTargetJs;")
+            $lines.Add("${inner}if (_uiT && typeof otterRemoveUi === 'function') { otterRemoveUi($uiItemJs, _uiT); }")
+            $lines.Add("${inner}else {")
             $lines.Add("${inner}const _amt = $amountJs;")
             $lines.Add("${inner}if (Array.isArray($target)) { const _idx = $target.indexOf(_amt); if (_idx !== -1) { $target.splice(_idx, 1); } }")
             $lines.Add("${inner}else if (typeof $target === 'number' || (typeof $target === 'string' && $target.trim() !== '' && !Number.isNaN(Number($target)))) {")
@@ -2016,6 +2142,7 @@ function ConvertTo-OtterJsStatement {
             }
             $lines.Add("${inner}}")
             $lines.Add("${inner}else { throw new Error('I can only remove from a number or a list, but `"$target`" holds something else.'); }")
+            $lines.Add("${inner}}")
             $lines.Add("${pad}}")
             return ($lines -join "`n")
         }
@@ -2061,9 +2188,21 @@ function ConvertTo-OtterJsStatement {
             } else {
                 $lines.Add("${bodyIndent}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$varName' in otterState)) { otterSetState('$varName', _item); } else { window.$varName = _item; }")
             }
+            # Runtime UI: a `when` handler registered inside the body must
+            # keep THIS iteration's item (a row's own task, a card's own
+            # project), so the body runs against a per-iteration binding of
+            # the same name. The visible variable above still holds the last
+            # item after the loop, as the interpreter's does. (Assigning the
+            # loop variable inside its own body changes only the iteration's
+            # binding - a divergence not worth a second variable.)
+            $iteration = Get-OtterJsIterationBindings -Body $Stmt.Body -LoopVariable $varName -LocalNames $LocalNames
+            if ($iteration.Before) { $lines.Add("${bodyIndent}$($iteration.Before)") }
+            $lines.Add("${bodyIndent}{ let $varName = _item;$($iteration.Open)")
             foreach ($s in $Stmt.Body) {
                 $lines.Add((ConvertTo-OtterJsStatement -Stmt $s -Indent ($Indent + 2) -LocalNames $LocalNames))
             }
+            if ($iteration.Close) { $lines.Add("${bodyIndent}$($iteration.Close)") }
+            $lines.Add("${bodyIndent}}")
             $lines.Add("${inner}}")
             $lines.Add("${pad}}")
             return ($lines -join "`n")
@@ -3507,7 +3646,10 @@ function ConvertTo-OtterJsStatement {
             $lines.Add("${inner}const _find = String($findJs);")
             $lines.Add("${inner}if (_find.length === 0) { throw new Error('I cannot replace empty text.'); }")
             $lines.Add("${inner}const _replaced = String($target).split(_find).join(String($replacementJs));")
-            $lines.Add("${inner}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$target' in otterState)) { otterSetState('$target', _replaced); } else { window.$target = _replaced; }")
+            # Inside a function the text being changed is usually a local
+            # (`replace " " with "-" in key`): write it back to that local,
+            # not to a new global of the same name.
+            $lines.Add("${inner}$(Get-OtterJsBindingWrite -Name $target -ValueJs '_replaced' -LocalNames $LocalNames)")
             $lines.Add("${pad}}")
             return ($lines -join "`n")
         }
@@ -3617,7 +3759,7 @@ function ConvertTo-OtterJsStatement {
             # function without awaiting it is valid JS, not an error, so
             # this stays narrowly scoped to exactly the functions that need
             # it rather than making every function async.
-            $needsAsync = Test-OtterJsBodyNeedsAsync -Statements $Stmt.Body
+            $needsAsync = (Test-OtterJsBodyNeedsAsync -Statements $Stmt.Body) -or (Test-OtterJsAsyncFunction -Name $Stmt.Name)
             $asyncPrefix = if ($needsAsync) { 'async ' } else { '' }
 
             $lines = [System.Collections.Generic.List[string]]::new()
@@ -3644,6 +3786,7 @@ function ConvertTo-OtterJsStatement {
             $call = $Stmt.Call
             $argsJs = @(foreach ($a in $call.Arguments) { ConvertTo-OtterJsExpression -Expr $a })
             $callJs = "$($call.Name)($($argsJs -join ', '))"
+            if (Test-OtterJsAsyncFunction -Name $call.Name) { $callJs = "(await $callJs)" }
             if ($Stmt.ResultTarget) {
                 $target = $Stmt.ResultTarget
                 if ($LocalNames -and $LocalNames.Contains($target)) {
@@ -3914,17 +4057,10 @@ function ConvertTo-OtterJsStatement {
         # that are not direct top-level statements (Otter.Web.psm1 renders
         # those to static HTML): handler, function and loop bodies.
         ([NodeKind]::CreateUiResource) {
-            $kind = $Stmt.TypeName.ToLowerInvariant()
-            $variant = ''
-            foreach ($v in @('primary', 'secondary', 'danger')) {
-                if ($kind.StartsWith("$v ")) { $variant = $v; $kind = $kind.Substring($v.Length + 1); break }
-            }
-            $valExpr = "otterCreateUi('$kind', '$variant')"
-            $varName = $Stmt.Target
-            if ($LocalNames -and $LocalNames.Contains($varName)) {
-                return "${pad}$varName = $valExpr;"
-            }
-            return "${pad}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$varName' in otterState)) { otterSetState('$varName', $valExpr); } else { window.$varName = $valExpr; }"
+            $uiKind = Get-OtterJsUiKind -TypeName $Stmt.TypeName
+            $kind = if ($uiKind) { $uiKind.Kind } else { $Stmt.TypeName.ToLowerInvariant() }
+            $variant = if ($uiKind) { $uiKind.Variant } else { '' }
+            return "${pad}$(Get-OtterJsBindingWrite -Name $Stmt.Target -ValueJs "otterCreateUi('$kind', '$variant')" -LocalNames $LocalNames)"
         }
         ([NodeKind]::PutIn) {
             $itemRef = Get-OtterJsUiRefForNode -Node $Stmt.Item
@@ -3934,30 +4070,28 @@ function ConvertTo-OtterJsStatement {
         ([NodeKind]::Show) {
             return "${pad}otterUiAction($(Get-OtterJsUiRefForNode -Node $Stmt.Target), 'show');"
         }
-        # D56: focus/hide/show-as-action are not part of Otter 1.0; the
-        # interpreter refuses them with this message, so the web does too.
+        # show / hide / focus / clear on a UI resource (the D56 amendment
+        # proposed for Otter 1.1; the interpreter does the same).
         ([NodeKind]::UiAction) {
-            throw [OtterError]::new("'$($Stmt.Action)' is not supported in Otter 1.0.", $Stmt.Line, 'runtime')
+            if ($Stmt.Action -notin @('show', 'hide', 'focus', 'clear')) {
+                throw [OtterError]::new("'$($Stmt.Action)' is not something Otter can do to a UI resource.", $Stmt.Line, 'runtime')
+            }
+            return "${pad}otterUiAction($(Get-OtterJsUiRefForNode -Node $Stmt.Target), '$($Stmt.Action)');"
         }
         ([NodeKind]::When) {
-            # `when item clicked` inside a handler or function: registered on
-            # the element the variable holds right now, as the interpreter
-            # registers on the current value. Event names map as for the
-            # page's top-level handlers.
-            if ($Stmt.EventName -in @('drag', 'drop', 'files dropped')) {
-                throw [OtterError]::new('Drag and drop handlers ("on drag of", "on drop on", "on files dropped on") must be written at the top level of a web program, not inside another handler or a function.', $Stmt.Line, 'runtime')
-            }
-            $eventName = switch ($Stmt.EventName.ToLowerInvariant()) {
-                'clicked' { 'click' }
-                'changed' { 'input' }
-                default { $Stmt.EventName.ToLowerInvariant() }
-            }
+            # `when item clicked` inside a handler, a function or a loop (or
+            # at the top level, for a resource made while the page runs):
+            # registered on the resource the name refers to right now, as
+            # the interpreter registers on the current value. The runtime
+            # maps Otter's event words (clicked, changed, submitted,
+            # hovered, drag, drop, files dropped).
             $targetRef = Get-OtterJsUiRefForNode -Node $Stmt.Target
             $bodyLines = [System.Collections.Generic.List[string]]::new()
             foreach ($b in @($Stmt.Body)) {
                 $bodyLines.Add((ConvertTo-OtterJsStatement -Stmt $b -Indent ($Indent + 1) -LocalNames $LocalNames -KnownGlobals $KnownGlobals))
             }
-            return "${pad}otterOnUi($targetRef, '$eventName', async (event) => {`n$($bodyLines -join "`n")`n${pad}});"
+            $eventJs = ConvertTo-Json -InputObject $Stmt.EventName.ToLowerInvariant() -Compress
+            return "${pad}otterOnUi($targetRef, $eventJs, async (event) => {`n$($bodyLines -join "`n")`n${pad}});"
         }
         # D56: not part of Otter 1.0 - the interpreter's own messages.
         ([NodeKind]::MemoDef) { throw [OtterError]::new("'memo' is not supported in Otter 1.0.", $Stmt.Line, 'runtime') }
@@ -4073,6 +4207,11 @@ function Get-OtterJsBindingNames {
                 [void]$setStyle.Add($s.Name)
             }
             if ($s.Kind -eq [NodeKind]::Join -or $s.Kind -eq [NodeKind]::Split) {
+                [void]$setStyle.Add($s.Target)
+            }
+            if ($s.Kind -eq [NodeKind]::Find) {
+                # D26: the result uses Environment.Set (verified in the
+                # interpreter's 'Find' case) - Set-style, like Assign.
                 [void]$setStyle.Add($s.Target)
             }
             if ($s.Kind -eq [NodeKind]::AddTo -or $s.Kind -eq [NodeKind]::RemoveFrom) {
@@ -4229,6 +4368,7 @@ function Test-OtterJsExpressionNeedsAsync {
         ([NodeKind]::XmlToText) { return (Test-OtterJsExpressionNeedsAsync $Expression.Source) }
         ([NodeKind]::DateFromText) { return (Test-OtterJsExpressionNeedsAsync $Expression.Text) -or (Test-OtterJsExpressionNeedsAsync $Expression.Format) }
         ([NodeKind]::Call) {
+            if (Test-OtterJsAsyncFunction -Name $Expression.Name) { return $true }
             foreach ($argument in $Expression.Arguments) {
                 if (Test-OtterJsExpressionNeedsAsync $argument) { return $true }
             }
@@ -4255,6 +4395,8 @@ function Test-OtterJsBodyNeedsAsync {
             return $true
         }
         if ($s.Kind -eq [NodeKind]::CallStatement) {
+            if ($s.Call -and (Test-OtterJsAsyncFunction -Name $s.Call.Name)) { return $true }
+            foreach ($arg in $s.Call.Arguments) { if (Test-OtterJsExpressionNeedsAsync $arg) { return $true } }
             foreach ($arg in $s.Arguments) {
                 if (Test-OtterJsExpressionNeedsAsync $arg) { return $true }
             }
@@ -4443,8 +4585,87 @@ function otterParseCli(args) {
 "@
 }
 
+# ---------------------------------------------------------------------------
+# Async functions across a whole program.
+#
+# A function that reads a file (or does any other awaited operation) compiles
+# to an `async function`. Before this, its CALLERS never awaited it: `load
+# data make board` bound a Promise to `board`, the caller ran on before the
+# read finished, and a failure inside it escaped `try ... otherwise`. A
+# function is async when its own body needs it OR it calls an async function
+# (a fixpoint over the call graph), and every call to one is awaited. Handler
+# bodies nested in a function (`when x is clicked`) are their own async
+# arrows, so calls inside them do not make the enclosing function async.
+# ---------------------------------------------------------------------------
+
+$script:OtterJsAsyncFunctions = $null
+
+# Calls (statement or expression) made directly by these statements, not
+# counting nested function definitions or nested `when` handler bodies.
+function Get-OtterJsDirectCallNames {
+    param([Node[]]$Statements)
+    $names = [System.Collections.Generic.HashSet[string]]::new()
+    $stack = [System.Collections.Generic.Stack[object]]::new()
+    foreach ($s in @($Statements)) { if ($null -ne $s) { $stack.Push($s) } }
+    while ($stack.Count -gt 0) {
+        $node = $stack.Pop()
+        if ($node -is [FunctionDefStmt] -or $node -is [WhenStmt]) { continue }
+        if ($node -is [CallExpr]) { [void]$names.Add($node.Name) }
+        foreach ($prop in $node.PSObject.Properties) {
+            $value = $prop.Value
+            if ($value -is [Node] -or $value -is [IfBranch]) { $stack.Push($value) }
+            elseif ($value -is [System.Collections.IEnumerable] -and $value -isnot [string]) {
+                foreach ($item in $value) { if ($item -is [Node] -or $item -is [IfBranch]) { $stack.Push($item) } }
+            }
+        }
+    }
+    return , $names
+}
+
+function Initialize-OtterJsAsyncFunctions {
+    param([Node[]]$Statements)
+    $functions = @{}
+    $stack = [System.Collections.Generic.Stack[object]]::new()
+    foreach ($s in @($Statements)) { if ($null -ne $s) { $stack.Push($s) } }
+    while ($stack.Count -gt 0) {
+        $node = $stack.Pop()
+        if ($node -is [FunctionDefStmt]) { $functions[$node.Name] = $node }
+        foreach ($prop in $node.PSObject.Properties) {
+            $value = $prop.Value
+            if ($value -is [Node] -or $value -is [IfBranch]) { $stack.Push($value) }
+            elseif ($value -is [System.Collections.IEnumerable] -and $value -isnot [string]) {
+                foreach ($item in $value) { if ($item -is [Node] -or $item -is [IfBranch]) { $stack.Push($item) } }
+            }
+        }
+    }
+    $async = [System.Collections.Generic.HashSet[string]]::new()
+    $calls = @{}
+    foreach ($name in $functions.Keys) {
+        if (Test-OtterJsBodyNeedsAsync -Statements $functions[$name].Body) { [void]$async.Add($name) }
+        $calls[$name] = Get-OtterJsDirectCallNames -Statements $functions[$name].Body
+    }
+    $changed = $true
+    while ($changed) {
+        $changed = $false
+        foreach ($name in $functions.Keys) {
+            if ($async.Contains($name)) { continue }
+            foreach ($callee in $calls[$name]) {
+                if ($async.Contains($callee)) { [void]$async.Add($name); $changed = $true; break }
+            }
+        }
+    }
+    $script:OtterJsAsyncFunctions = $async
+}
+
+function Clear-OtterJsAsyncFunctions { $script:OtterJsAsyncFunctions = $null }
+
+function Test-OtterJsAsyncFunction {
+    param([string]$Name)
+    return ($null -ne $script:OtterJsAsyncFunctions -and $script:OtterJsAsyncFunctions.Contains($Name))
+}
+
 Export-ModuleMember -Function `
     ConvertTo-OtterJsExpression, ConvertTo-OtterJsStatement, `
     Get-OtterJsBindingNames, Get-OtterJsTopLevelGlobalNames, `
     ConvertTo-OtterCommandLineArguments, Get-OtterJsCliPreamble, `
-    Get-OtterJsCryptoRuntime, Set-OtterJsRuntimeUiNames
+    Get-OtterJsCryptoRuntime, Initialize-OtterJsAsyncFunctions, Clear-OtterJsAsyncFunctions, Set-OtterJsRuntimeUiNames

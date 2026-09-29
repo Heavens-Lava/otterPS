@@ -1459,5 +1459,68 @@ Test-Otter 'declarative counter app with reactivity and native WPF animations' {
     Assert-AreEqual -Expected 'Collapsed' -Actual $menuSubpanel.Parent.Visibility.ToString()
 }
 
+# =================================================================
+# hide / show / focus / clear (D56 amendment, proposed for Otter 1.1)
+# =================================================================
+
+Import-Module (Join-Path $PSScriptRoot '..\src\Otter.Lexer.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot '..\src\Otter.Parser.psm1') -Force
+
+function Invoke-TestSource {
+    param([string]$Source)
+    $ast = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $Source)
+    return (Invoke-TestProgramWithEnv @($ast.Statements))
+}
+
+Test-Otter 'hide collapses a placed resource and show brings it back' {
+    $r = Invoke-TestSource @'
+create window into app
+create row into bar
+create button into go
+put go in bar
+put bar in app
+hide go
+'@
+    $go = $r.Env.Get('go')
+    Assert-AreEqual -Expected 'Collapsed' -Actual ([string]$go.Native.Visibility)
+    $null = Invoke-OtterProgram -Program ([ProgramNode]::new(@([ShowStmt]::new([VariableExpr]::new('go', 1), 1)))) -Environment $r.Env
+    Assert-AreEqual -Expected 'Visible' -Actual ([string]$go.Native.Visibility)
+}
+
+Test-Otter 'clear empties a row, a column and a text box, and clear on a list empties the list' {
+    $r = Invoke-TestSource @'
+create window into app
+create column into stack
+create text into first
+create text into second
+put first in stack
+put second in stack
+put stack in app
+create text box into entry
+text of entry is "typed"
+names are
+    "a"
+    "b"
+.
+clear stack
+clear entry
+clear names
+'@
+    Assert-AreEqual -Expected 0 -Actual $r.Env.Get('stack').Native.Children.Count
+    Assert-AreEqual -Expected '' -Actual ([string]$r.Env.Get('entry').Native.Text)
+    Assert-AreEqual -Expected 0 -Actual $r.Env.Get('names').Count
+}
+
+Test-Otter 'focus asks for keyboard focus, and hide on something that is not UI is an Otter error' {
+    $r = Invoke-TestSource @'
+create text box into entry
+focus entry
+'@
+    Assert-True (Test-OtterUiResource $r.Env.Get('entry')) 'focus ran on a real text box without an error'
+    Assert-OtterFails -Containing 'I can only hide a UI resource, but this is a number' -Body {
+        Invoke-TestSource "total is 3`nhide total`n" | Out-Null
+    }
+}
+
 Complete-OtterTests
 

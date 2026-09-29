@@ -1282,6 +1282,17 @@ function Get-OtterUiPlaceholder {
 function Show-OtterUiResource {
     param([OtterUiResource]$Resource, [int]$Line)
 
+    # A resource that is placed somewhere (and may have been hidden) is
+    # revealed where it is; showing one that is in nothing still says that
+    # only a window is shown on its own.
+    if ($Resource.Kind -ne 'window') {
+        $element = Get-OtterUiElementForParent -Resource $Resource
+        if ($null -ne $element.Parent) {
+            $element.Visibility = [System.Windows.Visibility]::Visible
+            return
+        }
+    }
+
     if ($Resource.Kind -ne 'window') {
         throw [OtterError]::new(
             "I can only show a window right now, not a $($Resource.Kind).", $Line, 'runtime')
@@ -1295,6 +1306,38 @@ function Show-OtterUiResource {
         throw [OtterError]::new(
             "This window has already been closed, so it can't be shown again.", $Line, 'runtime')
     }
+}
+
+
+# hide x / focus x / clear x                      (D56 amendment, proposed for 1.1)
+#
+# hide: a window closes its view (Hide); anything else collapses where it is
+# and `show` brings it back. focus: keyboard focus to the control. clear:
+# everything put in a window, row, column or scroll goes; a text box or text
+# area loses its text; a dropdown loses its options.
+function Invoke-OtterUiAction {
+    param([OtterUiResource]$Resource, [string]$Action, [int]$Line)
+
+    switch ($Action) {
+        'show' { Show-OtterUiResource -Resource $Resource -Line $Line; return }
+        'hide' {
+            if ($Resource.Kind -eq 'window') { $Resource.Native.Hide(); return }
+            (Get-OtterUiElementForParent -Resource $Resource).Visibility = [System.Windows.Visibility]::Collapsed
+            return
+        }
+        'focus' { [void]$Resource.Native.Focus(); return }
+        'clear' {
+            switch ($Resource.Kind) {
+                { $_ -in @('window', 'row', 'column') } { (Get-OtterUiContainerPanel -Container $Resource).Children.Clear(); return }
+                'scroll' { $Resource.Native.Content = $null; return }
+                { $_ -in @('text box', 'text area') } { $Resource.Native.Text = ''; return }
+                'dropdown' { $Resource.Native.Items.Clear(); return }
+            }
+            throw [OtterError]::new(
+                "I can only clear a window, row, column, scroll, text box, text area or dropdown, not a $($Resource.Kind).", $Line, 'runtime')
+        }
+    }
+    throw [OtterError]::new("'$Action' is not something Otter can do to a UI resource.", $Line, 'runtime')
 }
 
 
@@ -2013,6 +2056,6 @@ function Show-OtterDeclarativeAppWpf {
 Export-ModuleMember -Function `
     Test-OtterUiResource, New-OtterUiResourceValue, Initialize-OtterWpfProvider, `
     Get-OtterUiProperty, Set-OtterUiProperty, Add-OtterUiEventHandler, `
-    Add-OtterUiChild, Show-OtterUiResource, `
+    Add-OtterUiChild, Show-OtterUiResource, Invoke-OtterUiAction, `
     Add-OtterUiAnimationWpf, ConvertTo-OtterDeclarativeElementWpf, ConvertTo-OtterWpfElement, `
     Get-OtterUiExpressionValue, ConvertTo-OtterWpfWindow, Show-OtterDeclarativeAppWpf

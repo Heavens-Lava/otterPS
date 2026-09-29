@@ -18,6 +18,115 @@ function Escape-OtterHtmlAttr {
     return $Text -replace '&', '&amp;' -replace '"', '&quot;' -replace '<', '&lt;' -replace '>', '&gt;'
 }
 
+# "ctrl + k" -> "Ctrl+k": the canonical spelling the page's shortcut listener
+# compares against (src/web/otter-ui.js otterNormalizeShortcut does the same
+# for shortcuts set while the program runs).
+function ConvertTo-OtterShortcutText {
+    param([string]$Text)
+    $mods = [System.Collections.Generic.List[string]]::new()
+    $key = ''
+    foreach ($part in ($Text -split '\+')) {
+        $p = $part.Trim()
+        if (-not $p) { continue }
+        switch ($p.ToLowerInvariant()) {
+            { $_ -in @('ctrl', 'control', 'cmd', 'command') } { if (-not $mods.Contains('Ctrl')) { $mods.Add('Ctrl') }; continue }
+            { $_ -in @('alt', 'option') } { $mods.Add('Alt'); continue }
+            'shift' { $mods.Add('Shift'); continue }
+            'esc' { $key = 'escape'; continue }
+            'del' { $key = 'delete'; continue }
+            default { $key = $p.ToLowerInvariant() }
+        }
+    }
+    $ordered = @('Ctrl', 'Alt', 'Shift') | Where-Object { $mods.Contains($_) }
+    return ((@($ordered) + @($key)) -join '+')
+}
+
+# The properties every UI kind shares that are attributes rather than CSS:
+# `style` (named styles from the project's stylesheet; `class` is the older
+# spelling), `hidden`, `enabled`, `tooltip`, `label` (accessible name) and
+# `shortcut`. Added to the element's outermost tag - for a checkbox, toggle
+# or radio that is its <label>, while `enabled` and `label` also reach the
+# <input> that carries the id.
+function Add-OtterWebCommonAttributes {
+    param([string]$Html, [string]$ResName, [string]$Kind, $Props)
+    if (-not $Html -or $null -eq $Props) { return $Html }
+    $isTrue = { param($v) $v -eq $true -or "$v" -eq 'true' -or "$v" -eq 'yes' }
+    $extraClasses = [System.Collections.Generic.List[string]]::new()
+    foreach ($styleWord in @('style', 'class')) {
+        if ($Props.Contains($styleWord) -and "$($Props[$styleWord])".Trim()) {
+            foreach ($c in ("$($Props[$styleWord])" -split '\s+')) { if ($c -and -not $extraClasses.Contains($c)) { $extraClasses.Add((Escape-OtterHtmlAttr -Text $c)) } }
+        }
+    }
+    if ($Props.Contains('hidden') -and (& $isTrue $Props['hidden'])) { $extraClasses.Add('otter-hidden') }
+    if ($Props.Contains('visible') -and -not (& $isTrue $Props['visible'])) { $extraClasses.Add('otter-hidden') }
+    $disabled = ($Props.Contains('enabled') -and -not (& $isTrue $Props['enabled']))
+    if ($disabled) { $extraClasses.Add('otter-disabled') }
+
+    $outerAttrs = ''
+    if ($Props.Contains('tooltip')) {
+        $tip = Escape-OtterHtmlAttr -Text ([string]$Props['tooltip'])
+        $outerAttrs += " title=`"$tip`""
+        if ($Kind -eq 'button' -and -not ($Props.Contains('text') -and "$($Props['text'])".Trim())) { $outerAttrs += " aria-label=`"$tip`"" }
+    }
+    if ($Props.Contains('shortcut') -and "$($Props['shortcut'])".Trim()) {
+        $outerAttrs += " data-otter-shortcut=`"$(Escape-OtterHtmlAttr -Text (ConvertTo-OtterShortcutText -Text ([string]$Props['shortcut'])))`""
+    }
+    if ($disabled) { $outerAttrs += ' aria-disabled="true"' }
+
+    # The outermost tag is the first tag in the rendered fragment.
+    $tagStart = $Html.IndexOf('<')
+    $tagEnd = if ($tagStart -ge 0) { $Html.IndexOf('>', $tagStart) } else { -1 }
+    if ($tagEnd -gt $tagStart) {
+        $openTag = $Html.Substring($tagStart, $tagEnd - $tagStart)
+        $newTag = $openTag
+        if ($extraClasses.Count -gt 0) {
+            $classMatch = [regex]::Match($newTag, 'class="([^"]*)"')
+            if ($classMatch.Success) {
+                $newTag = $newTag.Remove($classMatch.Index, $classMatch.Length).Insert($classMatch.Index, "class=`"$($classMatch.Groups[1].Value) $($extraClasses -join ' ')`"")
+            } else {
+                $newTag += " class=`"$($extraClasses -join ' ')`""
+            }
+        }
+        if ($newTag.EndsWith('/')) { $newTag = $newTag.Substring(0, $newTag.Length - 1).TrimEnd() + "$outerAttrs /" } else { $newTag += $outerAttrs }
+        $Html = $Html.Substring(0, $tagStart) + $newTag + $Html.Substring($tagEnd)
+    }
+
+    # The element that carries the id: disabled state and accessible label.
+    $idAttrs = ''
+    if ($disabled -and $Kind -in @('button', 'text box', 'text area', 'textarea', 'checkbox', 'check box', 'toggle', 'switch', 'radio', 'radio button', 'dropdown', 'drop down', 'select', 'slider', 'range')) { $idAttrs += ' disabled' }
+    if ($Props.Contains('label')) { $idAttrs += " aria-label=`"$(Escape-OtterHtmlAttr -Text ([string]$Props['label']))`"" }
+    if ($idAttrs) {
+        $idMarker = "id=`"$ResName`""
+        $at = $Html.IndexOf($idMarker)
+        if ($at -ge 0) { $Html = $Html.Insert($at + $idMarker.Length, $idAttrs) }
+    }
+    return $Html
+}
+
+# Every node under the given statements, depth first: bodies of functions,
+# handlers, loops and branches included. Walks any property holding a Node or
+# a Node[], so new statement shapes are covered without being listed here.
+function Get-OtterWebAllNodes {
+    param([object[]]$Nodes)
+    $result = [System.Collections.Generic.List[object]]::new()
+    $stack = [System.Collections.Generic.Stack[object]]::new()
+    # IfBranch and friends are not Nodes but hold Node bodies.
+    $isWalkable = { param($v) $v -is [Node] -or $v -is [IfBranch] }
+    foreach ($n in @($Nodes)) { if (& $isWalkable $n) { $stack.Push($n) } }
+    while ($stack.Count -gt 0) {
+        $node = $stack.Pop()
+        if ($node -is [Node]) { $result.Add($node) }
+        foreach ($prop in $node.PSObject.Properties) {
+            $value = $prop.Value
+            if (& $isWalkable $value) { $stack.Push($value) }
+            elseif ($value -is [System.Collections.IEnumerable] -and $value -isnot [string]) {
+                foreach ($item in $value) { if (& $isWalkable $item) { $stack.Push($item) } }
+            }
+        }
+    }
+    return , $result
+}
+
 # RC3 B9: HTML-escape text placed between tags (the page <title> and the
 # header <h1>). The title comes straight from `title is "..."` or from the
 # entry file's name, and was written raw: a title such as
@@ -426,9 +535,82 @@ function Get-OtterRunnableJs {
 function Get-OtterWebRuntimeUiJs {
     return @'
     let otterUiCounter = 0;
+    // Kind words as written -> the one kind they mean.
+    const otterUiKindWords = {
+      'check box': 'checkbox', 'drop down': 'dropdown', 'select': 'dropdown', 'range': 'slider',
+      'textarea': 'text area', 'tag': 'badge', 'progress bar': 'progress', 'switch': 'toggle',
+      'radio button': 'radio', 'modal': 'dialog'
+    };
+    // The otter-* class a rendered element carries -> its kind.
+    const otterUiClassKinds = [
+      ['otter-page', 'page'], ['otter-window', 'window'], ['otter-card', 'card'],
+      ['otter-row', 'row'], ['otter-column', 'column'], ['otter-scroll', 'scroll'],
+      ['otter-button', 'button'], ['otter-text-box', 'text box'], ['otter-text-area', 'text area'],
+      ['otter-textarea', 'text area'], ['otter-text', 'text'], ['otter-image', 'image'], ['otter-link', 'link'],
+      ['otter-checkbox', 'checkbox'], ['otter-toggle', 'toggle'], ['otter-radio', 'radio'],
+      ['otter-select', 'dropdown'], ['otter-dropdown', 'dropdown'], ['otter-slider', 'slider'], ['otter-badge', 'badge'],
+      ['otter-progress', 'progress'], ['otter-canvas', 'canvas'], ['otter-icon', 'icon'], ['otter-list', 'list'],
+      ['otter-table', 'table'], ['otter-dialog', 'dialog'], ['otter-panel', 'panel']
+    ];
+    function otterUiCanonicalKind(word) { const w = String(word).toLowerCase(); return otterUiKindWords[w] || w; }
     function otterIsUi(v) { return !!(v && typeof v === 'object' && v.__otterUi); }
     function otterUiKindOf(v) { return otterIsUi(v) ? v.kind : ''; }
-    function otterUiTypeName(v) { return (v && typeof v === 'object' && v.__otterThing) ? 'a thing' : (v === null || v === undefined) ? 'gone' : (typeof v === 'number') ? 'a number' : (typeof v === 'string') ? 'some text' : 'something else'; }
+    function otterUiTypeName(v) {
+      if (v === null || v === undefined) { return 'gone'; }
+      if (otterIsUi(v)) { return 'a ' + v.kind; }
+      if (typeof v === 'number') { return 'a number'; }
+      if (typeof v === 'string') { return 'some text'; }
+      if (typeof v === 'boolean') { return 'true or false'; }
+      if (Array.isArray(v)) { return 'a list'; }
+      if (typeof v === 'object' && v.__otterThing) { return (v.typeName && v.typeName !== 'thing') ? 'a ' + v.typeName : 'a thing'; }
+      if (typeof v === 'object' && v.__otterDate) { return 'a date'; }
+      return 'something else';
+    }
+    // An element the compiler rendered: only elements with an otter-* class
+    // count, so an icon sprite's <symbol id="settings"> is never mistaken
+    // for a UI resource called settings.
+    function otterIsOtterElement(el) {
+      if (!el || typeof el.getAttribute !== 'function') { return false; }
+      return /(^|\s)otter-/.test(el.getAttribute('class') || '');
+    }
+    function otterUiElementKind(el) {
+      const cls = (el && typeof el.getAttribute === 'function') ? ' ' + (el.getAttribute('class') || '') + ' ' : '';
+      for (const pair of otterUiClassKinds) { if (cls.indexOf(' ' + pair[0] + ' ') >= 0) { return pair[1]; } }
+      return '';
+    }
+    // The handle for an element the compiler rendered under this name: made
+    // once and kept, so the same element is always the same value.
+    const otterUiStatic = new Map();
+    function otterUiStaticHandle(id) {
+      const el = document.getElementById(id);
+      if (!otterIsOtterElement(el)) { return null; }
+      const known = otterUiStatic.get(id);
+      if (known && known.el === el) { return known; }
+      const wrap = el.closest ? el.closest('label.otter-checkbox-label, label.otter-toggle-label, label.otter-radio-label, .otter-runnable') : null;
+      const root = wrap || el;
+      const handle = { __otterUi: true, kind: otterUiElementKind(el) || otterUiElementKind(root) || 'element', root: root, el: el, id: id };
+      otterUiStatic.set(id, handle);
+      return handle;
+    }
+    // What a name or value refers to as UI: the handle it holds, or - for a
+    // name the compiler rendered (staticName) - that element. Anything else
+    // is returned as it is, so the operation can say what it got instead.
+    function otterUiRef(value, staticName) {
+      if (otterIsUi(value)) { return value; }
+      if (staticName) { const h = otterUiStaticHandle(staticName); if (h) { return h; } }
+      return value;
+    }
+    // Like otterUiRef, but null when it is not UI (property reads and writes
+    // then treat the value as a thing, date, ... instead).
+    function otterUiOf(value, staticName) {
+      const r = otterUiRef(value, staticName);
+      return otterIsUi(r) ? r : null;
+    }
+    function otterUiHandle(ref) {
+      if (otterIsUi(ref)) { return ref; }
+      if (typeof ref === 'string') { return otterUiStaticHandle(ref); }
+      return null;
+    }
     function otterCreateUi(kind, variant) {
       const html = otterUiTemplates[kind];
       if (html === undefined) { throw new Error('I do not know how to create a ' + kind + ' on the web target.'); }
@@ -437,19 +619,13 @@ function Get-OtterWebRuntimeUiJs {
       const root = t.content.firstElementChild;
       const el = root.id === '__otter_rt__' ? root : root.querySelector('#__otter_rt__');
       const id = 'otter-ui-' + (++otterUiCounter);
-      el.id = id;
-      if (variant) { el.classList.add('otter-button-' + variant); }
-      return { __otterUi: true, kind: kind, root: root, el: el || root, id: id };
+      (el || root).id = id;
+      if (variant) { (el || root).classList.add('otter-button-' + variant); }
+      return { __otterUi: true, kind: otterUiCanonicalKind(kind), root: root, el: el || root, id: id };
     }
     // The outermost element of a resource: what gets moved by `put`, hidden
     // by `hide` and styled (a checkbox's label, not its input).
-    function otterUiRoot(ref) {
-      if (otterIsUi(ref)) { return ref.root; }
-      const el = document.getElementById(ref);
-      if (!el) { return null; }
-      const wrap = el.closest ? el.closest('label.otter-checkbox-label, label.otter-toggle-label, label.otter-radio-label, .otter-runnable') : null;
-      return wrap || el;
-    }
+    function otterUiRoot(ref) { const h = otterUiHandle(ref); return h ? h.root : null; }
     // Where children go: windows and pages hold them in their content area.
     function otterUiContent(root) {
       if (!root || !root.classList) { return root; }
@@ -457,94 +633,221 @@ function Get-OtterWebRuntimeUiJs {
       if (root.classList.contains('otter-page')) { return root.querySelector(':scope > .otter-page-content') || root; }
       return root;
     }
-    function otterUiKind(ref, root) {
-      if (otterIsUi(ref)) { return ref.kind; }
-      const c = root && root.classList ? root.classList : null;
-      if (!c) { return ''; }
-      if (c.contains('otter-row')) { return 'row'; }
-      if (c.contains('otter-column')) { return 'column'; }
-      if (c.contains('otter-card')) { return 'card'; }
-      if (c.contains('otter-window')) { return 'window'; }
-      if (c.contains('otter-page')) { return 'page'; }
-      return '';
+    function otterUiRequire(ref, what) {
+      const h = otterUiHandle(ref);
+      if (!h) { throw new Error('I can only ' + what + ' a UI resource, but this is ' + otterUiTypeName(ref) + '.'); }
+      return h;
     }
     function otterUiPx(v) { return (typeof v === 'number') ? (v + 'px') : String(v); }
-    function otterUiTrue(v) { return v === true || v === 'true'; }
+    function otterUiTrue(v) { return v === true || v === 'true' || v === 'yes'; }
     function otterPutIn(item, container) {
-      const itemRoot = (otterIsUi(item) || typeof item === 'string') ? otterUiRoot(item) : null;
-      if (!itemRoot) { throw new Error('I can only put a UI resource somewhere, but this is ' + otterUiTypeName(item) + '.'); }
-      const holder = (otterIsUi(container) || typeof container === 'string') ? otterUiRoot(container) : null;
+      const it = otterUiHandle(item);
+      if (!it) { throw new Error('I can only put a UI resource somewhere, but this is ' + otterUiTypeName(item) + '.'); }
+      const holder = otterUiHandle(container);
       if (!holder) { throw new Error('I can only put something in a UI resource, but this is ' + otterUiTypeName(container) + '.'); }
-      otterUiContent(holder).appendChild(itemRoot);
+      if (it.root === holder.root || it.root.contains(holder.root)) { throw new Error('I cannot put a ' + it.kind + ' inside itself.'); }
+      if (it.root.isConnected && it.root.parentNode) {
+        throw new Error('A ' + it.kind + ' can only be in one place at a time, and this one is already somewhere. Remove it from there first.');
+      }
+      otterUiContent(holder.root).appendChild(it.root);
+    }
+    // remove <item> from <container>
+    function otterRemoveUi(item, container) {
+      const it = otterUiRequire(item, 'remove');
+      const holder = otterUiRequire(container, 'remove things from');
+      const content = otterUiContent(holder.root);
+      if (it.root.parentNode !== content) {
+        throw new Error('That ' + it.kind + ' is not in this ' + holder.kind + ', so it cannot be removed from it.');
+      }
+      content.removeChild(it.root);
+    }
+    // clear <container>: everything put in it goes; a dropdown loses its
+    // options and a text box its text.
+    function otterClearUi(container) {
+      const h = otterUiRequire(container, 'clear');
+      if (h.kind === 'dropdown') { h.el.replaceChildren(); return; }
+      if (h.kind === 'text box' || h.kind === 'text area') { h.el.value = ''; return; }
+      otterUiContent(h.root).replaceChildren();
     }
     function otterUiAction(ref, action) {
-      const root = (otterIsUi(ref) || typeof ref === 'string') ? otterUiRoot(ref) : null;
-      if (!root) {
-        if (action === 'show') { throw new Error('I can only show a UI resource, but this is ' + otterUiTypeName(ref) + '.'); }
-        throw new Error('I can only ' + action + ' a UI resource, but this is ' + otterUiTypeName(ref) + '.');
+      // clear on a list empties it.
+      if (action === 'clear' && Array.isArray(ref)) { ref.length = 0; return; }
+      const h = otterUiHandle(ref);
+      if (!h) { throw new Error('I can only ' + action + ' a UI resource, but this is ' + otterUiTypeName(ref) + '.'); }
+      const root = h.root;
+      if (action === 'clear') { otterClearUi(h); return; }
+      if (action === 'hide') {
+        root.classList.add('otter-hidden');
+        if (root.tagName === 'DIALOG' && root.open && root.close) { root.close(); }
+        return;
       }
-      if (action === 'hide') { root.style.display = 'none'; return; }
-      if (action === 'focus') { const el = otterGetElement(ref); if (el && el.focus) { el.focus(); } return; }
+      if (action === 'focus') {
+        if (h.el.focus) { h.el.focus(); }
+        if (h.el.select && (h.el.tagName === 'INPUT' || h.el.tagName === 'TEXTAREA')) { h.el.select(); }
+        return;
+      }
       root.hidden = false;
+      root.classList.remove('otter-hidden');
       if (root.style.display === 'none') { root.style.display = ''; }
       if (root.tagName === 'DIALOG' && !root.open && root.showModal) { root.showModal(); }
     }
+    // when <resource> <event>, registered while the page runs. Otter's event
+    // words (clicked, changed, submitted, hovered, and the drag words) or a
+    // DOM event name. A failing handler is an unhandled rejection, reported
+    // like every other page error.
     function otterOnUi(ref, eventName, handler) {
-      const el = (otterIsUi(ref) || typeof ref === 'string') ? otterGetElement(ref) : null;
-      if (!el) { throw new Error('I can only listen for an event on a UI resource or command job, but this is ' + otterUiTypeName(ref) + '.'); }
-      el.addEventListener(eventName, handler);
-    }
-    function otterUiLayout(root, kind, prop, value) {
-      const s = root.style;
-      const isRow = kind === 'row';
-      if (prop === 'spacing') { s.gap = otterUiPx(value); return true; }
-      if (prop === 'wrap') { s.flexWrap = (otterUiTrue(value) || value === 'wrap') ? 'wrap' : 'nowrap'; return true; }
-      if (prop === 'spread') { if (otterUiTrue(value)) { s.justifyContent = 'space-between'; } return true; }
-      if (prop === 'justify') { s.justifyContent = value; return true; }
-      if (prop === 'alignitems' || prop === 'items') { s.alignItems = value; return true; }
-      if (prop === 'align') {
-        const map = { left: 'flex-start', center: 'center', right: 'flex-end', top: 'flex-start', middle: 'center', bottom: 'flex-end' };
-        const horizontal = value === 'left' || value === 'center' || value === 'right';
-        if (map[value] === undefined) { s.textAlign = value; return true; }
-        if (horizontal === isRow) { s.justifyContent = map[value]; } else { s.alignItems = map[value]; }
-        return true;
+      const h = otterUiHandle(ref);
+      if (!h) { throw new Error('I can only listen for an event on a UI resource or command job, but this is ' + otterUiTypeName(ref) + '.'); }
+      const word = String(eventName).toLowerCase();
+      const el = h.el;
+      if (word === 'clicked' || word === 'click') { el.addEventListener('click', handler); return; }
+      if (word === 'changed' || word === 'input') { el.addEventListener('input', handler); return; }
+      if (word === 'submitted') {
+        el.addEventListener('keydown', (event) => {
+          if (event.key !== 'Enter' || event.isComposing) { return; }
+          if (el.tagName === 'TEXTAREA' && !(event.ctrlKey || event.metaKey)) { return; }
+          event.preventDefault();
+          return handler(event);
+        });
+        return;
       }
-      return false;
+      if (word === 'hovered') { h.root.addEventListener('mouseenter', handler); return; }
+      if (word === 'drag' || word === 'drop' || word === 'files dropped') {
+        const target = h.root;
+        target.addEventListener(word === 'drag' ? 'dragstart' : 'drop', (event) => {
+          if (word === 'drop' && !otterIsItemDrop(event)) { return; }
+          if (word === 'files dropped' && !otterIsFileDrop(event)) { return; }
+          if (word === 'drag') { event.stopPropagation(); }
+          window.otterDragCtx = otterMakeDragCtx(event, target, word);
+          return handler(event);
+        });
+        return;
+      }
+      el.addEventListener(word, handler);
     }
+    // Row and column placement (D54): `align` names a side, and its word
+    // decides the axis; `spread` spaces the children out. Kept per element
+    // so later writes combine with earlier ones as they do in a declaration.
+    function otterUiLayout(root, kind, prop, value) {
+      if (!['align', 'spread', 'justify', 'alignitems', 'items', 'spacing', 'gap', 'wrap'].includes(prop)) { return false; }
+      const s = root.style;
+      if (prop === 'spacing' || prop === 'gap') { s.gap = otterUiPx(value); return true; }
+      if (prop === 'wrap') { s.flexWrap = (otterUiTrue(value) || value === 'wrap') ? 'wrap' : 'nowrap'; return true; }
+      const p = root.__otterLayout || (root.__otterLayout = {});
+      p[prop] = value;
+      const isRow = kind === 'row';
+      const dir = p.align === undefined ? null : String(p.align);
+      const spread = otterUiTrue(p.spread);
+      const mainWords = isRow ? { left: 'flex-start', center: 'center', right: 'flex-end' } : { top: 'flex-start', middle: 'center', bottom: 'flex-end' };
+      const crossWords = isRow ? { top: 'flex-start', middle: 'center', bottom: 'flex-end' } : { left: 'flex-start', center: 'center', right: 'flex-end' };
+      if (spread && dir && dir in mainWords) {
+        throw new Error((isRow ? 'Horizontal' : 'Vertical') + " alignment 'align " + dir + "' conflicts with 'spread' on a " + kind + '.');
+      }
+      let justify = null;
+      if (spread) { justify = 'space-between'; }
+      else if (dir && dir in mainWords) { justify = mainWords[dir]; }
+      else if (p.justify !== undefined) { justify = String(p.justify); }
+      let align = null;
+      if (dir && dir in crossWords) { align = crossWords[dir]; }
+      else if (p.alignitems !== undefined) { align = String(p.alignitems); }
+      else if (p.items !== undefined) { align = String(p.items); }
+      if (justify !== null) { s.justifyContent = justify; }
+      if (align !== null) { s.alignItems = align; }
+      return true;
+    }
+    function otterUiSvg(tag) { return document.createElementNS('http://www.w3.org/2000/svg', tag); }
     function otterSetUiProp(ref, prop, value) {
-      const el = otterGetElement(ref);
-      if (!el) { return; }
-      const root = otterUiRoot(ref) || el;
-      const kind = otterUiKind(ref, root);
+      const h = otterUiHandle(ref);
+      if (!h) { return; }
+      const el = h.el;
+      const root = h.root;
+      const kind = h.kind;
       const p = String(prop).toLowerCase();
       const s = root.style;
       if ((kind === 'row' || kind === 'column') && otterUiLayout(root, kind, p, value)) { return; }
       if (p === 'spacing' && (kind === 'window' || kind === 'page' || kind === 'card')) { s.gap = otterUiPx(value); otterUiContent(root).style.gap = otterUiPx(value); return; }
+      if (kind === 'icon') {
+        if (p === 'name') { const use = root.querySelector('use'); if (use) { use.setAttribute('href', '#' + String(value)); } return; }
+        if (p === 'size') { s.width = otterUiPx(value); s.height = otterUiPx(value); return; }
+        if (p === 'label') { root.setAttribute('role', 'img'); root.setAttribute('aria-label', String(value)); root.removeAttribute('aria-hidden'); return; }
+      }
+      // `icon "name"` on a button or link: a symbol before the label, which
+      // moves into its own span so text changes leave the icon alone.
+      if (p === 'icon' && (kind === 'button' || kind === 'link')) {
+        let svg = root.querySelector(':scope > .otter-icon');
+        if (value === null || value === '') { if (svg) { svg.remove(); } root.classList.remove('otter-has-icon'); return; }
+        if (!svg) {
+          svg = otterUiSvg('svg');
+          svg.setAttribute('class', 'otter-icon');
+          svg.setAttribute('aria-hidden', 'true');
+          svg.appendChild(otterUiSvg('use'));
+          if (!root.querySelector(':scope > .otter-button-text')) {
+            const words = root.textContent;
+            root.textContent = '';
+            root.appendChild(svg);
+            if (words.trim()) { const span = document.createElement('span'); span.className = 'otter-button-text'; span.textContent = words; root.appendChild(span); }
+          } else {
+            root.insertBefore(svg, root.firstChild);
+          }
+          root.classList.add('otter-has-icon');
+        }
+        svg.querySelector('use').setAttribute('href', '#' + String(value));
+        return;
+      }
       switch (p) {
         case 'text':
         case 'value':
           if (el.type === 'checkbox' || el.type === 'radio') {
-            if (p === 'value') { el.checked = otterUiTrue(value); return; }
-            const span = root.querySelector('span:last-of-type'); if (span) { span.textContent = value; } return;
+            if (p === 'value' || typeof value === 'boolean') { el.checked = otterUiTrue(value); return; }
+            const span = root.querySelector(':scope > span:last-of-type'); if (span) { span.textContent = value; } return;
           }
           if (el.tagName === 'PROGRESS' || el.type === 'range') { el.value = value; return; }
-          // On the element itself, like otterSetText: a runtime element is
-          // often not in the page yet when its properties are set.
-          if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT') { el.value = value; } else { el.textContent = value; }
+          // On the element itself: a runtime element is often not in the
+          // page yet when its properties are set.
+          otterSetText(el, value);
           return;
-        case 'placeholder': el.placeholder = value; return;
+        case 'placeholder': el.placeholder = value === null ? '' : value; return;
         case 'title':
           if (kind === 'card') {
-            let h = root.querySelector(':scope > .otter-card-title');
-            if (!h) { h = document.createElement('h3'); h.className = 'otter-card-title'; root.insertBefore(h, root.firstChild); }
-            h.textContent = value; return;
+            let t = root.querySelector(':scope > .otter-card-title');
+            if (!t) { t = document.createElement('h3'); t.className = 'otter-card-title'; root.insertBefore(t, root.firstChild); }
+            t.textContent = value; return;
           }
-          if (kind === 'window' || kind === 'page') { const t = root.querySelector('.otter-title'); if (t) { t.textContent = value; } return; }
+          if (kind === 'window' || kind === 'page') { const t = root.querySelector('.otter-title'); if (t) { t.textContent = value; } document.title = value; return; }
           el.title = value; return;
+        case 'tooltip':
+          root.title = value === null ? '' : String(value);
+          if (!root.textContent.trim()) { el.setAttribute('aria-label', String(value)); }
+          return;
+        case 'label': el.setAttribute('aria-label', String(value)); return;
+        case 'style':
+        case 'class':
+          // Named styles from the project's stylesheet; Otter's own otter-*
+          // classes stay. (`style "italic"` keeps its older meaning.)
+          if (p === 'style' && (value === 'italic' || value === 'normal')) { s.fontStyle = value; return; }
+          for (const c of Array.from(root.classList)) { if (!c.startsWith('otter-')) { root.classList.remove(c); } }
+          for (const c of String(value === null || value === undefined ? '' : value).split(/\s+/)) { if (c) { root.classList.add(c); } }
+          return;
+        case 'hidden': root.classList.toggle('otter-hidden', otterUiTrue(value)); return;
+        case 'visible': root.classList.toggle('otter-hidden', !otterUiTrue(value)); return;
+        case 'enabled': {
+          const on = otterUiTrue(value);
+          if ('disabled' in el) { el.disabled = !on; }
+          root.classList.toggle('otter-disabled', !on);
+          if (on) { root.removeAttribute('aria-disabled'); } else { root.setAttribute('aria-disabled', 'true'); }
+          return;
+        }
+        case 'shortcut':
+          if (value === null || value === '') { delete root.dataset.otterShortcut; return; }
+          root.dataset.otterShortcut = otterNormalizeShortcut(String(value));
+          otterInstallShortcuts();
+          return;
+        case 'variant': root.classList.add('otter-button-' + value); return;
         case 'width': s.width = value === 'full' ? '100%' : otterUiPx(value); if (value === 'full') { s.maxWidth = '100%'; } return;
         case 'height': s.height = value === 'full' ? '100%' : otterUiPx(value); return;
         case 'maxwidth': s.maxWidth = otterUiPx(value); return;
         case 'minwidth': s.minWidth = otterUiPx(value); return;
+        case 'maxheight': s.maxHeight = otterUiPx(value); return;
         case 'minheight': s.minHeight = otterUiPx(value); return;
         case 'background': s.background = value; return;
         case 'foreground': s.color = value; return;
@@ -558,14 +861,16 @@ function Get-OtterWebRuntimeUiJs {
         case 'fontsize': s.fontSize = otterUiPx(value); return;
         case 'weight':
         case 'fontweight': s.fontWeight = value; return;
+        case 'bold': s.fontWeight = otterUiTrue(value) ? '700' : ''; return;
+        case 'italic': s.fontStyle = otterUiTrue(value) ? 'italic' : ''; return;
         case 'fontstyle': s.fontStyle = value; return;
-        case 'style': if (value === 'italic' || value === 'normal') { s.fontStyle = value; } return;
         case 'family':
         case 'fontfamily': s.fontFamily = value; return;
         case 'lineheight': s.lineHeight = value; return;
         case 'letterspacing': s.letterSpacing = value; return;
         case 'whitespace': s.whiteSpace = value; return;
         case 'overflow': s.overflow = value; return;
+        case 'opacity': s.opacity = value; return;
         case 'align': s.textAlign = value; return;
         case 'flex': s.flex = value; s.minWidth = '0'; return;
         case 'grow': s.flexGrow = value; return;
@@ -588,40 +893,184 @@ function Get-OtterWebRuntimeUiJs {
         case 'checked': el.checked = otterUiTrue(value); return;
         case 'min': el.min = value; return;
         case 'max': el.max = value; return;
+        case 'step': el.step = value; return;
         case 'rows': el.rows = value; return;
         case 'group':
         case 'name': if (el.type === 'radio') { el.name = value; return; } break;
         case 'options': {
+          const current = el.value;
           const opts = Array.isArray(value) ? value : String(value).split(',').map(x => x.trim());
-          el.innerHTML = '';
-          for (const o of opts) { const opt = document.createElement('option'); opt.value = String(o); opt.textContent = String(o); el.appendChild(opt); }
+          el.replaceChildren(...opts.map(o => { const opt = document.createElement('option'); opt.value = String(o); opt.textContent = String(o); return opt; }));
+          if (opts.map(String).includes(current)) { el.value = current; }
           return;
         }
-        case 'draggable': if (otterUiTrue(value)) { el.setAttribute('draggable', 'true'); } else { el.removeAttribute('draggable'); } return;
-        case 'accepts drops': if (otterUiTrue(value)) { el.setAttribute('data-otter-accepts-drops', 'true'); } else { el.removeAttribute('data-otter-accepts-drops'); } return;
+        case 'draggable': if (otterUiTrue(value)) { root.setAttribute('draggable', 'true'); } else { root.removeAttribute('draggable'); } return;
+        case 'accepts drops': if (otterUiTrue(value)) { root.setAttribute('data-otter-accepts-drops', 'true'); } else { root.removeAttribute('data-otter-accepts-drops'); } return;
       }
-      // Anything else: as otterSetProperty, on the element itself.
-      if (p === 'url' && el.tagName === 'A') { el.href = value; return; }
-      el[p] = value;
-      if (el.dataset) { el.dataset[p] = value; }
+      // Anything else: kept on the element (readable back, and usable from
+      // the stylesheet as a data-<name> attribute).
+      (root.__otterProps || (root.__otterProps = {}))[p] = value;
+      if (/^[a-z][a-z0-9]*$/.test(p)) { root.dataset[p] = value; }
     }
+    // `<property> of x` on a UI resource.
+    function otterGetUiProp(ref, prop) {
+      const h = otterUiRequire(ref, 'read a property of');
+      const el = h.el;
+      const root = h.root;
+      const kind = h.kind;
+      const p = String(prop).toLowerCase();
+      if (kind === 'icon' && p === 'name') { const use = root.querySelector('use'); return use ? String(use.getAttribute('href') || '').replace(/^#/, '') : ''; }
+      if (p === 'icon' && (kind === 'button' || kind === 'link')) { const use = root.querySelector(':scope > .otter-icon use'); return use ? String(use.getAttribute('href') || '').replace(/^#/, '') : ''; }
+      switch (p) {
+        case 'text':
+        case 'value':
+          if (el.tagName === 'PROGRESS' || el.type === 'range') { return Number(el.value); }
+          if ((el.type === 'checkbox' || el.type === 'radio') && p === 'text' && root !== el) {
+            const span = root.querySelector(':scope > span:last-of-type'); return span ? span.textContent : '';
+          }
+          return otterGetText(el);
+        case 'checked': return !!el.checked;
+        case 'selected': return el.tagName === 'SELECT' ? el.value : !!el.checked;
+        case 'title':
+          if (kind === 'page' || kind === 'window') { const t = root.querySelector('.otter-title'); return t ? t.textContent : document.title; }
+          if (kind === 'card') { const t = root.querySelector(':scope > .otter-card-title'); return t ? t.textContent : ''; }
+          return el.title;
+        case 'tooltip': return root.title;
+        case 'placeholder': return el.placeholder || '';
+        case 'source':
+        case 'src': return el.getAttribute('src') || '';
+        case 'options': return el.options ? Array.from(el.options).map(o => o.value) : [];
+        case 'style':
+        case 'class': return Array.from(root.classList).filter(c => !c.startsWith('otter-')).join(' ');
+        case 'hidden': return root.classList.contains('otter-hidden') || root.style.display === 'none';
+        case 'visible': return !(root.classList.contains('otter-hidden') || root.style.display === 'none');
+        case 'enabled': return !(('disabled' in el) ? el.disabled : root.classList.contains('otter-disabled'));
+        case 'focused': return document.activeElement === el;
+        case 'shortcut': return root.dataset.otterShortcut || '';
+        case 'width': return root.style.width;
+        case 'height': return root.style.height;
+        case 'kind': return kind;
+      }
+      if (root.__otterProps && p in root.__otterProps) { return root.__otterProps[p]; }
+      if (root.dataset && p in root.dataset) { return root.dataset[p]; }
+      const native = el[p];
+      return (native === undefined || typeof native === 'function') ? null : native;
+    }
+
+    // Keyboard shortcuts: `shortcut "Ctrl+K"` makes the combination activate
+    // the element (a text box is focused, anything else clicked). Only
+    // visible, enabled elements answer, and the last one in the page wins,
+    // so a dialog shown above the page takes Escape before the page does.
+    function otterNormalizeShortcut(text) {
+      const mods = [];
+      let key = '';
+      for (const part of String(text).split('+').map(x => x.trim()).filter(Boolean)) {
+        const lower = part.toLowerCase();
+        if (lower === 'ctrl' || lower === 'control' || lower === 'cmd' || lower === 'command') { if (!mods.includes('Ctrl')) { mods.push('Ctrl'); } }
+        else if (lower === 'alt' || lower === 'option') { mods.push('Alt'); }
+        else if (lower === 'shift') { mods.push('Shift'); }
+        else { key = lower === 'esc' ? 'escape' : (lower === 'del' ? 'delete' : lower); }
+      }
+      const order = ['Ctrl', 'Alt', 'Shift'];
+      mods.sort((a, b) => order.indexOf(a) - order.indexOf(b));
+      return [...mods, key].join('+');
+    }
+    function otterShortcutFromEvent(event) {
+      const mods = [];
+      if (event.ctrlKey || event.metaKey) { mods.push('Ctrl'); }
+      if (event.altKey) { mods.push('Alt'); }
+      if (event.shiftKey) { mods.push('Shift'); }
+      let key = String(event.key || '').toLowerCase();
+      if (key === ' ') { key = 'space'; }
+      if (key === 'esc') { key = 'escape'; }
+      return [...mods, key].join('+');
+    }
+    let otterShortcutsInstalled = false;
+    function otterInstallShortcuts() {
+      if (otterShortcutsInstalled) { return; }
+      otterShortcutsInstalled = true;
+      document.addEventListener('keydown', (event) => {
+        if (event.defaultPrevented || event.isComposing) { return; }
+        const combo = otterShortcutFromEvent(event);
+        const t = event.target;
+        const typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
+        const plainKey = !(event.ctrlKey || event.metaKey || event.altKey);
+        if (typing && plainKey && combo !== 'escape' && combo !== 'enter') { return; }
+        if (combo === 'enter' && t && (t.tagName === 'TEXTAREA' || t.tagName === 'BUTTON' || t.tagName === 'A')) { return; }
+        const candidates = Array.from(document.querySelectorAll('[data-otter-shortcut]'))
+          .filter(e => e.dataset.otterShortcut === combo && e.getClientRects().length > 0 && !e.classList.contains('otter-disabled') && !e.disabled);
+        const root = candidates[candidates.length - 1];
+        if (!root) { return; }
+        event.preventDefault();
+        const input = root.matches('label') ? (root.querySelector('input') || root) : root;
+        if (input.tagName === 'INPUT' && input.type !== 'checkbox' && input.type !== 'radio' || input.tagName === 'TEXTAREA') { input.focus(); if (input.select) { input.select(); } }
+        else { input.click(); }
+      });
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => { if (document.querySelector('[data-otter-shortcut]')) { otterInstallShortcuts(); } });
+    } else if (document.querySelector('[data-otter-shortcut]')) { otterInstallShortcuts(); }
 '@
 }
 
-# Runtime UI (web target). Walks the whole program and reports which UI
-# resources are created while the page runs rather than rendered up front:
-# every `create KIND into NAME` that is not itself a top-level statement
-# (inside an event handler, a function, a loop or an if). Also reports the
-# kinds they use (one HTML template is generated per kind) and whether the
-# program uses any runtime UI statement at all, so pages that do not keep
-# their exact previous output.
+# The UI kind a declaration names (`primary button` -> 'button'), or $null
+# when it is not a UI kind (a thing, or a declared type such as Project).
+function Get-OtterWebUiKindWord {
+    param([string]$TypeName)
+    if (-not $TypeName) { return $null }
+    $kind = $TypeName.ToLowerInvariant() -replace '^(primary|secondary|danger) ', ''
+    $known = @(
+        'window', 'page', 'button', 'text box', 'text', 'row', 'column',
+        'image', 'list', 'link', 'card', 'checkbox', 'check box',
+        'dropdown', 'drop down', 'select', 'slider', 'range',
+        'text area', 'textarea', 'badge', 'tag', 'canvas', 'table', 'scroll',
+        'progress', 'progress bar', 'toggle', 'switch', 'radio', 'radio button',
+        'dialog', 'modal', 'panel', 'icon'
+    )
+    if ($kind -in $known) { return $kind }
+    return $null
+}
+
+# The names the page renders as static HTML: top-level `create` and UI
+# declarations, and the named elements of the declarative form. Anything a
+# top-level statement refers to that is not one of these is made while the
+# page runs.
+function Get-OtterWebStaticUiNames {
+    param([Node[]]$Statements)
+    $names = [System.Collections.Generic.HashSet[string]]::new()
+    $declStack = [System.Collections.Generic.Stack[object]]::new()
+    foreach ($stmt in @($Statements)) {
+        if ($stmt -is [CreateUiResourceStmt]) { [void]$names.Add($stmt.Target) }
+        elseif ($stmt -is [ObjectDefStmt] -and (Get-OtterWebUiKindWord -TypeName $stmt.TypeName)) { [void]$names.Add($stmt.Name) }
+        elseif ($stmt -is [UiElementStmt]) { $declStack.Push($stmt) }
+    }
+    while ($declStack.Count -gt 0) {
+        $d = $declStack.Pop()
+        if ($d.Name) { [void]$names.Add([string]$d.Name) }
+        foreach ($c in @($d.Children)) { if ($c -is [UiElementStmt]) { $declStack.Push($c) } }
+    }
+    return , $names
+}
+
+# Runtime UI (web target). Walks the whole program and reports whether the
+# page makes or changes UI while it runs - and so needs the runtime UI code -
+# and which kinds it makes (one HTML template is generated per kind, by the
+# same renderer as the static page). Pages that need none of it keep their
+# exact earlier output.
+#
+# It does when: a UI resource is created or declared, put, shown, hidden,
+# focused, cleared, removed or listened to anywhere other than the page's own
+# top-level declarations (inside a handler, a function, a loop or an if); a
+# top-level `put`/`when` involves something other than a rendered name; or a
+# resource uses a property only the runtime serves (`shortcut`) or an event
+# word that is not a single browser event (`submitted`, `hovered`).
 function Get-OtterWebRuntimeUiInfo {
     param([Node[]]$Statements)
     $names = [System.Collections.Generic.HashSet[string]]::new()
     $kinds = [System.Collections.Generic.HashSet[string]]::new()
     $state = @{ Uses = $false }
-    # ObjectDef: a nested `X has ...` may set a UI resource's properties.
-    $runtimeKinds = @([NodeKind]::CreateUiResource, [NodeKind]::PutIn, [NodeKind]::Show, [NodeKind]::UiAction, [NodeKind]::When, [NodeKind]::ObjectDef)
+    $static = Get-OtterWebStaticUiNames -Statements $Statements
+    $runtimeKinds = @([NodeKind]::CreateUiResource, [NodeKind]::PutIn, [NodeKind]::Show, [NodeKind]::UiAction, [NodeKind]::When, [NodeKind]::ObjectDef, [NodeKind]::RemoveFrom)
 
     function Visit-OtterWebRuntimeUi {
         param([object]$Value, [bool]$Nested)
@@ -633,14 +1082,36 @@ function Get-OtterWebRuntimeUiInfo {
         if (-not $Value.GetType().Assembly.IsDynamic) { return }
         if ($Value -is [Node]) {
             if ($Nested -and $Value.Kind -in $runtimeKinds) { $state.Uses = $true }
-            if (-not $Nested -and $Value.Kind -eq [NodeKind]::UiAction) { $state.Uses = $true }
+            if ($Value.Kind -eq [NodeKind]::UiAction) { $state.Uses = $true }
+            if ($Value -is [WhenStmt] -and $Value.EventName -in @('submitted', 'hovered')) { $state.Uses = $true }
+            if (-not $Nested -and $Value -is [PutInStmt]) {
+                foreach ($side in @($Value.Item, $Value.Container)) {
+                    if ($side -isnot [VariableExpr] -or -not $static.Contains($side.Name)) { $state.Uses = $true }
+                }
+            }
+            if (-not $Nested -and $Value -is [WhenStmt] -and ($Value.Target -isnot [VariableExpr] -or -not $static.Contains($Value.Target.Name))) { $state.Uses = $true }
+            if ($Value -is [AssignStmt] -and $Value.Target -is [VariableExpr] -and $Value.Target.Name -eq 'shortcut') { $state.Uses = $true }
+            if ($Value -is [AssignStmt] -and $Value.Target -is [PropertyAccessExpr] -and $Value.Target.Property -eq 'shortcut') { $state.Uses = $true }
+            # `<property> of x is ...` for a property the page's id-based
+            # setters do not know (options, style, hidden, ...): only the
+            # runtime's mapping gives it the declaration's meaning.
+            if ($Value -is [AssignStmt] -and $Value.Target -is [PropertyAccessExpr] -and
+                $Value.Target.Property.ToLowerInvariant() -notin @('text', 'value', 'title', 'background', 'foreground', 'width', 'height')) { $state.Uses = $true }
+            # A top-level UI declaration with a computed value: the value is
+            # set when the program starts, through the same mapping.
+            if (-not $Nested -and $Value -is [ObjectDefStmt] -and (Get-OtterWebUiKindWord -TypeName $Value.TypeName)) {
+                foreach ($prop in @($Value.Properties)) {
+                    if ($prop -is [AssignStmt] -and $prop.Value -isnot [LiteralExpr]) { $state.Uses = $true }
+                }
+            }
             if ($Nested -and $Value -is [CreateUiResourceStmt]) {
                 [void]$names.Add($Value.Target)
-                $kind = $Value.TypeName.ToLowerInvariant()
-                foreach ($v in @('primary', 'secondary', 'danger')) {
-                    if ($kind.StartsWith("$v ")) { $kind = $kind.Substring($v.Length + 1); break }
-                }
-                [void]$kinds.Add($kind)
+                $k = Get-OtterWebUiKindWord -TypeName $Value.TypeName
+                if ($k) { [void]$kinds.Add($k) } else { [void]$kinds.Add($Value.TypeName.ToLowerInvariant()) }
+            }
+            if ($Nested -and $Value -is [ObjectDefStmt]) {
+                $k = Get-OtterWebUiKindWord -TypeName $Value.TypeName
+                if ($k) { [void]$names.Add($Value.Name); [void]$kinds.Add($k) }
             }
         }
         foreach ($prop in $Value.PSObject.Properties) {
@@ -657,7 +1128,10 @@ function Get-OtterWebRuntimeUiInfo {
 function ConvertTo-OtterWeb {
     param(
         [Parameter(Mandatory)][ProgramNode]$Program,
-        [string]$Title = "Otter Web App"
+        [string]$Title = "Otter Web App",
+        # The folder the program's source lives in: relative paths the page
+        # declares at compile time (its `icons` sprite) resolve against it.
+        [string]$SourceDirectory = ''
     )
 
     # Collect UI resources and initial configuration
@@ -673,7 +1147,17 @@ function ConvertTo-OtterWeb {
     $functions = [ordered]@{}
 
     $runtimeUi = Get-OtterWebRuntimeUiInfo -Statements $Program.Statements
-    Set-OtterJsRuntimeUiNames -Names @($runtimeUi.Names)
+    Set-OtterJsRuntimeUiNames -Names @($runtimeUi.Names) -StaticNames @(Get-OtterWebStaticUiNames -Statements $Program.Statements)
+
+    # Which user functions are async (and so must be awaited by callers) is a
+    # whole-program fact; compute it once before any statement is compiled.
+    Initialize-OtterJsAsyncFunctions -Statements $Program.Statements
+
+    # Names the page renders as static HTML (top-level UI declarations): a
+    # top-level `put` or `when` involving anything else - a resource the
+    # program makes while running, such as a component function's result -
+    # runs in program order instead.
+    $staticUiNames = Get-OtterWebStaticUiNames -Statements $Program.Statements
 
     # Pass 1: Identify resources and configurations
     foreach ($stmt in $Program.Statements) {
@@ -690,6 +1174,12 @@ function ConvertTo-OtterWeb {
             continue
         }
         if ($stmt -is [FunctionDefStmt]) {
+            # Two functions with one name would compile to two JavaScript
+            # constants of that name, which stops the whole page from
+            # loading. Say so here, with both places, instead.
+            if ($functions.Contains($stmt.Name)) {
+                throw [OtterError]::new("There are two functions called `"$($stmt.Name)`": one on line $($functions[$stmt.Name].Line) and one here. Give one of them another name.", $stmt.Line, 'check')
+            }
             # D60 Phase 1F: also let this reach the normal top-level
             # compilation pass (below) so it compiles to a real callable JS
             # function, in addition to the existing $functions lookup this
@@ -716,8 +1206,14 @@ function ConvertTo-OtterWeb {
                     foreach ($p in $stmt.Properties) {
                         if ($p -is [AssignStmt]) {
                             $propKey = if ($p.Target -is [VariableExpr]) { $p.Target.Name.ToLowerInvariant() } else { [string]$p.Target.ToLowerInvariant() }
-                            $val = if ($p.Value -is [LiteralExpr]) { $p.Value.Value } else { ConvertTo-OtterJsExpression -Expr $p.Value }
-                            $resources[$stmt.Name].Properties[$propKey] = $val
+                            if ($p.Value -is [LiteralExpr]) {
+                                $resources[$stmt.Name].Properties[$propKey] = $p.Value.Value
+                            } else {
+                                # A computed value (`value name of first`) is
+                                # set when the program starts, in this
+                                # statement's place - see the same case below.
+                                $topLevelStatements.Add([AssignStmt]::new([PropertyAccessExpr]::new($propKey, [VariableExpr]::new($stmt.Name, $p.Line), $p.Line), $p.Value, $p.Line))
+                            }
                         }
                     }
                 }
@@ -730,7 +1226,7 @@ function ConvertTo-OtterWeb {
                 'dropdown', 'drop down', 'select', 'slider', 'range',
                 'text area', 'textarea', 'badge', 'tag', 'canvas', 'table', 'scroll',
                 'progress', 'progress bar', 'toggle', 'switch', 'radio', 'radio button',
-                'dialog', 'modal', 'panel'
+                'dialog', 'modal', 'panel', 'icon'
             )
             # `aboutButton is a primary button` - a variant-qualified kind
             # (matches the `primary button`/`secondary card`/`danger
@@ -763,8 +1259,18 @@ function ConvertTo-OtterWeb {
                     foreach ($p in $stmt.Properties) {
                         if ($p -is [AssignStmt]) {
                             $propKey = if ($p.Target -is [VariableExpr]) { $p.Target.Name.ToLowerInvariant() } else { [string]$p.Target.ToLowerInvariant() }
-                            $val = if ($p.Value -is [LiteralExpr]) { $p.Value.Value } else { ConvertTo-OtterJsExpression -Expr $p.Value }
-                            $res.Properties[$propKey] = $val
+                            if ($p.Value -is [LiteralExpr]) {
+                                $res.Properties[$propKey] = $p.Value.Value
+                            } else {
+                                # Literal values are rendered into the HTML;
+                                # a computed value (`value name of first`,
+                                # `options names`) becomes a property write
+                                # that runs when the program starts, in this
+                                # declaration's place among the top-level
+                                # statements, through the same code path as
+                                # `value of out is name of first`.
+                                $topLevelStatements.Add([AssignStmt]::new([PropertyAccessExpr]::new($propKey, [VariableExpr]::new($stmt.Name, $p.Line), $p.Line), $p.Value, $p.Line))
+                            }
                         }
                     }
                 }
@@ -782,17 +1288,17 @@ function ConvertTo-OtterWeb {
                 continue
             }
         }
-        if ($stmt -is [PutInStmt] -and (
-                ($stmt.Item -is [VariableExpr] -and $runtimeUi.Names.Contains($stmt.Item.Name)) -or
-                ($stmt.Container -is [VariableExpr] -and $runtimeUi.Names.Contains($stmt.Container.Name)))) {
-            # Involves a resource created while the page runs: it cannot be
-            # placed in the static HTML, so it runs where it is written.
-            $topLevelStatements.Add($stmt)
-            continue
-        }
         if ($stmt -is [PutInStmt]) {
             $item = if ($stmt.Item -is [VariableExpr]) { $stmt.Item.Name } else { $null }
             $cont = if ($stmt.Container -is [VariableExpr]) { $stmt.Container.Name } else { $null }
+            # Putting something the program built while running (the result
+            # of a component function, say) is done when the program runs,
+            # in this statement's place; only declared elements are part of
+            # the static page.
+            if ($cont -and $item -and (-not $staticUiNames.Contains($item) -or -not $staticUiNames.Contains($cont))) {
+                $topLevelStatements.Add($stmt)
+                continue
+            }
             if ($cont -and $item) {
                 if (-not $containers.Contains($cont)) {
                     $containers[$cont] = [System.Collections.Generic.List[string]]::new()
@@ -801,16 +1307,20 @@ function ConvertTo-OtterWeb {
             }
             continue
         }
-        if ($stmt -is [WhenStmt] -and $stmt.Target -is [VariableExpr] -and $runtimeUi.Names.Contains($stmt.Target.Name) -and
-            $stmt.EventName -notin @('drag', 'drop', 'files dropped')) {
-            $topLevelStatements.Add($stmt)
-            continue
-        }
         if ($stmt -is [WhenStmt]) {
-            $whenHandlers.Add($stmt)
+            if ($stmt.Target -is [VariableExpr] -and -not $staticUiNames.Contains($stmt.Target.Name)) {
+                $topLevelStatements.Add($stmt)
+            } else {
+                $whenHandlers.Add($stmt)
+            }
             continue
         }
         if ($stmt -is [ShowStmt]) {
+            # `show app` presents the root, which the page already is. Showing
+            # any other element makes it visible (it may start `hidden`).
+            $showName = if ($stmt.Target -is [VariableExpr]) { $stmt.Target.Name } else { $null }
+            $showRes = if ($showName -and $resources.Contains($showName)) { $resources[$showName] } else { $null }
+            if ($showRes -and $showRes.Kind -notin @('page', 'window') -and $showRes.Properties.Contains('hidden')) { $topLevelStatements.Add($stmt) }
             continue
         }
         $topLevelStatements.Add($stmt)
@@ -856,6 +1366,40 @@ function ConvertTo-OtterWeb {
         if ($resources[$rootName].Properties.Contains('foreground')) {
             $rootFg = [string]$resources[$rootName].Properties['foreground']
         }
+    }
+
+    # What a desktop shell needs to know to open the window for this page:
+    # the title, and the size/minimum size/background the root declares.
+    # Emitted as a <meta name="otter-window"> so the Electron export and the
+    # `otter desktop` host read it from the compiled page, not from a second
+    # parse of the program.
+    $windowMeta = [ordered]@{ title = $appTitle }
+    if ($rootName) {
+        $rp = $resources[$rootName].Properties
+        foreach ($k in @('width', 'height', 'minwidth', 'minheight')) {
+            if ($rp.Contains($k) -and ($rp[$k] -is [int] -or $rp[$k] -is [double] -or $rp[$k] -is [long])) { $windowMeta[$k] = [int]$rp[$k] }
+        }
+        if ($rp.Contains('background')) { $windowMeta['background'] = [string]$rp['background'] }
+    }
+    $windowMetaAttr = Escape-OtterHtmlAttr -Text (ConvertTo-Json -InputObject $windowMeta -Compress)
+
+    # `app is a page with icons "assets/icons/app-icons.svg"`: an SVG symbol
+    # sprite. Its <symbol>s are embedded once in the page so every `icon`
+    # (declared or built while the program runs) is a same-document <use>,
+    # which works from a file, a server, and inside Electron alike.
+    $iconSpriteHtml = ''
+    if ($rootName -and $resources[$rootName].Properties.Contains('icons')) {
+        $spritePath = [string]$resources[$rootName].Properties['icons']
+        $spriteFull = if ([System.IO.Path]::IsPathRooted($spritePath)) { $spritePath } elseif ($SourceDirectory) { [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($SourceDirectory, $spritePath)) } else { [System.IO.Path]::GetFullPath($spritePath) }
+        if (-not (Test-Path -LiteralPath $spriteFull -PathType Leaf)) {
+            throw [OtterError]::new("I cannot find the icon file `"$spritePath`" for this page.", 0, 'check')
+        }
+        $spriteText = [System.IO.File]::ReadAllText($spriteFull, [System.Text.Encoding]::UTF8).TrimStart([char]0xFEFF)
+        $symbols = [regex]::Matches($spriteText, '(?s)<symbol\b.*?</symbol>')
+        if ($symbols.Count -eq 0) {
+            throw [OtterError]::new("The icon file `"$spritePath`" has no <symbol> elements, so there are no icons to use.", 0, 'check')
+        }
+        $iconSpriteHtml = "  <svg xmlns=`"http://www.w3.org/2000/svg`" id=`"otter-icons`" style=`"display: none;`" aria-hidden=`"true`">`n    " + (($symbols | ForEach-Object { $_.Value }) -join "`n    ") + "`n  </svg>`n"
     }
 
     $isPage = ($null -ne $rootName -and $resources[$rootName].Kind -eq 'page')
@@ -935,10 +1479,11 @@ function ConvertTo-OtterWeb {
             $fw = if ($props.Contains('fontweight')) { $props['fontweight'] } else { $props['weight'] }
             $styles.Add("font-weight: $fw;")
         }
+        # `style "panel"` names styles from the stylesheet (see
+        # Add-OtterWebCommonAttributes); italics are `italic true` or
+        # `fontstyle "italic"`.
         if ($props.Contains('fontstyle')) {
             $styles.Add("font-style: $($props['fontstyle']);")
-        } elseif ($props.Contains('style') -and ($props['style'] -eq 'italic' -or $props['style'] -eq 'normal')) {
-            $styles.Add("font-style: $($props['style']);")
         }
         if ($props.Contains('family') -or $props.Contains('fontfamily')) {
             $ff = if ($props.Contains('fontfamily')) { $props['fontfamily'] } else { $props['family'] }
@@ -1041,12 +1586,23 @@ function ConvertTo-OtterWeb {
 "@
             }
             'button' {
-                $rawText = if ($props.Contains('text')) { [string]$props['text'] } else { "Button" }
+                # A button with an icon and no text is an icon button; any
+                # other button without text says "Button", as before.
+                $hasIcon = ($props.Contains('icon') -and "$($props['icon'])".Trim())
+                $rawText = if ($props.Contains('text')) { [string]$props['text'] } elseif ($hasIcon) { '' } else { "Button" }
                 $text = Escape-OtterHtmlAttr -Text $rawText
                 # `primary button`/`secondary button`/`danger button` -
                 # reuses the same otter-button-<variant> CSS classes the
                 # inline UI-element grammar's own renderer already defines.
                 $variantClass = if ($props.Contains('variant')) { " otter-button-$($props['variant'])" } else { "" }
+                # `icon "dashboard"` puts a symbol from the page's icon sprite
+                # before the label; the label then lives in its own span so
+                # `text of button is ...` changes the words, not the icon.
+                if ($props.Contains('icon') -and "$($props['icon'])".Trim()) {
+                    $iconName = Escape-OtterHtmlAttr -Text ([string]$props['icon'])
+                    $labelHtml = if ($rawText.Trim()) { "<span class=`"otter-button-text`">$text</span>" } else { '' }
+                    return "      <button id=`"$resName`" class=`"otter-button otter-has-icon$variantClass`"$styleAttr><svg class=`"otter-icon`" aria-hidden=`"true`"><use href=`"#$iconName`"></use></svg>$labelHtml</button>"
+                }
                 return "      <button id=`"$resName`" class=`"otter-button$variantClass`"$styleAttr>$text</button>"
             }
             'text box' {
@@ -1132,6 +1688,19 @@ $optHtml
                 $rawText = if ($props.Contains('text')) { [string]$props['text'] } else { "" }
                 $text = Escape-OtterHtmlAttr -Text $rawText
                 return "      <span id=`"$resName`" class=`"otter-badge`"$styleAttr>$text</span>"
+            }
+            'icon' {
+                # `homeIcon is an icon with name "dashboard", size 18` - one
+                # symbol from the page's icon sprite (see `icons` on the page).
+                # Decorative unless it has a `label`, which makes it an
+                # image with an accessible name.
+                $iconName = if ($props.Contains('name')) { Escape-OtterHtmlAttr -Text ([string]$props['name']) } else { '' }
+                if ($props.Contains('size') -and ($props['size'] -is [int] -or $props['size'] -is [double])) {
+                    $styles.Add("width: $($props['size'])px; height: $($props['size'])px;")
+                }
+                $styleAttr = if ($styles.Count -gt 0) { " style=`"$($styles -join ' ')`"" } else { "" }
+                $a11y = if ($props.Contains('label')) { " role=`"img`"" } else { ' aria-hidden="true"' }
+                return "      <svg id=`"$resName`" class=`"otter-icon`"$a11y$styleAttr><use href=`"#$iconName`"></use></svg>"
             }
             'canvas' {
                 $w = if ($props.Contains('width')) { $props['width'] } else { 400 }
@@ -1293,7 +1862,7 @@ $optHtml
             $at = $html.IndexOf($idMarker)
             if ($at -ge 0) { $html = $html.Insert($at + $idMarker.Length, $dragAttrs) }
         }
-        return $html
+        return (Add-OtterWebCommonAttributes -Html $html -ResName $resName -Kind $resources[$resName].Kind -Props $dragProps)
     }
 
     # D103: every page a `route` statement names must reach the DOM, not
@@ -1484,6 +2053,21 @@ $dragBody
             $bodyJs.Add((ConvertTo-OtterJsStatement -Stmt $s -Indent 3))
         }
         $bodyJoined = $bodyJs -join "`n"
+        # Event words that are not a single browser event (Enter in a text
+        # box, the pointer arriving) go through the runtime UI's mapping.
+        if ($eventName -in @('submitted', 'hovered')) {
+            $jsHandlers.Add(@"
+    {
+      const _whenUi = otterUiRef(undefined, '$targetName');
+      if (_whenUi && _whenUi.__otterUi) {
+        otterOnUi(_whenUi, '$eventName', async (event) => {
+$bodyJoined
+        });
+      }
+    }
+"@)
+            continue
+        }
         # RC3 B2: block-scoped like the drag/drop handlers above. Two `when`
         # handlers on one control (`when b is clicked` plus another event
         # on b) each emitted a top-level `const el_b`, and the duplicate
@@ -1526,6 +2110,16 @@ $bodyJoined
         }
     }
     foreach ($w in $whenHandlers) { if ($w.EventName -in @('drag', 'drop', 'files dropped')) { $usesDragDrop = $true } }
+    # UI built while the program runs (inside functions, handlers, loops)
+    # can be draggable or handle drag/drop too.
+    if (-not $usesDragDrop) {
+        foreach ($node in (Get-OtterWebAllNodes -Nodes $Program.Statements)) {
+            if ($node -is [WhenStmt] -and $node.EventName -in @('drag', 'drop', 'files dropped')) { $usesDragDrop = $true; break }
+            if ($node -is [SetDragDataStmt]) { $usesDragDrop = $true; break }
+            if ($node -is [AssignStmt] -and $node.Target -is [VariableExpr] -and $node.Target.Name -in @('draggable', 'accepts drops')) { $usesDragDrop = $true; break }
+            if ($node -is [AssignStmt] -and $node.Target -is [PropertyAccessExpr] -and $node.Target.Property -in @('draggable', 'accepts drops')) { $usesDragDrop = $true; break }
+        }
+    }
     $runnableRuntimeJs = ''
     $runnableCss = ''
     if ($runnableSamples.Count -gt 0) {
@@ -1654,6 +2248,7 @@ $bodyJoined
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="otter-window" content="$windowMetaAttr">
   <title>$(Escape-OtterHtmlText -Text $appTitle)</title>
   <style>
     :root {
@@ -2052,11 +2647,15 @@ $runnableCss
       color: #38bdf8;
       display: none;
     }
+    .otter-icon { width: 20px; height: 20px; flex: 0 0 auto; display: inline-block; vertical-align: middle; }
+    .otter-hidden { display: none !important; }
+    .otter-disabled { opacity: 0.5; cursor: not-allowed; }
+    .otter-disabled, .otter-disabled * { pointer-events: none; }
 $declarativeCssJoined
   </style>
 </head>
 <body$bodyClass>
-$elementsHtml
+$iconSpriteHtml$elementsHtml
   <div id="otter-live-output"></div>
 
   <script>
@@ -2068,24 +2667,32 @@ $dragDropRuntimeJs
 $runnableRuntimeJs
 $cryptoRuntimeJs
     function otterGetText(id) {
-      const el = otterGetElement(id);
+      const el = (id && typeof id === 'object' && id.nodeType === 1) ? id : otterGetElement(id);
       if (!el) return '';
       if (el.type === 'checkbox') return el.checked;
       const tag = el.tagName ? el.tagName.toUpperCase() : '';
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
         return el.value;
       }
+      const label = el.querySelector ? el.querySelector(':scope > .otter-button-text') : null;
+      if (label) return label.textContent || '';
       return el.textContent || '';
     }
     function otterSetText(id, val) {
-      const el = otterGetElement(id);
+      const el = (id && typeof id === 'object' && id.nodeType === 1) ? id : otterGetElement(id);
       if (!el) return;
       if (el.type === 'checkbox') { el.checked = Boolean(val); return; }
       const tag = el.tagName ? el.tagName.toUpperCase() : '';
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
         el.value = val;
       } else {
-        el.textContent = val;
+        // A button with an icon keeps its words in a span beside the icon
+        // (see the icon property); setting textContent would wipe the icon.
+        const label = el.querySelector ? el.querySelector(':scope > .otter-button-text') : null;
+        const icon = el.querySelector ? el.querySelector(':scope > .otter-icon') : null;
+        if (label) { label.textContent = val; }
+        else if (icon) { const span = document.createElement('span'); span.className = 'otter-button-text'; span.textContent = val; icon.after(span); }
+        else { el.textContent = val; }
       }
       if ('value' in el) { el.value = val; }
     }
@@ -2183,11 +2790,26 @@ $runtimeUiJs
       }
       return String(value);
     }
+    // In a plain browser tab there is no filesystem. Files the program writes
+    // are kept in the browser's storage for this page instead, so write,
+    // read, append, delete and "file ... exists" keep their meaning (a
+    // program's own data persists between visits). Reading a file the
+    // program never wrote is "not found", the same as on a desktop.
+    // (No backticks in this comment: this text sits inside a PowerShell
+    // here-string, where a backtick escapes the character after it.)
+    const otterBrowserFiles = {
+      key: (p) => 'otter-file:' + String(p),
+      has: (p) => { try { return localStorage.getItem(otterBrowserFiles.key(p)) !== null; } catch (_) { return false; } },
+      read: (p) => { try { return localStorage.getItem(otterBrowserFiles.key(p)); } catch (_) { return null; } },
+      write: (p, c) => { try { localStorage.setItem(otterBrowserFiles.key(p), c); return true; } catch (_) { throw new Error('The browser would not store "' + p + '".'); } },
+      remove: (p) => { try { localStorage.removeItem(otterBrowserFiles.key(p)); } catch (_) { /* nothing to remove */ } }
+    };
     async function otterReadFile(filePath) {
       const bridge = window.__OTTER_DESKTOP_BRIDGE__;
       if (!bridge || !bridge.port || !bridge.token) {
-        console.warn('Desktop Bridge is not available to read "' + filePath + '".');
-        return '';
+        const stored = otterBrowserFiles.read(filePath);
+        if (stored === null) throw new Error('File not found: ' + filePath);
+        return stored;
       }
       const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/fs/read', {
         method: 'POST',
@@ -2206,8 +2828,9 @@ $runtimeUiJs
     async function otterWriteFile(filePath, content) {
       const bridge = window.__OTTER_DESKTOP_BRIDGE__;
       if (!bridge || !bridge.port || !bridge.token) {
-        console.warn('Desktop Bridge is not available to write "' + filePath + '".');
-        return false;
+        const text = content === undefined || content === null ? '' : String(content);
+        otterBrowserFiles.write(filePath, text);
+        return { path: filePath, size: text.length, saved: true };
       }
       const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/fs/write', {
         method: 'POST',
@@ -2322,7 +2945,22 @@ $runtimeUiJs
     async function otterFileOperation(operation, payload) {
       const bridge = window.__OTTER_DESKTOP_BRIDGE__;
       if (!bridge || !bridge.port || !bridge.token) {
-        throw new Error('Desktop Bridge is not available for file operations.');
+        const p = payload || {};
+        switch (operation) {
+          case 'file-exists': return { exists: otterBrowserFiles.has(p.path) };
+          case 'append-file': {
+            const current = otterBrowserFiles.read(p.path);
+            otterBrowserFiles.write(p.path, (current === null ? '' : current) + (p.content === undefined || p.content === null ? '' : String(p.content)));
+            return { completed: true };
+          }
+          case 'delete-file': {
+            if (!otterBrowserFiles.has(p.path)) throw new Error('I could not find a file called "' + p.path + '" to delete.');
+            otterBrowserFiles.remove(p.path);
+            return { completed: true };
+          }
+          default:
+            throw new Error('That file operation is not available in a browser tab. Run the program with otter desktop, or as an Electron application.');
+        }
       }
       const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/fs/operate', {
         method: 'POST',
@@ -2848,6 +3486,7 @@ $declarativeListenersJoined
 </html>
 "@
 
+    Clear-OtterJsAsyncFunctions
     return $html
 }
 
@@ -2909,7 +3548,12 @@ function Export-OtterWebApplication {
     param(
         [Parameter(Mandatory)][string[]]$SourcePath,
         [string]$OutputPath,
-        [switch]$PassThruExceptions
+        [switch]$PassThruExceptions,
+        # Compile the source as though it lived in this folder: its `use`
+        # imports, its icon sprite and (when no stylesheet sits beside the
+        # source itself) its project stylesheet are found there. For an
+        # editor compiling an unsaved copy of a project file.
+        [string]$SourceDirectory = ''
     )
 
     if (-not (Get-Command ConvertTo-OtterTokens -ErrorAction SilentlyContinue)) {
@@ -2933,7 +3577,7 @@ function Export-OtterWebApplication {
     foreach ($src in $SourcePath) {
         $resolved = Resolve-Path -LiteralPath $src
         if ($null -eq $primarySource) { $primarySource = $resolved.Path }
-        $resolvedProgram = Resolve-OtterModuleSource -FilePath $resolved.Path
+        $resolvedProgram = if ($SourceDirectory -and $resolved.Path -eq (Resolve-Path -LiteralPath $SourcePath[0]).Path) { Resolve-OtterModuleSource -FilePath $resolved.Path -ImportDirectory $SourceDirectory } else { Resolve-OtterModuleSource -FilePath $resolved.Path }
         $sourceParts.Add($resolvedProgram.CombinedSource)
     }
     $sourceText = $sourceParts -join "`n"
@@ -2944,9 +3588,14 @@ function Export-OtterWebApplication {
         Assert-OtterLanguageContract -Program $ast -SourceLines ($sourceText -split "`r?`n")
 
         $defaultTitle = [System.IO.Path]::GetFileNameWithoutExtension($primarySource)
-        $html = ConvertTo-OtterWeb -Program $ast -Title $defaultTitle
+        # -SourceDirectory: compile a copy (an editor's unsaved buffer) as the
+        # file of that name in that folder - its icon sprite and its
+        # <entry>.css are found there.
+        $programDirectory = if ($SourceDirectory) { [System.IO.Path]::GetFullPath($SourceDirectory) } else { [System.IO.Path]::GetDirectoryName($primarySource) }
+        $html = ConvertTo-OtterWeb -Program $ast -Title $defaultTitle -SourceDirectory $programDirectory
 
-        $sidecarCss = [System.IO.Path]::ChangeExtension($primarySource, '.css')
+        $entryForCss = Join-Path $programDirectory ([System.IO.Path]::GetFileName($primarySource))
+        $sidecarCss = [System.IO.Path]::ChangeExtension($entryForCss, '.css')
         if (Test-Path -LiteralPath $sidecarCss) {
             # RC3 B4: containment. `<entry>.css` may be a symbolic link (git
             # keeps them), and the lexical path says nothing about where
@@ -2955,7 +3604,7 @@ function Export-OtterWebApplication {
             # build/publish. Resolve every link on the way to the real file
             # and refuse, before anything is written, unless it still lies
             # inside the (equally resolved) folder that holds the entry.
-            $entryDirReal = Resolve-OtterRealPath -Path ([System.IO.Path]::GetDirectoryName($primarySource))
+            $entryDirReal = Resolve-OtterRealPath -Path $programDirectory
             $sidecarReal = Resolve-OtterRealPath -Path $sidecarCss
             if (-not (Test-OtterPathInside -Path $sidecarReal -Folder $entryDirReal)) {
                 throw [OtterError]::new("The stylesheet '$([System.IO.Path]::GetFileName($sidecarCss))' is a link to '$sidecarReal', which is outside the folder that holds '$([System.IO.Path]::GetFileName($primarySource))'. Otter only includes files from inside that folder, so nothing was written.", 0, 'build')

@@ -1166,7 +1166,7 @@ app is a page
 b is a button
     text is "Go"
 .
-box is a textbox
+box is a text box
     placeholder is "type"
 .
 when b is clicked

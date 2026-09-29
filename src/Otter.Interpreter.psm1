@@ -3966,8 +3966,19 @@ function Invoke-OtterStatement {
         # left Visibility at its default and "focus box" left IsFocused
         # false, with no error either way. A feature doing nothing
         # successfully is worse than one that says so.
+        # hide x / focus x / clear x (D56 amendment, proposed for Otter 1.1).
         'UiAction' {
-            throw (New-OtterRuntimeError -Message "'$($Statement.Action)' is not supported in Otter 1.0." -Line $Statement.Line)
+            $target = Get-OtterValue -Expression $Statement.Target -Environment $Environment
+            # clear on a list empties it.
+            if ($Statement.Action -eq 'clear' -and (Test-OtterList $target)) { $target.Clear(); return }
+            if (-not (Test-OtterUiResource $target)) {
+                $shown = Get-OtterTypeName -Value $target
+                throw (New-OtterRuntimeError `
+                    -Message "I can only $($Statement.Action) a UI resource, but this is $shown." `
+                    -Line $Statement.Line)
+            }
+            Invoke-OtterUiAction -Resource $target -Action $Statement.Action -Line $Statement.Line
+            return
         }
 
         # card / window / primary button

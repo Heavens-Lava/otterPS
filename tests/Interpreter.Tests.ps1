@@ -887,8 +887,11 @@ Test-Otter 'memo, shared, use, await, on start/close, and UI action/event/animat
     Assert-OtterFails -Containing "'on close' is not supported in Otter 1.0" -Body {
         Invoke-TestProgram @( ([LifecycleStmt]::new('close', @(), 1)) )
     }
-    Assert-OtterFails -Containing "'hide' is not supported in Otter 1.0" -Body {
-        Invoke-TestProgram @( ([UiActionStmt]::new('hide', (Var 'sidebar'), 1)) )
+    # hide/focus/clear are UI actions under the D56 amendment proposed for
+    # 1.1 (tests/UI.Tests.ps1); used on something that is not UI they are
+    # still an error, never a silent no-op.
+    Assert-OtterFails -Containing 'I can only hide a UI resource, but this is a number' -Body {
+        Invoke-TestProgram @( (AssignSt 'sidebar' (Lit 3.0)), ([UiActionStmt]::new('hide', (Var 'sidebar'), 2)) )
     }
     Assert-OtterFails -Containing 'UI event blocks are not supported in Otter 1.0' -Body {
         Invoke-TestProgram @( ([UiEventStmt]::new('click', @(), 1)) )
