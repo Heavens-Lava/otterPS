@@ -220,16 +220,19 @@ export function createDesignerActions({ uiModel, styles, cssAstManager, canvas, 
 
   // Nudge absolutely positioned elements; flow elements are left to the
   // layout (return false so the key can do something else).
+  // Arrow keys: every selected control placed at x / y moves by (dx, dy) from
+  // where it is (it used to give them all the primary one's position).
+  // Controls in a row or column are left alone.
   function nudge(dx, dy) {
-    const comp = primary();
-    if (!comp || comp.id === uiModel.rootId) return false;
-    const el = canvas.elementFor(comp.id);
-    const cs = el ? getComputedStyle(el) : null;
-    if (!cs || (cs.position !== 'absolute' && cs.position !== 'fixed')) return false;
-    const values = {};
-    if (dx) values.left = `${Math.round((parseFloat(cs.left) || 0) + dx)}px`;
-    if (dy) values.top = `${Math.round((parseFloat(cs.top) || 0) + dy)}px`;
-    styles.write(selection(), values, { key: `nudge:${comp.id}` });
+    const boxes = selection().map(freeBox).filter(Boolean);
+    if (!boxes.length) return false;
+    const key = `nudge:${boxes.map(b => b.comp.id).join(',')}`;
+    for (const b of boxes) {
+      const values = {};
+      if (dx) values.left = `${Math.round(b.left + dx)}px`;
+      if (dy) values.top = `${Math.round(b.top + dy)}px`;
+      styles.write(b.comp, values, { key });
+    }
     return true;
   }
 
@@ -403,7 +406,7 @@ export function createDesignerActions({ uiModel, styles, cssAstManager, canvas, 
     const el = comp && canvas.elementFor(comp.id);
     if (!el) return null;
     const cs = getComputedStyle(el);
-    if (cs.position !== 'absolute') return null;
+    if (cs.position !== 'absolute' && cs.position !== 'fixed') return null;
     const r = el.getBoundingClientRect();
     const zoom = canvas.getZoom();
     return { comp, left: parseFloat(cs.left) || 0, top: parseFloat(cs.top) || 0, width: r.width / zoom, height: r.height / zoom };

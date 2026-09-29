@@ -739,10 +739,11 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
   // During a move or resize the selection box goes with the element (the
   // full overlay is redrawn when the gesture ends).
   function followSelection() {
-    const sel = uiModel.getComponent(uiModel.selectedId);
-    const box = selectionLayer.querySelector('.designer-selection-box.is-primary');
-    const target = sel && (sel.id === uiModel.rootId ? stageEl.querySelector('#canvasWindowWrapper') : elementFor(sel.id));
-    if (box && target) place(box, toOverlay(target.getBoundingClientRect()));
+    for (const box of selectionLayer.querySelectorAll('.designer-selection-box[data-selection-id]')) {
+      const id = box.getAttribute('data-selection-id');
+      const target = id === uiModel.rootId ? stageEl.querySelector('#canvasWindowWrapper') : elementFor(id);
+      if (target) place(box, toOverlay(target.getBoundingClientRect()));
+    }
   }
 
   function beginGesture(e, { onMove, onEnd, cursor }) {
@@ -947,20 +948,43 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
 
   // Free movement for absolute/fixed elements, with snapping to the parent's
   // edges and centre and to siblings' edges and centres.
+  // Drag a placed control - or, when it is one of several selected placed
+  // controls in the same container, all of them together (the group snaps
+  // as one box). One undo step.
   function startFreeMove(e, comp) {
     const el = elementFor(comp.id);
     if (!el) return;
-    const cs = getComputedStyle(el);
-    const startLeft = parseFloat(cs.left) || 0;
-    const startTop = parseFloat(cs.top) || 0;
+    const isPlaced = (node) => ['absolute', 'fixed'].includes(getComputedStyle(node).position);
+    let movers = [];
+    if (uiModel.isSelected(comp.id) && uiModel.selectedIds.size > 1) {
+      movers = uiModel.getSelectedComponents()
+        .filter(c => c.id !== uiModel.rootId && c.parentId === comp.parentId)
+        .map(c => ({ comp: c, el: elementFor(c.id) }))
+        .filter(m => m.el && isPlaced(m.el));
+    }
+    if (!movers.some(m => m.comp.id === comp.id)) {
+      movers = [{ comp, el }];
+      uiModel.select(comp.id);
+    }
+    for (const m of movers) {
+      const mcs = getComputedStyle(m.el);
+      m.startLeft = parseFloat(mcs.left) || 0;
+      m.startTop = parseFloat(mcs.top) || 0;
+    }
     const startX = e.clientX;
     const startY = e.clientY;
     const parentEl = el.offsetParent || el.parentElement;
-    const key = `move:${comp.id}`;
-    uiModel.select(comp.id);
-    // Measured once: the element itself moves with every write.
-    const startRect = el.getBoundingClientRect();
-    const { siblings, parent } = snapContext(parentEl, el);
+    const key = `move:${movers.map(m => m.comp.id).join(',')}`;
+    // Measured once: the elements themselves move with every write.
+    const rects = movers.map(m => m.el.getBoundingClientRect());
+    const union = {
+      left: Math.min(...rects.map(r => r.left)),
+      top: Math.min(...rects.map(r => r.top)),
+      right: Math.max(...rects.map(r => r.right)),
+      bottom: Math.max(...rects.map(r => r.bottom))
+    };
+    const startRect = { left: union.left, top: union.top, width: union.right - union.left, height: union.bottom - union.top };
+    const { siblings, parent } = snapContext(parentEl, movers.map(m => m.el));
 
     // While it moves, its padding / margin bands stay out of the way.
     document.body.classList.add('designer-is-moving');
@@ -968,31 +992,38 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
       cursor: 'move',
       onEnd: () => document.body.classList.remove('designer-is-moving'),
       onMove: (ev) => {
-        let left = startLeft + (ev.clientX - startX) / zoom;
-        let top = startTop + (ev.clientY - startY) / zoom;
+        // How far it has moved, in CSS px.
+        let dx = (ev.clientX - startX) / zoom;
+        let dy = (ev.clientY - startY) / zoom;
         guidesLayer.innerHTML = '';
-        const box = { left: startRect.left + (left - startLeft) * zoom, top: startRect.top + (top - startTop) * zoom, width: startRect.width, height: startRect.height };
+        const box = { left: startRect.left + dx * zoom, top: startRect.top + dy * zoom, width: startRect.width, height: startRect.height };
         // Alt: no snapping (the distances still show).
         const snap = snapMove(box, siblings, parent, { threshold: ev.altKey ? 0 : SNAP_PX * zoom, zoom });
-        left += snap.dx / zoom;
-        top += snap.dy / zoom;
+        dx += snap.dx / zoom;
+        dy += snap.dy / zoom;
         drawSnapLines(snap.lines);
         drawSpacingGuides(snap.gaps, snap.measures);
-        left = Math.round(left);
-        top = Math.round(top);
-        styles.write(comp, { left: `${left}px`, top: `${top}px`, right: null, bottom: null }, { key });
-        return `x ${left}  y ${top}`;
+        const dxPx = Math.round(dx);
+        const dyPx = Math.round(dy);
+        for (const m of movers) {
+          styles.write(m.comp, { left: `${m.startLeft + dxPx}px`, top: `${m.startTop + dyPx}px`, right: null, bottom: null }, { key });
+        }
+        const lead = movers.find(m => m.comp.id === comp.id) || movers[0];
+        return movers.length > 1
+          ? `${movers.length} controls  ·  x ${lead.startLeft + dxPx}  y ${lead.startTop + dyPx}`
+          : `x ${lead.startLeft + dxPx}  y ${lead.startTop + dyPx}`;
       }
     });
   }
 
   // What a control moving in a container snaps to (designer/snapping.js):
   // its siblings' boxes and the container's padding box, in screen px.
-  function snapContext(parentEl, el) {
+  function snapContext(parentEl, exclude) {
     if (!parentEl) return { siblings: [], parent: null };
+    const skip = new Set(Array.isArray(exclude) ? exclude : [exclude]);
     const box = (r) => ({ left: r.left, top: r.top, width: r.width, height: r.height });
     const siblings = Array.from(parentEl.children)
-      .filter(k => k !== el && k.hasAttribute('data-id') && !k.classList.contains('is-designer-hidden'))
+      .filter(k => !skip.has(k) && k.hasAttribute('data-id') && !k.classList.contains('is-designer-hidden'))
       .map(k => box(k.getBoundingClientRect()));
     const pr = parentEl.getBoundingClientRect();
     const pcs = getComputedStyle(parentEl);
