@@ -722,7 +722,7 @@ export class OtterStudioIde {
   }
 
   async promptOpenFolder() {
-    const folder = await askText({ title: 'Open Folder', message: 'A folder inside the Otter repository, for example examples/file-organizer.', value: 'examples/file-organizer', okLabel: 'Open' });
+    const folder = await askText({ title: 'Open Folder', message: 'A folder inside the Otter installation, or inside a folder Studio was opened on (otter studio <folder>).', value: 'examples/file-organizer', okLabel: 'Open' });
     if (!folder) return;
     await this.loadProjectTree(folder);
   }

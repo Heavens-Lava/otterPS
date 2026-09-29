@@ -79,11 +79,19 @@ export function prepareUserCss(cssText, scope, device) {
   return out.join('\n');
 }
 
+// The document being designed, so the server can resolve its `use` imports,
+// icon sprite and images from the folder the file really lives in.
+export function currentDocumentPath() {
+  const ide = window.otterIde;
+  const file = ide && ide.currentFile;
+  return typeof file === 'string' && file.endsWith('.ot') && file !== 'untitled.ot' ? file : '';
+}
+
 export async function fetchRealRender(code, css) {
   const res = await fetch('/api/render', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code, css })
+    body: JSON.stringify({ code, css, path: currentDocumentPath() })
   });
   const result = await res.json();
   if (!result.ok) throw new Error(result.message || 'Render failed.');
