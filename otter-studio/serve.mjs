@@ -31,6 +31,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.resolve(__dirname, '..');
 
+// An editor host (VS Code) or the desktop shell may start this server with
+// ELECTRON_RUN_AS_NODE set. This process is already running; its children
+// (Run, the terminal, packaging, Electron previews) must not inherit it, or
+// an Electron app launched from Studio starts as plain Node.
+delete process.env.ELECTRON_RUN_AS_NODE;
+
 // True when `target` (an absolute path) is the repository root or inside it.
 // Two checks:
 //  - by path text (path.relative, not startsWith: a bare startsWith(REPO_ROOT)
