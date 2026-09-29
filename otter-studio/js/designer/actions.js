@@ -183,6 +183,110 @@ export function createDesignerActions({ uiModel, styles, cssAstManager, canvas, 
     return true;
   }
 
+  // --- Free layout (place anywhere) -----------------------------------------
+  //
+  // A container in Free layout keeps each child exactly where it was dropped
+  // or dragged, like a Visual Studio form: the container is position:
+  // relative and every child is position: absolute with left / top. All of it
+  // is ordinary CSS in the project's stylesheet, so the compiled app shows
+  // the same layout. The container is marked with the custom property
+  // --otter-layout: free (valid CSS, ignored by browsers).
+  //
+  // Positions are written for the current breakpoint (a different
+  // arrangement on Mobile is possible), never for a :hover-style state.
+
+  const FREE_MARK = '--otter-layout';
+
+  function isFreeLayout(comp) {
+    const el = comp && canvas.elementFor(comp.id);
+    return Boolean(el) && getComputedStyle(el).getPropertyValue(FREE_MARK).trim() === 'free';
+  }
+
+  function inBaseState(fn) {
+    const saved = { ...styles.context };
+    styles.context = { breakpoint: saved.breakpoint, state: '' };
+    try { return fn(); } finally { styles.context = saved; }
+  }
+
+  // Where a point (client px) falls inside a container's padding box, in CSS
+  // px with the zoom taken out - what left / top of a child there would be.
+  function pointIn(containerEl, clientX, clientY) {
+    const rect = containerEl.getBoundingClientRect();
+    const cs = getComputedStyle(containerEl);
+    const zoom = canvas.getZoom();
+    return {
+      x: (clientX - rect.left) / zoom - (parseFloat(cs.borderLeftWidth) || 0),
+      y: (clientY - rect.top) / zoom - (parseFloat(cs.borderTopWidth) || 0)
+    };
+  }
+
+  // Turn Free layout on or off for a container. On: every child stays
+  // exactly where it is now, at its current size (its position becomes its
+  // left / top), so nothing jumps. Off: the children go back to flowing in
+  // order; the widths stay, so the round trip changes nothing else.
+  function setFreeLayout(container, on) {
+    if (!isContainer(container)) return false;
+    const containerEl = canvas.elementFor(container.id);
+    if (!containerEl) return false;
+    // On and off are separate undo steps (the same key would merge them).
+    const key = `free-layout-${on ? 'on' : 'off'}:${container.id}`;
+    const children = (container.children || []).map(id => uiModel.getComponent(id)).filter(Boolean);
+    return inBaseState(() => {
+      if (on) {
+        // Measure everything before writing: each write re-renders.
+        const zoom = canvas.getZoom();
+        const placed = children.map(child => {
+          const el = canvas.elementFor(child.id);
+          if (!el) return null;
+          const rect = el.getBoundingClientRect();
+          const cs = getComputedStyle(el);
+          const at = pointIn(containerEl, rect.left, rect.top);
+          return {
+            child,
+            left: Math.round(at.x - (parseFloat(cs.marginLeft) || 0)),
+            top: Math.round(at.y - (parseFloat(cs.marginTop) || 0)),
+            width: rect.width / zoom
+          };
+        }).filter(Boolean);
+        const containerHeight = containerEl.getBoundingClientRect().height / zoom;
+        const values = { [FREE_MARK]: 'free', position: 'relative' };
+        // Absolute children take no room: keep the container's height.
+        if (container.id !== uiModel.rootId) values['min-height'] = `${Math.round(containerHeight)}px`;
+        styles.write(container, values, { key });
+        // An absolute element shrinks to its content; one that was stretched
+        // across the container (a full-width button) keeps its width, so the
+        // form looks exactly as it did.
+        for (const p of placed) {
+          styles.write(p.child, { position: 'absolute', left: `${p.left}px`, top: `${p.top}px`, right: null, bottom: null, width: `${Math.round(p.width)}px` }, { key });
+        }
+      } else {
+        for (const child of children) {
+          styles.write(child, { position: null, left: null, top: null, right: null, bottom: null }, { key });
+        }
+        styles.write(container, { [FREE_MARK]: null, position: null, 'min-height': null }, { key });
+      }
+      return true;
+    });
+  }
+
+  function toggleFreeLayout(comp = primary()) {
+    const target = isContainer(comp) ? comp : uiModel.getComponent(comp?.parentId);
+    if (!target) return false;
+    return setFreeLayout(target, !isFreeLayout(target));
+  }
+
+  // Put a child of a Free container at a point: its top-left corner goes
+  // where the pointer is, minus where the pointer held it (grab, CSS px).
+  function placeAt(comp, container, clientX, clientY, grab = { x: 0, y: 0 }) {
+    const containerEl = canvas.elementFor(container.id);
+    if (!comp || !containerEl) return false;
+    const at = pointIn(containerEl, clientX, clientY);
+    const left = Math.max(0, Math.round(at.x - grab.x));
+    const top = Math.max(0, Math.round(at.y - grab.y));
+    inBaseState(() => styles.write(comp, { position: 'absolute', left: `${left}px`, top: `${top}px`, right: null, bottom: null }, { key: `place:${comp.id}` }));
+    return true;
+  }
+
   function clearStyles() {
     const comps = uiModel.getSelectedComponents();
     if (!comps.length) return false;
@@ -196,6 +300,7 @@ export function createDesignerActions({ uiModel, styles, cssAstManager, canvas, 
     selectParent, selectFirstChild, selectSibling, selectAllSiblings,
     moveAmongSiblings, moveOutOfParent, moveIntoPrevious,
     nudge,
+    isFreeLayout, setFreeLayout, toggleFreeLayout, placeAt,
     toggleHidden, toggleLocked,
     showAll: () => Boolean(viewState && viewState.showAll()),
     unlockAll: () => Boolean(viewState && viewState.unlockAll()),

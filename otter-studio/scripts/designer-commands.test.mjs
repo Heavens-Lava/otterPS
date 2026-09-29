@@ -41,7 +41,68 @@ function setup() {
   return { model, css, styles, actions, root, a, b, row, c, zoomCalls };
 }
 
+// Free layout needs element geometry: stand-in elements with fixed boxes,
+// and a getComputedStyle that reports the --otter-layout mark from the CSS
+// model (the canvas's browser would apply it).
+function setupFree(zoom = 1) {
+  const model = new OtterUiModel();
+  const css = new CssAstManager('');
+  model.attachStylesheet(css);
+  const styles = new StyleController(model, css);
+  const root = model.getRoot();
+  const a = model.addChild(root.id, 'button', { text: 'A' });
+  const b = model.addChild(root.id, 'button', { text: 'B' });
+  const boxes = {
+    [root.id]: { left: 100, top: 50, width: 500 * zoom, height: 400 * zoom },
+    [a.id]: { left: 100 + 16 * zoom, top: 50 + 16 * zoom, width: 200 * zoom, height: 30 * zoom },
+    [b.id]: { left: 100 + 16 * zoom, top: 50 + 60 * zoom, width: 468 * zoom, height: 36 * zoom }
+  };
+  const fake = (id) => ({ id, getBoundingClientRect: () => ({ ...boxes[id], right: boxes[id].left + boxes[id].width, bottom: boxes[id].top + boxes[id].height }) });
+  globalThis.getComputedStyle = (el) => ({
+    borderLeftWidth: '0px', borderTopWidth: '0px', marginLeft: '0px', marginTop: '0px',
+    getPropertyValue: (p) => (p === '--otter-layout' && css.generateCss().includes('--otter-layout: free') && el.id === root.id ? 'free' : '')
+  });
+  const actions = createDesignerActions({
+    uiModel: model, styles, cssAstManager: css,
+    canvas: { elementFor: (id) => (boxes[id] ? fake(id) : null), getZoom: () => zoom, zoomBy() {}, setZoom() {}, zoomToFit() {}, zoomToSelection() {} }
+  });
+  return { model, css, actions, root, a, b };
+}
+
 console.log('Designer commands:');
+
+test('Free layout: turning it on keeps every child where it is, at its size', () => {
+  const { css, actions, root } = setupFree();
+  assert.equal(actions.isFreeLayout(root), false);
+  assert.equal(actions.setFreeLayout(root, true), true);
+  const out = css.generateCss();
+  assert.match(out, /--otter-layout: free;\s*position: relative;/);
+  assert.match(out, /#button1 \{\s*position: absolute;\s*left: 16px;\s*top: 16px;\s*width: 200px;/);
+  assert.match(out, /#button2 \{\s*position: absolute;\s*left: 16px;\s*top: 60px;\s*width: 468px;/);
+  assert.equal(actions.isFreeLayout(root), true);
+});
+
+test('Free layout: a drop lands where it was let go (zoom and grab point taken out)', () => {
+  const { css, actions, root, b } = setupFree(2);
+  actions.setFreeLayout(root, true);
+  // Pointer at (400, 300) on screen, holding the element 10 x 5 px from its corner.
+  actions.placeAt(b, root, 400, 300, { x: 10, y: 5 });
+  assert.match(css.generateCss(), /#button2 \{[^}]*left: 140px;[^}]*top: 120px;/, '(400-100)/2-10, (300-50)/2-5');
+  actions.placeAt(b, root, 50, 20);
+  assert.match(css.generateCss(), /#button2 \{[^}]*left: 0px;[^}]*top: 0px;/, 'never outside the top-left corner');
+});
+
+test('Free layout: turning it off returns the children to flow; one undo step each way', () => {
+  const { model, css, actions, root } = setupFree();
+  actions.setFreeLayout(root, true);
+  actions.setFreeLayout(root, false);
+  const out = css.generateCss();
+  assert.doesNotMatch(out, /position|left:|top:|--otter-layout/);
+  assert.match(out, /width: 200px/, 'widths stay, so the form looks the same');
+  model.undo();
+  assert.match(css.generateCss(), /--otter-layout: free/, 'one undo brings Free back');
+  assert.match(css.generateCss(), /#button1 \{[^}]*left: 16px;/);
+});
 
 test('every command has a unique id and no key is bound twice', () => {
   const { actions } = setup();

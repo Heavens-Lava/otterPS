@@ -26,6 +26,7 @@ export function designerCommands(actions) {
     { id: 'designer.wrapColumn', title: 'Wrap in Column', keys: ['ctrl+g'], run: () => a.wrap('column') },
     { id: 'designer.wrapRow', title: 'Wrap in Row', keys: ['ctrl+shift+g'], run: () => a.wrap('row') },
     { id: 'designer.wrapCard', title: 'Wrap in Card', keys: [], run: () => a.wrap('card') },
+    { id: 'designer.toggleFreeLayout', title: 'Free Layout: Place Anywhere (on / off)', keys: [], run: () => a.toggleFreeLayout() },
     { id: 'designer.unwrap', title: 'Unwrap (Keep Children)', keys: ['ctrl+alt+g'], run: a.unwrap },
     { id: 'designer.moveUp', title: 'Move Before Previous Sibling', keys: ['ctrl+arrowup', 'alt+arrowup', 'alt+arrowleft'], run: () => a.moveAmongSiblings(-1) },
     { id: 'designer.moveDown', title: 'Move After Next Sibling', keys: ['ctrl+arrowdown', 'alt+arrowdown', 'alt+arrowright'], run: () => a.moveAmongSiblings(1) },

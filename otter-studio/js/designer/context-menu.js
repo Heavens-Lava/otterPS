@@ -28,6 +28,7 @@ export function createDesignerContextMenu({ uiModel, styles, actions, commands }
       sameParent && { label: 'Wrap in column', hint: hint('designer.wrapColumn'), run: () => actions.wrap('column') },
       sameParent && { label: 'Wrap in card', hint: '', run: () => actions.wrap('card') },
       schema.isContainer && notRoot && { label: 'Unwrap (keep children)', hint: hint('designer.unwrap'), run: actions.unwrap },
+      (schema.isContainer || !notRoot) && { label: actions.isFreeLayout(comp) ? 'Flow Layout (in order)' : 'Free Layout (place anywhere)', run: () => actions.setFreeLayout(comp, !actions.isFreeLayout(comp)) },
       '-',
       notRoot && { label: 'Move before previous', hint: hint('designer.moveUp'), run: () => actions.moveAmongSiblings(-1) },
       notRoot && { label: 'Move after next', hint: hint('designer.moveDown'), run: () => actions.moveAmongSiblings(1) },

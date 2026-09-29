@@ -42,7 +42,9 @@ export function renderToolbox(containerEl, uiModel) {
       if (schema && schema.isContainer) targetParentId = selected.id;
       else if (selected.parentId) targetParentId = selected.parentId;
     }
-    uiModel.addChild(targetParentId, kind);
+    const child = uiModel.addChild(targetParentId, kind);
+    // The canvas places it when the container is in Free layout.
+    if (child) window.dispatchEvent(new CustomEvent('otter:component-added', { detail: { id: child.id, parentId: targetParentId } }));
   }
 
   function buildCategories(filter = '') {

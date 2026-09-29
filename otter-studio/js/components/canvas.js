@@ -1250,6 +1250,8 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
         return;
       }
       currentDraggedComponentId = comp.id;
+      const grabRect = el.getBoundingClientRect();
+      dragGrab = { x: (e.clientX - grabRect.left) / zoom, y: (e.clientY - grabRect.top) / zoom };
       // Dragging one of several selected components moves just that one.
       el.classList.add('is-dragging');
       e.dataTransfer.effectAllowed = 'move';
@@ -1295,6 +1297,9 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
   // ---------------------------------------------------------------------------
 
   let suppressClick = false;
+  // Where the pointer held the element being dragged (CSS px), so a drop into
+  // a Free layout container puts it exactly where it was let go.
+  let dragGrab = { x: 0, y: 0 };
 
   function bindViewport() {
     viewportEl.addEventListener('dragover', (e) => {
@@ -1306,6 +1311,7 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
       const hit = root && performHitTest(e.clientX, e.clientY, currentDraggedComponentId, contentAreaEl(), root);
       currentHit = hit || null;
       if (hit) showDropMarkers(hit); else hideDropMarkers();
+      if (hit && !hit.gridCell && actions.isFreeLayout(hit.targetComp)) insertionLine.hidden = true;
     });
 
     viewportEl.addEventListener('dragleave', (e) => {
@@ -1348,6 +1354,13 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
         const compId = dragData.componentId || draggedId;
         if (compId && uiModel.moveChild(compId, hit.targetComp.id, hit.insertIndex)) placedId = compId;
       }
+
+      // A drop into a Free layout container: exactly where it was let go.
+      if (placedId && !hit.gridCell && actions.isFreeLayout(hit.targetComp)) {
+        const grab = dragData.type === 'move-component' ? dragGrab : { x: 0, y: 0 };
+        actions.placeAt(uiModel.getComponent(placedId), hit.targetComp, e.clientX, e.clientY, grab);
+      }
+      dragGrab = { x: 0, y: 0 };
 
       // A drop onto a grid cell places the component in that cell explicitly.
       if (placedId && hit.gridCell) {
@@ -1792,7 +1805,7 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
 
   const actions = createDesignerActions({
     uiModel, styles, cssAstManager, viewState,
-    canvas: { elementFor, zoomBy, setZoom, zoomToFit, zoomToSelection }
+    canvas: { elementFor, zoomBy, setZoom, zoomToFit, zoomToSelection, getZoom: () => zoom }
   });
   const commands = designerCommands(actions);
   const contextMenu = createDesignerContextMenu({ uiModel, styles, actions, commands });
@@ -1882,6 +1895,22 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
   });
 
   window.addEventListener('otter:style-context', () => update());
+  // Added by clicking a Components tile: in a Free container it gets its own
+  // spot, cascading down from the top-left so new ones do not stack.
+  window.addEventListener('otter:component-added', (e) => {
+    const parent = uiModel.getComponent(e.detail?.parentId);
+    const child = uiModel.getComponent(e.detail?.id);
+    if (!parent || !child || !actions.isFreeLayout(parent)) return;
+    const parentEl = elementFor(parent.id);
+    if (!parentEl) return;
+    const step = ((parent.children || []).length - 1) % 10;
+    const rect = parentEl.getBoundingClientRect();
+    actions.placeAt(child, parent, rect.left + (24 + step * 20) * zoom, rect.top + (24 + step * 20) * zoom);
+  });
+  window.addEventListener('otter:free-layout', (e) => {
+    const comp = uiModel.getComponent(e.detail?.id);
+    if (comp) actions.setFreeLayout(comp, Boolean(e.detail.on));
+  });
   window.addEventListener('otter:view-state', () => { applyViewState(); updateOverlay(); });
 
   return { actions, commands, isDesignerVisible };

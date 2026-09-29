@@ -426,6 +426,25 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
 
   // --- Layout -------------------------------------------------------------------
 
+  // Flow: children in order (the default). Free: each child stays where it
+  // is dropped or dragged (designer/actions.js setFreeLayout).
+  function placementRow(comp) {
+    const el = canvasElementFor(comp);
+    const free = Boolean(el) && getComputedStyle(el).getPropertyValue('--otter-layout').trim() === 'free';
+    return `
+      <div class="sp-field is-wide sp-placement" data-search="placement free flow absolute position anywhere">
+        <span class="sp-dot"></span>
+        <label class="sp-label">Placement</label>
+        <div class="sp-control">
+          <div class="sp-seg">
+            <button class="sp-seg-btn ${free ? '' : 'is-active'}" data-free-layout="off" title="Children follow each other in order">Flow</button>
+            <button class="sp-seg-btn ${free ? 'is-active' : ''}" data-free-layout="on" title="Each child stays exactly where you drop or drag it">Free</button>
+          </div>
+        </div>
+      </div>
+      ${free ? '<div class="sp-note">Drag children anywhere; they snap to edges, centres and each other (Alt turns snapping off). Arrow keys nudge.</div>' : ''}`;
+  }
+
   function renderLayoutSection(ctx) {
     const { selected } = ctx;
     const schema = ComponentSchema[selected.kind] || {};
@@ -435,6 +454,7 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
     // only the spacing between them can be designed here.
     if (selected.kind === 'window') {
       return section('layout', 'Layout',
+        placementRow(selected) +
         field(ctx, 'gap', 'Spacing', lengthInput(ctx, 'gap'), { scrub: { min: 0 }, search: 'gap spacing between' }) +
         '<div class="sp-note">A window stacks its children top to bottom. To arrange them another way, select them and wrap them in a row or column (right-click, or Ctrl+G).</div>',
         { setCount: countSet(ctx, ['gap']), search: 'gap spacing' });
@@ -446,7 +466,7 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
     const isFlex = display.includes('flex');
     const isGrid = display.includes('grid');
 
-    let body = field(ctx, 'display', 'Display', segmented(ctx, 'display', [
+    let body = (isContainer ? placementRow(selected) : '') + field(ctx, 'display', 'Display', segmented(ctx, 'display', [
       ['block', 'Block', 'display: block'],
       ['flex', 'Flex', 'display: flex'],
       ['grid', 'Grid', 'display: grid'],
@@ -1087,6 +1107,12 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
     // Selects
     qa('.sp-select[data-prop]').forEach(sel => sel.addEventListener('change', () => {
       write({ [sel.getAttribute('data-prop')]: sel.value }, `select:${sel.getAttribute('data-prop')}`);
+    }));
+
+    // Placement: Flow / Free (the canvas does the work).
+    qa('[data-free-layout]').forEach(btn => btn.addEventListener('click', () => {
+      if (btn.classList.contains('is-active')) return;
+      window.dispatchEvent(new CustomEvent('otter:free-layout', { detail: { id: selected.id, on: btn.getAttribute('data-free-layout') === 'on' } }));
     }));
 
     // Segmented controls. Clicking the active value clears it.
