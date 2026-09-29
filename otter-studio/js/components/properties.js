@@ -87,6 +87,9 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
   let scrubbing = false;
   let refreshQueued = false;
   let collapsed = loadCollapsed();
+  // Sections most controls never need start closed (until opened once).
+  const CLOSED_BY_DEFAULT = new Set(['position', 'effects', 'raw']);
+  const isSectionCollapsed = (id) => collapsed[id] ?? CLOSED_BY_DEFAULT.has(id);
   let lastCtx = null;
 
   // ---------------------------------------------------------------------------
@@ -159,6 +162,16 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
     };
     const ctx = { selected, resolved, computed, explain, parentLayout: parentLayoutOf(selected) };
     lastCtx = ctx;
+    // Only what applies to this control where it is: how children are laid
+    // out is a container's business; x / y in a Free container is the
+    // Position section at the top, so the CSS position section would repeat
+    // it; an image has no text.
+    const isContainerKind = Boolean(ComponentSchema[selected.kind]?.isContainer) || selected.id === uiModel.rootId;
+    const relevant = {
+      layout: isContainerKind,
+      position: ctx.parentLayout !== 'free',
+      typography: !['image', 'progress bar', 'slider'].includes(selected.kind)
+    };
 
     containerEl.innerHTML = `
       <div class="properties-header">
@@ -171,11 +184,11 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
         ${renderIdentityGroup(selected, count)}
         ${renderContentGroup(selected, selected.properties || {})}
         ${renderChildSection(ctx)}
-        ${renderLayoutSection(ctx)}
+        ${relevant.layout ? renderLayoutSection(ctx) : ''}
         ${renderSpacingSection(ctx)}
         ${renderSizeSection(ctx)}
-        ${renderPositionSection(ctx)}
-        ${renderTypographySection(ctx)}
+        ${relevant.position ? renderPositionSection(ctx) : ''}
+        ${relevant.typography ? renderTypographySection(ctx) : ''}
         ${renderBackgroundSection(ctx)}
         ${renderBorderSection(ctx)}
         ${renderEffectsSection(ctx)}
@@ -289,7 +302,7 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
   // --- Section scaffolding ----------------------------------------------------
 
   function section(id, title, body, { setCount = 0, search = '' } = {}) {
-    const isCollapsed = collapsed[id] === true;
+    const isCollapsed = isSectionCollapsed(id);
     return `
       <section class="sp-section ${isCollapsed ? 'is-collapsed' : ''}" data-section="${id}" data-search="${escapeHtml((title + ' ' + search).toLowerCase())}">
         <button class="sp-section-head" data-toggle-section="${id}" aria-expanded="${!isCollapsed}">
@@ -1101,7 +1114,7 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
     // Collapsible sections
     qa('[data-toggle-section]').forEach(head => head.addEventListener('click', () => {
       const id = head.getAttribute('data-toggle-section');
-      collapsed[id] = !collapsed[id];
+      collapsed[id] = !isSectionCollapsed(id);
       saveCollapsed(collapsed);
       head.closest('.sp-section').classList.toggle('is-collapsed', collapsed[id]);
       head.setAttribute('aria-expanded', String(!collapsed[id]));

@@ -1516,6 +1516,10 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
 
     el.addEventListener('pointerdown', (e) => {
       if (e.button !== 0 || isLocked(comp)) return;
+      // A press on a control inside this one is that control's: a placed
+      // card must not start moving (and take the selection) when a button
+      // in its row is pressed.
+      if (e.target.closest?.('.canvas-element[data-id]') !== el) return;
       const pos = getComputedStyle(el).position;
       if ((pos === 'absolute' || pos === 'fixed') && !e.ctrlKey && !e.metaKey && !e.shiftKey) {
         e.stopPropagation();
@@ -1724,18 +1728,17 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
       };
       place(marqueeEl, toOverlay({ left: box.left, top: box.top, width: box.right - box.left, height: box.bottom - box.top }));
       marqueeEl.hidden = false;
+      // Everything the rectangle touches is picked (as in Visual Studio's form
+      // designer): the window's own controls - a card, not each thing in it.
       const hits = [];
+      const touches = (r) => r.left < box.right && r.right > box.left && r.top < box.bottom && r.bottom > box.top;
+      const scope = contentAreaEl();
       for (const el of stageEl.querySelectorAll('.canvas-element[data-id]')) {
         // Locked and hidden layers are not picked up by a marquee.
         if (el.classList.contains('is-designer-locked') || el.classList.contains('is-designer-hidden')) continue;
-        const r = el.getBoundingClientRect();
-        if (r.left >= box.left && r.right <= box.right && r.top >= box.top && r.bottom <= box.bottom) {
-          // Only the outermost contained components, not every descendant.
-          const parentHit = el.parentElement?.closest('.canvas-element[data-id]');
-          const pr = parentHit?.getBoundingClientRect();
-          if (pr && pr.left >= box.left && pr.right <= box.right && pr.top >= box.top && pr.bottom <= box.bottom) continue;
-          hits.push(el.getAttribute('data-id'));
-        }
+        const parentEl = el.parentElement?.closest('.canvas-element[data-id], .window-content-area');
+        if (scope && parentEl !== scope) continue;
+        if (touches(el.getBoundingClientRect())) hits.push(el.getAttribute('data-id'));
       }
       stageEl.querySelectorAll('.is-marquee-hit').forEach(el => el.classList.remove('is-marquee-hit'));
       hits.forEach(id => elementFor(id)?.classList.add('is-marquee-hit'));
