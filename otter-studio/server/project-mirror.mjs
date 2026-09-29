@@ -11,7 +11,7 @@
 //   syncMirror(projectRoot, overrides) -> mirrorRoot
 //     overrides: { <absolute path in the project>: text }
 //
-// Only the files a compile reads are mirrored (.ot, .css, .json); images
+// Only the files a compile reads are mirrored (.ot, .css, .json, .svg); images
 // are served from the real project (the page's <base> points there).
 // Unchanged files are not copied again; files gone from the project go
 // from the mirror too.
@@ -22,7 +22,9 @@ import os from 'node:os';
 import path from 'node:path';
 
 const SKIP_DIRS = new Set(['node_modules', 'dist', 'dist-electron', '.git', '.otter', 'publish', 'out', 'bin', 'obj']);
-const MIRRORED = /\.(ot|css|json)$/i;
+// What a compile reads: the program, its stylesheets and data, and SVG icon
+// sprites (Otter 1.1 embeds a page's `icons` sprite at compile time).
+const MIRRORED = /\.(ot|css|json|svg)$/i;
 const MAX_FILES = 2000;
 
 export function mirrorRootFor(projectRoot) {

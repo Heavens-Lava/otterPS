@@ -44,6 +44,7 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
   let realRender = null;
   let realRenderTimer = null;
   let realRenderSerial = 0;
+  let realRenderAbort = null;
   let zoom = 1;
   let spaceHeld = false;
   let gestureActive = false; // resize / spacing drag / free move in progress
@@ -303,6 +304,7 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
   // (isInteractMode is true while previewing: the canvas takes no gestures.)
   let previewTimer = null;
   let previewSerial = 0;
+  let previewAbort = null;
   function setPreview(on) {
     if (isInteractMode === on) return;
     isInteractMode = on;
@@ -316,6 +318,9 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
   }
   async function renderPreviewNow() {
     const serial = ++previewSerial;
+    previewAbort?.abort();
+    const abort = new AbortController();
+    previewAbort = abort;
     const status = containerEl.querySelector('#canvasPreviewStatus');
     const iframe = containerEl.querySelector('#canvasPreviewIframe');
     status.textContent = 'Compiling…';
@@ -333,7 +338,8 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
           css: cssAstManager ? cssAstManager.generateCss() : '',
           path,
           live: Boolean(path)
-        })
+        }),
+        signal: abort.signal
       });
       const result = await res.json();
       if (serial !== previewSerial) return;
@@ -342,7 +348,7 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
       status.textContent = 'Running the compiled app';
       status.dataset.state = 'ok';
     } catch (err) {
-      if (serial !== previewSerial) return;
+      if (err?.name === 'AbortError' || serial !== previewSerial) return;
       status.textContent = `Could not compile: ${err.message}`;
       status.dataset.state = 'error';
     }
@@ -499,6 +505,10 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
     clearTimeout(realRenderTimer);
     realRenderTimer = setTimeout(async () => {
       const serial = ++realRenderSerial;
+      // The render this one replaces is not waited for any more.
+      realRenderAbort?.abort();
+      const abort = new AbortController();
+      realRenderAbort = abort;
       try {
         // A document with a file renders its own text (the designer edits
         // it in place through the splicer), so functions, data and imports
@@ -507,7 +517,7 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
         const code = currentDocumentPath() && ide ? ide.currentCode : generateOtterSource(uiModel);
         const css = cssAstManager ? cssAstManager.generateCss() : '';
         const sourceInline = snapshotSourceInline();
-        const real = await fetchRealRender(code, css);
+        const real = await fetchRealRender(code, css, uiModel.getAllComponents().map(c => c.name), { signal: abort.signal });
         if (serial !== realRenderSerial) return;
         showRenderError(null);
         real.sourceInline = sourceInline;
@@ -521,6 +531,7 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
           window.dispatchEvent(new CustomEvent('otter:canvas-rendered'));
         }
       } catch (err) {
+        if (err?.name === 'AbortError') return;
         if (serial === realRenderSerial) showRenderError(err);
       }
     }, 300);
@@ -1467,7 +1478,15 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
         el.classList.add('canvas-button', 'otter-button', 'otter-btn');
         if (comp.kind === 'primary button') el.classList.add('otter-btn-primary');
         if (comp.kind === 'danger button') el.classList.add('otter-btn-danger');
-        el.innerText = props.text || 'Button';
+        if (!props.text && props.icon) {
+          // An icon button (Otter 1.1 `icon "bell"`): the canvas does not
+          // have the app's icon sprite, so a placeholder named after it.
+          el.classList.add('canvas-icon-button');
+          el.innerHTML = `<span class="canvas-icon-placeholder" title="icon ${escapeHtml(String(props.icon))}"></span>`;
+          el.title = `Icon: ${props.icon}`;
+        } else {
+          el.innerText = props.text || 'Button';
+        }
         break;
       case 'text box':
         el.classList.add('canvas-textbox', 'otter-textbox', 'otter-input');

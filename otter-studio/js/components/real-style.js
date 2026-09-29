@@ -87,15 +87,60 @@ export function currentDocumentPath() {
   return typeof file === 'string' && file.endsWith('.ot') && file !== 'untitled.ot' ? file : '';
 }
 
-export async function fetchRealRender(code, css) {
+// wantedIds: the design's components. A program that builds its page while
+// it runs (Otter 1.1's runtime UI: OtterBoard) has almost none of them in
+// the compiled HTML; then the page is run, sandboxed, to read them.
+// signal: aborts a render a newer one has replaced, so waiting renders of a
+// slow project never hold the browser's few connections to the server (a
+// save queued behind them could not be sent).
+export async function fetchRealRender(code, css, wantedIds = [], { signal } = {}) {
   const res = await fetch('/api/render', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code, css, path: currentDocumentPath() })
+    body: JSON.stringify({ code, css, path: currentDocumentPath() }),
+    signal
   });
   const result = await res.json();
   if (!result.ok) throw new Error(result.message || 'Render failed.');
-  return parseRealRender(result.html);
+  const real = parseRealRender(result.html);
+  const found = wantedIds.filter(id => real.elements.has(id)).length;
+  if (wantedIds.length > 1 && found < wantedIds.length * 0.6) {
+    const live = await runLiveRender(result.html);
+    if (live && live.elements.size > real.elements.size) return { ...real, css: live.css || real.css, elements: live.elements };
+  }
+  return real;
+}
+
+// Run a compiled page in a hidden iframe and read what its program built:
+// every element's class and inline style, and the compiler's stylesheet.
+// sandbox="allow-scripts" only - the page gets no access to Studio's
+// origin, its API, dialogs or popups - and it reports back by postMessage.
+// null when it does not answer in time (the static read stands then).
+export function runLiveRender(html, timeoutMs = 5000) {
+  return new Promise((resolve) => {
+    const token = Math.random().toString(36).slice(2);
+    const collector = `<script>(function(){function send(){var els={};document.querySelectorAll('[id]').forEach(function(e){els[e.id]={className:e.getAttribute('class')||'',style:e.getAttribute('style')||''};});var css=Array.prototype.filter.call(document.querySelectorAll('style'),function(s){return s.id!=='otter-sidecar-style';}).map(function(s){return s.textContent;}).join('\\n');parent.postMessage({otterLiveRender:'${token}',elements:els,css:css},'*');}if(document.readyState==='complete'){setTimeout(send,200);}else{window.addEventListener('load',function(){setTimeout(send,200);});}})();<\/script>`;
+    const doc = /<\/body>/i.test(html) ? html.replace(/<\/body>/i, () => `${collector}</body>`) : html + collector;
+    const frame = document.createElement('iframe');
+    frame.setAttribute('sandbox', 'allow-scripts');
+    frame.setAttribute('aria-hidden', 'true');
+    frame.style.cssText = 'position:fixed;left:-20000px;top:0;width:1280px;height:800px;visibility:hidden;pointer-events:none;';
+    let timer = null;
+    const onMessage = (e) => {
+      if (e.source !== frame.contentWindow || e.data?.otterLiveRender !== token) return;
+      done({ css: String(e.data.css || ''), elements: new Map(Object.entries(e.data.elements || {})) });
+    };
+    const done = (result) => {
+      clearTimeout(timer);
+      window.removeEventListener('message', onMessage);
+      frame.remove();
+      resolve(result);
+    };
+    timer = setTimeout(() => done(null), timeoutMs);
+    window.addEventListener('message', onMessage);
+    frame.srcdoc = doc;
+    document.body.appendChild(frame);
+  });
 }
 
 // Returns { css, elements: Map<id, { className, style }> }.

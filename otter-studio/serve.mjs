@@ -301,11 +301,15 @@ function liveEntryFor(documentPath) {
 // stylesheet and images resolve from there); '' for a document with no file.
 // baseDir: where the page's images are served from, when that is not
 // sourceDir (a render from the project mirror: server/project-mirror.mjs).
-function renderOtterSource(code, css, sourceDir = '', baseDir = sourceDir) {
+// abandoned(): the requester has gone (a newer render replaced it) - then a
+// compile still waiting in the queue is skipped, so a slow project's
+// superseded renders do not hold up the one that matters.
+function renderOtterSource(code, css, sourceDir = '', baseDir = sourceDir, { abandoned = () => false } = {}) {
   const fingerprint = sourceDir ? sourceDir + '\u0000' + folderFingerprint(sourceDir) : '';
   const key = crypto.createHash('sha256').update(code + '\u0000' + css + '\u0000' + fingerprint).digest('hex').slice(0, 24);
   if (renderCache.has(key)) return Promise.resolve(renderCache.get(key));
   const job = renderQueue.then(() => new Promise(resolve => {
+    if (abandoned()) return resolve({ ok: false, message: 'Replaced by a newer render.' });
     const dir = path.join(os.tmpdir(), 'otter-studio-render');
     fs.mkdirSync(dir, { recursive: true });
     const sourcePath = path.join(dir, `${key}.ot`);
@@ -950,7 +954,10 @@ async function handleRequest(req, res) {
           }
         }
       }
-      const result = await renderOtterSource(code, String(body.css || ''), sourceDir, baseDir);
+      let gone = false;
+      res.on('close', () => { if (!res.writableFinished) gone = true; });
+      const result = await renderOtterSource(code, String(body.css || ''), sourceDir, baseDir, { abandoned: () => gone });
+      if (gone) return;
       sendJson(res, result, result.ok ? 200 : 422);
     } catch (err) {
       sendJson(res, { ok: false, message: err.message }, 500);

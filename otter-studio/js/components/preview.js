@@ -55,10 +55,15 @@ export function renderPreview(containerEl, uiModel, cssAstManager) {
   // debounced, and a slower response for older source never overwrites a newer one.
   let renderTimer = null;
   let renderSerial = 0;
+  // A newer render replaces this one: stop waiting (the connection is freed).
+  let renderAbort = null;
   let lastHtml = null;
 
   async function renderReal() {
     const serial = ++renderSerial;
+    renderAbort?.abort();
+    const abort = new AbortController();
+    renderAbort = abort;
     // The Live App runs the real program: the open .ot document (with its
     // functions, data and `use` imports, resolved from its own folder) or,
     // when that document belongs to a project, the project's entry point.
@@ -73,7 +78,8 @@ export function renderPreview(containerEl, uiModel, cssAstManager) {
       const res = await fetch('/api/render', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code, css, path, live: Boolean(path) })
+        body: JSON.stringify({ code, css, path, live: Boolean(path) }),
+        signal: abort.signal
       });
       const result = await res.json();
       if (serial !== renderSerial) return;
@@ -86,6 +92,7 @@ export function renderPreview(containerEl, uiModel, cssAstManager) {
         setStatus('error', result.message);
       }
     } catch (err) {
+      if (err?.name === 'AbortError') return;
       if (serial === renderSerial) setStatus('error', err.message);
     }
   }
