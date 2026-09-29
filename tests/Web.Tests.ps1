@@ -911,13 +911,21 @@ setTimeout(async () => {
   }
   logged = [];
   $sec30Js
-  setTimeout(() => {
-    if (!logged.some(l => l.includes('Password verified'))) {
+  // Hash then verify is two PBKDF2 runs at 600,000 iterations; a slow CI
+  // runner can take well over a fixed 500 ms, so poll up to 60 seconds.
+  const started = Date.now();
+  const check = () => {
+    if (logged.some(l => l.includes('Password verified'))) {
+      process.stdout.write('ACCEPTANCE_OK');
+      return;
+    }
+    if (Date.now() - started > 60000) {
       console.error('Section 30 failed. Logged: ' + logged.join(' | '));
       process.exit(1);
     }
-    process.stdout.write('ACCEPTANCE_OK');
-  }, 500);
+    setTimeout(check, 100);
+  };
+  setTimeout(check, 100);
 }, 100);
 "@
 
