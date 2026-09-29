@@ -1077,6 +1077,23 @@ if (($ran.said -join '|') -ne 'Hello World|1, 2') { throw "Expected the sample t
 if (($ran.vars -join ',') -ne 'name,items') { throw "Expected the sample's variables to be tracked for cleanup, got: $($ran.vars -join ',')" }
 Write-Output '  pass  runnable true: live samples compile, run for real, and skip what a browser cannot run'
 
+# Test 32: a checkbox is one control - its id is on the label, so a
+# stylesheet rule that places or sizes it moves the box and its text
+# together (Otter Studio's Free layout); its checked state is still read
+# and set through the input inside.
+$checkboxSource = "app is a window with title `"Form`"`nagree is a checkbox with text `"Email me`", checked true`nput agree in app`nshow app`n"
+$checkboxHtml = ConvertTo-OtterWeb -Program (ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $checkboxSource))
+if ($checkboxHtml -notmatch '<label id="agree" class="otter-checkbox-label"><input type="checkbox" id="agree-box" class="otter-checkbox" checked />') {
+    throw 'Expected the checkbox id on its label and the input as agree-box.'
+}
+if ($checkboxHtml -notmatch 'function otterValueElement\(id\)' -or $checkboxHtml -notmatch 'function otterGetText\(id\) \{\s*const el = otterValueElement\(id\);') {
+    throw 'Expected the runtime to read a checkbox value from the input inside its label.'
+}
+if ($checkboxHtml -notmatch "otterInputProps = new Set\(\['checked', 'disabled', 'value'\]\)") {
+    throw 'Expected checked / disabled / value properties to go to the input.'
+}
+Write-Output '  pass  a checkbox is one control: id on the label, value on the input inside'
+
 Write-Output 'Web compiler tests passed.'
 
 

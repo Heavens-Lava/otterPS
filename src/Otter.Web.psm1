@@ -814,7 +814,11 @@ function ConvertTo-OtterWeb {
                 $rawText = if ($props.Contains('text')) { [string]$props['text'] } else { "" }
                 $text = Escape-OtterHtmlAttr -Text $rawText
                 $checked = if ($props.Contains('checked') -and $props['checked']) { " checked" } else { "" }
-                return "      <label class=`"otter-checkbox-label`"$styleAttr><input type=`"checkbox`" id=`"$resName`" class=`"otter-checkbox`"$checked /> <span>$text</span></label>"
+                # The control is the labelled checkbox: its id is on the label, so a
+                # stylesheet rule for it (a position, a size) moves the box and its
+                # text together. The input inside is <name>-box; the runtime reads
+                # and sets its checked state through otterValueElement.
+                return "      <label id=`"$resName`" class=`"otter-checkbox-label`"$styleAttr><input type=`"checkbox`" id=`"$resName-box`" class=`"otter-checkbox`"$checked /> <span>$text</span></label>"
             }
             { $_ -in @('dropdown', 'drop down', 'select') } {
                 $opts = @()
@@ -1762,11 +1766,16 @@ $elementsHtml
     const empty = "";
     const gone = null;
     function otterGetElement(id) { return document.getElementById(id); }
+    // The element that holds a control's value: a checkbox's input inside its label.
+    function otterValueElement(id) {
+      const el = otterGetElement(id);
+      return el && el.classList && el.classList.contains('otter-checkbox-label') ? (el.querySelector('input.otter-checkbox') || el) : el;
+    }
 $dragDropRuntimeJs
 $runnableRuntimeJs
 $cryptoRuntimeJs
     function otterGetText(id) {
-      const el = otterGetElement(id);
+      const el = otterValueElement(id);
       if (!el) return '';
       if (el.type === 'checkbox') return el.checked;
       const tag = el.tagName ? el.tagName.toUpperCase() : '';
@@ -1776,7 +1785,7 @@ $cryptoRuntimeJs
       return el.textContent || '';
     }
     function otterSetText(id, val) {
-      const el = otterGetElement(id);
+      const el = otterValueElement(id);
       if (!el) return;
       if (el.type === 'checkbox') { el.checked = Boolean(val); return; }
       const tag = el.tagName ? el.tagName.toUpperCase() : '';
@@ -1797,8 +1806,11 @@ $cryptoRuntimeJs
       const el = otterGetElement(id);
       return el ? el.style[prop] : '';
     }
+    // A checkbox's checked / enabled state is its input's; everything else
+    // (styles, visibility) is the labelled control's.
+    const otterInputProps = new Set(['checked', 'disabled', 'value']);
     function otterSetProperty(id, prop, val) {
-      const el = otterGetElement(id);
+      const el = otterInputProps.has(prop) ? otterValueElement(id) : otterGetElement(id);
       if (el) {
         if (prop === 'url' && el.tagName === 'A') { el.href = val; return; }
         el[prop] = val;
@@ -1806,7 +1818,7 @@ $cryptoRuntimeJs
       }
     }
     function otterGetProperty(id, prop) {
-      const el = otterGetElement(id);
+      const el = otterInputProps.has(prop) ? otterValueElement(id) : otterGetElement(id);
       return el ? el[prop] : '';
     }
     function otterSay(...args) {
