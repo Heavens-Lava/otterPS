@@ -82,9 +82,8 @@ export function generateOtterSource(uiModel) {
       hasEvents = true;
 
       lines.push(`when ${comp.name} is ${eventKind}`);
-      const bodyLines = code.trim().split('\n');
-      for (const line of bodyLines) {
-        lines.push(`    ${line}`);
+      for (const line of dedentBody(code)) {
+        lines.push(line ? `    ${line}` : '');
       }
       lines.push('.');
       lines.push('');
@@ -103,6 +102,23 @@ export function generateOtterSource(uiModel) {
 // compiled to nothing visible. It is written as the text it is (its size and
 // bold go with it) and reads back as one.
 const WRITTEN_KIND = { heading: 'text' };
+
+/**
+ * A handler body as its lines with the common indentation removed, so it
+ * can be re-indented one level under `when`. Trimming the whole text only
+ * removed the first line's indentation: every nested line then sat two
+ * levels deeper than the first, which Otter rejects ("Indentation cannot
+ * jump more than one level at a time").
+ */
+export function dedentBody(code) {
+  const lines = String(code).replace(/\r\n?/g, '\n').split('\n');
+  while (lines.length && !lines[0].trim()) lines.shift();
+  while (lines.length && !lines[lines.length - 1].trim()) lines.pop();
+  const expanded = lines.map(line => line.replace(/\t/g, '    '));
+  const indents = expanded.filter(line => line.trim()).map(line => line.match(/^ */)[0].length);
+  const common = indents.length ? Math.min(...indents) : 0;
+  return expanded.map(line => (line.trim() ? line.slice(common).replace(/\s+$/, '') : ''));
+}
 
 export function declareComponent(name, kind, propertyParts) {
   const prefix = `${name} is a ${WRITTEN_KIND[kind] || kind}`;

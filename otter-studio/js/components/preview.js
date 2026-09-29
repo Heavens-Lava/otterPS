@@ -2,6 +2,7 @@
 
 import { generateOtterSource } from '../compiler/otter-generator.js';
 import { withAssetBase } from '../designer/asset-url.js';
+import { currentDocumentPath } from './real-style.js';
 
 export function renderPreview(containerEl, uiModel, cssAstManager) {
   containerEl.innerHTML = `
@@ -58,14 +59,21 @@ export function renderPreview(containerEl, uiModel, cssAstManager) {
 
   async function renderReal() {
     const serial = ++renderSerial;
-    const code = generateOtterSource(uiModel);
+    // The Live App runs the real program: the open .ot document (with its
+    // functions, data and `use` imports, resolved from its own folder) or,
+    // when that document belongs to a project, the project's entry point.
+    // Only an untitled design falls back to source generated from the
+    // Designer model.
+    const ide = window.otterIde;
+    const path = currentDocumentPath();
+    const code = path && ide ? ide.currentCode : generateOtterSource(uiModel);
     const css = cssAstManager ? cssAstManager.generateCss() : '';
     setStatus('rendering');
     try {
       const res = await fetch('/api/render', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code, css })
+        body: JSON.stringify({ code, css, path, live: Boolean(path) })
       });
       const result = await res.json();
       if (serial !== renderSerial) return;

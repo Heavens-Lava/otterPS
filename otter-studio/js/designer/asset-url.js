@@ -44,7 +44,9 @@ export function assetUrl(source, dir = designDir()) {
 
 // The <base> a compiled page needs so its relative sources load in Studio.
 export function withAssetBase(html, dir = designDir()) {
-  if (!dir || !html) return html;
+  // A render of a real document already carries the server's <base> (its
+  // workspace folder, /workspace-files/): that one is right.
+  if (!dir || !html || /<base\s/i.test(html)) return html;
   const base = `<base href="/api/raw/${joinPath(dir, '').split('/').map(encodeURIComponent).join('/')}/">`;
   return /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, (m) => `${m}${base}`) : base + html;
 }

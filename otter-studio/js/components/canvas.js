@@ -12,7 +12,7 @@
 
 import { ComponentSchema } from '../model/schema.js';
 import { generateOtterSource } from '../compiler/otter-generator.js';
-import { fetchRealRender, applyRealRender, prepareUserCss } from './real-style.js';
+import { fetchRealRender, applyRealRender, prepareUserCss, currentDocumentPath } from './real-style.js';
 import { StyleController } from '../designer/style-context.js';
 import { collapseBox, SIDES, formatNumber } from '../designer/css-values.js';
 import { createDesignerActions, FREE_DEFAULT_SIZES } from '../designer/actions.js';
@@ -485,7 +485,11 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
     realRenderTimer = setTimeout(async () => {
       const serial = ++realRenderSerial;
       try {
-        const code = generateOtterSource(uiModel);
+        // A document with a file renders its own text (the designer edits
+        // it in place through the splicer), so functions, data and imports
+        // are all there; an untitled design renders the model.
+        const ide = window.otterIde;
+        const code = currentDocumentPath() && ide ? ide.currentCode : generateOtterSource(uiModel);
         const css = cssAstManager ? cssAstManager.generateCss() : '';
         const sourceInline = snapshotSourceInline();
         const real = await fetchRealRender(code, css);

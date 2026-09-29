@@ -57,8 +57,31 @@ function realPathOfNearest(target) {
   }
 }
 
+// Folders the user opened Studio on besides the Otter installation itself:
+// `otter studio C:\work\my-app` (OTTER_STUDIO_WORKSPACES, separated by the
+// platform's path delimiter) or `node serve.mjs --workspace <folder>`.
+// A user's projects rarely live inside the Otter install; each of these
+// folders gets exactly the same trust as the install folder, no more.
+const WORKSPACE_ROOTS = (() => {
+  const named = String(process.env.OTTER_STUDIO_WORKSPACES || '').split(path.delimiter);
+  for (let i = 2; i < process.argv.length - 1; i++) {
+    if (process.argv[i] === '--workspace') named.push(process.argv[i + 1]);
+  }
+  const roots = [];
+  for (const entry of named) {
+    if (!entry || !entry.trim()) continue;
+    const full = path.resolve(entry.trim());
+    try {
+      if (fs.statSync(full).isDirectory()) roots.push({ root: full, real: fs.realpathSync(full) });
+    } catch { /* a folder that does not exist is simply not opened */ }
+  }
+  return roots;
+})();
+
 function isInsideRepo(target) {
-  return isInside(REPO_ROOT, target, path) && isInside(REPO_ROOT_REAL, realPathOfNearest(target), path);
+  const realTarget = realPathOfNearest(target);
+  if (isInside(REPO_ROOT, target, path) && isInside(REPO_ROOT_REAL, realTarget, path)) return true;
+  return WORKSPACE_ROOTS.some(w => isInside(w.root, target, path) && isInside(w.real, realTarget, path));
 }
 
 const PORT = Number(process.env.OTTER_STUDIO_PORT || 4200);
@@ -209,8 +232,63 @@ function collectWorkspaceTextFiles(dirPath) {
 const renderCache = new Map();
 let renderQueue = Promise.resolve();
 
-function renderOtterSource(code, css) {
-  const key = crypto.createHash('sha256').update(code + '\u0000' + css).digest('hex').slice(0, 24);
+// A render of a document from a project folder depends on the files it
+// imports, not only on its own text: fold their names and modification
+// times into the cache key so an edit to components/cards.ot re-renders.
+function folderFingerprint(dir) {
+  const parts = [];
+  const skip = new Set(['node_modules', 'dist', 'dist-electron', '.git', '.otter']);
+  const walk = (current, depth) => {
+    if (depth > 4) return;
+    let entries = [];
+    try { entries = fs.readdirSync(current, { withFileTypes: true }); } catch { return; }
+    for (const entry of entries) {
+      const full = path.join(current, entry.name);
+      if (entry.isDirectory()) { if (!skip.has(entry.name)) walk(full, depth + 1); continue; }
+      if (!/\.(ot|css|svg|json)$/i.test(entry.name)) continue;
+      try { parts.push(full + ':' + fs.statSync(full).mtimeMs); } catch { /* removed meanwhile */ }
+    }
+  };
+  walk(dir, 0);
+  return parts.sort().join('|');
+}
+
+// Workspace folders are served read-only under /workspace-files/<id>/ so a
+// rendered page can load its own images: <base href> points there.
+function workspaceFilesBase(dir) {
+  return '/workspace-files/' + Buffer.from(dir, 'utf8').toString('base64url') + '/';
+}
+
+// Where a live run starts: the entry point of the project the document
+// belongs to (otter.json / project.json), or the document itself.
+function liveEntryFor(documentPath) {
+  let dir = path.dirname(documentPath);
+  while (isInsideRepo(dir)) {
+    for (const name of ['otter.json', 'project.json']) {
+      const manifest = path.join(dir, name);
+      if (!fs.existsSync(manifest)) continue;
+      try {
+        const data = JSON.parse(fs.readFileSync(manifest, 'utf8'));
+        const entry = data.entryPoint || data.main;
+        if (typeof entry === 'string' && entry.trim()) {
+          const full = path.resolve(dir, entry.trim());
+          if (isInsideRepo(full) && fs.existsSync(full)) return full;
+        }
+      } catch { /* an unreadable manifest: run the document itself */ }
+      return documentPath;
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return documentPath;
+}
+
+// sourceDir: the folder the document really lives in (its imports, icons,
+// stylesheet and images resolve from there); '' for a document with no file.
+function renderOtterSource(code, css, sourceDir = '') {
+  const fingerprint = sourceDir ? sourceDir + '\u0000' + folderFingerprint(sourceDir) : '';
+  const key = crypto.createHash('sha256').update(code + '\u0000' + css + '\u0000' + fingerprint).digest('hex').slice(0, 24);
   if (renderCache.has(key)) return Promise.resolve(renderCache.get(key));
   const job = renderQueue.then(() => new Promise(resolve => {
     const dir = path.join(os.tmpdir(), 'otter-studio-render');
@@ -220,13 +298,18 @@ function renderOtterSource(code, css) {
     fs.writeFileSync(sourcePath, code, 'utf8');
     const cssPath = path.join(dir, `${key}.css`);
     if (css) fs.writeFileSync(cssPath, css, 'utf8'); else fs.rmSync(cssPath, { force: true });
-    execFile('powershell.exe', [
+    const args = [
       '-NoProfile', '-ExecutionPolicy', 'Bypass',
       '-File', path.join(REPO_ROOT, 'otter.ps1'), 'web', sourcePath, '-NoOpen'
-    ], { cwd: REPO_ROOT, windowsHide: true, timeout: 30000 }, (error, stdout, stderr) => {
+    ];
+    if (sourceDir) args.push('-SourceDir', sourceDir);
+    // A multi-file application takes longer to compile than a one-screen form.
+    execFile('powershell.exe', args, { cwd: REPO_ROOT, windowsHide: true, timeout: 180000 }, (error, stdout, stderr) => {
       let result;
       if (!error && fs.existsSync(htmlPath)) {
-        result = { ok: true, html: fs.readFileSync(htmlPath, 'utf8').replace(/^\uFEFF/, '') };
+        let html = fs.readFileSync(htmlPath, 'utf8').replace(/^\uFEFF/, '');
+        if (sourceDir) html = html.replace(/<head>/i, `<head>\n  <base href="${workspaceFilesBase(sourceDir)}">`);
+        result = { ok: true, html };
         if (renderCache.size > 50) renderCache.delete(renderCache.keys().next().value);
         renderCache.set(key, result);
       } else {
@@ -314,6 +397,28 @@ async function handleRequest(req, res) {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   res.setHeader('Referrer-Policy', 'no-referrer');
+
+  // A rendered program's own images and stylesheets (see workspaceFilesBase):
+  // read-only, media types only, and only inside an opened workspace.
+  if (pathname.startsWith('/workspace-files/') && req.method === 'GET') {
+    const rest = pathname.slice('/workspace-files/'.length);
+    const slash = rest.indexOf('/');
+    let baseDir = '';
+    try { baseDir = slash > 0 ? Buffer.from(rest.slice(0, slash), 'base64url').toString('utf8') : ''; } catch { baseDir = ''; }
+    const relative = slash > 0 ? decodeURIComponent(rest.slice(slash + 1)) : '';
+    const target = baseDir ? path.resolve(baseDir, relative) : '';
+    const ext = path.extname(target).toLowerCase();
+    const servable = new Set(['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.css', '.woff', '.woff2', '.ico']);
+    if (!target || !servable.has(ext) || !isInsideRepo(target) || !fs.existsSync(target) || !fs.statSync(target).isFile()) {
+      res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end('Not found');
+      return;
+    }
+    const types = { '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.woff': 'font/woff', '.woff2': 'font/woff2', '.ico': 'image/x-icon' };
+    res.writeHead(200, { 'Content-Type': MIME_TYPES[ext] || types[ext] || 'application/octet-stream', 'Cache-Control': 'no-cache' });
+    fs.createReadStream(target).pipe(res);
+    return;
+  }
 
   // Explorer: new file/folder, rename, move, delete, reveal (server/fs-ops.mjs).
   if (await handleFsRoutes(req, res, pathname, { repoRoot: REPO_ROOT, isInsideRepo, readBody, sendJson })) return;
@@ -783,7 +888,23 @@ async function handleRequest(req, res) {
   if (pathname === '/api/render' && req.method === 'POST') {
     try {
       const body = await readBody(req);
-      const result = await renderOtterSource(String(body.code || ''), String(body.css || ''));
+      // `path` is the document being designed (relative to the Studio
+      // root, or absolute inside an opened workspace). With `live`, the
+      // run starts from its project's entry point.
+      let code = String(body.code || '');
+      let sourceDir = '';
+      if (typeof body.path === 'string' && body.path.trim()) {
+        const documentPath = path.resolve(REPO_ROOT, body.path);
+        if (isInsideRepo(documentPath)) {
+          let runPath = documentPath;
+          if (body.live) {
+            runPath = liveEntryFor(documentPath);
+            if (runPath !== documentPath) code = fs.readFileSync(runPath, 'utf8');
+          }
+          sourceDir = path.dirname(runPath);
+        }
+      }
+      const result = await renderOtterSource(code, String(body.css || ''), sourceDir);
       sendJson(res, result, result.ok ? 200 : 422);
     } catch (err) {
       sendJson(res, { ok: false, message: err.message }, 500);
@@ -1006,7 +1127,7 @@ async function handleRequest(req, res) {
       const body = await readBody(req);
       const folder = String(body.folder || '');
       const projectDir = path.resolve(REPO_ROOT, folder);
-      if (!folder || !projectDir.startsWith(REPO_ROOT) || !fs.existsSync(projectDir)) {
+      if (!folder || !isInsideRepo(projectDir) || !fs.existsSync(projectDir)) {
         return sendJson(res, { error: 'Project folder not found' }, 404);
       }
       const kinds = Array.isArray(body.kinds) ? body.kinds.filter(k => k === 'installer' || k === 'portable') : [];
@@ -1017,7 +1138,7 @@ async function handleRequest(req, res) {
         // Studio shows repository-relative paths; the CLI resolves relative
         // paths against the folder it runs in, so hand it an absolute one.
         const outputDir = path.resolve(REPO_ROOT, String(body.output));
-        if (!outputDir.startsWith(REPO_ROOT)) return sendJson(res, { error: 'The output folder must stay inside the repository' }, 400);
+        if (!isInsideRepo(outputDir)) return sendJson(res, { error: 'The output folder must stay inside the workspace' }, 400);
         args.push('--output', outputDir);
       }
       if (body.dryRun) args.push('--dry-run');

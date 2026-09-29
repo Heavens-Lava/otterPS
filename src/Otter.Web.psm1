@@ -2583,7 +2583,12 @@ function Export-OtterWebApplication {
     param(
         [Parameter(Mandatory)][string[]]$SourcePath,
         [string]$OutputPath,
-        [switch]$PassThruExceptions
+        [switch]$PassThruExceptions,
+        # Compile the source as though it lived in this folder: its `use`
+        # imports and (when no stylesheet sits beside the source itself) its
+        # project stylesheet are found there. For an editor compiling an
+        # unsaved copy of a project file (Otter Studio).
+        [string]$SourceDirectory = ''
     )
 
     if (-not (Get-Command ConvertTo-OtterTokens -ErrorAction SilentlyContinue)) {
@@ -2603,7 +2608,7 @@ function Export-OtterWebApplication {
     foreach ($src in $SourcePath) {
         $resolved = Resolve-Path -LiteralPath $src
         if ($null -eq $primarySource) { $primarySource = $resolved.Path }
-        $resolvedProgram = Resolve-OtterModuleSource -FilePath $resolved.Path
+        $resolvedProgram = if ($SourceDirectory -and $resolved.Path -eq (Resolve-Path -LiteralPath $SourcePath[0]).Path) { Resolve-OtterModuleSource -FilePath $resolved.Path -ImportDirectory $SourceDirectory } else { Resolve-OtterModuleSource -FilePath $resolved.Path }
         $sourceParts.Add($resolvedProgram.CombinedSource)
     }
     $sourceText = $sourceParts -join "`n"
@@ -2616,6 +2621,10 @@ function Export-OtterWebApplication {
         $html = ConvertTo-OtterWeb -Program $ast -Title $defaultTitle
 
         $stylesheet = Resolve-OtterProjectStylesheet -SourcePath $primarySource
+        if (-not $stylesheet -and $SourceDirectory) {
+            $besideSource = Join-Path ([System.IO.Path]::GetFullPath($SourceDirectory)) ([System.IO.Path]::GetFileName($primarySource))
+            $stylesheet = Resolve-OtterProjectStylesheet -SourcePath $besideSource
+        }
         if ($stylesheet) {
             $html = Add-OtterProjectStylesheet -Html $html -StylesheetPath $stylesheet
         }
