@@ -954,8 +954,14 @@ async function handleRequest(req, res) {
       }));
       const symbols = [];
       const diagnostics = [];
+      // The names each file mentions, so a variable declared in one file and
+      // read in another (through `use`) is not reported as never read.
+      const words = {};
       for (const { filePath, analysis } of analyses) {
         const relativePath = path.relative(REPO_ROOT, filePath).replace(/\\/g, '/');
+        try {
+          words[relativePath] = [...new Set((fs.readFileSync(filePath, 'utf8').match(/[A-Za-z_][A-Za-z0-9_]*/g) || []).map(w => w.toLowerCase()))];
+        } catch { /* unreadable: no names */ }
         if (analysis.Ok === false) {
           diagnostics.push({
             File: relativePath,
@@ -973,7 +979,8 @@ async function handleRequest(req, res) {
       sendJson(res, {
         files: otterFiles.map(filePath => path.relative(REPO_ROOT, filePath).replace(/\\/g, '/')),
         symbols,
-        diagnostics
+        diagnostics,
+        words
       });
     } catch (err) {
       sendJson(res, { error: err.message }, err.status || 500);

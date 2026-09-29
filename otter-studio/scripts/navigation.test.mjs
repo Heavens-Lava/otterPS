@@ -262,6 +262,16 @@ assert.equal(unusedWarnings[0].symbolName, 'unusedVar');
 assert.equal(unusedWarnings[0].line, 3);
 assert.match(unusedWarnings[0].message, /declared but never read/);
 
+// A top-level variable read in another file of the project (through `use`)
+// is not unused; a local one cannot be read elsewhere, so it still is.
+const acrossFiles = otterLanguageService.computeSemanticDiagnostics(unusedVarSource, semanticSymbols, astRefs, {
+  usedElsewhere: (name) => name === 'unusedVar'
+});
+assert.equal(acrossFiles.filter(d => d.code === 'unused-variable').length, 0, 'read in another file');
+const localSymbols = semanticSymbols.map(s => (s.Name === 'unusedVar' ? { ...s, ScopeId: 1 } : s));
+const localDiags = otterLanguageService.computeSemanticDiagnostics(unusedVarSource, localSymbols, astRefs, { usedElsewhere: () => true });
+assert.equal(localDiags.filter(d => d.code === 'unused-variable').length, 1, 'a local is only read where it lives');
+
 // Quick fix for unused variable
 const unusedFixes = otterLanguageService.getQuickFixes(unusedWarnings[0], unusedVarSource);
 assert.equal(unusedFixes.length, 1);

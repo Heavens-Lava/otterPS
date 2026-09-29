@@ -1143,6 +1143,8 @@ export class OtterStudioIde {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Could not index the workspace.');
       this.workspaceSymbols = data.symbols || [];
+      // file -> the names it mentions (see isNameUsedElsewhere).
+      this.workspaceWords = new Map(Object.entries(data.words || {}).map(([file, list]) => [file, new Set(list)]));
       if (Array.isArray(data.files) && data.files.length > 0) {
         const known = new Map(this.workspaceFiles.map(file => [file.path, file]));
         for (const filePath of data.files) {
@@ -1158,6 +1160,16 @@ export class OtterStudioIde {
         this.sourceOutlineBody.innerHTML = `<div class="outline-empty">${this.escapeHtml(error.message)}</div>`;
       }
     }
+  }
+
+  // Whether a file of the project other than the open one mentions the name
+  // (a top-level variable read there through `use` is not unused).
+  isNameUsedElsewhere(name) {
+    const word = String(name || '').toLowerCase();
+    for (const [file, words] of this.workspaceWords || []) {
+      if (file !== this.currentFile && words.has(word)) return true;
+    }
+    return false;
   }
 
   updateCurrentDocumentSymbols(analysis) {
@@ -4798,7 +4810,8 @@ export class OtterStudioIde {
         const semanticDiags = otterLanguageService.computeSemanticDiagnostics(
           this.currentCode,
           data.Symbols || [],
-          data.References || data.AstReferences || []
+          data.References || data.AstReferences || [],
+          { usedElsewhere: (name) => this.isNameUsedElsewhere(name) }
         );
 
         if (semanticDiags.length > 0) {

@@ -356,7 +356,9 @@ export class OtterLanguageService {
   }
 
   // --- 8. Semantic Diagnostics (Unused Variables & Unreachable Code) ---
-  computeSemanticDiagnostics(source, symbols = [], astReferences = []) {
+  // usedElsewhere(name): whether another file of the project mentions the
+  // name - a top-level variable can be read there (through `use`).
+  computeSemanticDiagnostics(source, symbols = [], astReferences = [], { usedElsewhere = null } = {}) {
     const diagnostics = [];
     if (!source) return diagnostics;
     const lines = source.split(/\r?\n/);
@@ -365,6 +367,7 @@ export class OtterLanguageService {
     const variables = symbols.filter(s => (s.Kind || s.kind) === 'variable' && Number(s.ScopeId ?? s.scopeId) >= 0);
     for (const v of variables) {
       const name = v.Name || v.name;
+      if (Number(v.ScopeId ?? v.scopeId) === 0 && usedElsewhere?.(name)) continue;
       const declLine = Number(v.Line || v.line) || 1;
       // If we have AST references:
       if (Array.isArray(astReferences) && astReferences.length > 0) {
@@ -674,7 +677,7 @@ export const otterLanguageService = new OtterLanguageService();
 // Standalone exports for modular consumption and testing
 export const filterOutlineSymbols = (symbols, query) => otterLanguageService.filterOutlineSymbols(symbols, query);
 export const searchWorkspaceSymbols = (workspaceSymbols, query) => otterLanguageService.searchWorkspaceSymbols(workspaceSymbols, query);
-export const computeSemanticDiagnostics = (source, symbols, astReferences) => otterLanguageService.computeSemanticDiagnostics(source, symbols, astReferences);
+export const computeSemanticDiagnostics = (source, symbols, astReferences, options) => otterLanguageService.computeSemanticDiagnostics(source, symbols, astReferences, options);
 export const prepareExtractFunction = (selectedText, fnName, currentCode, cursorLine) => otterLanguageService.prepareExtractFunction(selectedText, fnName, currentCode, cursorLine);
 export const getQuickFixes = (diagnostic, sourceCode) => otterLanguageService.getQuickFixes(diagnostic, sourceCode);
 
