@@ -625,12 +625,43 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
     }
   }
 
+  // A control hidden in the app (display: none - a dialog, a page shown
+  // later) cannot be seen or reached on the canvas. While it is selected (in
+  // Layers, say) it is shown, with anything hidden around it, and marked
+  // "Hidden in the app"; deselect it and it is hidden again. The display it
+  // gets is the one its classes give it without the rule that hides it.
+  function revealSelectedHidden() {
+    const wanted = new Set();
+    for (const id of uiModel.selectedIds) {
+      if (id === uiModel.rootId) continue;
+      for (let el = elementFor(id); el && el.hasAttribute('data-id') && !el.classList.contains('window-content-area'); el = el.parentElement?.closest('[data-id]')) {
+        if (el.classList.contains('is-revealed-hidden') || getComputedStyle(el).display === 'none') wanted.add(el);
+      }
+    }
+    for (const el of stageEl.querySelectorAll('.is-revealed-hidden')) {
+      if (wanted.has(el)) continue;
+      el.classList.remove('is-revealed-hidden');
+      el.style.removeProperty('display');
+    }
+    for (const el of wanted) {
+      if (el.classList.contains('is-revealed-hidden')) continue;
+      const probe = document.createElement(el.tagName);
+      probe.className = el.className;
+      el.parentElement.appendChild(probe);
+      const natural = getComputedStyle(probe).display;
+      probe.remove();
+      el.classList.add('is-revealed-hidden');
+      el.style.setProperty('display', natural === 'none' ? 'block' : natural, 'important');
+    }
+  }
+
   function updateOverlay() {
     if (isInteractMode) return;
     const root = uiModel.getRoot();
     clearOverlay();
     if (!root) return;
     markLayoutModes();
+    revealSelectedHidden();
     // Overlay covers the whole scrollable area.
     overlayEl.style.width = `${viewportEl.scrollWidth}px`;
     overlayEl.style.height = `${viewportEl.scrollHeight}px`;

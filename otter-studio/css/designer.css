@@ -1614,3 +1614,24 @@ body.designer-is-moving .designer-space-grip,
 body.designer-is-moving .designer-space-label {
   display: none;
 }
+
+/* A control hidden in the app, shown while it is selected
+   (canvas.js revealSelectedHidden). */
+.canvas-element.is-revealed-hidden {
+  outline: 1px dashed rgba(250, 204, 21, 0.8);
+  outline-offset: 2px;
+}
+
+.canvas-element.is-revealed-hidden::after {
+  content: 'Hidden in the app';
+  position: absolute;
+  top: -20px;
+  right: 0;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #facc15;
+  color: #1c1917;
+  font: 600 10px/1.5 var(--font-ui, sans-serif);
+  pointer-events: none;
+  z-index: 5;
+}
