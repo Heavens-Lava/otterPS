@@ -4,9 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Otter Studio</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,600;1,700&family=Playfair+Display:ital,wght@1,500;1,600;1,700&family=Newsreader:ital,opsz,wght@1,6..72,500;1,6..72,600;1,6..72,700&display=swap" rel="stylesheet">
   <style>
     :root {
       --otter-bg: #f0f4f9;
@@ -21,7 +18,7 @@
     *, *::before, *::after { box-sizing: border-box; }
     * { margin: 0; padding: 0; }
     body {
-      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", Arial, sans-serif;
       background: #f0f4f9;
       color: #0f172a;
       min-height: 100vh;
@@ -45,6 +42,7 @@
       box-sizing: border-box;
       overflow: hidden;
     }
+
     body.otter-has-page.otter-doc-scroll {
       height: auto;
       max-height: none;
@@ -1471,6 +1469,7 @@ main.otter-page, #studio {
     const gone = null;
     function otterGetElement(id) { return document.getElementById(id); }
 
+
 // Otter D114: Browser-side Cryptography (Web Crypto) Runtime Helpers
 
 function _otterAssertWebCryptoSubtle() {
@@ -1811,13 +1810,76 @@ async function otterPasswordMatches(password, stored) {
       const el = otterGetElement(id);
       return el ? el[prop] : '';
     }
+    // D-4 / D8: say compiles to otterSay(part, part, ...) and every part
+    // goes through otterFormatValue, the one web formatter that mirrors the
+    // console's Format-OtterValue (Otter.Runtime.psm1). Before, the parts
+    // were glued with JS +, so a list printed "a,b", gone printed an empty
+    // string or "null", a thing printed "[object Object]" and 0.1 plus 0.2
+    // printed 0.30000000000000004 - all different from the console.
     function otterSay(...args) {
-      console.log(...args);
+      const line = args.map(otterFormatValue).join(' ');
+      console.log(line);
       const out = document.getElementById('otter-live-output');
       if (out) {
         out.style.display = 'block';
-        out.textContent = args.join(' ');
+        out.textContent = line;
       }
+    }
+    // Numbers exactly as .NET's ToString('0.##########') prints a double,
+    // which is what the console uses: first 15 significant digits, then at
+    // most 10 decimals (rounded half away from zero, on those digits),
+    // trailing zeros dropped, never an exponent. So 0.1 plus 0.2 is 0.3,
+    // 10 divided by 3 is 3.3333333333 and 1e20 is written out in full.
+    function otterFormatNumber(n) {
+      if (Number.isNaN(n)) { return 'NaN'; }
+      if (n === Infinity) { return 'Infinity'; }
+      if (n === -Infinity) { return '-Infinity'; }
+      const parts = Math.abs(n).toPrecision(15).split('e');
+      const mantissa = parts[0];
+      const exponent = parts.length > 1 ? parseInt(parts[1], 10) : 0;
+      const dot = mantissa.indexOf('.');
+      let digits = mantissa.replace('.', '');
+      let intLength = (dot === -1 ? mantissa.length : dot) + exponent;
+      if (intLength <= 0) { digits = '0'.repeat(1 - intLength) + digits; intLength = 1; }
+      if (intLength > digits.length) { digits = digits + '0'.repeat(intLength - digits.length); }
+      let whole = digits.slice(0, intLength);
+      let fraction = digits.slice(intLength);
+      if (fraction.length > 10) {
+        const roundUp = fraction.charAt(10) >= '5';
+        fraction = fraction.slice(0, 10);
+        if (roundUp) {
+          const all = (whole + fraction).split('');
+          let i = all.length - 1;
+          while (i >= 0 && all[i] === '9') { all[i] = '0'; i--; }
+          if (i >= 0) { all[i] = String(Number(all[i]) + 1); } else { all.unshift('1'); }
+          whole = all.slice(0, all.length - 10).join('');
+          fraction = all.slice(all.length - 10).join('');
+        }
+      }
+      fraction = fraction.replace(/0+$/, '');
+      whole = whole.replace(/^0+(?=\d)/, '');
+      const text = fraction ? whole + '.' + fraction : whole;
+      // Like .NET, a negative value keeps its sign even when it rounds to
+      // zero (0 minus 0.00000000001 prints -0). A true negative zero prints
+      // 0, as Windows PowerShell 5.1 does (PowerShell 7 prints -0 there).
+      return n < 0 ? '-' + text : text;
+    }
+    function otterFormatValue(value) {
+      if (value === null || value === undefined) { return 'gone'; }
+      if (typeof value === 'boolean') { return value ? 'true' : 'false'; }
+      if (typeof value === 'number') { return otterFormatNumber(value); }
+      if (typeof value === 'string') { return value; }
+      if (Array.isArray(value)) { return value.map(otterFormatValue).join(', '); }
+      if (typeof value === 'function') { return '<' + (value.name || 'function') + ', something Otter can do>'; }
+      if (typeof value === 'object') {
+        if (value.__otterThing) { return 'a ' + (value.typeName || 'thing'); }
+        if (value.__otterType) { return 'the type ' + value.typeName; }
+        if (value.__otterHttpRequest) { return '<an http request to ' + value.url + '>'; }
+        // Dates, bytes, xml and websockets carry their own console-shaped
+        // toString(); any other plain object is a thing to Otter.
+        if (Object.getPrototypeOf(value) === Object.prototype && value.toString === Object.prototype.toString) { return 'a thing'; }
+      }
+      return String(value);
     }
     async function otterReadFile(filePath) {
       const bridge = window.__OTTER_DESKTOP_BRIDGE__;
@@ -2704,6 +2766,7 @@ async function otterPasswordMatches(password, stored) {
     }
 
     // Register event listeners
+    {
     const el_termRunBtn = document.getElementById('termRunBtn');
     if (el_termRunBtn) {
       el_termRunBtn.addEventListener('click', async (event) => {
@@ -2733,6 +2796,8 @@ async function otterPasswordMatches(password, stored) {
       }
       });
     }
+    }
+    {
     const el_termClearBtn = document.getElementById('termClearBtn');
     if (el_termClearBtn) {
       el_termClearBtn.addEventListener('click', async (event) => {
@@ -2768,6 +2833,8 @@ async function otterPasswordMatches(password, stored) {
       }
       });
     }
+    }
+    {
     const el_profPowerShell = document.getElementById('profPowerShell');
     if (el_profPowerShell) {
       el_profPowerShell.addEventListener('click', async (event) => {
@@ -2803,6 +2870,8 @@ async function otterPasswordMatches(password, stored) {
       }
       });
     }
+    }
+    {
     const el_profCmd = document.getElementById('profCmd');
     if (el_profCmd) {
       el_profCmd.addEventListener('click', async (event) => {
@@ -2838,6 +2907,8 @@ async function otterPasswordMatches(password, stored) {
       }
       });
     }
+    }
+    {
     const el_profGitBash = document.getElementById('profGitBash');
     if (el_profGitBash) {
       el_profGitBash.addEventListener('click', async (event) => {
@@ -2873,6 +2944,8 @@ async function otterPasswordMatches(password, stored) {
       }
       });
     }
+    }
+    {
     const el_profWsl = document.getElementById('profWsl');
     if (el_profWsl) {
       el_profWsl.addEventListener('click', async (event) => {
@@ -2908,6 +2981,8 @@ async function otterPasswordMatches(password, stored) {
       }
       });
     }
+    }
+    {
     const el_profRepl = document.getElementById('profRepl');
     if (el_profRepl) {
       el_profRepl.addEventListener('click', async (event) => {
@@ -2943,6 +3018,8 @@ async function otterPasswordMatches(password, stored) {
       }
       });
     }
+    }
+    {
     const el_runBtn = document.getElementById('runBtn');
     if (el_runBtn) {
       el_runBtn.addEventListener('click', async (event) => {
@@ -3144,6 +3221,8 @@ async function otterPasswordMatches(password, stored) {
       }
       });
     }
+    }
+    {
     const el_clearBtn = document.getElementById('clearBtn');
     if (el_clearBtn) {
       el_clearBtn.addEventListener('click', async (event) => {
@@ -3209,18 +3288,24 @@ async function otterPasswordMatches(password, stored) {
       }
       });
     }
+    }
+    {
     const el_fileMain = document.getElementById('fileMain');
     if (el_fileMain) {
       el_fileMain.addEventListener('click', async (event) => {
       restoreMainCode();
       });
     }
+    }
+    {
     const el_tplAutomation = document.getElementById('tplAutomation');
     if (el_tplAutomation) {
       el_tplAutomation.addEventListener('click', async (event) => {
       restoreMainCode();
       });
     }
+    }
+    {
     const el_fileReadme = document.getElementById('fileReadme');
     if (el_fileReadme) {
       el_fileReadme.addEventListener('click', async (event) => {
@@ -3446,6 +3531,8 @@ async function otterPasswordMatches(password, stored) {
       }
       });
     }
+    }
+    {
     const el_tplSimple = document.getElementById('tplSimple');
     if (el_tplSimple) {
       el_tplSimple.addEventListener('click', async (event) => {
@@ -3671,6 +3758,8 @@ async function otterPasswordMatches(password, stored) {
       }
       });
     }
+    }
+    {
     const el_newFileBtn = document.getElementById('newFileBtn');
     if (el_newFileBtn) {
       el_newFileBtn.addEventListener('click', async (event) => {
@@ -3856,6 +3945,8 @@ async function otterPasswordMatches(password, stored) {
       }
       });
     }
+    }
+    {
     const el_ac1 = document.getElementById('ac1');
     if (el_ac1) {
       el_ac1.addEventListener('click', async (event) => {
@@ -3871,6 +3962,8 @@ async function otterPasswordMatches(password, stored) {
       }
       });
     }
+    }
+    {
     const el_ac2 = document.getElementById('ac2');
     if (el_ac2) {
       el_ac2.addEventListener('click', async (event) => {
@@ -3886,6 +3979,8 @@ async function otterPasswordMatches(password, stored) {
       }
       });
     }
+    }
+    {
     const el_tabTerminal = document.getElementById('tabTerminal');
     if (el_tabTerminal) {
       el_tabTerminal.addEventListener('click', async (event) => {
@@ -3911,6 +4006,8 @@ async function otterPasswordMatches(password, stored) {
       }
       });
     }
+    }
+    {
     const el_tabProblems = document.getElementById('tabProblems');
     if (el_tabProblems) {
       el_tabProblems.addEventListener('click', async (event) => {
@@ -3936,6 +4033,8 @@ async function otterPasswordMatches(password, stored) {
       }
       });
     }
+    }
+    {
     const el_tabOutput = document.getElementById('tabOutput');
     if (el_tabOutput) {
       el_tabOutput.addEventListener('click', async (event) => {
@@ -3960,6 +4059,7 @@ async function otterPasswordMatches(password, stored) {
         }
       }
       });
+    }
     }
 
 
