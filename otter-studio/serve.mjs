@@ -11,6 +11,7 @@ import { handleFsRoutes } from './server/fs-ops.mjs';
 import { handleHistoryRoutes, recordVersion } from './server/local-history.mjs';
 import { handleEditorConfigRoute } from './server/editorconfig.mjs';
 import { handleAssetRoutes } from './server/assets.mjs';
+import { handleTrustRoutes } from './server/trust.mjs';
 import { handleGitRoutes } from './server/git.mjs';
 import { handleTestRoutes } from './server/tests.mjs';
 import { checkRequest, readJsonBody, isInside, LOOPBACK_HOST } from './server/security.mjs';
@@ -439,6 +440,8 @@ async function handleRequest(req, res) {
   if (handleEditorConfigRoute(req, res, pathname, urlObj, { repoRoot: REPO_ROOT, isInsideRepo, sendJson })) return;
   // The Designer's Assets tab: list, show and import images (server/assets.mjs).
   if (await handleAssetRoutes(req, res, pathname, urlObj, { repoRoot: REPO_ROOT, isInsideRepo, readBody, sendJson })) return;
+  // Restricted Mode: trusted folders, remembered on this computer (server/trust.mjs).
+  if (await handleTrustRoutes(req, res, pathname, urlObj, { repoRoot: REPO_ROOT, isInsideRepo, readBody, sendJson })) return;
 
   // Run, launch profiles, build and clean (server/launch.mjs).
   if (await handleLaunchRoutes(req, res, pathname, urlObj, {

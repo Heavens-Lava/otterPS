@@ -971,9 +971,10 @@ export class OtterStudioIde {
     }
   }
 
-  checkWorkspaceTrust() {
+  checkWorkspaceTrust({ fromServer = false } = {}) {
     const target = this.currentSolutionPath || this.currentProjectFolder;
     this.isTrusted = isWorkspaceTrusted(target, this.currentSolution);
+    if (!fromServer) this.syncTrustWithServer(target, this.isTrusted);
 
     if (this.workspaceTrustBanner) {
       this.workspaceTrustBanner.style.display = this.isTrusted ? 'none' : 'flex';
@@ -1001,11 +1002,46 @@ export class OtterStudioIde {
   grantWorkspaceTrust() {
     const target = this.currentSolutionPath || this.currentProjectFolder;
     setWorkspaceTrust(target, true);
+    this.saveTrustOnServer(target, true);
     if (this.currentSolution?.trust) {
       this.currentSolution.trust.isTrusted = true;
     }
     this.isTrusted = true;
     this.checkWorkspaceTrust();
+  }
+
+  // Trust is remembered on this computer by the server (server/trust.mjs):
+  // the browser's own storage belongs to one port, and the desktop app's
+  // port can change between launches. Trusted in either place counts; a
+  // trust only this browser knows is handed to the server.
+  async syncTrustWithServer(target, trustedHere) {
+    if (!target) return;
+    try {
+      const res = await fetch(`/api/trust?folder=${encodeURIComponent(target)}`);
+      if (!res.ok) return;
+      const { trusted, known } = await res.json();
+      const current = this.currentSolutionPath || this.currentProjectFolder;
+      if (current !== target) return;
+      if (trusted && !trustedHere) {
+        setWorkspaceTrust(target, true);
+        this.checkWorkspaceTrust({ fromServer: true });
+      } else if (known && !trusted && trustedHere) {
+        // Withdrawn on this computer since this browser last looked.
+        setWorkspaceTrust(target, false);
+        this.checkWorkspaceTrust({ fromServer: true });
+      } else if (!known && trustedHere) {
+        this.saveTrustOnServer(target, true);
+      }
+    } catch { /* the server is unreachable: the browser's answer stands */ }
+  }
+
+  saveTrustOnServer(target, trusted) {
+    if (!target) return;
+    fetch('/api/trust', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ folder: target, trusted })
+    }).catch(() => {});
   }
 
   hideTrustBanner() {
@@ -1018,6 +1054,7 @@ export class OtterStudioIde {
     const target = this.currentSolutionPath || this.currentProjectFolder;
     const next = !this.isTrusted;
     setWorkspaceTrust(target, next);
+    this.saveTrustOnServer(target, next);
     if (this.currentSolution?.trust) {
       this.currentSolution.trust.isTrusted = next;
     }
