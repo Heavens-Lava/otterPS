@@ -100,10 +100,23 @@ export function renderPreview(containerEl, uiModel, cssAstManager) {
     if (state === 'error') addLog(`Render failed: ${message}`);
   }
 
+  // Only while Live App is on screen: a project can take many seconds to
+  // compile, and a hidden preview has no one to show it to. Edits made
+  // meanwhile are caught up the moment it is shown.
+  let stale = true;
+  const isShown = () => containerEl.isConnected && containerEl.getClientRects().length > 0;
   function updatePreview() {
     clearTimeout(renderTimer);
-    renderTimer = setTimeout(renderReal, 350);
+    if (!isShown()) { stale = true; return; }
+    renderTimer = setTimeout(() => {
+      const ide = window.otterIde;
+      // Nothing to run until a document's text has loaded.
+      if (currentDocumentPath() && !String(ide?.currentCode || '').trim()) { stale = true; return; }
+      stale = false;
+      renderReal();
+    }, 350);
   }
+  new ResizeObserver(() => { if (stale && isShown()) updatePreview(); }).observe(containerEl);
 
   updatePreview();
 
