@@ -4,7 +4,7 @@ using module ..\src\Otter.Runtime.psm1
 # WebRuntimeUi.Tests.ps1
 #
 # UI created while a web page runs (D128): `create`, `has`, property
-# assignment, `put`, `show`/`hide`/`focus` and `when` inside event handlers,
+# assignment, `put`, `show` and `when` inside event handlers,
 # functions and loops. Before D128 the web compiler dropped all of these
 # without a word, so examples/v1/tasks.ot's Add button did nothing.
 #
@@ -67,10 +67,10 @@ to addCard label
     put line in box
     put box in cards
     when closer clicked
-        hide box
-        removedName is text of caption
-        message is "removed " and removedName
+        doneName is text of caption
+        message is "done " and doneName
         status has text message
+        caption has text "done"
     .
 .
 
@@ -87,7 +87,6 @@ when addButton clicked
     newTitle is text of titleInput
     message is "added " and newTitle
     status has text message
-    focus titleInput
 .
 
 show app
@@ -125,6 +124,20 @@ try {
         Assert-False ($html.Contains('otterUiTemplates')) 'a page without runtime UI must not include the runtime UI code'
     }
 
+    Test-Otter 'D56 on the web: hide and focus are refused with the console''s message instead of compiling to nothing' {
+        foreach ($case in @(@{ Word = 'hide' }, @{ Word = 'focus' })) {
+            $err = $null
+            try { Build-OtterWebPage -Name "d56$($case.Word)" -Source "create page into app`ncreate button into b`nput b in app`nwhen b clicked`n    $($case.Word) b`n.`nshow app`n" | Out-Null } catch { $err = $_.Exception.Message }
+            Assert-AreEqual -Expected "'$($case.Word)' is not supported in Otter 1.0." -Actual $err
+        }
+    }
+
+    Test-Otter 'the web compiler refuses a statement it cannot compile instead of dropping it' {
+        $err = $null
+        try { Build-OtterWebPage -Name 'jobs' -Source "start command `"echo hi`" and call it job`n" | Out-Null } catch { $err = $_.Exception.Message }
+        Assert-True ($err -match 'not supported on the web target') "expected a web-target refusal, got: $err"
+    }
+
     # --- real browser --------------------------------------------------------
     $pwCore = $null
     foreach ($candidate in @($env:OTTER_PLAYWRIGHT_CORE, (Join-Path $script:RepoRoot 'node_modules\playwright-core'), (Join-Path $script:RepoRoot 'otter-studio\node_modules\playwright-core'))) {
@@ -150,13 +163,12 @@ try {
             Assert-AreEqual -Expected 0 -Actual @($r.pageErrors).Count
         }
 
-        Test-Otter 'D128 browser: a function builds cards (locals), each card button hides its own card, has/focus work on top-level elements' {
+        Test-Otter 'D128 browser: a function builds cards (locals), each card button acts on its own card, has works on top-level elements' {
             $r = Invoke-OtterWebScenario -Html $boardHtml -Scenario 'board'
             Assert-Lines -Expected @('alphax', 'betax') -Actual @($r.atLoad)
-            Assert-Lines -Expected @('alphax', '[hidden] betax', 'gammax') -Actual @($r.after)
+            Assert-Lines -Expected @('alphax', 'donex', 'gammax') -Actual @($r.after)
             Assert-AreEqual -Expected 'added gamma' -Actual $r.statusAfterAdd
-            Assert-AreEqual -Expected 'removed beta' -Actual $r.statusAfterRemove
-            Assert-AreEqual -Expected 'titleInput' -Actual $r.focused
+            Assert-AreEqual -Expected 'done beta' -Actual $r.statusAfterRemove
             Assert-AreEqual -Expected 'rgb(238, 238, 255)' -Actual $r.cardBackground
             Assert-AreEqual -Expected '10px' -Actual $r.cardPadding
             Assert-AreEqual -Expected '4px' -Actual $r.rowGap

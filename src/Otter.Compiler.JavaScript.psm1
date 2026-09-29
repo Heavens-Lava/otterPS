@@ -3934,8 +3934,10 @@ function ConvertTo-OtterJsStatement {
         ([NodeKind]::Show) {
             return "${pad}otterUiAction($(Get-OtterJsUiRefForNode -Node $Stmt.Target), 'show');"
         }
+        # D56: focus/hide/show-as-action are not part of Otter 1.0; the
+        # interpreter refuses them with this message, so the web does too.
         ([NodeKind]::UiAction) {
-            return "${pad}otterUiAction($(Get-OtterJsUiRefForNode -Node $Stmt.Target), '$($Stmt.Action)');"
+            throw [OtterError]::new("'$($Stmt.Action)' is not supported in Otter 1.0.", $Stmt.Line, 'runtime')
         }
         ([NodeKind]::When) {
             # `when item clicked` inside a handler or function: registered on
@@ -3957,8 +3959,35 @@ function ConvertTo-OtterJsStatement {
             }
             return "${pad}otterOnUi($targetRef, '$eventName', async (event) => {`n$($bodyLines -join "`n")`n${pad}});"
         }
+        # D56: not part of Otter 1.0 - the interpreter's own messages.
+        ([NodeKind]::MemoDef) { throw [OtterError]::new("'memo' is not supported in Otter 1.0.", $Stmt.Line, 'runtime') }
+        ([NodeKind]::Lifecycle) { throw [OtterError]::new("'on $($Stmt.Stage)' is not supported in Otter 1.0.", $Stmt.Line, 'runtime') }
+        ([NodeKind]::SharedState) { throw [OtterError]::new("'shared' is not supported in Otter 1.0.", $Stmt.Line, 'runtime') }
+        ([NodeKind]::UseModule) { throw [OtterError]::new("'use' is not supported in Otter 1.0.", $Stmt.Line, 'runtime') }
+        # Supported on the web only as top-level statements (Otter.Web.psm1
+        # handles them there); reaching this switch means they were nested.
+        ([NodeKind]::StateDef) { throw [OtterError]::new('A state declaration must be written at the top level of a web program, not inside a handler, function or block.', $Stmt.Line, 'runtime') }
+        ([NodeKind]::DeriveDef) { throw [OtterError]::new('A derived value must be written at the top level of a web program, not inside a handler, function or block.', $Stmt.Line, 'runtime') }
+        ([NodeKind]::Watch) { throw [OtterError]::new('A "when ... changes" watcher must be written at the top level of a web program, not inside a handler, function or block.', $Stmt.Line, 'runtime') }
+        ([NodeKind]::UiElement) {
+            # A function whose body declares UI (`to counterCard` / `card ...`)
+            # has that UI rendered into the page by Otter.Web.psm1 when the
+            # function is called at the top level, so inside a function body
+            # there is nothing to run here. Anywhere else it would be lost.
+            if ($null -ne $LocalNames) { return "" }
+            throw [OtterError]::new('A declarative UI element must be written at the top level of a web program or directly in a function, not inside a handler or block.', $Stmt.Line, 'runtime')
+        }
+        ([NodeKind]::UiEvent) { throw [OtterError]::new('A UI event block must be written inside a declarative UI element at the top level of a web program.', $Stmt.Line, 'runtime') }
+        # Console/server-only.
+        ([NodeKind]::StartCommand) { throw [OtterError]::new('Starting a command ("start command ...") is not supported on the web target. Browsers cannot run programs.', $Stmt.Line, 'runtime') }
+        ([NodeKind]::WebRoute) { throw [OtterError]::new('Web server statements run with "otter serve", not inside a web page.', $Stmt.Line, 'runtime') }
+        ([NodeKind]::Respond) { throw [OtterError]::new('Web server statements run with "otter serve", not inside a web page.', $Stmt.Line, 'runtime') }
+        ([NodeKind]::StartServer) { throw [OtterError]::new('Web server statements run with "otter serve", not inside a web page.', $Stmt.Line, 'runtime') }
+        ([NodeKind]::ListenServer) { throw [OtterError]::new('Web server statements run with "otter serve", not inside a web page.', $Stmt.Line, 'runtime') }
+        # Anything else has no web compilation. It used to compile to nothing,
+        # so the program ran without it and without a word; it is an error.
         default {
-            return ""
+            throw [OtterError]::new("This statement ($($Stmt.Kind)) is not supported on the web target yet.", $Stmt.Line, 'runtime')
         }
     }
 }

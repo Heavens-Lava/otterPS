@@ -5,11 +5,11 @@ All notable changes to the Otter Programming Language platform are documented in
 ## [Unreleased]
 
 ### Decided
-- **D128:** web UI created while the page runs. On rc.3, `create`, `has`, `put`, `show`, `hide`, `focus` and `when` inside an event handler, function or loop compiled to nothing on the web/Electron target, so the page silently did nothing (for example the Add button of `examples/v1/tasks.ot`). They now behave as on the console.
+- **D128:** web UI created while the page runs. On rc.3, `create`, `has`, `put`, `show` and `when` inside an event handler, function or loop compiled to nothing on the web/Electron target, so the page silently did nothing (for example the Add button of `examples/v1/tasks.ot`). They now behave as on the console.
 
 ### Fixed
 - Inside a web handler, `status has text "..."` on a top-level element created an unrelated thing named `status` instead of changing the element.
-- `hide`, `show` and `focus` were ignored on the web target even at the top level.
+- The web compiler compiled any statement it had no case for to nothing. It now refuses it: `hide`, `focus`, `memo`, `on start`/`on close`, `shared` and `use files` with the console's "not supported in Otter 1.0" message (D56), `start command` and server statements as unsupported on the web, anything else as not supported on the web target yet. Web programs that used these compiled before and silently skipped them; they now fail to compile.
 
 ### Changed
 - `plus` can no longer stand in for `and` between two conditions (D123, in rc.3): `if a is 1 plus b is 2` is now a syntax error; write `and`.

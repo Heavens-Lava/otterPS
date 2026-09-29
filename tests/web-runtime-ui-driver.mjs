@@ -31,17 +31,16 @@ const scenarios = {
     });
   },
   // A function that builds cards (locals), a top-level loop, a handler on
-  // each runtime button, hide/focus, and `has` on a top-level element.
+  // each runtime button, and `has` on a top-level element.
   async board(page) {
     return page.evaluate(async () => {
       const cards = () => Array.from(document.getElementById('cards').children)
-        .map(c => (c.style.display === 'none' ? '[hidden] ' : '') + c.textContent.replace(/\s+/g, ' ').trim());
+        .map(c => c.textContent.replace(/\s+/g, ' ').trim());
       const atLoad = cards();
       document.getElementById('titleInput').value = 'gamma';
       document.getElementById('addButton').click();
       await new Promise(r => setTimeout(r, 30));
       const statusAfterAdd = document.getElementById('status').textContent;
-      const focused = document.activeElement ? document.activeElement.id : '';
       document.getElementById('cards').children[1].querySelector('button').click();
       await new Promise(r => setTimeout(r, 30));
       const first = document.getElementById('cards').children[0];
@@ -50,7 +49,6 @@ const scenarios = {
         after: cards(),
         statusAfterAdd,
         statusAfterRemove: document.getElementById('status').textContent,
-        focused,
         cardBackground: first.style.background,
         cardPadding: first.style.padding,
         rowGap: first.querySelector('.otter-row').style.gap

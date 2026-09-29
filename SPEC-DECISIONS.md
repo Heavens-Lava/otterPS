@@ -7801,15 +7801,15 @@ offline. Developers may add external resources deliberately.
 **Decided 2026-09-29 (Jeff; found by the OtterBoard dogfood review of rc.3).**
 
 On the web and Electron target, `create`, `has`, property assignment, `put`,
-`show`, `hide`, `focus` and `when` inside an event handler, a function or a loop
-compiled to nothing: the page ran without an error and the UI never appeared
+`show` and `when` inside an event handler, a function or a loop compiled to
+nothing: the page ran without an error and the UI never appeared
 (`examples/v1/tasks.ot`'s Add button did nothing). That is a silent wrong
 result, which Otter forbids.
 
 **Decision:** the web target follows the console's UI model. `create KIND into
 NAME` anywhere creates a new UI resource and binds it to `NAME`, so a handler
-that runs five times creates five resources. `put`, `show`, `hide`, `focus` and
-`when` act on the resource the variable holds when the statement runs, and
+that runs five times creates five resources. `put`, `show` and `when` act on
+the resource the variable holds when the statement runs, and
 `NAME has PROPERTY VALUE` / `PROPERTY of NAME is VALUE` set its properties with
 the same meaning as at the top level. `has` on a name that holds a UI resource
 sets properties rather than creating a thing (the console's rule), including for
@@ -7820,5 +7820,13 @@ Top-level `create`/`put` statements are still rendered to static HTML; only what
 cannot be known before the page runs is created at runtime, from templates made
 by the same renderer. Drag and drop handlers stay top-level only on the web and
 say so.
+
+The web compiler no longer compiles any statement to nothing. `hide`, `focus`
+and the other D56 exclusions (`memo`, `on start`/`on close`, `shared`,
+`use files`) are refused with the interpreter's "... is not supported in Otter
+1.0." message; statements the web target cannot run (`start command`, web
+server statements) and web-only top-level declarations written inside a block
+say so; any other statement without a web compilation is an error rather than
+being skipped.
 
 Evidence: `tests/WebRuntimeUi.Tests.ps1` (headless Chromium).
