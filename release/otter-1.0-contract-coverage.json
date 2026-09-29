@@ -2,15 +2,15 @@
     "schemaVersion":  1,
     "purpose":  "Derived evidence for every declared TokenKind, NodeKind and diagnostic call site. Evidence only: nothing here decides what is public.",
     "derivedFrom":  {
-                        "commit":  "4727f1fb10274433fc39fab222b893df4171c313",
+                        "commit":  "0328289c8d19b4277c88706bb24e0ef57a243be0",
                         "contractSha256":  "0343bec8051dbc3e45aefe82b48c6363b9dfa0bd2d0d4868764f00f6e28238f5",
                         "lexerSha256":  "86a4add5bf4673a9ce635890cf789a717cc79dd601ff52c1688ddd72307d4c4c",
-                        "parserSha256":  "e6fefffccb42ceaf241393bd43c38dc6ec654d826d2c4d7dfb8f8215f3bca41b",
+                        "parserSha256":  "41efcf491d1440de5108591e8f190a5f76d9a39e8ed90e628d77946da9ae96af",
                         "corpus":  {
-                                       "snippets":  711,
-                                       "parsedPrograms":  652,
+                                       "snippets":  720,
+                                       "parsedPrograms":  660,
                                        "lexedButNotParsed":  31,
-                                       "failedToLex":  28
+                                       "failedToLex":  29
                                    },
                         "method":  "Every Otter program found in conformance/, examples/, benchmarks/, otter-docs/pages, selfhost/, projects/ and embedded in tests/*.Tests.ps1 was run through the real lexer and parser. \"Exercised by a program in test file X\" means X contains a program that produces that token or node; it does not prove X asserts that member\u0027s behavior."
                     },
@@ -30,11 +30,11 @@
                                   "problems":  0
                               },
                     "diagnostics":  {
-                                        "callSites":  627,
-                                        "messageTextFoundInTests":  64,
-                                        "messageTextNotFound":  537,
+                                        "callSites":  665,
+                                        "messageTextFoundInTests":  71,
+                                        "messageTextNotFound":  567,
                                         "dynamicMessage":  14,
-                                        "tooShortToMatch":  12
+                                        "tooShortToMatch":  13
                                     }
                 },
     "tokens":  [
@@ -50,7 +50,7 @@
                                          "parserReferences":  223
                                      },
                        "corpus":  {
-                                      "programs":  212,
+                                      "programs":  213,
                                       "origins":  [
                                                       "benchmarks/arithmetic.ot",
                                                       "benchmarks/contains_300.ot",
@@ -90,7 +90,7 @@
                                          "parserReferences":  7
                                      },
                        "corpus":  {
-                                      "programs":  186,
+                                      "programs":  187,
                                       "origins":  [
                                                       "benchmarks/arithmetic.ot",
                                                       "benchmarks/contains_300.ot",
@@ -130,7 +130,7 @@
                                          "parserReferences":  13
                                      },
                        "corpus":  {
-                                      "programs":  209,
+                                      "programs":  210,
                                       "origins":  [
                                                       "benchmarks/arithmetic.ot",
                                                       "benchmarks/contains_300.ot",
@@ -208,7 +208,7 @@
                                          "parserReferences":  2
                                      },
                        "corpus":  {
-                                      "programs":  41,
+                                      "programs":  42,
                                       "origins":  [
                                                       "conformance/core/variables_math_control_flow.ot",
                                                       "examples/experimental/counter.ot",
@@ -244,10 +244,10 @@
                        "keywords":  "is",
                        "producers":  {
                                          "lexerReferences":  4,
-                                         "parserReferences":  32
+                                         "parserReferences":  34
                                      },
                        "corpus":  {
-                                      "programs":  195,
+                                      "programs":  196,
                                       "origins":  [
                                                       "benchmarks/arithmetic.ot",
                                                       "benchmarks/contains_300.ot",
@@ -289,7 +289,7 @@
                                     },
                        "producers":  {
                                          "lexerReferences":  1,
-                                         "parserReferences":  13
+                                         "parserReferences":  15
                                      },
                        "corpus":  {
                                       "programs":  14,
@@ -329,7 +329,7 @@
                                     },
                        "producers":  {
                                          "lexerReferences":  1,
-                                         "parserReferences":  2
+                                         "parserReferences":  3
                                      },
                        "corpus":  {
                                       "programs":  10,
@@ -367,7 +367,7 @@
                                     },
                        "producers":  {
                                          "lexerReferences":  1,
-                                         "parserReferences":  2
+                                         "parserReferences":  3
                                      },
                        "corpus":  {
                                       "programs":  3,
@@ -398,7 +398,7 @@
                                     },
                        "producers":  {
                                          "lexerReferences":  1,
-                                         "parserReferences":  2
+                                         "parserReferences":  3
                                      },
                        "corpus":  {
                                       "programs":  6,
@@ -432,7 +432,7 @@
                                     },
                        "producers":  {
                                          "lexerReferences":  1,
-                                         "parserReferences":  2
+                                         "parserReferences":  3
                                      },
                        "corpus":  {
                                       "programs":  10,
@@ -471,10 +471,10 @@
                                     ],
                        "producers":  {
                                          "lexerReferences":  5,
-                                         "parserReferences":  30
+                                         "parserReferences":  32
                                      },
                        "corpus":  {
-                                      "programs":  51,
+                                      "programs":  52,
                                       "origins":  [
                                                       "benchmarks/arithmetic.ot",
                                                       "benchmarks/contains_300.ot",
@@ -514,7 +514,7 @@
                        "keywords":  "minus",
                        "producers":  {
                                          "lexerReferences":  3,
-                                         "parserReferences":  3
+                                         "parserReferences":  5
                                      },
                        "corpus":  {
                                       "programs":  8,
@@ -531,6 +531,7 @@
                                   },
                        "documentation":  {
                                              "files":  [
+                                                           "docs/SEMANTICS.md",
                                                            "docs/GRAMMAR.md",
                                                            "docs/STANDARD_LIBRARY_REACHABILITY.md",
                                                            "rules.md",
@@ -551,7 +552,7 @@
                        "keywords":  "times",
                        "producers":  {
                                          "lexerReferences":  2,
-                                         "parserReferences":  4
+                                         "parserReferences":  6
                                      },
                        "corpus":  {
                                       "programs":  18,
@@ -594,7 +595,7 @@
                                     },
                        "producers":  {
                                          "lexerReferences":  2,
-                                         "parserReferences":  3
+                                         "parserReferences":  5
                                      },
                        "corpus":  {
                                       "programs":  6,
@@ -837,7 +838,7 @@
                                          "parserReferences":  49
                                      },
                        "corpus":  {
-                                      "programs":  152,
+                                      "programs":  153,
                                       "origins":  [
                                                       "benchmarks/arithmetic.ot",
                                                       "benchmarks/contains_300.ot",
@@ -1307,7 +1308,7 @@
                                          "parserReferences":  4
                                      },
                        "corpus":  {
-                                      "programs":  25,
+                                      "programs":  26,
                                       "origins":  [
                                                       "benchmarks/lists.ot",
                                                       "benchmarks/loops.ot",
@@ -1349,7 +1350,7 @@
                                          "parserReferences":  23
                                      },
                        "corpus":  {
-                                      "programs":  152,
+                                      "programs":  153,
                                       "origins":  [
                                                       "benchmarks/lists.ot",
                                                       "benchmarks/loops.ot",
@@ -1434,7 +1435,7 @@
                                          "parserReferences":  9
                                      },
                        "corpus":  {
-                                      "programs":  24,
+                                      "programs":  25,
                                       "origins":  [
                                                       "benchmarks/contains_300.ot",
                                                       "benchmarks/contains_5000.ot",
@@ -1554,7 +1555,7 @@
                                          "parserReferences":  1
                                      },
                        "corpus":  {
-                                      "programs":  17,
+                                      "programs":  18,
                                       "origins":  [
                                                       "examples/collections.ot",
                                                       "examples/database-schema.ot",
@@ -1771,7 +1772,7 @@
                                          "parserReferences":  2
                                      },
                        "corpus":  {
-                                      "programs":  13,
+                                      "programs":  14,
                                       "origins":  [
                                                       "examples/calculator.ot",
                                                       "examples/file-organizer/organizer.ot",
@@ -2021,7 +2022,8 @@
                                   },
                        "documentation":  {
                                              "files":  [
-                                                           "SPEC-DECISIONS.md#D82"
+                                                           "SPEC-DECISIONS.md#D82",
+                                                           "docs/GRAMMAR.md"
                                                        ],
                                              "decisionRefs":  [
                                                                   "D82"
@@ -2177,7 +2179,7 @@
                        "keywords":  "percent",
                        "producers":  {
                                          "lexerReferences":  1,
-                                         "parserReferences":  4
+                                         "parserReferences":  7
                                      },
                        "corpus":  {
                                       "programs":  1,
@@ -2188,6 +2190,7 @@
                        "documentation":  {
                                              "files":  [
                                                            "SPEC-DECISIONS.md#D88",
+                                                           "docs/GRAMMAR.md",
                                                            "docs/STANDARD_LIBRARY_REACHABILITY.md",
                                                            "docs/STANDARD_LIBRARY.md"
                                                        ],
@@ -2206,7 +2209,7 @@
                        "keywords":  "power",
                        "producers":  {
                                          "lexerReferences":  1,
-                                         "parserReferences":  2
+                                         "parserReferences":  4
                                      },
                        "corpus":  {
                                       "programs":  1,
@@ -2217,6 +2220,7 @@
                        "documentation":  {
                                              "files":  [
                                                            "SPEC-DECISIONS.md#D88",
+                                                           "docs/GRAMMAR.md",
                                                            "docs/STANDARD_LIBRARY_REACHABILITY.md",
                                                            "docs/STANDARD_LIBRARY.md"
                                                        ],
@@ -3189,6 +3193,7 @@
                                                            "SPEC-DECISIONS.md#D24",
                                                            "SPEC-DECISIONS.md#D25",
                                                            "SPEC-DECISIONS.md#D26",
+                                                           "docs/GRAMMAR.md",
                                                            "docs/STANDARD_LIBRARY.md"
                                                        ],
                                              "decisionRefs":  [
@@ -3983,7 +3988,7 @@
                                          "parserReferences":  5
                                      },
                        "corpus":  {
-                                      "programs":  27,
+                                      "programs":  28,
                                       "origins":  [
                                                       "benchmarks/json.ot",
                                                       "benchmarks/objects.ot",
@@ -4085,6 +4090,7 @@
                        "documentation":  {
                                              "files":  [
                                                            "docs/SEMANTICS.md",
+                                                           "docs/GRAMMAR.md",
                                                            "docs/STANDARD_LIBRARY_REACHABILITY.md",
                                                            "rules.md",
                                                            "docs/STANDARD_LIBRARY.md"
@@ -4381,7 +4387,7 @@
                                          "parserReferences":  65
                                      },
                        "corpus":  {
-                                      "programs":  60,
+                                      "programs":  61,
                                       "origins":  [
                                                       "benchmarks/file_io.ot",
                                                       "benchmarks/json.ot",
@@ -4534,10 +4540,10 @@
                        "keywords":  "of",
                        "producers":  {
                                          "lexerReferences":  3,
-                                         "parserReferences":  42
+                                         "parserReferences":  43
                                      },
                        "corpus":  {
-                                      "programs":  165,
+                                      "programs":  166,
                                       "origins":  [
                                                       "benchmarks/file_io.ot",
                                                       "benchmarks/json.ot",
@@ -4579,7 +4585,7 @@
                                          "parserReferences":  1
                                      },
                        "corpus":  {
-                                      "programs":  111,
+                                      "programs":  112,
                                       "origins":  [
                                                       "conformance/release/web_hello.ot",
                                                       "examples/api-server.ot",
@@ -4620,7 +4626,7 @@
                                          "parserReferences":  3
                                      },
                        "corpus":  {
-                                      "programs":  124,
+                                      "programs":  125,
                                       "origins":  [
                                                       "conformance/http/http_web_fetch.ot",
                                                       "conformance/release/web_hello.ot",
@@ -4639,6 +4645,7 @@
                        "documentation":  {
                                              "files":  [
                                                            "SPEC-DECISIONS.md#D47",
+                                                           "docs/GRAMMAR.md",
                                                            "docs/STANDARD_LIBRARY.md"
                                                        ],
                                              "decisionRefs":  [
@@ -4659,7 +4666,7 @@
                                          "parserReferences":  3
                                      },
                        "corpus":  {
-                                      "programs":  122,
+                                      "programs":  123,
                                       "origins":  [
                                                       "conformance/release/web_hello.ot",
                                                       "examples/calculator.ot",
@@ -5046,6 +5053,7 @@
                        "documentation":  {
                                              "files":  [
                                                            "SPEC-DECISIONS.md#D99",
+                                                           "docs/SEMANTICS.md",
                                                            "rules.md"
                                                        ],
                                              "decisionRefs":  [
@@ -5780,6 +5788,7 @@
                                              "files":  [
                                                            "SPEC-DECISIONS.md#D56",
                                                            "docs/SEMANTICS.md",
+                                                           "docs/GRAMMAR.md",
                                                            "docs/STANDARD_LIBRARY_REACHABILITY.md",
                                                            "rules.md",
                                                            "docs/STANDARD_LIBRARY.md"
@@ -6011,7 +6020,7 @@
                                          "parserReferences":  56
                                      },
                        "corpus":  {
-                                      "programs":  182,
+                                      "programs":  183,
                                       "origins":  [
                                                       "benchmarks/arithmetic.ot",
                                                       "benchmarks/contains_300.ot",
@@ -6051,7 +6060,7 @@
                                          "parserReferences":  48
                                      },
                        "corpus":  {
-                                      "programs":  182,
+                                      "programs":  183,
                                       "origins":  [
                                                       "benchmarks/arithmetic.ot",
                                                       "benchmarks/contains_300.ot",
@@ -6091,7 +6100,7 @@
                                          "parserReferences":  259
                                      },
                        "corpus":  {
-                                      "programs":  217,
+                                      "programs":  218,
                                       "origins":  [
                                                       "benchmarks/arithmetic.ot",
                                                       "benchmarks/contains_300.ot",
@@ -6131,7 +6140,7 @@
                                          "parserReferences":  23
                                      },
                        "corpus":  {
-                                      "programs":  171,
+                                      "programs":  172,
                                       "origins":  [
                                                       "benchmarks/arithmetic.ot",
                                                       "benchmarks/contains_300.ot",
@@ -6171,7 +6180,7 @@
                                          "parserReferences":  33
                                      },
                        "corpus":  {
-                                      "programs":  217,
+                                      "programs":  218,
                                       "origins":  [
                                                       "benchmarks/arithmetic.ot",
                                                       "benchmarks/contains_300.ot",
@@ -6217,7 +6226,7 @@
                                         "provider":  true
                                     },
                       "corpus":  {
-                                     "programs":  210,
+                                     "programs":  211,
                                      "origins":  [
                                                      "benchmarks/arithmetic.ot",
                                                      "benchmarks/contains_300.ot",
@@ -6261,7 +6270,7 @@
                                         "provider":  true
                                     },
                       "corpus":  {
-                                     "programs":  210,
+                                     "programs":  211,
                                      "origins":  [
                                                      "benchmarks/arithmetic.ot",
                                                      "benchmarks/contains_300.ot",
@@ -6305,7 +6314,7 @@
                                         "provider":  true
                                     },
                       "corpus":  {
-                                     "programs":  204,
+                                     "programs":  205,
                                      "origins":  [
                                                      "benchmarks/arithmetic.ot",
                                                      "benchmarks/contains_300.ot",
@@ -6349,7 +6358,7 @@
                                         "provider":  false
                                     },
                       "corpus":  {
-                                     "programs":  39,
+                                     "programs":  40,
                                      "origins":  [
                                                      "benchmarks/arithmetic.ot",
                                                      "benchmarks/contains_300.ot",
@@ -6437,7 +6446,7 @@
                                         "provider":  false
                                     },
                       "corpus":  {
-                                     "programs":  17,
+                                     "programs":  18,
                                      "origins":  [
                                                      "benchmarks/function_calls.ot",
                                                      "benchmarks/recursion.ot",
@@ -6602,7 +6611,7 @@
                                         "provider":  false
                                     },
                       "corpus":  {
-                                     "programs":  152,
+                                     "programs":  153,
                                      "origins":  [
                                                      "benchmarks/json.ot",
                                                      "benchmarks/objects.ot",
@@ -6690,7 +6699,7 @@
                                         "provider":  true
                                     },
                       "corpus":  {
-                                     "programs":  191,
+                                     "programs":  192,
                                      "origins":  [
                                                      "benchmarks/arithmetic.ot",
                                                      "benchmarks/contains_300.ot",
@@ -7054,7 +7063,7 @@
                                         "provider":  false
                                     },
                       "corpus":  {
-                                     "programs":  25,
+                                     "programs":  26,
                                      "origins":  [
                                                      "benchmarks/lists.ot",
                                                      "benchmarks/loops.ot",
@@ -7098,7 +7107,7 @@
                                         "provider":  false
                                     },
                       "corpus":  {
-                                     "programs":  24,
+                                     "programs":  25,
                                      "origins":  [
                                                      "benchmarks/contains_300.ot",
                                                      "benchmarks/contains_5000.ot",
@@ -7142,7 +7151,7 @@
                                         "provider":  false
                                     },
                       "corpus":  {
-                                     "programs":  19,
+                                     "programs":  20,
                                      "origins":  [
                                                      "benchmarks/function_calls.ot",
                                                      "benchmarks/recursion.ot",
@@ -7186,7 +7195,7 @@
                                         "provider":  false
                                     },
                       "corpus":  {
-                                     "programs":  16,
+                                     "programs":  17,
                                      "origins":  [
                                                      "benchmarks/function_calls.ot",
                                                      "benchmarks/recursion.ot",
@@ -7274,7 +7283,7 @@
                                         "provider":  true
                                     },
                       "corpus":  {
-                                     "programs":  141,
+                                     "programs":  142,
                                      "origins":  [
                                                      "benchmarks/json.ot",
                                                      "benchmarks/objects.ot",
@@ -7318,11 +7327,12 @@
                                         "provider":  false
                                     },
                       "corpus":  {
-                                     "programs":  3,
+                                     "programs":  4,
                                      "origins":  [
                                                      "benchmarks/objects.ot",
                                                      "conformance/objects/things_and_dynamic_keys.ot",
-                                                     "tests/Parser.Tests.ps1"
+                                                     "tests/Parser.Tests.ps1",
+                                                     "tests/Web.Tests.ps1"
                                                  ]
                                  },
                       "documentation":  {
@@ -7419,13 +7429,13 @@
                                  },
                       "consumers":  {
                                         "interpreter":  true,
-                                        "javascript":  false,
+                                        "javascript":  true,
                                         "browser":  true,
                                         "desktop":  false,
                                         "provider":  false
                                     },
                       "corpus":  {
-                                     "programs":  11,
+                                     "programs":  12,
                                      "origins":  [
                                                      "examples/calculator.ot",
                                                      "examples/greeter.ot",
@@ -7437,7 +7447,8 @@
                                                      "examples/v1/tasks.ot",
                                                      "projects/my-cli-tool/main.ot",
                                                      "tests/Parser.Tests.ps1",
-                                                     "tests/Web.Tests.ps1"
+                                                     "tests/Web.Tests.ps1",
+                                                     "tests/WebRuntimeUi.Tests.ps1"
                                                  ]
                                  },
                       "documentation":  {
@@ -7462,13 +7473,13 @@
                                  },
                       "consumers":  {
                                         "interpreter":  true,
-                                        "javascript":  false,
+                                        "javascript":  true,
                                         "browser":  true,
                                         "desktop":  false,
                                         "provider":  false
                                     },
                       "corpus":  {
-                                     "programs":  112,
+                                     "programs":  113,
                                      "origins":  [
                                                      "conformance/release/web_hello.ot",
                                                      "examples/calculator.ot",
@@ -7506,13 +7517,13 @@
                                  },
                       "consumers":  {
                                         "interpreter":  true,
-                                        "javascript":  false,
+                                        "javascript":  true,
                                         "browser":  true,
                                         "desktop":  false,
                                         "provider":  false
                                     },
                       "corpus":  {
-                                     "programs":  122,
+                                     "programs":  123,
                                      "origins":  [
                                                      "conformance/release/web_hello.ot",
                                                      "examples/calculator.ot",
@@ -7550,13 +7561,13 @@
                                  },
                       "consumers":  {
                                         "interpreter":  true,
-                                        "javascript":  false,
+                                        "javascript":  true,
                                         "browser":  true,
                                         "desktop":  false,
                                         "provider":  false
                                     },
                       "corpus":  {
-                                     "programs":  121,
+                                     "programs":  122,
                                      "origins":  [
                                                      "conformance/release/web_hello.ot",
                                                      "examples/calculator.ot",
@@ -9363,7 +9374,7 @@
                                  },
                       "consumers":  {
                                         "interpreter":  false,
-                                        "javascript":  false,
+                                        "javascript":  true,
                                         "browser":  false,
                                         "desktop":  false,
                                         "provider":  true
@@ -9397,7 +9408,7 @@
                                  },
                       "consumers":  {
                                         "interpreter":  false,
-                                        "javascript":  false,
+                                        "javascript":  true,
                                         "browser":  false,
                                         "desktop":  false,
                                         "provider":  true
@@ -9431,7 +9442,7 @@
                                  },
                       "consumers":  {
                                         "interpreter":  false,
-                                        "javascript":  false,
+                                        "javascript":  true,
                                         "browser":  false,
                                         "desktop":  false,
                                         "provider":  true
@@ -9465,7 +9476,7 @@
                                  },
                       "consumers":  {
                                         "interpreter":  false,
-                                        "javascript":  false,
+                                        "javascript":  true,
                                         "browser":  false,
                                         "desktop":  false,
                                         "provider":  true
@@ -9498,7 +9509,7 @@
                                  },
                       "consumers":  {
                                         "interpreter":  true,
-                                        "javascript":  false,
+                                        "javascript":  true,
                                         "browser":  true,
                                         "desktop":  true,
                                         "provider":  false
@@ -9566,7 +9577,7 @@
                                  },
                       "consumers":  {
                                         "interpreter":  true,
-                                        "javascript":  false,
+                                        "javascript":  true,
                                         "browser":  true,
                                         "desktop":  true,
                                         "provider":  false
@@ -9600,7 +9611,7 @@
                                  },
                       "consumers":  {
                                         "interpreter":  true,
-                                        "javascript":  false,
+                                        "javascript":  true,
                                         "browser":  true,
                                         "desktop":  true,
                                         "provider":  false
@@ -9634,7 +9645,7 @@
                                  },
                       "consumers":  {
                                         "interpreter":  true,
-                                        "javascript":  false,
+                                        "javascript":  true,
                                         "browser":  false,
                                         "desktop":  false,
                                         "provider":  false
@@ -9667,7 +9678,7 @@
                                  },
                       "consumers":  {
                                         "interpreter":  true,
-                                        "javascript":  false,
+                                        "javascript":  true,
                                         "browser":  false,
                                         "desktop":  false,
                                         "provider":  false
@@ -9701,7 +9712,7 @@
                                  },
                       "consumers":  {
                                         "interpreter":  true,
-                                        "javascript":  false,
+                                        "javascript":  true,
                                         "browser":  true,
                                         "desktop":  false,
                                         "provider":  false
@@ -9735,7 +9746,7 @@
                                  },
                       "consumers":  {
                                         "interpreter":  true,
-                                        "javascript":  false,
+                                        "javascript":  true,
                                         "browser":  false,
                                         "desktop":  false,
                                         "provider":  false
@@ -9836,7 +9847,7 @@
                                  },
                       "consumers":  {
                                         "interpreter":  true,
-                                        "javascript":  false,
+                                        "javascript":  true,
                                         "browser":  false,
                                         "desktop":  false,
                                         "provider":  false
@@ -9869,8 +9880,8 @@
                                  },
                       "consumers":  {
                                         "interpreter":  true,
-                                        "javascript":  false,
-                                        "browser":  false,
+                                        "javascript":  true,
+                                        "browser":  true,
                                         "desktop":  false,
                                         "provider":  false
                                     },
@@ -9902,7 +9913,7 @@
                                  },
                       "consumers":  {
                                         "interpreter":  true,
-                                        "javascript":  false,
+                                        "javascript":  true,
                                         "browser":  false,
                                         "desktop":  false,
                                         "provider":  false
@@ -14361,7 +14372,7 @@
                                  },
                       "consumers":  {
                                         "interpreter":  true,
-                                        "javascript":  false,
+                                        "javascript":  true,
                                         "browser":  false,
                                         "desktop":  false,
                                         "provider":  false
@@ -14800,6 +14811,19 @@
                                          }
                         },
                         {
+                            "id":  "Otter.Parser.psm1#Read-OtterConditionPrimary#6",
+                            "module":  "src/Otter.Parser.psm1",
+                            "family":  "syntax",
+                            "function":  "Read-OtterConditionPrimary",
+                            "messageFragment":  "Arithmetic in a condition must be followed by an ordinary comparison.",
+                            "evidence":  {
+                                             "kind":  "message-text-not-found",
+                                             "files":  [
+
+                                                       ]
+                                         }
+                        },
+                        {
                             "id":  "Otter.Parser.psm1#Read-OtterConditionContinuation#1",
                             "module":  "src/Otter.Parser.psm1",
                             "family":  "syntax",
@@ -14831,6 +14855,19 @@
                             "family":  "syntax",
                             "function":  "Read-OtterConditionContinuation",
                             "messageFragment":  "I expected a condition after this connective.",
+                            "evidence":  {
+                                             "kind":  "message-text-not-found",
+                                             "files":  [
+
+                                                       ]
+                                         }
+                        },
+                        {
+                            "id":  "Otter.Parser.psm1#Read-OtterAndCondition#1",
+                            "module":  "src/Otter.Parser.psm1",
+                            "family":  "syntax",
+                            "function":  "Read-OtterAndCondition",
+                            "messageFragment":  "\u0027 is arithmetic, not a condition connector.",
                             "evidence":  {
                                              "kind":  "message-text-not-found",
                                              "files":  [
@@ -16459,9 +16496,9 @@
                             "function":  "Invoke-OtterStatement",
                             "messageFragment":  "I can only put a UI resource somewhere, but this is",
                             "evidence":  {
-                                             "kind":  "message-text-not-found",
+                                             "kind":  "message-text-found",
                                              "files":  [
-
+                                                           "tests/WebRuntimeUi.Tests.ps1"
                                                        ]
                                          }
                         },
@@ -16927,9 +16964,9 @@
                             "function":  "Invoke-OtterStatement",
                             "messageFragment":  "here, but this is",
                             "evidence":  {
-                                             "kind":  "message-text-not-found",
+                                             "kind":  "message-text-found",
                                              "files":  [
-
+                                                           "tests/WebRuntimeUi.Tests.ps1"
                                                        ]
                                          }
                         },
@@ -17540,7 +17577,8 @@
                             "evidence":  {
                                              "kind":  "message-text-found",
                                              "files":  [
-                                                           "tests/UseModuleProduction.Tests.ps1"
+                                                           "tests/UseModuleProduction.Tests.ps1",
+                                                           "tests/WebRuntimeUi.Tests.ps1"
                                                        ]
                                          }
                         },
@@ -17579,7 +17617,8 @@
                             "evidence":  {
                                              "kind":  "message-text-found",
                                              "files":  [
-                                                           "tests/UseModuleProduction.Tests.ps1"
+                                                           "tests/UseModuleProduction.Tests.ps1",
+                                                           "tests/WebRuntimeUi.Tests.ps1"
                                                        ]
                                          }
                         },
@@ -18995,9 +19034,9 @@
                             "function":  "Read-OtterFile",
                             "messageFragment":  "I could not read \"",
                             "evidence":  {
-                                             "kind":  "message-text-not-found",
+                                             "kind":  "message-text-found",
                                              "files":  [
-
+                                                           "tests/HostPortability.Tests.ps1"
                                                        ]
                                          }
                         },
@@ -19526,6 +19565,19 @@
                             "module":  "src/Otter.Library.psm1",
                             "family":  "runtime",
                             "function":  "Invoke-OtterSshCommand",
+                            "messageFragment":  "\" as an ssh host. A host cannot be empty, start with \u0027-\u0027, or contain spaces, quotes or control characters.",
+                            "evidence":  {
+                                             "kind":  "message-text-not-found",
+                                             "files":  [
+
+                                                       ]
+                                         }
+                        },
+                        {
+                            "id":  "Otter.Library.psm1#Invoke-OtterSshCommand#2",
+                            "module":  "src/Otter.Library.psm1",
+                            "family":  "runtime",
+                            "function":  "Invoke-OtterSshCommand",
                             "messageFragment":  null,
                             "evidence":  {
                                              "kind":  "dynamic-message",
@@ -19535,7 +19587,7 @@
                                          }
                         },
                         {
-                            "id":  "Otter.Library.psm1#Invoke-OtterSshCommand#2",
+                            "id":  "Otter.Library.psm1#Invoke-OtterSshCommand#3",
                             "module":  "src/Otter.Library.psm1",
                             "family":  "runtime",
                             "function":  "Invoke-OtterSshCommand",
@@ -20068,6 +20120,19 @@
                                          }
                         },
                         {
+                            "id":  "Otter.Library.psm1#ConvertTo-OtterCmdArgument#1",
+                            "module":  "src/Otter.Library.psm1",
+                            "family":  "runtime",
+                            "function":  "ConvertTo-OtterCmdArgument",
+                            "messageFragment":  "\" safely to a .cmd or .bat script. cmd.exe would treat a double quote, a percent sign or a line break in it as part of the command, so arguments to a .cmd or .bat script cannot contain those characters.",
+                            "evidence":  {
+                                             "kind":  "message-text-not-found",
+                                             "files":  [
+
+                                                       ]
+                                         }
+                        },
+                        {
                             "id":  "Otter.Library.psm1#New-OtterProcessStartInfo#1",
                             "module":  "src/Otter.Library.psm1",
                             "family":  "runtime",
@@ -20116,6 +20181,45 @@
                                              "kind":  "message-text-found",
                                              "files":  [
                                                            "tests/Part3.Tests.ps1"
+                                                       ]
+                                         }
+                        },
+                        {
+                            "id":  "Otter.Library.psm1#Assert-OtterHttpHeader#1",
+                            "module":  "src/Otter.Library.psm1",
+                            "family":  "runtime",
+                            "function":  "Assert-OtterHttpHeader",
+                            "messageFragment":  "HTTP header name cannot be empty.",
+                            "evidence":  {
+                                             "kind":  "message-text-not-found",
+                                             "files":  [
+
+                                                       ]
+                                         }
+                        },
+                        {
+                            "id":  "Otter.Library.psm1#Assert-OtterHttpHeader#2",
+                            "module":  "src/Otter.Library.psm1",
+                            "family":  "runtime",
+                            "function":  "Assert-OtterHttpHeader",
+                            "messageFragment":  "HTTP header names and values cannot contain line breaks (CR or LF) or NUL characters.",
+                            "evidence":  {
+                                             "kind":  "message-text-not-found",
+                                             "files":  [
+
+                                                       ]
+                                         }
+                        },
+                        {
+                            "id":  "Otter.Library.psm1#Assert-OtterHttpHeader#3",
+                            "module":  "src/Otter.Library.psm1",
+                            "family":  "runtime",
+                            "function":  "Assert-OtterHttpHeader",
+                            "messageFragment":  "\" cannot contain a colon or whitespace.",
+                            "evidence":  {
+                                             "kind":  "message-text-not-found",
+                                             "files":  [
+
                                                        ]
                                          }
                         },
@@ -20189,7 +20293,7 @@
                             "module":  "src/Otter.Library.psm1",
                             "family":  "runtime",
                             "function":  "Invoke-OtterHttpRequest",
-                            "messageFragment":  "HTTP header name cannot be empty.",
+                            "messageFragment":  "Invalid HTTP header \"",
                             "evidence":  {
                                              "kind":  "message-text-not-found",
                                              "files":  [
@@ -20202,19 +20306,6 @@
                             "module":  "src/Otter.Library.psm1",
                             "family":  "runtime",
                             "function":  "Invoke-OtterHttpRequest",
-                            "messageFragment":  "Invalid HTTP header \"",
-                            "evidence":  {
-                                             "kind":  "message-text-not-found",
-                                             "files":  [
-
-                                                       ]
-                                         }
-                        },
-                        {
-                            "id":  "Otter.Library.psm1#Invoke-OtterHttpRequest#8",
-                            "module":  "src/Otter.Library.psm1",
-                            "family":  "runtime",
-                            "function":  "Invoke-OtterHttpRequest",
                             "messageFragment":  "The HTTP request timed out after",
                             "evidence":  {
                                              "kind":  "message-text-found",
@@ -20224,7 +20315,7 @@
                                          }
                         },
                         {
-                            "id":  "Otter.Library.psm1#Invoke-OtterHttpRequest#9",
+                            "id":  "Otter.Library.psm1#Invoke-OtterHttpRequest#8",
                             "module":  "src/Otter.Library.psm1",
                             "family":  "runtime",
                             "function":  "Invoke-OtterHttpRequest",
@@ -20237,7 +20328,7 @@
                                          }
                         },
                         {
-                            "id":  "Otter.Library.psm1#Invoke-OtterHttpRequest#10",
+                            "id":  "Otter.Library.psm1#Invoke-OtterHttpRequest#9",
                             "module":  "src/Otter.Library.psm1",
                             "family":  "runtime",
                             "function":  "Invoke-OtterHttpRequest",
@@ -20250,7 +20341,7 @@
                                          }
                         },
                         {
-                            "id":  "Otter.Library.psm1#Invoke-OtterHttpRequest#11",
+                            "id":  "Otter.Library.psm1#Invoke-OtterHttpRequest#10",
                             "module":  "src/Otter.Library.psm1",
                             "family":  "runtime",
                             "function":  "Invoke-OtterHttpRequest",
@@ -20329,19 +20420,6 @@
                         },
                         {
                             "id":  "Otter.Library.psm1#Start-OtterHttpRequest#6",
-                            "module":  "src/Otter.Library.psm1",
-                            "family":  "runtime",
-                            "function":  "Start-OtterHttpRequest",
-                            "messageFragment":  "HTTP header name cannot be empty.",
-                            "evidence":  {
-                                             "kind":  "message-text-not-found",
-                                             "files":  [
-
-                                                       ]
-                                         }
-                        },
-                        {
-                            "id":  "Otter.Library.psm1#Start-OtterHttpRequest#7",
                             "module":  "src/Otter.Library.psm1",
                             "family":  "runtime",
                             "function":  "Start-OtterHttpRequest",
@@ -20865,7 +20943,7 @@
                             "module":  "src/Otter.Compiler.JavaScript.psm1",
                             "family":  "runtime",
                             "function":  "ConvertTo-OtterJsStatement",
-                            "messageFragment":  "`set cursor to ...` is not supported on the web target yet.",
+                            "messageFragment":  "A UI resource property name must be a plain name.",
                             "evidence":  {
                                              "kind":  "message-text-not-found",
                                              "files":  [
@@ -20878,7 +20956,7 @@
                             "module":  "src/Otter.Compiler.JavaScript.psm1",
                             "family":  "runtime",
                             "function":  "ConvertTo-OtterJsStatement",
-                            "messageFragment":  "`choose from ... into ...` is not supported on the web target yet.",
+                            "messageFragment":  "`set cursor to ...` is not supported on the web target yet.",
                             "evidence":  {
                                              "kind":  "message-text-not-found",
                                              "files":  [
@@ -20891,7 +20969,7 @@
                             "module":  "src/Otter.Compiler.JavaScript.psm1",
                             "family":  "runtime",
                             "function":  "ConvertTo-OtterJsStatement",
-                            "messageFragment":  "`show progress ...` is not supported on the web target yet.",
+                            "messageFragment":  "`choose from ... into ...` is not supported on the web target yet.",
                             "evidence":  {
                                              "kind":  "message-text-not-found",
                                              "files":  [
@@ -20904,7 +20982,7 @@
                             "module":  "src/Otter.Compiler.JavaScript.psm1",
                             "family":  "runtime",
                             "function":  "ConvertTo-OtterJsStatement",
-                            "messageFragment":  "`wait ...` is not supported on the web target yet.",
+                            "messageFragment":  "`show progress ...` is not supported on the web target yet.",
                             "evidence":  {
                                              "kind":  "message-text-not-found",
                                              "files":  [
@@ -20917,7 +20995,7 @@
                             "module":  "src/Otter.Compiler.JavaScript.psm1",
                             "family":  "runtime",
                             "function":  "ConvertTo-OtterJsStatement",
-                            "messageFragment":  "`set random seed to ...` is not supported on the web target yet.",
+                            "messageFragment":  "`wait ...` is not supported on the web target yet.",
                             "evidence":  {
                                              "kind":  "message-text-not-found",
                                              "files":  [
@@ -20930,7 +21008,7 @@
                             "module":  "src/Otter.Compiler.JavaScript.psm1",
                             "family":  "runtime",
                             "function":  "ConvertTo-OtterJsStatement",
-                            "messageFragment":  "File/folder watching is not supported on the web target.",
+                            "messageFragment":  "`set random seed to ...` is not supported on the web target yet.",
                             "evidence":  {
                                              "kind":  "message-text-not-found",
                                              "files":  [
@@ -20969,7 +21047,7 @@
                             "module":  "src/Otter.Compiler.JavaScript.psm1",
                             "family":  "runtime",
                             "function":  "ConvertTo-OtterJsStatement",
-                            "messageFragment":  "The credential vault (store secret) is not supported on the web target. Browser storage is not a secure credential store.",
+                            "messageFragment":  "File/folder watching is not supported on the web target.",
                             "evidence":  {
                                              "kind":  "message-text-not-found",
                                              "files":  [
@@ -20982,7 +21060,7 @@
                             "module":  "src/Otter.Compiler.JavaScript.psm1",
                             "family":  "runtime",
                             "function":  "ConvertTo-OtterJsStatement",
-                            "messageFragment":  "The credential vault (delete secret) is not supported on the web target. Browser storage is not a secure credential store.",
+                            "messageFragment":  "The credential vault (store secret) is not supported on the web target. Browser storage is not a secure credential store.",
                             "evidence":  {
                                              "kind":  "message-text-not-found",
                                              "files":  [
@@ -20995,7 +21073,7 @@
                             "module":  "src/Otter.Compiler.JavaScript.psm1",
                             "family":  "runtime",
                             "function":  "ConvertTo-OtterJsStatement",
-                            "messageFragment":  "TCP is not supported on the web target. Browsers cannot open raw TCP sockets (use a websocket instead).",
+                            "messageFragment":  "The credential vault (delete secret) is not supported on the web target. Browser storage is not a secure credential store.",
                             "evidence":  {
                                              "kind":  "message-text-not-found",
                                              "files":  [
@@ -21008,7 +21086,7 @@
                             "module":  "src/Otter.Compiler.JavaScript.psm1",
                             "family":  "runtime",
                             "function":  "ConvertTo-OtterJsStatement",
-                            "messageFragment":  "TCP servers are not supported on the web target. Browsers cannot listen on TCP ports.",
+                            "messageFragment":  "TCP is not supported on the web target. Browsers cannot open raw TCP sockets (use a websocket instead).",
                             "evidence":  {
                                              "kind":  "message-text-not-found",
                                              "files":  [
@@ -21021,7 +21099,7 @@
                             "module":  "src/Otter.Compiler.JavaScript.psm1",
                             "family":  "runtime",
                             "function":  "ConvertTo-OtterJsStatement",
-                            "messageFragment":  "TCP servers are not supported on the web target.",
+                            "messageFragment":  "TCP servers are not supported on the web target. Browsers cannot listen on TCP ports.",
                             "evidence":  {
                                              "kind":  "message-text-not-found",
                                              "files":  [
@@ -21034,7 +21112,7 @@
                             "module":  "src/Otter.Compiler.JavaScript.psm1",
                             "family":  "runtime",
                             "function":  "ConvertTo-OtterJsStatement",
-                            "messageFragment":  "UDP is not supported on the web target. Browsers cannot open raw UDP sockets.",
+                            "messageFragment":  "TCP servers are not supported on the web target.",
                             "evidence":  {
                                              "kind":  "message-text-not-found",
                                              "files":  [
@@ -21060,7 +21138,7 @@
                             "module":  "src/Otter.Compiler.JavaScript.psm1",
                             "family":  "runtime",
                             "function":  "ConvertTo-OtterJsStatement",
-                            "messageFragment":  ") is not supported on the web target. Browsers cannot open raw sockets.",
+                            "messageFragment":  "UDP is not supported on the web target. Browsers cannot open raw UDP sockets.",
                             "evidence":  {
                                              "kind":  "message-text-not-found",
                                              "files":  [
@@ -21073,7 +21151,7 @@
                             "module":  "src/Otter.Compiler.JavaScript.psm1",
                             "family":  "runtime",
                             "function":  "ConvertTo-OtterJsStatement",
-                            "messageFragment":  "TCP/UDP events (\"on connect of\", \"on data from\", \"on connection to\") are not supported on the web target. Use a websocket (\"on open of\", \"on message from\").",
+                            "messageFragment":  ") is not supported on the web target. Browsers cannot open raw sockets.",
                             "evidence":  {
                                              "kind":  "message-text-not-found",
                                              "files":  [
@@ -21086,7 +21164,7 @@
                             "module":  "src/Otter.Compiler.JavaScript.psm1",
                             "family":  "runtime",
                             "function":  "ConvertTo-OtterJsStatement",
-                            "messageFragment":  "Database providers are not supported on the web target. Browsers cannot connect directly to databases.",
+                            "messageFragment":  "TCP/UDP events (\"on connect of\", \"on data from\", \"on connection to\") are not supported on the web target. Use a websocket (\"on open of\", \"on message from\").",
                             "evidence":  {
                                              "kind":  "message-text-not-found",
                                              "files":  [
@@ -21229,7 +21307,243 @@
                             "module":  "src/Otter.Compiler.JavaScript.psm1",
                             "family":  "runtime",
                             "function":  "ConvertTo-OtterJsStatement",
+                            "messageFragment":  "Database providers are not supported on the web target. Browsers cannot connect directly to databases.",
+                            "evidence":  {
+                                             "kind":  "message-text-not-found",
+                                             "files":  [
+
+                                                       ]
+                                         }
+                        },
+                        {
+                            "id":  "Otter.Compiler.JavaScript.psm1#ConvertTo-OtterJsStatement#32",
+                            "module":  "src/Otter.Compiler.JavaScript.psm1",
+                            "family":  "runtime",
+                            "function":  "ConvertTo-OtterJsStatement",
                             "messageFragment":  "Binary file access is not supported on the web target.",
+                            "evidence":  {
+                                             "kind":  "message-text-not-found",
+                                             "files":  [
+
+                                                       ]
+                                         }
+                        },
+                        {
+                            "id":  "Otter.Compiler.JavaScript.psm1#ConvertTo-OtterJsStatement#33",
+                            "module":  "src/Otter.Compiler.JavaScript.psm1",
+                            "family":  "runtime",
+                            "function":  "ConvertTo-OtterJsStatement",
+                            "messageFragment":  "\u0027 is not supported in Otter 1.0.",
+                            "evidence":  {
+                                             "kind":  "message-text-found",
+                                             "files":  [
+                                                           "tests/UseModuleProduction.Tests.ps1",
+                                                           "tests/WebRuntimeUi.Tests.ps1"
+                                                       ]
+                                         }
+                        },
+                        {
+                            "id":  "Otter.Compiler.JavaScript.psm1#ConvertTo-OtterJsStatement#34",
+                            "module":  "src/Otter.Compiler.JavaScript.psm1",
+                            "family":  "runtime",
+                            "function":  "ConvertTo-OtterJsStatement",
+                            "messageFragment":  "Drag and drop handlers (\"on drag of\", \"on drop on\", \"on files dropped on\") must be written at the top level of a web program, not inside another handler or a function.",
+                            "evidence":  {
+                                             "kind":  "message-text-not-found",
+                                             "files":  [
+
+                                                       ]
+                                         }
+                        },
+                        {
+                            "id":  "Otter.Compiler.JavaScript.psm1#ConvertTo-OtterJsStatement#35",
+                            "module":  "src/Otter.Compiler.JavaScript.psm1",
+                            "family":  "runtime",
+                            "function":  "ConvertTo-OtterJsStatement",
+                            "messageFragment":  "\u0027memo\u0027 is not supported in Otter 1.0.",
+                            "evidence":  {
+                                             "kind":  "message-text-not-found",
+                                             "files":  [
+
+                                                       ]
+                                         }
+                        },
+                        {
+                            "id":  "Otter.Compiler.JavaScript.psm1#ConvertTo-OtterJsStatement#36",
+                            "module":  "src/Otter.Compiler.JavaScript.psm1",
+                            "family":  "runtime",
+                            "function":  "ConvertTo-OtterJsStatement",
+                            "messageFragment":  "\u0027 is not supported in Otter 1.0.",
+                            "evidence":  {
+                                             "kind":  "message-text-found",
+                                             "files":  [
+                                                           "tests/UseModuleProduction.Tests.ps1",
+                                                           "tests/WebRuntimeUi.Tests.ps1"
+                                                       ]
+                                         }
+                        },
+                        {
+                            "id":  "Otter.Compiler.JavaScript.psm1#ConvertTo-OtterJsStatement#37",
+                            "module":  "src/Otter.Compiler.JavaScript.psm1",
+                            "family":  "runtime",
+                            "function":  "ConvertTo-OtterJsStatement",
+                            "messageFragment":  "\u0027shared\u0027 is not supported in Otter 1.0.",
+                            "evidence":  {
+                                             "kind":  "message-text-not-found",
+                                             "files":  [
+
+                                                       ]
+                                         }
+                        },
+                        {
+                            "id":  "Otter.Compiler.JavaScript.psm1#ConvertTo-OtterJsStatement#38",
+                            "module":  "src/Otter.Compiler.JavaScript.psm1",
+                            "family":  "runtime",
+                            "function":  "ConvertTo-OtterJsStatement",
+                            "messageFragment":  "A state declaration must be written at the top level of a web program, not inside a handler, function or block.",
+                            "evidence":  {
+                                             "kind":  "message-text-not-found",
+                                             "files":  [
+
+                                                       ]
+                                         }
+                        },
+                        {
+                            "id":  "Otter.Compiler.JavaScript.psm1#ConvertTo-OtterJsStatement#39",
+                            "module":  "src/Otter.Compiler.JavaScript.psm1",
+                            "family":  "runtime",
+                            "function":  "ConvertTo-OtterJsStatement",
+                            "messageFragment":  "A state declaration must be written at the top level of a web program, not inside a handler, function or block.",
+                            "evidence":  {
+                                             "kind":  "message-text-not-found",
+                                             "files":  [
+
+                                                       ]
+                                         }
+                        },
+                        {
+                            "id":  "Otter.Compiler.JavaScript.psm1#ConvertTo-OtterJsStatement#40",
+                            "module":  "src/Otter.Compiler.JavaScript.psm1",
+                            "family":  "runtime",
+                            "function":  "ConvertTo-OtterJsStatement",
+                            "messageFragment":  "A derived value must be written at the top level of a web program, not inside a handler, function or block.",
+                            "evidence":  {
+                                             "kind":  "message-text-not-found",
+                                             "files":  [
+
+                                                       ]
+                                         }
+                        },
+                        {
+                            "id":  "Otter.Compiler.JavaScript.psm1#ConvertTo-OtterJsStatement#41",
+                            "module":  "src/Otter.Compiler.JavaScript.psm1",
+                            "family":  "runtime",
+                            "function":  "ConvertTo-OtterJsStatement",
+                            "messageFragment":  "A \"when ... changes\" watcher must be written at the top level of a web program, not inside a handler, function or block.",
+                            "evidence":  {
+                                             "kind":  "message-text-not-found",
+                                             "files":  [
+
+                                                       ]
+                                         }
+                        },
+                        {
+                            "id":  "Otter.Compiler.JavaScript.psm1#ConvertTo-OtterJsStatement#42",
+                            "module":  "src/Otter.Compiler.JavaScript.psm1",
+                            "family":  "runtime",
+                            "function":  "ConvertTo-OtterJsStatement",
+                            "messageFragment":  "A declarative UI element must be written at the top level of a web program or directly in a function, not inside a handler or block.",
+                            "evidence":  {
+                                             "kind":  "message-text-not-found",
+                                             "files":  [
+
+                                                       ]
+                                         }
+                        },
+                        {
+                            "id":  "Otter.Compiler.JavaScript.psm1#ConvertTo-OtterJsStatement#43",
+                            "module":  "src/Otter.Compiler.JavaScript.psm1",
+                            "family":  "runtime",
+                            "function":  "ConvertTo-OtterJsStatement",
+                            "messageFragment":  "A UI event block must be written inside a declarative UI element at the top level of a web program.",
+                            "evidence":  {
+                                             "kind":  "message-text-not-found",
+                                             "files":  [
+
+                                                       ]
+                                         }
+                        },
+                        {
+                            "id":  "Otter.Compiler.JavaScript.psm1#ConvertTo-OtterJsStatement#44",
+                            "module":  "src/Otter.Compiler.JavaScript.psm1",
+                            "family":  "runtime",
+                            "function":  "ConvertTo-OtterJsStatement",
+                            "messageFragment":  "Starting a command (\"start command ...\") is not supported on the web target. Browsers cannot run programs.",
+                            "evidence":  {
+                                             "kind":  "message-text-not-found",
+                                             "files":  [
+
+                                                       ]
+                                         }
+                        },
+                        {
+                            "id":  "Otter.Compiler.JavaScript.psm1#ConvertTo-OtterJsStatement#45",
+                            "module":  "src/Otter.Compiler.JavaScript.psm1",
+                            "family":  "runtime",
+                            "function":  "ConvertTo-OtterJsStatement",
+                            "messageFragment":  "Web server statements run with \"otter serve\", not inside a web page.",
+                            "evidence":  {
+                                             "kind":  "message-text-not-found",
+                                             "files":  [
+
+                                                       ]
+                                         }
+                        },
+                        {
+                            "id":  "Otter.Compiler.JavaScript.psm1#ConvertTo-OtterJsStatement#46",
+                            "module":  "src/Otter.Compiler.JavaScript.psm1",
+                            "family":  "runtime",
+                            "function":  "ConvertTo-OtterJsStatement",
+                            "messageFragment":  "Web server statements run with \"otter serve\", not inside a web page.",
+                            "evidence":  {
+                                             "kind":  "message-text-not-found",
+                                             "files":  [
+
+                                                       ]
+                                         }
+                        },
+                        {
+                            "id":  "Otter.Compiler.JavaScript.psm1#ConvertTo-OtterJsStatement#47",
+                            "module":  "src/Otter.Compiler.JavaScript.psm1",
+                            "family":  "runtime",
+                            "function":  "ConvertTo-OtterJsStatement",
+                            "messageFragment":  "Web server statements run with \"otter serve\", not inside a web page.",
+                            "evidence":  {
+                                             "kind":  "message-text-not-found",
+                                             "files":  [
+
+                                                       ]
+                                         }
+                        },
+                        {
+                            "id":  "Otter.Compiler.JavaScript.psm1#ConvertTo-OtterJsStatement#48",
+                            "module":  "src/Otter.Compiler.JavaScript.psm1",
+                            "family":  "runtime",
+                            "function":  "ConvertTo-OtterJsStatement",
+                            "messageFragment":  "Web server statements run with \"otter serve\", not inside a web page.",
+                            "evidence":  {
+                                             "kind":  "message-text-not-found",
+                                             "files":  [
+
+                                                       ]
+                                         }
+                        },
+                        {
+                            "id":  "Otter.Compiler.JavaScript.psm1#ConvertTo-OtterJsStatement#49",
+                            "module":  "src/Otter.Compiler.JavaScript.psm1",
+                            "family":  "runtime",
+                            "function":  "ConvertTo-OtterJsStatement",
+                            "messageFragment":  ") is not supported on the web target yet.",
                             "evidence":  {
                                              "kind":  "message-text-not-found",
                                              "files":  [
@@ -21838,6 +22152,32 @@
                         {
                             "id":  "Otter.Module.psm1#Resolve-OtterModuleSourceInternal#3",
                             "module":  "src/Otter.Module.psm1",
+                            "family":  "syntax",
+                            "function":  "Resolve-OtterModuleSourceInternal",
+                            "messageFragment":  "\" is a folder, not an Otter file.",
+                            "evidence":  {
+                                             "kind":  "message-text-not-found",
+                                             "files":  [
+
+                                                       ]
+                                         }
+                        },
+                        {
+                            "id":  "Otter.Module.psm1#Resolve-OtterModuleSourceInternal#4",
+                            "module":  "src/Otter.Module.psm1",
+                            "family":  "syntax",
+                            "function":  "Resolve-OtterModuleSourceInternal",
+                            "messageFragment":  "I could not read \"",
+                            "evidence":  {
+                                             "kind":  "message-text-found",
+                                             "files":  [
+                                                           "tests/HostPortability.Tests.ps1"
+                                                       ]
+                                         }
+                        },
+                        {
+                            "id":  "Otter.Module.psm1#Resolve-OtterModuleSourceInternal#5",
+                            "module":  "src/Otter.Module.psm1",
                             "family":  "runtime",
                             "function":  "Resolve-OtterModuleSourceInternal",
                             "messageFragment":  "Cannot find imported Otter file \"",
@@ -21856,6 +22196,45 @@
                             "messageFragment":  null,
                             "evidence":  {
                                              "kind":  "dynamic-message",
+                                             "files":  [
+
+                                                       ]
+                                         }
+                        },
+                        {
+                            "id":  "Otter.Project.psm1#Get-OtterRealPath#1",
+                            "module":  "src/Otter.Project.psm1",
+                            "family":  "check",
+                            "function":  "Get-OtterRealPath",
+                            "messageFragment":  "Otter: too many symbolic links or junctions while resolving \"",
+                            "evidence":  {
+                                             "kind":  "message-text-not-found",
+                                             "files":  [
+
+                                                       ]
+                                         }
+                        },
+                        {
+                            "id":  "Otter.Project.psm1#Resolve-OtterProjectInputPath#1",
+                            "module":  "src/Otter.Project.psm1",
+                            "family":  "check",
+                            "function":  "Resolve-OtterProjectInputPath",
+                            "messageFragment":  "\". Every file Otter builds or publishes must be inside the project folder (symbolic links and junctions are followed).",
+                            "evidence":  {
+                                             "kind":  "message-text-not-found",
+                                             "files":  [
+
+                                                       ]
+                                         }
+                        },
+                        {
+                            "id":  "Otter.Project.psm1#Assert-OtterManifestFieldType#1",
+                            "module":  "src/Otter.Project.psm1",
+                            "family":  "check",
+                            "function":  "Assert-OtterManifestFieldType",
+                            "messageFragment":  ": property \"",
+                            "evidence":  {
+                                             "kind":  "message-too-short-to-match",
                                              "files":  [
 
                                                        ]
@@ -21918,11 +22297,11 @@
                             "module":  "src/Otter.Project.psm1",
                             "family":  "check",
                             "function":  "Get-OtterProject",
-                            "messageFragment":  ": property \"entryPoint\" is required.",
+                            "messageFragment":  ": the manifest must be a JSON object ({ ... }), but it is",
                             "evidence":  {
-                                             "kind":  "message-text-found",
+                                             "kind":  "message-text-not-found",
                                              "files":  [
-                                                           "tests/Project.Tests.ps1"
+
                                                        ]
                                          }
                         },
@@ -21931,7 +22310,7 @@
                             "module":  "src/Otter.Project.psm1",
                             "family":  "check",
                             "function":  "Get-OtterProject",
-                            "messageFragment":  "\" does not exist.",
+                            "messageFragment":  ": property \"entryPoint\" is required.",
                             "evidence":  {
                                              "kind":  "message-text-found",
                                              "files":  [
@@ -21944,6 +22323,32 @@
                             "module":  "src/Otter.Project.psm1",
                             "family":  "check",
                             "function":  "Get-OtterProject",
+                            "messageFragment":  "\" is not a valid file path.",
+                            "evidence":  {
+                                             "kind":  "message-text-not-found",
+                                             "files":  [
+
+                                                       ]
+                                         }
+                        },
+                        {
+                            "id":  "Otter.Project.psm1#Get-OtterProject#8",
+                            "module":  "src/Otter.Project.psm1",
+                            "family":  "check",
+                            "function":  "Get-OtterProject",
+                            "messageFragment":  "\" does not exist.",
+                            "evidence":  {
+                                             "kind":  "message-text-found",
+                                             "files":  [
+                                                           "tests/Project.Tests.ps1"
+                                                       ]
+                                         }
+                        },
+                        {
+                            "id":  "Otter.Project.psm1#Get-OtterProject#9",
+                            "module":  "src/Otter.Project.psm1",
+                            "family":  "check",
+                            "function":  "Get-OtterProject",
                             "messageFragment":  "\" is not supported.",
                             "evidence":  {
                                              "kind":  "message-text-found",
@@ -21953,7 +22358,7 @@
                                          }
                         },
                         {
-                            "id":  "Otter.Project.psm1#Get-OtterProject#8",
+                            "id":  "Otter.Project.psm1#Get-OtterProject#10",
                             "module":  "src/Otter.Project.psm1",
                             "family":  "check",
                             "function":  "Get-OtterProject",
@@ -21966,7 +22371,7 @@
                                          }
                         },
                         {
-                            "id":  "Otter.Project.psm1#Get-OtterProject#9",
+                            "id":  "Otter.Project.psm1#Get-OtterProject#11",
                             "module":  "src/Otter.Project.psm1",
                             "family":  "check",
                             "function":  "Get-OtterProject",
@@ -22049,6 +22454,58 @@
                             "family":  "check",
                             "function":  "Invoke-OtterProjectBuild",
                             "messageFragment":  "otter.json: build.outputDir must stay inside the project directory and cannot be the project root itself.",
+                            "evidence":  {
+                                             "kind":  "message-text-not-found",
+                                             "files":  [
+
+                                                       ]
+                                         }
+                        },
+                        {
+                            "id":  "Otter.Project.psm1#Assert-OtterReplaceableOutputDir#1",
+                            "module":  "src/Otter.Project.psm1",
+                            "family":  "check",
+                            "function":  "Assert-OtterReplaceableOutputDir",
+                            "messageFragment":  "cannot be a .git folder or inside one:",
+                            "evidence":  {
+                                             "kind":  "message-text-not-found",
+                                             "files":  [
+
+                                                       ]
+                                         }
+                        },
+                        {
+                            "id":  "Otter.Project.psm1#Assert-OtterReplaceableOutputDir#2",
+                            "module":  "src/Otter.Project.psm1",
+                            "family":  "check",
+                            "function":  "Assert-OtterReplaceableOutputDir",
+                            "messageFragment":  "\". Choose an empty output folder such as \"dist\" or \"publish\".",
+                            "evidence":  {
+                                             "kind":  "message-text-not-found",
+                                             "files":  [
+
+                                                       ]
+                                         }
+                        },
+                        {
+                            "id":  "Otter.Project.psm1#Assert-OtterReplaceableOutputDir#3",
+                            "module":  "src/Otter.Project.psm1",
+                            "family":  "check",
+                            "function":  "Assert-OtterReplaceableOutputDir",
+                            "messageFragment":  "\" is a file, not a folder. Otter will not delete it; choose a different output folder or remove the file yourself.",
+                            "evidence":  {
+                                             "kind":  "message-text-not-found",
+                                             "files":  [
+
+                                                       ]
+                                         }
+                        },
+                        {
+                            "id":  "Otter.Project.psm1#Assert-OtterReplaceableOutputDir#4",
+                            "module":  "src/Otter.Project.psm1",
+                            "family":  "check",
+                            "function":  "Assert-OtterReplaceableOutputDir",
+                            "messageFragment":  "), so Otter will not delete it. Choose an empty or new output folder, or delete that folder yourself if you no longer need its contents.",
                             "evidence":  {
                                              "kind":  "message-text-not-found",
                                              "files":  [
@@ -22189,6 +22646,32 @@
                         {
                             "id":  "Otter.Project.psm1#Invoke-OtterProjectPublish#7",
                             "module":  "src/Otter.Project.psm1",
+                            "family":  "check",
+                            "function":  "Invoke-OtterProjectPublish",
+                            "messageFragment":  "otter.json: property \"version\" must be a plain version such as \"1.2.3\" or \"1.0.0-rc.2\" (letters, digits, \u0027.\u0027, \u0027+\u0027, \u0027-\u0027; no \u0027..\u0027 or path separators) to publish. Got: \"",
+                            "evidence":  {
+                                             "kind":  "message-text-not-found",
+                                             "files":  [
+
+                                                       ]
+                                         }
+                        },
+                        {
+                            "id":  "Otter.Project.psm1#Invoke-OtterProjectPublish#8",
+                            "module":  "src/Otter.Project.psm1",
+                            "family":  "check",
+                            "function":  "Invoke-OtterProjectPublish",
+                            "messageFragment":  "otter.json: name and version must not form a path outside the publish staging folder:",
+                            "evidence":  {
+                                             "kind":  "message-text-not-found",
+                                             "files":  [
+
+                                                       ]
+                                         }
+                        },
+                        {
+                            "id":  "Otter.Project.psm1#Invoke-OtterProjectPublish#9",
+                            "module":  "src/Otter.Project.psm1",
                             "family":  "runtime",
                             "function":  "Invoke-OtterProjectPublish",
                             "messageFragment":  "Generated archive has zero entries.",
@@ -22200,7 +22683,7 @@
                                          }
                         },
                         {
-                            "id":  "Otter.Project.psm1#Invoke-OtterProjectPublish#8",
+                            "id":  "Otter.Project.psm1#Invoke-OtterProjectPublish#10",
                             "module":  "src/Otter.Project.psm1",
                             "family":  "runtime",
                             "function":  "Invoke-OtterProjectPublish",
@@ -22213,7 +22696,7 @@
                                          }
                         },
                         {
-                            "id":  "Otter.Project.psm1#Invoke-OtterProjectPublish#9",
+                            "id":  "Otter.Project.psm1#Invoke-OtterProjectPublish#11",
                             "module":  "src/Otter.Project.psm1",
                             "family":  "runtime",
                             "function":  "Invoke-OtterProjectPublish",
@@ -22533,9 +23016,9 @@
                             "function":  "Start-OtterDesktopApplication",
                             "messageFragment":  "I cannot find a file called \"",
                             "evidence":  {
-                                             "kind":  "message-text-not-found",
+                                             "kind":  "message-text-found",
                                              "files":  [
-
+                                                           "tests/HostPortability.Tests.ps1"
                                                        ]
                                          }
                         },
@@ -22571,6 +23054,32 @@
                             "family":  "runtime",
                             "function":  "Render-OtterElementCore",
                             "messageFragment":  "\u0027 conflicts with \u0027spread\u0027 on a column.",
+                            "evidence":  {
+                                             "kind":  "message-text-not-found",
+                                             "files":  [
+
+                                                       ]
+                                         }
+                        },
+                        {
+                            "id":  "Otter.Web.psm1#Resolve-OtterRealPath#1",
+                            "module":  "src/Otter.Web.psm1",
+                            "family":  "runtime",
+                            "function":  "Resolve-OtterRealPath",
+                            "messageFragment":  "\u0027 has too many links to follow (a link loop?).",
+                            "evidence":  {
+                                             "kind":  "message-text-not-found",
+                                             "files":  [
+
+                                                       ]
+                                         }
+                        },
+                        {
+                            "id":  "Otter.Web.psm1#Export-OtterWebApplication#1",
+                            "module":  "src/Otter.Web.psm1",
+                            "family":  "runtime",
+                            "function":  "Export-OtterWebApplication",
+                            "messageFragment":  ")\u0027. Otter only includes files from inside that folder, so nothing was written.",
                             "evidence":  {
                                              "kind":  "message-text-not-found",
                                              "files":  [

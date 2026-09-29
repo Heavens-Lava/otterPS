@@ -13,7 +13,7 @@ Regenerate rather than edit. Audit with `tools/Test-OtterReleaseSurface.ps1`.
 
 | | |
 |---|---|
-| Manifest seeded from commit | `3431d172ca682e3641b1f1f681e8f133462e4659` |
+| Manifest seeded from commit | `0328289c8d19b4277c88706bb24e0ef57a243be0` |
 | Gate 1 candidate SHA (nominated by Codex) | `a5146971fa6c0a4c2d33dee283897e640e38fae5` - Recorded, not chosen here: the Gate 1 candidate Codex nominated. It contains the optimization pass and the event-loop review. The earlier candidate 344db09b is superseded. The public boundary in this manifest is still unresolved. |
 | Contract SHA-256 | `0343bec8051dbc3e45aefe82b48c6363b9dfa0bd2d0d4868764f00f6e28238f5` |
 
@@ -321,7 +321,7 @@ Verified by hand; each cites its evidence. Recorded, not resolved.
 
 ## 9. Token, AST and diagnostic coverage
 
-Derived from `release/otter-1.0-contract-coverage.json`. The corpus is every Otter program in `conformance/`, `examples/`, `benchmarks/`, `otter-docs/pages/` and embedded in `tests/*.Tests.ps1`: 711 snippets, 652 parsed by the real parser. A member counts as exercised when some program in that corpus produces it. That proves the pipeline builds it from real source, not that a test asserts its behavior.
+Derived from `release/otter-1.0-contract-coverage.json`. The corpus is every Otter program in `conformance/`, `examples/`, `benchmarks/`, `otter-docs/pages/` and embedded in `tests/*.Tests.ps1`: 720 snippets, 660 parsed by the real parser. A member counts as exercised when some program in that corpus produces it. That proves the pipeline builds it from real source, not that a test asserts its behavior.
 
 | | Declared | Exercised by a corpus program | Wired, not exercised | Declared exception | Structural problem |
 |---|---:|---:|---:|---:|---:|
@@ -336,14 +336,14 @@ Documentation linkage is weaker than code linkage: 23 of 226 nodes cite no SPEC-
 
 ### Diagnostics
 
-627 error call sites were enumerated across the lexer, parser, interpreter, library, compiler, database, module, project, UI, web and desktop modules. For each, the longest fixed fragment of its message text was searched for in `tests/`, `conformance/manifest.json` and the diagnostic and red-team reports.
+665 error call sites were enumerated across the lexer, parser, interpreter, library, compiler, database, module, project, UI, web and desktop modules. For each, the longest fixed fragment of its message text was searched for in `tests/`, `conformance/manifest.json` and the diagnostic and red-team reports.
 
 | Evidence | Call sites |
 |---|---:|
-| Message fragment found in a test or diagnostic report | 64 |
-| Fragment not found anywhere | 537 |
+| Message fragment found in a test or diagnostic report | 71 |
+| Fragment not found anywhere | 567 |
 | Message built dynamically (no fixed text) | 14 |
-| Fixed text too short to match reliably | 12 |
+| Fixed text too short to match reliably | 13 |
 
 Not finding a message fragment in a test does not mean the path is untested: many tests assert
 exit codes or a shorter phrase. It does mean the specific wording is not pinned by any test,

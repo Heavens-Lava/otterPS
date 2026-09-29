@@ -3,7 +3,7 @@
     "manifest":  {
                      "purpose":  "Evidence manifest for the Otter 1.0 candidate surface. It records what exists, what is documented, what is tested and where they disagree. It does NOT decide what is public.",
                      "authority":  "Codex owns the public-boundary decision. Every capability is seeded status=candidate, boundaryStatus=unresolved.",
-                     "seededFromCommit":  "3431d172ca682e3641b1f1f681e8f133462e4659",
+                     "seededFromCommit":  "0328289c8d19b4277c88706bb24e0ef57a243be0",
                      "candidateSha":  "a5146971fa6c0a4c2d33dee283897e640e38fae5",
                      "candidateShaSource":  "docs/OTTER_1_0_CONTRACT_FREEZE_REPORT.md (Gate 1, certified by Codex) and docs/OTTER_1_0_CLEAN_CHECKOUT_EVIDENCE_2026-09-27.md",
                      "candidateShaNote":  "Recorded, not chosen here: the Gate 1 candidate Codex nominated. It contains the optimization pass and the event-loop review. The earlier candidate 344db09b is superseded. The public boundary in this manifest is still unresolved.",
@@ -3646,11 +3646,11 @@
                                                                         "note":  "a linked contract member is dispatched or constructed in these modules"
                                                                     },
                                                     "javascript":  {
-                                                                       "state":  "not-referenced",
+                                                                       "state":  "referenced",
                                                                        "modules":  [
                                                                                        "src/Otter.Compiler.JavaScript.psm1"
                                                                                    ],
-                                                                       "note":  "searched these modules; NOT a claim of unsupported (generic handling is possible)"
+                                                                       "note":  "a linked contract member is dispatched or constructed in these modules"
                                                                    },
                                                     "browser":  {
                                                                     "state":  "referenced",
@@ -3681,7 +3681,8 @@
                              "tests":  {
                                            "files":  [
                                                          "tests/Parser.Tests.ps1",
-                                                         "tests/Web.Tests.ps1"
+                                                         "tests/Web.Tests.ps1",
+                                                         "tests/WebRuntimeUi.Tests.ps1"
                                                      ],
                                            "cases":  [
 
@@ -5211,11 +5212,11 @@
                                                                         "note":  "a linked contract member is dispatched or constructed in these modules"
                                                                     },
                                                     "javascript":  {
-                                                                       "state":  "not-referenced",
+                                                                       "state":  "referenced",
                                                                        "modules":  [
                                                                                        "src/Otter.Compiler.JavaScript.psm1"
                                                                                    ],
-                                                                       "note":  "searched these modules; NOT a claim of unsupported (generic handling is possible)"
+                                                                       "note":  "a linked contract member is dispatched or constructed in these modules"
                                                                    },
                                                     "browser":  {
                                                                     "state":  "referenced",
@@ -9129,11 +9130,11 @@
                                                                         "note":  "a linked contract member is dispatched or constructed in these modules"
                                                                     },
                                                     "javascript":  {
-                                                                       "state":  "not-referenced",
+                                                                       "state":  "referenced",
                                                                        "modules":  [
                                                                                        "src/Otter.Compiler.JavaScript.psm1"
                                                                                    ],
-                                                                       "note":  "searched these modules; NOT a claim of unsupported (generic handling is possible)"
+                                                                       "note":  "a linked contract member is dispatched or constructed in these modules"
                                                                    },
                                                     "browser":  {
                                                                     "state":  "not-referenced",
@@ -9189,7 +9190,7 @@
                                                                 },
                                            "browser":  {
                                                            "state":  "unverified",
-                                                           "evidence":  "no browser evidence gathered"
+                                                           "evidence":  "the JavaScript compiler or web runtime references a linked contract member; no browser execution of this capability was found in the manifest evidence"
                                                        }
                                        },
                              "documentation":  {
@@ -9248,11 +9249,11 @@
                                                                         "note":  "searched these modules; NOT a claim of unsupported (generic handling is possible)"
                                                                     },
                                                     "javascript":  {
-                                                                       "state":  "not-referenced",
+                                                                       "state":  "referenced",
                                                                        "modules":  [
                                                                                        "src/Otter.Compiler.JavaScript.psm1"
                                                                                    ],
-                                                                       "note":  "searched these modules; NOT a claim of unsupported (generic handling is possible)"
+                                                                       "note":  "a linked contract member is dispatched or constructed in these modules"
                                                                    },
                                                     "browser":  {
                                                                     "state":  "not-referenced",
@@ -9308,7 +9309,7 @@
                                                                 },
                                            "browser":  {
                                                            "state":  "unverified",
-                                                           "evidence":  "no browser evidence gathered"
+                                                           "evidence":  "the JavaScript compiler or web runtime references a linked contract member; no browser execution of this capability was found in the manifest evidence"
                                                        }
                                        },
                              "documentation":  {
@@ -9729,11 +9730,11 @@
                                                                         "note":  "a linked contract member is dispatched or constructed in these modules"
                                                                     },
                                                     "javascript":  {
-                                                                       "state":  "not-referenced",
+                                                                       "state":  "referenced",
                                                                        "modules":  [
                                                                                        "src/Otter.Compiler.JavaScript.psm1"
                                                                                    ],
-                                                                       "note":  "searched these modules; NOT a claim of unsupported (generic handling is possible)"
+                                                                       "note":  "a linked contract member is dispatched or constructed in these modules"
                                                                    },
                                                     "browser":  {
                                                                     "state":  "not-referenced",
@@ -9789,7 +9790,7 @@
                                                                 },
                                            "browser":  {
                                                            "state":  "unverified",
-                                                           "evidence":  "no browser evidence gathered"
+                                                           "evidence":  "the JavaScript compiler or web runtime references a linked contract member; no browser execution of this capability was found in the manifest evidence"
                                                        }
                                        },
                              "documentation":  {
@@ -10945,11 +10946,11 @@
                                                                         "note":  "a linked contract member is dispatched or constructed in these modules"
                                                                     },
                                                     "javascript":  {
-                                                                       "state":  "not-referenced",
+                                                                       "state":  "referenced",
                                                                        "modules":  [
                                                                                        "src/Otter.Compiler.JavaScript.psm1"
                                                                                    ],
-                                                                       "note":  "searched these modules; NOT a claim of unsupported (generic handling is possible)"
+                                                                       "note":  "a linked contract member is dispatched or constructed in these modules"
                                                                    },
                                                     "browser":  {
                                                                     "state":  "referenced",
@@ -12397,11 +12398,11 @@
                                                                         "note":  "searched these modules; NOT a claim of unsupported (generic handling is possible)"
                                                                     },
                                                     "javascript":  {
-                                                                       "state":  "not-referenced",
+                                                                       "state":  "referenced",
                                                                        "modules":  [
                                                                                        "src/Otter.Compiler.JavaScript.psm1"
                                                                                    ],
-                                                                       "note":  "searched these modules; NOT a claim of unsupported (generic handling is possible)"
+                                                                       "note":  "a linked contract member is dispatched or constructed in these modules"
                                                                    },
                                                     "browser":  {
                                                                     "state":  "not-referenced",
@@ -12457,7 +12458,7 @@
                                                                 },
                                            "browser":  {
                                                            "state":  "unverified",
-                                                           "evidence":  "no browser evidence gathered"
+                                                           "evidence":  "the JavaScript compiler or web runtime references a linked contract member; no browser execution of this capability was found in the manifest evidence"
                                                        }
                                        },
                              "documentation":  {
@@ -14571,11 +14572,11 @@
                                                                         "note":  "a linked contract member is dispatched or constructed in these modules"
                                                                     },
                                                     "javascript":  {
-                                                                       "state":  "not-referenced",
+                                                                       "state":  "referenced",
                                                                        "modules":  [
                                                                                        "src/Otter.Compiler.JavaScript.psm1"
                                                                                    ],
-                                                                       "note":  "searched these modules; NOT a claim of unsupported (generic handling is possible)"
+                                                                       "note":  "a linked contract member is dispatched or constructed in these modules"
                                                                    },
                                                     "browser":  {
                                                                     "state":  "not-referenced",
@@ -14631,7 +14632,7 @@
                                                                 },
                                            "browser":  {
                                                            "state":  "unverified",
-                                                           "evidence":  "no browser evidence gathered"
+                                                           "evidence":  "the JavaScript compiler or web runtime references a linked contract member; no browser execution of this capability was found in the manifest evidence"
                                                        }
                                        },
                              "documentation":  {
@@ -14690,11 +14691,11 @@
                                                                         "note":  "a linked contract member is dispatched or constructed in these modules"
                                                                     },
                                                     "javascript":  {
-                                                                       "state":  "not-referenced",
+                                                                       "state":  "referenced",
                                                                        "modules":  [
                                                                                        "src/Otter.Compiler.JavaScript.psm1"
                                                                                    ],
-                                                                       "note":  "searched these modules; NOT a claim of unsupported (generic handling is possible)"
+                                                                       "note":  "a linked contract member is dispatched or constructed in these modules"
                                                                    },
                                                     "browser":  {
                                                                     "state":  "referenced",
@@ -14932,11 +14933,11 @@
                                                                         "note":  "a linked contract member is dispatched or constructed in these modules"
                                                                     },
                                                     "javascript":  {
-                                                                       "state":  "not-referenced",
+                                                                       "state":  "referenced",
                                                                        "modules":  [
                                                                                        "src/Otter.Compiler.JavaScript.psm1"
                                                                                    ],
-                                                                       "note":  "searched these modules; NOT a claim of unsupported (generic handling is possible)"
+                                                                       "note":  "a linked contract member is dispatched or constructed in these modules"
                                                                    },
                                                     "browser":  {
                                                                     "state":  "not-referenced",
@@ -14993,7 +14994,7 @@
                                                                 },
                                            "browser":  {
                                                            "state":  "unverified",
-                                                           "evidence":  "no browser evidence gathered"
+                                                           "evidence":  "the JavaScript compiler or web runtime references a linked contract member; no browser execution of this capability was found in the manifest evidence"
                                                        }
                                        },
                              "documentation":  {
@@ -15062,11 +15063,11 @@
                                                                         "note":  "searched these modules; NOT a claim of unsupported (generic handling is possible)"
                                                                     },
                                                     "javascript":  {
-                                                                       "state":  "not-referenced",
+                                                                       "state":  "referenced",
                                                                        "modules":  [
                                                                                        "src/Otter.Compiler.JavaScript.psm1"
                                                                                    ],
-                                                                       "note":  "searched these modules; NOT a claim of unsupported (generic handling is possible)"
+                                                                       "note":  "a linked contract member is dispatched or constructed in these modules"
                                                                    },
                                                     "browser":  {
                                                                     "state":  "not-referenced",
@@ -15122,7 +15123,7 @@
                                                                 },
                                            "browser":  {
                                                            "state":  "unverified",
-                                                           "evidence":  "no browser evidence gathered"
+                                                           "evidence":  "the JavaScript compiler or web runtime references a linked contract member; no browser execution of this capability was found in the manifest evidence"
                                                        }
                                        },
                              "documentation":  {
@@ -15310,11 +15311,11 @@
                                                                         "note":  "a linked contract member is dispatched or constructed in these modules"
                                                                     },
                                                     "javascript":  {
-                                                                       "state":  "not-referenced",
+                                                                       "state":  "referenced",
                                                                        "modules":  [
                                                                                        "src/Otter.Compiler.JavaScript.psm1"
                                                                                    ],
-                                                                       "note":  "searched these modules; NOT a claim of unsupported (generic handling is possible)"
+                                                                       "note":  "a linked contract member is dispatched or constructed in these modules"
                                                                    },
                                                     "browser":  {
                                                                     "state":  "referenced",
@@ -16356,7 +16357,8 @@
                              "tests":  {
                                            "files":  [
                                                          "conformance/objects/things_and_dynamic_keys.ot",
-                                                         "tests/Parser.Tests.ps1"
+                                                         "tests/Parser.Tests.ps1",
+                                                         "tests/Web.Tests.ps1"
                                                      ],
                                            "cases":  [
 
@@ -16703,18 +16705,18 @@
                                                                         "note":  "a linked contract member is dispatched or constructed in these modules"
                                                                     },
                                                     "javascript":  {
-                                                                       "state":  "not-referenced",
+                                                                       "state":  "referenced",
                                                                        "modules":  [
                                                                                        "src/Otter.Compiler.JavaScript.psm1"
                                                                                    ],
-                                                                       "note":  "searched these modules; NOT a claim of unsupported (generic handling is possible)"
+                                                                       "note":  "a linked contract member is dispatched or constructed in these modules"
                                                                    },
                                                     "browser":  {
-                                                                    "state":  "not-referenced",
+                                                                    "state":  "referenced",
                                                                     "modules":  [
                                                                                     "src/Otter.Web.psm1"
                                                                                 ],
-                                                                    "note":  "searched these modules; NOT a claim of unsupported (generic handling is possible)"
+                                                                    "note":  "a linked contract member is dispatched or constructed in these modules"
                                                                 },
                                                     "desktop":  {
                                                                     "state":  "not-referenced",
@@ -16763,7 +16765,7 @@
                                                                 },
                                            "browser":  {
                                                            "state":  "unverified",
-                                                           "evidence":  "no browser evidence gathered"
+                                                           "evidence":  "the JavaScript compiler or web runtime references a linked contract member; no browser execution of this capability was found in the manifest evidence"
                                                        }
                                        },
                              "documentation":  {
@@ -16941,11 +16943,11 @@
                                                                         "note":  "a linked contract member is dispatched or constructed in these modules"
                                                                     },
                                                     "javascript":  {
-                                                                       "state":  "not-referenced",
+                                                                       "state":  "referenced",
                                                                        "modules":  [
                                                                                        "src/Otter.Compiler.JavaScript.psm1"
                                                                                    ],
-                                                                       "note":  "searched these modules; NOT a claim of unsupported (generic handling is possible)"
+                                                                       "note":  "a linked contract member is dispatched or constructed in these modules"
                                                                    },
                                                     "browser":  {
                                                                     "state":  "referenced",
@@ -17060,11 +17062,11 @@
                                                                         "note":  "a linked contract member is dispatched or constructed in these modules"
                                                                     },
                                                     "javascript":  {
-                                                                       "state":  "not-referenced",
+                                                                       "state":  "referenced",
                                                                        "modules":  [
                                                                                        "src/Otter.Compiler.JavaScript.psm1"
                                                                                    ],
-                                                                       "note":  "searched these modules; NOT a claim of unsupported (generic handling is possible)"
+                                                                       "note":  "a linked contract member is dispatched or constructed in these modules"
                                                                    },
                                                     "browser":  {
                                                                     "state":  "not-referenced",
@@ -17120,7 +17122,7 @@
                                                                 },
                                            "browser":  {
                                                            "state":  "unverified",
-                                                           "evidence":  "no browser evidence gathered"
+                                                           "evidence":  "the JavaScript compiler or web runtime references a linked contract member; no browser execution of this capability was found in the manifest evidence"
                                                        }
                                        },
                              "documentation":  {
@@ -17312,11 +17314,11 @@
                                                                         "note":  "a linked contract member is dispatched or constructed in these modules"
                                                                     },
                                                     "javascript":  {
-                                                                       "state":  "not-referenced",
+                                                                       "state":  "referenced",
                                                                        "modules":  [
                                                                                        "src/Otter.Compiler.JavaScript.psm1"
                                                                                    ],
-                                                                       "note":  "searched these modules; NOT a claim of unsupported (generic handling is possible)"
+                                                                       "note":  "a linked contract member is dispatched or constructed in these modules"
                                                                    },
                                                     "browser":  {
                                                                     "state":  "not-referenced",
@@ -17372,7 +17374,7 @@
                                                                 },
                                            "browser":  {
                                                            "state":  "unverified",
-                                                           "evidence":  "no browser evidence gathered"
+                                                           "evidence":  "the JavaScript compiler or web runtime references a linked contract member; no browser execution of this capability was found in the manifest evidence"
                                                        }
                                        },
                              "documentation":  {
@@ -17807,11 +17809,11 @@
                                                                         "note":  "a linked contract member is dispatched or constructed in these modules"
                                                                     },
                                                     "javascript":  {
-                                                                       "state":  "not-referenced",
+                                                                       "state":  "referenced",
                                                                        "modules":  [
                                                                                        "src/Otter.Compiler.JavaScript.psm1"
                                                                                    ],
-                                                                       "note":  "searched these modules; NOT a claim of unsupported (generic handling is possible)"
+                                                                       "note":  "a linked contract member is dispatched or constructed in these modules"
                                                                    },
                                                     "browser":  {
                                                                     "state":  "referenced",
@@ -18186,11 +18188,11 @@
                                                                         "note":  "searched these modules; NOT a claim of unsupported (generic handling is possible)"
                                                                     },
                                                     "javascript":  {
-                                                                       "state":  "not-referenced",
+                                                                       "state":  "referenced",
                                                                        "modules":  [
                                                                                        "src/Otter.Compiler.JavaScript.psm1"
                                                                                    ],
-                                                                       "note":  "searched these modules; NOT a claim of unsupported (generic handling is possible)"
+                                                                       "note":  "a linked contract member is dispatched or constructed in these modules"
                                                                    },
                                                     "browser":  {
                                                                     "state":  "not-referenced",
@@ -18246,7 +18248,7 @@
                                                                 },
                                            "browser":  {
                                                            "state":  "unverified",
-                                                           "evidence":  "no browser evidence gathered"
+                                                           "evidence":  "the JavaScript compiler or web runtime references a linked contract member; no browser execution of this capability was found in the manifest evidence"
                                                        }
                                        },
                              "documentation":  {
@@ -18957,11 +18959,11 @@
                                                                         "note":  "a linked contract member is dispatched or constructed in these modules"
                                                                     },
                                                     "javascript":  {
-                                                                       "state":  "not-referenced",
+                                                                       "state":  "referenced",
                                                                        "modules":  [
                                                                                        "src/Otter.Compiler.JavaScript.psm1"
                                                                                    ],
-                                                                       "note":  "searched these modules; NOT a claim of unsupported (generic handling is possible)"
+                                                                       "note":  "a linked contract member is dispatched or constructed in these modules"
                                                                    },
                                                     "browser":  {
                                                                     "state":  "referenced",
