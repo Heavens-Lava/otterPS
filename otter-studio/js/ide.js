@@ -4294,7 +4294,7 @@ export class OtterStudioIde {
         this.currentDiagnostic = null;
         this.errorLine = null;
         this.warningLine = null;
-        this.setProblemsStatus(true, 'No problems found.', 'Your code looks good!', 'Great job!', 'Keep going! 🐾');
+        this.setProblemsStatus(true, 'No problems found.', 'No errors or warnings in the open file.');
         this.updateErrorSquiggles();
       } else {
         const rawErr = data.stderr || data.error || 'Execution failed.';
@@ -4729,7 +4729,7 @@ export class OtterStudioIde {
           this.warningLine = null;
           this.availableQuickFixes = [];
           if (this.btnProblemQuickFix) this.btnProblemQuickFix.style.display = 'none';
-          this.setProblemsStatus(true, 'No problems found.', 'Your code looks good!', 'Great job!', 'Keep going! 🐾', false);
+          this.setProblemsStatus(true, 'No problems found.', 'No errors or warnings in the open file.', false);
         }
       } else {
         this.warningLine = null;

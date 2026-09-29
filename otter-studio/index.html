@@ -25,6 +25,9 @@
   <link rel="stylesheet" href="css/docs.css">
   <link rel="stylesheet" href="css/scm.css">
   <link rel="stylesheet" href="css/tests.css">
+  <!-- Last: the visual pass that brings the workbench in line with the
+       reference design (Otter IDE reference image.png). -->
+  <link rel="stylesheet" href="css/polish.css">
 </head>
 <body class="theme-dark">
   <div class="studio-shell">
@@ -387,21 +390,34 @@
           </div>
           <button class="add-tab-btn" id="btnAddNewTab" title="New File (Ctrl+N)">+</button>
 
+          <!-- Editor actions: back / forward, and everything else in one menu
+               (the tab row stays for tabs, as in the reference design). -->
           <div class="editor-quick-actions">
-            <button class="tab-quick-btn" id="btnNavigateBack" title="Go Back (Alt+Left)" disabled>←</button>
-            <button class="tab-quick-btn" id="btnNavigateForward" title="Go Forward (Alt+Right)" disabled>→</button>
-            <button class="tab-quick-btn" id="btnQuickOpen" title="Quick Open (Ctrl+P)">⌕ Open</button>
-            <button class="tab-quick-btn" id="btnGoToSymbol" title="Go to Symbol (Ctrl+Shift+O)">＠ Symbol</button>
-            <button class="tab-quick-btn" id="btnWorkspaceSymbols" title="Workspace Symbols (Ctrl+T)"># Symbols</button>
-            <button class="tab-quick-btn" id="btnFormatDoc" title="Format Document (Shift+Alt+F)">🧹 Format</button>
-            <button class="tab-quick-btn" id="btnFindDoc" title="Find in File (Ctrl+F)">🔍 Find</button>
-            <button class="tab-quick-btn" id="btnGoToDefinition" title="Go to Definition (F12)">↗ Definition</button>
-            <button class="tab-quick-btn" id="btnPeekDefinition" title="Peek Definition (Alt+F12)">⌕ Peek</button>
-            <button class="tab-quick-btn" id="btnFindOccurrences" title="Find Occurrences in this File (Shift+F12)">◉ Occurrences</button>
-            <button class="tab-quick-btn" id="btnFindReferences" title="Find References in Workspace (Shift+Alt+F12)">⇶ References</button>
-            <button class="tab-quick-btn" id="btnRenameSymbol" title="Rename Symbol (F2)">✎ Rename</button>
-            <button class="tab-quick-btn" id="btnExtractFunction" title="Extract Function (Ctrl+Shift+R)">⚡ Extract</button>
-            <button class="tab-quick-btn" id="btnToggleWordWrap" title="Toggle Word Wrap (Alt+Z)" aria-pressed="false">↪ Wrap</button>
+            <button class="tab-quick-btn tab-icon-btn" id="btnNavigateBack" title="Go Back (Alt+Left)" aria-label="Go Back" disabled><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3 5 8l5 5" /></svg></button>
+            <button class="tab-quick-btn tab-icon-btn" id="btnNavigateForward" title="Go Forward (Alt+Right)" aria-label="Go Forward" disabled><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5" /></svg></button>
+            <button class="tab-quick-btn tab-icon-btn" id="btnFindDoc" title="Find in File (Ctrl+F)" aria-label="Find in File"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.25" /><path d="m10.2 10.2 3.3 3.3" /></svg></button>
+            <div class="editor-more">
+              <button class="tab-quick-btn tab-icon-btn" id="btnEditorMore" title="More Actions" aria-label="More editor actions" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="3.5" cy="8" r="1.1" /><circle cx="8" cy="8" r="1.1" /><circle cx="12.5" cy="8" r="1.1" /></svg></button>
+              <div class="editor-more-menu" id="editorMoreMenu" role="menu" aria-label="Editor actions" hidden>
+                <div class="editor-more-heading">Go</div>
+              <button type="button" class="editor-more-item" role="menuitem" id="btnQuickOpen"><span class="editor-more-label">Quick Open File…</span><kbd>Ctrl+P</kbd></button>
+              <button type="button" class="editor-more-item" role="menuitem" id="btnGoToSymbol"><span class="editor-more-label">Go to Symbol in File…</span><kbd>Ctrl+Shift+O</kbd></button>
+              <button type="button" class="editor-more-item" role="menuitem" id="btnWorkspaceSymbols"><span class="editor-more-label">Go to Symbol in Workspace…</span><kbd>Ctrl+T</kbd></button>
+              <button type="button" class="editor-more-item" role="menuitem" id="btnGoToDefinition"><span class="editor-more-label">Go to Definition</span><kbd>F12</kbd></button>
+              <button type="button" class="editor-more-item" role="menuitem" id="btnPeekDefinition"><span class="editor-more-label">Peek Definition</span><kbd>Alt+F12</kbd></button>
+                <div class="editor-more-sep" role="separator"></div>
+                <div class="editor-more-heading">Find</div>
+              <button type="button" class="editor-more-item" role="menuitem" id="btnFindOccurrences"><span class="editor-more-label">Find Occurrences in File</span><kbd>Shift+F12</kbd></button>
+              <button type="button" class="editor-more-item" role="menuitem" id="btnFindReferences"><span class="editor-more-label">Find All References</span><kbd>Shift+Alt+F12</kbd></button>
+                <div class="editor-more-sep" role="separator"></div>
+                <div class="editor-more-heading">Refactor</div>
+              <button type="button" class="editor-more-item" role="menuitem" id="btnRenameSymbol"><span class="editor-more-label">Rename Symbol…</span><kbd>F2</kbd></button>
+              <button type="button" class="editor-more-item" role="menuitem" id="btnExtractFunction"><span class="editor-more-label">Extract Function…</span><kbd>Ctrl+Shift+R</kbd></button>
+              <button type="button" class="editor-more-item" role="menuitem" id="btnFormatDoc"><span class="editor-more-label">Format Document</span><kbd>Shift+Alt+F</kbd></button>
+                <div class="editor-more-sep" role="separator"></div>
+              <button type="button" class="editor-more-item" role="menuitem" id="btnToggleWordWrap" aria-pressed="false"><span class="editor-more-label">Word Wrap</span><kbd>Alt+Z</kbd></button>
+              </div>
+            </div>
           </div>
 
         </div>
@@ -422,7 +438,7 @@
             </div>
           </div>
           <div class="workspace-trust-banner" id="workspaceTrustBanner" role="alert" style="display: none;">
-            <div class="trust-banner-icon">🛡️</div>
+            <div class="trust-banner-icon" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M8 1.5 2.5 3.5v4c0 3.4 2.3 5.9 5.5 7 3.2-1.1 5.5-3.6 5.5-7v-4z" /><path d="M8 5v3.5M8 10.6v.4" /></svg></div>
             <div class="trust-banner-copy">
               <strong id="trustBannerTitle">Restricted Mode</strong>
               <span id="trustBannerMsg">Code execution and terminal commands are restricted for safety because this workspace is untrusted.</span>
@@ -568,7 +584,7 @@
             </div>
           </div>
           <div class="program-output-body" id="programOutputBody">
-            <div class="log-line log-empty" style="color: #94a3b8; font-style: italic; padding: 8px 4px;">Click ▶ Run (F5) to execute your program.</div>
+            <div class="log-line log-empty">Run the program (F5) to see its output here.</div>
           </div>
         </div>
 
@@ -582,7 +598,7 @@
             <button class="icon-btn-minimal" title="Collapse"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></button>
           </div>
           <div class="variables-body">
-            <div class="var-empty-state" style="color: #94a3b8; font-style: italic; font-size: 11px; padding: 6px 4px;">Variables will appear here while running.</div>
+            <div class="var-empty-state">Variables appear here while a program runs.</div>
           </div>
         </div>
 
@@ -635,21 +651,11 @@
             <div class="status-check-circle">✓</div>
             <div class="problem-text-wrap">
               <span class="problem-title">No problems found.</span>
-              <span class="problem-subtitle">Your code looks good!</span>
+              <span class="problem-subtitle">No errors or warnings in the open file.</span>
             </div>
-            <button class="btn-problem-quickfix" id="btnProblemQuickFix" type="button" style="display: none; margin-left: 14px; padding: 4px 10px; font-size: 11px; font-weight: 600; border-radius: 4px; background: #3b82f6; color: #ffffff; border: none; cursor: pointer;">💡 Quick Fix</button>
+            <button class="btn-problem-quickfix" id="btnProblemQuickFix" type="button" style="display: none;">Quick Fix</button>
           </div>
 
-          <!-- Cute Mascot Cheer Card -->
-          <div class="mascot-cheer-card">
-            <div class="mascot-img-wrap">
-              <img src="img/otter-cheer.svg" alt="Cheering Otter" />
-            </div>
-            <div class="cheer-speech-bubble">
-              <span class="cheer-headline">Great job!</span>
-              <span class="cheer-tagline">Keep going! 🐾</span>
-            </div>
-          </div>
         </div>
 
         <!-- Tab 2: Output -->
@@ -701,16 +707,16 @@
             <span class="run-triangle">▶</span>
             <span id="runBtnLabel">Run</span>
           </button>
-          <button class="big-run-btn stop-btn" id="btnStopProgram" style="display: none; background: #dc2626;" title="Stop Execution (Shift+F5)">
-            <span class="run-square" style="font-size: 10px; margin-right: 4px;">■</span>
+          <button class="big-run-btn stop-btn" id="btnStopProgram" style="display: none;" title="Stop Execution (Shift+F5)">
+            <span class="run-square">■</span>
             <span>Stop</span>
           </button>
-          <button class="big-run-btn" id="btnDebugProgram" title="Debug: run and pause at breakpoints" style="background: #7c3aed;">
-            <span style="margin-right: 4px;">🐞</span>
+          <button class="big-run-btn debug-btn" id="btnDebugProgram" title="Debug: run and pause at breakpoints">
+            <svg class="run-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 5.5a2.5 2.5 0 0 1 5 0M4.5 7h7v3.5a3.5 3.5 0 0 1-7 0zM8 7v7M2 8.5h2.5M11.5 8.5H14M2.5 12.5l2.2-1M13.5 12.5l-2.2-1M3 4.5l1.8 1.3M13 4.5l-1.8 1.3" /></svg>
             <span>Debug</span>
           </button>
-          <button class="big-run-btn" id="btnDebugContinue" title="Continue past the current breakpoint" style="display: none; background: #d97706;">
-            <span style="margin-right: 4px;">▶▶</span>
+          <button class="big-run-btn continue-btn" id="btnDebugContinue" title="Continue past the current breakpoint" style="display: none;">
+            <span class="run-triangle">▶▶</span>
             <span>Continue</span>
           </button>
           <button class="run-dropdown-toggle" id="btnRunDropdown" title="Select Launch Profile">▾</button>

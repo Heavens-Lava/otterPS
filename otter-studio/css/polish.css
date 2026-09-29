@@ -1,0 +1,485 @@
+/* polish.css - The workbench's visual pass, following the reference design
+   ("Otter IDE reference image.png" at the repository root): quiet chrome,
+   one type scale, one border colour, icons instead of text buttons, and
+   colour kept for what needs attention.
+
+   Loaded last, so it refines the older stylesheets without rewriting them.
+   Colours come straight from the theme tokens (--bg-*, --border-*,
+   --text-*, --accent-blue), so the light and dark themes both follow. Do not
+   alias them on :root (--x: var(--border-subtle)): a custom property is
+   resolved where it is declared, so the alias would keep the light theme's
+   value in dark mode. */
+
+:root {
+  --ui-font-size: 13px;
+  --ui-font-small: 12px;
+  --ui-radius: 6px;
+}
+
+/* ---------------------------------------------------------------------------
+   Editor tab row: tabs, then Back / Forward / Find / More as icons.
+   --------------------------------------------------------------------------- */
+
+.editor-quick-actions {
+  gap: 2px;
+  padding: 0 6px 0 4px;
+  overflow: visible;
+}
+
+.editor-quick-actions .tab-quick-btn.tab-icon-btn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: var(--ui-radius);
+  background: transparent;
+  color: var(--text-muted);
+  box-shadow: none;
+}
+
+.editor-quick-actions .tab-quick-btn.tab-icon-btn:hover:not(:disabled),
+.editor-quick-actions .tab-quick-btn.tab-icon-btn.is-open {
+  background: var(--bg-hover);
+  color: var(--text-main);
+  border-color: transparent;
+}
+
+.editor-quick-actions .tab-quick-btn.tab-icon-btn:disabled {
+  opacity: 0.35;
+}
+
+.tab-icon-btn svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.tab-icon-btn svg circle[r="1.1"] {
+  fill: currentColor;
+  stroke: none;
+}
+
+.editor-more {
+  position: relative;
+}
+
+.editor-more-menu {
+  position: fixed;
+  z-index: 3000;
+  min-width: 290px;
+  padding: 6px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 8px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35), 0 2px 6px rgba(0, 0, 0, 0.2);
+  font-size: var(--ui-font-size);
+}
+
+.editor-more-menu[hidden] {
+  display: none;
+}
+
+.editor-more-heading {
+  padding: 8px 10px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.editor-more-sep {
+  height: 1px;
+  margin: 6px 4px;
+  background: var(--border-subtle);
+}
+
+.editor-more-item {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  width: 100%;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-main);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.editor-more-item:hover,
+.editor-more-item:focus-visible {
+  background: var(--bg-selected);
+  outline: none;
+}
+
+.editor-more-label {
+  flex: 1;
+}
+
+.editor-more-item kbd {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  color: var(--text-faint);
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+/* Word Wrap is a toggle: a check mark (in the left padding) when on. */
+.editor-more-item[aria-pressed] {
+  position: relative;
+}
+
+.editor-more-item[aria-pressed]::before {
+  position: absolute;
+  left: 0;
+  width: 10px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--accent-blue);
+}
+
+.editor-more-item[aria-pressed="true"]::before {
+  content: '✓';
+}
+
+/* ---------------------------------------------------------------------------
+   Status bar: quiet, like the reference - text and small icons; colour only
+   for what needs attention.
+   --------------------------------------------------------------------------- */
+
+.studio-statusbar {
+  height: 30px;
+  margin-top: 6px;
+  padding: 0 10px 0 6px;
+  font-size: var(--ui-font-small);
+  color: var(--text-muted);
+}
+
+.studio-statusbar .statusbar-left,
+.studio-statusbar .statusbar-right {
+  gap: 4px;
+}
+
+.studio-statusbar .statusbar-right > * {
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+
+.studio-statusbar .run-button-group {
+  background: transparent;
+  box-shadow: none;
+  gap: 2px;
+  border-radius: 0;
+}
+
+.studio-statusbar .big-run-btn,
+.studio-statusbar .run-dropdown-toggle {
+  height: 24px;
+  padding: 0 9px;
+  gap: 6px;
+  border: none;
+  border-radius: 4px !important;
+  background: transparent !important;
+  color: var(--text-main);
+  font-size: var(--ui-font-small);
+  font-weight: 500;
+  box-shadow: none;
+}
+
+.studio-statusbar .big-run-btn:hover,
+.studio-statusbar .run-dropdown-toggle:hover,
+.studio-statusbar .statusbar-btn:hover {
+  background: var(--bg-hover) !important;
+  color: var(--text-main);
+}
+
+.studio-statusbar .run-dropdown-toggle {
+  padding: 0 6px;
+  color: var(--text-muted);
+  border-left: none;
+}
+
+.studio-statusbar .run-triangle {
+  font-size: 9px;
+  color: var(--accent-green, #22c55e);
+}
+
+.studio-statusbar .run-icon {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: #a78bfa;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.studio-statusbar .stop-btn .run-square {
+  font-size: 9px;
+  color: #f87171;
+}
+
+.studio-statusbar .continue-btn .run-triangle {
+  color: #fbbf24;
+  letter-spacing: -2px;
+}
+
+.studio-statusbar .problems-indicator,
+.studio-statusbar .status-engine {
+  margin-left: 6px;
+  padding: 3px 8px;
+  font-size: var(--ui-font-small);
+  font-weight: 400;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+}
+
+.studio-statusbar .statusbar-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: var(--ui-font-small);
+  cursor: pointer;
+}
+
+.studio-statusbar .otter-ver-tag {
+  color: var(--text-faint);
+  font-weight: 500;
+}
+
+/* ---------------------------------------------------------------------------
+   Problems panel: a plain status line (the mascot card is gone).
+   --------------------------------------------------------------------------- */
+
+#panelProblems {
+  justify-content: flex-start !important;
+  padding: 10px 14px;
+}
+
+.problem-status-banner {
+  gap: 10px;
+  padding: 6px 10px;
+  border-radius: var(--ui-radius);
+}
+
+.problem-status-banner .status-check-circle {
+  width: 18px;
+  height: 18px;
+  font-size: 11px;
+  box-shadow: none;
+}
+
+.problem-status-banner .problem-title {
+  font-size: var(--ui-font-size);
+  font-weight: 600;
+}
+
+.problem-status-banner .problem-subtitle {
+  font-size: var(--ui-font-small);
+  color: var(--text-muted);
+}
+
+.btn-problem-quickfix {
+  margin-left: 14px;
+  padding: 4px 10px;
+  font: 600 11px var(--font-ui);
+  border-radius: 4px;
+  background: var(--accent-blue);
+  color: #ffffff;
+  border: none;
+  cursor: pointer;
+}
+
+/* ---------------------------------------------------------------------------
+   Restricted Mode: a slim notice bar, not a block.
+   --------------------------------------------------------------------------- */
+
+.workspace-trust-banner {
+  padding: 6px 12px 6px 14px;
+  gap: 10px;
+  border-bottom: 1px solid var(--border-subtle);
+  box-shadow: inset 3px 0 0 #f59e0b;
+  background: color-mix(in srgb, #f59e0b 9%, var(--bg-card));
+}
+
+.theme-dark .workspace-trust-banner {
+  background: color-mix(in srgb, #f59e0b 8%, var(--bg-card));
+  border-color: var(--border-subtle);
+}
+
+.workspace-trust-banner .trust-banner-icon svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: #f59e0b;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  display: block;
+}
+
+.workspace-trust-banner .trust-banner-copy {
+  flex-direction: row;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.workspace-trust-banner .trust-banner-copy strong {
+  font-size: var(--ui-font-small);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.workspace-trust-banner .trust-banner-copy span {
+  font-size: var(--ui-font-small);
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.theme-dark .workspace-trust-banner .trust-banner-copy strong { color: var(--text-main); }
+.theme-dark .workspace-trust-banner .trust-banner-copy span { color: var(--text-muted); }
+
+.workspace-trust-banner .btn-trust-action {
+  height: 24px;
+  padding: 0 10px;
+  font-size: var(--ui-font-small);
+  font-weight: 500;
+  border-radius: 4px;
+}
+
+/* ---------------------------------------------------------------------------
+   Right column (Program / Variables / Watch): one panel with slim section
+   headers, like the reference's stacked panels, instead of three cards.
+   --------------------------------------------------------------------------- */
+
+#codeRightSidebar {
+  gap: 0;
+  padding: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+#codeRightSidebar .panel-card {
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+#codeRightSidebar .panel-card + .panel-card {
+  border-top: 1px solid var(--border-subtle);
+}
+
+#codeRightSidebar .panel-card-header {
+  height: 36px;
+  padding: 0 10px 0 14px;
+  border-bottom: none;
+  background: transparent;
+}
+
+#codeRightSidebar .panel-card-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+#codeRightSidebar .header-with-icon {
+  gap: 8px;
+}
+
+#codeRightSidebar .play-icon,
+#codeRightSidebar .var-icon,
+#codeRightSidebar .watch-icon {
+  font-size: 10px;
+  color: var(--text-faint);
+}
+
+#codeRightSidebar .play-icon {
+  color: var(--accent-green, #22c55e);
+}
+
+#codeRightSidebar .log-empty,
+#codeRightSidebar .var-empty-state,
+#codeRightSidebar .watch-placeholder {
+  display: block;
+  padding: 4px 14px 12px;
+  color: var(--text-faint);
+  font: 400 var(--ui-font-small) / 1.5 var(--font-ui);
+  font-style: normal;
+  text-align: left;
+}
+
+#codeRightSidebar .program-output-body,
+#codeRightSidebar .variables-body,
+#codeRightSidebar .watch-body {
+  padding: 0;
+  background: transparent;
+  border: none;
+}
+
+#codeRightSidebar .pill-action-btn,
+#codeRightSidebar .icon-btn-minimal {
+  height: 24px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--ui-font-small);
+}
+
+#codeRightSidebar .pill-action-btn:hover,
+#codeRightSidebar .icon-btn-minimal:hover {
+  background: var(--bg-hover);
+  color: var(--text-main);
+}
+
+/* ---------------------------------------------------------------------------
+   Inline blame: never longer than the space it has.
+   --------------------------------------------------------------------------- */
+
+.code-line .inline-blame {
+  max-width: 60ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+}
+
+#codeRightSidebar .watch-body {
+  display: block;
+}
+
+/* Breadcrumbs: interface text, not code. */
+.editor-breadcrumbs {
+  min-height: 26px;
+  font-family: var(--font-ui);
+}
+
+.editor-breadcrumbs .breadcrumb-part {
+  font-family: var(--font-ui);
+  font-size: var(--ui-font-small);
+  color: var(--text-muted);
+}
+
+.editor-breadcrumbs .breadcrumb-part.is-current {
+  color: var(--text-main);
+}

@@ -10,6 +10,7 @@ import { installKeymap } from './commands.js';
 import { mountDocsViewer, issueUrl } from '../docs/docs-viewer.js';
 import { createCommandRegistry, defaultCommands } from './commands.js';
 import { mountShortcutsDialog } from './shortcuts-dialog.js';
+import { installMoreMenu } from './more-menu.js';
 
 const ICONS = {
   newProject: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="M12 12v6M9 15h6"/></svg>',
@@ -335,6 +336,8 @@ export function mountStudioShell({ ide, setMode, openNewProjectModal, showWelcom
   }
 
   if (showWelcome && settings.get('workbench.showWelcomeOnStart') !== false) showWelcomePage();
+
+  installMoreMenu(document.getElementById('btnEditorMore'), document.getElementById('editorMoreMenu'));
 
   return { showWelcomePage, hideWelcomePage, updateProjectChip, packageDialog, settingsDialog, settings, commands, shortcutsDialog };
 }
