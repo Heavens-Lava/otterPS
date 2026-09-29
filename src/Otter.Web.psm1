@@ -18,6 +18,115 @@ function Escape-OtterHtmlAttr {
     return $Text -replace '&', '&amp;' -replace '"', '&quot;' -replace '<', '&lt;' -replace '>', '&gt;'
 }
 
+# "ctrl + k" -> "Ctrl+k": the canonical spelling the page's shortcut listener
+# compares against (src/web/otter-ui.js otterNormalizeShortcut does the same
+# for shortcuts set while the program runs).
+function ConvertTo-OtterShortcutText {
+    param([string]$Text)
+    $mods = [System.Collections.Generic.List[string]]::new()
+    $key = ''
+    foreach ($part in ($Text -split '\+')) {
+        $p = $part.Trim()
+        if (-not $p) { continue }
+        switch ($p.ToLowerInvariant()) {
+            { $_ -in @('ctrl', 'control', 'cmd', 'command') } { if (-not $mods.Contains('Ctrl')) { $mods.Add('Ctrl') }; continue }
+            { $_ -in @('alt', 'option') } { $mods.Add('Alt'); continue }
+            'shift' { $mods.Add('Shift'); continue }
+            'esc' { $key = 'escape'; continue }
+            'del' { $key = 'delete'; continue }
+            default { $key = $p.ToLowerInvariant() }
+        }
+    }
+    $ordered = @('Ctrl', 'Alt', 'Shift') | Where-Object { $mods.Contains($_) }
+    return ((@($ordered) + @($key)) -join '+')
+}
+
+# The properties every UI kind shares that are attributes rather than CSS:
+# `style` (named styles from the project's stylesheet; `class` is the older
+# spelling), `hidden`, `enabled`, `tooltip`, `label` (accessible name) and
+# `shortcut`. Added to the element's outermost tag - for a checkbox, toggle
+# or radio that is its <label>, while `enabled` and `label` also reach the
+# <input> that carries the id.
+function Add-OtterWebCommonAttributes {
+    param([string]$Html, [string]$ResName, [string]$Kind, $Props)
+    if (-not $Html -or $null -eq $Props) { return $Html }
+    $isTrue = { param($v) $v -eq $true -or "$v" -eq 'true' -or "$v" -eq 'yes' }
+    $extraClasses = [System.Collections.Generic.List[string]]::new()
+    foreach ($styleWord in @('style', 'class')) {
+        if ($Props.Contains($styleWord) -and "$($Props[$styleWord])".Trim()) {
+            foreach ($c in ("$($Props[$styleWord])" -split '\s+')) { if ($c -and -not $extraClasses.Contains($c)) { $extraClasses.Add((Escape-OtterHtmlAttr -Text $c)) } }
+        }
+    }
+    if ($Props.Contains('hidden') -and (& $isTrue $Props['hidden'])) { $extraClasses.Add('otter-hidden') }
+    if ($Props.Contains('visible') -and -not (& $isTrue $Props['visible'])) { $extraClasses.Add('otter-hidden') }
+    $disabled = ($Props.Contains('enabled') -and -not (& $isTrue $Props['enabled']))
+    if ($disabled) { $extraClasses.Add('otter-disabled') }
+
+    $outerAttrs = ''
+    if ($Props.Contains('tooltip')) {
+        $tip = Escape-OtterHtmlAttr -Text ([string]$Props['tooltip'])
+        $outerAttrs += " title=`"$tip`""
+        if ($Kind -eq 'button' -and -not ($Props.Contains('text') -and "$($Props['text'])".Trim())) { $outerAttrs += " aria-label=`"$tip`"" }
+    }
+    if ($Props.Contains('shortcut') -and "$($Props['shortcut'])".Trim()) {
+        $outerAttrs += " data-otter-shortcut=`"$(Escape-OtterHtmlAttr -Text (ConvertTo-OtterShortcutText -Text ([string]$Props['shortcut'])))`""
+    }
+    if ($disabled) { $outerAttrs += ' aria-disabled="true"' }
+
+    # The outermost tag is the first tag in the rendered fragment.
+    $tagStart = $Html.IndexOf('<')
+    $tagEnd = if ($tagStart -ge 0) { $Html.IndexOf('>', $tagStart) } else { -1 }
+    if ($tagEnd -gt $tagStart) {
+        $openTag = $Html.Substring($tagStart, $tagEnd - $tagStart)
+        $newTag = $openTag
+        if ($extraClasses.Count -gt 0) {
+            $classMatch = [regex]::Match($newTag, 'class="([^"]*)"')
+            if ($classMatch.Success) {
+                $newTag = $newTag.Remove($classMatch.Index, $classMatch.Length).Insert($classMatch.Index, "class=`"$($classMatch.Groups[1].Value) $($extraClasses -join ' ')`"")
+            } else {
+                $newTag += " class=`"$($extraClasses -join ' ')`""
+            }
+        }
+        if ($newTag.EndsWith('/')) { $newTag = $newTag.Substring(0, $newTag.Length - 1).TrimEnd() + "$outerAttrs /" } else { $newTag += $outerAttrs }
+        $Html = $Html.Substring(0, $tagStart) + $newTag + $Html.Substring($tagEnd)
+    }
+
+    # The element that carries the id: disabled state and accessible label.
+    $idAttrs = ''
+    if ($disabled -and $Kind -in @('button', 'text box', 'text area', 'textarea', 'checkbox', 'check box', 'toggle', 'switch', 'radio', 'radio button', 'dropdown', 'drop down', 'select', 'slider', 'range')) { $idAttrs += ' disabled' }
+    if ($Props.Contains('label')) { $idAttrs += " aria-label=`"$(Escape-OtterHtmlAttr -Text ([string]$Props['label']))`"" }
+    if ($idAttrs) {
+        $idMarker = "id=`"$ResName`""
+        $at = $Html.IndexOf($idMarker)
+        if ($at -ge 0) { $Html = $Html.Insert($at + $idMarker.Length, $idAttrs) }
+    }
+    return $Html
+}
+
+# Every node under the given statements, depth first: bodies of functions,
+# handlers, loops and branches included. Walks any property holding a Node or
+# a Node[], so new statement shapes are covered without being listed here.
+function Get-OtterWebAllNodes {
+    param([object[]]$Nodes)
+    $result = [System.Collections.Generic.List[object]]::new()
+    $stack = [System.Collections.Generic.Stack[object]]::new()
+    # IfBranch and friends are not Nodes but hold Node bodies.
+    $isWalkable = { param($v) $v -is [Node] -or $v -is [IfBranch] }
+    foreach ($n in @($Nodes)) { if (& $isWalkable $n) { $stack.Push($n) } }
+    while ($stack.Count -gt 0) {
+        $node = $stack.Pop()
+        if ($node -is [Node]) { $result.Add($node) }
+        foreach ($prop in $node.PSObject.Properties) {
+            $value = $prop.Value
+            if (& $isWalkable $value) { $stack.Push($value) }
+            elseif ($value -is [System.Collections.IEnumerable] -and $value -isnot [string]) {
+                foreach ($item in $value) { if (& $isWalkable $item) { $stack.Push($item) } }
+            }
+        }
+    }
+    return , $result
+}
+
 function ConvertTo-OtterCssEasing {
     param([string]$Easing)
     switch ($Easing) {
@@ -404,7 +513,10 @@ function Get-OtterRunnableJs {
 function ConvertTo-OtterWeb {
     param(
         [Parameter(Mandatory)][ProgramNode]$Program,
-        [string]$Title = "Otter Web App"
+        [string]$Title = "Otter Web App",
+        # The folder the program's source lives in: relative paths the page
+        # declares at compile time (its `icons` sprite) resolve against it.
+        [string]$SourceDirectory = ''
     )
 
     # Collect UI resources and initial configuration
@@ -418,6 +530,23 @@ function ConvertTo-OtterWeb {
     $deriveDefs = [ordered]@{}
     $watchStmts = [System.Collections.Generic.List[WatchStmt]]::new()
     $functions = [ordered]@{}
+
+    # Which user functions are async (and so must be awaited by callers) is a
+    # whole-program fact; compute it once before any statement is compiled.
+    Initialize-OtterJsAsyncFunctions -Statements $Program.Statements
+
+    # Names the compiler renders as static HTML: a top-level `when` on one of
+    # these is wired by id at startup; a `when` on anything else (an element
+    # the program builds while running) is registered in program order.
+    $staticUiNames = [System.Collections.Generic.HashSet[string]]::new()
+    $staticKinds = @('window', 'page', 'button', 'text box', 'text', 'row', 'column', 'image', 'list', 'link', 'card', 'checkbox', 'check box', 'dropdown', 'drop down', 'select', 'slider', 'range', 'text area', 'textarea', 'badge', 'tag', 'canvas', 'table', 'scroll', 'progress', 'progress bar', 'toggle', 'switch', 'radio', 'radio button', 'dialog', 'modal', 'panel', 'icon')
+    foreach ($stmt in $Program.Statements) {
+        if ($stmt -is [CreateUiResourceStmt]) { [void]$staticUiNames.Add($stmt.Target) }
+        elseif ($stmt -is [ObjectDefStmt]) {
+            $k = $stmt.TypeName.ToLowerInvariant() -replace '^(primary|secondary|danger) ', ''
+            if ($k -in $staticKinds) { [void]$staticUiNames.Add($stmt.Name) }
+        }
+    }
 
     # Pass 1: Identify resources and configurations
     foreach ($stmt in $Program.Statements) {
@@ -434,6 +563,12 @@ function ConvertTo-OtterWeb {
             continue
         }
         if ($stmt -is [FunctionDefStmt]) {
+            # Two functions with one name would compile to two JavaScript
+            # constants of that name, which stops the whole page from
+            # loading. Say so here, with both places, instead.
+            if ($functions.Contains($stmt.Name)) {
+                throw [OtterError]::new("There are two functions called `"$($stmt.Name)`": one on line $($functions[$stmt.Name].Line) and one here. Give one of them another name.", $stmt.Line, 'check')
+            }
             # D60 Phase 1F: also let this reach the normal top-level
             # compilation pass (below) so it compiles to a real callable JS
             # function, in addition to the existing $functions lookup this
@@ -460,8 +595,14 @@ function ConvertTo-OtterWeb {
                     foreach ($p in $stmt.Properties) {
                         if ($p -is [AssignStmt]) {
                             $propKey = if ($p.Target -is [VariableExpr]) { $p.Target.Name.ToLowerInvariant() } else { [string]$p.Target.ToLowerInvariant() }
-                            $val = if ($p.Value -is [LiteralExpr]) { $p.Value.Value } else { ConvertTo-OtterJsExpression -Expr $p.Value }
-                            $resources[$stmt.Name].Properties[$propKey] = $val
+                            if ($p.Value -is [LiteralExpr]) {
+                                $resources[$stmt.Name].Properties[$propKey] = $p.Value.Value
+                            } else {
+                                # A computed value (`value name of first`) is
+                                # set when the program starts, in this
+                                # statement's place - see the same case below.
+                                $topLevelStatements.Add([AssignStmt]::new([PropertyAccessExpr]::new($propKey, [VariableExpr]::new($stmt.Name, $p.Line), $p.Line), $p.Value, $p.Line))
+                            }
                         }
                     }
                 }
@@ -474,7 +615,7 @@ function ConvertTo-OtterWeb {
                 'dropdown', 'drop down', 'select', 'slider', 'range',
                 'text area', 'textarea', 'badge', 'tag', 'canvas', 'table', 'scroll',
                 'progress', 'progress bar', 'toggle', 'switch', 'radio', 'radio button',
-                'dialog', 'modal', 'panel'
+                'dialog', 'modal', 'panel', 'icon'
             )
             # `aboutButton is a primary button` - a variant-qualified kind
             # (matches the `primary button`/`secondary card`/`danger
@@ -507,8 +648,18 @@ function ConvertTo-OtterWeb {
                     foreach ($p in $stmt.Properties) {
                         if ($p -is [AssignStmt]) {
                             $propKey = if ($p.Target -is [VariableExpr]) { $p.Target.Name.ToLowerInvariant() } else { [string]$p.Target.ToLowerInvariant() }
-                            $val = if ($p.Value -is [LiteralExpr]) { $p.Value.Value } else { ConvertTo-OtterJsExpression -Expr $p.Value }
-                            $res.Properties[$propKey] = $val
+                            if ($p.Value -is [LiteralExpr]) {
+                                $res.Properties[$propKey] = $p.Value.Value
+                            } else {
+                                # Literal values are rendered into the HTML;
+                                # a computed value (`value name of first`,
+                                # `options names`) becomes a property write
+                                # that runs when the program starts, in this
+                                # declaration's place among the top-level
+                                # statements, through the same code path as
+                                # `value of out is name of first`.
+                                $topLevelStatements.Add([AssignStmt]::new([PropertyAccessExpr]::new($propKey, [VariableExpr]::new($stmt.Name, $p.Line), $p.Line), $p.Value, $p.Line))
+                            }
                         }
                     }
                 }
@@ -529,6 +680,14 @@ function ConvertTo-OtterWeb {
         if ($stmt -is [PutInStmt]) {
             $item = if ($stmt.Item -is [VariableExpr]) { $stmt.Item.Name } else { $null }
             $cont = if ($stmt.Container -is [VariableExpr]) { $stmt.Container.Name } else { $null }
+            # Putting something the program built while running (the result
+            # of a component function, say) is done when the program runs,
+            # in this statement's place; only declared elements are part of
+            # the static page.
+            if ($cont -and $item -and (-not $staticUiNames.Contains($item) -or -not $staticUiNames.Contains($cont))) {
+                $topLevelStatements.Add($stmt)
+                continue
+            }
             if ($cont -and $item) {
                 if (-not $containers.Contains($cont)) {
                     $containers[$cont] = [System.Collections.Generic.List[string]]::new()
@@ -538,10 +697,19 @@ function ConvertTo-OtterWeb {
             continue
         }
         if ($stmt -is [WhenStmt]) {
-            $whenHandlers.Add($stmt)
+            if ($stmt.Target -is [VariableExpr] -and -not $staticUiNames.Contains($stmt.Target.Name)) {
+                $topLevelStatements.Add($stmt)
+            } else {
+                $whenHandlers.Add($stmt)
+            }
             continue
         }
         if ($stmt -is [ShowStmt]) {
+            # `show app` presents the root, which the page already is. Showing
+            # any other element makes it visible (it may start `hidden`).
+            $showName = if ($stmt.Target -is [VariableExpr]) { $stmt.Target.Name } else { $null }
+            $showRes = if ($showName -and $resources.Contains($showName)) { $resources[$showName] } else { $null }
+            if ($showRes -and $showRes.Kind -notin @('page', 'window') -and $showRes.Properties.Contains('hidden')) { $topLevelStatements.Add($stmt) }
             continue
         }
         $topLevelStatements.Add($stmt)
@@ -573,6 +741,40 @@ function ConvertTo-OtterWeb {
         if ($resources[$rootName].Properties.Contains('foreground')) {
             $rootFg = [string]$resources[$rootName].Properties['foreground']
         }
+    }
+
+    # What a desktop shell needs to know to open the window for this page:
+    # the title, and the size/minimum size/background the root declares.
+    # Emitted as a <meta name="otter-window"> so the Electron export and the
+    # `otter desktop` host read it from the compiled page, not from a second
+    # parse of the program.
+    $windowMeta = [ordered]@{ title = $appTitle }
+    if ($rootName) {
+        $rp = $resources[$rootName].Properties
+        foreach ($k in @('width', 'height', 'minwidth', 'minheight')) {
+            if ($rp.Contains($k) -and ($rp[$k] -is [int] -or $rp[$k] -is [double] -or $rp[$k] -is [long])) { $windowMeta[$k] = [int]$rp[$k] }
+        }
+        if ($rp.Contains('background')) { $windowMeta['background'] = [string]$rp['background'] }
+    }
+    $windowMetaAttr = Escape-OtterHtmlAttr -Text (ConvertTo-Json -InputObject $windowMeta -Compress)
+
+    # `app is a page with icons "assets/icons/app-icons.svg"`: an SVG symbol
+    # sprite. Its <symbol>s are embedded once in the page so every `icon`
+    # (declared or built while the program runs) is a same-document <use>,
+    # which works from a file, a server, and inside Electron alike.
+    $iconSpriteHtml = ''
+    if ($rootName -and $resources[$rootName].Properties.Contains('icons')) {
+        $spritePath = [string]$resources[$rootName].Properties['icons']
+        $spriteFull = if ([System.IO.Path]::IsPathRooted($spritePath)) { $spritePath } elseif ($SourceDirectory) { [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($SourceDirectory, $spritePath)) } else { [System.IO.Path]::GetFullPath($spritePath) }
+        if (-not (Test-Path -LiteralPath $spriteFull -PathType Leaf)) {
+            throw [OtterError]::new("I cannot find the icon file `"$spritePath`" for this page.", 0, 'check')
+        }
+        $spriteText = [System.IO.File]::ReadAllText($spriteFull, [System.Text.Encoding]::UTF8).TrimStart([char]0xFEFF)
+        $symbols = [regex]::Matches($spriteText, '(?s)<symbol\b.*?</symbol>')
+        if ($symbols.Count -eq 0) {
+            throw [OtterError]::new("The icon file `"$spritePath`" has no <symbol> elements, so there are no icons to use.", 0, 'check')
+        }
+        $iconSpriteHtml = "  <svg xmlns=`"http://www.w3.org/2000/svg`" id=`"otter-icons`" style=`"display: none;`" aria-hidden=`"true`">`n    " + (($symbols | ForEach-Object { $_.Value }) -join "`n    ") + "`n  </svg>`n"
     }
 
     $isPage = ($null -ne $rootName -and $resources[$rootName].Kind -eq 'page')
@@ -652,10 +854,11 @@ function ConvertTo-OtterWeb {
             $fw = if ($props.Contains('fontweight')) { $props['fontweight'] } else { $props['weight'] }
             $styles.Add("font-weight: $fw;")
         }
+        # `style "panel"` names styles from the stylesheet (see
+        # Add-OtterWebCommonAttributes); italics are `italic true` or
+        # `fontstyle "italic"`.
         if ($props.Contains('fontstyle')) {
             $styles.Add("font-style: $($props['fontstyle']);")
-        } elseif ($props.Contains('style') -and ($props['style'] -eq 'italic' -or $props['style'] -eq 'normal')) {
-            $styles.Add("font-style: $($props['style']);")
         }
         if ($props.Contains('family') -or $props.Contains('fontfamily')) {
             $ff = if ($props.Contains('fontfamily')) { $props['fontfamily'] } else { $props['family'] }
@@ -758,12 +961,23 @@ function ConvertTo-OtterWeb {
 "@
             }
             'button' {
-                $rawText = if ($props.Contains('text')) { [string]$props['text'] } else { "Button" }
+                # A button with an icon and no text is an icon button; any
+                # other button without text says "Button", as before.
+                $hasIcon = ($props.Contains('icon') -and "$($props['icon'])".Trim())
+                $rawText = if ($props.Contains('text')) { [string]$props['text'] } elseif ($hasIcon) { '' } else { "Button" }
                 $text = Escape-OtterHtmlAttr -Text $rawText
                 # `primary button`/`secondary button`/`danger button` -
                 # reuses the same otter-button-<variant> CSS classes the
                 # inline UI-element grammar's own renderer already defines.
                 $variantClass = if ($props.Contains('variant')) { " otter-button-$($props['variant'])" } else { "" }
+                # `icon "dashboard"` puts a symbol from the page's icon sprite
+                # before the label; the label then lives in its own span so
+                # `text of button is ...` changes the words, not the icon.
+                if ($props.Contains('icon') -and "$($props['icon'])".Trim()) {
+                    $iconName = Escape-OtterHtmlAttr -Text ([string]$props['icon'])
+                    $labelHtml = if ($rawText.Trim()) { "<span class=`"otter-button-text`">$text</span>" } else { '' }
+                    return "      <button id=`"$resName`" class=`"otter-button otter-has-icon$variantClass`"$styleAttr><svg class=`"otter-icon`" aria-hidden=`"true`"><use href=`"#$iconName`"></use></svg>$labelHtml</button>"
+                }
                 return "      <button id=`"$resName`" class=`"otter-button$variantClass`"$styleAttr>$text</button>"
             }
             'text box' {
@@ -849,6 +1063,19 @@ $optHtml
                 $rawText = if ($props.Contains('text')) { [string]$props['text'] } else { "" }
                 $text = Escape-OtterHtmlAttr -Text $rawText
                 return "      <span id=`"$resName`" class=`"otter-badge`"$styleAttr>$text</span>"
+            }
+            'icon' {
+                # `homeIcon is an icon with name "dashboard", size 18` - one
+                # symbol from the page's icon sprite (see `icons` on the page).
+                # Decorative unless it has a `label`, which makes it an
+                # image with an accessible name.
+                $iconName = if ($props.Contains('name')) { Escape-OtterHtmlAttr -Text ([string]$props['name']) } else { '' }
+                if ($props.Contains('size') -and ($props['size'] -is [int] -or $props['size'] -is [double])) {
+                    $styles.Add("width: $($props['size'])px; height: $($props['size'])px;")
+                }
+                $styleAttr = if ($styles.Count -gt 0) { " style=`"$($styles -join ' ')`"" } else { "" }
+                $a11y = if ($props.Contains('label')) { " role=`"img`"" } else { ' aria-hidden="true"' }
+                return "      <svg id=`"$resName`" class=`"otter-icon`"$a11y$styleAttr><use href=`"#$iconName`"></use></svg>"
             }
             'canvas' {
                 $w = if ($props.Contains('width')) { $props['width'] } else { 400 }
@@ -1010,7 +1237,7 @@ $optHtml
             $at = $html.IndexOf($idMarker)
             if ($at -ge 0) { $html = $html.Insert($at + $idMarker.Length, $dragAttrs) }
         }
-        return $html
+        return (Add-OtterWebCommonAttributes -Html $html -ResName $resName -Kind $resources[$resName].Kind -Props $dragProps)
     }
 
     # D103: every page a `route` statement names must reach the DOM, not
@@ -1185,6 +1412,21 @@ $dragBody
             $bodyJs.Add((ConvertTo-OtterJsStatement -Stmt $s -Indent 3))
         }
         $bodyJoined = $bodyJs -join "`n"
+        # Event words that are not a single DOM event (Enter in a text box,
+        # the pointer arriving) go through the UI runtime's own mapping.
+        if ($eventName -in @('submitted', 'hovered')) {
+            $jsHandlers.Add(@"
+    {
+      const _whenEl = document.getElementById('$targetName');
+      if (_whenEl) {
+        otterOnUi(_whenEl, '$eventName', async (event) => {
+$bodyJoined
+        });
+      }
+    }
+"@)
+            continue
+        }
         $jsHandlers.Add(@"
     const el_$targetName = document.getElementById('$targetName');
     if (el_$targetName) {
@@ -1220,6 +1462,16 @@ $bodyJoined
         }
     }
     foreach ($w in $whenHandlers) { if ($w.EventName -in @('drag', 'drop', 'files dropped')) { $usesDragDrop = $true } }
+    # UI built while the program runs (inside functions, handlers, loops)
+    # can be draggable or handle drag/drop too.
+    if (-not $usesDragDrop) {
+        foreach ($node in (Get-OtterWebAllNodes -Nodes $Program.Statements)) {
+            if ($node -is [WhenStmt] -and $node.EventName -in @('drag', 'drop', 'files dropped')) { $usesDragDrop = $true; break }
+            if ($node -is [SetDragDataStmt]) { $usesDragDrop = $true; break }
+            if ($node -is [AssignStmt] -and $node.Target -is [VariableExpr] -and $node.Target.Name -in @('draggable', 'accepts drops')) { $usesDragDrop = $true; break }
+            if ($node -is [AssignStmt] -and $node.Target -is [PropertyAccessExpr] -and $node.Target.Property -in @('draggable', 'accepts drops')) { $usesDragDrop = $true; break }
+        }
+    }
     $runnableRuntimeJs = ''
     $runnableCss = ''
     if ($runnableSamples.Count -gt 0) {
@@ -1286,6 +1538,10 @@ $bodyJoined
     }
     $dragDropRuntimeJs = ''
     $cryptoRuntimeJs = Get-OtterJsCryptoRuntime
+    # The UI runtime (src/web/otter-ui.js): runtime-created elements, the
+    # shared property mapping, put/remove/clear/show/hide/focus, runtime
+    # `when`, and keyboard shortcuts. Every UI page gets it.
+    $uiRuntimeJs = [System.IO.File]::ReadAllText((Join-Path $PSScriptRoot 'web\otter-ui.js'), [System.Text.Encoding]::UTF8).TrimStart([char]0xFEFF)
     if ($usesDragDrop) {
         $dragDropRuntimeJs = @'
     const otterDragState = { draggedId: null };
@@ -1345,6 +1601,7 @@ $bodyJoined
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="otter-window" content="$windowMetaAttr">
   <title>$appTitle</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1746,40 +2003,60 @@ $runnableCss
       color: #38bdf8;
       display: none;
     }
+    .otter-icon { width: 20px; height: 20px; flex: 0 0 auto; display: inline-block; vertical-align: middle; }
+    .otter-hidden { display: none !important; }
+    .otter-disabled { opacity: 0.5; cursor: not-allowed; }
+    .otter-disabled, .otter-disabled * { pointer-events: none; }
 $declarativeCssJoined
   </style>
 </head>
 <body$bodyClass>
-$elementsHtml
+$iconSpriteHtml$elementsHtml
   <div id="otter-live-output"></div>
 
   <script>
     // Otter Runtime helpers for the browser
     const empty = "";
     const gone = null;
-    function otterGetElement(id) { return document.getElementById(id); }
+    // Only elements Otter made count (see otterIsUiElement in the UI
+    // runtime): an <symbol id="settings"> in an icon sprite must not be
+    // mistaken for a variable called settings.
+    function otterGetElement(id) {
+      const el = document.getElementById(id);
+      if (!el) return null;
+      return (typeof otterIsUiElement !== 'function' || otterIsUiElement(el)) ? el : null;
+    }
 $dragDropRuntimeJs
 $runnableRuntimeJs
 $cryptoRuntimeJs
+$uiRuntimeJs
     function otterGetText(id) {
-      const el = otterGetElement(id);
+      const el = (id && typeof id === 'object') ? id : otterGetElement(id);
       if (!el) return '';
       if (el.type === 'checkbox') return el.checked;
       const tag = el.tagName ? el.tagName.toUpperCase() : '';
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
         return el.value;
       }
+      const label = el.querySelector ? el.querySelector(':scope > .otter-button-text') : null;
+      if (label) return label.textContent || '';
       return el.textContent || '';
     }
     function otterSetText(id, val) {
-      const el = otterGetElement(id);
+      const el = (id && typeof id === 'object') ? id : otterGetElement(id);
       if (!el) return;
       if (el.type === 'checkbox') { el.checked = Boolean(val); return; }
       const tag = el.tagName ? el.tagName.toUpperCase() : '';
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
         el.value = val;
       } else {
-        el.textContent = val;
+        // A button with an icon keeps its label in a span (see the `icon`
+        // property); a bare <svg> child would otherwise be wiped here.
+        const label = el.querySelector ? el.querySelector(':scope > .otter-button-text') : null;
+        const icon = el.querySelector ? el.querySelector(':scope > .otter-icon') : null;
+        if (label) { label.textContent = val; }
+        else if (icon) { const span = document.createElement('span'); span.className = 'otter-button-text'; span.textContent = val; icon.after(span); }
+        else { el.textContent = val; }
       }
       if ('value' in el) { el.value = val; }
     }
@@ -1823,13 +2100,32 @@ $cryptoRuntimeJs
       const members = native ? native[group] : null;
       return (members && typeof members[name] === 'function') ? members[name] : null;
     }
+    // In a plain browser tab there is no filesystem. Files the program writes
+    // are kept in the browser's storage for this page instead, so write,
+    // read, append, delete and "file ... exists" keep their meaning (a
+    // program's own data persists between visits). Reading a file the
+    // program never wrote is "not found", the same as on a desktop.
+    // (No backticks in this comment: this text sits inside a PowerShell
+    // here-string, where a backtick escapes the character after it.)
+    const otterBrowserFiles = {
+      key: (p) => 'otter-file:' + String(p),
+      has: (p) => { try { return localStorage.getItem(otterBrowserFiles.key(p)) !== null; } catch (_) { return false; } },
+      read: (p) => { try { return localStorage.getItem(otterBrowserFiles.key(p)); } catch (_) { return null; } },
+      write: (p, c) => { try { localStorage.setItem(otterBrowserFiles.key(p), c); return true; } catch (_) { throw new Error('The browser would not store "' + p + '".'); } },
+      remove: (p) => { try { localStorage.removeItem(otterBrowserFiles.key(p)); } catch (_) { /* nothing to remove */ } }
+    };
+    function otterHasFileHost() {
+      const bridge = window.__OTTER_DESKTOP_BRIDGE__;
+      return Boolean(otterNativeMethod('files', 'read') || (bridge && bridge.port && bridge.token));
+    }
     async function otterReadFile(filePath) {
       const nativeRead = otterNativeMethod('files', 'read');
       if (nativeRead) return String(await nativeRead(filePath));
       const bridge = window.__OTTER_DESKTOP_BRIDGE__;
       if (!bridge || !bridge.port || !bridge.token) {
-        console.warn('Desktop Bridge is not available to read "' + filePath + '".');
-        return '';
+        const stored = otterBrowserFiles.read(filePath);
+        if (stored === null) throw new Error('File not found: ' + filePath);
+        return stored;
       }
       const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/fs/read', {
         method: 'POST',
@@ -1851,8 +2147,9 @@ $cryptoRuntimeJs
       if (nativeWrite) return await nativeWrite(filePath, content);
       const bridge = window.__OTTER_DESKTOP_BRIDGE__;
       if (!bridge || !bridge.port || !bridge.token) {
-        console.warn('Desktop Bridge is not available to write "' + filePath + '".');
-        return false;
+        const text = content === undefined || content === null ? '' : String(content);
+        otterBrowserFiles.write(filePath, text);
+        return { path: filePath, size: text.length, saved: true };
       }
       const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/fs/write', {
         method: 'POST',
@@ -1981,7 +2278,22 @@ $cryptoRuntimeJs
       if (nativeOperation) return await nativeOperation(operation, payload || {});
       const bridge = window.__OTTER_DESKTOP_BRIDGE__;
       if (!bridge || !bridge.port || !bridge.token) {
-        throw new Error('Desktop Bridge is not available for file operations.');
+        const p = payload || {};
+        switch (operation) {
+          case 'file-exists': return { exists: otterBrowserFiles.has(p.path) };
+          case 'append-file': {
+            const current = otterBrowserFiles.read(p.path);
+            otterBrowserFiles.write(p.path, (current === null ? '' : current) + (p.content === undefined || p.content === null ? '' : String(p.content)));
+            return { completed: true };
+          }
+          case 'delete-file': {
+            if (!otterBrowserFiles.has(p.path)) throw new Error('I could not find a file called "' + p.path + '" to delete.');
+            otterBrowserFiles.remove(p.path);
+            return { completed: true };
+          }
+          default:
+            throw new Error('That file operation is not available in a browser tab. Run the program with otter desktop, or as an Electron application.');
+        }
       }
       const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/fs/operate', {
         method: 'POST',
@@ -2523,6 +2835,7 @@ $declarativeListenersJoined
 </html>
 "@
 
+    Clear-OtterJsAsyncFunctions
     return $html
 }
 
@@ -2579,7 +2892,12 @@ function Export-OtterWebApplication {
     param(
         [Parameter(Mandatory)][string[]]$SourcePath,
         [string]$OutputPath,
-        [switch]$PassThruExceptions
+        [switch]$PassThruExceptions,
+        # Compile the source as though it lived in this folder: its `use`
+        # imports, its icon sprite and (when no stylesheet sits beside the
+        # source itself) its project stylesheet are found there. For an
+        # editor compiling an unsaved copy of a project file.
+        [string]$SourceDirectory = ''
     )
 
     if (-not (Get-Command ConvertTo-OtterTokens -ErrorAction SilentlyContinue)) {
@@ -2599,7 +2917,7 @@ function Export-OtterWebApplication {
     foreach ($src in $SourcePath) {
         $resolved = Resolve-Path -LiteralPath $src
         if ($null -eq $primarySource) { $primarySource = $resolved.Path }
-        $resolvedProgram = Resolve-OtterModuleSource -FilePath $resolved.Path
+        $resolvedProgram = if ($SourceDirectory -and $resolved.Path -eq (Resolve-Path -LiteralPath $SourcePath[0]).Path) { Resolve-OtterModuleSource -FilePath $resolved.Path -ImportDirectory $SourceDirectory } else { Resolve-OtterModuleSource -FilePath $resolved.Path }
         $sourceParts.Add($resolvedProgram.CombinedSource)
     }
     $sourceText = $sourceParts -join "`n"
@@ -2609,9 +2927,13 @@ function Export-OtterWebApplication {
         $ast = ConvertTo-OtterAst -Tokens $tokens
 
         $defaultTitle = [System.IO.Path]::GetFileNameWithoutExtension($primarySource)
-        $html = ConvertTo-OtterWeb -Program $ast -Title $defaultTitle
+        $programDirectory = if ($SourceDirectory) { [System.IO.Path]::GetFullPath($SourceDirectory) } else { [System.IO.Path]::GetDirectoryName($primarySource) }
+        $html = ConvertTo-OtterWeb -Program $ast -Title $defaultTitle -SourceDirectory $programDirectory
 
         $stylesheet = Resolve-OtterProjectStylesheet -SourcePath $primarySource
+        if (-not $stylesheet -and $SourceDirectory) {
+            $stylesheet = Resolve-OtterProjectStylesheet -SourcePath (Join-Path $programDirectory ([System.IO.Path]::GetFileName($primarySource)))
+        }
         if ($stylesheet) {
             $html = Add-OtterProjectStylesheet -Html $html -StylesheetPath $stylesheet
         }
