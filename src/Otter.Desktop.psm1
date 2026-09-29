@@ -1168,6 +1168,17 @@ function Start-OtterDesktopApplication {
     $htmlPath = Export-OtterWebApplication -SourcePath $resolved.Path
     $resolvedHtml = (Resolve-Path $htmlPath).Path
 
+    # The page declares its own window size (<meta name="otter-window">);
+    # an explicit -Width/-Height still wins.
+    $metaMatch = [regex]::Match((Get-Content -LiteralPath $resolvedHtml -Raw -Encoding UTF8), '<meta name="otter-window" content="([^"]*)"')
+    if ($metaMatch.Success) {
+        try {
+            $declared = ConvertFrom-Json -InputObject ([System.Net.WebUtility]::HtmlDecode($metaMatch.Groups[1].Value))
+            if (-not $PSBoundParameters.ContainsKey('Width') -and $declared.width) { $Width = [int]$declared.width }
+            if (-not $PSBoundParameters.ContainsKey('Height') -and $declared.height) { $Height = [int]$declared.height }
+        } catch { }
+    }
+
     # 3. Create session-specific runtime instance HTML with injected bridge credentials
     $rawHtml = Get-Content -LiteralPath $resolvedHtml -Raw -Encoding UTF8
     $injectionScript = @"
@@ -1757,23 +1768,47 @@ function Start-OtterStudio {
     [CmdletBinding()]
     param(
         [string]$Mode = "code",
-        [int]$Port = 4200
+        [int]$Port = 4200,
+        # `otter studio C:\work\my-app`: open this project folder. It may be
+        # anywhere on the computer; Studio is given access to it (and to
+        # its own installation) and nothing else.
+        [string]$Folder = ''
     )
 
     $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
     $serverScript = Join-Path $repoRoot 'otter-studio\serve.mjs'
 
-    # 1. Check if server on port is already listening; if not, launch it
-    $serverRunning = $false
-    try {
-        $tcp = [System.Net.Sockets.TcpClient]::new()
-        $ar = $tcp.BeginConnect("127.0.0.1", $Port, $null, $null)
-        if ($ar.AsyncWaitHandle.WaitOne(300)) {
-            $tcp.EndConnect($ar)
-            $serverRunning = $true
-            $tcp.Close()
+    $folderFull = ''
+    if ($Folder) {
+        $resolvedFolder = Resolve-Path -LiteralPath $Folder -ErrorAction SilentlyContinue
+        if (-not $resolvedFolder -or -not (Test-Path -LiteralPath $resolvedFolder.Path -PathType Container)) {
+            throw [OtterError]::new("I cannot find a folder called `"$Folder`" to open in Otter Studio.", 0, 'runtime')
         }
-    } catch { }
+        $folderFull = $resolvedFolder.Path
+    }
+
+    $testPort = {
+        param([int]$candidate)
+        try {
+            $tcp = [System.Net.Sockets.TcpClient]::new()
+            $ar = $tcp.BeginConnect("127.0.0.1", $candidate, $null, $null)
+            $open = $ar.AsyncWaitHandle.WaitOne(300)
+            if ($open) { $tcp.EndConnect($ar) }
+            $tcp.Close()
+            return $open
+        } catch { return $false }
+    }
+
+    # 1. Check if server on port is already listening; if not, launch it.
+    # A running Studio only has access to the folders it was started with,
+    # so opening a folder starts its own server on the next free port.
+    $serverRunning = & $testPort $Port
+    if ($serverRunning -and $folderFull) {
+        $candidate = $Port + 1
+        while ((& $testPort $candidate) -and $candidate -lt ($Port + 50)) { $candidate++ }
+        $Port = $candidate
+        $serverRunning = $false
+    }
 
     if (-not $serverRunning) {
         $nodeCandidates = @(
@@ -1798,6 +1833,11 @@ function Start-OtterStudio {
         $psi.WorkingDirectory = (Join-Path $repoRoot 'otter-studio')
         $psi.UseShellExecute = $false
         $psi.CreateNoWindow = $true
+        $psi.EnvironmentVariables['OTTER_STUDIO_PORT'] = [string]$Port
+        if ($folderFull) { $psi.EnvironmentVariables['OTTER_STUDIO_WORKSPACES'] = $folderFull }
+        # A host such as VS Code can leave this set; Studio's own children
+        # (Electron previews) must run as Electron, not as Node.
+        if ($psi.EnvironmentVariables.ContainsKey('ELECTRON_RUN_AS_NODE')) { $psi.EnvironmentVariables.Remove('ELECTRON_RUN_AS_NODE') }
         [System.Diagnostics.Process]::Start($psi) | Out-Null
         Start-Sleep -Milliseconds 800
     }
@@ -1822,6 +1862,10 @@ function Start-OtterStudio {
         "http://127.0.0.1:$Port/?mode=$Mode"
     } else {
         "http://127.0.0.1:$Port"
+    }
+    if ($folderFull) {
+        $separator = if ($url.Contains('?')) { '&' } else { '/?' }
+        $url += "${separator}folder=$([System.Uri]::EscapeDataString($folderFull))"
     }
 
     if ($exePath) {

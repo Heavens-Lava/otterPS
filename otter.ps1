@@ -45,6 +45,10 @@ param(
     [switch]$Open,
     [switch]$NoOpen,
     [int]$Port = 0,
+    # otter web copy.ot -SourceDir <folder>: compile as though the file lived
+    # in <folder> (its `use` imports, stylesheet and icons are found there).
+    # Otter Studio uses it to render an unsaved buffer of a project file.
+    [string]$SourceDir,
 
     # Developer views. These are for people working on Otter itself;
     # ordinary Otter output stays clean.
@@ -129,7 +133,7 @@ $OtterVersion = "Otter $OtterVersionNumber"
 # real, raw command line (which is never touched by parameter binding) and
 # strip out only otter.ps1's own known flags ourselves.
 $script:OtterOwnSwitchFlags = @('-DebugTokens', '-DebugAst', '-ParseOnly', '-DebugErrors', '-Open', '-NoOpen', '-version', '-help')
-$script:OtterOwnValueFlags = @('-Breakpoints', '-Port')
+$script:OtterOwnValueFlags = @('-Breakpoints', '-Port', '-SourceDir')
 
 function Get-OtterRawTrailingArguments {
     param([int]$SkipCount)
@@ -825,7 +829,13 @@ if ($Path -eq 'debug') {
 if ($Path -in @('web', 'browse', 'serve', 'desktop', 'studio')) {
     if ($Path -eq 'studio') {
         Import-Module (Join-Path $PSScriptRoot 'src\Otter.Desktop.psm1') -Force
-        Start-OtterStudio
+        # otter studio [folder] - a project folder anywhere on this computer.
+        try {
+            if ($Target) { Start-OtterStudio -Folder $Target } else { Start-OtterStudio }
+        } catch [OtterError] {
+            Write-Host $_.Exception.Message -ForegroundColor Red
+            [Environment]::Exit($script:ExitUsageError)
+        }
         exit 0
     }
     $scriptFile = $Target
@@ -893,7 +903,7 @@ if ($Path -in @('web', 'browse', 'serve', 'desktop', 'studio')) {
     }
     if ($Path -eq 'web' -or $Path -eq 'browse') {
         Import-Module (Join-Path $PSScriptRoot 'src\Otter.Web.psm1') -Force
-        $htmlPath = Export-OtterWebApplication -SourcePath $scriptFile
+        $htmlPath = if ($SourceDir) { Export-OtterWebApplication -SourcePath $scriptFile -SourceDirectory $SourceDir } else { Export-OtterWebApplication -SourcePath $scriptFile }
         Write-Host "Otter Web application compiled to: $htmlPath"
         if (-not $NoOpen) {
             Start-Process $htmlPath
