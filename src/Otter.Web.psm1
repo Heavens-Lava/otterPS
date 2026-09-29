@@ -392,13 +392,45 @@ $bodyCode
 # under the sample. A sample the web target cannot run (files, sockets, other
 # operating-system features, or `ask`) simply gets no Run button - never a
 # button that would fail. Returns the JS function source, or $null.
+# True when a sample declares or drives UI (a window, page, control, event
+# handler). A Run button shows text output in a box under the sample, so such
+# a sample cannot run there honestly and gets no Run button.
+function Test-OtterWebSampleUsesUi {
+    param([object]$Value)
+    if ($null -eq $Value -or $Value -is [string] -or $Value -is [enum] -or $Value -is [System.ValueType]) { return $false }
+    if ($Value -is [System.Collections.IEnumerable]) {
+        foreach ($item in $Value) { if (Test-OtterWebSampleUsesUi -Value $item) { return $true } }
+        return $false
+    }
+    if (-not $Value.GetType().Assembly.IsDynamic) { return $false }
+    if ($Value -is [Node]) {
+        if ($Value.Kind -in @([NodeKind]::CreateUiResource, [NodeKind]::PutIn, [NodeKind]::Show, [NodeKind]::UiAction, [NodeKind]::UiElement, [NodeKind]::When)) { return $true }
+        if ($Value -is [ObjectDefStmt] -and $Value.TypeName -and $Value.TypeName.ToLowerInvariant() -notin @('thing')) {
+            $kind = $Value.TypeName.ToLowerInvariant()
+            foreach ($v in @('primary ', 'secondary ', 'danger ')) { if ($kind.StartsWith($v)) { $kind = $kind.Substring($v.Length) } }
+            if ($kind -in @('window', 'page', 'button', 'text box', 'text', 'row', 'column', 'image', 'list', 'link', 'card', 'checkbox', 'check box', 'dropdown', 'drop down', 'select', 'slider', 'range', 'text area', 'textarea', 'badge', 'tag', 'canvas', 'table', 'scroll', 'progress', 'progress bar', 'toggle', 'switch', 'radio', 'radio button', 'dialog', 'modal', 'panel')) { return $true }
+        }
+    }
+    foreach ($prop in $Value.PSObject.Properties) {
+        if ($prop.Name -in @('Kind', 'Line')) { continue }
+        if (Test-OtterWebSampleUsesUi -Value $prop.Value) { return $true }
+    }
+    return $false
+}
+
 function Get-OtterRunnableJs {
     param([Parameter(Mandatory)][string]$Source)
     if ($Source -match '(?m)^\s*ask\s' -or $Source -match '\barguments\b') { return $null }   # ask and the console arguments list need a console
+    # A sample is compiled while its page is being compiled. The page's
+    # runtime-UI names (D128) belong to the page, not the sample: clear them
+    # for the sample and put them back afterwards.
+    $pageUiNames = Get-OtterJsRuntimeUiNames
+    Set-OtterJsRuntimeUiNames -Names @() -StaticNames @()
     try {
         $sampleAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $Source)
         $sampleStatements = @($sampleAst.Statements)
         if ($sampleStatements.Count -eq 0) { return $null }
+        if (Test-OtterWebSampleUsesUi -Value $sampleStatements) { return $null }
         $sampleGlobals = (Get-OtterJsTopLevelGlobalNames -TopLevelStatements $sampleStatements).Names
         $sampleJs = foreach ($sampleStatement in $sampleStatements) {
             ConvertTo-OtterJsStatement -Stmt $sampleStatement -Indent 2 -KnownGlobals $sampleGlobals
@@ -416,6 +448,8 @@ function Get-OtterRunnableJs {
         return "{ vars: $varsJson, run: async (otterSay) => {`n$sampleCode`n} }"
     } catch {
         return $null
+    } finally {
+        Set-OtterJsRuntimeUiNames -Names $pageUiNames.Names -StaticNames $pageUiNames.StaticNames
     }
 }
 

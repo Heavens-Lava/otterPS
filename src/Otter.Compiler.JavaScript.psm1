@@ -1385,6 +1385,12 @@ function Set-OtterJsRuntimeUiNames {
     foreach ($n in @($StaticNames)) { if ($n) { [void]$script:OtterJsStaticUiNames.Add($n) } }
 }
 
+# The current name sets, so a caller that compiles something unrelated to the
+# page (a Run-button sample) can clear them and put them back afterwards.
+function Get-OtterJsRuntimeUiNames {
+    return [pscustomobject]@{ Names = @($script:OtterJsRuntimeUiNames); StaticNames = @($script:OtterJsStaticUiNames) }
+}
+
 # The JS expression that identifies a UI resource by variable name: the handle
 # the variable holds when it is a runtime-created resource, otherwise the DOM
 # id (the name), exactly as before. `typeof` keeps it valid when the variable
@@ -4447,4 +4453,4 @@ Export-ModuleMember -Function `
     ConvertTo-OtterJsExpression, ConvertTo-OtterJsStatement, `
     Get-OtterJsBindingNames, Get-OtterJsTopLevelGlobalNames, `
     ConvertTo-OtterCommandLineArguments, Get-OtterJsCliPreamble, `
-    Get-OtterJsCryptoRuntime, Set-OtterJsRuntimeUiNames
+    Get-OtterJsCryptoRuntime, Set-OtterJsRuntimeUiNames, Get-OtterJsRuntimeUiNames

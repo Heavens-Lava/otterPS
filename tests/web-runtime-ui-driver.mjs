@@ -55,6 +55,19 @@ const scenarios = {
       };
     });
   },
+  // A Run-button sample: click Run and read its output box.
+  async samples(page) {
+    return page.evaluate(async () => {
+      document.querySelector('[data-otter-run="thingSample"]').click();
+      for (let i = 0; i < 100; i++) {
+        const o = document.getElementById('thingSample-output');
+        if (o && !o.hidden && o.textContent.trim()) { break; }
+        await new Promise(r => setTimeout(r, 30));
+      }
+      const o = document.getElementById('thingSample-output');
+      return { output: o ? o.textContent.trim() : null, isError: !!o && o.classList.contains('otter-run-error') };
+    });
+  },
   // `put` of something that is not a UI resource: the interpreter's message.
   async putError(page) {
     return page.evaluate(async () => {

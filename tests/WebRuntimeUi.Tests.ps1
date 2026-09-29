@@ -106,10 +106,22 @@ when goButton clicked
 show app
 '@
 
+$samplesSource = @'
+create page into app
+create text into person
+person has text "the page's own element"
+put person in app
+uiSample is a text with value "create button into saveButton\nwhen saveButton is clicked\n    say \"Saved\"\n.", runnable true
+thingSample is a text with value "person has name \"Ada\"\nsay \"ok\"", runnable true
+put uiSample, thingSample in app
+show app
+'@
+
 try {
     $tasksHtml = Export-OtterWebApplication -SourcePath (Join-Path $script:RepoRoot 'examples\v1\tasks.ot') -OutputPath (Join-Path $script:Tmp 'tasks.html') -PassThruExceptions
     $boardHtml = Build-OtterWebPage -Name 'board' -Source $boardSource
     $putErrorHtml = Build-OtterWebPage -Name 'puterror' -Source $putErrorSource
+    $samplesHtml = Build-OtterWebPage -Name 'samples' -Source $samplesSource
 
     Test-Otter 'D128 compile: a handler that creates UI compiles to runtime creation, not a dropped statement' {
         $html = [System.IO.File]::ReadAllText($tasksHtml)
@@ -122,6 +134,13 @@ try {
         $plain = Build-OtterWebPage -Name 'plain' -Source "create page into app`ncreate text into hello`nhello has text `"hi`"`nput hello in app`nshow app`n"
         $html = [System.IO.File]::ReadAllText($plain)
         Assert-False ($html.Contains('otterUiTemplates')) 'a page without runtime UI must not include the runtime UI code'
+    }
+
+    Test-Otter 'D128 Run-button samples: a UI sample gets no Run button; a sample is compiled apart from its page''s UI names' {
+        $html = [System.IO.File]::ReadAllText($samplesHtml)
+        Assert-False ($html.Contains('data-otter-run="uiSample"')) 'a sample that creates UI cannot run in the output box and must not get a Run button'
+        Assert-True ($html.Contains('data-otter-run="thingSample"')) 'the thing sample should keep its Run button'
+        Assert-False ($html.Contains('otterSetUiProp')) 'the thing sample was compiled with the page''s UI names (person is a page element)'
     }
 
     Test-Otter 'D56 on the web: hide and focus are refused with the console''s message instead of compiling to nothing' {
@@ -173,6 +192,12 @@ try {
             Assert-AreEqual -Expected '10px' -Actual $r.cardPadding
             Assert-AreEqual -Expected '4px' -Actual $r.rowGap
             Assert-AreEqual -Expected 0 -Actual @($r.pageErrors).Count
+        }
+
+        Test-Otter 'D128 browser: a Run-button sample is compiled with its own names, not the page''s (it runs instead of failing)' {
+            $r = Invoke-OtterWebScenario -Html $samplesHtml -Scenario 'samples'
+            Assert-AreEqual -Expected 'ok' -Actual $r.output
+            Assert-False $r.isError "the sample run failed: $($r.output)"
         }
 
         Test-Otter 'D128 browser: putting a non-UI value somewhere is the interpreter''s error, not silence' {
