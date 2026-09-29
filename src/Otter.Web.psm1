@@ -724,6 +724,10 @@ function ConvertTo-OtterWeb {
             'window' {
                 $spacing = if ($props.Contains('spacing')) { $props['spacing'] } else { 12 }
                 if (-not $props.Contains('gap')) { $styles.Add("gap: ${spacing}px;") }
+                # .otter-window caps a window at 520px wide. A window that states
+                # its own width (width 900) gets that width - still no wider than
+                # the screen - unless it also sets a maximum itself.
+                if ($props.Contains('width') -and -not $props.Contains('maxwidth')) { $styles.Add("max-width: 100%;") }
                 $styleAttr = if ($styles.Count -gt 0) { " style=`"$($styles -join ' ')`"" } else { "" }
                 return @"
     <div id="$resName" class="otter-window"$styleAttr>

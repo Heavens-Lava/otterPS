@@ -67,6 +67,17 @@ if ($layoutHtml -notmatch 'display: flex; flex-direction: row;') { throw 'Expect
 if ($layoutHtml -notmatch 'display: flex; flex-direction: column;') { throw 'Expected column flex styling.' }
 Write-Output '  pass  layout rows and columns compile to responsive flexbox structures'
 
+# Test 2b: a window's own width is not cut to the default 520px cap
+$wideSource = @"
+app is a window with title "Wide", width 900, height 560
+show app
+"@
+$wideHtml = ConvertTo-OtterWeb -Program (ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $wideSource))
+if ($wideHtml -notmatch 'id="app" class="otter-window" style="[^"]*width: 900px;[^"]*max-width: 100%;') { throw 'Expected a window with width 900 to lift the 520px cap (max-width: 100% inline).' }
+$narrowHtml = ConvertTo-OtterWeb -Program (ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source "app is a window with title `"Narrow`"`nshow app"))
+if ($narrowHtml -match 'id="app" class="otter-window" style="[^"]*max-width') { throw 'A window without a width keeps the default cap.' }
+Write-Output '  pass  a window with its own width is not capped at 520px'
+
 # Test 3: Export hello-app.ot and calculator.ot
 $helloHtmlPath = Export-OtterWebApplication -SourcePath (Join-Path $PSScriptRoot '..\examples\hello-app.ot')
 if (-not (Test-Path $helloHtmlPath)) { throw 'Expected hello-app.html to exist.' }
