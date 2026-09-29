@@ -45,10 +45,10 @@ and Preview matches the canvas.
 
 | # | Friction | Fix |
 |---|---|---|
-| 7 | Table cells hugged their text; columns did not line up | Layout -> Cells: Hug / Equal on a row (every selected row at once, one undo step): , ordinary CSS the compiler embeds; duplicating a row keeps it. Checked: the three rows' cells start at the same x on the canvas and in Preview |
-| 8 | Sidebar navigation did not fill the column; no inner padding | a new Column no longer writes  or  to the source (the compiled column stretches its children; the source  was overriding the designer's padding): buttons fill the sidebar, 12 px inside |
+| 7 | Table cells hugged their text; columns did not line up | Layout -> Cells: Hug / Equal on a row (every selected row at once, one undo step): `#row > * { flex: 1 1 0; min-width: 0 }`, ordinary CSS the compiler embeds; duplicating a row keeps it. Checked: the three rows' cells start at the same x on the canvas and in Preview |
+| 8 | Sidebar navigation did not fill the column; no inner padding | a new Column no longer writes `align "left"` or `padding 0` to the source (the compiled column stretches its children; the source `padding 0` was overriding the designer's padding): buttons fill the sidebar, 12 px inside |
 | 9 | A window made larger than the view was partly off screen until Shift+1 | the view fits by itself when a window resize leaves it too big |
-| 10 | A one-line row was ~20 px tall and hard to drop into | a new Row gets 8 px padding (no  in the source): 34 px, an easy target, and a better-looking table line |
+| 10 | A one-line row was ~20 px tall and hard to drop into | a new Row gets 8 px padding (no `padding 0` in the source): 34 px, an easy target, and a better-looking table line |
 
 After both rounds the dashboard builds through the Designer alone with no
 failed step and no fighting, and Preview (the compiled app) matches the
