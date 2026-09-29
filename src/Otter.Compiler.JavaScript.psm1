@@ -3800,7 +3800,30 @@ function ConvertTo-OtterJsStatement {
         # above) reproducible - rather than silently not-seed, this is a
         # clean compile-time error like the D100 primitives above.
         ([NodeKind]::WaitDelay) {
-            throw [OtterError]::new('`wait ...` is not supported on the web target yet.', $Stmt.Line, 'runtime')
+            # `wait 3 seconds`: the program pauses there, as in the
+            # interpreter, while the page stays responsive (handlers still
+            # run). The enclosing function becomes async and its callers
+            # await it (see Test-OtterJsBodyNeedsAsync).
+            $durationJs = ConvertTo-OtterJsExpression -Expr $Stmt.Duration
+            $factor = switch ($Stmt.Unit) {
+                ([TimeUnit]::Millisecond) { '1' }
+                ([TimeUnit]::Second)      { '1000' }
+                ([TimeUnit]::Minute)      { '60000' }
+                ([TimeUnit]::Hour)        { '3600000' }
+                ([TimeUnit]::Day)         { '86400000' }
+                ([TimeUnit]::Month)       { '2629746000' }
+                ([TimeUnit]::Year)        { '31556952000' }
+                default                   { '1000' }
+            }
+            $lines = [System.Collections.Generic.List[string]]::new()
+            $inner = '  ' * ($Indent + 1)
+            $lines.Add("${pad}{")
+            $lines.Add("${inner}const _wait = $durationJs;")
+            $lines.Add("${inner}if (typeof _wait !== 'number' || Number.isNaN(_wait)) { throw new Error('I expected a number for a wait duration, but this is ' + (typeof _wait === 'string' ? 'some text' : 'something else') + '.'); }")
+            $lines.Add("${inner}if (_wait < 0) { throw new Error(`"I can't wait a negative amount of time (`" + _wait + `").`"); }")
+            $lines.Add("${inner}await new Promise((resolve) => setTimeout(resolve, Math.round(_wait * $factor)));")
+            $lines.Add("${pad}}")
+            return ($lines -join "`n")
         }
         ([NodeKind]::SetRandomSeed) {
             throw [OtterError]::new('`set random seed to ...` is not supported on the web target yet.', $Stmt.Line, 'runtime')
@@ -4301,7 +4324,7 @@ function Test-OtterJsBodyNeedsAsync {
 
     if ($null -eq $Statements) { return $false }
     foreach ($s in $Statements) {
-        if ($s.Kind -eq [NodeKind]::Await -or $s.Kind -eq [NodeKind]::ReadFile -or $s.Kind -eq [NodeKind]::WriteFile -or $s.Kind -eq [NodeKind]::AppendFile -or $s.Kind -eq [NodeKind]::CopyFile -or $s.Kind -eq [NodeKind]::MoveFile -or $s.Kind -eq [NodeKind]::DeleteFile -or $s.Kind -eq [NodeKind]::CreateFolder -or $s.Kind -eq [NodeKind]::DeleteFolder -or $s.Kind -eq [NodeKind]::CopyFolder -or $s.Kind -eq [NodeKind]::MoveFolder -or $s.Kind -eq [NodeKind]::GetFiles -or $s.Kind -eq [NodeKind]::GetFolders -or $s.Kind -eq [NodeKind]::RunProgram -or $s.Kind -eq [NodeKind]::HttpGet -or $s.Kind -eq [NodeKind]::HttpPost -or $s.Kind -eq [NodeKind]::HttpPut -or $s.Kind -eq [NodeKind]::HttpDelete -or $s.Kind -eq [NodeKind]::CopyToClipboard -or $s.Kind -eq [NodeKind]::GetClipboard -or $s.Kind -eq [NodeKind]::Notify -or $s.Kind -eq [NodeKind]::GetEnvironmentVariable -or $s.Kind -eq [NodeKind]::GetSystemFolder -or $s.Kind -eq [NodeKind]::ChooseFile -or $s.Kind -eq [NodeKind]::ChooseFolder -or $s.Kind -eq [NodeKind]::ChooseSaveFile -or $s.Kind -eq [NodeKind]::GetSystemInfo -or $s.Kind -eq [NodeKind]::GetProcesses -or $s.Kind -eq [NodeKind]::KillProcess -or $s.Kind -eq [NodeKind]::SetProcessPriority -or $s.Kind -eq [NodeKind]::WaitForProcess -or $s.Kind -eq [NodeKind]::CreateSymbolicLink -or $s.Kind -eq [NodeKind]::GetSymbolicLinkTarget -or $s.Kind -eq [NodeKind]::GetFileOwner -or $s.Kind -eq [NodeKind]::SetFileReadOnly -or $s.Kind -eq [NodeKind]::GetRegistryValue -or $s.Kind -eq [NodeKind]::SetRegistryValue -or $s.Kind -eq [NodeKind]::DeleteRegistryValue -or $s.Kind -eq [NodeKind]::GetEventLogEntries -or $s.Kind -eq [NodeKind]::SetCredential -or $s.Kind -eq [NodeKind]::GetCredential -or $s.Kind -eq [NodeKind]::DeleteCredential -or $s.Kind -eq [NodeKind]::PowerAction -or $s.Kind -eq [NodeKind]::PrintFile -or $s.Kind -eq [NodeKind]::RunRemoteCommand -or $s.Kind -eq [NodeKind]::RunSshCommand -or $s.Kind -eq [NodeKind]::ZipFolder -or $s.Kind -eq [NodeKind]::UnzipFile -or $s.Kind -eq [NodeKind]::HashText -or $s.Kind -eq [NodeKind]::EncryptText -or $s.Kind -eq [NodeKind]::DecryptText) {
+        if ($s.Kind -eq [NodeKind]::Await -or $s.Kind -eq [NodeKind]::WaitDelay -or $s.Kind -eq [NodeKind]::ReadFile -or $s.Kind -eq [NodeKind]::WriteFile -or $s.Kind -eq [NodeKind]::AppendFile -or $s.Kind -eq [NodeKind]::CopyFile -or $s.Kind -eq [NodeKind]::MoveFile -or $s.Kind -eq [NodeKind]::DeleteFile -or $s.Kind -eq [NodeKind]::CreateFolder -or $s.Kind -eq [NodeKind]::DeleteFolder -or $s.Kind -eq [NodeKind]::CopyFolder -or $s.Kind -eq [NodeKind]::MoveFolder -or $s.Kind -eq [NodeKind]::GetFiles -or $s.Kind -eq [NodeKind]::GetFolders -or $s.Kind -eq [NodeKind]::RunProgram -or $s.Kind -eq [NodeKind]::HttpGet -or $s.Kind -eq [NodeKind]::HttpPost -or $s.Kind -eq [NodeKind]::HttpPut -or $s.Kind -eq [NodeKind]::HttpDelete -or $s.Kind -eq [NodeKind]::CopyToClipboard -or $s.Kind -eq [NodeKind]::GetClipboard -or $s.Kind -eq [NodeKind]::Notify -or $s.Kind -eq [NodeKind]::GetEnvironmentVariable -or $s.Kind -eq [NodeKind]::GetSystemFolder -or $s.Kind -eq [NodeKind]::ChooseFile -or $s.Kind -eq [NodeKind]::ChooseFolder -or $s.Kind -eq [NodeKind]::ChooseSaveFile -or $s.Kind -eq [NodeKind]::GetSystemInfo -or $s.Kind -eq [NodeKind]::GetProcesses -or $s.Kind -eq [NodeKind]::KillProcess -or $s.Kind -eq [NodeKind]::SetProcessPriority -or $s.Kind -eq [NodeKind]::WaitForProcess -or $s.Kind -eq [NodeKind]::CreateSymbolicLink -or $s.Kind -eq [NodeKind]::GetSymbolicLinkTarget -or $s.Kind -eq [NodeKind]::GetFileOwner -or $s.Kind -eq [NodeKind]::SetFileReadOnly -or $s.Kind -eq [NodeKind]::GetRegistryValue -or $s.Kind -eq [NodeKind]::SetRegistryValue -or $s.Kind -eq [NodeKind]::DeleteRegistryValue -or $s.Kind -eq [NodeKind]::GetEventLogEntries -or $s.Kind -eq [NodeKind]::SetCredential -or $s.Kind -eq [NodeKind]::GetCredential -or $s.Kind -eq [NodeKind]::DeleteCredential -or $s.Kind -eq [NodeKind]::PowerAction -or $s.Kind -eq [NodeKind]::PrintFile -or $s.Kind -eq [NodeKind]::RunRemoteCommand -or $s.Kind -eq [NodeKind]::RunSshCommand -or $s.Kind -eq [NodeKind]::ZipFolder -or $s.Kind -eq [NodeKind]::UnzipFile -or $s.Kind -eq [NodeKind]::HashText -or $s.Kind -eq [NodeKind]::EncryptText -or $s.Kind -eq [NodeKind]::DecryptText) {
             return $true
         }
         if ($s.Kind -eq [NodeKind]::CryptoCipher -or $s.Kind -eq [NodeKind]::HashPassword) {
