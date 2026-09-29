@@ -15,7 +15,9 @@ $work = [System.IO.Path]::GetFullPath($WorkDirectory)
 # installed launcher is otter.cmd on Windows and `otter` on macOS and Linux.
 $hostExe = (Get-Process -Id $PID).Path
 $onWindows = ($PSVersionTable.PSEdition -ne 'Core') -or [bool](Get-Variable -Name IsWindows -ValueOnly -ErrorAction SilentlyContinue)
-$hostArgs = if ($onWindows) { @('-NoProfile', '-ExecutionPolicy', 'Bypass') } else { @('-NoProfile') }
+# @(...): a one-element array from an if would unroll to a plain string, and
+# splatting a string passes its characters one by one.
+$hostArgs = @(if ($onWindows) { '-NoProfile', '-ExecutionPolicy', 'Bypass' } else { '-NoProfile' })
 $launcherName = if ($onWindows) { 'otter.cmd' } else { 'otter' }
 
 function Invoke-InstalledOtter {
