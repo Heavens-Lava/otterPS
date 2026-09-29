@@ -233,7 +233,82 @@ b34 is a link with text "Open an issue on GitHub", url "https://github.com/Heave
 b35 is a link with text "The otter command", url "/cli/", foreground "#2563eb", weight 600, size 15
 
 docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"
-put b1, b2, b3, b4, b5block, b6, b7block, b8, b9, b10, b11block, b12, b13, b14, b15block, b16, b17block, b18, b19block, b20, b21block, b22, b23, b24block, b25, b26block, b27, b28, b29, b30, b31, b32, b33, b34, b35 in docsMain
+nw1 is a text with value "Messages from the Otter 1.0 rules", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+nw2 is a text with value "These come from rules added for Otter 1.0. Each message below is exactly what otter prints.", size 16, foreground "#3a4d6b", lineheight "1.6"
+nw3 is a text with value "Otter Syntax Error\n\nLine 1:\n    to find name\n       ^\n\n`find` is a reserved word in Otter: a line starting with `find` is read as the `find` statement, so a function named `find` could never be called. Choose a different name, for example `findTask`.\n\nTry:\n    Rename `find` everywhere it is used, for example to `findTask`. See docs/OTTER_1_0_RESERVED_WORDS.md.", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;"
+nw3label is a text with value "Output", size 12, weight 600, foreground "#4a5b75"
+nw3copy is a button with text "Copy", size 12, weight 600, background "#c9d6e8", foreground "#0f1f36", radius 6, padding "4px 12px"
+nw3head is a row with spread, align middle, width full, background "#dde6f2", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put nw3label, nw3copy in nw3head
+nw3block is a column with spacing 0, width full
+put nw3head, nw3 in nw3block
+when nw3copy is clicked
+    copy text of nw3 to clipboard
+    text of nw3copy is "Copied"
+.
+nw4 is a text with value "Fix: use the suggested name, or any other name that is not reserved. The Reference page lists the reserved words.", size 16, foreground "#3a4d6b", lineheight "1.6"
+nw5 is a text with value "Otter Runtime Error\n\nLine 2:\n    message is \"total: \" and total\n\nI expected a number for the left side of this calculation but got \"total: \".", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;"
+nw5label is a text with value "Output", size 12, weight 600, foreground "#4a5b75"
+nw5copy is a button with text "Copy", size 12, weight 600, background "#c9d6e8", foreground "#0f1f36", radius 6, padding "4px 12px"
+nw5head is a row with spread, align middle, width full, background "#dde6f2", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put nw5label, nw5copy in nw5head
+nw5block is a column with spacing 0, width full
+put nw5head, nw5 in nw5block
+when nw5copy is clicked
+    copy text of nw5 to clipboard
+    text of nw5copy is "Copied"
+.
+nw6 is a text with value "Fix: and joins two pieces of text, but it cannot join text and a number. To show them together, give say the parts: say \"total:\" total prints total: 3.", size 16, foreground "#3a4d6b", lineheight "1.6"
+nw7 is a text with value "Otter Syntax Error\n\nLine 2:\n    if score is 1 plus score is 4\n                             ^\n\nI expected the statement to end here. I found 'is' instead.\n\nTry:\n    Check the expected word and try again.", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;"
+nw7label is a text with value "Output", size 12, weight 600, foreground "#4a5b75"
+nw7copy is a button with text "Copy", size 12, weight 600, background "#c9d6e8", foreground "#0f1f36", radius 6, padding "4px 12px"
+nw7head is a row with spread, align middle, width full, background "#dde6f2", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put nw7label, nw7copy in nw7head
+nw7block is a column with spacing 0, width full
+put nw7head, nw7 in nw7block
+when nw7copy is clicked
+    copy text of nw7 to clipboard
+    text of nw7copy is "Copied"
+.
+nw8 is a text with value "Fix: join two conditions with and, as in if score is 1 and score is 4. plus is always arithmetic, even inside an if.", size 16, foreground "#3a4d6b", lineheight "1.6"
+nw9 is a text with value "Otter Runtime Error\n\nLine 1:\n    hide sidebar\n\n'hide' is not supported in Otter 1.0.", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;"
+nw9label is a text with value "Output", size 12, weight 600, foreground "#4a5b75"
+nw9copy is a button with text "Copy", size 12, weight 600, background "#c9d6e8", foreground "#0f1f36", radius 6, padding "4px 12px"
+nw9head is a row with spread, align middle, width full, background "#dde6f2", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put nw9label, nw9copy in nw9head
+nw9block is a column with spacing 0, width full
+put nw9head, nw9 in nw9block
+when nw9copy is clicked
+    copy text of nw9 to clipboard
+    text of nw9copy is "Copied"
+.
+nw10 is a text with value "Fix: hide, show, focus and clear are planned for Otter 1.1 (see the Roadmap). Otter says so instead of silently doing nothing.", size 16, foreground "#3a4d6b", lineheight "1.6"
+nw11 is a text with value "Otter Runtime Error\n\nLine 1:\n    start command \"echo hi\" and call it job\n\nStarting a command (\"start command ...\") is not supported on the web target. Browsers cannot run programs.", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;"
+nw11label is a text with value "Output", size 12, weight 600, foreground "#4a5b75"
+nw11copy is a button with text "Copy", size 12, weight 600, background "#c9d6e8", foreground "#0f1f36", radius 6, padding "4px 12px"
+nw11head is a row with spread, align middle, width full, background "#dde6f2", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put nw11label, nw11copy in nw11head
+nw11block is a column with spacing 0, width full
+put nw11head, nw11 in nw11block
+when nw11copy is clicked
+    copy text of nw11 to clipboard
+    text of nw11copy is "Copied"
+.
+nw12 is a text with value "Fix: a browser cannot start programs, and some other statements need the computer as well. Run that program with otter run instead of otter web.", size 16, foreground "#3a4d6b", lineheight "1.6"
+nw13 is a text with value "Otter Syntax Error\n\nLine 1:\n    use \"helpers.ot\"\n    ^\n\nThe file is named \"Helpers.ot\", but this use says \"helpers.ot\". Module paths must match file and folder names exactly, including capital letters.\n\nTry:\n    use \"Helpers.ot\"", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;"
+nw13label is a text with value "Output", size 12, weight 600, foreground "#4a5b75"
+nw13copy is a button with text "Copy", size 12, weight 600, background "#c9d6e8", foreground "#0f1f36", radius 6, padding "4px 12px"
+nw13head is a row with spread, align middle, width full, background "#dde6f2", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put nw13label, nw13copy in nw13head
+nw13block is a column with spacing 0, width full
+put nw13head, nw13 in nw13block
+when nw13copy is clicked
+    copy text of nw13 to clipboard
+    text of nw13copy is "Copied"
+.
+nw14 is a text with value "Fix: write file and folder names exactly as they are, including capital letters, so the program works the same on every computer. The message shows the corrected line.", size 16, foreground "#3a4d6b", lineheight "1.6"
+
+put b1, b2, b3, b4, b5block, b6, b7block, b8, b9, b10, b11block, b12, b13, b14, b15block, b16, b17block, b18, b19block, b20, b21block, b22, b23, b24block, b25, b26block, nw1, nw2, nw3block, nw4, nw5block, nw6, nw7block, nw8, nw9block, nw10, nw11block, nw12, nw13block, nw14, b27, b28, b29, b30, b31, b32, b33, b34, b35 in docsMain
 docsBody is a row with align top, spacing 0, width full, customstyle "align-items: stretch;"
 put docsSidebar, docsMain in docsBody
 
