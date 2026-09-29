@@ -22,8 +22,9 @@ const [indexHtml, shellJs, dialogJs] = await Promise.all([
   fs.readFile(path.join(studioRoot, 'js', 'shell', 'studio-shell.js'), 'utf8'),
   fs.readFile(path.join(studioRoot, 'js', 'shell', 'package-dialog.js'), 'utf8')
 ]);
-assert.match(indexHtml, /id="menuBuild"/, 'the menu bar must have a Build menu');
-assert.match(indexHtml, /id="menuItemBuildDesktop"/, 'Build must offer Desktop App (Windows)');
+const menuBarJs = await fs.readFile(path.join(studioRoot, 'js', 'shell', 'menu-bar.js'), 'utf8');
+assert.match(menuBarJs, /id: 'build', label: 'Build'/, 'the menu bar must have a Build menu');
+assert.match(menuBarJs, /'build.desktopApp'/, 'Build must offer Desktop App (Windows)');
 assert.match(indexHtml, /css\/package-dialog\.css/, 'the dialog stylesheet must be linked');
 assert.match(shellJs, /mountPackageDialog\(/, 'the shell must mount the package dialog');
 assert.match(dialogJs, /fetch\('\/api\/package'/, 'the dialog must build through /api/package');

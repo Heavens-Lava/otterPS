@@ -52,7 +52,7 @@ const [indexHtml, shellJs, ideJs] = await Promise.all([
   fs.readFile(path.join(studioRoot, 'js', 'shell', 'studio-shell.js'), 'utf8'),
   fs.readFile(path.join(studioRoot, 'js', 'ide.js'), 'utf8')
 ]);
-assert.match(indexHtml, /id="menuItemSettings"/, 'File menu must offer Settings...');
+assert.match(await fs.readFile(path.join(studioRoot, 'js', 'shell', 'menu-bar.js'), 'utf8'), /'file.settings'/, 'File menu must offer Settings...');
 assert.match(indexHtml, /css\/settings\.css/, 'the settings stylesheet must be linked');
 assert.match(shellJs, /window\.otterSettings = settings/, 'the shell must publish the settings store');
 assert.match(ideJs, /this\.setting\('editor\.autoClosePairs'/, 'the editor must consult the auto-close setting');

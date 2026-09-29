@@ -746,37 +746,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   // ===============================================================
   // HEADER DROPDOWN MENUS & ACTIONS
   // ===============================================================
-  const menuFile = document.getElementById('menuFile');
-  if (menuFile) {
-    menuFile.addEventListener('click', (e) => {
-      e.stopPropagation();
-      menuFile.classList.toggle('is-open');
-    });
-  }
-  document.addEventListener('click', () => {
-    menuFile?.classList.remove('is-open');
-  });
-
-  document.getElementById('menuItemNewProject')?.addEventListener('click', () => {
-    menuFile?.classList.remove('is-open');
-    openNewProjectModal();
-  });
-  document.getElementById('menuItemOpenFolder')?.addEventListener('click', () => {
-    menuFile?.classList.remove('is-open');
-    ide.promptOpenFolder();
-  });
-  document.getElementById('menuItemNewFile')?.addEventListener('click', () => {
-    menuFile?.classList.remove('is-open');
-    ide.promptNewFile();
-  });
-  document.getElementById('menuItemSave')?.addEventListener('click', () => {
-    menuFile?.classList.remove('is-open');
-    ide.saveCurrentFile();
-  });
-  document.getElementById('menuItemProjectSettings')?.addEventListener('click', () => {
-    menuFile?.classList.remove('is-open');
-    ide.openProjectSettings();
-  });
+  // The menu bar (js/shell/menu-bar.js) is mounted by the studio shell and
+  // runs registered commands.
 
   // ===============================================================
   // NEW PROJECT / STARTUP WIZARD MODAL (Console, App, Web, Game)

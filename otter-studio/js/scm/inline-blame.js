@@ -40,6 +40,8 @@ export function createInlineBlame(ide) {
     if (pending.has(path)) return pending.get(path);
     const job = (async () => {
       try {
+        // A buffer that was never saved (untitled.ot) has nothing to blame.
+        if (!ide.openTabs?.find(t => t.path === path)?.diskRevision) return null;
         const where = await locateInRepo(path);
         if (!where) return null;
         const res = await fetch(`/api/git/blame?folder=${encodeURIComponent(where.folder)}&path=${encodeURIComponent(where.repoPath)}`);

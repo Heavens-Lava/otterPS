@@ -143,7 +143,13 @@ export function formatShortcut(shortcut) {
 export function defaultCommands(deps) {
   const { ide, setMode, openNewProjectModal, openSettings, openPackageDialog, openShortcuts, showWelcome, toggleTheme, byId,
     toggleZen = () => {}, toggleFullScreen = () => {}, toggleWhitespace = () => {},
-    openDocs = () => {}, reportIssue = () => {} } = deps;
+    openDocs = () => {}, reportIssue = () => {}, openPackagesFolder = () => {} } = deps;
+  // Undo / Redo act on the designer while it is in use, else on the editor.
+  const designerOr = (designerId, editorAction) => () => {
+    const designerCommand = globalThis.otterCommands?.get?.(designerId);
+    if (designerCommand && (!designerCommand.when || designerCommand.when() !== false)) return designerCommand.run();
+    return editorAction();
+  };
   const hasFile = () => Boolean(ide.currentFile);
   const click = (id) => () => byId(id)?.click();
   const hasProject = () => Boolean(ide.currentProjectFolder);
@@ -159,6 +165,7 @@ export function defaultCommands(deps) {
     { id: 'file.localHistory', title: 'Local History...', category: 'File', when: hasFile, run: () => ide.openLocalHistory() },
     { id: 'file.compareFile', title: 'Compare with File...', category: 'File', when: hasFile, run: () => ide.compareWithFile() },
     { id: 'file.projectSettings', title: 'Project Settings...', category: 'File', when: hasProject, run: () => ide.openProjectSettings() },
+    { id: 'file.newSolution', title: 'New Solution...', category: 'File', run: () => ide.promptNewSolution() },
     { id: 'file.settings', title: 'Settings...', category: 'File', shortcut: 'Ctrl+,', run: openSettings },
     // Go
     { id: 'go.quickOpen', title: 'Go to File...', category: 'Go', shortcut: 'Ctrl+P', run: () => ide.openNavigationPalette('files') },
@@ -170,6 +177,8 @@ export function defaultCommands(deps) {
     { id: 'go.back', title: 'Go Back', category: 'Go', shortcut: 'Alt+Left', run: click('btnNavigateBack') },
     { id: 'go.forward', title: 'Go Forward', category: 'Go', shortcut: 'Alt+Right', run: click('btnNavigateForward') },
     // Edit
+    { id: 'edit.undo', title: 'Undo', category: 'Edit', shortcut: 'Ctrl+Z', run: designerOr('designer.undo', () => ide.editorHistory('undo')) },
+    { id: 'edit.redo', title: 'Redo', category: 'Edit', shortcut: 'Ctrl+Y', run: designerOr('designer.redo', () => ide.editorHistory('redo')) },
     { id: 'edit.find', title: 'Find', category: 'Edit', shortcut: 'Ctrl+F', run: () => ide.openFind(false) },
     { id: 'edit.replace', title: 'Replace', category: 'Edit', shortcut: 'Ctrl+H', run: () => ide.openFind(true) },
     { id: 'edit.format', title: 'Format Document', category: 'Edit', shortcut: 'Shift+Alt+F', run: () => ide.formatCurrentDocument() },
@@ -211,6 +220,7 @@ export function defaultCommands(deps) {
     { id: 'build.build', title: 'Build Project', category: 'Build', shortcut: 'Ctrl+Shift+B', when: hasProject, run: () => ide.buildProject() },
     { id: 'build.rebuild', title: 'Rebuild Project', category: 'Build', when: hasProject, run: () => ide.buildProject({ clean: true }) },
     { id: 'build.clean', title: 'Clean Build Output', category: 'Build', when: hasProject, run: () => ide.cleanProject() },
+    { id: 'build.openPackagesFolder', title: 'Open Packages Folder', category: 'Build', run: openPackagesFolder },
     { id: 'build.desktopApp', title: 'Build Desktop App (Windows)...', category: 'Build', run: openPackageDialog },
     // Source control
     { id: 'git.show', title: 'Show Source Control', category: 'Git', shortcut: 'Ctrl+Shift+G', run: click('btnPaneScm') },

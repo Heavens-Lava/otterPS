@@ -97,4 +97,20 @@ console.log('  pass  the palette lists commands and ">" reaches them');
   console.log('  pass  keybindings: rebind, remove, reset, scopes');
 }
 
-console.log('Command registry certification passed (5 checks).');
+// 6. The menu bar (js/shell/menu-bar.js) only lists registered commands, so
+// no menu item can silently disappear; every menu has items.
+{
+  const { MENUS } = await import('../js/shell/menu-bar.js');
+  assert.deepEqual(MENUS.map(m => m.label), ['File', 'Edit', 'View', 'Go', 'Run', 'Build', 'Help']);
+  for (const menu of MENUS) {
+    const entries = menu.items.filter(e => e !== '-');
+    assert.ok(entries.length >= 5, `${menu.label} has items`);
+    for (const entry of entries) {
+      const id = typeof entry === 'string' ? entry : entry.id;
+      assert.ok(all.get(id), `${menu.label} > ${id} is a registered command`);
+    }
+  }
+  console.log('  pass  menu bar: every item is a registered command');
+}
+
+console.log('Command registry certification passed (6 checks).');

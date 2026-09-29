@@ -11,6 +11,7 @@ import { mountDocsViewer, issueUrl } from '../docs/docs-viewer.js';
 import { createCommandRegistry, defaultCommands } from './commands.js';
 import { mountShortcutsDialog } from './shortcuts-dialog.js';
 import { installMoreMenu } from './more-menu.js';
+import { mountMenuBar } from './menu-bar.js';
 
 const ICONS = {
   newProject: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="M12 12v6M9 15h6"/></svg>',
@@ -238,34 +239,19 @@ export function mountStudioShell({ ide, setMode, openNewProjectModal, showWelcom
     if (path === '*' || path.startsWith('editor.')) ide.renderEditorCode(ide.currentCode);
   });
   const settingsDialog = mountSettingsDialog(settings);
-  document.getElementById('menuItemSettings')?.addEventListener('click', () => {
-    document.getElementById('menuFile')?.classList.remove('is-open');
-    settingsDialog.open();
-  });
 
   // --- Build menu -------------------------------------------------------------
 
   const packageDialog = mountPackageDialog({ ide, openNewProjectModal });
-  const menuBuild = document.getElementById('menuBuild');
-  menuBuild?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    document.getElementById('menuFile')?.classList.remove('is-open');
-    menuBuild.classList.toggle('is-open');
-  });
-  document.addEventListener('click', () => menuBuild?.classList.remove('is-open'));
-  document.getElementById('menuItemBuildDesktop')?.addEventListener('click', () => {
-    menuBuild?.classList.remove('is-open');
-    packageDialog.open();
-  });
-  document.getElementById('menuItemBuildReveal')?.addEventListener('click', () => {
-    menuBuild?.classList.remove('is-open');
+  // Build > Open Packages Folder: where Build > Desktop App puts its output.
+  function openPackagesFolder() {
     if (!ide.currentProjectFolder) { packageDialog.open(); return; }
     fetch('/api/reveal', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ path: `${ide.currentProjectFolder}/packages` })
     }).then(res => { if (!res.ok) packageDialog.open(); }).catch(() => packageDialog.open());
-  });
+  }
 
   // --- Commands, palette, Help menu ---------------------------------------------
 
@@ -303,6 +289,7 @@ export function mountStudioShell({ ide, setMode, openNewProjectModal, showWelcom
     toggleFullScreen,
     toggleWhitespace: () => settings.set('editor.renderWhitespace', !settings.get('editor.renderWhitespace')),
     openDocs: (path) => docsViewer.open(path),
+    openPackagesFolder,
     reportIssue: () => window.open(issueUrl({ version: '1.0', platform: navigator.platform, userAgent: navigator.userAgent }), '_blank', 'noopener')
   }));
   window.otterCommands = commands;
@@ -320,20 +307,7 @@ export function mountStudioShell({ ide, setMode, openNewProjectModal, showWelcom
     }
   });
 
-  const menuHelp = document.getElementById('menuHelp');
-  menuHelp?.addEventListener('click', (e) => {
-    e.stopPropagation();
-    document.getElementById('menuFile')?.classList.remove('is-open');
-    menuBuild?.classList.remove('is-open');
-    menuHelp.classList.toggle('is-open');
-  });
-  document.addEventListener('click', () => menuHelp?.classList.remove('is-open'));
-  for (const [id, commandId] of [['menuItemLocalHistory', 'file.localHistory'], ['menuItemHelpCommands', 'help.commands'], ['menuItemHelpShortcuts', 'help.shortcuts'], ['menuItemHelpWelcome', 'view.welcome'], ['menuItemHelpDocs', 'help.documentation'], ['menuItemHelpGuide', 'help.guide'], ['menuItemHelpReleaseNotes', 'help.releaseNotes'], ['menuItemHelpIssue', 'help.reportIssue']]) {
-    document.getElementById(id)?.addEventListener('click', () => {
-      menuHelp?.classList.remove('is-open');
-      commands.run(commandId);
-    });
-  }
+  mountMenuBar(document.getElementById('studioMenuBar'), commands);
 
   if (showWelcome && settings.get('workbench.showWelcomeOnStart') !== false) showWelcomePage();
 

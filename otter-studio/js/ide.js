@@ -348,7 +348,6 @@ export class OtterStudioIde {
     this.btnTrustWorkspace?.addEventListener('click', () => this.grantWorkspaceTrust());
     this.btnDismissTrustBanner?.addEventListener('click', () => this.hideTrustBanner());
     this.btnWorkspaceTrustStatus?.addEventListener('click', () => this.toggleWorkspaceTrust());
-    document.getElementById('menuItemNewSolution')?.addEventListener('click', () => this.promptNewSolution());
 
     this.templatesCard = document.getElementById('templatesCard');
     this.btnToggleTemplates = document.getElementById('btnToggleTemplates');
@@ -1267,6 +1266,15 @@ export class OtterStudioIde {
     const name = this.currentFile.split('/').pop();
     showDiff({ title: `${name}: saved ↔ editor`, leftLabel: `${name} (saved)`, rightLabel: `${name} (editor, unsaved changes)`, left: data.content, right: this.currentCode });
     return true;
+  }
+
+  // Edit > Undo / Redo from a menu: the browser's own history of the editor
+  // (every edit is recorded there - see setEditorValue).
+  editorHistory(action) {
+    const textarea = document.getElementById('hiddenEditorInput');
+    if (!textarea) return false;
+    textarea.focus({ preventScroll: true });
+    return document.execCommand(action === 'redo' ? 'redo' : 'undo');
   }
 
   // Every version Studio saved of a file (File > Local History).
