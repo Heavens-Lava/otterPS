@@ -236,8 +236,11 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
     }
 
     // Reuse the last real render right away so the canvas never flashes its
-    // own approximation, then refresh it from the production compiler.
+    // own approximation, then refresh it from the production compiler. Until
+    // the first one arrives (starting the compiler can take seconds), the
+    // source's own sizes apply, so a form is already the right shape.
     if (realRender) applyRealRenderNow(contentArea);
+    else applySourceInline(contentArea);
     refreshUserStyles();
     applyForcedState();
     scheduleRealRender();
@@ -271,12 +274,15 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
 
   function applyRealRenderNow(contentArea) {
     applyRealRender(contentArea, realRender, deviceEnv());
-    // The real render reflects the source as it was when it was compiled. Otter
-    // source values (padding 28, size 24) are applied inline by the compiler,
-    // so bring them up to date now instead of waiting for the next render:
-    // set the current ones, and drop ones that have since left the source
-    // (moved to styles.css), which would otherwise mask the new rule.
-    const renderedWith = realRender.sourceInline || new Map();
+    applySourceInline(contentArea, realRender.sourceInline);
+  }
+
+  // Otter source values (width 300, padding 28, size 24) are applied inline by
+  // the compiler. The real render reflects the source as it was when it was
+  // compiled, so bring them up to date now instead of waiting for the next
+  // render: set the current ones, and drop ones that have since left the
+  // source (moved to styles.css), which would otherwise mask the new rule.
+  function applySourceInline(contentArea, renderedWith = new Map()) {
     for (const comp of uiModel.getAllComponents()) {
       const el = comp.id === uiModel.rootId ? contentArea : contentArea.querySelector(`[data-id="${cssEscape(comp.id)}"]`);
       if (!el) continue;
@@ -978,14 +984,15 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
     });
   }
 
-  // Free movement for absolute/fixed elements, with snapping to the parent's
-  // edges and centre and to siblings' edges and centres.
   // Drag a placed control - or, when it is one of several selected placed
   // controls in the same container, all of them together (the group snaps
-  // as one box). One undo step.
+  // as one box). Let go over another container (a card, a row, the window)
+  // and they go into it (actions.moveInto): the container is outlined while
+  // the pointer is over it. One undo step.
   function startFreeMove(e, comp) {
     const el = elementFor(comp.id);
     if (!el) return;
+    const undoDepth = uiModel.undoStack.length;
     const isPlaced = (node) => ['absolute', 'fixed'].includes(getComputedStyle(node).position);
     let movers = [];
     if (uiModel.isSelected(comp.id) && uiModel.selectedIds.size > 1) {
@@ -1017,35 +1024,70 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
     };
     const startRect = { left: union.left, top: union.top, width: union.right - union.left, height: union.bottom - union.top };
     const { siblings, parent } = snapContext(parentEl, movers.map(m => m.el));
+    // The moving controls are under the pointer: look past them for a container.
+    const isMoving = (node) => movers.some(m => elementFor(m.comp.id)?.contains(node));
+    let into = null;
 
     // While it moves, its padding / margin bands stay out of the way.
     document.body.classList.add('designer-is-moving');
     beginGesture(e, {
       cursor: 'move',
-      onEnd: () => document.body.classList.remove('designer-is-moving'),
+      onEnd: (cancelled) => {
+        document.body.classList.remove('designer-is-moving');
+        hideDropMarkers();
+        if (cancelled || !into) return;
+        const target = uiModel.getComponent(into.targetComp.id);
+        // Where they are on screen now is where they stay (in Free layout).
+        const rects = movers.map(m => elementFor(m.comp.id)?.getBoundingClientRect() || null);
+        const insertAt = actions.isFreeLayout(target) ? null : (into.insertIndex ?? null);
+        actions.moveInto(movers.map(m => m.comp), target, insertAt, { rects });
+        // The drag and the move are one undo step.
+        uiModel.undoStack.length = Math.min(uiModel.undoStack.length, undoDepth + 1);
+      },
       onMove: (ev) => {
         // How far it has moved, in CSS px.
         let dx = (ev.clientX - startX) / zoom;
         let dy = (ev.clientY - startY) / zoom;
         guidesLayer.innerHTML = '';
-        const box = { left: startRect.left + dx * zoom, top: startRect.top + dy * zoom, width: startRect.width, height: startRect.height };
-        // Alt: no snapping (the distances still show).
-        const snap = snapMove(box, siblings, parent, { threshold: ev.altKey ? 0 : SNAP_PX * zoom, zoom });
-        dx += snap.dx / zoom;
-        dy += snap.dy / zoom;
-        drawSnapLines(snap.lines);
-        drawSpacingGuides(snap.gaps, snap.measures);
+        // Over another container: it goes in there when let go.
+        const hit = performHitTest(ev.clientX, ev.clientY, comp.id, contentAreaEl(), uiModel.getRoot(), isMoving);
+        into = hit && hit.targetComp.id !== comp.parentId ? hit : null;
+        if (into) {
+          showMoveTarget(into);
+        } else {
+          hideDropMarkers();
+          const box = { left: startRect.left + dx * zoom, top: startRect.top + dy * zoom, width: startRect.width, height: startRect.height };
+          // Alt: no snapping (the distances still show).
+          const snap = snapMove(box, siblings, parent, { threshold: ev.altKey ? 0 : SNAP_PX * zoom, zoom });
+          dx += snap.dx / zoom;
+          dy += snap.dy / zoom;
+          drawSnapLines(snap.lines);
+          drawSpacingGuides(snap.gaps, snap.measures);
+        }
         const dxPx = Math.round(dx);
         const dyPx = Math.round(dy);
         for (const m of movers) {
           styles.write(m.comp, { left: `${m.startLeft + dxPx}px`, top: `${m.startTop + dyPx}px`, right: null, bottom: null }, { key });
         }
+        if (into) return `Into ${into.targetComp.name}`;
         const lead = movers.find(m => m.comp.id === comp.id) || movers[0];
         return movers.length > 1
           ? `${movers.length} controls  ·  x ${lead.startLeft + dxPx}  y ${lead.startTop + dyPx}`
           : `x ${lead.startLeft + dxPx}  y ${lead.startTop + dyPx}`;
       }
     });
+  }
+
+  // Moving placed controls over another container: outline it; a row or
+  // column also shows where in its order they would go.
+  function showMoveTarget(hit) {
+    const free = actions.isFreeLayout(hit.targetComp);
+    showDropMarkers(hit);
+    if (free || hit.gridCell) {
+      insertionLine.hidden = true;
+      cellBox.hidden = true;
+    }
+    targetBadge.textContent = `Into ${hit.targetComp.name}${free ? ' · Free layout' : ''}`;
   }
 
   // What a control moving in a container snaps to (designer/snapping.js):
@@ -1831,7 +1873,9 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
   }
 
   // Hit testing on real DOM bounding boxes and computed layout.
-  function performHitTest(clientX, clientY, draggedId, contentArea, root) {
+  // skipEl: elements to look past (the controls being moved, which are
+  // under the pointer).
+  function performHitTest(clientX, clientY, draggedId, contentArea, root, skipEl = null) {
     const elements = document.elementsFromPoint(clientX, clientY);
     if (!elements || elements.length === 0 || !contentArea) return null;
 
@@ -1839,6 +1883,7 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
     let targetComp = null;
     for (const el of elements) {
       if (!stageEl.contains(el)) continue;
+      if (skipEl && skipEl(el)) continue;
       if (el === contentArea || el.getAttribute('data-id') === root.id) {
         targetEl = contentArea;
         targetComp = root;
@@ -2076,6 +2121,7 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
       // immediately; a full rebuild would destroy the element being dragged.
       const area = contentAreaEl();
       if (area && realRender) applyRealRenderNow(area);
+      else if (area) applySourceInline(area);
       updateOverlay();
       return;
     }
