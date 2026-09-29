@@ -1591,6 +1591,16 @@ button.sp-dot:focus-visible {
   background: #ec4899;
 }
 
+/* Resizing to a neighbour's width or height: a bar beside each. */
+.designer-guide.is-size {
+  background: #8b5cf6;
+}
+
+.designer-guide.is-size .designer-guide-label {
+  background: #8b5cf6;
+  transform: translate(-50%, 20%);
+}
+
 /* On vertical lines the label sits beside the line. */
 .designer-guide[style*="width: 1px"] .designer-guide-label {
   transform: translate(6px, -50%);

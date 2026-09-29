@@ -1,7 +1,7 @@
 // Snapping in Free layout (js/designer/snapping.js): alignment, equal
 // spacing, and the distances shown while moving.
 import assert from 'node:assert/strict';
-const { snapMove } = await import('../js/designer/snapping.js');
+const { snapMove, snapResize } = await import('../js/designer/snapping.js');
 
 let passed = 0;
 function test(name, fn) {
@@ -55,6 +55,45 @@ test('distances: to the nearest neighbour on each side, in CSS px at the zoom', 
   const toParent = r.measures.filter(m => m.axis === 'y' && m.toParent);
   assert.equal(toParent.length, 1, 'no sibling above or below: the nearer container edge only');
   assert.equal(toParent[0].px, Math.round(250 / 2), '600 - 350 = 250 below vs 300 above');
+});
+
+console.log('Resizing:');
+
+test('resize: the dragged right edge snaps to a sibling\'s right edge', () => {
+  // Card at 100..300; the other (at 100, 250) is dragged from its right handle to 296.
+  const r = snapResize(card(100, 250, 196, 80), 'e', [card(100, 100)], parent);
+  assert.equal(r.box.width, 200);
+  assert.equal(r.box.left, 100);
+  assert.deepEqual(r.lines.map(l => [l.axis, l.at]), [['x', 300]]);
+});
+
+test('resize: the left handle moves the left edge; the right edge stays put', () => {
+  const r = snapResize(card(503, 250, 197, 80), 'w', [card(500, 100)], parent);
+  assert.equal(r.box.left, 500);
+  assert.equal(r.box.left + r.box.width, 700);
+});
+
+test('resize: equal width with a sibling elsewhere, both marked with the size', () => {
+  // Not aligned (different left), but 4 px short of the sibling's 200.
+  const r = snapResize(card(600, 300, 196, 80), 'e', [card(100, 100)], parent);
+  assert.equal(r.box.width, 200);
+  assert.equal(r.lines.length, 0);
+  assert.deepEqual(r.sizes.map(z => z.px), [200, 200]);
+  assert.equal(r.sizes[1].index, 0, 'the second bar is under the sibling');
+});
+
+test('resize: a bottom-right corner snaps each edge on its own; nothing near leaves it alone', () => {
+  const r = snapResize(card(100, 250, 203, 57), 'se', [card(100, 100), card(400, 250, 100, 60)], parent);
+  assert.equal(r.box.width, 200, 'right edge to 300');
+  assert.equal(r.box.height, 60, 'bottom to the neighbour\'s bottom (310)');
+  const none = snapResize(card(100, 250, 137, 57), 'e', [card(700, 500, 40, 40)], parent);
+  assert.equal(none.box.width, 137);
+});
+
+test('resize: never to a size of nothing', () => {
+  // The only nearby edge is the control's own left edge (a sibling starts there).
+  const r = snapResize(card(100, 300, 3, 40), 'e', [card(100, 100)], parent);
+  assert.ok(r.box.width >= 1);
 });
 
 console.log(`\nSnapping tests passed: ${passed}.`);

@@ -18,7 +18,7 @@ import { collapseBox, SIDES, formatNumber } from '../designer/css-values.js';
 import { createDesignerActions, FREE_DEFAULT_SIZES } from '../designer/actions.js';
 import { designerCommands, installDesignerKeyboard } from '../designer/commands.js';
 import { createDesignerContextMenu } from '../designer/context-menu.js';
-import { snapMove } from '../designer/snapping.js';
+import { snapMove, snapResize } from '../designer/snapping.js';
 
 // --otter-layout: free marks a Free layout container. Custom properties
 // inherit, so without this every row, column and card inside a Free window
@@ -817,8 +817,13 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
       height: (parentEl.clientHeight - parseFloat(parentCs.paddingTop) - parseFloat(parentCs.paddingBottom))
     } : null;
     const siblings = parentEl ? Array.from(parentEl.children).filter(k => k !== el && k.hasAttribute('data-id')) : [];
+    // A placed control's dragged edges snap to its neighbours' edges and
+    // sizes (designer/snapping.js), measured once at the start.
+    const freeSnap = isFree && !isWindow ? snapContext(el.offsetParent || el.parentElement, el) : null;
     const key = `resize:${comp.id}`;
     const cursor = getComputedStyle(e.target).cursor;
+    // Its padding / margin bands stay hidden while it changes size.
+    document.body.classList.add('designer-is-moving');
 
     beginGesture(e, {
       cursor,
@@ -840,7 +845,25 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
         let widthValue = null;
         let heightValue = null;
         const guides = [];
-        if (!ev.altKey) {
+        let freeGuides = null;
+        if (freeSnap) {
+          const keepRatio = ev.shiftKey && handle.length === 2;
+          const box = {
+            left: startRect.left + (handle.includes('w') ? startRect.width - w * zoom : 0),
+            top: startRect.top + (handle.includes('n') ? startRect.height - h * zoom : 0),
+            width: w * zoom,
+            height: h * zoom
+          };
+          // Keeping the proportions, the side edge snaps and the height follows.
+          const snap = snapResize(box, keepRatio ? handle.replace(/[ns]/, '') : handle, freeSnap.siblings, freeSnap.parent, { threshold: ev.altKey ? 0 : SNAP_PX * zoom, zoom });
+          w = Math.max(8, snap.box.width / zoom);
+          h = keepRatio ? Math.max(8, w / ratio) : Math.max(8, snap.box.height / zoom);
+          freeGuides = snap;
+          for (const z of snap.sizes) {
+            const other = z.index !== undefined && freeSnap.els[z.index];
+            if (other) notes.push(`= ${other.id} ${z.axis === 'x' ? 'width' : 'height'}`);
+          }
+        } else if (!ev.altKey) {
           if (handle.includes('e') || handle.includes('w')) {
             if (parentInner && Math.abs(w - parentInner.width) <= SNAP_PX) {
               w = parentInner.width; widthValue = '100%'; notes.push('fills parent');
@@ -875,9 +898,18 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
         if (isFree && handle.includes('n')) values.top = `${Math.round(startTop + (startRect.height / zoom - h))}px`;
 
         styles.write(comp, values, { key });
-        drawSizeGuides(comp, guides);
+        // Drawn after the write: a source-backed write (width 240) redraws
+        // the overlay, guides included.
+        if (freeGuides) {
+          guidesLayer.innerHTML = '';
+          drawSnapLines(freeGuides.lines);
+          drawSpacingGuides([], [], freeGuides.sizes);
+        } else {
+          drawSizeGuides(comp, guides);
+        }
         return `${Math.round(w)} × ${Math.round(h)}${notes.length ? '  ·  ' + notes.join(', ') : ''}`;
-      }
+      },
+      onEnd: () => document.body.classList.remove('designer-is-moving')
     });
   }
 
@@ -1019,24 +1051,25 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
   // What a control moving in a container snaps to (designer/snapping.js):
   // its siblings' boxes and the container's padding box, in screen px.
   function snapContext(parentEl, exclude) {
-    if (!parentEl) return { siblings: [], parent: null };
+    if (!parentEl) return { siblings: [], els: [], parent: null };
     const skip = new Set(Array.isArray(exclude) ? exclude : [exclude]);
     const box = (r) => ({ left: r.left, top: r.top, width: r.width, height: r.height });
-    const siblings = Array.from(parentEl.children)
-      .filter(k => !skip.has(k) && k.hasAttribute('data-id') && !k.classList.contains('is-designer-hidden'))
-      .map(k => box(k.getBoundingClientRect()));
+    const els = Array.from(parentEl.children)
+      .filter(k => !skip.has(k) && k.hasAttribute('data-id') && !k.classList.contains('is-designer-hidden'));
+    const siblings = els.map(k => box(k.getBoundingClientRect()));
     const pr = parentEl.getBoundingClientRect();
     const pcs = getComputedStyle(parentEl);
     const bl = (parseFloat(pcs.borderLeftWidth) || 0) * zoom;
     const bt = (parseFloat(pcs.borderTopWidth) || 0) * zoom;
     const br = (parseFloat(pcs.borderRightWidth) || 0) * zoom;
     const bb = (parseFloat(pcs.borderBottomWidth) || 0) * zoom;
-    return { siblings, parent: { left: pr.left + bl, top: pr.top + bt, width: pr.width - bl - br, height: pr.height - bt - bb } };
+    return { siblings, els, parent: { left: pr.left + bl, top: pr.top + bt, width: pr.width - bl - br, height: pr.height - bt - bb } };
   }
 
-  // Equal gaps (pink bars with their size) and distances to the nearest
-  // neighbours / container edge (red lines with their size), in CSS px.
-  function drawSpacingGuides(gaps, measures) {
+  // Equal gaps (pink bars with their size), distances to the nearest
+  // neighbours / container edge (red lines with their size) and, resizing,
+  // equal sizes (bars beside both controls), in CSS px.
+  function drawSpacingGuides(gaps, measures, sizes = []) {
     const vp = viewportEl.getBoundingClientRect();
     const toLayer = (x, y) => ({ x: x - vp.left + viewportEl.scrollLeft, y: y - vp.top + viewportEl.scrollTop });
     const draw = (g, cls) => {
@@ -1054,6 +1087,7 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
     };
     for (const g of gaps) draw(g, 'is-gap');
     for (const m of measures) draw(m, m.toParent ? 'is-measure is-to-parent' : 'is-measure');
+    for (const z of sizes) draw(z, 'is-size');
   }
 
   function drawSnapLines(lines) {

@@ -161,3 +161,64 @@ export function snapMove(box, siblings = [], parent = null, { threshold = 6, zoo
 
   return { dx, dy, lines, gaps, measures };
 }
+
+// Resizing by a handle: the edges that handle drags snap on their own.
+//
+//   snapResize(box, handle, siblings, parent, { threshold, zoom })
+//
+// handle is 'e', 'sw', 'n', ... (the sides that move). Per moving side, the
+// edge snaps to whichever is nearest within the threshold:
+//   - alignment: a sibling's or the container's edge or centre (a line);
+//   - equal size: the width (or height) of a sibling (both are marked).
+// Returns { box, lines, sizes } - box is the snapped box; sizes are bars
+// under (x) or beside (y) each equal-sized control, with the size in CSS px.
+export function snapResize(box, handle, siblings = [], parent = null, { threshold = 6, zoom = 1 } = {}) {
+  const b0 = edges(box);
+  const sibs = siblings.map((s, index) => ({ ...edges(s), index }));
+  const par = parent ? edges(parent) : null;
+  const targets = par ? [par, ...sibs] : sibs;
+  const out = { left: box.left, top: box.top, width: box.width, height: box.height };
+  const picks = [];
+
+  for (const axis of ['x', 'y']) {
+    const A = AXES[axis];
+    const [endKey, startKey] = axis === 'x' ? ['e', 'w'] : ['s', 'n'];
+    const side = handle.includes(endKey) ? 'end' : handle.includes(startKey) ? 'start' : null;
+    if (!side) continue;
+    const edge = b0[side === 'end' ? A.end : A.start];
+    const size = b0[A.end] - b0[A.start];
+    // Moving the end edge by d grows the size by d; the start edge shrinks it.
+    const grow = side === 'end' ? 1 : -1;
+    const candidates = [];
+    for (const t of targets) {
+      for (const k of [A.start, A.mid, A.end]) candidates.push({ kind: 'align', d: t[k] - edge, at: t[k], target: t });
+    }
+    for (const s of sibs) candidates.push({ kind: 'size', d: grow * ((s[A.end] - s[A.start]) - size), target: s });
+    // Never snap to a size of nothing (an edge onto the opposite edge).
+    const pick = best(candidates.filter(c => size + grow * c.d >= 1), threshold);
+    if (!pick) continue;
+    if (side === 'end') out[A.size] += pick.d;
+    else { out[A.start] += pick.d; out[A.size] -= pick.d; }
+    // An alignment that also makes the sizes equal shows both.
+    const sameSize = pick.kind === 'align' ? candidates.find(c => c.kind === 'size' && Math.abs(c.d - pick.d) < 0.5) : null;
+    picks.push({ axis, pick, sameSize });
+  }
+
+  const b = edges(out);
+  const lines = [];
+  const sizes = [];
+  for (const { axis, pick, sameSize } of picks) {
+    const A = AXES[axis];
+    if (pick.kind === 'align') {
+      lines.push({ axis, at: pick.at, from: Math.min(b[A.crossStart], pick.target[A.crossStart]), to: Math.max(b[A.crossEnd], pick.target[A.crossEnd]) });
+    }
+    const match = pick.kind === 'size' ? pick.target : sameSize?.target;
+    if (match) {
+      for (const r of [b, match]) {
+        // A bar just outside the box: under it for a width, beside it for a height.
+        sizes.push({ axis, from: r[A.start], to: r[A.end], at: r[A.crossEnd] + 6 * zoom, px: Math.round((r[A.end] - r[A.start]) / zoom), index: r.index });
+      }
+    }
+  }
+  return { box: out, lines, sizes };
+}
