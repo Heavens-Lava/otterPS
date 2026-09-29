@@ -194,6 +194,10 @@ export function applyRealRender(root, real, device = null) {
   if (rootInfo) {
     root.classList.add('otter-window');
     root.style.cssText = rootInfo.style;
+    // The compiled page centres the window with a margin around it; on the
+    // canvas the frame is the window, so its content starts right under the
+    // title bar (a Free layout's positions are measured from there).
+    root.style.margin = '0';
   }
   root.classList.add('is-real-render');
 
