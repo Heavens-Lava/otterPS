@@ -1079,3 +1079,162 @@
   .studio-header .project-chip { max-width: 190px; }
   .studio-menu-bar .mb-trigger { padding: 0 8px; }
 }
+
+/* ---------------------------------------------------------------------------
+   Variables the older panel styles (toolbox, properties, layers, events)
+   use but no stylesheet defined - so their fields drew without borders or
+   backgrounds. Defined on body, where the theme class is, so each follows
+   the light or dark theme.
+   --------------------------------------------------------------------------- */
+
+body {
+  --border-color: var(--border-subtle);
+  --bg-input: var(--bg-app);
+  --text-primary: var(--text-main);
+  --text-secondary: var(--text-muted);
+  --border-focus: var(--accent-blue);
+  --accent-primary: var(--accent-blue);
+}
+
+/* ---------------------------------------------------------------------------
+   Properties (js/components/properties.js), after the reference: a heading
+   "Primary Button (saveButton)", then collapsible title-case sections with
+   framed fields.
+   --------------------------------------------------------------------------- */
+
+#designerRightSidebar .properties-header {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: transparent;
+}
+
+#designerRightSidebar .properties-header .panel-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+#designerRightSidebar .props-heading-name {
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+#designerRightSidebar .sp-body > .prop-group {
+  margin: 0;
+  padding: 4px 14px 10px;
+  gap: 8px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+}
+
+#designerRightSidebar .sp-body > .sp-identity {
+  padding-top: 10px;
+}
+
+#designerRightSidebar .prop-group-title {
+  margin: 0 0 2px;
+  font-size: var(--ui-font-small);
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text-main);
+}
+
+#designerRightSidebar .prop-label {
+  width: 96px;
+  font-size: var(--ui-font-small);
+  color: var(--text-muted);
+}
+
+#designerRightSidebar .prop-input,
+#designerRightSidebar .sp-input,
+#designerRightSidebar .sp-select {
+  height: 30px;
+  padding: 0 9px;
+  background: var(--bg-app);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  color: var(--text-main);
+  font-size: var(--ui-font-small);
+}
+
+#designerRightSidebar .prop-input:focus,
+#designerRightSidebar .sp-input:focus,
+#designerRightSidebar .sp-select:focus {
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-blue) 18%, transparent);
+  outline: none;
+}
+
+/* A checkbox that stands for on/off is drawn as a switch (reference). */
+#designerRightSidebar .prop-checkbox {
+  appearance: none;
+  position: relative;
+  width: 34px;
+  height: 20px;
+  margin: 0;
+  border-radius: 10px;
+  background: var(--bg-active);
+  border: 1px solid var(--border-card);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+#designerRightSidebar .prop-checkbox::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #ffffff;
+  transition: transform 0.15s ease;
+}
+
+#designerRightSidebar .prop-checkbox:checked {
+  background: var(--accent-blue);
+  border-color: var(--accent-blue);
+}
+
+#designerRightSidebar .prop-checkbox:checked::after {
+  transform: translateX(14px);
+}
+
+#designerRightSidebar .sp-section {
+  border-top: 1px solid var(--border-subtle);
+}
+
+#designerRightSidebar .sp-section-head {
+  height: 38px;
+  padding: 0 14px;
+  gap: 8px;
+  font: 600 var(--ui-font-small) var(--font-ui);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+#designerRightSidebar .sp-chevron {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: var(--text-muted);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transform: none;
+}
+
+#designerRightSidebar .sp-section.is-collapsed .sp-chevron {
+  transform: rotate(-90deg);
+}
+
+#designerRightSidebar .sp-section-body {
+  gap: 8px;
+  padding: 2px 14px 14px;
+}
+
+#designerRightSidebar .sp-label {
+  font-size: var(--ui-font-small);
+}

@@ -75,3 +75,14 @@ instead of checkboxes, the landscape art showing at the window's edges.
 5. Bottom split: code on the left, Output / Problems on the right, and
    Output's build steps with check marks.
 6. The landscape art at the edges, and final spacing and type.
+
+## Found along the way (not Studio's to fix)
+
+- **A window's width is capped at 520 px in compiled web output.** The web
+  compiler's shared stylesheet gives every `.otter-window` `max-width:
+  520px`, which beats the window's own inline `width: 900px`. So
+  `app is a window with ..., width 900` renders 520 px wide in the browser,
+  and the designer (which shows the real compiled render) shows the same.
+  Seen 2026-09-28 with `otter.ps1 web`; the fix belongs in
+  src/Otter.Web.psm1 (an explicit width should lift the default cap) -
+  for Jeff to decide, since it touches the release pipeline.

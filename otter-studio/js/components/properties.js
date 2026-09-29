@@ -161,8 +161,9 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
 
     containerEl.innerHTML = `
       <div class="properties-header">
-        <span class="panel-title">Properties</span>
-        <span class="badge badge-accent">${count > 1 ? `${count} selected` : escapeHtml(selected.kind)}</span>
+        <span class="panel-title">${count > 1
+          ? `${count} components`
+          : `${escapeHtml(ComponentSchema[selected.kind]?.label || selected.kind)} <span class="props-heading-name">(${escapeHtml(selected.name)})</span>`}</span>
       </div>
       ${renderContextBar(selected)}
       <div class="properties-body sp-body" id="propertiesBody">
@@ -234,6 +235,7 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
   function renderIdentityGroup(selected, count) {
     return `
       <div class="prop-group sp-identity">
+        <div class="prop-group-title">General</div>
         <div class="prop-row">
           <label class="prop-label" for="propName">Name</label>
           <input type="text" class="prop-input" id="propName" value="${escapeHtml(selected.name)}" data-focus-key="name"
@@ -268,8 +270,7 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
     }
     if (fields.length === 0) return '';
     return `
-      <div class="prop-group">
-        <div class="prop-group-title">Content (Otter)</div>
+      <div class="prop-group sp-general-more">
         ${fields.join('')}
       </div>
     `;
@@ -290,7 +291,7 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
     return `
       <section class="sp-section ${isCollapsed ? 'is-collapsed' : ''}" data-section="${id}" data-search="${escapeHtml((title + ' ' + search).toLowerCase())}">
         <button class="sp-section-head" data-toggle-section="${id}" aria-expanded="${!isCollapsed}">
-          <span class="sp-chevron">▸</span>
+          <svg class="sp-chevron" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 6.5 8 10l3.5-3.5" /></svg>
           <span class="sp-section-title">${escapeHtml(title)}</span>
           ${setCount ? `<span class="sp-set-count" title="${setCount} set in this context">${setCount}</span>` : ''}
         </button>
