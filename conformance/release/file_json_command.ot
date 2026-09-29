@@ -4,9 +4,13 @@ write text to "release-person.json"
 read json from "release-person.json" into loaded
 say name of loaded
 
-run command "cmd /c echo command-ok" into result
+# A .ps1 script runs with the same PowerShell that runs Otter, on every
+# platform (cmd exists only on Windows).
+write "Write-Output 'command-ok'" to "release-command.ps1"
+run command "release-command.ps1" into result
 say output of result
 say exit code of result
+delete file "release-command.ps1"
 
 delete file "release-person.json"
 say "cleaned"

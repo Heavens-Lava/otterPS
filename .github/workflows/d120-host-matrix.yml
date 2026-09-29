@@ -98,6 +98,17 @@ jobs:
             throw "D120 project workflow failed: $($failures -join '; ')"
           }
           Write-Output 'D120 project workflow passed: new, check, test, run, build, publish.'
+      - name: Verify distribution build, install and uninstall
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $engine = '${{ matrix.host }}'
+          # Builds the release payload, installs it with Install-Otter.ps1 using
+          # this host, runs programs through the installed launcher (otter.cmd on
+          # Windows, otter on macOS and Linux), and on macOS/Linux also checks the
+          # ~/.local/bin command and the uninstaller.
+          & $engine -NoProfile -File (Join-Path $env:GITHUB_WORKSPACE 'tools/Test-OtterDistribution.ps1')
+          if ($LASTEXITCODE -ne 0) { throw "Distribution smoke failed on $engine (exit $LASTEXITCODE)" }
       - name: Verify portable language and module suite
         shell: pwsh
         run: |
@@ -130,7 +141,8 @@ jobs:
             'ProjectCreationAndTestRunner.Tests.ps1',
             'ProjectPublish.Tests.ps1',
             'Web.Tests.ps1',
-            'WebRuntimeUi.Tests.ps1'
+            'WebRuntimeUi.Tests.ps1',
+            'PlatformBoundaries.Tests.ps1'
           )
           $failures = @()
           foreach ($suiteName in $suiteNames) {

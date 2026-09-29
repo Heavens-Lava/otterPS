@@ -35,7 +35,7 @@ try {
     & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'tools\New-OtterDistribution.ps1') -OutputDirectory $payloadDir -Force | Out-Null
     if ($LASTEXITCODE -ne 0) { throw "Failed to build release distribution." }
 
-    $package = Join-Path $payloadDir ("otter-$version-windows-powershell")
+    $package = Join-Path $payloadDir ("otter-$version")
     $installer = Join-Path $package 'Install-Otter.ps1'
     $uninstaller = Join-Path $package 'Uninstall-Otter.ps1'
 

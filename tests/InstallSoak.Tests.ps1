@@ -49,7 +49,7 @@ try {
     & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'tools\New-OtterDistribution.ps1') -OutputDirectory $payloadDir -Force | Out-Null
     if ($LASTEXITCODE -ne 0) { throw "Failed to build distribution." }
 
-    $package = Join-Path $payloadDir ("otter-$version-windows-powershell")
+    $package = Join-Path $payloadDir ("otter-$version")
     $installer = Join-Path $package 'Install-Otter.ps1'
 
     # 2. Soak: 5 sequential install -> run -> web compile -> uninstall cycles

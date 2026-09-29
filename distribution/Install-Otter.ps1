@@ -16,14 +16,25 @@ $packageRoot = if (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'VERSION')) {
 }
 $version = (Get-Content -LiteralPath (Join-Path $packageRoot 'VERSION') -Raw).Trim()
 
+# Windows (Windows PowerShell 5.1 or PowerShell 7) uses otter.cmd; macOS and
+# Linux use the `otter` shell launcher and PowerShell 7.
+$onWindows = ($PSVersionTable.PSEdition -ne 'Core') -or [bool](Get-Variable -Name IsWindows -ValueOnly -ErrorAction SilentlyContinue)
+$launcher = if ($onWindows) { 'otter.cmd' } else { 'otter' }
+
 if (-not $Destination) {
-    if ([string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)) {
-        throw 'LOCALAPPDATA is unavailable. Specify -Destination explicitly.'
+    if ($onWindows) {
+        if ([string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)) {
+            throw 'LOCALAPPDATA is unavailable. Specify -Destination explicitly.'
+        }
+        $Destination = Join-Path $env:LOCALAPPDATA (Join-Path 'Otter' $version)
+    } else {
+        # The XDG data folder (~/.local/share unless XDG_DATA_HOME says otherwise).
+        $dataHome = if (-not [string]::IsNullOrWhiteSpace($env:XDG_DATA_HOME)) { $env:XDG_DATA_HOME } else { Join-Path $HOME '.local/share' }
+        $Destination = Join-Path $dataHome (Join-Path 'otter' $version)
     }
-    $Destination = Join-Path $env:LOCALAPPDATA (Join-Path 'Otter' $version)
 }
 
-$required = @('otter.ps1', 'otter.cmd', 'Otter.Contract.psm1', 'VERSION', 'src')
+$required = @('otter.ps1', $launcher, 'Otter.Contract.psm1', 'VERSION', 'src')
 foreach ($item in $required) {
     if (-not (Test-Path -LiteralPath (Join-Path $packageRoot $item))) {
         throw "This is not a complete Otter distribution: missing $item."
@@ -162,7 +173,7 @@ Set-Content -LiteralPath (Join-Path $destinationFull '.otter-install') -Value @(
     "Version: $version"
 ) -Encoding ASCII
 
-foreach ($item in @('otter.ps1', 'otter.cmd', 'Otter.Contract.psm1', 'VERSION', 'README.md', 'Uninstall-Otter.ps1', 'LICENSE', 'THIRD-PARTY-NOTICES.md', 'INSTALL.md', 'TOUR.md')) {
+foreach ($item in @('otter.ps1', 'otter.cmd', 'otter', 'Otter.Contract.psm1', 'VERSION', 'README.md', 'Uninstall-Otter.ps1', 'LICENSE', 'THIRD-PARTY-NOTICES.md', 'INSTALL.md', 'TOUR.md')) {
     $source = Join-Path $packageRoot $item
     if (Test-Path -LiteralPath $source) { Copy-Item -LiteralPath $source -Destination $destinationFull -Force }
 }
@@ -171,11 +182,43 @@ if (Test-Path -LiteralPath (Join-Path $packageRoot 'examples')) {
     Copy-Item -LiteralPath (Join-Path $packageRoot 'examples') -Destination $destinationFull -Recurse -Force
 }
 
-$installedCommand = Join-Path $destinationFull 'otter.cmd'
+$installedCommand = Join-Path $destinationFull $launcher
+if (-not $onWindows) {
+    # A zip does not carry the executable bit; the launcher needs it.
+    & chmod +x $installedCommand
+    if ($LASTEXITCODE -ne 0) { throw "Could not make $installedCommand executable (chmod exit $LASTEXITCODE)." }
+}
 & $installedCommand --version | Out-Host
 if ($LASTEXITCODE -ne 0) { throw "Installed Otter failed its --version check (exit $LASTEXITCODE)." }
 
-if ($AddToUserPath) {
+if ($AddToUserPath -and -not $onWindows) {
+    # macOS and Linux: a small `otter` command in ~/.local/bin that runs this
+    # installation. It is only ever replaced when it is one this installer
+    # wrote (its second line says so), never another program called otter.
+    $binDir = Join-Path $HOME '.local/bin'
+    $shim = Join-Path $binDir 'otter'
+    $shimMarker = '# Otter launcher - written by Install-Otter.ps1'
+    if (Test-Path -LiteralPath $shim) {
+        $existing = @(Get-Content -LiteralPath $shim -TotalCount 2 -ErrorAction SilentlyContinue)
+        if ($existing.Count -lt 2 -or $existing[1] -ne $shimMarker) {
+            throw "Refusing to replace $shim because it was not written by the Otter installer. Remove or rename it, or run $installedCommand directly."
+        }
+    }
+    New-Item -ItemType Directory -Path $binDir -Force | Out-Null
+    $escaped = $installedCommand.Replace("'", "'\''")
+    [System.IO.File]::WriteAllText($shim, "#!/bin/sh`n$shimMarker ($version)`nexec '$escaped' `"`$@`"`n", [System.Text.UTF8Encoding]::new($false))
+    & chmod +x $shim
+    if ($LASTEXITCODE -ne 0) { throw "Could not make $shim executable (chmod exit $LASTEXITCODE)." }
+    $pathDirs = @($env:PATH -split ':' | ForEach-Object { $_.TrimEnd('/') })
+    if ($pathDirs -contains $binDir.TrimEnd('/')) {
+        Write-Output "Added the otter command to $binDir."
+    } else {
+        Write-Output "Added the otter command to $binDir, which is not on your PATH yet. Add this line to your shell profile (~/.zshrc or ~/.bashrc) and open a new terminal:"
+        Write-Output "    export PATH=`"`$HOME/.local/bin:`$PATH`""
+    }
+}
+
+if ($AddToUserPath -and $onWindows) {
     $current = [Environment]::GetEnvironmentVariable('Path', 'User')
     $parts = @($current -split ';' | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
     if ($parts -notcontains $destinationFull) {

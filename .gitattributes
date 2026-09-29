@@ -1,0 +1,3 @@
+# The macOS/Linux launcher is a POSIX shell script: it must keep LF line
+# endings on every checkout (a CRLF would break its #! line).
+/otter text eol=lf

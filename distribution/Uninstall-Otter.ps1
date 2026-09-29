@@ -42,15 +42,25 @@ function Test-OtterInstallation {
     return $true
 }
 
+$onWindows = ($PSVersionTable.PSEdition -ne 'Core') -or [bool](Get-Variable -Name IsWindows -ValueOnly -ErrorAction SilentlyContinue)
+
 # Determine destination to uninstall
 if (-not $Destination) {
-    if (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'otter.cmd')) {
+    if (Test-Path -LiteralPath (Join-Path $PSScriptRoot '.otter-install')) {
         $Destination = $PSScriptRoot
-    } elseif (-not [string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)) {
+    } elseif ($onWindows -and (Test-Path -LiteralPath (Join-Path $PSScriptRoot 'otter.cmd'))) {
+        $Destination = $PSScriptRoot
+    } else {
         $versionFile = Join-Path $PSScriptRoot 'VERSION'
         $version = if (Test-Path -LiteralPath $versionFile) { (Get-Content -LiteralPath $versionFile -Raw).Trim() } else { '*' }
-        $defaultDir = Join-Path $env:LOCALAPPDATA (Join-Path 'Otter' $version)
-        if (Test-Path -LiteralPath $defaultDir) {
+        $defaultDir = $null
+        if ($onWindows -and -not [string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)) {
+            $defaultDir = Join-Path $env:LOCALAPPDATA (Join-Path 'Otter' $version)
+        } elseif (-not $onWindows) {
+            $dataHome = if (-not [string]::IsNullOrWhiteSpace($env:XDG_DATA_HOME)) { $env:XDG_DATA_HOME } else { Join-Path $HOME '.local/share' }
+            $defaultDir = Join-Path $dataHome (Join-Path 'otter' $version)
+        }
+        if ($defaultDir -and (Test-Path -LiteralPath $defaultDir)) {
             $Destination = $defaultDir
         }
     }
@@ -94,8 +104,22 @@ if (-not (Test-Path -LiteralPath $destFull)) {
     }
 }
 
-# Clean up User PATH
-$currentPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+# macOS and Linux: remove the ~/.local/bin/otter command, but only when the
+# installer wrote it and it runs the installation just removed.
+if (-not $onWindows) {
+    $shim = Join-Path $HOME '.local/bin/otter'
+    if (Test-Path -LiteralPath $shim -PathType Leaf) {
+        $lines = @(Get-Content -LiteralPath $shim -ErrorAction SilentlyContinue)
+        $ours = $lines.Count -ge 3 -and $lines[1].StartsWith('# Otter launcher - written by Install-Otter.ps1')
+        if ($ours -and ($lines[2].Contains("'" + $destFull + "/otter'") -or $lines[2].Contains("'" + $destFull.Replace("'", "'\''") + "/otter'"))) {
+            Remove-Item -LiteralPath $shim -Force
+            Write-Output "Removed the otter command from $(Split-Path -Parent $shim)."
+        }
+    }
+}
+
+# Clean up User PATH (Windows)
+$currentPath = if ($onWindows) { [Environment]::GetEnvironmentVariable('Path', 'User') } else { $null }
 if ($currentPath) {
     $parts = @($currentPath -split ';' | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
     $cleaned = @($parts | Where-Object { [System.IO.Path]::GetFullPath($_).TrimEnd('\', '/') -ne $destFull })

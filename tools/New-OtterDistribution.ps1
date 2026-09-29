@@ -10,7 +10,9 @@ $root = Split-Path -Parent $PSScriptRoot
 $version = (Get-Content -LiteralPath (Join-Path $root 'VERSION') -Raw).Trim()
 if (-not $OutputDirectory) { $OutputDirectory = Join-Path $root 'dist' }
 $outputFull = [System.IO.Path]::GetFullPath($OutputDirectory)
-$name = "otter-$version-windows-powershell"
+# One payload for every platform: otter.cmd (Windows) and the `otter` shell
+# launcher (macOS, Linux) sit side by side; both run otter.ps1.
+$name = "otter-$version"
 $stage = Join-Path $outputFull $name
 
 if (-not (Test-Path -LiteralPath (Join-Path $root 'distribution\Install-Otter.ps1'))) {
@@ -23,7 +25,7 @@ if (Test-Path -LiteralPath $stage) {
 }
 New-Item -ItemType Directory -Path $stage | Out-Null
 
-foreach ($item in @('otter.ps1', 'otter.cmd', 'Otter.Contract.psm1', 'VERSION', 'LICENSE', 'THIRD-PARTY-NOTICES.md', 'INSTALL.md', 'TOUR.md')) {
+foreach ($item in @('otter.ps1', 'otter.cmd', 'otter', 'Otter.Contract.psm1', 'VERSION', 'LICENSE', 'THIRD-PARTY-NOTICES.md', 'INSTALL.md', 'TOUR.md')) {
     $src = Join-Path $root $item
     if (Test-Path -LiteralPath $src) {
         Copy-Item -LiteralPath $src -Destination $stage -Force
@@ -44,15 +46,15 @@ Copy-Item -LiteralPath (Join-Path $root 'distribution\README.md') -Destination (
 
 $files = Get-ChildItem -LiteralPath $stage -Recurse -File | Sort-Object FullName | ForEach-Object {
     [pscustomobject]@{
-        Path = $_.FullName.Substring($stage.Length).TrimStart('\')
+        Path = $_.FullName.Substring($stage.Length).TrimStart('\', '/').Replace('\', '/')
         Sha256 = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash
     }
 }
 [pscustomobject]@{
     Product = 'Otter'
     Version = $version
-    Runtime = 'Windows PowerShell 5.1'
-    EntryPoint = 'otter.cmd'
+    Runtime = 'Windows: Windows PowerShell 5.1 or PowerShell 7. macOS and Linux: PowerShell 7.'
+    EntryPoint = 'otter.cmd (Windows), otter (macOS, Linux)'
     Files = $files
 } | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $stage 'release-manifest.json') -Encoding UTF8
 

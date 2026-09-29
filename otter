@@ -1,0 +1,13 @@
+#!/bin/sh
+# Launcher so you can type "otter hello.ot" on macOS and Linux, the same way
+# otter.cmd works on Windows. Otter runs on PowerShell 7 (pwsh) here.
+#
+# The folder this script lives in holds otter.ps1, so Otter is found no matter
+# where you run otter from. "$@" passes along whatever arguments you typed.
+here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+if ! command -v pwsh >/dev/null 2>&1; then
+    echo "Otter needs PowerShell 7 (the pwsh command), which is not installed or not on your PATH." >&2
+    echo "Install it from https://aka.ms/install-powershell and try again." >&2
+    exit 1
+fi
+exec pwsh -NoProfile -File "$here/otter.ps1" "$@"
