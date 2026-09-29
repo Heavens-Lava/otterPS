@@ -571,42 +571,6 @@ input.otter-input, .canvas-textbox {
   line-height: 1.4;
 }
 
-/* Canvas Mode Switcher (Design vs Live Interact) */
-.canvas-mode-toggle {
-  display: flex;
-  background: rgba(15, 23, 42, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 6px;
-  padding: 2px;
-  gap: 2px;
-}
-
-.canvas-toggle-btn {
-  background: transparent;
-  border: none;
-  color: var(--text-secondary);
-  font-size: 11px;
-  font-weight: 500;
-  padding: 3px 9px;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.canvas-toggle-btn:hover {
-  color: #ffffff;
-}
-
-.canvas-toggle-btn.is-active {
-  background: #2563eb;
-  color: #ffffff;
-  font-weight: 600;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-}
-
 /* Inline Text Editor on Canvas */
 .canvas-inline-editor {
   background: rgba(30, 41, 59, 0.95);

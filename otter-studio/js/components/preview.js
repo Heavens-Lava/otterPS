@@ -1,6 +1,7 @@
 // preview.js - Interactive live runtime preview running the compiled Otter application + CSS
 
 import { generateOtterSource } from '../compiler/otter-generator.js';
+import { withAssetBase } from '../designer/asset-url.js';
 
 export function renderPreview(containerEl, uiModel, cssAstManager) {
   containerEl.innerHTML = `
@@ -70,7 +71,8 @@ export function renderPreview(containerEl, uiModel, cssAstManager) {
       if (serial !== renderSerial) return;
       if (result.ok) {
         lastHtml = result.html;
-        iframe.srcdoc = result.html;
+        // Relative image sources load from the design's folder.
+        iframe.srcdoc = withAssetBase(result.html);
         setStatus('ok');
       } else {
         setStatus('error', result.message);

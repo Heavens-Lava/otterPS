@@ -19,6 +19,7 @@ import { createDesignerActions, FREE_DEFAULT_SIZES } from '../designer/actions.j
 import { designerCommands, installDesignerKeyboard } from '../designer/commands.js';
 import { createDesignerContextMenu } from '../designer/context-menu.js';
 import { snapMove, snapResize } from '../designer/snapping.js';
+import { assetUrl, withAssetBase } from '../designer/asset-url.js';
 
 // --otter-layout: free marks a Free layout container. Custom properties
 // inherit, so without this every row, column and card inside a Free window
@@ -61,6 +62,14 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
     containerEl.innerHTML = `
       <style id="canvasUserCss"></style>
       <div class="canvas-topbar" id="canvasTopbar">
+        <div class="canvas-view-switch" role="tablist" aria-label="Design or preview">
+          <button class="canvas-view-btn" role="tab" id="btnCanvasDesignMode" title="Design: select, drag, resize and style">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2.5" width="12" height="11" rx="1.5"/><path d="M2 5.5h12M5.5 5.5v8"/></svg>Design
+          </button>
+          <button class="canvas-view-btn" role="tab" id="btnCanvasPreviewMode" title="Preview: the compiled app, running - click and type like a user">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="10" rx="1.5"/><path d="m6.5 5.5 3.5 2-3.5 2z"/></svg>Preview
+          </button>
+        </div>
         <div class="canvas-breadcrumbs" id="canvasBreadcrumbs"></div>
         <div class="canvas-actions">
           <div class="canvas-device-toggle" role="group" aria-label="Breakpoint" id="canvasDeviceToggle">${deviceButtonsHtml()}</div>
@@ -69,10 +78,6 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
             <button class="canvas-zoom-label" data-zoom="reset" id="canvasZoomLabel" title="Reset to 100% (Ctrl 0)">100%</button>
             <button class="icon-btn" data-zoom="in" title="Zoom in (Ctrl +)">+</button>
             <button class="canvas-zoom-fit" data-zoom="fit" title="Fit to view (Shift 1)">Fit</button>
-          </div>
-          <div class="canvas-mode-toggle">
-            <button class="canvas-toggle-btn" id="btnCanvasDesignMode" title="Design: select, drag, resize and style">Design</button>
-            <button class="canvas-toggle-btn" id="btnCanvasInteractMode" title="Interact: click buttons and type like a user">Interact</button>
           </div>
           <button class="icon-btn" id="canvasUndoBtn" title="Undo (Ctrl+Z)">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
@@ -101,6 +106,12 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
           </div>
           <div class="designer-marquee" id="designerMarquee" hidden></div>
           <div class="designer-free-ghost" id="designerFreeGhost" hidden><span class="designer-free-ghost-label" id="designerFreeGhostLabel"></span></div>
+        </div>
+      </div>
+      <div class="canvas-preview" id="canvasPreview" hidden>
+        <div class="canvas-preview-status" id="canvasPreviewStatus">Compiling…</div>
+        <div class="canvas-preview-frame" id="canvasPreviewFrame">
+          <iframe id="canvasPreviewIframe" title="Preview of the compiled app" sandbox="allow-scripts allow-modals allow-forms"></iframe>
         </div>
       </div>
     `;
@@ -145,12 +156,8 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
       else if (action === 'reset') setZoom(1);
       else zoomToFit();
     }));
-    topbarEl.querySelector('#btnCanvasDesignMode').addEventListener('click', () => {
-      if (isInteractMode) { isInteractMode = false; update(); }
-    });
-    topbarEl.querySelector('#btnCanvasInteractMode').addEventListener('click', () => {
-      if (!isInteractMode) { isInteractMode = true; update(); }
-    });
+    topbarEl.querySelector('#btnCanvasDesignMode').addEventListener('click', () => setPreview(false));
+    topbarEl.querySelector('#btnCanvasPreviewMode').addEventListener('click', () => setPreview(true));
     topbarEl.querySelector('#canvasUndoBtn').addEventListener('click', () => uiModel.undo());
     topbarEl.querySelector('#canvasRedoBtn').addEventListener('click', () => uiModel.redo());
   }
@@ -255,8 +262,20 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
       btn.classList.toggle('is-active', btn.getAttribute('data-device') === bp.id);
     });
     topbarEl.querySelector('#canvasZoomLabel').textContent = `${Math.round(zoom * 100)}%`;
-    topbarEl.querySelector('#btnCanvasDesignMode').classList.toggle('is-active', !isInteractMode);
-    topbarEl.querySelector('#btnCanvasInteractMode').classList.toggle('is-active', isInteractMode);
+    for (const [id, on] of [['#btnCanvasDesignMode', !isInteractMode], ['#btnCanvasPreviewMode', isInteractMode]]) {
+      const btn = topbarEl.querySelector(id);
+      btn.classList.toggle('is-active', on);
+      btn.setAttribute('aria-selected', String(on));
+    }
+    const previewEl = containerEl.querySelector('#canvasPreview');
+    if (previewEl) {
+      previewEl.hidden = !isInteractMode;
+      viewportEl.hidden = isInteractMode;
+      const frame = containerEl.querySelector('#canvasPreviewFrame');
+      const bp = styles.breakpoint;
+      frame.style.width = bp.width ? `${bp.width}px` : '';
+      frame.classList.toggle('is-device', Boolean(bp.width));
+    }
     const undo = topbarEl.querySelector('#canvasUndoBtn');
     const redo = topbarEl.querySelector('#canvasRedoBtn');
     undo.disabled = !uiModel.canUndo() || isInteractMode;
@@ -270,6 +289,48 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
     const userCss = cssAstManager ? cssAstManager.generateCss() : '';
     userStyleEl.textContent = prepareUserCss(userCss, '#canvasWindowWrapper', deviceEnv());
     updateDimensionBadge();
+  }
+
+  // Design | Preview. Preview shows the page the production compiler makes
+  // for the design (the same /api/render as Live App), running, in place of
+  // the canvas: buttons do what their events say. It follows every edit.
+  // (isInteractMode is true while previewing: the canvas takes no gestures.)
+  let previewTimer = null;
+  let previewSerial = 0;
+  function setPreview(on) {
+    if (isInteractMode === on) return;
+    isInteractMode = on;
+    update();
+    if (on) renderPreviewNow();
+  }
+  function schedulePreview() {
+    if (!isInteractMode) return;
+    clearTimeout(previewTimer);
+    previewTimer = setTimeout(renderPreviewNow, 300);
+  }
+  async function renderPreviewNow() {
+    const serial = ++previewSerial;
+    const status = containerEl.querySelector('#canvasPreviewStatus');
+    const iframe = containerEl.querySelector('#canvasPreviewIframe');
+    status.textContent = 'Compiling…';
+    status.dataset.state = 'busy';
+    try {
+      const res = await fetch('/api/render', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: generateOtterSource(uiModel), css: cssAstManager ? cssAstManager.generateCss() : '' })
+      });
+      const result = await res.json();
+      if (serial !== previewSerial) return;
+      if (!result.ok) throw new Error(result.message || 'The compiler reported a problem.');
+      iframe.srcdoc = withAssetBase(result.html);
+      status.textContent = 'Running the compiled app';
+      status.dataset.state = 'ok';
+    } catch (err) {
+      if (serial !== previewSerial) return;
+      status.textContent = `Could not compile: ${err.message}`;
+      status.dataset.state = 'error';
+    }
   }
 
   function applyRealRenderNow(contentArea) {
@@ -1353,7 +1414,7 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
       }
       case 'image':
         el.classList.add('canvas-image', 'otter-image');
-        el.innerHTML = `<img src="${escapeHtml(props.source || '')}" alt="" style="width:100%;height:100%;object-fit:cover;pointer-events:none;" />`;
+        el.innerHTML = `<img src="${escapeHtml(assetUrl(props.source))}" alt="" style="width:100%;height:100%;object-fit:cover;pointer-events:none;" />`;
         break;
     }
 
@@ -1487,10 +1548,18 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
   let dragGrab = { x: 0, y: 0 };
   // How far the drop preview snapped (screen px); the drop applies it too.
   let freeDropNudge = { dx: 0, dy: 0 };
+  // An image from the Assets tab brings its own size (assets.js).
+  let draggingNewSize = null;
   document.addEventListener('dragstart', (e) => {
     draggingNewKind = e.target?.closest?.('.toolbox-item')?.getAttribute('data-kind') || null;
+    draggingNewSize = null;
   }, true);
-  document.addEventListener('dragend', () => { draggingNewKind = null; }, true);
+  window.addEventListener('otter:asset-drag', (e) => {
+    draggingNewKind = e.detail?.kind || null;
+    const p = e.detail?.properties || {};
+    draggingNewSize = p.width && p.height ? { width: p.width, height: p.height } : null;
+  });
+  document.addEventListener('dragend', () => { draggingNewKind = null; draggingNewSize = null; }, true);
 
   function bindViewport() {
     viewportEl.addEventListener('dragover', (e) => {
@@ -1542,7 +1611,7 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
 
       let placedId = null;
       if (dragData.type === 'new-component') {
-        const child = uiModel.addChild(hit.targetComp.id, dragData.kind, {}, hit.insertIndex);
+        const child = uiModel.addChild(hit.targetComp.id, dragData.kind, dragData.properties || {}, hit.insertIndex);
         styleNewContainer(child);
         placedId = child?.id;
       } else if (dragData.type === 'move-component') {
@@ -1846,7 +1915,7 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
       height = r.height / zoom;
       grab = dragGrab;
     } else if (draggingNewKind) {
-      const size = FREE_DEFAULT_SIZES[draggingNewKind] || {};
+      const size = draggingNewSize || FREE_DEFAULT_SIZES[draggingNewKind] || {};
       width = size.width || size.minWidth || (['text', 'heading', 'checkbox'].includes(draggingNewKind) ? 90 : 100);
       height = size.height || (['heading'].includes(draggingNewKind) ? 32 : ['text', 'checkbox'].includes(draggingNewKind) ? 22 : 36);
     }
@@ -2105,6 +2174,7 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
   update();
 
   uiModel.subscribe((type) => {
+    if (type !== 'select') schedulePreview();
     if (type === 'select') {
       // Selection does not change the DOM, so keep the elements (a rebuild
       // between the two clicks of a double-click would lose the double-click).
@@ -2129,6 +2199,7 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
   });
 
   window.addEventListener('css-updated', (e) => {
+    schedulePreview();
     // Style changes do not change the component tree: refresh the styles and
     // the overlay only, and let the real render catch up in the background.
     if (e.detail?.source === 'rename') return update();
