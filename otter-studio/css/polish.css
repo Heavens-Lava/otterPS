@@ -926,13 +926,13 @@
   color: var(--text-faint);
 }
 
-#toolboxPanel .toolbox-search {
+:is(#toolboxPanel, #assetsPanel) .toolbox-search {
   position: relative;
   padding: 10px 12px;
   border-bottom: none;
 }
 
-#toolboxPanel .toolbox-search-icon {
+:is(#toolboxPanel, #assetsPanel) .toolbox-search-icon {
   position: absolute;
   left: 22px;
   top: 50%;
@@ -946,7 +946,7 @@
   pointer-events: none;
 }
 
-#toolboxPanel .toolbox-search input {
+:is(#toolboxPanel, #assetsPanel) .toolbox-search input {
   height: 34px;
   padding: 0 10px 0 34px;
   background: var(--bg-app);
@@ -956,7 +956,7 @@
   font-size: var(--ui-font-small);
 }
 
-#toolboxPanel .toolbox-search input:focus {
+:is(#toolboxPanel, #assetsPanel) .toolbox-search input:focus {
   border-color: var(--accent-blue);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-blue) 20%, transparent);
 }

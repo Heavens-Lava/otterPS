@@ -1,0 +1,340 @@
+/* design-library.css - The Designer's left panel as Components | Assets
+   (js/components/toolbox.js, js/components/assets.js) and the canvas's
+   Design | Preview switch and in-place preview (js/components/canvas.js),
+   after the reference design in docs/studio/reference. */
+
+/* --- Components | Assets ------------------------------------------------ */
+
+.design-library {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.design-library-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 8px 10px 0;
+  border-bottom: 1px solid var(--border-subtle);
+  flex: 0 0 auto;
+}
+
+.design-library-tab {
+  padding: 7px 14px 8px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  font: 600 var(--ui-font-size)/1 var(--font-ui, inherit);
+  cursor: pointer;
+  border-radius: 6px 6px 0 0;
+}
+
+.design-library-tab:hover {
+  color: var(--text-main);
+}
+
+.design-library-tab.is-active {
+  color: var(--text-main);
+  border-bottom-color: var(--accent-blue);
+  background: color-mix(in srgb, var(--accent-blue) 10%, transparent);
+}
+
+.design-library-view {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* #toolboxPanel sets its own display; the hidden tab still hides. */
+.design-library-view[hidden] {
+  display: none !important;
+}
+
+/* The tab names the panel; the old "Components" heading is not needed. */
+.design-library #toolboxPanel .toolbox-header {
+  display: none;
+}
+
+.design-library #toolboxPanel .toolbox-categories {
+  overflow-y: auto;
+  flex: 1 1 auto;
+}
+
+/* --- Assets --------------------------------------------------------------- */
+
+.assets-toolbar {
+  display: flex;
+  align-items: center;
+}
+
+.assets-toolbar .toolbox-search {
+  flex: 1 1 auto;
+}
+
+.assets-group-tools {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.assets-btn {
+  height: 24px;
+  padding: 0 9px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 7px;
+  background: var(--bg-app);
+  color: var(--text-main);
+  font-size: var(--ui-font-small);
+  cursor: pointer;
+}
+
+.assets-btn.icon {
+  width: 24px;
+  padding: 0;
+}
+
+.assets-btn:hover {
+  border-color: var(--accent-blue);
+}
+
+.assets-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 2px 12px 14px;
+}
+
+#assetsPanel.is-drop-target .assets-body {
+  outline: 2px dashed var(--accent-blue);
+  outline-offset: -6px;
+  border-radius: 8px;
+}
+
+.assets-message {
+  margin: 4px 0 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent-blue) 12%, transparent);
+  color: var(--text-main);
+  font-size: 11px;
+  word-break: break-all;
+}
+
+.assets-group + .assets-group {
+  margin-top: 10px;
+}
+
+.assets-group-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  color: var(--text-main);
+  font-size: var(--ui-font-small);
+  font-weight: 600;
+}
+
+.assets-count {
+  padding: 0 6px;
+  border-radius: 8px;
+  background: var(--bg-app);
+  color: var(--text-faint);
+  font-size: 10px;
+  line-height: 16px;
+}
+
+.assets-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(78px, 1fr));
+  gap: 8px;
+}
+
+.asset-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 6px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--bg-app);
+  color: var(--text-muted);
+  cursor: grab;
+  text-align: center;
+}
+
+.asset-tile:hover,
+.asset-tile:focus-visible {
+  border-color: var(--accent-blue);
+  color: var(--text-main);
+  outline: none;
+}
+
+.asset-thumb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 4 / 3;
+  border-radius: 5px;
+  overflow: hidden;
+  /* A checkerboard, so transparent images read as transparent. */
+  background: repeating-conic-gradient(rgba(255, 255, 255, 0.06) 0% 25%, transparent 0% 50%) 50% / 12px 12px;
+}
+
+.asset-thumb img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.asset-name {
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.assets-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.asset-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 5px 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-main);
+  font-size: var(--ui-font-small);
+  text-align: left;
+  cursor: pointer;
+}
+
+.asset-row:hover {
+  background: var(--bg-app);
+}
+
+.asset-row-path {
+  color: var(--text-faint);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.assets-empty {
+  padding: 10px 2px;
+  color: var(--text-faint);
+  font-size: var(--ui-font-small);
+  line-height: 1.5;
+}
+
+/* --- Design | Preview ------------------------------------------------------- */
+
+.canvas-view-switch {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  margin-right: 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 7px;
+  background: var(--bg-app);
+  flex: 0 0 auto;
+}
+
+.canvas-view-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--ui-font-small);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.canvas-view-btn svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linejoin: round;
+}
+
+.canvas-view-btn:hover {
+  color: var(--text-main);
+}
+
+.canvas-view-btn.is-active {
+  background: var(--accent-blue);
+  color: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.canvas-topbar .canvas-breadcrumbs {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.canvas-preview {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-app);
+}
+
+.canvas-preview[hidden],
+.canvas-viewport[hidden] {
+  display: none;
+}
+
+.canvas-preview-status {
+  padding: 6px 16px;
+  color: var(--text-faint);
+  font-size: 11px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.canvas-preview-status[data-state="ok"]::before {
+  content: '●';
+  margin-right: 6px;
+  color: #22c55e;
+}
+
+.canvas-preview-status[data-state="error"] {
+  color: #fca5a5;
+}
+
+.canvas-preview-frame {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.canvas-preview-frame.is-device {
+  margin: 16px auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  overflow: hidden;
+  max-width: calc(100% - 32px);
+}
+
+.canvas-preview-frame iframe {
+  flex: 1 1 auto;
+  width: 100%;
+  border: 0;
+  background: #fff;
+}

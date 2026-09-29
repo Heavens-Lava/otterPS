@@ -444,8 +444,10 @@ export function createDesignerActions({ uiModel, styles, cssAstManager, canvas, 
     const { left, top } = pos;
     const values = { position: 'absolute', left: `${left}px`, top: `${top}px`, right: null, bottom: null };
     const size = isNew ? FREE_DEFAULT_SIZES[comp.kind] : null;
-    if (size?.width) values.width = `${size.width}px`;
-    if (size?.height) values.height = `${size.height}px`;
+    // A size it was created with (an image from Assets, at its own size) stays.
+    const given = (prop) => comp.properties?.[prop] !== undefined && comp.properties[prop] !== ComponentSchema[comp.kind]?.defaultProperties?.[prop];
+    if (size?.width && !given('width')) values.width = `${size.width}px`;
+    if (size?.height && !given('height')) values.height = `${size.height}px`;
     if (size?.minWidth) values['min-width'] = `${size.minWidth}px`;
     inBaseState(() => styles.write(comp, values, { key: `place:${comp.id}` }));
     return true;

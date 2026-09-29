@@ -6,6 +6,7 @@ import { parseOtterSource } from './compiler/otter-parser.js';
 import { snapshotDesign, spliceDesignIntoSource, designMatchesBaseline } from './compiler/source-splice.js';
 
 import { renderToolbox } from './components/toolbox.js';
+import { renderAssets } from './components/assets.js';
 import { renderHierarchy } from './components/hierarchy.js';
 import { renderCanvas } from './components/canvas.js';
 import { renderProperties } from './components/properties.js';
@@ -115,12 +116,24 @@ document.addEventListener('DOMContentLoaded', async () => {
   ide.loadProjectTree = async function (folder) {
     const result = await loadProjectTreeWithBreakpoints(folder);
     await applyProjectBreakpoints();
+    assetsPanel?.refresh();
     return result;
   };
   // A restored session opened its project before this hook existed.
   if (ide.currentProjectFolder) applyProjectBreakpoints();
 
   renderToolbox(toolboxEl, uiModel);
+  // Components | Assets (the reference design's left panel).
+  const assetsPanel = renderAssets(document.getElementById('assetsPanel'), uiModel, ide);
+  document.querySelectorAll('.design-library-tab').forEach(tab => tab.addEventListener('click', () => {
+    const which = tab.dataset.library;
+    document.querySelectorAll('.design-library-tab').forEach(t => {
+      t.classList.toggle('is-active', t === tab);
+      t.setAttribute('aria-selected', String(t === tab));
+    });
+    document.querySelectorAll('[data-library-view]').forEach(v => { v.hidden = v.dataset.libraryView !== which; });
+    if (which === 'assets') assetsPanel.refresh();
+  }));
   // Layers moves controls between containers the way the canvas does.
   renderHierarchy(hierarchyEl, uiModel, cssAstManager, viewState, () => designer.actions);
   const designer = renderCanvas(canvasEl, uiModel, cssAstManager, styleController, viewState);
@@ -243,6 +256,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   //
   // Invariant: the designer never writes to any file except `designBinding.file`.
   const designBinding = { file: null, baseline: null };
+  // Which file the design is (images are relative to it: designer/asset-url.js).
+  window.otterDesignBinding = designBinding;
 
   function bindDesign(file) {
     designBinding.file = file || null;

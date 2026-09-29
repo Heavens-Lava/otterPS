@@ -10,6 +10,7 @@ import { handleLaunchRoutes } from './server/launch.mjs';
 import { handleFsRoutes } from './server/fs-ops.mjs';
 import { handleHistoryRoutes, recordVersion } from './server/local-history.mjs';
 import { handleEditorConfigRoute } from './server/editorconfig.mjs';
+import { handleAssetRoutes } from './server/assets.mjs';
 import { handleGitRoutes } from './server/git.mjs';
 import { handleTestRoutes } from './server/tests.mjs';
 import { checkRequest, readJsonBody, isInside, LOOPBACK_HOST } from './server/security.mjs';
@@ -318,6 +319,8 @@ async function handleRequest(req, res) {
   if (await handleFsRoutes(req, res, pathname, { repoRoot: REPO_ROOT, isInsideRepo, readBody, sendJson })) return;
   if (handleHistoryRoutes(req, res, pathname, urlObj, { repoRoot: REPO_ROOT, isInsideRepo, sendJson })) return;
   if (handleEditorConfigRoute(req, res, pathname, urlObj, { repoRoot: REPO_ROOT, isInsideRepo, sendJson })) return;
+  // The Designer's Assets tab: list, show and import images (server/assets.mjs).
+  if (await handleAssetRoutes(req, res, pathname, urlObj, { repoRoot: REPO_ROOT, isInsideRepo, readBody, sendJson })) return;
 
   // Run, launch profiles, build and clean (server/launch.mjs).
   if (await handleLaunchRoutes(req, res, pathname, urlObj, {

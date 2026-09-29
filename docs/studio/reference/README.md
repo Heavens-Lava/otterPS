@@ -69,6 +69,14 @@ instead of checkboxes, the landscape art showing at the window's edges.
 3. Left panel as Components | Assets (today: an activity rail with Files,
    Toolbox, Layers, Search, Git, plus a Templates card). The toolbox becomes
    the tile grid; Files becomes Assets with Resources.
+   *Done (2026-09-29):* the Toolbox pane is Components | Assets. Assets
+   lists the project's images (thumbnails - drag or click one in as an
+   image, at its own size), styles, fonts and data, and imports images
+   into assets/images. Not done: the reference's "Resources" list (UI
+   Controls, Layouts, Icons, Images, Themes) - it needs a built-in icon /
+   theme library to show, which does not exist yet. The canvas's
+   Design | Preview switch is also done: Preview runs the compiled app in
+   place of the canvas (it replaced the old Interact mode).
 4. Right panel: Properties | Events | Styles, the element heading,
    collapsible sections, switches, paired fields, icon alignment groups,
    colour swatches.

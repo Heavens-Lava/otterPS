@@ -28,6 +28,7 @@
   <!-- Last: the visual pass that brings the workbench in line with the
        reference design (Otter IDE reference image.png). -->
   <link rel="stylesheet" href="css/polish.css">
+  <link rel="stylesheet" href="css/design-library.css">
 </head>
 <body class="theme-dark">
   <div class="studio-shell">
@@ -257,7 +258,14 @@
 
         <!-- Pane 2: Toolbox -->
         <div class="sidebar-pane" id="paneToolbox" style="display: none;">
-          <div class="panel-card" id="toolboxPanel" style="flex: 1;"></div>
+          <div class="panel-card design-library" style="flex: 1;">
+            <div class="design-library-tabs" role="tablist" aria-label="Design library">
+              <button class="design-library-tab is-active" role="tab" aria-selected="true" data-library="components">Components</button>
+              <button class="design-library-tab" role="tab" aria-selected="false" data-library="assets">Assets</button>
+            </div>
+            <div class="design-library-view" id="toolboxPanel" data-library-view="components"></div>
+            <div class="design-library-view" id="assetsPanel" data-library-view="assets" hidden></div>
+          </div>
         </div>
 
         <!-- Pane 3: Hierarchy Outline -->
