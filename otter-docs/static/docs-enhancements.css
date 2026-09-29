@@ -51,8 +51,20 @@ body { background: #f4f7fb; color: var(--docs-ink); font-family: Inter, ui-sans-
   #topBar { padding: 0 16px !important; } #navLinks { gap: 9px !important; }
   #navLinks > a { display: none; } #navLinks > button { display: inline-block; }
   .docs-mobile-toggle { background: #173252; border: 1px solid #315377; border-radius: 7px; color: #dbeafe; cursor: pointer; display: block; margin: 16px; padding: 8px 11px; }
-  #docsBody { display: block !important; } #docsSidebar { display: none; height: auto !important; position: static !important; width: auto !important; }
-  #docsSidebar.docs-sidebar-open { display: flex; } #docsMain { max-width: none !important; padding: 26px 20px !important; }
-  #hero { min-height: 0; padding: 22px 20px !important; } #hero img { display: none; }
+  #docsBody { display: block !important; } #docsSidebar { display: none !important; height: auto !important; position: static !important; width: auto !important; }
+  /* !important: the compiled column carries an inline display: flex. */
+  #docsSidebar.docs-sidebar-open { display: flex !important; } #docsMain { max-width: none !important; padding: 26px 20px !important; }
+  #hero { min-height: 0; padding: 22px 20px !important; } #hero img { display: none !important; }
+  #heroCopy { flex: 1 1 auto !important; width: auto !important; max-width: none !important; }
+  /* The home page's entry cards: two per row instead of four squeezed ones. */
+  #entryCards { flex-wrap: wrap !important; margin-top: 16px !important; }
+  #entryCards > div { flex: 1 1 calc(50% - 12px) !important; min-width: 0 !important; width: auto !important; }
+  /* /home/: use the phone's width, and a headline that fits it. */
+  #heroBody { padding: 0 !important; }
+  #heroCopy { padding: 24px 0 16px !important; }
+  #heroTitle { font-size: 44px !important; line-height: 1.05 !important; overflow-wrap: anywhere; }
+  #heroCodeblock, #heroCode { max-width: 100% !important; }
+  #homeContent { padding-left: 16px !important; padding-right: 16px !important; }
+  #homeContent > div { width: auto !important; max-width: 100% !important; padding-left: 0 !important; padding-right: 0 !important; }
   .docs-article-nav { font-size: .9rem; } #siteFooter { align-items: flex-start !important; flex-direction: column !important; padding: 24px 20px !important; }
 }
