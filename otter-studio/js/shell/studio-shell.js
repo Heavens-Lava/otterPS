@@ -309,6 +309,19 @@ export function mountStudioShell({ ide, setMode, openNewProjectModal, showWelcom
 
   mountMenuBar(document.getElementById('studioMenuBar'), commands);
 
+  // Toolbar row: the Save and Run drop-downs list commands; Preview App shows
+  // the Live App; the header gear opens Settings.
+  for (const [buttonId, menuId] of [['btnModebarSaveMore', 'modebarSaveMenu'], ['btnModebarRunMore', 'modebarRunMenu']]) {
+    const menu = document.getElementById(menuId);
+    installMoreMenu(document.getElementById(buttonId), menu);
+    menu?.addEventListener('click', (e) => {
+      const item = e.target.closest('[data-command]');
+      if (item) commands.run(item.dataset.command);
+    });
+  }
+  document.getElementById('btnModebarPreview')?.addEventListener('click', () => commands.run('view.preview'));
+  document.getElementById('btnHeaderSettings')?.addEventListener('click', () => commands.run('file.settings'));
+
   if (showWelcome && settings.get('workbench.showWelcomeOnStart') !== false) showWelcomePage();
 
   installMoreMenu(document.getElementById('btnEditorMore'), document.getElementById('editorMoreMenu'));

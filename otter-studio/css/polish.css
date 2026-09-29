@@ -615,3 +615,283 @@
   margin: 5px 6px;
   background: var(--border-subtle);
 }
+
+/* ---------------------------------------------------------------------------
+   Header (docs/studio/reference): brand and menus | the five modes as large
+   centred tabs | project chip, search, settings, window controls. In the
+   dark theme it sits on the mountain-lake art, as in the reference.
+   --------------------------------------------------------------------------- */
+
+.studio-header {
+  height: 64px;
+  gap: 16px;
+  padding: 0 12px 0 14px;
+}
+
+.theme-dark .studio-header {
+  background:
+    linear-gradient(180deg, rgba(4, 10, 19, 0.2) 0%, rgba(4, 10, 19, 0.55) 65%, rgba(4, 10, 19, 0.85) 100%),
+    url("../img/welcome-alpine-lake.png") center 38% / cover no-repeat,
+    var(--shell-bar);
+  border-bottom-color: rgba(120, 150, 190, 0.18);
+}
+
+.studio-header .header-left {
+  gap: 14px;
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.studio-header .header-center {
+  display: flex;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.studio-header .header-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.studio-header .brand-avatar {
+  width: 42px;
+  height: 42px;
+}
+
+.studio-header .brand-title {
+  font-size: 19px;
+  white-space: nowrap;
+}
+
+.theme-dark .studio-header .brand-title {
+  color: #ffffff;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.45);
+}
+
+.theme-dark .studio-header .brand-subtitle {
+  color: rgba(226, 236, 248, 0.78);
+}
+
+.theme-dark .studio-header .mb-trigger {
+  color: rgba(236, 243, 251, 0.92);
+}
+
+.theme-dark .studio-header .mb-trigger:hover,
+.theme-dark .studio-header .mb-menu.is-open .mb-trigger {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* The five modes: large tabs, the active one filled blue (reference). */
+.studio-header .mode-tabs {
+  gap: 2px;
+  padding: 3px;
+  border-radius: 11px;
+}
+
+.theme-dark .studio-header .mode-tabs {
+  background: rgba(6, 14, 26, 0.62);
+  border-color: rgba(120, 150, 190, 0.25);
+  backdrop-filter: blur(6px);
+}
+
+.studio-header .mode-tabs .mode-pill {
+  height: 38px;
+  padding: 0 18px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.theme-dark .studio-header .mode-tabs .mode-pill {
+  color: rgba(214, 226, 240, 0.85);
+}
+
+.theme-dark .studio-header .mode-tabs .mode-pill:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.studio-header .mode-tabs .mode-pill.is-active,
+.theme-dark .studio-header .mode-tabs .mode-pill.is-active {
+  color: #fff;
+  background: linear-gradient(180deg, #2f7cf6, #1d5fd6);
+  box-shadow: 0 0 0 1px rgba(125, 180, 255, 0.55) inset, 0 4px 16px rgba(47, 124, 246, 0.45);
+}
+
+.studio-header .project-chip {
+  height: 38px;
+  margin-left: 0;
+  gap: 8px;
+  padding: 0 10px 0 12px;
+  font-size: var(--ui-font-size);
+}
+
+.theme-dark .studio-header .project-chip {
+  background: rgba(6, 14, 26, 0.62);
+  border-color: rgba(120, 150, 190, 0.25);
+  backdrop-filter: blur(6px);
+}
+
+.project-chip .chip-folder svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+  fill: #f5b83d;
+  stroke: #d99a1c;
+  stroke-width: 0.8;
+  stroke-linejoin: round;
+}
+
+.project-chip .chip-arrow svg,
+.modebar-caret svg {
+  display: block;
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Search is a button now (Ctrl+K opens the palette); the tooltip names it. */
+.studio-header .header-search-wrap {
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  justify-content: center;
+  cursor: pointer;
+  border-radius: 9px;
+}
+
+.studio-header .header-search-wrap .header-search-input,
+.studio-header .header-search-wrap .palette-kbd {
+  display: none;
+}
+
+.header-icon-btn {
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-subtle);
+  border-radius: 9px;
+  background: var(--bg-app);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.theme-dark .studio-header .header-search-wrap,
+.theme-dark .header-icon-btn {
+  background: rgba(6, 14, 26, 0.62);
+  border-color: rgba(120, 150, 190, 0.25);
+  color: rgba(226, 236, 248, 0.9);
+}
+
+.studio-header .header-search-wrap:hover,
+.header-icon-btn:hover {
+  border-color: var(--accent-blue);
+  color: var(--text-main);
+}
+
+.header-icon-btn svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ---------------------------------------------------------------------------
+   Toolbar row: New / Open / Save ▾ / Run ▾ | theme | Preview App ↗.
+   --------------------------------------------------------------------------- */
+
+.studio-modebar {
+  height: 52px;
+  gap: 10px;
+  padding: 0 14px;
+}
+
+.studio-modebar .modebar-actions {
+  gap: 8px;
+  align-items: center;
+}
+
+.studio-modebar .modebar-btn {
+  height: 36px;
+  padding: 0 14px;
+  gap: 8px;
+  font-weight: 500;
+}
+
+/* A button and its ▾ read as one control. */
+.modebar-split {
+  position: relative;
+  display: inline-flex;
+}
+
+.modebar-split > .modebar-btn:first-child {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.modebar-split > .modebar-caret {
+  width: 30px;
+  padding: 0;
+  justify-content: center;
+  border-left-width: 0;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.modebar-split.is-primary > .modebar-caret {
+  border-left: 1px solid rgba(255, 255, 255, 0.28);
+}
+
+.modebar-caret.is-open {
+  background: var(--bg-hover);
+}
+
+.studio-modebar .modebar-center {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.studio-modebar .theme-toggle-btn {
+  height: 36px;
+  min-width: 36px;
+  padding: 0 12px;
+}
+
+.studio-modebar .modebar-right {
+  display: flex;
+  gap: 8px;
+}
+
+.modebar-external {
+  width: 14px !important;
+  height: 14px !important;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.75;
+}
+
+@media (max-width: 1500px) {
+  .studio-header .brand-text-wrap { display: none; }
+  .studio-header .mode-tabs .mode-pill { padding: 0 13px; }
+}
+
+.studio-modebar .theme-toggle-btn .theme-toggle-label {
+  display: none;
+}
