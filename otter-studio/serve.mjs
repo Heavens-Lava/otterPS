@@ -1287,7 +1287,17 @@ async function handleRequest(req, res) {
     const ext = path.extname(filePath).toLowerCase();
     const contentType = MIME_TYPES[ext] || 'application/octet-stream';
 
-    res.writeHead(200, { 'Content-Type': contentType });
+    // no-cache = the browser checks back every time (a cheap 304 when the
+    // file is unchanged). Without it, Chromium's heuristic cache - kept on
+    // disk by the desktop app - could run an old copy of Studio's scripts
+    // after the checkout was updated, even across restarts.
+    const etag = `"${stats.size.toString(16)}-${Math.floor(stats.mtimeMs).toString(16)}"`;
+    if (req.headers['if-none-match'] === etag) {
+      res.writeHead(304, { ETag: etag, 'Cache-Control': 'no-cache' });
+      res.end();
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': contentType, 'Cache-Control': 'no-cache', ETag: etag });
     fs.createReadStream(filePath).pipe(res);
   });
 }
