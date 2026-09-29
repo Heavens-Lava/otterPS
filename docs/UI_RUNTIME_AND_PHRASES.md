@@ -87,6 +87,10 @@ The page's `icons` sprite (an SVG file of `<symbol>`s) is embedded once, so
 icons work from a file, a server and inside Electron. A missing sprite is a
 compile error.
 
+While something is dragged over an element with `accepts drops true`, it
+carries the `otter-drop-over` class, so a stylesheet can show where a drop
+will land.
+
 New event word: `when box is submitted` - Enter in a text box (Ctrl+Enter in a
 text area).
 

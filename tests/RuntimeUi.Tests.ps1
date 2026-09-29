@@ -313,6 +313,36 @@ fill right with "c"
     Assert-AreEqual -Expected '7px' -Actual $run.Result.padding
 }
 
+Test-Otter 'an element that accepts drops carries otter-drop-over while something is dragged over it' {
+    $run = Invoke-OtterUiProgram -Source @'
+app is a page with title "T", hideheader true
+target is a column with accepts drops true
+other is a column
+label is a text with value "inside"
+put label in target
+put target, other in app
+on drop on target
+    say "dropped"
+.
+'@ -Driver @'
+  const fire = (el, type, related) => el.dispatchEvent(new DragEvent(type, { bubbles: true, cancelable: true, relatedTarget: related || null }));
+  fire(q('#label'), 'dragover');
+  result.over = q('#target').classList.contains('otter-drop-over');
+  fire(q('#target'), 'dragleave', q('#label'));
+  result.stillOverInside = q('#target').classList.contains('otter-drop-over');
+  fire(q('#other'), 'dragover');
+  result.afterMove = q('#target').classList.contains('otter-drop-over');
+  fire(q('#target'), 'dragover');
+  fire(q('#target'), 'drop');
+  result.afterDrop = q('#target').classList.contains('otter-drop-over');
+'@
+    Assert-UiRan $run
+    Assert-True $run.Result.over 'dragging over a child of the target marks the target'
+    Assert-True $run.Result.stillOverInside 'moving onto a child of the target keeps the mark'
+    Assert-False $run.Result.afterMove 'dragging over something else takes the mark away'
+    Assert-False $run.Result.afterDrop 'a drop takes the mark away'
+}
+
 Test-Otter 'clear empties a container; remove takes one element out' {
     $run = Invoke-OtterUiProgram -Source @'
 app is a page with title "T", hideheader true

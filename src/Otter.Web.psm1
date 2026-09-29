@@ -2197,8 +2197,20 @@ $bodyJoined
     // A drop only happens on elements whose dragover was cancelled: this is
     // what `accepts drops is true` means. Files dropped elsewhere are left
     // to the browser.
-    document.addEventListener('dragover', (e) => { if (otterClosest(e.target, '[data-otter-accepts-drops="true"]')) { e.preventDefault(); } });
-    document.addEventListener('drop', (e) => { if (otterClosest(e.target, '[data-otter-accepts-drops="true"]')) { e.preventDefault(); } });
+    document.addEventListener('dragover', (e) => { const t = otterClosest(e.target, '[data-otter-accepts-drops="true"]'); if (t) { e.preventDefault(); otterMarkDropTarget(t); } else { otterMarkDropTarget(null); } });
+    document.addEventListener('drop', (e) => { if (otterClosest(e.target, '[data-otter-accepts-drops="true"]')) { e.preventDefault(); } otterMarkDropTarget(null); });
+    // While something is dragged over an element that accepts drops, it
+    // carries the otter-drop-over class, so a stylesheet can show where the
+    // drop will land.
+    let otterDropOver = null;
+    function otterMarkDropTarget(el) {
+      if (otterDropOver === el) { return; }
+      if (otterDropOver) { otterDropOver.classList.remove('otter-drop-over'); }
+      otterDropOver = el;
+      if (el) { el.classList.add('otter-drop-over'); }
+    }
+    document.addEventListener('dragleave', (e) => { if (otterDropOver && !(e.relatedTarget && otterDropOver.contains(e.relatedTarget))) { otterMarkDropTarget(null); } });
+    document.addEventListener('dragend', () => { otterMarkDropTarget(null); }, true);
     function otterIsFileDrop(event) { return !!(event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files.length > 0); }
     function otterIsItemDrop(event) {
       const types = event.dataTransfer && event.dataTransfer.types ? Array.from(event.dataTransfer.types) : [];
