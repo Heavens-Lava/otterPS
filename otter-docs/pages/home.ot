@@ -10,7 +10,7 @@ app is a page with title "Otter - Programming that reads like English", hidehead
 # 1. HERO
 # ==========================================
 
-heroEyebrow is a text with value "{{RELEASE_CHANNEL}} {{RELEASE_VERSION}} - for Windows", size 13, weight 700, foreground "#7fb0ff", letterspacing "0.08em"
+heroEyebrow is a text with value "{{RELEASE_CHANNEL}} {{RELEASE_VERSION}} - for Windows, macOS and Linux", size 13, weight 700, foreground "#7fb0ff", letterspacing "0.08em"
 heroTitle is a text with value "Programming that reads like English.", size 56, weight 800, foreground "#ffffff", letterspacing "-0.03em", lineheight "1.05"
 heroLead is a text with value "Otter is a programming language you can read aloud. Write scripts, desktop apps and web apps in plain words, with nothing extra to install.", size 19, foreground "#dbe6f5", lineheight "1.5", customstyle "max-width: 560px;"
 

@@ -1,7 +1,7 @@
 {
   "version": "1.0.0-rc.5",
   "channel": "Release candidate",
-  "windowsRequirements": "Windows 10 or Windows 11 with Windows PowerShell 5.1.",
+  "windowsRequirements": "Windows 10 or Windows 11 with Windows PowerShell 5.1, or Linux or macOS with PowerShell 7.",
   "installerStatus": "Installer not published yet",
   "installerSize": "Published with the installer",
   "releaseDate": "Published with the installer",

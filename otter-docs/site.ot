@@ -99,7 +99,7 @@ installationHeading is a text
 .
 
 installationBody is a text
-    value is "Download Otter for Windows, then run an .ot file from PowerShell with .\\otter.cmd your-program.ot."
+    value is "Download Otter for Windows, macOS or Linux, then run an .ot file with otter run your-program.ot."
     foreground is "#cbd5e1"
 .
 

@@ -106,7 +106,7 @@ b2 is a text with value "What is published today, stated plainly. Details that d
 b3 is a text with value "Current release", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b4 is a text with value "Version: {{RELEASE_VERSION}} ({{RELEASE_CHANNEL}})", size 16, foreground "#3a4d6b", lineheight "1.6"
 b5 is a text with value "Installer: {{INSTALLER_STATUS}}", size 16, foreground "#3a4d6b", lineheight "1.6"
-b6 is a text with value "Windows requirements: {{WINDOWS_REQUIREMENTS}}", size 16, foreground "#3a4d6b", lineheight "1.6"
+b6 is a text with value "Requirements: {{WINDOWS_REQUIREMENTS}}", size 16, foreground "#3a4d6b", lineheight "1.6"
 b7 is a text with value "SHA-256: {{SHA256}}", size 16, foreground "#3a4d6b", lineheight "1.6"
 b8 is a text with value "Release notes: {{RELEASE_NOTES_STATUS}}", size 16, foreground "#3a4d6b", lineheight "1.6"
 b9 is a text with value "V1 publication checklist", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
