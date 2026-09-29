@@ -287,6 +287,32 @@ when openButton is clicked
 
 # --- 4. clear and remove -------------------------------------------------------
 
+Test-Otter 'a rendered resource passed to a function is that resource: the function can clear it, fill it and style it' {
+    $run = Invoke-OtterUiProgram -Source @'
+app is a page with title "T", hideheader true
+left is a column
+right is a column
+put left, right in app
+to fill container with label
+    clear container
+    line is a text with value label, class "line"
+    put line in container
+    padding of container is 7
+.
+fill left with "a"
+fill left with "b"
+fill right with "c"
+'@ -Driver @'
+  result.left = Array.from(q('#left').querySelectorAll('.line')).map(e => e.textContent).join(',');
+  result.right = Array.from(q('#right').querySelectorAll('.line')).map(e => e.textContent).join(',');
+  result.padding = q('#left').style.padding;
+'@
+    Assert-UiRan $run
+    Assert-AreEqual -Expected 'b' -Actual $run.Result.left
+    Assert-AreEqual -Expected 'c' -Actual $run.Result.right
+    Assert-AreEqual -Expected '7px' -Actual $run.Result.padding
+}
+
 Test-Otter 'clear empties a container; remove takes one element out' {
     $run = Invoke-OtterUiProgram -Source @'
 app is a page with title "T", hideheader true

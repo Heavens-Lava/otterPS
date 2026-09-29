@@ -597,6 +597,10 @@ function Get-OtterWebRuntimeUiJs {
     // is returned as it is, so the operation can say what it got instead.
     function otterUiRef(value, staticName) {
       if (otterIsUi(value)) { return value; }
+      // A rendered element that arrived as a value (a rendered name passed
+      // as an argument is the browser's element for that id) is that
+      // resource.
+      if (value && value.nodeType === 1 && value.id && otterIsOtterElement(value)) { const h = otterUiStaticHandle(value.id); if (h) { return h; } }
       if (staticName) { const h = otterUiStaticHandle(staticName); if (h) { return h; } }
       return value;
     }
@@ -609,6 +613,7 @@ function Get-OtterWebRuntimeUiJs {
     function otterUiHandle(ref) {
       if (otterIsUi(ref)) { return ref; }
       if (typeof ref === 'string') { return otterUiStaticHandle(ref); }
+      if (ref && ref.nodeType === 1 && ref.id && otterIsOtterElement(ref)) { return otterUiStaticHandle(ref.id); }
       return null;
     }
     function otterCreateUi(kind, variant) {
