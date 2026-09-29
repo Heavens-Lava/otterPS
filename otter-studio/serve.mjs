@@ -12,6 +12,8 @@ import { handleHistoryRoutes, recordVersion } from './server/local-history.mjs';
 import { handleEditorConfigRoute } from './server/editorconfig.mjs';
 import { handleAssetRoutes } from './server/assets.mjs';
 import { handleTrustRoutes } from './server/trust.mjs';
+import { handleStylesheetRoute } from './server/stylesheet.mjs';
+import { syncMirror, projectRootFor } from './server/project-mirror.mjs';
 import { createRenderWorker } from './server/render-worker.mjs';
 import { handleGitRoutes } from './server/git.mjs';
 import { handleTestRoutes } from './server/tests.mjs';
@@ -297,7 +299,9 @@ function liveEntryFor(documentPath) {
 
 // sourceDir: the folder the document really lives in (its imports, icons,
 // stylesheet and images resolve from there); '' for a document with no file.
-function renderOtterSource(code, css, sourceDir = '') {
+// baseDir: where the page's images are served from, when that is not
+// sourceDir (a render from the project mirror: server/project-mirror.mjs).
+function renderOtterSource(code, css, sourceDir = '', baseDir = sourceDir) {
   const fingerprint = sourceDir ? sourceDir + '\u0000' + folderFingerprint(sourceDir) : '';
   const key = crypto.createHash('sha256').update(code + '\u0000' + css + '\u0000' + fingerprint).digest('hex').slice(0, 24);
   if (renderCache.has(key)) return Promise.resolve(renderCache.get(key));
@@ -314,7 +318,7 @@ function renderOtterSource(code, css, sourceDir = '') {
       let result;
       if (compiled && fs.existsSync(htmlPath)) {
         let html = fs.readFileSync(htmlPath, 'utf8').replace(/^\uFEFF/, '');
-        if (sourceDir) html = html.replace(/<head>/i, `<head>\n  <base href="${workspaceFilesBase(sourceDir)}">`);
+        if (baseDir) html = html.replace(/<head>/i, `<head>\n  <base href="${workspaceFilesBase(baseDir)}">`);
         result = { ok: true, html };
         if (renderCache.size > 50) renderCache.delete(renderCache.keys().next().value);
         renderCache.set(key, result);
@@ -454,6 +458,8 @@ async function handleRequest(req, res) {
   if (await handleAssetRoutes(req, res, pathname, urlObj, { repoRoot: REPO_ROOT, isInsideRepo, readBody, sendJson })) return;
   // Restricted Mode: trusted folders, remembered on this computer (server/trust.mjs).
   if (await handleTrustRoutes(req, res, pathname, urlObj, { repoRoot: REPO_ROOT, isInsideRepo, readBody, sendJson })) return;
+  // The project stylesheet, found as the compiler finds it (server/stylesheet.mjs).
+  if (handleStylesheetRoute(req, res, pathname, urlObj, { repoRoot: REPO_ROOT, isInsideRepo, sendJson })) return;
 
   // Run, launch profiles, build and clean (server/launch.mjs).
   if (await handleLaunchRoutes(req, res, pathname, urlObj, {
@@ -921,18 +927,30 @@ async function handleRequest(req, res) {
       // run starts from its project's entry point.
       let code = String(body.code || '');
       let sourceDir = '';
+      let baseDir = '';
       if (typeof body.path === 'string' && body.path.trim()) {
         const documentPath = path.resolve(REPO_ROOT, body.path);
         if (isInsideRepo(documentPath)) {
-          let runPath = documentPath;
-          if (body.live) {
-            runPath = liveEntryFor(documentPath);
-            if (runPath !== documentPath) code = fs.readFileSync(runPath, 'utf8');
+          const entry = liveEntryFor(documentPath);
+          const projectRoot = projectRootFor(documentPath, isInsideRepo);
+          if (entry !== documentPath && projectRoot) {
+            // A file of a multi-file project (OtterBoard's shell.ot) compiled
+            // alone is missing the functions and data the entry brings
+            // together: compile the entry, from a mirror of the project with
+            // this document's text (saved or not) in place - for the canvas
+            // and for Live App alike.
+            const mirror = syncMirror(projectRoot, { [documentPath]: code });
+            const mirrorEntry = path.join(mirror, path.relative(projectRoot, entry));
+            code = fs.readFileSync(mirrorEntry, 'utf8');
+            sourceDir = path.dirname(mirrorEntry);
+            baseDir = path.dirname(entry);
+          } else {
+            sourceDir = path.dirname(documentPath);
+            baseDir = sourceDir;
           }
-          sourceDir = path.dirname(runPath);
         }
       }
-      const result = await renderOtterSource(code, String(body.css || ''), sourceDir);
+      const result = await renderOtterSource(code, String(body.css || ''), sourceDir, baseDir);
       sendJson(res, result, result.ok ? 200 : 422);
     } catch (err) {
       sendJson(res, { ok: false, message: err.message }, 500);

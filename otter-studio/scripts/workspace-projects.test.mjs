@@ -127,6 +127,23 @@ try {
   assert.equal(live.status, 200, JSON.stringify(live.body).slice(0, 600));
   assert.ok(live.body.html.includes('<title>Outside</title>'), 'the live run is the project, not the single file');
 
+  // --- 4b. A page file of the project renders as the whole app, with its
+  // unsaved text in place (OtterBoard's shell.ot): the entry brings in the
+  // functions and data the file alone does not have. Nothing is written
+  // into the project.
+  const labelRel = path.join(project.rootPath, 'parts', 'label.ot');
+  const before = fs.readFileSync(path.join(outside, 'parts', 'label.ot'), 'utf8');
+  const unsaved = before.replace('made-label', 'unsaved-edit');
+  const page = await render({ code: unsaved, css: '', path: labelRel });
+  assert.equal(page.status, 200, JSON.stringify(page.body).slice(0, 600));
+  assert.ok(page.body.html.includes('<title>Outside</title>'), 'the page of the whole project');
+  assert.ok(page.body.html.includes('unsaved-edit'), 'with the open, unsaved text of the page file');
+  assert.ok(!page.body.html.includes('made-label'), 'in place of what is on disk');
+  assert.equal(fs.readFileSync(path.join(outside, 'parts', 'label.ot'), 'utf8'), before, 'the project file is untouched');
+  assert.match(page.body.html, /<base href="\/workspace-files\/[^"]+">/, 'images still come from the project');
+  const pageBase = /<base href="([^"]+)">/.exec(page.body.html)[1];
+  assert.equal((await fetch(`${baseUrl}${pageBase}images/logo.png`)).status, 200, 'the project image is served');
+
   // --- 5. Blame and diff in the project's own repository --------------------
   const { execFileSync } = await import('node:child_process');
   const gitIn = (...args) => execFileSync('git', ['-C', outside, '-c', 'user.name=Test', '-c', 'user.email=test@example.com', ...args], { stdio: 'pipe' });

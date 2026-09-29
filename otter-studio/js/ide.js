@@ -2351,14 +2351,28 @@ export class OtterStudioIde {
     }
   }
 
-  // The stylesheet the designer's style edits belong to.
-  // Seam with the language release: Otter 1.0 (D-3) makes `<entry>.css`
-  // the rule for a program's stylesheet. When Studio adopts it, this is the
-  // one place to change.
+  // The stylesheet the designer's style edits belong to: the one the
+  // compiler uses (D125) - <entry>.css, else styles.css beside the entry,
+  // else the project root's styles.css - as the server resolved it
+  // (server/stylesheet.mjs) when the project was loaded.
   projectStylesheetPath() {
     const folder = this.currentProjectFolder;
     if (!folder || /\.(json|otter-workspace)$/i.test(folder)) return null; // solutions have no single stylesheet
+    if (this.resolvedStylesheet?.folder === folder) return this.resolvedStylesheet.path;
     return `${folder}/styles.css`;
+  }
+
+  async resolveProjectStylesheet() {
+    const folder = this.currentProjectFolder;
+    if (!folder || /\.(json|otter-workspace)$/i.test(folder)) return null;
+    try {
+      const res = await fetch(`/api/project-stylesheet?folder=${encodeURIComponent(folder)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (this.currentProjectFolder === folder) this.resolvedStylesheet = { folder, path: data.path };
+      }
+    } catch { /* keep the default */ }
+    return this.projectStylesheetPath();
   }
 
   // Read the project's stylesheet into the designer's CSS model, remembering
@@ -2367,7 +2381,7 @@ export class OtterStudioIde {
   async loadDesignerStylesheet() {
     const css = window.otterCssAstManager;
     if (!css) return;
-    const sheetPath = this.projectStylesheetPath();
+    const sheetPath = await this.resolveProjectStylesheet();
     css.sourcePath = null;
     css.revision = null;
     if (!sheetPath) return;
