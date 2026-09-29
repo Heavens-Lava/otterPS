@@ -150,9 +150,12 @@ blocker set B1-B14 and decisions D124-D127, each with a regression test that
 fails on RC2 (see `CHANGELOG.md` 1.0.0-rc.3). The DC2-DC5 documentation
 conflicts are reconciled.
 
-**Pending:** D123 (D-1, arithmetic in conditions) changes `src/Otter.Parser.psm1`,
-which `CLAUDE.md` assigns to Codex. It is prepared as one proposal commit
-(parser plus `tests/ConditionArithmetic.Tests.ps1`) for Codex to make or review.
+**RESOLVED:** D123 (D-1, arithmetic in conditions) is implemented in the final
+RC3 candidate. `src/Otter.Parser.psm1` now permits arithmetic only as an
+ordinary comparison operand; bare conditions, state predicates and string-match
+predicates retain their existing grammar. `tests/ConditionArithmetic.Tests.ps1`
+contains 41 regression cases, including the scope guards. Final release
+certification remains required before tagging.
 
 **Found while fixing, not in RC3:**
 

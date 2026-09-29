@@ -9,8 +9,8 @@ using module ..\src\Otter.Interpreter.psm1
 # Otter 1.0 decision D-1 (RC3): "Silent incorrect arithmetic in conditions is
 # forbidden." `if x plus 1 is 5` must compare x+1 with 5, never parse as
 # `x and (1 is 5)`. These tests expect CORRECT semantics and ship together
-# with the parser change that provides them (PROPOSAL FOR CODEX REVIEW,
-# Read-OtterConditionOperand in src/Otter.Parser.psm1). On the RC2 parser
+# with the parser change that provides them (Read-OtterConditionOperand in
+# src/Otter.Parser.psm1). On the RC2 parser
 # the plus/+ forms silently take the wrong branch and the other operators
 # are rejected with "I expected the statement to end here".
 #
