@@ -115,6 +115,18 @@ assert.doesNotMatch(eventsJs, /<textarea/, 'The Events panel does not edit code 
 assert.match(eventsJs, /uiModel\.setEvent\(selected\.id, eventKind, [^\n]+\);\s*\n\s*await openHandler\(selected, eventKind, \{ selectBody: true \}\)/, 'Add handler writes the handler and opens it in the editor, its first line selected');
 assert.match(eventsJs, /window\.confirm\(`Remove the handler/, 'Removing a handler asks first');
 
+// Websites of several pages: File > New Page, Build > Open Built Website.
+const [menuBar, commandsJs, manifestJs] = await Promise.all([
+  fs.readFile(path.join(studioRoot, 'js', 'shell', 'menu-bar.js'), 'utf8'),
+  fs.readFile(path.join(studioRoot, 'js', 'shell', 'commands.js'), 'utf8'),
+  fs.readFile(path.join(studioRoot, 'js', 'project', 'project-manifest.js'), 'utf8')
+]);
+assert.match(menuBar, /'file\.newFile', 'file\.newPage'/, 'File has New Page');
+assert.match(menuBar, /'build\.clean', 'build\.openWebsite'/, 'Build has Open Built Website');
+assert.match(commandsJs, /id: 'file\.newPage'[^\n]*ide\.promptNewPage\(\)/, 'New Page creates a page of the website');
+assert.match(ide, /async promptNewPage\(\)[\s\S]*?\$\{file\}\.css[\s\S]*?pillDesignerMode/, 'A new page comes with its stylesheet and opens in the Designer');
+assert.match(manifestJs, /assets: options\.assets \|\| \[\],/, 'A new project lists no stylesheet as an asset (the compiler embeds it; a named styles.css that did not exist failed every build)');
+
 assert.match(html, /id="outlineFilterInput"/, 'Document outline must expose a filter input');
 assert.match(html, /id="btnWorkspaceSymbols"/, 'Editor quick actions must expose Workspace Symbols button');
 assert.match(html, /id="btnExtractFunction"/, 'Editor quick actions must expose Extract Function button');

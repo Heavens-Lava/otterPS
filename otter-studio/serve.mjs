@@ -304,6 +304,12 @@ function liveEntryFor(documentPath) {
 // abandoned(): the requester has gone (a newer render replaced it) - then a
 // compile still waiting in the queue is skipped, so a slow project's
 // superseded renders do not hold up the one that matters.
+// The rule otter build uses (Get-OtterWebPageFiles): a page file declares a
+// page and shows it.
+function isWebPageSource(code) {
+  return /^\s*[A-Za-z_]\w*\s+is\s+an?\s+page\b/m.test(code) && /^\s*show\s+[A-Za-z_]/m.test(code);
+}
+
 function renderOtterSource(code, css, sourceDir = '', baseDir = sourceDir, { abandoned = () => false, entryName = '' } = {}) {
   const fingerprint = sourceDir ? sourceDir + '\u0000' + folderFingerprint(sourceDir) : '';
   const key = crypto.createHash('sha256').update(code + '\u0000' + css + '\u0000' + fingerprint).digest('hex').slice(0, 24);
@@ -954,7 +960,10 @@ async function handleRequest(req, res) {
             const sheet = String(body.css || '');
             if (sheet) overlay[resolveProjectStylesheet(projectRoot).path] = sheet;
             const mirror = syncMirror(projectRoot, overlay);
-            const target = entry || documentPath;
+            // A page of a website (about.ot: it declares a page and shows it)
+            // is its own page, built to about.html; anything else (a part of
+            // a page, a module) runs as the project, from its entry.
+            const target = isWebPageSource(String(body.code || '')) ? documentPath : (entry || documentPath);
             const mirrorEntry = path.join(mirror, path.relative(projectRoot, target));
             code = fs.readFileSync(mirrorEntry, 'utf8');
             sourceDir = path.dirname(mirrorEntry);

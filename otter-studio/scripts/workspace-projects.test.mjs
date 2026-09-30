@@ -149,6 +149,17 @@ try {
   assert.equal(styled.status, 200, JSON.stringify(styled.body).slice(0, 600));
   assert.ok(styled.body.html.includes('rgb(1, 2, 3)'), 'the unsaved stylesheet is in the page');
   assert.equal(fs.existsSync(path.join(outside, 'main.css')), false, 'and was not written into the project');
+
+  // --- 4d. A page of a website (it declares a page and shows it) renders as
+  // itself - about.ot builds to about.html - where a part of a page (the
+  // label file above) still renders as the project.
+  const aboutRel = path.join(project.rootPath, 'about.ot');
+  const aboutCode = 'about is a page with title "About us"\nnote is a text with text "about-page"\nput note in about\nshow about\n';
+  fs.writeFileSync(path.join(outside, 'about.ot'), aboutCode);
+  const about = await render({ code: aboutCode, css: '', path: aboutRel, live: true });
+  assert.equal(about.status, 200, JSON.stringify(about.body).slice(0, 600));
+  assert.ok(about.body.html.includes('<title>About us</title>') && about.body.html.includes('about-page'), 'the About page, not the entry');
+  fs.rmSync(path.join(outside, 'about.ot'));
   const pageBase = /<base href="([^"]+)">/.exec(page.body.html)[1];
   assert.equal((await fetch(`${baseUrl}${pageBase}images/logo.png`)).status, 200, 'the project image is served');
 

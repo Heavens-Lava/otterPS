@@ -157,6 +157,7 @@ export function defaultCommands(deps) {
     // File
     { id: 'file.newProject', title: 'New Project...', category: 'File', shortcut: 'Ctrl+Shift+N', run: openNewProjectModal },
     { id: 'file.newFile', title: 'New File', category: 'File', shortcut: 'Ctrl+N', run: () => ide.promptNewFile() },
+    { id: 'file.newPage', title: 'New Page...', category: 'File', when: hasProject, run: () => ide.promptNewPage() },
     { id: 'file.openFolder', title: 'Open Folder...', category: 'File', shortcut: 'Ctrl+O', run: () => ide.promptOpenFolder() },
     { id: 'file.save', title: 'Save', category: 'File', shortcut: 'Ctrl+S', run: () => ide.saveCurrentFile() },
     { id: 'file.saveAll', title: 'Save All', category: 'File', run: () => ide.saveAllFiles() },

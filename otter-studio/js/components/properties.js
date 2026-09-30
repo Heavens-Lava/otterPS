@@ -286,7 +286,8 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
     if (selected.kind === 'link') {
       // "#features" jumps within the page, "about.html" opens another page,
       // a web address opens in a new tab.
-      fields.push(contentRow('Link to', 'url', props.url, { placeholder: '#section, page.html or https://...' }));
+      fields.push(contentRow('Link to', 'url', props.url, { placeholder: '#section, page.html or https://...', list: 'otterLinkTargets' }));
+      fields.push(linkTargetsList());
     }
     if (['text box', 'dropdown', 'text area'].includes(selected.kind)) {
       fields.push(contentRow('Placeholder', 'placeholder', props.placeholder));
@@ -322,11 +323,30 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
     `;
   }
 
-  function contentRow(label, key, value, { placeholder = '', number = false } = {}) {
+  // Where a link can go: every page of the website (page.ot builds to
+  // page.html; the entry is index.html) and the sections of this page.
+  function linkTargetsList() {
+    const ide = window.otterIde;
+    const root = String(ide?.currentProjectFolder || '').replace(/[\\/]+$/, '');
+    const entry = String(ide?.resolvedStylesheet?.entry || 'main.ot').split(/[\\/]/).pop();
+    // .ot files beside the entry (the project root), by name.
+    const pages = (ide?.workspaceFiles || [])
+      .map(f => String(f.path || f).replace(/\\/g, '/'))
+      .filter(p => /\.ot$/i.test(p) && !p.slice(root.length + 1).includes('/'))
+      .map(p => p.split('/').pop())
+      .map(name => (name === entry ? 'index.html' : name.replace(/\.ot$/i, '.html')));
+    const sections = [...uiModel.components.values()]
+      .filter(c => c.id !== uiModel.rootId && ComponentSchema[c.kind]?.isContainer)
+      .map(c => '#' + c.name);
+    const options = [...new Set(['index.html', ...pages, ...sections])];
+    return `<datalist id="otterLinkTargets">${options.map(o => `<option value="${escapeHtml(o)}"></option>`).join('')}</datalist>`;
+  }
+
+  function contentRow(label, key, value, { placeholder = '', number = false, list = '' } = {}) {
     return `
       <div class="prop-row">
         <label class="prop-label">${escapeHtml(label)}</label>
-        <input type="text" class="prop-input" data-otter-key="${key}" data-focus-key="otter-${key}" value="${escapeHtml(value ?? '')}"${placeholder ? ` placeholder="${escapeHtml(placeholder)}"` : ''}${number ? ' data-otter-number inputmode="numeric"' : ''} />
+        <input type="text" class="prop-input" data-otter-key="${key}" data-focus-key="otter-${key}" value="${escapeHtml(value ?? '')}"${placeholder ? ` placeholder="${escapeHtml(placeholder)}"` : ''}${number ? ' data-otter-number inputmode="numeric"' : ''}${list ? ` list="${list}" autocomplete="off"` : ''} />
       </div>`;
   }
 

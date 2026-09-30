@@ -13,7 +13,7 @@
 // A string is a command id; '-' a separator; { id, label } renames an item.
 export const MENUS = [
   { id: 'file', label: 'File', items: [
-    'file.newProject', 'file.newFile', 'file.openFolder', 'file.startWindow', '-',
+    'file.newProject', 'file.newFile', 'file.newPage', 'file.openFolder', 'file.startWindow', '-',
     'file.save', 'file.saveAll', '-',
     'file.localHistory', { id: 'file.compareSaved', label: 'Compare with Saved' }, { id: 'file.compareHead', label: 'Compare with Last Commit' }, 'file.compareFile', '-',
     'file.projectSettings', 'file.newSolution', '-',
@@ -47,7 +47,7 @@ export const MENUS = [
     'run.launchProfiles', { id: 'run.tests', label: 'Run Tests...' }
   ] },
   { id: 'build', label: 'Build', items: [
-    'build.build', 'build.rebuild', 'build.clean', '-',
+    'build.build', 'build.rebuild', 'build.clean', 'build.openWebsite', '-',
     'build.desktopApp', 'build.openPackagesFolder'
   ] },
   { id: 'help', label: 'Help', items: [
@@ -61,6 +61,7 @@ export const MENUS = [
 const ICONS = {
   'file.newProject': 'M3 2.5h6l3.5 3.5v7.5h-9.5zM9 2.5V6h3.5M7.75 8v4M5.75 10h4',
   'file.newFile': 'M4 2.5h5l3 3v8H4zM9 2.5v3h3',
+  'file.newPage': 'M2.5 3h11v10h-11zM2.5 5.5h11M8 7.5v4M6 9.5h4',
   'file.openFolder': 'M2 4.5v8h10.5l1.5-5.5H4.5L3 12.5M2 4.5h4l1.2 1.2H12v1.3',
   'file.startWindow': 'M2.5 3h11v10h-11zM2.5 6h11M6 8.5h5M6 10.5h3',
   'file.save': 'M3 2.5h8l2 2v9H3zM5.5 2.5v3h5v-3M5 13.5v-4h6v4',
@@ -106,6 +107,7 @@ const ICONS = {
   'run.restart': 'M12.5 8A4.5 4.5 0 1 1 11 4.6M11.5 2v3h-3',
   'run.tests': 'M6 2.5h4M7 2.5v4L3.5 12.5a.8.8 0 0 0 .7 1.2h7.6a.8.8 0 0 0 .7-1.2L9 6.5v-4',
   'build.build': 'M9.5 3.5l3 3-7 7-3-3zM11 2l3 3',
+  'build.openWebsite': 'M8 2.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11zM2.5 8h11M8 2.5c1.5 1.6 2.2 3.4 2.2 5.5S9.5 11.9 8 13.5M8 2.5C6.5 4.1 5.8 5.9 5.8 8s.7 3.9 2.2 5.5',
   'build.rebuild': 'M12.5 8A4.5 4.5 0 1 1 11 4.6M11.5 2v3h-3',
   'build.desktopApp': 'M2.5 3h11v8h-11zM6 13.5h4M8 11v2.5',
   'build.openPackagesFolder': 'M2 4.5v8h10.5l1.5-5.5H4.5L3 12.5M2 4.5h4l1.2 1.2H12v1.3',

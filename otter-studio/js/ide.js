@@ -1981,6 +1981,52 @@ export class OtterStudioIde {
     }
   }
 
+  // A page of a website: about.ot builds to about.html (otter build builds
+  // every page file beside the entry), with its own about.css. It opens in
+  // the Designer; a link to it says url "about.html".
+  async promptNewPage() {
+    if (!this.currentProjectFolder) { alert('Open a website project to add a page to it.'); return null; }
+    const raw = await askText({ title: 'New Page', message: 'A page of this website. It builds to its own .html, so a link can open it.', value: 'about', okLabel: 'Create',
+      validate: (v) => {
+        const name = v.trim().replace(/\.ot$/i, '');
+        if (!/^[A-Za-z][A-Za-z0-9_-]*$/.test(name)) return 'Use letters, digits, - or _, starting with a letter (for example about or contact-us).';
+        if (name.toLowerCase() === 'index') return 'index is the home page (the entry point). Choose another name.';
+        return null;
+      } });
+    if (!raw) return null;
+    const file = raw.trim().replace(/\.ot$/i, '');
+    const id = file.replace(/[-_]+([a-z0-9])/gi, (_, c) => c.toUpperCase());
+    const title = file.replace(/[-_]+/g, ' ').replace(/^\w/, c => c.toUpperCase());
+    const code = [
+      `${id} is a page with title "${title}", width full, hideheader true, spacing 16, padding 32, background "#ffffff", foreground "#0f172a"`,
+      `${id}Heading is a text with text "${title}", size 36, weight 800`,
+      `${id}Text is a text with text "Write this page in the Designer."`,
+      `homeLink is a link with text "← Home", url "index.html"`,
+      `put homeLink, ${id}Heading, ${id}Text in ${id}`,
+      `show ${id}`,
+      ''
+    ].join('\n');
+    const css = `/* ${title}: this page's stylesheet (${file}.css). */\n#${id}Text {\n    color: #475569;\n    line-height: 1.6;\n}\n`;
+    try {
+      for (const [name, content] of [[`${file}.ot`, code], [`${file}.css`, css]]) {
+        const res = await fetch('/api/create-file', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, folder: this.currentProjectFolder, content })
+        });
+        const data = await res.json();
+        if (!data.ok) { alert(data.error || `Could not create ${name}.`); return null; }
+      }
+      await this.loadProjectTree(this.currentProjectFolder);
+      await this.loadFile(`${this.currentProjectFolder.replace(/[\\/]+$/, '')}/${file}.ot`);
+      document.getElementById('pillDesignerMode')?.click();
+      return `${file}.html`;
+    } catch (e) {
+      alert('Error creating the page: ' + e.message);
+      return null;
+    }
+  }
+
   // --- Real Multi-Tab File Load & Save ---
   async loadFile(filePath) {
     const existing = this.openTabs.find(t => t.path === filePath);
@@ -2377,7 +2423,7 @@ export class OtterStudioIde {
       const res = await fetch(`/api/project-stylesheet?folder=${encodeURIComponent(folder)}`);
       if (res.ok) {
         const data = await res.json();
-        if (this.currentProjectFolder === folder) this.resolvedStylesheet = { folder, path: data.path };
+        if (this.currentProjectFolder === folder) this.resolvedStylesheet = { folder, path: data.path, entry: data.entry };
       }
     } catch { /* keep the default */ }
     return this.projectStylesheetPath();

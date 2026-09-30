@@ -33,7 +33,9 @@ export function createDefaultManifest(name, archetype = 'desktop', entryFile = n
     dependencies: options.dependencies || {
       core: '^1.0.0'
     },
-    assets: options.assets || (target === 'web' || target === 'desktop' ? ['styles.css'] : []),
+    // Nothing by default: the compiler embeds a page's stylesheet (<entry>.css)
+    // in the page itself; assets are the files copied beside it (images...).
+    assets: options.assets || [],
     scripts: options.scripts || {
       start: `otter run ${defaultEntry}`,
       build: 'otter build',
