@@ -139,21 +139,14 @@ export function renderProjectSettings(container, options = {}) {
               </div>
 
               <div class="toggle-list">
-                <label class="toggle-item">
-                  <input type="checkbox" id="checkManifestSourceMaps" ${manifest.build?.sourceMaps !== false ? 'checked' : ''} />
-                  <span class="toggle-switch"></span>
-                  <div class="toggle-copy">
-                    <strong>Generate Source Maps</strong>
-                    <span>Enables source-level debugging in runtime and devtools</span>
-                  </div>
-                </label>
-
+                <!-- No "source maps" option: otter build makes none (build.sourceMaps
+                     in project.json is accepted and has no effect). -->
                 <label class="toggle-item">
                   <input type="checkbox" id="checkManifestMinify" ${manifest.build?.minify ? 'checked' : ''} />
                   <span class="toggle-switch"></span>
                   <div class="toggle-copy">
-                    <strong>Minify Output Bundle</strong>
-                    <span>Removes comments, compresses identifiers, and optimizes payload size</span>
+                    <strong>Minify pages</strong>
+                    <span>Removes comments and indentation from each page's code, about a fifth smaller; it works the same</span>
                   </div>
                 </label>
 
@@ -425,12 +418,6 @@ export function renderProjectSettings(container, options = {}) {
       notifyChange();
     });
 
-    const checkSourceMaps = container.querySelector('#checkManifestSourceMaps');
-    checkSourceMaps?.addEventListener('change', () => {
-      if (!manifest.build) manifest.build = {};
-      manifest.build.sourceMaps = checkSourceMaps.checked;
-      notifyChange();
-    });
 
     const checkMinify = container.querySelector('#checkManifestMinify');
     checkMinify?.addEventListener('change', () => {
