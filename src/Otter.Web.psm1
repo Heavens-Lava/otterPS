@@ -18,6 +18,43 @@ function Escape-OtterHtmlAttr {
     return $Text -replace '&', '&amp;' -replace '"', '&quot;' -replace '<', '&lt;' -replace '>', '&gt;'
 }
 
+# Forms (docs/proposals/FORMS_AND_VALIDATION.md): the rules a field states
+# (required, format, minlength, ...) ride on it as data attributes, which the
+# web runtime checks when the field's form is sent.
+$script:OtterFieldKinds = @('text box', 'text area', 'textarea', 'dropdown', 'drop down', 'select', 'checkbox', 'check box', 'toggle', 'switch')
+$script:OtterFieldRuleKeys = @('required', 'format', 'minlength', 'maxlength', 'minimum', 'maximum', 'message', 'label')
+function Get-OtterFieldAttributes {
+    param([string]$Kind, $Props)
+    if ($Kind -notin $script:OtterFieldKinds) { return '' }
+    $attrs = ''
+    foreach ($key in $script:OtterFieldRuleKeys) {
+        if (-not $Props.Contains($key)) { continue }
+        $value = $Props[$key]
+        if ($key -eq 'required') {
+            if (-not ($value -eq $true -or "$value" -eq 'true')) { continue }
+            $value = 'true'
+        }
+        $attrs += " data-$key=`"$(Escape-OtterHtmlAttr -Text ([string]$value))`""
+    }
+    if ($attrs) { return " data-otter-field$attrs" }
+    return ''
+}
+
+# A readable error colour for the page's text colour: light text means a dark
+# page (a light red), dark text a light page (a deep red).
+function Get-OtterErrorColor {
+    param([string]$Foreground)
+    $hex = "$Foreground".Trim().TrimStart('#')
+    if ($hex.Length -eq 3) { $hex = ($hex.ToCharArray() | ForEach-Object { "$_$_" }) -join '' }
+    if ($hex -notmatch '^[0-9a-fA-F]{6}$') { return '#dc2626' }
+    $r = [Convert]::ToInt32($hex.Substring(0, 2), 16)
+    $g = [Convert]::ToInt32($hex.Substring(2, 2), 16)
+    $b = [Convert]::ToInt32($hex.Substring(4, 2), 16)
+    $luminance = (0.2126 * $r + 0.7152 * $g + 0.0722 * $b) / 255
+    if ($luminance -ge 0.6) { return '#fca5a5' }
+    return '#b91c1c'
+}
+
 function ConvertTo-OtterCssEasing {
     param([string]$Easing)
     switch ($Easing) {
@@ -474,7 +511,7 @@ function ConvertTo-OtterWeb {
                 'dropdown', 'drop down', 'select', 'slider', 'range',
                 'text area', 'textarea', 'badge', 'tag', 'canvas', 'table', 'scroll',
                 'progress', 'progress bar', 'toggle', 'switch', 'radio', 'radio button',
-                'dialog', 'modal', 'panel'
+                'dialog', 'modal', 'panel', 'form'
             )
             # `aboutButton is a primary button` - a variant-qualified kind
             # (matches the `primary button`/`secondary card`/`danger
@@ -958,7 +995,7 @@ $optHtml
       <div id="$resName" class="otter-row"$styleAttr>$childHtml</div>
 "@
             }
-            'column' {
+            { $_ -in @('column', 'form') } {
                 $spacing = if ($props.Contains('spacing')) { $props['spacing'] } else { 8 }
 
                 # D54: align is one property; its word selects the physical axis.
@@ -1004,6 +1041,12 @@ $optHtml
                 $styles.Add("align-items: $align;")
                 $styles.Add("justify-content: $justify;")
                 $styleAttr = if ($styles.Count -gt 0) { " style=`"$($styles -join ' ')`"" } else { "" }
+                # A form is a column that checks its fields when it is sent.
+                if ($kind -eq 'form') {
+                    return @"
+      <form id="$resName" class="otter-column otter-form" novalidate$styleAttr>$childHtml</form>
+"@
+                }
                 return @"
       <div id="$resName" class="otter-column"$styleAttr>$childHtml</div>
 "@
@@ -1035,10 +1078,18 @@ $optHtml
         if ($dragProps.Contains('accepts drops') -and ($dragProps['accepts drops'] -eq $true -or "$($dragProps['accepts drops'])" -eq 'true')) {
             $dragAttrs += ' data-otter-accepts-drops="true"'
         }
+        $fieldKind = $resources[$resName].Kind
+        $dragAttrs += Get-OtterFieldAttributes -Kind $fieldKind -Props $dragProps
         if ($dragAttrs) {
             $idMarker = "id=`"$resName`""
             $at = $html.IndexOf($idMarker)
             if ($at -ge 0) { $html = $html.Insert($at + $idMarker.Length, $dragAttrs) }
+        }
+        # A field's label: shown above it (and its accessible name), with the
+        # place for its message under it.
+        if ($dragProps.Contains('label') -and "$($dragProps['label'])".Trim() -and $fieldKind -in @('text box', 'text area', 'textarea', 'dropdown', 'drop down', 'select')) {
+            $labelText = Escape-OtterHtmlAttr -Text ([string]$dragProps['label'])
+            $html = "      <div class=`"otter-field`" data-otter-field-for=`"$resName`">`n        <label class=`"otter-field-label`" for=`"$resName`">$labelText</label>`n$html`n        <div class=`"otter-field-error`" id=`"$resName-error`" role=`"alert`" hidden></div>`n      </div>"
         }
         return $html
     }
@@ -1314,6 +1365,167 @@ $bodyJoined
     });
 '@).Replace('@@ORDER@@', $orderJson) + "`n" + $sampleRegistry
     }
+    $usesForms = $false
+    foreach ($resValue in $resources.Values) {
+        if ($resValue.Kind -eq 'form') { $usesForms = $true }
+        if ($resValue.Kind -in $script:OtterFieldKinds) {
+            foreach ($ruleKey in $script:OtterFieldRuleKeys) { if ($resValue.Properties.Contains($ruleKey)) { $usesForms = $true } }
+        }
+    }
+    $formRuntimeJs = ''
+    $formCss = ''
+    if ($usesForms) {
+        $formCss = (@'
+    .otter-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+    .otter-field-label { font-size: 0.9em; font-weight: 600; }
+    .otter-field-error { color: @@ERROR@@; font-size: 0.85em; line-height: 1.4; margin-top: 4px; }
+    .otter-field > .otter-field-error { margin-top: 0; }
+    input.otter-invalid, textarea.otter-invalid, select.otter-invalid { border-color: @@ERROR@@ !important; box-shadow: 0 0 0 1px @@ERROR@@; }
+    input.otter-invalid:focus, textarea.otter-invalid:focus, select.otter-invalid:focus { box-shadow: 0 0 0 3px color-mix(in srgb, @@ERROR@@ 35%, transparent); }
+    .otter-invalid input[type="checkbox"] { outline: 2px solid @@ERROR@@; outline-offset: 1px; }
+'@).Replace('@@ERROR@@', (Get-OtterErrorColor -Foreground $rootFg))
+        $formRuntimeJs = @'
+    // Forms (docs/proposals/FORMS_AND_VALIDATION.md): sending a form - a
+    // button in it, or Enter in one of its text boxes - checks the rules its
+    // fields state, shows each message under its field, and fires "sent"
+    // (when <form> is sent) only when every field passes.
+    function otterFieldsOf(form) { return Array.prototype.slice.call(form.querySelectorAll('[data-otter-field]')); }
+    function otterFieldInput(el) { return otterValueElement(el.id) || el; }
+    function otterCheckField(el) {
+      const d = el.dataset;
+      if (d.otterError) return d.otterError;
+      const input = otterFieldInput(el);
+      const name = d.label || input.placeholder || 'this field';
+      const title = name.charAt(0).toUpperCase() + name.slice(1);
+      const say = function (text) { return d.message || text; };
+      if (input.type === 'checkbox' || input.type === 'radio') {
+        return (d.required === 'true' && !input.checked) ? say('Please tick ' + name + '.') : '';
+      }
+      const value = String(input.value == null ? '' : input.value).trim();
+      if (value === '') return d.required === 'true' ? say('Please fill in ' + name + '.') : '';
+      const format = String(d.format || '').toLowerCase();
+      if (format === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return say(title + ' needs to be an email address, like name@example.com.');
+      if (format === 'phone' && !(/^\+?[0-9 ()\-]+$/.test(value) && value.replace(/\D/g, '').length >= 6)) return say(title + ' needs to be a phone number.');
+      if (format === 'url' && !/^(https?:\/\/)?[^\s\/]+\.[^\s]+$/i.test(value)) return say(title + ' needs to be a web address, like https://example.com.');
+      if (format === 'number') {
+        const n = Number(value);
+        if (!isFinite(n)) return say(title + ' needs to be a number.');
+        if (d.minimum !== undefined && n < Number(d.minimum)) return say(title + ' needs to be at least ' + d.minimum + '.');
+        if (d.maximum !== undefined && n > Number(d.maximum)) return say(title + ' needs to be at most ' + d.maximum + '.');
+      }
+      if (d.minlength !== undefined && value.length < Number(d.minlength)) return say(title + ' needs at least ' + d.minlength + ' characters.');
+      if (d.maxlength !== undefined && value.length > Number(d.maxlength)) return say(title + ' can have at most ' + d.maxlength + ' characters.');
+      return '';
+    }
+    // A field placed at x / y (Free layout): its label sits just above it and
+    // its message just under it.
+    function otterIsPlaced(el) { const p = getComputedStyle(el).position; return p === 'absolute' || p === 'fixed'; }
+    function otterPlaceNear(el, part, above) {
+      part.style.position = getComputedStyle(el).position;
+      part.style.left = el.offsetLeft + 'px';
+      part.style.width = el.offsetWidth + 'px';
+      part.style.top = (above ? el.offsetTop - part.offsetHeight - 4 : el.offsetTop + el.offsetHeight + 4) + 'px';
+    }
+    function otterShowFieldError(el, message) {
+      let box = document.getElementById(el.id + '-error');
+      if (!box && message) {
+        box = document.createElement('div');
+        box.id = el.id + '-error';
+        box.className = 'otter-field-error';
+        box.setAttribute('role', 'alert');
+        el.insertAdjacentElement('afterend', box);
+      }
+      if (box) {
+        box.textContent = message;
+        box.hidden = !message;
+        if (message && otterIsPlaced(el)) otterPlaceNear(el, box, false);
+      }
+      el.classList.toggle('otter-invalid', Boolean(message));
+      const input = otterFieldInput(el);
+      if (message) {
+        input.setAttribute('aria-invalid', 'true');
+        if (box) input.setAttribute('aria-describedby', box.id);
+      } else {
+        input.removeAttribute('aria-invalid');
+      }
+    }
+    function otterSendForm(form) {
+      let first = null;
+      otterFieldsOf(form).forEach(function (el) {
+        const message = otterCheckField(el);
+        otterShowFieldError(el, message);
+        if (message && !first) first = el;
+      });
+      if (first) {
+        const input = otterFieldInput(first);
+        if (input.focus) input.focus();
+        return false;
+      }
+      form.dispatchEvent(new CustomEvent('sent'));
+      return true;
+    }
+    document.addEventListener('submit', function (event) {
+      const form = event.target;
+      if (!form.classList || !form.classList.contains('otter-form')) return;
+      event.preventDefault();
+      // Secondary and danger buttons do their own thing; they never send.
+      const by = event.submitter;
+      if (by && by.classList && (by.classList.contains('otter-button-secondary') || by.classList.contains('otter-button-danger'))) return;
+      otterSendForm(form);
+    });
+    document.addEventListener('keydown', function (event) {
+      if (event.key !== 'Enter' || event.shiftKey || event.isComposing) return;
+      const t = event.target;
+      if (!t || t.tagName !== 'INPUT' || ['checkbox', 'radio', 'button', 'submit', 'range'].indexOf(t.type) >= 0) return;
+      const form = t.closest ? t.closest('form.otter-form') : null;
+      if (!form) return;
+      event.preventDefault();
+      otterSendForm(form);
+    });
+    // Once a field shows a message, the message follows what is typed.
+    function otterRecheckField(event) {
+      const t = event.target;
+      const el = t && t.closest ? t.closest('[data-otter-field]') : null;
+      if (!el) return;
+      if (el.dataset.otterError) delete el.dataset.otterError;
+      const box = document.getElementById(el.id + '-error');
+      if (box && !box.hidden) otterShowFieldError(el, otterCheckField(el));
+    }
+    document.addEventListener('input', otterRecheckField);
+    document.addEventListener('change', otterRecheckField);
+    // valid of <form or field>, error of <field>
+    function otterFormProperty(id, prop) {
+      const el = otterGetElement(id);
+      if (prop === 'error') {
+        if (!el) return '';
+        if (el.dataset.otterError) return el.dataset.otterError;
+        const box = document.getElementById(id + '-error');
+        return box && !box.hidden ? box.textContent : '';
+      }
+      if (!el) return true;
+      const fields = el.classList.contains('otter-form') ? otterFieldsOf(el) : (el.hasAttribute('data-otter-field') ? [el] : []);
+      return fields.every(function (f) { return otterCheckField(f) === ''; });
+    }
+    // error of <field> is "..." - a message of the program's own (an answer
+    // from a server); "" clears it. Typing in the field clears it too.
+    function otterSetFieldError(id, message) {
+      const el = otterGetElement(id);
+      if (!el) return;
+      const text = message == null ? '' : String(message);
+      el.setAttribute('data-otter-field', '');
+      if (text) el.dataset.otterError = text; else delete el.dataset.otterError;
+      otterShowFieldError(el, text);
+    }
+    document.querySelectorAll('.otter-field[data-otter-field-for]').forEach(function (wrap) {
+      const el = document.getElementById(wrap.dataset.otterFieldFor);
+      const label = wrap.querySelector('.otter-field-label');
+      if (!el || !otterIsPlaced(el)) return;
+      // The wrapper takes no room in the flow; its parts sit around the box.
+      wrap.style.display = 'contents';
+      if (label) otterPlaceNear(el, label, true);
+    });
+'@
+    }
     $dragDropRuntimeJs = ''
     $cryptoRuntimeJs = Get-OtterJsCryptoRuntime
     if ($usesDragDrop) {
@@ -1425,6 +1637,7 @@ $bodyJoined
       overflow: hidden;
     }
 $runnableCss
+$formCss
     body.otter-has-page.otter-doc-scroll {
       height: auto;
       max-height: none;
@@ -1805,6 +2018,7 @@ $elementsHtml
 $dragDropRuntimeJs
 $runnableRuntimeJs
 $cryptoRuntimeJs
+$formRuntimeJs
     function otterGetText(id) {
       const el = otterValueElement(id);
       if (!el) return '';
@@ -1841,6 +2055,7 @@ $cryptoRuntimeJs
     // (styles, visibility) is the labelled control's.
     const otterInputProps = new Set(['checked', 'disabled', 'value']);
     function otterSetProperty(id, prop, val) {
+      if (prop === 'error' && typeof otterSetFieldError === 'function') { otterSetFieldError(id, val); return; }
       const el = otterInputProps.has(prop) ? otterValueElement(id) : otterGetElement(id);
       if (el) {
         if (prop === 'url' && el.tagName === 'A') { el.href = val; return; }
@@ -1849,6 +2064,7 @@ $cryptoRuntimeJs
       }
     }
     function otterGetProperty(id, prop) {
+      if ((prop === 'valid' || prop === 'error') && typeof otterFormProperty === 'function') return otterFormProperty(id, prop);
       const el = otterInputProps.has(prop) ? otterValueElement(id) : otterGetElement(id);
       return el ? el[prop] : '';
     }

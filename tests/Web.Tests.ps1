@@ -1129,6 +1129,44 @@ $plainHtml = ConvertTo-OtterWeb -Program (ConvertTo-OtterAst -Tokens (ConvertTo-
 if ($plainHtml -match 'name="description"|rel="icon"|og:title') { throw 'A page without a description or icon must not get empty meta tags.' }
 Write-Output '  pass  a page''s description and icon reach the head; the title is escaped'
 
+# Test 35: forms (docs/proposals/FORMS_AND_VALIDATION.md). A form is a
+# <form novalidate> laid out as a column; its fields carry their rules as data
+# attributes; a labelled field gets its label and a place for its message;
+# "when <form> is sent" listens for the runtime's "sent"; and programs
+# without forms get none of the forms runtime.
+$formSource = @"
+contactForm is a form with spacing 12
+nameBox is a text box with label "Name", required true
+emailBox is a text box with label "Email", format "email", required true
+ageBox is a text box with format "number", minimum 18, maximum 120, message "Adults only"
+agreeBox is a checkbox with text "I agree", required true
+sendButton is a primary button with text "Send"
+put nameBox, emailBox, ageBox, agreeBox, sendButton in contactForm
+when contactForm is sent
+    say "sent"
+.
+show contactForm
+"@
+$formHtml = ConvertTo-OtterWeb -Program (ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $formSource))
+foreach ($expected in @(
+    '<form id="contactForm" class="otter-column otter-form" novalidate',
+    '<div class="otter-field" data-otter-field-for="nameBox">',
+    '<label class="otter-field-label" for="nameBox">Name</label>',
+    '<input type="text" id="nameBox" data-otter-field data-required="true" data-label="Name" class="otter-text-box"',
+    '<div class="otter-field-error" id="nameBox-error" role="alert" hidden></div>',
+    'id="emailBox" data-otter-field data-required="true" data-format="email" data-label="Email"',
+    'id="ageBox" data-otter-field data-format="number" data-minimum="18" data-maximum="120" data-message="Adults only"',
+    '<label id="agreeBox" data-otter-field data-required="true" class="otter-checkbox-label">',
+    "el_contactForm.addEventListener('sent'",
+    'function otterSendForm(form)',
+    "if ((prop === 'valid' || prop === 'error') && typeof otterFormProperty === 'function')")) {
+    if (-not $formHtml.Contains($expected)) { throw "Expected the form page to contain: $expected" }
+}
+if ($formHtml -match 'id="ageBox-error"') { throw 'A field without a label gets its message place only when it has a message.' }
+$noFormHtml = ConvertTo-OtterWeb -Program (ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source "app is a window with title `"No form`"`nbox is a text box with placeholder `"x`"`nput box in app`nshow app`n"))
+if ($noFormHtml -match 'function otterSendForm|data-otter-field|otter-field-error \{') { throw 'A program without forms or field rules must not get the forms runtime.' }
+Write-Output '  pass  a form checks its fields: rules on the fields, labels and messages, "sent"'
+
 Write-Output 'Web compiler tests passed.'
 
 
