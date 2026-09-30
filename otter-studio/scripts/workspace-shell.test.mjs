@@ -95,6 +95,19 @@ for (const file of ['studio.css', 'studio-dark.css', 'polish.css', 'studio-shell
   assert.doesNotMatch(await fs.readFile(path.join(studioRoot, 'css', file), 'utf8'), legacyBlue, `${file}: Studio's own chrome uses the theme tokens, not a hardcoded blue`);
 }
 
+// New project: a keyboard-navigable type list; the Configure column shows
+// what the chosen type gives you; line icons, not emoji.
+const newProject = html.slice(html.indexOf('id="newProjectModal"'), html.indexOf('<!-- Rename Symbol Preview Modal -->'));
+assert.equal((newProject.match(/class="archetype-card[^"]*" data-archetype="(console|desktop|web|game)" role="option"/g) || []).length, 4, 'Four project types, each an option in a listbox');
+assert.match(newProject, /role="listbox" aria-label="Project type"/, 'The project types are a listbox');
+assert.match(newProject, /id="newProjectSummaryList"/, 'The Configure column lists what the chosen type gives you');
+assert.doesNotMatch(newProject, /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u, 'The New Project dialog uses line icons, not emoji');
+for (const id of ['inputProjectName', 'selectProjectTemplate', 'chkProjectGitignore', 'btnConfirmCreateProject', 'btnCancelNewProject', 'btnModalOpenFolder']) {
+  assert.match(newProject, new RegExp(`id="${id}"`), `New Project keeps #${id}`);
+}
+assert.match(app, /e\.key === 'ArrowDown' \? 1 : e\.key === 'ArrowUp' \? -1/, 'Arrow keys move through the project types');
+assert.match(app, /addEventListener\('dblclick', \(\) => handleCreateProject\(\)\)/, 'Double-clicking a type creates the project');
+
 assert.match(html, /id="outlineFilterInput"/, 'Document outline must expose a filter input');
 assert.match(html, /id="btnWorkspaceSymbols"/, 'Editor quick actions must expose Workspace Symbols button');
 assert.match(html, /id="btnExtractFunction"/, 'Editor quick actions must expose Extract Function button');

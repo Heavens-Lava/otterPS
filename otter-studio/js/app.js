@@ -853,18 +853,51 @@ document.addEventListener('DOMContentLoaded', async () => {
     'game': 'otter-game'
   };
 
-  archetypeCards.forEach(card => {
-    card.addEventListener('click', () => {
-      archetypeCards.forEach(c => c.classList.remove('is-selected'));
-      card.classList.add('is-selected');
-      selectedArchetype = card.getAttribute('data-archetype') || 'console';
-      if (inputProjectName && defaultNames[selectedArchetype]) {
-        inputProjectName.value = defaultNames[selectedArchetype];
-        showCreateError('');
-        suggestProjectName(defaultNames[selectedArchetype]);
+  // The Configure column describes the chosen type (from the card's list).
+  function showArchetypeSummary(card) {
+    const nameEl = document.getElementById('newProjectSummaryName');
+    const listEl = document.getElementById('newProjectSummaryList');
+    if (nameEl) nameEl.textContent = card.querySelector('.archetype-name')?.firstChild?.textContent.trim() || '';
+    if (listEl) listEl.innerHTML = card.querySelector('.archetype-features')?.innerHTML || '';
+  }
+
+  function chooseArchetype(card, { focus = false } = {}) {
+    archetypeCards.forEach(c => {
+      const on = c === card;
+      c.classList.toggle('is-selected', on);
+      c.setAttribute('aria-selected', String(on));
+      c.tabIndex = on ? 0 : -1;
+    });
+    if (focus) card.focus();
+    showArchetypeSummary(card);
+    selectedArchetype = card.getAttribute('data-archetype') || 'console';
+    if (inputProjectName && defaultNames[selectedArchetype]) {
+      inputProjectName.value = defaultNames[selectedArchetype];
+      showCreateError('');
+      suggestProjectName(defaultNames[selectedArchetype]);
+    }
+  }
+
+  archetypeCards.forEach((card, i) => {
+    card.addEventListener('click', () => chooseArchetype(card));
+    // Double-click creates it, as in Visual Studio's New Project list.
+    card.addEventListener('dblclick', () => handleCreateProject());
+    card.addEventListener('keydown', (e) => {
+      const step = e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0;
+      if (step) {
+        e.preventDefault();
+        chooseArchetype(archetypeCards[(i + step + archetypeCards.length) % archetypeCards.length], { focus: true });
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        handleCreateProject();
+      } else if (e.key === ' ') {
+        e.preventDefault();
+        chooseArchetype(card);
       }
     });
   });
+  const firstSelected = [...archetypeCards].find(c => c.classList.contains('is-selected'));
+  if (firstSelected) showArchetypeSummary(firstSelected);
 
   // Create Project action
   // Problems creating a project show inside the dialog, next to the name.

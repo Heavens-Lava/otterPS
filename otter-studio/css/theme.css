@@ -867,6 +867,168 @@ body.theme-light {
   .navigation-palette-item.is-selected,
   .navigation-palette-item:hover { background: var(--o-accent-soft); }
 
+  /* --- New project: a type list, and what the chosen type gives you ------------------ */
+  .new-project-dialog {
+    width: min(880px, calc(100vw - 32px));
+    max-width: none;
+    max-height: calc(100vh - 48px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .new-project-dialog .modal-header {
+    padding: 20px 24px 16px;
+    align-items: flex-start;
+    border-bottom: 1px solid var(--o-line);
+  }
+  .new-project-dialog .modal-title-wrap { display: block; }
+  /* A card keeps its details for the Configure column; the list itself never shows. */
+  .new-project-body .archetype-card .archetype-features { display: none !important; }
+  .new-project-dialog .modal-title { margin: 0; font: 600 var(--o-fs-xl) var(--o-ui); letter-spacing: -0.01em; }
+  .new-project-dialog .modal-subtitle { margin: 4px 0 0; }
+  .new-project-dialog .modal-close-btn { width: var(--o-control); height: var(--o-control); padding: 0; display: grid; place-items: center; }
+  .new-project-dialog .modal-close-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
+  .new-project-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    gap: 0;
+    padding: 0;
+    min-height: 0;
+    overflow: auto;
+  }
+  .np-types { padding: 16px 12px 16px 16px; display: flex; flex-direction: column; gap: 4px; }
+  .np-config { padding: 16px 24px 20px; border-left: 1px solid var(--o-line); display: flex; flex-direction: column; gap: 16px; background: color-mix(in srgb, var(--o-well) 35%, var(--o-panel)); }
+  .np-heading {
+    padding: 0 8px 6px;
+    color: var(--o-faint);
+    font: 500 var(--o-fs-xs) var(--o-label-font);
+    letter-spacing: var(--o-label-track);
+    text-transform: var(--o-label-case);
+  }
+  .np-config .np-heading { padding-left: 0; }
+  .new-project-body .archetype-card {
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+    min-height: 0;
+    padding: 10px 12px 10px 8px;
+    margin: 0;
+    border: 1px solid transparent;
+    border-radius: var(--o-r-lg);
+    background: transparent;
+    color: var(--o-ink);
+    box-shadow: none;
+    transform: none;
+    cursor: pointer;
+    text-align: left;
+    outline: none;
+  }
+  .new-project-body .archetype-card:hover { background: var(--o-well); transform: none; box-shadow: none; }
+  .new-project-body .archetype-card.is-selected {
+    background: var(--o-accent-soft);
+    border-color: color-mix(in srgb, var(--o-accent) 45%, transparent);
+    box-shadow: none;
+  }
+  .new-project-body .archetype-card:focus-visible { box-shadow: 0 0 0 2px color-mix(in srgb, var(--o-accent) 55%, transparent); }
+  .np-type-icon {
+    width: 40px;
+    height: 40px;
+    display: grid;
+    place-items: center;
+    border-radius: var(--o-r-lg);
+    background: var(--o-well);
+    color: var(--o-muted);
+  }
+  .np-type-icon svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+  .archetype-card.is-selected .np-type-icon { background: var(--o-accent); color: var(--o-accent-ink); }
+  .np-type-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .new-project-body .archetype-name { display: flex; align-items: center; gap: 8px; margin: 0; font: 600 var(--o-fs-md) var(--o-ui); color: var(--o-ink); }
+  .new-project-body .archetype-desc { margin: 0; font: var(--o-fs-sm) / 1.4 var(--o-ui); color: var(--o-muted); }
+  .np-tag {
+    padding: 1px 6px;
+    border-radius: var(--o-r-sm);
+    background: var(--o-well);
+    color: var(--o-muted);
+    font: 500 10px var(--o-mono);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .archetype-card.is-selected .np-tag { background: color-mix(in srgb, var(--o-accent) 18%, transparent); color: var(--o-ink); }
+  .np-summary-name { margin: 0 0 8px; font: 600 var(--o-fs-lg) var(--o-ui); color: var(--o-ink); }
+  .np-summary-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+  .np-summary-list li {
+    position: relative;
+    padding-left: 16px;
+    color: var(--o-muted);
+    font: var(--o-fs) / 1.45 var(--o-ui);
+  }
+  .np-summary-list li::before {
+    content: '';
+    position: absolute;
+    left: 2px;
+    top: 0.62em;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--o-accent);
+  }
+  .new-project-body .project-config-section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin: auto 0 0;
+    padding: 16px 0 0;
+    border: 0;
+    border-top: 1px solid var(--o-line);
+    background: transparent;
+  }
+  .new-project-body .config-field { display: flex; flex-direction: column; gap: 6px; }
+  .new-project-body .config-label { margin: 0; color: var(--o-muted); font: 500 var(--o-fs-sm) var(--o-ui); text-transform: none; letter-spacing: 0; }
+  .new-project-body :is(.config-input, .config-select) {
+    height: 32px;
+    padding: 0 10px;
+    border: 1px solid var(--o-line);
+    border-radius: var(--o-r);
+    background: var(--o-panel);
+    color: var(--o-ink);
+    font: var(--o-fs) var(--o-ui);
+    box-shadow: none;
+  }
+  .new-project-body .config-input { font-family: var(--o-mono); }
+  .new-project-body :is(.config-input, .config-select):focus { outline: none; border-color: var(--o-accent); box-shadow: 0 0 0 3px var(--o-accent-soft); }
+  .new-project-body .config-check { display: flex; align-items: center; gap: 8px; color: var(--o-ink); font: var(--o-fs) var(--o-ui); }
+  .new-project-body .config-check input { accent-color: var(--o-accent); margin: 0; }
+  .new-project-error { margin: 0; padding: 8px 10px; border-radius: var(--o-r); background: color-mix(in srgb, var(--o-error) 12%, transparent); color: var(--o-ink); font: var(--o-fs-sm) var(--o-ui); }
+  .new-project-dialog .modal-footer {
+    padding: 12px 16px 12px 24px;
+    border-top: 1px solid var(--o-line);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .new-project-dialog .modal-footer-left,
+  .new-project-dialog .modal-footer-right { display: flex; align-items: center; gap: 8px; }
+  .new-project-dialog .btn-modal-link { padding: 0 6px; height: var(--o-control); }
+  .btn-modal-cancel {
+    height: var(--o-control);
+    padding: 0 12px;
+    border: 1px solid var(--o-line-strong);
+    border-radius: var(--o-r);
+    background: transparent;
+    color: var(--o-ink);
+    font: 500 var(--o-fs-sm) var(--o-ui);
+    box-shadow: none;
+  }
+  .btn-modal-cancel:hover { background: var(--o-well); }
+  .new-project-dialog .btn-modal-primary { height: 32px; padding: 0 16px; font-size: var(--o-fs); }
+  @media (max-width: 720px) {
+    .new-project-body { grid-template-columns: 1fr; }
+    .np-config { border-left: 0; border-top: 1px solid var(--o-line); }
+    .new-project-dialog .modal-footer { flex-wrap: wrap; gap: 8px; padding-left: 16px; }
+    .new-project-dialog .modal-footer-right { margin-left: auto; }
+  }
+
   /* --- Start window ------------------------------------------------------------------ */
   .start-window { background: var(--o-start-backdrop); }
   .start-card {

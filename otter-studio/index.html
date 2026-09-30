@@ -728,104 +728,109 @@
        NEW PROJECT / STARTUP WIZARD MODAL
        =============================================================== -->
   <div class="modal-backdrop" id="newProjectModal" style="display: none;">
-    <div class="modal-dialog new-project-dialog">
+    <div class="modal-dialog new-project-dialog" role="dialog" aria-modal="true" aria-labelledby="newProjectTitle">
       <div class="modal-header">
         <div class="modal-title-wrap">
-          <div class="modal-brand-badge">
-            <img src="img/otter-avatar.svg" alt="Otter" class="modal-avatar" />
-            <div>
-              <h2 class="modal-title">Create New Otter Application</h2>
-              <p class="modal-subtitle">Pick what type of project or application you want to build</p>
-            </div>
-          </div>
+          <h2 class="modal-title" id="newProjectTitle">New project</h2>
+          <p class="modal-subtitle">Choose what you are building. You can change everything later.</p>
         </div>
-        <button class="modal-close-btn" id="btnCloseNewProjectModal" title="Close (Esc)">✕</button>
+        <button class="modal-close-btn" id="btnCloseNewProjectModal" title="Close (Esc)" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg></button>
       </div>
 
-      <div class="modal-body">
-        <!-- Archetype Card Grid (Console, App, Web, Game) -->
-        <div class="archetypes-grid">
-          <!-- 1. Console -->
-          <div class="archetype-card is-selected" data-archetype="console">
-            <div class="card-badge">CLI Tool</div>
-            <div class="archetype-icon">💻</div>
-            <div class="archetype-name">Console App</div>
-            <div class="archetype-desc">Command-line tools, automation scripts, background workers, and file processors.</div>
-            <div class="archetype-features">
-              <span>✓ Interactive terminal</span>
-              <span>✓ Formatted logging</span>
-              <span>✓ Fast execution</span>
-            </div>
+      <div class="modal-body new-project-body">
+        <!-- Project types. Each .archetype-card carries its details for the
+             Configure column (js/app.js reads them when it is chosen). -->
+        <div class="np-types" role="listbox" aria-label="Project type">
+          <div class="np-heading">Project type</div>
+
+          <div class="archetype-card is-selected" data-archetype="console" role="option" tabindex="0" aria-selected="true">
+            <span class="np-type-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M7 9l3 3-3 3M12.5 15H17" /></svg></span>
+            <span class="np-type-text">
+              <span class="archetype-name">Console app</span>
+              <span class="archetype-desc">Command-line tools, scripts and file processors.</span>
+            </span>
+            <ul class="archetype-features" hidden>
+              <li>Runs in the terminal with formatted output</li>
+              <li>Reads input, files and the web</li>
+              <li>Opens in Code view</li>
+            </ul>
           </div>
 
-          <!-- 2. Desktop App -->
-          <div class="archetype-card" data-archetype="desktop">
-            <div class="card-badge badge-designer">UI Designer</div>
-            <div class="archetype-icon">🪟</div>
-            <div class="archetype-name">Desktop Application</div>
-            <div class="archetype-desc">Native GUI software with drag-and-drop windows, buttons, forms, and cards.</div>
-            <div class="archetype-features">
-              <span>✓ Visual UI Designer</span>
-              <span>✓ Live property inspector</span>
-              <span>✓ Otter code generation</span>
-            </div>
+          <div class="archetype-card" data-archetype="desktop" role="option" tabindex="-1" aria-selected="false">
+            <span class="np-type-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2" /><path d="M3 8h18M8 21h8M12 17v4" /></svg></span>
+            <span class="np-type-text">
+              <span class="archetype-name">Desktop app <span class="np-tag">Designer</span></span>
+              <span class="archetype-desc">Windows with buttons, forms and cards, laid out visually.</span>
+            </span>
+            <ul class="archetype-features" hidden>
+              <li>Opens in the Designer: drop controls where you want them</li>
+              <li>Every edit writes readable Otter and CSS</li>
+              <li>Runs as a desktop window</li>
+            </ul>
           </div>
 
-          <!-- 3. Web App -->
-          <div class="archetype-card" data-archetype="web">
-            <div class="card-badge badge-web">Reactive Web</div>
-            <div class="archetype-icon">🌐</div>
-            <div class="archetype-name">Web Application</div>
-            <div class="archetype-desc">Modern responsive web applications with interactive components and custom CSS.</div>
-            <div class="archetype-features">
-              <span>✓ Reactive HTML</span>
-              <span>✓ Live browser preview</span>
-              <span>✓ Split code & design</span>
-            </div>
+          <div class="archetype-card" data-archetype="web" role="option" tabindex="-1" aria-selected="false">
+            <span class="np-type-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9M12 3c-2.5 2.6-3.8 5.6-3.8 9s1.3 6.4 3.8 9" /></svg></span>
+            <span class="np-type-text">
+              <span class="archetype-name">Web app</span>
+              <span class="archetype-desc">Responsive pages with interactive components and CSS.</span>
+            </span>
+            <ul class="archetype-features" hidden>
+              <li>Compiles to HTML, CSS and JavaScript</li>
+              <li>Code and design side by side</li>
+              <li>Live preview in the browser</li>
+            </ul>
           </div>
 
-          <!-- 4. 2D Game -->
-          <div class="archetype-card" data-archetype="game">
-            <div class="card-badge badge-game">2D Game</div>
-            <div class="archetype-icon">🎮</div>
-            <div class="archetype-name">2D Game</div>
-            <div class="archetype-desc">Interactive arcade mini-game with game loop, keyboard controls, and score tracking.</div>
-            <div class="archetype-features">
-              <span>✓ 2D Canvas loop</span>
-              <span>✓ Keyboard controls</span>
-              <span>✓ Instant playability</span>
-            </div>
+          <div class="archetype-card" data-archetype="game" role="option" tabindex="-1" aria-selected="false">
+            <span class="np-type-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="7" width="19" height="11" rx="5" /><path d="M7.5 10.5v4M5.5 12.5h4M15.5 11.5h.01M18 13.5h.01" /></svg></span>
+            <span class="np-type-text">
+              <span class="archetype-name">2D game</span>
+              <span class="archetype-desc">A game loop, keyboard controls and a score to start from.</span>
+            </span>
+            <ul class="archetype-features" hidden>
+              <li>A canvas and a game loop, ready to play</li>
+              <li>Keyboard controls and score tracking</li>
+              <li>Opens in Split view</li>
+            </ul>
           </div>
         </div>
 
-        <!-- Configuration Row -->
-        <div class="project-config-section">
-          <div class="config-field">
-            <label class="config-label" for="inputProjectName">Project Name</label>
-            <input type="text" class="config-input" id="inputProjectName" value="my-cli-tool" spellcheck="false" />
+        <div class="np-config">
+          <div class="np-heading">Configure</div>
+          <div class="np-summary" aria-live="polite">
+            <h3 class="np-summary-name" id="newProjectSummaryName">Console app</h3>
+            <ul class="np-summary-list" id="newProjectSummaryList"></ul>
           </div>
-          <div class="config-field">
-            <label class="config-label" for="selectProjectTemplate">Starter Template</label>
-            <select class="config-select" id="selectProjectTemplate">
-              <option value="complete">Standard Starter (Recommended)</option>
-              <option value="minimal">Minimal / Blank File</option>
-            </select>
+
+          <div class="project-config-section">
+            <div class="config-field">
+              <label class="config-label" for="inputProjectName">Project name</label>
+              <input type="text" class="config-input" id="inputProjectName" value="my-cli-tool" spellcheck="false" autocomplete="off" />
+            </div>
+            <div class="config-field">
+              <label class="config-label" for="selectProjectTemplate">Starter</label>
+              <select class="config-select" id="selectProjectTemplate">
+                <option value="complete">Standard starter (recommended)</option>
+                <option value="minimal">Minimal: one empty file</option>
+              </select>
+            </div>
+            <label class="config-check" title="Keeps build output (dist/) and editor clutter out of Git.">
+              <input type="checkbox" id="chkProjectGitignore" checked />
+              Add a .gitignore
+            </label>
           </div>
-          <label class="config-check" title="Keeps build output (dist/) and editor clutter out of Git.">
-            <input type="checkbox" id="chkProjectGitignore" checked />
-            Add a .gitignore
-          </label>
         </div>
       </div>
 
       <div class="modal-footer">
         <div class="modal-footer-left">
-          <button class="btn-modal-link" id="btnModalOpenFolder">📂 Open Existing Folder...</button>
-          <button class="btn-modal-link" id="btnModalStartBlank">Blank Canvas</button>
+          <button class="btn-modal-link" id="btnModalOpenFolder">Open a folder…</button>
+          <button class="btn-modal-link" id="btnModalStartBlank">Continue without a project</button>
         </div>
         <div class="modal-footer-right">
           <button class="btn-modal-cancel" id="btnCancelNewProject">Cancel</button>
-          <button class="btn-modal-primary" id="btnConfirmCreateProject">Create Project →</button>
+          <button class="btn-modal-primary" id="btnConfirmCreateProject">Create project</button>
         </div>
       </div>
     </div>
