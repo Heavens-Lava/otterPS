@@ -105,7 +105,35 @@ accepted by `otter check` and compiles to nothing. The Designer copes (it
 leaves it out and the design is unharmed), but nothing tells the user.
 That is for the compiler.
 
+## Pass 3 - 2026-09-29: the dashboard at Tablet and Mobile
+
+The pass-1 dashboard (a Free window, 1104 wide), rearranged through the
+Designer for Tablet (768) and Mobile (375), then compiled and measured in
+a browser at 1280, 768 and 375. Tablet: sidebar narrowed, header and
+cards dragged in. Mobile: the window set to Flow, the sidebar hidden (⊘).
+
+| # | Friction | Kind | Fix |
+|---|---|---|---|
+| 22 | At Tablet / Mobile everything placed past the screen's width was clipped away; pressing where card 3 hung out started a marquee instead of moving it. The app does not clip: it scrolls sideways | can't reach; canvas and app differ | on a device width the window draws what hangs past its edge, so it can be grabbed; the window's badge counts it ("5 past the edge") |
+| 23 | Flow for the window at Mobile did nothing: turning Free off removed values that live on Desktop | switch to source | on a narrower breakpoint Flow stacks there explicitly (`position: static`, no wider than the screen) and Desktop / Tablet keep their layout |
+| 24 | Stacked, the controls came in the order they were added (New Project first, the sidebar last) | fight order | they stack in the order they are seen on the wider layout: `order` at that breakpoint only |
+| 25 | Dragging card 3 over the panel at Tablet put it inside the panel - on every screen: on Desktop it then sat 800 px into the panel | structure changed by a size-only edit | on Tablet / Mobile a move only places a control; the drag label says to use Desktop to put it in another container |
+| 26 | In the stacked Mobile layout the cards were squeezed (panel 215 px tall; 439 in the app) | canvas and app differ | the canvas window's children never shrink to its height, as in the compiled window |
+
+After the fixes the compiled app is 1280 wide at Desktop (unchanged),
+stacks within 375 px on a phone in reading order with the sidebar hidden,
+and neither narrower edit changed a wider one.
+
+Still open:
+
+- In the test harness a drop from Components into a card is sometimes not
+  delivered (the browser ends the drag with no drop event) - about half
+  the runs of the full build, never in a short one. Not diagnosed; not
+  seen by hand.
+- Stacked on a phone, cards keep their Desktop width (260 of 325); making
+  them full width is a Width edit per card at Mobile.
+
 ### Next pass
 
-A responsive layout: the dashboard at Tablet and Mobile (Free layout
-positions are per breakpoint; does rearranging for a phone feel right?).
+OtterBoard itself at Tablet and Mobile (a Flow app built from pages), and
+the stack order inside rows on a phone.
