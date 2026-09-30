@@ -13,6 +13,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { addManifestAssets } from './manifest-assets.mjs';
 
 export const ASSET_KINDS = {
   images: ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.ico', '.bmp', '.avif'],
@@ -124,7 +125,9 @@ export async function handleAssetRoutes(req, res, pathname, urlObj, ctx) {
       fs.mkdirSync(dir, { recursive: true });
       const name = freeImageName(dir, String(body.name));
       fs.writeFileSync(path.join(dir, name), Buffer.from(String(body.data || ''), 'base64'));
-      ctx.sendJson(res, { ok: true, path: `assets/images/${name}` });
+      // Listed in the project's assets, so the build copies it beside the pages.
+      const listed = addManifestAssets(folderAbs, [`assets/images/${name}`]);
+      ctx.sendJson(res, { ok: true, path: `assets/images/${name}`, listed });
     } catch (err) {
       ctx.sendJson(res, { error: err.message }, err.status || 500);
     }

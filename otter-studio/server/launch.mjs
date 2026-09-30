@@ -26,6 +26,7 @@ import { execFile } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { addManifestAssets, referencedImages } from './manifest-assets.mjs';
 
 export const LAUNCH_CONFIG_RELATIVE = '.otter-studio/launch.json';
 const MAX_ARGS = 100;
@@ -353,6 +354,11 @@ export async function handleLaunchRoutes(req, res, pathname, urlObj, ctx) {
       }
     }
 
+    // Every picture the pages show is in the build: the project's own
+    // images a page uses are listed in its assets first (the build copies
+    // listed assets), and the output says which were added.
+    const addedAssets = addManifestAssets(projectDir, referencedImages(projectDir));
+    const assetNote = addedAssets.length ? `Listed in the project's assets (copied into the build): ${addedAssets.join(', ')}\n` : '';
     const otterPs1 = path.join(repoRoot, 'otter.ps1');
     execFile('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', otterPs1, 'build', projectDir], {
       cwd: projectDir, timeout: 10 * 60 * 1000, maxBuffer: 16 * 1024 * 1024, windowsHide: true
@@ -362,7 +368,7 @@ export async function handleLaunchRoutes(req, res, pathname, urlObj, ctx) {
       sendJson(res, {
         ok: exitCode === 0,
         exitCode,
-        output: `${stdout || ''}${stderr || ''}`,
+        output: `${assetNote}${stdout || ''}${stderr || ''}`,
         durationMs: Date.now() - startTime,
         cleaned,
         outputDir,

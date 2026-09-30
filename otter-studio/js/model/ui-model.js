@@ -306,6 +306,36 @@ export class OtterUiModel {
     return Array.from(this.selectedIds).map(id => this.getComponent(id)).filter(Boolean);
   }
 
+  // The schema's default colours suit a dark app. A control added onto a
+  // light surface (the nearest background in the Otter source up the
+  // container chain: a white page, a light card) gets the light-surface
+  // colours instead - pale text on white was barely readable, and dark
+  // navy fields looked out of place. Colours given explicitly are kept.
+  fitDefaultsToSurface(child, parentId, given = {}) {
+    let background = null;
+    for (let id = parentId; id && !background; id = this.components.get(id)?.parentId) {
+      const bg = this.components.get(id)?.properties?.background;
+      if (typeof bg === 'string' && /^#[0-9a-f]{6}$/i.test(bg.trim())) background = bg.trim();
+    }
+    if (!background) return;
+    const [r, g, b] = [1, 3, 5].map(i => parseInt(background.slice(i, i + 2), 16) / 255);
+    if (0.2126 * r + 0.7152 * g + 0.0722 * b < 0.6) return; // a dark surface: the defaults suit it
+    const LIGHT = {
+      background: { '#1e293b': '#f1f5f9', '#0f172a': '#ffffff', '#334155': '#e2e8f0' },
+      foreground: { '#cbd5e1': '#334155', '#f8fafc': '#0f172a' }
+    };
+    const defaults = ComponentSchema[child.kind]?.defaultProperties || {};
+    for (const key of ['background', 'foreground']) {
+      const value = child.properties[key];
+      if (given[key] !== undefined || value === undefined || value !== defaults[key]) continue;
+      let light = LIGHT[key][String(value).toLowerCase()];
+      // A secondary button's white text on its new light grey would vanish.
+      if (key === 'foreground' && value === '#ffffff' && child.properties.background === '#e2e8f0') light = '#0f172a';
+      if (light) child.properties[key] = light;
+    }
+    if (child.properties.background === '#e2e8f0' && child.properties.foreground === '#ffffff') child.properties.foreground = '#0f172a';
+  }
+
   addChild(parentId, kind, properties = {}, atIndex = null) {
     const parent = this.components.get(parentId);
     if (!parent) return null;
@@ -313,6 +343,7 @@ export class OtterUiModel {
     this.saveSnapshot();
 
     const child = this.createComponent(kind, { parentId, properties });
+    this.fitDefaultsToSurface(child, parentId, properties);
     if (atIndex !== null && atIndex >= 0 && atIndex <= parent.children.length) {
       parent.children.splice(atIndex, 0, child.id);
     } else {

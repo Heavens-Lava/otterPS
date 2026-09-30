@@ -332,4 +332,21 @@ show app
   console.log('  ✓ pages, links and web controls round-trip; the Website starter compiles');
 }
 
+// A control added onto a light page gets light-surface colours (the schema's
+// defaults suit a dark app: pale text on white was barely readable).
+{
+  const light = new OtterUiModel();
+  light.getRoot().properties.background = '#ffffff';
+  const text = light.addChild(light.rootId, 'text');
+  const box = light.addChild(light.rootId, 'text box');
+  const chosen = light.addChild(light.rootId, 'text', { foreground: '#ff0000' });
+  assert.equal(text.properties.foreground, '#334155', 'readable text on a light page');
+  assert.deepEqual([box.properties.background, box.properties.foreground], ['#f1f5f9', '#0f172a'], 'a light field with dark text');
+  assert.equal(chosen.properties.foreground, '#ff0000', 'a colour given explicitly is kept');
+  const dark = new OtterUiModel();
+  dark.getRoot().properties.background = '#0f172a';
+  assert.equal(dark.addChild(dark.rootId, 'text').properties.foreground, '#cbd5e1', 'a dark app keeps its defaults');
+  console.log('  ✓ controls added to a light page get readable light-surface colours');
+}
+
 console.log('All Visual UI Designer production round-trip tests passed cleanly!');
