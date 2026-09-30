@@ -131,18 +131,23 @@ yourself — Jeff does that.
 ## Inventor Studio (progress tracking)
 
 This project's tasks, milestones, images and agent reports live in Inventor
-Studio, project **Otter** (<https://inventorstudio.app>). `.inventor.json`
+Studio, project **Otter** (<https://inventorstudio.app>): the language, Otter
+Studio (the IDE) and the website, as three areas of one project. `.inventor.json`
 points this repo at it; run `inventor whoami` and check it says **Otter**
 before anything else. `inventor` means
 `node C:/Users/jmacy/projects/inventor-studio-app/agent-bridge/inventor.mjs`,
-run from the repo root with `$env:INVENTOR_AGENT` set to your agent name.
+run from the repo root.
 
+- Identify yourself: set `INVENTOR_AGENT` to your agent name and
+  `INVENTOR_ROLE` to your area: `language`, `ide` or `website`.
 - Start of session: `inventor context`.
-- Picking work: `inventor next`, then `inventor start <id>` (this claims it).
+- Picking work: `inventor next` (only your area's work), then
+  `inventor start <id>` (this claims it).
 - When verified: tick the box in the checklist, then `inventor sync`.
 - Then: `inventor report "what changed" --verify "how it was checked" --files a,b`.
 - After adding images: `inventor assets push`.
-- Needs from another role: `inventor ask <role> "..." --blocks <id>`.
+- Cross-area needs (for example the IDE needs a parser change):
+  `inventor ask language "..." --blocks <id>`.
 
 Report work as done only when it was actually verified, through the
 production entry point where the rules above require it. The frozen files
