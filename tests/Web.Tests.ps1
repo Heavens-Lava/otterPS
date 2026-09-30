@@ -1089,7 +1089,7 @@ $checkboxHtml = ConvertTo-OtterWeb -Program (ConvertTo-OtterAst -Tokens (Convert
 if ($checkboxHtml -notmatch '<label id="agree" class="otter-checkbox-label"><input type="checkbox" id="agree-box" class="otter-checkbox" checked />') {
     throw 'Expected the checkbox id on its label and the input as agree-box.'
 }
-if ($checkboxHtml -notmatch 'function otterValueElement\(id\)' -or $checkboxHtml -notmatch 'function otterGetText\(id\) \{\s*const el = otterValueElement\(id\);') {
+if ($checkboxHtml -notmatch 'function otterValueElement\(id\)' -or $checkboxHtml -notmatch 'function otterGetText\(id\) \{\s*const el = [^;\n]*otterValueElement\(id\);') {
     throw 'Expected the runtime to read a checkbox value from the input inside its label.'
 }
 if ($checkboxHtml -notmatch "otterInputProps = new Set\(\['checked', 'disabled', 'value'\]\)") {
@@ -1152,9 +1152,9 @@ foreach ($expected in @(
     '<form id="contactForm" class="otter-column otter-form" novalidate',
     '<div class="otter-field" data-otter-field-for="nameBox">',
     '<label class="otter-field-label" for="nameBox">Name</label>',
-    '<input type="text" id="nameBox" data-otter-field data-required="true" data-label="Name" class="otter-text-box"',
+    '<input type="text" id="nameBox" aria-label="Name" data-otter-field data-required="true" data-label="Name" class="otter-text-box"',
     '<div class="otter-field-error" id="nameBox-error" role="alert" hidden></div>',
-    'id="emailBox" data-otter-field data-required="true" data-format="email" data-label="Email"',
+    'id="emailBox" aria-label="Email" data-otter-field data-required="true" data-format="email" data-label="Email"',
     'id="ageBox" data-otter-field data-format="number" data-minimum="18" data-maximum="120" data-message="Adults only"',
     '<label id="agreeBox" data-otter-field data-required="true" class="otter-checkbox-label">',
     "el_contactForm.addEventListener('sent'",

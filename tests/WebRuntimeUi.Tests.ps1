@@ -114,7 +114,7 @@ try {
     Test-Otter 'D128 compile: a handler that creates UI compiles to runtime creation, not a dropped statement' {
         $html = [System.IO.File]::ReadAllText($tasksHtml)
         Assert-True ($html.Contains("otterCreateUi('text', '', 'item')")) 'expected create text into item to compile to otterCreateUi, naming the variable'
-        Assert-True ($html.Contains('if (name) { el.classList.add(name); }')) 'expected a created element to carry its variable as a class (.item in a stylesheet)'
+        Assert-True ($html.Contains('if (name) { (el || root).classList.add(name); }')) 'expected a created element to carry its variable as a class (.item in a stylesheet)'
         Assert-True ($html.Contains('otterPutIn(')) 'expected put item in taskList to compile to otterPutIn'
         Assert-True ($html.Contains('const otterUiTemplates = ')) 'expected the runtime templates'
     }
@@ -125,11 +125,14 @@ try {
         Assert-False ($html.Contains('otterUiTemplates')) 'a page without runtime UI must not include the runtime UI code'
     }
 
-    Test-Otter 'D56 on the web: hide and focus are refused with the console''s message instead of compiling to nothing' {
-        foreach ($case in @(@{ Word = 'hide' }, @{ Word = 'focus' })) {
-            $err = $null
-            try { Build-OtterWebPage -Name "d56$($case.Word)" -Source "create page into app`ncreate button into b`nput b in app`nwhen b clicked`n    $($case.Word) b`n.`nshow app`n" | Out-Null } catch { $err = $_.Exception.Message }
-            Assert-AreEqual -Expected "'$($case.Word)' is not supported in Otter 1.0." -Actual $err
+    # D56 amendment (proposed for Otter 1.1): hide, focus and clear are UI
+    # actions on the web as on the console. Behavior is covered in a real
+    # browser by tests/RuntimeUi.Tests.ps1.
+    Test-Otter 'D56 amendment on the web: hide, focus and clear compile to runtime UI actions' {
+        foreach ($word in @('hide', 'focus', 'clear')) {
+            $page = Build-OtterWebPage -Name "d56$word" -Source "create page into app`ncreate button into b`nput b in app`nwhen b clicked`n    $word b`n.`nshow app`n"
+            $html = [System.IO.File]::ReadAllText($page)
+            Assert-True ($html.Contains("'$word');")) "expected $word b to compile to otterUiAction(..., '$word')"
         }
     }
 
