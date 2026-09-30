@@ -29,7 +29,7 @@ export function renderPreview(containerEl, uiModel, cssAstManager) {
     </div>
     <div class="preview-viewport-container" id="previewViewportContainer">
       <div class="preview-device-frame view-desktop" id="previewDeviceFrame">
-        <iframe class="preview-iframe" id="previewIframe" sandbox="allow-scripts allow-modals"></iframe>
+        <iframe class="preview-iframe" id="previewIframe" sandbox="allow-scripts allow-modals allow-forms"></iframe>
       </div>
     </div>
     <div class="preview-log-drawer" id="previewLogDrawer">
