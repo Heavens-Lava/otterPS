@@ -771,6 +771,15 @@ function Invoke-OtterProjectBuild {
                     }
                 }
 
+                # build.minify: every page, smaller, with the same behaviour.
+                if ($project.Build.Minify) {
+                    foreach ($page in (Get-ChildItem -LiteralPath $stagingDir -Filter '*.html' -File)) {
+                        $pageHtml = [System.IO.File]::ReadAllText($page.FullName, [System.Text.Encoding]::UTF8)
+                        [System.IO.File]::WriteAllText($page.FullName, (ConvertTo-OtterMinifiedHtml -Html $pageHtml), [System.Text.UTF8Encoding]::new($false))
+                    }
+                    if (-not $Quiet) { Write-Host "  minified" }
+                }
+
                 if ($targetLower -eq 'desktop') {
                     $launcherCmd = "@echo off`r`notter desktop %~dp0index.html %*`r`n"
                     Set-Content -LiteralPath (Join-Path $stagingDir 'run-desktop.cmd') -Value $launcherCmd -Encoding ASCII

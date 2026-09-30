@@ -332,8 +332,38 @@ try {
     if (($iOut -join "`n") -notmatch 'index\.ot would build to index\.html') { throw "Test 18 failed: unclear message: $iOut" }
     Write-Output '  pass  a page file named index.ot beside another entry is refused with a readable message'
 
+    # Test 19: build.minify makes every page smaller with the same code: no
+    # comment lines or indentation left in its <style> and <script> blocks,
+    # and every inline script still parses (node --check).
+    $nDir = Join-Path $testTmp 'minify'
+    New-Item -ItemType Directory -Path $nDir -Force | Out-Null
+    Set-Content -LiteralPath (Join-Path $nDir 'main.ot') -Value "app is a page with title `"Small`"`nf is a form with spacing 8`nbox is a text box with label `"Name`", required true`nsend is a primary button with text `"Send`"`nput box, send in f`nput f in app`nwhen f is sent`n    text of send is `"Sent`"`n.`nshow app" -Encoding UTF8
+    Set-Content -LiteralPath (Join-Path $nDir 'project.json') -Value '{ "name": "minify", "target": "web", "entryPoint": "main.ot" }' -Encoding UTF8
+    & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') build $nDir 2>&1 | Out-Null
+    $plainSize = (Get-Item -LiteralPath (Join-Path $nDir 'dist/index.html')).Length
+    Set-Content -LiteralPath (Join-Path $nDir 'project.json') -Value '{ "name": "minify", "target": "web", "entryPoint": "main.ot", "build": { "minify": true } }' -Encoding UTF8
+    $nOut = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') build $nDir 2>&1
+    if ($LASTEXITCODE -ne 0) { throw "Test 19 failed: minified build exited with $LASTEXITCODE. Output: $nOut" }
+    $minHtml = Get-Content -LiteralPath (Join-Path $nDir 'dist/index.html') -Raw
+    if ($minHtml.Length -ge $plainSize * 0.9) { throw "Test 19 failed: the minified page is not smaller ($($minHtml.Length) vs $plainSize bytes)" }
+    $scripts = [regex]::Matches($minHtml, '(?is)<script\b(?![^>]*\bsrc=)[^>]*>(.*?)</script>')
+    foreach ($s in $scripts) {
+        if ($s.Groups[1].Value -match '(?m)^\s*//|^[ \t]+\S') { throw 'Test 19 failed: a comment line or indentation is left in a script' }
+    }
+    if (Get-Command node -ErrorAction SilentlyContinue) {
+        $i = 0
+        foreach ($s in $scripts) {
+            $jsFile = Join-Path $nDir "script$i.js"; $i++
+            [System.IO.File]::WriteAllText($jsFile, $s.Groups[1].Value)
+            $check = & node --check $jsFile 2>&1
+            if ($LASTEXITCODE -ne 0) { throw "Test 19 failed: a minified script does not parse: $check" }
+        }
+    }
+    if ($minHtml -notmatch 'function otterSendForm') { throw 'Test 19 failed: the forms runtime is missing from the minified page' }
+    Write-Output '  pass  build.minify makes pages smaller; their scripts still parse'
+
 } finally {
     Remove-Item -LiteralPath $testTmp -Recurse -Force -ErrorAction SilentlyContinue
 }
 
-Write-Output "`nAll Otter project build system tests passed (18/18)."
+Write-Output "`nAll Otter project build system tests passed (19/19)."

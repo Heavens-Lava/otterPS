@@ -3195,4 +3195,32 @@ function Export-OtterWebApplication {
     return $OutputPath
 }
 
-Export-ModuleMember -Function ConvertTo-OtterWeb, Export-OtterWebApplication, Resolve-OtterProjectStylesheet
+# build.minify (project.json): a smaller page with the same behaviour. Only
+# what cannot change meaning is removed, inside the page's own <style> and
+# <script> blocks: CSS comments, whole-line // comments, the indentation at the
+# start of each line and blank lines. Nothing inside a line is touched, so
+# strings, regular expressions and selectors stay exactly as compiled. The
+# compiler writes no string that spans lines, which is what would make
+# removing indentation unsafe.
+function ConvertTo-OtterMinifiedHtml {
+    param([Parameter(Mandatory)][string]$Html)
+    $evaluator = {
+        param($m)
+        $open = $m.Groups[1].Value
+        $body = $m.Groups[3].Value
+        if ($m.Groups[2].Value -ieq 'style') {
+            $body = [regex]::Replace($body, '(?s)/\*.*?\*/', '')
+        }
+        $kept = foreach ($line in ($body -split "`r?`n")) {
+            $trimmed = $line.Trim()
+            if (-not $trimmed) { continue }
+            if ($m.Groups[2].Value -ieq 'script' -and $trimmed.StartsWith('//')) { continue }
+            $trimmed
+        }
+        return $open + "`n" + (@($kept) -join "`n") + "`n" + "</$($m.Groups[2].Value)>"
+    }
+    # <style ...> and <script> without src="...": the page's own code.
+    return [regex]::Replace($Html, '(?is)(<(style|script)\b(?![^>]*\bsrc=)[^>]*>)(.*?)</\2>', [System.Text.RegularExpressions.MatchEvaluator]$evaluator)
+}
+
+Export-ModuleMember -Function ConvertTo-OtterWeb, Export-OtterWebApplication, Resolve-OtterProjectStylesheet, ConvertTo-OtterMinifiedHtml
