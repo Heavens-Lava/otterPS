@@ -31,6 +31,7 @@ export const FREE_DEFAULT_SIZES = {
   'card': { width: 300, height: 200 },
   'row': { width: 320, height: 120 },
   'column': { width: 240, height: 240 },
+  'form': { width: 320, height: 300 },
   'scroll': { width: 300, height: 240 }
 };
 

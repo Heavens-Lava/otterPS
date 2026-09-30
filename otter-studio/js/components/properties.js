@@ -196,6 +196,7 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
       <div class="properties-body sp-body" id="propertiesBody">
         ${renderIdentityGroup(selected, count)}
         ${renderContentGroup(selected, selected.properties || {})}
+        ${count > 1 ? '' : renderValidationSection(selected, selected.properties || {})}
         ${renderChildSection(ctx)}
         ${relevant.layout ? renderLayoutSection(ctx) : ''}
         ${renderSpacingSection(ctx)}
@@ -358,6 +359,51 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
       .map(p => p.slice(root.length + 1))
       .filter(p => !/^(dist|publish|node_modules)\//i.test(p));
     return `<datalist id="${id}">${images.map(o => `<option value="${escapeHtml(o)}"></option>`).join('')}</datalist>`;
+  }
+
+  // Forms: the rules a field states, checked when the form it is in is sent
+  // (docs/proposals/FORMS_AND_VALIDATION.md).
+  const FORMAT_CHOICES = [['', 'Any text'], ['email', 'Email address'], ['number', 'Number'], ['phone', 'Phone number'], ['url', 'Web address']];
+  function inForm(comp) {
+    for (let parent = uiModel.getComponent(comp.parentId); parent; parent = uiModel.getComponent(parent.parentId)) {
+      if (parent.kind === 'form') return true;
+    }
+    return false;
+  }
+  function renderValidationSection(selected, props) {
+    if (!['text box', 'text area', 'dropdown', 'checkbox'].includes(selected.kind)) return '';
+    const ticked = selected.kind === 'checkbox';
+    const rows = [
+      ticked
+        ? contentRow('Name', 'label', props.label, { placeholder: 'Named in its message, e.g. the terms' })
+        : contentRow('Label', 'label', props.label, { placeholder: 'Shown above it, and named in messages' }),
+      `<div class="prop-row">
+          <label class="prop-label">Required</label>
+          <input type="checkbox" class="prop-checkbox" data-otter-key="required" ${props.required ? 'checked' : ''} />
+        </div>`
+    ];
+    if (selected.kind === 'text box') {
+      rows.push(`<div class="prop-row">
+          <label class="prop-label">Format</label>
+          <select class="prop-select" data-otter-key="format">${FORMAT_CHOICES.map(([value, text]) => `<option value="${value}"${String(props.format || '') === value ? ' selected' : ''}>${text}</option>`).join('')}</select>
+        </div>`);
+      if (props.format === 'number') {
+        rows.push(contentRow('Minimum', 'minimum', props.minimum, { number: true }));
+        rows.push(contentRow('Maximum', 'maximum', props.maximum, { number: true }));
+      }
+    }
+    if (['text box', 'text area'].includes(selected.kind)) {
+      rows.push(contentRow('Min length', 'minlength', props.minlength, { number: true, placeholder: 'characters' }));
+      rows.push(contentRow('Max length', 'maxlength', props.maxlength, { number: true, placeholder: 'characters' }));
+    }
+    rows.push(contentRow('Message', 'message', props.message, { placeholder: 'Your own wording (optional)' }));
+    const note = inForm(selected)
+      ? 'Checked when its form is sent: a button in the form, or Enter in a text box.'
+      : 'Rules are checked when the form it is in is sent. Put it in a Form (Components, Containers).';
+    const setCount = ['label', 'required', 'format', 'minlength', 'maxlength', 'minimum', 'maximum', 'message']
+      .filter(key => props[key] !== undefined && props[key] !== '' && props[key] !== false).length;
+    return section('validation', 'Validation', `<div class="prop-group">${rows.join('')}</div><div class="sp-note">${note}</div>`,
+      { setCount, search: 'validation required email number format form rules label message length' });
   }
 
   function contentRow(label, key, value, { placeholder = '', number = false, list = '' } = {}) {
@@ -1197,10 +1243,19 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
       const raw = e.target.value.trim();
       // A number field (rows 4) is written as a number, not "4".
       const value = raw && e.target.hasAttribute('data-otter-number') && Number.isFinite(Number(raw)) ? Number(raw) : raw || undefined;
-      uiModel.setProperty(selected.id, e.target.getAttribute('data-otter-key'), value);
+      const key = e.target.getAttribute('data-otter-key');
+      // A labelled field does not also need the stock hint ("Enter text...").
+      const stockHint = ComponentSchema[selected.kind]?.defaultProperties?.placeholder;
+      if (key === 'label' && value && stockHint && selected.properties?.placeholder === stockHint) {
+        uiModel.setProperty(selected.id, 'placeholder', undefined);
+      }
+      uiModel.setProperty(selected.id, key, value);
     }));
     qa('.prop-checkbox[data-otter-key]').forEach(chk => chk.addEventListener('change', (e) => {
       uiModel.setProperty(selected.id, e.target.getAttribute('data-otter-key'), e.target.checked);
+    }));
+    qa('.prop-select[data-otter-key]').forEach(sel => sel.addEventListener('change', (e) => {
+      uiModel.setProperty(selected.id, e.target.getAttribute('data-otter-key'), e.target.value || undefined);
     }));
 
     // Collapsible sections

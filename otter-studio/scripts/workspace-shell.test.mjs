@@ -129,6 +129,14 @@ assert.match(ide, /async promptNewPage\(\)[\s\S]*?\$\{file\}\.css[\s\S]*?pillDes
 assert.match(ide, /addEventListener\('otter:files-changed'[\s\S]{0,120}loadProjectTree/, 'An imported asset reaches the Explorer and the file lists at once');
 const propertiesJs = await fs.readFile(path.join(studioRoot, 'js', 'components', 'properties.js'), 'utf8');
 assert.match(propertiesJs, /rootKind === 'page'\) \{[\s\S]{0,200}contentRow\('Description', 'description'[\s\S]{0,300}contentRow\('Icon', 'icon'[^\n]*list: 'otterPageIcons'/, 'A page has Description and Icon (from the project images) in Properties');
+assert.match(propertiesJs, /function renderValidationSection[\s\S]{0,1600}data-otter-key="required"[\s\S]{0,600}data-otter-key="format"/, 'A field has a Validation section: Required, Format and the rest');
+assert.match(propertiesJs, /qa\('\.prop-select\[data-otter-key\]'\)/, 'The Format choice is written to the field');
+const [previewJs, realStyleJs] = await Promise.all([
+  fs.readFile(path.join(studioRoot, 'js', 'components', 'preview.js'), 'utf8'),
+  fs.readFile(path.join(studioRoot, 'js', 'components', 'real-style.js'), 'utf8')
+]);
+assert.match(previewJs, /id="previewIframe" sandbox="allow-scripts allow-modals allow-forms"/, 'Live App lets a form be sent (without allow-forms the browser drops the submit)');
+assert.match(realStyleJs, /c === 'has-field-label'/, 'The real render keeps a field\'s label on the canvas');
 assert.match(manifestJs, /assets: options\.assets \|\| \[\],/, 'A new project lists no stylesheet as an asset (the compiler embeds it; a named styles.css that did not exist failed every build)');
 
 assert.match(html, /id="outlineFilterInput"/, 'Document outline must expose a filter input');

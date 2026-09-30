@@ -190,6 +190,8 @@ export function formatProperty(key, val) {
     if (key === 'hideheader') return `hideheader ${val}`;
     // A row whose children move to the next line when there is no room.
     if (key === 'wrap') return val ? 'wrap true' : null;
+    // A field its form will not send empty.
+    if (key === 'required') return val ? 'required true' : null;
     return null;
   }
   if (typeof val === 'number') {

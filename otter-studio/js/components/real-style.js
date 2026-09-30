@@ -261,7 +261,8 @@ export function applyRealRender(root, real, device = null) {
     // with the classes the real compiler emitted.
     const keep = Array.from(el.classList).filter(c =>
       c === 'canvas-element' || c === 'is-container' || c === 'is-control' ||
-      c === 'is-interactive-mode' || c === 'is-dragging' || c === 'btn-clicked');
+      c === 'is-interactive-mode' || c === 'is-dragging' || c === 'btn-clicked' ||
+      c === 'has-field-label' || c === 'has-field-label-flow');
     el.className = [...keep, ...info.className.split(/\s+/).filter(Boolean), 'is-real-render'].join(' ');
     // The canvas draws bare containers/controls with its own min sizes; the real
     // inline style decides the geometry.

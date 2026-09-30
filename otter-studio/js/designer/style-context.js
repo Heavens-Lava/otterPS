@@ -136,7 +136,7 @@ const INHERITED_PROPS = new Set([
 ]);
 
 // Containers whose child spacing is Otter's `spacing` property.
-const SPACING_KINDS = new Set(['window', 'card', 'row', 'column']);
+const SPACING_KINDS = new Set(['window', 'card', 'row', 'column', 'form']);
 
 function sourceKeyFor(comp, cssProp) {
   const def = SOURCE_PROPS[cssProp];

@@ -62,6 +62,22 @@ export const ComponentSchema = {
     events: []
   },
 
+  // A column that checks its fields when it is sent: a button in it, or Enter
+  // in one of its text boxes (docs/proposals/FORMS_AND_VALIDATION.md).
+  'form': {
+    kind: 'form',
+    label: 'Form',
+    category: ComponentCategories.CONTAINERS,
+    isContainer: true,
+    icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="12" x2="17" y2="12"/><rect x="7" y="15.5" width="6" height="2.5" rx="1"/></svg>`,
+    defaultProperties: {
+      width: 'full',
+      spacing: 12
+    },
+    allowedProperties: ['width', 'height', 'background', 'spacing', 'padding', 'spread', 'align', 'radius', 'round', 'opacity'],
+    events: ['sent']
+  },
+
   'card': {
     kind: 'card',
     label: 'Card',
@@ -192,7 +208,7 @@ export const ComponentSchema = {
       foreground: '#f8fafc',
       radius: 6
     },
-    allowedProperties: ['text', 'placeholder', 'width', 'height', 'background', 'foreground', 'radius', 'round', 'align', 'opacity', 'enabled'],
+    allowedProperties: ['text', 'placeholder', 'label', 'required', 'format', 'minlength', 'maxlength', 'minimum', 'maximum', 'message', 'width', 'height', 'background', 'foreground', 'radius', 'round', 'align', 'opacity', 'enabled'],
     events: ['changed', 'clicked']
   },
 
@@ -202,12 +218,13 @@ export const ComponentSchema = {
     category: ComponentCategories.INPUTS,
     isContainer: false,
     icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>`,
+    // Unticked: a box someone must tick (I agree) never starts ticked.
     defaultProperties: {
       text: 'Enable notification alerts',
-      checked: true,
+      checked: false,
       foreground: '#cbd5e1'
     },
-    allowedProperties: ['text', 'checked', 'foreground', 'enabled', 'opacity'],
+    allowedProperties: ['text', 'checked', 'label', 'required', 'message', 'foreground', 'enabled', 'opacity'],
     events: ['changed']
   },
 
@@ -240,7 +257,7 @@ export const ComponentSchema = {
       foreground: '#f8fafc',
       radius: 6
     },
-    allowedProperties: ['placeholder', 'options', 'width', 'height', 'background', 'foreground', 'radius', 'round', 'enabled', 'opacity'],
+    allowedProperties: ['placeholder', 'options', 'label', 'required', 'message', 'width', 'height', 'background', 'foreground', 'radius', 'round', 'enabled', 'opacity'],
     events: ['changed']
   },
 
@@ -297,8 +314,9 @@ export const ComponentSchema = {
     category: ComponentCategories.INPUTS,
     isContainer: false,
     icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h10M7 13h10M7 17h6"/></svg>`,
-    defaultProperties: { placeholder: 'Write a message...', rows: 4 },
-    allowedProperties: ['placeholder', 'text', 'rows', 'width', 'height', 'background', 'foreground', 'radius', 'opacity'],
+    // The same colours as a text box, so a light page gets light ones.
+    defaultProperties: { placeholder: 'Write a message...', rows: 4, width: 'full', background: '#1e293b', foreground: '#f8fafc', radius: 6 },
+    allowedProperties: ['placeholder', 'text', 'rows', 'label', 'required', 'minlength', 'maxlength', 'message', 'width', 'height', 'background', 'foreground', 'radius', 'opacity'],
     events: ['changed']
   },
   'toggle': {

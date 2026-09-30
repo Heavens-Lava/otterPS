@@ -488,6 +488,27 @@ input.otter-input, .canvas-textbox {
   font-size: 13px;
 }
 
+/* A field's label (label "Email"), drawn above the box as the page shows it. */
+.canvas-element.has-field-label {
+  overflow: visible;
+}
+.canvas-element.has-field-label::before {
+  content: attr(data-field-label);
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 6px);
+  font-size: 0.9em;
+  font-weight: 600;
+  color: inherit;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.canvas-element.has-field-label-flow {
+  position: relative;
+  /* above the page's own resets (#page * { margin: 0 }) */
+  margin-top: calc(1.35em + 6px) !important;
+}
+
 .canvas-textbox.is-placeholder {
   color: var(--text-muted);
 }

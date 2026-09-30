@@ -349,4 +349,49 @@ show app
   console.log('  ✓ controls added to a light page get readable light-surface colours');
 }
 
+// Forms (docs/proposals/FORMS_AND_VALIDATION.md): a form is a designer
+// container; a field's rules round-trip; the result compiles; new checkboxes
+// start unticked and a text area on a light page gets light colours.
+{
+  console.log('Test: forms in the designer...');
+  const model = new OtterUiModel();
+  const source = `app is a page with title "Contact", width full
+contactForm is a form with width full, spacing 12
+emailBox is a text box with label "Email", required true, format "email", minlength 5
+agreeBox is a checkbox with text "I agree", label "the terms", required true
+sendButton is a primary button with text "Send"
+put emailBox, agreeBox, sendButton in contactForm
+put contactForm in app
+
+when contactForm is sent
+    text of sendButton is "Sent"
+.
+
+show app
+`;
+  assert.equal(parseOtterSource(source, model), true);
+  const byName = Object.fromEntries([...model.components.values()].map(c => [c.name, c]));
+  assert.equal(byName.contactForm.kind, 'form', 'a form is a designer container');
+  assert.equal(byName.emailBox.parentId, byName.contactForm.id, 'its fields are inside it');
+  const generated = generateOtterSource(model);
+  assert.match(generated, /^contactForm is a form with /m);
+  const emailLine = generated.split(/\r?\n/).find(l => l.startsWith('emailBox is a text box with '));
+  for (const rule of ['label "Email"', 'required true', 'format "email"', 'minlength 5']) assert.ok(emailLine.includes(rule), 'the rules round-trip: ' + rule);
+  assert.match(generated, /^agreeBox is a checkbox with .*required true/m);
+  assert.match(generated, /^when contactForm is sent$/m, 'the Sent handler is kept');
+  const tmp = await fs.mkdtemp(path.join((await import('node:os')).tmpdir(), 'otter-form-'));
+  await fs.writeFile(path.join(tmp, 'contact.ot'), generated);
+  const check = await execFileAsync('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(repoRoot, 'otter.ps1'), 'check', path.join(tmp, 'contact.ot')]).catch(err => err);
+  assert.match(`${check.stdout}`, /is valid/, `a form compiles: ${check.stdout || check.message}`);
+  await fs.rm(tmp, { recursive: true, force: true });
+
+  const light = new OtterUiModel();
+  light.getRoot().properties.background = '#ffffff';
+  const box = light.addChild(light.rootId, 'checkbox');
+  const area = light.addChild(light.rootId, 'text area');
+  assert.equal(box.properties.checked, false, 'a new checkbox starts unticked (an "I agree" box is never pre-ticked)');
+  assert.deepEqual([area.properties.background, area.properties.foreground], ['#f1f5f9', '#0f172a'], 'a text area on a light page is light, with dark text');
+  console.log('  ✓ forms: a container whose field rules round-trip and compile; fields fit light pages');
+}
+
 console.log('All Visual UI Designer production round-trip tests passed cleanly!');

@@ -1482,6 +1482,7 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
     switch (comp.kind) {
       case 'row': el.classList.add('canvas-row', 'otter-row'); break;
       case 'column': el.classList.add('canvas-column', 'otter-column'); break;
+      case 'form': el.classList.add('canvas-column', 'otter-column', 'otter-form'); break;
       case 'card': el.classList.add('canvas-card', 'otter-card', 'task-item'); break;
       case 'scroll': el.classList.add('canvas-scroll', 'otter-scroll'); break;
       case 'heading':
@@ -1573,6 +1574,17 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
           el.innerHTML = `<span class="canvas-code-only-label">${escapeHtml(schema.label)} · ${escapeHtml(comp.name)}</span>`;
         }
         break;
+    }
+
+    // A field's label, as the built page shows it: above the box. In a flow
+    // layout the page gives it its own line; placed at x / y (Free layout)
+    // it sits just above the box.
+    if (props.label && ['text box', 'text area', 'dropdown'].includes(comp.kind)) {
+      el.dataset.fieldLabel = props.label;
+      el.classList.add('has-field-label');
+      requestAnimationFrame(() => {
+        if (el.isConnected && !['absolute', 'fixed'].includes(getComputedStyle(el).position)) el.classList.add('has-field-label-flow');
+      });
     }
 
     if (isInteractMode) {
@@ -2046,7 +2058,7 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
     if (!child || !cssAstManager) return;
     // Room inside a new container (a card has its own padding in the source).
     // A row's is smaller: rows are table lines and toolbars.
-    if (child.kind === 'column') cssAstManager.setProperty(`#${child.name}`, 'padding', '12px');
+    if (child.kind === 'column' || child.kind === 'form') cssAstManager.setProperty(`#${child.name}`, 'padding', '12px');
     if (child.kind === 'row') cssAstManager.setProperty(`#${child.name}`, 'padding', '8px');
     if (child.kind === 'card') cssAstManager.setProperty(`#${child.name}`, 'border-radius', '12px');
   }
