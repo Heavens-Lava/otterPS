@@ -133,6 +133,20 @@ when b8copy is clicked
 .
 b9 is a text with value "Several controls", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b10 is a text with value "Give each control its own when. They can share variables, so one click can change what another control shows.", size 16, foreground "#3a4d6b", lineheight "1.6"
+lp1 is a text with value "Controls made in a loop", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
+lp2 is a text with value "A when set up inside a loop remembers the pass that set it up. Each button below shows its own number:", size 16, foreground "#3a4d6b", lineheight "1.6"
+lp3 is a text with value "create window into app\ncreate text into shown\nput shown in app\n\nnumbers are empty\nadd 1 to numbers\nadd 2 to numbers\nadd 3 to numbers\n\nfor each n in numbers\n    create button into b\n    text of b is n\n    put b in app\n    when b clicked\n        text of shown is n\n    .\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable false
+lp3label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
+lp3copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+lp3head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put lp3label, lp3copy in lp3head
+lp3block is a column with spacing 0, width full
+put lp3head, lp3 in lp3block
+when lp3copy is clicked
+    copy text of lp3 to clipboard
+    text of lp3copy is "Copied"
+.
+lp4 is a text with value "The loop variable, and anything first set inside the loop, belong to that pass. A name that already existed before the loop, such as a counter, is shared: every button's when sees its latest value.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b11 is a text with value "In web applications", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b12 is a text with value "The same words work in programs compiled with otter web: when button is clicked and when box is changed. Web pages add drag and drop events - see Web applications.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b13 is a text with value "Keyboard events and file events are not part of the Windows event set yet.", size 15, foreground "#1e3a6b", background "#eaf2ff", radius 12, border "1px solid #cfe0ff", lineheight "1.55", customstyle "padding: 14px 18px;"
@@ -160,7 +174,7 @@ rt7 is a text with value "Handlers run one at a time. A handler finishes before 
 rt8 is a text with value "Events from one control or connection arrive in order: two clicks run the handler twice, in the order they happened. Events from different sources can be handled in any order.", size 16, foreground "#3a4d6b", lineheight "1.6"
 rt9 is a text with value "In a console or Windows program, handlers run once the program reaches its end, and during wait. In a web page, the browser runs them whenever the event happens, including while the program is waiting for something such as a web request.", size 16, foreground "#3a4d6b", lineheight "1.6"
 
-put b1, b2, b3block, b4, b5, b6block, b7, b8block, b9, b10, b11, b12, rt1, rt2, rt3block, rt4, rt5, rt6, rt7, rt8, rt9, b13, b14, b15 in docsMain
+put b1, b2, b3block, b4, b5, b6block, b7, b8block, b9, b10, lp1, lp2, lp3block, lp4, b11, b12, rt1, rt2, rt3block, rt4, rt5, rt6, rt7, rt8, rt9, b13, b14, b15 in docsMain
 docsBody is a row with align top, spacing 0, width full, customstyle "align-items: stretch;"
 put docsSidebar, docsMain in docsBody
 

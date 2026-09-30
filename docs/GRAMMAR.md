@@ -203,12 +203,14 @@ Arithmetic operators, all at the same level:
 
 Comparisons and logic exist only inside conditions (`if`, `otherwise if`,
 `while`). They are not values: `say x is 5` and `return age is at least 18`
-are syntax errors. Each side of a comparison is a **single value**. Put a
-calculation in a variable before comparing it:
+are syntax errors. Each side of a comparison may be a **calculation**, read
+left to right like any other (D123): `if price plus tax is at least 100`
+compares `(price plus tax)` with 100. The word `and` between comparisons stays
+logical, so `if x is 4 and y is 5` is two comparisons, and `and` is not an
+arithmetic word inside a condition (write `plus` or `+` there):
 
 ```otter
-total is price plus tax
-if total is at least 100
+if price plus tax is at least 100
     say "free shipping"
 ```
 
@@ -226,7 +228,9 @@ OrCondition     = AndCondition , { "or" , AndCondition } ;
 AndCondition    = NotCondition , { "and" , NotCondition } ;
 NotCondition    = [ "not" ] , Comparison ;
 
-Comparison      = PrimaryExpr , [ CompareOp , PrimaryExpr ] ;
+Comparison      = CompareOperand , [ CompareOp , CompareOperand ] ;
+CompareOperand  = Term , { CondArithOp , Term } ;       (* D123 *)
+CondArithOp     = ArithOp - "and" ;
 CompareOp       = "is" | "is not"
                 | "is greater than" | "is less than"
                 | "is at least" | "is at most"
