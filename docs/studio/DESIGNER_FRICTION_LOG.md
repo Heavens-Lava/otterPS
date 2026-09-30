@@ -133,7 +133,58 @@ Still open:
 - Stacked on a phone, cards keep their Desktop width (260 of 325); making
   them full width is a Width edit per card at Mobile.
 
+## Pass 4 - 2026-09-30: a website, from New Project to a folder to upload
+
+A new Website through the New Project dialog, edited in the Designer,
+built with Ctrl+Shift+B, and the output opened from disk at 1280 and 390
+px. Also a real 196-line site (examples/jeffreymacy.ot) opened and edited.
+
+| # | Friction | Kind | Fix |
+|---|---|---|---|
+| 27 | The Web starter was a 720 x 520 "window" with a counter that did not count (its buttons only said so in the output) | not a website; starter lies | a Website starter: `app is a page` with navigation links, a hero, features the Features link jumps to, a footer; responsive (rows wrap) |
+| 28 | Links, badges, text areas, toggles, radio buttons (and lists, tables...) vanished from the canvas: the designer dropped every kind it did not know | can't see or select | they are designer components; links have a Link to field; kinds the designer cannot edit yet are shown and selectable ("edited in code"); other spellings (switch, textarea, check box...) map too |
+| 29 | A page was modelled as a desktop window: "Window (app)", a traffic-light frame, regenerated source `app is a window` | wrong kind | the model remembers a page: "Page", "Page title", a browser frame with an address bar, and source keeps `page` |
+| 30 | A full-width page filled the whole canvas stage (1697 px) and was cut off both sides | can't see it | on Desktop a full-width page is drawn at a desktop browser's width (1280) |
+| 31 | New controls in a starter carried designer defaults (pale text, a dark window) as inline styles that beat the stylesheet | stylesheet ignored | starters write only what they mean; a control with no properties still compiles (it keeps one default) |
+| 32 | Rows could not wrap from the stylesheet (the compiler inlines `flex-wrap: nowrap`) | fight CSS | `wrap true` is written to the source; the starter's feature cards stack on a phone |
+| 33 | After a build nothing said where the site went or let you see it | dead end | the Output offers Open the website (the system browser, never Studio's origin) and Show the build folder; also Build > Open Built Website |
+| 34 | A toggle or radio button placed in a Free window would come apart (its id was on the input, like the old checkbox) | fight positioning | the id is on the label, the input is `<name>-box` (as the checkbox) |
+| 35 | The desktop starter's "Click Me" only printed a line | starter lies | "Say hello" greets the name typed in the box |
+
+Result: a new website builds to `dist/index.html` + `styles.css` in
+about 5 s, 1280 and 390 px wide with nothing overflowing, links working
+(`#features`, `#footer`, mailto).
+
+## Pass 5 - 2026-09-30: a task app (state and events)
+
+`examples/v1/tasks.ot` rebuilt through the Designer as a user: heading,
+text box, Add button and a list column dropped and renamed (taskInput,
+addButton, taskList); the Add handler written through the Events tab;
+then run in Live App, two tasks added.
+
+A task list creates a row per task while it runs: Otter 1.1's D128 (web
+UI created at runtime), which is only on `proposal/1.1-otterboard`. The
+pass ran on a throwaway local tree (that branch + this Studio, never
+pushed); every fix below is Studio-side and applies to both lines.
+
+| # | Friction | Kind | Fix |
+|---|---|---|---|
+| 36 | The Events tab's handler editor lost the caret after the first character (the panel redrew on every keystroke): the handler was `t`. It also had no highlighting, completion or indentation, and "Configured" was a toggle that deleted the handler | can't write code | handlers are written in the code editor: Add handler writes `when x is clicked` with a first line to replace, shows Split, selects that line; the panel previews each handler and opens it; Remove asks first |
+| 37 | The running app lost the design's layout (the Add button full width above the box, the window's own title shown) | canvas and app differ | renders compile a copy named like the entry (main.ot) with the designer's stylesheet, saved or not, beside it and in the project mirror: what runs is what is on screen |
+| 38 | New projects' styles went to styles.css, which the release line's compiler never reads (its D125: only `<entry>.css`) | styling lost on build | new projects get `<entry>.css` (main.css), the stylesheet every compiler reads; a project with styles.css still works here; the inspector names the real file |
+
+With these the task app works end to end through Studio: Add handler, the
+handler typed in the editor (it indents and closes the `if` block itself),
+no problems, and in Live App each Add creates a row and clears the box,
+laid out as designed.
+
+**Needs a decision (Jeff):** the two lines disagree on D125 - this branch
+reads `<entry>.css`, then `styles.css`; `proposal/1.1-otterboard` reads only
+`<entry>.css`. Studio now writes `<entry>.css`, which both read. And real
+apps (anything that adds items while it runs) need D128 on the line Studio
+ships with.
+
 ### Next pass
 
-OtterBoard itself at Tablet and Mobile (a Flow app built from pages), and
-the stack order inside rows on a phone.
+Tick and remove on each task (per-row handlers made at runtime), then
+multi-page sites (links between pages).
