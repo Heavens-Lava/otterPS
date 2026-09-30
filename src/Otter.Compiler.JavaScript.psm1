@@ -769,13 +769,14 @@ function ConvertTo-OtterJsExpression {
             $isVar = $target -is [VariableExpr]
             $targetName = if ($isVar) { $target.Name } else { '' }
             $targetJs = ConvertTo-OtterJsExpression -Expr $target
+            $uiId = if ($isVar) { Get-OtterJsUiRef -Name $targetName } else { "'$targetName'" }
             $uiBranch = switch ($prop) {
-                'text' { "otterGetText('$targetName')" }
-                'value' { "otterGetText('$targetName')" }
-                'title' { "otterGetTitle('$targetName')" }
-                'width' { "otterGetStyle('$targetName', 'width')" }
-                'height' { "otterGetStyle('$targetName', 'height')" }
-                default { "otterGetProperty('$targetName', '$prop')" }
+                'text' { "otterGetText($uiId)" }
+                'value' { "otterGetText($uiId)" }
+                'title' { "otterGetTitle($uiId)" }
+                'width' { "otterGetStyle($uiId, 'width')" }
+                'height' { "otterGetStyle($uiId, 'height')" }
+                default { "otterGetProperty($uiId, '$prop')" }
             }
             $dateBranch = switch ($prop) {
                 'year' { "_owner.value.getFullYear()" }
@@ -807,7 +808,7 @@ function ConvertTo-OtterJsExpression {
             # Phase 1D-B's `plus` fix (no shared helper added to
             # Otter.Web.psm1's boilerplate).
             if ($isVar) {
-                return "(otterGetElement('$targetName') ? ($uiBranch) : (() => { const _owner = $targetName; if (_owner && typeof _owner === 'object' && _owner.__otterHttpRequest) { $httpBranch } if (_owner && typeof _owner === 'object' && _owner.__otterXml) { return $xmlBranch; } if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return $dateBranch; } if (_owner && typeof _owner === 'object' && _owner.__otterWebSocket) { if ('$propOriginal' === 'state') return (_owner.ws.readyState === 0 ? 'connecting' : _owner.ws.readyState === 1 ? 'open' : _owner.ws.readyState === 2 ? 'closing' : 'closed'); if ('$propOriginal' === 'url') return _owner.url; if ('$propOriginal' === 'protocol') return _owner.ws.protocol || _owner.protocol || ''; throw new Error('A websocket has no property called `"$propOriginal`".'); } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('$propOriginal') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called `"$propOriginal`".'); } return _owner.props['$propOriginal']; })())"
+                return "(otterGetElement($uiId) ? ($uiBranch) : (() => { const _owner = $targetName; if (_owner && typeof _owner === 'object' && _owner.__otterHttpRequest) { $httpBranch } if (_owner && typeof _owner === 'object' && _owner.__otterXml) { return $xmlBranch; } if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return $dateBranch; } if (_owner && typeof _owner === 'object' && _owner.__otterWebSocket) { if ('$propOriginal' === 'state') return (_owner.ws.readyState === 0 ? 'connecting' : _owner.ws.readyState === 1 ? 'open' : _owner.ws.readyState === 2 ? 'closing' : 'closed'); if ('$propOriginal' === 'url') return _owner.url; if ('$propOriginal' === 'protocol') return _owner.ws.protocol || _owner.protocol || ''; throw new Error('A websocket has no property called `"$propOriginal`".'); } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('$propOriginal') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called `"$propOriginal`".'); } return _owner.props['$propOriginal']; })())"
             } else {
                 return "((() => { const _owner = ($targetJs); if (_owner && typeof _owner === 'object' && _owner.__otterHttpRequest) { $httpBranch } if (_owner && typeof _owner === 'object' && _owner.__otterXml) { return $xmlBranch; } if (_owner && typeof _owner === 'object' && _owner.__otterDate) { return $dateBranch; } if (_owner && typeof _owner === 'object' && _owner.__otterWebSocket) { if ('$propOriginal' === 'state') return (_owner.ws.readyState === 0 ? 'connecting' : _owner.ws.readyState === 1 ? 'open' : _owner.ws.readyState === 2 ? 'closing' : 'closed'); if ('$propOriginal' === 'url') return _owner.url; if ('$propOriginal' === 'protocol') return _owner.ws.protocol || _owner.protocol || ''; throw new Error('A websocket has no property called `"$propOriginal`".'); } if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only read properties of a thing, but this is something else.'); } if (!(('$propOriginal') in _owner.props)) { throw new Error('This ' + (_owner.typeName || 'thing') + ' has no property called `"$propOriginal`".'); } return _owner.props['$propOriginal']; })())"
             }
@@ -1362,6 +1363,51 @@ function ConvertTo-OtterJsExpression {
     }
 }
 
+# Runtime UI (web target). The page's top-level `create`/`put` statements
+# are rendered to static HTML by Otter.Web.psm1 and addressed by DOM id. A UI
+# resource created anywhere else - inside an event handler, a function or a
+# loop - is created while the page runs: its variable holds a handle
+# ({ __otterUi, kind, root, el, id }), like the interpreter's UI value, so each
+# `create` makes a new element. ConvertTo-OtterWeb records those names here
+# before compiling; for them, UI operations go through the handle.
+$script:OtterJsRuntimeUiNames = [System.Collections.Generic.HashSet[string]]::new()
+
+# The page's top-level UI resources (rendered to static HTML). Needed so that
+# `status has text ...` inside a handler sets the element's properties, as on
+# the console, instead of creating an unrelated thing named `status`.
+$script:OtterJsStaticUiNames = [System.Collections.Generic.HashSet[string]]::new()
+
+function Set-OtterJsRuntimeUiNames {
+    param([string[]]$Names, [string[]]$StaticNames)
+    $script:OtterJsRuntimeUiNames = [System.Collections.Generic.HashSet[string]]::new()
+    foreach ($n in @($Names)) { if ($n) { [void]$script:OtterJsRuntimeUiNames.Add($n) } }
+    $script:OtterJsStaticUiNames = [System.Collections.Generic.HashSet[string]]::new()
+    foreach ($n in @($StaticNames)) { if ($n) { [void]$script:OtterJsStaticUiNames.Add($n) } }
+}
+
+# The JS expression that identifies a UI resource by variable name: the handle
+# the variable holds when it is a runtime-created resource, otherwise the DOM
+# id (the name), exactly as before. `typeof` keeps it valid when the variable
+# was never assigned.
+function Get-OtterJsUiRef {
+    param([string]$Name)
+    if ($script:OtterJsRuntimeUiNames.Contains($Name)) {
+        return "(typeof $Name !== 'undefined' && $Name && $Name.__otterUi ? $Name : '$Name')"
+    }
+    return "'$Name'"
+}
+
+# For put/show/hide/focus/when: a UI resource name gives its reference; any
+# other variable gives its value, so a wrong value reaches the runtime check
+# and is reported by type ("... but this is a number."), as on the console.
+function Get-OtterJsUiRefForNode {
+    param([Node]$Node)
+    if ($Node -is [VariableExpr] -and ($script:OtterJsRuntimeUiNames.Contains($Node.Name) -or $script:OtterJsStaticUiNames.Contains($Node.Name))) {
+        return (Get-OtterJsUiRef -Name $Node.Name)
+    }
+    return (ConvertTo-OtterJsExpression -Expr $Node)
+}
+
 function ConvertTo-OtterJsStatement {
     param(
         [Parameter(Mandatory)][Node]$Stmt,
@@ -1388,7 +1434,11 @@ function ConvertTo-OtterJsStatement {
         # Set-style bindings (Assign/MathInto/CallStatement) inside the
         # function must be excluded from LocalNames because they mutate a
         # real pre-existing global instead of shadowing it locally.
-        [System.Collections.Generic.HashSet[string]]$KnownGlobals = $null
+        [System.Collections.Generic.HashSet[string]]$KnownGlobals = $null,
+
+        # Internal: compile an ObjectDef as a plain thing even when its name
+        # is a runtime UI name (the fallback branch of the runtime dispatch).
+        [switch]$SkipRuntimeUi
     )
 
     $pad = '  ' * $Indent
@@ -1429,7 +1479,17 @@ function ConvertTo-OtterJsStatement {
                 $lines = [System.Collections.Generic.List[string]]::new()
                 $inner = '  ' * ($Indent + 1)
                 $lines.Add("${pad}{")
-                if ($isVar) {
+                if ($isVar -and $script:OtterJsRuntimeUiNames.Contains($targetName)) {
+                    $uiRef = Get-OtterJsUiRef -Name $targetName
+                    $lines.Add("${inner}const _el = otterGetElement($uiRef);")
+                    $lines.Add("${inner}if (_el) { otterSetUiProp($uiRef, '$prop', $valExpr); }")
+                    $lines.Add("${inner}else {")
+                    $lines.Add("${inner}  const _owner = $targetName;")
+                    $lines.Add("${inner}  if (!_owner || typeof _owner !== 'object' || !_owner.__otterThing) { throw new Error('I can only set properties on a thing, but this is something else.'); }")
+                    $lines.Add("${inner}  if (!(('$propOriginal') in _owner.props)) { _owner.order.push('$propOriginal'); }")
+                    $lines.Add("${inner}  _owner.props['$propOriginal'] = $valExpr;")
+                    $lines.Add("${inner}}")
+                } elseif ($isVar) {
                     $uiBranch = switch ($prop) {
                         'text' { "otterSetText('$targetName', $valExpr);" }
                         'value' { "otterSetText('$targetName', $valExpr);" }
@@ -1703,6 +1763,27 @@ function ConvertTo-OtterJsStatement {
             return "${pad}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$typeName' in otterState)) { otterSetState('$typeName', $typeObj); } else { window.$typeName = $typeObj; }"
         }
         ([NodeKind]::ObjectDef) {
+            # Runtime UI: `item has text task` after `create text into item`
+            # sets the resource's properties, as the interpreter does when the
+            # name already holds a UI resource; otherwise it is a thing.
+            if (-not $SkipRuntimeUi -and ($script:OtterJsRuntimeUiNames.Contains($Stmt.Name) -or $script:OtterJsStaticUiNames.Contains($Stmt.Name))) {
+                $uiRef = Get-OtterJsUiRef -Name $Stmt.Name
+                $inner = '  ' * ($Indent + 1)
+                $uiLines = [System.Collections.Generic.List[string]]::new()
+                $uiLines.Add("${pad}if (otterGetElement($uiRef)) {")
+                foreach ($prop in @($Stmt.Properties)) {
+                    if ($prop -isnot [AssignStmt] -or $prop.Target -isnot [VariableExpr]) {
+                        throw [OtterError]::new('A UI resource property name must be a plain name.', $prop.Line, 'runtime')
+                    }
+                    $pName = $prop.Target.Name.ToLowerInvariant()
+                    $pVal = ConvertTo-OtterJsExpression -Expr $prop.Value
+                    $uiLines.Add("${inner}otterSetUiProp($uiRef, '$pName', $pVal);")
+                }
+                $uiLines.Add("${pad}} else {")
+                $uiLines.Add((ConvertTo-OtterJsStatement -Stmt $Stmt -Indent ($Indent + 1) -LocalNames $LocalNames -KnownGlobals $KnownGlobals -SkipRuntimeUi))
+                $uiLines.Add("${pad}}")
+                return ($uiLines -join "`n")
+            }
             # D60 Phase 1F.2, extended by the consolidated-audit release-
             # blocker pass. `name is a thing / prop is val / .` AND
             # `jeff is a Person` (a custom declared type) share this one
@@ -3824,8 +3905,84 @@ function ConvertTo-OtterJsStatement {
         ([NodeKind]::QueryStmt) { throw [OtterError]::new('Database providers are not supported on the web target. Browsers cannot connect directly to databases.', $Stmt.Line, 'runtime') }
         ([NodeKind]::QueryAggregateStmt) { throw [OtterError]::new('Database providers are not supported on the web target. Browsers cannot connect directly to databases.', $Stmt.Line, 'runtime') }
         ([NodeKind]::WriteBytesFile) { throw [OtterError]::new('Binary file access is not supported on the web target.', $Stmt.Line, 'runtime') }
+        # Runtime UI (see Set-OtterJsRuntimeUiNames). Reached for statements
+        # that are not direct top-level statements (Otter.Web.psm1 renders
+        # those to static HTML): handler, function and loop bodies.
+        ([NodeKind]::CreateUiResource) {
+            $kind = $Stmt.TypeName.ToLowerInvariant()
+            $variant = ''
+            foreach ($v in @('primary', 'secondary', 'danger')) {
+                if ($kind.StartsWith("$v ")) { $variant = $v; $kind = $kind.Substring($v.Length + 1); break }
+            }
+            $valExpr = "otterCreateUi('$kind', '$variant')"
+            $varName = $Stmt.Target
+            if ($LocalNames -and $LocalNames.Contains($varName)) {
+                return "${pad}$varName = $valExpr;"
+            }
+            return "${pad}if (typeof otterSetState === 'function' && typeof otterState !== 'undefined' && ('$varName' in otterState)) { otterSetState('$varName', $valExpr); } else { window.$varName = $valExpr; }"
+        }
+        ([NodeKind]::PutIn) {
+            $itemRef = Get-OtterJsUiRefForNode -Node $Stmt.Item
+            $containerRef = Get-OtterJsUiRefForNode -Node $Stmt.Container
+            return "${pad}otterPutIn($itemRef, $containerRef);"
+        }
+        ([NodeKind]::Show) {
+            return "${pad}otterUiAction($(Get-OtterJsUiRefForNode -Node $Stmt.Target), 'show');"
+        }
+        # D56: focus/hide/show-as-action are not part of Otter 1.0; the
+        # interpreter refuses them with this message, so the web does too.
+        ([NodeKind]::UiAction) {
+            throw [OtterError]::new("'$($Stmt.Action)' is not supported in Otter 1.0.", $Stmt.Line, 'runtime')
+        }
+        ([NodeKind]::When) {
+            # `when item clicked` inside a handler or function: registered on
+            # the element the variable holds right now, as the interpreter
+            # registers on the current value. Event names map as for the
+            # page's top-level handlers.
+            if ($Stmt.EventName -in @('drag', 'drop', 'files dropped')) {
+                throw [OtterError]::new('Drag and drop handlers ("on drag of", "on drop on", "on files dropped on") must be written at the top level of a web program, not inside another handler or a function.', $Stmt.Line, 'runtime')
+            }
+            $eventName = switch ($Stmt.EventName.ToLowerInvariant()) {
+                'clicked' { 'click' }
+                'changed' { 'input' }
+                default { $Stmt.EventName.ToLowerInvariant() }
+            }
+            $targetRef = Get-OtterJsUiRefForNode -Node $Stmt.Target
+            $bodyLines = [System.Collections.Generic.List[string]]::new()
+            foreach ($b in @($Stmt.Body)) {
+                $bodyLines.Add((ConvertTo-OtterJsStatement -Stmt $b -Indent ($Indent + 1) -LocalNames $LocalNames -KnownGlobals $KnownGlobals))
+            }
+            return "${pad}otterOnUi($targetRef, '$eventName', async (event) => {`n$($bodyLines -join "`n")`n${pad}});"
+        }
+        # D56: not part of Otter 1.0 - the interpreter's own messages.
+        ([NodeKind]::MemoDef) { throw [OtterError]::new("'memo' is not supported in Otter 1.0.", $Stmt.Line, 'runtime') }
+        ([NodeKind]::Lifecycle) { throw [OtterError]::new("'on $($Stmt.Stage)' is not supported in Otter 1.0.", $Stmt.Line, 'runtime') }
+        ([NodeKind]::SharedState) { throw [OtterError]::new("'shared' is not supported in Otter 1.0.", $Stmt.Line, 'runtime') }
+        ([NodeKind]::UseModule) { throw [OtterError]::new("'use' is not supported in Otter 1.0.", $Stmt.Line, 'runtime') }
+        # Supported on the web only as top-level statements (Otter.Web.psm1
+        # handles them there); reaching this switch means they were nested.
+        ([NodeKind]::StateDef) { throw [OtterError]::new('A state declaration must be written at the top level of a web program, not inside a handler, function or block.', $Stmt.Line, 'runtime') }
+        ([NodeKind]::DeriveDef) { throw [OtterError]::new('A derived value must be written at the top level of a web program, not inside a handler, function or block.', $Stmt.Line, 'runtime') }
+        ([NodeKind]::Watch) { throw [OtterError]::new('A "when ... changes" watcher must be written at the top level of a web program, not inside a handler, function or block.', $Stmt.Line, 'runtime') }
+        ([NodeKind]::UiElement) {
+            # A function whose body declares UI (`to counterCard` / `card ...`)
+            # has that UI rendered into the page by Otter.Web.psm1 when the
+            # function is called at the top level, so inside a function body
+            # there is nothing to run here. Anywhere else it would be lost.
+            if ($null -ne $LocalNames) { return "" }
+            throw [OtterError]::new('A declarative UI element must be written at the top level of a web program or directly in a function, not inside a handler or block.', $Stmt.Line, 'runtime')
+        }
+        ([NodeKind]::UiEvent) { throw [OtterError]::new('A UI event block must be written inside a declarative UI element at the top level of a web program.', $Stmt.Line, 'runtime') }
+        # Console/server-only.
+        ([NodeKind]::StartCommand) { throw [OtterError]::new('Starting a command ("start command ...") is not supported on the web target. Browsers cannot run programs.', $Stmt.Line, 'runtime') }
+        ([NodeKind]::WebRoute) { throw [OtterError]::new('Web server statements run with "otter serve", not inside a web page.', $Stmt.Line, 'runtime') }
+        ([NodeKind]::Respond) { throw [OtterError]::new('Web server statements run with "otter serve", not inside a web page.', $Stmt.Line, 'runtime') }
+        ([NodeKind]::StartServer) { throw [OtterError]::new('Web server statements run with "otter serve", not inside a web page.', $Stmt.Line, 'runtime') }
+        ([NodeKind]::ListenServer) { throw [OtterError]::new('Web server statements run with "otter serve", not inside a web page.', $Stmt.Line, 'runtime') }
+        # Anything else has no web compilation. It used to compile to nothing,
+        # so the program ran without it and without a word; it is an error.
         default {
-            return ""
+            throw [OtterError]::new("This statement ($($Stmt.Kind)) is not supported on the web target yet.", $Stmt.Line, 'runtime')
         }
     }
 }
@@ -3872,6 +4029,9 @@ function Get-OtterJsBindingNames {
                 [void]$setStyle.Add($s.ResultTarget)
             }
             if ($s.Kind -eq [NodeKind]::MathInto) {
+                [void]$setStyle.Add($s.Target)
+            }
+            if ($s.Kind -eq [NodeKind]::CreateUiResource) {
                 [void]$setStyle.Add($s.Target)
             }
             if ($s.Kind -eq [NodeKind]::ReadFile -or $s.Kind -eq [NodeKind]::HttpGet -or $s.Kind -eq [NodeKind]::HttpPost -or $s.Kind -eq [NodeKind]::HttpPut -or $s.Kind -eq [NodeKind]::HttpDelete) {
@@ -4282,4 +4442,4 @@ Export-ModuleMember -Function `
     ConvertTo-OtterJsExpression, ConvertTo-OtterJsStatement, `
     Get-OtterJsBindingNames, Get-OtterJsTopLevelGlobalNames, `
     ConvertTo-OtterCommandLineArguments, Get-OtterJsCliPreamble, `
-    Get-OtterJsCryptoRuntime
+    Get-OtterJsCryptoRuntime, Set-OtterJsRuntimeUiNames

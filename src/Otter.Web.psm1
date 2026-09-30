@@ -438,6 +438,241 @@ function Get-OtterRunnableJs {
     }
 }
 
+# The browser half of runtime UI. Property handling mirrors
+# Render-OtterElementCore (the static renderer) property for property, so a
+# property set at runtime looks the same as the same property written at the
+# top level. Errors match the interpreter's wording.
+function Get-OtterWebRuntimeUiJs {
+    return @'
+    let otterUiCounter = 0;
+    function otterIsUi(v) { return !!(v && typeof v === 'object' && v.__otterUi); }
+    function otterUiKindOf(v) { return otterIsUi(v) ? v.kind : ''; }
+    function otterUiTypeName(v) { return (v && typeof v === 'object' && v.__otterThing) ? 'a thing' : (v === null || v === undefined) ? 'gone' : (typeof v === 'number') ? 'a number' : (typeof v === 'string') ? 'some text' : 'something else'; }
+    function otterCreateUi(kind, variant) {
+      const html = otterUiTemplates[kind];
+      if (html === undefined) { throw new Error('I do not know how to create a ' + kind + ' on the web target.'); }
+      const t = document.createElement('template');
+      t.innerHTML = html;
+      const root = t.content.firstElementChild;
+      const el = root.id === '__otter_rt__' ? root : root.querySelector('#__otter_rt__');
+      const id = 'otter-ui-' + (++otterUiCounter);
+      el.id = id;
+      if (variant) { el.classList.add('otter-button-' + variant); }
+      return { __otterUi: true, kind: kind, root: root, el: el || root, id: id };
+    }
+    // The outermost element of a resource: what gets moved by `put`, hidden
+    // by `hide` and styled (a checkbox's label, not its input).
+    function otterUiRoot(ref) {
+      if (otterIsUi(ref)) { return ref.root; }
+      const el = document.getElementById(ref);
+      if (!el) { return null; }
+      const wrap = el.closest ? el.closest('label.otter-checkbox-label, label.otter-toggle-label, label.otter-radio-label, .otter-runnable') : null;
+      return wrap || el;
+    }
+    // Where children go: windows and pages hold them in their content area.
+    function otterUiContent(root) {
+      if (!root || !root.classList) { return root; }
+      if (root.classList.contains('otter-window')) { return root.querySelector(':scope > .otter-window-content') || root; }
+      if (root.classList.contains('otter-page')) { return root.querySelector(':scope > .otter-page-content') || root; }
+      return root;
+    }
+    function otterUiKind(ref, root) {
+      if (otterIsUi(ref)) { return ref.kind; }
+      const c = root && root.classList ? root.classList : null;
+      if (!c) { return ''; }
+      if (c.contains('otter-row')) { return 'row'; }
+      if (c.contains('otter-column')) { return 'column'; }
+      if (c.contains('otter-card')) { return 'card'; }
+      if (c.contains('otter-window')) { return 'window'; }
+      if (c.contains('otter-page')) { return 'page'; }
+      return '';
+    }
+    function otterUiPx(v) { return (typeof v === 'number') ? (v + 'px') : String(v); }
+    function otterUiTrue(v) { return v === true || v === 'true'; }
+    function otterPutIn(item, container) {
+      const itemRoot = (otterIsUi(item) || typeof item === 'string') ? otterUiRoot(item) : null;
+      if (!itemRoot) { throw new Error('I can only put a UI resource somewhere, but this is ' + otterUiTypeName(item) + '.'); }
+      const holder = (otterIsUi(container) || typeof container === 'string') ? otterUiRoot(container) : null;
+      if (!holder) { throw new Error('I can only put something in a UI resource, but this is ' + otterUiTypeName(container) + '.'); }
+      otterUiContent(holder).appendChild(itemRoot);
+    }
+    function otterUiAction(ref, action) {
+      const root = (otterIsUi(ref) || typeof ref === 'string') ? otterUiRoot(ref) : null;
+      if (!root) {
+        if (action === 'show') { throw new Error('I can only show a UI resource, but this is ' + otterUiTypeName(ref) + '.'); }
+        throw new Error('I can only ' + action + ' a UI resource, but this is ' + otterUiTypeName(ref) + '.');
+      }
+      if (action === 'hide') { root.style.display = 'none'; return; }
+      if (action === 'focus') { const el = otterGetElement(ref); if (el && el.focus) { el.focus(); } return; }
+      root.hidden = false;
+      if (root.style.display === 'none') { root.style.display = ''; }
+      if (root.tagName === 'DIALOG' && !root.open && root.showModal) { root.showModal(); }
+    }
+    function otterOnUi(ref, eventName, handler) {
+      const el = (otterIsUi(ref) || typeof ref === 'string') ? otterGetElement(ref) : null;
+      if (!el) { throw new Error('I can only listen for an event on a UI resource or command job, but this is ' + otterUiTypeName(ref) + '.'); }
+      el.addEventListener(eventName, handler);
+    }
+    function otterUiLayout(root, kind, prop, value) {
+      const s = root.style;
+      const isRow = kind === 'row';
+      if (prop === 'spacing') { s.gap = otterUiPx(value); return true; }
+      if (prop === 'wrap') { s.flexWrap = (otterUiTrue(value) || value === 'wrap') ? 'wrap' : 'nowrap'; return true; }
+      if (prop === 'spread') { if (otterUiTrue(value)) { s.justifyContent = 'space-between'; } return true; }
+      if (prop === 'justify') { s.justifyContent = value; return true; }
+      if (prop === 'alignitems' || prop === 'items') { s.alignItems = value; return true; }
+      if (prop === 'align') {
+        const map = { left: 'flex-start', center: 'center', right: 'flex-end', top: 'flex-start', middle: 'center', bottom: 'flex-end' };
+        const horizontal = value === 'left' || value === 'center' || value === 'right';
+        if (map[value] === undefined) { s.textAlign = value; return true; }
+        if (horizontal === isRow) { s.justifyContent = map[value]; } else { s.alignItems = map[value]; }
+        return true;
+      }
+      return false;
+    }
+    function otterSetUiProp(ref, prop, value) {
+      const el = otterGetElement(ref);
+      if (!el) { return; }
+      const root = otterUiRoot(ref) || el;
+      const kind = otterUiKind(ref, root);
+      const p = String(prop).toLowerCase();
+      const s = root.style;
+      if ((kind === 'row' || kind === 'column') && otterUiLayout(root, kind, p, value)) { return; }
+      if (p === 'spacing' && (kind === 'window' || kind === 'page' || kind === 'card')) { s.gap = otterUiPx(value); otterUiContent(root).style.gap = otterUiPx(value); return; }
+      switch (p) {
+        case 'text':
+        case 'value':
+          if (el.type === 'checkbox' || el.type === 'radio') {
+            if (p === 'value') { el.checked = otterUiTrue(value); return; }
+            const span = root.querySelector('span:last-of-type'); if (span) { span.textContent = value; } return;
+          }
+          if (el.tagName === 'PROGRESS' || el.type === 'range') { el.value = value; return; }
+          // On the element itself, like otterSetText: a runtime element is
+          // often not in the page yet when its properties are set.
+          if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT') { el.value = value; } else { el.textContent = value; }
+          return;
+        case 'placeholder': el.placeholder = value; return;
+        case 'title':
+          if (kind === 'card') {
+            let h = root.querySelector(':scope > .otter-card-title');
+            if (!h) { h = document.createElement('h3'); h.className = 'otter-card-title'; root.insertBefore(h, root.firstChild); }
+            h.textContent = value; return;
+          }
+          if (kind === 'window' || kind === 'page') { const t = root.querySelector('.otter-title'); if (t) { t.textContent = value; } return; }
+          el.title = value; return;
+        case 'width': s.width = value === 'full' ? '100%' : otterUiPx(value); if (value === 'full') { s.maxWidth = '100%'; } return;
+        case 'height': s.height = value === 'full' ? '100%' : otterUiPx(value); return;
+        case 'maxwidth': s.maxWidth = otterUiPx(value); return;
+        case 'minwidth': s.minWidth = otterUiPx(value); return;
+        case 'minheight': s.minHeight = otterUiPx(value); return;
+        case 'background': s.background = value; return;
+        case 'foreground': s.color = value; return;
+        case 'round': if (otterUiTrue(value)) { s.borderRadius = '9999px'; } return;
+        case 'radius': s.borderRadius = value === 'round' ? '9999px' : otterUiPx(value); return;
+        case 'border': s.border = value; return;
+        case 'shadow': s.boxShadow = value; return;
+        case 'padding': s.padding = otterUiPx(value); return;
+        case 'margin': s.margin = otterUiPx(value); return;
+        case 'size':
+        case 'fontsize': s.fontSize = otterUiPx(value); return;
+        case 'weight':
+        case 'fontweight': s.fontWeight = value; return;
+        case 'fontstyle': s.fontStyle = value; return;
+        case 'style': if (value === 'italic' || value === 'normal') { s.fontStyle = value; } return;
+        case 'family':
+        case 'fontfamily': s.fontFamily = value; return;
+        case 'lineheight': s.lineHeight = value; return;
+        case 'letterspacing': s.letterSpacing = value; return;
+        case 'whitespace': s.whiteSpace = value; return;
+        case 'overflow': s.overflow = value; return;
+        case 'align': s.textAlign = value; return;
+        case 'flex': s.flex = value; s.minWidth = '0'; return;
+        case 'grow': s.flexGrow = value; return;
+        case 'cursor': s.cursor = value; return;
+        case 'position': s.position = value; return;
+        case 'top': s.top = otterUiPx(value); return;
+        case 'bottom': s.bottom = otterUiPx(value); return;
+        case 'left': s.left = otterUiPx(value); return;
+        case 'right': s.right = otterUiPx(value); return;
+        case 'zindex': s.zIndex = value; return;
+        case 'customstyle': s.cssText += ';' + value; return;
+        case 'source':
+        case 'src': el.src = value; return;
+        case 'alt': el.alt = value; return;
+        case 'url':
+        case 'href':
+          el.href = value;
+          if (/^https?:\/\//i.test(String(value))) { el.target = '_blank'; el.rel = 'noopener noreferrer'; }
+          return;
+        case 'checked': el.checked = otterUiTrue(value); return;
+        case 'min': el.min = value; return;
+        case 'max': el.max = value; return;
+        case 'rows': el.rows = value; return;
+        case 'group':
+        case 'name': if (el.type === 'radio') { el.name = value; return; } break;
+        case 'options': {
+          const opts = Array.isArray(value) ? value : String(value).split(',').map(x => x.trim());
+          el.innerHTML = '';
+          for (const o of opts) { const opt = document.createElement('option'); opt.value = String(o); opt.textContent = String(o); el.appendChild(opt); }
+          return;
+        }
+        case 'draggable': if (otterUiTrue(value)) { el.setAttribute('draggable', 'true'); } else { el.removeAttribute('draggable'); } return;
+        case 'accepts drops': if (otterUiTrue(value)) { el.setAttribute('data-otter-accepts-drops', 'true'); } else { el.removeAttribute('data-otter-accepts-drops'); } return;
+      }
+      // Anything else: as otterSetProperty, on the element itself.
+      if (p === 'url' && el.tagName === 'A') { el.href = value; return; }
+      el[p] = value;
+      if (el.dataset) { el.dataset[p] = value; }
+    }
+'@
+}
+
+# Runtime UI (web target). Walks the whole program and reports which UI
+# resources are created while the page runs rather than rendered up front:
+# every `create KIND into NAME` that is not itself a top-level statement
+# (inside an event handler, a function, a loop or an if). Also reports the
+# kinds they use (one HTML template is generated per kind) and whether the
+# program uses any runtime UI statement at all, so pages that do not keep
+# their exact previous output.
+function Get-OtterWebRuntimeUiInfo {
+    param([Node[]]$Statements)
+    $names = [System.Collections.Generic.HashSet[string]]::new()
+    $kinds = [System.Collections.Generic.HashSet[string]]::new()
+    $state = @{ Uses = $false }
+    # ObjectDef: a nested `X has ...` may set a UI resource's properties.
+    $runtimeKinds = @([NodeKind]::CreateUiResource, [NodeKind]::PutIn, [NodeKind]::Show, [NodeKind]::UiAction, [NodeKind]::When, [NodeKind]::ObjectDef)
+
+    function Visit-OtterWebRuntimeUi {
+        param([object]$Value, [bool]$Nested)
+        if ($null -eq $Value -or $Value -is [string] -or $Value -is [enum] -or $Value -is [System.ValueType]) { return }
+        if ($Value -is [System.Collections.IEnumerable]) {
+            foreach ($item in $Value) { Visit-OtterWebRuntimeUi -Value $item -Nested $Nested }
+            return
+        }
+        if (-not $Value.GetType().Assembly.IsDynamic) { return }
+        if ($Value -is [Node]) {
+            if ($Nested -and $Value.Kind -in $runtimeKinds) { $state.Uses = $true }
+            if (-not $Nested -and $Value.Kind -eq [NodeKind]::UiAction) { $state.Uses = $true }
+            if ($Nested -and $Value -is [CreateUiResourceStmt]) {
+                [void]$names.Add($Value.Target)
+                $kind = $Value.TypeName.ToLowerInvariant()
+                foreach ($v in @('primary', 'secondary', 'danger')) {
+                    if ($kind.StartsWith("$v ")) { $kind = $kind.Substring($v.Length + 1); break }
+                }
+                [void]$kinds.Add($kind)
+            }
+        }
+        foreach ($prop in $Value.PSObject.Properties) {
+            if ($prop.Name -in @('Kind', 'Line')) { continue }
+            Visit-OtterWebRuntimeUi -Value $prop.Value -Nested $true
+        }
+    }
+
+    foreach ($stmt in @($Statements)) { Visit-OtterWebRuntimeUi -Value $stmt -Nested $false }
+    if ($names.Count -gt 0) { $state.Uses = $true }
+    return [pscustomobject]@{ Names = $names; Kinds = $kinds; Uses = $state.Uses }
+}
+
 function ConvertTo-OtterWeb {
     param(
         [Parameter(Mandatory)][ProgramNode]$Program,
@@ -455,6 +690,9 @@ function ConvertTo-OtterWeb {
     $deriveDefs = [ordered]@{}
     $watchStmts = [System.Collections.Generic.List[WatchStmt]]::new()
     $functions = [ordered]@{}
+
+    $runtimeUi = Get-OtterWebRuntimeUiInfo -Statements $Program.Statements
+    Set-OtterJsRuntimeUiNames -Names @($runtimeUi.Names)
 
     # Pass 1: Identify resources and configurations
     foreach ($stmt in $Program.Statements) {
@@ -563,6 +801,14 @@ function ConvertTo-OtterWeb {
                 continue
             }
         }
+        if ($stmt -is [PutInStmt] -and (
+                ($stmt.Item -is [VariableExpr] -and $runtimeUi.Names.Contains($stmt.Item.Name)) -or
+                ($stmt.Container -is [VariableExpr] -and $runtimeUi.Names.Contains($stmt.Container.Name)))) {
+            # Involves a resource created while the page runs: it cannot be
+            # placed in the static HTML, so it runs where it is written.
+            $topLevelStatements.Add($stmt)
+            continue
+        }
         if ($stmt -is [PutInStmt]) {
             $item = if ($stmt.Item -is [VariableExpr]) { $stmt.Item.Name } else { $null }
             $cont = if ($stmt.Container -is [VariableExpr]) { $stmt.Container.Name } else { $null }
@@ -574,6 +820,11 @@ function ConvertTo-OtterWeb {
             }
             continue
         }
+        if ($stmt -is [WhenStmt] -and $stmt.Target -is [VariableExpr] -and $runtimeUi.Names.Contains($stmt.Target.Name) -and
+            $stmt.EventName -notin @('drag', 'drop', 'files dropped')) {
+            $topLevelStatements.Add($stmt)
+            continue
+        }
         if ($stmt -is [WhenStmt]) {
             $whenHandlers.Add($stmt)
             continue
@@ -583,6 +834,20 @@ function ConvertTo-OtterWeb {
         }
         $topLevelStatements.Add($stmt)
     }
+
+    # Page UI addressed by DOM id: the top-level resources, plus named elements
+    # of the declarative form (`page "..."` / `button "Go" as goButton`), whose
+    # id is their name.
+    $staticUiNames = [System.Collections.Generic.List[string]]::new()
+    foreach ($k in $resources.Keys) { $staticUiNames.Add([string]$k) }
+    $declStack = [System.Collections.Generic.Stack[object]]::new()
+    foreach ($d in $declarativeRoots) { $declStack.Push($d) }
+    while ($declStack.Count -gt 0) {
+        $d = $declStack.Pop()
+        if ($d.Name) { $staticUiNames.Add([string]$d.Name) }
+        foreach ($c in @($d.Children)) { if ($c -is [UiElementStmt]) { $declStack.Push($c) } }
+    }
+    Set-OtterJsRuntimeUiNames -Names @($runtimeUi.Names) -StaticNames @($staticUiNames)
 
     # Determine root container (first page or window, or default)
     $rootName = $null
@@ -1226,6 +1491,22 @@ $wBodyJoined
 "@)
     }
     $watcherInitJoined = $watcherInitJs -join "`n"
+
+    # Runtime UI: one template per kind the program creates while running,
+    # rendered by the same renderer as the static page (no properties), so a
+    # runtime button is the same markup as a top-level one.
+    $runtimeUiJs = ''
+    if ($runtimeUi.Uses) {
+        $templates = [ordered]@{}
+        $templateName = '__otter_rt__'
+        foreach ($kind in @($runtimeUi.Kinds)) {
+            $resources[$templateName] = @{ Kind = $kind; Name = $templateName; Properties = [ordered]@{} }
+            try { $templates[$kind] = (Render-OtterElementCore -resName $templateName).Trim() }
+            finally { $resources.Remove($templateName) }
+        }
+        $templatesJson = if ($templates.Count -gt 0) { ConvertTo-Json -InputObject $templates -Compress } else { '{}' }
+        $runtimeUiJs = "    const otterUiTemplates = $templatesJson;`n" + (Get-OtterWebRuntimeUiJs)
+    }
 
     # Compile event handlers
     $jsHandlers = [System.Collections.Generic.List[string]]::new()
@@ -2007,7 +2288,7 @@ $elementsHtml
     // Otter Runtime helpers for the browser
     const empty = "";
     const gone = null;
-    function otterGetElement(id) { return document.getElementById(id); }
+    function otterGetElement(id) { if (id && typeof id === 'object' && id.__otterUi) { return id.el; } return document.getElementById(id); }
     // The element that holds a control's value: the input inside a
     // checkbox, toggle or radio button's label.
     function otterValueElement(id) {
@@ -2068,6 +2349,7 @@ $formRuntimeJs
       const el = otterInputProps.has(prop) ? otterValueElement(id) : otterGetElement(id);
       return el ? el[prop] : '';
     }
+$runtimeUiJs
     function otterSay(...args) {
       console.log(...args);
       const out = document.getElementById('otter-live-output');
