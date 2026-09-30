@@ -184,7 +184,23 @@ reads `<entry>.css`, then `styles.css`; `proposal/1.1-otterboard` reads only
 apps (anything that adds items while it runs) need D128 on the line Studio
 ships with.
 
+## Pass 6 - 2026-09-30: tick and remove on each task
+
+The task app again (1.1 tree), now with a `to addTask label` function
+pasted into the code: each Add builds a row (a checkbox with the task, a
+Remove button) and gives that row's button its own handler
+(`when removeButton clicked` / `line has visible false`). Then back in the
+Designer, the heading edited in the inspector.
+
+No new friction. The Designer kept the hand-written function byte for byte
+through a designer edit and did not take the controls the function makes
+for design elements; the source stayed valid; in Live App three tasks were
+added, one ticked, one removed, each row's handler acting on its own row.
+
 ### Next pass
 
-Tick and remove on each task (per-row handlers made at runtime), then
-multi-page sites (links between pages).
+Multi-page websites. `otter build` compiles one entry into index.html, so
+a site of several pages (index, about, contact) cannot be built yet; a
+one-page site with in-page links (#features) can. Which files become pages,
+their names in dist/ and how links name them is a build and language
+decision (Jeff's), not a Studio one.
