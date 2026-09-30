@@ -234,7 +234,24 @@ Result: the built contact page validates and thanks ("Please tell us your
 name." / "Thanks, Grace! ..."), readable (slate text, dark text on light
 fields); the picture loads in the built home page (dist/assets/images/).
 
+## Pass 9 - 2026-09-30: publishing a website
+
+A new Website with a picture from Assets on the home page, then Build >
+Publish... - which did not exist, so it was added: it saves, runs the real
+`otter publish`, and the Output ends with where the upload folder is and two
+buttons, Open the website and Show the files to upload.
+
+| # | Friction | Kind | Fix |
+|---|---|---|---|
+| 47 | No way to publish from Studio: `otter publish` existed only on the command line | missing | Build > Publish... runs it; the Output names the folder and .zip to upload to any static host, with Open the website and Show the files to upload |
+| 48 | In the Designer a build or publish ran with the Output panel folded, so the result (or the failure) was invisible | invisible result | Build and Publish open the Output panel |
+| 49 | After publishing, Assets showed the published copies: the picture twice, and otter.build.json / otter.publish.json under Data | wrong | Assets skips publish/, the manifest's build and publish output folders, and Otter's build records |
+
+Result: publish/zz-publish-1.0.0/ holds index.html and assets/images/, beside
+the .zip and its .sha256; the published page opened from disk shows its title
+and the picture.
+
 ### Next pass
 
-Publishing: from a built site to somewhere people can visit, and the site's
-own title, icon and description (what a browser tab and a shared link show).
+The site's own description and icon (what a browser tab and a shared link
+show) - needs a decision on where they live: page properties or project.json.

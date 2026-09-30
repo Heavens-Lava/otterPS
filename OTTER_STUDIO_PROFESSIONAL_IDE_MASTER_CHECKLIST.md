@@ -497,14 +497,14 @@ architecture reference. Listed in the recommended implementation order.
 
 -   [x] Web export path
 -   [x] `studio-v1.ot` production web build
--   [ ] Static site build
+-   [x] Static site build (every page file beside the entry builds to its own .html: tests/ProjectBuild.Tests.ps1 17-18; built multi-page sites opened from disk in friction-log passes 7-9)
 -   [ ] Client app build
 -   [ ] Routing/navigation/history
--   [ ] Forms/validation
+-   [ ] Forms/validation (a form validated in an Otter handler works in Live App and the built site: friction-log pass 8; no built-in validation rules yet)
 -   [ ] State/component lifecycle
 -   [ ] Reusable components
 -   [ ] Responsive layout
--   [ ] Asset/CSS/JS bundling
+-   [ ] Asset/CSS/JS bundling (images a page shows are listed and copied into the build, and each page gets its own stylesheet: scripts/manifest-assets.test.mjs, pass 8; no bundling or minification)
 -   [ ] Source maps
 -   [ ] Dev server
 -   [ ] Hot reload
@@ -514,7 +514,7 @@ architecture reference. Listed in the recommended implementation order.
 -   [ ] SSR decision
 -   [ ] SEO/meta
 -   [ ] Browser matrix
--   [ ] Deploy presets
+-   [ ] Deploy presets (Build > Publish... makes the folder and .zip to upload to any static host; no host-specific presets)
 
 # 14. Desktop application target
 
@@ -1123,7 +1123,7 @@ architecture reference. Listed in the recommended implementation order.
 ## P7 --- Ship
 
 -   [ ] Windows/macOS/Linux packaging for advertised targets.
--   [ ] Web publishing.
+-   [x] Web publishing. (Build > Publish... runs otter publish: scripts/launch.test.mjs; published through the real UI in friction-log pass 9)
 -   [ ] Signing.
 -   [ ] Installer/updater.
 -   [ ] Security/accessibility/performance audits.
