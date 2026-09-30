@@ -36,7 +36,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (themeToggle) {
       const nextTheme = dark ? 'light' : 'dark';
       const label = dark ? 'Light' : 'Dark';
-      themeToggle.querySelector('.theme-toggle-icon').textContent = dark ? '☀' : '☾';
+      // The theme you would switch to: a sun in the dark, a moon in the light.
+      themeToggle.querySelector('.theme-toggle-icon').innerHTML = dark
+        ? '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></svg>'
+        : '<svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>';
       themeToggle.querySelector('.theme-toggle-label').textContent = label;
       themeToggle.title = `Switch to ${nextTheme} theme`;
       themeToggle.setAttribute('aria-label', themeToggle.title);
@@ -562,10 +565,28 @@ document.addEventListener('DOMContentLoaded', async () => {
   // installed after init, so the initial source needs one explicit pass.
   syncUiFromSource(ide.currentCode, true, ide.currentFile);
 
+  // The drawer folds to its tab strip. In the Designer it starts folded (the
+  // canvas comes first); a tab or the chevron opens it. Remembered per mode.
+  const bottomDrawerEl = document.getElementById('bottomDrawer');
+  const drawerCollapseBtn = document.getElementById('btnDrawerCollapse');
+  const drawerFoldedIn = { designer: true };
+  function setDrawerFolded(folded) {
+    bottomDrawerEl?.classList.toggle('is-folded', folded);
+    drawerCollapseBtn?.setAttribute('aria-expanded', String(!folded));
+    if (drawerCollapseBtn) drawerCollapseBtn.title = folded ? 'Show panel' : 'Hide panel';
+  }
+  function rememberDrawer(folded) {
+    setDrawerFolded(folded);
+    drawerFoldedIn[document.body.dataset.studioMode || 'code'] = folded;
+  }
+  drawerCollapseBtn?.addEventListener('click', () => rememberDrawer(!bottomDrawerEl.classList.contains('is-folded')));
+
   // Bottom Drawer Tabs
   const drawerTabs = document.querySelectorAll('.drawer-tab');
   drawerTabs.forEach(tab => {
-    tab.addEventListener('click', () => {
+    tab.addEventListener('click', (event) => {
+      // Choosing a tab opens a folded drawer (not a tab chosen by code).
+      if (event.isTrusted && bottomDrawerEl?.classList.contains('is-folded')) rememberDrawer(false);
       drawerTabs.forEach(t => t.classList.remove('is-active'));
       tab.classList.add('is-active');
       const tabName = tab.getAttribute('data-drawer-tab');
@@ -613,6 +634,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function setMode(mode) {
     document.body.dataset.studioMode = mode;
+    setDrawerFolded(Boolean(drawerFoldedIn[mode]));
     // Designer: the drawer's left half shows this source (css/polish.css).
     if (mode === 'designer') {
       showLiveCode();

@@ -244,13 +244,7 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
     const bp = styles.breakpoint;
     return `
       <div class="sp-context">
-        <div class="sp-bp-tabs" role="tablist" aria-label="Breakpoint">
-          ${styles.breakpoints.map(b => `
-            <button class="sp-bp-btn ${b.id === bp.id ? 'is-active' : ''}" data-breakpoint="${b.id}"
-              title="${escapeHtml(b.label)}: ${escapeHtml(b.hint)}" role="tab" aria-selected="${b.id === bp.id}">
-              ${breakpointIcon(b)}<span>${escapeHtml(b.label)}</span>
-            </button>`).join('')}
-        </div>
+        ${bp.media ? `<div class="sp-bp-note">${breakpointIcon(bp)}<span>Editing <b>${escapeHtml(bp.label)}</b> · ${escapeHtml(bp.hint)}</span></div>` : ''}
         <div class="sp-context-row">
           <label class="sp-state-label" for="spStateSelect">State</label>
           <select class="sp-select sp-state-select" id="spStateSelect">

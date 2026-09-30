@@ -144,6 +144,8 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
     bindTopbar();
     bindViewport();
     bindKeyboard();
+    // The canvas is hidden until the Designer is shown: fit then.
+    new ResizeObserver(() => fitNewDocument()).observe(viewportEl);
   }
 
   function bindTopbar() {
@@ -261,6 +263,7 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
     applyViewState();
     renderBreadcrumbs();
     updateOverlay();
+    fitNewDocument();
   }
 
   function renderTopbarState() {
@@ -1949,6 +1952,26 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
     const fit = Math.min((viewportEl.clientWidth - 80) / naturalW, (viewportEl.clientHeight - 80) / naturalH, 2);
     setZoom(fit);
     viewportEl.scrollTop = 0;
+  }
+
+  // A design opens whole: the first time each document's canvas is on screen,
+  // a window bigger than the view is zoomed out to fit (never enlarged, and
+  // the zoom is left alone afterwards).
+  let fittedDocument = null;
+  function fitNewDocument() {
+    const key = window.otterIde?.currentFile || 'untitled';
+    if (key === fittedDocument || !viewportEl?.clientWidth || isInteractMode) return;
+    const wrapper = stageEl.querySelector('#canvasWindowWrapper');
+    if (!wrapper) return;
+    fittedDocument = key;
+    requestAnimationFrame(() => {
+      const r = wrapper.getBoundingClientRect();
+      const fit = Math.min((viewportEl.clientWidth - 80) / (r.width / zoom), (viewportEl.clientHeight - 80) / (r.height / zoom), 1);
+      if (fit < zoom) {
+        setZoom(fit);
+        viewportEl.scrollTop = 0;
+      }
+    });
   }
 
   // Fit the selected components in view (Penpot's Shift+2).
