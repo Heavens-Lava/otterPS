@@ -633,6 +633,12 @@ export class OtterStudioIde {
     });
     this.renderLaunchMenu();
 
+    // Files added outside the Explorer (Assets > Import): the tree and the
+    // file lists (link targets, page icons) pick them up.
+    window.addEventListener('otter:files-changed', () => {
+      if (this.currentProjectFolder) this.loadProjectTree(this.currentProjectFolder);
+    });
+
     // Keyboard Shortcuts: F5 / Ctrl+Enter to Run
     window.addEventListener('keydown', (e) => {
       if (e.key === 'F5' && e.ctrlKey && e.shiftKey) {
@@ -2006,7 +2012,7 @@ export class OtterStudioIde {
       `show ${id}`,
       ''
     ].join('\n');
-    const css = `/* ${title}: this page's stylesheet (${file}.css). */\n#${id}Text {\n    color: #475569;\n    line-height: 1.6;\n}\n`;
+    const css = `/* ${title}: this page's stylesheet (${file}.css). */\n#${id}Text {\n    color: #475569;\n    line-height: 1.6;\n}\n\n#homeLink {\n    display: inline-block;\n    padding: 6px 0;\n}\n`;
     try {
       for (const [name, content] of [[`${file}.ot`, code], [`${file}.css`, css]]) {
         const res = await fetch('/api/create-file', {

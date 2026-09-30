@@ -126,6 +126,9 @@ assert.match(menuBar, /'build\.clean', 'build\.openWebsite', 'build\.publish'/, 
 assert.match(commandsJs, /id: 'build\.publish'[^\n]*ide\.publishProject\(\)/, 'Publish runs otter publish');
 assert.match(commandsJs, /id: 'file\.newPage'[^\n]*ide\.promptNewPage\(\)/, 'New Page creates a page of the website');
 assert.match(ide, /async promptNewPage\(\)[\s\S]*?\$\{file\}\.css[\s\S]*?pillDesignerMode/, 'A new page comes with its stylesheet and opens in the Designer');
+assert.match(ide, /addEventListener\('otter:files-changed'[\s\S]{0,120}loadProjectTree/, 'An imported asset reaches the Explorer and the file lists at once');
+const propertiesJs = await fs.readFile(path.join(studioRoot, 'js', 'components', 'properties.js'), 'utf8');
+assert.match(propertiesJs, /rootKind === 'page'\) \{[\s\S]{0,200}contentRow\('Description', 'description'[\s\S]{0,300}contentRow\('Icon', 'icon'[^\n]*list: 'otterPageIcons'/, 'A page has Description and Icon (from the project images) in Properties');
 assert.match(manifestJs, /assets: options\.assets \|\| \[\],/, 'A new project lists no stylesheet as an asset (the compiler embeds it; a named styles.css that did not exist failed every build)');
 
 assert.match(html, /id="outlineFilterInput"/, 'Document outline must expose a filter input');
