@@ -70,3 +70,13 @@ registered in a loop should be checked first, since it is the reference.
 2. Accept P1, P2, P7, P8 (storage), P9 for 1.1 in principle?
 3. Send P3–P6 (and P2's new words) to Codex for grammar review, with the
    concerns above?
+
+## 5. Decisions made (2026-09-30)
+
+1. The rc.7 web bugs were fixed before 1.0, as rc.8: the loop rule became D130
+   (on the console and the web - the console behaved the same way), browser
+   file operations became errors (D131), and the top-level `has` fix followed.
+2. P1, P2, P8 (browser storage) and P9 are accepted for 1.1 in principle.
+3. P3-P6 go to Codex for grammar review, with the concerns in section 2.
+4. The checklist for all of 1.1 is `OTTER_1_1_CHECKLIST.md` (repository root);
+   its section 2 holds the decided OtterBoard work.
