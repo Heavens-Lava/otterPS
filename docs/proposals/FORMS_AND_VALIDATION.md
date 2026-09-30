@@ -112,6 +112,12 @@ when contactForm is sent
 
 ### 3. `label`: the field's name, shown and used in messages
 
+**Decided by Jeff, 2026-09-30:** `label` means visible text above the field
+and also its accessible name. The 1.1 proposal's P2 (`proposal/1.1-otterboard`,
+docs/UI_RUNTIME_AND_PHRASES.md) uses `label` as an accessible name only, with
+no visible text. When the lines merge, that meaning moves to another word (for
+example `tooltip` for an icon-only button); `label` keeps this one.
+
 - `label "Email"` shows a label above the field. It is the element's
   accessible name, and clicking it focuses the field.
 - Otter's messages use it: "Please fill in Email.", "Email needs to be an
