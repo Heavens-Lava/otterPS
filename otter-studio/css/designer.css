@@ -309,7 +309,7 @@ body.designer-is-dragging .designer-gap-band {
   position: absolute;
   pointer-events: none;
   border: 1px solid var(--accent-blue);
-  background: rgba(59, 130, 246, 0.1);
+  background: color-mix(in srgb, var(--o-accent) 10%, transparent);
   z-index: 580;
 }
 
@@ -914,8 +914,8 @@ button.sp-dot:focus-visible {
 .sp-prov-btn {
   padding: 4px 10px;
   border-radius: 5px;
-  border: 1px solid #2f7cf6;
-  background: #2f7cf6;
+  border: 1px solid var(--o-accent);
+  background: var(--o-accent);
   color: #fff;
   font: 600 11.5px var(--font-ui, system-ui, sans-serif);
   cursor: pointer;
@@ -1484,7 +1484,7 @@ button.sp-dot:focus-visible {
   pointer-events: none;
   border: 1.5px dashed var(--accent-blue);
   border-radius: 4px;
-  background: rgba(59, 130, 246, 0.12);
+  background: color-mix(in srgb, var(--o-accent) 12%, transparent);
   z-index: 585;
 }
 

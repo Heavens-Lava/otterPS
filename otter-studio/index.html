@@ -10,7 +10,7 @@
   <!-- Modern Typography -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
   <!-- Core Styles -->
   <link rel="stylesheet" href="css/studio.css">
@@ -29,6 +29,8 @@
        reference design (Otter IDE reference image.png). -->
   <link rel="stylesheet" href="css/polish.css">
   <link rel="stylesheet" href="css/design-library.css">
+  <!-- Last: the shared scale and the two looks (Graphite dark, Otter light). -->
+  <link rel="stylesheet" href="css/theme.css">
 </head>
 <body class="theme-dark">
   <div class="studio-shell">
@@ -88,7 +90,26 @@
           <input type="text" class="header-search-input" placeholder="Type a command or file name..." />
           <kbd class="palette-kbd">Ctrl + K</kbd>
         </div>
-        <button class="header-icon-btn" id="btnHeaderSettings" type="button" title="Settings (Ctrl+,)" aria-label="Settings"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 5.75a2.25 2.25 0 1 1 0 4.5 2.25 2.25 0 0 1 0-4.5zM8 1.5v2M8 12.5v2M14.5 8h-2M3.5 8h-2M12.6 3.4l-1.4 1.4M4.8 11.2l-1.4 1.4M12.6 12.6l-1.4-1.4M4.8 4.8L3.4 3.4" /></svg></button>
+        <button class="theme-toggle-btn" id="btnThemeToggle" type="button" title="Switch to light theme" aria-label="Switch to light theme">
+          <span class="theme-toggle-icon" aria-hidden="true">☀</span>
+          <span class="theme-toggle-label">Light</span>
+        </button>
+        <button class="header-icon-btn" id="btnHeaderSettings" type="button" title="Settings (Ctrl+,)" aria-label="Settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.3 3.2h3.4l.5 2.4 1.7.9 2.3-.9 1.7 2.9-1.9 1.6v1.8l1.9 1.6-1.7 2.9-2.3-.9-1.7.9-.5 2.4h-3.4l-.5-2.4-1.7-.9-2.3.9-1.7-2.9 1.9-1.6v-1.8L3.9 8.5l1.7-2.9 2.3.9 1.7-.9z"/><circle cx="12" cy="12" r="2.8"/></svg></button>
+
+        <div class="modebar-split is-primary">
+          <button class="modebar-btn is-primary" id="btnModebarRun" type="button" title="Run (F5)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4l14 8-14 8z"/></svg>
+            <span>Run</span>
+          </button>
+          <button class="modebar-btn is-primary modebar-caret" id="btnModebarRunMore" type="button" title="Run options" aria-label="Run options" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 6.5 8 10l3.5-3.5" /></svg></button>
+          <div class="editor-more-menu" id="modebarRunMenu" role="menu" aria-label="Run" hidden>
+            <button type="button" class="editor-more-item" role="menuitem" data-command="run.run"><span class="editor-more-label">Run Current File</span><kbd>F5</kbd></button>
+            <button type="button" class="editor-more-item" role="menuitem" data-command="run.project"><span class="editor-more-label">Run Project</span><kbd>Ctrl+F5</kbd></button>
+            <button type="button" class="editor-more-item" role="menuitem" data-command="run.debug"><span class="editor-more-label">Start Debugging</span><kbd></kbd></button>
+            <div class="editor-more-sep" role="separator"></div>
+            <button type="button" class="editor-more-item" role="menuitem" data-command="run.launchProfiles"><span class="editor-more-label">Edit Launch Profiles…</span><kbd></kbd></button>
+          </div>
+        </div>
 
         <!-- Window Controls -->
         <div class="window-controls">
@@ -124,20 +145,6 @@
             <button type="button" class="editor-more-item" role="menuitem" data-command="file.localHistory"><span class="editor-more-label">Local History…</span><kbd></kbd></button>
           </div>
         </div>
-        <div class="modebar-split is-primary">
-          <button class="modebar-btn is-primary" id="btnModebarRun" type="button" title="Run (F5)">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4l14 8-14 8z"/></svg>
-            <span>Run</span>
-          </button>
-          <button class="modebar-btn is-primary modebar-caret" id="btnModebarRunMore" type="button" title="Run options" aria-label="Run options" aria-haspopup="menu" aria-expanded="false"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 6.5 8 10l3.5-3.5" /></svg></button>
-          <div class="editor-more-menu" id="modebarRunMenu" role="menu" aria-label="Run" hidden>
-            <button type="button" class="editor-more-item" role="menuitem" data-command="run.run"><span class="editor-more-label">Run Current File</span><kbd>F5</kbd></button>
-            <button type="button" class="editor-more-item" role="menuitem" data-command="run.project"><span class="editor-more-label">Run Project</span><kbd>Ctrl+F5</kbd></button>
-            <button type="button" class="editor-more-item" role="menuitem" data-command="run.debug"><span class="editor-more-label">Start Debugging</span><kbd></kbd></button>
-            <div class="editor-more-sep" role="separator"></div>
-            <button type="button" class="editor-more-item" role="menuitem" data-command="run.launchProfiles"><span class="editor-more-label">Edit Launch Profiles…</span><kbd></kbd></button>
-          </div>
-        </div>
       </div>
 
       <!-- Centre: free space (the designer's device and zoom controls stay in
@@ -145,10 +152,6 @@
       <div class="modebar-center" id="modebarCenter"></div>
 
       <div class="modebar-right">
-        <button class="theme-toggle-btn" id="btnThemeToggle" type="button" title="Switch to light theme" aria-label="Switch to light theme">
-          <span class="theme-toggle-icon" aria-hidden="true">☀</span>
-          <span class="theme-toggle-label">Light</span>
-        </button>
         <button class="modebar-btn" id="btnModebarPreview" type="button" title="Show the running app (Live App)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M10 8l6 4-6 4z"/></svg>
           <span>Preview App</span>
@@ -598,6 +601,7 @@
           <button class="drawer-tab" data-drawer-tab="tasks">Tasks</button>
           <button class="drawer-tab" data-drawer-tab="livecode">Otter Code</button>
         </div>
+        <button class="drawer-collapse-btn" id="btnDrawerCollapse" type="button" title="Hide panel" aria-label="Hide panel" aria-expanded="true"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 6.5 8 10l3.5-3.5" /></svg></button>
       </div>
       <div class="drawer-content">
         <!-- Tab 1: Problems -->

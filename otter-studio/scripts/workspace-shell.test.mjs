@@ -70,6 +70,31 @@ assert.match(ide, /promptRename\(\)/, 'IDE must implement safe Rename Symbol');
 assert.match(ide, /e\.ctrlKey.*goToDefinition/s, 'Editor must support Ctrl+Click to Go to Definition');
 assert.match(darkCss, /\.theme-dark \.rename-dialog/, 'Dark theme must style the rename dialog');
 
+// The look (css/theme.css): Graphite dark by default, Otter light; one top
+// bar; the Designer's drawer folds; one breakpoint switch (the canvas bar).
+const [themeCss, properties, canvasJs] = await Promise.all([
+  fs.readFile(path.join(studioRoot, 'css', 'theme.css'), 'utf8'),
+  fs.readFile(path.join(studioRoot, 'js', 'components', 'properties.js'), 'utf8'),
+  fs.readFile(path.join(studioRoot, 'js', 'components', 'canvas.js'), 'utf8')
+]);
+const stylesheets = [...html.matchAll(/<link rel="stylesheet" href="([^"]+)"/g)].map(m => m[1]);
+assert.equal(stylesheets[stylesheets.length - 1], 'css/theme.css', 'theme.css must load last so the look does not depend on older stylesheets');
+assert.match(themeCss, /body\.theme-dark \{[^}]*--o-accent: #4d9aff;/, 'Dark is Graphite with the mascot water-blue accent');
+assert.match(themeCss, /body\.theme-light \{[^}]*--o-accent: #8c5835;/, 'Light is Otter with the river-bank brown accent');
+assert.match(app, /: 'dark';/, 'Dark (Graphite) is the default theme');
+assert.match(html, /<header class="studio-header">[\s\S]*id="btnModebarRun"[\s\S]*<\/header>/, 'Run lives in the one top bar');
+assert.match(html, /<header class="studio-header">[\s\S]*id="btnThemeToggle"[\s\S]*<\/header>/, 'The theme switch lives in the one top bar');
+assert.match(themeCss, /\.studio-modebar \{ display: none; \}/, 'No second toolbar row');
+assert.match(html, /id="btnDrawerCollapse"/, 'The bottom drawer can fold to its tab strip');
+assert.match(app, /const drawerFoldedIn = \{ designer: true \};/, 'The Designer opens with the drawer folded (the canvas first)');
+assert.match(app, /event\.isTrusted && bottomDrawerEl\?\.classList\.contains\('is-folded'\)/, 'Only a person choosing a tab opens a folded drawer');
+assert.doesNotMatch(properties, /class="sp-bp-tabs"/, 'Breakpoints are switched in the canvas bar only (no second switch in the inspector)');
+assert.match(canvasJs, /function fitNewDocument\(\)/, 'A design bigger than the view opens fitted');
+const legacyBlue = /#(2563eb|3b82f6|2f7cf6|2d91df|1d4ed8|60a5fa|93c5fd|2c91ff)\b/i;
+for (const file of ['studio.css', 'studio-dark.css', 'polish.css', 'studio-shell.css', 'components.css', 'designer.css', 'canvas.css']) {
+  assert.doesNotMatch(await fs.readFile(path.join(studioRoot, 'css', file), 'utf8'), legacyBlue, `${file}: Studio's own chrome uses the theme tokens, not a hardcoded blue`);
+}
+
 assert.match(html, /id="outlineFilterInput"/, 'Document outline must expose a filter input');
 assert.match(html, /id="btnWorkspaceSymbols"/, 'Editor quick actions must expose Workspace Symbols button');
 assert.match(html, /id="btnExtractFunction"/, 'Editor quick actions must expose Extract Function button');

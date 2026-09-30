@@ -629,8 +629,7 @@
 }
 
 .theme-dark .studio-header {
-  background:
-    linear-gradient(180deg, rgba(4, 10, 19, 0.2) 0%, rgba(4, 10, 19, 0.55) 65%, rgba(4, 10, 19, 0.85) 100%),
+  background: linear-gradient(180deg, color-mix(in srgb, var(--o-canvas) 20%, transparent) 0%, color-mix(in srgb, var(--o-canvas) 55%, transparent) 65%, color-mix(in srgb, var(--o-canvas) 85%, transparent) 100%),
     url("../img/welcome-alpine-lake.png") center 38% / cover no-repeat,
     var(--shell-bar);
   border-bottom-color: rgba(120, 150, 190, 0.18);
@@ -673,11 +672,11 @@
 }
 
 .theme-dark .studio-header .brand-subtitle {
-  color: rgba(226, 236, 248, 0.78);
+  color: color-mix(in srgb, var(--o-ink) 78%, transparent);
 }
 
 .theme-dark .studio-header .mb-trigger {
-  color: rgba(236, 243, 251, 0.92);
+  color: color-mix(in srgb, var(--o-ink) 92%, transparent);
 }
 
 .theme-dark .studio-header .mb-trigger:hover,
@@ -693,7 +692,7 @@
 }
 
 .theme-dark .studio-header .mode-tabs {
-  background: rgba(6, 14, 26, 0.62);
+  background: color-mix(in srgb, var(--o-canvas) 62%, transparent);
   border-color: rgba(120, 150, 190, 0.25);
   backdrop-filter: blur(6px);
 }
@@ -706,7 +705,7 @@
 }
 
 .theme-dark .studio-header .mode-tabs .mode-pill {
-  color: rgba(214, 226, 240, 0.85);
+  color: color-mix(in srgb, var(--o-ink) 85%, transparent);
 }
 
 .theme-dark .studio-header .mode-tabs .mode-pill:hover {
@@ -717,8 +716,8 @@
 .studio-header .mode-tabs .mode-pill.is-active,
 .theme-dark .studio-header .mode-tabs .mode-pill.is-active {
   color: #fff;
-  background: linear-gradient(180deg, #2f7cf6, #1d5fd6);
-  box-shadow: 0 0 0 1px rgba(125, 180, 255, 0.55) inset, 0 4px 16px rgba(47, 124, 246, 0.45);
+  background: linear-gradient(180deg, var(--o-accent), #1d5fd6);
+  box-shadow: 0 0 0 1px rgba(125, 180, 255, 0.55) inset, 0 4px 16px color-mix(in srgb, var(--o-accent) 45%, transparent);
 }
 
 .studio-header .project-chip {
@@ -730,7 +729,7 @@
 }
 
 .theme-dark .studio-header .project-chip {
-  background: rgba(6, 14, 26, 0.62);
+  background: color-mix(in srgb, var(--o-canvas) 62%, transparent);
   border-color: rgba(120, 150, 190, 0.25);
   backdrop-filter: blur(6px);
 }
@@ -787,9 +786,9 @@
 
 .theme-dark .studio-header .header-search-wrap,
 .theme-dark .header-icon-btn {
-  background: rgba(6, 14, 26, 0.62);
+  background: color-mix(in srgb, var(--o-canvas) 62%, transparent);
   border-color: rgba(120, 150, 190, 0.25);
-  color: rgba(226, 236, 248, 0.9);
+  color: color-mix(in srgb, var(--o-ink) 90%, transparent);
 }
 
 .studio-header .header-search-wrap:hover,
@@ -1290,7 +1289,7 @@ body[data-studio-mode="designer"] .drawer-tab[data-drawer-tab="livecode"] {
 }
 
 .theme-dark .live-code-panel {
-  background: #08131f;
+  background: var(--o-canvas);
 }
 
 .live-code-head {
@@ -1495,8 +1494,8 @@ body[data-studio-mode="designer"] .drawer-tab[data-drawer-tab="livecode"] {
 }
 
 .start-search input:focus {
-  border-color: #2f7cf6;
-  box-shadow: 0 0 0 3px rgba(47, 124, 246, 0.2);
+  border-color: var(--o-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--o-accent) 20%, transparent);
 }
 
 .start-recent-list {
@@ -1525,8 +1524,8 @@ body[data-studio-mode="designer"] .drawer-tab[data-drawer-tab="livecode"] {
 
 .start-recent:hover,
 .start-recent:focus-visible {
-  background: rgba(47, 124, 246, 0.14);
-  border-color: rgba(47, 124, 246, 0.35);
+  background: color-mix(in srgb, var(--o-accent) 14%, transparent);
+  border-color: color-mix(in srgb, var(--o-accent) 35%, transparent);
   outline: none;
 }
 
@@ -1597,8 +1596,8 @@ body[data-studio-mode="designer"] .drawer-tab[data-drawer-tab="livecode"] {
 
 .start-action:hover,
 .start-action:focus-visible {
-  background: rgba(47, 124, 246, 0.16);
-  border-color: rgba(47, 124, 246, 0.6);
+  background: color-mix(in srgb, var(--o-accent) 16%, transparent);
+  border-color: color-mix(in srgb, var(--o-accent) 60%, transparent);
   outline: none;
 }
 

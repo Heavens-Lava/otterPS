@@ -18,7 +18,7 @@
 /* Bookmarks: a small flag in the line-number gutter. */
 .line-numbers-gutter span.gutter-bookmark {
   position: relative;
-  color: #60a5fa;
+  color: var(--o-accent);
   font-weight: 700;
 }
 
@@ -31,7 +31,7 @@
   height: 12px;
   transform: translateY(-50%);
   border-radius: 1px;
-  background: #3b82f6;
+  background: var(--o-accent);
 }
 
 /* Tasks panel (TODO / FIXME). */
@@ -61,7 +61,7 @@
 .task-filter.is-active,
 .task-filter:hover {
   color: var(--text-main, #e2e8f0);
-  border-color: var(--accent-blue, #3b82f6);
+  border-color: var(--accent-blue, var(--o-accent));
 }
 
 .tasks-list {
@@ -87,7 +87,7 @@
 }
 
 .task-row:hover {
-  background: color-mix(in srgb, var(--accent-blue, #3b82f6) 12%, transparent);
+  background: color-mix(in srgb, var(--accent-blue, var(--o-accent)) 12%, transparent);
 }
 
 .task-tag {
@@ -151,8 +151,8 @@ body.zen-mode .studio-statusbar {
 
 .find-opt.is-on {
   color: #e2e8f0;
-  border-color: #3b82f6;
-  background: rgba(59, 130, 246, 0.25);
+  border-color: var(--o-accent);
+  background: color-mix(in srgb, var(--o-accent) 25%, transparent);
 }
 
 /* Compare (diff-view.js): two columns, changed rows colored. */
@@ -258,7 +258,7 @@ body.zen-mode .studio-statusbar {
 .diff-delete .diff-left, .diff-change .diff-left { background: rgba(248, 113, 113, 0.14); }
 .diff-insert .diff-right, .diff-change .diff-right { background: rgba(74, 222, 128, 0.12); }
 .diff-code.diff-empty { background: repeating-linear-gradient(135deg, transparent 0 6px, rgba(148, 163, 184, 0.06) 6px 12px); }
-.diff-row.is-current { outline: 1px solid #3b82f6; outline-offset: -1px; }
+.diff-row.is-current { outline: 1px solid var(--o-accent); outline-offset: -1px; }
 
 .diff-same {
   padding: 24px;
@@ -268,14 +268,14 @@ body.zen-mode .studio-statusbar {
 /* Explorer: the row a keyboard action applies to, and drop targets. */
 .project-file-item.is-explorer-selected,
 .project-folder-item.is-explorer-selected {
-  outline: 1px solid rgba(59, 130, 246, 0.6);
+  outline: 1px solid color-mix(in srgb, var(--o-accent) 60%, transparent);
   outline-offset: -1px;
 }
 
 .project-folder-item.is-drop-target,
 .project-folder-root.is-drop-target,
 .project-file-item.is-drop-target {
-  background: rgba(59, 130, 246, 0.22) !important;
+  background: color-mix(in srgb, var(--o-accent) 22%, transparent) !important;
 }
 
 .project-tree:focus {
@@ -291,7 +291,7 @@ body.zen-mode .studio-statusbar {
 }
 
 .line-numbers-gutter span.gutter-git-modified {
-  box-shadow: inset -3px 0 0 #3b82f6;
+  box-shadow: inset -3px 0 0 var(--o-accent);
 }
 
 .line-numbers-gutter span.gutter-git-deleted {
@@ -337,8 +337,8 @@ body.zen-mode .studio-statusbar {
 
 .local-history-row:hover,
 .local-history-row:focus-visible {
-  background: color-mix(in srgb, var(--accent, #3b82f6) 14%, transparent);
-  border-color: color-mix(in srgb, var(--accent, #3b82f6) 40%, transparent);
+  background: color-mix(in srgb, var(--accent, var(--o-accent)) 14%, transparent);
+  border-color: color-mix(in srgb, var(--accent, var(--o-accent)) 40%, transparent);
   outline: none;
 }
 

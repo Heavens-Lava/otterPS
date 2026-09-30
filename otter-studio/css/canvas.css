@@ -41,7 +41,7 @@
 }
 
 .crumb-item.is-active {
-  color: #60a5fa;
+  color: var(--o-select);
   font-weight: 600;
 }
 
@@ -177,7 +177,7 @@
 
 .canvas-element.is-dragging {
   opacity: 0.35 !important;
-  outline: 2px dashed #60a5fa !important;
+  outline: 2px dashed var(--o-select) !important;
   cursor: grabbing !important;
 }
 
@@ -198,7 +198,7 @@
 /* Selection Rectangles on Overlay */
 .designer-selection-box {
   position: absolute;
-  border: 2px solid #3b82f6;
+  border: 2px solid var(--o-select);
   border-radius: 4px;
   pointer-events: none;
   z-index: 520;
@@ -206,13 +206,13 @@
 }
 
 .designer-selection-box.is-primary {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.3), inset 0 0 0 1px rgba(59, 130, 246, 0.15);
+  border-color: var(--o-select);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--o-select) 30%, transparent), inset 0 0 0 1px color-mix(in srgb, var(--o-select) 15%, transparent);
 }
 
 .designer-selection-box.is-multi {
-  border: 2px dashed #60a5fa;
-  background: rgba(96, 165, 250, 0.08);
+  border: 2px dashed var(--o-select);
+  background: color-mix(in srgb, var(--o-select) 8%, transparent);
 }
 
 /* Floating Selection Badge on Overlay */
@@ -221,7 +221,7 @@
   top: -24px;
   left: -2px;
   height: 20px;
-  background: #3b82f6;
+  background: var(--o-select);
   color: #ffffff;
   border-radius: 4px 4px 0 0;
   padding: 0 6px;
@@ -281,7 +281,7 @@
 .designer-resize-handle {
   position: absolute;
   background: #ffffff;
-  border: 1.5px solid #2563eb;
+  border: 1.5px solid var(--o-select);
   border-radius: 2px;
   z-index: 540;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
@@ -318,8 +318,8 @@
 /* Decoupled Hover Box on Overlay */
 .designer-hover-box {
   position: absolute;
-  border: 1.5px dashed rgba(96, 165, 250, 0.7);
-  background: rgba(96, 165, 250, 0.04);
+  border: 1.5px dashed color-mix(in srgb, var(--o-select) 70%, transparent);
+  background: color-mix(in srgb, var(--o-select) 4%, transparent);
   border-radius: 4px;
   pointer-events: none;
   z-index: 510;
@@ -331,8 +331,8 @@
   top: -18px;
   left: 0;
   background: rgba(15, 23, 42, 0.9);
-  color: #93c5fd;
-  border: 1px solid rgba(96, 165, 250, 0.4);
+  color: var(--o-select);
+  border: 1px solid color-mix(in srgb, var(--o-select) 40%, transparent);
   border-radius: 3px;
   padding: 1px 5px;
   font-size: 9px;
@@ -343,10 +343,10 @@
 /* Drag Target Box & Insertion Indicators on Overlay */
 .designer-target-box {
   position: absolute;
-  border: 2px solid #2563eb;
+  border: 2px solid var(--o-select);
   border-radius: 6px;
-  background: rgba(37, 99, 235, 0.05);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+  background: color-mix(in srgb, var(--o-select) 5%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--o-select) 20%, transparent);
   pointer-events: none;
   z-index: 501;
   transition: all 0.04s ease-out;
@@ -356,7 +356,7 @@
   position: absolute;
   top: -22px;
   left: -2px;
-  background: #2563eb;
+  background: var(--o-select);
   color: #ffffff;
   font-size: 10px;
   font-weight: 700;
@@ -369,9 +369,9 @@
 
 .designer-insertion-line {
   position: absolute;
-  background: #2563eb;
+  background: var(--o-select);
   border-radius: 3px;
-  box-shadow: 0 0 10px #2563eb, 0 0 4px #60a5fa;
+  box-shadow: 0 0 10px var(--o-select), 0 0 4px var(--o-select);
   pointer-events: none;
   z-index: 502;
   transition: all 0.04s ease-out;
@@ -389,7 +389,7 @@
   position: absolute;
   width: 7px;
   height: 7px;
-  background: #2563eb;
+  background: var(--o-select);
   border: 1.5px solid #ffffff;
   border-radius: 50%;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
@@ -582,14 +582,14 @@ input.otter-input, .canvas-textbox {
 .canvas-inline-editor {
   background: rgba(30, 41, 59, 0.95);
   color: #ffffff !important;
-  border: 1.5px solid #3b82f6;
+  border: 1.5px solid var(--o-select);
   border-radius: 4px;
   padding: 2px 6px;
   font-family: inherit;
   font-size: inherit;
   font-weight: inherit;
   outline: none;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--o-select) 30%, transparent);
   min-width: 60px;
   width: auto;
   max-width: 100%;
