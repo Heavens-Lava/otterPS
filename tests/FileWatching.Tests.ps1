@@ -115,7 +115,7 @@ on rename in dirWatcher
             Set-Content -LiteralPath $a -Value 'hi' -NoNewline
             Start-Sleep -Milliseconds 500
             Rename-Item -LiteralPath $a -NewName 'b.txt'
-        } -RegisterDelayMs 1500 -TimeoutMs 12000
+        } -TimeoutMs 12000
         Assert-False $r.TimedOut 'expected create then rename to both be observed'
         Assert-True ($r.Stdout -match 'created: a\.txt') 'expected a create event naming a.txt'
         Assert-True ($r.Stdout -match 'renamed:.*a\.txt.*->.*b\.txt') 'expected a rename event with old path ending a.txt and new path ending b.txt'
