@@ -216,7 +216,25 @@ then dist/index.html opened from disk and clicked through like a visitor.
 Result: Home -> About -> Home works in the built site from disk
 (index.html, about.html).
 
+## Pass 8 - 2026-09-30: a contact form and a picture
+
+A new Website: a picture imported through Assets > + Import and clicked
+onto the home page; File > New Page... "contact"; name, email and message
+fields, a Send button and a status line added from Components and renamed;
+Send's handler (an empty name asks for it, otherwise thanks and clears the
+box) through Add handler; used in Live App; built; then the built pages
+opened from disk.
+
+| # | Friction | Kind | Fix |
+|---|---|---|---|
+| 45 | The picture was missing from the built site: the page pointed at assets/images/team-photo.png, which the build never copied | broken on publish | Studio keeps the manifest's assets in step: an imported image is listed, and before each build the project's own images its pages show are listed (the build copies listed assets); the Output says what was added |
+| 46 | Controls added to a white page came with dark-app colours: dark navy fields, and pale grey status text ("Thanks, Ada!") barely readable on white | unreadable | a control added onto a light surface (the nearest background up its containers) gets light-surface colours; colours given explicitly are kept; dark apps keep theirs |
+
+Result: the built contact page validates and thanks ("Please tell us your
+name." / "Thanks, Grace! ..."), readable (slate text, dark text on light
+fields); the picture loads in the built home page (dist/assets/images/).
+
 ### Next pass
 
-Forms that do something (a contact form: fields, validation, a message
-shown), and images from the project's Assets on a page.
+Publishing: from a built site to somewhere people can visit, and the site's
+own title, icon and description (what a browser tab and a shared link show).
