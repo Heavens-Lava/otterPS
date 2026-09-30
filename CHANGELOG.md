@@ -4,7 +4,19 @@ All notable changes to the Otter Programming Language platform are documented in
 
 ## [Unreleased]
 
-## [1.0.0-rc.7] - 2026-09-30 (candidate; certification pending)
+## [1.0.0-rc.8] - 2026-09-30 (candidate; certification pending)
+
+Eighth Otter 1.0 release candidate: rc.7 plus three fixes for silent wrong
+answers, found while verifying the OtterBoard proposals against rc.7.
+
+### Changed
+- A handler set up during a loop pass remembers that pass (D130). Buttons made in `for each n in numbers` each show their own `n` when clicked, on the console and the web; before, all of them showed the last one. The loop variable and names set only inside the loop belong to each pass; counters and other names from outside the loop stay shared.
+- Web: in a plain browser tab, `read`, `write`, `get files in` and `get folders in` are errors that name the desktop application (D131), which `try ... otherwise` catches. They answered `""`, `false` and empty lists.
+
+### Fixed
+- Web: a top-level `shown has text name` put the word "name" on the page instead of the variable's value. Property values that are not literals are now evaluated when the page runs, as on the console.
+
+## [1.0.0-rc.7] - 2026-09-30 (certified, superseded by rc.8; not tagged)
 
 Seventh Otter 1.0 release candidate: rc.6 with a release archive that works on
 macOS and Linux. rc.6 passed certification, but its archive was found faulty

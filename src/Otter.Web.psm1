@@ -649,6 +649,17 @@ function Get-OtterWebRuntimeUiJs {
 # kinds they use (one HTML template is generated per kind) and whether the
 # program uses any runtime UI statement at all, so pages that do not keep
 # their exact previous output.
+# `shown has text name` at the top level: a value that is not a literal (a
+# variable or an expression) is only known when the page runs, so it becomes
+# the runtime assignment `text of shown is name`, in program order. Rendering
+# it into the static HTML wrote the variable's name ("name") instead of its
+# value.
+function New-OtterWebRuntimePropertyAssign {
+    param([string]$ResourceName, [string]$Property, [Node]$Value, [int]$Line)
+    $target = [PropertyAccessExpr]::new($Property, [VariableExpr]::new($ResourceName, $Line), $Line)
+    return [AssignStmt]::new([Node]$target, $Value, $Line)
+}
+
 function Get-OtterWebRuntimeUiInfo {
     param([Node[]]$Statements)
     $names = [System.Collections.Generic.HashSet[string]]::new()
@@ -708,6 +719,7 @@ function ConvertTo-OtterWeb {
 
     $runtimeUi = Get-OtterWebRuntimeUiInfo -Statements $Program.Statements
     Set-OtterJsRuntimeUiNames -Names @($runtimeUi.Names)
+    Set-OtterJsLoopPassNames -Statements $Program.Statements
 
     # Pass 1: Identify resources and configurations
     foreach ($stmt in $Program.Statements) {
@@ -750,8 +762,11 @@ function ConvertTo-OtterWeb {
                     foreach ($p in $stmt.Properties) {
                         if ($p -is [AssignStmt]) {
                             $propKey = if ($p.Target -is [VariableExpr]) { $p.Target.Name.ToLowerInvariant() } else { [string]$p.Target.ToLowerInvariant() }
-                            $val = if ($p.Value -is [LiteralExpr]) { $p.Value.Value } else { ConvertTo-OtterJsExpression -Expr $p.Value }
-                            $resources[$stmt.Name].Properties[$propKey] = $val
+                            if ($p.Value -is [LiteralExpr]) {
+                                $resources[$stmt.Name].Properties[$propKey] = $p.Value.Value
+                            } else {
+                                $topLevelStatements.Add((New-OtterWebRuntimePropertyAssign -ResourceName $stmt.Name -Property $propKey -Value $p.Value -Line $p.Line))
+                            }
                         }
                     }
                 }
@@ -797,8 +812,11 @@ function ConvertTo-OtterWeb {
                     foreach ($p in $stmt.Properties) {
                         if ($p -is [AssignStmt]) {
                             $propKey = if ($p.Target -is [VariableExpr]) { $p.Target.Name.ToLowerInvariant() } else { [string]$p.Target.ToLowerInvariant() }
-                            $val = if ($p.Value -is [LiteralExpr]) { $p.Value.Value } else { ConvertTo-OtterJsExpression -Expr $p.Value }
-                            $res.Properties[$propKey] = $val
+                            if ($p.Value -is [LiteralExpr]) {
+                                $res.Properties[$propKey] = $p.Value.Value
+                            } else {
+                                $topLevelStatements.Add((New-OtterWebRuntimePropertyAssign -ResourceName $stmt.Name -Property $propKey -Value $p.Value -Line $p.Line))
+                            }
                         }
                     }
                 }
@@ -2220,8 +2238,9 @@ $runtimeUiJs
     async function otterReadFile(filePath) {
       const bridge = window.__OTTER_DESKTOP_BRIDGE__;
       if (!bridge || !bridge.port || !bridge.token) {
-        console.warn('Desktop Bridge is not available to read "' + filePath + '".');
-        return '';
+        // A browser page cannot read files: a clear error, not "" (which
+        // looked like an empty file and skipped the program's otherwise).
+        throw new Error('Reading "' + filePath + '" needs the Otter desktop application (otter desktop). A web page in a browser cannot read files.');
       }
       const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/fs/read', {
         method: 'POST',
@@ -2240,8 +2259,7 @@ $runtimeUiJs
     async function otterWriteFile(filePath, content) {
       const bridge = window.__OTTER_DESKTOP_BRIDGE__;
       if (!bridge || !bridge.port || !bridge.token) {
-        console.warn('Desktop Bridge is not available to write "' + filePath + '".');
-        return false;
+        throw new Error('Writing "' + filePath + '" needs the Otter desktop application (otter desktop). A web page in a browser cannot write files.');
       }
       const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/fs/write', {
         method: 'POST',
@@ -2314,8 +2332,7 @@ $runtimeUiJs
     async function otterGetFiles(folderPath, includeSubfolders = false) {
       const bridge = window.__OTTER_DESKTOP_BRIDGE__;
       if (!bridge || !bridge.port || !bridge.token) {
-        console.warn('Desktop Bridge is not available to get files in "' + folderPath + '".');
-        return [];
+        throw new Error('Listing the files in "' + folderPath + '" needs the Otter desktop application (otter desktop). A web page in a browser cannot see folders.');
       }
       const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/fs/files', {
         method: 'POST',
@@ -2335,8 +2352,7 @@ $runtimeUiJs
     async function otterGetFolders(folderPath, includeSubfolders = false) {
       const bridge = window.__OTTER_DESKTOP_BRIDGE__;
       if (!bridge || !bridge.port || !bridge.token) {
-        console.warn('Desktop Bridge is not available to get folders in "' + folderPath + '".');
-        return [];
+        throw new Error('Listing the folders in "' + folderPath + '" needs the Otter desktop application (otter desktop). A web page in a browser cannot see folders.');
       }
       const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/fs/folders', {
         method: 'POST',
