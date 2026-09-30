@@ -500,7 +500,7 @@ architecture reference. Listed in the recommended implementation order.
 -   [x] Static site build (every page file beside the entry builds to its own .html: tests/ProjectBuild.Tests.ps1 17-18; built multi-page sites opened from disk in friction-log passes 7-9)
 -   [ ] Client app build
 -   [ ] Routing/navigation/history
--   [ ] Forms/validation (a form validated in an Otter handler works in Live App and the built site: friction-log pass 8; no built-in validation rules yet)
+-   [x] Forms/validation (a `form` that checks its fields' rules - required, email/number/phone/url, lengths, ranges - with messages under each field and `when <form> is sent`: docs/proposals/FORMS_AND_VALIDATION.md, tests/Web.Tests.ps1 35, scripts/designer-roundtrip.test.mjs, friction-log pass 11)
 -   [ ] State/component lifecycle
 -   [ ] Reusable components
 -   [x] Responsive layout (built pages checked at 375px and 768px: no overflow, rows stack, 24px+ tap targets: friction-log pass 10)

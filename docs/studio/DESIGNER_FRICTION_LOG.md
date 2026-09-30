@@ -269,7 +269,32 @@ Result: at 375px and 768px nothing overflows, rows stack, text wraps and
 every link is tappable; the built page's head has the description, og tags and
 the icon, which loads from dist/assets/images/.
 
+## Pass 11 - 2026-09-30: a form that checks itself
+
+Jeff approved forms (docs/proposals/FORMS_AND_VALIDATION.md). The pass: a
+new Website, then File > New Page... "contact". A Form was added from
+Components and filled with name, email and message fields and an "I agree"
+box, each given a Label and rules in the new Validation section (Required,
+Format: Email address, Min length). Then a Send button, and the form's Sent
+handler added through Events. It was used in Live App, built, and the built
+page used at phone width.
+
+| # | Friction | Kind | Fix |
+|---|---|---|---|
+| 54 | Every form rule was an `if` in a click handler; no email check, one status line for all messages | missing | the `form` container, rules on fields, messages under each field, `when <form> is sent` |
+| 55 | Live App: Send did nothing - the preview iframe's sandbox had no allow-forms, so the browser dropped the submit (the built page worked) | broken in Studio only | Live App allows forms (still sandboxed without same-origin) |
+| 56 | A new checkbox started ticked, so a required "I agree" box passed untouched | wrong default | new checkboxes start unticked |
+| 57 | A text area on a light page was dark navy (it had no colours for the light-page fitting to change) | unreadable | text areas get the same default colours as text boxes, so a light page gets light ones |
+| 58 | The Designer did not show a field's label; the built page did | Studio differs from the build | the canvas draws it above the box and gives it its line, as the page does |
+| 59 | A labelled box kept the stock hint "Enter text..." into the built page | noise | setting a Label clears the stock placeholder |
+
+Result: in Live App and in the built page, Send with nothing filled in shows
+"Please fill in Your name." and the other messages under their fields, and
+focuses the first. A bad email shows "Email needs to be an email address, like
+name@example.com.", and each message goes as you correct the field. Enter in
+a box sends, and "Thanks!" appears only when everything passes.
+
 ### Next pass
 
-Forms beyond hand-written checks (required fields, an email field), which is
-language work - a proposal for Jeff first.
+A site that works with data: a list the page shows and adds to. Or the next
+open items in the IDE checklist.

@@ -1,8 +1,29 @@
-# Proposal: forms that check themselves (needs Jeff's decision)
+# Forms that check themselves
 
-Status: **proposal only.** Nothing in the language, compilers or Studio has
-changed. Once decided it gets a decision record like
-MULTI_PAGE_WEB_BUILD.md, and a D-number when the lines merge.
+**Status:** approved by Jeff, 2026-09-30. He chose all four recommendations
+under "Questions for Jeff" below: a `form` container with
+`when <form> is sent`, `format "email"`, messages drawn by Otter under each
+field, and no `clear` for now. It will get a D-number in SPEC-DECISIONS.md
+when the Studio line and the release line merge.
+
+**Built:** `src/Otter.Web.psm1` (tests/Web.Tests.ps1 35) and Otter Studio
+(Form component, Validation section, Sent event). It was checked end to end in
+Studio friction-log pass 11: made in the Designer, used in Live App and in the
+built site on a phone.
+
+**Two refinements found while building (for Jeff to confirm):**
+
+1. **Which buttons send.** Any button in a form sends it except secondary
+   and danger buttons, not only primary buttons. A plain Button dragged into
+   a form from Components should send it; a secondary "Cancel" or a danger
+   "Delete" never does.
+2. **"Both targets" means web and desktop apps, and both are one compiler.**
+   `otter desktop` and the Electron export run the page the web compiler
+   makes (`Export-OtterWebApplication`), so forms work there as they do in a
+   browser. The WPF provider behind `otter run` does not build programs
+   written as `app is a window with ...` / `put ... in ...` at all on this
+   line ("I can only put a UI resource somewhere"). It has no forms, and
+   none were added.
 
 ## Problem
 
@@ -116,11 +137,12 @@ when contactForm is sent
   browser's bubbles. That way they look the same in every browser and match
   the page's stylesheet: `.otter-field-error` and `.otter-invalid` are ordinary
   CSS classes a site can restyle.
-- **Desktop (WPF):** the same rules and messages. The form is a StackPanel,
-  and each message is a TextBlock under its field. A primary button's click
-  and Enter both send it.
-- The same program behaves the same on both. That is required, not
-  optional.
+- **Desktop apps** (`otter desktop`, the Electron export) run the same
+  compiled page, so they behave exactly as the web does. See refinement 2
+  at the top: the WPF provider behind `otter run` does not build these
+  programs at all.
+- **Free layout:** a field placed at x / y keeps its label just above it and
+  its message just under it.
 
 ### 6. Studio
 
@@ -137,10 +159,9 @@ when contactForm is sent
 | Where | Change | Owner |
 |---|---|---|
 | Parser | **none, verified 2026-09-30** with the current parser. `when contactForm is sent` parses as a WhenStmt with EventName `sent`. `format`, `minimum`, `maximum` and `message` arrive as ordinary `with` properties, although `format`, `minimum` and `maximum` are lexer keywords. `error of emailBox is "..."` is a property assignment, and `if valid of contactForm` is a property read. Only `clear contactForm` would need parser work: today it parses as a call to a function named `clear`. | Codex (only if `clear` is kept) |
-| `Otter.Web.psm1`, `Otter.Compiler.JavaScript.psm1` | `form` kind, label and message markup, the check-and-send runtime, `valid of` / `error of` / `clear` | back end |
-| `Otter.UI.psm1` (WPF) | the same on the desktop | back end |
-| Interpreter | `valid of` / `error of` on UI elements | back end |
-| Otter Studio | Form component, Validation section, Sent event | Studio |
+| `Otter.Web.psm1` | **done.** The `form` kind, label and message markup, the check-and-send runtime, and `valid of` / `error of`, all in the web runtime. `Otter.Compiler.JavaScript.psm1` needed no change: an unknown event word and an unknown property already go to the runtime. | back end |
+| `Otter.UI.psm1` (WPF) | none; see refinement 2 | - |
+| Otter Studio | **done.** Form component, Validation section, Sent event, field labels on the canvas, and Live App allows forms | Studio |
 | `rules.md` / SPEC-DECISIONS | a decision entry; possibly a short "Forms" section in rules.md | Jeff |
 
 Existing programs are unaffected. Nothing here changes a program that has
