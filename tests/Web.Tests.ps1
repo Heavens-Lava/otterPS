@@ -1112,6 +1112,23 @@ if ($canvasHtml -notmatch '<canvas id="cube"[^>]*data-speed="50" data-color="#34
 }
 Write-Output '  pass  the runtime refers to no app''s elements; a canvas declares its speed and colours'
 
+# Test 34: a page's description and icon are what a search result, a shared
+# link and the browser tab show; the title is escaped like every other text.
+$metaSource = "app is a page with title `"Tea & <Cakes>`", description `"Fresh tea daily`", icon `"assets/icon.png`"`nshow app`n"
+$metaHtml = ConvertTo-OtterWeb -Program (ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $metaSource))
+foreach ($expected in @(
+    '<title>Tea &amp; &lt;Cakes&gt;</title>',
+    '<meta name="description" content="Fresh tea daily">',
+    '<meta property="og:title" content="Tea &amp; &lt;Cakes&gt;">',
+    '<meta property="og:description" content="Fresh tea daily">',
+    '<link rel="icon" href="assets/icon.png">',
+    '<h1 class="otter-title">Tea &amp; &lt;Cakes&gt;</h1>')) {
+    if (-not $metaHtml.Contains($expected)) { throw "Expected the page head to contain: $expected" }
+}
+$plainHtml = ConvertTo-OtterWeb -Program (ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source "app is a page with title `"Plain`"`nshow app`n"))
+if ($plainHtml -match 'name="description"|rel="icon"|og:title') { throw 'A page without a description or icon must not get empty meta tags.' }
+Write-Output '  pass  a page''s description and icon reach the head; the title is escaped'
+
 Write-Output 'Web compiler tests passed.'
 
 

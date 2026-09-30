@@ -576,6 +576,20 @@ function ConvertTo-OtterWeb {
     }
 
     $isPage = ($null -ne $rootName -and $resources[$rootName].Kind -eq 'page')
+    # A page's description and icon: what a search result, a shared link and
+    # the browser tab show (`app is a page with description "...", icon "..."`).
+    $pageMeta = New-Object System.Collections.Generic.List[string]
+    if ($isPage) {
+        $rootProps = $resources[$rootName].Properties
+        if ($rootProps.Contains('description') -and "$($rootProps['description'])".Trim()) {
+            $description = Escape-OtterHtmlAttr -Text ([string]$rootProps['description'])
+            $pageMeta.Add("  <meta name=`"description`" content=`"$description`">")
+            $pageMeta.Add("  <meta property=`"og:description`" content=`"$description`">")
+        }
+        if ($rootProps.Contains('icon') -and "$($rootProps['icon'])".Trim()) {
+            $pageMeta.Add("  <link rel=`"icon`" href=`"$(Escape-OtterHtmlAttr -Text ([string]$rootProps['icon']))`">")
+        }
+    }
     # `scroll true` on the page: it scrolls like an ordinary document (a
     # website) instead of filling the window like an app shell.
     $pageScrolls = ($isPage -and $resources[$rootName].Properties.Contains('scroll') -and
@@ -731,7 +745,7 @@ function ConvertTo-OtterWeb {
                 $styleAttr = if ($styles.Count -gt 0) { " style=`"$($styles -join ' ')`"" } else { "" }
                 return @"
     <div id="$resName" class="otter-window"$styleAttr>
-      <header class="otter-window-header"><h1 class="otter-title">$appTitle</h1></header>
+      <header class="otter-window-header"><h1 class="otter-title">$(Escape-OtterHtmlAttr -Text $appTitle)</h1></header>
       <div class="otter-window-content" style="display: flex; flex-direction: column; gap: ${spacing}px; min-width: 0;">$childHtml</div>
     </div>
 "@
@@ -741,7 +755,7 @@ function ConvertTo-OtterWeb {
                 if (-not $props.Contains('gap')) { $styles.Add("gap: ${spacing}px;") }
                 $styleAttr = if ($styles.Count -gt 0) { " style=`"$($styles -join ' ')`"" } else { "" }
                 $showHeader = (-not ($props.Contains('hideheader') -and $props['hideheader']))
-                $headerHtml = if ($showHeader -and $appTitle) { "<header class=`"otter-page-header`"><h1 class=`"otter-title`">$appTitle</h1></header>" } else { "" }
+                $headerHtml = if ($showHeader -and $appTitle) { "<header class=`"otter-page-header`"><h1 class=`"otter-title`">$(Escape-OtterHtmlAttr -Text $appTitle)</h1></header>" } else { "" }
                 return @"
     <main id="$resName" class="otter-page"$styleAttr>
       $headerHtml
@@ -1355,13 +1369,20 @@ $bodyJoined
 '@
     }
 
+    # The title is final here (a window's label can name the app, above).
+    $titleHtml = Escape-OtterHtmlAttr -Text $appTitle
+    if ($pageMeta.Count -gt 0 -and $pageMeta[0] -like '*name="description"*') {
+        $pageMeta.Insert(1, "  <meta property=`"og:title`" content=`"$titleHtml`">")
+    }
+    $pageMetaHtml = if ($pageMeta.Count -gt 0) { "`n" + ($pageMeta -join "`n") } else { '' }
+
     $html = @"
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>$appTitle</title>
+  <title>$titleHtml</title>$pageMetaHtml
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,600;1,700&family=Playfair+Display:ital,wght@1,500;1,600;1,700&family=Newsreader:ital,opsz,wght@1,6..72,500;1,6..72,600;1,6..72,700&display=swap" rel="stylesheet">
