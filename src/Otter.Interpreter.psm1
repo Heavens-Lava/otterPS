@@ -1813,6 +1813,17 @@ function Invoke-OtterStatement {
 
         # while number is less than 5
         'While' {
+            # D130: only a loop that sets up a handler needs a scope per pass.
+            $passNames = $script:OtterLoopPassNames[$Statement]
+            $plain = ($null -eq $passNames -or $passNames.Count -eq 0)
+            if ($plain) {
+                while ($true) {
+                    $test = Get-OtterValue -Expression $Statement.Condition -Environment $Environment
+                    if (-not (Test-OtterTruthy -Value $test)) { break }
+                    Invoke-OtterStatements -Statements $Statement.Body -Environment $Environment
+                }
+                return
+            }
             $last = $null
             try {
                 while ($true) {
@@ -1833,6 +1844,15 @@ function Invoke-OtterStatement {
             $raw = Get-OtterValue -Expression $Statement.Count -Environment $Environment
             $count = Assert-OtterNumber -Value $raw -Line $Statement.Line -What 'the number of repeats'
             $whole = [int][Math]::Floor($count)
+            # D130: only a loop that sets up a handler needs a scope per pass.
+            $passNames = $script:OtterLoopPassNames[$Statement]
+            $plain = ($null -eq $passNames -or $passNames.Count -eq 0)
+            if ($plain) {
+                for ($i = 0; $i -lt $whole; $i++) {
+                    Invoke-OtterStatements -Statements $Statement.Body -Environment $Environment
+                }
+                return
+            }
             $last = $null
             try {
                 for ($i = 0; $i -lt $whole; $i++) {
@@ -1853,6 +1873,16 @@ function Invoke-OtterStatement {
 
             # "count from 10 to 1" reads as counting down, so it counts down.
             $step = if ($from -le $to) { 1 } else { -1 }
+            # D130: only a loop that sets up a handler needs a scope per pass.
+            $passNames = $script:OtterLoopPassNames[$Statement]
+            $plain = ($null -eq $passNames -or $passNames.Count -eq 0)
+            if ($plain) {
+                for ($n = $from; ($step -gt 0 -and $n -le $to) -or ($step -lt 0 -and $n -ge $to); $n += $step) {
+                    $Environment.SetLocal($Statement.VariableName, [double]$n)
+                    Invoke-OtterStatements -Statements $Statement.Body -Environment $Environment
+                }
+                return
+            }
             $last = $null
             try {
                 for ($n = $from; ($step -gt 0 -and $n -le $to) -or ($step -lt 0 -and $n -ge $to); $n += $step) {
@@ -1877,6 +1907,16 @@ function Invoke-OtterStatement {
             # .ToArray(), not @($collection) - the array subexpression operator
             # throws "Argument types do not match" on a generic List in PS 5.1.
             $snapshot = $collection.ToArray()
+            # D130: only a loop that sets up a handler needs a scope per pass.
+            $passNames = $script:OtterLoopPassNames[$Statement]
+            $plain = ($null -eq $passNames -or $passNames.Count -eq 0)
+            if ($plain) {
+                foreach ($item in $snapshot) {
+                    $Environment.SetLocal($Statement.VariableName, $item)
+                    Invoke-OtterStatements -Statements $Statement.Body -Environment $Environment
+                }
+                return
+            }
             $last = $null
             try {
                 foreach ($item in $snapshot) {
