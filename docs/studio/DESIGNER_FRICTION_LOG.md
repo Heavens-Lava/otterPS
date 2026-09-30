@@ -197,10 +197,26 @@ through a designer edit and did not take the controls the function makes
 for design elements; the source stayed valid; in Live App three tasks were
 added, one ticked, one removed, each row's handler acting on its own row.
 
+## Pass 7 - 2026-09-30: a website of two pages
+
+Jeff chose "every page file" (docs/proposals/MULTI_PAGE_WEB_BUILD.md). A new
+Website; File > New Page... "about"; the home page's second nav link pointed
+at the About page from the Link to suggestions; built with Ctrl+Shift+B;
+then dist/index.html opened from disk and clicked through like a visitor.
+
+| # | Friction | Kind | Fix |
+|---|---|---|---|
+| 39 | A site of several pages could not be built (one entry, one index.html) | can't ship | every page file beside the entry builds to its own page (about.ot -> about.html) with its own stylesheet; modules and parts of pages do not |
+| 40 | No way to add a page | missing | File > New Page... (about.ot + about.css, opened in the Designer) |
+| 41 | A page other than the entry rendered as the entry (the canvas showed the home page while about.ot was open) | wrong document | a page file renders as itself; a part of a page still renders as the project |
+| 42 | Typing page names into Link to | guessing | Link to suggests index.html, the other pages and this page's sections |
+| 43 | Every new website failed its first build: its project.json listed an asset "styles.css" that no longer exists (new projects' stylesheet is <entry>.css) | build fails | new projects list no stylesheet as an asset (the compiler embeds it) |
+| 44 | New Page and Open Built Website were commands but not in the File / Build menus | can't find | both are in their menus |
+
+Result: Home -> About -> Home works in the built site from disk
+(index.html, about.html).
+
 ### Next pass
 
-Multi-page websites. `otter build` compiles one entry into index.html, so
-a site of several pages (index, about, contact) cannot be built yet; a
-one-page site with in-page links (#features) can. Which files become pages,
-their names in dist/ and how links name them is a build and language
-decision (Jeff's), not a Studio one.
+Forms that do something (a contact form: fields, validation, a message
+shown), and images from the project's Assets on a page.
