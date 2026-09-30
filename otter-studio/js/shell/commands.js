@@ -219,6 +219,7 @@ export function defaultCommands(deps) {
     { id: 'run.tests', title: 'Show Tests', category: 'Run', run: () => document.querySelector('.drawer-tab[data-drawer-tab="tests"]')?.click() },
     // Build
     { id: 'build.build', title: 'Build Project', category: 'Build', shortcut: 'Ctrl+Shift+B', when: hasProject, run: () => ide.buildProject() },
+    { id: 'build.openWebsite', title: 'Open Built Website in Browser', category: 'Build', when: hasProject, run: () => ide.openBuiltPage() },
     { id: 'build.rebuild', title: 'Rebuild Project', category: 'Build', when: hasProject, run: () => ide.buildProject({ clean: true }) },
     { id: 'build.clean', title: 'Clean Build Output', category: 'Build', when: hasProject, run: () => ide.cleanProject() },
     { id: 'build.openPackagesFolder', title: 'Open Packages Folder', category: 'Build', run: openPackagesFolder },

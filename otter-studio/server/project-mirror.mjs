@@ -91,6 +91,20 @@ export function syncMirror(projectRoot, overrides = {}) {
       fs.utimesSync(dest, a.atime, a.mtime);
     }
   }
+  // Unsaved files not on disk yet (a stylesheet the designer made): into
+  // the mirror as well, when they belong to the project.
+  for (const [lowerPath, text] of byPath) {
+    const rel = path.relative(root.toLowerCase(), lowerPath);
+    if (!rel || rel.startsWith('..') || path.isAbsolute(rel) || !MIRRORED.test(lowerPath)) continue;
+    const original = Object.keys(overrides).find(p => path.resolve(p).toLowerCase() === lowerPath);
+    const dest = path.join(mirror, path.relative(root, path.resolve(original)));
+    if (wanted.has(dest.toLowerCase())) continue;
+    wanted.add(dest.toLowerCase());
+    fs.mkdirSync(path.dirname(dest), { recursive: true });
+    let current = null;
+    try { current = fs.readFileSync(dest, 'utf8'); } catch { /* new */ }
+    if (current !== text) fs.writeFileSync(dest, text, 'utf8');
+  }
   // Files removed from the project leave the mirror.
   for (const dest of listProgramFiles(mirror)) {
     if (!wanted.has(dest.toLowerCase())) fs.rmSync(dest, { force: true });

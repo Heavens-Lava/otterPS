@@ -54,6 +54,7 @@ export function renderToolbox(containerEl, uiModel) {
 
     for (const [kind, schema] of Object.entries(ComponentSchema)) {
       if (schema.isRoot) continue; // window cannot be dragged
+      if (schema.codeOnly) continue; // shown when a program has one; added in code
       if (needle && !schema.label.toLowerCase().includes(needle) && !kind.includes(needle)) continue;
       if (!grouped[schema.category]) grouped[schema.category] = [];
       grouped[schema.category].push({ kind, ...schema });

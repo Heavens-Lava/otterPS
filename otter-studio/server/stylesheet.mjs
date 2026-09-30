@@ -8,8 +8,9 @@
 //      project.json), for an entry kept in src/
 //
 // The entry is the project manifest's entryPoint (else main.ot). When none
-// exists yet, new styles go to styles.css beside the entry, which is where
-// `otter new` puts a project's stylesheet.
+// exists yet, new styles go to <entry>.css beside the entry: the stylesheet
+// every Otter compiler reads for that entry (styles.css is a fallback only
+// some read).
 //
 //   GET /api/project-stylesheet?folder=<project> -> { path, exists, entry }
 //   (paths are workspace paths, like every other route's)
@@ -39,7 +40,7 @@ export function resolveProjectStylesheet(folderAbs) {
     path.join(folderAbs, 'styles.css')
   ];
   const found = candidates.find(isFile);
-  return { entry, path: found || candidates[1], exists: Boolean(found) };
+  return { entry, path: found || candidates[0], exists: Boolean(found) };
 }
 
 export function handleStylesheetRoute(req, res, pathname, urlObj, ctx) {

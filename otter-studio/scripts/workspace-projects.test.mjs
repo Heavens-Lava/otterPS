@@ -141,6 +141,14 @@ try {
   assert.ok(!page.body.html.includes('made-label'), 'in place of what is on disk');
   assert.equal(fs.readFileSync(path.join(outside, 'parts', 'label.ot'), 'utf8'), before, 'the project file is untouched');
   assert.match(page.body.html, /<base href="\/workspace-files\/[^"]+">/, 'images still come from the project');
+
+  // --- 4c. What the designer shows is what runs: the designer's stylesheet,
+  // unsaved (and not on disk yet), is in the render - under the name a
+  // compiler looks for (<entry>.css) - and nothing is written to the project.
+  const styled = await render({ code: mainCode, css: '#madeLabel { color: rgb(1, 2, 3); }', path: mainRel, live: true });
+  assert.equal(styled.status, 200, JSON.stringify(styled.body).slice(0, 600));
+  assert.ok(styled.body.html.includes('rgb(1, 2, 3)'), 'the unsaved stylesheet is in the page');
+  assert.equal(fs.existsSync(path.join(outside, 'main.css')), false, 'and was not written into the project');
   const pageBase = /<base href="([^"]+)">/.exec(page.body.html)[1];
   assert.equal((await fetch(`${baseUrl}${pageBase}images/logo.png`)).status, 200, 'the project image is served');
 

@@ -198,17 +198,22 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
     }
 
     const bp = styles.breakpoint;
+    // A full-width page (or window) is drawn at a screen's width: the device's,
+    // or on Desktop a desktop browser's - not stretched across the canvas.
+    const fullWidth = root.properties.width === 'full' || (uiModel.rootKind === 'page' && root.properties.width === undefined);
+    const frameWidth = bp.width || (fullWidth ? styles.desktopWidth || 1280 : null);
     stageEl.style.zoom = String(zoom);
     stageEl.innerHTML = `
-      <div class="canvas-window-wrapper otter-window ${bp.width ? 'is-device' : ''} ${uiModel.isSelected(root.id) && !isInteractMode ? 'is-selected-window' : ''}"
-        id="canvasWindowWrapper" ${bp.width ? `style="width:${bp.width}px"` : ''} data-device="${bp.id}">
+      <div class="canvas-window-wrapper otter-window ${bp.width ? 'is-device' : ''} ${uiModel.rootKind === 'page' ? 'is-page' : ''} ${uiModel.isSelected(root.id) && !isInteractMode ? 'is-selected-window' : ''}"
+        id="canvasWindowWrapper" ${frameWidth ? `style="width:${frameWidth}px"` : ''} data-device="${bp.id}">
         <div class="window-titlebar">
           <div class="window-dots">
             <span class="dot dot-red"></span>
             <span class="dot dot-yellow"></span>
             <span class="dot dot-green"></span>
           </div>
-          <span class="window-title-text" id="canvasWindowTitleText">${escapeHtml(root.properties.title || 'Otter Application')}</span>
+          ${uiModel.rootKind === 'page' ? '<span class="window-url-bar" aria-hidden="true"><svg viewBox="0 0 16 16"><rect x="4" y="7" width="8" height="6" rx="1" /><path d="M5.5 7V5.5a2.5 2.5 0 0 1 5 0V7" /></svg></span>' : ''}
+          <span class="window-title-text" id="canvasWindowTitleText">${escapeHtml(root.properties.title || (uiModel.rootKind === 'page' ? 'Otter Page' : 'Otter Application'))}</span>
           <span class="window-dimension-badge" id="canvasDimensionBadge"></span>
         </div>
         <div class="window-content-area" id="${escapeHtml(root.name)}" data-id="${root.id}"></div>
@@ -1445,7 +1450,7 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
       }
       const crumb = document.createElement('span');
       crumb.className = `crumb-item ${node.id === selected.id ? 'is-active' : ''}`;
-      crumb.textContent = `${node.name} (${node.kind})`;
+      crumb.textContent = `${node.name} (${node.id === uiModel.rootId && uiModel.rootKind === 'page' ? 'page' : node.kind})`;
       crumb.addEventListener('click', () => uiModel.select(node.id));
       crumb.addEventListener('mouseenter', () => showHover(node.id));
       crumb.addEventListener('mouseleave', () => { hoverBox.hidden = true; });
@@ -1466,7 +1471,8 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
     // Real programs render buttons as <button>, which has its own font, box
     // model and line-height; a <div> would measure differently.
     const isButtonKind = ['button', 'primary button', 'danger button'].includes(comp.kind);
-    const el = document.createElement(isButtonKind ? 'button' : 'div');
+    // A link is an <a> (no href: it does not navigate while designing).
+    const el = document.createElement(isButtonKind ? 'button' : comp.kind === 'link' ? 'a' : 'div');
     if (isButtonKind) el.type = 'button';
     el.id = comp.name; // ID matches CSS selector #compName
     el.className = `canvas-element ${schema.isContainer ? 'is-container' : 'is-control'} ${isInteractMode ? 'is-interactive-mode' : ''}`;
@@ -1531,6 +1537,41 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
       case 'image':
         el.classList.add('canvas-image', 'otter-image');
         el.innerHTML = `<img src="${escapeHtml(assetUrl(props.source))}" alt="" style="width:100%;height:100%;object-fit:cover;pointer-events:none;" />`;
+        break;
+      // The same classes the compiler writes, so the real render's styles fit.
+      case 'link':
+        el.classList.add('canvas-link', 'otter-link');
+        el.innerText = props.text || props.url || 'Link';
+        if (props.url) el.title = `Links to ${props.url}`;
+        break;
+      case 'text area':
+        el.classList.add('canvas-textarea', 'otter-text-area');
+        el.innerText = props.text || props.placeholder || '';
+        if (!props.text) el.classList.add('is-placeholder');
+        el.style.minHeight = `${Math.max(2, Number(props.rows) || 3) * 1.5 + 1}em`;
+        break;
+      case 'badge':
+        el.classList.add('canvas-badge', 'otter-badge');
+        el.innerText = props.text || 'Badge';
+        break;
+      case 'toggle':
+        el.classList.add('canvas-toggle', 'otter-toggle-label');
+        el.innerHTML = `<span class="otter-toggle-track${props.checked ? ' is-on' : ''}"><span class="otter-toggle-thumb"></span></span><span class="otter-toggle-text">${escapeHtml(props.text || '')}</span>`;
+        break;
+      case 'radio':
+        el.classList.add('canvas-radio', 'otter-radio-label');
+        el.innerHTML = `<input type="radio" ${props.checked ? 'checked' : ''} disabled style="pointer-events:none;" /> <span>${escapeHtml(props.text || 'Option')}</span>`;
+        break;
+      case 'panel':
+        el.classList.add('canvas-panel', 'otter-panel');
+        break;
+      default:
+        // A kind the designer shows but edits in code (list, table, canvas...):
+        // the real render styles it; until then a labelled placeholder.
+        if (schema.codeOnly) {
+          el.classList.add('canvas-code-only', `otter-${comp.kind.replace(/\s+/g, '-')}`);
+          el.innerHTML = `<span class="canvas-code-only-label">${escapeHtml(schema.label)} · ${escapeHtml(comp.name)}</span>`;
+        }
         break;
     }
 

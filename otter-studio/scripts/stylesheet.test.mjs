@@ -42,11 +42,13 @@ try {
     made.push(dir);
     assert.equal(rel(dir, resolveProjectStylesheet(dir).path), 'styles.css');
   });
-  test('none yet: styles.css beside the entry (where `otter new` puts it)', () => {
+  // <entry>.css: the stylesheet every Otter compiler reads for the entry
+  // (the release line's D125 reads no styles.css at all).
+  test('none yet: <entry>.css beside the entry', () => {
     const dir = project({ 'project.json': JSON.stringify({ entryPoint: 'main.ot' }), 'main.ot': '' });
     made.push(dir);
     const found = resolveProjectStylesheet(dir);
-    assert.equal(rel(dir, found.path), 'styles.css');
+    assert.equal(rel(dir, found.path), 'main.css');
     assert.equal(found.exists, false);
   });
 } finally {

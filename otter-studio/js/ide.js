@@ -2367,7 +2367,7 @@ export class OtterStudioIde {
     const folder = this.currentProjectFolder;
     if (!folder || /\.(json|otter-workspace)$/i.test(folder)) return null; // solutions have no single stylesheet
     if (this.resolvedStylesheet?.folder === folder) return this.resolvedStylesheet.path;
-    return `${folder}/styles.css`;
+    return `${folder}/main.css`;
   }
 
   async resolveProjectStylesheet() {
@@ -4221,6 +4221,37 @@ export class OtterStudioIde {
     outputTabLog.scrollTop = outputTabLog.scrollHeight;
   }
 
+  // Buttons under the last Output entry (after a build).
+  appendBuildActions(actions) {
+    const outputTabLog = document.getElementById('outputTabLog');
+    if (!outputTabLog || !actions.length) return;
+    const row = document.createElement('div');
+    row.className = 'log-run-actions';
+    for (const action of actions) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn-secondary';
+      btn.textContent = action.label;
+      if (action.title) btn.title = action.title;
+      btn.addEventListener('click', action.run);
+      row.appendChild(btn);
+    }
+    outputTabLog.appendChild(row);
+    outputTabLog.scrollTop = outputTabLog.scrollHeight;
+  }
+
+  // The website from the last build, in the system's browser (building first
+  // when there is none yet).
+  async openBuiltPage() {
+    if (!this.lastBuiltPage) {
+      const data = await this.buildProject();
+      if (!data?.ok || !this.lastBuiltPage) return false;
+    }
+    const res = await fetch('/api/open-page', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: this.lastBuiltPage }) });
+    if (!res.ok) this.appendBuildLog('Could not open the website', this.lastBuiltPage, false);
+    return res.ok;
+  }
+
   // otter build <project>. `clean: true` first deletes the previous output
   // (only a folder otter build created). Output goes to the Output tab;
   // a failure is also shown in Problems.
@@ -4255,7 +4286,15 @@ export class OtterStudioIde {
       data.ok
     );
     if (data.ok) {
-      this.setProblemsStatus(true, 'Build succeeded.', `Output: ${data.outputDir}/`, 'Build', 'Ready to publish. 📦');
+      this.setProblemsStatus(true, 'Build succeeded.', `Output: ${data.outputDir}/`, 'Build', 'Ready to publish.');
+      // What to do with it: see the site, or find the folder to upload.
+      const outDir = `${String(folder).replace(/[\\/]+$/, '')}/${data.outputDir}`;
+      const page = (data.artifacts || []).find(a => /(^|\/)index\.html$/i.test(a.path));
+      this.lastBuiltPage = page ? `${outDir}/${page.path}` : null;
+      this.appendBuildActions([
+        page && { label: 'Open the website', title: 'Open the built index.html in your browser', run: () => this.openBuiltPage() },
+        { label: 'Show the build folder', title: 'The files to upload to any web host', run: () => fetch('/api/reveal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: outDir }) }) }
+      ].filter(Boolean));
     } else {
       const firstError = (data.output || '').split('\n').map(l => l.trim()).filter(l => l && !/^(Building|Target:|Checking project|Build failed\.)/.test(l))[0] || 'Build failed.';
       this.populateBuildDiagnostics('project', { ok: false, error: firstError, stderr: data.output || '' });

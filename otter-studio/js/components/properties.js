@@ -83,6 +83,8 @@ const COMMON_CSS_PROPERTIES = [
 
 export function renderProperties(containerEl, uiModel, cssAstManager, styleController = null) {
   const styles = styleController || new StyleController(uiModel, cssAstManager);
+  // The stylesheet's file name (main.css, app.css...) for what the panel says.
+  const sheetName = () => String(cssAstManager?.sourcePath || '').split(/[\\/]/).pop() || 'the stylesheet';
   let searchText = '';
   let scrubbing = false;
   let refreshQueued = false;
@@ -188,7 +190,7 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
       <div class="properties-header">
         <span class="panel-title">${count > 1
           ? `${count} components`
-          : `${escapeHtml(ComponentSchema[selected.kind]?.label || selected.kind)} <span class="props-heading-name">(${escapeHtml(selected.name)})</span>`}</span>
+          : `${escapeHtml(selected.id === uiModel.rootId && uiModel.rootKind === 'page' ? 'Page' : ComponentSchema[selected.kind]?.label || selected.kind)} <span class="props-heading-name">(${escapeHtml(selected.name)})</span>`}</span>
       </div>
       ${renderContextBar(selected)}
       <div class="properties-body sp-body" id="propertiesBody">
@@ -276,13 +278,27 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
   function renderContentGroup(selected, props) {
     const fields = [];
     if (selected.kind === 'window') {
-      fields.push(contentRow('Window title', 'title', props.title));
+      fields.push(contentRow(uiModel.rootKind === 'page' ? 'Page title' : 'Window title', 'title', props.title));
     }
-    if (props.text !== undefined || ['button', 'primary button', 'danger button', 'text', 'heading', 'checkbox'].includes(selected.kind)) {
+    if (props.text !== undefined || ['button', 'primary button', 'danger button', 'text', 'heading', 'checkbox', 'link', 'badge', 'toggle', 'radio'].includes(selected.kind)) {
       fields.push(contentRow('Text', 'text', props.text));
     }
-    if (['text box', 'dropdown'].includes(selected.kind)) {
+    if (selected.kind === 'link') {
+      // "#features" jumps within the page, "about.html" opens another page,
+      // a web address opens in a new tab.
+      fields.push(contentRow('Link to', 'url', props.url, { placeholder: '#section, page.html or https://...' }));
+    }
+    if (['text box', 'dropdown', 'text area'].includes(selected.kind)) {
       fields.push(contentRow('Placeholder', 'placeholder', props.placeholder));
+    }
+    if (selected.kind === 'text area') {
+      fields.push(contentRow('Rows', 'rows', props.rows, { number: true }));
+    }
+    if (selected.kind === 'radio') {
+      fields.push(contentRow('Group', 'group', props.group, { placeholder: 'Radio buttons in one group are one choice' }));
+    }
+    if (selected.codeOnly || ComponentSchema[selected.kind]?.codeOnly) {
+      fields.push(`<div class="sp-note">A ${escapeHtml(ComponentSchema[selected.kind].label.toLowerCase())} is edited in code; here you can move it, size it and style it.</div>`);
     }
     if (selected.kind === 'dropdown') {
       // The choices, comma separated (Otter's `options "English, Spanish"`).
@@ -291,7 +307,7 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
     if (selected.kind === 'image') {
       fields.push(contentRow('Image source', 'source', props.source));
     }
-    if (selected.kind === 'checkbox') {
+    if (['checkbox', 'toggle', 'radio'].includes(selected.kind)) {
       fields.push(`
         <div class="prop-row">
           <label class="prop-label">Checked</label>
@@ -306,11 +322,11 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
     `;
   }
 
-  function contentRow(label, key, value) {
+  function contentRow(label, key, value, { placeholder = '', number = false } = {}) {
     return `
       <div class="prop-row">
         <label class="prop-label">${escapeHtml(label)}</label>
-        <input type="text" class="prop-input" data-otter-key="${key}" data-focus-key="otter-${key}" value="${escapeHtml(value || '')}" />
+        <input type="text" class="prop-input" data-otter-key="${key}" data-focus-key="otter-${key}" value="${escapeHtml(value ?? '')}"${placeholder ? ` placeholder="${escapeHtml(placeholder)}"` : ''}${number ? ' data-otter-number inputmode="numeric"' : ''} />
       </div>`;
   }
 
@@ -373,7 +389,7 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
   function provSummary(e) {
     if (!e) return '';
     switch (e.status) {
-      case 'set': return e.source === 'otter' ? 'Set in the Otter source' : 'Set in styles.css for this context';
+      case 'set': return e.source === 'otter' ? 'Set in the Otter source' : `Set in ${sheetName()} for this context`;
       case 'overridden': return 'Set here, but something else wins';
       case 'inherited': return e.source === 'parent' ? `Inherited from ${e.from}` : `Comes from ${e.from}`;
       case 'compiler': return `Otter's default for every ${e.from.replace(/^every /, '')}`;
@@ -505,7 +521,7 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
       return section('layout', 'Layout',
         placementRow(selected) +
         field(ctx, 'gap', 'Spacing', lengthInput(ctx, 'gap'), { scrub: { min: 0 }, search: 'gap spacing between' }) +
-        '<div class="sp-note">A window stacks its children top to bottom. To arrange them another way, select them and wrap them in a row or column (right-click, or Ctrl+G).</div>',
+        `<div class="sp-note">A ${uiModel.rootKind === 'page' ? 'page' : 'window'} stacks its children top to bottom. To arrange them another way, select them and wrap them in a row or column (right-click, or Ctrl+G).</div>`,
         { setCount: countSet(ctx, ['gap']), search: 'gap spacing' });
     }
     // Controls get a computed flex/grid display from the browser (a button is
@@ -1086,7 +1102,7 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
       ${own.length === 0 ? '<div class="sp-note">Nothing set for this breakpoint and state yet.</div>' : ''}
       ${own.map(([k, v]) => `
         <div class="sp-raw-row" data-search="${escapeHtml(k)}">
-          <code class="sp-raw-prop" title="${ctx.resolved.origin[k] === 'otter' ? 'Stored in the Otter source' : 'Stored in styles.css'}">${escapeHtml(k)}${ctx.resolved.origin[k] === 'otter' ? '<sup>otter</sup>' : ''}</code>
+          <code class="sp-raw-prop" title="${ctx.resolved.origin[k] === 'otter' ? 'Stored in the Otter source' : `Stored in ${sheetName()}`}">${escapeHtml(k)}${ctx.resolved.origin[k] === 'otter' ? '<sup>otter</sup>' : ''}</code>
           <input type="text" class="sp-input" data-prop="${escapeHtml(k)}" data-focus-key="raw-${escapeHtml(k)}" value="${escapeHtml(v)}" spellcheck="false" />
           <button class="sp-raw-del" data-reset="${escapeHtml(k)}" title="Remove ${escapeHtml(k)}">×</button>
         </div>`).join('')}
@@ -1140,7 +1156,10 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
 
     // Otter content properties
     qa('.prop-input[data-otter-key]').forEach(input => input.addEventListener('change', (e) => {
-      uiModel.setProperty(selected.id, e.target.getAttribute('data-otter-key'), e.target.value.trim() || undefined);
+      const raw = e.target.value.trim();
+      // A number field (rows 4) is written as a number, not "4".
+      const value = raw && e.target.hasAttribute('data-otter-number') && Number.isFinite(Number(raw)) ? Number(raw) : raw || undefined;
+      uiModel.setProperty(selected.id, e.target.getAttribute('data-otter-key'), value);
     }));
     qa('.prop-checkbox[data-otter-key]').forEach(chk => chk.addEventListener('change', (e) => {
       uiModel.setProperty(selected.id, e.target.getAttribute('data-otter-key'), e.target.checked);
@@ -1565,7 +1584,8 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
   // Provenance card: hover a property's dot or label
   // ---------------------------------------------------------------------------
 
-  const SOURCE_NAMES = { otter: 'Otter source', 'styles.css': 'styles.css', compiler: 'Otter compiler', parent: 'Parent', browser: 'Browser' };
+  // 'styles.css' is the tag for "a stylesheet rule"; the name shown is the file's.
+  const SOURCE_NAMES = { otter: 'Otter source', get 'styles.css'() { return sheetName(); }, compiler: 'Otter compiler', parent: 'Parent', browser: 'Browser' };
   let card = null;
   let cardFor = null;
   let hideTimer = null;
@@ -1584,13 +1604,13 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
       const w = e.overriddenBy;
       const mine = e.mine ? `Your ${e.mine.value} (${SOURCE_NAMES[e.mine.source]}${e.mine.from ? `, ${e.mine.from}` : ''}) is not used. ` : '';
       if (w.source === 'compiler' && w.important) return `${mine}Otter's compiler rule ${w.location.selector} is !important and wins. Set the value here again and Studio will write it so it wins.`;
-      if (w.source === 'otter') return `${mine}The Otter source sets it inline, which beats a plain styles.css rule.`;
+      if (w.source === 'otter') return `${mine}The Otter source sets it inline, which beats a plain ${sheetName()} rule.`;
       if (w.source === 'compiler') return `${mine}Otter's compiler sets it for every ${kind}. Set the value here again and Studio will write it so it wins.`;
       return `${mine}${w.from} wins: ${describeLocation(w.location)}.`;
     }
     if (e.status === 'set') return e.source === 'otter'
       ? 'Stored in the Otter program itself, so it is part of the code.'
-      : `Stored in styles.css for ${styles.breakpoint.label}${styles.state.id ? ` · ${styles.state.label}` : ''}.`;
+      : `Stored in ${sheetName()} for ${styles.breakpoint.label}${styles.state.id ? ` · ${styles.state.label}` : ''}.`;
     if (e.status === 'inherited') return e.source === 'parent'
       ? `Nothing sets it on this ${kind}, so it inherits from ${e.from.replace(/^parent /, '')}.`
       : `Not set for ${styles.breakpoint.label}${styles.state.id ? ` · ${styles.state.label}` : ''}; it cascades from ${e.from}. Set a value to override it here.`;
@@ -1639,7 +1659,7 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
       ${chain}
       ${scrubHint}
       ${canReveal || canReset ? `<div class="sp-prov-actions">
-        ${canReveal ? `<button class="sp-prov-btn" data-prov-reveal>Go to ${loc.file === 'source' ? 'Otter source' : 'styles.css'}</button>` : ''}
+        ${canReveal ? `<button class="sp-prov-btn" data-prov-reveal>Go to ${loc.file === 'source' ? 'Otter source' : sheetName()}</button>` : ''}
         ${canReset ? `<button class="sp-prov-btn is-quiet" data-prov-reset="${props.join(',')}">Reset</button>` : ''}
       </div>` : ''}
     `;

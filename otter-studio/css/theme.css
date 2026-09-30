@@ -558,6 +558,41 @@ body.theme-light {
   /* The window frame Studio draws around the design (not the design itself). */
   #canvasStage .window-titlebar { background: var(--o-titlebar); border-bottom: 1px solid var(--o-line); }
   #canvasStage .window-title-text { color: var(--o-muted); font: 500 var(--o-fs-sm) var(--o-ui); }
+  /* A page: a browser's address bar instead of a desktop window's title bar. */
+  #canvasStage .canvas-window-wrapper.is-page .window-titlebar { justify-content: center; gap: 8px; }
+  #canvasStage .canvas-window-wrapper.is-page .window-dots { position: absolute; left: 14px; opacity: 0.55; }
+  #canvasStage .canvas-window-wrapper.is-page .window-url-bar { display: inline-grid; place-items: center; color: var(--o-faint); }
+  #canvasStage .canvas-window-wrapper.is-page .window-url-bar svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.4; }
+  #canvasStage .canvas-window-wrapper.is-page .window-title-text {
+    min-width: 280px;
+    max-width: 60%;
+    height: 22px;
+    padding: 0 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 11px;
+    background: var(--o-bg);
+    border: 1px solid var(--o-line);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  /* Controls for websites and forms, as the compiled app draws them by default.
+     :where() adds no weight, so the site's own stylesheet always wins. */
+  :where(#canvasStage) .canvas-link { display: inline-block; color: #2563eb; text-decoration: underline; text-underline-offset: 3px; cursor: default; }
+  :where(#canvasStage) .canvas-textarea { display: block; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; color: #0f172a; white-space: pre-wrap; }
+  :where(#canvasStage) .canvas-textarea.is-placeholder { color: #94a3b8; }
+  :where(#canvasStage) .canvas-badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px; background: #e0e7ff; color: #3730a3; font-size: 12px; font-weight: 600; width: fit-content; }
+  :where(#canvasStage) .canvas-toggle,
+  :where(#canvasStage) .canvas-radio { display: inline-flex; align-items: center; gap: 8px; width: fit-content; }
+  :where(#canvasStage) .canvas-toggle .otter-toggle-track { position: relative; width: 36px; height: 20px; border-radius: 10px; background: #cbd5e1; flex: none; }
+  :where(#canvasStage) .canvas-toggle .otter-toggle-track.is-on { background: #2563eb; }
+  :where(#canvasStage) .canvas-toggle .otter-toggle-thumb { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; }
+  :where(#canvasStage) .canvas-toggle .otter-toggle-track.is-on .otter-toggle-thumb { left: 18px; }
+  :where(#canvasStage) .canvas-panel { display: flex; flex-direction: column; gap: 12px; padding: 16px; border: 1px solid rgba(148, 163, 184, 0.4); border-radius: 8px; }
+  :where(#canvasStage) .canvas-code-only { min-height: 48px; display: grid; place-items: center; border: 1px dashed rgba(148, 163, 184, 0.6); border-radius: 6px; }
+  :where(#canvasStage) .canvas-code-only-label { font: 500 11px var(--o-mono); color: #94a3b8; }
   .window-dimension-badge { font: var(--o-fs-xs) var(--o-mono); color: var(--o-faint); }
 
   /* Selection, handles, guides: the theme's selection colour. */
@@ -1106,6 +1141,50 @@ body.theme-light {
   .preview-log-drawer .log-header { background: var(--o-chrome); border-bottom: 1px solid var(--o-line); }
   .preview-log-drawer .log-title { color: var(--o-faint); font: 500 var(--o-fs-xs) var(--o-label-font); letter-spacing: var(--o-label-track); text-transform: var(--o-label-case); }
   .preview-log-drawer .log-entry { color: var(--o-muted); font: var(--o-fs-sm) var(--o-code); }
+
+  .log-run-actions { display: flex; gap: 8px; padding: 4px 0 10px; }
+
+  /* --- Events: a way into each handler, which lives in the code ---------------- */
+  .events-header { height: 40px; padding: 0 12px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--o-line); }
+  .events-header .badge { font: var(--o-fs-xs) var(--o-mono); color: var(--o-muted); background: transparent; }
+  .events-body { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+  .events-list { display: flex; flex-direction: column; gap: 8px; }
+  .event-card { border: 1px solid var(--o-line); border-radius: var(--o-r-lg); background: var(--o-panel); padding: 10px; display: flex; flex-direction: column; gap: 8px; box-shadow: none; }
+  .event-card.has-handler { border-color: color-mix(in srgb, var(--o-accent) 35%, var(--o-line)); }
+  .event-card-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .event-name { font: var(--o-fs-sm) var(--o-mono); color: var(--o-ink); }
+  .event-when { color: var(--o-faint); }
+  :is(.event-add-btn, .event-edit-btn) {
+    height: 24px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: var(--o-r-sm);
+    background: var(--o-accent);
+    color: var(--o-accent-ink);
+    font: 500 var(--o-fs-xs) var(--o-ui);
+    white-space: nowrap;
+  }
+  .event-edit-btn { background: var(--o-well); color: var(--o-ink); }
+  :is(.event-add-btn, .event-edit-btn):hover { filter: brightness(1.08); }
+  .event-preview {
+    display: block;
+    width: 100%;
+    margin: 0;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: var(--o-r);
+    background: var(--o-well);
+    color: var(--o-muted);
+    font: var(--o-fs-xs) / 1.5 var(--o-code);
+    text-align: left;
+    white-space: pre-wrap;
+    cursor: pointer;
+  }
+  .event-preview:hover { color: var(--o-ink); }
+  .event-card-footer { display: flex; justify-content: flex-end; }
+  .event-remove-btn { padding: 0; border: 0; background: transparent; color: var(--o-faint); font: var(--o-fs-xs) var(--o-ui); }
+  .event-remove-btn:hover { color: var(--o-error); }
+  .events-hint { margin: 0; color: var(--o-faint); font: var(--o-fs-xs) / 1.5 var(--o-ui); }
 
   /* --- Code editor: the code font, the panel colours ----------------------------- */
   .code-editor-view,

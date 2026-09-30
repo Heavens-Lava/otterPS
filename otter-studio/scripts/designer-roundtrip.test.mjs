@@ -276,4 +276,60 @@ assert.doesNotMatch(dogfoodHtml, /resize-handle/);
   console.log('  ✓ a Heading is written as the large bold text Otter 1.0 renders (weight 700, which compiles)');
 }
 
+// =========================================================================
+// Websites: a page stays a page; links and the other web controls are
+// designer components (never dropped); the Website starter compiles.
+// =========================================================================
+{
+  console.log('Test: websites in the designer...');
+  const model = new OtterUiModel();
+  const site = `app is a page with title "Site", width full, hideheader true
+nav is a row with spread, wrap true
+home is a link with text "Home", url "#top"
+docs is a link with text "Docs", url "https://example.com"
+note is a badge with text "New"
+message is a textarea with placeholder "Hello", rows 5
+alerts is a switch with text "Email me"
+small is a radio button with text "Small", group "size"
+people is a list with items "Ann, Bo"
+put home, docs in nav
+put nav, note, message, alerts, small, people in app
+show app
+`;
+  assert.equal(parseOtterSource(site, model), true);
+  assert.equal(model.rootKind, 'page', 'the root remembers it is a page');
+  const kinds = Object.fromEntries([...model.components.values()].map(c => [c.name, c.kind]));
+  assert.deepEqual(
+    { home: kinds.home, note: kinds.note, message: kinds.message, alerts: kinds.alerts, small: kinds.small, people: kinds.people },
+    { home: 'link', note: 'badge', message: 'text area', alerts: 'toggle', small: 'radio', people: 'list' },
+    'links, badges, text areas, toggles, radio buttons and lists are all designer components (other spellings too)'
+  );
+  const home = [...model.components.values()].find(c => c.name === 'home');
+  assert.equal(home.properties.url, '#top', 'a link keeps where it goes');
+
+  const generated = generateOtterSource(model);
+  assert.match(generated, /^app is a page with title "Site", width full, hideheader true/m, 'a page is written as a page, with hideheader');
+  assert.match(generated, /^nav is a row with width full|^nav is a row with .*wrap true/m);
+  assert.match(generated, /^home is a link with text "Home", url "#top"/m);
+
+  // A control with no properties still compiles (`x is a row` alone opens a block).
+  const { declareComponent } = await import(pathToFileURL(path.join(studioRoot, 'js', 'compiler', 'otter-generator.js')).href);
+  assert.match(declareComponent('bare', 'row', []), /^bare is a row with \w+/, 'never a bare declaration');
+
+  // The Website starter, through the real compiler.
+  const { StarterTemplates } = await import(pathToFileURL(path.join(studioRoot, 'js', 'templates', 'starter-templates.js')).href);
+  const starter = new OtterUiModel();
+  StarterTemplates.web.load(starter);
+  assert.equal(starter.rootKind, 'page');
+  const starterSource = generateOtterSource(starter);
+  assert.match(starterSource, /^app is a page with /m);
+  assert.doesNotMatch(starterSource, /foreground "#cbd5e1"|background "#0f172a"/, 'no designer defaults in the starter (they would override its stylesheet)');
+  const tmp = await fs.mkdtemp(path.join((await import('node:os')).tmpdir(), 'otter-site-'));
+  await fs.writeFile(path.join(tmp, 'web-app.ot'), starterSource);
+  const check = await execFileAsync('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(repoRoot, 'otter.ps1'), 'check', path.join(tmp, 'web-app.ot')]).catch(err => err);
+  assert.match(`${check.stdout}`, /is valid/, `the Website starter compiles: ${check.stdout || check.message}`);
+  await fs.rm(tmp, { recursive: true, force: true });
+  console.log('  ✓ pages, links and web controls round-trip; the Website starter compiles');
+}
+
 console.log('All Visual UI Designer production round-trip tests passed cleanly!');

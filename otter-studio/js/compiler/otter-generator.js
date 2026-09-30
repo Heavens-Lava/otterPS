@@ -18,7 +18,7 @@ export function generateOtterSource(uiModel) {
   // same `name is a kind with ...` form emitted by the current web compiler;
   // Studio must not teach the older create-then-configure spelling by default.
   const rootPropLines = formatProperties(root.properties, ComponentSchema['window']);
-  lines.push(declareComponent(root.name, 'window', rootPropLines));
+  lines.push(declareComponent(root.name, uiModel.rootKind === 'page' ? 'page' : 'window', rootPropLines));
   lines.push('');
 
   // 2. Walk the tree to declare components and configure them
@@ -122,9 +122,17 @@ export function dedentBody(code) {
 
 export function declareComponent(name, kind, propertyParts) {
   const prefix = `${name} is a ${WRITTEN_KIND[kind] || kind}`;
-  return propertyParts.length > 0
-    ? `${prefix} with ${propertyParts.join(', ')}`
-    : prefix;
+  // `x is a row` on its own opens a block of indented properties, so a
+  // control with none would not compile: it keeps one of its defaults.
+  let parts = propertyParts;
+  if (parts.length === 0) {
+    const defaults = ComponentSchema[kind]?.defaultProperties || {};
+    for (const [key, value] of Object.entries(defaults)) {
+      const part = formatProperty(key, value);
+      if (part) { parts = [part]; break; }
+    }
+  }
+  return parts.length > 0 ? `${prefix} with ${parts.join(', ')}` : prefix;
 }
 
 export function formatProperties(props, schema) {
@@ -178,6 +186,10 @@ export function formatProperty(key, val) {
     if (key === 'italic') return val ? 'italic true' : null;
     if (key === 'checked') return `checked ${val}`;
     if (key === 'round') return val ? 'round' : null;
+    // A page without the compiler's own title header (`hideheader true`).
+    if (key === 'hideheader') return `hideheader ${val}`;
+    // A row whose children move to the next line when there is no room.
+    if (key === 'wrap') return val ? 'wrap true' : null;
     return null;
   }
   if (typeof val === 'number') {

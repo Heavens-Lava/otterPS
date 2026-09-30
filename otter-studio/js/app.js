@@ -849,7 +849,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const defaultNames = {
     'console': 'my-cli-tool',
     'desktop': 'my-desktop-app',
-    'web': 'my-web-app',
+    'web': 'my-website',
     'game': 'otter-game'
   };
 
@@ -1033,7 +1033,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         switchSidebarPane('files');
 
         // Route to optimal mode: 'split' lets user see BOTH designer and code!
-        setMode(selectedArchetype === 'console' ? 'code' : selectedArchetype === 'desktop' ? 'designer' : 'split');
+        setMode(selectedArchetype === 'console' ? 'code' : ['desktop', 'web'].includes(selectedArchetype) ? 'designer' : 'split');
       }
 
       closeNewProjectModal();

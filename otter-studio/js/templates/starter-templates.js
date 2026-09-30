@@ -177,11 +177,11 @@ button "primaryBtn" was clicked
       const row = uiModel.createComponent('row', { name: 'actionRow' });
       const input = uiModel.createComponent('text box', {
         name: 'userInput',
-        properties: { placeholder: 'Type something here...' }
+        properties: { placeholder: 'Your name' }
       });
       const btn = uiModel.createComponent('primary button', {
         name: 'primaryBtn',
-        properties: { text: 'Click Me' }
+        properties: { text: 'Say hello' }
       });
 
       row.children.push(input.id, btn.id);
@@ -194,142 +194,210 @@ button "primaryBtn" was clicked
       title.parentId = root.id;
       card.parentId = root.id;
 
-      uiModel.setEvent(btn.id, 'clicked', 'say "Primary button was pressed!"');
+      // A starter that does what it says: greet whoever typed their name.
+      uiModel.setEvent(btn.id, 'clicked', 'name is text of userInput\ntext of headerTitle is "Hello, " and name and "!"');
       uiModel.select(root.id);
       uiModel.notify('template', { name: 'desktop' });
     }
   },
   'web': {
-    name: 'Web Application',
+    name: 'Website',
     archetype: 'web',
-    icon: '🌐',
-    badge: 'Reactive Web',
-    description: 'Modern responsive web application with interactive components and CSS styling',
+    description: 'A landing page: navigation, a hero, features and a footer, responsive from the start',
     defaultFileName: 'web-app.ot',
-    defaultMode: 'split',
-    css: `/* Web Application Stylesheet */
+    defaultMode: 'designer',
+    // Rows wrap and cards share the width, so it works on a phone as it is.
+    css: `/* Website Stylesheet: a starting point; change anything. */
 #app {
-    width: 100%;
-    min-height: 520px;
-    background: #f8fafc;
-    padding: 32px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 20px;
+    font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
-#heroCard {
-    width: 680px;
-    background: #ffffff;
-    border-radius: 12px;
-    padding: 28px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
+#siteNav {
+    padding: 18px 32px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+#brand {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+}
+
+#navLinks {
+    width: auto;
+}
+
+#navLinks > .otter-link {
+    color: #334155;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+#hero {
+    padding: 88px 32px 72px;
+    max-width: 880px;
+    margin: 0 auto;
+    align-items: center;
     text-align: center;
+    gap: 18px;
+}
+
+#heroBadge {
+    background: #eef2ff;
+    color: #3730a3;
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
 }
 
 #heroTitle {
-    font-size: 26px;
+    font-size: clamp(34px, 6vw, 56px);
+    line-height: 1.08;
+    letter-spacing: -0.02em;
     font-weight: 800;
-    color: #1e293b;
+    margin: 0;
 }
 
-#counterBadge {
-    font-size: 28px;
+#heroText {
+    font-size: 19px;
+    line-height: 1.6;
+    color: #475569;
+    max-width: 640px;
+}
+
+#heroActions {
+    width: auto;
+}
+
+#getStarted {
+    background: #2563eb;
+    color: #ffffff;
+    padding: 12px 22px;
+    border-radius: 8px;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+#learnMore {
+    padding: 12px 18px;
+    color: #0f172a;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+#features {
+    padding: 64px 32px;
+    background: #f8fafc;
+    gap: 28px;
+}
+
+#featuresTitle {
+    font-size: 30px;
     font-weight: 700;
-    color: #2563eb;
-    margin: 8px 0;
+    text-align: center;
+    margin: 0;
 }
-`,
-    code: `# Web Application
-# Interactive reactive web page in Otter
 
-page "app"
-    card "heroCard"
-        heading "heroTitle" text "Welcome to Otter Web App"
-        paragraph text "Build fast, reactive web apps with Otter syntax."
+#featureRow {
+    max-width: 1080px;
+    margin: 0 auto;
+}
 
-        badge "counterBadge" text "Clicks: 0"
+#featureRow > * {
+    flex: 1 1 260px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 24px;
+}
 
-        row
-            button "incBtn" text "+ Increment"
-            button "resetBtn" text "Reset"
-        .
-    .
-.
+.feature-title,
+#featureOneTitle,
+#featureTwoTitle,
+#featureThreeTitle {
+    font-size: 18px;
+    font-weight: 700;
+}
 
-clicks is 0
+#featureOneText,
+#featureTwoText,
+#featureThreeText {
+    color: #475569;
+    line-height: 1.6;
+}
 
-button "incBtn" was clicked
-    clicks is clicks + 1
-    badge "counterBadge" has text "Clicks: " clicks
-.
+#footer {
+    padding: 28px 32px;
+    border-top: 1px solid #e2e8f0;
+    color: #64748b;
+}
 
-button "resetBtn" was clicked
-    clicks is 0
-    badge "counterBadge" has text "Clicks: 0"
-.
+#contactLink {
+    color: #2563eb;
+    text-decoration: none;
+    font-weight: 500;
+}
 `,
     load(uiModel) {
       uiModel.components.clear();
       uiModel.events.clear();
       uiModel.nameCounters = {};
 
-      const root = uiModel.createComponent('window', {
-        name: 'app',
-        properties: {
-          title: 'Otter Web Application',
-          width: 720,
-          height: 520,
-          background: '#f8fafc',
-          padding: 28,
-          spacing: 16
+      // No schema defaults: the stylesheet below gives the look, and a
+      // default in the source (an inline style) would override it.
+      const make = (kind, name, properties = {}) => uiModel.createComponent(kind, { name, properties, defaults: false });
+      const put = (parent, ...kids) => {
+        for (const kid of kids) {
+          parent.children.push(kid.id);
+          kid.parentId = parent.id;
         }
-      });
+      };
+
+      // A web page, not a desktop window: it fills the browser.
+      const root = make('window', 'app', { title: 'My Website', width: 'full', hideheader: true, spacing: 0, padding: 0, background: '#ffffff', foreground: '#0f172a' });
       uiModel.rootId = root.id;
+      uiModel.rootKind = 'page';
 
-      const hero = uiModel.createComponent('card', {
-        name: 'heroCard',
-        properties: { padding: 24 }
-      });
+      const nav = make('row', 'siteNav', { width: 'full', spread: true, wrap: true, spacing: 16 });
+      const brand = make('text', 'brand', { text: 'Your Company' });
+      const navLinks = make('row', 'navLinks', { spacing: 24, wrap: true });
+      put(navLinks,
+        make('link', 'featuresLink', { text: 'Features', url: '#features' }),
+        make('link', 'contactNavLink', { text: 'Contact', url: '#footer' }));
+      put(nav, brand, navLinks);
 
-      const title = uiModel.createComponent('text', {
-        name: 'heroTitle',
-        properties: { text: 'Welcome to Otter Web App', size: 24 }
-      });
+      const hero = make('column', 'hero', { width: 'full', align: 'center', spacing: 18 });
+      put(hero,
+        make('badge', 'heroBadge', { text: 'Built with Otter' }),
+        make('heading', 'heroTitle', { text: 'A website your customers will love' }),
+        make('text', 'heroText', { text: 'Say what you do, show why it matters, and make it easy to get in touch. Change every word and colour in the Designer.' }));
+      const actions = make('row', 'heroActions', { spacing: 12, wrap: true });
+      put(actions,
+        make('link', 'getStarted', { text: 'Get started', url: '#features' }),
+        make('link', 'learnMore', { text: 'Learn more →', url: '#features' }));
+      put(hero, actions);
 
-      const badge = uiModel.createComponent('text', {
-        name: 'counterBadge',
-        properties: { text: 'Clicks: 0' }
-      });
+      // Named "features" so the Features link (#features) jumps here.
+      const features = make('column', 'features', { width: 'full', spacing: 28 });
+      const featureRow = make('row', 'featureRow', { width: 'full', spacing: 20, wrap: true, align: 'top' });
+      const feature = (key, title, text) => {
+        const card = make('column', `feature${key}`, { spacing: 8 });
+        put(card, make('text', `feature${key}Title`, { text: title }), make('text', `feature${key}Text`, { text }));
+        return card;
+      };
+      put(featureRow,
+        feature('One', 'Fast', 'Pages compile to plain HTML, CSS and JavaScript: nothing to install for your visitors.'),
+        feature('Two', 'Yours', 'Every part is readable Otter you can open, change and keep.'),
+        feature('Three', 'Everywhere', 'The layout wraps on its own, from a wide screen to a phone.'));
+      put(features, make('heading', 'featuresTitle', { text: 'Why people choose us' }), featureRow);
 
-      const row = uiModel.createComponent('row', { name: 'btnRow' });
-      const incBtn = uiModel.createComponent('primary button', {
-        name: 'incBtn',
-        properties: { text: '+ Increment' }
-      });
-      const resetBtn = uiModel.createComponent('button', {
-        name: 'resetBtn',
-        properties: { text: 'Reset' }
-      });
+      const footer = make('row', 'footer', { width: 'full', spread: true, wrap: true, spacing: 12 });
+      put(footer,
+        make('text', 'copyright', { text: '© 2026 Your Company' }),
+        make('link', 'contactLink', { text: 'hello@example.com', url: 'mailto:hello@example.com' }));
 
-      row.children.push(incBtn.id, resetBtn.id);
-      incBtn.parentId = row.id;
-      resetBtn.parentId = row.id;
-
-      hero.children.push(title.id, badge.id, row.id);
-      title.parentId = hero.id;
-      badge.parentId = hero.id;
-      row.parentId = hero.id;
-
-      root.children.push(hero.id);
-      hero.parentId = root.id;
-
-      uiModel.setEvent(incBtn.id, 'clicked', 'say "Increment clicked!"');
-      uiModel.setEvent(resetBtn.id, 'clicked', 'say "Reset clicked!"');
+      put(root, nav, hero, features, footer);
       uiModel.select(root.id);
       uiModel.notify('template', { name: 'web' });
     }

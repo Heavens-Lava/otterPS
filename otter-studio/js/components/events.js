@@ -1,4 +1,11 @@
-// events.js - Event handler inspector for wiring Otter actions
+// events.js - A component's events, and the way into their handlers.
+//
+// Handlers are written in the code editor, like Visual Studio's code-behind:
+// Add handler writes `when <name> is <event>` into the source with a first
+// line to replace, shows the code beside the design (Split) and selects that
+// line. The panel shows what each handler does and opens it; it never edits
+// code itself (a small textarea here had no highlighting, completion or
+// indentation, and lost the caret on every keystroke).
 
 import { ComponentSchema } from '../model/schema.js';
 
@@ -20,38 +27,35 @@ export function renderEvents(containerEl, uiModel) {
     containerEl.innerHTML = `
       <div class="events-header">
         <span class="panel-title">Events</span>
-        <span class="badge badge-accent">${selected.name}</span>
+        <span class="badge badge-accent">${escapeHtml(selected.name)}</span>
       </div>
       <div class="events-body">
         ${availableEvents.length === 0 ? `
           <div class="empty-state" style="padding:16px;">
-            A <code>${selected.kind}</code> has no interactive events in Otter.
+            A ${escapeHtml(schema.label?.toLowerCase() || selected.kind)} has no events in Otter.
           </div>
         ` : `
           <div class="events-list">
-            ${availableEvents.map(eventKind => `
-              <div class="event-card" data-event="${eventKind}">
+            ${availableEvents.map(eventKind => {
+              const body = currentEvents[eventKind];
+              const has = body !== undefined;
+              return `
+              <div class="event-card ${has ? 'has-handler' : ''}" data-event="${eventKind}">
                 <div class="event-card-header">
-                  <div class="event-name-badge">
-                    <span class="event-dot"></span>
-                    <span class="event-name">when ${selected.name} is ${eventKind}</span>
-                  </div>
-                  <button class="event-toggle-btn ${currentEvents[eventKind] !== undefined ? 'is-active' : ''}" data-event="${eventKind}">
-                    ${currentEvents[eventKind] !== undefined ? 'Configured' : '+ Add'}
-                  </button>
+                  <span class="event-name"><span class="event-when">when</span> ${escapeHtml(selected.name)} <span class="event-when">is</span> ${escapeHtml(eventKind)}</span>
+                  ${has
+                    ? `<button type="button" class="event-edit-btn" data-event="${eventKind}" title="Open this handler in the code editor">Edit in code</button>`
+                    : `<button type="button" class="event-add-btn" data-event="${eventKind}" title="Write what happens, in the code editor">Add handler</button>`}
                 </div>
-                ${currentEvents[eventKind] !== undefined ? `
-                  <div class="event-editor-wrap">
-                    <textarea class="event-code-textarea" data-event="${eventKind}" placeholder="say \"Action triggered\"&#10;text of resultBox is \"Success\"">${escapeHtml(currentEvents[eventKind])}</textarea>
-                    <div class="event-editor-footer">
-                      <span class="event-hint">Otter statements run when this fires</span>
-                      <button class="event-remove-btn" data-event="${eventKind}">Remove</button>
-                    </div>
-                  </div>
-                ` : ''}
-              </div>
-            `).join('')}
+                ${has ? `
+                  <button type="button" class="event-preview" data-event="${eventKind}" title="Open in the code editor">${escapeHtml(preview(body))}</button>
+                  <div class="event-card-footer">
+                    <button type="button" class="event-remove-btn" data-event="${eventKind}">Remove handler</button>
+                  </div>` : ''}
+              </div>`;
+            }).join('')}
           </div>
+          <p class="events-hint">Handlers are Otter code: they open in the editor beside the design.</p>
         `}
       </div>
     `;
@@ -60,36 +64,21 @@ export function renderEvents(containerEl, uiModel) {
   }
 
   function bindEvents(containerEl, selected) {
-    const toggleBtns = containerEl.querySelectorAll('.event-toggle-btn');
-    toggleBtns.forEach(btn => {
-      btn.addEventListener('click', () => {
-        const eventKind = btn.getAttribute('data-event');
-        const currentEvents = uiModel.getEvents(selected.id);
-        if (currentEvents[eventKind] !== undefined) {
-          uiModel.removeEvent(selected.id, eventKind);
-        } else {
-          uiModel.setEvent(selected.id, eventKind, `say "Clicked ${selected.name}"`);
-        }
-        update();
-      });
-    });
-
-    const textareas = containerEl.querySelectorAll('.event-code-textarea');
-    textareas.forEach(textarea => {
-      textarea.addEventListener('input', (e) => {
-        const eventKind = e.target.getAttribute('data-event');
-        uiModel.setEvent(selected.id, eventKind, e.target.value);
-      });
-    });
-
-    const removeBtns = containerEl.querySelectorAll('.event-remove-btn');
-    removeBtns.forEach(btn => {
-      btn.addEventListener('click', () => {
-        const eventKind = btn.getAttribute('data-event');
-        uiModel.removeEvent(selected.id, eventKind);
-        update();
-      });
-    });
+    containerEl.querySelectorAll('.event-add-btn').forEach(btn => btn.addEventListener('click', async () => {
+      const eventKind = btn.getAttribute('data-event');
+      // A first line to replace: selected in the editor, so typing replaces it.
+      uiModel.setEvent(selected.id, eventKind, `say "${selected.name} was ${eventKind}"`);
+      await openHandler(selected, eventKind, { selectBody: true });
+    }));
+    containerEl.querySelectorAll('.event-edit-btn, .event-preview').forEach(btn => btn.addEventListener('click', () => {
+      openHandler(selected, btn.getAttribute('data-event'));
+    }));
+    containerEl.querySelectorAll('.event-remove-btn').forEach(btn => btn.addEventListener('click', () => {
+      const eventKind = btn.getAttribute('data-event');
+      if (!window.confirm(`Remove the handler "when ${selected.name} is ${eventKind}" and its code?`)) return;
+      uiModel.removeEvent(selected.id, eventKind);
+      update();
+    }));
   }
 
   update();
@@ -98,6 +87,41 @@ export function renderEvents(containerEl, uiModel) {
       update();
     }
   });
+}
+
+// The code beside the design (Split, unless code is already on screen), the
+// cursor at the handler's first line; selectBody selects that line.
+export async function openHandler(comp, eventKind, { selectBody = false } = {}) {
+  const ide = window.otterIde;
+  if (!ide) return false;
+  const mode = document.body.dataset.studioMode;
+  if (!['split', 'workbench', 'code'].includes(mode)) document.getElementById('pillSplitMode')?.click();
+  await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  const lines = String(ide.currentCode || '').split('\n');
+  const head = lines.findIndex(l => new RegExp(`^\\s*when\\s+${escapeRegExp(comp.name)}\\s+(?:is\\s+)?${escapeRegExp(eventKind)}\\b`).test(l));
+  if (head < 0) return false;
+  const bodyIndex = Math.min(head + 1, lines.length - 1);
+  const indent = (lines[bodyIndex].match(/^\s*/) || [''])[0].length;
+  ide.goToLine(bodyIndex + 1, indent);
+  const textarea = document.getElementById('hiddenEditorInput');
+  if (textarea) {
+    const lineStart = lines.slice(0, bodyIndex).reduce((sum, l) => sum + l.length + 1, 0);
+    textarea.focus();
+    if (selectBody) textarea.setSelectionRange(lineStart + indent, lineStart + lines[bodyIndex].length);
+    else textarea.setSelectionRange(lineStart + indent, lineStart + indent);
+  }
+  return true;
+}
+
+// The first lines of a handler, for the panel.
+function preview(body) {
+  const lines = String(body).split('\n').map(l => l.replace(/\s+$/, '')).filter(l => l.trim());
+  const shown = lines.slice(0, 4).join('\n');
+  return lines.length > 4 ? `${shown}\n…` : shown || '(empty)';
+}
+
+function escapeRegExp(text) {
+  return String(text).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function escapeHtml(str) {

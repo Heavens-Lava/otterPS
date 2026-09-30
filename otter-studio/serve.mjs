@@ -12,7 +12,7 @@ import { handleHistoryRoutes, recordVersion } from './server/local-history.mjs';
 import { handleEditorConfigRoute } from './server/editorconfig.mjs';
 import { handleAssetRoutes } from './server/assets.mjs';
 import { handleTrustRoutes } from './server/trust.mjs';
-import { handleStylesheetRoute } from './server/stylesheet.mjs';
+import { handleStylesheetRoute, resolveProjectStylesheet } from './server/stylesheet.mjs';
 import { syncMirror, projectRootFor } from './server/project-mirror.mjs';
 import { createRenderWorker } from './server/render-worker.mjs';
 import { handleGitRoutes } from './server/git.mjs';
@@ -304,18 +304,22 @@ function liveEntryFor(documentPath) {
 // abandoned(): the requester has gone (a newer render replaced it) - then a
 // compile still waiting in the queue is skipped, so a slow project's
 // superseded renders do not hold up the one that matters.
-function renderOtterSource(code, css, sourceDir = '', baseDir = sourceDir, { abandoned = () => false } = {}) {
+function renderOtterSource(code, css, sourceDir = '', baseDir = sourceDir, { abandoned = () => false, entryName = '' } = {}) {
   const fingerprint = sourceDir ? sourceDir + '\u0000' + folderFingerprint(sourceDir) : '';
   const key = crypto.createHash('sha256').update(code + '\u0000' + css + '\u0000' + fingerprint).digest('hex').slice(0, 24);
   if (renderCache.has(key)) return Promise.resolve(renderCache.get(key));
   const job = renderQueue.then(() => new Promise(resolve => {
     if (abandoned()) return resolve({ ok: false, message: 'Replaced by a newer render.' });
-    const dir = path.join(os.tmpdir(), 'otter-studio-render');
+    // The copy has the entry's own name (main.ot beside main.css), in a
+    // folder of its own: a compiler given -SourceDirectory looks for the
+    // stylesheet named after the file it compiles.
+    const dir = path.join(os.tmpdir(), 'otter-studio-render', key);
     fs.mkdirSync(dir, { recursive: true });
-    const sourcePath = path.join(dir, `${key}.ot`);
-    const htmlPath = path.join(dir, `${key}.html`);
+    const stem = /^[A-Za-z0-9_.-]+\.ot$/.test(entryName) ? entryName.slice(0, -3) : 'main';
+    const sourcePath = path.join(dir, `${stem}.ot`);
+    const htmlPath = path.join(dir, `${stem}.html`);
     fs.writeFileSync(sourcePath, code, 'utf8');
-    const cssPath = path.join(dir, `${key}.css`);
+    const cssPath = path.join(dir, `${stem}.css`);
     if (css) fs.writeFileSync(cssPath, css, 'utf8'); else fs.rmSync(cssPath, { force: true });
     // compiled: the page was written; code: the compiler's exit code.
     const settle = (compiled, message, code) => {
@@ -336,7 +340,7 @@ function renderOtterSource(code, css, sourceDir = '', baseDir = sourceDir, { aba
           renderCache.set(key, result);
         }
       }
-      for (const f of [sourcePath, htmlPath, cssPath]) fs.rmSync(f, { force: true });
+      fs.rmSync(dir, { recursive: true, force: true });
       resolve(result);
     };
     // The compiler process Studio keeps loaded (server/render-worker.mjs);
@@ -685,9 +689,11 @@ async function handleRequest(req, res) {
       const mainPath = path.join(projectDir, fileName);
       fs.writeFileSync(mainPath, body.code || `# ${projName}\n\nsay "Hello from ${projName}!"\n`, 'utf8');
 
-      // 2. Write styles.css if present or if desktop/web/game
+      // 2. The stylesheet: <entry>.css beside the entry (main.ot -> main.css),
+      // the one stylesheet every Otter compiler reads for it (D125).
       if (body.css || body.archetype === 'desktop' || body.archetype === 'web') {
-        fs.writeFileSync(path.join(projectDir, 'styles.css'), body.css || '/* Otter Stylesheet */\n', 'utf8');
+        const sheet = `${path.basename(fileName, path.extname(fileName))}.css`;
+        fs.writeFileSync(path.join(projectDir, sheet), body.css || '/* Otter Stylesheet */\n', 'utf8');
       }
 
       // 3. Write rich project.json metadata
@@ -932,31 +938,38 @@ async function handleRequest(req, res) {
       let code = String(body.code || '');
       let sourceDir = '';
       let baseDir = '';
+      let entryName = '';
       if (typeof body.path === 'string' && body.path.trim()) {
         const documentPath = path.resolve(REPO_ROOT, body.path);
         if (isInsideRepo(documentPath)) {
           const entry = liveEntryFor(documentPath);
           const projectRoot = projectRootFor(documentPath, isInsideRepo);
-          if (entry !== documentPath && projectRoot) {
-            // A file of a multi-file project (OtterBoard's shell.ot) compiled
-            // alone is missing the functions and data the entry brings
-            // together: compile the entry, from a mirror of the project with
-            // this document's text (saved or not) in place - for the canvas
-            // and for Live App alike.
-            const mirror = syncMirror(projectRoot, { [documentPath]: code });
-            const mirrorEntry = path.join(mirror, path.relative(projectRoot, entry));
+          if (projectRoot) {
+            // Compile the project's entry (a page like OtterBoard's shell.ot
+            // alone lacks what the entry brings together) from a mirror of
+            // the project with what is on screen in place: this document's
+            // text and the designer's stylesheet, saved or not - for the
+            // canvas and for Live App alike.
+            const overlay = { [documentPath]: code };
+            const sheet = String(body.css || '');
+            if (sheet) overlay[resolveProjectStylesheet(projectRoot).path] = sheet;
+            const mirror = syncMirror(projectRoot, overlay);
+            const target = entry || documentPath;
+            const mirrorEntry = path.join(mirror, path.relative(projectRoot, target));
             code = fs.readFileSync(mirrorEntry, 'utf8');
             sourceDir = path.dirname(mirrorEntry);
-            baseDir = path.dirname(entry);
+            baseDir = path.dirname(target);
+            entryName = path.basename(target);
           } else {
             sourceDir = path.dirname(documentPath);
             baseDir = sourceDir;
+            entryName = path.basename(documentPath);
           }
         }
       }
       let gone = false;
       res.on('close', () => { if (!res.writableFinished) gone = true; });
-      const result = await renderOtterSource(code, String(body.css || ''), sourceDir, baseDir, { abandoned: () => gone });
+      const result = await renderOtterSource(code, String(body.css || ''), sourceDir, baseDir, { abandoned: () => gone, entryName });
       if (gone) return;
       sendJson(res, result, result.ok ? 200 : 422);
     } catch (err) {
@@ -1247,6 +1260,24 @@ async function handleRequest(req, res) {
         : process.platform === 'darwin' ? ['open', [target]] : ['xdg-open', [target]];
       spawn(opener[0], opener[1], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
       return sendJson(res, { revealed: true });
+    } catch (err) {
+      return sendJson(res, { error: err.message }, 500);
+    }
+  }
+
+  // --- Open a built page (dist/index.html) in the system's browser. Not
+  // served from Studio's origin: a built page must not reach Studio's API. ---
+  if (pathname === '/api/open-page' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const target = path.resolve(REPO_ROOT, String(body.path || ''));
+      if (!body.path || path.extname(target).toLowerCase() !== '.html' || !isInsideRepo(target) || !fs.existsSync(target)) {
+        return sendJson(res, { error: 'Forbidden' }, 403);
+      }
+      const opener = process.platform === 'win32' ? ['explorer.exe', [target]]
+        : process.platform === 'darwin' ? ['open', [target]] : ['xdg-open', [target]];
+      spawn(opener[0], opener[1], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
+      return sendJson(res, { opened: true });
     } catch (err) {
       return sendJson(res, { error: err.message }, 500);
     }

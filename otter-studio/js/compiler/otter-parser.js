@@ -13,7 +13,7 @@
 // designer change actually affects. That only works if the splicer and the
 // model agree on what each line means, so both are driven by this one scanner.
 
-import { ComponentSchema } from '../model/schema.js';
+import { ComponentSchema, KindAliases } from '../model/schema.js';
 
 // Each statement pattern the designer understands. `(?:the\s+)?` allows the
 // optional article Otter permits in front of a name.
@@ -173,7 +173,8 @@ export function scanOtterSource(source) {
     // 1. "create <kind> into <name>"
     const createMatch = line.match(CREATE_RE);
     if (createMatch) {
-      const kind = createMatch[1].trim().toLowerCase();
+      const rawCreateKind = createMatch[1].trim().toLowerCase();
+      const kind = KindAliases[rawCreateKind] || rawCreateKind;
       const name = createMatch[2].trim();
       if (ComponentSchema[kind]) {
         components.set(name, newComponent(name, kind, kind, i, 'create'));
@@ -190,7 +191,9 @@ export function scanOtterSource(source) {
       const declarationTail = declarativeMatch[2].trim();
       const withIndex = declarationTail.search(/\s+with\s+/i);
       const rawKind = (withIndex === -1 ? declarationTail : declarationTail.slice(0, withIndex)).trim().toLowerCase();
-      const kind = rawKind === 'page' ? 'window' : rawKind;
+      // Other spellings the compiler accepts (check box, switch, textarea...)
+      // map the same way; rawKind keeps what the author wrote.
+      const kind = KindAliases[rawKind] || rawKind;
       if (ComponentSchema[kind]) {
         if (withIndex === -1) {
           // Block form: properties follow on their own lines until `.`.
@@ -325,6 +328,9 @@ export function parseOtterSource(source, targetModel) {
   });
   targetModel.rootId = root.id;
   targetModel.selectedId = root.id;
+  // A web page (`app is a page`) or a desktop window: labels, the canvas
+  // frame and generated source follow it.
+  targetModel.rootKind = rootComp.rawKind === 'page' ? 'page' : 'window';
 
   const nameToId = new Map();
   nameToId.set(rootComp.name, root.id);

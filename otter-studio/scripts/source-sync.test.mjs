@@ -43,7 +43,8 @@ assert.equal(declarativeButton.properties.padding, 8);
 assert.equal(declarativeButton.properties.round, true, 'a bare round is a flag (a pill when compiled)');
 
 const regeneratedDeclarativeSource = generateOtterSource(model);
-assert.match(regeneratedDeclarativeSource, /^app is a window with /m, 'Studio must emit modern declarative UI declarations');
+// A page stays a page (it used to be regenerated as a window).
+assert.match(regeneratedDeclarativeSource, /^app is a page with /m, 'Studio must emit modern declarative UI declarations, keeping a page a page');
 assert.match(regeneratedDeclarativeSource, /^saveButton is a button with /m, 'Studio must emit modern declarative component declarations');
 assert.doesNotMatch(regeneratedDeclarativeSource, /^create /m, 'Studio must not regenerate the legacy create-into UI form');
 

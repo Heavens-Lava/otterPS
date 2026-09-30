@@ -24,7 +24,8 @@ export const ComponentSchema = {
       padding: 16,
       spacing: 12
     },
-    allowedProperties: ['title', 'width', 'height', 'background', 'foreground', 'padding', 'spacing'],
+    // hideheader and maxwidth apply to a page (`app is a page`).
+    allowedProperties: ['title', 'width', 'height', 'maxwidth', 'hideheader', 'background', 'foreground', 'padding', 'spacing'],
     events: ['closed']
   },
 
@@ -40,7 +41,7 @@ export const ComponentSchema = {
       spread: false,
       align: 'middle'
     },
-    allowedProperties: ['width', 'height', 'background', 'spacing', 'padding', 'spread', 'align', 'radius', 'round', 'opacity'],
+    allowedProperties: ['width', 'height', 'background', 'spacing', 'padding', 'spread', 'wrap', 'align', 'radius', 'round', 'opacity'],
     events: []
   },
 
@@ -276,5 +277,91 @@ export const ComponentSchema = {
     },
     allowedProperties: ['source', 'width', 'height', 'radius', 'round', 'opacity'],
     events: ['clicked']
-  }
+  },
+
+  // --- For websites and forms (the compiler's `link`, `text area`, ...) ------
+  'link': {
+    kind: 'link',
+    label: 'Link',
+    category: ComponentCategories.NAVIGATION,
+    isContainer: false,
+    icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>`,
+    // A page anchor ("#features"), a path ("about.html") or a web address.
+    defaultProperties: { text: 'Link', url: '#' },
+    allowedProperties: ['text', 'url', 'size', 'foreground', 'weight', 'opacity'],
+    events: ['clicked']
+  },
+  'text area': {
+    kind: 'text area',
+    label: 'Text Area',
+    category: ComponentCategories.INPUTS,
+    isContainer: false,
+    icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h10M7 13h10M7 17h6"/></svg>`,
+    defaultProperties: { placeholder: 'Write a message...', rows: 4 },
+    allowedProperties: ['placeholder', 'text', 'rows', 'width', 'height', 'background', 'foreground', 'radius', 'opacity'],
+    events: ['changed']
+  },
+  'toggle': {
+    kind: 'toggle',
+    label: 'Toggle',
+    category: ComponentCategories.INPUTS,
+    isContainer: false,
+    icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="10" rx="5"/><circle cx="16" cy="12" r="3"/></svg>`,
+    defaultProperties: { text: 'Turn on', checked: false },
+    allowedProperties: ['text', 'checked', 'foreground', 'opacity'],
+    events: ['changed']
+  },
+  'radio': {
+    kind: 'radio',
+    label: 'Radio Button',
+    category: ComponentCategories.INPUTS,
+    isContainer: false,
+    icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg>`,
+    // Radio buttons with the same group are one choice.
+    defaultProperties: { text: 'Option', group: 'choice', checked: false },
+    allowedProperties: ['text', 'group', 'checked', 'foreground', 'opacity'],
+    events: ['changed']
+  },
+  'badge': {
+    kind: 'badge',
+    label: 'Badge',
+    category: ComponentCategories.TYPOGRAPHY,
+    isContainer: false,
+    icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="8" width="18" height="8" rx="4"/></svg>`,
+    defaultProperties: { text: 'New' },
+    allowedProperties: ['text', 'size', 'foreground', 'background', 'weight', 'radius', 'opacity'],
+    events: []
+  },
+  'panel': {
+    kind: 'panel',
+    label: 'Panel',
+    category: ComponentCategories.CONTAINERS,
+    isContainer: true,
+    icon: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="1"/></svg>`,
+    defaultProperties: { width: 'full', spacing: 12, padding: 16 },
+    allowedProperties: ['width', 'height', 'background', 'spacing', 'padding', 'align', 'radius', 'round', 'opacity'],
+    events: []
+  },
+
+  // Kinds the compiler has but the designer cannot edit yet: shown (with the
+  // real render's look) and selectable, never dropped; edited in code.
+  'list': { kind: 'list', label: 'List', category: ComponentCategories.CONTROLS, isContainer: false, codeOnly: true, defaultProperties: {}, allowedProperties: ['width', 'height', 'opacity'], events: ['changed'] },
+  'table': { kind: 'table', label: 'Table', category: ComponentCategories.CONTROLS, isContainer: false, codeOnly: true, defaultProperties: {}, allowedProperties: ['width', 'height', 'opacity'], events: [] },
+  'canvas': { kind: 'canvas', label: 'Canvas', category: ComponentCategories.CONTROLS, isContainer: false, codeOnly: true, defaultProperties: {}, allowedProperties: ['width', 'height', 'opacity'], events: [] },
+  'dialog': { kind: 'dialog', label: 'Dialog', category: ComponentCategories.CONTAINERS, isContainer: true, codeOnly: true, defaultProperties: {}, allowedProperties: ['width', 'height', 'opacity'], events: [] }
+};
+
+// Other spellings the compiler accepts for the same kinds.
+export const KindAliases = {
+  'page': 'window',
+  'check box': 'checkbox',
+  'drop down': 'dropdown',
+  'select': 'dropdown',
+  'range': 'slider',
+  'progress': 'progress bar',
+  'textarea': 'text area',
+  'switch': 'toggle',
+  'radio button': 'radio',
+  'tag': 'badge',
+  'modal': 'dialog'
 };

@@ -6,6 +6,8 @@ export class OtterUiModel {
   constructor() {
     this.components = new Map();
     this.rootId = null;
+    // 'page' for a web page (`app is a page`), else a desktop window.
+    this.rootKind = 'window';
     this.selectedId = null;
     this.selectedIds = new Set();
     this.events = new Map(); // id -> { [eventKind]: handlerCode }
@@ -43,6 +45,7 @@ export class OtterUiModel {
       }
     });
     this.rootId = root.id;
+    this.rootKind = 'window';
     this.selectedId = root.id;
     this.selectedIds = new Set([root.id]);
   }
@@ -138,6 +141,7 @@ export class OtterUiModel {
     this.components.clear();
     this.events.clear();
     this.rootId = null;
+    this.rootKind = 'window';
     this.selectedId = null;
     this.selectedIds.clear();
     this.nameCounters = {};
@@ -172,7 +176,6 @@ export class OtterUiModel {
     const canonicalKind = {
       'input': 'text box',
       'textbox': 'text box',
-      'badge': 'text',
       'label': 'text'
     }[kind] || kind;
 

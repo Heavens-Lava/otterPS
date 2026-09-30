@@ -108,6 +108,13 @@ for (const id of ['inputProjectName', 'selectProjectTemplate', 'chkProjectGitign
 assert.match(app, /e\.key === 'ArrowDown' \? 1 : e\.key === 'ArrowUp' \? -1/, 'Arrow keys move through the project types');
 assert.match(app, /addEventListener\('dblclick', \(\) => handleCreateProject\(\)\)/, 'Double-clicking a type creates the project');
 
+// Events: handlers are written in the code editor (a textarea in the panel
+// lost the caret on every keystroke and could not indent an if block).
+const eventsJs = await fs.readFile(path.join(studioRoot, 'js', 'components', 'events.js'), 'utf8');
+assert.doesNotMatch(eventsJs, /<textarea/, 'The Events panel does not edit code in a textarea');
+assert.match(eventsJs, /uiModel\.setEvent\(selected\.id, eventKind, [^\n]+\);\s*\n\s*await openHandler\(selected, eventKind, \{ selectBody: true \}\)/, 'Add handler writes the handler and opens it in the editor, its first line selected');
+assert.match(eventsJs, /window\.confirm\(`Remove the handler/, 'Removing a handler asks first');
+
 assert.match(html, /id="outlineFilterInput"/, 'Document outline must expose a filter input');
 assert.match(html, /id="btnWorkspaceSymbols"/, 'Editor quick actions must expose Workspace Symbols button');
 assert.match(html, /id="btnExtractFunction"/, 'Editor quick actions must expose Extract Function button');

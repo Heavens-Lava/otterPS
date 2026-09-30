@@ -330,7 +330,8 @@ try {
     assert.equal(again.status, 409);
     const dir = path.join(scratch.abs, 'demo');
     assert.equal(fs.readFileSync(path.join(dir, 'main.ot'), 'utf8'), 'say "original"\n');
-    assert.equal(fs.readFileSync(path.join(dir, 'styles.css'), 'utf8'), '#a { color: red; }\n');
+    // A new project's stylesheet is <entry>.css (main.ot -> main.css).
+    assert.equal(fs.readFileSync(path.join(dir, 'main.css'), 'utf8'), '#a { color: red; }\n');
   });
 } finally {
   server.kill();

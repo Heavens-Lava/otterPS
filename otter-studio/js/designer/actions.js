@@ -27,6 +27,7 @@ export const FREE_DEFAULT_SIZES = {
   'slider': { width: 200 },
   'progress bar': { width: 220 },
   'image': { width: 200, height: 140 },
+  'text area': { width: 320, height: 96 },
   'card': { width: 300, height: 200 },
   'row': { width: 320, height: 120 },
   'column': { width: 240, height: 240 },
