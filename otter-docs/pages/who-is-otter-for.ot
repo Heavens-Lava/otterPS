@@ -107,7 +107,7 @@ b8 is a text with value "A window with a button, a small web application, an API
 b9 is a text with value "Teachers and learners", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b10 is a text with value "Because programs read like sentences, a teacher can read a student program aloud and ask what it means. Otter is small enough to learn end to end.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b11 is a text with value "Not for everyone, yet", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
-b12 is a text with value "Otter currently runs on Windows only. It is not designed for performance-critical systems programming, and its ecosystem of libraries is young. If you need macOS or Linux support today, Otter is not the right tool yet.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b12 is a text with value "Otter is not designed for performance-critical systems programming, and its ecosystem of libraries is young. It runs on Windows, macOS and Linux, but desktop windows need Windows: on macOS and Linux, build interfaces as web applications.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b13 is a link with text "What can you build?", url "/what-can-you-build/", foreground "#2563eb", weight 600, size 15
 b14 is a link with text "Install Otter", url "/installation/", foreground "#2563eb", weight 600, size 15
 
