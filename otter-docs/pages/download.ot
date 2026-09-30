@@ -1,7 +1,8 @@
 # Otter website - Download
 # Authored in Otter and compiled with the site build (build-otter-pages.ps1).
 # Release facts come from release-data.json through the {{...}} tokens, so this
-# page can only say what is true: the installer is not published yet.
+# page can only say what is true: until a release archive is published, the
+# download button (DOWNLOAD_URL / DOWNLOAD_LABEL) points at the GitHub project.
 
 use "_shell.ot"
 
@@ -16,9 +17,9 @@ customstyle of navDownload is "padding: 22px 0; border-bottom: 2px solid #4d8dff
 heroEyebrow is a text with value "{{RELEASE_CHANNEL}} {{RELEASE_VERSION}}", size 13, weight 700, foreground "#7fb0ff", letterspacing "0.08em"
 heroTitle is a text with value "Download Otter", size 48, weight 800, foreground "#ffffff", letterspacing "-0.03em", lineheight "1.05"
 heroLead is a text with value "Get the latest version of Otter and start building today.", size 20, foreground "#f1f6ff"
-heroNote is a text with value "Otter is free, open source, and runs on Windows with the PowerShell already on your machine.", size 15, foreground "#d2e1f5"
-heroGetSource is a link with text "Get Otter from GitHub", url "https://github.com/Heavens-Lava/otterPS", foreground "#ffffff", weight 700, size 17, background "#2675ed", radius 12, customstyle "padding: 17px 30px; display: inline-block; box-shadow: 0 10px 22px rgba(0,89,230,.28);"
-heroInstaller is a text with value "Windows installer: {{INSTALLER_STATUS}}", size 13, foreground "#f5c46b"
+heroNote is a text with value "Otter is free and open source. It runs on Windows with the PowerShell already on your machine, and on macOS and Linux with PowerShell 7.", size 15, foreground "#d2e1f5"
+heroGetSource is a link with text "{{DOWNLOAD_LABEL}}", url "{{DOWNLOAD_URL}}", foreground "#ffffff", weight 700, size 17, background "#2675ed", radius 12, customstyle "padding: 17px 30px; display: inline-block; box-shadow: 0 10px 22px rgba(0,89,230,.28);"
+heroInstaller is a text with value "Installer: {{INSTALLER_STATUS}}", size 13, foreground "#f5c46b"
 heroActions is a row with spacing 18, align middle, margin "8px 0 0 0"
 put heroGetSource, heroInstaller in heroActions
 heroCopy is a column with spacing 14, flex 1, customstyle "padding-bottom: 88px;"
@@ -34,8 +35,8 @@ put topBar, heroBody in hero
 # ==========================================
 
 tabWindows is a text with value "▣  Windows", size 16, weight 700, foreground "#1d70ea", background "#f8fbff", radius 10, border "2px solid #b9d7ff", flex 1, customstyle "text-align: center; padding: 14px;"
-tabMac is a text with value "●  macOS - not yet", size 16, weight 600, foreground "#687994", flex 1, customstyle "text-align: center; padding: 14px;"
-tabLinux is a text with value "♙  Linux - not yet", size 16, weight 600, foreground "#687994", flex 1, customstyle "text-align: center; padding: 14px;"
+tabMac is a text with value "●  macOS", size 16, weight 600, foreground "#687994", flex 1, customstyle "text-align: center; padding: 14px;"
+tabLinux is a text with value "♙  Linux", size 16, weight 600, foreground "#687994", flex 1, customstyle "text-align: center; padding: 14px;"
 tabSource is a link with text "Source", url "https://github.com/Heavens-Lava/otterPS", foreground "#0f1f36", weight 600, size 16, flex 1, customstyle "text-align: center; padding: 14px;"
 tabs is a row with spacing 14, align middle, width full, background "#ffffff", border "1px solid #e3e9f2", radius 16, padding 10, shadow "0 8px 24px rgba(11,29,54,0.10)", customstyle "box-sizing: border-box; margin-top: -30px; position: relative;"
 put tabWindows, tabMac, tabLinux, tabSource in tabs
@@ -46,7 +47,7 @@ put tabWindows, tabMac, tabLinux, tabSource in tabs
 
 dlTitle is a text with value "Windows download", size 26, weight 800, foreground "#0f1f36", letterspacing "-0.02em"
 dlStatus is a text with value "{{INSTALLER_STATUS}}", size 18, weight 700, foreground "#b45309"
-dlBody is a text with value "A signed installer will appear here when it is published. Until then, run Otter straight from the project folder - it needs nothing else installed.", size 15, foreground "#4a5b75", lineheight "1.55"
+dlBody is a text with value "One archive, otter-{{RELEASE_VERSION}}.zip, installs Otter on Windows, macOS and Linux. On Windows, extract it and run Install-Otter.ps1 -AddToUserPath in Windows PowerShell. Until the archive is published, run Otter straight from the project folder - it needs nothing else installed.", size 15, foreground "#4a5b75", lineheight "1.55"
 dlGuide is a link with text "Read the installation guide", url "/installation/", foreground "#2563eb", weight 600, size 15
 dlRelease is a link with text "View release readiness", url "/release/", foreground "#2563eb", weight 600, size 15
 dlLinks is a row with spacing 24, align middle
@@ -61,13 +62,13 @@ put dlRow in dlCard
 
 reqTitle is a text with value "System requirements", size 26, weight 800, foreground "#0f1f36", letterspacing "-0.02em"
 reqOsLabel is a text with value "Operating system", size 13, weight 700, foreground "#0f1f36"
-reqOs is a text with value "Windows 10 or Windows 11, 64-bit", size 14, foreground "#4a5b75"
+reqOs is a text with value "Windows 10 or Windows 11 (64-bit), macOS, or Linux", size 14, foreground "#4a5b75"
 reqShellLabel is a text with value "Shell", size 13, weight 700, foreground "#0f1f36"
-reqShell is a text with value "Windows PowerShell 5.1 (built into Windows)", size 14, foreground "#4a5b75"
+reqShell is a text with value "Windows: Windows PowerShell 5.1 (built in). macOS and Linux: PowerShell 7.", size 14, foreground "#4a5b75"
 reqRightsLabel is a text with value "Privileges", size 13, weight 700, foreground "#0f1f36"
 reqRights is a text with value "A standard user account. No administrator rights.", size 14, foreground "#4a5b75"
 reqDepsLabel is a text with value "Additional software", size 13, weight 700, foreground "#0f1f36"
-reqDeps is a text with value "None. A browser is only needed for web applications.", size 14, foreground "#4a5b75"
+reqDeps is a text with value "None beyond PowerShell. A browser is only needed for web applications.", size 14, foreground "#4a5b75"
 reqCard is a card with background "#ffffff", radius 16, border "1px solid #e3e9f2", padding 28, spacing 8, flex 1
 put reqTitle, reqOsLabel, reqOs, reqShellLabel, reqShell, reqRightsLabel, reqRights, reqDepsLabel, reqDeps in reqCard
 
@@ -75,12 +76,37 @@ topCards is a row with spacing 24, align top, width full
 put dlCard, reqCard in topCards
 
 # ==========================================
+# 3b. MACOS AND LINUX
+# ==========================================
+
+unixTitle is a text with value "macOS and Linux", size 26, weight 800, foreground "#0f1f36", letterspacing "-0.02em"
+unixBody is a text with value "The same archive installs on macOS and Linux with PowerShell 7. Install PowerShell 7 first, extract the archive, open a terminal in the extracted folder, and run the installer. It adds an otter command to ~/.local/bin, so you type otter run hello.ot just as on Windows.", size 15, foreground "#4a5b75", lineheight "1.55"
+unixCommand is a text with value "pwsh -NoProfile -File ./Install-Otter.ps1 -AddToUserPath\notter --version", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable false
+unixCommandlabel is a text with value "Shell", size 12, weight 600, foreground "#b7c4d8"
+unixCommandcopy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+unixCommandhead is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put unixCommandlabel, unixCommandcopy in unixCommandhead
+unixCommandblock is a column with spacing 0, width full
+put unixCommandhead, unixCommand in unixCommandblock
+when unixCommandcopy is clicked
+    copy text of unixCommand to clipboard
+    text of unixCommandcopy is "Copied"
+.
+unixPwsh is a link with text "Install PowerShell 7", url "https://aka.ms/install-powershell", foreground "#2563eb", weight 600, size 15
+unixGuide is a link with text "macOS and Linux installation guide", url "/installation/", foreground "#2563eb", weight 600, size 15
+unixLinks is a row with spacing 24, align middle
+put unixPwsh, unixGuide in unixLinks
+unixLimits is a text with value "Console programs and web applications work everywhere. Desktop windows and other features built on Windows itself (the registry, the event log, stored credentials, printing, notifications, file dialogs) need Windows, and say so clearly on macOS and Linux. Build a desktop program as a web application with otter web instead.", size 14, foreground "#1e3a6b", background "#eaf2ff", radius 12, border "1px solid #cfe0ff", lineheight "1.55", customstyle "padding: 14px 18px;"
+unixCard is a card with background "#ffffff", radius 16, border "1px solid #e3e9f2", padding 28, spacing 14, width full
+put unixTitle, unixBody, unixCommandblock, unixLinks, unixLimits in unixCard
+
+# ==========================================
 # 4. RELEASE DETAILS
 # ==========================================
 
 relTitle is a text with value "Release details", size 26, weight 800, foreground "#0f1f36", letterspacing "-0.02em"
 relVersion is a text with value "Version: {{RELEASE_VERSION}} ({{RELEASE_CHANNEL}})", size 15, foreground "#4a5b75"
-relSize is a text with value "Installer size: {{INSTALLER_SIZE}}", size 15, foreground "#4a5b75"
+relSize is a text with value "Archive size: {{INSTALLER_SIZE}}", size 15, foreground "#4a5b75"
 relDate is a text with value "Release date: {{RELEASE_DATE}}", size 15, foreground "#4a5b75"
 relSha is a text with value "SHA-256: {{SHA256}}", size 15, foreground "#4a5b75"
 relNotes is a text with value "Release notes: {{RELEASE_NOTES_STATUS}}", size 15, foreground "#4a5b75"
@@ -92,7 +118,7 @@ put relTitle, relVersion, relSize, relDate, relSha, relNotes in relCard
 # ==========================================
 
 runTitle is a text with value "Run from the project folder", size 26, weight 800, foreground "#0f1f36", letterspacing "-0.02em"
-runBody is a text with value "Open Windows PowerShell in the folder that contains otter.cmd, then run an example:", size 15, foreground "#4a5b75"
+runBody is a text with value "Open Windows PowerShell in the folder that contains otter.cmd, then run an example. On macOS and Linux, run ./otter examples/hello.ot instead.", size 15, foreground "#4a5b75"
 runCommand is a text with value ".\\otter.cmd examples\\hello.ot", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; border-top-left-radius: 0; border-top-right-radius: 0;", runnable false
 runCommandlabel is a text with value "PowerShell", size 12, weight 600, foreground "#b7c4d8"
 runCommandcopy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
@@ -134,7 +160,7 @@ put runCard, nextCard in bottomCards
 # ==========================================
 
 content is a column with spacing 24, width full, padding "0 56px", customstyle "box-sizing: border-box; max-width: 1240px; margin: 0 auto;"
-put tabs, topCards, relCard, bottomCards in content
+put tabs, topCards, unixCard, relCard, bottomCards in content
 
 put hero, content, siteFooter in app
 show app

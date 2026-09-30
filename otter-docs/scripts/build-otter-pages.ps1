@@ -30,6 +30,8 @@ function Expand-OtterReleaseTokens {
         '{{SHA256}}' = $releaseData.sha256
         '{{RELEASE_NOTES_STATUS}}' = $releaseData.releaseNotesStatus
         '{{STUDIO_STATUS}}' = $releaseData.studioStatus
+        '{{DOWNLOAD_URL}}' = $releaseData.downloadUrl
+        '{{DOWNLOAD_LABEL}}' = $releaseData.downloadLabel
     }
 
     foreach ($token in $tokens.Keys) {

@@ -7,5 +7,7 @@
   "releaseDate": "Published with the installer",
   "sha256": "Published with the installer",
   "releaseNotesStatus": "Release notes will be published with the installer.",
+  "downloadUrl": "https://github.com/Heavens-Lava/otterPS",
+  "downloadLabel": "Get Otter from GitHub",
   "studioStatus": "Development preview only — Studio is not a certified Otter V1 command yet."
 }

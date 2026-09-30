@@ -31,7 +31,7 @@ heroStart is a link with text "Get Started", url "/what-is-otter/", foreground "
 heroDocs is a link with text "Read the Docs", url "/docs/", foreground "#b7d3ff", weight 700, size 16, customstyle "padding: 14px 8px; display: inline-block;"
 heroActions is a row with spacing 14, align middle, margin "8px 0 0 0"
 put heroDownload, heroStart, heroDocs in heroActions
-heroVersion is a text with value "Version {{RELEASE_VERSION}} - Windows installer: {{INSTALLER_STATUS}}", size 13, foreground "#f5c46b"
+heroVersion is a text with value "Version {{RELEASE_VERSION}} - Installer: {{INSTALLER_STATUS}}", size 13, foreground "#f5c46b"
 
 heroCopy is a column with spacing 16, flex 1
 put heroEyebrow, heroTitle, heroLead, heroCodeblock, heroActions, heroVersion in heroCopy
@@ -64,7 +64,7 @@ why3 is a card with background "#ffffff", radius 16, border "1px solid #e3e9f2",
 put why3Title, why3Body in why3
 
 why4Title is a text with value "Nothing to install", size 18, weight 700
-why4Body is a text with value "Otter runs on the Windows PowerShell already on Windows 10 and 11. No runtime, no package manager, no administrator rights.", size 14, foreground "#4a5b75", lineheight "1.55"
+why4Body is a text with value "On Windows 10 and 11, Otter runs on the Windows PowerShell already there; on macOS and Linux, on PowerShell 7. No other runtime, no package manager, no administrator rights.", size 14, foreground "#4a5b75", lineheight "1.55"
 why4 is a card with background "#ffffff", radius 16, border "1px solid #e3e9f2", padding 22, spacing 8, flex 1
 put why4Title, why4Body in why4
 
@@ -117,7 +117,7 @@ build1Body is a text with value "Files, folders, CSV, other programs, and things
 build1 is a card with background "#ffffff", radius 16, border "1px solid #e3e9f2", padding 22, spacing 8, flex 1
 put build1Link, build1Body in build1
 build2Link is a link with text "Desktop applications", url "/windows-apps/", foreground "#0f1f36", size 17, weight 700
-build2Body is a text with value "Windows, buttons, text boxes and events, in a few readable lines.", size 14, foreground "#4a5b75", lineheight "1.5"
+build2Body is a text with value "Windows, buttons, text boxes and events, in a few readable lines. Desktop windows run on Windows.", size 14, foreground "#4a5b75", lineheight "1.5"
 build2 is a card with background "#ffffff", radius 16, border "1px solid #e3e9f2", padding 22, spacing 8, flex 1
 put build2Link, build2Body in build2
 build3Link is a link with text "Web applications", url "/web-apps/", foreground "#0f1f36", size 17, weight 700
