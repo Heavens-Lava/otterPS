@@ -4,7 +4,20 @@ All notable changes to the Otter Programming Language platform are documented in
 
 ## [Unreleased]
 
-## [1.0.0-rc.6] - 2026-09-29 (candidate; certification pending)
+## [1.0.0-rc.7] - 2026-09-30 (candidate; certification pending)
+
+Seventh Otter 1.0 release candidate: rc.6 with a release archive that works on
+macOS and Linux. rc.6 passed certification, but its archive was found faulty
+before publication, so it was never tagged or published.
+
+### Fixed
+- The release archive, built with Windows PowerShell 5.1, stored its paths with backslashes and no Unix permissions. On macOS and Linux that meant extraction tools warned about or kept the backslashes (Archive Utility can produce flat files named `otter-x\otter`), and the extracted `otter` launcher was not executable. The archive now uses forward slashes and marks `otter` executable.
+- `Install-Otter.ps1 -AddToUserPath` on macOS and Linux refused to replace its own `~/.local/bin/otter` when run a second time.
+
+### Verification
+- The distribution smoke test installs from the release archive itself (`unzip` on macOS and Linux), runs the extracted `./otter` directly and installs twice; the D120 host matrix builds the archive on Windows PowerShell 5.1 and installs that same file on Linux and macOS.
+
+## [1.0.0-rc.6] - 2026-09-29 (certified, superseded by rc.7; not tagged)
 
 Sixth Otter 1.0 release candidate: rc.5 plus macOS and Linux installation
 (D129).
