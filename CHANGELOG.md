@@ -4,7 +4,21 @@ All notable changes to the Otter Programming Language platform are documented in
 
 ## [Unreleased]
 
-## [1.0.0-rc.5] - 2026-09-29 (candidate; certification pending)
+## [1.0.0-rc.6] - 2026-09-29 (candidate; certification pending)
+
+Sixth Otter 1.0 release candidate: rc.5 plus macOS and Linux installation
+(D129).
+
+### Added
+- Otter installs and runs on macOS and Linux with PowerShell 7. The release payload is now `otter-<version>.zip` for every platform (it was `otter-<version>-windows-powershell.zip`) and carries an `otter` shell launcher next to `otter.cmd`. `Install-Otter.ps1` and `Uninstall-Otter.ps1` run on every platform: on macOS and Linux they install to `~/.local/share/otter/<version>` and `-AddToUserPath` adds an `otter` command to `~/.local/bin`.
+
+### Changed
+- On macOS and Linux, features built on Windows itself (the registry, the event log, stored credentials, printing, notifications, file dialogs, file owners, power actions) stop with "... is only available on Windows" instead of a raw error, an internal crash, or a silent wrong answer, and `otter desktop` refuses and suggests `otter web`. Clipboard failures there are errors rather than silence. Windows behaviour is unchanged.
+
+### Fixed
+- `run command` on Windows no longer takes an extensionless file in the current folder (such as the new `otter` launcher) as the program; `otter` finds `otter.cmd` as before.
+
+## [1.0.0-rc.5] - 2026-09-29
 
 Fifth Otter 1.0 release candidate: rc.4 plus one compiler fix and the
 documentation site update.

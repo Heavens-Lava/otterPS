@@ -48,7 +48,7 @@ These steps are for Windows; for Linux and macOS see
 ### Step 1: Download & Extract
 
 Download the latest versioned release archive:
-`otter-1.0.0-rc.5.zip`
+`otter-1.0.0-rc.6.zip`
 
 Extract the ZIP contents into a temporary directory or your Downloads folder.
 
@@ -62,7 +62,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 ```
 
 #### What the installer does:
-- Copies the complete Otter runtime, modules, and `otter.cmd` launcher to `%LOCALAPPDATA%\Otter\1.0.0-rc.5\`.
+- Copies the complete Otter runtime, modules, and `otter.cmd` launcher to `%LOCALAPPDATA%\Otter\1.0.0-rc.6\`.
 - Adds that directory to your User `PATH` environment variable.
 - Runs an automated health check (`otter.cmd --version`) to confirm successful installation.
 - Requires zero administrative rights and will not alter system-wide configurations.
@@ -79,7 +79,7 @@ otter --version
 
 Expected output:
 ```text
-Otter 1.0.0-rc.5
+Otter 1.0.0-rc.6
 ```
 
 ---
@@ -133,7 +133,7 @@ next to `otter.cmd` for Windows.
 pwsh -NoProfile -File ./Install-Otter.ps1 -AddToUserPath
 ```
 
-The installer copies Otter to `~/.local/share/otter/1.0.0-rc.5/` (or under
+The installer copies Otter to `~/.local/share/otter/1.0.0-rc.6/` (or under
 `$XDG_DATA_HOME` when that is set) and, with `-AddToUserPath`, writes a small
 `otter` command to `~/.local/bin`. If `~/.local/bin` is not on your `PATH` yet,
 the installer prints the line to add to `~/.zshrc` or `~/.bashrc`:
@@ -211,7 +211,7 @@ otter --version
 ```
 Expected output:
 ```text
-Otter 1.0.0-rc.5
+Otter 1.0.0-rc.6
 ```
 
 ### Check 2: Interactive REPL
@@ -336,7 +336,7 @@ Run `Uninstall-Otter.ps1` from your installation directory:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
-& "$env:LOCALAPPDATA\Otter\1.0.0-rc.5\Uninstall-Otter.ps1"
+& "$env:LOCALAPPDATA\Otter\1.0.0-rc.6\Uninstall-Otter.ps1"
 ```
 
 The uninstaller will:
@@ -348,7 +348,7 @@ On Linux and macOS, run the uninstaller with `pwsh`. It also removes the
 `otter` command from `~/.local/bin` when the installer wrote it:
 
 ```sh
-pwsh -NoProfile -File ~/.local/share/otter/1.0.0-rc.5/Uninstall-Otter.ps1
+pwsh -NoProfile -File ~/.local/share/otter/1.0.0-rc.6/Uninstall-Otter.ps1
 ```
 
 ### Method 2: Manual Removal

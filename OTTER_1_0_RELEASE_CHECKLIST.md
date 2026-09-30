@@ -13,9 +13,10 @@ dirty working tree is useful diagnostic evidence, but is **PROVISIONAL**.
 
 ## Release order (decided by Jeff, 2026-09-28)
 
-The release candidate in preparation is **1.0.0-rc.5** (`VERSION`): rc.4 plus
-the Run-button sample fix (`7389c63`). It is **not certified yet** and not
-tagged; the certification record will name its exact SHA. `v1.0.0-rc.4`
+The release candidate in preparation is **1.0.0-rc.6** (`VERSION`): rc.5 plus
+macOS and Linux installation (D129). It is **not certified yet** and not
+tagged; the certification record will name its exact SHA. `v1.0.0-rc.5`
+(`docs/OTTER_1_0_RC5_EVIDENCE.md`), `v1.0.0-rc.4`
 (`docs/OTTER_1_0_RC4_EVIDENCE.md`) and `v1.0.0-rc.3` remain tagged on their
 own certified commits.
 RC2 (`708ef2e`) was superseded before its certification by the blockers the
@@ -62,7 +63,7 @@ Primary evidence: `docs/D119_DOGFOOD_LOG.md`.
 
 | Check | Status | Evidence / action |
 |---|---|---|
-| Immutable release candidate revision | RC CERTIFICATION | All work is committed; the candidate is the rc.5 commit (`VERSION` 1.0.0-rc.5). The certification record names its exact SHA and requires a clean checkout. |
+| Immutable release candidate revision | RC CERTIFICATION | All work is committed; the candidate is the rc.6 commit (`VERSION` 1.0.0-rc.6). The certification record names its exact SHA and requires a clean checkout. |
 | Frozen language contract | RESOLVED | Every 1.0 contract decision is recorded in `SPEC-DECISIONS.md` (DC1, D121, D122 approved 2026-09-27; D99 deferred to 1.1 on 2026-09-28). No contract question remains open: `docs/OTTER_1_0_FREEZE_FOLLOWUPS.md`. |
 | Existing scope reconciliation | BEFORE 1.0.0 | DC1 (console HTTP) is resolved. DC2-DC5 are documentation conflicts, not contract questions: `docs/OTTER_1_0_SURFACE_RECONCILIATION.md` section 8. |
 
@@ -122,7 +123,7 @@ Primary evidence: `docs/D119_DOGFOOD_LOG.md`.
 | Language and standard-library reference | BEFORE 1.0.0 | Reconcile documentation with the approved frozen scope. |
 | CLI and project-system guide | BEFORE 1.0.0 | Validate each documented command against the installed release payload. |
 | Target-specific boundaries | BEFORE 1.0.0 | Mark web-only, Windows-only, experimental, and deferred capabilities clearly. The query language (D99) is already labelled "not part of Otter 1.0" on the docs site. |
-| Changelog and release notes | IN PROGRESS | `CHANGELOG.md` has the `[1.0.0-rc.3]`, `[1.0.0-rc.4]` and `[1.0.0-rc.5]` sections; final 1.0.0 release notes are written from the production SHA. |
+| Changelog and release notes | IN PROGRESS | `CHANGELOG.md` has the `[1.0.0-rc.3]`, `[1.0.0-rc.4]`, `[1.0.0-rc.5]` and `[1.0.0-rc.6]` sections; final 1.0.0 release notes are written from the production SHA. |
 | RC change freeze | PENDING | After the two pre-RC checks in "Release order" pass, tag `v1.0.0-rc.3` on the certified SHA; then permit release-blocking fixes only, each with a regression test and release-ledger update. |
 
 ## Resume protocol
