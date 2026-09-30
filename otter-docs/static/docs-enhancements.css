@@ -58,6 +58,9 @@ body { background: #f4f7fb; color: var(--docs-ink); font-family: Inter, ui-sans-
   #heroCopy { flex: 1 1 auto !important; width: auto !important; max-width: none !important; }
   /* The home page's entry cards: two per row instead of four squeezed ones. */
   #entryCards { flex-wrap: wrap !important; margin-top: 16px !important; }
+  /* /home/: every row of cards wraps, two per row. */
+  #homeContent .otter-row { flex-wrap: wrap !important; }
+  #homeContent .otter-row > .otter-card { flex: 1 1 calc(50% - 12px) !important; min-width: 0 !important; width: auto !important; }
   #entryCards > div { flex: 1 1 calc(50% - 12px) !important; min-width: 0 !important; width: auto !important; }
   /* /home/: use the phone's width, and a headline that fits it. */
   #heroBody { padding: 0 !important; }
@@ -66,5 +69,13 @@ body { background: #f4f7fb; color: var(--docs-ink); font-family: Inter, ui-sans-
   #heroCodeblock, #heroCode { max-width: 100% !important; }
   #homeContent { padding-left: 16px !important; padding-right: 16px !important; }
   #homeContent > div { width: auto !important; max-width: 100% !important; padding-left: 0 !important; padding-right: 0 !important; }
+  /* /download/: the card rows stack, the platform tabs wrap two per row. */
+  #content { padding-left: 16px !important; padding-right: 16px !important; }
+  #topCards, #bottomCards, #dlRow { flex-direction: column !important; align-items: stretch !important; }
+  #topCards > div, #bottomCards > div, #dlRow > div { flex: 1 1 auto !important; width: auto !important; min-width: 0 !important; }
+  #dlRow > img { display: none !important; }
+  #tabs { flex-wrap: wrap !important; }
+  #tabs > * { flex: 1 1 calc(50% - 14px) !important; }
+  #heroActions { flex-wrap: wrap !important; }
   .docs-article-nav { font-size: .9rem; } #siteFooter { align-items: flex-start !important; flex-direction: column !important; padding: 24px 20px !important; }
 }
