@@ -465,7 +465,7 @@ function Get-OtterWebRuntimeUiJs {
     function otterIsUi(v) { return !!(v && typeof v === 'object' && v.__otterUi); }
     function otterUiKindOf(v) { return otterIsUi(v) ? v.kind : ''; }
     function otterUiTypeName(v) { return (v && typeof v === 'object' && v.__otterThing) ? 'a thing' : (v === null || v === undefined) ? 'gone' : (typeof v === 'number') ? 'a number' : (typeof v === 'string') ? 'some text' : 'something else'; }
-    function otterCreateUi(kind, variant) {
+    function otterCreateUi(kind, variant, name) {
       const html = otterUiTemplates[kind];
       if (html === undefined) { throw new Error('I do not know how to create a ' + kind + ' on the web target.'); }
       const t = document.createElement('template');
@@ -475,6 +475,9 @@ function Get-OtterWebRuntimeUiJs {
       const id = 'otter-ui-' + (++otterUiCounter);
       el.id = id;
       if (variant) { el.classList.add('otter-button-' + variant); }
+      // create card into entry: every such card has the class "entry", so
+      // the page's stylesheet can style them all (.entry { ... }).
+      if (name) { el.classList.add(name); }
       return { __otterUi: true, kind: kind, root: root, el: el || root, id: id };
     }
     // The outermost element of a resource: what gets moved by `put`, hidden

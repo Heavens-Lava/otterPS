@@ -3914,8 +3914,10 @@ function ConvertTo-OtterJsStatement {
             foreach ($v in @('primary', 'secondary', 'danger')) {
                 if ($kind.StartsWith("$v ")) { $variant = $v; $kind = $kind.Substring($v.Length + 1); break }
             }
-            $valExpr = "otterCreateUi('$kind', '$variant')"
             $varName = $Stmt.Target
+            # The variable's name is also a class on what is made, so a
+            # stylesheet can style every entry a handler creates (.entry).
+            $valExpr = "otterCreateUi('$kind', '$variant', '$varName')"
             if ($LocalNames -and $LocalNames.Contains($varName)) {
                 return "${pad}$varName = $valExpr;"
             }

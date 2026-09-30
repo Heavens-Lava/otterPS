@@ -113,7 +113,8 @@ try {
 
     Test-Otter 'D128 compile: a handler that creates UI compiles to runtime creation, not a dropped statement' {
         $html = [System.IO.File]::ReadAllText($tasksHtml)
-        Assert-True ($html.Contains("otterCreateUi('text', '')")) 'expected create text into item to compile to otterCreateUi'
+        Assert-True ($html.Contains("otterCreateUi('text', '', 'item')")) 'expected create text into item to compile to otterCreateUi, naming the variable'
+        Assert-True ($html.Contains('if (name) { el.classList.add(name); }')) 'expected a created element to carry its variable as a class (.item in a stylesheet)'
         Assert-True ($html.Contains('otterPutIn(')) 'expected put item in taskList to compile to otterPutIn'
         Assert-True ($html.Contains('const otterUiTemplates = ')) 'expected the runtime templates'
     }

@@ -35,11 +35,12 @@ Not brought: `fdda7e2` ("UI resources are values", component functions,
   light card, input and border colours when the page's background is light
   (`Get-OtterSurfacePalette`, tests/Web.Tests.ps1 36). A dark app keeps its
   colours.
-- **Created elements can't be styled from the stylesheet:** they get
-  generated ids (`otter-ui-1`), so no `#name` rule reaches them. They are
-  styled from code with `has` (`entry has background "#f8fafc"`). A class
-  named after the variable (`.entry`) would let a stylesheet reach them. That
-  is a small addition for Jeff to decide on; it is not built.
+- **Created elements could not be styled from the stylesheet:** they get
+  generated ids (`otter-ui-1`), so no `#name` rule reaches them. Approved by
+  Jeff on 2026-09-30 and built: an element made by `create card into entry`
+  also has the class `entry`, so `.entry { ... }` in the page's stylesheet
+  styles every one (tests/WebRuntimeUi.Tests.ps1). `has` still works as
+  before.
 
 ## Evidence
 
