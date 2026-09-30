@@ -231,6 +231,8 @@ button "primaryBtn" was clicked
     color: #334155;
     text-decoration: none;
     font-weight: 500;
+    display: inline-block;
+    padding: 6px 0;
 }
 
 #hero {
@@ -337,6 +339,8 @@ button "primaryBtn" was clicked
     color: #2563eb;
     text-decoration: none;
     font-weight: 500;
+    display: inline-block;
+    padding: 6px 0;
 }
 `,
     load(uiModel) {
