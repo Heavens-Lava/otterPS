@@ -1,0 +1,35 @@
+{
+  "profile": "otterps",
+  "sync": [
+    {
+      "file": "OTTER_PROGRAMMING_LANGUAGE_COMPLETE_PLATFORM_CHECKLIST.md",
+      "priorities": {
+        "34": "high",
+        "38": "high",
+        "42": "high",
+        "43": "high",
+        "44": "high",
+        "45": "high",
+        "46": "high"
+      }
+    },
+    {
+      "file": "OTTER_STUDIO_PROFESSIONAL_IDE_MASTER_CHECKLIST.md"
+    },
+    {
+      "file": "Otter-Website-Master-Checklist.md",
+      "priorities": {
+        "download": "high",
+        "getting started": "high",
+        "errors & troubleshooting": "high",
+        "releases": "high"
+      }
+    },
+    {
+      "file": "docs/V1_CHECKLIST_RECONCILIATION.md",
+      "priorities": {
+        "2": "high"
+      }
+    }
+  ]
+}

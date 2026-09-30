@@ -125,3 +125,25 @@ Use approved PowerShell verbs on exported functions (`Get-`, `ConvertTo-`,
 Run your own tests, commit in logical pieces
 (`lexer: tokenize literals and keywords`), and do not merge to `main`
 yourself — Jeff does that.
+
+---
+
+## Inventor Studio (progress tracking)
+
+This project's tasks, milestones, images and agent reports live in Inventor
+Studio, project **Otter** (<https://inventorstudio.app>). `.inventor.json`
+points this repo at it; run `inventor whoami` and check it says **Otter**
+before anything else. `inventor` means
+`node C:/Users/jmacy/projects/inventor-studio-app/agent-bridge/inventor.mjs`,
+run from the repo root with `$env:INVENTOR_AGENT` set to your agent name.
+
+- Start of session: `inventor context`.
+- Picking work: `inventor next`, then `inventor start <id>` (this claims it).
+- When verified: tick the box in the checklist, then `inventor sync`.
+- Then: `inventor report "what changed" --verify "how it was checked" --files a,b`.
+- After adding images: `inventor assets push`.
+- Needs from another role: `inventor ask <role> "..." --blocks <id>`.
+
+Report work as done only when it was actually verified, through the
+production entry point where the rules above require it. The frozen files
+stay frozen: syncing or reporting never needs an edit to them.

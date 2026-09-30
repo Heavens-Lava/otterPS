@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "inventor-studio": {
+      "command": "node",
+      "args": ["C:/Users/jmacy/projects/inventor-studio-app/agent-bridge/mcp.mjs"]
+    }
+  }
+}
