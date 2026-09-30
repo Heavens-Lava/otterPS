@@ -601,6 +601,23 @@ function Invoke-OtterProjectTests {
     return 3
 }
 
+# The page files of a website beside its entry: .ot files that declare a page
+# (`home is a page`) and show it. Sorted, so a build is deterministic.
+function Get-OtterWebPageFiles {
+    param([Parameter(Mandatory)][string]$EntryPath)
+    $entryFull = [System.IO.Path]::GetFullPath($EntryPath)
+    $folder = Split-Path -Parent $entryFull
+    $pages = New-Object System.Collections.Generic.List[string]
+    foreach ($file in (Get-ChildItem -LiteralPath $folder -Filter '*.ot' -File | Sort-Object Name)) {
+        if ($file.FullName -ieq $entryFull) { continue }
+        $text = [System.IO.File]::ReadAllText($file.FullName)
+        if ($text -match '(?m)^\s*[A-Za-z_][A-Za-z0-9_]*\s+is\s+an?\s+page\b' -and $text -match '(?m)^\s*show\s+[A-Za-z_]') {
+            $pages.Add($file.FullName)
+        }
+    }
+    return ,$pages.ToArray()
+}
+
 function Invoke-OtterProjectBuild {
     param(
         [Parameter(Mandatory = $false)]
@@ -736,6 +753,23 @@ function Invoke-OtterProjectBuild {
             { $_ -in @('web', 'desktop', 'game') } {
                 $htmlOutput = Join-Path $stagingDir 'index.html'
                 Export-OtterWebApplication -SourcePath $project.ResolvedEntryPoint -OutputPath $htmlOutput -PassThruExceptions | Out-Null
+
+                # A website of several pages (approved 2026-09-30, see
+                # docs/proposals/MULTI_PAGE_WEB_BUILD.md): every other page
+                # file beside the entry builds to its own page - about.ot to
+                # about.html, with its own about.css - so a link can say
+                # url "about.html". A page file declares a page and shows it;
+                # a module or a part of a page (no show) is not one.
+                if ($targetLower -eq 'web') {
+                    foreach ($pageFile in (Get-OtterWebPageFiles -EntryPath $project.ResolvedEntryPoint)) {
+                        $pageName = [System.IO.Path]::GetFileNameWithoutExtension($pageFile)
+                        if ($pageName -ieq 'index') {
+                            throw [OtterError]::new("index.ot would build to index.html, which is the entry point's page ($(Split-Path -Leaf $project.ResolvedEntryPoint)). Rename it, or make it the entry point.", 0, 'build')
+                        }
+                        if (-not $Quiet) { Write-Host "  page $pageName.html" }
+                        Export-OtterWebApplication -SourcePath $pageFile -OutputPath (Join-Path $stagingDir "$pageName.html") -PassThruExceptions | Out-Null
+                    }
+                }
 
                 if ($targetLower -eq 'desktop') {
                     $launcherCmd = "@echo off`r`notter desktop %~dp0index.html %*`r`n"

@@ -307,8 +307,33 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "Test 16 failed: otter check <file.ot> failed: $singleCheck" }
     Write-Output '  pass  existing single-file commands (otter run file.ot, otter check file.ot) completely preserved'
 
+    # Test 17: a website of several pages - every page file beside the entry
+    # builds to its own page with its own stylesheet; a module is not a page.
+    $mDir = Join-Path $testTmp 'multi-page'
+    New-Item -ItemType Directory -Path $mDir -Force | Out-Null
+    Set-Content -LiteralPath (Join-Path $mDir 'project.json') -Value '{ "name": "multi-page", "target": "web", "entryPoint": "main.ot" }' -Encoding UTF8
+    Set-Content -LiteralPath (Join-Path $mDir 'main.ot') -Value "home is a page with title `"Home`"`naboutLink is a link with text `"About`", url `"about.html`"`nput aboutLink in home`nshow home" -Encoding UTF8
+    Set-Content -LiteralPath (Join-Path $mDir 'about.ot') -Value "about is a page with title `"About us`"`nnote is a text with text `"We make things.`"`nput note in about`nshow about" -Encoding UTF8
+    Set-Content -LiteralPath (Join-Path $mDir 'about.css') -Value '#note { color: rgb(9, 8, 7); }' -Encoding UTF8
+    Set-Content -LiteralPath (Join-Path $mDir 'helpers.ot') -Value "to greet name`n    say `"hi `" and name`n." -Encoding UTF8
+    $mOut = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') build $mDir 2>&1
+    if ($LASTEXITCODE -ne 0) { throw "Test 17 failed: multi-page build exited with $LASTEXITCODE. Output: $mOut" }
+    $aboutHtml = Join-Path $mDir 'dist/about.html'
+    if (-not (Test-Path -LiteralPath $aboutHtml -PathType Leaf)) { throw "Test 17 failed: about.ot did not build to dist/about.html. Output: $mOut" }
+    if ((Get-Content -LiteralPath $aboutHtml -Raw) -notmatch 'rgb\(9, 8, 7\)') { throw "Test 17 failed: about.css was not embedded in about.html" }
+    if ((Get-Content -LiteralPath (Join-Path $mDir 'dist/index.html') -Raw) -notmatch '<title>Home</title>') { throw "Test 17 failed: the entry is not index.html" }
+    if (Test-Path -LiteralPath (Join-Path $mDir 'dist/helpers.html')) { throw "Test 17 failed: a module (no page, no show) was built as a page" }
+    Write-Output '  pass  a website of several pages: each page file builds to its own page and stylesheet; modules do not'
+
+    # Test 18: a page file named index.ot beside another entry is refused.
+    Set-Content -LiteralPath (Join-Path $mDir 'index.ot') -Value "extra is a page with title `"Extra`"`nshow extra" -Encoding UTF8
+    $iOut = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') build $mDir 2>&1
+    if ($LASTEXITCODE -eq 0) { throw "Test 18 failed: index.ot beside another entry should fail the build" }
+    if (($iOut -join "`n") -notmatch 'index\.ot would build to index\.html') { throw "Test 18 failed: unclear message: $iOut" }
+    Write-Output '  pass  a page file named index.ot beside another entry is refused with a readable message'
+
 } finally {
     Remove-Item -LiteralPath $testTmp -Recurse -Force -ErrorAction SilentlyContinue
 }
 
-Write-Output "`nAll Otter project build system tests passed (16/16)."
+Write-Output "`nAll Otter project build system tests passed (18/18)."
