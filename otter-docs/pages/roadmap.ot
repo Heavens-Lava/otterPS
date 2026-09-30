@@ -107,15 +107,13 @@ b1 is a text with value "Roadmap", size 40, weight 800, foreground "#0b1d36", le
 b2 is a text with value "Where Otter is today and what comes next. No dates are promised: each item says only what has been decided, and changes here follow the recorded language decisions.", size 18, foreground "#3a4d6b", lineheight "1.55"
 b3 is a text with value "Available in Otter 1.0 (release candidate)", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b4 is a text with value "The language: values, text, lists, objects and types, functions, conditions, loops, and errors you can handle with try and otherwise.", size 16, foreground "#3a4d6b", lineheight "1.6"
-b5 is a text with value "Console programs with otter run, otter check and otter test, on Windows with Windows PowerShell 5.1.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b5 is a text with value "Console programs with otter run, otter check and otter test: on Windows with Windows PowerShell 5.1, and on macOS and Linux with PowerShell 7. One download installs on all three; Windows-only features (desktop windows, the registry, printing and a few others) say so clearly elsewhere.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b6 is a text with value "Web applications with otter web, including controls created while the page runs.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b7 is a text with value "Files and folders, JSON, dates, random numbers, running other programs, and the HTTP client (get, post, put, delete) in console programs and web applications.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b8 is a text with value "Projects: otter new, otter build and otter publish.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b9 is a text with value "Experimental in Otter 1.0", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b10 is a text with value "Windows applications (desktop windows and controls): they work and are tested, but details may change before they are fully supported.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b11 is a text with value "Otter Studio: a development preview, not part of Otter 1.0.", size 16, foreground "#3a4d6b", lineheight "1.6"
-b12 is a text with value "In development for Otter 1.0", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
-b13 is a text with value "Downloads for macOS and Linux: console programs and web applications running on PowerShell 7, with Windows-only features refused with a clear message.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b14 is a text with value "Not decided yet", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b15 is a text with value "Whether networking (WebSockets, TCP, UDP and TLS), security, XML and a few other features in the release candidate are part of the supported Otter 1.0 surface. Their pages say so.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b16 is a text with value "Planned for Otter 1.1", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
@@ -131,7 +129,7 @@ b25 is a link with text "Release status", url "/release/", foreground "#2563eb",
 b26 is a link with text "What changed in each release candidate", url "https://github.com/Heavens-Lava/otterPS/blob/master/CHANGELOG.md", foreground "#2563eb", weight 600, size 15
 
 docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"
-put b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15, b16, b17, b18, b19, b20, b21, b22, b23, b24, b25, b26 in docsMain
+put b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b14, b15, b16, b17, b18, b19, b20, b21, b22, b23, b24, b25, b26 in docsMain
 docsBody is a row with align top, spacing 0, width full, customstyle "align-items: stretch;"
 put docsSidebar, docsMain in docsBody
 
