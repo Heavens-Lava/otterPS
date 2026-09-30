@@ -18,7 +18,7 @@ creation.
 
 ## Status legend and permanent rules
 
--   [x] Reported implemented/demonstrated in the current Otter project.
+-   `[x]` Reported implemented/demonstrated in the current Otter project.
 -   \[ ]\ Required, partial, deferred, blocked, or not yet
     production-certified.
 -   A renderer/helper/unit test does **not** certify a language
