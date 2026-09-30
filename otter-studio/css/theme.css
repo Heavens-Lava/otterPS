@@ -662,6 +662,19 @@ body.theme-light {
   .sp-select,
   .sp-input,
   .prop-input,
+  /* Put your website online (shell/host-guide.js) */
+  .host-guide { width: min(620px, calc(100vw - 32px)); }
+  .host-guide .modal-title-wrap { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+  .host-guide-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+  .host-guide-tab {
+    font: inherit; font-size: 12.5px; padding: 6px 12px; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--o-line-strong); background: transparent; color: inherit;
+  }
+  .host-guide-tab.is-active { background: var(--o-accent); border-color: transparent; color: var(--o-accent-ink); }
+  .host-guide-steps { margin: 0; padding-left: 20px; display: grid; gap: 10px; line-height: 1.55; font-size: 13px; }
+  .host-guide-steps code { font-size: 12px; padding: 1px 5px; border-radius: 4px; background: rgba(127, 127, 127, 0.16); word-break: break-all; }
+  .host-guide-steps a { color: var(--o-accent); }
+
   .prop-select,
   #propertiesTab select,
   #propertiesTab input[type="text"],

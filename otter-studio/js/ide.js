@@ -19,6 +19,7 @@ import { getSignatureHelp } from './navigation/signature-provider.js';
 import { autoClosePair, backspacePair, enterKey, prepareForSave, renderIndentGuides, splitLineEnding, withLineEnding } from './editor/editing-assist.js';
 import { markWhitespace, findLinkAt, resolveSourcePath, createBookmarks } from './editor/editor-extras.js';
 import { askText } from './shell/ask.js';
+import { showHostGuide } from './shell/host-guide.js';
 import { buildFindRegex, findAll, replacementFor, replaceMatches } from './editor/find.js';
 import { showDiff } from './components/diff-view.js';
 import { otterLanguageService } from './language/otter-language-service.js';
@@ -4307,9 +4308,12 @@ export class OtterStudioIde {
     );
     if (data.ok && packagePath) {
       const page = (data.files || []).find(f => /^index\.html$/i.test(f.path));
+      const reveal = () => fetch('/api/reveal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: packagePath }) });
+      this.lastPublished = { folder: packagePath, zip: data.zip ? `${base}/${data.zip}` : '', reveal };
       this.appendBuildActions([
+        { label: 'How to put it online...', title: 'Steps for Netlify, GitHub Pages, Cloudflare or your own host', run: () => showHostGuide(this.lastPublished) },
         page && { label: 'Open the website', title: 'The published index.html, in your browser', run: () => fetch('/api/open-page', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: `${packagePath}/index.html` }) }) },
-        { label: 'Show the files to upload', title: 'Drag this folder (or the .zip beside it) onto a static host', run: () => fetch('/api/reveal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: packagePath }) }) }
+        { label: 'Show the files to upload', title: 'Drag this folder (or the .zip beside it) onto a static host', run: reveal }
       ].filter(Boolean));
     }
     await this.loadProjectTree(this.currentProjectFolder);

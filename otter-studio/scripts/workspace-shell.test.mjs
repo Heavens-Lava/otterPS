@@ -137,6 +137,14 @@ const [previewJs, realStyleJs] = await Promise.all([
 ]);
 assert.match(previewJs, /id="previewIframe" sandbox="allow-scripts allow-modals allow-forms"/, 'Live App lets a form be sent (without allow-forms the browser drops the submit)');
 assert.match(realStyleJs, /c === 'has-field-label'/, 'The real render keeps a field\'s label on the canvas');
+const [hostGuideJs, settingsJs] = await Promise.all([
+  fs.readFile(path.join(studioRoot, 'js', 'shell', 'host-guide.js'), 'utf8'),
+  fs.readFile(path.join(studioRoot, 'js', 'components', 'project-settings.js'), 'utf8')
+]);
+assert.match(ide, /label: 'How to put it online\.\.\.'[^\n]*showHostGuide\(this\.lastPublished\)/, 'Publish offers the host guide');
+for (const host of ['Netlify Drop', 'GitHub Pages', 'Cloudflare Pages', 'Your own host']) assert.ok(hostGuideJs.includes(`name: '${host}'`), `the host guide covers ${host}`);
+assert.doesNotMatch(settingsJs, /id="perm(Filesystem|Network|Clipboard|Process)"/, 'No permission switches: nothing in Otter enforces them');
+assert.doesNotMatch(settingsJs, /checkManifestSourceMaps/, 'No source maps switch: no build makes source maps');
 assert.match(manifestJs, /assets: options\.assets \|\| \[\],/, 'A new project lists no stylesheet as an asset (the compiler embeds it; a named styles.css that did not exist failed every build)');
 
 assert.match(html, /id="outlineFilterInput"/, 'Document outline must expose a filter input');
