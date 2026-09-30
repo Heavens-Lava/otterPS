@@ -200,7 +200,7 @@ if ($AddToUserPath -and -not $onWindows) {
     $shimMarker = '# Otter launcher - written by Install-Otter.ps1'
     if (Test-Path -LiteralPath $shim) {
         $existing = @(Get-Content -LiteralPath $shim -TotalCount 2 -ErrorAction SilentlyContinue)
-        if ($existing.Count -lt 2 -or $existing[1] -ne $shimMarker) {
+        if ($existing.Count -lt 2 -or -not $existing[1].StartsWith($shimMarker)) {
             throw "Refusing to replace $shim because it was not written by the Otter installer. Remove or rename it, or run $installedCommand directly."
         }
     }

@@ -36,7 +36,27 @@ try {
     & $hostExe @hostArgs -File (Join-Path $PSScriptRoot 'New-OtterDistribution.ps1') -OutputDirectory $payloads -Force | Out-Host
     if ($LASTEXITCODE -ne 0) { throw 'Distribution build failed.' }
 
-    $package = Join-Path $payloads ("otter-$version")
+    # Install from the archive a user downloads, extracted the way they would:
+    # Expand-Archive on Windows, unzip on macOS and Linux (it keeps the Unix
+    # modes the archive records, so `otter` must arrive executable and every
+    # path must use forward slashes).
+    $archive = Join-Path $payloads ("otter-$version.zip")
+    $extracted = Join-Path $work 'extracted'
+    if ($onWindows) {
+        Expand-Archive -LiteralPath $archive -DestinationPath $extracted
+    } else {
+        & unzip -q $archive -d $extracted
+        if ($LASTEXITCODE -ne 0) { throw "unzip failed on $archive (exit $LASTEXITCODE)" }
+    }
+    $package = Join-Path $extracted ("otter-$version")
+    $flat = @(Get-ChildItem -LiteralPath $extracted -Recurse | Where-Object { $_.Name.Contains('\') })
+    if ($flat.Count -gt 0) { throw "The archive extracted file names containing backslashes: $($flat[0].Name)" }
+    if (-not (Test-Path -LiteralPath (Join-Path $package 'src'))) { throw "The archive did not extract to $package" }
+    if (-not $onWindows) {
+        # Without installing: the extracted `otter` runs directly.
+        $direct = (& (Join-Path $package 'otter') --version 2>&1) -join "`n"
+        if ($LASTEXITCODE -ne 0 -or $direct -notmatch [regex]::Escape("Otter $version")) { throw "The extracted ./otter did not run: $direct" }
+    }
     $script:installed = Join-Path $work 'installed'
     & $hostExe @hostArgs -File (Join-Path $package 'Install-Otter.ps1') -Destination $script:installed -Force | Out-Host
     if ($LASTEXITCODE -ne 0) { throw 'Distribution installation failed.' }
@@ -70,6 +90,9 @@ try {
             if ($LASTEXITCODE -ne 0) { throw 'Installation with -AddToUserPath failed.' }
             $shim = Join-Path $env:HOME '.local/bin/otter'
             if (-not (Test-Path -LiteralPath $shim)) { throw "-AddToUserPath did not create $shim" }
+            # Installing again (a repair or reinstall) replaces the installer's own command.
+            & $hostExe @hostArgs -File (Join-Path $package 'Install-Otter.ps1') -Destination $second -AddToUserPath -Force | Out-Host
+            if ($LASTEXITCODE -ne 0) { throw 'Installing a second time with -AddToUserPath failed.' }
             $shimOut = (& $shim --version 2>&1) -join "`n"
             if ($LASTEXITCODE -ne 0 -or $shimOut -notmatch [regex]::Escape("Otter $version")) { throw "The ~/.local/bin/otter command did not run Otter: $shimOut" }
             & $hostExe @hostArgs -File (Join-Path $second 'Uninstall-Otter.ps1') -Destination $second | Out-Host
