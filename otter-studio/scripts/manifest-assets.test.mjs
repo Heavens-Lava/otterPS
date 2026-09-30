@@ -17,9 +17,10 @@ try {
   fs.mkdirSync(path.join(dir, 'assets', 'images'), { recursive: true });
   fs.writeFileSync(path.join(dir, 'assets', 'images', 'team.png'), 'png');
   fs.writeFileSync(path.join(dir, 'logo.svg'), '<svg/>');
+  fs.writeFileSync(path.join(dir, 'favicon.png'), 'png');
   fs.writeFileSync(path.join(dir, 'project.json'), '{\r\n  "name": "site",\r\n  "entryPoint": "main.ot",\r\n  "assets": ["logo.svg"]\r\n}\r\n');
   fs.writeFileSync(path.join(dir, 'main.ot'), [
-    'home is a page',
+    'home is a page with icon "favicon.png"',
     'team is a image with source "assets/images/team.png"',
     'logo is a image with source "./logo.svg"',
     'remote is a image with source "https://example.com/x.png"',
@@ -27,13 +28,13 @@ try {
     'show home', ''
   ].join('\n'));
 
-  test('the images a page shows that exist in the project', () => {
-    assert.deepEqual(referencedImages(dir), ['assets/images/team.png', 'logo.svg']);
+  test('the images a page shows (and its icon) that exist in the project', () => {
+    assert.deepEqual(referencedImages(dir), ['assets/images/team.png', 'favicon.png', 'logo.svg']);
   });
   test('are added to the manifest once, keeping what it lists and its line endings', () => {
-    assert.deepEqual(addManifestAssets(dir, referencedImages(dir)), ['assets/images/team.png']);
+    assert.deepEqual(addManifestAssets(dir, referencedImages(dir)), ['assets/images/team.png', 'favicon.png']);
     const raw = fs.readFileSync(path.join(dir, 'project.json'), 'utf8');
-    assert.deepEqual(JSON.parse(raw).assets, ['logo.svg', 'assets/images/team.png']);
+    assert.deepEqual(JSON.parse(raw).assets, ['logo.svg', 'assets/images/team.png', 'favicon.png']);
     assert.ok(raw.includes('\r\n'), 'CRLF kept');
     assert.deepEqual(addManifestAssets(dir, referencedImages(dir)), [], 'nothing twice');
   });

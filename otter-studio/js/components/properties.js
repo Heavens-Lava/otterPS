@@ -279,6 +279,12 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
     const fields = [];
     if (selected.kind === 'window') {
       fields.push(contentRow(uiModel.rootKind === 'page' ? 'Page title' : 'Window title', 'title', props.title));
+      if (uiModel.rootKind === 'page') {
+        // What a search result and a shared link show, and the browser tab's icon.
+        fields.push(contentRow('Description', 'description', props.description, { placeholder: 'One sentence for search results and shared links' }));
+        fields.push(contentRow('Icon', 'icon', props.icon, { placeholder: 'assets/images/icon.png', list: 'otterPageIcons' }));
+        fields.push(projectImagesList('otterPageIcons'));
+      }
     }
     if (props.text !== undefined || ['button', 'primary button', 'danger button', 'text', 'heading', 'checkbox', 'link', 'badge', 'toggle', 'radio'].includes(selected.kind)) {
       fields.push(contentRow('Text', 'text', props.text));
@@ -340,6 +346,18 @@ export function renderProperties(containerEl, uiModel, cssAstManager, styleContr
       .map(c => '#' + c.name);
     const options = [...new Set(['index.html', ...pages, ...sections])];
     return `<datalist id="otterLinkTargets">${options.map(o => `<option value="${escapeHtml(o)}"></option>`).join('')}</datalist>`;
+  }
+
+  // The project's images, as paths from the project folder.
+  function projectImagesList(id) {
+    const ide = window.otterIde;
+    const root = String(ide?.currentProjectFolder || '').replace(/\\/g, '/').replace(/\/+$/, '');
+    const images = (ide?.workspaceFiles || [])
+      .map(f => String(f.path || f).replace(/\\/g, '/'))
+      .filter(p => root && p.startsWith(root + '/') && /\.(png|jpe?g|gif|webp|svg|ico)$/i.test(p))
+      .map(p => p.slice(root.length + 1))
+      .filter(p => !/^(dist|publish|node_modules)\//i.test(p));
+    return `<datalist id="${id}">${images.map(o => `<option value="${escapeHtml(o)}"></option>`).join('')}</datalist>`;
   }
 
   function contentRow(label, key, value, { placeholder = '', number = false, list = '' } = {}) {

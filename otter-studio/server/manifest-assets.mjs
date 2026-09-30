@@ -13,7 +13,7 @@ import path from 'node:path';
 
 const MANIFESTS = ['otter.json', 'project.json'];
 const IMAGE = /\.(png|jpe?g|gif|webp|svg|ico|bmp|avif)$/i;
-const SKIP_DIRS = new Set(['node_modules', 'dist', 'dist-electron', 'packages', '.git']);
+const SKIP_DIRS = new Set(['node_modules', 'dist', 'dist-electron', 'packages', 'publish', '.git']);
 
 export function manifestPathFor(projectDir) {
   for (const name of MANIFESTS) {
@@ -68,7 +68,8 @@ export function referencedImages(projectDir) {
       }
       if (!entry.isFile() || !/\.ot$/i.test(entry.name)) continue;
       const text = fs.readFileSync(abs, 'utf8');
-      for (const match of text.matchAll(/\bsource\s+"([^"]+)"/g)) {
+      // An image's source, and a page's icon.
+      for (const match of text.matchAll(/\b(?:source|icon)\s+"([^"]+)"/g)) {
         const src = match[1];
         if (/^[a-z][a-z0-9+.-]*:/i.test(src) || src.startsWith('/') || !IMAGE.test(src)) continue;
         const target = path.resolve(dir, src);

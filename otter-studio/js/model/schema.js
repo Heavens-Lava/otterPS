@@ -24,8 +24,8 @@ export const ComponentSchema = {
       padding: 16,
       spacing: 12
     },
-    // hideheader and maxwidth apply to a page (`app is a page`).
-    allowedProperties: ['title', 'width', 'height', 'maxwidth', 'hideheader', 'background', 'foreground', 'padding', 'spacing'],
+    // hideheader, maxwidth, description and icon apply to a page (`app is a page`).
+    allowedProperties: ['title', 'description', 'icon', 'width', 'height', 'maxwidth', 'hideheader', 'background', 'foreground', 'padding', 'spacing'],
     events: ['closed']
   },
 
