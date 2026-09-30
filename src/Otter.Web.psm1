@@ -55,6 +55,23 @@ function Get-OtterErrorColor {
     return '#b91c1c'
 }
 
+# The colours cards, inputs and borders get when a program does not give its
+# own: a dark app's by default, a light set on a light page (background
+# "#ffffff") - otherwise a card or text box made while the page runs was dark
+# navy on a white page, with the page's dark text on it.
+function Get-OtterSurfacePalette {
+    param([string]$Background)
+    $palette = @{ CardBg = '#1e293b'; Muted = '#94a3b8'; InputBg = '#0f172a'; Border = '#334155'; Shadow = '0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3)' }
+    $hex = "$Background".Trim().TrimStart('#')
+    if ($hex.Length -eq 3) { $hex = ($hex.ToCharArray() | ForEach-Object { "$_$_" }) -join '' }
+    if ($hex -notmatch '^[0-9a-fA-F]{6}$') { return $palette }
+    $r = [Convert]::ToInt32($hex.Substring(0, 2), 16)
+    $g = [Convert]::ToInt32($hex.Substring(2, 2), 16)
+    $b = [Convert]::ToInt32($hex.Substring(4, 2), 16)
+    if ((0.2126 * $r + 0.7152 * $g + 0.0722 * $b) / 255 -lt 0.6) { return $palette }
+    return @{ CardBg = '#ffffff'; Muted = '#64748b'; InputBg = '#ffffff'; Border = '#cbd5e1'; Shadow = '0 1px 2px rgba(15, 23, 42, 0.06), 0 4px 12px -2px rgba(15, 23, 42, 0.08)' }
+}
+
 function ConvertTo-OtterCssEasing {
     param([string]$Easing)
     switch ($Easing) {
@@ -1862,6 +1879,7 @@ $bodyJoined
 '@
     }
 
+    $surface = Get-OtterSurfacePalette -Background $rootBg
     # The title is final here (a window's label can name the app, above).
     $titleHtml = Escape-OtterHtmlAttr -Text $appTitle
     if ($pageMeta.Count -gt 0 -and $pageMeta[0] -like '*name="description"*') {
@@ -1882,13 +1900,14 @@ $bodyJoined
   <style>
     :root {
       --otter-bg: $rootBg;
-      --otter-card-bg: #1e293b;
+      --otter-card-bg: $($surface.CardBg);
       --otter-text: $rootFg;
-      --otter-text-muted: #94a3b8;
+      --otter-text-muted: $($surface.Muted);
       --otter-primary: #2563eb;
       --otter-primary-hover: #1d4ed8;
-      --otter-input-bg: #0f172a;
-      --otter-border: #334155;
+      --otter-input-bg: $($surface.InputBg);
+      --otter-border: $($surface.Border);
+      --otter-card-shadow: $($surface.Shadow);
     }
     *, *::before, *::after { box-sizing: border-box; }
     * { margin: 0; padding: 0; }
@@ -1969,7 +1988,7 @@ $formCss
       border: 1px solid var(--otter-border);
       border-radius: 12px;
       padding: 24px;
-      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+      box-shadow: var(--otter-card-shadow);
       display: flex;
       flex-direction: column;
       box-sizing: border-box;

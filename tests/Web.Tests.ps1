@@ -1167,6 +1167,19 @@ $noFormHtml = ConvertTo-OtterWeb -Program (ConvertTo-OtterAst -Tokens (ConvertTo
 if ($noFormHtml -match 'function otterSendForm|data-otter-field|otter-field-error \{') { throw 'A program without forms or field rules must not get the forms runtime.' }
 Write-Output '  pass  a form checks its fields: rules on the fields, labels and messages, "sent"'
 
+# Test 36: a light page gets light cards, inputs and borders by default (a
+# card made while the page runs was dark navy on white, with dark text on it);
+# a dark app keeps the dark set.
+$lightHtml = ConvertTo-OtterWeb -Program (ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source "app is a page with title `"L`", background `"#ffffff`", foreground `"#0f172a`"`nshow app`n"))
+foreach ($expected in @('--otter-card-bg: #ffffff;', '--otter-input-bg: #ffffff;', '--otter-border: #cbd5e1;')) {
+    if (-not $lightHtml.Contains($expected)) { throw "Expected a light page to have $expected" }
+}
+$darkHtml = ConvertTo-OtterWeb -Program (ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source "app is a page with title `"D`"`nshow app`n"))
+foreach ($expected in @('--otter-card-bg: #1e293b;', '--otter-input-bg: #0f172a;', '--otter-border: #334155;')) {
+    if (-not $darkHtml.Contains($expected)) { throw "Expected the default (dark) page to keep $expected" }
+}
+Write-Output '  pass  a light page gets light cards and inputs; a dark app keeps its own'
+
 Write-Output 'Web compiler tests passed.'
 
 
