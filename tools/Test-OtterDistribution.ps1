@@ -82,6 +82,17 @@ try {
         Invoke-InstalledOtter -Arguments @('run', 'file_json_command.ot') -ExpectedText 'command-ok'
         Invoke-InstalledOtter -Arguments @('run', 'date_math.ot') -ExpectedText '1'
         Invoke-InstalledOtter -Arguments @('web', 'web_hello.ot', '-NoOpen') -ExpectedText 'compiled to:'
+
+        # The public project workflow, from the installed payload (not the
+        # source checkout): new, check, test, run, build and publish.
+        $project = Join-Path $programs 'InstalledSmoke'
+        Invoke-InstalledOtter -Arguments @('new', 'console', 'InstalledSmoke')
+        if (-not (Test-Path -LiteralPath (Join-Path $project 'main.ot'))) { throw "otter new did not create $project/main.ot" }
+        Invoke-InstalledOtter -Arguments @('check', $project)
+        Invoke-InstalledOtter -Arguments @('test', $project)
+        Invoke-InstalledOtter -Arguments @('run', (Join-Path $project 'main.ot'))
+        Invoke-InstalledOtter -Arguments @('build', $project)
+        Invoke-InstalledOtter -Arguments @('publish', $project)
     }
     finally { Pop-Location }
 

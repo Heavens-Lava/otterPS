@@ -29,6 +29,7 @@ if (Test-Path -LiteralPath $tempDir) {
     Remove-Item -LiteralPath $tempDir -Recurse -Force
 }
 New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
+$startHandles = [System.Diagnostics.Process]::GetCurrentProcess().HandleCount
 
 function Get-MemorySnapshot {
     [System.GC]::Collect()
@@ -159,6 +160,7 @@ Run-SoakWorkload "3. Web Compile 200x" 200 {
 $ioSourceTemplate = @"
 write "cycle {0}" to "scratch\soak_temp\cycle_{0}.txt"
 read "scratch\soak_temp\cycle_{0}.txt" into content
+delete file "scratch\soak_temp\cycle_{0}.txt"
 "@
 
 Run-SoakWorkload "4. File Read/Write 500x" 500 {
@@ -231,6 +233,14 @@ Run-SoakWorkload "8. Failures & Diagnostics 500x" 500 {
     } catch {}
 }
 
+# Measured leak checks, before cleaning up: files the workloads left behind,
+# child processes still running, and this process's handle count.
+$leftFiles = @(Get-ChildItem -LiteralPath $tempDir -Recurse -File -ErrorAction SilentlyContinue)
+$children = @(Get-CimInstance -ClassName Win32_Process -Filter "ParentProcessId=$PID" -ErrorAction SilentlyContinue | Where-Object { $_.Name -ne 'conhost.exe' })
+[System.GC]::Collect(); [System.GC]::WaitForPendingFinalizers(); [System.GC]::Collect()
+$endProc = [System.Diagnostics.Process]::GetCurrentProcess(); $endProc.Refresh()
+$endHandles = $endProc.HandleCount
+
 # Cleanup temp files
 Remove-Item -LiteralPath $tempDir -Recurse -Force -ErrorAction SilentlyContinue
 
@@ -251,14 +261,12 @@ foreach ($res in $soakResults) {
     $reportLines.Add("| $($res.Workload) | $($res.Iterations) | $($res.StartPrivateMB) | $($res.MidPrivateMB) | $($res.EndPrivateMB) | $($res.DeltaPrivateMB) | $($res.MidToEndDeltaMB) | **$($res.Status)** | $($res.ElapsedSec)s |")
 }
 $reportLines.Add('')
-$reportLines.Add('## Resource Leak Inspection')
-$reportLines.Add('- **AST References**: Garbage collected normally across parse cycles.')
-$reportLines.Add('- **Call Stacks**: Scopes and Otter call frames are destroyed upon function return.')
-$reportLines.Add('- **Global Interpreter State**: Cleared with each fresh `New-OtterEnvironment`.')
-$reportLines.Add('- **Temporary Files**: Cleaned up with 0 orphaned files.')
-$reportLines.Add('- **Child Processes**: Exited cleanly with 0 zombie processes.')
-$reportLines.Add('- **File Handles**: Released upon statement completion.')
-$reportLines.Add('- **Generated Web Artifacts**: String outputs collected without persistent DOM state.')
+$reportLines.Add('Status: STABLE means private memory grew by at most 25 MB between the middle and the end of the workload; INVESTIGATE otherwise.')
+$reportLines.Add('')
+$reportLines.Add('## Measured leak checks')
+$reportLines.Add("- **Files left in the soak folder by the workloads**: $($leftFiles.Count)")
+$reportLines.Add("- **Child processes still running after the workloads**: $($children.Count)$(if ($children.Count) { ' (' + (($children | ForEach-Object { $_.Name }) -join ', ') + ')' })")
+$reportLines.Add("- **Handles held by this process**: $startHandles before, $endHandles after (change $($endHandles - $startHandles))")
 
 Set-Content -LiteralPath $soakReportPath -Value ($reportLines -join "`r`n") -Encoding utf8
 Write-Host "`nSoak report generated at: docs/RESOURCE_SOAK_RESULTS.md" -ForegroundColor Green
