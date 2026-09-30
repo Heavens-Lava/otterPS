@@ -575,6 +575,7 @@ function Show-OtterHelp {
     Write-Host '  otter test [target]    Run tests in an Otter project or test file'
     Write-Host '  otter profile <file.ot> Run a program and report which functions and lines took the time'
     Write-Host '  otter web <file.ot>    Compile an Otter web application to HTML/JS'
+    Write-Host '  otter serve <file.ot> [-Port N] Run an Otter web server program'
     Write-Host '  otter desktop <file.ot> Run an Otter Desktop app with system bridge'
     Write-Host '  otter help             Show this help'
     Write-Host '  otter --help           Show this help'
