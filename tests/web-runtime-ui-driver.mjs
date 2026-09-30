@@ -75,6 +75,11 @@ const scenarios = {
       await new Promise(r => setTimeout(r, 30));
       return { errors: window.__otterErrors };
     });
+  },
+  // Files in a plain browser tab: each operation is caught by try/otherwise.
+  async fileErrors(page) {
+    await page.waitForTimeout(300);
+    return page.evaluate(() => ({ results: document.getElementById('results').textContent }));
   }
 };
 

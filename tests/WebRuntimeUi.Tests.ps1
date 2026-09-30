@@ -117,11 +117,49 @@ put uiSample, thingSample in app
 show app
 '@
 
+# Files in a plain browser tab (no desktop bridge): read, write and listing
+# are errors that try/otherwise catches. They used to answer "", false and an
+# empty list, so a program carried on as if the file were empty.
+$fileErrorsSource = @'
+create page into app
+create text into results
+results has text ""
+put results in app
+report is ""
+try
+    read "notes.txt" into content
+    report is report plus "read gave [" plus content plus "] "
+otherwise
+    report is report plus "read failed "
+.
+try
+    write "hello" to "notes.txt"
+    report is report plus "write done "
+otherwise
+    report is report plus "write failed "
+.
+try
+    get files in "." into names
+    report is report plus "files gave " plus length of names plus " "
+otherwise
+    report is report plus "files failed "
+.
+try
+    get folders in "." into names
+    report is report plus "folders gave " plus length of names
+otherwise
+    report is report plus "folders failed"
+.
+results has text report
+show app
+'@
+
 try {
     $tasksHtml = Export-OtterWebApplication -SourcePath (Join-Path $script:RepoRoot 'examples\v1\tasks.ot') -OutputPath (Join-Path $script:Tmp 'tasks.html') -PassThruExceptions
     $boardHtml = Build-OtterWebPage -Name 'board' -Source $boardSource
     $putErrorHtml = Build-OtterWebPage -Name 'puterror' -Source $putErrorSource
     $samplesHtml = Build-OtterWebPage -Name 'samples' -Source $samplesSource
+    $fileErrorsHtml = Build-OtterWebPage -Name 'fileerrors' -Source $fileErrorsSource
 
     Test-Otter 'D128 compile: a handler that creates UI compiles to runtime creation, not a dropped statement' {
         $html = [System.IO.File]::ReadAllText($tasksHtml)
@@ -203,6 +241,11 @@ try {
         Test-Otter 'D128 browser: putting a non-UI value somewhere is the interpreter''s error, not silence' {
             $r = Invoke-OtterWebScenario -Html $putErrorHtml -Scenario 'putError'
             Assert-True (@($r.errors) -contains 'I can only put a UI resource somewhere, but this is a number.') "got: $(@($r.errors) -join ' | ')"
+        }
+
+        Test-Otter 'browser files: read, write, get files and get folders without the desktop application are errors try/otherwise catches, not empty answers' {
+            $r = Invoke-OtterWebScenario -Html $fileErrorsHtml -Scenario 'fileErrors'
+            Assert-AreEqual -Expected 'read failed write failed files failed folders failed' -Actual $r.results.Trim()
         }
     }
 }
