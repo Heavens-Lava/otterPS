@@ -1,0 +1,17 @@
+# Benchmark: desktop UI construction (Windows)
+# Workload: a window with a column of 100 buttons, each with text and a click
+# handler. Measures creating, configuring and placing controls; the window is
+# never shown.
+
+create window into app
+create column into list
+put list in app
+count from 1 to 100 as n
+    create button into b
+    text of b is n
+    put b in list
+    when b clicked
+        say n
+    .
+.
+say "ui controls" 100

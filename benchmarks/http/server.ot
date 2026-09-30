@@ -1,0 +1,12 @@
+# Benchmark support: the web server the HTTP benchmark talks to.
+# Started by tools/Invoke-OtterBenchmarks.ps1 -Http with `otter serve`; it is
+# not a benchmark itself. Port 47392.
+
+api is a web server
+    port is 47392
+    host is "localhost"
+.
+
+when api receives GET at "/ping"
+    respond with "pong"
+.
