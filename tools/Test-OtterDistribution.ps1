@@ -93,6 +93,17 @@ try {
         Invoke-InstalledOtter -Arguments @('run', (Join-Path $project 'main.ot'))
         Invoke-InstalledOtter -Arguments @('build', $project)
         Invoke-InstalledOtter -Arguments @('publish', $project)
+        if (-not $onWindows) {
+            # The built app's own launcher (dist/run) runs it through the
+            # installed otter on PATH, as it would for a user.
+            $savedPath = $env:PATH
+            $env:PATH = "$($script:installed):$env:PATH"
+            try {
+                $appOut = (& sh (Join-Path $project 'dist/run') 2>&1) -join "`n"
+                if ($LASTEXITCODE -ne 0) { throw "The built app's run launcher failed: $appOut" }
+            }
+            finally { $env:PATH = $savedPath }
+        }
     }
     finally { Pop-Location }
 

@@ -35,6 +35,7 @@ try {
     if (-not (Test-Path -LiteralPath (Join-Path $cDir 'publish/ConsolePubApp-0.1.0/main.ot') -PathType Leaf)) { throw "Test 2 failed: Missing main.ot in console package" }
     if (-not (Test-Path -LiteralPath (Join-Path $cDir 'publish/ConsolePubApp-0.1.0/otter.json') -PathType Leaf)) { throw "Test 2 failed: Missing otter.json in console package" }
     if (-not (Test-Path -LiteralPath (Join-Path $cDir 'publish/ConsolePubApp-0.1.0/run.cmd') -PathType Leaf)) { throw "Test 2 failed: Missing run.cmd in console package" }
+    if (-not (Test-Path -LiteralPath (Join-Path $cDir 'publish/ConsolePubApp-0.1.0/run') -PathType Leaf)) { throw "Test 2 failed: Missing the macOS/Linux run launcher in console package" }
     $cMeta = Get-Content -LiteralPath (Join-Path $cDir 'publish/otter.publish.json') -Raw | ConvertFrom-Json
     if ($cMeta.runtimeRequirements -notmatch 'Otter runtime') { throw "Test 2 failed: Expected runtime requirement to mention Otter runtime. Got: $($cMeta.runtimeRequirements)" }
     Write-Output '  pass  console publish packages runnable source, manifest, and launcher'
@@ -64,6 +65,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "Test 5 failed: otter publish AutoPubApp exited with $LASTEXITCODE. Output: $aPubOut" }
     if (-not (Test-Path -LiteralPath (Join-Path $aDir 'publish/AutoPubApp-0.1.0/main.ot') -PathType Leaf)) { throw "Test 5 failed: Missing main.ot in auto package" }
     if (-not (Test-Path -LiteralPath (Join-Path $aDir 'publish/AutoPubApp-0.1.0/run.cmd') -PathType Leaf)) { throw "Test 5 failed: Missing run.cmd in auto package" }
+    if (-not (Test-Path -LiteralPath (Join-Path $aDir 'publish/AutoPubApp-0.1.0/run') -PathType Leaf)) { throw "Test 5 failed: Missing the macOS/Linux run launcher in auto package" }
     Write-Output '  pass  automation publish maps to runnable task artifact'
 
     # Test 6: Versioned filename accurately reflects manifest name and version
