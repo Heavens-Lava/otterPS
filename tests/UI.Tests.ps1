@@ -1336,6 +1336,39 @@ Test-Otter 'typing in text box hides watermark and clearing restores watermark' 
     Assert-AreEqual -Expected 'VisualBrush' -Actual $box.Native.Background.GetType().Name
 }
 
+# D130: a handler set up during a loop pass remembers that pass.
+Test-Otter 'D130: buttons made in a for each loop each remember their own pass; shared names stay live' {
+    $res = Invoke-TestProgramWithEnv @(
+        [CreateUiResourceStmt]::new('column', 'holder', 1),
+        [CreateUiResourceStmt]::new('text', 'shown', 2),
+        [AssignStmt]::new('clicks', (Lit 0), 3),
+        [ListDefStmt]::new('numbers', @((Lit 1.0), (Lit 2.0), (Lit 3.0)), 4),
+        [ForEachStmt]::new('n', [VariableExpr]::new('numbers', 5), @(
+            [AssignStmt]::new('label', [MathExpr]::new([VariableExpr]::new('n', 6), [MathOp]::Multiply, (Lit 10.0), 6), 6),
+            [CreateUiResourceStmt]::new('button', 'b', 7),
+            [PutInStmt]::new([VariableExpr]::new('b', 8), [VariableExpr]::new('holder', 8), 8),
+            [WhenStmt]::new([VariableExpr]::new('b', 9), 'clicked', @(
+                [AssignStmt]::new('clicks', [MathExpr]::new([VariableExpr]::new('clicks', 10), [MathOp]::Add, (Lit 1.0), 10), 10),
+                [AssignStmt]::new([PropertyAccessExpr]::new('text', [VariableExpr]::new('shown', 11), 11), [VariableExpr]::new('label', 11), 11)
+            ), 9)
+        ), 5)
+    )
+    $holder = $res.Env.Get('holder')
+    $shown = $res.Env.Get('shown')
+    Assert-AreEqual -Expected 3 -Actual $holder.Native.Children.Count
+    $seen = @()
+    foreach ($child in @($holder.Native.Children)) {
+        $child.RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Button]::ClickEvent))
+        $seen += (Get-OtterUiProperty -Resource $shown -Property 'text')
+    }
+    Assert-Lines -Expected @('10', '20', '30') -Actual $seen
+    # clicks existed before the loop: shared, so every handler updated the one variable.
+    Assert-AreEqual -Expected '3' -Actual "$($res.Env.Get('clicks'))"
+    # After the loop the last pass's values are there, as before D130.
+    Assert-AreEqual -Expected '3' -Actual "$($res.Env.Get('n'))"
+    Assert-AreEqual -Expected '30' -Actual "$($res.Env.Get('label'))"
+}
+
 Test-Otter 'end-to-end Task List dogfood: dynamic child insertion into padded column' {
     $res = Invoke-TestProgramWithEnv @(
         [CreateUiResourceStmt]::new('column', 'taskList', 1),

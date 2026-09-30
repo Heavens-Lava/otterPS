@@ -154,12 +154,54 @@ results has text report
 show app
 '@
 
+# D130: buttons made in a loop - at the top level and in a function - each
+# remember their own pass; a counter that existed before the loop is shared.
+$loopPassSource = @'
+create page into app
+create text into shown
+shown has text "none"
+put shown in app
+create text into tally
+tally has text "0"
+put tally in app
+clicks is 0
+numbers are empty
+add 1 to numbers
+add 2 to numbers
+for each n in numbers
+    label is n times 10
+    create button into b
+    b has text "top"
+    put b in app
+    when b clicked
+        clicks is clicks plus 1
+        text of shown is label
+        text of tally is clicks
+    .
+.
+to build
+    for each k in numbers
+        create button into c
+        c has text "fn"
+        put c in app
+        when c clicked
+            clicks is clicks plus 1
+            text of shown is k plus 100
+            text of tally is clicks
+        .
+    .
+.
+build
+show app
+'@
+
 try {
     $tasksHtml = Export-OtterWebApplication -SourcePath (Join-Path $script:RepoRoot 'examples\v1\tasks.ot') -OutputPath (Join-Path $script:Tmp 'tasks.html') -PassThruExceptions
     $boardHtml = Build-OtterWebPage -Name 'board' -Source $boardSource
     $putErrorHtml = Build-OtterWebPage -Name 'puterror' -Source $putErrorSource
     $samplesHtml = Build-OtterWebPage -Name 'samples' -Source $samplesSource
     $fileErrorsHtml = Build-OtterWebPage -Name 'fileerrors' -Source $fileErrorsSource
+    $loopPassHtml = Build-OtterWebPage -Name 'looppass' -Source $loopPassSource
 
     Test-Otter 'D128 compile: a handler that creates UI compiles to runtime creation, not a dropped statement' {
         $html = [System.IO.File]::ReadAllText($tasksHtml)
@@ -241,6 +283,13 @@ try {
         Test-Otter 'D128 browser: putting a non-UI value somewhere is the interpreter''s error, not silence' {
             $r = Invoke-OtterWebScenario -Html $putErrorHtml -Scenario 'putError'
             Assert-True (@($r.errors) -contains 'I can only put a UI resource somewhere, but this is a number.') "got: $(@($r.errors) -join ' | ')"
+        }
+
+        Test-Otter 'D130 browser: buttons made in a loop (top level and in a function) each remember their pass; a counter from before the loop is shared' {
+            $r = Invoke-OtterWebScenario -Html $loopPassHtml -Scenario 'loopPasses'
+            Assert-Lines -Expected @('10', '20', '101', '102') -Actual @($r.shown)
+            Assert-AreEqual -Expected '4' -Actual $r.tally
+            Assert-AreEqual -Expected 0 -Actual @($r.pageErrors).Count
         }
 
         Test-Otter 'browser files: read, write, get files and get folders without the desktop application are errors try/otherwise catches, not empty answers' {

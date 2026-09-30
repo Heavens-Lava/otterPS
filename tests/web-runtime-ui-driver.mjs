@@ -76,6 +76,17 @@ const scenarios = {
       return { errors: window.__otterErrors };
     });
   },
+  // D130: click every button in page order; what each click showed.
+  async loopPasses(page) {
+    await page.waitForTimeout(200);
+    const shown = [];
+    for (const b of await page.locator('button').all()) {
+      await b.click();
+      await page.waitForTimeout(50);
+      shown.push(await page.evaluate(() => document.getElementById('shown').textContent.trim()));
+    }
+    return { shown, tally: await page.evaluate(() => document.getElementById('tally').textContent.trim()) };
+  },
   // Files in a plain browser tab: each operation is caught by try/otherwise.
   async fileErrors(page) {
     await page.waitForTimeout(300);

@@ -1,4 +1,5 @@
 using module ..\Otter.Contract.psm1
+using module .\Otter.LoopPasses.psm1
 
 # Otter.Compiler.JavaScript.psm1
 #
@@ -1414,7 +1415,44 @@ function Get-OtterJsUiRefForNode {
     return (ConvertTo-OtterJsExpression -Expr $Node)
 }
 
+# D130: a handler set up during a loop pass remembers that pass. The names
+# that belong to each loop's passes come from Get-OtterLoopPassNames (shared
+# with the interpreter); while a loop body compiles, its names are on this
+# stack, and a `when` compiled there is wrapped in a closure that takes those
+# names' current values as parameters.
+$script:OtterJsLoopPassNames = @{}
+$script:OtterJsLoopPassStack = [System.Collections.Generic.List[object]]::new()
+
+function Set-OtterJsLoopPassNames {
+    param([Node[]]$Statements)
+    $script:OtterJsLoopPassStack.Clear()
+    try { $script:OtterJsLoopPassNames = Get-OtterLoopPassNames -Statements $Statements }
+    catch { $script:OtterJsLoopPassNames = @{} }
+}
+
 function ConvertTo-OtterJsStatement {
+    param(
+        [Parameter(Mandatory)][Node]$Stmt,
+        [int]$Indent = 2,
+        [System.Collections.Generic.HashSet[string]]$LocalNames = $null,
+        [System.Collections.Generic.HashSet[string]]$KnownGlobals = $null,
+        [switch]$SkipRuntimeUi
+    )
+    $passNames = if (Test-OtterLoopStatement $Stmt) { $script:OtterJsLoopPassNames[$Stmt] } else { $null }
+    $pushed = $false
+    if ($null -ne $passNames -and $passNames.Count -gt 0) {
+        $script:OtterJsLoopPassStack.Add($passNames)
+        $pushed = $true
+    }
+    try {
+        return (ConvertTo-OtterJsStatementCore @PSBoundParameters)
+    }
+    finally {
+        if ($pushed) { $script:OtterJsLoopPassStack.RemoveAt($script:OtterJsLoopPassStack.Count - 1) }
+    }
+}
+
+function ConvertTo-OtterJsStatementCore {
     param(
         [Parameter(Mandatory)][Node]$Stmt,
         [int]$Indent = 2,
@@ -3963,7 +4001,21 @@ function ConvertTo-OtterJsStatement {
             foreach ($b in @($Stmt.Body)) {
                 $bodyLines.Add((ConvertTo-OtterJsStatement -Stmt $b -Indent ($Indent + 1) -LocalNames $LocalNames -KnownGlobals $KnownGlobals))
             }
-            return "${pad}otterOnUi($targetRef, '$eventName', async (event) => {`n$($bodyLines -join "`n")`n${pad}});"
+            $registration = "${pad}otterOnUi($targetRef, '$eventName', async (event) => {`n$($bodyLines -join "`n")`n${pad}});"
+            # D130: inside a loop, the handler keeps this pass's values. In a
+            # function only its real locals are captured; a name that updates
+            # a global stays shared, as in the interpreter.
+            $captured = [System.Collections.Generic.SortedSet[string]]::new([System.StringComparer]::Ordinal)
+            foreach ($set in $script:OtterJsLoopPassStack) {
+                foreach ($n in $set) {
+                    if ($null -ne $LocalNames -and -not $LocalNames.Contains($n)) { continue }
+                    if ($n -match '^[A-Za-z_][A-Za-z0-9_]*$') { [void]$captured.Add($n) }
+                }
+            }
+            if ($captured.Count -eq 0) { return $registration }
+            $params = @($captured) -join ', '
+            $argList = @($captured | ForEach-Object { "typeof $_ === 'undefined' ? undefined : $_" }) -join ', '
+            return "${pad}(($params) => {`n$registration`n${pad}})($argList);"
         }
         # D56: not part of Otter 1.0 - the interpreter's own messages.
         ([NodeKind]::MemoDef) { throw [OtterError]::new("'memo' is not supported in Otter 1.0.", $Stmt.Line, 'runtime') }
@@ -4453,4 +4505,4 @@ Export-ModuleMember -Function `
     ConvertTo-OtterJsExpression, ConvertTo-OtterJsStatement, `
     Get-OtterJsBindingNames, Get-OtterJsTopLevelGlobalNames, `
     ConvertTo-OtterCommandLineArguments, Get-OtterJsCliPreamble, `
-    Get-OtterJsCryptoRuntime, Set-OtterJsRuntimeUiNames, Get-OtterJsRuntimeUiNames
+    Get-OtterJsCryptoRuntime, Set-OtterJsRuntimeUiNames, Get-OtterJsRuntimeUiNames, Set-OtterJsLoopPassNames

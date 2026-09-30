@@ -719,6 +719,7 @@ function ConvertTo-OtterWeb {
 
     $runtimeUi = Get-OtterWebRuntimeUiInfo -Statements $Program.Statements
     Set-OtterJsRuntimeUiNames -Names @($runtimeUi.Names)
+    Set-OtterJsLoopPassNames -Statements $Program.Statements
 
     # Pass 1: Identify resources and configurations
     foreach ($stmt in $Program.Statements) {

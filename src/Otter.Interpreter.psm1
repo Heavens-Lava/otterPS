@@ -1,5 +1,6 @@
 using module ..\Otter.Contract.psm1
 using module .\Otter.Runtime.psm1
+using module .\Otter.LoopPasses.psm1
 using module .\Otter.Library.psm1
 using module .\Otter.UI.psm1
 using module .\Otter.Database.psm1
@@ -1223,6 +1224,53 @@ function Assert-OtterStringKey {
 
 
 # ===============================================================
+# LOOP PASSES (D130)
+# ===============================================================
+# Each pass of a loop runs in its own small scope holding the names that
+# belong to the pass (the loop variable, and names set only inside the loop),
+# so a handler set up during a pass remembers that pass's values. A pass
+# starts with the previous pass's values, so a body can still read what the
+# last pass left; after the loop the last pass's values are copied back, so
+# code after the loop sees them as before. Every other name - including one
+# that lives outside this function - is shared and read live.
+$script:OtterLoopPassNames = @{}
+
+function New-OtterLoopPass {
+    param([Node]$Loop, [OtterEnvironment]$Environment, [OtterEnvironment]$Previous)
+    $names = $script:OtterLoopPassNames[$Loop]
+    if ($null -eq $names -or $names.Count -eq 0) { return @{ Env = $Environment; Names = $null } }
+    $pass = [OtterEnvironment]::new($Environment)
+    $own = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+    foreach ($n in $names) {
+        if ($null -ne $Previous -and $Previous.Variables.ContainsKey($n)) {
+            $pass.Variables[$n] = $Previous.Variables[$n]; [void]$own.Add($n)
+        } elseif ($Environment.Variables.ContainsKey($n)) {
+            # Left by an earlier run of this loop in the same scope.
+            $pass.Variables[$n] = $Environment.Variables[$n]; [void]$own.Add($n)
+        } elseif (-not $Environment.Has($n)) {
+            [void]$own.Add($n)
+        }
+        # else: it lives outside this scope (a global, seen from a function):
+        # shared, so assignments keep reaching it.
+    }
+    return @{ Env = $pass; Names = $own }
+}
+
+function Set-OtterLoopVariable {
+    param($Pass, [OtterEnvironment]$Environment, [string]$Name, $Value)
+    if ($null -ne $Pass.Names -and $Pass.Names.Contains($Name)) { $Pass.Env.SetLocal($Name, $Value) }
+    else { $Environment.SetLocal($Name, $Value) }
+}
+
+function Complete-OtterLoopPasses {
+    param([OtterEnvironment]$Environment, $Last)
+    if ($null -eq $Last -or $null -eq $Last.Names) { return }
+    foreach ($k in @($Last.Env.Variables.Keys)) {
+        $Environment.SetLocal($k, $Last.Env.Variables[$k])
+    }
+}
+
+# ===============================================================
 # ENTRY POINT
 # ===============================================================
 
@@ -1254,6 +1302,10 @@ function Invoke-OtterProgram {
     $script:OtterActiveHttpRequests = [System.Collections.Generic.List[OtterHttpRequest]]::new()
     $script:OtterActiveCommandJobs = [System.Collections.Generic.List[OtterCommandJob]]::new()
     $script:OtterCurrentJobContext = $null
+
+    # D130: which names belong to each loop pass (see Otter.Runtime.psm1).
+    try { $script:OtterLoopPassNames = Get-OtterLoopPassNames -Statements $Program.Statements }
+    catch { $script:OtterLoopPassNames = @{} }
 
     try {
         Invoke-OtterStatements -Statements $Program.Statements -Environment $Environment
@@ -1761,11 +1813,18 @@ function Invoke-OtterStatement {
 
         # while number is less than 5
         'While' {
-            while ($true) {
-                $test = Get-OtterValue -Expression $Statement.Condition -Environment $Environment
-                if (-not (Test-OtterTruthy -Value $test)) { break }
-                Invoke-OtterStatements -Statements $Statement.Body -Environment $Environment
+            $last = $null
+            try {
+                while ($true) {
+                    # The condition sees what the last pass set (D130).
+                    $condEnv = if ($null -ne $last) { $last.Env } else { $Environment }
+                    $test = Get-OtterValue -Expression $Statement.Condition -Environment $condEnv
+                    if (-not (Test-OtterTruthy -Value $test)) { break }
+                    $last = New-OtterLoopPass -Loop $Statement -Environment $Environment -Previous $(if ($null -ne $last) { $last.Env } else { $null })
+                    Invoke-OtterStatements -Statements $Statement.Body -Environment $last.Env
+                }
             }
+            finally { Complete-OtterLoopPasses -Environment $Environment -Last $last }
             return
         }
 
@@ -1774,9 +1833,14 @@ function Invoke-OtterStatement {
             $raw = Get-OtterValue -Expression $Statement.Count -Environment $Environment
             $count = Assert-OtterNumber -Value $raw -Line $Statement.Line -What 'the number of repeats'
             $whole = [int][Math]::Floor($count)
-            for ($i = 0; $i -lt $whole; $i++) {
-                Invoke-OtterStatements -Statements $Statement.Body -Environment $Environment
+            $last = $null
+            try {
+                for ($i = 0; $i -lt $whole; $i++) {
+                    $last = New-OtterLoopPass -Loop $Statement -Environment $Environment -Previous $(if ($null -ne $last) { $last.Env } else { $null })
+                    Invoke-OtterStatements -Statements $Statement.Body -Environment $last.Env
+                }
             }
+            finally { Complete-OtterLoopPasses -Environment $Environment -Last $last }
             return
         }
 
@@ -1789,10 +1853,15 @@ function Invoke-OtterStatement {
 
             # "count from 10 to 1" reads as counting down, so it counts down.
             $step = if ($from -le $to) { 1 } else { -1 }
-            for ($n = $from; ($step -gt 0 -and $n -le $to) -or ($step -lt 0 -and $n -ge $to); $n += $step) {
-                $Environment.SetLocal($Statement.VariableName, [double]$n)
-                Invoke-OtterStatements -Statements $Statement.Body -Environment $Environment
+            $last = $null
+            try {
+                for ($n = $from; ($step -gt 0 -and $n -le $to) -or ($step -lt 0 -and $n -ge $to); $n += $step) {
+                    $last = New-OtterLoopPass -Loop $Statement -Environment $Environment -Previous $(if ($null -ne $last) { $last.Env } else { $null })
+                    Set-OtterLoopVariable -Pass $last -Environment $Environment -Name $Statement.VariableName -Value ([double]$n)
+                    Invoke-OtterStatements -Statements $Statement.Body -Environment $last.Env
+                }
             }
+            finally { Complete-OtterLoopPasses -Environment $Environment -Last $last }
             return
         }
 
@@ -1808,10 +1877,15 @@ function Invoke-OtterStatement {
             # .ToArray(), not @($collection) - the array subexpression operator
             # throws "Argument types do not match" on a generic List in PS 5.1.
             $snapshot = $collection.ToArray()
-            foreach ($item in $snapshot) {
-                $Environment.SetLocal($Statement.VariableName, $item)
-                Invoke-OtterStatements -Statements $Statement.Body -Environment $Environment
+            $last = $null
+            try {
+                foreach ($item in $snapshot) {
+                    $last = New-OtterLoopPass -Loop $Statement -Environment $Environment -Previous $(if ($null -ne $last) { $last.Env } else { $null })
+                    Set-OtterLoopVariable -Pass $last -Environment $Environment -Name $Statement.VariableName -Value $item
+                    Invoke-OtterStatements -Statements $Statement.Body -Environment $last.Env
+                }
             }
+            finally { Complete-OtterLoopPasses -Environment $Environment -Last $last }
             return
         }
 
