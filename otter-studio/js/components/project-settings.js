@@ -162,52 +162,8 @@ export function renderProjectSettings(container, options = {}) {
             </div>
           </section>
 
-          <!-- Card 3: Permissions -->
-          <section class="settings-card">
-            <div class="settings-card-header">
-              <span class="card-icon">🔒</span>
-              <h2>Security &amp; Permissions</h2>
-            </div>
-            <div class="settings-card-body">
-              <div class="toggle-list">
-                <label class="toggle-item">
-                  <input type="checkbox" id="permFilesystem" ${manifest.permissions?.filesystem !== false ? 'checked' : ''} />
-                  <span class="toggle-switch"></span>
-                  <div class="toggle-copy">
-                    <strong>Filesystem Access</strong>
-                    <span>Allows reading and writing local files within workspace bounds</span>
-                  </div>
-                </label>
-
-                <label class="toggle-item">
-                  <input type="checkbox" id="permNetwork" ${manifest.permissions?.network ? 'checked' : ''} />
-                  <span class="toggle-switch"></span>
-                  <div class="toggle-copy">
-                    <strong>Network Access</strong>
-                    <span>Enables outbound HTTP requests, web sockets, and APIs</span>
-                  </div>
-                </label>
-
-                <label class="toggle-item">
-                  <input type="checkbox" id="permClipboard" ${manifest.permissions?.clipboard !== false ? 'checked' : ''} />
-                  <span class="toggle-switch"></span>
-                  <div class="toggle-copy">
-                    <strong>System Clipboard</strong>
-                    <span>Permits copying and pasting text through Otter clipboard APIs</span>
-                  </div>
-                </label>
-
-                <label class="toggle-item">
-                  <input type="checkbox" id="permProcess" ${manifest.permissions?.process ? 'checked' : ''} />
-                  <span class="toggle-switch"></span>
-                  <div class="toggle-copy">
-                    <strong>Process Execution</strong>
-                    <span>Permits launching child processes and external commands</span>
-                  </div>
-                </label>
-              </div>
-            </div>
-          </section>
+          <!-- No permissions card: nothing in Otter reads manifest.permissions,
+               so its switches did nothing (removed 2026-09-30, Jeff). -->
 
           <!-- Card 4: Dependencies -->
           <section class="settings-card">
@@ -433,34 +389,6 @@ export function renderProjectSettings(container, options = {}) {
       notifyChange();
     });
 
-    // Permissions
-    const permFs = container.querySelector('#permFilesystem');
-    permFs?.addEventListener('change', () => {
-      if (!manifest.permissions) manifest.permissions = {};
-      manifest.permissions.filesystem = permFs.checked;
-      notifyChange();
-    });
-
-    const permNet = container.querySelector('#permNetwork');
-    permNet?.addEventListener('change', () => {
-      if (!manifest.permissions) manifest.permissions = {};
-      manifest.permissions.network = permNet.checked;
-      notifyChange();
-    });
-
-    const permClip = container.querySelector('#permClipboard');
-    permClip?.addEventListener('change', () => {
-      if (!manifest.permissions) manifest.permissions = {};
-      manifest.permissions.clipboard = permClip.checked;
-      notifyChange();
-    });
-
-    const permProc = container.querySelector('#permProcess');
-    permProc?.addEventListener('change', () => {
-      if (!manifest.permissions) manifest.permissions = {};
-      manifest.permissions.process = permProc.checked;
-      notifyChange();
-    });
 
     // Add dependency
     container.querySelector('#btnAddDependency')?.addEventListener('click', () => {
