@@ -880,7 +880,9 @@ $optHtml
                 $rawText = if ($props.Contains('text')) { [string]$props['text'] } else { "" }
                 $text = Escape-OtterHtmlAttr -Text $rawText
                 $checked = if ($props.Contains('checked') -and ($props['checked'] -eq $true -or $props['checked'] -eq 'true')) { " checked" } else { "" }
-                return "      <label class=`"otter-toggle-label`"$styleAttr><input type=`"checkbox`" id=`"$resName`" class=`"otter-toggle`" role=`"switch`"$checked /><span class=`"otter-toggle-track`"><span class=`"otter-toggle-thumb`"></span></span><span class=`"otter-toggle-text`">$text</span></label>"
+                # As a checkbox: the id is on the label (the control as seen), so a
+                # position or size moves the switch and its text together.
+                return "      <label id=`"$resName`" class=`"otter-toggle-label`"$styleAttr><input type=`"checkbox`" id=`"$resName-box`" class=`"otter-toggle`" role=`"switch`"$checked /><span class=`"otter-toggle-track`"><span class=`"otter-toggle-thumb`"></span></span><span class=`"otter-toggle-text`">$text</span></label>"
             }
             { $_ -in @('radio', 'radio button') } {
                 $rawText = if ($props.Contains('text')) { [string]$props['text'] } else { "" }
@@ -888,7 +890,7 @@ $optHtml
                 $rawGroup = if ($props.Contains('group')) { [string]$props['group'] } elseif ($props.Contains('name')) { [string]$props['name'] } else { "default-group" }
                 $group = Escape-OtterHtmlAttr -Text $rawGroup
                 $checked = if ($props.Contains('checked') -and ($props['checked'] -eq $true -or $props['checked'] -eq 'true')) { " checked" } else { "" }
-                return "      <label class=`"otter-radio-label`"$styleAttr><input type=`"radio`" id=`"$resName`" name=`"$group`" class=`"otter-radio`"$checked /> <span>$text</span></label>"
+                return "      <label id=`"$resName`" class=`"otter-radio-label`"$styleAttr><input type=`"radio`" id=`"$resName-box`" name=`"$group`" class=`"otter-radio`"$checked /> <span>$text</span></label>"
             }
             'row' {
                 $spacing = if ($props.Contains('spacing')) { $props['spacing'] } else { 8 }
@@ -1772,10 +1774,12 @@ $elementsHtml
     const empty = "";
     const gone = null;
     function otterGetElement(id) { return document.getElementById(id); }
-    // The element that holds a control's value: a checkbox's input inside its label.
+    // The element that holds a control's value: the input inside a
+    // checkbox, toggle or radio button's label.
     function otterValueElement(id) {
       const el = otterGetElement(id);
-      return el && el.classList && el.classList.contains('otter-checkbox-label') ? (el.querySelector('input.otter-checkbox') || el) : el;
+      const labelled = el && el.classList && ['otter-checkbox-label', 'otter-toggle-label', 'otter-radio-label'].some(c => el.classList.contains(c));
+      return labelled ? (el.querySelector('input') || el) : el;
     }
 $dragDropRuntimeJs
 $runnableRuntimeJs
@@ -1783,7 +1787,7 @@ $cryptoRuntimeJs
     function otterGetText(id) {
       const el = otterValueElement(id);
       if (!el) return '';
-      if (el.type === 'checkbox') return el.checked;
+      if (el.type === 'checkbox' || el.type === 'radio') return el.checked;
       const tag = el.tagName ? el.tagName.toUpperCase() : '';
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
         return el.value;
@@ -1793,7 +1797,7 @@ $cryptoRuntimeJs
     function otterSetText(id, val) {
       const el = otterValueElement(id);
       if (!el) return;
-      if (el.type === 'checkbox') { el.checked = Boolean(val); return; }
+      if (el.type === 'checkbox' || el.type === 'radio') { el.checked = Boolean(val); return; }
       const tag = el.tagName ? el.tagName.toUpperCase() : '';
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
         el.value = val;

@@ -279,11 +279,14 @@ $controlsHtml = ConvertTo-OtterWeb -Program $controlsAst
 if ($controlsHtml -notmatch '<progress id="pBar" class="otter-progress" value="75" max="100"') {
     throw 'Expected compiled HTML to contain <progress id="pBar"...'
 }
-if ($controlsHtml -notmatch '<input type="checkbox" id="tSwitch" class="otter-toggle"') {
-    throw 'Expected compiled HTML to contain <input type="checkbox" id="tSwitch" class="otter-toggle"...'
+# A toggle and a radio button, like a checkbox, carry their id on the label
+# (the control as seen): a position or size moves the input and its text
+# together. The input is <name>-box; the runtime reads and sets it.
+if ($controlsHtml -notmatch '<label id="tSwitch" class="otter-toggle-label"><input type="checkbox" id="tSwitch-box" class="otter-toggle"') {
+    throw 'Expected compiled HTML to contain <label id="tSwitch" class="otter-toggle-label"><input type="checkbox" id="tSwitch-box" class="otter-toggle"...'
 }
-if ($controlsHtml -notmatch '<input type="radio" id="rBtn" name="opts" class="otter-radio"') {
-    throw 'Expected compiled HTML to contain <input type="radio" id="rBtn" name="opts" class="otter-radio"...'
+if ($controlsHtml -notmatch '<label id="rBtn" class="otter-radio-label"><input type="radio" id="rBtn-box" name="opts" class="otter-radio"') {
+    throw 'Expected compiled HTML to contain <label id="rBtn" class="otter-radio-label"><input type="radio" id="rBtn-box" name="opts" class="otter-radio"...'
 }
 if ($controlsHtml -notmatch 'window\.otterClipboard' -or $controlsHtml -notmatch 'window\.otterNotify' -or $controlsHtml -notmatch 'window\.otterGetEnv') {
     throw 'Expected compiled HTML runtime to expose otterClipboard, otterNotify, and otterGetEnv.'
