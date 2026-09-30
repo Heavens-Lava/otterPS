@@ -504,7 +504,7 @@ architecture reference. Listed in the recommended implementation order.
 -   [ ] State/component lifecycle
 -   [ ] Reusable components
 -   [x] Responsive layout (built pages checked at 375px and 768px: no overflow, rows stack, 24px+ tap targets: friction-log pass 10)
--   [ ] Asset/CSS/JS bundling (images a page shows are listed and copied into the build, and each page gets its own stylesheet: scripts/manifest-assets.test.mjs, pass 8; no bundling or minification)
+-   [x] Asset/CSS/JS bundling (each page is one self-contained file with its CSS and JS inside; the images it shows are listed and copied: scripts/manifest-assets.test.mjs, pass 8; build.minify makes every page smaller: tests/ProjectBuild.Tests.ps1 19, pass 13)
 -   [ ] Source maps
 -   [ ] Dev server
 -   [ ] Hot reload
@@ -514,7 +514,7 @@ architecture reference. Listed in the recommended implementation order.
 -   [ ] SSR decision
 -   [x] SEO/meta (a page's description and icon: docs/proposals/PAGE_DESCRIPTION_AND_ICON.md, tests/Web.Tests.ps1 34, friction-log pass 10; og:image needs a site address first)
 -   [ ] Browser matrix
--   [ ] Deploy presets (Build > Publish... makes the folder and .zip to upload to any static host; no host-specific presets)
+-   [x] Deploy presets (no host needs settings for plain files: Publish's "How to put it online..." gives the steps for Netlify Drop, GitHub Pages, Cloudflare Pages and your own host, naming the folder it made: friction-log pass 13)
 
 # 14. Desktop application target
 

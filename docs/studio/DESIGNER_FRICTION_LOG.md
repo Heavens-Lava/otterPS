@@ -321,8 +321,35 @@ Result: in Live App and in the built page, each signature adds a readable
 white card with the name and message under the form, and the boxes empty for
 the next one.
 
+## Pass 13 - 2026-09-30: styling entries, components, getting online, honest settings
+
+Jeff approved four pieces of work: a class for created elements, P1 from the
+1.1 proposal, host guides, and honest project settings.
+
+- **Styling created entries (friction 62):** `create card into entry` now
+  gives the card the class `entry`, so `.entry { ... }` in the page's
+  stylesheet styles every one. Checked in a browser.
+- **Designing one entry (friction 63):** P1 ("UI resources are values", from
+  the 1.1 proposal) is on its own branch, `studio/p1-runtime`. A function that
+  builds a card and returns it works there. Half of P1 needs Codex's 1.1
+  parser changes (declarations inside functions, `clear`, `remove ... from`,
+  `is submitted`), so it waits for those. Then the Designer can design a
+  component.
+- **Getting online:** Publish ends with "How to put it online...", which gives
+  the steps for Netlify Drop, GitHub Pages, Cloudflare Pages or your own host.
+  Each names the folder and .zip that Publish just made. Nothing is uploaded
+  from Studio.
+- **Project Settings:** checked against what `otter build` does.
+
+| # | Friction | Kind | Fix |
+|---|---|---|---|
+| 62 | Created entries could not be styled from the stylesheet | limitation | the element has its variable as a class (`.entry`) |
+| 64 | "Minify Output Bundle" did nothing: the build read build.minify and ignored it | Studio differs from the build | `otter build` minifies each page's code (comments, indentation), about a fifth smaller with the same behaviour; the switch is now "Minify pages" |
+| 65 | "Generate Source Maps" (on by default) did nothing: no build makes source maps | Studio differs from the build | the switch is gone |
+| 66 | "Security & Permissions" switches did nothing: nothing in Otter reads manifest.permissions, so unticking Process Execution did not stop a program starting one | misleading | the card is gone (Jeff); enforcing permissions would be a language decision |
+| 67 | After Publish, nothing said how to get the folder onto the web | missing | the host guide |
+
 ### Next pass
 
-A way to design "one entry" in the Designer (friction 63), which is
-language-level (component functions are in the undecided 1.1 proposal). Or
-the next open items in the IDE checklist.
+When Codex's 1.1 parser changes arrive: merge studio/p1-runtime and design a
+component in the Designer (friction 63).
