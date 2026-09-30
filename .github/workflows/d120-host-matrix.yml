@@ -7,6 +7,53 @@ permissions:
   contents: read
 
 jobs:
+  # The release archive is built on Windows PowerShell 5.1, exactly as a
+  # release is; macOS and Linux runners then unzip and install that same file.
+  release-archive-build:
+    name: Release archive built on Windows PowerShell 5.1
+    runs-on: windows-2025
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build the release archive
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $env:GITHUB_WORKSPACE 'tools/New-OtterDistribution.ps1') -OutputDirectory (Join-Path $env:GITHUB_WORKSPACE 'release-archive') -Force
+          if ($LASTEXITCODE -ne 0) { throw "Release archive build failed (exit $LASTEXITCODE)" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: otter-release-archive
+          path: release-archive/*.zip
+          if-no-files-found: error
+
+  release-archive-install:
+    name: Release archive on ${{ matrix.name }}
+    needs: release-archive-build
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux
+            runner: ubuntu-24.04
+          - name: macOS
+            runner: macos-15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v4
+        with:
+          name: otter-release-archive
+          path: release-archive
+      - name: Unzip, install, run and uninstall the Windows-built archive
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $zip = @(Get-ChildItem -Path (Join-Path $env:GITHUB_WORKSPACE 'release-archive') -Filter '*.zip')[0].FullName
+          & pwsh -NoProfile -File (Join-Path $env:GITHUB_WORKSPACE 'tools/Test-OtterDistribution.ps1') -Archive $zip
+          if ($LASTEXITCODE -ne 0) { throw "The Windows-built archive failed on ${{ matrix.name }} (exit $LASTEXITCODE)" }
+
   production-cli-smoke:
     name: ${{ matrix.name }}
     runs-on: ${{ matrix.runner }}

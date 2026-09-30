@@ -1,7 +1,10 @@
 [CmdletBinding()]
 param(
     [string]$WorkDirectory,
-    [switch]$KeepArtifacts
+    [switch]$KeepArtifacts,
+    # Test this release archive instead of building one (for example the zip
+    # Windows PowerShell 5.1 built, on a macOS or Linux runner).
+    [string]$Archive
 )
 
 $ErrorActionPreference = 'Stop'
@@ -32,15 +35,20 @@ function Invoke-InstalledOtter {
 
 try {
     New-Item -ItemType Directory -Path $work | Out-Null
-    $payloads = Join-Path $work 'payloads'
-    & $hostExe @hostArgs -File (Join-Path $PSScriptRoot 'New-OtterDistribution.ps1') -OutputDirectory $payloads -Force | Out-Host
-    if ($LASTEXITCODE -ne 0) { throw 'Distribution build failed.' }
+    if ($Archive) {
+        $archive = [System.IO.Path]::GetFullPath($Archive)
+        if ((Split-Path -Leaf $archive) -ne "otter-$version.zip") { throw "Expected otter-$version.zip, got $archive" }
+    } else {
+        $payloads = Join-Path $work 'payloads'
+        & $hostExe @hostArgs -File (Join-Path $PSScriptRoot 'New-OtterDistribution.ps1') -OutputDirectory $payloads -Force | Out-Host
+        if ($LASTEXITCODE -ne 0) { throw 'Distribution build failed.' }
+        $archive = Join-Path $payloads ("otter-$version.zip")
+    }
 
     # Install from the archive a user downloads, extracted the way they would:
     # Expand-Archive on Windows, unzip on macOS and Linux (it keeps the Unix
     # modes the archive records, so `otter` must arrive executable and every
     # path must use forward slashes).
-    $archive = Join-Path $payloads ("otter-$version.zip")
     $extracted = Join-Path $work 'extracted'
     if ($onWindows) {
         Expand-Archive -LiteralPath $archive -DestinationPath $extracted
