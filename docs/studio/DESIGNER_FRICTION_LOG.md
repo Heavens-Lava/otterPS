@@ -294,7 +294,35 @@ focuses the first. A bad email shows "Email needs to be an email address, like
 name@example.com.", and each message goes as you correct the field. Enter in
 a box sends, and "Thanks!" appears only when everything passes.
 
+## Pass 12 - 2026-09-30: a page that shows data and adds to it
+
+The goal was a guestbook: sign it, and your entry appears under the form.
+The first finding was a language gap. On this line a web page could not draw
+anything a program made while it ran: `tasks is a list` drew an empty box,
+and a card created in a handler compiled to nothing. Jeff approved bringing
+D128 (decided for the release line) across
+(docs/proposals/D128_ON_STUDIO_LINE.md).
+
+Then, in Studio: a new Website and File > New Page... "guestbook". A Form
+(Your name, Message, both required) with a "Sign the guestbook" button, and
+an entries column under it. The form's Sent handler was added through Events:
+it creates a card with the name and the message, puts it in entries, and
+clears the boxes. It was used in Live App (two signatures), built, and signed
+again on the built page at phone width.
+
+| # | Friction | Kind | Fix |
+|---|---|---|---|
+| 60 | A page could not show anything made while it ran: a list drew nothing, and a card created in a handler compiled to nothing | missing (language) | D128 brought to this line: `create`, `put`, `show`, `when` work while the page runs |
+| 61 | The created entries were dark navy cards with dark text on a white page | unreadable | on a light page the compiler's default cards, inputs and borders are light |
+| 62 | Created entries can't be styled from the stylesheet (generated ids) | limitation | style them in the handler with `has`; a class named after the variable is noted for Jeff |
+| 63 | The handler that builds an entry is written by hand; the Designer can't lay out "one entry" | missing | open: a way to design a repeated item |
+
+Result: in Live App and in the built page, each signature adds a readable
+white card with the name and message under the form, and the boxes empty for
+the next one.
+
 ### Next pass
 
-A site that works with data: a list the page shows and adds to. Or the next
-open items in the IDE checklist.
+A way to design "one entry" in the Designer (friction 63), which is
+language-level (component functions are in the undecided 1.1 proposal). Or
+the next open items in the IDE checklist.

@@ -498,7 +498,7 @@ architecture reference. Listed in the recommended implementation order.
 -   [x] Web export path
 -   [x] `studio-v1.ot` production web build
 -   [x] Static site build (every page file beside the entry builds to its own .html: tests/ProjectBuild.Tests.ps1 17-18; built multi-page sites opened from disk in friction-log passes 7-9)
--   [ ] Client app build
+-   [x] Client app build (UI created while the page runs - D128 on this line: docs/proposals/D128_ON_STUDIO_LINE.md, tests/WebRuntimeUi.Tests.ps1, friction-log pass 12)
 -   [ ] Routing/navigation/history
 -   [x] Forms/validation (a `form` that checks its fields' rules - required, email/number/phone/url, lengths, ranges - with messages under each field and `when <form> is sent`: docs/proposals/FORMS_AND_VALIDATION.md, tests/Web.Tests.ps1 35, scripts/designer-roundtrip.test.mjs, friction-log pass 11)
 -   [ ] State/component lifecycle
