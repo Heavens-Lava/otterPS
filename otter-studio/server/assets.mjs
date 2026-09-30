@@ -29,11 +29,26 @@ const MIME = {
 };
 
 // Folders that are tooling or build output, not the project's own assets.
-const SKIP_DIRS = new Set(['node_modules', '.git', '.otter', '.studio', 'dist', 'build', 'out', 'bin', 'obj']);
+const SKIP_DIRS = new Set(['node_modules', '.git', '.otter', '.studio', 'dist', 'build', 'out', 'bin', 'obj', 'publish']);
 const MAX_FILES = 2000;
 const MAX_DEPTH = 8;
 // Files the project.json manifest and Studio write for themselves.
-const SKIP_FILES = new Set(['project.json', 'package.json', 'package-lock.json']);
+const SKIP_FILES = new Set(['project.json', 'otter.json', 'package.json', 'package-lock.json', 'otter.build.json', 'otter.publish.json']);
+
+// The manifest's own build.outputDir / publish.outputDir, when renamed.
+function outputDirs(folderAbs) {
+  const dirs = new Set();
+  for (const name of ['otter.json', 'project.json']) {
+    try {
+      const manifest = JSON.parse(fs.readFileSync(path.join(folderAbs, name), 'utf8'));
+      for (const out of [manifest?.build?.outputDir, manifest?.publish?.outputDir]) {
+        if (typeof out === 'string' && out.trim()) dirs.add(path.resolve(folderAbs, out.trim()).toLowerCase());
+      }
+      break;
+    } catch { /* no manifest here */ }
+  }
+  return dirs;
+}
 
 function kindOf(name) {
   const ext = path.extname(name).toLowerCase();
@@ -44,6 +59,7 @@ function kindOf(name) {
 export function listAssets(folderAbs) {
   const out = { images: [], fonts: [], styles: [], data: [] };
   let count = 0;
+  const outputs = outputDirs(folderAbs);
   const walk = (dir, depth) => {
     if (depth > MAX_DEPTH || count >= MAX_FILES) return;
     let entries;
@@ -54,7 +70,7 @@ export function listAssets(folderAbs) {
       if (entry.name.startsWith('.')) continue;
       const abs = path.join(dir, entry.name);
       if (entry.isDirectory()) {
-        if (!SKIP_DIRS.has(entry.name.toLowerCase())) walk(abs, depth + 1);
+        if (!SKIP_DIRS.has(entry.name.toLowerCase()) && !outputs.has(abs.toLowerCase())) walk(abs, depth + 1);
         continue;
       }
       if (!entry.isFile() || SKIP_FILES.has(entry.name.toLowerCase())) continue;

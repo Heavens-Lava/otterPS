@@ -60,6 +60,13 @@ test('the server lists images, styles, fonts and data; skips tooling and build f
     assert.deepEqual(out.styles.map(f => f.path), ['styles.css']);
     assert.deepEqual(out.data.map(f => f.path), ['data/contacts.json'], 'project.json is Studio\'s, not an asset');
     assert.deepEqual(out.fonts.map(f => f.path), ['fonts/Inter.woff2']);
+    // Published packages and a renamed build folder are output, not assets.
+    ['publish/site-1.0.0/assets/images/logo.png', 'publish/otter.publish.json', 'site/app.css', 'otter.build.json'].forEach(put);
+    fs.writeFileSync(path.join(dir, 'project.json'), JSON.stringify({ build: { outputDir: 'site' } }));
+    const again = listAssets(dir);
+    assert.deepEqual(again.images.map(f => f.path), ['assets/icons/add.svg', 'assets/images/logo.png'], 'publish/ skipped');
+    assert.deepEqual(again.styles.map(f => f.path), ['styles.css'], 'build.outputDir skipped');
+    assert.deepEqual(again.data.map(f => f.path), ['data/contacts.json'], 'build/publish records skipped');
     // An imported file never overwrites one already there.
     fs.mkdirSync(path.join(dir, 'imp'));
     fs.writeFileSync(path.join(dir, 'imp', 'my-photo.png'), 'x');
