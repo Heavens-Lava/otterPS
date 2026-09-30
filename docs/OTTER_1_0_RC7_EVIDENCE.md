@@ -1,7 +1,9 @@
 # Otter 1.0.0-rc.7 — release evidence
 
-Candidate: `85227abee6913d8f9d1d3a63ec9b7735af750ea3` (`VERSION` 1.0.0-rc.7),
-**not tagged yet**. rc.6 (`95b9d40`, certified but superseded; see
+Candidate: `85227abee6913d8f9d1d3a63ec9b7735af750ea3` (`VERSION` 1.0.0-rc.7).
+**Superseded by rc.8 before publication, not tagged:** verifying the OtterBoard
+proposals against rc.7 found three silent wrong answers (D130, D131 and the
+web `has` fix; see `CHANGELOG.md` `[1.0.0-rc.8]`). rc.6 (`95b9d40`, certified but superseded; see
 `docs/OTTER_1_0_RC6_EVIDENCE.md`) plus:
 
 - `c9d7569` — the release archive uses forward-slash paths and Unix modes

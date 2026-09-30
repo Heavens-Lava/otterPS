@@ -7886,3 +7886,47 @@ Evidence: `tests/PlatformBoundaries.Tests.ps1` and the distribution
 build/install/uninstall step of the D120 host matrix
 (`.github/workflows/d120-host-matrix.yml`) on Windows PowerShell 5.1 and
 PowerShell 7 on Windows, Linux and macOS.
+
+## D130. A handler set up during a loop pass remembers that pass
+
+**Decided 2026-09-30 (Jeff; found by the OtterBoard proposals, P7, and
+verified on rc.7).** On the console and the web alike, a `when` handler set
+up inside a loop read the loop's variables when it ran, not as they were when
+it was set up: three buttons made in `for each n in numbers`, each showing
+`n` when clicked, all showed the last number. That is a silent wrong answer.
+
+**Decision:** each pass of a `for each`, `count`, `repeat` or `while` loop has
+its own values for the names that belong to the pass, and a handler set up
+during a pass keeps them.
+
+- The names that belong to a pass are the loop variable and every name the
+  loop body sets that is set nowhere else in the same scope (the program's
+  top level, or one function's body and its parameters). The rule is decided
+  from the program text, so the console and the web agree
+  (`Get-OtterLoopPassNames`, shared by both).
+- Every other name is shared and read live when the handler runs: a counter
+  or total that exists before the loop, and, inside a function, a name that
+  updates a global.
+- A pass starts with the values the previous pass left, so a loop can still
+  read what its last pass set; after the loop, the last pass's values remain,
+  so code after the loop sees them exactly as before.
+- Programs without handlers in loops behave exactly as before.
+
+Evidence: `tests/UI.Tests.ps1` (console, real WPF click events) and
+`tests/WebRuntimeUi.Tests.ps1` (web, headless Chromium), both "D130".
+
+## D131. Files in a plain browser tab are errors, not empty answers
+
+**Decided 2026-09-30 (Jeff; found by the OtterBoard proposals, P8, and
+verified on rc.7).** In a plain browser tab (no desktop application),
+`read`, `write`, `get files in` and `get folders in` answered `""`, `false`
+and empty lists, with only a browser-console warning, so a program carried on
+as if the file were empty and its `try ... otherwise` never ran.
+
+**Decision:** they are Otter errors that name the desktop application ("Reading
+"notes.txt" needs the Otter desktop application (otter desktop). A web page in
+a browser cannot read files."), which `try ... otherwise` catches, like every
+other file operation there. Keeping files in the page's own storage is the 1.1
+proposal P8, accepted in principle.
+
+Evidence: `tests/WebRuntimeUi.Tests.ps1` ("browser files").
