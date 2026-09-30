@@ -131,6 +131,26 @@ test('Free layout: turning it off returns the children to flow; one undo step ea
   assert.match(css.generateCss(), /#button1 \{[^}]*left: 16px;/);
 });
 
+test('Free layout: Flow on Mobile stacks there in reading order; Desktop keeps its layout', () => {
+  const { model, css, actions, root, a, boxes } = setupFree();
+  const styles = new StyleController(model, css);
+  actions.setFreeLayout(root, true);
+  const desktop = css.generateCss();
+  // Button A placed below button B: B comes first when they stack.
+  boxes[a.id] = { ...boxes[a.id], top: 50 + 120 };
+  const mobile = createDesignerActions({ uiModel: model, styles, cssAstManager: css, canvas: { elementFor: (id) => ({ id, getBoundingClientRect: () => ({ ...boxes[id], right: boxes[id].left + boxes[id].width, bottom: boxes[id].top + boxes[id].height }) }), getZoom: () => 1, zoomBy() {}, setZoom() {}, zoomToFit() {}, zoomToSelection() {} } });
+  styles.setContext({ breakpoint: 'mobile' });
+  assert.equal(mobile.setFreeLayout(root, false), true);
+  const out = css.generateCss();
+  const block = out.slice(out.indexOf('@media (max-width: 600px)'));
+  assert.match(block, /#button1 \{[^}]*position: static;[^}]*max-width: 100%;[^}]*order: 2;/, 'taking the values away would change nothing: they are stacked here');
+  assert.match(block, /#button2 \{[^}]*position: static;[^}]*order: 1;/, 'B is above A where they were placed');
+  assert.match(block, /#app \{[^}]*--otter-layout: flow;/);
+  assert.equal(out.slice(0, out.indexOf('@media')).trim(), desktop.trim(), 'Desktop is untouched');
+  model.undo();
+  assert.equal(css.generateCss().trim(), desktop.trim(), 'one undo step');
+});
+
 test('moving into a container: into a flow card it drops its x / y; back into Free it stays put', () => {
   const { model, css, actions, root, a, boxes } = setupFree();
   const card = model.addChild(root.id, 'card', {});

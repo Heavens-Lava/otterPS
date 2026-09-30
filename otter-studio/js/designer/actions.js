@@ -406,11 +406,30 @@ export function createDesignerActions({ uiModel, styles, cssAstManager, canvas, 
           styles.write(p.child, { position: 'absolute', left: `${p.left}px`, top: `${p.top}px`, right: null, bottom: null, width: `${Math.round(p.width)}px` }, { key });
         }
       } else {
-        for (const child of children) {
-          styles.write(child, { position: null, left: null, top: null, right: null, bottom: null }, { key });
+        // On Tablet or Mobile, a Free layout set for a wider screen still
+        // cascades in: taking this breakpoint's values away would change
+        // nothing, so the children are stacked here explicitly (and no wider
+        // than the screen), and the wider screens keep their layout.
+        const narrower = !styles.isBaseBreakpoint();
+        const cascades = (comp, prop, value) => narrower && String(styles.resolve(comp).inherited[prop] || '').trim() === value;
+        // They stack in the order they are seen where they were placed (top
+        // to bottom, then left to right along a line), not the order they
+        // were added in - `order` at this breakpoint only.
+        const seen = new Map();
+        if (narrower) {
+          const placed = children.map(child => ({ child, rect: canvas.elementFor(child.id)?.getBoundingClientRect() })).filter(p => p.rect);
+          placed.sort((a, b) => (Math.abs(a.rect.top - b.rect.top) > 16 * canvas.getZoom() ? a.rect.top - b.rect.top : a.rect.left - b.rect.left));
+          placed.forEach((p, i) => seen.set(p.child.id, i + 1));
         }
-        styles.write(container, { [FREE_MARK]: null, position: null, 'min-height': null }, { key });
-        if (container.id === uiModel.rootId && cssAstManager) cssAstManager.removeProperty(windowHeaderSelector(container), 'display');
+        for (const child of children) {
+          styles.write(child, cascades(child, 'position', 'absolute')
+            ? { position: 'static', left: null, top: null, right: null, bottom: null, 'max-width': '100%', order: seen.has(child.id) ? String(seen.get(child.id)) : null }
+            : { position: null, left: null, top: null, right: null, bottom: null }, { key });
+        }
+        styles.write(container, cascades(container, FREE_MARK, 'free')
+          ? { [FREE_MARK]: 'flow', 'min-height': 'auto' }
+          : { [FREE_MARK]: null, position: null, 'min-height': null }, { key });
+        if (container.id === uiModel.rootId && cssAstManager && !narrower) cssAstManager.removeProperty(windowHeaderSelector(container), 'display');
       }
       return true;
     });

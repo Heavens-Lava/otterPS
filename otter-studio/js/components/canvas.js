@@ -574,8 +574,15 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
     if (!badge || !area) return;
     const bp = styles.breakpoint;
     const rect = area.getBoundingClientRect();
+    // On a device width, say how many of the window's controls reach past
+    // the screen's edge (people would scroll sideways to see them).
+    const past = bp.width
+      ? [...area.children].filter(el => el.dataset.id && el.getClientRects().length && el.getBoundingClientRect().right > rect.right + 1).length
+      : 0;
+    badge.classList.toggle('is-past-edge', past > 0);
+    badge.title = past ? 'Drag them in, or select the window and choose Arrange: Flow to stack everything at this size.' : '';
     badge.textContent = bp.width
-      ? `${bp.label} · ${bp.width}px screen`
+      ? `${bp.label} · ${bp.width}px screen${past ? ` · ${past} past the edge` : ''}`
       : `${bp.label} · ${Math.round(rect.width / zoom)} × ${Math.round(rect.height / zoom)}`;
   }
 
@@ -1204,9 +1211,12 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
         let dx = (ev.clientX - startX) / zoom;
         let dy = (ev.clientY - startY) / zoom;
         guidesLayer.innerHTML = '';
-        // Over another container: it goes in there when let go.
+        // Over another container: it goes in there when let go. Not on
+        // Tablet or Mobile: what is inside what is the same on every screen,
+        // so there a move only places it (over a card too).
         const hit = performHitTest(ev.clientX, ev.clientY, comp.id, contentAreaEl(), uiModel.getRoot(), isMoving);
-        into = hit && hit.targetComp.id !== comp.parentId ? hit : null;
+        const other = hit && hit.targetComp.id !== comp.parentId ? hit : null;
+        into = styles.isBaseBreakpoint() ? other : null;
         if (into) {
           showMoveTarget(into);
         } else {
@@ -1226,9 +1236,10 @@ export function renderCanvas(containerEl, uiModel, cssAstManager, styleControlle
         }
         if (into) return `Into ${into.targetComp.name}`;
         const lead = movers.find(m => m.comp.id === comp.id) || movers[0];
-        return movers.length > 1
+        const where = movers.length > 1
           ? `${movers.length} controls  ·  x ${lead.startLeft + dxPx}  y ${lead.startTop + dyPx}`
           : `x ${lead.startLeft + dxPx}  y ${lead.startTop + dyPx}`;
+        return other ? `${where}  ·  ${styles.breakpoint.label} only: to put it in ${other.targetComp.name}, use Desktop` : where;
       }
     });
   }

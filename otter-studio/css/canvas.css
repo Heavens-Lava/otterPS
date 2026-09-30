@@ -140,6 +140,13 @@
   cursor: default;
 }
 
+/* The compiled window stacks its children in an inner column with no height
+   of its own, so they never shrink to fit the window's height; here the
+   window and that column are one element, so say so. */
+.window-content-area > .canvas-element {
+  flex-shrink: 0;
+}
+
 /* Canvas Element Base (Pure Application DOM) */
 .canvas-element {
   position: relative;

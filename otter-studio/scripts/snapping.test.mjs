@@ -96,4 +96,25 @@ test('resize: never to a size of nothing', () => {
   assert.ok(r.box.width >= 1);
 });
 
+// Tablet and Mobile (js/components/canvas.js): what is inside what is the
+// same on every screen, so a move there only places a control - never into
+// another container - and the canvas draws what hangs past the screen edge
+// (the app scrolls sideways to it) so it can be grabbed.
+{
+  const fs = await import('node:fs');
+  const canvasJs = fs.readFileSync(new URL('../js/components/canvas.js', import.meta.url), 'utf8');
+  const designerCss = fs.readFileSync(new URL('../css/designer.css', import.meta.url), 'utf8');
+  const canvasCss = fs.readFileSync(new URL('../css/canvas.css', import.meta.url), 'utf8');
+  test('breakpoints: a move on Tablet or Mobile never changes the container', () => {
+    assert.match(canvasJs, /into = styles\.isBaseBreakpoint\(\) \? other : null;/);
+  });
+  test('breakpoints: controls past the screen edge stay drawn and are counted', () => {
+    assert.match(designerCss, /\.canvas-window-wrapper\.is-device \.window-content-area \{[^}]*overflow: visible;/);
+    assert.match(canvasJs, /past the edge/);
+  });
+  test('the window\'s children never shrink to its height (as in the compiled window)', () => {
+    assert.match(canvasCss, /\.window-content-area > \.canvas-element \{\s*flex-shrink: 0;/);
+  });
+}
+
 console.log(`\nSnapping tests passed: ${passed}.`);

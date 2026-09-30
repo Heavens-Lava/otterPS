@@ -77,9 +77,17 @@
   flex: 0 0 auto;
 }
 
+/* On Tablet and Mobile, what a wider layout put past the screen's edge is
+   still drawn (the app shows it too, scrolling sideways), so it can be
+   grabbed and brought in. The window keeps the screen's width. */
+.canvas-window-wrapper.is-device,
 .canvas-window-wrapper.is-device .window-content-area {
   min-width: 0;
-  overflow-x: auto;
+  overflow: visible;
+}
+
+.canvas-window-wrapper.is-device .window-dimension-badge.is-past-edge {
+  color: #f59e0b;
 }
 
 .canvas-viewport.is-pan-ready,
