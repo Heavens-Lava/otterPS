@@ -195,6 +195,19 @@ try {
     assert.match(build.body.output, /Build failed/);
   });
 
+  await test('Publish runs otter publish and names the package to upload and its zip', async () => {
+    const pub = await post('/api/publish', { folder: projectRel });
+    assert.equal(pub.body.ok, true, pub.body.output);
+    assert.match(pub.body.output, /Publish succeeded/);
+    assert.equal(pub.body.publishDir, 'publish');
+    assert.ok(pub.body.packageFolder && fs.existsSync(path.join(projectAbs, 'publish', pub.body.packageFolder)), JSON.stringify(pub.body));
+    assert.equal(pub.body.zip, `${pub.body.packageFolder}.zip`);
+    assert.ok(pub.body.files.some(f => f.path === 'otter.publish.json'));
+    const none = await post('/api/publish', { folder: 'otter-studio' });
+    assert.equal(none.status, 400, 'a folder without a manifest cannot be published');
+    fs.rmSync(path.join(projectAbs, 'publish'), { recursive: true, force: true });
+  });
+
   await test('Clean removes only Otter-created output', async () => {
     const clean = await post('/api/clean', { folder: projectRel });
     assert.equal(clean.body.removed, true);

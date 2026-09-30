@@ -4253,6 +4253,10 @@ export class OtterStudioIde {
   showOutputDrawer() {
     const tab = Array.from(this.drawerTabs || []).find(t => t.getAttribute('data-drawer-tab') === 'output');
     tab?.click();
+    // A build's result is what was asked for: open the drawer if it is folded
+    // (the Designer starts it folded).
+    const drawer = document.getElementById('bottomDrawer');
+    if (drawer?.classList.contains('is-folded')) document.getElementById('btnDrawerCollapse')?.click();
   }
 
   appendBuildLog(title, text, ok) {
@@ -4265,6 +4269,45 @@ export class OtterStudioIde {
         <pre class="log-run-text">${this.escapeHtml(text || '')}</pre>
       </div>`;
     outputTabLog.scrollTop = outputTabLog.scrollHeight;
+  }
+
+  // otter publish: the package to put online. The Output then offers to open
+  // the published website and to show the folder to upload (or its .zip).
+  async publishProject() {
+    const folder = this.projectStylesheetPath() ? this.currentProjectFolder : null;
+    if (!folder) { alert('Open a project folder to publish it.'); return null; }
+    if (!(await this.ensureTrusted('Publishing'))) return null;
+    if (!(await this.saveAllFiles())) {
+      this.appendBuildLog('Publish cancelled: some files could not be saved.', '', false);
+      return null;
+    }
+    this.showOutputDrawer();
+    this.appendBuildLog(`Publishing ${folder}…`, '', true);
+    let data;
+    try {
+      const res = await fetch('/api/publish', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ folder }) });
+      data = await res.json();
+      if (!res.ok && !('exitCode' in data)) throw new Error(data.error || `status ${res.status}`);
+    } catch (err) {
+      this.appendBuildLog(`Publish could not start: ${err.message}`, '', false);
+      return null;
+    }
+    const base = `${String(folder).replace(/[\\/]+$/, '')}/${data.publishDir}`;
+    const packagePath = data.packageFolder ? `${base}/${data.packageFolder}` : null;
+    this.appendBuildLog(
+      data.ok ? `Published in ${data.durationMs} ms` : `Publish failed (exit code ${data.exitCode}) after ${data.durationMs} ms`,
+      `${data.output || ''}${packagePath ? `\nTo put it online, upload the files in ${packagePath}/ (or ${data.zip || 'the .zip'}) to any static web host.` : ''}`,
+      data.ok
+    );
+    if (data.ok && packagePath) {
+      const page = (data.files || []).find(f => /^index\.html$/i.test(f.path));
+      this.appendBuildActions([
+        page && { label: 'Open the website', title: 'The published index.html, in your browser', run: () => fetch('/api/open-page', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: `${packagePath}/index.html` }) }) },
+        { label: 'Show the files to upload', title: 'Drag this folder (or the .zip beside it) onto a static host', run: () => fetch('/api/reveal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: packagePath }) }) }
+      ].filter(Boolean));
+    }
+    await this.loadProjectTree(this.currentProjectFolder);
+    return data;
   }
 
   // Buttons under the last Output entry (after a build).

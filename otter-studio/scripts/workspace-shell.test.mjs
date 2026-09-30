@@ -122,7 +122,8 @@ const [menuBar, commandsJs, manifestJs] = await Promise.all([
   fs.readFile(path.join(studioRoot, 'js', 'project', 'project-manifest.js'), 'utf8')
 ]);
 assert.match(menuBar, /'file\.newFile', 'file\.newPage'/, 'File has New Page');
-assert.match(menuBar, /'build\.clean', 'build\.openWebsite'/, 'Build has Open Built Website');
+assert.match(menuBar, /'build\.clean', 'build\.openWebsite', 'build\.publish'/, 'Build has Open Built Website and Publish');
+assert.match(commandsJs, /id: 'build\.publish'[^\n]*ide\.publishProject\(\)/, 'Publish runs otter publish');
 assert.match(commandsJs, /id: 'file\.newPage'[^\n]*ide\.promptNewPage\(\)/, 'New Page creates a page of the website');
 assert.match(ide, /async promptNewPage\(\)[\s\S]*?\$\{file\}\.css[\s\S]*?pillDesignerMode/, 'A new page comes with its stylesheet and opens in the Designer');
 assert.match(manifestJs, /assets: options\.assets \|\| \[\],/, 'A new project lists no stylesheet as an asset (the compiler embeds it; a named styles.css that did not exist failed every build)');

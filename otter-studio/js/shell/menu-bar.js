@@ -47,7 +47,7 @@ export const MENUS = [
     'run.launchProfiles', { id: 'run.tests', label: 'Run Tests...' }
   ] },
   { id: 'build', label: 'Build', items: [
-    'build.build', 'build.rebuild', 'build.clean', 'build.openWebsite', '-',
+    'build.build', 'build.rebuild', 'build.clean', 'build.openWebsite', 'build.publish', '-',
     'build.desktopApp', 'build.openPackagesFolder'
   ] },
   { id: 'help', label: 'Help', items: [
@@ -107,6 +107,7 @@ const ICONS = {
   'run.restart': 'M12.5 8A4.5 4.5 0 1 1 11 4.6M11.5 2v3h-3',
   'run.tests': 'M6 2.5h4M7 2.5v4L3.5 12.5a.8.8 0 0 0 .7 1.2h7.6a.8.8 0 0 0 .7-1.2L9 6.5v-4',
   'build.build': 'M9.5 3.5l3 3-7 7-3-3zM11 2l3 3',
+  'build.publish': 'M8 11V3M4.5 6.5 8 3l3.5 3.5M3 10v3h10v-3',
   'build.openWebsite': 'M8 2.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11zM2.5 8h11M8 2.5c1.5 1.6 2.2 3.4 2.2 5.5S9.5 11.9 8 13.5M8 2.5C6.5 4.1 5.8 5.9 5.8 8s.7 3.9 2.2 5.5',
   'build.rebuild': 'M12.5 8A4.5 4.5 0 1 1 11 4.6M11.5 2v3h-3',
   'build.desktopApp': 'M2.5 3h11v8h-11zM6 13.5h4M8 11v2.5',

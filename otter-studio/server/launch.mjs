@@ -378,7 +378,67 @@ export async function handleLaunchRoutes(req, res, pathname, urlObj, ctx) {
     return true;
   }
 
+  // otter publish: build, then the package to put online -
+  // publish/<name>-<version>/ (the files to upload), its .zip and checksum.
+  if (pathname === '/api/publish' && req.method === 'POST') {
+    const body = await readBody(req);
+    const projectDir = resolveFolder(body.folder);
+    if (!projectDir) return sendJson(res, { error: 'Project folder not found.' }, 404), true;
+    if (!readBuildOutputDir(projectDir)) {
+      return sendJson(res, { error: 'This folder has no otter.json or project.json manifest, so it cannot be published.' }, 400), true;
+    }
+    const startTime = Date.now();
+    const addedAssets = addManifestAssets(projectDir, referencedImages(projectDir));
+    const assetNote = addedAssets.length ? `Listed in the project's assets (copied into the build): ${addedAssets.join(', ')}\n` : '';
+    execFile('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(repoRoot, 'otter.ps1'), 'publish', projectDir], {
+      cwd: projectDir, timeout: 10 * 60 * 1000, maxBuffer: 16 * 1024 * 1024, windowsHide: true
+    }, (error, stdout, stderr) => {
+      const exitCode = error ? (typeof error.code === 'number' ? error.code : 1) : 0;
+      const publishDir = readPublishOutputDir(projectDir);
+      const abs = path.resolve(projectDir, publishDir);
+      let packageFolder = null;
+      let zip = null;
+      if (exitCode === 0 && fs.existsSync(abs)) {
+        // The newest package is the one just made.
+        const entries = fs.readdirSync(abs, { withFileTypes: true })
+          .map(entry => ({ entry, time: fs.statSync(path.join(abs, entry.name)).mtimeMs }))
+          .sort((a, b) => b.time - a.time);
+        zip = entries.find(x => x.entry.isFile() && /\.zip$/i.test(x.entry.name))?.entry.name || null;
+        // <name>-<version>.zip packs the <name>-<version>/ folder beside it.
+        const zipFolder = zip && zip.replace(/\.zip$/i, '');
+        packageFolder = zipFolder && fs.existsSync(path.join(abs, zipFolder)) ? zipFolder
+          : entries.find(x => x.entry.isDirectory())?.entry.name || null;
+      }
+      sendJson(res, {
+        ok: exitCode === 0,
+        exitCode,
+        output: `${assetNote}${stdout || ''}${stderr || ''}`,
+        durationMs: Date.now() - startTime,
+        publishDir,
+        packageFolder,
+        zip,
+        files: packageFolder ? listArtifacts(path.join(abs, packageFolder)) : []
+      });
+    });
+    return true;
+  }
+
   return false;
+}
+
+// Where otter publish puts packages: publish.outputDir, else publish/.
+export function readPublishOutputDir(projectDir) {
+  for (const name of ['otter.json', 'project.json']) {
+    const file = path.join(projectDir, name);
+    if (!fs.existsSync(file)) continue;
+    try {
+      const out = JSON.parse(fs.readFileSync(file, 'utf8'))?.publish?.outputDir;
+      return typeof out === 'string' && out.trim() ? out.trim() : 'publish';
+    } catch {
+      return 'publish';
+    }
+  }
+  return 'publish';
 }
 
 /** Stop the running program (and its child processes). Returns true if one ran. */
