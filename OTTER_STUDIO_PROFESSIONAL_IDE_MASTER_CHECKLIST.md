@@ -503,7 +503,7 @@ architecture reference. Listed in the recommended implementation order.
 -   [ ] Forms/validation (a form validated in an Otter handler works in Live App and the built site: friction-log pass 8; no built-in validation rules yet)
 -   [ ] State/component lifecycle
 -   [ ] Reusable components
--   [ ] Responsive layout
+-   [x] Responsive layout (built pages checked at 375px and 768px: no overflow, rows stack, 24px+ tap targets: friction-log pass 10)
 -   [ ] Asset/CSS/JS bundling (images a page shows are listed and copied into the build, and each page gets its own stylesheet: scripts/manifest-assets.test.mjs, pass 8; no bundling or minification)
 -   [ ] Source maps
 -   [ ] Dev server
@@ -512,7 +512,7 @@ architecture reference. Listed in the recommended implementation order.
 -   [ ] Environment config
 -   [ ] PWA optional
 -   [ ] SSR decision
--   [ ] SEO/meta
+-   [x] SEO/meta (a page's description and icon: docs/proposals/PAGE_DESCRIPTION_AND_ICON.md, tests/Web.Tests.ps1 34, friction-log pass 10; og:image needs a site address first)
 -   [ ] Browser matrix
 -   [ ] Deploy presets (Build > Publish... makes the folder and .zip to upload to any static host; no host-specific presets)
 

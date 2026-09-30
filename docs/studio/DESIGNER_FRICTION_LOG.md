@@ -251,7 +251,25 @@ Result: publish/zz-publish-1.0.0/ holds index.html and assets/images/, beside
 the .zip and its .sha256; the published page opened from disk shows its title
 and the picture.
 
+## Pass 10 - 2026-09-30: on a phone, and a site's description and icon
+
+The Website starter plus File > New Page... "about", built, and the built
+pages viewed at 375px (phone) and 768px (tablet). Then a new Website with an
+icon imported through Assets, the page's Description and Icon set in Page
+properties (Jeff's decision: they belong to the page), built.
+
+| # | Friction | Kind | Fix |
+|---|---|---|---|
+| 50 | On a phone the links (Features, Contact, the email, a new page's Home) were about 20px tall, under the 24px minimum to tap | hard to use | the starter's and New Page's links are 32px tall |
+| 51 | A website could not say what it is: no description for search results or shared links, no icon in the browser tab | missing | `description` and `icon` on a page (docs/proposals/PAGE_DESCRIPTION_AND_ICON.md); Page properties has both; the build lists the icon as an asset |
+| 52 | An image imported through Assets did not appear in the Explorer, or among the choices for a link or icon, until the project was reopened: the import's "files changed" event had no listener | stale | Studio reloads the project's files when Assets adds one |
+| 53 | A page title with & or < broke the built page's markup | broken | the title is escaped in the head and the header |
+
+Result: at 375px and 768px nothing overflows, rows stack, text wraps and
+every link is tappable; the built page's head has the description, og tags and
+the icon, which loads from dist/assets/images/.
+
 ### Next pass
 
-The site's own description and icon (what a browser tab and a shared link
-show) - needs a decision on where they live: page properties or project.json.
+Forms beyond hand-written checks (required fields, an email field), which is
+language work - a proposal for Jeff first.
