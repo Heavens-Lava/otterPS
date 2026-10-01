@@ -513,7 +513,8 @@ Tests       18
 ### 18.1 Architecture Decision
 
 - [x] Write `docs/OTTER_NATIVE_COMPILER_DESIGN.md` (first draft, 2026-09-30).
-- [ ] Decide build/runtime prerequisites first: in-process compilation with nothing to install, an SDK for executables, or a hybrid (design document section 2).
+- [x] Decide build/runtime prerequisites first: hybrid (decided 2026-09-30) - accelerated runs need nothing extra; executables use the .NET SDK when present (design document section 2).
+- [x] Decide the C# language ceiling: C# 5, so Windows PowerShell 5.1 works (decided 2026-09-30).
 - [ ] Decide first backend:
   - [ ] C# source generation + .NET compilation
   - [ ] direct .NET IL generation

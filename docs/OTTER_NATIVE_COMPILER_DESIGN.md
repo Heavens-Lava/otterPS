@@ -1,6 +1,8 @@
 # Otter native compiler — design (draft)
 
-Status: **draft for Jeff's decisions**, 2026-09-30, on `planning/1.1`. Nothing
+Status: **draft**, 2026-09-30, on `planning/1.1`. Decided by Jeff on
+2026-09-30: the hybrid prerequisite model (section 2.3, option 3) and the C# 5
+ceiling (section 7, decision 2). The rest is open. Nothing
 here changes Otter 1.0 or its semantics. Checklist: `OTTER_1_1_CHECKLIST.md`
 section 18.
 
@@ -204,11 +206,12 @@ not change `otter run`'s default, the interpreter, or any 1.0 behaviour.
 
 ## 7. Decisions that need Jeff
 
-1. **Prerequisite model:** option 3 (hybrid) recommended; options 1 and 2 are
-   the alternatives.
-2. **C# 5 ceiling:** accept writing generated code and the runtime library in
-   C# 5 so Windows PowerShell 5.1 works, or make the compiled backend
-   PowerShell 7 only (which excludes Windows' built-in PowerShell).
+1. **Prerequisite model: decided 2026-09-30, option 3 (hybrid).** Accelerated
+   runs need nothing beyond PowerShell; executable publishing is optional and
+   uses the .NET SDK when present.
+2. **C# 5 ceiling: decided 2026-09-30.** Generated code and the runtime library
+   stay within C# 5, so the compiled backend works on Windows PowerShell 5.1 and
+   PowerShell 7 alike.
 3. **Experimental entry point:** how the prototype is reached (an `otter run`
    option or a separate command) - part of the 1.1 CLI surface.
 4. **Executables:** whether 1.1 offers executable publishing at all, and if so
