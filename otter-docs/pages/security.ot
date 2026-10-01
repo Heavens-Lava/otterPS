@@ -193,7 +193,7 @@ when b23copy is clicked
     text of b23copy is "Copied"
 .
 b24 is a text with value "The credential vault", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
-b25 is a text with value "Store secrets such as API tokens in the operating system's credential store instead of a file. Secrets are scoped to your program: two different Otter programs storing \"api-token\" never see each other's value.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b25 is a text with value "Store secrets such as API tokens in the operating system's credential store instead of a file. Secrets are scoped to your program: two different Otter programs storing \"api-token\" never see each other's value. The vault uses Windows Credential Manager, so it works on Windows only; on macOS and Linux it stops with a clear message.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b26 is a text with value "if secret \"api-token\" exists\n    token is secret \"api-token\"\notherwise\n    ask secretly \"API token:\" and call it token\n    store secret \"api-token\" with value token\n.\n\ndelete secret \"api-token\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
 b26label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
 b26copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
@@ -206,7 +206,7 @@ when b26copy is clicked
     text of b26copy is "Copied"
 .
 b27 is a text with value "A secret holds text or bytes and comes back as the same kind. Reading a secret that does not exist is an error, never an empty string. On Windows the vault is the Windows Credential Manager.", size 16, foreground "#3a4d6b", lineheight "1.6"
-b28 is a text with value "Cryptography and the vault are console features. The web target reports them as unsupported - browser storage is not a secure credential store.", size 15, foreground "#1e3a6b", background "#eaf2ff", radius 12, border "1px solid #cfe0ff", lineheight "1.55", customstyle "padding: 14px 18px;"
+b28 is a text with value "Cryptography also works in web applications, through the browser's Web Crypto API, with results that match the console. The credential vault does not: browser storage is not a secure credential store, so the web target reports it as unsupported.", size 15, foreground "#1e3a6b", background "#eaf2ff", radius 12, border "1px solid #cfe0ff", lineheight "1.55", customstyle "padding: 14px 18px;"
 b29 is a link with text "Back to the reference", url "/reference/", foreground "#2563eb", weight 600, size 15
 
 docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"

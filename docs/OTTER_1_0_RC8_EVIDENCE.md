@@ -1,7 +1,9 @@
 # Otter 1.0.0-rc.8 — release evidence
 
-Candidate: `640421159186fe56ce80d314713635bf558ef6a4` (`VERSION` 1.0.0-rc.8),
-**not tagged yet**. rc.7 (`85227ab`, certified but superseded; see
+Candidate: `640421159186fe56ce80d314713635bf558ef6a4` (`VERSION` 1.0.0-rc.8).
+**Superseded by rc.9 before publication, not tagged:** the installed-workflow
+test found that built apps had no macOS/Linux launcher (see `CHANGELOG.md`
+`[1.0.0-rc.9]`). rc.7 (`85227ab`, certified but superseded; see
 `docs/OTTER_1_0_RC7_EVIDENCE.md`) plus fixes for three silent wrong answers,
 found while verifying the OtterBoard 1.1 proposals against rc.7:
 

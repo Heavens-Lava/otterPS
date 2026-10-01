@@ -117,7 +117,7 @@ b13 is a text with value "Report a documentation problem", size 26, weight 800, 
 b14 is a text with value "A page that is wrong, unclear, or shows an example that does not work is a bug. Say which page, and what you expected.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b15 is a link with text "Report a documentation issue", url "https://github.com/Heavens-Lava/otterPS/issues", foreground "#2563eb", weight 600, size 15
 b16 is a text with value "Frequently asked questions", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
-b17 is a text with value "Does Otter run on macOS or Linux? Not yet. Otter runs on Windows 10 and 11 with Windows PowerShell 5.1.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b17 is a text with value "Does Otter run on macOS or Linux? Yes. Install PowerShell 7, then install Otter from the same download (see Installation). Console programs and web applications work there; desktop windows and a few other features built on Windows itself need Windows, and say so clearly.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b18 is a text with value "Do I need PowerShell 7? No. Otter runs on the Windows PowerShell 5.1 that comes with Windows. The otter.cmd launcher finds it for you, even from PowerShell 7.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b19 is a text with value "Is Otter free? Yes, including for commercial use. It is not open source: see the license.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b20 is a text with value "Can I sell programs I write in Otter? Yes. Programs you create remain yours.", size 16, foreground "#3a4d6b", lineheight "1.6"

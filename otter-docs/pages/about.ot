@@ -103,7 +103,7 @@ customstyle of sidePhilosophy is "display: none;"
 
 b1 is a text with value "About Otter", size 40, weight 800, foreground "#0b1d36", letterspacing "-0.03em", lineheight "1.1"
 b2 is a text with value "Otter is a programming language designed so that a program can be understood when it is read aloud.", size 18, foreground "#3a4d6b", lineheight "1.55"
-b3 is a text with value "Otter was created by Jeffrey Macy. It is written in Windows PowerShell 5.1, and it runs on the PowerShell that is already part of Windows 10 and Windows 11.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b3 is a text with value "Otter was created by Jeffrey Macy. It is written in PowerShell. On Windows 10 and Windows 11 it runs on the Windows PowerShell 5.1 that is already there, and on macOS and Linux on PowerShell 7.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b4 is a text with value "The idea", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b5 is a text with value "Most languages ask you to learn punctuation before you can express an idea. Otter asks for the idea. Statements read as sentences, blocks end with a period, and each statement has exactly one meaning, so a beginner can read a program aloud and know what it does - and the computer can read it exactly one way.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b6 is a text with value "age is 20\nif age is at least 18\n    say \"Adult\"\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true

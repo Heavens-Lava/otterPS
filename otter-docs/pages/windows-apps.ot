@@ -111,7 +111,7 @@ b5 is a text with value "Drag and drop is not available for Windows applications
 b6 is a link with text "Back to the reference", url "/reference/", foreground "#2563eb", weight 600, size 15
 
 docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"
-av1 is a text with value "Windows applications are experimental in Otter 1.0 (release scope matrix): they work and are tested, but details may change before they are fully supported. Most window programs can also be compiled into a web application with otter web, which is fully supported.", size 15, foreground "#1e3a6b", background "#eaf2ff", radius 12, border "1px solid #cfe0ff", lineheight "1.55", customstyle "padding: 14px 18px;"
+av1 is a text with value "Windows applications are experimental in Otter 1.0 (release scope matrix): they work and are tested, but details may change before they are fully supported. They need Windows: on macOS and Linux, window programs and otter desktop stop with a clear message. Most window programs can also be compiled into a web application with otter web, which is fully supported and runs everywhere.", size 15, foreground "#1e3a6b", background "#eaf2ff", radius 12, border "1px solid #cfe0ff", lineheight "1.55", customstyle "padding: 14px 18px;"
 
 put b1, b2, av1, b3block, b4, b5, b6 in docsMain
 docsBody is a row with align top, spacing 0, width full, customstyle "align-items: stretch;"

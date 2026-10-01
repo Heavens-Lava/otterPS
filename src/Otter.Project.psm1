@@ -1005,9 +1005,15 @@ function Invoke-OtterProjectBuild {
                 })
                 Set-Content -LiteralPath (Join-Path $stagingDir 'otter.json') -Value $builtManifest -Encoding UTF8
 
-                # Runnable launcher script
+                # Runnable launcher scripts: run.cmd for Windows, run for macOS
+                # and Linux (D129). Both run the installed `otter`.
                 $launcherCmd = "@echo off`r`notter run %~dp0$entryLeaf %*`r`n"
                 Set-Content -LiteralPath (Join-Path $stagingDir 'run.cmd') -Value $launcherCmd -Encoding ASCII
+                $launcherSh = "#!/bin/sh`nexec otter run `"`$(dirname `"`$0`")/$entryLeaf`" `"`$@`"`n"
+                $launcherShPath = Join-Path $stagingDir 'run'
+                [System.IO.File]::WriteAllText($launcherShPath, $launcherSh, [System.Text.UTF8Encoding]::new($false))
+                $onWindowsHost = ($PSVersionTable.PSEdition -ne 'Core') -or [bool](Get-Variable -Name IsWindows -ValueOnly -ErrorAction SilentlyContinue)
+                if (-not $onWindowsHost) { & chmod +x $launcherShPath }
             }
             default {
                 Write-Host "Build failed." -ForegroundColor Red
@@ -1225,6 +1231,11 @@ function New-OtterDeterministicZip {
             }
             $entry = $archive.CreateEntry($rel, [System.IO.Compression.CompressionLevel]::Optimal)
             $entry.LastWriteTime = $fixedDate
+            # The `run` launcher for macOS and Linux is executable (mode 755)
+            # where the extracting tool honors Unix modes.
+            if ($rel -eq 'run' -and $entry.PSObject.Properties['ExternalAttributes']) {
+                $entry.ExternalAttributes = [int](0x81ED * 65536 - 4294967296)
+            }
             $entryStream = $entry.Open()
             $fileStream = [System.IO.File]::OpenRead($file.FullName)
             try {

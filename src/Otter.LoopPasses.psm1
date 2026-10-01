@@ -60,6 +60,29 @@ function Test-OtterLoopStatement {
     return ($null -ne $Statement -and $Statement.Kind -in @([NodeKind]::ForEach, [NodeKind]::CountLoop, [NodeKind]::Repeat, [NodeKind]::While))
 }
 
+# Statements whose body runs later, with the variables of the place it was
+# written: only a loop that sets one of these up needs a scope per pass.
+# Without one, a pass scope changes nothing a program can see, so such loops
+# get no pass names and run exactly as they did before D130 (a scope per pass
+# costs PowerShell a few milliseconds each).
+$script:OtterDeferredKinds = @(
+    [NodeKind]::When, [NodeKind]::WebRoute, [NodeKind]::UiEvent, [NodeKind]::MemoDef,
+    [NodeKind]::Watch, [NodeKind]::Lifecycle, [NodeKind]::RouteChange,
+    [NodeKind]::WatchEvent, [NodeKind]::NetworkEvent
+)
+
+function Test-OtterContainsDeferredBody {
+    param($Stmts)
+    foreach ($s in @($Stmts)) {
+        if ($s -isnot [Node]) { continue }
+        if ($s.Kind -in $script:OtterDeferredKinds) { return $true }
+        foreach ($list in (Get-OtterChildStatementLists -Statement $s)) {
+            if (Test-OtterContainsDeferredBody -Stmts $list) { return $true }
+        }
+    }
+    return $false
+}
+
 function Get-OtterLoopPassNames {
     param([Node[]]$Statements)
     $result = @{}
@@ -101,6 +124,7 @@ function Get-OtterLoopPassNames {
                 if ($within) { [void]$inside.Add($o.Name) } else { [void]$outside.Add($o.Name) }
             }
             $inside.ExceptWith($outside)
+            if (-not (Test-OtterContainsDeferredBody -Stmts $loop.Body)) { $inside.Clear() }
             $result[$loop] = $inside
         }
         foreach ($f in $functions) {

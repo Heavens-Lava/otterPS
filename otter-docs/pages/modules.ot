@@ -108,7 +108,7 @@ when b6copy is clicked
     copy text of b6 to clipboard
     text of b6copy is "Copied"
 .
-b7 is a text with value "Put use and a file path in quotes at the top of a file. The path is relative to the file that contains use. Everything the other file defines, such as its functions, is then available:", size 16, foreground "#3a4d6b", lineheight "1.6"
+b7 is a text with value "Put use and a file path in quotes at the top of a file. The path is relative to the file that contains use, and it must match the file's name exactly, capital letters included, on every system (use \"Helpers.ot\" does not find helpers.ot, even on Windows). Everything the other file defines, such as its functions, is then available:", size 16, foreground "#3a4d6b", lineheight "1.6"
 b8 is a text with value "use \"helpers.ot\"\n\ngreet \"Ada\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
 b8label is a text with value "PowerShell", size 12, weight 600, foreground "#b7c4d8"
 b8copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"

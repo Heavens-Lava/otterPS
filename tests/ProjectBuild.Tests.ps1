@@ -36,6 +36,11 @@ try {
     if (-not (Test-Path -LiteralPath (Join-Path $cDir 'dist/main.ot') -PathType Leaf)) { throw "Test 2 failed: Missing dist/main.ot" }
     if (-not (Test-Path -LiteralPath (Join-Path $cDir 'dist/otter.json') -PathType Leaf)) { throw "Test 2 failed: Missing dist/otter.json" }
     if (-not (Test-Path -LiteralPath (Join-Path $cDir 'dist/run.cmd') -PathType Leaf)) { throw "Test 2 failed: Missing dist/run.cmd" }
+    # D129: the macOS/Linux launcher sits beside run.cmd, with Unix line endings.
+    $shLauncher = Join-Path $cDir 'dist/run'
+    if (-not (Test-Path -LiteralPath $shLauncher -PathType Leaf)) { throw "Test 2 failed: Missing dist/run" }
+    $shText = [System.IO.File]::ReadAllText($shLauncher)
+    if (-not $shText.StartsWith("#!/bin/sh`n") -or $shText.Contains("`r")) { throw "Test 2 failed: dist/run is not a POSIX shell script with LF line endings" }
 
     # Verify built console project runs with `otter run dist/`
     $cRunDist = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') run (Join-Path $cDir 'dist') 2>&1

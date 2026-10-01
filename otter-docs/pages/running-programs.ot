@@ -94,6 +94,7 @@ customstyle of sideLicense is "display: none;"
 
 b1 is a text with value "Running programs", size 40, weight 800, foreground "#0b1d36", letterspacing "-0.03em", lineheight "1.1"
 b2 is a text with value "Run other programs and capture what they print.", size 18, foreground "#3a4d6b", lineheight "1.55"
+rp1 is a text with value "The programs and commands are your operating system's own: notepad.exe and cmd exist only on Windows. On macOS and Linux, run their programs instead; run command uses the system's shell there.", size 15, foreground "#1e3a6b", background "#eaf2ff", radius 12, border "1px solid #cfe0ff", lineheight "1.55", customstyle "padding: 14px 18px;"
 b3 is a text with value "run \"notepad.exe\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
 b3label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
 b3copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
@@ -131,7 +132,7 @@ when b7copy is clicked
 .
 
 docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"
-put b1, b2, b3block, b4, b5block, b6, b7block in docsMain
+put b1, b2, rp1, b3block, b4, b5block, b6, b7block in docsMain
 docsBody is a row with align top, spacing 0, width full, customstyle "align-items: stretch;"
 put docsSidebar, docsMain in docsBody
 

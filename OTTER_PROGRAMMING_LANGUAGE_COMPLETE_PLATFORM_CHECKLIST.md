@@ -18,7 +18,7 @@ creation.
 
 ## Status legend and permanent rules
 
--   [x] Reported implemented/demonstrated in the current Otter project.
+-   `[x]` Reported implemented/demonstrated in the current Otter project.
 -   \[ ]\ Required, partial, deferred, blocked, or not yet
     production-certified.
 -   A renderer/helper/unit test does **not** certify a language
@@ -1765,16 +1765,16 @@ creation.
 
 # 34. Performance
 
--   [ ] Benchmark suite
+-   [x] Benchmark suite (tools/Invoke-OtterBenchmarks.ps1 -All; 1.0 baseline in benchmarks/results/baseline-1.0-c404ef8.json)
 -   [x] Lexer benchmark (certified in tools/Profile-OtterParser.ps1)
 -   [x] Parser benchmark (certified in tools/Profile-OtterParser.ps1)
 -   [x] Interpreter benchmark (certified in tools/Profile-OtterInterpreter.ps1)
--   [ ] Compiler benchmark
--   [ ] Startup benchmark
+-   [x] Compiler benchmark (Invoke-OtterBenchmarks.ps1 -Compile: otter web on every benchmark and examples/v1/tasks.ot)
+-   [x] Startup benchmark (Invoke-OtterBenchmarks.ps1 -Startup: otter --version and otter run in a new process)
 -   [x] Memory benchmark (certified in tools/Test-ResourceSoak.ps1)
--   [ ] File IO benchmark
--   [ ] HTTP benchmark
--   [ ] UI benchmark
+-   [x] File IO benchmark (benchmarks/file_io.ot)
+-   [x] HTTP benchmark (Invoke-OtterBenchmarks.ps1 -Http: an Otter client against otter serve)
+-   [x] UI benchmark (Invoke-OtterBenchmarks.ps1 -Ui: 100 desktop controls; Windows)
 -   [ ] Game-loop benchmark
 -   [ ] 3D render benchmark
 -   [x] Profiling hooks (`otter profile <file.ot>`, src/Otter.Profiler.psm1: per-function calls/total/self time and hottest Otter source lines via the interpreter statement hook; tests/Profiler.Tests.ps1)

@@ -1,0 +1,13 @@
+# Benchmark: HTTP client
+# Workload: 50 GET requests to a local Otter web server (benchmarks/http/
+# server.ot, started by the runner) and a check of each answer. Measures the
+# console HTTP client's request path, not the network.
+
+answers is 0
+repeat 50 times
+    get "http://localhost:47392/ping" into res
+    if res is "pong"
+        answers is answers plus 1
+    .
+.
+say "http answers" answers

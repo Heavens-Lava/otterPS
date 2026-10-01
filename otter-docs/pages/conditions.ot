@@ -128,7 +128,7 @@ when b6copy is clicked
     copy text of b6 to clipboard
     text of b6copy is "Copied"
 .
-b6a is a text with value "Each side of a comparison is one value. To compare a calculation, put it in a variable first: total is price plus tax, then if total is at least 100.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b6a is a text with value "Each side of a comparison can be a calculation: if price plus tax is at least 100 works out price plus tax first, reading left to right as in any other calculation. The word and between two comparisons still means both, so if x is 4 and y is 5 is two comparisons.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b7 is a text with value "Chaining conditions", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b8 is a text with value "Test several branches with otherwise if:", size 16, foreground "#3a4d6b", lineheight "1.6"
 b9 is a text with value "score is 85\n\nif score is at least 90\n    say \"Grade: A\"\notherwise if score is at least 80\n    say \"Grade: B\"\notherwise\n    say \"Grade: C\"\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true

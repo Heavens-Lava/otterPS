@@ -4,7 +4,27 @@ All notable changes to the Otter Programming Language platform are documented in
 
 ## [Unreleased]
 
-## [1.0.0-rc.8] - 2026-09-30 (candidate; certification pending)
+## [1.0.0-rc.9] - 2026-09-30 (candidate; certification pending)
+
+Ninth Otter 1.0 release candidate: rc.8 plus a launcher for built apps on
+macOS and Linux, a narrower D130, and release verification and documentation
+work. rc.8 passed certification and is superseded before publication.
+
+### Added
+- `otter build` and `otter publish` give console and automation apps a `run` launcher for macOS and Linux next to `run.cmd` (D129): an app built on a Mac or Linux machine had no launcher that runs there.
+
+### Changed
+- D130's scope per loop pass applies only to loops whose body sets up a handler or another block that runs later; every other loop runs exactly as before D130.
+- `otter help` lists `otter serve`.
+
+### Documentation
+- The reference matches D122-D131 and D114 (arithmetic in comparisons, exact `use` paths, offline web pages, controls made in a loop, browser file errors, cryptography on the web); five pages no longer say Otter runs on Windows only; Windows-only features say so where they are documented.
+
+### Verification
+- The distribution test runs `new`, `check`, `test`, `run`, `build` and `publish` through the installed payload; `tools/Test-OtterDocumentedCli.ps1` checks 28 documented CLI claims against it; `tools/Test-OtterMacInstall.sh` tests a release zip on macOS or Linux in one command.
+- The resource soak measures leftover files, child processes and handles (reviewed report in `docs/RESOURCE_SOAK_RESULTS.md`); the benchmark suite gained compile, HTTP and UI sections and a recorded 1.0 baseline.
+
+## [1.0.0-rc.8] - 2026-09-30 (certified, superseded by rc.9; not tagged)
 
 Eighth Otter 1.0 release candidate: rc.7 plus three fixes for silent wrong
 answers, found while verifying the OtterBoard proposals against rc.7.

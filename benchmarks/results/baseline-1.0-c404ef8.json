@@ -1,0 +1,411 @@
+{
+    "Host":  {
+                 "OtterVersion":  "1.0.0-rc.8",
+                 "GitCommit":  "c404ef8",
+                 "PowerShellVersion":  "5.1.26100.8115",
+                 "PowerShellEdition":  "Desktop",
+                 "OperatingSystem":  "Microsoft Windows NT 10.0.26200.0",
+                 "Processor":  "Intel(R) Core(TM) i9-14900",
+                 "LogicalCores":  32,
+                 "MeasuredRuns":  5,
+                 "WarmupRuns":  1,
+                 "Date":  "2026-09-30 10:42"
+             },
+    "Benchmarks":  [
+                       {
+                           "Benchmark":  "arithmetic",
+                           "MedianMs":  1576.96,
+                           "MinMs":  1540.01,
+                           "MaxMs":  1605.14,
+                           "RunsMs":  [
+                                          1540.01,
+                                          1568.51,
+                                          1576.96,
+                                          1597.03,
+                                          1605.14
+                                      ],
+                           "Statements":  2003,
+                           "FunctionCalls":  0,
+                           "StatementsPerSec":  1270,
+                           "CallsPerSec":  0
+                       },
+                       {
+                           "Benchmark":  "contains_300",
+                           "MedianMs":  780.81,
+                           "MinMs":  747.34,
+                           "MaxMs":  789.31,
+                           "RunsMs":  [
+                                          758.48,
+                                          789.08,
+                                          780.81,
+                                          747.34,
+                                          789.31
+                                      ],
+                           "Statements":  345,
+                           "FunctionCalls":  0,
+                           "StatementsPerSec":  442,
+                           "CallsPerSec":  0
+                       },
+                       {
+                           "Benchmark":  "contains_5000",
+                           "MedianMs":  4320.86,
+                           "MinMs":  4302.39,
+                           "MaxMs":  4346.51,
+                           "RunsMs":  [
+                                          4302.39,
+                                          4344.56,
+                                          4320.86,
+                                          4346.51,
+                                          4313.01
+                                      ],
+                           "Statements":  5009,
+                           "FunctionCalls":  0,
+                           "StatementsPerSec":  1159,
+                           "CallsPerSec":  0
+                       },
+                       {
+                           "Benchmark":  "event_dispatch",
+                           "MedianMs":  3725.09,
+                           "MinMs":  3531.46,
+                           "MaxMs":  3889.25,
+                           "RunsMs":  [
+                                          3555.43,
+                                          3889.25,
+                                          3725.09,
+                                          3531.46,
+                                          3837.53
+                                      ],
+                           "Statements":  310,
+                           "FunctionCalls":  0,
+                           "StatementsPerSec":  83,
+                           "CallsPerSec":  0
+                       },
+                       {
+                           "Benchmark":  "file_io",
+                           "MedianMs":  1218.92,
+                           "MinMs":  1206.41,
+                           "MaxMs":  1252.7,
+                           "RunsMs":  [
+                                          1218.92,
+                                          1252.7,
+                                          1217.99,
+                                          1239.78,
+                                          1206.41
+                                      ],
+                           "Statements":  364,
+                           "FunctionCalls":  0,
+                           "StatementsPerSec":  299,
+                           "CallsPerSec":  0
+                       },
+                       {
+                           "Benchmark":  "function_calls",
+                           "MedianMs":  1269.79,
+                           "MinMs":  1254.4,
+                           "MaxMs":  1305.9,
+                           "RunsMs":  [
+                                          1305.9,
+                                          1254.4,
+                                          1269.79,
+                                          1260.67,
+                                          1284.81
+                                      ],
+                           "Statements":  2106,
+                           "FunctionCalls":  900,
+                           "StatementsPerSec":  1659,
+                           "CallsPerSec":  709
+                       },
+                       {
+                           "Benchmark":  "json",
+                           "MedianMs":  323.33,
+                           "MinMs":  317.49,
+                           "MaxMs":  329.8,
+                           "RunsMs":  [
+                                          329.8,
+                                          325.05,
+                                          323.33,
+                                          320.08,
+                                          317.49
+                                      ],
+                           "Statements":  184,
+                           "FunctionCalls":  0,
+                           "StatementsPerSec":  569,
+                           "CallsPerSec":  0
+                       },
+                       {
+                           "Benchmark":  "lists",
+                           "MedianMs":  1809.58,
+                           "MinMs":  1788.65,
+                           "MaxMs":  1866.21,
+                           "RunsMs":  [
+                                          1866.21,
+                                          1802.35,
+                                          1788.65,
+                                          1809.58,
+                                          1847.17
+                                      ],
+                           "Statements":  810,
+                           "FunctionCalls":  0,
+                           "StatementsPerSec":  448,
+                           "CallsPerSec":  0
+                       },
+                       {
+                           "Benchmark":  "loops",
+                           "MedianMs":  1491.28,
+                           "MinMs":  1460.5,
+                           "MaxMs":  1508.47,
+                           "RunsMs":  [
+                                          1473.56,
+                                          1491.28,
+                                          1508.47,
+                                          1460.5,
+                                          1493.71
+                                      ],
+                           "Statements":  1538,
+                           "FunctionCalls":  0,
+                           "StatementsPerSec":  1031,
+                           "CallsPerSec":  0
+                       },
+                       {
+                           "Benchmark":  "objects",
+                           "MedianMs":  1672.18,
+                           "MinMs":  1668.2,
+                           "MaxMs":  1732.51,
+                           "RunsMs":  [
+                                          1732.51,
+                                          1668.2,
+                                          1671.7,
+                                          1696.28,
+                                          1672.18
+                                      ],
+                           "Statements":  1205,
+                           "FunctionCalls":  0,
+                           "StatementsPerSec":  721,
+                           "CallsPerSec":  0
+                       },
+                       {
+                           "Benchmark":  "recursion",
+                           "MedianMs":  2059.99,
+                           "MinMs":  1993.35,
+                           "MaxMs":  2088.81,
+                           "RunsMs":  [
+                                          1993.35,
+                                          2088.81,
+                                          2073.73,
+                                          2059.99,
+                                          2005.81
+                                      ],
+                           "Statements":  2265,
+                           "FunctionCalls":  566,
+                           "StatementsPerSec":  1100,
+                           "CallsPerSec":  275
+                       },
+                       {
+                           "Benchmark":  "strings",
+                           "MedianMs":  1447.62,
+                           "MinMs":  1408.05,
+                           "MaxMs":  1451.44,
+                           "RunsMs":  [
+                                          1441.35,
+                                          1451.44,
+                                          1448.02,
+                                          1408.05,
+                                          1447.62
+                                      ],
+                           "Statements":  704,
+                           "FunctionCalls":  0,
+                           "StatementsPerSec":  486,
+                           "CallsPerSec":  0
+                       }
+                   ],
+    "Startup":  {
+                    "otter --version":  {
+                                            "MedianMs":  891,
+                                            "MinMs":  841,
+                                            "MaxMs":  898,
+                                            "Runs":  5
+                                        },
+                    "otter run hello.ot":  {
+                                               "MedianMs":  1419,
+                                               "MinMs":  1361,
+                                               "MaxMs":  1503,
+                                               "Runs":  5
+                                           }
+                },
+    "Compile":  {
+                    "arithmetic":  {
+                                       "MedianMs":  26.06,
+                                       "MinMs":  22.09,
+                                       "MaxMs":  31.13,
+                                       "RunsMs":  [
+                                                      26.06,
+                                                      22.09,
+                                                      25.4,
+                                                      27.26,
+                                                      31.13
+                                                  ]
+                                   },
+                    "contains_300":  {
+                                         "MedianMs":  21.94,
+                                         "MinMs":  19.48,
+                                         "MaxMs":  23.88,
+                                         "RunsMs":  [
+                                                        23.88,
+                                                        23.42,
+                                                        19.48,
+                                                        21.94,
+                                                        20.15
+                                                    ]
+                                     },
+                    "contains_5000":  {
+                                          "MedianMs":  21.9,
+                                          "MinMs":  19.58,
+                                          "MaxMs":  24.01,
+                                          "RunsMs":  [
+                                                         20.84,
+                                                         19.58,
+                                                         21.9,
+                                                         24.01,
+                                                         23.66
+                                                     ]
+                                      },
+                    "event_dispatch":  {
+                                           "Skipped":  "UDP is not supported on the web target. Browsers cannot open raw UDP sockets."
+                                       },
+                    "file_io":  {
+                                    "MedianMs":  23.32,
+                                    "MinMs":  21.22,
+                                    "MaxMs":  24.97,
+                                    "RunsMs":  [
+                                                   23.32,
+                                                   24.13,
+                                                   24.97,
+                                                   21.22,
+                                                   21.5
+                                               ]
+                                },
+                    "function_calls":  {
+                                           "MedianMs":  38.25,
+                                           "MinMs":  33.37,
+                                           "MaxMs":  40.97,
+                                           "RunsMs":  [
+                                                          40.39,
+                                                          33.37,
+                                                          38.25,
+                                                          40.97,
+                                                          33.79
+                                                      ]
+                                       },
+                    "json":  {
+                                 "MedianMs":  24.21,
+                                 "MinMs":  20.08,
+                                 "MaxMs":  31.41,
+                                 "RunsMs":  [
+                                                27.19,
+                                                24.21,
+                                                31.41,
+                                                20.08,
+                                                23.51
+                                            ]
+                             },
+                    "lists":  {
+                                  "MedianMs":  37.86,
+                                  "MinMs":  34.95,
+                                  "MaxMs":  39.94,
+                                  "RunsMs":  [
+                                                 37.86,
+                                                 38.1,
+                                                 34.95,
+                                                 39.94,
+                                                 36.69
+                                             ]
+                              },
+                    "loops":  {
+                                  "MedianMs":  42.39,
+                                  "MinMs":  37.1,
+                                  "MaxMs":  44.92,
+                                  "RunsMs":  [
+                                                 42.39,
+                                                 38.47,
+                                                 37.1,
+                                                 44.92,
+                                                 44.03
+                                             ]
+                              },
+                    "objects":  {
+                                    "MedianMs":  30.33,
+                                    "MinMs":  26.37,
+                                    "MaxMs":  35.07,
+                                    "RunsMs":  [
+                                                   35.07,
+                                                   26.37,
+                                                   28.3,
+                                                   30.33,
+                                                   32
+                                               ]
+                                },
+                    "recursion":  {
+                                      "MedianMs":  45.39,
+                                      "MinMs":  44.02,
+                                      "MaxMs":  48.18,
+                                      "RunsMs":  [
+                                                     44.02,
+                                                     47.38,
+                                                     45.39,
+                                                     48.18,
+                                                     44.75
+                                                 ]
+                                  },
+                    "strings":  {
+                                    "MedianMs":  27.39,
+                                    "MinMs":  27.09,
+                                    "MaxMs":  30.66,
+                                    "RunsMs":  [
+                                                   27.34,
+                                                   30.66,
+                                                   27.39,
+                                                   27.09,
+                                                   28.74
+                                               ]
+                                },
+                    "tasks":  {
+                                  "MedianMs":  70.27,
+                                  "MinMs":  68.59,
+                                  "MaxMs":  78.92,
+                                  "RunsMs":  [
+                                                 68.59,
+                                                 75.81,
+                                                 78.92,
+                                                 70.07,
+                                                 70.27
+                                             ]
+                              }
+                },
+    "Http":  {
+                 "http_get":  {
+                                  "MedianMs":  281.58,
+                                  "MinMs":  272.46,
+                                  "MaxMs":  288.87,
+                                  "RunsMs":  [
+                                                 272.46,
+                                                 278.31,
+                                                 282.13,
+                                                 281.58,
+                                                 288.87
+                                             ]
+                              }
+             },
+    "Ui":  {
+               "build_window":  {
+                                    "MedianMs":  539.09,
+                                    "MinMs":  522.2,
+                                    "MaxMs":  583.06,
+                                    "RunsMs":  [
+                                                   522.2,
+                                                   530.54,
+                                                   557.98,
+                                                   539.09,
+                                                   583.06
+                                               ]
+                                }
+           }
+}

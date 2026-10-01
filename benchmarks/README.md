@@ -52,6 +52,22 @@ Workloads are deliberately small (hundreds to a few thousand statements) because
 the interpreter runs at roughly 1-2 thousand statements/second; results are
 compared as ratios between builds, not against other languages.
 
+## Other sections
+
+| Switch | Measures |
+|---|---|
+| `-Startup` | a separate `otter` process per run: `--version`, and `run examples\hello.ot` |
+| `-Compile` | the web compiler (`otter web`) on every program above and on `examples\v1\tasks.ot`; parsing is not included. Console-only programs (UDP) are reported as skipped |
+| `-Http` | `http/http_get.ot`: 50 GET requests from an Otter client to `http/server.ot`, an Otter web server the runner starts with `otter serve` (port 47392) and stops afterwards |
+| `-Ui` | `ui/*.ot`: `build_window.ot` creates, configures and places 100 buttons with click handlers in a window that is never shown. Windows only; skipped elsewhere |
+| `-All` | every section: `tools\Invoke-OtterBenchmarks.ps1 -All -Json benchmarks\results\my-run.json` |
+
+The JSON output records the host, the Otter version and the git commit measured.
+
+Timings on a busy machine vary: the same build measured twice has differed by
+up to 13% on this suite. Compare builds back to back on one machine, and treat
+smaller differences as noise.
+
 ## Results
 
 `benchmarks/results/baseline-0.9.0.json` is the recorded baseline (before the
