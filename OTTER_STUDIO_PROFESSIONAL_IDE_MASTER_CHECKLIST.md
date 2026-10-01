@@ -635,20 +635,20 @@ architecture reference. Listed in the recommended implementation order.
 
 # 19. Debugger
 
--   [ ] Debugger protocol
--   [ ] Runtime instrumentation
--   [ ] Breakpoints
--   [ ] Conditional/hit-count breakpoints
--   [ ] Logpoints
--   [ ] Step over/into/out
--   [ ] Continue/pause/stop/restart
--   [ ] Call stack
--   [ ] Current line
--   [ ] Locals/globals
--   [ ] Watches
--   [ ] Evaluate expression
--   [ ] Object/list inspection
--   [ ] Error breakpoints
+-   [x] Debugger protocol (line protocol documented in src/Otter.Debugger.psm1: paused / evaluated / log / finished events; continue, next, step, out, pause, breakpoints, eval commands; tests/Debugger.Tests.ps1, scripts/debug-session.test.mjs)
+-   [x] Runtime instrumentation (the interpreter's one statement hook, Set-OtterStatementHook; no second interpreter)
+-   [x] Breakpoints (gutter click; changed while the program runs)
+-   [ ] Conditional/hit-count breakpoints (conditions done - right-click a breakpoint, tests/Debugger.Tests.ps1, scripts/debug-session.test.mjs; hit counts not yet)
+-   [x] Logpoints ({expression} in the message; never stops)
+-   [x] Step over/into/out (F10 / F11 / Shift+F11, the call stack depth decides)
+-   [x] Continue/pause/stop/restart (debug toolbar, F5 / F6 / Shift+F5 / Ctrl+Shift+F5)
+-   [x] Call stack (Call Stack card, innermost first; a frame shows its line)
+-   [x] Current line
+-   [x] Locals/globals (Variables: Locals and Globals scopes)
+-   [x] Watches (Watch card, evaluated each stop, kept)
+-   [x] Evaluate expression (debug console under Program; comparisons and arithmetic as Otter reads them)
+-   [x] Object/list inspection (lists and things expand, three levels)
+-   [x] Error breakpoints (a runtime error stops the session at its line, with the message and variables)
 -   [ ] Async debugging
 -   [ ] Web/Desktop source mapping
 -   [ ] Debug console
@@ -1110,7 +1110,7 @@ architecture reference. Listed in the recommended implementation order.
 -   [x] Run Current File/project. (certified via otter-studio/scripts/launch.test.mjs)
 -   [x] Launch profiles. (certified via otter-studio/scripts/launch.test.mjs)
 -   [ ] Persistent PTY terminal.
--   [ ] Debugger with breakpoints, stepping, stack, variables, watches.
+-   [x] Debugger with breakpoints, stepping, stack, variables, watches. (section 19; through the real UI in scratch dogfood d17: gutter breakpoint, F11/F10/Shift+F11, Watch, debug console, conditional breakpoint, F5)
 
 ## P6 --- Tests/packages/Git/extensions
 
