@@ -112,7 +112,7 @@ say "Score is" score
   assert(desktopRes.status === 200 && desktopRes.json.ok, 'Desktop project created via /api/create-project');
   const desktopDiskDir = path.join(REPO_ROOT, 'projects', 'test-certified-desktop');
   assert(fs.existsSync(path.join(desktopDiskDir, 'app.ot')), 'app.ot exists on disk');
-  assert(fs.existsSync(path.join(desktopDiskDir, 'styles.css')), 'styles.css exists on disk');
+  assert(fs.existsSync(path.join(desktopDiskDir, 'app.css')), 'app.css exists on disk (D125: <entry>.css)');
   assert(fs.existsSync(path.join(desktopDiskDir, 'project.json')), 'project.json exists on disk');
 
   // 3. Test Web Archetype
@@ -127,7 +127,7 @@ say "Score is" score
   assert(webRes.status === 200 && webRes.json.ok, 'Web project created via /api/create-project');
   const webDiskDir = path.join(REPO_ROOT, 'projects', 'test-certified-web');
   assert(fs.existsSync(path.join(webDiskDir, 'web-app.ot')), 'web-app.ot exists on disk');
-  assert(fs.existsSync(path.join(webDiskDir, 'styles.css')), 'styles.css exists on disk');
+  assert(fs.existsSync(path.join(webDiskDir, 'web-app.css')), 'web-app.css exists on disk (D125: <entry>.css)');
   assert(fs.existsSync(path.join(webDiskDir, 'project.json')), 'project.json exists on disk');
 
   // 4. Test 2D Game Archetype
@@ -142,7 +142,7 @@ say "Score is" score
   assert(gameRes.status === 200 && gameRes.json.ok, 'Game project created via /api/create-project');
   const gameDiskDir = path.join(REPO_ROOT, 'projects', 'test-certified-game');
   assert(fs.existsSync(path.join(gameDiskDir, 'game.ot')), 'game.ot exists on disk');
-  assert(fs.existsSync(path.join(gameDiskDir, 'styles.css')), 'styles.css exists on disk');
+  assert(fs.existsSync(path.join(gameDiskDir, 'game.css')), 'game.css exists on disk (D125: <entry>.css)');
   assert(fs.existsSync(path.join(gameDiskDir, 'project.json')), 'project.json exists on disk');
 
   // 5. Test Project Reloading via /api/project

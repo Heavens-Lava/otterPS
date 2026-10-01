@@ -1,16 +1,11 @@
 // stylesheet.mjs - Which stylesheet belongs to a project, found the way the
 // compiler finds it (Resolve-OtterProjectStylesheet in src/Otter.Web.psm1,
-// SPEC-DECISIONS D125), so the Designer edits the file the app really uses:
+// D125 - the release line's rule, adopted on this line 2026-09-30), so the
+// Designer edits the file the app really uses: <entry>.css beside the entry
+// (app.ot -> app.css), and nothing else - styles.css is not a stylesheet.
 //
-//   1. <entry>.css beside the entry       app.ot -> app.css
-//   2. styles.css beside the entry
-//   3. styles.css in the project root (the folder with otter.json /
-//      project.json), for an entry kept in src/
-//
-// The entry is the project manifest's entryPoint (else main.ot). When none
-// exists yet, new styles go to <entry>.css beside the entry: the stylesheet
-// every Otter compiler reads for that entry (styles.css is a fallback only
-// some read).
+// The entry is the project manifest's entryPoint (else main.ot). When it has
+// no stylesheet yet, new styles go to <entry>.css.
 //
 //   GET /api/project-stylesheet?folder=<project> -> { path, exists, entry }
 //   (paths are workspace paths, like every other route's)
@@ -34,13 +29,8 @@ export function projectEntry(folderAbs) {
 export function resolveProjectStylesheet(folderAbs) {
   const entry = projectEntry(folderAbs);
   const entryDir = path.dirname(entry);
-  const candidates = [
-    path.join(entryDir, `${path.basename(entry, path.extname(entry))}.css`),
-    path.join(entryDir, 'styles.css'),
-    path.join(folderAbs, 'styles.css')
-  ];
-  const found = candidates.find(isFile);
-  return { entry, path: found || candidates[0], exists: Boolean(found) };
+  const named = path.join(entryDir, `${path.basename(entry, path.extname(entry))}.css`);
+  return { entry, path: named, exists: isFile(named) };
 }
 
 export function handleStylesheetRoute(req, res, pathname, urlObj, ctx) {

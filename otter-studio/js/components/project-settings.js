@@ -194,7 +194,7 @@ export function renderProjectSettings(container, options = {}) {
                 ${renderAssets(manifest.assets)}
               </div>
               <div class="add-row">
-                <input type="text" id="inputNewAsset" class="settings-input flex-2" placeholder="Asset path or glob (e.g. styles.css)" />
+                <input type="text" id="inputNewAsset" class="settings-input flex-2" placeholder="Asset path or glob (e.g. assets/images/logo.png)" />
                 <button type="button" class="btn-settings-small" id="btnAddAsset">+ Add</button>
               </div>
             </div>

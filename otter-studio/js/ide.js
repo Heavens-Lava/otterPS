@@ -2413,9 +2413,8 @@ export class OtterStudioIde {
   }
 
   // The stylesheet the designer's style edits belong to: the one the
-  // compiler uses (D125) - <entry>.css, else styles.css beside the entry,
-  // else the project root's styles.css - as the server resolved it
-  // (server/stylesheet.mjs) when the project was loaded.
+  // compiler uses (D125): <entry>.css beside the entry, as the server
+  // resolved it (server/stylesheet.mjs) when the project was loaded.
   projectStylesheetPath() {
     const folder = this.currentProjectFolder;
     if (!folder || /\.(json|otter-workspace)$/i.test(folder)) return null; // solutions have no single stylesheet

@@ -35,7 +35,7 @@ assert.match(dialogJs, /ide\.isTrusted === false/, 'an untrusted workspace must 
 // 2. The server endpoint, against a real project folder.
 await fs.mkdir(projectDir, { recursive: true });
 await fs.writeFile(path.join(projectDir, 'main.ot'), 'app is a window with title "Dialog Smoke"\ngo is a button with text "Go"\nput go in app\nshow app\n');
-await fs.writeFile(path.join(projectDir, 'styles.css'), '/* STYLES_CSS_MARKER */\n#go { color: blue; }\n');
+await fs.writeFile(path.join(projectDir, 'main.css'), '/* STYLES_CSS_MARKER */\n#go { color: blue; }\n');
 await fs.writeFile(path.join(projectDir, 'otter.json'), JSON.stringify({ name: 'Dialog Smoke', version: '1.0.0', archetype: 'desktop', target: 'desktop', entryPoint: 'main.ot' }, null, 2));
 
 const server = spawn(process.execPath, ['serve.mjs'], {
@@ -80,14 +80,14 @@ try {
     assert.ok(byStep[step], `expected a progress event for ${step}; got ${steps.map(e => e.step).join(',')}\n${events.filter(e => e.type === 'log').map(e => e.text).join('\n')}`);
   }
   assert.equal(byStep.export.status, 'done');
-  assert.match(byStep.styles.label, /styles\.css/, 'the stylesheet step names the embedded file');
+  assert.match(byStep.styles.label, /main\.css/, 'the stylesheet step names the embedded file');
   assert.equal(byStep.done.dryRun, true);
   assert.match(byStep.done.outputDir, /packages$/);
   const exit = events.find(e => e.type === 'exit');
   assert.equal(exit && exit.code, 0, `otter package should exit 0; output:\n${events.filter(e => e.type === 'log').map(e => e.text).join('\n')}`);
   const indexPath = path.join(projectDir, 'dist', 'app', 'index.html');
   const built = await fs.readFile(indexPath, 'utf8');
-  assert.match(built, /STYLES_CSS_MARKER/, 'the exported page carries styles.css');
+  assert.match(built, /STYLES_CSS_MARKER/, 'the exported page carries main.css');
   console.log('  pass  /api/package streams check, export, styles, configure and done for a dry run');
 
   // The endpoint refuses folders outside the repository and reports unknown ones.

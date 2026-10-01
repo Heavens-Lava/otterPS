@@ -1,5 +1,5 @@
-// The Designer edits the stylesheet the compiler uses (D125):
-// <entry>.css, else styles.css beside the entry, else the root's styles.css.
+// The Designer edits the stylesheet the compiler uses (D125): <entry>.css
+// beside the entry, and nothing else - styles.css is not a stylesheet.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -32,18 +32,13 @@ try {
     assert.equal(rel(dir, found.path), 'app.css');
     assert.equal(found.exists, true);
   });
-  test('then styles.css beside the entry', () => {
+  test('styles.css is not a stylesheet (D125): an entry in src/ uses src/main.css', () => {
     const dir = project({ 'otter.json': JSON.stringify({ entryPoint: 'src/main.ot' }), 'src/main.ot': '', 'src/styles.css': '', 'styles.css': '' });
     made.push(dir);
-    assert.equal(rel(dir, resolveProjectStylesheet(dir).path), 'src/styles.css');
+    const found = resolveProjectStylesheet(dir);
+    assert.equal(rel(dir, found.path), 'src/main.css');
+    assert.equal(found.exists, false);
   });
-  test('then the project root\'s styles.css, for an entry in src/', () => {
-    const dir = project({ 'otter.json': JSON.stringify({ entryPoint: 'src/main.ot' }), 'src/main.ot': '', 'styles.css': '' });
-    made.push(dir);
-    assert.equal(rel(dir, resolveProjectStylesheet(dir).path), 'styles.css');
-  });
-  // <entry>.css: the stylesheet every Otter compiler reads for the entry
-  // (the release line's D125 reads no styles.css at all).
   test('none yet: <entry>.css beside the entry', () => {
     const dir = project({ 'project.json': JSON.stringify({ entryPoint: 'main.ot' }), 'main.ot': '' });
     made.push(dir);
