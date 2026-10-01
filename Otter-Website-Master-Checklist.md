@@ -17,7 +17,7 @@
 > control reference pages, tutorials beyond the tiny app, migration guides, error reference, roadmap and release archive.
 > **Deviation:** some example code in this checklist is aspirational and does not parse in Otter today (`saveButton is primary button with text is "Save"`, `on click of saveButton`).
 > The site shows what runs: `saveButton is a primary button with text "Save"` and `when saveButton is clicked`.
-> Version shown: `{{RELEASE_VERSION}}` from `otter-docs/release-data.json`, which must match the repository `VERSION` file (currently 1.0.0-rc.9; the published site describes 1.0.0-rc.4).
+> Version shown: `{{RELEASE_VERSION}}` from `otter-docs/release-data.json`, which must match the repository `VERSION` file (currently 1.0.0-rc.10; the published site describes 1.0.0-rc.4).
 
 Please use "Otter Website documentation reference.png" 
 ------------------------------------------------------------------------

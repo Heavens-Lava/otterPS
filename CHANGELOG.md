@@ -4,7 +4,19 @@ All notable changes to the Otter Programming Language platform are documented in
 
 ## [Unreleased]
 
-## [1.0.0-rc.9] - 2026-09-30 (candidate; certification pending)
+## [1.0.0-rc.10] - 2026-10-01 (candidate; certification pending)
+
+Tenth Otter 1.0 release candidate: rc.9 plus one fix found by the macOS
+hands-on test (`docs/OTTER_MACOS_RESULTS_080fcf2.md`). rc.9 passed
+certification on Windows and Linux and is superseded before publication.
+
+### Fixed
+- `otter web` opens the page in the default browser on macOS and Linux. On macOS (PowerShell 7.6) it always reported "I could not open a browser", because opening an `.html` file with `Start-Process` tries to run it there; macOS and Linux now hand the page to `open` / `xdg-open`. Windows is unchanged.
+
+### Documentation
+- The macOS agent test guide installs PowerShell with `brew install powershell` (the cask no longer exists) and restores the tracked `examples/hello-app.html` instead of deleting it.
+
+## [1.0.0-rc.9] - 2026-09-30 (certified, superseded by rc.10; not tagged)
 
 Ninth Otter 1.0 release candidate: rc.8 plus a launcher for built apps on
 macOS and Linux, a narrower D130, and release verification and documentation

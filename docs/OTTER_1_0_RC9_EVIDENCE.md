@@ -1,7 +1,9 @@
 # Otter 1.0.0-rc.9 — release evidence
 
-Candidate: `b8d91905c982ec9512f1b2a024a32cc927feccb7` (`VERSION` 1.0.0-rc.9),
-**not tagged yet**. rc.8 (`6404211`, certified but superseded; see
+Candidate: `b8d91905c982ec9512f1b2a024a32cc927feccb7` (`VERSION` 1.0.0-rc.9).
+**Superseded by rc.10 before publication, not tagged:** the macOS hands-on
+test found that `otter web` could not open a browser on macOS (see
+`docs/OTTER_MACOS_RESULTS_080fcf2.md` and `CHANGELOG.md` `[1.0.0-rc.10]`). rc.8 (`6404211`, certified but superseded; see
 `docs/OTTER_1_0_RC8_EVIDENCE.md`) plus:
 
 - `f63b3dc` — built and published console apps get a `run` launcher for macOS
@@ -26,7 +28,7 @@ Release archive: `otter-1.0.0-rc.9.zip`, 412,848 bytes, SHA-256
 | Desktop (WPF) smoke test | **Pass**, 9 of 9 checks. | `tools/Test-OtterDesktopSmoke.ps1`, PowerShell 5.1.26100.8115 |
 | Linux, this commit | **Pass.** Clean container (PowerShell 7.4.2, Ubuntu 22.04, Node.js 20): the Windows-built archive above unzipped, run directly, installed twice, the project workflow (`new`, `check`, `test`, `run`, `build`, `publish`) and the built app's `dist/run` run through the installed `otter`, uninstalled; the 24 D120 portable suites pass. | Docker Desktop on the release machine, 2026-10-01 |
 | D120 four-host workflow, this commit | **Not run** (GitHub Actions account spending limit). | — |
-| macOS, hands-on | **In progress** on Jeff's Mac (`docs/MACOS_AGENT_TEST.md`). | — |
+| macOS, hands-on (`080fcf2`, the rc.9 code before the version bump) | **One failure:** distribution, documented CLI (28/28) and the 24 portable suites pass on macOS 26.1 arm64, PowerShell 7.6.6; `otter web` cannot open a browser (fixed in rc.10); the real-download test was skipped. | `docs/OTTER_MACOS_RESULTS_080fcf2.md` |
 | Fresh-machine test (Windows) | **Not run.** | — |
 
 All certification records are kept in `otter-certification-records` beside
