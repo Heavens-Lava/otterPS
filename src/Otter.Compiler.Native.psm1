@@ -273,9 +273,30 @@ function ConvertTo-OtterNativeStatement {
             if ($InFunction) { $out.Add("${Pad}return $v;") }
             else {
                 if ($v -ne 'null') { $out.Add("${Pad}GC.KeepAlive($v);") }
-                $out.Add("${Pad}throw R.Err(`"stop only works inside something Otter can call, like a function. There is nothing here to stop.`", $line, null);")
+                $out.Add("${Pad}throw new OtterStopSignal($line);")
             }
         }
+        'Try' {
+            # Any failure is caught, as in the interpreter; a top-level `stop`
+            # is not a failure and passes through (OtterStopSignal).
+            $ex = $Context.Next('ex')
+            $out.Add("${Pad}try {")
+            foreach ($l in (ConvertTo-OtterNativeBlock -Statements $Stmt.Body -Context $Context -InFunction $InFunction -Pad $inner)) { $out.Add($l) }
+            $out.Add("${Pad}}")
+            $out.Add("${Pad}catch (OtterStopSignal) { throw; }")
+            $out.Add("${Pad}catch (Exception $ex) {")
+            if ($Stmt.ErrorTarget) { $out.Add("${inner}e.Set($(ConvertTo-OtterCSharpString $Stmt.ErrorTarget), $ex.Message);") }
+            else { $out.Add("${inner}GC.KeepAlive($ex);") }
+            if ($null -ne $Stmt.OtherwiseBody) {
+                foreach ($l in (ConvertTo-OtterNativeBlock -Statements $Stmt.OtherwiseBody -Context $Context -InFunction $InFunction -Pad $inner)) { $out.Add($l) }
+            }
+            $out.Add("${Pad}}")
+        }
+        'Fail' {
+            $out.Add("${Pad}throw R.Fail($(ConvertTo-OtterNativeExpression -Expr $Stmt.Message -Context $Context), $line);")
+        }
+        'Sort' { $out.Add("${Pad}R.Sort(e, $(ConvertTo-OtterCSharpString $Stmt.Target), $line);") }
+        'Reverse' { $out.Add("${Pad}R.Reverse(e, $(ConvertTo-OtterCSharpString $Stmt.Target), $line);") }
         default { throw (New-OtterNativeUnsupported -Node $Stmt) }
     }
     return , $out
@@ -375,6 +396,10 @@ function Invoke-OtterNativeProgram {
         while ($inner -is [System.Management.Automation.MethodInvocationException] -or $inner -is [System.Reflection.TargetInvocationException]) {
             if ($null -eq $inner.InnerException) { break }
             $inner = $inner.InnerException
+        }
+        if ($inner -is [OtterNative.OtterStopSignal]) {
+            $sourceLine = if ($inner.Line -ge 1 -and $inner.Line -le $SourceLines.Count) { $SourceLines[$inner.Line - 1] } else { $null }
+            throw [OtterError]::new($inner.Message, $inner.Line, 'runtime', 0, $sourceLine, $null)
         }
         if ($inner -is [OtterNative.OtterNativeError]) {
             $sourceLine = if ($inner.Line -ge 1 -and $inner.Line -le $SourceLines.Count) { $SourceLines[$inner.Line - 1] } else { $null }

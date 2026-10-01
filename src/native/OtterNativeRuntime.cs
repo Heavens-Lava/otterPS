@@ -28,6 +28,15 @@ namespace OtterNative
         }
     }
 
+    // A top-level `stop`: the interpreter's OtterReturnSignal, which passes
+    // through every `try` and becomes an error only at program level. A
+    // separate type so generated `try` blocks can let it through.
+    public sealed class OtterStopSignal : Exception
+    {
+        public int Line;
+        public OtterStopSignal(int line) : base("stop only works inside something Otter can call, like a function. There is nothing here to stop.") { Line = line; }
+    }
+
     // OtterEnvironment (src/Otter.Runtime.psm1): ordinal names, a parent chain,
     // Set updates the variable where it already lives, SetLocal shadows.
     public sealed class Env
@@ -279,6 +288,40 @@ namespace OtterNative
         // PowerShell 7, Add-Type with -ReferencedAssemblies drops the default
         // references, and List<> lives in System.Collections there).
         public static object List(object[] items) { return new List<object>(items); }
+
+        // 'Fail' (D68): the value's text becomes the message.
+        public static OtterNativeError Fail(object message, int line) { return Err(Format(message), line, null); }
+
+        // Get-OtterMutableList: sort and reverse change the list in place.
+        static List<object> MutableList(Env e, string name, int line, string verb)
+        {
+            if (!e.Has(name)) throw Err("Otter could not find the variable \"" + name + "\".", line, null);
+            object value = e.GetRaw(name);
+            List<object> list = value as List<object>;
+            if (list == null) throw Err("I can only " + verb + " a list, but \"" + name + "\" holds " + TypeName(value) + ".", line, null);
+            return list;
+        }
+
+        // 'Sort': numbers by value, anything else by its text (ordinal), with
+        // Array.Sort - the same algorithm the interpreter calls, so ties keep
+        // the same order.
+        public static void Sort(Env e, string name, int line)
+        {
+            List<object> list = MutableList(e, name, line, "sort");
+            object[] items = list.ToArray();
+            Array.Sort<object>(items, CompareForSort);
+            list.Clear();
+            list.AddRange(items);
+        }
+
+        static int CompareForSort(object left, object right)
+        {
+            double l, r;
+            if (TryNumber(left, out l) && TryNumber(right, out r)) return l.CompareTo(r);
+            return string.CompareOrdinal(Format(left), Format(right));
+        }
+
+        public static void Reverse(Env e, string name, int line) { MutableList(e, name, line, "reverse").Reverse(); }
 
         // 'OfOperation' First / Last: gone for an empty list.
         public static object First(object subject, int line)

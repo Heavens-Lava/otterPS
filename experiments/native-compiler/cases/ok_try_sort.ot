@@ -1,0 +1,57 @@
+to risky n
+    if n is greater than 2
+        fail with "too big"
+    .
+    return n times 10
+.
+
+try
+    risky 1 make first
+    say first
+    risky 5 make second
+    say "not reached"
+otherwise into reason
+    say "caught:" reason
+.
+
+try
+    x is 1 / 0
+otherwise
+    say "division caught"
+.
+
+to early n
+    try
+        return n plus 1
+    otherwise
+        say "never"
+    .
+.
+early 4 make got
+say got
+
+words are
+    "pear"
+    "Apple"
+    "banana"
+    10
+    9
+    "10"
+.
+sort words
+say words
+reverse words
+say words
+nums are
+    3
+    1.5
+    2
+    1.5
+.
+sort nums
+say nums
+try
+    stop
+otherwise
+    say "stop is not caught"
+.
