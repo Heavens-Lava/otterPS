@@ -744,15 +744,15 @@ architecture reference. Listed in the recommended implementation order.
 # 24. Integrated terminal and REPL
 
 -   [x] Command execution/output smoke-tested
--   [ ] Persistent terminal
+-   [x] Persistent terminal (one long-lived PowerShell per terminal: cd, variables and functions last; output streams; a program that asks reads what is typed; server/terminal-sessions.mjs, scripts/terminal.test.mjs, scratch dogfood d18 through the real UI. Not a pseudo-terminal: full-screen programs that redraw are not supported)
 -   [ ] Multiple tabs
 -   [ ] Shell selector
 -   [ ] Otter REPL profile
 -   [ ] PowerShell/cmd/bash/WSL profiles
 -   [ ] Explorer↔terminal cwd sync
 -   [ ] ANSI
--   [ ] Search/copy/paste/clear
--   [ ] Kill/restart
+-   [ ] Search/copy/paste/clear (clear and copy done; search not yet)
+-   [x] Kill/restart (Stop / Ctrl+C ends a running program and keeps the shell, or starts a new shell in the same folder when a command inside PowerShell runs - and says so; New shell)
 -   [ ] Clickable links
 -   [ ] Terminal accessibility
 -   [ ] Production Otter REPL
@@ -1109,7 +1109,7 @@ architecture reference. Listed in the recommended implementation order.
 -   [ ] `otter build`.
 -   [x] Run Current File/project. (certified via otter-studio/scripts/launch.test.mjs)
 -   [x] Launch profiles. (certified via otter-studio/scripts/launch.test.mjs)
--   [ ] Persistent PTY terminal.
+-   [ ] Persistent PTY terminal. (persistent terminal done - section 24; a true pseudo-terminal needs node-pty / ConPTY, not installed)
 -   [x] Debugger with breakpoints, stepping, stack, variables, watches. (section 19; through the real UI in scratch dogfood d17: gutter breakpoint, F11/F10/Shift+F11, Watch, debug console, conditional breakpoint, F5)
 
 ## P6 --- Tests/packages/Git/extensions
