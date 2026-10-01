@@ -143,7 +143,7 @@ try {
         if ($expected -notin $stepsSeen) { throw "Test 2b: --progress should report '$expected'; saw: $($stepsSeen -join ',')" }
     }
     $stylesEvent = $events | Where-Object { $_.step -eq 'styles' } | Select-Object -First 1
-    if ($stylesEvent.label -notmatch 'styles\.css') { throw "Test 2b: the styles step should name the stylesheet, got '$($stylesEvent.label)'" }
+    if ($stylesEvent.label -notmatch 'main\.css') { throw "Test 2b: the styles step should name the stylesheet, got '$($stylesEvent.label)'" }
     $doneEvent = $events | Where-Object { $_.step -eq 'done' } | Select-Object -First 1
     if (-not $doneEvent.dryRun -or $doneEvent.outputDir -ne (Join-Path $projDir 'packages')) { throw "Test 2b: the done event should describe the dry run and output folder, got $($doneEvent | ConvertTo-Json -Compress)" }
     $plainRun = Invoke-Otter @('package', $projDir, '--target', 'windows', '--dry-run')
