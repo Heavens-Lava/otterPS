@@ -19,6 +19,17 @@ using module .\Otter.LoopPasses.psm1
 
 $script:NativeRuntimePath = Join-Path $PSScriptRoot 'native\OtterNativeRuntime.cs'
 
+# Kinds the compiler handles only in part, for the generated coverage list
+# (tools/New-OtterNativeCoverage.ps1). Every other handled kind is complete.
+$script:NativePartialKinds = [ordered]@{
+    Say          = 'without "in color"'
+    Assign       = 'to a variable or a property of a thing'
+    ObjectDef    = 'plain things ("x is a thing", "x has"), not custom types'
+    OfOperation  = 'length, first and last of; not the text, math or time operations'
+}
+
+function Get-OtterNativePartialKinds { return $script:NativePartialKinds }
+
 # One C# string literal; every character outside printable ASCII is escaped,
 # so Otter text can never break out of the literal (generated-code injection).
 function ConvertTo-OtterCSharpString {
@@ -373,4 +384,4 @@ function Invoke-OtterNativeProgram {
     }
 }
 
-Export-ModuleMember -Function ConvertTo-OtterCSharp, New-OtterNativeProgram, Invoke-OtterNativeProgram
+Export-ModuleMember -Function ConvertTo-OtterCSharp, New-OtterNativeProgram, Invoke-OtterNativeProgram, Get-OtterNativePartialKinds

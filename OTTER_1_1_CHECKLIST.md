@@ -515,6 +515,7 @@ Tests       18
 - [x] Write `docs/OTTER_NATIVE_COMPILER_DESIGN.md` (first draft, 2026-09-30).
 - [x] Decide build/runtime prerequisites first: hybrid (decided 2026-09-30) - accelerated runs need nothing extra; executables use the .NET SDK when present (design document section 2).
 - [x] Decide the C# language ceiling: C# 5, so Windows PowerShell 5.1 works (decided 2026-09-30).
+- [x] Generated coverage list of every node kind: `docs/NATIVE_COMPILER_COVERAGE.md` (`tools/New-OtterNativeCoverage.ps1`).
 - [ ] Decide first backend:
   - [ ] C# source generation + .NET compilation
   - [ ] direct .NET IL generation
@@ -539,26 +540,26 @@ Tests       18
 ### 18.3 Minimal Native Compiler Milestone
 
 - [ ] Compile `say "hello"` to a runnable executable.
-- [ ] Compile variables.
-- [ ] Compile arithmetic.
-- [ ] Compile booleans/comparisons.
-- [ ] Compile `if`.
-- [ ] Compile loops.
-- [ ] Compile functions.
-- [ ] Compile recursion.
-- [ ] Compile lists.
-- [ ] Compile things/objects.
+- [x] Compile variables.
+- [x] Compile arithmetic.
+- [x] Compile booleans/comparisons.
+- [x] Compile `if`.
+- [x] Compile loops (count, repeat, while, for each).
+- [x] Compile functions.
+- [x] Compile recursion (with the 250-call limit).
+- [x] Compile lists (add, remove, contains, length/first/last of; not sort/reverse yet).
+- [ ] Compile things/objects (plain things done; custom types not yet).
 - [ ] Compile strings.
 - [ ] Compile JSON.
-- [ ] Preserve Otter value formatting.
-- [ ] Preserve contractual Otter error behavior.
-- [ ] Preserve `gone`.
-- [ ] Preserve reserved identifier semantics.
-- [ ] Preserve line/source information for diagnostics.
+- [x] Preserve Otter value formatting.
+- [x] Preserve contractual Otter error behavior (message, line, suggestion, exit code, for the compiled subset).
+- [x] Preserve `gone`.
+- [x] Preserve reserved identifier semantics (the shared parser and checks run first).
+- [x] Preserve line/source information for diagnostics.
 
 ### 18.4 Standard Library Bridge
 
-- [ ] Create a compiled runtime library such as `Otter.Runtime`.
+- [x] Create a compiled runtime library (`src/native/OtterNativeRuntime.cs`, C# 5).
 - [ ] Move semantic helpers into backend-neutral/runtime-testable units where appropriate.
 - [ ] Files.
 - [ ] JSON.
@@ -585,35 +586,35 @@ another implementation (design document section 5).
 
 For every compiled feature:
 
-- [ ] Run the same `.ot` program through the PowerShell reference runtime.
-- [ ] Run it through the native compiler.
-- [ ] Compare stdout.
-- [ ] Compare stderr/diagnostic category.
-- [ ] Compare exit status.
+- [x] Run the same `.ot` program through the PowerShell reference runtime.
+- [x] Run it through the native compiler (`tools/Invoke-OtterDifferentialFuzzer.ps1 -IncludeNative`, `experiments/native-compiler/`).
+- [x] Compare stdout.
+- [x] Compare stderr/diagnostic category.
+- [x] Compare exit status.
 - [ ] Compare files/output artifacts where relevant.
 - [ ] Compare deterministic random behavior when seeded.
 - [ ] Compare JSON behavior.
 - [ ] Compare numeric edge cases.
 - [ ] Compare string/Unicode behavior.
 - [ ] Compare collection behavior.
-- [ ] Compare error behavior.
-- [ ] Add mismatches to a permanent regression corpus.
+- [x] Compare error behavior.
+- [x] Add mismatches to a permanent regression corpus (`experiments/native-compiler/cases`).
 
 ### 18.6 Native Compiler Performance Gates
 
-- [ ] Measure compile time.
+- [x] Measure compile time (100-350 ms per program, cached).
 - [ ] Measure cold startup.
-- [ ] Measure arithmetic benchmark.
-- [ ] Measure loop benchmark.
-- [ ] Measure function-call benchmark.
-- [ ] Measure recursion benchmark.
+- [x] Measure arithmetic benchmark.
+- [x] Measure loop benchmark.
+- [x] Measure function-call benchmark.
+- [x] Measure recursion benchmark.
 - [ ] Measure list benchmark.
 - [ ] Measure object benchmark.
 - [ ] Measure strings.
 - [ ] Measure JSON.
 - [ ] Measure file I/O.
 - [ ] Measure event dispatch where supported.
-- [ ] Compare against Otter 1.0 PowerShell baseline.
+- [x] Compare against Otter 1.0 PowerShell baseline (`tools/Invoke-OtterBenchmarks.ps1 -Native`: 480x-1,700x).
 - [ ] Do not advertise performance numbers without reproducible benchmark records.
 
 ### 18.7 CLI Integration
@@ -633,7 +634,7 @@ Possible future commands — syntax not frozen:
 
 ### 18.8 Native Backend Release Status
 
-- [ ] Experimental prototype.
+- [x] Experimental prototype (branch `native/prototype`; coverage in `docs/NATIVE_COMPILER_COVERAGE.md`).
 - [ ] Dogfood-ready.
 - [ ] Console language subset certified.
 - [ ] Full 1.0 core semantics certified.
