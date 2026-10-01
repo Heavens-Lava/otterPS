@@ -3495,7 +3495,7 @@ export class OtterStudioIde {
         classes.push('gutter-breakpoint');
         const detail = this.debug?.detailFor(i);
         if (detail?.log) classes.push('gutter-logpoint');
-        else if (detail?.condition) classes.push('gutter-breakpoint-conditional');
+        else if (detail?.condition || detail?.hits) classes.push('gutter-breakpoint-conditional');
       }
       if (this.debugPausedLine === i) classes.push('gutter-debug-pause');
       if (this.currentFile && this.bookmarks.has(this.currentFile, i)) classes.push('gutter-bookmark');

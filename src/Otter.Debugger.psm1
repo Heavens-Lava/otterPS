@@ -43,6 +43,7 @@ using module .\Otter.Interpreter.psm1
 #   pause                   stop at the next statement
 #   breakpoints <json>      replace the breakpoints (also OTTER_DEBUG_BREAKPOINTS at start): [{"line":5},
 #                           {"line":9,"condition":"count is 3"},
+#                           {"line":10,"hits":">= 5"},   (5, >= 5, > 5, % 3)
 #                           {"line":12,"log":"total is {total}"}]
 #   eval <id> <expression>  (while paused) evaluate an Otter expression in the
 #                           paused frame - watches and the debug console
@@ -236,9 +237,27 @@ function Set-OtterDebugBreakpoints {
         if ($line -le 0) { continue }
         $condition = if ($bp -isnot [ValueType] -and $bp.PSObject.Properties['condition']) { [string]$bp.condition } else { '' }
         $log = if ($bp -isnot [ValueType] -and $bp.PSObject.Properties['log']) { [string]$bp.log } else { '' }
-        $map[$line] = @{ Condition = $condition; Log = $log }
+        $hitsWhen = if ($bp -isnot [ValueType] -and $bp.PSObject.Properties['hits']) { [string]$bp.hits } else { '' }
+        # A line's count so far survives a change to the breakpoints.
+        $old = if ($null -ne $script:Session.Breakpoints) { $script:Session.Breakpoints[$line] } else { $null }
+        $count = if ($null -ne $old) { [int]$old.HitCount } else { 0 }
+        $map[$line] = @{ Condition = $condition; Log = $log; Hits = $hitsWhen; HitCount = $count }
     }
     $script:Session.Breakpoints = $map
+}
+
+# Hit counts, as in Visual Studio: "5" stops at the 5th hit, ">= 5" or "> 5"
+# from then on, "% 3" every third. A hit is the line reached with its
+# condition (if any) true. Anything else is not a hit count: always stop.
+function Test-OtterDebugHitCount {
+    param([int]$Count, [string]$When)
+    $text = "$When".Trim()
+    if (-not $text) { return $true }
+    if ($text -match '^%\s*(\d+)$') { $n = [int]$Matches[1]; return ($n -gt 0 -and ($Count % $n) -eq 0) }
+    if ($text -match '^>=\s*(\d+)$') { return $Count -ge [int]$Matches[1] }
+    if ($text -match '^>\s*(\d+)$') { return $Count -gt [int]$Matches[1] }
+    if ($text -match '^(?:==?\s*)?(\d+)$') { return $Count -eq [int]$Matches[1] }
+    return $true
 }
 
 # Handles a command that does not resume (breakpoints, pause, eval). Returns
@@ -364,6 +383,11 @@ function Invoke-OtterDebugHook {
                     $hit = $true
                 }
             }
+            if ($hit) {
+                # HitCount, not Count: .Count on a hashtable is its number of entries.
+                $bp.HitCount = [int]$bp.HitCount + 1
+                $hit = Test-OtterDebugHitCount -Count $bp.HitCount -When $bp.Hits
+            }
             if ($hit -and $bp.Log) {
                 Write-OtterDebugEvent -Event ([ordered]@{ event = 'log'; line = $line; text = (Format-OtterDebugLogText -Template $bp.Log -Environment $Environment) })
                 $hit = $false
@@ -390,7 +414,7 @@ function Start-OtterDebugSession {
 
     $reader = [System.IO.StreamReader]::new([Console]::OpenStandardInput(), [System.Text.UTF8Encoding]::new($false))
     $map = @{}
-    foreach ($b in $Breakpoints) { if ($b -gt 0) { $map[$b] = @{ Condition = ''; Log = '' } } }
+    foreach ($b in $Breakpoints) { if ($b -gt 0) { $map[$b] = @{ Condition = ''; Log = ''; Hits = ''; HitCount = 0 } } }
     $script:Session = @{
         FileName = $FileName
         Breakpoints = $map

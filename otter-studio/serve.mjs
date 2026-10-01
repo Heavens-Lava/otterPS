@@ -150,6 +150,7 @@ function debugBreakpointList(list) {
     const entry = { line };
     if (b && typeof b.condition === 'string' && b.condition.trim()) entry.condition = b.condition.replace(/[\r\n]+/g, ' ').trim();
     if (b && typeof b.log === 'string' && b.log.trim()) entry.log = b.log.replace(/[\r\n]+/g, ' ').trim();
+    if (b && typeof b.hits === 'string' && /^\s*(?:%|>=|>|==?)?\s*\d+\s*$/.test(b.hits)) entry.hits = b.hits.trim();
     out.push(entry);
   }
   return out;

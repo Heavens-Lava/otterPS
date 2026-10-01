@@ -256,6 +256,25 @@ Test-Otter 'breakpoints change while the program runs; a condition decides, a lo
     Assert-Lines -Expected @('Total is 70') -Actual @($run.Output)
 }
 
+Test-Otter 'hit counts: the Nth hit, from the Nth on, every Nth - and a condition decides what is a hit' {
+    # Line 15 runs three times: price 5, 10, 20.
+    $cases = @(
+        @{ Hits = '2'; Prices = '10' },
+        @{ Hits = '>= 2'; Prices = '10,20' },
+        @{ Hits = '% 3'; Prices = '20' },
+        @{ Hits = '1'; Condition = 'price is greater than 5'; Prices = '10' }
+    )
+    foreach ($case in $cases) {
+        $bp = [ordered]@{ line = 15; hits = $case.Hits }
+        if ($case.Condition) { $bp['condition'] = $case.Condition }
+        $json = ConvertTo-Json -InputObject @($bp) -Compress
+        $run = Invoke-OtterDebugConversation -RelativePath $script:StepsFile -Breakpoints '7' -Replies @(,@("breakpoints $json", 'continue'))
+        $prices = @($run.Events | Where-Object { $_.event -eq 'paused' -and $_.line -eq 15 } | ForEach-Object { $_.locals.price }) -join ','
+        Assert-AreEqual -Expected $case.Prices -Actual $prices
+        Assert-Lines -Expected @('Total is 70') -Actual @($run.Output)
+    }
+}
+
 Test-Otter 'pause stops a running program at its next statement; continue lets it finish' {
     $file = Join-Path ([System.IO.Path]::GetTempPath()) ("otter-debug-pause-" + [Guid]::NewGuid().ToString('N') + '.ot')
     [System.IO.File]::WriteAllText($file, "say `"started`"`ntally is 0`nwhile tally is less than 2000`n    add 1 to tally`n.`nsay `"counted`" tally`n")

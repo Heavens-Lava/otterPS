@@ -276,29 +276,79 @@ export function createDebugController(ide) {
   }
   function detailFor(line) { return state.details.get(line) || null; }
 
+  // One dialog for a breakpoint's settings: a condition, a hit count and a
+  // log message (a logpoint). Resolves to the settings, or null if cancelled.
+  function breakpointDialog(line, current) {
+    return new Promise((resolve) => {
+      const backdrop = document.createElement('div');
+      backdrop.className = 'modal-backdrop ask-backdrop';
+      backdrop.style.display = 'flex';
+      backdrop.innerHTML = `
+        <form class="modal-dialog ask-dialog bp-dialog" role="dialog" aria-modal="true" aria-labelledby="bpTitle" novalidate>
+          <div class="modal-header">
+            <div class="modal-title-wrap">
+              <h2 class="modal-title" id="bpTitle">Breakpoint on line ${line}</h2>
+              <p class="modal-subtitle">Leave a field empty to not use it. With all three empty, it always stops.</p>
+            </div>
+            <button type="button" class="modal-close-btn" data-bp-cancel title="Cancel (Esc)">✕</button>
+          </div>
+          <div class="modal-body bp-fields">
+            <label class="bp-field"><span class="bp-label">Condition</span>
+              <input class="config-input" name="condition" placeholder="price is 20" spellcheck="false" autocomplete="off" />
+              <span class="bp-hint">Stop only when this Otter condition is true.</span></label>
+            <label class="bp-field"><span class="bp-label">Hit count</span>
+              <input class="config-input" name="hits" placeholder="5   or   >= 5   or   % 3" spellcheck="false" autocomplete="off" />
+              <span class="bp-hint">5 stops at the 5th hit, &gt;= 5 from then on, % 3 every third.</span></label>
+            <label class="bp-field"><span class="bp-label">Log message</span>
+              <input class="config-input" name="log" placeholder="total is {total}" spellcheck="false" autocomplete="off" />
+              <span class="bp-hint">Write this instead of stopping; {expressions} are filled in.</span></label>
+            <div class="ask-error" role="alert" hidden></div>
+          </div>
+          <div class="modal-footer">
+            <div class="modal-footer-left"><button type="button" class="btn-modal-cancel" data-bp-remove>Remove breakpoint</button></div>
+            <div class="modal-footer-right">
+              <button type="button" class="btn-modal-cancel" data-bp-cancel>Cancel</button>
+              <button type="submit" class="btn-modal-primary">Save</button>
+            </div>
+          </div>
+        </form>`;
+      const form = backdrop.querySelector('form');
+      for (const key of ['condition', 'hits', 'log']) form.elements[key].value = current[key] || '';
+      const error = backdrop.querySelector('.ask-error');
+      const finish = (result) => { backdrop.remove(); document.removeEventListener('keydown', onKey, true); resolve(result); };
+      const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); finish(null); } };
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const hits = form.elements.hits.value.trim();
+        if (hits && !/^(?:%|>=|>|==?)?\s*\d+$/.test(hits)) {
+          error.textContent = 'A hit count is a number, >= a number, > a number, or % a number (for example 5, >= 5, % 3).';
+          error.hidden = false;
+          form.elements.hits.focus();
+          return;
+        }
+        finish({ condition: form.elements.condition.value.trim(), hits, log: form.elements.log.value.trim() });
+      });
+      backdrop.querySelectorAll('[data-bp-cancel]').forEach(b => b.addEventListener('click', () => finish(null)));
+      backdrop.querySelector('[data-bp-remove]').addEventListener('click', () => finish({ remove: true }));
+      backdrop.addEventListener('mousedown', (e) => { if (e.target === backdrop) finish(null); });
+      document.addEventListener('keydown', onKey, true);
+      document.body.appendChild(backdrop);
+      setTimeout(() => form.elements.condition.focus(), 20);
+    });
+  }
+
   async function editBreakpoint(line) {
-    const current = state.details.get(line) || {};
-    const condition = await askText({
-      title: `Breakpoint on line ${line}`,
-      message: 'Stop only when this is true (an Otter condition, for example: price is 20). Leave it empty to always stop.',
-      value: current.condition || '',
-      placeholder: 'price is 20',
-      okLabel: 'Next'
-    });
-    if (condition === null) return;
-    const log = await askText({
-      title: `Breakpoint on line ${line}`,
-      message: 'Or write a log message instead of stopping: {expressions} are filled in, for example: total is {total}. Leave it empty to stop.',
-      value: current.log || '',
-      placeholder: 'total is {total}',
-      okLabel: 'Save'
-    });
-    if (log === null) return;
-    const detail = {};
-    if (condition.trim()) detail.condition = condition.trim();
-    if (log.trim()) detail.log = log.trim();
-    if (Object.keys(detail).length) state.details.set(line, detail); else state.details.delete(line);
-    ide.debugBreakpoints.add(line);
+    const result = await breakpointDialog(line, state.details.get(line) || {});
+    if (result === null) return;
+    if (result.remove) {
+      state.details.delete(line);
+      ide.debugBreakpoints.delete(line);
+    } else {
+      const detail = {};
+      for (const key of ['condition', 'hits', 'log']) if (result[key]) detail[key] = result[key];
+      if (Object.keys(detail).length) state.details.set(line, detail); else state.details.delete(line);
+      ide.debugBreakpoints.add(line);
+    }
     ide.renderGutter((ide.currentCode || '').split('\n').length);
     breakpointsChanged();
   }

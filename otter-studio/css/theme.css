@@ -685,6 +685,12 @@ body.theme-light {
   .term-input { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; color: var(--o-ink); font-family: var(--font-code); font-size: 12.5px; }
 
   /* Debugger (js/debug/debug-controller.js) */
+  .bp-dialog { width: min(480px, calc(100vw - 32px)); }
+  .bp-dialog .modal-title-wrap { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+  .bp-fields { display: grid; gap: 12px; }
+  .bp-field { display: grid; gap: 4px; }
+  .bp-label { font-size: 12px; font-weight: 600; color: var(--o-ink); }
+  .bp-hint { font-size: 11.5px; color: var(--o-muted); }
   .debug-toolbar { display: inline-flex; align-items: center; gap: 2px; padding: 2px; margin-right: 6px; border-radius: 8px; background: var(--o-accent-soft); }
   .debug-toolbar[hidden] { display: none; }
   .debug-tb-btn { width: 28px; height: 26px; display: inline-grid; place-items: center; border: 0; border-radius: 6px; background: transparent; color: var(--o-ink); cursor: pointer; }
