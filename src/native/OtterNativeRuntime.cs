@@ -275,7 +275,10 @@ namespace OtterNative
             throw Err("I can only measure the length of text, a list, or bytes, but this is " + TypeName(subject) + ".", line, null);
         }
 
-        public static List<object> List(object[] items) { return new List<object>(items); }
+        // Returns object, so generated code never names a collection type (on
+        // PowerShell 7, Add-Type with -ReferencedAssemblies drops the default
+        // references, and List<> lives in System.Collections there).
+        public static object List(object[] items) { return new List<object>(items); }
 
         // 'OfOperation' First / Last: gone for an empty list.
         public static object First(object subject, int line)
