@@ -7,7 +7,7 @@ real Mac. The agent only tests; it changes nothing.
 
 ```sh
 brew install gh git
-brew install --cask powershell
+brew install powershell   # a formula now; the old cask is gone
 gh auth login
 gh repo clone Heavens-Lava/otterPS ~/otterPS
 ```
@@ -39,7 +39,7 @@ You are testing Otter on macOS. Test only: do not edit, commit or push anything.
 3. `pwsh -NoProfile -File tools/Test-OtterDocumentedCli.ps1` (checks the documented CLI against an installed copy).
 4. Every test file named in the "Verify portable language and module suite" step of `.github/workflows/d120-host-matrix.yml`, one at a time with `pwsh -NoProfile -File tests/<name>`. Include `tests/PlatformBoundaries.Tests.ps1`.
 5. If `~/Downloads/otter-mac-test` holds an `otter-*.zip`, run `sh tools/Test-OtterMacInstall.sh ~/Downloads/otter-mac-test` (the real Windows-built download, extracted the way Finder does).
-6. Run `./otter web examples/hello-app.ot` (the repository's own launcher) and confirm it opens in Safari, then delete the generated `examples/hello-app.html` so the checkout stays clean.
+6. Run `./otter web examples/hello-app.ot` (the repository's own launcher) and confirm the page opens in the default browser, then run `git restore examples/hello-app.html` (the page is a tracked file, so rebuilding it changes it).
 7. Run `git status --short` and record that nothing changed.
 
 Finish with a summary table of every step and its result.

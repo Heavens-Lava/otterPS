@@ -357,6 +357,41 @@ to identity value
         Assert-True ($r.Text.Contains('compiled to:')) "the page should still be compiled: $($r.Text)"
     }
 
+    Test-Otter 'web hands the page to the system opener on macOS and Linux (open / xdg-open), path with spaces intact' {
+        if (($PSVersionTable.PSVersion.Major -lt 6) -or $IsWindows) {
+            Write-Host '        skip  system-opener case: Windows opens the page with Start-Process' -ForegroundColor DarkYellow
+            return
+        }
+        # A fake opener first on PATH records its argument; exit code decides
+        # whether otter reports the page as opened. Before this, macOS
+        # PowerShell 7.6 tried to execute the .html file ("Permission denied").
+        $opener = if ($IsMacOS) { 'open' } else { 'xdg-open' }
+        $fakeBin = Join-Path $script:Tmp 'fakeopener'
+        New-Item -ItemType Directory -Path $fakeBin -Force | Out-Null
+        $record = Join-Path $script:Tmp 'opened.txt'
+        $fake = Join-Path $fakeBin $opener
+        $spaced = Join-Path $script:Tmp 'two words'
+        New-Item -ItemType Directory -Path $spaced -Force | Out-Null
+        Copy-Item -LiteralPath (Join-Path $script:CliWork 'hello.ot') -Destination (Join-Path $spaced 'hello.ot')
+        $savedPath = $env:PATH
+        try {
+            foreach ($case in @(@{ Code = 0; Expected = 'Opened in your default browser' }, @{ Code = 3; Expected = 'I could not open a browser' })) {
+                Set-Content -LiteralPath $fake -Value "#!/bin/sh`nprintf '%s' `"`$1`" > '$record'`nexit $($case.Code)`n" -NoNewline
+                & chmod 755 $fake
+                Remove-Item -LiteralPath $record -ErrorAction SilentlyContinue
+                $env:PATH = "$fakeBin$([IO.Path]::PathSeparator)$savedPath"
+                $r = Invoke-OtterCli -Arguments @('web', (Join-Path $spaced 'hello.ot'))
+                $env:PATH = $savedPath
+                Assert-True ($r.Text.Contains($case.Expected)) "exit $($case.Code) from $opener should say '$($case.Expected)': $($r.Text)"
+                $opened = Get-Content -LiteralPath $record -Raw
+                Assert-True ($opened.EndsWith('/two words/hello.html')) "$opener should get the page path as one argument: '$opened'"
+                $expectedExit = if ($case.Code -eq 0) { 0 } else { 1 }
+                Assert-AreEqual -Expected $expectedExit -Actual $r.ExitCode
+            }
+        }
+        finally { $env:PATH = $savedPath }
+    }
+
     Test-Otter 'B14: otter help does not advertise Otter Studio' {
         $r = Invoke-OtterCli -Arguments @('help')
         Assert-AreEqual -Expected 0 -Actual $r.ExitCode
