@@ -745,7 +745,7 @@ architecture reference. Listed in the recommended implementation order.
 
 -   [x] Command execution/output smoke-tested
 -   [x] Persistent terminal (one long-lived PowerShell per terminal: cd, variables and functions last; output streams; a program that asks reads what is typed; server/terminal-sessions.mjs, scripts/terminal.test.mjs, scratch dogfood d18 through the real UI. Not a pseudo-terminal: full-screen programs that redraw are not supported)
--   [ ] Multiple tabs
+-   [x] Multiple tabs (one shell each, its own folder and variables; one can run while another is busy; + to add, x to close: scratch dogfood d20)
 -   [ ] Shell selector
 -   [ ] Otter REPL profile
 -   [ ] PowerShell/cmd/bash/WSL profiles

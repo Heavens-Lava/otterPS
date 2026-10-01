@@ -663,8 +663,24 @@ body.theme-light {
   .sp-input,
   .prop-input,
   /* Terminal (js/terminal/terminal-panel.js) */
+  /* The drawer's panels fit the drawer and scroll inside: as a flex child
+     without min-height 0, .drawer-content grew to its content and the drawer
+     (overflow hidden) cut off the terminal's tabs and its input row. */
+  .drawer-content { min-height: 0; }
+  #panelTerminal, #panelTerminal .terminal-container { min-height: 0; overflow: hidden; }
   .term-bar { display: flex; align-items: center; gap: 10px; padding: 4px 10px; border-bottom: 1px solid var(--o-line); font-size: 12px; min-width: 0; }
   .term-title { font-weight: 600; color: var(--o-ink); }
+  .term-tabs { display: flex; gap: 2px; min-width: 0; overflow-x: auto; }
+  .term-tab { display: inline-flex; align-items: center; gap: 4px; padding: 3px 4px 3px 10px; border-radius: 6px; cursor: pointer; color: var(--o-muted); white-space: nowrap; font-size: 12px; }
+  .term-tab:hover { background: var(--o-accent-soft); }
+  .term-tab.is-active { background: var(--o-accent-soft); color: var(--o-ink); font-weight: 600; }
+  .term-tab.is-busy .term-tab-name::after { content: " •"; color: var(--o-accent); }
+  .term-tab.is-ended { opacity: 0.6; }
+  .term-tab-close { border: 0; background: transparent; color: var(--o-faint); cursor: pointer; font-size: 13px; line-height: 1; padding: 0 4px; border-radius: 4px; }
+  .term-tab-close:hover { color: var(--o-error); }
+  .term-new { padding: 1px 8px; font-size: 14px; line-height: 1; }
+  .term-screens { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .term-screen[hidden] { display: none; }
   .term-cwd { color: var(--o-muted); font-family: var(--font-code); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; direction: rtl; text-align: left; }
   .term-busy { color: var(--o-accent); }
   .term-busy[hidden] { display: none; }
