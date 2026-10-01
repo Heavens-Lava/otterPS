@@ -64,6 +64,24 @@ namespace OtterNative
 
     public delegate object OtterBody(Env e);
 
+    // OtterObject (src/Otter.Runtime.psm1): a type name and ordinal properties
+    // in insertion order. Only plain things for now ("x is a thing", "x has").
+    public sealed class OtterThing
+    {
+        public readonly string TypeName;
+        readonly Dictionary<string, object> props = new Dictionary<string, object>(StringComparer.Ordinal);
+        readonly List<string> order = new List<string>();
+        public OtterThing(string typeName) { TypeName = typeName; }
+        public bool Has(string name) { return props.ContainsKey(name); }
+        public object Read(string name) { object v; return props.TryGetValue(name, out v) ? v : null; }
+        public void Write(string name, object value)
+        {
+            if (!props.ContainsKey(name)) order.Add(name);
+            props[name] = value;
+        }
+        public List<string> Names() { return order; }
+    }
+
     // OtterFunction: a name, its parameters and its compiled body.
     public sealed class OtterFn
     {
@@ -107,6 +125,8 @@ namespace OtterNative
                 for (int i = 0; i < list.Count; i++) parts[i] = Format(list[i]);
                 return string.Join(", ", parts);
             }
+            OtterThing thing = v as OtterThing;
+            if (thing != null) return "a " + thing.TypeName;
             OtterFn fn = v as OtterFn;
             if (fn != null) return "<" + fn.Name + ", something Otter can do>";
             return Convert.ToString(v, CultureInfo.InvariantCulture);
@@ -118,6 +138,8 @@ namespace OtterNative
             if (v == null) return "gone";
             if (v is bool) return "a true or false value";
             if (v is OtterFn) return "something Otter can do";
+            OtterThing thingValue = v as OtterThing;
+            if (thingValue != null) return "a " + thingValue.TypeName;
             if (v is List<object>) return "a list";
             if (v is double || v is int || v is long) return "a number";
             if (v is string) return "some text";
@@ -180,6 +202,7 @@ namespace OtterNative
                 for (int i = 0; i < la.Count; i++) { if (!Equal(la[i], lb[i])) return false; }
                 return true;
             }
+            if (a is OtterThing || b is OtterThing) return ReferenceEquals(a, b);
             return string.Equals(Convert.ToString(a, CultureInfo.InvariantCulture), Convert.ToString(b, CultureInfo.InvariantCulture), StringComparison.Ordinal);
         }
 
@@ -253,6 +276,66 @@ namespace OtterNative
         }
 
         public static List<object> List(object[] items) { return new List<object>(items); }
+
+        // 'OfOperation' First / Last: gone for an empty list.
+        public static object First(object subject, int line)
+        {
+            List<object> list = subject as List<object>;
+            if (list == null) throw Err("Only a list has a first item, but this is " + TypeName(subject) + ".", line, null);
+            return list.Count == 0 ? null : list[0];
+        }
+
+        public static object Last(object subject, int line)
+        {
+            List<object> list = subject as List<object>;
+            if (list == null) throw Err("Only a list has a last item, but this is " + TypeName(subject) + ".", line, null);
+            return list.Count == 0 ? null : list[list.Count - 1];
+        }
+
+        // 'ObjectDef' for a new plain thing: the name must be free first.
+        public static void RequireNewThingName(Env e, string name, int line)
+        {
+            if (e.Has(name))
+                throw Err("Otter will not replace existing " + TypeName(e.GetRaw(name)) + " called \"" + name + "\" with a new thing.", line, "Use a new name, or assign individual properties instead.");
+        }
+
+        // 'PropertyAccess' read on a thing.
+        public static object Prop(object target, string property, int line)
+        {
+            OtterThing thing = target as OtterThing;
+            if (thing == null) throw Err("I can only read properties of a thing, but this is " + TypeName(target) + ".", line, null);
+            if (!thing.Has(property))
+            {
+                List<string> known = thing.Names();
+                string suggestion = known.Count > 0 ? known[0] + " of ..." : null;
+                throw Err("This " + thing.TypeName + " has no property called \"" + property + "\".", line, suggestion);
+            }
+            return thing.Read(property);
+        }
+
+        // Set-OtterTarget 'PropertyAccess': the value was worked out first.
+        public static void SetProp(object owner, string property, object value, int line)
+        {
+            OtterThing thing = owner as OtterThing;
+            if (thing == null) throw Err("I can only set properties on a thing, but this is " + TypeName(owner) + ".", line, null);
+            thing.Write(property, value);
+        }
+
+        // 'GetKey' (D41): dynamic keys on a plain thing, text keys only.
+        public static OtterThing KeyTarget(object value, int line, string verb)
+        {
+            OtterThing thing = value as OtterThing;
+            if (thing == null) throw Err("I can only " + verb + " a thing, but this is " + TypeName(value) + ".", line, null);
+            if (thing.TypeName != "thing") throw Err("I can only " + verb + " properties dynamically on a thing, but this is a " + thing.TypeName + ".", line, null);
+            return thing;
+        }
+
+        public static string KeyText(object value, int line)
+        {
+            string s = value as string;
+            if (s != null) return s;
+            throw Err("I need text for a dynamic key, but this is " + TypeName(value) + ".", line, "get \"Jeff\" from scores into score");
+        }
 
         // 'Say' without a color
         public static void Say(object[] parts)

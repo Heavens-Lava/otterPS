@@ -28,21 +28,25 @@ Import-Module (Join-Path $PSScriptRoot '..\..\src\Otter.Lexer.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot '..\..\src\Otter.Parser.psm1') -Force
 
 $ErrorActionPreference = 'Stop'
+# Importing Otter.Interpreter.psm1 turns a script's `exit N` into exit code 0
+# (seen on Windows PowerShell 5.1); otter.ps1 uses [Environment]::Exit for the
+# same reason.
+function Exit-With { param([int]$Code) [Console]::Out.Flush(); [Environment]::Exit($Code) }
 $cache = Join-Path ([System.IO.Path]::GetTempPath()) 'otter-native-cache'
 $source = [System.IO.File]::ReadAllText((Resolve-Path -LiteralPath $Path).Path)
 $sourceLines = $source -split "`r?`n"
 
 try { $program = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $source) }
-catch { Write-Output $_.Exception.FormatDetailed(); exit 2 }
+catch { [Console]::Out.WriteLine($_.Exception.FormatDetailed()); Exit-With 2 }
 
 $sw = [System.Diagnostics.Stopwatch]::StartNew()
 try { $compiled = New-OtterNativeProgram -Program $program -SourceText $source -CacheDirectory $cache }
 catch {
-    if ($_.Exception -is [OtterError]) { Write-Output "Not compiled: $($_.Exception.Message)"; exit 4 }
+    if ($_.Exception -is [OtterError]) { [Console]::Out.WriteLine("Not compiled: $($_.Exception.Message)"); Exit-With 4 }
     throw
 }
 $compileMs = $sw.Elapsed.TotalMilliseconds
-if ($ShowCSharp) { Write-Output $compiled.CSharp; exit 0 }
+if ($ShowCSharp) { [Console]::Out.WriteLine($compiled.CSharp); Exit-With 0 }
 
 function Invoke-Backend {
     param([string]$Name)
@@ -65,7 +69,7 @@ function Invoke-Backend {
 }
 
 $native = Invoke-Backend -Name 'compiled'
-foreach ($l in $native.Lines) { Write-Output $l }
+foreach ($l in $native.Lines) { [Console]::Out.WriteLine($l) }
 if ($Time) { Write-Host ('compiled: compile {0:N0} ms, run {1:N2} ms' -f $compileMs, $native.Ms) -ForegroundColor Cyan }
 
 if ($Compare) {
@@ -76,8 +80,8 @@ if ($Compare) {
         Write-Host 'MISMATCH with the interpreter:' -ForegroundColor Red
         Write-Host "  compiled (exit $($native.Code)):"; $native.Lines | ForEach-Object { Write-Host "    $_" }
         Write-Host "  interpreter (exit $($reference.Code)):"; $reference.Lines | ForEach-Object { Write-Host "    $_" }
-        exit 5
+        Exit-With 5
     }
     Write-Host 'matches the interpreter' -ForegroundColor Green
 }
-exit $native.Code
+Exit-With $native.Code

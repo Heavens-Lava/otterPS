@@ -94,9 +94,14 @@ function ConvertTo-OtterNativeExpression {
             return "R.Contains($c, $i, $line)"
         }
         'OfOperation' {
-            if ($Expr.Operation.ToString() -ne 'Length') { throw (New-OtterNativeUnsupported -Node $Expr -What "'$($Expr.Operation.ToString().ToLowerInvariant()) of'") }
+            $helper = switch ($Expr.Operation.ToString()) { 'Length' { 'Length' } 'First' { 'First' } 'Last' { 'Last' } default { $null } }
+            if (-not $helper) { throw (New-OtterNativeUnsupported -Node $Expr -What "'$($Expr.Operation.ToString().ToLowerInvariant()) of'") }
             $s = ConvertTo-OtterNativeExpression -Expr $Expr.Subject -Context $Context
-            return "R.Length($s, $line)"
+            return "R.$helper($s, $line)"
+        }
+        'PropertyAccess' {
+            $t = ConvertTo-OtterNativeExpression -Expr $Expr.Target -Context $Context
+            return "R.Prop($t, $(ConvertTo-OtterCSharpString $Expr.Property), $line)"
         }
         'Call' {
             $argCode = @(foreach ($a in $Expr.Arguments) { ConvertTo-OtterNativeExpression -Expr $a -Context $Context })
@@ -130,9 +135,34 @@ function ConvertTo-OtterNativeStatement {
             else { $out.Add("${Pad}R.Say(new object[] { $($parts -join ', ') });") }
         }
         'Assign' {
-            if ($Stmt.Target -isnot [VariableExpr]) { throw (New-OtterNativeUnsupported -Node $Stmt -What 'assigning to a property') }
             $v = ConvertTo-OtterNativeExpression -Expr $Stmt.Value -Context $Context
-            $out.Add("${Pad}e.Set($(ConvertTo-OtterCSharpString $Stmt.Target.Name), $v);")
+            if ($Stmt.Target -is [VariableExpr]) {
+                $out.Add("${Pad}e.Set($(ConvertTo-OtterCSharpString $Stmt.Target.Name), $v);")
+            } elseif ($Stmt.Target.Kind.ToString() -eq 'PropertyAccess') {
+                # The value first, then the owner - as Set-OtterTarget does.
+                $tmp = $Context.Next('value')
+                $owner = ConvertTo-OtterNativeExpression -Expr $Stmt.Target.Target -Context $Context
+                $out.Add("${Pad}{ object $tmp = $v; R.SetProp($owner, $(ConvertTo-OtterCSharpString $Stmt.Target.Property), $tmp, $line); }")
+            } else { throw (New-OtterNativeUnsupported -Node $Stmt -What 'this assignment target') }
+        }
+        'ObjectDef' {
+            if ($Stmt.TypeName -ne 'thing') { throw (New-OtterNativeUnsupported -Node $Stmt -What "a $($Stmt.TypeName)") }
+            $t = $Context.Next('thing')
+            $out.Add("${Pad}R.RequireNewThingName(e, $(ConvertTo-OtterCSharpString $Stmt.Name), $line);")
+            $out.Add("${Pad}{")
+            $out.Add("${inner}OtterThing $t = new OtterThing(`"thing`");")
+            foreach ($p in @($Stmt.Properties)) {
+                if ($p.Kind.ToString() -ne 'Assign' -or $p.Target -isnot [VariableExpr]) { throw (New-OtterNativeUnsupported -Node $p -What 'this property line') }
+                $out.Add("${inner}$t.Write($(ConvertTo-OtterCSharpString $p.Target.Name), $(ConvertTo-OtterNativeExpression -Expr $p.Value -Context $Context));")
+            }
+            $out.Add("${inner}e.Set($(ConvertTo-OtterCSharpString $Stmt.Name), $t);")
+            $out.Add("${Pad}}")
+        }
+        'GetKey' {
+            $target = ConvertTo-OtterNativeExpression -Expr $Stmt.Target -Context $Context
+            $key = ConvertTo-OtterNativeExpression -Expr $Stmt.Key -Context $Context
+            $k = $Context.Next('key')
+            $out.Add("${Pad}{ OtterThing $k = R.KeyTarget($target, $line, `"read from`"); e.Set($(ConvertTo-OtterCSharpString $Stmt.ResultTarget), $k.Read(R.KeyText($key, $line))); }")
         }
         'MathInto' {
             $v = ConvertTo-OtterNativeExpression -Expr $Stmt.Expression -Context $Context
@@ -226,11 +256,14 @@ function ConvertTo-OtterNativeStatement {
         }
         'Return' {
             $v = if ($null -ne $Stmt.Value) { ConvertTo-OtterNativeExpression -Expr $Stmt.Value -Context $Context } else { 'null' }
-            # In a function, return its value; at the top level, `stop` ends
-            # the program (D37) - the value, if any, is worked out first.
+            # In a function, return its value. At the top level there is
+            # nothing to stop: the interpreter works the value out, then
+            # reports it (Invoke-OtterProgram's OtterReturnSignal catch).
             if ($InFunction) { $out.Add("${Pad}return $v;") }
-            elseif ($v -eq 'null') { $out.Add("${Pad}return;") }
-            else { $out.Add("${Pad}GC.KeepAlive($v); return;") }
+            else {
+                if ($v -ne 'null') { $out.Add("${Pad}GC.KeepAlive($v);") }
+                $out.Add("${Pad}throw R.Err(`"stop only works inside something Otter can call, like a function. There is nothing here to stop.`", $line, null);")
+            }
         }
         default { throw (New-OtterNativeUnsupported -Node $Stmt) }
     }
@@ -246,6 +279,9 @@ function ConvertTo-OtterCSharp {
     $main = ConvertTo-OtterNativeBlock -Statements $Program.Statements -Context $context -InFunction $false -Pad '        '
     $sb = [System.Text.StringBuilder]::new()
     [void]$sb.AppendLine('// Generated by Otter.Compiler.Native.psm1 (experimental). Do not edit.')
+    # Windows PowerShell 5.1's Add-Type treats warnings as errors; generated
+    # code legitimately has unreachable `return null;` after an Otter return.
+    [void]$sb.AppendLine('#pragma warning disable')
     [void]$sb.AppendLine('using System;')
     [void]$sb.AppendLine('using OtterNative;')
     [void]$sb.AppendLine("public static class $ClassName {")
@@ -291,7 +327,10 @@ function New-OtterNativeProgram {
     New-Item -ItemType Directory -Path $CacheDirectory -Force | Out-Null
     $runtimeDll = Get-OtterNativeRuntimeAssembly -CacheDirectory $CacheDirectory
     $runtimeHash = Get-OtterNativeHash -Text ([System.IO.File]::ReadAllText($script:NativeRuntimePath))
-    $hash = Get-OtterNativeHash -Text ($SourceText + '|' + $runtimeHash + '|' + $PSVersionTable.PSVersion.ToString())
+    # The key covers everything that shapes the compiled program: the Otter
+    # source, the runtime library, this compiler, and the PowerShell version.
+    $compilerHash = Get-OtterNativeHash -Text ([System.IO.File]::ReadAllText($PSCommandPath))
+    $hash = Get-OtterNativeHash -Text ($SourceText + '|' + $runtimeHash + '|' + $compilerHash + '|' + $PSVersionTable.PSVersion.ToString())
     $className = "OtterProgram_$hash"
     $csharp = ConvertTo-OtterCSharp -Program $Program -ClassName $className
     if (-not ($className -as [type])) {

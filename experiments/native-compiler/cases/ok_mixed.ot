@@ -1,0 +1,40 @@
+say "a" and "b"
+say 1.5 plus 0.25
+say 10 divided by 3
+say 2 power 10
+say 50 percent of 8
+say "5" plus 2
+say gone
+say true
+list are
+    1
+    "two"
+    3.5
+.
+say list
+say length of list
+say length of "otter"
+if list contains "two"
+    say "has two"
+.
+if "5" is 5
+    say "text five equals five"
+.
+if not 0
+    say "zero is false"
+.
+remove "two" from list
+say list
+count from 3 to 1 as k
+    say k
+.
+repeat 2.7 times
+    say "r"
+.
+x is 1
+while x is less than 4
+    add 1 to x
+.
+say x
+stop
+say "not reached"

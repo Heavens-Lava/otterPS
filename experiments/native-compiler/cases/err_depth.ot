@@ -1,0 +1,4 @@
+to down n
+    return down n plus 1
+
+down 1 make r

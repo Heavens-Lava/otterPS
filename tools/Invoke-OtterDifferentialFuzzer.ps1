@@ -9,7 +9,11 @@ param(
     [int]$Iterations = 10000,
     [int]$BatchSize = 250,
     [ValidateSet('All', 'Differential', 'MutationFuzz')][string]$Mode = 'All',
-    [int]$SeedOffset = 0
+    [int]$SeedOffset = 0,
+    # Experimental (Otter 1.1): also run every differential program through
+    # the compiled backend (src/Otter.Compiler.Native.psm1) and compare it with
+    # the interpreter. Off by default, so the 1.0 release gate is unchanged.
+    [switch]$IncludeNative
 )
 
 $ErrorActionPreference = 'Stop'
@@ -19,6 +23,12 @@ Import-Module (Join-Path $PSScriptRoot '..\src\Otter.Parser.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot '..\src\Otter.Interpreter.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot '..\src\Otter.Compiler.JavaScript.psm1') -Force
 
+if ($IncludeNative) {
+    Import-Module (Join-Path $PSScriptRoot '..\src\Otter.Compiler.Native.psm1') -Force
+    $nativeCache = Join-Path ([System.IO.Path]::GetTempPath()) 'otter-native-cache'
+    $nativeMatched = 0; $nativeNotCompiled = 0; $nativeDisagreements = 0
+    $nativeReasons = @{}
+}
 $rand = [System.Random]::new($Seed)
 
 # -------------------------------------------------------------
@@ -242,6 +252,40 @@ if ($Mode -in @('All', 'Differential')) {
                     $intOut = $_.Exception.Message
                 }
 
+                # The compiled backend, against the interpreter (experimental).
+                if ($IncludeNative -and $intAst) {
+                    $nativeLines = [System.Collections.Generic.List[string]]::new()
+                    $nativeSuccess = $true
+                    $nativeOut = ''
+                    $compiled = $null
+                    try { $compiled = New-OtterNativeProgram -Program $intAst -SourceText $src -CacheDirectory $nativeCache }
+                    catch {
+                        $nativeNotCompiled++
+                        $reason = $_.Exception.Message -replace ' \(line \d+\)', '' -replace '\. Run this program with otter run\.', ''
+                        $nativeReasons[$reason] = 1 + [int]$nativeReasons[$reason]
+                    }
+                    if ($compiled) {
+                        try {
+                            Invoke-OtterNativeProgram -Compiled $compiled -Writer { param($m) $nativeLines.Add($m) }.GetNewClosure()
+                            $nativeOut = ($nativeLines -join "`n").Trim()
+                        } catch {
+                            $nativeSuccess = $false
+                            $nativeOut = $_.Exception.Message
+                        }
+                        if ($nativeSuccess -eq $intSuccess -and $nativeOut -ceq $intOut) { $nativeMatched++ }
+                        else {
+                            $nativeDisagreements++
+                            $issues.Add(@{
+                                Category = 'NATIVE_DISAGREEMENT'
+                                Seed = $progSeed
+                                Source = $src
+                                InterpreterOut = $intOut
+                                NativeOut = $nativeOut
+                            })
+                        }
+                    }
+                }
+
                 $batchPrograms.Add(@{
                     Seed = $progSeed
                     Source = $src
@@ -339,6 +383,10 @@ fs.writeFileSync(process.argv[2], JSON.stringify(results));
     Set-OtterOutputWriter -Writer $null
 }
     $sw.Stop()
+    if ($IncludeNative) {
+        Write-Host "Compiled backend (experimental): $nativeMatched matched the interpreter, $nativeDisagreements disagreed, $nativeNotCompiled not compiled." -ForegroundColor $(if ($nativeDisagreements -eq 0) { 'Green' } else { 'Red' })
+        foreach ($r in ($nativeReasons.GetEnumerator() | Sort-Object Value -Descending)) { Write-Host ("  not compiled x{0}: {1}" -f $r.Value, $r.Key) }
+    }
     Write-Host "Completed $Iterations Differential Runs in $($sw.Elapsed.TotalSeconds.ToString('F1'))s ($diffPassed passed, $diffDisagreements disagreements)." -ForegroundColor $(if ($diffDisagreements -eq 0) { 'Green' } else { 'Red' })
 }
 
