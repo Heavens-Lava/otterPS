@@ -78,6 +78,8 @@ Work done on the 1.0 line after rc.8, waiting to merge into an rc.9 (branches
 - [ ] Parser: a reserved word used as a variable at the top level (`count is 3`) gives "I expected a value here" instead of the reserved-word message (Codex).
 - [ ] Parser: D27's `replace "a" with "b" in name into other` is decided and the interpreter supports it, but the 1.0 parser rejects the `into` form ("I expected the replace statement to end here") (Codex).
 - [ ] Importing `src/Otter.Interpreter.psm1` makes a PowerShell script's `exit N` return exit code 0 (`otter.ps1` uses `[Environment]::Exit` for this reason); find and fix the cause, or document it for tool authors.
+- [ ] Parser: `add amount days to date` with a variable amount is rejected ("I expected "to" and a variable name"); D32.3 makes the amount an expression and only literals parse (Codex).
+- [ ] `convert date to json` writes .NET's raw object (`{"Value": "\/Date(1706684400000)\/", "HasTime": false}`, local-time dependent) instead of a date text. Decide the JSON form of a date (the compiled backend reproduces it today).
 - [ ] Equality's last fallback compares PowerShell's text of two values, so a list equals its text (`1, 2` equals `"1 2"`) and any two types are equal. Decide whether 1.1 keeps this (the compiled backend reproduces it today).
 
 ## 2. Decided 1.1 Work — OtterBoard and Runtime UI
@@ -550,10 +552,10 @@ Tests       18
 - [x] Compile loops (count, repeat, while, for each).
 - [x] Compile functions.
 - [x] Compile recursion (with the 250-call limit).
-- [x] Compile lists (add, remove, contains, length/first/last of; not sort/reverse yet).
+- [x] Compile lists (add, remove, contains, length/first/last of, sort, reverse).
 - [x] Compile things/objects (plain things and declared types).
-- [ ] Compile strings.
-- [ ] Compile JSON.
+- [x] Compile strings (uppercase/lowercase of, replace, split, join).
+- [x] Compile JSON (through the library bridge).
 - [x] Preserve Otter value formatting.
 - [x] Preserve contractual Otter error behavior (message, line, suggestion, exit code, for the compiled subset).
 - [x] Preserve `gone`.
@@ -564,9 +566,9 @@ Tests       18
 
 - [x] Create a compiled runtime library (`src/native/OtterNativeRuntime.cs`, C# 5).
 - [ ] Move semantic helpers into backend-neutral/runtime-testable units where appropriate.
-- [ ] Files.
-- [ ] JSON.
-- [ ] dates/time.
+- [x] Files: write (atomically), append, read, read json, delete, copy, move, `file ... exists` (bridge to the interpreter's own functions in `Otter.Library.psm1`).
+- [x] JSON: `convert ... to json` / `from json` (bridge).
+- [x] dates/time: `today`, `now`, `date from`, add/remove, `between`, `format date`, date parts, comparison (mirrored in the runtime library; not milliseconds or elapsed time yet).
 - [ ] random.
 - [ ] bytes.
 - [ ] HTTP.
@@ -594,9 +596,9 @@ For every compiled feature:
 - [x] Compare stdout.
 - [x] Compare stderr/diagnostic category.
 - [x] Compare exit status.
-- [ ] Compare files/output artifacts where relevant.
+- [ ] Compare files/output artifacts where relevant (cases compare what is read back; no artifact diff yet).
 - [ ] Compare deterministic random behavior when seeded.
-- [ ] Compare JSON behavior.
+- [x] Compare JSON behavior (`cases/ok_json.ot`, `err_json.ot`, the json benchmark).
 - [ ] Compare numeric edge cases.
 - [ ] Compare string/Unicode behavior.
 - [ ] Compare collection behavior.
@@ -614,8 +616,8 @@ For every compiled feature:
 - [ ] Measure list benchmark.
 - [ ] Measure object benchmark.
 - [ ] Measure strings.
-- [ ] Measure JSON.
-- [ ] Measure file I/O.
+- [x] Measure JSON (2.2x: the time is in the library, not the language).
+- [x] Measure file I/O (1.3x: the time is in the file system).
 - [ ] Measure event dispatch where supported.
 - [x] Compare against Otter 1.0 PowerShell baseline (`tools/Invoke-OtterBenchmarks.ps1 -Native`: 480x-1,700x).
 - [ ] Do not advertise performance numbers without reproducible benchmark records.

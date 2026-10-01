@@ -233,10 +233,22 @@ interpreter's message, line, suggestion and exit code.
 Subset compiled today: `say`, variables, numbers, text, booleans, `gone`,
 arithmetic, comparisons, `and`/`or`/`not`, `if`, `count`, `repeat`, `while`,
 `for each`, functions, `return`, recursion, lists (`add`, `remove`,
-`contains`, `length`/`first`/`last of`), plain things (`has`, property read and
-write, `get ... from ... into`). Next, in the order benchmarks and fixtures hit
-refusals: `try`/`fail with`, `sort`/`reverse`, text operations, custom types,
-JSON, files, dates.
+`contains`, `length`/`first`/`last of`, `sort`, `reverse`), things and custom
+types (`has`, `a Person has`, property read and write, `get ... from ...
+into`), `try`/`fail with`, text and math operations, JSON, files and dates
+(`docs/NATIVE_COMPILER_COVERAGE.md`: 47 of 225 node kinds, 3 partly).
+
+Library bridge: JSON and file statements call the interpreter's own
+PowerShell functions (`Otter.Library.psm1`) through one delegate, so their
+behaviour and messages are the interpreter's by construction; values are
+converted at the boundary. Dates are mirrored in the runtime library instead,
+because a date value has to work in formatting, equality, comparison and
+property access everywhere. Library-bound programs gain little (file I/O
+1.3x, JSON 2.2x): the time is in the library, not the language.
+
+11 of the 12 benchmarks compile and match on both PowerShells;
+`event_dispatch` (UDP) is still refused. Conformance: 6 pass, 0 fail, 4 not
+compiled yet.
 
 Findings: importing `Otter.Interpreter.psm1` turns a script's `exit N` into
 exit code 0 (`otter.ps1` uses `[Environment]::Exit`); `Add-Type` on Windows
