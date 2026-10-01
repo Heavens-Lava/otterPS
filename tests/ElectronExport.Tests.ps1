@@ -101,12 +101,12 @@ function Find-Electron {
 }
 
 try {
-    # 1. otter build --target electron on a Studio-style project with styles.css and an asset.
+    # 1. otter build --target electron on a project with main.css (D125) and an asset.
     $projDir = Join-Path $testTmp 'proj'
     New-Item -ItemType Directory -Path $projDir -Force | Out-Null
     New-Files $projDir @{
         'main.ot' = $program
-        'styles.css' = $stylesCss
+        'main.css' = $stylesCss
         'assets/logo.txt' = 'asset payload'
         'otter.json' = "{`n  `"name`": `"Smoke App`",`n  `"version`": `"2.3.4`",`n  `"archetype`": `"desktop`",`n  `"target`": `"desktop`",`n  `"entryPoint`": `"main.ot`",`n  `"assets`": [`"assets/logo.txt`"]`n}`n"
     }
@@ -115,14 +115,14 @@ try {
     if ($build.Output -notmatch 'Target: electron') { throw "Test 1: build should report the electron target. Output: $($build.Output)" }
     $dist = Join-Path $projDir 'dist'
     $files = Assert-ShellFiles -Dir $dist -Label 'Test 1'
-    if ((Get-Count $files.IndexHtml 'STYLES_CSS_MARKER') -ne 1) { throw 'Test 1: styles.css must be embedded exactly once in app/index.html' }
+    if ((Get-Count $files.IndexHtml 'STYLES_CSS_MARKER') -ne 1) { throw 'Test 1: main.css must be embedded exactly once in app/index.html' }
     if ((Get-Count $files.IndexHtml '#go:hover {') -ne 1 -or (Get-Count $files.IndexHtml '@media (max-width: 600px)') -ne 1) { throw 'Test 1: states and breakpoints must survive' }
     if (-not (Test-Path -LiteralPath (Join-Path $dist 'app/assets/logo.txt') -PathType Leaf)) { throw 'Test 1: declared assets must land beside the page in app/' }
     if ($files.Package.name -ne 'smoke-app' -or $files.Package.productName -ne 'Smoke App' -or $files.Package.version -ne '2.3.4') { throw "Test 1: package.json should carry the project name and version, got $($files.Package.name) $($files.Package.version)" }
     $meta = Get-Content -LiteralPath (Join-Path $dist 'otter.build.json') -Raw | ConvertFrom-Json
     if ($meta.target -ne 'electron' -or $meta.entryPoint -ne 'app/index.html') { throw "Test 1: build metadata should record the electron target, got $($meta.target) $($meta.entryPoint)" }
     Write-Output '  pass  otter build --target electron writes package.json, main.js, preload.js and app/index.html'
-    Write-Output '  pass  the exported page embeds styles.css once, with @media and :hover intact'
+    Write-Output '  pass  the exported page embeds main.css once, with @media and :hover intact'
     Write-Output '  pass  declared assets are copied into app/ and package.json carries name and version'
     Write-Output '  pass  main.js keeps contextIsolation on, nodeIntegration off and the sandbox on'
     Write-Output '  pass  preload exposes only window.otterNative; the page has no require()'

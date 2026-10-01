@@ -114,7 +114,7 @@ try {
     New-Item -ItemType Directory -Path $projDir -Force | Out-Null
     New-Files $projDir @{
         'main.ot' = $program
-        'styles.css' = $stylesCss
+        'main.css' = $stylesCss
         'assets/app.png' = (New-IconPng)
         'otter.json' = (New-Manifest @{ description = 'A packaged smoke test'; author = 'Otter Tests'; icon = 'assets/app.png' })
     }
@@ -130,9 +130,9 @@ try {
     if ($written.directories.output -ne (Join-Path $projDir 'packages')) { throw "Test 2: default output should be <project>\packages, got $($written.directories.output)" }
     if ($pkg.version -ne '3.1.4' -or $pkg.description -ne 'A packaged smoke test' -or $pkg.author -ne 'Otter Tests') { throw "Test 2: package.json should carry version, description and author; got $($pkg | ConvertTo-Json -Compress)" }
     $indexHtml = Get-Content -LiteralPath (Join-Path $dist 'app/index.html') -Raw
-    if (([regex]::Matches($indexHtml, 'STYLES_CSS_MARKER')).Count -ne 1 -or $indexHtml -notmatch '#go:hover \{') { throw 'Test 2: styles.css must survive into the packaged app' }
+    if (([regex]::Matches($indexHtml, 'STYLES_CSS_MARKER')).Count -ne 1 -or $indexHtml -notmatch '#go:hover \{') { throw 'Test 2: main.css must survive into the packaged app' }
     Write-Output '  pass  otter package --dry-run builds the Electron export, copies the icon and writes electron-builder.json'
-    Write-Output '  pass  project metadata reaches package.json and the configuration; styles.css survives the pipeline'
+    Write-Output '  pass  project metadata reaches package.json and the configuration; main.css survives the pipeline'
 
     # --progress: one JSON event per step, for Otter Studio's Build -> Desktop App view.
     $progress = Invoke-Otter @('package', $projDir, '--target', 'windows', '--dry-run', '--progress')

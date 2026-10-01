@@ -1,12 +1,12 @@
 using module ..\Otter.Contract.psm1
 . "$PSScriptRoot\TestHost.ps1"
 
-# Project stylesheet resolution for every web-producing command.
-# `otter web`, `otter build` (and `otter desktop`) share one code path,
-# Export-OtterWebApplication, which picks the program's stylesheet:
-#   1. main.ot -> main.css            (hand-written Otter)
-#   2. styles.css beside the entry    (Otter Studio projects)
-#   3. styles.css in the project root (entry kept in src/)
+# Project stylesheet resolution for every web-producing command - D125 (the
+# release line's rule, adopted on this line 2026-09-30): `otter web`,
+# `otter build` (and `otter desktop`) share one code path,
+# Export-OtterWebApplication, and a program <entry>.ot uses <entry>.css from
+# the same folder and nothing else (no styles.css). The stylesheet must
+# resolve, following links, inside the entry's folder.
 # These tests drive the real CLI, not the module functions.
 
 $ErrorActionPreference = 'Stop'
@@ -74,19 +74,18 @@ try {
     if ((Get-Count $html 'otter-sidecar-style') -ne 1) { throw 'Test 1: expected exactly one project stylesheet block.' }
     Write-Output '  pass  main.css beside main.ot is included exactly once'
 
-    # 2. Only styles.css exists -> it is included, exactly once.
+    # 2. Only styles.css exists -> it is not used (D125: no styles.css).
     $dir = New-Case 'studio' @{ 'main.ot' = $program; 'styles.css' = $stylesCss }
     $html = Invoke-OtterWeb (Join-Path $dir 'main.ot')
-    if ((Get-Count $html 'STYLES_CSS_MARKER') -ne 1) { throw 'Test 2: styles.css should appear exactly once.' }
-    if ((Get-Count $html 'otter-sidecar-style') -ne 1) { throw 'Test 2: expected exactly one project stylesheet block.' }
-    Write-Output '  pass  styles.css (Otter Studio project stylesheet) is included exactly once'
+    if ((Get-Count $html 'STYLES_CSS_MARKER') -ne 0) { throw 'Test 2: styles.css must not be used (D125).' }
+    Write-Output '  pass  styles.css is not a stylesheet any more (D125)'
 
-    # 3. Both exist -> main.css wins and styles.css is not added.
+    # 3. Both exist -> only main.css.
     $dir = New-Case 'both' @{ 'main.ot' = $program; 'main.css' = $mainCss; 'styles.css' = $stylesCss }
     $html = Invoke-OtterWeb (Join-Path $dir 'main.ot')
-    if ((Get-Count $html 'MAIN_CSS_MARKER') -ne 1) { throw 'Test 3: main.css should be used.' }
-    if ((Get-Count $html 'STYLES_CSS_MARKER') -ne 0) { throw 'Test 3: styles.css must not be added when main.css exists.' }
-    Write-Output '  pass  main.css wins over styles.css'
+    if ((Get-Count $html 'MAIN_CSS_MARKER') -ne 1) { throw 'Test 3: main.css should appear exactly once.' }
+    if ((Get-Count $html 'STYLES_CSS_MARKER') -ne 0) { throw 'Test 3: styles.css must not be added.' }
+    Write-Output '  pass  with both, only main.css is used'
 
     # 4. Neither exists -> the program still compiles, with no stylesheet block.
     $dir = New-Case 'none' @{ 'main.ot' = $program }
@@ -130,7 +129,7 @@ try {
     content: "$1 $& $$";
 }
 '@
-    $dir = New-Case 'rich' @{ 'main.ot' = $program; 'styles.css' = $richCss }
+    $dir = New-Case 'rich' @{ 'main.ot' = $program; 'main.css' = $richCss }
     $html = Invoke-OtterWeb (Join-Path $dir 'main.ot')
     foreach ($needle in @('#go:hover {', '#go:active {', '#go:focus {', '@media (max-width: 900px) {', '@media (max-width: 600px) {', 'font-size: 14px;', 'content: "$1 $& $$";')) {
         if ((Get-Count $html $needle) -ne 1) { throw "Test 5: expected '$needle' exactly once in the compiled output." }
@@ -138,29 +137,34 @@ try {
     Write-Output '  pass  @media rules and :hover / :active / :focus states survive compilation'
     Write-Output '  pass  CSS is inserted verbatim ($ sequences are not rewritten)'
 
-    # 6. otter build uses the same resolution: Studio layout (entry + styles.css at the root).
-    $dir = New-Case 'build-root' @{ 'main.ot' = $program; 'styles.css' = $stylesCss; 'otter.json' = (New-Manifest 'main.ot') }
+    # 6. otter build uses the same rule: main.css beside main.ot.
+    $dir = New-Case 'build-root' @{ 'main.ot' = $program; 'main.css' = $mainCss; 'styles.css' = $stylesCss; 'otter.json' = (New-Manifest 'main.ot') }
     $html = Invoke-OtterBuild $dir
-    if ((Get-Count $html 'STYLES_CSS_MARKER') -ne 1) { throw 'Test 6: otter build should embed styles.css exactly once.' }
-    Write-Output '  pass  otter build embeds the project styles.css'
+    if ((Get-Count $html 'MAIN_CSS_MARKER') -ne 1 -or (Get-Count $html 'STYLES_CSS_MARKER') -ne 0) { throw 'Test 6: otter build should embed main.css only.' }
+    Write-Output '  pass  otter build embeds main.css, like otter web'
 
-    # 7. otter build with the entry in src/ finds styles.css at the project root.
-    $dir = New-Case 'build-src' @{ 'src/main.ot' = $program; 'styles.css' = $stylesCss; 'otter.json' = (New-Manifest 'src/main.ot') }
+    # 7. An entry in src/ uses src/main.css; a stylesheet at the project root is not used.
+    $dir = New-Case 'build-src' @{ 'src/main.ot' = $program; 'src/main.css' = $mainCss; 'main.css' = $stylesCss; 'otter.json' = (New-Manifest 'src/main.ot') }
     $html = Invoke-OtterBuild $dir
-    if ((Get-Count $html 'STYLES_CSS_MARKER') -ne 1) { throw 'Test 7: styles.css at the project root should be embedded for src/main.ot.' }
-    Write-Output '  pass  entry in src/ uses styles.css from the project root'
+    if ((Get-Count $html 'MAIN_CSS_MARKER') -ne 1 -or (Get-Count $html 'STYLES_CSS_MARKER') -ne 0) { throw 'Test 7: src/main.ot should use src/main.css only.' }
+    Write-Output '  pass  an entry in src/ uses the stylesheet beside it'
 
-    # 8. otter build with main.css beside the entry: named stylesheet still wins.
-    $dir = New-Case 'build-both' @{ 'main.ot' = $program; 'main.css' = $mainCss; 'styles.css' = $stylesCss; 'otter.json' = (New-Manifest 'main.ot') }
-    $html = Invoke-OtterBuild $dir
-    if ((Get-Count $html 'MAIN_CSS_MARKER') -ne 1 -or (Get-Count $html 'STYLES_CSS_MARKER') -ne 0) { throw 'Test 8: otter build should prefer main.css.' }
-    Write-Output '  pass  otter build prefers main.css, like otter web'
-
-    # 9. The search stays inside the project: a styles.css above the project root is ignored.
-    $dir = New-Case 'outer' @{ 'styles.css' = $stylesCss; 'app/otter.json' = (New-Manifest 'src/main.ot'); 'app/src/main.ot' = $program }
-    $html = Invoke-OtterWeb (Join-Path $dir 'app/src/main.ot')
-    if ((Get-Count $html 'STYLES_CSS_MARKER') -ne 0) { throw 'Test 9: a styles.css outside the project must not be used.' }
-    Write-Output '  pass  a styles.css outside the project is never picked up'
+    # 8. A main.css that is a link to a file outside the entry's folder is
+    # refused, and nothing is written (RC3 B4 on the release line).
+    $dir = New-Case 'link' @{ 'main.ot' = $program }
+    $secret = Join-Path $testTmp 'secret.txt'
+    [System.IO.File]::WriteAllText($secret, 'SECRET_MARKER')
+    $linked = $true
+    try { New-Item -ItemType SymbolicLink -Path (Join-Path $dir 'main.css') -Target $secret -ErrorAction Stop | Out-Null } catch { $linked = $false }
+    if ($linked) {
+        $out = & $script:OtterHostExe @script:OtterHostArgs -File $otterPs1 web (Join-Path $dir 'main.ot') -NoOpen 2>&1
+        if ($LASTEXITCODE -eq 0) { throw 'Test 8: a stylesheet linked from outside the folder must fail the build.' }
+        if (($out -join "`n") -notmatch 'outside the folder') { throw "Test 8: unclear message: $out" }
+        if (Test-Path -LiteralPath (Join-Path $dir 'main.html')) { throw 'Test 8: nothing should have been written.' }
+        Write-Output '  pass  a stylesheet that links outside the entry folder is refused; nothing is written'
+    } else {
+        Write-Output '  skip  a stylesheet linked from outside the folder (this system cannot create file links without Developer Mode)'
+    }
 
     # 10. No project manifest anywhere and no stylesheet beside the entry: nothing is embedded.
     $dir = New-Case 'loose/deeper' @{ 'main.ot' = $program }

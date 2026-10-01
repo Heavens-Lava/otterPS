@@ -3067,39 +3067,74 @@ $declarativeListenersJoined
     return $html
 }
 
-# Which stylesheet belongs to a program. Every web-producing command
-# (otter web, otter build, otter desktop) goes through Export-OtterWebApplication,
-# so they all resolve it the same way:
-#   1. a stylesheet named after the entry file:   main.ot -> main.css
-#   2. otherwise styles.css beside the entry file (Otter Studio's project stylesheet)
-#   3. otherwise styles.css in the project root - the nearest folder above the
-#      entry that holds otter.json or project.json - for entries kept in src/
-# The search never leaves the project. No stylesheet is not an error.
+# The real location of a path, with every symbolic link or junction along it
+# followed (the file itself and any linked folder on the way). From the
+# release line (RC3 B4). A path that does not exist yet is returned as far as
+# it could be resolved.
+function Resolve-OtterRealPath {
+    param([Parameter(Mandatory)][string]$Path)
+
+    $full = [System.IO.Path]::GetFullPath($Path)
+    $hops = 0
+    while ($true) {
+        $root = [System.IO.Path]::GetPathRoot($full)
+        $parts = @($full.Substring($root.Length) -split '[\\/]' | Where-Object { $_ -ne '' })
+        $current = $root
+        $relinked = $false
+        for ($i = 0; $i -lt $parts.Count; $i++) {
+            $next = [System.IO.Path]::Combine($current, $parts[$i])
+            $item = Get-Item -LiteralPath $next -Force -ErrorAction SilentlyContinue
+            if ($item -and ($item.LinkType -eq 'SymbolicLink' -or $item.LinkType -eq 'Junction')) {
+                $target = @($item.Target)[0]
+                if ($target) {
+                    $hops++
+                    if ($hops -gt 40) {
+                        throw [OtterError]::new("The path '$Path' has too many links to follow (a link loop?).", 0, 'build')
+                    }
+                    # A relative target is relative to the link's own folder.
+                    $resolvedTarget = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($current, $target))
+                    $rest = @($parts | Select-Object -Skip ($i + 1))
+                    $full = $resolvedTarget
+                    foreach ($r in $rest) { $full = [System.IO.Path]::Combine($full, $r) }
+                    $full = [System.IO.Path]::GetFullPath($full)
+                    $relinked = $true
+                    break
+                }
+            }
+            $current = $next
+        }
+        if (-not $relinked) { return $current }
+    }
+}
+
+# True when $Path is $Folder itself or somewhere beneath it (both real paths).
+function Test-OtterPathInside {
+    param([string]$Path, [string]$Folder)
+    $onWindows = ($PSVersionTable.PSEdition -ne 'Core') -or [bool](Get-Variable -Name IsWindows -ValueOnly -ErrorAction SilentlyContinue)
+    $comparison = if ($onWindows) { [System.StringComparison]::OrdinalIgnoreCase } else { [System.StringComparison]::Ordinal }
+    $folderWithSep = $Folder.TrimEnd('\', '/') + [System.IO.Path]::DirectorySeparatorChar
+    return $Path.Equals($Folder.TrimEnd('\', '/'), $comparison) -or $Path.StartsWith($folderWithSep, $comparison)
+}
+
+# Which stylesheet belongs to a program - D125, the release line's rule,
+# adopted on this line 2026-09-30 (Jeff): a web program <entry>.ot uses
+# <entry>.css from the same folder (main.ot uses main.css), and nothing else.
+# Every web-producing command (otter web, build, desktop, Studio's render)
+# goes through here. The stylesheet must resolve, following symbolic links,
+# inside the entry's folder: a link to a file elsewhere (~/.ssh/id_rsa) is
+# refused before anything is written. No stylesheet is not an error.
 function Resolve-OtterProjectStylesheet {
     param([Parameter(Mandatory)][string]$SourcePath)
 
     $entry = [System.IO.Path]::GetFullPath($SourcePath)
     $named = [System.IO.Path]::ChangeExtension($entry, '.css')
-    if (Test-Path -LiteralPath $named -PathType Leaf) { return $named }
-
-    $entryDir = [System.IO.Path]::GetDirectoryName($entry)
-    $besideEntry = Join-Path $entryDir 'styles.css'
-    if (Test-Path -LiteralPath $besideEntry -PathType Leaf) { return $besideEntry }
-
-    $dir = $entryDir
-    while ($dir) {
-        $isProjectRoot = (Test-Path -LiteralPath (Join-Path $dir 'otter.json') -PathType Leaf) -or
-            (Test-Path -LiteralPath (Join-Path $dir 'project.json') -PathType Leaf)
-        if ($isProjectRoot) {
-            $atRoot = Join-Path $dir 'styles.css'
-            if (Test-Path -LiteralPath $atRoot -PathType Leaf) { return $atRoot }
-            return $null
-        }
-        $parent = [System.IO.Path]::GetDirectoryName($dir)
-        if ($parent -eq $dir) { break }
-        $dir = $parent
+    if (-not (Test-Path -LiteralPath $named -PathType Leaf)) { return $null }
+    $folderReal = Resolve-OtterRealPath -Path ([System.IO.Path]::GetDirectoryName($entry))
+    $cssReal = Resolve-OtterRealPath -Path $named
+    if (-not (Test-OtterPathInside -Path $cssReal -Folder $folderReal)) {
+        throw [OtterError]::new("The stylesheet '$([System.IO.Path]::GetFileName($named))' is a link to '$cssReal', which is outside the folder that holds '$([System.IO.Path]::GetFileName($entry))'. Otter only includes files from inside that folder, so nothing was written.", 0, 'build')
     }
-    return $null
+    return $cssReal
 }
 
 # Embed the program's stylesheet once, just before the first </head>. A plain
