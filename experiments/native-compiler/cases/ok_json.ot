@@ -1,0 +1,20 @@
+person has name "Ada", age 36, langs 0
+skills are
+    "math"
+    "engines"
+.
+langs of person is skills
+convert person to json into text
+say text
+convert text from json into back
+say name of back age of back langs of back
+convert skills to json into listText
+say listText
+convert 42 to json into numText
+say numText
+convert "a \"quote\" & <tag>" to json into esc
+say esc
+convert "[1, 2.5, true, null, \"x\"]" from json into mixed
+say mixed length of mixed
+convert "{\"a\": {\"b\": [1, 2]}}" from json into nested
+say nested

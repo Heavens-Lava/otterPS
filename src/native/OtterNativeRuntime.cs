@@ -21,6 +21,9 @@ namespace OtterNative
     {
         public int Line;
         public string Suggestion;
+        // Library functions raise their errors without the source line; the
+        // interpreter then shows none, and so must the compiled backend.
+        public bool ShowSourceLine = true;
         public OtterNativeError(string message, int line, string suggestion) : base(message)
         {
             Line = line;
@@ -73,6 +76,23 @@ namespace OtterNative
 
     public delegate object OtterBody(Env e);
 
+    // The library bridge: library statements (JSON, files, ...) run the
+    // interpreter's own PowerShell functions, so their behaviour is the
+    // interpreter's by construction. The host returns an OtterNativeError as
+    // a value instead of throwing it across the boundary. The result goes into
+    // a HostResult rather than being returned: PowerShell wraps a returned
+    // object in a PSObject, but passes the object itself to a property.
+    // One object carries the whole call: PowerShell's delegate invocation
+    // reshapes an object[] argument, so nothing else is passed.
+    public sealed class HostRequest
+    {
+        public string Name;
+        public object[] Args;
+        public int Line;
+        public object Result;
+    }
+    public delegate void HostCall(HostRequest request);
+
     // OtterObject (src/Otter.Runtime.psm1): a type name and ordinal properties
     // in insertion order. Only plain things for now ("x is a thing", "x has").
     public sealed class OtterThing
@@ -114,6 +134,20 @@ namespace OtterNative
     public static class R
     {
         public static Action<string> Out;
+        public static HostCall Host;
+
+        public static object Call(string name, object[] args, int line)
+        {
+            if (Host == null) throw Err("The compiled backend has no library bridge for " + name + ".", line, null);
+            HostRequest request = new HostRequest();
+            request.Name = name;
+            request.Args = args;
+            request.Line = line;
+            Host(request);
+            OtterNativeError error = request.Result as OtterNativeError;
+            if (error != null) throw error;
+            return request.Result;
+        }
         public static Env Global;
         static int depth;
 

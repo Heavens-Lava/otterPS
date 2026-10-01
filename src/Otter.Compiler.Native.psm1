@@ -1,4 +1,6 @@
 using module ..\Otter.Contract.psm1
+using module .\Otter.Runtime.psm1
+using module .\Otter.Library.psm1
 using module .\Otter.LoopPasses.psm1
 
 # Otter.Compiler.Native.psm1 - EXPERIMENTAL compiled backend (Otter 1.1 track).
@@ -303,6 +305,13 @@ function ConvertTo-OtterNativeStatement {
             $out.Add("${Pad}throw R.Fail($(ConvertTo-OtterNativeExpression -Expr $Stmt.Message -Context $Context), $line);")
         }
         'Sort' { $out.Add("${Pad}R.Sort(e, $(ConvertTo-OtterCSharpString $Stmt.Target), $line);") }
+        # Library statements: the interpreter's own functions, through the bridge.
+        'ConvertToJson' {
+            $out.Add("${Pad}e.Set($(ConvertTo-OtterCSharpString $Stmt.Target), R.Call(`"ConvertToJson`", new object[] { $(ConvertTo-OtterNativeExpression -Expr $Stmt.Subject -Context $Context) }, $line));")
+        }
+        'ConvertFromJson' {
+            $out.Add("${Pad}e.Set($(ConvertTo-OtterCSharpString $Stmt.Target), R.Call(`"ConvertFromJson`", new object[] { R.Format($(ConvertTo-OtterNativeExpression -Expr $Stmt.Subject -Context $Context)) }, $line));")
+        }
         'Replace' {
             # The variable is read, then the find and replacement text worked out.
             $subject = $Context.Next('subject')
@@ -404,6 +413,74 @@ function New-OtterNativeProgram {
     return [pscustomobject]@{ ClassName = $className; CSharp = $csharp; Type = ($className -as [type]) }
 }
 
+# --- the library bridge ----------------------------------------------------
+#
+# Compiled values and interpreter values differ only for reference types:
+# OtterNative.OtterThing <-> OtterObject, OtterTypeValue <-> OtterType,
+# OtterFn <-> OtterFunction. Lists are copied item by item; numbers, text,
+# booleans and gone are the same values on both sides.
+
+function ConvertTo-OtterInterpreterValue {
+    param($Value)
+    if ($null -eq $Value) { return $null }
+    if ($Value -is [OtterNative.OtterThing]) {
+        $object = [OtterObject]::new($Value.TypeName)
+        foreach ($name in $Value.Names()) { $object.WriteProperty($name, (ConvertTo-OtterInterpreterValue $Value.Read($name))) }
+        return $object
+    }
+    if ($Value -is [System.Collections.Generic.List[object]]) {
+        $list = [System.Collections.Generic.List[object]]::new()
+        foreach ($item in $Value) { $list.Add((ConvertTo-OtterInterpreterValue $item)) }
+        return , $list
+    }
+    if ($Value -is [OtterNative.OtterTypeValue]) { return [OtterType]::new($Value.Name, $Value.Fields) }
+    if ($Value -is [OtterNative.OtterFn]) { return [OtterFunction]::new($Value.Name, $Value.Params, @()) }
+    return $Value
+}
+
+function ConvertFrom-OtterInterpreterValue {
+    param($Value, [int]$Line)
+    if ($null -eq $Value) { return $null }
+    if ($Value -is [OtterObject]) {
+        $thing = [OtterNative.OtterThing]::new($Value.TypeName)
+        foreach ($name in $Value.PropertyNames()) { $thing.Write($name, (ConvertFrom-OtterInterpreterValue $Value.ReadProperty($name) $Line)) }
+        return $thing
+    }
+    if ($Value -is [System.Collections.Generic.List[object]]) {
+        $list = [System.Collections.Generic.List[object]]::new()
+        foreach ($item in $Value) { $list.Add((ConvertFrom-OtterInterpreterValue $item $Line)) }
+        return , $list
+    }
+    if ($Value -is [OtterType]) { return [OtterNative.OtterTypeValue]::new($Value.Name, $Value.FieldNames) }
+    if ($Value -is [double] -or $Value -is [string] -or $Value -is [bool]) { return $Value }
+    throw [OtterError]::new("The compiled backend cannot hold $($Value.GetType().Name) values yet. Run this program with otter run.", $Line, 'runtime')
+}
+
+# One library call from compiled code. Arguments arrive as compiled values;
+# Otter errors go back as OtterNativeError values.
+$script:OtterNativeHost = {
+    param($Request)
+    $Name = $Request.Name; $Arguments = $Request.Args; $Line = $Request.Line
+    try {
+        $result = switch ($Name) {
+            'ConvertToJson' { ConvertTo-OtterJsonText -Value (ConvertTo-OtterInterpreterValue $Arguments[0]) -Line $Line }
+            'ConvertFromJson' { , (ConvertFrom-OtterJsonText -Text ([string]$Arguments[0]) -Line $Line) }
+            default { throw [OtterError]::new("The compiled backend has no library bridge for $Name.", $Line, 'runtime') }
+        }
+        $Request.Result = ConvertFrom-OtterInterpreterValue $result $Line
+    }
+    catch {
+        $e = $_.Exception
+        if ($e -is [OtterError]) {
+            $nativeError = [OtterNative.OtterNativeError]::new($e.Message, $e.Line, $e.Suggestion)
+            $nativeError.ShowSourceLine = -not [string]::IsNullOrEmpty($e.SourceLine)
+            $Request.Result = $nativeError
+            return
+        }
+        throw
+    }
+}
+
 # Runs a compiled program; output lines go to $Writer. An Otter error comes
 # back as an [OtterError] built like the interpreter's (message, line, source
 # line, suggestion).
@@ -415,6 +492,7 @@ function Invoke-OtterNativeProgram {
     )
     $global = [OtterNative.Env]::new($null)
     [OtterNative.R]::Reset($global, [Action[string]]$Writer)
+    [OtterNative.R]::Host = [OtterNative.HostCall]$script:OtterNativeHost
     try {
         $Compiled.Type.GetMethod('Run').Invoke($null, @(, $global)) | Out-Null
     }
@@ -429,7 +507,7 @@ function Invoke-OtterNativeProgram {
             throw [OtterError]::new($inner.Message, $inner.Line, 'runtime', 0, $sourceLine, $null)
         }
         if ($inner -is [OtterNative.OtterNativeError]) {
-            $sourceLine = if ($inner.Line -ge 1 -and $inner.Line -le $SourceLines.Count) { $SourceLines[$inner.Line - 1] } else { $null }
+            $sourceLine = if ($inner.ShowSourceLine -and $inner.Line -ge 1 -and $inner.Line -le $SourceLines.Count) { $SourceLines[$inner.Line - 1] } else { $null }
             throw [OtterError]::new($inner.Message, $inner.Line, 'runtime', 0, $sourceLine, $inner.Suggestion)
         }
         throw
