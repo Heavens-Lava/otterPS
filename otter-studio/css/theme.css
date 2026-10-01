@@ -662,6 +662,13 @@ body.theme-light {
   .sp-select,
   .sp-input,
   .prop-input,
+  /* Open Folder: Workspace / This computer (shell/folder-picker.js) */
+  .fp-places { display: inline-flex; gap: 2px; margin-top: 10px; padding: 2px; border-radius: 8px; background: var(--o-accent-soft); }
+  .fp-places button { font: inherit; font-size: 12.5px; padding: 5px 12px; border: 0; border-radius: 6px; background: transparent; color: inherit; cursor: pointer; }
+  .fp-places button.is-active { background: var(--o-accent); color: var(--o-accent-ink); }
+  .fp-choice.is-error { color: var(--o-error); }
+  .fp-choice { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
   /* Put your website online (shell/host-guide.js) */
   .host-guide { width: min(620px, calc(100vw - 32px)); }
   .host-guide .modal-title-wrap { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }

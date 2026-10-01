@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { exec, execFile, spawn } from 'node:child_process';
 import { handleLaunchRoutes } from './server/launch.mjs';
 import { handleFsRoutes } from './server/fs-ops.mjs';
+import { listComputerFolder, loadSavedRoots, saveRoot, isDriveRoot } from './server/computer-folders.mjs';
 import { handleHistoryRoutes, recordVersion } from './server/local-history.mjs';
 import { handleEditorConfigRoute } from './server/editorconfig.mjs';
 import { handleAssetRoutes } from './server/assets.mjs';
@@ -73,7 +74,8 @@ function realPathOfNearest(target) {
 // A user's projects rarely live inside the Otter install; each of these
 // folders gets exactly the same trust as the install folder, no more.
 const WORKSPACE_ROOTS = (() => {
-  const named = String(process.env.OTTER_STUDIO_WORKSPACES || '').split(path.delimiter);
+  // ...and folders opened through Open Folder > This computer before.
+  const named = [...String(process.env.OTTER_STUDIO_WORKSPACES || '').split(path.delimiter), ...loadSavedRoots()];
   for (let i = 2; i < process.argv.length - 1; i++) {
     if (process.argv[i] === '--workspace') named.push(process.argv[i + 1]);
   }
@@ -87,6 +89,27 @@ const WORKSPACE_ROOTS = (() => {
   }
   return roots;
 })();
+
+// Open Folder > This computer: the chosen folder becomes a workspace root
+// (remembered), unless it is already inside one. Returns its workspace path.
+function openComputerFolder(folder) {
+  const full = path.resolve(String(folder || ''));
+  if (!folder || !fs.existsSync(full) || !fs.statSync(full).isDirectory()) {
+    const err = new Error('That folder does not exist.');
+    err.status = 404;
+    throw err;
+  }
+  if (isDriveRoot(full)) {
+    const err = new Error('Choose the project folder itself, not a whole drive.');
+    err.status = 400;
+    throw err;
+  }
+  if (!isInsideRepo(full)) {
+    WORKSPACE_ROOTS.push({ root: full, real: fs.realpathSync(full) });
+    saveRoot(full);
+  }
+  return path.relative(REPO_ROOT, full).split(path.sep).join('/') || '.';
+}
 
 function isInsideRepo(target) {
   const realTarget = realPathOfNearest(target);
@@ -466,6 +489,23 @@ async function handleRequest(req, res) {
 
   // Explorer: new file/folder, rename, move, delete, reveal (server/fs-ops.mjs).
   if (await handleFsRoutes(req, res, pathname, { repoRoot: REPO_ROOT, isInsideRepo, readBody, sendJson })) return;
+
+  // --- Open Folder > This computer (server/computer-folders.mjs) ---
+  if (pathname === '/api/computer/folders' && req.method === 'GET') {
+    try {
+      return sendJson(res, listComputerFolder(urlObj.searchParams.get('path') || ''));
+    } catch (err) {
+      return sendJson(res, { error: err.message }, err.status || 500);
+    }
+  }
+  if (pathname === '/api/workspace/open' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      return sendJson(res, { path: openComputerFolder(body.path) });
+    } catch (err) {
+      return sendJson(res, { error: err.message }, err.status || 500);
+    }
+  }
   if (handleHistoryRoutes(req, res, pathname, urlObj, { repoRoot: REPO_ROOT, isInsideRepo, sendJson })) return;
   if (handleEditorConfigRoute(req, res, pathname, urlObj, { repoRoot: REPO_ROOT, isInsideRepo, sendJson })) return;
   // The Designer's Assets tab: list, show and import images (server/assets.mjs).

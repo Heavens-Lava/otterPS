@@ -1,8 +1,11 @@
-// folder-picker.js - File > Open Folder: browse the workspace's folders
-// instead of typing a path. Otter projects (a project.json inside) are
-// marked and listed first. Click selects, double-click (or Enter) goes in,
-// Backspace / Up goes up, typing filters. Resolves to the chosen folder's
-// workspace path, or null when cancelled. Server: GET /api/fs/dirs.
+// folder-picker.js - File > Open Folder: browse folders instead of typing a
+// path - the workspace's, or (This computer) any folder on this computer.
+// Otter projects (a project.json inside) are marked and listed first. Click
+// selects, double-click (or Enter) goes in, Backspace / Up goes up, typing
+// filters. Resolves to the chosen folder's workspace path, or null when
+// cancelled. A folder chosen on This computer is added to the workspace
+// first (POST /api/workspace/open). Server: GET /api/fs/dirs,
+// GET /api/computer/folders.
 
 const FOLDER = 'M2 5.5v11h16V7.5h-7.5L8.8 5.5z';
 const PROJECT = 'M10 3.5 3 7v6.5l7 3.5 7-3.5V7zM3 7l7 3.5L17 7M10 10.5V17';
@@ -10,12 +13,15 @@ const UP = 'M10 16V4M5 9l5-5 5 5';
 const svg = (d, cls) => `<svg class="${cls}" viewBox="0 0 20 20" aria-hidden="true"><path d="${d}" /></svg>`;
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-async function fetchDirs(path) {
-  const res = await fetch(`/api/fs/dirs?path=${encodeURIComponent(path)}`);
+async function fetchJson(url, options) {
+  const res = await fetch(url, options);
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
   return data;
 }
+const fetchDirs = (path) => fetchJson(`/api/fs/dirs?path=${encodeURIComponent(path)}`);
+const fetchComputer = (path) => fetchJson(`/api/computer/folders?path=${encodeURIComponent(path)}`);
+const openOnComputer = (path) => fetchJson('/api/workspace/open', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path }) });
 
 export function pickFolder({ title = 'Open Folder', start = '.', okLabel = 'Open' } = {}) {
   return new Promise((resolve) => {
@@ -23,6 +29,10 @@ export function pickFolder({ title = 'Open Folder', start = '.', okLabel = 'Open
     let entries = [];
     let selected = null;
     let filter = '';
+    // 'workspace' (paths relative to it) or 'computer' (absolute paths; ''
+    // is the list of starting places).
+    let place = 'workspace';
+    let parent = null;
 
     const backdrop = document.createElement('div');
     backdrop.className = 'modal-backdrop folder-picker-backdrop';
@@ -33,6 +43,10 @@ export function pickFolder({ title = 'Open Folder', start = '.', okLabel = 'Open
           <div class="modal-title-wrap">
             <h2 class="modal-title" id="folderPickerTitle"></h2>
             <p class="modal-subtitle">Choose a project folder. Folders with a project.json are Otter projects.</p>
+            <div class="fp-places" role="tablist" aria-label="Where to look">
+              <button type="button" role="tab" data-place="workspace" class="is-active" aria-selected="true">Workspace</button>
+              <button type="button" role="tab" data-place="computer" aria-selected="false">This computer</button>
+            </div>
           </div>
           <button type="button" class="modal-close-btn" data-fp-cancel title="Cancel (Esc)">✕</button>
         </div>
@@ -59,11 +73,20 @@ export function pickFolder({ title = 'Open Folder', start = '.', okLabel = 'Open
     const choice = backdrop.querySelector('.fp-choice');
     const upBtn = backdrop.querySelector('.fp-up');
 
-    const chosen = () => selected || (current === '.' ? null : current);
+    const atTop = () => (place === 'workspace' ? current === '.' : !current);
+    const chosen = () => selected || (atTop() ? null : current);
 
+    // A long path shows its end (where it is going); the full path on hover.
+    const shortPath = (p) => {
+      if (p.length <= 46) return p;
+      const parts = p.split(/[\\/]/).filter(Boolean);
+      const sep = p.includes('\\') ? '\\' : '/';
+      return '…' + sep + parts.slice(-2).join(sep);
+    };
     function renderChoice() {
       const c = chosen();
-      choice.textContent = c ? `Opens ${c}` : 'Select a folder';
+      choice.textContent = c ? `Opens ${shortPath(c)}` : 'Select a folder';
+      choice.title = c || '';
       backdrop.querySelector('.fp-open').disabled = !c;
     }
 
@@ -84,6 +107,21 @@ export function pickFolder({ title = 'Open Folder', start = '.', okLabel = 'Open
     }
 
     function renderCrumbs() {
+      if (place === 'computer') {
+        // C:\Users\ada\sites -> This computer / C: / Users / ada / sites
+        const segments = current ? current.split(/[\\/]+/).filter(Boolean) : [];
+        const sep = current.includes('\\') ? '\\' : '/';
+        crumbs.innerHTML = ['<button type="button" data-crumb="">This computer</button>',
+          ...segments.map((p, i) => {
+            const upTo = segments.slice(0, i + 1).join(sep);
+            const target = /^[A-Za-z]:$/.test(upTo) ? upTo + sep : (current.startsWith('/') ? '/' + upTo : upTo);
+            return `<span class="fp-sep">/</span><button type="button" data-crumb="${esc(target)}">${esc(p)}</button>`;
+          })].join('');
+        upBtn.disabled = !current;
+        // Deep folders: keep the end of the path (where you are) in view.
+        crumbs.scrollLeft = crumbs.scrollWidth;
+        return;
+      }
       const parts = current === '.' ? [] : current.split('/');
       crumbs.innerHTML = ['<button type="button" data-crumb=".">Workspace</button>',
         ...parts.map((p, i) => `<span class="fp-sep">/</span><button type="button" data-crumb="${esc(parts.slice(0, i + 1).join('/'))}">${esc(p)}</button>`)].join('');
@@ -92,8 +130,9 @@ export function pickFolder({ title = 'Open Folder', start = '.', okLabel = 'Open
 
     async function go(path) {
       try {
-        const data = await fetchDirs(path);
-        current = data.path || '.';
+        const data = place === 'computer' ? await fetchComputer(path) : await fetchDirs(path);
+        current = place === 'computer' ? (data.path || '') : (data.path || '.');
+        parent = data.parent ?? null;
         entries = data.dirs || [];
         selected = null;
         filter = '';
@@ -106,13 +145,39 @@ export function pickFolder({ title = 'Open Folder', start = '.', okLabel = 'Open
       }
     }
 
-    const parentOf = (p) => (p.includes('/') ? p.split('/').slice(0, -1).join('/') : '.');
+    const parentOf = (p) => (place === 'computer' ? (parent ?? '') : (p.includes('/') ? p.split('/').slice(0, -1).join('/') : '.'));
 
-    function finish(result) {
+    function close(result) {
       backdrop.remove();
       document.removeEventListener('keydown', onKey, true);
       resolve(result);
     }
+    // A folder on This computer joins the workspace first; Studio then opens
+    // it by its workspace path, like any other.
+    async function finish(result) {
+      if (result === null || place !== 'computer') { close(result); return; }
+      try {
+        const opened = await openOnComputer(result);
+        close(opened.path);
+      } catch (err) {
+        choice.textContent = err.message;
+        choice.classList.add('is-error');
+      }
+    }
+
+    function switchPlace(next) {
+      if (next === place) return;
+      place = next;
+      backdrop.querySelectorAll('[data-place]').forEach(b => {
+        const on = b.dataset.place === place;
+        b.classList.toggle('is-active', on);
+        b.setAttribute('aria-selected', String(on));
+      });
+      choice.classList.remove('is-error');
+      try { localStorage.setItem('otter-studio-open-folder-place', place); } catch { /* not kept */ }
+      go(place === 'computer' ? '' : '.');
+    }
+    backdrop.querySelectorAll('[data-place]').forEach(b => b.addEventListener('click', () => switchPlace(b.dataset.place)));
 
     function moveSelection(delta) {
       const items = [...list.querySelectorAll('.fp-item')];
@@ -137,7 +202,7 @@ export function pickFolder({ title = 'Open Folder', start = '.', okLabel = 'Open
         if (e.ctrlKey && chosen()) finish(chosen());
         else if (selected) go(selected);
         else if (chosen()) finish(chosen());
-      } else if (e.key === 'Backspace' && current !== '.') { e.preventDefault(); go(parentOf(current)); }
+      } else if (e.key === 'Backspace' && !atTop()) { e.preventDefault(); go(parentOf(current)); }
     };
 
     // Selection changes classes in place: rebuilding the list between the two
@@ -146,6 +211,7 @@ export function pickFolder({ title = 'Open Folder', start = '.', okLabel = 'Open
       const item = e.target.closest('.fp-item');
       if (!item) return;
       selected = item.dataset.path;
+      choice.classList.remove('is-error');
       list.querySelectorAll('.fp-item').forEach(el => {
         const on = el === item;
         el.classList.toggle('is-selected', on);
@@ -171,6 +237,9 @@ export function pickFolder({ title = 'Open Folder', start = '.', okLabel = 'Open
     backdrop.querySelectorAll('[data-fp-cancel]').forEach(b => b.addEventListener('click', () => finish(null)));
     backdrop.addEventListener('mousedown', (e) => { if (e.target === backdrop) finish(null); });
     document.addEventListener('keydown', onKey, true);
-    go(start || '.').catch(() => go('.'));
+    let remembered = 'workspace';
+    try { remembered = localStorage.getItem('otter-studio-open-folder-place') || 'workspace'; } catch { /* default */ }
+    if (remembered === 'computer') switchPlace('computer');
+    else go(start || '.').catch(() => go('.'));
   });
 }
