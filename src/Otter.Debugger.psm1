@@ -41,7 +41,7 @@ using module .\Otter.Interpreter.psm1
 #   step                    step into: the very next statement, inside a call too
 #   out                     step out: the next statement after this function returns
 #   pause                   stop at the next statement
-#   breakpoints <json>      replace the breakpoints: [{"line":5},
+#   breakpoints <json>      replace the breakpoints (also OTTER_DEBUG_BREAKPOINTS at start): [{"line":5},
 #                           {"line":9,"condition":"count is 3"},
 #                           {"line":12,"log":"total is {total}"}]
 #   eval <id> <expression>  (while paused) evaluate an Otter expression in the
@@ -404,6 +404,11 @@ function Start-OtterDebugSession {
         LastStatement = $null
         LastEnvironment = $null
     }
+    # Breakpoints with conditions or log text, from the editor that started
+    # the session: JSON in OTTER_DEBUG_BREAKPOINTS (an environment variable,
+    # not an argument - Windows re-quotes JSON passed on a command line), in
+    # place before the first statement runs.
+    if ($env:OTTER_DEBUG_BREAKPOINTS) { Set-OtterDebugBreakpoints -Json $env:OTTER_DEBUG_BREAKPOINTS }
     Set-OtterStatementHook -Hook ${function:Invoke-OtterDebugHook}
 }
 
