@@ -89,6 +89,16 @@ namespace OtterNative
             props[name] = value;
         }
         public List<string> Names() { return order; }
+        public override string ToString() { return "OtterObject"; }   // PowerShell's [string] of an OtterObject
+    }
+
+    // OtterType: "a Person has name, age".
+    public sealed class OtterTypeValue
+    {
+        public readonly string Name;
+        public readonly string[] Fields;
+        public OtterTypeValue(string name, string[] fields) { Name = name; Fields = fields; }
+        public override string ToString() { return "OtterType"; }
     }
 
     // OtterFunction: a name, its parameters and its compiled body.
@@ -98,6 +108,7 @@ namespace OtterNative
         public readonly string[] Params;
         public readonly OtterBody Body;
         public OtterFn(string name, string[] parameters, OtterBody body) { Name = name; Params = parameters; Body = body; }
+        public override string ToString() { return "OtterFunction"; }
     }
 
     public static class R
@@ -136,6 +147,8 @@ namespace OtterNative
             }
             OtterThing thing = v as OtterThing;
             if (thing != null) return "a " + thing.TypeName;
+            OtterTypeValue type = v as OtterTypeValue;
+            if (type != null) return "the type " + type.Name;
             OtterFn fn = v as OtterFn;
             if (fn != null) return "<" + fn.Name + ", something Otter can do>";
             return Convert.ToString(v, CultureInfo.InvariantCulture);
@@ -149,6 +162,8 @@ namespace OtterNative
             if (v is OtterFn) return "something Otter can do";
             OtterThing thingValue = v as OtterThing;
             if (thingValue != null) return "a " + thingValue.TypeName;
+            OtterTypeValue typeValue = v as OtterTypeValue;
+            if (typeValue != null) return "the type " + typeValue.Name;
             if (v is List<object>) return "a list";
             if (v is double || v is int || v is long) return "a number";
             if (v is string) return "some text";
@@ -212,7 +227,37 @@ namespace OtterNative
                 return true;
             }
             if (a is OtterThing || b is OtterThing) return ReferenceEquals(a, b);
-            return string.Equals(Convert.ToString(a, CultureInfo.InvariantCulture), Convert.ToString(b, CultureInfo.InvariantCulture), StringComparison.Ordinal);
+            return string.Equals(PsText(a), PsText(b), StringComparison.Ordinal);
+        }
+
+        // PowerShell's [string] of a value - what Test-OtterEqual compares last:
+        // a list is its items joined by spaces, a class its PowerShell name.
+        static string PsText(object v)
+        {
+            if (v == null) return "";
+            if (v is bool) return ((bool)v) ? "True" : "False";
+            if (v is double) return ((double)v).ToString(CultureInfo.InvariantCulture);
+            List<object> list = v as List<object>;
+            if (list != null)
+            {
+                string[] parts = new string[list.Count];
+                for (int i = 0; i < list.Count; i++) parts[i] = PsText(list[i]);
+                return string.Join(" ", parts);
+            }
+            return Convert.ToString(v, CultureInfo.InvariantCulture);
+        }
+
+        // New-OtterObjectValue: "jeff is a Person": a declared type's fields
+        // start as gone. An undeclared type name is not an error.
+        public static OtterThing NewObject(Env e, string typeName)
+        {
+            OtterThing thing = new OtterThing(typeName);
+            if (typeName != "thing" && e.Has(typeName))
+            {
+                OtterTypeValue declared = e.GetRaw(typeName) as OtterTypeValue;
+                if (declared != null) { foreach (string field in declared.Fields) thing.Write(field, null); }
+            }
+            return thing;
         }
 
         // Get-OtterValue 'Variable'

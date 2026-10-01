@@ -24,7 +24,6 @@ $script:NativeRuntimePath = Join-Path $PSScriptRoot 'native\OtterNativeRuntime.c
 $script:NativePartialKinds = [ordered]@{
     Say          = 'without "in color"'
     Assign       = 'to a variable or a property of a thing'
-    ObjectDef    = 'plain things ("x is a thing", "x has"), not custom types'
     OfOperation  = 'every operation except elapsed time'
 }
 
@@ -160,12 +159,16 @@ function ConvertTo-OtterNativeStatement {
                 $out.Add("${Pad}{ object $tmp = $v; R.SetProp($owner, $(ConvertTo-OtterCSharpString $Stmt.Target.Property), $tmp, $line); }")
             } else { throw (New-OtterNativeUnsupported -Node $Stmt -What 'this assignment target') }
         }
+        'TypeDef' {
+            $fields = @($Stmt.FieldNames | ForEach-Object { ConvertTo-OtterCSharpString $_ })
+            $fieldArray = if ($fields.Count) { 'new string[] { ' + ($fields -join ', ') + ' }' } else { 'new string[0]' }
+            $out.Add("${Pad}e.Set($(ConvertTo-OtterCSharpString $Stmt.TypeName), new OtterTypeValue($(ConvertTo-OtterCSharpString $Stmt.TypeName), $fieldArray));")
+        }
         'ObjectDef' {
-            if ($Stmt.TypeName -ne 'thing') { throw (New-OtterNativeUnsupported -Node $Stmt -What "a $($Stmt.TypeName)") }
             $t = $Context.Next('thing')
             $out.Add("${Pad}R.RequireNewThingName(e, $(ConvertTo-OtterCSharpString $Stmt.Name), $line);")
             $out.Add("${Pad}{")
-            $out.Add("${inner}OtterThing $t = new OtterThing(`"thing`");")
+            $out.Add("${inner}OtterThing $t = R.NewObject(e, $(ConvertTo-OtterCSharpString $Stmt.TypeName));")
             foreach ($p in @($Stmt.Properties)) {
                 if ($p.Kind.ToString() -ne 'Assign' -or $p.Target -isnot [VariableExpr]) { throw (New-OtterNativeUnsupported -Node $p -What 'this property line') }
                 $out.Add("${inner}$t.Write($(ConvertTo-OtterCSharpString $p.Target.Name), $(ConvertTo-OtterNativeExpression -Expr $p.Value -Context $Context));")

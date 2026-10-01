@@ -1,0 +1,4 @@
+a Box has
+    w
+b1 is a Box with w 1
+get "w" from b1 into v

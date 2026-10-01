@@ -78,6 +78,7 @@ Work done on the 1.0 line after rc.8, waiting to merge into an rc.9 (branches
 - [ ] Parser: a reserved word used as a variable at the top level (`count is 3`) gives "I expected a value here" instead of the reserved-word message (Codex).
 - [ ] Parser: D27's `replace "a" with "b" in name into other` is decided and the interpreter supports it, but the 1.0 parser rejects the `into` form ("I expected the replace statement to end here") (Codex).
 - [ ] Importing `src/Otter.Interpreter.psm1` makes a PowerShell script's `exit N` return exit code 0 (`otter.ps1` uses `[Environment]::Exit` for this reason); find and fix the cause, or document it for tool authors.
+- [ ] Equality's last fallback compares PowerShell's text of two values, so a list equals its text (`1, 2` equals `"1 2"`) and any two types are equal. Decide whether 1.1 keeps this (the compiled backend reproduces it today).
 
 ## 2. Decided 1.1 Work — OtterBoard and Runtime UI
 
@@ -550,7 +551,7 @@ Tests       18
 - [x] Compile functions.
 - [x] Compile recursion (with the 250-call limit).
 - [x] Compile lists (add, remove, contains, length/first/last of; not sort/reverse yet).
-- [ ] Compile things/objects (plain things done; custom types not yet).
+- [x] Compile things/objects (plain things and declared types).
 - [ ] Compile strings.
 - [ ] Compile JSON.
 - [x] Preserve Otter value formatting.

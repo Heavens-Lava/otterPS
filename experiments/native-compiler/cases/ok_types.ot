@@ -1,0 +1,36 @@
+a Book has
+    title
+    pages
+
+novel is a Book with title "Otters", pages 320
+say novel
+say title of novel pages of novel
+blank is a Book
+say title of blank
+mystery is a Gadget with size 3
+say mystery size of mystery
+say Book
+copy is novel
+if copy is novel
+    say "same thing"
+.
+other is a Book with title "Otters", pages 320
+if other is novel
+    say "never"
+otherwise
+    say "different things"
+.
+pages of other is 10
+say pages of other pages of novel
+items are
+    1
+    2
+.
+if items is "1 2"
+    say "list equals its text"
+.
+if Book is Book
+    say "types compare"
+.
+get "title" from novel into t
+say t
