@@ -76,6 +76,8 @@ Work done on the 1.0 line after rc.8, waiting to merge into an rc.9 (branches
 - [ ] A published app's `run` launcher is executable inside the zip only when published on macOS/Linux; decide whether Windows-published zips should record Unix modes too.
 - [ ] `docs/V1_CHECKLIST_RECONCILIATION.md` still states console HTTP is web-only and modules are deferred (reversed by DC1 and D122).
 - [ ] Parser: a reserved word used as a variable at the top level (`count is 3`) gives "I expected a value here" instead of the reserved-word message (Codex).
+- [ ] Parser: D27's `replace "a" with "b" in name into other` is decided and the interpreter supports it, but the 1.0 parser rejects the `into` form ("I expected the replace statement to end here") (Codex).
+- [ ] Importing `src/Otter.Interpreter.psm1` makes a PowerShell script's `exit N` return exit code 0 (`otter.ps1` uses `[Environment]::Exit` for this reason); find and fix the cause, or document it for tool authors.
 
 ## 2. Decided 1.1 Work — OtterBoard and Runtime UI
 

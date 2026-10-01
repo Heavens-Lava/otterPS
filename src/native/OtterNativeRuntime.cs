@@ -289,6 +289,89 @@ namespace OtterNative
         // references, and List<> lives in System.Collections there).
         public static object List(object[] items) { return new List<object>(items); }
 
+        // 'OfOperation' text and math operations (D24, D89, D90). Angles are in
+        // degrees. A number in an error message is written as PowerShell
+        // writes a double inside a string.
+        static string Num(double n) { return n.ToString(CultureInfo.InvariantCulture); }
+
+        public static object Of(int op, object subject, int line)
+        {
+            switch (op)
+            {
+                case 1: return Format(subject).ToUpperInvariant();
+                case 2: return Format(subject).ToLowerInvariant();
+                case 5: return Math.Abs(AssertNumber(subject, line, "the absolute value"));
+                case 6:
+                {
+                    double n = AssertNumber(subject, line, "the square root");
+                    if (n < 0) throw Err("I can't take the square root of a negative number (" + Num(n) + ").", line, null);
+                    return Math.Sqrt(n);
+                }
+                case 7: return Math.Round(AssertNumber(subject, line, "rounding"), 0, MidpointRounding.AwayFromZero);
+                case 8: return Math.Ceiling(AssertNumber(subject, line, "rounding"));
+                case 9: return Math.Floor(AssertNumber(subject, line, "rounding"));
+                case 10: return Math.Sin(AssertNumber(subject, line, "sine") * Math.PI / 180.0);
+                case 11: return Math.Cos(AssertNumber(subject, line, "cosine") * Math.PI / 180.0);
+                case 12: return Math.Tan(AssertNumber(subject, line, "tangent") * Math.PI / 180.0);
+                case 13:
+                {
+                    double n = AssertNumber(subject, line, "a logarithm");
+                    if (n <= 0) throw Err("I can't take the log of a number that isn't positive (" + Num(n) + ").", line, null);
+                    return Math.Log10(n);
+                }
+                case 14:
+                {
+                    double n = AssertNumber(subject, line, "a logarithm");
+                    if (n <= 0) throw Err("I can't take the natural log of a number that isn't positive (" + Num(n) + ").", line, null);
+                    return Math.Log(n);
+                }
+            }
+            throw Err("internal: unknown operation " + op, line, null);
+        }
+
+        // 'Replace' (D27): plain text, no patterns; the variable is read first.
+        public static string ReplaceSubject(Env e, string name, int line)
+        {
+            if (!e.Has(name)) throw Err("Otter could not find the variable \"" + name + "\".", line, null);
+            return Format(e.GetRaw(name));
+        }
+
+        public static object Replace(string subject, object find, object replacement, int line)
+        {
+            string f = Format(find);
+            string r = Format(replacement);
+            if (f.Length == 0) throw Err("I cannot replace empty text.", line, null);
+            return subject.Replace(f, r);
+        }
+
+        // 'Split' / 'Join' (D25).
+        public static object Split(object subject, object separator, int line)
+        {
+            string s = Format(subject);
+            string sep = Format(separator);
+            if (sep.Length == 0) throw Err("I need something to split by.", line, null);
+            string[] pieces = s.Split(new string[] { sep }, StringSplitOptions.None);
+            List<object> list = new List<object>(pieces.Length);
+            foreach (string piece in pieces) list.Add(piece);
+            return list;
+        }
+
+        public static object JoinList(object value, int line)
+        {
+            List<object> list = value as List<object>;
+            if (list == null) throw Err("I can only join a list, but this is " + TypeName(value) + ".", line, null);
+            return list;
+        }
+
+        public static object Join(object listValue, object separator)
+        {
+            List<object> list = (List<object>)listValue;
+            string sep = Format(separator);
+            string[] parts = new string[list.Count];
+            for (int i = 0; i < list.Count; i++) parts[i] = Format(list[i]);
+            return string.Join(sep, parts);
+        }
+
         // 'Fail' (D68): the value's text becomes the message.
         public static OtterNativeError Fail(object message, int line) { return Err(Format(message), line, null); }
 

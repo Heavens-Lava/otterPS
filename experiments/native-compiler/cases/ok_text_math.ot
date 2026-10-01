@@ -1,0 +1,35 @@
+name is "Otter Lang"
+say uppercase of name
+say lowercase of name
+say uppercase of 3.5
+neg is 0 minus 7.25
+say absolute value of neg
+say square root of 2
+say round of 2.5
+negHalf is 0 minus 2.5
+say round of negHalf
+say round up of 1.2
+negSmall is 0 minus 1.2
+say round down of negSmall
+say sine of 30
+say cosine of 60
+say tangent of 45
+say log of 1000
+say natural log of 10
+replace "Lang" with "Language" in name
+say name
+shout is name
+replace "a" with "4" in shout
+say shout name
+split "a,b,,c" by "," into parts
+say length of parts parts
+join parts with " | " into joined
+say joined
+numbers are
+    1
+    2.5
+.
+join numbers with "+" into sum
+say sum
+split 12.5 by "." into halves
+say halves

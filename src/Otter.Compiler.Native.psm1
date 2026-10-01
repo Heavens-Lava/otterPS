@@ -25,7 +25,7 @@ $script:NativePartialKinds = [ordered]@{
     Say          = 'without "in color"'
     Assign       = 'to a variable or a property of a thing'
     ObjectDef    = 'plain things ("x is a thing", "x has"), not custom types'
-    OfOperation  = 'length, first and last of; not the text, math or time operations'
+    OfOperation  = 'every operation except elapsed time'
 }
 
 function Get-OtterNativePartialKinds { return $script:NativePartialKinds }
@@ -105,10 +105,14 @@ function ConvertTo-OtterNativeExpression {
             return "R.Contains($c, $i, $line)"
         }
         'OfOperation' {
-            $helper = switch ($Expr.Operation.ToString()) { 'Length' { 'Length' } 'First' { 'First' } 'Last' { 'Last' } default { $null } }
-            if (-not $helper) { throw (New-OtterNativeUnsupported -Node $Expr -What "'$($Expr.Operation.ToString().ToLowerInvariant()) of'") }
+            $operation = $Expr.Operation.ToString()
             $s = ConvertTo-OtterNativeExpression -Expr $Expr.Subject -Context $Context
-            return "R.$helper($s, $line)"
+            if ($operation -in @('Length', 'First', 'Last')) { return "R.$operation($s, $line)" }
+            # Text and math operations share R.Of, keyed by the OfOperation number.
+            if ($operation -in @('Uppercase', 'Lowercase', 'AbsoluteValue', 'SquareRoot', 'Round', 'RoundUp', 'RoundDown', 'Sine', 'Cosine', 'Tangent', 'LogTen', 'NaturalLog')) {
+                return "R.Of($([int]$Expr.Operation), $s, $line)"
+            }
+            throw (New-OtterNativeUnsupported -Node $Expr -What "'$($operation.ToLowerInvariant()) of'")
         }
         'PropertyAccess' {
             $t = ConvertTo-OtterNativeExpression -Expr $Expr.Target -Context $Context
@@ -296,6 +300,26 @@ function ConvertTo-OtterNativeStatement {
             $out.Add("${Pad}throw R.Fail($(ConvertTo-OtterNativeExpression -Expr $Stmt.Message -Context $Context), $line);")
         }
         'Sort' { $out.Add("${Pad}R.Sort(e, $(ConvertTo-OtterCSharpString $Stmt.Target), $line);") }
+        'Replace' {
+            # The variable is read, then the find and replacement text worked out.
+            $subject = $Context.Next('subject')
+            $out.Add("${Pad}{")
+            $out.Add("${inner}string $subject = R.ReplaceSubject(e, $(ConvertTo-OtterCSharpString $Stmt.Target), $line);")
+            $destination = if ($Stmt.ResultTarget) { $Stmt.ResultTarget } else { $Stmt.Target }
+            $out.Add("${inner}e.Set($(ConvertTo-OtterCSharpString $destination), R.Replace($subject, $(ConvertTo-OtterNativeExpression -Expr $Stmt.Find -Context $Context), $(ConvertTo-OtterNativeExpression -Expr $Stmt.Replacement -Context $Context), $line));")
+            $out.Add("${Pad}}")
+        }
+        'Split' {
+            $out.Add("${Pad}e.Set($(ConvertTo-OtterCSharpString $Stmt.Target), R.Split($(ConvertTo-OtterNativeExpression -Expr $Stmt.Subject -Context $Context), $(ConvertTo-OtterNativeExpression -Expr $Stmt.Separator -Context $Context), $line));")
+        }
+        'Join' {
+            # The list is checked before the separator is worked out.
+            $list = $Context.Next('list')
+            $out.Add("${Pad}{")
+            $out.Add("${inner}object $list = R.JoinList($(ConvertTo-OtterNativeExpression -Expr $Stmt.Subject -Context $Context), $line);")
+            $out.Add("${inner}e.Set($(ConvertTo-OtterCSharpString $Stmt.Target), R.Join($list, $(ConvertTo-OtterNativeExpression -Expr $Stmt.Separator -Context $Context)));")
+            $out.Add("${Pad}}")
+        }
         'Reverse' { $out.Add("${Pad}R.Reverse(e, $(ConvertTo-OtterCSharpString $Stmt.Target), $line);") }
         default { throw (New-OtterNativeUnsupported -Node $Stmt) }
     }
