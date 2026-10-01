@@ -104,8 +104,24 @@ try {
             }
             'CallStmt' { if ($node.ResultTarget) { $variables.Add($node.ResultTarget); Add-Symbol $node.ResultTarget 'variable' $node.Line $scope }; Visit $node.Call $scope }
         }
+        # Properties the case above already visited (or must not, like an
+        # assignment's Target, which is a write). Only for those node types:
+        # skipping Value everywhere lost every read in `return result`,
+        # `set ... to value`, `respond` and the rest - a variable read only
+        # there was reported as never read, and Find References missed it.
+        $handled = switch ($node.GetType().Name) {
+            'AssignStmt' { @('Target', 'Value') }
+            'ListDefStmt' { @('Items') }
+            'AskStmt' { @('Prompt') }
+            'FunctionDefStmt' { @('Body') }
+            'ObjectDefStmt' { @('Properties') }
+            'ForEachStmt' { @('Body', 'Collection') }
+            'CountStmt' { @('Body', 'From', 'To') }
+            'CallStmt' { @('Call') }
+            default { @() }
+        }
         foreach ($property in $node.PSObject.Properties) {
-            if ($property.Name -in @('Target','Value','Items','Prompt','Body','Properties','Call')) { continue }
+            if ($property.Name -in $handled) { continue }
             if ($property.Value -is [System.Array]) { foreach ($child in $property.Value) { if ($null -ne $child -and $null -ne $child.PSObject.Properties['Line']) { Visit $child $scope } } }
             elseif ($null -ne $property.Value -and $null -ne $property.Value.PSObject.Properties['Line']) { Visit $property.Value $scope }
         }
