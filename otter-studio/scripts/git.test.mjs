@@ -196,6 +196,12 @@ try {
     assert.equal(remotes.remotes[0].name, 'origin');
   });
 
+  await test('a remote can be a folder on this computer, given by its full path', async () => {
+    assert.equal((await api('POST', 'remote', { name: 'backup', url: remoteAbs })).ok, true);
+    assert.equal((await api('POST', 'remote', { name: 'backup', remove: true })).ok, true);
+    assert.equal((await api('POST', 'remote', { name: 'relative', url: 'remote.git' })).status, 400);
+  });
+
   await test('branches: create, switch, merge with a conflict, resolve it, commit', async () => {
     assert.equal((await api('POST', 'checkout', { branch: 'feature', create: true })).ok, true);
     fs.writeFileSync(path.join(workAbs, 'main.ot'), 'say "from feature"\n');
@@ -211,6 +217,7 @@ try {
     assert.deepEqual(merge.conflicts, ['main.ot']);
     const s = await api('GET', 'status');
     assert.equal(s.merging, true);
+    assert.equal(s.mergeMessage, "Merge branch 'feature'");
     assert.equal(s.files.find(f => f.path === 'main.ot').conflict, true);
 
     // What the conflict editor does: resolve blocks, save with the revision, mark resolved.

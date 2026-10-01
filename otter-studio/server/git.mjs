@@ -283,12 +283,22 @@ export async function handleGitRoutes(req, res, pathname, urlObj, ctx) {
       if (!isInsideRepo(repoRoot)) throw new GitError('The repository is outside the workspace.', 403);
       const status = parseStatusV2(await gitOrThrow(repoRoot, ['status', '--porcelain=v2', '--branch', '-z']));
       const stash = await runGit(repoRoot, ['stash', 'list', '--format=%gd']);
+      // Ask git where its files are: in a worktree .git is a file, not a folder.
+      const gitPaths = await runGit(repoRoot, ['rev-parse', '--git-path', 'MERGE_HEAD', '--git-path', 'MERGE_MSG']);
+      const [mergeHead, mergeMsg] = gitPaths.code === 0 ? gitPaths.stdout.split('\n').map(p => path.resolve(repoRoot, p.trim())) : [];
+      const merging = Boolean(mergeHead && fs.existsSync(mergeHead));
+      // The message git prepared for the merge commit, without its # comments.
+      let mergeMessage = '';
+      if (merging && mergeMsg && fs.existsSync(mergeMsg)) {
+        mergeMessage = fs.readFileSync(mergeMsg, 'utf8').split(/\r?\n/).filter(line => !line.startsWith('#')).join('\n').trim();
+      }
       return sendJson(res, {
         isRepo: true,
         root: path.relative(ctx.repoRoot, repoRoot).split(path.sep).join('/') || '.',
         ...status,
         stashCount: stash.code === 0 ? stash.stdout.split('\n').filter(Boolean).length : 0,
-        merging: fs.existsSync(path.join(repoRoot, '.git', 'MERGE_HEAD'))
+        merging,
+        mergeMessage
       }), true;
     }
 
@@ -504,9 +514,10 @@ export async function handleGitRoutes(req, res, pathname, urlObj, ctx) {
           await gitOrThrow(repoRoot, ['remote', 'remove', body.name]);
         } else {
           const url = typeof body.url === 'string' ? body.url.trim() : '';
-          // Only ordinary remote URLs; `ext::` and other transports could run commands.
-          if (!/^(https?:\/\/|ssh:\/\/|git@[\w.-]+:|file:\/\/)/.test(url) || url.startsWith('-')) {
-            throw new GitError('Use an https://, ssh://, git@host: or file:// URL.');
+          // Only ordinary remote URLs and folders on this computer (C:\..., \\server\...,
+          // /...); `ext::` and other transports could run commands.
+          if (!/^(https?:\/\/|ssh:\/\/|git@[\w.-]+:|file:\/\/|[A-Za-z]:[\\/]|\\\\|\/)/.test(url) || url.startsWith('-')) {
+            throw new GitError('Use an https://, ssh://, git@host: or file:// URL, or the full path of a folder on this computer.');
           }
           await gitOrThrow(repoRoot, ['remote', 'add', '--', body.name, url]);
         }

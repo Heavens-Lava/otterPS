@@ -185,7 +185,14 @@ export class SourceControlPanel {
       : '<span title="This branch is not published yet">not published</span>';
 
     // Keep what the user typed in the commit box across re-renders.
-    const message = this.container.querySelector('#scmMessage')?.value ?? '';
+    // During a merge, start from git's prepared message ("Merge branch ...")
+    // once; after that the box is the user's, even if they clear it.
+    let message = this.container.querySelector('#scmMessage')?.value ?? '';
+    if (!s.merging) this.mergeMessageOffered = false;
+    else if (!this.mergeMessageOffered) {
+      this.mergeMessageOffered = true;
+      if (!message.trim() && s.mergeMessage) message = s.mergeMessage;
+    }
 
     this.container.innerHTML = `
       <div class="scm-header">
@@ -423,7 +430,7 @@ export class SourceControlPanel {
       case 'remote-add': {
         const name = await askText({ title: 'Add Remote', message: 'A short name for the remote repository.', value: 'origin', okLabel: 'Next' });
         if (!name) return;
-        const url = await askText({ title: `Remote ${name.trim()}`, message: 'https://, ssh:// or git@host:owner/repo.git', okLabel: 'Add remote' });
+        const url = await askText({ title: `Remote ${name.trim()}`, message: 'https://, ssh:// or git@host:owner/repo.git, or the full path of a repository folder on this computer (for example a bare repository on a shared drive).', okLabel: 'Add remote' });
         if (!url) return;
         return this.run('Add remote', () => this.api('POST', 'remote', { name: name.trim(), url }));
       }
@@ -481,8 +488,13 @@ export class SourceControlPanel {
       all = true;
     }
     if (amend && !confirm('Amend replaces the last commit. Do not amend a commit you have already pushed.\n\nAmend the last commit?')) return;
-    const result = await this.run(amend ? 'Amend' : 'Commit', () => this.api('POST', 'commit', { message, amend, all }));
-    if (result && box) box.value = '';
+    // Empty the box before run()'s refresh redraws the pane from its contents.
+    await this.run(amend ? 'Amend' : 'Commit', async () => {
+      const result = await this.api('POST', 'commit', { message, amend, all });
+      const current = this.container.querySelector('#scmMessage');
+      if (current) current.value = '';
+      return result;
+    });
   }
 
   // -------------------------------------------------------------------------
