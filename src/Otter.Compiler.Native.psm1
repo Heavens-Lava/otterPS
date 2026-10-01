@@ -299,12 +299,14 @@ function Get-OtterNativeRuntimeAssembly {
     $source = [System.IO.File]::ReadAllText($script:NativeRuntimePath)
     $hash = Get-OtterNativeHash -Text ($source + $PSVersionTable.PSVersion.ToString())
     $dll = Join-Path $CacheDirectory "OtterNativeRuntime-$hash.dll"
-    if (-not ('OtterNative.R' -as [type])) {
-        if (-not (Test-Path -LiteralPath $dll)) {
-            Add-Type -TypeDefinition $source -OutputAssembly $dll -ErrorAction Stop
-        }
-        Add-Type -Path $dll -ErrorAction Stop
+    # A session can load the runtime only once: when it is already loaded,
+    # programs must reference that copy, even if the source changed since.
+    $loaded = 'OtterNative.R' -as [type]
+    if ($loaded) { return $loaded.Assembly.Location }
+    if (-not (Test-Path -LiteralPath $dll)) {
+        Add-Type -TypeDefinition $source -OutputAssembly $dll -ErrorAction Stop
     }
+    Add-Type -Path $dll -ErrorAction Stop
     return $dll
 }
 
