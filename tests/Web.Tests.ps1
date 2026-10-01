@@ -152,8 +152,12 @@ app is a page
     title is "Dimension App"
 .
 fullRow is a row with width full, height full
-pillBtn is a button with text "Pill", round
-put pillBtn in fullRow
+pillBtn is a button with text "Pill", pill true
+roundBtn is a button with text "Round", round
+round12Btn is a button with text "Twelve", radius 12
+radiusCard is a card with radius 20
+roundCard is a card with round
+put pillBtn, roundBtn, round12Btn, radiusCard, roundCard in fullRow
 put fullRow in app
 show app
 "@
@@ -162,8 +166,14 @@ $dimHtml = ConvertTo-OtterWeb -Program $dimAst
 if ($dimHtml -notmatch 'id="fullRow"[^>]*style="[^"]*width:\s*100%;[^"]*height:\s*100%;') {
     throw 'Expected width: 100% and height: 100% on fullRow.'
 }
-if ($dimHtml -notmatch 'id="pillBtn"[^>]*style="[^"]*border-radius:\s*9999px;') {
-    throw 'Expected border-radius: 9999px on round pillBtn.'
+# Rounded corners (ROUND_CONTRACT_PROPOSAL.md, approved 2026-09-30): pill true
+# is a pill; round is ordinary 8px corners on every kind; round N / radius N
+# is exactly N px (in a with-list the parser reads round as a flag, so the
+# number is written radius 12 there).
+foreach ($expected in @(@('pillBtn', '9999px'), @('roundBtn', '8px'), @('round12Btn', '12px'), @('radiusCard', '20px'), @('roundCard', '8px'))) {
+    if ($dimHtml -notmatch ('id="' + $expected[0] + '"[^>]*style="[^"]*border-radius:\s*' + [regex]::Escape($expected[1]) + ';')) {
+        throw "Expected border-radius: $($expected[1]) on $($expected[0])."
+    }
 }
 Write-Output '  pass  width full, height full, and round compile to native CSS dimensions and shapes'
 

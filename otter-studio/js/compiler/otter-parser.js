@@ -63,7 +63,7 @@ export function readPropertyPhrase(text, kind = '') {
   const trimmed = text.trim();
   const lower = trimmed.toLowerCase();
   if (lower === 'spread') return { key: 'spread', rawKey: trimmed, value: true, usesIs: false };
-  // A bare `round` is a flag: the compiler draws the control as a pill.
+  // A bare `round` is a flag: ordinary 8px corners (a pill is `pill true`).
   if (lower === 'round') return { key: 'round', rawKey: trimmed, value: true, usesIs: false };
 
   const match = trimmed.match(/^([a-zA-Z0-9_]+)\s+(is\s+)?(.+)$/);

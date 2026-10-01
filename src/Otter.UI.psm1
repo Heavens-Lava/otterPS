@@ -1718,7 +1718,8 @@ function ConvertTo-OtterDeclarativeElementWpf {
 
                 switch ($pName) {
                     'round' {
-                        $rad = if ($null -ne $pVal -and $pVal -ne $true) { [double]$pVal } else { 12.0 }
+                        # round = 8px corners, round N = N px - the same on the web.
+                        $rad = if ($null -ne $pVal -and $pVal -ne $true) { [double]$pVal } else { 8.0 }
                         if ($control -is [System.Windows.Controls.Border]) {
                             $control.CornerRadius = [System.Windows.CornerRadius]::new($rad)
                         }

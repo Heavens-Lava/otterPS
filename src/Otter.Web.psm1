@@ -72,6 +72,30 @@ function Get-OtterSurfacePalette {
     return @{ CardBg = '#ffffff'; Muted = '#64748b'; InputBg = '#ffffff'; Border = '#cbd5e1'; Shadow = '0 1px 2px rgba(15, 23, 42, 0.06), 0 4px 12px -2px rgba(15, 23, 42, 0.08)' }
 }
 
+# Rounded corners - one meaning on every kind and target (approved by Jeff
+# 2026-09-30, docs/proposals/ROUND_CONTRACT_PROPOSAL.md):
+#   round          ordinary rounded corners, 8px
+#   round N        exactly N px (radius N is the same)
+#   pill true      fully rounded ends (buttons, badges, search boxes): 9999px
+# A card can no longer become a capsule by accident: a pill is asked for.
+$script:OtterRoundPx = 8
+function Get-OtterCornerRadiusCss {
+    param($Props)
+    $isTrue = { param($v) $v -eq $true -or "$v" -eq 'true' }
+    if ($Props.Contains('pill') -and (& $isTrue $Props['pill'])) { return '9999px' }
+    foreach ($key in @('round', 'radius')) {
+        if (-not $Props.Contains($key)) { continue }
+        $value = $Props[$key]
+        if (& $isTrue $value) { return "$($script:OtterRoundPx)px" }
+        if ($value -eq $false -or "$value" -eq 'false') { return $null }
+        if ($value -is [int] -or $value -is [double] -or "$value" -match '^\d+(\.\d+)?$') { return "${value}px" }
+        if ("$value" -eq 'round') { return "$($script:OtterRoundPx)px" }
+        if ("$value" -eq 'pill') { return '9999px' }
+        return [string]$value
+    }
+    return $null
+}
+
 function ConvertTo-OtterCssEasing {
     param([string]$Easing)
     switch ($Easing) {
@@ -207,8 +231,12 @@ function Render-OtterDeclarativeElementWeb {
                 $pVal = if ($prop.Value -is [LiteralExpr]) { $prop.Value.Value } else { $null }
                 switch ($pName) {
                     'round' {
-                        $rad = if ($null -ne $pVal -and $pVal -ne $true) { "${pVal}px" } else { "12px" }
+                        # round = 8px corners, round N = N px (see Get-OtterCornerRadiusCss).
+                        $rad = if ($null -ne $pVal -and $pVal -ne $true) { "${pVal}px" } else { "$($script:OtterRoundPx)px" }
                         $styles.Add("border-radius: $rad;")
+                    }
+                    'pill' {
+                        if ($pVal -eq $true -or "$pVal" -eq 'true') { $styles.Add("border-radius: 9999px;") }
                     }
                     'gap' {
                         $styles.Add("gap: ${pVal}px;")
@@ -587,8 +615,10 @@ function Get-OtterWebRuntimeUiJs {
         case 'minheight': s.minHeight = otterUiPx(value); return;
         case 'background': s.background = value; return;
         case 'foreground': s.color = value; return;
-        case 'round': if (otterUiTrue(value)) { s.borderRadius = '9999px'; } return;
-        case 'radius': s.borderRadius = value === 'round' ? '9999px' : otterUiPx(value); return;
+        // round = 8px corners, round N / radius N = N px, pill = fully rounded.
+        case 'round': s.borderRadius = otterUiTrue(value) ? '8px' : (typeof value === 'number' ? otterUiPx(value) : ''); return;
+        case 'radius': s.borderRadius = value === 'round' ? '8px' : value === 'pill' ? '9999px' : otterUiPx(value); return;
+        case 'pill': s.borderRadius = otterUiTrue(value) ? '9999px' : ''; return;
         case 'border': s.border = value; return;
         case 'shadow': s.boxShadow = value; return;
         case 'padding': s.padding = otterUiPx(value); return;
@@ -959,11 +989,8 @@ function ConvertTo-OtterWeb {
         if ($props.Contains('foreground')) {
             $styles.Add("color: $($props['foreground']);")
         }
-        if ($props.Contains('round') -and ($props['round'] -eq $true -or $props['round'] -eq 'true')) {
-            $styles.Add("border-radius: 9999px;")
-        } elseif ($props.Contains('radius')) {
-            $rad = $props['radius']
-            $radCss = if ($rad -eq 'round') { "9999px" } elseif ($rad -is [int] -or $rad -is [double]) { "${rad}px" } else { $rad }
+        $radCss = Get-OtterCornerRadiusCss -Props $props
+        if ($radCss) {
             $styles.Add("border-radius: $radCss;")
         }
         if ($props.Contains('border')) {

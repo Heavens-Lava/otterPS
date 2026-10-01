@@ -10,7 +10,7 @@ app is a page with title "Small Business Websites & Custom Web Apps | Jeffrey Ma
 navbar is a row with spread, align middle, spacing 16, padding "8px 0", width full
 
 brandGroup is a row with spacing 12, align middle
-avatarBadge is a badge with text "JM", background "#16382c", foreground "#e8d2b5", round, weight 700, size 15, padding 10
+avatarBadge is a badge with text "JM", background "#16382c", foreground "#e8d2b5", pill true, weight 700, size 15, padding 10
 brandInfoCol is a column with spacing 2
 brandName is a text with value "Jeffrey Macy", weight 700, size 16, foreground "#111827"
 brandTagline is a text with value "Technology partner for growing businesses", size 12, foreground "#6b7280"
@@ -24,8 +24,8 @@ navResources is a link with text "Resources", url "#", foreground "#4b5563", siz
 navServices is a link with text "Services", url "#", foreground "#4b5563", size 14
 navProjects is a link with text "Projects", url "#", foreground "#4b5563", size 14
 navAbout is a link with text "About", url "#", foreground "#4b5563", size 14
-themePill is a badge with text "☀️ ↻", background "#f3f4f6", foreground "#4b5563", round, border "1px solid #e5e7eb", padding 6, size 12
-navPlanBtn is a button with text "Plan My Website →", background "#184537", foreground "white", round, weight 600, padding "9px 18px", size 14
+themePill is a badge with text "☀️ ↻", background "#f3f4f6", foreground "#4b5563", pill true, border "1px solid #e5e7eb", padding 6, size 12
+navPlanBtn is a button with text "Plan My Website →", background "#184537", foreground "white", pill true, weight 600, padding "9px 18px", size 14
 navLogin is a link with text "Log in", url "#", foreground "#4b5563", weight 500, size 14
 
 put navHome, navResources, navServices, navProjects, navAbout, themePill, navPlanBtn, navLogin in navLinksRow
@@ -54,8 +54,8 @@ subHead is a text with value "More than a website—build a digital home for you
 subDesc is a text with value "Help customers find you, understand your services, see your pricing, book appointments, make payments, access files and videos, and stay connected with your business.", size 15, foreground "#4b5563", lineheight "1.65"
 
 ctaRow is a row with spacing 16, align middle
-heroCtaBtn is a button with text "Plan My Website →", background "#184537", foreground "white", round, weight 600, padding "13px 22px", size 15
-heroEstimateBtn is a button with text "Get a Free Cost Estimate ⚡", background "#ffffff", foreground "#111827", round, border "1px solid #d1d5db", weight 600, padding "13px 22px", size 15
+heroCtaBtn is a button with text "Plan My Website →", background "#184537", foreground "white", pill true, weight 600, padding "13px 22px", size 15
+heroEstimateBtn is a button with text "Get a Free Cost Estimate ⚡", background "#ffffff", foreground "#111827", pill true, border "1px solid #d1d5db", weight 600, padding "13px 22px", size 15
 put heroCtaBtn, heroEstimateBtn in ctaRow
 
 # Pricing Comparison Card
@@ -103,9 +103,9 @@ mockupOuterFrame is a card with background "rgba(255, 255, 255, 0.45)", border "
 mockupCard is a card with background "#ffffff", radius 16, border "1px solid #eef0ea", shadow "0 10px 25px rgba(0, 0, 0, 0.04)", padding 24, spacing 14, width full
 
 mockupTopRow is a row with spacing 8, align middle, width full
-dot1 is a badge with text " ", background "#ef4444", round, padding 4, size 7
-dot2 is a badge with text " ", background "#f59e0b", round, padding 4, size 7
-dot3 is a badge with text " ", background "#10b981", round, padding 4, size 7
+dot1 is a badge with text " ", background "#ef4444", pill true, padding 4, size 7
+dot2 is a badge with text " ", background "#f59e0b", pill true, padding 4, size 7
+dot3 is a badge with text " ", background "#10b981", pill true, padding 4, size 7
 mockUrl is a text with value "estimator.jeffreymacy.com", size 11, foreground "#9ca3af"
 put dot1, dot2, dot3, mockUrl in mockupTopRow
 
@@ -143,7 +143,7 @@ put fieldBLabel, siteWantsBox in fieldBCol
 put fieldACol, fieldBCol in splitFieldsRow
 
 bottomActionRow is a row with spread, align middle, spacing 12, width full
-continueBtn is a button with text "Continue to Step 3 →", background "#184537", foreground "white", round, weight 600, padding 12, size 14
+continueBtn is a button with text "Continue to Step 3 →", background "#184537", foreground "white", pill true, weight 600, padding 12, size 14
 stepStatusText is a text with value "Step 2 of 3 • Free instant estimate ready", size 12, foreground "#166534", weight 600
 put continueBtn, stepStatusText in bottomActionRow
 
@@ -158,8 +158,8 @@ put leftCol, rightCol in heroRow
 # ==========================================
 
 floatingDock is a row with position "fixed", bottom 24, right 28, zindex 999, spacing 12, align middle
-chatWidgetBtn is a button with text "💬 Ask how Jeffrey can help", background "#163b2c", foreground "white", round, weight 600, padding 12, size 14, shadow "0 10px 25px rgba(22,59,44,0.3)"
-accessibilityBtn is a button with text "🌐", background "#163b2c", foreground "white", round, padding 12, size 14, shadow "0 10px 25px rgba(22,59,44,0.3)"
+chatWidgetBtn is a button with text "💬 Ask how Jeffrey can help", background "#163b2c", foreground "white", pill true, weight 600, padding 12, size 14, shadow "0 10px 25px rgba(22,59,44,0.3)"
+accessibilityBtn is a button with text "🌐", background "#163b2c", foreground "white", pill true, padding 12, size 14, shadow "0 10px 25px rgba(22,59,44,0.3)"
 put chatWidgetBtn, accessibilityBtn in floatingDock
 
 # ==========================================

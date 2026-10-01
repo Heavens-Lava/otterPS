@@ -287,7 +287,7 @@ put tabProblems, tabOutput, tabTerminal in drawerHeader
 problemsContentRow is a row with spread, align middle, spacing 10, width full
 
 probStatusWrap is a row with spacing 12, align middle
-probCheckCircle is a badge with text "✓", background "#22c55e", foreground "white", round, weight 800, size 15, padding "5px 9px"
+probCheckCircle is a badge with text "✓", background "#22c55e", foreground "white", pill true, weight 800, size 15, padding "5px 9px"
 probTextCol is a column with spacing 0
 probHeadline is a text with value "No problems found.", weight 700, size 14, foreground "#0f172a"
 probSubline is a text with value "Your code looks good!", size 12, foreground "#64748b", whitespace "pre-wrap"

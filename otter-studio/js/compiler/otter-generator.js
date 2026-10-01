@@ -143,7 +143,7 @@ export function formatProperties(props, schema) {
   const priority = [
     'title', 'text', 'placeholder', 'size', 'weight', 'bold', 'italic',
     'width', 'height', 'spread', 'align', 'spacing', 'padding',
-    'background', 'foreground', 'round', 'radius', 'opacity', 'checked', 'value', 'source'
+    'background', 'foreground', 'round', 'radius', 'pill', 'opacity', 'checked', 'value', 'source'
   ];
 
   const keys = Object.keys(props).sort((a, b) => {
@@ -185,7 +185,9 @@ export function formatProperty(key, val) {
     if (key === 'bold') return val ? 'bold true' : null;
     if (key === 'italic') return val ? 'italic true' : null;
     if (key === 'checked') return `checked ${val}`;
+    // round: ordinary 8px corners; pill true: fully rounded ends (9999px).
     if (key === 'round') return val ? 'round' : null;
+    if (key === 'pill') return val ? 'pill true' : null;
     // A page without the compiler's own title header (`hideheader true`).
     if (key === 'hideheader') return `hideheader ${val}`;
     // A row whose children move to the next line when there is no room.
@@ -195,8 +197,7 @@ export function formatProperty(key, val) {
     return null;
   }
   if (typeof val === 'number') {
-    // A bare `round` is a pill (9999px); a number is kept as written. New
-    // controls use `radius N` for ordinary rounded corners.
+    // radius N: exactly N px corners.
     return `${key} ${val}`;
   }
   return null;

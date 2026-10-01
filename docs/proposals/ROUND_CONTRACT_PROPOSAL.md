@@ -1,8 +1,33 @@
-# Proposal: what `round` means (needs Jeff's decision)
+# What `round` means
 
-Status: **proposal only.** Nothing in the language or compilers has changed.
-Changing what `round` means is a SPEC-DECISIONS entry and, for a new word,
-parser work (Codex).
+**Status:** approved by Jeff, 2026-09-30, as "the proposal, with `pill true`".
+It will get a D-number in SPEC-DECISIONS.md when the lines merge.
+
+**Built on this line:**
+
+| Source | Meaning |
+|---|---|
+| `round` | ordinary rounded corners, 8px, on every kind and target |
+| `radius N` | exactly N px |
+| `round N` | exactly N px, in the block grammar (`round 12` on its own line). In a `with` list the parser reads `round` as a flag, so the number is written `radius 12` there. |
+| `pill true` | fully rounded ends (9999px): buttons, badges, tags, search boxes |
+
+- `pill true` is an ordinary property, so the parser needed no change. A bare
+  `pill` flag, like `spread`, would need Codex's parser work and is not done.
+- **Where it changed:**
+  - Web, both rendering paths: `Get-OtterCornerRadiusCss` in
+    `src/Otter.Web.psm1`.
+  - Runtime property writes in the web runtime (`round`, `radius`, `pill`).
+  - WPF: the declarative `round` went from 12 to 8.
+- **Tests:** `tests/Web.Tests.ps1` 6 (`pill true`, `round`, `radius N` on
+  buttons and cards). `scripts/designer-roundtrip.test.mjs`: Studio keeps
+  `pill true`; its generator used to drop a boolean it did not know.
+- **Examples:** the controls in `examples/jeffreymacy.ot` and
+  `examples/studio.ot` that meant a pill now say `pill true`.
+- **Visible change:** a bare `round` on a button was a pill and is now 8px
+  corners. That was the point of the decision.
+
+The audit and the reasoning below are kept as written.
 
 ## What happens today (audited 2026-09-29)
 

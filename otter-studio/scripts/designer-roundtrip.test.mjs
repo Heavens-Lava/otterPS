@@ -394,4 +394,15 @@ show app
   console.log('  ✓ forms: a container whose field rules round-trip and compile; fields fit light pages');
 }
 
+// Rounded corners (ROUND_CONTRACT_PROPOSAL.md): `pill true` and `round` are
+// kept as written - the generator dropped a boolean it did not know.
+{
+  const model = new OtterUiModel();
+  parseOtterSource('app is a page with title "P"\nb is a button with text "Go", pill true\nc is a card with round\nput b, c in app\nshow app\n', model);
+  const generated = generateOtterSource(model);
+  assert.match(generated, /^b is a button with .*pill true/m, 'pill true survives the Designer');
+  assert.match(generated, /^c is a card with round$/m, 'round survives the Designer');
+  console.log('  ✓ pill true and round round-trip');
+}
+
 console.log('All Visual UI Designer production round-trip tests passed cleanly!');
