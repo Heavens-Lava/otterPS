@@ -1,0 +1,326 @@
+{
+    "Host":  {
+                 "OtterVersion":  "1.0.0-rc.9",
+                 "GitCommit":  "55e71ae",
+                 "PowerShellVersion":  "5.1.26100.8115",
+                 "PowerShellEdition":  "Desktop",
+                 "OperatingSystem":  "Microsoft Windows NT 10.0.26200.0",
+                 "Processor":  "Intel(R) Core(TM) i9-14900",
+                 "LogicalCores":  32,
+                 "MeasuredRuns":  5,
+                 "WarmupRuns":  1,
+                 "Date":  "2026-09-30 22:38"
+             },
+    "Benchmarks":  [
+                       {
+                           "Native":  {
+                                          "MedianMs":  0.61,
+                                          "MinMs":  0.55,
+                                          "MaxMs":  2.37,
+                                          "RunsMs":  [
+                                                         0.61,
+                                                         0.55,
+                                                         2.37,
+                                                         0.62,
+                                                         0.56
+                                                     ],
+                                          "CompileMs":  172.2,
+                                          "Speedup":  945.9
+                                      },
+                           "Benchmark":  "arithmetic",
+                           "MedianMs":  576.98,
+                           "MinMs":  557.75,
+                           "MaxMs":  601.93,
+                           "RunsMs":  [
+                                          601.93,
+                                          559.34,
+                                          557.75,
+                                          586.09,
+                                          576.98
+                                      ],
+                           "Statements":  2003,
+                           "FunctionCalls":  0,
+                           "StatementsPerSec":  3472,
+                           "CallsPerSec":  0
+                       },
+                       {
+                           "Native":  {
+                                          "MedianMs":  0.53,
+                                          "MinMs":  0.5,
+                                          "MaxMs":  0.55,
+                                          "RunsMs":  [
+                                                         0.55,
+                                                         0.53,
+                                                         0.54,
+                                                         0.53,
+                                                         0.5
+                                                     ],
+                                          "CompileMs":  109.5,
+                                          "Speedup":  482.9
+                                      },
+                           "Benchmark":  "contains_300",
+                           "MedianMs":  255.94,
+                           "MinMs":  254.83,
+                           "MaxMs":  259.05,
+                           "RunsMs":  [
+                                          256.03,
+                                          254.88,
+                                          259.05,
+                                          255.94,
+                                          254.83
+                                      ],
+                           "Statements":  345,
+                           "FunctionCalls":  0,
+                           "StatementsPerSec":  1348,
+                           "CallsPerSec":  0
+                       },
+                       {
+                           "Native":  {
+                                          "MedianMs":  0.88,
+                                          "MinMs":  0.84,
+                                          "MaxMs":  0.91,
+                                          "RunsMs":  [
+                                                         0.91,
+                                                         0.88,
+                                                         0.84,
+                                                         0.87,
+                                                         0.9
+                                                     ],
+                                          "CompileMs":  99.6,
+                                          "Speedup":  1692.7
+                                      },
+                           "Benchmark":  "contains_5000",
+                           "MedianMs":  1489.61,
+                           "MinMs":  1485.28,
+                           "MaxMs":  1556.8,
+                           "RunsMs":  [
+                                          1527.14,
+                                          1489.61,
+                                          1487.63,
+                                          1556.8,
+                                          1485.28
+                                      ],
+                           "Statements":  5009,
+                           "FunctionCalls":  0,
+                           "StatementsPerSec":  3363,
+                           "CallsPerSec":  0
+                       },
+                       {
+                           "Native":  {
+                                          "NotCompiled":  "UdpOpen yet (line 6)."
+                                      },
+                           "Benchmark":  "event_dispatch",
+                           "MedianMs":  3315.18,
+                           "MinMs":  3294.3,
+                           "MaxMs":  3565.2,
+                           "RunsMs":  [
+                                          3540.9,
+                                          3565.2,
+                                          3297.53,
+                                          3315.18,
+                                          3294.3
+                                      ],
+                           "Statements":  310,
+                           "FunctionCalls":  0,
+                           "StatementsPerSec":  94,
+                           "CallsPerSec":  0
+                       },
+                       {
+                           "Native":  {
+                                          "NotCompiled":  "WriteFile yet (line 9)."
+                                      },
+                           "Benchmark":  "file_io",
+                           "MedianMs":  509.09,
+                           "MinMs":  501.95,
+                           "MaxMs":  516.96,
+                           "RunsMs":  [
+                                          513.63,
+                                          516.96,
+                                          509.09,
+                                          508.04,
+                                          501.95
+                                      ],
+                           "Statements":  364,
+                           "FunctionCalls":  0,
+                           "StatementsPerSec":  715,
+                           "CallsPerSec":  0
+                       },
+                       {
+                           "Native":  {
+                                          "MedianMs":  0.6,
+                                          "MinMs":  0.58,
+                                          "MaxMs":  0.63,
+                                          "RunsMs":  [
+                                                         0.63,
+                                                         0.59,
+                                                         0.61,
+                                                         0.6,
+                                                         0.58
+                                                     ],
+                                          "CompileMs":  353.3,
+                                          "Speedup":  835.8
+                                      },
+                           "Benchmark":  "function_calls",
+                           "MedianMs":  501.47,
+                           "MinMs":  500.26,
+                           "MaxMs":  529.35,
+                           "RunsMs":  [
+                                          501.47,
+                                          500.26,
+                                          529.35,
+                                          500.77,
+                                          502.3
+                                      ],
+                           "Statements":  2106,
+                           "FunctionCalls":  900,
+                           "StatementsPerSec":  4200,
+                           "CallsPerSec":  1795
+                       },
+                       {
+                           "Native":  {
+                                          "NotCompiled":  "ConvertToJson yet (line 8)."
+                                      },
+                           "Benchmark":  "json",
+                           "MedianMs":  131.93,
+                           "MinMs":  127.4,
+                           "MaxMs":  134.92,
+                           "RunsMs":  [
+                                          134.92,
+                                          133.51,
+                                          131.16,
+                                          127.4,
+                                          131.93
+                                      ],
+                           "Statements":  184,
+                           "FunctionCalls":  0,
+                           "StatementsPerSec":  1395,
+                           "CallsPerSec":  0
+                       },
+                       {
+                           "Native":  {
+                                          "NotCompiled":  "Sort yet (line 21)."
+                                      },
+                           "Benchmark":  "lists",
+                           "MedianMs":  651.01,
+                           "MinMs":  638.07,
+                           "MaxMs":  690.69,
+                           "RunsMs":  [
+                                          651.01,
+                                          666.21,
+                                          690.69,
+                                          647.73,
+                                          638.07
+                                      ],
+                           "Statements":  810,
+                           "FunctionCalls":  0,
+                           "StatementsPerSec":  1244,
+                           "CallsPerSec":  0
+                       },
+                       {
+                           "Native":  {
+                                          "MedianMs":  0.55,
+                                          "MinMs":  0.53,
+                                          "MaxMs":  0.56,
+                                          "RunsMs":  [
+                                                         0.55,
+                                                         0.56,
+                                                         0.55,
+                                                         0.54,
+                                                         0.53
+                                                     ],
+                                          "CompileMs":  111.1,
+                                          "Speedup":  1014.2
+                                      },
+                           "Benchmark":  "loops",
+                           "MedianMs":  557.82,
+                           "MinMs":  556.79,
+                           "MaxMs":  580.72,
+                           "RunsMs":  [
+                                          557.82,
+                                          580.72,
+                                          556.79,
+                                          557,
+                                          573.96
+                                      ],
+                           "Statements":  1538,
+                           "FunctionCalls":  0,
+                           "StatementsPerSec":  2757,
+                           "CallsPerSec":  0
+                       },
+                       {
+                           "Native":  {
+                                          "NotCompiled":  "TypeDef yet (line 7)."
+                                      },
+                           "Benchmark":  "objects",
+                           "MedianMs":  607.5,
+                           "MinMs":  590.35,
+                           "MaxMs":  616.17,
+                           "RunsMs":  [
+                                          607.5,
+                                          590.35,
+                                          616.17,
+                                          602.2,
+                                          608.71
+                                      ],
+                           "Statements":  1205,
+                           "FunctionCalls":  0,
+                           "StatementsPerSec":  1984,
+                           "CallsPerSec":  0
+                       },
+                       {
+                           "Native":  {
+                                          "MedianMs":  0.92,
+                                          "MinMs":  0.83,
+                                          "MaxMs":  1.16,
+                                          "RunsMs":  [
+                                                         0.83,
+                                                         0.85,
+                                                         1.16,
+                                                         0.94,
+                                                         0.92
+                                                     ],
+                                          "CompileMs":  120.5,
+                                          "Speedup":  942.9
+                                      },
+                           "Benchmark":  "recursion",
+                           "MedianMs":  867.48,
+                           "MinMs":  857.74,
+                           "MaxMs":  895.47,
+                           "RunsMs":  [
+                                          867.48,
+                                          895.47,
+                                          878.35,
+                                          863.4,
+                                          857.74
+                                      ],
+                           "Statements":  2265,
+                           "FunctionCalls":  566,
+                           "StatementsPerSec":  2611,
+                           "CallsPerSec":  652
+                       },
+                       {
+                           "Native":  {
+                                          "NotCompiled":  "\u0027uppercase of\u0027 yet (line 8)."
+                                      },
+                           "Benchmark":  "strings",
+                           "MedianMs":  516.48,
+                           "MinMs":  497.87,
+                           "MaxMs":  537.83,
+                           "RunsMs":  [
+                                          537.83,
+                                          516.48,
+                                          527.93,
+                                          497.87,
+                                          502.43
+                                      ],
+                           "Statements":  704,
+                           "FunctionCalls":  0,
+                           "StatementsPerSec":  1363,
+                           "CallsPerSec":  0
+                       }
+                   ],
+    "Startup":  null,
+    "Compile":  null,
+    "Http":  null,
+    "Ui":  null
+}

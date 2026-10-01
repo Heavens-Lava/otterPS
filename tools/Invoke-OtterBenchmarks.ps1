@@ -33,6 +33,9 @@ using module ..\src\Otter.Web.psm1
     -Ui times benchmarks\ui\*.ot, which build desktop controls in-process
     (Windows only; skipped elsewhere).
     -All turns on every section.
+    -Native (experimental, Otter 1.1) also times each program through the
+    compiled backend (src/Otter.Compiler.Native.psm1) after checking that
+    its output matches the interpreter's; compilation is reported apart.
 
 .EXAMPLE
     powershell -NoProfile -File tools\Invoke-OtterBenchmarks.ps1
@@ -50,6 +53,7 @@ param(
     [switch]$Http,
     [switch]$Ui,
     [switch]$All,
+    [switch]$Native,
     [string]$Json = ''
 )
 if ($All) { $Startup = $true; $Compile = $true; $Http = $true; $Ui = $true }
@@ -146,6 +150,11 @@ function Read-OtterAst {
     return [pscustomobject]@{ Ast = (ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $source)); Lines = ($source -split "`r?`n") }
 }
 
+if ($Native) {
+    Import-Module (Join-Path $repoRoot 'src\Otter.Compiler.Native.psm1') -Force
+    $nativeCache = Join-Path ([System.IO.Path]::GetTempPath()) 'otter-native-cache'
+}
+
 $hostInfo = Get-OtterHostInfo
 Write-Host ''
 Write-Host ('=' * 78) -ForegroundColor Cyan
@@ -211,7 +220,33 @@ try {
         Write-Host ('{0,-16} {1,9:N1} {2,9:N1} {3,9:N1} {4,8} {5,8} {6,9} {7,9}' -f `
             $file.BaseName, $median, $min, $max, $counts.Statements, $counts.Calls, $stmtsPerSecond, $callsText)
 
+        # The compiled backend (experimental): same program, same run counts.
+        $nativeResult = $null
+        if ($Native) {
+            try {
+                $compileWatch = [System.Diagnostics.Stopwatch]::StartNew()
+                $compiled = New-OtterNativeProgram -Program $ast -SourceText $source -CacheDirectory $nativeCache
+                $compileWatch.Stop()
+                $nativeLines = [System.Collections.Generic.List[string]]::new()
+                $referenceLines = [System.Collections.Generic.List[string]]::new()
+                Set-OtterOutputWriter -Writer { param($t) $referenceLines.Add($t) }.GetNewClosure()
+                try { Invoke-OtterProgram -Program $ast -Environment (New-OtterEnvironment) -SourceLines $sourceLines }
+                finally { Set-OtterOutputWriter -Writer { param($text) } }
+                Invoke-OtterNativeProgram -Compiled $compiled -Writer { param($t) $nativeLines.Add($t) }.GetNewClosure() -SourceLines $sourceLines
+                if (($nativeLines -join "`n") -cne ($referenceLines -join "`n")) { throw 'compiled output differs from the interpreter' }
+                $nativeResult = Measure-OtterRuns -Action { Invoke-OtterNativeProgram -Compiled $compiled -Writer { param($t) } -SourceLines $sourceLines }.GetNewClosure()
+                $nativeResult['CompileMs'] = [Math]::Round($compileWatch.Elapsed.TotalMilliseconds, 1)
+                $nativeResult['Speedup'] = if ($nativeResult.MedianMs -gt 0) { [Math]::Round($median / $nativeResult.MedianMs, 1) } else { $null }
+                Write-Host ('{0,-16} compiled: median {1,8:N2} ms, {2,6:N1}x faster (compile {3:N0} ms, output matches)' -f '', $nativeResult.MedianMs, $nativeResult.Speedup, $nativeResult.CompileMs) -ForegroundColor DarkCyan
+            } catch {
+                $why = $_.Exception.Message -replace 'The compiled backend does not support ', '' -replace ' Run this program with otter run\.', ''
+                Write-Host ('{0,-16} compiled: not compiled ({1})' -f '', $why) -ForegroundColor DarkGray
+                $nativeResult = [ordered]@{ NotCompiled = $why }
+            }
+        }
+
         $results.Add([ordered]@{
+            Native           = $nativeResult
             Benchmark        = $file.BaseName
             MedianMs         = [Math]::Round($median, 2)
             MinMs            = [Math]::Round($min, 2)

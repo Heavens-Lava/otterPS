@@ -204,6 +204,46 @@ The prototype lives in `src/Otter.Compiler.Native.psm1` (back-end agent) and
 experimental entry point whose name is part of the 1.1 CLI decision. It does
 not change `otter run`'s default, the interpreter, or any 1.0 behaviour.
 
+## 6a. Prototype status (2026-10-01, branch `native/prototype`)
+
+The first prototype meets all four done criteria in section 6:
+
+1. **Benchmarks.** `arithmetic`, `contains_300`, `contains_5000`,
+   `function_calls`, `loops` and `recursion` print the interpreter's exact
+   output compiled, on Windows PowerShell 5.1 and on PowerShell 7.4 (Linux).
+2. **Conformance.** Every console "run" fixture in the compiled subset passes
+   against the manifest's own expectations: `hello`, `variables-control-flow`,
+   `function-return-expression`, `boolean-and-negative` (4 pass, 0 fail; 6 not
+   compiled yet: `try`, `sort`, types, JSON, the clock, HTTP;
+   `experiments/native-compiler/Test-NativeConformance.ps1`).
+3. **Differential fuzzer.** `tools/Invoke-OtterDifferentialFuzzer.ps1
+   -IncludeNative`, 1,000 programs: 1,000 matched the interpreter, 0 disagreed,
+   0 not compiled.
+4. **Benchmarks side by side.** `tools/Invoke-OtterBenchmarks.ps1 -Native`
+   checks the compiled output against the interpreter, then times both
+   (`benchmarks/results/native-prototype-1.json`): the compiled programs run
+   480x to 1,700x faster than the interpreter (0.5-0.9 ms against 0.26-1.5 s),
+   after a 100-350 ms compile that is cached per program.
+
+Edge cases and errors: 10 programs in `experiments/native-compiler/cases`
+(division by zero, unknown names, argument counts, the 250-call limit, text in
+arithmetic, `for each` over a non-list, a top-level `stop`, and more) match the
+interpreter's message, line, suggestion and exit code.
+
+Subset compiled today: `say`, variables, numbers, text, booleans, `gone`,
+arithmetic, comparisons, `and`/`or`/`not`, `if`, `count`, `repeat`, `while`,
+`for each`, functions, `return`, recursion, lists (`add`, `remove`,
+`contains`, `length`/`first`/`last of`), plain things (`has`, property read and
+write, `get ... from ... into`). Next, in the order benchmarks and fixtures hit
+refusals: `try`/`fail with`, `sort`/`reverse`, text operations, custom types,
+JSON, files, dates.
+
+Findings: importing `Otter.Interpreter.psm1` turns a script's `exit N` into
+exit code 0 (`otter.ps1` uses `[Environment]::Exit`); `Add-Type` on Windows
+PowerShell 5.1 treats warnings as errors; on PowerShell 7, `Add-Type
+-ReferencedAssemblies` drops the default references, so the generated code
+names no collection types.
+
 ## 7. Decisions that need Jeff
 
 1. **Prerequisite model: decided 2026-09-30, option 3 (hybrid).** Accelerated
