@@ -662,6 +662,28 @@ body.theme-light {
   .sp-select,
   .sp-input,
   .prop-input,
+  /* Terminal (js/terminal/terminal-panel.js) */
+  .term-bar { display: flex; align-items: center; gap: 10px; padding: 4px 10px; border-bottom: 1px solid var(--o-line); font-size: 12px; min-width: 0; }
+  .term-title { font-weight: 600; color: var(--o-ink); }
+  .term-cwd { color: var(--o-muted); font-family: var(--font-code); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; direction: rtl; text-align: left; }
+  .term-busy { color: var(--o-accent); }
+  .term-busy[hidden] { display: none; }
+  .term-bar-actions { margin-left: auto; display: flex; gap: 4px; flex: none; }
+  .term-btn { font: inherit; font-size: 11.5px; padding: 2px 9px; border-radius: 6px; border: 1px solid var(--o-line-strong); background: transparent; color: var(--o-ink); cursor: pointer; }
+  .term-btn:disabled { opacity: 0.4; cursor: default; }
+  .term-btn[data-term="interrupt"]:not(:disabled) { color: var(--o-error); border-color: color-mix(in srgb, var(--o-error) 50%, transparent); }
+  .term-screen { flex: 1; min-height: 0; overflow: auto; padding: 6px 10px; font-family: var(--font-code); font-size: 12.5px; line-height: 1.5; color: var(--o-ink); white-space: pre-wrap; word-break: break-word; outline: none; }
+  .term-line { white-space: pre-wrap; }
+  .term-out.term-err, .term-err { color: var(--o-error); }
+  .term-out.term-typed { color: var(--o-accent); }
+  .term-prompt-echo { color: var(--o-ok); font-weight: 600; }
+  .term-cmd { color: var(--o-ink); }
+  .term-note { color: var(--o-faint); font-style: italic; }
+  .term-note.term-failed { color: var(--o-warn); }
+  .term-input-row { display: flex; align-items: center; gap: 8px; padding: 5px 10px; border-top: 1px solid var(--o-line); }
+  .term-prompt { font-family: var(--font-code); font-size: 12.5px; font-weight: 600; color: var(--o-ok); white-space: nowrap; max-width: 45%; overflow: hidden; text-overflow: ellipsis; }
+  .term-input { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; color: var(--o-ink); font-family: var(--font-code); font-size: 12.5px; }
+
   /* Debugger (js/debug/debug-controller.js) */
   .debug-toolbar { display: inline-flex; align-items: center; gap: 2px; padding: 2px; margin-right: 6px; border-radius: 8px; background: var(--o-accent-soft); }
   .debug-toolbar[hidden] { display: none; }

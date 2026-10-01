@@ -9,6 +9,7 @@ import { exec, execFile, spawn } from 'node:child_process';
 import { handleLaunchRoutes } from './server/launch.mjs';
 import { handleFsRoutes } from './server/fs-ops.mjs';
 import { listComputerFolder, loadSavedRoots, saveRoot, isDriveRoot } from './server/computer-folders.mjs';
+import { createTerminalManager, handleTerminalRoutes } from './server/terminal-sessions.mjs';
 import { handleHistoryRoutes, recordVersion } from './server/local-history.mjs';
 import { handleEditorConfigRoute } from './server/editorconfig.mjs';
 import { handleAssetRoutes } from './server/assets.mjs';
@@ -115,6 +116,13 @@ function isInsideRepo(target) {
   const realTarget = realPathOfNearest(target);
   if (isInside(REPO_ROOT, target, path) && isInside(REPO_ROOT_REAL, realTarget, path)) return true;
   return WORKSPACE_ROOTS.some(w => isInside(w.root, target, path) && isInside(w.real, realTarget, path));
+}
+
+// The integrated terminal's persistent shells (server/terminal-sessions.mjs);
+// they end with the server.
+const terminals = createTerminalManager({ repoRoot: REPO_ROOT, isInsideRepo });
+for (const signal of ['exit', 'SIGINT', 'SIGTERM']) {
+  process.on(signal, () => { terminals.closeAll(); if (signal !== 'exit') process.exit(0); });
 }
 
 const PORT = Number(process.env.OTTER_STUDIO_PORT || 4200);
@@ -1480,29 +1488,10 @@ async function handleRequest(req, res) {
     return;
   }
 
-  // --- Interactive Terminal API ---
-  if (pathname === '/api/terminal' && req.method === 'POST') {
-    try {
-      const body = await readBody(req);
-      const command = body.command || 'otter --version';
-
-      const cmd = `powershell -ExecutionPolicy Bypass -Command "${command.replace(/"/g, '`"')}"`;
-      const startTime = Date.now();
-
-      exec(cmd, { cwd: REPO_ROOT, timeout: 15000 }, (error, stdout, stderr) => {
-        const durationMs = Date.now() - startTime;
-        sendJson(res, {
-          exitCode: error ? (error.code || 1) : 0,
-          stdout: stdout ? stdout.toString() : '',
-          stderr: stderr ? stderr.toString() : '',
-          durationMs
-        });
-      });
-    } catch (err) {
-      sendJson(res, { error: err.message }, err.status || 500);
-    }
-    return;
-  }
+  // --- Integrated terminal: persistent shells (server/terminal-sessions.mjs).
+  // It replaced POST /api/terminal, which ran each command in a new shell
+  // through cmd.exe and stopped it after 15 seconds. ---
+  if (await handleTerminalRoutes(req, res, pathname, urlObj, { sendJson, readBody }, terminals)) return;
 
   // --- Otter Diagnostics / Linter API ---
   if (pathname === '/api/lint' && req.method === 'POST') {

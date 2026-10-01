@@ -83,8 +83,10 @@ try {
     const res = await raw('POST', '/api/file', { origin: 'https://evil.example', 'content-type': 'application/json' }, body);
     assert.equal(res.status, 403);
     assert.equal(fs.existsSync(scratchAbs), false);
-    const term = await raw('POST', '/api/terminal', { origin: 'https://evil.example', 'content-type': 'application/json' }, JSON.stringify({ command: 'echo pwned' }));
+    const term = await raw('POST', '/api/terminal/open', { origin: 'https://evil.example', 'content-type': 'application/json' }, JSON.stringify({}));
     assert.equal(term.status, 403);
+    const write = await raw('POST', '/api/terminal/write', { origin: 'https://evil.example', 'content-type': 'application/json' }, JSON.stringify({ id: 'x', text: 'echo pwned' }));
+    assert.equal(write.status, 403);
   });
 
   await test('a DNS-rebinding request (foreign Host) is refused', async () => {

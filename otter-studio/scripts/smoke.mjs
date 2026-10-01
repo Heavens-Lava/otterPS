@@ -114,21 +114,29 @@ try {
   assert.equal(run.exitCode, 0, run.stderr || run.error || 'Otter program failed');
   assert.match(run.stdout, /Studio smoke works/);
 
-  const terminal = await request('/api/terminal', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ command: 'Write-Output studio-terminal-ok' })
-  });
-  assert.equal(terminal.exitCode, 0, terminal.stderr || 'terminal command failed');
-  assert.match(terminal.stdout, /studio-terminal-ok/);
-
-  const failedTerminal = await request('/api/terminal', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ command: 'Write-Error studio-terminal-failure; exit 7' })
-  });
-  assert.equal(failedTerminal.exitCode, 7, 'terminal failures must preserve their child exit code');
-  assert.match(failedTerminal.stderr, /studio-terminal-failure/);
+  // The integrated terminal: one persistent shell (server/terminal-sessions.mjs).
+  const post = (route, body) => request(route, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const terminal = await post('/api/terminal/open', {});
+  assert.ok(terminal.id, terminal.error || 'the terminal did not open');
+  const runInTerminal = async (text) => {
+    await post('/api/terminal/write', { id: terminal.id, text });
+    const out = { out: '', err: '' };
+    for (let i = 0; i < 200; i++) {
+      const state = await request(`/api/terminal/poll?id=${encodeURIComponent(terminal.id)}`);
+      for (const c of state.chunks || []) out[c.stream] += c.text;
+      if (!state.busy) return { ...out, ...state };
+      await new Promise(r => setTimeout(r, 100));
+    }
+    throw new Error(`the terminal did not finish: ${text}`);
+  };
+  await runInTerminal('');
+  const ok = await runInTerminal('Write-Output studio-terminal-ok');
+  assert.equal(ok.exitOk, true, ok.err || 'terminal command failed');
+  assert.match(ok.out, /studio-terminal-ok/);
+  const failed = await runInTerminal('Write-Error studio-terminal-failure; cmd /c exit 7');
+  assert.equal(failed.exitCode, 7, 'terminal failures must preserve their child exit code');
+  assert.match(failed.err, /studio-terminal-failure/);
+  await post('/api/terminal/close', { id: terminal.id });
 
   const diagnostic = await request('/api/lint', {
     method: 'POST',

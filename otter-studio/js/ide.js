@@ -20,6 +20,7 @@ import { autoClosePair, backspacePair, enterKey, prepareForSave, renderIndentGui
 import { markWhitespace, findLinkAt, resolveSourcePath, createBookmarks } from './editor/editor-extras.js';
 import { askText } from './shell/ask.js';
 import { createDebugController } from './debug/debug-controller.js';
+import { createTerminalPanel } from './terminal/terminal-panel.js';
 import { showHostGuide } from './shell/host-guide.js';
 import { buildFindRegex, findAll, replacementFor, replaceMatches } from './editor/find.js';
 import { showDiff } from './components/diff-view.js';
@@ -517,7 +518,9 @@ export class OtterStudioIde {
     this.cheerHeadline = document.querySelector('.cheer-headline');
     this.cheerTagline = document.querySelector('.cheer-tagline');
 
-    // Terminal Elements
+    // Terminal: a persistent shell (js/terminal/terminal-panel.js).
+    const terminalPanel = document.getElementById('panelTerminal');
+    this.terminal = terminalPanel ? createTerminalPanel(this, terminalPanel) : null;
     this.terminalHistory = document.getElementById('terminalHistory');
     this.terminalForm = document.getElementById('terminalForm');
     this.terminalInput = document.getElementById('terminalInput');
@@ -699,17 +702,7 @@ export class OtterStudioIde {
       }
     });
 
-    // Terminal Form Submission
-    if (this.terminalForm) {
-      this.terminalForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const cmd = this.terminalInput.value.trim();
-        if (cmd) {
-          this.executeTerminalCommand(cmd);
-          this.terminalInput.value = '';
-        }
-      });
-    }
+    // (The terminal's form is js/terminal/terminal-panel.js's own.)
 
     // New File Button
     if (this.newFileBtn) {
@@ -732,9 +725,7 @@ export class OtterStudioIde {
     if (this.panelOutput) this.panelOutput.style.display = (tabName === 'output') ? 'block' : 'none';
     if (this.panelTerminal) {
       this.panelTerminal.style.display = (tabName === 'terminal') ? 'flex' : 'none';
-      if (tabName === 'terminal' && this.terminalInput) {
-        setTimeout(() => this.terminalInput.focus(), 50);
-      }
+      if (tabName === 'terminal') this.terminal?.shown();
     }
   }
 
@@ -4437,14 +4428,14 @@ export class OtterStudioIde {
     return data;
   }
 
+  // Run in Terminal: `otter run` in the terminal's own shell, so the program
+  // can ask for input and its output stays there. The file's path is its
+  // place in the workspace, from $OtterRepo (set up by the shell).
   async runInTerminal() {
     const filename = this.currentFile || 'main.ot';
-    if (this.terminalInput && this.terminalForm) {
-      this.terminalInput.value = `otter run "${filename}"`;
-      this.terminalForm.dispatchEvent(new Event('submit'));
-      const termTab = Array.from(this.drawerTabs).find(t => t.innerText.toLowerCase().includes('terminal'));
-      if (termTab) termTab.click();
-    }
+    const termTab = Array.from(this.drawerTabs).find(t => t.getAttribute('data-drawer-tab') === 'terminal' || t.innerText.toLowerCase().includes('terminal'));
+    if (termTab) termTab.click();
+    if (this.terminal) await this.terminal.run(`otter run (Join-Path $OtterRepo '${String(filename).replace(/'/g, "''")}')`);
   }
 
   async stopCurrentProgram() {
@@ -4851,57 +4842,9 @@ export class OtterStudioIde {
     this.variablesBody.innerHTML = html;
   }
 
-  // --- Real Interactive Terminal ---
+  // --- Integrated terminal (js/terminal/terminal-panel.js) ---
   async executeTerminalCommand(cmdText) {
-    if (!cmdText || !this.terminalHistory) return;
-
-    if (!this.isTrusted) {
-      const proceed = confirm('Restricted Mode: This workspace is untrusted. Executing terminal commands in an untrusted workspace may be unsafe.\n\nDo you want to trust this workspace and proceed?');
-      if (!proceed) return;
-      this.grantWorkspaceTrust();
-    }
-
-    // Append Command entry to history
-    const cmdEl = document.createElement('div');
-    cmdEl.className = 'terminal-cmd-row';
-    cmdEl.innerHTML = `<span class="prompt-text">PS C:\\projects\\otterPS&gt;</span> <span class="cmd-text">${this.escapeHtml(cmdText)}</span>`;
-    this.terminalHistory.appendChild(cmdEl);
-
-    // Append Loading indicator
-    const runningEl = document.createElement('div');
-    runningEl.className = 'terminal-output-loading';
-    runningEl.innerText = 'Running...';
-    this.terminalHistory.appendChild(runningEl);
-    this.terminalHistory.scrollTop = this.terminalHistory.scrollHeight;
-
-    try {
-      const bridge = window.__OTTER_DESKTOP_BRIDGE__;
-      let data;
-      if (bridge && typeof bridge.exec === 'function') {
-        data = await bridge.exec(cmdText);
-      } else {
-        const res = await fetch('/api/terminal', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ command: cmdText })
-        });
-        data = await res.json();
-      }
-      runningEl.remove();
-
-      const outEl = document.createElement('pre');
-      outEl.className = 'terminal-output-text';
-      outEl.innerText = (data.stdout || data.stderr || `Command completed with exit code ${data.exitCode}`).trim();
-      this.terminalHistory.appendChild(outEl);
-    } catch (e) {
-      runningEl.remove();
-      const errEl = document.createElement('pre');
-      errEl.className = 'terminal-output-text terminal-error';
-      errEl.innerText = 'Execution error: ' + e.message;
-      this.terminalHistory.appendChild(errEl);
-    }
-
-    this.terminalHistory.scrollTop = this.terminalHistory.scrollHeight;
+    return this.terminal?.run(cmdText);
   }
 
   // --- Real-time Syntax Checking / Diagnostics ---
