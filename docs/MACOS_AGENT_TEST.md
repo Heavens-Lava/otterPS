@@ -14,21 +14,34 @@ gh repo clone Heavens-Lava/otterPS ~/otterPS
 
 ## Get the code to test
 
+The repository may be at `~/otterPS` or `~/Projects/otterPS`; use wherever it
+was cloned.
+
 ```sh
-cd ~/otterPS
+cd ~/Projects/otterPS          # or ~/otterPS
 git fetch
-git checkout perf/benchmark-suite   # the latest 1.0 work; use master once it is merged there
+git checkout fix/macos-web-open   # 1.0.0-rc.10; use master once it is merged there
 git pull
+cat VERSION                       # should print 1.0.0-rc.10
 ```
 
-Optional, for testing the real download: copy the `otter-mac-test` folder
-(the Windows-built `otter-<version>.zip` and its `.sha256`) to
-`~/Downloads/otter-mac-test`.
+For the real-download test (step 5), copy the `otter-mac-test` folder from the
+Windows machine's Desktop to `~/Downloads/otter-mac-test` by hand (AirDrop, a
+USB stick, a shared folder). It holds `otter-1.0.0-rc.10.zip` and its
+`.sha256`; the zip is not in git. Without it, step 5 is skipped.
 
 ## Run the agent
 
-Start the agent in `~/otterPS` and give it the prompt below. When it finishes,
-send `~/otter-mac-results.md` back.
+Start the agent in the repository and give it the prompt below. When it
+finishes, send the results back by committing them on their own branch:
+
+```sh
+cp ~/otter-mac-results.md docs/OTTER_MACOS_RESULTS_$(git rev-parse --short HEAD).md
+git checkout -b mac-results/$(git rev-parse --short HEAD)
+git add docs/OTTER_MACOS_RESULTS_*.md
+git commit -m "docs: macOS hands-on test results for $(git rev-parse --short HEAD)"
+git push -u origin HEAD
+```
 
 ---
 
