@@ -115,6 +115,19 @@ function ConvertTo-OtterNativeExpression {
             }
             throw (New-OtterNativeUnsupported -Node $Expr -What "'$($operation.ToLowerInvariant()) of'")
         }
+        'FileExists' {
+            return "R.Call(`"FileExists`", new object[] { $(ConvertTo-OtterNativeExpression -Expr $Expr.Path -Context $Context) }, $line)"
+        }
+        'Clock' { return $(if ($Expr.Clock.ToString() -eq 'Now') { 'R.Clock(true)' } else { 'R.Clock(false)' }) }
+        'DateDifferenceValue' {
+            if ($Expr.Unit.ToString() -eq 'Millisecond') { throw (New-OtterNativeUnsupported -Node $Expr -What 'milliseconds between dates') }
+            return "R.DateDifference($(ConvertTo-OtterNativeExpression -Expr $Expr.Start -Context $Context), $(ConvertTo-OtterNativeExpression -Expr $Expr.End -Context $Context), `"$($Expr.Unit)`", $line)"
+        }
+        'DateFromText' {
+            $source = ConvertTo-OtterNativeExpression -Expr $Expr.Source -Context $Context
+            if ($null -eq $Expr.Format) { return "R.DateFromText($source, $line)" }
+            return "R.DateFromTextUsing($source, $(ConvertTo-OtterNativeExpression -Expr $Expr.Format -Context $Context), $line)"
+        }
         'PropertyAccess' {
             $t = ConvertTo-OtterNativeExpression -Expr $Expr.Target -Context $Context
             return "R.Prop($t, $(ConvertTo-OtterCSharpString $Expr.Property), $line)"
@@ -171,7 +184,7 @@ function ConvertTo-OtterNativeStatement {
             $out.Add("${Pad}R.RequireNewThingName(e, $(ConvertTo-OtterCSharpString $Stmt.Name), $line);")
             $out.Add("${Pad}{")
             $out.Add("${inner}OtterThing $t = R.NewObject(e, $(ConvertTo-OtterCSharpString $Stmt.TypeName));")
-            foreach ($p in @($Stmt.Properties)) {
+            foreach ($p in @($Stmt.Properties | Where-Object { $null -ne $_ })) {
                 if ($p.Kind.ToString() -ne 'Assign' -or $p.Target -isnot [VariableExpr]) { throw (New-OtterNativeUnsupported -Node $p -What 'this property line') }
                 $out.Add("${inner}$t.Write($(ConvertTo-OtterCSharpString $p.Target.Name), $(ConvertTo-OtterNativeExpression -Expr $p.Value -Context $Context));")
             }
@@ -309,6 +322,50 @@ function ConvertTo-OtterNativeStatement {
         'ConvertToJson' {
             $out.Add("${Pad}e.Set($(ConvertTo-OtterCSharpString $Stmt.Target), R.Call(`"ConvertToJson`", new object[] { $(ConvertTo-OtterNativeExpression -Expr $Stmt.Subject -Context $Context) }, $line));")
         }
+        # Dates (D32): mirrored in the runtime, checked in the interpreter's order.
+        'DateAdjust' {
+            if ($Stmt.Unit.ToString() -eq 'Millisecond') { throw (New-OtterNativeUnsupported -Node $Stmt -What 'adding milliseconds to a date') }
+            $d = $Context.Next('date')
+            $removal = if ($Stmt.IsRemoval) { 'true' } else { 'false' }
+            $out.Add("${Pad}{")
+            $out.Add("${inner}OtterDateValue $d = R.DateTarget(e, $(ConvertTo-OtterCSharpString $Stmt.Target), $line);")
+            $out.Add("${inner}e.Set($(ConvertTo-OtterCSharpString $Stmt.Target), R.DateAdjust($d, $(ConvertTo-OtterNativeExpression -Expr $Stmt.Amount -Context $Context), `"$($Stmt.Unit)`", $removal, $line));")
+            $out.Add("${Pad}}")
+        }
+        'DateDifference' {
+            if ($Stmt.Unit.ToString() -eq 'Millisecond') { throw (New-OtterNativeUnsupported -Node $Stmt -What 'milliseconds between dates') }
+            $out.Add("${Pad}e.Set($(ConvertTo-OtterCSharpString $Stmt.Target), R.DateDifference($(ConvertTo-OtterNativeExpression -Expr $Stmt.Start -Context $Context), $(ConvertTo-OtterNativeExpression -Expr $Stmt.End -Context $Context), `"$($Stmt.Unit)`", $line));")
+        }
+        'FormatDate' {
+            $d = $Context.Next('date')
+            $out.Add("${Pad}{")
+            $out.Add("${inner}OtterDateValue $d = R.DateSubject($(ConvertTo-OtterNativeExpression -Expr $Stmt.Subject -Context $Context), $line);")
+            $out.Add("${inner}e.Set($(ConvertTo-OtterCSharpString $Stmt.Target), R.FormatDate($d, $(ConvertTo-OtterNativeExpression -Expr $Stmt.Format -Context $Context), $line));")
+            $out.Add("${Pad}}")
+        }
+        # Files, in the interpreter's order: content, then path.
+        'WriteFile' {
+            $atomic = if ($Stmt.Atomic) { 'true' } else { 'false' }
+            $out.Add("${Pad}R.Call(`"WriteFile`", new object[] { R.Format($(ConvertTo-OtterNativeExpression -Expr $Stmt.Content -Context $Context)), $(ConvertTo-OtterNativeExpression -Expr $Stmt.Path -Context $Context), $atomic }, $line);")
+        }
+        'AppendFile' {
+            $out.Add("${Pad}R.Call(`"AppendFile`", new object[] { R.Format($(ConvertTo-OtterNativeExpression -Expr $Stmt.Content -Context $Context)), $(ConvertTo-OtterNativeExpression -Expr $Stmt.Path -Context $Context) }, $line);")
+        }
+        'ReadFile' {
+            $out.Add("${Pad}e.Set($(ConvertTo-OtterCSharpString $Stmt.Target), R.Call(`"ReadFile`", new object[] { $(ConvertTo-OtterNativeExpression -Expr $Stmt.Path -Context $Context) }, $line));")
+        }
+        'ReadJson' {
+            $out.Add("${Pad}e.Set($(ConvertTo-OtterCSharpString $Stmt.Target), R.Call(`"ReadJson`", new object[] { $(ConvertTo-OtterNativeExpression -Expr $Stmt.Path -Context $Context) }, $line));")
+        }
+        'DeleteFile' {
+            $out.Add("${Pad}R.Call(`"DeleteFile`", new object[] { $(ConvertTo-OtterNativeExpression -Expr $Stmt.Path -Context $Context) }, $line);")
+        }
+        'CopyFile' {
+            $out.Add("${Pad}R.Call(`"CopyFile`", new object[] { $(ConvertTo-OtterNativeExpression -Expr $Stmt.Source -Context $Context), $(ConvertTo-OtterNativeExpression -Expr $Stmt.Destination -Context $Context) }, $line);")
+        }
+        'MoveFile' {
+            $out.Add("${Pad}R.Call(`"MoveFile`", new object[] { $(ConvertTo-OtterNativeExpression -Expr $Stmt.Source -Context $Context), $(ConvertTo-OtterNativeExpression -Expr $Stmt.Destination -Context $Context) }, $line);")
+        }
         'ConvertFromJson' {
             $out.Add("${Pad}e.Set($(ConvertTo-OtterCSharpString $Stmt.Target), R.Call(`"ConvertFromJson`", new object[] { R.Format($(ConvertTo-OtterNativeExpression -Expr $Stmt.Subject -Context $Context)) }, $line));")
         }
@@ -434,6 +491,7 @@ function ConvertTo-OtterInterpreterValue {
         return , $list
     }
     if ($Value -is [OtterNative.OtterTypeValue]) { return [OtterType]::new($Value.Name, $Value.Fields) }
+    if ($Value -is [OtterNative.OtterDateValue]) { return [OtterDate]::new($Value.Value, $Value.HasTime) }
     if ($Value -is [OtterNative.OtterFn]) { return [OtterFunction]::new($Value.Name, $Value.Params, @()) }
     return $Value
 }
@@ -451,9 +509,15 @@ function ConvertFrom-OtterInterpreterValue {
         foreach ($item in $Value) { $list.Add((ConvertFrom-OtterInterpreterValue $item $Line)) }
         return , $list
     }
+    if ($Value -is [OtterDate]) { return [OtterNative.OtterDateValue]::new($Value.Value, $Value.HasTime) }
     if ($Value -is [OtterType]) { return [OtterNative.OtterTypeValue]::new($Value.Name, $Value.FieldNames) }
     if ($Value -is [double] -or $Value -is [string] -or $Value -is [bool]) { return $Value }
     throw [OtterError]::new("The compiled backend cannot hold $($Value.GetType().Name) values yet. Run this program with otter run.", $Line, 'runtime')
+}
+
+function Get-OtterNativePath {
+    param($Value, [int]$Line)
+    return (Resolve-OtterFileArgument -Value (ConvertTo-OtterInterpreterValue $Value) -Line $Line)
 }
 
 # One library call from compiled code. Arguments arrive as compiled values;
@@ -465,6 +529,22 @@ $script:OtterNativeHost = {
         $result = switch ($Name) {
             'ConvertToJson' { ConvertTo-OtterJsonText -Value (ConvertTo-OtterInterpreterValue $Arguments[0]) -Line $Line }
             'ConvertFromJson' { , (ConvertFrom-OtterJsonText -Text ([string]$Arguments[0]) -Line $Line) }
+            # Files: a path argument is any value (Resolve-OtterFileArgument
+            # reads a thing's path or name), content is already text.
+            'WriteFile' { Write-OtterFile -Path (Get-OtterNativePath $Arguments[1] $Line) -Content ([string]$Arguments[0]) -Line $Line -Atomic ([bool]$Arguments[2]) }
+            'AppendFile' { Add-OtterFileContent -Path (Get-OtterNativePath $Arguments[1] $Line) -Content ([string]$Arguments[0]) -Line $Line }
+            'ReadFile' { Read-OtterFile -Path (Get-OtterNativePath $Arguments[0] $Line) -Line $Line }
+            'ReadJson' { , (Read-OtterJsonFile -Path (Get-OtterNativePath $Arguments[0] $Line) -Line $Line) }
+            'DeleteFile' { Remove-OtterFile -Path (Get-OtterNativePath $Arguments[0] $Line) -Line $Line }
+            'FileExists' { Test-OtterFileExists -Path (Get-OtterNativePath $Arguments[0] $Line) -Line $Line }
+            'CopyFile' {
+                $source = Get-OtterNativePath $Arguments[0] $Line
+                Copy-OtterFile -Source $source -Destination (Get-OtterNativePath $Arguments[1] $Line) -Line $Line
+            }
+            'MoveFile' {
+                $source = Get-OtterNativePath $Arguments[0] $Line
+                Move-OtterFile -Source $source -Destination (Get-OtterNativePath $Arguments[1] $Line) -Line $Line
+            }
             default { throw [OtterError]::new("The compiled backend has no library bridge for $Name.", $Line, 'runtime') }
         }
         $Request.Result = ConvertFrom-OtterInterpreterValue $result $Line

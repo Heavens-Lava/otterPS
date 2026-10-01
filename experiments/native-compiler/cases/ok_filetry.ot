@@ -1,0 +1,7 @@
+try
+    read "otter_native_no_such_file.txt" into contents
+    say contents
+otherwise into problem
+    say "caught:" problem
+.
+say "after"

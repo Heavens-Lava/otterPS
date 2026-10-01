@@ -113,6 +113,17 @@ namespace OtterNative
     }
 
     // OtterType: "a Person has name, age".
+    // OtterDate (D32): "today" has no time of day and is pinned to midnight;
+    // "now" keeps its time. Shown as ISO text, formatted exactly as the
+    // interpreter's ToString (current culture).
+    public sealed class OtterDateValue
+    {
+        public readonly DateTime Value;
+        public readonly bool HasTime;
+        public OtterDateValue(DateTime value, bool hasTime) { HasTime = hasTime; Value = hasTime ? value : value.Date; }
+        public override string ToString() { return HasTime ? Value.ToString("yyyy-MM-dd HH:mm:ss") : Value.ToString("yyyy-MM-dd"); }
+    }
+
     public sealed class OtterTypeValue
     {
         public readonly string Name;
@@ -179,6 +190,8 @@ namespace OtterNative
                 for (int i = 0; i < list.Count; i++) parts[i] = Format(list[i]);
                 return string.Join(", ", parts);
             }
+            OtterDateValue date = v as OtterDateValue;
+            if (date != null) return date.ToString();
             OtterThing thing = v as OtterThing;
             if (thing != null) return "a " + thing.TypeName;
             OtterTypeValue type = v as OtterTypeValue;
@@ -194,6 +207,8 @@ namespace OtterNative
             if (v == null) return "gone";
             if (v is bool) return "a true or false value";
             if (v is OtterFn) return "something Otter can do";
+            OtterDateValue dateValue = v as OtterDateValue;
+            if (dateValue != null) return dateValue.HasTime ? "a date and time" : "a date";
             OtterThing thingValue = v as OtterThing;
             if (thingValue != null) return "a " + thingValue.TypeName;
             OtterTypeValue typeValue = v as OtterTypeValue;
@@ -250,6 +265,12 @@ namespace OtterNative
             {
                 if (a is bool && b is bool) return (bool)a == (bool)b;
                 return false;
+            }
+            // Two dates compare by their instant; a date never equals anything else.
+            if (a is OtterDateValue || b is OtterDateValue)
+            {
+                OtterDateValue da = a as OtterDateValue, db = b as OtterDateValue;
+                return da != null && db != null && da.Value == db.Value;
             }
             double na, nb;
             if (TryNumber(a, out na) && TryNumber(b, out nb)) return na == nb;
@@ -329,6 +350,12 @@ namespace OtterNative
         {
             if (op == 0) return Equal(left, right);
             if (op == 1) return !Equal(left, right);
+            OtterDateValue dl = left as OtterDateValue, dr = right as OtterDateValue;
+            if (dl != null && dr != null)
+            {
+                int c = dl.Value.CompareTo(dr.Value);
+                switch (op) { case 2: return c >= 0; case 3: return c <= 0; case 4: return c > 0; case 5: return c < 0; }
+            }
             double l = left is double ? (double)left : AssertNumber(left, line, "the left side of this comparison");
             double r = right is double ? (double)right : AssertNumber(right, line, "the right side of this comparison");
             switch (op)
@@ -451,6 +478,124 @@ namespace OtterNative
             return string.Join(sep, parts);
         }
 
+        // --- dates (D32, D42, D101) ---------------------------------------
+
+        public static object Clock(bool now) { return new OtterDateValue(DateTime.Now, now); }
+
+        // Assert-OtterUnitAllowed: a plain date has no hour, minute or second.
+        static void UnitAllowed(OtterDateValue date, string unit, int line)
+        {
+            if (date.HasTime || unit == "Year" || unit == "Month" || unit == "Day") return;
+            throw Err("This is a date with no time of day, so it has no " + unit.ToLowerInvariant() + ".", line, "started is now");
+        }
+
+        // Get-OtterDatePart (PowerShell's switch is case-insensitive).
+        static object DatePart(OtterDateValue date, string part, int line)
+        {
+            switch ((part ?? "").ToLowerInvariant())
+            {
+                case "year": return (double)date.Value.Year;
+                case "month": return (double)date.Value.Month;
+                case "day": return (double)date.Value.Day;
+                case "hour": UnitAllowed(date, "Hour", line); return (double)date.Value.Hour;
+                case "minute": UnitAllowed(date, "Minute", line); return (double)date.Value.Minute;
+                case "second": UnitAllowed(date, "Second", line); return (double)date.Value.Second;
+            }
+            throw Err("A date has no part called \"" + part + "\".", line, "year of ...");
+        }
+
+        // 'DateAdjust': the variable and its type are checked before the amount.
+        public static OtterDateValue DateTarget(Env e, string name, int line)
+        {
+            if (!e.Has(name)) throw Err("Otter could not find the variable \"" + name + "\".", line, null);
+            object current = e.GetRaw(name);
+            OtterDateValue date = current as OtterDateValue;
+            if (date == null) throw Err("I can only add time to a date, but \"" + name + "\" holds " + TypeName(current) + ".", line, null);
+            return date;
+        }
+
+        public static object DateAdjust(OtterDateValue date, object amountValue, string unit, bool removal, int line)
+        {
+            double amount = AssertNumber(amountValue, line, "the amount of time");
+            int whole = (int)Math.Truncate(amount);
+            if (removal) whole = -whole;
+            UnitAllowed(date, unit, line);
+            DateTime moved;
+            switch (unit)
+            {
+                case "Year": moved = date.Value.AddYears(whole); break;
+                case "Month": moved = date.Value.AddMonths(whole); break;
+                case "Day": moved = date.Value.AddDays(whole); break;
+                case "Hour": moved = date.Value.AddHours(whole); break;
+                case "Minute": moved = date.Value.AddMinutes(whole); break;
+                default: moved = date.Value.AddSeconds(whole); break;
+            }
+            return new OtterDateValue(moved, date.HasTime);
+        }
+
+        // Assert-OtterDateOperands + Measure-OtterDateDifference: whole units,
+        // truncated toward zero, signed end minus start.
+        public static object DateDifference(object start, object end, string unit, int line)
+        {
+            OtterDateValue from = start as OtterDateValue;
+            if (from == null) throw Err("I can only measure time between two dates, but the first one is " + TypeName(start) + ".", line, null);
+            OtterDateValue to = end as OtterDateValue;
+            if (to == null) throw Err("I can only measure time between two dates, but the second one is " + TypeName(end) + ".", line, null);
+            DateTime f = from.Value, t = to.Value;
+            if (unit == "Year" || unit == "Month")
+            {
+                int months = ((t.Year - f.Year) * 12) + (t.Month - f.Month);
+                if (months > 0 && t.Day < f.Day) months--;
+                if (months < 0 && t.Day > f.Day) months++;
+                if (unit == "Month") return (double)months;
+                return Math.Truncate(months / 12.0);
+            }
+            TimeSpan span = t - f;
+            switch (unit)
+            {
+                case "Day": return Math.Truncate(span.TotalDays);
+                case "Hour": return Math.Truncate(span.TotalHours);
+                case "Minute": return Math.Truncate(span.TotalMinutes);
+                case "Second": return Math.Truncate(span.TotalSeconds);
+            }
+            return 0.0;
+        }
+
+        // 'FormatDate': the subject is checked before the pattern is worked out.
+        public static OtterDateValue DateSubject(object subject, int line)
+        {
+            OtterDateValue date = subject as OtterDateValue;
+            if (date == null) throw Err("I can only format a date, but this is " + TypeName(subject) + ".", line, null);
+            return date;
+        }
+
+        public static object FormatDate(OtterDateValue date, object pattern, int line)
+        {
+            string p = Format(pattern);
+            try { return date.Value.ToString(p, CultureInfo.InvariantCulture); }
+            catch (FormatException) { throw Err("I do not understand the date format " + p + ".", line, "format date as \"MM/dd/yyyy\" into text"); }
+        }
+
+        // 'DateFromText' (D101).
+        public static object DateFromText(object source, int line)
+        {
+            string text = Format(source);
+            DateTime parsed;
+            try { parsed = DateTime.Parse(text, CultureInfo.InvariantCulture); }
+            catch (Exception) { throw Err("I couldn't understand \"" + text + "\" as a date.", line, "date from \"2024-01-15\" using \"yyyy-MM-dd\""); }
+            return new OtterDateValue(parsed, parsed.TimeOfDay != TimeSpan.Zero);
+        }
+
+        public static object DateFromTextUsing(object source, object format, int line)
+        {
+            string text = Format(source);
+            string f = Format(format);
+            DateTime parsed;
+            try { parsed = DateTime.ParseExact(text, f, CultureInfo.InvariantCulture); }
+            catch (Exception) { throw Err("I couldn't understand \"" + text + "\" as a date using the format \"" + f + "\".", line, null); }
+            return new OtterDateValue(parsed, parsed.TimeOfDay != TimeSpan.Zero);
+        }
+
         // 'Fail' (D68): the value's text becomes the message.
         public static OtterNativeError Fail(object message, int line) { return Err(Format(message), line, null); }
 
@@ -510,6 +655,8 @@ namespace OtterNative
         // 'PropertyAccess' read on a thing.
         public static object Prop(object target, string property, int line)
         {
+            OtterDateValue date = target as OtterDateValue;
+            if (date != null) return DatePart(date, property, line);
             OtterThing thing = target as OtterThing;
             if (thing == null) throw Err("I can only read properties of a thing, but this is " + TypeName(target) + ".", line, null);
             if (!thing.Has(property))

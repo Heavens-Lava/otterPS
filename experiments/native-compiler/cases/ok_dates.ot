@@ -1,0 +1,64 @@
+origin is date from "2024-01-31"
+say origin
+say year of origin month of origin day of origin
+finish is origin
+add 1 month to finish
+say finish origin
+add 10 days to finish
+remove 1 year from finish
+say finish
+say days between origin and finish
+say months between origin and finish
+say years between origin and finish
+days between finish and origin make back
+say back
+if finish is less than origin
+    say "earlier"
+.
+parsed is date from "01/31/2024" using "MM/dd/yyyy"
+if parsed is origin
+    say "same day"
+.
+if parsed is not "2024-01-31"
+    say "a date is not text"
+.
+format origin as "dddd d MMMM yyyy" into pretty
+say pretty
+stamp is date from "2024-03-05 14:30:15"
+say stamp hour of stamp minute of stamp second of stamp
+add 90 minutes to stamp
+say stamp
+say hours between stamp and date from "2024-03-06"
+stamped is now
+current is today
+if year of current is year of stamped
+    say "same year"
+.
+if hour of stamped is at least 0
+    say "has an hour"
+.
+dates are
+    "placeholder"
+.
+remove "placeholder" from dates
+add origin to dates
+add parsed to dates
+add stamp to dates
+say dates
+convert origin to json into text
+say text
+try
+    say hour of origin
+otherwise into problem
+    say problem
+.
+try
+    x is date from "not a date"
+otherwise into problem
+    say problem
+.
+try
+    format 5 as "yyyy" into nope
+otherwise into problem
+    say problem
+.

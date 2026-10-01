@@ -1,0 +1,32 @@
+path is "otter_native_case_files.txt"
+write "first" to path
+append " second" to path
+read path into contents
+say contents
+say length of contents
+if file path exists
+    say "exists"
+.
+info has path "otter_native_case_info.json"
+person has name "Ada", age 36
+convert person to json into text
+write text to info
+read json from info into back
+say name of back age of back
+copy path to "otter_native_case_copy.txt"
+read "otter_native_case_copy.txt" into copied
+say copied
+move "otter_native_case_copy.txt" to "otter_native_case_moved.txt"
+if file "otter_native_case_copy.txt" exists
+    say "still there"
+otherwise
+    say "moved"
+.
+delete file "otter_native_case_moved.txt"
+delete file path
+delete file info
+if file path exists
+    say "left behind"
+otherwise
+    say "cleaned up"
+.
