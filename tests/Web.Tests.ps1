@@ -1180,6 +1180,13 @@ foreach ($expected in @('--otter-card-bg: #1e293b;', '--otter-input-bg: #0f172a;
 }
 Write-Output '  pass  a light page gets light cards and inputs; a dark app keeps its own'
 
+# Test 37: D127 - a compiled page loads nothing from another host (it starts
+# and renders offline): no external stylesheet, script or font.
+$offlineHtml = ConvertTo-OtterWeb -Program (ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source "app is a page with title `"Offline`"`nhello is a text with text `"Hi`"`nput hello in app`nshow app`n"))
+if ($offlineHtml -match '<(link|script)\b[^>]*\b(href|src)="(https?:)?//') { throw "D127: the page loads something from another host: $($Matches[0])" }
+if ($offlineHtml -match 'fonts\.googleapis|fonts\.gstatic') { throw 'D127: the page must not load web fonts from another host.' }
+Write-Output '  pass  D127: a compiled page loads nothing from another host'
+
 Write-Output 'Web compiler tests passed.'
 
 
