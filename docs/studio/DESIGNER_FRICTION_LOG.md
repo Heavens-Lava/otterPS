@@ -353,3 +353,44 @@ Jeff approved four pieces of work: a class for created elements, P1 from the
 
 When Codex's 1.1 parser changes arrive: merge studio/p1-runtime and design a
 component in the Designer (friction 63).
+
+## Pass 14 - 2026-10-01: a project's whole Git life
+
+A new project folder, opened from This computer, taken through Git with the
+Source Control pane only (scratch dogfood d21 and d21b):
+
+1. Initialize Repository. The three files show U in the Explorer.
+2. Stage all, write "First version", Ctrl+Enter.
+3. Change line 3 in the editor. The gutter marks it modified before saving.
+   After saving, the Explorer shows M.
+4. Click the file. The side-by-side diff shows +1 -1.
+5. Stage it with + and commit.
+6. Branches: create and switch to "feature". Change a line and commit. With
+   nothing staged, Studio asks "Commit all changed tracked files?".
+7. Switch back. The open editor shows the old line.
+8. Merge "feature". The editor shows the new line.
+9. Remotes: add origin, a bare repository in a folder. Push publishes the
+   branch: ↑0 ↓0, and History shows origin/master.
+10. Two branches change the same line, and the merge conflicts:
+    - Merge Conflicts lists the file with !, the banner offers Abort Merge,
+      and Commit is disabled;
+    - the conflict editor shows Ours and Theirs; Accept theirs, then Save and
+      mark resolved;
+    - the merge commit goes in with Git's message.
+
+| # | Friction | Kind | Fix |
+|---|---|---|---|
+| 68 | A remote given as a folder path (C:\...\shared.git) was refused: only URLs were accepted, although Git takes a folder | limitation | a full folder path is accepted (C:\, \server\, /); relative paths and other transports such as `ext::` are still refused |
+| 69 | After Commit, the message box still held the old message. The pane was redrawn from the box before it was emptied | broken | the box is emptied before the redraw |
+| 70 | Committing a merge started from an empty message box, although Git had prepared "Merge branch 'other'" | missing | the box is filled with Git's message once per merge, and the user can still change it |
+| 71 | "Merge in progress" checked .git/MERGE_HEAD. In a Git worktree, .git is a file, so a merge there would not show (found while making 70; not seen in the UI) | broken in worktrees | Studio asks git for the path (`rev-parse --git-path`) |
+
+Not Git, and not fixed here: the fixture design's `image1 is a image` does
+not run on the desktop.
+- The run stops with "I can only put a UI resource somewhere, but this is a
+  image".
+- `an image` is a syntax error.
+- `with width 48, source "a.png"` does not parse, though other orders do.
+
+The web build has an image kind. The interpreter and parser (Codex's) do not
+handle it the same way. This is for Jeff.

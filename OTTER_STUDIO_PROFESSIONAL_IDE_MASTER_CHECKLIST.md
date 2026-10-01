@@ -165,9 +165,9 @@ platform.
 -   [ ] ANSI/VT rendering
 -   [ ] Resize
 -   [ ] Signals/Ctrl+C
--   [ ] Persistent shell state
+-   [x] Persistent shell state (section 24: one long-lived PowerShell per terminal)
 -   [ ] Interactive programs
--   [ ] Multiple terminal sessions
+-   [x] Multiple terminal sessions (section 24: terminal tabs, one shell each)
 -   [ ] Terminal profiles
 -   [ ] Kill process tree
 -   [ ] Environment API
@@ -719,7 +719,8 @@ architecture reference. Listed in the recommended implementation order.
 -   [x] Blame (otter-studio/scripts/git.test.mjs, real git CLI)
 -   [x] Stash (push incl. untracked, pop, apply, drop) (otter-studio/scripts/git.test.mjs, real git CLI)
 -   [x] Tags (lightweight/annotated create, delete) (otter-studio/scripts/git.test.mjs, real git CLI)
--   [ ] Remote/auth management (add/remove remotes and redacted URLs done; sign-in is delegated to the user's credential helper/SSH agent, no in-Studio account management)
+-   [ ] Remote/auth management (add/remove remotes - a URL or a folder path - and redacted URLs done; sign-in is delegated to the user's credential helper/SSH agent, no in-Studio account management)
+-   [x] Merge commit message (Git's prepared "Merge branch ..." fills the commit box once per merge; merge state found through `rev-parse --git-path`, so it works in worktrees too) (otter-studio/scripts/git.test.mjs; scratch dogfood d21b)
 -   [ ] Source-control extension API
 -   [x] Gutter change indicators (added/modified/deleted) in the editor (3ff8d4b; Alt+F3 next change, Revert Change at Cursor)
 -   [x] Inline blame annotations (69c8dae; cursor line, Settings > Editor > Inline blame)
@@ -1117,7 +1118,7 @@ architecture reference. Listed in the recommended implementation order.
 -   [ ] Otter test framework and Test Explorer. (Test Explorer done over the existing file-per-test `otter test` model; a richer framework - named cases, assertions, setup - is language work)
 -   [ ] Coverage.
 -   [ ] Package manager/registry.
--   [ ] Git workflow.
+-   [x] Git workflow. (section 22; through the real UI in scratch dogfood d21/d21b on a new project opened from This computer: init, stage, commit, gutter, diff, branch, switch, merge, conflict resolved in the conflict editor, folder remote, push)
 -   [ ] Extension API and marketplace model.
 
 ## P7 --- Ship
