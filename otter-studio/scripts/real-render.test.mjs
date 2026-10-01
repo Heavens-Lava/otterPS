@@ -52,7 +52,7 @@ try {
   ].join('\n');
 
   // 1. The response is the real compiler's page: real class names, real
-  //    element ids, real inline styles - including the bare `round` -> pill.
+  //    element ids, real inline styles - including the bare `round` -> 8px corners (a pill is `pill true`).
   const good = await render(source);
   assert.equal(good.status, 200, JSON.stringify(good.body));
   assert.equal(good.body.ok, true);
@@ -61,7 +61,7 @@ try {
   assert.match(html, /id="app"[^>]*class="otter-window"/, 'window comes from the real compiler');
   assert.match(html, /id="card"[^>]*class="otter-card"/);
   assert.match(html, /id="saveButton"[^>]*class="otter-button otter-button-primary"/);
-  assert.match(html, /id="card"[^>]*border-radius: 9999px/, 'bare `round` means a pill in the real runtime');
+  assert.match(html, /id="card"[^>]*border-radius: 8px/, 'bare `round` is ordinary 8px corners in the real runtime');
 
   // 2. Sidecar CSS is applied exactly as `otter web` applies it.
   const styled = await render(source, '#saveButton { letter-spacing: 3px; }');
