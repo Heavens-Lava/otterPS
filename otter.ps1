@@ -420,7 +420,15 @@ function Invoke-OtterFile {
         Invoke-OtterSource -Source $source -Environment $environment -CheckOnly:$CheckOnly
     }
     catch {
-        if ($DebugSession) { Complete-OtterDebugSession }
+        if ($DebugSession) {
+            # Stop on the error first - its line, message and the variables
+            # as they were - so it can be looked at before the session ends.
+            $debugError = $_.Exception
+            while ($null -ne $debugError.InnerException -and -not ($debugError -is [OtterError])) { $debugError = $debugError.InnerException }
+            $debugLine = if ($debugError -is [OtterError]) { [int]$debugError.Line } else { 0 }
+            Stop-OtterDebugOnError -Message ([string]$debugError.Message) -Line $debugLine
+            Complete-OtterDebugSession
+        }
         if ($ProfileSession) { Write-OtterProfileReport -SourceLines ($source -split "`r?`n") }
         # Remap the combined-source line the error actually fired on back to
         # the real imported file it came from - otherwise every diagnostic

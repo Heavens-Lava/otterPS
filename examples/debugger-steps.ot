@@ -1,0 +1,17 @@
+# debugger-steps.ot - the debugger tests' fixture for stepping, watches,
+# conditions and logpoints. Line numbers matter: the tests name them.
+to double n
+    result is n times 2
+    return result
+.
+total is 0
+prices are
+    5
+    10
+    20
+.
+for each price in prices
+    double price make doubled
+    add doubled to total
+.
+say "Total is" total

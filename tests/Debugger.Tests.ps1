@@ -150,4 +150,143 @@ Test-Otter 'plain `otter run` (no debug subcommand at all) never emits the debug
     }
 }
 
+# --- Stepping, watches, conditions, pause and errors --------------------------
+#
+# A conversation like Studio's: read the events as they come and answer each
+# pause with the next reply (one command or several; the last one resumes).
+# `BeforeFirst` is sent as soon as the process starts (for `pause`).
+function Invoke-OtterDebugConversation {
+    param(
+        [string]$RelativePath,
+        [string]$Breakpoints = '',
+        [object[]]$Replies = @(),
+        [string[]]$BeforeFirst = @(),
+        [int]$BeforeFirstDelayMs = 0,
+        # Sent once, when the program prints this line (for `pause` mid-run).
+        [string]$PauseWhenOutput = ''
+    )
+    $psi = [System.Diagnostics.ProcessStartInfo]::new()
+    $psi.FileName = 'powershell.exe'
+    $psi.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$script:OtterPs1`" debug `"$RelativePath`" -Breakpoints `"$Breakpoints`""
+    $psi.WorkingDirectory = $script:RepoRoot
+    $psi.RedirectStandardInput = $true
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
+    $psi.UseShellExecute = $false
+    $process = [System.Diagnostics.Process]::new()
+    $process.StartInfo = $psi
+    [void]$process.Start()
+    if ($BeforeFirst.Count -gt 0) {
+        if ($BeforeFirstDelayMs -gt 0) { Start-Sleep -Milliseconds $BeforeFirstDelayMs }
+        foreach ($line in $BeforeFirst) { $process.StandardInput.WriteLine($line); $process.StandardInput.Flush() }
+    }
+    $events = [System.Collections.Generic.List[object]]::new()
+    $output = [System.Collections.Generic.List[string]]::new()
+    $pauses = 0
+    while ($null -ne ($line = $process.StandardOutput.ReadLine())) {
+        if (-not $line.StartsWith('@@OTTER_DEBUG@@ ')) {
+            if ($line) { $output.Add($line) }
+            if ($PauseWhenOutput -and $line -eq $PauseWhenOutput) { $process.StandardInput.WriteLine('pause'); $process.StandardInput.Flush(); $PauseWhenOutput = '' }
+            continue
+        }
+        $event = ConvertFrom-Json -InputObject $line.Substring('@@OTTER_DEBUG@@ '.Length)
+        $events.Add($event)
+        if ($event.event -eq 'paused') {
+            $reply = if ($pauses -lt $Replies.Count) { $Replies[$pauses] } else { 'continue' }
+            $pauses++
+            foreach ($command in @($reply)) { $process.StandardInput.WriteLine($command); $process.StandardInput.Flush() }
+        }
+    }
+    $process.StandardInput.Close()
+    $process.WaitForExit(15000) | Out-Null
+    return @{ Events = $events; Output = $output; ExitCode = $process.ExitCode }
+}
+
+$script:StepsFile = 'examples/debugger-steps.ot'
+
+Test-Otter 'step into, step over and step out follow the program into a function and back' {
+    # Line 14 calls double (lines 3-6); line 15 runs after it returns.
+    $run = Invoke-OtterDebugConversation -RelativePath $script:StepsFile -Breakpoints '14' -Replies @(
+        'step',                                  # at 14 -> into double, line 4
+        'next',                                  # at 4  -> line 5 (return)
+        'out',                                   # at 5  -> back in the loop, line 15
+        @('breakpoints []', 'continue')          # at 15 -> run to the end
+    )
+    $paused = @($run.Events | Where-Object { $_.event -eq 'paused' })
+    Assert-AreEqual -Expected '14,4,5,15' -Actual (($paused | ForEach-Object { $_.line }) -join ',')
+    Assert-AreEqual -Expected 'double' -Actual $paused[1].frames[0].function
+    Assert-AreEqual -Expected 14 -Actual $paused[1].frames[1].line
+    Assert-AreEqual -Expected 1 -Actual @($paused[3].frames).Count
+    Assert-AreEqual -Expected 'step' -Actual $paused[1].reason
+    Assert-Lines -Expected @('Total is 70') -Actual @($run.Output)
+}
+
+Test-Otter 'while paused, expressions evaluate in the paused frame (watches); locals, globals and lists are inspectable' {
+    $run = Invoke-OtterDebugConversation -RelativePath $script:StepsFile -Breakpoints '4' -Replies @(
+        ,@('eval w1 n times 10', 'eval w2 total', 'eval w3 nosuchthing', 'eval w4 prices', 'breakpoints []', 'continue')
+    )
+    $paused = @($run.Events | Where-Object { $_.event -eq 'paused' })[0]
+    $locals = @($paused.scopes | Where-Object { $_.name -eq 'Locals' })[0]
+    $globals = @($paused.scopes | Where-Object { $_.name -eq 'Globals' })[0]
+    Assert-AreEqual -Expected 'n' -Actual (@($locals.variables | ForEach-Object { $_.name }) -join ',')
+    Assert-AreEqual -Expected '5' -Actual @($locals.variables)[0].value
+    $prices = @($globals.variables | Where-Object { $_.name -eq 'prices' })[0]
+    Assert-AreEqual -Expected 'a list' -Actual $prices.type
+    Assert-AreEqual -Expected '5,10,20' -Actual ((@($prices.children) | ForEach-Object { $_.value }) -join ',')
+    if (@($globals.variables | Where-Object { $_.name -eq 'double' }).Count -ne 0) { throw 'functions are not variables in the Variables view' }
+    $evaluated = @{}
+    foreach ($e in @($run.Events | Where-Object { $_.event -eq 'evaluated' })) { $evaluated[$e.id] = $e }
+    Assert-AreEqual -Expected '50' -Actual $evaluated['w1'].value
+    Assert-AreEqual -Expected '0' -Actual $evaluated['w2'].value
+    if (-not $evaluated['w3'].error -or $evaluated['w3'].error -notmatch 'nosuchthing') { throw "an unknown name is an Otter error naming it, got: $($evaluated['w3'] | ConvertTo-Json -Compress)" }
+    Assert-AreEqual -Expected 3 -Actual @($evaluated['w4'].children).Count
+    Assert-Lines -Expected @('Total is 70') -Actual @($run.Output)
+}
+
+Test-Otter 'breakpoints change while the program runs; a condition decides, a logpoint writes without stopping' {
+    $run = Invoke-OtterDebugConversation -RelativePath $script:StepsFile -Breakpoints '7' -Replies @(
+        @('breakpoints [{"line":15,"condition":"price is 20"},{"line":17,"log":"about to say {total}"}]', 'continue'),
+        'continue'
+    )
+    $paused = @($run.Events | Where-Object { $_.event -eq 'paused' })
+    Assert-AreEqual -Expected '7,15' -Actual (($paused | ForEach-Object { $_.line }) -join ',')
+    Assert-AreEqual -Expected '20' -Actual $paused[1].locals.price
+    $logs = @($run.Events | Where-Object { $_.event -eq 'log' })
+    Assert-AreEqual -Expected 'about to say 70' -Actual $logs[0].text
+    Assert-Lines -Expected @('Total is 70') -Actual @($run.Output)
+}
+
+Test-Otter 'pause stops a running program at its next statement; continue lets it finish' {
+    $file = Join-Path ([System.IO.Path]::GetTempPath()) ("otter-debug-pause-" + [Guid]::NewGuid().ToString('N') + '.ot')
+    [System.IO.File]::WriteAllText($file, "say `"started`"`ntally is 0`nwhile tally is less than 2000`n    add 1 to tally`n.`nsay `"counted`" tally`n")
+    try {
+        $run = Invoke-OtterDebugConversation -RelativePath $file -PauseWhenOutput 'started' -Replies @('next', @('eval c tally', 'continue'))
+        $paused = @($run.Events | Where-Object { $_.event -eq 'paused' })
+        # Paused at the statement after the one running when pause arrived (it
+        # may already be in the loop); one step later tally exists.
+        Assert-AreEqual -Expected 2 -Actual $paused.Count
+        Assert-AreEqual -Expected 'pause' -Actual $paused[0].reason
+        if ($paused[0].line -lt 2) { throw "paused before the program ran: line $($paused[0].line)" }
+        $c = @($run.Events | Where-Object { $_.event -eq 'evaluated' })[0]
+        if ($c.error -or $c.value -notmatch '^\d+$') { throw "tally should be a number when paused mid-run, got: $($c | ConvertTo-Json -Compress)" }
+        Assert-Lines -Expected @('started', 'counted 2000') -Actual @($run.Output)
+    } finally { Remove-Item -LiteralPath $file -Force -ErrorAction SilentlyContinue }
+}
+
+Test-Otter 'an error stops the session at the failing line with its message and the variables, then the run ends as it would' {
+    $file = Join-Path ([System.IO.Path]::GetTempPath()) ("otter-debug-error-" + [Guid]::NewGuid().ToString('N') + '.ot')
+    [System.IO.File]::WriteAllText($file, "total is 10`nparts is 0`ntotal divided by parts make share`nsay share`n")
+    try {
+        $run = Invoke-OtterDebugConversation -RelativePath $file -Replies @('continue')
+        $paused = @($run.Events | Where-Object { $_.event -eq 'paused' })
+        Assert-AreEqual -Expected 1 -Actual $paused.Count
+        Assert-AreEqual -Expected 'error' -Actual $paused[0].reason
+        Assert-AreEqual -Expected 3 -Actual $paused[0].line
+        if ($paused[0].message -notmatch 'zero') { throw "expected the division-by-zero message, got: $($paused[0].message)" }
+        Assert-AreEqual -Expected '0' -Actual $paused[0].locals.parts
+        Assert-AreEqual -Expected 'finished' -Actual @($run.Events)[-1].event
+        if ($run.ExitCode -eq 0) { throw 'the run still fails after the error stop' }
+    } finally { Remove-Item -LiteralPath $file -Force -ErrorAction SilentlyContinue }
+}
+
 Complete-OtterTests
