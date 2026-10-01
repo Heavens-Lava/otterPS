@@ -19,6 +19,7 @@ import { getSignatureHelp } from './navigation/signature-provider.js';
 import { autoClosePair, backspacePair, enterKey, prepareForSave, renderIndentGuides, splitLineEnding, withLineEnding } from './editor/editing-assist.js';
 import { markWhitespace, findLinkAt, resolveSourcePath, createBookmarks } from './editor/editor-extras.js';
 import { askText } from './shell/ask.js';
+import { createDebugController } from './debug/debug-controller.js';
 import { showHostGuide } from './shell/host-guide.js';
 import { buildFindRegex, findAll, replacementFor, replaceMatches } from './editor/find.js';
 import { showDiff } from './components/diff-view.js';
@@ -617,6 +618,9 @@ export class OtterStudioIde {
     this.btnStopProgram?.addEventListener('click', () => this.stopCurrentProgram());
     this.btnDebugProgram?.addEventListener('click', () => this.startDebugSession());
     this.btnDebugContinue?.addEventListener('click', () => this.continueDebugSession());
+    // The debug toolbar, Variables, Call Stack, Watch and debug console
+    // (js/debug/debug-controller.js).
+    this.debug = createDebugController(this);
     this.btnRunDropdown?.addEventListener('click', (e) => {
       e.stopPropagation();
       this.toggleLaunchProfileMenu();
@@ -3496,7 +3500,12 @@ export class OtterStudioIde {
       const classes = [];
       if (this.errorLine === i) classes.push('gutter-err');
       else if (this.warningLine === i) classes.push('gutter-warn');
-      if (this.debugBreakpoints && this.debugBreakpoints.has(i)) classes.push('gutter-breakpoint');
+      if (this.debugBreakpoints && this.debugBreakpoints.has(i)) {
+        classes.push('gutter-breakpoint');
+        const detail = this.debug?.detailFor(i);
+        if (detail?.log) classes.push('gutter-logpoint');
+        else if (detail?.condition) classes.push('gutter-breakpoint-conditional');
+      }
       if (this.debugPausedLine === i) classes.push('gutter-debug-pause');
       if (this.currentFile && this.bookmarks.has(this.currentFile, i)) classes.push('gutter-bookmark');
       const change = this.gitGutter.classFor(i);
@@ -3519,6 +3528,8 @@ export class OtterStudioIde {
       this.debugBreakpoints.add(lineNumber);
     }
     this.renderGutter((this.currentCode || '').split('\n').length);
+    // A running session gets the new set at its next statement.
+    this.debug?.breakpointsChanged();
   }
 
   syntaxHighlightCssLine(line) {
@@ -3955,6 +3966,15 @@ export class OtterStudioIde {
         if (!target) return;
         const lineNumber = parseInt(target.dataset.line, 10);
         if (Number.isFinite(lineNumber)) this.toggleBreakpoint(lineNumber);
+      });
+      // Right-click a line number: a breakpoint with a condition or a log
+      // message (a logpoint) instead of an ordinary one.
+      this.gutterEl.addEventListener('contextmenu', (e) => {
+        const target = e.target.closest('[data-line]');
+        if (!target || !this.debug) return;
+        e.preventDefault();
+        const lineNumber = parseInt(target.dataset.line, 10);
+        if (Number.isFinite(lineNumber)) this.debug.editBreakpoint(lineNumber);
       });
     }
 
@@ -4649,13 +4669,14 @@ export class OtterStudioIde {
         body: JSON.stringify({
           path: this.currentFile,
           content: this.currentCode,
-          breakpoints: Array.from(this.debugBreakpoints)
+          breakpoints: this.debug ? this.debug.breakpointList() : Array.from(this.debugBreakpoints)
         })
       });
       const data = await res.json();
       if (!data.sessionId) throw new Error(data.error || 'Otter debug session could not be started.');
 
       this.debugSessionId = data.sessionId;
+      this.debug?.onStart();
       this.debugPollTimer = setInterval(() => this.pollDebugSession(), 250);
     } catch (err) {
       if (this.programOutputBody) {
@@ -4682,6 +4703,10 @@ export class OtterStudioIde {
     for (const event of (data.events || [])) {
       if (event.event === 'paused') {
         this.handleDebugPaused(event);
+      } else if (event.event === 'evaluated') {
+        this.debug?.onEvaluated(event);
+      } else if (event.event === 'log') {
+        this.debug?.onLog(event);
       } else if (event.event === 'finished') {
         this.appendProgramOutputLine('Program finished.', true);
       }
@@ -4692,12 +4717,12 @@ export class OtterStudioIde {
     }
   }
 
-  appendProgramOutputLine(text, success = false) {
+  appendProgramOutputLine(text, success = false, extraClass = '') {
     if (!this.programOutputBody) return;
     if (this.programOutputBody.querySelector('.log-empty, .log-line')?.textContent?.includes('Starting Otter debug session')) {
       this.programOutputBody.innerHTML = '';
     }
-    const cls = success ? 'log-line log-success' : 'log-line';
+    const cls = `${success ? 'log-line log-success' : 'log-line'}${extraClass ? ` ${extraClass}` : ''}`;
     const rendered = success ? `<strong>${this.escapeHtml(text)}</strong>` : this.escapeHtml(text);
     this.programOutputBody.innerHTML += `<div class="${cls}">${rendered}</div>`;
     this.programOutputBody.scrollTop = this.programOutputBody.scrollHeight;
@@ -4718,9 +4743,14 @@ export class OtterStudioIde {
       lineEl.classList.add('has-debug-pause');
       lineEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
     }
-    this.renderDebugLocals(event.locals || {}, event.callStack || []);
-    if (this.btnDebugContinue) this.btnDebugContinue.style.display = 'inline-flex';
-    this.appendProgramOutputLine(`Paused at ${event.file}:${event.line}`);
+    if (this.debug) {
+      this.debug.onPaused(event);
+    } else {
+      this.renderDebugLocals(event.locals || {}, event.callStack || []);
+      if (this.btnDebugContinue) this.btnDebugContinue.style.display = 'inline-flex';
+    }
+    const why = { step: 'Stepped to', pause: 'Paused at', breakpoint: 'Paused at', error: 'Stopped at' }[event.reason] || 'Paused at';
+    this.appendProgramOutputLine(`${why} ${event.file}:${event.line}`);
   }
 
   renderDebugLocals(locals, callStack) {
@@ -4745,6 +4775,7 @@ export class OtterStudioIde {
 
   async continueDebugSession() {
     if (!this.debugSessionId) return;
+    if (this.debug) { this.debug.act('continue'); return; }
     this.clearDebugPauseState(true);
     try {
       await fetch('/api/debug/continue', {
@@ -4774,6 +4805,7 @@ export class OtterStudioIde {
     this.debugPollTimer = null;
     this.debugSessionId = null;
     this.clearDebugPauseState();
+    this.debug?.onEnd();
     if (this.btnDebugProgram) this.btnDebugProgram.style.display = 'inline-flex';
     if (this.mainRunBtn) this.mainRunBtn.style.display = 'inline-flex';
     if (this.btnStopProgram) this.btnStopProgram.style.display = 'none';

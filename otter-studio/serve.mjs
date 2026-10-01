@@ -133,6 +133,20 @@ const runState = { process: null, lastLaunch: null };
 const debugSessions = new Map();
 const OTTER_DEBUG_EVENT_PREFIX = '@@OTTER_DEBUG@@ ';
 
+// Breakpoints for the debugger: { line, condition?, log? }, valid lines only.
+function debugBreakpointList(list) {
+  const out = [];
+  for (const b of list) {
+    const line = Number.isInteger(b) ? b : Number(b && b.line);
+    if (!Number.isInteger(line) || line <= 0) continue;
+    const entry = { line };
+    if (b && typeof b.condition === 'string' && b.condition.trim()) entry.condition = b.condition.replace(/[\r\n]+/g, ' ').trim();
+    if (b && typeof b.log === 'string' && b.log.trim()) entry.log = b.log.replace(/[\r\n]+/g, ' ').trim();
+    out.push(entry);
+  }
+  return out;
+}
+
 function pumpDebugSessionOutput(session, chunk) {
   session.buffer += chunk;
   const lines = session.buffer.split('\n');
@@ -1352,15 +1366,18 @@ async function handleRequest(req, res) {
 
       const runDir = path.dirname(safePath);
       const scriptName = path.basename(safePath);
-      const breakpoints = Array.isArray(body.breakpoints)
-        ? body.breakpoints.filter(n => Number.isInteger(n)).join(',')
-        : '';
+      // Breakpoints: line numbers, or { line, condition, log } (conditional
+      // breakpoints and logpoints), which reach the debugger as JSON in
+      // OTTER_DEBUG_BREAKPOINTS before the first statement runs.
+      const list = Array.isArray(body.breakpoints) ? body.breakpoints : [];
+      const detailed = debugBreakpointList(list);
+      const breakpoints = detailed.map(b => b.line).join(',');
       const otterPs1 = path.join(REPO_ROOT, 'otter.ps1');
 
       const child = spawn('powershell.exe', [
         '-NoProfile', '-ExecutionPolicy', 'Bypass',
         '-File', otterPs1, 'debug', scriptName, '-Breakpoints', breakpoints
-      ], { cwd: runDir, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
+      ], { cwd: runDir, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'], env: { ...process.env, OTTER_DEBUG_BREAKPOINTS: JSON.stringify(detailed) } });
 
       const sessionId = crypto.randomUUID();
       const session = { child, events: [], output: [], finished: false, exitCode: null, buffer: '' };
@@ -1398,6 +1415,33 @@ async function handleRequest(req, res) {
     // Nothing left to relay and the process is done - safe to forget it.
     if (finished && session.events.length === 0 && session.output.length === 0) {
       debugSessions.delete(sessionId);
+    }
+    return;
+  }
+
+  // Everything else a paused (or running) session understands - see the
+  // command list in src/Otter.Debugger.psm1. Only those verbs pass, one line
+  // each (a newline in an expression could smuggle in another command).
+  if (pathname === '/api/debug/command' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const session = debugSessions.get(body.sessionId);
+      if (!session) return sendJson(res, { error: 'Unknown or expired debug session' }, 404);
+      const verb = String(body.command || '');
+      let line;
+      if (['continue', 'next', 'step', 'out', 'pause'].includes(verb)) line = verb;
+      else if (verb === 'breakpoints') line = `breakpoints ${JSON.stringify(debugBreakpointList(Array.isArray(body.breakpoints) ? body.breakpoints : []))}`;
+      else if (verb === 'eval') {
+        const id = String(body.id || 'e').replace(/[^\w-]/g, '').slice(0, 40) || 'e';
+        const expression = String(body.expression || '').replace(/[\r\n]+/g, ' ').trim();
+        if (!expression) return sendJson(res, { error: 'Write an expression to evaluate.' }, 400);
+        line = `eval ${id} ${expression}`;
+      } else return sendJson(res, { error: `Unknown debugger command: ${verb}` }, 400);
+      if (session.finished) return sendJson(res, { error: 'The program has finished.' }, 409);
+      session.child.stdin.write(`${line}\n`);
+      sendJson(res, { ok: true });
+    } catch (err) {
+      sendJson(res, { error: err.message }, err.status || 500);
     }
     return;
   }

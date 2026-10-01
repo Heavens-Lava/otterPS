@@ -662,6 +662,49 @@ body.theme-light {
   .sp-select,
   .sp-input,
   .prop-input,
+  /* Debugger (js/debug/debug-controller.js) */
+  .debug-toolbar { display: inline-flex; align-items: center; gap: 2px; padding: 2px; margin-right: 6px; border-radius: 8px; background: var(--o-accent-soft); }
+  .debug-toolbar[hidden] { display: none; }
+  .debug-tb-btn { width: 28px; height: 26px; display: inline-grid; place-items: center; border: 0; border-radius: 6px; background: transparent; color: var(--o-ink); cursor: pointer; }
+  .debug-tb-btn[hidden] { display: none; }
+  .debug-tb-btn svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .debug-tb-btn[data-debug="continue"] svg, .debug-tb-btn[data-debug="pause"] svg { fill: currentColor; stroke: none; }
+  .debug-tb-btn[data-debug="continue"] { color: var(--o-ok); }
+  .debug-tb-btn[data-debug="stop"] { color: var(--o-error); }
+  .debug-tb-btn[data-debug="stop"] svg { fill: currentColor; stroke: none; }
+  .debug-tb-btn:hover:not(:disabled) { background: var(--o-accent-soft); }
+  .debug-tb-btn:disabled { opacity: 0.35; cursor: default; }
+  body.is-debugging #btnDebugContinue { display: none !important; }
+  .dbg-scope > summary, .dbg-var-group > summary { cursor: pointer; list-style: none; }
+  .dbg-scope > summary::-webkit-details-marker, .dbg-var-group > summary::-webkit-details-marker { display: none; }
+  .dbg-scope-title { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--o-muted); padding: 6px 8px 2px; }
+  .dbg-scope-title::before, .dbg-var-group > summary::before { content: "▸"; display: inline-block; width: 12px; color: var(--o-faint); }
+  .dbg-scope[open] > .dbg-scope-title::before, .dbg-var-group[open] > summary::before { content: "▾"; }
+  .dbg-var, .dbg-var-group > summary, .dbg-watch { display: flex; align-items: baseline; gap: 8px; padding: 2px 8px 2px 20px; font-family: var(--font-code); font-size: 12px; min-width: 0; }
+  .dbg-var-group > summary { padding-left: 8px; }
+  .dbg-var-children { padding-left: 12px; }
+  .dbg-var-name { color: var(--o-accent); flex: none; }
+  .dbg-var-value { color: var(--o-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  .dbg-var-empty, .dbg-watch-idle { color: var(--o-faint); font-style: italic; }
+  .dbg-watch { padding-left: 8px; }
+  .dbg-watch-error { color: var(--o-error); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  .dbg-watch-remove { margin-left: auto; border: 0; background: transparent; color: var(--o-faint); cursor: pointer; font-size: 11px; }
+  .dbg-watch-remove:hover { color: var(--o-error); }
+  .call-stack-body { padding: 4px 0; }
+  .dbg-frame { display: flex; width: 100%; justify-content: space-between; gap: 8px; padding: 3px 10px; border: 0; background: transparent; color: var(--o-ink); font: inherit; font-size: 12px; text-align: left; cursor: pointer; }
+  .dbg-frame:hover { background: var(--o-accent-soft); }
+  .dbg-frame.is-current .dbg-frame-name { font-weight: 600; }
+  .dbg-frame-line { color: var(--o-muted); font-family: var(--font-code); }
+  .debug-console { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-top: 1px solid var(--o-line); }
+  .debug-console[hidden] { display: none; }
+  .debug-console-prompt { color: var(--o-accent); font-weight: 700; }
+  .debug-console-input { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; color: var(--o-ink); font-family: var(--font-code); font-size: 12px; }
+  .log-line.log-eval { color: var(--o-accent); }
+  .log-line.log-logpoint { color: var(--o-muted); font-style: italic; }
+  .line-numbers-gutter span.gutter-breakpoint-conditional::after { content: "◆"; color: #d97706; }
+  .line-numbers-gutter span.gutter-logpoint::after { content: "◇"; color: #2563eb; }
+  .code-line.has-debug-error { background: color-mix(in srgb, var(--o-error) 16%, transparent); outline: 1px solid color-mix(in srgb, var(--o-error) 50%, transparent); outline-offset: -1px; }
+
   /* Open Folder: Workspace / This computer (shell/folder-picker.js) */
   .fp-places { display: inline-flex; gap: 2px; margin-top: 10px; padding: 2px; border-radius: 8px; background: var(--o-accent-soft); }
   .fp-places button { font: inherit; font-size: 12.5px; padding: 5px 12px; border: 0; border-radius: 6px; background: transparent; color: inherit; cursor: pointer; }
