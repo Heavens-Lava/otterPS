@@ -1,0 +1,83 @@
+{
+  "profile": "otterps",
+  "sync": [
+    {
+      "file": "OTTER_PROGRAMMING_LANGUAGE_COMPLETE_PLATFORM_CHECKLIST.md",
+      "label": "Language",
+      "roles": [
+        {
+          "role": "language",
+          "milestone": "."
+        }
+      ],
+      "priorities": {
+        "34": "high",
+        "38": "high",
+        "42": "high",
+        "43": "high",
+        "44": "high",
+        "45": "high",
+        "46": "high"
+      }
+    },
+    {
+      "file": "OTTER_STUDIO_PROFESSIONAL_IDE_MASTER_CHECKLIST.md",
+      "label": "IDE",
+      "roles": [
+        {
+          "role": "ide",
+          "milestone": "."
+        }
+      ]
+    },
+    {
+      "file": "Otter-Website-Master-Checklist.md",
+      "label": "Website",
+      "milestone_level": 2,
+      "roles": [
+        {
+          "role": "website",
+          "milestone": "."
+        }
+      ],
+      "priorities": {
+        "download": "high",
+        "getting started": "high",
+        "errors & troubleshooting": "high",
+        "releases": "high"
+      }
+    },
+    {
+      "file": "docs/V1_CHECKLIST_RECONCILIATION.md",
+      "label": "1.0 reconciliation",
+      "roles": [
+        {
+          "role": "language",
+          "milestone": "."
+        }
+      ]
+    }
+  ],
+  "assets": {
+    "include": [
+      "otter-docs/static/images",
+      "otter-docs/static/icons",
+      "otter-studio/img",
+      "docs/architecture/exported",
+      "examples/otter-avatar.svg",
+      "examples/otter-cheer.svg",
+      "Otter Website documentation reference.png"
+    ],
+    "exclude": [
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/backup/**",
+      "**/release/**",
+      "**/scratch/**",
+      "**/generated/**",
+      "otter-site-publish/**",
+      "examples/file-organizer/**",
+      "docs/architecture/exported/*.svg"
+    ]
+  }
+}

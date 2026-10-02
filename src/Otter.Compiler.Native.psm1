@@ -137,6 +137,13 @@ function ConvertTo-OtterNativeExpression {
             $argArray = if ($argCode.Count) { 'new object[] { ' + ($argCode -join ', ') + ' }' } else { 'new object[0]' }
             return "R.Invoke(R.Resolve(e, $(ConvertTo-OtterCSharpString $Expr.Name), $($Expr.Arguments.Count), $line), $argArray, $line)"
         }
+        'Bytes' {
+            if ($Expr.Op.ToString() -eq 'FromText') {
+                $source = ConvertTo-OtterNativeExpression -Expr $Expr.Source -Context $Context
+                return "R.BytesFromText($source, $line)"
+            }
+            throw (New-OtterNativeUnsupported -Node $Expr -What "'bytes $($Expr.Op)'")
+        }
         default { throw (New-OtterNativeUnsupported -Node $Expr) }
     }
 }
@@ -390,6 +397,85 @@ function ConvertTo-OtterNativeStatement {
             $out.Add("${Pad}}")
         }
         'Reverse' { $out.Add("${Pad}R.Reverse(e, $(ConvertTo-OtterCSharpString $Stmt.Target), $line);") }
+        'SetRandomSeed' {
+            $seed = ConvertTo-OtterNativeExpression -Expr $Stmt.Seed -Context $Context
+            $out.Add("${Pad}R.SetRandomSeed($seed, $line);")
+        }
+        'RandomNumber' {
+            $from = ConvertTo-OtterNativeExpression -Expr $Stmt.From -Context $Context
+            $to = ConvertTo-OtterNativeExpression -Expr $Stmt.To -Context $Context
+            $out.Add("${Pad}e.Set($(ConvertTo-OtterCSharpString $Stmt.Target), R.RandomNumber($from, $to, $line));")
+        }
+        'RandomItem' {
+            $col = ConvertTo-OtterNativeExpression -Expr $Stmt.Collection -Context $Context
+            $out.Add("${Pad}e.Set($(ConvertTo-OtterCSharpString $Stmt.Target), R.RandomItem($col, $line));")
+        }
+        'RunProgram' {
+            $cmd = ConvertTo-OtterNativeExpression -Expr $Stmt.Target -Context $Context
+            $isCmd = if ($Stmt.IsCommand) { 'true' } else { 'false' }
+            if ($Stmt.ResultTarget) {
+                $out.Add("${Pad}e.Set($(ConvertTo-OtterCSharpString $Stmt.ResultTarget), R.Call(`"RunProgram`", new object[] { R.Format($cmd), $isCmd }, $line));")
+            } else {
+                $out.Add("${Pad}R.Call(`"RunProgram`", new object[] { R.Format($cmd), $isCmd }, $line);")
+            }
+        }
+        'HttpGet' {
+            $url = ConvertTo-OtterNativeExpression -Expr $Stmt.Url -Context $Context
+            $asJson = if ($Stmt.AsJson) { 'true' } else { 'false' }
+            $out.Add("${Pad}e.Set($(ConvertTo-OtterCSharpString $Stmt.Target), R.Call(`"HttpRequest`", new object[] { `"GET`", R.Format($url), null, $asJson }, $line));")
+        }
+        'HttpPost' {
+            $url = ConvertTo-OtterNativeExpression -Expr $Stmt.Url -Context $Context
+            $data = ConvertTo-OtterNativeExpression -Expr $Stmt.Data -Context $Context
+            $asJson = if ($Stmt.AsJson) { 'true' } else { 'false' }
+            if ($Stmt.Target) {
+                $out.Add("${Pad}e.Set($(ConvertTo-OtterCSharpString $Stmt.Target), R.Call(`"HttpRequest`", new object[] { `"POST`", R.Format($url), $data, $asJson }, $line));")
+            } else {
+                $out.Add("${Pad}R.Call(`"HttpRequest`", new object[] { `"POST`", R.Format($url), $data, $asJson }, $line);")
+            }
+        }
+        'HttpPut' {
+            $url = ConvertTo-OtterNativeExpression -Expr $Stmt.Url -Context $Context
+            $data = ConvertTo-OtterNativeExpression -Expr $Stmt.Data -Context $Context
+            $asJson = if ($Stmt.AsJson) { 'true' } else { 'false' }
+            if ($Stmt.Target) {
+                $out.Add("${Pad}e.Set($(ConvertTo-OtterCSharpString $Stmt.Target), R.Call(`"HttpRequest`", new object[] { `"PUT`", R.Format($url), $data, $asJson }, $line));")
+            } else {
+                $out.Add("${Pad}R.Call(`"HttpRequest`", new object[] { `"PUT`", R.Format($url), $data, $asJson }, $line);")
+            }
+        }
+        'HttpDelete' {
+            $url = ConvertTo-OtterNativeExpression -Expr $Stmt.Url -Context $Context
+            if ($Stmt.Target) {
+                $out.Add("${Pad}e.Set($(ConvertTo-OtterCSharpString $Stmt.Target), R.Call(`"HttpRequest`", new object[] { `"DELETE`", R.Format($url), null, false }, $line));")
+            } else {
+                $out.Add("${Pad}R.Call(`"HttpRequest`", new object[] { `"DELETE`", R.Format($url), null, false }, $line);")
+            }
+        }
+        'UdpOpen' {
+            $port = if ($null -ne $Stmt.Port) { ConvertTo-OtterNativeExpression -Expr $Stmt.Port -Context $Context } else { 'null' }
+            $out.Add("${Pad}e.Set($(ConvertTo-OtterCSharpString $Stmt.Target), R.UdpOpen($port, $line));")
+        }
+        'UdpSend' {
+            $sock = ConvertTo-OtterNativeExpression -Expr $Stmt.Socket -Context $Context
+            $data = ConvertTo-OtterNativeExpression -Expr $Stmt.Data -Context $Context
+            $hostExpr = ConvertTo-OtterNativeExpression -Expr $Stmt.HostExpr -Context $Context
+            $port = ConvertTo-OtterNativeExpression -Expr $Stmt.Port -Context $Context
+            $out.Add("${Pad}R.UdpSend($sock, $data, $hostExpr, $port, $line);")
+        }
+        'NetClose' {
+            $sock = ConvertTo-OtterNativeExpression -Expr $Stmt.Socket -Context $Context
+            $out.Add("${Pad}R.NetClose($sock, $line);")
+        }
+        'WebSocketEvent' {
+            $sock = ConvertTo-OtterNativeExpression -Expr $Stmt.Socket -Context $Context
+            $method = $Context.Next('handler')
+            $body = ConvertTo-OtterNativeBlock -Statements $Stmt.Body -Context $Context -InFunction $false -Pad '        '
+            $text = "    static object $method(Env e) {`n$($body -join "`n")`n        return null;`n    }"
+            $Context.Methods.Add($text)
+            $evtKind = ConvertTo-OtterCSharpString $Stmt.EventKind.ToString()
+            $out.Add("${Pad}R.AddNetHandler($sock, $evtKind, new OtterBody($method), e, $line);")
+        }
         default { throw (New-OtterNativeUnsupported -Node $Stmt) }
     }
     return , $out
@@ -413,6 +499,7 @@ function ConvertTo-OtterCSharp {
     foreach ($m in $context.Methods) { [void]$sb.AppendLine($m) }
     [void]$sb.AppendLine('    public static void Run(Env e) {')
     foreach ($l in $main) { [void]$sb.AppendLine($l) }
+    [void]$sb.AppendLine('        R.PumpEvents(e);')
     [void]$sb.AppendLine('    }')
     [void]$sb.AppendLine('}')
     return $sb.ToString()
@@ -493,6 +580,8 @@ function ConvertTo-OtterInterpreterValue {
     if ($Value -is [OtterNative.OtterTypeValue]) { return [OtterType]::new($Value.Name, $Value.Fields) }
     if ($Value -is [OtterNative.OtterDateValue]) { return [OtterDate]::new($Value.Value, $Value.HasTime) }
     if ($Value -is [OtterNative.OtterFn]) { return [OtterFunction]::new($Value.Name, $Value.Params, @()) }
+    if ($Value -is [OtterNative.OtterBytesValue]) { return [OtterBytes]::new($Value.Value) }
+    if ($Value -is [OtterNative.OtterUdpSocket]) { return $Value }
     return $Value
 }
 
@@ -511,6 +600,9 @@ function ConvertFrom-OtterInterpreterValue {
     }
     if ($Value -is [OtterDate]) { return [OtterNative.OtterDateValue]::new($Value.Value, $Value.HasTime) }
     if ($Value -is [OtterType]) { return [OtterNative.OtterTypeValue]::new($Value.Name, $Value.FieldNames) }
+    if ($Value -is [OtterBytes]) { return [OtterNative.OtterBytesValue]::new($Value.Value) }
+    if ($Value -is [OtterNative.OtterUdpSocket]) { return $Value }
+    if ($Value -is [int] -or $Value -is [long] -or $Value -is [decimal]) { return [double]$Value }
     if ($Value -is [double] -or $Value -is [string] -or $Value -is [bool]) { return $Value }
     throw [OtterError]::new("The compiled backend cannot hold $($Value.GetType().Name) values yet. Run this program with otter run.", $Line, 'runtime')
 }
@@ -544,6 +636,22 @@ $script:OtterNativeHost = {
             'MoveFile' {
                 $source = Get-OtterNativePath $Arguments[0] $Line
                 Move-OtterFile -Source $source -Destination (Get-OtterNativePath $Arguments[1] $Line) -Line $Line
+            }
+            'RunProgram' {
+                $target = [string]$Arguments[0]
+                $isCommand = [bool]$Arguments[1]
+                if (-not $isCommand) {
+                    Start-OtterProgram -Target $target -Line $Line
+                } else {
+                    Invoke-OtterCommand -CommandLine $target -Line $Line
+                }
+            }
+            'HttpRequest' {
+                $method = [string]$Arguments[0]
+                $url = [string]$Arguments[1]
+                $data = if ($Arguments.Length -gt 2 -and $null -ne $Arguments[2]) { ConvertTo-OtterInterpreterValue $Arguments[2] } else { $null }
+                $asJson = if ($Arguments.Length -gt 3) { [bool]$Arguments[3] } else { $false }
+                Invoke-OtterHttpRequest -Method $method -Url $url -Data $data -AsJson $asJson -Line $Line
             }
             default { throw [OtterError]::new("The compiled backend has no library bridge for $Name.", $Line, 'runtime') }
         }

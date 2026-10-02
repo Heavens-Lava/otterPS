@@ -142,6 +142,49 @@ namespace OtterNative
         public override string ToString() { return "OtterFunction"; }
     }
 
+    public sealed class OtterBytesValue
+    {
+        public readonly byte[] Value;
+        public OtterBytesValue(byte[] value) { Value = value ?? new byte[0]; }
+        public override string ToString() { return "OtterBytes"; }
+    }
+
+    public sealed class OtterNetHandler
+    {
+        public readonly string EventKind;
+        public readonly OtterBody Body;
+        public readonly Env Environment;
+        public OtterNetHandler(string eventKind, OtterBody body, Env env)
+        {
+            EventKind = eventKind;
+            Body = body;
+            Environment = env;
+        }
+    }
+
+    public sealed class OtterUdpSocket
+    {
+        public readonly System.Net.Sockets.UdpClient Client;
+        public readonly int Port;
+        public bool IsClosed;
+        public readonly List<OtterNetHandler> Handlers = new List<OtterNetHandler>();
+
+        public OtterUdpSocket(System.Net.Sockets.UdpClient client, int port)
+        {
+            Client = client;
+            Port = port;
+            IsClosed = false;
+        }
+
+        public void Close()
+        {
+            if (IsClosed) return;
+            IsClosed = true;
+            try { Client.Close(); } catch { }
+        }
+        public override string ToString() { return "OtterUdp"; }
+    }
+
     public static class R
     {
         public static Action<string> Out;
@@ -162,7 +205,7 @@ namespace OtterNative
         public static Env Global;
         static int depth;
 
-        public static void Reset(Env global, Action<string> output) { Global = global; Out = output; depth = 0; }
+        public static void Reset(Env global, Action<string> output) { Global = global; Out = output; depth = 0; activeSockets.Clear(); }
 
         public static OtterNativeError Err(string message, int line, string suggestion)
         {
@@ -198,6 +241,8 @@ namespace OtterNative
             if (type != null) return "the type " + type.Name;
             OtterFn fn = v as OtterFn;
             if (fn != null) return "<" + fn.Name + ", something Otter can do>";
+            if (v is OtterBytesValue) return "OtterBytes";
+            if (v is OtterUdpSocket) return "OtterUdp";
             return Convert.ToString(v, CultureInfo.InvariantCulture);
         }
 
@@ -207,6 +252,8 @@ namespace OtterNative
             if (v == null) return "gone";
             if (v is bool) return "a true or false value";
             if (v is OtterFn) return "something Otter can do";
+            if (v is OtterBytesValue) return "bytes";
+            if (v is OtterUdpSocket) return "a udp socket";
             OtterDateValue dateValue = v as OtterDateValue;
             if (dateValue != null) return dateValue.HasTime ? "a date and time" : "a date";
             OtterThing thingValue = v as OtterThing;
@@ -775,6 +822,156 @@ namespace OtterNative
             depth++;
             try { return fn.Body(local); }
             finally { depth--; }
+        }
+
+        static Random rng = new Random();
+
+        public static void SetRandomSeed(object seedVal, int line)
+        {
+            double seed = AssertNumber(seedVal, line, "a random seed");
+            rng = new Random((int)seed);
+        }
+
+        public static object RandomNumber(object fromVal, object toVal, int line)
+        {
+            double from = AssertNumber(fromVal, line, "the lowest number");
+            double to = AssertNumber(toVal, line, "the highest number");
+            if (from > to) { double swap = from; from = to; to = swap; }
+            int min = (int)Math.Floor(from);
+            int max = (int)Math.Floor(to);
+            return (object)(double)rng.Next(min, max + 1);
+        }
+
+        public static object RandomItem(object colVal, int line)
+        {
+            List<object> list = colVal as List<object>;
+            if (list == null) throw Err("I can only pick from a list, but this is " + TypeName(colVal) + ".", line, null);
+            if (list.Count == 0) return null;
+            int idx = rng.Next(0, list.Count);
+            return list[idx];
+        }
+
+        static readonly List<OtterUdpSocket> activeSockets = new List<OtterUdpSocket>();
+
+        public static OtterBytesValue BytesFromText(object textVal, int line)
+        {
+            string s = Format(textVal);
+            return new OtterBytesValue(System.Text.Encoding.UTF8.GetBytes(s));
+        }
+
+        public static OtterUdpSocket UdpOpen(object portVal, int line)
+        {
+            int port = 0;
+            if (portVal != null)
+            {
+                port = (int)AssertNumber(portVal, line, "a port number");
+            }
+            try
+            {
+                System.Net.Sockets.UdpClient client = port > 0
+                    ? new System.Net.Sockets.UdpClient(port, System.Net.Sockets.AddressFamily.InterNetwork)
+                    : new System.Net.Sockets.UdpClient(0, System.Net.Sockets.AddressFamily.InterNetwork);
+                int actualPort = ((System.Net.IPEndPoint)client.Client.LocalEndPoint).Port;
+                OtterUdpSocket sock = new OtterUdpSocket(client, actualPort);
+                activeSockets.Add(sock);
+                return sock;
+            }
+            catch (Exception ex)
+            {
+                throw Err("I could not open a udp socket on port " + port + ": " + ex.Message, line, null);
+            }
+        }
+
+        public static void UdpSend(object socketVal, object dataVal, object hostVal, object portVal, int line)
+        {
+            OtterUdpSocket sock = socketVal as OtterUdpSocket;
+            if (sock == null) throw Err("I can only send to a host and port through a udp socket, but this is " + TypeName(socketVal) + ".", line, "open udp on port 9000 and call it socket");
+            if (sock.IsClosed) throw Err("I cannot send through a udp socket that is not open (its state is 'closed').", line, null);
+            OtterBytesValue bytes = dataVal as OtterBytesValue;
+            if (bytes == null) throw Err("I can only send bytes through a udp socket, but this is " + TypeName(dataVal) + ".", line, null);
+            string host = Format(hostVal);
+            int port = (int)AssertNumber(portVal, line, "a port number");
+            try
+            {
+                System.Net.IPAddress ip;
+                if (!System.Net.IPAddress.TryParse(host, out ip))
+                {
+                    System.Net.IPAddress[] addrs = System.Net.Dns.GetHostAddresses(host);
+                    for (int i = 0; i < addrs.Length; i++)
+                    {
+                        if (addrs[i].AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork) { ip = addrs[i]; break; }
+                    }
+                }
+                if (ip == null) throw new Exception("no IPv4 address found for '" + host + "'");
+                sock.Client.Send(bytes.Value, bytes.Value.Length, new System.Net.IPEndPoint(ip, port));
+            }
+            catch (Exception ex)
+            {
+                throw Err("I could not send the udp datagram to " + host + ":" + port + ": " + ex.Message, line, null);
+            }
+        }
+
+        public static void NetClose(object socketVal, int line)
+        {
+            OtterUdpSocket sock = socketVal as OtterUdpSocket;
+            if (sock != null)
+            {
+                sock.Close();
+                return;
+            }
+            throw Err("I can only close a udp socket here, but this is " + TypeName(socketVal) + ".", line, "close udp <name>");
+        }
+
+        public static void AddNetHandler(object socketVal, string eventKind, OtterBody body, Env env, int line)
+        {
+            OtterUdpSocket sock = socketVal as OtterUdpSocket;
+            if (sock == null) throw Err("I can only listen for a network event on a udp socket, but this is " + TypeName(socketVal) + ".", line, null);
+            sock.Handlers.Add(new OtterNetHandler(eventKind, body, env));
+        }
+
+        public static void PumpEvents(Env e)
+        {
+            while (true)
+            {
+                bool hasHandlers = false;
+                for (int i = 0; i < activeSockets.Count; i++)
+                {
+                    OtterUdpSocket sock = activeSockets[i];
+                    if (!sock.IsClosed && sock.Handlers.Count > 0)
+                    {
+                        hasHandlers = true;
+                        break;
+                    }
+                }
+                if (!hasHandlers) break;
+
+                bool receivedAny = false;
+                for (int i = 0; i < activeSockets.Count; i++)
+                {
+                    OtterUdpSocket sock = activeSockets[i];
+                    if (sock.IsClosed || sock.Handlers.Count == 0) continue;
+
+                    while (sock.Client.Available > 0)
+                    {
+                        System.Net.IPEndPoint ep = new System.Net.IPEndPoint(System.Net.IPAddress.Any, 0);
+                        byte[] data = sock.Client.Receive(ref ep);
+                        receivedAny = true;
+                        for (int h = 0; h < sock.Handlers.Count; h++)
+                        {
+                            OtterNetHandler handler = sock.Handlers[h];
+                            if (handler.EventKind == "Data")
+                            {
+                                handler.Body(handler.Environment);
+                            }
+                        }
+                        if (sock.IsClosed) break;
+                    }
+                }
+                if (!receivedAny)
+                {
+                    System.Threading.Thread.Sleep(1);
+                }
+            }
         }
     }
 }
