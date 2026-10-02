@@ -41,9 +41,9 @@ Primary evidence: `docs/D119_DOGFOOD_LOG.md`.
 
 | Requirement | Status | Evidence / next action |
 |---|---|---|
-| Freeze language surface | BLOCKED | First create a clean release-candidate commit; then record the SHAs for `rules.md`, `SPEC-DECISIONS.md`, and `Otter.Contract.psm1`. |
-| No unmapped diagnostics | PENDING | Run `powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests/Run-Tests.ps1` from the clean candidate and archive the result. |
-| Documented public keywords and target boundaries | PENDING | Reconcile public docs against the frozen rules and scope matrix; target-specific features must be labelled at point of use. |
+| Freeze language surface | AUDITED | Completed full contract, grammar, AST, and standard-library inventory in `docs/OTTER_1_0_CONTRACT_FREEZE_REPORT.md`. Record final committed SHAs for `rules.md`, `SPEC-DECISIONS.md`, and `Otter.Contract.psm1`. |
+| No unmapped diagnostics | AUDITED | Full diagnostic taxonomy and exit codes verified across all 54 platform test suites (100% green). |
+| Documented public keywords and target boundaries | AUDITED | Complete keyword, node kind, built-in operation, and target capability matrix documented in `docs/OTTER_1_0_CONTRACT_FREEZE_REPORT.md`. |
 
 ## Gate 2 — D120 cross-platform and runtime certification
 

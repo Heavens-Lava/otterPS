@@ -1,0 +1,56 @@
+# src/ui/components.ot - Reusable visual components and card helpers
+
+use "../models/types.ot"
+
+to formatStatCard title and value and subtext
+    convert value to json into valStr
+    res is "📊 " and title and ": " and valStr and " (" and subtext and ")"
+    return res
+.
+
+to formatProjectCardSummary project
+    pName is name of project
+    pStatus is status of project
+    pProg is progress of project
+    convert pProg to json into progStr
+    pTasks is tasksCount of project
+    convert pTasks to json into taskStr
+    
+    summary is "📁 " and pName and " [" and pStatus and "] - " and progStr and "% (" and taskStr and " tasks)"
+    return summary
+.
+
+to formatTaskRow task
+    tTitle is title of task
+    tStatus is status of task
+    tPri is priority of task
+    tDue is dueDate of task
+    tComp is completed of task
+    
+    mark is "[ ] "
+    if tComp
+        mark is "[✓] "
+    .
+    
+    formatted is mark and tTitle and " (" and tPri and " priority, due " and tDue and ") [" and tStatus and "]"
+    return formatted
+.
+
+to formatActivityRow activity
+    aIcon is icon of activity
+    aAction is actionText of activity
+    aProj is projectName of activity
+    aTime is timestamp of activity
+    
+    res is aIcon and " " and aAction and " • " and aProj and " (" and aTime and ")"
+    return res
+.
+
+to formatKanbanCard task
+    tTitle is title of task
+    tPri is priority of task
+    tProj is projectName of task
+    
+    cardText is "• " and tTitle and "\n  " and tProj and " | Priority: " and tPri
+    return cardText
+.

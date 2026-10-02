@@ -1,0 +1,20 @@
+﻿{
+    "name":  "OtterBoard",
+    "version":  "1.0.0",
+    "target":  "desktop",
+    "archetype":  "desktop",
+    "entryPoint":  "index.html",
+    "otterVersion":  "0.9.0",
+    "includedFiles":  [
+                          "assets/styles.css",
+                          "index.html",
+                          "otter.build.json",
+                          "run-desktop.cmd"
+                      ],
+    "assetManifest":  [
+                          "assets/styles.css"
+                      ],
+    "artifactFilename":  "OtterBoard-1.0.0.zip",
+    "sha256":  "df08d259ba71d979b54e5ecd2d310ae08042b45770b1b8a472b060426d5d0005",
+    "runtimeRequirements":  "Requires Otter runtime (otter in PATH) to run desktop application shell."
+}

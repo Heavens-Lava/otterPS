@@ -1,0 +1,9 @@
+﻿{
+  "name": "OtterBoard",
+  "version": "1.0.0",
+  "target": "desktop",
+  "entryPoint": "index.html",
+  "assets": [
+    "assets/styles.css"
+  ]
+}

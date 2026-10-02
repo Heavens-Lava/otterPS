@@ -1,0 +1,72 @@
+# src/models/types.ot - OtterBoard domain models
+
+a Project has
+    id
+    name
+    description
+    status
+    progress
+    category
+    tasksCount
+    color
+.
+
+a TaskItem has
+    id
+    title
+    description
+    projectId
+    projectName
+    status
+    priority
+    dueDate
+    completed
+.
+
+a NoteItem has
+    id
+    title
+    content
+    projectId
+    createdAt
+.
+
+a ActivityLog has
+    id
+    icon
+    actionText
+    projectName
+    timestamp
+.
+
+a UserSettings has
+    theme
+    accentColor
+    userName
+    notificationsEnabled
+.
+
+to createProject id and name and description and status and progress and category and tasksCount and color
+    p is a Project with id id, name name, description description, status status, progress progress, category category, tasksCount tasksCount, color color
+    return p
+.
+
+to createTaskItem id and title and description and projectId and projectName and status and priority and dueDate and completed
+    t is a TaskItem with id id, title title, description description, projectId projectId, projectName projectName, status status, priority priority, dueDate dueDate, completed completed
+    return t
+.
+
+to createNoteItem id and title and content and projectId and createdAt
+    n is a NoteItem with id id, title title, content content, projectId projectId, createdAt createdAt
+    return n
+.
+
+to createActivityLog id and icon and actionText and projectName and timestamp
+    act is a ActivityLog with id id, icon icon, actionText actionText, projectName projectName, timestamp timestamp
+    return act
+.
+
+to createUserSettings theme and accentColor and userName and notificationsEnabled
+    s is a UserSettings with theme theme, accentColor accentColor, userName userName, notificationsEnabled notificationsEnabled
+    return s
+.

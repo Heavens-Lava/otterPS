@@ -1,0 +1,77 @@
+# tests/board_test.ot - Automated test suite for OtterBoard
+
+use "../src/models/types.ot"
+use "../src/data/store.ot"
+use "../src/services/board_service.ot"
+use "../src/ui/components.ot"
+
+# 1. Models & Seeding
+projects is getInitialProjects
+if length of projects is not 5
+    fail with "Expected 5 seeded projects in OtterBoard."
+.
+
+tasks is getInitialTasks
+if length of tasks is not 6
+    fail with "Expected 6 seeded tasks in OtterBoard."
+.
+
+notes is getInitialNotes
+if length of notes is not 2
+    fail with "Expected 2 seeded notes in OtterBoard."
+.
+
+activity is getInitialActivities
+if length of activity is not 3
+    fail with "Expected 3 seeded activity logs in OtterBoard."
+.
+
+settings is getInitialSettings
+if theme of settings is not "Dark"
+    fail with "Expected default theme to be Dark."
+.
+
+# 2. Task Query Calculations
+activeCount is countActiveTasks tasks
+if activeCount is not 4
+    fail with "Expected 4 active tasks initially."
+.
+
+compCount is countCompletedTasks tasks
+if compCount is not 2
+    fail with "Expected 2 completed tasks initially."
+.
+
+# 3. Status Filtering
+inProgTasks is filterTasksByStatus tasks and "In Progress"
+if length of inProgTasks is not 2
+    fail with "Expected 2 In Progress tasks."
+.
+
+# 4. Search Functionality
+searchMatches is searchBoard projects and tasks and "IDE"
+if length of searchMatches is 0
+    fail with "Expected search for 'IDE' to find Otter IDE project."
+.
+
+# 5. Task Mutation & Completion Toggle
+toggleTaskCompletion tasks and "task_1"
+newActiveCount is countActiveTasks tasks
+if newActiveCount is not 3
+    fail with "Expected active count to decrement after completing task_1."
+.
+
+# 6. UI Formatting Helpers
+firstProj is first of projects
+summaryText is formatProjectCardSummary firstProj
+if not summaryText contains "Otter IDE"
+    fail with "Expected project card summary to contain Otter IDE."
+.
+
+firstTask is first of tasks
+taskRowText is formatTaskRow firstTask
+if not taskRowText contains "Fix stylesheet"
+    fail with "Expected task row to contain task title."
+.
+
+say "board_test: All 6 OtterBoard test suites passed successfully."

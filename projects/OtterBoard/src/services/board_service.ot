@@ -1,0 +1,78 @@
+# src/services/board_service.ot - Board service and query calculations
+
+use "../models/types.ot"
+
+to countActiveTasks tasks
+    activeCount is 0
+    for each t in tasks
+        if not completed of t
+            add 1 to activeCount
+        .
+    .
+    return activeCount
+.
+
+to countCompletedTasks tasks
+    compCount is 0
+    for each t in tasks
+        if completed of t
+            add 1 to compCount
+        .
+    .
+    return compCount
+.
+
+to filterTasksByStatus tasks and targetStatus
+    filtered are empty
+    for each t in tasks
+        if status of t is targetStatus
+            add t to filtered
+        .
+    .
+    return filtered
+.
+
+to filterTasksByProject tasks and targetProjectId
+    filtered are empty
+    for each t in tasks
+        if projectId of t is targetProjectId
+            add t to filtered
+        .
+    .
+    return filtered
+.
+
+to searchBoard projects and tasks and query
+    matches are empty
+    if query is ""
+        return matches
+    .
+    for each p in projects
+        pName is name of p
+        pDesc is description of p
+        if pName contains query
+            add p to matches
+        .
+        if pDesc contains query
+            if not matches contains p
+                add p to matches
+            .
+        .
+    .
+    return matches
+.
+
+to toggleTaskCompletion tasks and taskId
+    for each t in tasks
+        if id of t is taskId
+            curState is completed of t
+            if curState
+                completed of t is false
+                status of t is "In Progress"
+            otherwise
+                completed of t is true
+                status of t is "Done"
+            .
+        .
+    .
+.

@@ -1,0 +1,231 @@
+# main.ot - Flagship OtterBoard Desktop Application
+# Plan. Build. Create. Together.
+
+use "src/models/types.ot"
+use "src/data/store.ot"
+use "src/services/board_service.ot"
+use "src/ui/components.ot"
+
+# 1. State Initialization
+projects is getInitialProjects
+tasks is getInitialTasks
+notes is getInitialNotes
+activity is getInitialActivities
+settings is getInitialSettings
+
+# 2. Main Desktop Window
+create window into app
+title of app is "OtterBoard — Plan. Build. Create. Together."
+width of app is 1600
+height of app is 1000
+
+# 3. Top Application Bar
+create row into topBar
+create heading into appLogo
+text of appLogo is "🦦 OtterBoard"
+put appLogo in topBar
+
+create text box into searchInput
+placeholder of searchInput is "Search projects, tasks, or anything... (Ctrl+K)"
+put searchInput in topBar
+
+create button into themeToggleBtn
+text of themeToggleBtn is "🌙 Dark Theme"
+put themeToggleBtn in topBar
+
+put topBar in app
+
+# 4. Main Body Container (Sidebar + Main Content)
+create row into appBody
+
+# 4.1 Left Navigation Sidebar
+create column into sidebar
+
+create heading into navHeader
+text of navHeader is "NAVIGATION"
+put navHeader in sidebar
+
+create button into navDashBtn
+text of navDashBtn is "📊 Dashboard"
+put navDashBtn in sidebar
+
+create button into navProjectsBtn
+text of navProjectsBtn is "📁 Projects"
+put navProjectsBtn in sidebar
+
+create button into navTasksBtn
+text of navTasksBtn is "✅ My Tasks"
+put navTasksBtn in sidebar
+
+create button into navCalendarBtn
+text of navCalendarBtn is "📅 Calendar"
+put navCalendarBtn in sidebar
+
+create button into navNotesBtn
+text of navNotesBtn is "📝 Notes"
+put navNotesBtn in sidebar
+
+create button into navActivityBtn
+text of navActivityBtn is "⚡ Activity"
+put navActivityBtn in sidebar
+
+create button into navSettingsBtn
+text of navSettingsBtn is "⚙️ Settings"
+put navSettingsBtn in sidebar
+
+# Pinned Projects
+create heading into pinnedHeader
+text of pinnedHeader is "PINNED PROJECTS"
+put pinnedHeader in sidebar
+
+for each p in projects
+    create button into pBtn
+    pName is name of p
+    text of pBtn is "• " and pName
+    put pBtn in sidebar
+.
+
+# Rudy Branding Footer Quote
+create card into rudyCard
+create text into rudyQuote
+text of rudyQuote is "🦦 \"Small steps build big things.\""
+put rudyQuote in rudyCard
+put rudyCard in sidebar
+
+put sidebar in appBody
+
+# 4.2 Main Scrollable Content Area
+create scroll into contentScroll
+create column into mainContent
+
+# Greeting Header
+create heading into greetingTitle
+text of greetingTitle is "Good evening 👋"
+put greetingTitle in mainContent
+
+create text into greetingSub
+text of greetingSub is "Here's what's happening with your projects today."
+put greetingSub in mainContent
+
+# Dashboard Statistics Summary (4 Cards)
+create row into statsRow
+
+totalProjCount is length of projects
+stat1 is formatStatCard "Total Projects" and totalProjCount and "Active"
+create card into card1
+create text into statText1
+text of statText1 is stat1
+put statText1 in card1
+put card1 in statsRow
+
+activeTaskCount is countActiveTasks tasks
+stat2 is formatStatCard "Active Tasks" and activeTaskCount and "In Progress"
+create card into card2
+create text into statText2
+text of statText2 is stat2
+put statText2 in card2
+put card2 in statsRow
+
+stat3 is formatStatCard "Upcoming" and 5 and "Next 7 days"
+create card into card3
+create text into statText3
+text of statText3 is stat3
+put statText3 in card3
+put card3 in statsRow
+
+completedTaskCount is countCompletedTasks tasks
+stat4 is formatStatCard "Completed" and completedTaskCount and "+6 this week"
+create card into card4
+create text into statText4
+text of statText4 is stat4
+put statText4 in card4
+put card4 in statsRow
+
+put statsRow in mainContent
+
+# Recent Projects Section
+create heading into projSectionHeader
+text of projSectionHeader is "Recent Projects"
+put projSectionHeader in mainContent
+
+create column into projListContainer
+for each proj in projects
+    create card into projCard
+    summaryText is formatProjectCardSummary proj
+    create text into projSummary
+    text of projSummary is summaryText
+    put projSummary in projCard
+    put projCard in projListContainer
+.
+put projListContainer in mainContent
+
+# Tasks Panel
+create heading into taskSectionHeader
+text of taskSectionHeader is "My Tasks"
+put taskSectionHeader in mainContent
+
+create column into taskListContainer
+for each task in tasks
+    create row into taskRow
+    rowText is formatTaskRow task
+    create text into taskLabel
+    text of taskLabel is rowText
+    put taskLabel in taskRow
+    put taskRow in taskListContainer
+.
+put taskListContainer in mainContent
+
+# Quick Actions
+create heading into actionSectionHeader
+text of actionSectionHeader is "Quick Actions"
+put actionSectionHeader in mainContent
+
+create row into actionRow
+create button into newProjectBtn
+text of newProjectBtn is "➕ New Project"
+put newProjectBtn in actionRow
+
+create button into newTaskBtn
+text of newTaskBtn is "➕ New Task"
+put newTaskBtn in actionRow
+
+create button into newNoteBtn
+text of newNoteBtn is "📝 New Note"
+put newNoteBtn in actionRow
+
+create button into saveStateBtn
+text of saveStateBtn is "💾 Save State"
+put saveStateBtn in actionRow
+
+put actionRow in mainContent
+
+# Activity Feed Section
+create heading into actSectionHeader
+text of actSectionHeader is "Recent Activity"
+put actSectionHeader in mainContent
+
+create column into actContainer
+for each act in activity
+    create text into actLine
+    text of actLine is formatActivityRow act
+    put actLine in actContainer
+.
+put actContainer in mainContent
+
+put mainContent in contentScroll
+put contentScroll in appBody
+
+put appBody in app
+
+# Event Handlers
+when saveStateBtn is clicked
+    saveSuccess is saveBoardData "data/otterboard.json" and projects and tasks and notes and activity and settings
+    if saveSuccess
+        say "OtterBoard: State successfully saved to data/otterboard.json."
+    otherwise
+        say "OtterBoard: Notice - Saved in memory."
+    .
+.
+
+say "OtterBoard Desktop initialized successfully."
+show app

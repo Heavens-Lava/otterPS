@@ -1,0 +1,76 @@
+# src/data/store.ot - Persistent data management for OtterBoard
+
+use "../models/types.ot"
+
+to getInitialProjects
+    projList are empty
+    p1 is createProject "proj_1" and "Otter IDE" and "A calm, powerful, and intelligent IDE for everyone." and "Active" and 72 and "Developer Tools" and 8 and "#0EA5E9"
+    add p1 to projList
+    p2 is createProject "proj_2" and "OtterGraph" and "Creative editor for images, videos, and interactive nodes." and "Active" and 46 and "Creative" and 5 and "#8B5CF6"
+    add p2 to projList
+    p3 is createProject "proj_3" and "PS5 Blackout" and "Campaign, website, and game development." and "Active" and 60 and "Gaming" and 12 and "#10B981"
+    add p3 to projList
+    p4 is createProject "proj_4" and "YouTube Tutorials" and "Tutorial ideas, scripts, recordings, and assets." and "Planning" and 25 and "Content" and 4 and "#F59E0B"
+    add p4 to projList
+    p5 is createProject "proj_5" and "House Planning" and "Interior design, budget planning, and contractor quotes." and "Active" and 80 and "Personal" and 6 and "#EC4899"
+    add p5 to projList
+    return projList
+.
+
+to getInitialTasks
+    taskList are empty
+    t1 is createTaskItem "task_1" and "Fix stylesheet loading in Otter compiler" and "Ensure CSS assets bundle correctly in distribution builds." and "proj_1" and "Otter IDE" and "In Progress" and "High" and "Today" and false
+    add t1 to taskList
+    t2 is createTaskItem "task_2" and "Design new Designer toolbar" and "Add zoom, pan, align, and layout toggle controls." and "proj_1" and "Otter IDE" and "In Progress" and "Medium" and "Tomorrow" and false
+    add t2 to taskList
+    t3 is createTaskItem "task_3" and "Write campaign post" and "Draft community update announcing the new beta." and "proj_3" and "PS5 Blackout" and "Backlog" and "Low" and "Next Week" and false
+    add t3 to taskList
+    t4 is createTaskItem "task_4" and "Prepare CIS215 assignment" and "Complete lab exercises on memory paging." and "proj_4" and "YouTube Tutorials" and "Done" and "High" and "Yesterday" and true
+    add t4 to taskList
+    t5 is createTaskItem "task_5" and "Add drag and drop to Otter IDE" and "Implement drag events for file tree rearrangement." and "proj_1" and "Otter IDE" and "Review" and "Medium" and "Friday" and false
+    add t5 to taskList
+    t6 is createTaskItem "task_6" and "Plan OtterBoard release" and "Finalize documentation, assets, and project templates." and "proj_1" and "Otter IDE" and "Done" and "High" and "Today" and true
+    add t6 to taskList
+    return taskList
+.
+
+to getInitialNotes
+    notesList are empty
+    n1 is createNoteItem "note_1" and "Design Philosophy" and "Keep the interface calm, high-contrast, and focused on typography and spacing." and "proj_1" and "2026-09-28"
+    add n1 to notesList
+    n2 is createNoteItem "note_2" and "Release Notes Outline" and "Highlight zero-workaround pure Otter application proof and performance." and "proj_1" and "2026-09-29"
+    add n2 to notesList
+    return notesList
+.
+
+to getInitialActivities
+    actList are empty
+    a1 is createActivityLog "act_1" and "🚀" and "Created project OtterBoard" and "Otter IDE" and "10 minutes ago"
+    add a1 to actList
+    a2 is createActivityLog "act_2" and "✅" and "Completed task 'Plan OtterBoard release'" and "Otter IDE" and "25 minutes ago"
+    add a2 to actList
+    a3 is createActivityLog "act_3" and "📝" and "Updated task 'Design new Designer toolbar'" and "Otter IDE" and "1 hour ago"
+    add a3 to actList
+    return actList
+.
+
+to getInitialSettings
+    return createUserSettings "Dark" and "#0EA5E9" and "Developer" and true
+.
+
+to saveBoardData filePath and projects and tasks and notes and activity and settings
+    try
+        payload is a thing
+        set "projects" to projects in payload
+        set "tasks" to tasks in payload
+        set "notes" to notes in payload
+        set "activity" to activity in payload
+        set "settings" to settings in payload
+        
+        convert payload to json into jsonText
+        write jsonText to filePath atomically
+        return true
+    otherwise
+        return false
+    .
+.
