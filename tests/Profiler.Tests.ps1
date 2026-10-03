@@ -70,6 +70,16 @@ say "Sum of squares:" result
         Assert-False ($r.Text -match 'Invoke-Otter|System\.|ScriptBlock|\.psm1') 'Otter terms only'
     }
 
+    Test-Otter 'the profile report includes CPU time, utilization percentage, and user/kernel breakdown' {
+        $r = Invoke-OtterCommandText @('profile', $program)
+        Assert-AreEqual -Expected 0 -Actual $r.ExitCode
+        Assert-True ($r.Text -match 'CPU:\s+[0-9.]+\s+ms') 'CPU time in report summary'
+        Assert-True ($r.Text -match '[0-9.]+\s*%\s+utilization') 'CPU utilization in report summary'
+        Assert-True ($r.Text -match 'user:\s+[0-9.]+\s+ms') 'User processor time in report summary'
+        Assert-True ($r.Text -match 'kernel:\s+[0-9.]+\s+ms') 'Kernel processor time in report summary'
+        Assert-True ($r.Text -match 'cpu ms') 'cpu ms column header present'
+    }
+
     Test-Otter 'a program that fails still prints the profile and exits with the runtime-error code' {
         $bad = New-OtterTestFile 'bad.ot' "say `"before`"`nsay missingName`n"
         $r = Invoke-OtterCommandText @('profile', $bad)
