@@ -1782,7 +1782,7 @@ creation.
 -   [x] Memory profiler integration (src/Otter.Profiler.psm1: managed heap peak/delta, working set peak/delta, and GC collections in otter profile; tests/Profiler.Tests.ps1)
 -   [x] Allocation tracking (src/Otter.Profiler.psm1: per-function and per-line allocated bytes tracking in otter profile; tests/Profiler.Tests.ps1)
 -   [x] Performance regression CI (certified in tools/Test-OtterPerformanceGate.ps1)
--   [ ] Optimization policy that preserves semantics
+-   [x] Optimization policy that preserves semantics (docs/OTTER_OPTIMIZATION_POLICY.md: 5-gate validation lifecycle, immutable semantics invariants, and golden grid verification in tests/Optimizations.Tests.ps1)
 
 # 35. Testing Framework
 
