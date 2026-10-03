@@ -47,6 +47,7 @@ printed and stored in the JSON output.
 | `contains_300.ot` | `contains` scans: 20 worst-case lookups on a 300-item number list |
 | `contains_5000.ot` | `contains` scans: 2 worst-case lookups on a 5,000-item number list |
 | `event_dispatch.ot` | event loop: 100 loopback UDP datagrams to an `on data` handler (uses port 47391) |
+| `game_loop.ot` | 2D entity movement, boundary collision, and distance checks over 60 frames |
 
 Workloads are deliberately small (hundreds to a few thousand statements) because
 the interpreter runs at roughly 1-2 thousand statements/second; results are

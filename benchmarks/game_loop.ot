@@ -1,0 +1,87 @@
+# Benchmark: game loop
+# Workload: a 60-frame 2D entity simulation with movement, boundary collision,
+# and entity distance checks. Measures arithmetic, property reads/writes,
+# and condition evaluation in an interactive simulation loop.
+
+a Point has
+    x
+    y
+    vx
+    vy
+
+player is a Point with x 50, y 50, vx 2, vy 1
+enemy is a Point with x 10, y 20, vx 3, vy 2
+
+score is 0
+collisions is 0
+frames is 60
+
+count from 1 to frames as frame
+    px is x of player
+    py is y of player
+    pvx is vx of player
+    pvy is vy of player
+
+    px is px plus pvx
+    py is py plus pvy
+
+    if px is greater than 100
+        px is 100
+        vx of player is 0 minus pvx
+    otherwise if px is less than 0
+        px is 0
+        vx of player is 0 minus pvx
+    .
+    if py is greater than 100
+        py is 100
+        vy of player is 0 minus pvy
+    otherwise if py is less than 0
+        py is 0
+        vy of player is 0 minus pvy
+    .
+    x of player is px
+    y of player is py
+
+    ex is x of enemy
+    ey is y of enemy
+    evx is vx of enemy
+    evy is vy of enemy
+
+    ex is ex plus evx
+    ey is ey plus evy
+
+    if ex is greater than 100
+        ex is 100
+        vx of enemy is 0 minus evx
+    otherwise if ex is less than 0
+        ex is 0
+        vx of enemy is 0 minus evx
+    .
+    if ey is greater than 100
+        ey is 100
+        vy of enemy is 0 minus evy
+    otherwise if ey is less than 0
+        ey is 0
+        vy of enemy is 0 minus evy
+    .
+    x of enemy is ex
+    y of enemy is ey
+
+    dx is px minus ex
+    dy is py minus ey
+    if dx is less than 0
+        dx is 0 minus dx
+    .
+    if dy is less than 0
+        dy is 0 minus dy
+    .
+    dist is dx plus dy
+    if dist is less than 15
+        collisions is collisions plus 1
+        score is score plus 10
+    otherwise
+        score is score plus 1
+    .
+.
+
+say "game loop" frames "frames, score" score "collisions" collisions "player" x of player y of player
