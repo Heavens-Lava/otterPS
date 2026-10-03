@@ -1776,7 +1776,7 @@ creation.
 -   [x] HTTP benchmark (Invoke-OtterBenchmarks.ps1 -Http: an Otter client against otter serve)
 -   [x] UI benchmark (Invoke-OtterBenchmarks.ps1 -Ui: 100 desktop controls; Windows)
 -   [x] Game-loop benchmark (benchmarks/game_loop.ot: 60-frame 2D entity movement and collision)
--   [ ] 3D render benchmark
+-   [x] 3D render benchmark (benchmarks/3d_render.ot: 15-frame 3D rotation, perspective projection, surface normal rotation, backface culling, and Lambertian lighting)
 -   [x] Profiling hooks (`otter profile <file.ot>`, src/Otter.Profiler.psm1: per-function calls/total/self time and hottest Otter source lines via the interpreter statement hook; tests/Profiler.Tests.ps1)
 -   [ ] CPU profiler integration
 -   [ ] Memory profiler integration

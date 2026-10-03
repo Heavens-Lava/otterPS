@@ -1,0 +1,173 @@
+# Benchmark: 3D render
+# Workload: 3D vertex transformations, Euler angle rotations (X, Y, Z),
+# perspective projection, surface normal rotation, backface culling,
+# and Lambertian diffuse lighting over 15 frames of a 3D solid cube.
+# Measures trigonometry (sine, cosine), custom object access, arithmetic,
+# and condition evaluation.
+
+a Vertex has
+    x
+    y
+    z
+
+a Face has
+    nx
+    ny
+    nz
+
+neg is 0 minus 1
+pos is 1
+
+vertices are empty
+v0 is a Vertex with x neg, y neg, z neg
+add v0 to vertices
+v1 is a Vertex with x pos, y neg, z neg
+add v1 to vertices
+v2 is a Vertex with x pos, y pos, z neg
+add v2 to vertices
+v3 is a Vertex with x neg, y pos, z neg
+add v3 to vertices
+v4 is a Vertex with x neg, y neg, z pos
+add v4 to vertices
+v5 is a Vertex with x pos, y neg, z pos
+add v5 to vertices
+v6 is a Vertex with x pos, y pos, z pos
+add v6 to vertices
+v7 is a Vertex with x neg, y pos, z pos
+add v7 to vertices
+
+faces are empty
+f0 is a Face with nx 0, ny 0, nz neg
+add f0 to faces
+f1 is a Face with nx 0, ny 0, nz pos
+add f1 to faces
+f2 is a Face with nx 0, ny pos, nz 0
+add f2 to faces
+f3 is a Face with nx 0, ny neg, nz 0
+add f3 to faces
+f4 is a Face with nx pos, ny 0, nz 0
+add f4 to faces
+f5 is a Face with nx neg, ny 0, nz 0
+add f5 to faces
+
+frames is 15
+totalScreenX is 0
+totalScreenY is 0
+visibleFaces is 0
+totalShading is 0
+
+count from 1 to frames as frame
+    rotX is frame times 6
+    rotY is frame times 9
+    rotZ is frame times 4
+
+    sinX is sine of rotX
+    cosX is cosine of rotX
+    sinY is sine of rotY
+    cosY is cosine of rotY
+    sinZ is sine of rotZ
+    cosZ is cosine of rotZ
+
+    for each vertex in vertices
+        vx is x of vertex
+        vy is y of vertex
+        vz is z of vertex
+
+        y1_a is vy times cosX
+        y1_b is vz times sinX
+        y1 is y1_a minus y1_b
+
+        z1_a is vy times sinX
+        z1_b is vz times cosX
+        z1 is z1_a plus z1_b
+
+        x1 is vx
+
+        x2_a is x1 times cosY
+        x2_b is z1 times sinY
+        x2 is x2_a plus x2_b
+
+        z2_a is z1 times cosY
+        z2_b is x1 times sinY
+        z2 is z2_a minus z2_b
+
+        y2 is y1
+
+        x3_a is x2 times cosZ
+        x3_b is y2 times sinZ
+        x3 is x3_a minus x3_b
+
+        y3_a is x2 times sinZ
+        y3_b is y2 times cosZ
+        y3 is y3_a plus y3_b
+
+        z3 is z2
+
+        depth is z3 plus 3.5
+        px is x3 times 100
+        projX is px divided by depth
+        py is y3 times 100
+        projY is py divided by depth
+
+        screenX is round of projX
+        screenY is round of projY
+
+        totalScreenX is totalScreenX plus screenX
+        totalScreenY is totalScreenY plus screenY
+    .
+
+    for each face in faces
+        fnx is nx of face
+        fny is ny of face
+        fnz is nz of face
+
+        ny1_a is fny times cosX
+        ny1_b is fnz times sinX
+        ny1 is ny1_a minus ny1_b
+
+        nz1_a is fny times sinX
+        nz1_b is fnz times cosX
+        nz1 is nz1_a plus nz1_b
+
+        nx1 is fnx
+
+        nx2_a is nx1 times cosY
+        nx2_b is nz1 times sinY
+        nx2 is nx2_a plus nx2_b
+
+        nz2_a is nz1 times cosY
+        nz2_b is nx1 times sinY
+        nz2 is nz2_a minus nz2_b
+
+        ny2 is ny1
+
+        nx3_a is nx2 times cosZ
+        nx3_b is ny2 times sinZ
+        nx3 is nx3_a minus nx3_b
+
+        ny3_a is nx2 times sinZ
+        ny3_b is ny2 times cosZ
+        ny3 is ny3_a plus ny3_b
+
+        nz3 is nz2
+
+        ldot_x is nx3 times 0.577
+        ldot_y is ny3 times 0.577
+        ldot_z is nz3 times 0.577
+        ldot is ldot_x plus ldot_y
+        ldot is ldot plus ldot_z
+
+        if ldot is less than 0
+            ldot is 0
+        .
+
+        if nz3 is less than 0
+            visibleFaces is visibleFaces plus 1
+            scaledLight is ldot times 100
+            lightIntensity is round of scaledLight
+            totalShading is totalShading plus lightIntensity
+        .
+    .
+.
+
+say "3d render" frames "frames, screen coords" totalScreenX totalScreenY "visible faces" visibleFaces "shading" totalShading

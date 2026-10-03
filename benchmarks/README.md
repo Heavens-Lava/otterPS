@@ -48,6 +48,7 @@ printed and stored in the JSON output.
 | `contains_5000.ot` | `contains` scans: 2 worst-case lookups on a 5,000-item number list |
 | `event_dispatch.ot` | event loop: 100 loopback UDP datagrams to an `on data` handler (uses port 47391) |
 | `game_loop.ot` | 2D entity movement, boundary collision, and distance checks over 60 frames |
+| `3d_render.ot` | 3D Euler rotations, perspective projection, surface normal rotation, backface culling, and Lambertian lighting over 15 frames |
 
 Workloads are deliberately small (hundreds to a few thousand statements) because
 the interpreter runs at roughly 1-2 thousand statements/second; results are
