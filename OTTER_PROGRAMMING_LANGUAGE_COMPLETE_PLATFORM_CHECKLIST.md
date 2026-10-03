@@ -1779,8 +1779,8 @@ creation.
 -   [x] 3D render benchmark (benchmarks/3d_render.ot: 15-frame 3D rotation, perspective projection, surface normal rotation, backface culling, and Lambertian lighting)
 -   [x] Profiling hooks (`otter profile <file.ot>`, src/Otter.Profiler.psm1: per-function calls/total/self time and hottest Otter source lines via the interpreter statement hook; tests/Profiler.Tests.ps1)
 -   [x] CPU profiler integration (src/Otter.Profiler.psm1: process CPU time, user/kernel breakdown, CPU utilization %, and per-function/per-line CPU tracking in otter profile; tests/Profiler.Tests.ps1)
--   [ ] Memory profiler integration
--   [ ] Allocation tracking
+-   [x] Memory profiler integration (src/Otter.Profiler.psm1: managed heap peak/delta, working set peak/delta, and GC collections in otter profile; tests/Profiler.Tests.ps1)
+-   [x] Allocation tracking (src/Otter.Profiler.psm1: per-function and per-line allocated bytes tracking in otter profile; tests/Profiler.Tests.ps1)
 -   [x] Performance regression CI (certified in tools/Test-OtterPerformanceGate.ps1)
 -   [ ] Optimization policy that preserves semantics
 

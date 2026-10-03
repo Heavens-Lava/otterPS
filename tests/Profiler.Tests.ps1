@@ -80,6 +80,16 @@ say "Sum of squares:" result
         Assert-True ($r.Text -match 'cpu ms') 'cpu ms column header present'
     }
 
+    Test-Otter 'the profile report includes memory usage, allocations, and GC statistics' {
+        $r = Invoke-OtterCommandText @('profile', $program)
+        Assert-AreEqual -Expected 0 -Actual $r.ExitCode
+        Assert-True ($r.Text -match 'Memory:\s+managed peak') 'Managed memory peak in report summary'
+        Assert-True ($r.Text -match 'working set peak') 'Working set peak in report summary'
+        Assert-True ($r.Text -match 'allocated:\s+[0-9.]+\s+[KMG]?B') 'Allocated memory in report summary'
+        Assert-True ($r.Text -match 'GC:\s+[0-9]+\s+gen0') 'GC statistics in report summary'
+        Assert-True ($r.Text -match 'alloc') 'alloc column header present'
+    }
+
     Test-Otter 'a program that fails still prints the profile and exits with the runtime-error code' {
         $bad = New-OtterTestFile 'bad.ot' "say `"before`"`nsay missingName`n"
         $r = Invoke-OtterCommandText @('profile', $bad)
