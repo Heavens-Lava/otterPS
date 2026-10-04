@@ -57,8 +57,7 @@ platform.
 -   [x] Publishing/deployment (Section 28 certified: /api/publish endpoint, checksum verification, release zip packaging, deployment presets, and readiness validation in otter-studio/scripts/publishing.test.mjs)
 -   [x] Cross-platform distribution (Section 28 & 33 certified: macOS .app bundle generator, Linux FreeDesktop .desktop & AppRun generator, dual Windows/POSIX launchers, and cross-platform safety validation in otter-studio/scripts/cross-platform.test.mjs)
 -   [x] Accessibility certification (Section 30 certified: full keyboard navigation, focus trapping, screen-reader live announcer, ARIA roles, WCAG AAA high contrast themes, color-independent status, font scaling/zoom, prefers-reduced-motion, canvas keyboard navigation, WCAG compliance audit, multi-language dictionaries, RTL support, date/number localization, Unicode path safety, IME composition, and grapheme cluster calculations in otter-studio/scripts/accessibility.test.mjs)
--   [x] Crash recovery/autosave (Section 32 certified: dirty buffer journaling, uncommitted edit recovery on crash, corrupt settings healing with backup preservation, and recovery mode state reset in otter-studio/scripts/crash-recovery.test.mjs)
--   [ ] Stable language specification
+-   [x] Stable language specification (Authoritative formal grammar, operational semantics, 15 specification sections, EBNF rules, and value domain unified in docs/SPECIFICATION.md, docs/GRAMMAR.md, and docs/SEMANTICS.md)
 -   [ ] Conformance suite
 -   [ ] Updater
 -   [ ] Complete docs
@@ -876,7 +875,7 @@ platform.
 -   [ ] Getting Started/install
 -   [ ] Complete language reference
 -   [ ] Standard-library API
--   [ ] Language specification
+-   [x] Language specification
 -   [ ] Compatibility guide
 -   [ ] Studio
     tour/editor/designer/terminal/run/debug/test/Git/packages/extensions/build/settings/troubleshooting
@@ -889,7 +888,7 @@ platform.
 
 # 37. Conformance/release gates
 
--   [ ] D61 language specification complete
+-   [x] D61 language specification complete (docs/SPECIFICATION.md authoritative)
 -   [ ] D62 conformance suite complete
 -   [ ] Positive/negative tests for every syntax form
 -   [ ] Interpreter/JS/browser/Desktop/OS conformance
