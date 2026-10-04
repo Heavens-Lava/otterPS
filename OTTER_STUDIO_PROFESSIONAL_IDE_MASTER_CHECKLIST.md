@@ -51,7 +51,7 @@ platform.
 -   [x] Build system (Section 18 certified: /api/build, /api/clean, /api/publish, dist/ packaging, clean refusal safety, version stamping, and launcher verification in otter-studio/scripts/build-system.test.mjs)
 -   [x] Package/dependency manager (Section 21 certified: manifest dependencies, add/update/remove packages, project settings UI, case-sensitive module resolution, and modular multi-file execution in otter-studio/scripts/package-manager.test.mjs)
 -   [x] Test explorer (Section 20 certified: /api/tests/discover, /api/tests/run, suite discovery, run-all, run-selected, pass/fail status, and failure isolation in otter-studio/scripts/test-explorer.test.mjs)
--   [ ] Source-control integration
+-   [x] Source-control integration (Section 22 certified: /api/git/status, /api/git/diff, /api/git/stage, /api/git/unstage, /api/git/commit, /api/git/log, /api/git/branches in otter-studio/scripts/source-control.test.mjs)
 -   [ ] Extension/plugin system
 -   [ ] Profiler
 -   [ ] Publishing/deployment
@@ -625,16 +625,16 @@ platform.
 
 # 22. Git/source control
 
--   [ ] Repository detection
--   [ ] Explorer status
--   [ ] Diff viewer
--   [ ] Stage/unstage
--   [ ] Commit/amend
--   [ ] Branches
+-   [x] Repository detection (certified via GET /api/git/status in source-control.test.mjs)
+-   [x] Explorer status (certified staged/unstaged/untracked classification in source-control.test.mjs)
+-   [x] Diff viewer (certified GET /api/git/diff in source-control.test.mjs)
+-   [x] Stage/unstage (certified POST /api/git/stage and /api/git/unstage in source-control.test.mjs)
+-   [x] Commit/amend (certified POST /api/git/commit in source-control.test.mjs)
+-   [x] Branches (certified GET /api/git/branches in source-control.test.mjs)
 -   [ ] Fetch/pull/push
 -   [ ] Merge
 -   [ ] Conflict editor
--   [ ] History/file history
+-   [x] History/file history (certified GET /api/git/log in source-control.test.mjs)
 -   [ ] Blame
 -   [ ] Stash
 -   [ ] Tags

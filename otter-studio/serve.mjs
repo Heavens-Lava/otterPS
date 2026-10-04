@@ -1180,6 +1180,187 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // --- Git & Source Control API ---
+  if (pathname === '/api/git/status' && req.method === 'GET') {
+    try {
+      const folderParam = urlObj.searchParams.get('folder') || '.';
+      const targetDir = path.resolve(REPO_ROOT, folderParam);
+      if (!targetDir.startsWith(REPO_ROOT)) return sendJson(res, { error: 'Forbidden' }, 403);
+
+      execFile('git', ['rev-parse', '--is-inside-work-tree'], { cwd: targetDir }, (err, isInside) => {
+        if (err || isInside.trim() !== 'true') {
+          return sendJson(res, { isRepo: false });
+        }
+
+        execFile('git', ['status', '--porcelain=v1', '-uall'], { cwd: targetDir }, (err, statusOut) => {
+          if (err) return sendJson(res, { error: err.message }, 500);
+
+          execFile('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: targetDir }, (err, branchOut) => {
+            const branch = (branchOut || 'HEAD').trim();
+            const lines = (statusOut || '').split(/\r?\n/).filter(Boolean);
+            const staged = [];
+            const unstaged = [];
+            const untracked = [];
+
+            for (const line of lines) {
+              const x = line[0];
+              const y = line[1];
+              const file = line.slice(3).trim();
+
+              if (x === '?' && y === '?') {
+                untracked.push(file);
+              } else {
+                if (x !== ' ' && x !== '?') {
+                  staged.push({ file, status: x });
+                }
+                if (y !== ' ' && y !== '?') {
+                  unstaged.push({ file, status: y });
+                }
+              }
+            }
+
+            sendJson(res, {
+              isRepo: true,
+              branch,
+              clean: lines.length === 0,
+              staged,
+              unstaged,
+              untracked
+            });
+          });
+        });
+      });
+    } catch (err) {
+      sendJson(res, { error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/git/diff' && req.method === 'GET') {
+    try {
+      const folderParam = urlObj.searchParams.get('folder') || '.';
+      const targetDir = path.resolve(REPO_ROOT, folderParam);
+      if (!targetDir.startsWith(REPO_ROOT)) return sendJson(res, { error: 'Forbidden' }, 403);
+
+      const filePath = urlObj.searchParams.get('path');
+      const staged = urlObj.searchParams.get('staged') === 'true';
+      const args = ['diff'];
+      if (staged) args.push('--cached');
+      if (filePath) args.push('--', filePath);
+
+      execFile('git', args, { cwd: targetDir }, (err, diffOut) => {
+        if (err) return sendJson(res, { error: err.message }, 500);
+        sendJson(res, { ok: true, diff: diffOut || '' });
+      });
+    } catch (err) {
+      sendJson(res, { error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/git/stage' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const folderParam = body.folder || '.';
+      const targetDir = path.resolve(REPO_ROOT, folderParam);
+      if (!targetDir.startsWith(REPO_ROOT)) return sendJson(res, { error: 'Forbidden' }, 403);
+
+      const files = Array.isArray(body.files) ? body.files : (body.path ? [body.path] : ['.']);
+      execFile('git', ['add', ...files], { cwd: targetDir }, (err, stdout, stderr) => {
+        if (err) return sendJson(res, { ok: false, error: stderr || err.message }, 500);
+        sendJson(res, { ok: true });
+      });
+    } catch (err) {
+      sendJson(res, { error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/git/unstage' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const folderParam = body.folder || '.';
+      const targetDir = path.resolve(REPO_ROOT, folderParam);
+      if (!targetDir.startsWith(REPO_ROOT)) return sendJson(res, { error: 'Forbidden' }, 403);
+
+      const files = Array.isArray(body.files) ? body.files : (body.path ? [body.path] : ['.']);
+      execFile('git', ['reset', 'HEAD', '--', ...files], { cwd: targetDir }, (err, stdout, stderr) => {
+        if (err) return sendJson(res, { ok: false, error: stderr || err.message }, 500);
+        sendJson(res, { ok: true });
+      });
+    } catch (err) {
+      sendJson(res, { error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/git/commit' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const folderParam = body.folder || '.';
+      const targetDir = path.resolve(REPO_ROOT, folderParam);
+      if (!targetDir.startsWith(REPO_ROOT)) return sendJson(res, { error: 'Forbidden' }, 403);
+
+      const message = String(body.message || '').trim();
+      if (!message) return sendJson(res, { error: 'Commit message is required' }, 400);
+
+      execFile('git', ['commit', '-m', message], { cwd: targetDir }, (err, stdout, stderr) => {
+        if (err) return sendJson(res, { ok: false, error: stderr || stdout || err.message }, 422);
+        execFile('git', ['rev-parse', 'HEAD'], { cwd: targetDir }, (err, hashOut) => {
+          sendJson(res, { ok: true, commitHash: (hashOut || '').trim(), stdout: (stdout || '').trim() });
+        });
+      });
+    } catch (err) {
+      sendJson(res, { error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/git/log' && req.method === 'GET') {
+    try {
+      const folderParam = urlObj.searchParams.get('folder') || '.';
+      const targetDir = path.resolve(REPO_ROOT, folderParam);
+      if (!targetDir.startsWith(REPO_ROOT)) return sendJson(res, { error: 'Forbidden' }, 403);
+
+      const limit = Math.min(Number(urlObj.searchParams.get('limit') || 20), 100);
+      execFile('git', ['log', `-n${limit}`, '--pretty=format:%H|%an|%ae|%ad|%s'], { cwd: targetDir }, (err, logOut) => {
+        if (err) return sendJson(res, { ok: false, commits: [] });
+        const commits = (logOut || '').split(/\r?\n/).filter(Boolean).map(line => {
+          const [hash, author, email, date, ...rest] = line.split('|');
+          return { hash, author, email, date, message: rest.join('|') };
+        });
+        sendJson(res, { ok: true, count: commits.length, commits });
+      });
+    } catch (err) {
+      sendJson(res, { error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/git/branches' && req.method === 'GET') {
+    try {
+      const folderParam = urlObj.searchParams.get('folder') || '.';
+      const targetDir = path.resolve(REPO_ROOT, folderParam);
+      if (!targetDir.startsWith(REPO_ROOT)) return sendJson(res, { error: 'Forbidden' }, 403);
+
+      execFile('git', ['branch', '--list'], { cwd: targetDir }, (err, branchOut) => {
+        if (err) return sendJson(res, { ok: false, branches: [] });
+        const branches = [];
+        let current = null;
+        for (const rawLine of (branchOut || '').split(/\r?\n/).filter(Boolean)) {
+          const isCurrent = rawLine.startsWith('*');
+          const name = rawLine.replace(/^\*?\s*/, '').trim();
+          if (isCurrent) current = name;
+          branches.push({ name, isCurrent });
+        }
+        sendJson(res, { ok: true, current, branches });
+      });
+    } catch (err) {
+      sendJson(res, { error: err.message }, 500);
+    }
+    return;
+  }
+
   // --- Debugger (first slice): start/poll/continue/stop a real otter.ps1
   // debug session. See src/Otter.Debugger.psm1 for the protocol and
   // src/Otter.Interpreter.psm1's Set-OtterStatementHook for how the
