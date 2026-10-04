@@ -53,7 +53,7 @@ platform.
 -   [x] Test explorer (Section 20 certified: /api/tests/discover, /api/tests/run, suite discovery, run-all, run-selected, pass/fail status, and failure isolation in otter-studio/scripts/test-explorer.test.mjs)
 -   [x] Source-control integration (Section 22 certified: /api/git/status, /api/git/diff, /api/git/stage, /api/git/unstage, /api/git/commit, /api/git/log, /api/git/branches in otter-studio/scripts/source-control.test.mjs)
 -   [x] Extension/plugin system (Section 25 certified: manifest registration, declarative commands/themes/keybindings, lifecycle activation/deactivation, on-demand activation, provider registries, dynamic panels, subscription disposal, and crash isolation in otter-studio/scripts/extension-system.test.mjs)
--   [ ] Profiler
+-   [x] Profiler (Section 27 certified: /api/profile endpoint, CPU/memory telemetry, function timings, hot-line heatmaps, 60 FPS frame timing analysis, and trace export/import in otter-studio/scripts/profiler.test.mjs)
 -   [ ] Publishing/deployment
 -   [ ] Cross-platform distribution
 -   [ ] Accessibility certification
@@ -711,14 +711,14 @@ platform.
 
 # 27. Profiler/devtools
 
--   [ ] CPU profiler
--   [ ] Function timing
--   [ ] Memory/allocation/leak tools
--   [ ] UI render performance
+-   [x] CPU profiler
+-   [x] Function timing
+-   [x] Memory/allocation/leak tools
+-   [x] UI render performance
 -   [ ] Network inspector
--   [ ] Build/startup/extension performance
--   [ ] Game frame timing
--   [ ] Timeline/export
+-   [x] Build/startup/extension performance
+-   [x] Game frame timing
+-   [x] Timeline/export
 -   [ ] DOM inspector
 -   [ ] CSS inspector
 -   [ ] Browser console/network/storage

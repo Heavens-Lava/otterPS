@@ -1489,6 +1489,69 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // --- Otter Profiler API ---
+  if (pathname === '/api/profile' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const top = Number(body.top || 25);
+      let targetPath = null;
+      let tempFilePath = null;
+
+      if (body.path) {
+        targetPath = path.resolve(REPO_ROOT, body.path);
+        if (!targetPath.startsWith(REPO_ROOT) || !fs.existsSync(targetPath)) {
+          return sendJson(res, { ok: false, error: { message: `File not found: ${body.path}` } }, 404);
+        }
+      } else if (typeof body.code === 'string') {
+        const scratchDir = path.join(REPO_ROOT, 'scratch');
+        if (!fs.existsSync(scratchDir)) fs.mkdirSync(scratchDir, { recursive: true });
+        tempFilePath = path.join(scratchDir, `_profile_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.ot`);
+        fs.writeFileSync(tempFilePath, body.code, 'utf8');
+        targetPath = tempFilePath;
+      } else {
+        return sendJson(res, { ok: false, error: { message: 'Either path or code must be provided' } }, 400);
+      }
+
+      const scriptPath = path.join(__dirname, 'scripts', 'run-profile.ps1');
+      const args = [
+        '-NoProfile',
+        '-ExecutionPolicy', 'Bypass',
+        '-File', scriptPath,
+        '-FilePath', targetPath,
+        '-Top', String(top)
+      ];
+
+      execFile('powershell.exe', args, { cwd: REPO_ROOT, timeout: 30000 }, (error, stdout, stderr) => {
+        if (tempFilePath && fs.existsSync(tempFilePath)) {
+          try { fs.rmSync(tempFilePath, { force: true }); } catch {}
+        }
+
+        if (error && !stdout) {
+          return sendJson(res, {
+            ok: false,
+            error: { message: stderr || error.message }
+          }, 500);
+        }
+
+        try {
+          const parsed = JSON.parse(stdout.trim());
+          sendJson(res, parsed);
+        } catch (err) {
+          sendJson(res, {
+            ok: false,
+            error: {
+              message: 'Failed to parse profiler output JSON',
+              raw: stdout || stderr
+            }
+          }, 500);
+        }
+      });
+    } catch (err) {
+      sendJson(res, { ok: false, error: { message: err.message } }, 500);
+    }
+    return;
+  }
+
   // --- Otter Diagnostics / Linter API ---
   if (pathname === '/api/lint' && req.method === 'POST') {
     try {
