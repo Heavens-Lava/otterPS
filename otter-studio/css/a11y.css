@@ -1,0 +1,296 @@
+/* Otter Studio - Accessibility & Internationalization Stylesheet
+   WCAG 2.1 AA / AAA Compliance, High Contrast, Focus Management, Reduced Motion & RTL */
+
+/* ==========================================================================
+   1. Screen Reader Only / Visually Hidden Utility
+   ========================================================================== */
+.sr-only,
+.visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+/* ==========================================================================
+   2. Skip Navigation Links
+   ========================================================================== */
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: 12px;
+  background: #2563eb;
+  color: #ffffff;
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  z-index: 10000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  transition: top 0.15s ease-in-out;
+}
+
+.skip-link:focus,
+.skip-link:focus-visible {
+  top: 12px;
+  outline: 3px solid #60a5fa;
+  outline-offset: 2px;
+}
+
+/* ==========================================================================
+   3. Focus Rings & Focus-Visible Standards
+   ========================================================================== */
+:focus-visible {
+  outline: 2px solid #3b82f6 !important;
+  outline-offset: 2px !important;
+}
+
+/* Remove ugly default outline when clicking with mouse, keep for keyboard */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Focus ring on interactive buttons and tabs */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[role="button"]:focus-visible,
+[role="tab"]:focus-visible,
+[role="menuitem"]:focus-visible,
+[tabindex="0"]:focus-visible {
+  outline: 2px solid #38bdf8 !important;
+  outline-offset: 2px !important;
+}
+
+/* ==========================================================================
+   4. High Contrast Themes (WCAG AAA >= 7:1)
+   ========================================================================== */
+body.theme-high-contrast-dark {
+  --bg-app: #000000;
+  --bg-header: #000000;
+  --bg-sidebar: #000000;
+  --bg-panel: #000000;
+  --bg-editor: #000000;
+  --bg-toolbar: #000000;
+  --bg-status: #000000;
+  --bg-tab-active: #1a1a1a;
+  --text-main: #ffffff;
+  --text-muted: #ffff00; /* High contrast yellow for secondary info */
+  --text-dim: #00ffff;   /* High contrast cyan for tertiary info */
+  --border-color: #ffffff;
+  --accent-color: #00ffff;
+  --accent-hover: #ffffff;
+  --focus-ring: #ffff00;
+  background-color: #000000 !important;
+  color: #ffffff !important;
+}
+
+body.theme-high-contrast-dark button,
+body.theme-high-contrast-dark input,
+body.theme-high-contrast-dark select,
+body.theme-high-contrast-dark textarea {
+  background: #000000 !important;
+  color: #ffffff !important;
+  border: 2px solid #ffffff !important;
+}
+
+body.theme-high-contrast-dark .panel-card,
+body.theme-high-contrast-dark .sidebar-pane,
+body.theme-high-contrast-dark .studio-header,
+body.theme-high-contrast-dark .studio-footer,
+body.theme-high-contrast-dark .editor-tab,
+body.theme-high-contrast-dark .modal-content {
+  border: 1px solid #ffffff !important;
+}
+
+body.theme-high-contrast-dark .editor-tab.is-active {
+  background: #ffffff !important;
+  color: #000000 !important;
+  font-weight: 700 !important;
+}
+
+body.theme-high-contrast-light {
+  --bg-app: #ffffff;
+  --bg-header: #ffffff;
+  --bg-sidebar: #ffffff;
+  --bg-panel: #ffffff;
+  --bg-editor: #ffffff;
+  --bg-toolbar: #ffffff;
+  --bg-status: #ffffff;
+  --bg-tab-active: #eeeeee;
+  --text-main: #000000;
+  --text-muted: #000080;
+  --text-dim: #004d40;
+  --border-color: #000000;
+  --accent-color: #0000ee;
+  --accent-hover: #000000;
+  --focus-ring: #0000ee;
+  background-color: #ffffff !important;
+  color: #000000 !important;
+}
+
+body.theme-high-contrast-light button,
+body.theme-high-contrast-light input,
+body.theme-high-contrast-light select,
+body.theme-high-contrast-light textarea {
+  background: #ffffff !important;
+  color: #000000 !important;
+  border: 2px solid #000000 !important;
+}
+
+body.theme-high-contrast-light .editor-tab.is-active {
+  background: #000000 !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}
+
+/* ==========================================================================
+   5. Windows Forced Colors Mode (High Contrast OS Support)
+   ========================================================================== */
+@media (forced-colors: active) {
+  :focus-visible {
+    outline: 3px solid Highlight !important;
+    outline-offset: 2px !important;
+  }
+
+  button, input, select, textarea {
+    border: 1px solid ButtonBorder !important;
+  }
+
+  .editor-tab.is-active {
+    border: 2px solid Highlight !important;
+    background: Highlight !important;
+    color: HighlightText !important;
+  }
+
+  .status-badge, .badge-pill {
+    border: 1px solid CanvasText !important;
+  }
+}
+
+/* ==========================================================================
+   6. Reduced Motion Preference
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .spinner,
+  .spinning,
+  .pulse,
+  .shimmer {
+    animation: none !important;
+  }
+}
+
+/* Manual reduced motion override via class */
+body.reduced-motion *,
+body.reduced-motion *::before,
+body.reduced-motion *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* ==========================================================================
+   7. Color-Independent Status Indicators
+   ========================================================================== */
+.a11y-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.a11y-status-error {
+  color: #ef4444;
+}
+.a11y-status-error::before {
+  content: "✕ ";
+  font-weight: bold;
+}
+
+.a11y-status-warning {
+  color: #f59e0b;
+}
+.a11y-status-warning::before {
+  content: "⚠ ";
+  font-weight: bold;
+}
+
+.a11y-status-success {
+  color: #10b981;
+}
+.a11y-status-success::before {
+  content: "✓ ";
+  font-weight: bold;
+}
+
+.a11y-status-info {
+  color: #3b82f6;
+}
+.a11y-status-info::before {
+  content: "ℹ ";
+  font-weight: bold;
+}
+
+/* ==========================================================================
+   8. Internationalization & Right-to-Left (RTL) Layout
+   ========================================================================== */
+[dir="rtl"] {
+  direction: rtl;
+  text-align: right;
+}
+
+[dir="rtl"] .header-left {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] .header-right {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] .studio-menu-bar {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] .sidebar-left {
+  border-left: 1px solid var(--border-color);
+  border-right: none;
+}
+
+[dir="rtl"] .sidebar-right {
+  border-right: 1px solid var(--border-color);
+  border-left: none;
+}
+
+[dir="rtl"] .skip-link {
+  left: auto;
+  right: 12px;
+}
+
+/* Prevent code editor and terminal from flipping to RTL */
+[dir="rtl"] .code-editor-container,
+[dir="rtl"] .studio-terminal-body,
+[dir="rtl"] .monaco-editor,
+[dir="rtl"] pre,
+[dir="rtl"] code {
+  direction: ltr !important;
+  text-align: left !important;
+}

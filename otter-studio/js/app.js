@@ -12,6 +12,8 @@ import { renderEvents } from './components/events.js';
 import { renderEditor } from './components/editor.js';
 import { renderPreview } from './components/preview.js';
 import { OtterStudioIde } from './ide.js';
+import { a11yManager } from './a11y/a11y-manager.js';
+import { i18nManager } from './i18n/i18n-manager.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
   const themeToggle = document.getElementById('btnThemeToggle');
@@ -56,6 +58,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   window.otterUiModel = uiModel;
   window.otterCssAstManager = cssAstManager;
   window.otterIde = ide;
+  window.a11yManager = a11yManager;
+  window.i18nManager = i18nManager;
 
   // Mount components
   const toolboxEl = document.getElementById('toolboxPanel');

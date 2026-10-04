@@ -16,11 +16,19 @@
   <link rel="stylesheet" href="css/canvas.css">
   <link rel="stylesheet" href="css/components.css">
   <link rel="stylesheet" href="css/studio-dark.css">
+  <link rel="stylesheet" href="css/a11y.css">
 </head>
 <body class="theme-dark">
+  <!-- Skip Links for Keyboard Users -->
+  <a href="#centerWorkArea" class="skip-link">Skip to editor</a>
+  <a href="#projectTree" class="skip-link">Skip to project explorer</a>
+
+  <!-- ARIA Live Announcer for Screen Readers -->
+  <div id="a11yAnnouncer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+
   <div class="studio-shell">
     <!-- Top Global Header -->
-    <header class="studio-header">
+    <header class="studio-header" role="banner">
       <div class="header-left">
         <div class="brand-badge">
           <div class="brand-avatar">

@@ -56,7 +56,7 @@ platform.
 -   [x] Profiler (Section 27 certified: /api/profile endpoint, CPU/memory telemetry, function timings, hot-line heatmaps, 60 FPS frame timing analysis, and trace export/import in otter-studio/scripts/profiler.test.mjs)
 -   [x] Publishing/deployment (Section 28 certified: /api/publish endpoint, checksum verification, release zip packaging, deployment presets, and readiness validation in otter-studio/scripts/publishing.test.mjs)
 -   [x] Cross-platform distribution (Section 28 & 33 certified: macOS .app bundle generator, Linux FreeDesktop .desktop & AppRun generator, dual Windows/POSIX launchers, and cross-platform safety validation in otter-studio/scripts/cross-platform.test.mjs)
--   [ ] Accessibility certification
+-   [x] Accessibility certification (Section 30 certified: full keyboard navigation, focus trapping, screen-reader live announcer, ARIA roles, WCAG AAA high contrast themes, color-independent status, font scaling/zoom, prefers-reduced-motion, canvas keyboard navigation, WCAG compliance audit, multi-language dictionaries, RTL support, date/number localization, Unicode path safety, IME composition, and grapheme cluster calculations in otter-studio/scripts/accessibility.test.mjs)
 -   [ ] Security audit
 -   [ ] Crash recovery/autosave
 -   [ ] Stable language specification
@@ -397,7 +397,7 @@ platform.
 -   [ ] Split pane
 -   [ ] Canvas/game surface
 -   [ ] Custom components
--   [ ] Accessibility semantics
+-   [x] Accessibility semantics
 -   [ ] Property inspector
 -   [ ] Property search/categories
 -   [ ] Binding/state editor
@@ -667,7 +667,7 @@ platform.
 -   [ ] Search/copy/paste/clear
 -   [ ] Kill/restart
 -   [ ] Clickable links
--   [ ] Terminal accessibility
+-   [x] Terminal accessibility
 -   [ ] Production Otter REPL
 -   [ ] Persistent REPL variables/functions
 -   [ ] Multiline/history/completion/highlighting
@@ -723,7 +723,7 @@ platform.
 -   [ ] CSS inspector
 -   [ ] Browser console/network/storage
 -   [ ] Responsive preview
--   [ ] Accessibility inspector
+-   [x] Accessibility inspector (automated WCAG audit engine in a11y-manager.js)
 -   [ ] Generated JS source maps back to Otter
 
 # 28. Packaging/publishing
@@ -766,25 +766,25 @@ platform.
 
 # 30. Accessibility/i18n
 
--   [ ] Full keyboard navigation
--   [ ] Focus order
--   [ ] Screen-reader labels
--   [ ] ARIA
--   [ ] High contrast
--   [ ] Color-independent status
--   [ ] Font/zoom
--   [ ] Reduced motion
--   [ ] Accessible designer/terminal/errors/dialogs
--   [ ] WCAG audit
--   [ ] Automated/manual accessibility tests
--   [ ] Unicode/non-Latin source and paths
--   [ ] Locale UI
--   [ ] Translatable strings
--   [ ] Date/number localization
--   [ ] RTL
--   [ ] IME
--   [ ] CJK editing
--   [ ] Grapheme-safe cursor
+-   [x] Full keyboard navigation
+-   [x] Focus order
+-   [x] Screen-reader labels
+-   [x] ARIA
+-   [x] High contrast
+-   [x] Color-independent status
+-   [x] Font/zoom
+-   [x] Reduced motion
+-   [x] Accessible designer/terminal/errors/dialogs
+-   [x] WCAG audit
+-   [x] Automated/manual accessibility tests
+-   [x] Unicode/non-Latin source and paths
+-   [x] Locale UI
+-   [x] Translatable strings
+-   [x] Date/number localization
+-   [x] RTL
+-   [x] IME
+-   [x] CJK editing
+-   [x] Grapheme-safe cursor
 
 # 31. Settings/workbench/commands
 
@@ -905,7 +905,7 @@ platform.
 -   [ ] Build/publish certified
 -   [ ] Security threat model
 -   [ ] Preview isolation
--   [ ] Accessibility baseline
+-   [x] Accessibility baseline
 -   [ ] Crash recovery
 -   [ ] Installer/update docs
 -   [ ] Fresh-machine test
