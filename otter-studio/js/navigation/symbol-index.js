@@ -51,8 +51,22 @@ export function symbolsForFile(symbols, filePath) {
 // inventing module/hoisting semantics. The nearest declaration before the
 // cursor wins; a later declaration is used for forward-declared functions.
 // If not found in the current file, cross-file workspace symbols are checked.
-export function definitionForWord(symbols, filePath, name, line, workspaceSymbols = []) {
+export function definitionForWord(symbols, filePath, name, line, workspaceSymbols = [], workspaceFiles = [], source = '') {
   const allSymbols = symbols || [];
+
+  // Check if cursor/word is on a `use "..."` line or module reference
+  if (source && line) {
+    const lines = source.split(/\r?\n/);
+    const lineText = lines[line - 1] || '';
+    const useMatch = lineText.match(/^\s*use\s+["']([^"']+)["']/);
+    if (useMatch && (useMatch[1].includes(name) || name === 'use' || lineText.includes(name))) {
+      const cleanPath = useMatch[1];
+      const dir = filePath ? filePath.replace(/\\/g, '/').split('/').slice(0, -1).join('/') : '';
+      const resolved = dir ? `${dir}/${cleanPath}` : cleanPath;
+      return { Name: cleanPath, Kind: 'module', File: resolved, Line: 1, Column: 0 };
+    }
+  }
+
   const candidates = symbolsForFile(allSymbols, filePath)
     .filter(symbol => symbol.Name === name);
   if (candidates.length > 0) {

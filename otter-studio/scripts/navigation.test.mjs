@@ -280,7 +280,99 @@ assert.equal(unreachableWarnings.length, 1);
 assert.equal(unreachableWarnings[0].line, 4);
 assert.match(unreachableWarnings[0].message, /Unreachable code detected after return or stop/);
 
-console.log('Studio navigation tests passed: project flattening, fuzzy Quick Open, ordered outlines, history, hover documentation, word extraction, signature help, function parameters, cross-file definition, safe references, preview rename, outline filtering, workspace symbol search, safe extract-function, code actions/quick fixes, unused-variable diagnostics, and unreachable-code diagnostics.');
+// --- 7. Cross-File Module Resolution & Import Extraction ---
+const moduleSource = `
+# Header comment
+use "lib/math.ot"
+use "./helpers.ot"
+use "../shared/config.ot"
+
+res is addNumbers 10 and 20
+say res
+`;
+const extractedImports = otterLanguageService.extractModuleImports(moduleSource);
+assert.equal(extractedImports.length, 3, 'Should extract 3 module imports');
+assert.equal(extractedImports[0].importPath, 'lib/math.ot');
+assert.equal(extractedImports[0].line, 3);
+assert.equal(extractedImports[1].importPath, './helpers.ot');
+assert.equal(extractedImports[1].line, 4);
+
+// Test module path resolution
+const sampleWorkspaceFiles = [
+  'projects/demo/main.ot',
+  'projects/demo/lib/math.ot',
+  'projects/demo/helpers.ot',
+  'projects/shared/config.ot'
+];
+const resolved1 = otterLanguageService.resolveModulePath('lib/math.ot', 'projects/demo/main.ot', sampleWorkspaceFiles);
+assert.equal(resolved1, 'projects/demo/lib/math.ot');
+
+const resolved2 = otterLanguageService.resolveModulePath('./helpers.ot', 'projects/demo/main.ot', sampleWorkspaceFiles);
+assert.equal(resolved2, 'projects/demo/helpers.ot');
+
+const resolved3 = otterLanguageService.resolveModulePath('../shared/config.ot', 'projects/demo/main.ot', sampleWorkspaceFiles);
+assert.equal(resolved3, 'projects/shared/config.ot');
+
+// Test resolving imported symbols
+const sampleWorkspaceSymbols = [
+  { Name: 'addNumbers', Kind: 'function', File: 'projects/demo/lib/math.ot', Line: 5, Column: 0, Parameters: ['a', 'b'] },
+  { Name: 'helperUtility', Kind: 'function', File: 'projects/demo/helpers.ot', Line: 12, Column: 0 },
+  { Name: 'unrelatedFn', Kind: 'function', File: 'projects/other/other.ot', Line: 1, Column: 0 }
+];
+const importedSymbols = otterLanguageService.resolveImportedSymbols(moduleSource, 'projects/demo/main.ot', sampleWorkspaceSymbols, sampleWorkspaceFiles);
+assert.equal(importedSymbols.length, 2, 'Should resolve 2 symbols from explicitly imported modules');
+assert.equal(importedSymbols[0].Name, 'addNumbers');
+assert.equal(importedSymbols[0].isImported, true);
+assert.equal(importedSymbols[0].importedFrom, 'projects/demo/lib/math.ot');
+
+// Test Go to Definition on module import line
+const modDef = otterLanguageService.getDefinition('math.ot', 'projects/demo/main.ot', 3, [], sampleWorkspaceSymbols, sampleWorkspaceFiles, moduleSource);
+assert.equal(modDef?.kind, 'module');
+assert.equal(modDef?.path, 'projects/demo/lib/math.ot');
+
+// Test Go to Definition on imported symbol
+const symDef = otterLanguageService.getDefinition('addNumbers', 'projects/demo/main.ot', 7, [], sampleWorkspaceSymbols, sampleWorkspaceFiles, moduleSource);
+assert.equal(symDef?.kind, 'function');
+assert.equal(symDef?.line, 5);
+assert.equal(symDef?.path, 'projects/demo/lib/math.ot');
+
+// Test Hover on module import line
+const modHover = otterLanguageService.getHoverInfo('math.ot', 'projects/demo/main.ot', [], 3, {
+  source: moduleSource,
+  workspaceSymbols: sampleWorkspaceSymbols,
+  workspaceFiles: sampleWorkspaceFiles
+});
+assert.equal(modHover?.kind, 'module');
+assert.match(modHover?.signature, /use "lib\/math\.ot"/);
+assert.match(modHover?.description, /Imported Otter module/);
+
+// Test Hover on imported symbol
+const symHover = otterLanguageService.getHoverInfo('addNumbers', 'projects/demo/main.ot', importedSymbols, 7);
+assert.equal(symHover?.kind, 'function');
+assert.match(symHover?.signature, /to addNumbers a and b/);
+assert.match(symHover?.description, /Imported from projects\/demo\/lib\/math\.ot/);
+
+// --- 8. Stable Language Service Plugin API ---
+let pluginHoverCalled = false;
+const unregisterPlugin = otterLanguageService.registerPlugin({
+  id: 'test-custom-plugin',
+  name: 'Test Custom Plugin',
+  onHover: (word) => {
+    if (word === 'customKeyword') {
+      pluginHoverCalled = true;
+      return { kind: 'plugin', signature: 'customKeyword', description: 'Provided by plugin' };
+    }
+    return null;
+  }
+});
+const customHover = otterLanguageService.getHoverInfo('customKeyword', 'main.ot', [], 1);
+assert.equal(customHover?.kind, 'plugin');
+assert.equal(pluginHoverCalled, true);
+unregisterPlugin();
+assert.equal(otterLanguageService.getPlugins().some(p => p.id === 'test-custom-plugin'), false, 'Plugin should unregister cleanly');
+
+console.log('Studio navigation tests passed: project flattening, fuzzy Quick Open, ordered outlines, history, hover documentation, word extraction, signature help, function parameters, cross-file definition, safe references, preview rename, outline filtering, workspace symbol search, safe extract-function, code actions/quick fixes, unused-variable diagnostics, unreachable-code diagnostics, cross-file module resolution, and language service plugin API.');
+
 
 
 

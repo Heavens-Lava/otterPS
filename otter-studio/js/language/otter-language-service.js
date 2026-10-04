@@ -7,6 +7,118 @@ import { getBuiltinMetadata, getBuiltinSignatures } from './otter-metadata.js';
 export class OtterLanguageService {
   constructor() {
     this.builtinSignatures = getBuiltinSignatures();
+    this.plugins = [];
+  }
+
+  // --- Plugin Architecture ---
+  registerPlugin(plugin) {
+    if (!plugin || typeof plugin !== 'object') {
+      throw new Error('Plugin must be an object');
+    }
+    const id = plugin.id || plugin.name || `plugin_${Date.now()}`;
+    const entry = { ...plugin, id };
+    this.plugins = this.plugins.filter(p => p.id !== id);
+    this.plugins.push(entry);
+    return () => {
+      this.plugins = this.plugins.filter(p => p.id !== id);
+    };
+  }
+
+  getPlugins() {
+    return [...this.plugins];
+  }
+
+  // --- Module Import & Cross-File Resolution ---
+  extractModuleImports(source) {
+    if (!source || typeof source !== 'string') return [];
+    const results = [];
+    const lines = source.split(/\r?\n/);
+    const usePattern = /^\s*use\s+["']([^"']+)["']/;
+    for (let i = 0; i < lines.length; i++) {
+      const lineText = lines[i];
+      const trimmed = lineText.trim();
+      if (trimmed.startsWith('#')) continue;
+      const match = lineText.match(usePattern);
+      if (match) {
+        const importPath = match[1];
+        const col = lineText.indexOf(importPath);
+        results.push({
+          importPath,
+          line: i + 1,
+          column: col >= 0 ? col : 0,
+          raw: lineText
+        });
+      }
+    }
+    return results;
+  }
+
+  normalizePath(p) {
+    if (!p) return '';
+    const parts = String(p).replace(/\\/g, '/').split('/');
+    const resolved = [];
+    for (const part of parts) {
+      if (!part || part === '.') continue;
+      if (part === '..') {
+        if (resolved.length > 0) resolved.pop();
+      } else {
+        resolved.push(part);
+      }
+    }
+    return resolved.join('/');
+  }
+
+  resolveModulePath(importPath, currentFilePath = '', workspaceFiles = []) {
+    if (!importPath) return null;
+    const cleanImport = String(importPath).replace(/\\/g, '/').replace(/^["']|["']$/g, '');
+    const currentDir = currentFilePath ? currentFilePath.replace(/\\/g, '/').split('/').slice(0, -1).join('/') : '';
+    
+    const relCandidate = currentDir ? this.normalizePath(`${currentDir}/${cleanImport}`) : this.normalizePath(cleanImport);
+    const rootCandidate = this.normalizePath(cleanImport);
+
+    const fileList = (workspaceFiles || []).map(f => {
+      if (typeof f === 'string') return f.replace(/\\/g, '/');
+      return (f.path || f.name || '').replace(/\\/g, '/');
+    }).filter(Boolean);
+
+    const matchRel = fileList.find(f => f === relCandidate || f.endsWith('/' + relCandidate));
+    if (matchRel) return matchRel;
+
+    const matchRoot = fileList.find(f => f === rootCandidate || f.endsWith('/' + rootCandidate));
+    if (matchRoot) return matchRoot;
+
+    const leaf = cleanImport.split('/').pop();
+    const matchLeaf = fileList.find(f => f.split('/').pop() === leaf);
+    if (matchLeaf) return matchLeaf;
+
+    return relCandidate || rootCandidate;
+  }
+
+  resolveImportedSymbols(source, currentFilePath, workspaceSymbols = [], workspaceFiles = []) {
+    const imports = this.extractModuleImports(source);
+    if (imports.length === 0) return [];
+    const resolvedSymbols = [];
+    const allSymbols = workspaceSymbols || [];
+
+    for (const imp of imports) {
+      const resolvedFile = this.resolveModulePath(imp.importPath, currentFilePath, workspaceFiles);
+      if (!resolvedFile) continue;
+      
+      const fileSymbols = allSymbols.filter(s => {
+        const sFile = (s.File || s.file || '').replace(/\\/g, '/');
+        return sFile === resolvedFile || sFile.endsWith('/' + resolvedFile) || resolvedFile.endsWith('/' + sFile);
+      });
+
+      for (const sym of fileSymbols) {
+        resolvedSymbols.push({
+          ...sym,
+          isImported: true,
+          importedFrom: resolvedFile,
+          importStatementLine: imp.line
+        });
+      }
+    }
+    return resolvedSymbols;
   }
 
   // --- 1. Token & Word Extraction ---
@@ -56,31 +168,72 @@ export class OtterLanguageService {
   resolveSymbol(symbols, filePath, word, line = 1) {
     if (!symbols || !word) return null;
     const lower = word.toLowerCase();
-    const fileSymbols = symbols.filter(s => (s.File === filePath || s.path === filePath || !filePath) && (s.Name || s.name)?.toLowerCase() === lower);
-    if (fileSymbols.length === 0) return null;
+    const matching = symbols.filter(s => (s.Name || s.name)?.toLowerCase() === lower);
+    if (matching.length === 0) return null;
 
-    // Prefer declaration before or at the line
-    const beforeLine = fileSymbols
-      .filter(s => Number(s.Line || s.line || 1) <= Number(line))
-      .sort((a, b) => Number(b.Line || b.line || 1) - Number(a.Line || a.line || 1));
-    if (beforeLine.length > 0) return beforeLine[0];
+    // Check local file symbols first
+    const fileSymbols = matching.filter(s => (s.File === filePath || s.path === filePath || !filePath) && !s.isImported);
+    if (fileSymbols.length > 0) {
+      const beforeLine = fileSymbols
+        .filter(s => Number(s.Line || s.line || 1) <= Number(line))
+        .sort((a, b) => Number(b.Line || b.line || 1) - Number(a.Line || a.line || 1));
+      if (beforeLine.length > 0) return beforeLine[0];
+      return fileSymbols.sort((a, b) => Number(a.Line || a.line || 1) - Number(b.Line || b.line || 1))[0];
+    }
 
-    // Otherwise return earliest (e.g. forward-referenced function)
-    return fileSymbols.sort((a, b) => Number(a.Line || a.line || 1) - Number(b.Line || b.line || 1))[0];
+    // Next check imported symbols
+    const imported = matching.filter(s => s.isImported);
+    if (imported.length > 0) return imported[0];
+
+    return null;
   }
 
   // --- 3. Hover Information ---
-  getHoverInfo(word, filePath, symbols = [], line = 1) {
+  getHoverInfo(word, filePath, symbols = [], line = 1, options = {}) {
     if (!word) return null;
     const lower = word.toLowerCase();
 
-    // 1. Check user-defined symbols first
+    // 1. Check registered language plugins
+    for (const plugin of this.plugins) {
+      if (typeof plugin.onHover === 'function') {
+        const pluginRes = plugin.onHover(word, filePath, line, options);
+        if (pluginRes) return pluginRes;
+      }
+    }
+
+    // 2. Check if hovering on a module import line
+    if (options && options.source && line) {
+      const lines = options.source.split(/\r?\n/);
+      const currentLineText = lines[line - 1] || '';
+      const useMatch = currentLineText.match(/^\s*use\s+["']([^"']+)["']/);
+      if (useMatch) {
+        const importPath = useMatch[1];
+        if (importPath.includes(word) || word === 'use') {
+          const resolvedPath = this.resolveModulePath(importPath, filePath, options.workspaceFiles || []);
+          const exported = (options.workspaceSymbols || []).filter(s => {
+            const sf = (s.File || s.file || '').replace(/\\/g, '/');
+            return sf === resolvedPath || (resolvedPath && sf.endsWith('/' + resolvedPath));
+          });
+          return {
+            kind: 'module',
+            title: `module "${importPath}"`,
+            signature: `use "${importPath}"`,
+            description: `Imported Otter module located at ${resolvedPath || importPath}.\nProvides ${exported.length} indexed symbol${exported.length === 1 ? '' : 's'}.`,
+            path: resolvedPath || importPath,
+            exportedSymbolsCount: exported.length
+          };
+        }
+      }
+    }
+
+    // 3. Check user-defined symbols
     const symbol = this.resolveSymbol(symbols, filePath, word, line);
     if (symbol) {
       const kind = (symbol.Kind || symbol.kind || 'symbol').toLowerCase();
       const name = symbol.Name || symbol.name;
       const declLine = Number(symbol.Line || symbol.line) || 1;
       const declPath = symbol.File || symbol.path || filePath || 'current file';
+      const importNote = symbol.importedFrom ? `\n(Imported from ${symbol.importedFrom})` : '';
 
       if (kind === 'function') {
         const rawParams = symbol.Parameters || symbol.parameters || [];
@@ -90,7 +243,7 @@ export class OtterLanguageService {
           kind: 'function',
           title: name,
           signature: `to ${name}${paramStr}`,
-          description: `User-defined function with ${paramList.length} parameter${paramList.length === 1 ? '' : 's'}.\nDeclared at line ${declLine} in ${declPath}.`,
+          description: `User-defined function with ${paramList.length} parameter${paramList.length === 1 ? '' : 's'}.\nDeclared at line ${declLine} in ${declPath}.${importNote}`,
           parameters: paramList,
           line: declLine,
           path: declPath
@@ -107,13 +260,13 @@ export class OtterLanguageService {
         kind: kindLabel,
         title: name,
         signature: `${kindLabel} ${name}`,
-        description: `Declared at line ${declLine} in ${declPath}.`,
+        description: `Declared at line ${declLine} in ${declPath}.${importNote}`,
         line: declLine,
         path: declPath
       };
     }
 
-    // 2. Check authoritative built-in metadata
+    // 4. Check authoritative built-in metadata
     const builtin = getBuiltinMetadata(lower);
     if (builtin) {
       return {
@@ -129,9 +282,38 @@ export class OtterLanguageService {
   }
 
   // --- 4. Go to Definition ---
-  getDefinition(word, filePath, line, symbols = [], workspaceSymbols = []) {
+  getDefinition(word, filePath, line, symbols = [], workspaceSymbols = [], workspaceFiles = [], source = '') {
     if (!word) return null;
-    // Check current file symbols
+
+    // 1. Check registered language plugins
+    for (const plugin of this.plugins) {
+      if (typeof plugin.onDefinition === 'function') {
+        const pluginRes = plugin.onDefinition(word, filePath, line, { symbols, workspaceSymbols, workspaceFiles, source });
+        if (pluginRes) return pluginRes;
+      }
+    }
+
+    // 2. Check if the word is an imported module path on a `use` statement
+    if (source && line) {
+      const lines = source.split(/\r?\n/);
+      const currentLineText = lines[line - 1] || '';
+      const useMatch = currentLineText.match(/^\s*use\s+["']([^"']+)["']/);
+      if (useMatch) {
+        const importPath = useMatch[1];
+        if (importPath.includes(word) || word === 'use' || currentLineText.includes(word)) {
+          const resolvedPath = this.resolveModulePath(importPath, filePath, workspaceFiles);
+          return {
+            name: importPath,
+            kind: 'module',
+            path: resolvedPath || importPath,
+            line: 1,
+            column: 0
+          };
+        }
+      }
+    }
+
+    // 3. Check current file symbols
     const local = this.resolveSymbol(symbols, filePath, word, line);
     if (local) {
       return {
@@ -143,7 +325,23 @@ export class OtterLanguageService {
       };
     }
 
-    // Cross-file fallback: search workspace symbols
+    // 4. Check explicitly imported module symbols
+    if (source) {
+      const importedSymbols = this.resolveImportedSymbols(source, filePath, workspaceSymbols, workspaceFiles);
+      const matchImported = importedSymbols.find(s => (s.Name || s.name)?.toLowerCase() === word.toLowerCase());
+      if (matchImported) {
+        return {
+          name: matchImported.Name || matchImported.name,
+          kind: matchImported.Kind || matchImported.kind || 'function',
+          path: matchImported.File || matchImported.file || matchImported.importedFrom,
+          line: Number(matchImported.Line || matchImported.line) || 1,
+          column: Number(matchImported.Column || matchImported.column) || 0,
+          importedFrom: matchImported.importedFrom
+        };
+      }
+    }
+
+    // 5. Cross-file fallback: search workspace symbols
     if (Array.isArray(workspaceSymbols) && workspaceSymbols.length > 0) {
       const remote = workspaceSymbols.find(s => (s.Name || s.name)?.toLowerCase() === word.toLowerCase() && (s.Kind || s.kind) === 'function');
       if (remote) {
@@ -585,4 +783,9 @@ export const searchWorkspaceSymbols = (workspaceSymbols, query) => otterLanguage
 export const computeSemanticDiagnostics = (source, symbols, astReferences) => otterLanguageService.computeSemanticDiagnostics(source, symbols, astReferences);
 export const prepareExtractFunction = (selectedText, fnName, currentCode, cursorLine) => otterLanguageService.prepareExtractFunction(selectedText, fnName, currentCode, cursorLine);
 export const getQuickFixes = (diagnostic, sourceCode) => otterLanguageService.getQuickFixes(diagnostic, sourceCode);
+export const extractModuleImports = (source) => otterLanguageService.extractModuleImports(source);
+export const resolveModulePath = (importPath, currentFilePath, workspaceFiles) => otterLanguageService.resolveModulePath(importPath, currentFilePath, workspaceFiles);
+export const resolveImportedSymbols = (source, currentFilePath, workspaceSymbols, workspaceFiles) => otterLanguageService.resolveImportedSymbols(source, currentFilePath, workspaceSymbols, workspaceFiles);
+export const registerLanguageServicePlugin = (plugin) => otterLanguageService.registerPlugin(plugin);
+
 

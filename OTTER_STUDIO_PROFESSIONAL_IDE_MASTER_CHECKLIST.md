@@ -45,7 +45,7 @@ platform.
 -   [x] Basic diagnostics with source line
 -   [x] New Project wizard with Console/Desktop/Web/2D Game archetypes (certified across all 4 archetypes in otter-studio/scripts/new-project-wizard.test.mjs)
 -   [x] Professional source editor (Complete Section 8 certification)
--   [ ] Language intelligence
+-   [x] Language intelligence (Section 9 certification: parser-backed symbol index, cross-file module resolution, definition/hover, diagnostics, extract function, and plugin API certified in navigation.test.mjs)
 -   [ ] Debugger
 -   [ ] Production visual UI designer
 -   [ ] Build system
@@ -302,9 +302,9 @@ platform.
 -   [x] Unused/unreachable diagnostics (AST and scope-backed warnings with amber squiggles, gutter warnings, and problem status advisory)
 -   [x] Semantic highlighting (real-time scope-aware colorization for user functions, variables, and UI elements)
 -   [x] Documentation hover (rich syntax signatures, explanations, and usage examples)
--   [ ] Cross-file/module resolution
+-   [x] Cross-file/module resolution (use statement path resolution, imported symbol indexing, and definition/hover in navigation.test.mjs)
 -   [ ] LSP support if beneficial
--   [ ] Stable language-service plugin API
+-   [x] Stable language-service plugin API (registerPlugin, lifecycle unregister, custom hover/definition hooks certified in navigation.test.mjs)
 
 # 10. Diagnostics experience
 
