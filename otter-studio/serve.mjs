@@ -1028,7 +1028,8 @@ const server = http.createServer(async (req, res) => {
 
       const otterCmd = path.join(REPO_ROOT, 'otter.cmd');
       const targetArg = body.target ? ` "${body.target}"` : '';
-      const cmd = `"${otterCmd}" publish${targetArg}`;
+      const outputArg = body.outputDir ? ` -Output "${body.outputDir}"` : '';
+      const cmd = `"${otterCmd}" publish${targetArg}${outputArg}`;
       const startTime = Date.now();
 
       exec(cmd, { cwd: projectDir, timeout: 60000 }, (error, stdout, stderr) => {
@@ -1037,10 +1038,34 @@ const server = http.createServer(async (req, res) => {
         const ok = exitCode === 0;
 
         let publishMeta = null;
-        const metaPath = path.join(projectDir, 'publish', 'otter.publish.json');
+        let archiveName = null;
+        let archivePath = null;
+        let checksum = null;
+        let checksumPath = null;
+
+        const effectivePubDir = body.outputDir
+          ? path.resolve(projectDir, body.outputDir)
+          : path.join(projectDir, 'publish');
+
+        const metaPath = path.join(effectivePubDir, 'otter.publish.json');
         if (fs.existsSync(metaPath)) {
           try {
             publishMeta = JSON.parse(fs.readFileSync(metaPath, 'utf8').replace(/^\uFEFF/, ''));
+          } catch {}
+        }
+
+        if (fs.existsSync(effectivePubDir)) {
+          try {
+            const files = fs.readdirSync(effectivePubDir);
+            archiveName = files.find(f => f.endsWith('.zip')) || null;
+            if (archiveName) {
+              archivePath = path.relative(REPO_ROOT, path.join(effectivePubDir, archiveName)).replace(/\\/g, '/');
+              const shaFile = path.join(effectivePubDir, `${archiveName}.sha256`);
+              if (fs.existsSync(shaFile)) {
+                checksumPath = path.relative(REPO_ROOT, shaFile).replace(/\\/g, '/');
+                checksum = fs.readFileSync(shaFile, 'utf8').replace(/^\uFEFF/, '').trim();
+              }
+            }
           } catch {}
         }
 
@@ -1051,6 +1076,10 @@ const server = http.createServer(async (req, res) => {
           stderr: stderr ? stderr.toString() : '',
           durationMs,
           publishMeta,
+          archiveName,
+          archivePath,
+          checksum,
+          checksumPath,
           error: error ? error.message : null
         }, ok ? 200 : 422);
       });

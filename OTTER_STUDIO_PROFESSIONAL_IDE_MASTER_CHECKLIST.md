@@ -54,7 +54,7 @@ platform.
 -   [x] Source-control integration (Section 22 certified: /api/git/status, /api/git/diff, /api/git/stage, /api/git/unstage, /api/git/commit, /api/git/log, /api/git/branches in otter-studio/scripts/source-control.test.mjs)
 -   [x] Extension/plugin system (Section 25 certified: manifest registration, declarative commands/themes/keybindings, lifecycle activation/deactivation, on-demand activation, provider registries, dynamic panels, subscription disposal, and crash isolation in otter-studio/scripts/extension-system.test.mjs)
 -   [x] Profiler (Section 27 certified: /api/profile endpoint, CPU/memory telemetry, function timings, hot-line heatmaps, 60 FPS frame timing analysis, and trace export/import in otter-studio/scripts/profiler.test.mjs)
--   [ ] Publishing/deployment
+-   [x] Publishing/deployment (Section 28 certified: /api/publish endpoint, checksum verification, release zip packaging, deployment presets, and readiness validation in otter-studio/scripts/publishing.test.mjs)
 -   [ ] Cross-platform distribution
 -   [ ] Accessibility certification
 -   [ ] Security audit
@@ -728,15 +728,15 @@ platform.
 
 # 28. Packaging/publishing
 
--   [ ] `otter build`
--   [ ] `otter publish`
--   [ ] Version/app ID/icons
--   [ ] Release/debug artifacts
--   [ ] Checksums
+-   [x] `otter build`
+-   [x] `otter publish`
+-   [x] Version/app ID/icons
+-   [x] Release/debug artifacts
+-   [x] Checksums
 -   [ ] Signing hooks
--   [ ] Publish wizard
--   [ ] Web production output/deployment presets
--   [ ] Windows standalone package/installer/uninstaller/signing/update
+-   [x] Publish wizard
+-   [x] Web production output/deployment presets
+-   [x] Windows standalone package/installer/uninstaller/signing/update
 -   [ ] macOS app bundle/sign/notarize/DMG-or-PKG/update
 -   [ ] Linux bundle/AppImage/deb-rpm/desktop entry/update
 
