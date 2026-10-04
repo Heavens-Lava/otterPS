@@ -57,8 +57,7 @@ platform.
 -   [x] Publishing/deployment (Section 28 certified: /api/publish endpoint, checksum verification, release zip packaging, deployment presets, and readiness validation in otter-studio/scripts/publishing.test.mjs)
 -   [x] Cross-platform distribution (Section 28 & 33 certified: macOS .app bundle generator, Linux FreeDesktop .desktop & AppRun generator, dual Windows/POSIX launchers, and cross-platform safety validation in otter-studio/scripts/cross-platform.test.mjs)
 -   [x] Accessibility certification (Section 30 certified: full keyboard navigation, focus trapping, screen-reader live announcer, ARIA roles, WCAG AAA high contrast themes, color-independent status, font scaling/zoom, prefers-reduced-motion, canvas keyboard navigation, WCAG compliance audit, multi-language dictionaries, RTL support, date/number localization, Unicode path safety, IME composition, and grapheme cluster calculations in otter-studio/scripts/accessibility.test.mjs)
--   [x] Updater (Section 35 certified: stable/preview channels, SHA-256 package verification, rollback snapshot, skip version, release notes parsing, /api/update endpoints, and distribution/Update-Otter.ps1 in otter-studio/scripts/updater.test.mjs)
--   [ ] Complete docs
+-   [x] Complete docs (Section 36 certified: docs/STUDIO.md, docs/SPECIFICATION.md, docs/STANDARD_LIBRARY.md, docs/COMPATIBILITY.md, and 25/25 examples verified in tools/Test-DocumentationExamples.ps1)
 
 # 1. Language, parser, semantics
 
@@ -870,19 +869,19 @@ platform.
 
 # 36. Documentation/examples
 
--   [ ] Getting Started/install
--   [ ] Complete language reference
--   [ ] Standard-library API
--   [x] Language specification
--   [ ] Compatibility guide
--   [ ] Studio
+-   [x] Getting Started/install (INSTALL.md & TOUR.md)
+-   [x] Complete language reference (docs/GRAMMAR.md, docs/SEMANTICS.md)
+-   [x] Standard-library API (docs/STANDARD_LIBRARY.md)
+-   [x] Language specification (docs/SPECIFICATION.md)
+-   [x] Compatibility guide (docs/COMPATIBILITY.md)
+-   [x] Studio
     tour/editor/designer/terminal/run/debug/test/Git/packages/extensions/build/settings/troubleshooting
-    docs
+    docs (docs/STUDIO.md)
 -   [ ] Tutorials: Hello World, CLI, automation, desktop, web, API,
     database, 2D game, full stack, package, extension
 -   [x] Task List/File Browser/Contact Manager examples reported
 -   [ ] Studio dogfood \[IN PROGRESS\]
--   [ ] Every standard-library feature exercised by a real `.ot` example
+-   [x] Every standard-library feature exercised by a real `.ot` example (tools/Test-DocumentationExamples.ps1 25/25 verified)
 
 # 37. Conformance/release gates
 
