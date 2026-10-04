@@ -109,8 +109,10 @@ import {
   FileAssociationManager,
   OfflineInstallVerifier
 } from './js/welcome/first-run-manager.js';
+import { OtterAIAssistant } from './js/ai/ai-assistant-engine.js';
 
 const welcomeManager = new WelcomeManager();
+const aiAssistant = new OtterAIAssistant();
 const networkInspector = new NetworkInspector();
 const domCssInspector = new DomCssInspector();
 const storageConsoleManager = new StorageConsoleManager();
@@ -3891,6 +3893,84 @@ const server = http.createServer(async (req, res) => {
       const linux = FileAssociationManager.generateLinuxMimeAndDesktop();
       const mac = FileAssociationManager.generateMacOsDocumentType();
       sendJson(res, { ok: true, windowsReg: reg, linuxMime: linux.mimeXml, linuxDesktop: linux.desktopEntry, macDocumentTypes: mac });
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  // --- AI Assistant & Intelligent Copilot API (Section 39) ---
+  if (pathname === '/api/ai/chat' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const result = aiAssistant.chat(body.message || '', body.context || {});
+      sendJson(res, { ok: true, ...result });
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/ai/synthesize-code' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const code = aiAssistant.generateOtterCode(body.prompt || '', body.context || {});
+      sendJson(res, { ok: true, code });
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/ai/generate-ui' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const layout = aiAssistant.generateUILayout(body.prompt || '', body.context || {});
+      sendJson(res, { ok: true, ...layout });
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/ai/fix-diagnostics' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const fixes = aiAssistant.analyzeDiagnosticsAndSuggestFixes(body.diagnostics || [], body.source || '');
+      sendJson(res, { ok: true, fixes });
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/ai/generate-tests' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const testSuite = aiAssistant.generateTestSuites(body.source || '', body.moduleName || 'module');
+      sendJson(res, { ok: true, testSuite });
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/ai/explain' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const explanation = aiAssistant.explainCode(body.source || '');
+      sendJson(res, { ok: true, explanation });
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/ai/completions' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const completions = aiAssistant.semanticInlineCompletions(body.prefix || '', body.suffix || '', body.context || {});
+      sendJson(res, { ok: true, completions });
     } catch (err) {
       sendJson(res, { ok: false, error: err.message }, 500);
     }
