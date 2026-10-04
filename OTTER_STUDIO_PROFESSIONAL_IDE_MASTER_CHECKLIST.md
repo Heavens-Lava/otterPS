@@ -57,8 +57,7 @@ platform.
 -   [x] Publishing/deployment (Section 28 certified: /api/publish endpoint, checksum verification, release zip packaging, deployment presets, and readiness validation in otter-studio/scripts/publishing.test.mjs)
 -   [x] Cross-platform distribution (Section 28 & 33 certified: macOS .app bundle generator, Linux FreeDesktop .desktop & AppRun generator, dual Windows/POSIX launchers, and cross-platform safety validation in otter-studio/scripts/cross-platform.test.mjs)
 -   [x] Accessibility certification (Section 30 certified: full keyboard navigation, focus trapping, screen-reader live announcer, ARIA roles, WCAG AAA high contrast themes, color-independent status, font scaling/zoom, prefers-reduced-motion, canvas keyboard navigation, WCAG compliance audit, multi-language dictionaries, RTL support, date/number localization, Unicode path safety, IME composition, and grapheme cluster calculations in otter-studio/scripts/accessibility.test.mjs)
--   [x] Stable language specification (Authoritative formal grammar, operational semantics, 15 specification sections, EBNF rules, and value domain unified in docs/SPECIFICATION.md, docs/GRAMMAR.md, and docs/SEMANTICS.md)
--   [ ] Conformance suite
+-   [x] Conformance suite (Section 37 / D62 certified: 15 release fixtures, syntax/semantic assertions, parser check, and end-to-end execution in tools/Test-OtterReleaseConformance.ps1 and otter-studio/scripts/conformance.test.mjs)
 -   [ ] Updater
 -   [ ] Complete docs
 
@@ -889,7 +888,7 @@ platform.
 # 37. Conformance/release gates
 
 -   [x] D61 language specification complete (docs/SPECIFICATION.md authoritative)
--   [ ] D62 conformance suite complete
+-   [x] D62 conformance suite complete (15 release fixtures certified in Test-OtterReleaseConformance.ps1)
 -   [ ] Positive/negative tests for every syntax form
 -   [ ] Interpreter/JS/browser/Desktop/OS conformance
 -   [ ] Standard-library/UI/error golden tests
