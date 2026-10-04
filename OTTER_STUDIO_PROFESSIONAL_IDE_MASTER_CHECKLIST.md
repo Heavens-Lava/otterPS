@@ -153,20 +153,20 @@ platform.
 -   [x] Launch failure becomes Otter error
 -   [x] Authenticated loopback Studio command bridge reported
     production-reachable
--   [ ] Persistent PTY/ConPTY
--   [ ] Character stdin
--   [ ] ANSI/VT rendering
--   [ ] Resize
--   [ ] Signals/Ctrl+C
--   [ ] Persistent shell state
--   [ ] Interactive programs
--   [ ] Multiple terminal sessions
--   [ ] Terminal profiles
--   [ ] Kill process tree
--   [ ] Environment API
--   [ ] Process timeout/cancellation
--   [ ] Cross-platform PTY abstraction
--   [ ] Shell escaping/injection audit
+-   [x] Persistent PTY/ConPTY (terminal.test.mjs & Terminal.Tests.ps1)
+-   [x] Character stdin (terminal.test.mjs & AsyncCommand.Tests.ps1)
+-   [x] ANSI/VT rendering (terminal.test.mjs & ansi-parser.js)
+-   [x] Resize (terminal.test.mjs & /api/terminal/session/resize)
+-   [x] Signals/Ctrl+C (terminal.test.mjs & AsyncCommand.Tests.ps1)
+-   [x] Persistent shell state (terminal.test.mjs session persistence)
+-   [x] Interactive programs (terminal.test.mjs & Terminal.Tests.ps1)
+-   [x] Multiple terminal sessions (terminal.test.mjs & terminal-manager.js)
+-   [x] Terminal profiles (terminal.test.mjs & terminal-profiles.js)
+-   [x] Kill process tree (terminal.test.mjs & AsyncCommand.Tests.ps1)
+-   [x] Environment API (terminal.test.mjs /api/terminal/session/env)
+-   [x] Process timeout/cancellation (AsyncCommand.Tests.ps1 & ProcessAdversarial.Tests.ps1)
+-   [x] Cross-platform PTY abstraction (terminal.test.mjs & Terminal.Tests.ps1)
+-   [x] Shell escaping/injection audit (terminal.test.mjs & ProcessAdversarial.Tests.ps1)
 
 # 5. Networking and data
 

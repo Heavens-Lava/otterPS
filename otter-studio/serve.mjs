@@ -59,6 +59,28 @@ function pumpDebugSessionOutput(session, chunk) {
   }
 }
 
+// Terminal PTY session management
+const terminalSessions = new Map();
+
+function killProcessTree(pid, callback) {
+  if (!pid) {
+    if (callback) callback();
+    return;
+  }
+  if (process.platform === 'win32') {
+    execFile('taskkill.exe', ['/PID', String(pid), '/T', '/F'], (err) => {
+      if (callback) callback(err);
+    });
+  } else {
+    try {
+      process.kill(-pid, 'SIGKILL');
+    } catch {
+      try { process.kill(pid, 'SIGKILL'); } catch {}
+    }
+    if (callback) callback();
+  }
+}
+
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -1614,6 +1636,240 @@ const server = http.createServer(async (req, res) => {
       sendJson(res, { error: err.message }, 500);
     }
     return;
+  }
+
+  // --- Terminal Profiles API ---
+  if (pathname === '/api/terminal/profiles' && req.method === 'GET') {
+    const isWindows = process.platform === 'win32';
+    const profiles = [
+      {
+        id: 'powershell-5',
+        name: isWindows ? 'PowerShell 5.1 (Windows)' : 'PowerShell',
+        shell: isWindows ? 'powershell.exe' : 'pwsh',
+        args: ['-NoLogo', '-NoProfile'],
+        icon: 'terminal-ps',
+        isDefault: true
+      },
+      {
+        id: 'cmd',
+        name: 'Command Prompt',
+        shell: 'cmd.exe',
+        args: ['/Q'],
+        icon: 'terminal-cmd',
+        isDefault: false
+      },
+      {
+        id: 'otter-repl',
+        name: 'Otter REPL',
+        shell: 'powershell.exe',
+        args: ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(REPO_ROOT, 'otter.ps1'), 'repl'],
+        icon: 'otter-icon',
+        isDefault: false
+      }
+    ];
+    return sendJson(res, { ok: true, profiles });
+  }
+
+  // --- Terminal Active Sessions List ---
+  if (pathname === '/api/terminal/sessions' && req.method === 'GET') {
+    const list = Array.from(terminalSessions.values()).map(s => ({
+      id: s.id,
+      profile: s.profile,
+      pid: s.child?.pid || null,
+      cwd: s.cwd,
+      cols: s.cols,
+      rows: s.rows,
+      terminated: s.terminated,
+      exitCode: s.exitCode,
+      createdAt: s.createdAt
+    }));
+    return sendJson(res, { ok: true, sessions: list });
+  }
+
+  // --- Terminal PTY Session Create ---
+  if (pathname === '/api/terminal/session/create' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const sessionId = body.id || `term-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+      const shellCmd = body.shell || 'powershell.exe';
+      const shellArgs = Array.isArray(body.args) ? body.args : ['-NoLogo', '-NoProfile'];
+      const sessionCwd = (body.cwd && isPathContained(body.cwd)) ? path.resolve(REPO_ROOT, body.cwd) : REPO_ROOT;
+      const cols = body.cols || 80;
+      const rows = body.rows || 24;
+
+      const sessionEnv = {
+        ...process.env,
+        COLUMNS: String(cols),
+        LINES: String(rows),
+        TERM: 'xterm-256color',
+        ...(body.env || {})
+      };
+
+      const child = spawn(shellCmd, shellArgs, {
+        cwd: sessionCwd,
+        env: sessionEnv,
+        windowsHide: true,
+        stdio: ['pipe', 'pipe', 'pipe']
+      });
+
+      const session = {
+        id: sessionId,
+        child,
+        profile: body.profile || 'default',
+        shell: shellCmd,
+        cwd: sessionCwd,
+        cols,
+        rows,
+        env: sessionEnv,
+        buffer: '',
+        terminated: false,
+        exitCode: null,
+        createdAt: new Date().toISOString()
+      };
+
+      child.stdout.on('data', chunk => {
+        session.buffer += chunk.toString();
+      });
+
+      child.stderr.on('data', chunk => {
+        session.buffer += chunk.toString();
+      });
+
+      child.on('close', code => {
+        session.terminated = true;
+        session.exitCode = code;
+      });
+
+      child.on('error', err => {
+        session.buffer += `\r\n[Process error: ${err.message}]\r\n`;
+        session.terminated = true;
+        session.exitCode = 1;
+      });
+
+      terminalSessions.set(sessionId, session);
+
+      return sendJson(res, {
+        ok: true,
+        id: sessionId,
+        pid: child.pid,
+        cwd: sessionCwd
+      });
+    } catch (err) {
+      return sendJson(res, { ok: false, error: err.message }, 500);
+    }
+  }
+
+  // --- Terminal PTY Input (Character Stdin) ---
+  if (pathname === '/api/terminal/session/input' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const session = terminalSessions.get(body.id);
+      if (!session) {
+        return sendJson(res, { ok: false, error: 'Session not found' }, 404);
+      }
+      if (session.terminated || !session.child.stdin.writable) {
+        return sendJson(res, { ok: false, error: 'Session process is not writable' }, 400);
+      }
+
+      session.child.stdin.write(body.input || '');
+      return sendJson(res, { ok: true });
+    } catch (err) {
+      return sendJson(res, { ok: false, error: err.message }, 500);
+    }
+  }
+
+  // --- Terminal Output Polling ---
+  if (pathname === '/api/terminal/session/poll' && req.method === 'GET') {
+    const sessionId = urlObj.searchParams.get('id');
+    const offset = parseInt(urlObj.searchParams.get('offset') || '0', 10);
+    const session = terminalSessions.get(sessionId);
+    if (!session) {
+      return sendJson(res, { ok: false, error: 'Session not found' }, 404);
+    }
+
+    const unread = session.buffer.slice(offset);
+    return sendJson(res, {
+      ok: true,
+      output: unread,
+      terminated: session.terminated,
+      exitCode: session.exitCode
+    });
+  }
+
+  // --- Terminal Resize ---
+  if (pathname === '/api/terminal/session/resize' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const session = terminalSessions.get(body.id);
+      if (!session) {
+        return sendJson(res, { ok: false, error: 'Session not found' }, 404);
+      }
+      session.cols = body.cols || session.cols;
+      session.rows = body.rows || session.rows;
+      return sendJson(res, { ok: true, cols: session.cols, rows: session.rows });
+    } catch (err) {
+      return sendJson(res, { ok: false, error: err.message }, 500);
+    }
+  }
+
+  // --- Terminal Signal / Ctrl+C / Kill Tree ---
+  if (pathname === '/api/terminal/session/signal' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const session = terminalSessions.get(body.id);
+      if (!session) {
+        return sendJson(res, { ok: false, error: 'Session not found' }, 404);
+      }
+      const signal = body.signal || 'SIGINT';
+
+      if (signal === 'SIGINT') {
+        if (session.child.stdin.writable) {
+          session.child.stdin.write('\x03'); // Ctrl+C character
+        }
+      } else if (signal === 'SIGTERM' || signal === 'SIGKILL') {
+        killProcessTree(session.child.pid);
+        session.terminated = true;
+      }
+      return sendJson(res, { ok: true });
+    } catch (err) {
+      return sendJson(res, { ok: false, error: err.message }, 500);
+    }
+  }
+
+  // --- Terminal Session Close ---
+  if (pathname === '/api/terminal/session/close' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const session = terminalSessions.get(body.id);
+      if (session) {
+        if (!session.terminated && session.child.pid) {
+          killProcessTree(session.child.pid);
+        }
+        terminalSessions.delete(body.id);
+      }
+      return sendJson(res, { ok: true });
+    } catch (err) {
+      return sendJson(res, { ok: false, error: err.message }, 500);
+    }
+  }
+
+  // --- Terminal Environment API ---
+  if (pathname === '/api/terminal/session/env') {
+    if (req.method === 'GET') {
+      const sessionId = urlObj.searchParams.get('id');
+      const session = terminalSessions.get(sessionId);
+      if (!session) return sendJson(res, { ok: false, error: 'Session not found' }, 404);
+      return sendJson(res, { ok: true, env: session.env });
+    }
+    if (req.method === 'POST') {
+      const body = await readBody(req);
+      const session = terminalSessions.get(body.id);
+      if (!session) return sendJson(res, { ok: false, error: 'Session not found' }, 404);
+      if (body.key) {
+        session.env[body.key] = String(body.value ?? '');
+      }
+      return sendJson(res, { ok: true, env: session.env });
+    }
   }
 
   // --- Interactive Terminal API ---
