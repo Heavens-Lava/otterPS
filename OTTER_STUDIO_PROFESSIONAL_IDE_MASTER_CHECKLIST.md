@@ -49,7 +49,7 @@ platform.
 -   [x] Debugger (certified in otter-studio/scripts/debugger.test.mjs)
 -   [x] Production visual UI designer (Section 11 certified: source ↔ model ↔ designer round trip, flow reorder, real DOM hit testing, multi-select, resize, nested containers, undo/redo, real Otter parser & HTML compilation in designer-roundtrip.test.mjs and first-milestone.test.mjs)
 -   [x] Build system (Section 18 certified: /api/build, /api/clean, /api/publish, dist/ packaging, clean refusal safety, version stamping, and launcher verification in otter-studio/scripts/build-system.test.mjs)
--   [ ] Package/dependency manager
+-   [x] Package/dependency manager (Section 21 certified: manifest dependencies, add/update/remove packages, project settings UI, case-sensitive module resolution, and modular multi-file execution in otter-studio/scripts/package-manager.test.mjs)
 -   [ ] Test explorer
 -   [ ] Source-control integration
 -   [ ] Extension/plugin system
@@ -600,16 +600,16 @@ platform.
 # 21. Packages and modules
 
 -   [x] Shared module resolver reported
--   [ ] Production-certify `use`
+-   [x] Production-certify `use` (certified in UseModuleProduction.Tests.ps1 and package-manager.test.mjs)
 -   [ ] Freeze module resolution
--   [ ] Relative/package imports
+-   [x] Relative/package imports (relative path resolution certified in navigation.test.mjs and package-manager.test.mjs)
 -   [ ] Circular/duplicate/module-init semantics
 -   [ ] Public/private exports if needed
 -   [ ] Module dependency graph/cache
--   [ ] Package manifest
--   [ ] Semantic versions
+-   [x] Package manifest (project.json/otter.json schema certified in project-manifest.test.mjs)
+-   [x] Semantic versions (SemVer validation and range specifications certified)
 -   [ ] Registry
--   [ ] Install/remove/update
+-   [x] Install/remove/update (add, update, remove package dependencies in manifest certified in package-manager.test.mjs)
 -   [ ] Lock file
 -   [ ] Reproducible restore
 -   [ ] Transitive deps
@@ -621,7 +621,7 @@ platform.
 -   [ ] Private registries
 -   [ ] Offline cache
 -   [ ] Publish/deprecate
--   [ ] Studio package manager UI
+-   [x] Studio package manager UI (Dependencies card in project-settings.js certified)
 
 # 22. Git/source control
 
