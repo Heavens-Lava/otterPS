@@ -43,8 +43,7 @@ platform.
 -   [x] Run Otter programs
 -   [x] Capture stdout/stderr/numeric exit code
 -   [x] Basic diagnostics with source line
--   [ ] New Project wizard with Console/Desktop/Web/2D Game archetypes
-    \[DONE, needs production certification per archetype\]
+-   [x] New Project wizard with Console/Desktop/Web/2D Game archetypes (certified across all 4 archetypes in otter-studio/scripts/new-project-wizard.test.mjs)
 -   [x] Professional source editor (Complete Section 8 certification)
 -   [ ] Language intelligence
 -   [ ] Debugger
