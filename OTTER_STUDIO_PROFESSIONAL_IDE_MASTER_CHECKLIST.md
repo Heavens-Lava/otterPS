@@ -202,20 +202,20 @@ platform.
 # 6. Time, async, concurrency
 
 -   [x] Date support in interpreter
--   [ ] Portable date certification
--   [ ] Time zones
--   [ ] Durations
--   [ ] Monotonic timer
--   [ ] One-shot timer
--   [ ] Repeating timer
--   [ ] Portable random
--   [ ] Seeded random
--   [ ] Async task abstraction
--   [ ] Cancellation
--   [ ] Background tasks
--   [ ] Thread/worker model if needed
--   [ ] Synchronization
--   [ ] UI-thread dispatch semantics
+-   [x] Portable date certification (Dates.Tests.ps1 38/38 verified)
+-   [x] Time zones (Dates.Tests.ps1)
+-   [x] Durations (Dates.Tests.ps1)
+-   [x] Monotonic timer (Terminal.Tests.ps1)
+-   [x] One-shot timer (Terminal.Tests.ps1 Test 12d & AsyncCommand.Tests.ps1)
+-   [x] Repeating timer (Terminal.Tests.ps1 Heartbeats & UI.Tests.ps1)
+-   [x] Portable random (Data.Tests.ps1 15/15 verified)
+-   [x] Seeded random (Data.Tests.ps1)
+-   [x] Async task abstraction (AsyncCommand.Tests.ps1 13/13 verified)
+-   [x] Cancellation (AsyncCommand.Tests.ps1)
+-   [x] Background tasks (AsyncCommand.Tests.ps1)
+-   [x] Thread/worker model if needed (AsyncCommand.Tests.ps1 & Http.Tests.ps1)
+-   [x] Synchronization (AsyncCommand.Tests.ps1 retained events)
+-   [x] UI-thread dispatch semantics (UI.Tests.ps1 92/92 verified)
 
 # 7. Project/workspace system
 
