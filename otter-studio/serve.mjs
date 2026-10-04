@@ -1060,6 +1060,126 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // --- Test Explorer API ---
+  if (pathname === '/api/tests/discover' && req.method === 'GET') {
+    try {
+      const folderParam = urlObj.searchParams.get('folder') || '.';
+      const projectDir = path.resolve(REPO_ROOT, folderParam);
+      if (!projectDir.startsWith(REPO_ROOT) || !fs.existsSync(projectDir)) {
+        return sendJson(res, { error: 'Project folder not found' }, 404);
+      }
+
+      const testFiles = [];
+      function findTests(dir) {
+        if (!fs.existsSync(dir)) return;
+        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+          if (entry.name === 'node_modules' || entry.name === '.git' || entry.name === 'dist') continue;
+          const fullPath = path.join(dir, entry.name);
+          if (entry.isDirectory()) {
+            findTests(fullPath);
+          } else if (entry.isFile()) {
+            const lower = entry.name.toLowerCase();
+            if (lower.endsWith('_test.ot') || lower.endsWith('.test.ot') || lower.endsWith('.tests.ot') || (lower.startsWith('test_') && lower.endsWith('.ot'))) {
+              const rel = path.relative(projectDir, fullPath).replace(/\\/g, '/');
+              const content = fs.readFileSync(fullPath, 'utf8');
+              const lines = content.split(/\r?\n/);
+              const testSuites = [];
+              for (let i = 0; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (line.startsWith('#') && line.length > 2) {
+                  testSuites.push({ line: i + 1, title: line.replace(/^#+\s*/, '') });
+                }
+              }
+              testFiles.push({
+                file: rel,
+                name: entry.name,
+                fullPath: path.relative(REPO_ROOT, fullPath).replace(/\\/g, '/'),
+                suites: testSuites
+              });
+            }
+          }
+        }
+      }
+      findTests(projectDir);
+
+      sendJson(res, {
+        ok: true,
+        project: path.basename(projectDir),
+        count: testFiles.length,
+        tests: testFiles
+      });
+    } catch (err) {
+      sendJson(res, { error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/tests/run' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const folderParam = body.folder || body.path || '.';
+      const projectDir = path.resolve(REPO_ROOT, folderParam);
+      if (!projectDir.startsWith(REPO_ROOT) || !fs.existsSync(projectDir)) {
+        return sendJson(res, { error: 'Project folder not found' }, 404);
+      }
+
+      const otterCmd = path.join(REPO_ROOT, 'otter.cmd');
+      const targetArg = body.file ? ` "${body.file}"` : '';
+      const cmd = `"${otterCmd}" test${targetArg}`;
+      const startTime = Date.now();
+
+      exec(cmd, { cwd: projectDir, timeout: 60000 }, (error, stdout, stderr) => {
+        const durationMs = Date.now() - startTime;
+        const outStr = stdout ? stdout.toString() : '';
+        const errStr = stderr ? stderr.toString() : '';
+        const lines = outStr.split(/\r?\n/);
+
+        const results = [];
+        const seenFiles = new Set();
+        let passed = 0;
+        let failed = 0;
+
+        for (const rawLine of lines) {
+          const line = rawLine.trim();
+          if (line.startsWith('PASS ')) {
+            const file = line.slice(5).trim();
+            if (!seenFiles.has(file)) {
+              seenFiles.add(file);
+              passed++;
+              results.push({ file, status: 'pass' });
+            }
+          } else if (line.startsWith('FAIL ')) {
+            const parts = line.slice(5).trim().split(/\s+/);
+            const file = parts[0];
+            if (!seenFiles.has(file)) {
+              seenFiles.add(file);
+              failed++;
+              results.push({ file, status: 'fail' });
+            }
+          }
+        }
+
+        const ok = (failed === 0) && (error ? error.code === 0 : true);
+
+        sendJson(res, {
+          ok,
+          exitCode: error ? (error.code || 1) : 0,
+          total: passed + failed,
+          passed,
+          failed,
+          results,
+          durationMs,
+          stdout: outStr,
+          stderr: errStr,
+          error: error ? error.message : null
+        });
+      });
+    } catch (err) {
+      sendJson(res, { error: err.message }, 500);
+    }
+    return;
+  }
+
   // --- Debugger (first slice): start/poll/continue/stop a real otter.ps1
   // debug session. See src/Otter.Debugger.psm1 for the protocol and
   // src/Otter.Interpreter.psm1's Set-OtterStatementHook for how the

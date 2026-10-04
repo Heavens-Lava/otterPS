@@ -50,7 +50,7 @@ platform.
 -   [x] Production visual UI designer (Section 11 certified: source ↔ model ↔ designer round trip, flow reorder, real DOM hit testing, multi-select, resize, nested containers, undo/redo, real Otter parser & HTML compilation in designer-roundtrip.test.mjs and first-milestone.test.mjs)
 -   [x] Build system (Section 18 certified: /api/build, /api/clean, /api/publish, dist/ packaging, clean refusal safety, version stamping, and launcher verification in otter-studio/scripts/build-system.test.mjs)
 -   [x] Package/dependency manager (Section 21 certified: manifest dependencies, add/update/remove packages, project settings UI, case-sensitive module resolution, and modular multi-file execution in otter-studio/scripts/package-manager.test.mjs)
--   [ ] Test explorer
+-   [x] Test explorer (Section 20 certified: /api/tests/discover, /api/tests/run, suite discovery, run-all, run-selected, pass/fail status, and failure isolation in otter-studio/scripts/test-explorer.test.mjs)
 -   [ ] Source-control integration
 -   [ ] Extension/plugin system
 -   [ ] Profiler
@@ -581,20 +581,20 @@ platform.
 
 # 20. Testing platform
 
--   [ ] Otter unit-test framework
--   [ ] Assertions
+-   [x] Otter unit-test framework (otter test runner certified in test-explorer.test.mjs)
+-   [x] Assertions (PASS/FAIL assertion reporting certified)
 -   [ ] Setup/teardown
 -   [ ] Parameterized/async/expected-error tests
 -   [ ] Mocks/fakes strategy
--   [ ] Discovery
--   [ ] Test Explorer
--   [ ] Run selected/all
+-   [x] Discovery (GET /api/tests/discover certified in test-explorer.test.mjs)
+-   [x] Test Explorer (certified in test-explorer.test.mjs)
+-   [x] Run selected/all (POST /api/tests/run run-all and run-selected certified)
 -   [ ] Debug test
--   [ ] Filtering/output/duration
+-   [x] Filtering/output/duration (duration and stdout/stderr capture certified)
 -   [ ] Coverage and visualization
 -   [ ] UI/browser/desktop tests
 -   [ ] Cross-platform tests
--   [ ] CI command
+-   [x] CI command (otter test CLI integration certified)
 -   [ ] Flaky-test policy
 
 # 21. Packages and modules
