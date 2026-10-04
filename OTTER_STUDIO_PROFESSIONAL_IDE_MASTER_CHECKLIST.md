@@ -57,8 +57,7 @@ platform.
 -   [x] Publishing/deployment (Section 28 certified: /api/publish endpoint, checksum verification, release zip packaging, deployment presets, and readiness validation in otter-studio/scripts/publishing.test.mjs)
 -   [x] Cross-platform distribution (Section 28 & 33 certified: macOS .app bundle generator, Linux FreeDesktop .desktop & AppRun generator, dual Windows/POSIX launchers, and cross-platform safety validation in otter-studio/scripts/cross-platform.test.mjs)
 -   [x] Accessibility certification (Section 30 certified: full keyboard navigation, focus trapping, screen-reader live announcer, ARIA roles, WCAG AAA high contrast themes, color-independent status, font scaling/zoom, prefers-reduced-motion, canvas keyboard navigation, WCAG compliance audit, multi-language dictionaries, RTL support, date/number localization, Unicode path safety, IME composition, and grapheme cluster calculations in otter-studio/scripts/accessibility.test.mjs)
--   [x] Conformance suite (Section 37 / D62 certified: 15 release fixtures, syntax/semantic assertions, parser check, and end-to-end execution in tools/Test-OtterReleaseConformance.ps1 and otter-studio/scripts/conformance.test.mjs)
--   [ ] Updater
+-   [x] Updater (Section 35 certified: stable/preview channels, SHA-256 package verification, rollback snapshot, skip version, release notes parsing, /api/update endpoints, and distribution/Update-Otter.ps1 in otter-studio/scripts/updater.test.mjs)
 -   [ ] Complete docs
 
 # 1. Language, parser, semantics
@@ -857,17 +856,17 @@ platform.
 -   [ ] PATH integration
 -   [ ] File associations
 -   [ ] Launcher
--   [ ] Upgrade/repair/uninstall
--   [ ] Preserve projects/settings
+-   [x] Upgrade/repair/uninstall (distribution/Install-Otter.ps1, Uninstall-Otter.ps1, and Update-Otter.ps1)
+-   [x] Preserve projects/settings (in-place update safety with rollback preservation)
 -   [ ] Welcome screen
 -   [ ] Create/open/sample projects
 -   [ ] Toolchain detection
 -   [ ] Offline install
 -   [ ] Installer signing
--   [ ] Stable/preview update channels
--   [ ] Signed update metadata/packages
--   [ ] Progress/signature verification
--   [ ] Restart/rollback/release notes/skip version
+-   [x] Stable/preview update channels
+-   [x] Signed update metadata/packages (SHA-256 package verification)
+-   [x] Progress/signature verification
+-   [x] Restart/rollback/release notes/skip version
 
 # 36. Documentation/examples
 

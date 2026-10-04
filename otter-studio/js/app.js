@@ -15,6 +15,7 @@ import { OtterStudioIde } from './ide.js';
 import { a11yManager } from './a11y/a11y-manager.js';
 import { i18nManager } from './i18n/i18n-manager.js';
 import { recoveryManager } from './recovery/recovery-manager.js';
+import { OtterUpdateManager } from './updater/update-manager.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
   const themeToggle = document.getElementById('btnThemeToggle');
@@ -62,6 +63,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   window.a11yManager = a11yManager;
   window.i18nManager = i18nManager;
   window.recoveryManager = recoveryManager;
+  window.updateManager = new OtterUpdateManager({ currentVersion: '1.0.0' });
 
   // Initialize crash recovery detection
   const recoveryInfo = recoveryManager.init();
