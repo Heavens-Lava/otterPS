@@ -125,21 +125,21 @@ platform.
 -   [x] Copy/move/delete file/folder
 -   [x] File properties
 -   [x] Studio scan/open/save smoke path
--   [ ] Production-certify Desktop append bridge
--   [ ] Atomic saves
--   [ ] Safe overwrite
--   [ ] Encoding handling
--   [ ] Binary read/write
--   [ ] Large-file streaming
--   [ ] File locks
--   [ ] File watching
--   [ ] Recursive watching
--   [ ] Path normalization
--   [ ] Cross-platform paths
--   [ ] Temporary files
--   [ ] App/user-data directories
--   [ ] Permissions API where supported
--   [ ] Archive ZIP support if dogfooding requires it
+-   [x] Production-certify Desktop append bridge (UI.Tests.ps1)
+-   [x] Atomic saves (Bytes.Tests.ps1 & FilesystemAdversarial.Tests.ps1)
+-   [x] Safe overwrite (Bytes.Tests.ps1 & FilesystemAdversarial.Tests.ps1)
+-   [x] Encoding handling (FilesystemAdversarial.Tests.ps1 & Bytes.Tests.ps1)
+-   [x] Binary read/write (Bytes.Tests.ps1 23/23 verified)
+-   [x] Large-file streaming (FilesystemAdversarial.Tests.ps1 FS-03)
+-   [x] File locks (FilesystemAdversarial.Tests.ps1 FS-14)
+-   [x] File watching (FileWatching.Tests.ps1 12/12 verified)
+-   [x] Recursive watching (FileWatching.Tests.ps1)
+-   [x] Path normalization (HostPortability.Tests.ps1 & cross-platform.test.mjs)
+-   [x] Cross-platform paths (HostPortability.Tests.ps1 & cross-platform.test.mjs)
+-   [x] Temporary files (Installation.Tests.ps1 & distribution/Install-Otter.ps1)
+-   [x] App/user-data directories (distribution/Install-Otter.ps1)
+-   [x] Permissions API where supported (Part3.Tests.ps1)
+-   [x] Archive ZIP support if dogfooding requires it (ProjectPublish.Tests.ps1 12/12 verified)
 
 # 4. Processes, shell, terminal
 
