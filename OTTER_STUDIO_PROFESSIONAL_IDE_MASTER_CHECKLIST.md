@@ -92,7 +92,7 @@ platform.
 -   [x] Freeze equality/order behavior (docs/SPECIFICATION.md Section 6.2)
 -   [x] Document copy/reference semantics (docs/SPECIFICATION.md Section 4 & 5.1)
 -   [x] Binary/byte data (D102 / D115 certified in tests/Bytes.Tests.ps1)
--   [ ] Streams for large data
+-   [x] Streams for large data (certified in platform core checklist line 167; stream-backed file I/O, byte buffers, and network protocols in tests/Bytes.Tests.ps1 and tests/Network.Tests.ps1)
 
 # 2. Portable compiler/runtime parity
 
