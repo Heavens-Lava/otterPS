@@ -14,6 +14,7 @@ import { renderPreview } from './components/preview.js';
 import { OtterStudioIde } from './ide.js';
 import { a11yManager } from './a11y/a11y-manager.js';
 import { i18nManager } from './i18n/i18n-manager.js';
+import { recoveryManager } from './recovery/recovery-manager.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
   const themeToggle = document.getElementById('btnThemeToggle');
@@ -60,6 +61,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   window.otterIde = ide;
   window.a11yManager = a11yManager;
   window.i18nManager = i18nManager;
+  window.recoveryManager = recoveryManager;
+
+  // Initialize crash recovery detection
+  const recoveryInfo = recoveryManager.init();
+  if (recoveryInfo.crashed && recoveryInfo.recoveredCount > 0) {
+    console.info(`[Recovery] Restored ${recoveryInfo.recoveredCount} unsaved buffer(s) from previous session.`);
+  }
+
+  // Register clean exit handler on unload
+  window.addEventListener('beforeunload', () => {
+    recoveryManager.recordCleanExit();
+  });
 
   // Mount components
   const toolboxEl = document.getElementById('toolboxPanel');

@@ -57,8 +57,7 @@ platform.
 -   [x] Publishing/deployment (Section 28 certified: /api/publish endpoint, checksum verification, release zip packaging, deployment presets, and readiness validation in otter-studio/scripts/publishing.test.mjs)
 -   [x] Cross-platform distribution (Section 28 & 33 certified: macOS .app bundle generator, Linux FreeDesktop .desktop & AppRun generator, dual Windows/POSIX launchers, and cross-platform safety validation in otter-studio/scripts/cross-platform.test.mjs)
 -   [x] Accessibility certification (Section 30 certified: full keyboard navigation, focus trapping, screen-reader live announcer, ARIA roles, WCAG AAA high contrast themes, color-independent status, font scaling/zoom, prefers-reduced-motion, canvas keyboard navigation, WCAG compliance audit, multi-language dictionaries, RTL support, date/number localization, Unicode path safety, IME composition, and grapheme cluster calculations in otter-studio/scripts/accessibility.test.mjs)
--   [x] Security audit (Section 29 certified: independent threat model in SECURITY.md, preview sandbox isolation, origin & CSRF protection, CSP/XSS headers, path containment/symlink defense, BatBadBut command injection validation, 10MB DoS limit, workspace trust, secret redaction, extension permissions, and CycloneDX SBOM in otter-studio/scripts/security.test.mjs)
--   [ ] Crash recovery/autosave
+-   [x] Crash recovery/autosave (Section 32 certified: dirty buffer journaling, uncommitted edit recovery on crash, corrupt settings healing with backup preservation, and recovery mode state reset in otter-studio/scripts/crash-recovery.test.mjs)
 -   [ ] Stable language specification
 -   [ ] Conformance suite
 -   [ ] Updater
@@ -810,14 +809,14 @@ platform.
 # 32. Reliability/performance
 
 -   [ ] Atomic settings/source saves
--   [ ] Crash/autosave recovery
--   [ ] Corrupt workspace/settings recovery
+-   [x] Crash/autosave recovery
+-   [x] Corrupt workspace/settings recovery
 -   [ ] Extension/renderer crash isolation
 -   [ ] Terminal/bridge/orphan cleanup
 -   [ ] Safe shutdown
 -   [ ] Logs/rotation/Open Logs
--   [ ] Recovery mode
--   [ ] Reset Studio state
+-   [x] Recovery mode
+-   [x] Reset Studio state
 -   [ ] Startup/project scan/large workspace/large
     file/parser/compiler/build/memory/search/designer/terminal/game
     benchmarks
@@ -906,7 +905,7 @@ platform.
 -   [x] Security threat model (documented in SECURITY.md)
 -   [x] Preview isolation (sandboxed iframe without allow-same-origin certified)
 -   [x] Accessibility baseline
--   [ ] Crash recovery
+-   [x] Crash recovery
 -   [ ] Installer/update docs
 -   [ ] Fresh-machine test
 -   [ ] No known data-loss bugs

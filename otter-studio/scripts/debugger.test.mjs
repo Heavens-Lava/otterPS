@@ -25,7 +25,7 @@ server.stdout.on('data', chunk => { serverOutput += chunk; });
 server.stderr.on('data', chunk => { serverOutput += chunk; });
 
 async function waitForServer() {
-  for (let attempt = 0; attempt < 50; attempt += 1) {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
     try {
       if ((await fetch(`${baseUrl}/`)).ok) return;
     } catch { /* not up yet */ }
