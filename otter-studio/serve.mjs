@@ -18,6 +18,11 @@ import {
   validateSolution,
   serializeSolution
 } from './js/project/workspace-solution.js';
+import {
+  parseCsv,
+  parseJsonDataset,
+  queryDataset
+} from './js/data/data-viewer.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1869,6 +1874,66 @@ const server = http.createServer(async (req, res) => {
         session.env[body.key] = String(body.value ?? '');
       }
       return sendJson(res, { ok: true, env: session.env });
+    }
+  }
+
+  // --- Data & Query Viewer API (Section 5) ---
+  if (pathname === '/api/data/query' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      let headers = [];
+      let rows = [];
+
+      if (body.path) {
+        if (!isPathContained(body.path)) {
+          return sendJson(res, { ok: false, error: 'Path traversal forbidden' }, 403);
+        }
+        const fullPath = path.resolve(REPO_ROOT, body.path);
+        if (!fs.existsSync(fullPath)) {
+          return sendJson(res, { ok: false, error: 'File not found' }, 404);
+        }
+
+        const ext = path.extname(fullPath).toLowerCase();
+        const content = fs.readFileSync(fullPath, 'utf8');
+
+        if (ext === '.csv') {
+          const parsed = parseCsv(content);
+          headers = parsed.headers;
+          rows = parsed.rows;
+        } else if (ext === '.json') {
+          const parsed = parseJsonDataset(content);
+          headers = parsed.headers;
+          rows = parsed.rows;
+        } else {
+          return sendJson(res, { ok: false, error: `Unsupported data file format: ${ext}` }, 400);
+        }
+      } else if (body.content) {
+        const format = (body.format || 'csv').toLowerCase();
+        if (format === 'csv') {
+          const parsed = parseCsv(body.content);
+          headers = parsed.headers;
+          rows = parsed.rows;
+        } else {
+          const parsed = parseJsonDataset(body.content);
+          headers = parsed.headers;
+          rows = parsed.rows;
+        }
+      } else if (Array.isArray(body.rows)) {
+        headers = Array.isArray(body.headers) ? body.headers : Object.keys(body.rows[0] || {});
+        rows = body.rows;
+      }
+
+      const view = queryDataset(headers, rows, {
+        search: body.search,
+        sortColumn: body.sortColumn,
+        sortDesc: Boolean(body.sortDesc),
+        page: Number(body.page || 1),
+        pageSize: Number(body.pageSize || 50)
+      });
+
+      return sendJson(res, { ok: true, ...view });
+    } catch (err) {
+      return sendJson(res, { ok: false, error: err.message }, 500);
     }
   }
 

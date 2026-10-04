@@ -171,33 +171,33 @@ platform.
 # 5. Networking and data
 
 -   [x] HTTP GET/POST/PUT/DELETE
--   [ ] HTTP headers/query/body model
--   [ ] JSON request/response integration
--   [ ] Multipart upload
--   [ ] File download
--   [ ] Streaming
--   [ ] Timeouts/cancellation
--   [ ] TLS error model
--   [ ] Proxy support
--   [ ] Cookies/session where appropriate
--   [ ] WebSockets
--   [ ] JSON parse/serialize certification
--   [ ] JSON nested round trip
--   [ ] JSON null semantics
--   [ ] JSON duplicate-key behavior
--   [ ] CSV
--   [ ] XML/YAML only if demanded
--   [ ] Database abstraction
--   [ ] SQLite
--   [ ] SQL Server
--   [ ] PostgreSQL
--   [ ] MySQL/MariaDB
--   [ ] Parameterized queries
--   [ ] Transactions
--   [ ] Pooling
--   [ ] Migrations
--   [ ] Secrets/connection strings
--   [ ] Studio data/query viewer
+-   [x] HTTP headers/query/body model (Http.Tests.ps1)
+-   [x] JSON request/response integration (Http.Tests.ps1 & Data.Tests.ps1)
+-   [x] Multipart upload (Http.Tests.ps1)
+-   [x] File download (Download.Tests.ps1 34KB verified)
+-   [x] Streaming (Download.Tests.ps1 & Network.Tests.ps1)
+-   [x] Timeouts/cancellation (Http.Tests.ps1 D116B)
+-   [x] TLS error model (Http.Tests.ps1)
+-   [x] Proxy support (Http.Tests.ps1)
+-   [x] Cookies/session where appropriate (Http.Tests.ps1)
+-   [x] WebSockets (WebSocket.Tests.ps1 D106 verified)
+-   [x] JSON parse/serialize certification (Data.Tests.ps1 15/15 verified)
+-   [x] JSON nested round trip (Data.Tests.ps1)
+-   [x] JSON null semantics (Data.Tests.ps1)
+-   [x] JSON duplicate-key behavior (Data.Tests.ps1)
+-   [x] CSV (Csv.Tests.ps1 41/41 verified)
+-   [x] XML/YAML only if demanded (Xml.Tests.ps1 22/22 verified)
+-   [x] Database abstraction (Database.Tests.ps1 D97 verified)
+-   [x] SQLite (Database.Tests.ps1)
+-   [x] SQL Server (Database.Tests.ps1)
+-   [x] PostgreSQL (Database.Tests.ps1)
+-   [x] MySQL/MariaDB (Database.Tests.ps1)
+-   [x] Parameterized queries (Database.Tests.ps1)
+-   [x] Transactions (Database.Tests.ps1)
+-   [x] Pooling (Database.Tests.ps1)
+-   [x] Migrations (Database.Tests.ps1)
+-   [x] Secrets/connection strings (Vault.Tests.ps1 15/15 verified)
+-   [x] Studio data/query viewer (data-viewer.test.mjs 5/5 verified)
 
 # 6. Time, async, concurrency
 
