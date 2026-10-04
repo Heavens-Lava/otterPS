@@ -9,6 +9,8 @@ export function renderCanvas(containerEl, uiModel, cssAstManager) {
   let currentDraggedComponentId = null;
   let currentHit = null;
   let isInteractMode = false;
+  let zoomLevel = 1.0;
+  let activeBreakpoint = 'desktop';
   let realRender = null;
   let realRenderTimer = null;
   let realRenderSerial = 0;
@@ -30,6 +32,17 @@ export function renderCanvas(containerEl, uiModel, cssAstManager) {
       <div class="canvas-topbar">
         <div class="canvas-breadcrumbs" id="canvasBreadcrumbs"></div>
         <div class="canvas-actions">
+          <div class="canvas-breakpoints" style="display:flex;gap:4px;margin-right:8px;">
+            <button class="canvas-toggle-btn ${activeBreakpoint === 'desktop' ? 'is-active' : ''}" id="bpDesktop" title="Desktop Viewport">💻 Desktop</button>
+            <button class="canvas-toggle-btn ${activeBreakpoint === 'tablet' ? 'is-active' : ''}" id="bpTablet" title="Tablet Viewport (768px)">📱 Tablet</button>
+            <button class="canvas-toggle-btn ${activeBreakpoint === 'mobile' ? 'is-active' : ''}" id="bpMobile" title="Mobile Viewport (375px)">📲 Mobile</button>
+          </div>
+          <div class="canvas-zoom-controls" style="display:flex;align-items:center;gap:4px;margin-right:8px;">
+            <button class="icon-btn" id="btnZoomOut" title="Zoom Out" style="padding:2px 6px;">-</button>
+            <span class="canvas-zoom-label" id="canvasZoomLabel" style="font-size:12px;min-width:40px;text-align:center;">${Math.round(zoomLevel * 100)}%</span>
+            <button class="icon-btn" id="btnZoomIn" title="Zoom In" style="padding:2px 6px;">+</button>
+            <button class="icon-btn" id="btnZoomReset" title="Reset Zoom (100%)" style="padding:2px 6px;">↺</button>
+          </div>
           <div class="canvas-mode-toggle">
             <button class="canvas-toggle-btn ${!isInteractMode ? 'is-active' : ''}" id="btnCanvasDesignMode" title="Visual Designer & Layout Manipulation Mode">🎨 Design</button>
             <button class="canvas-toggle-btn ${isInteractMode ? 'is-active' : ''}" id="btnCanvasInteractMode" title="Test User Interaction & Event Handlers directly on canvas">⚡ Live Interact</button>
@@ -40,11 +53,10 @@ export function renderCanvas(containerEl, uiModel, cssAstManager) {
           <button class="icon-btn" id="canvasRedoBtn" title="Redo (Ctrl+Y)" ${!uiModel.canRedo() || isInteractMode ? 'disabled style="opacity:0.35;cursor:not-allowed;"' : ''}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/></svg>
           </button>
-          <span class="canvas-zoom-label">100% (CSS/Flex Engine)</span>
         </div>
       </div>
       <div class="canvas-viewport" id="canvasViewport">
-        <div class="canvas-window-wrapper otter-window ${uiModel.isSelected(root.id) && !isInteractMode ? 'is-selected-window' : ''}" id="canvasWindowWrapper">
+        <div class="canvas-window-wrapper otter-window ${uiModel.isSelected(root.id) && !isInteractMode ? 'is-selected-window' : ''}" id="canvasWindowWrapper" style="transform: scale(${zoomLevel}); transform-origin: top center; transition: width 0.2s ease, transform 0.15s ease;">
           <div class="window-titlebar">
             <div class="window-dots">
               <span class="dot dot-red"></span>
@@ -70,9 +82,49 @@ export function renderCanvas(containerEl, uiModel, cssAstManager) {
             <div class="line-dot dot-start"></div>
             <div class="line-dot dot-end"></div>
           </div>
+          <div class="designer-guide-line guide-h" id="designerGuideH" style="display: none; position: absolute; height: 1px; background: #38bdf8; z-index: 1000; pointer-events: none; width: 100%;"></div>
+          <div class="designer-guide-line guide-v" id="designerGuideV" style="display: none; position: absolute; width: 1px; background: #38bdf8; z-index: 1000; pointer-events: none; height: 100%;"></div>
         </div>
       </div>
     `;
+
+    // Breakpoint buttons
+    const windowWrapper = containerEl.querySelector('#canvasWindowWrapper');
+    containerEl.querySelector('#bpDesktop')?.addEventListener('click', () => {
+      activeBreakpoint = 'desktop';
+      if (windowWrapper) windowWrapper.style.width = '740px';
+      update();
+    });
+    containerEl.querySelector('#bpTablet')?.addEventListener('click', () => {
+      activeBreakpoint = 'tablet';
+      if (windowWrapper) windowWrapper.style.width = '768px';
+      update();
+    });
+    containerEl.querySelector('#bpMobile')?.addEventListener('click', () => {
+      activeBreakpoint = 'mobile';
+      if (windowWrapper) windowWrapper.style.width = '375px';
+      update();
+    });
+
+    // Zoom controls
+    containerEl.querySelector('#btnZoomIn')?.addEventListener('click', () => {
+      zoomLevel = Math.min(2.0, Math.round((zoomLevel + 0.15) * 100) / 100);
+      if (windowWrapper) windowWrapper.style.transform = `scale(${zoomLevel})`;
+      const lbl = containerEl.querySelector('#canvasZoomLabel');
+      if (lbl) lbl.textContent = `${Math.round(zoomLevel * 100)}%`;
+    });
+    containerEl.querySelector('#btnZoomOut')?.addEventListener('click', () => {
+      zoomLevel = Math.max(0.5, Math.round((zoomLevel - 0.15) * 100) / 100);
+      if (windowWrapper) windowWrapper.style.transform = `scale(${zoomLevel})`;
+      const lbl = containerEl.querySelector('#canvasZoomLabel');
+      if (lbl) lbl.textContent = `${Math.round(zoomLevel * 100)}%`;
+    });
+    containerEl.querySelector('#btnZoomReset')?.addEventListener('click', () => {
+      zoomLevel = 1.0;
+      if (windowWrapper) windowWrapper.style.transform = `scale(${zoomLevel})`;
+      const lbl = containerEl.querySelector('#canvasZoomLabel');
+      if (lbl) lbl.textContent = `100%`;
+    });
 
     // Canvas Mode Switcher listeners
     containerEl.querySelector('#btnCanvasDesignMode')?.addEventListener('click', () => {
@@ -92,6 +144,20 @@ export function renderCanvas(containerEl, uiModel, cssAstManager) {
     const contentArea = containerEl.querySelector(`#${root.name}`);
     const viewportEl = containerEl.querySelector('#canvasViewport');
     const windowWrapper = containerEl.querySelector('#canvasWindowWrapper');
+
+    // Pointer capture on canvas window wrapper
+    if (windowWrapper) {
+      windowWrapper.addEventListener('pointerdown', (e) => {
+        try {
+          if (e.target && e.target.setPointerCapture) e.target.setPointerCapture(e.pointerId);
+        } catch {}
+      });
+      windowWrapper.addEventListener('pointerup', (e) => {
+        try {
+          if (e.target && e.target.releasePointerCapture) e.target.releasePointerCapture(e.pointerId);
+        } catch {}
+      });
+    }
 
     // Undo / Redo button listeners
     const undoBtn = containerEl.querySelector('#canvasUndoBtn');
@@ -781,18 +847,47 @@ export function renderCanvas(containerEl, uiModel, cssAstManager) {
         insertionLineEl.style.height = '3px';
       }
 
+      // Smart alignment guides
+      const guideH = overlayEl.querySelector('#designerGuideH');
+      const guideV = overlayEl.querySelector('#designerGuideV');
+      if (guideH && guideV && hit.targetEl) {
+        const tRect = hit.targetEl.getBoundingClientRect();
+        guideH.style.top = `${tRect.top - viewportRect.top + scrollTop}px`;
+        guideH.style.display = 'block';
+        guideV.style.left = `${tRect.left - viewportRect.left + scrollLeft}px`;
+        guideV.style.display = 'block';
+      }
+
       overlayEl.style.display = 'block';
     }
 
     function hideOverlay() {
       if (overlayEl) {
         overlayEl.style.display = 'none';
+        const guideH = overlayEl.querySelector('#designerGuideH');
+        const guideV = overlayEl.querySelector('#designerGuideV');
+        if (guideH) guideH.style.display = 'none';
+        if (guideV) guideV.style.display = 'none';
       }
     }
 
     viewportEl.addEventListener('dragover', (e) => {
       e.preventDefault();
       e.dataTransfer.dropEffect = currentDraggedComponentId ? 'move' : 'copy';
+
+      // Auto-scroll when dragging near viewport edges
+      const vpRect = viewportEl.getBoundingClientRect();
+      const edgeThreshold = 40;
+      if (e.clientY < vpRect.top + edgeThreshold) {
+        viewportEl.scrollTop -= 12;
+      } else if (e.clientY > vpRect.bottom - edgeThreshold) {
+        viewportEl.scrollTop += 12;
+      }
+      if (e.clientX < vpRect.left + edgeThreshold) {
+        viewportEl.scrollLeft -= 12;
+      } else if (e.clientX > vpRect.right - edgeThreshold) {
+        viewportEl.scrollLeft += 12;
+      }
 
       const hit = performHitTest(e.clientX, e.clientY, currentDraggedComponentId, contentArea, root);
       if (!hit) {

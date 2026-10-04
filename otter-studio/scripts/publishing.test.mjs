@@ -8,7 +8,8 @@ import { fileURLToPath } from 'node:url';
 import {
   DEPLOYMENT_PRESETS,
   validatePublishReadiness,
-  generateDeploymentPackage
+  generateDeploymentPackage,
+  SigningHookManager
 } from '../js/project/publish-wizard.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -171,3 +172,47 @@ test('Live Studio Server API: POST /api/publish packages web project with inline
     }
   }
 });
+
+test('Publishing: SigningHookManager lifecycle, platform signers, and hooks', async () => {
+  const manager = new SigningHookManager();
+  let beforeCalled = false;
+  let afterCalled = false;
+
+  manager.registerHook('beforeSign', () => {
+    beforeCalled = true;
+    return { status: 'prepared' };
+  });
+
+  manager.registerHook('afterSign', () => {
+    afterCalled = true;
+    return { status: 'logged' };
+  });
+
+  const winSign = await manager.executeSigningPipeline({
+    artifactPath: 'dist/app.exe',
+    platform: 'windows',
+    signingConfig: { certificate: 'cert.pfx' }
+  });
+
+  assert.equal(winSign.platform, 'windows');
+  assert.equal(winSign.signature.signed, true);
+  assert.equal(winSign.signature.tool, 'signtool.exe');
+  assert.ok(beforeCalled);
+  assert.ok(afterCalled);
+
+  // Test dry run
+  const macSign = await manager.executeSigningPipeline({
+    artifactPath: 'dist/app.app',
+    platform: 'macos',
+    dryRun: true
+  });
+  assert.equal(macSign.signature.dryRun, true);
+
+  // Test Linux GPG
+  const linuxSign = await manager.executeSigningPipeline({
+    artifactPath: 'dist/app.tar.gz',
+    platform: 'linux'
+  });
+  assert.equal(linuxSign.signature.tool, 'gpg');
+});
+

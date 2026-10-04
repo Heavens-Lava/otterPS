@@ -41,6 +41,15 @@ export const DEFAULT_PROFILES = [
     env: {}
   },
   {
+    id: 'wsl',
+    name: 'WSL (Windows Subsystem for Linux)',
+    shell: 'wsl.exe',
+    args: ['--cd', '~'],
+    icon: 'terminal-linux',
+    isDefault: false,
+    env: {}
+  },
+  {
     id: 'otter-repl',
     name: 'Otter REPL',
     shell: 'powershell.exe',

@@ -1,0 +1,92 @@
+name: Otter Platform & Studio CI
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-matrix:
+    name: Test Suite (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows (PowerShell 5.1 & Node)
+            os: windows-2025
+            shell: pwsh
+            runPester: true
+          - name: Ubuntu Linux
+            os: ubuntu-24.04
+            shell: pwsh
+            runPester: false
+          - name: macOS
+            os: macos-15
+            shell: pwsh
+            runPester: false
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: otter-studio/package.json
+
+      - name: Install Studio dependencies
+        working-directory: ./otter-studio
+        run: npm install
+
+      - name: Verify Studio syntax and run test suites
+        working-directory: ./otter-studio
+        run: npm run check
+
+      - name: Run Windows PowerShell 5.1 Language & Conformance Tests
+        if: matrix.runPester
+        shell: powershell.exe
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & .\tests\Run-Tests.ps1
+          & .\tools\Test-OtterReleaseConformance.ps1
+
+      - name: Run Portable Host Smoke
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          pwsh -NoProfile -File ./otter.ps1 --version
+          pwsh -NoProfile -File ./otter.ps1 run ./conformance/release/hello.ot
+
+  release-packaging-dry-run:
+    name: Release Packaging & Verification Dry Run
+    runs-on: windows-2025
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build and verify release distribution archive
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tools\New-OtterDistribution.ps1 -OutputDirectory .\release-dist -Force
+          $zip = (Get-ChildItem .\release-dist\*.zip)[0]
+          $hash = (Get-FileHash -Path $zip.FullName -Algorithm SHA256).Hash
+          Write-Output "Built release archive: $($zip.Name)"
+          Write-Output "SHA-256 Checksum: $hash"
+          & pwsh -NoProfile -File .\tools\Test-OtterDistribution.ps1 -Archive $zip.FullName

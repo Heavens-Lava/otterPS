@@ -112,7 +112,7 @@ function formatProperties(props, schema) {
   // Ordered priority for readable configuration
   const priority = [
     'title', 'text', 'placeholder', 'size', 'bold', 'italic',
-    'width', 'height', 'spread', 'align', 'spacing', 'padding',
+    'width', 'height', 'columns', 'rows', 'spread', 'align', 'spacing', 'padding',
     'background', 'foreground', 'round', 'opacity', 'checked', 'value', 'source'
   ];
 

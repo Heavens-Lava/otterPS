@@ -19,3 +19,11 @@ release/certification/
 
 # Temporary projects created by otter-studio tests (otter-studio/scripts/test-scratch.mjs).
 projects/.studio-test-tmp/
+.otter/
+*.bak
+*.tmp*
+logs/
+test-scratch*
+otter-studio/logs/
+otter-studio/test-scratch*
+otter-studio/test-logs/

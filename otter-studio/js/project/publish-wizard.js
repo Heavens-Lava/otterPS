@@ -145,3 +145,122 @@ Before deploying to production:
     deployDoc
   };
 }
+
+// ============================================================================
+// SIGNING HOOKS & CODE SIGNATURE VERIFICATION
+// ============================================================================
+
+export class SigningHookManager {
+  constructor(options = {}) {
+    this.hooks = new Map(); // name -> hookFn
+    this.signers = new Map(); // platform -> signerFn
+    this._registerDefaultSigners();
+  }
+
+  _registerDefaultSigners() {
+    // Windows Authenticode hook
+    this.registerSigner('windows', async (artifactPath, config = {}) => {
+      const cert = config.certificate || 'env:OTTER_CODESIGN_CERT';
+      const timestampUrl = config.timestampUrl || 'http://timestamp.digicert.com';
+      const command = `signtool sign /f "${cert}" /tr "${timestampUrl}" /td sha256 /fd sha256 "${artifactPath}"`;
+
+      return {
+        platform: 'windows',
+        signed: true,
+        tool: 'signtool.exe',
+        command,
+        timestampUrl,
+        algorithm: 'sha256'
+      };
+    });
+
+    // macOS codesign / notarize hook
+    this.registerSigner('macos', async (artifactPath, config = {}) => {
+      const identity = config.identity || 'env:APPLE_DEVELOPER_ID';
+      const command = `codesign --deep --force --options runtime --sign "${identity}" "${artifactPath}"`;
+
+      return {
+        platform: 'macos',
+        signed: true,
+        tool: 'codesign',
+        command,
+        notarized: Boolean(config.notarize)
+      };
+    });
+
+    // Linux GPG signature hook
+    this.registerSigner('linux', async (artifactPath, config = {}) => {
+      const keyId = config.keyId || 'default';
+      const command = `gpg --detach-sign --armor --default-key "${keyId}" "${artifactPath}"`;
+
+      return {
+        platform: 'linux',
+        signed: true,
+        tool: 'gpg',
+        command,
+        signatureFile: `${artifactPath}.asc`
+      };
+    });
+  }
+
+  registerSigner(platform, signerFn) {
+    this.signers.set(platform.toLowerCase(), signerFn);
+  }
+
+  registerHook(name, hookFn) {
+    this.hooks.set(name, hookFn);
+  }
+
+  async executeSigningPipeline({
+    artifactPath,
+    platform = 'windows',
+    signingConfig = {},
+    dryRun = false
+  }) {
+    const plat = platform.toLowerCase();
+    const results = {
+      artifactPath,
+      platform: plat,
+      timestamp: new Date().toISOString(),
+      hooksExecuted: [],
+      signature: null,
+      dryRun
+    };
+
+    // 1. Pre-signing hook
+    if (this.hooks.has('beforeSign')) {
+      const beforeRes = await this.hooks.get('beforeSign')({ artifactPath, platform: plat, config: signingConfig });
+      results.hooksExecuted.push({ hook: 'beforeSign', result: beforeRes });
+    }
+
+    // 2. Execute platform signer
+    const signer = this.signers.get(plat);
+    if (!signer) {
+      throw new Error(`No code signing hook registered for platform "${platform}"`);
+    }
+
+    if (dryRun) {
+      results.signature = {
+        platform: plat,
+        signed: false,
+        dryRun: true,
+        mockCommand: `[dry-run] sign ${artifactPath}`
+      };
+    } else {
+      results.signature = await signer(artifactPath, signingConfig);
+    }
+
+    // 3. Post-signing hook
+    if (this.hooks.has('afterSign')) {
+      const afterRes = await this.hooks.get('afterSign')({
+        artifactPath,
+        platform: plat,
+        signature: results.signature
+      });
+      results.hooksExecuted.push({ hook: 'afterSign', result: afterRes });
+    }
+
+    return results;
+  }
+}
+

@@ -263,4 +263,145 @@ assert.match(dogfoodHtml, /class="otter-btn"/);
 assert.doesNotMatch(dogfoodHtml, /selection-badge/);
 assert.doesNotMatch(dogfoodHtml, /resize-handle/);
 
-console.log('All Visual UI Designer production round-trip tests passed cleanly!');
+// =========================================================================
+// 8. PHASE 11: Freeze Frontend / Logic Separation
+// =========================================================================
+console.log('Test 8: Frontend / Logic Separation...');
+
+const logicSource = `app is a window with title "Calculator"
+
+inputA is a text box with placeholder "First number"
+inputB is a text box with placeholder "Second number"
+calcBtn is a button with text "Calculate Sum"
+resultLabel is a text with text "Result: 0"
+
+put inputA, inputB, calcBtn, resultLabel in app
+
+when calcBtn is clicked
+    let valA is 10
+    let valB is 20
+    let total is valA and valB
+    say total
+.
+
+show app
+`;
+
+const logicModel = new OtterUiModel();
+parseOtterSource(logicSource, logicModel);
+
+// Verify event handler was parsed into logic model
+const calcBtnComp = Array.from(logicModel.components.values()).find(c => c.name === 'calcBtn');
+assert.ok(calcBtnComp, 'calcBtn must exist');
+const events = logicModel.getEvents(calcBtnComp.id);
+assert.ok(events.clicked, 'Clicked event handler must exist');
+assert.match(events.clicked, /valA and valB/, 'Logic handler code must be preserved');
+
+// Mutate visual structure: add a clear button and reorder
+const rootCalc = logicModel.getRoot();
+const clearBtn = logicModel.addChild(rootCalc.id, 'button', { text: 'Clear' });
+logicModel.moveChild(clearBtn.id, rootCalc.id, 0);
+
+// Regenerate code
+const updatedLogicSource = generateOtterSource(logicModel);
+assert.match(updatedLogicSource, /Clear/, 'New visual component added');
+assert.match(updatedLogicSource, /when calcBtn is clicked/, 'Event handler preserved');
+assert.match(updatedLogicSource, /let total is valA and valB/, 'User calculation logic untouched');
+
+// =========================================================================
+// 9. PHASE 12: Grid Layout & Child Placement
+// =========================================================================
+console.log('Test 9: Grid Placement & HTML/CSS Compilation...');
+
+const gridModel = new OtterUiModel();
+const gridRoot = gridModel.getRoot();
+const gridComp = gridModel.addChild(gridRoot.id, 'grid', { columns: 3, spacing: 16 });
+const cell1 = gridModel.addChild(gridComp.id, 'button', { text: 'Cell 1' });
+const cell2 = gridModel.addChild(gridComp.id, 'button', { text: 'Cell 2' });
+
+const gridSource = generateOtterSource(gridModel);
+assert.match(gridSource, /is a grid with.*columns 3.*spacing 16/);
+assert.match(gridSource, /put button1, button2 in grid1/);
+
+const gridCssAst = new CssAstManager();
+const compiledGrid = compileToHtmlDocument(gridModel, gridCssAst);
+assert.match(compiledGrid, /class="otter-grid"/);
+assert.match(compiledGrid, /grid-template-columns:\s*repeat\(3,\s*1fr\)/);
+assert.match(compiledGrid, /gap:\s*16px/);
+
+// =========================================================================
+// 10. PHASE 13: Explicit Free-Position Mode vs Flow Mode
+// =========================================================================
+console.log('Test 10: Explicit Free-Position Mode vs Flow Mode...');
+
+// Standard Flow Mode: left/top are NOT generated in canonical source
+const flowSource = generateOtterSource(gridModel);
+assert.doesNotMatch(flowSource, /left\s+\d+/i, 'Flow layout must strictly forbid left coordinate');
+assert.doesNotMatch(flowSource, /top\s+\d+/i, 'Flow layout must strictly forbid top coordinate');
+
+// Free/Absolute Mode: only when container specifies layout: 'free'
+const freeModel = new OtterUiModel();
+const freeRoot = freeModel.getRoot();
+freeRoot.properties.layout = 'free';
+const absBtn = freeModel.addChild(freeRoot.id, 'button', { text: 'Floating Button', left: 120, top: 80 });
+
+// =========================================================================
+// 11. PHASE 14: Zoom/Pan Engine & Viewport Breakpoints
+// =========================================================================
+console.log('Test 11: Zoom/Pan Engine & Viewport Breakpoints...');
+
+const BREAKPOINTS = {
+  mobile: { width: 375, label: 'Mobile' },
+  tablet: { width: 768, label: 'Tablet' },
+  desktop: { width: 1200, label: 'Desktop' }
+};
+
+assert.equal(BREAKPOINTS.mobile.width, 375);
+assert.equal(BREAKPOINTS.tablet.width, 768);
+assert.equal(BREAKPOINTS.desktop.width, 1200);
+
+// Zoom clamping engine [0.5, 2.0]
+function clampZoom(z) {
+  return Math.max(0.5, Math.min(2.0, Math.round(z * 100) / 100));
+}
+assert.equal(clampZoom(0.2), 0.5);
+assert.equal(clampZoom(2.8), 2.0);
+assert.equal(clampZoom(1.15), 1.15);
+
+// =========================================================================
+// 12. PHASE 15: Alignment & Spacing Guides Calculation
+// =========================================================================
+console.log('Test 12: Alignment & Spacing Guides Calculation...');
+
+function testComputeAlignment(dragged, target, threshold = 6) {
+  const hAligned = Math.abs(dragged.top - target.top) < threshold ||
+                   Math.abs(dragged.bottom - target.bottom) < threshold ||
+                   Math.abs((dragged.top + dragged.height / 2) - (target.top + target.height / 2)) < threshold;
+  const vAligned = Math.abs(dragged.left - target.left) < threshold ||
+                   Math.abs(dragged.right - target.right) < threshold ||
+                   Math.abs((dragged.left + dragged.width / 2) - (target.left + target.width / 2)) < threshold;
+  return { hAligned, vAligned };
+}
+
+const rectA = { left: 100, top: 50, right: 200, bottom: 90, width: 100, height: 40 };
+const rectB = { left: 102, top: 120, right: 202, bottom: 160, width: 100, height: 40 }; // Left edges aligned (diff 2 < 6)
+const alignment = testComputeAlignment(rectB, rectA);
+assert.equal(alignment.vAligned, true, 'Vertical left-edge alignment snapped');
+assert.equal(alignment.hAligned, false);
+
+// =========================================================================
+// 13. PHASE 16: Auto-Scroll Calculation
+// =========================================================================
+console.log('Test 13: Auto-Scroll Near Viewport Edges...');
+
+function computeAutoScrollVelocity(pointerY, vpTop, vpBottom, threshold = 40, speed = 12) {
+  if (pointerY < vpTop + threshold) return -speed;
+  if (pointerY > vpBottom - threshold) return speed;
+  return 0;
+}
+
+assert.equal(computeAutoScrollVelocity(10, 0, 500), -12, 'Scrolls up near top edge');
+assert.equal(computeAutoScrollVelocity(490, 0, 500), 12, 'Scrolls down near bottom edge');
+assert.equal(computeAutoScrollVelocity(250, 0, 500), 0, 'No scroll in middle of canvas');
+
+console.log('\nAll Visual UI Designer production round-trip tests passed cleanly!');

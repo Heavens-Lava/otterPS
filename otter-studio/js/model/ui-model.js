@@ -421,6 +421,14 @@ export class OtterUiModel {
     this.notify('rename', { id, oldName, newName });
   }
 
+  renameComponent(id, newName) {
+    return this.setName(id, newName);
+  }
+
+  deleteComponent(id) {
+    return this.removeComponent(id);
+  }
+
   getEvents(id) {
     return this.events.get(id) || {};
   }

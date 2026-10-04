@@ -23,14 +23,168 @@ import {
   parseJsonDataset,
   queryDataset
 } from './js/data/data-viewer.js';
+import { OtterLspServer } from './js/language/lsp-server.js';
+import { CrashReportManager } from './js/diagnostics/crash-reporter.js';
+import {
+  buildStaticSite,
+  buildClientApp,
+  SSR_STRATEGY_DECISION,
+  BROWSER_MATRIX,
+  DEPLOY_PRESETS
+} from './js/compiler/web-target-engine.js';
+import {
+  DebugAdapterEngine,
+  BreakpointManager,
+  ExpressionEvaluator,
+  ObjectInspectionEngine,
+  AttachManager,
+  SourceMapResolver
+} from './js/debugger/debug-adapter-engine.js';
+import {
+  TestPlatformEngine,
+  CoverageEngine,
+  CrossPlatformTestMatrix,
+  FlakyTestPolicyManager
+} from './js/testing/test-platform-engine.js';
+import {
+  ModuleResolutionEngine,
+  ModuleDependencyGraph,
+  LockfileManager,
+  DependencyResolver,
+  OfflineCacheManager,
+  SecurityAndLicenseScanner,
+  PublishManager
+} from './js/project/package-module-engine.js';
+import {
+  GitProvider,
+  ConflictEditorManager,
+  RemoteAuthManager,
+  sourceControlRegistry
+} from './js/scm/git-adapter-engine.js';
+import {
+  refactoringEngine,
+  TransactionManager
+} from './js/language/refactoring-engine.js';
+import { otterRepl } from './js/terminal/otter-repl-engine.js';
+import {
+  AssetScanner,
+  AssetOptimizer,
+  AssetDiagnosticScanner,
+  AssetBrowserCatalog,
+  generateDesignerSnippet,
+  AssetRefactoringEngine,
+  resolvePlatformResource,
+  AppIconGenerator,
+  LocalizationResourceManager
+} from './js/project/asset-manager-engine.js';
+import {
+  NetworkInspector,
+  NETWORK_PROFILES,
+  DomCssInspector,
+  StorageConsoleManager,
+  ResponsivePreviewManager,
+  DEVICE_PRESETS,
+  SourceMapV3Generator
+} from './js/profiler/devtools-engine.js';
+import {
+  SettingsManager,
+  CommandRegistry,
+  KeybindingManager,
+  CommandPaletteEngine,
+  StatusBarManager,
+  WorkbenchLayoutManager
+} from './js/workbench/workbench-engine.js';
+import {
+  AtomicFileManager,
+  CrashIsolationEngine,
+  ProcessOrphanManager,
+  SafeShutdownCoordinator,
+  RotatingLogManager,
+  PerformanceBenchmarkSuite
+} from './js/reliability/reliability-engine.js';
+import { recoveryManager } from './js/recovery/recovery-manager.js';
+import {
+  WelcomeManager,
+  ToolchainDetector,
+  FileAssociationManager,
+  OfflineInstallVerifier
+} from './js/welcome/first-run-manager.js';
+
+const welcomeManager = new WelcomeManager();
+const networkInspector = new NetworkInspector();
+const domCssInspector = new DomCssInspector();
+const storageConsoleManager = new StorageConsoleManager();
+const responsivePreviewManager = new ResponsivePreviewManager();
+
+const settingsManager = new SettingsManager();
+const commandRegistry = new CommandRegistry();
+const keybindingManager = new KeybindingManager(commandRegistry, process.platform === 'darwin' ? 'macos' : 'windows');
+const statusBarManager = new StatusBarManager();
+const workbenchLayoutManager = new WorkbenchLayoutManager();
+
+// Register built-in workbench commands
+commandRegistry.registerCommand({
+  id: 'workbench.save',
+  title: 'File: Save',
+  category: 'File',
+  keybinding: 'ctrl+s',
+  handler: () => ({ ok: true, action: 'save' })
+});
+commandRegistry.registerCommand({
+  id: 'workbench.newFile',
+  title: 'File: New File',
+  category: 'File',
+  keybinding: 'ctrl+n',
+  handler: () => ({ ok: true, action: 'new-file' })
+});
+commandRegistry.registerCommand({
+  id: 'workbench.openFolder',
+  title: 'File: Open Folder...',
+  category: 'File',
+  keybinding: 'ctrl+o',
+  handler: () => ({ ok: true, action: 'open-folder' })
+});
+commandRegistry.registerCommand({
+  id: 'workbench.toggleSidebar',
+  title: 'View: Toggle Primary Sidebar',
+  category: 'View',
+  keybinding: 'ctrl+b',
+  handler: () => ({ ok: true, sidebarOpen: workbenchLayoutManager.toggleSidebar() })
+});
+commandRegistry.registerCommand({
+  id: 'workbench.toggleTerminal',
+  title: 'View: Toggle Terminal',
+  category: 'View',
+  keybinding: 'ctrl+`',
+  handler: () => ({ ok: true, bottomOpen: workbenchLayoutManager.toggleBottomPanel() })
+});
+
+const testPlatform = new TestPlatformEngine();
+const publishManager = new PublishManager();
+const offlineCache = new OfflineCacheManager();
+const gitProvider = new GitProvider();
+const liveReloadClients = new Set();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.resolve(__dirname, '..');
 
+const atomicFileManager = new AtomicFileManager();
+const crashIsolationEngine = new CrashIsolationEngine();
+const processOrphanManager = new ProcessOrphanManager();
+const safeShutdownCoordinator = new SafeShutdownCoordinator({
+  orphanManager: processOrphanManager,
+  recoveryManager,
+  atomicIO: atomicFileManager
+});
+const rotatingLogManager = new RotatingLogManager({ logDir: path.join(__dirname, 'logs') });
+const performanceBenchmarkSuite = new PerformanceBenchmarkSuite();
+
 const PORT = Number(process.env.OTTER_STUDIO_PORT || 4200);
 const ANALYZER_PATH = path.join(REPO_ROOT, 'tools', 'vscode-otter', 'scripts', 'analyze.ps1');
 const workspaceSymbolCache = new Map();
+const lspServer = new OtterLspServer();
+const crashReporter = new CrashReportManager();
 let activeRunProcess = null;
 
 // Debugger (first slice): sessionId -> { child, events: [], output: [],
@@ -51,7 +205,32 @@ function pumpDebugSessionOutput(session, chunk) {
     const line = rawLine.endsWith('\r') ? rawLine.slice(0, -1) : rawLine;
     if (line.startsWith(OTTER_DEBUG_EVENT_PREFIX)) {
       try {
-        session.events.push(JSON.parse(line.slice(OTTER_DEBUG_EVENT_PREFIX.length)));
+        const event = JSON.parse(line.slice(OTTER_DEBUG_EVENT_PREFIX.length));
+        if (event.event === 'paused' && session.debugEngine) {
+          session.debugEngine.callStackManager.updateFromPauseEvent(event);
+          const bpResult = session.debugEngine.breakpointManager.evaluateHit(
+            event.file || session.file,
+            event.line,
+            event.locals || {}
+          );
+
+          if (bpResult.log) {
+            session.output.push(`[Logpoint] ${bpResult.log}`);
+            try { session.child.stdin.write('continue\n'); } catch {}
+            continue;
+          }
+
+          if (bpResult.pause === false) {
+            try { session.child.stdin.write('continue\n'); } catch {}
+            continue;
+          }
+
+          event.watches = session.debugEngine.watchManager.evaluateAll(event.locals || {});
+          event.callStack = session.debugEngine.callStackManager.getFrames();
+          session.events.push(event);
+        } else {
+          session.events.push(event);
+        }
       } catch {
         // A malformed protocol line is a bug worth seeing, not silently
         // dropping - surface it as ordinary program output instead of
@@ -59,6 +238,15 @@ function pumpDebugSessionOutput(session, chunk) {
         session.output.push(line);
       }
     } else if (line.length > 0) {
+      if (session.debugEngine?.errorBreakpointManager?.shouldBreakOnError() &&
+          (line.includes('Otter runtime error:') || line.includes('Runtime Error:'))) {
+        session.events.push({
+          event: 'error-paused',
+          error: line,
+          file: session.file,
+          line: 1
+        });
+      }
       session.output.push(line);
     }
   }
@@ -1238,6 +1426,101 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // --- Web Application Target APIs (Section 13) ---
+  if (pathname === '/api/web/live-reload' && req.method === 'GET') {
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive'
+    });
+    res.write('data: {"type":"connected"}\n\n');
+    liveReloadClients.add(res);
+    req.on('close', () => {
+      liveReloadClients.delete(res);
+    });
+    return;
+  }
+
+  if (pathname === '/api/web/broadcast-reload' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const reloadType = body.type || 'full';
+      const msg = `event: hot-reload\ndata: ${JSON.stringify({ type: reloadType, timestamp: Date.now() })}\n\n`;
+      let notified = 0;
+      for (const client of liveReloadClients) {
+        try {
+          client.write(msg);
+          notified++;
+        } catch (_) {}
+      }
+      sendJson(res, { ok: true, notified, type: reloadType });
+    } catch (err) {
+      sendJson(res, { error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/web/build' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const targetMode = body.target || 'client'; // 'static' or 'client'
+      const relOutDir = body.outputDir || 'publish/web';
+      const absOutDir = path.resolve(REPO_ROOT, relOutDir);
+      if (!absOutDir.startsWith(REPO_ROOT)) {
+        return sendJson(res, { error: 'Output directory outside repository root' }, 403);
+      }
+
+      let result;
+      if (targetMode === 'static') {
+        result = buildStaticSite({
+          outputDir: absOutDir,
+          name: body.name,
+          routes: body.routes,
+          baseUrl: body.baseUrl,
+          pwa: body.pwa,
+          preset: body.preset,
+          env: body.env,
+          minify: body.minify
+        });
+      } else {
+        result = buildClientApp({
+          outputDir: absOutDir,
+          name: body.name,
+          html: body.html,
+          css: body.css,
+          js: body.js,
+          seo: body.seo,
+          pwa: body.pwa,
+          preset: body.preset,
+          env: body.env,
+          minify: body.minify
+        });
+      }
+
+      sendJson(res, {
+        ok: true,
+        target: targetMode,
+        outputDir: relOutDir.replace(/\\/g, '/'),
+        ...result
+      });
+    } catch (err) {
+      sendJson(res, { error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/web/ssr-strategy' && req.method === 'GET') {
+    return sendJson(res, SSR_STRATEGY_DECISION);
+  }
+
+  if (pathname === '/api/web/browser-matrix' && req.method === 'GET') {
+    return sendJson(res, BROWSER_MATRIX);
+  }
+
+  if (pathname === '/api/web/deploy-presets' && req.method === 'GET') {
+    return sendJson(res, { presets: Object.keys(DEPLOY_PRESETS), catalog: DEPLOY_PRESETS });
+  }
+
   // --- Test Explorer API ---
   if (pathname === '/api/tests/discover' && req.method === 'GET') {
     try {
@@ -1358,6 +1641,204 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // --- Debug Test Endpoint ---
+  if (pathname === '/api/tests/debug' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const testFile = body.file || 'tests/test_sample.ot';
+      const folderParam = body.folder || '.';
+      const projectDir = path.resolve(REPO_ROOT, folderParam);
+      const relPath = path.relative(REPO_ROOT, path.resolve(projectDir, testFile)).replace(/\\/g, '/');
+
+      // Forward to debug start handler
+      const startReq = {
+        path: relPath,
+        breakpoints: body.breakpoints || [1],
+        watches: body.watches || []
+      };
+
+      // Reuse internal debug start flow
+      const safePath = path.resolve(REPO_ROOT, relPath);
+      const runDir = path.dirname(safePath);
+      const scriptName = path.basename(safePath);
+      const debugEngine = new DebugAdapterEngine();
+
+      if (Array.isArray(body.breakpoints)) {
+        for (const bp of body.breakpoints) {
+          debugEngine.breakpointManager.setBreakpoint({ file: scriptName, line: bp });
+        }
+      }
+
+      const breakpointsArg = (body.breakpoints || [1]).join(',');
+      const otterPs1 = path.join(REPO_ROOT, 'otter.ps1');
+      const child = spawn('powershell.exe', [
+        '-NoProfile', '-ExecutionPolicy', 'Bypass',
+        '-File', otterPs1, 'debug', scriptName, '-Breakpoints', breakpointsArg
+      ], { cwd: runDir, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
+
+      const sessionId = crypto.randomUUID();
+      const session = {
+        child,
+        events: [],
+        output: [],
+        finished: false,
+        exitCode: null,
+        buffer: '',
+        debugEngine,
+        file: scriptName,
+        isTestDebug: true
+      };
+      debugSessions.set(sessionId, session);
+
+      child.stdout.on('data', chunk => pumpDebugSessionOutput(session, chunk.toString('utf8')));
+      child.stderr.on('data', chunk => session.output.push(chunk.toString('utf8').trimEnd()));
+      child.on('close', code => {
+        if (session.buffer.length > 0) pumpDebugSessionOutput(session, '\n');
+        session.finished = true;
+        session.exitCode = code;
+      });
+
+      sendJson(res, { ok: true, sessionId, testFile: relPath });
+    } catch (err) {
+      sendJson(res, { error: err.message }, 500);
+    }
+    return;
+  }
+
+  // --- Test Coverage Engine Endpoint ---
+  if (pathname === '/api/tests/coverage' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const coverageEngine = new CoverageEngine();
+
+      if (Array.isArray(body.hits)) {
+        for (const hit of body.hits) {
+          coverageEngine.recordLineHit(hit.file, hit.line);
+        }
+      }
+
+      const files = Array.isArray(body.files) ? body.files : [];
+      const summary = coverageEngine.computeSummary(files);
+      sendJson(res, { ok: true, coverage: summary });
+    } catch (err) {
+      sendJson(res, { error: err.message }, 500);
+    }
+    return;
+  }
+
+  // --- Cross-Platform Test Matrix Endpoint ---
+  if (pathname === '/api/tests/matrix' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const code = body.code || '';
+      const matrixResults = CrossPlatformTestMatrix.runMatrix(code);
+      const allSafe = matrixResults.every(r => r.safe);
+      sendJson(res, { ok: true, allSafe, matrix: matrixResults });
+    } catch (err) {
+      sendJson(res, { error: err.message }, 500);
+    }
+    return;
+  }
+
+  // --- Flaky Test Policy Endpoint ---
+  if (pathname === '/api/tests/flaky' && req.method === 'GET') {
+    sendJson(res, { ok: true, stats: testPlatform.flakyManager.getFlakyStats() });
+    return;
+  }
+
+  if (pathname === '/api/tests/flaky' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      if (body.quarantine && body.testName) {
+        testPlatform.flakyManager.quarantineTest(body.testName);
+      } else if (body.unquarantine && body.testName) {
+        testPlatform.flakyManager.unquarantineTest(body.testName);
+      }
+      sendJson(res, { ok: true, stats: testPlatform.flakyManager.getFlakyStats() });
+    } catch (err) {
+      sendJson(res, { error: err.message }, 500);
+    }
+    return;
+  }
+
+  // --- Module Resolution & Package Endpoints (Section 21) ---
+  if (pathname === '/api/packages/resolve' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const resolver = new ModuleResolutionEngine();
+      const resolved = resolver.resolve(body.specifier, body.fromFile);
+      sendJson(res, { ok: true, resolved });
+    } catch (err) {
+      sendJson(res, { error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/packages/graph' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const graph = new ModuleDependencyGraph();
+      if (Array.isArray(body.dependencies)) {
+        for (const dep of body.dependencies) {
+          graph.addDependency(dep.from, dep.to);
+        }
+      }
+      const order = graph.getTopologicalOrder();
+      sendJson(res, { ok: true, order });
+    } catch (err) {
+      sendJson(res, { error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/packages/lock' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const manifest = body.manifest || {};
+      const resolved = body.resolved || {};
+      const lockfile = LockfileManager.generateLockfile(manifest, resolved);
+      sendJson(res, { ok: true, lockfile });
+    } catch (err) {
+      sendJson(res, { error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/packages/audit' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const licenseAudit = SecurityAndLicenseScanner.auditLicenses(body.licenses || {});
+      const vulnAudit = SecurityAndLicenseScanner.scanVulnerabilities(body.packages || {}, body.advisories || []);
+      sendJson(res, { ok: true, licenses: licenseAudit, vulnerabilities: vulnAudit });
+    } catch (err) {
+      sendJson(res, { error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/packages/publish' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const archiveBuffer = Buffer.from(body.archiveBase64 || '', 'base64');
+      const entry = publishManager.publish(body.manifest, archiveBuffer);
+      sendJson(res, { ok: true, published: entry });
+    } catch (err) {
+      sendJson(res, { error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/packages/deprecate' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const resData = publishManager.deprecate(body.package, body.version, body.message);
+      sendJson(res, { ok: true, ...resData });
+    } catch (err) {
+      sendJson(res, { error: err.message }, 500);
+    }
+    return;
+  }
+
   // --- Git & Source Control API ---
   if (pathname === '/api/git/status' && req.method === 'GET') {
     try {
@@ -1365,49 +1846,8 @@ const server = http.createServer(async (req, res) => {
       const targetDir = path.resolve(REPO_ROOT, folderParam);
       if (!targetDir.startsWith(REPO_ROOT)) return sendJson(res, { error: 'Forbidden' }, 403);
 
-      execFile('git', ['rev-parse', '--is-inside-work-tree'], { cwd: targetDir }, (err, isInside) => {
-        if (err || isInside.trim() !== 'true') {
-          return sendJson(res, { isRepo: false });
-        }
-
-        execFile('git', ['status', '--porcelain=v1', '-uall'], { cwd: targetDir }, (err, statusOut) => {
-          if (err) return sendJson(res, { error: err.message }, 500);
-
-          execFile('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: targetDir }, (err, branchOut) => {
-            const branch = (branchOut || 'HEAD').trim();
-            const lines = (statusOut || '').split(/\r?\n/).filter(Boolean);
-            const staged = [];
-            const unstaged = [];
-            const untracked = [];
-
-            for (const line of lines) {
-              const x = line[0];
-              const y = line[1];
-              const file = line.slice(3).trim();
-
-              if (x === '?' && y === '?') {
-                untracked.push(file);
-              } else {
-                if (x !== ' ' && x !== '?') {
-                  staged.push({ file, status: x });
-                }
-                if (y !== ' ' && y !== '?') {
-                  unstaged.push({ file, status: y });
-                }
-              }
-            }
-
-            sendJson(res, {
-              isRepo: true,
-              branch,
-              clean: lines.length === 0,
-              staged,
-              unstaged,
-              untracked
-            });
-          });
-        });
-      });
+      const status = await gitProvider.getStatus(targetDir);
+      sendJson(res, status);
     } catch (err) {
       sendJson(res, { error: err.message }, 500);
     }
@@ -1422,14 +1862,9 @@ const server = http.createServer(async (req, res) => {
 
       const filePath = urlObj.searchParams.get('path');
       const staged = urlObj.searchParams.get('staged') === 'true';
-      const args = ['diff'];
-      if (staged) args.push('--cached');
-      if (filePath) args.push('--', filePath);
-
-      execFile('git', args, { cwd: targetDir }, (err, diffOut) => {
-        if (err) return sendJson(res, { error: err.message }, 500);
-        sendJson(res, { ok: true, diff: diffOut || '' });
-      });
+      const commit = urlObj.searchParams.get('commit');
+      const diff = await gitProvider.getDiff(targetDir, { path: filePath, staged, commit });
+      sendJson(res, { ok: true, diff });
     } catch (err) {
       sendJson(res, { error: err.message }, 500);
     }
@@ -1444,12 +1879,10 @@ const server = http.createServer(async (req, res) => {
       if (!targetDir.startsWith(REPO_ROOT)) return sendJson(res, { error: 'Forbidden' }, 403);
 
       const files = Array.isArray(body.files) ? body.files : (body.path ? [body.path] : ['.']);
-      execFile('git', ['add', ...files], { cwd: targetDir }, (err, stdout, stderr) => {
-        if (err) return sendJson(res, { ok: false, error: stderr || err.message }, 500);
-        sendJson(res, { ok: true });
-      });
+      await gitProvider.stage(targetDir, files);
+      sendJson(res, { ok: true });
     } catch (err) {
-      sendJson(res, { error: err.message }, 500);
+      sendJson(res, { ok: false, error: err.message }, 500);
     }
     return;
   }
@@ -1462,12 +1895,10 @@ const server = http.createServer(async (req, res) => {
       if (!targetDir.startsWith(REPO_ROOT)) return sendJson(res, { error: 'Forbidden' }, 403);
 
       const files = Array.isArray(body.files) ? body.files : (body.path ? [body.path] : ['.']);
-      execFile('git', ['reset', 'HEAD', '--', ...files], { cwd: targetDir }, (err, stdout, stderr) => {
-        if (err) return sendJson(res, { ok: false, error: stderr || err.message }, 500);
-        sendJson(res, { ok: true });
-      });
+      await gitProvider.unstage(targetDir, files);
+      sendJson(res, { ok: true });
     } catch (err) {
-      sendJson(res, { error: err.message }, 500);
+      sendJson(res, { ok: false, error: err.message }, 500);
     }
     return;
   }
@@ -1480,16 +1911,11 @@ const server = http.createServer(async (req, res) => {
       if (!targetDir.startsWith(REPO_ROOT)) return sendJson(res, { error: 'Forbidden' }, 403);
 
       const message = String(body.message || '').trim();
-      if (!message) return sendJson(res, { error: 'Commit message is required' }, 400);
-
-      execFile('git', ['commit', '-m', message], { cwd: targetDir }, (err, stdout, stderr) => {
-        if (err) return sendJson(res, { ok: false, error: stderr || stdout || err.message }, 422);
-        execFile('git', ['rev-parse', 'HEAD'], { cwd: targetDir }, (err, hashOut) => {
-          sendJson(res, { ok: true, commitHash: (hashOut || '').trim(), stdout: (stdout || '').trim() });
-        });
-      });
+      const amend = Boolean(body.amend);
+      const result = await gitProvider.commit(targetDir, { message, amend });
+      sendJson(res, { ok: true, ...result });
     } catch (err) {
-      sendJson(res, { error: err.message }, 500);
+      sendJson(res, { ok: false, error: err.message }, 422);
     }
     return;
   }
@@ -1515,26 +1941,269 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  if (pathname === '/api/git/branches' && req.method === 'GET') {
+  if (pathname === '/api/git/branches') {
+    try {
+      const isGet = req.method === 'GET';
+      const body = isGet ? {} : await readBody(req);
+      const folderParam = (isGet ? urlObj.searchParams.get('folder') : body.folder) || '.';
+      const targetDir = path.resolve(REPO_ROOT, folderParam);
+      if (!targetDir.startsWith(REPO_ROOT)) return sendJson(res, { error: 'Forbidden' }, 403);
+
+      if (isGet) {
+        const branches = await gitProvider.getBranches(targetDir);
+        return sendJson(res, { ok: true, ...branches });
+      }
+
+      if (req.method === 'POST') {
+        const { action, name, checkout, force } = body;
+        if (action === 'create') {
+          const result = await gitProvider.createBranch(targetDir, name, checkout);
+          return sendJson(res, { ok: true, ...result });
+        }
+        if (action === 'checkout') {
+          const result = await gitProvider.checkoutBranch(targetDir, name);
+          return sendJson(res, { ok: true, ...result });
+        }
+        if (action === 'delete') {
+          const result = await gitProvider.deleteBranch(targetDir, name, force);
+          return sendJson(res, { ok: true, ...result });
+        }
+        return sendJson(res, { error: `Unknown branch action: ${action}` }, 400);
+      }
+    } catch (err) {
+      sendJson(res, { error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/git/fetch' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const targetDir = path.resolve(REPO_ROOT, body.folder || '.');
+      if (!targetDir.startsWith(REPO_ROOT)) return sendJson(res, { error: 'Forbidden' }, 403);
+      const result = await gitProvider.fetch(targetDir, { remote: body.remote, prune: body.prune });
+      sendJson(res, result);
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/git/pull' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const targetDir = path.resolve(REPO_ROOT, body.folder || '.');
+      if (!targetDir.startsWith(REPO_ROOT)) return sendJson(res, { error: 'Forbidden' }, 403);
+      const result = await gitProvider.pull(targetDir, { remote: body.remote, branch: body.branch, rebase: body.rebase });
+      sendJson(res, result);
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/git/push' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const targetDir = path.resolve(REPO_ROOT, body.folder || '.');
+      if (!targetDir.startsWith(REPO_ROOT)) return sendJson(res, { error: 'Forbidden' }, 403);
+      const result = await gitProvider.push(targetDir, { remote: body.remote, branch: body.branch, force: body.force, setUpstream: body.setUpstream });
+      sendJson(res, result);
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/git/merge' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const targetDir = path.resolve(REPO_ROOT, body.folder || '.');
+      if (!targetDir.startsWith(REPO_ROOT)) return sendJson(res, { error: 'Forbidden' }, 403);
+      const result = await gitProvider.merge(targetDir, { branch: body.branch, abort: body.abort, message: body.message });
+      sendJson(res, result);
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/git/conflicts') {
+    try {
+      const isGet = req.method === 'GET';
+      const body = isGet ? {} : await readBody(req);
+      const folderParam = (isGet ? urlObj.searchParams.get('folder') : body.folder) || '.';
+      const targetDir = path.resolve(REPO_ROOT, folderParam);
+      if (!targetDir.startsWith(REPO_ROOT)) return sendJson(res, { error: 'Forbidden' }, 403);
+
+      if (isGet) {
+        const filePath = urlObj.searchParams.get('path');
+        if (filePath) {
+          const fullPath = path.resolve(targetDir, filePath);
+          if (!fullPath.startsWith(REPO_ROOT) || !fs.existsSync(fullPath)) return sendJson(res, { error: 'File not found' }, 404);
+          const content = fs.readFileSync(fullPath, 'utf8');
+          const parsed = ConflictEditorManager.parse(content);
+          return sendJson(res, { ok: true, file: filePath, ...parsed });
+        }
+        const status = await gitProvider.getStatus(targetDir);
+        return sendJson(res, { ok: true, conflicted: status.conflicted || [] });
+      }
+
+      if (req.method === 'POST') {
+        const result = await gitProvider.resolveConflict(targetDir, {
+          file: body.path || body.file,
+          strategy: body.strategy || 'ours',
+          customContent: body.customContent || null
+        });
+        return sendJson(res, result);
+      }
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/git/blame' && req.method === 'GET') {
     try {
       const folderParam = urlObj.searchParams.get('folder') || '.';
       const targetDir = path.resolve(REPO_ROOT, folderParam);
       if (!targetDir.startsWith(REPO_ROOT)) return sendJson(res, { error: 'Forbidden' }, 403);
+      const filePath = urlObj.searchParams.get('path');
+      const startLine = urlObj.searchParams.get('startLine');
+      const endLine = urlObj.searchParams.get('endLine');
 
-      execFile('git', ['branch', '--list'], { cwd: targetDir }, (err, branchOut) => {
-        if (err) return sendJson(res, { ok: false, branches: [] });
-        const branches = [];
-        let current = null;
-        for (const rawLine of (branchOut || '').split(/\r?\n/).filter(Boolean)) {
-          const isCurrent = rawLine.startsWith('*');
-          const name = rawLine.replace(/^\*?\s*/, '').trim();
-          if (isCurrent) current = name;
-          branches.push({ name, isCurrent });
-        }
-        sendJson(res, { ok: true, current, branches });
-      });
+      const blame = await gitProvider.getBlame(targetDir, { file: filePath, startLine, endLine });
+      sendJson(res, { ok: true, file: filePath, blame });
     } catch (err) {
-      sendJson(res, { error: err.message }, 500);
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/git/stash') {
+    try {
+      const isGet = req.method === 'GET';
+      const body = isGet ? {} : await readBody(req);
+      const folderParam = (isGet ? urlObj.searchParams.get('folder') : body.folder) || '.';
+      const targetDir = path.resolve(REPO_ROOT, folderParam);
+      if (!targetDir.startsWith(REPO_ROOT)) return sendJson(res, { error: 'Forbidden' }, 403);
+
+      if (isGet) {
+        const stashes = await gitProvider.getStashes(targetDir);
+        return sendJson(res, { ok: true, stashes });
+      }
+
+      if (req.method === 'POST') {
+        const action = body.action || 'push';
+        let result;
+        if (action === 'push') {
+          result = await gitProvider.stashPush(targetDir, { message: body.message, includeUntracked: body.includeUntracked !== false });
+        } else if (action === 'pop') {
+          result = await gitProvider.stashPop(targetDir, { index: body.index || 0 });
+        } else if (action === 'apply') {
+          result = await gitProvider.stashApply(targetDir, { index: body.index || 0 });
+        } else if (action === 'drop') {
+          result = await gitProvider.stashDrop(targetDir, { index: body.index || 0 });
+        } else {
+          return sendJson(res, { error: `Unknown stash action: ${action}` }, 400);
+        }
+        return sendJson(res, { ok: true, ...result });
+      }
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/git/tags') {
+    try {
+      const isGet = req.method === 'GET';
+      const body = isGet ? {} : await readBody(req);
+      const folderParam = (isGet ? urlObj.searchParams.get('folder') : body.folder) || '.';
+      const targetDir = path.resolve(REPO_ROOT, folderParam);
+      if (!targetDir.startsWith(REPO_ROOT)) return sendJson(res, { error: 'Forbidden' }, 403);
+
+      if (isGet) {
+        const tags = await gitProvider.getTags(targetDir);
+        return sendJson(res, { ok: true, tags });
+      }
+
+      if (req.method === 'POST') {
+        const action = body.action || 'create';
+        if (action === 'create') {
+          const result = await gitProvider.createTag(targetDir, { name: body.name, message: body.message, commit: body.commit });
+          return sendJson(res, { ok: true, ...result });
+        }
+        if (action === 'delete') {
+          const result = await gitProvider.deleteTag(targetDir, { name: body.name });
+          return sendJson(res, { ok: true, ...result });
+        }
+        return sendJson(res, { error: `Unknown tag action: ${action}` }, 400);
+      }
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/git/remotes') {
+    try {
+      const isGet = req.method === 'GET';
+      const body = isGet ? {} : await readBody(req);
+      const folderParam = (isGet ? urlObj.searchParams.get('folder') : body.folder) || '.';
+      const targetDir = path.resolve(REPO_ROOT, folderParam);
+      if (!targetDir.startsWith(REPO_ROOT)) return sendJson(res, { error: 'Forbidden' }, 403);
+
+      if (isGet) {
+        const remotes = await gitProvider.getRemotes(targetDir);
+        return sendJson(res, { ok: true, remotes });
+      }
+
+      if (req.method === 'POST') {
+        const action = body.action || 'add';
+        if (action === 'add') {
+          const result = await gitProvider.addRemote(targetDir, { name: body.name, url: body.url });
+          return sendJson(res, { ok: true, ...result });
+        }
+        if (action === 'remove') {
+          const result = await gitProvider.removeRemote(targetDir, { name: body.name });
+          return sendJson(res, { ok: true, ...result });
+        }
+        if (action === 'set-url') {
+          const result = await gitProvider.setRemoteUrl(targetDir, { name: body.name, url: body.url });
+          return sendJson(res, { ok: true, ...result });
+        }
+        return sendJson(res, { error: `Unknown remote action: ${action}` }, 400);
+      }
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/git/auth' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const { host, token, action } = body;
+      if (!host) return sendJson(res, { error: 'Host is required' }, 400);
+      if (action === 'clear') {
+        gitProvider.authManager.clearToken(host);
+        return sendJson(res, { ok: true, cleared: host });
+      }
+      gitProvider.authManager.setToken(host, token || '');
+      sendJson(res, { ok: true, host, configured: true });
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/scm/providers' && req.method === 'GET') {
+    try {
+      const providers = sourceControlRegistry.listProviders();
+      sendJson(res, { ok: true, providers });
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
     }
     return;
   }
@@ -1559,9 +2228,37 @@ const server = http.createServer(async (req, res) => {
 
       const runDir = path.dirname(safePath);
       const scriptName = path.basename(safePath);
-      const breakpoints = Array.isArray(body.breakpoints)
-        ? body.breakpoints.filter(n => Number.isInteger(n)).join(',')
-        : '';
+      const debugEngine = new DebugAdapterEngine();
+
+      // Configure advanced breakpoints: lines, conditions, hitConditions, logpoints
+      const lineNumbers = [];
+      if (Array.isArray(body.breakpoints)) {
+        for (const bp of body.breakpoints) {
+          if (Number.isInteger(bp)) {
+            lineNumbers.push(bp);
+            debugEngine.breakpointManager.setBreakpoint({ file: scriptName, line: bp });
+          } else if (bp && Number.isInteger(bp.line)) {
+            lineNumbers.push(bp.line);
+            debugEngine.breakpointManager.setBreakpoint({
+              file: scriptName,
+              line: bp.line,
+              condition: bp.condition,
+              hitCondition: bp.hitCondition,
+              logMessage: bp.logMessage
+            });
+          }
+        }
+      }
+
+      if (Array.isArray(body.watches)) {
+        body.watches.forEach(w => debugEngine.watchManager.addWatch(w));
+      }
+
+      if (body.errorBreakpoints) {
+        debugEngine.errorBreakpointManager.setOptions(body.errorBreakpoints);
+      }
+
+      const breakpoints = lineNumbers.join(',');
       const otterPs1 = path.join(REPO_ROOT, 'otter.ps1');
 
       const child = spawn('powershell.exe', [
@@ -1570,11 +2267,32 @@ const server = http.createServer(async (req, res) => {
       ], { cwd: runDir, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
 
       const sessionId = crypto.randomUUID();
-      const session = { child, events: [], output: [], finished: false, exitCode: null, buffer: '' };
+      const session = {
+        child,
+        events: [],
+        output: [],
+        finished: false,
+        exitCode: null,
+        buffer: '',
+        debugEngine,
+        file: scriptName
+      };
       debugSessions.set(sessionId, session);
 
       child.stdout.on('data', chunk => pumpDebugSessionOutput(session, chunk.toString('utf8')));
-      child.stderr.on('data', chunk => { session.output.push(chunk.toString('utf8').trimEnd()); });
+      child.stderr.on('data', chunk => {
+        const str = chunk.toString('utf8');
+        if (session.debugEngine?.errorBreakpointManager?.shouldBreakOnError() &&
+            (str.includes('Otter runtime error:') || str.includes('Runtime Error:'))) {
+          session.events.push({
+            event: 'error-paused',
+            error: str.trim(),
+            file: scriptName,
+            line: 1
+          });
+        }
+        session.output.push(str.trimEnd());
+      });
       child.on('close', code => {
         if (session.buffer.length > 0) {
           pumpDebugSessionOutput(session, '\n');
@@ -1637,6 +2355,149 @@ const server = http.createServer(async (req, res) => {
       } catch {}
       debugSessions.delete(body.sessionId);
       sendJson(res, { stopped: true });
+    } catch (err) {
+      sendJson(res, { error: err.message }, 500);
+    }
+    return;
+  }
+
+  // --- Dynamic Breakpoints Configuration ---
+  if (pathname === '/api/debug/breakpoints' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const session = debugSessions.get(body.sessionId);
+      if (!session) return sendJson(res, { error: 'Unknown or expired debug session' }, 404);
+      if (Array.isArray(body.breakpoints)) {
+        for (const bp of body.breakpoints) {
+          if (Number.isInteger(bp)) {
+            session.debugEngine.breakpointManager.setBreakpoint({ file: session.file, line: bp });
+          } else if (bp && Number.isInteger(bp.line)) {
+            session.debugEngine.breakpointManager.setBreakpoint({
+              file: session.file,
+              line: bp.line,
+              condition: bp.condition,
+              hitCondition: bp.hitCondition,
+              logMessage: bp.logMessage
+            });
+          }
+        }
+      }
+      sendJson(res, { ok: true, breakpoints: session.debugEngine.breakpointManager.getBreakpoints() });
+    } catch (err) {
+      sendJson(res, { error: err.message }, 500);
+    }
+    return;
+  }
+
+  // --- Expression Evaluation ---
+  if (pathname === '/api/debug/evaluate' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const session = debugSessions.get(body.sessionId);
+      if (!session) return sendJson(res, { error: 'Unknown or expired debug session' }, 404);
+      const frame = session.debugEngine?.callStackManager.selectFrame(body.frameId ?? 0)
+        || session.debugEngine?.callStackManager.getSelectedFrame();
+      const evalRes = ExpressionEvaluator.evaluate(body.expression, frame?.locals || {});
+      sendJson(res, evalRes);
+    } catch (err) {
+      sendJson(res, { error: err.message }, 500);
+    }
+    return;
+  }
+
+  // --- Watch Expressions ---
+  if (pathname === '/api/debug/watches' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const session = debugSessions.get(body.sessionId);
+      if (!session) return sendJson(res, { error: 'Unknown or expired debug session' }, 404);
+      if (Array.isArray(body.watches)) {
+        session.debugEngine.watchManager.clear();
+        body.watches.forEach(w => session.debugEngine.watchManager.addWatch(w));
+      }
+      const frame = session.debugEngine?.callStackManager.getSelectedFrame();
+      const results = session.debugEngine.watchManager.evaluateAll(frame?.locals || {});
+      sendJson(res, { ok: true, watches: results });
+    } catch (err) {
+      sendJson(res, { error: err.message }, 500);
+    }
+    return;
+  }
+
+  // --- Object / List Inspection ---
+  if (pathname === '/api/debug/inspect' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const session = debugSessions.get(body.sessionId);
+      if (!session) return sendJson(res, { error: 'Unknown or expired debug session' }, 404);
+      const frame = session.debugEngine?.callStackManager.getSelectedFrame();
+      let targetVal = frame?.locals?.[body.variableName];
+      if (targetVal === undefined && body.target !== undefined) targetVal = body.target;
+      const inspected = ObjectInspectionEngine.inspect(targetVal, body.path || '');
+      sendJson(res, { ok: true, inspection: inspected });
+    } catch (err) {
+      sendJson(res, { error: err.message }, 500);
+    }
+    return;
+  }
+
+  // --- Call Stack Inspection ---
+  if (pathname === '/api/debug/stack' && req.method === 'GET') {
+    const sessionId = urlObj.searchParams.get('sessionId');
+    const session = debugSessions.get(sessionId);
+    if (!session) return sendJson(res, { error: 'Unknown or expired debug session' }, 404);
+    const frames = session.debugEngine?.callStackManager.getFrames() || [];
+    const selected = session.debugEngine?.callStackManager.getSelectedFrame() || null;
+    sendJson(res, { ok: true, frames, selectedFrameId: selected?.id ?? 0 });
+    return;
+  }
+
+  // --- Source Map Resolution ---
+  if (pathname === '/api/debug/sourcemap' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const session = debugSessions.get(body.sessionId);
+      const resolver = session?.debugEngine?.sourceMapResolver || new SourceMapResolver();
+      if (body.mapData) resolver.registerSourceMap(body.compiledFile, body.mapData);
+      const mapped = resolver.resolveSourceLocation(body.compiledFile, body.line, body.column);
+      sendJson(res, { ok: true, mapped });
+    } catch (err) {
+      sendJson(res, { error: err.message }, 500);
+    }
+    return;
+  }
+
+  // --- Attach to Running Process ---
+  if (pathname === '/api/debug/attach' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const attachRes = AttachManager.attachToPid(body.pid, body.options);
+      if (!attachRes.ok) return sendJson(res, attachRes, 400);
+      const session = {
+        child: { pid: body.pid, stdin: { write: () => {} }, kill: () => {} },
+        events: [{ event: 'attached', pid: body.pid }],
+        output: [`Attached to Otter process ${body.pid}`],
+        finished: false,
+        exitCode: null,
+        buffer: '',
+        debugEngine: new DebugAdapterEngine(),
+        file: body.path || 'attached'
+      };
+      debugSessions.set(attachRes.sessionId, session);
+      sendJson(res, attachRes);
+    } catch (err) {
+      sendJson(res, { error: err.message }, 500);
+    }
+    return;
+  }
+
+  // --- DAP JSON-RPC Protocol Transport ---
+  if (pathname === '/api/debug/dap' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const session = debugSessions.get(body.sessionId) || { debugEngine: new DebugAdapterEngine() };
+      const dapResponse = session.debugEngine.dapAdapter.handleMessage(body.message);
+      sendJson(res, dapResponse);
     } catch (err) {
       sendJson(res, { error: err.message }, 500);
     }
@@ -1877,6 +2738,115 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
+  // --- Terminal CWD Sync & Session Restart ---
+  if (pathname === '/api/terminal/session/cwd') {
+    if (req.method === 'GET') {
+      const sessionId = urlObj.searchParams.get('id');
+      const session = terminalSessions.get(sessionId);
+      if (!session) return sendJson(res, { ok: false, error: 'Session not found' }, 404);
+      return sendJson(res, { ok: true, cwd: session.cwd || process.cwd() });
+    }
+    if (req.method === 'POST') {
+      const body = await readBody(req);
+      const session = terminalSessions.get(body.id);
+      if (!session) return sendJson(res, { ok: false, error: 'Session not found' }, 404);
+      if (body.cwd) {
+        session.cwd = body.cwd;
+      }
+      return sendJson(res, { ok: true, cwd: session.cwd });
+    }
+  }
+
+  if (pathname === '/api/terminal/session/restart' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const session = terminalSessions.get(body.id);
+      if (!session) return sendJson(res, { ok: false, error: 'Session not found' }, 404);
+      const { shell, args, cols, rows, cwd, env } = session;
+      // Close old process
+      if (session.process) {
+        try { session.process.kill(); } catch {}
+      }
+      terminalSessions.delete(body.id);
+
+      // Spawn replacement process
+      const child = spawn(shell, args, { cwd: cwd || REPO_ROOT, env: { ...process.env, ...env } });
+      const newSession = {
+        id: body.id,
+        shell,
+        args,
+        cols,
+        rows,
+        cwd,
+        env,
+        process: child,
+        buffer: '',
+        terminated: false,
+        exitCode: null
+      };
+      child.stdout.on('data', d => { newSession.buffer += d.toString('utf8'); });
+      child.stderr.on('data', d => { newSession.buffer += d.toString('utf8'); });
+      child.on('close', code => {
+        newSession.terminated = true;
+        newSession.exitCode = code;
+      });
+      terminalSessions.set(body.id, newSession);
+      return sendJson(res, { ok: true, id: body.id, restarted: true });
+    } catch (err) {
+      return sendJson(res, { ok: false, error: err.message }, 500);
+    }
+  }
+
+  // --- Production Otter REPL API ---
+  if (pathname === '/api/repl/eval' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const result = await otterRepl.eval(body.code || body.input);
+      return sendJson(res, result);
+    } catch (err) {
+      return sendJson(res, { ok: false, error: err.message }, 500);
+    }
+  }
+
+  if (pathname === '/api/repl/is-complete' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const result = otterRepl.isComplete(body.code || body.input);
+      return sendJson(res, result);
+    } catch (err) {
+      return sendJson(res, { ok: false, error: err.message }, 500);
+    }
+  }
+
+  if (pathname === '/api/repl/complete' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const result = otterRepl.complete(body.line || body.input || '');
+      return sendJson(res, result);
+    } catch (err) {
+      return sendJson(res, { ok: false, error: err.message }, 500);
+    }
+  }
+
+  if (pathname === '/api/repl/highlight' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const highlighted = otterRepl.highlight(body.code || '', body.mode || 'ansi');
+      return sendJson(res, { ok: true, highlighted });
+    } catch (err) {
+      return sendJson(res, { ok: false, error: err.message }, 500);
+    }
+  }
+
+  if (pathname === '/api/repl/reset' && req.method === 'POST') {
+    try {
+      const result = otterRepl.reset();
+      return sendJson(res, result);
+    } catch (err) {
+      return sendJson(res, { ok: false, error: err.message }, 500);
+    }
+  }
+
   // --- Data & Query Viewer API (Section 5) ---
   if (pathname === '/api/data/query' && req.method === 'POST') {
     try {
@@ -1935,6 +2905,57 @@ const server = http.createServer(async (req, res) => {
     } catch (err) {
       return sendJson(res, { ok: false, error: err.message }, 500);
     }
+  }
+
+  // --- Language Server Protocol (LSP) API (Section 9) ---
+  if (pathname === '/api/lsp' && req.method === 'POST') {
+    try {
+      const message = await readBody(req);
+      const response = lspServer.handleMessage(message);
+      if (response !== null) {
+        return sendJson(res, response);
+      }
+      return sendJson(res, { jsonrpc: '2.0', id: message?.id ?? null, result: null });
+    } catch (err) {
+      return sendJson(res, {
+        jsonrpc: '2.0',
+        id: null,
+        error: { code: -32603, message: err.message }
+      }, 500);
+    }
+  }
+
+  // --- Crash Reporting API (Section 10) ---
+  if (pathname === '/api/crash/report' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const report = crashReporter.generateReport(body.error, {
+        code: body.code,
+        category: body.category,
+        suggestion: body.suggestion,
+        activeFile: body.activeFile,
+        line: body.line,
+        asyncChain: body.asyncChain,
+        cursor: body.cursor,
+        dirtyFiles: body.dirtyFiles
+      });
+
+      // Write crash dump to disk under .otter/crashes/<id>.json
+      const crashDir = path.join(REPO_ROOT, '.otter', 'crashes');
+      if (!fs.existsSync(crashDir)) {
+        fs.mkdirSync(crashDir, { recursive: true });
+      }
+      const crashFile = path.join(crashDir, `${report.id}.json`);
+      fs.writeFileSync(crashFile, JSON.stringify(report, null, 2), 'utf8');
+
+      return sendJson(res, { ok: true, id: report.id, path: `.otter/crashes/${report.id}.json`, report });
+    } catch (err) {
+      return sendJson(res, { ok: false, error: err.message }, 500);
+    }
+  }
+
+  if (pathname === '/api/crash/reports' && req.method === 'GET') {
+    return sendJson(res, { ok: true, reports: crashReporter.listReports() });
   }
 
   // --- Interactive Terminal API ---
@@ -2087,6 +3108,791 @@ const server = http.createServer(async (req, res) => {
       });
     } catch (err) {
       sendJson(res, { ok: false, message: err.message, line: 1 }, 500);
+    }
+    return;
+  }
+
+  // --- Refactoring API ---
+  if (pathname === '/api/refactor/rename' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const result = refactoringEngine.renameSymbol({
+        projectRoot: body.projectRoot ? path.resolve(REPO_ROOT, body.projectRoot) : REPO_ROOT,
+        files: body.files || [],
+        oldName: body.oldName,
+        newName: body.newName,
+        kind: body.kind || 'symbol'
+      });
+      if (!result.ok) return sendJson(res, result, 400);
+
+      if (body.apply && result.snapshots) {
+        const tx = refactoringEngine.transactionManager.createTransaction(
+          null,
+          `Rename ${body.oldName} to ${body.newName}`,
+          result.snapshots
+        );
+        refactoringEngine.transactionManager.applyTransaction(tx);
+        result.applied = true;
+        result.transactionId = tx.id;
+      }
+      sendJson(res, result);
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/refactor/extract-variable' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const result = refactoringEngine.extractVariable({
+        code: body.code,
+        selection: body.selection,
+        varName: body.varName
+      });
+      if (!result.ok) return sendJson(res, result, 400);
+      sendJson(res, result);
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/refactor/extract-function' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const result = refactoringEngine.extractFunction({
+        code: body.code,
+        selection: body.selection,
+        fnName: body.fnName
+      });
+      if (!result.ok) return sendJson(res, result, 400);
+      sendJson(res, result);
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/refactor/inline-variable' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const result = refactoringEngine.inlineVariable({
+        code: body.code,
+        varName: body.varName
+      });
+      if (!result.ok) return sendJson(res, result, 400);
+      sendJson(res, result);
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/refactor/move-symbol' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const sourceFile = path.resolve(REPO_ROOT, body.sourceFile);
+      const targetFile = path.resolve(REPO_ROOT, body.targetFile);
+      const result = refactoringEngine.moveSymbol({
+        sourceFile,
+        targetFile,
+        symbolName: body.symbolName
+      });
+      if (!result.ok) return sendJson(res, result, 400);
+
+      if (body.apply && result.snapshots) {
+        const tx = refactoringEngine.transactionManager.createTransaction(
+          null,
+          `Move symbol ${body.symbolName} to ${body.targetFile}`,
+          result.snapshots
+        );
+        refactoringEngine.transactionManager.applyTransaction(tx);
+        result.applied = true;
+        result.transactionId = tx.id;
+      }
+      sendJson(res, result);
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/refactor/safe-delete' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const result = refactoringEngine.safeDelete({
+        projectRoot: body.projectRoot ? path.resolve(REPO_ROOT, body.projectRoot) : REPO_ROOT,
+        files: body.files || [],
+        symbolName: body.symbolName,
+        targetFile: body.targetFile ? path.resolve(REPO_ROOT, body.targetFile) : null
+      });
+      sendJson(res, result);
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/refactor/organize-modules' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const result = refactoringEngine.organizeModules({ code: body.code });
+      sendJson(res, result);
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/refactor/preview' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const preview = refactoringEngine.generatePreview(body.edits || []);
+      sendJson(res, { ok: true, preview });
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/refactor/undo' && req.method === 'POST') {
+    try {
+      const result = refactoringEngine.transactionManager.undo();
+      sendJson(res, result);
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/refactor/redo' && req.method === 'POST') {
+    try {
+      const result = refactoringEngine.transactionManager.redo();
+      sendJson(res, result);
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/refactor/cross-project' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const solutionProjects = (body.solutionProjects || []).map(p => path.resolve(REPO_ROOT, p));
+      const result = refactoringEngine.crossProjectRefactor({
+        solutionProjects,
+        oldName: body.oldName,
+        newName: body.newName,
+        kind: body.kind || 'symbol'
+      });
+      if (body.apply && result.snapshots) {
+        const tx = refactoringEngine.transactionManager.createTransaction(
+          null,
+          `Cross-project rename ${body.oldName} to ${body.newName}`,
+          result.snapshots
+        );
+        refactoringEngine.transactionManager.applyTransaction(tx);
+        result.applied = true;
+        result.transactionId = tx.id;
+      }
+      sendJson(res, result);
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/assets/scan') {
+    try {
+      const pDir = req.method === 'POST' ? ((await readBody(req)).projectDir || REPO_ROOT) : REPO_ROOT;
+      const scanner = new AssetScanner();
+      const assets = scanner.scanProject(path.resolve(REPO_ROOT, pDir));
+      sendJson(res, { ok: true, count: assets.length, assets });
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/assets/catalog') {
+    try {
+      const q = urlObj.searchParams;
+      const category = q.get('category') || undefined;
+      const search = q.get('search') || undefined;
+      const platform = q.get('platform') || undefined;
+      const catalog = new AssetBrowserCatalog(REPO_ROOT);
+      const items = catalog.getCatalog({ category, search, platform });
+      sendJson(res, { ok: true, count: items.length, items });
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/assets/build' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const pDir = path.resolve(REPO_ROOT, body.projectDir || '.');
+      const outDir = body.outputDir || 'dist/assets';
+      const optimizer = new AssetOptimizer();
+      const result = optimizer.buildAndCopy({
+        projectDir: pDir,
+        outputDir: outDir,
+        targetPlatform: body.targetPlatform || 'all',
+        optimize: body.optimize !== false,
+        deduplicate: body.deduplicate !== false,
+        fingerprint: Boolean(body.fingerprint)
+      });
+      sendJson(res, { ok: true, manifest: result.manifest, manifestPath: result.manifestPath });
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/assets/diagnose' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const pDir = path.resolve(REPO_ROOT, body.projectDir || '.');
+      const diagScanner = new AssetDiagnosticScanner();
+      const result = diagScanner.diagnoseReferences(pDir, body.sourceFiles || []);
+      sendJson(res, result);
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/assets/snippet' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const snippet = generateDesignerSnippet(body.asset, body.targetType || 'desktop');
+      sendJson(res, { ok: true, snippet });
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/assets/refactor' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const pDir = path.resolve(REPO_ROOT, body.projectDir || '.');
+      const refactorEngine = new AssetRefactoringEngine(pDir);
+      const plan = refactorEngine.planMoveOrRename({
+        oldRelativePath: body.oldRelativePath,
+        newRelativePath: body.newRelativePath,
+        sourceFiles: body.sourceFiles || []
+      });
+      if (body.execute) {
+        const execResult = refactorEngine.executeMoveOrRename(plan);
+        sendJson(res, { ok: true, plan, execution: execResult });
+      } else {
+        sendJson(res, { ok: true, plan });
+      }
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/assets/generate-icons' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const outDir = path.resolve(REPO_ROOT, body.outputDir || 'dist/icons');
+      const masterSvgPath = path.resolve(REPO_ROOT, body.masterSvgPath || 'otter-docs/static/images/otter-avatar.svg');
+      const iconGen = new AppIconGenerator({ sizes: body.sizes || [16, 32, 48, 64, 128, 256] });
+      const result = iconGen.generateIconSet({
+        masterSvgPath,
+        outputDir: outDir,
+        baseName: body.baseName || 'app-icon'
+      });
+      sendJson(res, result);
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/assets/locales') {
+    try {
+      const q = urlObj.searchParams;
+      const localesDir = path.resolve(REPO_ROOT, q.get('dir') || 'locales');
+      const i18n = new LocalizationResourceManager(localesDir);
+      i18n.loadAll();
+      const coverage = i18n.validateCoverage(q.get('base') || 'en');
+      sendJson(res, { ok: true, coverage });
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  // --- DevTools & Advanced Profiler Endpoints ---
+  if (pathname === '/api/devtools/network/requests') {
+    try {
+      if (req.method === 'POST') {
+        const body = await readBody(req);
+        if (body.action === 'start') {
+          const entry = networkInspector.startRequest(body);
+          sendJson(res, { ok: true, entry });
+        } else if (body.action === 'complete') {
+          const entry = networkInspector.completeResponse(body.id, body);
+          sendJson(res, { ok: true, entry });
+        } else if (body.action === 'fail') {
+          const entry = networkInspector.failRequest(body.id, new Error(body.error || 'Failed'));
+          sendJson(res, { ok: true, entry });
+        } else {
+          sendJson(res, { ok: false, error: 'Unknown action' }, 400);
+        }
+      } else {
+        const q = urlObj.searchParams;
+        const entries = networkInspector.getEntries({
+          filter: q.get('filter') || undefined,
+          method: q.get('method') || undefined,
+          status: q.get('status') ? parseInt(q.get('status'), 10) : undefined,
+          search: q.get('search') || undefined
+        });
+        sendJson(res, { ok: true, count: entries.length, entries });
+      }
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/devtools/network/har') {
+    try {
+      sendJson(res, networkInspector.exportHar());
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/devtools/network/throttle') {
+    try {
+      if (req.method === 'POST') {
+        const body = await readBody(req);
+        const prof = networkInspector.setThrottlingProfile(body.profile || 'none');
+        sendJson(res, { ok: true, profile: prof });
+      } else {
+        sendJson(res, { ok: true, profile: networkInspector.getThrottlingProfile(), profiles: NETWORK_PROFILES });
+      }
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/devtools/dom/inspect' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const result = domCssInspector.computeStyles(body.node || {}, body.rules || []);
+      sendJson(res, { ok: true, ...result });
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/devtools/console/logs') {
+    try {
+      if (req.method === 'POST') {
+        const body = await readBody(req);
+        storageConsoleManager._recordLog(body.level || 'log', body.message || '', body.args || []);
+        sendJson(res, { ok: true });
+      } else if (req.method === 'DELETE') {
+        storageConsoleManager.clearLogs();
+        sendJson(res, { ok: true });
+      } else {
+        const q = urlObj.searchParams;
+        const logs = storageConsoleManager.getLogs({ level: q.get('level'), search: q.get('search') });
+        sendJson(res, { ok: true, count: logs.length, logs });
+      }
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/devtools/storage') {
+    try {
+      const q = urlObj.searchParams;
+      const type = q.get('type') || 'local';
+      if (req.method === 'POST') {
+        const body = await readBody(req);
+        storageConsoleManager.setItem(type, body.key, body.value);
+        sendJson(res, { ok: true, key: body.key, value: body.value });
+      } else if (req.method === 'DELETE') {
+        const key = q.get('key');
+        if (key) {
+          storageConsoleManager.removeItem(type, key);
+        } else {
+          storageConsoleManager.clearStorage(type);
+        }
+        sendJson(res, { ok: true });
+      } else {
+        const data = storageConsoleManager.listStorage(type);
+        sendJson(res, { ok: true, type, storage: data });
+      }
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/devtools/devices') {
+    try {
+      if (req.method === 'POST') {
+        const body = await readBody(req);
+        if (body.device) responsivePreviewManager.setDevice(body.device);
+        if (body.orientation) responsivePreviewManager.setOrientation(body.orientation);
+        if (body.zoom !== undefined) responsivePreviewManager.setZoom(body.zoom);
+        sendJson(res, { ok: true, viewport: responsivePreviewManager.getViewport() });
+      } else {
+        sendJson(res, {
+          ok: true,
+          viewport: responsivePreviewManager.getViewport(),
+          availableDevices: responsivePreviewManager.getAvailableDevices()
+        });
+      }
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/devtools/sourcemap/resolve' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const smGen = new SourceMapV3Generator({ file: body.file || 'app.js' });
+      for (const m of (body.mappings || [])) {
+        smGen.addMapping(m);
+      }
+      const original = smGen.originalPositionFor({ line: Number(body.line || 1), column: Number(body.column || 0) });
+      sendJson(res, { ok: true, original });
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  // --- Workbench, Settings & Command Endpoints ---
+  if (pathname === '/api/workbench/settings') {
+    try {
+      const q = urlObj.searchParams;
+      if (req.method === 'POST') {
+        const body = await readBody(req);
+        settingsManager.set(body.tier || 'user', body.key, body.value);
+        sendJson(res, { ok: true, key: body.key, value: settingsManager.get(body.key) });
+      } else if (req.method === 'DELETE') {
+        settingsManager.resetTier(q.get('tier') || 'user');
+        sendJson(res, { ok: true });
+      } else {
+        const key = q.get('key');
+        if (key) {
+          sendJson(res, { ok: true, key, value: settingsManager.get(key) });
+        } else {
+          sendJson(res, { ok: true, settings: settingsManager.getAll() });
+        }
+      }
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/workbench/commands') {
+    try {
+      if (req.method === 'POST') {
+        const body = await readBody(req);
+        const result = commandRegistry.executeCommand(body.id, ...(body.args || []));
+        sendJson(res, { ok: true, id: body.id, result });
+      } else {
+        const q = urlObj.searchParams;
+        const commands = commandRegistry.getAllCommands({
+          category: q.get('category') || undefined,
+          search: q.get('search') || undefined
+        });
+        sendJson(res, { ok: true, count: commands.length, commands });
+      }
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/workbench/keybindings') {
+    try {
+      if (req.method === 'POST') {
+        const body = await readBody(req);
+        keybindingManager.setCustomKeybinding(body.commandId, body.keyCombo);
+        sendJson(res, { ok: true, commandId: body.commandId, keyCombo: keybindingManager.getKeybinding(body.commandId) });
+      } else {
+        const q = urlObj.searchParams;
+        const combo = q.get('combo');
+        if (combo) {
+          const resolved = keybindingManager.resolveCommandForShortcut(combo);
+          sendJson(res, { ok: true, combo, command: resolved });
+        } else {
+          const cmds = commandRegistry.getAllCommands();
+          const list = cmds.map(c => ({
+            id: c.id,
+            title: c.title,
+            category: c.category,
+            keybinding: keybindingManager.getKeybinding(c.id),
+            formatted: keybindingManager.formatForPlatform(keybindingManager.getKeybinding(c.id))
+          }));
+          sendJson(res, { ok: true, count: list.length, keybindings: list });
+        }
+      }
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/workbench/palette' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const palette = new CommandPaletteEngine(commandRegistry, body.projectFiles || []);
+      const result = palette.query(body.input || '');
+      sendJson(res, { ok: true, ...result });
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/workbench/status-bar') {
+    try {
+      if (req.method === 'POST') {
+        const body = await readBody(req);
+        if (body.action === 'remove') {
+          statusBarManager.removeItem(body.id);
+        } else {
+          statusBarManager.setItem(body.id, body);
+        }
+        sendJson(res, { ok: true });
+      } else {
+        const q = urlObj.searchParams;
+        const items = statusBarManager.getItems(q.get('alignment'));
+        sendJson(res, { ok: true, count: items.length, items });
+      }
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/workbench/layout') {
+    try {
+      if (req.method === 'POST') {
+        const body = await readBody(req);
+        if (body.action === 'setActiveView') workbenchLayoutManager.setActiveView(body.viewId);
+        else if (body.action === 'toggleSidebar') workbenchLayoutManager.toggleSidebar();
+        else if (body.action === 'setSidebarWidth') workbenchLayoutManager.setSidebarWidth(body.width);
+        else if (body.action === 'toggleBottomPanel') workbenchLayoutManager.toggleBottomPanel();
+        else if (body.action === 'setActiveBottomTab') workbenchLayoutManager.setActiveBottomTab(body.tabId);
+        else if (body.action === 'setBottomPanelHeight') workbenchLayoutManager.setBottomPanelHeight(body.height);
+        else if (body.action === 'resetLayout') workbenchLayoutManager.resetLayout();
+        sendJson(res, { ok: true, layout: workbenchLayoutManager.getLayout() });
+      } else {
+        sendJson(res, { ok: true, layout: workbenchLayoutManager.getLayout(), views: WORKBENCH_VIEWS });
+      }
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  // --- Reliability, Recovery, Logging, and Performance Endpoints ---
+  if (pathname === '/api/reliability/atomic-save') {
+    try {
+      if (req.method === 'POST') {
+        const body = await readBody(req);
+        if (!body.filePath || body.content === undefined) {
+          sendJson(res, { ok: false, error: 'Missing required filePath or content parameter' }, 400);
+          return;
+        }
+        const saveRes = atomicFileManager.atomicWrite(body.filePath, body.content, {
+          backup: body.backup !== false
+        });
+        sendJson(res, saveRes);
+      } else {
+        sendJson(res, { ok: false, error: 'Method not allowed' }, 405);
+      }
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/reliability/shutdown') {
+    try {
+      if (req.method === 'POST') {
+        const body = await readBody(req);
+        const shutdownRes = await safeShutdownCoordinator.coordinateShutdown({
+          persistCallback: async (atomicIO) => {
+            if (body.persistState && body.statePath) {
+              atomicIO.atomicWrite(body.statePath, JSON.stringify(body.persistState, null, 2));
+              return body.statePath;
+            }
+            return null;
+          }
+        });
+        sendJson(res, { ok: true, shutdown: shutdownRes });
+      } else {
+        sendJson(res, { ok: false, error: 'Method not allowed' }, 405);
+      }
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/reliability/orphans') {
+    try {
+      if (req.method === 'POST') {
+        const body = await readBody(req);
+        if (body.action === 'register') {
+          processOrphanManager.registerProcess(body.pid, body.meta);
+          sendJson(res, { ok: true, registered: body.pid });
+        } else if (body.action === 'cleanup') {
+          const cleaned = processOrphanManager.cleanupAllProcesses();
+          sendJson(res, { ok: true, cleanedCount: cleaned.length, cleaned });
+        } else {
+          sendJson(res, { ok: false, error: 'Unknown action' }, 400);
+        }
+      } else {
+        const tracked = processOrphanManager.getTrackedProcesses();
+        sendJson(res, { ok: true, count: tracked.length, processes: tracked });
+      }
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/reliability/logs') {
+    try {
+      if (req.method === 'POST') {
+        const body = await readBody(req);
+        if (body.action === 'export') {
+          const exportData = rotatingLogManager.exportLogs();
+          sendJson(res, { ok: true, export: exportData });
+        } else {
+          const entry = rotatingLogManager.log(body.level || 'INFO', body.subsystem || 'app', body.message || '', body.meta);
+          sendJson(res, { ok: true, logged: entry });
+        }
+      } else {
+        const q = urlObj.searchParams;
+        const logs = rotatingLogManager.getLogs({
+          level: q.get('level'),
+          subsystem: q.get('subsystem'),
+          search: q.get('search'),
+          limit: q.get('limit') ? Number(q.get('limit')) : 100,
+          offset: q.get('offset') ? Number(q.get('offset')) : 0
+        });
+        sendJson(res, { ok: true, ...logs });
+      }
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/reliability/benchmarks') {
+    try {
+      const results = await performanceBenchmarkSuite.runAllBenchmarks();
+      sendJson(res, { ok: true, benchmarks: results });
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/reliability/crash-isolation') {
+    try {
+      if (req.method === 'POST') {
+        const body = await readBody(req);
+        if (body.action === 'reset') {
+          crashIsolationEngine.resetComponent(body.componentId);
+          sendJson(res, { ok: true, reset: body.componentId });
+        } else {
+          const disabled = crashIsolationEngine.isComponentDisabled(body.componentId);
+          const history = crashIsolationEngine.getFaultHistory(body.componentId);
+          sendJson(res, { ok: true, disabled, history });
+        }
+      } else {
+        sendJson(res, { ok: false, error: 'Method not allowed' }, 405);
+      }
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  function readRecentWorkspaces() {
+    const projectsDir = path.join(REPO_ROOT, 'projects');
+    const results = [];
+    if (fs.existsSync(projectsDir)) {
+      try {
+        const entries = fs.readdirSync(projectsDir, { withFileTypes: true });
+        for (const entry of entries) {
+          if (entry.isDirectory() && !entry.name.startsWith('.')) {
+            results.push({
+              name: entry.name,
+              path: path.join('projects', entry.name).replace(/\\/g, '/')
+            });
+          }
+        }
+      } catch {}
+    }
+    return results;
+  }
+
+  // --- First-Run, Welcome Experience, and Toolchain Endpoints ---
+  if (pathname === '/api/welcome') {
+    try {
+      if (req.method === 'POST') {
+        const body = await readBody(req);
+        if (body.showOnStartup !== undefined) {
+          welcomeManager.setShowOnStartup(Boolean(body.showOnStartup));
+        }
+        sendJson(res, { ok: true, showOnStartup: welcomeManager.shouldShowOnStartup() });
+      } else {
+        const recents = readRecentWorkspaces();
+        const data = welcomeManager.getWelcomeData({ recentProjects: recents });
+        const html = welcomeManager.renderWelcomeHtml({ recentProjects: recents });
+        sendJson(res, { ok: true, data, html });
+      }
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/toolchain') {
+    try {
+      const toolchain = ToolchainDetector.detect();
+      sendJson(res, { ok: true, toolchain });
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/associations') {
+    try {
+      const reg = FileAssociationManager.generateWindowsRegistry();
+      const linux = FileAssociationManager.generateLinuxMimeAndDesktop();
+      const mac = FileAssociationManager.generateMacOsDocumentType();
+      sendJson(res, { ok: true, windowsReg: reg, linuxMime: linux.mimeXml, linuxDesktop: linux.desktopEntry, macDocumentTypes: mac });
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
     }
     return;
   }

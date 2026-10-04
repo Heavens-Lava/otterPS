@@ -108,6 +108,39 @@ export class TerminalSession {
     this.lines = [];
     this.notify({ type: 'clear' });
   }
+
+  search(query, options = {}) {
+    if (!query) return { query: '', matchCount: 0, matches: [] };
+    const caseSensitive = Boolean(options.caseSensitive);
+    const flags = caseSensitive ? 'g' : 'gi';
+    const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(escaped, flags);
+    const matches = [];
+    const rawLines = this.buffer.split(/\r?\n/);
+    for (let i = 0; i < rawLines.length; i++) {
+      const line = rawLines[i];
+      let match;
+      while ((match = regex.exec(line)) !== null) {
+        matches.push({
+          line: i + 1,
+          col: match.index + 1,
+          text: match[0],
+          lineContent: line
+        });
+      }
+    }
+    return { query, matchCount: matches.length, matches };
+  }
+
+  static linkify(text) {
+    if (!text) return '';
+    let result = text.replace(/(https?:\/\/[^\s<>'"]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer" class="term-link term-url">$1</a>');
+    result = result.replace(/(([a-zA-Z]:[\\/][^\s:<>'"]+|[a-zA-Z0-9_\-\.\/]+?\.(?:ot|js|mjs|json|md|ps1|psm1|psd1|txt|html|css)):(\d+)(?::(\d+))?)/g, (match, fullMatch, filePath, line, col) => {
+      const colStr = col ? `:${col}` : '';
+      return `<a href="#open-file" data-path="${filePath}" data-line="${line}" data-col="${col || 1}" class="term-link term-file-link">${filePath}:${line}${colStr}</a>`;
+    });
+    return result;
+  }
 }
 
 export class TerminalManager {
@@ -307,5 +340,32 @@ export class TerminalManager {
 
   getAllSessions() {
     return Array.from(this.sessions.values());
+  }
+
+  async restartSession(sessionId) {
+    const session = this.sessions.get(sessionId);
+    if (!session) throw new Error(`Session not found: ${sessionId}`);
+    const profileId = session.profile.id;
+    const name = session.name;
+    const cwd = session.cwd;
+    await this.closeSession(sessionId);
+    return await this.createSession({ profileId, name, cwd });
+  }
+
+  async syncCwd(sessionId, newCwd) {
+    const session = this.sessions.get(sessionId);
+    if (!session) throw new Error(`Session not found: ${sessionId}`);
+    session.cwd = newCwd;
+    if (typeof fetch === 'function') {
+      try {
+        await fetch(`${this.apiBase}/session/cwd`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: sessionId, cwd: newCwd })
+        });
+      } catch {}
+    }
+    session.notify({ type: 'cwd', cwd: newCwd });
+    return { ok: true, cwd: newCwd };
   }
 }

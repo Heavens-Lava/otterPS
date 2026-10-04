@@ -272,3 +272,90 @@ export function formatOtterStackTrace(stackFrames = []) {
     return `    at ${fn}${frame.file}:${frame.line}${col}`;
   }).join('\n');
 }
+
+/**
+ * Asynchronous stack frame and causal context chain representation.
+ */
+export class OtterAsyncFrame {
+  constructor(options = {}) {
+    this.functionName = options.functionName || '<script>';
+    this.file = options.file || 'main.ot';
+    this.line = options.line || 1;
+    this.column = options.column || 1;
+    this.boundary = options.boundary || null;
+    this.boundaryKind = options.boundaryKind || (options.boundary ? 'boundary' : 'sync');
+  }
+}
+
+/**
+ * Extracts synchronous frames and combines with asynchronous dispatch chain.
+ */
+export function extractOtterAsyncStackTrace(errorText = '', asyncChain = [], defaultFile = 'main.ot', defaultLine = 1) {
+  const syncFrames = extractOtterStackFrames(errorText, defaultFile, defaultLine);
+  const combined = [];
+
+  for (const f of syncFrames) {
+    combined.push(new OtterAsyncFrame({
+      functionName: f.functionName,
+      file: f.file,
+      line: f.line,
+      column: f.column,
+      boundaryKind: 'sync'
+    }));
+  }
+
+  const lines = errorText.split('\n');
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    const boundaryMatch = line.match(/(?:\[async(?:\s+dispatch)?(?:\s+via\s+([^\]]+))?\]|---\s*async(?::\s*([^\r\n]+?))?\s*---)/i);
+    if (boundaryMatch) {
+      let boundaryText = (boundaryMatch[1] || boundaryMatch[2] || 'async dispatch').trim();
+      let file = defaultFile;
+      let lineNum = defaultLine;
+      let colNum = 1;
+
+      const locMatch = boundaryText.match(/\s+at\s+([A-Za-z0-9_\-\.\/\\]+\.ot)(?::(\d+)(?::(\d+))?)?/i) ||
+                       line.match(/\s+at\s+([A-Za-z0-9_\-\.\/\\]+\.ot)(?::(\d+)(?::(\d+))?)?/i);
+      if (locMatch) {
+        file = locMatch[1];
+        lineNum = locMatch[2] ? parseInt(locMatch[2], 10) : defaultLine;
+        colNum = locMatch[3] ? parseInt(locMatch[3], 10) : 1;
+        boundaryText = boundaryText.replace(locMatch[0], '').trim();
+      }
+
+      combined.push(new OtterAsyncFrame({
+        functionName: '<async-boundary>',
+        file,
+        line: lineNum,
+        column: colNum,
+        boundary: boundaryText,
+        boundaryKind: 'boundary'
+      }));
+    }
+  }
+
+  if (Array.isArray(asyncChain)) {
+    for (const item of asyncChain) {
+      combined.push(new OtterAsyncFrame(item));
+    }
+  }
+
+  return combined;
+}
+
+/**
+ * Formats an Otter async stack trace with readable boundary banners.
+ */
+export function formatOtterAsyncStackTrace(frames = []) {
+  if (!Array.isArray(frames) || frames.length === 0) return '';
+
+  return frames.map(f => {
+    if (f.boundaryKind === 'boundary' || f.boundary) {
+      const loc = f.file ? ` (dispatched at ${f.file}:${f.line}${f.column > 1 ? `:${f.column}` : ''})` : '';
+      return `  --- [async dispatch: ${f.boundary}]${loc} ---`;
+    }
+    const fn = f.functionName && f.functionName !== '<script>' ? `in ${f.functionName} ` : '';
+    const col = f.column && f.column > 1 ? `:${f.column}` : '';
+    return `    at ${fn}${f.file}:${f.line}${col}`;
+  }).join('\n');
+}

@@ -1,5 +1,7 @@
 // web-compiler.js - Compiles Otter UI Model and lossless CSS AST into production HTML/CSS/JS
 
+export * from './web-target-engine.js';
+
 export function compileToHtmlDocument(uiModel, cssAstManager) {
   const root = uiModel.getRoot();
   if (!root) {
@@ -158,6 +160,10 @@ function compileUiTree(root, uiModel) {
         return `<div class="otter-row" id="${id}">${innerHtml}</div>`;
       case 'column':
         return `<div class="otter-column" id="${id}">${innerHtml}</div>`;
+      case 'grid':
+        const cols = props.columns || 2;
+        const gap = props.spacing !== undefined ? `${props.spacing}px` : '12px';
+        return `<div class="otter-grid" id="${id}" style="display:grid;grid-template-columns:repeat(${cols}, 1fr);gap:${gap};">${innerHtml}</div>`;
       case 'card':
         return `<div class="otter-card task-item" id="${id}">${innerHtml}</div>`;
       case 'scroll':
@@ -193,6 +199,52 @@ function compileUiTree(root, uiModel) {
         </div>`;
       case 'image':
         return `<img id="${id}" src="${escapeHtml(props.source || '')}" alt="Otter Resource" style="object-fit:cover;" />`;
+      case 'text area':
+        return `<textarea class="otter-input otter-textarea" id="${id}" placeholder="${escapeHtml(props.placeholder || '')}" style="height:${props.height || 100}px;resize:vertical;">${escapeHtml(props.text || '')}</textarea>`;
+      case 'radio':
+        const radioChecked = props.checked ? 'checked' : '';
+        return `<label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;" id="label_${id}">
+          <input type="radio" name="${escapeHtml(props.group || 'options')}" id="${id}" ${radioChecked} style="accent-color:#3b82f6;" />
+          <span style="font-size:14px;color:#cbd5e1">${escapeHtml(props.text || '')}</span>
+        </label>`;
+      case 'toggle':
+        const toggleChecked = props.checked ? 'checked' : '';
+        return `<label style="display:inline-flex;align-items:center;gap:10px;cursor:pointer;" id="label_${id}">
+          <input type="checkbox" id="${id}" ${toggleChecked} class="otter-toggle" style="accent-color:#3b82f6;width:20px;height:20px;" />
+          <span style="font-size:14px;color:#cbd5e1">${escapeHtml(props.text || '')}</span>
+        </label>`;
+      case 'list':
+        return `<ul class="otter-list" id="${id}" style="list-style:none;padding:${props.padding || 8}px;background:${props.background || '#1e293b'};overflow-y:auto;max-height:${props.height || 180}px;">${innerHtml}</ul>`;
+      case 'table':
+        return `<div class="otter-table-wrap" id="${id}" style="overflow-x:auto;">
+          <table class="otter-table" style="width:100%;border-collapse:collapse;color:#cbd5e1;">
+            <thead><tr style="background:#0f172a;"><th style="padding:8px 12px;border:1px solid #334155;text-align:left;">ID</th><th style="padding:8px 12px;border:1px solid #334155;text-align:left;">Name</th><th style="padding:8px 12px;border:1px solid #334155;text-align:left;">Status</th></tr></thead>
+            <tbody><tr><td style="padding:8px 12px;border:1px solid #334155;">1</td><td style="padding:8px 12px;border:1px solid #334155;">Example Item</td><td style="padding:8px 12px;border:1px solid #334155;">Active</td></tr></tbody>
+          </table>
+        </div>`;
+      case 'tree':
+        return `<div class="otter-tree" id="${id}" style="padding:${props.padding || 8}px;background:${props.background || '#1e293b'};">${innerHtml}</div>`;
+      case 'tabs':
+        return `<div class="otter-tabs" id="${id}"><div class="tabs-header" style="display:flex;gap:4px;border-bottom:1px solid #334155;"><button class="tab-btn is-active" style="padding:6px 12px;background:#334155;color:#fff;border:none;">Tab 1</button></div><div class="tabs-content" style="padding:12px;">${innerHtml}</div></div>`;
+      case 'menu':
+        return `<nav class="otter-menu" id="${id}" style="display:flex;gap:12px;padding:6px 12px;background:${props.background || '#1e293b'};font-size:13px;"><span style="cursor:pointer;">File</span><span style="cursor:pointer;">Edit</span><span style="cursor:pointer;">View</span><span style="cursor:pointer;">Help</span></nav>`;
+      case 'toolbar':
+        return `<div class="otter-toolbar" id="${id}" style="display:flex;align-items:center;gap:${props.spacing || 8}px;padding:${props.padding || 6}px;background:${props.background || '#1e293b'};">${innerHtml}</div>`;
+      case 'status bar':
+        return `<footer class="otter-statusbar" id="${id}" style="display:flex;align-items:center;padding:4px 12px;font-size:12px;background:${props.background || '#0f172a'};color:${props.foreground || '#94a3b8'};"><span>${escapeHtml(props.text || 'Ready')}</span></footer>`;
+      case 'dialog':
+        return `<dialog class="otter-dialog" id="${id}" style="padding:${props.padding || 16}px;background:${props.background || '#1e293b'};color:#f8fafc;border:1px solid #475569;border-radius:${props.round || 8}px;width:${props.width || 460}px;"><h3>${escapeHtml(props.title || 'Dialog')}</h3>${innerHtml}</dialog>`;
+      case 'icon':
+        return `<span class="otter-icon" id="${id}" style="display:inline-flex;color:${props.foreground || '#fbbf24'};font-size:${props.size || 20}px;">★</span>`;
+      case 'date picker':
+        return `<input type="date" class="otter-input otter-datepicker" id="${id}" value="${escapeHtml(props.value || '')}" style="width:${props.width || 180}px;" />`;
+      case 'split pane':
+        return `<div class="otter-splitpane" id="${id}" style="display:flex;width:100%;height:${props.height || 300}px;">${innerHtml}</div>`;
+      case 'canvas':
+        return `<canvas class="otter-canvas" id="${id}" width="${props.width || 400}" height="${props.height || 300}" style="background:${props.background || '#000000'};border-radius:${props.round || 4}px;"></canvas>`;
+      case 'custom':
+        const customTag = escapeHtml(props.tag || 'custom-view');
+        return `<${customTag} id="${id}" class="otter-custom">${innerHtml}</${customTag}>`;
       default:
         return `<div id="${id}">${innerHtml}</div>`;
     }

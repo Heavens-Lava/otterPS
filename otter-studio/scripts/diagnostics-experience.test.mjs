@@ -11,7 +11,15 @@ import {
   getDiagnosticCertification,
   resolveDiagnosticCode
 } from '../js/diagnostics/diagnostic-codes.js';
-import { translateHostError, extractOtterStackFrames, formatOtterStackTrace } from '../js/diagnostics/host-translator.js';
+import {
+  translateHostError,
+  extractOtterStackFrames,
+  formatOtterStackTrace,
+  extractOtterAsyncStackTrace,
+  formatOtterAsyncStackTrace
+} from '../js/diagnostics/host-translator.js';
+import { CrashReportManager, sanitizeText } from '../js/diagnostics/crash-reporter.js';
+import http from 'node:http';
 import {
   computeExactRange,
   normalizeDiagnostic,
@@ -630,6 +638,144 @@ Try:
     assert.equal(parsed.Ok, true, `Quick Fix output failed parsing: ${parsed.Message}`);
     assert.equal(parsed.StatementCount, 2);
     assert.equal(parsed.FirstType, 'AssignStmt');
+  });
+
+  // --- 11. Async Stack Traces (Requirement 11) ---
+  console.log('\n--- 11. Async Stack Traces ---');
+
+  test('extractOtterAsyncStackTrace parses sync frames and async causal boundary chain', () => {
+    const errorText = [
+      'Otter Runtime Error',
+      'in function compute at math.ot:25:8',
+      '--- async: when saveButton is clicked at ui.ot:12:4 ---',
+      'Cannot divide number by zero.'
+    ].join('\n');
+
+    const frames = extractOtterAsyncStackTrace(errorText, [
+      { functionName: 'bootstrap', file: 'app.ot', line: 5, column: 1, boundary: 'app lifecycle', boundaryKind: 'boundary' }
+    ]);
+
+    assert.ok(frames.length >= 3, `Expected at least 3 frames, got ${frames.length}`);
+    assert.equal(frames[0].functionName, 'compute');
+    assert.equal(frames[0].file, 'math.ot');
+    assert.equal(frames[0].line, 25);
+
+    // Verify async boundary marker frame
+    const boundaryFrame = frames.find(f => f.boundary && f.boundary.includes('saveButton'));
+    assert.ok(boundaryFrame, 'Async boundary frame for saveButton click must exist');
+    assert.equal(boundaryFrame.file, 'ui.ot');
+    assert.equal(boundaryFrame.line, 12);
+
+    const formatted = formatOtterAsyncStackTrace(frames);
+    assert.ok(formatted.includes('in compute math.ot:25:8'));
+    assert.ok(formatted.includes('--- [async dispatch: when saveButton is clicked] (dispatched at ui.ot:12:4) ---'));
+    assert.ok(formatted.includes('--- [async dispatch: app lifecycle]'));
+  });
+
+  test('Async stack traces strip internal Node/PowerShell engine frames and preserve Otter terms', () => {
+    const errorText = [
+      'TypeError: Cannot read properties of undefined',
+      '    at Execute-OtterStep (C:\\projects\\otterPS\\src\\Otter.Interpreter.psm1:1234:10)',
+      '    at in handleClick at views/form.ot:42:15',
+      '    at [async dispatch via timer 250ms] at timer.ot:8:3',
+      '    at ScriptBlock.Invoke (System.Management.Automation.dll)'
+    ].join('\n');
+
+    const frames = extractOtterAsyncStackTrace(errorText);
+    const formatted = formatOtterAsyncStackTrace(frames);
+
+    assert.ok(!formatted.includes('Otter.Interpreter.psm1'), 'Internal PowerShell interpreter frame must be stripped');
+    assert.ok(!formatted.includes('System.Management.Automation'), 'Internal .NET frame must be stripped');
+    assert.ok(formatted.includes('in handleClick views/form.ot:42:15'), 'Otter source frame must be preserved');
+    assert.ok(formatted.includes('timer 250ms'), 'Async boundary must be preserved');
+  });
+
+  // --- 12. Crash Reports (Requirement 12) ---
+  console.log('\n--- 12. Crash Reports ---');
+
+  test('sanitizeText redacts sensitive secrets, tokens, passwords, and bearer credentials', () => {
+    const sensitive = 'Failed connecting with token: isk_live_99887766 and Bearer eyJhbGciOiJ. User password="SuperSecret123"';
+    const sanitized = sanitizeText(sensitive);
+
+    assert.ok(!sanitized.includes('isk_live_99887766'), 'Token must be redacted');
+    assert.ok(!sanitized.includes('SuperSecret123'), 'Password must be redacted');
+    assert.ok(!sanitized.includes('eyJhbGciOiJ'), 'Bearer token must be redacted');
+    assert.ok(sanitized.includes('[REDACTED_SECRET]'));
+  });
+
+  test('CrashReportManager records breadcrumbs and generates structured crash report', () => {
+    const reporter = new CrashReportManager();
+    reporter.recordBreadcrumb('navigation', 'Opened file app.ot');
+    reporter.recordBreadcrumb('edit', 'Modified line 14');
+    reporter.recordBreadcrumb('secret', 'Applied apiKey: isk_secret_4455');
+
+    const error = new Error('Unexpected fatal engine fault');
+    error.stack = 'in renderCanvas at designer.ot:88:5\n--- async: when click of previewBtn at app.ot:20:2 ---';
+
+    const report = reporter.generateReport(error, {
+      activeFile: 'designer.ot',
+      line: 88,
+      cursor: { line: 88, col: 5 },
+      dirtyFiles: ['designer.ot']
+    });
+
+    assert.ok(report.id.startsWith('crash_'), 'Report ID must start with crash_');
+    assert.equal(report.error.message, 'Unexpected fatal engine fault');
+    assert.equal(report.context.activeFile, 'designer.ot');
+    assert.ok(report.breadcrumbs.length >= 3);
+    assert.ok(!JSON.stringify(report).includes('isk_secret_4455'), 'Report must not contain unredacted secrets');
+    assert.ok(report.stack.formatted.includes('in renderCanvas designer.ot:88:5'));
+
+    // Verify lookup
+    const retrieved = reporter.getReport(report.id);
+    assert.equal(retrieved.id, report.id);
+  });
+
+  test('Live Studio Server API: POST /api/crash/report and GET /api/crash/reports', async () => {
+    const payload = JSON.stringify({
+      error: 'Unhandled runtime panic in widget lifecycle',
+      code: 'OT8001',
+      category: 'runtime-crash',
+      activeFile: 'views/main.ot',
+      line: 15,
+      cursor: { line: 15, col: 2 }
+    });
+
+    const postRes = await new Promise((resolve, reject) => {
+      const req = http.request('http://127.0.0.1:4200/api/crash/report', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(payload)
+        }
+      }, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => resolve({ statusCode: res.statusCode, body: JSON.parse(data) }));
+      });
+      req.on('error', reject);
+      req.write(payload);
+      req.end();
+    });
+
+    assert.equal(postRes.statusCode, 200);
+    assert.equal(postRes.body.ok, true);
+    assert.ok(postRes.body.id);
+    assert.ok(postRes.body.path.includes('.otter/crashes'));
+
+    // Retrieve via GET /api/crash/reports
+    const getRes = await new Promise((resolve, reject) => {
+      http.get('http://127.0.0.1:4200/api/crash/reports', (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => resolve({ statusCode: res.statusCode, body: JSON.parse(data) }));
+      }).on('error', reject);
+    });
+
+    assert.equal(getRes.statusCode, 200);
+    assert.equal(getRes.body.ok, true);
+    assert.ok(Array.isArray(getRes.body.reports));
+    assert.ok(getRes.body.reports.some(r => r.id === postRes.body.id));
   });
 
   console.log(`\nDiagnostics Experience Test Results: ${passed} passed, ${failed} failed`);
