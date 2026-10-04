@@ -79,18 +79,18 @@ platform.
 -   [x] Comments and diagnostics statements
 -   [x] D61 append grammar (`db78014`)
 -   [x] D65 structured command results (`385e795`)
--   [ ] Resolve existing-thing `has` replacement parity
--   [ ] Portable custom `OtterType` parity
--   [ ] Freeze remaining 1.0 grammar
--   [ ] Publish formal grammar
--   [ ] Publish semantic specification
--   [ ] Publish AST contract
--   [ ] Publish diagnostic contract
--   [ ] Versioned compatibility/deprecation policy
--   [ ] Freeze Unicode/string behavior
--   [ ] Freeze numeric precision/range behavior
--   [ ] Freeze equality/order behavior
--   [ ] Document copy/reference semantics
+-   [x] Resolve existing-thing `has` replacement parity (certified in platform core checklist line 2116)
+-   [x] Portable custom `OtterType` parity (certified in platform core checklist line 2117)
+-   [x] Freeze remaining 1.0 grammar (docs/OTTER_1_0_CONTRACT_FREEZE_REPORT.md)
+-   [x] Publish formal grammar (docs/GRAMMAR.md & docs/SPECIFICATION.md)
+-   [x] Publish semantic specification (docs/SEMANTICS.md & docs/SPECIFICATION.md)
+-   [x] Publish AST contract (Otter.Contract.psm1 & docs/OTTER_1_0_CONTRACT_COVERAGE_MANIFEST.md)
+-   [x] Publish diagnostic contract (docs/DIAGNOSTIC_MATRIX.md)
+-   [x] Versioned compatibility/deprecation policy (docs/COMPATIBILITY.md)
+-   [x] Freeze Unicode/string behavior (docs/SPECIFICATION.md Section 2.1 & 4.1)
+-   [x] Freeze numeric precision/range behavior (docs/SPECIFICATION.md Section 2.6 & 4.1 IEEE 754 float64)
+-   [x] Freeze equality/order behavior (docs/SPECIFICATION.md Section 6.2)
+-   [x] Document copy/reference semantics (docs/SPECIFICATION.md Section 4 & 5.1)
 -   [ ] Binary/byte data
 -   [ ] Streams for large data
 
