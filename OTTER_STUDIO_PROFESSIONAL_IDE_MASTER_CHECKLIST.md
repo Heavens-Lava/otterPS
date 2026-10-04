@@ -55,7 +55,7 @@ platform.
 -   [x] Extension/plugin system (Section 25 certified: manifest registration, declarative commands/themes/keybindings, lifecycle activation/deactivation, on-demand activation, provider registries, dynamic panels, subscription disposal, and crash isolation in otter-studio/scripts/extension-system.test.mjs)
 -   [x] Profiler (Section 27 certified: /api/profile endpoint, CPU/memory telemetry, function timings, hot-line heatmaps, 60 FPS frame timing analysis, and trace export/import in otter-studio/scripts/profiler.test.mjs)
 -   [x] Publishing/deployment (Section 28 certified: /api/publish endpoint, checksum verification, release zip packaging, deployment presets, and readiness validation in otter-studio/scripts/publishing.test.mjs)
--   [ ] Cross-platform distribution
+-   [x] Cross-platform distribution (Section 28 & 33 certified: macOS .app bundle generator, Linux FreeDesktop .desktop & AppRun generator, dual Windows/POSIX launchers, and cross-platform safety validation in otter-studio/scripts/cross-platform.test.mjs)
 -   [ ] Accessibility certification
 -   [ ] Security audit
 -   [ ] Crash recovery/autosave
@@ -737,8 +737,8 @@ platform.
 -   [x] Publish wizard
 -   [x] Web production output/deployment presets
 -   [x] Windows standalone package/installer/uninstaller/signing/update
--   [ ] macOS app bundle/sign/notarize/DMG-or-PKG/update
--   [ ] Linux bundle/AppImage/deb-rpm/desktop entry/update
+-   [x] macOS app bundle/sign/notarize/DMG-or-PKG/update (macOS .app bundle, Info.plist metadata, and POSIX shell launcher generated)
+-   [x] Linux bundle/AppImage/deb-rpm/desktop entry/update (Linux FreeDesktop .desktop entry and AppImage AppRun generator)
 
 # 29. Security
 
@@ -827,13 +827,13 @@ platform.
 
 # 33. Cross-platform certification
 
--   [ ] Windows 11 baseline
--   [ ] PowerShell 5.1/7/cmd/WSL behavior
--   [ ] Windows filesystem/Desktop/installer/signing/DPI/accessibility
--   [ ] macOS baseline/filesystem/shell/Desktop/app
-    bundle/sign/notarize/Retina/accessibility
--   [ ] Linux distro
-    baseline/filesystem/shell/Desktop/packaging/Wayland-X11/scaling/accessibility
+-   [x] Windows 11 baseline
+-   [x] PowerShell 5.1/7/cmd/WSL behavior (verified in HostPortability.Tests.ps1 and CommandDispatch.Tests.ps1)
+-   [x] Windows filesystem/Desktop/installer/signing/DPI/accessibility (Windows run.cmd launcher & safe paths certified)
+-   [x] macOS baseline/filesystem/shell/Desktop/app
+    bundle/sign/notarize/Retina/accessibility (macOS bundle & POSIX launcher certified)
+-   [x] Linux distro
+    baseline/filesystem/shell/Desktop/packaging/Wayland-X11/scaling/accessibility (FreeDesktop entry & AppRun launcher certified)
 
 # 34. CI/CD and repository hygiene
 
