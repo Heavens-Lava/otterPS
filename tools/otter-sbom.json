@@ -1,0 +1,55 @@
+{
+  "$schema": "https://cyclonedx.org/schema/bom-1.5.schema.json",
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.5",
+  "serialNumber": "urn:uuid:otter-platform-sbom-v1",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2026-10-04T05:15:00Z",
+    "tools": [
+      {
+        "vendor": "Otter Core Team",
+        "name": "Otter SBOM Generator",
+        "version": "1.0.0"
+      }
+    ],
+    "component": {
+      "type": "application",
+      "name": "otter-platform",
+      "version": "1.0.0",
+      "description": "Otter Programming Language, Runtime, Compiler & Visual IDE Studio",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ]
+    }
+  },
+  "components": [
+    {
+      "type": "library",
+      "name": "Otter.Contract",
+      "version": "1.0.0",
+      "scope": "required",
+      "description": "Core AST and Token contract definitions for Otter",
+      "licenses": [{ "license": { "id": "MIT" } }]
+    },
+    {
+      "type": "framework",
+      "name": "otter-studio",
+      "version": "1.0.0",
+      "scope": "required",
+      "description": "Visual UI Designer and IDE for Otter Desktop & Web Applications",
+      "licenses": [{ "license": { "id": "MIT" } }],
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/otter-lang/otterPS"
+        }
+      ]
+    }
+  ],
+  "vulnerabilities": []
+}

@@ -71,10 +71,43 @@ const MIME_TYPES = {
   '.ot': 'text/plain; charset=utf-8'
 };
 
+const MAX_BODY_SIZE = 10 * 1024 * 1024; // 10 MB DoS protection ceiling
+const SESSION_TOKEN = process.env.OTTER_STUDIO_SESSION_TOKEN || crypto.randomBytes(24).toString('hex');
+
+function isPathContained(candidatePath, rootDir = REPO_ROOT) {
+  if (!candidatePath || typeof candidatePath !== 'string') return false;
+  if (candidatePath.includes('\0')) return false;
+  const normalizedRoot = path.resolve(rootDir);
+  const resolved = path.resolve(normalizedRoot, candidatePath);
+  if (resolved !== normalizedRoot && !resolved.startsWith(normalizedRoot + path.sep)) {
+    return false;
+  }
+  try {
+    if (fs.existsSync(resolved)) {
+      const real = fs.realpathSync(resolved);
+      const realRoot = fs.realpathSync(normalizedRoot);
+      if (real !== realRoot && !real.startsWith(realRoot + path.sep)) {
+        return false;
+      }
+    }
+  } catch {
+    // If target doesn't exist yet, string containment holds
+  }
+  return true;
+}
+
 function readBody(req) {
   return new Promise((resolve, reject) => {
     let body = '';
-    req.on('data', chunk => body += chunk);
+    let size = 0;
+    req.on('data', chunk => {
+      size += chunk.length;
+      if (size > MAX_BODY_SIZE) {
+        req.destroy(new Error('PAYLOAD_TOO_LARGE'));
+        return;
+      }
+      body += chunk;
+    });
     req.on('end', () => {
       try {
         resolve(body ? JSON.parse(body) : {});
@@ -82,7 +115,15 @@ function readBody(req) {
         resolve({ raw: body });
       }
     });
-    req.on('error', reject);
+    req.on('error', (err) => {
+      if (err && err.message === 'PAYLOAD_TOO_LARGE') {
+        const error = new Error('Payload Too Large: maximum body size is 10 MB');
+        error.statusCode = 413;
+        reject(error);
+      } else {
+        reject(err);
+      }
+    });
   });
 }
 
@@ -262,14 +303,33 @@ const server = http.createServer(async (req, res) => {
   const urlObj = new URL(req.url, `http://localhost:${PORT}`);
   const pathname = urlObj.pathname;
 
-  // CORS headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  // Origin check - reject untrusted cross-origin requests
+  const origin = req.headers.origin;
+  const isLoopbackOrigin = !origin || origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:') || origin === 'null';
+  if (origin && !isLoopbackOrigin) {
+    res.writeHead(403, { 'Content-Type': 'application/json; charset=utf-8' });
+    res.end(JSON.stringify({ error: 'Forbidden: untrusted cross-origin request rejected' }));
+    return;
+  }
+
+  // Security, CSP & CORS headers
+  res.setHeader('Access-Control-Allow-Origin', origin || '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Otter-Session-Token');
+  res.setHeader('Content-Security-Policy', "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:; connect-src 'self' http://localhost:* http://127.0.0.1:*; frame-src 'self' blob: data:;");
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
     res.end();
     return;
+  }
+
+  // Session Token API for CSRF protection
+  if (pathname === '/api/session-token' && req.method === 'GET') {
+    return sendJson(res, { token: SESSION_TOKEN });
   }
 
   // --- Real Folder & File APIs ---
@@ -1669,6 +1729,6 @@ const server = http.createServer(async (req, res) => {
   });
 });
 
-server.listen(PORT, () => {
-  console.log(`Otter Studio running with Full Interaction Engine at: http://localhost:${PORT}`);
+server.listen(PORT, '127.0.0.1', () => {
+  console.log(`Otter Studio running with Full Interaction Engine at: http://127.0.0.1:${PORT}`);
 });
