@@ -48,7 +48,7 @@ platform.
 -   [x] Language intelligence (Section 9 certification: parser-backed symbol index, cross-file module resolution, definition/hover, diagnostics, extract function, and plugin API certified in navigation.test.mjs)
 -   [x] Debugger (certified in otter-studio/scripts/debugger.test.mjs)
 -   [x] Production visual UI designer (Section 11 certified: source ↔ model ↔ designer round trip, flow reorder, real DOM hit testing, multi-select, resize, nested containers, undo/redo, real Otter parser & HTML compilation in designer-roundtrip.test.mjs and first-milestone.test.mjs)
--   [ ] Build system
+-   [x] Build system (Section 18 certified: /api/build, /api/clean, /api/publish, dist/ packaging, clean refusal safety, version stamping, and launcher verification in otter-studio/scripts/build-system.test.mjs)
 -   [ ] Package/dependency manager
 -   [ ] Test explorer
 -   [ ] Source-control integration
@@ -534,26 +534,26 @@ platform.
 -   [ ] Incremental builds
 -   [ ] Dependency tracking
 -   [ ] Debug/release configs
--   [ ] Clean/rebuild
--   [ ] Build project/workspace
--   [ ] Target selection
+-   [x] Clean/rebuild (certified in build-system.test.mjs)
+-   [x] Build project/workspace (certified in build-system.test.mjs)
+-   [x] Target selection (certified across console/desktop/web/game targets)
 -   [ ] Parallel builds
 -   [ ] Build cache
--   [ ] Reproducible builds
--   [ ] Build logs/diagnostics
--   [ ] Artifact directory
--   [ ] Resource processing
--   [ ] Version stamping
--   [ ] CI build command
--   [ ] Run current file
--   [ ] Run project
+-   [x] Reproducible builds (deterministic zip & fixed date archive creation)
+-   [x] Build logs/diagnostics (populateBuildDiagnostics and exit code capture)
+-   [x] Artifact directory (dist/ and publish/ directories with containment checks)
+-   [x] Resource processing (assets array packaging and distribution staging)
+-   [x] Version stamping (otter.build.json and otter.publish.json generation)
+-   [x] CI build command (otter build / otter publish)
+-   [x] Run current file (POST /api/run with path)
+-   [x] Run project (POST /api/run with cwd and project entry point)
 -   [ ] Startup project
--   [ ] Launch profiles
--   [ ] Arguments/working dir/env vars
--   [ ] Web/Desktop/Console/Game/Server profiles
--   [ ] Stop/restart
--   [ ] Run without debug
--   [ ] Run with debug
+-   [x] Launch profiles (POST /api/run with custom args, mode, env, and cwd)
+-   [x] Arguments/working dir/env vars (certified in build-system.test.mjs)
+-   [x] Web/Desktop/Console/Game/Server profiles (supported across run modes)
+-   [x] Stop/restart (POST /api/stop process tree kill certified)
+-   [x] Run without debug (standard execution mode)
+-   [x] Run with debug (integrated debugger session mode)
 -   [ ] Persist launch settings
 
 # 19. Debugger

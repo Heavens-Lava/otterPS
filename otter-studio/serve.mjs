@@ -864,22 +864,27 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // --- Execution & Otter Runner API ---
+  // --- Execution & Otter Runner API (with launch profiles, args & env) ---
   if (pathname === '/api/run' && req.method === 'POST') {
     try {
       const body = await readBody(req);
       const relPath = body.path || 'examples/file-organizer/main.ot';
       const safePath = path.resolve(REPO_ROOT, relPath);
+      if (!safePath.startsWith(REPO_ROOT)) {
+        return sendJson(res, { error: 'Forbidden' }, 403);
+      }
 
       // Save content first if provided
       if (typeof body.content === 'string') {
         fs.writeFileSync(safePath, body.content, 'utf8');
       }
 
-      const runDir = path.dirname(safePath);
+      const runDir = body.cwd ? path.resolve(REPO_ROOT, body.cwd) : path.dirname(safePath);
       const scriptName = path.basename(safePath);
       const otterCmd = path.join(REPO_ROOT, 'otter.cmd');
-      const cmd = `"${otterCmd}" run "${scriptName}"`;
+      const customArgs = Array.isArray(body.args) ? body.args.map(a => `"${String(a).replace(/"/g, '\\"')}"`).join(' ') : (body.args ? ` ${body.args}` : '');
+      const mode = body.mode || 'run'; // 'run' | 'check' | 'test'
+      const cmd = `"${otterCmd}" ${mode} "${scriptName}"${customArgs ? ' ' + customArgs : ''}`;
       const startTime = Date.now();
 
       if (activeRunProcess) {
@@ -890,10 +895,11 @@ const server = http.createServer(async (req, res) => {
         activeRunProcess = null;
       }
 
-      const child = exec(cmd, { cwd: runDir, timeout: 30000 }, (error, stdout, stderr) => {
+      const child = exec(cmd, { cwd: runDir, env: { ...process.env, ...(body.env || {}) }, timeout: 30000 }, (error, stdout, stderr) => {
         activeRunProcess = null;
         const durationMs = Date.now() - startTime;
         sendJson(res, {
+          ok: !error,
           exitCode: error ? (error.code || 1) : 0,
           stdout: stdout ? stdout.toString() : '',
           stderr: stderr ? stderr.toString() : '',
@@ -919,6 +925,139 @@ const server = http.createServer(async (req, res) => {
       return sendJson(res, { stopped: true });
     }
     return sendJson(res, { stopped: false, message: 'No process currently running' });
+  }
+
+  // --- Build & Clean API ---
+  if (pathname === '/api/build' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const folderParam = body.folder || body.path || '.';
+      const projectDir = path.resolve(REPO_ROOT, folderParam);
+      if (!projectDir.startsWith(REPO_ROOT) || !fs.existsSync(projectDir)) {
+        return sendJson(res, { error: 'Project folder not found' }, 404);
+      }
+
+      const otterCmd = path.join(REPO_ROOT, 'otter.cmd');
+      const targetArg = body.target ? ` "${body.target}"` : '';
+      const cmd = `"${otterCmd}" build${targetArg}`;
+      const startTime = Date.now();
+
+      exec(cmd, { cwd: projectDir, timeout: 60000 }, (error, stdout, stderr) => {
+        const durationMs = Date.now() - startTime;
+        const exitCode = error ? (error.code || 1) : 0;
+        const ok = exitCode === 0;
+
+        let buildMeta = null;
+        const metaPath = path.join(projectDir, 'dist', 'otter.build.json');
+        if (fs.existsSync(metaPath)) {
+          try {
+            buildMeta = JSON.parse(fs.readFileSync(metaPath, 'utf8').replace(/^\uFEFF/, ''));
+          } catch {}
+        }
+
+        sendJson(res, {
+          ok,
+          exitCode,
+          stdout: stdout ? stdout.toString() : '',
+          stderr: stderr ? stderr.toString() : '',
+          durationMs,
+          outputDir: 'dist',
+          buildMeta,
+          error: error ? error.message : null
+        }, ok ? 200 : 422);
+      });
+    } catch (err) {
+      sendJson(res, { error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/clean' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const folderParam = body.folder || body.path || '.';
+      const projectDir = path.resolve(REPO_ROOT, folderParam);
+      if (!projectDir.startsWith(REPO_ROOT) || !fs.existsSync(projectDir)) {
+        return sendJson(res, { error: 'Project folder not found' }, 404);
+      }
+
+      let outDirName = 'dist';
+      const otterJson = path.join(projectDir, 'otter.json');
+      const projJson = path.join(projectDir, 'project.json');
+      const manifestFile = fs.existsSync(otterJson) ? otterJson : (fs.existsSync(projJson) ? projJson : null);
+      if (manifestFile) {
+        try {
+          const parsed = JSON.parse(fs.readFileSync(manifestFile, 'utf8').replace(/^\uFEFF/, ''));
+          if (parsed.build && parsed.build.outputDir) {
+            outDirName = parsed.build.outputDir;
+          }
+        } catch {}
+      }
+
+      const outDir = path.resolve(projectDir, outDirName);
+      if (!outDir.startsWith(projectDir) || outDir === projectDir) {
+        return sendJson(res, { error: 'Output directory must stay inside project' }, 400);
+      }
+
+      let cleaned = false;
+      if (fs.existsSync(outDir)) {
+        const marker = path.join(outDir, 'otter.build.json');
+        if (fs.existsSync(marker) || fs.readdirSync(outDir).length === 0) {
+          fs.rmSync(outDir, { recursive: true, force: true });
+          cleaned = true;
+        } else {
+          return sendJson(res, { error: 'Directory does not contain otter.build.json; refusal to delete' }, 400);
+        }
+      }
+
+      sendJson(res, { ok: true, cleaned, outputDir: outDirName });
+    } catch (err) {
+      sendJson(res, { error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/publish' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const folderParam = body.folder || body.path || '.';
+      const projectDir = path.resolve(REPO_ROOT, folderParam);
+      if (!projectDir.startsWith(REPO_ROOT) || !fs.existsSync(projectDir)) {
+        return sendJson(res, { error: 'Project folder not found' }, 404);
+      }
+
+      const otterCmd = path.join(REPO_ROOT, 'otter.cmd');
+      const targetArg = body.target ? ` "${body.target}"` : '';
+      const cmd = `"${otterCmd}" publish${targetArg}`;
+      const startTime = Date.now();
+
+      exec(cmd, { cwd: projectDir, timeout: 60000 }, (error, stdout, stderr) => {
+        const durationMs = Date.now() - startTime;
+        const exitCode = error ? (error.code || 1) : 0;
+        const ok = exitCode === 0;
+
+        let publishMeta = null;
+        const metaPath = path.join(projectDir, 'publish', 'otter.publish.json');
+        if (fs.existsSync(metaPath)) {
+          try {
+            publishMeta = JSON.parse(fs.readFileSync(metaPath, 'utf8').replace(/^\uFEFF/, ''));
+          } catch {}
+        }
+
+        sendJson(res, {
+          ok,
+          exitCode,
+          stdout: stdout ? stdout.toString() : '',
+          stderr: stderr ? stderr.toString() : '',
+          durationMs,
+          publishMeta,
+          error: error ? error.message : null
+        }, ok ? 200 : 422);
+      });
+    } catch (err) {
+      sendJson(res, { error: err.message }, 500);
+    }
+    return;
   }
 
   // --- Debugger (first slice): start/poll/continue/stop a real otter.ps1
