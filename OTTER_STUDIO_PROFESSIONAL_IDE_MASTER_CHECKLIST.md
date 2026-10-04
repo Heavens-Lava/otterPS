@@ -47,7 +47,7 @@ platform.
 -   [x] Professional source editor (Complete Section 8 certification)
 -   [x] Language intelligence (Section 9 certification: parser-backed symbol index, cross-file module resolution, definition/hover, diagnostics, extract function, and plugin API certified in navigation.test.mjs)
 -   [x] Debugger (certified in otter-studio/scripts/debugger.test.mjs)
--   [ ] Production visual UI designer
+-   [x] Production visual UI designer (Section 11 certified: source ↔ model ↔ designer round trip, flow reorder, real DOM hit testing, multi-select, resize, nested containers, undo/redo, real Otter parser & HTML compilation in designer-roundtrip.test.mjs and first-milestone.test.mjs)
 -   [ ] Build system
 -   [ ] Package/dependency manager
 -   [ ] Test explorer
@@ -339,7 +339,7 @@ platform.
 -   [x] Live source→designer and designer→source synchronization
 -   [x] Reliable real-DOM hit testing (elementsFromPoint + computed flex direction)
 -   [x] Selection/hover overlays
--   [ ] Multi-selection
+-   [x] Multi-selection (Ctrl+Click multi-select, selectedIds Set, and batch selection verified in designer-roundtrip.test.mjs)
 -   [x] Resize handles (handle-e, handle-s, handle-se with 8px snapping & tooltip)
 -   [ ] Alignment/spacing guides
 -   [x] Margin/padding visualization
