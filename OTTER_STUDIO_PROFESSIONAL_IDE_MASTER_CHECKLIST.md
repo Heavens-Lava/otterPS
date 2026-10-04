@@ -91,7 +91,7 @@ platform.
 -   [x] Freeze numeric precision/range behavior (docs/SPECIFICATION.md Section 2.6 & 4.1 IEEE 754 float64)
 -   [x] Freeze equality/order behavior (docs/SPECIFICATION.md Section 6.2)
 -   [x] Document copy/reference semantics (docs/SPECIFICATION.md Section 4 & 5.1)
--   [ ] Binary/byte data
+-   [x] Binary/byte data (D102 / D115 certified in tests/Bytes.Tests.ps1)
 -   [ ] Streams for large data
 
 # 2. Portable compiler/runtime parity
