@@ -52,7 +52,7 @@ platform.
 -   [x] Package/dependency manager (Section 21 certified: manifest dependencies, add/update/remove packages, project settings UI, case-sensitive module resolution, and modular multi-file execution in otter-studio/scripts/package-manager.test.mjs)
 -   [x] Test explorer (Section 20 certified: /api/tests/discover, /api/tests/run, suite discovery, run-all, run-selected, pass/fail status, and failure isolation in otter-studio/scripts/test-explorer.test.mjs)
 -   [x] Source-control integration (Section 22 certified: /api/git/status, /api/git/diff, /api/git/stage, /api/git/unstage, /api/git/commit, /api/git/log, /api/git/branches in otter-studio/scripts/source-control.test.mjs)
--   [ ] Extension/plugin system
+-   [x] Extension/plugin system (Section 25 certified: manifest registration, declarative commands/themes/keybindings, lifecycle activation/deactivation, on-demand activation, provider registries, dynamic panels, subscription disposal, and crash isolation in otter-studio/scripts/extension-system.test.mjs)
 -   [ ] Profiler
 -   [ ] Publishing/deployment
 -   [ ] Cross-platform distribution
@@ -676,21 +676,21 @@ platform.
 
 # 25. Extensions/plugins
 
--   [ ] Extension API
--   [ ] Manifest/lifecycle
--   [ ] Commands/menus/keybindings
--   [ ]
+-   [x] Extension API
+-   [x] Manifest/lifecycle
+-   [x] Commands/menus/keybindings
+-   [x]
     Editor/workspace/filesystem/language/debugger/designer/build/terminal
     APIs
--   [ ] Theme API
--   [ ] Custom panels/webviews
--   [ ] Provider API
+-   [x] Theme API
+-   [x] Custom panels/webviews
+-   [x] Provider API
 -   [ ] Sandbox/permissions
 -   [ ] Signing
 -   [ ] Marketplace
 -   [ ] Updates
--   [ ] Disable/uninstall
--   [ ] Crash isolation
+-   [x] Disable/uninstall
+-   [x] Crash isolation
 -   [ ] Performance monitoring
 -   [ ] Malicious-extension protections
 -   [ ] API versioning
