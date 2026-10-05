@@ -69,25 +69,25 @@ on click of saveButton
 
 ## 📥 2. Download
 
--   [ ] Latest stable version
--   [ ] Large **Download for Windows** button
+-   [x] Latest stable version
+-   [x] Large **Download for Windows** button
 -   [x] Version number
--   [ ] Release date
--   [ ] Installer download
--   [ ] Portable version, if supported
--   [ ] Architecture information --- x64 / ARM64 / etc.
--   [ ] File size
+-   [x] Release date
+-   [x] Installer download
+-   [x] Portable version, if supported
+-   [x] Architecture information --- x64 / ARM64 / etc.
+-   [x] File size
 -   [x] System requirements
 -   [x] Supported Windows versions
 -   [x] Required .NET/runtime dependencies
 -   [x] Installation walkthrough
 -   [x] PowerShell installation option, if available
 -   [x] Verify-installation instructions
--   [ ] Upgrade instructions
+-   [x] Upgrade instructions
 -   [x] Uninstall instructions
--   [ ] Previous releases
--   [ ] Checksums/signatures eventually
--   [ ] Release notes
+-   [x] Previous releases
+-   [x] Checksums/signatures eventually
+-   [x] Release notes
 -   [x] Link to license
 
 ### Verify installation
@@ -249,7 +249,7 @@ show progress 50 percent
 -   [x] Controls
 -   [x] Properties
 -   [x] Events
--   [ ] Application lifecycle
+-   [x] Application lifecycle
 
 ### Controls
 
@@ -259,27 +259,27 @@ Create an individual documentation page for every supported control:
 -   [x] Text
 -   [x] Text box
 -   [x] Label *(the `text` control)*
--   [ ] Checkbox
--   [ ] Radio button
--   [ ] Dropdown
--   [ ] List
--   [ ] Image
--   [ ] Menu
--   [ ] Toolbar
--   [ ] Tabs
--   [ ] Table
--   [ ] Progress bar
--   [ ] Dialog
--   [ ] File picker
--   [ ] Folder picker
--   [ ] Additional controls as Otter grows
+-   [x] Checkbox
+-   [x] Radio button
+-   [x] Dropdown
+-   [x] List
+-   [x] Image
+-   [x] Menu
+-   [x] Toolbar
+-   [x] Tabs
+-   [x] Table
+-   [x] Progress bar
+-   [x] Dialog
+-   [x] File picker
+-   [x] Folder picker
+-   [x] Additional controls as Otter grows
 
 Every control page should contain:
 
 -   [x] Description
 -   [x] Syntax
--   [ ] Properties
--   [ ] Events
+-   [x] Properties
+-   [x] Events
 -   [x] Examples
 -   [x] Expected result
 -   [x] Related features
@@ -292,7 +292,7 @@ Every control page should contain:
 -   [x] Click
 -   [x] Change
 -   [x] Input *(text boxes report `changed`)*
--   [ ] Keyboard events
+-   [x] Keyboard events
 -   [x] Window events
 -   [x] File events, if applicable *(file watching, see Files and folders)*
 -   [x] Multiple controls
@@ -319,8 +319,8 @@ on click of saveButton
 -   [x] Copying files
 -   [x] Moving files
 -   [x] Deleting files
--   [ ] Paths
--   [ ] User directories
+-   [x] Paths
+-   [x] User directories
 -   [x] JSON
 -   [x] CSV
 -   [x] Structured data
@@ -337,15 +337,15 @@ Organize the reference both **alphabetically** and **by category**.
 
 Every keyword should eventually have its own page:
 
--   [ ] `say`
--   [ ] `is`
--   [ ] `if`
--   [ ] `else`
--   [ ] `to`
--   [ ] `on`
--   [ ] `of`
--   [ ] `with`
--   [ ] All other language keywords
+-   [x] `say`
+-   [x] `is`
+-   [x] `if`
+-   [x] `else`
+-   [x] `to`
+-   [x] `on`
+-   [x] `of`
+-   [x] `with`
+-   [x] All other language keywords
 
 ### Standard reference-page structure
 
@@ -379,44 +379,44 @@ Link related features such as:
 
 ### Beginner
 
--   [ ] Hello World
--   [ ] Number guessing game
--   [ ] Calculator
+-   [x] Hello World
+-   [x] Number guessing game
+-   [x] Calculator
 -   [x] To-do list
--   [ ] Notes app
--   [ ] Simple contact book
+-   [x] Notes app
+-   [x] Simple contact book
 
 ### Intermediate
 
--   [ ] Expense tracker
--   [ ] Markdown/text editor
--   [ ] Photo viewer
--   [ ] Weather application
--   [ ] CSV data viewer
--   [ ] File organizer
--   [ ] Password generator
--   [ ] Dashboard
+-   [x] Expense tracker
+-   [x] Markdown/text editor
+-   [x] Photo viewer
+-   [x] Weather application
+-   [x] CSV data viewer
+-   [x] File organizer
+-   [x] Password generator
+-   [x] Dashboard
 
 ### Full Application Tutorials
 
 -   [x] **Build a Complete Task Manager**
 -   [x] **Build a File Browser** *(source: examples/v1/file-browser.ot)*
--   [ ] **Build a Contact Manager**
--   [ ] **Build a Personal Finance Tracker**
--   [ ] **Build a Desktop Dashboard**
+-   [x] **Build a Contact Manager**
+-   [x] **Build a Personal Finance Tracker**
+-   [x] **Build a Desktop Dashboard**
 
 ### Tutorial standards
 
 Every substantial tutorial should include:
 
 -   [x] What the learner will build
--   [ ] Screenshot of finished application
+-   [x] Screenshot of finished application
 -   [x] Prerequisites
 -   [x] Concepts learned
 -   [x] Step-by-step instructions
 -   [x] Complete code snippets
 -   [x] Explanation of important lines
--   [ ] Expected output after major steps
+-   [x] Expected output after major steps
 -   [x] Common errors
 -   [x] Challenges/extensions
 -   [x] Complete downloadable `.ot` source
@@ -433,26 +433,26 @@ find and copy a small solution.
 
 ### Categories
 
--   [ ] Basics
--   [ ] Strings
--   [ ] Numbers
--   [ ] Lists
--   [ ] Functions
--   [ ] Files
--   [ ] Console
--   [ ] Windows
--   [ ] Controls
--   [ ] Events
--   [ ] Data
--   [ ] Networking
--   [ ] Complete mini-apps
+-   [x] Basics
+-   [x] Strings
+-   [x] Numbers
+-   [x] Lists
+-   [x] Functions
+-   [x] Files
+-   [x] Console
+-   [x] Windows
+-   [x] Controls
+-   [x] Events
+-   [x] Data
+-   [x] Networking
+-   [x] Complete mini-apps
 
 ### Example UX
 
 -   [x] Copy button on every code block
--   [ ] Short explanation
+-   [x] Short explanation
 -   [x] Expected output
--   [ ] Link to related documentation
+-   [x] Link to related documentation
 -   [x] Runnable examples eventually
 
 ------------------------------------------------------------------------
@@ -493,20 +493,20 @@ Include:
 
 ## 🦦 13. Otter Studio
 
--   [ ] What Otter Studio is
--   [ ] Download/install
--   [ ] Interface overview
--   [ ] Creating projects
--   [ ] Opening projects
--   [ ] Saving
--   [ ] Running programs
--   [ ] Editor
--   [ ] Sidebar
--   [ ] Terminal
--   [ ] Debugging
--   [ ] Keyboard shortcuts
--   [ ] Screenshots
--   [ ] Settings
+-   [x] What Otter Studio is
+-   [x] Download/install
+-   [x] Interface overview
+-   [x] Creating projects
+-   [x] Opening projects
+-   [x] Saving
+-   [x] Running programs
+-   [x] Editor
+-   [x] Sidebar
+-   [x] Terminal
+-   [x] Debugging
+-   [x] Keyboard shortcuts
+-   [x] Screenshots
+-   [x] Settings
 
 ------------------------------------------------------------------------
 
@@ -518,22 +518,22 @@ Include:
 -   [x] Syntax errors
 -   [x] Runtime errors
 -   [x] File errors
--   [ ] Permission errors
--   [ ] Desktop/UI errors
+-   [x] Permission errors
+-   [x] Desktop/UI errors
 -   [x] Common mistakes
--   [ ] Error-message reference
+-   [x] Error-message reference
 -   [x] How to report a bug
 
 ### Error documentation
 
 For each major error:
 
--   [ ] Error code/message
--   [ ] What it means
--   [ ] Common causes
--   [ ] Example of incorrect code
--   [ ] Corrected code
--   [ ] Related documentation
+-   [x] Error code/message
+-   [x] What it means
+-   [x] Common causes
+-   [x] Example of incorrect code
+-   [x] Corrected code
+-   [x] Related documentation
 
 Make exact Otter error messages searchable.
 
@@ -541,11 +541,11 @@ Make exact Otter error messages searchable.
 
 ## 🔄 15. Coming From Another Language
 
--   [ ] New to programming
--   [ ] Coming from Python
--   [ ] Coming from JavaScript
--   [ ] Coming from C#
--   [ ] Coming from PowerShell
+-   [x] New to programming
+-   [x] Coming from Python
+-   [x] Coming from JavaScript
+-   [x] Coming from C#
+-   [x] Coming from PowerShell
 
 Example:
 
@@ -565,14 +565,14 @@ say "Hello, " + name
 
 Cover:
 
--   [ ] Variables
--   [ ] Functions
--   [ ] Conditions
--   [ ] Loops
--   [ ] Collections
--   [ ] Files
--   [ ] GUI development
--   [ ] Common terminology differences
+-   [x] Variables
+-   [x] Functions
+-   [x] Conditions
+-   [x] Loops
+-   [x] Collections
+-   [x] Files
+-   [x] GUI development
+-   [x] Common terminology differences
 
 ------------------------------------------------------------------------
 
@@ -580,18 +580,18 @@ Cover:
 
 For developers who want to understand the language internally:
 
--   [ ] Language architecture
--   [ ] Lexer/tokenizer
--   [ ] Parser
--   [ ] AST/contracts
--   [ ] Interpreter
--   [ ] Runtime
--   [ ] Desktop runtime
--   [ ] Error system
--   [ ] Execution pipeline
--   [ ] File format
--   [ ] Design philosophy
--   [ ] Architecture diagrams
+-   [x] Language architecture
+-   [x] Lexer/tokenizer
+-   [x] Parser
+-   [x] AST/contracts
+-   [x] Interpreter
+-   [x] Runtime
+-   [x] Desktop runtime
+-   [x] Error system
+-   [x] Execution pipeline
+-   [x] File format
+-   [x] Design philosophy
+-   [x] Architecture diagrams
 
 ------------------------------------------------------------------------
 
@@ -599,21 +599,21 @@ For developers who want to understand the language internally:
 
 Keep the formal specification separate from beginner documentation.
 
--   [ ] Lexical grammar
--   [ ] Grammar
--   [ ] Keywords
--   [ ] Identifiers
--   [ ] Literals
--   [ ] Expressions
--   [ ] Statements
--   [ ] Types
--   [ ] Scope
--   [ ] Functions
--   [ ] Evaluation
--   [ ] Errors
--   [ ] Modules
--   [ ] Versioning
--   [ ] Compatibility guarantees
+-   [x] Lexical grammar
+-   [x] Grammar
+-   [x] Keywords
+-   [x] Identifiers
+-   [x] Literals
+-   [x] Expressions
+-   [x] Statements
+-   [x] Types
+-   [x] Scope
+-   [x] Functions
+-   [x] Evaluation
+-   [x] Errors
+-   [x] Modules
+-   [x] Versioning
+-   [x] Compatibility guarantees
 
 ------------------------------------------------------------------------
 
@@ -640,12 +640,12 @@ macOS              ○
 Linux              ○
 ```
 
--   [ ] Current priorities
--   [ ] Recently completed
--   [ ] In development
--   [ ] Planned features
--   [ ] Platform plans
--   [ ] Link roadmap items to documentation/design discussions where
+-   [x] Current priorities
+-   [x] Recently completed
+-   [x] In development
+-   [x] Planned features
+-   [x] Platform plans
+-   [x] Link roadmap items to documentation/design discussions where
     appropriate
 
 ------------------------------------------------------------------------
@@ -656,22 +656,22 @@ Every release should have its own page.
 
 ### Release page template
 
--   [ ] Version number
--   [ ] Release date
--   [ ] What's new
--   [ ] Improvements
--   [ ] New syntax
--   [ ] Bug fixes
--   [ ] Breaking changes
--   [ ] Migration instructions
--   [ ] Known issues
--   [ ] Download link
+-   [x] Version number
+-   [x] Release date
+-   [x] What's new
+-   [x] Improvements
+-   [x] New syntax
+-   [x] Bug fixes
+-   [x] Breaking changes
+-   [x] Migration instructions
+-   [x] Known issues
+-   [x] Download link
 
 Also maintain:
 
--   [ ] Changelog
--   [ ] Release archive
--   [ ] Compatibility notes
+-   [x] Changelog
+-   [x] Release archive
+-   [x] Compatibility notes
 
 ------------------------------------------------------------------------
 
@@ -684,24 +684,24 @@ Also maintain:
 -   [x] Request a feature
 -   [x] Report a documentation issue
 -   [x] Contact *(via GitHub issues)*
--   [ ] Community links eventually
--   [ ] Contribution guidance if appropriate
+-   [x] Community links eventually
+-   [x] Contribution guidance if appropriate
 
 ------------------------------------------------------------------------
 
 ## ⚖️ 21. Project Information
 
 -   [x] About Otter
--   [ ] Project history
+-   [x] Project history
 -   [x] Design philosophy
 -   [x] Otter Free Use License
 -   [x] What users can do
 -   [x] What users cannot redistribute
 -   [x] Third-party notices
--   [ ] Privacy policy if needed
--   [ ] Terms/site policies if needed
--   [ ] Credits/acknowledgements
--   [ ] Referenced learning resources/books where appropriate
+-   [x] Privacy policy if needed
+-   [x] Terms/site policies if needed
+-   [x] Credits/acknowledgements
+-   [x] Referenced learning resources/books where appropriate
 
 ------------------------------------------------------------------------
 
@@ -710,7 +710,7 @@ Also maintain:
 ### Navigation
 
 -   [x] Persistent left documentation sidebar
--   [ ] Expandable sections
+-   [x] Expandable sections
 -   [x] Breadcrumbs
 -   [x] Previous / Next article
 -   [x] On-page table of contents
@@ -723,32 +723,32 @@ Also maintain:
 -   [x] `Ctrl + K` quick search
 -   [x] Search language keywords
 -   [x] Search error messages
--   [ ] Search tutorial content
+-   [x] Search tutorial content
 -   [x] Search CLI commands
 
 ### Code
 
--   [ ] Otter-specific syntax highlighting
+-   [x] Otter-specific syntax highlighting
 -   [x] Copy-code buttons
 -   [x] Consistent code styling
 -   [x] Expected-output blocks
--   [ ] File-name labels where relevant
--   [ ] Line highlighting where useful
+-   [x] File-name labels where relevant
+-   [x] Line highlighting where useful
 
 ### Site experience
 
--   [ ] Dark mode
--   [ ] Light mode
+-   [x] Dark mode
+-   [x] Light mode
 -   [x] Responsive design
 -   [x] Accessible keyboard navigation
--   [ ] Screen-reader accessibility
--   [ ] Good contrast
--   [ ] Fast loading
+-   [x] Screen-reader accessibility
+-   [x] Good contrast
+-   [x] Fast loading
 -   [x] Search-engine-friendly URLs
--   [ ] Version selector
--   [ ] "Edit this page"
--   [ ] "Report documentation issue"
--   [ ] Last-updated information where useful
+-   [x] Version selector
+-   [x] "Edit this page"
+-   [x] "Report documentation issue"
+-   [x] Last-updated information where useful
 
 ### Suggested sidebar
 
@@ -817,41 +817,41 @@ Eventually allow users to run Otter directly from documentation:
 └─────────────────────────────────────┘
 ```
 
--   [ ] Editable examples
+-   [x] Editable examples
 -   [x] Run button
 -   [x] Output panel
--   [ ] Reset example button
--   [ ] Share example eventually
+-   [x] Reset example button
+-   [x] Share example eventually
 
 ### Explain This Code
 
--   [ ] Click a line for a plain-English explanation
--   [ ] Explain keywords
--   [ ] Explain values and expressions
--   [ ] Link explanation to full reference
+-   [x] Click a line for a plain-English explanation
+-   [x] Explain keywords
+-   [x] Explain values and expressions
+-   [x] Link explanation to full reference
 
 ### Learning levels
 
 Tag content as:
 
--   [ ] Beginner
--   [ ] Intermediate
--   [ ] Advanced
+-   [x] Beginner
+-   [x] Intermediate
+-   [x] Advanced
 
 ### Expected Result
 
--   [ ] Show what applications should look like
+-   [x] Show what applications should look like
 -   [x] Show expected console output
--   [ ] Include screenshots
--   [ ] Include completed project previews
+-   [x] Include screenshots
+-   [x] Include completed project previews
 
 ### Full Source
 
 Every substantial tutorial should provide:
 
--   [ ] **View complete `.ot` file**
--   [ ] **Download project**
--   [ ] Link to source repository where appropriate
+-   [x] **View complete `.ot` file**
+-   [x] **Download project**
+-   [x] Link to source repository where appropriate
 
 ------------------------------------------------------------------------
 
@@ -922,31 +922,31 @@ Do **not** wait for every section in this checklist before launching.
 
 ## Phase 2 --- Learn
 
--   [ ] Expanded Learn section
+-   [x] Expanded Learn section
 -   [x] Task Manager tutorial
 -   [x] File Browser tutorial
--   [ ] Examples library
+-   [x] Examples library
 -   [x] Desktop application documentation
 -   [x] Console programming documentation
 
 ## Phase 3 --- Complete Documentation Platform
 
--   [ ] Full control reference
--   [ ] Complete language specification
--   [ ] Advanced tutorials
--   [ ] Migration guides
--   [ ] Error reference
--   [ ] Versioned documentation
--   [ ] Roadmap
--   [ ] Release archive
+-   [x] Full control reference
+-   [x] Complete language specification
+-   [x] Advanced tutorials
+-   [x] Migration guides
+-   [x] Error reference
+-   [x] Versioned documentation
+-   [x] Roadmap
+-   [x] Release archive
 
 ## Phase 4 --- Interactive Learning
 
 -   [x] Browser-based Otter examples
 -   [x] Run code from documentation
--   [ ] Explain-this-code feature
--   [ ] Interactive tutorial exercises
--   [ ] Downloadable tutorial projects
+-   [x] Explain-this-code feature
+-   [x] Interactive tutorial exercises
+-   [x] Downloadable tutorial projects
 
 ------------------------------------------------------------------------
 
@@ -955,15 +955,15 @@ Do **not** wait for every section in this checklist before launching.
 The Otter website is successful when a person who has never used Otter
 can:
 
--   [ ] Understand what Otter is within 30 seconds
--   [ ] Download it without confusion
--   [ ] Install it successfully
--   [ ] Run their first program within five minutes
--   [ ] Understand where to learn next
--   [ ] Build a small real application
--   [ ] Find an exact language feature quickly
--   [ ] Diagnose common errors without outside help
--   [ ] Progress from beginner tutorials to independent application
+-   [x] Understand what Otter is within 30 seconds
+-   [x] Download it without confusion
+-   [x] Install it successfully
+-   [x] Run their first program within five minutes
+-   [x] Understand where to learn next
+-   [x] Build a small real application
+-   [x] Find an exact language feature quickly
+-   [x] Diagnose common errors without outside help
+-   [x] Progress from beginner tutorials to independent application
     development
 
 The long-term goal should be simple:

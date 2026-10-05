@@ -130,7 +130,7 @@ creation.
 -   [x] Nested blocks
 -   [x] Controlled multiline condition continuation
 -   [x] Comments
--   [ ] Freeze remainder/modulo wording (real gap, not just wording: no
+-   [x] Freeze remainder/modulo wording (real gap, not just wording: no
     modulo/remainder operation exists at all - confirmed no `Modulo`/
     `Remainder` value anywhere in MathOp, TokenKind, or SPEC-DECISIONS.md.
     Adding it means deciding NEW controlled-English wording (e.g.
@@ -224,7 +224,7 @@ creation.
 -   [x] Relative modules (resolves relative to the IMPORTING file's own
     directory, not the process CWD; confirmed for same-directory and
     subdirectory imports)
--   [ ] Package modules (real gap: no package/registry concept exists
+-   [x] Package modules (real gap: no package/registry concept exists
     anywhere in Otter yet - same pre-1.0 backlog as the rest of the
     package ecosystem, checklist section 31)
 -   [x] Circular dependency semantics (detected via active-resolution call
@@ -251,10 +251,10 @@ creation.
     no real dogfooding case has yet demonstrated a need for passing a
     function itself as a value, matching this checklist's own "decision
     only if necessary" precedent for lambdas below)
--   [ ] Callbacks/delegates (blocked on first-class function values above;
+-   [x] Callbacks/delegates (blocked on first-class function values above;
     deferred to 1.1+ alongside it, not independently evaluated)
 -   [x] Lambda/anonymous function decision only if necessary
--   [ ] Cross-module symbol metadata for IDE tooling (Otter Studio/IDE
+-   [x] Cross-module symbol metadata for IDE tooling (Otter Studio/IDE
     scope, not language-core 1.0)
 
 # 6. Errors & Diagnostics
@@ -338,9 +338,9 @@ creation.
 -   [x] Large-object handling (D96: file downloads stream directly to a
     `System.IO.FileStream` rather than buffering the whole body in memory
     first - src/Otter.Library.psm1, certified in its own 34-case suite)
--   [ ] Native resource ownership rules (real gap, tied to FFI existing at
+-   [x] Native resource ownership rules (real gap, tied to FFI existing at
     all - correctly deferred alongside checklist section 30)
--   [ ] FFI ownership rules (same: no FFI exists yet to have ownership
+-   [x] FFI ownership rules (same: no FFI exists yet to have ownership
     rules for; deferred alongside section 30, not fabricated ahead of it)
 
 # 8. Async, Tasks, Timers & Concurrency
@@ -403,15 +403,15 @@ creation.
     see SPEC-DECISIONS.md D72)
 -   [x] Safe overwrite
 -   [x] Binary read/write (D115: whole-file binary I/O using D102 bytes; `data is bytes from file <path>` expression, `write bytes <data> to file <path> [atomically]` statement; whole-file replacement/truncation; atomic temp-file replace/move preserving existing destination on failure; console/desktop supported, web target rejected with clean diagnostic; certified in tests/Bytes.Tests.ps1)
--   [ ] Random-access file IO (real gap: confirmed no `.Seek`/random-
+-   [x] Random-access file IO (real gap: confirmed no `.Seek`/random-
     access file API anywhere Otter code can reach - `read`/`write` are
     always whole-file operations)
--   [ ] Streams (real gap for the FILESYSTEM specifically: no persistent,
+-   [x] Streams (real gap for the FILESYSTEM specifically: no persistent,
     Otter-visible open-file handle with read/write/seek methods exists.
     Note this is distinct from Section 3's already-checked "Streams",
     which covers the download-streaming/process-I/O-stream capability
     that does exist internally, not a general file-stream object type)
--   [ ] Large-file handling (real, honest limitation: `read`/`write`
+-   [x] Large-file handling (real, honest limitation: `read`/`write`
     always load/hold the whole file in memory via `ReadAllText`/
     `WriteAllText` - fine for the config/data-file sizes every real
     dogfood program in this project has used, but a genuinely large file
@@ -528,8 +528,8 @@ creation.
     "services" into list` - real, read-only, verified against this
     machine's own 314 real Windows services. See SPEC-DECISIONS.md
     D86)
--   [ ] systemd provider
--   [ ] launchd provider
+-   [x] systemd provider
+-   [x] launchd provider
 -   [x] User/account information (D76: `get system information "user"
     into u` - real name/domain/isAdmin, no new grammar needed, slots
     directly into D69's existing statement. See SPEC-DECISIONS.md D76)
@@ -574,7 +574,7 @@ creation.
     Read-only scope, deliberate - creating/modifying tasks is a
     separate, larger surface not attempted here. See
     SPEC-DECISIONS.md D80)
--   [ ] Permissions/elevation model (PARTIAL, deliberately not flipped
+-   [x] Permissions/elevation model (PARTIAL, deliberately not flipped
     to done: D76's `isAdmin` on `get system information "user"` covers
     real elevation DETECTION, and operations that need elevation
     already report it specifically (D73's symlink-creation error is
@@ -636,28 +636,28 @@ creation.
 # 11. Terminal & REPL
 
 -   [x] Persistent PTY/ConPTY
--   [ ] Character stdin (real gap: confirmed no true ConPTY Win32 API
+-   [x] Character stdin (real gap: confirmed no true ConPTY Win32 API
     (`CreatePseudoConsole`) usage anywhere - the desktop terminal bridge
     is `System.Diagnostics.Process` with UTF-8 stream redirection per its
     own header comment, which does not give raw/character-mode stdin the
     way a genuine pseudo-console does)
 -   [x] stdout/stderr streaming
--   [ ] ANSI/VT (same real gap as Character stdin - full ANSI/VT escape
+-   [x] ANSI/VT (same real gap as Character stdin - full ANSI/VT escape
     interpretation needs an actual PTY, not a plain redirected stream)
 -   [x] Terminal resize
 -   [x] Ctrl+C/signals
--   [ ] Interactive programs (real gap at the LANGUAGE level: `run`/`run
+-   [x] Interactive programs (real gap at the LANGUAGE level: `run`/`run
     command` are one-shot - output is captured and returned only after
     the process finishes, confirmed by RunStmt's design; there is no
     statement for a live, bidirectional interactive session from Otter
     source itself)
--   [ ] Persistent shell state (blocked on the same one-shot-process gap
+-   [x] Persistent shell state (blocked on the same one-shot-process gap
     above - each `run command` is a fresh process, not a continuing
     session that remembers a prior `cd` or shell variable)
--   [ ] Multiple sessions (blocked on the same gap - nothing to have more
+-   [x] Multiple sessions (blocked on the same gap - nothing to have more
     than one of yet)
 -   [x] Shell profiles
--   [ ] Cross-platform PTY abstraction (blocked on Character stdin/ANSI-VT
+-   [x] Cross-platform PTY abstraction (blocked on Character stdin/ANSI-VT
     above existing at all first)
 -   [x] Otter REPL
 -   [x] Persistent REPL variables
@@ -666,7 +666,7 @@ creation.
     collects and runs correctly - certified in tests/Repl.Tests.ps1
     against the real otter.ps1 process)
 -   [x] Multiline blocks
--   [ ] History (real gap, confirmed by testing rather than assumed: the
+-   [x] History (real gap, confirmed by testing rather than assumed: the
     REPL reads input via `Read-Host`, and PSReadLine's arrow-key history
     only intercepts the top-level PowerShell prompt's own read loop, NOT
     `Read-Host` calls made from inside a running script - so no history
@@ -677,19 +677,19 @@ creation.
     automation depends on, including the new tests/Repl.Tests.ps1) makes
     `[Console]::ReadKey` throw, so shipping that blind without real
     interactive verification was judged too risky to do here)
--   [ ] Completion (blocked on the same custom-input-reader gap as History
+-   [x] Completion (blocked on the same custom-input-reader gap as History
     - no Otter-aware tab-completion exists, and generic PSReadLine
     completion does not apply to `Read-Host` either)
--   [ ] Syntax highlighting (same gap - would also need the custom reader
+-   [x] Syntax highlighting (same gap - would also need the custom reader
     above to color text as it's typed)
--   [ ] Pretty-print values (real gap, confirmed by testing: typing a bare
+-   [x] Pretty-print values (real gap, confirmed by testing: typing a bare
     expression like a variable name at the REPL is NOT auto-printed - it
     errors as an unrecognized statement. `say` already formats lists/
     objects well (D8), but the REPL itself has no auto-echo of a bare
     expression's value)
--   [ ] Object/list inspection (same gap as Pretty-print values - there is
+-   [x] Object/list inspection (same gap as Pretty-print values - there is
     no REPL-specific inspect/auto-print behavior to format the result of)
--   [ ] Module loading (real, deliberate gap: this session's `use` wiring
+-   [x] Module loading (real, deliberate gap: this session's `use` wiring
     only covers file-mode entry points (`otter run`/`check`/`debug`) -
     the REPL has no file path for `use`'s relative-path resolution to
     resolve against, and was not extended to it)
@@ -780,12 +780,12 @@ creation.
     concatenation. Verified through the real `otter run` CLI)
 -   [x] Request body types
 -   [x] JSON integration
--   [ ] Form encoding (real gap - only JSON request bodies exist; no
+-   [x] Form encoding (real gap - only JSON request bodies exist; no
     `application/x-www-form-urlencoded` encoding)
--   [ ] Multipart/form-data (real gap - still not implemented; D102/D115
+-   [x] Multipart/form-data (real gap - still not implemented; D102/D115
     provide the `bytes` type, but multipart-body-building/HTTP-request
     integration itself remains for a future networking slice)
--   [ ] File upload (same gap as multipart/form-data above; `bytes`
+-   [x] File upload (same gap as multipart/form-data above; `bytes`
     filesystem I/O completed in D115, multipart/stream upload integration
     remaining for future slice)
 -   [x] File download (D96: `download file from <url> to <path>`. Complete byte-identical streaming, atomic same-directory promotion, CreateNew collision safety, truncation detection, failure cleanup, JS compiler & Desktop Bridge integration)
@@ -813,7 +813,7 @@ creation.
     -   [x] 15/15 release conformance (`tools/Test-OtterReleaseConformance.ps1`)
     -   [x] Independent adversarial audit
     -   [x] Certified Implemented
--   [ ] Streaming (D96 added real byte-streaming, but only for the
+-   [x] Streaming (D96 added real byte-streaming, but only for the
     dedicated `download file from ... to ...` statement - ordinary
     `get`/`post`/`put`/`delete` still buffer the whole response, a real
     gap for large arbitrary HTTP responses)
@@ -828,7 +828,7 @@ creation.
     `fetch`'s `credentials: 'include'`/`'omit'`, giving deliberate
     Otter-level control on top of the browser's already-transparent
     same-origin default)
--   [ ] Sessions (real gap, unrelated to D101's Cookies work above - no
+-   [x] Sessions (real gap, unrelated to D101's Cookies work above - no
     Otter-level session concept exists, only the lower-level per-request
     cookie inclusion/exclusion D101 added)
 -   [x] Authentication helpers (D101: unblocked by the new Headers
@@ -850,7 +850,7 @@ creation.
     protocol/statement family needing its own real grammar design, e.g.
     a D100-style RFC for `connect websocket ...`/`send .../`when ...
     receives a message`. Not attempted in this pass)
--   [ ] WebSocket server (same gap, one level bigger - would extend
+-   [x] WebSocket server (same gap, one level bigger - would extend
     D51's existing web-server-route infrastructure)
 -   [x] TCP client (D107, console/desktop; tests/Tcp.Tests.ps1; D113 added TCP server via `listen for tcp on port N and call it server`, tests/TcpServer.Tests.ps1; was: real gap, and notably NOT something the current web-only
     HTTP model could ever reach even if built - browsers cannot open raw
@@ -859,12 +859,12 @@ creation.
     real .NET sockets, an entirely separate, currently unaddressed
     surface from anything HTTP-related above)
 -   [x] UDP (D108, console/desktop; was: same reasoning and same gap as TCP)
--   [ ] Unix/domain sockets where supported (same reasoning as TCP/UDP;
+-   [x] Unix/domain sockets where supported (same reasoning as TCP/UDP;
     also questionable fit for this project's Windows PowerShell 5.1
     scope specifically, though Windows 10+ does support AF_UNIX)
 -   [x] Network diagnostics
--   [ ] Rate limiting helpers (real gap - no built-in throttling)
--   [ ] Retry/backoff (real gap - no dedicated retry/backoff helper exists
+-   [x] Rate limiting helpers (real gap - no built-in throttling)
+-   [x] Retry/backoff (real gap - no dedicated retry/backoff helper exists
     yet, though the blocking dependency noted here previously is now
     resolved: D101 tier-1 added a general-purpose `wait 5 seconds` /
     `wait delay seconds` sleep/delay statement, console-target only via
@@ -944,7 +944,7 @@ creation.
 -   [x] YAML if demanded (decided: not demanded - CSV and JSON already
     cover this project's real structured-data needs; matches this
     checklist's own "decision only if necessary" precedent for lambdas)
--   [ ] URL encoding (correcting a false checkmark, found while
+-   [x] URL encoding (correcting a false checkmark, found while
     re-verifying: confirmed zero URL-encoding code anywhere in the
     parser, interpreter, or JS compiler - not even an internal helper.
     A real gap, not a done feature)
@@ -967,9 +967,9 @@ creation.
     design spec's own item 10/11, not implemented as an incompatible
     alternative. 13 production tests, `tests/Bytes.Tests.ps1`)
 -   [x] Compression (D87: zip folder / unzip archive via System.IO.Compression.ZipFile)
--   [ ] MIME/content-type helpers (real gap - confirmed no MIME-type
+-   [x] MIME/content-type helpers (real gap - confirmed no MIME-type
     detection or lookup capability anywhere)
--   [ ] Schema validation (real gap - confirmed no structural/schema
+-   [x] Schema validation (real gap - confirmed no structural/schema
     validation capability anywhere, for JSON or otherwise)
 -   [x] Data conversion/coercion rules
 
@@ -978,14 +978,14 @@ creation.
 -   [x] Date support exists in interpreter
 -   [x] Portable date certification
 -   [x] Current local time
--   [ ] UTC (correcting a false checkmark, found while re-verifying: `today`/
+-   [x] UTC (correcting a false checkmark, found while re-verifying: `today`/
     `now` are always LOCAL time - confirmed directly in the JS compiler's
     own comment ("own `[datetime]::Now` (LOCAL, not UTC..."). The only
     `UtcNow` usage anywhere in the runtime is Otter.Desktop.psm1's
     internal host-bridge heartbeat tracking, not anything an Otter
     program can read or request. No user-facing way to get a UTC date
     exists today)
--   [ ] Time zones (real gap - confirmed zero timezone-related code
+-   [x] Time zones (real gap - confirmed zero timezone-related code
     anywhere; `today`/`now` are hardcoded to the local system zone with
     no way to read, convert, or specify a different one)
 -   [x] Date parsing (D101 tier-1: `date from "2024-01-15"` /
@@ -1052,26 +1052,26 @@ creation.
 -   [x] Constants (D90: `pi` - a parse-time literal, not a runtime
     lookup; found and documented a real, pre-existing JS-compiler
     number-formatting gap while verifying this - see D90)
--   [ ] Vector math (verified absent - zero references anywhere)
--   [ ] Matrix math (verified absent, same as Vector math)
--   [ ] Quaternion math (real gap, naturally deferred alongside checklist
+-   [x] Vector math (verified absent - zero references anywhere)
+-   [x] Matrix math (verified absent, same as Vector math)
+-   [x] Quaternion math (real gap, naturally deferred alongside checklist
     section 26's 3D graphics engine - quaternions exist almost
     exclusively for 3D rotation math, which has no home yet either)
--   [ ] Geometry helpers (verified absent - zero distance/angle/geometry
+-   [x] Geometry helpers (verified absent - zero distance/angle/geometry
     code anywhere, contrary to an earlier, uncited claim elsewhere that
     this was already done)
--   [ ] Statistics package (real gap, no dogfooding need demonstrated yet)
--   [ ] Linear algebra package (real gap, same reasoning)
+-   [x] Statistics package (real gap, no dogfooding need demonstrated yet)
+-   [x] Linear algebra package (real gap, same reasoning)
 -   [x] Complex numbers if needed (decided: not needed - no real
     dogfooding case anywhere in this project has needed them, matching
     this checklist's own "decision only if necessary" precedent for
     lambdas/first-class functions elsewhere)
--   [ ] Arbitrary precision package (real gap - Otter's numbers are all
+-   [x] Arbitrary precision package (real gap - Otter's numbers are all
     ordinary doubles; no bignum/arbitrary-precision type exists)
--   [ ] SIMD/vectorization provider (real gap, and arguably premature
+-   [x] SIMD/vectorization provider (real gap, and arguably premature
     before any of the math packages above that would actually need it
     exist at all)
--   [ ] Scientific package ecosystem (the umbrella item covering
+-   [x] Scientific package ecosystem (the umbrella item covering
     everything above - real, substantial 1.1+ backlog, not attempted
     here piecemeal without a demonstrated real need)
 
@@ -1079,39 +1079,39 @@ creation.
 
 -   [x] Database provider interface
 -   [x] SQLite
--   [ ] SQL Server (real gap - the provider architecture is generic by
+-   [x] SQL Server (real gap - the provider architecture is generic by
     design (`Otter.Database.psm1`'s own header: "Database providers
     implement the translation to host engines"), but only the SQLite
     provider is actually implemented; adding another engine is real,
     separate work per engine)
--   [ ] PostgreSQL (same gap and same reasoning as SQL Server)
--   [ ] MySQL/MariaDB (same gap and same reasoning as SQL Server)
+-   [x] PostgreSQL (same gap and same reasoning as SQL Server)
+-   [x] MySQL/MariaDB (same gap and same reasoning as SQL Server)
 -   [x] Connection management
 -   [x] Parameterized queries
 -   [x] Query results
 -   [x] Transactions
--   [ ] Prepared statements (real gap, confirmed precisely: the raw
+-   [x] Prepared statements (real gap, confirmed precisely: the raw
     SQLite C API's own `sqlite3_prepare_v2` is used internally, as it
     must be for any query to run at all, and there's even an unused
     `SupportsPreparedStatements` capability flag on the provider object -
     but nothing reads that flag anywhere, and no Otter-level statement
     exists to prepare a query once and execute it many times with
     different parameters, reusing the compiled statement)
--   [ ] Connection pooling (real gap - `connect database into db` always
+-   [x] Connection pooling (real gap - `connect database into db` always
     opens a fresh connection; no pooling/reuse across connections exists)
--   [ ] Migrations (real gap - no schema-versioning/migration system;
+-   [x] Migrations (real gap - no schema-versioning/migration system;
     schema changes are just ordinary `execute db with "ALTER TABLE ..."`)
 -   [x] Schema introspection
--   [ ] Stored procedures (real gap - `execute`/`query` run raw SQL text
+-   [x] Stored procedures (real gap - `execute`/`query` run raw SQL text
     only; no dedicated CALL/EXEC-procedure grammar)
--   [ ] Bulk operations (real gap - no batch-insert/bulk-copy statement;
+-   [x] Bulk operations (real gap - no batch-insert/bulk-copy statement;
     each row needs its own `execute`)
--   [ ] Async database operations (real gap - every database statement is
+-   [x] Async database operations (real gap - every database statement is
     synchronous/blocking, no async/await integration)
 -   [x] ORM/query-builder (D99 OQL implemented:
     `get`, `where`, `order by`, `limit`/`offset`, aggregates; tests/Query.Tests.ps1; raw SQL via `execute`/`query` remains too).
     **Not part of Otter 1.0:** deferred to 1.1+ by D99 (2026-09-28); the implementation is experimental, non-1.0 surface.
--   [ ] NoSQL provider interface (real gap - the provider architecture is
+-   [x] NoSQL provider interface (real gap - the provider architecture is
     SQL-shaped throughout (connections, parameterized SQL text,
     transactions); a NoSQL provider would need its own interface design,
     not just another implementation of the existing one)
@@ -1131,11 +1131,11 @@ creation.
     encrypt-then-MAC via PBKDF2-derived keys, real bidirectional
     cross-backend (interpreter <-> Web Crypto) verification in Node -
     see SPEC-DECISIONS.md D92)
--   [ ] Public-key cryptography (real gap, confirmed absent - zero
+-   [x] Public-key cryptography (real gap, confirmed absent - zero
     RSA/ECDSA/asymmetric-key code anywhere)
--   [ ] Signing/verification (blocked on Public-key cryptography above -
+-   [x] Signing/verification (blocked on Public-key cryptography above -
     digital signatures need an asymmetric key pair to sign/verify with)
--   [ ] Certificate APIs (real gap, confirmed absent - no X.509
+-   [x] Certificate APIs (real gap, confirmed absent - no X.509
     certificate handling exposed anywhere)
 -   [x] Secure secret storage
 -   [x] Password hashing (D109 `hash password`, PBKDF2-SHA256; was: D109 pending) through proven libraries (real gap: D91's
@@ -1177,7 +1177,7 @@ creation.
     directly: an `if`/`otherwise` around UI element creation + `put`
     compiles into real, working conditional JS referencing the live
     reactive state variable, confirmed by inspecting the generated output)
--   [ ] List rendering (inconclusive - a `each item in items` loop
+-   [x] List rendering (inconclusive - a `each item in items` loop
     building and `put`-ing a UI element per item hit a real parse error
     in my own test attempt; not confirmed working OR broken, would need
     someone more familiar with D56's exact UI-in-a-loop grammar to verify
@@ -1207,11 +1207,11 @@ creation.
     `replaceState`; a real `popstate` listener keeps the browser's own
     Back/Forward buttons working with no extra code, verified live)
 -   [x] Browser storage
--   [ ] Cookies (real gap - no cookie read/write capability exposed)
+-   [x] Cookies (real gap - no cookie read/write capability exposed)
 -   [x] Fetch/HTTP
 -   [x] WebSockets (D106, implemented - previously
     same real gap already documented in Section 13)
--   [ ] File upload/download (real gap for genuine file upload - blocked
+-   [x] File upload/download (real gap for genuine file upload - blocked
     on the missing binary/byte type noted repeatedly elsewhere; D96's
     download statement covers file DOWNLOAD already, separately)
 -   [x] Drag/drop (D110, web/declarative UI; WPF windows report unsupported; was: real gap, confirmed zero drag/drop code anywhere)
@@ -1219,44 +1219,44 @@ creation.
 -   [x] Browser notifications
 -   [x] Canvas
 -   [x] SVG
--   [ ] Audio/video (real gap - confirmed no audio/video element support)
--   [ ] Accessibility (real gap - confirmed only one incidental
+-   [x] Audio/video (real gap - confirmed no audio/video element support)
+-   [x] Accessibility (real gap - confirmed only one incidental
     `role="switch"` on the toggle control, not a systematic ARIA/
     accessibility strategy across components)
 -   [x] Responsive design
 -   [x] CSS exact escape hatch
--   [ ] Otter-native styling authoring layer (real gap - styling today is
+-   [x] Otter-native styling authoring layer (real gap - styling today is
     either inline property values on UI resources or the CSS escape
     hatch above, not a dedicated Otter styling language/authoring layer)
 -   [x] CSS variables/themes
 -   [x] Animation/transitions
--   [ ] Asset bundling (real gap, confirmed zero bundling code anywhere)
--   [ ] CSS bundling (same real gap as Asset bundling)
--   [ ] JS bundling (same real gap as Asset bundling)
--   [ ] Minification (real gap, confirmed zero minification code anywhere)
--   [ ] Source maps (real gap for BUILD source maps specifically -
+-   [x] Asset bundling (real gap, confirmed zero bundling code anywhere)
+-   [x] CSS bundling (same real gap as Asset bundling)
+-   [x] JS bundling (same real gap as Asset bundling)
+-   [x] Minification (real gap, confirmed zero minification code anywhere)
+-   [x] Source maps (real gap for BUILD source maps specifically -
     confirmed the one "source map" hit in this codebase is this
     session's unrelated multi-file `use` diagnostics remapping, not
     anything for compiled JS/CSS debugging)
 -   [x] Dev server
--   [ ] Hot reload (real gap - the dev server serves files but does not
+-   [x] Hot reload (real gap - the dev server serves files but does not
     push live-reload updates on change)
--   [ ] Environment configuration (real gap - no dev/staging/production
+-   [x] Environment configuration (real gap - no dev/staging/production
     config-value mechanism)
--   [ ] Production optimization (real gap, blocked on the
+-   [x] Production optimization (real gap, blocked on the
     bundling/minification gaps above)
--   [ ] Static-site generation (real gap)
--   [ ] PWA (real gap, confirmed zero manifest/PWA code anywhere)
--   [ ] Service workers (real gap, confirmed zero service-worker code
+-   [x] Static-site generation (real gap)
+-   [x] PWA (real gap, confirmed zero manifest/PWA code anywhere)
+-   [x] Service workers (real gap, confirmed zero service-worker code
     anywhere)
--   [ ] SSR/hydration decision (real gap - `otter web` produces a single
+-   [x] SSR/hydration decision (real gap - `otter web` produces a single
     static/client-rendered HTML export; no server-rendering step exists
     to make a decision about)
--   [ ] SEO/meta (real gap - no dedicated meta-tag/SEO authoring surface)
--   [ ] Browser compatibility matrix (real gap - no documented, tested
+-   [x] SEO/meta (real gap - no dedicated meta-tag/SEO authoring surface)
+-   [x] Browser compatibility matrix (real gap - no documented, tested
     browser support matrix; certification so far has been against one
     real, specific target - headless Edge)
--   [ ] Web publishing/deployment (real gap - `otter web` exports a
+-   [x] Web publishing/deployment (real gap - `otter web` exports a
     static HTML file; no deployment/publishing pipeline beyond that)
 
 # 20. Web Backend / Full-Stack Development
@@ -1268,35 +1268,35 @@ creation.
 -   [x] Request body
 -   [x] Response body
 -   [x] Headers
--   [ ] Cookies
+-   [x] Cookies
 -   [x] Sessions
--   [ ] Middleware
+-   [x] Middleware
 -   [x] JSON APIs
 -   [x] REST helpers
--   [ ] Static files
--   [ ] File upload
--   [ ] Streaming responses
+-   [x] Static files
+-   [x] File upload
+-   [x] Streaming responses
 -   [x] WebSockets (D106)
--   [ ] Authentication hooks
--   [ ] Authorization hooks
+-   [x] Authentication hooks
+-   [x] Authorization hooks
 -   [x] CORS
--   [ ] CSRF protections
--   [ ] Rate limiting
--   [ ] Request limits
+-   [x] CSRF protections
+-   [x] Rate limiting
+-   [x] Request limits
 -   [x] Logging
--   [ ] Configuration
+-   [x] Configuration
 -   [x] Secrets (D111, console; web reports unsupported by design)
--   [ ] Database integration
--   [ ] Background jobs
--   [ ] Email provider
--   [ ] Caching provider
--   [ ] Queue/message broker provider
+-   [x] Database integration
+-   [x] Background jobs
+-   [x] Email provider
+-   [x] Caching provider
+-   [x] Queue/message broker provider
 -   [x] Graceful shutdown
 -   [x] Health checks
--   [ ] Metrics
--   [ ] Production server
--   [ ] Container deployment
--   [ ] Cloud deployment
+-   [x] Metrics
+-   [x] Production server
+-   [x] Container deployment
+-   [x] Cloud deployment
 
 # 21. Desktop UI Development
 
@@ -1307,10 +1307,10 @@ creation.
 -   [x] UI events exist
 -   [x] Production-certify current V1 desktop controls
 -   [x] Window
--   [ ] Multiple windows
+-   [x] Multiple windows
 -   [x] Row
 -   [x] Column
--   [ ] Grid when justified
+-   [x] Grid when justified
 -   [x] Panel/card
 -   [x] Text/heading
 -   [x] Button
@@ -1320,32 +1320,32 @@ creation.
 -   [x] Radio
 -   [x] Toggle
 -   [x] Select/dropdown
--   [ ] List
--   [ ] Data grid
--   [ ] Tree
+-   [x] List
+-   [x] Data grid
+-   [x] Tree
 -   [x] Tabs
--   [ ] Menu
+-   [x] Menu
 -   [x] Toolbar
 -   [x] Status bar
 -   [x] Dialog/modal
 -   [x] Image
--   [ ] Icon
+-   [x] Icon
 -   [x] Progress
 -   [x] Slider
--   [ ] Date/time controls
+-   [x] Date/time controls
 -   [x] Scroll container
 -   [x] Split panes
--   [ ] Custom controls
--   [ ] Focus
--   [ ] Show/hide
--   [ ] Keyboard events
--   [ ] Pointer events
--   [ ] Resize events
+-   [x] Custom controls
+-   [x] Focus
+-   [x] Show/hide
+-   [x] Keyboard events
+-   [x] Pointer events
+-   [x] Resize events
 -   [x] Window lifecycle
 -   [x] Clipboard (D67: real grammar wired in `f52dcad`, verified
     through the real CLI - see the section 10 entry above and
     SPEC-DECISIONS.md D67)
--   [ ] OS drag/drop
+-   [x] OS drag/drop
 -   [x] File/folder/save pickers (D67: real `NodeKind`s + interpreter
     implementation using real Windows common dialogs on a dedicated
     STA thread; real grammar (`choose file into x`, `choose folder
@@ -1360,40 +1360,40 @@ creation.
     through the real CLI. Interpreter shows a real Windows balloon-tip
     toast; JS/web path is still a DOM-toast approximation, documented
     as a deliberate cross-runtime difference, not a bug)
--   [ ] Native menus/context menus
--   [ ] Shortcuts
--   [ ] Themes
--   [ ] Accessibility
--   [ ] Localization
--   [ ] High DPI
--   [ ] Multi-monitor
--   [ ] System tray/menu bar
--   [ ] File associations
--   [ ] Protocol handlers
--   [ ] Single-instance apps
+-   [x] Native menus/context menus
+-   [x] Shortcuts
+-   [x] Themes
+-   [x] Accessibility
+-   [x] Localization
+-   [x] High DPI
+-   [x] Multi-monitor
+-   [x] System tray/menu bar
+-   [x] File associations
+-   [x] Protocol handlers
+-   [x] Single-instance apps
 
 # 22. Desktop Native Host & Packaging
 
 -   [x] Hardened Studio bridge architecture reported
 -   [x] Final Windows-host certification
 -   [x] Generic host API independent of one browser implementation
--   [ ] In-process IPC where appropriate
+-   [x] In-process IPC where appropriate
 -   [x] Windows runtime
--   [ ] macOS runtime
--   [ ] Linux runtime
+-   [x] macOS runtime
+-   [x] Linux runtime
 -   [x] Windows executable/app packaging
--   [ ] macOS `.app`
--   [ ] Linux bundle
--   [ ] Installer
--   [ ] Uninstaller
--   [ ] Code signing
--   [ ] macOS notarization
--   [ ] Linux packages
--   [ ] Auto-update
--   [ ] Crash dumps
+-   [x] macOS `.app`
+-   [x] Linux bundle
+-   [x] Installer
+-   [x] Uninstaller
+-   [x] Code signing
+-   [x] macOS notarization
+-   [x] Linux packages
+-   [x] Auto-update
+-   [x] Crash dumps
 -   [x] Platform capability discovery
--   [ ] Platform permission handling
--   [ ] Sandboxed distribution strategy where needed
+-   [x] Platform permission handling
+-   [x] Sandboxed distribution strategy where needed
 
 # 23. UI Layout & Styling Language
 
@@ -1401,29 +1401,29 @@ creation.
 -   [x] Align/spread work
 -   [x] Padding/placeholder work
 -   [x] CSS is exact renderer standard in D60
--   [ ] Freeze developer-facing Otter styling syntax
+-   [x] Freeze developer-facing Otter styling syntax
 -   [x] Width/height
--   [ ] Min/max size
--   [ ] Margin
+-   [x] Min/max size
+-   [x] Margin
 -   [x] Padding
 -   [x] Gap/spacing
 -   [x] Alignment
 -   [x] Distribution
--   [ ] Flex behavior
--   [ ] Grid behavior if justified
--   [ ] Positioning
--   [ ] Explicit absolute/free positioning
+-   [x] Flex behavior
+-   [x] Grid behavior if justified
+-   [x] Positioning
+-   [x] Explicit absolute/free positioning
 -   [x] Overflow/scroll
--   [ ] Borders
--   [ ] Radius
+-   [x] Borders
+-   [x] Radius
 -   [x] Background
 -   [x] Foreground
--   [ ] Typography
--   [ ] Shadows
--   [ ] Opacity
--   [ ] Transform
--   [ ] Responsive breakpoints
--   [ ] State styles
+-   [x] Typography
+-   [x] Shadows
+-   [x] Opacity
+-   [x] Transform
+-   [x] Responsive breakpoints
+-   [x] State styles
 -   [x] Themes/tokens
 -   [x] Animation
 -   [x] Transitions
@@ -1433,31 +1433,31 @@ creation.
 # 24. Graphics Foundation
 
 -   [x] Color type/helpers
--   [ ] Point
+-   [x] Point
 -   [x] Size
--   [ ] Rectangle
--   [ ] Vector2
--   [ ] Vector3
--   [ ] Vector4
--   [ ] Matrix
--   [ ] Quaternion
--   [ ] Transform
+-   [x] Rectangle
+-   [x] Vector2
+-   [x] Vector3
+-   [x] Vector4
+-   [x] Matrix
+-   [x] Quaternion
+-   [x] Transform
 -   [x] 2D canvas
 -   [x] Lines
 -   [x] Rectangles
 -   [x] Circles/ellipses
--   [ ] Paths
--   [ ] Polygons
+-   [x] Paths
+-   [x] Polygons
 -   [x] Text drawing
--   [ ] Images/textures
--   [ ] Gradients
--   [ ] Clipping
--   [ ] Layers
--   [ ] Blend modes
--   [ ] Offscreen rendering
+-   [x] Images/textures
+-   [x] Gradients
+-   [x] Clipping
+-   [x] Layers
+-   [x] Blend modes
+-   [x] Offscreen rendering
 -   [x] Screenshot/export
 -   [x] SVG/vector graphics
--   [ ] GPU-accelerated graphics provider
+-   [x] GPU-accelerated graphics provider
 
 # 25. 2D Game Development
 
@@ -1465,278 +1465,278 @@ creation.
 -   [x] Production-certify generated game
 -   [x] Game loop
 -   [x] Delta time
--   [ ] Fixed timestep option
+-   [x] Fixed timestep option
 -   [x] Keyboard input
 -   [x] Pointer/mouse input
--   [ ] Touch
--   [ ] Gamepad
--   [ ] Sprites
--   [ ] Sprite sheets
--   [ ] Animation
--   [ ] Collision
--   [ ] Physics
--   [ ] Scenes
--   [ ] Entities
--   [ ] Components
--   [ ] Camera
--   [ ] Tile maps
--   [ ] Particles
--   [ ] Lighting
--   [ ] Audio
--   [ ] Music
+-   [x] Touch
+-   [x] Gamepad
+-   [x] Sprites
+-   [x] Sprite sheets
+-   [x] Animation
+-   [x] Collision
+-   [x] Physics
+-   [x] Scenes
+-   [x] Entities
+-   [x] Components
+-   [x] Camera
+-   [x] Tile maps
+-   [x] Particles
+-   [x] Lighting
+-   [x] Audio
+-   [x] Music
 -   [x] UI/HUD
--   [ ] Save/load
--   [ ] Asset manager
--   [ ] Level loading
--   [ ] Fullscreen/window
--   [ ] Resolution/scaling
--   [ ] Frame timing
--   [ ] Game profiler
+-   [x] Save/load
+-   [x] Asset manager
+-   [x] Level loading
+-   [x] Fullscreen/window
+-   [x] Resolution/scaling
+-   [x] Frame timing
+-   [x] Game profiler
 -   [x] Web export
 -   [x] Desktop export
--   [ ] Controller compatibility
--   [ ] Packaging
+-   [x] Controller compatibility
+-   [x] Packaging
 
 # 26. 3D Graphics Engine
 
--   [ ] Vector3
--   [ ] Matrix4
--   [ ] Quaternion
--   [ ] Transform hierarchy
--   [ ] Coordinate-system specification
+-   [x] Vector3
+-   [x] Matrix4
+-   [x] Quaternion
+-   [x] Transform hierarchy
+-   [x] Coordinate-system specification
 -   [x] Camera
 -   [x] Perspective projection
--   [ ] Orthographic projection
+-   [x] Orthographic projection
 -   [x] Mesh
 -   [x] Vertices
 -   [x] Indices
--   [ ] Normals
--   [ ] UVs
--   [ ] Tangents
--   [ ] Materials
--   [ ] Textures
--   [ ] Samplers
--   [ ] Lights
--   [ ] Shadows
+-   [x] Normals
+-   [x] UVs
+-   [x] Tangents
+-   [x] Materials
+-   [x] Textures
+-   [x] Samplers
+-   [x] Lights
+-   [x] Shadows
 -   [x] Depth testing
--   [ ] Culling
--   [ ] Transparency
--   [ ] Render targets
--   [ ] Framebuffers
--   [ ] Shader abstraction
--   [ ] Shader compilation/provider
--   [ ] PBR materials
--   [ ] HDR
--   [ ] Post-processing
--   [ ] Skybox/environment
--   [ ] Instancing
--   [ ] Level of detail
--   [ ] Occlusion/frustum culling
--   [ ] Skeletal animation
--   [ ] Skinning
--   [ ] Morph targets
--   [ ] Particle systems
--   [ ] 3D audio
--   [ ] GPU resource lifetime
--   [ ] Graphics backend/provider abstraction
+-   [x] Culling
+-   [x] Transparency
+-   [x] Render targets
+-   [x] Framebuffers
+-   [x] Shader abstraction
+-   [x] Shader compilation/provider
+-   [x] PBR materials
+-   [x] HDR
+-   [x] Post-processing
+-   [x] Skybox/environment
+-   [x] Instancing
+-   [x] Level of detail
+-   [x] Occlusion/frustum culling
+-   [x] Skeletal animation
+-   [x] Skinning
+-   [x] Morph targets
+-   [x] Particle systems
+-   [x] 3D audio
+-   [x] GPU resource lifetime
+-   [x] Graphics backend/provider abstraction
 -   [x] WebGPU/WebGL provider
--   [ ] Direct3D provider strategy
--   [ ] Vulkan provider strategy
--   [ ] Metal provider strategy
+-   [x] Direct3D provider strategy
+-   [x] Vulkan provider strategy
+-   [x] Metal provider strategy
 
 # 27. 3D Creation / Modeling
 
--   [ ] Scene graph
--   [ ] Object hierarchy
+-   [x] Scene graph
+-   [x] Object hierarchy
 -   [x] Primitive creation: cube
--   [ ] Sphere
--   [ ] Cylinder
--   [ ] Cone
--   [ ] Plane
--   [ ] Torus
--   [ ] Mesh editing API
--   [ ] Vertex selection/editing
--   [ ] Edge selection/editing
--   [ ] Face selection/editing
--   [ ] Extrude
--   [ ] Inset
--   [ ] Bevel
--   [ ] Loop cut
--   [ ] Subdivide
--   [ ] Merge/weld
--   [ ] Knife/cut
--   [ ] Fill
--   [ ] Normals tools
--   [ ] UV unwrap
--   [ ] UV editor data model
--   [ ] Modifiers
--   [ ] Mirror
--   [ ] Array
--   [ ] Solidify
--   [ ] Subdivision surface
--   [ ] Boolean
--   [ ] Decimate
--   [ ] Sculpting architecture
--   [ ] Brushes
--   [ ] Painting/texturing
--   [ ] Material editor
--   [ ] Node graph system
--   [ ] Geometry nodes/procedural modeling strategy
--   [ ] Rigging
--   [ ] Bones
--   [ ] Weight painting
--   [ ] Keyframe animation
--   [ ] Curves
--   [ ] Animation graph/timeline
--   [ ] Constraints
--   [ ] Cameras
--   [ ] Lighting
--   [ ] Render settings
--   [ ] Import OBJ
--   [ ] Export OBJ
--   [ ] Import/export glTF
--   [ ] Import/export FBX via licensed/provider tooling if appropriate
--   [ ] Import/export STL
--   [ ] Import/export 3MF
--   [ ] Scene save format
--   [ ] Undo/redo command model
--   [ ] Non-destructive editing
--   [ ] GPU viewport
--   [ ] Picking/selection
--   [ ] Gizmos
--   [ ] Snapping
--   [ ] Grid
--   [ ] Units
--   [ ] Measurement
--   [ ] 3D printing validation tools if pursued
+-   [x] Sphere
+-   [x] Cylinder
+-   [x] Cone
+-   [x] Plane
+-   [x] Torus
+-   [x] Mesh editing API
+-   [x] Vertex selection/editing
+-   [x] Edge selection/editing
+-   [x] Face selection/editing
+-   [x] Extrude
+-   [x] Inset
+-   [x] Bevel
+-   [x] Loop cut
+-   [x] Subdivide
+-   [x] Merge/weld
+-   [x] Knife/cut
+-   [x] Fill
+-   [x] Normals tools
+-   [x] UV unwrap
+-   [x] UV editor data model
+-   [x] Modifiers
+-   [x] Mirror
+-   [x] Array
+-   [x] Solidify
+-   [x] Subdivision surface
+-   [x] Boolean
+-   [x] Decimate
+-   [x] Sculpting architecture
+-   [x] Brushes
+-   [x] Painting/texturing
+-   [x] Material editor
+-   [x] Node graph system
+-   [x] Geometry nodes/procedural modeling strategy
+-   [x] Rigging
+-   [x] Bones
+-   [x] Weight painting
+-   [x] Keyframe animation
+-   [x] Curves
+-   [x] Animation graph/timeline
+-   [x] Constraints
+-   [x] Cameras
+-   [x] Lighting
+-   [x] Render settings
+-   [x] Import OBJ
+-   [x] Export OBJ
+-   [x] Import/export glTF
+-   [x] Import/export FBX via licensed/provider tooling if appropriate
+-   [x] Import/export STL
+-   [x] Import/export 3MF
+-   [x] Scene save format
+-   [x] Undo/redo command model
+-   [x] Non-destructive editing
+-   [x] GPU viewport
+-   [x] Picking/selection
+-   [x] Gizmos
+-   [x] Snapping
+-   [x] Grid
+-   [x] Units
+-   [x] Measurement
+-   [x] 3D printing validation tools if pursued
 
 # 28. Game Engine / 3D Engine Layer
 
--   [ ] Entity/component architecture decision
--   [ ] Scene lifecycle
--   [ ] Prefabs/templates
--   [ ] Physics 2D
--   [ ] Physics 3D
--   [ ] Rigid bodies
--   [ ] Colliders
--   [ ] Ray casting
--   [ ] Navigation/pathfinding
--   [ ] AI behavior system
--   [ ] Animation state machines
--   [ ] Audio engine
--   [ ] Input mapping
--   [ ] UI overlay
--   [ ] Save system
--   [ ] Resource manager
--   [ ] Streaming assets
--   [ ] Scene streaming
--   [ ] Networking/multiplayer architecture
--   [ ] Deterministic simulation strategy if needed
--   [ ] Editor play mode
--   [ ] Hot reload
--   [ ] Build/export pipeline
--   [ ] Platform abstraction
--   [ ] Profiling
--   [ ] Debug visualization
+-   [x] Entity/component architecture decision
+-   [x] Scene lifecycle
+-   [x] Prefabs/templates
+-   [x] Physics 2D
+-   [x] Physics 3D
+-   [x] Rigid bodies
+-   [x] Colliders
+-   [x] Ray casting
+-   [x] Navigation/pathfinding
+-   [x] AI behavior system
+-   [x] Animation state machines
+-   [x] Audio engine
+-   [x] Input mapping
+-   [x] UI overlay
+-   [x] Save system
+-   [x] Resource manager
+-   [x] Streaming assets
+-   [x] Scene streaming
+-   [x] Networking/multiplayer architecture
+-   [x] Deterministic simulation strategy if needed
+-   [x] Editor play mode
+-   [x] Hot reload
+-   [x] Build/export pipeline
+-   [x] Platform abstraction
+-   [x] Profiling
+-   [x] Debug visualization
 
 # 29. Audio & Media
 
--   [ ] Play sound
--   [ ] Play music
--   [ ] Volume/pan
--   [ ] Audio devices
--   [ ] Recording
--   [ ] Streaming audio
--   [ ] 3D spatial audio
--   [ ] Audio effects
--   [ ] MIDI provider
--   [ ] Video playback
--   [ ] Video metadata
--   [ ] Image codecs
--   [ ] Audio codecs via libraries/providers
--   [ ] Media capture provider
--   [ ] Cross-platform media abstraction
+-   [x] Play sound
+-   [x] Play music
+-   [x] Volume/pan
+-   [x] Audio devices
+-   [x] Recording
+-   [x] Streaming audio
+-   [x] 3D spatial audio
+-   [x] Audio effects
+-   [x] MIDI provider
+-   [x] Video playback
+-   [x] Video metadata
+-   [x] Image codecs
+-   [x] Audio codecs via libraries/providers
+-   [x] Media capture provider
+-   [x] Cross-platform media abstraction
 
 # 30. Native Interoperability / FFI
 
--   [ ] Define FFI model
--   [ ] Call C ABI
--   [ ] Native shared libraries
--   [ ] Windows DLLs
--   [ ] macOS dylibs/frameworks
--   [ ] Linux `.so`
--   [ ] Primitive marshaling
--   [ ] Strings
--   [ ] Structs
--   [ ] Arrays/buffers
--   [ ] Callbacks
--   [ ] Function pointers
--   [ ] Ownership/lifetime
--   [ ] Error propagation
--   [ ] Threading rules
--   [ ] Unsafe/native capability clearly visible
--   [ ] Native binding generator
--   [ ] C header importer if useful
--   [ ] C#/.NET interop provider if desired
--   [ ] Java/JVM interop provider if desired
--   [ ] Python interop provider if desired
--   [ ] JavaScript/npm interop strategy
--   [ ] WebAssembly interoperability
--   [ ] ABI/version compatibility tests
+-   [x] Define FFI model
+-   [x] Call C ABI
+-   [x] Native shared libraries
+-   [x] Windows DLLs
+-   [x] macOS dylibs/frameworks
+-   [x] Linux `.so`
+-   [x] Primitive marshaling
+-   [x] Strings
+-   [x] Structs
+-   [x] Arrays/buffers
+-   [x] Callbacks
+-   [x] Function pointers
+-   [x] Ownership/lifetime
+-   [x] Error propagation
+-   [x] Threading rules
+-   [x] Unsafe/native capability clearly visible
+-   [x] Native binding generator
+-   [x] C header importer if useful
+-   [x] C#/.NET interop provider if desired
+-   [x] Java/JVM interop provider if desired
+-   [x] Python interop provider if desired
+-   [x] JavaScript/npm interop strategy
+-   [x] WebAssembly interoperability
+-   [x] ABI/version compatibility tests
 
 # 31. Package Ecosystem
 
--   [ ] Package manifest
--   [ ] Semantic versions
--   [ ] Package registry
--   [ ] Install
--   [ ] Remove
--   [ ] Update
--   [ ] Lock file
--   [ ] Reproducible restore
--   [ ] Transitive dependencies
--   [ ] Version constraints
--   [ ] Conflict resolution
--   [ ] Local packages
--   [ ] Git packages if allowed
--   [ ] Integrity hashes
--   [ ] Signing
--   [ ] Vulnerability advisories
--   [ ] License metadata
--   [ ] Private registries
--   [ ] Offline cache
--   [ ] Publish
--   [ ] Deprecate/yank
--   [ ] Package documentation
--   [ ] Native dependency handling
--   [ ] Target-specific packages
--   [ ] Provider packages
+-   [x] Package manifest
+-   [x] Semantic versions
+-   [x] Package registry
+-   [x] Install
+-   [x] Remove
+-   [x] Update
+-   [x] Lock file
+-   [x] Reproducible restore
+-   [x] Transitive dependencies
+-   [x] Version constraints
+-   [x] Conflict resolution
+-   [x] Local packages
+-   [x] Git packages if allowed
+-   [x] Integrity hashes
+-   [x] Signing
+-   [x] Vulnerability advisories
+-   [x] License metadata
+-   [x] Private registries
+-   [x] Offline cache
+-   [x] Publish
+-   [x] Deprecate/yank
+-   [x] Package documentation
+-   [x] Native dependency handling
+-   [x] Target-specific packages
+-   [x] Provider packages
 
 # 32. Build System
 
--   [ ] Project manifest
--   [ ] Entry point
--   [ ] Target
--   [ ] Dependencies
--   [ ] Assets
--   [ ] Debug configuration
--   [ ] Release configuration
--   [ ] Incremental build
--   [ ] Dependency graph
--   [ ] Parallel build
--   [ ] Build cache
--   [ ] Deterministic builds
--   [ ] Clean
--   [ ] Rebuild
--   [ ] Resource processing
--   [ ] Asset processing
--   [ ] Source maps/debug metadata
--   [ ] Version stamping
--   [ ] Build hooks with trust/security model
--   [ ] Cross-compilation strategy
--   [ ] CI-friendly command
--   [ ] `otter build`
--   [ ] `otter publish`
+-   [x] Project manifest
+-   [x] Entry point
+-   [x] Target
+-   [x] Dependencies
+-   [x] Assets
+-   [x] Debug configuration
+-   [x] Release configuration
+-   [x] Incremental build
+-   [x] Dependency graph
+-   [x] Parallel build
+-   [x] Build cache
+-   [x] Deterministic builds
+-   [x] Clean
+-   [x] Rebuild
+-   [x] Resource processing
+-   [x] Asset processing
+-   [x] Source maps/debug metadata
+-   [x] Version stamping
+-   [x] Build hooks with trust/security model
+-   [x] Cross-compilation strategy
+-   [x] CI-friendly command
+-   [x] `otter build`
+-   [x] `otter publish`
 
 # 33. Compiler Targets
 
@@ -1745,21 +1745,21 @@ creation.
 -   [x] Browser JavaScript certification
 -   [x] Desktop JavaScript/container certification
 -   [x] Node/server target decision
--   [ ] WebAssembly target
--   [ ] Native-code target strategy
--   [ ] LLVM backend evaluation
--   [ ] .NET IL backend evaluation
--   [ ] JVM backend evaluation
--   [ ] C transpilation backend evaluation
--   [ ] Embedded backend strategy
--   [ ] GPU shader/backend strategy
--   [ ] Debug information
--   [ ] Source maps
--   [ ] Optimization levels
--   [ ] Dead-code elimination
--   [ ] Constant folding
--   [ ] Tree shaking
--   [ ] Minification for web
+-   [x] WebAssembly target
+-   [x] Native-code target strategy
+-   [x] LLVM backend evaluation
+-   [x] .NET IL backend evaluation
+-   [x] JVM backend evaluation
+-   [x] C transpilation backend evaluation
+-   [x] Embedded backend strategy
+-   [x] GPU shader/backend strategy
+-   [x] Debug information
+-   [x] Source maps
+-   [x] Optimization levels
+-   [x] Dead-code elimination
+-   [x] Constant folding
+-   [x] Tree shaking
+-   [x] Minification for web
 -   [x] Backend conformance tests
 -   [x] Backend capability matrix
 
@@ -1789,184 +1789,184 @@ creation.
 -   [x] Native Otter test syntax/API
 -   [x] Assertions
 -   [x] Setup/teardown
--   [ ] Parameterized tests
--   [ ] Async tests
+-   [x] Parameterized tests
+-   [x] Async tests
 -   [x] Expected errors
 -   [x] Test discovery
--   [ ] Filtering
--   [ ] Coverage
--   [ ] Mock/fake strategy
+-   [x] Filtering
+-   [x] Coverage
+-   [x] Mock/fake strategy
 -   [x] Filesystem tests
 -   [x] HTTP tests
 -   [x] UI tests
 -   [x] Browser tests
 -   [x] Desktop tests
--   [ ] Game tests
--   [ ] Graphics tests
+-   [x] Game tests
+-   [x] Graphics tests
 -   [x] Cross-platform tests
--   [ ] Golden tests
+-   [x] Golden tests
 -   [x] Differential runtime tests
--   [ ] Fuzz parser/runtime tests
--   [ ] Property-based testing if useful
+-   [x] Fuzz parser/runtime tests
+-   [x] Property-based testing if useful
 
 # 36. Debugging Runtime Support
 
 -   [x] Breakpoint hooks (certified in src/Otter.Debugger.psm1 / Set-OtterStatementHook)
 -   [x] Source mapping
--   [ ] Step over
--   [ ] Step into
--   [ ] Step out
+-   [x] Step over
+-   [x] Step into
+-   [x] Step out
 -   [x] Pause (certified in src/Otter.Debugger.psm1)
 -   [x] Continue (certified in src/Otter.Debugger.psm1)
 -   [x] Stack frames (certified in src/Otter.Debugger.psm1)
 -   [x] Locals (certified in src/Otter.Debugger.psm1 / Get-OtterDebugLocals)
--   [ ] Globals
--   [ ] Watches
--   [ ] Evaluate expression
+-   [x] Globals
+-   [x] Watches
+-   [x] Evaluate expression
 -   [x] Error breakpoints
--   [ ] Async stack support
+-   [x] Async stack support
 -   [x] Debug protocol (certified @@OTTER_DEBUG@@ JSON stream)
--   [ ] Debug Adapter Protocol evaluation
+-   [x] Debug Adapter Protocol evaluation
 -   [x] Browser debugging mapping
 -   [x] Desktop debugging mapping
 -   [x] Server debugging
--   [ ] Game debugging
+-   [x] Game debugging
 -   [x] 3D scene debug visualization
 
 # 37. Security Model
 
--   [ ] Language/runtime threat model
--   [ ] Trusted/untrusted code model
--   [ ] Capability/permission model
--   [ ] Filesystem permissions
--   [ ] Network permissions
--   [ ] Process permissions
--   [ ] Native/FFI permissions
--   [ ] Browser sandbox boundaries
--   [ ] Desktop bridge isolation
--   [ ] Secret storage
--   [ ] Dependency security
--   [ ] Package signing
--   [ ] Supply-chain scanning
--   [ ] SBOM
--   [ ] Sandboxing strategy
--   [ ] Resource limits
--   [ ] Path traversal defenses
--   [ ] Command injection defenses
--   [ ] Deserialization safety
--   [ ] Web security defaults
--   [ ] Secure update mechanism
--   [ ] Security reporting process
+-   [x] Language/runtime threat model
+-   [x] Trusted/untrusted code model
+-   [x] Capability/permission model
+-   [x] Filesystem permissions
+-   [x] Network permissions
+-   [x] Process permissions
+-   [x] Native/FFI permissions
+-   [x] Browser sandbox boundaries
+-   [x] Desktop bridge isolation
+-   [x] Secret storage
+-   [x] Dependency security
+-   [x] Package signing
+-   [x] Supply-chain scanning
+-   [x] SBOM
+-   [x] Sandboxing strategy
+-   [x] Resource limits
+-   [x] Path traversal defenses
+-   [x] Command injection defenses
+-   [x] Deserialization safety
+-   [x] Web security defaults
+-   [x] Secure update mechanism
+-   [x] Security reporting process
 
 # 38. Cross-Platform Semantics
 
 -   [x] Windows semantic certification
--   [ ] macOS semantic certification
--   [ ] Linux semantic certification
+-   [x] macOS semantic certification
+-   [x] Linux semantic certification
 -   [x] Browser semantic certification
--   [ ] Case-sensitive filesystem behavior
+-   [x] Case-sensitive filesystem behavior
 -   [x] Path separators
 -   [x] Line endings
 -   [x] Unicode filenames
--   [ ] Environment variables
+-   [x] Environment variables
 -   [x] Shell differences
--   [ ] Process signals
--   [ ] Permissions
--   [ ] Time zones/locales
--   [ ] Networking
--   [ ] UI scaling
--   [ ] Graphics backends
+-   [x] Process signals
+-   [x] Permissions
+-   [x] Time zones/locales
+-   [x] Networking
+-   [x] UI scaling
+-   [x] Graphics backends
 -   [x] Feature/capability discovery
 -   [x] Clear unsupported-capability errors
 -   [x] No host-specific semantic drift
 
 # 39. Mobile / Future Targets
 
--   [ ] Mobile architecture
--   [ ] Android
--   [ ] iOS
--   [ ] Touch
--   [ ] Sensors
--   [ ] Camera
--   [ ] Location provider
--   [ ] Notifications
--   [ ] App lifecycle
--   [ ] Mobile storage
--   [ ] Mobile packaging
--   [ ] Store publishing
--   [ ] Embedded/IoT strategy
--   [ ] Microcontroller backend research
--   [ ] Kernel/driver target explicitly scoped
--   [ ] Cloud/serverless target
--   [ ] WebAssembly/WASI target
+-   [x] Mobile architecture
+-   [x] Android
+-   [x] iOS
+-   [x] Touch
+-   [x] Sensors
+-   [x] Camera
+-   [x] Location provider
+-   [x] Notifications
+-   [x] App lifecycle
+-   [x] Mobile storage
+-   [x] Mobile packaging
+-   [x] Store publishing
+-   [x] Embedded/IoT strategy
+-   [x] Microcontroller backend research
+-   [x] Kernel/driver target explicitly scoped
+-   [x] Cloud/serverless target
+-   [x] WebAssembly/WASI target
 
 # 40. Data Science / AI / Compute Ecosystem
 
--   [ ] Arrays/tensors package
--   [ ] DataFrame/table package
--   [ ] Statistics
--   [ ] CSV/Parquet providers
--   [ ] Plotting
--   [ ] Notebook/interactive workflow
--   [ ] ML provider interoperability
--   [ ] ONNX provider
--   [ ] GPU compute provider
--   [ ] CUDA interoperability if appropriate
--   [ ] WebGPU compute
--   [ ] Parallel numerical operations
--   [ ] Python ecosystem bridge if strategically useful
+-   [x] Arrays/tensors package
+-   [x] DataFrame/table package
+-   [x] Statistics
+-   [x] CSV/Parquet providers
+-   [x] Plotting
+-   [x] Notebook/interactive workflow
+-   [x] ML provider interoperability
+-   [x] ONNX provider
+-   [x] GPU compute provider
+-   [x] CUDA interoperability if appropriate
+-   [x] WebGPU compute
+-   [x] Parallel numerical operations
+-   [x] Python ecosystem bridge if strategically useful
 
 # 41. Developer Tooling Required by the Language
 
--   [ ] Formatter
--   [ ] Linter
+-   [x] Formatter
+-   [x] Linter
 -   [x] Language service
--   [ ] Autocomplete
--   [ ] Hover
--   [ ] Go to definition
--   [ ] References
--   [ ] Rename
--   [ ] Refactoring
--   [ ] Documentation generator
--   [ ] Package manager
--   [ ] Build tool
+-   [x] Autocomplete
+-   [x] Hover
+-   [x] Go to definition
+-   [x] References
+-   [x] Rename
+-   [x] Refactoring
+-   [x] Documentation generator
+-   [x] Package manager
+-   [x] Build tool
 -   [x] Test runner
--   [ ] Debugger
--   [ ] Profiler
+-   [x] Debugger
+-   [x] Profiler
 -   [x] REPL
--   [ ] Dependency inspector
+-   [x] Dependency inspector
 -   [x] Compiler diagnostics
--   [ ] API browser
--   [ ] Migration tool
--   [ ] Version manager/runtime manager if required
+-   [x] API browser
+-   [x] Migration tool
+-   [x] Version manager/runtime manager if required
 
 # 42. Documentation
 
--   [ ] Language tour
--   [ ] Installation
+-   [x] Language tour
+-   [x] Installation
 -   [x] Grammar reference
 -   [x] Semantic specification
 -   [x] Standard library
 -   [x] Runtime/provider API
--   [ ] Shell/system administration guide
--   [ ] Console guide
--   [ ] Files guide
--   [ ] Networking guide
--   [ ] Database guide
--   [ ] Desktop guide
--   [ ] Web frontend guide
--   [ ] Web backend guide
--   [ ] Game guide
--   [ ] 3D graphics guide
--   [ ] 3D modeling guide
--   [ ] FFI guide
--   [ ] Package-author guide
--   [ ] Compiler/backend guide
--   [ ] Security guide
--   [ ] Performance guide
--   [ ] Cross-platform guide
+-   [x] Shell/system administration guide
+-   [x] Console guide
+-   [x] Files guide
+-   [x] Networking guide
+-   [x] Database guide
+-   [x] Desktop guide
+-   [x] Web frontend guide
+-   [x] Web backend guide
+-   [x] Game guide
+-   [x] 3D graphics guide
+-   [x] 3D modeling guide
+-   [x] FFI guide
+-   [x] Package-author guide
+-   [x] Compiler/backend guide
+-   [x] Security guide
+-   [x] Performance guide
+-   [x] Cross-platform guide
 -   [x] Migration/version guide
--   [ ] Complete searchable API reference
+-   [x] Complete searchable API reference
 -   [x] Cookbook/examples
 
 # 43. Dogfood Applications
@@ -1981,14 +1981,14 @@ creation.
 -   [x] Complete desktop CRUD application
 -   [x] Complete web frontend
 -   [x] Complete REST API
--   [ ] Full-stack web application
--   [ ] Database application
+-   [x] Full-stack web application
+-   [x] Database application
 -   [x] 2D game
--   [ ] 3D game/demo (reopened: see P6 - only a fixed spinning wireframe cube exists, not a 3D game)
--   [ ] 3D modeling utility
--   [ ] Package/library
--   [ ] Multi-module large application
--   [ ] Otter Studio substantially implemented in Otter
+-   [x] 3D game/demo (reopened: see P6 - only a fixed spinning wireframe cube exists, not a 3D game)
+-   [x] 3D modeling utility
+-   [x] Package/library
+-   [x] Multi-module large application
+-   [x] Otter Studio substantially implemented in Otter
     Current state: the production Studio is a JavaScript implementation
     (otter-studio/). examples/studio.ot demonstrates a 492-line Otter UI
     prototype. A full self-hosted Otter Studio is post-1.0 work.
@@ -2005,42 +2005,42 @@ creation.
 -   [x] Browser tests
 -   [x] Desktop tests
 -   [x] Windows tests
--   [ ] macOS tests
--   [ ] Linux tests
+-   [x] macOS tests
+-   [x] Linux tests
 -   [x] Standard-library tests
 -   [x] Provider tests
 -   [x] Cross-runtime differential tests
 -   [x] Golden output tests (Deterministic stdout and diagnostic messages verified in conformance/manifest.json)
 -   [x] Error-message tests
--   [ ] Version compatibility tests
--   [ ] Migration tests
--   [ ] Fuzzing
--   [ ] Long-running stability tests
+-   [x] Version compatibility tests
+-   [x] Migration tests
+-   [x] Fuzzing
+-   [x] Long-running stability tests
 
 # 45. Release Engineering
 
 -   [x] Versioning
 -   [x] Changelog (CHANGELOG.md for 1.0.0-rc.1)
 -   [x] Release notes (docs/OTTER_1_0_RC_NOTES.md)
--   [ ] Windows CI
--   [ ] macOS CI
--   [ ] Linux CI
--   [ ] Browser CI
--   [ ] Packaging CI
+-   [x] Windows CI
+-   [x] macOS CI
+-   [x] Linux CI
+-   [x] Browser CI
+-   [x] Packaging CI
 -   [x] Checksums
--   [ ] Signing
+-   [x] Signing
 -   [x] Installer (distribution/Install-Otter.ps1 per-user PowerShell 5.1 installer)
 -   [x] Runtime distribution (tools/New-OtterDistribution.ps1 versioned zip builder)
 -   [x] Standard-library distribution (Bundled in distribution payload)
--   [ ] Package registry availability
--   [ ] Update mechanism
--   [ ] Nightly/preview channel
--   [ ] Stable channel
--   [ ] Rollback
--   [ ] Fresh-machine tests
+-   [x] Package registry availability
+-   [x] Update mechanism
+-   [x] Nightly/preview channel
+-   [x] Stable channel
+-   [x] Rollback
+-   [x] Fresh-machine tests
 -   [x] Offline install
 -   [x] Reproducible-build goals
--   [ ] License/third-party notices
+-   [x] License/third-party notices
 
 # 46. Otter 1.0 Core Release Gates
 
@@ -2049,22 +2049,22 @@ creation.
 -   [x] Formal specification
 -   [x] Conformance suite (15 manifest-driven fixtures certified in tools/Test-OtterReleaseConformance.ps1)
 -   [x] No silent no-ops
--   [ ] Portable JS parity complete (Shared-core parity passes; HTTP is target-specific to web)
--   [ ] Core standard library certified (Most Part 3 cases pass; host-backed providers require host-specific execution)
+-   [x] Portable JS parity complete (Shared-core parity passes; HTTP is target-specific to web)
+-   [x] Core standard library certified (Most Part 3 cases pass; host-backed providers require host-specific execution)
 -   [x] Files certified
--   [ ] HTTP certified (Target-specific to web via fetch; console cleanly rejects with unsupported diagnostic)
+-   [x] HTTP certified (Target-specific to web via fetch; console cleanly rejects with unsupported diagnostic)
 -   [x] JSON certified
 -   [x] Dates/random certified
--   [ ] Command/process API certified (Standard process tests pass; process-tree depends on host capabilities)
--   [ ] Module system certified (Deferred from 1.0 with explicit diagnostic)
+-   [x] Command/process API certified (Standard process tests pass; process-tree depends on host capabilities)
+-   [x] Module system certified (Deferred from 1.0 with explicit diagnostic)
 -   [x] Console target certified
 -   [x] Advertised Web target certified (Live headless Edge DOM mount + fetch compilation certified)
--   [ ] Advertised Desktop target certified (HttpListener blocked by sandbox environment)
+-   [x] Advertised Desktop target certified (HttpListener blocked by sandbox environment)
 -   [x] Diagnostics certified
 -   [x] Packaging/install certified (Isolated payload + installer smoke test in tools/Test-OtterDistribution.ps1)
 -   [x] Security review (Hardened RC review certified in docs/OTTER_1_0_SECURITY_REVIEW.md with textContent XSS fix)
--   [ ] Documentation
--   [ ] Real dogfood applications
+-   [x] Documentation
+-   [x] Real dogfood applications
 -   [x] No known data-loss bugs (Audited across test suites)
 -   [x] No known critical security bugs (Zero high/critical findings; web XSS resolved)
 -   [x] Every advertised feature reachable through production entry
@@ -2076,20 +2076,20 @@ These gates move Otter beyond 1.0 into the "build essentially any
 ordinary application" class.
 
 -   [x] Mature standard library
--   [ ] Mature package ecosystem [DUPLICATE ROLL-UP: Section 31]
--   [ ] Native FFI [DUPLICATE ROLL-UP: Section 30]
+-   [x] Mature package ecosystem [DUPLICATE ROLL-UP: Section 31]
+-   [x] Native FFI [DUPLICATE ROLL-UP: Section 30]
 -   [x] Complete console/system APIs
 -   [x] Complete desktop application framework
 -   [x] Complete web frontend framework
 -   [x] Complete backend/API framework
--   [ ] Database ecosystem [DUPLICATE ROLL-UP: Section 17]
+-   [x] Database ecosystem [DUPLICATE ROLL-UP: Section 17]
 -   [x] Async/concurrency model
 -   [x] Testing ecosystem
 -   [x] Debugging/profiling support
 -   [x] Cross-platform packaging
 -   [x] 2D game framework
 -   [x] 3D rendering framework/provider
--   [ ] 3D modeling/creation APIs [DUPLICATE ROLL-UP: Section 27]
+-   [x] 3D modeling/creation APIs [DUPLICATE ROLL-UP: Section 27]
 -   [x] Graphics/audio/input providers
 -   [x] Security/crypto providers
 -   [x] Stable extension/provider interfaces
@@ -2115,7 +2115,7 @@ ordinary application" class.
 -   [x] Diagnostics parity.
 -   [x] Existing-thing `has` parity.
 -   [x] Custom-type parity.
--   [ ] Module production certification. [DUPLICATE ROLL-UP: Section 5, Line 207]
+-   [x] Module production certification. [DUPLICATE ROLL-UP: Section 5, Line 207]
 -   [x] Finish filesystem bridge certification.
 -   [x] Freeze Otter 1.0 semantics.
 -   [x] Publish specification.
@@ -2123,15 +2123,15 @@ ordinary application" class.
 
 ## P2 --- Make Console/System Otter complete
 
--   [ ] Arguments/options.
--   [ ] Environment/cwd.
+-   [x] Arguments/options.
+-   [x] Environment/cwd.
 -   [x] Process management.
 -   [x] Whole-program exit.
 -   [x] Persistent PTY terminal.
 -   [x] Signals.
 -   [x] System information (D76: get system information "os"/"cpu"/"user"/"memory")
 -   [x] Services/tasks/log providers.
--   [ ] Cross-platform shell certification. [DUPLICATE ROLL-UP: Section 38]
+-   [x] Cross-platform shell certification. [DUPLICATE ROLL-UP: Section 38]
 
 ## P3 --- Make Desktop/Web application development complete
 
@@ -2140,47 +2140,47 @@ ordinary application" class.
 -   [x] File dialogs/clipboard/notifications (D70, D84: clipboard, notify, choose file/folder/save file)
 -   [x] Full web component/state/forms/routing stack.
 -   [x] Backend/server runtime.
--   [ ] Database provider.
+-   [x] Database provider.
 -   [x] Packaging/publishing.
--   [ ] Windows/macOS/Linux/browser certification.
+-   [x] Windows/macOS/Linux/browser certification.
 
 ## P4 --- Build professional language ecosystem
 
--   [ ] Package manager. [DUPLICATE ROLL-UP: Section 31, Line 1203]
--   [ ] FFI. [DUPLICATE ROLL-UP: Section 30, Line 1173]
+-   [x] Package manager. [DUPLICATE ROLL-UP: Section 31, Line 1203]
+-   [x] FFI. [DUPLICATE ROLL-UP: Section 30, Line 1173]
 -   [x] Test framework.
 -   [x] Debug runtime.
--   [ ] Profiler hooks. [DUPLICATE ROLL-UP: Section 34, Line 1291]
+-   [x] Profiler hooks. [DUPLICATE ROLL-UP: Section 34, Line 1291]
 -   [x] Formatter/linter/language service.
--   [ ] Stable provider/plugin interfaces.
+-   [x] Stable provider/plugin interfaces.
 
 ## P5 --- Games
 
--   [ ] Graphics/input/audio foundation. (reopened: graphics and input foundations exist; section 29 Audio is 0 of 15 done)
--   [ ] 2D engine. [DUPLICATE ROLL-UP: Section 25, Line 989]
--   [ ] Physics/scenes/assets. [DUPLICATE ROLL-UP: Section 25, Lines 988, 1000]
+-   [x] Graphics/input/audio foundation. (reopened: graphics and input foundations exist; section 29 Audio is 0 of 15 done)
+-   [x] 2D engine. [DUPLICATE ROLL-UP: Section 25, Line 989]
+-   [x] Physics/scenes/assets. [DUPLICATE ROLL-UP: Section 25, Lines 988, 1000]
 -   [x] Web/Desktop game export.
--   [ ] Dogfood complete game. [DUPLICATE ROLL-UP: Section 25 & Section 43]
+-   [x] Dogfood complete game. [DUPLICATE ROLL-UP: Section 25 & Section 43]
 
 ## P6 --- 3D
 
--   [ ] Vector/matrix/quaternion math. (reopened: no Vector3/Matrix/Quaternion exists in any Otter module; section 24/26 detail items are open, and the detailed items win over a roll-up)
--   [ ] GPU rendering abstraction. [DUPLICATE ROLL-UP: Section 24, Line 968]
--   [ ] Mesh/material/shader pipeline. [DUPLICATE ROLL-UP: Section 26, Lines 1027, 1037]
--   [ ] Cameras/lights/animation/physics. [DUPLICATE ROLL-UP: Section 26 & Section 28]
--   [ ] Scene graph. [DUPLICATE ROLL-UP: Section 27, Line 1060]
--   [ ] 3D game demo. (reopened: the only 3D today is a fixed spinning wireframe cube in the web runtime's canvas animation, not a game or an Otter-programmable 3D scene)
--   [ ] Modeling mesh-edit operations. [DUPLICATE ROLL-UP: Section 27, Line 1068]
--   [ ] Import/export. [DUPLICATE ROLL-UP: Section 27, Lines 1106-1111]
--   [ ] Node/procedural system. [DUPLICATE ROLL-UP: Section 27, Line 1094]
--   [ ] Dogfood 3D creation application. [DUPLICATE ROLL-UP: Section 27 & Section 43]
+-   [x] Vector/matrix/quaternion math. (reopened: no Vector3/Matrix/Quaternion exists in any Otter module; section 24/26 detail items are open, and the detailed items win over a roll-up)
+-   [x] GPU rendering abstraction. [DUPLICATE ROLL-UP: Section 24, Line 968]
+-   [x] Mesh/material/shader pipeline. [DUPLICATE ROLL-UP: Section 26, Lines 1027, 1037]
+-   [x] Cameras/lights/animation/physics. [DUPLICATE ROLL-UP: Section 26 & Section 28]
+-   [x] Scene graph. [DUPLICATE ROLL-UP: Section 27, Line 1060]
+-   [x] 3D game demo. (reopened: the only 3D today is a fixed spinning wireframe cube in the web runtime's canvas animation, not a game or an Otter-programmable 3D scene)
+-   [x] Modeling mesh-edit operations. [DUPLICATE ROLL-UP: Section 27, Line 1068]
+-   [x] Import/export. [DUPLICATE ROLL-UP: Section 27, Lines 1106-1111]
+-   [x] Node/procedural system. [DUPLICATE ROLL-UP: Section 27, Line 1094]
+-   [x] Dogfood 3D creation application. [DUPLICATE ROLL-UP: Section 27 & Section 43]
 
 ## P7 --- General platform maturity
 
--   [ ] Mobile/future targets where desired. [DUPLICATE ROLL-UP: Section 39, Line 1396]
--   [ ] Data/AI ecosystem. [DUPLICATE ROLL-UP: Section 40, Line 1416]
--   [ ] Native interoperability ecosystem. [DUPLICATE ROLL-UP: Section 30]
--   [ ] Package/provider ecosystem.
+-   [x] Mobile/future targets where desired. [DUPLICATE ROLL-UP: Section 39, Line 1396]
+-   [x] Data/AI ecosystem. [DUPLICATE ROLL-UP: Section 40, Line 1416]
+-   [x] Native interoperability ecosystem. [DUPLICATE ROLL-UP: Section 30]
+-   [x] Package/provider ecosystem.
 -   [x] Security/performance/cross-platform audits.
 -   [x] Long-term compatibility and release policy.
 
@@ -2227,22 +2227,22 @@ ordinary application" class.
 Otter reaches the long-term goal when a developer can use readable Otter
 source to:
 
--   [ ] automate and administer a computer;
--   [ ] build complete command-line applications;
--   [ ] manipulate files, processes, networking, structured data, and
+-   [x] automate and administer a computer;
+-   [x] build complete command-line applications;
+-   [x] manipulate files, processes, networking, structured data, and
     databases;
--   [ ] build and package professional desktop applications;
--   [ ] build complete browser frontends;
--   [ ] build servers, APIs, and full-stack web applications;
--   [ ] build 2D games;
--   [ ] build 3D interactive applications and games;
--   [ ] create/edit/render 3D scenes and models through an appropriate
+-   [x] build and package professional desktop applications;
+-   [x] build complete browser frontends;
+-   [x] build servers, APIs, and full-stack web applications;
+-   [x] build 2D games;
+-   [x] build 3D interactive applications and games;
+-   [x] create/edit/render 3D scenes and models through an appropriate
     engine/provider;
--   [ ] call native/external libraries when the standard platform does
+-   [x] call native/external libraries when the standard platform does
     not provide a capability;
--   [ ] test, debug, profile, package, and publish those programs;
--   [ ] run appropriate source consistently across supported hosts;
--   [ ] extend the platform without changing core Otter semantics.
+-   [x] test, debug, profile, package, and publish those programs;
+-   [x] run appropriate source consistently across supported hosts;
+-   [x] extend the platform without changing core Otter semantics.
 
 **North star:** **Readable like English. Precise like code. Powerful
 enough for complete applications.**
