@@ -621,6 +621,9 @@ $script:OtterNativeHost = {
         $result = switch ($Name) {
             'ConvertToJson' { ConvertTo-OtterJsonText -Value (ConvertTo-OtterInterpreterValue $Arguments[0]) -Line $Line }
             'ConvertFromJson' { , (ConvertFrom-OtterJsonText -Text ([string]$Arguments[0]) -Line $Line) }
+            # The interpreter's generator ('SetRandomSeed', 'RandomNumber', 'RandomItem').
+            'SetRandomSeed' { Get-Random -SetSeed ([int][double]$Arguments[0]) | Out-Null; $null }
+            'RandomInt' { [double](Get-Random -Minimum ([int][double]$Arguments[0]) -Maximum ([int][double]$Arguments[1])) }
             # Files: a path argument is any value (Resolve-OtterFileArgument
             # reads a thing's path or name), content is already text.
             'WriteFile' { Write-OtterFile -Path (Get-OtterNativePath $Arguments[1] $Line) -Content ([string]$Arguments[0]) -Line $Line -Atomic ([bool]$Arguments[2]) }
@@ -676,9 +679,14 @@ function Invoke-OtterNativeProgram {
     param(
         [Parameter(Mandatory)]$Compiled,
         [Parameter(Mandatory)][scriptblock]$Writer,
-        [string[]]$SourceLines = @()
+        [string[]]$SourceLines = @(),
+        [string[]]$Arguments = @()
     )
     $global = [OtterNative.Env]::new($null)
+    # New-OtterEnvironment: the program's command-line arguments, as text.
+    $argumentList = [System.Collections.Generic.List[object]]::new()
+    foreach ($argument in $Arguments) { $argumentList.Add([string]$argument) }
+    $global.Set('arguments', $argumentList)
     [OtterNative.R]::Reset($global, [Action[string]]$Writer)
     [OtterNative.R]::Host = [OtterNative.HostCall]$script:OtterNativeHost
     try {

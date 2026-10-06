@@ -824,12 +824,18 @@ namespace OtterNative
             finally { depth--; }
         }
 
-        static Random rng = new Random();
+        // Random numbers come from the interpreter's own generator (PowerShell's
+        // Get-Random, through the bridge), so `set random seed to 42` gives
+        // the same numbers on both engines and on both PowerShells.
+        static int RandomBelow(int min, int maxExclusive, int line)
+        {
+            return Convert.ToInt32(Call("RandomInt", new object[] { (double)min, (double)maxExclusive }, line), CultureInfo.InvariantCulture);
+        }
 
         public static void SetRandomSeed(object seedVal, int line)
         {
             double seed = AssertNumber(seedVal, line, "a random seed");
-            rng = new Random((int)seed);
+            Call("SetRandomSeed", new object[] { seed }, line);
         }
 
         public static object RandomNumber(object fromVal, object toVal, int line)
@@ -839,7 +845,7 @@ namespace OtterNative
             if (from > to) { double swap = from; from = to; to = swap; }
             int min = (int)Math.Floor(from);
             int max = (int)Math.Floor(to);
-            return (object)(double)rng.Next(min, max + 1);
+            return (object)(double)RandomBelow(min, max + 1, line);
         }
 
         public static object RandomItem(object colVal, int line)
@@ -847,7 +853,7 @@ namespace OtterNative
             List<object> list = colVal as List<object>;
             if (list == null) throw Err("I can only pick from a list, but this is " + TypeName(colVal) + ".", line, null);
             if (list.Count == 0) return null;
-            int idx = rng.Next(0, list.Count);
+            int idx = RandomBelow(0, list.Count, line);
             return list[idx];
         }
 

@@ -312,7 +312,78 @@ function Invoke-OtterSource {
         Write-Host ''
     }
 
+    # A plain `otter run` tries the compiled engine first. A program it cannot
+    # compile is handed to the interpreter before any of it has run.
+    if ($script:OtterCompiledRunAllowed) {
+        if (Invoke-OtterCompiledProgram -Program $program -Source $Source -SourceLines $sourceLines) { return }
+    }
+
     Invoke-OtterProgram -Program $program -Environment $Environment -SourceLines $sourceLines
+}
+
+# The compiled engine (src/Otter.Compiler.Native.psm1): the program is turned
+# into C#, compiled once and cached, then run. Its behaviour is the
+# interpreter's - the differential fuzzer and conformance fixtures compare the
+# two - and it is many times faster on loops and function calls.
+#
+# OTTER_ENGINE=interpreter turns it off; OTTER_ENGINE=compiled refuses to fall
+# back (for testing the compiled engine); OTTER_ENGINE_TRACE=1 says which
+# engine ran and why. Returns $true when the compiled engine ran the program.
+$script:OtterCompiledRunAllowed = $false
+$script:OtterRunArguments = @()
+
+function Get-OtterCompiledCacheDirectory {
+    $base = $null
+    if ($PSVersionTable.PSEdition -eq 'Core' -and -not $IsWindows) {
+        $base = if ($env:XDG_CACHE_HOME) { $env:XDG_CACHE_HOME } else { Join-Path $HOME '.cache' }
+        return (Join-Path $base 'otter/compiled')
+    }
+    $base = if ($env:LOCALAPPDATA) { $env:LOCALAPPDATA } else { [System.IO.Path]::GetTempPath() }
+    return (Join-Path $base 'Otter\cache\compiled')
+}
+
+function Write-OtterEngineTrace {
+    param([string]$Text)
+    if ($env:OTTER_ENGINE_TRACE -eq '1') { [Console]::Error.WriteLine("otter engine: $Text") }
+}
+
+function Invoke-OtterCompiledProgram {
+    param([ProgramNode]$Program, [string]$Source, [string[]]$SourceLines)
+
+    $forced = ($env:OTTER_ENGINE -eq 'compiled')
+    $compiled = $null
+    try {
+        if (-not (Get-Command New-OtterNativeProgram -ErrorAction SilentlyContinue)) {
+            Import-Module (Join-Path $PSScriptRoot 'src\Otter.Compiler.Native.psm1') -Global
+        }
+        $compiled = New-OtterNativeProgram -Program $Program -SourceText $Source -CacheDirectory (Get-OtterCompiledCacheDirectory)
+    }
+    catch {
+        # Not compilable (a feature the compiled engine does not have yet), or
+        # the cache could not be written: the interpreter runs it instead.
+        $reason = $_.Exception.Message
+        if ($forced) {
+            throw [OtterError]::new("OTTER_ENGINE=compiled, but this program cannot be compiled: $reason", 0, 'runtime')
+        }
+        Write-OtterEngineTrace "interpreter ($reason)"
+        return $false
+    }
+
+    Write-OtterEngineTrace "compiled ($($compiled.ClassName))"
+    try {
+        Invoke-OtterNativeProgram -Compiled $compiled -SourceLines $SourceLines -Arguments $script:OtterRunArguments `
+            -Writer { param($line) Write-OtterLine $line }
+    }
+    catch {
+        if ($_.Exception -is [OtterError]) { throw }
+        # D14: never a raw .NET error. The program has already started, so it
+        # cannot be re-run on the interpreter without repeating its effects.
+        throw [OtterError]::new(
+            "Otter's compiled engine hit an internal problem: $($_.Exception.Message)",
+            0, 'runtime', 0, $null,
+            'Run it again with the interpreter: set OTTER_ENGINE=interpreter, and please report this.')
+    }
+    return $true
 }
 
 # A rough tree view of the AST, for -DebugAst. Deliberately simple: it walks
@@ -446,6 +517,12 @@ function Invoke-OtterFile {
     Set-OtterApplicationId -Path $resolved.Path
 
     $environment = New-OtterEnvironment -Arguments $Arguments
+
+    # Only a plain run uses the compiled engine: check stops before running,
+    # and debug/profile sessions are built on the interpreter's hooks.
+    $script:OtterCompiledRunAllowed = (-not $CheckOnly -and -not $DebugSession -and -not $ProfileSession -and
+        -not $ParseOnly -and -not $DebugAst -and $env:OTTER_ENGINE -ne 'interpreter')
+    $script:OtterRunArguments = @($Arguments)
 
     try {
         Invoke-OtterSource -Source $source -Environment $environment -CheckOnly:$CheckOnly
