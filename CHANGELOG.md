@@ -15,6 +15,7 @@ superseded before publication.
 - `add amount days to date` and `remove delta months from date` accept a variable or expression amount (D32.3), while `add days to total` still adds a variable named `days`.
 - A top-level `count is 3` explains that `count` is a reserved word instead of "I expected a value here".
 - Reading or writing the Windows clipboard retries briefly when another program holds it.
+- A built or published app's `run.cmd` (and a desktop app's launcher) quotes its path, so an app in a folder with a space (`C:\Users\John Smith\...`) runs; before, it stopped with "is not an Otter file".
 
 ### Added
 - `double 5 into result` works like `double 5 make result` for a function's result (P4).
