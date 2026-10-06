@@ -4,7 +4,21 @@ All notable changes to the Otter Programming Language platform are documented in
 
 ## [Unreleased]
 
-## [1.0.0-rc.11] - 2026-10-06 (candidate; certification pending)
+## [1.0.0-rc.12] - 2026-10-06 (candidate; certification pending)
+
+Twelfth Otter 1.0 release candidate: rc.11 plus the compiled engine for
+`otter run`, and a fix for built apps in folders with spaces. rc.11 passed
+certification and is superseded before publication.
+
+### Changed
+- `otter run` (and `otter file.ot`, and built apps' launchers) compiles a program to C# and runs that when it can; the compiled program is cached per user. Loops, math, functions, lists, things, text, JSON, files, dates and random numbers run many times faster: adding up 1 to 20,000 takes 1.45 s instead of 6.5 s, most of it PowerShell starting. A program using anything the compiled engine does not have yet (`ask`, UI, processes, HTTP, sockets, and more) runs on the interpreter exactly as before; the choice is made before the program starts. `otter test` runs each test file the same way; `otter check`, `debug`, `profile` and the REPL use the interpreter.
+- `OTTER_ENGINE=interpreter` turns the compiled engine off; `OTTER_ENGINE_TRACE=1` prints which engine ran and why; `OTTER_COMPILED_CACHE` moves the cache folder.
+
+### Fixed
+- A built or published app's `run.cmd` (and a desktop app's launcher) quotes its path, so an app in a folder with a space (`C:\Users\John Smith\...`) runs; before, it stopped with "is not an Otter file".
+- In the compiled engine: `set random seed` gives the same numbers as the interpreter; bytes print as `<5 bytes>` and compare by content; HTTP options are never dropped.
+
+## [1.0.0-rc.11] - 2026-10-06 (certified, superseded by rc.12; not tagged)
 
 Eleventh Otter 1.0 release candidate: rc.10 merged with the work on `master`
 since rc.9. rc.10 passed certification on Windows and Linux and is
@@ -15,7 +29,6 @@ superseded before publication.
 - `add amount days to date` and `remove delta months from date` accept a variable or expression amount (D32.3), while `add days to total` still adds a variable named `days`.
 - A top-level `count is 3` explains that `count` is a reserved word instead of "I expected a value here".
 - Reading or writing the Windows clipboard retries briefly when another program holds it.
-- A built or published app's `run.cmd` (and a desktop app's launcher) quotes its path, so an app in a folder with a space (`C:\Users\John Smith\...`) runs; before, it stopped with "is not an Otter file".
 
 ### Added
 - `double 5 into result` works like `double 5 make result` for a function's result (P4).

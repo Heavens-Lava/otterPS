@@ -20,14 +20,14 @@ was cloned.
 ```sh
 cd ~/Projects/otterPS          # or ~/otterPS
 git fetch
-git checkout release/rc.11        # 1.0.0-rc.11; use master once it is merged there
+git checkout release/rc.11        # 1.0.0-rc.12 (branch name unchanged); use master once it is merged there
 git pull
-cat VERSION                       # should print 1.0.0-rc.11
+cat VERSION                       # should print 1.0.0-rc.12
 ```
 
 For the real-download test (step 5), copy the `otter-mac-test` folder from the
 Windows machine's Desktop to `~/Downloads/otter-mac-test` by hand (AirDrop, a
-USB stick, a shared folder). It holds `otter-1.0.0-rc.11.zip` and its
+USB stick, a shared folder). It holds `otter-1.0.0-rc.12.zip` and its
 `.sha256`; the zip is not in git. Without it, step 5 is skipped.
 
 ## Run the agent

@@ -1,7 +1,10 @@
 # Otter 1.0.0-rc.11 — release evidence
 
-Candidate: `9e7cdac4b5b5358d30bc87f9095ad24925b5598f` (`VERSION` 1.0.0-rc.11),
-**not tagged yet**. rc.10 (`3ba7890`, certified on Windows and Linux but
+Candidate: `9e7cdac4b5b5358d30bc87f9095ad24925b5598f` (`VERSION` 1.0.0-rc.11).
+**Superseded by rc.12 before publication, not tagged:** test-installing the
+Store package found that built apps in folders with spaces did not run, and
+the compiled engine became the default for `otter run` (see `CHANGELOG.md`
+`[1.0.0-rc.12]`). rc.10 (`3ba7890`, certified on Windows and Linux but
 superseded; see `docs/OTTER_1_0_RC10_EVIDENCE.md`) merged with `master` since
 rc.9:
 
