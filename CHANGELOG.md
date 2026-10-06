@@ -2,28 +2,13 @@
 
 All notable changes to the Otter Programming Language platform are documented in this file.
 
-## [1.0.0] - 2026-10-04
+## [Unreleased]
 
-First general availability release of the Otter Programming Language and Platform.
-
-### Platform & Core Engine
-- Windows PowerShell 5.1 and PowerShell 7 cross-platform compatibility across Windows, macOS, and Linux.
-- Comprehensive standard library: filesystem, network/HTTP, processes, shell execution, cryptographic operations, and date/time support.
-- Production project lifecycle: `otter new`, `otter check`, `otter test`, `otter run`, `otter build`, and `otter publish`.
-- Deterministic, reproducible package distribution with strict path-containment validation.
-
-### Otter Studio Professional IDE
-- Integrated visual UI designer with real-DOM hit testing, bi-directional source synchronization, and multi-selection.
-- Interactive Otter Debugger backend with breakpoints, execution pause, stepping, and locals inspection.
-- Full language service with symbol indexing, cross-module resolution, go-to-definition, hover documentation, and plugin API.
-- Production project and workspace management with multi-root solution support and workspace trust modes.
-- Integrated build and launch system with launch profiles, clean refusal protection, and artifact distribution.
-
-## [1.0.0-rc.9] - 2026-09-30 (certified)
+## [1.0.0-rc.9] - 2026-09-30 (candidate; certification pending)
 
 Ninth Otter 1.0 release candidate: rc.8 plus a launcher for built apps on
 macOS and Linux, a narrower D130, and release verification and documentation
-work. Passed full release certification.
+work. rc.8 passed certification and is superseded before publication.
 
 ### Added
 - `otter build` and `otter publish` give console and automation apps a `run` launcher for macOS and Linux next to `run.cmd` (D129): an app built on a Mac or Linux machine had no launcher that runs there.
