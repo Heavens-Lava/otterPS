@@ -1662,7 +1662,7 @@ function Test-OtterTokenBeforeNewline {
 
 function Read-OtterCallArguments {
     $arguments = [System.Collections.Generic.List[Node]]::new()
-    while (-not (Test-OtterTokenKind ([TokenKind]::Newline)) -and -not (Test-OtterTokenKind ([TokenKind]::Make))) {
+    while (-not (Test-OtterTokenKind ([TokenKind]::Newline)) -and -not (Test-OtterTokenKind ([TokenKind]::Make)) -and -not (Test-OtterTokenKind ([TokenKind]::Into))) {
         if (Test-OtterTokenKind ([TokenKind]::And)) { [void](Read-OtterToken); continue }
         $arguments.Add((Read-OtterValue))
     }
@@ -1708,9 +1708,15 @@ function Read-OtterFunctionName {
 }
 
 function Read-OtterCallResultTarget {
-    if (-not (Test-OtterTokenKind ([TokenKind]::Make))) { return $null }
-    [void](Read-OtterToken)
-    return (Read-OtterVariableName 'I expected a result variable after "make".').Text
+    if (Test-OtterTokenKind ([TokenKind]::Make)) {
+        [void](Read-OtterToken)
+        return (Read-OtterVariableName 'I expected a result variable after "make".').Text
+    }
+    if (Test-OtterTokenKind ([TokenKind]::Into)) {
+        [void](Read-OtterToken)
+        return (Read-OtterVariableName 'I expected a result variable after "into".').Text
+    }
+    return $null
 }
 
 # Shared by log / warn / error. Parts are read exactly like say (D8), so a
@@ -2571,8 +2577,10 @@ function Read-OtterStatement {
 
     $statementKind = $start.Kind
     $nextKind = if (($script:Position + 1) -lt $script:Tokens.Count) { $script:Tokens[$script:Position + 1].Kind } else { [TokenKind]::EndOfFile }
-    if (-not ($start.Kind -eq [TokenKind]::Count -and $script:OtterBlockDepth -eq 0) -and
-        ((Test-OtterIdentifierToken $start) -or ($start.Kind -eq [TokenKind]::ForEach -and $start.Text -eq 'each')) -and
+    if ($start.Kind -eq [TokenKind]::Count -and $script:OtterBlockDepth -eq 0 -and $nextKind -in @([TokenKind]::Is, [TokenKind]::Are, [TokenKind]::IsNot)) {
+        throw (New-OtterParserError "'count' is a reserved statement keyword and cannot be used as a variable name here." $start 'Choose a different variable name, such as "total" or "itemCount".')
+    }
+    if (((Test-OtterIdentifierToken $start) -or ($start.Kind -eq [TokenKind]::ForEach -and $start.Text -eq 'each')) -and
         $nextKind -in @([TokenKind]::Is, [TokenKind]::Are, [TokenKind]::Of, [TokenKind]::IsNot)) {
         $statementKind = [TokenKind]::Identifier
     }
@@ -4293,6 +4301,12 @@ function Read-OtterStatement {
             }
             [void](Assert-OtterTokenKind ([TokenKind]::In) 'I expected "in" and the text variable to change.')
             $target = Read-OtterVariableName 'I expected a text variable after "in".'
+            if (Test-OtterTokenKind ([TokenKind]::Into)) {
+                [void](Read-OtterToken)
+                $resultTarget = Read-OtterVariableName 'I expected a variable name after "into".'
+                [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the replace statement to end here.')
+                return [ReplaceStmt]::new($find, $replacement, $target.Text, $resultTarget.Text, $start.Line)
+            }
             [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the replace statement to end here.')
             return [ReplaceStmt]::new($find, $replacement, $target.Text, $start.Line)
         }
@@ -5225,8 +5239,9 @@ function Read-OtterStatement {
                 return [MathIntoStmt]::new($expression, $target.Text, $start.Line)
             }
             $call = [CallExpr]::new($name.Text, (Read-OtterCallArguments), $name.Line)
+            $target = Read-OtterCallResultTarget
             [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the function call to end here.')
-            return [CallStmt]::new($call, $null, $name.Line)
+            return [CallStmt]::new($call, $target, $name.Line)
         }
         ([TokenKind]::Number) {
             $expression = Read-OtterMathExpression

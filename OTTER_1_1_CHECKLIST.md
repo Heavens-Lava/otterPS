@@ -75,10 +75,10 @@ Work done on the 1.0 line after rc.8, waiting to merge into an rc.9 (branches
 - [ ] The release zip is post-processed after Compress-Archive (forward-slash names, Unix modes); consider writing the archive directly.
 - [ ] A published app's `run` launcher is executable inside the zip only when published on macOS/Linux; decide whether Windows-published zips should record Unix modes too.
 - [ ] `docs/V1_CHECKLIST_RECONCILIATION.md` still states console HTTP is web-only and modules are deferred (reversed by DC1 and D122).
-- [ ] Parser: a reserved word used as a variable at the top level (`count is 3`) gives "I expected a value here" instead of the reserved-word message (Codex).
-- [ ] Parser: D27's `replace "a" with "b" in name into other` is decided and the interpreter supports it, but the 1.0 parser rejects the `into` form ("I expected the replace statement to end here") (Codex).
+- [x] Parser: a reserved word used as a variable at the top level (`count is 3`) gives "I expected a value here" instead of the reserved-word message (Codex).
+- [x] Parser: D27's `replace "a" with "b" in name into other` is decided and the interpreter supports it, but the 1.0 parser rejects the `into` form ("I expected the replace statement to end here") (Codex).
 - [ ] Importing `src/Otter.Interpreter.psm1` makes a PowerShell script's `exit N` return exit code 0 (`otter.ps1` uses `[Environment]::Exit` for this reason); find and fix the cause, or document it for tool authors.
-- [ ] Parser: `add amount days to date` with a variable amount is rejected ("I expected "to" and a variable name"); D32.3 makes the amount an expression and only literals parse (Codex).
+- [x] Parser: `add amount days to date` with a variable amount is rejected ("I expected "to" and a variable name"); D32.3 makes the amount an expression and only literals parse (Codex).
 - [ ] `convert date to json` writes .NET's raw object (`{"Value": "\/Date(1706684400000)\/", "HasTime": false}`, local-time dependent) instead of a date text. Decide the JSON form of a date (the compiled backend reproduces it today).
 - [ ] Equality's last fallback compares PowerShell's text of two values, so a list equals its text (`1, 2` equals `"1 2"`) and any two types are equal. Decide whether 1.1 keeps this (the compiled backend reproduces it today).
 
@@ -122,9 +122,9 @@ accepted yet; the parser changes on the proposal branch are Codex's to accept,
 rewrite or reject.
 
 - [ ] **P3 Phrase functions** (prepositions introduce parameters). Concern: `with`, `for`, `to`, `in`, `from` already mean something; every combination needs a parse test.
-- [ ] **P4 `into` for a call's result** (`make` stays).
+- [x] **P4 `into` for a call's result** (`make` stays).
 - [ ] **P5 `its`** inside `each`/`find`; `find` without `into`. Rethink `return x in xs where`, which reads like a membership test.
-- [ ] **P6 Smaller gaps:** `an`; `return` of a comparison; computed date moves; `weekday of`; `text of number`; duplicate function names an error; `wait` on web/desktop. Hold `and` as an argument separator: `and` already adds (D11).
+- [ ] **P6 Smaller gaps:** `an` (supported); `return` of a comparison; computed date moves; `weekday of`; `text of number`; duplicate function names an error; `wait` on web/desktop. Hold `and` as an argument separator: `and` already adds (D11).
 
 ### 2.4 P7 fixes already made in 1.0
 

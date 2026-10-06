@@ -148,6 +148,25 @@ if ($identTokens[1].Kind -ne [TokenKind]::Identifier) { throw 'query must remain
 
 $identTokens2 = ConvertTo-OtterTokens -Source 'say connect'
 if ($identTokens2[1].Kind -ne [TokenKind]::Identifier) { throw 'connect must remain an identifier away from statement head.' }
+# D32.3 Time units after variable or expression amounts before to/from
+$dynamicDateAddTokens = ConvertTo-OtterTokens -Source 'add amount days to date'
+if ($dynamicDateAddTokens[2].Kind -ne [TokenKind]::Day) { throw 'Expected Day token for days before to.' }
+
+$dynamicDateRemoveTokens = ConvertTo-OtterTokens -Source 'remove delta months from date'
+if ($dynamicDateRemoveTokens[2].Kind -ne [TokenKind]::Month) { throw 'Expected Month token for months before from.' }
+
+# P6 'an' keyword
+$anTokens = ConvertTo-OtterTokens -Source 'item is an object'
+if ($anTokens[2].Kind -ne [TokenKind]::A) { throw 'Expected A token for an.' }
 
 Write-Output 'Lexer tests passed.'
 
+
+# D32.3 must not capture a variable named like a unit: "add days to total"
+# adds the variable days (no amount before it), as in 1.0.
+$unitVariableTokens = ConvertTo-OtterTokens -Source 'add days to total'
+if ($unitVariableTokens[1].Kind -ne [TokenKind]::Identifier) { throw 'Expected days to stay an identifier in "add days to total".' }
+$unitVariableRemove = ConvertTo-OtterTokens -Source 'remove hours from total'
+if ($unitVariableRemove[1].Kind -ne [TokenKind]::Identifier) { throw 'Expected hours to stay an identifier in "remove hours from total".' }
+$unitCopyTokens = ConvertTo-OtterTokens -Source 'copy days to "backup"'
+if ($unitCopyTokens[1].Kind -ne [TokenKind]::Identifier) { throw 'Expected days to stay an identifier outside add/remove.' }

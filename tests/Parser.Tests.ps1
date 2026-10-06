@@ -1994,6 +1994,48 @@ foreach ($fuzz in $fuzzInputs) {
         # Clean OtterError (e.g. from lexer) is acceptable
     }
 }
+# Top-level assignment to count gives clear reserved-word error
+$countErr = $null
+try { ConvertTo-OtterAst (ConvertTo-OtterTokens 'count is 3') } catch [OtterError] { $countErr = $_.Exception.Message }
+if ($countErr -notlike "*'count' is a reserved statement keyword*") {
+    throw "Expected clear reserved error message for top-level count assignment, got '$countErr'."
+}
+
+# Block-level assignment to count is allowed
+$blockCountAst = ConvertTo-OtterAst (ConvertTo-OtterTokens "if true`n    count is 3`n.")
+$ifBody = $blockCountAst.Statements[0].Branches[0].Body
+if ($ifBody.Count -ne 1 -or $ifBody[0].Kind -ne [NodeKind]::Assign -or $ifBody[0].Target.Name -ne 'count') {
+    throw 'Expected block-level count is 3 to parse as AssignStmt with target count.'
+}
+
+# D27 non-mutating replace into form
+$replaceIntoAst = ConvertTo-OtterAst (ConvertTo-OtterTokens 'replace "a" with "b" in name into other')
+if ($replaceIntoAst.Statements.Count -ne 1 -or $replaceIntoAst.Statements[0].Kind -ne [NodeKind]::Replace -or $replaceIntoAst.Statements[0].Target -ne 'name' -or $replaceIntoAst.Statements[0].ResultTarget -ne 'other') {
+    throw 'Expected replace into to parse as ReplaceStmt with Target name and ResultTarget other.'
+}
+
+# D32.3 variable amount date math
+$dynAddDateAst = ConvertTo-OtterAst (ConvertTo-OtterTokens 'add amount days to date')
+if ($dynAddDateAst.Statements.Count -ne 1 -or $dynAddDateAst.Statements[0].Kind -ne [NodeKind]::DateAdjust -or $dynAddDateAst.Statements[0].Target -ne 'date' -or $dynAddDateAst.Statements[0].Unit -ne [TimeUnit]::Day -or $dynAddDateAst.Statements[0].IsRemoval) {
+    throw 'Expected add amount days to date to parse as DateAdjustStmt.'
+}
+
+$dynRemoveDateAst = ConvertTo-OtterAst (ConvertTo-OtterTokens 'remove delta months from date')
+if ($dynRemoveDateAst.Statements.Count -ne 1 -or $dynRemoveDateAst.Statements[0].Kind -ne [NodeKind]::DateAdjust -or $dynRemoveDateAst.Statements[0].Target -ne 'date' -or $dynRemoveDateAst.Statements[0].Unit -ne [TimeUnit]::Month -or -not $dynRemoveDateAst.Statements[0].IsRemoval) {
+    throw 'Expected remove delta months from date to parse as DateAdjustStmt with IsRemoval true.'
+}
+
+# P4 function call with into
+$callIntoAst = ConvertTo-OtterAst (ConvertTo-OtterTokens "to double n`n    return n times 2`n.`ndouble 5 into result")
+if ($callIntoAst.Statements.Count -ne 2 -or $callIntoAst.Statements[1] -isnot [CallStmt] -or $callIntoAst.Statements[1].ResultTarget -ne 'result') {
+    throw 'Expected double 5 into result to parse as CallStmt with target result.'
+}
+
+# P6 'an' indefinite article support
+$anObjAst = ConvertTo-OtterAst (ConvertTo-OtterTokens "item is an object with name is `"test`"")
+if ($anObjAst.Statements.Count -ne 1 -or $anObjAst.Statements[0] -isnot [ObjectDefStmt] -or $anObjAst.Statements[0].TypeName -ne 'object') {
+    throw 'Expected item is an object with ... to parse as ObjectDefStmt.'
+}
 
 Write-Output 'Parser tests passed.'
 

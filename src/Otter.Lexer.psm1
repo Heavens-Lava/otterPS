@@ -43,6 +43,7 @@ $script:OtterKeywords = @{
     # Reserved for later language versions. Lexing them now prevents a future
     # keyword from silently changing an existing program's meaning.
     'a' = [TokenKind]::A
+    'an' = [TokenKind]::A
     'has' = [TokenKind]::Has
     'file' = [TokenKind]::File
     'into' = [TokenKind]::Into
@@ -466,6 +467,7 @@ function ConvertTo-OtterLineTokens {
         #
         #   add 7 days to date          after a number
         #   days between a and b        before "between"
+        #   add amount days to date     after an amount, before to/from (D32.3)
         #
         # Anywhere else these stay identifiers, so "year of book" keeps
         # meaning the year property of a thing.
@@ -474,7 +476,14 @@ function ConvertTo-OtterLineTokens {
             $next = if (($tokenIndex + 1) -lt $tokens.Count) { $tokens[$tokenIndex + 1] } else { $null }
             $afterNumber = ($null -ne $previous -and $previous.Kind -eq [TokenKind]::Number)
             $beforeBetween = ($null -ne $next -and $next.Text -eq 'between')
-            if ($afterNumber -or $beforeBetween) {
+            # D32.3: add amount days to date / remove delta months from date.
+            # Only in an add/remove statement, and only with an amount before
+            # the unit: "add days to total" keeps adding the variable days.
+            $lineStart = if ($combined.Count -gt 0) { $combined[0] } else { $null }
+            $adjustWithAmount = ($null -ne $lineStart -and $lineStart.Kind -in @([TokenKind]::Add, [TokenKind]::Remove) -and
+                $combined.Count -ge 2)
+            $beforeToOrFrom = ($adjustWithAmount -and $null -ne $next -and ($next.Kind -in @([TokenKind]::To, [TokenKind]::From) -or $next.Text -in @('to', 'from')))
+            if ($afterNumber -or $beforeBetween -or $beforeToOrFrom) {
                 $combined.Add((New-OtterToken $script:OtterTimeUnitWords[$token.Text] $token.Text $null $token.Line $token.Column))
                 continue
             }
