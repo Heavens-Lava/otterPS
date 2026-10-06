@@ -241,8 +241,10 @@ namespace OtterNative
             if (type != null) return "the type " + type.Name;
             OtterFn fn = v as OtterFn;
             if (fn != null) return "<" + fn.Name + ", something Otter can do>";
-            if (v is OtterBytesValue) return "OtterBytes";
-            if (v is OtterUdpSocket) return "OtterUdp";
+            // D102: bytes never show as hex or text, only their count.
+            OtterBytesValue bytesValue = v as OtterBytesValue;
+            if (bytesValue != null) return "<" + bytesValue.Value.Length + " bytes>";
+            if (v is OtterUdpSocket) return "a udp socket";
             return Convert.ToString(v, CultureInfo.InvariantCulture);
         }
 
@@ -318,6 +320,15 @@ namespace OtterNative
             {
                 OtterDateValue da = a as OtterDateValue, db = b as OtterDateValue;
                 return da != null && db != null && da.Value == db.Value;
+            }
+            // D102: two bytes values are equal when their contents are; bytes
+            // never equal anything else.
+            if (a is OtterBytesValue || b is OtterBytesValue)
+            {
+                OtterBytesValue ba = a as OtterBytesValue, bb = b as OtterBytesValue;
+                if (ba == null || bb == null || ba.Value.Length != bb.Value.Length) return false;
+                for (int i = 0; i < ba.Value.Length; i++) { if (ba.Value[i] != bb.Value[i]) return false; }
+                return true;
             }
             double na, nb;
             if (TryNumber(a, out na) && TryNumber(b, out nb)) return na == nb;

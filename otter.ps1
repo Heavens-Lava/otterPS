@@ -326,7 +326,8 @@ function Invoke-OtterSource {
 # interpreter's - the differential fuzzer and conformance fixtures compare the
 # two - and it is many times faster on loops and function calls.
 #
-# OTTER_ENGINE=interpreter turns it off; OTTER_ENGINE=compiled refuses to fall
+# Compiled programs are cached per user (OTTER_COMPILED_CACHE overrides the
+# folder). OTTER_ENGINE=interpreter turns it off; OTTER_ENGINE=compiled refuses to fall
 # back (for testing the compiled engine); OTTER_ENGINE_TRACE=1 says which
 # engine ran and why. Returns $true when the compiled engine ran the program.
 $script:OtterCompiledRunAllowed = $false
@@ -334,6 +335,8 @@ $script:OtterRunArguments = @()
 
 function Get-OtterCompiledCacheDirectory {
     $base = $null
+    # OTTER_COMPILED_CACHE overrides the folder (tests, locked-down machines).
+    if ($env:OTTER_COMPILED_CACHE) { return $env:OTTER_COMPILED_CACHE }
     if ($PSVersionTable.PSEdition -eq 'Core' -and -not $IsWindows) {
         $base = if ($env:XDG_CACHE_HOME) { $env:XDG_CACHE_HOME } else { Join-Path $HOME '.cache' }
         return (Join-Path $base 'otter/compiled')
@@ -356,7 +359,16 @@ function Invoke-OtterCompiledProgram {
         if (-not (Get-Command New-OtterNativeProgram -ErrorAction SilentlyContinue)) {
             Import-Module (Join-Path $PSScriptRoot 'src\Otter.Compiler.Native.psm1') -Global
         }
-        $compiled = New-OtterNativeProgram -Program $Program -SourceText $Source -CacheDirectory (Get-OtterCompiledCacheDirectory)
+        # Add-Type writes compiler messages to the error stream before it
+        # throws; the throw is what matters here, so the stream stays quiet.
+        # The cache folder must be writable first (a read-only install, a
+        # locked profile): otherwise Add-Type fails noisily on the console.
+        $cacheDirectory = Get-OtterCompiledCacheDirectory
+        [void][System.IO.Directory]::CreateDirectory($cacheDirectory)
+        $probe = Join-Path $cacheDirectory ('.write-' + [Guid]::NewGuid().ToString('N'))
+        [System.IO.File]::WriteAllText($probe, '')
+        [System.IO.File]::Delete($probe)
+        $compiled = New-OtterNativeProgram -Program $Program -SourceText $Source -CacheDirectory $cacheDirectory -ErrorAction Stop 2>$null
     }
     catch {
         # Not compilable (a feature the compiled engine does not have yet), or

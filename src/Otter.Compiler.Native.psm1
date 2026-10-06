@@ -31,6 +31,9 @@ $script:NativePartialKinds = [ordered]@{
 
 function Get-OtterNativePartialKinds { return $script:NativePartialKinds }
 
+# Compiled only with OTTER_NATIVE_EXPERIMENTAL=1 (see ConvertTo-OtterNativeStatement).
+$script:NativeExperimentalKinds = @('RunProgram', 'HttpGet', 'HttpPost', 'HttpPut', 'HttpDelete', 'UdpOpen', 'UdpSend', 'NetClose', 'WebSocketEvent')
+
 # One C# string literal; every character outside printable ASCII is escaped,
 # so Otter text can never break out of the literal (generated-code injection).
 function ConvertTo-OtterCSharpString {
@@ -163,6 +166,14 @@ function ConvertTo-OtterNativeStatement {
     $line = $Stmt.Line
     $inner = $Pad + '    '
     $out = [System.Collections.Generic.List[string]]::new()
+    # Processes, HTTP and sockets gain little from compiling (the time is in
+    # the I/O) and their events must follow the interpreter's event model
+    # (D121), which the compiled runtime reimplements. Until each has
+    # differential tests through otter run, they stay on the interpreter;
+    # OTTER_NATIVE_EXPERIMENTAL=1 compiles them for experiments.
+    if ($Stmt.Kind.ToString() -in $script:NativeExperimentalKinds -and $env:OTTER_NATIVE_EXPERIMENTAL -ne '1') {
+        throw (New-OtterNativeUnsupported -Node $Stmt -What "$($Stmt.Kind) (experimental in the compiled engine)")
+    }
     switch ($Stmt.Kind.ToString()) {
         'Say' {
             if ($null -ne $Stmt.ColorExpr) { throw (New-OtterNativeUnsupported -Node $Stmt -What "'say ... in color'") }
@@ -420,11 +431,17 @@ function ConvertTo-OtterNativeStatement {
             }
         }
         'HttpGet' {
+            # Options (headers, cookies, redirects, timeout) are not bridged yet:
+            # refuse, so the interpreter runs the request with them.
+            if ($null -ne $Stmt.Options) { throw (New-OtterNativeUnsupported -Node $Stmt -What 'HTTP options (with headers, cookies, redirects or timeout)') }
             $url = ConvertTo-OtterNativeExpression -Expr $Stmt.Url -Context $Context
             $asJson = if ($Stmt.AsJson) { 'true' } else { 'false' }
             $out.Add("${Pad}e.Set($(ConvertTo-OtterCSharpString $Stmt.Target), R.Call(`"HttpRequest`", new object[] { `"GET`", R.Format($url), null, $asJson }, $line));")
         }
         'HttpPost' {
+            # Options (headers, cookies, redirects, timeout) are not bridged yet:
+            # refuse, so the interpreter runs the request with them.
+            if ($null -ne $Stmt.Options) { throw (New-OtterNativeUnsupported -Node $Stmt -What 'HTTP options (with headers, cookies, redirects or timeout)') }
             $url = ConvertTo-OtterNativeExpression -Expr $Stmt.Url -Context $Context
             $data = ConvertTo-OtterNativeExpression -Expr $Stmt.Data -Context $Context
             $asJson = if ($Stmt.AsJson) { 'true' } else { 'false' }
@@ -435,6 +452,9 @@ function ConvertTo-OtterNativeStatement {
             }
         }
         'HttpPut' {
+            # Options (headers, cookies, redirects, timeout) are not bridged yet:
+            # refuse, so the interpreter runs the request with them.
+            if ($null -ne $Stmt.Options) { throw (New-OtterNativeUnsupported -Node $Stmt -What 'HTTP options (with headers, cookies, redirects or timeout)') }
             $url = ConvertTo-OtterNativeExpression -Expr $Stmt.Url -Context $Context
             $data = ConvertTo-OtterNativeExpression -Expr $Stmt.Data -Context $Context
             $asJson = if ($Stmt.AsJson) { 'true' } else { 'false' }
@@ -445,6 +465,9 @@ function ConvertTo-OtterNativeStatement {
             }
         }
         'HttpDelete' {
+            # Options (headers, cookies, redirects, timeout) are not bridged yet:
+            # refuse, so the interpreter runs the request with them.
+            if ($null -ne $Stmt.Options) { throw (New-OtterNativeUnsupported -Node $Stmt -What 'HTTP options (with headers, cookies, redirects or timeout)') }
             $url = ConvertTo-OtterNativeExpression -Expr $Stmt.Url -Context $Context
             if ($Stmt.Target) {
                 $out.Add("${Pad}e.Set($(ConvertTo-OtterCSharpString $Stmt.Target), R.Call(`"HttpRequest`", new object[] { `"DELETE`", R.Format($url), null, false }, $line));")
