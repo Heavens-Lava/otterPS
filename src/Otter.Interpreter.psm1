@@ -3583,7 +3583,14 @@ function Invoke-OtterStatement {
         'CopyToClipboard' {
             $text = Format-OtterValue -Value (Get-OtterValue -Expression $Statement.Text -Environment $Environment)
             if ($script:OtterOnWindows) {
-                Set-Clipboard -Value $text
+                for ($attempt = 0; $attempt -lt 5; $attempt++) {
+                    try {
+                        Set-Clipboard -Value $text -ErrorAction Stop
+                        break
+                    } catch {
+                        if ($attempt -lt 4) { Start-Sleep -Milliseconds 25 }
+                    }
+                }
             } else {
                 # macOS and Linux need a clipboard program (pbcopy, xclip, wl-copy)
                 # and a desktop session; without one this is a clear error.
@@ -3596,10 +3603,22 @@ function Invoke-OtterStatement {
         # get clipboard into text          - gone if the clipboard holds no text
         'GetClipboard' {
             $value = $null
-            try { $value = Get-Clipboard -Raw -ErrorAction Stop }
-            catch {
-                if (-not $script:OtterOnWindows) { throw (New-OtterRuntimeError -Message "I could not read the clipboard: $($_.Exception.Message)" -Line $Statement.Line) }
-                $value = $null
+            for ($attempt = 0; $attempt -lt 5; $attempt++) {
+                try {
+                    $value = Get-Clipboard -Raw -ErrorAction Stop
+                }
+                catch {
+                    if ($attempt -ge 4 -and -not $script:OtterOnWindows) {
+                        throw (New-OtterRuntimeError -Message "I could not read the clipboard: $($_.Exception.Message)" -Line $Statement.Line)
+                    }
+                    $value = $null
+                }
+                if ($value -ne $null -and $value -ne '') {
+                    break
+                }
+                if ($attempt -lt 4) {
+                    Start-Sleep -Milliseconds 40
+                }
             }
             $Environment.Set($Statement.Target, $value)
             return
