@@ -1,7 +1,9 @@
 # Otter 1.0.0-rc.10 — release evidence
 
-Candidate: `3ba7890391356d9b40cb5cf6052afe1de2ac69de` (`VERSION` 1.0.0-rc.10),
-**not tagged yet**. rc.9 (`b8d9190`, certified but superseded; see
+Candidate: `3ba7890391356d9b40cb5cf6052afe1de2ac69de` (`VERSION` 1.0.0-rc.10).
+**Superseded by rc.11 before publication, not tagged:** `master` had moved
+on (parser follow-ups, a clipboard fix, 1.1 prototypes); rc.11 merges both
+lines (see `CHANGELOG.md` `[1.0.0-rc.11]`). rc.9 (`b8d9190`, certified but superseded; see
 `docs/OTTER_1_0_RC9_EVIDENCE.md`) plus:
 
 - `d70201f` — the macOS hands-on results for `080fcf2`

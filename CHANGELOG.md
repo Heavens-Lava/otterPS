@@ -4,7 +4,26 @@ All notable changes to the Otter Programming Language platform are documented in
 
 ## [Unreleased]
 
-## [1.0.0-rc.10] - 2026-10-01 (candidate; certification pending)
+## [1.0.0-rc.11] - 2026-10-06 (candidate; certification pending)
+
+Eleventh Otter 1.0 release candidate: rc.10 merged with the work on `master`
+since rc.9. rc.10 passed certification on Windows and Linux and is
+superseded before publication.
+
+### Fixed
+- `replace "a" with "b" in name into other` parses (D27); the interpreter already supported it.
+- `add amount days to date` and `remove delta months from date` accept a variable or expression amount (D32.3), while `add days to total` still adds a variable named `days`.
+- A top-level `count is 3` explains that `count` is a reserved word instead of "I expected a value here".
+- Reading or writing the Windows clipboard retries briefly when another program holds it.
+
+### Added
+- `double 5 into result` works like `double 5 make result` for a function's result (P4).
+- `an` is accepted wherever `a` is (`item is an object`) (P6).
+
+### Not part of the 1.0 product
+- The experimental compiled backend (`src/Otter.Compiler.Native.psm1`, `src/native/`, Otter 1.1 work) is copied into the archive with the rest of `src` but no `otter` command uses it; Otter Studio is not in the archive.
+
+## [1.0.0-rc.10] - 2026-10-01 (certified on Windows and Linux, superseded by rc.11; not tagged)
 
 Tenth Otter 1.0 release candidate: rc.9 plus one fix found by the macOS
 hands-on test (`docs/OTTER_MACOS_RESULTS_080fcf2.md`). rc.9 passed

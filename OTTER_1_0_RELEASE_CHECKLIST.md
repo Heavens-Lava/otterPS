@@ -16,11 +16,13 @@ dirty working tree is useful diagnostic evidence, but is **PROVISIONAL**.
 The release candidate in preparation is **1.0.0-rc.10** (`VERSION`): rc.5 plus
 macOS and Linux installation (D129), a release archive that extracts
 correctly on macOS and Linux, the D130/D131 fixes for silent wrong answers,
-a `run` launcher for built apps on macOS and Linux, and `otter web` opening
-the browser on macOS. It is **not certified yet**
+a `run` launcher for built apps on macOS and Linux, `otter web` opening
+the browser on macOS, and the parser follow-ups (D27 `replace ... into`,
+D32.3 variable date amounts). It is **not certified yet**
 and not tagged; the certification record will name its exact SHA. rc.6
-(`95b9d40`), rc.7 (`85227ab`), rc.8 (`6404211`) and rc.9 (`b8d9190`) each
-passed certification and were superseded before publication; none is tagged. `v1.0.0-rc.5`
+(`95b9d40`), rc.7 (`85227ab`), rc.8 (`6404211`), rc.9 (`b8d9190`) and rc.10
+(`3ba7890`) each passed certification and were superseded before
+publication; none is tagged. `v1.0.0-rc.5`
 (`docs/OTTER_1_0_RC5_EVIDENCE.md`), `v1.0.0-rc.4`
 (`docs/OTTER_1_0_RC4_EVIDENCE.md`) and `v1.0.0-rc.3` remain tagged on their
 own certified commits.
@@ -68,7 +70,7 @@ Primary evidence: `docs/D119_DOGFOOD_LOG.md`.
 
 | Check | Status | Evidence / action |
 |---|---|---|
-| Immutable release candidate revision | RC CERTIFICATION | All work is committed; the candidate is the rc.10 commit (`VERSION` 1.0.0-rc.10). The certification record names its exact SHA and requires a clean checkout. |
+| Immutable release candidate revision | RC CERTIFICATION | All work is committed; the candidate is the rc.11 commit (`VERSION` 1.0.0-rc.11). The certification record names its exact SHA and requires a clean checkout. |
 | Frozen language contract | RESOLVED | Every 1.0 contract decision is recorded in `SPEC-DECISIONS.md` (DC1, D121, D122 approved 2026-09-27; D99 deferred to 1.1 on 2026-09-28). No contract question remains open: `docs/OTTER_1_0_FREEZE_FOLLOWUPS.md`. |
 | Existing scope reconciliation | RESOLVED | DC1 (console HTTP) was decided 2026-09-27; DC2-DC5 were resolved in the RC3 documentation pass (2026-09-28). Each is recorded with its decision in `docs/OTTER_1_0_SURFACE_RECONCILIATION.md` section 8. |
 
@@ -128,7 +130,7 @@ Primary evidence: `docs/D119_DOGFOOD_LOG.md`.
 | Language and standard-library reference | BEFORE 1.0.0 | Reconciled with D122-D131 on branch `docs/reference-reconciliation`: arithmetic in comparisons (D123; the Conditions page and `docs/GRAMMAR.md` still said "put it in a variable first"), exact `use` paths (D122), offline web pages (D127), loop handlers (D130), browser file errors (D131), and browser cryptography (D114; two pages said the web does not support it). Done when merged. |
 | CLI and project-system guide | BEFORE 1.0.0 | `tools/Test-OtterDocumentedCli.ps1` checks 28 claims from the CLI and Projects pages against the installed payload: Windows PowerShell 5.1 27/28, Linux 28/28 (branch `docs/cli-guide-validation`). Open: an ambiguous short flag (`-p`) prints PowerShell's own binding error, not an Otter message (D14); `otter debug` and `otter profile` work but are undocumented (scope decision). |
 | Target-specific boundaries | BEFORE 1.0.0 | Mark web-only, Windows-only, experimental, and deferred capabilities clearly. The query language (D99) is already labelled "not part of Otter 1.0" on the docs site. |
-| Changelog and release notes | IN PROGRESS | `CHANGELOG.md` has the `[1.0.0-rc.3]`, `[1.0.0-rc.4]`, `[1.0.0-rc.5]`, `[1.0.0-rc.6]`, `[1.0.0-rc.7]`, `[1.0.0-rc.8]`, `[1.0.0-rc.9]` and `[1.0.0-rc.10]` sections; final 1.0.0 release notes are written from the production SHA. |
+| Changelog and release notes | IN PROGRESS | `CHANGELOG.md` has the `[1.0.0-rc.3]`, `[1.0.0-rc.4]`, `[1.0.0-rc.5]`, `[1.0.0-rc.6]`, `[1.0.0-rc.7]`, `[1.0.0-rc.8]`, `[1.0.0-rc.9]`, `[1.0.0-rc.10]` and `[1.0.0-rc.11]` sections; final 1.0.0 release notes are written from the production SHA. |
 | RC change freeze | PENDING | After the two pre-RC checks in "Release order" pass, tag `v1.0.0-rc.3` on the certified SHA; then permit release-blocking fixes only, each with a regression test and release-ledger update. |
 
 ## Resume protocol
