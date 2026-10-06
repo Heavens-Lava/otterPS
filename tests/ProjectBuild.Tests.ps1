@@ -48,6 +48,24 @@ try {
     if (($cRunDist -join "`n") -notmatch 'Hello from ConsoleBuildApp') { throw "Test 2 failed: Unexpected output from built app: $cRunDist" }
     Write-Output '  pass  build console project produces runnable staged application with launcher'
 
+    # dist\run.cmd quotes its path: a built app in a folder with a space runs.
+    if (($PSVersionTable.PSVersion.Major -lt 6) -or $IsWindows) {
+        $spacedRoot = Join-Path $testTmp 'Folder With Spaces'
+        New-Item -ItemType Directory -Path $spacedRoot -Force | Out-Null
+        $sProj = New-OtterProject -Archetype 'console' -Name 'SpacedApp' -Path $spacedRoot
+        $sBuildOut = & $script:OtterHostExe @script:OtterHostArgs -File (Join-Path $repoRoot 'otter.ps1') build $sProj.RootDirectory 2>&1
+        if ($LASTEXITCODE -ne 0) { throw "Test 2b failed: build in a folder with a space exited with $LASTEXITCODE. Output: $sBuildOut" }
+        $savedPath = $env:PATH
+        try {
+            $env:PATH = "$repoRoot;$savedPath"
+            $sRun = & cmd.exe /c "`"$(Join-Path $sProj.RootDirectory 'dist\run.cmd')`"" 2>&1
+            $sExit = $LASTEXITCODE
+        }
+        finally { $env:PATH = $savedPath }
+        if ($sExit -ne 0 -or ($sRun -join "`n") -notmatch 'Hello from SpacedApp') { throw "Test 2b failed: dist\run.cmd in a folder with a space: exit $sExit, $sRun" }
+        Write-Output '  pass  dist\run.cmd runs a built app whose folder has a space in its path'
+    }
+
     # Test 3: Build desktop project produces web bundle and desktop runner
     $dProj = New-OtterProject -Archetype 'desktop' -Name 'DesktopBuildApp' -Path $testTmp
     $dDir = $dProj.RootDirectory

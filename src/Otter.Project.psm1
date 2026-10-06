@@ -982,7 +982,7 @@ function Invoke-OtterProjectBuild {
                 Export-OtterWebApplication -SourcePath $project.ResolvedEntryPoint -OutputPath $htmlOutput -PassThruExceptions | Out-Null
 
                 if ($targetLower -eq 'desktop') {
-                    $launcherCmd = "@echo off`r`notter desktop %~dp0index.html %*`r`n"
+                    $launcherCmd = "@echo off`r`notter desktop `"%~dp0index.html`" %*`r`n"
                     Set-Content -LiteralPath (Join-Path $stagingDir 'run-desktop.cmd') -Value $launcherCmd -Encoding ASCII
                 }
             }
@@ -1006,8 +1006,9 @@ function Invoke-OtterProjectBuild {
                 Set-Content -LiteralPath (Join-Path $stagingDir 'otter.json') -Value $builtManifest -Encoding UTF8
 
                 # Runnable launcher scripts: run.cmd for Windows, run for macOS
-                # and Linux (D129). Both run the installed `otter`.
-                $launcherCmd = "@echo off`r`notter run %~dp0$entryLeaf %*`r`n"
+                # and Linux (D129). Both run the installed `otter`. The path is
+                # quoted: an app in "C:\Users\John Smith\..." must still run.
+                $launcherCmd = "@echo off`r`notter run `"%~dp0$entryLeaf`" %*`r`n"
                 Set-Content -LiteralPath (Join-Path $stagingDir 'run.cmd') -Value $launcherCmd -Encoding ASCII
                 $launcherSh = "#!/bin/sh`nexec otter run `"`$(dirname `"`$0`")/$entryLeaf`" `"`$@`"`n"
                 $launcherShPath = Join-Path $stagingDir 'run'
