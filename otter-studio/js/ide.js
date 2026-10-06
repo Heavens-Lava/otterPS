@@ -452,9 +452,20 @@ export class OtterStudioIde {
     this.terminalHistory = document.getElementById('terminalHistory');
     this.terminalForm = document.getElementById('terminalForm');
     this.terminalInput = document.getElementById('terminalInput');
+    // AI Copilot Elements
+    this.panelAssistant = document.getElementById('panelAssistant');
+    this.aiChatMessages = document.getElementById('aiChatMessages');
+    this.aiChatForm = document.getElementById('aiChatForm');
+    this.aiChatInput = document.getElementById('aiChatInput');
+    this.btnAiExplain = document.getElementById('btnAiExplain');
+    this.btnAiGenTests = document.getElementById('btnAiGenTests');
+    this.btnAiFixDiag = document.getElementById('btnAiFixDiag');
+    this.btnClearAiChat = document.getElementById('btnClearAiChat');
+
   }
 
   bindEvents() {
+    this.initAiAssistant();
     this.btnKeepLocalChanges?.addEventListener('click', () => this.keepLocalChanges());
     this.btnReloadExternalFile?.addEventListener('click', () => this.reloadExternalFile());
     this.btnRefreshOutline?.addEventListener('click', () => this.refreshWorkspaceSymbols());
@@ -640,6 +651,13 @@ export class OtterStudioIde {
     if (this.panelOutput) this.panelOutput.style.display = (tabName === 'output') ? 'block' : 'none';
     if (this.panelTerminal) {
       this.panelTerminal.style.display = (tabName === 'terminal') ? 'flex' : 'none';
+    }
+    if (this.panelAssistant) {
+      const isAi = tabName === 'assistant' || tabName.includes('copilot');
+      this.panelAssistant.style.display = isAi ? 'flex' : 'none';
+      if (isAi && this.aiChatInput) {
+        setTimeout(() => this.aiChatInput.focus(), 50);
+      }
       if (tabName === 'terminal' && this.terminalInput) {
         setTimeout(() => this.terminalInput.focus(), 50);
       }
@@ -4531,5 +4549,142 @@ export class OtterStudioIde {
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
   }
+
+  // --- AI Copilot (Prototype / Section 39) ---
+  initAiAssistant() {
+    if (!this.aiChatForm || !this.aiChatInput) return;
+
+    this.aiChatForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const prompt = this.aiChatInput.value.trim();
+      if (!prompt) return;
+
+      this.appendAiChatMessage('user', prompt);
+      this.aiChatInput.value = '';
+
+      try {
+        const res = await fetch('/api/ai/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt,
+            context: {
+              activeFile: this.currentFile,
+              source: this.sourceEditor ? this.sourceEditor.value : '',
+              diagnostics: this.activeDiagnostics || []
+            }
+          })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          this.appendAiChatMessage('assistant', data.reply || 'No response generated.');
+        } else {
+          this.appendAiChatMessage('assistant', `Error contacting Copilot service (status ${res.status}).`);
+        }
+      } catch (err) {
+        this.appendAiChatMessage('assistant', `Failed to connect to Copilot: ${err.message}`);
+      }
+    });
+
+    this.btnAiExplain?.addEventListener('click', async () => {
+      const source = this.sourceEditor ? this.sourceEditor.value : '';
+      if (!source.trim()) {
+        this.appendAiChatMessage('assistant', 'Open or write an Otter source file first to explain code.');
+        return;
+      }
+      this.appendAiChatMessage('user', 'Explain current Otter source');
+      try {
+        const res = await fetch('/api/ai/explain', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ source })
+        });
+        const data = await res.json();
+        this.appendAiChatMessage('assistant', data.explanation || 'No explanation generated.');
+      } catch (err) {
+        this.appendAiChatMessage('assistant', `Failed to explain code: ${err.message}`);
+      }
+    });
+
+    this.btnAiGenTests?.addEventListener('click', async () => {
+      const source = this.sourceEditor ? this.sourceEditor.value : '';
+      const moduleName = this.currentFile ? this.currentFile.replace(/\.ot$/, '') : 'app';
+      this.appendAiChatMessage('user', `Generate unit tests for ${moduleName}`);
+      try {
+        const res = await fetch('/api/ai/generate-tests', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ source, moduleName })
+        });
+        const data = await res.json();
+        this.appendAiChatMessage('assistant', `Generated test suite for ${moduleName}:\n\n` + (data.testCode || ''));
+      } catch (err) {
+        this.appendAiChatMessage('assistant', `Failed to generate tests: ${err.message}`);
+      }
+    });
+
+    this.btnAiFixDiag?.addEventListener('click', async () => {
+      const source = this.sourceEditor ? this.sourceEditor.value : '';
+      const diagnostics = this.activeDiagnostics || [];
+      if (diagnostics.length === 0) {
+        this.appendAiChatMessage('assistant', 'No active diagnostics found in the current workspace.');
+        return;
+      }
+      this.appendAiChatMessage('user', 'Analyze and suggest diagnostic fixes');
+      try {
+        const res = await fetch('/api/ai/fix-diagnostics', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ diagnostics, source })
+        });
+        const data = await res.json();
+        const suggestions = data.suggestions || [];
+        if (suggestions.length === 0) {
+          this.appendAiChatMessage('assistant', 'No automatic diagnostic fixes could be determined.');
+        } else {
+          const text = suggestions.map(s => `Line ${s.line}: ${s.explanation}\n  Fix: "${s.fixedLine}"`).join('\n\n');
+          this.appendAiChatMessage('assistant', `Diagnostic Fix Suggestions:\n\n${text}`);
+        }
+      } catch (err) {
+        this.appendAiChatMessage('assistant', `Failed to analyze diagnostics: ${err.message}`);
+      }
+    });
+
+    this.btnClearAiChat?.addEventListener('click', () => {
+      if (!this.aiChatMessages) return;
+      this.aiChatMessages.innerHTML = `
+        <div class="ai-msg-system" style="color: var(--text-muted); font-style: italic; font-size: 11px;">
+          Otter Copilot is ready. Ask questions, generate code snippets, fix diagnostics, or explain active Otter code.
+        </div>
+      `;
+    });
+  }
+
+  appendAiChatMessage(role, text) {
+    if (!this.aiChatMessages) return;
+    const msgDiv = document.createElement('div');
+    msgDiv.style.padding = '6px 10px';
+    msgDiv.style.borderRadius = '6px';
+    msgDiv.style.maxWidth = '90%';
+    msgDiv.style.whiteSpace = 'pre-wrap';
+    msgDiv.style.wordBreak = 'break-word';
+
+    if (role === 'user') {
+      msgDiv.style.alignSelf = 'flex-end';
+      msgDiv.style.background = '#6366f1';
+      msgDiv.style.color = '#ffffff';
+      msgDiv.textContent = text;
+    } else {
+      msgDiv.style.alignSelf = 'flex-start';
+      msgDiv.style.background = 'var(--bg-secondary, #f1f5f9)';
+      msgDiv.style.color = 'var(--text-main, #0f172a)';
+      msgDiv.style.border = '1px solid var(--border-subtle, #e2e8f0)';
+      msgDiv.textContent = text;
+    }
+
+    this.aiChatMessages.appendChild(msgDiv);
+    this.aiChatMessages.scrollTop = this.aiChatMessages.scrollHeight;
+  }
+
 }
 
