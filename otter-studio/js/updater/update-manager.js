@@ -1,11 +1,14 @@
 // otter-studio/js/updater/update-manager.js
-// Production update management system for Otter Studio & Otter Runtime.
+// Update management engine for Otter Studio & Otter Runtime.
 // Implements Section 35 criteria:
 // - Stable / preview update channels
 // - Signed update metadata & SHA-256 verification
 // - Progress & verification lifecycle
 // - Restart / rollback / release notes / skip version
 // - Project & settings preservation during upgrades
+//
+// NOTE (Review 2026-10-06): When run without a remote feed URL or explicit feedData,
+// checkForUpdates simulates update availability with a local mock payload (marked isSimulated: true).
 
 import crypto from 'node:crypto';
 
@@ -13,6 +16,7 @@ export class OtterUpdateManager {
   constructor(options = {}) {
     this.currentVersion = options.currentVersion || '1.0.0';
     this.channel = options.channel || 'stable';
+    this.feedUrl = options.feedUrl || null;
     this.storage = options.storage || (typeof localStorage !== 'undefined' ? localStorage : new Map());
     this.status = 'idle'; // 'idle' | 'checking' | 'available' | 'downloading' | 'verifying' | 'ready' | 'applied' | 'error'
     this.error = null;
@@ -130,16 +134,30 @@ export class OtterUpdateManager {
     try {
       const channel = this.getChannel();
       let metadata = feedData;
+      let isSimulated = false;
+
+      if (!metadata && this.feedUrl && typeof fetch === 'function') {
+        try {
+          const res = await fetch(this.feedUrl);
+          if (res.ok) {
+            metadata = await res.json();
+          }
+        } catch (err) {
+          // Network fetch failed, fall through to simulation
+        }
+      }
 
       if (!metadata) {
-        // Mock default or feed metadata if not passed directly
+        // Fallback simulated metadata for offline demonstration & tests
+        isSimulated = true;
         metadata = {
           version: '1.1.0',
-          channel: 'stable',
+          channel,
           releaseDate: '2026-10-15',
-          releaseNotes: '# Otter 1.1.0 Release Notes\n- Enhanced performance\n- New compiler optimizations',
+          releaseNotes: '# Otter 1.1.0 Release Notes\n- Enhanced performance\n- Compiler optimizations',
           sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-          downloadUrl: 'https://github.com/heavens-lava/otterPS/releases/download/v1.1.0/otter-1.1.0.zip'
+          downloadUrl: 'https://github.com/heavens-lava/otterPS/releases/download/v1.1.0/otter-1.1.0.zip',
+          isSimulated: true
         };
       }
 
@@ -149,11 +167,11 @@ export class OtterUpdateManager {
       if (isNewer && !isSkipped) {
         this.status = 'available';
         this.availableUpdate = metadata;
-        return { available: true, update: metadata };
+        return { available: true, update: metadata, isSimulated };
       } else {
         this.status = 'idle';
         this.availableUpdate = null;
-        return { available: false, currentVersion: this.currentVersion, skipped: isSkipped };
+        return { available: false, currentVersion: this.currentVersion, skipped: isSkipped, isSimulated };
       }
     } catch (err) {
       this.status = 'error';

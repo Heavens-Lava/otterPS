@@ -1,19 +1,21 @@
 /**
- * Otter Studio AI Assistant & Intelligent Copilot Engine (Section 39)
+ * Otter Studio AI Assistant & Copilot Engine (Prototype / Section 39)
  *
- * Provides:
- * 1. In-IDE conversational pair programmer with workspace context
- * 2. Natural language to Otter code synthesis
- * 3. Natural language to visual UI layout generation
- * 4. Automated diagnostic analysis and one-click code fixes
- * 5. Automated unit-test suite generation for Otter modules
- * 6. Intelligent code explanation and docstring generator
- * 7. Context-aware semantic inline completions
+ * NOTE (Review 2026-10-06): This engine operates as an offline
+ * heuristic / template-matching prototype. It provides AST-aware assistance,
+ * standard diagnostic fix recommendations, test skeleton generation, and
+ * syntax-aware completions without requiring an external cloud service.
+ * An optional external provider (e.g., local Ollama instance or custom
+ * LLM endpoint) can be configured via constructor options.
  */
 
 export class OtterAIAssistant {
   constructor(options = {}) {
-    this.modelName = options.modelName || 'otter-copilot-v1';
+    this.isPrototype = true;
+    this.provider = options.provider || 'offline-heuristic-prototype';
+    this.modelName = options.modelName || 'otter-copilot-template-v1';
+    this.endpoint = options.endpoint || null;
+    this.apiKey = options.apiKey || null;
     this.temperature = options.temperature ?? 0.2;
     this.conversationHistory = [];
   }
@@ -66,7 +68,7 @@ export class OtterAIAssistant {
     } else if (lower.includes('create') || lower.includes('generate')) {
       reply = this.generateOtterCode(userMessage, fullContext);
     } else {
-      reply = `I am your Otter AI Copilot. I understand Otter syntax, reactive events, UI layouts, and test suites. How can I assist you in ${context.activeFile || 'your workspace'}?`;
+      reply = `I am your Otter AI Copilot (offline prototype). I understand Otter syntax, reactive events, UI layouts, and test suites. How can I assist you in ${context.activeFile || 'your workspace'}?`;
     }
 
     const assistantEntry = {
@@ -78,7 +80,9 @@ export class OtterAIAssistant {
 
     return {
       reply,
-      historyLength: this.conversationHistory.length
+      historyLength: this.conversationHistory.length,
+      isPrototype: this.isPrototype,
+      provider: this.provider
     };
   }
 
@@ -104,55 +108,62 @@ export class OtterAIAssistant {
 
     if (p.includes('http') || p.includes('fetch') || p.includes('api')) {
       return [
-        'say "Fetching remote data..."',
-        'try',
-        '    get json from "https://api.example.com/items" into response',
-        '    for each item in response',
-        '        say "Item: " + name of item',
-        '    .',
-        'otherwise error',
-        '    say "Failed to fetch: " + error',
+        '# Fetch JSON data from API',
+        'get json from "https://api.example.com/items" into response',
+        'for each item in response',
+        '    say name of item',
         '.'
       ].join('\n');
     }
 
-    if (p.includes('file') || p.includes('read') || p.includes('write')) {
+    if (p.includes('file') || p.includes('disk') || p.includes('read') || p.includes('write')) {
       return [
-        'content is "Hello from Otter Studio!"',
+        '# File read and write operations',
         'write content to "output.txt"',
-        'read text from "output.txt" into verify',
-        'say "Read back: " + verify'
+        'read text from "input.txt" into data',
+        'say data'
       ].join('\n');
     }
 
-    // Default idiomatic Otter function synthesis
+    if (p.includes('loop') || p.includes('repeat') || p.includes('times')) {
+      return [
+        'repeat 5 times',
+        '    say "Iteration"',
+        '.'
+      ].join('\n');
+    }
+
+    if (p.includes('function') || p.includes('add') || p.includes('math')) {
+      return [
+        'to calculateTotal base and tax',
+        '    total is base plus tax',
+        '    return total',
+        '.'
+      ].join('\n');
+    }
+
+    // Default template
     return [
-      'to greet person',
-      '    if person is ""',
-      '        give back "Hello, friend!"',
-      '    otherwise',
-      '        give back "Hello, " + person + "!"',
-      '    .',
-      '.'
+      '# Generated Otter source',
+      'name is "Otter Application"',
+      'say "Starting " + name'
     ].join('\n');
   }
 
   /**
    * 3. Natural language to visual UI layout generation
    */
-  generateUILayout(prompt, _context = {}) {
+  generateUILayout(prompt) {
     const p = prompt.toLowerCase();
     const components = [];
 
-    if (p.includes('login') || p.includes('sign in')) {
+    if (p.includes('login') || p.includes('auth') || p.includes('sign in')) {
       components.push(
-        { id: 'heading1', type: 'Label', properties: { text: 'Sign In to Otter', fontSize: '24px', fontWeight: 'bold' } },
+        { id: 'titleLabel', type: 'Label', properties: { text: 'Welcome Back', fontSize: '24px' } },
         { id: 'userRow', type: 'Row', properties: {}, children: [
-          { id: 'userLabel', type: 'Label', properties: { text: 'Username:' } },
           { id: 'userInput', type: 'TextInput', properties: { placeholder: 'Enter username' } }
         ]},
         { id: 'passRow', type: 'Row', properties: {}, children: [
-          { id: 'passLabel', type: 'Label', properties: { text: 'Password:' } },
           { id: 'passInput', type: 'TextInput', properties: { placeholder: 'Enter password', isPassword: true } }
         ]},
         { id: 'submitBtn', type: 'Button', properties: { text: 'Sign In', variant: 'primary' } }
@@ -287,7 +298,7 @@ export class OtterAIAssistant {
       });
     }
 
-    testLines.push('', 'say "All tests for ' + moduleName + ' passed!"');
+    testLines.push('', `say "All tests for ${moduleName} passed!"`);
     return testLines.join('\n');
   }
 
