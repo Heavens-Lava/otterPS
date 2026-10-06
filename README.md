@@ -111,7 +111,7 @@ Otter 1.0 is built and verified for:
 
 ## Installation Quick Start
 
-Download the latest Otter release archive (`otter-1.0.0-rc.9.zip`), extract the ZIP, open Windows PowerShell in the extracted directory, and run:
+Download the latest Otter release archive (`otter-1.0.0-rc.10.zip`), extract the ZIP, open Windows PowerShell in the extracted directory, and run:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
@@ -126,13 +126,13 @@ otter --version
 
 Output:
 ```text
-Otter 1.0.0-rc.9
+Otter 1.0.0-rc.10
 ```
 
 To run without modifying your system or user `PATH`, invoke the batch entry point directly:
 
 ```powershell
-& "$env:LOCALAPPDATA\Otter\1.0.0-rc.9\otter.cmd" --version
+& "$env:LOCALAPPDATA\Otter\1.0.0-rc.10\otter.cmd" --version
 ```
 
 On Linux and macOS, install PowerShell 7, then run this in the extracted directory and open a new terminal:
@@ -182,7 +182,7 @@ Otter is currently preparing for the official 1.0 release.
 
 Current release candidate:
 ```text
-1.0.0-rc.9
+1.0.0-rc.10
 ```
 
 The 1.0 language, compiler, and runtime are **feature frozen** while final verification and release candidate auditing are completed.

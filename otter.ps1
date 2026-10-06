@@ -874,8 +874,32 @@ if ($Path -in @('web', 'browse', 'serve', 'desktop', 'studio')) {
             # RC3 B12: with no browser (or no desktop session) Start-Process
             # failed with a PowerShell source excerpt of this line. The page is
             # already built; say where it is and how to skip opening it.
+            #
+            # Start-Process on a document opens it only on Windows: on macOS
+            # (PowerShell 7.6) it tries to execute the .html file and fails
+            # with "Permission denied". macOS and Linux hand the page to the
+            # system opener instead. The opener returns once the browser has
+            # the page; a non-zero exit means no browser could take it.
             try {
-                Start-Process $htmlPath
+                $opener = $null
+                if ($PSVersionTable.PSEdition -eq 'Core') {
+                    if ([bool](Get-Variable -Name IsMacOS -ValueOnly -ErrorAction SilentlyContinue)) { $opener = 'open' }
+                    elseif ([bool](Get-Variable -Name IsLinux -ValueOnly -ErrorAction SilentlyContinue)) { $opener = 'xdg-open' }
+                }
+                if ($opener) {
+                    $startInfo = [System.Diagnostics.ProcessStartInfo]::new($opener)
+                    $startInfo.ArgumentList.Add($htmlPath)
+                    $startInfo.UseShellExecute = $false
+                    $openerProcess = [System.Diagnostics.Process]::Start($startInfo)
+                    # Some Linux openers stay attached to the browser; give up
+                    # waiting rather than hang, and treat that as opened.
+                    if ($openerProcess.WaitForExit(15000) -and $openerProcess.ExitCode -ne 0) {
+                        throw "$opener exited with code $($openerProcess.ExitCode)"
+                    }
+                }
+                else {
+                    Start-Process $htmlPath
+                }
                 Write-Host "Opened in your default browser."
             }
             catch {
