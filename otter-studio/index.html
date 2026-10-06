@@ -716,6 +716,67 @@
     </div>
   </div>
 
+
+  <!-- AI Settings Modal -->
+  <div class="modal-backdrop" id="modalAiSettings" style="display: none;">
+    <div class="modal-dialog" style="max-width: 540px; background: #0f172a; color: #f8fafc; border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5);">
+      <div class="modal-header" style="display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid rgba(255,255,255,0.1);">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-size: 16px;">⚙</span>
+          <h2 style="margin: 0; font-size: 14px; font-weight: 700; color: #f8fafc;">Settings • AI & Model Providers</h2>
+        </div>
+        <button class="modal-close" id="btnCloseAiSettingsModal" style="background: none; border: none; color: #94a3b8; font-size: 16px; cursor: pointer;">✕</button>
+      </div>
+      <div class="modal-body" style="padding: 18px; display: flex; flex-direction: column; gap: 14px;">
+        <div class="form-group" style="display: flex; flex-direction: column; gap: 4px;">
+          <label style="font-size: 11px; font-weight: 600; color: #94a3b8;">Provider</label>
+          <select id="aiSettingProviderSelect" style="background: #1e293b; color: #f8fafc; border: 1px solid rgba(255,255,255,0.15); border-radius: 4px; padding: 6px 8px; font-size: 12px;">
+            <option value="offline-heuristic">Offline Assistant (Templates / Heuristics)</option>
+            <option value="openai">OpenAI (GPT-4o, GPT-4o-mini)</option>
+            <option value="anthropic">Anthropic (Claude 3.5 Sonnet)</option>
+            <option value="openai-compatible">OpenAI Compatible (Ollama / LM Studio / Local LLM)</option>
+          </select>
+        </div>
+
+        <div class="form-group" id="aiEndpointGroup" style="display: none; flex-direction: column; gap: 4px;">
+          <label style="font-size: 11px; font-weight: 600; color: #94a3b8;">Endpoint URL</label>
+          <input type="text" id="aiSettingEndpoint" placeholder="http://localhost:11434/v1" style="background: #1e293b; color: #f8fafc; border: 1px solid rgba(255,255,255,0.15); border-radius: 4px; padding: 6px 8px; font-size: 12px;" />
+        </div>
+
+        <div class="form-group" id="aiModelGroup" style="display: none; flex-direction: column; gap: 4px;">
+          <label style="font-size: 11px; font-weight: 600; color: #94a3b8;">Model</label>
+          <input type="text" id="aiSettingModel" placeholder="gpt-4o-mini" style="background: #1e293b; color: #f8fafc; border: 1px solid rgba(255,255,255,0.15); border-radius: 4px; padding: 6px 8px; font-size: 12px;" />
+        </div>
+
+        <div class="form-group" id="aiApiKeyGroup" style="display: none; flex-direction: column; gap: 4px;">
+          <label style="font-size: 11px; font-weight: 600; color: #94a3b8;">API Key (Stored Server-Side Only)</label>
+          <div style="display: flex; gap: 6px;">
+            <input type="password" id="aiSettingApiKey" placeholder="••••••••••••••••" style="flex: 1; background: #1e293b; color: #f8fafc; border: 1px solid rgba(255,255,255,0.15); border-radius: 4px; padding: 6px 8px; font-size: 12px;" />
+            <button type="button" id="btnAiTestConnection" style="padding: 6px 12px; font-size: 11px; font-weight: 600; background: #334155; color: #f8fafc; border: 1px solid rgba(255,255,255,0.15); border-radius: 4px; cursor: pointer;">Test Connection</button>
+          </div>
+          <div id="aiConnectionStatus" style="font-size: 11px; color: #94a3b8; margin-top: 4px;">Status: Configured</div>
+        </div>
+
+        <div style="border-top: 1px solid rgba(255,255,255,0.08); padding-top: 10px; display: flex; flex-direction: column; gap: 8px;">
+          <label style="font-size: 11px; font-weight: 600; color: #94a3b8;">Context Scope</label>
+          <label style="font-size: 12px; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+            <input type="checkbox" id="aiSettingIncludeFile" checked /> Include current file
+          </label>
+          <label style="font-size: 12px; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+            <input type="checkbox" id="aiSettingIncludeDiags" checked /> Include diagnostics
+          </label>
+          <label style="font-size: 12px; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+            <input type="checkbox" id="aiSettingIncludeWorkspace" /> Include workspace context automatically
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer" style="display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 12px 18px; border-top: 1px solid rgba(255,255,255,0.1); background: #0b1120;">
+        <button type="button" class="btn-modal-cancel" id="btnCancelAiSettings" style="background: transparent; color: #94a3b8; border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 6px 12px; cursor: pointer; font-size: 12px;">Cancel</button>
+        <button type="button" class="btn-modal-primary" id="btnSaveAiSettings" style="background: #3b82f6; color: white; border: none; border-radius: 4px; padding: 6px 14px; font-weight: 600; cursor: pointer; font-size: 12px;">Save Settings</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Rename Symbol Preview Modal -->
   <div class="modal-backdrop" id="modalRenameSymbol" style="display: none;">
     <div class="modal-dialog rename-dialog" role="dialog" aria-modal="true" aria-labelledby="renameModalTitle">

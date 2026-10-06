@@ -110,6 +110,8 @@ import {
   OfflineInstallVerifier
 } from './js/welcome/first-run-manager.js';
 import { OtterAIAssistant } from './js/ai/ai-assistant-engine.js';
+import { AiProviderManager } from './js/ai/provider-manager.js';
+const aiProviderManager = new AiProviderManager();
 
 const welcomeManager = new WelcomeManager();
 const aiAssistant = new OtterAIAssistant();
@@ -3899,12 +3901,74 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // --- AI Assistant & Intelligent Copilot API (Section 39) ---
+  // --- AI Assistant & Intelligent Copilot API (Section 39 / Provider Architecture) ---
+  if (pathname === '/api/ai/settings' && req.method === 'GET') {
+    try {
+      sendJson(res, { ok: true, settings: aiProviderManager.getPublicSettings() });
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/ai/settings' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      if (body.provider && body.config) {
+        aiProviderManager.setProviderConfig(body.provider, body.config);
+      }
+      if (body.activeProvider) {
+        aiProviderManager.setActiveProvider(body.activeProvider);
+      }
+      if (body.includeCurrentFile !== undefined) {
+        aiProviderManager.settings.includeCurrentFile = Boolean(body.includeCurrentFile);
+      }
+      if (body.includeDiagnostics !== undefined) {
+        aiProviderManager.settings.includeDiagnostics = Boolean(body.includeDiagnostics);
+      }
+      if (body.includeWorkspaceContext !== undefined) {
+        aiProviderManager.settings.includeWorkspaceContext = Boolean(body.includeWorkspaceContext);
+      }
+      sendJson(res, { ok: true, settings: aiProviderManager.getPublicSettings() });
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/ai/test-connection' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const result = await aiProviderManager.testConnection(body.provider);
+      sendJson(res, result);
+    } catch (err) {
+      sendJson(res, { ok: false, status: 'connection_failed', message: err.message }, 500);
+    }
+    return;
+  }
+
   if (pathname === '/api/ai/chat' && req.method === 'POST') {
     try {
       const body = await readBody(req);
-      const result = aiAssistant.chat(body.message || '', body.context || {});
-      sendJson(res, { ok: true, ...result });
+      const provider = aiProviderManager.getActiveProvider();
+      const context = body.context || {};
+      const contextFormatted = aiProviderManager.contextManager.buildContext(context).formatted;
+
+      let messages = [];
+      if (Array.isArray(body.messages) && body.messages.length > 0) {
+        messages = body.messages;
+      } else {
+        messages = [{ role: 'user', content: body.message || body.prompt || '' }];
+      }
+
+      const result = await provider.chat(messages, { context, contextFormatted });
+      sendJson(res, {
+        ok: true,
+        isPrototype: provider.name === 'offline-heuristic',
+        provider: provider.name,
+        displayName: provider.displayName,
+        ...result
+      });
     } catch (err) {
       sendJson(res, { ok: false, error: err.message }, 500);
     }
@@ -3914,8 +3978,10 @@ const server = http.createServer(async (req, res) => {
   if (pathname === '/api/ai/synthesize-code' && req.method === 'POST') {
     try {
       const body = await readBody(req);
-      const code = aiAssistant.generateOtterCode(body.prompt || '', body.context || {});
-      sendJson(res, { ok: true, code });
+      const provider = aiProviderManager.getActiveProvider();
+      const context = body.context || {};
+      const result = await provider.synthesizeCode(body.prompt || '', context);
+      sendJson(res, { ok: true, isPrototype: provider.name === 'offline-heuristic', ...result });
     } catch (err) {
       sendJson(res, { ok: false, error: err.message }, 500);
     }
@@ -3936,8 +4002,10 @@ const server = http.createServer(async (req, res) => {
   if (pathname === '/api/ai/fix-diagnostics' && req.method === 'POST') {
     try {
       const body = await readBody(req);
-      const fixes = aiAssistant.analyzeDiagnosticsAndSuggestFixes(body.diagnostics || [], body.source || '');
-      sendJson(res, { ok: true, fixes });
+      const provider = aiProviderManager.getActiveProvider();
+      const result = await provider.diagnose(body.diagnostics || [], body.source || '', body.context || {});
+      const legacyFixes = aiAssistant.analyzeDiagnosticsAndSuggestFixes(body.diagnostics || [], body.source || '');
+      sendJson(res, { ok: true, isPrototype: provider.name === 'offline-heuristic', fixes: legacyFixes, ...result });
     } catch (err) {
       sendJson(res, { ok: false, error: err.message }, 500);
     }
@@ -3947,8 +4015,10 @@ const server = http.createServer(async (req, res) => {
   if (pathname === '/api/ai/generate-tests' && req.method === 'POST') {
     try {
       const body = await readBody(req);
-      const testSuite = aiAssistant.generateTestSuites(body.source || '', body.moduleName || 'module');
-      sendJson(res, { ok: true, testSuite });
+      const provider = aiProviderManager.getActiveProvider();
+      const result = await provider.generateTests(body.source || '', { moduleName: body.moduleName || 'module', ...body.context });
+      const legacySuite = aiAssistant.generateTestSuites(body.source || '', body.moduleName || 'module');
+      sendJson(res, { ok: true, isPrototype: provider.name === 'offline-heuristic', testSuite: legacySuite, ...result });
     } catch (err) {
       sendJson(res, { ok: false, error: err.message }, 500);
     }
@@ -3958,8 +4028,10 @@ const server = http.createServer(async (req, res) => {
   if (pathname === '/api/ai/explain' && req.method === 'POST') {
     try {
       const body = await readBody(req);
-      const explanation = aiAssistant.explainCode(body.source || '');
-      sendJson(res, { ok: true, explanation });
+      const provider = aiProviderManager.getActiveProvider();
+      const result = await provider.explain(body.source || '', body.context || {});
+      const legacyExplanation = aiAssistant.explainCode(body.source || '');
+      sendJson(res, { ok: true, isPrototype: provider.name === 'offline-heuristic', explanation: legacyExplanation, ...result });
     } catch (err) {
       sendJson(res, { ok: false, error: err.message }, 500);
     }
@@ -3969,8 +4041,10 @@ const server = http.createServer(async (req, res) => {
   if (pathname === '/api/ai/completions' && req.method === 'POST') {
     try {
       const body = await readBody(req);
+      const provider = aiProviderManager.getActiveProvider();
       const completions = aiAssistant.semanticInlineCompletions(body.prefix || '', body.suffix || '', body.context || {});
-      sendJson(res, { ok: true, completions });
+      const result = await provider.complete(body.prefix || '', body.context || {});
+      sendJson(res, { ok: true, isPrototype: provider.name === 'offline-heuristic', completions, completion: result });
     } catch (err) {
       sendJson(res, { ok: false, error: err.message }, 500);
     }

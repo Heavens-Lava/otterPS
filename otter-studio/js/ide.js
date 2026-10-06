@@ -461,6 +461,32 @@ export class OtterStudioIde {
     this.btnAiGenTests = document.getElementById('btnAiGenTests');
     this.btnAiFixDiag = document.getElementById('btnAiFixDiag');
     this.btnClearAiChat = document.getElementById('btnClearAiChat');
+    this.aiProviderBadge = document.getElementById('aiProviderBadge');
+    this.aiContextIndicator = document.getElementById('aiContextIndicator');
+    this.btnOpenAiSettings = document.getElementById('btnOpenAiSettings');
+    this.modalAiSettings = document.getElementById('modalAiSettings');
+    this.btnCloseAiSettingsModal = document.getElementById('btnCloseAiSettingsModal');
+    this.btnCancelAiSettings = document.getElementById('btnCancelAiSettings');
+    this.btnSaveAiSettings = document.getElementById('btnSaveAiSettings');
+    this.btnAiTestConnection = document.getElementById('btnAiTestConnection');
+    this.aiSettingProviderSelect = document.getElementById('aiSettingProviderSelect');
+    this.aiSettingEndpoint = document.getElementById('aiSettingEndpoint');
+    this.aiSettingModel = document.getElementById('aiSettingModel');
+    this.aiSettingApiKey = document.getElementById('aiSettingApiKey');
+    this.aiConnectionStatus = document.getElementById('aiConnectionStatus');
+    this.aiSettingIncludeFile = document.getElementById('aiSettingIncludeFile');
+    this.aiSettingIncludeDiags = document.getElementById('aiSettingIncludeDiags');
+    this.aiSettingIncludeWorkspace = document.getElementById('aiSettingIncludeWorkspace');
+    this.aiEndpointGroup = document.getElementById('aiEndpointGroup');
+    this.aiModelGroup = document.getElementById('aiModelGroup');
+    this.aiApiKeyGroup = document.getElementById('aiApiKeyGroup');
+    this.aiPatchReviewCard = document.getElementById('aiPatchReviewCard');
+    this.aiPatchDiffPreview = document.getElementById('aiPatchDiffPreview');
+    this.btnAiApplyPatch = document.getElementById('btnAiApplyPatch');
+    this.btnAiRejectPatch = document.getElementById('btnAiRejectPatch');
+
+    this.aiConversation = [];
+    this.currentPendingPatch = null;
 
   }
 
@@ -4550,42 +4576,84 @@ export class OtterStudioIde {
       .replace(/"/g, '&quot;');
   }
 
-  // --- AI Copilot (Prototype / Section 39) ---
+  // --- AI Copilot (Provider Architecture / Section 39) ---
   initAiAssistant() {
-    if (!this.aiChatForm || !this.aiChatInput) return;
+    this.refreshAiSettings();
 
-    this.aiChatForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const prompt = this.aiChatInput.value.trim();
-      if (!prompt) return;
-
-      this.appendAiChatMessage('user', prompt);
-      this.aiChatInput.value = '';
-
-      try {
-        const res = await fetch('/api/ai/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            prompt,
-            context: {
-              activeFile: this.currentFile,
-              source: this.sourceEditor ? this.sourceEditor.value : '',
-              diagnostics: this.activeDiagnostics || []
-            }
-          })
-        });
-        if (res.ok) {
-          const data = await res.json();
-          this.appendAiChatMessage('assistant', data.reply || 'No response generated.');
-        } else {
-          this.appendAiChatMessage('assistant', `Error contacting Copilot service (status ${res.status}).`);
-        }
-      } catch (err) {
-        this.appendAiChatMessage('assistant', `Failed to connect to Copilot: ${err.message}`);
-      }
+    // AI Settings Modal Triggers
+    this.btnOpenAiSettings?.addEventListener('click', () => {
+      this.openAiSettingsModal();
     });
 
+    this.btnCloseAiSettingsModal?.addEventListener('click', () => {
+      if (this.modalAiSettings) this.modalAiSettings.style.display = 'none';
+    });
+
+    this.btnCancelAiSettings?.addEventListener('click', () => {
+      if (this.modalAiSettings) this.modalAiSettings.style.display = 'none';
+    });
+
+    this.aiSettingProviderSelect?.addEventListener('change', () => {
+      this.updateAiSettingsFieldsVisibility();
+    });
+
+    this.btnAiTestConnection?.addEventListener('click', async () => {
+      await this.testAiConnection();
+    });
+
+    this.btnSaveAiSettings?.addEventListener('click', async () => {
+      await this.saveAiSettings();
+    });
+
+    // Patch Review Actions
+    this.btnAiApplyPatch?.addEventListener('click', () => {
+      this.applyPendingAiPatch();
+    });
+
+    this.btnAiRejectPatch?.addEventListener('click', () => {
+      this.rejectPendingAiPatch();
+    });
+
+    // Multi-turn Conversational Chat Form
+    if (this.aiChatForm && this.aiChatInput) {
+      this.aiChatForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const prompt = this.aiChatInput.value.trim();
+        if (!prompt) return;
+
+        this.appendAiChatMessage('user', prompt);
+        this.aiConversation.push({ role: 'user', content: prompt });
+        this.aiChatInput.value = '';
+
+        try {
+          const res = await fetch('/api/ai/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              messages: this.aiConversation.slice(-10),
+              context: {
+                activeFile: this.currentFile,
+                source: this.sourceEditor ? this.sourceEditor.value : '',
+                diagnostics: this.activeDiagnostics || []
+              }
+            })
+          });
+          if (res.ok) {
+            const data = await res.json();
+            const reply = data.reply || 'No response generated.';
+            this.aiConversation.push({ role: 'assistant', content: reply });
+            this.appendAiChatMessage('assistant', reply, data.provider);
+            this.updateAiProviderBadge(data.provider, data.displayName, data.model);
+          } else {
+            this.appendAiChatMessage('assistant', `Error contacting Copilot service (status ${res.status}).`);
+          }
+        } catch (err) {
+          this.appendAiChatMessage('assistant', `Failed to connect to Copilot: ${err.message}`);
+        }
+      });
+    }
+
+    // Explain Code Action
     this.btnAiExplain?.addEventListener('click', async () => {
       const source = this.sourceEditor ? this.sourceEditor.value : '';
       if (!source.trim()) {
@@ -4593,6 +4661,7 @@ export class OtterStudioIde {
         return;
       }
       this.appendAiChatMessage('user', 'Explain current Otter source');
+      this.aiConversation.push({ role: 'user', content: 'Explain current Otter source' });
       try {
         const res = await fetch('/api/ai/explain', {
           method: 'POST',
@@ -4600,16 +4669,20 @@ export class OtterStudioIde {
           body: JSON.stringify({ source })
         });
         const data = await res.json();
-        this.appendAiChatMessage('assistant', data.explanation || 'No explanation generated.');
+        const reply = data.explanation || 'No explanation generated.';
+        this.aiConversation.push({ role: 'assistant', content: reply });
+        this.appendAiChatMessage('assistant', reply, data.provider);
       } catch (err) {
         this.appendAiChatMessage('assistant', `Failed to explain code: ${err.message}`);
       }
     });
 
+    // Generate Tests Action
     this.btnAiGenTests?.addEventListener('click', async () => {
       const source = this.sourceEditor ? this.sourceEditor.value : '';
       const moduleName = this.currentFile ? this.currentFile.replace(/\.ot$/, '') : 'app';
       this.appendAiChatMessage('user', `Generate unit tests for ${moduleName}`);
+      this.aiConversation.push({ role: 'user', content: `Generate unit tests for ${moduleName}` });
       try {
         const res = await fetch('/api/ai/generate-tests', {
           method: 'POST',
@@ -4617,12 +4690,16 @@ export class OtterStudioIde {
           body: JSON.stringify({ source, moduleName })
         });
         const data = await res.json();
-        this.appendAiChatMessage('assistant', `Generated test suite for ${moduleName}:\n\n` + (data.testCode || ''));
+        const testCode = data.testCode || data.testSuite || '';
+        const reply = `Generated test suite for ${moduleName}:\n\n` + testCode;
+        this.aiConversation.push({ role: 'assistant', content: reply });
+        this.appendAiChatMessage('assistant', reply, data.provider);
       } catch (err) {
         this.appendAiChatMessage('assistant', `Failed to generate tests: ${err.message}`);
       }
     });
 
+    // Fix Diagnostics with Proposed Diff / Review
     this.btnAiFixDiag?.addEventListener('click', async () => {
       const source = this.sourceEditor ? this.sourceEditor.value : '';
       const diagnostics = this.activeDiagnostics || [];
@@ -4638,53 +4715,227 @@ export class OtterStudioIde {
           body: JSON.stringify({ diagnostics, source })
         });
         const data = await res.json();
-        const suggestions = data.suggestions || [];
+        const suggestions = data.fixes || data.suggestions || [];
         if (suggestions.length === 0) {
           this.appendAiChatMessage('assistant', 'No automatic diagnostic fixes could be determined.');
         } else {
-          const text = suggestions.map(s => `Line ${s.line}: ${s.explanation}\n  Fix: "${s.fixedLine}"`).join('\n\n');
-          this.appendAiChatMessage('assistant', `Diagnostic Fix Suggestions:\n\n${text}`);
+          const text = suggestions.map(s => `Line ${s.line}: ${s.explanation || s.rationale || 'Fix diagnostic'}\n  Fix: "${s.fixedLine}"`).join('\n\n');
+          this.appendAiChatMessage('assistant', `Proposed Diagnostic Fixes:\n\n${text}`, data.provider);
+          
+          const firstFix = suggestions[0];
+          if (firstFix && firstFix.fixedLine) {
+            this.proposeAiPatch(source, firstFix.line, firstFix.fixedLine, firstFix.explanation);
+          }
         }
       } catch (err) {
         this.appendAiChatMessage('assistant', `Failed to analyze diagnostics: ${err.message}`);
       }
     });
 
+    // Clear Chat Action
     this.btnClearAiChat?.addEventListener('click', () => {
+      this.aiConversation = [];
+      this.currentPendingPatch = null;
+      if (this.aiPatchReviewCard) this.aiPatchReviewCard.style.display = 'none';
       if (!this.aiChatMessages) return;
       this.aiChatMessages.innerHTML = `
-        <div class="ai-msg-system" style="color: var(--text-muted); font-style: italic; font-size: 11px;">
-          Otter Copilot is ready. Ask questions, generate code snippets, fix diagnostics, or explain active Otter code.
+        <div class="ai-msg-system" style="color: #94a3b8; font-style: italic; font-size: 11px; background: rgba(255,255,255,0.02); padding: 6px 10px; border-radius: 6px; border: 1px dashed rgba(255,255,255,0.1);">
+          Otter Copilot is ready. Ask questions across multiple turns, generate code, fix diagnostics, or generate tests.
         </div>
       `;
     });
   }
 
-  appendAiChatMessage(role, text) {
-    if (!this.aiChatMessages) return;
-    const msgDiv = document.createElement('div');
-    msgDiv.style.padding = '6px 10px';
-    msgDiv.style.borderRadius = '6px';
-    msgDiv.style.maxWidth = '90%';
-    msgDiv.style.whiteSpace = 'pre-wrap';
-    msgDiv.style.wordBreak = 'break-word';
-
-    if (role === 'user') {
-      msgDiv.style.alignSelf = 'flex-end';
-      msgDiv.style.background = '#6366f1';
-      msgDiv.style.color = '#ffffff';
-      msgDiv.textContent = text;
-    } else {
-      msgDiv.style.alignSelf = 'flex-start';
-      msgDiv.style.background = 'var(--bg-secondary, #f1f5f9)';
-      msgDiv.style.color = 'var(--text-main, #0f172a)';
-      msgDiv.style.border = '1px solid var(--border-subtle, #e2e8f0)';
-      msgDiv.textContent = text;
+  async refreshAiSettings() {
+    try {
+      const res = await fetch('/api/ai/settings');
+      if (res.ok) {
+        const data = await res.json();
+        this.currentAiSettings = data.settings;
+        const activeStatus = data.settings?.activeStatus;
+        this.updateAiProviderBadge(data.settings?.activeProvider, activeStatus?.displayName, activeStatus?.model);
+      }
+    } catch {
+      this.updateAiProviderBadge('offline-heuristic', 'Offline Assistant (Templates)');
     }
+  }
 
+  updateAiProviderBadge(providerName, displayName, model) {
+    if (!this.aiProviderBadge) return;
+    if (!providerName || providerName === 'offline-heuristic') {
+      this.aiProviderBadge.textContent = 'Offline Assistant (Templates)';
+      this.aiProviderBadge.style.background = 'rgba(59,130,246,0.15)';
+      this.aiProviderBadge.style.color = '#60a5fa';
+    } else {
+      const modelText = model ? ` • ${model}` : '';
+      this.aiProviderBadge.textContent = `${displayName || providerName}${modelText}`;
+      this.aiProviderBadge.style.background = 'rgba(16,185,129,0.15)';
+      this.aiProviderBadge.style.color = '#34d399';
+    }
+  }
+
+  openAiSettingsModal() {
+    if (!this.modalAiSettings) return;
+    this.modalAiSettings.style.display = 'flex';
+    if (this.currentAiSettings) {
+      if (this.aiSettingProviderSelect) this.aiSettingProviderSelect.value = this.currentAiSettings.activeProvider || 'offline-heuristic';
+      const activeProviderData = this.currentAiSettings.providers?.[this.currentAiSettings.activeProvider] || {};
+      if (this.aiSettingEndpoint) this.aiSettingEndpoint.value = activeProviderData.endpoint || '';
+      if (this.aiSettingModel) this.aiSettingModel.value = activeProviderData.model || '';
+      if (this.aiSettingApiKey) this.aiSettingApiKey.value = activeProviderData.maskedKey || '';
+      if (this.aiSettingIncludeFile) this.aiSettingIncludeFile.checked = this.currentAiSettings.includeCurrentFile !== false;
+      if (this.aiSettingIncludeDiags) this.aiSettingIncludeDiags.checked = this.currentAiSettings.includeDiagnostics !== false;
+      if (this.aiSettingIncludeWorkspace) this.aiSettingIncludeWorkspace.checked = Boolean(this.currentAiSettings.includeWorkspaceContext);
+    }
+    this.updateAiSettingsFieldsVisibility();
+  }
+
+  updateAiSettingsFieldsVisibility() {
+    const selected = this.aiSettingProviderSelect?.value || 'offline-heuristic';
+    const isOffline = selected === 'offline-heuristic';
+    const isCustom = selected === 'openai-compatible';
+
+    if (this.aiEndpointGroup) this.aiEndpointGroup.style.display = isCustom ? 'flex' : 'none';
+    if (this.aiModelGroup) this.aiModelGroup.style.display = isOffline ? 'none' : 'flex';
+    if (this.aiApiKeyGroup) this.aiApiKeyGroup.style.display = isOffline ? 'none' : 'flex';
+
+    if (this.aiConnectionStatus) {
+      this.aiConnectionStatus.textContent = isOffline ? 'Status: Offline Heuristic Mode' : 'Status: Ready to test';
+      this.aiConnectionStatus.style.color = '#94a3b8';
+    }
+  }
+
+  async testAiConnection() {
+    const provider = this.aiSettingProviderSelect?.value;
+    if (this.aiConnectionStatus) {
+      this.aiConnectionStatus.textContent = 'Testing connection...';
+      this.aiConnectionStatus.style.color = '#38bdf8';
+    }
+    try {
+      const res = await fetch('/api/ai/test-connection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider })
+      });
+      const data = await res.json();
+      if (this.aiConnectionStatus) {
+        if (data.ok) {
+          this.aiConnectionStatus.textContent = `✓ Connected: ${data.message || 'Operational'}`;
+          this.aiConnectionStatus.style.color = '#34d399';
+        } else {
+          this.aiConnectionStatus.textContent = `✕ ${data.status || 'Failed'}: ${data.message || 'Connection failed'}`;
+          this.aiConnectionStatus.style.color = '#f87171';
+        }
+      }
+    } catch (err) {
+      if (this.aiConnectionStatus) {
+        this.aiConnectionStatus.textContent = `✕ Error: ${err.message}`;
+        this.aiConnectionStatus.style.color = '#f87171';
+      }
+    }
+  }
+
+  async saveAiSettings() {
+    const provider = this.aiSettingProviderSelect?.value || 'offline-heuristic';
+    const endpoint = this.aiSettingEndpoint?.value || '';
+    const model = this.aiSettingModel?.value || '';
+    const apiKey = this.aiSettingApiKey?.value || '';
+
+    const payload = {
+      activeProvider: provider,
+      includeCurrentFile: this.aiSettingIncludeFile?.checked,
+      includeDiagnostics: this.aiSettingIncludeDiags?.checked,
+      includeWorkspaceContext: this.aiSettingIncludeWorkspace?.checked,
+      provider,
+      config: { endpoint, model, apiKey }
+    };
+
+    try {
+      const res = await fetch('/api/ai/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        const data = await res.json();
+        this.currentAiSettings = data.settings;
+        const activeStatus = data.settings?.activeStatus;
+        this.updateAiProviderBadge(provider, activeStatus?.displayName, activeStatus?.model);
+        if (this.modalAiSettings) this.modalAiSettings.style.display = 'none';
+      }
+    } catch (err) {
+      alert(`Failed to save AI settings: ${err.message}`);
+    }
+  }
+
+  proposeAiPatch(originalSource, lineNum, fixedLine, explanation) {
+    const lines = originalSource.split('\n');
+    const oldLine = lines[lineNum - 1] || '';
+    const diffText = `--- Original (Line ${lineNum})\n- ${oldLine}\n+++ Proposed AI Fix\n+ ${fixedLine}`;
+
+    lines[lineNum - 1] = fixedLine;
+    const patchedSource = lines.join('\n');
+
+    this.currentPendingPatch = {
+      line: lineNum,
+      oldLine,
+      fixedLine,
+      patchedSource
+    };
+
+    if (this.aiPatchDiffPreview && this.aiPatchReviewCard) {
+      this.aiPatchDiffPreview.textContent = diffText;
+      this.aiPatchReviewCard.style.display = 'block';
+    }
+  }
+
+  applyPendingAiPatch() {
+    if (!this.currentPendingPatch || !this.sourceEditor) return;
+    this.sourceEditor.value = this.currentPendingPatch.patchedSource;
+    this.sourceEditor.dispatchEvent(new Event('input', { bubbles: true }));
+    this.rejectPendingAiPatch();
+    this.appendAiChatMessage('assistant', '✓ Applied proposed AI patch to source code.');
+  }
+
+  rejectPendingAiPatch() {
+    this.currentPendingPatch = null;
+    if (this.aiPatchReviewCard) this.aiPatchReviewCard.style.display = 'none';
+  }
+
+  appendAiChatMessage(role, text, provider) {
+    if (!this.aiChatMessages) return;
+
+    const msgDiv = document.createElement('div');
+    msgDiv.className = `ai-msg ai-msg-${role}`;
+    msgDiv.style.display = 'flex';
+    msgDiv.style.flexDirection = 'column';
+    msgDiv.style.gap = '4px';
+    msgDiv.style.padding = '8px 12px';
+    msgDiv.style.borderRadius = '6px';
+    msgDiv.style.background = role === 'user' ? '#1e293b' : '#0f172a';
+    msgDiv.style.border = role === 'user' ? '1px solid #334155' : '1px solid rgba(255,255,255,0.06)';
+
+    const roleHeader = document.createElement('div');
+    roleHeader.style.display = 'flex';
+    roleHeader.style.alignItems = 'center';
+    roleHeader.style.justifyContent = 'space-between';
+    roleHeader.style.fontSize = '10px';
+    roleHeader.style.fontWeight = '700';
+    roleHeader.style.color = role === 'user' ? '#93c5fd' : '#34d399';
+
+    roleHeader.innerHTML = `
+      <span>${role === 'user' ? '👤 You' : '✨ Otter Copilot'}</span>
+      ${provider && provider !== 'offline-heuristic' ? `<span style="color: #64748b; font-weight: normal;">via ${provider}</span>` : ''}
+    `;
+
+    const bodyDiv = document.createElement('div');
+    bodyDiv.style.whiteSpace = 'pre-wrap';
+    bodyDiv.style.lineHeight = '1.5';
+    bodyDiv.textContent = text;
+
+    msgDiv.appendChild(roleHeader);
+    msgDiv.appendChild(bodyDiv);
     this.aiChatMessages.appendChild(msgDiv);
     this.aiChatMessages.scrollTop = this.aiChatMessages.scrollHeight;
   }
-
 }
-
