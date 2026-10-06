@@ -3,16 +3,24 @@ import { OpenAiProvider } from './providers/openai-provider.js';
 import { AnthropicProvider } from './providers/anthropic-provider.js';
 import { OpenAiCompatibleProvider } from './providers/openai-compatible-provider.js';
 import { ContextManager } from './context-manager.js';
+import { AiTelemetryManager } from './telemetry.js';
+import { InlineCompletionEngine } from './inline-completion.js';
+import { OtterCodeValidator } from './code-validator.js';
 
 export class AiProviderManager {
   constructor(initialSettings = {}) {
     this.contextManager = new ContextManager();
+    this.telemetry = new AiTelemetryManager();
+    this.inlineCompletion = new InlineCompletionEngine();
+    this.validator = OtterCodeValidator;
+
     this.activeProviderName = initialSettings.activeProvider || 'offline-heuristic';
     this.settings = {
       activeProvider: this.activeProviderName,
       includeCurrentFile: initialSettings.includeCurrentFile !== false,
       includeDiagnostics: initialSettings.includeDiagnostics !== false,
       includeWorkspaceContext: Boolean(initialSettings.includeWorkspaceContext),
+      inlineCompletionsEnabled: initialSettings.inlineCompletionsEnabled !== false,
       providers: {
         'offline-heuristic': {},
         'openai': { endpoint: 'https://api.openai.com/v1', model: 'gpt-4o-mini', apiKey: '' },
@@ -45,7 +53,6 @@ export class AiProviderManager {
     // Only update apiKey if a non-masked string was sent
     if (config.apiKey !== undefined) {
       if (config.apiKey.startsWith('••••') || config.apiKey === '') {
-        // keep existing if masked placeholder
         if (config.apiKey === '') {
           this.settings.providers[name].apiKey = '';
         }
@@ -99,6 +106,7 @@ export class AiProviderManager {
       includeCurrentFile: this.settings.includeCurrentFile,
       includeDiagnostics: this.settings.includeDiagnostics,
       includeWorkspaceContext: this.settings.includeWorkspaceContext,
+      inlineCompletionsEnabled: this.settings.inlineCompletionsEnabled,
       providers: publicProviders
     };
   }

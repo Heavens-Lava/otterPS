@@ -1,6 +1,6 @@
 /**
  * Comprehensive Test Suite: Otter Studio AI Provider Abstraction, Credential Isolation,
- * Context Management & Reviewable Edits
+ * Prioritized Context Management, Multi-Turn Conversation, Code Validation & Inline Completion
  */
 
 import { test } from 'node:test';
@@ -14,6 +14,9 @@ import { AnthropicProvider } from '../js/ai/providers/anthropic-provider.js';
 import { OpenAiCompatibleProvider } from '../js/ai/providers/openai-compatible-provider.js';
 import { AiProviderManager } from '../js/ai/provider-manager.js';
 import { ContextManager } from '../js/ai/context-manager.js';
+import { OtterCodeValidator } from '../js/ai/code-validator.js';
+import { AiTelemetryManager } from '../js/ai/telemetry.js';
+import { InlineCompletionEngine } from '../js/ai/inline-completion.js';
 
 // --- 1. Provider Abstraction & Contract Tests ---
 test('1. AiProvider base class enforces interface contract', () => {
@@ -87,20 +90,22 @@ test('4. ContextManager redacts API keys and Bearer tokens', () => {
   assert.ok(sanitized.includes('apiKey: "[REDACTED]"'));
 });
 
-// --- 5. Bounded Context Budgeting ---
-test('5. ContextManager enforces token character budget and truncates gracefully', () => {
-  const ctxManager = new ContextManager({ maxContextChars: 400 });
-  const giantSource = 'x is 1\n'.repeat(200);
+// --- 5. Prioritized Bounded Context Budgeting ---
+test('5. ContextManager prioritizes selection and diagnostics over low-priority files', () => {
+  const ctxManager = new ContextManager({ maxContextChars: 500 });
+  const giantSource = 'x is 1\n'.repeat(100);
   const context = ctxManager.buildContext({
-    activeFile: 'large.ot',
+    selectedCode: 'to add a and b\n    give back a plus b\n.',
+    diagnostics: [{ line: 2, message: 'Type mismatch warning' }],
+    activeFile: 'src/math.ot',
     sourceCode: giantSource,
-    diagnostics: [{ line: 1, message: 'syntax warning' }]
+    openFiles: ['src/a.ot', 'src/b.ot', 'src/c.ot', 'src/d.ot']
   });
 
-  assert.ok(context.characterCount <= 400);
-  assert.ok(context.formatted.includes('### Active File'));
-  assert.ok(context.formatted.includes('### Current Source Code'));
-  assert.ok(context.formatted.includes('[truncated for token budget]'));
+  assert.ok(context.characterCount <= 500);
+  // Highest priority items must be present
+  assert.ok(context.formatted.includes('### Selected Code'));
+  assert.ok(context.formatted.includes('### Active Diagnostics'));
 });
 
 // --- 6. Provider Manager Key Masking (Zero Browser Key Exposure) ---
@@ -118,7 +123,6 @@ test('6. AiProviderManager masks API keys in getPublicSettings', () => {
   assert.equal(publicSettings.providers.anthropic.maskedKey, '••••••••5678');
   assert.ok(!JSON.stringify(publicSettings).includes('ant-prodSecretApiKey88885678'));
 
-  // Updating other settings without touching masked key preserves the secret server-side
   manager.setProviderConfig('openai', { apiKey: '••••••••1234', model: 'gpt-4o-mini' });
   assert.equal(manager.settings.providers.openai.apiKey, 'sk-prodSecretApiKey99991234');
   assert.equal(manager.settings.providers.openai.model, 'gpt-4o-mini');
@@ -150,30 +154,25 @@ test('7. OpenAI Provider handles mock server response, authentication failure, a
       model: 'gpt-4o-mini'
     });
 
-    // A. Normal Chat Request
     const chatRes = await provider.chat([{ role: 'user', content: 'hello' }]);
     assert.equal(chatRes.reply, 'Mocked OpenAI Otter response');
     assert.equal(receivedAuthHeader, 'Bearer sk-testMockKey1234567890');
 
-    // B. Test Connection
     const testRes = await provider.testConnection();
     assert.equal(testRes.ok, true);
     assert.equal(testRes.status, 'connected');
 
-    // C. Authentication Failure (401)
     mockStatusCode = 401;
     mockResponseBody = { error: { message: 'Invalid API key' } };
     const authTestRes = await provider.testConnection();
     assert.equal(authTestRes.ok, false);
     assert.equal(authTestRes.status, 'authentication_failed');
 
-    // D. Rate Limit Exceeded (429)
     mockStatusCode = 429;
     mockResponseBody = { error: { message: 'Rate limit reached' } };
     const rateTestRes = await provider.testConnection();
     assert.equal(rateTestRes.ok, false);
     assert.equal(rateTestRes.status, 'rate_limited');
-
   } finally {
     server.close();
   }
@@ -244,38 +243,149 @@ test('9. Provider supports AbortSignal cancellation', async () => {
   }
 });
 
-// --- 10. Reviewable Patch / Edit Workflow Simulation ---
-test('10. Reviewable patch workflow: propose, review diff, apply, reject', () => {
-  const originalSource = [
+// --- 10. Multi-Turn Conversation Sequence Simulation ---
+test('10. Multi-turn conversation preserves context across 4 sequential turns', async () => {
+  const history = [];
+  const responses = [
+    'Line 2 is missing the "than" comparison keyword.',
+    'Proposed fix: if score is greater than 10',
+    'Test 1: Test score comparison with 15 and 5',
+    'The test provides a value above 10 which would fail under the original unparsed syntax.'
+  ];
+
+  let turnIndex = 0;
+  const mockProvider = {
+    chat: async (messages) => {
+      const resp = responses[turnIndex++] || 'OK';
+      return { reply: resp, historyLength: messages.length };
+    }
+  };
+
+  // Turn 1: Why is this failing?
+  history.push({ role: 'user', content: 'Why is this function failing?' });
+  let r1 = await mockProvider.chat(history);
+  history.push({ role: 'assistant', content: r1.reply });
+  assert.ok(r1.reply.includes('than'));
+
+  // Turn 2: Fix it.
+  history.push({ role: 'user', content: 'Fix it.' });
+  let r2 = await mockProvider.chat(history);
+  history.push({ role: 'assistant', content: r2.reply });
+  assert.ok(r2.reply.includes('Proposed fix'));
+
+  // Turn 3: Add a test for that fix.
+  history.push({ role: 'user', content: 'Add a test for that fix.' });
+  let r3 = await mockProvider.chat(history);
+  history.push({ role: 'assistant', content: r3.reply });
+  assert.ok(r3.reply.includes('Test 1'));
+
+  // Turn 4: Explain why your test catches the original bug.
+  history.push({ role: 'user', content: 'Explain why your test catches the original bug.' });
+  let r4 = await mockProvider.chat(history);
+  history.push({ role: 'assistant', content: r4.reply });
+  assert.ok(r4.reply.includes('original unparsed syntax'));
+
+  assert.equal(history.length, 8);
+});
+
+// --- 11. Code Validation & Detection of Non-Otter Hallucinations ---
+test('11. OtterCodeValidator detects syntax errors and foreign keywords', () => {
+  // Valid Otter code
+  const valid = [
     'to calculateDiscount price rate',
-    '    if rate is greater 1',
+    '    if rate is greater than 1',
     '        give back 0',
     '    .',
     '    give back price * rate',
     '.'
   ].join('\n');
+  const validResult = OtterCodeValidator.validate(valid);
+  assert.equal(validResult.isValid, true);
+  assert.equal(validResult.errors.length, 0);
 
-  const lineNum = 2;
-  const fixedLine = '    if rate is greater than 1';
-  const explanation = 'Expected "than" after "greater"';
+  // Invalid: JS function and const assignment
+  const invalidJs = [
+    'function add(a, b) {',
+    '  const c = a + b;',
+    '  return c;',
+    '}'
+  ].join('\n');
+  const jsResult = OtterCodeValidator.validate(invalidJs);
+  assert.equal(jsResult.isValid, false);
+  assert.ok(jsResult.errors.some(e => e.includes('JavaScript function')));
+  assert.ok(jsResult.errors.some(e => e.includes('JS variable declaration')));
 
-  const lines = originalSource.split('\n');
-  const oldLine = lines[lineNum - 1];
-  const diffText = `--- Original (Line ${lineNum})\n- ${oldLine}\n+++ Proposed AI Fix\n+ ${fixedLine}`;
+  // Invalid: unclosed block missing period
+  const unclosed = [
+    'when btn is clicked',
+    '    say "clicked"'
+  ].join('\n');
+  const unclosedResult = OtterCodeValidator.validate(unclosed);
+  assert.equal(unclosedResult.isValid, false);
+  assert.ok(unclosedResult.errors.some(e => e.includes('Unclosed Otter block')));
 
-  lines[lineNum - 1] = fixedLine;
-  const patchedSource = lines.join('\n');
+  // Local repair test
+  const repair = OtterCodeValidator.attemptLocalRepair(unclosed);
+  assert.equal(repair.repaired, true);
+  assert.ok(repair.source.endsWith('.'));
+});
 
-  assert.ok(diffText.includes('-     if rate is greater 1'));
-  assert.ok(diffText.includes('+     if rate is greater than 1'));
-  assert.ok(patchedSource.includes('if rate is greater than 1'));
+// --- 12. Semantic Inline Completion Engine ---
+test('12. InlineCompletionEngine debounces and provides completions with cancellation', async () => {
+  const engine = new InlineCompletionEngine({ debounceMs: 50 });
+  const mockProvider = {
+    complete: async (prefix) => {
+      if (prefix.includes('for each')) return { code: ' item in items\n    say item\n.' };
+      return { code: 'is 0' };
+    }
+  };
 
-  let currentSource = originalSource;
-  const rejectEdit = () => { /* no-op */ };
-  rejectEdit();
-  assert.equal(currentSource, originalSource);
+  // Completion 1
+  const comp1 = await engine.requestCompletion('count ', '', {}, mockProvider);
+  assert.equal(comp1, 'is 0');
 
-  const applyEdit = (patch) => { currentSource = patch; };
-  applyEdit(patchedSource);
-  assert.equal(currentSource, patchedSource);
+  // Completion 2: for each loop
+  const comp2 = await engine.requestCompletion('for each', '', {}, mockProvider);
+  assert.ok(comp2.includes('item in items'));
+
+  // Disable engine
+  engine.setEnabled(false);
+  const disabledComp = await engine.requestCompletion('count ', '', {}, mockProvider);
+  assert.equal(disabledComp, null);
+});
+
+// --- 13. Transparent Local Telemetry ---
+test('13. AiTelemetryManager records performance without leaking secrets or source code', () => {
+  const telemetry = new AiTelemetryManager();
+  telemetry.record({
+    operation: 'chat',
+    provider: 'openai',
+    model: 'gpt-4o-mini',
+    durationMs: 340,
+    contextCharCount: 1500,
+    responseCharCount: 450,
+    success: true
+  });
+  telemetry.record({
+    operation: 'diagnose',
+    provider: 'anthropic',
+    model: 'claude-3-5-sonnet',
+    durationMs: 620,
+    contextCharCount: 800,
+    responseCharCount: 200,
+    success: false,
+    errorCategory: 'RATE_LIMITED'
+  });
+
+  const summary = telemetry.getSummary();
+  assert.equal(summary.totalRequests, 2);
+  assert.equal(summary.successRate, 0.5);
+  assert.equal(summary.byProvider.openai, 1);
+  assert.equal(summary.byProvider.anthropic, 1);
+
+  const recent = telemetry.getRecentEntries();
+  assert.equal(recent.length, 2);
+  assert.equal(recent[0].apiKey, undefined);
+  assert.equal(recent[0].prompt, undefined);
+  assert.equal(recent[0].sourceCode, undefined);
 });

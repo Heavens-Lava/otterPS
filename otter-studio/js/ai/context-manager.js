@@ -1,11 +1,23 @@
 /**
  * Otter Studio Controlled Context Manager
- * Builds bounded, sanitized IDE context for AI prompts without dumping giant workspaces
- * or leaking credentials.
+ * Builds prioritized, bounded, sanitized IDE context for AI prompts.
+ * Prioritization order:
+ * 1. Selected code / cursor snippet (highest)
+ * 2. Surrounding function/block
+ * 3. Active diagnostics
+ * 4. Active file
+ * 5. Relevant symbols & project manifest
+ * 6. Conversation history
  */
 export class ContextManager {
   constructor(options = {}) {
-    this.maxContextChars = options.maxContextChars || 6000;
+    this.maxContextChars = options.maxContextChars || 12000;
+  }
+
+  setBudget(chars) {
+    if (typeof chars === 'number' && chars > 500) {
+      this.maxContextChars = chars;
+    }
   }
 
   /**
@@ -13,7 +25,6 @@ export class ContextManager {
    */
   sanitizeSecrets(text) {
     if (typeof text !== 'string') return text;
-    // Redact common API key patterns (OpenAI, Anthropic, generic bearer tokens)
     return text
       .replace(/sk-[a-zA-Z0-9_-]{20,}/g, '[REDACTED_API_KEY]')
       .replace(/ant-[a-zA-Z0-9_-]{20,}/g, '[REDACTED_API_KEY]')
@@ -22,79 +33,102 @@ export class ContextManager {
   }
 
   /**
-   * Builds bounded context from provided IDE inputs
+   * Builds bounded, prioritized context from provided IDE inputs
    */
-  buildContext(input = {}) {
+  buildContext(input = {}, budgetOverride = null) {
+    const budget = budgetOverride || this.maxContextChars;
     const {
-      activeFile = null,
       selectedCode = null,
-      sourceCode = null,
+      surroundingBlock = null,
       diagnostics = [],
-      openFiles = [],
-      projectManifest = null,
       compilerErrors = [],
       testFailures = [],
+      activeFile = null,
+      sourceCode = null,
+      symbols = [],
+      projectManifest = null,
+      openFiles = [],
       languageDocs = null,
+      conversationHistory = []
     } = input;
+
+    // Prioritized candidate list: [title, content, priorityWeight]
+    const candidates = [];
+
+    // Priority 1: Selected code or active cursor block
+    if (selectedCode && selectedCode.trim()) {
+      candidates.push({ title: 'Selected Code', content: selectedCode });
+    }
+    if (surroundingBlock && surroundingBlock.trim()) {
+      candidates.push({ title: 'Surrounding Function / Block', content: surroundingBlock });
+    }
+
+    // Priority 2: Diagnostics & errors
+    if (diagnostics && diagnostics.length > 0) {
+      candidates.push({ title: 'Active Diagnostics', content: diagnostics.slice(0, 5) });
+    }
+    if (compilerErrors && compilerErrors.length > 0) {
+      candidates.push({ title: 'Compiler / Build Errors', content: compilerErrors.slice(0, 3) });
+    }
+    if (testFailures && testFailures.length > 0) {
+      candidates.push({ title: 'Test Failures', content: testFailures.slice(0, 3) });
+    }
+
+    // Priority 3: Active file and source
+    if (activeFile) {
+      candidates.push({ title: 'Active File Path', content: activeFile });
+    }
+    if (sourceCode && sourceCode.trim() && !selectedCode) {
+      candidates.push({ title: 'Current Source Code', content: sourceCode });
+    }
+
+    // Priority 4: Symbols & Project manifest
+    if (symbols && symbols.length > 0) {
+      candidates.push({ title: 'Relevant Symbols', content: symbols.slice(0, 10).map(s => s.name || s).join(', ') });
+    }
+    if (projectManifest) {
+      candidates.push({ title: 'Project Manifest', content: projectManifest });
+    }
+    if (openFiles && openFiles.length > 0) {
+      candidates.push({ title: 'Open Files in Workspace', content: openFiles.map(f => typeof f === 'string' ? f : f.name || f.path).join(', ') });
+    }
+    if (languageDocs) {
+      candidates.push({ title: 'Language Notes', content: languageDocs });
+    }
+
+    // Priority 5: Bounded recent conversation context
+    if (conversationHistory && conversationHistory.length > 0) {
+      const recent = conversationHistory.slice(-4).map(m => `[${m.role}]: ${m.content}`).join('\n');
+      candidates.push({ title: 'Recent Conversation', content: recent });
+    }
 
     const sections = [];
     let currentLength = 0;
 
-    const addSection = (title, content) => {
-      if (!content) return;
-      const sanitized = this.sanitizeSecrets(typeof content === 'string' ? content : JSON.stringify(content, null, 2));
-      const sectionText = `### ${title}\n${sanitized}\n`;
-      if (currentLength + sectionText.length <= this.maxContextChars) {
+    for (const item of candidates) {
+      if (!item.content) continue;
+      const rawText = typeof item.content === 'string' ? item.content : JSON.stringify(item.content, null, 2);
+      const sanitized = this.sanitizeSecrets(rawText);
+      const sectionText = `### ${item.title}\n${sanitized}\n`;
+
+      if (currentLength + sectionText.length <= budget) {
         sections.push(sectionText);
         currentLength += sectionText.length;
       } else {
-        const remaining = Math.max(0, this.maxContextChars - currentLength - title.length - 20);
-        if (remaining > 50) {
-          sections.push(`### ${title}\n${sanitized.slice(0, remaining)}\n... [truncated for token budget]\n`);
+        const remaining = Math.max(0, budget - currentLength - item.title.length - 25);
+        if (remaining > 60) {
+          sections.push(`### ${item.title}\n${sanitized.slice(0, remaining)}\n... [truncated for context budget]\n`);
           currentLength += remaining;
         }
+        break; // Stop adding lower priority sections once budget is exhausted
       }
-    };
-
-    if (activeFile) {
-      addSection('Active File', activeFile);
-    }
-
-    if (selectedCode) {
-      addSection('Selected Code', selectedCode);
-    } else if (sourceCode) {
-      addSection('Current Source Code', sourceCode);
-    }
-
-    if (diagnostics && diagnostics.length > 0) {
-      addSection('Active Diagnostics', diagnostics.slice(0, 5));
-    }
-
-    if (compilerErrors && compilerErrors.length > 0) {
-      addSection('Compiler / Build Errors', compilerErrors.slice(0, 3));
-    }
-
-    if (testFailures && testFailures.length > 0) {
-      addSection('Test Failures', testFailures.slice(0, 3));
-    }
-
-    if (projectManifest) {
-      addSection('Project Manifest', projectManifest);
-    }
-
-    if (openFiles && openFiles.length > 0) {
-      addSection('Open Files', openFiles.map(f => typeof f === 'string' ? f : f.name || f.path).join(', '));
-    }
-
-    if (languageDocs) {
-      addSection('Relevant Language Notes', languageDocs);
     }
 
     return {
       formatted: sections.join('\n'),
       sectionCount: sections.length,
       characterCount: currentLength,
-      budget: this.maxContextChars
+      budget
     };
   }
 }

@@ -3929,6 +3929,10 @@ const server = http.createServer(async (req, res) => {
       if (body.includeWorkspaceContext !== undefined) {
         aiProviderManager.settings.includeWorkspaceContext = Boolean(body.includeWorkspaceContext);
       }
+      if (body.inlineCompletionsEnabled !== undefined) {
+        aiProviderManager.settings.inlineCompletionsEnabled = Boolean(body.inlineCompletionsEnabled);
+        aiProviderManager.inlineCompletion.setEnabled(aiProviderManager.settings.inlineCompletionsEnabled);
+      }
       sendJson(res, { ok: true, settings: aiProviderManager.getPublicSettings() });
     } catch (err) {
       sendJson(res, { ok: false, error: err.message }, 500);
@@ -3936,23 +3940,64 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  if (pathname === '/api/ai/test-connection' && req.method === 'POST') {
+  if (pathname === '/api/ai/telemetry' && req.method === 'GET') {
+    try {
+      sendJson(res, {
+        ok: true,
+        summary: aiProviderManager.telemetry.getSummary(),
+        recent: aiProviderManager.telemetry.getRecentEntries(25)
+      });
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/ai/validate-code' && req.method === 'POST') {
     try {
       const body = await readBody(req);
-      const result = await aiProviderManager.testConnection(body.provider);
+      const validation = aiProviderManager.validator.validate(body.source || '');
+      sendJson(res, { ok: true, ...validation });
+    } catch (err) {
+      sendJson(res, { ok: false, error: err.message }, 500);
+    }
+    return;
+  }
+
+  if (pathname === '/api/ai/test-connection' && req.method === 'POST') {
+    const startTime = Date.now();
+    try {
+      const body = await readBody(req);
+      const providerName = body.provider || aiProviderManager.activeProviderName;
+      const result = await aiProviderManager.testConnection(providerName);
+      aiProviderManager.telemetry.record({
+        operation: 'test-connection',
+        provider: providerName,
+        model: result.model || 'default',
+        durationMs: Date.now() - startTime,
+        success: Boolean(result.ok)
+      });
       sendJson(res, result);
     } catch (err) {
+      aiProviderManager.telemetry.record({
+        operation: 'test-connection',
+        provider: 'unknown',
+        durationMs: Date.now() - startTime,
+        success: false,
+        errorCategory: err.code || 'CONNECTION_FAILED'
+      });
       sendJson(res, { ok: false, status: 'connection_failed', message: err.message }, 500);
     }
     return;
   }
 
   if (pathname === '/api/ai/chat' && req.method === 'POST') {
+    const startTime = Date.now();
     try {
       const body = await readBody(req);
       const provider = aiProviderManager.getActiveProvider();
       const context = body.context || {};
-      const contextFormatted = aiProviderManager.contextManager.buildContext(context).formatted;
+      const contextData = aiProviderManager.contextManager.buildContext(context);
 
       let messages = [];
       if (Array.isArray(body.messages) && body.messages.length > 0) {
@@ -3961,27 +4006,70 @@ const server = http.createServer(async (req, res) => {
         messages = [{ role: 'user', content: body.message || body.prompt || '' }];
       }
 
-      const result = await provider.chat(messages, { context, contextFormatted });
+      const result = await provider.chat(messages, { context, contextFormatted: contextData.formatted });
+
+      aiProviderManager.telemetry.record({
+        operation: 'chat',
+        provider: provider.name,
+        model: provider.model || 'default',
+        durationMs: Date.now() - startTime,
+        contextCharCount: contextData.characterCount,
+        responseCharCount: (result.reply || '').length,
+        success: true
+      });
+
       sendJson(res, {
         ok: true,
         isPrototype: provider.name === 'offline-heuristic',
         provider: provider.name,
         displayName: provider.displayName,
+        model: provider.model,
         ...result
       });
     } catch (err) {
+      aiProviderManager.telemetry.record({
+        operation: 'chat',
+        provider: aiProviderManager.activeProviderName,
+        durationMs: Date.now() - startTime,
+        success: false,
+        errorCategory: err.code || 'CHAT_ERROR',
+        wasCancelled: err.name === 'AbortError'
+      });
       sendJson(res, { ok: false, error: err.message }, 500);
     }
     return;
   }
 
   if (pathname === '/api/ai/synthesize-code' && req.method === 'POST') {
+    const startTime = Date.now();
     try {
       const body = await readBody(req);
       const provider = aiProviderManager.getActiveProvider();
       const context = body.context || {};
       const result = await provider.synthesizeCode(body.prompt || '', context);
-      sendJson(res, { ok: true, isPrototype: provider.name === 'offline-heuristic', ...result });
+
+      // Validate generated Otter source
+      const rawCode = result.code || '';
+      const validation = aiProviderManager.validator.validate(rawCode);
+
+      aiProviderManager.telemetry.record({
+        operation: 'synthesize-code',
+        provider: provider.name,
+        model: provider.model || 'default',
+        durationMs: Date.now() - startTime,
+        responseCharCount: rawCode.length,
+        success: true
+      });
+
+      sendJson(res, {
+        ok: true,
+        isPrototype: provider.name === 'offline-heuristic',
+        provider: provider.name,
+        displayName: provider.displayName,
+        model: provider.model,
+        validation,
+        ...result
+      });
     } catch (err) {
       sendJson(res, { ok: false, error: err.message }, 500);
     }
@@ -4000,11 +4088,21 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (pathname === '/api/ai/fix-diagnostics' && req.method === 'POST') {
+    const startTime = Date.now();
     try {
       const body = await readBody(req);
       const provider = aiProviderManager.getActiveProvider();
       const result = await provider.diagnose(body.diagnostics || [], body.source || '', body.context || {});
       const legacyFixes = aiAssistant.analyzeDiagnosticsAndSuggestFixes(body.diagnostics || [], body.source || '');
+
+      aiProviderManager.telemetry.record({
+        operation: 'fix-diagnostics',
+        provider: provider.name,
+        model: provider.model || 'default',
+        durationMs: Date.now() - startTime,
+        success: true
+      });
+
       sendJson(res, { ok: true, isPrototype: provider.name === 'offline-heuristic', fixes: legacyFixes, ...result });
     } catch (err) {
       sendJson(res, { ok: false, error: err.message }, 500);
@@ -4013,12 +4111,32 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (pathname === '/api/ai/generate-tests' && req.method === 'POST') {
+    const startTime = Date.now();
     try {
       const body = await readBody(req);
       const provider = aiProviderManager.getActiveProvider();
       const result = await provider.generateTests(body.source || '', { moduleName: body.moduleName || 'module', ...body.context });
       const legacySuite = aiAssistant.generateTestSuites(body.source || '', body.moduleName || 'module');
-      sendJson(res, { ok: true, isPrototype: provider.name === 'offline-heuristic', testSuite: legacySuite, ...result });
+
+      const testCode = result.testCode || legacySuite || '';
+      const validation = aiProviderManager.validator.validate(testCode);
+
+      aiProviderManager.telemetry.record({
+        operation: 'generate-tests',
+        provider: provider.name,
+        model: provider.model || 'default',
+        durationMs: Date.now() - startTime,
+        responseCharCount: testCode.length,
+        success: true
+      });
+
+      sendJson(res, {
+        ok: true,
+        isPrototype: provider.name === 'offline-heuristic',
+        testSuite: legacySuite,
+        validation,
+        ...result
+      });
     } catch (err) {
       sendJson(res, { ok: false, error: err.message }, 500);
     }
@@ -4026,11 +4144,21 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (pathname === '/api/ai/explain' && req.method === 'POST') {
+    const startTime = Date.now();
     try {
       const body = await readBody(req);
       const provider = aiProviderManager.getActiveProvider();
       const result = await provider.explain(body.source || '', body.context || {});
       const legacyExplanation = aiAssistant.explainCode(body.source || '');
+
+      aiProviderManager.telemetry.record({
+        operation: 'explain',
+        provider: provider.name,
+        model: provider.model || 'default',
+        durationMs: Date.now() - startTime,
+        success: true
+      });
+
       sendJson(res, { ok: true, isPrototype: provider.name === 'offline-heuristic', explanation: legacyExplanation, ...result });
     } catch (err) {
       sendJson(res, { ok: false, error: err.message }, 500);
@@ -4039,12 +4167,32 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (pathname === '/api/ai/completions' && req.method === 'POST') {
+    const startTime = Date.now();
     try {
       const body = await readBody(req);
       const provider = aiProviderManager.getActiveProvider();
       const completions = aiAssistant.semanticInlineCompletions(body.prefix || '', body.suffix || '', body.context || {});
-      const result = await provider.complete(body.prefix || '', body.context || {});
-      sendJson(res, { ok: true, isPrototype: provider.name === 'offline-heuristic', completions, completion: result });
+      const inlineCode = await aiProviderManager.inlineCompletion.requestCompletion(
+        body.prefix || '',
+        body.suffix || '',
+        body.context || {},
+        provider
+      );
+
+      aiProviderManager.telemetry.record({
+        operation: 'completions',
+        provider: provider.name,
+        model: provider.model || 'default',
+        durationMs: Date.now() - startTime,
+        success: true
+      });
+
+      sendJson(res, {
+        ok: true,
+        isPrototype: provider.name === 'offline-heuristic',
+        completions,
+        inlineSuggestion: inlineCode
+      });
     } catch (err) {
       sendJson(res, { ok: false, error: err.message }, 500);
     }
