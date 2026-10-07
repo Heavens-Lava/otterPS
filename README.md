@@ -207,6 +207,6 @@ Created by **Jeffrey Macy**.
 
 ## License
 
-Otter is distributed under the **Otter Free Use License Version 1.0**.
+Otter is distributed under the **Otter Free Use License Version 1.1**.
 
 Free to download, use, and build commercial applications with. See [LICENSE](LICENSE) for complete terms.

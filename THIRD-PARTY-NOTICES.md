@@ -15,7 +15,7 @@ All core execution components, including:
 - The portable JavaScript compiler
 - The CLI launcher shim and installation scripts
 
-are original, first-party software copyright © 2026 Jeffrey Macy, licensed under the [Otter Free Use License Version 1.0](LICENSE).
+are original, first-party software copyright © 2026 Jeffrey Macy, licensed under the [Otter Free Use License Version 1.1](LICENSE).
 
 ---
 
