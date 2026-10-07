@@ -332,6 +332,8 @@ function Invoke-OtterSource {
 # engine ran and why. Returns $true when the compiled engine ran the program.
 $script:OtterCompiledRunAllowed = $false
 $script:OtterRunArguments = @()
+$script:OtterRunSourcePath = $null
+$script:OtterRunSingleFile = $false
 
 function Get-OtterCompiledCacheDirectory {
     $base = $null
@@ -348,6 +350,61 @@ function Get-OtterCompiledCacheDirectory {
 function Write-OtterEngineTrace {
     param([string]$Text)
     if ($env:OTTER_ENGINE_TRACE -eq '1') { [Console]::Error.WriteLine("otter engine: $Text") }
+}
+
+# Size and last-write time of every file that shapes a compiled program; the
+# launcher computes the same value (OtterLauncher.ToolchainFingerprint), so an
+# edited or upgraded Otter never runs an old compiled program.
+function Get-OtterToolchainFingerprint {
+    $root = [System.IO.Path]::GetFullPath($PSScriptRoot).TrimEnd('\', '/')
+    $files = [System.Collections.Generic.List[string]]::new()
+    foreach ($name in @('otter.ps1', 'Otter.Contract.psm1', 'VERSION')) { $files.Add((Join-Path $root $name)) }
+    $src = Join-Path $root 'src'
+    if (Test-Path -LiteralPath $src) {
+        foreach ($f in [System.IO.Directory]::GetFiles($src, '*', [System.IO.SearchOption]::AllDirectories)) {
+            $ext = [System.IO.Path]::GetExtension($f).ToLowerInvariant()
+            if ($ext -eq '.psm1' -or $ext -eq '.cs') { $files.Add($f) }
+        }
+    }
+    $parts = [System.Collections.Generic.List[string]]::new()
+    foreach ($f in $files) {
+        $relative = [System.IO.Path]::GetFullPath($f).Substring($root.Length + 1).Replace('\', '/').ToLowerInvariant()
+        $info = [System.IO.FileInfo]::new($f)
+        if ($info.Exists) { $parts.Add("${relative}:$($info.Length):$($info.LastWriteTimeUtc.Ticks)") } else { $parts.Add("${relative}:missing") }
+    }
+    $sorted = $parts.ToArray()
+    [Array]::Sort($sorted, [System.StringComparer]::Ordinal)
+    return (Get-OtterSha256Hex -Bytes ([System.Text.Encoding]::UTF8.GetBytes(($sorted -join "`n"))))
+}
+
+function Get-OtterSha256Hex {
+    param([byte[]]$Bytes)
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try { return (([System.BitConverter]::ToString($sha.ComputeHash($Bytes))) -replace '-', '').ToLowerInvariant() }
+    finally { $sha.Dispose() }
+}
+
+function Write-OtterFastStartEntry {
+    param($Compiled, [string]$SourcePath, [string]$CacheDirectory)
+    $fullPath = [System.IO.Path]::GetFullPath($SourcePath)
+    $key = (Get-OtterSha256Hex -Bytes ([System.Text.Encoding]::UTF8.GetBytes($fullPath.ToLowerInvariant()))).Substring(0, 32)
+    $fastDirectory = Join-Path $CacheDirectory 'fast'
+    [void][System.IO.Directory]::CreateDirectory($fastDirectory)
+    $lines = @(
+        'format=1'
+        "otterVersion=$((Get-Content -LiteralPath (Join-Path $PSScriptRoot 'VERSION') -Raw).Trim())"
+        "toolchain=$(Get-OtterToolchainFingerprint)"
+        "source=$($fullPath.ToLowerInvariant())"
+        "sourceSha256=$(Get-OtterSha256Hex -Bytes ([System.IO.File]::ReadAllBytes($fullPath)))"
+        "assembly=$($Compiled.Type.Assembly.Location)"
+        "runtime=$(([type]'OtterNative.R').Assembly.Location)"
+        "className=$($Compiled.ClassName)"
+    )
+    $target = Join-Path $fastDirectory "$key.entry"
+    $temporary = "$target.$([Guid]::NewGuid().ToString('N')).tmp"
+    [System.IO.File]::WriteAllText($temporary, (($lines -join "`n") + "`n"), [System.Text.UTF8Encoding]::new($false))
+    if (Test-Path -LiteralPath $target) { [System.IO.File]::Delete($target) }
+    [System.IO.File]::Move($temporary, $target)
 }
 
 function Invoke-OtterCompiledProgram {
@@ -382,6 +439,16 @@ function Invoke-OtterCompiledProgram {
     }
 
     Write-OtterEngineTrace "compiled ($($compiled.ClassName))"
+
+    # Fast start (otter.exe, distribution/launcher/OtterLauncher.cs): a program
+    # that needs nothing from PowerShell - one file, no library bridge - can be
+    # run next time straight from the cache, without starting PowerShell. Only
+    # Windows PowerShell 5.1's .NET Framework assemblies suit that launcher.
+    if ($script:OtterRunSourcePath -and $script:OtterRunSingleFile -and $PSVersionTable.PSEdition -eq 'Desktop' -and
+        $compiled.CSharp -notmatch 'R\.Call\(') {
+        try { Write-OtterFastStartEntry -Compiled $compiled -SourcePath $script:OtterRunSourcePath -CacheDirectory $cacheDirectory }
+        catch { Write-OtterEngineTrace "no fast-start entry ($($_.Exception.Message))" }
+    }
     try {
         Invoke-OtterNativeProgram -Compiled $compiled -SourceLines $SourceLines -Arguments $script:OtterRunArguments `
             -Writer { param($line) Write-OtterLine $line }
@@ -535,6 +602,8 @@ function Invoke-OtterFile {
     $script:OtterCompiledRunAllowed = (-not $CheckOnly -and -not $DebugSession -and -not $ProfileSession -and
         -not $ParseOnly -and -not $DebugAst -and $env:OTTER_ENGINE -ne 'interpreter')
     $script:OtterRunArguments = @($Arguments)
+    $script:OtterRunSourcePath = $resolved.Path
+    $script:OtterRunSingleFile = (@($resolvedProgram.LoadedFiles).Count -le 1)
 
     try {
         Invoke-OtterSource -Source $source -Environment $environment -CheckOnly:$CheckOnly

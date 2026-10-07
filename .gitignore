@@ -27,3 +27,6 @@ test-scratch*
 otter-studio/logs/
 otter-studio/test-scratch*
 otter-studio/test-logs/
+
+# otter.exe, the fast-start launcher, is built (tools/Build-OtterLauncher.ps1), never committed.
+/otter.exe

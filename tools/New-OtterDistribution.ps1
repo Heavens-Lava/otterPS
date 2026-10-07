@@ -75,6 +75,11 @@ foreach ($item in @('otter.ps1', 'otter.cmd', 'otter', 'Otter.Contract.psm1', 'V
     }
 }
 Copy-Item -LiteralPath (Join-Path $root 'src') -Destination $stage -Recurse -Force
+# otter.exe, the Windows fast-start launcher (tools/Build-OtterLauncher.ps1),
+# built with the .NET Framework compiler; otter.cmd works without it.
+if (($PSVersionTable.PSEdition -ne 'Core') -or $IsWindows) {
+    & (Join-Path $PSScriptRoot 'Build-OtterLauncher.ps1') -Destination $stage | Out-Null
+}
 $examplesStage = Join-Path $stage 'examples'
 New-Item -ItemType Directory -Path $examplesStage -Force | Out-Null
 foreach ($ex in @('hello.ot', 'csv.ot', 'download.ot', 'cli-arguments.ot', 'conditions.ot', 'objects.ot', 'math.ot', 'files.ot', 'calculator.ot', 'hello-app.ot')) {
