@@ -25,7 +25,7 @@ Release archive: `otter-1.0.0-rc.12.zip`, 436,870 bytes, SHA-256
 | Windows PowerShell 5.1 recursion probe | **Pass**, 24 of 24 cases. | `tools/Test-OtterRecursionProbe.ps1`, PowerShell 5.1.26100.8115 |
 | Desktop (WPF) smoke test | **Pass**, 9 of 9 checks. | `tools/Test-OtterDesktopSmoke.ps1`, PowerShell 5.1.26100.8115 |
 | Linux, this commit | **Pass.** Clean container (PowerShell 7.4.2, Ubuntu 22.04, Node.js 20): the Windows-built archive above unzipped, run directly, installed twice, the project workflow and the built app's `dist/run` run through the installed `otter`, uninstalled; the 24 D120 portable suites and `CompiledRun.Tests.ps1` pass. | Docker Desktop on the release machine, 2026-10-07 |
-| macOS, hands-on | **Pending** on Jeff's Mac (`docs/MACOS_AGENT_TEST.md`, branch `release/rc.11` at rc.12, including the real-download test). | — |
+| macOS, hands-on | **Pass.** macOS 26.1 arm64, PowerShell 7.6.6, at `bb43658` (this commit plus the evidence file): distribution test; documented CLI 28/28; the 25 portable suites including `CompiledRun.Tests.ps1`; the Windows-built archive above extracted with `ditto`, installed, project workflow, built app, uninstalled (25/25); `otter web` opened the default browser; the compiled engine ran the loop program. | `docs/OTTER_MACOS_RESULTS_bb43658.md` |
 | Hands-on project (a person writing Otter by hand) | **Pending**: Jeff. | — |
 | D120 four-host workflow, this commit | **Not run** (GitHub Actions account spending limit). | — |
 | Fresh-machine test (Windows) | **Not run.** | — |
@@ -34,6 +34,11 @@ Speed (this machine, best of three, Windows PowerShell 5.1): `say "hi"` 1.4 s
 on both engines; adding 1 to 20,000 in a loop 6.5 s interpreted, 1.45 s
 compiled; 200,000 steps 1.5 s compiled. Python 3.11 runs both in 0.03 s: most
 of Otter's remaining time is Windows PowerShell starting.
+
+On the Mac (PowerShell 7.6.6, arm64) the same 20,000-step program took 3.9 s
+compiled and 8.7 s interpreted: PowerShell 7 starts more slowly there than
+Windows PowerShell 5.1 does on Windows. Startup is the main Otter 1.1 speed
+work.
 
 All certification records are kept in `otter-certification-records` beside
 the repository.
