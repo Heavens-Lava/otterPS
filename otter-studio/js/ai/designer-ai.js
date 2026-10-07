@@ -20,16 +20,25 @@ export class DesignerAiPlanner {
 
     if (p.includes('settings') || p.includes('preferences') || p.includes('profile')) {
       ops.push(
-        { op: 'create-container', type: 'card', id: 'settingsCard', properties: { width: 420, height: 320, padding: 16, background: '#1e293b' } },
+        { op: 'create-container', type: 'card', id: 'settingsCard', properties: { width: 440, height: 360, padding: 16, background: '#1e293b' } },
         { op: 'create-container', type: 'column', id: 'settingsCol', parentId: 'settingsCard', properties: { spacing: 10 } },
         { op: 'create-control', type: 'heading', id: 'titleHeading', parentId: 'settingsCol', properties: { text: 'Account Settings', level: 2 } },
         { op: 'create-control', type: 'text', id: 'nameLabel', parentId: 'settingsCol', properties: { text: 'Full Name' } },
         { op: 'create-control', type: 'text', id: 'nameInput', parentId: 'settingsCol', properties: { placeholder: 'Enter full name' } },
         { op: 'create-control', type: 'text', id: 'emailLabel', parentId: 'settingsCol', properties: { text: 'Email Address' } },
-        { op: 'create-control', type: 'text', id: 'emailInput', parentId: 'settingsCol', properties: { placeholder: 'Enter email address' } },
+        { op: 'create-control', type: 'text', id: 'emailInput', parentId: 'settingsCol', properties: { placeholder: 'Enter email address' } }
+      );
+
+      if (p.includes('notification') || p.includes('notif') || p.includes('option')) {
+        ops.push(
+          { op: 'create-control', type: 'checkbox', id: 'emailNotifs', parentId: 'settingsCol', properties: { text: 'Enable email notifications', checked: true } }
+        );
+      }
+
+      ops.push(
         { op: 'create-container', type: 'row', id: 'btnRow', parentId: 'settingsCol', properties: { spacing: 8 } },
         { op: 'create-control', type: 'button', id: 'cancelBtn', parentId: 'btnRow', properties: { text: 'Cancel', variant: 'secondary' } },
-        { op: 'create-control', type: 'button', id: 'saveBtn', parentId: 'btnRow', properties: { text: 'Save Settings', variant: 'primary' } }
+        { op: 'create-control', type: 'button', id: 'saveBtn', parentId: 'btnRow', properties: { text: 'Save', variant: 'primary' } }
       );
     } else if (p.includes('login') || p.includes('auth') || p.includes('sign in')) {
       ops.push(
@@ -55,6 +64,52 @@ export class DesignerAiPlanner {
       operations: ops,
       summary: `Generated ${ops.length} structured Designer operations.`
     };
+  }
+
+  /**
+   * Plans from prompt and executes transactionally on uiModel.
+   * Returns a structured result with success flag and operations.
+   */
+  static planAndApply(prompt, uiModel) {
+    try {
+      const plan = this.planFromPrompt(prompt);
+      const applyResult = this.applyPlan(plan, uiModel);
+      return {
+        success: true,
+        operations: plan.operations,
+        summary: plan.summary,
+        createdCount: applyResult.createdCount,
+        createdIds: applyResult.createdIds
+      };
+    } catch (err) {
+      return {
+        success: false,
+        error: err.message,
+        operations: []
+      };
+    }
+  }
+
+  /**
+   * Applies raw operations transactionally to uiModel.
+   * Returns a structured result { success, error } without throwing if used directly.
+   */
+  static applyOperations(operations, uiModel) {
+    try {
+      const result = this.applyPlan({ operations }, uiModel);
+      return {
+        success: true,
+        operations,
+        createdCount: result.createdCount,
+        createdIds: result.createdIds
+      };
+    } catch (err) {
+      return {
+        success: false,
+        error: err.message,
+        operations
+      };
+    }
   }
 
   /**
@@ -91,7 +146,7 @@ export class DesignerAiPlanner {
           case 'create-control': {
             let targetParentId = uiModel.rootId;
             if (op.parentId) {
-              if (uiModel.components.has(op.parentId)) {
+              if (uiModel.components && uiModel.components.has(op.parentId)) {
                 targetParentId = op.parentId;
               } else if (typeof uiModel.findByName === 'function' && uiModel.findByName(op.parentId)) {
                 targetParentId = uiModel.findByName(op.parentId).id;
@@ -109,6 +164,12 @@ export class DesignerAiPlanner {
             if (comp) {
               createdIds.push(comp.id);
               nameToIdMap.set(op.id, comp.id);
+              if (targetParentId && uiModel.components && uiModel.components.has(targetParentId)) {
+                const parentComp = uiModel.components.get(targetParentId);
+                if (parentComp && Array.isArray(parentComp.children) && !parentComp.children.includes(comp.id)) {
+                  parentComp.children.push(comp.id);
+                }
+              }
             }
             break;
           }
@@ -144,12 +205,14 @@ export class DesignerAiPlanner {
         }
       }
 
-      if (createdIds.length > 0 && typeof uiModel.selectComponent === 'function') {
+      if (createdIds.length > 0 && typeof uiModel.select === 'function') {
+        uiModel.select(createdIds[0]);
+      } else if (createdIds.length > 0 && typeof uiModel.selectComponent === 'function') {
         uiModel.selectComponent(createdIds[0]);
       }
 
-      if (typeof uiModel.notifyListeners === 'function') {
-        uiModel.notifyListeners();
+      if (typeof uiModel.notify === 'function') {
+        uiModel.notify();
       }
 
       return {
