@@ -1,15 +1,17 @@
 /**
  * Otter Studio AI Code & Syntax Validator
- * Verifies that AI-generated Otter code conforms to valid Otter grammar and conventions.
+ * Uses lightweight preflight heuristics while strictly deferring to the real Otter compiler
+ * as the ultimate authority for language correctness.
  */
+
+import { OtterCompilerAdapter } from '../compiler/compiler-adapter.js';
 
 export class OtterCodeValidator {
   /**
-   * Validates generated Otter source text
+   * Lightweight preflight heuristic lint
    * @param {string} source
-   * @returns {{ isValid: boolean, errors: string[], suggestions: string[], normalized: string }}
    */
-  static validate(source) {
+  static preflightLint(source) {
     if (typeof source !== 'string' || !source.trim()) {
       return { isValid: false, errors: ['Generated code is empty.'], suggestions: [], normalized: '' };
     }
@@ -17,7 +19,6 @@ export class OtterCodeValidator {
     const errors = [];
     const suggestions = [];
 
-    // Strip markdown code fences if present (e.g. ```otter ... ```)
     let cleaned = source.trim();
     if (cleaned.startsWith('```')) {
       cleaned = cleaned.replace(/^```[a-zA-Z0-9_-]*\n?/, '').replace(/\n?```$/, '').trim();
@@ -27,14 +28,13 @@ export class OtterCodeValidator {
     let openBlocks = 0;
     const blockStack = [];
 
-    // Check for foreign keywords that indicate model hallucinated Python/JS/C#
     const forbiddenPatterns = [
       { regex: /\bfunction\s+[a-zA-Z0-9_]+\s*\(/, name: 'JavaScript function declaration' },
       { regex: /\bdef\s+[a-zA-Z0-9_]+\s*\(/, name: 'Python def declaration' },
       { regex: /\bclass\s+[a-zA-Z0-9_]+/, name: 'class keyword' },
-      { regex: /\b(const|let|var)\s+[a-zA-Z0-9_]+\s*=/, name: 'JS variable declaration (use "name is value")' },
+      { regex: /\b(const|let|var)\s+[a-zA-Z0-9_]+\s*=/, name: 'JS variable declaration' },
       { regex: /\bconsole\.log\s*\(/, name: 'console.log' },
-      { regex: /\bprint\s*\(/, name: 'Python print() (use say in Otter)' }
+      { regex: /\bprint\s*\(/, name: 'Python print()' }
     ];
 
     for (let idx = 0; idx < lines.length; idx++) {
@@ -44,27 +44,23 @@ export class OtterCodeValidator {
 
       if (!trimmed || trimmed.startsWith('#')) continue;
 
-      // Check forbidden patterns
       for (const pat of forbiddenPatterns) {
         if (pat.regex.test(trimmed)) {
           errors.push(`Line ${lineNum}: Contains non-Otter syntax: ${pat.name}`);
-          suggestions.push(`Replace foreign syntax on line ${lineNum} with standard Otter keywords (e.g. "to", "is", "say").`);
+          suggestions.push(`Replace foreign syntax on line ${lineNum} with standard Otter keywords.`);
         }
       }
 
-      // Check equals assignment without 'is' (e.g., 'x = 10')
       if (/^[a-zA-Z0-9_]+\s*=\s*[^=]/.test(trimmed) && !trimmed.startsWith('make')) {
         errors.push(`Line ${lineNum}: Uses '=' for assignment instead of Otter 'is'.`);
         suggestions.push(`Change '=' to 'is' on line ${lineNum}.`);
       }
 
-      // Check block openings
       if (/^(to|when|if|try|repeat|for\s+each)\b/.test(trimmed) && !trimmed.endsWith('.')) {
         openBlocks++;
         blockStack.push({ line: lineNum, kind: trimmed.split(' ')[0] });
       }
 
-      // Check block terminators
       if (trimmed === '.') {
         if (openBlocks > 0) {
           openBlocks--;
@@ -90,20 +86,54 @@ export class OtterCodeValidator {
   }
 
   /**
-   * Attempts a deterministic single-pass local repair on common minor syntax issues
+   * Authoritative validation: runs preflight followed by real compiler check.
+   * If the real compiler certifies the code, compiler authority supersedes any preflight warning.
+   * @param {string} source
+   * @param {OtterCompilerAdapter} [compilerAdapter]
+   */
+  static async validate(source, compilerAdapter = null) {
+    const preflight = this.preflightLint(source);
+    const adapter = compilerAdapter || new OtterCompilerAdapter();
+
+    // Check with the real compiler
+    const compilerResult = await adapter.checkSource(preflight.normalized || source);
+
+    if (compilerResult.ok) {
+      // Real compiler accepted the source - authoritative PASS
+      return {
+        isValid: true,
+        errors: [],
+        suggestions: preflight.suggestions,
+        normalized: preflight.normalized,
+        compilerValidated: true
+      };
+    } else {
+      // Real compiler rejected the source - authoritative FAIL
+      const compilerErrors = compilerResult.errors.map(e => e.message);
+      return {
+        isValid: false,
+        errors: [...preflight.errors, ...compilerErrors],
+        suggestions: preflight.suggestions,
+        normalized: preflight.normalized,
+        compilerValidated: true
+      };
+    }
+  }
+
+  /**
+   * Attempts single-pass local repair
    */
   static attemptLocalRepair(source) {
-    const val = this.validate(source);
-    if (val.isValid) return { repaired: true, source: val.normalized };
+    const pre = this.preflightLint(source);
+    if (pre.isValid) return { repaired: true, source: pre.normalized };
 
-    let cleaned = val.normalized;
+    let cleaned = pre.normalized;
     const lines = cleaned.split(/\r?\n/);
     const repairedLines = [];
     let openBlocks = 0;
 
     for (let line of lines) {
       let trimmed = line.trim();
-      // Auto-convert simple 'x = y' to 'x is y'
       if (/^[a-zA-Z0-9_]+\s*=\s*[^=]/.test(trimmed)) {
         line = line.replace(/=/, 'is');
         trimmed = line.trim();
@@ -117,18 +147,17 @@ export class OtterCodeValidator {
       repairedLines.push(line);
     }
 
-    // Add missing block closures if needed
     while (openBlocks > 0) {
       repairedLines.push('.');
       openBlocks--;
     }
 
     const finalSource = repairedLines.join('\n');
-    const finalVal = this.validate(finalSource);
+    const finalPre = this.preflightLint(finalSource);
     return {
-      repaired: finalVal.isValid,
+      repaired: finalPre.isValid,
       source: finalSource,
-      validation: finalVal
+      validation: finalPre
     };
   }
 }

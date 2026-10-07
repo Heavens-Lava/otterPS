@@ -33,6 +33,7 @@ export function renderEditor(containerEl, uiModel, cssAstManager) {
     <div class="editor-wrapper">
       <textarea class="code-textarea" id="activeCodeTextarea" spellcheck="false"></textarea>
       <div class="code-highlight-layer" id="codeHighlightLayer"></div>
+      <div class="ghost-text-overlay" id="ghostTextOverlay" style="pointer-events: none; position: absolute; color: #94a3b8; opacity: 0.65; font-family: var(--font-code, monospace); font-size: 13px; line-height: 1.5; white-space: pre-wrap; display: none; z-index: 10;"></div>
     </div>
     <div class="editor-statusbar">
       <span class="status-item" id="editorStatusText">Synchronized with Designer</span>
