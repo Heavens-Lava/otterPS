@@ -15,7 +15,7 @@ before the pass) and `benchmarks\results\optimized-0.9.0.json` (after).
 
 | | |
 |---|---|
-| Otter | 0.9.0 (includes the direct-`return` fast path, commit `aea1d9c`) |
+| Otter | 0.9.0 (includes the direct-`return` fast path, commit `ff63057`) |
 | PowerShell | 5.1.26100.8115 (Desktop) |
 | OS | Windows NT 10.0.26200 |
 | CPU | Intel Core i9-14900 (32 logical cores; the interpreter is single-threaded) |
@@ -186,7 +186,7 @@ statement dispatch, lazy loading) were **not** implemented.
 
 `tests/Optimizations.Tests.ps1` holds **golden results captured from the
 un-optimized interpreter before any of the three changes were made** (committed
-first, `c64d77d`): equality for every pair in a 46-value grid (integers, doubles,
+first, `0d87aae`): equality for every pair in a 46-value grid (integers, doubles,
 negatives, zero, negative zero, NaN, infinity, longs beyond 2^53, decimals,
 numeric and non-numeric text, empty text, booleans, nothing, equal and unequal
 lists, nested and empty lists, things, bytes, dates); `Assert-OtterNumber`
@@ -200,7 +200,7 @@ unchanged against the optimized code.
 | Gate | Result |
 |---|---|
 | Focused golden tests | 15 of 15 pass |
-| Full platform regression | **55 of 55** test files pass (the suite at that commit; earlier records report 53 of 53 and the rc.2 candidate `708ef2e` has 59 test files) |
+| Full platform regression | **55 of 55** test files pass (the suite at that commit; earlier records report 53 of 53 and the rc.2 candidate `19bc37b` has 59 test files) |
 | Release conformance | **15 of 15** fixtures pass |
 | Differential fuzzer (interpreter vs JavaScript) | **1,000 of 1,000** programs agree, 0 disagreements (seed 20260929) |
 | Malformed-input safety fuzzing | **1,000 of 1,000** handled safely, 0 raw host crashes |

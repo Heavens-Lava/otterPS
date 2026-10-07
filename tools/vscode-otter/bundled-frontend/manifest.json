@@ -1,6 +1,6 @@
 ﻿{
     "Language":  "Otter",
-    "FrontendCommit":  "b9895c8",
+    "FrontendCommit":  "63f1d8d",
     "Components":  [
                        "Otter.Contract.psm1",
                        "src/Otter.Lexer.psm1",

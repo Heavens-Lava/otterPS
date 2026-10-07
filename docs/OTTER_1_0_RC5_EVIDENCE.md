@@ -1,13 +1,13 @@
 # Otter 1.0.0-rc.5 — release evidence
 
-Candidate: `687219c0544b73238f7a31ccc2dde5d4fe08f174` (`VERSION` 1.0.0-rc.5),
-**not tagged yet**. rc.4 (`v1.0.0-rc.4` = `ab25d4f`) plus:
+Candidate: `a09ef39a9bd6a33328ef11af59c28e7b3cba02a2` (`VERSION` 1.0.0-rc.5),
+**not tagged yet**. rc.4 (`v1.0.0-rc.4` = `2534850`) plus:
 
-- `7389c63` — compiler fix: Run-button samples are compiled with their own
+- `3478c34` — compiler fix: Run-button samples are compiled with their own
   names, not their page's runtime-UI names (a D128 bug found by clicking every
   Run button on the documentation site);
-- `618e8ef` — documentation site sources for rc.4;
-- `687219c` — version 1.0.0-rc.5, changelog `[1.0.0-rc.5]`.
+- `f1a5f48` — documentation site sources for rc.4;
+- `a09ef39` — version 1.0.0-rc.5, changelog `[1.0.0-rc.5]`.
 
 All results below are for that exact commit.
 

@@ -12,7 +12,7 @@ finding is not silently resolved by changing one side of the language.
 
 | Field | Value |
 |---|---|
-| Candidate commit | `a5146971fa6c0a4c2d33dee283897e640e38fae5` |
+| Candidate commit | `a6e1a814e6134eef8fb9ea4e61e97ecbc6c398bb` |
 | Candidate subject | `release: add contract coverage evidence and D120 resolution` |
 | Contract file | `Otter.Contract.psm1` |
 | Front-end implementation | `src/Otter.Lexer.psm1`, `src/Otter.Parser.psm1` |

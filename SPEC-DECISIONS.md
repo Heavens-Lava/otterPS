@@ -37,20 +37,20 @@ CLAIMED:
 - D52 — recent grammar/UI batch documentation (`has` for existing
   resources, comma `put`, compact/optional-`is` inline `has`,
   contextual `the`, row/column layout) — Claude
-- D53 — scroll container — Claude (landed: `a550cbc`, `f29213f`)
+- D53 — scroll container — Claude (landed: `c951f97`, `d34fa2a`)
 - D54 — physical alignment and `spread` (Batch 2) — Claude (frozen,
-  landed, and audited: `e10e777`, `2fbd447`; Web parity still pending
+  landed, and audited: `f366b48`, `6e50f5a`; Web parity still pending
   a Gemini fix to `Otter.Web.psm1`)
 - D55 — container padding, text-box placeholder, optional event `is`
-  — landed `f8508f4` (Task List dogfood, admitted retroactively under
+  — landed `d06e4c5` (Task List dogfood, admitted retroactively under
   the v1 dogfood exception; documented, not reverted)
 - D56 — reactive state and the experimental front-end boundary — Claude
-  (landed: `ad75138`)
+  (landed: `71aa19e`)
 - D60 — Otter Unified Application Runtime — Claude/Gemini/Jeff (frozen)
 
 **Numbering note: D57, D58, and D59 are intentionally not in this list.**
-They identify the CLI (`bc1be95`), packaging (`6ceed7e`), and
-documentation (`fd56210`) release gates, not language/spec decisions —
+They identify the CLI (`8dc47f2`), packaging (`6d0f06f`), and
+documentation (`c848be7`) release gates, not language/spec decisions —
 they never belonged in this ledger, and are not being retroactively added
 to it now. The ledger jumps from D56 straight to D60 on purpose; nothing
 was skipped or renumbered. If "D57"/"D58"/"D59" come up in commit history
@@ -1761,8 +1761,8 @@ the language — orphaned with nothing to close.
 | | |
 |---|---|
 | Found | `examples/json-settings/README.md`, during dogfooding |
-| Fixed | `4d132e0` — `Read-OtterObjectBlock` now consumes an optional trailing `BlockEnd` on the empty-body path too |
-| Verified | `5139e12` — `settings has` / `.` and `person is a thing` / `.` both run; the no-period form is unchanged; a dynamic `set`/`get` round trip on the resulting object works; empty `if`/`to`/`while` bodies followed by `.` are still correctly rejected, confirming the fix stayed inside `Read-OtterObjectBlock` and never touched the shared `Read-OtterBlock` |
+| Fixed | `29d389a` — `Read-OtterObjectBlock` now consumes an optional trailing `BlockEnd` on the empty-body path too |
+| Verified | `c07b312` — `settings has` / `.` and `person is a thing` / `.` both run; the no-period form is unchanged; a dynamic `set`/`get` round trip on the resulting object works; empty `if`/`to`/`while` bodies followed by `.` are still correctly rejected, confirming the fix stayed inside `Read-OtterObjectBlock` and never touched the shared `Read-OtterBlock` |
 | Suite | 218 tests, 12 files, green |
 
 No new D-number — a bug fix inside already-approved D41 work, not a design
@@ -1834,7 +1834,7 @@ identical fixture dates in the same program and asserts identical output.
 `Unit` reuses D32's existing `TimeUnit` enum — no new enum. No destination
 field on the expression node; a value has nothing to assign into.
 
-**Contract:** `5305e02`. **Runtime:** `10ef2a1`, 9 new tests (218 total, 12
+**Contract:** `b042e07`. **Runtime:** `1a20cad`, 9 new tests (218 total, 12
 files, all green). Lexer and parser untouched — Codex's lane, unblocked by
 this pair of commits.
 
@@ -1928,7 +1928,7 @@ Grammar-only. Codex's lane. No contract change, no runtime change.
 
 ## D38B. Continued if/while conditions
 
-**Commit: a1adfce**
+**Commit: 52f8573**
 **Status: COMPLETE**
 
 Canonical form:
@@ -2154,7 +2154,7 @@ test, not assumed from the class hierarchy alone.
 
 ### What's built, what's still Codex's
 
-**Contract:** `15dda45`. **Runtime:** committed alongside this entry — new
+**Contract:** `9b5ac15`. **Runtime:** committed alongside this entry — new
 `src/Otter.UI.psm1`, `OtterUiResource`, the WPF provider, wiring into
 `Get-OtterValue`/`Set-OtterTarget`/`Format-OtterValue`/`Test-OtterTruthy`/
 `Get-OtterTypeName`. 12 new tests, 13 files, 230 total, all green.
@@ -2962,7 +2962,7 @@ AST Node classes:
 ## D52. Retroactive documentation: `has` for existing resources, comma `put`, contextual `the`, row/column layout
 
 This entry documents work that was already implemented, tested, and
-committed (14 commits, `e327a20` through `1eb4671`) without a
+committed (14 commits, `b5f741c` through `ea4ee1d`) without a
 corresponding spec entry — the first batch since D16 to land that way.
 Written after the fact specifically to close that gap before more work
 builds on top of undocumented behavior. Nothing here was designed by
@@ -3307,7 +3307,7 @@ toolbar is a row
 ```
 
 Batch 2 of the provider-neutral UI vocabulary track that started with
-`width full` / `height full` / `round` (Batch 1, `b136aa3`, Gemini).
+`width full` / `height full` / `round` (Batch 1, `1fd26f4`, Gemini).
 This entry freezes the semantics only. Grammar work is handed to Codex;
 WPF implementation is Claude's, after the grammar lands — the same
 sequencing D46/D47 already used (investigate and freeze first, build
@@ -3464,8 +3464,8 @@ Parser tests required before this is considered landed:
 ### What's built
 
 **Update:** implementation landed out of sequence — `align`/`spread`
-WPF and Web parity were built (`83b774c`) and grammar landed
-(`e316fb0`) before this entry's freeze was fully read against, and the
+WPF and Web parity were built (`a1cef94`) and grammar landed
+(`ad89cb2`) before this entry's freeze was fully read against, and the
 WPF side did not match the frozen axis-slot model: it split `align`
 into separate `align_h`/`align_v` properties and routed by *which
 property name* was used rather than resolving the axis from the
@@ -3474,7 +3474,7 @@ nothing useful — verified directly, it fell through `align_h`'s switch
 (left/center/right only) to a default case, leaving
 `VerticalAlignment` untouched — a direct contradiction of this entry's
 own opening principle. Found and fixed during the v1 desktop audit
-(`e10e777`): `Get-OtterUiAlignAxis` is now the one place a direction
+(`f366b48`): `Get-OtterUiAlignAxis` is now the one place a direction
 word maps to its axis; row/column resolve that axis against their own
 orientation into the main/cross slot exactly as frozen above, with
 general per-axis conflict validation replacing the previous ad-hoc
@@ -3498,7 +3498,7 @@ Codex removes the parser-level split/conflict-detection and emits a
 plain `align` property assignment, letting the now-correct runtime
 resolve axis and conflicts. Reported to Codex separately.
 
-**Update:** fixed in `2fbd447` — the parser now emits one `align`
+**Update:** fixed in `6e50f5a` — the parser now emits one `align`
 property with the original direction word for every case, matching the
 runtime exactly. Verified independently: no `align_h`/`align_v` remain
 anywhere in `src/Otter.Parser.psm1`, parser tests pass, and the full
@@ -3529,7 +3529,7 @@ when addButton clicked
 ### How this entry differs from every other one in this file
 
 Every prior UI decision (D44 through D54) was investigated and frozen
-*before* implementation. D55 was not: `f8508f4` implemented `padding`,
+*before* implementation. D55 was not: `d06e4c5` implemented `padding`,
 `placeholder`, and optional event `is` directly, alongside `tasks.ot`
 (the v1 Task List dogfood application), without a preceding investigation
 entry and without updating the decision ledger at the top of this file
@@ -3787,9 +3787,9 @@ contract.
 
 ## LANGUAGE DESIGN: FROZEN. V1 RUNTIME SEMANTICS: FROZEN. V1 DOGFOOD: PASSED. AUTOMATED REGRESSION: GREEN.
 
-### D56 / V1 scope note (added after auditing `a6b5152`)
+### D56 / V1 scope note (added after auditing `9e8f2fd`)
 
-`a6b5152` ("renderers: connect declarative UI, reactivity, and
+`9e8f2fd` ("renderers: connect declarative UI, reactivity, and
 animations to Web and Windows WPF") landed after D56 was frozen above,
 claiming to connect exactly the surface D56 excluded. Audited directly
 against the real production path, not against its own tests. Verdict:
@@ -3973,7 +3973,7 @@ runtime model instead of two independent implementations.
     is only considered covered once a real `.ot` program compiles and
     runs through the real production entry point — the same
     reachability standard already established for the WPF audit
-    (`a6b5152`, `CLAUDE.md`'s permanent process rule). A passing unit
+    (`9e8f2fd`, `CLAUDE.md`'s permanent process rule). A passing unit
     test against an internal compiler function is not, by itself,
     sufficient evidence.
 
@@ -4030,14 +4030,14 @@ calling the emitter directly):
 - Assignment, arithmetic, comparisons, logic (`and`/`or`/`not`)
 - `if` / `while` / `for each` / `repeat`
 - Objects
-- `count from ... to ... as ...` loops (Phase 1B, `86b3509`) — every
+- `count from ... to ... as ...` loops (Phase 1B, `aba104e`) — every
   semantic verified against the real interpreter first: inclusive
   bounds, descending ranges, bounds evaluated once, no per-iteration
   variable scope, `stop` needing no special case
 - Event-handler JS functions — `when <x> is clicked` (and similar)
   compile to a real JS function/closure today and were used to prove
   Phase 1B's function-scope case
-- list literals (`games are ... .`) (Phase 1C, `23d8034`) — item
+- list literals (`games are ... .`) (Phase 1C, `9db217a`) — item
   evaluation order/count, duplicates, mixed types, list-in-list
   flattening (splices, does not nest — verified, not assumed), and
   reference-sharing on assignment all confirmed against the real
@@ -4046,7 +4046,7 @@ calling the emitter directly):
 - HTTP GET / POST
 - Web UI compilation (real sample apps: `jeffreymacy.ot`, `portal.ot`,
   `calculator.ot`, `counter.ot`, `hello-app.ot`)
-- String operations, Phase 1D-A (`09374ea`): `starts with`/`ends with`
+- String operations, Phase 1D-A (`35f609b`): `starts with`/`ends with`
   (case-sensitive, verified), `uppercase of`/`lowercase of` (Unicode-
   correct, café → CAFÉ verified via real JS execution), `replace`
   (all occurrences, empty-find throws — matches the interpreter; the
@@ -4058,14 +4058,14 @@ calling the emitter directly):
   1D-B landed, after Playwright (unavailable when 1D-A itself was
   verified, so a Node.js harness substituted then) became available
   again — all 7 cases confirmed identical, no implementation changes.
-- `plus`, Phase 1D-B (`b120ee0`): full truth table verified against
+- `plus`, Phase 1D-B (`6f9d52b`): full truth table verified against
   the interpreter first (both-string concatenates even when both look
   numeric; mixed string/number coerces via parsing; non-numeric
   strings, empty/whitespace strings, and booleans all throw, matching
   `Assert-OtterNumber`/`Test-OtterNumeric` exactly) and reproduced with
   a runtime `typeof` check replacing the old static-AST one. Fixes the
   real "NaN," bug found during Phase 1C's own verification.
-- Collection operations, Phase 1E (`1e19652`): `length of`/`first of`/
+- Collection operations, Phase 1E (`348e333`): `length of`/`first of`/
   `last of` (completing `OfOperation` alongside 1D-A's `uppercase`/
   `lowercase`; `length` polymorphic via JS's native `.length` on both
   strings and arrays, `first`/`last` list-only, `null`/gone on empty),
@@ -4077,7 +4077,7 @@ calling the emitter directly):
   name, unlike every other loop construct here), `add`/`remove` (dual
   dispatch on the target's runtime type per D12 — list append/splice
   or numeric add/subtract, reusing `plus`'s coercion-or-throw rules).
-- Function declarations/calls, Phase 1F (`af3a807`): parameters (real
+- Function declarations/calls, Phase 1F (`4e7b86e`): parameters (real
   JS args), local variables (real JS `let`s, threaded via an optional
   `-LocalNames` set so every other call site's behavior is unchanged),
   return values, bare `stop` (needs no special handling — parses to a
@@ -4090,7 +4090,7 @@ calling the emitter directly):
   `MathInto` (`X op Y make Z`), found missing while verifying
   recursion — reuses Assign's exact write logic (same NodeKind
   semantics, different surface syntax).
-- Function scope parity, Phase 1F.1 (`779b36f`): closed both divergences
+- Function scope parity, Phase 1F.1 (`b3fa1fd`): closed both divergences
   Phase 1F left as documented gaps, per direct interpreter verification,
   not JS intuition. (1) A function mutating a PRE-EXISTING global via
   ordinary `is` (verified: `value is 1` then a function doing `value is
@@ -4127,7 +4127,7 @@ calling the emitter directly):
   `-LocalNames`) — narrower than Phase 1F's original blanket gap
   statement, but not yet exhaustively closed either.
 - `ReadFile` (`read <path> into <target>`), Phase 1F.2-adjacent
-  (`a225fc2`): emits a required `otterReadFile(path)` runtime hook the
+  (`07da29c`): emits a required `otterReadFile(path)` runtime hook the
   target adapter must supply (not defined by this compiler, per D60's
   "language capability != host capability" principle — a browser
   cannot read arbitrary local files the way a desktop process can).
@@ -4139,7 +4139,7 @@ calling the emitter directly):
   constructs the binding scanner walks) whether its body needs `await`
   and only then declares itself `async function` — a function with
   none of the three stays a plain synchronous function, unchanged.
-- Plain object (`thing`) representation, Phase 1F.2 (`59f53f2`): the
+- Plain object (`thing`) representation, Phase 1F.2 (`09284d7`): the
   prerequisite Phase 1G (JSON) actually needed. `ObjectDef` (`is a
   thing`) had zero JS codegen; `PropertyAccess` unconditionally assumed
   a UI/DOM resource. A `thing` now compiles to a tagged plain JS object
@@ -4474,10 +4474,10 @@ architecture above, but the agreed starting order)
    changing observable behavior — web keeps passing its existing tests
    throughout.
 2. Close NodeKind parity systematically. Current order (count loops
-   done, `86b3509`; list literals done, `23d8034`; string ops done,
-   `09374ea`/`b120ee0`; collection ops done, `1e19652`; functions done,
-   `af3a807`; function/loop scope parity done, `779b36f`; plain-object
-   representation done, `59f53f2`; JSON done, Phase 1G; random done,
+   done, `aba104e`; list literals done, `9db217a`; string ops done,
+   `35f609b`/`6f9d52b`; collection ops done, `348e333`; functions done,
+   `4e7b86e`; function/loop scope parity done, `b3fa1fd`; plain-object
+   representation done, `09284d7`; JSON done, Phase 1G; random done,
    Phase 1H; diagnostics done, Phase 1I; dates done, Phase 1J): count
    loops, list literals, string operations (split into 1D-A string
    builtins and 1D-B the `plus` runtime-type fix), collection
@@ -4789,7 +4789,7 @@ calling internal functions directly:
    never called it. The only callers anywhere in the repo were
    `tests/Terminal.Tests.ps1` and Gemini's own ad-hoc
    `scratch/verify_*.ps1` scripts. This is the exact same
-   "disconnected capability" class of bug the `a6b5152` WPF audit found
+   "disconnected capability" class of bug the `9e8f2fd` WPF audit found
    and that produced this file's existing renderer-reachability rule -
    it recurred here in a different subsystem, which is why two new
    CLAUDE.md rules are added below rather than trusting the existing
@@ -4850,7 +4850,7 @@ this work is logged as D62-D66, not D57-D61.
 
 **Status: IMPLEMENTED / REGRESSION PASS - manual-close acceptance
 pending.** `src/Otter.Desktop.psm1` and `tests/Terminal.Tests.ps1` are
-committed (`41148e7`) with the heartbeat/grace-timeout design below:
+committed (`95ef28d`) with the heartbeat/grace-timeout design below:
 `OtterTerminalBridgeSession` gained `LastHeartbeatUtc`,
 `HasReceivedHeartbeat`, `HeartbeatGraceMs` (8000ms default),
 `StartupGraceMs` (20000ms default), and `IsSessionAlive()`; a new
@@ -5217,7 +5217,7 @@ hand-constructed AST nodes, since no parser grammar exists yet.
   psm1` work, out of this module's scope, and is exactly the kind of
   boundary D60 says must be reported, not silently papered over.
 
-**Grammar wired in `f52dcad`** (originally documented above as pending):
+**Grammar wired in `264c646`** (originally documented above as pending):
 `Notify`/`Choose` lexer tokens added, plus reuse of already-existing
 `Copy`/`Get`/`Into`/`With`/`To`/`Folder`/`File` tokens elsewhere, and
 eight parser cases constructing the node shapes above exactly.
@@ -7389,7 +7389,7 @@ the frozen 1.0 language surface is not enlarged at this stage. Query syntax is a
 large semantic surface (filtering, ordering, result shape, errors, provider
 behavior) that has not been dogfooded and certified to the 1.0 standard.
 
-**Evidence:** `docs/D99-QUERY-LANGUAGE-DESIGN.md`; commit `c32767d`;
+**Evidence:** `docs/D99-QUERY-LANGUAGE-DESIGN.md`; commit `712e601`;
 `QueryStmt`, `QueryAggregateStmt`, `QueryBetweenExpr`, `QueryInExpr` in the
 contract; `tests/Query.Tests.ps1` (still run; it covers the experimental
 implementation).
@@ -7404,14 +7404,14 @@ through the D97 database provider.
 because the only design record, `docs/D99-QUERY-LANGUAGE-DESIGN.md`, is headed
 "Status: Design Proposal & Feasibility Research — Target: Otter 1.1+ —
 Implementation: Not approved yet (Exploratory / RFC)", while the implementation
-had landed (`c32767d`) and was in the frozen contract, and
+had landed (`712e601`) and was in the frozen contract, and
 `docs/OTTER_1_0_RELEASE_SCOPE_MATRIX.md` classifies database/SQL integration as
 DEFERRED to 1.2+. Resolved by the decision above.
 
 ## D100. Console UX primitives
 
 **Source:** `docs/D100-CONSOLE-UX-PRIMITIVES-DESIGN.md` (Jeff's in-session
-sign-off); commit `bdfb428`; `tests/ConsoleUxPrimitives.Tests.ps1` (18).
+sign-off); commit `0968c07`; `tests/ConsoleUxPrimitives.Tests.ps1` (18).
 
 **Decision (as implemented):** `say ... in color "NAME"`; `set cursor to row R
 column C`; `choose from LIST into TARGET`; `show progress N percent`;
@@ -7424,7 +7424,7 @@ time. **Reconstruction:** complete.
 
 ## D101. General wait, seeded random, timers, date parsing
 
-**Source:** "Jeff's ChatGPT-assisted syntax design batch" (commit `419d5aa`);
+**Source:** "Jeff's ChatGPT-assisted syntax design batch" (commit `d7b1581`);
 `tests/TierOneRuntime.Tests.ps1` (14).
 
 **Decision (as implemented):** `wait N milliseconds|seconds|minutes|hours|...`
@@ -7435,13 +7435,13 @@ NAME` (a monotonic stopwatch); `date from TEXT [using FORMAT]` (an expression
 producing the existing date type). **Targets:** console for all four. Web
 supports timers and date parsing; `wait` and `set random seed` are compile-time
 "not supported on the web target": `wait` because it needs an async/cancellation
-model that was explicitly deferred (commit `419d5aa`), seeded random because
+model that was explicitly deferred (commit `d7b1581`), seeded random because
 JavaScript's `Math.random` cannot be seeded. What `wait` services while it
 waits is defined by D121 (EV3). **Reconstruction:** complete.
 
 ## D102. The `bytes` type
 
-**Source:** "Jeff/ChatGPT's design spec" (commit `f8b75da`);
+**Source:** "Jeff/ChatGPT's design spec" (commit `a264675`);
 `tests/Bytes.Tests.ps1`.
 
 **Decision (as implemented):** a first-class `bytes` value, distinct from text
@@ -7454,7 +7454,7 @@ into each other. **Targets:** console and web. **Reconstruction:** complete.
 
 ## D103. SPA routing
 
-**Source:** "Jeff/ChatGPT's design spec" (commit `b441e01`); `tests/Web.Tests.ps1`.
+**Source:** "Jeff/ChatGPT's design spec" (commit `25449d7`); `tests/Web.Tests.ps1`.
 
 **Decision (as implemented):** `route "/path" shows PAGE` (including `:param`
 segments) and `route otherwise shows PAGE`; `go to "/path"`, `go back`,
@@ -7468,7 +7468,7 @@ nothing. **Reconstruction:** complete.
 
 ## D104. File and folder watching
 
-**Source:** "Jeff/ChatGPT's design spec" (commit `ef72d88`);
+**Source:** "Jeff/ChatGPT's design spec" (commit `3c6e4b3`);
 `tests/FileWatching.Tests.ps1` (11).
 
 **Decision (as implemented):** `watch file|folder PATH [recursively] and call
@@ -7484,7 +7484,7 @@ complete.
 
 ## D105. XML
 
-**Source:** "Jeff/ChatGPT's revised design spec" (commit `73571e1`);
+**Source:** "Jeff/ChatGPT's revised design spec" (commit `006a47d`);
 `tests/Xml.Tests.ps1` (22).
 
 **Decision (as implemented):** `xml from text X` / `xml from file P` /
@@ -7500,7 +7500,7 @@ the file forms use the web file bridge, like other file I/O on that target. **Re
 
 ## D106. WebSockets
 
-**Source:** the D106 specification implemented by Gemini (commit `c32767d`);
+**Source:** the D106 specification implemented by Gemini (commit `712e601`);
 the contract; `tests/WebSocket.Tests.ps1` (9) and the web tests.
 
 **Decision (as implemented):** `connect to websocket URL [using protocol P] and
@@ -7517,7 +7517,7 @@ reconstructed from the contract, the implementation and the tests.
 ## D107. TCP (client)
 
 **Source:** `docs/design/D107-D111-SPECIFICATION.md` (Jeff, 2026-09-23);
-commit `f8d1423`; `tests/Network.Tests.ps1`.
+commit `3bf5723`; `tests/Network.Tests.ps1`.
 
 **Decision:** as specified. `connect to tcp HOST on port N and call it NAME`;
 `on connect of`, `on data from` (TCP is a byte stream, so data, not messages),
@@ -7531,7 +7531,7 @@ reserved in section 12 is D113. **Reconstruction:** complete.
 
 ## D108. UDP
 
-**Source:** `docs/design/D107-D111-SPECIFICATION.md`; commit `f8d1423`;
+**Source:** `docs/design/D107-D111-SPECIFICATION.md`; commit `3bf5723`;
 `tests/Network.Tests.ps1`.
 
 **Decision:** as specified. `open udp [on port N] and call it NAME` (no
@@ -7543,7 +7543,7 @@ complete.
 
 ## D109. Cryptography
 
-**Source:** `docs/design/D107-D111-SPECIFICATION.md`; commit `aead414`;
+**Source:** `docs/design/D107-D111-SPECIFICATION.md`; commit `4898b21`;
 `tests/Crypto.Tests.ps1`.
 
 **Decision:** `secure random bytes N`; `sha256|sha384|sha512 of DATA`;
@@ -7564,7 +7564,7 @@ iterations and a per-hash salt. The earlier D91/D92 forms are unchanged.
 
 ## D110. Drag and drop
 
-**Source:** `docs/design/D107-D111-SPECIFICATION.md`; commit `abcace4`;
+**Source:** `docs/design/D107-D111-SPECIFICATION.md`; commit `4f8e6ef`;
 `tests/DragDrop.Tests.ps1` (8).
 
 **Decision:** `draggable` and `accepts drops` properties (inline `with ...` and
@@ -7576,7 +7576,7 @@ and block property forms; web/declarative UI only. **Targets:** web; a desktop
 
 ## D111. Credential vault
 
-**Source:** `docs/design/D107-D111-SPECIFICATION.md`; commit `33e3687`;
+**Source:** `docs/design/D107-D111-SPECIFICATION.md`; commit `49ab111`;
 `tests/Vault.Tests.ps1` (11).
 
 **Decision:** `store secret "NAME" with value V` (text or bytes; storing again
@@ -7597,7 +7597,7 @@ display-rule scope noted.
 ## D112. TLS over TCP
 
 **Source:** the D112 specification implemented by the front-end agent (commit
-`ef134fa`) and back end (commit `e705b33`); `tests/Network.Tests.ps1`. The D107
+`e90bd66`) and back end (commit `feaa30e`); `tests/Network.Tests.ps1`. The D107
 specification deferred TLS "to its own design".
 
 **Decision (as implemented):** `connect securely to tcp HOST on port N and call
@@ -7616,7 +7616,7 @@ original D112 specification document is not in the repository.
 ## D113. TCP servers
 
 **Source:** the grammar reserved in D107 section 12, implemented in commits
-`194995c` and `cb77c46`; `tests/Network.Tests.ps1`.
+`6cae371` and `54cf98f`; `tests/Network.Tests.ps1`.
 
 **Decision (as implemented):** `listen for tcp [on ADDRESS] on port N and call it
 SERVER`; `on connection to SERVER` with `incoming connection` (a D107
@@ -7627,7 +7627,7 @@ specification document is not in the repository.
 
 ## D114. Browser-side cryptography
 
-**Source:** commit `3c757cd`; `tests/Web.Tests.ps1` test 26;
+**Source:** commit `810a75d`; `tests/Web.Tests.ps1` test 26;
 `tests/Crypto.Tests.ps1` section 7.
 
 **Decision (as implemented):** the web target supports the D109 operations
@@ -7639,7 +7639,7 @@ only; web reports unsupported") is out of date. **Reconstruction:** complete.
 ## D119. Asynchronous command jobs and script dispatch
 
 **Source:** `docs/D119_DOGFOOD_LOG.md` (refinements D119-R1 and D119-R2);
-commits `e7f0f99`, `072fe4f`; `tests/AsyncCommand.Tests.ps1` (13),
+commits `4345145`, `167cf00`; `tests/AsyncCommand.Tests.ps1` (13),
 `tests/CommandDispatch.Tests.ps1`.
 
 **Decision (as implemented):**

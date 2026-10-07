@@ -1,7 +1,7 @@
 ﻿# D114.5 -- Otter Language Integrity & Completeness Audit
 
 **Audit Date**: September 2026  
-**Target Release**: Otter 1.0 (HEAD after D114 `3c757cd`)  
+**Target Release**: Otter 1.0 (HEAD after D114 `810a75d`)  
 **Author**: Front-End Pair Programmer (in consultation with Back-End Agent & Spec)  
 **Status**: Complete -- All Verification Suites Green (46/46 Tests, 15/15 Conformance, 100/100 Differential Hardening, 8/8 Resource Soak)  
 

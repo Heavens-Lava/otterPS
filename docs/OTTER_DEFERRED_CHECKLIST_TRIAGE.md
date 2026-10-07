@@ -2,7 +2,7 @@
 
 **Date:** September 17, 2026  
 **Status:** Complete — Analysis & Planning Only (Zero Production Code Changes)  
-**Baseline Commit:** `1405c437e43e12d3fa92ae80db09753a06ee4442` (Hardening Pass 1 Certified)  
+**Baseline Commit:** `1fc96e78886a729e1bf3a6bae64f75a1d9431268` (Hardening Pass 1 Certified)  
 **Authoritative Checklist:** `OTTER_PROGRAMMING_LANGUAGE_COMPLETE_PLATFORM_CHECKLIST.md`  
 **Reconciliation Reference:** `docs/V1_CHECKLIST_RECONCILIATION.md`  
 **Total Deferred Items Audited:** 543 unchecked items  
@@ -1236,7 +1236,7 @@ During the individual audit of all 543 deferred items, **39 items (7.2%)** were 
 
 ### 8.1 Items Already Implemented in V1 (15 Items)
 
-These 15 items were found to be fully or partially implemented in the codebase as of commit \1405c437\. They should not remain in Category D (\"Deferred to 1.1+\").
+These 15 items were found to be fully or partially implemented in the codebase as of commit \1fc96e78\. They should not remain in Category D (\"Deferred to 1.1+\").
 
 | Line | Item Text | Checklist Section | Implemented Capability & Evidence | Recommended Disposition |
 |---|---|---|---|---|

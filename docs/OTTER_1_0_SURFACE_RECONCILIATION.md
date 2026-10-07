@@ -13,8 +13,8 @@ Regenerate rather than edit. Audit with `tools/Test-OtterReleaseSurface.ps1`.
 
 | | |
 |---|---|
-| Manifest seeded from commit | `0328289c8d19b4277c88706bb24e0ef57a243be0` |
-| Gate 1 candidate SHA (nominated by Codex) | `a5146971fa6c0a4c2d33dee283897e640e38fae5` - Recorded, not chosen here: the Gate 1 candidate Codex nominated. It contains the optimization pass and the event-loop review. The earlier candidate 344db09b is superseded. The public boundary in this manifest is still unresolved. |
+| Manifest seeded from commit | `9c7c7a98fb7b5d451288cc6160405049cdb169aa` |
+| Gate 1 candidate SHA (nominated by Codex) | `a6e1a814e6134eef8fb9ea4e61e97ecbc6c398bb` - Recorded, not chosen here: the Gate 1 candidate Codex nominated. It contains the optimization pass and the event-loop review. The earlier candidate 344db09b is superseded. The public boundary in this manifest is still unresolved. |
 | Contract SHA-256 | `0343bec8051dbc3e45aefe82b48c6363b9dfa0bd2d0d4868764f00f6e28238f5` |
 
 ## Summary
@@ -293,7 +293,7 @@ Verified by hand; each cites its evidence. Recorded, not resolved.
 * `docs/OTTER_1_0_RELEASE_SCOPE_MATRIX.md`: File modules: TARGET-SPECIFIC, certified through console production entry points
 * `docs/OTTER_1_0_MODULE_STATUS.md`: file imports certified for the console production entry point
 * Evidence: `tests/UseModuleProduction.Tests.ps1`
-* Observation: Codex reconciled GRAMMAR.md and the scope matrix (553bf33) but docs/OTTER_1_0_CAPABILITY_MATRIX.md still carries the older DEFERRED row.
+* Observation: Codex reconciled GRAMMAR.md and the scope matrix (7934685) but docs/OTTER_1_0_CAPABILITY_MATRIX.md still carries the older DEFERRED row.
 * Decision: Resolved in the RC3 documentation pass (2026-09-28): the capability matrix now matches the code. `use "file.ot"` is certified for the console production entry points; package imports remain DEFERRED.
 
 ### DC3. Size of the reachability matrix

@@ -1,6 +1,6 @@
 # Otter 1.0 Language and Runtime Inventory
 
-**Authoritative as of:** commit `6a7b9e3` plus the V1 semantic-correction pass.
+**Authoritative as of:** commit `b1f5c3c` plus the V1 semantic-correction pass.
 **Method:** every claim below was checked against the actual production
 lexer/parser/interpreter source (`Otter.Contract.psm1`,
 `src/Otter.Lexer.psm1`, `src/Otter.Parser.psm1`,

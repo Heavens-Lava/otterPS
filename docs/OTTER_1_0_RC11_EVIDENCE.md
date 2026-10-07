@@ -1,23 +1,23 @@
 # Otter 1.0.0-rc.11 — release evidence
 
-Candidate: `9e7cdac4b5b5358d30bc87f9095ad24925b5598f` (`VERSION` 1.0.0-rc.11).
+Candidate: `8c6ae68dbe54c1a4f837a9bca6ffbaf6e4e35d12` (`VERSION` 1.0.0-rc.11).
 **Superseded by rc.12 before publication, not tagged:** test-installing the
 Store package found that built apps in folders with spaces did not run, and
 the compiled engine became the default for `otter run` (see `CHANGELOG.md`
-`[1.0.0-rc.12]`). rc.10 (`3ba7890`, certified on Windows and Linux but
+`[1.0.0-rc.12]`). rc.10 (`7dfcdfe`, certified on Windows and Linux but
 superseded; see `docs/OTTER_1_0_RC10_EVIDENCE.md`) merged with `master` since
 rc.9:
 
-- `eff1e3b` — the Windows clipboard retries briefly when another program
+- `9d6283d` — the Windows clipboard retries briefly when another program
   holds it;
-- `73587f0` — parser follow-ups: D27 `replace ... into`, D32.3 variable date
+- `9eafa0f` — parser follow-ups: D27 `replace ... into`, D32.3 variable date
   amounts (reviewed: `add days to total` still adds a variable), P4 call
   `into`, P6 `an`, the top-level `count is 3` message;
-- `245427a`, `5a618df`, `2b8a2fa` — false checklist ticks and the
+- `a92b25e`, `2117a79`, `3436a64` — false checklist ticks and the
   premature `[1.0.0]` changelog entry reverted or un-ticked (2026-10-06
   review);
-- `87e37dd` — merge of rc.10 (`otter web` on macOS);
-- `9e7cdac` — version 1.0.0-rc.11, changelog `[1.0.0-rc.11]`.
+- `f40807a` — merge of rc.10 (`otter web` on macOS);
+- `8c6ae68` — version 1.0.0-rc.11, changelog `[1.0.0-rc.11]`.
 
 The 1.1 prototypes on `master` (the experimental compiled backend in
 `src/Otter.Compiler.Native.psm1` and `src/native/`, Otter Studio) are not

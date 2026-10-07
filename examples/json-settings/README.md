@@ -14,7 +14,7 @@ runtime rather than a fixed property, and saves the result back to disk.
 
 ## Status: works end to end. One bug found, and now fixed.
 
-**SEMANTIC BUG, FIXED — commit `4d132e0`.** An empty `has` object could not
+**SEMANTIC BUG, FIXED — commit `29d389a`.** An empty `has` object could not
 be closed with an explicit `.`:
 
 ```otter
@@ -24,7 +24,7 @@ settings has
 
 used to fail: *"There is no open block for this period to close."* Isolated
 the exact cause: `Read-OtterObjectBlock` (added for D41 rule 8, commit
-`18df9b7`) correctly returned zero properties when no `Indent` followed
+`1b2ae10`) correctly returned zero properties when no `Indent` followed
 `has`, but never consumed a `BlockEnd` that immediately followed — so a `.`
 written out of habit (every other block in the language accepts one,
 D4/D18) was left with nothing open to close.
@@ -64,5 +64,5 @@ blocked.
 
 | Finding | Class |
 |---|---|
-| Empty `has` object could not be closed with `.` | SEMANTIC BUG — **fixed**, `4d132e0` |
+| Empty `has` object could not be closed with `.` | SEMANTIC BUG — **fixed**, `29d389a` |
 | Everything else | works as written |

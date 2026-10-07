@@ -3,8 +3,8 @@
 | | |
 |---|---|
 | Kind | **release-certification** |
-| Commit | `639112f25d2007fcb25c2c0cd9b3ddc2b101caf0` modules: check use-path case before existence so every host gives the same diagnostic |
-| Candidate SHA | `639112f25d2007fcb25c2c0cd9b3ddc2b101caf0` (HEAD matches: True) |
+| Commit | `f170a5f32719fc57e6387e49a9f90c413c6467a1` modules: check use-path case before existence so every host gives the same diagnostic |
+| Candidate SHA | `f170a5f32719fc57e6387e49a9f90c413c6467a1` (HEAD matches: True) |
 | Clean checkout | True |
 | Host | PowerShell 5.1.26100.8115 (Desktop), Microsoft Windows NT 10.0.26200.0 |
 | Fuzz | 1000 programs per fuzz gate, seed 20261001 |

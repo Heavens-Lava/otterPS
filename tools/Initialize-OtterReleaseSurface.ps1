@@ -450,7 +450,7 @@ $eventContract = [ordered]@{
     reference = 'docs/OTTER_1_0_EVENT_LOOP_REVIEW.md'
     status = 'decided'
     decidedIn = 'SPEC-DECISIONS.md D121 (approved 2026-09-27)'
-    note = 'currentBehavior is the behavior measured BEFORE the decision (docs/OTTER_1_0_EVENT_LOOP_REVIEW.md); decision is the approved contract text. EV2 and EV3 required runtime changes (commit 6451f68).'
+    note = 'currentBehavior is the behavior measured BEFORE the decision (docs/OTTER_1_0_EVENT_LOOP_REVIEW.md); decision is the approved contract text. EV2 and EV3 required runtime changes (commit 5e920fe).'
     questions = @(
         [ordered]@{ id = 'EV1'; question = 'Is cross-source fairness guaranteed or best-effort?'; currentBehavior = 'Fixed per-pass order (watcher, WebSocket, TCP/UDP, HTTP, jobs). No fairness guarantee; command jobs win under load.'; decision = 'Best-effort with eventual progress for ready sources. No equal-share, round-robin, maximum-latency or quantitative fairness guarantee.' }
         [ordered]@{ id = 'EV2'; question = 'May one event source drain an unbounded queue before others run?'; currentBehavior = 'Yes for command jobs (while TryDequeue). No for sockets, WebSockets and watchers (one event per source per pass).'; decision = 'No. A source may not do unbounded work while another ready source is waiting; bounded work per turn. The bound is an implementation detail, not language.' }
@@ -484,7 +484,7 @@ $documentConflicts = @(
             [ordered]@{ file = 'docs/OTTER_1_0_MODULE_STATUS.md'; says = 'file imports certified for the console production entry point' }
         )
         evidence = @('tests/UseModuleProduction.Tests.ps1')
-        observation = 'Codex reconciled GRAMMAR.md and the scope matrix (553bf33) but docs/OTTER_1_0_CAPABILITY_MATRIX.md still carries the older DEFERRED row.'
+        observation = 'Codex reconciled GRAMMAR.md and the scope matrix (7934685) but docs/OTTER_1_0_CAPABILITY_MATRIX.md still carries the older DEFERRED row.'
         decision = 'Resolved in the RC3 documentation pass (2026-09-28): the capability matrix now matches the code. `use "file.ot"` is certified for the console production entry points; package imports remain DEFERRED.'
     }
     [ordered]@{
@@ -551,7 +551,7 @@ $document = [ordered]@{
         purpose = 'Evidence manifest for the Otter 1.0 candidate surface. It records what exists, what is documented, what is tested and where they disagree. It does NOT decide what is public.'
         authority = 'Codex owns the public-boundary decision. Every capability is seeded status=candidate, boundaryStatus=unresolved.'
         seededFromCommit = Get-OtterGitSha
-        candidateSha = 'a5146971fa6c0a4c2d33dee283897e640e38fae5'
+        candidateSha = 'a6e1a814e6134eef8fb9ea4e61e97ecbc6c398bb'
         candidateShaSource = 'docs/OTTER_1_0_CONTRACT_FREEZE_REPORT.md (Gate 1, certified by Codex) and docs/OTTER_1_0_CLEAN_CHECKOUT_EVIDENCE_2026-09-27.md'
         candidateShaNote = 'Recorded, not chosen here: the Gate 1 candidate Codex nominated. It contains the optimization pass and the event-loop review. The earlier candidate 344db09b is superseded. The public boundary in this manifest is still unresolved.'
         seededFrom = @('docs/STANDARD_LIBRARY_REACHABILITY.md', 'docs/STANDARD_LIBRARY.md', 'Otter.Contract.psm1', 'release/otter-1.0-contract-coverage.json', 'docs/OTTER_1_0_EVENT_LOOP_REVIEW.md', 'tests/StandardLibrary.Tests.ps1')

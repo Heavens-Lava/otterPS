@@ -24,7 +24,7 @@ Status: STABLE means private memory grew by at most 25 MB between the middle and
 - **Child processes still running after the workloads**: 0
 - **Handles held by this process**: 854 before, 807 after (change -47)
 
-## Review (2026-09-30, rc.8 `6404211` source)
+## Review (2026-09-30, rc.8 `16a2e88` source)
 
 - All eight workloads are STABLE, and the three measured leak checks are clean: no files left behind, no child processes left running, and the process holds fewer handles afterwards than before.
 - Web compile is the one workload that keeps growing through its second half: 16.6, 17.2 and 18.0 MB mid-to-end across three runs of 200 compiles. It is under the 25 MB bar but consistent, so it is worth a longer run (for example 2,000 compiles) before 1.0.0 to tell a slow leak from caches warming up. Studio and `otter serve` compile repeatedly in one process; a single `otter web` does not.

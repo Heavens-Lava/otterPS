@@ -2,7 +2,7 @@
 
 **Status: analysis only. Every decision below is UNRESOLVED.** No runtime,
 compiler, test or manifest behavior was changed to produce this document.
-Baseline: `origin/master` `f3036b6` (certified executable baseline `639112f`).
+Baseline: `origin/master` `80867ee` (certified executable baseline `f170a5f`).
 Companion evidence: `docs/OTTER_1_0_EVENT_LOOP_REVIEW.md`,
 `docs/OTTER_1_0_FREEZE_FOLLOWUPS.md`, `release/otter-1.0-surface.json`.
 

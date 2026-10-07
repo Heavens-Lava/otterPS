@@ -2,10 +2,10 @@
 
 ## Candidate
 
-- Commit: `072fe4fd6acaa61af8e9d129e5166e297934de41`
+- Commit: `167cf006c38aa211d85795109ef8b1c6c6c60628`
 - Subject: `feat: complete D119 dogfood workspace and async jobs`
 - Recorded: 2026-09-26
-- Follow-up browser conformance source revision: `75b0705`
+- Follow-up browser conformance source revision: `4bef286`
 
 ## Host
 
@@ -31,19 +31,19 @@
 | Browser runtime | `powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools/Test-OtterReleaseConformance.ps1` | PASS ON THIS HOST | 15/15 fixtures passed on 2026-09-26, including both web fixtures in headless Edge, when run outside the restricted sandbox. Inside the sandbox Edge's GPU process crashed and the same harness failed 2/15; that failure is an environment constraint, not a web fixture pass. |
 
 The four-job [D120 host smoke run](https://github.com/Heavens-Lava/otterPS/actions/runs/36282483112)
-completed successfully on commit `bbafb89527e4cd6f62549acbcd2ffbdec231dabd`.
+completed successfully on commit `ed8ee18324e2375eb43efeecfe94f2f7975afa18`.
 Its Windows PowerShell 5.1 job ran on Windows NT 10.0.26100.0, x64 with
 PowerShell 5.1.26100.33438. The local Windows host still lacks `pwsh`; the CI
 results supply the PowerShell 7 host evidence above.
 
 The [first expanded project workflow run](https://github.com/Heavens-Lava/otterPS/actions/runs/36282641423)
-used commit `d20a38c` and found a real portability defect: `new`, `check`,
+used commit `8482b6e` and found a real portability defect: `new`, `check`,
 `run`, `build`, and `publish` passed everywhere, but `test` failed on Linux
 and macOS because `Invoke-OtterProjectTests` launched `powershell.exe`.
 
-Commit `1aa08b0` changed that child launch to use the running PowerShell host.
+Commit `696fc5d` changed that child launch to use the running PowerShell host.
 The [resolution run](https://github.com/Heavens-Lava/otterPS/actions/runs/36286141126)
-at commit `aea1d9c` passed all four hosts. Each host completed `--version`,
+at commit `ff63057` passed all four hosts. Each host completed `--version`,
 `run`, `check`, and a fresh-project `new`, `check`, `test`, `run`, `build`,
 and `publish` workflow with exit code 0. This closes the specific D120
 host-selection defect; it does not by itself certify every target-specific

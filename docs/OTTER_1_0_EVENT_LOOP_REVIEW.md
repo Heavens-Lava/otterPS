@@ -10,7 +10,7 @@ Raw results: `benchmarks/results/event-loop-0.9.0.json`. Reproduce with
 
 * **Decided.** EV1-EV7 were decided and recorded as **D121** in
   `SPEC-DECISIONS.md`; user-facing description in `docs/OTTER_1_0_EVENT_MODEL.md`.
-  Two runtime changes followed (commit `6451f68`): `wait` now services every
+  Two runtime changes followed (commit `5e920fe`): `wait` now services every
   event source (EV3; previously HTTP and jobs only), and a command job handles
   at most 256 queued events per turn (EV2). Scheduling timing (the sleep) was not
   changed. The measurements below describe the runtime **before** those two

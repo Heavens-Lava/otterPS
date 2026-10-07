@@ -1,12 +1,12 @@
 # Otter 1.0.0-rc.4 — release evidence
 
-Candidate: `v1.0.0-rc.4` = `ab25d4fc2a9b8925ef450d8f673c234ab41f6ab1`
+Candidate: `v1.0.0-rc.4` = `2534850de26f133094243b57cbf5243cc2a95e44`
 (rc.3 plus D128, web UI created while the page runs; `VERSION` 1.0.0-rc.4).
 All results below are for that exact commit.
 
-The tag was first placed on `e850e90`, whose `VERSION` and install
-documentation still read 1.0.0-rc.3. It was moved to `ab25d4f` on 2026-09-29,
-before anything was distributed. `ab25d4f` is `e850e90` plus the D123
+The tag was first placed on `7b82b09`, whose `VERSION` and install
+documentation still read 1.0.0-rc.3. It was moved to `2534850` on 2026-09-29,
+before anything was distributed. `2534850` is `7b82b09` plus the D123
 paperwork commit and the version bump; every check below was run again on it.
 
 | Check | Result | Where |

@@ -21,13 +21,13 @@ the browser on macOS, the parser follow-ups (D27 `replace ... into`,
 D32.3 variable date amounts), and the compiled engine for `otter run`. It is
 **not certified yet**
 and not tagged; the certification record will name its exact SHA. rc.6
-(`95b9d40`), rc.7 (`85227ab`), rc.8 (`6404211`), rc.9 (`b8d9190`), rc.10
-(`3ba7890`) and rc.11 (`9e7cdac`) each passed certification and were
+(`145b15e`), rc.7 (`3cc888f`), rc.8 (`16a2e88`), rc.9 (`b9117a8`), rc.10
+(`7dfcdfe`) and rc.11 (`8c6ae68`) each passed certification and were
 superseded before publication; none is tagged. `v1.0.0-rc.5`
 (`docs/OTTER_1_0_RC5_EVIDENCE.md`), `v1.0.0-rc.4`
 (`docs/OTTER_1_0_RC4_EVIDENCE.md`) and `v1.0.0-rc.3` remain tagged on their
 own certified commits.
-RC2 (`708ef2e`) was superseded before its certification by the blockers the
+RC2 (`19bc37b`) was superseded before its certification by the blockers the
 production-readiness audit found; it is not tagged.
 The name `v1.0.0-rc.1` is taken: it is the 2026-09-11 baseline checkpoint,
 tagged before the 1.0 scope was widened, and it stays as history.
@@ -90,7 +90,7 @@ Primary evidence: `docs/D119_DOGFOOD_LOG.md`.
 | Host / target | Status | Evidence |
 |---|---|---|
 | Windows PowerShell 5.1 | RC CERTIFICATION | The full certification run, plus the D120 workflow's Windows PowerShell 5.1 job. |
-| PowerShell 7 on Windows | RC CERTIFICATION | D120 workflow (`.github/workflows/d120-host-matrix.yml`) on the candidate SHA. Prior evidence: run 36374374754 passed on `2dbcb4b`. |
+| PowerShell 7 on Windows | RC CERTIFICATION | D120 workflow (`.github/workflows/d120-host-matrix.yml`) on the candidate SHA. Prior evidence: run 36374374754 passed on `940de6b`. |
 | PowerShell 7 on Linux | RC CERTIFICATION | D120 workflow on the candidate SHA. |
 | PowerShell 7 on macOS | RC CERTIFICATION | D120 workflow on the candidate SHA. |
 | Headless Web target | RC CERTIFICATION | Gate `conformance` (`tools/Test-OtterReleaseConformance.ps1`). |

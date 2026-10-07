@@ -73,9 +73,9 @@ fails and the word must be removed from this list.
 
 Derived from the parser (statement dispatch on the first word of a line, the
 lexer's statement-head keyword table, and the state words in condition
-parsing), each entry proven with a program on RC2 (`708ef2e`).
+parsing), each entry proven with a program on RC2 (`19bc37b`).
 
-| Word | Role | Category | Why it conflicts | Example of the conflict (RC2 / 708ef2e) |
+| Word | Role | Category | Why it conflicts | Example of the conflict (RC2 / 19bc37b) |
 |---|---|---|---|---|
 | `now` | function | built-in value (function) | `now` is a built-in value, so a function named `now` could never be called | `to now p` … `now 5` → syntax error: "I don't understand 'now'." |
 | `pi` | function | built-in value (function) | `pi` is a built-in value, so a function named `pi` could never be called | `to pi p` … `pi 5` → syntax error: "'pi' is a built-in value, not a variable name." |

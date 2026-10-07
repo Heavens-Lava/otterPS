@@ -1,7 +1,7 @@
 {
     "Host":  {
                  "OtterVersion":  "1.0.0-rc.9",
-                 "GitCommit":  "55e71ae",
+                 "GitCommit":  "031ea01",
                  "PowerShellVersion":  "5.1.26100.8115",
                  "PowerShellEdition":  "Desktop",
                  "OperatingSystem":  "Microsoft Windows NT 10.0.26200.0",

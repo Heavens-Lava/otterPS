@@ -114,7 +114,7 @@ Fifth Otter 1.0 release candidate: rc.4 plus one compiler fix and the
 documentation site update.
 
 ### Fixed
-- Run-button code samples (`runnable true` text on the web target) compiled while their page was being compiled inherited the page's runtime-UI names (D128). A sample's `x has ...` or UI statement then compiled to runtime-UI calls the sample sandbox does not have, and its Run button failed with "otterSetUiProp is not defined" (three pages of the documentation site). A sample is now compiled with its own names only, and a sample that declares or drives UI gets no Run button, since it cannot show anything in the output box (`7389c63`).
+- Run-button code samples (`runnable true` text on the web target) compiled while their page was being compiled inherited the page's runtime-UI names (D128). A sample's `x has ...` or UI statement then compiled to runtime-UI calls the sample sandbox does not have, and its Run button failed with "otterSetUiProp is not defined" (three pages of the documentation site). A sample is now compiled with its own names only, and a sample that declares or drives UI gets no Run button, since it cannot show anything in the output box (`3478c34`).
 
 ### Documentation
 - The documentation site describes 1.0.0-rc.4: controls created while a program runs and how event handlers run (Events), the experimental desktop target, availability of networking, security and XML, reserved words, and release candidates. Two samples that broke on rc.3's reserved words were fixed.

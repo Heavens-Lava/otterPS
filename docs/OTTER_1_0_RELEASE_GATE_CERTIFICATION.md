@@ -1,12 +1,12 @@
 # Otter 1.0 Release-Gate Certification
 
-**Historical audit note:** This document records the `b6ca844` release audit.
+**Historical audit note:** This document records the `14fba05` release audit.
 Its module and packaging classifications predate the later production module
 certification in `docs/OTTER_1_0_MODULE_STATUS.md` and the later distribution
 work. Use `docs/OTTER_1_0_RELEASE_SCOPE_MATRIX.md` and the current release
 checklist for the active 1.0 scope and gate status.
 
-**Audit basis:** `b6ca844`, with the current PowerShell 5.1 workspace
+**Audit basis:** `14fba05`, with the current PowerShell 5.1 workspace
 re-validated on 2026-09-17. This is a certification record, not a feature
 roadmap. An unchecked release-gate item is not evidence that its syntax is
 absent; it means the current evidence is insufficient to claim it as a

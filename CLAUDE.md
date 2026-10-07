@@ -134,7 +134,7 @@ before a single line of the parser exists.
   `ConvertTo-OtterWeb` call, for web). A test calling a renderer
   function directly — `ConvertTo-OtterWpfWindow`, or similar — proves
   that function works in isolation, not that any real program can reach
-  it. Found during the `a6b5152` audit: a whole declarative UI/
+  it. Found during the `9e8f2fd` audit: a whole declarative UI/
   animation WPF renderer existed, had passing tests, and was completely
   unreachable from `otter counter.ot` — zero references to any of its
   functions existed anywhere in `Otter.Interpreter.psm1` or `otter.ps1`.

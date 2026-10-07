@@ -15,7 +15,7 @@ console and the web together (D56 affirmation, 2026-09-29).
 ## 1. Two of the proposals describe 1.0 bugs — verified on rc.7
 
 P7 and P8 are written as 1.1 fixes, but they describe silent wrong results in
-the 1.0 web target, which Otter forbids. Checked against rc.7 (`85227ab`) by
+the 1.0 web target, which Otter forbids. Checked against rc.7 (`3cc888f`) by
 compiling small programs with `otter web` and running them in headless
 Chromium:
 

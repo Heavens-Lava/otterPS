@@ -85,8 +85,8 @@ platform.
 -   [x] Reference aliasing
 -   [x] `try` / `otherwise`
 -   [x] Comments and diagnostics statements
--   [x] D61 append grammar (`db78014`)
--   [x] D65 structured command results (`385e795`)
+-   [x] D61 append grammar (`fe31960`)
+-   [x] D65 structured command results (`d979841`)
 -   [x] Resolve existing-thing `has` replacement parity (certified in platform core checklist line 2116)
 -   [x] Portable custom `OtterType` parity (certified in platform core checklist line 2117)
 -   [x] Freeze remaining 1.0 grammar (docs/OTTER_1_0_CONTRACT_FREEZE_REPORT.md)
@@ -110,9 +110,9 @@ platform.
 -   [x] Collection operations
 -   [x] General functions and recursion
 -   [x] Function/loop scope parity
--   [x] Plain-object representation 1F.2 (`59f53f2`)
+-   [x] Plain-object representation 1F.2 (`09284d7`)
 -   [x] UI-resource vs plain-object runtime dispatch
--   [x] Async ReadFile compiler hook (`a225fc2`)
+-   [x] Async ReadFile compiler hook (`07da29c`)
 -   [x] JSON parity/certification (Data.Tests.ps1 & conformance/misc/file_exists_run_command_json_roundtrip.ot)
 -   [x] Random parity/certification (Data.Tests.ps1 & conformance/json_random_diagnostics/json_random_diagnostics.ot)
 -   [x] Diagnostics parity/certification (DiagnosticMatrix.Tests.ps1 & Data.Tests.ps1)
@@ -121,7 +121,7 @@ platform.
 -   [x] Browser conformance (Web.Tests.ps1 35/35 verified)
 -   [x] Desktop conformance (UI.Tests.ps1 92/92 verified)
 -   [x] Windows conformance (HostPortability.Tests.ps1 31/31 verified)
--   [ ] macOS conformance (review 2026-10-06: the macOS run of 080fcf2 failed `otter web`; the fix is in rc.10/rc.11, macOS re-run pending)
+-   [ ] macOS conformance (review 2026-10-06: the macOS run of cbbb728 failed `otter web`; the fix is in rc.10/rc.11, macOS re-run pending)
 -   [x] Linux conformance (HostPortability.Tests.ps1 31/31 verified)
 
 # 3. Filesystem/runtime APIs
@@ -268,21 +268,21 @@ platform.
 -   [x] Breadcrumbs (interactive path navigation header)
 -   [x] Find/replace (in-editor floating widget with Next/Prev/Replace/All)
 -   [x] Find in files with bounded workspace search and clickable results
-    (`4e100a0`)
+    (`2e22cd6`)
 -   [x] Replace in files (POST /api/replace with multi-file match counter and Replace All confirmation)
--   [x] Regex search with invalid-pattern diagnostics (`4e100a0`)
+-   [x] Regex search with invalid-pattern diagnostics (`2e22cd6`)
 -   [x] Go to line (Ctrl+G modal & scroll into view)
 -   [x] Quick Open with fuzzy file matching and keyboard navigation
-    (`2f7806c`)
--   [x] Go to symbol from the parser-backed document index (`2f7806c`)
+    (`c506a84`)
+-   [x] Go to symbol from the parser-backed document index (`c506a84`)
 -   [x] Definition/implementation/occurrences (indexed Go to Definition F12, Occurrences Shift+F12)
 -   [x] Peek definition (Alt+F12 in-editor preview card)
--   [x] Back/forward navigation history across files and symbols (`4e100a0`)
--   [x] Parser-backed clickable document Outline (`2f7806c`)
+-   [x] Back/forward navigation history across files and symbols (`2e22cd6`)
+-   [x] Parser-backed clickable document Outline (`c506a84`)
 -   [x] Dirty indicator (tab dirty dot, input tracking, save clearing)
 -   [x] Save All / Save File (Ctrl+S)
 -   [x] External-change detection with SHA-256 revisions, clean-buffer reload,
-    dirty-buffer conflict UI, and stale-write rejection (`661f9c9`)
+    dirty-buffer conflict UI, and stale-write rejection (`6f15a1a`)
 -   [x] Autosave (session snapshot in localStorage)
 -   [x] Crash recovery (auto-restore on browser restart)
 
@@ -296,7 +296,7 @@ platform.
 -   [x] Autocomplete (rich keyword, UI widget, and loop suggestions)
 -   [x] Context-aware keyword/property/function suggestions
 -   [x] Parameter/signature help (real-time signature popup with active-parameter highlighting and documentation)
--   [x] Cached parser-backed workspace symbol index (`2f7806c`)
+-   [x] Cached parser-backed workspace symbol index (`c506a84`)
 -   [x] Go to definition (F12 and Ctrl+Click symbol-index resolver with cross-file lookup and history preservation)
 -   [x] Find references (AST-backed scope-aware references displayed in Search pane with clickable navigation)
 -   [x] Rename (AST/scope-aware symbol rename with pre-modification preview diff modal)
@@ -947,9 +947,9 @@ platform.
 
 ## P0 --- Protect current work
 
--   [x] Track the complete `otter-studio/` project intentionally (`661f9c9`).
--   [x] Make a clean Studio baseline commit (`661f9c9`).
--   [x] Commit the repeatable Studio smoke tests (`661f9c9`).
+-   [x] Track the complete `otter-studio/` project intentionally (`6f15a1a`).
+-   [x] Make a clean Studio baseline commit (`6f15a1a`).
+-   [x] Commit the repeatable Studio smoke tests (`6f15a1a`).
 -   [x] Keep environmental `HttpListener` limitations separate from
     product defects (Loopback Node HTTP server + authenticated Bridge fallback verified).
 
@@ -1007,7 +1007,7 @@ platform.
 -   [x] Autocomplete/hover/go-to-definition/rename (rich autocomplete & snippets implemented).
 -   [x] Formatter (Shift+Alt+F & clean indent rules).
 -   [x] External-change detection with safe reload/conflict handling
-    (`661f9c9`).
+    (`6f15a1a`).
 -   [x] Autosave/crash recovery (localStorage session persistence).
 
 ## P5 --- Build/run/debug

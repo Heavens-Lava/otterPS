@@ -1,17 +1,17 @@
 # Otter 1.0.0-rc.8 — release evidence
 
-Candidate: `640421159186fe56ce80d314713635bf558ef6a4` (`VERSION` 1.0.0-rc.8).
+Candidate: `16a2e88a586411f14cc232751095002d8fda3573` (`VERSION` 1.0.0-rc.8).
 **Superseded by rc.9 before publication, not tagged:** the installed-workflow
 test found that built apps had no macOS/Linux launcher (see `CHANGELOG.md`
-`[1.0.0-rc.9]`). rc.7 (`85227ab`, certified but superseded; see
+`[1.0.0-rc.9]`). rc.7 (`3cc888f`, certified but superseded; see
 `docs/OTTER_1_0_RC7_EVIDENCE.md`) plus fixes for three silent wrong answers,
 found while verifying the OtterBoard 1.1 proposals against rc.7:
 
-- `5e210aa` — web: file operations in a plain browser tab are errors (D131);
+- `cc98813` — web: file operations in a plain browser tab are errors (D131);
   a top-level `has` with a variable uses the variable's value;
-- `9a67829` — a handler set up during a loop pass remembers that pass, on the
+- `3dd69da` — a handler set up during a loop pass remembers that pass, on the
   console and the web (D130; `src/Otter.LoopPasses.psm1`);
-- `6404211` — version 1.0.0-rc.8, changelog `[1.0.0-rc.8]`, D130 and D131 in
+- `16a2e88` — version 1.0.0-rc.8, changelog `[1.0.0-rc.8]`, D130 and D131 in
   `SPEC-DECISIONS.md`.
 
 Release archive: `otter-1.0.0-rc.8.zip`, 412,019 bytes, SHA-256

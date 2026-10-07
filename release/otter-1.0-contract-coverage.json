@@ -2,7 +2,7 @@
     "schemaVersion":  1,
     "purpose":  "Derived evidence for every declared TokenKind, NodeKind and diagnostic call site. Evidence only: nothing here decides what is public.",
     "derivedFrom":  {
-                        "commit":  "0328289c8d19b4277c88706bb24e0ef57a243be0",
+                        "commit":  "9c7c7a98fb7b5d451288cc6160405049cdb169aa",
                         "contractSha256":  "0343bec8051dbc3e45aefe82b48c6363b9dfa0bd2d0d4868764f00f6e28238f5",
                         "lexerSha256":  "86a4add5bf4673a9ce635890cf789a717cc79dd601ff52c1688ddd72307d4c4c",
                         "parserSha256":  "41efcf491d1440de5108591e8f190a5f76d9a39e8ed90e628d77946da9ae96af",

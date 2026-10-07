@@ -1,7 +1,7 @@
 # Otter 1.0.0-rc.6 — release evidence (superseded, not tagged)
 
-Candidate: `95b9d400d18548d17fd193eaf0b73b90b0f88842` (`VERSION` 1.0.0-rc.6).
-rc.5 (`v1.0.0-rc.5` = `687219c`) plus macOS and Linux installation (D129):
+Candidate: `145b15ec4516b2785ce8de7479e0c6aa830af80d` (`VERSION` 1.0.0-rc.6).
+rc.5 (`v1.0.0-rc.5` = `a09ef39`) plus macOS and Linux installation (D129):
 the `otter` shell launcher, `Install-Otter.ps1`/`Uninstall-Otter.ps1` on every
 platform, Windows-only features refused clearly on macOS and Linux, and the
 `run command` fix for extensionless files on Windows.

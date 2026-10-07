@@ -5,7 +5,7 @@ hardening, fuzzing, and conformance release gate.
 
 ## Revision and environment
 
-- Language source revision: `75b0705` (`master` at the start of these runs).
+- Language source revision: `4bef286` (`master` at the start of these runs).
 - Host: Windows PowerShell 5.1.26100.8115, Windows NT 10.0.26200.0, x64.
 - The checkout has pre-existing uncommitted documentation, example whitespace,
   and generated project timestamp edits. The fuzzer report fix below is also

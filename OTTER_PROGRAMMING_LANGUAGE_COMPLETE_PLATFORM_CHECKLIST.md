@@ -115,7 +115,7 @@ creation.
     `and`'s real, legitimate use as a numeric-addition/string-
     concatenation synonym outside a condition - confirmed against three
     real production examples that regressed and were fixed. See commit
-    605659d)
+    c3fe39c)
 -   [x] `if`
 -   [x] `otherwise if`
 -   [x] `otherwise`
@@ -478,7 +478,7 @@ creation.
 -   [x] stdout
 -   [x] stderr
 -   [x] numeric exit code
--   [x] Structured command result --- D65 `385e795`
+-   [x] Structured command result --- D65 `d979841`
 -   [x] Process-start failure becomes Otter error
 -   [x] Command-line arguments
 -   [x] Environment variables
@@ -587,12 +587,12 @@ creation.
     scope), verified by confirming the stored file on disk is
     genuinely encrypted, not plaintext. See SPEC-DECISIONS.md D81)
 -   [x] Clipboard (D67: real `NodeKind`s + interpreter/JS-compiler
-    implementation, real lexer/parser grammar wired in `f52dcad`
+    implementation, real lexer/parser grammar wired in `264c646`
     (`copy "text" to clipboard`, `get clipboard into x`). Verified
     through the real `otter run` CLI on a real `.ot` file: a real
     OS clipboard write-then-read round trip printed back exactly)
 -   [x] Notifications (D67: `notify "Title" with "Message"` real
-    grammar wired in `f52dcad`, verified through the real `otter run`
+    grammar wired in `264c646`, verified through the real `otter run`
     CLI. Interpreter shows a REAL Windows balloon-tip toast via
     `System.Windows.Forms.NotifyIcon`; the JS/web path shows an
     in-page DOM toast instead - a documented, deliberate cross-
@@ -883,7 +883,7 @@ creation.
 -   [x] JSON serialize
 -   [x] JSON nested round trip
 -   [x] JSON `gone`/null mapping
--   [x] CSV read/write (D95: `read csv from <path> into <target>`, `write csv <rows> to <path>`, `convert <rows> to csv into <target>`, `convert <text> from csv into <target>`. Provenance: frontend/spec commit `fec73dc`, backend/runtime/parity commit `de3f345`)
+-   [x] CSV read/write (D95: `read csv from <path> into <target>`, `write csv <rows> to <path>`, `convert <rows> to csv into <target>`, `convert <text> from csv into <target>`. Provenance: frontend/spec commit `fbf36f8`, backend/runtime/parity commit `82a689b`)
     -   [x] Grammar
     -   [x] Lexer
     -   [x] Parser
@@ -1342,21 +1342,21 @@ creation.
 -   [ ] Pointer events
 -   [ ] Resize events
 -   [x] Window lifecycle
--   [x] Clipboard (D67: real grammar wired in `f52dcad`, verified
+-   [x] Clipboard (D67: real grammar wired in `264c646`, verified
     through the real CLI - see the section 10 entry above and
     SPEC-DECISIONS.md D67)
 -   [ ] OS drag/drop
 -   [x] File/folder/save pickers (D67: real `NodeKind`s + interpreter
     implementation using real Windows common dialogs on a dedicated
     STA thread; real grammar (`choose file into x`, `choose folder
-    into x`, `choose file to save into x`) wired in `f52dcad` and
+    into x`, `choose file to save into x`) wired in `264c646` and
     confirmed via `otter check` on a real `.ot` file exercising all
     three forms. Still flagged, unfixed (not my file):
     `Otter.Desktop.psm1`'s bridge-side file-dialog handlers use a
     suspicious 500ms thread-join timeout that likely reports false
     cancellations for any real user taking longer than half a second
     to pick a file - worth a look)
--   [x] Notifications (D67: real grammar wired in `f52dcad`, verified
+-   [x] Notifications (D67: real grammar wired in `264c646`, verified
     through the real CLI. Interpreter shows a real Windows balloon-tip
     toast; JS/web path is still a DOM-toast approximation, documented
     as a deliberate cross-runtime difference, not a bug)
