@@ -3956,7 +3956,7 @@ const server = http.createServer(async (req, res) => {
   if (pathname === '/api/ai/validate-code' && req.method === 'POST') {
     try {
       const body = await readBody(req);
-      const validation = aiProviderManager.validator.validate(body.source || '');
+      const validation = await aiProviderManager.validator.validate(body.source || '', null, { projectRoot: body.projectRoot });
       sendJson(res, { ok: true, ...validation });
     } catch (err) {
       sendJson(res, { ok: false, error: err.message }, 500);
@@ -4050,7 +4050,7 @@ const server = http.createServer(async (req, res) => {
 
       // Validate generated Otter source
       const rawCode = result.code || '';
-      const validation = aiProviderManager.validator.validate(rawCode);
+      const validation = await aiProviderManager.validator.validate(rawCode, null, { projectRoot: context.projectRoot });
 
       aiProviderManager.telemetry.record({
         operation: 'synthesize-code',
@@ -4119,7 +4119,7 @@ const server = http.createServer(async (req, res) => {
       const legacySuite = aiAssistant.generateTestSuites(body.source || '', body.moduleName || 'module');
 
       const testCode = result.testCode || legacySuite || '';
-      const validation = aiProviderManager.validator.validate(testCode);
+      const validation = await aiProviderManager.validator.validate(testCode, null, { projectRoot: body.context?.projectRoot });
 
       aiProviderManager.telemetry.record({
         operation: 'generate-tests',

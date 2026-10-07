@@ -90,30 +90,33 @@ export class OtterCodeValidator {
    * If the real compiler certifies the code, compiler authority supersedes any preflight warning.
    * @param {string} source
    * @param {OtterCompilerAdapter} [compilerAdapter]
+   * @param {object} [options]
    */
-  static async validate(source, compilerAdapter = null) {
+  static async validate(source, compilerAdapter = null, options = {}) {
     const preflight = this.preflightLint(source);
-    const adapter = compilerAdapter || new OtterCompilerAdapter();
+    const adapter = compilerAdapter || new OtterCompilerAdapter({ projectRoot: options.projectRoot });
 
     // Check with the real compiler
-    const compilerResult = await adapter.checkSource(preflight.normalized || source);
+    const compilerResult = await adapter.checkSource(preflight.normalized || source, options);
 
     if (compilerResult.ok) {
       // Real compiler accepted the source - authoritative PASS
       return {
         isValid: true,
         errors: [],
+        diagnostics: [],
         suggestions: preflight.suggestions,
         normalized: preflight.normalized,
         compilerValidated: true
       };
     } else {
       // Real compiler rejected the source - authoritative FAIL
-      const compilerErrors = compilerResult.errors.map(e => e.message);
+      const compilerErrors = compilerResult.errors.map(e => `Line ${e.line || 1}: ${e.message}`);
       return {
         isValid: false,
-        errors: [...preflight.errors, ...compilerErrors],
-        suggestions: preflight.suggestions,
+        errors: compilerErrors.length > 0 ? compilerErrors : preflight.errors,
+        diagnostics: compilerResult.errors,
+        suggestions: compilerResult.errors.map(e => e.suggestion).filter(Boolean).concat(preflight.suggestions),
         normalized: preflight.normalized,
         compilerValidated: true
       };
