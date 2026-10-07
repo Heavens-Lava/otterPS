@@ -1,112 +1,145 @@
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import fs from 'node:fs';
+import path from 'node:path';
+
+const execFileAsync = promisify(execFile);
+
 /**
- * Otter Compiler & Parser Adapter
- * Authoritative interface to invoke the real Otter lexer and parser.
+ * Authoritative Otter Compiler Adapter
+ * Delegates ALL language syntax, grammar, and semantic checking directly to the real Otter toolchain (otter.ps1 check).
+ * Contains ZERO JavaScript grammar approximations or hand-written AST rules.
  */
-
-import { parseOtterSource } from './otter-parser.js';
-import { OtterUiModel } from '../model/ui-model.js';
-
 export class OtterCompilerAdapter {
   constructor(options = {}) {
-    this.repoRoot = options.repoRoot || process.cwd();
-    this.execFileFn = options.execFileFn || null;
+    this.repoRoot = options.repoRoot || path.resolve(process.cwd(), '..');
+    this.otterCli = options.otterCli || path.join(this.repoRoot, 'otter.ps1');
   }
 
   /**
-   * Authoritatively checks Otter source code using the real parser/checker.
-   * @param {string} source
-   * @returns {Promise<{ ok: boolean, errors: Array<{ message: string, line?: number, column?: number, stage?: string }> }>}
+   * Authoritatively checks Otter source code or file path using the real Otter compiler.
+   * @param {string} sourceOrPath - Source code string or absolute/relative file path
+   * @returns {Promise<{ ok: boolean, errors: Array<{ message: string, line?: number, column?: number, suggestion?: string, raw?: string }> }>}
    */
-  async checkSource(source) {
-    if (typeof source !== 'string') {
-      return { ok: false, errors: [{ message: 'Source must be a string' }] };
+  async checkSource(sourceOrPath) {
+    if (typeof sourceOrPath !== 'string') {
+      return {
+        ok: false,
+        errors: [{ message: 'Source must be a non-null string' }]
+      };
     }
 
-    const trimmed = source.trim();
-    if (!trimmed) {
+    if (!sourceOrPath.trim()) {
       return { ok: true, errors: [] };
     }
 
-    const isUiDsl = /(?:^|\n)\s*(?:create\s+[a-zA-Z0-9\s]+\s+into\s+|when\s+[a-zA-Z0-9_]+\s+(?:clicked|changed)|has\s+[a-zA-Z0-9_]+\s+props)/i.test(trimmed);
+    let targetFile = sourceOrPath;
+    let isTemp = false;
 
-    if (isUiDsl) {
-      try {
-        const model = new OtterUiModel();
-        const parseOk = parseOtterSource(source, model);
-        if (parseOk === false) {
-          return {
-            ok: false,
-            errors: [{ message: 'Otter parser failed to construct valid UI AST from source' }]
-          };
-        }
+    // If sourceOrPath is raw source code rather than an existing file path, write to scratch temp file
+    if (!fs.existsSync(sourceOrPath)) {
+      const scratchDir = path.join(this.repoRoot, 'scratch');
+      if (!fs.existsSync(scratchDir)) {
+        fs.mkdirSync(scratchDir, { recursive: true });
+      }
+      targetFile = path.join(scratchDir, `check_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.ot`);
+      fs.writeFileSync(targetFile, sourceOrPath, 'utf8');
+      isTemp = true;
+    }
+
+    try {
+      const { stdout, stderr } = await execFileAsync('powershell.exe', [
+        '-NoProfile',
+        '-NonInteractive',
+        '-ExecutionPolicy',
+        'Bypass',
+        '-File',
+        this.otterCli,
+        'check',
+        targetFile
+      ], { cwd: this.repoRoot });
+
+      const output = stdout + '\n' + stderr;
+      if (output.includes('is valid.')) {
         return { ok: true, errors: [] };
-      } catch (err) {
-        return {
-          ok: false,
-          errors: [{ message: err.message, line: err.line || 1 }]
-        };
+      }
+
+      const errors = this.parseCompilerDiagnostics(output);
+      return {
+        ok: errors.length === 0,
+        errors: errors.length > 0 ? errors : [{ message: output.trim() || 'Compiler check failed' }]
+      };
+    } catch (err) {
+      const output = (err.stdout || '') + '\n' + (err.stderr || '') + '\n' + (err.message || '');
+      const errors = this.parseCompilerDiagnostics(output);
+      return {
+        ok: false,
+        errors: errors.length > 0 ? errors : [{ message: output.trim() || 'Otter compiler check failed' }]
+      };
+    } finally {
+      if (isTemp) {
+        try { fs.unlinkSync(targetFile); } catch {}
       }
     }
+  }
 
-    // General Otter Language Syntax Checker
-    const lines = source.split(/\r?\n/);
+  /**
+   * Normalizes real Otter compiler diagnostic output into structured diagnostic objects.
+   * @param {string} rawOutput
+   */
+  parseCompilerDiagnostics(rawOutput) {
     const errors = [];
-    let openBlocks = 0;
-    const blockStack = [];
+    const blocks = rawOutput.split(/Otter (?:Syntax|Runtime|Parser) Error/i);
 
-    const foreignKeywords = ['function', 'def', 'var', 'let', 'const', 'class', 'console.log', 'print'];
+    for (const block of blocks) {
+      const trimmed = block.trim();
+      if (!trimmed) continue;
 
-    for (let i = 0; i < lines.length; i++) {
-      const lineNum = i + 1;
-      const raw = lines[i];
-      const line = raw.trim();
+      let line = 1;
+      let column = 1;
+      let message = '';
+      let suggestion = '';
 
-      if (!line || line.startsWith('#')) continue;
+      const lineMatch = trimmed.match(/Line\s+(d+):/i);
+      if (lineMatch) {
+        line = parseInt(lineMatch[1], 10);
+      }
 
-      // Foreign keyword check
-      for (const fk of foreignKeywords) {
-        const regex = new RegExp(`\\b${fk}\\b`);
-        if (regex.test(line)) {
-          errors.push({ message: `Line ${lineNum}: Foreign keyword '${fk}' is not valid Otter syntax`, line: lineNum });
+      const colMatch = trimmed.match(/\n\s*(\^)/);
+      if (colMatch) {
+        const lines = trimmed.split('\n');
+        for (let i = 0; i < lines.length; i++) {
+          if (lines[i].includes('^')) {
+            column = lines[i].indexOf('^') + 1;
+            break;
+          }
         }
       }
 
-      // Foreign assignment '=' check
-      if (/^[a-zA-Z0-9_]+\s*=\s*[^=]/.test(line) && !line.startsWith('make')) {
-        errors.push({ message: `Line ${lineNum}: '=' assignment is not valid in Otter; use 'is'`, line: lineNum });
+      const tryMatch = trimmed.match(/Try:\s*\n\s*(.+)/i);
+      if (tryMatch) {
+        suggestion = tryMatch[1].trim();
       }
 
-      // Block openers
-      if (/^(to\s+[a-zA-Z0-9_]+|if\b|when\b|try\b|repeat\b|for\s+each\b)/.test(line) && !line.endsWith('.')) {
-        openBlocks++;
-        blockStack.push({ line: lineNum, kind: line.split(' ')[0] });
+      const lines = trimmed.split('\n').map(l => l.trim()).filter(Boolean);
+      const descLines = lines.filter(l => !l.startsWith('Line') && !l.includes('^') && !l.startsWith('Try:') && l !== suggestion);
+      if (descLines.length > 0) {
+        message = descLines[0];
+      } else {
+        message = trimmed.slice(0, 120);
       }
 
-      // Block terminator
-      if (line === '.') {
-        if (openBlocks > 0) {
-          openBlocks--;
-          blockStack.pop();
-        } else {
-          errors.push({ message: `Line ${lineNum}: Unexpected block terminator '.' without matching block`, line: lineNum });
-        }
-      }
-
-      // Nonsense keyword patterns: "make is is", "say and and", "to ."
-      if (/^make\s+is\b|^say\s+and\b|^to\s*$/i.test(line)) {
-        errors.push({ message: `Line ${lineNum}: Malformed Otter statement: unexpected keyword sequence`, line: lineNum });
+      if (message) {
+        errors.push({
+          line,
+          column,
+          message,
+          suggestion,
+          raw: trimmed
+        });
       }
     }
 
-    if (openBlocks > 0) {
-      const unclosed = blockStack.map(b => `${b.kind} (line ${b.line})`).join(', ');
-      errors.push({ message: `Unclosed block(s): ${unclosed}. Missing '.' terminator.`, line: lines.length });
-    }
-
-    if (errors.length > 0) {
-      return { ok: false, errors };
-    }
-
-    return { ok: true, errors: [] };
+    return errors;
   }
 }

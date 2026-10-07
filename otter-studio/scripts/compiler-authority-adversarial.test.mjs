@@ -1,88 +1,52 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import path from 'node:path';
 import { OtterCodeValidator } from '../js/ai/code-validator.js';
 import { OtterCompilerAdapter } from '../js/compiler/compiler-adapter.js';
 
-test('Compiler Authority & Adversarial Validation Certification', async (t) => {
-  await t.test('1. Valid Otter code passes both preflight heuristics and real compiler check', async () => {
-    const validCode = `
-make score is 100
-make bonus is 20
-make total is score and bonus
-say total
-`;
-    const result = await OtterCodeValidator.validate(validCode);
-    assert.equal(result.isValid, true, 'Valid code is certified');
-    assert.equal(result.errors.length, 0, 'No validation errors');
+test('Authoritative Compiler Integration & Diagnostic Normalization (Real Toolchain)', async (t) => {
+  const repoRoot = path.resolve(process.cwd(), '..');
+  const adapter = new OtterCompilerAdapter();
+
+  await t.test('1. Real repository Otter programs pass authoritative compiler check', async () => {
+    const realFiles = [
+      path.join(repoRoot, 'examples', 'hello.ot'),
+      path.join(repoRoot, 'examples', 'calculator.ot'),
+      path.join(repoRoot, 'examples', 'variables.ot'),
+      path.join(repoRoot, 'examples', 'conditions.ot')
+    ];
+
+    for (const filePath of realFiles) {
+      const result = await adapter.checkSource(filePath);
+      assert.equal(result.ok, true, `Real repo file ${path.basename(filePath)} passed authoritative check`);
+      assert.equal(result.errors.length, 0, 'Zero errors reported for canonical example');
+    }
+  });
+
+  await t.test('2. Real valid Otter code string passes authoritative validator', async () => {
+    const validOtterCode = 'score is 100\nbonus is 20\ntotal is score and bonus\nsay total\n';
+    const result = await OtterCodeValidator.validate(validOtterCode, adapter);
+    
+    assert.equal(result.isValid, true, 'Valid canonical Otter code string certified');
+    assert.equal(result.errors.length, 0, 'No errors reported');
     assert.equal(result.compilerValidated, true, 'Compiler confirmed validation');
   });
 
-  await t.test('2. Adversarial Case: Code passes simple regex preflight but fails real compiler -> REJECTED', async () => {
-    // This code uses Otter keywords (make, is, and, say) and ends with '.', so shallow regex thinks it might be valid,
-    // but the grammatical structure is completely invalid in the real parser.
-    const adversarialSource = `
-make is is make
-say and and
-to
-.
-`;
-    // Mock compiler adapter simulating real compiler AST failure on malformed grammar
-    const mockRealCompiler = {
-      async checkSource(src) {
-        return {
-          ok: false,
-          errors: [{ message: 'Otter Parser Error: Unexpected token "is" at line 2 column 6' }]
-        };
-      }
-    };
-
-    const preflight = OtterCodeValidator.preflightLint(adversarialSource);
-    // Preflight alone might not catch deep grammar errors
-    const authoritativeResult = await OtterCodeValidator.validate(adversarialSource, mockRealCompiler);
+  await t.test('3. Real invalid syntax is authoritatively rejected by compiler with structured diagnostics', async () => {
+    // Malformed Otter code
+    const malformedCode = 'make is is make\nsay and and\n';
+    const result = await OtterCodeValidator.validate(malformedCode, adapter);
     
-    assert.equal(authoritativeResult.isValid, false, 'Authoritative validator marked adversarial code invalid');
-    assert.ok(authoritativeResult.errors.some(e => e.includes('Otter Parser Error')), 'Parser error surfaced to Studio');
+    assert.equal(result.isValid, false, 'Authoritative compiler rejected invalid code');
+    assert.ok(result.errors.length > 0, 'Structured diagnostics returned from compiler');
+    assert.ok(result.errors.some(e => e.includes('make') || e.includes('value') || e.includes('Syntax')), 'Diagnostic surfaces compiler error details');
   });
 
-  await t.test('3. Preflight False Positive: Complex valid Otter syntax is accepted because real compiler succeeds', async () => {
-    const advancedOtterCode = `
-to calculate_discount of price with rate
-  make discount is price and rate
-  return discount
-.
-`;
-    // Compiler adapter accepts valid function definition
-    const mockRealCompiler = {
-      async checkSource(src) {
-        return { ok: true, errors: [] };
-      }
-    };
-
-    const result = await OtterCodeValidator.validate(advancedOtterCode, mockRealCompiler);
-    assert.equal(result.isValid, true, 'Real compiler authority certifies advanced syntax');
-    assert.equal(result.errors.length, 0, 'Zero errors reported when compiler passes');
-  });
-
-  await t.test('4. Code application guard: Malformed code rejected by validator CANNOT be applied to editor buffer', () => {
-    let editorContent = 'make score is 10';
+  await t.test('4. Foreign JavaScript / Python syntax rejected authoritatively', async () => {
+    const foreignCode = 'function calculateTotal(price) {\n  return price * 1.1;\n}\n';
+    const result = await OtterCodeValidator.validate(foreignCode, adapter);
     
-    function applyAiPatch(currentBuffer, patchCode, validationResult) {
-      if (!validationResult.isValid) {
-        throw new Error(`Cannot apply invalid AI code: ${validationResult.errors.join(', ')}`);
-      }
-      return patchCode;
-    }
-    
-    const invalidValidation = {
-      isValid: false,
-      errors: ['Syntax error at line 3: missing block terminator']
-    };
-    
-    assert.throws(
-      () => applyAiPatch(editorContent, 'corrupt code', invalidValidation),
-      /Cannot apply invalid AI code/,
-      'Editor refused to apply invalid AI code'
-    );
-    assert.equal(editorContent, 'make score is 10', 'Editor buffer remained uncorrupted');
+    assert.equal(result.isValid, false, 'Foreign JavaScript code rejected');
+    assert.ok(result.errors.length > 0, 'Errors reported');
   });
 });
