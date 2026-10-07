@@ -363,3 +363,112 @@ test('13. UpdateManifestValidator validates schema, versions, and checksums', ()
   const match = UpdateManifestValidator.verifyChecksum(emptyBuffer, 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855');
   assert.equal(match, true);
 });
+
+// --- 14. Designer AI Transaction Rollback on Mid-Plan Failure ---
+test('14. DesignerAiPlanner rolls back all mutations if any operation in transaction fails', () => {
+  const uiModel = new OtterUiModel();
+  const initialCount = uiModel.components.size;
+  const initialSnapshot = JSON.stringify(uiModel.serializeSnapshot());
+
+  const brokenPlan = {
+    prompt: 'broken plan',
+    operations: [
+      { op: 'create-container', type: 'card', id: 'card1', properties: { width: 300, height: 200 } },
+      { op: 'create-control', type: 'text', id: 'label1', parentId: 'card1', properties: { text: 'Title' } },
+      { op: 'create-control', type: 'text', id: 'label2', parentId: 'card1', properties: { text: 'Subtitle' } },
+      // Operation 4 deliberately references a nonexistent parent to trigger mid-plan failure
+      { op: 'create-control', type: 'button', id: 'btnInvalid', parentId: 'nonexistent_parent_id_999' }
+    ]
+  };
+
+  assert.throws(() => {
+    DesignerAiPlanner.applyPlan(brokenPlan, uiModel);
+  }, /Designer AI Transaction Failed/);
+
+  // Invariant: Zero partial components retained; snapshot matches initial state exactly
+  assert.equal(uiModel.components.size, initialCount);
+  assert.equal(JSON.stringify(uiModel.serializeSnapshot()), initialSnapshot);
+  assert.equal(uiModel.components.has('card1'), false);
+  assert.equal(uiModel.components.has('label1'), false);
+});
+
+// --- 15. Inline Completion Out-Of-Order Race Condition Protection ---
+test('15. InlineCompletionEngine discards stale superseded completions when late response arrives', async () => {
+  const engine = new InlineCompletionEngine({ debounceMs: 10 });
+
+  let slowResolve;
+  const slowProvider = {
+    complete: () => new Promise(resolve => { slowResolve = resolve; })
+  };
+
+  const fastProvider = {
+    complete: async () => ({ code: 'is "fast"' })
+  };
+
+  // Request A starts (slow)
+  const promiseA = engine.requestCompletion('x ', '', {}, slowProvider);
+
+  // Request B supersedes A immediately (fast)
+  const promiseB = engine.requestCompletion('y ', '', {}, fastProvider);
+
+  const resB = await promiseB;
+  assert.equal(resB, 'is "fast"');
+
+  // Slow Request A finally completes late
+  if (slowResolve) slowResolve({ code: 'is "stale_slow"' });
+  const resA = await promiseA;
+
+  // Invariant: Request A returned null/cancelled and did not overwrite latest state
+  assert.equal(resA, null);
+  assert.equal(engine.lastCompletion, 'is "fast"');
+});
+
+// --- 16. Secure Updater Trust Model, Anti-Downgrade, and Channel Isolation ---
+test('16. OtterUpdateManager enforces channel isolation, anti-downgrade, and minCompatibleVersion', async () => {
+  const { OtterUpdateManager } = await import('../js/updater/update-manager.js');
+
+  const updater = new OtterUpdateManager({
+    currentVersion: '1.0.0',
+    channel: 'stable',
+    allowDowngrade: false
+  });
+
+  // A. Channel Mismatch Rejection
+  const previewManifest = {
+    channel: 'preview',
+    version: '1.1.0-preview.1',
+    releaseDate: '2026-10-07T12:00:00Z',
+    artifactUrl: 'https://releases.otter-lang.org/preview/otter.zip',
+    sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
+  };
+  await assert.rejects(
+    async () => await updater.processManifest(previewManifest),
+    /Manifest channel 'preview' does not match configured channel 'stable'/
+  );
+
+  // B. Anti-Downgrade Rejection
+  const olderManifest = {
+    channel: 'stable',
+    version: '0.9.5',
+    releaseDate: '2026-10-01T12:00:00Z',
+    artifactUrl: 'https://releases.otter-lang.org/stable/otter.zip',
+    sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
+  };
+  await assert.rejects(
+    async () => await updater.processManifest(olderManifest),
+    /Refusing version downgrade/
+  );
+
+  // C. Minimum Compatible Version Check
+  const breakingManifest = {
+    channel: 'stable',
+    version: '2.0.0',
+    minCompatibleVersion: '1.5.0',
+    releaseDate: '2026-10-07T12:00:00Z',
+    artifactUrl: 'https://releases.otter-lang.org/stable/otter-v2.zip',
+    sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
+  };
+  const result = await updater.processManifest(breakingManifest);
+  assert.equal(result.requiresFullInstaller, true);
+  assert.ok(result.message.includes('requires full installer'));
+});

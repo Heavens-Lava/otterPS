@@ -1,13 +1,10 @@
 /**
  * Otter Studio Visual Designer AI Planner & Executor
  * Converts natural-language UI descriptions into structured, inspectable Designer operations.
- * Never generates opaque HTML or unmanaged CSS.
+ * Enforces atomic transaction rollback if any step fails.
  */
 
 export class DesignerAiPlanner {
-  /**
-   * Normalizes component kind to valid schema keys
-   */
   static normalizeKind(kind) {
     const k = (kind || '').toLowerCase();
     if (k === 'textinput' || k === 'input' || k === 'label') return 'text';
@@ -17,17 +14,11 @@ export class DesignerAiPlanner {
     return 'text';
   }
 
-  /**
-   * Plans structured operations from natural language prompts
-   * @param {string} prompt
-   * @returns {{ name: string, operations: Array<{ op: string, [key: string]: any }> }}
-   */
   static planFromPrompt(prompt) {
     const p = (prompt || '').toLowerCase();
     const ops = [];
 
     if (p.includes('settings') || p.includes('preferences') || p.includes('profile')) {
-      // Plan: Card -> Column -> Name Input -> Email Input -> Button Row (Cancel, Save)
       ops.push(
         { op: 'create-container', type: 'card', id: 'settingsCard', properties: { width: 420, height: 320, padding: 16, background: '#1e293b' } },
         { op: 'create-container', type: 'column', id: 'settingsCol', parentId: 'settingsCard', properties: { spacing: 10 } },
@@ -67,13 +58,17 @@ export class DesignerAiPlanner {
   }
 
   /**
-   * Applies the operations plan to the OtterUiModel as a single undoable transaction
-   * @param {{ operations: Array<any> }} plan
-   * @param {any} uiModel
+   * Applies operations transactionally to uiModel.
+   * If any operation fails, performs complete rollback to pre-transaction state.
    */
   static applyPlan(plan, uiModel) {
     if (!plan || !Array.isArray(plan.operations) || !uiModel) {
       throw new Error('Invalid plan or UI model');
+    }
+
+    let preTxSnapshot = null;
+    if (typeof uiModel.serializeSnapshot === 'function') {
+      preTxSnapshot = uiModel.serializeSnapshot();
     }
 
     if (typeof uiModel.saveSnapshot === 'function') {
@@ -81,53 +76,95 @@ export class DesignerAiPlanner {
     }
 
     const createdIds = [];
+    const nameToIdMap = new Map();
 
-    for (const op of plan.operations) {
-      const normalizedKind = this.normalizeKind(op.type);
-      switch (op.op) {
-        case 'create-container':
-        case 'create-control': {
-          const comp = uiModel.createComponent(normalizedKind, {
-            name: op.id,
-            parentId: op.parentId || uiModel.rootId,
-            properties: op.properties || {}
-          });
-          if (comp) createdIds.push(comp.id);
-          break;
+    try {
+      for (let i = 0; i < plan.operations.length; i++) {
+        const op = plan.operations[i];
+        if (!op || !op.op) {
+          throw new Error(`Operation at index ${i} is invalid or missing 'op' property`);
         }
-        case 'set-property': {
-          if (uiModel.setProperty) {
-            uiModel.setProperty(op.id, op.property, op.value);
+
+        const normalizedKind = this.normalizeKind(op.type);
+        switch (op.op) {
+          case 'create-container':
+          case 'create-control': {
+            let targetParentId = uiModel.rootId;
+            if (op.parentId) {
+              if (uiModel.components.has(op.parentId)) {
+                targetParentId = op.parentId;
+              } else if (typeof uiModel.findByName === 'function' && uiModel.findByName(op.parentId)) {
+                targetParentId = uiModel.findByName(op.parentId).id;
+              } else if (nameToIdMap.has(op.parentId)) {
+                targetParentId = nameToIdMap.get(op.parentId);
+              } else {
+                throw new Error(`Target parent container '${op.parentId}' does not exist`);
+              }
+            }
+            const comp = uiModel.createComponent(normalizedKind, {
+              name: op.id,
+              parentId: targetParentId,
+              properties: op.properties || {}
+            });
+            if (comp) {
+              createdIds.push(comp.id);
+              nameToIdMap.set(op.id, comp.id);
+            }
+            break;
           }
-          break;
-        }
-        case 'set-text': {
-          if (uiModel.setProperty) {
-            uiModel.setProperty(op.id, 'text', op.text);
+          case 'set-property': {
+            if (!uiModel.components.has(op.id)) {
+              throw new Error(`Component '${op.id}' not found for property mutation`);
+            }
+            if (uiModel.setProperty) {
+              uiModel.setProperty(op.id, op.property, op.value);
+            }
+            break;
           }
-          break;
-        }
-        case 'reparent': {
-          if (uiModel.reparentComponent) {
-            uiModel.reparentComponent(op.id, op.newParentId);
+          case 'set-text': {
+            if (!uiModel.components.has(op.id)) {
+              throw new Error(`Component '${op.id}' not found for text mutation`);
+            }
+            if (uiModel.setProperty) {
+              uiModel.setProperty(op.id, 'text', op.text);
+            }
+            break;
           }
-          break;
+          case 'reparent': {
+            if (!uiModel.components.has(op.id) || !uiModel.components.has(op.newParentId)) {
+              throw new Error(`Invalid source or target ID for reparent operation`);
+            }
+            if (uiModel.reparentComponent) {
+              uiModel.reparentComponent(op.id, op.newParentId);
+            }
+            break;
+          }
+          default:
+            throw new Error(`Unsupported Designer operation '${op.op}'`);
         }
       }
-    }
 
-    if (createdIds.length > 0 && typeof uiModel.selectComponent === 'function') {
-      uiModel.selectComponent(createdIds[0]);
-    }
+      if (createdIds.length > 0 && typeof uiModel.selectComponent === 'function') {
+        uiModel.selectComponent(createdIds[0]);
+      }
 
-    if (typeof uiModel.notifyListeners === 'function') {
-      uiModel.notifyListeners();
-    }
+      if (typeof uiModel.notifyListeners === 'function') {
+        uiModel.notifyListeners();
+      }
 
-    return {
-      success: true,
-      createdCount: createdIds.length,
-      createdIds
-    };
+      return {
+        success: true,
+        createdCount: createdIds.length,
+        createdIds
+      };
+    } catch (err) {
+      // Roll back all changes completely
+      if (preTxSnapshot && typeof uiModel.restoreSnapshot === 'function') {
+        uiModel.restoreSnapshot(preTxSnapshot);
+      }
+      const txError = new Error(`Designer AI Transaction Failed: ${err.message}. All changes rolled back.`);
+      txError.originalError = err;
+      throw txError;
+    }
   }
 }

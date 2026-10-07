@@ -1,6 +1,7 @@
 /**
  * Otter Studio Semantic Inline Completion Engine
- * Handles debounced ghost-text suggestions in editor with abort cancellation.
+ * Handles debounced ghost-text suggestions in editor with abort cancellation
+ * and strict monotonic sequence protection against out-of-order race conditions.
  */
 
 export class InlineCompletionEngine {
@@ -10,6 +11,7 @@ export class InlineCompletionEngine {
     this.activeController = null;
     this.lastCompletion = null;
     this.cache = new Map();
+    this.currentRequestId = 0;
   }
 
   setEnabled(val) {
@@ -17,22 +19,20 @@ export class InlineCompletionEngine {
   }
 
   cancelPending() {
+    this.currentRequestId++;
     if (this.activeController) {
       this.activeController.abort();
       this.activeController = null;
     }
   }
 
-  /**
-   * Requests completion with debounce and cancellation
-   */
   async requestCompletion(prefix, suffix, context = {}, provider = null) {
     if (!this.enabled || !prefix || !prefix.trim()) {
       return null;
     }
 
-    // Cancel any previous in-flight request
     this.cancelPending();
+    const reqId = this.currentRequestId;
 
     const cacheKey = `${prefix.slice(-80)}|${suffix.slice(0, 20)}`;
     if (this.cache.has(cacheKey)) {
@@ -43,7 +43,6 @@ export class InlineCompletionEngine {
     const signal = this.activeController.signal;
 
     try {
-      // Local debounce wait
       await new Promise((resolve, reject) => {
         const timer = setTimeout(resolve, this.debounceMs);
         signal.addEventListener('abort', () => {
@@ -52,14 +51,23 @@ export class InlineCompletionEngine {
         });
       });
 
+      // Verify not superseded during debounce
+      if (reqId !== this.currentRequestId || signal.aborted) {
+        return null;
+      }
+
       let code = '';
       if (provider) {
         const res = await provider.complete(prefix, context, { signal, maxTokens: 80 });
         code = res?.code || '';
       }
 
+      // Verify not superseded while waiting for provider response
+      if (reqId !== this.currentRequestId || signal.aborted) {
+        return null;
+      }
+
       if (code) {
-        // Strip duplicate prefix if returned by model
         if (code.startsWith(prefix)) {
           code = code.slice(prefix.length);
         }
@@ -69,12 +77,11 @@ export class InlineCompletionEngine {
       }
       return null;
     } catch (err) {
-      if (err.message?.includes('superseded') || signal.aborted) {
-        return null;
-      }
       return null;
     } finally {
-      this.activeController = null;
+      if (reqId === this.currentRequestId) {
+        this.activeController = null;
+      }
     }
   }
 }
