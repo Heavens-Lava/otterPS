@@ -334,8 +334,9 @@ $script:OtterCompiledRunAllowed = $false
 $script:OtterRunArguments = @()
 $script:OtterRunSourcePath = $null
 $script:OtterRunSingleFile = $false
-# Library calls OtterLibrary (src/native/OtterNativeRuntime.cs) answers without PowerShell.
-$script:OtterFastStartLibrary = @('ReadFile', 'WriteFile', 'AppendFile', 'DeleteFile', 'FileExists', 'CopyFile', 'MoveFile')
+# Library calls OtterLibrary (src/native/OtterNativeRuntime.cs) answers without PowerShell
+# (tools/Test-OtterJsonParity.ps1 checks its JSON against the interpreter's).
+$script:OtterFastStartLibrary = @('ReadFile', 'WriteFile', 'AppendFile', 'DeleteFile', 'FileExists', 'CopyFile', 'MoveFile', 'ConvertToJson', 'ConvertFromJson', 'ReadJson')
 
 function Get-OtterCompiledCacheDirectory {
     $base = $null

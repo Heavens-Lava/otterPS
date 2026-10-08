@@ -276,13 +276,41 @@ otherwise
         Assert-AreEqual -Expected 'two' -Actual $again.Text.Trim()
     }
 
-    Test-Otter 'programs that need PowerShell (JSON, imports) never take the fast path' {
-        foreach ($source in @("convert 5 to json into j`nsay j", "read json from `"x.json`" into j")) {
-            $path = New-Program -Source $source
-            [void](Invoke-ViaPs1 -Path $path)
-            $r = Invoke-ViaExe -Arguments @('run', $path)
-            Assert-True ($r.Trace -match 'no fast-start entry') "a library program took the fast path: $($r.Trace)"
+    Test-Otter 'JSON runs on the fast path with otter.ps1''s exact text, both ways' {
+        $r = Assert-FileCase -Source @'
+person has name "Ada <&>", age 36
+skills are
+    "math"
+    "engines"
+.
+langs of person is skills
+convert person to json into text
+say text
+write text to "DIR\\p.json"
+read json from "DIR\\p.json" into back
+say name of back age of back langs of back
+convert "[1, 2.5, true, null, \"x\", {\"a\": {\"b\": []}}]" from json into mixed
+say mixed length of mixed
+d is date from "2024-01-31"
+convert d to json into dj
+say dj
+convert 42 to json into numText
+say numText
+'@
+        Assert-AreEqual -Expected 0 -Actual $r.ExitCode
+        foreach ($bad in @("convert `"{bad`" from json into x", "convert `"{\`"a\`":1,\`"A\`":2}`" from json into x", "convert `"`" from json into x", "read json from `"DIR\\nope.json`" into x")) {
+            $e = Assert-FileCase -Source "say `"start`"`n$bad"
+            Assert-AreEqual -Expected 3 -Actual $e.ExitCode
         }
+    }
+
+    Test-Otter 'randomized JSON parity with the interpreter (tools/Test-OtterJsonParity.ps1, 300 values)' {
+        $output = & $script:PowerShell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $script:RepoRoot 'tools\Test-OtterJsonParity.ps1') -Count 300 2>&1
+        Assert-AreEqual -Expected 0 -Actual $LASTEXITCODE
+        Assert-True (($output -join ' ') -match 'all identical') "JSON parity: $($output -join ' | ')"
+    }
+
+    Test-Otter 'a program with use imports never takes the fast path' {
         [void](New-Program -Source "to helper`n    say `"from helper`"`n." -Name 'helper.ot')
         $main = New-Program -Source "use `"helper.ot`"`nhelper"
         [void](Invoke-ViaPs1 -Path $main)

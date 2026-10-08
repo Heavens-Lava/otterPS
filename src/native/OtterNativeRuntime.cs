@@ -14,6 +14,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Reflection;
 using System.Text;
 
 namespace OtterNative
@@ -1008,7 +1009,7 @@ namespace OtterNative
     // tests/FastStart.Tests.ps1 compares every case with otter.ps1.
     public static class OtterLibrary
     {
-        static readonly string[] Names = { "SetRandomSeed", "RandomInt", "ReadFile", "WriteFile", "AppendFile", "DeleteFile", "FileExists", "CopyFile", "MoveFile" };
+        static readonly string[] Names = { "SetRandomSeed", "RandomInt", "ReadFile", "WriteFile", "AppendFile", "DeleteFile", "FileExists", "CopyFile", "MoveFile", "ConvertToJson", "ConvertFromJson", "ReadJson" };
 
         public static bool Supports(string name) { return Array.IndexOf(Names, name) >= 0; }
 
@@ -1025,6 +1026,9 @@ namespace OtterNative
                 case "FileExists": return FileExists(FileArg(a[0], line), line);
                 case "CopyFile": { string from = FileArg(a[0], line); CopyFile(from, FileArg(a[1], line), line); return null; }
                 case "MoveFile": { string from = FileArg(a[0], line); MoveFile(from, FileArg(a[1], line), line); return null; }
+                case "ConvertToJson": return ToJson(a[0], line);
+                case "ConvertFromJson": return FromJson((string)a[0], line);
+                case "ReadJson": return FromJson((string)ReadFile(FileArg(a[0], line), line), line);
             }
             throw R.Err("The compiled backend has no library bridge for " + name + ".", line, null);
         }
@@ -1202,6 +1206,186 @@ namespace OtterNative
                 File.Move(from, to);
             }
             catch (Exception ex) { throw R.Err("I could not move " + Quote(source) + ". " + ex.Message, line, null); }
+        }
+
+        // --- JSON (ConvertTo-OtterJsonText / ConvertFrom-OtterJsonText) -----
+        //
+        // Windows PowerShell 5.1's ConvertTo-Json and ConvertFrom-Json are built
+        // on .NET Framework's JavaScriptSerializer. It is loaded here at run time
+        // (so this source still compiles on PowerShell 7, where it does not
+        // exist) and does all escaping, number and date text, and parsing - the
+        // same library, so the same results. What is rebuilt here is
+        // PowerShell's own part: its indented layout, and how it turns parsed
+        // JSON into objects.
+
+        static object serializer;
+        static MethodInfo serializeMethod, deserializeMethod;
+
+        static void LoadSerializer()
+        {
+            if (serializer != null) return;
+            Assembly web = Assembly.Load("System.Web.Extensions, Version=4.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35");
+            Type type = web.GetType("System.Web.Script.Serialization.JavaScriptSerializer", true);
+            object instance = Activator.CreateInstance(type);
+            type.GetProperty("MaxJsonLength").SetValue(instance, int.MaxValue, null);
+            type.GetProperty("RecursionLimit").SetValue(instance, JsonRecursionLimit, null);
+            serializeMethod = type.GetMethod("Serialize", new Type[] { typeof(object) });
+            deserializeMethod = type.GetMethod("DeserializeObject", new Type[] { typeof(string) });
+            serializer = instance;
+        }
+
+        // ConvertFrom-Json's limit on nesting; deeper input is "not valid JSON".
+        internal static int JsonRecursionLimit = 1020;
+
+        static string Scalar(object value)
+        {
+            LoadSerializer();
+            try { return (string)serializeMethod.Invoke(serializer, new object[] { value }); }
+            catch (TargetInvocationException tie) { throw tie.InnerException ?? tie; }
+        }
+
+        // ConvertTo-OtterJsonShape, then ConvertTo-Json -Depth 32.
+        const int JsonDepth = 32;
+
+        static object ToJson(object value, int line)
+        {
+            if (value == null) return null;  // ConvertTo-Json of $null writes nothing
+            Shape(value, line);              // the shape errors come first, as in ConvertTo-OtterJsonShape
+            StringBuilder text = new StringBuilder();
+            try { Write(value, 0, 0, text); }
+            catch (OtterNativeError) { throw; }
+            catch (Exception ex) { throw R.Err("Otter could not turn this into JSON. " + ex.Message, line, null); }
+            return text.ToString();
+        }
+
+        // ConvertTo-OtterJsonShape's refusals.
+        static void Shape(object value, int line)
+        {
+            if (value is OtterFn || value is OtterTypeValue) throw R.Err("Otter cannot turn something it can do into JSON.", line, null);
+            OtterThing thing = value as OtterThing;
+            if (thing != null) { foreach (string name in thing.Names()) Shape(thing.Read(name), line); return; }
+            List<object> list = value as List<object>;
+            if (list != null) { foreach (object item in list) Shape(item, line); }
+        }
+
+        static void Pad(StringBuilder text, int count) { text.Append(' ', count); }
+
+        // A container is indented four spaces past the column where it starts;
+        // a key's value starts after `"key":  `. Past -Depth 32 a container is
+        // written as the text of its .NET type, as ConvertTo-Json does.
+        static void Write(object value, int column, int depth, StringBuilder text)
+        {
+            OtterThing thing = value as OtterThing;
+            OtterDateValue date = value as OtterDateValue;
+            OtterBytesValue bytes = value as OtterBytesValue;
+            List<object> list = value as List<object>;
+
+            if (thing != null || date != null || bytes != null)
+            {
+                List<KeyValuePair<string, object>> members = new List<KeyValuePair<string, object>>();
+                if (thing != null) { foreach (string name in thing.Names()) members.Add(new KeyValuePair<string, object>(name, thing.Read(name))); }
+                else if (date != null)
+                {
+                    members.Add(new KeyValuePair<string, object>("Value", date.Value));
+                    members.Add(new KeyValuePair<string, object>("HasTime", date.HasTime));
+                }
+                else
+                {
+                    List<object> numbers = new List<object>();
+                    foreach (byte b in bytes.Value) numbers.Add(b);
+                    members.Add(new KeyValuePair<string, object>("Value", numbers));
+                }
+                if (depth > JsonDepth) { text.Append(Scalar(thing != null ? "System.Collections.Specialized.OrderedDictionary" : value.ToString())); return; }
+                if (members.Count == 0) { text.Append("{\r\n\r\n"); Pad(text, column); text.Append('}'); return; }
+                text.Append("{\r\n");
+                for (int i = 0; i < members.Count; i++)
+                {
+                    if (i > 0) text.Append(",\r\n");
+                    string key = Scalar(members[i].Key);
+                    Pad(text, column + 4);
+                    text.Append(key).Append(":  ");
+                    Write(members[i].Value, column + 4 + key.Length + 3, depth + 1, text);
+                }
+                text.Append("\r\n");
+                Pad(text, column);
+                text.Append('}');
+                return;
+            }
+            if (list != null)
+            {
+                if (depth > JsonDepth) { text.Append(Scalar("System.Object[]")); return; }
+                if (list.Count == 0) { text.Append("[\r\n\r\n"); Pad(text, column); text.Append(']'); return; }
+                text.Append("[\r\n");
+                for (int i = 0; i < list.Count; i++)
+                {
+                    if (i > 0) text.Append(",\r\n");
+                    Pad(text, column + 4);
+                    Write(list[i], column + 4, depth + 1, text);
+                }
+                text.Append("\r\n");
+                Pad(text, column);
+                text.Append(']');
+                return;
+            }
+            text.Append(value == null ? "null" : Scalar(value));
+        }
+
+        // ConvertFrom-OtterJsonText: ConvertFrom-Json, then ConvertFrom-OtterJsonValue.
+        static object FromJson(string text, int line)
+        {
+            if (string.IsNullOrWhiteSpace(text)) throw R.Err("There is no JSON here to read.", line, null);
+            object parsed;
+            try
+            {
+                LoadSerializer();
+                parsed = deserializeMethod.Invoke(serializer, new object[] { text });
+                CheckObjectKeys(parsed);
+            }
+            catch (Exception) { throw R.Err("This is not valid JSON, so Otter could not read it.", line, null); }
+            return FromJsonValue(parsed);
+        }
+
+        // ConvertFrom-Json refuses an object whose keys differ only by case (a
+        // PowerShell object's properties are case-insensitive) or are empty.
+        static void CheckObjectKeys(object value)
+        {
+            IDictionary<string, object> map = value as IDictionary<string, object>;
+            if (map != null)
+            {
+                HashSet<string> seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (KeyValuePair<string, object> pair in map)
+                {
+                    if (pair.Key.Length == 0 || !seen.Add(pair.Key)) throw new FormatException("duplicate or empty key");
+                    CheckObjectKeys(pair.Value);
+                }
+                return;
+            }
+            object[] array = value as object[];
+            if (array != null) { foreach (object item in array) CheckObjectKeys(item); }
+        }
+
+        static object FromJsonValue(object value)
+        {
+            if (value == null) return null;
+            IDictionary<string, object> map = value as IDictionary<string, object>;
+            if (map != null)
+            {
+                OtterThing thing = new OtterThing("thing");
+                foreach (KeyValuePair<string, object> pair in map) thing.Write(pair.Key, FromJsonValue(pair.Value));
+                return thing;
+            }
+            object[] array = value as object[];
+            if (array != null)
+            {
+                List<object> list = new List<object>(array.Length);
+                foreach (object item in array) list.Add(FromJsonValue(item));
+                return list;
+            }
+            if (value is bool) return value;
+            if (value is int || value is long || value is double || value is decimal) return Convert.ToDouble(value, CultureInfo.InvariantCulture);
+            // [string] of anything else: text stays text; a date is written the
+            // way PowerShell writes one (invariant culture).
+            return Convert.ToString(value, CultureInfo.InvariantCulture);
         }
 
         static void ClearReadOnly(string path)
