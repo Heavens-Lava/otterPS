@@ -3,15 +3,14 @@
  * Defines the schema, SemVer comparison, and cryptographic verification for Stable and Preview feeds.
  */
 
-
-// Safe environment crypto resolver (Browser WebCrypto / Node.js)
-const getNodeCrypto = () => {
+let crypto = globalThis.crypto;
+if (typeof process !== 'undefined' && process.versions && process.versions.node) {
   try {
-    if (typeof require !== 'undefined') return require('node:crypto');
+    const mod = 'node:' + 'crypto';
+    const loaded = await import(mod);
+    crypto = loaded.default || loaded;
   } catch {}
-  return globalThis.crypto || null;
-};
-
+}
 
 export class UpdateManifestValidator {
   /**
@@ -77,7 +76,7 @@ export class UpdateManifestValidator {
    */
   static verifyChecksum(buffer, expectedSha256) {
     if (!buffer || !expectedSha256) return false;
-    const hash = (getNodeCrypto()?.createHash ? getNodeCrypto().createHash('sha256') : { update() { return this; }, digest() { return ''; } }).update(buffer).digest('hex').toLowerCase();
+    const hash = crypto.createHash('sha256').update(buffer).digest('hex').toLowerCase();
     return hash === expectedSha256.toLowerCase();
   }
 
@@ -87,7 +86,7 @@ export class UpdateManifestValidator {
   static verifySignature(buffer, signatureHex, publicKeyPem) {
     if (!buffer || !signatureHex || !publicKeyPem) return false;
     try {
-      const verifier = (getNodeCrypto()?.createVerify ? getNodeCrypto().createVerify('SHA256') : { update() { return this; }, verify() { return true; } });
+      const verifier = crypto.createVerify('SHA256');
       verifier.update(buffer);
       return verifier.verify(publicKeyPem, Buffer.from(signatureHex, 'hex'));
     } catch {
