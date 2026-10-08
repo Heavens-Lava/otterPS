@@ -2962,6 +2962,73 @@ const server = http.createServer(async (req, res) => {
     return sendJson(res, { ok: true, reports: crashReporter.listReports() });
   }
 
+  // --- Real Process Crash Recovery & Journal APIs ---
+  if (pathname === '/api/recovery/status' && req.method === 'GET') {
+    try {
+      const journalDir = path.join(REPO_ROOT, '.otter');
+      const journalFile = path.join(journalDir, 'recovery_journal.json');
+      if (fs.existsSync(journalFile)) {
+        const raw = fs.readFileSync(journalFile, 'utf8');
+        const journal = JSON.parse(raw);
+        return sendJson(res, {
+          ok: true,
+          crashed: journal.cleanExit === false,
+          cleanExit: journal.cleanExit,
+          recoveredCount: journal.entries ? Object.keys(journal.entries).length : 0,
+          entries: journal.entries || {}
+        });
+      }
+      return sendJson(res, { ok: true, crashed: false, cleanExit: true, recoveredCount: 0, entries: {} });
+    } catch (err) {
+      return sendJson(res, { ok: false, error: err.message }, 500);
+    }
+  }
+
+  if (pathname === '/api/recovery/journal' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const journalDir = path.join(REPO_ROOT, '.otter');
+      if (!fs.existsSync(journalDir)) fs.mkdirSync(journalDir, { recursive: true });
+      const journalFile = path.join(journalDir, 'recovery_journal.json');
+
+      let currentJournal = { cleanExit: false, entries: {}, timestamp: Date.now() };
+      if (fs.existsSync(journalFile)) {
+        try {
+          currentJournal = JSON.parse(fs.readFileSync(journalFile, 'utf8'));
+        } catch {}
+      }
+
+      currentJournal.cleanExit = false;
+      currentJournal.timestamp = Date.now();
+      if (!currentJournal.entries) currentJournal.entries = {};
+
+      if (body.path) {
+        currentJournal.entries[body.path] = {
+          content: body.content || '',
+          cursor: body.cursor || 0,
+          timestamp: Date.now()
+        };
+      }
+
+      fs.writeFileSync(journalFile, JSON.stringify(currentJournal, null, 2), 'utf8');
+      return sendJson(res, { ok: true, journal: currentJournal });
+    } catch (err) {
+      return sendJson(res, { ok: false, error: err.message }, 500);
+    }
+  }
+
+  if (pathname === '/api/recovery/discard' && req.method === 'POST') {
+    try {
+      const journalFile = path.join(REPO_ROOT, '.otter', 'recovery_journal.json');
+      if (fs.existsSync(journalFile)) {
+        fs.unlinkSync(journalFile);
+      }
+      return sendJson(res, { ok: true, discarded: true });
+    } catch (err) {
+      return sendJson(res, { ok: false, error: err.message }, 500);
+    }
+  }
+
   // --- Interactive Terminal API ---
   if (pathname === '/api/terminal' && req.method === 'POST') {
     try {
@@ -3956,7 +4023,14 @@ const server = http.createServer(async (req, res) => {
   if (pathname === '/api/ai/validate-code' && req.method === 'POST') {
     try {
       const body = await readBody(req);
-      const validation = await aiProviderManager.validator.validate(body.source || '', null, { projectRoot: body.projectRoot });
+      let safeProjectRoot = REPO_ROOT;
+      if (body.projectRoot && typeof body.projectRoot === 'string') {
+        const resolved = path.resolve(REPO_ROOT, body.projectRoot);
+        if (resolved.startsWith(REPO_ROOT) && fs.existsSync(resolved)) {
+          safeProjectRoot = resolved;
+        }
+      }
+      const validation = await aiProviderManager.validator.validate(body.source || '', null, { projectRoot: safeProjectRoot });
       sendJson(res, { ok: true, ...validation });
     } catch (err) {
       sendJson(res, { ok: false, error: err.message }, 500);

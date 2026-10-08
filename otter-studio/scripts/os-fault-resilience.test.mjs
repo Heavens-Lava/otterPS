@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import http from 'node:http';
 import { spawn } from 'node:child_process';
 import { AtomicFileManager, ProcessOrphanManager } from '../js/reliability/reliability-engine.js';
 import { OtterUpdateManager } from '../js/updater/update-manager.js';
@@ -14,52 +15,62 @@ test('OS & Process-Level Fault Resilience Certification (Real OS Boundaries)', a
     try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
   });
 
-  await t.test('1. Real Process Termination & Disk Recovery: Spawns child process, kills it, verifies disk state recovery', async () => {
-    const journalFile = path.join(tmpDir, 'real_recovery_journal.json');
-    const childScript = path.join(tmpDir, 'child_worker.cjs');
+  await t.test('1. Real Studio Process Termination & Fresh Process Recovery: Kills real Studio server with SIGKILL and recovers dirty edits on restart', async () => {
+    const testPort = 39881;
 
-    const scriptCode = [
-      'const fs = require("fs");',
-      'const target = process.argv[2];',
-      'const payload = {',
-      '  cleanExit: false,',
-      '  entries: {',
-      '    "src/app.ot": { content: "score is 100\\nsay score", cursor: 22, timestamp: Date.now() },',
-      '    "src/config.ot": { content: "timeout is 5000", cursor: 14, timestamp: Date.now() }',
-      '  }',
-      '};',
-      'fs.writeFileSync(target, JSON.stringify(payload), "utf8");',
-      'setInterval(() => {}, 1000);'
-    ].join('\n');
-    
-    fs.writeFileSync(childScript, scriptCode, 'utf8');
+    // Step 1: Start real Studio server process
+    const firstServer = spawn('node', ['serve.mjs'], {
+      cwd: path.resolve(process.cwd()),
+      env: { ...process.env, OTTER_STUDIO_PORT: String(testPort) },
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
 
-    // Spawn real child process
-    const child = spawn(process.execPath, [childScript, journalFile], { stdio: 'ignore' });
-    assert.ok(child.pid, 'Spawned real OS child process');
+    await waitForServer(testPort);
 
-    // Poll until file written
-    let fileWritten = false;
-    for (let i = 0; i < 20; i++) {
-      if (fs.existsSync(journalFile)) {
-        fileWritten = true;
-        break;
-      }
-      await new Promise(r => setTimeout(r, 100));
+    try {
+      // Step 2: In running Studio server, record dirty unsaved buffer edits into recovery journal
+      const dirtyPayload = JSON.stringify({
+        path: 'src/main.ot',
+        content: 'score is 500\nbonus is 50\ntotal is score and bonus\nsay total\n',
+        cursor: 34
+      });
+
+      const recordRes = await makePostRequest(`http://127.0.0.1:${testPort}/api/recovery/journal`, dirtyPayload);
+      assert.equal(recordRes.ok, true, 'Dirty buffer change recorded in running Studio journal');
+      assert.equal(recordRes.journal.cleanExit, false, 'Clean exit marked false while running');
+    } finally {
+      // Step 3: Forcibly kill Studio process with real OS SIGKILL (bypassing graceful exit handlers)
+      firstServer.kill('SIGKILL');
+      await new Promise(r => setTimeout(r, 500));
     }
-    assert.equal(fileWritten, true, 'Child process successfully wrote journal to disk');
 
-    // Kill child process abruptly (real OS kill)
-    child.kill('SIGKILL');
-    await new Promise(r => setTimeout(r, 200));
+    // Step 4: Launch a fresh second Studio server process on that same workspace
+    const secondServer = spawn('node', ['serve.mjs'], {
+      cwd: path.resolve(process.cwd()),
+      env: { ...process.env, OTTER_STUDIO_PORT: String(testPort) },
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
 
-    // Verify persisted state from disk
-    const diskContent = fs.readFileSync(journalFile, 'utf8');
-    const parsedJournal = JSON.parse(diskContent);
-    assert.equal(parsedJournal.cleanExit, false, 'Clean exit was false on abrupt process kill');
-    assert.equal(Object.keys(parsedJournal.entries).length, 2, 'Recovered both unsaved files from disk');
-    assert.equal(parsedJournal.entries['src/app.ot'].cursor, 22, 'Exact cursor position preserved on disk');
-    assert.ok(parsedJournal.entries['src/app.ot'].content.includes('score is 100'), 'Unsaved buffer content preserved on disk');
+    await waitForServer(testPort);
+
+    try {
+      // Step 5: Fresh Studio process detects abnormal exit and surfaces recovered edits
+      const statusRes = await makeGetRequest(`http://127.0.0.1:${testPort}/api/recovery/status`);
+      assert.equal(statusRes.ok, true, 'Fresh Studio server answered recovery query');
+      assert.equal(statusRes.crashed, true, 'Fresh Studio detected crashed previous session');
+      assert.equal(statusRes.recoveredCount, 1, 'Detected 1 recovered unsaved file');
+      
+      const recoveredMain = statusRes.entries['src/main.ot'];
+      assert.ok(recoveredMain, 'Recovered src/main.ot dirty buffer');
+      assert.equal(recoveredMain.cursor, 34, 'Exact cursor position preserved across kill');
+      assert.ok(recoveredMain.content.includes('score is 500'), 'Unsaved buffer content restored');
+
+      // Step 6: Discard journal cleanly
+      const discardRes = await makePostRequest(`http://127.0.0.1:${testPort}/api/recovery/discard`, '{}');
+      assert.equal(discardRes.ok, true, 'Discarded journal cleanly');
+    } finally {
+      secondServer.kill('SIGTERM');
+    }
   });
 
   await t.test('2. Atomic Save Failure: Original file preserved completely if write fails midway', async () => {
@@ -109,3 +120,56 @@ test('OS & Process-Level Fault Resilience Certification (Real OS Boundaries)', a
     assert.equal(manager.currentVersion, '1.0.0-rc.11', 'Version restored to 1.0.0-rc.11');
   });
 });
+
+function waitForServer(port) {
+  return new Promise((resolve, reject) => {
+    const deadline = Date.now() + 8000;
+    const check = () => {
+      const req = http.get(`http://127.0.0.1:${port}/api/recovery/status`, (res) => {
+        resolve();
+      });
+      req.on('error', () => {
+        if (Date.now() > deadline) reject(new Error('Server start timed out on port ' + port));
+        else setTimeout(check, 100);
+      });
+    };
+    check();
+  });
+}
+
+function makeGetRequest(urlStr) {
+  return new Promise((resolve, reject) => {
+    http.get(urlStr, (res) => {
+      let body = '';
+      res.on('data', chunk => body += chunk);
+      res.on('end', () => {
+        try { resolve(JSON.parse(body)); } catch (e) { resolve({ raw: body, status: res.statusCode }); }
+      });
+    }).on('error', reject);
+  });
+}
+
+function makePostRequest(urlStr, data) {
+  return new Promise((resolve, reject) => {
+    const url = new URL(urlStr);
+    const req = http.request({
+      hostname: url.hostname,
+      port: url.port,
+      path: url.pathname,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(data)
+      }
+    }, (res) => {
+      let body = '';
+      res.on('data', chunk => body += chunk);
+      res.on('end', () => {
+        try { resolve(JSON.parse(body)); } catch (e) { resolve({ raw: body, status: res.statusCode }); }
+      });
+    });
+    req.on('error', reject);
+    req.write(data);
+    req.end();
+  });
+}

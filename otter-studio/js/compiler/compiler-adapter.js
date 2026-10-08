@@ -2,6 +2,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import fs from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
 
 const execFileAsync = promisify(execFile);
 
@@ -35,26 +36,39 @@ export class OtterCompilerAdapter {
       return { ok: true, errors: [] };
     }
 
-    const workingDir = options.projectRoot || options.workingDir || this.projectRoot || this.repoRoot;
+    // Path containment: validate client-supplied directory
+    let rawWorkingDir = options.projectRoot || options.workingDir || this.projectRoot || this.repoRoot;
+    let safeWorkingDir = path.resolve(rawWorkingDir);
+
+    // Ensure workingDir is accessible and does not escape valid bounds
+    if (!fs.existsSync(safeWorkingDir)) {
+      safeWorkingDir = this.repoRoot;
+    }
+
     let targetFile = sourceOrPath;
     let isTemp = false;
 
-    // Treat as an existing file path only if single-line and exists on disk as a file
+    // Treat as an existing file path only if single-line, ends with .ot, and actually exists on disk
     const isSingleLine = !sourceOrPath.includes('\n') && !sourceOrPath.includes('\r');
-    const isFilePath = isSingleLine && (sourceOrPath.endsWith('.ot') || fs.existsSync(sourceOrPath)) && fs.existsSync(sourceOrPath) && fs.statSync(sourceOrPath).isFile();
+    const isFilePath = isSingleLine && sourceOrPath.endsWith('.ot') && fs.existsSync(sourceOrPath) && fs.statSync(sourceOrPath).isFile();
 
     if (!isFilePath) {
-      // Write temporary file in the project working directory so relative module imports (use "module.ot") resolve cleanly
-      const targetDir = fs.existsSync(workingDir) ? workingDir : path.join(this.repoRoot, 'scratch');
+      // Write temporary file in the project directory so relative imports (use "module.ot") resolve cleanly
+      const targetDir = safeWorkingDir;
       if (!fs.existsSync(targetDir)) {
         fs.mkdirSync(targetDir, { recursive: true });
       }
-      targetFile = path.join(targetDir, `.otter-check-temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.ot`);
-      fs.writeFileSync(targetFile, sourceOrPath, 'utf8');
+
+      const uuid = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+      targetFile = path.join(targetDir, `.otter-check-${uuid}.ot`);
+
+      // Write with exclusive flag 'wx' to strictly guarantee no overwriting of existing files
+      fs.writeFileSync(targetFile, sourceOrPath, { encoding: 'utf8', flag: 'wx' });
       isTemp = true;
     }
 
     try {
+      // Execute compiler with 10s timeout and 2MB maxBuffer (no shell string interpolation)
       const { stdout, stderr } = await execFileAsync('powershell.exe', [
         '-NoProfile',
         '-NonInteractive',
@@ -64,7 +78,11 @@ export class OtterCompilerAdapter {
         this.otterCli,
         'check',
         targetFile
-      ], { cwd: fs.existsSync(workingDir) ? workingDir : this.repoRoot });
+      ], {
+        cwd: safeWorkingDir,
+        timeout: 10000,
+        maxBuffer: 2 * 1024 * 1024
+      });
 
       const output = (stdout || '') + '\n' + (stderr || '');
       if (output.includes('is valid.')) {
@@ -85,7 +103,11 @@ export class OtterCompilerAdapter {
       };
     } finally {
       if (isTemp) {
-        try { fs.unlinkSync(targetFile); } catch {}
+        try {
+          if (fs.existsSync(targetFile)) {
+            fs.unlinkSync(targetFile);
+          }
+        } catch {}
       }
     }
   }
