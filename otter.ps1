@@ -390,14 +390,19 @@ function Get-OtterSha256Hex {
 function Write-OtterFastStartEntry {
     param($Compiled, [string]$SourcePath, [string]$CacheDirectory)
     $fullPath = [System.IO.Path]::GetFullPath($SourcePath)
-    $key = (Get-OtterSha256Hex -Bytes ([System.Text.Encoding]::UTF8.GetBytes($fullPath.ToLowerInvariant()))).Substring(0, 32)
+    # Windows paths are case-insensitive; macOS and Linux paths may not be.
+    $edition = $PSVersionTable.PSEdition
+    $sourceKey = if ($edition -eq 'Desktop' -or $IsWindows) { $fullPath.ToLowerInvariant() } else { $fullPath }
+    $key = (Get-OtterSha256Hex -Bytes ([System.Text.Encoding]::UTF8.GetBytes("$sourceKey|$edition"))).Substring(0, 32)
     $fastDirectory = Join-Path $CacheDirectory 'fast'
     [void][System.IO.Directory]::CreateDirectory($fastDirectory)
     $lines = @(
         'format=1'
         "otterVersion=$((Get-Content -LiteralPath (Join-Path $PSScriptRoot 'VERSION') -Raw).Trim())"
         "toolchain=$(Get-OtterToolchainFingerprint)"
-        "source=$($fullPath.ToLowerInvariant())"
+        "psEdition=$edition"
+        "psVersion=$($PSVersionTable.PSVersion)"
+        "source=$sourceKey"
         "sourceSha256=$(Get-OtterSha256Hex -Bytes ([System.IO.File]::ReadAllBytes($fullPath)))"
         "assembly=$($Compiled.Type.Assembly.Location)"
         "runtime=$(([type]'OtterNative.R').Assembly.Location)"
@@ -447,11 +452,13 @@ function Invoke-OtterCompiledProgram {
     # that needs nothing from PowerShell - one file, and only library calls the
     # runtime also implements in C# (OtterLibrary: files, random numbers) - can
     # be run next time straight from the cache, without starting PowerShell.
-    # Only Windows PowerShell 5.1's .NET Framework assemblies suit that launcher.
+    # On Windows PowerShell 5.1 the entry serves otter.exe; on PowerShell 7 it
+    # serves otter-fast.ps1 (macOS and Linux), where JSON is not available
+    # without PowerShell (JavaScriptSerializer is .NET Framework only).
     $bridgeCalls = @([regex]::Matches($compiled.CSharp, 'R\.Call\("([A-Za-z]+)"') | ForEach-Object { $_.Groups[1].Value })
-    $needsPowerShell = @($bridgeCalls | Where-Object { $_ -notin $script:OtterFastStartLibrary })
-    if ($script:OtterRunSourcePath -and $script:OtterRunSingleFile -and $PSVersionTable.PSEdition -eq 'Desktop' -and
-        $needsPowerShell.Count -eq 0) {
+    $library = if ($PSVersionTable.PSEdition -eq 'Desktop') { $script:OtterFastStartLibrary } else { @($script:OtterFastStartLibrary | Where-Object { $_ -notlike '*Json*' }) }
+    $needsPowerShell = @($bridgeCalls | Where-Object { $_ -notin $library })
+    if ($script:OtterRunSourcePath -and $script:OtterRunSingleFile -and $needsPowerShell.Count -eq 0) {
         try { Write-OtterFastStartEntry -Compiled $compiled -SourcePath $script:OtterRunSourcePath -CacheDirectory $cacheDirectory }
         catch { Write-OtterEngineTrace "no fast-start entry ($($_.Exception.Message))" }
     }

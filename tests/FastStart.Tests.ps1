@@ -1,26 +1,20 @@
 ﻿# FastStart.Tests.ps1
 #
-# otter.exe (distribution/launcher/OtterLauncher.cs) runs a program that
-# otter.ps1 already compiled straight from the cache, without starting
-# PowerShell. These tests run each program through otter.ps1 first (which
-# compiles it and writes the fast-start entry), then through otter.exe, and
-# require the same standard-output bytes and exit code - and that every case
-# the fast path must not handle goes to otter.ps1.
-#
-# Windows only: the launcher is a .NET Framework program. The tests use a copy
-# of Otter in a temporary folder, so editing "Otter itself" cannot touch the
-# repository.
+# Fast start runs a program that otter.ps1 already compiled straight from the
+# cache: otter.exe on Windows (distribution/launcher/OtterLauncher.cs, no
+# PowerShell at all) and the `otter` launcher with otter-fast.ps1 on macOS and
+# Linux (PowerShell 7 without Otter's modules). These tests run each program
+# through otter.ps1 first (which compiles it and writes the fast-start entry),
+# then through the launcher, and require the same standard-output bytes and
+# exit code - and that every case the fast path must not handle goes to
+# otter.ps1. They use a copy of Otter in a temporary folder, so editing "Otter
+# itself" cannot touch the repository.
 
 . "$PSScriptRoot\TestHelpers.ps1"
 
+$script:OnWindows = ($PSVersionTable.PSVersion.Major -lt 6) -or $IsWindows
 Write-Host ''
-Write-Host 'Fast start (otter.exe)' -ForegroundColor Cyan
-
-if (($PSVersionTable.PSVersion.Major -ge 6) -and -not $IsWindows) {
-    Write-Host '  skip  otter.exe is the Windows launcher' -ForegroundColor DarkYellow
-    Complete-OtterTests
-    return
-}
+Write-Host $(if ($script:OnWindows) { 'Fast start (otter.exe)' } else { 'Fast start (otter launcher + otter-fast.ps1)' }) -ForegroundColor Cyan
 
 $script:RepoRoot = Split-Path -Parent $PSScriptRoot
 $script:Tmp = Join-Path ([System.IO.Path]::GetTempPath()) ('otter_fast_' + [Guid]::NewGuid().ToString('N'))
@@ -28,14 +22,22 @@ $script:Install = Join-Path $script:Tmp 'otter'
 $script:Work = Join-Path $script:Tmp 'work'
 $script:Cache = Join-Path $script:Tmp 'cache'
 New-Item -ItemType Directory -Path $script:Install, $script:Work, $script:Cache -Force | Out-Null
-foreach ($item in @('otter.ps1', 'otter.cmd', 'Otter.Contract.psm1', 'VERSION')) {
+foreach ($item in @('otter.ps1', 'otter-fast.ps1', 'otter.cmd', 'otter', 'Otter.Contract.psm1', 'VERSION')) {
     Copy-Item -LiteralPath (Join-Path $script:RepoRoot $item) -Destination $script:Install
 }
 Copy-Item -LiteralPath (Join-Path $script:RepoRoot 'src') -Destination $script:Install -Recurse
-& (Join-Path $script:RepoRoot 'tools\Build-OtterLauncher.ps1') -Destination $script:Install | Out-Null
-$script:Exe = Join-Path $script:Install 'otter.exe'
 $script:Ps1 = Join-Path $script:Install 'otter.ps1'
-$script:PowerShell = Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe'
+if ($script:OnWindows) {
+    & (Join-Path $script:RepoRoot 'tools\Build-OtterLauncher.ps1') -Destination $script:Install | Out-Null
+    $script:Launcher = Join-Path $script:Install 'otter.exe'
+    $script:LauncherPrefix = @()
+    $script:PowerShell = Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe'
+}
+else {
+    $script:Launcher = '/bin/sh'
+    $script:LauncherPrefix = @((Join-Path $script:Install 'otter'))
+    $script:PowerShell = (Get-Process -Id $PID).Path
+}
 
 # Runs a program and returns its raw standard-output bytes (as Base64, so a
 # byte difference is a string difference), its stderr text and exit code.
@@ -73,7 +75,12 @@ function New-Program {
 function Invoke-ViaPs1 { param([string]$Path, [string[]]$ProgramArgs = @(), [hashtable]$Environment = @{})
     return Invoke-Captured -FileName $script:PowerShell -Arguments (@('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $script:Ps1, 'run', $Path) + $ProgramArgs) -Environment $Environment }
 function Invoke-ViaExe { param([string[]]$Arguments, [hashtable]$Environment = @{})
-    return Invoke-Captured -FileName $script:Exe -Arguments $Arguments -Environment $Environment }
+    return Invoke-Captured -FileName $script:Launcher -Arguments (@($script:LauncherPrefix) + $Arguments) -Environment $Environment }
+function Skip-UnlessWindows([string]$Why) {
+    if ($script:OnWindows) { return $false }
+    Write-Host "        skip  $Why" -ForegroundColor DarkYellow
+    return $true
+}
 
 # The program runs through otter.ps1 (compiling it), then through otter.exe on
 # the fast path; both must produce the same bytes and exit code.
@@ -194,27 +201,27 @@ say d
     function Assert-FileCase {
         param([string]$Source, [hashtable]$Files = @{})
         $case = New-FileCase -Files $Files
-        $program = $Source.Replace('DIR', $case.Folder.Replace('\', '\\'))
+        $program = $Source.Replace('DIR', $case.Folder.Replace('\', '/'))
         return (Assert-FastMatches -Source $program -Setup { Reset-FileCase $case }.GetNewClosure() -Check { Get-FileCaseState $case }.GetNewClosure())
     }
 
     Test-Otter 'writing, appending, reading, copying, moving and deleting files match otter.ps1' {
         $r = Assert-FileCase -Source @'
-write "first" to "DIR\a.txt"
-append " second" to "DIR\a.txt"
-read "DIR\a.txt" into t
+write "first" to "DIR/a.txt"
+append " second" to "DIR/a.txt"
+read "DIR/a.txt" into t
 say t length of t
-write "atomic ü 世界" to "DIR\sub\b.txt" atomically
-read "DIR\sub\b.txt" into u
+write "atomic ü 世界" to "DIR/sub/b.txt" atomically
+read "DIR/sub/b.txt" into u
 say u
-if file "DIR\a.txt" exists
+if file "DIR/a.txt" exists
     say "yes"
 .
-copy "DIR\a.txt" to "DIR\c.txt"
-copy "DIR\a.txt" to "DIR\box"
-move "DIR\c.txt" to "DIR\d.txt"
-delete file "DIR\sub\b.txt"
-if file "DIR\sub\b.txt" exists
+copy "DIR/a.txt" to "DIR/c.txt"
+copy "DIR/a.txt" to "DIR/box"
+move "DIR/c.txt" to "DIR/d.txt"
+delete file "DIR/sub/b.txt"
+if file "DIR/sub/b.txt" exists
     say "still there"
 otherwise
     say "deleted"
@@ -224,40 +231,43 @@ otherwise
     }
 
     Test-Otter 'copy, move and delete replace or remove read-only files, as -Force does' {
-        [void](Assert-FileCase -Source "copy `"DIR\src.txt`" to `"DIR\ro1.txt`"`nmove `"DIR\src2.txt`" to `"DIR\ro2.txt`"`ndelete file `"DIR\ro3.txt`"`nsay `"done`"" -Files @{ 'src.txt' = 'S'; 'src2.txt' = 'T'; 'ro1.txt' = '<ro>old'; 'ro2.txt' = '<ro>old'; 'ro3.txt' = '<ro>old' })
+        if (Skip-UnlessWindows 'read-only files: Windows semantics') { return }
+        [void](Assert-FileCase -Source "copy `"DIR/src.txt`" to `"DIR/ro1.txt`"`nmove `"DIR/src2.txt`" to `"DIR/ro2.txt`"`ndelete file `"DIR/ro3.txt`"`nsay `"done`"" -Files @{ 'src.txt' = 'S'; 'src2.txt' = 'T'; 'ro1.txt' = '<ro>old'; 'ro2.txt' = '<ro>old'; 'ro3.txt' = '<ro>old' })
     }
 
     Test-Otter 'file errors have otter.ps1''s exact text: missing, folder, read-only, things without a path' {
         foreach ($case in @(
-            @{ S = "read `"DIR\missing.txt`" into t" },
-            @{ S = "delete file `"DIR\missing.txt`"" },
-            @{ S = "copy `"DIR\missing.txt`" to `"DIR\x.txt`"" },
-            @{ S = "move `"DIR\missing.txt`" to `"DIR\x.txt`"" },
-            @{ S = "write `"x`" to `"DIR\box`""; F = @{ 'box' = '<folder>' } },
-            @{ S = "append `"x`" to `"DIR\box`""; F = @{ 'box' = '<folder>' } },
-            @{ S = "delete file `"DIR\box`""; F = @{ 'box' = '<folder>' } },
-            @{ S = "write `"x`" to `"DIR\ro.txt`" atomically"; F = @{ 'ro.txt' = '<ro>old' } },
-            @{ S = "write `"x`" to `"DIR\ro.txt`""; F = @{ 'ro.txt' = '<ro>old' } },
+            @{ S = "read `"DIR/missing.txt`" into t" },
+            @{ S = "delete file `"DIR/missing.txt`"" },
+            @{ S = "copy `"DIR/missing.txt`" to `"DIR/x.txt`"" },
+            @{ S = "move `"DIR/missing.txt`" to `"DIR/x.txt`"" },
+            @{ S = "write `"x`" to `"DIR/box`""; F = @{ 'box' = '<folder>' } },
+            @{ S = "append `"x`" to `"DIR/box`""; F = @{ 'box' = '<folder>' } },
+            @{ S = "delete file `"DIR/box`""; F = @{ 'box' = '<folder>' } },
+            @{ S = "write `"x`" to `"DIR/ro.txt`" atomically"; F = @{ 'ro.txt' = '<ro>old' }; W = $true },
+            @{ S = "write `"x`" to `"DIR/ro.txt`""; F = @{ 'ro.txt' = '<ro>old' }; W = $true },
             @{ S = "write `"x`" to `"`"" },
             @{ S = "note is a thing`nnote has size 3`nwrite `"x`" to note" },
-            @{ S = "note is a thing`nnote has path `"DIR\n.txt`"`nwrite `"via path`" to note`nread note into t`nsay t" }
+            @{ S = "note is a thing`nnote has path `"DIR/n.txt`"`nwrite `"via path`" to note`nread note into t`nsay t" }
         )) {
+            if ($case.W -and -not $script:OnWindows) { continue }  # read-only: Windows semantics
             $files = if ($case.F) { $case.F } else { @{} }
             [void](Assert-FileCase -Source $case.S -Files $files)
         }
     }
 
     Test-Otter 'locked files fail with otter.ps1''s exact text' {
+        if (Skip-UnlessWindows 'file locks: Windows only') { return }
         foreach ($s in @(
-            "read `"DIR\l.txt`" into t",
-            "write `"x`" to `"DIR\l.txt`"",
-            "write `"x`" to `"DIR\l.txt`" atomically",
-            "append `"x`" to `"DIR\l.txt`"",
-            "delete file `"DIR\l.txt`"",
-            "copy `"DIR\l.txt`" to `"DIR\x.txt`"",
-            "copy `"DIR\ok.txt`" to `"DIR\l.txt`"",
-            "move `"DIR\l.txt`" to `"DIR\x.txt`"",
-            "move `"DIR\ok.txt`" to `"DIR\l.txt`""
+            "read `"DIR/l.txt`" into t",
+            "write `"x`" to `"DIR/l.txt`"",
+            "write `"x`" to `"DIR/l.txt`" atomically",
+            "append `"x`" to `"DIR/l.txt`"",
+            "delete file `"DIR/l.txt`"",
+            "copy `"DIR/l.txt`" to `"DIR/x.txt`"",
+            "copy `"DIR/ok.txt`" to `"DIR/l.txt`"",
+            "move `"DIR/l.txt`" to `"DIR/x.txt`"",
+            "move `"DIR/ok.txt`" to `"DIR/l.txt`""
         )) {
             $r = Assert-FileCase -Source "say `"start`"`n$s" -Files @{ 'l.txt' = '<locked>held'; 'ok.txt' = 'free' }
             Assert-AreEqual -Expected 3 -Actual $r.ExitCode
@@ -277,6 +287,15 @@ otherwise
     }
 
     Test-Otter 'JSON runs on the fast path with otter.ps1''s exact text, both ways' {
+        if (-not $script:OnWindows) {
+            # PowerShell 7: JSON needs PowerShell, so such a program never takes the fast path.
+            $path = New-Program -Source "convert 5 to json into j`nsay j"
+            $reference = Invoke-ViaPs1 -Path $path
+            $r = Invoke-ViaExe -Arguments @('run', $path)
+            Assert-True ($r.Trace -match 'no fast-start entry') "a JSON program took the fast path on PowerShell 7: $($r.Trace)"
+            Assert-AreEqual -Expected $reference.Stdout -Actual $r.Stdout
+            return
+        }
         $r = Assert-FileCase -Source @'
 person has name "Ada <&>", age 36
 skills are
@@ -286,8 +305,8 @@ skills are
 langs of person is skills
 convert person to json into text
 say text
-write text to "DIR\\p.json"
-read json from "DIR\\p.json" into back
+write text to "DIR/p.json"
+read json from "DIR/p.json" into back
 say name of back age of back langs of back
 convert "[1, 2.5, true, null, \"x\", {\"a\": {\"b\": []}}]" from json into mixed
 say mixed length of mixed
@@ -298,13 +317,14 @@ convert 42 to json into numText
 say numText
 '@
         Assert-AreEqual -Expected 0 -Actual $r.ExitCode
-        foreach ($bad in @("convert `"{bad`" from json into x", "convert `"{\`"a\`":1,\`"A\`":2}`" from json into x", "convert `"`" from json into x", "read json from `"DIR\\nope.json`" into x")) {
+        foreach ($bad in @("convert `"{bad`" from json into x", "convert `"{\`"a\`":1,\`"A\`":2}`" from json into x", "convert `"`" from json into x", "read json from `"DIR/nope.json`" into x")) {
             $e = Assert-FileCase -Source "say `"start`"`n$bad"
             Assert-AreEqual -Expected 3 -Actual $e.ExitCode
         }
     }
 
     Test-Otter 'randomized JSON parity with the interpreter (tools/Test-OtterJsonParity.ps1, 300 values)' {
+        if (Skip-UnlessWindows 'JSON on the fast path is Windows only') { return }
         $output = & $script:PowerShell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $script:RepoRoot 'tools\Test-OtterJsonParity.ps1') -Count 300 2>&1
         Assert-AreEqual -Expected 0 -Actual $LASTEXITCODE
         Assert-True (($output -join ' ') -match 'all identical') "JSON parity: $($output -join ' | ')"
@@ -323,13 +343,13 @@ say numText
         $path = New-Program -Source 'say "hi"'
         [void](Invoke-ViaPs1 -Path $path)
         $r = Invoke-ViaExe -Arguments @('run', $path) -Environment @{ OTTER_ENGINE = 'interpreter' }
-        Assert-True ($r.Trace -match 'OTTER_ENGINE=interpreter') "trace: $($r.Trace)"
+        Assert-False ($r.Trace -match 'fast start') "trace: $($r.Trace)"
         Assert-AreEqual -Expected 'hi' -Actual $r.Text.Trim()
         $check = Invoke-ViaExe -Arguments @('check', $path)
-        Assert-True ($check.Trace -match 'not a run of a .ot file') "trace: $($check.Trace)"
+        Assert-False ($check.Trace -match 'fast start') "trace: $($check.Trace)"
         Assert-AreEqual -Expected 0 -Actual $check.ExitCode
         $flag = Invoke-ViaExe -Arguments @('run', $path, '-DebugAst')
-        Assert-True ($flag.Trace -match 'developer flag') "trace: $($flag.Trace)"
+        Assert-False ($flag.Trace -match 'fast start') "trace: $($flag.Trace)"
         $plain = Invoke-ViaExe -Arguments @($path)
         Assert-True ($plain.Trace -match 'fast start') "otter file.ot should take the fast path: $($plain.Trace)"
     }
@@ -337,7 +357,7 @@ say numText
     Test-Otter 'an edited Otter installation never runs an old compiled program' {
         $path = New-Program -Source 'say "hi"'
         [void](Invoke-ViaPs1 -Path $path)
-        $module = Join-Path $script:Install 'src\Otter.Interpreter.psm1'
+        $module = Join-Path $script:Install (Join-Path 'src' 'Otter.Interpreter.psm1')
         [System.IO.File]::SetLastWriteTimeUtc($module, [DateTime]::UtcNow.AddMinutes(1))
         $r = Invoke-ViaExe -Arguments @('run', $path)
         Assert-True ($r.Trace -match 'Otter itself changed') "expected the toolchain fallback: $($r.Trace)"

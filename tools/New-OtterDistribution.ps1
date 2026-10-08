@@ -68,7 +68,7 @@ if (Test-Path -LiteralPath $stage) {
 }
 New-Item -ItemType Directory -Path $stage | Out-Null
 
-foreach ($item in @('otter.ps1', 'otter.cmd', 'otter', 'Otter.Contract.psm1', 'VERSION', 'LICENSE', 'THIRD-PARTY-NOTICES.md', 'INSTALL.md', 'TOUR.md')) {
+foreach ($item in @('otter.ps1', 'otter-fast.ps1', 'otter.cmd', 'otter', 'Otter.Contract.psm1', 'VERSION', 'LICENSE', 'THIRD-PARTY-NOTICES.md', 'INSTALL.md', 'TOUR.md')) {
     $src = Join-Path $root $item
     if (Test-Path -LiteralPath $src) {
         Copy-Item -LiteralPath $src -Destination $stage -Force

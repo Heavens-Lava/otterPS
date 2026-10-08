@@ -173,7 +173,7 @@ Set-Content -LiteralPath (Join-Path $destinationFull '.otter-install') -Value @(
     "Version: $version"
 ) -Encoding ASCII
 
-foreach ($item in @('otter.ps1', 'otter.cmd', 'otter.exe', 'otter', 'Otter.Contract.psm1', 'VERSION', 'README.md', 'Uninstall-Otter.ps1', 'LICENSE', 'THIRD-PARTY-NOTICES.md', 'INSTALL.md', 'TOUR.md')) {
+foreach ($item in @('otter.ps1', 'otter-fast.ps1', 'otter.cmd', 'otter.exe', 'otter', 'Otter.Contract.psm1', 'VERSION', 'README.md', 'Uninstall-Otter.ps1', 'LICENSE', 'THIRD-PARTY-NOTICES.md', 'INSTALL.md', 'TOUR.md')) {
     $source = Join-Path $packageRoot $item
     if (Test-Path -LiteralPath $source) { Copy-Item -LiteralPath $source -Destination $destinationFull -Force }
 }

@@ -1166,7 +1166,8 @@ namespace OtterNative
             string full = Resolve(path, line);
             if (Directory.Exists(full)) throw R.Err(Quote(path) + " is a folder. Otter only deletes files.", line, null);
             if (!File.Exists(full)) throw R.Err("I could not find a file called " + Quote(path) + " to delete.", line, "if file " + Quote(path) + " exists");
-            try { ClearReadOnly(full); File.Delete(full); }
+            // Remove-Item reports the provider's normalized path (backslashes).
+            try { string target = Path.GetFullPath(full); ClearReadOnly(target); File.Delete(target); }
             catch (Exception ex) { throw R.Err("I could not delete " + Quote(path) + ". " + ex.Message, line, null); }
         }
 
@@ -1185,7 +1186,8 @@ namespace OtterNative
             if (!File.Exists(from)) throw R.Err("I could not find a file called " + Quote(source) + " to copy.", line, null);
             if (Directory.Exists(to)) to = Path.Combine(to, Path.GetFileName(from));
             else ParentFolder(to, line);
-            try { if (File.Exists(to)) ClearReadOnly(to); File.Copy(from, to, true); }
+            // Copy-Item reports the provider's normalized paths (backslashes).
+            try { from = Path.GetFullPath(from); to = Path.GetFullPath(to); if (File.Exists(to)) ClearReadOnly(to); File.Copy(from, to, true); }
             catch (Exception ex) { throw R.Err("I could not copy " + Quote(source) + ". " + ex.Message, line, null); }
         }
 
@@ -1199,7 +1201,9 @@ namespace OtterNative
             else ParentFolder(to, line);
             try
             {
-                if (File.Exists(to) && !string.Equals(Path.GetFullPath(to), Path.GetFullPath(from), StringComparison.OrdinalIgnoreCase))
+                // Move-Item works on the provider's normalized paths (backslashes).
+                from = Path.GetFullPath(from); to = Path.GetFullPath(to);
+                if (File.Exists(to) && !string.Equals(to, from, StringComparison.OrdinalIgnoreCase))
                 {
                     try { ClearReadOnly(to); File.Delete(to); } catch (Exception) { }
                 }

@@ -80,6 +80,7 @@ Work done on the 1.0 line after rc.8, waiting to merge into an rc.9 (branches
 - [ ] Importing `src/Otter.Interpreter.psm1` makes a PowerShell script's `exit N` return exit code 0 (`otter.ps1` uses `[Environment]::Exit` for this reason); find and fix the cause, or document it for tool authors.
 - [x] Parser: `add amount days to date` with a variable amount is rejected ("I expected "to" and a variable name"); D32.3 makes the amount an expression and only literals parse (Codex).
 - [ ] `convert date to json` writes .NET's raw object (`{"Value": "\/Date(1706684400000)\/", "HasTime": false}`, local-time dependent) instead of a date text. Decide the JSON form of a date (the compiled backend reproduces it today).
+- [ ] JSON output differs by platform: `convert 5 to json` gives `5` on Windows PowerShell 5.1 and `5.0` on PowerShell 7 (macOS, Linux), because the two ConvertTo-Json implementations differ (found 2026-10-07 while testing fast start). Decide one Otter JSON format for every platform.
 - [ ] Equality's last fallback compares PowerShell's text of two values, so a list equals its text (`1, 2` equals `"1 2"`) and any two types are equal. Decide whether 1.1 keeps this (the compiled backend reproduces it today).
 
 ## 2. Decided 1.1 Work — OtterBoard and Runtime UI

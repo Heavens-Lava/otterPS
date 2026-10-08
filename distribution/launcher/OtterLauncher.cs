@@ -67,6 +67,7 @@ static class OtterLauncher
         string version;
         try { version = File.ReadAllText(Path.Combine(Dir, "VERSION")).Trim(); } catch (Exception) { reason = "no VERSION file"; return false; }
         if (Get(entry, "format") != "1") { reason = "entry format"; return false; }
+        if (Get(entry, "psEdition") != "Desktop") { reason = "compiled by another PowerShell"; return false; }
         if (Get(entry, "otterVersion") != version) { reason = "different Otter version"; return false; }
         if (Get(entry, "toolchain") != ToolchainFingerprint()) { reason = "Otter itself changed"; return false; }
         if (!string.Equals(Get(entry, "source"), fullPath.ToLowerInvariant(), StringComparison.Ordinal)) { reason = "entry for another file"; return false; }
@@ -182,8 +183,9 @@ static class OtterLauncher
 
     // --- the fast-start entry (written by otter.ps1) -----------------------
 
-    // %LOCALAPPDATA%\Otter\cache\compiled\fast\<first 32 hex of SHA-256 of the
-    // lower-case full path>.entry, unless OTTER_COMPILED_CACHE moves the cache.
+    // %LOCALAPPDATA%\Otter\cache\compiled\fast\<first 32 hex of SHA-256 of
+    // "<lower-case full path>|Desktop">.entry, unless OTTER_COMPILED_CACHE
+    // moves the cache. Entries written by PowerShell 7 are not for otter.exe.
     static Dictionary<string, string> ReadEntry(string fullPath)
     {
         string cache = Environment.GetEnvironmentVariable("OTTER_COMPILED_CACHE");
@@ -193,7 +195,7 @@ static class OtterLauncher
             if (string.IsNullOrEmpty(local)) local = Path.GetTempPath();
             cache = Path.Combine(local, @"Otter\cache\compiled");
         }
-        string key = Sha256Hex(Encoding.UTF8.GetBytes(fullPath.ToLowerInvariant())).Substring(0, 32);
+        string key = Sha256Hex(Encoding.UTF8.GetBytes(fullPath.ToLowerInvariant() + "|Desktop")).Substring(0, 32);
         string path = Path.Combine(Path.Combine(cache, "fast"), key + ".entry");
         if (!File.Exists(path)) return null;
         Dictionary<string, string> entry = new Dictionary<string, string>(StringComparer.Ordinal);

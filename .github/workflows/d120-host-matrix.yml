@@ -190,7 +190,8 @@ jobs:
             'Web.Tests.ps1',
             'WebRuntimeUi.Tests.ps1',
             'PlatformBoundaries.Tests.ps1',
-            'CompiledRun.Tests.ps1'
+            'CompiledRun.Tests.ps1',
+            'FastStart.Tests.ps1'
           )
           $failures = @()
           foreach ($suiteName in $suiteNames) {

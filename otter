@@ -10,4 +10,19 @@ if ! command -v pwsh >/dev/null 2>&1; then
     echo "Install it from https://aka.ms/install-powershell and try again." >&2
     exit 1
 fi
+# Fast start (otter-fast.ps1): a plain run - `otter run x.ot ...` or
+# `otter x.ot ...`, no argument starting with "-" - of a program that is
+# already compiled runs without loading Otter's modules. Everything else, and
+# any run otter-fast.ps1 cannot take, is otter.ps1 exactly as before.
+fast=0
+case "$1" in
+    run) [ $# -ge 2 ] && fast=1 ;;
+    *.ot|*.OT|*.Ot|*.oT) fast=1 ;;
+esac
+for arg in "$@"; do
+    case "$arg" in -*) fast=0 ;; esac
+done
+if [ "$fast" = 1 ] && [ -f "$here/otter-fast.ps1" ] && [ "${OTTER_FAST_START:-}" != 0 ] && [ "${OTTER_ENGINE:-}" != interpreter ]; then
+    exec pwsh -NoProfile -File "$here/otter-fast.ps1" "$@"
+fi
 exec pwsh -NoProfile -File "$here/otter.ps1" "$@"
