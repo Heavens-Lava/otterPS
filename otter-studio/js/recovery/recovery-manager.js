@@ -33,7 +33,7 @@ export class OtterRecoveryManager {
       }
     }
 
-    const previousCrashed = rawClean === 'false' && journal && journal.entries && Object.keys(journal.entries).length > 0;
+    const previousCrashed = Boolean(journal && journal.entries && Object.keys(journal.entries).length > 0);
     const recoveredFiles = previousCrashed ? Object.keys(journal.entries) : [];
 
     // Mark current session as running (not yet clean exit)

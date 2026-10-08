@@ -72,13 +72,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // Register clean exit handler on unload
-  window.addEventListener('beforeunload', () => {
-    recoveryManager.recordCleanExit();
-    try {
-      navigator.sendBeacon?.('/api/recovery/clean-exit', JSON.stringify({ clean: true }));
-    } catch {}
-  });
-
+  
   // Mount components
   const toolboxEl = document.getElementById('toolboxPanel');
   const hierarchyEl = document.getElementById('hierarchyPanel');

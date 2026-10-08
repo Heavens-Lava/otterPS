@@ -2970,11 +2970,12 @@ const server = http.createServer(async (req, res) => {
       if (fs.existsSync(journalFile)) {
         const raw = fs.readFileSync(journalFile, 'utf8');
         const journal = JSON.parse(raw);
+        const hasUnsavedEntries = Boolean(journal.entries && Object.keys(journal.entries).length > 0);
         return sendJson(res, {
           ok: true,
-          crashed: journal.cleanExit === false,
-          cleanExit: journal.cleanExit,
-          recoveredCount: journal.entries ? Object.keys(journal.entries).length : 0,
+          crashed: hasUnsavedEntries,
+          cleanExit: !hasUnsavedEntries,
+          recoveredCount: hasUnsavedEntries ? Object.keys(journal.entries).length : 0,
           entries: journal.entries || {}
         });
       }

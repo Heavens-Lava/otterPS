@@ -143,7 +143,7 @@ export function renderCanvas(containerEl, uiModel, cssAstManager) {
     renderBreadcrumbs(containerEl.querySelector('#canvasBreadcrumbs'));
     const contentArea = containerEl.querySelector(`#${root.name}`);
     const viewportEl = containerEl.querySelector('#canvasViewport');
-    const windowWrapper = containerEl.querySelector('#canvasWindowWrapper');
+    // windowWrapper already resolved
 
     // Pointer capture on canvas window wrapper
     if (windowWrapper) {

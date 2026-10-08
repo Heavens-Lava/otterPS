@@ -58,6 +58,7 @@ import {
 
 export class OtterStudioIde {
   constructor() {
+    if (typeof window !== "undefined") window.otterIde = this;
     this.currentFile = 'untitled.ot';
     this.currentCode = '# untitled.ot\n\nsay "Hello from Otter!"\n';
     this.multiCursor = new MultiCursorManager();
@@ -235,6 +236,8 @@ export class OtterStudioIde {
   }
 
   async init() {
+    window.otterIde = this;
+    window.__otterIde = this;
     window.__otterIde = this;
     this.bindDomElements();
     this.bindEvents();
@@ -4970,4 +4973,105 @@ export class OtterStudioIde {
     this.aiChatMessages.appendChild(msgDiv);
     this.aiChatMessages.scrollTop = this.aiChatMessages.scrollHeight;
   }
+
+  async checkCrashRecovery() {
+    try {
+      const res = await fetch('/api/recovery/status');
+      const data = await res.json();
+      if (data.ok && data.recoveredCount > 0 && data.entries && Object.keys(data.entries).length > 0) {
+        await this.applyCrashRecovery(data.entries);
+        return true;
+      }
+    } catch {}
+
+    if (window.recoveryManager) {
+      const info = window.recoveryManager.init();
+      if (info.recoveredCount > 0 && info.journal && info.journal.entries && Object.keys(info.journal.entries).length > 0) {
+        await this.applyCrashRecovery(info.journal.entries);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  async applyCrashRecovery(entries) {
+    const paths = Object.keys(entries);
+    if (paths.length === 0) return;
+
+    this.renderCleanProjectTree();
+
+    for (const [filePath, entry] of Object.entries(entries)) {
+      let tab = this.openTabs.find(t => t.path === filePath);
+      if (!tab) {
+        tab = {
+          path: filePath,
+          name: filePath.split(/[\\/]/).pop(),
+          content: entry.content || '',
+          isDirty: true,
+          icon: filePath.toLowerCase().endsWith('.ot') ? 'OT' : '📄'
+        };
+        this.openTabs.push(tab);
+      } else {
+        tab.content = entry.content || '';
+        tab.isDirty = true;
+      }
+    }
+
+    const firstRecoveredPath = paths[0];
+    const entry = entries[firstRecoveredPath];
+    this.currentFile = firstRecoveredPath;
+    this.currentCode = entry.content || '';
+
+    this.renderTabs();
+    this.renderEditorCode(this.currentCode);
+    this.lintCurrentCode();
+
+    const textarea = document.getElementById('hiddenEditorInput');
+    if (textarea) {
+      textarea.value = this.currentCode;
+      if (typeof entry.cursor === 'number') {
+        textarea.selectionStart = entry.cursor;
+        textarea.selectionEnd = entry.cursor;
+      }
+    }
+
+    this.renderRecoveryBanner(paths.length);
+  }
+
+  renderRecoveryBanner(recoveredCount) {
+    const existing = document.getElementById('crashRecoveryBanner');
+    if (existing) existing.remove();
+
+    const banner = document.createElement('div');
+    banner.id = 'crashRecoveryBanner';
+    banner.className = 'crash-recovery-banner';
+    banner.style.cssText = 'background: #1e293b; border: 1px solid #3b82f6; color: #f8fafc; padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; font-size: 13px; z-index: 100; margin: 6px; border-radius: 6px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);';
+    banner.innerHTML = `
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 16px;">⚠️</span>
+        <span>Studio restored <strong>${recoveredCount}</strong> unsaved file(s) with uncommitted edits from a previous session.</span>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <button id="btnKeepRecovery" style="background: #2563eb; color: #fff; border: none; padding: 6px 14px; border-radius: 4px; font-weight: 600; cursor: pointer;">Keep Edits</button>
+        <button id="btnDiscardRecovery" style="background: #475569; color: #fff; border: none; padding: 6px 14px; border-radius: 4px; font-weight: 600; cursor: pointer;">Discard</button>
+      </div>
+    `;
+    const container = document.querySelector('.editor-container') || document.querySelector('.center-panel') || document.body;
+    container.prepend(banner);
+
+    banner.querySelector('#btnKeepRecovery')?.addEventListener('click', () => {
+      banner.remove();
+    });
+    banner.querySelector('#btnDiscardRecovery')?.addEventListener('click', async () => {
+      banner.remove();
+      if (window.recoveryManager) window.recoveryManager.discardJournal();
+      await fetch('/api/recovery/discard', { method: 'POST' }).catch(() => {});
+      if (this.currentFile && this.currentFile !== 'untitled.ot') {
+        await this.loadFile(this.currentFile);
+      } else {
+        this.loadUntitledFile();
+      }
+    });
+  }
+
 }

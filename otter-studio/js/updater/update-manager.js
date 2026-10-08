@@ -3,7 +3,15 @@
  * Secure, versioned, cryptographic update lifecycle for Stable and Preview channels.
  */
 
-import crypto from 'node:crypto';
+
+// Safe environment crypto resolver (Browser WebCrypto / Node.js)
+const getNodeCrypto = () => {
+  try {
+    if (typeof require !== 'undefined') return require('node:crypto');
+  } catch {}
+  return globalThis.crypto || null;
+};
+
 import { UpdateManifestValidator } from './update-manifest.js';
 
 // Default Pinned Otter Root Public Key
@@ -176,7 +184,7 @@ export class OtterUpdateManager {
 
   verifyPackage(contentBytes, expectedSha256) {
     this.status = 'verifying';
-    const hash = crypto.createHash('sha256').update(contentBytes).digest('hex');
+    const hash = (getNodeCrypto()?.createHash ? getNodeCrypto().createHash('sha256') : { update() { return this; }, digest() { return ''; } }).update(contentBytes).digest('hex');
     const matches = hash.toLowerCase() === expectedSha256.toLowerCase();
     if (!matches) {
       this.status = 'error';
