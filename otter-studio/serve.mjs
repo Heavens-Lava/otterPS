@@ -3029,6 +3029,41 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
+  if (pathname === '/api/recovery/saved' && req.method === 'POST') {
+    try {
+      const body = await readBody(req);
+      const journalFile = path.join(REPO_ROOT, '.otter', 'recovery_journal.json');
+      if (fs.existsSync(journalFile)) {
+        const current = JSON.parse(fs.readFileSync(journalFile, 'utf8'));
+        if (current.entries && body.path) {
+          delete current.entries[body.path];
+          if (Object.keys(current.entries).length === 0) {
+            fs.unlinkSync(journalFile);
+          } else {
+            fs.writeFileSync(journalFile, JSON.stringify(current, null, 2), 'utf8');
+          }
+        }
+      }
+      return sendJson(res, { ok: true, saved: true });
+    } catch (err) {
+      return sendJson(res, { ok: false, error: err.message }, 500);
+    }
+  }
+
+  if (pathname === '/api/recovery/clean-exit' && req.method === 'POST') {
+    try {
+      const journalFile = path.join(REPO_ROOT, '.otter', 'recovery_journal.json');
+      if (fs.existsSync(journalFile)) {
+        const current = JSON.parse(fs.readFileSync(journalFile, 'utf8'));
+        current.cleanExit = true;
+        fs.writeFileSync(journalFile, JSON.stringify(current, null, 2), 'utf8');
+      }
+      return sendJson(res, { ok: true, cleanExit: true });
+    } catch (err) {
+      return sendJson(res, { ok: false, error: err.message }, 500);
+    }
+  }
+
   // --- Interactive Terminal API ---
   if (pathname === '/api/terminal' && req.method === 'POST') {
     try {
@@ -4296,4 +4331,25 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, '127.0.0.1', () => {
   console.log(`Otter Studio running with Full Interaction Engine at: http://127.0.0.1:${PORT}`);
+});
+
+function markProcessCleanExit() {
+  try {
+    const journalFile = path.join(REPO_ROOT, '.otter', 'recovery_journal.json');
+    if (fs.existsSync(journalFile)) {
+      const current = JSON.parse(fs.readFileSync(journalFile, 'utf8'));
+      current.cleanExit = true;
+      fs.writeFileSync(journalFile, JSON.stringify(current, null, 2), 'utf8');
+    }
+  } catch {}
+}
+
+process.on('SIGINT', () => {
+  markProcessCleanExit();
+  process.exit(0);
+});
+
+process.on('SIGTERM', () => {
+  markProcessCleanExit();
+  process.exit(0);
 });

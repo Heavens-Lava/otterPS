@@ -6,6 +6,7 @@ import http from 'node:http';
 import { spawn } from 'node:child_process';
 import { AtomicFileManager, ProcessOrphanManager } from '../js/reliability/reliability-engine.js';
 import { OtterUpdateManager } from '../js/updater/update-manager.js';
+import { OtterRecoveryManager } from '../js/recovery/recovery-manager.js';
 
 test('OS & Process-Level Fault Resilience Certification (Real OS Boundaries)', async (t) => {
   const tmpDir = path.join(process.cwd(), 'scratch', 'fault-test-' + Date.now());
@@ -15,8 +16,48 @@ test('OS & Process-Level Fault Resilience Certification (Real OS Boundaries)', a
     try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch {}
   });
 
-  await t.test('1. Real Studio Process Termination & Fresh Process Recovery: Kills real Studio server with SIGKILL and recovers dirty edits on restart', async () => {
-    const testPort = 39881;
+  await t.test('1. Normal Clean Shutdown: Graceful server exit marks cleanExit: true (no false crash alerts)', async () => {
+    const testPort = 39882;
+
+    // Start server
+    const server1 = spawn('node', ['serve.mjs'], {
+      cwd: path.resolve(process.cwd()),
+      env: { ...process.env, OTTER_STUDIO_PORT: String(testPort) },
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+    await waitForServer(testPort);
+
+    try {
+      // Record clean-exit
+      const cleanRes = await makePostRequest(`http://127.0.0.1:${testPort}/api/recovery/clean-exit`, '{}');
+      assert.equal(cleanRes.ok, true, 'Clean exit API responded');
+      assert.equal(cleanRes.cleanExit, true, 'cleanExit flag set to true');
+    } finally {
+      server1.kill('SIGINT');
+      await new Promise(r => setTimeout(r, 400));
+    }
+
+    // Start fresh second server
+    const server2 = spawn('node', ['serve.mjs'], {
+      cwd: path.resolve(process.cwd()),
+      env: { ...process.env, OTTER_STUDIO_PORT: String(testPort) },
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+    await waitForServer(testPort);
+
+    try {
+      const statusRes = await makeGetRequest(`http://127.0.0.1:${testPort}/api/recovery/status`);
+      assert.equal(statusRes.ok, true, 'Recovery status returned');
+      assert.equal(statusRes.crashed, false, 'No false crash detected after clean exit');
+      assert.equal(statusRes.cleanExit, true, 'Clean exit verified');
+    } finally {
+      server2.kill('SIGTERM');
+      await new Promise(r => setTimeout(r, 400));
+    }
+  });
+
+  await t.test('2. Real Studio Process Termination & Fresh Process Recovery: Kills real Studio server with SIGKILL and recovers dirty edits on restart', async () => {
+    const testPort = 39883;
 
     // Step 1: Start real Studio server process
     const firstServer = spawn('node', ['serve.mjs'], {
@@ -65,15 +106,19 @@ test('OS & Process-Level Fault Resilience Certification (Real OS Boundaries)', a
       assert.equal(recoveredMain.cursor, 34, 'Exact cursor position preserved across kill');
       assert.ok(recoveredMain.content.includes('score is 500'), 'Unsaved buffer content restored');
 
-      // Step 6: Discard journal cleanly
-      const discardRes = await makePostRequest(`http://127.0.0.1:${testPort}/api/recovery/discard`, '{}');
-      assert.equal(discardRes.ok, true, 'Discarded journal cleanly');
+      // Step 6: Simulate file save to clear recovered dirty state
+      const saveRes = await makePostRequest(`http://127.0.0.1:${testPort}/api/recovery/saved`, JSON.stringify({ path: 'src/main.ot' }));
+      assert.equal(saveRes.ok, true, 'Marked file saved');
+
+      const afterSaveStatus = await makeGetRequest(`http://127.0.0.1:${testPort}/api/recovery/status`);
+      assert.equal(afterSaveStatus.recoveredCount, 0, 'Recovered count cleared after save');
     } finally {
       secondServer.kill('SIGTERM');
+      await new Promise(r => setTimeout(r, 400));
     }
   });
 
-  await t.test('2. Atomic Save Failure: Original file preserved completely if write fails midway', async () => {
+  await t.test('3. Atomic Save Failure: Original file preserved completely if write fails midway', async () => {
     const atomicManager = new AtomicFileManager();
     const targetFile = path.join(tmpDir, 'important-project-file.ot');
     fs.writeFileSync(targetFile, 'ORIGINAL VALID PRODUCTION SOURCE CODE', 'utf8');
@@ -89,7 +134,7 @@ test('OS & Process-Level Fault Resilience Certification (Real OS Boundaries)', a
     assert.equal(originalContent, 'ORIGINAL VALID PRODUCTION SOURCE CODE', 'Original file remained uncorrupted');
   });
 
-  await t.test('3. Real Child Process Tracking & Cleanup: Spawns and kills real child processes', async () => {
+  await t.test('4. Real Child Process Tracking & Cleanup: Spawns and kills real child processes', async () => {
     const orphanManager = new ProcessOrphanManager();
     
     // Spawn real dummy process
@@ -103,7 +148,7 @@ test('OS & Process-Level Fault Resilience Certification (Real OS Boundaries)', a
     assert.equal(orphanManager.getTrackedProcesses().length, 0, 'Cleanly unregistered dead process');
   });
 
-  await t.test('4. Updater Staging Interrupted: Rollback checkpoint restores original version', () => {
+  await t.test('5. Updater Staging Interrupted: Rollback checkpoint restores original version', () => {
     const memoryStorage = new Map();
     const manager = new OtterUpdateManager({
       currentVersion: '1.0.0-rc.11',

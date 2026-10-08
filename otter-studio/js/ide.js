@@ -244,19 +244,23 @@ export class OtterStudioIde {
     const folderParam = urlParams.get('folder') || urlParams.get('project');
     const fileParam = urlParams.get('file');
 
-    if (folderParam) {
-      await this.loadProjectTree(folderParam);
-      if (fileParam) {
-        await this.loadFile(fileParam);
-      }
-    } else if (fileParam) {
-      this.renderCleanProjectTree();
-      await this.loadFile(fileParam);
-    } else {
-      const restored = await this.restoreSessionState();
-      if (!restored) {
+    const hasRecoveredCrash = await this.checkCrashRecovery();
+
+    if (!hasRecoveredCrash) {
+      if (folderParam) {
+        await this.loadProjectTree(folderParam);
+        if (fileParam) {
+          await this.loadFile(fileParam);
+        }
+      } else if (fileParam) {
         this.renderCleanProjectTree();
-        this.loadUntitledFile();
+        await this.loadFile(fileParam);
+      } else {
+        const restored = await this.restoreSessionState();
+        if (!restored) {
+          this.renderCleanProjectTree();
+          this.loadUntitledFile();
+        }
       }
     }
 
@@ -1911,6 +1915,26 @@ export class OtterStudioIde {
       tab.content = this.currentCode;
       this.renderTabs();
     }
+    if (isDirty) {
+      const textarea = document.getElementById('hiddenEditorInput');
+      const cursor = textarea ? textarea.selectionStart : 0;
+      this.recordDirtyBuffer(this.currentFile, this.currentCode, cursor);
+    }
+  }
+
+  recordDirtyBuffer(filePath = this.currentFile, content = this.currentCode, cursor = 0) {
+    if (!filePath) return;
+    if (window.recoveryManager) {
+      window.recoveryManager.recordBufferChange(filePath, content, { cursor });
+    }
+    if (this._recoveryDebounceTimer) clearTimeout(this._recoveryDebounceTimer);
+    this._recoveryDebounceTimer = setTimeout(() => {
+      fetch('/api/recovery/journal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: filePath, content, cursor })
+      }).catch(() => {});
+    }, 150);
   }
 
   async saveCurrentFile() {
@@ -1969,6 +1993,14 @@ export class OtterStudioIde {
         tab.content = this.currentCode;
         this.renderTabs();
       }
+      if (window.recoveryManager) {
+        window.recoveryManager.markFileSaved(this.currentFile);
+      }
+      fetch('/api/recovery/saved', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: this.currentFile })
+      }).catch(() => {});
       this.renderExternalChangeBanner();
       this.saveSessionState();
       return true;
