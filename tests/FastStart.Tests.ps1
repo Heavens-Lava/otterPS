@@ -77,12 +77,20 @@ function Invoke-ViaExe { param([string[]]$Arguments, [hashtable]$Environment = @
 
 # The program runs through otter.ps1 (compiling it), then through otter.exe on
 # the fast path; both must produce the same bytes and exit code.
+#
+# -Setup runs before each of the two runs (it puts the files the program uses
+# in place, and may return open file handles that lock files); everything it
+# returns is disposed after the run, and -Check sees the folder afterwards.
 function Assert-FastMatches {
-    param([string]$Source, [string[]]$ProgramArgs = @())
+    param([string]$Source, [string[]]$ProgramArgs = @(), [scriptblock]$Setup = $null, [scriptblock]$Check = $null)
     $path = New-Program -Source $Source
-    $reference = Invoke-ViaPs1 -Path $path -ProgramArgs $ProgramArgs
+    $held = if ($Setup) { @(& $Setup) } else { @() }
+    try { $reference = Invoke-ViaPs1 -Path $path -ProgramArgs $ProgramArgs } finally { foreach ($h in $held) { if ($h) { $h.Dispose() } } }
+    $after = if ($Check) { & $Check } else { $null }
     Assert-True ($reference.Trace -match 'otter engine: compiled') "otter.ps1 did not compile it: $($reference.Trace)"
-    $fast = Invoke-ViaExe -Arguments (@('run', $path) + $ProgramArgs)
+    $held = if ($Setup) { @(& $Setup) } else { @() }
+    try { $fast = Invoke-ViaExe -Arguments (@('run', $path) + $ProgramArgs) } finally { foreach ($h in $held) { if ($h) { $h.Dispose() } } }
+    if ($Check) { Assert-AreEqual -Expected $after -Actual (& $Check) }
     Assert-True ($fast.Trace -match 'fast start') "otter.exe did not take the fast path: $($fast.Trace)"
     Assert-AreEqual -Expected $reference.ExitCode -Actual $fast.ExitCode
     Assert-AreEqual -Expected $reference.Text -Actual $fast.Text
@@ -134,6 +142,128 @@ say d
         [void](Assert-FastMatches -Source "say `"a`"`nstop")
     }
 
+    # --- the library without PowerShell (OtterLibrary) -----------------------
+
+    Test-Otter 'set random seed gives Get-Random''s numbers on the fast path' {
+        [void](Assert-FastMatches -Source "set random seed to 42`ncount from 1 to 8 as n`n    random number from 1 to 100 into r`n    say r`n.`ncolors are`n    `"red`"`n    `"green`"`n    `"blue`"`n.`nrandom item from colors into c`nsay c`nset random seed to 7`nlow is 0 minus 5`nrandom number from low to 5 into x`nsay x")
+    }
+
+    Test-Otter 'an unseeded random number runs on the fast path and stays in range' {
+        $path = New-Program -Source "random number from 1 to 6 into roll`nsay roll"
+        [void](Invoke-ViaPs1 -Path $path)
+        foreach ($i in 1..5) {
+            $r = Invoke-ViaExe -Arguments @('run', $path)
+            Assert-True ($r.Trace -match 'fast start') "trace: $($r.Trace)"
+            Assert-AreEqual -Expected 0 -Actual $r.ExitCode
+            $n = [int]$r.Text.Trim()
+            Assert-True ($n -ge 1 -and $n -le 6) "roll out of range: $n"
+        }
+    }
+
+    # Every file case starts from the same files, made fresh in its own folder.
+    function New-FileCase {
+        param([hashtable]$Files = @{})
+        $folder = Join-Path $script:Work ('f' + [Guid]::NewGuid().ToString('N').Substring(0, 8))
+        return [pscustomobject]@{ Folder = $folder; Files = $Files }
+    }
+    function Reset-FileCase {
+        param($Case)
+        if (Test-Path -LiteralPath $Case.Folder) {
+            Get-ChildItem -LiteralPath $Case.Folder -Recurse -File | ForEach-Object { $_.IsReadOnly = $false }
+            Remove-Item -LiteralPath $Case.Folder -Recurse -Force
+        }
+        New-Item -ItemType Directory -Path $Case.Folder | Out-Null
+        foreach ($name in $Case.Files.Keys) {
+            $spec = $Case.Files[$name]
+            $target = Join-Path $Case.Folder $name
+            if ($spec -eq '<folder>') { New-Item -ItemType Directory -Path $target -Force | Out-Null; continue }
+            $readOnly = $spec.StartsWith('<ro>')
+            [System.IO.File]::WriteAllText($target, $spec.Replace('<ro>', '').Replace('<locked>', ''), [System.Text.UTF8Encoding]::new($false))
+            if ($readOnly) { (Get-Item -LiteralPath $target).IsReadOnly = $true }
+        }
+        foreach ($name in $Case.Files.Keys) {
+            if ($Case.Files[$name] -like '<locked>*') { [System.IO.File]::Open((Join-Path $Case.Folder $name), 'Open', 'ReadWrite', 'None') }
+        }
+    }
+    function Get-FileCaseState {
+        param($Case)
+        @(Get-ChildItem -LiteralPath $Case.Folder -Recurse -File | Sort-Object FullName | ForEach-Object {
+            $_.FullName.Substring($Case.Folder.Length) + '=' + [System.IO.File]::ReadAllText($_.FullName) + $(if ($_.IsReadOnly) { ' (read-only)' } else { '' })
+        }) -join '; '
+    }
+    function Assert-FileCase {
+        param([string]$Source, [hashtable]$Files = @{})
+        $case = New-FileCase -Files $Files
+        $program = $Source.Replace('DIR', $case.Folder.Replace('\', '\\'))
+        return (Assert-FastMatches -Source $program -Setup { Reset-FileCase $case }.GetNewClosure() -Check { Get-FileCaseState $case }.GetNewClosure())
+    }
+
+    Test-Otter 'writing, appending, reading, copying, moving and deleting files match otter.ps1' {
+        $r = Assert-FileCase -Source @'
+write "first" to "DIR\a.txt"
+append " second" to "DIR\a.txt"
+read "DIR\a.txt" into t
+say t length of t
+write "atomic ü 世界" to "DIR\sub\b.txt" atomically
+read "DIR\sub\b.txt" into u
+say u
+if file "DIR\a.txt" exists
+    say "yes"
+.
+copy "DIR\a.txt" to "DIR\c.txt"
+copy "DIR\a.txt" to "DIR\box"
+move "DIR\c.txt" to "DIR\d.txt"
+delete file "DIR\sub\b.txt"
+if file "DIR\sub\b.txt" exists
+    say "still there"
+otherwise
+    say "deleted"
+.
+'@ -Files @{ 'box' = '<folder>' }
+        Assert-AreEqual -Expected 0 -Actual $r.ExitCode
+    }
+
+    Test-Otter 'copy, move and delete replace or remove read-only files, as -Force does' {
+        [void](Assert-FileCase -Source "copy `"DIR\src.txt`" to `"DIR\ro1.txt`"`nmove `"DIR\src2.txt`" to `"DIR\ro2.txt`"`ndelete file `"DIR\ro3.txt`"`nsay `"done`"" -Files @{ 'src.txt' = 'S'; 'src2.txt' = 'T'; 'ro1.txt' = '<ro>old'; 'ro2.txt' = '<ro>old'; 'ro3.txt' = '<ro>old' })
+    }
+
+    Test-Otter 'file errors have otter.ps1''s exact text: missing, folder, read-only, things without a path' {
+        foreach ($case in @(
+            @{ S = "read `"DIR\missing.txt`" into t" },
+            @{ S = "delete file `"DIR\missing.txt`"" },
+            @{ S = "copy `"DIR\missing.txt`" to `"DIR\x.txt`"" },
+            @{ S = "move `"DIR\missing.txt`" to `"DIR\x.txt`"" },
+            @{ S = "write `"x`" to `"DIR\box`""; F = @{ 'box' = '<folder>' } },
+            @{ S = "append `"x`" to `"DIR\box`""; F = @{ 'box' = '<folder>' } },
+            @{ S = "delete file `"DIR\box`""; F = @{ 'box' = '<folder>' } },
+            @{ S = "write `"x`" to `"DIR\ro.txt`" atomically"; F = @{ 'ro.txt' = '<ro>old' } },
+            @{ S = "write `"x`" to `"DIR\ro.txt`""; F = @{ 'ro.txt' = '<ro>old' } },
+            @{ S = "write `"x`" to `"`"" },
+            @{ S = "note is a thing`nnote has size 3`nwrite `"x`" to note" },
+            @{ S = "note is a thing`nnote has path `"DIR\n.txt`"`nwrite `"via path`" to note`nread note into t`nsay t" }
+        )) {
+            $files = if ($case.F) { $case.F } else { @{} }
+            [void](Assert-FileCase -Source $case.S -Files $files)
+        }
+    }
+
+    Test-Otter 'locked files fail with otter.ps1''s exact text' {
+        foreach ($s in @(
+            "read `"DIR\l.txt`" into t",
+            "write `"x`" to `"DIR\l.txt`"",
+            "write `"x`" to `"DIR\l.txt`" atomically",
+            "append `"x`" to `"DIR\l.txt`"",
+            "delete file `"DIR\l.txt`"",
+            "copy `"DIR\l.txt`" to `"DIR\x.txt`"",
+            "copy `"DIR\ok.txt`" to `"DIR\l.txt`"",
+            "move `"DIR\l.txt`" to `"DIR\x.txt`"",
+            "move `"DIR\ok.txt`" to `"DIR\l.txt`""
+        )) {
+            $r = Assert-FileCase -Source "say `"start`"`n$s" -Files @{ 'l.txt' = '<locked>held'; 'ok.txt' = 'free' }
+            Assert-AreEqual -Expected 3 -Actual $r.ExitCode
+        }
+    }
+
     Test-Otter 'an edited file goes through otter.ps1, then runs fast again' {
         $path = New-Program -Source 'say "one"'
         [void](Invoke-ViaPs1 -Path $path)
@@ -146,14 +276,12 @@ say d
         Assert-AreEqual -Expected 'two' -Actual $again.Text.Trim()
     }
 
-    Test-Otter 'programs that need PowerShell (files, JSON, imports, ask) never take the fast path' {
-        $file = (Join-Path $script:Work 'note.txt').Replace('\', '\\')
-        foreach ($source in @("write `"x`" to `"$file`"`nread `"$file`" into t`nsay t", "convert 5 to json into j`nsay j")) {
+    Test-Otter 'programs that need PowerShell (JSON, imports) never take the fast path' {
+        foreach ($source in @("convert 5 to json into j`nsay j", "read json from `"x.json`" into j")) {
             $path = New-Program -Source $source
             [void](Invoke-ViaPs1 -Path $path)
             $r = Invoke-ViaExe -Arguments @('run', $path)
             Assert-True ($r.Trace -match 'no fast-start entry') "a library program took the fast path: $($r.Trace)"
-            Assert-AreEqual -Expected 0 -Actual $r.ExitCode
         }
         [void](New-Program -Source "to helper`n    say `"from helper`"`n." -Name 'helper.ot')
         $main = New-Program -Source "use `"helper.ot`"`nhelper"

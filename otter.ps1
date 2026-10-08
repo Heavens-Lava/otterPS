@@ -334,6 +334,8 @@ $script:OtterCompiledRunAllowed = $false
 $script:OtterRunArguments = @()
 $script:OtterRunSourcePath = $null
 $script:OtterRunSingleFile = $false
+# Library calls OtterLibrary (src/native/OtterNativeRuntime.cs) answers without PowerShell.
+$script:OtterFastStartLibrary = @('ReadFile', 'WriteFile', 'AppendFile', 'DeleteFile', 'FileExists', 'CopyFile', 'MoveFile')
 
 function Get-OtterCompiledCacheDirectory {
     $base = $null
@@ -441,11 +443,14 @@ function Invoke-OtterCompiledProgram {
     Write-OtterEngineTrace "compiled ($($compiled.ClassName))"
 
     # Fast start (otter.exe, distribution/launcher/OtterLauncher.cs): a program
-    # that needs nothing from PowerShell - one file, no library bridge - can be
-    # run next time straight from the cache, without starting PowerShell. Only
-    # Windows PowerShell 5.1's .NET Framework assemblies suit that launcher.
+    # that needs nothing from PowerShell - one file, and only library calls the
+    # runtime also implements in C# (OtterLibrary: files, random numbers) - can
+    # be run next time straight from the cache, without starting PowerShell.
+    # Only Windows PowerShell 5.1's .NET Framework assemblies suit that launcher.
+    $bridgeCalls = @([regex]::Matches($compiled.CSharp, 'R\.Call\("([A-Za-z]+)"') | ForEach-Object { $_.Groups[1].Value })
+    $needsPowerShell = @($bridgeCalls | Where-Object { $_ -notin $script:OtterFastStartLibrary })
     if ($script:OtterRunSourcePath -and $script:OtterRunSingleFile -and $PSVersionTable.PSEdition -eq 'Desktop' -and
-        $compiled.CSharp -notmatch 'R\.Call\(') {
+        $needsPowerShell.Count -eq 0) {
         try { Write-OtterFastStartEntry -Compiled $compiled -SourcePath $script:OtterRunSourcePath -CacheDirectory $cacheDirectory }
         catch { Write-OtterEngineTrace "no fast-start entry ($($_.Exception.Message))" }
     }

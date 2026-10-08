@@ -13,6 +13,8 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
+using System.Text;
 
 namespace OtterNative
 {
@@ -192,7 +194,13 @@ namespace OtterNative
 
         public static object Call(string name, object[] args, int line)
         {
-            if (Host == null) throw Err("The compiled backend has no library bridge for " + name + ".", line, null);
+            // Without PowerShell (otter.exe's fast start) the library answers
+            // in C#: OtterLibrary mirrors Windows PowerShell 5.1's behaviour.
+            if (Host == null)
+            {
+                if (OtterLibrary.Supports(name)) return OtterLibrary.Call(name, args, line);
+                throw Err("The compiled backend has no library bridge for " + name + ".", line, null);
+            }
             HostRequest request = new HostRequest();
             request.Name = name;
             request.Args = args;
@@ -345,7 +353,7 @@ namespace OtterNative
 
         // PowerShell's [string] of a value - what Test-OtterEqual compares last:
         // a list is its items joined by spaces, a class its PowerShell name.
-        static string PsText(object v)
+        internal static string PsText(object v)
         {
             if (v == null) return "";
             if (v is bool) return ((bool)v) ? "True" : "False";
@@ -989,6 +997,217 @@ namespace OtterNative
                     System.Threading.Thread.Sleep(1);
                 }
             }
+        }
+    }
+
+    // The library without PowerShell, for otter.exe's fast start. Each function
+    // mirrors its PowerShell original in src/Otter.Library.psm1 (and Get-Random
+    // for random numbers) on Windows PowerShell 5.1, including the error text:
+    // a .NET method's failure reads as PowerShell's MethodInvocationException
+    // ("Exception calling ..."), a cmdlet's as the .NET message it carries.
+    // tests/FastStart.Tests.ps1 compares every case with otter.ps1.
+    public static class OtterLibrary
+    {
+        static readonly string[] Names = { "SetRandomSeed", "RandomInt", "ReadFile", "WriteFile", "AppendFile", "DeleteFile", "FileExists", "CopyFile", "MoveFile" };
+
+        public static bool Supports(string name) { return Array.IndexOf(Names, name) >= 0; }
+
+        public static object Call(string name, object[] a, int line)
+        {
+            switch (name)
+            {
+                case "SetRandomSeed": SetSeed(Convert.ToInt32((double)a[0])); return null;
+                case "RandomInt": return (double)Next(Convert.ToInt32((double)a[0]), Convert.ToInt32((double)a[1]));
+                case "ReadFile": return ReadFile(FileArg(a[0], line), line);
+                case "WriteFile": WriteFile(FileArg(a[1], line), (string)a[0], line, (bool)a[2]); return null;
+                case "AppendFile": AppendFile(FileArg(a[1], line), (string)a[0], line); return null;
+                case "DeleteFile": DeleteFile(FileArg(a[0], line), line); return null;
+                case "FileExists": return FileExists(FileArg(a[0], line), line);
+                case "CopyFile": { string from = FileArg(a[0], line); CopyFile(from, FileArg(a[1], line), line); return null; }
+                case "MoveFile": { string from = FileArg(a[0], line); MoveFile(from, FileArg(a[1], line), line); return null; }
+            }
+            throw R.Err("The compiled backend has no library bridge for " + name + ".", line, null);
+        }
+
+        // --- Get-Random (PowerShell's PolymorphicRandomNumberGenerator) ------
+
+        static Random rng = new Random();
+
+        // Get-Random -SetSeed n | Out-Null: a new generator, and the number that
+        // call returns is drawn and discarded.
+        static void SetSeed(int seed) { rng = new Random(seed); NextRaw(); }
+
+        static int NextRaw()
+        {
+            byte[] data = new byte[4];
+            int n;
+            do { rng.NextBytes(data); n = BitConverter.ToInt32(data, 0); } while (n == int.MaxValue);
+            if (n < 0) n += int.MaxValue;
+            return n;
+        }
+
+        // Get-Random -Minimum min -Maximum max (max excluded).
+        static int Next(int min, int max)
+        {
+            double sample = NextRaw() * (1.0 / int.MaxValue);
+            long range = (long)max - min;
+            return (int)((long)Math.Truncate(sample * range) + min);
+        }
+
+        // --- files (Otter.Library.psm1) ---------------------------------------
+
+        static string Quote(string text) { return "\"" + text + "\""; }
+
+        // PowerShell's text for a failed .NET method call inside a try block.
+        static string MethodError(string method, int argumentCount, Exception ex)
+        {
+            return "Exception calling \"" + method + "\" with \"" + argumentCount + "\" argument(s): \"" + ex.Message + "\"";
+        }
+
+        // Resolve-OtterFileArgument: a thing's path (or name), or the value's text.
+        static string FileArg(object value, int line)
+        {
+            OtterThing thing = value as OtterThing;
+            if (thing != null)
+            {
+                if (thing.Has("path")) return R.PsText(thing.Read("path"));
+                if (thing.Has("name")) return R.PsText(thing.Read("name"));
+                throw R.Err("I need a file here, but this " + thing.TypeName + " has no path.", line, null);
+            }
+            return R.Format(value);
+        }
+
+        // Resolve-OtterPath
+        static string Resolve(string path, int line)
+        {
+            if (string.IsNullOrWhiteSpace(path)) throw R.Err("I need the name of a file.", line, null);
+            try
+            {
+                if (Path.IsPathRooted(path)) return path;
+                return Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, path));
+            }
+            catch (Exception) { throw R.Err(Quote(path) + " is not a name Otter can use for a file.", line, null); }
+        }
+
+        // Initialize-OtterParentFolder
+        static void ParentFolder(string full, int line)
+        {
+            string folder = Path.GetDirectoryName(full);
+            if (string.IsNullOrEmpty(folder) || File.Exists(folder) || Directory.Exists(folder)) return;
+            try { Directory.CreateDirectory(folder); }
+            catch (Exception) { throw R.Err("I could not make the folder " + Quote(folder) + ".", line, null); }
+        }
+
+        static UTF8Encoding Utf8NoBom() { return new UTF8Encoding(false); }
+
+        static object ReadFile(string path, int line)
+        {
+            string full = Resolve(path, line);
+            if (!File.Exists(full)) throw R.Err("I could not find a file called " + Quote(path) + ".", line, "if file " + Quote(path) + " exists");
+            try { return File.ReadAllText(full, Utf8NoBom()) ?? ""; }
+            catch (Exception ex) { throw R.Err("I could not read " + Quote(path) + ". " + MethodError("ReadAllText", 2, ex), line, null); }
+        }
+
+        static void WriteFile(string path, string content, int line, bool atomic)
+        {
+            string full = Resolve(path, line);
+            ParentFolder(full, line);
+            if (Directory.Exists(full)) throw R.Err(Quote(path) + " is a folder, not a file.", line, null);
+            if (!atomic)
+            {
+                try { File.WriteAllText(full, content, Utf8NoBom()); }
+                catch (Exception ex) { throw R.Err("I could not write to " + Quote(path) + ". " + MethodError("WriteAllText", 3, ex), line, null); }
+                return;
+            }
+            // Assert-OtterAtomicTargetWritable, then temp file + Replace/Move (D72).
+            if (File.Exists(full) && new FileInfo(full).IsReadOnly)
+                throw R.Err("I could not write to " + Quote(path) + ". The file is read-only.", line, null);
+            string temp = full + ".otter-tmp-" + Guid.NewGuid().ToString("N").Substring(0, 8);
+            string backup = full + ".otter-bak-" + Guid.NewGuid().ToString("N").Substring(0, 8);
+            string step = "WriteAllText"; int stepArgs = 3;
+            try
+            {
+                File.WriteAllText(temp, content, Utf8NoBom());
+                if (File.Exists(full))
+                {
+                    step = "Replace"; stepArgs = 3;
+                    File.Replace(temp, full, backup);
+                    try { File.Delete(backup); } catch (Exception) { }
+                }
+                else
+                {
+                    step = "Move"; stepArgs = 2;
+                    File.Move(temp, full);
+                }
+            }
+            catch (Exception ex)
+            {
+                try { if (File.Exists(temp)) File.Delete(temp); } catch (Exception) { }
+                throw R.Err("I could not write to " + Quote(path) + ". " + MethodError(step, stepArgs, ex), line, null);
+            }
+        }
+
+        static void AppendFile(string path, string content, int line)
+        {
+            string full = Resolve(path, line);
+            ParentFolder(full, line);
+            if (Directory.Exists(full)) throw R.Err(Quote(path) + " is a folder, not a file.", line, null);
+            try { File.AppendAllText(full, content, Utf8NoBom()); }
+            catch (Exception ex) { throw R.Err("I could not append to " + Quote(path) + ". " + MethodError("AppendAllText", 3, ex), line, null); }
+        }
+
+        // Remove-Item -Force: removes read-only files too.
+        static void DeleteFile(string path, int line)
+        {
+            string full = Resolve(path, line);
+            if (Directory.Exists(full)) throw R.Err(Quote(path) + " is a folder. Otter only deletes files.", line, null);
+            if (!File.Exists(full)) throw R.Err("I could not find a file called " + Quote(path) + " to delete.", line, "if file " + Quote(path) + " exists");
+            try { ClearReadOnly(full); File.Delete(full); }
+            catch (Exception ex) { throw R.Err("I could not delete " + Quote(path) + ". " + ex.Message, line, null); }
+        }
+
+        static object FileExists(string path, int line)
+        {
+            if (string.IsNullOrWhiteSpace(path)) return false;
+            return File.Exists(Resolve(path, line));
+        }
+
+        // "copy x to Documents" puts it IN Documents. Copy-Item -Force replaces
+        // a read-only destination.
+        static void CopyFile(string source, string destination, int line)
+        {
+            string from = Resolve(source, line);
+            string to = Resolve(destination, line);
+            if (!File.Exists(from)) throw R.Err("I could not find a file called " + Quote(source) + " to copy.", line, null);
+            if (Directory.Exists(to)) to = Path.Combine(to, Path.GetFileName(from));
+            else ParentFolder(to, line);
+            try { if (File.Exists(to)) ClearReadOnly(to); File.Copy(from, to, true); }
+            catch (Exception ex) { throw R.Err("I could not copy " + Quote(source) + ". " + ex.Message, line, null); }
+        }
+
+        // Move-Item -Force replaces an existing (even read-only) destination.
+        static void MoveFile(string source, string destination, int line)
+        {
+            string from = Resolve(source, line);
+            string to = Resolve(destination, line);
+            if (!File.Exists(from)) throw R.Err("I could not find a file called " + Quote(source) + " to move.", line, null);
+            if (Directory.Exists(to)) to = Path.Combine(to, Path.GetFileName(from));
+            else ParentFolder(to, line);
+            try
+            {
+                if (File.Exists(to) && !string.Equals(Path.GetFullPath(to), Path.GetFullPath(from), StringComparison.OrdinalIgnoreCase))
+                {
+                    try { ClearReadOnly(to); File.Delete(to); } catch (Exception) { }
+                }
+                File.Move(from, to);
+            }
+            catch (Exception ex) { throw R.Err("I could not move " + Quote(source) + ". " + ex.Message, line, null); }
+        }
+
+        static void ClearReadOnly(string path)
+        {
+            FileAttributes attributes = File.GetAttributes(path);
+            if ((attributes & FileAttributes.ReadOnly) != 0) File.SetAttributes(path, attributes & ~FileAttributes.ReadOnly);
         }
     }
 }
