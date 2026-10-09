@@ -44,7 +44,9 @@ export class OfflineHeuristicProvider extends AiProvider {
   }
 
   async complete(prompt, context = {}, options = {}) {
-    const code = this.engine.generateOtterCode(prompt, context);
+    const semantic = this.engine.semanticInlineCompletions(prompt, '', context);
+    const firstCode = semantic && semantic.length > 0 ? semantic[0].text : '';
+    const code = firstCode || this.engine.generateOtterCode(prompt, context);
     return {
       provider: this.name,
       displayName: this.displayName,

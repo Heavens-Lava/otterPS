@@ -58,6 +58,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Expose authoritative engines to window for cross-module access
   window.otterUiModel = uiModel;
+  window.generateOtterSource = generateOtterSource;
   window.otterCssAstManager = cssAstManager;
   window.otterIde = ide;
   window.a11yManager = a11yManager;

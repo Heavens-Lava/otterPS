@@ -1,3 +1,4 @@
+import { DesignerAiPlanner } from '../ai/designer-ai.js';
 // canvas.js - Visual Designer Canvas with GrapesJS-style decoupled interaction overlay, resize handles, and shortcuts
 // Keeps Otter's structured UI model as single source of truth; relies on real browser CSS/Flex/Grid layout engine.
 
@@ -5,6 +6,7 @@ import { ComponentSchema } from '../model/schema.js';
 import { generateOtterSource } from '../compiler/otter-generator.js';
 import { fetchRealRender, applyRealRender } from './real-style.js';
 
+window.DesignerAiPlanner = DesignerAiPlanner;
 export function renderCanvas(containerEl, uiModel, cssAstManager) {
   let currentDraggedComponentId = null;
   let currentHit = null;
@@ -31,6 +33,10 @@ export function renderCanvas(containerEl, uiModel, cssAstManager) {
       </style>
       <div class="canvas-topbar">
         <div class="canvas-breadcrumbs" id="canvasBreadcrumbs"></div>
+        <div class="canvas-ai-prompt-wrap" id="canvasAiPromptWrap" style="display:flex;align-items:center;gap:6px;flex:1;max-width:380px;margin:0 8px;">
+          <input type="text" class="canvas-ai-prompt-input" id="canvasAiPromptInput" placeholder="Describe UI to generate (e.g. settings card)..." style="width:100%;height:26px;padding:3px 8px;font-size:12px;background:rgba(15,23,42,0.6);border:1px solid rgba(255,255,255,0.12);border-radius:4px;color:#f8fafc;outline:none;" />
+          <button type="button" class="btn-clean-action" id="btnCanvasAiGenerate" style="height:26px;padding:0 10px;font-size:11px;font-weight:600;white-space:nowrap;display:flex;align-items:center;gap:4px;">✨ Generate</button>
+        </div>
         <div class="canvas-actions">
           <div class="canvas-breakpoints" style="display:flex;gap:4px;margin-right:8px;">
             <button class="canvas-toggle-btn ${activeBreakpoint === 'desktop' ? 'is-active' : ''}" id="bpDesktop" title="Desktop Viewport">💻 Desktop</button>
@@ -87,6 +93,28 @@ export function renderCanvas(containerEl, uiModel, cssAstManager) {
         </div>
       </div>
     `;
+
+    // AI Designer Generator Handler
+    const aiInput = containerEl.querySelector('#canvasAiPromptInput');
+    const aiBtn = containerEl.querySelector('#btnCanvasAiGenerate');
+    const handleAiGen = async () => {
+      const prompt = (aiInput?.value || '').trim();
+      if (!prompt) return;
+      // static import used
+      
+      const res = DesignerAiPlanner.planAndApply(prompt, uiModel);
+      if (res && res.success) {
+        update();
+        window.dispatchEvent(new CustomEvent('css-updated', { detail: { source: 'ai-designer' } }));
+      }
+    };
+    aiBtn?.addEventListener('click', handleAiGen);
+    aiInput?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleAiGen();
+      }
+    });
 
     // Breakpoint buttons
     const windowWrapper = containerEl.querySelector('#canvasWindowWrapper');

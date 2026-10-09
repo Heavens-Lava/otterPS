@@ -7,7 +7,9 @@
 export class DesignerAiPlanner {
   static normalizeKind(kind) {
     const k = (kind || '').toLowerCase();
-    if (k === 'textinput' || k === 'input' || k === 'label') return 'text';
+    if (k === 'textinput' || k === 'input' || k === 'textbox' || k === 'text box') return 'text box';
+    if (k === 'label') return 'text';
+    if (k === 'heading' || k === 'title') return 'heading';
     if (k === 'card' || k === 'column' || k === 'row' || k === 'button' || k === 'checkbox' || k === 'grid' || k === 'window' || k === 'heading') {
       return k;
     }
@@ -24,9 +26,9 @@ export class DesignerAiPlanner {
         { op: 'create-container', type: 'column', id: 'settingsCol', parentId: 'settingsCard', properties: { spacing: 10 } },
         { op: 'create-control', type: 'heading', id: 'titleHeading', parentId: 'settingsCol', properties: { text: 'Account Settings', level: 2 } },
         { op: 'create-control', type: 'text', id: 'nameLabel', parentId: 'settingsCol', properties: { text: 'Full Name' } },
-        { op: 'create-control', type: 'text', id: 'nameInput', parentId: 'settingsCol', properties: { placeholder: 'Enter full name' } },
+        { op: 'create-control', type: 'text box', id: 'nameInput', parentId: 'settingsCol', properties: { placeholder: 'Enter full name' } },
         { op: 'create-control', type: 'text', id: 'emailLabel', parentId: 'settingsCol', properties: { text: 'Email Address' } },
-        { op: 'create-control', type: 'text', id: 'emailInput', parentId: 'settingsCol', properties: { placeholder: 'Enter email address' } }
+        { op: 'create-control', type: 'text box', id: 'emailInput', parentId: 'settingsCol', properties: { placeholder: 'Enter email address' } }
       );
 
       if (p.includes('notification') || p.includes('notif') || p.includes('option')) {
@@ -164,6 +166,10 @@ export class DesignerAiPlanner {
             if (comp) {
               createdIds.push(comp.id);
               nameToIdMap.set(op.id, comp.id);
+              const parentComp = uiModel.getComponent(targetParentId);
+              if (parentComp && !parentComp.children.includes(comp.id)) {
+                parentComp.children.push(comp.id);
+              }
               if (targetParentId && uiModel.components && uiModel.components.has(targetParentId)) {
                 const parentComp = uiModel.components.get(targetParentId);
                 if (parentComp && Array.isArray(parentComp.children) && !parentComp.children.includes(comp.id)) {

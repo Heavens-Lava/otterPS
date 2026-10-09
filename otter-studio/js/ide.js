@@ -1,3 +1,4 @@
+import { InlineCompletionEngine } from './ai/inline-completion.js';
 // ide.js - Interactive Code Editor, Real Project Tree, Terminal, and Execution Engine for Otter Studio
 
 import {
@@ -98,6 +99,10 @@ export class OtterStudioIde {
     this.externalCheckIntervalMs = 2000;
     this.workspaceFiles = [];
     this.workspaceSymbols = [];
+    this.inlineCompletion = new InlineCompletionEngine({ debounceMs: 50 });
+    this.activeGhostText = null;
+    this.editorUndoStack = [];
+    this._inlineAbortController = null;
     this.templatesCollapsed = false;
     this.navigationMode = null;
     this.navigationItems = [];
@@ -1713,6 +1718,9 @@ export class OtterStudioIde {
     const tab = this.openTabs.find(t => t.path === filePath);
     if (!tab) return;
 
+    this.hideGhostText();
+    this.inlineCompletion?.cancelPending();
+
     // Snapshot departing tab's unsaved text, caret selection, and scroll offsets
     if (this.currentFile && this.currentFile !== filePath) {
       const prevTab = this.openTabs.find(t => t.path === this.currentFile);
@@ -2910,6 +2918,154 @@ export class OtterStudioIde {
     return highlightOtterLine(line, this.workspaceSymbols, this.currentFile);
   }
 
+  
+  // --- Inline Ghost-Text & Editor Undo Support ---
+  recordEditorUndo(code, cursorPos) {
+    this.editorUndoStack.push({ code, cursorPos });
+    if (this.editorUndoStack.length > 50) this.editorUndoStack.shift();
+  }
+
+  undoEditorSnapshot(textarea) {
+    if (!this.editorUndoStack || this.editorUndoStack.length === 0) return false;
+    const snap = this.editorUndoStack.pop();
+    this.currentCode = snap.code;
+    textarea.value = snap.code;
+    textarea.selectionStart = textarea.selectionEnd = snap.cursorPos;
+    this.hideGhostText();
+    this.markCurrentTabDirty(true);
+    this.renderEditorCode(this.currentCode);
+    this.updateCursorPos(textarea);
+    this.saveSessionState();
+    this.debouncedLint();
+    this.emitSourceChanged();
+    return true;
+  }
+
+  showGhostText(text, offset, textarea) {
+    if (!text || typeof text !== 'string') {
+      this.hideGhostText();
+      return;
+    }
+    let ghostEl = document.getElementById('editorGhostText');
+    const container = document.getElementById('codeEditorContainer') || this.codeAreaEl?.parentElement;
+    if (!ghostEl && container) {
+      ghostEl = document.createElement('div');
+      ghostEl.id = 'editorGhostText';
+      ghostEl.className = 'editor-ghost-text';
+      ghostEl.style.position = 'absolute';
+      ghostEl.style.pointerEvents = 'none';
+      ghostEl.style.color = '#94a3b8';
+      ghostEl.style.opacity = '0.65';
+      ghostEl.style.fontFamily = 'var(--font-code, "JetBrains Mono", Consolas, monospace)';
+      ghostEl.style.fontSize = '13px';
+      ghostEl.style.lineHeight = '22px';
+      ghostEl.style.letterSpacing = '0px';
+      ghostEl.style.tabSize = '4';
+      ghostEl.style.whiteSpace = 'pre';
+      ghostEl.style.zIndex = '6';
+      container.appendChild(ghostEl);
+    }
+    if (!ghostEl || !textarea) return;
+
+    const coords = this._offsetToEditorCoords(textarea, offset);
+    ghostEl.style.top = `${coords.top}px`;
+    ghostEl.style.left = `${coords.left}px`;
+    ghostEl.textContent = text;
+    ghostEl.style.display = 'block';
+    this.activeGhostText = { text, offset };
+  }
+
+  hideGhostText() {
+    this.activeGhostText = null;
+    const ghostEl = document.getElementById('editorGhostText');
+    if (ghostEl) {
+      ghostEl.style.display = 'none';
+      ghostEl.textContent = '';
+    }
+  }
+
+  async triggerInlineCompletion(textarea) {
+    if (!this.inlineCompletion || !this.inlineCompletion.enabled) {
+      this.hideGhostText();
+      return;
+    }
+    if (this.currentAiSettings?.inlineCompletionsEnabled === false) {
+      this.hideGhostText();
+      return;
+    }
+    const cursorPos = textarea.selectionStart;
+    if (cursorPos !== textarea.selectionEnd) {
+      this.hideGhostText();
+      return;
+    }
+    const prefix = this.currentCode.slice(0, cursorPos);
+    const suffix = this.currentCode.slice(cursorPos);
+    if (!prefix || !prefix.trim()) {
+      this.hideGhostText();
+      return;
+    }
+
+    const file = this.currentFile;
+    const reqId = ++this.inlineCompletion.currentRequestId;
+    
+    if (this._inlineAbortController) {
+      this._inlineAbortController.abort();
+      this._inlineAbortController = null;
+    }
+    this._inlineAbortController = new AbortController();
+    const signal = this._inlineAbortController.signal;
+
+    try {
+      await new Promise((resolve, reject) => {
+        const timer = setTimeout(resolve, this.inlineCompletion.debounceMs || 50);
+        signal.addEventListener('abort', () => {
+          clearTimeout(timer);
+          reject(new Error('Aborted'));
+        });
+      });
+
+      if (reqId !== this.inlineCompletion.currentRequestId || signal.aborted) return;
+      if (this.currentFile !== file || textarea.selectionStart !== cursorPos) return;
+
+      const res = await fetch('/api/ai/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prefix,
+          suffix,
+          context: { file, isOtter: isOtterFile(file) }
+        }),
+        signal
+      });
+
+      if (reqId !== this.inlineCompletion.currentRequestId || signal.aborted) return;
+      if (this.currentFile !== file || textarea.selectionStart !== cursorPos) return;
+
+      if (res.ok) {
+        const data = await res.json();
+        let suggestion = data.inlineSuggestion || (data.completions && data.completions.length > 0 ? data.completions[0].text : null);
+        if (suggestion && reqId === this.inlineCompletion.currentRequestId && this.currentFile === file && textarea.selectionStart === cursorPos) {
+          if (suggestion.startsWith(prefix)) {
+            suggestion = suggestion.slice(prefix.length);
+          }
+          if (suggestion && suggestion.trim()) {
+            this.showGhostText(suggestion, cursorPos, textarea);
+          } else {
+            this.hideGhostText();
+          }
+        } else {
+          this.hideGhostText();
+        }
+      } else {
+        this.hideGhostText();
+      }
+    } catch (err) {
+      if (reqId === this.inlineCompletion.currentRequestId) {
+        this.hideGhostText();
+      }
+    }
+  }
+
   setupInlineEditor() {
     let textarea = document.getElementById('hiddenEditorInput');
     const container = document.getElementById('codeEditorContainer') || this.codeAreaEl?.parentElement;
@@ -2987,6 +3143,8 @@ export class OtterStudioIde {
       });
 
       textarea.addEventListener('click', (e) => {
+        this.hideGhostText();
+        this.inlineCompletion?.cancelPending();
         if (e.ctrlKey || e.metaKey) {
           e.preventDefault();
           this.updateCursorPos(textarea);
@@ -3016,6 +3174,7 @@ export class OtterStudioIde {
         this.saveSessionState();
         this.debouncedLint();
         this.emitSourceChanged();
+        this.triggerInlineCompletion(textarea);
       });
 
       textarea.addEventListener('keydown', (e) => {
@@ -3025,9 +3184,52 @@ export class OtterStudioIde {
           this.checkSignatureHelp();
           return;
         }
+
+        // Tab key: accept inline completion if ghost text is active
+        if (e.key === 'Tab' && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
+          if (this.activeGhostText && this.activeGhostText.text) {
+            e.preventDefault();
+            const insertText = this.activeGhostText.text;
+            const pos = this.activeGhostText.offset;
+            this.recordEditorUndo(this.currentCode, pos);
+            const newCode = this.currentCode.slice(0, pos) + insertText + this.currentCode.slice(pos);
+            this.currentCode = newCode;
+            textarea.value = newCode;
+            textarea.selectionStart = textarea.selectionEnd = pos + insertText.length;
+            this.hideGhostText();
+            this.markCurrentTabDirty(true);
+            this.renderEditorCode(this.currentCode);
+            this.updateCursorPos(textarea);
+            this.saveSessionState();
+            this.debouncedLint();
+            this.emitSourceChanged();
+            return;
+          }
+        }
+
+        // Undo key (Ctrl+Z): restore from editor undo stack if available
+        if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z') && !e.shiftKey && !e.altKey) {
+          if (this.editorUndoStack && this.editorUndoStack.length > 0) {
+            e.preventDefault();
+            this.undoEditorSnapshot(textarea);
+            return;
+          }
+        }
+
+        // Navigation / cursor keys: clear ghost text
+        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageUp', 'PageDown'].includes(e.key)) {
+          this.hideGhostText();
+          this.inlineCompletion?.cancelPending();
+        }
         if (e.key === 'Escape') {
           this.hideSignatureHelp();
           this.hideHoverTooltip();
+          if (this.activeGhostText) {
+            e.preventDefault();
+            this.hideGhostText();
+            this.inlineCompletion?.cancelPending();
+            return;
+          }
           if (this.multiCursor && this.multiCursor.hasMultipleCursors()) {
             this.multiCursor.clearSecondaryCursors();
             this.renderCursorOverlays();
@@ -4818,6 +5020,8 @@ export class OtterStudioIde {
       if (this.aiSettingEndpoint) this.aiSettingEndpoint.value = activeProviderData.endpoint || '';
       if (this.aiSettingModel) this.aiSettingModel.value = activeProviderData.model || '';
       if (this.aiSettingApiKey) this.aiSettingApiKey.value = activeProviderData.maskedKey || '';
+      const inlineCheck = document.getElementById('aiSettingInlineCompletions');
+      if (inlineCheck) inlineCheck.checked = this.currentAiSettings.inlineCompletionsEnabled !== false;
       if (this.aiSettingIncludeFile) this.aiSettingIncludeFile.checked = this.currentAiSettings.includeCurrentFile !== false;
       if (this.aiSettingIncludeDiags) this.aiSettingIncludeDiags.checked = this.currentAiSettings.includeDiagnostics !== false;
       if (this.aiSettingIncludeWorkspace) this.aiSettingIncludeWorkspace.checked = Boolean(this.currentAiSettings.includeWorkspaceContext);
@@ -4878,6 +5082,7 @@ export class OtterStudioIde {
 
     const payload = {
       activeProvider: provider,
+      inlineCompletionsEnabled: document.getElementById('aiSettingInlineCompletions')?.checked !== false,
       includeCurrentFile: this.aiSettingIncludeFile?.checked,
       includeDiagnostics: this.aiSettingIncludeDiags?.checked,
       includeWorkspaceContext: this.aiSettingIncludeWorkspace?.checked,
