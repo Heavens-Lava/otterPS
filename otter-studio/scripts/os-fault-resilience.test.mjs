@@ -26,6 +26,8 @@ test('OS & Process-Level Fault Resilience Certification (Real OS Boundaries)', a
       stdio: ['pipe', 'pipe', 'pipe']
     });
     await waitForServer(testPort);
+    await makePostRequest('http://127.0.0.1:' + testPort + '/api/recovery/discard', '{}');
+    await makePostRequest('http://127.0.0.1:' + testPort + '/api/recovery/discard', '{}');
 
     try {
       // Record clean-exit
