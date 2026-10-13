@@ -216,6 +216,20 @@ say city of address of user
     # -------------------------------------------------------------
     # 5. JSON
     # -------------------------------------------------------------
+    # A top-level list of one item, or none, survives a JSON round trip.
+    # PowerShell 7's ConvertFrom-Json used to unroll it ("milk", gone).
+    Assert-Reachability -Area "JSON" -Capability "one-item and empty lists round-trip" -Source @"
+one are
+    "milk"
+.
+convert one to json into oneText
+convert oneText from json into oneBack
+say length of oneBack
+say first of oneBack
+convert "[]" from json into noneBack
+say length of noneBack
+"@ -ExpectedOutput "1`nmilk`n0"
+
     Assert-Reachability -Area "JSON" -Capability "convert to/from json" -Source @"
 user is a thing
     id is 101
