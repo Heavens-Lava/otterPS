@@ -4,7 +4,18 @@ All notable changes to the Otter Programming Language platform are documented in
 
 ## [Unreleased]
 
-## [1.0.0-rc.13] - 2026-10-14 (candidate; certification pending)
+## [1.0.0-rc.14] - 2026-10-14 (candidate; certification pending)
+
+Fourteenth Otter 1.0 release candidate: rc.13 plus two fixes found by the
+"Build a Task Tracker in Otter" tutorial series, the first full application
+written against Otter. rc.13 passed certification and is superseded before
+publication.
+
+### Fixed
+- On macOS and Linux (PowerShell 7), a one-item JSON list read back with `convert ... from json` or `read json` became its single item (`["milk"]` read as the text `milk`) and an empty list became gone; both now stay lists. Windows was not affected.
+- A handler set up inside another handler that uses a name the outer handler makes on each run (`when deleteButton is clicked` inside `when addButton is clicked`, hiding that run's `line`) silently acted on the newest one: Delete removed the last row added, not its own. `otter check`, `run`, `build` and `web` now refuse that form with the one that works - build the row in a function and set up the handler there. Giving each handler run its own names is proposed for Otter 1.1.
+
+## [1.0.0-rc.13] - 2026-10-14 (certified, superseded by rc.14; not tagged)
 
 Thirteenth Otter 1.0 release candidate: rc.12 plus one fix found by the
 first four-system CI run (D120 host matrix) since the repository went public,

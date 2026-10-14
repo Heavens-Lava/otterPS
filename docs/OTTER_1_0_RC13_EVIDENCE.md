@@ -1,7 +1,9 @@
 # Otter 1.0.0-rc.13 — release evidence
 
-Candidate: `084f9c7d6af1bebafc300fc357db597c6c5c0c9e` (`VERSION` 1.0.0-rc.13),
-**not tagged yet**. rc.12 (`7de6c5a`, certified but superseded; see
+Candidate: `084f9c7d6af1bebafc300fc357db597c6c5c0c9e` (`VERSION` 1.0.0-rc.13).
+**Superseded by rc.14 before publication, not tagged:** the task-tracker
+tutorial found one-item JSON lists breaking on macOS and Linux and inner
+handlers acting on the wrong row (see `CHANGELOG.md` `[1.0.0-rc.14]`). rc.12 (`7de6c5a`, certified but superseded; see
 `docs/OTTER_1_0_RC12_EVIDENCE.md`) plus:
 
 - `2821fae` — Windows PowerShell 5.1 ignores PowerShell 7's module folders,
