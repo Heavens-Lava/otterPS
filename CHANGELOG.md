@@ -4,6 +4,9 @@ All notable changes to the Otter Programming Language platform are documented in
 
 ## [Unreleased]
 
+### Fixed
+- A handler set up while another handler runs keeps that run's values (D133): rows built straight inside a click handler each get a Delete button that acts on its own row. Before, every row's Delete acted on the last row made.
+
 ## [1.0.0-rc.12] - 2026-10-06 (candidate; certification pending)
 
 Twelfth Otter 1.0 release candidate: rc.11 plus the compiled engine for

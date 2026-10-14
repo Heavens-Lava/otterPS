@@ -14,6 +14,27 @@ const require = createRequire(path.join(pwDir, 'package.json'));
 const { chromium } = require('playwright-core');
 
 const scenarios = {
+  // D133: an Add button makes rows; each row's Delete button hides its own row.
+  async handlerRuns(page) {
+    return page.evaluate(async () => {
+      const add = document.getElementById('addButton');
+      const input = document.getElementById('taskInput');
+      for (const t of ['alpha', 'beta', 'gamma']) {
+        input.value = t;
+        add.click();
+        await new Promise(r => setTimeout(r, 30));
+      }
+      const rows = () => Array.from(document.getElementById('taskList').children);
+      const visible = () => rows().filter(r => getComputedStyle(r).display !== 'none').map(r => r.textContent.replace(/Delete/g, '').trim());
+      const deleteIn = (label) => rows().find(r => r.textContent.includes(label)).querySelector('button').click();
+      deleteIn('alpha');
+      await new Promise(r => setTimeout(r, 30));
+      const afterFirst = visible();
+      deleteIn('gamma');
+      await new Promise(r => setTimeout(r, 30));
+      return { afterFirst, afterSecond: visible(), count: document.getElementById('tally').textContent };
+    });
+  },
   // examples/v1/tasks.ot: each Add click creates a new line with the typed text.
   async tasks(page) {
     return page.evaluate(async () => {

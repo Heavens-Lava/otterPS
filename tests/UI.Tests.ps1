@@ -1369,6 +1369,39 @@ Test-Otter 'D130: buttons made in a for each loop each remember their own pass; 
     Assert-AreEqual -Expected '30' -Actual "$($res.Env.Get('label'))"
 }
 
+# D133: a handler set up while another handler runs remembers that run: each
+# Add click makes a row whose button acts on its own row's label.
+Test-Otter 'D133: rows made by a click handler each keep their own row; shared names stay live' {
+    $res = Invoke-TestProgramWithEnv @(
+        [CreateUiResourceStmt]::new('column', 'taskList', 1),
+        [CreateUiResourceStmt]::new('button', 'addButton', 2),
+        [AssignStmt]::new('added', (Lit 0), 3),
+        [WhenStmt]::new([VariableExpr]::new('addButton', 4), 'clicked', @(
+            [AssignStmt]::new('added', [MathExpr]::new([VariableExpr]::new('added', 5), [MathOp]::Add, (Lit 1.0), 5), 5),
+            [CreateUiResourceStmt]::new('row', 'line', 6),
+            [CreateUiResourceStmt]::new('text', 'label', 7),
+            [AssignStmt]::new([PropertyAccessExpr]::new('text', [VariableExpr]::new('label', 8), 8), [VariableExpr]::new('added', 8), 8),
+            [CreateUiResourceStmt]::new('button', 'doneButton', 9),
+            [PutInStmt]::new([VariableExpr]::new('label', 10), [VariableExpr]::new('line', 10), 10),
+            [PutInStmt]::new([VariableExpr]::new('doneButton', 11), [VariableExpr]::new('line', 11), 11),
+            [PutInStmt]::new([VariableExpr]::new('line', 12), [VariableExpr]::new('taskList', 12), 12),
+            [WhenStmt]::new([VariableExpr]::new('doneButton', 13), 'clicked', @(
+                [AssignStmt]::new([PropertyAccessExpr]::new('text', [VariableExpr]::new('label', 14), 14), (Lit 'done'), 14)
+            ), 13)
+        ), 4)
+    )
+    $add = $res.Env.Get('addButton')
+    $list = $res.Env.Get('taskList')
+    foreach ($i in 1..3) { $add.Native.RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Button]::ClickEvent)) }
+    Assert-AreEqual -Expected 3 -Actual $list.Native.Children.Count
+    # added existed before the handler: shared, so every click updated it.
+    Assert-AreEqual -Expected '3' -Actual "$($res.Env.Get('added'))"
+    # The first row's button changes the first row's label, not the last one made.
+    $list.Native.Children[0].Children[1].RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Button]::ClickEvent))
+    Assert-AreEqual -Expected 'done' -Actual "$($list.Native.Children[0].Children[0].Text)"
+    Assert-AreEqual -Expected '3' -Actual "$($list.Native.Children[2].Children[0].Text)"
+}
+
 Test-Otter 'end-to-end Task List dogfood: dynamic child insertion into padded column' {
     $res = Invoke-TestProgramWithEnv @(
         [CreateUiResourceStmt]::new('column', 'taskList', 1),

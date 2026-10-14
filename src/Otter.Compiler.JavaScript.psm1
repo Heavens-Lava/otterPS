@@ -1430,6 +1430,21 @@ function Set-OtterJsLoopPassNames {
     catch { $script:OtterJsLoopPassNames = @{} }
 }
 
+# D133: Otter.Web.psm1 compiles top-level `when` handlers itself; it puts a
+# handler's run names on the stack while it compiles that handler's body.
+function Enter-OtterJsHandlerRun {
+    param([Node]$Handler)
+    $runNames = $script:OtterJsLoopPassNames[$Handler]
+    if ($null -eq $runNames -or $runNames.Count -eq 0) { return $false }
+    $script:OtterJsLoopPassStack.Add($runNames)
+    return $true
+}
+
+function Exit-OtterJsHandlerRun {
+    param([bool]$Entered)
+    if ($Entered) { $script:OtterJsLoopPassStack.RemoveAt($script:OtterJsLoopPassStack.Count - 1) }
+}
+
 function ConvertTo-OtterJsStatement {
     param(
         [Parameter(Mandatory)][Node]$Stmt,
@@ -3997,14 +4012,9 @@ function ConvertTo-OtterJsStatementCore {
                 default { $Stmt.EventName.ToLowerInvariant() }
             }
             $targetRef = Get-OtterJsUiRefForNode -Node $Stmt.Target
-            $bodyLines = [System.Collections.Generic.List[string]]::new()
-            foreach ($b in @($Stmt.Body)) {
-                $bodyLines.Add((ConvertTo-OtterJsStatement -Stmt $b -Indent ($Indent + 1) -LocalNames $LocalNames -KnownGlobals $KnownGlobals))
-            }
-            $registration = "${pad}otterOnUi($targetRef, '$eventName', async (event) => {`n$($bodyLines -join "`n")`n${pad}});"
-            # D130: inside a loop, the handler keeps this pass's values. In a
-            # function only its real locals are captured; a name that updates
-            # a global stays shared, as in the interpreter.
+            # D130/D133: what this handler keeps is decided by the loops and
+            # handler runs it is set up in, before its own run names go on the
+            # stack - its own names are set by each run, never captured.
             $captured = [System.Collections.Generic.SortedSet[string]]::new([System.StringComparer]::Ordinal)
             foreach ($set in $script:OtterJsLoopPassStack) {
                 foreach ($n in $set) {
@@ -4012,6 +4022,28 @@ function ConvertTo-OtterJsStatementCore {
                     if ($n -match '^[A-Za-z_][A-Za-z0-9_]*$') { [void]$captured.Add($n) }
                 }
             }
+            # D133: while the body compiles, this handler's run names are on
+            # the stack, so a handler set up during a run keeps that run's
+            # values (a row's Delete button keeps its own row).
+            $runNames = $script:OtterJsLoopPassNames[$Stmt]
+            $pushedRun = $false
+            if ($null -ne $runNames -and $runNames.Count -gt 0) {
+                $script:OtterJsLoopPassStack.Add($runNames)
+                $pushedRun = $true
+            }
+            $bodyLines = [System.Collections.Generic.List[string]]::new()
+            try {
+                foreach ($b in @($Stmt.Body)) {
+                    $bodyLines.Add((ConvertTo-OtterJsStatement -Stmt $b -Indent ($Indent + 1) -LocalNames $LocalNames -KnownGlobals $KnownGlobals))
+                }
+            }
+            finally {
+                if ($pushedRun) { $script:OtterJsLoopPassStack.RemoveAt($script:OtterJsLoopPassStack.Count - 1) }
+            }
+            $registration = "${pad}otterOnUi($targetRef, '$eventName', async (event) => {`n$($bodyLines -join "`n")`n${pad}});"
+            # D130: inside a loop (or a handler run, D133), the handler keeps
+            # those values. In a function only its real locals are captured; a
+            # name that updates a global stays shared, as in the interpreter.
             if ($captured.Count -eq 0) { return $registration }
             $params = @($captured) -join ', '
             $argList = @($captured | ForEach-Object { "typeof $_ === 'undefined' ? undefined : $_" }) -join ', '
@@ -4505,4 +4537,4 @@ Export-ModuleMember -Function `
     ConvertTo-OtterJsExpression, ConvertTo-OtterJsStatement, `
     Get-OtterJsBindingNames, Get-OtterJsTopLevelGlobalNames, `
     ConvertTo-OtterCommandLineArguments, Get-OtterJsCliPreamble, `
-    Get-OtterJsCryptoRuntime, Set-OtterJsRuntimeUiNames, Get-OtterJsRuntimeUiNames, Set-OtterJsLoopPassNames
+    Get-OtterJsCryptoRuntime, Set-OtterJsRuntimeUiNames, Get-OtterJsRuntimeUiNames, Set-OtterJsLoopPassNames, Enter-OtterJsHandlerRun, Exit-OtterJsHandlerRun
