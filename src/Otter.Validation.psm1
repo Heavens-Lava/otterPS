@@ -1,4 +1,5 @@
 using module ..\Otter.Contract.psm1
+using module .\Otter.LoopPasses.psm1
 
 # Otter.Validation.psm1
 #
@@ -307,6 +308,19 @@ function Get-OtterLanguageContractDiagnostics {
         SourceLines = $SourceLines
     }
     Invoke-OtterValidationWalk -Value $Program.Statements -State $state
+    # A handler set up inside another handler that uses a name the outer
+    # handler sets on each run acts on the LAST run's value (Delete removes the
+    # newest row). Until each handler run keeps its own names (proposed for
+    # 1.1, extending D130), refuse it with the form that works.
+    foreach ($capture in (Get-OtterHandlerRunCaptures -Statements $Program.Statements)) {
+        $line = $capture.Line
+        $sourceLine = if ($line -ge 1 -and $line -le $SourceLines.Count) { $SourceLines[$line - 1] } else { $null }
+        $state.Errors.Add([OtterError]::new(
+            "This handler uses `"$($capture.Name)`", which the handler around it makes again each time it runs. In Otter 1.0 the inner handler would only ever see the most recent `"$($capture.Name)`", so it would act on the wrong one.",
+            $line, 'check', 0, $sourceLine,
+            "Make each $($capture.Name) in a function and set up this handler inside that function, for example: to addRow ... create row into $($capture.Name) ... when deleteButton is clicked ... . Then call addRow from the outer handler.",
+            'HandlerRunName'))
+    }
     $sorted = @($state.Errors | Sort-Object -Property @{ Expression = { $_.Line } }, @{ Expression = { $_.Column } })
     return , [OtterError[]]$sorted
 }

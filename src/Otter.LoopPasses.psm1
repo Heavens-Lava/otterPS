@@ -134,4 +134,98 @@ function Get-OtterLoopPassNames {
     return $result
 }
 
-Export-ModuleMember -Function Get-OtterLoopPassNames, Test-OtterLoopStatement
+# The names a statement list reads or names: variables in expressions, and the
+# name fields statements carry as text (put x in y, text of x is ...).
+function Get-OtterReferencedNames {
+    param($Value, $Names)
+    if ($null -eq $Value) { return }
+    if ($Value -is [string]) { return }
+    if ($Value -is [VariableExpr]) { [void]$Names.Add($Value.Name); return }
+    if ($Value -is [FunctionDefStmt]) { return }
+    if ($Value -is [Node]) {
+        foreach ($p in $Value.PSObject.Properties) {
+            if ($p.Name -in @('Kind', 'Line', 'Column')) { continue }
+            $v = $p.Value
+            if ($v -is [string]) { if ($v -and $p.Name -match 'Target|Name|Container|Parent|Element|Resource|Variable') { [void]$Names.Add($v) } ; continue }
+            Get-OtterReferencedNames -Value $v -Names $Names
+        }
+        return
+    }
+    if ($Value -is [System.Collections.IEnumerable]) {
+        foreach ($item in $Value) { Get-OtterReferencedNames -Value $item -Names $Names }
+        return
+    }
+    if ($Value.PSObject.Properties['Body']) { Get-OtterReferencedNames -Value $Value.Body -Names $Names }
+}
+
+# Handler runs (Otter 1.0, before the proposed extension of D130 to handler
+# runs): a handler set up while another handler runs does NOT remember that
+# run. Names the outer handler sets afresh on each run - set inside it, not
+# inside a loop there (D130 covers loop passes), and set nowhere else in the
+# scope - are one shared name, so an inner handler that uses one acts on the
+# last run's value: "Delete" removes the newest row, not its own. Until 1.1
+# gives each run its own names, the check stage refuses that form. Returns one
+# entry per inner handler: @{ Name; Line } (the inner handler's line).
+function Get-OtterHandlerRunCaptures {
+    param([Node[]]$Statements)
+    $found = [System.Collections.Generic.List[object]]::new()
+
+    # Occurrences of bindings with the handlers and loops around them.
+    function Add-OtterRunBindings {
+        param($Stmts, $HandlerStack, $InLoop, $Occurrences, $Handlers, $Scopes)
+        foreach ($s in @($Stmts)) {
+            if ($s -isnot [Node]) { continue }
+            if ($s -is [FunctionDefStmt]) { $Scopes.Add($s); continue }
+            foreach ($n in (Get-OtterStatementBindings -Statement $s)) {
+                $Occurrences.Add(@{ Name = $n; Handlers = @($HandlerStack); InLoop = $InLoop })
+            }
+            $stack = $HandlerStack
+            if ($s.Kind -in $script:OtterDeferredKinds) {
+                $Handlers.Add(@{ Node = $s; Outer = @($HandlerStack) })
+                $stack = @($HandlerStack) + @($s)
+            }
+            $loop = $InLoop -or (Test-OtterLoopStatement $s)
+            foreach ($list in (Get-OtterChildStatementLists -Statement $s)) {
+                Add-OtterRunBindings -Stmts $list -HandlerStack $stack -InLoop $loop -Occurrences $Occurrences -Handlers $Handlers -Scopes $Scopes
+            }
+        }
+    }
+
+    $pending = [System.Collections.Generic.Queue[object]]::new()
+    $pending.Enqueue(@{ Body = $Statements; Parameters = @() })
+    while ($pending.Count -gt 0) {
+        $scope = $pending.Dequeue()
+        $occurrences = [System.Collections.Generic.List[object]]::new()
+        $handlers = [System.Collections.Generic.List[object]]::new()
+        $functions = [System.Collections.Generic.List[object]]::new()
+        Add-OtterRunBindings -Stmts $scope.Body -HandlerStack @() -InLoop $false -Occurrences $occurrences -Handlers $handlers -Scopes $functions
+        foreach ($inner in $handlers) {
+            if ($inner.Outer.Count -eq 0) { continue }
+            $outer = $inner.Outer[$inner.Outer.Count - 1]
+            # Names the outer handler sets afresh each run.
+            $run = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+            $elsewhere = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+            foreach ($p in @($scope.Parameters)) { [void]$elsewhere.Add($p) }
+            foreach ($o in $occurrences) {
+                $within = $false
+                foreach ($h in $o.Handlers) { if ([object]::ReferenceEquals($h, $outer)) { $within = $true; break } }
+                $innerOwns = $false
+                foreach ($h in $o.Handlers) { if ([object]::ReferenceEquals($h, $inner.Node)) { $innerOwns = $true; break } }
+                if ($within -and -not $o.InLoop -and -not $innerOwns) { [void]$run.Add($o.Name) }
+                elseif (-not $within) { [void]$elsewhere.Add($o.Name) }
+            }
+            $run.ExceptWith($elsewhere)
+            if ($run.Count -eq 0) { continue }
+            $used = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+            # Only the body runs later; the handler's target (when x is clicked)
+            # is read while the outer run is still going, so it is fine.
+            foreach ($list in (Get-OtterChildStatementLists -Statement $inner.Node)) { Get-OtterReferencedNames -Value $list -Names $used }
+            $used.IntersectWith($run)
+            foreach ($name in ($used | Sort-Object)) { $found.Add(@{ Name = $name; Line = $inner.Node.Line }) }
+        }
+        foreach ($f in $functions) { $pending.Enqueue(@{ Body = $f.Body; Parameters = @($f.Parameters) }) }
+    }
+    return , $found
+}
+
+Export-ModuleMember -Function Get-OtterLoopPassNames, Test-OtterLoopStatement, Get-OtterHandlerRunCaptures
