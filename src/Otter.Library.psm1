@@ -1524,7 +1524,16 @@ function ConvertFrom-OtterJsonText {
     }
 
     try {
-        $parsed = ConvertFrom-Json -InputObject $Text -ErrorAction Stop
+        # PowerShell 7's ConvertFrom-Json unrolls a top-level array as it
+        # outputs it, so ["milk"] came back as the text "milk" and [] as
+        # gone. -NoEnumerate (PowerShell 7 only) keeps the array whole, as
+        # Windows PowerShell 5.1 already does.
+        if ($PSVersionTable.PSVersion.Major -ge 7) {
+            $parsed = ConvertFrom-Json -InputObject $Text -NoEnumerate -ErrorAction Stop
+        }
+        else {
+            $parsed = ConvertFrom-Json -InputObject $Text -ErrorAction Stop
+        }
     }
     catch {
         throw [OtterError]::new(
