@@ -1,11 +1,12 @@
 {
-  "version": "1.0.0-rc.14",
-  "channel": "Release candidate",
+  "version": "1.0.0",
+  "channel": "Stable release",
   "windowsRequirements": "Windows 10 or Windows 11 with Windows PowerShell 5.1, or Linux or macOS with PowerShell 7.",
-  "installerStatus": "Not published yet",
+  "installerStatus": "Available",
   "installerSize": "Published with the download",
-  "releaseDate": "Published with the download",
+  "releaseDate": "2026-10-14",
   "sha256": "Published with the download",
-  "releaseNotesStatus": "Release notes will be published with the download.",
-  "studioStatus": "Development preview only — Studio is not a certified Otter V1 command yet."
+  "releaseNotesStatus": "On GitHub with the download (Releases, v1.0.0).",
+  "studioStatus": "Development preview only — Studio is not a certified Otter V1 command yet.",
+  "downloadUrl": "https://github.com/Heavens-Lava/otterPS/releases/download/v1.0.0/otter-1.0.0.zip"
 }

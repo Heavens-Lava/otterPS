@@ -121,7 +121,7 @@ b17 is a text with value "Does Otter run on macOS or Linux? Yes. Install PowerSh
 b18 is a text with value "Do I need PowerShell 7? No. Otter runs on the Windows PowerShell 5.1 that comes with Windows. The otter.cmd launcher finds it for you, even from PowerShell 7.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b19 is a text with value "Is Otter free? Yes, including for commercial use. It is not open source: see the license.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b20 is a text with value "Can I sell programs I write in Otter? Yes. Programs you create remain yours.", size 16, foreground "#3a4d6b", lineheight "1.6"
-b21 is a text with value "Where is the download? {{INSTALLER_STATUS}}. Until it is published, run Otter from the project folder - see Installation.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b21 is a text with value "Where is the download? On the Download page, and on GitHub under Releases. See Installation for the steps.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b22 is a link with text "The license", url "/license/", foreground "#2563eb", weight 600, size 15
 b23 is a link with text "Installation", url "/installation/", foreground "#2563eb", weight 600, size 15
 

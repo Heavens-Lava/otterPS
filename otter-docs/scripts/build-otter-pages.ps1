@@ -30,6 +30,8 @@ function Expand-OtterReleaseTokens {
         '{{SHA256}}' = $releaseData.sha256
         '{{RELEASE_NOTES_STATUS}}' = $releaseData.releaseNotesStatus
         '{{STUDIO_STATUS}}' = $releaseData.studioStatus
+        # The release zip on GitHub; before a release, the repository page.
+        '{{DOWNLOAD_URL}}' = $(if ($releaseData.downloadUrl) { $releaseData.downloadUrl } else { 'https://github.com/Heavens-Lava/otterPS' })
     }
 
     foreach ($token in $tokens.Keys) {

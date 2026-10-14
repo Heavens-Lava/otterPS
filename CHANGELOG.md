@@ -4,7 +4,32 @@ All notable changes to the Otter Programming Language platform are documented in
 
 ## [Unreleased]
 
-## [1.0.0-rc.14] - 2026-10-14 (candidate; certification pending)
+## [1.0.0] - 2026-10-14
+
+The first stable release of Otter, a programming language that reads like
+plain English. It is rc.14 with its version set to 1.0.0: nothing else in Otter
+changed (the website's Download page now links to the release).
+
+### What Otter 1.0 is
+- A language for beginners and small programs: variables, text, numbers, lists, things and custom types, decisions, loops, functions, error handling, dates, files, JSON, CSV, XML, bytes and HTTP, with error messages written for people.
+- Console programs on Windows, macOS and Linux; web pages and web applications (`otter web`); desktop windows on Windows (`otter desktop`).
+- Projects: `otter new`, `check`, `test`, `run`, `build` and `publish`, with launchers for built apps on every platform.
+- A compiled engine: `otter run` compiles a program to C# and runs that when it can (loops, math, functions, lists, things, text, dates, files, JSON and random numbers), falling back to the interpreter before anything runs otherwise.
+- One zip for every platform, installed with `Install-Otter.ps1`; nothing else needs installing on Windows (Windows PowerShell 5.1 is built in), and PowerShell 7 on macOS and Linux.
+
+### Known limitations
+- Each program takes about 1-4 seconds to start, most of it PowerShell starting; faster start-up is the main Otter 1.1 work.
+- Desktop windows, the registry, the credential vault and a few other features need Windows; elsewhere they stop with a clear message.
+- A handler set up inside another handler cannot yet use a name the outer handler makes on each run; `otter check` says so and shows the form that works (build it in a function).
+- `convert ... to json` writes a whole number as `5` on Windows and `5.0` on macOS and Linux.
+- Otter Studio, the editor, is not part of 1.0.
+
+### Certification
+- Release certification on Windows PowerShell 5.1 (eight gates, including the full test suite, conformance fixtures and 1,000-program differential and malformed-input fuzzing), the four-system CI on Windows, macOS and Linux, and hands-on testing on a Mac; `docs/OTTER_1_0_RELEASE_EVIDENCE.md`.
+
+Otter is free to use under the Otter Free Use License 1.1 (source-available, not open source).
+
+## [1.0.0-rc.14] - 2026-10-14 (certified, released as 1.0.0)
 
 Fourteenth Otter 1.0 release candidate: rc.13 plus two fixes found by the
 "Build a Task Tracker in Otter" tutorial series, the first full application

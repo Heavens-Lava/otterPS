@@ -17,7 +17,7 @@ heroEyebrow is a text with value "{{RELEASE_CHANNEL}} {{RELEASE_VERSION}}", size
 heroTitle is a text with value "Download Otter", size 48, weight 800, foreground "#ffffff", letterspacing "-0.03em", lineheight "1.05"
 heroLead is a text with value "Get the latest version of Otter and start building today.", size 20, foreground "#f1f6ff"
 heroNote is a text with value "Otter is free to use. It runs on Windows with the PowerShell already on your machine, and on macOS and Linux with PowerShell 7.", size 15, foreground "#d2e1f5"
-heroGetSource is a link with text "Get Otter from GitHub", url "https://github.com/Heavens-Lava/otterPS", foreground "#ffffff", weight 700, size 17, background "#2675ed", radius 12, customstyle "padding: 17px 30px; display: inline-block; box-shadow: 0 10px 22px rgba(0,89,230,.28);"
+heroGetSource is a link with text "Download Otter {{RELEASE_VERSION}}", url "{{DOWNLOAD_URL}}", foreground "#ffffff", weight 700, size 17, background "#2675ed", radius 12, customstyle "padding: 17px 30px; display: inline-block; box-shadow: 0 10px 22px rgba(0,89,230,.28);"
 heroInstaller is a text with value "Download: {{INSTALLER_STATUS}}", size 13, foreground "#f5c46b"
 heroActions is a row with spacing 18, align middle, margin "8px 0 0 0"
 put heroGetSource, heroInstaller in heroActions
@@ -46,7 +46,7 @@ put tabWindows, tabMac, tabLinux, tabSource in tabs
 
 dlTitle is a text with value "Download", size 26, weight 800, foreground "#0f1f36", letterspacing "-0.02em"
 dlStatus is a text with value "{{INSTALLER_STATUS}}", size 18, weight 700, foreground "#b45309"
-dlBody is a text with value "One zip for Windows, macOS and Linux, with its SHA-256 checksum, will appear here when it is published. Until then, run Otter straight from the project folder - it needs nothing else installed.", size 15, foreground "#4a5b75", lineheight "1.55"
+dlBody is a text with value "One zip for Windows, macOS and Linux. Check it against the SHA-256 checksum under Release details, extract it, and follow the installation guide - Otter needs nothing else installed.", size 15, foreground "#4a5b75", lineheight "1.55"
 dlGuide is a link with text "Read the installation guide", url "/installation/", foreground "#2563eb", weight 600, size 15
 dlRelease is a link with text "View release readiness", url "/release/", foreground "#2563eb", weight 600, size 15
 dlLinks is a row with spacing 24, align middle
