@@ -7930,3 +7930,36 @@ other file operation there. Keeping files in the page's own storage is the 1.1
 proposal P8, accepted in principle.
 
 Evidence: `tests/WebRuntimeUi.Tests.ps1` ("browser files").
+
+## D132. Files in a plain browser tab live in the page's storage (P8, 1.1)
+
+**Decided 2026-10-13 (Jeff; the 1.1 proposal P8, accepted in principle on
+2026-09-30, now built on `feature/p8-browser-storage`).** D131 made file
+operations in a plain browser tab (no desktop application) errors. That was
+honest, but it left a web app no way to keep anything across a reload.
+
+**Decision:** in a plain browser tab, Otter's file statements work on the
+page's own storage (the browser's `localStorage`). This replaces D131 for
+files; the desktop application and the console are unchanged.
+
+- `read`, `read json from`, `read csv`, `write` (also `atomically`; a single
+  storage write is all-or-nothing), `append`, `if file ... exists`,
+  `delete file`, `copy file` and `move file` work, so a program written for
+  the console keeps its data in the browser the same way.
+- Each file is stored under the page's address plus its path
+  (`otter-file:<page path>|<file path>`). Browsers give every `file://` page
+  the same storage; two Otter apps opened from disk must not overwrite each
+  other's `tasks.json`. Moving or renaming the page's HTML file therefore
+  starts it with empty storage.
+- Paths are tidied (`\` becomes `/`, a leading `./` and repeated slashes are
+  dropped) and are case-sensitive.
+- A missing file is an Otter error with the console's message ("I could not
+  find a file called "notes.txt"." / "... to delete."). Full or blocked
+  storage is an Otter error too. `try ... otherwise` catches both.
+- Folders are not part of P8: `get files in`, `get folders in` and the folder
+  operations stay errors that name the desktop application, now saying that
+  a web page keeps files in its own storage but has no folders.
+
+Evidence: `tests/WebRuntimeUi.Tests.ps1` ("P8 browser files": the page is
+loaded, writes `notes.txt`, is reloaded and reads it back), macOS, PowerShell
+7.6.6, headless Chromium. Windows certification pending.
