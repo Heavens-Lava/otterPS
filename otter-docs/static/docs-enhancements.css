@@ -56,3 +56,25 @@ body { background: #f4f7fb; color: var(--docs-ink); font-family: Inter, ui-sans-
   #hero { min-height: 0; padding: 22px 20px !important; } #hero img { display: none; }
   .docs-article-nav { font-size: .9rem; } #siteFooter { align-items: flex-start !important; flex-direction: column !important; padding: 24px 20px !important; }
 }
+
+/* Runnable code samples: the code panel, the Run bar under it and its output
+   read as one card. The page's code boxes set their own rounded corners
+   inline, which left notches where the Run bar joins; square them off here. */
+.otter-runnable > .otter-text {
+  border-bottom-left-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+}
+.otter-run-bar {
+  background: #0f1b2e;
+  border-top: 1px solid rgba(229, 237, 248, 0.08);
+  border-radius: 0 0 14px 14px;
+  padding: 10px 14px;
+}
+.otter-run-btn {
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+}
+.otter-run-output {
+  margin-top: 10px;
+  border-radius: 12px;
+}

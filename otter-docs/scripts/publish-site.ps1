@@ -28,10 +28,10 @@ if (-not (Test-Path -LiteralPath (Join-Path $PublishRepo '.git'))) {
 & robocopy (Resolve-Path -LiteralPath $generated).Path $PublishRepo /MIR /XD '.git' /XF '.nojekyll' 'README.md' 'CNAME' /NFL /NDL /NJH /NJS /NP | Out-Null
 if ($LASTEXITCODE -ge 8) { throw "robocopy failed with exit code $LASTEXITCODE." }
 
-# The public root is the Documentation overview.  It is the primary entry
-# experience and shares the reference layout used by /docs/; the earlier
-# marketing page remains available at /home/ for direct links.
-Copy-Item -LiteralPath (Join-Path $generated 'docs\index.html') -Destination (Join-Path $PublishRepo 'index.html') -Force
+# The public root is the home page (/home/): what Otter is, a runnable
+# example, the comparison with JavaScript and Python, and the download - the
+# front door for someone new. The documentation stays at /docs/.
+Copy-Item -LiteralPath (Join-Path $generated 'home\index.html') -Destination (Join-Path $PublishRepo 'index.html') -Force
 if (-not (Test-Path -LiteralPath (Join-Path $PublishRepo '.nojekyll'))) {
     New-Item -ItemType File -Path (Join-Path $PublishRepo '.nojekyll') | Out-Null
 }
