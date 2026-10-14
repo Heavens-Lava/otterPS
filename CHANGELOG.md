@@ -4,6 +4,9 @@ All notable changes to the Otter Programming Language platform are documented in
 
 ## [Unreleased]
 
+### Fixed
+- On the web, a `primary`, `secondary` or `danger` button's own `background`, `foreground` and `border` settings, and `customstyle`, now win over the variant's colours. Before, the variant colours were marked `!important`, so `addButton is a primary button with ..., background "#16a34a"` stayed blue.
+
 ## [1.0.0-rc.12] - 2026-10-06 (candidate; certification pending)
 
 Twelfth Otter 1.0 release candidate: rc.11 plus the compiled engine for

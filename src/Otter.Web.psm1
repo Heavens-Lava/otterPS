@@ -1852,41 +1852,45 @@ $runnableCss
       letter-spacing: -0.02em;
       color: inherit;
     }
+    /* No !important on the variant buttons: these rules come after
+       .otter-button, so they already win over it, and a button's own
+       settings (background, foreground, border) and customstyle must win
+       over them. */
     .otter-button-primary, .otter-btn-primary {
-      background-color: #2563eb !important;
-      color: #ffffff !important;
-      border: none !important;
+      background-color: #2563eb;
+      color: #ffffff;
+      border: none;
       border-radius: 8px;
       padding: 10px 18px;
       font-weight: 600;
       cursor: pointer;
     }
     .otter-button-primary:hover, .otter-btn-primary:hover {
-      background-color: #1d4ed8 !important;
+      background-color: #1d4ed8;
     }
     .otter-button-secondary, .otter-btn-secondary {
-      background-color: #334155 !important;
-      color: #f8fafc !important;
-      border: 1px solid #475569 !important;
+      background-color: #334155;
+      color: #f8fafc;
+      border: 1px solid #475569;
       border-radius: 8px;
       padding: 10px 18px;
       font-weight: 500;
       cursor: pointer;
     }
     .otter-button-secondary:hover, .otter-btn-secondary:hover {
-      background-color: #475569 !important;
+      background-color: #475569;
     }
     .otter-button-danger, .otter-btn-danger {
-      background-color: #dc2626 !important;
-      color: #ffffff !important;
-      border: none !important;
+      background-color: #dc2626;
+      color: #ffffff;
+      border: none;
       border-radius: 8px;
       padding: 10px 18px;
       font-weight: 600;
       cursor: pointer;
     }
     .otter-button-danger:hover, .otter-btn-danger:hover {
-      background-color: #b91c1c !important;
+      background-color: #b91c1c;
     }
     .otter-panel {
       display: flex;
