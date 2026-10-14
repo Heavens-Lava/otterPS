@@ -463,7 +463,38 @@ try {
     # RC3-B8 end
 
     Write-Host ""
-    Write-Host "All Otter project publishing tests passed (24/24)." -ForegroundColor Green
+    # Test 25: publish works when PowerShell 7's module folders come first in
+    # PSModulePath - what Windows PowerShell 5.1 inherits when otter.cmd runs
+    # from a PowerShell 7 terminal. PowerShell 7's own Microsoft.PowerShell.Utility
+    # then hid Get-FileHash ("not recognized"; found by the D120 host matrix,
+    # PowerShell 7 on Windows). It needs PowerShell 7's real module files, so it
+    # runs where PowerShell 7 is installed (pwsh on PATH, the default install
+    # folder, or OTTER_TEST_PWSH pointing at pwsh.exe) and says so when not.
+    $onWindowsHost = ($PSVersionTable.PSVersion.Major -lt 6) -or $IsWindows
+    $pwshExe = $env:OTTER_TEST_PWSH
+    if (-not $pwshExe) { $found = Get-Command pwsh.exe -ErrorAction SilentlyContinue; if ($found) { $pwshExe = $found.Source } }
+    if (-not $pwshExe -and $env:ProgramFiles) { $pwshExe = Join-Path $env:ProgramFiles 'PowerShell\7\pwsh.exe' }
+    $pwshModules = if ($pwshExe) { Join-Path (Split-Path -Parent $pwshExe) 'Modules' } else { $null }
+    if (-not $onWindowsHost) {
+        Write-Output '  skip  PowerShell 7 module folders first: a Windows PowerShell 5.1 case'
+    }
+    elseif (-not ($pwshModules -and (Test-Path -LiteralPath (Join-Path $pwshModules 'Microsoft.PowerShell.Utility')))) {
+        Write-Output '  skip  PowerShell 7 module folders first: PowerShell 7 is not installed here (the D120 host matrix covers it)'
+    }
+    else {
+        $mProj = New-OtterProject -Archetype 'console' -Name 'Pwsh7TerminalApp' -Path $testTmp
+        $savedModulePath = $env:PSModulePath
+        try {
+            $env:PSModulePath = "$pwshModules;$savedModulePath"
+            $mOut = & (Join-Path $env:WINDIR 'System32\WindowsPowerShell\v1.0\powershell.exe') -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot 'otter.ps1') publish $mProj.RootDirectory 2>&1
+            $mExit = $LASTEXITCODE
+        }
+        finally { $env:PSModulePath = $savedModulePath }
+        if ($mExit -ne 0 -or ($mOut -join "`n") -notmatch 'Publish succeeded') { throw "Test 25 failed: publish with PowerShell 7 module folders first exited $mExit. Output: $($mOut -join ' | ')" }
+        Write-Output '  pass  publish works when PowerShell 7 module folders come first (a PowerShell 7 terminal on Windows)'
+    }
+
+    Write-Host "All Otter project publishing tests passed (25/25)." -ForegroundColor Green
     exit 0
 }
 finally {
