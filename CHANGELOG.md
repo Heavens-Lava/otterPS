@@ -4,7 +4,20 @@ All notable changes to the Otter Programming Language platform are documented in
 
 ## [Unreleased]
 
-## [1.0.0-rc.12] - 2026-10-06 (candidate; certification pending)
+## [1.0.0-rc.13] - 2026-10-14 (candidate; certification pending)
+
+Thirteenth Otter 1.0 release candidate: rc.12 plus one fix found by the
+first four-system CI run (D120 host matrix) since the repository went public,
+and website corrections. rc.12 passed certification on Windows, Linux and
+macOS and is superseded before publication.
+
+### Fixed
+- `otter publish` works from a PowerShell 7 terminal on Windows. `otter.cmd` starts Windows PowerShell 5.1, which inherited PowerShell 7's module folders first, so `Get-FileHash` resolved to PowerShell 7's module and failed with "The term 'Get-FileHash' is not recognized"; Otter on Windows PowerShell 5.1 now ignores PowerShell 7's module folders.
+
+### Documentation
+- The website's Download page no longer calls Otter open source (the Otter Free Use License is source-available), lists macOS and Linux as supported, describes the one zip and its SHA-256 checksum instead of a signed installer, and notes that a program takes about 1-4 seconds to start; About no longer says Windows only.
+
+## [1.0.0-rc.12] - 2026-10-06 (certified, superseded by rc.13; not tagged)
 
 Twelfth Otter 1.0 release candidate: rc.11 plus the compiled engine for
 `otter run`, and a fix for built apps in folders with spaces. rc.11 passed
