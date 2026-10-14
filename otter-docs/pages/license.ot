@@ -113,7 +113,7 @@ b9 is a text with value "- Redistribute, republish, sublicense, sell, rent or re
 b10 is a text with value "- Modify, reverse engineer, decompile or create derivative works of Otter itself without written permission (except where the law says you may).", size 16, foreground "#3a4d6b", lineheight "1.6"
 b11 is a text with value "- Use the Otter name, logos or branding to suggest that an unofficial product, modified version or service is an official Otter product.", size 16, foreground "#3a4d6b", lineheight "1.6"
 b12 is a text with value "Ownership", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
-b13 is a text with value "Otter itself is proprietary software: providing it free of charge does not transfer ownership. The license does not grant a right to Otter's private source code.", size 16, foreground "#3a4d6b", lineheight "1.6"
+b13 is a text with value "Otter itself is proprietary software: providing it free of charge does not transfer ownership. Its source code is publicly visible on GitHub; being able to read it does not give a right to modify or redistribute Otter (Otter Free Use License 1.1).", size 16, foreground "#3a4d6b", lineheight "1.6"
 b14 is a link with text "Read the full license on GitHub", url "https://github.com/Heavens-Lava/otterPS/blob/master/LICENSE", foreground "#2563eb", weight 600, size 15
 b15 is a link with text "Third-party notices", url "https://github.com/Heavens-Lava/otterPS/blob/master/THIRD-PARTY-NOTICES.md", foreground "#2563eb", weight 600, size 15
 b16 is a link with text "About Otter", url "/about/", foreground "#2563eb", weight 600, size 15
