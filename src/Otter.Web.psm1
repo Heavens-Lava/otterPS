@@ -2235,12 +2235,71 @@ $runtimeUiJs
       }
       return String(value);
     }
+    // P8 (1.1): in a plain browser tab (no desktop application) files live in
+    // the page's own storage (localStorage), so a web app keeps what it writes
+    // across reloads. Each file is stored under this page's address plus its
+    // path: browsers give every file:// page the same storage, and two Otter
+    // apps opened from disk must not overwrite each other's "tasks.json".
+    // Messages match the console's, and every failure is an Otter error that
+    // try ... otherwise catches. Folders are not part of P8 (see below).
+    const otterPageFiles = {
+      clean: function(filePath) {
+        let p = String(filePath).trim().replace(/\\/g, '/');
+        while (p.indexOf('./') === 0) { p = p.slice(2); }
+        return p.replace(/\/+/g, '/');
+      },
+      key: function(filePath) { return 'otter-file:' + location.pathname + '|' + this.clean(filePath); },
+      has: function(filePath) {
+        try { return localStorage.getItem(this.key(filePath)) !== null; } catch (_) { return false; }
+      },
+      read: function(filePath, purpose) {
+        let text;
+        try { text = localStorage.getItem(this.key(filePath)); }
+        catch (_) { throw new Error('This browser does not let the page use its storage, so Otter could not read "' + filePath + '".'); }
+        if (text === null) { throw new Error('I could not find a file called "' + filePath + '"' + (purpose ? ' ' + purpose : '') + '.'); }
+        return text;
+      },
+      write: function(filePath, text) {
+        try { localStorage.setItem(this.key(filePath), String(text)); }
+        catch (_) { throw new Error('Otter could not save "' + filePath + '": this page\'s storage is full, or the browser does not allow it.'); }
+      },
+      remove: function(filePath, purpose) {
+        this.read(filePath, purpose);
+        try { localStorage.removeItem(this.key(filePath)); } catch (_) { }
+      },
+      operate: function(operation, payload) {
+        switch (operation) {
+          case 'file-exists': return { exists: this.has(payload.path) };
+          case 'append-file': {
+            const before = this.has(payload.path) ? this.read(payload.path) : '';
+            this.write(payload.path, before + String(payload.content));
+            return { ok: true };
+          }
+          case 'copy-file':
+            this.write(payload.destination, this.read(payload.source, 'to copy'));
+            return { ok: true };
+          case 'move-file': {
+            const text = this.read(payload.source, 'to move');
+            this.write(payload.destination, text);
+            if (this.clean(payload.source) !== this.clean(payload.destination)) { localStorage.removeItem(this.key(payload.source)); }
+            return { ok: true };
+          }
+          case 'delete-file':
+            this.remove(payload.path, 'to delete');
+            return { ok: true };
+          default: {
+            const target = payload.path || payload.source || '';
+            throw new Error('Working with the folder "' + target + '" needs the Otter desktop application (otter desktop). A web page keeps files in its own storage, but it has no folders.');
+          }
+        }
+      }
+    };
+    window.otterPageFiles = otterPageFiles;
+
     async function otterReadFile(filePath) {
       const bridge = window.__OTTER_DESKTOP_BRIDGE__;
       if (!bridge || !bridge.port || !bridge.token) {
-        // A browser page cannot read files: a clear error, not "" (which
-        // looked like an empty file and skipped the program's otherwise).
-        throw new Error('Reading "' + filePath + '" needs the Otter desktop application (otter desktop). A web page in a browser cannot read files.');
+        return otterPageFiles.read(filePath);
       }
       const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/fs/read', {
         method: 'POST',
@@ -2259,7 +2318,9 @@ $runtimeUiJs
     async function otterWriteFile(filePath, content) {
       const bridge = window.__OTTER_DESKTOP_BRIDGE__;
       if (!bridge || !bridge.port || !bridge.token) {
-        throw new Error('Writing "' + filePath + '" needs the Otter desktop application (otter desktop). A web page in a browser cannot write files.');
+        // A single localStorage write is all-or-nothing, so "atomically" holds.
+        otterPageFiles.write(filePath, content);
+        return { ok: true };
       }
       const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/fs/write', {
         method: 'POST',
@@ -2332,7 +2393,7 @@ $runtimeUiJs
     async function otterGetFiles(folderPath, includeSubfolders = false) {
       const bridge = window.__OTTER_DESKTOP_BRIDGE__;
       if (!bridge || !bridge.port || !bridge.token) {
-        throw new Error('Listing the files in "' + folderPath + '" needs the Otter desktop application (otter desktop). A web page in a browser cannot see folders.');
+        throw new Error('Listing the files in "' + folderPath + '" needs the Otter desktop application (otter desktop). A web page keeps files in its own storage, but it has no folders.');
       }
       const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/fs/files', {
         method: 'POST',
@@ -2352,7 +2413,7 @@ $runtimeUiJs
     async function otterGetFolders(folderPath, includeSubfolders = false) {
       const bridge = window.__OTTER_DESKTOP_BRIDGE__;
       if (!bridge || !bridge.port || !bridge.token) {
-        throw new Error('Listing the folders in "' + folderPath + '" needs the Otter desktop application (otter desktop). A web page in a browser cannot see folders.');
+        throw new Error('Listing the folders in "' + folderPath + '" needs the Otter desktop application (otter desktop). A web page keeps files in its own storage, but it has no folders.');
       }
       const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/fs/folders', {
         method: 'POST',
@@ -2372,7 +2433,7 @@ $runtimeUiJs
     async function otterFileOperation(operation, payload) {
       const bridge = window.__OTTER_DESKTOP_BRIDGE__;
       if (!bridge || !bridge.port || !bridge.token) {
-        throw new Error('Desktop Bridge is not available for file operations.');
+        return otterPageFiles.operate(operation, payload || {});
       }
       const resp = await fetch('http://127.0.0.1:' + bridge.port + '/api/fs/operate', {
         method: 'POST',

@@ -91,6 +91,17 @@ const scenarios = {
   async fileErrors(page) {
     await page.waitForTimeout(300);
     return page.evaluate(() => ({ results: document.getElementById('results').textContent }));
+  },
+  // P8: the same page loaded twice. The first load writes notes.txt into the
+  // page's storage; after a reload, read finds it. Folders stay errors.
+  async pageFiles(page) {
+    await page.waitForTimeout(300);
+    const first = await page.evaluate(() => document.getElementById('results').textContent);
+    await page.reload();
+    await page.waitForTimeout(300);
+    const second = await page.evaluate(() => document.getElementById('results').textContent);
+    const keys = await page.evaluate(() => Object.keys(localStorage));
+    return { first, second, keys };
   }
 };
 

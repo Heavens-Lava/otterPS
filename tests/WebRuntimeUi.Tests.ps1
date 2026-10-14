@@ -292,9 +292,12 @@ try {
             Assert-AreEqual -Expected 0 -Actual @($r.pageErrors).Count
         }
 
-        Test-Otter 'browser files: read, write, get files and get folders without the desktop application are errors try/otherwise catches, not empty answers' {
-            $r = Invoke-OtterWebScenario -Html $fileErrorsHtml -Scenario 'fileErrors'
-            Assert-AreEqual -Expected 'read failed write failed files failed folders failed' -Actual $r.results.Trim()
+        Test-Otter 'P8 browser files: without the desktop application, files live in the page''s storage and survive a reload; a missing file and folder listing are errors try/otherwise catches' {
+            $r = Invoke-OtterWebScenario -Html $fileErrorsHtml -Scenario 'pageFiles'
+            Assert-AreEqual -Expected 'read failed write done files failed folders failed' -Actual $r.first.Trim()
+            Assert-AreEqual -Expected 'read gave [hello] write done files failed folders failed' -Actual $r.second.Trim()
+            Assert-AreEqual -Expected 1 -Actual @($r.keys).Count
+            Assert-True (@($r.keys)[0].EndsWith('|notes.txt')) "the file should be stored under the page's address and its path, got: $(@($r.keys) -join ', ')"
         }
     }
 }
