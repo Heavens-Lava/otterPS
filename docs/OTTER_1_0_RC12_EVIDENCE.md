@@ -1,7 +1,10 @@
 # Otter 1.0.0-rc.12 — release evidence
 
-Candidate: `7de6c5ae026a62be12718d6046eceb009e5c14aa` (`VERSION` 1.0.0-rc.12),
-**not tagged yet**. rc.11 (`8c6ae68`, certified but superseded; see
+Candidate: `7de6c5ae026a62be12718d6046eceb009e5c14aa` (`VERSION` 1.0.0-rc.12).
+**Superseded by rc.13 before publication, not tagged:** the four-system CI
+run (D120 host matrix, run 38603948010: 6 of 7 jobs passed) found that
+`otter publish` fails from a PowerShell 7 terminal on Windows (see
+`CHANGELOG.md` `[1.0.0-rc.13]`). rc.11 (`8c6ae68`, certified but superseded; see
 `docs/OTTER_1_0_RC11_EVIDENCE.md`) plus:
 
 - `7e6b51f` — a built app's `run.cmd` (and the desktop launcher) quotes its

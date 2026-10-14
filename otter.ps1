@@ -80,6 +80,19 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# Windows PowerShell 5.1 started from a PowerShell 7 terminal (otter.cmd runs
+# powershell.exe) inherits PowerShell 7's PSModulePath, whose folders come
+# first: a built-in command that 5.1 autoloads - Get-FileHash, used by
+# `otter publish` - then resolves to PowerShell 7's copy of its module, which
+# 5.1 cannot load ("The term 'Get-FileHash' is not recognized"). Found by the
+# D120 host matrix (PowerShell 7 on Windows). Otter imports its own modules by
+# path, so 5.1 keeps only its own module folders.
+if ($PSVersionTable.PSEdition -eq 'Desktop' -and $env:PSModulePath) {
+    $env:PSModulePath = (($env:PSModulePath -split ';') | Where-Object {
+        $_ -and $_ -notmatch '[\\/]PowerShell[\\/]' -and $_ -notmatch '[\\/]pwsh[^\\/]*[\\/]'
+    }) -join ';'
+}
+
 # Otter source files are read as UTF-8 explicitly (see Invoke-OtterFile
 # below), but without this, `say`/output written through the CONSOLE still
 # goes out re-encoded as whatever legacy OEM code page the host happens to
