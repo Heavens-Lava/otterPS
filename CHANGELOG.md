@@ -4,7 +4,7 @@ All notable changes to the Otter Programming Language platform are documented in
 
 ## [Unreleased]
 
-## [1.0.1] - candidate, not yet certified
+## [1.0.1] - 2026-10-15
 
 A maintenance release of Otter 1.0.0: fixes found by the task-tracker
 tutorial and an outside review, and a new release check that runs every code

@@ -3,10 +3,10 @@
   "channel": "Stable release",
   "windowsRequirements": "Windows 10 or Windows 11 with Windows PowerShell 5.1, or Linux or macOS with PowerShell 7.",
   "installerStatus": "Available",
-  "installerSize": "438 KB (otter-1.0.0.zip)",
-  "releaseDate": "2026-10-14",
-  "sha256": "62DC15966CC8C3454134C4A04071FEB06ADDC223A656367DF9F77700FE0839E1",
-  "releaseNotesStatus": "On GitHub with the download (Releases, v1.0.0).",
+  "installerSize": "440 KB (otter-1.0.1.zip)",
+  "releaseDate": "2026-10-15",
+  "sha256": "B70FF7D6D6A47BD477499CAC48B681FAF0826CC03A1E77B1AFB0F39A66826A87",
+  "releaseNotesStatus": "On GitHub with the download (Releases, v1.0.1).",
   "studioStatus": "Development preview only — Studio is not a certified Otter V1 command yet.",
-  "downloadUrl": "https://github.com/Heavens-Lava/otterPS/releases/download/v1.0.0/otter-1.0.0.zip"
+  "downloadUrl": "https://github.com/Heavens-Lava/otterPS/releases/download/v1.0.1/otter-1.0.1.zip"
 }
