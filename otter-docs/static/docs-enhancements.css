@@ -45,16 +45,93 @@ body { background: #f4f7fb; color: var(--docs-ink); font-family: Inter, ui-sans-
 .docs-search-result { border-radius: 8px; color: #0f1f36; display: block; padding: 12px; text-decoration: none; }
 .docs-search-result:hover, .docs-search-result:focus { background: #edf4ff; outline: none; }
 .docs-search-result span { color: #5d708b; display: block; font-size: .85rem; margin-top: 3px; }
-.docs-mobile-toggle { display: none; }
+.docs-mobile-toggle, .site-menu-toggle { display: none; }
 @media (max-width: 1180px) { .docs-toc { display: none; } }
+
+/* Tablets: four cards side by side get too narrow, so they go two by two. */
+@media (max-width: 1024px) {
+  #whyCards, #buildCards, #entryCards, #nextCards { flex-wrap: wrap !important; }
+  #whyCards > *, #buildCards > *, #entryCards > *, #nextCards > * { flex: 1 1 calc(50% - 20px) !important; }
+  #heroBody, #whySection, #syntaxInner, #buildSection, #closeBody { padding-left: 32px !important; padding-right: 32px !important; }
+  #heroStage { padding-right: 40px !important; } #heroStage #heroMascot { height: 240px !important; right: -30px !important; bottom: -84px !important; }
+  #content { padding: 0 32px !important; }
+  #docsMain { padding: 32px 32px 24px !important; }
+  #siteFooter { flex-wrap: wrap !important; padding: 24px 32px !important; }
+  #footerLinks { flex-wrap: wrap !important; gap: 10px 18px !important; }
+}
+
+/* Below this the full header no longer fits: the brand stays on the left and
+   a menu button opens the main links as a panel under the bar. */
+@media (max-width: 960px) {
+  #topBar { padding: 0 24px !important; gap: 12px !important; }
+  #navLinks { display: none !important; }
+  .site-menu-toggle { align-items: center; background: #173252; border: 1px solid #315377; border-radius: 8px; color: #dbeafe; cursor: pointer; display: inline-flex; font: inherit; font-size: 14px; font-weight: 600; gap: 8px; min-height: 40px; padding: 8px 12px; }
+  .site-menu-toggle svg { display: block; }
+  #topBar.site-menu-open #navLinks { align-items: stretch !important; background: #0b1d36; border-top: 1px solid #1d3557; box-shadow: 0 18px 30px rgba(4,16,33,.35); box-sizing: border-box; display: flex !important; flex-direction: column !important; gap: 0 !important; left: 0; padding: 8px 16px 18px; position: absolute; right: 0; top: 64px; }
+  #topBar.site-menu-open #navLinks > a { border-bottom: 1px solid #1d3557 !important; display: block; font-size: 16px !important; padding: 14px 4px !important; }
+  #topBar.site-menu-open #navLinks > button { font-size: 15px !important; margin-top: 14px; min-height: 44px; min-width: 0 !important; width: 100%; }
+}
+
+/* Phones. */
 @media (max-width: 760px) {
-  #topBar { padding: 0 16px !important; } #navLinks { gap: 9px !important; }
-  #navLinks > a { display: none; } #navLinks > button { display: inline-block; }
-  .docs-mobile-toggle { background: #173252; border: 1px solid #315377; border-radius: 7px; color: #dbeafe; cursor: pointer; display: block; margin: 16px; padding: 8px 11px; }
-  #docsBody { display: block !important; } #docsSidebar { display: none; height: auto !important; position: static !important; width: auto !important; }
-  #docsSidebar.docs-sidebar-open { display: flex; } #docsMain { max-width: none !important; padding: 26px 20px !important; }
-  #hero { min-height: 0; padding: 22px 20px !important; } #hero img { display: none; }
-  .docs-article-nav { font-size: .9rem; } #siteFooter { align-items: flex-start !important; flex-direction: column !important; padding: 24px 20px !important; }
+  html, body { overflow-x: hidden; }
+  #topBar { padding: 0 16px !important; }
+
+  /* Rows of cards and columns stack; short rows of links and buttons wrap. */
+  .otter-row { flex-wrap: wrap !important; }
+  .otter-row > .otter-card, .otter-row > .otter-column { flex: 1 1 100% !important; max-width: 100%; min-width: 0 !important; }
+  #whyCards > *, #buildCards > *, #entryCards > *, #nextCards > * { flex-basis: 100% !important; }
+  #docsBody { display: block !important; }
+  .otter-text, .otter-link { overflow-wrap: anywhere; }
+  .otter-image { max-width: 100%; height: auto !important; }
+
+  /* Page gutters. */
+  #heroBody { padding: 28px 16px 40px !important; gap: 20px !important; }
+  #whySection, #syntaxInner, #buildSection { padding: 56px 16px !important; }
+  #closeBody { padding: 48px 16px 0 !important; } #closeCopy { padding-bottom: 48px !important; } #closeMascot { display: none !important; }
+  #heroStage { padding-right: 0 !important; } #heroMeta { gap: 6px 18px !important; } #shotsRow { margin-top: 32px !important; }
+  #content { padding: 0 16px !important; }
+  #docsMain { max-width: none !important; padding: 24px 16px !important; }
+  #homeBody { padding: 0 16px 28px !important; }
+
+  /* Headlines. */
+  #heroTitle { font-size: 40px !important; line-height: 1.08 !important; }
+  #b1 { font-size: 32px !important; }
+  #whyTitle, #syntaxTitle, #buildTitle, #shotsTitle, #nextTitle, #closeTitle { font-size: 30px !important; }
+
+  /* Heroes: the copy takes the width; the large mascots step aside. */
+  #hero { min-height: 0 !important; } #hero img:not(#brandMark), #heroMascot, #winMascot { display: none !important; }
+  #docsBody #hero { padding: 24px 16px !important; }
+  #heroCopy { padding-bottom: 32px !important; }
+  #heroActions { gap: 12px !important; }
+  #heroActions > * { flex: 1 1 auto; text-align: center; }
+  #heroCodeblock, #heroCode { max-width: 100% !important; }
+
+  /* Code: scroll sideways inside the block, never the page. */
+  .otter-runnable, .otter-runnable > .otter-text { max-width: 100%; min-width: 0; }
+  pre { max-width: 100%; overflow-x: auto; }
+  [style*="white-space: pre"] { font-size: 13px !important; padding-left: 16px !important; padding-right: 16px !important; }
+
+  /* Download page. */
+  #tabs { display: grid !important; gap: 8px !important; grid-template-columns: repeat(2, 1fr); margin-top: 20px !important; }
+  #tabs > * { font-size: 14px !important; padding: 12px 8px !important; }
+  #dlCard, #reqCard, #relCard, #runCard, #nextCard { padding: 20px !important; }
+  #dlLinks { gap: 12px 20px !important; }
+
+  /* Documentation sidebar: hidden behind its toggle. Its inline display wins
+     without !important, which left the whole tree open above every article. */
+  .docs-mobile-toggle { background: #173252; border: 1px solid #315377; border-radius: 8px; color: #dbeafe; cursor: pointer; display: block; font: inherit; font-size: 14px; font-weight: 600; margin: 16px 16px 0; min-height: 44px; padding: 10px 14px; width: calc(100% - 32px); }
+  #docsSidebar { border-right: 0 !important; display: none !important; flex-basis: auto !important; height: auto !important; padding: 16px !important; position: static !important; width: auto !important; }
+  #docsSidebar.docs-sidebar-open { display: flex !important; }
+  #docsSidebar .otter-link { font-size: 15px !important; padding-bottom: 10px !important; padding-top: 10px !important; }
+
+  .docs-article-nav { flex-direction: column; font-size: .95rem; gap: 14px; }
+  .docs-article-nav a { max-width: none; }
+  .docs-search-dialog { margin-top: 12px; }
+
+  #siteFooter { align-items: flex-start !important; flex-direction: column !important; gap: 16px !important; padding: 24px 16px !important; }
+  #footerLinks { flex-wrap: wrap !important; gap: 10px 18px !important; }
+  #footerLinks > a { padding: 4px 0; }
 }
 
 /* Runnable code samples: the code panel, the Run bar under it and its output
@@ -78,3 +155,54 @@ body { background: #f4f7fb; color: var(--docs-ink); font-family: Inter, ui-sans-
   margin-top: 10px;
   border-radius: 12px;
 }
+
+/* Home ("Lake at dusk"): details the page's own properties cannot express. */
+#homeHero #topBar { background: rgba(11,29,54,.72) !important; backdrop-filter: blur(8px); }
+#heroCodeblock .otter-runnable > .otter-text { border: 0 !important; }
+#heroCodeblock .otter-run-bar { background: rgba(5,14,28,.55); border-radius: 0; }
+#heroCodeblock .otter-run-output { border-radius: 0; margin-top: 0; }
+#shot1Frame, #shot2Frame { border-top: 30px solid #e9eef6 !important; position: relative; }
+#shot1Frame::before, #shot2Frame::before { content: ''; position: absolute; top: -19px; left: 14px; width: 46px; height: 10px; background: radial-gradient(circle 5px at 5px 5px, #c6d1e1 98%, transparent) 0 0 / 18px 10px repeat-x; }
+#shot1, #shot2 { display: block; width: 100% !important; height: 250px !important; object-fit: cover; object-position: top left; }
+#buildCards .otter-card, #whyRow1 .otter-card, #whyRow2 .otter-card { transition: transform .15s ease, box-shadow .15s ease; }
+#buildCards .otter-card:hover { box-shadow: 0 14px 30px rgba(23,70,135,.10); transform: translateY(-3px); }
+#homeHero #heroCopy { flex: 1.12 1 0 !important; }
+#homeHero #heroStage { flex: .88 1 0 !important; }
+#heroCodeblock .otter-run-bar { justify-content: flex-start; }   /* the mascot stands over the right edge */
+#whyRow1, #whyRow2, #cmpRow, #buildCards { align-items: stretch !important; }
+#homeClose + #siteFooter { margin-top: 0 !important; }
+@media (max-width: 1024px) {
+  #homeHero #heroBody { align-items: stretch !important; flex-direction: column !important; }
+  #homeHero #heroStage { max-width: 680px; padding-right: 110px !important; }
+  #homeHero #heroStage #heroMascot { height: 250px !important; right: -10px !important; bottom: -90px !important; }
+}
+@media (max-width: 760px) {
+  #homeHero #heroStage { padding-right: 0 !important; }
+}
+#homeHero, #homeContent, #homeClose { font-family: "Segoe UI Variable Display", "Segoe UI Variable Text", Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+#heroCodeblock .otter-run-output { background: rgba(5,14,28,.6) !important; border: 0 !important; border-top: 1px solid rgba(255,255,255,.07) !important; color: #a5e3b5 !important; }
+
+/* Quick reference: cards flow in columns on screen and on paper. */
+#refGrid { column-gap: 18px; columns: 3 330px; display: block !important; }
+#refGrid > .otter-card { break-inside: avoid; display: flex !important; margin-bottom: 18px; }
+#refPrintHead { display: none !important; }
+#refHero #topBar { background: rgba(11,29,54,.72) !important; backdrop-filter: blur(8px); }
+@media (max-width: 760px) {
+  #refHeadBody { padding: 32px 16px 32px !important; } #refMascot { display: none !important; }
+  #refTitle { font-size: 32px !important; } #refBody { padding: 24px 16px 8px !important; }
+  #refActions > * { flex: 1 1 auto; text-align: center; } #refMore { gap: 10px 18px !important; }
+}
+@media print {
+  @page { margin: 12mm; size: auto; }
+  html, body, #app, .otter-page, .otter-page-content { background: #fff !important; height: auto !important; max-height: none !important; overflow: visible !important; }
+  #topBar, #siteFooter, #refHero, #refMore, .docs-toc, .site-menu-toggle, .otter-run-bar, .otter-run-output, .docs-search-dialog { display: none !important; }
+  #refBody { max-width: none !important; padding: 0 !important; gap: 8px !important; }
+  #refPrintHead { border-bottom: 2px solid #0b1d36; display: block !important; font-size: 11pt !important; padding-bottom: 4px; }
+  #refGrid { column-gap: 10px; columns: 3; }
+  #refGrid > .otter-card { border: 1px solid #c9d3e2 !important; border-radius: 6px !important; box-shadow: none !important; gap: 4px !important; margin-bottom: 8px; padding: 8px 9px !important; }
+  #refGrid .otter-text { font-size: 7.6pt !important; line-height: 1.35 !important; }
+  #refGrid .otter-card > .otter-text:first-child { font-size: 9pt !important; }
+  #refGrid [style*="white-space: pre"] { background: #f3f6fb !important; border: 1px solid #dfe6f0 !important; color: #0f1f36 !important; font-size: 6.6pt !important; padding: 5px 6px !important; white-space: pre-wrap !important; }
+  #refGrid * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+#refGrid [style*="white-space: pre"] { white-space: pre-wrap !important; }

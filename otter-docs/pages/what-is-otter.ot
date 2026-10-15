@@ -98,7 +98,7 @@ customstyle of sideLicense is "display: none;"
 
 b1 is a text with value "What is Otter?", size 40, weight 800, foreground "#0b1d36", letterspacing "-0.03em", lineheight "1.1"
 b2 is a text with value "Otter is a programming language you can read aloud. Programs use everyday words and indentation instead of punctuation-heavy syntax, and they still behave exactly and predictably.", size 18, foreground "#3a4d6b", lineheight "1.55"
-b3 is a text with value "name is \"Otter\"\nsay \"Hello, \" + name\n\nto greet person\n    say \"Welcome, \" + person\n.\n\ngreet \"Ada\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+b3 is a text with value "name is \"Otter\"\nsay \"Hello,\" name\n\nto greet person\n    say \"Welcome,\" person\n.\n\ngreet \"Ada\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
 b3label is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
 b3copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
 b3head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"

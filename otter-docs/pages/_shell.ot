@@ -28,6 +28,7 @@ put brandGroup, navLinks in topBar
 
 footerNote is a text with value "Otter is free to use, including for commercial software. Created by Jeffrey Macy.", size 13, foreground "#8fa3c2"
 footerDocsLink is a link with text "Docs", url "/docs/", foreground "#b7c4d8", size 13
+footerQuickRef is a link with text "Quick reference", url "/quick-reference/", foreground "#b7c4d8", size 13
 footerDownloadLink is a link with text "Download", url "/download/", foreground "#b7c4d8", size 13
 footerLicense is a link with text "License", url "/license/", foreground "#b7c4d8", size 13
 footerPrivacy is a link with text "Privacy", url "/privacy/", foreground "#b7c4d8", size 13
@@ -35,6 +36,6 @@ footerAbout is a link with text "About", url "/about/", foreground "#b7c4d8", si
 footerContact is a link with text "Contact", url "/support/", foreground "#b7c4d8", size 13
 footerSource is a link with text "GitHub", url "https://github.com/Heavens-Lava/otterPS", foreground "#b7c4d8", size 13
 footerLinks is a row with spacing 20, align middle
-put footerDocsLink, footerDownloadLink, footerLicense, footerPrivacy, footerAbout, footerContact, footerSource in footerLinks
+put footerDocsLink, footerQuickRef, footerDownloadLink, footerLicense, footerPrivacy, footerAbout, footerContact, footerSource in footerLinks
 siteFooter is a row with spread, align middle, spacing 24, width full, background "#0b1d36", padding "26px 40px", customstyle "box-sizing: border-box; margin-top: 40px;"
 put footerNote, footerLinks in siteFooter
