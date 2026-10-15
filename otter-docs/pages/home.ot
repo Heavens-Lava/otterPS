@@ -195,8 +195,9 @@ closeDownload is a link with text "Download Otter {{RELEASE_VERSION}}", url "/do
 closeDocs is a link with text "Read the docs", url "/docs/", foreground "#ffffff", weight 700, size 16, radius 12, border "1.5px solid rgba(255,255,255,.35)", customstyle "padding: 14px 24px; display: inline-block;"
 closeActions is a row with spacing 14, align middle
 put closeDownload, closeDocs in closeActions
+closeRef is a link with text "Or print the one-page quick reference →", url "/quick-reference/", foreground "#b7d3ff", size 15, weight 600, margin "6px 0 0 0"
 closeCopy is a column with spacing 12, flex 1, customstyle "padding-bottom: 80px;"
-put closeTitle, closeSteps, closeActions in closeCopy
+put closeTitle, closeSteps, closeActions, closeRef in closeCopy
 closeMascot is a image with source "/static/images/otter-docs-hero-mascot.png", alt "The Otter mascot sitting on a rock", height 300
 closeBody is a row with spread, align bottom, spacing 40, width full, padding "80px 40px 0", customstyle "box-sizing: border-box; max-width: 1180px; margin: 0 auto;"
 put closeCopy, closeMascot in closeBody

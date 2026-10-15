@@ -181,3 +181,28 @@ body { background: #f4f7fb; color: var(--docs-ink); font-family: Inter, ui-sans-
 }
 #homeHero, #homeContent, #homeClose { font-family: "Segoe UI Variable Display", "Segoe UI Variable Text", Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
 #heroCodeblock .otter-run-output { background: rgba(5,14,28,.6) !important; border: 0 !important; border-top: 1px solid rgba(255,255,255,.07) !important; color: #a5e3b5 !important; }
+
+/* Quick reference: cards flow in columns on screen and on paper. */
+#refGrid { column-gap: 18px; columns: 3 330px; display: block !important; }
+#refGrid > .otter-card { break-inside: avoid; display: flex !important; margin-bottom: 18px; }
+#refPrintHead { display: none !important; }
+#refHero #topBar { background: rgba(11,29,54,.72) !important; backdrop-filter: blur(8px); }
+@media (max-width: 760px) {
+  #refHeadBody { padding: 32px 16px 32px !important; } #refMascot { display: none !important; }
+  #refTitle { font-size: 32px !important; } #refBody { padding: 24px 16px 8px !important; }
+  #refActions > * { flex: 1 1 auto; text-align: center; } #refMore { gap: 10px 18px !important; }
+}
+@media print {
+  @page { margin: 12mm; size: auto; }
+  html, body, #app, .otter-page, .otter-page-content { background: #fff !important; height: auto !important; max-height: none !important; overflow: visible !important; }
+  #topBar, #siteFooter, #refHero, #refMore, .docs-toc, .site-menu-toggle, .otter-run-bar, .otter-run-output, .docs-search-dialog { display: none !important; }
+  #refBody { max-width: none !important; padding: 0 !important; gap: 8px !important; }
+  #refPrintHead { border-bottom: 2px solid #0b1d36; display: block !important; font-size: 11pt !important; padding-bottom: 4px; }
+  #refGrid { column-gap: 10px; columns: 3; }
+  #refGrid > .otter-card { border: 1px solid #c9d3e2 !important; border-radius: 6px !important; box-shadow: none !important; gap: 4px !important; margin-bottom: 8px; padding: 8px 9px !important; }
+  #refGrid .otter-text { font-size: 7.6pt !important; line-height: 1.35 !important; }
+  #refGrid .otter-card > .otter-text:first-child { font-size: 9pt !important; }
+  #refGrid [style*="white-space: pre"] { background: #f3f6fb !important; border: 1px solid #dfe6f0 !important; color: #0f1f36 !important; font-size: 6.6pt !important; padding: 5px 6px !important; white-space: pre-wrap !important; }
+  #refGrid * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+#refGrid [style*="white-space: pre"] { white-space: pre-wrap !important; }

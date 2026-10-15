@@ -74,5 +74,8 @@
   }
   installSiteMenu();
 
+  // The quick reference page has a Print button.
+  document.getElementById('refPrint')?.addEventListener('click', () => window.print());
+
   fetch('/static/docs-index.json').then(response => response.ok ? response.json() : []).then(pages => { index = Array.isArray(pages) ? pages : []; installSearch(); enhanceArticle(); }).catch(() => { installSearch(); enhanceArticle(); });
 })();
