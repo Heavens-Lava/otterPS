@@ -14,7 +14,7 @@ heroEyebrow is a text with value "{{RELEASE_CHANNEL}} {{RELEASE_VERSION}} - for 
 heroTitle is a text with value "Programming that reads like English.", size 56, weight 800, foreground "#ffffff", letterspacing "-0.03em", lineheight "1.05"
 heroLead is a text with value "Otter is a programming language you can read aloud. Write scripts, desktop apps and web apps in plain words, with nothing extra to install.", size 19, foreground "#dbe6f5", lineheight "1.5", customstyle "max-width: 560px;"
 
-heroCode is a text with value "name is \"Otter\"\nsay \"Hello, \" + name\n\nto greet person\n    say \"Welcome, \" + person\n.\n\ngreet \"Ada\"", size 15, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border: 1px solid #27406a; max-width: 560px; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+heroCode is a text with value "name is \"Otter\"\nsay \"Hello,\" name\n\nto greet person\n    say \"Welcome,\" person\n.\n\ngreet \"Ada\"", size 15, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border: 1px solid #27406a; max-width: 560px; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
 heroCodelabel is a text with value "Otter", size 12, weight 600, foreground "#b7c4d8"
 heroCodecopy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
 heroCodehead is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
@@ -80,7 +80,7 @@ put whyTitle, whyLead, whyCards in whySection
 syntaxTitle is a text with value "English-like syntax", size 34, weight 800, foreground "#0b1d36", letterspacing "-0.02em"
 syntaxLead is a text with value "The same idea in three languages. Otter keeps only the words.", size 17, foreground "#3a4d6b"
 
-cmpOtter is a text with value "age is 29\n\nif age is at least 18\n    say \"Adult\"\n.\n\nto greet person\n    say \"Hello, \" + person\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 20px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+cmpOtter is a text with value "age is 29\n\nif age is at least 18\n    say \"Adult\"\n.\n\nto greet person\n    say \"Hello,\" person\n.", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 20px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
 cmpOtterLabel is a text with value "Otter", size 12, weight 700, foreground "#7fb0ff"
 cmpOtterHead is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
 put cmpOtterLabel in cmpOtterHead
