@@ -52,7 +52,8 @@ body { background: #f4f7fb; color: var(--docs-ink); font-family: Inter, ui-sans-
 @media (max-width: 1024px) {
   #whyCards, #buildCards, #entryCards, #nextCards { flex-wrap: wrap !important; }
   #whyCards > *, #buildCards > *, #entryCards > *, #nextCards > * { flex: 1 1 calc(50% - 20px) !important; }
-  #heroBody, #homeContent { padding-left: 32px !important; padding-right: 32px !important; }
+  #heroBody, #whySection, #syntaxInner, #buildSection, #closeBody { padding-left: 32px !important; padding-right: 32px !important; }
+  #heroStage { padding-right: 40px !important; } #heroStage #heroMascot { height: 240px !important; right: -30px !important; bottom: -84px !important; }
   #content { padding: 0 32px !important; }
   #docsMain { padding: 32px 32px 24px !important; }
   #siteFooter { flex-wrap: wrap !important; padding: 24px 32px !important; }
@@ -86,7 +87,9 @@ body { background: #f4f7fb; color: var(--docs-ink); font-family: Inter, ui-sans-
 
   /* Page gutters. */
   #heroBody { padding: 28px 16px 40px !important; gap: 20px !important; }
-  #homeContent { gap: 48px !important; padding: 40px 16px 8px !important; }
+  #whySection, #syntaxInner, #buildSection { padding: 56px 16px !important; }
+  #closeBody { padding: 48px 16px 0 !important; } #closeCopy { padding-bottom: 48px !important; } #closeMascot { display: none !important; }
+  #heroStage { padding-right: 0 !important; } #heroMeta { gap: 6px 18px !important; } #shotsRow { margin-top: 32px !important; }
   #content { padding: 0 16px !important; }
   #docsMain { max-width: none !important; padding: 24px 16px !important; }
   #homeBody { padding: 0 16px 28px !important; }
@@ -94,7 +97,7 @@ body { background: #f4f7fb; color: var(--docs-ink); font-family: Inter, ui-sans-
   /* Headlines. */
   #heroTitle { font-size: 40px !important; line-height: 1.08 !important; }
   #b1 { font-size: 32px !important; }
-  #whyTitle, #syntaxTitle, #buildTitle, #shotsTitle, #nextTitle { font-size: 28px !important; }
+  #whyTitle, #syntaxTitle, #buildTitle, #shotsTitle, #nextTitle, #closeTitle { font-size: 30px !important; }
 
   /* Heroes: the copy takes the width; the large mascots step aside. */
   #hero { min-height: 0 !important; } #hero img:not(#brandMark), #heroMascot, #winMascot { display: none !important; }
@@ -152,3 +155,29 @@ body { background: #f4f7fb; color: var(--docs-ink); font-family: Inter, ui-sans-
   margin-top: 10px;
   border-radius: 12px;
 }
+
+/* Home ("Lake at dusk"): details the page's own properties cannot express. */
+#homeHero #topBar { background: rgba(11,29,54,.72) !important; backdrop-filter: blur(8px); }
+#heroCodeblock .otter-runnable > .otter-text { border: 0 !important; }
+#heroCodeblock .otter-run-bar { background: rgba(5,14,28,.55); border-radius: 0; }
+#heroCodeblock .otter-run-output { border-radius: 0; margin-top: 0; }
+#shot1Frame, #shot2Frame { border-top: 30px solid #e9eef6 !important; position: relative; }
+#shot1Frame::before, #shot2Frame::before { content: ''; position: absolute; top: -19px; left: 14px; width: 46px; height: 10px; background: radial-gradient(circle 5px at 5px 5px, #c6d1e1 98%, transparent) 0 0 / 18px 10px repeat-x; }
+#shot1, #shot2 { display: block; width: 100% !important; height: 250px !important; object-fit: cover; object-position: top left; }
+#buildCards .otter-card, #whyRow1 .otter-card, #whyRow2 .otter-card { transition: transform .15s ease, box-shadow .15s ease; }
+#buildCards .otter-card:hover { box-shadow: 0 14px 30px rgba(23,70,135,.10); transform: translateY(-3px); }
+#homeHero #heroCopy { flex: 1.12 1 0 !important; }
+#homeHero #heroStage { flex: .88 1 0 !important; }
+#heroCodeblock .otter-run-bar { justify-content: flex-start; }   /* the mascot stands over the right edge */
+#whyRow1, #whyRow2, #cmpRow, #buildCards { align-items: stretch !important; }
+#homeClose + #siteFooter { margin-top: 0 !important; }
+@media (max-width: 1024px) {
+  #homeHero #heroBody { align-items: stretch !important; flex-direction: column !important; }
+  #homeHero #heroStage { max-width: 680px; padding-right: 110px !important; }
+  #homeHero #heroStage #heroMascot { height: 250px !important; right: -10px !important; bottom: -90px !important; }
+}
+@media (max-width: 760px) {
+  #homeHero #heroStage { padding-right: 0 !important; }
+}
+#homeHero, #homeContent, #homeClose { font-family: "Segoe UI Variable Display", "Segoe UI Variable Text", Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+#heroCodeblock .otter-run-output { background: rgba(5,14,28,.6) !important; border: 0 !important; border-top: 1px solid rgba(255,255,255,.07) !important; color: #a5e3b5 !important; }
