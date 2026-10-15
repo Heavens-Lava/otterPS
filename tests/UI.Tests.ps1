@@ -1447,6 +1447,49 @@ when addButton is clicked
     Assert-AreEqual -Expected '3' -Actual "$($env.Get('title'))" 'the last run''s value remains afterwards'
 }
 
+# D133 (from the outside review of the D133 wording): handlers set up in two
+# separate runs each keep their own run's value, and both read a shared
+# counter live - including a change made after both were set up.
+Test-Otter 'D133: two runs'' handlers keep their own values and both see a shared counter change made later' {
+    Import-Module (Join-Path $PSScriptRoot '..\src\Otter.Lexer.psm1') -Force
+    Import-Module (Join-Path $PSScriptRoot '..\src\Otter.Parser.psm1') -Force
+    $source = @'
+create column into taskList
+create button into addButton
+create button into bumpButton
+create text into status
+bonus is 0
+made is 0
+
+when bumpButton is clicked
+    bonus is bonus plus 100
+.
+
+when addButton is clicked
+    made is made plus 1
+    mine is made
+    create button into showButton
+    put showButton in taskList
+    when showButton is clicked
+        text of status is mine plus bonus
+    .
+.
+'@
+    $program = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $source)
+    $env = New-OtterEnvironment
+    Invoke-OtterProgram -Program $program -Environment $env
+    $click = { param($element) $element.RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Button]::ClickEvent)) }
+    $status = $env.Get('status')
+    $list = $env.Get('taskList')
+    & $click $env.Get('addButton').Native    # run 1: handler A keeps mine = 1
+    & $click $env.Get('addButton').Native    # run 2: handler B keeps mine = 2
+    & $click $env.Get('bumpButton').Native   # shared changes after both exist
+    & $click $list.Native.Children[0]
+    Assert-AreEqual -Expected '101' -Actual "$($status.Native.Text)" 'handler A: its own mine (1) plus the bonus counter now (100)'
+    & $click $list.Native.Children[1]
+    Assert-AreEqual -Expected '102' -Actual "$($status.Native.Text)" 'handler B: its own mine (2) plus the bonus counter now (100)'
+}
+
 Test-Otter 'end-to-end Task List dogfood: dynamic child insertion into padded column' {
     $res = Invoke-TestProgramWithEnv @(
         [CreateUiResourceStmt]::new('column', 'taskList', 1),

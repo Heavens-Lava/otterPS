@@ -35,6 +35,22 @@ const scenarios = {
       return { afterFirst, afterSecond: visible(), count: document.getElementById('tally').textContent };
     });
   },
+  // D133: two Add runs each make a Show button; Bump changes a shared counter
+  // after both exist; each Show reports its own run's value plus the counter.
+  async twoRuns(page) {
+    return page.evaluate(async () => {
+      const pause = () => new Promise(r => setTimeout(r, 30));
+      document.getElementById('addButton').click(); await pause();
+      document.getElementById('addButton').click(); await pause();
+      document.getElementById('bumpButton').click(); await pause();
+      const shows = Array.from(document.getElementById('taskList').querySelectorAll('button'));
+      const tally = () => document.getElementById('tally').textContent.trim();
+      shows[0].click(); await pause();
+      const first = tally();
+      shows[1].click(); await pause();
+      return { first, second: tally(), buttons: shows.length };
+    });
+  },
   // A primary button's own settings and customstyle win over the variant's
   // colours; a primary button with neither keeps them.
   async buttonStyles(page) {

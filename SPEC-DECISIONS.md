@@ -7941,20 +7941,39 @@ was hidden. On the web, names a top-level handler sets compile to one shared
 global; the console handler body ran in the global scope too. Both gave the
 same silent wrong answer D130 fixed for loops.
 
-**Decision:** each run of a `when` handler is treated like a loop pass (D130).
+**Decision:** a `when` handler set up during another `when` handler's run
+keeps that run's values, like a handler set up during a loop pass (D130).
 
-- The names that belong to a run are the names the handler's body sets that
-  are set nowhere else in the same scope (the program's top level, or one
-  function's body and its parameters). A handler set up during the run keeps
-  that run's values. The rule comes from the program text
-  (`Get-OtterLoopPassNames`, shared by the console and the web).
+- A run's own names are worked out from the program text, not from what
+  actually runs: they are the names assigned in the handler's body and
+  nowhere else in the same enclosing scope (the program's top level, or one
+  function's body; a function's parameters count as part of its scope),
+  whichever branches run. A handler set up during the run keeps their values
+  as they are when it is set up (the web compiler passes them in; the console
+  copies them into the inner handler's scope). The rule comes from
+  `Get-OtterLoopPassNames`, shared by the console and the web.
+- The run itself uses the program's names live: a function the handler calls
+  reads the value the handler just set.
 - Every other name is shared and read live, as in D130: a counter that exists
   before the handler, or a name another statement also sets.
 - After a run its values remain, so later code and other handlers read them
   exactly as before.
-- Only a handler that sets up another handler (or another deferred body) gets
-  run names; every other program behaves exactly as before.
+- Only a handler that sets up another handler gets run names; every other
+  program behaves exactly as before.
+- A handler set up inside another deferred body (a `when x changes` watcher,
+  a file watcher, a web route) does not get this yet: `otter check` still
+  refuses it when it uses such a name, and shows the form that works.
 
-Evidence: `tests/WebRuntimeUi.Tests.ps1` "D133 browser" (headless Chromium,
-macOS). `tests/UI.Tests.ps1` "D133" (console, real WPF clicks) is written
-and **pending a Windows run**.
+**Amended 2026-10-15 (Jeff, after an outside review of the wording).** The
+first version gave each run its own scope. Run on Windows before merging, that
+broke every console button click (the handler could not find the interpreter's
+own functions) and hid the run's names from functions the handler calls (the
+first click failed with "could not find the variable", later clicks showed the
+previous click's value). The run now uses names live and an inner handler
+copies the run's names when it is set up, which is what the web compiler did.
+
+Evidence: `tests/WebRuntimeUi.Tests.ps1` "D133 browser" and "D133 browser:
+two runs' handlers keep their own values" (headless Chromium, macOS and
+Windows); `tests/UI.Tests.ps1` "D133", "D133: a function called during the run
+sees its names" and "D133: two runs' handlers keep their own values" (console,
+real WPF clicks, Windows); `tests/HandlerRuns.Tests.ps1` (check and web).

@@ -224,6 +224,34 @@ put taskInput, addButton, tally, taskList in app
 show app
 '@
 
+# D133 (outside review): handlers set up in two separate runs each keep their
+# own run's value and both read a shared counter live, including a change
+# made after both exist. The same program runs in UI.Tests.ps1 (console).
+$twoRunsSource = @'
+app is a page with title "Runs"
+addButton is a button with text "Add"
+bumpButton is a button with text "Bump"
+tally is a text with value "none"
+taskList is a column with spacing 4
+bonus is 0
+made is 0
+when bumpButton is clicked
+    bonus is bonus plus 100
+.
+when addButton is clicked
+    made is made plus 1
+    mine is made
+    create button into showButton
+    text of showButton is "Show"
+    put showButton in taskList
+    when showButton is clicked
+        text of tally is mine plus bonus
+    .
+.
+put addButton, bumpButton, tally, taskList in app
+show app
+'@
+
 # A primary button's background/foreground settings and customstyle must win
 # over the variant's colours (they lost to !important before).
 $buttonStyleSource = @'
@@ -245,6 +273,7 @@ try {
     $fileErrorsHtml = Build-OtterWebPage -Name 'fileerrors' -Source $fileErrorsSource
     $loopPassHtml = Build-OtterWebPage -Name 'looppass' -Source $loopPassSource
     $handlerRunHtml = Build-OtterWebPage -Name 'handlerruns' -Source $handlerRunSource
+    $twoRunsHtml = Build-OtterWebPage -Name 'tworuns' -Source $twoRunsSource
     $buttonStyleHtml = Build-OtterWebPage -Name 'buttonstyles' -Source $buttonStyleSource
 
     Test-Otter 'D128 compile: a handler that creates UI compiles to runtime creation, not a dropped statement' {
@@ -334,6 +363,12 @@ try {
             Assert-Lines -Expected @('beta', 'gamma') -Actual @($r.afterFirst)
             Assert-Lines -Expected @('beta') -Actual @($r.afterSecond)
             Assert-AreEqual -Expected '3' -Actual $r.count
+        }
+
+        Test-Otter 'D133 browser: two runs'' handlers keep their own values and both see a shared counter change made later' {
+            $r = Invoke-OtterWebScenario -Html $twoRunsHtml -Scenario 'twoRuns'
+            Assert-AreEqual -Expected '101' -Actual $r.first 'handler A: its own mine (1) plus the bonus counter now (100)'
+            Assert-AreEqual -Expected '102' -Actual $r.second 'handler B: its own mine (2) plus the bonus counter now (100)'
         }
 
         Test-Otter 'browser: a primary button''s background, foreground and customstyle win over the variant colours; plain variants keep theirs' {
