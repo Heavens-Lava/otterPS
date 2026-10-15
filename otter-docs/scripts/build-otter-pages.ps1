@@ -57,12 +57,18 @@ if (Test-Path -LiteralPath $staticSource) {
 # The search index is deliberately generated from the Otter-authored page
 # sources. It stays in sync with the content and needs no server or package.
 $searchPages = foreach ($page in Get-ChildItem -LiteralPath $pagesRoot -Filter '*.ot' | Where-Object { -not $_.Name.StartsWith('_') }) {
-    $sourceText = [System.IO.File]::ReadAllText($page.FullName, [System.Text.Encoding]::UTF8)
+    # Fill in {{RELEASE_VERSION}} and friends, as the page build does, so search
+    # results never show the raw tokens.
+    $sourceText = Expand-OtterReleaseTokens ([System.IO.File]::ReadAllText($page.FullName, [System.Text.Encoding]::UTF8))
     $titleMatch = [regex]::Match($sourceText, 'title\s+"((?:[^"\\]|\\.)*)"')
     $title = if ($titleMatch.Success) { $titleMatch.Groups[1].Value -replace '\\"', '"' } else { [IO.Path]::GetFileNameWithoutExtension($page.Name) }
     $title = $title -replace '\s+-\s+Otter Documentation$', ''
     $parts = foreach ($match in [regex]::Matches($sourceText, '(?:value|text)\s+"((?:[^"\\]|\\.)*)"')) {
-        $match.Groups[1].Value.Replace('\\n', ' ').Replace('\\"', '"')
+        # Undo the Otter string escaping left to right: \n and \t read as a space, \" as ", \\ as \.
+        [regex]::Replace($match.Groups[1].Value, '\\(.)', {
+            param($escape)
+            if ('n', 't' -contains $escape.Groups[1].Value) { ' ' } else { $escape.Groups[1].Value }
+        })
     }
     [pscustomobject]@{
         title = $title

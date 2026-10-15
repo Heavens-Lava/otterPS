@@ -15,18 +15,21 @@
   function installSearch() {
     const dialog = document.createElement('dialog');
     dialog.className = 'docs-search-dialog';
-    dialog.innerHTML = '<div class="docs-search-panel" role="search"><input class="docs-search-input" type="search" placeholder="Search documentation" aria-label="Search documentation"><div class="docs-search-hint">Type to search · Esc to close</div><div class="docs-search-results" aria-live="polite"></div></div>';
+    dialog.innerHTML = '<div class="docs-search-panel" role="search"><input class="docs-search-input" type="search" placeholder="Search documentation" aria-label="Search documentation"><div class="docs-search-hint">Type to search · Enter opens the first result · Esc to close</div><div class="docs-search-results" aria-live="polite"></div></div>';
     document.body.appendChild(dialog);
     const input = dialog.querySelector('input'); const results = dialog.querySelector('.docs-search-results');
     const render = () => {
       const query = input.value.trim();
       const matches = query ? index.map(page => ({ page, score: tokenScore(page, query) })).filter(x => x.score).sort((a,b) => b.score-a.score).slice(0, 10).map(x => x.page) : index.slice(0, 8);
-      results.innerHTML = matches.length ? matches.map(page => `<a class="docs-search-result" href="${escapeHtml(page.url)}"><strong>${escapeHtml(page.title)}</strong><span>${escapeHtml(page.text).slice(0, 140)}</span></a>`).join('') : '<div class="docs-search-hint">No matching documentation found.</div>';
+      // A page's text starts with its own title; skip it so the snippet adds something.
+      const snippet = page => { const text = String(page.text || ''); return (text.startsWith(page.title) ? text.slice(page.title.length) : text).trim().slice(0, 140); };
+      results.innerHTML = matches.length ? matches.map(page => `<a class="docs-search-result" href="${escapeHtml(page.url)}"><strong>${escapeHtml(page.title)}</strong><span>${escapeHtml(snippet(page))}</span></a>`).join('') : '<div class="docs-search-hint">No matching documentation found.</div>';
     };
     const open = () => { dialog.showModal(); input.value = ''; render(); input.focus(); };
     searchButton?.addEventListener('click', open);
     document.addEventListener('keydown', event => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); open(); } });
     input.addEventListener('input', render);
+    input.addEventListener('keydown', event => { if (event.key === 'Enter') { const first = results.querySelector('a'); if (first) { event.preventDefault(); location.href = first.href; } } });
     dialog.addEventListener('click', event => { if (event.target === dialog) dialog.close(); });
   }
 
