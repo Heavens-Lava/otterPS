@@ -41,6 +41,27 @@ function Complete-OtterNetProcess {
     return [pscustomobject]@{ Stdout = $stdout; TimedOut = (-not $exited); Lines = @(($stdout -split "`r?`n") | Where-Object { $_ -ne '' }) }
 }
 
+# Waits until the Otter program in $Handle is listening on $Port, instead of a
+# fixed sleep: an Otter program takes one to several seconds to start, longer
+# on a busy machine, and a fixed 600 ms lost that race under the full suite
+# (D113 "actively refused"). Reads the machine's listening ports rather than
+# connecting, so the server under test sees no extra client. Fails at once,
+# with the program's output, if the program exits instead of listening.
+function Wait-OtterTcpListener {
+    param($Handle, [int]$Port, [int]$TimeoutMs = 30000)
+    $deadline = [DateTime]::UtcNow.AddMilliseconds($TimeoutMs)
+    $properties = [System.Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties()
+    while ([DateTime]::UtcNow -lt $deadline) {
+        if (@($properties.GetActiveTcpListeners() | Where-Object { $_.Port -eq $Port }).Count -gt 0) { return }
+        if ($Handle.Process.HasExited) {
+            $stderr = $Handle.Process.StandardError.ReadToEnd()
+            throw "The Otter server exited (code $($Handle.Process.ExitCode)) before listening on port ${Port}: $($Handle.Out.Result) $stderr"
+        }
+        Start-Sleep -Milliseconds 100
+    }
+    throw "The Otter server was not listening on port $Port after $TimeoutMs ms."
+}
+
 function Get-FreeTcpPort {
     $l = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, 0)
     $l.Start(); $port = $l.LocalEndpoint.Port; $l.Stop()
@@ -479,7 +500,7 @@ on connection to server
     .
 .
 "@
-    Start-Sleep -Milliseconds 600
+    Wait-OtterTcpListener -Handle $h -Port $port
 
     $client = [System.Net.Sockets.TcpClient]::new()
     $client.Connect('127.0.0.1', $port)
@@ -521,7 +542,7 @@ on connection to server
     .
 .
 "@
-    Start-Sleep -Milliseconds 600
+    Wait-OtterTcpListener -Handle $h -Port $port
 
     $clientA = [System.Net.Sockets.TcpClient]::new()
     $clientA.Connect('127.0.0.1', $port)
@@ -578,7 +599,7 @@ on connection to server
     .
 .
 "@
-    Start-Sleep -Milliseconds 600
+    Wait-OtterTcpListener -Handle $h -Port $port
 
     $clientA = [System.Net.Sockets.TcpClient]::new()
     $clientA.Connect('127.0.0.1', $port)
