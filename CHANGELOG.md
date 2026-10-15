@@ -4,9 +4,25 @@ All notable changes to the Otter Programming Language platform are documented in
 
 ## [Unreleased]
 
+## [1.0.1] - candidate, not yet certified
+
+A maintenance release of Otter 1.0.0: fixes found by the task-tracker
+tutorial and an outside review, and a new release check that runs every code
+sample in the documentation.
+
 ### Fixed
-- A handler set up while another handler runs keeps that run's values (D133): rows built straight inside a click handler each get a Delete button that acts on its own row. 1.0 refused that form with `otter check`; it now works. A handler set up inside a `when x changes` watcher, a file watcher or a web route that uses such a name is still refused.
+- A handler set up while another handler runs keeps that run's values (D133): rows built straight inside a click handler each get a Delete button that acts on its own row. 1.0 refused that form with `otter check`; it now works, the same in desktop windows and on the web. A function the handler calls still sees the values the handler just set. A handler set up inside a `when x changes` watcher, a file watcher or a web route that uses such a name is still refused.
 - On the web, a `primary`, `secondary` or `danger` button's own `background`, `foreground` and `border` settings, and `customstyle`, now win over the variant's colours. Before, the variant colours were marked `!important`, so `addButton is a primary button with ..., background "#16a34a"` stayed blue.
+
+### Documentation
+- README (in the repository and in the release ZIP) no longer says Otter is preparing for 1.0 or calls it a release candidate.
+- README and INSTALL say where to get the release ZIP, and not to take GitHub's "Source code (zip)", which has no installer at its root.
+- Four blocks on the website marked as runnable that are not programs (the CLI option table, the comparison-operator table, an example of output, an `otter.json` file) no longer are.
+- The SBOM (`tools/otter-sbom.json`) gave Otter's license as MIT and pointed to a repository that does not exist; it now names the Otter Free Use License 1.1 and marks Otter Studio as not part of the release.
+
+### Release process
+- New certification gate, documentation samples (`tools/Test-OtterDocumentationSamples.ps1`): every Run button on the website is pressed in a headless browser, and every code block in README and TOUR runs with `otter`. On this release: 221 samples, 0 failures.
+- The TCP server tests wait for the server to listen instead of a fixed 600 ms, which failed once on a busy machine.
 
 ## [1.0.0] - 2026-10-14
 

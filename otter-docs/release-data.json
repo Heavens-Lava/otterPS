@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
+  "version": "1.0.1",
   "channel": "Stable release",
   "windowsRequirements": "Windows 10 or Windows 11 with Windows PowerShell 5.1, or Linux or macOS with PowerShell 7.",
   "installerStatus": "Available",

@@ -3,50 +3,44 @@
   "bomFormat": "CycloneDX",
   "specVersion": "1.5",
   "serialNumber": "urn:uuid:otter-platform-sbom-v1",
-  "version": 1,
+  "version": 2,
   "metadata": {
-    "timestamp": "2026-10-04T05:15:00Z",
+    "timestamp": "2026-10-15T00:00:00Z",
     "tools": [
       {
-        "vendor": "Otter Core Team",
-        "name": "Otter SBOM Generator",
-        "version": "1.0.0"
+        "vendor": "Jeffrey Macy",
+        "name": "Otter SBOM (maintained by hand)",
+        "version": "1.0.1"
       }
     ],
     "component": {
       "type": "application",
       "name": "otter-platform",
-      "version": "1.0.0",
-      "description": "Otter Programming Language, Runtime, Compiler & Visual IDE Studio",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT"
-          }
-        }
-      ]
+      "version": "1.0.1",
+      "description": "Otter Programming Language: the otter command, runtime and compilers",
+      "licenses": [{ "license": { "name": "Otter Free Use License 1.1 (source-available, not open source)", "url": "https://otterprogramming.com/license/" } }]
     }
   },
   "components": [
     {
       "type": "library",
       "name": "Otter.Contract",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "scope": "required",
       "description": "Core AST and Token contract definitions for Otter",
-      "licenses": [{ "license": { "id": "MIT" } }]
+      "licenses": [{ "license": { "name": "Otter Free Use License 1.1 (source-available, not open source)", "url": "https://otterprogramming.com/license/" } }]
     },
     {
       "type": "framework",
       "name": "otter-studio",
-      "version": "1.0.0",
-      "scope": "required",
-      "description": "Visual UI Designer and IDE for Otter Desktop & Web Applications",
-      "licenses": [{ "license": { "id": "MIT" } }],
+      "version": "1.0.1",
+      "scope": "excluded",
+      "description": "Otter Studio, the visual designer and editor: a development preview, not part of the Otter 1.0 release archive",
+      "licenses": [{ "license": { "name": "Otter Free Use License 1.1 (source-available, not open source)", "url": "https://otterprogramming.com/license/" } }],
       "externalReferences": [
         {
           "type": "vcs",
-          "url": "https://github.com/otter-lang/otterPS"
+          "url": "https://github.com/Heavens-Lava/otterPS"
         }
       ]
     }
