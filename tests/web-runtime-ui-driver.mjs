@@ -35,6 +35,20 @@ const scenarios = {
       return { afterFirst, afterSecond: visible(), count: document.getElementById('tally').textContent };
     });
   },
+  // A primary button's own settings and customstyle win over the variant's
+  // colours; a primary button with neither keeps them.
+  async buttonStyles(page) {
+    return page.evaluate(() => {
+      const bg = (id) => getComputedStyle(document.getElementById(id)).backgroundColor;
+      return {
+        plain: bg('plainPrimary'),
+        green: bg('greenPrimary'),
+        greenText: getComputedStyle(document.getElementById('greenPrimary')).color,
+        styled: bg('styledPrimary'),
+        danger: bg('plainDanger')
+      };
+    });
+  },
   // examples/v1/tasks.ot: each Add click creates a new line with the typed text.
   async tasks(page) {
     return page.evaluate(async () => {

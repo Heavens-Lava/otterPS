@@ -5,7 +5,8 @@ All notable changes to the Otter Programming Language platform are documented in
 ## [Unreleased]
 
 ### Fixed
-- A handler set up while another handler runs keeps that run's values (D133): rows built straight inside a click handler each get a Delete button that acts on its own row. 1.0 refused that form with `otter check`; it now works. A handler set up inside a timer or file watcher's body is still refused.
+- A handler set up while another handler runs keeps that run's values (D133): rows built straight inside a click handler each get a Delete button that acts on its own row. 1.0 refused that form with `otter check`; it now works. A handler set up inside a `when x changes` watcher, a file watcher or a web route that uses such a name is still refused.
+- On the web, a `primary`, `secondary` or `danger` button's own `background`, `foreground` and `border` settings, and `customstyle`, now win over the variant's colours. Before, the variant colours were marked `!important`, so `addButton is a primary button with ..., background "#16a34a"` stayed blue.
 
 ## [1.0.0] - 2026-10-14
 

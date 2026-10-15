@@ -224,6 +224,19 @@ put taskInput, addButton, tally, taskList in app
 show app
 '@
 
+# A primary button's background/foreground settings and customstyle must win
+# over the variant's colours (they lost to !important before).
+$buttonStyleSource = @'
+app is a page with title "Buttons"
+plainPrimary is a primary button with text "Plain"
+greenPrimary is a primary button with text "Green", background "#16a34a", foreground "#000000"
+styledPrimary is a primary button with text "Styled"
+plainDanger is a danger button with text "Danger"
+customstyle of styledPrimary is "background: #7c3aed;"
+put plainPrimary, greenPrimary, styledPrimary, plainDanger in app
+show app
+'@
+
 try {
     $tasksHtml = Export-OtterWebApplication -SourcePath (Join-Path $script:RepoRoot 'examples\v1\tasks.ot') -OutputPath (Join-Path $script:Tmp 'tasks.html') -PassThruExceptions
     $boardHtml = Build-OtterWebPage -Name 'board' -Source $boardSource
@@ -232,6 +245,7 @@ try {
     $fileErrorsHtml = Build-OtterWebPage -Name 'fileerrors' -Source $fileErrorsSource
     $loopPassHtml = Build-OtterWebPage -Name 'looppass' -Source $loopPassSource
     $handlerRunHtml = Build-OtterWebPage -Name 'handlerruns' -Source $handlerRunSource
+    $buttonStyleHtml = Build-OtterWebPage -Name 'buttonstyles' -Source $buttonStyleSource
 
     Test-Otter 'D128 compile: a handler that creates UI compiles to runtime creation, not a dropped statement' {
         $html = [System.IO.File]::ReadAllText($tasksHtml)
@@ -320,6 +334,15 @@ try {
             Assert-Lines -Expected @('beta', 'gamma') -Actual @($r.afterFirst)
             Assert-Lines -Expected @('beta') -Actual @($r.afterSecond)
             Assert-AreEqual -Expected '3' -Actual $r.count
+        }
+
+        Test-Otter 'browser: a primary button''s background, foreground and customstyle win over the variant colours; plain variants keep theirs' {
+            $r = Invoke-OtterWebScenario -Html $buttonStyleHtml -Scenario 'buttonStyles'
+            Assert-AreEqual -Expected 'rgb(37, 99, 235)' -Actual $r.plain
+            Assert-AreEqual -Expected 'rgb(22, 163, 74)' -Actual $r.green
+            Assert-AreEqual -Expected 'rgb(0, 0, 0)' -Actual $r.greenText
+            Assert-AreEqual -Expected 'rgb(124, 58, 237)' -Actual $r.styled
+            Assert-AreEqual -Expected 'rgb(220, 38, 38)' -Actual $r.danger
         }
 
         Test-Otter 'D130 browser: buttons made in a loop (top level and in a function) each remember their pass; a counter from before the loop is shared' {
