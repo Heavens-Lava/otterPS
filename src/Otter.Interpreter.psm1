@@ -1690,7 +1690,18 @@ function Invoke-OtterStatement {
             }
 
             $body = $Statement.Body
-            $handler = { Invoke-OtterStatements -Statements $body -Environment $Environment }.GetNewClosure()
+            # D133: each run of the handler is like a loop pass (D130): names
+            # its body sets that are set nowhere else in this scope get their
+            # own values for the run, so a handler set up during the run (a
+            # row's Delete button) keeps them. The run's values are copied
+            # back afterwards, so later code and other handlers see them as
+            # before. A handler without such names runs exactly as it did.
+            $handlerStatement = $Statement
+            $handler = {
+                $run = New-OtterLoopPass -Loop $handlerStatement -Environment $Environment -Previous $null
+                try { Invoke-OtterStatements -Statements $body -Environment $run.Env }
+                finally { Complete-OtterLoopPasses -Environment $Environment -Last $run }
+            }.GetNewClosure()
             Add-OtterUiEventHandler -Resource $target -EventName $Statement.EventName -Handler $handler -Line $Statement.Line
             return
         }

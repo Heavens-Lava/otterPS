@@ -8,9 +8,14 @@ using module ..\Otter.Contract.psm1
 # function's body with its parameters). Everything else - counters, totals,
 # anything that existed before the loop - is shared and read live.
 #
+# D133 extends this to `when` handlers: each run of a handler is treated like
+# a loop pass. The names a handler's body sets that are set nowhere else in
+# the same scope belong to that run, so a handler set up during the run (a
+# row's Delete button made by an Add button) keeps that run's values.
+#
 # The interpreter and the JavaScript compiler both use this one analysis, so
-# the console and the web agree. The result maps each loop node (by
-# reference) to a HashSet of its pass names.
+# the console and the web agree. The result maps each loop node and each
+# handler node (by reference) to a HashSet of its pass (or run) names.
 
 # The variable names one statement sets (not its children's).
 function Get-OtterStatementBindings {
@@ -55,6 +60,12 @@ function Get-OtterChildStatementLists {
     return , $lists
 }
 
+# A `when` handler whose runs get their own values (D133).
+function Test-OtterHandlerStatement {
+    param([Node]$Statement)
+    return ($null -ne $Statement -and $Statement.Kind -eq [NodeKind]::When)
+}
+
 function Test-OtterLoopStatement {
     param([Node]$Statement)
     return ($null -ne $Statement -and $Statement.Kind -in @([NodeKind]::ForEach, [NodeKind]::CountLoop, [NodeKind]::Repeat, [NodeKind]::While))
@@ -89,7 +100,7 @@ function Get-OtterLoopPassNames {
 
     # Every binding in a scope, each with the loops (innermost last) it sits in.
     function Add-OtterScopeBindings {
-        param($Stmts, $LoopStack, $Occurrences, $Loops, $Scopes)
+        param($Stmts, $LoopStack, $Occurrences, $Loops, $Scopes, $Handlers)
         foreach ($s in @($Stmts)) {
             if ($s -isnot [Node]) { continue }
             if ($s -is [FunctionDefStmt]) { $Scopes.Add($s); continue }
@@ -100,8 +111,9 @@ function Get-OtterLoopPassNames {
             }
             $inner = $LoopStack
             if (Test-OtterLoopStatement $s) { $Loops.Add($s); $inner = @($LoopStack) + @($s) }
+            elseif (Test-OtterHandlerStatement $s) { $Handlers.Add($s); $inner = @($LoopStack) + @($s) }
             foreach ($list in (Get-OtterChildStatementLists -Statement $s)) {
-                Add-OtterScopeBindings -Stmts $list -LoopStack $inner -Occurrences $Occurrences -Loops $Loops -Scopes $Scopes
+                Add-OtterScopeBindings -Stmts $list -LoopStack $inner -Occurrences $Occurrences -Loops $Loops -Scopes $Scopes -Handlers $Handlers
             }
         }
     }
@@ -113,8 +125,11 @@ function Get-OtterLoopPassNames {
         $occurrences = [System.Collections.Generic.List[object]]::new()
         $loops = [System.Collections.Generic.List[object]]::new()
         $functions = [System.Collections.Generic.List[object]]::new()
-        Add-OtterScopeBindings -Stmts $scope.Body -LoopStack @() -Occurrences $occurrences -Loops $loops -Scopes $functions
-        foreach ($loop in $loops) {
+        $handlers = [System.Collections.Generic.List[object]]::new()
+        Add-OtterScopeBindings -Stmts $scope.Body -LoopStack @() -Occurrences $occurrences -Loops $loops -Scopes $functions -Handlers $handlers
+        # Loops and handlers use the same rule: a loop's passes (D130), a
+        # handler's runs (D133).
+        foreach ($loop in @($loops) + @($handlers)) {
             $inside = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
             $outside = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
             foreach ($p in @($scope.Parameters)) { [void]$outside.Add($p) }
@@ -158,13 +173,12 @@ function Get-OtterReferencedNames {
     if ($Value.PSObject.Properties['Body']) { Get-OtterReferencedNames -Value $Value.Body -Names $Names }
 }
 
-# Handler runs (Otter 1.0, before the proposed extension of D130 to handler
-# runs): a handler set up while another handler runs does NOT remember that
-# run. Names the outer handler sets afresh on each run - set inside it, not
+# Deferred runs other than `when` handlers (D133 covers those): a handler set
+# up while a timer or watcher body runs does NOT remember that run. Names the outer handler sets afresh on each run - set inside it, not
 # inside a loop there (D130 covers loop passes), and set nowhere else in the
 # scope - are one shared name, so an inner handler that uses one acts on the
 # last run's value: "Delete" removes the newest row, not its own. Until 1.1
-# gives each run its own names, the check stage refuses that form. Returns one
+# gives those runs their own names, the check stage refuses that form. Returns one
 # entry per inner handler: @{ Name; Line } (the inner handler's line).
 function Get-OtterHandlerRunCaptures {
     param([Node[]]$Statements)
@@ -202,6 +216,10 @@ function Get-OtterHandlerRunCaptures {
         foreach ($inner in $handlers) {
             if ($inner.Outer.Count -eq 0) { continue }
             $outer = $inner.Outer[$inner.Outer.Count - 1]
+            # D133: a `when` handler set up during a `when` handler's run keeps
+            # that run's names. Other deferred bodies (timers, watchers, routes)
+            # on either side do not yet, so they are still refused.
+            if ((Test-OtterHandlerStatement $outer) -and (Test-OtterHandlerStatement $inner.Node)) { continue }
             # Names the outer handler sets afresh each run.
             $run = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
             $elsewhere = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
@@ -228,4 +246,4 @@ function Get-OtterHandlerRunCaptures {
     return , $found
 }
 
-Export-ModuleMember -Function Get-OtterLoopPassNames, Test-OtterLoopStatement, Get-OtterHandlerRunCaptures
+Export-ModuleMember -Function Get-OtterLoopPassNames, Test-OtterLoopStatement, Test-OtterHandlerStatement, Get-OtterHandlerRunCaptures

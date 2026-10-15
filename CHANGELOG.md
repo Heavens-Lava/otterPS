@@ -4,6 +4,9 @@ All notable changes to the Otter Programming Language platform are documented in
 
 ## [Unreleased]
 
+### Fixed
+- A handler set up while another handler runs keeps that run's values (D133): rows built straight inside a click handler each get a Delete button that acts on its own row. 1.0 refused that form with `otter check`; it now works. A handler set up inside a timer or file watcher's body is still refused.
+
 ## [1.0.0] - 2026-10-14
 
 The first stable release of Otter, a programming language that reads like

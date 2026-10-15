@@ -195,6 +195,35 @@ build
 show app
 '@
 
+# D133: rows built straight inside a click handler; each row's Delete hides
+# its own row (before D133 every Delete hid the last row made).
+$handlerRunSource = @'
+app is a page with title "Rows"
+taskInput is a text box with placeholder "Task"
+addButton is a button with text "Add"
+tally is a text with value "0"
+taskList is a column with spacing 4
+added is 0
+when addButton is clicked
+    label is text of taskInput
+    increase added
+    text of tally is added
+    create row into line
+    create text into caption
+    text of caption is label
+    create button into deleteButton
+    text of deleteButton is "Delete"
+    put caption in line
+    put deleteButton in line
+    put line in taskList
+    when deleteButton is clicked
+        customstyle of line is "display: none;"
+    .
+.
+put taskInput, addButton, tally, taskList in app
+show app
+'@
+
 try {
     $tasksHtml = Export-OtterWebApplication -SourcePath (Join-Path $script:RepoRoot 'examples\v1\tasks.ot') -OutputPath (Join-Path $script:Tmp 'tasks.html') -PassThruExceptions
     $boardHtml = Build-OtterWebPage -Name 'board' -Source $boardSource
@@ -202,6 +231,7 @@ try {
     $samplesHtml = Build-OtterWebPage -Name 'samples' -Source $samplesSource
     $fileErrorsHtml = Build-OtterWebPage -Name 'fileerrors' -Source $fileErrorsSource
     $loopPassHtml = Build-OtterWebPage -Name 'looppass' -Source $loopPassSource
+    $handlerRunHtml = Build-OtterWebPage -Name 'handlerruns' -Source $handlerRunSource
 
     Test-Otter 'D128 compile: a handler that creates UI compiles to runtime creation, not a dropped statement' {
         $html = [System.IO.File]::ReadAllText($tasksHtml)
@@ -283,6 +313,13 @@ try {
         Test-Otter 'D128 browser: putting a non-UI value somewhere is the interpreter''s error, not silence' {
             $r = Invoke-OtterWebScenario -Html $putErrorHtml -Scenario 'putError'
             Assert-True (@($r.errors) -contains 'I can only put a UI resource somewhere, but this is a number.') "got: $(@($r.errors) -join ' | ')"
+        }
+
+        Test-Otter 'D133 browser: rows made straight inside a click handler each keep their own row (Delete hides its own row); a counter from before is shared' {
+            $r = Invoke-OtterWebScenario -Html $handlerRunHtml -Scenario 'handlerRuns'
+            Assert-Lines -Expected @('beta', 'gamma') -Actual @($r.afterFirst)
+            Assert-Lines -Expected @('beta') -Actual @($r.afterSecond)
+            Assert-AreEqual -Expected '3' -Actual $r.count
         }
 
         Test-Otter 'D130 browser: buttons made in a loop (top level and in a function) each remember their pass; a counter from before the loop is shared' {

@@ -1505,7 +1505,9 @@ $wBodyJoined
         # several of them (drag AND drop) without redeclaring a constant.
         if ($when.EventName -in @('drag', 'drop', 'files dropped')) {
             $dragBodyLines = [System.Collections.Generic.List[string]]::new()
-            foreach ($s in $when.Body) { $dragBodyLines.Add((ConvertTo-OtterJsStatement -Stmt $s -Indent 5)) }
+            $enteredRun = Enter-OtterJsHandlerRun -Handler $when
+            try { foreach ($s in $when.Body) { $dragBodyLines.Add((ConvertTo-OtterJsStatement -Stmt $s -Indent 5)) } }
+            finally { Exit-OtterJsHandlerRun -Entered $enteredRun }
             $dragBody = $dragBodyLines -join "`n"
             $domEvent = switch ($when.EventName) { 'drag' { 'dragstart' } default { 'drop' } }
             $dragGuard = switch ($when.EventName) {
@@ -1532,9 +1534,14 @@ $dragBody
             default { $when.EventName.ToLowerInvariant() }
         }
         $bodyJs = [System.Collections.Generic.List[string]]::new()
-        foreach ($s in $when.Body) {
-            $bodyJs.Add((ConvertTo-OtterJsStatement -Stmt $s -Indent 3))
+        # D133: a handler set up in this body keeps this run's values.
+        $enteredRun = Enter-OtterJsHandlerRun -Handler $when
+        try {
+            foreach ($s in $when.Body) {
+                $bodyJs.Add((ConvertTo-OtterJsStatement -Stmt $s -Indent 3))
+            }
         }
+        finally { Exit-OtterJsHandlerRun -Entered $enteredRun }
         $bodyJoined = $bodyJs -join "`n"
         # RC3 B2: block-scoped like the drag/drop handlers above. Two `when`
         # handlers on one control (`when b is clicked` plus another event

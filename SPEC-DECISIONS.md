@@ -7930,3 +7930,31 @@ other file operation there. Keeping files in the page's own storage is the 1.1
 proposal P8, accepted in principle.
 
 Evidence: `tests/WebRuntimeUi.Tests.ps1` ("browser files").
+
+## D133. A handler set up while another handler runs remembers that run
+
+**Decided 2026-10-14 (Jeff; proposed 2026-10-13 in
+`docs/PROPOSAL_HANDLER_RUN_VALUES.md`, found while writing the task tracker
+tutorial).** Rows built straight inside a click handler shared one set of
+names: add three rows (alpha, beta, gamma), click alpha's Delete, and gamma
+was hidden. On the web, names a top-level handler sets compile to one shared
+global; the console handler body ran in the global scope too. Both gave the
+same silent wrong answer D130 fixed for loops.
+
+**Decision:** each run of a `when` handler is treated like a loop pass (D130).
+
+- The names that belong to a run are the names the handler's body sets that
+  are set nowhere else in the same scope (the program's top level, or one
+  function's body and its parameters). A handler set up during the run keeps
+  that run's values. The rule comes from the program text
+  (`Get-OtterLoopPassNames`, shared by the console and the web).
+- Every other name is shared and read live, as in D130: a counter that exists
+  before the handler, or a name another statement also sets.
+- After a run its values remain, so later code and other handlers read them
+  exactly as before.
+- Only a handler that sets up another handler (or another deferred body) gets
+  run names; every other program behaves exactly as before.
+
+Evidence: `tests/WebRuntimeUi.Tests.ps1` "D133 browser" (headless Chromium,
+macOS). `tests/UI.Tests.ps1` "D133" (console, real WPF clicks) is written
+and **pending a Windows run**.
