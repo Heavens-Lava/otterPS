@@ -45,16 +45,90 @@ body { background: #f4f7fb; color: var(--docs-ink); font-family: Inter, ui-sans-
 .docs-search-result { border-radius: 8px; color: #0f1f36; display: block; padding: 12px; text-decoration: none; }
 .docs-search-result:hover, .docs-search-result:focus { background: #edf4ff; outline: none; }
 .docs-search-result span { color: #5d708b; display: block; font-size: .85rem; margin-top: 3px; }
-.docs-mobile-toggle { display: none; }
+.docs-mobile-toggle, .site-menu-toggle { display: none; }
 @media (max-width: 1180px) { .docs-toc { display: none; } }
+
+/* Tablets: four cards side by side get too narrow, so they go two by two. */
+@media (max-width: 1024px) {
+  #whyCards, #buildCards, #entryCards, #nextCards { flex-wrap: wrap !important; }
+  #whyCards > *, #buildCards > *, #entryCards > *, #nextCards > * { flex: 1 1 calc(50% - 20px) !important; }
+  #heroBody, #homeContent { padding-left: 32px !important; padding-right: 32px !important; }
+  #content { padding: 0 32px !important; }
+  #docsMain { padding: 32px 32px 24px !important; }
+  #siteFooter { flex-wrap: wrap !important; padding: 24px 32px !important; }
+  #footerLinks { flex-wrap: wrap !important; gap: 10px 18px !important; }
+}
+
+/* Below this the full header no longer fits: the brand stays on the left and
+   a menu button opens the main links as a panel under the bar. */
+@media (max-width: 960px) {
+  #topBar { padding: 0 24px !important; gap: 12px !important; }
+  #navLinks { display: none !important; }
+  .site-menu-toggle { align-items: center; background: #173252; border: 1px solid #315377; border-radius: 8px; color: #dbeafe; cursor: pointer; display: inline-flex; font: inherit; font-size: 14px; font-weight: 600; gap: 8px; min-height: 40px; padding: 8px 12px; }
+  .site-menu-toggle svg { display: block; }
+  #topBar.site-menu-open #navLinks { align-items: stretch !important; background: #0b1d36; border-top: 1px solid #1d3557; box-shadow: 0 18px 30px rgba(4,16,33,.35); box-sizing: border-box; display: flex !important; flex-direction: column !important; gap: 0 !important; left: 0; padding: 8px 16px 18px; position: absolute; right: 0; top: 64px; }
+  #topBar.site-menu-open #navLinks > a { border-bottom: 1px solid #1d3557 !important; display: block; font-size: 16px !important; padding: 14px 4px !important; }
+  #topBar.site-menu-open #navLinks > button { font-size: 15px !important; margin-top: 14px; min-height: 44px; min-width: 0 !important; width: 100%; }
+}
+
+/* Phones. */
 @media (max-width: 760px) {
-  #topBar { padding: 0 16px !important; } #navLinks { gap: 9px !important; }
-  #navLinks > a { display: none; } #navLinks > button { display: inline-block; }
-  .docs-mobile-toggle { background: #173252; border: 1px solid #315377; border-radius: 7px; color: #dbeafe; cursor: pointer; display: block; margin: 16px; padding: 8px 11px; }
-  #docsBody { display: block !important; } #docsSidebar { display: none; height: auto !important; position: static !important; width: auto !important; }
-  #docsSidebar.docs-sidebar-open { display: flex; } #docsMain { max-width: none !important; padding: 26px 20px !important; }
-  #hero { min-height: 0; padding: 22px 20px !important; } #hero img { display: none; }
-  .docs-article-nav { font-size: .9rem; } #siteFooter { align-items: flex-start !important; flex-direction: column !important; padding: 24px 20px !important; }
+  html, body { overflow-x: hidden; }
+  #topBar { padding: 0 16px !important; }
+
+  /* Rows of cards and columns stack; short rows of links and buttons wrap. */
+  .otter-row { flex-wrap: wrap !important; }
+  .otter-row > .otter-card, .otter-row > .otter-column { flex: 1 1 100% !important; max-width: 100%; min-width: 0 !important; }
+  #whyCards > *, #buildCards > *, #entryCards > *, #nextCards > * { flex-basis: 100% !important; }
+  #docsBody { display: block !important; }
+  .otter-text, .otter-link { overflow-wrap: anywhere; }
+  .otter-image { max-width: 100%; height: auto !important; }
+
+  /* Page gutters. */
+  #heroBody { padding: 28px 16px 40px !important; gap: 20px !important; }
+  #homeContent { gap: 48px !important; padding: 40px 16px 8px !important; }
+  #content { padding: 0 16px !important; }
+  #docsMain { max-width: none !important; padding: 24px 16px !important; }
+  #homeBody { padding: 0 16px 28px !important; }
+
+  /* Headlines. */
+  #heroTitle { font-size: 40px !important; line-height: 1.08 !important; }
+  #b1 { font-size: 32px !important; }
+  #whyTitle, #syntaxTitle, #buildTitle, #shotsTitle, #nextTitle { font-size: 28px !important; }
+
+  /* Heroes: the copy takes the width; the large mascots step aside. */
+  #hero { min-height: 0 !important; } #hero img:not(#brandMark), #heroMascot, #winMascot { display: none !important; }
+  #docsBody #hero { padding: 24px 16px !important; }
+  #heroCopy { padding-bottom: 32px !important; }
+  #heroActions { gap: 12px !important; }
+  #heroActions > * { flex: 1 1 auto; text-align: center; }
+  #heroCodeblock, #heroCode { max-width: 100% !important; }
+
+  /* Code: scroll sideways inside the block, never the page. */
+  .otter-runnable, .otter-runnable > .otter-text { max-width: 100%; min-width: 0; }
+  pre { max-width: 100%; overflow-x: auto; }
+  [style*="white-space: pre"] { font-size: 13px !important; padding-left: 16px !important; padding-right: 16px !important; }
+
+  /* Download page. */
+  #tabs { display: grid !important; gap: 8px !important; grid-template-columns: repeat(2, 1fr); margin-top: 20px !important; }
+  #tabs > * { font-size: 14px !important; padding: 12px 8px !important; }
+  #dlCard, #reqCard, #relCard, #runCard, #nextCard { padding: 20px !important; }
+  #dlLinks { gap: 12px 20px !important; }
+
+  /* Documentation sidebar: hidden behind its toggle. Its inline display wins
+     without !important, which left the whole tree open above every article. */
+  .docs-mobile-toggle { background: #173252; border: 1px solid #315377; border-radius: 8px; color: #dbeafe; cursor: pointer; display: block; font: inherit; font-size: 14px; font-weight: 600; margin: 16px 16px 0; min-height: 44px; padding: 10px 14px; width: calc(100% - 32px); }
+  #docsSidebar { border-right: 0 !important; display: none !important; flex-basis: auto !important; height: auto !important; padding: 16px !important; position: static !important; width: auto !important; }
+  #docsSidebar.docs-sidebar-open { display: flex !important; }
+  #docsSidebar .otter-link { font-size: 15px !important; padding-bottom: 10px !important; padding-top: 10px !important; }
+
+  .docs-article-nav { flex-direction: column; font-size: .95rem; gap: 14px; }
+  .docs-article-nav a { max-width: none; }
+  .docs-search-dialog { margin-top: 12px; }
+
+  #siteFooter { align-items: flex-start !important; flex-direction: column !important; gap: 16px !important; padding: 24px 16px !important; }
+  #footerLinks { flex-wrap: wrap !important; gap: 10px 18px !important; }
+  #footerLinks > a { padding: 4px 0; }
 }
 
 /* Runnable code samples: the code panel, the Run bar under it and its output

@@ -56,5 +56,23 @@
     if (sidebar) { const toggle = document.createElement('button'); toggle.className = 'docs-mobile-toggle'; toggle.type = 'button'; toggle.textContent = 'Browse documentation'; toggle.setAttribute('aria-expanded', 'false'); toggle.addEventListener('click', () => { const open = sidebar.classList.toggle('docs-sidebar-open'); toggle.setAttribute('aria-expanded', String(open)); }); main.parentElement.insertBefore(toggle, sidebar); }
   }
 
+  // Phones: the header's links fold behind a menu button (CSS shows it only on
+  // narrow screens) that opens them as a panel under the bar.
+  function installSiteMenu() {
+    const bar = document.getElementById('topBar');
+    const links = document.getElementById('navLinks');
+    if (!bar || !links) return;
+    const toggle = document.createElement('button');
+    toggle.className = 'site-menu-toggle'; toggle.type = 'button';
+    toggle.setAttribute('aria-expanded', 'false'); toggle.setAttribute('aria-controls', 'navLinks');
+    toggle.innerHTML = '<svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M2 4.5h14M2 9h14M2 13.5h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span>Menu</span>';
+    const setOpen = (open) => { bar.classList.toggle('site-menu-open', open); toggle.setAttribute('aria-expanded', String(open)); toggle.querySelector('span').textContent = open ? 'Close' : 'Menu'; };
+    toggle.addEventListener('click', () => setOpen(!bar.classList.contains('site-menu-open')));
+    links.addEventListener('click', () => setOpen(false));
+    document.addEventListener('keydown', event => { if (event.key === 'Escape') setOpen(false); });
+    bar.appendChild(toggle);
+  }
+  installSiteMenu();
+
   fetch('/static/docs-index.json').then(response => response.ok ? response.json() : []).then(pages => { index = Array.isArray(pages) ? pages : []; installSearch(); enhanceArticle(); }).catch(() => { installSearch(); enhanceArticle(); });
 })();
