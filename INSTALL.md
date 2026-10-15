@@ -50,6 +50,12 @@ These steps are for Windows; for Linux and macOS see
 Download the latest versioned release archive:
 `otter-1.0.0.zip`
 
+Get it from [otterprogramming.com](https://otterprogramming.com/download/) or the
+[GitHub release](https://github.com/Heavens-Lava/otterPS/releases/latest). On the
+GitHub release page, take `otter-1.0.0.zip`, not "Source code (zip)": that one is
+the repository itself, whose installer is in `distribution\` and which is set up
+as described in [Developer Setup (From Source)](#developer-setup-from-source).
+
 Extract the ZIP contents into a temporary directory or your Downloads folder.
 
 ### Step 2: Run the Installer

@@ -111,7 +111,7 @@ Otter 1.0 is built and verified for:
 
 ## Installation Quick Start
 
-Download the latest Otter release archive (`otter-1.0.0.zip`), extract the ZIP, open Windows PowerShell in the extracted directory, and run:
+Download the latest Otter release archive (`otter-1.0.0.zip`, from [otterprogramming.com](https://otterprogramming.com/download/) or the [GitHub release](https://github.com/Heavens-Lava/otterPS/releases/latest); not GitHub's "Source code (zip)", which is the repository and has no installer at its root), extract the ZIP, open Windows PowerShell in the extracted directory, and run:
 
 ```powershell
 Set-ExecutionPolicy -Scope Process Bypass
@@ -178,14 +178,7 @@ otter
 
 ## Status
 
-Otter is currently preparing for the official 1.0 release.
-
-Current release candidate:
-```text
-1.0.0
-```
-
-The 1.0 language, compiler, and runtime are **feature frozen** while final verification and release candidate auditing are completed.
+Otter 1.0 is released: the current stable version is **1.0.0** (14 October 2026). See the [CHANGELOG](CHANGELOG.md) for what it includes and its known limitations, and [docs/OTTER_1_0_RELEASE_EVIDENCE.md](docs/OTTER_1_0_RELEASE_EVIDENCE.md) for how it was verified.
 
 ---
 
