@@ -1,5 +1,7 @@
 # Otter website - Quick Reference: the whole language on one printable page.
-# Every example here was run with the real otter before it was written down.
+# Each card is a title, an example and a note. Every example was run (or, for
+# network, server and interactive ones, checked) with the real otter first -
+# keep it that way when adding to this page.
 # Screen layout and the print layout live in static/docs-enhancements.css under
 # "Quick reference"; the Print button is wired in static/docs-enhancements.js.
 
@@ -7,13 +9,9 @@ use "_shell.ot"
 
 app is a page with title "Otter Quick Reference", hideheader true, scroll true, width full, background "#f4f7fb", foreground "#0f1f36", spacing 0, padding 0
 
-# ==========================================
-# HEADER
-# ==========================================
-
 refEyebrow is a text with value "OTTER {{RELEASE_VERSION}} · QUICK REFERENCE", size 13, weight 700, foreground "#7fb0ff", letterspacing "0.1em"
 refTitle is a text with value "Everything you need to start building with Otter.", size 44, weight 800, foreground "#ffffff", letterspacing "-0.025em", lineheight "1.08", customstyle "max-width: 760px; text-wrap: balance;"
-refLead is a text with value "The whole language on one page. Print it, keep it next to your keyboard, and look things up as you go. Every example was run with Otter {{RELEASE_VERSION}}.", size 18, foreground "#dbe6f5", lineheight "1.55", customstyle "max-width: 680px;"
+refLead is a text with value "The whole language on one page: the basics first, then files, data, the internet, servers, databases and apps. Print it, keep it next to your keyboard, and look things up as you go. Every example was run with Otter {{RELEASE_VERSION}}.", size 18, foreground "#dbe6f5", lineheight "1.55", customstyle "max-width: 700px;"
 refPrint is a button with text "Print this page", size 15, weight 700, background "#2563eb", foreground "#ffffff", radius 10, padding "12px 22px"
 refStart is a link with text "Write your first program →", url "/first-program/", foreground "#ffffff", weight 700, size 15, radius 10, border "1.5px solid rgba(255,255,255,.35)", customstyle "padding: 11px 20px; display: inline-block;"
 refActions is a row with spacing 12, align middle, margin "8px 0 0 0"
@@ -29,11 +27,6 @@ put topBar, refHeadBody in refHero
 # The heading that only appears on paper.
 refPrintHead is a text with value "Otter {{RELEASE_VERSION}} Quick Reference  ·  otterprogramming.com", size 14, weight 700, foreground "#0b1d36"
 
-# ==========================================
-# CARDS
-# Each card: a title, an example, and a short note.
-# ==========================================
-
 r1Title is a text with value "1. Run a program", size 17, weight 800, foreground "#0b1d36"
 r1Code is a text with value "otter hello.ot            # run it\notter                     # try lines\notter check hello.ot      # check only\notter web app.ot          # web page\notter new console myapp   # new project", size 13, foreground "#e5edf8", background "#0f1b2e", radius 8, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 12px 14px; line-height: 1.6; overflow-x: auto;"
 r1Note is a text with value "Otter files end in .ot. Running from the downloaded folder on Windows? Use .\\otter.cmd hello.ot instead.", size 14, foreground "#3a4d6b", lineheight "1.5"
@@ -47,20 +40,20 @@ r2 is a card with background "#ffffff", radius 14, border "1px solid #e3e9f2", p
 put r2Title, r2Code, r2Note in r2
 
 r3Title is a text with value "3. Say and ask", size 17, weight 800, foreground "#0b1d36"
-r3Code is a text with value "say \"Hello,\" name     # Hello, Ada\nsay \"Saved\" in color \"green\"\n\nask \"How old are you?\" and call it age", size 13, foreground "#e5edf8", background "#0f1b2e", radius 8, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 12px 14px; line-height: 1.6; overflow-x: auto;"
+r3Code is a text with value "say \"Hello,\" name     # Hello, Ada\nsay \"Saved\" in color \"green\"\n\nask \"How old are you?\" and call it age\nask secretly \"Password:\" and call it pw\nchoose from sizes into size   # numbered menu", size 13, foreground "#e5edf8", background "#0f1b2e", radius 8, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 12px 14px; line-height: 1.6; overflow-x: auto;"
 r3Note is a text with value "say puts one space between its parts. ask turns 29 into a number and true into a boolean; anything else stays text.", size 14, foreground "#3a4d6b", lineheight "1.5"
 r3 is a card with background "#ffffff", radius 14, border "1px solid #e3e9f2", padding 18, spacing 10
 put r3Title, r3Code, r3Note in r3
 
 r4Title is a text with value "4. Math", size 17, weight 800, foreground "#0b1d36"
-r4Code is a text with value "5 and 3 make total           # 8\n10 minus 4 make left         # 6\n6 times 7 make answer        # 42\n20 divided by 4 make share   # 5\nsum is 5 plus 3              # 8\n\nadd 1 to score\nremove 2 from score", size 13, foreground "#e5edf8", background "#0f1b2e", radius 8, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 12px 14px; line-height: 1.6; overflow-x: auto;"
-r4Note is a text with value "Math uses words, not symbols. add and remove change a number in place. Dividing by zero is a clear Otter error.", size 14, foreground "#3a4d6b", lineheight "1.5"
+r4Code is a text with value "5 and 3 make total           # 8\n10 minus 4 make left         # 6\n6 times 7 make answer        # 42\n20 divided by 4 make share   # 5\nsum is 5 plus 3              # 8\n\nadd 2 to score\nremove 1 from score\nincrease lives               # by 1\ndecrease lives by 2\n\nsay 15 percent of 200        # 30\nsay 2 power 10               # 1024\nsay round of 3.6             # 4\nsay round down of 3.6        # 3\nsay square root of 81        # 9\nsay larger of 3 and 9        # 9", size 13, foreground "#e5edf8", background "#0f1b2e", radius 8, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 12px 14px; line-height: 1.6; overflow-x: auto;"
+r4Note is a text with value "Words, not symbols. There are no negative literals: write 0 minus 4. Dividing by zero is a clear Otter error.", size 14, foreground "#3a4d6b", lineheight "1.5"
 r4 is a card with background "#ffffff", radius 14, border "1px solid #e3e9f2", padding 18, spacing 10
 put r4Title, r4Code, r4Note in r4
 
 r5Title is a text with value "5. Text", size 17, weight 800, foreground "#0b1d36"
-r5Code is a text with value "say length of name           # 3\nsay uppercase of name        # ADA\nsay lowercase of name        # ada\n\nsplit \"red,green,blue\" by \",\" into colors\njoin colors with \" | \" into line\n\nsay \"one\\ttwo\"        # \\t is a tab\nsay \"line\\nbreak\"     # \\n is a new line\nsay \"She said \\\"hi\\\"\"", size 13, foreground "#e5edf8", background "#0f1b2e", radius 8, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 12px 14px; line-height: 1.6; overflow-x: auto;"
-r5Note is a text with value "Check text with starts with, ends with and contains (see the comparison words).", size 14, foreground "#3a4d6b", lineheight "1.5"
+r5Code is a text with value "say length of name           # 3\nsay uppercase of name        # ADA\nsay lowercase of name        # ada\n\nreplace \"Jeff\" with \"Ada\" in title\nreplace \"a\" with \"o\" in title into copy\n\nsplit \"red,green,blue\" by \",\" into colors\njoin colors with \" | \" into line\n\nsay \"one\\ttwo\"        # \\t is a tab\nsay \"line\\nbreak\"     # \\n is a new line\nsay \"She said \\\"hi\\\"\"", size 13, foreground "#e5edf8", background "#0f1b2e", radius 8, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 12px 14px; line-height: 1.6; overflow-x: auto;"
+r5Note is a text with value "Check text with starts with, ends with and contains. replace ... into leaves the original alone.", size 14, foreground "#3a4d6b", lineheight "1.5"
 r5 is a card with background "#ffffff", radius 14, border "1px solid #e3e9f2", padding 18, spacing 10
 put r5Title, r5Code, r5Note in r5
 
@@ -71,25 +64,26 @@ r6 is a card with background "#ffffff", radius 14, border "1px solid #e3e9f2", p
 put r6Title, r6Code, r6Note in r6
 
 r7Title is a text with value "7. Comparison words", size 17, weight 800, foreground "#0b1d36"
-r7Code is a text with value "is                  equal to\nis not              not equal to\nis greater than     >\nis less than        <\nis at least         >=\nis at most          <=\ncontains            list has it / text has it\nstarts with         text begins with\nends with           text ends with\nis gone             has no value", size 13, foreground "#0f1f36", background "#eef3fa", radius 8, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 12px 14px; line-height: 1.6; overflow-x: auto;"
+r7Code is a text with value "is                  equal to\nis not              not equal to\nis greater than     >\nis less than        <\nis at least         >=\nis at most          <=\ncontains            list or text has it\nstarts with         text begins with\nends with           text ends with\nis gone             has no value", size 13, foreground "#0f1f36", background "#eef3fa", radius 8, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 12px 14px; line-height: 1.6; overflow-x: auto;"
 r7Note is a text with value "Join conditions with and / or:  if age is greater than 30 and ready", size 14, foreground "#3a4d6b", lineheight "1.5"
 r7 is a card with background "#ffffff", radius 14, border "1px solid #e3e9f2", padding 18, spacing 10
 put r7Title, r7Code, r7Note in r7
 
 r8Title is a text with value "8. Loops", size 17, weight 800, foreground "#0b1d36"
-r8Code is a text with value "repeat 3 times\n    say \"Hooray!\"\n.\n\ncount from 1 to 5 as n\n    say n\n.\n\neach game in games\n    say \"I like\" game\n.\n\nwhile tries is less than 3\n    add 1 to tries\n.", size 13, foreground "#e5edf8", background "#0f1b2e", radius 8, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 12px 14px; line-height: 1.6; overflow-x: auto;"
+r8Code is a text with value "repeat 3 times\n    say \"Hooray!\"\n.\n\ncount from 1 to 5 as n\n    say n\n.\n\neach game in games\n    say \"I like\" game\n.\n\nwhile tries is less than 3\n    increase tries\n.", size 13, foreground "#e5edf8", background "#0f1b2e", radius 8, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 12px 14px; line-height: 1.6; overflow-x: auto;"
+r8Note is a text with value "“for each” works too: for each game in games.", size 14, foreground "#3a4d6b", lineheight "1.5"
 r8 is a card with background "#ffffff", radius 14, border "1px solid #e3e9f2", padding 18, spacing 10
-put r8Title, r8Code in r8
+put r8Title, r8Code, r8Note in r8
 
 r9Title is a text with value "9. Lists", size 17, weight 800, foreground "#0b1d36"
-r9Code is a text with value "games are\n    \"Zelda\"\n    \"Mario\"\n.\n\nadd \"Pokemon\" to games\nremove \"Mario\" from games\n\nsay length of games          # 2\nsay first of games           # Zelda\nsay last of games            # Pokemon\nrandom item from games into pick", size 13, foreground "#e5edf8", background "#0f1b2e", radius 8, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 12px 14px; line-height: 1.6; overflow-x: auto;"
-r9Note is a text with value "say games prints Zelda, Pokemon. add and remove work on lists as well as numbers.", size 14, foreground "#3a4d6b", lineheight "1.5"
+r9Code is a text with value "games are\n    \"Zelda\"\n    \"Mario\"\n.\nnames are empty\n\nadd \"Pokemon\" to games\nremove \"Mario\" from games\nsay length of games          # 2\nsay first of games           # Zelda\nsay last of games            # Pokemon\n\nsort scores                  # 10, 20, 30\nreverse scores\nrandom item from games into pick\n\nfind game in games where game is \"Zelda\" into hit", size 13, foreground "#e5edf8", background "#0f1b2e", radius 8, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 12px 14px; line-height: 1.6; overflow-x: auto;"
+r9Note is a text with value "say games prints Zelda, Pokemon. find gives the first match, or gone if there is none.", size 14, foreground "#3a4d6b", lineheight "1.5"
 r9 is a card with background "#ffffff", radius 14, border "1px solid #e3e9f2", padding 18, spacing 10
 put r9Title, r9Code, r9Note in r9
 
 r10Title is a text with value "10. Functions", size 17, weight 800, foreground "#0b1d36"
 r10Code is a text with value "to greet person\n    say \"Hello,\" person\n.\ngreet \"Grace\"\n\nto tax subtotal and rate\n    subtotal times rate make amount\n    return amount\n.\ntax 100 and 0.08 make owed     # 8\ndue is tax 200 and 0.05        # 10", size 13, foreground "#e5edf8", background "#0f1b2e", radius 8, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 12px 14px; line-height: 1.6; overflow-x: auto;"
-r10Note is a text with value "Separate inputs with and. A function's names are its own: they never change the ones outside it.", size 14, foreground "#3a4d6b", lineheight "1.5"
+r10Note is a text with value "Separate inputs with and. stop leaves a function early. A function’s names are its own: they never change the ones outside it.", size 14, foreground "#3a4d6b", lineheight "1.5"
 r10 is a card with background "#ffffff", radius 14, border "1px solid #e3e9f2", padding 18, spacing 10
 put r10Title, r10Code, r10Note in r10
 
@@ -100,48 +94,89 @@ r11 is a card with background "#ffffff", radius 14, border "1px solid #e3e9f2", 
 put r11Title, r11Code, r11Note in r11
 
 r12Title is a text with value "12. When something fails", size 17, weight 800, foreground "#0b1d36"
-r12Code is a text with value "try\n    read \"notes.txt\" into notes\notherwise\n    say \"Could not read the file.\"\n.", size 13, foreground "#e5edf8", background "#0f1b2e", radius 8, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 12px 14px; line-height: 1.6; overflow-x: auto;"
-r12Err is a text with value "Line 1:\n    say length of games\n\nOtter could not find the variable \"games\".\nTry:\n    games is 0", size 12, foreground "#8a2b1b", background "#fff6f4", border "1px solid #f6d5cd", radius 8, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 10px 14px; line-height: 1.55; overflow-x: auto;"
+r12Code is a text with value "try\n    read \"notes.txt\" into notes\notherwise\n    say \"Could not read the file.\"\n.\n\ntry\n    fail with \"The file is empty.\"\notherwise into reason\n    say \"Problem:\" reason\n.", size 13, foreground "#e5edf8", background "#0f1b2e", radius 8, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 12px 14px; line-height: 1.6; overflow-x: auto;"
 r12Note is a text with value "Without try, Otter stops and explains: the line, what went wrong, and a fix to try.", size 14, foreground "#3a4d6b", lineheight "1.5"
 r12 is a card with background "#ffffff", radius 14, border "1px solid #e3e9f2", padding 18, spacing 10
-put r12Title, r12Code, r12Note, r12Err in r12
+put r12Title, r12Code, r12Note in r12
 
 r13Title is a text with value "13. Files and folders", size 17, weight 800, foreground "#0b1d36"
-r13Code is a text with value "write \"first line\" to \"notes.txt\"\nappend \"more\" to \"notes.txt\"\nread \"notes.txt\" into notes\n\nif file \"notes.txt\" exists\n    say notes\n.\n\ncopy \"notes.txt\" to \"backup.txt\"\ndelete file \"backup.txt\"\nget files in \".\" into found", size 13, foreground "#e5edf8", background "#0f1b2e", radius 8, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 12px 14px; line-height: 1.6; overflow-x: auto;"
+r13Code is a text with value "write \"first line\" to \"notes.txt\"\nappend \"more\" to \"notes.txt\"\nread \"notes.txt\" into notes\n\nif file \"notes.txt\" exists\n    say notes\n.\n\ncopy \"notes.txt\" to \"backup.txt\"\nmove \"backup.txt\" to \"old.txt\"\ndelete file \"old.txt\"\n\ncreate folder \"Backup\"\nget files in \".\" into found\nget files in \"Backup\" and subfolders into all\nzip folder \"Backup\" into \"backup.zip\"\nunzip \"backup.zip\" into \"Restored\"\ndelete folder \"Backup\"", size 13, foreground "#e5edf8", background "#0f1b2e", radius 8, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 12px 14px; line-height: 1.6; overflow-x: auto;"
 r13Note is a text with value "append adds the text exactly as given; put \\n at the start for a new line. Each found file has a name, extension and size.", size 14, foreground "#3a4d6b", lineheight "1.5"
 r13 is a card with background "#ffffff", radius 14, border "1px solid #e3e9f2", padding 18, spacing 10
 put r13Title, r13Code, r13Note in r13
 
-r14Title is a text with value "14. JSON, dates and random", size 17, weight 800, foreground "#0b1d36"
-r14Code is a text with value "read json from \"settings.json\" into settings\nsay theme of settings\nconvert text from json into data\n\nday is today\nmoment is now\nadd 7 days to day\nformat day as \"yyyy-MM-dd\" into stamp\n\nrandom number from 1 to 6 into roll", size 13, foreground "#e5edf8", background "#0f1b2e", radius 8, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 12px 14px; line-height: 1.6; overflow-x: auto;"
-r14Note is a text with value "JSON becomes ordinary Otter objects and lists. today has no time of day; now has both.", size 14, foreground "#3a4d6b", lineheight "1.5"
+r14Title is a text with value "14. CSV and JSON", size 17, weight 800, foreground "#0b1d36"
+r14Code is a text with value "convert text from csv into rows\nread csv from \"weather.csv\" into rows\nwrite csv rows to \"copy.csv\"\neach row in rows\n    say city of row temp of row\n.\n\nread json from \"settings.json\" into settings\nsay theme of settings\nconvert text from json into data", size 13, foreground "#e5edf8", background "#0f1b2e", radius 8, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 12px 14px; line-height: 1.6; overflow-x: auto;"
+r14Note is a text with value "The first CSV line names the columns. JSON becomes ordinary Otter objects and lists.", size 14, foreground "#3a4d6b", lineheight "1.5"
 r14 is a card with background "#ffffff", radius 14, border "1px solid #e3e9f2", padding 18, spacing 10
 put r14Title, r14Code, r14Note in r14
 
-r15Title is a text with value "15. A desktop window", size 17, weight 800, foreground "#0b1d36"
-r15Code is a text with value "clicks is 0\n\ncreate window into app\ntitle of app is \"Counter\"\ncreate text into display\ntext of display is \"0\"\ncreate button into addButton\ntext of addButton is \"Add one\"\nput display in app\nput addButton in app\n\nwhen addButton is clicked\n    increase clicks\n    text of display is clicks\n.\n\nshow app", size 13, foreground "#e5edf8", background "#0f1b2e", radius 8, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 12px 14px; line-height: 1.6; overflow-x: auto;"
-r15Note is a text with value "Run it with otter counter.ot. Controls include text, text box, button, row, column, card, grid and scroll.", size 14, foreground "#3a4d6b", lineheight "1.5"
+r15Title is a text with value "15. Dates, time and waiting", size 17, weight 800, foreground "#0b1d36"
+r15Code is a text with value "day is today\nmoment is now\nadd 7 days to day\nformat day as \"yyyy-MM-dd\" into stamp\nstartDate is date from \"2024-01-15\"\nsay days between startDate and day\n\nwait 2 seconds\nstart timer clock\nsay elapsed milliseconds of clock\n\nrandom number from 1 to 6 into roll", size 13, foreground "#e5edf8", background "#0f1b2e", radius 8, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 12px 14px; line-height: 1.6; overflow-x: auto;"
+r15Note is a text with value "today has no time of day; now has both.", size 14, foreground "#3a4d6b", lineheight "1.5"
 r15 is a card with background "#ffffff", radius 14, border "1px solid #e3e9f2", padding 18, spacing 10
 put r15Title, r15Code, r15Note in r15
 
-r16Title is a text with value "16. A web page", size 17, weight 800, foreground "#0b1d36"
-r16Code is a text with value "app is a page with title \"Greeter\", width 560, spacing 14\n\nnameBox is a text box with placeholder \"Your name\"\nhelloButton is a button with text \"Say hello\"\nmessage is a text with value \"Waiting...\"\n\nwhen helloButton is clicked\n    text of message is text of nameBox\n.\n\nput nameBox, helloButton, message in app\nshow app", size 13, foreground "#e5edf8", background "#0f1b2e", radius 8, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 12px 14px; line-height: 1.6; overflow-x: auto;"
-r16Note is a text with value "otter web greeter.ot turns it into a standalone web page and opens it.", size 14, foreground "#3a4d6b", lineheight "1.5"
+r16Title is a text with value "16. Programs, modules and settings", size 17, weight 800, foreground "#0b1d36"
+r16Code is a text with value "use \"helpers.ot\"       # use another file's functions\n\nget arguments into args\nget environment variable \"HOME\" into home\nget current directory into here\n\nrun command \"git status\" into result\nsay output of result\nsay exit code of result\n\nlog \"Started.\"         # notes for you, not output\nwarn \"Disk is nearly full.\"", size 13, foreground "#e5edf8", background "#0f1b2e", radius 8, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 12px 14px; line-height: 1.6; overflow-x: auto;"
+r16Note is a text with value "otter app.ot Ada 7 passes Ada and 7 in args.", size 14, foreground "#3a4d6b", lineheight "1.5"
 r16 is a card with background "#ffffff", radius 14, border "1px solid #e3e9f2", padding 18, spacing 10
 put r16Title, r16Code, r16Note in r16
 
-r17Title is a text with value "17. Rules of thumb", size 17, weight 800, foreground "#0b1d36"
-r17a is a text with value "• is gives a value. Otter has no = sign.", size 14, foreground "#0f1f36", lineheight "1.5"
-r17b is a text with value "• Indent the inside of a block; a period on its own line ends it.", size 14, foreground "#0f1f36", lineheight "1.5"
-r17c is a text with value "• Properties read name of person, never person.name.", size 14, foreground "#0f1f36", lineheight "1.5"
-r17d is a text with value "• Using a name before giving it a value is an error, not false.", size 14, foreground "#0f1f36", lineheight "1.5"
-r17e is a text with value "• A few words, such as count, are statement words and cannot be names. Otter tells you if you try.", size 14, foreground "#0f1f36", lineheight "1.5"
-r17f is a text with value "• Stuck? Read the error: it names the line and suggests a fix.", size 14, foreground "#0f1f36", lineheight "1.5"
-r17 is a card with background "#eaf2ff", radius 14, border "1px solid #cfe0ff", padding 18, spacing 8
-put r17Title, r17a, r17b, r17c, r17d, r17e, r17f in r17
+r17Title is a text with value "17. The internet", size 17, weight 800, foreground "#0b1d36"
+r17Code is a text with value "get \"https://api.example.com/items\" into page\nget \"https://api.example.com/items\" as json into items\npost \"hello\" to \"https://api.example.com/echo\" into reply\ndownload file from \"https://example.com/logo.png\" to \"logo.png\"", size 13, foreground "#e5edf8", background "#0f1b2e", radius 8, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 12px 14px; line-height: 1.6; overflow-x: auto;"
+r17Note is a text with value "Add a header on the next line, indented:  with header \"Authorization\" is \"Bearer token\"", size 14, foreground "#3a4d6b", lineheight "1.5"
+r17 is a card with background "#ffffff", radius 14, border "1px solid #e3e9f2", padding 18, spacing 10
+put r17Title, r17Code, r17Note in r17
+
+r18Title is a text with value "18. A web server", size 17, weight 800, foreground "#0b1d36"
+r18Code is a text with value "api is a web server\n    port is 8080\n.\n\nwhen api receives GET at \"/hello\"\n    respond with \"Hello from Otter\"\n.\n\nwhen api receives GET at \"/users\"\n    respond with \"Ada\" as json\n.\n\nstart api", size 13, foreground "#e5edf8", background "#0f1b2e", radius 8, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 12px 14px; line-height: 1.6; overflow-x: auto;"
+r18Note is a text with value "Run it with otter serve server.ot, then open http://localhost:8080/hello.", size 14, foreground "#3a4d6b", lineheight "1.5"
+r18 is a card with background "#ffffff", radius 14, border "1px solid #e3e9f2", padding 18, spacing 10
+put r18Title, r18Code, r18Note in r18
+
+r19Title is a text with value "19. A database", size 17, weight 800, foreground "#0b1d36"
+r19Code is a text with value "database has\n    provider is \"sqlite\"\n    connection is \"tasks.db\"\n.\nconnect database into db\n\nexecute db with\n    \"create table if not exists tasks (id integer primary key, title text)\"\nexecute db with\n    \"insert into tasks (title) values (@title)\"\n    parameter \"title\" is \"Buy milk\"\n\nquery db with\n    \"select id, title from tasks\"\ninto tasks\neach task in tasks\n    say id of task title of task\n.", size 13, foreground "#e5edf8", background "#0f1b2e", radius 8, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 12px 14px; line-height: 1.6; overflow-x: auto;"
+r19Note is a text with value "SQLite is built in. Use parameters instead of gluing values into SQL. connection \":memory:\" keeps it in memory.", size 14, foreground "#3a4d6b", lineheight "1.5"
+r19 is a card with background "#ffffff", radius 14, border "1px solid #e3e9f2", padding 18, spacing 10
+put r19Title, r19Code, r19Note in r19
+
+r20Title is a text with value "20. A desktop window", size 17, weight 800, foreground "#0b1d36"
+r20Code is a text with value "clicks is 0\n\ncreate window into app\ntitle of app is \"Counter\"\ncreate text into display\ntext of display is \"0\"\ncreate button into addButton\ntext of addButton is \"Add one\"\nput display in app\nput addButton in app\n\nwhen addButton is clicked\n    increase clicks\n    text of display is clicks\n.\n\nshow app", size 13, foreground "#e5edf8", background "#0f1b2e", radius 8, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 12px 14px; line-height: 1.6; overflow-x: auto;"
+r20Note is a text with value "Run it with otter counter.ot. Controls include text, text box, button, row, column, card, grid and scroll.", size 14, foreground "#3a4d6b", lineheight "1.5"
+r20 is a card with background "#ffffff", radius 14, border "1px solid #e3e9f2", padding 18, spacing 10
+put r20Title, r20Code, r20Note in r20
+
+r21Title is a text with value "21. A web page", size 17, weight 800, foreground "#0b1d36"
+r21Code is a text with value "app is a page with title \"Greeter\", width 560, spacing 14\n\nnameBox is a text box with placeholder \"Your name\"\nhelloButton is a button with text \"Say hello\"\nmessage is a text with value \"Waiting...\"\n\nwhen helloButton is clicked\n    text of message is text of nameBox\n.\n\nput nameBox, helloButton, message in app\nshow app", size 13, foreground "#e5edf8", background "#0f1b2e", radius 8, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 12px 14px; line-height: 1.6; overflow-x: auto;"
+r21Note is a text with value "otter web greeter.ot turns it into a standalone web page and opens it.", size 14, foreground "#3a4d6b", lineheight "1.5"
+r21 is a card with background "#ffffff", radius 14, border "1px solid #e3e9f2", padding 18, spacing 10
+put r21Title, r21Code, r21Note in r21
+
+r22Title is a text with value "22. Values that update themselves", size 17, weight 800, foreground "#0b1d36"
+r22Code is a text with value "state clicks is 0\nderive doubled is clicks times 2\n\nwhen clicks changes\n    say \"clicks is now\" clicks\n.\n\nclicks is 2           # clicks is now 2\nsay doubled           # 4", size 13, foreground "#e5edf8", background "#0f1b2e", radius 8, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 12px 14px; line-height: 1.6; overflow-x: auto;"
+r22Note is a text with value "derive keeps a value in step with the values it is made from.", size 14, foreground "#3a4d6b", lineheight "1.5"
+r22 is a card with background "#ffffff", radius 14, border "1px solid #e3e9f2", padding 18, spacing 10
+put r22Title, r22Code, r22Note in r22
+
+r23Title is a text with value "23. Security and secrets", size 17, weight 800, foreground "#0b1d36"
+r23Code is a text with value "digest is sha256 of bytes from text \"abc\"\nsay hex from bytes digest\n\nhash password \"secret\" and call it stored\nif password \"secret\" matches hash stored\n    say \"Signed in\"\n.\n\nstore secret \"api-token\" with value token\ntoken is secret \"api-token\"", size 13, foreground "#e5edf8", background "#0f1b2e", radius 8, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 12px 14px; line-height: 1.6; overflow-x: auto;"
+r23Note is a text with value "Secrets live in the operating system’s credential store, never in your files.", size 14, foreground "#3a4d6b", lineheight "1.5"
+r23 is a card with background "#ffffff", radius 14, border "1px solid #e3e9f2", padding 18, spacing 10
+put r23Title, r23Code, r23Note in r23
+
+r24Title is a text with value "24. Rules of thumb", size 17, weight 800, foreground "#0b1d36"
+r24a is a text with value "• is gives a value. Otter has no = sign.", size 14, foreground "#0f1f36", lineheight "1.5"
+r24b is a text with value "• Indent the inside of a block; a period on its own line ends it.", size 14, foreground "#0f1f36", lineheight "1.5"
+r24c is a text with value "• Properties read name of person, never person.name.", size 14, foreground "#0f1f36", lineheight "1.5"
+r24d is a text with value "• Using a name before giving it a value is an error, not false.", size 14, foreground "#0f1f36", lineheight "1.5"
+r24e is a text with value "• A few words, such as count and start, are statement words and cannot be names. Otter tells you if you try.", size 14, foreground "#0f1f36", lineheight "1.5"
+r24f is a text with value "• Stuck? Read the error: it names the line and suggests a fix.", size 14, foreground "#0f1f36", lineheight "1.5"
+r24 is a card with background "#eaf2ff", radius 14, border "1px solid #cfe0ff", padding 18, spacing 8
+put r24Title, r24a, r24b, r24c, r24d, r24e, r24f in r24
 
 refGrid is a column with spacing 0, width full
-put r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15, r16, r17 in refGrid
+put r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15, r16, r17, r18, r19, r20, r21, r22, r23, r24 in refGrid
 
 refMoreTitle is a text with value "Go further", size 15, weight 800, foreground "#0b1d36"
 refMoreDocs is a link with text "Documentation", url "/docs/", foreground "#2563eb", size 15, weight 600
