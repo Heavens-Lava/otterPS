@@ -1402,6 +1402,51 @@ Test-Otter 'D133: rows made by a click handler each keep their own row; shared n
     Assert-AreEqual -Expected '3' -Actual "$($list.Native.Children[2].Children[0].Text)"
 }
 
+# D133 regression (found reviewing the D133 branch on Windows): a function the
+# outer handler calls reads the run's names live, as in 1.0. Giving the run
+# its own scope hid them from the function: "could not find the variable" on
+# the first click, the previous click's value after that.
+Test-Otter 'D133: a function called during the run sees its names; the inner handler keeps its own run' {
+    Import-Module (Join-Path $PSScriptRoot '..\src\Otter.Lexer.psm1') -Force
+    Import-Module (Join-Path $PSScriptRoot '..\src\Otter.Parser.psm1') -Force
+    $source = @'
+create column into taskList
+create button into addButton
+create text into status
+nextNumber is 0
+
+to report
+    text of status is title
+.
+
+when addButton is clicked
+    nextNumber is nextNumber plus 1
+    title is nextNumber
+    create row into line
+    create button into deleteButton
+    put deleteButton in line
+    put line in taskList
+    report
+    when deleteButton is clicked
+        text of status is title
+    .
+.
+'@
+    $program = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $source)
+    $env = New-OtterEnvironment
+    Invoke-OtterProgram -Program $program -Environment $env
+    $click = { param($element) $element.RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Button]::ClickEvent)) }
+    $status = $env.Get('status')
+    $list = $env.Get('taskList')
+    foreach ($i in 1..3) {
+        & $click $env.Get('addButton').Native
+        Assert-AreEqual -Expected "$i" -Actual "$($status.Native.Text)" "report after add $i"
+    }
+    & $click $list.Native.Children[0].Children[0]
+    Assert-AreEqual -Expected '1' -Actual "$($status.Native.Text)" "the first row's button"
+    Assert-AreEqual -Expected '3' -Actual "$($env.Get('title'))" 'the last run''s value remains afterwards'
+}
+
 Test-Otter 'end-to-end Task List dogfood: dynamic child insertion into padded column' {
     $res = Invoke-TestProgramWithEnv @(
         [CreateUiResourceStmt]::new('column', 'taskList', 1),

@@ -1,12 +1,14 @@
 # HandlerRuns.Tests.ps1
 #
-# Otter 1.0: a handler set up while another handler runs does not remember
-# that run, so an inner handler that uses a name the outer handler makes on
-# each run would act on the last run's value - a Delete button removing the
-# newest row instead of its own (found by the task-tracker tutorial,
-# docs/PROPOSAL_HANDLER_RUN_VALUES.md on feature/p8-browser-storage). Until
-# 1.1 gives each run its own names, the check stage refuses that form with
-# the form that works. These tests go through otter.ps1 (check and web).
+# A handler set up while another handler runs remembers that run (D133): an
+# inner `when` handler that uses a name the outer `when` handler makes on each
+# run keeps that run's value, so a row's Delete button removes its own row.
+# Otter 1.0 refused that form with `otter check` (found by the task-tracker
+# tutorial); 1.0.1 accepts it. Other deferred bodies (a `when x changes`
+# watcher, a file watcher, a route) do not give their runs their own names
+# yet, so a handler set up inside one that uses such a name is still refused.
+# These tests go through otter.ps1 (check and web); the console behaviour is
+# in UI.Tests.ps1 ("D133") and the browser behaviour in WebRuntimeUi.Tests.ps1.
 #
 # This file must stay portable: no powershell.exe, cmd or $env:TEMP.
 
@@ -34,7 +36,7 @@ function Invoke-OtterCommand {
 }
 
 try {
-    Test-Otter 'an inner handler using the row the outer handler makes is refused by check and web' {
+    Test-Otter 'D133: an inner handler using the row the outer handler makes is accepted by check and web' {
         $source = $script:Head + @"
 when addButton is clicked
     create row into line
@@ -48,9 +50,31 @@ when addButton is clicked
 "@
         foreach ($command in 'check', 'web') {
             $r = Invoke-OtterCommand -Command $command -Source $source
+            Assert-AreEqual -Expected 0 -Actual $r.ExitCode "$command output: $($r.Text)"
+        }
+    }
+
+    Test-Otter 'a handler set up inside a "when x changes" watcher that uses its run''s name is still refused' {
+        $source = $script:Head + @"
+state count is 0
+when count changes
+    create row into line
+    create button into deleteButton
+    put deleteButton in line
+    put line in taskList
+    when deleteButton is clicked
+        customstyle of line is "display: none;"
+    .
+.
+when addButton is clicked
+    count is count plus 1
+.
+"@
+        foreach ($command in 'check', 'web') {
+            $r = Invoke-OtterCommand -Command $command -Source $source
             Assert-AreEqual -Expected 2 -Actual $r.ExitCode
             Assert-True ($r.Text.Contains('This handler uses "line"')) "$command message: $($r.Text)"
-            Assert-True ($r.Text.Contains('Line 9:')) "$command should point at the inner handler: $($r.Text)"
+            Assert-True ($r.Text.Contains('Line 10:')) "$command should point at the inner handler: $($r.Text)"
             Assert-True ($r.Text.Contains('in a function')) "$command should show the working form: $($r.Text)"
         }
     }

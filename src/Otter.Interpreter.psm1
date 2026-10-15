@@ -1262,6 +1262,41 @@ function Set-OtterLoopVariable {
     else { $Environment.SetLocal($Name, $Value) }
 }
 
+# D133: the names of the `when` handler runs in progress (innermost last). A
+# handler only has run names when its body sets up another handler.
+$script:OtterHandlerRunStack = [System.Collections.Generic.List[object]]::new()
+
+function Enter-OtterHandlerRun {
+    param([Node]$Handler)
+    $names = $script:OtterLoopPassNames[$Handler]
+    if ($null -eq $names -or $names.Count -eq 0) { return $false }
+    $script:OtterHandlerRunStack.Add($names)
+    return $true
+}
+
+function Exit-OtterHandlerRun {
+    param([bool]$Entered)
+    if ($Entered) { $script:OtterHandlerRunStack.RemoveAt($script:OtterHandlerRunStack.Count - 1) }
+}
+
+# A handler registered during a run gets a scope holding a copy of the run's
+# names as they are now; without a run in progress it uses $Environment as is.
+function New-OtterHandlerCaptureEnvironment {
+    param([OtterEnvironment]$Environment)
+    if ($script:OtterHandlerRunStack.Count -eq 0) { return $Environment }
+    $capture = [OtterEnvironment]::new($Environment)
+    $any = $false
+    foreach ($names in $script:OtterHandlerRunStack) {
+        foreach ($n in $names) {
+            if ($capture.Variables.ContainsKey($n) -or -not $Environment.Has($n)) { continue }
+            $capture.SetLocal($n, $Environment.GetRaw($n))
+            $any = $true
+        }
+    }
+    if ($any) { return $capture }
+    return $Environment
+}
+
 function Complete-OtterLoopPasses {
     param([OtterEnvironment]$Environment, $Last)
     if ($null -eq $Last -or $null -eq $Last.Names) { return }
@@ -1304,6 +1339,7 @@ function Invoke-OtterProgram {
     $script:OtterCurrentJobContext = $null
 
     # D130: which names belong to each loop pass (see Otter.Runtime.psm1).
+    $script:OtterHandlerRunStack.Clear()
     try { $script:OtterLoopPassNames = Get-OtterLoopPassNames -Statements $Program.Statements }
     catch { $script:OtterLoopPassNames = @{} }
 
@@ -1690,17 +1726,23 @@ function Invoke-OtterStatement {
             }
 
             $body = $Statement.Body
-            # D133: each run of the handler is like a loop pass (D130): names
-            # its body sets that are set nowhere else in this scope get their
-            # own values for the run, so a handler set up during the run (a
-            # row's Delete button) keeps them. The run's values are copied
-            # back afterwards, so later code and other handlers see them as
-            # before. A handler without such names runs exactly as it did.
+            # D133: a handler set up while another handler runs keeps that
+            # run's values. The body itself runs in the scope it always did,
+            # so functions it calls and later code see its names live; what
+            # changes is that a handler registered during a run takes a copy
+            # of the run's names as they are now (as the web compiler passes
+            # them in), so a row's Delete button keeps its own row.
+            $Environment = New-OtterHandlerCaptureEnvironment -Environment $Environment
+            # GetNewClosure() runs the handler outside this module, where its
+            # private functions cannot be found by name, so the closure carries
+            # them as references.
             $handlerStatement = $Statement
+            $enterRun = ${function:Enter-OtterHandlerRun}
+            $exitRun = ${function:Exit-OtterHandlerRun}
             $handler = {
-                $run = New-OtterLoopPass -Loop $handlerStatement -Environment $Environment -Previous $null
-                try { Invoke-OtterStatements -Statements $body -Environment $run.Env }
-                finally { Complete-OtterLoopPasses -Environment $Environment -Last $run }
+                $entered = & $enterRun -Handler $handlerStatement
+                try { Invoke-OtterStatements -Statements $body -Environment $Environment }
+                finally { & $exitRun -Entered $entered }
             }.GetNewClosure()
             Add-OtterUiEventHandler -Resource $target -EventName $Statement.EventName -Handler $handler -Line $Statement.Line
             return
