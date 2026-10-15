@@ -1,0 +1,8 @@
+{
+  "expectedErrors": {
+    "dates.ot:b7": "shows that a plain date (today) has no hour; the next paragraph says it fails"
+  },
+  "companionFiles": {
+    "modules.ot:b8": { "helpers.ot": "modules.ot:b10" }
+  }
+}

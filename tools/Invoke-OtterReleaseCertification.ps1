@@ -17,6 +17,10 @@
       malformed-input-fuzz   tools/Invoke-OtterDifferentialFuzzer.ps1 -Mode MutationFuzz
       release-surface-audit  tools/Test-OtterReleaseSurface.ps1
       distribution-smoke     tools/Test-OtterDistribution.ps1
+      documentation-samples  tools/Test-OtterDocumentationSamples.ps1 (every website Run
+                             button pressed in headless Chromium, and every README and
+                             TOUR code block run with otter; needs Node and
+                             OTTER_PLAYWRIGHT_CORE)
 
     After the gates, one more check runs, always:
 
@@ -100,6 +104,7 @@ $gates = @(
     [ordered]@{ name = 'malformed-input-fuzz'; script = 'tools/Invoke-OtterDifferentialFuzzer.ps1'; args = @('-Mode', 'MutationFuzz', '-Iterations', [string]$FuzzIterations, '-Seed', [string]$FuzzSeed) }
     [ordered]@{ name = 'release-surface-audit'; script = 'tools/Test-OtterReleaseSurface.ps1'; args = @() }
     [ordered]@{ name = 'distribution-smoke'; script = 'tools/Test-OtterDistribution.ps1'; args = @() }
+    [ordered]@{ name = 'documentation-samples'; script = 'tools/Test-OtterDocumentationSamples.ps1'; args = @('-ReportPath', (Join-Path $OutputDirectory 'documentation-samples.md')) }
 )
 $Only = @($Only | ForEach-Object { $_ -split ',' } | Where-Object { $_ })
 if ($Only.Count -gt 0) {

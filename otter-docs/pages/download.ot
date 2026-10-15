@@ -104,7 +104,7 @@ when runCommandcopy is clicked
     copy text of runCommand to clipboard
     text of runCommandcopy is "Copied"
 .
-runResult is a text with value "Hello, Otter!", size 14, foreground "#a5e3b5", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
+runResult is a text with value "Hello, Otter!", size 14, foreground "#a5e3b5", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; border-top-left-radius: 0; border-top-right-radius: 0;"
 runResultlabel is a text with value "Output", size 12, weight 600, foreground "#b7c4d8"
 runResultcopy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
 runResulthead is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
