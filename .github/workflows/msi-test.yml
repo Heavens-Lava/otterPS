@@ -1,0 +1,60 @@
+# Builds Otter's Windows installer (MSI) and tests it on a clean, disposable
+# Windows: install the previous release's MSI, upgrade to this one, compare the
+# installed `otter` with the certified release ZIP, uninstall. Nothing is
+# published: only the msiexec logs are kept (artifacts of a public repository
+# can be downloaded by anyone signed in, so the MSIs are not uploaded).
+name: msi-test
+
+on:
+  workflow_dispatch:
+    inputs:
+      previous_version:
+        description: 'Released version to install first, to test the upgrade'
+        required: true
+        default: '1.0.0'
+
+jobs:
+  msi:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build this version's release ZIP
+        shell: powershell
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File tools\New-OtterDistribution.ps1
+
+      - name: Download the previous release's ZIP
+        shell: powershell
+        run: |
+          $v = '${{ inputs.previous_version }}'
+          New-Item -ItemType Directory -Force previous | Out-Null
+          Invoke-WebRequest -UseBasicParsing "https://github.com/Heavens-Lava/otterPS/releases/download/v$v/otter-$v.zip" -OutFile "previous\otter-$v.zip"
+
+      - name: Install the WiX toolset
+        shell: powershell
+        run: dotnet tool install --global wix --version 5.0.2
+
+      - name: Build both MSIs
+        shell: powershell
+        run: |
+          $env:PATH = "$env:USERPROFILE\.dotnet\tools;$env:PATH"
+          $current = (Get-Content VERSION -Raw).Trim()
+          powershell -NoProfile -ExecutionPolicy Bypass -File tools\New-OtterMsi.ps1 -ReleaseZip "dist\otter-$current.zip"
+          powershell -NoProfile -ExecutionPolicy Bypass -File tools\New-OtterMsi.ps1 -ReleaseZip "previous\otter-${{ inputs.previous_version }}.zip"
+          wix msi validate "dist\otter-$current.msi"
+          Get-ChildItem dist\*.msi*, previous\*.msi* | Format-Table Name, Length
+
+      - name: Install, upgrade, compare, uninstall
+        shell: powershell
+        run: |
+          $current = (Get-Content VERSION -Raw).Trim()
+          powershell -NoProfile -ExecutionPolicy Bypass -File tools\Test-OtterMsi.ps1 `
+            -OldMsi "previous\otter-${{ inputs.previous_version }}.msi" -NewMsi "dist\otter-$current.msi" `
+            -ReleaseZip "dist\otter-$current.zip" -LogDirectory msi-logs
+
+      - name: Keep the msiexec logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: otter-msi-logs
+          path: msi-logs/

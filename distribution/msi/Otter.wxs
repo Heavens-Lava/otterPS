@@ -1,0 +1,54 @@
+<!--
+  The Windows installer (MSI) for Otter - for winget (`winget install otter`)
+  and as an alternative to the release ZIP's Install-Otter.ps1.
+
+  It installs exactly the files of the release ZIP, for the current user only
+  (no administrator rights), into %LOCALAPPDATA%\Programs\Otter, and adds that
+  folder to the user's PATH so `otter` (otter.cmd) works in any new terminal.
+  It adds no executable of its own. Uninstalling (Settings > Apps) removes the
+  files, the folders and the PATH entry.
+
+  Built by tools\New-OtterMsi.ps1 with WiX 5, which also writes
+  OtterFiles.wxs: one component per file of the release, each tracked by its
+  own value under HKCU\Software\Otter\Files (a per-user install keeps track of
+  its files in the user's registry, ICE38), and a RemoveFolder for every
+  folder (ICE64).
+    Version  the Otter version, numbers only (1.0.1)
+
+  The UpgradeCode never changes: a newer Otter MSI replaces an older one.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="Otter Programming Language"
+           Manufacturer="Jeffrey Macy"
+           Version="$(var.Version)"
+           UpgradeCode="F2065F2E-9E7A-405C-810C-3826A1DAAE39"
+           Scope="perUser"
+           Language="1033">
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of Otter is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <!-- What Settings > Apps shows. -->
+    <Property Id="ARPURLINFOABOUT" Value="https://otterprogramming.com" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/Heavens-Lava/otterPS/issues" />
+    <Property Id="ARPCOMMENTS" Value="A programming language that reads like plain English." />
+
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="UserProgramsFolder" Name="Programs">
+        <Directory Id="INSTALLFOLDER" Name="Otter" />
+      </Directory>
+    </StandardDirectory>
+
+    <!-- `otter` on the user's PATH. -->
+    <Component Id="OtterOnPath" Directory="INSTALLFOLDER" Guid="13C9493F-FE1A-4989-AB39-98532F4D7557">
+      <RegistryValue Root="HKCU" Key="Software\Otter" Name="InstallFolder" Type="string" Value="[INSTALLFOLDER]" KeyPath="yes" />
+      <Environment Id="OtterPath" Name="PATH" Value="[INSTALLFOLDER]" Part="last" Action="set" System="no" Permanent="no" />
+      <RemoveFolder Id="RemoveUserProgramsFolder" Directory="UserProgramsFolder" On="uninstall" />
+    </Component>
+
+    <Feature Id="Otter">
+      <ComponentRef Id="OtterOnPath" />
+      <ComponentGroupRef Id="OtterFiles" />
+    </Feature>
+  </Package>
+</Wix>
