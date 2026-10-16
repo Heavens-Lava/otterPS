@@ -38,9 +38,20 @@ function Get-UserPathEntries {
     return @($value -split ';' | Where-Object { $_ })
 }
 
+# What Settings > Apps lists for Otter: the products Windows Installer has
+# registered under Otter's UpgradeCode (per-user MSI installs are registered
+# with Windows Installer, not under the Uninstall registry key).
+$upgradeCode = '{F2065F2E-9E7A-405C-810C-3826A1DAAE39}'
 function Get-OtterUninstallEntries {
-    $keys = @(Get-ChildItem 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall' -ErrorAction SilentlyContinue)
-    return @($keys | ForEach-Object { Get-ItemProperty $_.PSPath } | Where-Object { $_.DisplayName -eq 'Otter Programming Language' })
+    $installer = New-Object -ComObject WindowsInstaller.Installer
+    $codes = @($installer.GetType().InvokeMember('RelatedProducts', 'GetProperty', $null, $installer, @($upgradeCode)))
+    return @($codes | Where-Object { $_ } | ForEach-Object {
+        [pscustomobject]@{
+            ProductCode = $_
+            DisplayName = $installer.GetType().InvokeMember('ProductInfo', 'GetProperty', $null, $installer, @($_, 'ProductName'))
+            DisplayVersion = $installer.GetType().InvokeMember('ProductInfo', 'GetProperty', $null, $installer, @($_, 'VersionString'))
+        }
+    })
 }
 
 function Invoke-Msiexec {
@@ -118,7 +129,8 @@ foreach ($check in @('check hello.ot', 'help')) {
 }
 
 Write-Host '4. Uninstall'
-$productCode = ($entries | Select-Object -First 1).PSChildName
+$productCode = (@(Get-OtterUninstallEntries) | Select-Object -First 1).ProductCode
+Write-Check ([bool]$productCode) "Windows Installer knows Otter's product code ($productCode)"
 $exit = Invoke-Msiexec -Arguments @('/x', $productCode) -Log (Join-Path $LogDirectory 'uninstall.log')
 Write-Check ($exit -eq 0) "msiexec /x exited 0 (got $exit)"
 Write-Check (-not (Test-Path $installFolder)) "$installFolder removed"
