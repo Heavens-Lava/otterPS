@@ -42,12 +42,13 @@
       crumbs.innerHTML = `<a href="/docs/">Documentation</a> <span aria-hidden="true">/</span> ${escapeHtml(title.textContent.trim())}`;
       main.insertBefore(crumbs, title);
     }
-    // Otter's web compiler emits heading resources as .otter-text divs rather
-    // than h2/h3 elements. Their authored 26px/800 styling is the stable
-    // semantic signal on these documentation pages.
-    const headings = [...main.querySelectorAll('h2, h3, .otter-text')].filter(heading => {
+    // Otter's web compiler emits every text as an .otter-text element (the site
+    // build promotes some to h1-h3 for search engines, keeping the class). The
+    // authored 26px/800 styling is the stable signal for a section heading;
+    // smaller bold card titles are not part of the outline.
+    const headings = [...main.querySelectorAll('.otter-text')].filter(heading => {
       const style = getComputedStyle(heading);
-      return /^H[23]$/.test(heading.tagName) || (parseFloat(style.fontSize) >= 24 && Number(style.fontWeight) >= 700);
+      return parseFloat(style.fontSize) >= 24 && Number(style.fontWeight) >= 700;
     });
     const seen = new Map();
     headings.forEach(heading => { const base = normalize(heading.textContent).replace(/ /g, '-') || 'section'; const n = (seen.get(base) || 0) + 1; seen.set(base, n); heading.id = n === 1 ? base : `${base}-${n}`; const link = document.createElement('a'); link.className = 'docs-heading-link'; link.href = `#${heading.id}`; link.textContent = heading.textContent; heading.textContent = ''; heading.appendChild(link); });

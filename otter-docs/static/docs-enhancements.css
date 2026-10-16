@@ -208,3 +208,8 @@ body { background: #f4f7fb; color: var(--docs-ink); font-family: Inter, ui-sans-
   #refGrid * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
 #refGrid [style*="white-space: pre"] { white-space: pre-wrap !important; }
+
+/* The Quick reference sidebar link follows "Your first program" and is
+   collapsed with the rest of Getting Started on pages from other groups
+   (those pages hide each link of a collapsed group by name). */
+#sideFirstProgram[style*="display: none"] ~ #sideQuickReference { display: none !important; }

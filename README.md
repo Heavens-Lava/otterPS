@@ -2,6 +2,8 @@
 
 **Readable like English. Precise like code.**
 
+**Website, download and documentation: [otterprogramming.com](https://otterprogramming.com)** · [Quick reference](https://otterprogramming.com/quick-reference/)
+
 Otter is a programming language designed to make software development read naturally without giving up deterministic programming-language behavior.
 
 ```otter
