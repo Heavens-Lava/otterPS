@@ -44,14 +44,19 @@ function Get-UserPathEntries {
 $upgradeCode = '{F2065F2E-9E7A-405C-810C-3826A1DAAE39}'
 function Get-OtterUninstallEntries {
     $installer = New-Object -ComObject WindowsInstaller.Installer
-    $codes = @($installer.GetType().InvokeMember('RelatedProducts', 'GetProperty', $null, $installer, @($upgradeCode)))
-    return @($codes | Where-Object { $_ } | ForEach-Object {
-        [pscustomobject]@{
-            ProductCode = $_
-            DisplayName = $installer.GetType().InvokeMember('ProductInfo', 'GetProperty', $null, $installer, @($_, 'ProductName'))
-            DisplayVersion = $installer.GetType().InvokeMember('ProductInfo', 'GetProperty', $null, $installer, @($_, 'VersionString'))
+    $list = $installer.GetType().InvokeMember('RelatedProducts', 'GetProperty', $null, $installer, @($upgradeCode))
+    $count = [int]$list.GetType().InvokeMember('Count', 'GetProperty', $null, $list, $null)
+    $entries = @()
+    for ($i = 0; $i -lt $count; $i++) {
+        # A COM StringList: read each item as plain text before passing it back.
+        $code = [string]$list.GetType().InvokeMember('Item', 'GetProperty', $null, $list, @($i))
+        $entries += [pscustomobject]@{
+            ProductCode = $code
+            DisplayName = [string]$installer.GetType().InvokeMember('ProductInfo', 'GetProperty', $null, $installer, @($code, 'ProductName'))
+            DisplayVersion = [string]$installer.GetType().InvokeMember('ProductInfo', 'GetProperty', $null, $installer, @($code, 'VersionString'))
         }
-    })
+    }
+    return $entries
 }
 
 function Invoke-Msiexec {
