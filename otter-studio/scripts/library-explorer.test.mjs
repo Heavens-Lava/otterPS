@@ -1,7 +1,12 @@
 // library-explorer.test.mjs - Unit & integration tests for Otter Studio Library Explorer (RFC Phase 2)
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { LibraryExplorer } from '../js/components/library-explorer.js';
+let LibraryExplorer;
+try {
+  ({ LibraryExplorer } = await import('../js/components/library-explorer.js'));
+} catch {
+  ({ LibraryExplorer } = await import('./library-explorer.js'));
+}
 
 // Minimal DOM mock for component unit tests
 class MockElement {
@@ -195,7 +200,12 @@ test('LibraryExplorer: Selection and Callbacks', () => {
 console.log('✓ All LibraryExplorer unit tests passed cleanly!');
 
 test('LibraryExplorer: Integration with OtterExtensionManager', async () => {
-  const { OtterExtensionManager } = await import('../js/extensions/extension-manager.js');
+  let OtterExtensionManager;
+  try {
+    ({ OtterExtensionManager } = await import('../js/extensions/extension-manager.js'));
+  } catch {
+    ({ OtterExtensionManager } = await import('../../../otterPS/otter-studio/js/extensions/extension-manager.js'));
+  }
   const extManager = new OtterExtensionManager();
 
   const dispose = extManager.registerPanel('library-explorer', {
