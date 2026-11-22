@@ -1,0 +1,36 @@
+{
+  "id": "web/responsive-navbar",
+  "slug": "web-responsive-navbar",
+  "name": "Responsive Navigation Bar",
+  "description": "Sticky top navigation header with keyboard-accessible mobile menu drawer, Escape-to-close behavior, and clean semantic landmarks.",
+  "category": "web",
+  "subcategory": "Navigation",
+  "language": "HTML / CSS / JS",
+  "framework": "Vanilla Web",
+  "tags": ["navbar", "navigation", "responsive", "mobile-menu", "accessible", "header"],
+  "version": "1.0.0",
+  "license": "MIT",
+  "platforms": ["Web (All Modern Browsers)"],
+  "dependencies": [],
+  "preview": {
+    "type": "iframe-sandbox",
+    "height": 260,
+    "caption": "Interactive live preview — click the mobile menu toggle or tab through links.",
+    "htmlFile": "navbar.html",
+    "cssFile": "navbar.css",
+    "jsFile": "navbar.js"
+  },
+  "files": [
+    { "label": "navbar.html", "path": "navbar.html", "language": "html" },
+    { "label": "navbar.css", "path": "navbar.css", "language": "css" },
+    { "label": "navbar.js", "path": "navbar.js", "language": "javascript" }
+  ],
+  "install": "Copy navbar.html, navbar.css, and navbar.js into your project and include the script with defer.",
+  "usage": "Place <header class=\"otter-nav\"> at the top of <body>. Toggle aria-current=\"page\" on the active navigation link.",
+  "verification": {
+    "status": "behaviorally-tested",
+    "label": "Browser E2E & Sandbox Verified",
+    "details": "Verified in headless Chromium E2E (tests/library-e2e.test.mjs): renders cleanly with zero console errors inside opaque-origin CSP sandbox; semantic <header>/<nav>, aria-expanded, and Escape dismissal reviewed."
+  },
+  "related": ["web-command-palette", "web-animated-gradient-button"]
+}

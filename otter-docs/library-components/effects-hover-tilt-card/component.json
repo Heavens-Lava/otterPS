@@ -1,0 +1,36 @@
+{
+  "id": "effects/hover-tilt-card",
+  "slug": "effects-hover-tilt-card",
+  "name": "3D Specular Hover Tilt Card",
+  "description": "Pointer-tracking 3D perspective card with a dynamic radial specular highlight and automatic prefers-reduced-motion fallback.",
+  "category": "effects",
+  "subcategory": "Hover Effects",
+  "language": "CSS / JS",
+  "framework": "Vanilla Web",
+  "tags": ["hover", "3d", "tilt", "card", "specular", "animation", "effect"],
+  "version": "1.0.0",
+  "license": "MIT",
+  "platforms": ["Web (All Modern Browsers)"],
+  "dependencies": [],
+  "preview": {
+    "type": "iframe-sandbox",
+    "height": 260,
+    "caption": "Interactive live preview — move your pointer across the card to inspect the 3D tilt and specular highlight.",
+    "htmlFile": "tilt.html",
+    "cssFile": "tilt.css",
+    "jsFile": "tilt.js"
+  },
+  "files": [
+    { "label": "tilt.html", "path": "tilt.html", "language": "html" },
+    { "label": "tilt.css", "path": "tilt.css", "language": "css" },
+    { "label": "tilt.js", "path": "tilt.js", "language": "javascript" }
+  ],
+  "install": "Copy tilt.html, tilt.css, and tilt.js into your project.",
+  "usage": "Add data-otter-tilt to any card element; tilt.js binds pointermove/pointerleave listeners while respecting prefers-reduced-motion.",
+  "verification": {
+    "status": "behaviorally-tested",
+    "label": "Browser E2E & Sandbox Verified",
+    "details": "Verified in headless Chromium E2E (tests/library-e2e.test.mjs): renders cleanly inside opaque-origin CSP sandbox with zero console errors and automatic prefers-reduced-motion fallback."
+  },
+  "related": ["effects-glassmorphism-card", "web-animated-gradient-button"]
+}

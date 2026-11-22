@@ -5,8 +5,10 @@ import { fileURLToPath } from 'node:url';
 
 const root = normalize(fileURLToPath(new URL('../generated/', import.meta.url)));
 const types = {
-  '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.json': 'application/json',
-  '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.svg': 'image/svg+xml', '.ico': 'image/x-icon'
+  '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.mjs': 'text/javascript', '.json': 'application/json',
+  '.xml': 'application/xml', '.txt': 'text/plain',
+  '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.svg': 'image/svg+xml', '.ico': 'image/x-icon',
+  '.mp4': 'video/mp4', '.webm': 'video/webm'
 };
 const port = Number(process.env.PORT || 4174);
 
@@ -15,8 +17,8 @@ createServer(async (request, response) => {
   if (pathname !== '/' && !pathname.endsWith('/') && !extname(pathname)) {
     response.writeHead(308, { location: `${pathname}/` }); response.end(); return;
   }
-  const isStaticAsset = pathname.startsWith('/static/');
-  const relative = isStaticAsset
+  const isDirectFile = pathname.startsWith('/static/') || Boolean(extname(pathname));
+  const relative = isDirectFile
     ? pathname.slice(1)
     : (pathname === '/' ? 'home/index.html' : `${pathname.slice(1)}index.html`);
   const local = normalize(join(root, relative));

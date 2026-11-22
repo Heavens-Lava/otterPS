@@ -1,0 +1,39 @@
+{
+  "id": "desktop/wpf-settings-shell",
+  "slug": "desktop-wpf-settings-shell",
+  "name": "WPF Settings Dialog Shell",
+  "description": "Two-pane desktop settings dialog with left category navigation, Save/Cancel actions, Escape cancellation, and JSON-friendly settings state.",
+  "category": "desktop",
+  "subcategory": "Dialogs & Settings",
+  "language": "C# / XAML",
+  "framework": "WPF (.NET 8/10)",
+  "tags": ["wpf", "xaml", "csharp", "settings", "dialog", "sidebar", "desktop"],
+  "version": "1.0.0",
+  "license": "MIT",
+  "platforms": ["Windows Desktop (.NET 8 / .NET 10 WPF)"],
+  "dependencies": [
+    { "name": "Microsoft.WindowsDesktop.App.WPF", "version": ">=8.0.0" }
+  ],
+  "preview": {
+    "type": "diagram",
+    "caption": "Native Windows WPF dialog — inspect XAML and C# source tabs for clean modal dialog composition.",
+    "architecture": [
+      "Left-docked TabControl (General / Storage)",
+      "Bound Settings Controls (CheckBox + TextBox -> AppSettingsModel)",
+      "Dialog Action Footer (IsDefault Save + IsCancel Cancel)"
+    ],
+    "projectRef": "Drop into any <UseWPF>true</UseWPF> .NET Desktop project under Views/SettingsDialog/"
+  },
+  "files": [
+    { "label": "SettingsDialog.xaml", "path": "SettingsDialog.xaml", "language": "xaml" },
+    { "label": "SettingsDialog.xaml.cs", "path": "SettingsDialog.xaml.cs", "language": "csharp" }
+  ],
+  "install": "Copy SettingsDialog.xaml and SettingsDialog.xaml.cs into your WPF project under Views/.",
+  "usage": "Open modally via var dlg = new SettingsDialog(currentSettings) { Owner = this }; if (dlg.ShowDialog() == true) Save(dlg.Settings);",
+  "verification": {
+    "status": "contract-validated",
+    "label": "WPF Compile & XAML Checked",
+    "details": "XAML namespaces, tags, and Click handler bindings validated cross-platform and compiled natively with <UseWPF>true</UseWPF> in Windows CI. Interactive desktop dialog rendering requires a Windows WPF host."
+  },
+  "related": ["desktop-wpf-data-grid", "blueprint-otter-official-file-settings"]
+}

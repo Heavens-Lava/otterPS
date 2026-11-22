@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "canonicalRepo": "Heavens-Lava/otter-net",
+  "expectedCommit": "6fec8528f25f59806c9e8e9bc7d83b6d8bd178d6",
+  "expectedLibraryTreeSha256": "081a4c0cdfd761969cf1ffd65c740dee60b38f56de6cec82449df1800cf1d9a5",
+  "expectedOtterVersion": "1.0.1",
+  "defaultRelativePath": "../../otter-net/library",
+  "expectedCounts": {
+    "packs": 5,
+    "snippets": 38,
+    "blueprints": 4,
+    "recipes": 4,
+    "workflows": 4
+  },
+  "expectedPackVersions": {
+    "otter-official/math-utils": "1.0.1",
+    "otter-official/text-utils": "1.0.1",
+    "otter-official/list-utils": "1.0.1",
+    "otter-official/file-helpers": "1.0.1",
+    "otter-official/game-entity": "1.1.0"
+  }
+}

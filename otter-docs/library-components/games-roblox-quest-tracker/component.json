@@ -1,0 +1,39 @@
+{
+  "id": "games/roblox-quest-tracker",
+  "slug": "games-roblox-quest-tracker",
+  "name": "Roblox Luau Quest & Objective Tracker",
+  "description": "Typed Roblox Luau ModuleScript service for tracking per-player quest states, incrementing objective counters, and emitting completion rewards cleanly on the server.",
+  "category": "games",
+  "subcategory": "Quest Systems",
+  "language": "Luau",
+  "framework": "Roblox Studio",
+  "tags": ["roblox", "luau", "quest", "objectives", "rpg", "server-module", "games"],
+  "version": "1.0.0",
+  "license": "MIT",
+  "platforms": ["Roblox Studio (ServerScriptService / ReplicatedStorage)"],
+  "dependencies": [
+    { "name": "Roblox Luau Runtime", "version": ">=2024.1" }
+  ],
+  "preview": {
+    "type": "diagram",
+    "caption": "Roblox Luau server module — store QuestConfig in ReplicatedStorage/Quests/QuestConfig and QuestService in ServerScriptService/Quests/QuestService.",
+    "architecture": [
+      "ReplicatedStorage/Quests/QuestConfig.luau (frozen quest + objective definitions)",
+      "ServerScriptService/Quests/QuestService.luau requires QuestConfig via ReplicatedStorage:WaitForChild(\"Quests\"):WaitForChild(\"QuestConfig\")",
+      "QuestService.AcceptQuest(userId, questId) & RecordProgress(userId, objectiveType, delta, onCompleted)"
+    ],
+    "projectRef": "Place QuestConfig.luau as a ModuleScript at ReplicatedStorage/Quests/QuestConfig and QuestService.luau as a ModuleScript at ServerScriptService/Quests/QuestService."
+  },
+  "files": [
+    { "label": "QuestConfig.luau", "path": "QuestConfig.luau", "language": "luau" },
+    { "label": "QuestService.luau", "path": "QuestService.luau", "language": "luau" }
+  ],
+  "install": "Create a Folder named Quests in ReplicatedStorage with ModuleScript QuestConfig (QuestConfig.luau), and a Folder named Quests in ServerScriptService with ModuleScript QuestService (QuestService.luau).",
+  "usage": "Require ServerScriptService.Quests.QuestService on the server, call QuestService.AcceptQuest(player.UserId, \"slime_hunt\"), and report progress via QuestService.RecordProgress(player.UserId, \"defeat_slime\", 1, onCompleted).",
+  "verification": {
+    "status": "source-reviewed",
+    "label": "Source & Structure Checked (Roblox Luau)",
+    "details": "Strict Luau source (--!strict) checked by scripts/validate-components.mjs for ReplicatedStorage/Quests/QuestConfig path consistency, type exports, and block structure. Not executed in Roblox Studio in CI."
+  },
+  "related": ["games-godot-health-combat", "games-unity-inventory-system", "pack-otter-official-game-entity"]
+}

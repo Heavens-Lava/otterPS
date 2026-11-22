@@ -1,0 +1,157 @@
+name: Otter Website & Component Library CI
+
+on:
+  push:
+    branches: [ master, main ]
+    paths:
+      - 'otter-docs/**'
+      - 'src/Otter.Web.psm1'
+      - 'VERSION'
+      - '.github/workflows/otter-docs-library.yml'
+  pull_request:
+    branches: [ master, main ]
+    paths:
+      - 'otter-docs/**'
+      - 'src/Otter.Web.psm1'
+      - 'VERSION'
+      - '.github/workflows/otter-docs-library.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  website-library-linux:
+    name: Website & Library Build + E2E (Ubuntu)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout otterPS
+        uses: actions/checkout@v4
+        with:
+          path: otterPS
+
+      - name: Read pinned otter-net commit from library-source.json
+        id: pin
+        shell: bash
+        run: |
+          COMMIT=$(node -e "console.log(JSON.parse(require('fs').readFileSync('otterPS/otter-docs/library-source.json','utf8')).expectedCommit)")
+          echo "commit=$COMMIT" >> "$GITHUB_OUTPUT"
+          echo "Pinned otter-net commit: $COMMIT"
+
+      - name: Checkout pinned Heavens-Lava/otter-net
+        uses: actions/checkout@v4
+        with:
+          repository: Heavens-Lava/otter-net
+          ref: ${{ steps.pin.outputs.commit }}
+          path: otter-net
+          fetch-depth: 1
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Setup .NET 10 SDK (for Unity & WPF ViewModel validation)
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build complete Otter website & Component Library (offline)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          pwsh -NoProfile -File ./otterPS/otter-docs/scripts/build-otter-pages.ps1 -OtterNetLibrary "$PWD/otter-net/library"
+
+      - name: Audit all internal routes (167 pages)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          pwsh -NoProfile -File ./otterPS/otter-docs/scripts/audit-otter-routes.ps1
+
+      - name: Run catalog, security, SEO, and publish-staging tests
+        working-directory: ./otterPS/otter-docs
+        run: npm run test:library
+
+      - name: Run browser-driven E2E tests (headless Chromium)
+        working-directory: ./otterPS/otter-docs
+        run: npm run test:e2e
+
+      - name: Run component source/harness validation (Unity C#, WPF ViewModel/XAML, Roblox Luau)
+        working-directory: ./otterPS/otter-docs
+        run: npm run validate:components
+
+      - name: Verify reproducible deterministic build output
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $outA = Join-Path ([IO.Path]::GetTempPath()) 'otter-repro-a'
+          $outB = Join-Path ([IO.Path]::GetTempPath()) 'otter-repro-b'
+          pwsh -NoProfile -File ./otterPS/otter-docs/scripts/build-otter-pages.ps1 -Only library,home -OutputRoot $outA -OtterNetLibrary "$PWD/otter-net/library" | Out-Null
+          pwsh -NoProfile -File ./otterPS/otter-docs/scripts/build-otter-pages.ps1 -Only library,home -OutputRoot $outB -OtterNetLibrary "$PWD/otter-net/library" | Out-Null
+          $files = @(
+            'static/library-catalog.json',
+            'sitemap.xml',
+            'robots.txt',
+            'library/index.html',
+            'library/web-animated-gradient-button/index.html',
+            'library/pack-otter-official-game-entity/index.html',
+            'library/desktop-wpf-data-grid/index.html',
+            'library/games-roblox-quest-tracker/index.html'
+          )
+          foreach ($rel in $files) {
+            $hA = (Get-FileHash -Path (Join-Path $outA $rel) -Algorithm SHA256).Hash
+            $hB = (Get-FileHash -Path (Join-Path $outB $rel) -Algorithm SHA256).Hash
+            if ($hA -ne $hB) { throw "Reproducibility mismatch for $rel ($hA != $hB)" }
+            Write-Host "Reproducible SHA-256 [$rel]: $hA"
+          }
+
+  website-library-windows:
+    name: Website, Native WPF XAML Build & Publish Audit (Windows)
+    runs-on: windows-2025
+    timeout-minutes: 25
+    steps:
+      - name: Checkout otterPS
+        uses: actions/checkout@v4
+        with:
+          path: otterPS
+
+      - name: Read pinned otter-net commit from library-source.json
+        id: pin
+        shell: pwsh
+        run: |
+          $cfg = Get-Content -LiteralPath 'otterPS/otter-docs/library-source.json' -Raw | ConvertFrom-Json
+          "commit=$($cfg.expectedCommit)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - name: Checkout pinned Heavens-Lava/otter-net
+        uses: actions/checkout@v4
+        with:
+          repository: Heavens-Lava/otter-net
+          ref: ${{ steps.pin.outputs.commit }}
+          path: otter-net
+          fetch-depth: 1
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Setup .NET 10 SDK (Windows WPF XAML compiler)
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build complete Otter website & audit routes (Windows)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          pwsh -NoProfile -File .\otterPS\otter-docs\scripts\build-otter-pages.ps1 -OtterNetLibrary "$PWD\otter-net\library"
+          pwsh -NoProfile -File .\otterPS\otter-docs\scripts\audit-otter-routes.ps1
+
+      - name: Run catalog, security, SEO, and robocopy publish-staging tests
+        working-directory: ./otterPS/otter-docs
+        run: npm run test:library
+
+      - name: Compile native WPF XAML + C# & Unity harness on Windows
+        working-directory: ./otterPS/otter-docs
+        run: node scripts/validate-components.mjs --require-wpf-build

@@ -1,0 +1,61 @@
+:root {
+  --btn-c1: #2563eb;
+  --btn-c2: #06b6d4;
+  --btn-c3: #7c3aed;
+  --btn-radius: 12px;
+  --btn-speed: 4s;
+}
+
+.demo-stage {
+  min-height: 180px;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle at top, #172a4a, #0b162a);
+  font-family: Inter, system-ui, sans-serif;
+}
+
+.otter-grad-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 26px;
+  border: 0;
+  border-radius: var(--btn-radius);
+  color: #ffffff;
+  font: 600 15px/1 Inter, system-ui, sans-serif;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  background: linear-gradient(120deg, var(--btn-c1), var(--btn-c2), var(--btn-c3), var(--btn-c1));
+  background-size: 260% 260%;
+  box-shadow: 0 10px 26px rgba(37, 99, 235, 0.35);
+  transition: transform 160ms ease, box-shadow 160ms ease;
+  animation: otterGradShift var(--btn-speed) ease infinite;
+}
+
+.otter-grad-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 32px rgba(6, 182, 212, 0.42);
+}
+
+.otter-grad-btn:active {
+  transform: translateY(0);
+}
+
+.otter-grad-btn:focus-visible {
+  outline: 3px solid #93c5fd;
+  outline-offset: 3px;
+}
+
+@keyframes otterGradShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .otter-grad-btn {
+    animation: none;
+    transition: none;
+  }
+}

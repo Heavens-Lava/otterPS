@@ -8,25 +8,26 @@ brandName is a link with text "Otter", url "/", foreground "#ffffff", size 22, w
 brandGroup is a row with spacing 10, align middle
 put brandMark, brandName in brandGroup
 
+navLibrary is a link with text "Library", url "/library/", foreground "#d7e3f4", size 14, weight 500, customstyle "padding: 22px 0; border-bottom: 2px solid transparent;"
 navDocs is a link with text "Documentation", url "/docs/", foreground "#d7e3f4", size 14, weight 500, customstyle "padding: 22px 0; border-bottom: 2px solid transparent;"
 navDownload is a link with text "Download", url "/download/", foreground "#d7e3f4", size 14, weight 500, customstyle "padding: 22px 0; border-bottom: 2px solid transparent;"
 navCommunity is a link with text "Community", url "/support/", foreground "#d7e3f4", size 14, weight 500, customstyle "padding: 22px 0; border-bottom: 2px solid transparent;"
 navBlog is a link with text "Blog", url "https://github.com/Heavens-Lava/otterPS", foreground "#d7e3f4", size 14, weight 500, customstyle "padding: 22px 0; border-bottom: 2px solid transparent;"
-# Kept as resources because existing pages mark them active. The reference-style
-# header deliberately keeps the visible navigation to four primary choices.
+# Kept as resources because existing pages mark them active.
 navReference is a link with text "Reference", url "/reference/", foreground "#d7e3f4", size 14, weight 500
 navExamples is a link with text "Examples", url "/examples/", foreground "#d7e3f4", size 14, weight 500
 navRelease is a link with text "Release", url "/release/", foreground "#d7e3f4", size 14, weight 500
-docsSearchButton is a button with text "Search documentation...   Ctrl K", size 12, weight 500, background "#173252", foreground "#dbeafe", radius 8, padding "8px 14px", customstyle "border: 1px solid #315377; min-width: 206px; text-align: left;"
+docsSearchButton is a button with text "Search docs & library...  Ctrl K", size 12, weight 500, background "#173252", foreground "#dbeafe", radius 8, padding "8px 14px", customstyle "border: 1px solid #315377; min-width: 214px; text-align: left;"
 navGitHub is a link with text "GitHub", url "https://github.com/Heavens-Lava/otterPS", foreground "#ffffff", size 13, weight 700, customstyle "padding: 8px 0;"
-navLinks is a row with spacing 25, align middle
-put navDocs, navDownload, navCommunity, navBlog, docsSearchButton, navGitHub in navLinks
+navLinks is a row with spacing 20, align middle
+put navLibrary, navDocs, navDownload, navCommunity, navBlog, docsSearchButton, navGitHub in navLinks
 
 topBar is a row with spread, align middle, spacing 36, width full, background "#0b1d36", padding "0 40px", height 64, customstyle "box-sizing: border-box; position: sticky; top: 0; z-index: 50;"
 put brandGroup, navLinks in topBar
 
 
 footerNote is a text with value "Otter is free to use, including for commercial software. Created by Jeffrey Macy.", size 13, foreground "#8fa3c2"
+footerLibraryLink is a link with text "Library", url "/library/", foreground "#b7c4d8", size 13
 footerDocsLink is a link with text "Docs", url "/docs/", foreground "#b7c4d8", size 13
 footerQuickRef is a link with text "Quick reference", url "/quick-reference/", foreground "#b7c4d8", size 13
 footerDownloadLink is a link with text "Download", url "/download/", foreground "#b7c4d8", size 13
@@ -36,6 +37,6 @@ footerAbout is a link with text "About", url "/about/", foreground "#b7c4d8", si
 footerContact is a link with text "Contact", url "/support/", foreground "#b7c4d8", size 13
 footerSource is a link with text "GitHub", url "https://github.com/Heavens-Lava/otterPS", foreground "#b7c4d8", size 13
 footerLinks is a row with spacing 20, align middle
-put footerDocsLink, footerQuickRef, footerDownloadLink, footerLicense, footerPrivacy, footerAbout, footerContact, footerSource in footerLinks
+put footerLibraryLink, footerDocsLink, footerQuickRef, footerDownloadLink, footerLicense, footerPrivacy, footerAbout, footerContact, footerSource in footerLinks
 siteFooter is a row with spread, align middle, spacing 24, width full, background "#0b1d36", padding "26px 40px", customstyle "box-sizing: border-box; margin-top: 40px;"
 put footerNote, footerLinks in siteFooter

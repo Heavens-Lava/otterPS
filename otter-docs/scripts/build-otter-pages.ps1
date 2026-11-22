@@ -1,6 +1,8 @@
 param(
     [string]$OutputRoot = (Join-Path $PSScriptRoot '..\generated'),
-    [string[]]$Only = @()   # build just these page slugs (fast iteration)
+    [string[]]$Only = @(),   # build just these page slugs (fast iteration)
+    [string]$OtterNetLibrary = '',
+    [switch]$SkipLibrary
 )
 $Only = @($Only | ForEach-Object { $_ -split ',' } | Where-Object { $_ })
 
@@ -100,4 +102,18 @@ foreach ($source in Get-ChildItem -LiteralPath $pagesRoot -Filter '*.ot' | Where
         }
     }
     Write-Host "Built /$slug/"
+}
+
+if (-not $SkipLibrary -and ($Only.Count -eq 0 -or $Only -contains 'library')) {
+    $catalogScript = Join-Path $PSScriptRoot 'build-library-catalog.mjs'
+    $pagesScript = Join-Path $PSScriptRoot 'build-library-pages.mjs'
+    $catalogArgs = @($catalogScript, '--output-root', $OutputRoot)
+    if (-not [string]::IsNullOrWhiteSpace($OtterNetLibrary)) {
+        $catalogArgs += @('--otter-net-library', $OtterNetLibrary)
+    }
+    & node @catalogArgs
+    if ($LASTEXITCODE -ne 0) { throw "build-library-catalog.mjs failed with exit code $LASTEXITCODE." }
+
+    & node $pagesScript --output-root $OutputRoot
+    if ($LASTEXITCODE -ne 0) { throw "build-library-pages.mjs failed with exit code $LASTEXITCODE." }
 }

@@ -1,0 +1,37 @@
+{
+  "id": "web/command-palette",
+  "slug": "web-command-palette",
+  "name": "Accessible Command Palette",
+  "description": "Keyboard-driven quick command launcher with live fuzzy filtering, arrow-key navigation, Enter selection, and TypeScript/JavaScript source.",
+  "category": "web",
+  "subcategory": "Overlays & Search",
+  "language": "TypeScript",
+  "framework": "Vanilla Web",
+  "tags": ["command-palette", "search", "keyboard", "modal", "typescript", "accessibility"],
+  "version": "1.0.0",
+  "license": "MIT",
+  "platforms": ["Web (All Modern Browsers)"],
+  "dependencies": [],
+  "preview": {
+    "type": "iframe-sandbox",
+    "height": 300,
+    "caption": "Interactive live preview — type to filter commands, use Up/Down arrows and Enter.",
+    "htmlFile": "palette.html",
+    "cssFile": "palette.css",
+    "jsFile": "palette.js"
+  },
+  "files": [
+    { "label": "palette.html", "path": "palette.html", "language": "html" },
+    { "label": "palette.css", "path": "palette.css", "language": "css" },
+    { "label": "palette.ts", "path": "palette.ts", "language": "typescript" },
+    { "label": "palette.js", "path": "palette.js", "language": "javascript" }
+  ],
+  "install": "Copy palette.html, palette.css, and palette.ts (or compiled palette.js) into your web app.",
+  "usage": "Mount the palette panel inside a <dialog> or overlay container and supply your application commands array.",
+  "verification": {
+    "status": "behaviorally-tested",
+    "label": "Browser E2E & Sandbox Verified",
+    "details": "Verified in headless Chromium E2E (tests/library-e2e.test.mjs): renders cleanly with zero console errors inside opaque-origin CSP sandbox; listbox ARIA semantics and arrow-key navigation reviewed."
+  },
+  "related": ["web-responsive-navbar", "effects-glassmorphism-card"]
+}
