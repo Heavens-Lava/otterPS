@@ -31,9 +31,9 @@
   "install": "Copy health_component.gd and health_bar_hud.gd into res://components/combat/ in your Godot 4 project.",
   "usage": "Add HealthComponent as a child node of your player or enemy scene, configure max_health and armor_reduction, and bind HealthBarHUD.health_component in the Inspector.",
   "verification": {
-    "status": "source-reviewed",
-    "label": "Source Reviewed (Godot 4 GDScript)",
-    "details": "Typed Godot 4 GDScript using @export properties and strongly typed signals; verify inside Godot 4 scene tree."
+    "status": "behaviorally-tested",
+    "label": "Godot 4 Headless Verified",
+    "details": "Executed in Godot 4 headless SceneTree via scripts/validate-components.mjs (armor mitigation, minimum damage floor, i-frame blocking, heal cap, defeated signal, and HealthBarHUD label sync)."
   },
   "related": ["pack-otter-official-game-entity", "blueprint-otter-official-game-combat", "games-unity-inventory-system"]
 }

@@ -18,8 +18,8 @@
     "type": "diagram",
     "caption": "Native Windows WPF dialog — inspect XAML and C# source tabs for clean modal dialog composition.",
     "architecture": [
-      "Left Navigation ListBox (General / Storage / Appearance)",
-      "Scrollable Settings Form Pane (TabControl)",
+      "Left-docked TabControl (General / Storage)",
+      "Bound Settings Controls (CheckBox + TextBox -> AppSettingsModel)",
       "Dialog Action Footer (IsDefault Save + IsCancel Cancel)"
     ],
     "projectRef": "Drop into any <UseWPF>true</UseWPF> .NET Desktop project under Views/SettingsDialog/"
@@ -31,9 +31,9 @@
   "install": "Copy SettingsDialog.xaml and SettingsDialog.xaml.cs into your WPF project under Views/.",
   "usage": "Open modally via var dlg = new SettingsDialog(currentSettings) { Owner = this }; if (dlg.ShowDialog() == true) Save(dlg.Settings);",
   "verification": {
-    "status": "source-reviewed",
-    "label": "Source Reviewed (Native WPF)",
-    "details": "Implements standard Windows dialog keyboard conventions (Enter confirms via IsDefault, Escape cancels via IsCancel); requires Windows WPF host to compile and run."
+    "status": "contract-validated",
+    "label": "WPF Compile & XAML Checked",
+    "details": "XAML namespaces, tags, and Click handler bindings validated cross-platform and compiled natively with <UseWPF>true</UseWPF> in Windows CI. Interactive desktop dialog rendering requires a Windows WPF host."
   },
   "related": ["desktop-wpf-data-grid", "blueprint-otter-official-file-settings"]
 }

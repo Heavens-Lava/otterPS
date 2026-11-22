@@ -20,7 +20,7 @@
     "architecture": [
       "Search TextBox (UpdateSourceTrigger=PropertyChanged)",
       "ICollectionView.Filter (DataGridViewModel.cs)",
-      "Virtualized DataGrid with Status Badge Template (FilterableDataGrid.xaml)"
+      "Virtualized DataGrid with 4 Bound Columns (Name, Category, Status, Version)"
     ],
     "projectRef": "Drop into any <UseWPF>true</UseWPF> .NET Desktop project under Controls/FilterableDataGrid/"
   },
@@ -32,9 +32,9 @@
   "install": "Copy FilterableDataGrid.xaml, FilterableDataGrid.xaml.cs, and DataGridViewModel.cs into your WPF project (ensure <UseWPF>true</UseWPF> in your .csproj).",
   "usage": "Set DataContext to new DataGridViewModel(items) and place <controls:FilterableDataGrid /> inside your Window or Page layout.",
   "verification": {
-    "status": "source-reviewed",
-    "label": "Source Reviewed (Native WPF)",
-    "details": "Complete WPF XAML and C# MVVM implementation reviewed for virtualized rendering and INotifyPropertyChanged binding; requires Windows WPF host to compile and run."
+    "status": "contract-validated",
+    "label": "WPF Compile & ViewModel Checked",
+    "details": "DataGridViewModel compiled and unit-tested with .NET; XAML structure validated cross-platform and compiled natively with <UseWPF>true</UseWPF> in Windows CI. Interactive desktop rendering requires a Windows WPF host."
   },
   "related": ["desktop-wpf-settings-shell", "pack-otter-official-list-utils"]
 }

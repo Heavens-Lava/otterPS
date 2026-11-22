@@ -17,6 +17,8 @@ import { fileURLToPath } from 'node:url';
 import { buildCatalog } from '../scripts/build-library-catalog.mjs';
 import {
   CATEGORY_META,
+  SANDBOX_CSP,
+  assertSafePreviewMarkup,
   buildSandboxSrcDoc,
   extractFacets,
   filterComponents,
@@ -227,13 +229,32 @@ test('search, facets, syntax highlighting, and sandbox srcdoc work across all ca
   assert.ok(otterHl.includes('tok-com'));
   assert.ok(otterHl.includes('tok-kw'));
 
-  // Sandbox srcdoc builder
-  const doc = buildSandboxSrcDoc({ html: '<button>Hi</button>', css: ':root{--a:#fff}', js: 'console.log(1)' });
-  assert.ok(doc.includes('otter-lib-vars'));
+  // Sandbox srcdoc builder & security breakout audit
+  const doc = buildSandboxSrcDoc({
+    html: '<button>Hi</button><script>alert(1)</script><iframe src="https://evil.test"></iframe><a href="javascript:alert(2)" target="_top">x</a>',
+    css: ':root{--a:#fff}</style><script>alert(3)</script>',
+    js: 'console.log("</script><!--hi-->")',
+    channel: 'ch-test'
+  });
+  assert.ok(doc.includes(`content="${SANDBOX_CSP}"`), 'Sandbox srcdoc must embed strict CSP');
+  assert.ok(doc.includes('EXPECTED_CHANNEL = "ch-test"'), 'Sandbox srcdoc must pin postMessage channel');
+  assert.ok(doc.includes('ev.source !== window.parent'), 'Sandbox srcdoc must check ev.source === window.parent');
+  assert.ok(doc.includes('SAFE_VAR_VAL'), 'Sandbox srcdoc must whitelist CSS custom property values');
   assert.ok(doc.includes('<button>Hi</button>'));
+  assert.ok(!doc.includes('alert(1)'), 'Inline <script> in preview HTML must be stripped');
+  assert.ok(!doc.includes('<iframe'), 'Nested <iframe> in preview HTML must be stripped');
+  assert.ok(!doc.includes('javascript:alert(2)'), 'javascript: URLs in preview HTML must be neutralized');
+  assert.ok(!doc.includes('target="_top"'), 'target="_top" in preview HTML must be neutralized');
+  assert.ok(doc.includes('<\\/style'), 'Closing </style> breakout inside CSS must be escaped');
+  assert.ok(doc.includes('<\\/script'), 'Closing </script> breakout inside JS must be escaped');
+  assert.ok(doc.includes('<\\!--'), 'HTML comment opener inside JS must be escaped');
+
+  assert.throws(() => assertSafePreviewMarkup('<script>x()</script>', '', ''), /Unsafe preview HTML/i);
+  assert.throws(() => assertSafePreviewMarkup('', '@import url(https://evil.test/x.css);', ''), /Unsafe preview CSS/i);
+  assert.throws(() => assertSafePreviewMarkup('', '', 'top.location = "https://evil.test";'), /Unsafe preview JS/i);
 });
 
-test('generated /library/ and all 65 /library/<slug>/ pages enforce shell, tabs, copy controls, and iframe sandboxing', () => {
+test('generated /library/, all 65 detail pages, SEO metadata, canonical URLs, sitemap.xml, and robots.txt are valid', () => {
   const catalog = JSON.parse(readFileSync(join(GENERATED_ROOT, 'static', 'library-catalog.json'), 'utf8'));
   const libIndexPath = join(GENERATED_ROOT, 'library', 'index.html');
   assert.ok(existsSync(libIndexPath));
@@ -243,6 +264,22 @@ test('generated /library/ and all 65 /library/<slug>/ pages enforce shell, tabs,
   assert.ok(libIndex.includes('/static/library-app.css'));
   assert.ok(libIndex.includes('/static/library-app.js'));
   assert.ok(libIndex.includes('id="libraryAppRoot"'));
+  assert.ok(libIndex.includes('<link rel="canonical" href="https://otterprogramming.com/library/">'), '/library/ missing canonical URL');
+  assert.ok(libIndex.includes('<meta name="description"'), '/library/ missing meta description');
+  assert.ok(libIndex.includes('property="og:url" content="https://otterprogramming.com/library/"'), '/library/ missing og:url');
+  assert.ok(libIndex.includes('application/ld+json'), '/library/ missing JSON-LD');
+
+  const sitemapPath = join(GENERATED_ROOT, 'sitemap.xml');
+  const robotsPath = join(GENERATED_ROOT, 'robots.txt');
+  assert.ok(existsSync(sitemapPath), 'Missing generated sitemap.xml');
+  assert.ok(existsSync(robotsPath), 'Missing generated robots.txt');
+  const sitemapXml = readFileSync(sitemapPath, 'utf8');
+  const robotsTxt = readFileSync(robotsPath, 'utf8');
+  assert.ok(sitemapXml.startsWith('<?xml version="1.0" encoding="UTF-8"?>'));
+  assert.ok(sitemapXml.includes('<loc>https://otterprogramming.com/</loc>'));
+  assert.ok(sitemapXml.includes('<loc>https://otterprogramming.com/docs/</loc>'));
+  assert.ok(sitemapXml.includes('<loc>https://otterprogramming.com/library/</loc>'));
+  assert.ok(robotsTxt.includes('Sitemap: https://otterprogramming.com/sitemap.xml'));
 
   const docsIndex = JSON.parse(readFileSync(join(GENERATED_ROOT, 'static', 'docs-index.json'), 'utf8'));
   const docsUrls = new Set(docsIndex.map((e) => e.url));
@@ -251,10 +288,16 @@ test('generated /library/ and all 65 /library/<slug>/ pages enforce shell, tabs,
     const pagePath = join(GENERATED_ROOT, 'library', item.slug, 'index.html');
     assert.ok(existsSync(pagePath), `Missing generated detail page: ${pagePath}`);
     const html = readFileSync(pagePath, 'utf8');
+    const canonical = `https://otterprogramming.com/library/${item.slug}/`;
 
-    // Shell consistency + navigation + noscript discovery
+    // Shell consistency + navigation + noscript discovery + SEO + sitemap inclusion
     assert.ok(html.includes('id="topBar"'), `${item.slug} missing #topBar`);
     assert.ok(html.includes('id="siteFooter"'), `${item.slug} missing #siteFooter`);
+    assert.ok(html.includes(`<link rel="canonical" href="${canonical}">`), `${item.slug} missing canonical URL`);
+    assert.ok(html.includes('<meta name="description"'), `${item.slug} missing meta description`);
+    assert.ok(html.includes(`property="og:url" content="${canonical}"`), `${item.slug} missing og:url`);
+    assert.ok(html.includes('application/ld+json'), `${item.slug} missing JSON-LD`);
+    assert.ok(sitemapXml.includes(`<loc>${canonical}</loc>`), `sitemap.xml missing ${canonical}`);
     assert.ok(libIndex.includes(`/library/${item.slug}/`), `/library/index.html missing noscript link to ${item.slug}`);
     assert.ok(docsUrls.has(`/library/${item.slug}/`), `docs-index.json missing /library/${item.slug}/`);
 
@@ -265,14 +308,24 @@ test('generated /library/ and all 65 /library/<slug>/ pages enforce shell, tabs,
     assert.ok(html.includes('Verification Status'), `${item.slug} missing verification section`);
     assert.ok(html.includes('Catalog Provenance'), `${item.slug} missing provenance section`);
 
-    // Strict iframe sandboxing security checks
+    // Strict iframe sandboxing & CSP security checks
     if (item.preview?.type === 'iframe-sandbox') {
       assert.ok(html.includes('sandbox="allow-scripts"'), `${item.slug} iframe must use sandbox="allow-scripts"`);
       assert.ok(!html.includes('allow-same-origin'), `${item.slug} iframe MUST NOT include allow-same-origin`);
+      assert.ok(html.includes('Content-Security-Policy'), `${item.slug} iframe srcdoc must include CSP`);
+      assert.ok(html.includes(`data-preview-channel="otter-preview-${item.slug}"`), `${item.slug} iframe missing preview channel`);
     } else {
       assert.ok(!html.includes('<iframe'), `Non-web component ${item.slug} must not render an iframe`);
     }
   }
+
+  // P0 #1: Roblox QuestService module path alignment check
+  const roblox = catalog.components.find((c) => c.slug === 'games-roblox-quest-tracker');
+  const questSvc = roblox.files.find((f) => f.label === 'QuestService.luau');
+  assert.ok(!questSvc.content.includes('script.Parent.QuestConfig'), 'QuestService.luau must not use script.Parent.QuestConfig');
+  assert.ok(questSvc.content.includes('game:GetService("ReplicatedStorage")'), 'QuestService.luau must resolve ReplicatedStorage');
+  assert.ok(questSvc.content.includes('WaitForChild("Quests")'), 'QuestService.luau must resolve Quests folder');
+  assert.ok(questSvc.content.includes('WaitForChild("QuestConfig")'), 'QuestService.luau must resolve QuestConfig module');
 });
 
 test('local static server serves /library/, ES modules, catalog JSON, and detail pages cleanly', async () => {
@@ -299,6 +352,8 @@ test('local static server serves /library/, ES modules, catalog JSON, and detail
 
     const checks = [
       ['/library/', 200, 'text/html'],
+      ['/sitemap.xml', 200, 'application/xml'],
+      ['/robots.txt', 200, 'text/plain'],
       ['/static/library-catalog.json', 200, 'application/json'],
       ['/static/library-filter.mjs', 200, 'text/javascript'],
       ['/static/library-app.js', 200, 'text/javascript'],

@@ -17,16 +17,16 @@
 
     <TabControl TabStripPlacement="Left" BorderThickness="0" Background="Transparent">
       <TabItem Header="General" Padding="14,10">
-        <StackPanel Margin="20" Spacing="12">
-          <TextBlock Text="General Preferences" FontSize="18" FontWeight="SemiBold" Foreground="#0B1D36" />
-          <CheckBox Content="Check for offline pack updates on startup" IsChecked="{Binding CheckUpdatesOnStart}" />
+        <StackPanel Margin="20">
+          <TextBlock Text="General Preferences" FontSize="18" FontWeight="SemiBold" Foreground="#0B1D36" Margin="0,0,0,12" />
+          <CheckBox Content="Check for offline pack updates on startup" IsChecked="{Binding CheckUpdatesOnStart}" Margin="0,0,0,10" />
           <CheckBox Content="Confirm before overwriting modified files" IsChecked="{Binding ConfirmOverwrites}" />
         </StackPanel>
       </TabItem>
       <TabItem Header="Storage" Padding="14,10">
-        <StackPanel Margin="20" Spacing="12">
-          <TextBlock Text="Local Library Cache" FontSize="18" FontWeight="SemiBold" Foreground="#0B1D36" />
-          <TextBlock Text="Default Library Folder" Foreground="#475569" />
+        <StackPanel Margin="20">
+          <TextBlock Text="Local Library Cache" FontSize="18" FontWeight="SemiBold" Foreground="#0B1D36" Margin="0,0,0,12" />
+          <TextBlock Text="Default Library Folder" Foreground="#475569" Margin="0,0,0,8" />
           <TextBox Height="32" VerticalContentAlignment="Center" Padding="8,0" Text="{Binding LibraryPath}" />
         </StackPanel>
       </TabItem>

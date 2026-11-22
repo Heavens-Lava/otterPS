@@ -31,9 +31,9 @@
   "install": "Copy glass.html and glass.css into your web project.",
   "usage": "Place .otter-glass-card over a rich gradient or photo backdrop. Customize --glass-blur, --glass-accent, and --glass-radius.",
   "verification": {
-    "status": "source-reviewed",
-    "label": "Source Reviewed & Live Sandboxed",
-    "details": "Pure CSS effect with graceful opaque fallback when backdrop-filter is unavailable."
+    "status": "behaviorally-tested",
+    "label": "Browser E2E & Sandbox Verified",
+    "details": "Verified in headless Chromium E2E (tests/library-e2e.test.mjs): renders cleanly inside opaque-origin CSP sandbox with zero console errors and live CSS customizer variables."
   },
   "related": ["effects-hover-tilt-card", "web-animated-gradient-button"]
 }

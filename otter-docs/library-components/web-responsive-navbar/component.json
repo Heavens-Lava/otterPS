@@ -28,9 +28,9 @@
   "install": "Copy navbar.html, navbar.css, and navbar.js into your project and include the script with defer.",
   "usage": "Place <header class=\"otter-nav\"> at the top of <body>. Toggle aria-current=\"page\" on the active navigation link.",
   "verification": {
-    "status": "source-reviewed",
-    "label": "Source Reviewed & Live Sandboxed",
-    "details": "Uses semantic <header>/<nav>, aria-expanded state updates, and Escape key dismissal."
+    "status": "behaviorally-tested",
+    "label": "Browser E2E & Sandbox Verified",
+    "details": "Verified in headless Chromium E2E (tests/library-e2e.test.mjs): renders cleanly with zero console errors inside opaque-origin CSP sandbox; semantic <header>/<nav>, aria-expanded, and Escape dismissal reviewed."
   },
   "related": ["web-command-palette", "web-animated-gradient-button"]
 }

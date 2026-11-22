@@ -32,9 +32,9 @@
   "install": "Copy button.html and button.css into your web project, or paste the CSS custom properties into your design system stylesheet.",
   "usage": "Add class=\"otter-grad-btn\" to any <button> or <a> element. Override --btn-c1, --btn-c2, --btn-radius, or --btn-speed on the element or :root.",
   "verification": {
-    "status": "source-reviewed",
-    "label": "Source Reviewed & Live Sandboxed",
-    "details": "Rendered in an isolated iframe sandbox with prefers-reduced-motion media query and visible keyboard focus outline."
+    "status": "behaviorally-tested",
+    "label": "Browser E2E & Sandbox Verified",
+    "details": "Verified in headless Chromium E2E (tests/library-e2e.test.mjs): renders inside opaque-origin CSP sandbox, applies live CSS customizer postMessage updates, blocks external fetches and unsafe CSS values."
   },
   "related": ["effects-glassmorphism-card", "effects-hover-tilt-card", "web-responsive-navbar"]
 }

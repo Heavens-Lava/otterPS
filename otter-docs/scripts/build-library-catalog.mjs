@@ -225,13 +225,13 @@ function ingestOtterPacks(libraryDir, expectedPackVersions) {
         verification: isSchemaV2 && hasTests
           ? {
               status: 'contract-and-behavior-verified',
-              label: 'Contract-Validated (AST) & Behaviorally Tested',
-              details: `Schema v2 manifest structurally verified by 'otter pack verify --contracts' (${ops.length} operations, prefix '${m.variablePrefix}') plus behavioral assertions in tests/test.ot.`
+              label: 'Upstream Contract & Behavioral Tests',
+              details: `Verified in Heavens-Lava/otter-net (pinned commit 6fec852) via 'otter pack verify --contracts' (${ops.length} AST-checked operations, prefix '${m.variablePrefix}') and tools/test-packs.ps1; imported into otter-docs with SHA-256 provenance verification.`
             }
           : {
               status: 'behaviorally-tested',
-              label: 'Behaviorally Tested',
-              details: 'Verified via pack tests/test.ot.'
+              label: 'Upstream Behaviorally Tested',
+              details: 'Verified in Heavens-Lava/otter-net via pack tests/test.ot; imported with SHA-256 provenance verification.'
             },
         related: []
       });
@@ -277,8 +277,8 @@ function ingestOtterSnippets(libraryDir) {
     usage: `Copy template.ot directly into your .ot source file, or run example.ot with 'otter run example.ot'.`,
     verification: {
       status: 'behaviorally-tested',
-      label: 'Behaviorally Tested (Otter 1.0.1)',
-      details: 'Validated against the Otter 1.0.1 parser and snippet behavioral suite (tools/test-snippets.ps1).'
+      label: 'Upstream Otter 1.0.1 Tested',
+      details: 'Validated in Heavens-Lava/otter-net (pinned commit 6fec852) by tools/test-snippets.ps1; imported with SHA-256 provenance verification.'
     },
     related: []
   }));
@@ -342,8 +342,8 @@ function ingestOtterBlueprints(libraryDir) {
         usage: bp.explanations?.beginner || `Preview and apply ${bp.id} to generate editable Otter 1.0.1 source files and pinned pack dependencies.`,
         verification: {
           status: 'behaviorally-tested',
-          label: 'Behaviorally Tested Blueprint',
-          details: 'Schema-validated Blueprint graph with generated Otter source verified by tools/test-blueprints.ps1.'
+          label: 'Upstream Blueprint Tested',
+          details: 'Validated in Heavens-Lava/otter-net (pinned commit 6fec852) by tools/test-blueprints.ps1; imported with SHA-256 provenance verification.'
         },
         related: (bp.packs || []).map((p) => `pack-${safeSlug(p.id)}`)
       });
@@ -413,8 +413,8 @@ function ingestOtterRecipes(libraryDir) {
         usage: rc.explanations?.beginner || `Generates a working starter application composing verified Otter Packs and Blueprints.`,
         verification: {
           status: 'behaviorally-tested',
-          label: 'Behaviorally Tested Recipe',
-          details: 'Verified end-to-end via transactional composition staging, rollback tests, and tools/test-recipes.ps1.'
+          label: 'Upstream Recipe Tested',
+          details: 'Validated in Heavens-Lava/otter-net (pinned commit 6fec852) by tools/test-recipes.ps1; imported with SHA-256 provenance verification.'
         },
         related: [
           ...(rc.packs || []).map((p) => `pack-${safeSlug(p.id)}`),
@@ -475,8 +475,8 @@ function ingestOtterWorkflows(libraryDir) {
       usage: `Apply into a fresh Otter console project with 'otter compose plan --workflow ... --apply --yes', verify with 'otter check src/main.ot', and execute with 'otter run src/main.ot'.`,
       verification: {
         status: 'contract-and-behavior-verified',
-        label: 'Contract-Validated & Executed Outside Repo',
-        details: 'Verified by Phase 11 Milestones 2 & 3 sandboxed suites (deterministic codegen, AST contract check, runtime execution, and 17-variable scoping isolation).'
+        label: 'Upstream Composition Verified',
+        details: 'Verified in Heavens-Lava/otter-net (pinned commit 6fec852) via Phase 11 composition/scoping suites (tests/composition, tests/scoping, tests/contracts); imported with SHA-256 provenance verification.'
       },
       related: (wf.composedPacks || []).map((p) => `pack-${safeSlug(p)}`)
     });

@@ -9,11 +9,12 @@
  * so every /library/ and /library/<slug>/ page matches the Otter website shell.
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   CATEGORY_META,
+  assertSafePreviewMarkup,
   buildSandboxSrcDoc,
   escapeHtml,
   highlightCode
@@ -21,6 +22,7 @@ import {
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DOCS_ROOT = resolve(__dirname, '..');
+const SITE_ORIGIN = 'https://otterprogramming.com';
 
 function parseArgs(argv) {
   const opts = { outputRoot: resolve(DOCS_ROOT, 'generated') };
@@ -78,7 +80,9 @@ function verificationBadgeClass(status) {
 function renderPreviewSection(item) {
   const p = item.preview || {};
   if (p.type === 'iframe-sandbox') {
-    const srcdoc = buildSandboxSrcDoc({ html: p.html || '', css: p.css || '', js: p.js || '' });
+    assertSafePreviewMarkup(p.html || '', p.css || '', p.js || '');
+    const channel = `otter-preview-${item.slug}`;
+    const srcdoc = buildSandboxSrcDoc({ html: p.html || '', css: p.css || '', js: p.js || '', channel });
     const controlsHtml = (p.controls || []).length
       ? `<div class="lib-customizer" aria-label="Live customization controls">
           <div class="lib-customizer-title">Customize Preview</div>
@@ -97,10 +101,10 @@ function renderPreviewSection(item) {
     return `<section class="lib-panel" aria-labelledby="preview-heading">
       <div class="lib-panel-head">
         <h2 id="preview-heading">Sandboxed Live Preview</h2>
-        <span class="lib-pill">Isolated iframe (no same-origin access)</span>
+        <span class="lib-pill">Isolated iframe (CSP + no same-origin)</span>
       </div>
       <div class="lib-preview-box">
-        <iframe class="lib-sandbox-frame" sandbox="allow-scripts" referrerpolicy="no-referrer" loading="lazy" style="height:${Number(p.height || 260)}px" title="Live sandboxed preview of ${escapeHtml(item.name)}" srcdoc="${escapeHtml(srcdoc)}"></iframe>
+        <iframe class="lib-sandbox-frame" sandbox="allow-scripts" referrerpolicy="no-referrer" loading="lazy" data-preview-channel="${escapeHtml(channel)}" style="height:${Number(p.height || 260)}px" title="Live sandboxed preview of ${escapeHtml(item.name)}" srcdoc="${escapeHtml(srcdoc)}"></iframe>
       </div>
       ${p.caption ? `<p class="lib-preview-caption">${escapeHtml(p.caption)}</p>` : ''}
       ${controlsHtml}
@@ -211,13 +215,39 @@ function renderDetailPage(item, bySlug, chrome, provenance) {
       </section>`
     : '';
 
+  const canonicalUrl = `${SITE_ORIGIN}/library/${item.slug}/`;
+  const pageTitle = `${item.name} - Otter Component Library`;
+  const jsonLd = JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareSourceCode',
+    name: item.name,
+    description: item.description,
+    url: canonicalUrl,
+    programmingLanguage: item.language,
+    runtimePlatform: (item.platforms || []).join(', '),
+    version: item.version,
+    license: item.license,
+    codeRepository: `https://github.com/${provenance.canonicalRepo || 'Heavens-Lava/otter-net'}`
+  }).replace(/</g, '\\u003c');
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${escapeHtml(item.name)} - Otter Component Library</title>
+<title>${escapeHtml(pageTitle)}</title>
 <meta name="description" content="${escapeHtml(item.description)}">
+<link rel="canonical" href="${escapeHtml(canonicalUrl)}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Otter Programming Language">
+<meta property="og:title" content="${escapeHtml(pageTitle)}">
+<meta property="og:description" content="${escapeHtml(item.description)}">
+<meta property="og:url" content="${escapeHtml(canonicalUrl)}">
+<meta property="og:image" content="${SITE_ORIGIN}/static/images/otter-site-icon.png">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="${escapeHtml(pageTitle)}">
+<meta name="twitter:description" content="${escapeHtml(item.description)}">
+<script type="application/ld+json">${jsonLd}</script>
 ${chrome.otterBaseStyle}
 <link rel="icon" href="/static/images/otter-site-icon.png" type="image/png">
 <link rel="apple-touch-icon" href="/static/images/otter-site-icon.png">
@@ -334,7 +364,28 @@ export function buildLibraryPages(options = {}) {
   let libIndexHtml = readFileSync(libraryIndexPath, 'utf8');
   const chrome = extractShellChrome(libIndexHtml);
 
+  const libDesc = `Searchable developer hub featuring ${items.length} reusable Web UI, Desktop WPF, Game systems, CSS effects, and canonical Otter Packs, Snippets, Blueprints, Recipes, and Workflows.`;
+  const libCanonical = `${SITE_ORIGIN}/library/`;
+  const libJsonLd = JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'CollectionPage',
+    name: 'Otter Component Library',
+    description: libDesc,
+    url: libCanonical,
+    numberOfItems: items.length
+  }).replace(/</g, '\\u003c');
+
   const libHeadAssets =
+    `<meta name="description" content="${escapeHtml(libDesc)}">\n` +
+    `<link rel="canonical" href="${escapeHtml(libCanonical)}">\n` +
+    `<meta property="og:type" content="website">\n` +
+    `<meta property="og:site_name" content="Otter Programming Language">\n` +
+    `<meta property="og:title" content="Otter Component Library - Reusable Components, Packs, and Workflows">\n` +
+    `<meta property="og:description" content="${escapeHtml(libDesc)}">\n` +
+    `<meta property="og:url" content="${escapeHtml(libCanonical)}">\n` +
+    `<meta property="og:image" content="${SITE_ORIGIN}/static/images/otter-site-icon.png">\n` +
+    `<meta name="twitter:card" content="summary">\n` +
+    `<script type="application/ld+json">${libJsonLd}</script>\n` +
     '<link rel="stylesheet" href="/static/library-app.css">\n' +
     '<script type="module" src="/static/library-app.js"></script>\n';
   if (!libIndexHtml.includes('/static/library-app.css')) {
@@ -387,7 +438,34 @@ export function buildLibraryPages(options = {}) {
     writeFileSync(docsIndexPath, JSON.stringify(merged, null, 2) + '\n', 'utf8');
   }
 
-  return { builtCount, totalComponents: items.length };
+  // 4. Generate deterministic sitemap.xml and robots.txt covering all generated site + library routes
+  const routeUrls = new Set([`${SITE_ORIGIN}/`]);
+  function walkRoutes(dir, prefix = '') {
+    for (const entry of readdirSync(dir).sort()) {
+      if (entry === 'static' || entry.startsWith('.')) continue;
+      const full = join(dir, entry);
+      if (!statSync(full).isDirectory()) continue;
+      const routePath = `${prefix}/${entry}/`;
+      if (existsSync(join(full, 'index.html'))) {
+        routeUrls.add(`${SITE_ORIGIN}${routePath}`);
+      }
+      walkRoutes(full, `${prefix}/${entry}`);
+    }
+  }
+  walkRoutes(outputRoot);
+
+  const sortedUrls = [...routeUrls].sort((a, b) => a.localeCompare(b));
+  const sitemapXml =
+    '<?xml version="1.0" encoding="UTF-8"?>\n' +
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
+    sortedUrls.map((loc) => `  <url><loc>${escapeHtml(loc)}</loc></url>`).join('\n') +
+    '\n</urlset>\n';
+  writeFileSync(join(outputRoot, 'sitemap.xml'), sitemapXml, 'utf8');
+
+  const robotsTxt = `User-agent: *\nAllow: /\nSitemap: ${SITE_ORIGIN}/sitemap.xml\n`;
+  writeFileSync(join(outputRoot, 'robots.txt'), robotsTxt, 'utf8');
+
+  return { builtCount, totalComponents: items.length, sitemapCount: sortedUrls.length };
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

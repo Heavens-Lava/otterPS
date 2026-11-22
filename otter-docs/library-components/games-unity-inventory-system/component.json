@@ -31,9 +31,9 @@
   "install": "Copy ItemDefinition.cs and InventoryContainer.cs into Assets/Scripts/Inventory/ in your Unity project.",
   "usage": "Create item assets via Right-Click -> Create -> Otter Library -> Item Definition, attach InventoryContainer to a GameObject, and call TryAdd / TryConsume.",
   "verification": {
-    "status": "source-reviewed",
-    "label": "Source Reviewed (Unity C#)",
-    "details": "Pure C# container logic decoupled from UI rendering with explicit overflow prevention; compile and test inside Unity Editor."
+    "status": "behaviorally-tested",
+    "label": "C# Harness Tested (Unity Stubs)",
+    "details": "Compiled and behaviorally tested under .NET via scripts/validate-components.mjs using minimal UnityEngine stubs (stack merging, capacity overflow, consumption, change events). Unity Editor Inspector serialization requires Unity Editor."
   },
   "related": ["pack-otter-official-game-entity", "games-godot-health-combat", "games-roblox-quest-tracker"]
 }

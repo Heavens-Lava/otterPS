@@ -28,9 +28,9 @@
   "install": "Copy tilt.html, tilt.css, and tilt.js into your project.",
   "usage": "Add data-otter-tilt to any card element; tilt.js binds pointermove/pointerleave listeners while respecting prefers-reduced-motion.",
   "verification": {
-    "status": "source-reviewed",
-    "label": "Source Reviewed & Live Sandboxed",
-    "details": "Disables transform animations automatically when prefers-reduced-motion: reduce is active."
+    "status": "behaviorally-tested",
+    "label": "Browser E2E & Sandbox Verified",
+    "details": "Verified in headless Chromium E2E (tests/library-e2e.test.mjs): renders cleanly inside opaque-origin CSP sandbox with zero console errors and automatic prefers-reduced-motion fallback."
   },
   "related": ["effects-glassmorphism-card", "web-animated-gradient-button"]
 }

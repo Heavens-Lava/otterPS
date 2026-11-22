@@ -29,9 +29,9 @@
   "install": "Copy palette.html, palette.css, and palette.ts (or compiled palette.js) into your web app.",
   "usage": "Mount the palette panel inside a <dialog> or overlay container and supply your application commands array.",
   "verification": {
-    "status": "source-reviewed",
-    "label": "Source Reviewed & Live Sandboxed",
-    "details": "Implements listbox ARIA semantics, keyboard arrow navigation, and live selection announcement."
+    "status": "behaviorally-tested",
+    "label": "Browser E2E & Sandbox Verified",
+    "details": "Verified in headless Chromium E2E (tests/library-e2e.test.mjs): renders cleanly with zero console errors inside opaque-origin CSP sandbox; listbox ARIA semantics and arrow-key navigation reviewed."
   },
   "related": ["web-responsive-navbar", "effects-glassmorphism-card"]
 }

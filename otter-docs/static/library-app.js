@@ -9,7 +9,7 @@ const VERIFICATION_LABELS = {
   all: 'All verification levels',
   'contract-and-behavior-verified': 'Contract-Validated & Behaviorally Tested',
   'behaviorally-tested': 'Behaviorally Tested',
-  'contract-validated': 'Contract-Validated (AST)',
+  'contract-validated': 'Contract-Validated / Compile-Checked',
   'source-reviewed': 'Source Reviewed'
 };
 
@@ -22,17 +22,23 @@ function badgeClass(status) {
 
 async function copyText(text) {
   if (navigator.clipboard && window.isSecureContext) {
-    await navigator.clipboard.writeText(text);
-    return;
+    try {
+      await navigator.clipboard.writeText(text);
+      return;
+    } catch {
+      // Fall through to execCommand fallback if clipboard permission is unavailable
+    }
   }
   const ta = document.createElement('textarea');
   ta.value = text;
+  ta.setAttribute('readonly', '');
   ta.style.position = 'fixed';
   ta.style.opacity = '0';
   document.body.appendChild(ta);
   ta.select();
-  document.execCommand('copy');
+  const ok = document.execCommand('copy');
   ta.remove();
+  if (!ok) throw new Error('Copy command failed');
 }
 
 function initGallery(mount) {
@@ -47,6 +53,7 @@ function initGallery(mount) {
   };
 
   let catalog = null;
+  let lastCategoryForSubs = null;
 
   function syncUrl() {
     const next = new URLSearchParams();
@@ -60,20 +67,16 @@ function initGallery(mount) {
     window.history.replaceState(null, '', target);
   }
 
-  function render() {
-    if (!catalog) return;
+  function buildShellOnce() {
     const allItems = catalog.components || [];
     const facets = extractFacets(allItems);
-    const catPool = state.category === 'all' ? allItems : allItems.filter((i) => i.category === state.category);
-    const subFacets = extractFacets(catPool).subcategories;
-    const filtered = filterComponents(allItems, state);
+    const prov = catalog.provenance || {};
 
     const catOrder = ['all', 'web', 'desktop', 'games', 'effects', 'otter'];
     const catTabsHtml = catOrder.map((key) => {
       const label = key === 'all' ? 'All Components' : CATEGORY_META[key].label;
       const count = facets.categoryCounts[key] || 0;
-      const active = state.category === key;
-      return `<button type="button" class="lib-cat-tab" data-cat="${key}" aria-pressed="${active}">${escapeHtml(label)} <span class="lib-tab-count">${count}</span></button>`;
+      return `<button type="button" class="lib-cat-tab" data-cat="${key}" aria-pressed="${state.category === key}">${escapeHtml(label)} <span class="lib-tab-count">${count}</span></button>`;
     }).join('');
 
     const langPillsHtml = [
@@ -83,18 +86,125 @@ function initGallery(mount) {
       )
     ].join('');
 
-    const subOptions = [
-      `<option value="all"${state.subcategory === 'all' ? ' selected' : ''}>All subcategories</option>`,
-      ...subFacets.map(([sub, cnt]) =>
-        `<option value="${escapeHtml(sub)}"${state.subcategory === sub ? ' selected' : ''}>${escapeHtml(sub)} (${cnt})</option>`
-      )
-    ].join('');
-
     const verOptions = Object.entries(VERIFICATION_LABELS).map(([k, lbl]) =>
       `<option value="${k}"${state.verification === k ? ' selected' : ''}>${escapeHtml(lbl)}</option>`
     ).join('');
 
-    const cardsHtml = filtered.length
+    mount.innerHTML = `
+      <section class="lib-controls-bar" aria-label="Filter component library">
+        <div class="lib-search-row">
+          <input id="libSearchInput" class="lib-search-input" type="search" placeholder="Search components, Otter packs, operations, tags, or frameworks..." aria-label="Search component library" autocomplete="off" spellcheck="false">
+          <select id="libSubSelect" class="lib-select" aria-label="Filter by subcategory"></select>
+          <select id="libVerSelect" class="lib-select" aria-label="Filter by verification status">${verOptions}</select>
+          <button id="libResetBtn" type="button" class="lib-reset-btn">Reset filters</button>
+        </div>
+        <div class="lib-cat-tabs" role="group" aria-label="Categories">${catTabsHtml}</div>
+        <div class="lib-lang-row" role="group" aria-label="Languages and frameworks"><span class="lib-lang-label">Language:</span>${langPillsHtml}</div>
+      </section>
+      <div id="libSummaryBar" class="lib-summary-bar" aria-live="polite"></div>
+      <div id="libResultsHost"></div>
+      <footer class="lib-provenance-bar">
+        <span>Canonical Otter source: <code>${escapeHtml(prov.canonicalRepo || 'Heavens-Lava/otter-net')}@${escapeHtml(String(prov.sourceCommit || '').slice(0, 7))}</code></span>
+        <span>Library SHA-256: <code>${escapeHtml(String(prov.libraryTreeSha256 || '').slice(0, 16))}</code> · Runtime target: Otter ${escapeHtml(prov.expectedOtterVersion || '1.0.1')}</span>
+      </footer>
+    `;
+
+    const searchInput = mount.querySelector('#libSearchInput');
+    const subSelect = mount.querySelector('#libSubSelect');
+    const verSelect = mount.querySelector('#libVerSelect');
+    const resetBtn = mount.querySelector('#libResetBtn');
+
+    searchInput.value = state.query;
+
+    // Persistent DOM listeners: #libSearchInput never unmounts, preserving focus, caret, selection, and IME.
+    searchInput.addEventListener('input', (e) => {
+      state.query = e.target.value;
+      syncUrl();
+      updateResults();
+    });
+    subSelect.addEventListener('change', (e) => {
+      state.subcategory = e.target.value;
+      syncUrl();
+      updateResults();
+    });
+    verSelect.addEventListener('change', (e) => {
+      state.verification = e.target.value;
+      syncUrl();
+      updateResults();
+    });
+    resetBtn.addEventListener('click', () => {
+      state.query = '';
+      state.category = 'all';
+      state.subcategory = 'all';
+      state.language = 'all';
+      state.verification = 'all';
+      searchInput.value = '';
+      verSelect.value = 'all';
+      syncUrl();
+      updateResults();
+    });
+    mount.querySelectorAll('.lib-cat-tab').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        state.category = btn.dataset.cat;
+        state.subcategory = 'all';
+        syncUrl();
+        updateResults();
+      });
+    });
+    mount.querySelectorAll('.lib-lang-pill').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        state.language = btn.dataset.lang;
+        syncUrl();
+        updateResults();
+      });
+    });
+  }
+
+  function updateResults() {
+    if (!catalog) return;
+    const allItems = catalog.components || [];
+    const prov = catalog.provenance || {};
+
+    // Update category & language button pressed states in-place (preserving keyboard focus)
+    mount.querySelectorAll('.lib-cat-tab').forEach((btn) => {
+      btn.setAttribute('aria-pressed', String(state.category === btn.dataset.cat));
+    });
+    mount.querySelectorAll('.lib-lang-pill').forEach((btn) => {
+      const pressed = btn.dataset.lang === 'all'
+        ? state.language === 'all'
+        : state.language.toLowerCase() === btn.dataset.lang.toLowerCase();
+      btn.setAttribute('aria-pressed', String(pressed));
+    });
+
+    // Rebuild subcategory options only when the selected category changes
+    const subSelect = mount.querySelector('#libSubSelect');
+    if (lastCategoryForSubs !== state.category) {
+      const catPool = state.category === 'all' ? allItems : allItems.filter((i) => i.category === state.category);
+      const subFacets = extractFacets(catPool).subcategories;
+      subSelect.innerHTML = [
+        `<option value="all">All subcategories</option>`,
+        ...subFacets.map(([sub, cnt]) =>
+          `<option value="${escapeHtml(sub)}">${escapeHtml(sub)} (${cnt})</option>`
+        )
+      ].join('');
+      lastCategoryForSubs = state.category;
+    }
+    subSelect.value = state.subcategory;
+    if (subSelect.value !== state.subcategory) {
+      state.subcategory = 'all';
+      subSelect.value = 'all';
+    }
+
+    const filtered = filterComponents(allItems, state);
+
+    const summaryBar = mount.querySelector('#libSummaryBar');
+    summaryBar.innerHTML = `
+      <span>Showing <strong>${filtered.length}</strong> of <strong>${allItems.length}</strong> reusable components</span>
+      <span>Otter canonical assets: ${prov.otterCounts?.packs || 0} Packs · ${prov.otterCounts?.workflows || 0} Workflows · ${prov.otterCounts?.blueprints || 0} Blueprints · ${prov.otterCounts?.recipes || 0} Recipes · ${prov.otterCounts?.snippets || 0} Snippets</span>
+    `;
+
+    const resultsHost = mount.querySelector('#libResultsHost');
+    resultsHost.innerHTML = filtered.length
       ? `<div class="lib-grid" role="list">${filtered.map((item) => {
           const previewTag = item.preview?.type === 'iframe-sandbox'
             ? 'Live Preview'
@@ -119,73 +229,6 @@ function initGallery(mount) {
           </a>`;
         }).join('')}</div>`
       : `<div class="lib-empty" role="status"><strong>No components match your filters.</strong><p>Try clearing the search query or switching category filters.</p></div>`;
-
-    const prov = catalog.provenance || {};
-    mount.innerHTML = `
-      <section class="lib-controls-bar" aria-label="Filter component library">
-        <div class="lib-search-row">
-          <input id="libSearchInput" class="lib-search-input" type="search" placeholder="Search components, Otter packs, operations, tags, or frameworks..." aria-label="Search component library" value="${escapeHtml(state.query)}">
-          <select id="libSubSelect" class="lib-select" aria-label="Filter by subcategory">${subOptions}</select>
-          <select id="libVerSelect" class="lib-select" aria-label="Filter by verification status">${verOptions}</select>
-          <button id="libResetBtn" type="button" class="lib-reset-btn">Reset filters</button>
-        </div>
-        <div class="lib-cat-tabs" role="group" aria-label="Categories">${catTabsHtml}</div>
-        <div class="lib-lang-row" role="group" aria-label="Languages and frameworks"><span class="lib-lang-label">Language:</span>${langPillsHtml}</div>
-      </section>
-      <div class="lib-summary-bar" aria-live="polite">
-        <span>Showing <strong>${filtered.length}</strong> of <strong>${allItems.length}</strong> reusable components</span>
-        <span>Otter canonical assets: ${prov.otterCounts?.packs || 0} Packs · ${prov.otterCounts?.workflows || 0} Workflows · ${prov.otterCounts?.blueprints || 0} Blueprints · ${prov.otterCounts?.recipes || 0} Recipes · ${prov.otterCounts?.snippets || 0} Snippets</span>
-      </div>
-      ${cardsHtml}
-      <footer class="lib-provenance-bar">
-        <span>Canonical Otter source: <code>${escapeHtml(prov.canonicalRepo || 'Heavens-Lava/otter-net')}@${escapeHtml(String(prov.sourceCommit || '').slice(0, 7))}</code></span>
-        <span>Library SHA-256: <code>${escapeHtml(String(prov.libraryTreeSha256 || '').slice(0, 16))}</code> · Runtime target: Otter ${escapeHtml(prov.expectedOtterVersion || '1.0.1')}</span>
-      </footer>
-    `;
-
-    const searchInput = mount.querySelector('#libSearchInput');
-    searchInput.addEventListener('input', (e) => {
-      state.query = e.target.value;
-      syncUrl();
-      render();
-      const restored = mount.querySelector('#libSearchInput');
-      restored?.focus();
-      restored?.setSelectionRange(state.query.length, state.query.length);
-    });
-    mount.querySelector('#libSubSelect').addEventListener('change', (e) => {
-      state.subcategory = e.target.value;
-      syncUrl();
-      render();
-    });
-    mount.querySelector('#libVerSelect').addEventListener('change', (e) => {
-      state.verification = e.target.value;
-      syncUrl();
-      render();
-    });
-    mount.querySelector('#libResetBtn').addEventListener('click', () => {
-      state.query = '';
-      state.category = 'all';
-      state.subcategory = 'all';
-      state.language = 'all';
-      state.verification = 'all';
-      syncUrl();
-      render();
-    });
-    mount.querySelectorAll('.lib-cat-tab').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        state.category = btn.dataset.cat;
-        state.subcategory = 'all';
-        syncUrl();
-        render();
-      });
-    });
-    mount.querySelectorAll('.lib-lang-pill').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        state.language = btn.dataset.lang;
-        syncUrl();
-        render();
-      });
-    });
   }
 
   fetch(catalogUrl)
@@ -195,7 +238,8 @@ function initGallery(mount) {
     })
     .then((data) => {
       catalog = data;
-      render();
+      buildShellOnce();
+      updateResults();
     })
     .catch((err) => {
       mount.innerHTML = `<div class="lib-empty"><strong>Could not load library catalog.</strong><p>${escapeHtml(err.message)}</p></div>`;
@@ -245,10 +289,12 @@ function initDetailPage(main) {
       if (!text) return;
       try {
         await copyText(text);
-        const orig = btn.textContent;
+        const orig = btn.dataset.origLabel || btn.textContent;
+        btn.dataset.origLabel = orig;
         btn.textContent = 'Copied!';
         if (liveStatus) liveStatus.textContent = 'Copied to clipboard.';
-        setTimeout(() => {
+        clearTimeout(btn._copyTimer);
+        btn._copyTimer = setTimeout(() => {
           btn.textContent = orig;
           if (liveStatus) liveStatus.textContent = '';
         }, 1800);
@@ -258,10 +304,11 @@ function initDetailPage(main) {
     });
   });
 
-  // 3. Live CSS custom property bridge for sandboxed iframe previews
+  // 3. Live CSS custom property bridge for opaque-origin sandboxed iframe previews
   const frame = main.querySelector('.lib-sandbox-frame');
   const controls = [...main.querySelectorAll('[data-css-var]')];
   if (frame && controls.length) {
+    const channel = frame.dataset.previewChannel || '';
     const pushVars = () => {
       const vars = {};
       controls.forEach((ctrl) => {
@@ -271,7 +318,10 @@ function initDetailPage(main) {
         const out = main.querySelector(`output[data-var-out="${ctrl.dataset.cssVar}"]`);
         if (out) out.textContent = val;
       });
-      frame.contentWindow?.postMessage({ type: 'otter-lib-vars', vars }, '*');
+      // Opaque-origin sandboxed iframes (without allow-same-origin) have origin 'null',
+      // so '*' is required when posting from parent to child. Only non-sensitive whitelisted
+      // CSS custom property values and the preview channel token are ever transmitted.
+      frame.contentWindow?.postMessage({ type: 'otter-lib-vars', channel, vars }, '*');
     };
     controls.forEach((ctrl) => ctrl.addEventListener('input', pushVars));
     frame.addEventListener('load', pushVars);

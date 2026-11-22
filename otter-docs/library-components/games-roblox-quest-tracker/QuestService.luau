@@ -1,5 +1,7 @@
 --!strict
-local QuestConfig = require(script.Parent.QuestConfig)
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local QuestsFolder = ReplicatedStorage:WaitForChild("Quests")
+local QuestConfig = require(QuestsFolder:WaitForChild("QuestConfig"))
 
 export type PlayerQuestState = {
 	questId: string,

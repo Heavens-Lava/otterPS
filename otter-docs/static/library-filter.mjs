@@ -173,29 +173,99 @@ export function highlightCode(source, language = 'text') {
   }).join('\n');
 }
 
-export function buildSandboxSrcDoc({ html = '', css = '', js = '' }) {
+export const SANDBOX_CSP =
+  "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; font-src 'none'; connect-src 'none'; media-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none';";
+
+const FORBIDDEN_PREVIEW_HTML_PATTERNS = [
+  /<\s*script\b/i,
+  /<\s*iframe\b/i,
+  /<\s*object\b/i,
+  /<\s*embed\b/i,
+  /<\s*meta\b/i,
+  /<\s*base\b/i,
+  /<\s*form\b/i,
+  /\bjavascript\s*:/i,
+  /\btarget\s*=\s*["']?\s*_(top|parent|blank)/i
+];
+
+export function assertSafePreviewMarkup(html = '', css = '', js = '') {
+  const htmlStr = String(html || '');
+  const cssStr = String(css || '');
+  const jsStr = String(js || '');
+  for (const re of FORBIDDEN_PREVIEW_HTML_PATTERNS) {
+    if (re.test(htmlStr)) {
+      throw new Error(`Unsafe preview HTML rejected by sanitizer (matched ${re}).`);
+    }
+  }
+  if (/@import\b/i.test(cssStr) || /url\(\s*["']?\s*https?:/i.test(cssStr)) {
+    throw new Error('Unsafe preview CSS rejected: external @import or http(s) url() is forbidden.');
+  }
+  if (/\b(?:top|parent)\.location\b/i.test(jsStr) || /\bwindow\.open\s*\(/i.test(jsStr)) {
+    throw new Error('Unsafe preview JS rejected: top/parent navigation and window.open are forbidden.');
+  }
+}
+
+export function sanitizePreviewHtml(html = '') {
+  return String(html || '')
+    .replace(/<\s*(script|iframe|object|embed|meta|base|form)\b[\s\S]*?(?:<\s*\/\s*\1\s*>|$)/gi, '')
+    .replace(/\bjavascript\s*:/gi, 'blocked:')
+    .replace(/\btarget\s*=\s*(["'])\s*_(?:top|parent|blank)\s*\1/gi, 'target="_self"');
+}
+
+export function buildSandboxSrcDoc({ html = '', css = '', js = '', channel = 'otter-preview' }) {
   // Runs ONLY inside <iframe sandbox="allow-scripts" referrerpolicy="no-referrer"> (no allow-same-origin).
-  const safeJs = String(js || '').replace(/<\/script>/gi, '<\\/script>');
+  const safeHtml = sanitizePreviewHtml(html);
+  // Neutralize closing tag breakouts and HTML comment openers inside <style> and <script>
+  const safeCss = String(css || '').replace(/<\s*\/\s*style/gi, '<\\/style');
+  const safeJs = String(js || '')
+    .replace(/<\s*\/\s*script/gi, '<\\/script')
+    .replace(/<!--/g, '<\\!--');
+  const safeChannel = JSON.stringify(String(channel || 'otter-preview'));
+
   const varBridge = `
-window.addEventListener('message', function(ev) {
-  var data = ev && ev.data;
-  if (!data || data.type !== 'otter-lib-vars' || !data.vars) return;
-  var root = document.documentElement;
-  Object.keys(data.vars).forEach(function(k) {
-    if (/^--[a-zA-Z0-9-]+$/.test(k)) root.style.setProperty(k, String(data.vars[k]));
+(function() {
+  var EXPECTED_CHANNEL = ${safeChannel};
+  var SAFE_VAR_NAME = /^--[a-zA-Z0-9-]{1,40}$/;
+  var SAFE_VAR_VAL = /^(#[0-9a-fA-F]{3,8}|-?[0-9]{1,4}(?:\\.[0-9]{1,2})?(?:px|rem|em|%|s|ms|deg)?|rgba?\\([0-9.,\\s%]+\\))$/;
+
+  window.addEventListener('message', function(ev) {
+    if (ev.source !== window.parent) return;
+    var data = ev && ev.data;
+    if (!data || typeof data !== 'object') return;
+    if (data.type !== 'otter-lib-vars' || data.channel !== EXPECTED_CHANNEL) return;
+    if (!data.vars || typeof data.vars !== 'object' || Array.isArray(data.vars)) return;
+    var root = document.documentElement;
+    Object.keys(data.vars).forEach(function(k) {
+      var val = String(data.vars[k]).trim();
+      if (SAFE_VAR_NAME.test(k) && SAFE_VAR_VAL.test(val)) {
+        root.style.setProperty(k, val);
+      }
+    });
   });
-});`;
+
+  // Prevent unintended external or top-level navigation from anchor clicks inside preview
+  document.addEventListener('click', function(ev) {
+    var link = ev.target && ev.target.closest ? ev.target.closest('a[href]') : null;
+    if (!link) return;
+    var href = (link.getAttribute('href') || '').trim();
+    if (!href.startsWith('#')) {
+      ev.preventDefault();
+    }
+  });
+})();`;
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="${SANDBOX_CSP}">
 <style>
-${css}
+${safeCss}
 </style>
 </head>
 <body>
-${html}
+${safeHtml}
 <script>
 ${varBridge}
 ${safeJs}
