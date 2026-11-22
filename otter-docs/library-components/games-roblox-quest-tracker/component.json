@@ -1,0 +1,39 @@
+{
+  "id": "games/roblox-quest-tracker",
+  "slug": "games-roblox-quest-tracker",
+  "name": "Roblox Luau Quest & Objective Tracker",
+  "description": "Typed Roblox Luau ModuleScript service for tracking per-player quest states, incrementing objective counters, and emitting completion rewards cleanly on the server.",
+  "category": "games",
+  "subcategory": "Quest Systems",
+  "language": "Luau",
+  "framework": "Roblox Studio",
+  "tags": ["roblox", "luau", "quest", "objectives", "rpg", "server-module", "games"],
+  "version": "1.0.0",
+  "license": "MIT",
+  "platforms": ["Roblox Studio (ServerScriptService / ReplicatedStorage)"],
+  "dependencies": [
+    { "name": "Roblox Luau Runtime", "version": ">=2024.1" }
+  ],
+  "preview": {
+    "type": "diagram",
+    "caption": "Roblox Luau server module — store QuestConfig in ReplicatedStorage and QuestService in ServerScriptService.",
+    "architecture": [
+      "QuestConfig.luau (immutable quest + objective definitions)",
+      "QuestService.AcceptQuest(player, questId) & RecordProgress(player, objectiveType, delta)",
+      "Server callback onQuestCompleted(player, reward)"
+    ],
+    "projectRef": "Place QuestConfig.luau in ReplicatedStorage/Quests/ and QuestService.luau in ServerScriptService/Quests/."
+  },
+  "files": [
+    { "label": "QuestConfig.luau", "path": "QuestConfig.luau", "language": "luau" },
+    { "label": "QuestService.luau", "path": "QuestService.luau", "language": "luau" }
+  ],
+  "install": "Place QuestConfig.luau as a ModuleScript in ReplicatedStorage and QuestService.luau in ServerScriptService.",
+  "usage": "Require QuestService on the server, call QuestService.AcceptQuest(player.UserId, \"slime_hunt\"), and report progress via QuestService.RecordProgress(player.UserId, \"defeat_slime\", 1).",
+  "verification": {
+    "status": "source-reviewed",
+    "label": "Source Reviewed (Roblox Luau)",
+    "details": "Strict Luau type annotations (--!strict) with server-authoritative state isolation; execute inside Roblox Studio."
+  },
+  "related": ["games-godot-health-combat", "games-unity-inventory-system", "pack-otter-official-game-entity"]
+}

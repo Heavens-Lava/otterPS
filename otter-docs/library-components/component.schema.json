@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OtterWebsiteLibraryComponent",
+  "description": "Metadata schema for multi-language reusable components in the Otter Website Library",
+  "type": "object",
+  "required": [
+    "id",
+    "slug",
+    "name",
+    "description",
+    "category",
+    "subcategory",
+    "language",
+    "framework",
+    "tags",
+    "version",
+    "license",
+    "platforms",
+    "dependencies",
+    "preview",
+    "files",
+    "install",
+    "usage",
+    "verification",
+    "related"
+  ],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*(/[a-z0-9]+(-[a-z0-9]+)*)?$" },
+    "slug": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+    "name": { "type": "string", "minLength": 2 },
+    "description": { "type": "string", "minLength": 10 },
+    "category": { "type": "string", "enum": ["web", "desktop", "games", "effects", "otter"] },
+    "subcategory": { "type": "string", "minLength": 2 },
+    "language": { "type": "string", "minLength": 1 },
+    "framework": { "type": "string", "minLength": 1 },
+    "tags": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+    "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+" },
+    "license": { "type": "string", "minLength": 2 },
+    "platforms": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "version"],
+        "properties": {
+          "name": { "type": "string" },
+          "version": { "type": "string" },
+          "optional": { "type": "boolean" }
+        }
+      }
+    },
+    "preview": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "type": "string", "enum": ["iframe-sandbox", "diagram", "contract-summary", "screenshot"] },
+        "height": { "type": "integer", "minimum": 120, "maximum": 900 },
+        "caption": { "type": "string" },
+        "htmlFile": { "type": "string" },
+        "cssFile": { "type": "string" },
+        "jsFile": { "type": "string" },
+        "controls": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "label", "type", "cssVar", "default"],
+            "properties": {
+              "id": { "type": "string" },
+              "label": { "type": "string" },
+              "type": { "type": "string", "enum": ["color", "range", "text"] },
+              "cssVar": { "type": "string" },
+              "default": { "type": ["string", "number"] },
+              "min": { "type": "number" },
+              "max": { "type": "number" },
+              "unit": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "files": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["label", "path", "language"],
+        "properties": {
+          "label": { "type": "string" },
+          "path": { "type": "string" },
+          "language": { "type": "string" }
+        }
+      }
+    },
+    "install": { "type": "string", "minLength": 5 },
+    "usage": { "type": "string", "minLength": 5 },
+    "verification": {
+      "type": "object",
+      "required": ["status", "label", "details"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["contract-and-behavior-verified", "behaviorally-tested", "contract-validated", "source-reviewed"]
+        },
+        "label": { "type": "string" },
+        "details": { "type": "string" }
+      }
+    },
+    "related": { "type": "array", "items": { "type": "string" } }
+  }
+}

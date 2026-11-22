@@ -1,0 +1,40 @@
+{
+  "id": "web/animated-gradient-button",
+  "slug": "web-animated-gradient-button",
+  "name": "Animated Gradient Button",
+  "description": "Accessible call-to-action button with a smooth animated multi-stop gradient border and glow, reduced-motion support, and zero JavaScript dependencies.",
+  "category": "web",
+  "subcategory": "Buttons",
+  "language": "HTML / CSS",
+  "framework": "Vanilla Web",
+  "tags": ["button", "gradient", "hover", "animation", "cta", "accessible", "css"],
+  "version": "1.0.0",
+  "license": "MIT",
+  "platforms": ["Web (All Modern Browsers)"],
+  "dependencies": [],
+  "preview": {
+    "type": "iframe-sandbox",
+    "height": 220,
+    "caption": "Interactive live preview — hover, focus with Tab, or customize the CSS variables below.",
+    "htmlFile": "button.html",
+    "cssFile": "button.css",
+    "controls": [
+      { "id": "start", "label": "Start color", "type": "color", "cssVar": "--btn-c1", "default": "#2563eb" },
+      { "id": "end", "label": "End color", "type": "color", "cssVar": "--btn-c2", "default": "#06b6d4" },
+      { "id": "radius", "label": "Border radius", "type": "range", "cssVar": "--btn-radius", "default": 12, "min": 4, "max": 32, "unit": "px" },
+      { "id": "speed", "label": "Animation speed", "type": "range", "cssVar": "--btn-speed", "default": 4, "min": 1, "max": 10, "unit": "s" }
+    ]
+  },
+  "files": [
+    { "label": "button.html", "path": "button.html", "language": "html" },
+    { "label": "button.css", "path": "button.css", "language": "css" }
+  ],
+  "install": "Copy button.html and button.css into your web project, or paste the CSS custom properties into your design system stylesheet.",
+  "usage": "Add class=\"otter-grad-btn\" to any <button> or <a> element. Override --btn-c1, --btn-c2, --btn-radius, or --btn-speed on the element or :root.",
+  "verification": {
+    "status": "source-reviewed",
+    "label": "Source Reviewed & Live Sandboxed",
+    "details": "Rendered in an isolated iframe sandbox with prefers-reduced-motion media query and visible keyboard focus outline."
+  },
+  "related": ["effects-glassmorphism-card", "effects-hover-tilt-card", "web-responsive-navbar"]
+}

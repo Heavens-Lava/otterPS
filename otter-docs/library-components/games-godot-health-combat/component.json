@@ -1,0 +1,39 @@
+{
+  "id": "games/godot-health-combat",
+  "slug": "games-godot-health-combat",
+  "name": "Godot 4 Health & Damage Component",
+  "description": "Signal-driven Godot 4 GDScript HealthComponent node with invulnerability frames, armor mitigation, healing caps, defeat signals, and HUD bar binding.",
+  "category": "games",
+  "subcategory": "Combat Systems",
+  "language": "GDScript",
+  "framework": "Godot 4.x",
+  "tags": ["godot", "gdscript", "health", "combat", "damage", "signals", "hud", "rpg"],
+  "version": "1.0.0",
+  "license": "MIT",
+  "platforms": ["Godot 4.2+ (Desktop, Web, Mobile)"],
+  "dependencies": [
+    { "name": "Godot Engine", "version": ">=4.2.0" }
+  ],
+  "preview": {
+    "type": "diagram",
+    "caption": "Godot 4 Node component — attach HealthComponent as a child of any CharacterBody2D/3D and connect signals to HealthBarHUD.",
+    "architecture": [
+      "Hitbox -> HealthComponent.apply_damage(amount)",
+      "Armor mitigation + i-frame guard -> clamp(hp, 0, max_hp)",
+      "Signals: health_changed(current, max) & defeated() -> HealthBarHUD"
+    ],
+    "projectRef": "Copy scripts into res://components/combat/ in any Godot 4 project."
+  },
+  "files": [
+    { "label": "health_component.gd", "path": "health_component.gd", "language": "gdscript" },
+    { "label": "health_bar_hud.gd", "path": "health_bar_hud.gd", "language": "gdscript" }
+  ],
+  "install": "Copy health_component.gd and health_bar_hud.gd into res://components/combat/ in your Godot 4 project.",
+  "usage": "Add HealthComponent as a child node of your player or enemy scene, configure max_health and armor_reduction, and bind HealthBarHUD.health_component in the Inspector.",
+  "verification": {
+    "status": "source-reviewed",
+    "label": "Source Reviewed (Godot 4 GDScript)",
+    "details": "Typed Godot 4 GDScript using @export properties and strongly typed signals; verify inside Godot 4 scene tree."
+  },
+  "related": ["pack-otter-official-game-entity", "blueprint-otter-official-game-combat", "games-unity-inventory-system"]
+}

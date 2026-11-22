@@ -1,0 +1,40 @@
+{
+  "id": "desktop/wpf-data-grid",
+  "slug": "desktop-wpf-data-grid",
+  "name": "WPF Filterable Data Grid Panel",
+  "description": "Reusable WPF UserControl wrapping DataGrid with live ICollectionView text filtering, status pills, keyboard focus handling, and MVVM ViewModel.",
+  "category": "desktop",
+  "subcategory": "Data Grids",
+  "language": "C# / XAML",
+  "framework": "WPF (.NET 8/10)",
+  "tags": ["wpf", "xaml", "csharp", "datagrid", "filter", "mvvm", "desktop", "windows"],
+  "version": "1.0.0",
+  "license": "MIT",
+  "platforms": ["Windows Desktop (.NET 8 / .NET 10 WPF)"],
+  "dependencies": [
+    { "name": "Microsoft.WindowsDesktop.App.WPF", "version": ">=8.0.0" }
+  ],
+  "preview": {
+    "type": "diagram",
+    "caption": "Native Windows WPF control — does not execute in a browser. Inspect XAML + C# source tabs or drop into a .NET WPF project.",
+    "architecture": [
+      "Search TextBox (UpdateSourceTrigger=PropertyChanged)",
+      "ICollectionView.Filter (DataGridViewModel.cs)",
+      "Virtualized DataGrid with Status Badge Template (FilterableDataGrid.xaml)"
+    ],
+    "projectRef": "Drop into any <UseWPF>true</UseWPF> .NET Desktop project under Controls/FilterableDataGrid/"
+  },
+  "files": [
+    { "label": "FilterableDataGrid.xaml", "path": "FilterableDataGrid.xaml", "language": "xaml" },
+    { "label": "FilterableDataGrid.xaml.cs", "path": "FilterableDataGrid.xaml.cs", "language": "csharp" },
+    { "label": "DataGridViewModel.cs", "path": "DataGridViewModel.cs", "language": "csharp" }
+  ],
+  "install": "Copy FilterableDataGrid.xaml, FilterableDataGrid.xaml.cs, and DataGridViewModel.cs into your WPF project (ensure <UseWPF>true</UseWPF> in your .csproj).",
+  "usage": "Set DataContext to new DataGridViewModel(items) and place <controls:FilterableDataGrid /> inside your Window or Page layout.",
+  "verification": {
+    "status": "source-reviewed",
+    "label": "Source Reviewed (Native WPF)",
+    "details": "Complete WPF XAML and C# MVVM implementation reviewed for virtualized rendering and INotifyPropertyChanged binding; requires Windows WPF host to compile and run."
+  },
+  "related": ["desktop-wpf-settings-shell", "pack-otter-official-list-utils"]
+}

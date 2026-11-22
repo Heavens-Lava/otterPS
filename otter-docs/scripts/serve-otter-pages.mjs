@@ -5,8 +5,9 @@ import { fileURLToPath } from 'node:url';
 
 const root = normalize(fileURLToPath(new URL('../generated/', import.meta.url)));
 const types = {
-  '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.json': 'application/json',
-  '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.svg': 'image/svg+xml', '.ico': 'image/x-icon'
+  '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.mjs': 'text/javascript', '.json': 'application/json',
+  '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.svg': 'image/svg+xml', '.ico': 'image/x-icon',
+  '.mp4': 'video/mp4', '.webm': 'video/webm'
 };
 const port = Number(process.env.PORT || 4174);
 

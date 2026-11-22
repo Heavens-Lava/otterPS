@@ -1,0 +1,23 @@
+# Otter website - Reusable Component Library (/library/)
+# Authored in Otter using the shared website shell (_shell.ot).
+# Populated deterministically from canonical otter-net/library/ + multi-language components.
+
+use "_shell.ot"
+
+app is a page with title "Otter Library - Reusable Components, Packs, and Workflows", hideheader true, scroll true, width full, background "#f4f7fb", foreground "#0f1f36", spacing 0, padding 0
+
+customstyle of navLibrary is "padding: 22px 0; border-bottom: 2px solid #4d8dff; color: #ffffff;"
+
+heroEyebrow is a text with value "DISCOVER · PREVIEW · REUSE", size 12, weight 700, foreground "#7dd3fc", letterspacing "0.1em"
+heroTitle is a text with value "Otter Component Library", size 44, weight 800, foreground "#ffffff", letterspacing "-0.03em", lineheight "1.08"
+heroSub is a text with value "Searchable developer hub for Web UI, Desktop WPF controls, Game systems, CSS effects, and canonical Otter Packs, Snippets, Blueprints, Recipes, and Workflows.", size 18, foreground "#dbeafe", lineheight "1.55", customstyle "max-width: 820px;"
+heroInner is a column with spacing 12, customstyle "max-width: 1240px; width: 100%; margin: 0 auto; padding: 44px 32px 48px; box-sizing: border-box;"
+put heroEyebrow, heroTitle, heroSub in heroInner
+libHero is a column with spacing 0, width full, background "#0b1d36", customstyle "background: linear-gradient(135deg, #0b1d36 0%, #13315c 58%, #1d4ed8 100%);"
+put heroInner in libHero
+
+libraryMount is a column with spacing 0, width full, customstyle "max-width: 1240px; margin: 0 auto; padding: 28px 32px 24px; box-sizing: border-box;"
+libraryShell is a column with spacing 0, width full
+put libHero, libraryMount in libraryShell
+
+put topBar, libraryShell, siteFooter in app

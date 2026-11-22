@@ -1,0 +1,39 @@
+{
+  "id": "games/unity-inventory-system",
+  "slug": "games-unity-inventory-system",
+  "name": "Unity C# Stackable Inventory Container",
+  "description": "Data-driven Unity C# inventory system using ScriptableObject item definitions, stack merging, slot capacity limits, and change events.",
+  "category": "games",
+  "subcategory": "Inventory Systems",
+  "language": "C#",
+  "framework": "Unity 2022+ / Unity 6",
+  "tags": ["unity", "csharp", "inventory", "items", "scriptableobject", "rpg", "games"],
+  "version": "1.0.0",
+  "license": "MIT",
+  "platforms": ["Unity 2022.3 LTS / Unity 6 (Desktop, Console, Mobile)"],
+  "dependencies": [
+    { "name": "UnityEngine", "version": ">=2022.3" }
+  ],
+  "preview": {
+    "type": "diagram",
+    "caption": "Unity C# ScriptableObject + container component — inspect source tabs and attach InventoryContainer to a player GameObject.",
+    "architecture": [
+      "ItemDefinition (ScriptableObject: Id, MaxStack)",
+      "InventoryContainer.TryAdd(item, count) -> merge existing stacks -> allocate free slots",
+      "OnInventoryChanged event -> UI Slot Grid"
+    ],
+    "projectRef": "Copy into Assets/Scripts/Inventory/ inside a Unity project."
+  },
+  "files": [
+    { "label": "ItemDefinition.cs", "path": "ItemDefinition.cs", "language": "csharp" },
+    { "label": "InventoryContainer.cs", "path": "InventoryContainer.cs", "language": "csharp" }
+  ],
+  "install": "Copy ItemDefinition.cs and InventoryContainer.cs into Assets/Scripts/Inventory/ in your Unity project.",
+  "usage": "Create item assets via Right-Click -> Create -> Otter Library -> Item Definition, attach InventoryContainer to a GameObject, and call TryAdd / TryConsume.",
+  "verification": {
+    "status": "source-reviewed",
+    "label": "Source Reviewed (Unity C#)",
+    "details": "Pure C# container logic decoupled from UI rendering with explicit overflow prevention; compile and test inside Unity Editor."
+  },
+  "related": ["pack-otter-official-game-entity", "games-godot-health-combat", "games-roblox-quest-tracker"]
+}

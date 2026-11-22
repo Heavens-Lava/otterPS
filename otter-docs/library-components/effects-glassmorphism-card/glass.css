@@ -1,0 +1,85 @@
+:root {
+  --glass-blur: 16px;
+  --glass-accent: #38bdf8;
+  --glass-radius: 18px;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; font-family: Inter, system-ui, sans-serif; }
+
+.glass-stage {
+  position: relative;
+  min-height: 240px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: linear-gradient(135deg, #0b1d36 0%, #172554 55%, #0f172a 100%);
+  padding: 20px;
+}
+
+.glass-orb {
+  position: absolute;
+  border-radius: 999px;
+  filter: blur(28px);
+  opacity: 0.7;
+}
+
+.glass-orb-1 {
+  width: 170px;
+  height: 170px;
+  background: var(--glass-accent);
+  top: 14px;
+  left: calc(50% - 170px);
+}
+
+.glass-orb-2 {
+  width: 150px;
+  height: 150px;
+  background: #818cf8;
+  bottom: 10px;
+  right: calc(50% - 170px);
+}
+
+.otter-glass-card {
+  position: relative;
+  width: min(340px, 100%);
+  padding: 22px 24px;
+  border-radius: var(--glass-radius);
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  box-shadow: 0 18px 40px rgba(2, 6, 23, 0.38);
+  color: #f8fafc;
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  transition: transform 180ms ease, border-color 180ms ease;
+}
+
+.otter-glass-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(255, 255, 255, 0.42);
+}
+
+.glass-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(56, 189, 248, 0.22);
+  color: #e0f2fe;
+}
+
+.otter-glass-card h3 {
+  margin: 12px 0 6px;
+  font-size: 22px;
+  letter-spacing: -0.02em;
+}
+
+.otter-glass-card p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: rgba(241, 245, 249, 0.86);
+}
