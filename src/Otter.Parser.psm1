@@ -1514,62 +1514,363 @@ function Read-OtterObjectBlock {
     return (Read-OtterObjectBlockProperties -AllowEmpty $AllowEmpty -TypeName $TypeName)
 }
 
+$script:UiPropertyKnownKinds = @(
+    'window', 'page', 'button', 'text box', 'text', 'row', 'column',
+    'image', 'list', 'link', 'card', 'checkbox', 'check box',
+    'dropdown', 'drop down', 'select', 'slider', 'range',
+    'text area', 'textarea', 'badge', 'tag', 'canvas', 'table', 'scroll',
+    'progress', 'progress bar', 'toggle', 'switch', 'radio', 'radio button',
+    'dialog', 'modal', 'panel', 'heading', 'section', 'sidebar', 'main',
+    'input', 'grid'
+)
+$script:UiPropertyKnownNames = [System.Collections.Generic.HashSet[string]]::new([string[]]@(
+    'width', 'height', 'maxwidth', 'minwidth', 'minheight',
+    'padding', 'margin', 'spacing', 'gap', 'flex', 'grow',
+    'wrap', 'overflow', 'position', 'top', 'right', 'bottom', 'left', 'zindex',
+    'align', 'align_h', 'alignitems', 'justify', 'spread', 'scroll', 'centered',
+    'background', 'foreground', 'border', 'radius', 'round', 'shadow',
+    'size', 'fontsize', 'weight', 'fontweight', 'fontstyle', 'style',
+    'family', 'fontfamily', 'lineheight', 'letterspacing', 'whitespace',
+    'cursor', 'customstyle', 'variant', 'animation', 'mode',
+    'text', 'value', 'title', 'url', 'href', 'source', 'src', 'alt',
+    'placeholder', 'options', 'items', 'rows', 'min', 'max', 'checked',
+    'group', 'name', 'hideheader', 'runnable', 'draggable', 'accepts drops',
+    'columns', 'headers', 'data', 'selected', 'enabled', 'disabled',
+    'visible', 'hidden', 'id', 'tooltip', 'icon'
+), [System.StringComparer]::OrdinalIgnoreCase)
+$script:UiPropertyBooleanNames = [System.Collections.Generic.HashSet[string]]::new([string[]]@(
+    'hideheader', 'scroll', 'runnable', 'round', 'spread', 'checked',
+    'draggable', 'accepts drops', 'wrap', 'centered', 'enabled', 'disabled',
+    'visible', 'hidden', 'selected'
+), [System.StringComparer]::OrdinalIgnoreCase)
+$script:UiPropertyNumericNames = [System.Collections.Generic.HashSet[string]]::new([string[]]@(
+    'spacing', 'flex', 'grow', 'rows', 'min', 'max', 'zindex'
+), [System.StringComparer]::OrdinalIgnoreCase)
+$script:UiPropertySizeWeightNames = [System.Collections.Generic.HashSet[string]]::new([string[]]@(
+    'size', 'fontsize', 'weight', 'fontweight'
+), [System.StringComparer]::OrdinalIgnoreCase)
+$script:UiPropertyDimensionNames = [System.Collections.Generic.HashSet[string]]::new([string[]]@(
+    'width', 'height', 'maxwidth', 'minwidth', 'minheight',
+    'padding', 'margin', 'gap', 'radius', 'top', 'right', 'bottom', 'left'
+), [System.StringComparer]::OrdinalIgnoreCase)
+$script:UiPropertyTextStyleNames = [System.Collections.Generic.HashSet[string]]::new([string[]]@(
+    'url', 'href', 'source', 'src', 'background', 'foreground', 'customstyle',
+    'fontfamily', 'family', 'whitespace', 'cursor', 'overflow', 'position'
+), [System.StringComparer]::OrdinalIgnoreCase)
+$script:UiAlignWords = @('top', 'middle', 'bottom', 'left', 'center', 'right')
+
+function Test-OtterKnownUiKind {
+    param([string]$TypeName)
+    if ([string]::IsNullOrWhiteSpace($TypeName)) { return $false }
+    $kind = $TypeName.Trim().ToLowerInvariant()
+    foreach ($v in @('primary ', 'secondary ', 'danger ')) {
+        if ($kind.StartsWith($v)) {
+            $kind = $kind.Substring($v.Length).Trim()
+            break
+        }
+    }
+    return ($kind -in $script:UiPropertyKnownKinds)
+}
+
+function Assert-OtterUiObjectProperties {
+    param(
+        [string]$ObjectName,
+        [string]$TypeName,
+        [object[]]$Properties
+    )
+    if ($null -eq $Properties -or $Properties.Count -eq 0) { return }
+
+    # 1. Duplicate property check
+    $seen = [System.Collections.Generic.Dictionary[string, int]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($prop in $Properties) {
+        if ($null -eq $prop -or $null -eq $prop.Target) { continue }
+        $pName = if ($prop.Target -is [string]) { $prop.Target } elseif ($prop.Target.PSObject.Properties['Name']) { [string]$prop.Target.Name } else { '' }
+        if ([string]::IsNullOrEmpty($pName)) { continue }
+        if ($seen.ContainsKey($pName)) {
+            $firstLine = $seen[$pName]
+            $errTok = [Token]::new([TokenKind]::Identifier, $pName, $pName, $prop.Line, 0)
+            throw (New-OtterParserError "Duplicate property '$pName' in '$ObjectName' declaration (already set on line $firstLine)." $errTok "Remove the duplicate '$pName' property so each property is declared once." 'DuplicateProperty')
+        }
+        $seen[$pName] = $prop.Line
+    }
+
+    # 2. UI component schema checks (only for known UI component kinds)
+    if (-not (Test-OtterKnownUiKind $TypeName)) { return }
+
+    foreach ($prop in $Properties) {
+        if ($null -eq $prop -or $null -eq $prop.Target) { continue }
+        $pName = if ($prop.Target -is [string]) { $prop.Target } elseif ($prop.Target.PSObject.Properties['Name']) { [string]$prop.Target.Name } else { '' }
+        if ([string]::IsNullOrEmpty($pName)) { continue }
+        $errTok = [Token]::new([TokenKind]::Identifier, $pName, $pName, $prop.Line, 0)
+
+        if (-not $script:UiPropertyKnownNames.Contains($pName)) {
+            throw (New-OtterParserError "Unknown property '$pName' for UI component '$TypeName'." $errTok 'Use a supported UI property such as text, url, size, weight, background, foreground, padding, spacing, align, width, height, radius, or customstyle.' 'UnknownUiProperty')
+        }
+
+        if ($prop.Value -isnot [LiteralExpr]) { continue }
+        $val = $prop.Value.Value
+        $isBool = ($val -is [bool])
+        $isNum = ($val -is [double] -or $val -is [int] -or $val -is [long] -or $val -is [decimal])
+        $isStr = ($val -is [string])
+
+        if ($pName.Equals('align', [System.StringComparison]::OrdinalIgnoreCase)) {
+            if (-not $isStr -or ($val.ToLowerInvariant() -notin $script:UiAlignWords)) {
+                throw (New-OtterParserError "Invalid value for 'align': expected top, middle, bottom, left, center, or right." $errTok 'Write: middle align (or top/bottom/left/center/right align).' 'InvalidUiPropertyType')
+            }
+        } elseif ($script:UiPropertyBooleanNames.Contains($pName)) {
+            if (-not $isBool) {
+                throw (New-OtterParserError "Property '$pName' expects a true/false value, not '$val'." $errTok "Write: true $pName (or false $pName, or bare '$pName')." 'InvalidUiPropertyType')
+            }
+        } elseif ($script:UiPropertyNumericNames.Contains($pName)) {
+            if (-not $isNum) {
+                throw (New-OtterParserError "Property '$pName' expects a number, not '$val'." $errTok "Write a numeric value such as: 16 $pName" 'InvalidUiPropertyType')
+            }
+        } elseif ($script:UiPropertySizeWeightNames.Contains($pName)) {
+            if ($isBool -or $null -eq $val) {
+                throw (New-OtterParserError "Property '$pName' expects a number (or CSS font value), not '$val'." $errTok "Write a numeric value such as: 14 $pName" 'InvalidUiPropertyType')
+            }
+        } elseif ($script:UiPropertyDimensionNames.Contains($pName)) {
+            if ($isBool -or $null -eq $val) {
+                throw (New-OtterParserError "Property '$pName' expects a number or size string (such as `"100%`" or full), not '$val'." $errTok "Write: 64 $pName or `"100%`" $pName" 'InvalidUiPropertyType')
+            }
+        } elseif ($script:UiPropertyTextStyleNames.Contains($pName)) {
+            if (-not $isStr) {
+                throw (New-OtterParserError "Property '$pName' expects text (a quoted string), not '$val'." $errTok "Write a quoted text value such as: `"...`" $pName" 'InvalidUiPropertyType')
+            }
+        }
+    }
+}
+
+function Get-OtterTokenAtOffset {
+    param([int]$Offset)
+    $pos = $script:Position + $Offset
+    if ($pos -ge 0 -and $pos -lt $script:Tokens.Count) {
+        return $script:Tokens[$pos]
+    }
+    return $null
+}
+
+function Test-OtterPropertyEntryDelimiter {
+    param([Token]$Tok)
+    if ($null -eq $Tok) { return $true }
+    if ($Tok.Text -eq ',') { return $true }
+    return ($Tok.Kind -in @([TokenKind]::Newline, [TokenKind]::Dedent, [TokenKind]::BlockEnd, [TokenKind]::EndOfFile))
+}
+
+function Test-OtterPropertyNameToken {
+    param([Token]$Tok)
+    if ($null -eq $Tok) { return $false }
+    return ((Test-OtterIdentifierToken $Tok) -and $Tok.Text -ne ',')
+}
+
+function Test-OtterLiteralValueStart {
+    param([Token]$Tok)
+    if ($null -eq $Tok) { return $false }
+    return ($Tok.Kind -in @([TokenKind]::String, [TokenKind]::Number, [TokenKind]::True, [TokenKind]::False, [TokenKind]::Gone))
+}
+
+function Read-OtterPropertyEntry {
+    $cur = Get-OtterCurrentToken
+    if (Test-OtterPropertyEntryDelimiter $cur) {
+        throw (New-OtterParserError 'I expected a property after "has", "with", or a comma.' $cur 'Provide a property such as ''"Hello" text'' or ''14 size''.')
+    }
+
+    $next1 = Get-OtterTokenAtOffset 1
+    $next2 = Get-OtterTokenAtOffset 2
+
+    # 1. Bare boolean flag (D54): `spread`, `round`, `accepts drops`
+    if ((Test-OtterPropertyNameToken $cur) -and $cur.Text -eq 'accepts' -and $null -ne $next1 -and $next1.Text -eq 'drops' -and (Test-OtterPropertyEntryDelimiter $next2)) {
+        [void](Read-OtterToken); [void](Read-OtterToken)
+        return [AssignStmt]::new('accepts drops', [LiteralExpr]::new($true, $cur.Line), $cur.Line)
+    }
+    if ((Test-OtterPropertyNameToken $cur) -and (Test-OtterPropertyEntryDelimiter $next1)) {
+        $flag = Read-OtterToken
+        return [AssignStmt]::new($flag.Text, [LiteralExpr]::new($true, $flag.Line), $flag.Line)
+    }
+
+    # 2. Legacy explicit `is`: `<prop> is <value>` or `accepts drops is <value>`
+    if ((Test-OtterPropertyNameToken $cur) -and $cur.Text -eq 'accepts' -and $null -ne $next1 -and $next1.Text -eq 'drops' -and $null -ne $next2 -and $next2.Kind -eq [TokenKind]::Is) {
+        $prop = Read-OtterToken; [void](Read-OtterToken); [void](Read-OtterToken)
+        if (Test-OtterPropertyEntryDelimiter (Get-OtterCurrentToken)) {
+            throw (New-OtterParserError "I expected a value for property 'accepts drops'." (Get-OtterCurrentToken) 'Write: true accepts drops')
+        }
+        $val = Read-OtterMathExpression
+        return [AssignStmt]::new('accepts drops', $val, $prop.Line)
+    }
+    if ((Test-OtterPropertyNameToken $cur) -and $null -ne $next1 -and $next1.Kind -eq [TokenKind]::Is) {
+        $prop = Read-OtterToken
+        [void](Read-OtterToken) # is
+        if (Test-OtterPropertyEntryDelimiter (Get-OtterCurrentToken)) {
+            throw (New-OtterParserError "I expected a value for property '$($prop.Text)'." (Get-OtterCurrentToken) "Provide a value for '$($prop.Text)', such as '10 $($prop.Text)' or '$($prop.Text) is 10'.")
+        }
+        $val = $null
+        if ($prop.Text -eq 'align') {
+            $c = Get-OtterCurrentToken
+            if ($c.Kind -eq [TokenKind]::Identifier -and $c.Text -in $script:UiAlignWords) {
+                $dt = Read-OtterToken; $val = [LiteralExpr]::new($dt.Text, $dt.Line)
+            } elseif ($c.Kind -eq [TokenKind]::String -and $c.Value -in $script:UiAlignWords) {
+                $dt = Read-OtterToken; $val = [LiteralExpr]::new($dt.Value, $dt.Line)
+            } else {
+                throw (New-OtterParserError "I expected an alignment direction (top, middle, bottom, left, center, right) after 'align', but got '$($c.Text)'." $c 'Use align top, align middle, align bottom, align left, align center, or align right.')
+            }
+        } elseif ($prop.Text -in @('width', 'height') -and (Get-OtterCurrentToken).Kind -eq [TokenKind]::Identifier -and (Get-OtterCurrentToken).Text -eq 'full') {
+            $ft = Read-OtterToken; $val = [LiteralExpr]::new('full', $ft.Line)
+        } else {
+            $val = Read-OtterMathExpression
+        }
+        return [AssignStmt]::new($prop.Text, $val, $prop.Line)
+    }
+
+    # 3. Value-first UI keyword pairs: `middle align`, `"middle" align`, `full width`, `full height`
+    if ($null -ne $next1 -and (Test-OtterPropertyNameToken $next1) -and $next1.Text -eq 'align' -and (Test-OtterPropertyEntryDelimiter $next2)) {
+        if ($cur.Kind -eq [TokenKind]::Identifier -and $cur.Text -in $script:UiAlignWords) {
+            $dirTok = Read-OtterToken; $propTok = Read-OtterToken
+            return [AssignStmt]::new('align', [LiteralExpr]::new($dirTok.Text, $dirTok.Line), $propTok.Line)
+        }
+        if ($cur.Kind -eq [TokenKind]::String -and $cur.Value -in $script:UiAlignWords) {
+            $dirTok = Read-OtterToken; $propTok = Read-OtterToken
+            return [AssignStmt]::new('align', [LiteralExpr]::new($dirTok.Value, $dirTok.Line), $propTok.Line)
+        }
+        throw (New-OtterParserError "I expected an alignment direction (top, middle, bottom, left, center, right) before 'align', but got '$($cur.Text)'." $cur 'Use top align, middle align, bottom align, left align, center align, or right align.')
+    }
+    if ($cur.Kind -eq [TokenKind]::Identifier -and $cur.Text -eq 'full' -and $null -ne $next1 -and $next1.Text -in @('width', 'height') -and (Test-OtterPropertyEntryDelimiter $next2)) {
+        $fullTok = Read-OtterToken; $dimTok = Read-OtterToken
+        return [AssignStmt]::new($dimTok.Text, [LiteralExpr]::new('full', $fullTok.Line), $dimTok.Line)
+    }
+
+    # 4. Legacy UI keyword pairs: `align middle`, `width full`, `height full`, `accepts drops <value>`
+    if ((Test-OtterPropertyNameToken $cur) -and $cur.Text -eq 'align') {
+        $prop = Read-OtterToken
+        $c = Get-OtterCurrentToken
+        if ($c.Kind -eq [TokenKind]::Identifier -and $c.Text -in $script:UiAlignWords) {
+            $dt = Read-OtterToken
+            return [AssignStmt]::new('align', [LiteralExpr]::new($dt.Text, $dt.Line), $prop.Line)
+        } elseif ($c.Kind -eq [TokenKind]::String -and $c.Value -in $script:UiAlignWords) {
+            $dt = Read-OtterToken
+            return [AssignStmt]::new('align', [LiteralExpr]::new($dt.Value, $dt.Line), $prop.Line)
+        } else {
+            throw (New-OtterParserError "I expected an alignment direction (top, middle, bottom, left, center, right) after 'align', but got '$($c.Text)'." $c 'Use align top, align middle, align bottom, align left, align center, or align right.')
+        }
+    }
+    if ((Test-OtterPropertyNameToken $cur) -and $cur.Text -in @('width', 'height') -and $null -ne $next1 -and $next1.Kind -eq [TokenKind]::Identifier -and $next1.Text -eq 'full') {
+        $prop = Read-OtterToken; $fullTok = Read-OtterToken
+        return [AssignStmt]::new($prop.Text, [LiteralExpr]::new('full', $fullTok.Line), $prop.Line)
+    }
+    if ((Test-OtterPropertyNameToken $cur) -and $cur.Text -eq 'accepts' -and $null -ne $next1 -and $next1.Text -eq 'drops') {
+        $prop = Read-OtterToken; [void](Read-OtterToken)
+        if (Test-OtterPropertyEntryDelimiter (Get-OtterCurrentToken)) {
+            return [AssignStmt]::new('accepts drops', [LiteralExpr]::new($true, $prop.Line), $prop.Line)
+        }
+        $val = Read-OtterMathExpression
+        return [AssignStmt]::new('accepts drops', $val, $prop.Line)
+    }
+
+    # 5. Literal-leading or unary-`not`-leading value-first
+    if ((Test-OtterLiteralValueStart $cur) -or $cur.Kind -eq [TokenKind]::Not) {
+        $val = Read-OtterMathExpression
+        $after = Get-OtterCurrentToken
+        if (Test-OtterPropertyEntryDelimiter $after) {
+            throw (New-OtterParserError "I expected a property name after value '$($cur.Text)'." $after 'Write ''<value> <property>'', such as ''"Hello" text'' or ''14 size''.')
+        }
+        if (-not (Test-OtterPropertyNameToken $after)) {
+            throw (New-OtterParserError "I expected a property name after this value, but found '$($after.Text)'." $after 'Write ''<value> <property>'', such as ''"Hello" text'' or ''14 size''.')
+        }
+        $propTok = Read-OtterToken
+        $propName = $propTok.Text
+        if ($propName -eq 'accepts' -and (Get-OtterCurrentToken).Text -eq 'drops') {
+            [void](Read-OtterToken)
+            $propName = 'accepts drops'
+        }
+        return [AssignStmt]::new($propName, $val, $propTok.Line)
+    }
+
+    # 6. Identifier-leading:
+    #    - Legacy `<prop> <literal>`: `text "Click"`, `size 14` (unless `<ident>` is a known function)
+    if ((Test-OtterPropertyNameToken $cur) -and (Test-OtterLiteralValueStart $next1) -and -not $script:KnownFunctions.ContainsKey($cur.Text)) {
+        $propTok = Read-OtterToken
+        $val = Read-OtterMathExpression
+        return [AssignStmt]::new($propTok.Text, $val, $propTok.Line)
+    }
+
+    #    - Value-first expression-leading (`myLabel text`, `base plus 4 size`, `name of user text`)
+    $savedPos = $script:Position
+    try {
+        $expr = Read-OtterMathExpression
+        $afterExpr = Get-OtterCurrentToken
+        if (Test-OtterPropertyNameToken $afterExpr) {
+            $propTok = Read-OtterToken
+            $propName = $propTok.Text
+            if ($propName -eq 'accepts' -and (Get-OtterCurrentToken).Text -eq 'drops') {
+                [void](Read-OtterToken)
+                $propName = 'accepts drops'
+            }
+            if (Test-OtterPropertyEntryDelimiter (Get-OtterCurrentToken)) {
+                return [AssignStmt]::new($propName, $expr, $propTok.Line)
+            }
+        }
+    } catch [OtterError] {
+        # Fall through to legacy property-first parse below
+    }
+
+    $script:Position = $savedPos
+
+    # Preserve D54 bare flag (`round`/`spread`) before unexpected token so missing-comma error matches
+    if ((Test-OtterPropertyNameToken $cur) -and $cur.Text -in @('round', 'spread')) {
+        $flag = Read-OtterToken
+        return [AssignStmt]::new($flag.Text, [LiteralExpr]::new($true, $flag.Line), $flag.Line)
+    }
+
+    # Fallback: legacy `<prop> <expr>` (`size base plus 4`, `text name of user`)
+    $legacyProp = Read-OtterVariableName 'I expected a property name after "has", "with", or a comma.' -AllowReservedLiteral
+    $legacyName = $legacyProp.Text
+    if ($legacyName -eq 'accepts' -and (Get-OtterCurrentToken).Text -eq 'drops') {
+        [void](Read-OtterToken)
+        $legacyName = 'accepts drops'
+    }
+    if (Test-OtterPropertyEntryDelimiter (Get-OtterCurrentToken)) {
+        return [AssignStmt]::new($legacyName, [LiteralExpr]::new($true, $legacyProp.Line), $legacyProp.Line)
+    }
+    $legacyVal = Read-OtterMathExpression
+    return [AssignStmt]::new($legacyName, $legacyVal, $legacyProp.Line)
+}
+
+function Read-OtterMultilineWithProperties {
+    param([string]$TypeName = '')
+    [void](Read-OtterToken) # consume Newline after `with`
+    [void](Assert-OtterTokenKind ([TokenKind]::Indent) 'I expected indented properties after "with".' 'Indent each property on its own line and close the block with a period ''.''.')
+    $properties = [System.Collections.Generic.List[Node]]::new()
+    Skip-OtterNewlines
+    while (-not (Test-OtterTokenKind ([TokenKind]::Dedent)) -and -not (Test-OtterTokenKind ([TokenKind]::EndOfFile)) -and -not (Test-OtterTokenKind ([TokenKind]::BlockEnd))) {
+        $properties.Add((Read-OtterPropertyEntry))
+        if ((Get-OtterCurrentToken).Text -eq ',') {
+            [void](Read-OtterToken)
+        }
+        $endTok = Get-OtterCurrentToken
+        if ($endTok.Kind -notin @([TokenKind]::Newline, [TokenKind]::Dedent, [TokenKind]::EndOfFile)) {
+            throw (New-OtterParserError "I expected each property on its own line, but found '$($endTok.Text)' on the same line." $endTok "Place '$($endTok.Text)' on a new indented line.")
+        }
+        if ($endTok.Kind -eq [TokenKind]::Newline) { [void](Read-OtterToken) }
+        Skip-OtterNewlines
+    }
+    [void](Assert-OtterTokenKind ([TokenKind]::Dedent) 'I expected the property block to end.')
+    if (Test-OtterTokenKind ([TokenKind]::BlockEnd)) { [void](Read-OtterToken); Skip-OtterNewlines }
+    return $properties.ToArray()
+}
+
+function Read-OtterWithProperties {
+    param([string]$TypeName = '')
+    if (Test-OtterTokenKind ([TokenKind]::Newline)) {
+        return (Read-OtterMultilineWithProperties -TypeName $TypeName)
+    }
+    return (Read-OtterInlineObjectProperties -TypeName $TypeName)
+}
+
 function Read-OtterInlineObjectProperties {
     param([string]$TypeName = '')
     $properties = [System.Collections.Generic.List[Node]]::new()
 
     while ($true) {
-        $property = Read-OtterVariableName 'I expected a property name after "has", "with", or a comma.' -AllowReservedLiteral
-        # D110: `accepts drops` is a two-word property name.
-        $twoWordProperty = $null
-        if ($property.Text -eq 'accepts' -and (Get-OtterCurrentToken).Text -eq 'drops') {
-            [void](Read-OtterToken)
-            $twoWordProperty = 'accepts drops'
-        }
-        # Inline has and with are comma-delimited configuration lists.  `is` is
-        # optional independently for each property, so compact, explicit,
-        # and mixed styles all produce the same assignment nodes.
-        $hadIs = $false
-        if (Test-OtterTokenKind ([TokenKind]::Is)) {
-            [void](Read-OtterToken)
-            $hadIs = $true
-        }
-
-        $propName = if ($null -ne $twoWordProperty) { $twoWordProperty } else { $property.Text }
-        if (-not $hadIs -and ((Get-OtterCurrentToken).Text -eq ',' -or (Get-OtterCurrentToken).Kind -in @([TokenKind]::Newline, [TokenKind]::EndOfFile))) {
-            # D54: a bare property in an inline has list is boolean true.
-            $value = [LiteralExpr]::new($true, $property.Line)
-        } elseif ($property.Text -eq 'align') {
-            $cur = Get-OtterCurrentToken
-            $dir = $null
-            if ($cur.Kind -eq [TokenKind]::Identifier -and $cur.Text -in @('top', 'middle', 'bottom', 'left', 'center', 'right')) {
-                $dirTok = Read-OtterToken
-                $dir = $dirTok.Text
-                $value = [LiteralExpr]::new($dir, $dirTok.Line)
-            } elseif ($cur.Kind -eq [TokenKind]::String -and $cur.Value -in @('top', 'middle', 'bottom', 'left', 'center', 'right')) {
-                $dirTok = Read-OtterToken
-                $dir = $dirTok.Value
-                $value = [LiteralExpr]::new($dir, $dirTok.Line)
-            } else {
-                throw (New-OtterParserError "I expected an alignment direction (top, middle, bottom, left, center, right) after 'align', but got '$($cur.Text)'." $cur 'Use align top, align middle, align bottom, align left, align center, or align right.')
-            }
-
-        } elseif ($property.Text -in @('width', 'height') -and 
-            (Get-OtterCurrentToken).Kind -eq [TokenKind]::Identifier -and 
-            (Get-OtterCurrentToken).Text -eq 'full') {
-            $fullTok = Read-OtterToken
-            $value = [LiteralExpr]::new('full', $fullTok.Line)
-        } elseif (-not $hadIs -and $property.Text -in @('round', 'spread')) {
-            # Bare property name acts as a boolean flag (e.g. `round`, `spread`)
-            $value = [LiteralExpr]::new($true, $property.Line)
-        } else {
-            if ((Get-OtterCurrentToken).Text -eq ',' -or (Get-OtterCurrentToken).Kind -in @([TokenKind]::Newline, [TokenKind]::EndOfFile)) {
-                throw (New-OtterParserError "I expected a value for property '$($property.Text)'." (Get-OtterCurrentToken) "Provide a value after the property name, such as '$($property.Text) 10' or '$($property.Text) is 10'.")
-            }
-            $value = Read-OtterMathExpression
-        }
-
-        $properties.Add([AssignStmt]::new($propName, $value, $property.Line))
+        $properties.Add((Read-OtterPropertyEntry))
         if ((Get-OtterCurrentToken).Text -ne ',') { break }
         [void](Read-OtterToken)
         if ((Get-OtterCurrentToken).Kind -eq [TokenKind]::Newline) {
@@ -5158,7 +5459,8 @@ function Read-OtterStatement {
             # branch below.
             if (Test-OtterTokenKind ([TokenKind]::Has)) {
                 [void](Read-OtterToken)
-                $properties = if (Test-OtterTokenKind ([TokenKind]::Newline)) { Read-OtterObjectBlockProperties -AllowEmpty $true } else { Read-OtterInlineObjectProperties }
+                $properties = if (Test-OtterTokenKind ([TokenKind]::Newline)) { Read-OtterObjectBlockProperties -AllowEmpty $true } else { Read-OtterWithProperties }
+                Assert-OtterUiObjectProperties -ObjectName $name.Text -TypeName 'thing' -Properties $properties
                 return [ObjectDefStmt]::new($name.Text, 'thing', $properties, $name.Line)
             }
             if (Test-OtterTokenKind ([TokenKind]::Of)) {
@@ -5188,14 +5490,15 @@ function Read-OtterStatement {
                     }
                     if (Test-OtterTokenKind ([TokenKind]::With)) {
                         [void](Read-OtterToken)
-                        $properties = Read-OtterInlineObjectProperties -TypeName $typeName
+                        $properties = Read-OtterWithProperties -TypeName $typeName
+                        Assert-OtterUiObjectProperties -ObjectName $name.Text -TypeName $typeName -Properties $properties
                     } elseif ($typeName -eq 'thing' -or -not $script:KnownTypes.ContainsKey($typeName)) {
                         $properties = Read-OtterObjectBlockProperties -AllowEmpty ($typeName -eq 'thing') -TypeName $typeName
                     } else {
                         [void](Assert-OtterTokenKind ([TokenKind]::Newline) 'I expected the object definition to end here.')
                         if (Test-OtterTokenKind ([TokenKind]::Indent)) {
                             $indent = Get-OtterCurrentToken
-                            throw (New-OtterParserError "'$typeName' is a declared type, so its properties must use 'with' on the same line." $indent "Write '$($name.Text) is a $typeName with property value'.")
+                            throw (New-OtterParserError "'$typeName' is a declared type, so its properties must use 'with' on the same line." $indent "Write '$($name.Text) is a $typeName with value property'.")
                         }
                         $properties = @()
                     }
