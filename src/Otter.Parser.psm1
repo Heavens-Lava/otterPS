@@ -1793,6 +1793,19 @@ function Read-OtterPropertyEntry {
         return [AssignStmt]::new($propTok.Text, $val, $propTok.Line)
     }
 
+    #    - Legacy `<known-ui-prop> <variable>`: e.g. `item has text task`, `card has title headingText`
+    #      (preserves Otter 1.0.1 compatibility when a known UI property comes first and a non-UI variable comes second;
+    #      value-first `myTitle text` / `userLabel name` falls through below).
+    if ((Test-OtterPropertyNameToken $cur) -and $null -ne $next1 -and (Test-OtterPropertyNameToken $next1) -and
+        (Test-OtterPropertyEntryDelimiter $next2) -and
+        -not $script:KnownFunctions.ContainsKey($cur.Text) -and
+        $script:UiPropertyKnownNames.Contains($cur.Text) -and
+        -not $script:UiPropertyKnownNames.Contains($next1.Text)) {
+        $propTok = Read-OtterToken
+        $varTok = Read-OtterToken
+        return [AssignStmt]::new($propTok.Text, [VariableExpr]::new($varTok.Text, $varTok.Line), $propTok.Line)
+    }
+
     #    - Value-first expression-leading (`myLabel text`, `base plus 4 size`, `name of user text`)
     $savedPos = $script:Position
     try {

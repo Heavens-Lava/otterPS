@@ -231,4 +231,15 @@ $rsAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $riverSlateVf
 Assert-True ($rsAst.Statements.Count -gt 10) "Expected River Slate value-first AST to parse cleanly"
 Write-Output '  pass  River Slate components with value-first syntax (theme, label, hint, error, subtitle, showvalue, step, columns, outline/ghost buttons)'
 
+# 5. Regression test: legacy `<known-ui-prop> <var>` (`item has text task`) alongside value-first (`item2 has task text`)
+$l2iSrc = @'
+task is "Walk the otter"
+item has text task
+item2 has task text
+'@
+$l2iAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $l2iSrc)
+Assert-True ($l2iAst.Statements[1].Properties[0].Target.Name -eq 'text' -and $l2iAst.Statements[1].Properties[0].Value.Name -eq 'task') 'Legacy item has text task assigns text=task'
+Assert-True ($l2iAst.Statements[2].Properties[0].Target.Name -eq 'text' -and $l2iAst.Statements[2].Properties[0].Value.Name -eq 'task') 'Value-first item2 has task text assigns text=task'
+Write-Output '  pass  legacy `<known-ui-prop> <var>` (`item has text task`) and value-first (`item2 has task text`) both assign text=task'
+
 Write-Output '=== ALL otterPS Value-First Property Syntax Tests PASSED ==='
