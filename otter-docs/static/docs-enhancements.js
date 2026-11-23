@@ -74,6 +74,89 @@
   }
   installSiteMenu();
 
+  // Interactive platform tabs on /download/ (Windows / macOS / Linux).
+  function installDownloadTabs() {
+    const winTab = document.getElementById('tabWindows');
+    const macTab = document.getElementById('tabMac');
+    const linuxTab = document.getElementById('tabLinux');
+    const runBody = document.getElementById('runBody');
+    const runCommand = document.getElementById('runCommand');
+    const runLabel = document.getElementById('runCommandlabel');
+    const reqOs = document.getElementById('reqOs');
+    const reqShell = document.getElementById('reqShell');
+    if (!winTab || !macTab || !linuxTab || !runCommand) return;
+
+    const PLATFORMS = {
+      windows: {
+        tab: winTab,
+        body: 'Extract otter-1.0.1.zip, open Windows PowerShell in the folder that contains otter.cmd, and run:',
+        label: 'PowerShell (Windows)',
+        cmd: '.\\otter.cmd examples\\hello.ot\n# Or install to user PATH:\n.\\Install-Otter.ps1 -AddToUserPath',
+        os: 'Windows 10 or 11 (64-bit). Also available via winget install 9N5K67PPWJPN.',
+        shell: 'Windows PowerShell 5.1 (built into Windows — nothing extra to install).'
+      },
+      macos: {
+        tab: macTab,
+        body: 'Install PowerShell 7 (brew install powershell), extract otter-1.0.1.zip, and run in Terminal:',
+        label: 'Terminal (macOS)',
+        cmd: './otter examples/hello.ot\n# Or install to ~/.local/bin:\npwsh -NoProfile -File ./Install-Otter.ps1 -AddToUserPath',
+        os: 'macOS 12+ (Apple silicon or Intel) with PowerShell 7 (pwsh).',
+        shell: 'PowerShell 7 (pwsh) for otterPS 1.0.1; native otter-net builds require .NET 10 SDK.'
+      },
+      linux: {
+        tab: linuxTab,
+        body: 'Install PowerShell 7 (pwsh), extract otter-1.0.1.zip, and run in your shell:',
+        label: 'Shell (Linux / Chromebook)',
+        cmd: './otter examples/hello.ot\n# Or install to ~/.local/bin:\npwsh -NoProfile -File ./Install-Otter.ps1 -AddToUserPath',
+        os: 'Linux (x64 or arm64) and Chromebooks (Debian 12 Linux environment) with PowerShell 7.',
+        shell: 'PowerShell 7 (pwsh) for otterPS 1.0.1; native otter-net builds require .NET 10 SDK.'
+      }
+    };
+
+    const tabList = [
+      ['windows', winTab],
+      ['macos', macTab],
+      ['linux', linuxTab]
+    ];
+
+    const activate = (key) => {
+      const cfg = PLATFORMS[key] || PLATFORMS.windows;
+      for (const [k, el] of tabList) {
+        const active = k === key;
+        el.setAttribute('aria-selected', String(active));
+        el.dataset.activePlatform = active ? 'true' : 'false';
+        el.style.background = active ? '#f8fbff' : 'transparent';
+        el.style.color = active ? '#1d70ea' : '#0f1f36';
+        el.style.border = active ? '2px solid #b9d7ff' : '2px solid transparent';
+        el.style.borderRadius = '10px';
+        el.style.fontWeight = active ? '700' : '600';
+      }
+      if (runBody) runBody.textContent = cfg.body;
+      if (runLabel) runLabel.textContent = cfg.label;
+      runCommand.textContent = cfg.cmd;
+      if (reqOs) reqOs.textContent = cfg.os;
+      if (reqShell) reqShell.textContent = cfg.shell;
+    };
+
+    const parent = winTab.parentElement;
+    if (parent) parent.setAttribute('role', 'tablist');
+
+    for (const [key, el] of tabList) {
+      el.setAttribute('role', 'tab');
+      el.setAttribute('tabindex', '0');
+      el.style.cursor = 'pointer';
+      el.addEventListener('click', () => activate(key));
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          activate(key);
+        }
+      });
+    }
+    activate('windows');
+  }
+  installDownloadTabs();
+
   // The quick reference page has a Print button.
   document.getElementById('refPrint')?.addEventListener('click', () => window.print());
 

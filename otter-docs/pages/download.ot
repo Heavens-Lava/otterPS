@@ -86,8 +86,9 @@ relSize is a text with value "Download size: {{INSTALLER_SIZE}}", size 15, foreg
 relDate is a text with value "Release date: {{RELEASE_DATE}}", size 15, foreground "#4a5b75"
 relSha is a text with value "SHA-256: {{SHA256}}", size 15, foreground "#4a5b75"
 relNotes is a text with value "Release notes: {{RELEASE_NOTES_STATUS}}", size 15, foreground "#4a5b75"
+relNative is a text with value "Native runtime (otter-net): Schema v2 Packs, VS Code LSP/DAP, and Otter Pulse run on otter-net (.NET 10, source available on GitHub at Heavens-Lava/otter-net). Stable 1.0.1 zip runs on Windows PowerShell 5.1 and PowerShell 7 on macOS/Linux.", size 14, foreground "#1e3a6b", background "#eaf2ff", radius 10, border "1px solid #cfe0ff", lineheight "1.55", customstyle "padding: 12px 16px; margin-top: 6px;"
 relCard is a card with background "#ffffff", radius 16, border "1px solid #e3e9f2", padding 28, spacing 8, width full
-put relTitle, relVersion, relSize, relDate, relSha, relNotes in relCard
+put relTitle, relVersion, relSize, relDate, relSha, relNotes, relNative in relCard
 
 # ==========================================
 # 5. RUN FROM THE PROJECT FOLDER
@@ -120,13 +121,15 @@ when runResultcopy is clicked
 runCard is a card with background "#ffffff", radius 16, border "1px solid #e3e9f2", padding 28, spacing 12, flex 1.55
 put runTitle, runBody, runCommandblock, runResultblock in runCard
 
-nextTitle is a text with value "Next steps", size 26, weight 800, foreground "#0f1f36", letterspacing "-0.02em"
-nextOne is a link with text "1. Install Otter", url "/installation/", foreground "#2563eb", size 15
+nextTitle is a text with value "Next steps (under 10 minutes)", size 26, weight 800, foreground "#0f1f36", letterspacing "-0.02em"
+nextZero is a link with text "0. Try Otter immediately in the Browser Playground", url "/playground/", foreground "#2563eb", weight 700, size 15
+nextOne is a link with text "1. Install Otter (Windows, macOS & Linux)", url "/installation/", foreground "#2563eb", size 15
 nextTwo is a link with text "2. Write your first program", url "/first-program/", foreground "#2563eb", size 15
-nextThree is a link with text "3. Explore the documentation", url "/", foreground "#2563eb", size 15
-nextFour is a link with text "4. Try the examples", url "/examples/", foreground "#2563eb", size 15
-nextCard is a card with background "#ffffff", radius 16, border "1px solid #e3e9f2", padding 28, spacing 12, flex 1
-put nextTitle, nextOne, nextTwo, nextThree, nextFour in nextCard
+nextThree is a link with text "3. Explore the documentation", url "/docs/", foreground "#2563eb", size 15
+nextFour is a link with text "4. Build Otter Pulse (flagship tutorial)", url "/otter-pulse/", foreground "#2563eb", size 15
+nextFive is a link with text "5. Browse the Component Library", url "/library/", foreground "#2563eb", size 15
+nextCard is a card with background "#ffffff", radius 16, border "1px solid #e3e9f2", padding 28, spacing 10, flex 1
+put nextTitle, nextZero, nextOne, nextTwo, nextThree, nextFour, nextFive in nextCard
 
 bottomCards is a row with spacing 24, align top, width full
 put runCard, nextCard in bottomCards

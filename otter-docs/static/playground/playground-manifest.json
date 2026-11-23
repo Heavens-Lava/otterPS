@@ -1,0 +1,246 @@
+{
+  "schemaVersion": 1,
+  "languageVersion": "1.0.1",
+  "engine": "otter-net-browser-wasm",
+  "sourceCommit": "79727ce0985d0de4c7749fdfdb99dbfa216cbe29",
+  "bundleTreeSha256": "187a99c9190374164d7dd8145e49a331b499183d98bacc5889fe6030d61add7f",
+  "fileCount": 39,
+  "totalRawBytes": 6952759,
+  "totalGzipBytes": 2697252,
+  "files": [
+    {
+      "path": "_framework/dotnet.js",
+      "bytes": 47062,
+      "gzipBytes": 14402,
+      "sha256": "001e9bec83c95a1c43b22f440e34c74b00e037f8ad0a1dfae5b56a3e91ba6b78"
+    },
+    {
+      "path": "_framework/dotnet.native.js",
+      "bytes": 145050,
+      "gzipBytes": 34782,
+      "sha256": "62f362d90fb21e75e2f224fb44ecdad0e1165afdad0a9b932361a069ebab6b75"
+    },
+    {
+      "path": "_framework/dotnet.native.wasm",
+      "bytes": 3002122,
+      "gzipBytes": 1195395,
+      "sha256": "5fd1cd34ed0f5a877b82e5288408eb489323e90c582c29be4a58cd61a4fc361a"
+    },
+    {
+      "path": "_framework/dotnet.runtime.js",
+      "bytes": 197975,
+      "gzipBytes": 56444,
+      "sha256": "e9206a0db2cbcb8eb407177bc0c66888ef7b8597cb4ee17e1d18564f77a54bb5"
+    },
+    {
+      "path": "_framework/Otter.Language.wasm",
+      "bytes": 226581,
+      "gzipBytes": 79481,
+      "sha256": "ea39c78818606c5426e3d7dfec980ae5e329442393e9530f0a182990d408d770"
+    },
+    {
+      "path": "_framework/Otter.Playground.Wasm.wasm",
+      "bytes": 17685,
+      "gzipBytes": 8451,
+      "sha256": "ea95d72cebc1fff186e8a82e8d6dcb877c50cbba6559ac1754dc5bb4e5f4a4fd"
+    },
+    {
+      "path": "_framework/Otter.Runtime.wasm",
+      "bytes": 317717,
+      "gzipBytes": 126035,
+      "sha256": "925c11468254a42e133e2ff2bafc37c7da4b9757f8f425a9bbc88eb402fe664f"
+    },
+    {
+      "path": "_framework/System.Collections.Concurrent.wasm",
+      "bytes": 15125,
+      "gzipBytes": 7462,
+      "sha256": "1dfd6f467e824d161017cf628cc073c3a59638e0ecef52e44f309b09123236aa"
+    },
+    {
+      "path": "_framework/System.Collections.NonGeneric.wasm",
+      "bytes": 7957,
+      "gzipBytes": 3575,
+      "sha256": "a6ba6cbe4c99ed4cc99f00aff21f3a3cc49aa9b4c73a27cceb6b168c5a41a195"
+    },
+    {
+      "path": "_framework/System.Collections.wasm",
+      "bytes": 7957,
+      "gzipBytes": 3486,
+      "sha256": "ad1e3d022b53e7d179d59f38685bc8dd6185cc38609d2cba68ffdefc52a22d3b"
+    },
+    {
+      "path": "_framework/System.ComponentModel.Primitives.wasm",
+      "bytes": 8981,
+      "gzipBytes": 3873,
+      "sha256": "137b4f6752cff551fdec78e0a22b8bb9cd127a5bf9a7f9ee4a7e64d2f4657223"
+    },
+    {
+      "path": "_framework/System.ComponentModel.TypeConverter.wasm",
+      "bytes": 5397,
+      "gzipBytes": 2166,
+      "sha256": "16b5f2166de1731194682c975be6b014d342a7f649673c68cf3512cd0284eccb"
+    },
+    {
+      "path": "_framework/System.Console.wasm",
+      "bytes": 6421,
+      "gzipBytes": 2704,
+      "sha256": "4067bef1b303e37fdc36c8ec9f4ab29cee83953159dbdd96acaf25cc75c0e83b"
+    },
+    {
+      "path": "_framework/System.Diagnostics.Process.wasm",
+      "bytes": 8981,
+      "gzipBytes": 3784,
+      "sha256": "7df05ddc72c65e5a5ee38c187d001dcafe28fbe6fe34857efcdaa6ea29a3dcd5"
+    },
+    {
+      "path": "_framework/System.IO.Compression.wasm",
+      "bytes": 87829,
+      "gzipBytes": 39555,
+      "sha256": "0177725ea8acddf29f8634a0a808a7a9fcde399da740576c1eee0c96597f109a"
+    },
+    {
+      "path": "_framework/System.IO.Compression.ZipFile.wasm",
+      "bytes": 20245,
+      "gzipBytes": 9937,
+      "sha256": "50057479dca5076163e34de6702906ed89ddd1c839ae4560da0c3ddc33218a31"
+    },
+    {
+      "path": "_framework/System.IO.FileSystem.DriveInfo.wasm",
+      "bytes": 6421,
+      "gzipBytes": 2884,
+      "sha256": "a9782e47fd00297dcad1085f2ac831b504b2c33a4102bddc5ad9fea5c93ea28b"
+    },
+    {
+      "path": "_framework/System.IO.FileSystem.Watcher.wasm",
+      "bytes": 7445,
+      "gzipBytes": 3139,
+      "sha256": "9da53ebb71ff4db93ad418a5518bf74ec167849cf3194930fed52afd37179f6f"
+    },
+    {
+      "path": "_framework/System.Linq.wasm",
+      "bytes": 39189,
+      "gzipBytes": 18262,
+      "sha256": "6732bc843a2d92028af1696034886f74d79f569bd0115e0d166adfb1ad830bad"
+    },
+    {
+      "path": "_framework/System.Memory.wasm",
+      "bytes": 7445,
+      "gzipBytes": 3426,
+      "sha256": "32c75741b6ee49a66f933cefdc0e731c12bab182eef456a71bee4a2981602eca"
+    },
+    {
+      "path": "_framework/System.Net.Http.wasm",
+      "bytes": 142101,
+      "gzipBytes": 62897,
+      "sha256": "89071d6df66c7de948bb63fc82814d7eec540e906cc6e1a3b5394c6e92135a88"
+    },
+    {
+      "path": "_framework/System.Net.NameResolution.wasm",
+      "bytes": 5397,
+      "gzipBytes": 2184,
+      "sha256": "809380bbe0fed77b29f798bd137e6db892165e0b6c33907fb50045b614cf0a6e"
+    },
+    {
+      "path": "_framework/System.Net.NetworkInformation.wasm",
+      "bytes": 7445,
+      "gzipBytes": 3200,
+      "sha256": "a5b8722986a9f74f8d9871b158c47d82df877a12c4e83dd3dd33b7421cd67854"
+    },
+    {
+      "path": "_framework/System.Net.Primitives.wasm",
+      "bytes": 28949,
+      "gzipBytes": 14698,
+      "sha256": "3185d4c785a51127ca260f11dde01c98568df2eca8b35c29348d6d7b03e77671"
+    },
+    {
+      "path": "_framework/System.Net.Security.wasm",
+      "bytes": 6933,
+      "gzipBytes": 2913,
+      "sha256": "bc5ce1e0ec72fe412796476925a89ea1ea1fbf6c294c1e34f6e4b69fb8be6196"
+    },
+    {
+      "path": "_framework/System.Net.Sockets.wasm",
+      "bytes": 7445,
+      "gzipBytes": 3168,
+      "sha256": "87827eb7b3d43c895936f1e1c4d0782e95184b046aaaed2be14bfff8b31a6227"
+    },
+    {
+      "path": "_framework/System.Net.WebSockets.Client.wasm",
+      "bytes": 29461,
+      "gzipBytes": 13198,
+      "sha256": "4a07d6bd715ab5af658bd987ec88e03c7290bc4a9d65ca82c98c68cd829df31b"
+    },
+    {
+      "path": "_framework/System.Net.WebSockets.wasm",
+      "bytes": 10005,
+      "gzipBytes": 4489,
+      "sha256": "ad1301bdb7815591269a3af020881b3b8bf0db5452535393d7dbe93887ff575e"
+    },
+    {
+      "path": "_framework/System.ObjectModel.wasm",
+      "bytes": 5909,
+      "gzipBytes": 2409,
+      "sha256": "70e2c7ef89e2291dfac31fbc4a473fc97fe56fb4bf8222a58d550d102adf7b44"
+    },
+    {
+      "path": "_framework/System.Private.CoreLib.wasm",
+      "bytes": 1528597,
+      "gzipBytes": 586054,
+      "sha256": "be70ab848e3939be388e1035a68e6108df4422a55461f9029937ea950942dcac"
+    },
+    {
+      "path": "_framework/System.Private.Uri.wasm",
+      "bytes": 67861,
+      "gzipBytes": 30938,
+      "sha256": "5cdace5952ef1ac5caf6caaf99480fd52a0d194a99fa6441a1855d1da36247a3"
+    },
+    {
+      "path": "_framework/System.Private.Xml.wasm",
+      "bytes": 528661,
+      "gzipBytes": 168816,
+      "sha256": "3a9414718081c6c674f813b82cecd5e6282ea2e7835cc89876772dd690e3d69e"
+    },
+    {
+      "path": "_framework/System.Runtime.InteropServices.JavaScript.wasm",
+      "bytes": 44309,
+      "gzipBytes": 19799,
+      "sha256": "d7ea5debff69e1be48b13c66b7fb3efda709b50a051445d87098a88a2e8685d4"
+    },
+    {
+      "path": "_framework/System.Security.Cryptography.wasm",
+      "bytes": 41237,
+      "gzipBytes": 19158,
+      "sha256": "7a01aa868e2b7954cb66cf03adef6329c3ab3893a003ed88e44193dccef6ec67"
+    },
+    {
+      "path": "_framework/System.Text.Encodings.Web.wasm",
+      "bytes": 26901,
+      "gzipBytes": 9911,
+      "sha256": "4823f414b502fe7eee53597abc95edaaf8d4b7d0816224f0a86287af7e690c06"
+    },
+    {
+      "path": "_framework/System.Text.Json.wasm",
+      "bytes": 29461,
+      "gzipBytes": 12550,
+      "sha256": "9b9d2d9b421e89826f10386faac4732a132ff634d1fc15af9181005b57505ac8"
+    },
+    {
+      "path": "_framework/System.Text.RegularExpressions.wasm",
+      "bytes": 251669,
+      "gzipBytes": 119132,
+      "sha256": "8644b3550f2c02dc86672ab1db44e66330555cc9b5f62546c01729c2b3791c8f"
+    },
+    {
+      "path": "_framework/System.wasm",
+      "bytes": 4885,
+      "gzipBytes": 1685,
+      "sha256": "999ef2db89b87789cf85e90309a5ffb389dd654838b6e133a063e344fc355ecc"
+    },
+    {
+      "path": "otter-worker.mjs",
+      "bytes": 1948,
+      "gzipBytes": 810,
+      "sha256": "a5983cd47d28e57f3babe2b1a7454f7ccd5abd663942280b8c150ae087c27ca4"
+    }
+  ]
+}

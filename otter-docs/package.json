@@ -14,8 +14,9 @@
     "audit:otter": "pwsh -NoProfile -File scripts/audit-otter-routes.ps1",
     "test:library": "node --test tests/library.test.mjs",
     "test:e2e": "node --test tests/library-e2e.test.mjs",
+    "test:wave2": "node --test tests/wave2-e2e.test.mjs",
     "validate:components": "node scripts/validate-components.mjs",
-    "test:all": "npm run test:library && npm run test:e2e && npm run validate:components && npm run audit:otter",
+    "test:all": "npm run test:library && npm run test:e2e && npm run test:wave2 && npm run validate:components && npm run audit:otter",
     "serve:otter": "node scripts/serve-otter-pages.mjs",
     "dev:otter": "npm run build:otter && npm run audit:otter && npm run serve:otter"
   }

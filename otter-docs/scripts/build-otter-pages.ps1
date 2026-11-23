@@ -55,6 +55,19 @@ if (Test-Path -LiteralPath $staticSource) {
     New-Item -ItemType Directory -Force -Path $staticDestination | Out-Null
     Get-ChildItem -LiteralPath $staticSource -File | Copy-Item -Destination $staticDestination -Force
 }
+$playgroundSource = Join-Path $PSScriptRoot '..\static\playground'
+$playgroundDestination = Join-Path $OutputRoot 'static\playground'
+if (Test-Path -LiteralPath $playgroundSource) {
+    $syncPgScript = Join-Path $PSScriptRoot 'sync-playground-wasm.mjs'
+    if (Test-Path -LiteralPath $syncPgScript) {
+        & node $syncPgScript --target $playgroundSource
+        if ($LASTEXITCODE -ne 0) { throw "sync-playground-wasm.mjs verification failed with exit code $LASTEXITCODE." }
+    }
+    if (Test-Path -LiteralPath $playgroundDestination) {
+        Remove-Item -LiteralPath $playgroundDestination -Recurse -Force
+    }
+    Copy-Item -LiteralPath $playgroundSource -Destination $playgroundDestination -Recurse -Force
+}
 
 # The search index is deliberately generated from the Otter-authored page
 # sources. It stays in sync with the content and needs no server or package.
@@ -92,6 +105,9 @@ foreach ($source in Get-ChildItem -LiteralPath $pagesRoot -Filter '*.ot' | Where
     try {
         Export-OtterWebApplication -SourcePath $sourcePath -OutputPath $destination | Out-Null
         $enhancement = '<link rel="icon" href="/static/images/otter-site-icon.png" type="image/png">' + "`n" + '<link rel="apple-touch-icon" href="/static/images/otter-site-icon.png">' + "`n" + '<link rel="stylesheet" href="/static/docs-enhancements.css">' + "`n" + '<script defer src="/static/docs-enhancements.js"></script>' + "`n"
+        if ($slug -eq 'playground') {
+            $enhancement += '<link rel="stylesheet" href="/static/playground-app.css">' + "`n" + '<script defer src="/static/playground-app.js"></script>' + "`n"
+        }
         $html = Get-Content -LiteralPath $destination -Raw
         $html = $html -replace '(?i)</head>', ($enhancement + '</head>')
         Set-Content -LiteralPath $destination -Value $html -Encoding UTF8

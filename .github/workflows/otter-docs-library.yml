@@ -90,6 +90,12 @@ jobs:
           CHROME_BIN: ${{ steps.chrome.outputs.chrome-path }}
         run: npm run test:e2e
 
+      - name: Run Wave 2 Playground WASM, Otter Pulse & Onboarding E2E tests
+        working-directory: ./otterPS/otter-docs
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.chrome-path }}
+        run: npm run test:wave2
+
       - name: Run component source/harness validation (Unity C#, WPF ViewModel/XAML, Roblox Luau)
         working-directory: ./otterPS/otter-docs
         run: npm run validate:components
