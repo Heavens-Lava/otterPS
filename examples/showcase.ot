@@ -1,56 +1,41 @@
 # showcase.ot - Otter UI River Slate Component Showcase
 # Compile to web with: otter web examples/showcase.ot
 
-app is a page
-    title is "Otter UI - River Slate"
-    scroll is true
-    spacing is 24
+app is a page with
+    "Otter UI - River Slate" title,
+    true scroll,
+    24 spacing
 .
 
-heroRow is a row
-    spacing is 10
-    wrap is true
-.
-heroBadge1 is a badge with text "River Slate"
-heroBadge2 is a badge with text "Dark Default", variant "success"
-heroBadge3 is a badge with text "Light Opt-In", variant "outline"
-heroLead is a text
-    value is "Cohesive, accessible UI components compiled straight from Otter source into zero-dependency HTML, CSS, and JavaScript."
-    variant is "muted"
+heroRow is a row with 10 spacing, true wrap
+heroBadge1 is a badge with "River Slate" text
+heroBadge2 is a badge with "Dark Default" text, "success" variant
+heroBadge3 is a badge with "Light Opt-In" text, "outline" variant
+heroLead is a text with
+    "Cohesive, accessible UI components compiled straight from Otter source into zero-dependency HTML, CSS, and JavaScript." value,
+    "muted" variant
 .
 put heroBadge1, heroBadge2, heroBadge3 in heroRow
 
-mainGrid is a grid
-    columns is 2
-    spacing is 20
-.
+mainGrid is a grid with 2 columns, 20 spacing
 
 # Card 1: Buttons & Variants
-buttonsCard is a card
-    title is "Buttons & Actions"
-    subtitle is "Consistent sizing, variants, focus rings, disabled states, and live click handlers."
+buttonsCard is a card with
+    "Buttons & Actions" title,
+    "Consistent sizing, variants, focus rings, disabled states, and live click handlers." subtitle
 .
-btnRow is a row
-    spacing is 10
-    wrap is true
-.
-deployBtn is a primary button with text "Deploy"
-draftBtn is a secondary button with text "Save Draft"
-previewBtn is an outline button with text "Preview"
-cancelBtn is a ghost button with text "Cancel"
-deleteBtn is a danger button with text "Delete"
-lockedBtn is a button with text "Locked", disabled true
+btnRow is a row with 10 spacing, true wrap
+deployBtn is a primary button with "Deploy" text
+draftBtn is a secondary button with "Save Draft" text
+previewBtn is a outline button with "Preview" text
+cancelBtn is a ghost button with "Cancel" text
+deleteBtn is a danger button with "Delete" text
+lockedBtn is a button with "Locked" text, true disabled
 put deployBtn, draftBtn, previewBtn, cancelBtn, deleteBtn, lockedBtn in btnRow
 
-statusRow is a row
-    spacing is 10
-    wrap is true
-.
-actionStatus is a text
-    value is "Ready - click any button to trigger an Otter handler."
-    variant is "muted"
-.
-deployCountBadge is a badge with text "0", variant "outline"
+statusRow is a row with 10 spacing, true wrap
+actionStatus is a text with "Ready - click any button to trigger an Otter handler." value, "muted" variant
+deployCountBadge is a badge with "0" text, "outline" variant
 put actionStatus, deployCountBadge in statusRow
 clickCount is 0
 
@@ -74,34 +59,28 @@ when deleteBtn is clicked
 put btnRow, statusRow in buttonsCard
 
 # Card 2: Text Inputs & Validation
-inputsCard is a card
-    title is "Forms & Inputs"
-    subtitle is "Structured fields with labels, hints, error states, and controlled textarea sizing."
+inputsCard is a card with
+    "Forms & Inputs" title,
+    "Structured fields with labels, hints, error states, and controlled textarea sizing." subtitle
 .
-projectBox is a text box
-    label is "Project name"
-    placeholder is "otter-pulse"
-    hint is "Shown in your workspace header and deploy logs."
+projectBox is a text box with
+    "Project name" label,
+    "otter-pulse" placeholder,
+    "Shown in your workspace header and deploy logs." hint
 .
-slugBox is a text box
-    label is "Subdomain"
-    value is "Bad Slug!"
-    error is "Use lowercase letters, numbers, and hyphens only."
+slugBox is a text box with
+    "Subdomain" label,
+    "Bad Slug!" value,
+    "Use lowercase letters, numbers, and hyphens only." error
 .
-notesBox is a text area
-    label is "Release notes"
-    placeholder is "Summarize what changed in this build..."
-    rows is 3
+notesBox is a text area with
+    "Release notes" label,
+    "Summarize what changed in this build..." placeholder,
+    3 rows
 .
-greetRow is a row
-    spacing is 12
-    wrap is true
-.
-applyNameBtn is a primary button with text "Apply Name"
-inputFeedback is a text
-    value is "Waiting for project name..."
-    variant is "muted"
-.
+greetRow is a row with 12 spacing, true wrap
+applyNameBtn is a primary button with "Apply Name" text
+inputFeedback is a text with "Waiting for project name..." value, "muted" variant
 put applyNameBtn, inputFeedback in greetRow
 
 when applyNameBtn is clicked
@@ -115,78 +94,55 @@ when applyNameBtn is clicked
 put projectBox, slugBox, notesBox, greetRow in inputsCard
 
 # Card 3: Selection Controls
-selectionCard is a card
-    title is "Selection Controls"
-    subtitle is "Custom-styled dropdowns, aligned checkboxes, switches, and radio groups."
+selectionCard is a card with
+    "Selection Controls" title,
+    "Custom-styled dropdowns, aligned checkboxes, switches, and radio groups." subtitle
 .
-regionSelect is a dropdown
-    label is "Deployment region"
-    options is "US West (Oregon), US East (Virginia), EU Central (Frankfurt), Asia Pacific (Tokyo)"
-    hint is "Traffic routes through the nearest healthy edge."
+regionSelect is a dropdown with
+    "Deployment region" label,
+    "US West (Oregon), US East (Virginia), EU Central (Frankfurt), Asia Pacific (Tokyo)" options,
+    "Traffic routes through the nearest healthy edge." hint
 .
-rollingCheck is a checkbox
-    text is "Enable zero-downtime rolling deploys"
-    checked is true
-.
-alertsCheck is a checkbox
-    text is "Send incident alerts to team channel"
-.
-telemetryToggle is a toggle
-    text is "Real-time telemetry streaming"
-    checked is true
-.
-planLabel is a text
-    value is "Environment tier"
-    variant is "subheading"
-.
-tierRow is a row
-    spacing is 16
-    wrap is true
-.
-tierDev is a radio with text "Development", name "envTier"
-tierStage is a radio with text "Staging", name "envTier", checked true
-tierProd is a radio with text "Production", name "envTier"
+rollingCheck is a checkbox with "Enable zero-downtime rolling deploys" text, true checked
+alertsCheck is a checkbox with "Send incident alerts to team channel" text
+telemetryToggle is a toggle with "Real-time telemetry streaming" text, true checked
+planLabel is a text with "Environment tier" value, "subheading" variant
+tierRow is a row with 16 spacing, true wrap
+tierDev is a radio with "Development" text, "envTier" name
+tierStage is a radio with "Staging" text, "envTier" name, true checked
+tierProd is a radio with "Production" text, "envTier" name
 put tierDev, tierStage, tierProd in tierRow
 
 put regionSelect, rollingCheck, alertsCheck, telemetryToggle, planLabel, tierRow in selectionCard
 
 # Card 4: Sliders, Progress & Semantic Badges
-metricsCard is a card
-    title is "Sliders, Progress & Status"
-    subtitle is "Bounded sliders with live numeric readouts, progress indicators, and semantic badges."
+metricsCard is a card with
+    "Sliders, Progress & Status" title,
+    "Bounded sliders with live numeric readouts, progress indicators, and semantic badges." subtitle
 .
-thresholdSlider is a slider
-    label is "CPU alert threshold (%)"
-    min is 10
-    max is 100
-    value is 72
-    showvalue is true
-    hint is "Drag to update the live readout and progress bar."
+thresholdSlider is a slider with
+    "CPU alert threshold (%)" label,
+    10 min,
+    100 max,
+    72 value,
+    true showvalue,
+    "Drag to update the live readout and progress bar." hint
 .
-workersSlider is a slider
-    label is "Max worker concurrency"
-    min is 1
-    max is 32
-    value is 12
-    showvalue is true
+workersSlider is a slider with
+    "Max worker concurrency" label,
+    1 min,
+    32 max,
+    12 value,
+    true showvalue
 .
-capacityLabel is a text
-    value is "Alert threshold: 72%"
-    variant is "muted"
-.
-capacityProgress is a progress
-    value is 72
-    max is 100
-.
-badgeRow is a row
-    spacing is 8
-    wrap is true
-.
-bHealthy is a badge with text "Operational", variant "success"
-bLatency is a badge with text "42ms p95"
-bWarn is a badge with text "Rate Limit 80%", variant "warning"
-bErr is a badge with text "1 Alert", variant "danger"
-bVer is a badge with text "Otter 1.0.1", variant "outline"
+capacityLabel is a text with "Alert threshold: 72%" value, "muted" variant
+capacityProgress is a progress with 72 value, 100 max
+badgeRow is a row with 8 spacing, true wrap
+bHealthy is a badge with "Operational" text, "success" variant
+bLatency is a badge with "42ms p95" text
+bWarn is a badge with "Rate Limit 80%" text, "warning" variant
+bErr is a badge with "1 Alert" text, "danger" variant
+bVer is a badge with "Otter 1.0.1" text, "outline" variant
 put bHealthy, bLatency, bWarn, bErr, bVer in badgeRow
 
 when thresholdSlider is changed
@@ -199,56 +155,47 @@ put thresholdSlider, workersSlider, capacityLabel, capacityProgress, badgeRow in
 put buttonsCard, inputsCard, selectionCard, metricsCard in mainGrid
 
 # Bottom 2-column grid: Typography + Live Light Theme Preview
-bottomGrid is a grid
-    columns is 2
-    spacing is 20
-.
+bottomGrid is a grid with 2 columns, 20 spacing
 
-typoCard is a card
-    title is "Typography & Hierarchy"
-    subtitle is "Structured scale from titles to body copy, captions, and inline code."
+typoCard is a card with
+    "Typography & Hierarchy" title,
+    "Structured scale from titles to body copy, captions, and inline code." subtitle
 .
-tTitle is a text with value "River Slate Scale", variant "title"
-tHead is a text with value "Section Heading", variant "heading"
-tSub is a text with value "Subheading for grouped controls and settings", variant "subheading"
-tBody is a text with value "Readable body copy uses 1.55 line-height and WCAG AA contrast tokens in both dark and light themes."
-tMuted is a text with value "Muted helper copy for metadata, timestamps, and field hints." , variant "muted"
-tCode is a text with value "app is a page with title \"Settings\", theme \"light\"" , variant "code"
+tTitle is a text with "River Slate Scale" value, "title" variant
+tHead is a text with "Section Heading" value, "heading" variant
+tSub is a text with "Subheading for grouped controls and settings" value, "subheading" variant
+tBody is a text with "Readable body copy uses 1.55 line-height and WCAG AA contrast tokens in both dark and light themes." value
+tMuted is a text with "Muted helper copy for metadata, timestamps, and field hints." value, "muted" variant
+tCode is a text with "app is a page with \"Settings\" title, \"light\" theme" value, "code" variant
 put tTitle, tHead, tSub, tBody, tMuted, tCode in typoCard
 
-lightCard is a card
-    title is "Light Mode - River Slate"
-    subtitle is "Opt in with theme \"light\" for crisp daylight surfaces and AA contrast."
-    theme is "light"
+lightCard is a card with
+    "Light Mode - River Slate" title,
+    "Opt in with \"light\" theme for crisp daylight surfaces and AA contrast." subtitle,
+    "light" theme
 .
-lightEmail is a text box
-    label is "Workspace email"
-    placeholder is "team@otterprogramming.com"
-    hint is "Crafted light tokens - never raw inverted colors."
+lightEmail is a text box with
+    "Workspace email" label,
+    "team@otterprogramming.com" placeholder,
+    "Crafted light tokens - never raw inverted colors." hint
 .
-lightSelect is a dropdown
-    label is "Theme preference"
-    options is "River Slate Light, River Slate Dark, Match System"
+lightSelect is a dropdown with
+    "Theme preference" label,
+    "River Slate Light, River Slate Dark, Match System" options
 .
-lightToggle is a toggle
-    text is "Compact table density"
-    checked is true
+lightToggle is a toggle with "Compact table density" text, true checked
+lightSlider is a slider with
+    "Refresh interval (sec)" label,
+    5 min,
+    60 max,
+    30 value,
+    true showvalue
 .
-lightSlider is a slider
-    label is "Refresh interval (sec)"
-    min is 5
-    max is 60
-    value is 30
-    showvalue is true
-.
-lightBtns is a row
-    spacing is 8
-    wrap is true
-.
-lPrimary is a primary button with text "Save"
-lSecondary is a secondary button with text "Reset"
-lOutline is an outline button with text "Inspect"
-lBadge is a badge with text "AA Contrast", variant "success"
+lightBtns is a row with 8 spacing, true wrap
+lPrimary is a primary button with "Save" text
+lSecondary is a secondary button with "Reset" text
+lOutline is a outline button with "Inspect" text
+lBadge is a badge with "AA Contrast" text, "success" variant
 put lPrimary, lSecondary, lOutline, lBadge in lightBtns
 
 put lightEmail, lightSelect, lightToggle, lightSlider, lightBtns in lightCard

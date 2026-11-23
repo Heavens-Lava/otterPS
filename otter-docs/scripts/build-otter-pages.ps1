@@ -60,11 +60,15 @@ if (Test-Path -LiteralPath $staticSource) {
 # sources. It stays in sync with the content and needs no server or package.
 $searchPages = foreach ($page in Get-ChildItem -LiteralPath $pagesRoot -Filter '*.ot' | Where-Object { -not $_.Name.StartsWith('_') }) {
     $sourceText = [System.IO.File]::ReadAllText($page.FullName, [System.Text.Encoding]::UTF8)
-    $titleMatch = [regex]::Match($sourceText, 'title\s+"((?:[^"\\]|\\.)*)"')
-    $title = if ($titleMatch.Success) { $titleMatch.Groups[1].Value -replace '\\"', '"' } else { [IO.Path]::GetFileNameWithoutExtension($page.Name) }
+    $titleMatch = [regex]::Match($sourceText, '(?:title\s+"((?:[^"\\]|\\.)*)"|"((?:[^"\\]|\\.)*)"\s+title\b)')
+    $title = if ($titleMatch.Success) {
+        $rawTitle = if ($titleMatch.Groups[1].Success) { $titleMatch.Groups[1].Value } else { $titleMatch.Groups[2].Value }
+        $rawTitle -replace '\\"', '"'
+    } else { [IO.Path]::GetFileNameWithoutExtension($page.Name) }
     $title = $title -replace '\s+-\s+Otter Documentation$', ''
-    $parts = foreach ($match in [regex]::Matches($sourceText, '(?:value|text)\s+"((?:[^"\\]|\\.)*)"')) {
-        $match.Groups[1].Value.Replace('\\n', ' ').Replace('\\"', '"')
+    $parts = foreach ($match in [regex]::Matches($sourceText, '(?:(?:value|text)\s+"((?:[^"\\]|\\.)*)"|"((?:[^"\\]|\\.)*)"\s+(?:value|text)\b)')) {
+        $rawPart = if ($match.Groups[1].Success) { $match.Groups[1].Value } else { $match.Groups[2].Value }
+        $rawPart.Replace('\n', ' ').Replace('\"', '"')
     }
     [pscustomobject]@{
         title = $title
