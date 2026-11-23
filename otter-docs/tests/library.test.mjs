@@ -6,6 +6,7 @@ import {
   cpSync,
   existsSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
   writeFileSync
@@ -404,6 +405,40 @@ test('local static server serves /library/, ES modules, catalog JSON, and detail
     assert.equal(redir.headers.get('location'), '/library/');
   } finally {
     proc.kill('SIGTERM');
+  }
+});
+
+test('thumbnail generator fails clearly and safely without partial WebP output when Chromium is unavailable', () => {
+  const tempOut = mkdtempSync(join(tmpdir(), 'otter-thumb-missing-'));
+  try {
+    buildCatalog({
+      otterNetLibrary: OTTER_NET_LIBRARY,
+      outputRoot: tempOut,
+      sourceConfig: SOURCE_CONFIG_PATH
+    });
+    const thumbScript = join(DOCS_ROOT, 'scripts', 'build-library-thumbnails.mjs');
+    let failedErr = null;
+    try {
+      execFileSync(process.execPath, [thumbScript, '--output-root', tempOut], {
+        env: { ...process.env, CHROME_BIN: join(tempOut, 'nonexistent-chromium-binary') },
+        stdio: 'pipe',
+        encoding: 'utf8'
+      });
+    } catch (err) {
+      failedErr = err;
+    }
+    assert.ok(failedErr, 'build-library-thumbnails.mjs must fail loudly when CHROME_BIN is unavailable');
+    assert.notEqual(failedErr.status, 0);
+    const stderr = String(failedErr.stderr || failedErr.message || '');
+    assert.match(stderr, /CHROME_BIN|no executable exists|Refusing to fall back/i);
+
+    const previewsDir = join(tempOut, 'static', 'library-previews');
+    if (existsSync(previewsDir)) {
+      const leftoverWebp = readdirSync(previewsDir).filter((f) => f.endsWith('.webp'));
+      assert.deepEqual(leftoverWebp, [], 'Failed thumbnail run must not leave partial or corrupt WebP files');
+    }
+  } finally {
+    rmSync(tempOut, { recursive: true, force: true });
   }
 });
 

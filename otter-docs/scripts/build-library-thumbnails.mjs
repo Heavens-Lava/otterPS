@@ -52,7 +52,16 @@ function truncate(str, max) {
 }
 
 function findBrowserBinary() {
-  if (process.env.CHROME_BIN && existsSync(process.env.CHROME_BIN)) return process.env.CHROME_BIN;
+  if (process.env.CHROME_BIN !== undefined && process.env.CHROME_BIN.trim() !== '') {
+    const explicit = process.env.CHROME_BIN.trim();
+    if (!existsSync(explicit)) {
+      throw new Error(
+        `CHROME_BIN is set to '${explicit}', but no executable exists at that path. ` +
+        `Refusing to fall back to an unpinned browser. Install/pin Chrome or unset CHROME_BIN.`
+      );
+    }
+    return explicit;
+  }
   const candidates = [
     '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
     '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
@@ -113,7 +122,7 @@ class SimpleCdp {
 }
 
 async function captureWebThumbnails(webItems, previewsDir) {
-  if (!webItems.length) return new Map();
+  if (!webItems.length) return { sizes: new Map(), browserVersion: 'none' };
   const browserBin = findBrowserBinary();
   if (!browserBin) {
     throw new Error(
@@ -154,8 +163,12 @@ async function captureWebThumbnails(webItems, previewsDir) {
   });
   const cdp = new SimpleCdp(ws);
   const sizes = new Map();
+  const capturedBuffers = new Map();
+  let browserVersion = 'unknown';
 
   try {
+    const verInfo = await cdp.send('Browser.getVersion');
+    browserVersion = verInfo?.product || 'unknown';
     const { targetId } = await cdp.send('Target.createTarget', { url: 'about:blank' });
     const { sessionId } = await cdp.send('Target.attachToTarget', { targetId, flatten: true });
     await cdp.send('Page.enable', {}, sessionId);
@@ -194,9 +207,13 @@ async function captureWebThumbnails(webItems, previewsDir) {
         clip: { x: 0, y: 0, width: 640, height: 360, scale: 1 }
       }, sessionId);
       const buf = Buffer.from(shot.data, 'base64');
-      const outPath = join(previewsDir, `${item.slug}.webp`);
-      writeFileSync(outPath, buf);
+      capturedBuffers.set(item.slug, buf);
       sizes.set(item.slug, buf.length);
+    }
+
+    // Write captured WebP buffers only after all captures succeed (prevents partial/corrupt output on failure)
+    for (const [slug, buf] of capturedBuffers.entries()) {
+      writeFileSync(join(previewsDir, `${slug}.webp`), buf);
     }
   } finally {
     cdp.close();
@@ -204,7 +221,7 @@ async function captureWebThumbnails(webItems, previewsDir) {
     await new Promise((r) => setTimeout(r, 150));
     rmSync(userDataDir, { recursive: true, force: true });
   }
-  return sizes;
+  return { sizes, browserVersion };
 }
 
 function buildHonestSvgDiagram(item) {
@@ -288,7 +305,7 @@ export async function buildLibraryThumbnails(options = {}) {
   const webItems = items.filter((it) => it.preview?.type === 'iframe-sandbox');
   const nonWebItems = items.filter((it) => it.preview?.type !== 'iframe-sandbox');
 
-  const webSizes = await captureWebThumbnails(webItems, previewsDir);
+  const { sizes: webSizes, browserVersion } = await captureWebThumbnails(webItems, previewsDir);
 
   let svgCount = 0;
   for (const item of items) {
@@ -328,7 +345,8 @@ export async function buildLibraryThumbnails(options = {}) {
     webpCount: webItems.length,
     svgCount,
     totalThumbnails: items.length,
-    webTotalBytes: [...webSizes.values()].reduce((a, b) => a + b, 0)
+    webTotalBytes: [...webSizes.values()].reduce((a, b) => a + b, 0),
+    browserVersion
   };
 }
 
@@ -336,6 +354,6 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   const opts = parseArgs(process.argv.slice(2));
   const res = await buildLibraryThumbnails(opts);
   console.log(
-    `Generated ${res.totalThumbnails} library thumbnails (${res.webpCount} WebP rendered previews [${Math.round(res.webTotalBytes / 1024)} KB total] + ${res.svgCount} SVG architecture/contract diagrams)`
+    `Generated ${res.totalThumbnails} library thumbnails (${res.webpCount} WebP rendered previews [${Math.round(res.webTotalBytes / 1024)} KB total, ${res.browserVersion}] + ${res.svgCount} SVG architecture/contract diagrams)`
   );
 }
