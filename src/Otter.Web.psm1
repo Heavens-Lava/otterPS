@@ -2065,10 +2065,19 @@ $runnableCss
       align-items: center;
       justify-content: center;
       gap: 8px;
-      align-self: flex-start;
       white-space: nowrap;
       user-select: none;
       box-shadow: var(--otter-shadow-sm);
+    }
+    .otter-column > .otter-button,
+    .otter-card > .otter-button,
+    .otter-page-content > .otter-button,
+    .otter-window-content > .otter-button,
+    .otter-column > .otter-badge,
+    .otter-card > .otter-badge,
+    .otter-page-content > .otter-badge,
+    .otter-window-content > .otter-badge {
+      align-self: flex-start;
     }
     .otter-button:hover:not(:disabled) { background-color: var(--otter-primary-hover); }
     .otter-button:active:not(:disabled) { background-color: var(--otter-primary-active); transform: translateY(1px); }
@@ -2429,7 +2438,6 @@ $runnableCss
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      align-self: flex-start;
       padding: 3px 10px;
       border-radius: var(--otter-radius-pill);
       font-size: 0.75rem;
