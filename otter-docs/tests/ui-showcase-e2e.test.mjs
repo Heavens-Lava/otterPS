@@ -115,10 +115,14 @@ function startExampleServer(htmlPath) {
 
 async function launchBrowser(browserBin) {
   const userDataDir = mkdtempSync(join(tmpdir(), 'otter-ui-cdp-'));
-  const proc = spawn(browserBin, [
+  const args = [
     '--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check',
     '--remote-debugging-port=0', `--user-data-dir=${userDataDir}`, '--window-size=1440,900', 'about:blank'
-  ], { stdio: ['ignore', 'pipe', 'pipe'] });
+  ];
+  if (process.platform === 'linux') {
+    args.push('--no-sandbox', '--disable-dev-shm-usage');
+  }
+  const proc = spawn(browserBin, args, { stdio: ['ignore', 'pipe', 'pipe'] });
 
   const wsUrl = await new Promise((res, rej) => {
     const timer = setTimeout(() => rej(new Error('Browser DevTools startup timeout')), 15000);
@@ -130,7 +134,7 @@ async function launchBrowser(browserBin) {
     };
     proc.stderr.on('data', onData);
     proc.stdout.on('data', onData);
-    proc.on('exit', (code) => { clearTimeout(timer); rej(new Error(`Browser exited (${code})`)); });
+    proc.on('exit', (code) => { clearTimeout(timer); rej(new Error(`Browser exited (${code}):\n${buf}`)); });
   });
 
   const ws = new WebSocket(wsUrl);
@@ -169,13 +173,24 @@ test('River Slate UI Showcase (/ui-showcase/) & standalone examples/showcase.htm
   assert.ok(browserBin, 'Chromium/Edge binary is required for UI Showcase E2E verification.');
 
   const docsPort = 4391;
-  const docsServer = await startDocsServer(docsPort);
   const exampleHtmlPath = join(REPO_ROOT, 'examples', 'showcase.html');
   assert.ok(existsSync(exampleHtmlPath), 'Expected compiled examples/showcase.html to exist.');
-  const { server: exServer, port: exPort } = await startExampleServer(exampleHtmlPath);
-  const { proc: browserProc, client, userDataDir } = await launchBrowser(browserBin);
+
+  let docsServer = null;
+  let exServer = null;
+  let browserProc = null;
+  let client = null;
+  let userDataDir = null;
 
   try {
+    docsServer = await startDocsServer(docsPort);
+    const exStarted = await startExampleServer(exampleHtmlPath);
+    exServer = exStarted.server;
+    const exPort = exStarted.port;
+    const launched = await launchBrowser(browserBin);
+    browserProc = launched.proc;
+    client = launched.client;
+    userDataDir = launched.userDataDir;
     // 1. Verify /ui-showcase/ on otterprogramming.com
     const page1 = await openTab(client, `http://localhost:${docsPort}/ui-showcase/`, 1440, 900);
     const uiCheck = await client.eval(`(() => {
@@ -256,11 +271,13 @@ test('River Slate UI Showcase (/ui-showcase/) & standalone examples/showcase.htm
       assert.ok(metrics.scrollW <= metrics.innerW + 1, `examples/showcase.html overflow at ${width}px: scrollWidth=${metrics.scrollW}, innerWidth=${metrics.innerW}`);
     }
   } finally {
-    client.close();
-    browserProc.kill();
-    docsServer.kill();
-    exServer.close();
+    if (client) client.close();
+    if (browserProc) browserProc.kill();
+    if (docsServer) docsServer.kill();
+    if (exServer) exServer.close();
     await new Promise((r) => setTimeout(r, 150));
-    try { rmSync(userDataDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); } catch { /* ignore */ }
+    if (userDataDir) {
+      try { rmSync(userDataDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); } catch { /* ignore */ }
+    }
   }
 });
