@@ -206,19 +206,28 @@ function initGallery(mount) {
     const resultsHost = mount.querySelector('#libResultsHost');
     resultsHost.innerHTML = filtered.length
       ? `<div class="lib-grid" role="list">${filtered.map((item) => {
-          const previewTag = item.preview?.type === 'iframe-sandbox'
-            ? 'Live Preview'
-            : (item.preview?.type === 'contract-summary' ? `${item.contract?.operationsCount || 0} Ops Contract` : 'Source & Architecture');
-          const firstLine = ((item.files?.[0]?.content || '').split('\n').find((l) => l.trim() && !l.trim().startsWith('#')) || item.id).trim();
+          const thumb = item.thumbnail;
+          const isRendered = thumb?.kind === 'rendered-preview';
+          const previewTag = thumb?.label || (item.preview?.type === 'iframe-sandbox'
+            ? 'Rendered Preview'
+            : (item.preview?.type === 'contract-summary' ? `${item.contract?.operationsCount || 0} Ops Contract` : 'Architecture Diagram'));
+          const thumbKindClass = isRendered ? 'lib-thumb-kind-live' : 'lib-thumb-kind-diagram';
+          const mediaHtml = thumb?.url
+            ? `<div class="lib-card-media lib-card-media-${escapeHtml(item.category)}">
+                <img class="lib-card-img" src="${escapeHtml(thumb.url)}" alt="${escapeHtml(thumb.alt || item.name)}" width="${Number(thumb.width || 640)}" height="${Number(thumb.height || 360)}" loading="lazy" decoding="async">
+              </div>`
+            : `<div class="lib-card-thumb lib-card-thumb-${escapeHtml(item.category)}">
+                <div class="lib-thumb-top">
+                  <span class="lib-thumb-badge">${escapeHtml(CATEGORY_META[item.category]?.label || item.category)} · ${escapeHtml(item.subcategory)}</span>
+                </div>
+              </div>`;
           return `<a class="lib-card" role="listitem" href="/library/${escapeHtml(item.slug)}/">
-            <div class="lib-card-thumb lib-card-thumb-${escapeHtml(item.category)}">
-              <div class="lib-thumb-top">
-                <span class="lib-thumb-badge">${escapeHtml(CATEGORY_META[item.category]?.label || item.category)} · ${escapeHtml(item.subcategory)}</span>
-                <span class="lib-thumb-preview-type">${escapeHtml(previewTag)}</span>
-              </div>
-              <div class="lib-thumb-code">${escapeHtml(firstLine.slice(0, 56))}</div>
-            </div>
+            ${mediaHtml}
             <div class="lib-card-body">
+              <div class="lib-card-kicker">
+                <span class="lib-kicker-cat">${escapeHtml(CATEGORY_META[item.category]?.label || item.category)} · ${escapeHtml(item.subcategory)}</span>
+                <span class="lib-thumb-kind ${thumbKindClass}">${escapeHtml(previewTag)}</span>
+              </div>
               <h3 class="lib-card-title">${escapeHtml(item.name)}</h3>
               <p class="lib-card-desc">${escapeHtml(item.description)}</p>
               <div class="lib-card-meta">
@@ -247,6 +256,34 @@ function initGallery(mount) {
 }
 
 function initDetailPage(main) {
+  // 0. Accessible Detail View Tabs (All Sections | Preview | Source Code | Install & Usage)
+  const viewTabs = [...main.querySelectorAll('[role="tab"][data-view-target]')];
+  const viewSections = [...main.querySelectorAll('[data-view-section]')];
+
+  function activateView(idx) {
+    const target = viewTabs[idx]?.dataset.viewTarget || 'all';
+    viewTabs.forEach((t, i) => {
+      const selected = i === idx;
+      t.classList.toggle('is-active', selected);
+      t.setAttribute('aria-selected', String(selected));
+      t.tabIndex = selected ? 0 : -1;
+    });
+    viewSections.forEach((sec) => {
+      const visible = target === 'all' || sec.dataset.viewSection === target;
+      sec.classList.toggle('is-hidden', !visible);
+    });
+  }
+
+  viewTabs.forEach((tab, idx) => {
+    tab.addEventListener('click', () => activateView(idx));
+    tab.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight') { e.preventDefault(); const n = (idx + 1) % viewTabs.length; activateView(n); viewTabs[n].focus(); }
+      else if (e.key === 'ArrowLeft') { e.preventDefault(); const n = (idx - 1 + viewTabs.length) % viewTabs.length; activateView(n); viewTabs[n].focus(); }
+      else if (e.key === 'Home') { e.preventDefault(); activateView(0); viewTabs[0].focus(); }
+      else if (e.key === 'End') { e.preventDefault(); activateView(viewTabs.length - 1); viewTabs[viewTabs.length - 1].focus(); }
+    });
+  });
+
   // 1. Accessible file tabs with Left/Right/Home/End keyboard navigation
   const tabs = [...main.querySelectorAll('[role="tab"][data-file-index]')];
   const panels = [...main.querySelectorAll('[role="tabpanel"][data-file-panel]')];

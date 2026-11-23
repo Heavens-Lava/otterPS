@@ -217,6 +217,27 @@ test('browser E2E: search caret/focus, filters, URL sync, keyboard tabs, copy-co
     const initialCards = await browser.cdp.eval('document.querySelectorAll(".lib-card").length', { sessionId: browser.sessionId });
     assert.equal(initialCards, 65, 'Gallery must render all 65 components initially');
 
+    // Verify v1.1 visual thumbnails load cleanly with accessible alt text and honest badges
+    await browser.cdp.eval(`Promise.all([...document.querySelectorAll('.lib-card-img')].slice(0, 12).map(img => {
+      img.loading = 'eager';
+      return img.complete ? Promise.resolve() : new Promise(r => { img.onload = r; img.onerror = r; });
+    }))`, { sessionId: browser.sessionId });
+    const thumbAudit = await browser.cdp.eval(`(() => {
+      const imgs = [...document.querySelectorAll('.lib-card-img')].slice(0, 12);
+      const webpCount = [...document.querySelectorAll('.lib-card-img')].filter(i => i.getAttribute('src').endsWith('.webp')).length;
+      const svgCount = [...document.querySelectorAll('.lib-card-img')].filter(i => i.getAttribute('src').endsWith('.svg')).length;
+      return {
+        webpCount,
+        svgCount,
+        allLoaded: imgs.every(i => i.complete && i.naturalWidth > 0),
+        allHaveAlt: imgs.every(i => (i.getAttribute('alt') || '').trim().length > 10)
+      };
+    })()`, { sessionId: browser.sessionId });
+    assert.equal(thumbAudit.webpCount, 5, 'Gallery must render 5 WebP visual previews for Web/CSS components');
+    assert.equal(thumbAudit.svgCount, 60, 'Gallery must render 60 honest SVG architecture/contract diagrams');
+    assert.equal(thumbAudit.allLoaded, true, 'Gallery visual preview images must load with naturalWidth > 0');
+    assert.equal(thumbAudit.allHaveAlt, true, 'Gallery preview images must include descriptive alt text');
+
     // Focus search input and store DOM identity to confirm it NEVER unmounts while typing
     await browser.cdp.eval(`(() => {
       const inp = document.querySelector('#libSearchInput');
@@ -289,10 +310,22 @@ test('browser E2E: search caret/focus, filters, URL sync, keyboard tabs, copy-co
     assert.equal(restored.firstCard, '/library/games-roblox-quest-tracker/');
 
     // =========================================================================
-    // 3. Keyboard-accessible multi-file tabs & Copy-code controls
+    // 3. Detail View Tabs + Keyboard-accessible multi-file tabs & Copy-code controls
     // =========================================================================
     await browser.navigate(`${baseUrl}/library/desktop-wpf-data-grid/`);
-    await browser.waitFor('document.querySelectorAll("[role=tab]").length === 3');
+    await browser.waitFor('document.querySelectorAll("[role=tab][data-file-index]").length === 3');
+
+    // Test Detail View Tabs (All Sections -> Source Code -> Install & Usage -> All Sections)
+    await browser.cdp.eval(`document.getElementById('view-tab-source').click()`, { sessionId: browser.sessionId });
+    const viewSourceState = await browser.cdp.eval(`({
+      previewHidden: document.querySelector('[data-view-section="preview"]').classList.contains('is-hidden'),
+      sourceHidden: document.querySelector('[data-view-section="source"]').classList.contains('is-hidden'),
+      installHidden: document.querySelector('[data-view-section="install"]').classList.contains('is-hidden')
+    })`, { sessionId: browser.sessionId });
+    assert.deepEqual(viewSourceState, { previewHidden: true, sourceHidden: false, installHidden: true });
+
+    await browser.cdp.eval(`document.getElementById('view-tab-all').click()`, { sessionId: browser.sessionId });
+    assert.equal(await browser.cdp.eval(`document.querySelector('[data-view-section="preview"]').classList.contains('is-hidden')`, { sessionId: browser.sessionId }), false);
 
     await browser.cdp.eval(`document.getElementById('tab-0').focus()`, { sessionId: browser.sessionId });
     await browser.cdp.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'ArrowRight', code: 'ArrowRight' }, browser.sessionId);

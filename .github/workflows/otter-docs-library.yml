@@ -91,6 +91,9 @@ jobs:
           pwsh -NoProfile -File ./otterPS/otter-docs/scripts/build-otter-pages.ps1 -Only library,home -OutputRoot $outB -OtterNetLibrary "$PWD/otter-net/library" | Out-Null
           $files = @(
             'static/library-catalog.json',
+            'static/library-previews/web-animated-gradient-button.webp',
+            'static/library-previews/desktop-wpf-data-grid.svg',
+            'static/library-previews/pack-otter-official-game-entity.svg',
             'sitemap.xml',
             'robots.txt',
             'library/index.html',
