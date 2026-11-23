@@ -1531,20 +1531,20 @@ $script:UiPropertyKnownNames = [System.Collections.Generic.HashSet[string]]::new
     'background', 'foreground', 'border', 'radius', 'round', 'shadow',
     'size', 'fontsize', 'weight', 'fontweight', 'fontstyle', 'style',
     'family', 'fontfamily', 'lineheight', 'letterspacing', 'whitespace',
-    'cursor', 'customstyle', 'variant', 'animation', 'mode',
-    'text', 'value', 'title', 'url', 'href', 'source', 'src', 'alt',
-    'placeholder', 'options', 'items', 'rows', 'min', 'max', 'checked',
-    'group', 'name', 'hideheader', 'runnable', 'draggable', 'accepts drops',
+    'cursor', 'customstyle', 'variant', 'animation', 'mode', 'theme',
+    'text', 'value', 'title', 'subtitle', 'description', 'url', 'href', 'source', 'src', 'alt',
+    'label', 'hint', 'error', 'placeholder', 'options', 'items', 'rows', 'min', 'max', 'step',
+    'showvalue', 'checked', 'group', 'name', 'hideheader', 'runnable', 'draggable', 'accepts drops',
     'columns', 'headers', 'data', 'selected', 'enabled', 'disabled',
     'visible', 'hidden', 'id', 'tooltip', 'icon'
 ), [System.StringComparer]::OrdinalIgnoreCase)
 $script:UiPropertyBooleanNames = [System.Collections.Generic.HashSet[string]]::new([string[]]@(
     'hideheader', 'scroll', 'runnable', 'round', 'spread', 'checked',
     'draggable', 'accepts drops', 'wrap', 'centered', 'enabled', 'disabled',
-    'visible', 'hidden', 'selected'
+    'visible', 'hidden', 'selected', 'showvalue'
 ), [System.StringComparer]::OrdinalIgnoreCase)
 $script:UiPropertyNumericNames = [System.Collections.Generic.HashSet[string]]::new([string[]]@(
-    'spacing', 'flex', 'grow', 'rows', 'min', 'max', 'zindex'
+    'spacing', 'flex', 'grow', 'rows', 'min', 'max', 'zindex', 'columns', 'step'
 ), [System.StringComparer]::OrdinalIgnoreCase)
 $script:UiPropertySizeWeightNames = [System.Collections.Generic.HashSet[string]]::new([string[]]@(
     'size', 'fontsize', 'weight', 'fontweight'
@@ -1555,7 +1555,8 @@ $script:UiPropertyDimensionNames = [System.Collections.Generic.HashSet[string]]:
 ), [System.StringComparer]::OrdinalIgnoreCase)
 $script:UiPropertyTextStyleNames = [System.Collections.Generic.HashSet[string]]::new([string[]]@(
     'url', 'href', 'source', 'src', 'background', 'foreground', 'customstyle',
-    'fontfamily', 'family', 'whitespace', 'cursor', 'overflow', 'position'
+    'fontfamily', 'family', 'whitespace', 'cursor', 'overflow', 'position',
+    'theme', 'label', 'hint', 'error', 'subtitle', 'description'
 ), [System.StringComparer]::OrdinalIgnoreCase)
 $script:UiAlignWords = @('top', 'middle', 'bottom', 'left', 'center', 'right')
 
@@ -1563,7 +1564,7 @@ function Test-OtterKnownUiKind {
     param([string]$TypeName)
     if ([string]::IsNullOrWhiteSpace($TypeName)) { return $false }
     $kind = $TypeName.Trim().ToLowerInvariant()
-    foreach ($v in @('primary ', 'secondary ', 'danger ')) {
+    foreach ($v in @('primary ', 'secondary ', 'danger ', 'outline ', 'ghost ')) {
         if ($kind.StartsWith($v)) {
             $kind = $kind.Substring($v.Length).Trim()
             break

@@ -180,11 +180,55 @@ Assert-ParserFails 'b is a button with "Click" bogusProp' 'Unknown property' 'un
 Assert-ParserFails 'b is a button with true size' 'expects a number' 'invalid boolean for size'
 Assert-ParserFails 'r is a row with "wide" spacing' 'expects a number' 'invalid string for spacing'
 Assert-ParserFails 'p is a page with "yes" scroll' 'true/false' 'invalid string for boolean scroll'
+Assert-ParserFails 's is a slider with "yes" showvalue' 'true/false' 'invalid string for boolean showvalue'
+Assert-ParserFails 'g is a grid with "two" columns' 'expects a number' 'invalid string for numeric columns'
+Assert-ParserFails 'p is a page with 123 theme' 'expects text' 'invalid number for text theme'
 Assert-ParserFails 'l is a link with 123 url' 'expects text' 'invalid number for url'
 Assert-ParserFails 'r is a row with "diagonal" align' 'alignment direction' 'invalid string alignment'
 Assert-ParserFails 'r is a row with sideways align' 'alignment direction' 'invalid identifier alignment'
 Assert-ParserFails 'b is a button with 14' 'expected a property name' 'missing property name after value'
 Assert-ParserFails 'b is a button with text is' 'expected a value' 'missing value after is'
 Assert-ParserFails "b is a button with`n    `"Hi`" text, 14 size`n." 'each property on its own line' 'two entries on one multiline line'
+
+# 4. River Slate UI components with value-first syntax
+$riverSlateVf = @'
+app is a page with
+    "River Slate Value-First" title,
+    "light" theme,
+    true scroll
+.
+mainGrid is a grid with 2 columns, 20 spacing
+infoCard is a card with
+    "Form Controls" title,
+    "Validated under value-first syntax." subtitle,
+    "dark" theme
+.
+emailBox is a text box with
+    "Email address" label,
+    "dev@otter.example" placeholder,
+    "Used for notifications." hint,
+    "Invalid email" error
+.
+thresholdSlider is a slider with
+    "CPU threshold" label,
+    0 min,
+    100 max,
+    65 value,
+    5 step,
+    true showvalue
+.
+primaryBtn is a primary button with "Primary" text
+outlineBtn is an outline button with "Outline" text
+ghostBtn is a ghost button with "Ghost" text
+disabledBtn is a button with "Locked" text, true disabled
+okBadge is a badge with "Healthy" text, "success" variant
+put emailBox, thresholdSlider, primaryBtn, outlineBtn, ghostBtn, disabledBtn, okBadge in infoCard
+put infoCard in mainGrid
+put mainGrid in app
+show app
+'@
+$rsAst = ConvertTo-OtterAst -Tokens (ConvertTo-OtterTokens -Source $riverSlateVf)
+Assert-True ($rsAst.Statements.Count -gt 10) "Expected River Slate value-first AST to parse cleanly"
+Write-Output '  pass  River Slate components with value-first syntax (theme, label, hint, error, subtitle, showvalue, step, columns, outline/ghost buttons)'
 
 Write-Output '=== ALL otterPS Value-First Property Syntax Tests PASSED ==='
