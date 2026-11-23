@@ -1,0 +1,109 @@
+name: Otter UI Showcase & River Slate E2E CI
+
+on:
+  push:
+    branches: [ master, main ]
+    paths:
+      - 'src/Otter.Web.psm1'
+      - 'examples/showcase.ot'
+      - 'examples/showcase.html'
+      - 'tests/RiverSlateUi.Tests.ps1'
+      - 'otter-docs/pages/ui-showcase.ot'
+      - 'otter-docs/pages/controls.ot'
+      - 'otter-docs/pages/web-apps.ot'
+      - 'otter-docs/tests/ui-showcase-e2e.test.mjs'
+      - '.github/workflows/otter-ui-showcase-ci.yml'
+  pull_request:
+    branches: [ master, main, feat/ui-river-slate-renderer ]
+    paths:
+      - 'src/Otter.Web.psm1'
+      - 'examples/showcase.ot'
+      - 'examples/showcase.html'
+      - 'tests/RiverSlateUi.Tests.ps1'
+      - 'otter-docs/pages/ui-showcase.ot'
+      - 'otter-docs/pages/controls.ot'
+      - 'otter-docs/pages/web-apps.ot'
+      - 'otter-docs/tests/ui-showcase-e2e.test.mjs'
+      - '.github/workflows/otter-ui-showcase-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ui-showcase-e2e:
+    name: River Slate Renderer & UI Showcase Browser E2E (Ubuntu)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout otterPS
+        uses: actions/checkout@v4
+        with:
+          path: otterPS
+
+      - name: Read pinned otter-net commit from library-source.json
+        id: pin
+        shell: bash
+        run: |
+          COMMIT=$(node -e "console.log(JSON.parse(require('fs').readFileSync('otterPS/otter-docs/library-source.json','utf8')).expectedCommit)")
+          echo "commit=$COMMIT" >> "$GITHUB_OUTPUT"
+          echo "Pinned otter-net commit: $COMMIT"
+
+      - name: Checkout pinned Heavens-Lava/otter-net
+        uses: actions/checkout@v4
+        with:
+          repository: Heavens-Lava/otter-net
+          ref: ${{ steps.pin.outputs.commit }}
+          path: otter-net
+          fetch-depth: 1
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Setup pinned Chrome for Testing
+        id: chrome
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: '131.0.6778.204'
+
+      - name: Run River Slate renderer unit tests
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          pwsh -NoProfile -File ./otterPS/tests/RiverSlateUi.Tests.ps1
+
+      - name: Verify examples/showcase.html matches compiled examples/showcase.ot
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Import-Module ./otterPS/src/Otter.Web.psm1 -Force
+          $tmpOut = Join-Path ([IO.Path]::GetTempPath()) 'showcase-ci-check.html'
+          Export-OtterWebApplication -SourcePath ./otterPS/examples/showcase.ot -OutputPath $tmpOut | Out-Null
+          $committed = (Get-Content -LiteralPath ./otterPS/examples/showcase.html -Raw).Replace("`r`n", "`n").TrimEnd()
+          $fresh = (Get-Content -LiteralPath $tmpOut -Raw).Replace("`r`n", "`n").TrimEnd()
+          if ($committed -ne $fresh) {
+            throw 'Committed examples/showcase.html is out of date with examples/showcase.ot.'
+          }
+          Write-Host "examples/showcase.html matches compiled examples/showcase.ot ($($fresh.Length) chars)."
+
+      - name: Build Otter website (including /ui-showcase/)
+        shell: pwsh
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.chrome-path }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          pwsh -NoProfile -File ./otterPS/otter-docs/scripts/build-otter-pages.ps1 -OtterNetLibrary "$PWD/otter-net/library"
+
+      - name: Audit internal routes across generated site
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          pwsh -NoProfile -File ./otterPS/otter-docs/scripts/audit-otter-routes.ps1
+
+      - name: Run UI Showcase & standalone showcase browser E2E tests (1440px, 768px, 390px)
+        working-directory: ./otterPS/otter-docs
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.chrome-path }}
+        run: node --test tests/ui-showcase-e2e.test.mjs
