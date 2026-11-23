@@ -1,0 +1,233 @@
+# Otter website - UI Showcase (/ui-showcase/)
+# Authored in real Otter using the upgraded River Slate web renderer.
+
+use "_shell.ot"
+
+app is a page with title "Otter UI Showcase - River Slate Design System", hideheader true, scroll true, width full, background "#0b1220", foreground "#f1f5f9", spacing 0, padding 0
+
+customstyle of navDocs is "padding: 22px 0; border-bottom: 2px solid #4d8dff; color: #ffffff;"
+
+# Centered responsive page container (max-width 1200px, zero horizontal overflow)
+showcaseContainer is a column with spacing 32, width full, maxwidth 1200, customstyle "margin: 0 auto; padding: 40px 24px 64px; box-sizing: border-box;"
+
+# Hero Section
+heroSection is a column with spacing 14, width full
+heroBadges is a row with spacing 8, wrap true
+hb1 is a badge with text "Otter UI"
+hb2 is a badge with text "River Slate Design System", variant "success"
+hb3 is a badge with text "Dark Default + Light Opt-In", variant "outline"
+put hb1, hb2, hb3 in heroBadges
+
+heroTitle is a text with value "Professional UI, compiled straight from Otter.", size 38, weight 800, foreground "#f8fafc", letterspacing "-0.03em", lineheight "1.15"
+heroSubtitle is a text with value "Every interactive component below is rendered directly by Otter's real web compiler using River Slate design tokens - with accessible focus rings, bounded controls, dark mode by default, and first-class light mode opt-in.", size 17, foreground "#94a3b8", lineheight "1.6", maxwidth 780
+
+heroLinks is a row with spacing 14, wrap true
+hl1 is a link with text "Controls Reference", url "/controls/", size 14, weight 600
+hl2 is a link with text "Web Apps Guide", url "/web-apps/", size 14, weight 600
+hl3 is a link with text "Component Library", url "/library/", size 14, weight 600
+put hl1, hl2, hl3 in heroLinks
+
+put heroBadges, heroTitle, heroSubtitle, heroLinks in heroSection
+
+# Section 1: Buttons & Variants
+sec1Head is a column with spacing 4
+sec1Title is a text with value "1. Buttons & Variants", variant "heading"
+sec1Desc is a text with value "Consistent padding, crisp borders, hover/active states, keyboard focus rings, and disabled styling.", variant "muted"
+put sec1Title, sec1Desc in sec1Head
+
+sec1Grid is a grid with columns 2, spacing 20
+
+s1Preview is a card with title "Interactive Buttons", subtitle "Click any variant to test live Otter event handlers."
+s1Row is a row with spacing 10, wrap true
+s1Primary is a primary button with text "Primary"
+s1Secondary is a secondary button with text "Secondary"
+s1Outline is an outline button with text "Outline"
+s1Ghost is a ghost button with text "Ghost"
+s1Danger is a danger button with text "Danger"
+s1Disabled is a button with text "Disabled", disabled true
+put s1Primary, s1Secondary, s1Outline, s1Ghost, s1Danger, s1Disabled in s1Row
+
+s1StatusRow is a row with spacing 10, wrap true
+s1Status is a text with value "Last clicked: none", variant "muted"
+s1CountBadge is a badge with text "0", variant "outline"
+put s1Status, s1CountBadge in s1StatusRow
+s1Clicks is 0
+when s1Primary is clicked
+    s1Clicks is s1Clicks plus 1
+    text of s1CountBadge is s1Clicks
+    text of s1Status is "Last clicked: Primary"
+.
+when s1Secondary is clicked
+    text of s1Status is "Last clicked: Secondary"
+.
+when s1Outline is clicked
+    text of s1Status is "Last clicked: Outline"
+.
+when s1Ghost is clicked
+    text of s1Status is "Last clicked: Ghost"
+.
+when s1Danger is clicked
+    text of s1Status is "Last clicked: Danger"
+.
+put s1Row, s1StatusRow in s1Preview
+
+s1CodeCard is a card with title "Otter Source", subtitle "Variant prefixes and properties compile cleanly."
+s1CodeText is a text with value "deployBtn is a primary button with text \"Primary\"\ndraftBtn is a secondary button with text \"Secondary\"\npreviewBtn is an outline button with text \"Outline\"\ncancelBtn is a ghost button with text \"Ghost\"\ndeleteBtn is a danger button with text \"Danger\"\nlockedBtn is a button with text \"Disabled\", disabled true", size 13, foreground "#e2e8f0", background "#09101d", radius 8, fontfamily "'JetBrains Mono', ui-monospace, Consolas, monospace", whitespace "pre", customstyle "padding: 14px 16px; line-height: 1.65; overflow-x: auto; border: 1px solid #24344f;"
+s1CopyBtn is an outline button with text "Copy Otter code"
+when s1CopyBtn is clicked
+    copy text of s1CodeText to clipboard
+    text of s1CopyBtn is "Copied"
+.
+put s1CodeText, s1CopyBtn in s1CodeCard
+
+put s1Preview, s1CodeCard in sec1Grid
+
+# Section 2: Text Inputs, Validation & Textarea
+sec2Head is a column with spacing 4
+sec2Title is a text with value "2. Forms, Inputs & Validation", variant "heading"
+sec2Desc is a text with value "Optional label, hint, and error properties automatically render accessible field wrappers with aria-invalid.", variant "muted"
+put sec2Title, sec2Desc in sec2Head
+
+sec2Grid is a grid with columns 2, spacing 20
+
+s2Preview is a card with title "Form Fields", subtitle "Type in the project field and submit to test live binding."
+s2NameBox is a text box with label "Project name", placeholder "otter-pulse", hint "Used as the default bundle name."
+s2ErrBox is a text box with label "Workspace slug", value "Invalid Slug!", error "Use lowercase letters and hyphens only."
+s2Area is a text area with label "Description", placeholder "Explain what your app monitors...", rows 3
+s2ActRow is a row with spacing 12, wrap true
+s2Submit is a primary button with text "Preview Greeting"
+s2Out is a text with value "Output: ready", variant "muted"
+put s2Submit, s2Out in s2ActRow
+when s2Submit is clicked
+    enteredName is text of s2NameBox
+    if enteredName is empty
+        text of s2Out is "Output: enter a project name first"
+    otherwise
+        text of s2Out is "Output: Hello, " plus enteredName
+    .
+.
+put s2NameBox, s2ErrBox, s2Area, s2ActRow in s2Preview
+
+s2CodeCard is a card with title "Otter Source", subtitle "Labels, hints, and error states are declarative properties."
+s2CodeText is a text with value "nameBox is a text box\n    label is \"Project name\"\n    placeholder is \"otter-pulse\"\n    hint is \"Used as the default bundle name.\"\n.\nslugBox is a text box\n    label is \"Workspace slug\"\n    value is \"Invalid Slug!\"\n    error is \"Use lowercase letters and hyphens only.\"\n.\nnotesBox is a text area\n    label is \"Description\"\n    rows is 3\n.", size 13, foreground "#e2e8f0", background "#09101d", radius 8, fontfamily "'JetBrains Mono', ui-monospace, Consolas, monospace", whitespace "pre", customstyle "padding: 14px 16px; line-height: 1.65; overflow-x: auto; border: 1px solid #24344f;"
+s2CopyBtn is an outline button with text "Copy Otter code"
+when s2CopyBtn is clicked
+    copy text of s2CodeText to clipboard
+    text of s2CopyBtn is "Copied"
+.
+put s2CodeText, s2CopyBtn in s2CodeCard
+
+put s2Preview, s2CodeCard in sec2Grid
+
+# Section 3: Selection Controls
+sec3Head is a column with spacing 4
+sec3Title is a text with value "3. Selection Controls", variant "heading"
+sec3Desc is a text with value "Custom chevron dropdowns, accessible checkboxes, smooth toggle switches, and radio groups.", variant "muted"
+put sec3Title, sec3Desc in sec3Head
+
+sec3Grid is a grid with columns 2, spacing 20
+
+s3Preview is a card with title "Dropdown, Checkboxes, Toggle & Radios", subtitle "All controls support keyboard Tab navigation and focus rings."
+s3Select is a dropdown with label "Target region", options "US West (Oregon), US East (Virginia), EU Central (Frankfurt)", hint "Select your primary deployment region."
+s3Check1 is a checkbox with text "Enable automatic TLS certificates", checked true
+s3Check2 is a checkbox with text "Run health checks after deploy"
+s3Toggle is a toggle with text "Live telemetry streaming", checked true
+s3RadioRow is a row with spacing 16, wrap true
+s3Rad1 is a radio with text "Starter", name "showcaseTier"
+s3Rad2 is a radio with text "Pro", name "showcaseTier", checked true
+s3Rad3 is a radio with text "Enterprise", name "showcaseTier"
+put s3Rad1, s3Rad2, s3Rad3 in s3RadioRow
+put s3Select, s3Check1, s3Check2, s3Toggle, s3RadioRow in s3Preview
+
+s3CodeCard is a card with title "Otter Source", subtitle "Clean, human-readable selection declarations."
+s3CodeText is a text with value "regionSelect is a dropdown\n    label is \"Target region\"\n    options is \"US West (Oregon), US East (Virginia), EU Central\"\n.\ntlsCheck is a checkbox\n    text is \"Enable automatic TLS certificates\"\n    checked is true\n.\ntelemetryToggle is a toggle\n    text is \"Live telemetry streaming\"\n    checked is true\n.\ntierPro is a radio with text \"Pro\", name \"tier\", checked true", size 13, foreground "#e2e8f0", background "#09101d", radius 8, fontfamily "'JetBrains Mono', ui-monospace, Consolas, monospace", whitespace "pre", customstyle "padding: 14px 16px; line-height: 1.65; overflow-x: auto; border: 1px solid #24344f;"
+s3CopyBtn is an outline button with text "Copy Otter code"
+when s3CopyBtn is clicked
+    copy text of s3CodeText to clipboard
+    text of s3CopyBtn is "Copied"
+.
+put s3CodeText, s3CopyBtn in s3CodeCard
+
+put s3Preview, s3CodeCard in sec3Grid
+
+# Section 4: Sliders, Progress & Semantic Badges
+sec4Head is a column with spacing 4
+sec4Title is a text with value "4. Sliders, Progress & Badges", variant "heading"
+sec4Desc is a text with value "Bounded slider widths with automatic live numeric readouts, gradient progress bars, and semantic status badges.", variant "muted"
+put sec4Title, sec4Desc in sec4Head
+
+sec4Grid is a grid with columns 2, spacing 20
+
+s4Preview is a card with title "Interactive Metrics", subtitle "Move the slider to update both the readout and progress bar."
+s4Slider is a slider with label "CPU alert threshold (%)", min 10, max 100, value 68, showvalue true, hint "Bounded max-width keeps range sliders legible on wide displays."
+s4ProgLabel is a text with value "Threshold synced: 68%", variant "muted"
+s4Progress is a progress with value 68, max 100
+s4Badges is a row with spacing 8, wrap true
+s4B1 is a badge with text "Healthy", variant "success"
+s4B2 is a badge with text "24ms p95"
+s4B3 is a badge with text "High Load", variant "warning"
+s4B4 is a badge with text "Degraded", variant "danger"
+s4B5 is a badge with text "v1.0.1", variant "outline"
+put s4B1, s4B2, s4B3, s4B4, s4B5 in s4Badges
+
+when s4Slider is changed
+    vNow is text of s4Slider
+    text of s4ProgLabel is "Threshold synced: " plus vNow plus "%"
+    value of s4Progress is vNow
+.
+put s4Slider, s4ProgLabel, s4Progress, s4Badges in s4Preview
+
+s4CodeCard is a card with title "Otter Source", subtitle "Enable live readouts with showvalue is true."
+s4CodeText is a text with value "thresholdSlider is a slider\n    label is \"CPU alert threshold (%)\"\n    min is 10\n    max is 100\n    value is 68\n    showvalue is true\n.\nloadProgress is a progress with value 68, max 100\nokBadge is a badge with text \"Healthy\", variant \"success\"\nwarnBadge is a badge with text \"High Load\", variant \"warning\"", size 13, foreground "#e2e8f0", background "#09101d", radius 8, fontfamily "'JetBrains Mono', ui-monospace, Consolas, monospace", whitespace "pre", customstyle "padding: 14px 16px; line-height: 1.65; overflow-x: auto; border: 1px solid #24344f;"
+s4CopyBtn is an outline button with text "Copy Otter code"
+when s4CopyBtn is clicked
+    copy text of s4CodeText to clipboard
+    text of s4CopyBtn is "Copied"
+.
+put s4CodeText, s4CopyBtn in s4CodeCard
+
+put s4Preview, s4CodeCard in sec4Grid
+
+# Section 5: Dark & Light River Slate Themes
+sec5Head is a column with spacing 4
+sec5Title is a text with value "5. Dark & Light Themes (River Slate)", variant "heading"
+sec5Desc is a text with value "Dark mode is the backward-compatible default. Opt into light mode on a page, window, or individual card with theme \"light\".", variant "muted"
+put sec5Title, sec5Desc in sec5Head
+
+sec5Grid is a grid with columns 2, spacing 20
+
+s5DarkCard is a card with title "Dark - River Slate (Default)", subtitle "Deep navy-slate canvas (#0b1220), crisp surface elevation, and sky/cobalt accents."
+s5DarkInput is a text box with label "API endpoint", value "https://api.otter.local/health"
+s5DarkSlider is a slider with label "Poll interval (s)", min 5, max 60, value 15, showvalue true
+s5DarkBtns is a row with spacing 8, wrap true
+s5DB1 is a primary button with text "Save Config"
+s5DB2 is a secondary button with text "Test Probe"
+s5DB3 is a badge with text "Dark Tokens", variant "success"
+put s5DB1, s5DB2, s5DB3 in s5DarkBtns
+put s5DarkInput, s5DarkSlider, s5DarkBtns in s5DarkCard
+
+s5LightCard is a card with title "Light - River Slate (Opt-In)", subtitle "Cool alabaster canvas (#f4f7fb), crisp white cards, and AA contrast (#0b1d36).", theme "light"
+s5LightInput is a text box with label "API endpoint", value "https://api.otter.local/health"
+s5LightSlider is a slider with label "Poll interval (s)", min 5, max 60, value 15, showvalue true
+s5LightBtns is a row with spacing 8, wrap true
+s5LB1 is a primary button with text "Save Config"
+s5LB2 is a secondary button with text "Test Probe"
+s5LB3 is a badge with text "Light Tokens", variant "success"
+put s5LB1, s5LB2, s5LB3 in s5LightBtns
+put s5LightInput, s5LightSlider, s5LightBtns in s5LightCard
+
+put s5DarkCard, s5LightCard in sec5Grid
+
+s5CodeCard is a card with title "Enabling Light Mode in Otter", subtitle "Works at the page/window root or on individual containers."
+s5CodeText is a text with value "app is a page\n    title is \"Settings\"\n    theme is \"light\"\n    scroll is true\n.", size 13, foreground "#e2e8f0", background "#09101d", radius 8, fontfamily "'JetBrains Mono', ui-monospace, Consolas, monospace", whitespace "pre", customstyle "padding: 14px 16px; line-height: 1.65; overflow-x: auto; border: 1px solid #24344f;"
+s5CopyBtn is an outline button with text "Copy Otter code"
+when s5CopyBtn is clicked
+    copy text of s5CodeText to clipboard
+    text of s5CopyBtn is "Copied"
+.
+put s5CodeText, s5CopyBtn in s5CodeCard
+
+put heroSection, sec1Head, sec1Grid, sec2Head, sec2Grid, sec3Head, sec3Grid, sec4Head, sec4Grid, sec5Head, sec5Grid, s5CodeCard in showcaseContainer
+
+put topBar, showcaseContainer, siteFooter in app
+show app

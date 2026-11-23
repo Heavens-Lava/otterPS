@@ -1,50 +1,259 @@
-# showcase.ot - Interactive Otter Web Application
-# Compile to web with: Export-OtterWebApplication -SourcePath .\examples\showcase.ot
+# showcase.ot - Otter UI River Slate Component Showcase
+# Compile to web with: otter web examples/showcase.ot
 
 app is a page
-    title is "Otter Web Showcase"
-    width is 560
-    background is "#0f172a"
-    spacing is 14
+    title is "Otter UI - River Slate"
+    scroll is true
+    spacing is 24
 .
 
-headerText is a text
-    value is "Welcome to Otter Web!"
-    foreground is "#38bdf8"
+heroRow is a row
+    spacing is 10
+    wrap is true
+.
+heroBadge1 is a badge with text "River Slate"
+heroBadge2 is a badge with text "Dark Default", variant "success"
+heroBadge3 is a badge with text "Light Opt-In", variant "outline"
+heroLead is a text
+    value is "Cohesive, accessible UI components compiled straight from Otter source into zero-dependency HTML, CSS, and JavaScript."
+    variant is "muted"
+.
+put heroBadge1, heroBadge2, heroBadge3 in heroRow
+
+mainGrid is a grid
+    columns is 2
+    spacing is 20
 .
 
-subtitleText is a text
-    value is "Write clean, human-readable code that compiles straight to HTML5."
-    foreground is "#94a3b8"
+# Card 1: Buttons & Variants
+buttonsCard is a card
+    title is "Buttons & Actions"
+    subtitle is "Consistent sizing, variants, focus rings, disabled states, and live click handlers."
 .
-
-inputBox is a text box
-    placeholder is "Type something here..."
-    background is "#1e293b"
-    foreground is "white"
-    width is 340
+btnRow is a row
+    spacing is 10
+    wrap is true
 .
+deployBtn is a primary button with text "Deploy"
+draftBtn is a secondary button with text "Save Draft"
+previewBtn is an outline button with text "Preview"
+cancelBtn is a ghost button with text "Cancel"
+deleteBtn is a danger button with text "Delete"
+lockedBtn is a button with text "Locked", disabled true
+put deployBtn, draftBtn, previewBtn, cancelBtn, deleteBtn, lockedBtn in btnRow
 
-actionButton is a button
-    text is "Click Me!"
-    background is "#6366f1"
-    foreground is "white"
-    width is 120
+statusRow is a row
+    spacing is 10
+    wrap is true
 .
-
-outputMessage is a text
-    value is "Waiting for input..."
-    foreground is "#a7f3d0"
+actionStatus is a text
+    value is "Ready - click any button to trigger an Otter handler."
+    variant is "muted"
 .
+deployCountBadge is a badge with text "0", variant "outline"
+put actionStatus, deployCountBadge in statusRow
+clickCount is 0
 
-when actionButton is clicked
-    entered is text of inputBox
+when deployBtn is clicked
+    clickCount is clickCount plus 1
+    text of deployCountBadge is clickCount
+    text of actionStatus is "Deploy triggered"
+.
+when draftBtn is clicked
+    text of actionStatus is "Draft saved locally."
+.
+when previewBtn is clicked
+    text of actionStatus is "Preview opened in River Slate."
+.
+when cancelBtn is clicked
+    text of actionStatus is "Action cancelled."
+.
+when deleteBtn is clicked
+    text of actionStatus is "Delete confirmation requested."
+.
+put btnRow, statusRow in buttonsCard
+
+# Card 2: Text Inputs & Validation
+inputsCard is a card
+    title is "Forms & Inputs"
+    subtitle is "Structured fields with labels, hints, error states, and controlled textarea sizing."
+.
+projectBox is a text box
+    label is "Project name"
+    placeholder is "otter-pulse"
+    hint is "Shown in your workspace header and deploy logs."
+.
+slugBox is a text box
+    label is "Subdomain"
+    value is "Bad Slug!"
+    error is "Use lowercase letters, numbers, and hyphens only."
+.
+notesBox is a text area
+    label is "Release notes"
+    placeholder is "Summarize what changed in this build..."
+    rows is 3
+.
+greetRow is a row
+    spacing is 12
+    wrap is true
+.
+applyNameBtn is a primary button with text "Apply Name"
+inputFeedback is a text
+    value is "Waiting for project name..."
+    variant is "muted"
+.
+put applyNameBtn, inputFeedback in greetRow
+
+when applyNameBtn is clicked
+    entered is text of projectBox
     if entered is empty
-        text of outputMessage is "You clicked the button with empty input!"
+        text of inputFeedback is "Enter a project name above first."
     otherwise
-        text of outputMessage is entered
+        text of inputFeedback is "Configured project: " plus entered
     .
 .
+put projectBox, slugBox, notesBox, greetRow in inputsCard
 
-put headerText, subtitleText, inputBox, actionButton, outputMessage in app
+# Card 3: Selection Controls
+selectionCard is a card
+    title is "Selection Controls"
+    subtitle is "Custom-styled dropdowns, aligned checkboxes, switches, and radio groups."
+.
+regionSelect is a dropdown
+    label is "Deployment region"
+    options is "US West (Oregon), US East (Virginia), EU Central (Frankfurt), Asia Pacific (Tokyo)"
+    hint is "Traffic routes through the nearest healthy edge."
+.
+rollingCheck is a checkbox
+    text is "Enable zero-downtime rolling deploys"
+    checked is true
+.
+alertsCheck is a checkbox
+    text is "Send incident alerts to team channel"
+.
+telemetryToggle is a toggle
+    text is "Real-time telemetry streaming"
+    checked is true
+.
+planLabel is a text
+    value is "Environment tier"
+    variant is "subheading"
+.
+tierRow is a row
+    spacing is 16
+    wrap is true
+.
+tierDev is a radio with text "Development", name "envTier"
+tierStage is a radio with text "Staging", name "envTier", checked true
+tierProd is a radio with text "Production", name "envTier"
+put tierDev, tierStage, tierProd in tierRow
+
+put regionSelect, rollingCheck, alertsCheck, telemetryToggle, planLabel, tierRow in selectionCard
+
+# Card 4: Sliders, Progress & Semantic Badges
+metricsCard is a card
+    title is "Sliders, Progress & Status"
+    subtitle is "Bounded sliders with live numeric readouts, progress indicators, and semantic badges."
+.
+thresholdSlider is a slider
+    label is "CPU alert threshold (%)"
+    min is 10
+    max is 100
+    value is 72
+    showvalue is true
+    hint is "Drag to update the live readout and progress bar."
+.
+workersSlider is a slider
+    label is "Max worker concurrency"
+    min is 1
+    max is 32
+    value is 12
+    showvalue is true
+.
+capacityLabel is a text
+    value is "Alert threshold: 72%"
+    variant is "muted"
+.
+capacityProgress is a progress
+    value is 72
+    max is 100
+.
+badgeRow is a row
+    spacing is 8
+    wrap is true
+.
+bHealthy is a badge with text "Operational", variant "success"
+bLatency is a badge with text "42ms p95"
+bWarn is a badge with text "Rate Limit 80%", variant "warning"
+bErr is a badge with text "1 Alert", variant "danger"
+bVer is a badge with text "Otter 1.0.1", variant "outline"
+put bHealthy, bLatency, bWarn, bErr, bVer in badgeRow
+
+when thresholdSlider is changed
+    currentThreshold is text of thresholdSlider
+    text of capacityLabel is "Alert threshold: " plus currentThreshold plus "%"
+    value of capacityProgress is currentThreshold
+.
+put thresholdSlider, workersSlider, capacityLabel, capacityProgress, badgeRow in metricsCard
+
+put buttonsCard, inputsCard, selectionCard, metricsCard in mainGrid
+
+# Bottom 2-column grid: Typography + Live Light Theme Preview
+bottomGrid is a grid
+    columns is 2
+    spacing is 20
+.
+
+typoCard is a card
+    title is "Typography & Hierarchy"
+    subtitle is "Structured scale from titles to body copy, captions, and inline code."
+.
+tTitle is a text with value "River Slate Scale", variant "title"
+tHead is a text with value "Section Heading", variant "heading"
+tSub is a text with value "Subheading for grouped controls and settings", variant "subheading"
+tBody is a text with value "Readable body copy uses 1.55 line-height and WCAG AA contrast tokens in both dark and light themes."
+tMuted is a text with value "Muted helper copy for metadata, timestamps, and field hints." , variant "muted"
+tCode is a text with value "app is a page with title \"Settings\", theme \"light\"" , variant "code"
+put tTitle, tHead, tSub, tBody, tMuted, tCode in typoCard
+
+lightCard is a card
+    title is "Light Mode - River Slate"
+    subtitle is "Opt in with theme \"light\" for crisp daylight surfaces and AA contrast."
+    theme is "light"
+.
+lightEmail is a text box
+    label is "Workspace email"
+    placeholder is "team@otterprogramming.com"
+    hint is "Crafted light tokens - never raw inverted colors."
+.
+lightSelect is a dropdown
+    label is "Theme preference"
+    options is "River Slate Light, River Slate Dark, Match System"
+.
+lightToggle is a toggle
+    text is "Compact table density"
+    checked is true
+.
+lightSlider is a slider
+    label is "Refresh interval (sec)"
+    min is 5
+    max is 60
+    value is 30
+    showvalue is true
+.
+lightBtns is a row
+    spacing is 8
+    wrap is true
+.
+lPrimary is a primary button with text "Save"
+lSecondary is a secondary button with text "Reset"
+lOutline is an outline button with text "Inspect"
+lBadge is a badge with text "AA Contrast", variant "success"
+put lPrimary, lSecondary, lOutline, lBadge in lightBtns
+
+put lightEmail, lightSelect, lightToggle, lightSlider, lightBtns in lightCard
+
+put typoCard, lightCard in bottomGrid
+
+put heroRow, heroLead, mainGrid, bottomGrid in app
 show app
