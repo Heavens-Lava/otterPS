@@ -481,7 +481,7 @@ function Get-OtterWebRuntimeUiJs {
       if (otterIsUi(ref)) { return ref.root; }
       const el = document.getElementById(ref);
       if (!el) { return null; }
-      const wrap = el.closest ? el.closest('label.otter-checkbox-label, label.otter-toggle-label, label.otter-radio-label, .otter-runnable') : null;
+      const wrap = el.closest ? el.closest('.otter-field, .otter-slider-row, label.otter-checkbox-label, label.otter-toggle-label, label.otter-radio-label, .otter-runnable') : null;
       return wrap || el;
     }
     // Where children go: windows and pages hold them in their content area.
@@ -774,7 +774,7 @@ function ConvertTo-OtterWeb {
             }
             $kind = $stmt.TypeName.ToLowerInvariant()
             $knownKinds = @(
-                'window', 'page', 'button', 'text box', 'text', 'row', 'column',
+                'window', 'page', 'button', 'text box', 'text', 'row', 'column', 'grid',
                 'image', 'list', 'link', 'card', 'checkbox', 'check box',
                 'dropdown', 'drop down', 'select', 'slider', 'range',
                 'text area', 'textarea', 'badge', 'tag', 'canvas', 'table', 'scroll',
@@ -794,7 +794,7 @@ function ConvertTo-OtterWeb {
             # compiled script, confirmed by actually compiling and
             # running one in a browser.
             $variant = $null
-            foreach ($v in @('primary', 'secondary', 'danger')) {
+            foreach ($v in @('primary', 'secondary', 'danger', 'outline', 'ghost')) {
                 if ($kind.StartsWith("$v ")) {
                     $variant = $v
                     $kind = $kind.Substring($v.Length + 1)
@@ -896,8 +896,12 @@ function ConvertTo-OtterWeb {
     }
 
     $appTitle = $Title
-    $rootBg = "#0f172a"
-    $rootFg = "#f8fafc"
+    $rootTheme = ""
+    if ($rootName -and $resources[$rootName].Properties.Contains('theme')) {
+        $rootTheme = ([string]$resources[$rootName].Properties['theme']).Trim().ToLowerInvariant()
+    }
+    $rootBg = if ($rootTheme -eq 'light') { "#f4f7fb" } else { "#0b1220" }
+    $rootFg = if ($rootTheme -eq 'light') { "#0b1d36" } else { "#f1f5f9" }
     if ($rootName) {
         if ($resources[$rootName].Properties.Contains('title')) {
             $appTitle = [string]$resources[$rootName].Properties['title']
@@ -915,7 +919,11 @@ function ConvertTo-OtterWeb {
     # website) instead of filling the window like an app shell.
     $pageScrolls = ($isPage -and $resources[$rootName].Properties.Contains('scroll') -and
         ($resources[$rootName].Properties['scroll'] -eq $true -or "$($resources[$rootName].Properties['scroll'])" -eq 'true'))
-    $bodyClass = if ($pageScrolls) { ' class="otter-has-page otter-doc-scroll"' } elseif ($isPage) { ' class="otter-has-page"' } else { '' }
+    $bodyClasses = [System.Collections.Generic.List[string]]::new()
+    if ($isPage) { $bodyClasses.Add('otter-has-page') }
+    if ($pageScrolls) { $bodyClasses.Add('otter-doc-scroll') }
+    if ($rootTheme -eq 'light') { $bodyClasses.Add('otter-theme-light') }
+    $bodyClass = if ($bodyClasses.Count -gt 0) { " class=`"$($bodyClasses -join ' ')`"" } else { '' }
 
     # HTML rendering helper
     function Render-OtterElementCore([string]$resName, [bool]$Hidden = $false) {
@@ -1055,6 +1063,33 @@ function ConvertTo-OtterWeb {
             $childHtml = "`n" + ($childParts -join "`n") + "`n"
         }
 
+        $disabledAttr = if ($props.Contains('disabled') -and ($props['disabled'] -eq $true -or $props['disabled'] -eq 'true')) { " disabled" } else { "" }
+        $disabledLabelClass = if ($props.Contains('disabled') -and ($props['disabled'] -eq $true -or $props['disabled'] -eq 'true')) { " otter-control-disabled" } else { "" }
+        $hasError = ($props.Contains('error') -and ([string]$props['error']).Length -gt 0)
+        $errorClass = if ($hasError) { " otter-input-error" } else { "" }
+        $errorAttr = if ($hasError) { ' aria-invalid="true"' } else { "" }
+        $themeClass = ""
+        if ($props.Contains('theme')) {
+            $tNorm = ([string]$props['theme']).Trim().ToLowerInvariant()
+            if ($tNorm -eq 'light') { $themeClass = " otter-theme-light" }
+            elseif ($tNorm -eq 'dark') { $themeClass = " otter-theme-dark" }
+        }
+
+        $wrapField = {
+            param([string]$controlHtml)
+            $hasLabel = ($props.Contains('label') -and ([string]$props['label']).Length -gt 0)
+            $hasHint = ($props.Contains('hint') -and ([string]$props['hint']).Length -gt 0)
+            if (-not $hasLabel -and -not $hasHint -and -not $hasError) { return $controlHtml }
+            $parts = [System.Collections.Generic.List[string]]::new()
+            $parts.Add('      <div class="otter-field">')
+            if ($hasLabel) { $parts.Add("        <label class=`"otter-field-label`" for=`"$resName`">$(Escape-OtterHtmlText -Text ([string]$props['label']))</label>") }
+            $parts.Add("        $($controlHtml.Trim())")
+            if ($hasError) { $parts.Add("        <span class=`"otter-field-error`" role=`"alert`">$(Escape-OtterHtmlText -Text ([string]$props['error']))</span>") }
+            elseif ($hasHint) { $parts.Add("        <span class=`"otter-field-hint`">$(Escape-OtterHtmlText -Text ([string]$props['hint']))</span>") }
+            $parts.Add('      </div>')
+            return ($parts -join "`n")
+        }
+
         switch ($kind) {
             'window' {
                 $spacing = if ($props.Contains('spacing')) { $props['spacing'] } else { 12 }
@@ -1085,8 +1120,13 @@ function ConvertTo-OtterWeb {
                 if (-not $props.Contains('gap')) { $styles.Add("gap: ${spacing}px;") }
                 $styleAttr = if ($styles.Count -gt 0) { " style=`"$($styles -join ' ')`"" } else { "" }
                 $cardTitle = if ($props.Contains('title')) { "<h3 class=`"otter-card-title`">$(Escape-OtterHtmlAttr -Text ([string]$props['title']))</h3>" } else { "" }
+                $rawSub = if ($props.Contains('subtitle')) { [string]$props['subtitle'] } elseif ($props.Contains('description')) { [string]$props['description'] } else { "" }
+                if ($rawSub.Length -gt 0) {
+                    $subHtml = "<p class=`"otter-card-subtitle`">$(Escape-OtterHtmlText -Text $rawSub)</p>"
+                    $cardTitle = if ($cardTitle.Length -gt 0) { "$cardTitle`n        $subHtml" } else { $subHtml }
+                }
                 return @"
-      <div id="$resName" class="otter-card"$styleAttr>
+      <div id="$resName" class="otter-card$themeClass"$styleAttr>
         $cardTitle
         $childHtml
       </div>
@@ -1098,14 +1138,15 @@ function ConvertTo-OtterWeb {
                 # `primary button`/`secondary button`/`danger button` -
                 # reuses the same otter-button-<variant> CSS classes the
                 # inline UI-element grammar's own renderer already defines.
-                $variantClass = if ($props.Contains('variant')) { " otter-button-$($props['variant'])" } else { "" }
-                return "      <button id=`"$resName`" class=`"otter-button$variantClass`"$styleAttr>$text</button>"
+                $variantClass = if ($props.Contains('variant')) { " otter-button-$(([string]$props['variant']).Trim().ToLowerInvariant())" } else { "" }
+                return "      <button id=`"$resName`" class=`"otter-button$variantClass`"$disabledAttr$styleAttr>$text</button>"
             }
             'text box' {
                 $rawVal = if ($props.Contains('text')) { [string]$props['text'] } elseif ($props.Contains('value')) { [string]$props['value'] } else { "" }
                 $val = Escape-OtterHtmlAttr -Text $rawVal
                 $ph = if ($props.Contains('placeholder')) { " placeholder=`"$(Escape-OtterHtmlAttr -Text ([string]$props['placeholder']))`"" } else { "" }
-                return "      <input type=`"text`" id=`"$resName`" class=`"otter-text-box`" value=`"$val`"$ph$styleAttr />"
+                $ctrl = "      <input type=`"text`" id=`"$resName`" class=`"otter-text-box$errorClass`" value=`"$val`"$ph$errorAttr$disabledAttr$styleAttr />"
+                return (& $wrapField $ctrl)
             }
             'text' {
                 $rawVal = if ($props.Contains('text')) { [string]$props['text'] } elseif ($props.Contains('value')) { [string]$props['value'] } else { "" }
@@ -1123,7 +1164,8 @@ function ConvertTo-OtterWeb {
 "@
                     }
                 }
-                return "      <div id=`"$resName`" class=`"otter-text`"$styleAttr>$val</div>"
+                $textVariant = if ($props.Contains('variant')) { " otter-text-$(([string]$props['variant']).Trim().ToLowerInvariant())" } else { "" }
+                return "      <div id=`"$resName`" class=`"otter-text$textVariant`"$styleAttr>$val</div>"
             }
             'image' {
                 $rawSrc = if ($props.Contains('source')) { [string]$props['source'] } elseif ($props.Contains('src')) { [string]$props['src'] } else { "" }
@@ -1145,7 +1187,7 @@ function ConvertTo-OtterWeb {
                 $rawText = if ($props.Contains('text')) { [string]$props['text'] } else { "" }
                 $text = Escape-OtterHtmlAttr -Text $rawText
                 $checked = if ($props.Contains('checked') -and $props['checked']) { " checked" } else { "" }
-                return "      <label class=`"otter-checkbox-label`"$styleAttr><input type=`"checkbox`" id=`"$resName`" class=`"otter-checkbox`"$checked /> <span>$text</span></label>"
+                return "      <label class=`"otter-checkbox-label$disabledLabelClass`"$styleAttr><input type=`"checkbox`" id=`"$resName`" class=`"otter-checkbox`"$checked$disabledAttr /> <span>$text</span></label>"
             }
             { $_ -in @('dropdown', 'drop down', 'select') } {
                 $opts = @()
@@ -1161,29 +1203,39 @@ function ConvertTo-OtterWeb {
                     $escOpt = Escape-OtterHtmlAttr -Text ([string]$_)
                     "        <option value=`"$escOpt`">$escOpt</option>"
                 }) -join "`n"
-                return @"
-      <select id="$resName" class="otter-select"$styleAttr>
+                $ctrl = @"
+      <select id="$resName" class="otter-select$errorClass"$errorAttr$disabledAttr$styleAttr>
 $optHtml
       </select>
 "@
+                return (& $wrapField $ctrl)
             }
             { $_ -in @('slider', 'range') } {
                 $min = if ($props.Contains('min')) { $props['min'] } else { 0 }
                 $max = if ($props.Contains('max')) { $props['max'] } else { 100 }
                 $val = if ($props.Contains('value')) { $props['value'] } else { 50 }
-                return "      <input type=`"range`" id=`"$resName`" class=`"otter-slider`" min=`"$min`" max=`"$max`" value=`"$val`"$styleAttr />"
+                $stepAttr = if ($props.Contains('step')) { " step=`"$($props['step'])`"" } else { "" }
+                $inputHtml = "<input type=`"range`" id=`"$resName`" class=`"otter-slider`" min=`"$min`" max=`"$max`" value=`"$val`"$stepAttr$disabledAttr$styleAttr />"
+                $ctrl = if ($props.Contains('showvalue') -and ($props['showvalue'] -eq $true -or $props['showvalue'] -eq 'true')) {
+                    "      <div class=`"otter-slider-row`">$inputHtml<output class=`"otter-slider-value`" for=`"$resName`" data-otter-slider-for=`"$resName`">$val</output></div>"
+                } else {
+                    "      $inputHtml"
+                }
+                return (& $wrapField $ctrl)
             }
             { $_ -in @('text area', 'textarea') } {
                 $rawVal = if ($props.Contains('text')) { [string]$props['text'] } elseif ($props.Contains('value')) { [string]$props['value'] } else { "" }
                 $val = Escape-OtterHtmlAttr -Text $rawVal
                 $ph = if ($props.Contains('placeholder')) { " placeholder=`"$(Escape-OtterHtmlAttr -Text ([string]$props['placeholder']))`"" } else { "" }
                 $rows = if ($props.Contains('rows')) { $props['rows'] } else { 3 }
-                return "      <textarea id=`"$resName`" class=`"otter-text-area`" rows=`"$rows`"$ph$styleAttr>$val</textarea>"
+                $ctrl = "      <textarea id=`"$resName`" class=`"otter-text-area$errorClass`" rows=`"$rows`"$ph$errorAttr$disabledAttr$styleAttr>$val</textarea>"
+                return (& $wrapField $ctrl)
             }
             { $_ -in @('badge', 'tag') } {
                 $rawText = if ($props.Contains('text')) { [string]$props['text'] } else { "" }
                 $text = Escape-OtterHtmlAttr -Text $rawText
-                return "      <span id=`"$resName`" class=`"otter-badge`"$styleAttr>$text</span>"
+                $badgeVariant = if ($props.Contains('variant')) { " otter-badge-$(([string]$props['variant']).Trim().ToLowerInvariant())" } else { "" }
+                return "      <span id=`"$resName`" class=`"otter-badge$badgeVariant`"$styleAttr>$text</span>"
             }
             'canvas' {
                 $w = if ($props.Contains('width')) { $props['width'] } else { 400 }
@@ -1201,7 +1253,7 @@ $optHtml
                 $rawText = if ($props.Contains('text')) { [string]$props['text'] } else { "" }
                 $text = Escape-OtterHtmlAttr -Text $rawText
                 $checked = if ($props.Contains('checked') -and ($props['checked'] -eq $true -or $props['checked'] -eq 'true')) { " checked" } else { "" }
-                return "      <label class=`"otter-toggle-label`"$styleAttr><input type=`"checkbox`" id=`"$resName`" class=`"otter-toggle`" role=`"switch`"$checked /><span class=`"otter-toggle-track`"><span class=`"otter-toggle-thumb`"></span></span><span class=`"otter-toggle-text`">$text</span></label>"
+                return "      <label class=`"otter-toggle-label$disabledLabelClass`"$styleAttr><input type=`"checkbox`" id=`"$resName`" class=`"otter-toggle`" role=`"switch`"$checked$disabledAttr /><span class=`"otter-toggle-track`"><span class=`"otter-toggle-thumb`"></span></span><span class=`"otter-toggle-text`">$text</span></label>"
             }
             { $_ -in @('radio', 'radio button') } {
                 $rawText = if ($props.Contains('text')) { [string]$props['text'] } else { "" }
@@ -1209,7 +1261,7 @@ $optHtml
                 $rawGroup = if ($props.Contains('group')) { [string]$props['group'] } elseif ($props.Contains('name')) { [string]$props['name'] } else { "default-group" }
                 $group = Escape-OtterHtmlAttr -Text $rawGroup
                 $checked = if ($props.Contains('checked') -and ($props['checked'] -eq $true -or $props['checked'] -eq 'true')) { " checked" } else { "" }
-                return "      <label class=`"otter-radio-label`"$styleAttr><input type=`"radio`" id=`"$resName`" name=`"$group`" class=`"otter-radio`"$checked /> <span>$text</span></label>"
+                return "      <label class=`"otter-radio-label$disabledLabelClass`"$styleAttr><input type=`"radio`" id=`"$resName`" name=`"$group`" class=`"otter-radio`"$checked$disabledAttr /> <span>$text</span></label>"
             }
             'row' {
                 $spacing = if ($props.Contains('spacing')) { $props['spacing'] } else { 8 }
@@ -1260,7 +1312,7 @@ $optHtml
                 $styles.Add("flex-wrap: $wrap;")
                 $styleAttr = if ($styles.Count -gt 0) { " style=`"$($styles -join ' ')`"" } else { "" }
                 return @"
-      <div id="$resName" class="otter-row"$styleAttr>$childHtml</div>
+      <div id="$resName" class="otter-row$themeClass"$styleAttr>$childHtml</div>
 "@
             }
             'column' {
@@ -1310,7 +1362,17 @@ $optHtml
                 $styles.Add("justify-content: $justify;")
                 $styleAttr = if ($styles.Count -gt 0) { " style=`"$($styles -join ' ')`"" } else { "" }
                 return @"
-      <div id="$resName" class="otter-column"$styleAttr>$childHtml</div>
+      <div id="$resName" class="otter-column$themeClass"$styleAttr>$childHtml</div>
+"@
+            }
+            'grid' {
+                $cols = if ($props.Contains('columns')) { $props['columns'] } else { 2 }
+                $spacing = if ($props.Contains('spacing')) { $props['spacing'] } elseif ($props.Contains('gap')) { $props['gap'] } else { 16 }
+                $styles.Add("--otter-cols: $cols;")
+                if (-not $props.Contains('gap')) { $styles.Add("gap: ${spacing}px;") }
+                $styleAttr = if ($styles.Count -gt 0) { " style=`"$($styles -join ' ')`"" } else { "" }
+                return @"
+      <div id="$resName" class="otter-grid$themeClass"$styleAttr>$childHtml</div>
 "@
             }
             'scroll' {
@@ -1321,7 +1383,7 @@ $optHtml
 "@
             }
             default {
-                return "      <div id=`"$resName`" class=`"otter-resource otter-$kind`"$styleAttr>$childHtml</div>"
+                return "      <div id=`"$resName`" class=`"otter-resource otter-$kind$themeClass`"$styleAttr>$childHtml</div>"
             }
         }
     }
@@ -1717,13 +1779,155 @@ $bodyJoined
   <style>
     :root {
       --otter-bg: $rootBg;
-      --otter-card-bg: #1e293b;
+      --otter-surface: #111b2e;
+      --otter-surface-elevated: #17243d;
+      --otter-card-bg: var(--otter-surface);
+      --otter-input-bg: #0c1526;
+      --otter-border: #24344f;
+      --otter-border-strong: #364b6e;
+      --otter-divider: rgba(148, 163, 184, 0.18);
       --otter-text: $rootFg;
+      --otter-text-secondary: #cbd5e1;
       --otter-text-muted: #94a3b8;
       --otter-primary: #2563eb;
-      --otter-primary-hover: #1d4ed8;
-      --otter-input-bg: #0f172a;
-      --otter-border: #334155;
+      --otter-primary-hover: #3b82f6;
+      --otter-primary-active: #1d4ed8;
+      --otter-primary-fg: #ffffff;
+      --otter-secondary-bg: #1e2d47;
+      --otter-secondary-hover: #283b5c;
+      --otter-secondary-border: #334a70;
+      --otter-secondary-fg: #f1f5f9;
+      --otter-ghost-hover: rgba(148, 163, 184, 0.14);
+      --otter-accent: #38bdf8;
+      --otter-accent-hover: #7dd3fc;
+      --otter-danger: #dc2626;
+      --otter-danger-hover: #ef4444;
+      --otter-danger-soft: rgba(239, 68, 68, 0.15);
+      --otter-danger-border: rgba(248, 113, 113, 0.4);
+      --otter-danger-text: #fca5a5;
+      --otter-success-soft: rgba(16, 185, 129, 0.16);
+      --otter-success-border: rgba(52, 211, 153, 0.35);
+      --otter-success-text: #6ee7b7;
+      --otter-warning-soft: rgba(245, 158, 11, 0.16);
+      --otter-warning-border: rgba(251, 191, 36, 0.35);
+      --otter-warning-text: #fcd34d;
+      --otter-badge-bg: rgba(37, 99, 235, 0.2);
+      --otter-badge-border: rgba(96, 165, 250, 0.35);
+      --otter-badge-text: #93c5fd;
+      --otter-focus-ring: rgba(56, 189, 248, 0.38);
+      --otter-error-ring: rgba(239, 68, 68, 0.32);
+      --otter-toggle-track: #334155;
+      --otter-slider-track: #24344f;
+      --otter-radius-sm: 6px;
+      --otter-radius-md: 8px;
+      --otter-radius-lg: 12px;
+      --otter-radius-pill: 9999px;
+      --otter-shadow-sm: 0 1px 2px rgba(2, 6, 23, 0.35);
+      --otter-shadow-md: 0 8px 24px -6px rgba(2, 6, 23, 0.55), 0 2px 6px rgba(2, 6, 23, 0.35);
+      --otter-shadow-lg: 0 18px 40px -12px rgba(2, 6, 23, 0.65);
+      --otter-space-1: 4px;
+      --otter-space-2: 8px;
+      --otter-space-3: 12px;
+      --otter-space-4: 16px;
+      --otter-space-5: 20px;
+      --otter-space-6: 24px;
+      --otter-font-sans: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", Arial, sans-serif;
+      --otter-font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      --otter-select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    }
+    .otter-theme-light {
+      --otter-bg: #f4f7fb;
+      --otter-surface: #ffffff;
+      --otter-surface-elevated: #f8fafc;
+      --otter-card-bg: #ffffff;
+      --otter-input-bg: #ffffff;
+      --otter-border: #d5dfec;
+      --otter-border-strong: #b4c4d9;
+      --otter-divider: rgba(15, 23, 42, 0.1);
+      --otter-text: #0b1d36;
+      --otter-text-secondary: #334155;
+      --otter-text-muted: #52637a;
+      --otter-primary: #1d4ed8;
+      --otter-primary-hover: #1e40af;
+      --otter-primary-active: #1e3a8a;
+      --otter-primary-fg: #ffffff;
+      --otter-secondary-bg: #eef2f7;
+      --otter-secondary-hover: #e2e8f0;
+      --otter-secondary-border: #cbd5e1;
+      --otter-secondary-fg: #0f172a;
+      --otter-ghost-hover: rgba(15, 23, 42, 0.06);
+      --otter-accent: #0369a1;
+      --otter-accent-hover: #075985;
+      --otter-danger: #dc2626;
+      --otter-danger-hover: #b91c1c;
+      --otter-danger-soft: #fef2f2;
+      --otter-danger-border: #fecaca;
+      --otter-danger-text: #b91c1c;
+      --otter-success-soft: #ecfdf5;
+      --otter-success-border: #a7f3d0;
+      --otter-success-text: #047857;
+      --otter-warning-soft: #fffbeb;
+      --otter-warning-border: #fde68a;
+      --otter-warning-text: #b45309;
+      --otter-badge-bg: #eff6ff;
+      --otter-badge-border: #bfdbfe;
+      --otter-badge-text: #1d4ed8;
+      --otter-focus-ring: rgba(29, 78, 216, 0.28);
+      --otter-error-ring: rgba(220, 38, 38, 0.22);
+      --otter-toggle-track: #cbd5e1;
+      --otter-slider-track: #d5dfec;
+      --otter-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+      --otter-shadow-md: 0 4px 16px -4px rgba(15, 23, 42, 0.08), 0 1px 3px rgba(15, 23, 42, 0.05);
+      --otter-shadow-lg: 0 14px 32px -8px rgba(15, 23, 42, 0.12);
+      --otter-select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+      color: var(--otter-text);
+    }
+    .otter-theme-dark {
+      --otter-bg: #0b1220;
+      --otter-surface: #111b2e;
+      --otter-surface-elevated: #17243d;
+      --otter-card-bg: #111b2e;
+      --otter-input-bg: #0c1526;
+      --otter-border: #24344f;
+      --otter-border-strong: #364b6e;
+      --otter-divider: rgba(148, 163, 184, 0.18);
+      --otter-text: #f1f5f9;
+      --otter-text-secondary: #cbd5e1;
+      --otter-text-muted: #94a3b8;
+      --otter-primary: #2563eb;
+      --otter-primary-hover: #3b82f6;
+      --otter-primary-active: #1d4ed8;
+      --otter-primary-fg: #ffffff;
+      --otter-secondary-bg: #1e2d47;
+      --otter-secondary-hover: #283b5c;
+      --otter-secondary-border: #334a70;
+      --otter-secondary-fg: #f1f5f9;
+      --otter-ghost-hover: rgba(148, 163, 184, 0.14);
+      --otter-accent: #38bdf8;
+      --otter-accent-hover: #7dd3fc;
+      --otter-danger: #dc2626;
+      --otter-danger-hover: #ef4444;
+      --otter-danger-soft: rgba(239, 68, 68, 0.15);
+      --otter-danger-border: rgba(248, 113, 113, 0.4);
+      --otter-danger-text: #fca5a5;
+      --otter-success-soft: rgba(16, 185, 129, 0.16);
+      --otter-success-border: rgba(52, 211, 153, 0.35);
+      --otter-success-text: #6ee7b7;
+      --otter-warning-soft: rgba(245, 158, 11, 0.16);
+      --otter-warning-border: rgba(251, 191, 36, 0.35);
+      --otter-warning-text: #fcd34d;
+      --otter-badge-bg: rgba(37, 99, 235, 0.2);
+      --otter-badge-border: rgba(96, 165, 250, 0.35);
+      --otter-badge-text: #93c5fd;
+      --otter-focus-ring: rgba(56, 189, 248, 0.38);
+      --otter-error-ring: rgba(239, 68, 68, 0.32);
+      --otter-toggle-track: #334155;
+      --otter-slider-track: #24344f;
+      --otter-shadow-sm: 0 1px 2px rgba(2, 6, 23, 0.35);
+      --otter-shadow-md: 0 8px 24px -6px rgba(2, 6, 23, 0.55), 0 2px 6px rgba(2, 6, 23, 0.35);
+      --otter-shadow-lg: 0 18px 40px -12px rgba(2, 6, 23, 0.65);
+      --otter-select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+      color: var(--otter-text);
     }
     *, *::before, *::after { box-sizing: border-box; }
     * { margin: 0; padding: 0; }
@@ -1731,6 +1935,9 @@ $bodyJoined
       font-family: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", Arial, sans-serif;
       background: $rootBg;
       color: $rootFg;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
@@ -1775,16 +1982,33 @@ $runnableCss
       box-sizing: border-box;
       min-width: 0;
     }
-    .otter-window {
-      background-color: #1e293b;
-      border: 1px solid var(--otter-border);
+    .otter-grid {
+      display: grid;
+      grid-template-columns: repeat(var(--otter-cols, 2), minmax(0, 1fr));
+      gap: 16px;
       width: 100%;
-      max-width: 520px;
+      min-width: 0;
+      box-sizing: border-box;
+    }
+    .otter-window {
+      background-color: var(--otter-surface);
+      color: var(--otter-text);
+      border: 1px solid var(--otter-border);
+      border-radius: var(--otter-radius-lg);
+      padding: var(--otter-space-6);
+      box-shadow: var(--otter-shadow-lg);
+      width: 100%;
+      max-width: 560px;
       margin: 24px auto;
       display: flex;
       flex-direction: column;
       box-sizing: border-box;
       min-width: 0;
+    }
+    .otter-window-header {
+      padding-bottom: 12px;
+      margin-bottom: 4px;
+      border-bottom: 1px solid var(--otter-divider);
     }
     .otter-page {
       background: transparent;
@@ -1792,65 +2016,189 @@ $runnableCss
       width: 100%;
       max-width: 1320px;
       margin: 0 auto;
+      padding: 28px 32px 48px;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
       box-sizing: border-box;
       min-width: 0;
     }
+    .otter-page-header {
+      padding-bottom: 16px;
+      margin-bottom: 8px;
+      border-bottom: 1px solid var(--otter-divider);
+    }
     .otter-card {
       background-color: var(--otter-card-bg);
+      color: var(--otter-text);
       border: 1px solid var(--otter-border);
-      border-radius: 12px;
-      padding: 24px;
-      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+      border-radius: var(--otter-radius-lg);
+      padding: var(--otter-space-6);
+      box-shadow: var(--otter-shadow-md);
       display: flex;
       flex-direction: column;
       box-sizing: border-box;
       min-width: 0;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
     }
     .otter-title {
-      font-size: 1.35rem;
+      font-size: 1.5rem;
       font-weight: 700;
-      margin-bottom: 8px;
-      letter-spacing: -0.02em;
+      line-height: 1.25;
+      letter-spacing: -0.025em;
+      color: var(--otter-text);
     }
     .otter-button {
       background-color: var(--otter-primary);
-      color: white;
-      border: none;
-      border-radius: 8px;
-      padding: 10px 18px;
-      font-size: 0.95rem;
+      color: var(--otter-primary-fg);
+      border: 1px solid transparent;
+      border-radius: var(--otter-radius-md);
+      padding: 9px 16px;
+      min-height: 38px;
+      font-family: inherit;
+      font-size: 0.875rem;
       font-weight: 600;
+      line-height: 1.25;
       cursor: pointer;
-      transition: background-color 0.15s ease, transform 0.08s ease;
+      transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, transform 0.08s ease;
       display: inline-flex;
       align-items: center;
       justify-content: center;
+      gap: 8px;
       white-space: nowrap;
       user-select: none;
+      box-shadow: var(--otter-shadow-sm);
     }
-    .otter-button:hover { background-color: var(--otter-primary-hover); }
-    .otter-button:active { transform: scale(0.98); }
+    .otter-column > .otter-button,
+    .otter-card > .otter-button,
+    .otter-page-content > .otter-button,
+    .otter-window-content > .otter-button,
+    .otter-column > .otter-badge,
+    .otter-card > .otter-badge,
+    .otter-page-content > .otter-badge,
+    .otter-window-content > .otter-badge {
+      align-self: flex-start;
+    }
+    .otter-button:hover:not(:disabled) { background-color: var(--otter-primary-hover); }
+    .otter-button:active:not(:disabled) { background-color: var(--otter-primary-active); transform: translateY(1px); }
+    .otter-button:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--otter-focus-ring); }
+    .otter-button:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }
+    .otter-field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      width: 100%;
+      min-width: 0;
+    }
+    .otter-field-label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--otter-text-secondary);
+      line-height: 1.3;
+    }
+    .otter-field-hint {
+      font-size: 0.8rem;
+      color: var(--otter-text-muted);
+      line-height: 1.4;
+    }
+    .otter-field-error {
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--otter-danger-text);
+      line-height: 1.4;
+    }
     .otter-text-box {
       background-color: var(--otter-input-bg);
       color: var(--otter-text);
       border: 1px solid var(--otter-border);
-      border-radius: 8px;
-      padding: 10px 14px;
-      font-size: 0.95rem;
+      border-radius: var(--otter-radius-md);
+      padding: 9px 13px;
+      min-height: 38px;
+      font-family: inherit;
+      font-size: 0.9rem;
+      line-height: 1.4;
       outline: none;
-      transition: border-color 0.15s ease;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
       width: 100%;
     }
-    .otter-text-box:focus {
+    .otter-text-box::placeholder,
+    .otter-text-area::placeholder,
+    .otter-textarea::placeholder {
+      color: var(--otter-text-muted);
+      opacity: 0.9;
+    }
+    .otter-text-box:hover:not(:disabled),
+    .otter-text-area:hover:not(:disabled),
+    .otter-textarea:hover:not(:disabled),
+    .otter-select:hover:not(:disabled) {
+      border-color: var(--otter-border-strong);
+    }
+    .otter-text-box:focus,
+    .otter-text-box:focus-visible,
+    .otter-text-area:focus,
+    .otter-text-area:focus-visible,
+    .otter-textarea:focus,
+    .otter-textarea:focus-visible,
+    .otter-select:focus,
+    .otter-select:focus-visible {
       border-color: var(--otter-primary);
-      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25);
+      box-shadow: 0 0 0 3px var(--otter-focus-ring);
+    }
+    .otter-text-box:disabled,
+    .otter-text-area:disabled,
+    .otter-textarea:disabled,
+    .otter-select:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+    .otter-input-error {
+      border-color: var(--otter-danger);
+    }
+    .otter-input-error:focus,
+    .otter-input-error:focus-visible {
+      border-color: var(--otter-danger);
+      box-shadow: 0 0 0 3px var(--otter-error-ring);
     }
     .otter-text {
-      font-size: 1rem;
+      font-size: 0.95rem;
+      line-height: 1.55;
       min-height: 1.2em;
+    }
+    .otter-text-title {
+      font-size: 1.75rem;
+      font-weight: 800;
+      line-height: 1.2;
+      letter-spacing: -0.03em;
+      color: var(--otter-text);
+    }
+    .otter-text-heading {
+      font-size: 1.25rem;
+      font-weight: 700;
+      line-height: 1.3;
+      letter-spacing: -0.02em;
+      color: var(--otter-text);
+    }
+    .otter-text-subheading {
+      font-size: 1rem;
+      font-weight: 600;
+      line-height: 1.4;
+      color: var(--otter-text-secondary);
+    }
+    .otter-text-muted {
+      font-size: 0.9rem;
+      color: var(--otter-text-muted);
+    }
+    .otter-text-caption {
+      font-size: 0.8rem;
+      color: var(--otter-text-muted);
+    }
+    .otter-text-code {
+      font-family: var(--otter-font-mono);
+      font-size: 0.85rem;
+      background: var(--otter-input-bg);
+      border: 1px solid var(--otter-border);
+      border-radius: var(--otter-radius-sm);
+      padding: 2px 6px;
     }
     .otter-heading {
       font-size: 1.5rem;
@@ -1864,40 +2212,48 @@ $runnableCss
        settings (background, foreground, border) and customstyle must win
        over them. */
     .otter-button-primary, .otter-btn-primary {
-      background-color: #2563eb;
-      color: #ffffff;
-      border: none;
-      border-radius: 8px;
-      padding: 10px 18px;
-      font-weight: 600;
-      cursor: pointer;
+      background-color: var(--otter-primary);
+      color: var(--otter-primary-fg);
+      border: 1px solid transparent;
     }
-    .otter-button-primary:hover, .otter-btn-primary:hover {
-      background-color: #1d4ed8;
+    .otter-button-primary:hover:not(:disabled), .otter-btn-primary:hover:not(:disabled) {
+      background-color: var(--otter-primary-hover);
     }
     .otter-button-secondary, .otter-btn-secondary {
-      background-color: #334155;
-      color: #f8fafc;
-      border: 1px solid #475569;
-      border-radius: 8px;
-      padding: 10px 18px;
-      font-weight: 500;
-      cursor: pointer;
+      background-color: var(--otter-secondary-bg);
+      color: var(--otter-secondary-fg);
+      border: 1px solid var(--otter-secondary-border);
     }
-    .otter-button-secondary:hover, .otter-btn-secondary:hover {
-      background-color: #475569;
+    .otter-button-secondary:hover:not(:disabled), .otter-btn-secondary:hover:not(:disabled) {
+      background-color: var(--otter-secondary-hover);
+    }
+    .otter-button-outline, .otter-btn-outline {
+      background-color: transparent;
+      color: var(--otter-text);
+      border: 1px solid var(--otter-border-strong);
+      box-shadow: none;
+    }
+    .otter-button-outline:hover:not(:disabled), .otter-btn-outline:hover:not(:disabled) {
+      background-color: var(--otter-ghost-hover);
+      border-color: var(--otter-accent);
+    }
+    .otter-button-ghost, .otter-btn-ghost {
+      background-color: transparent;
+      color: var(--otter-text-secondary);
+      border: 1px solid transparent;
+      box-shadow: none;
+    }
+    .otter-button-ghost:hover:not(:disabled), .otter-btn-ghost:hover:not(:disabled) {
+      background-color: var(--otter-ghost-hover);
+      color: var(--otter-text);
     }
     .otter-button-danger, .otter-btn-danger {
-      background-color: #dc2626;
+      background-color: var(--otter-danger);
       color: #ffffff;
-      border: none;
-      border-radius: 8px;
-      padding: 10px 18px;
-      font-weight: 600;
-      cursor: pointer;
+      border: 1px solid transparent;
     }
-    .otter-button-danger:hover, .otter-btn-danger:hover {
-      background-color: #b91c1c;
+    .otter-button-danger:hover:not(:disabled), .otter-btn-danger:hover:not(:disabled) {
+      background-color: var(--otter-danger-hover);
     }
     .otter-panel {
       display: flex;
@@ -1920,113 +2276,228 @@ $runnableCss
       width: 100%;
     }
     .otter-card-title {
-      font-size: 1.15rem;
+      font-size: 1.08rem;
       font-weight: 700;
       color: var(--otter-text);
-      letter-spacing: -0.01em;
-      margin-bottom: 12px;
+      letter-spacing: -0.015em;
+      line-height: 1.3;
+    }
+    .otter-card-subtitle {
+      font-size: 0.875rem;
+      color: var(--otter-text-muted);
+      line-height: 1.45;
+      margin-top: -6px;
     }
     .otter-image {
       max-width: 100%;
       height: auto;
-      border-radius: 6px;
+      border-radius: var(--otter-radius-md);
       display: block;
     }
     .otter-link {
-      color: #38bdf8;
+      color: var(--otter-accent);
       text-decoration: none;
       font-weight: 500;
       transition: color 0.15s ease;
+      border-radius: 4px;
     }
     .otter-link:hover {
-      color: #7dd3fc;
+      color: var(--otter-accent-hover);
       text-decoration: underline;
+    }
+    .otter-link:focus-visible {
+      outline: 2px solid var(--otter-accent);
+      outline-offset: 2px;
     }
     .otter-checkbox-label {
       display: inline-flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
       cursor: pointer;
       user-select: none;
-      font-size: 0.95rem;
+      font-size: 0.9rem;
+      color: var(--otter-text);
+      line-height: 1.4;
+      align-self: flex-start;
     }
     .otter-checkbox {
       width: 18px;
       height: 18px;
       cursor: pointer;
       accent-color: var(--otter-primary);
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+    .otter-checkbox:focus-visible,
+    .otter-radio:focus-visible {
+      outline: 2px solid var(--otter-accent);
+      outline-offset: 2px;
+    }
+    .otter-control-disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
     }
     .otter-select {
       background-color: var(--otter-input-bg);
       color: var(--otter-text);
       border: 1px solid var(--otter-border);
-      border-radius: 8px;
-      padding: 10px 14px;
-      font-size: 0.95rem;
+      border-radius: var(--otter-radius-md);
+      padding: 9px 38px 9px 13px;
+      min-height: 38px;
+      font-family: inherit;
+      font-size: 0.9rem;
+      line-height: 1.4;
       outline: none;
       cursor: pointer;
       width: 100%;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: var(--otter-select-chevron);
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      background-size: 16px 16px;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .otter-slider-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      max-width: 440px;
     }
     .otter-slider {
       width: 100%;
+      max-width: 440px;
+      height: 6px;
+      border-radius: var(--otter-radius-pill);
+      background: var(--otter-slider-track);
+      appearance: none;
+      -webkit-appearance: none;
       cursor: pointer;
+      outline: none;
       accent-color: var(--otter-primary);
+    }
+    .otter-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--otter-primary);
+      border: 2px solid var(--otter-surface);
+      box-shadow: 0 1px 4px rgba(2, 6, 23, 0.4);
+      cursor: pointer;
+      transition: transform 0.12s ease, background-color 0.15s ease;
+    }
+    .otter-slider::-webkit-slider-thumb:hover {
+      background: var(--otter-primary-hover);
+      transform: scale(1.08);
+    }
+    .otter-slider::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--otter-primary);
+      border: 2px solid var(--otter-surface);
+      box-shadow: 0 1px 4px rgba(2, 6, 23, 0.4);
+      cursor: pointer;
+    }
+    .otter-slider:focus-visible {
+      box-shadow: 0 0 0 3px var(--otter-focus-ring);
+    }
+    .otter-slider:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .otter-slider-value {
+      min-width: 3ch;
+      text-align: right;
+      font-family: var(--otter-font-mono);
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--otter-text-secondary);
+      font-variant-numeric: tabular-nums;
     }
     .otter-text-area,
     .otter-textarea {
       background-color: var(--otter-input-bg);
       color: var(--otter-text);
       border: 1px solid var(--otter-border);
-      border-radius: 8px;
-      padding: 10px 14px;
-      font-size: 0.95rem;
+      border-radius: var(--otter-radius-md);
+      padding: 10px 13px;
+      font-size: 0.9rem;
+      line-height: 1.5;
       outline: none;
       width: 100%;
+      min-height: 88px;
       resize: vertical;
       font-family: inherit;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
     }
     .otter-badge {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      padding: 4px 10px;
-      border-radius: 9999px;
+      padding: 3px 10px;
+      border-radius: var(--otter-radius-pill);
       font-size: 0.75rem;
       font-weight: 600;
+      line-height: 1.4;
+      letter-spacing: 0.01em;
       white-space: nowrap;
-      background: rgba(37,99,235,0.2);
-      color: #93c5fd;
-      border: 1px solid rgba(37,99,235,0.3);
+      background: var(--otter-badge-bg);
+      color: var(--otter-badge-text);
+      border: 1px solid var(--otter-badge-border);
+    }
+    .otter-badge-success {
+      background: var(--otter-success-soft);
+      color: var(--otter-success-text);
+      border-color: var(--otter-success-border);
+    }
+    .otter-badge-warning {
+      background: var(--otter-warning-soft);
+      color: var(--otter-warning-text);
+      border-color: var(--otter-warning-border);
+    }
+    .otter-badge-danger {
+      background: var(--otter-danger-soft);
+      color: var(--otter-danger-text);
+      border-color: var(--otter-danger-border);
+    }
+    .otter-badge-outline {
+      background: transparent;
+      color: var(--otter-text-secondary);
+      border-color: var(--otter-border-strong);
     }
     .otter-canvas {
       background: #020617;
       border: 1px solid var(--otter-border);
-      border-radius: 8px;
+      border-radius: var(--otter-radius-md);
       max-width: 100%;
       display: block;
     }
     .otter-progress {
       width: 100%;
-      height: 12px;
-      border-radius: 9999px;
+      height: 10px;
+      border-radius: var(--otter-radius-pill);
       overflow: hidden;
       appearance: none;
       -webkit-appearance: none;
-      border: 1px solid var(--otter-border);
-      background: var(--otter-input-bg);
+      border: none;
+      background: var(--otter-slider-track);
     }
     .otter-progress::-webkit-progress-bar {
-      background: var(--otter-input-bg);
-      border-radius: 9999px;
+      background: var(--otter-slider-track);
+      border-radius: var(--otter-radius-pill);
     }
     .otter-progress::-webkit-progress-value {
-      background: linear-gradient(90deg, #38bdf8, #818cf8);
-      border-radius: 9999px;
+      background: linear-gradient(90deg, var(--otter-primary), var(--otter-accent));
+      border-radius: var(--otter-radius-pill);
       transition: width 0.3s ease;
     }
     .otter-progress::-moz-progress-bar {
-      background: linear-gradient(90deg, #38bdf8, #818cf8);
-      border-radius: 9999px;
+      background: linear-gradient(90deg, var(--otter-primary), var(--otter-accent));
+      border-radius: var(--otter-radius-pill);
     }
     .otter-toggle-label {
       display: inline-flex;
@@ -2034,6 +2505,9 @@ $runnableCss
       gap: 10px;
       cursor: pointer;
       user-select: none;
+      font-size: 0.9rem;
+      color: var(--otter-text);
+      align-self: flex-start;
     }
     .otter-toggle {
       position: absolute;
@@ -2042,12 +2516,16 @@ $runnableCss
       height: 0;
     }
     .otter-toggle-track {
-      width: 44px;
+      width: 42px;
       height: 24px;
-      background: rgba(255, 255, 255, 0.2);
-      border-radius: 9999px;
+      background: var(--otter-toggle-track);
+      border-radius: var(--otter-radius-pill);
       position: relative;
-      transition: background 0.25s ease;
+      flex-shrink: 0;
+      transition: background 0.2s ease, box-shadow 0.15s ease;
+    }
+    .otter-toggle:focus-visible + .otter-toggle-track {
+      box-shadow: 0 0 0 3px var(--otter-focus-ring);
     }
     .otter-toggle-thumb {
       position: absolute;
@@ -2055,29 +2533,34 @@ $runnableCss
       left: 2px;
       width: 20px;
       height: 20px;
-      background: white;
+      background: #ffffff;
       border-radius: 50%;
-      transition: transform 0.25s ease;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      transition: transform 0.2s ease;
+      box-shadow: 0 1px 3px rgba(2, 6, 23, 0.35);
     }
     .otter-toggle:checked + .otter-toggle-track {
       background: var(--otter-primary);
     }
     .otter-toggle:checked + .otter-toggle-track .otter-toggle-thumb {
-      transform: translateX(20px);
+      transform: translateX(18px);
     }
     .otter-radio-label {
       display: inline-flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
       cursor: pointer;
       user-select: none;
+      font-size: 0.9rem;
+      color: var(--otter-text);
+      line-height: 1.4;
+      align-self: flex-start;
     }
     .otter-radio {
       width: 18px;
       height: 18px;
       cursor: pointer;
       accent-color: var(--otter-primary);
+      flex-shrink: 0;
     }
     .otter-toast-container {
       position: fixed;
@@ -2090,16 +2573,16 @@ $runnableCss
       pointer-events: none;
     }
     .otter-toast {
-      background: #1e293b;
-      color: #f8fafc;
-      border: 1px solid #334155;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      background: var(--otter-surface-elevated);
+      color: var(--otter-text);
+      border: 1px solid var(--otter-border-strong);
+      box-shadow: var(--otter-shadow-lg);
       padding: 12px 18px;
-      border-radius: 8px;
+      border-radius: var(--otter-radius-md);
       font-size: 0.9rem;
       pointer-events: auto;
       animation: otterToastIn 0.25s ease-out;
-      max-width: 320px;
+      max-width: 340px;
     }
     @keyframes otterToastIn {
       from { transform: translateY(12px); opacity: 0; }
@@ -2108,12 +2591,30 @@ $runnableCss
     #otter-live-output {
       margin-top: 16px;
       padding: 8px 12px;
-      background: rgba(0,0,0,0.3);
-      border-radius: 6px;
-      font-family: monospace;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: var(--otter-radius-sm);
+      font-family: var(--otter-font-mono);
       font-size: 0.85rem;
-      color: #38bdf8;
+      color: var(--otter-accent);
       display: none;
+    }
+    @media (max-width: 900px) {
+      .otter-grid {
+        grid-template-columns: repeat(min(var(--otter-cols, 2), 2), minmax(0, 1fr));
+      }
+    }
+    @media (max-width: 768px) {
+      .otter-page {
+        padding: 20px 16px 36px;
+      }
+      .otter-card {
+        padding: 18px;
+      }
+    }
+    @media (max-width: 680px) {
+      .otter-grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
     }
 $declarativeCssJoined
   </style>
@@ -2880,6 +3381,15 @@ $watcherInitJoined
           liveSlider.addEventListener('input', updateSpeedLabel);
           updateSpeedLabel();
         }
+      }
+    });
+
+    // Live slider output readout sync (River Slate)
+    document.addEventListener('input', (e) => {
+      const t = e.target;
+      if (t && t.tagName === 'INPUT' && t.type === 'range' && t.id) {
+        const out = document.querySelector('output[data-otter-slider-for="' + t.id + '"]');
+        if (out) { out.textContent = t.value; }
       }
     });
 
