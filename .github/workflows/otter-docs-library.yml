@@ -57,10 +57,19 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
+      - name: Setup pinned Chrome for Testing (reproducible thumbnails & E2E)
+        id: chrome
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: '131.0.6778.204'
+
       - name: Build complete Otter website & Component Library (offline)
         shell: pwsh
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.chrome-path }}
         run: |
           $ErrorActionPreference = 'Stop'
+          Write-Host "Pinned browser binary: $env:CHROME_BIN"
           pwsh -NoProfile -File ./otterPS/otter-docs/scripts/build-otter-pages.ps1 -OtterNetLibrary "$PWD/otter-net/library"
 
       - name: Audit all internal routes (167 pages)
@@ -71,10 +80,14 @@ jobs:
 
       - name: Run catalog, security, SEO, and publish-staging tests
         working-directory: ./otterPS/otter-docs
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.chrome-path }}
         run: npm run test:library
 
       - name: Run browser-driven E2E tests (headless Chromium)
         working-directory: ./otterPS/otter-docs
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.chrome-path }}
         run: npm run test:e2e
 
       - name: Run component source/harness validation (Unity C#, WPF ViewModel/XAML, Roblox Luau)
@@ -83,6 +96,8 @@ jobs:
 
       - name: Verify reproducible deterministic build output
         shell: pwsh
+        env:
+          CHROME_BIN: ${{ steps.chrome.outputs.chrome-path }}
         run: |
           $ErrorActionPreference = 'Stop'
           $outA = Join-Path ([IO.Path]::GetTempPath()) 'otter-repro-a'
@@ -91,6 +106,9 @@ jobs:
           pwsh -NoProfile -File ./otterPS/otter-docs/scripts/build-otter-pages.ps1 -Only library,home -OutputRoot $outB -OtterNetLibrary "$PWD/otter-net/library" | Out-Null
           $files = @(
             'static/library-catalog.json',
+            'static/library-previews/web-animated-gradient-button.webp',
+            'static/library-previews/desktop-wpf-data-grid.svg',
+            'static/library-previews/pack-otter-official-game-entity.svg',
             'sitemap.xml',
             'robots.txt',
             'library/index.html',
@@ -141,15 +159,26 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
+      - name: Setup pinned Chrome for Testing (Windows reproducible thumbnails)
+        id: chrome_win
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: '131.0.6778.204'
+
       - name: Build complete Otter website & audit routes (Windows)
         shell: pwsh
+        env:
+          CHROME_BIN: ${{ steps.chrome_win.outputs.chrome-path }}
         run: |
           $ErrorActionPreference = 'Stop'
+          Write-Host "Pinned browser binary: $env:CHROME_BIN"
           pwsh -NoProfile -File .\otterPS\otter-docs\scripts\build-otter-pages.ps1 -OtterNetLibrary "$PWD\otter-net\library"
           pwsh -NoProfile -File .\otterPS\otter-docs\scripts\audit-otter-routes.ps1
 
       - name: Run catalog, security, SEO, and robocopy publish-staging tests
         working-directory: ./otterPS/otter-docs
+        env:
+          CHROME_BIN: ${{ steps.chrome_win.outputs.chrome-path }}
         run: npm run test:library
 
       - name: Compile native WPF XAML + C# & Unity harness on Windows

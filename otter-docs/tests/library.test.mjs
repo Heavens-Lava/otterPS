@@ -6,6 +6,7 @@ import {
   cpSync,
   existsSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
   writeFileSync
@@ -301,12 +302,29 @@ test('generated /library/, all 65 detail pages, SEO metadata, canonical URLs, si
     assert.ok(libIndex.includes(`/library/${item.slug}/`), `/library/index.html missing noscript link to ${item.slug}`);
     assert.ok(docsUrls.has(`/library/${item.slug}/`), `docs-index.json missing /library/${item.slug}/`);
 
-    // Multi-file tabs + copy controls + install/license/verification/provenance
+    // Multi-file tabs + detail view tabs + copy controls + install/license/verification/provenance
+    assert.ok(html.includes('id="view-tab-all"'), `${item.slug} missing detail view tabs`);
+    assert.ok(html.includes('data-view-section="preview"'), `${item.slug} missing preview view section`);
+    assert.ok(html.includes('data-view-section="source"'), `${item.slug} missing source view section`);
+    assert.ok(html.includes('data-view-section="install"'), `${item.slug} missing install view section`);
     assert.ok(html.includes('role="tablist"'), `${item.slug} missing tablist`);
     assert.ok(html.includes('data-copy-target="raw-code-0"'), `${item.slug} missing source copy control`);
     assert.ok(html.includes('data-copy-target="raw-install"'), `${item.slug} missing install copy control`);
     assert.ok(html.includes('Verification Status'), `${item.slug} missing verification section`);
     assert.ok(html.includes('Catalog Provenance'), `${item.slug} missing provenance section`);
+
+    // Build-time visual thumbnail & honest labeling invariants (v1.1 Option A)
+    assert.ok(item.thumbnail && item.thumbnail.url && item.thumbnail.alt, `${item.slug} missing thumbnail metadata`);
+    const thumbFile = join(GENERATED_ROOT, item.thumbnail.url.replace(/^\//, ''));
+    assert.ok(existsSync(thumbFile), `Missing generated thumbnail file: ${thumbFile}`);
+    if (item.preview?.type === 'iframe-sandbox') {
+      assert.equal(item.thumbnail.kind, 'rendered-preview', `${item.slug} must use rendered-preview thumbnail`);
+      assert.ok(item.thumbnail.url.endsWith('.webp'), `${item.slug} web preview must be optimized WebP`);
+      assert.ok(item.thumbnail.bytes > 500 && item.thumbnail.bytes < 150000, `${item.slug} WebP thumbnail size out of range: ${item.thumbnail.bytes}`);
+    } else {
+      assert.notEqual(item.thumbnail.kind, 'rendered-preview', `Non-web component ${item.slug} must NEVER claim rendered-preview`);
+      assert.ok(item.thumbnail.url.endsWith('.svg'), `${item.slug} native/game/Otter preview must be honest SVG diagram`);
+    }
 
     // Strict iframe sandboxing & CSP security checks
     if (item.preview?.type === 'iframe-sandbox') {
@@ -358,6 +376,9 @@ test('local static server serves /library/, ES modules, catalog JSON, and detail
       ['/static/library-filter.mjs', 200, 'text/javascript'],
       ['/static/library-app.js', 200, 'text/javascript'],
       ['/static/library-app.css', 200, 'text/css'],
+      ['/static/library-previews/web-animated-gradient-button.webp', 200, 'image/webp'],
+      ['/static/library-previews/desktop-wpf-data-grid.svg', 200, 'image/svg+xml'],
+      ['/static/library-previews/pack-otter-official-game-entity.svg', 200, 'image/svg+xml'],
       ['/library/web-animated-gradient-button/', 200, 'text/html'],
       ['/library/desktop-wpf-data-grid/', 200, 'text/html'],
       ['/library/games-godot-health-combat/', 200, 'text/html'],
@@ -384,6 +405,40 @@ test('local static server serves /library/, ES modules, catalog JSON, and detail
     assert.equal(redir.headers.get('location'), '/library/');
   } finally {
     proc.kill('SIGTERM');
+  }
+});
+
+test('thumbnail generator fails clearly and safely without partial WebP output when Chromium is unavailable', () => {
+  const tempOut = mkdtempSync(join(tmpdir(), 'otter-thumb-missing-'));
+  try {
+    buildCatalog({
+      otterNetLibrary: OTTER_NET_LIBRARY,
+      outputRoot: tempOut,
+      sourceConfig: SOURCE_CONFIG_PATH
+    });
+    const thumbScript = join(DOCS_ROOT, 'scripts', 'build-library-thumbnails.mjs');
+    let failedErr = null;
+    try {
+      execFileSync(process.execPath, [thumbScript, '--output-root', tempOut], {
+        env: { ...process.env, CHROME_BIN: join(tempOut, 'nonexistent-chromium-binary') },
+        stdio: 'pipe',
+        encoding: 'utf8'
+      });
+    } catch (err) {
+      failedErr = err;
+    }
+    assert.ok(failedErr, 'build-library-thumbnails.mjs must fail loudly when CHROME_BIN is unavailable');
+    assert.notEqual(failedErr.status, 0);
+    const stderr = String(failedErr.stderr || failedErr.message || '');
+    assert.match(stderr, /CHROME_BIN|no executable exists|Refusing to fall back/i);
+
+    const previewsDir = join(tempOut, 'static', 'library-previews');
+    if (existsSync(previewsDir)) {
+      const leftoverWebp = readdirSync(previewsDir).filter((f) => f.endsWith('.webp'));
+      assert.deepEqual(leftoverWebp, [], 'Failed thumbnail run must not leave partial or corrupt WebP files');
+    }
+  } finally {
+    rmSync(tempOut, { recursive: true, force: true });
   }
 });
 

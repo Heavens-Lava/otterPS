@@ -285,22 +285,34 @@ ${chrome.otterBaseStyle}
       </div>
     </header>
 
+    <div class="lib-view-tabs" role="tablist" aria-label="Component page views">
+      <button type="button" role="tab" class="lib-view-tab is-active" id="view-tab-all" aria-selected="true" tabindex="0" data-view-target="all">All Sections</button>
+      <button type="button" role="tab" class="lib-view-tab" id="view-tab-preview" aria-selected="false" tabindex="-1" data-view-target="preview">${item.preview?.type === 'iframe-sandbox' ? 'Live Preview' : (item.preview?.type === 'contract-summary' ? 'Contract' : 'Architecture')}</button>
+      <button type="button" role="tab" class="lib-view-tab" id="view-tab-source" aria-selected="false" tabindex="-1" data-view-target="source">Source Code (${(item.files || []).length})</button>
+      <button type="button" role="tab" class="lib-view-tab" id="view-tab-install" aria-selected="false" tabindex="-1" data-view-target="install">Install &amp; Usage</button>
+    </div>
+
     <div class="lib-detail-layout">
       <div class="lib-detail-primary">
-        ${renderPreviewSection(item)}
-        ${renderSourceTabs(item)}
+        <div class="lib-view-section" data-view-section="preview">
+          ${renderPreviewSection(item)}
+        </div>
+        <div class="lib-view-section" data-view-section="source">
+          ${renderSourceTabs(item)}
+        </div>
+        <div class="lib-view-section" data-view-section="install">
+          <section class="lib-panel" aria-labelledby="install-heading">
+            <div class="lib-panel-head">
+              <h2 id="install-heading">Installation &amp; Usage</h2>
+              <button type="button" class="lib-btn-copy" data-copy-target="raw-install">Copy command</button>
+            </div>
+            <pre class="lib-code-pre"><code data-lang="bash">${highlightCode(item.install, 'bash')}</code></pre>
+            <textarea id="raw-install" class="lib-raw-code" readonly aria-hidden="true" tabindex="-1">${escapeHtml(item.install)}</textarea>
+            <p class="lib-usage-text">${escapeHtml(item.usage)}</p>
+          </section>
 
-        <section class="lib-panel" aria-labelledby="install-heading">
-          <div class="lib-panel-head">
-            <h2 id="install-heading">Installation &amp; Usage</h2>
-            <button type="button" class="lib-btn-copy" data-copy-target="raw-install">Copy command</button>
-          </div>
-          <pre class="lib-code-pre"><code data-lang="bash">${highlightCode(item.install, 'bash')}</code></pre>
-          <textarea id="raw-install" class="lib-raw-code" readonly aria-hidden="true" tabindex="-1">${escapeHtml(item.install)}</textarea>
-          <p class="lib-usage-text">${escapeHtml(item.usage)}</p>
-        </section>
-
-        ${relatedHtml}
+          ${relatedHtml}
+        </div>
       </div>
 
       <aside class="lib-detail-aside" aria-label="Component metadata">

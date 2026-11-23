@@ -106,6 +106,7 @@ foreach ($source in Get-ChildItem -LiteralPath $pagesRoot -Filter '*.ot' | Where
 
 if (-not $SkipLibrary -and ($Only.Count -eq 0 -or $Only -contains 'library')) {
     $catalogScript = Join-Path $PSScriptRoot 'build-library-catalog.mjs'
+    $thumbsScript = Join-Path $PSScriptRoot 'build-library-thumbnails.mjs'
     $pagesScript = Join-Path $PSScriptRoot 'build-library-pages.mjs'
     $catalogArgs = @($catalogScript, '--output-root', $OutputRoot)
     if (-not [string]::IsNullOrWhiteSpace($OtterNetLibrary)) {
@@ -113,6 +114,9 @@ if (-not $SkipLibrary -and ($Only.Count -eq 0 -or $Only -contains 'library')) {
     }
     & node @catalogArgs
     if ($LASTEXITCODE -ne 0) { throw "build-library-catalog.mjs failed with exit code $LASTEXITCODE." }
+
+    & node $thumbsScript --output-root $OutputRoot
+    if ($LASTEXITCODE -ne 0) { throw "build-library-thumbnails.mjs failed with exit code $LASTEXITCODE." }
 
     & node $pagesScript --output-root $OutputRoot
     if ($LASTEXITCODE -ne 0) { throw "build-library-pages.mjs failed with exit code $LASTEXITCODE." }

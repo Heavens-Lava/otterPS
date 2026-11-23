@@ -10,7 +10,7 @@
     "serve": "node scripts/serve.mjs",
     "dev": "node scripts/build.mjs && node scripts/serve.mjs",
     "build:otter": "pwsh -NoProfile -File scripts/build-otter-pages.ps1",
-    "build:library": "node scripts/build-library-catalog.mjs && node scripts/build-library-pages.mjs",
+    "build:library": "node scripts/build-library-catalog.mjs && node scripts/build-library-thumbnails.mjs && node scripts/build-library-pages.mjs",
     "audit:otter": "pwsh -NoProfile -File scripts/audit-otter-routes.ps1",
     "test:library": "node --test tests/library.test.mjs",
     "test:e2e": "node --test tests/library-e2e.test.mjs",
