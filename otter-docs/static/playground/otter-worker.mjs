@@ -35,6 +35,14 @@ self.addEventListener('message', async (event) => {
       self.postMessage({ id, type: 'result', payload: JSON.parse(raw) });
       return;
     }
+    if (type === 'compileWeb') {
+      const raw = api.CompileWeb(
+        String(msg.source ?? ''),
+        String(msg.title ?? 'Otter Web App')
+      );
+      self.postMessage({ id, type: 'result', payload: JSON.parse(raw) });
+      return;
+    }
     if (type === 'run') {
       const raw = api.RunSource(
         String(msg.source ?? ''),

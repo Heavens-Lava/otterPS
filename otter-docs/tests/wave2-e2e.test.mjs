@@ -180,39 +180,72 @@ test('Wave 2 E2E: Playground WASM, Otter Pulse Tutorial, Legacy VS Code Deprecat
       await browser.goto(`${BASE}/playground/`);
       await browser.waitFor('document.querySelector(".pg-app")?.dataset.pgReady === "true"', 25000);
 
-      // 1. Run default Hello Otter example
+      // 1. Run default Hello Otter example (variables, functions, value-first objects)
       await browser.evalJs('document.getElementById("pgRunBtn").click()');
-      const helloOut = await browser.waitFor('(() => { const t = document.getElementById("pgConsole").textContent; return t.includes("Welcome to Otter, Developer") ? t : ""; })()');
+      const helloOut = await browser.waitFor('(() => { const t = document.getElementById("pgConsole").textContent; return t.includes("Otter River Slate 1.0.1") ? t : ""; })()');
       assert.ok(helloOut.includes('Hello, Otter'));
       assert.ok(helloOut.includes('Welcome to Otter, Ada'));
       assert.ok(helloOut.includes('Welcome to Otter, Developer'));
+      assert.ok(helloOut.includes('Otter River Slate 1.0.1 ready: true'));
 
-      // 2. Switch to Otter Pulse Health Score Logic example and run
+      // 2. Run ALL 4 interactive Web UI applications inside the live WebAssembly River Slate preview!
+      // 2a. Task Manager (Interactive CRUD App)
+      await browser.evalJs('(() => { const s = document.getElementById("pgExampleSelect"); s.value = "task-manager"; s.dispatchEvent(new Event("change")); })()');
+      await browser.evalJs('document.getElementById("pgRunBtn").click()');
+      const taskHtml = await browser.waitFor('(() => { const f = document.getElementById("pgPreviewFrame"); return (f && !f.classList.contains("pg-panel-hidden") && f.srcdoc.includes("Otter Task Manager")) ? f.srcdoc : ""; })()');
+      assert.ok(taskHtml.includes('id="addTaskBtn"') && taskHtml.includes('id="completionBar"'));
+      assert.ok(await browser.evalJs('document.getElementById("pgDiagnostics").textContent.includes("No syntax or runtime issues")'));
+
+      // 2b. Business Dashboard (Cards, Table & Progress)
+      await browser.evalJs('(() => { const s = document.getElementById("pgExampleSelect"); s.value = "business-dashboard"; s.dispatchEvent(new Event("change")); })()');
+      await browser.evalJs('document.getElementById("pgRunBtn").click()');
+      const dashHtml = await browser.waitFor('(() => { const f = document.getElementById("pgPreviewFrame"); return (f && f.srcdoc.includes("Operations Dashboard")) ? f.srcdoc : ""; })()');
+      assert.ok(dashHtml.includes('Regional Service Health Table') && dashHtml.includes('id="sweepBtn"') && dashHtml.includes('id="budgetSlider"'));
+
+      // 2c. RPG Character Builder (State, Math & Controls)
+      await browser.evalJs('(() => { const s = document.getElementById("pgExampleSelect"); s.value = "rpg-builder"; s.dispatchEvent(new Event("change")); })()');
+      await browser.evalJs('document.getElementById("pgRunBtn").click()');
+      const rpgHtml = await browser.waitFor('(() => { const f = document.getElementById("pgPreviewFrame"); return (f && f.srcdoc.includes("RPG Character Builder")) ? f.srcdoc : ""; })()');
+      assert.ok(rpgHtml.includes('id="levelUpBtn"') && rpgHtml.includes('id="hpBadge"') && rpgHtml.includes('id="readinessBar"'));
+
+      // 2d. River Slate Component Showcase (Dark & Light UI)
+      await browser.evalJs('(() => { const s = document.getElementById("pgExampleSelect"); s.value = "river-slate-showcase"; s.dispatchEvent(new Event("change")); })()');
+      await browser.evalJs('document.getElementById("pgRunBtn").click()');
+      const slateHtml = await browser.waitFor('(() => { const f = document.getElementById("pgPreviewFrame"); return (f && f.srcdoc.includes("River Slate Showcase")) ? f.srcdoc : ""; })()');
+      assert.ok(slateHtml.includes('otter-theme-light') && slateHtml.includes('aria-invalid="true"') && slateHtml.includes('id="cpuSlider"'));
+
+      // 3. Switch to Otter Pulse Health Score Logic example and run
       await browser.evalJs('(() => { const s = document.getElementById("pgExampleSelect"); s.value = "otter-pulse"; s.dispatchEvent(new Event("change")); })()');
       await browser.evalJs('document.getElementById("pgRunBtn").click()');
       const pulseOut = await browser.waitFor('(() => { const t = document.getElementById("pgConsole").textContent; return t.includes("Live Orders API") ? t : ""; })()');
       assert.ok(pulseOut.includes('95.8 / 100'));
       assert.ok(pulseOut.includes('Down Service (503): 0 / 100'));
 
-      // 3. Switch to Interactive Input (ask) example and verify stdin execution
+      // 4. Switch to Interactive Input (ask) example and verify stdin execution
       await browser.evalJs('(() => { const s = document.getElementById("pgExampleSelect"); s.value = "ask-input"; s.dispatchEvent(new Event("change")); })()');
       await browser.evalJs('document.getElementById("pgRunBtn").click()');
       const askOut = await browser.waitFor('(() => { const t = document.getElementById("pgConsole").textContent; return t.includes("3 Hello, Ada") ? t : ""; })()');
       assert.ok(askOut.includes('1 Hello, Ada'));
 
-      // 4. Edit code to trigger real Otter runtime diagnostic
+      // 5. Edit code to trigger real Otter runtime diagnostic
       await browser.evalJs('(() => { const e = document.getElementById("pgEditor"); e.value = "say unknownSymbol\\n"; e.dispatchEvent(new Event("input")); })()');
       await browser.evalJs('document.getElementById("pgRunBtn").click()');
       const diagText = await browser.waitFor('(() => { const d = document.getElementById("pgDiagnostics").textContent; return d.includes("unknownSymbol") ? d : ""; })()');
       assert.ok(diagText.includes('unknownSymbol'));
 
-      // 5. Switch to Sandbox Safety Demo (while true) and verify step/timeout guard aborts cleanly
+      // 6. Edit code to trigger invalid value-first property compile error
+      await browser.evalJs('(() => { const e = document.getElementById("pgEditor"); e.value = "badSlider is a slider with \\"loud\\" showvalue\\n"; e.dispatchEvent(new Event("input")); })()');
+      await browser.evalJs('document.getElementById("pgRunBtn").click()');
+      const vfDiag = await browser.waitFor('(() => { const d = document.getElementById("pgDiagnostics").textContent; return d.includes("showvalue") ? d : ""; })()');
+      assert.ok(vfDiag.includes('showvalue'));
+
+      // 7. Switch to Sandbox Safety Demo (while true) and verify step/timeout guard aborts cleanly
       await browser.evalJs('(() => { const s = document.getElementById("pgExampleSelect"); s.value = "sandbox-limit"; s.dispatchEvent(new Event("change")); })()');
       await browser.evalJs('document.getElementById("pgRunBtn").click()');
       const limitText = await browser.waitFor('(() => { const d = document.getElementById("pgDiagnostics").textContent; return (d.includes("OTTER_PLAYGROUND_STEP_LIMIT") || d.includes("OTTER_PLAYGROUND_TIMEOUT")) ? d : ""; })()');
       assert.ok(limitText.includes('OTTER_PLAYGROUND_STEP_LIMIT') || limitText.includes('OTTER_PLAYGROUND_TIMEOUT'));
 
-      // 6. Reset clears diagnostics cleanly
+      // 8. Reset clears diagnostics cleanly
       await browser.evalJs('document.getElementById("pgResetBtn").click()');
       const resetDiag = await browser.evalJs('document.getElementById("pgDiagnostics").textContent');
       assert.ok(resetDiag.includes('No syntax or runtime issues'));

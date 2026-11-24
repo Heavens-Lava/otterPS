@@ -2,3 +2,8 @@
 # endings on every checkout (a CRLF would break its #! line).
 /otter text eol=lf
 /tools/Test-OtterMacInstall.sh text eol=lf
+
+# Preserve exact byte-for-byte checksums for the SHA-256 verified WASM
+# Playground bundle across macOS, Linux, and Windows (prevents CRLF conversion
+# in _framework/dotnet.js and otter-worker.mjs on Windows git checkouts).
+otter-docs/static/playground/** -text
