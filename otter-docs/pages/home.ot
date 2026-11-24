@@ -20,10 +20,11 @@ put heroBadge, heroBadgeText in heroEyebrow
 heroTitle is a text with value "Programming that reads like English.", size 64, weight 800, foreground "#ffffff", letterspacing "-0.035em", lineheight "1.02", customstyle "text-wrap: balance; margin-top: 8px;"
 heroLead is a text with value "Otter is a programming language you can read aloud. Write scripts, desktop apps and web apps in plain words.", size 20, foreground "#dbe6f5", lineheight "1.55", customstyle "max-width: 520px;"
 
-heroDownload is a link with text "Download Otter", url "/download/", foreground "#ffffff", weight 700, size 16, background "#2563eb", radius 12, customstyle "padding: 15px 26px; display: inline-block; box-shadow: 0 10px 30px rgba(37,99,235,.45);"
-heroStart is a link with text "Write your first program →", url "/first-program/", foreground "#ffffff", weight 700, size 16, radius 12, border "1.5px solid rgba(255,255,255,.35)", customstyle "padding: 14px 24px; display: inline-block;"
-heroActions is a row with spacing 14, align middle, margin "14px 0 0 0"
-put heroDownload, heroStart in heroActions
+heroPlayground is a link with text "Try in Playground", url "/playground/", foreground "#ffffff", weight 700, size 16, background "#2563eb", radius 12, customstyle "padding: 15px 26px; display: inline-block; box-shadow: 0 10px 30px rgba(37,99,235,.45);"
+heroDownload is a link with text "Download Otter", url "/download/", foreground "#ffffff", weight 700, size 16, radius 12, border "1.5px solid rgba(255,255,255,.35)", customstyle "padding: 14px 24px; display: inline-block;"
+heroStart is a link with text "First program →", url "/first-program/", foreground "#cfe0ff", weight 600, size 15, customstyle "padding: 10px 6px; display: inline-block;"
+heroActions is a row with spacing 14, align middle, margin "14px 0 0 0", customstyle "flex-wrap: wrap;"
+put heroPlayground, heroDownload, heroStart in heroActions
 
 heroFree is a text with value "✓  Free, including commercial use", size 14, foreground "#a9bbd6"
 heroNoInstall is a text with value "✓  Nothing extra to install on Windows", size 14, foreground "#a9bbd6"

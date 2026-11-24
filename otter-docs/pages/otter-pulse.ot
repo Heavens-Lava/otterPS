@@ -1,0 +1,163 @@
+# Otter website - Otter Pulse Guided Tutorial (/otter-pulse/)
+# Authored in Otter using the shared website shell (_shell.ot).
+# Showcases Flagship Application #1 (examples/service-dashboard-app in Heavens-Lava/otter-net).
+
+use "_shell.ot"
+
+app is a page with title "Otter Pulse Tutorial - Build a Local Microservice Dashboard in Otter", hideheader true, scroll true, width full, background "#f4f7fb", foreground "#0f1f36", spacing 0, padding 0
+
+customstyle of navPulse is "padding: 22px 0; border-bottom: 2px solid #4d8dff; color: #ffffff;"
+
+# ==========================================
+# 1. HERO
+# ==========================================
+
+heroEyebrow is a text with value "FLAGSHIP APPLICATION #1 · GUIDED TUTORIAL", size 12, weight 700, foreground "#7dd3fc", letterspacing "0.1em"
+heroTitle is a text with value "Build Otter Pulse: Local Service Monitor", size 46, weight 800, foreground "#ffffff", letterspacing "-0.03em", lineheight "1.06"
+heroLead is a text with value "Walk through a complete web application written in Otter 1.0.1: real outbound HTTP health probes, high-resolution latency timers, JSON persistence, loopback SSRF protection, and three verified Schema v2 Packs.", size 18, foreground "#dbeafe", lineheight "1.55", customstyle "max-width: 780px;"
+
+heroTryPlayground is a link with text "Try Otter Pulse Logic in Playground →", url "/playground/#example=otter-pulse", foreground "#ffffff", weight 700, size 15, background "#2563eb", radius 10, customstyle "padding: 13px 22px; display: inline-block; box-shadow: 0 8px 24px rgba(37,99,235,.4);"
+heroGithub is a link with text "View Source on GitHub", url "https://github.com/Heavens-Lava/otter-net/tree/main/examples/service-dashboard-app", foreground "#ffffff", weight 700, size 15, radius 10, border "1.5px solid rgba(255,255,255,.35)", customstyle "padding: 12px 20px; display: inline-block;"
+heroActions is a row with spacing 14, align middle, margin "8px 0 0 0", customstyle "flex-wrap: wrap;"
+put heroTryPlayground, heroGithub in heroActions
+
+heroInner is a column with spacing 14, customstyle "max-width: 1120px; width: 100%; margin: 0 auto; padding: 48px 32px 52px; box-sizing: border-box;"
+put heroEyebrow, heroTitle, heroLead, heroActions in heroInner
+pulseHero is a column with spacing 0, width full, background "#0b1d36", customstyle "background: linear-gradient(135deg, #0b1d36 0%, #13315c 58%, #1d4ed8 100%);"
+put heroInner in pulseHero
+
+# ==========================================
+# 2. LIVE DASHBOARD SCREENSHOT & SECURITY MODEL
+# ==========================================
+
+shotTitle is a text with value "What You Will Run & Understand", size 28, weight 800, foreground "#0b1d36", letterspacing "-0.02em"
+shotSub is a text with value "Captured live from Otter Pulse running on 127.0.0.1:18092 with a real local HTTP probe target responding in 21ms.", size 16, foreground "#3a4d6b", lineheight "1.6"
+shotImg is a image with source "/static/images/otter-pulse-dashboard.png", alt "Otter Pulse live web dashboard displaying monitored services, fleet latency, and health scores", width full, radius 14, border "1px solid #d5e0ee", shadow "0 14px 40px rgba(11,29,54,0.12)", customstyle "max-width: 100%; height: auto; display: block;"
+
+securityBanner is a text with value "Security & Threat Model: Otter Pulse is built strictly for trusted local development and loopback microservice monitoring (127.0.0.1:18092). Its validateProbeUrl guard restricts HTTP probes to http:// or https:// on localhost / 127.0.0.1 only, rejects cloud metadata IPs and external hosts with HTTP 400, and sends probes without cookies and without redirects. Do not expose it directly to the public internet without an authenticating reverse proxy.", size 15, foreground "#7c2d12", background "#fff7ed", radius 12, border "1px solid #fed7aa", lineheight "1.6", customstyle "padding: 16px 20px;"
+
+prereqBanner is a text with value "Runtime Prerequisite: Otter Pulse uses otter-net (native .NET 10 runtime with Kestrel web hosting, Schema v2 Packs, and HTTP probe timeouts). It does not run on the PowerShell-based otterPS 1.0.1 zip. Build otter-net once in under two minutes with the .NET 10 SDK below, or test the core health-score logic right now in the Browser Playground.", size 15, foreground "#1e3a6b", background "#eaf2ff", radius 12, border "1px solid #cfe0ff", lineheight "1.6", customstyle "padding: 16px 20px;"
+
+# ==========================================
+# 3. THREE REUSABLE SCHEMA V2 PACKS
+# ==========================================
+
+packsTitle is a text with value "Reusable Component Library Packs Used", size 28, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "12px 0 0 0"
+packsSub is a text with value "Instead of re-implementing storage, slug normalization, and bounded math from scratch, Otter Pulse composes three verified Schema v2 Packs from the Otter Component Library.", size 16, foreground "#3a4d6b", lineheight "1.6"
+
+p1Title is a link with text "otter-official/file-helpers (v1.0.1)", url "/library/pack-otter-official-file-helpers/", foreground "#1d4ed8", size 17, weight 700
+p1Body is a text with value "Safe JSON persistence with readOrFallback, writeSafe, and deleteFileSafe. Uses disjoint variable prefix _fh_.", size 14, foreground "#3a4d6b", lineheight "1.55"
+p1Card is a card with background "#ffffff", radius 14, border "1px solid #dce5f2", padding 20, spacing 8, flex 1
+put p1Title, p1Body in p1Card
+
+p2Title is a link with text "otter-official/text-utils (v1.0.1)", url "/library/pack-otter-official-text-utils/", foreground "#1d4ed8", size 17, weight 700
+p2Body is a text with value "Deterministic service slugification and lowercase normalization via slugify and toLower. Uses prefix _tu_.", size 14, foreground "#3a4d6b", lineheight "1.55"
+p2Card is a card with background "#ffffff", radius 14, border "1px solid #dce5f2", padding 20, spacing 8, flex 1
+put p2Title, p2Body in p2Card
+
+p3Title is a link with text "otter-official/math-utils (v1.0.1)", url "/library/pack-otter-official-math-utils/", foreground "#1d4ed8", size 17, weight 700
+p3Body is a text with value "Fleet latency averages and bounded health score / timeout clamping via calcAverage and clamp. Uses prefix _mu_.", size 14, foreground "#3a4d6b", lineheight "1.55"
+p3Card is a card with background "#ffffff", radius 14, border "1px solid #dce5f2", padding 20, spacing 8, flex 1
+put p3Title, p3Body in p3Card
+
+packsRow is a row with spacing 18, align top, width full, customstyle "flex-wrap: wrap;"
+put p1Card, p2Card, p3Card in packsRow
+
+# ==========================================
+# 4. STEP-BY-STEP GUIDED TUTORIAL
+# ==========================================
+
+s1Title is a text with value "Step 1 — Clone & Build otter-net", size 24, weight 800, foreground "#0b1d36", margin "16px 0 0 0"
+s1Body is a text with value "Clone the native otter-net repository and build the Release CLI using the .NET 10 SDK:", size 16, foreground "#3a4d6b", lineheight "1.6"
+s1Code is a text with value "git clone https://github.com/Heavens-Lava/otter-net.git\ncd otter-net\ndotnet build src/Otter.Cli/Otter.Cli.csproj -c Release", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 20px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable false
+s1Label is a text with value "Shell", size 12, weight 600, foreground "#b7c4d8"
+s1Copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+s1Head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put s1Label, s1Copy in s1Head
+s1Block is a column with spacing 0, width full
+put s1Head, s1Code in s1Block
+when s1Copy is clicked
+    copy text of s1Code to clipboard
+    text of s1Copy is "Copied"
+.
+
+s2Title is a text with value "Step 2 — Verify Schema v2 Pack Contracts & Run Self-Test", size 24, weight 800, foreground "#0b1d36", margin "12px 0 0 0"
+s2Body is a text with value "Verify that all three vendored Packs pass Schema v2 structural contract validation (disjoint variable prefixes, typed arities, lockfile integrity), then run Otter Pulse's built-in --verify self-test:", size 16, foreground "#3a4d6b", lineheight "1.6"
+s2Code is a text with value "dotnet src/Otter.Cli/bin/Release/net10.0/otter.dll pack verify --contracts --project examples/service-dashboard-app\ndotnet src/Otter.Cli/bin/Release/net10.0/otter.dll run examples/service-dashboard-app/src/main.ot --verify", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 20px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable false
+s2Label is a text with value "Shell", size 12, weight 600, foreground "#b7c4d8"
+s2Copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+s2Head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put s2Label, s2Copy in s2Head
+s2Block is a column with spacing 0, width full
+put s2Head, s2Code in s2Block
+when s2Copy is clicked
+    copy text of s2Code to clipboard
+    text of s2Copy is "Copied"
+.
+s2Out is a text with value "Expected: all 3 packs pass contract verification, and --verify prints healthy fleet telemetry checks with exit code 0.", size 14, foreground "#166534", background "#f0fdf4", radius 10, border "1px solid #bbf7d0", customstyle "padding: 12px 16px;"
+
+s3Title is a text with value "Step 3 — How Real Otter HTTP Probing Works (src/server.ot)", size 24, weight 800, foreground "#0b1d36", margin "12px 0 0 0"
+s3Body is a text with value "When POST /api/services/ping runs, Otter validates the target URL against localhost/127.0.0.1, starts a high-resolution timer, executes a real outbound HTTP GET request without cookies or redirects, and catches timeouts or refused connections with try / otherwise:", size 16, foreground "#3a4d6b", lineheight "1.6"
+s3Code is a text with value "# From examples/service-dashboard-app/src/server.ot\nstart timer \"probe\"\ntry\n    get targetUrl into probeBody with timeout safeTimeout seconds, without cookies, without redirects\n    probeSucceeded is true\notherwise into probeFailure\n    probeSucceeded is false\n    probeErrorText is probeFailure\n.\nmeasuredLatency is elapsed milliseconds of timer \"probe\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 20px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable false
+s3Label is a text with value "Otter (src/server.ot)", size 12, weight 600, foreground "#b7c4d8"
+s3Copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+s3Head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put s3Label, s3Copy in s3Head
+s3Block is a column with spacing 0, width full
+put s3Head, s3Code in s3Block
+when s3Copy is clicked
+    copy text of s3Code to clipboard
+    text of s3Copy is "Copied"
+.
+
+s4Title is a text with value "Step 4 — Start the Live Dashboard", size 24, weight 800, foreground "#0b1d36", margin "12px 0 0 0"
+s4Body is a text with value "Launch Otter Pulse and open http://127.0.0.1:18092/ in your browser. Register any local HTTP server (for example a local API on 127.0.0.1:8080/health) and click Probe HTTP to watch live latency and health scores update.", size 16, foreground "#3a4d6b", lineheight "1.6"
+s4Code is a text with value "dotnet src/Otter.Cli/bin/Release/net10.0/otter.dll run examples/service-dashboard-app", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 20px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable false
+s4Label is a text with value "Shell", size 12, weight 600, foreground "#b7c4d8"
+s4Copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+s4Head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put s4Label, s4Copy in s4Head
+s4Block is a column with spacing 0, width full
+put s4Head, s4Code in s4Block
+when s4Copy is clicked
+    copy text of s4Code to clipboard
+    text of s4Copy is "Copied"
+.
+
+s5Title is a text with value "Step 5 — Run the End-to-End Integration & SSRF Test Suite", size 24, weight 800, foreground "#0b1d36", margin "12px 0 0 0"
+s5Body is a text with value "Run the deterministic Python integration harness. It boots Otter Pulse alongside a local mock probe server and verifies healthy (200), slow/degraded, failing (503), timeout (0.3s), connection-refused, SSRF rejection (169.254.169.254, external hosts, redirects), CRUD endpoints, and restart persistence:", size 16, foreground "#3a4d6b", lineheight "1.6"
+s5Code is a text with value "python3 examples/service-dashboard-app/tests/test_integration.py", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 20px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable false
+s5Label is a text with value "Shell", size 12, weight 600, foreground "#b7c4d8"
+s5Copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
+s5Head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
+put s5Label, s5Copy in s5Head
+s5Block is a column with spacing 0, width full
+put s5Head, s5Code in s5Block
+when s5Copy is clicked
+    copy text of s5Code to clipboard
+    text of s5Copy is "Copied"
+.
+
+# ==========================================
+# 5. TROUBLESHOOTING & FUTURE ROADMAP
+# ==========================================
+
+trTitle is a text with value "Troubleshooting", size 24, weight 800, foreground "#0b1d36", margin "12px 0 0 0"
+tr1 is a text with value "• HTTP 400 on Probe URL: validateProbeUrl intentionally allows only http:// or https:// targeting 127.0.0.1 or localhost. External URLs, private LAN IPs, embedded credentials (@), and cloud metadata endpoints are rejected by design.", size 15, foreground "#3a4d6b", lineheight "1.6"
+tr2 is a text with value "• Port 18092 already in use: stop any prior Otter Pulse instance before restarting, or run test_integration.py after stopping the manual server.", size 15, foreground "#3a4d6b", lineheight "1.6"
+tr3 is a text with value "• Self-probe blocked: Otter's Kestrel web host processes route handlers serially, so Otter Pulse guards against probing its own 127.0.0.1:18092 endpoint to prevent self-loopback deadlock.", size 15, foreground "#3a4d6b", lineheight "1.6"
+
+roadTitle is a text with value "Planned Future Evolution", size 24, weight 800, foreground "#0b1d36", margin "12px 0 0 0"
+roadBody is a text with value "Today Otter Pulse serves as a verified local-development showcase and tutorial. Future standalone releases aim to add scheduled background polling, historical latency charts, alert rules, and configurable service groups.", size 15, foreground "#3a4d6b", lineheight "1.6"
+
+nextRow is a row with spacing 20, align middle, margin "12px 0 0 0", customstyle "flex-wrap: wrap;"
+nextPg is a link with text "Experiment in Otter Playground →", url "/playground/#example=otter-pulse", foreground "#2563eb", weight 700, size 15
+nextLib is a link with text "Browse all 65 Library Components →", url "/library/", foreground "#2563eb", weight 700, size 15
+nextInstall is a link with text "Installation & Setup Guide →", url "/installation/", foreground "#2563eb", weight 700, size 15
+put nextPg, nextLib, nextInstall in nextRow
+
+mainCol is a column with spacing 16, width full, customstyle "max-width: 1120px; margin: 0 auto; padding: 36px 32px 24px; box-sizing: border-box;"
+put shotTitle, shotSub, shotImg, securityBanner, prereqBanner, packsTitle, packsSub, packsRow, s1Title, s1Body, s1Block, s2Title, s2Body, s2Block, s2Out, s3Title, s3Body, s3Block, s4Title, s4Body, s4Block, s5Title, s5Body, s5Block, trTitle, tr1, tr2, tr3, roadTitle, roadBody, nextRow in mainCol
+
+put topBar, pulseHero, mainCol, siteFooter in app
+show app

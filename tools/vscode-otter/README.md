@@ -1,4 +1,13 @@
-# Otter Language Support for VS Code
+# Otter Language Support for VS Code (Legacy / Deprecated)
+
+> **Deprecation Notice:** This PowerShell-based VS Code extension (`tools/vscode-otter`) is **deprecated** and kept only for legacy reference.
+>
+> Please use the canonical, cross-platform Otter VS Code extension in **[Heavens-Lava/otter-net/editors/vscode](https://github.com/Heavens-Lava/otter-net/tree/main/editors/vscode)** (`heavens-lava.otter-lang`), which provides:
+> - Native Language Server Protocol (`otter-net lsp` / `otter lsp`) with real-time diagnostics, Schema v2 Pack autocomplete/hover/go-to-definition, outer-scope mutation warnings, symbol rename, and formatting
+> - Native Debug Adapter Protocol (`otter-net dap` / `otter dap`) with breakpoints, stepping, and variable inspection
+> - Self-contained bundled `.vsix` packaging verified in CI across Windows, macOS, and Linux
+
+---
 
 An intentionally small, standalone VS Code extension for editing `.ot` files.
 It keeps syntax support and completion separate from the Otter parser so a

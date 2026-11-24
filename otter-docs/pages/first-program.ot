@@ -97,7 +97,8 @@ customstyle of sideAbout is "display: none;"
 customstyle of sideLicense is "display: none;"
 
 b1 is a text with value "Your first Otter program", size 40, weight 800, foreground "#0b1d36", letterspacing "-0.03em", lineheight "1.1"
-b2 is a text with value "Three steps take you from an empty file to a program that says hello.", size 18, foreground "#3a4d6b", lineheight "1.55"
+b2 is a text with value "Three steps take you from an empty file to a program that says hello — or skip setup and run real Otter 1.0.1 in the Browser Playground right now.", size 18, foreground "#3a4d6b", lineheight "1.55"
+b2pg is a link with text "▶ Open in Interactive Otter Playground (zero install) →", url "/playground/#example=hello", foreground "#1d4ed8", weight 700, size 15, background "#eaf2ff", radius 10, border "1px solid #bfdbfe", customstyle "padding: 10px 16px; display: inline-block; align-self: flex-start;"
 b3 is a text with value "1. Create hello.ot", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b4 is a text with value "In any text editor, create a file named hello.ot containing:", size 16, foreground "#3a4d6b", lineheight "1.6"
 b5 is a text with value "# Your first Otter program\nsay \"Hello, Otter!\"", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable true
@@ -112,9 +113,9 @@ when b5copy is clicked
     text of b5copy is "Copied"
 .
 b6 is a text with value "2. Run it", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
-b7 is a text with value "In PowerShell, in the folder that holds the file:", size 16, foreground "#3a4d6b", lineheight "1.6"
+b7 is a text with value "In your terminal (Windows PowerShell, macOS Terminal, or Linux shell) inside the folder that holds the file:", size 16, foreground "#3a4d6b", lineheight "1.6"
 b8 is a text with value "otter run hello.ot", size 14, foreground "#e5edf8", background "#0f1b2e", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 18px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;", runnable false
-b8label is a text with value "PowerShell", size 12, weight 600, foreground "#b7c4d8"
+b8label is a text with value "Terminal (Windows / macOS / Linux)", size 12, weight 600, foreground "#b7c4d8"
 b8copy is a button with text "Copy", size 12, weight 600, background "#22375a", foreground "#e5edf8", radius 6, padding "4px 12px"
 b8head is a row with spread, align middle, width full, background "#16263f", padding "8px 14px", customstyle "box-sizing: border-box; border-radius: 12px 12px 0 0;"
 put b8label, b8copy in b8head
@@ -124,7 +125,7 @@ when b8copy is clicked
     copy text of b8 to clipboard
     text of b8copy is "Copied"
 .
-b9 is a text with value "Running from the project folder without installing? Use .\\otter.cmd hello.ot instead. The shorthand otter hello.ot works too.", size 15, foreground "#1e3a6b", background "#eaf2ff", radius 12, border "1px solid #cfe0ff", lineheight "1.55", customstyle "padding: 14px 18px;"
+b9 is a text with value "Running from an extracted folder without installing? On Windows use .\\otter.cmd hello.ot; on macOS and Linux use ./otter hello.ot (with PowerShell 7 installed). The shorthand otter hello.ot works after installation.", size 15, foreground "#1e3a6b", background "#eaf2ff", radius 12, border "1px solid #cfe0ff", lineheight "1.55", customstyle "padding: 14px 18px;"
 b10 is a text with value "3. See the output", size 26, weight 800, foreground "#0b1d36", letterspacing "-0.02em", margin "14px 0 0 0"
 b11 is a text with value "Hello, Otter!", size 14, foreground "#0f1f36", background "#e8eef7", radius 12, fontfamily "'JetBrains Mono', Consolas, monospace", whitespace "pre", customstyle "padding: 16px 22px; line-height: 1.7; overflow-x: auto; border-top-left-radius: 0; border-top-right-radius: 0;"
 b11label is a text with value "Output", size 12, weight 600, foreground "#4a5b75"
@@ -177,7 +178,7 @@ b18 is a link with text "Next: values and variables", url "/values/", foreground
 b19 is a link with text "Or try the interactive REPL: run otter with no arguments", url "/cli/", foreground "#2563eb", weight 600, size 15
 
 docsMain is a column with spacing 16, flex 1, padding "40px 56px 24px", customstyle "box-sizing: border-box; min-width: 0; max-width: 940px;"
-put b1, b2, b3, b4, b5block, b6, b7, b8block, b9, b10, b11block, b12, b13, b14block, b15block, b16, b17block, b18, b19 in docsMain
+put b1, b2, b2pg, b3, b4, b5block, b6, b7, b8block, b9, b10, b11block, b12, b13, b14block, b15block, b16, b17block, b18, b19 in docsMain
 docsBody is a row with align top, spacing 0, width full, customstyle "align-items: stretch;"
 put docsSidebar, docsMain in docsBody
 

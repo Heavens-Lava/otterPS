@@ -5,8 +5,8 @@ import { fileURLToPath } from 'node:url';
 
 const root = normalize(fileURLToPath(new URL('../generated/', import.meta.url)));
 const types = {
-  '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.mjs': 'text/javascript', '.json': 'application/json',
-  '.xml': 'application/xml', '.txt': 'text/plain',
+  '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.json': 'application/json; charset=utf-8',
+  '.xml': 'application/xml; charset=utf-8', '.txt': 'text/plain; charset=utf-8', '.wasm': 'application/wasm',
   '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.svg': 'image/svg+xml', '.ico': 'image/x-icon',
   '.mp4': 'video/mp4', '.webm': 'video/webm'
 };
@@ -25,7 +25,7 @@ createServer(async (request, response) => {
   if (!local.startsWith(root)) { response.writeHead(403); response.end('Forbidden'); return; }
   try {
     const content = await readFile(local);
-    response.writeHead(200, { 'content-type': `${types[extname(local)] || 'application/octet-stream'}; charset=utf-8` });
+    response.writeHead(200, { 'content-type': types[extname(local)] || 'application/octet-stream' });
     response.end(content);
   } catch {
     response.writeHead(404); response.end('Not found. Build the Otter pages first.');
